@@ -17,17 +17,6 @@ file. Framework changes go via PR to `apache/magpie`.
 
 ---
 
-## Snapshot drift
-
-At the top of every run, this skill compares the gitignored
-`.apache-magpie.local.lock` (per-machine fetch) against the committed
-`.apache-magpie.lock` (the project pin). On mismatch the skill surfaces
-the gap and proposes
-[`setup upgrade`](../../../magpie-setup/skills/setup/upgrade.md). The proposal is non-blocking
-— the user may defer if they want to run with the local snapshot for now.
-
----
-
 ## Prerequisites
 
 - **GitHub read access** to `<upstream>` for the sweep phase. The `gh`

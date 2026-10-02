@@ -18,5 +18,5 @@ A proposed PR body is provided. Check it for forbidden terms and required elemen
 ```
 
 Field rules:
-- `forbidden_terms_found`: list of forbidden strings found in the body: `CVE-`, `vulnerability`, `security fix`, `advisory`, `sensitive` (when pointing at a credential bug). Empty list if clean.
+- `forbidden_terms_found`: each forbidden occurrence as it appears in the body (the full CVE ID, the whole phrase such as `security vulnerability`), for the terms `CVE-`, `vulnerability`, `security fix`, `advisory`, `sensitive` (when pointing at a credential bug). Empty list if clean.
 - `approved`: `true` only when `forbidden_terms_found` is empty AND `has_genai_disclosure_block` is `true`.

@@ -349,7 +349,7 @@ def test_get_paged_json_max_pages(mock_urlopen, mock_env, capsys):
 
 
 def test_get_paged_json_with_limit_fewer_than_page(mock_urlopen, mock_env, capsys):
-    """Limit fewer than page size fetches only 1 page, caps items, and emits notice if more exist."""
+    """Limit fewer than page size fetches only 1 page, caps items, and emits no notice."""
     data = [{"id": i} for i in range(100)]
     mock_urlopen.return_value = build_mock_response(data, headers={"X-Next-Page": "2"})
 
@@ -359,6 +359,20 @@ def test_get_paged_json_with_limit_fewer_than_page(mock_urlopen, mock_env, capsy
     assert mock_urlopen.call_count == 1
     err = capsys.readouterr().err
     assert err == ""
+
+
+def test_get_paged_json_short_page_continues_until_limit(mock_urlopen, mock_env):
+    """When pages return fewer items than default per_page, pagination continues until limit is met."""
+    page1 = build_mock_response([{"id": 1}, {"id": 2}], headers={"X-Next-Page": "2"})
+    page2 = build_mock_response([{"id": 3}, {"id": 4}], headers={"X-Next-Page": "3"})
+    page3 = build_mock_response([{"id": 5}, {"id": 6}], headers={"X-Next-Page": ""})
+    mock_urlopen.side_effect = [page1, page2, page3]
+
+    cfg = load_config()
+    items = get_paged_json("https://gitlab.example.com/api/v4/projects/test/issues", cfg, limit=5)
+    assert len(items) == 5
+    assert [x["id"] for x in items] == [1, 2, 3, 4, 5]
+    assert mock_urlopen.call_count == 3
 
 
 def test_get_paged_json_with_limit_multi_page(mock_urlopen, mock_env):

@@ -29,6 +29,7 @@ network calls.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -38,6 +39,12 @@ from typing import Any
 # carries (status-rollup, release-manager hand-off, wrap-up). Keeps
 # the classifier in lock-step with `tools/github/status-rollup.md`.
 SKILL_MARKER_PREFIX = "<!-- apache-magpie: "
+
+# The status-rollup comment's own first line,
+# `<!-- <tracker-name> status rollup v<N> — … -->` (see
+# `tools/github/status-rollup.md`). Skills append to it in place, so a
+# rollup as the last comment is skill activity, not human activity.
+_ROLLUP_MARKER_RE = re.compile(r"<!-- \S+ status rollup v\d+")
 
 # Bot logins always treated as bot-equivalent regardless of comment body.
 # Extend per-adopter via the override file (see bulk-mode.md).
@@ -98,7 +105,8 @@ def _is_skill_or_bot(
     1. The login is a literal GitHub App account (ends in ``[bot]``
        or matches a built-in / override-listed bot login).
     2. The body begins with the framework's skill marker — see
-       :data:`SKILL_MARKER_PREFIX`. This is the signal that catches
+       :data:`SKILL_MARKER_PREFIX` — or with the status-rollup marker
+       line. This is the signal that catches
        sync-skill writes on single-operator trackers where the skill
        runs under the operator's own user account.
     3. The login is in the adopter's override-supplied
@@ -109,7 +117,10 @@ def _is_skill_or_bot(
             return True
         if login.endswith("[bot]"):
             return True
-    return bool(body is not None and body.lstrip().startswith(SKILL_MARKER_PREFIX))
+    if body is None:
+        return False
+    text = body.lstrip()
+    return text.startswith(SKILL_MARKER_PREFIX) or bool(_ROLLUP_MARKER_RE.match(text))
 
 
 def _days_between(now: datetime, then: datetime | None) -> float | None:

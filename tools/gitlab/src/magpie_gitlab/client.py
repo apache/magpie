@@ -18,7 +18,6 @@
 from __future__ import annotations
 
 import json
-import math
 import os
 import sys
 import urllib.error
@@ -208,10 +207,6 @@ def get_paged_json(
     current_url: str | None = f"{url}{separator}per_page=100" if "per_page=" not in url else url
     pages_fetched = 0
 
-    target_pages: int | None = max_pages
-    if limit is not None:
-        target_pages = max(1, math.ceil(limit / 100))
-
     opener = _build_opener()
     while current_url:
         request = urllib.request.Request(current_url, headers=headers, method="GET")
@@ -233,12 +228,15 @@ def get_paged_json(
                     items = items[:limit]
                     break
 
-                if target_pages is not None and pages_fetched >= target_pages:
-                    if has_more and limit is None:
+                if limit is None and max_pages is not None and pages_fetched >= max_pages:
+                    if has_more:
                         print(
                             f"[magpie-gitlab] Note: Results capped at {len(items)} items ({pages_fetched} pages); use --limit to fetch more.",
                             file=sys.stderr,
                         )
+                    break
+
+                if not data:
                     break
 
                 if has_more and isinstance(next_page, str):

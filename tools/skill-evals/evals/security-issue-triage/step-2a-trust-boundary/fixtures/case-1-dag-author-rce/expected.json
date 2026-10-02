@@ -2,7 +2,7 @@
   "matched_row": true,
   "attacker": "DAG author",
   "effect": "code execution in worker / DAG processor / Triggerer",
-  "default_class": "NOT-CVE-WORTHY",
+  "default_class": "INVALID",
   "security_model_section": "DAG Authors executing arbitrary code",
   "uncertain": false
 }

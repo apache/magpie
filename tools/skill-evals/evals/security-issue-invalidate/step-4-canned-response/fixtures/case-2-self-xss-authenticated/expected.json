@@ -1,6 +1,5 @@
 {
   "selected_canned_section": "Immediate response for self-XSS issues triggered by Authenticated users",
   "confidence": "exact",
-  "rationale": "The reasoning identifies the issue as self-XSS by an already-authenticated user who controls the input field, matching the self-XSS canned section exactly.",
-  "other_applicable": []
+  "rationale": "The reasoning identifies the issue as self-XSS by an already-authenticated user who controls the input field, matching the self-XSS canned section exactly."
 }

@@ -591,15 +591,15 @@ generated block below.
 | `contract:security-cross-ref` | ❌ | vendor-backed | OSV.dev | only 1 backend vendor (OSV.dev); needs 1 more |
 | `contract:typed-decision` | ❌ | vendor-backed | TypeSafe | only 1 backend vendor (TypeSafe); needs 1 more |
 
-**Per-skill assessment: 77/77 skills carry no vendor lock-in.** A skill is *capability-pure* when it names no backend at all, *portable* when every backend it names has an alternative (its contract is green), and *vendor-coupled* only when it reaches for a backend that is the sole implementation of a capability.
+**Per-skill assessment: 78/78 skills carry no vendor lock-in.** A skill is *capability-pure* when it names no backend at all, *portable* when every backend it names has an alternative (its contract is green), and *vendor-coupled* only when it reaches for a backend that is the sole implementation of a capability.
 
 | Skill neutrality | Count |
 |---|---|
-| capability-pure (names no backend) | 18 |
+| capability-pure (names no backend) | 19 |
 | portable (named backends are swappable) | 59 |
 | vendor-coupled (sole-backend dependency) | 0 |
 
-Organization scope (declared, orthogonal to vendor): ASF = 16, agnostic = 61.
+Organization scope (declared, orthogonal to vendor): ASF = 16, agnostic = 62.
 
 **LLM / agent-integration neutrality**
 

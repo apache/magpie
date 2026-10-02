@@ -3,7 +3,7 @@
 
 ---
 title: Maintainer-education stream
-status: proposed
+status: experimental
 kind: docs
 mode: infra
 source: >
@@ -11,17 +11,19 @@ source: >
   different craft; MISSION.md § Initial Goals ("Ship the
   maintainer-education stream alongside v1"); PRINCIPLES.md §19
   (maintainer education ships with the platform, release-blocking).
-  Referenced but not yet delivered by docs/rfcs/RFC-AI-0004.md
-  (§ "the maintainer-education stream").
+  Referenced by docs/rfcs/RFC-AI-0004.md (§ "the maintainer-education
+  stream"), which still points at MISSION.md. Implemented by
+  docs/education/, docs/education/training/, and ai-tutors/.
 acceptance:
   - A docs/education/ landing page exists and is linked from docs/index.md.
   - The landing page presents the material as an ordered learning
     progression: what agents are -> working with agents (conversational)
-    -> choosing models -> writing skills -> eval-driven development ->
-    agentic / autonomous work -> English as a programming language ->
-    contributing to the framework. Writing and testing a skill precede
-    agentic work, so autonomy is taught only after the reader has built
-    and evaluated a skill.
+    -> choosing models -> your first skill -> writing safe skills ->
+    debugging a skill -> writing portable skills -> eval-driven
+    development -> agentic / autonomous work -> English as a programming
+    language -> contributing to the framework. Writing and testing a skill
+    precede agentic work, so autonomy is taught only after the reader has
+    built and evaluated a skill.
   - Each progression stage exists as a page. The skill-writing steps keep
     the pattern catalogue as a supporting reference and the hands-on lab
     as practice; eval-driven development is a numbered stage on the main
@@ -51,9 +53,9 @@ that shift with worked, copy-pasteable material.
 
 ## Where it lives
 
-The stream lives at `docs/education/` and resolves the back-reference in
-`docs/rfcs/RFC-AI-0004.md`, which points readers at MISSION "for the
-maintainer-education stream". The material is organised as an **ordered
+The stream lives at `docs/education/`. It is the intended target of the
+back-reference in `docs/rfcs/RFC-AI-0004.md`, which still points readers
+at MISSION "for the maintainer-education stream". The material is organised as an **ordered
 learning progression**, so a maintainer with no agentic background can read
 it front to back, each page assuming only the ones before it:
 
@@ -83,31 +85,44 @@ it front to back, each page assuming only the ones before it:
   - `docs/education/tutorials.md` — the hands-on lab (renamed from
     `workshops.md`): build a small skill, give it an eval suite, and run
     it, self-paced or run for a group.
-- `docs/education/eval-driven-development.md` — **step 5.** How to think
+- `docs/education/writing-safe-skills.md` — **step 5.** Authoring patterns
+  that hold the data-not-instructions and sandbox principles in every skill.
+- `docs/education/debugging-skills.md` — **step 6.** Reading the audit log,
+  reproducing a failure with the eval harness, and isolating prompt, tool,
+  and model problems.
+- `docs/education/portable-skills.md` — **step 7.** Writing skills that work
+  for any project and any model, using placeholders and capability floors.
+- `docs/education/eval-driven-development.md` — **step 8.** How to think
   about correctness when "correct" is a distribution, with worked examples
   drawn from real Magpie skills and wired to a shared eval methodology
   (MISSION § Initial Goals) rather than reinvented per page. A numbered
   stage on the main path: a skill is not finished without its eval suite,
   and agentic work depends on that evidence.
-- `docs/education/agentic-work.md` — **step 6.** Agentic and autonomous
+- `docs/education/agentic-work.md` — **step 9.** Agentic and autonomous
   work: the supervision spectrum and the guardrails (sandbox,
   propose-confirm-act, data-not-instructions) that make unattended runs
   safe. Placed after skill-writing and evals, because autonomy is what a
   written-and-tested skill unlocks.
-- `docs/education/english-as-code.md` — **step 7.** English as a
+- `docs/education/english-as-code.md` — **step 10.** English as a
   programming language: the mental shift that the words in a prompt or
   skill *are* the program — precision, ambiguity as a bug class, and
   reviewing / versioning / testing prose the way you would code.
-- `docs/education/contributing.md` — **step 8.** How to contribute to the
+- `docs/education/contributing.md` — **step 11.** How to contribute to the
   framework: turning what the reader has learned into a merged change,
   through the framework's contribution process.
-- `docs/education/apache-training/` — the stream repackaged as a
-  reusable, LMS-neutral Apache Training module: per-lesson **learning
-  objectives**, hands-on **exercises**, and **self-check** questions,
-  plus a module index mapping each lesson back to the source page above.
-  So any project — ASF or not — can *teach* the material, not just read
-  it. Phase 2: lands after the pages above, and is shaped to Apache
-  Training conventions so it can be contributed upstream there.
+- `docs/education/training/` — the stream repackaged as a reusable,
+  LMS-neutral Apache Training module (the spec earlier named this
+  directory `apache-training/`): `README.md` (module map back to the
+  source pages), one `lesson-NN-*.md` per progression step (01 to 11, each
+  with learning objectives, exercises, and self-check questions),
+  `lesson-lab-tutorials.md` for the hands-on lab, `instructor-guide.md`,
+  and `upstream-contribution.md`, the process document for handing the
+  module to Apache Training.
+- `ai-tutors/` (repository root) — one tutor prompt per lesson
+  (`lesson-01-…` to `lesson-11-…`) that turns a chat model into an
+  interactive tutor for that lesson, plus `inject-knowledge-base.py` and its
+  test. The landing page and the training README link it; every lesson
+  stands on its own without a model.
 
 ## Behaviour & contract
 
@@ -148,12 +163,13 @@ it front to back, each page assuming only the ones before it:
 ## Acceptance criteria
 
 1. `docs/education/README.md` exists, is linked from `docs/index.md`, and
-   presents the material as the ordered progression (steps 1–8).
+   presents the material as the ordered progression (steps 1–11).
 2. Each progression stage exists as a page, in order: `what-agents-are.md`,
    `working-with-agents.md`, `choosing-models.md`, `your-first-skill.md`,
+   `writing-safe-skills.md`, `debugging-skills.md`, `portable-skills.md`,
    `eval-driven-development.md`, `agentic-work.md`, `english-as-code.md`,
-   and `contributing.md`. Skill-writing (step 4) and eval-driven
-   development (step 5) precede agentic work (step 6).
+   and `contributing.md`. Skill-writing (steps 4 to 7) and eval-driven
+   development (step 8) precede agentic work (step 9).
 3. The skill-writing steps keep their supporting references
    (`pattern-catalogue.md` and the hands-on lab `tutorials.md`, renamed
    from `workshops.md`; no `workshops.md` remains).
@@ -162,7 +178,7 @@ it front to back, each page assuming only the ones before it:
 5. Pages carry the SPDX header, use placeholders (no concrete adopter
    name in teaching text), and pass markdownlint / link checks.
 6. The RFC-AI-0004 back-reference resolves to the landing page.
-7. The Apache Training module (`docs/education/apache-training/`) exists
+7. The Apache Training module (`docs/education/training/`) exists
    with per-lesson learning objectives, exercises, and self-checks, and
    is shaped for upstream contribution to Apache Training.
 
@@ -179,6 +195,12 @@ test -f docs/education/working-with-agents.md
 test -f docs/education/choosing-models.md
 test -f docs/education/agentic-work.md
 test -f docs/education/your-first-skill.md
+test -f docs/education/writing-safe-skills.md
+test -f docs/education/debugging-skills.md
+test -f docs/education/portable-skills.md
+test -f docs/education/training/README.md
+test -f docs/education/training/instructor-guide.md
+test -f ai-tutors/README.md
 test -f docs/education/pattern-catalogue.md
 test -f docs/education/eval-driven-development.md
 test -f docs/education/english-as-code.md
@@ -192,13 +214,15 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
 
 ## Known gaps
 
-- **Progression restructure is the current gap.** The MISSION-named pages
-  (pattern catalogue, "your first skill", eval-driven development, the
-  hands-on lab) have shipped; the open work is re-sequencing them into the
-  ordered progression and adding the four new conceptual stages
-  (`what-agents-are`, `working-with-agents`, `choosing-models`,
-  `agentic-work`) plus `english-as-code` and `contributing`. Tracked in
-  IMPLEMENTATION_PLAN.md.
+- **Progression restructure has shipped.** The landing page's table runs
+  the eleven stages above in order, with the pattern catalogue and
+  `tutorials.md` as supporting references, and no `workshops.md` remains.
+  The earlier eight-step plan grew three skill-writing stages
+  (safe, debugging, portable) on the way.
+- **The RFC-AI-0004 back-reference still points at MISSION.md.** Its
+  maintainer-education sentence links `MISSION.md`, not
+  `docs/education/README.md`, so acceptance criterion 6 is open. The fix
+  is an RFC edit, which this loop does not make.
 - **Tutorial cadence undefined.** MISSION commits to "first scheduled
   workshops" but the schedule and hosting belong to the PMC once the
   material lands; `tutorials.md` ships the format, not the calendar.
@@ -206,11 +230,8 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
   can land its worked examples immediately, but the link to the
   framework's shared contributor-sentiment methodology firms up only
   once that methodology is defined.
-- **Apache Training module is a phase-2 epic.** The
-  `docs/education/apache-training/` packaging depends on the source pages
-  existing first, and its final shape depends on coordination with the
-  Apache Training project for upstream contribution. It is not a single
-  deliverable: it decomposes into many work items (one per lesson module,
-  per-lesson exercises, an instructor guide, and the upstream hand-off),
-  tracked as an umbrella entry in IMPLEMENTATION_PLAN.md until it reaches
-  the top of the queue and is split.
+- **The Apache Training module exists; the upstream hand-off has not
+  happened.** `docs/education/training/` carries all eleven lessons, the
+  lab lesson, the instructor guide, and `upstream-contribution.md`. Its
+  final shape still depends on coordination with the Apache Training
+  project, which is outside the repository.

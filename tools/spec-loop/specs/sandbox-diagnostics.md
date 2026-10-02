@@ -47,7 +47,7 @@ error, and two skills that probe or verify the setup on demand.
   **Root cause** (which sandbox layer blocks it and why), **Fix** (a
   settings widening with per-entry rationale, or — for the `gh` entry —
   an invocation-shape rule, because there is nothing to widen), and
-  **Notes**. Ten entries today: SSH agent / Yubikey, signed commit
+  **Notes**. Eleven entries today: SSH agent / Yubikey, signed commit
   failing before any touch (`gpg.format=ssh` key unreadable), signed
   commit failing with `cannot exec` of the touch-overlay wrapper
   (`gpg.ssh.program` under the read-denied `~/.claude/scripts/`),
@@ -58,9 +58,12 @@ error, and two skills that probe or verify the setup on demand.
   socket, `/tmp` read-only, `gh` inside the sandbox (TLS
   `OSStatus -26276` / `HTTP 401`), `prek` or `uv` not found or unable
   to write its cache (the home-directory dev-tool paths not granted in
-  the worktree's `settings.local.json`, #1359), and git hooks silently
+  the worktree's `settings.local.json`, #1359), git hooks silently
   skipped for sandboxed commits (whole-user `core.hooksPath` under the
-  read-denied home, #1364).
+  read-denied home, #1364), and reads of `~/.claude/magpie` or
+  `/tmp/claude-<uid>` asking for approval every time
+  (`permissions.blockReadsOutsideWorkingDirectories` on and neither
+  directory a working directory, #1418).
 - `tools/agent-isolation/sandbox-error-hint.sh` — a Claude Code
   `PostToolUse` hook on the `Bash` matcher. Scans the tool's stdout +
   stderr for the catalogued symptom strings and, on a match, prints
@@ -68,7 +71,8 @@ error, and two skills that probe or verify the setup on demand.
   exiting 1 so the line reaches the model and the user. Tests under
   `tools/agent-isolation/tests/test_sandbox_error_hint.py`.
 - Skill `setup-isolated-setup-doctor` — live, read-only probes
-  (`## The 8 probes`), each reporting ✓ / ✗ / ⊘ / ⚠ with the command
+  (nine, `### Probe 1` to `### Probe 9`, under a section heading that
+  still reads `## The 8 probes`), each reporting ✓ / ✗ / ⊘ / ⚠ with the command
   and its output as evidence, and each mapping ✗ to the matching
   catalog anchor. Each probe is a deterministic, side-effect-free
   script, `scripts/probe-<n>-<slug>.sh`, printing one
@@ -82,21 +86,38 @@ error, and two skills that probe or verify the setup on demand.
   same as an absent one (#1362). Probe 8 looks at the global
   `core.hooksPath` directory from inside the sandbox: skip when none
   is set, fail when the directory or a hook's symlink target is
-  unreadable, warn when it holds none of the common hooks (#1364). The `gh` probe runs `gh` through `sh -c` so
+  unreadable, warn when it holds none of the common hooks (#1364). Probe 9, only
+  when `permissions.blockReadsOutsideWorkingDirectories` is on, checks
+  that `$HOME/.claude/magpie` and `/tmp/claude-<uid>` are working
+  directories as resolved paths: ⚠ for a missing path or for a glob entry
+  such as `/tmp/claude-*`, which is listed but never matched, and ⊘ when
+  the block is off, `HOME` is unset, or the entries are absent from the
+  readable project files while user-scope settings are unreadable from
+  the sandbox (#1418). The `gh` probe runs `gh` through `sh -c` so
   the `excludedCommands` exemption cannot apply to the probe itself,
   which shows what an un-excluded `gh` does on this machine, then
   checks that `"gh *"` is configured.
 - Skill `setup-isolated-setup-verify` — static checks of the installed
-  configuration (`## The 12 checks`, numbered 1–13 with the last
-  optional): settings shape, hook wiring, hook scripts, wrapper,
+  configuration (numbered 1–15 under a section heading that still reads
+  `## The 12 checks`; 13 and 14 optional): settings shape, hook wiring, hook scripts, wrapper,
   pinned versions, status line, denial canaries, project-root grant
   (check 8 — also the dev-tool paths, whose absence is ⚠ not ✗, and in
   whole-user scope the shared hook directory probed from inside the
   sandbox, whose unreadability is ✗), the vetted-ops split, the touch
   overlay and signing key (check 10), the `gh` exclusion (check 11),
-  the container gateway (check 12), and the eval-harness exclusion
-  (check 13, if installed). The conditional checks — 9, 10, 12, 13 and
-  check 8's whole-user branch — live in `conditional-checks.md`; the
+  the container gateway (check 12), the eval-harness exclusion
+  (check 13, if installed), the adversarial-review exclusion (check 14,
+  if the `magpie-adversarial-review` plugin is installed: the
+  `excludedCommands` entry, ⚠ when missing; the plugin-cache `Edit`
+  deny, ✗ when missing; and no `allow` rule, ✗ when one matches, #1371),
+  and the working directories under the read block (check 15: the two
+  resolved paths in the worktree's `settings.local.json`, ⚠ when missing
+  or glob-only, ⚠ when they sit in committed or synced user-scope
+  settings instead, #1418). Check 9 also fails a vetted-ops rule that
+  spells the versioned plugin-cache path with a `*`, since the rule must
+  name `~/.claude/magpie/vetted-ops` (#1406). The conditional checks —
+  9, 10, 12, 13, 14 and check 8's whole-user branch — live in
+  `conditional-checks.md`; the
   body keeps each one's condition and its **n/a** answer, so a run
   that meets none of the conditions reads none of them (#1334).
   Mirrors the "Via a Claude Code prompt" checklist in
@@ -116,7 +137,9 @@ error, and two skills that probe or verify the setup on demand.
   nothing: git skips a hook directory it cannot see without a word, so
   the git-hooks entry has no symptom string to match and is reached
   through the doctor's probe 8 and verify check 8 instead, and says so
-  in its **Notes**.
+  in its **Notes**. The working-directories entry is the second: its
+  approval prompt comes before any command runs, so the hook never sees
+  it, and it is reached through doctor probe 9 and verify check 15.
 - **Symptom strings are literal.** Entries quote the exact error text
   so a grep into the catalog finds them; the hook matches those same
   strings with anchored, specific regexes. False-positive hints are
@@ -138,16 +161,19 @@ error, and two skills that probe or verify the setup on demand.
   every restriction rather than one per re-run.
 - **The `gh` exclusion rule.** `sandbox.excludedCommands: ["gh *"]`
   exempts a `gh` call only when every part of the Bash invocation is
-  `cd …` or `gh …`. A pipe, a `$(…)` substitution, a loop, or any file
-  redirection (including `> /dev/null`) keeps the whole invocation in
-  the sandbox, where `gh` fails with `x509: OSStatus -26276` on macOS
+  `cd …` or `gh …`. A pipe, a `$(…)` substitution, a loop, any file
+  redirection (including `> /dev/null`), or a backtick anywhere in the
+  command string, even escaped or single-quoted (#1384), keeps the whole
+  invocation in the sandbox, where `gh` fails with `x509: OSStatus -26276` on macOS
   because Go's TLS verification goes through Security.framework and
   Seatbelt blocks the trustd / keychain mach services. Nothing on the
   Go side works around that (no fallback roots in the Homebrew build,
   `SSL_CERT_FILE` ignored on darwin). The catalog entry carries the
   measured shape table, the `gh tofile` alias that moves a redirection
   inside `gh` (guarded to `$PWD` and the Claude scratch tree, because
-  the alias runs unsandboxed), and the upstream report
+  the alias runs unsandboxed), the rule to pass Markdown titles and
+  bodies from a file (`--body-file`, or `--input` for `gh api`) because
+  an inline Markdown body carries backticks, and the upstream report
   anthropics/claude-code#95532 for the redirection regression.
 - **The `gh` ask-rule rule.** `permissions.ask` names gh write
   subcommands one by one and never a catch-all `Bash(gh *)`: Claude
@@ -177,7 +203,9 @@ error, and two skills that probe or verify the setup on demand.
 1. Each catalog entry has the four sections, a literal symptom, and a
    matching `match … hint=` branch in the hook whose anchor resolves
    (lychee checks the docs; the hook's anchors are asserted by its
-   tests).
+   tests), except the two entries that print nothing the hook could
+   see (git hooks skipped, working-directory prompts), which name their
+   probe and check in **Notes** instead.
 2. The hook exits 1 with a `[sandbox-hint]` line for every catalogued
    signature, exits 0 with no output on benign output, on a non-Bash
    tool, and on invalid JSON.
@@ -213,11 +241,16 @@ PYTHONPATH=tools/skill-evals/src python3 -m skill_evals.runner \
 
 ## Known gaps
 
-- The doctor runs 8 probes over the catalog's 10 entries: the two
+- The doctor runs 9 probes over the catalog's 11 entries: the two
   touch-overlay entries (`cannot exec` of the wrapper, and the
   runtime-state directory) have no live probe. Verify check 10 covers
   the wrapper's `allowRead` grant statically; the runtime-state entry
   is reached only through the hint hook.
+- The doctor's and verify skill's section headings (`## The 8 probes`,
+  `## The 12 checks`) lag their bodies (nine probes, fifteen checks).
+- A command that spells a working directory with a literal `~` can
+  still prompt under the read block even when the directory is listed;
+  the working-directories entry names that case as open.
 
 - The invocation-shape rule is measured on macOS / Claude Code 2.1.278
   and will change when anthropics/claude-code#95532 is fixed; the

@@ -11,10 +11,3 @@ finds. **Hard rule**: agents never modify the snapshot under
 framework changes go via PR to `apache/magpie`.
 
 ---
-
-## Snapshot drift
-
-At the top of every run, compare the gitignored `.apache-magpie.local.lock`
-against the committed `.apache-magpie.lock`. On mismatch, surface the gap and
-propose [`setup upgrade`](../../../magpie-setup/skills/setup/upgrade.md). Non-blocking —
-the maintainer may defer.

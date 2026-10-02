@@ -1,0 +1,8 @@
+{
+  "reason_mentions_evidence": {
+    "type": "regex",
+    "field": "reason",
+    "pattern": "patch-?id|cherry|source|base branch|deprecation|deprecated|validation|fix",
+    "flags": "i"
+  }
+}

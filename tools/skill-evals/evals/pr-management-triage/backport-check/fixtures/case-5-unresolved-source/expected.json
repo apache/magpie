@@ -1,0 +1,5 @@
+{
+  "classification": "backport_unverified",
+  "action": "surface",
+  "reason": "No default-branch source commit could be resolved for the backport's commit."
+}

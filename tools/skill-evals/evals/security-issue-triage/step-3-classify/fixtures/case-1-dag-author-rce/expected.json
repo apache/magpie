@@ -1,4 +1,4 @@
 {
-  "disposition": "NOT-CVE-WORTHY",
-  "rationale": "DAG authors are trusted to execute arbitrary code in the worker by design — this is the documented Security Model boundary. Importing os or subprocess inside a PythonOperator callable is not a vulnerability; it is the expected capability of a DAG author. The trust-boundary cheat-sheet maps 'DAG author → code execution in worker' directly to NOT-CVE-WORTHY. No CVE is warranted; the appropriate response is the canned 'DAG Authors executing arbitrary code' reply."
+  "disposition": "INVALID",
+  "rationale": "DAG authors are trusted to execute arbitrary code in the worker by design — this is the documented Security Model boundary. Importing os or subprocess inside a PythonOperator callable is not a vulnerability; it is the expected capability of a DAG author. The trust-boundary cheat-sheet maps 'DAG author → code execution in worker' directly to INVALID. No CVE is warranted; the appropriate response is the canned 'DAG Authors executing arbitrary code' reply."
 }

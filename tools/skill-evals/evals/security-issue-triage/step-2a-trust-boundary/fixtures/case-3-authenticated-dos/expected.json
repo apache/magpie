@@ -2,7 +2,7 @@
   "matched_row": true,
   "attacker": "Authenticated user",
   "effect": "DoS or self-XSS",
-  "default_class": "NOT-CVE-WORTHY",
+  "default_class": "INVALID",
   "security_model_section": "DoS by authenticated users",
   "uncertain": false
 }

@@ -9,7 +9,9 @@ mode: Triage
 source: >
   MISSION.md § Technical scope (Triage: "proposes initial routing") and
   § Rationale ("review-cycle latency is one of the two named priorities").
-  Implemented in docs/pr-management/ and skills/pr-management-*/. Skills
+  Implemented in docs/pr-management/ and plugins/magpie-pr-management/skills/
+  (each linked from skills/<name>, e.g. skills/pr-management-triage ->
+  plugins/magpie-pr-management/skills/pr-triage). Skills
   originated as `breeze pr auto-triage` / `breeze pr stats` inside one ASF
   project's toolchain and were lifted into the framework to be reusable
   across any project with a contributor PR queue. mentor lives in the
@@ -55,19 +57,33 @@ is listed here for navigability since its domain is PR threads.
 
 ## Where it lives
 
-- Skill: `pr-management-triage` — first-pass sweep of the PR queue.
+Every skill ships in the `magpie-pr-management` plugin under
+`plugins/magpie-pr-management/skills/<alias>/`, and the repository name
+`skills/<name>` is a link to it.
+Since #1390 each `SKILL.md` keeps its gates, golden-rule headlines and
+step skeleton inline and moves sub-action detail into sibling files in the
+same directory; the behaviour is unchanged.
+
+- Skill: `pr-management-triage` (`pr-triage/`) — first-pass sweep of the PR
+  queue.
   Classifies each candidate against a project decision table and proposes
   a disposition; the maintainer confirms per PR or per group. State changes
   execute on confirmation only. Ships `mode: Triage` + `experimental`.
-  Detail files: `skills/pr-management-triage/`.
+  Detail files: `prerequisites.md`, `fetch-and-batch.md`,
+  `classify-and-act.md`, `actions.md`, `interaction-loop.md`,
+  `stale-sweeps.md`, `comment-templates.md`, `session-history.md`,
+  `contract-binding.md`, and `rationale.md`.
 - Skill: `pr-management-stats` — read-only summary tables of the open PR
   backlog, grouped by area label, age bucket, and triage state. No tracker
   state is mutated. Ships `mode: Triage` + `capability: capability:stats`
   + `experimental`. Backed by `tools/pr-management-stats/`.
-- Skill: `pr-management-code-review` — deep, line-aware code review one
-  PR at a time; applies project criteria and drafts an `APPROVE` /
-  `REQUEST_CHANGES` / `COMMENT` review with inline comments; posts on
-  maintainer confirmation. Ships `mode: Triage` + `experimental`.
+- Skill: `pr-management-code-review` (`code-review/`) — deep, line-aware
+  code review one PR at a time; applies project criteria and drafts an
+  `APPROVE` / `REQUEST_CHANGES` / `COMMENT` review with inline comments;
+  posts on maintainer confirmation. Ships `mode: Triage` + `experimental`.
+  Detail files include `prerequisites.md`, `selectors.md`, `review-flow.md`,
+  `review-loop.md`, `criteria.md`, `slop-detection.md`, `adversarial.md`,
+  and `posting.md`.
 - Skill: `pr-management-quick-merge` — read-only express-lane screener
   for trivial, low-risk PRs (docs, changelog, translations, tests) that
   pass every quality gate; surfaces ranked candidates with diff summaries
@@ -78,14 +94,22 @@ is listed here for navigability since its domain is PR threads.
   confirmation before posting. Ships `mode: Mentoring` + `experimental`.
   Listed here because its domain is PR/issue threads; documented in detail
   in [`docs/mentoring/README.md`](../../../docs/mentoring/README.md).
+- Companion skills in the same plugin, covered in other specs:
+  `pr-stale-sweep` (`mode: Triage`, draft-or-close inactivity sweep on
+  confirmation; [triage mode](triage-mode.md)),
+  `reviewer-routing` (`mode: Triage`; [reviewer routing](reviewer-routing.md)),
+  and `pre-first-pr-check` (`mode: Pairing`, read-only newcomer checklist on a
+  local branch; [pairing mode](pairing-mode.md)).
 - Family README: `docs/pr-management/README.md` — family overview, skill
   table, adopter-config scaffold.
 - Tool: `tools/pr-management-stats/` — deterministic Python backing for
   `pr-management-stats`; ships its own tests.
-- Adopter config (in `projects/_template/`): `project.md`,
+- Adopter config (templates in `plugins/magpie-setup/templates/`, which
+  `projects/_template/` links to): `project.md`,
   `pr-management-config.md`, `pr-management-triage-comment-templates.md`,
   `pr-management-triage-ci-check-map.md`, `pr-management-code-review-criteria.md`,
-  `pr-management-quick-merge-config.md`.
+  `pr-management-quick-merge-config.md`, and the optional
+  `adversarial-review.md` read by code review.
 
 ## Behaviour & contract
 
@@ -99,6 +123,40 @@ is listed here for navigability since its domain is PR threads.
   `[E]` and `[P]NN` preserve that position and denominator across skipped,
   pending, and pulled-out rows; a changed head advances the transition to
   `re-classify → propose <action>` after live state is refreshed.
+- **Triage markers from any triager count.** `pr-management-triage`
+  treats a PR as already triaged when a triage marker exists after the last
+  commit in either channel: a comment by any `OWNER`, `MEMBER`, or
+  `COLLABORATOR` carrying the `Pull Request quality criteria` link, or the
+  `pr-triage-fold` block in the PR body with a matching `head`, whoever wrote
+  it.
+  The fold block carries an optional `by=<login>` field naming the triager,
+  which the rows 3–4 reasons show; folds written before the field existed
+  are read without it.
+  Association alone does not start Sweep 1a's close clock: a comment-channel
+  marker by anyone other than the viewer counts toward a close only after
+  its author passes the live maintainer check, and a marker comment never
+  double-counts as maintainer activity.
+  Regression cases: `tools/skill-evals/evals/pr-management-triage/`
+  decision-table fixtures, including `case-22-fold-by-another-triager`.
+- **Backports are checked early, when the project cherry-picks.** With
+  `backport_branches` set in `pr-management-config.md`,
+  `pr-management-triage` runs Step 0.7 before the main flow on every open
+  PR targeting one of those branches — from any author, drafts included,
+  since pre-filters F1/F2 would otherwise drop bot-opened backports. It
+  resolves each commit's default-branch source, compares `-U0` patch-ids
+  (context lines differ between branches), ignores commits already on the
+  base, and under `backport_policy: fixes-only` (the default) flags source
+  changes that are not fixes — features, new checks, behaviour changes,
+  deprecations, removals, refactors — for closing. It proposes
+  hand-off, surface or close and never merges. With `backport_branches`
+  empty the step is skipped. Regression cases:
+  `tools/skill-evals/evals/pr-management-triage/backport-check/`.
+- **The fold timestamp is untrusted input to stats.** The
+  `pr-triage-fold` block lives in the PR body, which the author controls.
+  `tools/pr-management-stats/reference.py` (`fold_triaged_at`) treats an
+  unparsable or timezone-naive `triaged=` value as no fold event rather
+  than crashing the run, and tries every marker, so a malformed one above
+  the real block cannot hide it (`tests/test_fold_parsing.py`).
 - **Active-maintainer cooldown spans every feedback surface.**
   `pr-management-triage` steps back from a PR whose most recent feedback —
   a general comment, a review-thread comment, or a submitted top-level review
@@ -152,11 +210,32 @@ is listed here for navigability since its domain is PR threads.
   submitted, leaving the body edited down to a pointer as the only
   repair. The same rule covers `gh pr comment` and the
   `addPullRequestReview` mutation.
+- **Adversarial second read in code review.** `pr-management-code-review`
+  offers two paths at Step 5 of `review-flow.md`.
+  The tool path — `with-reviewers:codex,copilot`, or a resolved
+  `adversarial-review.md` whose `mode` is not `off` — has the agent run the
+  [adversarial-review](adversarial-review.md) tool over `--target pr:<N>`
+  from an empty temporary directory created once per session, because the
+  skill has no checkout of the PR's head and the maintainer's own checkout
+  must not be readable by other models.
+  Its findings fold into the Step 4 list, attributed per reviewer, as
+  untrusted data.
+  The slash path — `with-reviewer:<command>` or a *Review preferences*
+  entry — still proposes a command for the maintainer to type.
+  `no-adversarial` turns both off for the session.
+  On a private `<upstream>` the skill asks before the first tool run; exit
+  code 2 skips the tool path for the rest of the session; prefetched PRs get
+  Step 5 from the parent, since subagents have no shell.
+  The resolution order is in `prerequisites.md` §2 and pinned by the
+  `step-2-reviewer-resolution` eval suite.
 - **Config-driven, not skill-edited.** Project-specific values
   (committers team handle, area-label prefix, comment-template wording,
   CI-check → doc-URL map, review criteria, quick-merge path globs) all
   live in `<project-config>/` files; no skill body carries a project
   hardcode.
+  Review footers and the triage comment templates link the contributing
+  guide through `<upstream_contributing_docs_url>` from `project.md`, not a
+  fixed project's docs path (#1407).
 
 ## Out of scope
 
@@ -196,6 +275,11 @@ is listed here for navigability since its domain is PR threads.
 8. Every `pr-management-triage` per-PR drill-in shows a stable
    `[position/total]` header and the active classify-to-propose transition;
    `[E]` and `[P]NN` do not renumber the original group.
+9. When `backport_branches` is configured, `pr-management-triage` classifies
+   every open backport PR as a direct cherry-pick, an adapted backport, a
+   policy violation, already landed, or unverified before the main flow,
+   and never proposes handing off a change that is not a fix under
+   `backport_policy: fixes-only`.
 
 ## Validation
 
@@ -206,6 +290,7 @@ test -f .agents/skills/magpie-pr-management-code-review/SKILL.md
 test -f .agents/skills/magpie-pr-management-quick-merge/SKILL.md
 test -f .agents/skills/magpie-pr-management-mentor/SKILL.md
 test -f docs/pr-management/README.md
+uv run --all-packages --group dev pytest tools/pr-management-stats/tests
 uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-validate
 ```
 
@@ -226,11 +311,13 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
   across transitive paths, empty intersections, partial metadata, environment
   markers, and adopter-specific remediation. The SOFT eval-coverage validator
   warning is cleared. Acceptance criteria 6 and 7 are met.
-- **Stale-PR handling is built into `pr-management-triage`.** Dedicated
-  stale sweeps (`stale-draft`, `inactive-open`, `stale-review-ping`) run
-  as Step 5 of the triage flow and can be invoked standalone via
-  `triage stale`. A separate `pr-management-stale-sweep` skill is
-  intentionally not planned; the triage skill already covers this surface.
+- **Stale-PR handling lives in two places.** Stale sweeps
+  (`stale-draft`, `inactive-open`, `stale-review-ping`) run as Step 5 of
+  the triage flow and can be invoked standalone via `triage stale`.
+  A standalone `pr-stale-sweep` skill has since shipped in the same plugin
+  (draft-or-close proposals on confirmation), so the earlier note that no
+  separate stale-sweep skill was planned is superseded; how the two divide
+  the surface is not written down in one place.
 - **`pr-management-mentor` is documented under Mentoring mode** and is
   listed in `docs/mentoring/README.md`. The PR management README
   cross-references it as a companion skill; adopters wanting PR-thread

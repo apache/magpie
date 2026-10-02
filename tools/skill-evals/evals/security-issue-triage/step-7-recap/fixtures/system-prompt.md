@@ -11,7 +11,7 @@ Your task: given the list of triage proposals that were posted this run
 ## Recap fields
 
 distribution
-  Count of each disposition class actually posted this run. All five keys
+  Count of each disposition class actually posted this run. All six keys
   must be present; use 0 for classes with no posted proposals.
 
 trackers
@@ -22,10 +22,13 @@ next_steps
   Slash-command strings the user should run next, one per tracker that
   requires a follow-on skill. Rules by class:
     VALID          → "/security-cve-allocate NNN"
-    NOT-CVE-WORTHY → "/security-issue-invalidate NNN"
+    INVALID        → "/security-issue-invalidate NNN"
     INFO-ONLY      → "/security-issue-invalidate NNN"
     PROBABLE-DUP   → "/security-issue-deduplicate NNN MMM"
                      (MMM is the kept-tracker number, supplied in the input)
+    FIX-ALREADY-PUBLIC → "/security-issue-invalidate NNN", to run only after
+                     the reporter confirms the public PR fixes their report
+                     (if they say it does not, re-triage with --retriage)
     DEFENSE-IN-DEPTH → no slash command; omit from next_steps entirely
 
 sync_note
@@ -41,8 +44,9 @@ Return ONLY valid JSON with these fields:
     "VALID": <int>,
     "DEFENSE_IN_DEPTH": <int>,
     "INFO_ONLY": <int>,
-    "NOT_CVE_WORTHY": <int>,
-    "PROBABLE_DUP": <int>
+    "INVALID": <int>,
+    "PROBABLE_DUP": <int>,
+    "FIX_ALREADY_PUBLIC": <int>
   },
   "trackers": [
     {"number": <int>, "class": "<CLASS>", "comment_url": "<url>"}

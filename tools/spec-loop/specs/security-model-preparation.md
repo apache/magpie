@@ -40,14 +40,23 @@ triage history back into the document.
 ## Where it lives
 
 - Skills: `security-model-prepare` (Drafting), `security-model-verify`
-  (Triage), `security-model-update` (Drafting).
-- Helper: `skills/security-model-verify/scripts/model_pr.py` — the
-  create-or-append `AGENTS.md` / `SECURITY.md` scaffold plus the PR
+  (Triage), `security-model-update` (Drafting), at
+  `plugins/magpie-security/skills/model-{prepare,verify,update}/SKILL.md`
+  behind `skills/security-model-*` symlinks.
+  `security-model-verify` keeps its orchestration in `SKILL.md` and its
+  helper usage and PR/mail templates in the linked siblings `helper.md`
+  and `templates.md` (#1436).
+- Helper: `plugins/magpie-security/skills/model-verify/scripts/model_pr.py`
+  — the create-or-append `AGENTS.md` / `SECURITY.md` scaffold plus the PR
   mechanics, with the pure file-merge core unit-tested in
-  `skills/security-model-verify/tests/`.
+  `plugins/magpie-security/skills/model-verify/tests/`.
 - Deep doc: `docs/security/security-model-preparation.md`.
 - Adopter config: `<project-config>/security-model.md` § *Model
-  preparation, verification, and update*.
+  preparation, verification, and update*; the scaffold ships at
+  `plugins/magpie-setup/templates/security-model.md` (#1410).
+  All three skills declare `security-model.md` in `requires_config:`
+  (verify also `project.md`), so the generated pre-flight stops a run
+  that lacks it (model-update gained its declaration in #1444).
 - Threat model: skill family F in `docs/security/threat-model.md`
   (F.1–F.7, mitigations M.30–M.36).
 
@@ -60,6 +69,10 @@ triage history back into the document.
   gate.** A model an agent cannot reach is an absent one. Completeness is
   graded: every gap is a proposal the maintainer decides on, never a
   precondition.
+  On GitHub, `security-model-verify` fetches the first two hops
+  (`AGENTS.md` and `SECURITY.md` at the pinned ref) for every repository in
+  one aliased GraphQL query, run as a plain `gh api graphql` from a scratch
+  query file, instead of two contents reads per repository (#1443).
 - **Mechanical gap → PR; substantive gap → private mail; never a public
   issue.** A public list of a project's threat-model gaps is an inventory
   a hostile researcher would mine, many projects have no usable public
@@ -85,6 +98,13 @@ triage history back into the document.
   before send.
 - **No programme, vendor, or engagement identity on a public surface** —
   PR titles, bodies, commit messages, branch names.
+- **Adversarial review of the model PR.** `security-model-prepare` and
+  `security-model-verify` carry the shared pre-PR adversarial-review
+  block and review the helper's `--dry-run` diff with the PR title and
+  body as they will be posted (#1372).
+  As security-family skills they run it whenever at least one reviewer
+  is configured, whatever the `mode`; findings are advisory and never
+  block the flow.
 
 ## Out of scope
 

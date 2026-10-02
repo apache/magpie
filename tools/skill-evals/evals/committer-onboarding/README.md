@@ -36,7 +36,7 @@ including intake-model and governance-model flag branches.
 | case-8-dco-intake | dco | 2 of 3 recent PRs carry Signed-off-by (min=2) | DCO check passes; icla_check_skipped; congratulations links DCO reference |
 | case-9-no-cla-intake | no-cla | No IP agreement required | icla and DCO checks both skipped; congratulations explains no-cla model |
 
-### step-2-checklist (6 cases)
+### step-3-checklist (6 cases)
 
 | Case | Governance model | Scenario | Expected outcome |
 |---|---|---|---|
@@ -47,7 +47,7 @@ including intake-model and governance-model flag branches.
 | case-5-github-codeowners | github-codeowners | New committer, CODEOWNERS file set | GitHub team invite step present; CODEOWNERS PR step present; Whimsy absent |
 | case-6-maintainer-roster | maintainer-roster | New committer, MAINTAINERS.md roster | Roster file update step present; roster PR step present; Whimsy and team invite absent |
 
-### step-3-completion-summary (3 cases)
+### step-4-completion-summary (3 cases)
 
 | Case | Scenario | Expected outcome |
 |---|---|---|
@@ -56,6 +56,10 @@ including intake-model and governance-model flag branches.
 | case-3-account-not-yet-created | Account created but karma not granted | onboarding_complete=false; pending items for github, jira, whimsy, welcome |
 
 ## Intentional gaps
+
+- Step 2 (identity mapping) delegates to `contributor-identity-map`,
+  whose own suite under `tools/skill-evals/evals/contributor-identity-map/`
+  covers grading, confirmation, and the onboarding context
 
 - SVN karma grant: infrastructure-level, not automatable — out of scope
 - LDAP sync timing: non-deterministic — documented in karma-grant.md, not an eval case

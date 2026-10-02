@@ -71,7 +71,7 @@ The body is built from the `draft` template in
 notification.** Render the body wrapped per
 [`comment-templates.md#body-fold-rendering`](comment-templates.md#body-fold-rendering)
 (no `@`-mention; `<ai_attribution_footer_body>`; opening marker
-carrying `triaged=<ISO-UTC> head=<sha7> action=draft`) into
+carrying `triaged=<ISO-UTC> head=<sha7> action=draft by=<viewer-login>`) into
 `/tmp/pr-<N>-foldblock.md`, then read-modify-write the body:
 
 ```bash

@@ -307,6 +307,27 @@ detectable from a single comment scan. Do not paraphrase the
 marker in [`comment-templates.md`](comment-templates.md); it is
 load-bearing.
 
+Marker detection is **triager-scoped, not viewer-scoped**. With
+several committers triaging the same queue, a marker left by
+another triager must suppress the duplicate proposal exactly
+like the viewer's own — the wasted-attention and
+duplicate-comment harm this row exists to prevent does not care
+who triaged. On the comment channel the gate is the author
+association (`OWNER` / `MEMBER` / `COLLABORATOR`), which is the
+same gate the `pr-management-stats` classifier already applies
+when counting triage-marker comments, so the skill and the stats
+tool agree on what a triage marker is. On the fold channel the
+block is a single managed span on the PR body — inherently
+shared across triagers — and carries the writer's login in the
+`by=` field, which feeds the `<triager>` substitution in the
+rows 3–4 reason templates so the maintainer can see *who* to
+sync with before re-engaging. Association alone only ever
+drives the `skip` rows; when a non-viewer's marker feeds a
+close (Sweep 1a's stale-draft clock), its author must pass the
+live committer check first — the exact rule
+[Maintainer detection — committer, not `authorAssociation`](stale-sweeps.md#maintainer-detection--committer-not-authorassociation)
+already imposes on every load-bearing maintainer test.
+
 ---
 
 ## Row 6 — viewer is the PR author

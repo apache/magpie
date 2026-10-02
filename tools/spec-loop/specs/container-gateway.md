@@ -389,9 +389,12 @@ and bubblewrap; the gateway does nothing for a CLI the sandbox cannot
 run. `podman` from Homebrew or a distro package lives outside every
 denied path. Docker Desktop installs `docker` under `~/.docker/bin/`
 and its plugins under `~/.docker/cli-plugins/`, both inside the
-`~/.docker` read denial; the catalog entry keeps the exact-path
-`allowRead` for those two locations and recommends the Homebrew `docker`
-CLI, which needs no widening. On Linux both CLIs are under `/usr/bin`.
+`~/.docker` read denial.
+The reference `sandbox.filesystem.allowRead` grants exactly those two paths by default (#1404), so `docker`, `docker compose` and `docker buildx` start inside the sandbox out of the box.
+The rest of `~/.docker` (auth tokens, saved contexts) stays denied to the sandbox, and `Read(~/.docker/**)` still denies it to the agent's file tools; sandbox-lint asserts both the grant and that no broader `~/.docker` entry appears.
+A settings file that predates the default adds the two exact paths itself, as the catalog entry says.
+A Homebrew `docker` CLI needs neither, and the two entries are harmless no-ops for it.
+On Linux both CLIs are under `/usr/bin`.
 
 ## Out of scope
 

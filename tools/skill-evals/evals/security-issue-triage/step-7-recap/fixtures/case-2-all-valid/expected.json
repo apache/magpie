@@ -3,8 +3,9 @@
     "VALID": 3,
     "DEFENSE_IN_DEPTH": 0,
     "INFO_ONLY": 0,
-    "NOT_CVE_WORTHY": 0,
-    "PROBABLE_DUP": 0
+    "INVALID": 0,
+    "PROBABLE_DUP": 0,
+    "FIX_ALREADY_PUBLIC": 0
   },
   "trackers": [
     {"number": 231, "class": "VALID", "comment_url": "https://github.com/example-s/example-s/issues/231#issuecomment-2001"},

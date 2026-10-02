@@ -23,9 +23,10 @@ verbatim from the Security Model section provided.>
 Severity: <guess>. Final scoring per the team after assessing <open question
 if any, otherwise omit the trailing phrase>.
 
-<Fix-shape sentence for VALID/DEFENSE-IN-DEPTH. For NOT-CVE-WORTHY/INFO-ONLY,
+<Fix-shape sentence for VALID/DEFENSE-IN-DEPTH. For INVALID/INFO-ONLY,
 replace with the "why not" framing. For PROBABLE-DUP, suggest the next
-slash command.>
+slash command. For FIX-ALREADY-PUBLIC, link the public PR and include the
+draft reporter reply (thanked, not credited, asked to verify the PR).>
 
 <Action items as a numbered list when more than one decision is needed;
 otherwise a single sentence.>

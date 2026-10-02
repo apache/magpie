@@ -132,7 +132,7 @@ def _snapshot_findings(lock: Lock, root: Path) -> list[Finding]:
         return [Finding("project", "snapshot-unreadable", "step-2", {"error": str(exc)})]
     drift = {
         key: {"project": getattr(lock, key), "machine": getattr(local_lock, key)}
-        for key in ("ref", "commit")
+        for key in ("method", "url", "ref", "commit")
         if getattr(lock, key) is not None and getattr(lock, key) != getattr(local_lock, key)
     }
     if drift:

@@ -1,6 +1,5 @@
 {
   "selected_canned_section": "Automated scanning results",
   "confidence": "exact",
-  "rationale": "The reasoning explicitly identifies the report as automated scanner output (Snyk SAST) with no human-verified PoC, matching the automated scanning canned section exactly.",
-  "other_applicable": []
+  "rationale": "The reasoning explicitly identifies the report as automated scanner output (Snyk SAST) with no human-verified PoC, matching the automated scanning canned section exactly."
 }

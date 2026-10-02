@@ -9,30 +9,23 @@ requires_config:
   - issue-tracker-config.md
   - project.md
 description: |
-  Draft a single net-new *good first issue* on the configured
-  `<upstream>` repo from one supplied candidate such as a known gap
-  or a small maintainer-named task. The skill first runs a
-  suitability gate to confirm the candidate is small and
-  newcomer-safe. If it passes the skill drafts one issue. The draft
-  carries scope, code pointers, contributing-doc links, acceptance
-  criteria, and an effort estimate. A readiness checklist gates the
-  draft before it is shown. Nothing is filed via `gh` until the
-  maintainer explicitly confirms. The skill never curates or
-  relabels the existing backlog.
+  Draft one net-new *good first issue* on the configured `<upstream>`
+  repo from one supplied gap or small maintainer-named task.
+  Run suitability and readiness checks before showing the draft.
+  File via `gh` only after explicit maintainer confirmation.
+  Never curate or relabel the existing backlog.
 when_to_use: |
   Invoke when a maintainer says "draft a good first issue for NNN",
   "turn this gap into a newcomer issue", "write up a good-first-issue
-  for <small task>", or chains this skill after a backlog-grooming or
-  planning pass surfaces a small, well-bounded task worth handing to a
-  first-time contributor. Skip when the task is security-sensitive,
-  needs an architectural or deprecation decision, is not actually
-  small, or when an issue for it already exists. Ask before invoking
-  if the candidate's scope is unclear.
+  for <small task>", or a grooming or planning pass supplies a small task.
+  Skip security-sensitive or large tasks, architectural or deprecation
+  decisions, and tasks with an existing issue.
+  Ask before invoking if the candidate's scope is unclear.
 argument-hint: "[candidate-gap-or-task]"
 capability: capability:review
 surface_hash: sha256:ac2d0fda09c67231
 license: Apache-2.0
-measured_tokens: 3609
+measured_tokens: 3503
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->

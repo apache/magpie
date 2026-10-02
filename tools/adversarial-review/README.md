@@ -24,7 +24,7 @@
 
 **Harness:** agnostic
 
-Runs other models' CLIs — Codex, Copilot, Gemini, Claude — read-only over a change, and prints their merged findings as one JSON report.
+Runs other models' CLIs — Codex, Copilot, Gemini, Grok, Claude — read-only over a change, and prints their merged findings as one JSON report.
 Magpie skills run it before they open a PR; `pr-management-code-review` runs it over someone else's PR.
 Design: [`docs/designs/2026-09-23-adversarial-review.md`](../../docs/designs/2026-09-23-adversarial-review.md).
 
@@ -32,9 +32,9 @@ Design: [`docs/designs/2026-09-23-adversarial-review.md`](../../docs/designs/202
 
 - **Runtime:** Python 3.11+ via `uv`.
 The package itself is stdlib-only.
-- **CLIs:** at least one reviewer CLI on `PATH` — `codex`, `copilot`, `gemini` or `claude` — logged in with its own account.
+- **CLIs:** at least one reviewer CLI on `PATH` — `codex`, `copilot`, `gemini`, `grok` or `claude` — logged in with its own account.
 `--target pr:<N>` also needs `gh`.
-- **Credentials:** whatever each reviewer CLI already uses (`~/.codex`, `~/.copilot`, `~/.gemini`, `~/.claude`); this tool reads none of them itself.
+- **Credentials:** whatever each reviewer CLI already uses (`~/.codex`, `~/.copilot`, `~/.gemini`, `~/.grok`, `~/.claude`); this tool reads none of them itself.
 - **Network:** each reviewer CLI calls its own model provider; this tool makes no network calls of its own.
 
 ## Usage
@@ -71,7 +71,11 @@ Reviewers can read files with their read-only tools, and that is the residual ri
 - `claude`, `copilot` and `gemini` confine file reads to their working directory (plus the brief's temporary directory for `copilot`).
   `codex -s read-only` restricts writes and network, not reads: an instruction injected into the diff could have it read a file elsewhere on the machine, such as a sibling tracker checkout, and put it into its reply to the model.
   Run the tool where nothing private sits beside the checkout under review, or leave `codex` out of the reviewer list for such machines.
+  `grok` has the same exposure: its `read_file` and `grep` are not confined to the working directory, so the same advice applies.
+- `grok` is read-only through its tool allowlist (`--tools read_file,grep,list_dir`), with no subagents, no web search, and deny rules for the shell, edit, web-fetch and MCP tools.
+  Its `--permission-mode plan` is not used: grok accepts the value but does not enforce it.
 - MCP tools are switched off for `codex` (`-c mcp_servers={}`) and `claude` (`--strict-mcp-config`).
+  `grok` has no CLI switch that closes its MCP servers, so they stay connected, but `--deny MCPTool` auto-denies every MCP tool invocation.
   `copilot` and `gemini` have no equivalent switch in the versions this was written against; their MCP servers, if any, stay reachable, so configure them with read-only servers or none.
 
 ## Backends
@@ -81,12 +85,13 @@ Reviewers can read files with their read-only tools, and that is the residual ri
 | `codex` | `codex exec -s read-only --ephemeral -c mcp_servers={} --output-schema <schema> -o <file> -` (prompt on stdin) |
 | `copilot` | `copilot -p <read the brief at …> --add-dir <brief dir> --deny-tool shell --deny-tool write` |
 | `gemini` | `gemini --approval-mode plan -o json -p <…>` (prompt on stdin) |
+| `grok` | `grok --tools read_file,grep,list_dir --no-subagents --disable-web-search --deny Bash --deny Edit --deny Write --deny WebFetch --deny MCPTool --output-format json --prompt-file <brief>` (prompt as a file) |
 | `claude` | `claude -p --output-format json --strict-mcp-config --disallowedTools Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch,Task` (prompt on stdin) |
 
 `tests/test_backends.py` pins each command line.
 
 ## Sandbox
 
-The reviewer CLIs need network access and their own credentials (`~/.codex`, `~/.copilot`, `~/.gemini`, `~/.claude`), which the reference sandbox denies.
+The reviewer CLIs need network access and their own credentials (`~/.codex`, `~/.copilot`, `~/.gemini`, `~/.grok`, `~/.claude`), which the reference sandbox denies.
 The single-line `uvx --from <plugin>/tools/adversarial-review adversarial-review …` form is what the sandbox exclusion names; `setup` installs it.
 The tool writes nothing to the repository: the brief and the schema live in a temporary directory that is removed afterwards.

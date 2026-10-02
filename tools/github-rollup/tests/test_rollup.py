@@ -194,7 +194,7 @@ def test_build_entry_strips_body_whitespace():
 
 def test_build_new_rollup_body_includes_marker_first():
     entry = build_entry(date="2026-05-30", user="@a", action="b", body="c")
-    body = build_new_rollup_body(entry)
+    body = build_new_rollup_body(entry, "airflow-s")
     assert body.startswith(ROLLUP_MARKER_PREFIX)
     assert "<details>" in body
     # Marker line + immediately the entry — no blank line gap.
@@ -231,7 +231,9 @@ def test_rebuild_strips_trailing_whitespace_before_ruler():
 
 
 def test_round_trip_three_appends_keeps_count():
-    existing = build_new_rollup_body(build_entry(date="2026-05-01", user="@a", action="x1", body="b1"))
+    existing = build_new_rollup_body(
+        build_entry(date="2026-05-01", user="@a", action="x1", body="b1"), "airflow-s"
+    )
     for i, action in enumerate(["x2", "x3"], start=2):
         existing = rebuild_with_appended_entry(
             existing,

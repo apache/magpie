@@ -36,7 +36,8 @@ acceptance:
     plugin list, with no `ref`, and a fresh clone is brought up to that
     minimum and never held down to it.
   - Drift between the committed pin and the local install is detected and
-    surfaced with an upgrade proposal.
+    surfaced with an upgrade proposal, or with a full re-install proposal
+    when the local install's method or URL differs from the pin.
   - A gitignored `.apache-magpie-local/` supplies per-person overrides that
     layer above the committed `.apache-magpie-overrides/`, cannot weaken the
     safety baseline, and can be ignored for a single run via a one-shot
@@ -139,8 +140,26 @@ committed version with drift detection.
 
 ## Where it lives
 
-- Skill: `setup` (install, adopt/unadopt, verify, upgrade, override,
-  reconcile — the one-time project-wide reconciliation sweep).
+- Skill: `setup` (install, config, adopt/unadopt, verify, upgrade,
+  override, reconcile — the one-time project-wide reconciliation sweep) at
+  `plugins/magpie-setup/skills/setup/`: one `SKILL.md` plus a sibling
+  detail file per sub-action (`install.md`, `config.md`, `adopt.md`,
+  `upgrade.md`, `verify.md`, `reconcile.md`, `locks.md`, …).
+  `skills/setup` is the flat-tree mirror symlink, like every other skill's
+  `skills/<dir>`; the sibling setup skills below live beside it under
+  `plugins/magpie-setup/skills/`.
+- Pre-flight checker: the `setup_preflight` package ships inside the
+  `magpie-setup` plugin at `plugins/magpie-setup/skills/setup/setup_preflight/`
+  (#1409), so a marketplace-only adopter has a copy to install.
+  `tools/setup-preflight/` stays the uv workspace member that carries its
+  tests and CI job; its `src/setup_preflight` is a symlink inward to the
+  plugin's package, and `check-family-plugins.py` fails when the package
+  leaves the plugin or the mirror link drifts.
+- Project templates: `plugins/magpie-setup/templates/` (#1410), the
+  scaffold `setup config` copies adopter configuration from.
+  `projects/_template` is a symlink to it, so older paths keep resolving;
+  `check-family-plugins.py` fails when the templates leave the plugin or
+  that link drifts.
 - Skills: `setup-isolated-setup-install` / `-update` / `-verify` / `-doctor`
   (the sandbox harness; `-doctor` probes live restrictions — SSH agent /
   Yubikey reachability, localhost port binding, filesystem restrictions),
@@ -150,7 +169,11 @@ committed version with drift detection.
   method and pin, drift between local and committed locks, which skills
   are wired in the current repo.
 - Docs: `docs/setup/` (install recipes, agentic-overrides contract,
-  prerequisites).
+  prerequisites, `commit-attribution.md`).
+- Commit attribution: `commit-attribution.toml`, committed in
+  `.apache-magpie-overrides/` (project policy) and gitignored in
+  `.apache-magpie-local/` (a contributor's preference), scaffolded from
+  `plugins/magpie-setup/templates/commit-attribution.toml` (#1385).
 - Lock files: `.apache-magpie.lock` (committed — a pin on the snapshot
   methods, a floor on `method: marketplace`) and
   `.apache-magpie.local.lock` (gitignored, what this machine fetched).
@@ -224,6 +247,56 @@ committed version with drift detection.
 - **`upgrade` splits on adoption:** nothing repo-side when the project
   has not adopted; `min_version` raised — never lowered — and staged
   when it has.
+- **An unrecognised sub-action is never guessed** (#1391). A first
+  argument that names no sub-action and is not a flag prints an
+  "Unknown setup sub-action" message with close-match suggestions (edit
+  distance one or two, or a prefix; every candidate when several qualify)
+  and the full sub-action list, then waits.
+  It runs a suggested sub-action only after the user confirms it, and
+  never falls back to `install`, because `upgrade`, `reconcile` and
+  `adopt` stage committed files.
+- **Stacked PRs only with write access** (#1430). The agent conventions
+  block `install` writes into an adopter's `AGENTS.md`, like this repo's own
+  `AGENTS.md`, tells agents how to open a series of dependent PRs.
+  With push access to `<upstream>` (`gh api repos/<upstream> --jq
+  .permissions.push`), every branch is pushed to `<upstream>` itself, each PR
+  is opened in the browser from its approved body against the previous
+  branch, and the stack is joined with `gh stack link`; the agent only
+  suggests installing the `github/gh-stack` extension, never installs it.
+  Without push access, the PRs go from the fork against the default branch
+  with a *"Depends on #N"* line.
+  `gh stack submit --auto` and letting `gh stack` generate titles or bodies
+  are never used.
+- **Commit attribution is a project choice** (#1385). `adopt` always asks
+  the maintainer for the convention (`generated-by`, the default and the
+  ASF convention; `assisted-by`; `co-authored-by`; `none`;
+  `contributor-choice`; or custom wording) and writes it to
+  `.apache-magpie-overrides/commit-attribution.toml`.
+  `config` asks a contributor only when the project's file is absent or
+  says `contributor-choice`, and writes
+  `.apache-magpie-local/commit-attribution.toml`.
+  This is the one configuration file where the project wins over the
+  contributor's local copy; an unreadable file or unknown value fails
+  closed to `generated-by`.
+  Every skill that commits adds the trailer as a `--trailer` argument,
+  never inside the message, so it stays visible to command-line guards.
+  The framework repository pins `generated-by` for itself.
+- **Adversarial reviewers are configured on request** (#1371).
+  `config adversarial-review` (Step 3c, run only when named and only with
+  the `magpie-adversarial-review` plugin installed) runs
+  `adversarial-review detect`, pre-selects every available backend except
+  the running harness's own model, writes
+  `.apache-magpie-local/adversarial-review.md` from its template, and
+  offers the Codex / Gemini command files under the user's home directory,
+  never inside a repository.
+  `verify` check 8i reports configured reviewers whose CLI is gone and
+  stale command files; `adopt` always flags `adversarial-review.md` as
+  personal.
+- **`method: local` has nothing to drift** (#1414). The framework
+  checkout's self-adoption writes `method: local` with a `source:` key; the
+  checker's lock parser accepts that key and returns no project findings
+  for the method, and `upgrade` on it only refreshes the pre-flight
+  checker from the in-repo package and stops.
 - **Every skill's pre-flight also compares its own generated
   `surface_hash` against the reconciliation stamp**, silently when they
   match, at no extra cost inside a sandboxed session: both values are
@@ -249,7 +322,14 @@ committed version with drift detection.
 3. The committed lock re-installs the same version on a fresh clone on the
    snapshot methods, and on `method: marketplace` brings a fresh clone up to
    the recorded floor without capping it there.
-4. Drift between local and committed locks is surfaced with an upgrade.
+4. Drift between local and committed locks is surfaced with a remedy that
+   fits it: a missing local lock proposes `/magpie-setup`; a differing
+   `ref` or `commit` proposes `/magpie-setup upgrade`; a differing `method`
+   or `url` (the machine fetched the framework another way, or from
+   another source) proposes a full re-install with `/magpie-setup`,
+   because an upgrade cannot fix it. `setup_preflight` compares all four
+   keys (`method` and `url` since #1435), and its `step-2` rules section
+   carries the three remedies.
 5. Override files can be discovered and surfaced to skills without
    editing upstream skill bodies, and override text cannot weaken the
    safety/confidentiality baseline.
@@ -376,7 +456,10 @@ committed version with drift detection.
     `.apache-magpie-local/`** by `/magpie-setup config` and refreshed
     there by `/magpie-setup upgrade`, because Bash can neither read nor
     execute the plugin cache under the framework's own recommended
-    sandbox. `config` states that it installed an executable, since it may
+    sandbox. The copy's source is the package inside the installed
+    `magpie-setup` plugin on a marketplace install, and
+    `<snapshot-dir>/tools/setup-preflight/src/setup_preflight/` (the same
+    files, through the mirror link) on a snapshot install. `config` states that it installed an executable, since it may
     run unattended from a skill's pre-flight. `upgrade` skips the refresh
     when the directory does not exist rather than creating it, because its
     absence is what marks a project as never configured.
@@ -399,6 +482,25 @@ committed version with drift detection.
     The stamp is written only by `python3 -m setup_preflight.isolated
     record-update | record-reminder`, never by hand; the proposal never
     runs the update and never blocks the skill.
+28. The memoised project verdict is keyed on the lock files, the plugin
+    listing, and the checker's own `core.py` and `lockfile.py`, so a
+    checker refreshed by `upgrade` never serves the previous code's
+    answer (#1414). A `method: local` lock, `source:` key included,
+    parses and yields no project findings.
+29. An unrecognised `setup` sub-action is answered with close-match
+    suggestions and the sub-action list, and nothing runs until the user
+    confirms (#1391; eval suite
+    `tools/skill-evals/evals/setup/step-unknown-subaction`).
+30. `adopt` writes the project's commit-attribution convention to
+    `.apache-magpie-overrides/commit-attribution.toml`; `config` writes a
+    contributor's preference to
+    `.apache-magpie-local/commit-attribution.toml` only when the project
+    leaves the choice open. Resolution is project first, then contributor,
+    then `generated-by`, failing closed to `generated-by` (#1385).
+31. `setup config` scaffolds every template from
+    `plugins/magpie-setup/templates/<file>` on a marketplace install and
+    from `<snapshot-dir>/projects/_template/<file>` on a snapshot install;
+    both are the same file (#1410).
 
 ## Validation
 
@@ -416,11 +518,11 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
   only the namespace of their invocation differs.
 
 - `stable`; gaps appear as new agent targets to add to the registry
-  ([`agents.md`](../../../skills/setup/agents.md)) or new override
+  ([`agents.md`](../../../plugins/magpie-setup/skills/setup/agents.md)) or new override
   surfaces — recorded by the plan pass.
-- **Not yet built:** the `.apache-magpie-local/` personal override surface
-  (acceptance 5) and the one-shot default-run switch (acceptance 6). Both are
-  intended behaviour recorded here and tracked as work items
-  `magpie-local-convention` and `override-bypass-one-shot` in the plan. The
-  three hybrid-setup how-tos that build on the local surface are tracked
-  alongside them.
+- **Built since first recorded as gaps:** the `.apache-magpie-local/`
+  personal override surface (acceptance 6) and the one-shot default-run
+  switch (acceptance 7, the `--no-overrides` flag in
+  `docs/setup/agentic-overrides.md` § One-shot defaults run) both ship.
+  They were tracked as work items `magpie-local-convention` and
+  `override-bypass-one-shot` in the plan.

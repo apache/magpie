@@ -9,7 +9,7 @@ mode: Mentoring
 source: >
   MISSION.md § Technical scope (Mentoring) — "the highest-value
   project-side mode and the one off-the-shelf agent tooling skips".
-  docs/modes.md § Mentoring (experimental, 5 skills). Spec exists at
+  docs/modes.md § Mentoring (experimental, 7 skills). Spec exists at
   docs/mentoring/spec.md ahead of any skill code. MISSION.md names
   onboarding latency as one of the two loudest ecosystem complaints;
   authoring newcomer-ready good first issues targets it directly.
@@ -50,7 +50,20 @@ a project can offer a first-time contributor.
 ## Where it lives
 
 - Spec: `docs/mentoring/README.md`, `docs/mentoring/spec.md`.
-- Adopter config scaffold: `projects/_template/mentoring-config.md`.
+- Skills ship across three plugins, each reachable through a
+  `skills/<dir>` symlink: `plugins/magpie-mentoring/skills/`
+  (`welcome` as `mentoring-welcome`, `good-first-issue-author`,
+  `good-first-issue-sweep`, `newcomer-issue-explainer`),
+  `plugins/magpie-contributor-growth/skills/`
+  (`contributor-to-committer`, `onboarding-concierge`), and
+  `plugins/magpie-pr-management/skills/mentor/`
+  (`pr-management-mentor`).
+- Adopter config scaffolds in `plugins/magpie-setup/templates/`
+  (`projects/_template` is a symlink to it): `mentoring-config.md`
+  (`pr-management-mentor`; its `out_of_scope_topics` also gates
+  `mentoring-welcome`), `mentoring-welcome-config.md`,
+  `good-first-issue-config.md`, `onboarding-concierge-config.md`,
+  `newcomer-issue-explainer-config.md`, and `committer-readiness.md`.
 - Skill: `pr-management-mentor` — drafts a teaching-register comment on
   a single GitHub issue or PR thread; waits for explicit maintainer
   confirmation before posting. Ships `mode: Mentoring` + `experimental`.
@@ -75,7 +88,10 @@ a project can offer a first-time contributor.
   maps a contributor's GitHub activity against the adopter's PMC-declared
   committer or PMC thresholds; surfaces a traffic-light brief (Not yet /
   Approaching / Ready to nominate) plus the specific evidence gaps that
-  remain. Ships `mode: Mentoring` + `experimental`, with an eval suite
+  remain. Counts come from `tools/contributor-metrics`, discounted for
+  automated and low-signal work, and community signals are collected in
+  Step 3 (see [contributor-growth.md](contributor-growth.md)).
+  Ships `mode: Mentoring` + `experimental`, with an eval suite
   under `tools/skill-evals/evals/contributor-to-committer/`.
 - Skill: `good-first-issue-sweep` — sweeps the open issue backlog for
   existing issues that could be labelled as good first issues. Scores each
@@ -85,6 +101,22 @@ a project can offer a first-time contributor.
   confirmation; never edits issue bodies. Ships `mode: Mentoring` +
   `experimental`, with an eval suite under
   `tools/skill-evals/evals/good-first-issue-sweep/`.
+- Skill: `onboarding-concierge` — answers a newcomer's "how do I
+  contribute here" question by grounding the reply in
+  `CONTRIBUTING.md` and the project's own docs. Classifies the question
+  (setup / workflow / first-issue / out-of-scope), retrieves the
+  relevant excerpt, and drafts a concise answer in the teaching
+  register; design, security, deprecation, and architectural-taste
+  questions are handed to a human maintainer. Produces draft text only.
+  Ships `mode: Mentoring` + `experimental`, with an eval suite under
+  `tools/skill-evals/evals/onboarding-concierge/`.
+- Skill: `newcomer-issue-explainer` — given an open good first issue,
+  explains it in beginner terms and sketches an approach (files to read
+  first, what "done" looks like, where to ask) without writing any code.
+  An issue-assessment gate declines closed, security-sensitive, or
+  scope-unclear issues. Nothing is posted without maintainer
+  confirmation. Ships `mode: Mentoring` + `experimental`, with an eval
+  suite under `tools/skill-evals/evals/newcomer-issue-explainer/`.
 
 ## Behaviour & contract
 
@@ -126,22 +158,32 @@ test -f .agents/skills/magpie-good-first-issue-author/SKILL.md
 test -f .agents/skills/magpie-mentoring-welcome/SKILL.md
 test -f .agents/skills/magpie-contributor-to-committer/SKILL.md
 test -f .agents/skills/magpie-good-first-issue-sweep/SKILL.md
+test -f .agents/skills/magpie-onboarding-concierge/SKILL.md
+test -f .agents/skills/magpie-newcomer-issue-explainer/SKILL.md
 uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-validate
 uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/good-first-issue-author/
 uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/mentoring-welcome/
 uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/good-first-issue-sweep/
+uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/onboarding-concierge/
+uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/newcomer-issue-explainer/
 ```
 
 ## Known gaps
 
 - **The family now covers the newcomer journey end to end.**
-  All five skills ship: `pr-management-mentor`, `good-first-issue-author`,
+  All seven skills ship: `pr-management-mentor`, `good-first-issue-author`,
   `mentoring-welcome` (first-contribution welcome / orientation),
+  `onboarding-concierge` (how-to-contribute answers),
+  `newcomer-issue-explainer` (beginner explanation of a filed issue),
   `contributor-to-committer` (readiness path tracker), and
   `good-first-issue-sweep` (backlog curation / labelling). The on-ramp
   supply chain is complete from both the authoring side
   (`good-first-issue-author`) and the curation side (`good-first-issue-sweep`).
-- **`experimental` — no adopter pilot has run.** All five shipped skills
+- **Mode and plugin do not line up.** The seven `mode: Mentoring` skills
+  ship in three plugins (`magpie-mentoring`, `magpie-contributor-growth`,
+  `magpie-pr-management`); see
+  [contributor-growth.md](contributor-growth.md) § Known gaps.
+- **`experimental` — no adopter pilot has run.** All seven shipped skills
   may change shape as adopter pilots and contributor-sentiment evaluations
   land.
 - **`good-first-issue-author` and `good-first-issue-sweep` shipped

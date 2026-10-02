@@ -122,7 +122,7 @@ configuration determines this address.
 |---|:---:|:---:|:---:|:---:|:---:|:---:|---|
 | [`gmail`](../gmail/tool.md) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | Full read + write; primary backend in the reference adopter |
 | [`ponymail`](../ponymail/tool.md) | ✓ | ✓ | ✗ | ✗ | ✗ | ✓ | Read-only public/private archive viewer; auth via ASF LDAP |
-| [`imap`](imap/README.md) | ✓ | ✓ | depends | ✓ | depends | ✓ | Stub adapter; `create_draft` / `list_drafts` depend on whether the IMAP server exposes the Drafts folder writably to the agent |
+| [`imap`](imap/README.md) | ✓ | ✓ | depends | ✓ | depends | ✓ | Concrete CLI in `imap/`; `create_draft` / `list_drafts` depend on whether the IMAP server exposes the Drafts folder writably to the agent (the adapter declines those ops when it does not) |
 | [`mbox`](mbox/README.md) | ✓ (offline) | ✓ | ✗ | ✗ | ✗ | ✗ (or `file://`) | Static archive snapshot; forensics / late triage only |
 
 Backends added by adopters extend the matrix in their own adapter

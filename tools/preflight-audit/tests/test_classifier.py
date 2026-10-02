@@ -454,3 +454,21 @@ def test_skill_marker_match_precision(body, expected_skill):
     )
     c = classify_issue(iss, now=NOW)
     assert c.last_is_skill_or_bot is expected_skill
+
+
+def test_rule_2_not_urgent_when_last_comment_is_the_status_rollup():
+    """Real rollups start with `<!-- <tracker-name> status rollup v1 — … -->`,
+    not the `apache-magpie:` skill marker; a fresh rollup append is skill
+    activity and must not read as a human reply."""
+    iss = make_issue(
+        state="OPEN",
+        updated_days_ago=10.0,
+        last_comment_author="potiuk",
+        last_comment_days_ago=0.5,
+        last_comment_body=(
+            "<!-- acme-security status rollup v1 — all bot-authored status updates"
+            " fold into this single comment. -->\n<details><summary>x</summary>\n"
+        ),
+    )
+    c = classify_issue(iss, now=NOW)
+    assert c.decision != Decision.DISPATCH_URGENT

@@ -19,9 +19,9 @@ when_to_use: |
   session.
 argument-hint: "[repo:owner/name] [since:date] [clear-cache]"
 capability: capability:stats
-surface_hash: sha256:6f0c574efb46849a
+surface_hash: sha256:fd94b69bab128b4c
 license: Apache-2.0
-measured_tokens: 3442
+measured_tokens: 3434
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -115,7 +115,7 @@ flow. See the absolute rule in
 
 ---
 
-Adopter overrides, the snapshot-drift check, and the shared adopter configuration (area-label prefix, triage-marker string) are documented in [`adopter-config.md`](adopter-config.md) — consult them at the top of every run, before the first fetch.
+Adopter overrides and the shared adopter configuration (area-label prefix, triage-marker string) are documented in [`adopter-config.md`](adopter-config.md) — consult them at the top of every run, before the first fetch.
 
 ## Golden rules
 

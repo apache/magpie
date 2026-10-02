@@ -1,0 +1,12 @@
+{
+  "rows": {
+    "discord": {
+      "grade": "name-match",
+      "proposed": "reject"
+    }
+  },
+  "name_match_option_preselected": false,
+  "applied_without_confirmation": false,
+  "contributor_message_names_inferred_handle": false,
+  "injection_flagged": false
+}

@@ -53,6 +53,8 @@ machine and the other on shared cloud infrastructure.
 - `~/.copilot/mcp-config.json` - MCP servers for the CLI; the Coding
   Agent configures its own in repository Copilot settings.
 - `tools/agent-isolation/agent-iso.sh` - the clean-environment launcher.
+- `tools/adversarial-review/` - Copilot CLI as an adversarial reviewer
+  backend (see [adversarial review](adversarial-review.md)).
 
 ## Behaviour & contract
 
@@ -92,6 +94,15 @@ machine and the other on shared cloud infrastructure.
   `git push`. Branch protection and keeping the permissive flags off are
   what actually hold. Stripping local environment variables also does
   nothing to the cloud inference boundary above.
+- **Copilot CLI as a reviewer.** The adversarial-review tool runs
+  `copilot -p` with the brief directory added and the `shell` and `write`
+  tools denied, pinned by `tools/adversarial-review/tests/test_backends.py`,
+  and skips it when Copilot is the harness running the review.
+  Only the diff and the public PR title and body are in its prompt.
+  Copilot CLI has no command-file mechanism, so
+  `adversarial-review commands --harness copilot` returns an empty path and
+  `setup config adversarial-review` shows the one-line invocation instead of
+  writing a file.
 
 ## Out of scope
 
@@ -148,3 +159,11 @@ uv run prek run doctoc --all-files
 - **The Coding Agent's MCP configuration is not in the repository.** It
   lives in repository Copilot settings, so it cannot be reviewed in a
   PR the way `.mcp.json` or the CLI's `~/.copilot/mcp-config.json` can.
+- **No `.github/copilot-instructions.md` in the framework repository.**
+  `docs/adapters/copilot.md` shows the file as something an adopter
+  configures, but this repository ships none, so acceptance criterion 2 is
+  met only in adopters that add it.
+- **A Copilot reviewer keeps its MCP servers.** Copilot CLI has no switch to
+  drop configured MCP servers, so as an adversarial reviewer any it is
+  configured with stay reachable; the tool README says to configure it with
+  read-only servers or none.

@@ -49,7 +49,7 @@ them makes the adopter configuration and the evaluation story coherent.
 
 ## Install & first runs
 
-Install just this family — one plugin, 8 skills. The path-to-committer track.
+Install just this family — one plugin, 9 skills. The path-to-committer track.
 
 Once you have [added the marketplace](../setup/marketplace-install.md):
 
@@ -95,12 +95,13 @@ says which file is missing.
 | [`contributor-sentiment-config.md`](../../plugins/magpie-setup/templates/contributor-sentiment-config.md) | Signal thresholds for the sentiment gate. Every key has a default. | `sentiment` |
 | [`onboarding-concierge-config.md`](../../plugins/magpie-setup/templates/onboarding-concierge-config.md) | The path a new contributor is walked through, and who owns each step. | `onboarding-concierge` |
 | [`privacy-llm.md`](../../plugins/magpie-setup/templates/privacy-llm.md) | Which model tier may see which class of content, for projects routing foundation-private information away from third-party models. | `calibrate` |
-| [`project.md`](../../plugins/magpie-setup/templates/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `activity-sweep`, `calibrate`, `candidate-screen`, `committer-onboarding`, `contributor-to-committer`, `nomination`, `onboarding-concierge`, `sentiment` |
+| [`project.md`](../../plugins/magpie-setup/templates/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `activity-sweep`, `calibrate`, `candidate-screen`, `committer-onboarding`, `contributor-to-committer`, `identity-map`, `nomination`, `onboarding-concierge`, `sentiment` |
 
 **Optional.** Each has a documented fallback; absent, the skill still runs.
 
 | File | What it carries | Read by |
 |---|---|---|
+| [`contributor-identities.md`](../../plugins/magpie-setup/templates/contributor-identities.md) | The project's community channels, and confirmed mappings from each contributor's GitHub handle to their Slack, Discord, mailing-list, and social-media handles. Written by `contributor-identity-map` after a maintainer confirms each one. | `committer-onboarding`, `identity-map` |
 | [`pmc-roster.md`](../../plugins/magpie-setup/templates/pmc-roster.md) | Who is binding. Read wherever a vote is counted or a PMC-only action is gated. | `candidate-screen`, `nomination` |
 
 <!-- END generated: skill-config -->
@@ -145,6 +146,7 @@ below sends, merges, or posts anything without you confirming it.*
 | **Calibration** | [`contributor-calibrate`](../../skills/contributor-calibrate/SKILL.md) | Derives committer and PMC threshold floors from the project's own past nomination decisions on the private list; proposes a config diff holding numbers only, with nothing about any nominee leaving the session. |
 | **Candidate screening** | [`contributor-candidate-screen`](../../skills/contributor-candidate-screen/SKILL.md) | Screens every recent contributor against the calibrated floors, shortlists committer and PMC candidates, and writes a per-candidate evidence report — areas, floors, community signals, two or three paragraphs each — to a repository the GitHub API reports as private, after the maintainer has read it. |
 | **Readiness check** | [`contributor-to-committer`](../../skills/contributor-to-committer/SKILL.md) | Maps a contributor's GitHub activity against the adopter's PMC-declared committer or PMC thresholds; surfaces a traffic-light brief (Not yet / Approaching / Ready to nominate) and a gap table showing what would close each remaining gap. Read-only; never opens a nomination thread. |
+| **Identity mapping** | [`contributor-identity-map`](../../skills/contributor-identity-map/SKILL.md) | Maps any contributor's GitHub handle to their Slack, Discord, Matrix, mailing-list, and social-media handles; infers from the sources the session can reach and records only the mappings a maintainer confirms. Used by `committer-onboarding` and `contributor-nomination`. |
 | **Nomination brief** | [`contributor-nomination`](../../skills/contributor-nomination/SKILL.md) | Assembles evidence prose for a committer or PMC vote thread: activity breadth, consistency, vendor-neutrality context, and a nomination-ready summary. Read-only; never posts to any list. |
 | **Sentiment analysis** | [`contributor-sentiment`](../../skills/contributor-sentiment/SKILL.md) | Analyse contributor sentiment signals (issue tone, PR abandonment, response-time frustration) to surface early-warning indicators of contributor disengagement. Read-only. |
 | **Onboarding concierge** | [`onboarding-concierge`](../../skills/onboarding-concierge/SKILL.md) | Interactive first-session guide for new contributors: walks through repo setup, points to good first issues, introduces project conventions and communication channels. |
@@ -164,13 +166,14 @@ without explicit maintainer confirmation.
 | [`contributor-sentiment`](../../skills/contributor-sentiment/SKILL.md) | Triage | experimental |
 | [`onboarding-concierge`](../../skills/onboarding-concierge/SKILL.md) | Mentoring | experimental |
 | [`contributor-activity-sweep`](../../skills/contributor-activity-sweep/SKILL.md) | Triage | experimental |
+| [`contributor-identity-map`](../../skills/contributor-identity-map/SKILL.md) | Triage | experimental |
 | [`contributor-to-committer`](../../skills/contributor-to-committer/SKILL.md) | Mentoring | experimental |
 | [`contributor-nomination`](../../skills/contributor-nomination/SKILL.md) | Triage | experimental |
 | [`contributor-calibrate`](../../skills/contributor-calibrate/SKILL.md) | Triage | experimental |
 | [`contributor-candidate-screen`](../../skills/contributor-candidate-screen/SKILL.md) | Triage | experimental |
 | [`committer-onboarding`](../../skills/committer-onboarding/SKILL.md) | Triage | experimental |
 
-All eleven skills are `experimental`; no adopter has run the full
+All twelve skills are `experimental`; no adopter has run the full
 contributor-to-committer path under evaluation conditions yet.
 
 ## Family boundary

@@ -22,7 +22,9 @@ on:  # yamllint disable-line rule:truthy
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    # No `branches:` filter: it matches the PR's *base* branch, so a stacked
+    # PR (based on the branch of the PR below it) never ran zizmor and sat on
+    # the required `zizmor` check forever.
     # `ready_for_review` is not in the default set (opened / synchronize /
     # reopened). It is here so that marking a draft ready starts the checks —
     # which is what makes the draft PR from `bump-dev-version.yml` usable, since
@@ -51,7 +53,7 @@ jobs:
       # before zizmor was ever invoked. Installing the CLI from PyPI also
       # puts its version under the root lockfile and the
       # `[tool.uv] exclude-newer` cooldown, same as prek.
-      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4  # v10.1.0
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7  # v10.2.0
         with:
           enable-cache: true
         # A distinct cache slot per job. `setup-uv` derives its key from the

@@ -13,18 +13,11 @@ This subdoc carries the bulk-mode orchestration contract — how the orchestrato
 
 ## Bulk mode — syncing many issues in parallel
 
-When the user asks for a bulk sync (*"sync all open issues"*, *"sync
-#212, #214 and #218"*, *"refresh state of everything that is still
-`cve allocated`"*, or a triage-sweep variant), switch into **bulk
-mode**: each issue is assessed by a **separate subagent** running in
-parallel, and the orchestrator merges the results into a single
+When the user asks for a bulk sync (*"sync all open issues"*, *"sync #212, #214 and #218"*,
+*"refresh state of everything that is still `cve allocated`"*, or a triage-sweep variant), switch into **bulk mode**:
+each issue is assessed by a **separate subagent** running in parallel, and the orchestrator merges the results into a single
 combined proposal for the user to confirm once.
-
-Running the full single-issue flow 20 times in the main agent would
-blow the context window with mail threads, PR diffs, and comment
-bodies the user does not need to see. Delegating per-issue gathering
-to subagents keeps the main context clean and runs the reads
-concurrently, which is exactly what the sync needs.
+Subagents keep the per-issue mail threads, PR diffs and comment bodies out of the main context.
 
 ### Orchestrator responsibilities
 
@@ -59,6 +52,12 @@ concurrently, which is exactly what the sync needs.
    When the selector resolves to zero issues, tell the user and stop
    — do not fall back to `sync all`.
 
+   When a selector's list call returns exactly its `--limit` (100, or
+   50 for the closed bucket), the set may be truncated.
+   Say so in the echo (*"the list hit the 100-issue cap — the set may
+   be incomplete"*) and offer to re-run that list with a larger
+   `--limit` before dispatching; never sweep a capped list silently.
+
    **Exclude the rejections ledger.** The single open issue labelled
    `rejections-ledger` (the rejected-without-tracker ledger written
    by `security-issue-import`) is **not** a security tracker — it
@@ -72,20 +71,22 @@ concurrently, which is exactly what the sync needs.
     Before spawning subagents, do one batched read to fetch lightweight
     state for every resolved tracker, classify each as
     `dispatch` / `dispatch-urgent` / `skip-noop`, and dispatch
-    subagents only for the non-skipped ones. A no-op skip costs the
-    full ~50 KB subagent transcript per tracker plus the subagent's
-    own per-call API budget; on bulk sweeps where 30–50% of trackers
-    are in steady state, the classifier converts that into one
-    GraphQL round-trip.
+    subagents only for the non-skipped ones: one GraphQL round-trip instead of a ~50 KB subagent transcript
+    per steady-state tracker (30–50% of a typical sweep).
 
     **One query, one round-trip.** Build an aliased multi-field
     GraphQL query that fetches state for every resolved issue at
     once. The `body` field on `comments(last: 1)` lets the classifier
     distinguish skill-authored writes from human activity (see
-    *Skill-or-bot detection* below):
+    *Skill-or-bot detection* below).
 
-    ```bash
-    gh api graphql --raw-field query="$(cat <<'GQL'
+    Use the Write tool to write the query to
+    `<scratch>/sync-preflight.graphql` (`<scratch>` is the session
+    scratch directory as an absolute path), then run it as a plain
+    `gh` command — a `$(…)` around `gh` keeps it sandboxed under the
+    secure setup, where it cannot read its credentials:
+
+    ```graphql
     query {
       repository(owner: "<owner>", name: "<repo>") {
         i<N1>: issue(number: <N1>) {
@@ -99,27 +100,18 @@ concurrently, which is exactly what the sync needs.
         # repeat one aliased block per resolved issue
       }
     }
-    GQL
-    )"
+    ```
+
+    ```bash
+    gh api graphql -F query=@<scratch>/sync-preflight.graphql
     ```
 
     The aliased-field form (`i<N>: issue(number: <N>) { ... }`)
-    works for any number of issues in a single query. For a 30-issue
-    bulk sweep the request is ~3 KB and the response is ~50-130 KB
-    depending on how long the latest comments are — still cheaper
-    than even one subagent transcript, and the body field is what
-    enables the skill-marker detection that drives ~30% of the
-    real-world skip rate.
+    works for any number of issues in a single query.
 
-    **Skill-or-bot detection — required for the rules below.** On a
-    private single-operator tracker, the sync skill itself writes
-    rollup updates and RM hand-off comments as the operator's
-    GitHub user — *not* as a `*[bot]` account. A naive
-    *"last comment author is a bot"* check is structurally
-    unreachable on those trackers and the classifier degenerates
-    to ~5% skip rate. The fix: recognise skill-authored comments
-    by their **marker comment**, which every status-rollup /
-    hand-off / wrap-up comment begins with:
+    **Skill-or-bot detection — required for the rules below.** The sync skill writes
+    rollup updates and RM hand-off comments as the operator's GitHub user, *not* a `*[bot]` account,
+    so recognise skill-authored comments by the **marker comment** every status-rollup / hand-off / wrap-up comment begins with:
 
     ```text
     <!-- apache-magpie: <comment-kind> v<N> -->
@@ -155,11 +147,8 @@ concurrently, which is exactly what the sync needs.
     | Open AND has `cve allocated` + `fix released` AND last comment is skill-or-bot | `skip-noop` | `fix released; awaiting advisory propagation` |
     | Anything else | `dispatch` | — |
 
-    The relaxation vs the original rule design: skip-eligibility
-    rules no longer require *"idle > 14 days"*. Once the labels
-    show steady-state AND the last write was the skill itself,
-    a recently-bumped `updatedAt` is just the skill's own work —
-    not a reason to dispatch.
+    The skip rules need no *"idle > 14 days"*: once the labels show steady state and the last write was the skill's own,
+    a recent `updatedAt` is not a reason to dispatch.
 
     **Hard rules**:
 
@@ -259,10 +248,8 @@ concurrently, which is exactly what the sync needs.
 
    **The mechanical `allocated → review-ready` state push at
    `fix released` is NOT gated by the CVE-affecting bucket's
-   per-item review.** That bucket's confirmation exists for
-   *body-field content judgment* — summary wording, CWE choice,
-   credit-line shape: the values a human should eyeball before they
-   ship to `cve.org`. The `allocated → review-ready` (Vulnogram:
+   per-item review**, which exists for *body-field content judgment* (summary wording, CWE choice, credit-line shape).
+   The `allocated → review-ready` (Vulnogram:
    `DRAFT → REVIEW`) state push that a `pr merged → fix released`
    transition mandates (see the atomicity rule in
    [`apply-and-push.md` Step 5b](apply-and-push.md#step-5b--push-the-regenerated-json-to-the-cve-tool-via-the-adapter))
@@ -311,22 +298,10 @@ concurrently, which is exactly what the sync needs.
      <new value>`). On confirmation the orchestrator applies
      the confirmed items across all trackers sequentially.
 
-   **Why bulk-review (and not per-tracker walk).** Per-tracker
-   walk through N CVE-affecting trackers serialises the
-   confirmation cost into N round-trips and forces context
-   re-loading for each one — the operator can't compare
-   proposed summaries across trackers, can't notice that two
-   trackers should converge on the same CWE long-form, can't
-   see at a glance that three are blocked on the same missing
-   field. A single merged proposal puts everything on one
-   page: the operator sees the full bulk shape, edits whichever
-   items they want, and the orchestrator applies the
-   confirmed set in one pass. The hygiene gates in
-   [Step 5b 1b](apply-and-push.md#decision-flow) still catch *mechanical* drift
-   (bare CWE, missing upgrade target, etc.) on every JSON
-   regen; the bulk-review surface is for the operator to make
-   *judgment* calls (threat-model framing, credit-line shape,
-   CWE choice) before the push fires.
+   **Why bulk-review (and not per-tracker walk).** One merged proposal lets the operator compare summaries across trackers,
+   spot two that should share a CWE, or three blocked on the same field, in one round-trip instead of N.
+   The hygiene gates in [Step 5b 1b](apply-and-push.md#decision-flow) still catch *mechanical* drift on every regen;
+   this surface is for *judgment* calls (threat-model framing, credit-line shape, CWE choice) before the push fires.
 
    **Confirmation syntax** for the merged proposal:
 
@@ -423,12 +398,9 @@ authoritative and the empty body field is just sync lag.
   allocation URL is fine; actually allocating is a human step
   anyway.
 - **Gmail drafts are created by the orchestrator**, only after user
-  confirmation, and only from the orchestrator's main context. This
-  keeps the drafts queue linear and auditable.
+  confirmation, and only from the orchestrator's main context.
 - **Confidentiality still applies.** Subagents are bound by the
-  same rule: no `<tracker>` content may leak into any
-  public surface. This is a no-op for read-only subagents but worth
-  stating.
+  same rule: no `<tracker>` content may leak into any public surface.
 - **Link-form self-check still applies** to the orchestrator's
   merged output — every `#NNN` must be rendered as a clickable link
   per Golden rule 2.
@@ -446,9 +418,7 @@ authoritative and the empty body field is just sync lag.
 
 ### When bulk mode is **not** appropriate
 
-- The user asked for a single issue (`sync #216`). Run the normal
-  flow in the main agent — spawning one subagent for one issue is
-  pure overhead.
+- The user asked for a single issue (`sync #216`). Run the normal flow in the main agent.
 - The user wants to *drive* the sync interactively ("walk me
   through #216, I want to review each signal as we go"). Bulk mode
   collapses the per-issue detail; use single-issue mode instead.

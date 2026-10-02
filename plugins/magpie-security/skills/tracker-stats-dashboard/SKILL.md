@@ -16,9 +16,9 @@ when_to_use: |
   path is stale (older than ~24 h) and the user is reviewing tracker
   health. Read-only — the skill never modifies any tracker state.
 capability: capability:stats
-surface_hash: sha256:114e9edce736c86b
+surface_hash: sha256:c8643a3c02bf3d73
 license: Apache-2.0
-measured_tokens: 3820
+measured_tokens: 3546
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -85,18 +85,12 @@ is in. `/magpie-setup verify` is the full diagnostic.
 
 <!-- END MAGPIE PREFLIGHT -->
 
-Read-only skill that renders a self-contained HTML page summarising
-the state of `<tracker>` over time. The skill wraps the
+Renders a self-contained HTML page summarising the state of `<tracker>` over time.
+It wraps the
 [`tools/security-tracker-stats-dashboard/`](../../../../tools/security-tracker-stats-dashboard/README.md)
-runtime tool — both the slash-command path (this skill) and the
-script path (`run.sh`) run the same fetch + render pipeline; the
-skill adds invocation niceties (resolving cache paths, surfacing the
-output URL, proposing a stale-cache refresh) but never mutates
-anything.
+tool: this skill and the script path (`run.sh`) run the same fetch + render pipeline, and the skill adds cache-path resolution, the output URL and the stale-cache refresh proposal.
 
-The skill is **read-only on GitHub** — it does not create or modify
-issues, comments, labels, or PRs. It only fetches data via `gh` and
-renders an HTML file.
+The skill is **read-only on GitHub** — it only fetches data via `gh` and renders an HTML file.
 
 ---
 
@@ -112,44 +106,15 @@ for the contract — what overrides may contain, hard
 rules, the reconciliation flow on framework upgrade,
 upstreaming guidance.
 
-Configuration for the *renderer* (bucket granularity, milestones,
-categories, scope labels, triage keywords, …) lives in a separate
-YAML file the adopter places at
-`.apache-magpie-overrides/security-tracker-stats.yaml` (path is
-adopter-configurable via `tracker_stats_config:` in
+*Renderer* configuration (bucket granularity, milestones, categories, scope labels, triage keywords, …) lives in a separate YAML file at
+`.apache-magpie-overrides/security-tracker-stats.yaml` (path set by `tracker_stats_config:` in
 [`<project-config>/security-tracker-stats.md`](../../../magpie-setup/templates/security-tracker-stats.md)).
-The agentic override file above is reserved for *behavioural*
-overrides of this skill (when to propose a refresh, where to write
-the HTML, etc.); renderer knobs go in the YAML config.
+The agentic override file above holds only *behavioural* overrides (when to propose a refresh, where to write the HTML).
 
 **Hard rule**: agents NEVER modify the snapshot under
 `<adopter-repo>/.apache-magpie/`. Local modifications
 go in the override file. Framework changes go via PR
 to `apache/magpie`.
-
----
-
-## Snapshot drift
-
-Also at the top of every run, this skill compares the
-gitignored `.apache-magpie.local.lock` (per-machine
-fetch) against the committed `.apache-magpie.lock`
-(the project pin). On mismatch the skill surfaces the
-gap and proposes
-[`setup upgrade`](../../../magpie-setup/skills/setup/upgrade.md).
-The proposal is non-blocking — the user may defer if
-they want to run with the local snapshot for now. See
-[`docs/setup/install-recipes.md` § Subsequent runs and drift detection](../../../../docs/quick-start/other-install-methods.md#subsequent-runs-and-drift-detection)
-for the full flow.
-
-Drift severity:
-
-- **method or URL differ** -> ✗ full re-install needed.
-- **ref differs** (project bumped tag, or `git-branch`
-  local is behind upstream tip) -> ⚠ sync needed.
-- **`svn-zip` SHA-512 mismatches the committed
-  anchor** -> ✗ security-flagged; investigate before
-  upgrading.
 
 ---
 
@@ -179,9 +144,7 @@ The skill accepts up to three optional arguments:
 | `clear-cache` | delete the fetch cache before fetching |
 | `since:YYYY-MM` / `since:YYYY-Qn` | override the start bucket |
 
-If the adopter passes nothing, surface the resolved output path and
-cache state up front so they can interrupt before a 5-10 minute
-fetch.
+If the adopter passes nothing, surface the resolved output path and cache state up front so they can interrupt before a 5-10 minute fetch.
 
 ---
 
@@ -197,8 +160,11 @@ fetch.
    `default-config.yaml`.
 
 2. **Check cache freshness.** Inspect
-   `${TRACKER_STATS_CACHE:-/tmp/tracker-stats-cache}/issues.json`
-   mtime. If older than 24 h, propose a fresh fetch; if missing or
+   `<cache>/issues.json` mtime, where `<cache>` is the
+   `tracker_stats_cache` value from the step 1 config (else
+   `${TRACKER_STATS_CACHE:-/tmp/tracker-stats-cache}`, the fetch scripts' default).
+   Step 3 passes the same `<cache>` so the check and the fetch agree.
+   If older than 24 h, propose a fresh fetch; if missing or
    the user passed `clear-cache`, do a fresh fetch unconditionally.
 
 3. **Run the orchestrator.** Substitute placeholders and invoke:
@@ -207,6 +173,7 @@ fetch.
    TRACKER_STATS_REPO=<tracker> \
    TRACKER_STATS_UPSTREAM_REPO=<upstream> \
    TRACKER_STATS_CONFIG=<adopter-repo>/.apache-magpie-overrides/security-tracker-stats.yaml \
+   TRACKER_STATS_CACHE=<cache> \
    bash <framework>/tools/security-tracker-stats-dashboard/run.sh <output-path>
    ```
 
@@ -221,25 +188,21 @@ fetch.
    this to stdout — pass it through verbatim and add the clickable
    `file://<output-path>` line at the end.
 
-   The final bucket is always partial, so its counts are not
-   comparable with the complete buckets before it. Quote the
-   `Current-bucket projection` block as projections — never present a
-   projected number as an observed count, and keep the elapsed
-   percentage attached. Report the intake lines (`opened`,
-   `reported`) and the untriaged-backlog band; the rest of the block
-   is there for the charts and only needs quoting when the user asks
-   about that series. When the block says *skipped*, say the
-   projection was suppressed and why (too early in the bucket, a
-   single-bucket axis, or disabled) rather than silently omitting it.
+   The final bucket is always partial, so its counts are not comparable with the complete buckets before it.
+   Quote the `Current-bucket projection` block as projections — never present a projected number as an observed count, and keep the elapsed percentage attached.
+   Report the intake lines (`opened`, `reported`) and the untriaged-backlog band; quote the rest only when the user asks about that series.
+   When the block says *skipped*, say the projection was suppressed and why (too early in the bucket, a single-bucket axis, or disabled) rather than silently omitting it.
 
 The full pipeline:
 
 1. `fetch_issues.py` — `gh issue list --state all --limit 1000` ->
-   `<cache>/issues.json`.
+   `<cache>/issues.json`, `body` and `closedByPullRequestsReferences` included.
+   At 1000 issues it warns that the list hit the cap and every count is a floor.
 2. `fetch_roster.py` — `gh api repos/<tracker>/collaborators` ->
    `<cache>/roster.txt`.
-3. `fetch_bodies.py` — per-issue `body` +
-   `closedByPullRequestsReferences` -> `<cache>/issue_extra.json`.
+3. `fetch_bodies.py` — copies `body` +
+   `closedByPullRequestsReferences` out of `issues.json` into `<cache>/issue_extra.json`;
+   a per-issue `gh issue view` runs only for an issue whose list entry lacks them.
 4. `fetch_events.py` — per-issue label-history events ->
    `<cache>/events/<N>.json`.
 5. `fetch_prs.py` — per-PR `createdAt` / `mergedAt` / `state` from
@@ -248,9 +211,7 @@ The full pipeline:
 6. `render.py` — reads cache + config, writes HTML to
    `$TRACKER_STATS_OUT`.
 
-Each fetch script resumes from cache, so re-running after a partial
-failure (rate limit, transient HTTP error) only re-fetches what is
-missing.
+Each fetch script resumes from cache, so a re-run after a partial failure (rate limit, transient HTTP error) re-fetches only what is missing.
 
 ---
 
@@ -262,7 +223,7 @@ for the schema with inline documentation, and
 [`tools/security-tracker-stats-dashboard/README.md`](../../../../tools/security-tracker-stats-dashboard/README.md)
 for the load order, predicate keys, and snapshot replay semantics.
 
-The most-overridden knobs by adopters tend to be:
+The knobs adopters override most:
 
 - **`buckets:`** — monthly vs. quarterly. Smaller tracker repos
   (<50 issues / year) read better at quarterly granularity.
@@ -274,9 +235,8 @@ The most-overridden knobs by adopters tend to be:
   [`<project-config>/project.md`](../../../magpie-setup/templates/project.md)
   (and the matching rows of
   [`<project-config>/scope-labels.md`](../../../magpie-setup/templates/scope-labels.md)).
-  The framework default is `[<scope-a>, <scope-b>, <scope-c>]` —
-  adopters re-state this list in their overlay to
-  match their own scope set.
+  The framework default is `[<scope-a>, <scope-b>, <scope-c>]`;
+  adopters re-state the list in their overlay.
 - **`categories:`** — the lifecycle-band classification rules.
   Defaults match the framework's reference implementation
   byte-for-byte; adopters with different label conventions
@@ -302,28 +262,20 @@ The most-overridden knobs by adopters tend to be:
 
 ## Hard rules
 
-**Golden rule 1 — read only, never write.** The skill must not
-post comments, add labels, close, edit, or otherwise mutate any
-tracker, PR, or upstream resource. If the user asks for stats and
-also wants an action, decline the mutation.
+**Golden rule 1 — read only, never write.**
+Never post comments, add labels, close, edit, or otherwise mutate any tracker, PR, or upstream resource.
+If the user asks for stats and an action, decline the action.
 
-**Golden rule 2 — proposal-before-fetch on stale cache.** Before
-running a fresh full fetch (which costs ~5-10 minutes of `gh` API
-calls), surface the proposal and wait for explicit user
-confirmation. Incremental re-renders against a warm cache (~30
-seconds) can run without a prompt.
+**Golden rule 2 — proposal-before-fetch on stale cache.**
+Before a fresh full fetch (~5-10 minutes of `gh` API calls), surface the proposal and wait for explicit confirmation.
+Incremental re-renders against a warm cache (~30 seconds) run without a prompt.
 
-**Golden rule 3 — never edit the snapshot.** As with every other
-skill, agentic overrides go in
-`.apache-magpie-overrides/security-tracker-stats-dashboard.md`; renderer
-overrides go in the project's tracker-stats YAML config file. The
-gitignored snapshot under `.apache-magpie/` is never modified.
+**Golden rule 3 — never edit the snapshot.**
+Overrides go where [Adopter overrides](#adopter-overrides) puts them; the gitignored `.apache-magpie/` snapshot is never modified.
 
-**Golden rule 4 — surface the config path on every run.** The
-dashboard's output depends entirely on which YAML file the renderer
-loaded. Print the resolved config path (or "default") as the first
-line of skill output so the user can tell at a glance whether their
-overlay is being picked up.
+**Golden rule 4 — surface the config path on every run.**
+The output depends entirely on which YAML file the renderer loaded:
+print the resolved config path (or "default") as the first line of output, so the user sees whether their overlay was picked up.
 
 ---
 

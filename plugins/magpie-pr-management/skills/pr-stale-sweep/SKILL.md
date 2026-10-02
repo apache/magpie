@@ -20,9 +20,9 @@ when_to_use: |
   `pr-management-triage` or `pr-management-code-review`. Skip when the queue
   has its own automated stale bot the maintainer manages instead.
 capability: capability:triage
-surface_hash: sha256:2c5b8030569b63e6
+surface_hash: sha256:1bef63d50f6dca29
 license: Apache-2.0
-measured_tokens: 4940
+measured_tokens: 4932
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -134,7 +134,7 @@ absolute rule in
 
 ---
 
-Adopter overrides, the snapshot-drift check, and the prerequisites (GitHub access, `<project-config>/project.md`, `<project-config>/pr-management-config.md`) are documented in [`adopter-config.md`](adopter-config.md) — consult them at the top of every run.
+Adopter overrides and the prerequisites (GitHub access, `<project-config>/project.md`, `<project-config>/pr-management-config.md`) are documented in [`adopter-config.md`](adopter-config.md) — consult them at the top of every run.
 
 ---
 

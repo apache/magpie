@@ -198,14 +198,13 @@ check that presumes an answer will be argued with rather than fixed.
 6. Every check has unit tests covering the firing case, the clean case,
    and the skip case.
 7. Running the validator on the live tree reproduces the known
-   repo-health family discrepancy, which is three-way rather than
-   two-way: `triage-mode.md` claims five skills,
-   `repo-health-family.md` claims six, and seven carry
-   `family: repo-health` in frontmatter. The seventh,
-   `audit-finding-fix`, appears in neither prose list — plausibly
-   because it fixes findings rather than producing them. The check
-   must report all three numbers and name the disputed skill, not
-   pick a winner.
+   repo-health family discrepancy. When this spec was written it was
+   three-way (`triage-mode.md` claimed five skills,
+   `repo-health-family.md` six); both specs now claim six, while seven
+   `SKILL.md` files carry `family: repo-health` in frontmatter. The
+   seventh, `audit-finding-fix`, appears in neither prose list, plausibly
+   because it fixes findings rather than producing them. The check must
+   report both numbers and name the disputed skill, not pick a winner.
 
 ## Validation
 
@@ -220,6 +219,11 @@ test -f tools/spec-loop/PROMPT_update.md
 
 - **Not yet built.** Both prompt edits and both validator checks are
   proposed here; nothing has shipped.
+  Re-verified at the 2026-09-28 sync: `tools/spec-validator` defines no
+  `validate_gap_predicates` or `validate_cross_spec_counts`, neither
+  `PROMPT_plan.md` nor `PROMPT_update.md` states the evidence rule, and the
+  only `gap-closes-when` comments in the spec tree are the examples in
+  this file.
   <!-- gap-closes-when: symbol-called:tools/spec-validator::validate_gap_predicates -->
 - **The existing bullets need a one-off backfill.** Nine bullets across
   eight specs describe shipped capabilities, and eleven more are
@@ -231,7 +235,9 @@ test -f tools/spec-loop/PROMPT_update.md
   acceptance criterion 7 requires it to fire on a violation that exists
   in the tree today, so landing it before the repo-health counts are
   reconciled turns main red for everyone. Reconcile first, then land
-  the HARD check.
+  the HARD check. The spec-to-spec half of the disagreement has since
+  closed (both specs say six); the prose-to-frontmatter half, six against
+  seven, is still open.
 - **A predicate can drift from its bullet.** Nothing binds the comment
   to the prose above it, so an edit that rewrites a bullet without
   updating its predicate leaves a check that passes while describing

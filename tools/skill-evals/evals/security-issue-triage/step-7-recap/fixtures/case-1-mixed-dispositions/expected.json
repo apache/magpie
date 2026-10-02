@@ -3,8 +3,9 @@
     "VALID": 1,
     "DEFENSE_IN_DEPTH": 0,
     "INFO_ONLY": 1,
-    "NOT_CVE_WORTHY": 1,
-    "PROBABLE_DUP": 1
+    "INVALID": 1,
+    "PROBABLE_DUP": 1,
+    "FIX_ALREADY_PUBLIC": 0
   },
   "has_trackers": true,
   "has_next_steps": true,

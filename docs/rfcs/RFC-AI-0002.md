@@ -201,7 +201,8 @@ The reference implementation's project-scope `.claude/settings.json`, annotated
       "Bash(gh issue create *)", "Bash(gh issue edit *)",
       "Bash(gh issue close *)", "Bash(gh issue comment *)",
       "Bash(gh release create *)",
-      "Bash(gh api *)"                           // GET and POST look the same to a prefix rule, so the whole thing asks; vetted-ops carries the bounded reads
+      "Bash(gh api -X*)", "Bash(gh api * -X*)",  // gh api asks only in its write shapes: an explicit method,
+      "Bash(gh api -f*)", "Bash(gh api * -f*)"   // request fields or a body (full list in secure-agent-setup.md); a plain GET does not ask
     ]
   }
 }
@@ -221,11 +222,14 @@ more specific read-only `allow` rule would exempt `gh issue view`. It does not:
 Claude Code evaluates deny, then ask, then allow, and a matching ask rule
 prompts even when a more specific allow rule also matches, so the wildcard
 prompted for `gh issue view` as loudly as for `gh issue close`. The reference
-now lists the write subcommands one by one, but the shape of the problem
-survives wherever a prefix rule cannot tell a read from a write — `gh api`
-above all, where a GET and a POST look identical, so the whole command stays on
-`ask` and every read through it prompts. On a sweep across thirty trackers that
-is a hundred prompts, and the hundredth gets the attention the first deserved.
+now lists the write subcommands one by one, and `gh api` asks only in its write
+shapes: a call sends something other than a GET only when it names a method,
+sends request fields or sends a body, and each of those is a flag a pattern can
+match. The shape of the problem survives wherever a pattern genuinely cannot
+tell a read from a write — GraphQL above all, where a query and a mutation are
+both `gh api graphql -f query=…`, so every GraphQL read still prompts. On a
+sweep across thirty trackers that is a hundred prompts, and the hundredth gets
+the attention the first deserved.
 Prompt fatigue is not a usability complaint here; it is the mechanism by which
 Layer 3 stops working — which is why
 [`PRINCIPLES.md` §1](../../PRINCIPLES.md#1-avoiding-prompt-fatigue) ranks avoiding it

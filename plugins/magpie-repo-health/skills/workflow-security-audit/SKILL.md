@@ -25,7 +25,7 @@ argument-hint: "[--repo owner/name | --repo-file repos.txt | --owner org]"
 capability: capability:triage
 surface_hash: sha256:e50eafff464d131a
 license: Apache-2.0
-measured_tokens: 3175
+measured_tokens: 3554
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -178,29 +178,47 @@ adopter routinely audits alongside their primary upstream.
 
 For one repository (e.g. `<upstream>`):
 
+`<scratch>` is the session scratch directory as an absolute path (fall back to `$TMPDIR`); `gh` may run outside the sandbox, where `$TMPDIR` differs, so pass it absolute paths.
+
 ```bash
 # Clone or use an existing local checkout:
-gh repo clone <upstream> /tmp/workflow-security-audit/<repo> -- --depth=1
+gh repo clone <upstream> <scratch>/workflow-security-audit/<repo> -- --depth=1
 # Then run zizmor against the checkout:
-zizmor /tmp/workflow-security-audit/<repo>/
+zizmor <scratch>/workflow-security-audit/<repo>/
 ```
 
 Or directly via the GitHub API (no clone needed for public repos):
 
 ```bash
-zizmor --gh-token "$(gh auth token)" github:<upstream>
+zizmor github:<upstream>
 ```
 
-For several repositories, run the above per repo and merge the output.
+Remote inputs (`github:…`) and zizmor's online audits need a GitHub token, which zizmor reads from `GH_TOKEN`, `GITHUB_TOKEN` or `ZIZMOR_GITHUB_TOKEN`; without one it runs offline and cannot fetch a remote repository.
+Do not pass `--gh-token "$(gh auth token)"`: under the secure setup a `gh` inside `$(…)` stays sandboxed, cannot read its credentials, and fails.
+If no token variable is set in the session, use the clone path above (`gh repo clone` is a plain command), or ask the user to run the remote scan from their own terminal.
 
-For a whole GitHub org, iterate over repos:
+For several repositories, and for a whole GitHub org, pass the repositories to one `zizmor` run —
+zizmor audits multiple inputs in the same invocation ([usage docs](https://docs.zizmor.sh/usage/)).
+For an org, list the repositories first with a plain call and keep the list:
 
 ```bash
-gh api /orgs/<org>/repos --paginate --jq '.[].full_name' \
-  | while read repo; do
-      zizmor --gh-token "$(gh auth token)" github:"$repo" 2>/dev/null
-    done
+gh api /orgs/<org>/repos --paginate --jq '.[].full_name'
 ```
+
+Then scan them in batches of up to 50 repositories per invocation (keeps the argument list and the blast radius of one failed run small):
+
+```bash
+zizmor --format json \
+  github:<owner>/<repo-1> github:<owner>/<repo-2> … github:<owner>/<repo-50>
+```
+
+Each finding in the JSON output names its repository in its location `key` (`"Remote": {"owner": …, "repo": …}`), so the report still groups findings per repository.
+
+zizmor exits 11–14 when it reports findings, so those codes are expected.
+Any other non-zero exit means the batch did **not** complete, and the exit code does not say which repository caused it:
+re-run that batch one repository per invocation to find the failing one(s).
+A repository whose own run exits outside 0 and 11–14, or that the batch's stderr names in a collection warning, was **not** scanned:
+list it in the report as a scan failure with its error output, never as a clean repository.
 
 **Enabled rule classes.** By default all four zizmor audits are active.
 Restrict to a subset (from the adopter config or the user's request) in
@@ -211,7 +229,7 @@ severity, excessive-permissions and unpinned-actions are medium:
 
 ```bash
 # High-severity audits only (injection + fork-secrets):
-zizmor --gh-token "$(gh auth token)" --min-severity high github:<owner>/<repo>
+zizmor --min-severity high github:<owner>/<repo>
 ```
 
 Audit-level narrowing — disable the audits the adopter config leaves
@@ -228,7 +246,7 @@ rules:
 ```
 
 ```bash
-zizmor --gh-token "$(gh auth token)" --config zizmor-subset.yml github:<owner>/<repo>
+zizmor --config zizmor-subset.yml github:<owner>/<repo>
 ```
 
 The mapping from adopter-config rule names to zizmor audit IDs:

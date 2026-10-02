@@ -24,9 +24,9 @@ argument-hint: "[--planning-issue <url>]"
 capability:
   - capability:resolve
   - capability:triage
-surface_hash: sha256:7cb626368f367e76
+surface_hash: sha256:1665af8aae9c2b58
 license: Apache-2.0
-measured_tokens: 4523
+measured_tokens: 4447
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -156,17 +156,6 @@ override file. Framework changes go via PR to
 
 ---
 
-## Snapshot drift
-
-At the top of every run, this skill compares the gitignored
-`.apache-magpie.local.lock` (per-machine fetch) against the
-committed `.apache-magpie.lock` (the project pin). On mismatch
-the skill surfaces the gap and proposes
-[`setup upgrade`](../../../magpie-setup/skills/setup/upgrade.md). The proposal is
-non-blocking.
-
----
-
 ## Prerequisites
 
 - **`<project-config>/release-management-config.md` readable** —
@@ -202,7 +191,7 @@ non-blocking.
    chosen backend is derivable from the config (for `svnpubsub`, the
    default is `https://archive.apache.org/dist/<project>/`; other
    backends resolve from their backend-specific archive key).
-5. **Drift check** — see *Snapshot drift* above.
+5. **Drift check** — the generated pre-flight block reports snapshot drift.
 6. **Override consultation** — see *Adopter overrides* above.
 
 If any check fails, stop and surface what is missing.

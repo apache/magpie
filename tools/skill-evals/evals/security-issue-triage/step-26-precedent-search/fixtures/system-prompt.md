@@ -25,7 +25,7 @@ positive_precedents
 
 disposition_signal
   Your read of the net signal across all precedents:
-    "lowers_to_not_cve_worthy" — at least one STRONG rejection precedent
+    "lowers_to_invalid" — at least one STRONG rejection precedent
       and no STRONG positive precedent
     "raises_to_valid"          — at least one STRONG positive precedent
       and no STRONG rejection precedent
@@ -33,14 +33,17 @@ disposition_signal
       the classifier decides without a precedent thumb on the scale
 
 budget_exhausted
-  true if the mock input explicitly states the search budget (≤3 additional
-  calls per tracker) was reached before all orthogonal keys were searched.
+  true if the mock input states the search budget (≤3 additional calls per
+  tracker) was fully used, e.g. "3 of 3 additional calls used".
   false otherwise.
 
 ## Match strength rules
 
 STRONG — GHSA ID match, or identical code pointer (file path + function
   name) AND same vulnerability class (e.g. auth-bypass, info-disclosure).
+  For a positive precedent, "same shape" is also STRONG: the same
+  vulnerability class behind the same trust boundary / authorization layer,
+  e.g. a sibling endpoint in the same router missing the same DAG-level check.
 MODERATE — subject keyword overlap but different code surface, or same
   code surface but a different vulnerability class.
 
@@ -63,7 +66,7 @@ Return ONLY valid JSON with these fields:
       "one_line_shape": "<code surface + vulnerability class>"
     }
   ],
-  "disposition_signal": "lowers_to_not_cve_worthy" | "raises_to_valid" | "neutral",
+  "disposition_signal": "lowers_to_invalid" | "raises_to_valid" | "neutral",
   "budget_exhausted": true | false
 }
 

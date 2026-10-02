@@ -17,18 +17,21 @@ They must NOT contain any of:
   as a standalone word (e.g. "security-fix" or "security fix" is forbidden;
   "improves asset security model" is also forbidden because it signals a
   security motivation)
+- The name of a vulnerability class, for example `SSRF`, `XSS`, `CSRF`,
+  `SQL injection`, `path traversal`, `remote code execution`, `RCE`,
+  `privilege escalation`, `auth bypass`
 - Any reporter name tied to a security finding
 - The word `sensitive` in a context that points at an unmasked-credential bug
 - Explicit exploitation detail spelled out in the title — a working payload,
   exact reproduction steps, or an exploit primitive
 
-Naming the bug class or affected component in neutral terms (for example
-`SSRF`, `deserialization`, `path traversal`, `RCE`) is **allowed** — it is
-ordinary bug-fix language, as the good examples below show. Only the explicit
-framing words above (plus reporter names, CVE ids, and spelled-out exploit
-detail) are violations. When listing `forbidden_terms_found`, include only
-those framing terms that actually appear — never neutral technical
-descriptors of the bug class.
+Naming the affected component and describing the behaviour change in neutral
+terms (for example "restrict the connection test endpoint to the configured
+host allowlist", "stop deserializing XCom values with pickle") is **allowed**.
+Naming the vulnerability class is not: a class name such as `SSRF` or
+`path traversal` in a public branch or title tells every reader the change is
+a security fix. When listing `forbidden_terms_found`, include only the terms
+above that actually appear.
 
 Tracker URLs, `<tracker>#NNN`, and bare `#NNN` references ARE allowed —
 they are public-safe identifiers. The constraint is on security framing of

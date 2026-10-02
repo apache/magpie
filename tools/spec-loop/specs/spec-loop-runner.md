@@ -55,6 +55,9 @@ and never opens a pull request.
 - `tools/spec-loop/PROMPT_update.md` — spec back-fill prompt for
   functionality that landed outside the loop.
 - `tools/spec-loop/PROMPT_consolidate.md` — plan-size reduction prompt.
+- `tools/spec-inventory/` — `spec-inventory --brief` supplies the compact
+  repository inventory appended to every prompt, and `spec-scope` maps
+  changed paths to the specs whose *Where it lives* sections name them.
 - `tools/spec-loop/AGENTS.md` — loop-specific operational context:
   repository map, validation commands, branch rules, hard limits, and
   commit rules.
@@ -90,6 +93,12 @@ and never opens a pull request.
   incremental-scope guidance, then amends or creates a marker commit after
   the agent finishes. Prompts must not instruct the agent to edit the
   marker.
+- **Deterministic scope mapping.** When `.last-sync` names a previous sync,
+  the runner lists the paths changed since it
+  (`git diff --name-only <prev>..<BASE_HEAD> -- .claude/skills tools docs/modes.md`),
+  pipes them through `spec-scope`, and appends the specs it returns as
+  likely relevant. The mapping is advisory: a `spec-scope` failure is
+  silently skipped and the agent still reads the raw path list.
 - **Plan-size hysteresis.** Build mode switches to one consolidate pass
   when `IMPLEMENTATION_PLAN.md` exceeds `SPEC_LOOP_PLAN_MAX`, then builds
   even if planned work alone keeps the file over the threshold. The latch
@@ -180,5 +189,13 @@ uv run --project tools/spec-validator --group dev spec-validate
 - The non-Claude harnesses rely on external policy/config plus the OS
   sandbox for push/PR denial; only Claude has a per-invocation hard-deny
   flag in the current runner.
-- The update beat's incremental-scope mapping is path-based; it does not
-  yet map changed files to likely spec topics with a deterministic helper.
+- The deterministic scope helper this bullet used to call missing has
+  shipped: `loop.sh` pipes the incremental diff through
+  `tools/spec-inventory`'s `spec-scope`.
+- The incremental diff's pathspec (`.claude/skills tools docs/modes.md`)
+  no longer covers where skills live. `.claude/skills/magpie-<name>` entries
+  are symlinks (through `.agents/skills/`) into
+  `plugins/magpie-<family>/skills/<alias>/`, so an edit to a skill's content
+  changes nothing under `.claude/skills` and drops out of the scoped list;
+  so do `plugins/magpie-setup/templates/`, `.github/`, `projects/`, and every
+  `docs/` page other than `docs/modes.md`.

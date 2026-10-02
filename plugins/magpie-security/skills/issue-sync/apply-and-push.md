@@ -21,56 +21,70 @@ before moving on to the next item. Use:
 - **Milestone (create then assign):** run the create call from 2b, then the edit. The create call mirrors `due_on` from the matching upstream milestone when available — see the *Read the due date from upstream* rule in [`<project-config>/milestones.md`](../../../../<project-config>/milestones.md#read-the-due-date-from-upstream).
 - **Milestone (close):** `gh api -X PATCH repos/<tracker>/milestones/<N> -f state=closed`. Only when the last open tracker on that milestone just closed via Step 15 (cve.org PUBLISHED). See the condition set in [`<project-config>/milestones.md`](../../../../<project-config>/milestones.md#closing-the-milestone).
 - **Assignees:** `gh issue edit <N> --repo <tracker> --add-assignee @me` (or a named user).
-- **Description:** `gh issue edit <N> --repo <tracker> --body-file <tmpfile>` — write the
+- **Body fields (one or a few changed fields):** one call per confirmed field.
+  Write the new value to `<scratch>/field-<N>-<slug>.md` with the Write tool, then:
+
+  ```bash
+  uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-sync body-field-set <N> "<Field>" <scratch>/field-<N>-<slug>.md
+  ```
+
+  This covers every Step 2b body-field item — CWE, Severity, Affected versions,
+  Reporter credited as, Short public summary for publish, PR with the fix,
+  Remediation developer, Public advisory URL, CVE tool link, and backtick-wrapping an existing value.
+  Exit `3` means the heading is absent or duplicated: fall back to the whole-body path below for that tracker.
+  These run through vetted-ops' `vetted-op-tracker` entry point, which the secure setup lets out of the sandbox (every write still asks).
+  Without the secure setup, the same operations are `uv run --directory <framework>/tools/github-rollup github-rollup --repo <tracker> append|amend-latest|fold …` and `uv run --directory <framework>/tools/github-body-field body-field --repo <tracker> get|set …`.
+  See [`tools/vetted-ops/README.md`](../../../../tools/vetted-ops/README.md#tracker-procedures-rollup-and-body-field-writes).
+- **Description (whole body):** `gh issue edit <N> --repo <tracker> --body-file <tmpfile>` — write the
   new body to a temporary file first so nothing is lost to shell quoting.
-- **Status-rollup comment:** use the upsert recipe in
-  [`tools/github/status-rollup.md`](../../../../tools/github/status-rollup.md#upsert-recipe--append-to-an-existing-rollup-or-create-one).
-  On a tracker that already carries a rollup, this is
-  `gh api -X PATCH repos/<tracker>/issues/comments/<id> --input
-  <json>` with the old body + `\n\n---\n\n` + the new entry; on a
-  legacy tracker with no rollup yet, it is a one-off `gh issue
-  comment <N> --repo <tracker> --body-file <tmpfile>` seeded with
-  the marker + the new entry + any folded legacy entries.
-  Before PATCHing / posting, **scrub the entry body for bare-name
-  mentions** of anyone on the "Current release managers" or
-  rotation-roster lists in
-  [`AGENTS.md`](../../../../AGENTS.md), and of known security-team
-  members. Replace each bare name with the corresponding
-  ``@``-handle (or `"<Full Name> (@handle)"` when readability
-  warrants keeping the plain name too) so GitHub actually notifies
-  the person. See the "Mentioning maintainers and
-  security-team members" section of
-  [`AGENTS.md`](../../../../AGENTS.md). Concrete grep-list to check
-  against: `Jarek Potiuk`, `Jens Scheffler`, `Vincent BECK`,
-  `Shahar Epstein`, `Buğra Öztürk`, `Jedidiah Cunningham`,
-  `Rahul Vats`, `Aritra Basu`, `Pierre Jeambrun`, `Kaxil Naik`,
-  `Amogh Desai`, plus any name that appears in a `Reporter credited
+  Only for proposals that change the body's structure rather than field values:
+  adding `### Field` sections the body lacks (the *Description fields* item in
+  [`signals-to-actions.md`](signals-to-actions.md), which shows the full replacement body),
+  adding the `### Related references` audit section from the title cleanup,
+  or a field `body-field-set` refused with exit `3`.
+- **Status-rollup comment:** write the entry body (no `<details>` envelope, no marker, no ruler)
+  to `<scratch>/rollup-entry-<N>.md` with the Write tool, then:
+
+  ```bash
+  uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-sync rollup-append <N> "Sync (<short headline>)" <scratch>/rollup-entry-<N>.md
+  ```
+
+  The tool adds the envelope and ruler, and creates the rollup with its marker on a
+  legacy tracker that has none yet; the rollup body never enters context.
+  Before writing the entry file, **scrub the entry body for bare-name
+  mentions** of anyone on the release-manager and security-team rosters in
+  [`<project-config>/release-trains.md`](../../../../<project-config>/release-trains.md):
+  replace each with the ``@``-handle (or `"<Full Name> (@handle)"`) so GitHub notifies them,
+  per the "Mentioning maintainers and security-team members" section of [`AGENTS.md`](../../../../AGENTS.md).
+  Grep for every full name on those rosters (name-to-handle via
+  [`<project-config>/naming-conventions.md`](../../../../<project-config>/naming-conventions.md)
+  when it declares a mapping), plus any name in a `Reporter credited
   as` field without a confirmed external-credit decision.
 - **CVE-reviewer-comment ledger:** when this run acted on any
   reviewer comment found in
   [Step 1e](gather.md#1e-check-the-cve-record-for-reviewer-comments) —
   including comments that were pure acknowledgements and needed no
-  other change — append the ledger marker to the same rollup entry
+  other change — put the ledger marker in the same rollup entry body file
   the rest of the run's changes land in:
 
   ```markdown
   <!-- magpie: cve-review-comments-processed <CVE-ID> slug1,slug2 -->
   ```
 
-  One marker per CVE ID, slugs comma-separated with no spaces. This
-  is what makes Step 1e idempotent, so it must land **in the same
-  PATCH** as the changes it records — writing the ledger in a
-  separate later call risks a run that applies the body update and
-  then fails before ledgering it, which re-proposes the same comment
-  on the next sync. Conversely, never ledger a slug whose
-  accompanying body update was *not* confirmed: an unprocessed
-  comment recorded as processed disappears from every future run.
+  One marker per CVE ID, slugs comma-separated with no spaces.
+  It must land **in the same `rollup-append`** as the entry recording the changes,
+  so a run that fails after the body update does not re-propose the comment next time.
+  Never ledger a slug whose body update was *not* confirmed: it would vanish from every future run.
 
-- **Fold-legacy deletes:** after the rollup PATCH succeeds and
-  carries the folded entries, delete each original legacy bot
-  comment with `gh api -X DELETE
-  repos/<tracker>/issues/comments/<id>`. Never delete before the
-  PATCH lands.
+- **Fold legacy comments:** one call per confirmed legacy comment, oldest first,
+  before the pass's own `rollup-append`:
+
+  ```bash
+  uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-sync rollup-fold <N> <comment-id> "<Action>"
+  ```
+
+  The tool appends the legacy body as an entry under its original date and author,
+  and deletes the legacy comment only after the append succeeded.
 - **Release-manager hand-off comment:** pick the body template
   per the variant decision from
   [Step 5c](#step-5c--reconcile-the-release-manager-hand-off-comment) —
@@ -86,13 +100,10 @@ before moving on to the next item. Use:
   `fix released` with a review-ready record but no hand-off marker
   (see *Hand-off presence is an invariant* under **Assignees** in
   [`signals-to-actions.md`](signals-to-actions.md)). Then
-  decide POST vs PATCH by grepping the tracker's comment list for
-  the marker:
-
-  ```bash
-  existing=$(gh issue view <N> --repo <tracker> --json comments \
-    --jq '[.comments[] | select(.body | startswith("<!-- apache-magpie: release-manager-handoff v1 -->"))] | .[0].id // empty')
-  ```
+  decide POST vs PATCH by scanning the comments the
+  [Step 1a](gather.md#1a-read-the-github-issue) fetch already returned
+  for one whose body starts with
+  `<!-- apache-magpie: release-manager-handoff v1 -->` — no extra call.
 
   - **No marker found (first hand-off, or marker lost)** — POST a
     fresh comment:
@@ -101,32 +112,25 @@ before moving on to the next item. Use:
     gh issue comment <N> --repo <tracker> --body-file <tmpfile>
     ```
 
-  - **Marker found** — fetch the existing body, compare against the
-    re-rendered body for the current variant, and PATCH-edit
-    in-place only if they differ (skip the round-trip when the
-    body is byte-identical):
+  - **Marker found** — compare the existing body (from the same 1a
+    fetch) against the re-rendered body for the current variant, and
+    PATCH-edit in-place only if they differ (skip the round-trip when
+    the body is byte-identical). The REST id (not the GraphQL node id)
+    is the number after `#issuecomment-` in that comment's `url`
+    field, so no lookup call is needed:
 
     ```bash
-    # extract the REST id (not the GraphQL node id)
-    rest_id=$(gh api repos/<tracker>/issues/comments \
-      --jq '.[] | select(.node_id == "<existing>") | .id')
-    # PATCH
-    jq -n --rawfile body <tmpfile> '{body: $body}' | \
-      gh api -X PATCH repos/<tracker>/issues/comments/${rest_id} \
-        --input - --jq '{id, updated_at}'
+    gh api -X PATCH repos/<tracker>/issues/comments/<id> \
+      -F body=@<tmpfile> --jq '{id, updated_at}'
     ```
 
-  The PATCH path is what powers the "OAuth-pushed today, manual-paste
-  next sync (because the Vulnogram token expired)" recovery: the existing
-  comment's body flips between variants in place, keeping a single
-  comment as the canonical RM-facing surface and avoiding the
-  "fresh duplicate buries the timeline" failure mode (same rationale
-  as the rollup-comment PATCH-don't-post rule).
+  The PATCH flips the existing comment between variants in place (for example after the Vulnogram token expired),
+  so the RM keeps a single comment instead of a duplicate burying the timeline.
 
   Capture the comment URL (POST or PATCH) for the Step 6 recap.
   Before posting / PATCHing, **scrub the resolved body** for the
   same bare-name → `@`-handle replacements documented for the rollup
-  PATCH above, so the `RM_HANDLE` substitution actually notifies
+  entry above, so the `RM_HANDLE` substitution actually notifies
   the release manager.
 - **Publication-ready notification comment:** same recipe as the
   hand-off comment above (same variant decision, same POST-vs-PATCH
@@ -149,12 +153,8 @@ before moving on to the next item. Use:
   `archiveProjectV2Item` and (b) closed the milestone if the
   just-closed tracker was the last open sibling. **The comment is
   purely informational** — a timeline-event marker confirming
-  what sync did, **not** a ping for residual manual actions. The
-  RM has zero remaining actions post-Send-Email; asking them to
-  do what sync already did creates the same confusion class the
-  state-gated hand-off was designed to eliminate (worked example:
-  RM feedback on the original wrap-up template — *"Same here for
-  step 3 - not idiot safe (I fail to understand)"*).
+  what sync did, **not** a ping for residual manual actions:
+  the RM has none left after sending the advisory email.
 
   Placeholders to substitute: `CVE_ID`, `RM_HANDLE` (from the
   release-manager identity resolved in Step 1f / `release-trains.md`),
@@ -169,26 +169,17 @@ before moving on to the next item. Use:
   milestone), substitute with a one-line *informational* note —
   not an ask:
 
-  ```bash
-  ms=$(gh issue view <N> --repo <tracker> --json milestone \
-    --jq '.milestone.number // empty')
-
-  if [ -n "$ms" ]; then
-    # The just-closed tracker is no longer in the open list, so
-    # `open` here counts SIBLINGS still open on the same milestone.
-    open=$(gh issue list --repo <tracker> --milestone "$ms" \
-      --state open --limit 1000 --json number --jq 'length')
-    if [ "$open" -eq 0 ]; then
-      ms_url=$(gh api repos/<tracker>/milestones/$ms --jq '.html_url')
-      ms_title=$(gh api repos/<tracker>/milestones/$ms --jq '.title')
-      bullet="Milestone [\`$ms_title\`]($ms_url) closed automatically (every tracker on it is now done)."
-    else
-      bullet=""
-    fi
-  else
-    bullet=""
-  fi
+  ```text
+  Milestone [`<ms-title>`](https://github.com/<tracker>/milestone/<ms-number>) closed automatically (every tracker on it is now done).
   ```
+
+  This needs no extra call.
+  Whether the milestone-close PATCH ran in this apply is already known
+  (it fired only after its own open-sibling count came back `0`), and
+  `<ms-number>` / `<ms-title>` are the tracker's milestone from the
+  [Step 1a](gather.md#1a-read-the-github-issue) fetch.
+  When the close did not fire, or the tracker has no milestone,
+  substitute an empty string.
 
   Substitute into the template, write the result to a temp file,
   then POST a fresh comment — there is no PATCH recovery for this
@@ -199,7 +190,7 @@ before moving on to the next item. Use:
   entirely.
 
   Before posting, apply the same bare-name → `@handle` scrub used
-  for the rollup PATCH and hand-off comment, so the `RM_HANDLE`
+  for the rollup entry and hand-off comment, so the `RM_HANDLE`
   substitution actually notifies the release manager.
 - **Vulnogram state transition (`REVIEW → PUBLIC`):** invoke the
   [`vulnogram-api-record-publish`](../../../../tools/cve-tool-vulnogram/oauth-api/README.md)
@@ -246,25 +237,15 @@ before moving on to the next item. Use:
   under-extraction before the body-field update applies; accept a
   free-form override at re-confirmation if the heuristic misfires.
 
-  **Why ahead of Step 5's regen.** The regeneration step reads the
-  body fields as source of truth; updating *Short public summary
-  for publish* before regen means the re-pushed JSON carries the
-  published summary verbatim (lock-step). Updating after regen
-  drifts the pushed JSON from the body until the next sync.
+  **Why ahead of Step 5's regen.** The regen reads the body, so updating the summary first puts the published text verbatim into the re-pushed JSON.
 - **Close / reopen:** `gh issue close <N> --repo <tracker> --reason completed` (or `not planned`).
   When this is a GitHub-backed tracker that uses a project board,
   **always** follow a successful close with the **archive-from-board**
   mutation per the *Archive a board item* recipe in
   [`tools/github/project-board.md`](../../../../tools/github/project-board.md#archive-a-board-item--terminal-state-cleanup).
-  Closed issues leave the active board view automatically, but an
-  explicit archive (`archiveProjectV2Item`) is what moves the item
-  to the board's *"Archived items"* view permanently — without it,
-  reopening a tracker resurfaces it on whatever column its `Status`
-  field still points at, and historical board sweeps still see the
-  item. Apply the archive for every close, regardless of the close
-  reason (terminal-Step-15 or non-terminal disposition like
-  `invalid` / `duplicate` / `wontfix`); the
-  mutation is idempotent and a no-op on already-archived items.
+  Without the explicit `archiveProjectV2Item`, a reopened tracker resurfaces on its old column and board sweeps still see it.
+  Archive on every close, whatever the reason (terminal Step 15, or `invalid` / `duplicate` / `wontfix`);
+  the mutation is idempotent.
 - **Project-board column:** apply via the `updateProjectV2ItemFieldValue`
   GraphQL recipe in
   [`tools/github/project-board.md`](../../../../tools/github/project-board.md#write--move-a-tracker-to-a-different-column).
@@ -339,27 +320,16 @@ running the
 [`generate-cve-json`](../../../../tools/cve-tool-vulnogram/generate-cve-json/SKILL.md) script with `--attach`
 to refresh the CVE JSON attachment on the tracking issue. The Vulnogram-side
 record mechanics (DRAFT / REVIEW / PUBLIC state machine, `#source` paste flow) live
-in [`tools/cve-tool-vulnogram/record.md`](../../../../tools/cve-tool-vulnogram/record.md). The attachment
-lives **embedded in the issue body** (at the very end, right after the
-*CVE tool link* field), not as a separate comment — this way it stays
-above every status-change comment in the timeline and reads as part of
-the tracker itself. Re-running the generator is cheap and idempotent: the
+in [`tools/cve-tool-vulnogram/record.md`](../../../../tools/cve-tool-vulnogram/record.md).
+The attachment is **embedded in the issue body** (at the very end, right after the *CVE tool link* field), not a separate comment.
+Re-running the generator is cheap and idempotent: the
 script brackets its block with a pair of HTML-comment markers
 (``<!-- generate-cve-json: cve=CVE-YYYY-NNNN+ version=v1 -->`` …
 ``<!-- generate-cve-json:end cve=CVE-YYYY-NNNN+ version=v1 -->``) and on
 every run **replaces the block between them in place**, leaving the rest
 of the body untouched. If there is no previous attachment block yet, the
 script appends a fresh one after the *CVE tool link* field.
-
-Keeping the attachment in lock-step with the tracking issue body has two
-payoffs:
-
-1. The release manager can always grab the most-current JSON straight from
-   the issue at advisory-publication time, without having to remember to
-   regenerate, and without scrolling through the comment timeline.
-2. The `#source` paste URL is visible on every sync, so if a reviewer
-   notices the issue body drifting from the Vulnogram record they can
-   jump straight to the paste-ready JSON.
+The release manager can then always take the current JSON, and its `#source` paste URL, straight from the issue.
 
 ### When to skip
 
@@ -399,25 +369,9 @@ regenerated JSON. The generator reads the field directly via
 **No `--remediation-developer` CLI flag is needed in the normal
 flow.**
 
-The PR-author resolution that used to happen at regeneration time now
-happens earlier: the table in Step 1d (the row that fires when
-*"PR with the fix"* is set and *"Remediation developer"* is missing
-the PR author) appends the resolved name to the body field. By the
-time Step 5 runs, the field already contains the right names, the
-generator picks them up, and the embedded JSON carries the credit.
-
-This earlier hand-off matters for two reasons:
-
-1. **The credit survives manual edits.** Co-authors added by the
-   triager, name spelling corrections, or "Anonymous" overrides all
-   live in the body field where they are visible at a glance and
-   diffable in the issue history. The previous CLI-flag flow lost
-   any such edit on the next regen.
-2. **The credit survives lost overrides.** Re-running
-   `generate-cve-json --attach` after a long gap no longer needs the
-   triager to remember which `--remediation-developer` flag was
-   passed last time — the field is in the body and survives any
-   number of regen cycles.
+The Step 1d row that fires when *"PR with the fix"* is set and *"Remediation developer"* lacks the PR author
+appends the resolved name to the body field, so by Step 5 the generator already has it.
+Because the credit lives in the body, manual edits (co-authors, spelling fixes, "Anonymous" overrides) survive every regen.
 
 **Pitfall caught on
 [<tracker>#241](https://github.com/<tracker>/issues/241)** — the
@@ -483,16 +437,10 @@ instead of leaving the paste step to the release manager. The push
 is mechanical and follows from the same JSON the user just approved
 as part of the body update.
 
-**Push trigger — every regen, not only `fix released`.** The push
-above fires on **every** run that regenerates the CVE JSON (any
-`generate-cve-json` / Step 5a `--attach`), not only at the
-`pr merged → fix released` transition. Whenever a confirmed change
-causes a regen, the regenerated JSON is pushed to the record in the
-**same apply pass**, so the live record never drifts from the tracker
-body. The operator's confirmation of the underlying change that
-triggered the regen **is** the authorisation to push — it is not a
-separate confirmation, and the push is never deferred to the release
-manager. Triggers include, beyond `fix released`:
+**Push trigger — every regen, not only `fix released`.** Every run that regenerates the CVE JSON
+(any `generate-cve-json` / Step 5a `--attach`) pushes it to the record in the **same apply pass**, so the record never drifts from the body.
+The operator's confirmation of the change that triggered the regen **is** the authorisation to push:
+there is no separate confirmation, and the push is never deferred to the release manager. Triggers include, beyond `fix released`:
 
 - **advisory-URL / `announced` close-out** on an already-`public`
   (Vulnogram: `PUBLIC`) record — the regen adds the
@@ -605,7 +553,7 @@ Step 6 below describes how to verify the state advance landed
    make the published CVE record user-facing:
 
    - **Title strip cascade** — `containers.cna.title` must have
-     gone through the [`security-cve-allocate` Step 2 cascade](../cve-allocate/SKILL.md#step-2--compute-the-cve-ready-title)
+     gone through the [`security-cve-allocate` Step 2 cascade](../cve-allocate/title-normalize.md#step-2--compute-the-cve-ready-title)
      and contain no project-name prefix/suffix, no `[GHSA-...]` /
      `(ZDRES-...)` / `(HUNTR-...)` / `(GHSL-...)` external tracker
      IDs, no `(split from #NNN)` markers, no `[Security Report]`
@@ -679,14 +627,10 @@ Step 6 below describes how to verify the state advance landed
      security-advisory practice, the default is all-versions-affected
      unless we have positive evidence to the contrary.
 
-   When any gate fails the JSON the regen just produced, the
-   right recovery is **not** to push — fix the underlying body
-   field (or title, for the title gate), re-regen, then re-scan.
-   The gates exist to catch the cases where the body fields drift
-   between the Step 2b proposal cycle and the actual push (e.g.
-   a Step 2b proposal landed but the user edited only a subset
-   of the proposed updates). Skipping the push on a gate failure
-   forces the next sync iteration to surface the remaining edits.
+   When any gate fails the JSON the regen just produced, do **not** push:
+   fix the underlying body field (or title, for the title gate), re-regen, then re-scan.
+   The gates catch body fields that drifted between the Step 2b proposal and the push
+   (e.g. the user confirmed only some of the proposed updates); a skipped push makes the next sync surface the rest.
 
 2. **Probe the adapter's authenticated session.** Invoke the
    adapter's session-probe entrypoint (per
@@ -717,7 +661,8 @@ Step 6 below describes how to verify the state advance landed
    or extract from the body via `awk` between the markers — either
    yields a byte-identical payload because the generator is
    deterministic. Conventional path:
-   `/tmp/cve-<CVE-ID>-<N>.json`.
+   `<scratch>/cve-<CVE-ID>-<N>.json`.
+   `<scratch>` is the session scratch directory as an absolute path (fall back to `$TMPDIR`); `gh` may run outside the sandbox, where `$TMPDIR` differs, so pass it absolute paths.
 
 4. **Push the update through the adapter's `push_update` method.**
    Invoke `push_update(cve_id, fields, state_transition=None)` per
@@ -727,7 +672,7 @@ Step 6 below describes how to verify the state advance landed
 
    ```bash
    uv run --project <framework>/tools/cve-tool-vulnogram/oauth-api vulnogram-api-record-update \
-     --cve-id <CVE-ID> --json-file /tmp/cve-<CVE-ID>-<N>.json
+     --cve-id <CVE-ID> --json-file <scratch>/cve-<CVE-ID>-<N>.json
    ```
 
    The `state_transition` argument is omitted here — the JSON
@@ -748,10 +693,8 @@ Step 6 below describes how to verify the state advance landed
      recap as *"auto-pushed to Vulnogram"*).
    - **`exit ≠ 0`** → push failed. Surface the error verbatim in
      the Step 6 recap and **fall back** to the manual-paste hand-off
-     for the Step 5c comment work. Do **not** retry on the same
-     sync run — a transient HTTP error or a schema rejection is
-     better surfaced once and re-tried on the next sync (after
-     either Gmail-side or body-side state has settled).
+     for the Step 5c comment work. Do **not** retry in the same
+     sync run; the next sync retries.
 
 5. **Idempotence note.** The contract requires `push_update` to be
    idempotent: re-posting the same `fields` dict on a subsequent
@@ -870,17 +813,10 @@ reconciliation sweep over every tracker in the run** (single-issue or
 bulk). The sweep guarantees three dimensions are consistent with each
 tracker's label / PR-derived state.
 
-It is **unconditional**: it runs on every sync and is **not** gated on
-whether a matching signal happened to surface in Step 1d earlier in the
-run. The signal-driven proposals in
-[`signals-to-actions.md`](signals-to-actions.md) already move the board
-column, set milestones, and hand off the assignee **when a signal
-fires** — but trackers drift between runs in ways no signal captures: a
-label flipped by hand on the GitHub UI, a release that shipped since the
-last sync, an assignee hand-off announced in a rollup comment but never
-reflected in the assignee field. This sweep is the backstop that keeps
-the board, the milestones, and the assignees honest regardless of
-whether a signal was observed.
+It is **unconditional**: it runs on every sync, whether or not a signal surfaced in Step 1d.
+The signal-driven proposals in [`signals-to-actions.md`](signals-to-actions.md) cover the moves a signal triggers;
+this sweep catches the drift no signal captures — a label flipped by hand, a release shipped since the last sync,
+a hand-off announced in the rollup but never made in the assignee field.
 
 Run it over the same tracker set the sync just processed. In bulk mode
 the orchestrator runs it after the sequential apply phase (never inside
@@ -918,8 +854,7 @@ the read-only assessor subagents). For each tracker:
    transitioning to it this run), if the assignee is still the
    remediation developer, **swap it to the release manager** for the
    shipping release — looked up via the three-source cascade in Step 2c
-   (the "Known release managers" subsection of
-   [`AGENTS.md`](../../../../AGENTS.md) → the project's Release Plan wiki →
+   ([`<project-config>/release-trains.md` § *Release managers for releases currently relevant to the security tracker*](../../../../<project-config>/release-trains.md#release-managers-for-releases-currently-relevant-to-the-security-tracker) → the project's Release Plan wiki →
    the `[RESULT][VOTE] Release <product> <version>` thread on
    `<dev-list>`). Reaching `Fix released` hands ownership to the RM for
    Steps 13–15, so the **board column and the assignee move together** —
@@ -938,8 +873,7 @@ the read-only assessor subagents). For each tracker:
 **Confirmation model.** Pure label-derived reconciliation — a column
 move, an RM swap to the *looked-up* release manager, assigning an
 *already-existing* milestone — is the confirmed end-of-sync behaviour
-and does **not** need separate per-item confirmation; the whole point of
-the sweep is that these never silently drift again. Anything that
+and does **not** need separate per-item confirmation. Anything that
 **creates** state (a new milestone, an ambiguous release-date choice) or
 that posts an outbound message (the guard note `@`-mentioning the RM)
 still follows the skill's normal propose-before-apply rule. The Step 6

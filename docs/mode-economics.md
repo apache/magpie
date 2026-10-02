@@ -243,6 +243,7 @@ to input.
 | `security-issue-sync` | Full tracker reconciliation | 20K–100K | Tracker age, mail-thread depth, linked PRs | Not measured |
 | `security-cve-allocate` | CVE allocation workflow | 5K–12K | Mostly procedural; low variance | Not measured |
 | `security-model-verify` | One repository, both checks | 10K–40K | Reads the chain plus the whole model document; a shared model is read once for the repository set | Not measured |
+| `contributor-identity-map` | One contributor's channel identities | 5K–20K | Number of reachable sources and name-match candidates | Not measured |
 | `contributor-activity-sweep` | Single-contributor activity card | 10K–40K | Activity volume in the configured window | Not measured |
 | `contributor-sentiment` | Full sentiment gate report | 20K–80K | Number of threads and signals sampled | Not measured |
 | `contributor-nomination` | Nomination-readiness brief | 20K–70K | Contributor activity breadth read, plus the conversations on up to 50 authored items, 50 comment threads and 20 reviews for the automated-contribution discount, and any project expectation documents | Not measured |

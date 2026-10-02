@@ -9,7 +9,9 @@ mode: Pairing
 source: >
   MISSION.md § Technical scope (Pairing) and § Initial Goals ("Ship at
   least one Pairing skill family in v1"). docs/modes.md § Pairing
-  (experimental, 2 skills).
+  (experimental, 3 skills). Implemented in plugins/magpie-pairing/skills/
+  (self-review, multi-agent-review) and
+  plugins/magpie-pr-management/skills/pre-first-pr-check/.
 acceptance:
   - At least one Agentic Pairing skill exists and validates (v1 goal).
   - Agentic Pairing skills run in the developer's OWN dev loop and make no state
@@ -32,15 +34,32 @@ protecting the ASF contribution path (contributor → committer → PMC).
 
 ## Where it lives
 
-- Skill: `pairing-self-review` — structured pre-flight self-review of
+- Skill: `pairing-self-review` (`plugins/magpie-pairing/skills/self-review/`)
+  — structured pre-flight self-review of
   local changes before opening a PR. Read-only; returns a structured
   report with no external writes. Ships `mode: Pairing` + `experimental`.
-- Skill: `pairing-multi-agent-review` — fans the diff through three
+- Skill: `pairing-multi-agent-review`
+  (`plugins/magpie-pairing/skills/multi-agent-review/`) — fans the diff through three
   independent, axis-focused sub-agents (correctness, security,
   conventions); merges findings with deduplication and severity ranking
   into a report in the same format as `pairing-self-review`. Each pass
   is isolated so findings from one axis cannot suppress or bias the
   others. Read-only; no state change. Ships `mode: Pairing` + `experimental`.
+- Skill: `pre-first-pr-check`
+  (`plugins/magpie-pr-management/skills/pre-first-pr-check/`, linked from
+  `skills/pre-first-pr-check`) — newcomer-focused checklist on a local
+  branch before the first PR: CONTRIBUTING conventions, SPDX headers on new
+  files, commit-message shape including the `Generated-by:` trailer, and the
+  placeholder convention.
+  Read-only; no PR and no external writes.
+  Ships `mode: Pairing` + `experimental`, but is packaged in the
+  `magpie-pr-management` plugin (`family: pr-management`), not in
+  `magpie-pairing`.
+- Related, not a Pairing skill: the `magpie-adversarial-review` plugin's
+  per-harness command (`/magpie-adversarial-review:adversarial-review` in
+  Claude Code) lets a developer ask other models for a read-only second
+  read of a branch, diff or PR in their own loop
+  ([adversarial review](adversarial-review.md)).
 
 ## Behaviour & contract
 
@@ -80,6 +99,10 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
 
 ## Known gaps
 
-- **`experimental` — no adopter pilot has run.** Both `pairing-self-review`
-  and `pairing-multi-agent-review` shipped; no contributor-sentiment
-  evaluation has run yet; shape may change.
+- **`experimental` — no adopter pilot has run.** `pairing-self-review`,
+  `pairing-multi-agent-review` and `pre-first-pr-check` shipped; no
+  contributor-sentiment evaluation has run yet; shape may change.
+- **The Pairing skills are split across two plugins.** An adopter who
+  installs only `magpie-pairing` does not get `pre-first-pr-check`, and the
+  validation command above, which greps for the `magpie-pairing-` prefix,
+  does not see it either.

@@ -23,8 +23,8 @@ whitespace or commas:
   <N>:downgrade <CLASS>    — change item N's disposition to CLASS
   <N>:upgrade <CLASS>      — change item N's disposition to CLASS
 
-CLASS must be one of: VALID, DEFENSE-IN-DEPTH, INFO-ONLY, NOT-CVE-WORTHY,
-PROBABLE-DUP.
+CLASS must be one of: VALID, DEFENSE-IN-DEPTH, INFO-ONLY, INVALID,
+PROBABLE-DUP, FIX-ALREADY-PUBLIC.
 
 ## Ambiguity rule
 

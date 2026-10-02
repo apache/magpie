@@ -50,9 +50,11 @@ class FakeGh:
     """Records every `gh` call and returns canned output for each
     pattern. Tests assert on the recorded calls."""
 
-    def __init__(self, has_rollup: bool = True) -> None:
+    def __init__(self, has_rollup: bool = True, rollup_body: str = ROLLUP_BODY) -> None:
         self.calls: list[tuple[list[str], str | None]] = []
         self.has_rollup = has_rollup
+        self.rollup_body = rollup_body
+        self.deleted: list[str] = []
         # Track the last patched body so tests can verify what we
         # actually wrote.
         self.patched_body: str | None = None
@@ -77,7 +79,7 @@ class FakeGh:
                 comments.append(
                     {
                         "id": "IC_NODEID",
-                        "body": ROLLUP_BODY,
+                        "body": self.rollup_body,
                         "url": "https://github.com/o/r/issues/1#issuecomment-1",
                     }
                 )
@@ -100,6 +102,22 @@ class FakeGh:
                     self.patched_body = cmd[i + 1][len("body=") :]
                     break
             return FakeResult(returncode=0)
+
+        if "-X" in cmd and "DELETE" in cmd and "issues/comments/" in joined:
+            self.deleted.append(cmd[-1].rsplit("/", 1)[-1])
+            return FakeResult(returncode=0)
+
+        if joined.startswith("gh api repos/") and "/issues/comments/" in joined and "-X" not in cmd:
+            return FakeResult(
+                returncode=0,
+                stdout=json.dumps(
+                    {
+                        "body": "**Sync 2026-04-20**\n        indented line\n",
+                        "user": {"login": "someone"},
+                        "created_at": "2026-04-20T10:00:00Z",
+                    }
+                ),
+            )
 
         if "issue comment" in joined and "--body-file" in cmd and "-" in cmd:
             self.posted_body = input
@@ -247,7 +265,7 @@ def test_append_creates_new_rollup_when_none_exists(
     assert rc == 0
     body = fake_gh_no_rollup.posted_body
     assert body is not None
-    assert body.startswith("<!-- airflow-s status rollup v1 — all bot-authored status updates fold")
+    assert body.startswith("<!-- r status rollup v1 — all bot-authored status updates fold")
     assert "· @potiuk · Import" in body
     assert "Imported from security@" in body
     err = capsys.readouterr().err
@@ -348,3 +366,64 @@ def test_latest_prints_last_entry_body(fake_gh: FakeGh, capsys: pytest.CaptureFi
 def test_latest_exits_3_when_no_rollup(fake_gh_no_rollup: FakeGh, capsys: pytest.CaptureFixture[str]) -> None:
     rc = cli.main(["--repo", "o/r", "latest", "1"])
     assert rc == 3
+
+
+# ---------------------------------------------------------------------------
+# project-agnostic marker, REST id from URL, amend-latest, fold
+# ---------------------------------------------------------------------------
+
+
+def test_new_rollup_marker_names_the_tracker_repository(fake_gh_no_rollup: FakeGh) -> None:
+    rc = cli.main(["--repo", "acme/acme-security", "append", "7", "--action", "Import", "--entry-body", "x"])
+    assert rc == 0
+    assert fake_gh_no_rollup.posted_body is not None
+    assert fake_gh_no_rollup.posted_body.startswith("<!-- acme-security status rollup v1 ")
+
+
+def test_a_rollup_written_for_another_tracker_is_still_found(monkeypatch: pytest.MonkeyPatch) -> None:
+    other = ROLLUP_BODY.replace("airflow-s status rollup", "acme-security status rollup")
+    f = FakeGh(rollup_body=other)
+    monkeypatch.setattr(subprocess, "run", f)
+    rc = cli.main(["--repo", "o/r", "append", "1", "--action", "Sync", "--entry-body", "x"])
+    assert rc == 0
+    assert f.posted_body is None
+    assert f.patched_body is not None and f.patched_body.startswith(other)
+
+
+def test_patch_takes_the_rest_id_from_the_comment_url(fake_gh: FakeGh) -> None:
+    cli.main(["--repo", "o/r", "append", "1", "--action", "Sync", "--entry-body", "x"])
+    joined = [" ".join(c) for c, _ in fake_gh.calls]
+    assert not any("per_page=100" in j for j in joined)
+    assert any("PATCH repos/o/r/issues/comments/1" in j for j in joined)
+
+
+def test_amend_latest_replaces_only_the_last_entry(fake_gh: FakeGh) -> None:
+    rc = cli.main(["--repo", "o/r", "amend-latest", "1", "--action", "Import", "--entry-body", "new body"])
+    assert rc == 0
+    assert fake_gh.patched_body is not None
+    assert fake_gh.patched_body.startswith(MARKER_LINE)
+    assert "2026-05-28 · @potiuk · Import" in fake_gh.patched_body
+    assert "new body" in fake_gh.patched_body
+    assert "Imported from security@." not in fake_gh.patched_body
+
+
+def test_amend_latest_refuses_when_the_latest_action_differs(fake_gh: FakeGh) -> None:
+    rc = cli.main(["--repo", "o/r", "amend-latest", "1", "--action", "Sync", "--entry-body", "x"])
+    assert rc == 4
+    assert fake_gh.patched_body is None
+
+
+def test_fold_appends_with_original_author_and_date_then_deletes(fake_gh: FakeGh) -> None:
+    rc = cli.main(["--repo", "o/r", "fold", "1", "--comment-id", "555", "--action", "Sync"])
+    assert rc == 0
+    assert fake_gh.patched_body is not None
+    assert "2026-04-20 · @someone · Sync" in fake_gh.patched_body
+    assert "\nindented line" in fake_gh.patched_body
+    assert fake_gh.deleted == ["555"]
+
+
+def test_fold_dry_run_neither_writes_nor_deletes(fake_gh: FakeGh) -> None:
+    rc = cli.main(["--repo", "o/r", "fold", "1", "--comment-id", "555", "--action", "Sync", "--dry-run"])
+    assert rc == 0
+    assert fake_gh.patched_body is None
+    assert fake_gh.deleted == []

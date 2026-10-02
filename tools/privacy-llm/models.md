@@ -111,6 +111,14 @@ no-training agreement, Vertex AI with VPC-SC) are in
 The recipes spell out the data-residency contract each one
 implies.
 
+The reviewer CLIs that
+[`tools/adversarial-review/`](../../tools/adversarial-review/README.md)
+runs (`codex`, `copilot`, `gemini`, `grok`, `claude`) are not
+part of the active stack and are not gated here, by design:
+their input is limited to public-bound content, the diff and
+the PR text as it will be posted
+([design](../../docs/designs/2026-09-23-adversarial-review.md)).
+
 ## The pre-flight check
 
 Skills that may read `<private-list>` content (or any private

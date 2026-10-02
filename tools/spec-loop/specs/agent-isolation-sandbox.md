@@ -17,9 +17,13 @@ acceptance:
     filesystem reads and network egress; runtime-specific exceptions
     are documented in the adapter and this spec.
   - Credential-shaped env vars are stripped before the agent execs.
-  - State-mutating shell calls (git push and every gh write subcommand,
-    each listed explicitly) require a confirmation prompt; read-only gh
-    subcommands do not; secrets/cred files are deny-read.
+  - State-mutating shell calls (git push, every gh write subcommand,
+    each listed explicitly, and every write-shaped `gh api` call) require
+    a confirmation prompt; read-only gh subcommands and plain `gh api`
+    GETs do not; secrets/cred files are deny-read.
+  - The reference `permissions.allow` set of read-only entries ships to
+    adopters with `deny` and `ask`, and drift in it is reported like any
+    other settings drift.
 ---
 
 # Agent isolation / layered sandbox
@@ -109,7 +113,12 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
   (`<Deactivate>`, bound after a short grace because activation itself
   churns focus) rather than re-grabbing the keyboard: the overlay
   never traps the screen, since the key still has to be touched for
-  the command to go through (#1325). The
+  the command to go through (#1325). The macOS window takes
+  `SIGTERM` / `SIGINT` / `SIGHUP` back from Aqua Tk right after the root
+  window exists, so the watcher's close signal only sets the flag
+  `watch_for_stop` polls; Tk's own handler called `Tcl_Exit` inside the
+  signal and could deadlock the window mid-redraw until force-quit, and a
+  regression test pins the ordering (#1376). The
   git the agent runs reads the same global config, so the wrapper's
   two files are a `sandbox.filesystem.allowRead` grant of their own
   (nothing wider under `~/.claude/`), or every sandboxed signed commit
@@ -144,6 +153,17 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
   `git --no-pager commit`), never by a fixed argv slice, and
   `GuardContext.git_subcommand()` gives contributed guards the same
   resolution `gh_subcommand()` gives for `gh` (#1330).
+  The `commit-trailer` guard follows the project's commit-attribution
+  convention (#1385): it denies a `Co-Authored-By:` trailer unless the
+  convention resolved for the repository being committed to (following
+  `git -C`) is `co-authored-by`, failing closed to `generated-by` on an
+  unreadable file or unknown value, with `MAGPIE_ALLOW_COAUTHOR=1` as the
+  per-command override. It scans the message file a `-F` / `--file`
+  names, resolved against the `-C`-adjusted directory as git does,
+  alongside the command line and any `--trailer` (#1386); stdin and a file
+  that does not exist when the command starts are skipped, so a file
+  written earlier in the same command line is a known limit.
+  Resolution rules: `docs/setup/commit-attribution.md`.
   Capability: `substrate:action-guard`.
 - `tools/permission-audit/` — audits and atomically edits Claude Code's
   `permissions.allow[]` entries in `.claude/settings.json` and
@@ -160,6 +180,17 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
   local file is where they take effect. It never adds the credential
   paths the committed list also names; `--no-tool-paths` limits it to
   the project root. Checked by `setup-isolated-setup-verify` check 8.
+  It also adds the two directories the skills read on every run,
+  `$HOME/.claude/magpie` (the fixed vetted-ops path) and the scratch root
+  `/tmp/claude-<uid>`, to `permissions.additionalDirectories` of the same
+  file, resolved to literal absolute paths, because with
+  `permissions.blockReadsOutsideWorkingDirectories` on every read outside
+  a working directory asks and a glob such as `/tmp/claude-*` is listed
+  but never matched (#1418). They name one host's home directory and uid,
+  so they stay per host in the gitignored local file rather than in a
+  synced user-scope settings file; `--no-working-dirs` skips them.
+  Install proposes them (Step W), verify check 15 and doctor probe 9
+  report them, and update treats their absence as drift.
   Capability: `substrate:sandbox`.
 - Whole-user git hooks — the install skill's Step P.3 alternative to
   per-project scope: global `core.hooksPath` pointing at
@@ -219,6 +250,14 @@ The reference model is four layers, layered:
    `AGENT_ISO_ALLOW` explicitly names additional variables required by runtime authentication or tooling.
    It replaces `CLAUDE_ISO_ALLOW` when set, including an empty value; the legacy name remains supported otherwise.
    Unlisted variables stay stripped and values are never printed by the wrapper.
+   The sourced-mode flag that makes `claude-iso` and friends launch a
+   child rather than `exec` is a `local` inside each sourced entry point,
+   not a global: Claude Code's Bash tool replays a snapshot of functions
+   and aliases that drops plain variables, so under the documented
+   `alias claude=claude-iso` an agent's `claude --version` used to take
+   the `exec` path and replace its own shell (#1383). The verify and
+   install skills read the runtime version with `command claude --version`
+   for the same reason (#1384).
 2. **Filesystem + network sandbox** — Linux `bubblewrap` + `socat` SNI
    proxy; macOS `sandbox-exec`. Default-deny reads outside the tree and
    egress to non-allowed hosts. `sandbox.excludedCommands` carves out
@@ -229,16 +268,46 @@ The reference model is four layers, layered:
      `ask`).
    - the vetted-ops **read** dispatcher, which spawns `gh` and so
      inherits the same need; only the read dispatcher, never
-     `vetted-op` itself, because `--caller` is argv.
+     `vetted-op` itself, because `--caller` is argv. Both invocation
+     forms are excluded and allowed — `uv run --project … vetted-op-read`
+     and the `uvx --from … vetted-op-read` form the read-only gatherer
+     agents use (#1393) — and both name the fixed path
+     `~/.claude/magpie/vetted-ops` rather than a versioned plugin-cache
+     glob (#1406; see [`vetted-command-surface.md`](vetted-command-surface.md)).
+   - the vetted-ops **tracker** dispatcher, `vetted-op-tracker`, in both
+     forms (#1448).
+     The status-rollup and body-field writes need a `gh` that can verify
+     TLS, and `tools/github-rollup` / `tools/github-body-field` call `gh`
+     from a `uv run` subprocess, so every skill using them failed in the
+     sandbox.
+     Excluding this entry point is acceptable where excluding `vetted-op`
+     is not: it refuses every operation except the tracker procedures
+     before reading the policy, and their runner refuses any `gh` call
+     outside `repos/<tracker>/`.
+     It is on `ask` and never `allow`, so each write keeps its
+     confirmation.
+     `vetted-op` itself is never excluded, because that would run the
+     whole write catalogue unsandboxed.
+     sandbox-lint's `expected.json` carries both forms in
+     `excludedCommands` and `ask`, and its tests assert the tracker
+     dispatcher is excluded and asked but not allowed, and that
+     `vetted-op` is never excluded.
+   - the adversarial-review tool, in its single-line installed-plugin
+     form (`uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/*/tools/adversarial-review adversarial-review *`),
+     because the reviewer CLIs need network and their own credentials
+     (#1371). The plugin cache is `Edit`-denied, and there is
+     deliberately no `allow` rule, so every run keeps its prompt.
+     Install Step R wires it; verify check 14 checks the exclusion, the
+     deny and the absence of an allow.
    - `~/.claude/scripts/magpie-run-evals.sh` (optional), so a suite
      can be graded by `claude -p` from inside the sandbox.
 
    An exclusion runs whatever the command executes **outside** the
    sandbox, so the executed code must not be writable by the thing
-   being sandboxed. Both non-`gh` entries above therefore address code
-   outside the repository — the plugin cache and `~/.claude/scripts/`,
-   neither inside any `allowWrite` root — with `permissions.deny`
-   `Edit(…)` rules over the same paths. An in-repo path cannot carry
+   being sandboxed. The non-`gh` entries above therefore address code
+   outside the repository — the plugin cache, `~/.claude/magpie/` and
+   `~/.claude/scripts/`, none inside any `allowWrite` root — with
+   `permissions.deny` `Edit(…)` rules over the same paths. An in-repo path cannot carry
    that guarantee: without a deny the agent rewrites what runs
    unsandboxed, and a deny only stops the agent's editing tools while
    the file stays in a tree the agent can otherwise reach. The
@@ -267,6 +336,13 @@ The reference model is four layers, layered:
    `gh …` parts; the same whole-command shape rule governs the other
    entries. The rule and its failure signature are in
    [`sandbox-diagnostics.md`](sandbox-diagnostics.md).
+
+   `sandbox.filesystem.allowRead` grants Docker Desktop's CLI
+   directories `~/.docker/bin/` and `~/.docker/cli-plugins/` as exact
+   paths by default, so `docker`, `docker compose` and `docker buildx`
+   start inside the sandbox; the rest of `~/.docker` stays denied, and
+   `Read(~/.docker/**)` still denies it to the file tools (#1404; see
+   [`container-gateway.md`](container-gateway.md)).
 3. **Tool permissions** — the host's `permissions.deny` blocks denied
    paths/binaries (`Read(~/.ssh/**)`, `Bash(curl *)`, …).
 4. **Forced confirmation** — `permissions.ask` on `git push` and,
@@ -278,6 +354,34 @@ The reference model is four layers, layered:
    read-only allows (`gh pr view`, `gh * list`, …) and prompt on every
    read. A subcommand in neither list falls through to the mode's
    default (prompt in default mode, classifier in auto).
+
+   `gh api` asks only in its write shapes (#1432). It sends something
+   other than a GET only when it names a method (`-X` / `--method`),
+   sends request fields (`-f` / `-F` / `--field` / `--raw-field`, which
+   switch the default to POST) or sends a body (`--input`), so the ask
+   list matches each of those flags both right after `gh api` and later
+   in the command, value attached or separate. A plain GET (with `--jq`,
+   `-H` or `--paginate`) does not prompt, and the specific `gh api` GET
+   allow rules, which a blanket `Bash(gh api *)` ask had silently
+   overridden, take effect. GraphQL still asks, since every call sends
+   `-f query=…` and a pattern cannot tell a query from a mutation.
+   sandbox-lint's `expected.json` mirrors the rules.
+
+   The **allow** half ships too (#1393). `setup-isolated-setup-install`
+   carries the reference `permissions.allow` set into an adopter's
+   settings merge alongside `deny` and `ask` — `gh` reads, both
+   vetted-ops read forms, the read-only archive / mailbox / roster MCP
+   tools, and the registry `WebFetch` hosts (`cveawg.mitre.org`,
+   `pypi.org`, `lists.apache.org`) — and `setup-isolated-setup-update`
+   diffs it, because a missing read-only entry is a prompt on every skill
+   run. Only read-only entries belong there; `vetted-op` (writes) stays
+   on `ask`.
+   Install Step V now describes three entry points over one catalogue and
+   adds `vetted-op-tracker` to both `ask` and `sandbox.excludedCommands`.
+   The update skill reports `vetted-op-tracker` in `allow`, or `vetted-op`
+   in `excludedCommands`, as a must-fix, and a missing tracker exclusion
+   or `ask` entry as drift; the verify skill fails the check when
+   `vetted-op` is in `excludedCommands` (#1448).
 
 Pinned system tools (`bubblewrap`, `socat`, agent CLI) are aged through a
 cooldown window; bumps are PRs, not silent updates. The window is the
@@ -301,6 +405,11 @@ carrying a sandbox-setup security fix can move a day after release
 3. `git push` and every `gh` write subcommand are in `permissions.ask`,
    the read-only `gh` subcommands are in `allow`, and no catch-all
    `Bash(gh *)` sits in `ask`; secret/cred files are in `permissions.deny`.
+4. `gh api` asks in each write shape (`-X`, `--method`, `-f`, `-F`,
+   `--field`, `--raw-field`, `--input`, directly after `gh api` or later)
+   and not on a plain GET; no blanket `Bash(gh api *)` sits in `ask`.
+5. The adopter install merges `permissions.allow` with `deny` and `ask`,
+   and the update skill diffs it.
 
 ## Validation
 
@@ -312,7 +421,9 @@ uv run --project tools/egress-gateway --group dev pytest
 python3 -c "import json,sys; s=json.load(open('.claude/settings.json')); \
   ask=s['permissions']['ask']; \
   sys.exit(0 if any(a.startswith('Bash(git push') for a in ask) \
-    and 'Bash(gh pr merge *)' in ask and 'Bash(gh *)' not in ask else 1)"
+    and 'Bash(gh pr merge *)' in ask and 'Bash(gh *)' not in ask \
+    and 'Bash(gh api -X*)' in ask and 'Bash(gh api *)' not in ask else 1)"
+uv run --project tools/sandbox-lint --group dev pytest
 ```
 
 ## Known gaps

@@ -1,5 +1,5 @@
 {
-  "disposition": "NOT-CVE-WORTHY",
+  "disposition": "INVALID",
   "has_operator_misconfig_rationale": true,
   "has_connection_config_rationale": true
 }

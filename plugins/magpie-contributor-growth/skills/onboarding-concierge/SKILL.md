@@ -8,29 +8,20 @@ requires_config:
   - onboarding-concierge-config.md
   - project.md
 description: |
-  Answer a newcomer's "how do I contribute here" question by grounding the
-  response in `CONTRIBUTING.md` and the project's own docs. Classifies the
-  question (setup / workflow / first-issue / out-of-scope), retrieves the
-  relevant guide excerpt, and drafts a concise answer in the Agentic
-  Mentoring teaching register. Routes out-of-scope questions (design,
-  security, deprecation, architectural taste) to a human maintainer.
-  Read-only; produces a draft answer
-  text — no files are written and no comments are posted without the
-  maintainer's explicit action.
+  Answer newcomer contribution questions grounded in `CONTRIBUTING.md` and docs.
+  Classifies questions into setup, workflow, first-issue, or maintainer hand-off.
+  Drafts a concise response in the mentoring register.
+  Read-only; never writes files or posts comments without maintainer confirmation.
 when_to_use: |
-  Invoke when a maintainer receives a newcomer question such as "how do
-  I contribute here", "where do I start", "how do I run the tests", "I
-  can't get the project to build", or "where can I find a good first
-  issue?". Also suitable for a maintainer who wants a quick reference
-  answer to a contributor's setup or workflow question before replying.
-  Skip when the question is security-sensitive, touches a design or
-  deprecation decision, or is better answered by opening an issue —
-  those routes trigger the hand-off path.
+  Invoke when asked "how do I contribute here", "where do I start",
+  "how do I run the tests", "I can't get the project to build", or
+  "where can I find a good first issue?".
+  Skip security, design, or deprecation questions (routes to hand-off).
 argument-hint: "[newcomer question or issue/PR URL]"
 capability: capability:review
 surface_hash: sha256:4105a6571bcb70c2
 license: Apache-2.0
-measured_tokens: 3374
+measured_tokens: 3244
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->

@@ -38,9 +38,9 @@ when_to_use: |
   `<project-config>/release-trains.md` to exist.
 argument-hint: "[prep | post] <version> [--review-archive] | automated-signing"
 capability: capability:resolve
-surface_hash: sha256:5cfba199f4348e98
+surface_hash: sha256:d553c5eab83e2635
 license: Apache-2.0
-measured_tokens: 13894
+measured_tokens: 13872
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -199,17 +199,6 @@ override file. Framework changes go via PR to
 
 ---
 
-## Snapshot drift
-
-At the top of every run, this skill compares the gitignored
-`.apache-magpie.local.lock` (per-machine fetch) against the
-committed `.apache-magpie.lock` (the project pin). On mismatch
-the skill surfaces the gap and proposes
-[`setup upgrade`](../../../magpie-setup/skills/setup/upgrade.md). The proposal is
-non-blocking.
-
----
-
 ## Prerequisites
 
 - **`<project-config>/release-trains.md` readable** — identifies the
@@ -280,7 +269,7 @@ For Step A (`automated-signing`, 🪶 ASF-specific):
 6. **For Step 14 (`post`):** Planning issue found and labelled
    `announced`.
 7. **`<upstream>` access.** `gh pr list --repo <upstream>` succeeds.
-8. **Drift check** — see *Snapshot drift* above.
+8. **Drift check** — the generated pre-flight block reports snapshot drift.
 9. **Override consultation** — see *Adopter overrides* above.
 
 If any check fails (and is not overridden), stop and surface what is
@@ -630,8 +619,9 @@ opening the PR.
 **Adversarial review by other models.** Before this skill opens a PR, once
 the PR's title and body are final, run the configured adversarial
 reviewers over the change, before the push where the flow allows it. When
-this skill verifies a patch someone else proposed, run them over that PR
-before reporting on it. The review happens in the conversation; it adds
+this skill instead works from a PR someone else proposed (verifying it, or
+importing it into the tracker), run them over that PR before reporting on
+it or acting on it. The review happens in the conversation; it adds
 nothing to any structured (JSON) result the step returns. The tool and its
 guarantees are in
 [`tools/adversarial-review`](../../../../tools/adversarial-review/README.md).
@@ -796,8 +786,9 @@ to confirm before including it.
 **Adversarial review by other models.** Before this skill opens a PR, once
 the PR's title and body are final, run the configured adversarial
 reviewers over the change, before the push where the flow allows it. When
-this skill verifies a patch someone else proposed, run them over that PR
-before reporting on it. The review happens in the conversation; it adds
+this skill instead works from a PR someone else proposed (verifying it, or
+importing it into the tracker), run them over that PR before reporting on
+it or acting on it. The review happens in the conversation; it adds
 nothing to any structured (JSON) result the step returns. The tool and its
 guarantees are in
 [`tools/adversarial-review`](../../../../tools/adversarial-review/README.md).
@@ -980,8 +971,9 @@ draft PR via `gh pr create --web` after RM confirmation.
 **Adversarial review by other models.** Before this skill opens a PR, once
 the PR's title and body are final, run the configured adversarial
 reviewers over the change, before the push where the flow allows it. When
-this skill verifies a patch someone else proposed, run them over that PR
-before reporting on it. The review happens in the conversation; it adds
+this skill instead works from a PR someone else proposed (verifying it, or
+importing it into the tracker), run them over that PR before reporting on
+it or acting on it. The review happens in the conversation; it adds
 nothing to any structured (JSON) result the step returns. The tool and its
 guarantees are in
 [`tools/adversarial-review`](../../../../tools/adversarial-review/README.md).

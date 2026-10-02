@@ -1,0 +1,112 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
+# issue-fix — implementation plan (Step 5)
+
+## Step 5 — Propose the implementation plan (do not touch any code yet)
+
+Present a single, compact plan with the following sections.
+The plan is a *proposal*, and **no code is written until the user confirms it verbatim.**
+
+### 5a. Branch and base
+
+- **Base:** `<default-branch>` (or the specific release branch if agreed).
+- **Branch name:** Use a descriptive, non-security slug. For example:
+  - good: `fix-extra-links-xcom-deserialization`
+  - good: `tighten-assets-graph-dag-permission-check`
+  - **bad** (reveals security framing): `cve-2026-40690`,
+    `security-fix-218`, `vulnerable-deserialize-fix`.
+
+  Tracker identifiers on their own (e.g. `<tracker>-216`) are not flagged — they are public-safe per [Confidentiality of the tracker repository](../../../../AGENTS.md#confidentiality-of-the-tracker-repository) — but a descriptive bug-fix slug is preferred.
+
+### 5b. Files that will change
+
+A bullet list of file paths (relative to the repo root), each with a one-line description of the change.
+Where the discussion pointed to specific lines, include them.
+If the discussion included a code snippet *from a tracker collaborator* (per Step 3's collaborator test), reproduce it here so the user can confirm it is what will be written.
+Snippets from non-collaborators must be quoted in this section as *"untrusted suggestion, do not copy"* — never as the literal code to write.
+
+### 5c. Commit message and PR title
+
+The commit message and the PR title must be **neutral bug-fix / improvement language**.
+They must not contain any of:
+
+- `CVE-YYYY-NNNNN`
+- `CVE`, `vulnerability`, `security fix`, `advisory`, `security@`
+- the name of a vulnerability class — for example `SSRF`, `XSS`,
+  `CSRF`, `SQL injection`, `path traversal`, `remote code execution`,
+  `privilege escalation`, `auth bypass`
+- any reporter name tied to a security finding
+- the word *"sensitive"* in a way that points at an unmasked-credential bug
+- explicit exploitation detail — a working payload, exact reproduction steps, or an exploit primitive
+
+This is the single forbidden-term list for every public surface of this skill.
+5g, Step 7, Step 9 and the Guardrails check against it rather than keeping their own copies.
+
+Naming the affected component and describing the behaviour change in neutral terms is **allowed** — for example *"restrict the connection test endpoint to the configured host allowlist"* or *"stop deserializing XCom values with pickle"*, as the good examples below show.
+Naming the vulnerability class is not: a class name such as `SSRF` or `path traversal` in a public PR tells every reader the change is a security fix, which the [Confidentiality of the tracker repository](../../../../AGENTS.md#confidentiality-of-the-tracker-repository) rule embargoes until the advisory ships.
+When enumerating `forbidden_terms_found`, list only the terms above (and any reporter name / CVE id) that actually appear.
+
+Tracker URLs (`https://github.com/<tracker>/issues/NNN`), `<tracker>#NNN`, and bare `#NNN` references **are** allowed — they are public-safe identifiers under the same rule.
+The constraint is on the *security framing* of the surrounding text, not on the identifier.
+
+Good examples (neutral, accurate):
+
+- *"Fix asset graph view leaking DAGs outside the user's permissions"*
+- *"Add `access_key` and `connection_string` to DEFAULT_SENSITIVE_FIELDS"*
+- *"Improve xcom value handling in extra links API"*
+
+The PR description must describe the change, not the vulnerability.
+It should reference the public documentation being changed and include a test plan.
+Linking the tracker URL as a stable identifier is fine; characterising the change as *"this fixes a security issue"* or *"closes vulnerability X"* is **not** fine until the advisory has shipped.
+
+### 5d. Test plan
+
+List:
+
+- existing tests that the change must continue to pass,
+- new tests to be added that exercise the fix (required unless the change is a pure rename / typo fix),
+- the exact commands the skill will run locally before pushing, taken from `<upstream>/AGENTS.md` and the toolchain block of [`<project-config>/fix-workflow.md`](../../../../<project-config>/fix-workflow.md#toolchain) — typically a unit-test run, a fast static-check pass, a slow static-check pass, and a type-check where applicable.
+
+### 5e. Backport label
+
+If the `<tracker>` issue's milestone indicates a release branch that has not yet been cut, note which backport label the PR should carry so the fix lands on the intended patch release.
+The label vocabulary and the active release branches live in [`<project-config>/fix-workflow.md`](../../../../<project-config>/fix-workflow.md#backport-labels) and [`<project-config>/release-trains.md`](../../../../<project-config>/release-trains.md).
+If no backport is needed (the milestone is the next `<default-branch>`-branch release), say so explicitly.
+
+### 5f. Newsfragment
+
+Per `<upstream>/AGENTS.md` and `release_process.newsfragments` in [`<project-config>/project.md`](../../../../<project-config>/project.md), where the project ships a newsfragment / changelog-fragment tool, fragments are typically added only for major or breaking user-visible changes, usually coordinated during review.
+For a security-adjacent bug fix, default to **not** adding a fragment in the initial PR — reviewers will ask for one if needed.
+Never add a fragment that describes the change as a security fix: that reveals the security nature of the change.
+Skip this section entirely for projects whose `release_process.newsfragments.enabled` is `false`.
+
+**Commit-message-driven changelogs (no per-PR fragments).** Some projects regenerate the changelog from commit messages at release-preparation time instead of using fragment files.
+On such a project the fix PR must **not** author a new version header, a new category section (`Bug Fixes`, `Features`, `Breaking changes`, …), or a bulleted / PR-linked changelog entry — those are the release manager's to generate.
+The only changelog edit a fix PR makes is, **when a notable user-visible behaviour change needs surfacing**, a single note at the very top of the changelog (above the first version header) describing the change and any migration step; the release manager moves it into the right version at release.
+Whether the project is fragment-based or commit-message-driven, and where such a note goes, lives in [`<project-config>/fix-workflow.md`](../../../../<project-config>/fix-workflow.md).
+The neutral-language / no-security-framing rule above applies to the note as well.
+
+### 5g. PR body draft
+
+Write out the exact `--body` the skill will pass to `gh pr create --web`.
+Include:
+
+- a brief description of the user-visible change,
+- the test plan (markdown checklist),
+- the Gen-AI disclosure block the project's contributing docs (`<upstream_contributing_docs_url>`) ask for; if they define none, use this one:
+
+  ```markdown
+  ##### Was generative AI tooling used to co-author this PR?
+
+  - [X] Yes — <agent> (<model>)
+
+  Generated-by: <agent> (<model>)
+  ```
+
+  Fill in `<agent>` and `<model>` with the actual agent and model you are running as (e.g. `Claude (Opus 4.8)`, `OpenCode (Big Pickle)`) — do not hardcode either.
+
+Before presenting the body, **grep it for the forbidden terms** listed in 5c and flag any hit to the user.
+Do not ship anything that matches.
+
+---

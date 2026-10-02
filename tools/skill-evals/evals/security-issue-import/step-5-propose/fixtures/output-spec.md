@@ -34,6 +34,7 @@ imported `Report`. For non-import classes (a `reject-with-canned`,
 `automated-scanner`, `consolidated-multi-issue`, `media-request`, etc.), leave
 `receipt_reply_body` null and reference the canned reply by
 `canned_response_name` instead, so `has_receipt_reply` stays false.
+For an imported `Report`, `canned_response_name` is `null`: the receipt-of-confirmation reply is not a canned rejection.
 `has_unfilled_placeholders` must always be false — rewrite any remaining
 SCREAMING_SNAKE_CASE placeholders before returning.
 

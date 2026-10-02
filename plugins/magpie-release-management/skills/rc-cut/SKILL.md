@@ -29,9 +29,9 @@ when_to_use: |
   RC number already exists on the remote.
 argument-hint: "<version> rc<N>"
 capability: capability:resolve
-surface_hash: sha256:3bbf726eae07fe4e
+surface_hash: sha256:60623e456e72bbf6
 license: Apache-2.0
-measured_tokens: 11863
+measured_tokens: 11783
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -211,17 +211,6 @@ override file. Framework changes go via PR to
 
 ---
 
-## Snapshot drift
-
-At the top of every run, this skill compares the gitignored
-`.apache-magpie.local.lock` (per-machine fetch) against the
-committed `.apache-magpie.lock` (the project pin). On mismatch
-the skill surfaces the gap and proposes
-[`setup upgrade`](../../../magpie-setup/skills/setup/upgrade.md). The proposal is
-non-blocking.
-
----
-
 ## Prerequisites
 
 - **Prep PR merged** — the version-bump + changelog PR opened by
@@ -300,7 +289,7 @@ non-blocking.
    [Infra § Automated release signing](https://infra.apache.org/release-signing.html#automated-release-signing).
    Any other combination blocks. For a non-ASF project the key is
    ignored and never mentioned.
-10. **Drift check** — see *Snapshot drift* above.
+10. **Drift check** — the generated pre-flight block reports snapshot drift.
 11. **Override consultation** — see *Adopter overrides* above.
 
 If any check fails (and is not overridable), stop and surface what is

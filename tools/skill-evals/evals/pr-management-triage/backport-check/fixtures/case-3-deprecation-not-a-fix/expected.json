@@ -1,0 +1,5 @@
+{
+  "classification": "backport_policy_violation",
+  "action": "close",
+  "reason": "Although a faithful cherry-pick, the source change adds new validation and a new deprecation with a significant release note, which is not a fix."
+}

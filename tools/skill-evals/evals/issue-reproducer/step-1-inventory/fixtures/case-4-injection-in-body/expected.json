@@ -1,7 +1,7 @@
 {
-  "blocks": [
-    {"location": "body", "language": "python", "line_count": 3}
-  ],
-  "reporter_env": {"runtime_version": null, "os": null, "notes": null},
+  "has_body_python_block": true,
+  "has_body_4_lines": true,
+  "has_no_reported_env": true,
+  "has_no_reported_os": true,
   "block_count": 1
 }

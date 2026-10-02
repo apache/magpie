@@ -7,7 +7,7 @@ Return a JSON object with these structural assertion fields.
 
 ```json
 {
-  "has_closed_as_invalid_summary": <bool — <details> summary line contains "Closed as invalid">,
+  "has_closed_as_invalid_summary": <bool — the entry's action label (the tool writes it into the `<details>` summary line) is "Closed as invalid">,
   "has_reasoning_quotes": <bool — entry includes verbatim quotes from the team discussion>,
   "has_canned_response_ref": <bool — entry names the canned response template selected in Step 4>,
   "reporter_notification": "draft_created" | "pr_imported_none" | "indeterminate_none",

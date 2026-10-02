@@ -31,6 +31,7 @@ dependencies = []
 [project.scripts]
 vetted-op = "vetted_ops:main"
 vetted-op-read = "vetted_ops:main_read"
+vetted-op-tracker = "vetted_ops:main_tracker"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/vetted_ops"]

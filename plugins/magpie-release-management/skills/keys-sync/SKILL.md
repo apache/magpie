@@ -24,9 +24,9 @@ when_to_use: |
   UID.
 argument-hint: "[--fingerprint <fp>] [--keys-url <url>] [--keyserver <host>]"
 capability: capability:resolve
-surface_hash: sha256:bc9f77e9dcb305da
+surface_hash: sha256:61e10c986bb0d3ec
 license: Apache-2.0
-measured_tokens: 4866
+measured_tokens: 4799
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -162,16 +162,6 @@ override file. Framework changes go via PR to
 
 ---
 
-## Snapshot drift
-
-At the top of every run, this skill compares the gitignored
-`.apache-magpie.local.lock` against the committed `.apache-magpie.lock`.
-On mismatch the skill surfaces the gap and proposes
-[`setup upgrade`](../../../magpie-setup/skills/setup/upgrade.md). The proposal is
-non-blocking.
-
----
-
 ## Prerequisites
 
 - **`rm_key_fingerprint` configured** — in
@@ -221,7 +211,7 @@ non-blocking.
        Populate `noop_reason` naming the UID. No commands will be emitted.
      - Different UID (key rolled or uid updated) → `verdict: "blocked"`.
        Populate `blockers` describing the mismatch.
-6. **Drift check** — see *Snapshot drift* above.
+6. **Drift check** — the generated pre-flight block reports snapshot drift.
 7. **Override consultation** — see *Adopter overrides* above.
 
 Return ONLY valid JSON with this structure:

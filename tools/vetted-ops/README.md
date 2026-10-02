@@ -12,6 +12,7 @@
     - [The boundary is the entry point, not `--caller`](#the-boundary-is-the-entry-point-not---caller)
   - [Configuration](#configuration)
   - [CLI](#cli)
+  - [Tracker procedures: rollup and body-field writes](#tracker-procedures-rollup-and-body-field-writes)
   - [Wiring it into settings](#wiring-it-into-settings)
   - [Tests](#tests)
   - [Referenced by](#referenced-by)
@@ -108,6 +109,8 @@ The backend `"http-read"` implies `writes=False`, enforced by the dispatcher.
 The `urllib.request` implementation automatically obeys `HTTP_PROXY` and `HTTPS_PROXY` environment variables (egress gateway).
 - **HTTP responses are streamed to stdout, never to files.**
 There is no local filesystem exposure for downloaded data.
+- **Read-modify-write procedures stay on the tracker.**
+The `procedure` backend (see [Tracker procedures](#tracker-procedures-rollup-and-body-field-writes)) runs a fixed sequence of `gh` calls, and every call passes a runner check first: `gh` only, no shell, `gh issue view|comment|edit` only with `--repo <tracker>`, `gh api` only under `repos/<tracker>/`, no `-F key=@<file>` or `--body-file <path>` (bodies travel on stdin), and no write at all from an operation declared read-only.
 - **The catalogue is closed.**
 Widening the surface means editing [`ops.py`](src/vetted_ops/ops.py) — a reviewed code change, not a runtime decision.
 
@@ -131,6 +134,7 @@ scripts over one catalogue:
 | Entry point | Can write? | Intended permission |
 |---|---|---|
 | `vetted-op-read` | never — refused before policy is consulted | `allow` |
+| `vetted-op-tracker` | only the [tracker procedures](#tracker-procedures-rollup-and-body-field-writes) — everything else refused before policy is consulted | `ask`, and excluded from the sandbox |
 | `vetted-op` | yes, subject to policy | `ask` (or unlisted) |
 
 That split is what lets the read path lose its prompts without the write path
@@ -196,10 +200,21 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
 [callers]                        # caller -> operations it may run
 "security-issue-sync"   = ["issue-view", "issue-comments", "issue-add-label",
                            "issue-set-milestone", "issue-comment", "comment-update",
+                           "rollup-append", "rollup-amend-latest", "rollup-fold",
+                           "body-field-get", "body-field-set",
                            "cve-check-published"]
+"security-cve-allocate" = ["issue-view", "issue-add-label", "comment-update",
+                           "rollup-append", "rollup-fold",
+                           "body-field-get", "body-field-set"]
+"security-issue-fix"    = ["rollup-append", "rollup-fold",
+                           "body-field-get", "body-field-set"]
+"security-issue-import" = ["rollup-append"]
+"security-issue-import-from-md" = ["rollup-append"]
+"security-issue-import-from-pr" = ["pr-view-with-body", "rollup-append"]
+"security-issue-invalidate" = ["rollup-append", "rollup-amend-latest"]
 "security-issue-triage" = ["issue-view", "issue-comments",
                            "osv-get-vuln", "osv-query-package"]
-"security-issue-deduplicate" = ["osv-get-vuln"]
+"security-issue-deduplicate" = ["osv-get-vuln", "rollup-append", "rollup-fold"]
 "dependency-audit"      = ["osv-query-package", "osv-query-commit", "osv-query-batch"]
 "pr-management-triage"  = ["pr-list", "pr-view", "pr-checks", "gql-pr-liveness",
                            "pr-add-label", "pr-remove-label", "pr-draft", "pr-ready",
@@ -282,6 +297,64 @@ vetted-op --caller <name> <operation> [param …] --dry-run   # print argv, run 
 Exit codes: `0` ok, `2` usage, `3` refused by policy or validation, `4` the
 underlying command failed.
 
+## Tracker procedures: rollup and body-field writes
+
+The status rollup and the `### Field` sections of a tracker issue body are
+read-modify-write updates: the write depends on what a read returned. The
+[`github-rollup`](../github-rollup/README.md) and
+[`github-body-field`](../github-body-field/README.md) tools do them without
+bringing the rollup or the body into agent context, but they call `gh` from a
+`uv run` subprocess, which under the secure setup stays sandboxed and fails.
+These operations are the same procedures as reviewed catalogue entries:
+
+| Operation | Kind | Parameters | Same as |
+|---|---|---|---|
+| `rollup-append` | write | `number action body` | `github-rollup append` |
+| `rollup-amend-latest` | write | `number action body` | `github-rollup amend-latest` |
+| `rollup-fold` | write | `number comment_id action` | `github-rollup fold` |
+| `body-field-set` | write | `number field value` | `github-body-field set` |
+| `body-field-get` | read | `number field` | `github-body-field get` |
+
+```bash
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-sync rollup-append 212 "Sync" <scratch>/entry.md
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-sync rollup-amend-latest 212 "Sync" <scratch>/entry.md
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-sync rollup-fold 212 2890012345 "Legacy status"
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-cve-allocate body-field-set 212 "CVE tool link" <scratch>/value.md
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-sync body-field-get 212 "Severity"
+```
+
+Skills run the four writes through **`vetted-op-tracker`**, a third entry point
+that refuses every operation except these procedures before it reads the policy,
+the same way `vetted-op-read` refuses writes. That is what lets it be excluded
+from the sandbox — the writes need a `gh` that can verify TLS — while `vetted-op`
+is not: its catalogue is closed to tracker-only procedures whose runner refuses
+any `gh` call outside `repos/<tracker>/`. It stays in `ask`, so every write still
+prompts. `vetted-op` can run the same operations, but only inside the sandbox.
+
+- `body` and `value` are body files, read from the workspace like any other body.
+- `action` is one printable line of 1-80 characters, with no leading `-` and no
+  `<`, `>` or `·` (the summary-line separator); `field` is a heading name of
+  1-80 characters with no leading `-` and no `#`.
+- `rollup-append` attributes the entry to the authenticated `gh` login and today's
+  UTC date, and creates the rollup (marker line for the tracker's name) when the
+  issue has none. It finds a rollup written under any tracker name.
+- `rollup-amend-latest` refuses unless the latest entry's action equals `action`,
+  so a concurrent entry by someone else is never overwritten.
+- `rollup-fold` keeps the legacy comment's date and author, left-trims its lines,
+  refuses the rollup itself and a comment belonging to another issue, and deletes
+  the legacy comment only after the append succeeded.
+- `body-field-set` refuses when the field is absent or appears more than once, and
+  writes nothing when the value is unchanged.
+- Only a one-line summary reaches stderr. On stdout, `body-field-get` prints the one value, and `rollup-append` / `rollup-amend-latest` print the rollup comment's URL (`…#issuecomment-<id>`) so a caller can link to it without reading the rollup.
+  Refusals exit `3`, a failed `gh` call exits `4`.
+- `--dry-run` runs the reads (the plan depends on them) and prints each write
+  instead of running it, with any body reported by size, never by content.
+
+The parsing and composing code is vendored byte-for-byte from the two tools
+(`rollup_format.py`, `body_field_format.py`), because the dispatcher installs as a
+copy of its own directory and cannot import them; a test fails if a copy drifts
+from its source.
+
 ## Wiring it into settings
 
 Replace the wildcard `ask` rules with one `allow` entry, and keep an `ask` on
@@ -295,7 +368,10 @@ anything still invoked directly:
     "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-read *)"
   ],
   "ask": [
-    "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op *)"
+    "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op *)",
+    // The tracker procedures. Excluded from the sandbox below, so never `allow`.
+    "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *)",
+    "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *)"
   ],
   "deny": [
     // `Edit(path)` is the path rule for every file-writing tool — Write and
@@ -320,15 +396,22 @@ fails the same way:
 "sandbox": {
   "excludedCommands": [
     "gh *",
-    "uv run --project ~/.claude/magpie/vetted-ops vetted-op-read *"
+    "uv run --project ~/.claude/magpie/vetted-ops vetted-op-read *",
+    "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *",
+    "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *"
   ]
 }
 ```
 
-Only `vetted-op-read` is excluded, never `vetted-op` — the same reasoning as the
+`vetted-op-read` is excluded, never `vetted-op` — the same reasoning as the
 `allow` rule. The read dispatcher refuses writes before it consults the policy
 at all, so running it outside the sandbox exposes only the fixed read
 operations; excluding the write dispatcher would run the whole catalogue there.
+`vetted-op-tracker` is the one write-capable exception, and it follows the same
+reasoning: it refuses everything but the tracker procedures before consulting the
+policy, and their runner refuses any `gh` call outside `repos/<tracker>/`, so the
+exclusion exposes those procedures and nothing else. The tracker itself comes from
+the policy, which is why the entry point keeps its `ask`.
 
 Every rule names the fixed path `~/.claude/magpie/vetted-ops`, not the
 versioned plugin-cache directory. The plugin's `SessionStart` hook

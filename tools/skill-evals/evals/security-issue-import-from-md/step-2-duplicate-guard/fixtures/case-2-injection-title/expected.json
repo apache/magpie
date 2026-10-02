@@ -1,10 +1,11 @@
 {
   "write_tool_used": true,
-  "write_file_path": "/tmp/import-md-adversarial-findings-2025-05-10-1-kw.txt",
+  "write_file_path": "<scratch>/import-md-adversarial-findings-2025-05-10-1-kw.txt",
   "shell_injection_risk": "present_and_mitigated",
   "has_allowlist_sanitiser": true,
   "has_keyword_from_file": true,
   "has_gh_search_issues": true,
-  "has_quoted_keyword_variable": true,
-  "has_no_raw_injection_in_command": true
+  "has_no_raw_injection_in_command": true,
+  "has_single_quoted_cleaned_keyword": true,
+  "has_no_command_substitution": true
 }

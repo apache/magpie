@@ -1,6 +1,5 @@
 {
   "in_scope": false,
-  "violations": [
-    {"type": "speculative-refactor", "description": "XComArg refactoring (83 lines) and base.py helper extraction (100 lines) are not required by the bytes serialization fix and widen the diff beyond the test + production change."}
-  ]
+  "has_refactors_flagged": true,
+  "has_no_false_positive_on_xcom_fix": true
 }

@@ -1,4 +1,4 @@
 {
-  "disposition": "NOT-CVE-WORTHY",
-  "rationale": "The attacker is an authenticated user with DAG-upload access causing a denial-of-service against the DAG processor. The trust-boundary cheat-sheet maps 'authenticated user → DoS' directly to NOT-CVE-WORTHY, citing the Security Model's 'DoS by authenticated users' carve-out. A DAG author with upload access can trivially crash the processor by many means (infinite loops, memory exhaustion, etc.) — this is within the accepted risk surface of granting DAG-author trust. No CVE is warranted."
+  "disposition": "INVALID",
+  "rationale": "The attacker is an authenticated user with DAG-upload access causing a denial-of-service against the DAG processor. The trust-boundary cheat-sheet maps 'authenticated user → DoS' directly to INVALID, citing the Security Model's 'DoS by authenticated users' carve-out. A DAG author with upload access can trivially crash the processor by many means (infinite loops, memory exhaustion, etc.) — this is within the accepted risk surface of granting DAG-author trust. No CVE is warranted."
 }

@@ -66,13 +66,13 @@ Fetch the OSV JSON record by its primary ID (or alias):
 
 ```bash
 # Read-only, unauthenticated. Returns complete OSV schema JSON.
-uv run --project <framework>/tools/vetted-ops vetted-op-read --caller <caller> osv-get-vuln <ID>
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller <caller> osv-get-vuln <ID>
 ```
 
 Extracting alias identifiers (e.g., resolving a GHSA ID to corresponding CVE IDs):
 
 ```bash
-uv run --project <framework>/tools/vetted-ops vetted-op-read --caller <caller> osv-get-vuln GHSA-7rjr-3q55-vv33 \
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller <caller> osv-get-vuln GHSA-7rjr-3q55-vv33 \
   | jq -r '{id: .id, aliases: .aliases, summary: .summary}'
 ```
 
@@ -90,7 +90,7 @@ Example JSON response:
 Extracting affected version ranges and fixed versions:
 
 ```bash
-uv run --project <framework>/tools/vetted-ops vetted-op-read --caller <caller> osv-get-vuln <ID> \
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller <caller> osv-get-vuln <ID> \
   | jq -r '.affected[] | {package: .package.name, ecosystem: .package.ecosystem, fixed: [.ranges[].events[] | select(.fixed != null) | .fixed]}'
 ```
 
@@ -99,7 +99,7 @@ uv run --project <framework>/tools/vetted-ops vetted-op-read --caller <caller> o
 Check if a given package release is subject to any known advisories:
 
 ```bash
-uv run --project <framework>/tools/vetted-ops vetted-op-read --caller <caller> osv-query-package jinja2 PyPI 2.11.2 \
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller <caller> osv-query-package jinja2 PyPI 2.11.2 \
   | jq -r '.vulns[]? | {id: .id, aliases: .aliases, summary: .summary}'
 ```
 
@@ -110,7 +110,7 @@ Common ecosystems: `PyPI`, `Maven`, `npm`, `crates.io`, `Go`, `Packagist`, `NuGe
 Check if a public upstream commit SHA is indexed in OSV as a fix or vulnerability reference:
 
 ```bash
-uv run --project <framework>/tools/vetted-ops vetted-op-read --caller <caller> osv-query-commit <COMMIT_HASH> \
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller <caller> osv-query-commit <COMMIT_HASH> \
   | jq -r '.vulns[]? | {id: .id, aliases: .aliases, summary: .summary}'
 ```
 
@@ -119,7 +119,7 @@ uv run --project <framework>/tools/vetted-ops vetted-op-read --caller <caller> o
 Evaluate multiple dependencies in a single round-trip:
 
 ```bash
-uv run --project <framework>/tools/vetted-ops vetted-op-read --caller <caller> osv-query-batch /tmp/agent-scratch/batch.json \
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller <caller> osv-query-batch /tmp/agent-scratch/batch.json \
   | jq -r '.results | to_entries[] | {query: .key, vuln_count: ((.value.vulns // []) | length)}'
 ```
 

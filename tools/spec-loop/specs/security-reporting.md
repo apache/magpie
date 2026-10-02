@@ -35,9 +35,15 @@ health without navigating the tracker issue-by-issue.
   the existing data rather than re-fetching everything), configurable
   lifecycle categories, milestone annotations, and a null-`upstream_repo`
   path for trackers whose fixes land across multiple repos.
-- Skill: `security-tracker-stats-dashboard` — invokes the tool, surfaces
-  the output path, and handles staleness detection (~24 h default). Reads
-  only; never posts to the tracker.
+- Skill: `security-tracker-stats-dashboard`
+  (`plugins/magpie-security/skills/tracker-stats-dashboard/SKILL.md`,
+  behind the `skills/security-tracker-stats-dashboard` symlink) — invokes
+  the tool, surfaces the output path, and handles staleness detection
+  (~24 h default). Reads only; never posts to the tracker.
+- Adopter config: `<project-config>/security-tracker-stats.md`, scaffolded
+  from `plugins/magpie-setup/templates/security-tracker-stats.md` (#1410);
+  the skill declares it, with `project.md` and `scope-labels.md`, in
+  `requires_config:`.
 
 ## Behaviour & contract
 
@@ -50,6 +56,21 @@ health without navigating the tracker issue-by-issue.
   per-issue event cache is trusted only when it was written after that
   issue's `updatedAt`; an issue relabelled since the cache was written is
   refetched rather than silently served its stale label history.
+  The skill's freshness check and the fetch use the same cache directory:
+  the configured `tracker_stats_cache` value, else `$TRACKER_STATS_CACHE`,
+  else the fetch scripts' default; before #1444 the skill ignored the
+  configured value, so it could judge freshness from a directory the
+  fetch never wrote.
+- **One list call, not one read per issue (#1443).**
+  `fetch_issues.py` requests `body` and `closedByPullRequestsReferences`
+  in its `gh issue list --state all --limit 1000` call, and
+  `fetch_bodies.py` copies them from `issues.json` into
+  `issue_extra.json`; a per-issue `gh issue view` runs only as a fallback
+  for an issue whose list entry lacks the fields, such as an
+  `issues.json` written before the change.
+  When the list returns 1000 issues, `fetch_issues.py` warns that it hit
+  the cap, that older issues are missing, and that every count in the
+  dashboard is a floor.
 - **Config-driven.** Lifecycle category bands, time-to-triage signal,
   milestone vertical annotations, and the null-`upstream_repo` path are
   declared in the tool's `default-config.yaml` and overridden per-adopter.

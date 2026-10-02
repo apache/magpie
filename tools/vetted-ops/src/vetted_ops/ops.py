@@ -38,6 +38,9 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from . import procedures
+from .procedures import Plan
+
 # --------------------------------------------------------------------------
 # Parameter types
 # --------------------------------------------------------------------------
@@ -216,6 +219,40 @@ def cve_id(value: str) -> str:
     return _check(_CVE_ID, value, "CVE id")
 
 
+def _label_text(value: str, what: str, forbidden: str) -> str:
+    """One printable line of 1-80 characters, with no surrounding whitespace."""
+    if not value or len(value) > 80:
+        raise ParamError(f"{what} must be 1-80 characters: {value!r}")
+    if not value.isprintable():
+        raise ParamError(f"{what} must be a single printable line: {value!r}")
+    if value != value.strip():
+        raise ParamError(f"{what} may not start or end with whitespace: {value!r}")
+    if value.startswith("-"):
+        raise ParamError(f"{what} may not start with '-': {value!r}")
+    bad = sorted({c for c in value if c in forbidden})
+    if bad:
+        raise ParamError(f"{what} may not contain {''.join(bad)!r}: {value!r}")
+    return value
+
+
+def action(value: str) -> str:
+    """
+    A status-rollup action label — the right-hand field of an entry's
+    ``<summary>`` line. ``<`` / ``>`` would let it close the ``<summary>`` or
+    ``<details>`` tag it sits in, and ``·`` is the field separator the parser
+    splits on, so an action containing one could never be matched again.
+    """
+    return _label_text(value, "action", "<>\u00b7")
+
+
+def field_name(value: str) -> str:
+    """
+    A ``### <Field>`` heading name. ``#`` is refused so the name cannot be read
+    as a heading of another level.
+    """
+    return _label_text(value, "field", "#")
+
+
 def read_body(value: str, *, workspace: Path) -> bytes:
     """
     Validate and read body text, returning its **content**.
@@ -302,8 +339,10 @@ class Op:
     #: Parameter names, in positional order.
     params: tuple[str, ...]
     #: Builds the argv or request descriptor. Receives resolved config plus validated parameters.
-    build: Callable[..., list[str] | dict[str, object]]
-    #: Execution backend. "gh" returns an argv list; "http-read" returns a request descriptor dict.
+    build: Callable[..., list[str] | dict[str, object] | Plan]
+    #: Execution backend. "gh" returns an argv list; "http-read" returns a request
+    #: descriptor dict; "procedure" returns a :class:`~vetted_ops.procedures.Plan`
+    #: the dispatcher executes through the restricted tracker-only runner.
     backend: str = "gh"
     #: True when the operation changes state visible outside the machine.
     writes: bool = False
@@ -473,6 +512,25 @@ _register(
             "--json",
             "number,title,state,isDraft,mergedAt,mergeCommit,baseRefName,headRefName,"
             "author,url,files,labels,milestone,reviewDecision,mergeable,mergeStateStatus",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="pr-view-with-body",
+        params=("number",),
+        summary="Read one upstream PR as JSON, including its description.",
+        build=lambda cfg, number: [
+            "gh",
+            "pr",
+            "view",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--json",
+            "number,title,body,state,isDraft,mergedAt,mergeCommit,baseRefName,headRefName,"
+            "author,url,files,labels,milestone",
         ],
     )
 )
@@ -1911,6 +1969,82 @@ _register(
             "url": f"{cfg['cve_services_api']}/cve/{cve_id}",
             "method": "GET",
         },
+    )
+)
+
+# ---- procedures: read-modify-write on the tracker -------------------------
+#
+# These cannot be a single argv: the write depends on what a read returned (the
+# rollup comment to append to, the issue body whose field to replace). The
+# builder binds the validated parameters to a fixed procedure in procedures.py;
+# the dispatcher runs it through a Runner that permits only `gh` calls on the
+# policy-pinned tracker. The rollup and the issue body stay in this process —
+# only a one-line summary reaches the caller.
+
+
+def _plan(op: str, run: Callable[..., int]) -> Callable[..., Plan]:
+    def _build(cfg: dict[str, str], **params: str) -> Plan:
+        # Bodies arrive through Plan.execute, not as a parameter.
+        bound = {k: v for k, v in params.items() if k not in {"body", "value"}}
+        return Plan(op=op, tracker=_tracker(cfg), run=run, params=bound)
+
+    return _build
+
+
+_register(
+    Op(
+        name="rollup-append",
+        params=("number", "action", "body"),
+        backend="procedure",
+        writes=True,
+        summary="Append an entry to a tracker issue's status rollup, creating the rollup if absent.",
+        body_files=("body",),
+        build=_plan("rollup-append", procedures.rollup_append),
+    )
+)
+
+_register(
+    Op(
+        name="rollup-amend-latest",
+        params=("number", "action", "body"),
+        backend="procedure",
+        writes=True,
+        summary="Replace the latest rollup entry's body; refused unless its action matches.",
+        body_files=("body",),
+        build=_plan("rollup-amend-latest", procedures.rollup_amend_latest),
+    )
+)
+
+_register(
+    Op(
+        name="rollup-fold",
+        params=("number", "comment_id", "action"),
+        backend="procedure",
+        writes=True,
+        summary="Fold a legacy tracker comment into the rollup, then delete it.",
+        build=_plan("rollup-fold", procedures.rollup_fold),
+    )
+)
+
+_register(
+    Op(
+        name="body-field-set",
+        params=("number", "field", "value"),
+        backend="procedure",
+        writes=True,
+        summary="Replace one ### field's value in a tracker issue body; no write when unchanged.",
+        body_files=("value",),
+        build=_plan("body-field-set", procedures.body_field_set),
+    )
+)
+
+_register(
+    Op(
+        name="body-field-get",
+        params=("number", "field"),
+        backend="procedure",
+        summary="Print one ### field's value from a tracker issue body.",
+        build=_plan("body-field-get", procedures.body_field_get),
     )
 )
 

@@ -494,16 +494,25 @@ below, annotated.
     // are in sandbox-troubleshooting.md → "`gh` fails with TLS …".
     // The adversarial-review tool runs other models' CLIs, which need network
     // access and their own credentials (~/.codex, ~/.copilot, ~/.gemini,
-    // ~/.claude). Only its single-line, installed-plugin form is excluded;
+    // ~/.grok, ~/.claude). Only its single-line, installed-plugin form is excluded;
     // it keeps its permission prompt (no `allow`), and the plugin cache is
     // `Edit`-denied below. See the isolated-setup-install skill, Step R.
     // The vetted-ops READ dispatcher calls `gh` and the network, so it runs
     // outside the sandbox too — in both invocation forms the skills and the
     // read-only gatherer agents use (`uv run --project` and `uvx --from`).
+    // The vetted-ops TRACKER dispatcher is excluded for the same reason: the
+    // status-rollup and body-field writes need a gh that can verify TLS. That
+    // is acceptable where excluding `vetted-op` is not, because it refuses
+    // every operation except those tracker procedures before reading policy,
+    // and their runner refuses any gh call outside repos/<tracker>/. It keeps
+    // its `ask` below. Never exclude `vetted-op`: that runs the whole write
+    // catalogue unsandboxed.
     "excludedCommands": [
       "gh *",
       "uv run --project ~/.claude/magpie/vetted-ops vetted-op-read *",
       "uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *",
+      "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *",
+      "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *",
       "uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/*/tools/adversarial-review adversarial-review *"
     ],
     // The `lychee` link-check hook runs in OFFLINE mode (`offline =
@@ -612,7 +621,7 @@ below, annotated.
   },
   "permissions": {
     "allow": [
-      "Bash(gh api graphql *)",                 // read-only GraphQL fetches (PR-triage paginated loop). MORE SPECIFIC than the `gh *` ask below, so it — and the read-only rules that follow — run WITHOUT a prompt. GraphQL mutations slip through; accepted, since the skills route mutations through REST, not graphql.
+      "Bash(gh api graphql *)",                 // GraphQL fetches (PR-triage paginated loop). Every GraphQL call sends `-f query=…`, so the write-shaped `gh api * -f*` ask below still prompts for it (ask beats allow); this rule only matters in a config without that ask. Bounded GraphQL reads go through vetted-ops instead.
       // Two read-only REST `gh api` GETs the skills need for read-only
       // analysis (security-team / reviewer roster lookup; release-tag ↔
       // fix-commit ancestry when verifying a fix shipped). Without these,
@@ -622,9 +631,9 @@ below, annotated.
       // mutation (`… /collaborators/<user> -X PUT`, which has no ` --` prefix);
       // `compare/…` is a GET-only endpoint with no mutating counterpart.
       "Bash(gh api repos/*/*/collaborators --*)", "Bash(gh api repos/*/*/compare/*)",
-      // Read-only gh, allow-listed so they don't trip the `gh *` ask below.
-      // Anything NOT listed here — every write/destructive gh, and any other
-      // REST `gh api` (GET included) — falls through to `gh *` and prompts.
+      // Read-only gh, allow-listed so they run without a prompt. Every
+      // write/destructive gh subcommand, and every write-shaped `gh api`, is
+      // on ask below; anything in neither list falls to the mode's default.
       "Bash(gh pr view *)", "Bash(gh pr list *)", "Bash(gh pr diff *)", "Bash(gh pr checks *)",
       "Bash(gh issue view *)", "Bash(gh issue list *)",
       "Bash(gh repo view *)", "Bash(gh repo list *)",
@@ -701,6 +710,8 @@ below, annotated.
     "ask": [
       "Bash(git push *)",                        // including --force / --force-with-lease variants
       "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op *)",  // the vetted-ops WRITE dispatcher: bounded in shape, but still a remote mutation, so it keeps a confirmation
+      "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *)",  // the tracker rollup / body-field procedures: excluded from the sandbox above, so never `allow`
+      "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *)",
       // gh WRITE subcommands, listed one by one. Claude Code evaluates deny,
       // then ask, then allow, and "a matching ask rule prompts even when a
       // more specific allow rule also matches the same call" — so a catch-all
@@ -709,7 +720,21 @@ below, annotated.
       // A gh subcommand that appears in neither list falls through to the
       // mode's default (a prompt in default mode, the classifier in auto).
       // `gh auth token` / `refresh` are denied above (deny > ask).
-      "Bash(gh api *)",                          // GET and POST look the same to a pattern; keep the whole thing on ask (vetted-ops carries the bounded reads)
+      // `gh api` asks only in its write shapes. A call is a GET unless it
+      // names a method (-X / --method), sends fields (-f / -F / --field /
+      // --raw-field, which switch the default to POST) or a body (--input);
+      // each flag is matched right after `gh api` and later, with the value
+      // attached (-XPOST) or separate. A plain GET no longer prompts, and the
+      // specific `gh api` GET allow rules above now take effect. GraphQL still
+      // asks: it always sends `-f query=…`, and a pattern cannot tell a query
+      // from a mutation (vetted-ops carries the bounded GraphQL reads).
+      "Bash(gh api -X*)", "Bash(gh api * -X*)",
+      "Bash(gh api --method*)", "Bash(gh api * --method*)",
+      "Bash(gh api -f*)", "Bash(gh api * -f*)",
+      "Bash(gh api -F*)", "Bash(gh api * -F*)",
+      "Bash(gh api --field*)", "Bash(gh api * --field*)",
+      "Bash(gh api --raw-field*)", "Bash(gh api * --raw-field*)",
+      "Bash(gh api --input*)", "Bash(gh api * --input*)",
       "Bash(gh pr create *)",
       "Bash(gh pr comment *)",
       "Bash(gh pr review *)",
@@ -819,13 +844,22 @@ blocks the agent's Read tool from reading the same path.
 rules block the agent's own `Edit`/`Write` tools. The catalogue gets
 a second, independent layer for free: the plugin cache sits outside
 every `sandbox.filesystem.allowWrite` root, so a sandboxed `Bash`
-call cannot write it either. The **policy TOML has no such second
-layer** — it lives inside the adopter repo, which is sandbox-writable
-by design, so a Bash-level write (`sed -i`, a heredoc redirect) would
-slip past the `Edit`/`Write` deny.
+call cannot write it either. The **policy TOML** lives inside the
+adopter repo, which is sandbox-writable by design. Under Claude Code its
+`Edit(.apache-magpie-overrides/tools/vetted-ops/**)` deny is also merged
+into the sandbox's write-deny list, so a Bash-level write (`sed -i`, a
+heredoc redirect) is refused as well. Harnesses without that merge have
+only the tool-level deny, and must deny writes to that path in their
+sandbox configuration explicitly.
 
-That asymmetry is survivable only because of where the privilege
-boundary sits. `vetted-op-read` refuses a write **before** it reads
+This matters more since `vetted-op-tracker`: its procedures write, and the
+tracker they write to comes from the policy. Rewriting the policy could
+point those writes at another repository. The `ask` on
+`vetted-op-tracker` is the remaining check, so keep the policy path
+write-denied at both layers.
+
+For the read dispatcher, the privilege boundary sits earlier.
+`vetted-op-read` refuses a write **before** it reads
 the policy, so rewriting the policy cannot convert a read into a
 write; the worst it buys is pointing a read at a different
 repository. Had the `allow` been written against `vetted-op` — the
@@ -837,6 +871,16 @@ belongs to whoever runs the command.
 If even the read-widening matters for your threat model, keep the
 policy in a path the sandbox does not grant write to and point
 `--config` at it.
+
+`vetted-op-tracker` is the one write-capable entry point excluded from
+the sandbox, and the reasoning is the same shape. It refuses every
+operation except the tracker rollup / body-field procedures before it
+reads the policy, and their runner refuses any `gh` call outside
+`repos/<tracker>/`. `<tracker>` comes from the policy, though, so a
+rewritten policy can re-point those procedures at another repository;
+that is why it stays in `ask` (every write still prompts) and why the
+policy belongs outside the writable root if that matters to you. Excluding `vetted-op` would instead run the whole write
+catalogue unsandboxed, which is why it is not excluded.
 
 **OpenCode parity.** OpenCode has no per-command sandbox exclusion — its
 isolation is the OS-level sandbox of the [clean-env wrapper](#the-clean-env-wrapper),
@@ -3250,6 +3294,9 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
      is ✗ and worth stopping for: it grants every operation in
      the catalogue, because the operation's caller name is chosen
      by whoever runs the command.
+   - `vetted-op-tracker` is in `ask` and in
+     `sandbox.excludedCommands` (both forms), never in `allow`;
+     `vetted-op` is never in `sandbox.excludedCommands`.
    - `permissions.deny` denies `Edit` on
      `~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**`
      (the catalogue), `~/.claude/magpie/**` (the fixed path the

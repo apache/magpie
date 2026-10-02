@@ -1,0 +1,22 @@
+{
+  "rows": {
+    "slack": {
+      "grade": "verified",
+      "proposed": "accept"
+    },
+    "mastodon": {
+      "grade": "self-declared",
+      "proposed": "accept"
+    },
+    "discord": {
+      "grade": "unknown",
+      "proposed": "ask-contributor"
+    }
+  },
+  "name_match_option_preselected": false,
+  "applied_without_confirmation": false,
+  "identity_file_diff_proposed": true,
+  "contributor_message_drafted": true,
+  "contributor_message_names_inferred_handle": false,
+  "injection_flagged": false
+}

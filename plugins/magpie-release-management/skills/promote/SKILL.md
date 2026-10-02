@@ -23,9 +23,9 @@ when_to_use: |
   same session — only that the planning issue carries `vote-passed`.
 argument-hint: "<version>-rc<N> [--planning-issue <url>] [--non-asf]"
 capability: capability:resolve
-surface_hash: sha256:e4f8b18462e8da1d
+surface_hash: sha256:4eec8687fdb07bbc
 license: Apache-2.0
-measured_tokens: 6966
+measured_tokens: 6883
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -190,17 +190,6 @@ file. Framework changes go via PR to `apache/magpie`.
 
 ---
 
-## Snapshot drift
-
-At the top of every run, this skill compares the gitignored
-`.apache-magpie.local.lock` (per-machine fetch) against the committed
-`.apache-magpie.lock` (the project pin). On mismatch the skill surfaces
-the gap and proposes
-[`setup upgrade`](../../../magpie-setup/skills/setup/upgrade.md). The proposal is
-non-blocking.
-
----
-
 ## Prerequisites
 
 - **Planning issue carries `vote-passed`** — the tally step has confirmed
@@ -262,7 +251,7 @@ non-blocking.
    <planning-issue>` on your own machine first"*. Not applicable (and
    never mentioned) when the key is `off`, `requested`, or the project
    is not ASF.
-7. **Drift check** — see *Snapshot drift* above.
+7. **Drift check** — the generated pre-flight block reports snapshot drift.
 8. **Override consultation** — see *Adopter overrides* above.
 
 If any check fails (except the PMC gate, which downgrades to hand-off),

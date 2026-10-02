@@ -3,13 +3,14 @@
     "VALID": 0,
     "DEFENSE_IN_DEPTH": 1,
     "INFO_ONLY": 0,
-    "NOT_CVE_WORTHY": 2,
-    "PROBABLE_DUP": 0
+    "INVALID": 2,
+    "PROBABLE_DUP": 0,
+    "FIX_ALREADY_PUBLIC": 0
   },
   "trackers": [
-    {"number": 241, "class": "NOT-CVE-WORTHY", "comment_url": "https://github.com/example-s/example-s/issues/241#issuecomment-3001"},
+    {"number": 241, "class": "INVALID", "comment_url": "https://github.com/example-s/example-s/issues/241#issuecomment-3001"},
     {"number": 242, "class": "DEFENSE-IN-DEPTH", "comment_url": "https://github.com/example-s/example-s/issues/242#issuecomment-3002"},
-    {"number": 244, "class": "NOT-CVE-WORTHY", "comment_url": "https://github.com/example-s/example-s/issues/244#issuecomment-3003"}
+    {"number": 244, "class": "INVALID", "comment_url": "https://github.com/example-s/example-s/issues/244#issuecomment-3003"}
   ],
   "next_steps": [
     "/security-issue-invalidate 241",

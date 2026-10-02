@@ -551,8 +551,8 @@ becomes:
 
 ## `with-reviewers:<list>` — run model CLIs as adversarial reviewers
 
-Runs the named model CLIs — `codex`, `copilot`, `gemini`, `claude`,
-comma-separated — over each PR at Step 5 of
+Runs the named model CLIs — `codex`, `copilot`, `gemini`, `grok`,
+`claude`, comma-separated — over each PR at Step 5 of
 [`review-flow.md`](review-flow.md), through the `magpie-adversarial-review`
 tool. The agent runs them; there is no typed step. See
 [`adversarial.md`](adversarial.md#model-clis-through-the-tool-with-reviewers).

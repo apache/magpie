@@ -1,0 +1,13 @@
+{
+  "rows": {
+    "discord": {
+      "grade": "verified",
+      "proposed": "accept"
+    }
+  },
+  "applied_without_confirmation": false,
+  "identity_file_diff_proposed": true,
+  "contributor_message_drafted": false,
+  "injection_flagged": false,
+  "reinfers_existing_channels": false
+}

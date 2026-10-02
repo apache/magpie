@@ -14,13 +14,9 @@ tracker, and the reporter-reply path when the operator has advisory API
 access. It applies only when `<upstream>` is hosted on GitHub and the
 operator is a **collaborator** on the repository's security advisories.
 
-Historically the skills assumed *"GHSA threads have no GitHub API"* and
-routed every reporter reply through an email relay to the hosting
-foundation's security team (see [`tools/gmail/asf-relay.md`](../../../../tools/gmail/asf-relay.md)).
-That is now only the **fallback**: the *repository security advisories
-REST API* exposes the advisory record for read + field-edit, so the sync
-reconciles it directly. Only the reporter⟷maintainer **discussion
-thread** still has no API.
+The email relay to the hosting foundation's security team ([`tools/gmail/asf-relay.md`](../../../../tools/gmail/asf-relay.md)) is only the **fallback**:
+the *repository security advisories REST API* exposes the advisory record for read + field-edit, so the sync reconciles it directly.
+Only the reporter⟷maintainer **discussion thread** has no API.
 
 ---
 
@@ -38,7 +34,8 @@ record it in the observed-state bag:
 | Change **state** / publish | `PATCH …` with `state`, or the publish call | **admin / security-manager** |
 | Comment on the reporter discussion thread | *(none — `…/comments` → 404)* | **web UI only** |
 
-Probe: `gh api /repos/<upstream>/security-advisories --jq 'length'`
+Probe: the `gh api "/repos/<upstream>/security-advisories?per_page=100"`
+list call in the Step 1 add-on below
 (a `200` with a list ⇒ at least collaborator read). Attempting a
 collaborator-management `PATCH` returns
 `403 "Cannot update advisory collaborators unless you have
@@ -49,10 +46,8 @@ below.
 
 The common tier for a project committee member is **advisory
 collaborator**: read + field-edit, but **not** collaborator-management
-and **not** publish. Design the flow so the sync does what the
-collaborator tier allows and *hands off* the rest — never blind-fire a
-`state=published` PATCH hoping it works, because a success is a
-**permanent public advisory**.
+and **not** publish. The sync does what that tier allows and *hands off* the rest —
+never blind-fire a `state=published` PATCH: a success is a **permanent public advisory**.
 
 ---
 
@@ -60,8 +55,13 @@ collaborator tier allows and *hands off* the rest — never blind-fire a
 
 Detect GHSA-sourced trackers by grepping the body / provenance for
 `GHSA-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}` ids scoped to `<upstream>`
-(reuse the import skill's GHSA grep). For each id, fetch the advisory and
-record it. Surface drift in the Step 2 proposal:
+(reuse the import skill's GHSA grep). Take each id's advisory from one list call, which doubles as the access-tier probe above:
+
+```bash
+gh api "/repos/<upstream>/security-advisories?per_page=100"
+```
+
+Fetch an advisory individually (`gh api /repos/<upstream>/security-advisories/<GHSA>`) only when its id is not in that list — it is older than the first 100 — and record each one. Surface drift in the Step 2 proposal:
 
 - **cve_id drift** — advisory `cve_id` ≠ the tracker's CVE (or empty).
 - **field drift** — `credits` / `severity` / `cwe_ids` / `vulnerabilities`
@@ -77,10 +77,8 @@ record it. Surface drift in the Step 2 proposal:
   is still `null` — the mirror was filled in but never published.
 
   **This is a reporter-facing gap, not bookkeeping.** On a GHSA-sourced
-  tracker the advisory is the surface the reporter watches; the project
-  mailing-list advisory and the CVE record are not. So a tracker can be
-  correct and closeable while, from the reporter's side, nothing has
-  visibly happened since triage. Two consequences:
+  tracker the reporter watches the advisory, not the mailing-list advisory or the CVE record,
+  so a closeable tracker can look untouched since triage from the reporter's side. Two consequences:
 
   - **Do not let the tracker close silently past it.** When the tracker
     reaches its terminal step with the advisory still unpublished,
@@ -90,7 +88,8 @@ record it. Surface drift in the Step 2 proposal:
     reply so the reporter is not told *"it is all public now"* while
     reading an advisory still marked `triage`.
 - **access drift** — security-team roster
-  (`gh api repos/<tracker>/collaborators --jq '.[].login'`) members
+  (the collaborator list fetched once per run, see
+  [`gather.md`](gather.md#step-1--gather-the-current-state)) members
   missing from the advisory's `collaborating_users`. Informational at the
   collaborator tier (adding collaborators is an admin hand-off).
 
@@ -133,10 +132,8 @@ Each is a separate confirmable proposal item (SKILL Golden rule 1).
 Step 4 items 2 (state / publish / close) and 3 (collaborator management) are
 **admin / security-manager** operations the collaborator tier cannot perform.
 Do **not** leave them as a passive recap line, and do **not** post a
-`<tracker>` comment @-mentioning project members — the project's own
-security-team members typically do **not** hold GitHub advisory admin rights
-either, so mentioning them leaves the action on nobody's desk. Instead,
-**relay the needed change to the team that administers GitHub Private
+`<tracker>` comment @-mentioning project members, who typically lack advisory admin rights too.
+**Relay the needed change to the team that administers GitHub Private
 Vulnerability Reporting for the hosting org** — for ASF projects, the
 foundation security team, via the [`tools/gmail/asf-relay.md`](../../../../tools/gmail/asf-relay.md)
 path.

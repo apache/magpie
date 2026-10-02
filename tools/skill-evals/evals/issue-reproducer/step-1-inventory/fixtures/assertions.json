@@ -29,14 +29,24 @@
     "pattern": "\\{[^{}]*(\"location\"\\s*:\\s*\"comment-1\"[^{}]*\"language\"\\s*:\\s*\"python\"|\"language\"\\s*:\\s*\"python\"[^{}]*\"location\"\\s*:\\s*\"comment-1\")[^{}]*\\}",
     "flags": "i"
   },
-  "has_comment1_2_lines": {
-    "type": "regex",
-    "field": "blocks",
-    "pattern": "\\{[^{}]*(\"location\"\\s*:\\s*\"comment-1\"[^{}]*\"line_count\"\\s*:\\s*2\\b|\"line_count\"\\s*:\\s*2\\b[^{}]*\"location\"\\s*:\\s*\"comment-1\")[^{}]*\\}",
-    "flags": "i"
-  },
   "has_no_reported_env": {
     "type": "empty",
     "field": "reporter_env.runtime_version"
+  },
+  "has_comment1_3_lines": {
+    "type": "regex",
+    "field": "blocks",
+    "pattern": "\\{[^{}]*(\"location\"\\s*:\\s*\"comment-1\"[^{}]*\"line_count\"\\s*:\\s*3\\b|\"line_count\"\\s*:\\s*3\\b[^{}]*\"location\"\\s*:\\s*\"comment-1\")[^{}]*\\}",
+    "flags": "i"
+  },
+  "has_body_4_lines": {
+    "type": "regex",
+    "field": "blocks",
+    "pattern": "\\{[^{}]*(\"location\"\\s*:\\s*\"body\"[^{}]*\"line_count\"\\s*:\\s*4\\b|\"line_count\"\\s*:\\s*4\\b[^{}]*\"location\"\\s*:\\s*\"body\")[^{}]*\\}",
+    "flags": "i"
+  },
+  "has_no_reported_os": {
+    "type": "empty",
+    "field": "reporter_env.os"
   }
 }

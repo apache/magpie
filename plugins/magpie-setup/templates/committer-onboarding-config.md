@@ -249,5 +249,8 @@ committer_governance_maintainer_roster:
 - [`contributor-nomination-config.md`](contributor-nomination-config.md)
   — nomination-brief thresholds and assessment window.
 - [`pmc-roster.md`](pmc-roster.md) — PMC-member roster for vote tally.
+- [`contributor-identities.md`](contributor-identities.md) — the
+  community channels and confirmed GitHub ↔ channel identities that
+  Step 2 reads and extends.
 - [`committer-onboarding`](../../../.agents/skills/magpie-committer-onboarding/SKILL.md)
   — the skill that reads this configuration.

@@ -11,6 +11,8 @@
   - [Why](#why)
   - [Invocation](#invocation)
     - [`append <issue> --action "<label>" ...`](#append-issue---action-label-)
+    - [`amend-latest <issue> --action "<label>" ...`](#amend-latest-issue---action-label-)
+    - [`fold <issue> --comment-id <id> --action "<label>"`](#fold-issue---comment-id-id---action-label)
     - [`list <issue>`](#list-issue)
     - [`latest <issue>`](#latest-issue)
   - [Failure modes](#failure-modes)
@@ -62,12 +64,20 @@ context every sync pass.
 This tool does the read / append / PATCH in a subprocess. Only a
 one-line confirmation lands on the agent's stderr. The body never
 crosses the boundary.
+`append` and `amend-latest` print the rollup comment's URL on stdout, so a
+caller can link to it without reading the rollup.
 
 ## Invocation
 
 ```bash
 uv run --directory tools/github-rollup github-rollup <subcommand> ...
 ```
+
+Under the [secure agent setup](../../docs/setup/secure-agent-setup.md) this CLI's `gh` runs sandboxed and fails,
+so skills call the same procedures through [`vetted-ops`](../vetted-ops/README.md#tracker-procedures-rollup-and-body-field-writes) instead:
+`vetted-op-tracker --caller <skill> rollup-append <N> "<action>" <scratch>/entry.md`,
+`rollup-amend-latest <N> "<action>" <scratch>/entry.md`, and `rollup-fold <N> <comment-id> "<action>"`.
+The uv CLI remains for use outside the sandbox.
 
 ### `append <issue> --action "<label>" ...`
 
@@ -85,6 +95,29 @@ Optional flags:
   (default: real now). Useful for deterministic replay tests.
 - `--dry-run` — print the decision (create vs append) without
   writing.
+
+A new rollup's marker line names the tracker repository
+(`<!-- <repo-name> status rollup v1 — … -->`); an existing rollup is
+found by any `<!-- <name> status rollup v<N>` marker.
+
+### `amend-latest <issue> --action "<label>" ...`
+
+Replace the body of the most recent entry, keeping its date and user.
+Use it when a later step of the same pass has to fill in a value the
+entry already mentions (for example a draft id). Refuses with exit 4
+when the latest entry's action is not `<label>`, so an entry someone
+else appended in the meantime is never overwritten. Body from
+`--entry-body` or `--entry-body-file`; `--dry-run` supported.
+
+### `fold <issue> --comment-id <id> --action "<label>"`
+
+Fold one legacy bot comment into the rollup: the entry takes the
+legacy comment's own date and author, every line is left-trimmed, and
+the legacy comment is deleted only after the append succeeded.
+Refuses (exit 4) when the comment is the rollup itself. Which comments
+are foldable, and the action label to use, is the caller's decision —
+see [`status-rollup.md`](../github/status-rollup.md#migrating-legacy-comments-into-a-rollup).
+`--dry-run` supported.
 
 ### `list <issue>`
 
@@ -104,5 +137,6 @@ if the rollup or entries are missing.
 |---|---|
 | 0 | Success (or `--dry-run` planned). |
 | 2 | CLI argument error (mutually-exclusive flags, missing required). |
-| 3 | Issue has no rollup yet, or rollup has no entries (for `latest`). |
+| 3 | Issue has no rollup yet, or rollup has no entries (for `latest` / `amend-latest`). |
+| 4 | Refused: `amend-latest` action mismatch, or `fold` pointed at the rollup itself. |
 | other | `gh` returned non-zero; the underlying stderr is forwarded. |

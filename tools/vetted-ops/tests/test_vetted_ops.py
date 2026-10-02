@@ -28,7 +28,7 @@ from typing import NoReturn
 
 import pytest
 
-from vetted_ops import cli, config, ops
+from vetted_ops import cli, config, ops, procedures
 
 CONFIG_TOML = """
 workspace = '{workspace}'
@@ -109,6 +109,8 @@ def test_every_op_declares_validators_for_all_its_params() -> None:
         "version",
         "commit_hash",
         "cve_id",
+        "action",
+        "field",
     }
     for op in ops.OPS.values():
         for param in op.params:
@@ -146,6 +148,8 @@ def test_every_builder_produces_a_gh_argv(policy: config.Config) -> None:
         "commit_hash": "a1b2c3d",
         "cve_id": "CVE-2023-1234",
         "ecosystem": "PyPI",
+        "action": "Sync",
+        "field": "CVE tool link",
     }
     body = policy.workspace / "body.md"
     body.write_text("x")
@@ -160,6 +164,11 @@ def test_every_builder_produces_a_gh_argv(policy: config.Config) -> None:
         elif op.backend == "http-read":
             assert isinstance(result, dict)
             assert isinstance(result.get("url"), str), op.name
+        elif op.backend == "procedure":
+            assert isinstance(result, procedures.Plan), op.name
+            assert result.tracker == "acme/tracker", op.name
+        else:
+            raise AssertionError(f"{op.name}: unknown backend {op.backend!r}")
 
 
 def test_every_http_operation_is_read_only() -> None:
@@ -800,6 +809,7 @@ def test_graphql_query_text_is_never_a_parameter(policy: config.Config) -> None:
     surface the catalogue exists to remove.
     """
     argv = ops.OPS["gql-pr-liveness"].build(policy.as_mapping(), number="7")
+    assert isinstance(argv, list)
     query_args = [a for a in argv if a.startswith("query=")]
     assert len(query_args) == 1
     path = Path(query_args[0].removeprefix("query=@"))
@@ -809,6 +819,7 @@ def test_graphql_query_text_is_never_a_parameter(policy: config.Config) -> None:
 
 def test_graphql_repo_comes_from_policy_not_parameters(policy: config.Config) -> None:
     argv = ops.OPS["gql-pr-review-threads"].build(policy.as_mapping(), number="7")
+    assert isinstance(argv, list)
     assert "owner=acme" in argv
     assert "repo=product" in argv
 
@@ -1466,3 +1477,14 @@ def test_project_resolves_outside_the_workspace() -> None:
     pyproject = tomllib.loads((Path(__file__).parents[1] / "pyproject.toml").read_text())
     assert "dependency-groups" not in pyproject
     assert "sources" not in pyproject.get("tool", {}).get("uv", {})
+
+
+def test_pr_view_with_body_reads_the_upstream_pr_including_its_body(policy: config.Config) -> None:
+    op = ops.resolve("pr-view-with-body")
+    assert not op.writes
+    params, _body = cli._validate_params(op, ["65703"], policy)
+    argv = cli.build_argv(op, params, policy)
+    assert isinstance(argv, list)
+    assert argv[:6] == ["gh", "pr", "view", "65703", "--repo", "acme/product"]
+    fields = argv[argv.index("--json") + 1].split(",")
+    assert "body" in fields and "files" in fields and "author" in fields

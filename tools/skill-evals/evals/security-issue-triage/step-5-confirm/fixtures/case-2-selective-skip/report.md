@@ -3,7 +3,7 @@
 
 Proposals:
 1. #212 — VALID
-2. #215 — NOT-CVE-WORTHY
+2. #215 — INVALID
 3. #218 — INFO-ONLY
 4. #220 — PROBABLE-DUP
 

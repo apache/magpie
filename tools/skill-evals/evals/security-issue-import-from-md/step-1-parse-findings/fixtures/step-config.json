@@ -1,4 +1,4 @@
 {
-  "skill_md": "skills/security-issue-import-from-md/SKILL.md",
+  "skill_md": "skills/security-issue-import-from-md/findings-format.md",
   "step_heading": "## Step 1 — Parse the file into findings"
 }

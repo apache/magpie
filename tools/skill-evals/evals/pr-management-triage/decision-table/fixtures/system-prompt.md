@@ -46,7 +46,10 @@ and reason.
 - **`viewer_triage_fold_present`** — the PR body contains a `pr-triage-fold`
   managed block (the body-fold feedback channel, default
   `triage_feedback_channel: pr-body`). The block's opening marker carries
-  `triaged=<ISO>` (the triage timestamp) and `head=<sha7>`. The block counts as
+  `triaged=<ISO>` (the triage timestamp) and `head=<sha7>`, and folds written
+  under the current spec also carry `by=<login>` (the triager who wrote the
+  block; legacy folds may omit it — do not invent a triager name when it is
+  absent). The block counts as
   an after-last-commit triage marker **only when `head=` equals the PR's current
   `HeadSHA`** (the author has not pushed since the fold). If `head=` no longer
   matches the current head, treat `viewer_triage_fold_present` as **false** — the

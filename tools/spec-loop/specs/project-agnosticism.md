@@ -56,9 +56,16 @@ The three mechanisms, in order of preference:
 
 - The placeholder + config-resolution contract: `adapters.md`,
   `adoption-and-setup.md`, and the adopter scaffold
-  `projects/_template/`.
+  `plugins/magpie-setup/templates/`, shipped inside the `magpie-setup`
+  plugin since #1410 and still reachable as `projects/_template/`, which is
+  now a symlink to it.
 - The backend-flag precedent: `docs/release-management/README.md`
-  (§ adopter backends) and `projects/_template/release-management-config.md`.
+  (§ adopter backends) and
+  `plugins/magpie-setup/templates/release-management-config.md`.
+- `tools/dev/check-placeholders.sh`, the fixed-string linter for
+  project-specific names; its allowlist names
+  `plugins/magpie-setup/templates/` (the real path) rather than the
+  symlink.
 - The per-family **`organization:` scope** (formerly the binary
   `asf: true` / `asf: false` flag), declared in each family's scope banner
   at the top of `docs/<family>/README.md` and surfaced in the **Scope**
@@ -114,10 +121,29 @@ The three mechanisms, in order of preference:
   both spellings and also matches spaced variants (`name: "<project>"` as well
   as `name:"<project>"`), since YAML, JSON, and GraphQL all accept either form
   and pinning one lets the other through.
+- **Links to project docs resolve from config, never from one adopter's
+  tree.** Review footers in `pr-management-code-review`, the
+  `pr-management-triage` comment templates, and `security-issue-fix` no
+  longer link a specific project's `contributing-docs/` paths. They use
+  `<upstream_contributing_docs_url>` from `<project-config>/project.md`
+  (a footer drops its "More on how …" lines when the key is unset rather
+  than linking a guess) or the triage templates' `<quality_criteria_url>`
+  and `<two_stage_triage_rationale_url>`; `security-issue-fix` falls back
+  to a plain `Generated-by:` disclosure when the project defines none
+  (#1407).
+- **Filled examples use a neutral project.** Template examples that need
+  concrete values (`mentoring-welcome-config.md`,
+  `release-management-config.md`) use the fictional `Apache Foo`
+  (`apache/foo`, `dev@foo.apache.org`) rather than a real adopter (#1407).
+  Generic skills likewise dropped hardcoded release numbers, a backport
+  label, maintainer names, a real CVE id, and one project's canned-response
+  list in favour of `<project-config>` values, and the status-rollup marker
+  names the adopter's tracker instead of a fixed project slug (#1444).
 - **Advisory, not paternalistic.** The audit surfaces candidate coupling
   for a maintainer to judge; some ASF strings are legitimate (examples,
   the ASF default profile, ASF-specific docs). It does not auto-rewrite.
-- **Template and example profiles stay comparable.** `projects/_template/`
+- **Template and example profiles stay comparable.**
+  `plugins/magpie-setup/templates/` (reached as `projects/_template/`)
   is the adopter contract; `projects/non-asf-example/` is the proof that
   a non-ASF adopter can satisfy that contract. Required files and config
   keys should be structurally comparable, with omissions explained rather
@@ -164,13 +190,20 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
   `tools/skill-and-tool-validator` (SOFT category `asf_coupling`) surfaces
   coupled tokens automatically on every validator run.  As of the
   `low-confidence-asf-coupling-pass` work (mechanical cleanup + suppression
-  of low-confidence hits for `organization:`-scoped families), the live
-  catalogue produces **3 asf-coupling warnings** — `release-audit-report` and
-  `release-promote` (`svn` invocations, remedy:adapter, pending the #602
-  Subversion backend) and `dependency-license-audit` (a bare `PMC`
-  reference). Other bare `PMC` / `ICLA` / `announce@apache.org` references
-  are inside org-scoped skills where ASF-specific text is appropriate.  No remaining tooling gap — the
-  lint exists and a human judges any new hits.  In the same pass:
+  of low-confidence hits for skills declaring `organization: ASF`), the
+  catalogue produced 3 asf-coupling warnings. Re-measured at the 2026-09-28
+  sync by running `validate_asf_coupling` over every
+  `plugins/magpie-*/skills/*/SKILL.md`, it produces **8 hits across 7
+  skills**: high-confidence `svn mv` or `dist/release/` in
+  `release-archive-sweep` (two hits), `release-audit-report`,
+  `release-keys-sync`, and `release-promote` (remedy adapter or capability
+  flag, pending the #602 Subversion backend), and a low-confidence bare
+  `PMC` in `dependency-license-audit`, `setup-privacy-llm`, and the new
+  `contributor-identity-map`, which sits in the ASF-scoped
+  contributor-growth family but declares no `organization: ASF` of its own,
+  so the low-confidence suppression does not apply to it. No remaining
+  tooling gap — the lint exists and a human judges any new hits.
+  In the same pass:
   `skills/pr-management-triage/comment-templates.md` was generalised —
   `security@apache.org` replaced with the `<security-list>` placeholder and
   the "ASF vulnerability-handling process" wording replaced with a
@@ -187,12 +220,12 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
   acceptance #3 into a measurable gate.
 - **The capability-flag vocabulary for security intake and CVE allocation
   is now documented** in
-  `projects/_template/security-intake-config.md` (intake channel,
+  `plugins/magpie-setup/templates/security-intake-config.md` (intake channel,
   forwarder relay, CNA tool, allocation gate, and new
   `disclosure_governance` flags). Skills read these flags in follow-on
   updates as each flag is wired in.
 - **Contributor intake and governance capability flags are now declared**
-  in `projects/_template/committer-onboarding-config.md` (`icla` / `dco`
+  in `plugins/magpie-setup/templates/committer-onboarding-config.md` (`icla` / `dco`
   / `no-cla` for intake; `asf-pmc` / `github-codeowners` /
   `maintainer-roster` for governance), added by the
   `capability-flags-committer-intake` work item. The `committer-onboarding`
@@ -203,9 +236,15 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
   judgement.
 - **Template/profile drift is now mechanically checked.** Check #15 in
   `tools/skill-and-tool-validator` (`template-drift` category, SOFT)
-  compares `projects/_template/` and `projects/non-asf-example/`: files
+  compares `projects/_template/` (the symlink to
+  `plugins/magpie-setup/templates/`) and `projects/non-asf-example/`: files
   linked in the example README must exist on disk, every config file in the
   example must be documented in its README, and shared config files (all
   except `project.md` and `README.md`, which differ by design) must have
   the same h2 section headings. The live tree produces no `template-drift`
   violations.
+- **Example-only project names remain in skill bodies.** A case-insensitive
+  search finds 40 `airflow` mentions under `plugins/magpie-*/skills/`, almost
+  all `e.g.` examples or illustrative path globs (for instance the
+  `quick-merge` candidate-rules example); `check-placeholders.sh` guards the
+  operational forms, and the remaining mentions are judged by a human.

@@ -1,11 +1,11 @@
 {
   "branch_name": "fix-connection-test-ssrf",
   "pr_title": "Security fix: prevent SSRF in connection test endpoint",
-  "branch_name_valid": true,
+  "branch_name_valid": false,
   "pr_title_valid": false,
   "forbidden_terms_found": [
     "security fix",
-    "security"
+    "SSRF"
   ],
-  "recommendation": "Remove security framing from PR title; use neutral language e.g. 'Restrict connection test endpoint to configured host allowlist'"
+  "recommendation": "Remove security framing and the vulnerability-class name from the branch and PR title; use neutral language e.g. 'restrict-connection-test-host-allowlist' and 'Restrict connection test endpoint to configured host allowlist'"
 }

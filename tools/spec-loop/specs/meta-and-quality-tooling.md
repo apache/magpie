@@ -54,6 +54,12 @@ trustworthy as it grows.
   batched rubric is re-asked once, and only silence that survives the retry
   is reported; a verdict the grader actually gave is never re-asked, so a NO
   cannot become a YES by asking twice (#1341).
+  The grader rubric (single-field and batched) counts a candidate that
+  reaches the expected conclusion as a match even when it adds correct
+  detail, omits secondary detail, names the deciding rule differently, or
+  explains the decision without restating it, because the decision itself
+  is compared exactly in its own structured fields; it answers no only on
+  a different or contradictory conclusion (#1398).
 - `tools/sandbox-lint/` — lints the sandbox/permissions configuration.
 - `tools/symlink-lint/` — lints the framework's self-adoption skill
   symlinks: rejects cyclic symlinks, misdirected relays (canonical/
@@ -87,7 +93,11 @@ trustworthy as it grows.
   in live mode (via `gh api graphql`) or replay mode (offline, from a
   cached snapshot) against a real tracker. Measures skip-rate before and
   after any rule change, closing the tune-then-verify loop so rule edits
-  are backed by evidence. Capability: `substrate:analytics`.
+  are backed by evidence. A last comment that starts with the framework
+  skill marker or with the status-rollup marker line
+  (`<!-- <name> status rollup v<N>`) counts as skill activity, not human
+  activity, so a fresh rollup append no longer dispatches the tracker
+  (#1444). Capability: `substrate:analytics`.
 - `tools/spec-validator/` — validates spec-loop spec frontmatter
   (required keys, valid `status`/`kind`/`mode` values, body-section
   presence, `Known gaps` section required in functional specs,
@@ -102,10 +112,21 @@ trustworthy as it grows.
   separate rewrite pass, `rewrite.md` — rewrite prose paragraph by
   paragraph with the maintainer writing every word), `list-skills` (live,
   generated index of every skill, grouped by family).
-
+  The utility skills live at `plugins/magpie-utilities/skills/<alias>/`,
+  reached through `skills/<name>` symlinks.
 - `tools/skill-token-count/` measures full local skill files with pinned
-  `tiktoken` / `cl100k_base`, generates the mode-economics table, and checks
-  drift through prek and a dedicated path-filtered CI workflow.
+  `tiktoken` / `cl100k_base` and stamps each count into that skill's own
+  frontmatter as a generated `measured_tokens:` line (#1394).
+  `--write` restamps the skills whose count changed, `--check` (the default,
+  run by prek and a dedicated path-filtered CI workflow) fails on a missing
+  or stale stamp, and `--table` prints the per-skill table to stdout.
+  The table in `docs/mode-economics.md` is no longer committed: the website
+  build renders it from the stamps.
+  `skill-and-tool-validator` rejects a `measured_tokens:` value that is not
+  a positive integer; whether the value is current is this tool's check.
+- `tools/dev/generate-labeler-config.py` generates `.github/labeler.yml`
+  from the `**Capability:**` line of every `tools/<name>/README.md`, kept in
+  sync by a prek hook; `.github/workflows/labeler.yml` applies it (#1382).
 
 ## Behaviour & contract
 
@@ -171,17 +192,36 @@ trustworthy as it grows.
   only decides whether it fires. A green PR check is therefore not a
   whole-repo result, which is why `prek run --all-files` before pushing
   is a required pre-flight (#1317).
+- **Every required check runs on stacked PRs.** The `zizmor` workflow's
+  `pull_request` trigger carries no `branches:` filter, because that filter
+  matches the PR's base branch and a stacked PR based on another PR's branch
+  would wait forever on the required `zizmor` check; its `push` trigger stays
+  limited to `main` (#1440).
+- **Tool-capability labels are pre-applied, once.** The labeler workflow runs
+  hourly (and on `workflow_dispatch`) in the repository's own context rather
+  than on `pull_request_target`, checks out nothing from a PR, and labels only
+  the non-bot PRs opened since the previous successful run started (24 hours
+  back on the first run). Each PR is labelled once, so a label a maintainer
+  removes stays removed. Eval fixtures and spec-loop specs do not count as
+  touching their tool, and a PR that would gain more than eight labels gets
+  none. The labels are a starting point to correct, not the answer (#1382).
 - **Eval trust roles stay separate.** Mock tool output in `report.md` enters the user turn as untrusted data.
   Repository policy read from a trusted revision may enter through a case-level `trusted-context.md`, which the runner appends only to the system prompt.
 
-- **Token measurement provenance.** Counts include UTF-8 file content with
-  LF-normalized line endings. A content manifest hash identifies inputs without
-  depending on Git history or commit time. A descriptive UTC date changes only
-  on regeneration after drift; checks preserve it. Vocabulary preparation is
-  explicit and checksum-verified; missing or corrupt caches block measurement
-  before a network request. Skill edits,
-  additions, removals, and renames invalidate the table. These file counts
-  are distinct from estimated session costs and runtime percentiles.
+- **Token measurement provenance.** Counts cover the full UTF-8 file with
+  LF-normalized line endings, frontmatter and comments included, excluding the
+  `measured_tokens:` line itself so writing the stamp never changes the count.
+  The stamp sits immediately after `license:` and `surface_hash:` immediately
+  before it, so neither stamper reorders the other's line.
+  A per-skill stamp conflicts only when two PRs edit the same skill; the
+  earlier committed table, with its manifest hash and measurement date, made
+  almost any two skill PRs conflict and was retired (#1394).
+  Vocabulary preparation is explicit and checksum-verified; missing or
+  corrupt caches block measurement before a network request.
+  A `tiktoken` bump that changes tokenization fails `--check` on every skill
+  until the skills are restamped in the same PR.
+  These file counts are distinct from estimated session costs and runtime
+  percentiles.
 - **Runtime evidence is scoped.** An opt-in replay benchmark captures actual
   CLI-reported input, cache, and output usage for synthetic full-entrypoint
   decision-to-draft/report tasks. It records prompts' source hashes, model/CLI
@@ -230,6 +270,8 @@ trustworthy as it grows.
     without ever re-asking a verdict the grader gave.
 11. The validator fails a skill whose `name:` does not match the
     directory holding its `SKILL.md`.
+12. Every `SKILL.md` carries a current `measured_tokens:` stamp;
+    `skill-token-count --check` fails on a missing or stale one.
 
 ## Validation
 
@@ -242,7 +284,7 @@ uv run --project tools/spec-inventory --group dev pytest tools/spec-inventory/te
 
 ## Known gaps
 
-- **Eval coverage is complete.** All 63 shipped skills have a matching
+- **Eval coverage is complete.** All 78 shipped skills have a matching
   suite in `tools/skill-evals/evals/`; the soft eval-coverage check in
   `skill-and-tool-validator` (check #8) warns when a newly added skill has
   no suite, keeping coverage complete going forward.
@@ -275,3 +317,9 @@ uv run --project tools/spec-inventory --group dev pytest tools/spec-inventory/te
 - **Vendor-neutrality measurement is available but unscheduled.** `tools/vendor-neutrality-score/`
   ships and can be run ad hoc, but is not yet wired into CI or the
   build loop. Score drift is not automatically surfaced.
+- **The 500-line cap is advisory and widely exceeded.** `skill-line-limit`
+  is a SOFT check. After the family trims (#1390 pr-management, #1400
+  issue, #1435 to #1438 security), 23 `SKILL.md` files are still over 500
+  lines, led by `release-prepare` (1,208), `release-verify-rc` (968) and
+  `release-rc-cut` (932); 8 of the 10 release-management skills and 10
+  security skills are among them.

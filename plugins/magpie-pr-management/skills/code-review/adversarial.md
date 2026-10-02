@@ -8,7 +8,7 @@ own reading and the in-skill review to catch blind spots one
 model would miss. Two shapes are supported:
 
 - **Model CLIs, run by the agent** — `codex`, `copilot`, `gemini`,
-  `claude` — through the framework's
+  `grok`, `claude` — through the framework's
   [`adversarial-review`](../../../../tools/adversarial-review/README.md)
   tool (the `magpie-adversarial-review` plugin). The maintainer names
   them with `with-reviewers:` or configures them once with

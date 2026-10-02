@@ -1,0 +1,22 @@
+{
+  "has_import_reformat_flagged": {
+    "type": "judge",
+    "field": "violations",
+    "rubric": "The violations flag the import-block changes (splitting `import json, pickle` onto two lines, and the whitespace fix in the `create_session` import) as out of scope. Any type label that describes them (drive-by-reformat, stray-import) counts, and it does not matter whether they are reported as one entry or several."
+  },
+  "has_no_false_positive_on_bytes_fix": {
+    "type": "judge",
+    "field": "violations",
+    "rubric": "No violation entry objects to the production change in `serialize_value()` (the `isinstance(value, bytes)` branch) or to the new regression test. The property is false only if an entry treats the fix itself or the test as out of scope."
+  },
+  "has_refactors_flagged": {
+    "type": "judge",
+    "field": "violations",
+    "rubric": "The violations flag BOTH the `xcom_arg.py` refactor (new `_resolve()` helper) and the `base.py` extraction of a shared `validate_key()` helper as not required by the fix. Any type label that describes them (speculative-refactor, unrelated-file, new-api-surface) counts, and it does not matter whether they are reported as one entry or several."
+  },
+  "has_no_false_positive_on_xcom_fix": {
+    "type": "judge",
+    "field": "violations",
+    "rubric": "No violation entry objects to the 4-line bytes-serialization fix in `airflow/models/xcom.py` itself. The property is false only if an entry treats that fix as out of scope."
+  }
+}

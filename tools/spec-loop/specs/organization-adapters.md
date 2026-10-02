@@ -54,6 +54,13 @@ identical "ASF default" values in its own `project.md`.
   `projects/non-asf-example/`.
 - `organizations/_template/` — authoring skeleton.
 - Resolution contract: `AGENTS.md` §"Configuration resolution order".
+- The project-manifest template that names the organization,
+  `plugins/magpie-setup/templates/project.md` (`projects/_template/` links to
+  that directory since #1410), marks the org-level rows (CVE authority,
+  project metadata, …) as inherited from `organizations/<org>/organization.md`.
+- The framework's own published configuration,
+  `.apache-magpie-overrides/project.md`, declares `organization: ASF` and so
+  exercises the ASF profile on this repository (#1412).
 - Path exempted from placeholder / asf-coupling lint via
   `ALLOWLIST_PATHS += "organizations/"` in `skill-and-tool-validator`.
 
@@ -80,8 +87,9 @@ identical "ASF default" values in its own `project.md`.
 
 ## Out of scope
 
-- Removing the ASF default *values* from `projects/_template/project.md`
-  (the reflow to actually inherit) — a follow-up change.
+- Removing the ASF default *values* from the project-manifest template
+  (now `plugins/magpie-setup/templates/project.md`; the reflow to actually
+  inherit) — a follow-up change.
 - Making the `asf:false` skill families fully agnostic (moving residual
   PMC/ICLA/incubator vocabulary behind placeholders) — a follow-up.
 - Replacing the per-family `asf: true/false` metadata with an optional
