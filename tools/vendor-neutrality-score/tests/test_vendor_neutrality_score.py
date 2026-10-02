@@ -52,6 +52,18 @@ def test_vendor_backed_needs_two_distinct_vendors() -> None:
     assert r.vendors == ["Atlassian", "GitHub"]
 
 
+def test_chat_contract_is_green_with_slack_and_discord() -> None:
+    tools = [
+        _tool("chat", "contract:chat", vns.INTERFACE, "agnostic"),
+        _tool("chat-slack", "contract:chat", vns.IMPLEMENTATION, "Slack"),
+        _tool("chat-discord", "contract:chat", vns.IMPLEMENTATION, "Discord"),
+    ]
+    r = _result(vns.score_contracts(tools), "contract:chat")
+    assert r.green is True
+    assert r.vendors == ["Discord", "Slack"]
+    assert "2 backend vendors: Discord, Slack" in r.basis
+
+
 def test_vendor_backed_single_vendor_is_not_green() -> None:
     tools = [_tool("gmail", "contract:mail-create", vns.IMPLEMENTATION, "Google")]
     r = _result(vns.score_contracts(tools), "contract:mail-create")
