@@ -124,6 +124,29 @@ def _resolve_api_key(explicit_key: str | None = None) -> str | None:
     return None
 
 
+def _extract_result_dict(resp: dict[str, Any]) -> dict[str, Any]:
+    """Extract inner result dict from Jev API response envelope if present.
+
+    Validates that if 'result' or 'decision' key exists, its value must be a dict.
+    Fails closed if the key is present but contains a non-dict value (e.g. error payload).
+    """
+    if "result" in resp:
+        res = resp["result"]
+        if not isinstance(res, dict):
+            raise TypedDecisionUnavailable(
+                f"Malformed 'result' in Jev API response: expected JSON object, got {type(res).__name__}"
+            )
+        return res
+    if "decision" in resp:
+        dec = resp["decision"]
+        if not isinstance(dec, dict):
+            raise TypedDecisionUnavailable(
+                f"Malformed 'decision' in Jev API response: expected JSON object, got {type(dec).__name__}"
+            )
+        return dec
+    return resp
+
+
 class JevProvider(DecisionProvider):
     """TypeSafe Jev decision provider calling api.typesafe.ai/v1/systemone."""
 
@@ -257,15 +280,13 @@ class JevProvider(DecisionProvider):
                     f"Malformed response from Jev API: expected JSON object, got {type(resp).__name__}"
                 )
 
-            result = resp
-            if isinstance(resp.get("result"), dict):
-                result = resp["result"]
-            elif isinstance(resp.get("decision"), dict):
-                result = resp["decision"]
+            result = _extract_result_dict(resp)
 
             label = result.get("label")
             if label is None:
                 raise TypedDecisionUnavailable("Jev API response missing 'label'")
+            if isinstance(label, bool):
+                raise TypedDecisionUnavailable(f"Jev API returned boolean for 'label': {label!r}")
             label_str = str(label)
             if label_str not in options:
                 raise TypedDecisionUnavailable(
@@ -275,6 +296,10 @@ class JevProvider(DecisionProvider):
             raw_conf = result.get("confidence")
             if raw_conf is None:
                 raise TypedDecisionUnavailable("Jev API response missing 'confidence'")
+            if isinstance(raw_conf, bool):
+                raise TypedDecisionUnavailable(
+                    f"Jev API returned non-numeric confidence {raw_conf!r}: boolean is not allowed"
+                )
             try:
                 confidence = float(raw_conf)
             except (ValueError, TypeError) as exc:
@@ -356,15 +381,15 @@ class JevProvider(DecisionProvider):
                     f"Malformed response from Jev API: expected JSON object, got {type(resp).__name__}"
                 )
 
-            result = resp
-            if isinstance(resp.get("result"), dict):
-                result = resp["result"]
-            elif isinstance(resp.get("decision"), dict):
-                result = resp["decision"]
+            result = _extract_result_dict(resp)
 
             raw_val = result.get("value")
             if raw_val is None:
                 raise TypedDecisionUnavailable("Jev API response missing 'value'")
+            if isinstance(raw_val, bool):
+                raise TypedDecisionUnavailable(
+                    f"Jev API returned non-numeric score value {raw_val!r}: boolean is not allowed"
+                )
             try:
                 value = float(raw_val)
             except (ValueError, TypeError) as exc:
@@ -380,6 +405,10 @@ class JevProvider(DecisionProvider):
             raw_conf = result.get("confidence")
             if raw_conf is None:
                 raise TypedDecisionUnavailable("Jev API response missing 'confidence'")
+            if isinstance(raw_conf, bool):
+                raise TypedDecisionUnavailable(
+                    f"Jev API returned non-numeric confidence {raw_conf!r}: boolean is not allowed"
+                )
             try:
                 confidence = float(raw_conf)
             except (ValueError, TypeError) as exc:
@@ -422,15 +451,15 @@ class JevProvider(DecisionProvider):
                     f"Malformed response from Jev API: expected JSON object, got {type(resp).__name__}"
                 )
 
-            result = resp
-            if isinstance(resp.get("result"), dict):
-                result = resp["result"]
-            elif isinstance(resp.get("decision"), dict):
-                result = resp["decision"]
+            result = _extract_result_dict(resp)
 
             raw_prob = result.get("probability")
             if raw_prob is None:
                 raise TypedDecisionUnavailable("Jev API response missing 'probability'")
+            if isinstance(raw_prob, bool):
+                raise TypedDecisionUnavailable(
+                    f"Jev API returned non-numeric probability {raw_prob!r}: boolean is not allowed"
+                )
             try:
                 probability = float(raw_prob)
             except (ValueError, TypeError) as exc:
