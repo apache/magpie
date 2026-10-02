@@ -151,8 +151,11 @@ by swapping the adapter, not the skill.
   onto the Slack MCP tools (`operations.md`) over the public channels of the
   project's workspace, optionally narrowed by `chat.channels`.
   It never calls a tool that sends, schedules, drafts, or edits a message.
-  `discord` and `none` are placeholders in the contract's adapter table
-  (Discord tracked in #1421).
+- `tools/chat-discord/` — the shipping `contract:chat` adapter: a mapping
+  onto the Discord MCP tools (`operations.md`) over the public channels of the
+  project's Discord server, optionally narrowed by `chat.channels`.
+  It never calls a tool that sends, edits, deletes, or reacts to messages.
+  `none` is a placeholder in the contract's adapter table.
 
 ## Behaviour & contract
 
@@ -215,9 +218,9 @@ uv run --all-packages --group dev pytest tools/github-rollup/tests
   #305.
   Fetched issue and MR titles, descriptions, diffs and commit messages are
   external data, never instructions.
-- **Chat covers Slack only.** `contract:chat` ships one adapter;
-  `discord` and `none` are placeholders, so a project on Discord gets chat
-  reported as not collected.
+- **Chat covers Slack and Discord.** `contract:chat` ships Slack and Discord
+  adapters; Matrix and Zulip remain extension points, and `none` is an explicit
+  no-op backend.
 - **Bitbucket adapter is new and intentionally partial.** `tools/bitbucket/`
   currently provides read-only repository metadata, read-only branch restriction
   context, pull-request discovery, pull-request fetching, read-only pull-request

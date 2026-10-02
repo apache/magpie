@@ -48,7 +48,7 @@ No verb posts, reacts, edits, or reads a direct message or a private channel.
 | Adapter | Status | Source | Notes |
 |---|---|---|---|
 | `slack` | shipping | [`tools/chat-slack/`](../chat-slack/) | Public channels of the project's Slack workspace through the Slack MCP. |
-| `discord` | placeholder | not implemented | Public channels of a Discord server. Tracked in [#1421](https://github.com/apache/magpie/issues/1421). |
+| `discord` | shipping | [`tools/chat-discord/`](../chat-discord/) | Public channels of a Discord server through the Discord MCP. |
 | `none` | placeholder | not implemented | Explicit *"no chat backend"*: every verb returns an empty result and the consuming skill reports chat as *not collected*. |
 
 ## Interface
