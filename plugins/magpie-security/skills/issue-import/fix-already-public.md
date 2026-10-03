@@ -5,45 +5,30 @@
 
 ## Step 2c — Search `<upstream>` for an already-public fix
 
-Step 2a finds existing *trackers* that overlap. Step 2b finds
-*prior reports* that were rejected. Step 2c covers a third
-no-tracker-needed case: an **independent public PR in `<upstream>`
-already appears to fix the reported behaviour**. The reporter sent
-`<security-list>` without knowing the fix landed (or is in flight);
-opening a tracker would create a redundant audit-trail entry and
-later force the team through `security-issue-invalidate` to close
-it. Catching the case at import time is cheaper: thank the reporter,
-point at the PR, ask them to verify, and skip tracker creation.
+Step 2c covers a third no-tracker-needed case (after Step 2a's overlapping trackers and Step 2b's prior rejections):
+an **independent public PR in `<upstream>` already appears to fix the reported behaviour**.
+Rather than open a tracker the team would later close through `security-issue-invalidate`,
+thank the reporter, point at the PR, ask them to verify, and skip tracker creation.
 
-**Run Step 2c on** every `Report` or forwarder-relayed candidate
-that Step 2a did *not* flag STRONG (STRONG-dedup routes to
-`security-issue-deduplicate`, which already handles the
-already-tracked case). Skip on candidates whose provisional
-class (the Step 2a pre-classification) is `automated-scanner`,
-`consolidated-multi-issue`, `media-request`, `spam`,
-`cve-tool-bookkeeping`, or `cross-thread-followup` —
-those never become trackers regardless.
+**Run Step 2c on** every `Report` or forwarder-relayed candidate that Step 2a did *not* flag STRONG
+(STRONG routes to `security-issue-deduplicate`).
+Skip candidates whose provisional class (the Step 2a pre-classification) is `automated-scanner`,
+`consolidated-multi-issue`, `media-request`, `spam`, `cve-tool-bookkeeping`, or `cross-thread-followup`.
 (Threads the Step 1 pre-filter dropped as `cve-tool-bookkeeping` never reach this step.)
 
 **Detection signals** (any one is sufficient to surface the
 candidate as a potential `fix-already-public`):
 
 1. **Reporter links to a public PR.** The body contains an
-   `https://github.com/<upstream>/pull/<N>` URL. This is the most
-   reliable signal — the reporter already noticed.
+   `https://github.com/<upstream>/pull/<N>` URL — the most reliable signal.
 2. **Code-pointer + vulnerability-class match in a recent PR.**
-   For each code pointer extracted in Step 2a (file path + function
-   name), search `<upstream>` for PRs that touch that surface and
-   whose title/body matches the candidate's vulnerability class
-   (e.g. *escape*, *sanitize*, *validate*, *auth*, *XSS*, *CVE*,
-   *security*). Run via the temp-file pattern from Step 2a (key
-   3) — never put report-derived strings directly into the
-   `gh search prs` argument:
+   For each code pointer extracted in Step 2a (file path + function name),
+   search `<upstream>` for PRs that touch that surface and whose title/body matches the candidate's vulnerability class
+   (e.g. *escape*, *sanitize*, *validate*, *auth*, *XSS*, *CVE*, *security*).
+   Use the temp-file pattern from Step 2a (key 3) — never put report-derived strings directly into the `gh search prs` argument.
 
-   Compute `<since-date>` yourself as today minus 180 days, in
-   `YYYY-MM-DD` form, and write the literal date into the qualifier —
-   no `date` command substitution, so the `gh` call stays a plain
-   command and works on both macOS and Linux:
+   Compute `<since-date>` yourself as today minus 180 days, in `YYYY-MM-DD` form, and write the literal date into the qualifier
+   — no `date` command substitution, so the `gh` call stays a plain command:
 
    Write the keywords to `<scratch>/pubfix-kw-<threadId>.txt` with the Write tool, clean them as in Step 2a:
 
@@ -73,10 +58,8 @@ candidate as a potential `fix-already-public`):
    search `<upstream>` for a PR that references that GHSA — some
    projects file the GHSA-linked fix PR before the tracker exists.
 
-**Budget guardrail for Step 2c**: **≤ 3 `gh search prs` calls per
-candidate** (signals 1 + 2 + 3 above). If signal 1 finds a
-reporter-supplied PR URL, signals 2 and 3 are skipped (the
-reporter's own pointer is the strongest match available).
+**Budget guardrail for Step 2c**: **≤ 3 `gh search prs` calls per candidate** (signals 1 + 2 + 3 above).
+If signal 1 finds a reporter-supplied PR URL, skip signals 2 and 3.
 
 **Match grading**:
 
@@ -93,11 +76,9 @@ reporter's own pointer is the strongest match available).
   but a refactor PR with no security framing.
 
 Only STRONG matches route to `fix-already-public` in Step 3.
-MEDIUM matches surface as an *informational* note on the
-candidate's proposal entry (the triager may downgrade to
-`fix-already-public` manually during Step 5 confirmation if they
-read the PR and agree it covers the report). WEAK matches are
-ignored — too noisy to surface.
+MEDIUM matches surface as an *informational* note on the candidate's proposal entry
+(the triager may switch it to `fix-already-public` at confirmation after reading the PR).
+WEAK matches are ignored.
 
 **PR-was-filed-in-response check.** Before grading a match
 STRONG, confirm the PR was **not** filed *because of* this
@@ -127,13 +108,8 @@ For MEDIUM matches, attach the PR link with *"possible match,
 review before deciding"* framing — no draft reply unless the
 user upgrades to STRONG during confirmation.
 
-**Hard rule**: Step 2c is **read-only**. No comment on the PR,
-no email draft sent until Step 7 applies the user-confirmed
-disposition. The PR stays unaware of the report — same posture
-as `security-issue-import-from-pr`'s
-[*no outreach to the PR author about the CVE*](../issue-import-from-pr/SKILL.md#reporter-credit-policy-for-public-pr-imports)
-rule (the PR is public; revealing that a private security
-report came in about it leaks the private-channel content
-into a public surface).
+**Hard rule**: Step 2c is **read-only**: no comment on the PR, and no draft until Step 7 applies the confirmed disposition.
+The PR stays unaware of the report, per `security-issue-import-from-pr`'s
+[*no outreach to the PR author about the CVE*](../issue-import-from-pr/SKILL.md#reporter-credit-policy-for-public-pr-imports) rule.
 
 ---
