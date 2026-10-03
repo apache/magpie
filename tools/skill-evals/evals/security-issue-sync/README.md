@@ -3,10 +3,8 @@
 
 # security-issue-sync eval suite
 
-Behavioral evals for the `security-issue-sync` skill. Eight steps are
-covered; steps 0 (pre-flight), 1a–1e (data gathering), 1g (cve.org API
-check), 4 (shell apply), and 5/5b/5c (CVE artifact regeneration) are
-skipped — all low-signal for structured-output evals.
+Behavioral evals for the `security-issue-sync` skill.
+Steps 0 (pre-flight), 1a–1c and 1e (data gathering), 1g (cve.org API check), 4 (shell apply), 5/5a and 5c (CVE artifact regeneration) are skipped — all low-signal for structured-output evals.
 
 ## Steps
 
@@ -20,6 +18,10 @@ skipped — all low-signal for structured-output evals.
 | 3 | Confirm with user | 3 | apply-all, selective, cancel |
 | 6 | Recap | 2 | Structural assertions; with and without CVE/draft |
 | Bulk orchestration | Bucket-and-walk decision in bulk mode | 3 | All label-only (one bundled), mixed buckets (split), all CVE-affecting (all walked) |
+| 1d | Actionable signals in comments and mail | 6 | Affected-versions lower bound (widen / keep + backtick-wrap), title strip and its under-3-words guard, private-scanner credit (anonymise / public-credit exemption), reporter CVSS surfaced only |
+| 5b | Push decision for the regenerated CVE JSON | 6 | Skip gate, expired session hand-off, title and private-finder hygiene gates, clean push with `allocated → review-ready`, close-out push on a `PUBLIC` record |
+| Bulk selectors | Selector resolution and pre-flight skips | 6 | Injection-shaped CVE token rejected, CVE list expansion, `sync all` skip rules, named trackers never skipped, `force-sync`, review-ready push exemption |
+| GHSA access tier | Repository security advisory writes by access tier | 5 | Collaborator direct field edit, 403 admin hand-off relay draft, admin direct write, reporter reply by browser paste, non-collaborator relay fallback |
 
 ## Hard rules exercised
 

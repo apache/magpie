@@ -1,0 +1,4 @@
+{
+  "skill_md": "skills/security-issue-sync/apply-and-push.md",
+  "step_heading": "## Step 5b — Push the regenerated JSON to the CVE tool via the adapter"
+}

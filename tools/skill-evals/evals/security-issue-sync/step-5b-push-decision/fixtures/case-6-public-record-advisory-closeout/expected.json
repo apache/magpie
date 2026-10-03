@@ -1,0 +1,7 @@
+{
+  "action": "push",
+  "gate_failed": null,
+  "state_advance": null,
+  "recap_blocker": false,
+  "reason": "Every regen is pushed in the same apply pass, including the advisory-URL / announced close-out on an already-public record. The push writes the new vendor-advisory reference to the published record, and the state stays public, so there is no allocated -> review-ready advance."
+}

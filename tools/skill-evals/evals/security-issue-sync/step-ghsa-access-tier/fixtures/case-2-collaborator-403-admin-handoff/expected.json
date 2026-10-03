@@ -1,0 +1,16 @@
+{
+  "access_tier": "collaborator",
+  "action": "relay-draft",
+  "channel": "email-draft",
+  "mail_tool": "oauth-draft-create",
+  "recipient": "<foundation-security-list>",
+  "auto_send": false,
+  "reply_on_security_thread": true,
+  "retry_after_403": false,
+  "posts_tracker_comment": false,
+  "rollup_handoff_marker": true,
+  "relay_parts": ["already-done", "admin-only-change-and-why", "ask"],
+  "claims_reply_posted": false,
+  "requires_confirmation": true,
+  "rationale": "The 403 on the collaborator PATCH is the definitive not-admin signal, so the sync does not retry; managing collaborators is admin-only and is handed off as an oauth-draft email to the advisory-admin team on the originating security-list thread, never a tracker @-mention comment and never via the Gmail MCP, which mangles the advisory URLs."
+}

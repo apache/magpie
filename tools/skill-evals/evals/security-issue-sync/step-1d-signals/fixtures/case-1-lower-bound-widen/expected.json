@@ -1,0 +1,21 @@
+{
+  "affected_versions": {
+    "action": "widen_to_all_affected",
+    "proposed_value": "`< 3.2.2`",
+    "current_shape_shown": true
+  },
+  "title": {
+    "action": "none",
+    "proposed_title": null,
+    "stripped_context_preserved": false
+  },
+  "reporter_credit": {
+    "action": "none",
+    "proposed_value": null
+  },
+  "audit_trail_fields_changed": false,
+  "severity": {
+    "action": "none"
+  },
+  "regenerate_cve_json": true
+}

@@ -1,0 +1,13 @@
+{
+  "error": null,
+  "invalid_tokens": [],
+  "searched_cve_ids": [],
+  "resolved": [180, 195, 210, 211, 212, 214, 215],
+  "dispatched": [195, 212, 215],
+  "skipped": [
+    {"issue": 180, "rule": "post_announce_cve_published"},
+    {"issue": 210, "rule": "awaiting_release"},
+    {"issue": 211, "rule": "fix_released_awaiting_advisory"},
+    {"issue": 214, "rule": "all_phases_done_awaiting_closure"}
+  ]
+}

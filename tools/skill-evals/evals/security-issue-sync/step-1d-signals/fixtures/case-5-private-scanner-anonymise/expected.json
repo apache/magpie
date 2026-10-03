@@ -1,0 +1,23 @@
+{
+  "affected_versions": {
+    "action": "none",
+    "proposed_value": null
+  },
+  "title": {
+    "action": "none",
+    "proposed_title": null,
+    "stripped_context_preserved": false
+  },
+  "reporter_credit": {
+    "action": "replace_with_scanner_credit",
+    "proposed_value": "Mythos automated analysis"
+  },
+  "short_public_summary": {
+    "action": "strip_scanner_name"
+  },
+  "audit_trail_fields_changed": false,
+  "severity": {
+    "action": "none"
+  },
+  "notes": "The mailing-list thread field references the private Mythos scanner, the credit names an individual, and there is no sign she consented to public credit (the inbound mail is from Contoso PSIRT, not from her; no public report URL; no credit request), so the credit becomes Mythos's declared public credit name and the 'A Mythos scan flagged that' clause is dropped from the summary, while the mailing-list-thread field, rollup and mail thread keep the original scanner and person references."
+}

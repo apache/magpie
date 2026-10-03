@@ -1,0 +1,21 @@
+{
+  "affected_versions": {
+    "action": "none",
+    "proposed_value": null
+  },
+  "title": {
+    "action": "strip",
+    "proposed_title": "Path traversal in log file download endpoint",
+    "stripped_context_preserved": true
+  },
+  "reporter_credit": {
+    "action": "none",
+    "proposed_value": null
+  },
+  "audit_trail_fields_changed": false,
+  "severity": {
+    "action": "none"
+  },
+  "regenerate_cve_json": true,
+  "notes": "The title carries a report-form classifier, a leading project-name token, an internal split marker and a GHSA ID; the strip cascade removes all four, the split-from pointer moves into the body's Related references section or the rollup rather than being lost, and the CVE JSON is regenerated so the published title is the cleaned one."
+}

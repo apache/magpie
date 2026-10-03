@@ -1,0 +1,7 @@
+{
+  "action": "skip",
+  "gate_failed": null,
+  "handoff_variant": null,
+  "state_advance": null,
+  "reason": "Step 5a was skipped because no CVE was allocated and the tracker closed as invalid, so the skip-condition gate skips 5b entirely; there is no record to push to."
+}

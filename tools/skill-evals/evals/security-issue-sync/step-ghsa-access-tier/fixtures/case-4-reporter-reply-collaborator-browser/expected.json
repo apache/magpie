@@ -1,0 +1,16 @@
+{
+  "access_tier": "collaborator",
+  "action": "browser-paste",
+  "channel": "advisory-web-ui",
+  "mail_tool": null,
+  "recipient": null,
+  "auto_send": false,
+  "reply_on_security_thread": null,
+  "retry_after_403": false,
+  "posts_tracker_comment": false,
+  "rollup_handoff_marker": false,
+  "relay_parts": [],
+  "claims_reply_posted": false,
+  "requires_confirmation": null,
+  "rationale": "The advisory discussion has no REST API, so the reply cannot be posted programmatically; because the operator is an advisory collaborator the primary path applies: no relay email, open the advisory in the browser and print the copy-pastable reply for the operator to paste, without claiming it was posted."
+}

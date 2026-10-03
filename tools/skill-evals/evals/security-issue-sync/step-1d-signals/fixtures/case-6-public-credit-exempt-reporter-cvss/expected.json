@@ -1,0 +1,17 @@
+{
+  "reporter_credit": {
+    "action": "none",
+    "proposed_value": null
+  },
+  "short_public_summary": {
+    "action": "none"
+  },
+  "audit_trail_fields_changed": false,
+  "severity": {
+    "action": "surface_only"
+  },
+  "cwe": {
+    "action": "propose"
+  },
+  "notes": "Although the thread references the private Mythos scanner, the finder self-credited publicly (her own security@ message naming herself, a public huntr.com report, an explicit credit request), so the named credit is kept. The 9.8 Critical score is the reporter's, and the team comment only copies it, so it is surfaced in the observed state without proposing a Severity value; CWE-79 comes from a team member's independent assessment and is proposed with a pointer to that comment."
+}

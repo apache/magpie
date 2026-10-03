@@ -1,0 +1,8 @@
+{
+  "action": "hand-off",
+  "gate_failed": null,
+  "handoff_variant": "manual-paste",
+  "state_advance": null,
+  "recap_blocker": true,
+  "reason": "The JSON passes every hygiene gate, but the session probe returns expired, so the push is skipped. This is the only acceptable deferral: use the manual-paste hand-off, remind the operator to re-run the adapter setup, and raise a blocker that the CVE is still in allocated/DRAFT, to be pushed on the next authenticated sync."
+}

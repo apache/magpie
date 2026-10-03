@@ -1,0 +1,8 @@
+{
+  "action": "push",
+  "gate_failed": null,
+  "handoff_variant": "oauth-pushed",
+  "state_advance": "allocated->review-ready",
+  "recap_blocker": false,
+  "reason": "At pr merged -> fix released, the push is mandatory and the transition's confirmation authorises it. The gates pass, the session is valid, and the push succeeds; the fetch confirms review-ready. The state gate is clear, so the OAuth-pushed RM hand-off variant is used and the recap notes the auto-promotion."
+}

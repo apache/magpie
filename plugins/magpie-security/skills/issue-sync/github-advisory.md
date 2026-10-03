@@ -94,7 +94,7 @@ Each is a separate confirmable proposal item (SKILL Golden rule 1).
 2. **Mirror state (publish / close) — admin tier, HAND OFF.** Do not PATCH `state` at the collaborator tier.
    Route it through the [Admin hand-off relay](#admin-hand-off--relay-the-needed-change-to-the-advisory-admin-team) below;
    many foundation advisories stay `triage` by design (the CVE ships through the foundation's own CVE tool, not GitHub's advisory flow), so publishing is often not even desirable.
-3. **Provide collaborator access — admin tier, HAND OFF.** Route the missing-roster access drift through the
+3. **Provide collaborator access — admin tier, HAND OFF.** The sync cannot add collaborators at the collaborator tier; route the missing-roster access drift through the
    [Admin hand-off relay](#admin-hand-off--relay-the-needed-change-to-the-advisory-admin-team).
 
 ---

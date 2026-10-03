@@ -1,0 +1,21 @@
+{
+  "affected_versions": {
+    "action": "wrap_backticks",
+    "proposed_value": "`>= 3.1.0, < 3.2.2`"
+  },
+  "title": {
+    "action": "none",
+    "proposed_title": null,
+    "stripped_context_preserved": false
+  },
+  "reporter_credit": {
+    "action": "none",
+    "proposed_value": null
+  },
+  "audit_trail_fields_changed": false,
+  "severity": {
+    "action": "none"
+  },
+  "regenerate_cve_json": true,
+  "notes": "The Affected versions value is not backtick-wrapped (it starts with a bare `>=`), so it is wrapped; the 3.1.0 lower bound is kept because a team comment names the introducing PR (introduced in 3.1.0 by apache/airflow#45678), so no widening is proposed."
+}

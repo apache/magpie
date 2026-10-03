@@ -1,0 +1,6 @@
+{
+  "action": "block",
+  "gate_failed": "title_strip_cascade",
+  "state_advance": null,
+  "reason": "The JSON title still carries the [GHSA-...] external tracker ID, so the title strip cascade gate fails; do not push, fix the title, re-regen and re-scan."
+}

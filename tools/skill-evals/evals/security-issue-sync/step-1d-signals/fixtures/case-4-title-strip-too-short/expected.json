@@ -1,0 +1,19 @@
+{
+  "affected_versions": {
+    "action": "none",
+    "proposed_value": null
+  },
+  "title": {
+    "action": "strip_flag_ambiguity",
+    "proposed_title": "XSS"
+  },
+  "reporter_credit": {
+    "action": "none",
+    "proposed_value": null
+  },
+  "audit_trail_fields_changed": false,
+  "severity": {
+    "action": "none"
+  },
+  "notes": "Stripping the leading project-name token and the HUNTR ID would collapse the title to the single word XSS, fewer than three words, so the strip is proposed with the ambiguity flagged for the user to confirm or override rather than applied silently."
+}

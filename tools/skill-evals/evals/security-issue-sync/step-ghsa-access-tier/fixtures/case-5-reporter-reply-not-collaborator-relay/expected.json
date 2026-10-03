@@ -1,0 +1,16 @@
+{
+  "access_tier": "not-collaborator",
+  "action": "relay-draft",
+  "channel": "email-draft",
+  "mail_tool": null,
+  "recipient": null,
+  "auto_send": false,
+  "reply_on_security_thread": null,
+  "retry_after_403": false,
+  "posts_tracker_comment": false,
+  "rollup_handoff_marker": false,
+  "relay_parts": [],
+  "claims_reply_posted": false,
+  "requires_confirmation": true,
+  "rationale": "The operator is not a collaborator on this advisory, so the direct browser path is unavailable and the reply falls back to the email relay to the hosting foundation security team, as a draft the operator reviews, never sent automatically."
+}

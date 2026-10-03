@@ -1,0 +1,6 @@
+{
+  "action": "block",
+  "gate_failed": "anonymise_private_finder",
+  "state_advance": null,
+  "reason": "The finding arrived through a private partner scan, and the credits name the individual analyst, so the anonymise gate fails. With no public credit name declared for the scanner, the finder credit is omitted; then re-regen and re-scan instead of pushing."
+}
