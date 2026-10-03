@@ -38,6 +38,10 @@ logs
 # skills/pr-management-triage/session-history.md).
 /.apache-magpie.session-state.json
 
+# Personal, gitignored per-user layer (written by /magpie-setup config),
+# including runtime state such as the container-gateway log under run/.
+/.apache-magpie-local/
+
 # macOS
 .DS_Store
 .AppleDouble
