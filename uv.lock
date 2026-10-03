@@ -36,6 +36,7 @@ members = [
     "magpie-skills",
     "magpie-sourcehut",
     "magpie-vcs",
+    "maven-artifact-verify",
     "oauth-draft",
     "permission-audit",
     "pilot-report-validator",
@@ -1041,6 +1042,21 @@ dev = [{ name = "magpie-dev", editable = "tools/dev" }]
 name = "magpie-vcs"
 version = "0.1.0"
 source = { editable = "tools/vcs" }
+
+[package.dev-dependencies]
+dev = [
+    { name = "magpie-dev" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [{ name = "magpie-dev", editable = "tools/dev" }]
+
+[[package]]
+name = "maven-artifact-verify"
+version = "0.1.0"
+source = { editable = "tools/maven-artifact-verify" }
 
 [package.dev-dependencies]
 dev = [
