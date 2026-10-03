@@ -37,6 +37,7 @@ contract:chat:
       - changed-files:
           - any-glob-to-any-file:
               - 'tools/chat/**'
+              - 'tools/chat-discord/**'
               - 'tools/chat-slack/**'
 
 contract:cve-authority:
