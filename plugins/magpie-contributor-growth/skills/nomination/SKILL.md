@@ -9,25 +9,19 @@ requires_config:
   - contributor-nomination-config.md
   - project.md
 description: |
-  Read-only nomination brief for a named GitHub contributor on
-  <upstream>. Aggregates GitHub activity across all contribution
-  tracks plus maintainer-supplied off-GitHub signal, and flags
-  vendor-neutrality context — the evidence a PMC needs to open
-  a committer or PMC nomination thread.
+  Read-only nomination brief for a named contributor on <upstream>.
+  Aggregates GitHub activity across contribution tracks, off-GitHub signal,
+  and vendor-neutrality context for committer or PMC nomination threads.
 when_to_use: |
   Invoke when a maintainer says "assess <handle> for nomination",
-  "is <handle> ready to be a committer", "build the case for
-  nominating <handle>", "how active has <handle> been", or any
-  variation on evaluating a contributor's readiness for a
-  committer or PMC vote. Skip when the question is about a
-  specific PR or issue. Skip when no GitHub handle has been
-  provided and the user has not indicated they want to assess
-  a contributor.
+  "is <handle> ready to be a committer", "build the case for nominating <handle>",
+  "how active has <handle> been", or evaluating committer/PMC readiness.
+  Skip for questions about a specific PR or issue, or when no handle has been provided.
 argument-hint: "<github-handle> [window:Nm] [target:committer|pmc]"
 capability: capability:stats
 surface_hash: sha256:ce38f115ea57c59b
 license: Apache-2.0
-measured_tokens: 5610
+measured_tokens: 4471
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -317,174 +311,54 @@ Surface a warning if any stream is in `caps_hit` — the maintainer should know 
 
 ## Step 3 — Gather off-GitHub signal and project context
 
-First collect community signals per [`community-signals.md`](community-signals.md): mailing-list presence and release testing, help given in chat and GitHub Discussions, and posts about the project on accounts the candidate linked themselves — confirmed identities only, each item classified, and the community indicator computed.
-Attribute an item to the candidate only when its identity is confirmed per [`community-signals.md` § Identity](community-signals.md#identity); a chat profile's own claim, or a self-linked account that does not link back, is a *possible match, not used*.
-Show the collected rows, the indicator, and any *possible match, not used* accounts to the nominator, and let them confirm, correct, or add.
+Collect community signals per [`community-signals.md`](community-signals.md) (mailing list, release testing, chat help, discussions; confirmed identities per [§ Identity](community-signals.md#identity)). Show collected rows and indicator to the nominator for confirmation.
 
-Then, before assessing or rendering anything, ask the nominator four
-things in a single prompt. Do not split them into separate
-questions.
-
-**Important**: the candidate must not be asked for this
-information. ASF nominations are private — the candidate is
-typically unaware until the vote passes. Off-GitHub signal
-should come from the nominator's own knowledge and from
-public archives (`lists.apache.org`, conference records,
-public blog posts). If the nominator does not know a field,
-leave it blank rather than approach the candidate.
-
-**Seed from the identity map (optional).** When the nominator
-wants the off-GitHub questions pre-filled, run
-[`contributor-identity-map`](../identity-map/SKILL.md)
-for `<login>` in `context:nomination` first.
-That context never contacts the candidate and never edits the
-committed identity file.
-With the handles the nominator confirms, and only through tools
-this session has connected, look up the candidate's participation
-on the project's **public** channels (public mailing lists, public
-Slack or Discord channels) and offer it as leads for the First and
-Third questions below.
-The nominator keeps or discards each lead; the brief records only
-what they keep.
-Never read private lists or direct messages for this.
-
-**First**: off-GitHub contributions per
-[`assess.md` § Part 2](assess.md#part-2--off-github-signal-nominator-supplied)
-— mailing list, documentation, talks, user support, release
-management, mentoring, other.
-
-**Second**: the project's typical nomination bar per
-[`assess.md` § Part 3](assess.md#part-3--project-context-calibration-nominator-supplied)
-— what does a successful committer nomination usually look like
-on this specific project?
-
-Record all responses verbatim. The project-bar context appears
-in the brief before the GitHub numbers so the PMC reading it
-has the right frame of reference. If the project's
-`contributor-nomination-config.md` already declares thresholds,
-skip the second question — the config is the canonical bar.
-
-**Third**: community interaction per
-[`assess.md` § Part 1a](assess.md#part-1a--community-interaction-nominator-supplied)
-— how the contributor interacts with others, not just what
-they have produced. Specifically: how they respond to
-feedback on their own work, the quality and tone of reviews
-they give, behaviour on the mailing list and in discussions,
-how they treat new contributors, and any known incidents the
-PMC should be aware of. If the nominator cannot assess this,
-record that explicitly.
-
-Also ask, as part of the same prompt:
-
-**Employer context**: *"How many current committers and PMC
-members work for the same employer as `<login>`?"*
-
-Record the response verbatim. If the nominator does not
-know, note it.
-
-When the Apache Projects MCP is reachable (recorded
-`apache_projects_mcp: reachable` in Step 1), seed this question
-with the live committee roster instead of asking cold: fetch the
-PMC roster with `mcp__apache-projects__get_committee(<project>)`
-(and, for a `pmc` target, `get_group_members(pmc-<project>)`) and
-present the current member list so the nominator can answer
-employer concentration against an accurate roster. Treat the MCP
-result as **context to confirm, not a verdict** — committee
-metadata rarely carries current employer, so vendor-neutrality
-still rests on the nominator's knowledge. Flag any roster the MCP
-returns that disagrees with the checked-in
-[`pmc-roster.md`](../../../../<project-config>/pmc-roster.md) mirror,
-since the MCP reflects the authoritative `projects.apache.org`
-record.
-
-This step is not optional. GitHub numbers without community
-context are not meaningful, and contribution volume without
-interaction quality is an incomplete picture.
+Ask the nominator four items in a single prompt (never contact candidate; nominations are private):
+- **First**: off-GitHub contributions per [`assess.md` § Part 2](assess.md#part-2--off-github-signal-nominator-supplied) (mailing list, docs, talks, support, releases, mentoring). Seed via [`contributor-identity-map`](../identity-map/SKILL.md) in `context:nomination` if requested.
+- **Second**: project's typical nomination bar per [`assess.md` § Part 3](assess.md#part-3--project-context-calibration-nominator-supplied) (skip if declared in `contributor-nomination-config.md`).
+- **Third**: community interaction per [`assess.md` § Part 1a](assess.md#part-1a--community-interaction-nominator-supplied) (response to feedback, review tone, newcomer treatment, incidents).
+- **Employer context**: current committers/PMC members at same employer. When Apache Projects MCP is reachable, seed with live roster via `mcp__apache-projects__get_committee(<project>)` (and `get_group_members(pmc-<project>)` for PMC target). Flag any discrepancy with checked-in [`pmc-roster.md`](../../../../<project-config>/pmc-roster.md).
 
 ---
 
 ## Step 4 — Assess
 
-Apply the criteria in [`assess.md`](assess.md) to the combined
-data — GitHub activity from Step 2 and maintainer-supplied
-off-GitHub signal from Step 3.
+Apply the criteria in [`assess.md`](assess.md) to the combined GitHub activity and off-GitHub signal.
+First apply [`automated-contributions.md`](automated-contributions.md) per [`assess.md` § Part 1b](assess.md#part-1b--automated-and-low-signal-contributions).
+Score via `contributor-metrics score --items <scratch>/items.json --classes <scratch>/classes.json --weights <scratch>/weights.json --area-prefix <area_label_prefix> --out <scratch>/metrics.json`; resolve `area_label_prefix` from `contributor-nomination-config.md`, default `area:`.
+Every count below is the adjusted count from `metrics.json` alongside raw count:
 
-First apply [`automated-contributions.md`](automated-contributions.md) to the Step 2 items, per [`assess.md` § Part 1b](assess.md#part-1b--automated-and-low-signal-contributions).
-Resolve its settings — the weight keys, `automated_pushback_penalty`, `automated_contribution_expectations` and `automated_pushback_phrases` — from `<project-config>/contributor-nomination-config.md`, else the framework defaults.
-When the run was handed off from `contributor-to-committer`, reuse that skill's classification and cleared flags instead of classifying again.
-Write the confirmed classes to `<scratch>/classes.json` and the settings to `<scratch>/weights.json`, and run `contributor-metrics score --items <scratch>/items.json --classes <scratch>/classes.json --weights <scratch>/weights.json --area-prefix <area_label_prefix> --out <scratch>/metrics.json`; resolve `area_label_prefix` from `contributor-nomination-config.md`, default `area:`.
-Every count below is then the adjusted count from `metrics.json`, with the raw count kept alongside it:
-
-- **GitHub breadth**: which areas have meaningful signal, which
-  are thin or absent, with each area's share of merged PRs and reviews from `metrics.json.areas`
-- **Off-GitHub breadth**: what the maintainer reported for each
-  non-GitHub area
-- **Activity timeline**: month-by-month GitHub breakdown across
-  `<window>`, with a note if mailing list presence compensates
-  for a sparse GitHub period
-- **Quality signals**: PR merge rate, review depth
-- **Threshold freshness**: when the thresholds carry `calibrated_on` older than 12 months, or `calibrated_window_months` differs from `<window>`, say so in one line and suggest `contributor-calibrate`
-- **Automated and low-signal contributions**: what was discounted,
-  against which project expectation or generic heuristic, and any
-  maintainer pushback — a negative signal for the PMC to weigh, never
-  a disqualification
-- **Community interaction**: nominator's qualitative assessment
-  of how the contributor works with others — tone, behaviour
-  under feedback, treatment of newcomers, any concerns
-- **Off-GitHub compensation**: where GitHub counts are low but
-  nominator-supplied signal provides context, state that
-  explicitly in the brief rather than leaving the PMC to
-  draw the wrong conclusion from numbers alone
+- **GitHub breadth**: area shares from `metrics.json.areas`
+- **Off-GitHub breadth**: maintainer-reported signal across tracks
+- **Activity timeline**: month-by-month activity breakdown across `<window>`
+- **Quality signals**: PR merge rate, substantive review depth
+- **Threshold freshness**: note if calibrated > 12 months ago or window differs
+- **Automated and low-signal contributions**: discounted items, pushback penalties (negative signal, not disqualification)
+- **Community interaction**: qualitative assessment of working relationships and tone
+- **Off-GitHub compensation**: contextual note where off-GitHub work explains lower GitHub counts
 
 ---
 
 ## Step 5 — Render and hand off
 
-Produce the nomination brief per [`render.md`](render.md) and
-present it to the maintainer for review.
+Produce the nomination brief per [`render.md`](render.md) and present it to the maintainer for review.
+If the case relies on employer standing/job title rather than project contributions, surface the merit note from [`assess.md` § Part 3](assess.md#part-3--project-context-calibration-nominator-supplied) prominently.
 
-Before handing off, check: if the combined picture shows
-minimal contribution to *this project* but the nominator's
-rationale rests on the candidate's job title, employer
-standing, or contributions to other projects, surface the
-merit note from
-[`assess.md` § Part 3](assess.md#part-3--project-context-calibration-nominator-supplied)
-prominently. Do not suppress it to spare the nominator's
-feelings — the PMC needs to make an informed decision.
+Offer follow-up actions:
+1. **Save to file** — write brief to `contributor-nomination-<login>-<date>.md`.
+2. **Re-run with different window** — offer `window:Nm`.
+3. **Clear automated-contribution flags** — restore flagged items to full weight and re-render.
 
-Offer two follow-up actions:
-
-1. **Save to file** — write the brief to
-   `contributor-nomination-<login>-<date>.md` in the working
-   directory, for use in drafting the nomination thread. Use the
-   Write tool, not shell interpolation, to place `<login>` in
-   the filename.
-2. **Re-run with different window** — offer `window:Nm` if the
-   nominator wants a longer or shorter view.
-3. **Clear automated-contribution flags** — the nominator names
-   flagged items they judge wrong; those return to full weight, the
-   brief is re-rendered, and it records how many flags were cleared.
-
-Always append the following process note to the brief so the
-nominator knows the required steps after a successful vote:
+Always append the post-vote process note:
 
 ```markdown
 ### Process note (after a successful vote)
 
 - **Invite the candidate** via email (cc: private@<project>).
-- **ICLA**: if the candidate is not already an Apache committer,
-  they must submit an Individual Contributor License Agreement
-  (ICLA) to secretary@apache.org before an account can be
-  created. Include this requirement in the invitation.
-- **Existing Apache committer**: if the candidate already has
-  an Apache ID, no new account or ICLA is needed — the PMC
-  chair grants karma to the project repository directly.
-- **Account request**: once the ICLA is on file, use the ASF
-  New Account Request form. The PMC chair (or any ASF member)
-  submits the request.
-- **Roster**: update the official PMC/committer roster via
-  Whimsy after the invitation is accepted.
+- **ICLA**: if the candidate is not already an Apache committer, they must submit an Individual Contributor License Agreement (ICLA) to secretary@apache.org before an account can be created. Include this requirement in the invitation.
+- **Existing Apache committer**: if the candidate already has an Apache ID, no new account or ICLA is needed — the PMC chair grants karma to the project repository directly.
+- **Account request**: once the ICLA is on file, use the ASF New Account Request form. The PMC chair (or any ASF member) submits the request.
+- **Roster**: update the official PMC/committer roster via Whimsy after the invitation is accepted.
 ```
 
-Do not open any GitHub thread, send any email, or post any
-comment. The maintainer decides when and where to use the brief.
+Do not open any GitHub thread, send any email, or post any comment. The maintainer decides when and where to use the brief.
