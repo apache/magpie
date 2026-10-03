@@ -1,0 +1,8 @@
+{
+  "action": "hand-off",
+  "gate_failed": null,
+  "handoff_variant": "manual-paste",
+  "state_advance": null,
+  "recap_blocker": false,
+  "reason": "The probe returns not-configured, so the push is skipped silently and the manual-paste hand-off is used. The record is already review-ready and there is no fix released transition, so no blocker is raised."
+}

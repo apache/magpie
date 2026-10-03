@@ -19,8 +19,8 @@ Steps 0 (pre-flight), 1a–1c and 1e (data gathering), 1g (cve.org API check), 4
 | 6 | Recap | 2 | Structural assertions; with and without CVE/draft |
 | Bulk orchestration | Bucket-and-walk decision in bulk mode | 3 | All label-only (one bundled), mixed buckets (split), all CVE-affecting (all walked) |
 | 1d | Actionable signals in comments and mail | 6 | Affected-versions lower bound (widen / keep + backtick-wrap), title strip and its under-3-words guard, private-scanner credit (anonymise / public-credit exemption), reporter CVSS surfaced only |
-| 5b | Push decision for the regenerated CVE JSON | 6 | Skip gate, expired session hand-off, title and private-finder hygiene gates, clean push with `allocated → review-ready`, close-out push on a `PUBLIC` record |
-| Bulk selectors | Selector resolution and pre-flight skips | 6 | Injection-shaped CVE token rejected, CVE list expansion, `sync all` skip rules, named trackers never skipped, `force-sync`, review-ready push exemption |
+| 5b | Push decision for the regenerated CVE JSON | 8 | Skip gate, expired and not-configured session hand-offs (blocker only on a `fix released` transition), title and private-finder hygiene gates, clean push with `allocated → review-ready`, close-out push on a `PUBLIC` record |
+| Bulk selectors | Selector resolution and pre-flight skips | 8 | Injection-shaped CVE token rejected, CVE list expansion, `sync all` skip rules, named trackers and CVE selectors never skipped, reporter reply under 24h is `dispatch-urgent`, `force-sync`, review-ready push exemption |
 | GHSA access tier | Repository security advisory writes by access tier | 5 | Collaborator direct field edit, 403 admin hand-off relay draft, admin direct write, reporter reply by browser paste, non-collaborator relay fallback |
 
 ## Hard rules exercised

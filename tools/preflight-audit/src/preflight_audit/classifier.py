@@ -149,7 +149,18 @@ def classify_issue(
     last_comment_age = _days_between(now, iss.last_comment_created_at)
     closed_age = _days_between(now, iss.closed_at)
 
-    # Rule 1: 7-day updatedAt safety override — but only when the
+    # Rule 1: dispatch-urgent — a non-skill comment in the last 24h.
+    # Checked before the 7-day override, which would otherwise always
+    # catch it first (a comment that recent also bumps updatedAt).
+    if last_comment_age is not None and last_comment_age < 1 and not last_was_skill:
+        return Classification(
+            issue=iss,
+            decision=Decision.DISPATCH_URGENT,
+            reason=f"recent reply from {iss.last_comment_author} (<24h)",
+            last_is_skill_or_bot=last_was_skill,
+        )
+
+    # Rule 2: 7-day updatedAt safety override — but only when the
     # recent activity wasn't itself a skill write. On a tracker the
     # skill just touched, the recently-bumped updatedAt is the skill's
     # own work; let downstream rules decide.
@@ -162,15 +173,6 @@ def classify_issue(
                 reason=f"recent human activity (updatedAt {int(updated_age)}d)",
                 last_is_skill_or_bot=last_was_skill,
             )
-
-    # Rule 2: dispatch-urgent — a non-skill comment in the last 24h.
-    if last_comment_age is not None and last_comment_age < 1 and not last_was_skill:
-        return Classification(
-            issue=iss,
-            decision=Decision.DISPATCH_URGENT,
-            reason=f"recent reply from {iss.last_comment_author} (<24h)",
-            last_is_skill_or_bot=last_was_skill,
-        )
 
     # Rule 3: closed > 30d ago AND `announced` label → post-announce.
     if iss.state == "CLOSED" and closed_age is not None and closed_age > 30 and "announced" in iss.labels:

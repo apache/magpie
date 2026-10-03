@@ -22,6 +22,7 @@ Return ONLY valid JSON with this shape:
   "searched_cve_ids": [],
   "resolved": [],
   "dispatched": [],
+  "urgent": [],
   "skipped": [],
   "review_ready_push_bucket": null
 }
@@ -44,6 +45,8 @@ Field rules:
   once the user confirms the echoed list (or, for a confirmation-time
   command, on the next turn), ascending. Covers both `dispatch` and
   `dispatch-urgent` classifications.
+- `urgent`: the subset of `dispatched` classified `dispatch-urgent`,
+  ascending. Empty list when none is.
 - `skipped`: one object per tracker the pre-flight classifier marks
   `skip-noop`, ascending by issue number:
   `{"issue": <N>, "rule": "<enum>"}` where `rule` is one of

@@ -98,7 +98,7 @@ def test_rule_1_skipped_when_skill_drove_recent_update():
 
 
 # ---------------------------------------------------------------------------
-# Rule 2 — dispatch-urgent (non-skill comment in last 24h)
+# Rule 1 — dispatch-urgent (non-skill comment in last 24h)
 # ---------------------------------------------------------------------------
 
 
@@ -111,20 +111,9 @@ def test_rule_2_urgent_when_non_skill_comment_under_24h():
         last_comment_body="please re-check\n",
     )
     c = classify_issue(iss, now=NOW)
-    # Rule 1 fires first (recent human activity); urgent is only
-    # reachable when Rule 1 yielded — i.e., when the recent activity
-    # was the skill. So the urgent path needs a non-skill comment
-    # AFTER a skill update? Actually the rule is "Rule 1 yielded AND
-    # Rule 2 fires" which happens when last comment is recent AND
-    # not skill — but then Rule 1 ALSO doesn't yield, since it
-    # requires skill-drove-recent-update. Both fail; we end up at
-    # Rule 1's dispatch. That matches the prose: urgent is the
-    # bot-vs-not distinction; when the last comment is a human reply
-    # in the last 24h, the classifier dispatches (with the urgent
-    # tag) if-and-only-if there is no other reason to dispatch.
-    # In this synthetic case Rule 1 catches first → dispatch
-    # without urgent. That's correct behaviour.
-    assert c.decision == Decision.DISPATCH
+    # The 24h rule is checked before the 7-day override, so a fresh
+    # reporter reply is urgent even though it also bumps updatedAt.
+    assert c.decision == Decision.DISPATCH_URGENT
 
 
 def test_rule_2_urgent_path_after_skill_only_recent_activity():

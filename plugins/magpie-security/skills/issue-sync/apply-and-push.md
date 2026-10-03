@@ -359,7 +359,7 @@ Do **not** park the push behind a second confirmation, and do **not** defer it o
 the RM owns `review-ready → publish-ready → advisory`; the `allocated → review-ready` promotion is sync's job at `fix released`.
 A tracker labelled `fix released` whose record is still `allocated` (Vulnogram: `DRAFT`) after the sync is a **process bug** — it strands the RM, who is gated on `review-ready`, and silently stalls the advisory.
 
-**The only acceptable deferral** is a genuinely-unavailable authenticated session at sync time (the session probe fails — see the decision flow below).
+**The only acceptable deferral** is a genuinely-unavailable authenticated session at sync time (the session probe returns `expired` or `not-configured` — see the decision flow below).
 Then, and only then, sync posts the **manual-paste** hand-off variant *and* raises an explicit blocker in the Step 6 recap
 (*"<CVE> still in `allocated`/DRAFT — push on the next authenticated sync"*).
 Completing the push is the first action of the next session-capable sync.
@@ -442,8 +442,10 @@ Step 6 below describes how to verify the state advance landed (and what to do if
    - **`expired`** → skip the push and surface a one-line reminder in the Step 6 recap:
      *"CVE-tool authenticated session expired — re-run the adapter's setup entrypoint (for the Vulnogram adapter, `vulnogram-api-setup`) to restore automatic push; using manual-paste hand-off this run."*
      Use the manual-paste hand-off variant for any 5c comment work below.
-   - **`not-configured`** → skip the push silently;
+   - **`not-configured`** → skip the push;
      the manual-paste hand-off (via the `cve_authority.source_tab_url_template` link) still works.
+     Silent on other runs, but on a `fix released` transition the record still needs `allocated → review-ready`,
+     so raise the deferral blocker from the rule above in the Step 6 recap.
      Use the manual-paste hand-off variant for any 5c comment work below.
 
 3. **Extract the regenerated JSON.** Re-run the

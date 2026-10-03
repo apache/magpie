@@ -1,0 +1,17 @@
+{
+  "error": null,
+  "invalid_tokens": [],
+  "searched_cve_ids": [],
+  "resolved": [
+    270,
+    271
+  ],
+  "dispatched": [
+    270,
+    271
+  ],
+  "urgent": [
+    270
+  ],
+  "skipped": []
+}

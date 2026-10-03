@@ -103,8 +103,8 @@ Subagents keep the per-issue mail threads, PR diffs and comment bodies out of th
 
     | Signals | Decision | Reason recorded in recap |
     |---|---|---|
-    | `updatedAt` within last **7 days** AND last comment is **NOT** skill-or-bot | `dispatch` | recent human activity — safety override |
     | Last comment author is **not** skill-or-bot AND `createdAt` within last **24h** | `dispatch-urgent` | reporter just replied |
+    | `updatedAt` within last **7 days** AND last comment is **NOT** skill-or-bot | `dispatch` | recent human activity — safety override |
     | Closed > **30 days** ago AND has `announced` label | `skip-noop` | `post-announce; CVE published` |
     | Closed > **90 days** ago AND no `announced` label | `skip-noop` | `stale closed (invalid/duplicate/abandoned)` |
     | Open AND has `cve allocated` + `pr merged` + `announced` AND last comment is skill-or-bot | `skip-noop` | `all phases done; awaiting closure heuristic` |
@@ -119,7 +119,7 @@ Subagents keep the per-issue mail threads, PR diffs and comment bodies out of th
 
     - **Never silent; never skips a named tracker.** See [Hard rules for bulk mode](#hard-rules-for-bulk-mode):
       every skip is listed under *"Pre-flight skipped"* and can be `force-sync`ed,
-      and explicit issue numbers (`sync #232, #233`) are never skipped — pre-flight skips only for set selectors (`sync all`, `sync announced`, label/title).
+      and explicit issue numbers (`sync #232, #233`) and CVE IDs (`sync CVE-2026-40913`) are never skipped — pre-flight skips only for set selectors (`sync all`, `sync announced`, label/title).
     - **Opt-out.** `--no-preflight` in the selector (e.g. `sync all --no-preflight`) bypasses the classifier and dispatches every resolved tracker —
       for trust-but-verify sweeps after a rule change.
     - **Dispatch-urgent is just dispatch.** It flags the tracker in the recap as *"recent reporter activity"*;
@@ -261,7 +261,7 @@ bucket it into the Step 14→15 close-out **regardless** of an empty *Public adv
 - **Link-form self-check still applies** to the merged output — every `#NNN` is a clickable link per Golden rule 2.
 - **Pre-flight skips are never silent.** Every Step 1b `skip-noop` appears in the *"Pre-flight skipped"* group with the rule that fired;
   the user can `force-sync <N>` any of them, and `--no-preflight` bypasses Step 1b entirely.
-- **Pre-flight never skips an explicitly-named tracker.** For named numbers (`sync #232, #233`) Step 1b runs the classifier only for context
+- **Pre-flight never skips an explicitly-named tracker.** For named numbers (`sync #232, #233`) and the trackers a CVE ID resolves to (`sync CVE-2026-40913`) Step 1b runs the classifier only for context
   (so the recap can say *"#232 looks idle — sync anyway?"*) and never skips.
   Skip-eligible selectors are state/label/title selectors like `sync all` or `sync announced`.
 
