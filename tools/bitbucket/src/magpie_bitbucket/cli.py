@@ -182,6 +182,21 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Pull request ID to decline.",
     )
 
+    pr_merge = pr_subparsers.add_parser(
+        "merge",
+        help="Merge a pull request after caller-side confirmation.",
+    )
+    pr_merge.add_argument(
+        "pull_request_id",
+        help="Pull request ID to merge.",
+    )
+    pr_merge.add_argument(
+        "--strategy",
+        required=True,
+        choices=("merge", "squash", "rebase"),
+        help="Merge strategy required by the change-request land contract.",
+    )
+
     pr_tasks = pr_subparsers.add_parser("tasks", help="List pull request tasks.")
     pr_tasks.add_argument("pull_request_id", help="Pull request ID whose tasks to fetch.")
 
@@ -316,6 +331,17 @@ def _dispatch(args: argparse.Namespace, config: BitbucketConfig) -> dict[str, An
             args.pull_request_id,
         )
         return normalize.declined_pull_request(
+            config.kind,
+            raw,
+        )
+
+    if args.subcommand == "pr" and args.pr_action == "merge":
+        raw = backend.merge_pull_request(
+            config,
+            args.pull_request_id,
+            args.strategy,
+        )
+        return normalize.merged_pull_request(
             config.kind,
             raw,
         )

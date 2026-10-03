@@ -43,6 +43,7 @@ from magpie_bitbucket.normalize import (
     issue_attachments,
     issue_comments,
     issue_list,
+    merged_pull_request,
     pull_request,
     pull_request_approval,
     pull_request_change_request,
@@ -3444,3 +3445,170 @@ def test_cli_pr_decline_cloud(
     output = json.loads(capsys.readouterr().out)
     assert output["operation"] == "pull-request-decline"
     assert output["pull_request"]["state"] == "DECLINED"
+
+
+@patch("magpie_bitbucket.client.urllib.request.build_opener")
+def test_cloud_merge_pull_request_posts_default_payload(
+    mock_build_opener: MagicMock,
+    cloud_env: None,
+) -> None:
+    mock_opener(
+        mock_build_opener,
+        {
+            "id": 7,
+            "state": "MERGED",
+            "title": "Example PR",
+        },
+    )
+
+    result = cloud.merge_pull_request(load_config(), "7", "merge")
+
+    request = mock_build_opener.return_value.open.call_args.args[0]
+
+    assert request.full_url == (
+        "https://api.bitbucket.org/2.0/repositories/apache/magpie/pullrequests/7/merge"
+    )
+    assert request.get_method() == "POST"
+    assert json.loads(request.data.decode("utf-8")) == {
+        "type": "pullrequest",
+        "merge_strategy": "merge_commit",
+    }
+
+    assert result["pull_request_id"] == "7"
+    assert result["result"]["state"] == "MERGED"
+
+
+def test_datacenter_merge_pull_request_unsupported(
+    datacenter_env: None,
+) -> None:
+    with pytest.raises(
+        BitbucketError,
+        match="Data Center pull request merge writes are not supported",
+    ):
+        datacenter.merge_pull_request(load_config(), "9", "merge")
+
+
+def test_normalize_merged_pull_request_completed() -> None:
+    normalized = merged_pull_request(
+        "cloud",
+        {
+            "pull_request_id": "7",
+            "strategy": "squash",
+            "result": {
+                "id": 7,
+                "state": "MERGED",
+                "merge_commit": {
+                    "hash": "abc123def456",
+                },
+            },
+        },
+    )
+
+    assert normalized["ok"] is True
+    assert normalized["backend"] == "bitbucket-cloud"
+    assert normalized["operation"] == "pull-request-merge"
+    assert normalized["pull_request_id"] == "7"
+    assert normalized["merge_status"] == "merged"
+    assert normalized["strategy"] == "squash"
+    assert normalized["landed_ref"] == "abc123def456"
+    assert normalized["result"]["state"] == "MERGED"
+
+
+def test_normalize_merged_pull_request_queued() -> None:
+    normalized = merged_pull_request(
+        "cloud",
+        {
+            "pull_request_id": "7",
+            "result": {
+                "task_status": "PENDING",
+                "task_id": "merge-123",
+            },
+        },
+    )
+
+    assert normalized["ok"] is True
+    assert normalized["operation"] == "pull-request-merge"
+    assert normalized["pull_request_id"] == "7"
+    assert normalized["merge_status"] == "pending"
+    assert normalized["landed_ref"] is None
+    assert normalized["result"]["task_id"] == "merge-123"
+
+
+def test_normalize_merged_pull_request_submitted_when_state_unknown() -> None:
+    normalized = merged_pull_request(
+        "cloud",
+        {
+            "pull_request_id": "7",
+            "result": {
+                "id": 7,
+                "state": "OPEN",
+            },
+        },
+    )
+
+    assert normalized["ok"] is True
+    assert normalized["merge_status"] == "submitted"
+
+
+@patch("magpie_bitbucket.cloud.merge_pull_request")
+def test_cli_pr_merge_cloud(
+    mock_merge_pull_request: MagicMock,
+    cloud_env: None,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    mock_merge_pull_request.return_value = {
+        "pull_request_id": "7",
+        "strategy": "squash",
+        "result": {
+            "id": 7,
+            "state": "MERGED",
+        },
+    }
+
+    exit_code = main(["pr", "merge", "7", "--strategy", "squash"])
+
+    assert exit_code == 0
+    mock_merge_pull_request.assert_called_once()
+
+    args = mock_merge_pull_request.call_args.args
+    assert args[1:] == ("7", "squash")
+
+    output = json.loads(capsys.readouterr().out)
+
+    assert output["operation"] == "pull-request-merge"
+    assert output["merge_status"] == "merged"
+
+
+@pytest.mark.parametrize(
+    ("strategy", "bitbucket_strategy"),
+    [
+        ("merge", "merge_commit"),
+        ("squash", "squash"),
+        ("rebase", "fast_forward"),
+    ],
+)
+@patch("magpie_bitbucket.client.urllib.request.build_opener")
+def test_cloud_merge_pull_request_maps_strategy(
+    mock_build_opener: MagicMock,
+    cloud_env: None,
+    strategy: str,
+    bitbucket_strategy: str,
+) -> None:
+    mock_opener(
+        mock_build_opener,
+        {
+            "id": 7,
+            "state": "MERGED",
+            "merge_commit": {"hash": "abc123"},
+        },
+    )
+
+    result = cloud.merge_pull_request(load_config(), "7", strategy)
+
+    request = mock_build_opener.return_value.open.call_args.args[0]
+
+    assert json.loads(request.data.decode("utf-8")) == {
+        "type": "pullrequest",
+        "merge_strategy": bitbucket_strategy,
+    }
+    assert result["strategy"] == strategy

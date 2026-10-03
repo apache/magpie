@@ -78,6 +78,7 @@ Implemented read-only commands:
 - `magpie-bitbucket pr request-changes <id>` (Cloud-only write)
 - `magpie-bitbucket pr remove-request-changes <id>` (Cloud-only write)
 - `magpie-bitbucket pr decline <id>` (Cloud-only write)
+- `magpie-bitbucket pr merge <id> --strategy {merge,squash,rebase}` (Cloud-only write)
 - `magpie-bitbucket pr tasks <id>`
 - `magpie-bitbucket pr task <id> <task-id>`
 - `magpie-bitbucket pr merge-checks <id>`
@@ -96,7 +97,7 @@ activity where exposed by the configured Bitbucket backend.
 
 Write coverage is intentionally narrow. The bridge supports confirmed
 Bitbucket Cloud issue-comment creation, top-level pull-request comment creation,
-and pull-request approve/unapprove, request-changes/remove-request-changes, and decline actions after the calling skill has obtained
+and pull-request approve/unapprove, request-changes/remove-request-changes, decline, and merge actions after the calling skill has obtained
 explicit user confirmation. Other writes, such as editing/deleting comments,
 merging, creating/updating issues, changing branches, or triggering
 builds, remain out of scope and should be added separately with narrow command
@@ -158,7 +159,7 @@ surface:
 | Change requests | `pr decline <id>` | Partial write, Cloud only | Declines one Bitbucket Cloud pull request after explicit caller-side confirmation. Data Center decline writes remain unsupported by this command. |
 | Change requests | `merge_checks` supplement / `pr merge-checks <id>` | Partial read-only | Fetches known read-only merge-check context, including Data Center merge-test results, reported mergeability/conflict fields, status checks, review decision, and normalized blockers. Unknown backend signals remain unknown. This does not merge or mutate PR state. |
 | Change requests | `post_review` | Not implemented | Follow-up work for #606. |
-| Change requests | `land` | Not implemented | Follow-up work for #606. |
+| Change requests | `land` / `pr merge <id> --strategy {merge,squash,rebase}` | Partial write, Cloud only | Submits a Bitbucket Cloud pull-request merge after explicit caller-side confirmation, passes the requested merge strategy to Bitbucket, and returns the resulting merge commit as `landed_ref` when available. A queued merge may be accepted before a `landed_ref` is available. Data Center merge writes remain unsupported. |
 | Change requests | `reject` | Not implemented | Follow-up work for #606. |
 | Tracker | `issue list-open` / `issue get <id>` / `issue comments <id>` / `issue attachments <id>` | Partial read-only, Cloud only | Lists and fetches Bitbucket Cloud issues, issue comments, and issue attachment metadata/links where the repository issue tracker is enabled. Bitbucket Data Center native issue reads/comments/attachments are unsupported; linked Jira handoff remains separate follow-up work. |
 | Tracker | `issue comment <id> --body-file <path>` | Partial write, Cloud only | Creates one Bitbucket Cloud issue comment from a caller-supplied body file. The calling skill must obtain explicit user confirmation before invoking this mutation. Bitbucket Data Center native issue comment writes are unsupported; linked Jira coverage remains separate. |
@@ -244,7 +245,7 @@ injected by the caller as `BITBUCKET_TOKEN` / `BITBUCKET_CLOUD_USER`.
 | Variable | Required for | Description |
 |---|---|---|
 | `BITBUCKET_KIND` | all commands | `cloud` or `datacenter`. Defaults to `cloud`. |
-| `BITBUCKET_TOKEN` | authenticated API calls | API token or personal access token accepted by the selected backend. Read-only PR/repository commands should use minimum read scopes. Cloud issue-comment writes require credentials permitted to write issue comments. Cloud pull-request comment, approve/unapprove, request-changes/remove-request-changes, and decline writes require credentials permitted to write pull requests. `repo restrictions` needs elevated repository-admin scope on Bitbucket Cloud and may require `REPO_ADMIN` on Data Center. |
+| `BITBUCKET_TOKEN` | authenticated API calls | API token or personal access token accepted by the selected backend. Read-only PR/repository commands should use minimum read scopes. Cloud issue-comment writes require credentials permitted to write issue comments. Cloud pull-request comment, approve/unapprove, request-changes/remove-request-changes, decline, and merge writes require credentials permitted to write pull requests. `repo restrictions` needs elevated repository-admin scope on Bitbucket Cloud and may require `REPO_ADMIN` on Data Center. |
 | `BITBUCKET_AUTH_SCHEME` | all commands | Authentication scheme. Defaults to `Basic` for Cloud and `Bearer` for Data Center. |
 | `BITBUCKET_CLOUD_USER` | Cloud Basic auth | Atlassian account email/user used with `BITBUCKET_TOKEN`. |
 | `BITBUCKET_WORKSPACE` | Cloud | Bitbucket Cloud workspace slug. |
@@ -304,6 +305,6 @@ Follow-up PRs can extend this bridge with:
 
 - Bitbucket issue write operations and additional tracker fields.
 - Linked Jira issue handoff through `tools/jira/`.
-- Remaining pull-request review and merge operations.
+- Remaining pull-request review operations and broader merge coverage.
 - Broader repository permission reads.
 - Fuller Bitbucket Pipelines run/log/retry coverage beyond read-only pull-request status reads.
