@@ -27,7 +27,7 @@ from checker.config import LLMEntry, OptInEntry, ParsedConfig, parse_config
 
 
 def _write(path: pathlib.Path, body: str) -> pathlib.Path:
-    path.write_text(textwrap.dedent(body))
+    path.write_text(textwrap.dedent(body), encoding="utf-8")
     return path
 
 
@@ -312,3 +312,229 @@ def test_framework_template_is_approved_by_default(tmp_path: pathlib.Path, monke
     assert verdicts, "template should declare at least Claude Code in its stack"
     bad = [v for v in verdicts if not v.approved]
     assert not bad, f"unapproved entries in shipped template: {bad}"
+
+
+# -- check_endpoint helper tests ---------------------------------------
+
+
+def test_check_endpoint_default_approved():
+    v = check.check_endpoint("http://localhost:8000/v1")
+    assert v.approved is True
+    assert "local-only" in v.reason
+
+
+def test_check_endpoint_denied_no_config(monkeypatch, tmp_path):
+    monkeypatch.delenv("PRIVACY_LLM_CONFIG", raising=False)
+    monkeypatch.chdir(tmp_path)
+    v = check.check_endpoint("https://api.example.com/v1")
+    assert v.approved is False
+    assert "denied" in v.reason
+
+
+def test_check_endpoint_approved_opt_in():
+    opt = OptInEntry(
+        name="Example Provider",
+        data_residency="Strict US",
+        approved_by="PMC 2026-09-01",
+    )
+    cfg = ParsedConfig(path=pathlib.Path("/dev/null"), llm_stack=[], opt_in=[opt])
+    v = check.check_endpoint(
+        "https://api.example.com/v1",
+        config=cfg,
+        default_endpoint="https://api.example.com/v1",
+        raw_desc="Example Provider (https://api.example.com/v1)",
+    )
+    assert v.approved is True
+
+
+def test_check_endpoint_rejects_url_fragment_and_claude_code():
+    """A URL containing a fragment is rejected and cannot trigger the Claude Code rule."""
+    v = check.check_endpoint("https://evil.example.com/v1#claude code")
+    assert v.approved is False
+    assert "fragment" in v.reason
+
+
+def test_check_endpoint_rejects_subdomain_opt_in_bypass():
+    """An opt-in for api.typesafe.ai does not approve api.typesafe.ai.evil.example."""
+    opt = OptInEntry(
+        name="https://api.typesafe.ai",
+        data_residency="eu-central-1",
+        approved_by="PMC 2026-09-01",
+    )
+    cfg = ParsedConfig(path=pathlib.Path("/dev/null"), llm_stack=[], opt_in=[opt])
+    v = check.check_endpoint("https://api.typesafe.ai.evil.example/v1", config=cfg)
+    assert v.approved is False
+    assert "denied" in v.reason
+
+
+def test_check_endpoint_rejects_userinfo_opt_in_bypass():
+    """A URL containing userinfo (e.g. user@host) is strictly rejected."""
+    opt = OptInEntry(
+        name="https://api.typesafe.ai",
+        data_residency="eu-central-1",
+        approved_by="PMC 2026-09-01",
+    )
+    cfg = ParsedConfig(path=pathlib.Path("/dev/null"), llm_stack=[], opt_in=[opt])
+    v = check.check_endpoint("https://api.typesafe.ai@evil.example/v1", config=cfg)
+    assert v.approved is False
+    assert "userinfo" in v.reason
+
+
+def test_check_endpoint_name_only_opt_in_rejects_different_host():
+    """A name-only opt-in like 'TypeSafe — Jev API' never approves a non-default host."""
+    opt = OptInEntry(
+        name="TypeSafe — Jev API",
+        data_residency="eu-central-1",
+        approved_by="PMC 2026-09-01",
+    )
+    cfg = ParsedConfig(path=pathlib.Path("/dev/null"), llm_stack=[], opt_in=[opt])
+    v = check.check_endpoint(
+        "https://typesafe.evil.example/v1",
+        config=cfg,
+        default_endpoint="https://api.typesafe.ai/v1/systemone",
+    )
+    assert v.approved is False
+    assert "denied" in v.reason
+
+
+def test_check_endpoint_approved_opt_in_url():
+    """An opt-in with a full URL approves endpoints sharing the exact same host."""
+    opt = OptInEntry(
+        name="https://api.typesafe.ai",
+        data_residency="eu-central-1",
+        approved_by="PMC 2026-09-01",
+    )
+    cfg = ParsedConfig(path=pathlib.Path("/dev/null"), llm_stack=[], opt_in=[opt])
+    v = check.check_endpoint("https://api.typesafe.ai/v1/systemone", config=cfg)
+    assert v.approved is True
+
+
+def test_check_endpoint_name_only_opt_in_rejects_empty_raw_desc():
+    """Configure opt-in - AWS Bedrock — eu-central-1. Call check_endpoint without raw_desc. Assert approved is False."""
+    opt = OptInEntry(
+        name="AWS Bedrock — eu-central-1",
+        data_residency="eu-central-1",
+        approved_by="PMC 2026-09-01",
+    )
+    cfg = ParsedConfig(path=pathlib.Path("/dev/null"), llm_stack=[], opt_in=[opt])
+
+    # No raw_desc (raw_desc=None)
+    v1 = check.check_endpoint(
+        "https://api.typesafe.ai/v1/systemone",
+        config=cfg,
+        default_endpoint="https://api.typesafe.ai/v1/systemone",
+        raw_desc=None,
+    )
+    assert v1.approved is False
+
+    # Empty string raw_desc
+    v2 = check.check_endpoint(
+        "https://api.typesafe.ai/v1/systemone",
+        config=cfg,
+        default_endpoint="https://api.typesafe.ai/v1/systemone",
+        raw_desc="",
+    )
+    assert v2.approved is False
+
+    # Whitespace raw_desc
+    v3 = check.check_endpoint(
+        "https://api.typesafe.ai/v1/systemone",
+        config=cfg,
+        default_endpoint="https://api.typesafe.ai/v1/systemone",
+        raw_desc="   ",
+    )
+    assert v3.approved is False
+
+
+def test_name_only_opt_in_requires_provider_in_desc():
+    """Name-only opt-in matches only if the opt-in name appears in raw_desc."""
+    opt_typesafe = OptInEntry(
+        name="TypeSafe — Jev API",
+        data_residency="eu-central-1",
+        approved_by="PMC 2026-09-01",
+    )
+    cfg_typesafe = ParsedConfig(path=pathlib.Path("/dev/null"), llm_stack=[], opt_in=[opt_typesafe])
+
+    v_match = check.check_endpoint(
+        "https://api.typesafe.ai/v1/systemone",
+        config=cfg_typesafe,
+        default_endpoint="https://api.typesafe.ai/v1/systemone",
+        raw_desc="TypeSafe Jev (https://api.typesafe.ai/v1/systemone)",
+    )
+    assert v_match.approved is True
+
+    # If opt-in is AWS Bedrock, calling default endpoint with TypeSafe desc is rejected
+    opt_aws = OptInEntry(
+        name="AWS Bedrock — eu-central-1",
+        data_residency="eu-central-1",
+        approved_by="PMC 2026-09-01",
+    )
+    cfg_aws = ParsedConfig(path=pathlib.Path("/dev/null"), llm_stack=[], opt_in=[opt_aws])
+
+    v_mismatch = check.check_endpoint(
+        "https://api.typesafe.ai/v1/systemone",
+        config=cfg_aws,
+        default_endpoint="https://api.typesafe.ai/v1/systemone",
+        raw_desc="TypeSafe Jev (https://api.typesafe.ai/v1/systemone)",
+    )
+    assert v_mismatch.approved is False
+    assert "denied" in v_mismatch.reason
+
+
+def test_extract_opt_in_host_rejects_model_version_tokens():
+    """Model version tokens (3.5, 4.0, 1.0.0) are not treated as hostnames."""
+    assert check._extract_opt_in_host("3.5 Sonnet (AWS Bedrock)") is None
+    assert check._extract_opt_in_host("4.0 Omni") is None
+    assert check._extract_opt_in_host("1.0.0 Model") is None
+    assert check._extract_opt_in_host("api.example.com (Provider)") == "api.example.com"
+    assert check._extract_opt_in_host("https://api.example.com/v1") == "api.example.com"
+
+
+def test_check_endpoint_rejects_numeric_version_token_as_host():
+    """Configure opt-in - 3.5 Sonnet (AWS Bedrock). Call check_endpoint('https://3.5/v1'). Assert approved is False."""
+    opt = OptInEntry(
+        name="3.5 Sonnet (AWS Bedrock)",
+        data_residency="eu-central-1",
+        approved_by="PMC 2026-09-01",
+    )
+    cfg = ParsedConfig(path=pathlib.Path("/dev/null"), llm_stack=[], opt_in=[opt])
+
+    v = check.check_endpoint("https://3.5/v1", config=cfg)
+    assert v.approved is False
+    assert "denied" in v.reason
+
+
+def test_check_endpoint_bare_domain_opt_in_extracts_and_approves():
+    """Bare valid domain in opt-in entries (e.g. - api.example.com (Provider)) extracts correctly and approves."""
+    opt = OptInEntry(
+        name="api.example.com (Provider)",
+        data_residency="eu-central-1",
+        approved_by="PMC 2026-09-01",
+    )
+    cfg = ParsedConfig(path=pathlib.Path("/dev/null"), llm_stack=[], opt_in=[opt])
+    v = check.check_endpoint("https://api.example.com/v1", config=cfg)
+    assert v.approved is True
+
+
+def test_is_valid_hostname_rules():
+    """_is_valid_hostname enforces standard hostname syntax and rejects invalid tokens."""
+    assert check._is_valid_hostname("api.example.com") is True
+    assert check._is_valid_hostname("bedrock-runtime.eu-central-1.amazonaws.com") is True
+    assert check._is_valid_hostname("typesafe.ai") is True
+
+    # Purely numeric or version tokens
+    assert check._is_valid_hostname("3.5") is False
+    assert check._is_valid_hostname("4.0") is False
+    assert check._is_valid_hostname("1.0.0") is False
+    assert check._is_valid_hostname("192.168.1.1") is False
+
+    # Label syntax violations
+    assert check._is_valid_hostname("-bad.example.com") is False
+    assert check._is_valid_hostname("bad-.example.com") is False
+    assert check._is_valid_hostname("example..com") is False
+    assert check._is_valid_hostname("singlelabel") is False
+
+    # Userinfo, fragments, slashes
+    assert check._is_valid_hostname("user@example.com") is False
+    assert check._is_valid_hostname("example.com/v1") is False
+    assert check._is_valid_hostname("example.com#frag") is False

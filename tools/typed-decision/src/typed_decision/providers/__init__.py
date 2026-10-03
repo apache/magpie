@@ -14,10 +14,9 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-from checker.check import Verdict, check_endpoint, check_stack
 
-__all__ = [
-    "Verdict",
-    "check_endpoint",
-    "check_stack",
-]
+"""Typed decision backend providers."""
+
+from typed_decision.providers.jev import JevProvider
+
+__all__ = ["JevProvider"]

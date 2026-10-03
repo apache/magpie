@@ -14,10 +14,17 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-from checker.check import Verdict, check_endpoint, check_stack
 
-__all__ = [
-    "Verdict",
-    "check_endpoint",
-    "check_stack",
-]
+"""Exceptions for typed decision operations."""
+
+from __future__ import annotations
+
+
+class TypedDecisionUnavailable(Exception):
+    """Raised when a typed decision backend is unavailable or fails.
+
+    Under the fail-open contract, on missing configuration, timeout,
+    network error, provider error, or privacy gate rejection, every
+    operation raises this exception — never a fabricated answer —
+    so callers can catch it and fall back to their own reasoning.
+    """
