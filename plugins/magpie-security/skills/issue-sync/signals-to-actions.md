@@ -7,56 +7,41 @@
 > this slice can load just this file. Loaded automatically when the
 > orchestrator (or a subagent) is in the matching step.
 
-This subdoc carries the signal-to-action lookup table — every row a Step 1d signal that translates to a proposed body-field update / label change / status comment / draft email. The full table is loaded only when Step 2b is actively building a proposal.
+The signal-to-action lookup table: each Step 1d signal and the body-field update, label change, status comment or draft email it translates to.
 
 ---
 
 ## 2b. Proposed changes
 
-Each proposed change is a **numbered item** and must be explicit about *what*
-will change and *why*. Group them by category:
+Each proposed change is a **numbered item** that says *what* will change and *why*.
+Group them by category:
 
 - **Labels to add / remove** — e.g. *"remove `needs triage`; add `<scope-a>`"*. Reason: one scope label is required by the process once triage is complete.
 
-  **Release-vote label (opt-in, ASF projects only).** When release-
-  vote gating is enabled (`[workflow].release_vote_gating = true` in
-  the CVE-JSON generator's config), Step 1h's detection feeds two
-  more proposal shapes into this category:
+  **Release-vote label (opt-in, ASF projects only).** When release-vote gating is enabled (`[workflow].release_vote_gating = true` in the CVE-JSON generator's config),
+  Step 1h's detection adds two proposal shapes:
 
-  - *Add* the configured `rc voting` label (default `"rc voting"`)
-    when a matching open `[VOTE]` thread was detected on
-    `<dev-list>` and the tracker is in the
-    `pr merged` window. The proposal must quote the PonyMail
-    thread URL as the rationale so the security team can spot-
-    check the match before confirming — *"detected active vote
-    thread: `<thread-url>` carrying version X.Y.Z, matches fix-PR
-    milestone"*.
-  - *Remove* the `rc voting` label when the existing
-    `pr merged` → `fix released` transition fires (the release shipped),
+  - *Add* the configured `rc voting` label (default `"rc voting"`) when a matching open `[VOTE]` thread was detected on `<dev-list>` and the tracker is in the `pr merged` window.
+    Quote the PonyMail thread URL as the rationale so the team can spot-check the match —
+    *"detected active vote thread: `<thread-url>` carrying version X.Y.Z, matches fix-PR milestone"*.
+  - *Remove* the `rc voting` label when the existing `pr merged` → `fix released` transition fires (the release shipped),
     as part of that same numbered item, so the user confirms one combined label flip.
     Sync does not detect *failed* votes; the team removes the label by hand when it re-cuts an RC.
 
   Projects that did not opt in never see the label proposed, added, or referenced,
   and the generator's legacy *"ready ⇒ REVIEW"* behaviour applies.
-- **Milestone** — propose the matching release milestone on the
-  issue. The milestone format depends on the scope label and is
-  project-specific; for the adopting project see
-  [`<project-config>/milestones.md`](../../../../<project-config>/milestones.md)
-  (the scope → milestone-format mapping and the rule that a merged PR's
-  own milestone wins over the release-train default). The current
-  release-train default used when no PR milestone is available lives
-  in
+- **Milestone** — propose the matching release milestone on the issue.
+  The scope → milestone-format mapping, and the rule that a merged PR's own milestone wins over the release-train default, are in
+  [`<project-config>/milestones.md`](../../../../<project-config>/milestones.md);
+  the release-train default used when no PR milestone is available is in
   [`<project-config>/release-trains.md`](../../../../<project-config>/release-trains.md).
 
-  **If the milestone does not yet exist**, the proposal must say
-  so and include the exact `gh api` command to create it. Before
-  constructing the create call, **run the upstream-date lookup**
-  per the *Read the due date from upstream* subsection of
-  [`<project-config>/milestones.md`](../../../../<project-config>/milestones.md#read-the-due-date-from-upstream) —
-  query `<upstream>` for the matching milestone (by scope label
-  mapping) and, if found, reuse its `due_on` verbatim. Never guess
-  a date. For a provider-wave milestone the description should name
-  the release manager so the advisory owner is visible at a glance:
+  **If the milestone does not yet exist**, the proposal says so and includes the exact `gh api` command to create it.
+  Before constructing the create call, **run the upstream-date lookup** per
+  [`<project-config>/milestones.md` § *Read the due date from upstream*](../../../../<project-config>/milestones.md#read-the-due-date-from-upstream):
+  query `<upstream>` for the matching milestone (by scope label mapping) and, if found, reuse its `due_on` verbatim.
+  Never guess a date.
+  For a provider-wave milestone the description names the release manager, so the advisory owner is visible at a glance:
 
   **Use the Write tool** (not Bash) to write each field value verbatim
   to a temp file, then pass via `-F`.
@@ -95,224 +80,146 @@ will change and *why*. Group them by category:
     -F description=@<scratch>/ms-desc-<tracker>.txt
   ```
 
-  After the create call, assign the milestone to the issue via
-  `gh issue edit <N> --milestone 'Providers YYYY-MM-DD'` (or by
-  milestone number via the REST API if the milestone is closed).
+  After the create call, assign the milestone via `gh issue edit <N> --milestone 'Providers YYYY-MM-DD'`
+  (or by milestone number via the REST API if the milestone is closed).
 
-  **Closing the milestone on the last close.** When a sync pass
-  closes a tracker (the Step 15 terminal transition — cve.org
-  reports PUBLISHED), also check whether that tracker was the last
-  remaining open issue on its milestone. If so, **propose closing
-  the milestone itself** in the same sync run. The exact condition
-  set and the `gh api` PATCH recipe live in
-  [`<project-config>/milestones.md`](../../../../<project-config>/milestones.md#closing-the-milestone).
+  **Closing the milestone on the last close.** When a sync pass closes a tracker (the Step 15 terminal transition — cve.org reports PUBLISHED),
+  check whether it was the last open issue on its milestone; if so, **propose closing the milestone itself** in the same run,
+  as its own numbered item alongside the per-tracker close.
+  Condition set and PATCH recipe: [`<project-config>/milestones.md`](../../../../<project-config>/milestones.md#closing-the-milestone).
   Concretely: after the per-tracker close lands, run
   `gh api 'repos/<tracker>/issues?milestone=<N>&state=open&per_page=1' --jq 'length'`
-  — if it returns `0` and the milestone is still `open`, PATCH
-  `state=closed` on `repos/<tracker>/milestones/<N>`. Do not
-  auto-close an empty milestone whose unfinished trackers were
-  closed for reasons other than Step 15 (e.g. `duplicate` /
-  `invalid`); the milestone closure only makes sense when every
-  tracker landed through the terminal advisory flow. Surface the
-  milestone-close proposal as its own numbered item alongside the
-  per-tracker close.
+  — if it returns `0` and the milestone is still `open`, PATCH `state=closed` on `repos/<tracker>/milestones/<N>`.
+  Do not auto-close an empty milestone whose trackers were closed for other reasons than Step 15 (e.g. `duplicate` / `invalid`):
+  the closure applies only when every tracker landed through the terminal advisory flow.
 
-- **Assignees** — when a fix PR exists in `<upstream>` (found in
-  Step 1b or named in the *"PR with the fix"* body field) **and the
-  PR author is a member of the project security team** (their GitHub
-  handle appears in the security-team roster in
-  [`<project-config>/release-trains.md`](../../../../<project-config>/release-trains.md) — when in doubt,
-  run `gh api repos/<tracker>/collaborators --jq '.[].login'`
-  as the authoritative check — once per run, reused for every
-  membership check below; **every collaborator counts regardless
-  of their permission level** — read, triage, write, maintain, and
-  admin are all valid), **propose setting the tracking issue's
-  assignee to that PR author**, the natural owner for the rest of the process.
+- **Assignees** — when a fix PR exists in `<upstream>` (found in Step 1b or named in the *"PR with the fix"* body field)
+  **and the PR author is a member of the project security team**, **propose setting the tracking issue's assignee to that PR author**,
+  the natural owner for the rest of the process.
+  Membership: the handle appears in the security-team roster in
+  [`<project-config>/release-trains.md`](../../../../<project-config>/release-trains.md);
+  when in doubt, `gh api repos/<tracker>/collaborators --jq '.[].login'` is the authoritative check —
+  run once per run and reused for every membership check below;
+  **every collaborator counts regardless of their permission level** (read, triage, write, maintain and admin are all valid).
 
-  If the PR author is **not** on the security-team roster (for
-  example, an external contributor who submitted the fix via the
-  public process), do **not** assign them.
+  If the PR author is **not** on the roster (e.g. an external contributor who submitted the fix via the public process), do **not** assign them.
   Leave the assignee empty or propose a security-team member already engaged in the discussion.
 
-  **Sign-up (volunteer) branch.** A fix PR is not the only ownership
-  signal. When a person has **signed up** to own the issue — the
-  *volunteer-owner* signal from
+  **Sign-up (volunteer) branch.** When a person has **signed up** to own the issue — the *volunteer-owner* signal from
   [`gather.md` Step 1d](gather.md#1d-mine-comments-and-mail-messages-for-actionable-signals)
-  (a comment volunteering to take it: *"I'll take this"*, *"assign
-  me"*, *"I can work on the fix"*, *"I'll drive the advisory"*) —
-  **propose setting that person as the assignee**, subject to the
-  **same project-member gate** as the PR-author branch: their handle
-  must appear in the security-team roster in
-  [`<project-config>/release-trains.md`](../../../../<project-config>/release-trains.md),
-  or in the `gh api repos/<tracker>/collaborators --jq '.[].login'`
-  list already fetched this run (every permission level counts).
+  (*"I'll take this"*, *"assign me"*, *"I can work on the fix"*, *"I'll drive the advisory"*) —
+  **propose setting that person as the assignee**, subject to the **same project-member gate** as the PR-author branch
+  (roster, or the collaborators list already fetched this run; every permission level counts).
   On a private tracker a non-collaborator **cannot see the issue**, and GitHub silently drops assignee writes for them,
-  so a volunteer who is **not** a project member is recorded in the
-  proposal as context but **not** assigned — surface *"`<handle>`
+  so a volunteer who is **not** a project member is recorded in the proposal as context but **not** assigned — surface *"`<handle>`
   volunteered but is not a `<tracker>` collaborator — invite them
   first?"* and let the user decide. Precedence and idempotency:
 
-  - When both a sign-up and a fix-PR author exist, the **PR author
-    wins** — the in-flight fix is the stronger ownership signal;
+  - When both a sign-up and a fix-PR author exist, the **PR author wins** (the in-flight fix is the stronger signal);
     record the volunteer as context only.
-  - Only propose the sign-up assignment when the issue currently has
-    **no assignee**. Never override an existing assignee on a
-    volunteer signal — that is a hand-off, which only happens at the
-    `fix released` transition below.
+  - Propose the sign-up assignment only when the issue has **no assignee**.
+    Never override an existing assignee on a volunteer signal — that is a hand-off, which only happens at the `fix released` transition below.
 
-  Also propose clearing a stale assignment if the person is no longer
-  active on the issue, and propose self-assigning a team member only
-  if the user explicitly asks.
+  Also propose clearing a stale assignment if the person is no longer active on the issue,
+  and propose self-assigning a team member only if the user explicitly asks.
 
-  **Assignee hand-off at the `fix released` transition (and its repair).** When the
-  sync transitions an issue to `fix released` (Step 12 — the fix has
-  shipped to PyPI / the Helm registry), ownership moves from the
-  remediation developer to the release manager for Steps 13–15
-  (advisory send → URL capture → Vulnogram PUBLIC → close).
-  **Propose swapping the assignee from the remediation developer to
-  the release manager** in the same sync run that flips
-  `pr merged` → `fix released`. Look up the release manager using the
-  three-source cascade from Step 2c ([`<project-config>/release-trains.md` § *Release managers for releases currently relevant to the security tracker*](../../../../<project-config>/release-trains.md#release-managers-for-releases-currently-relevant-to-the-security-tracker), then the
-  project's Release Plan wiki (`<project-wiki>`),
-  then the `[RESULT][VOTE] Release <product> <version>` thread on
-  `<dev-list>`), and propose the swap as a concrete
-  numbered item in Step 2b. If the release manager is not a
-  collaborator on `<tracker>` yet, surface that as a
-  blocker and ask the user whether to invite them before assigning
+  **Assignee hand-off at the `fix released` transition (and its repair).** At the `fix released` transition (Step 12 — the fix has shipped to PyPI / the Helm registry),
+  ownership moves from the remediation developer to the release manager for Steps 13–15 (advisory send → URL capture → Vulnogram PUBLIC → close).
+  **Propose swapping the assignee from the remediation developer to the release manager** in the same sync run that flips `pr merged` → `fix released`,
+  as a concrete numbered item.
+  Look up the release manager with the three-source cascade from Step 2c
+  ([`<project-config>/release-trains.md` § *Release managers for releases currently relevant to the security tracker*](../../../../<project-config>/release-trains.md#release-managers-for-releases-currently-relevant-to-the-security-tracker),
+  then the project's Release Plan wiki (`<project-wiki>`),
+  then the `[RESULT][VOTE] Release <product> <version>` thread on `<dev-list>`).
+  If the release manager is not yet a collaborator on `<tracker>`, surface that as a blocker and ask whether to invite them before assigning
   — GitHub silently ignores assignee writes for non-collaborators.
 
-  This swap is appropriate at the `fix released` transition **and on
-  the repair path below** (a tracker already at `fix released` whose
-  swap never landed). Earlier transitions (`pr created`, `pr merged`)
-  keep the remediation developer; later ones (`announced - emails sent`, `announced`, `vendor-advisory`) keep the release manager.
+  The swap fires at the `fix released` transition **and on the repair path below** (a tracker already at `fix released` whose swap never landed).
+  Earlier transitions (`pr created`, `pr merged`) keep the remediation developer;
+  later ones (`announced - emails sent`, `announced`, `vendor-advisory`) keep the release manager.
   Do **not** shuffle assignees back and forth — the swap fires once, at (or in repair of) the `fix released` hand-off.
 
   **Hand-off presence is an invariant — repair trackers already at
-  `fix released`.** The release-manager hand-off comment and the
-  assignee swap above are normally fired as apply-actions of the
-  `pr merged` → `fix released` transition proposal. But a tracker can
-  arrive at `fix released` *without* a hand-off ever having been
-  posted — a prior run's POST failed, the `fix released` label was
-  applied by hand, or the CVE record only reached review-ready
-  (Vulnogram `REVIEW`) on a later run than the label flip.
+  `fix released`.** A tracker can reach `fix released` *without* a hand-off ever having been posted —
+  a prior run's POST failed, the label was applied by hand, or the CVE record reached review-ready (Vulnogram `REVIEW`) on a later run than the label flip.
   No transition fires on those later syncs, so without a check the advisory stays with **no named owner**.
 
-  So treat the hand-off as a **reconciled invariant, checked on every
-  sync**, not a one-shot transition side-effect. On every sync of a
-  tracker at `fix released` whose CVE record is review-ready
-  (Vulnogram `REVIEW`), grep the tracker's comments for the marker
-  `<!-- apache-magpie: release-manager-handoff v1 -->` (the same grep
-  Step 5c already runs). If the marker is **absent**, generate the
-  hand-off proposal item — POST the hand-off comment and propose the
-  assignee swap — exactly as at the transition, regardless of whether
-  this run performed the flip. If present, skip (Step 5c's PATCH path
-  handles content drift). Resolve the release manager
-  **authoritatively — never guess a "plausible" name**: for a release
-  train that ships many packages in one wave (e.g. a providers /
-  plugins wave), the owning RM is the sender of *that specific wave's*
-  `[RESULT][VOTE]` / release `[ANNOUNCE]`, which is frequently a
-  different person from the core-release RM for the same period;
-  resolve it per the release-trains data and record the wave + RM
-  there if missing before posting. A generic *"Action (RM): send the
-  advisory …"* status line is **never** an acceptable substitute for
-  the hand-off comment.
-- **Issue title hygiene** — the GitHub issue title ships verbatim into
-  the CVE record's `containers.cna.title` field (read by the
-  `generate-cve-json` script on every regen) and from there into the
-  published advisory and `cve.org`. **On every sync pass**, run the
-  same title-strip cascade the
-  [`security-cve-allocate` skill applies at allocation time](../cve-allocate/title-normalize.md#step-2--compute-the-cve-ready-title) —
-  strip leading/trailing project-name tokens (e.g. ``<project>:``,
-  ``in <project>``, ``(<project> X.Y)``), internal
-  split-markers (``(split from #NNN)``), report-form classifiers
-  (``[Security Report]``, ``[Security Issue]``), external-tracker IDs
-  (``[GHSA-...]``, ``(ZDRES-...)``, ``(HUNTR-...)``, ``(GHSL-...)``)
-  and version-noise suffixes (``(v3.2.1)``, ``(3.x)``). When the
-  cascade would change the title, propose the diff as a numbered
-  Step 2b item; on confirmation, ``gh issue edit <N> --title
-  "<cleaned>"`` and then regen + push CVE JSON so the record's
-  `title` field picks up the cleaned value. **Preserve stripped
-  context as audit trail** — split-from references, GHSA IDs,
-  internal report-form classifiers all carry information the
-  security team uses to navigate sibling reports and reviewer
-  threads. Move them into the issue body (a `### Related references`
-  section) or into the rollup as an audit entry; never silently
-  drop them. Titles drift between allocation and the final regen
-  (manual edits, sibling-tracker splits, GHSA-relay imports that
-  append the GHSA ID), so the cascade re-runs on every sync
-  even when no other body update is proposed; the Step 1d row
-  *"The issue title contains adopter-specific or internal noise"* is its detector.
-- **Description fields** — if the issue body is missing any of the fields the
-  release manager will eventually need (CWE, product, affected versions, severity,
-  CVE ID, credits, links to PRs, short public summary for publish), propose a
-  patched description. Show the full replacement body in the proposal, not a
-  diff, so the user can review it.
+  So check the hand-off on **every sync**, not only as a transition side-effect.
+  On every sync of a tracker at `fix released` whose CVE record is review-ready (Vulnogram `REVIEW`),
+  grep the tracker's comments for the marker `<!-- apache-magpie: release-manager-handoff v1 -->` (the same grep Step 5c runs).
+  If the marker is **absent**, generate the hand-off proposal item — POST the hand-off comment and propose the assignee swap — exactly as at the transition,
+  whether or not this run performed the flip.
+  If present, skip (Step 5c's PATCH path handles content drift).
+  Resolve the release manager **authoritatively — never guess a "plausible" name**:
+  for a release train that ships many packages in one wave (e.g. a providers / plugins wave),
+  the owning RM is the sender of *that specific wave's* `[RESULT][VOTE]` / release `[ANNOUNCE]`,
+  frequently a different person from the core-release RM for the same period;
+  resolve it per the release-trains data, and record the wave + RM there if missing, before posting.
+  A generic *"Action (RM): send the advisory …"* status line is **never** an acceptable substitute for the hand-off comment.
+- **Issue title hygiene** — the issue title ships verbatim into the CVE record's `containers.cna.title` (read by `generate-cve-json` on every regen),
+  and from there into the published advisory and `cve.org`.
+  **On every sync pass**, run the title-strip cascade
+  [`security-cve-allocate` applies at allocation time](../cve-allocate/title-normalize.md#step-2--compute-the-cve-ready-title) —
+  strip leading/trailing project-name tokens (e.g. ``<project>:``, ``in <project>``, ``(<project> X.Y)``),
+  internal split-markers (``(split from #NNN)``), report-form classifiers (``[Security Report]``, ``[Security Issue]``),
+  external-tracker IDs (``[GHSA-...]``, ``(ZDRES-...)``, ``(HUNTR-...)``, ``(GHSL-...)``)
+  and version-noise suffixes (``(v3.2.1)``, ``(3.x)``).
+  When the cascade would change the title, propose the diff as a numbered Step 2b item;
+  on confirmation, ``gh issue edit <N> --title "<cleaned>"``, then regen + push CVE JSON so the record's `title` picks up the cleaned value.
+  **Preserve stripped context as audit trail** — split-from references, GHSA IDs and report-form classifiers help the team navigate sibling reports and reviewer threads:
+  move them into the issue body (a `### Related references` section) or into the rollup as an audit entry; never silently drop them.
+  Titles drift after allocation (manual edits, sibling-tracker splits, GHSA-relay imports appending the GHSA ID),
+  so the cascade re-runs on every sync even when no other body update is proposed;
+  the Step 1d row *"The issue title contains adopter-specific or internal noise"* is its detector.
+- **Description fields** — if the issue body is missing any field the release manager will need
+  (CWE, product, affected versions, severity, CVE ID, credits, links to PRs, short public summary for publish), propose a patched description.
+  Show the full replacement body in the proposal, not a diff.
   This is the whole-body write in Step 4; a field whose `### ` heading already exists
   and only needs a value is a per-field `body-field-set` item instead.
 
   **Every `_No response_` field must be explicitly reviewed in every sync
-  run.** Before presenting the proposal, scan the issue body for remaining
-  `_No response_` placeholders. For each one, either propose a concrete
-  value (if the discussion, the mail thread, the PR, or the GHSA provides
-  enough information to fill it in) or flag it explicitly in the proposal
-  as *"still `_No response_` — needs \<what\> before it can be filled"*.
-  Do not silently leave fields empty across multiple sync runs — the
-  release manager at Step 13 needs **every** field filled in to send the
-  advisory, and the `pr merged → fix released` transition is gated on
-  the six mandatory fields per the table row in Step 2b above.
+  run.** Before presenting the proposal, scan the body for `_No response_` placeholders.
+  For each, either propose a concrete value (if the discussion, mail thread, PR or GHSA provides enough information)
+  or flag it as *"still `_No response_` — needs \<what\> before it can be filled"*.
+  Do not leave fields empty silently across sync runs: the release manager at Step 13 needs **every** field filled,
+  and the `pr merged → fix released` transition is gated on the six mandatory fields.
 
   **Agent-derivable fields — propose high-confidence values proactively.**
-  Two of the mandatory fields can be derived by the agent itself with
-  high confidence from artefacts already in the sync's evidence pool,
-  rather than waiting for a human to fill them in. Treat the following
-  as the allow-listed set for active auto-proposal whenever the field
-  is empty or `_No response_`:
+  Two mandatory fields can be derived from artefacts already in the sync's evidence pool.
+  This is the allow-listed set for auto-proposal whenever the field is empty or `_No response_`:
 
-  - **CWE** — map the patch to a CWE class (e.g., a missing-auth-check
-    fix → CWE-287, untrusted-input-into-SQL fix → CWE-89, path-traversal
-    guard fix → CWE-22). **Propose only when the patch is unambiguous**
-    — when multiple plausible CWE classes fit, flag the ambiguity
-    instead of guessing. Cite the file path(s) and line range(s) that
-    drove the mapping so the user can sanity-check before confirming.
+  - **CWE** — map the patch to a CWE class (e.g. a missing-auth-check fix → CWE-287,
+    untrusted-input-into-SQL fix → CWE-89, path-traversal guard fix → CWE-22).
+    **Propose only when the patch is unambiguous**; when several CWE classes fit, flag the ambiguity instead of guessing.
+    Cite the file path(s) and line range(s) that drove the mapping.
 
-  - **Affected versions** — derive from the `<upstream>` PR's milestone
-    / fix-version metadata mapped to the project's per-scope convention
+  - **Affected versions** — derive from the `<upstream>` PR's milestone / fix-version metadata mapped to the per-scope convention
     (see [`<project-config>/scope-labels.md` — *Affected versions
     convention by scope*](../../../../<project-config>/scope-labels.md#affected-versions-convention-by-scope)).
-    Propose only when the milestone uniquely determines the affected
-    range; flag ambiguity (e.g. multiple backport milestones with
-    partial coverage) rather than guessing. **Always emit the proposed
-    value wrapped in backticks** (e.g. `` `>= X.Y.Z, < A.B.C` ``,
-    `` `< A.B.C` ``); see the *"`Affected versions` body field has a
-    value but it is not backtick-wrapped"* row in the Step 1d signal
-    table for why this matters (raw `>=` renders as a markdown
-    blockquote and form-UI edits silently lose the prefix).
+    Propose only when the milestone uniquely determines the range;
+    flag ambiguity (e.g. multiple backport milestones with partial coverage) rather than guessing.
+    **Always emit the proposed value wrapped in backticks** (e.g. `` `>= X.Y.Z, < A.B.C` ``, `` `< A.B.C` ``);
+    see the *"`Affected versions` body field has a value but it is not backtick-wrapped"* row in the Step 1d signal table
+    (raw `>=` renders as a blockquote and form-UI edits silently lose the prefix).
 
   All other mandatory fields stay on the *external-signal* path:
   propose values only when the discussion, mail thread, PR, or GHSA
   provides enough information — never guess them.
 
   **"Short public summary for publish" must include user-facing
-  instructions.** This field powers the published CVE description that
-  end users read in the advisory. Beyond stating the vulnerability in
-  one or two sentences, the summary must tell users **what to do**:
-  the fixed version to upgrade to, the mitigations available for users
-  who cannot upgrade immediately, and the CWE class (allowed and
-  useful — CWE is not embargoed information once the advisory ships).
+  instructions.** This field becomes the published CVE description.
+  Beyond stating the vulnerability in one or two sentences, it tells users **what to do**:
+  the fixed version to upgrade to, mitigations for users who cannot upgrade immediately,
+  and the CWE class (allowed — CWE is not embargoed once the advisory ships).
 
-  **Validate this on every sync pass that proposes a body-field update
-  or a JSON regen**, not only at the `pr merged → fix released`
-  boundary. A summary that names the vulnerability accurately but
-  lacks the upgrade-target version (e.g. *"upgrade to the
-  version that contains the fix"* without naming `3.3.0`) is a
-  defect; propose tightening it before regen lands in the embedded
-  JSON + the next push to the CVE record.
+  **Validate this on every sync pass that proposes a body-field update or a JSON regen**, not only at the `pr merged → fix released` boundary.
+  A summary that names the vulnerability but lacks the upgrade-target version
+  (e.g. *"upgrade to the version that contains the fix"* without naming `3.3.0`) is a defect;
+  propose tightening it before the regen lands in the embedded JSON and the next push to the CVE record.
 
-  **The summary must also state the triggering conditions** — the
-  reader scans the published advisory asking *"does this affect us?"*,
-  and the answer comes from the trigger context, not the bug
-  mechanism. Concretely the summary should make these three things
-  unambiguous in one sentence each (in any order):
+  **The summary must also state the triggering conditions** — the reader asks *"does this affect us?"*,
+  and the answer comes from the trigger context, not the bug mechanism.
+  The summary makes these three unambiguous, one sentence each, in any order:
 
   1. **Who** — the attacker role / capability required (e.g. *"an
      authenticated UI user with `Op` permissions"*, *"a Dag author"*,
@@ -332,7 +239,6 @@ will change and *why*. Group them by category:
      task logs in the UI"*, *"PATCHes the deferred-state endpoint
      with crafted `next_kwargs`"*).
 
-  The tuple lets a reader decide whether their deployment is exposed without reading the code or the report.
   When the field is accurate but missing one of (who / when / action), propose adding it on the
   same sync pass as the upgrade-target tightening.
 
@@ -345,29 +251,18 @@ will change and *why*. Group them by category:
   > webserver is reachable by untrusted users. Users are advised to
   > upgrade to `<product>` 3.2.2 or later."*
 
-  The first sentence names the attacker (*authenticated UI user*),
-  the action (*crafts `next=`*), and the surface (*login route*); the
-  second sentence names the configuration (*webserver reachable by
-  untrusted users*); the third is the upgrade ask. When the carrier release
-  is known (the fix PR's milestone is set), name it verbatim —
+  Sentence one names the attacker (*authenticated UI user*), the action (*crafts `next=`*) and the surface (*login route*);
+  sentence two the configuration (*webserver reachable by untrusted users*); sentence three the upgrade ask.
+  When the carrier release is known (the fix PR's milestone is set), name it verbatim —
   ``<product> 3.3.0 or later``,
   ``<product>-<component> 11.2.0 or later``,
-  ``<product> 1.18.0 or later``, etc. When the
-  carrier release is not yet known (early `pr created` state where
-  the PR has no milestone), keep the placeholder but flag the gap
-  in Step 2c so the next sync after milestone-set catches it. The
-  Step 1d signal-table row *"`Short public summary for publish` is
-  populated but does not name a concrete upgrade-target version"*
-  is the detector that surfaces the rewrite proposal on every
-  qualifying pass.
+  ``<product> 1.18.0 or later``, etc.
+  When it is not yet known (early `pr created`, no PR milestone), keep the placeholder but flag the gap in Step 2c so the next sync after milestone-set catches it.
+  The Step 1d row *"`Short public summary for publish` is populated but does not name a concrete upgrade-target version"* is the detector.
 
   **Incomplete-fix-to-another-CVE: the summary must name the prior
   CVE *and* tell users who already applied that fix to apply this
-  one too.** When the tracker is an *incomplete-fix follow-up* to a
-  previously-published CVE — detected by the rollup, the body, or
-  the issue title mentioning *"incomplete fix for `<CVE-ID>`"*,
-  *"follow-up to `<CVE-ID>`"*, *"split from"* a sibling tracker
-  whose CVE is already PUBLIC, or by the title's prior-CVE token —
+  one too.** When the tracker is an *incomplete-fix follow-up* to a previously-published CVE,
   the summary must additionally:
 
   1. Name the prior CVE explicitly (``<project> previously
@@ -383,46 +278,30 @@ will change and *why*. Group them by category:
      additionally upgrade `<current-package>` to <X.Y.Z> or later
      — the two fixes are complementary, not duplicates``).
 
-  **Why this matters.** A reader of a "follow-up" CVE assumes *"I already applied the earlier fix; this one is a duplicate"*,
-  and misses that two upgrades (one per product / package) are needed.
+  Otherwise a reader assumes *"I already applied the earlier fix; this one is a duplicate"* and misses the second upgrade.
 
-  **Detection signals** (any one triggers the cross-CVE summary
-  shape):
+  **Detection signals** (any one triggers the cross-CVE summary shape):
 
-  - The tracker's `Short public summary` already mentions the
-    prior `CVE-YYYY-NNNNN` token but lacks the *"users who
-    applied the prior fix should also..."* clause.
-  - The rollup carries a *"sibling tracker"* / *"split for scope
-    clarity"* / *"follow-up to `<PRIOR-CVE-ID>`"* entry.
-  - The issue title contains an explicit *"incomplete fix for
-    `<PRIOR-CVE-ID>`"* parenthetical (per the title-strip
-    cascade — that token is stripped from the title but the
-    cross-CVE relationship is preserved in body / rollup).
-  - The CVE record's `affected[]` array names a different
-    `packageName` than the prior CVE's record, AND the prior CVE
-    is on the same root-cause class.
+  - The `Short public summary` already mentions the prior `CVE-YYYY-NNNNN` token but lacks the *"users who applied the prior fix should also..."* clause.
+  - The rollup carries a *"sibling tracker"* / *"split for scope clarity"* / *"follow-up to `<PRIOR-CVE-ID>`"* entry.
+  - The body or title mentions *"incomplete fix for `<CVE-ID>`"*, *"follow-up to `<CVE-ID>`"*, or *"split from"* a sibling tracker whose CVE is already PUBLIC;
+    an *"incomplete fix for `<PRIOR-CVE-ID>`"* title parenthetical is stripped by the title-strip cascade, but the relationship is preserved in body / rollup.
+  - The CVE record's `affected[]` names a different `packageName` than the prior CVE's record, AND the prior CVE is on the same root-cause class.
 
-  When any signal fires, propose the cross-CVE summary expansion
-  as part of the same Step 2b body-field update set. Do **not**
-  silently emit a summary that omits the cross-CVE / cross-product
-  upgrade ask — that creates the "I already applied the fix"
-  blind spot the rule exists to prevent.
+  When any signal fires, propose the cross-CVE summary expansion in the same Step 2b body-field update set.
+  Do **not** emit a summary that omits the cross-CVE / cross-product upgrade ask.
 
   **Special case for the "Security mailing list thread" field — leave
   it alone.** It is the internal link to the private `<security-list>` thread, expected to 404 outside the security team.
   **Do not scrub this field, do not replace the URL with a textual note, do not "clean it up".**
   `generate-cve-json` never exports it to `references[]`.
 
-  **The "Public advisory URL" body field** is a separate body field
-  that carries the archived public advisory URL on
-  `<mail-archive-url>/list.html?<users-list>` (or
-  `<announce-list>`). Empty until Step 13 — the release manager
-  fills it in **after** the advisory email has been sent and archived.
+  **The "Public advisory URL" body field** carries the archived public advisory URL on
+  `<mail-archive-url>/list.html?<users-list>` (or `<announce-list>`).
+  Empty until Step 13 — the release manager fills it in **after** the advisory email has been sent and archived.
   Every sync run must:
 
-  1. If `announced - emails sent` is set and the field is still
-     empty, **scan the public users@ archive for the CVE ID**. Two
-     paths, picked by what the user has configured:
+  1. If `announced - emails sent` is set and the field is still empty, **scan the public users@ archive for the CVE ID**, by one of two paths:
 
      - **PonyMail MCP (preferred when enabled).** If Step 0
        recorded `ponymail_authenticated: true`, call:
@@ -436,50 +315,30 @@ will change and *why*. Group them by category:
        )
        ```
 
-       `users@` is a public list so no LDAP allowlist check is
-       required. A single hit is the advisory thread; capture its
-       `tid` and construct the pastable archive URL via the
-       `ponymail_thread_url_template` from the project manifest.
-       See
-       [`tools/ponymail/operations.md` — Find the advisory archive thread](../../../../tools/ponymail/operations.md#find-the-advisory-archive-thread-on-usersprojectapacheorg)
-       for the exact call shape.
+       `users@` is public, so no LDAP allowlist check is needed.
+       A single hit is the advisory thread; capture its `tid` and build the archive URL with the manifest's `ponymail_thread_url_template`.
+       Call shape: [`tools/ponymail/operations.md` — Find the advisory archive thread](../../../../tools/ponymail/operations.md#find-the-advisory-archive-thread-on-usersprojectapacheorg).
 
-     - **PonyMail HTTP API (fallback).** When PonyMail MCP is
-       disabled, unauthenticated, or returns an error, fall back
-       to the HTTP API + `list.html` pattern documented in
-       [`tools/gmail/ponymail-archive.md`](../../../../tools/gmail/ponymail-archive.md#use-case--security-issue-sync).
-       The adopting project's URL templates are declared in
-       [`<project-config>/project.md`](../../../../<project-config>/project.md#gmail-and-ponymail)
-       (`ponymail_api_url_template`,
-       `ponymail_public_search_url_template`,
-       `ponymail_thread_url_template`). The fallback path is
-       anonymous-HTTPS only and works for every triager regardless
-       of LDAP status.
+     - **PonyMail HTTP API (fallback).** When PonyMail MCP is disabled, unauthenticated, or errors,
+       use the anonymous-HTTPS HTTP API + `list.html` pattern in
+       [`tools/gmail/ponymail-archive.md`](../../../../tools/gmail/ponymail-archive.md#use-case--security-issue-sync);
+       it works for every triager regardless of LDAP status.
+       URL templates (`ponymail_api_url_template`, `ponymail_public_search_url_template`, `ponymail_thread_url_template`) are in
+       [`<project-config>/project.md`](../../../../<project-config>/project.md#gmail-and-ponymail).
 
-     Either way, if the archive returns a hit, propose populating
-     the field with the resolved thread URL (per
-     `ponymail_thread_url_template`), regenerating the CVE JSON
-     attachment, and adding the `announced` label.
-  2. If the field is already populated, treat it as authoritative —
-     no scan needed. Regenerate the CVE JSON attachment so the URL
-     flows into `references[]` as `vendor-advisory`.
-  3. The sync skill's responsibility ends when the label is
-     `announced`. **Do not propose closing the issue**
-     — closing is a Step 15 action and belongs to the release
-     manager, who finishes the lifecycle by copying the attached
-     CVE JSON into Vulnogram and closing the issue (no label
-     changes).
-  4. On subsequent sync runs, check whether the CVE record on
-     `<cve-tool-url>/cve5/<CVE-ID>` has moved to PUBLISHED.
-     When it has, propose closing the issue (do not update labels).
-     This is the only place sync proposes closing an advisory-flow
-     issue; all earlier closes are only for closing dispositions
-     (`invalid` / `duplicate` / `wontfix`) at
-     Steps 5–6.
+     On a hit, propose populating the field with the resolved thread URL (per `ponymail_thread_url_template`),
+     regenerating the CVE JSON attachment, and adding the `announced` label.
+  2. If the field is already populated, treat it as authoritative — no scan.
+     Regenerate the CVE JSON attachment so the URL flows into `references[]` as `vendor-advisory`.
+  3. The sync's responsibility ends when the label is `announced`.
+     **Do not propose closing the issue** — closing is a Step 15 action for the release manager,
+     who copies the attached CVE JSON into Vulnogram and closes the issue (no label changes).
+  4. On subsequent sync runs, check whether the CVE record on `<cve-tool-url>/cve5/<CVE-ID>` has moved to PUBLISHED;
+     when it has, propose closing the issue (do not update labels).
+     This is the only place sync proposes closing an advisory-flow issue;
+     earlier closes are only for closing dispositions (`invalid` / `duplicate` / `wontfix`) at Steps 5–6.
 
-  See the "CVE references must never point at non-public mailing-list
-  threads" section of [`AGENTS.md`](../../../../AGENTS.md) for the full
-  rationale of the two-field split.
+  The two-field split: [`AGENTS.md` § *CVE references must never point at non-public mailing-list threads*](../../../../AGENTS.md#cve-references-must-never-point-at-non-public-mailing-list-threads).
 
   **Special case for the `Severity` field — never propagate reporter-supplied
   CVSS scores.** A reporter's CVSS vector or qualitative label (*"Low"*, *"High"*, *"Critical"*), from the thread, a GHSA draft or the body,
@@ -492,84 +351,55 @@ will change and *why*. Group them by category:
   ready` now that the users@ advisory URL has been captured — the release
   manager will copy the CVE JSON to Vulnogram and close the issue"*.
 
-- **Project-board column.** Every tracker has exactly one `Status`
-  option set on the Security-issues board, and the column must match
-  the issue's label-derived state. Reconcile whenever the labels and
-  the column disagree — the board is the primary overview surface for
-  the security team and scans of *"who owns what right now"* start
-  there.
+- **Project-board column.** Every tracker has exactly one `Status` option set on the Security-issues board, and it must match the issue's label-derived state;
+  reconcile whenever labels and column disagree.
+  The label + body-state → column mapping and the board URL are in
+  [`<project-config>/project.md`](../../../../<project-config>/project.md#github-project-board);
+  the `updateProjectV2ItemFieldValue` GraphQL recipe is in
+  [`tools/github/project-board.md`](../../../../tools/github/project-board.md#write--move-a-tracker-to-a-different-column),
+  invoked from the Step 4 apply list.
 
-  The label + body-state → board-column mapping and the board URL
-  live in
-  [`<project-config>/project.md`](../../../../<project-config>/project.md#github-project-board).
-  Board-column mutations are applied via the GraphQL
-  `updateProjectV2ItemFieldValue` mutation; the recipe lives in
-  [`tools/github/project-board.md`](../../../../tools/github/project-board.md#write--move-a-tracker-to-a-different-column)
-  and is invoked from the Step 4 apply list.
-
-- **Status update to the reporter** — **whenever the issue's status has changed
-  since the last message we sent to the reporter, propose a Gmail draft that
-  brings the reporter up to date.** The set of transitions that warrant a
-  status update is enumerated authoritatively in
-  [`docs/security/roles.md` — Keeping the reporter informed](../../../../docs/security/roles.md#keeping-the-reporter-informed);
-  the skill must draft an update when any of those has happened since our
-  last message in the original mail thread, including the post-close
-  *"CVE is live on cve.org"* transition surfaced by
+- **Status update to the reporter** — **whenever the issue's status has changed since our last message to the reporter, propose a Gmail draft that brings the reporter up to date.**
+  The transitions that warrant one are listed in
+  [`docs/security/roles.md` — Keeping the reporter informed](../../../../docs/security/roles.md#keeping-the-reporter-informed),
+  including the post-close *"CVE is live on cve.org"* transition surfaced by
   [Step 1g](gather.md#1g-recently-closed-trackers--check-cveorg-publication-state).
 
-  **Pick the matching canned-response template** rather than
-  free-drafting wording. The adopting project's
+  **Pick the matching canned-response template** rather than free-drafting.
   [`<project-config>/canned-responses.md`](../../../../<project-config>/canned-responses.md)
   carries one template per lifecycle transition — *"CVE allocated"*,
   *"Fix PR opened"*, *"Fix PR merged"*, *"Release shipped"*,
   *"Advisory sent"*, *"CVE published on cve.org"*, *"Credit
-  correction"*. Substitute the SCREAMING_SNAKE_CASE placeholders
-  (`CVE_ID`, `PR_URL`, `VERSION`, `ADVISORY_URL`, `RELEASE_URL`)
-  with the concrete values read from the tracker body and the
-  Step 1b / Step 1g signals. Only draft from scratch if the
-  transition is not in the canned set; if you do, follow the
-  "Brevity: emails state facts, not context" rule in
-  [`AGENTS.md`](../../../../AGENTS.md) and offer to add the new
-  wording to the canned-responses file as a follow-up.
+  correction"*.
+  Substitute the SCREAMING_SNAKE_CASE placeholders (`CVE_ID`, `PR_URL`, `VERSION`, `ADVISORY_URL`, `RELEASE_URL`)
+  with values from the tracker body and the Step 1b / Step 1g signals.
+  Draft from scratch only if the transition is not in the canned set,
+  and then offer to add the new wording to the canned-responses file as a follow-up.
 
-  Each status update follows the three-paragraph shape from the
-  "Brevity: emails state facts, not context" section of
-  [`AGENTS.md`](../../../../AGENTS.md): (a) one sentence on what
-  changed, (b) one sentence on what comes next and roughly when,
-  (c) the relevant artifact URLs on their own line(s). Nothing else:
-  no re-introduction, no recap of earlier messages, no process explanation,
-  no speculation about severity or schedule.
+  Each status update follows the three-paragraph shape in
+  [*Brevity: emails state facts, not context*](../../../../docs/editorial-guidelines.md#brevity-emails-state-facts-not-context):
+  (a) one sentence on what changed, (b) one sentence on what comes next and roughly when, (c) the artifact URLs on their own line(s).
+  Nothing else: no re-introduction, no recap, no process explanation, no speculation about severity or schedule.
 
-  Always reply on the **original** Gmail thread (the one identified
-  in Step 1c), not on the GitHub-notifications mirror thread.
+  Always reply on the **original** Gmail thread (identified in Step 1c), not the GitHub-notifications mirror thread.
 
   **Use full, clickable URLs for every reference in the email body.**
   Shorthand like ``<upstream>#65346`` or ``<tracker>#261`` does **not** render as a link in mail. Concretely:
 
-  - For the internal tracking issue (allowed on the private mail
-    thread), write the **full** URL:
-    ``https://github.com/<tracker>/issues/<N>``. Do not use
-    ``#<N>`` or ``<tracker>#<N>`` shorthand.
-  - For fix PRs on ``<upstream>``, write the **full** URL:
-    ``https://github.com/<upstream>/pull/<N>``. Do not use
-    ``<upstream>#<N>`` shorthand.
-  - Same rule for any other GitHub reference you mention in the body
-    (public issues, commits, security advisories): always the full
-    URL. Markdown-link syntax (``[text](url)``) does **not** render
-    in plain-text email — use the bare URL.
+  - Tracking issue (allowed on the private mail thread): the **full** URL ``https://github.com/<tracker>/issues/<N>``, never ``#<N>`` or ``<tracker>#<N>``.
+  - Fix PRs on ``<upstream>``: the **full** URL ``https://github.com/<upstream>/pull/<N>``, never ``<upstream>#<N>``.
+  - Any other GitHub reference (public issues, commits, security advisories): the full URL.
+    Markdown-link syntax (``[text](url)``) does **not** render in plain-text email — use the bare URL.
   - CVE IDs appear as **plain ``CVE-YYYY-NNNN`` inline text only**.
     **Never** include the CVE-tool URL (``<cve-tool-url>/cve5/CVE-YYYY-NNNN``) in a reporter email.
     Once the CVE is **published** on ``cve.org`` (advisory sent, ``announced`` label set),
     the ``cve.org`` URL (``https://www.cve.org/CVERecord?id=CVE-YYYY-NNNN``) is an acceptable alternative,
-    but plain text stays the default. Full rule and pre-draft self-check: the "Reporter emails: CVE ID only,
-    never the CVE-tool URL" subsection of [`AGENTS.md`](../../../../AGENTS.md).
-  - Advisory archive URLs (``<mail-archive-url>/thread/...``) are
-    already full URLs; just paste them as-is.
+    but plain text stays the default. Full rule and pre-draft self-check:
+    [*Reporter emails: CVE ID only, never the ASF CVE-tool URL*](../../../../docs/editorial-guidelines.md#reporter-emails-cve-id-only-never-the-asf-cve-tool-url).
+  - Advisory archive URLs (``<mail-archive-url>/thread/...``) are already full URLs; paste them as-is.
 
-  This is specific to the **email** path. Comments on the
-  ``<tracker>`` issue itself should still use the
-  markdown-linked ``[#<N>](url)`` / ``[<upstream>#<N>](url)``
-  form per Golden rule 2, because GitHub does render that markdown.
+  This applies to the **email** path only; comments on the ``<tracker>`` issue use the
+  markdown-linked ``[#<N>](url)`` / ``[<upstream>#<N>](url)`` form per Golden rule 2.
 
   **Confidentiality:** the tracking-issue URL is a public-safe identifier and *may* go in the reporter email;
   the tracker's content and, before the advisory ships, the security framing may not, per
@@ -577,56 +407,36 @@ will change and *why*. Group them by category:
   For a reporter who cannot access the tracker, pair the URL with a one-line identifier-only note
   (see [`docs/confidentiality.md`](../../../../docs/confidentiality.md#sharing-a-tracker-url-with-someone-who-cannot-access-it)).
 
-  **Do not re-ask questions that have already been asked.** Before drafting,
-  scan the existing thread end-to-end for any open question we have already
-  put to the reporter — most importantly the credit-preference question, but
-  also any technical follow-ups. If a question is already pending an answer
-  from the reporter, **omit it from the new draft**. Restate the credit
-  question only if (a) it has never been asked on the thread, or (b) more than
-  ~7 days have passed since it was last asked **and** publication is imminent.
+  **Do not re-ask questions that have already been asked.** Before drafting, scan the thread end-to-end for open questions we already put to the reporter —
+  most importantly the credit-preference question, but also technical follow-ups.
+  If one is still pending an answer, **omit it from the new draft**.
+  Restate the credit question only if (a) it has never been asked on the thread,
+  or (b) more than ~7 days have passed since it was last asked **and** publication is imminent.
   When in doubt, ask the user before re-pinging the reporter.
 
-  Concrete check: when you find a previous message from the security team in
-  the thread, look for keywords like *"credited"*, *"credit"*, *"how would
+  Concrete check: in our previous messages on the thread, look for *"credited"*, *"credit"*, *"how would
   you like to be"*, *"name (and, if applicable, affiliation"*, or *"prefer to
-  remain anonymous"*. If any of those are present in a message we sent and
-  the reporter has not replied, the credit question is **already pending** —
-  do not re-ask.
+  remain anonymous"*.
+  If any is present and the reporter has not replied, the credit question is **already pending** — do not re-ask.
 
-- **Status update on the GitHub issue (`<tracker>`)** — **every
-  status change must also be recorded on the issue itself**, not
-  only sent by email. The two-channels rationale (email keeps the
-  reporter, the issue record keeps the team and the release
-  manager) lives in
-  [`docs/security/roles.md` — Recording status transitions on the tracker](../../../../docs/security/roles.md#recording-status-transitions-on-the-tracker).
+- **Status update on the GitHub issue (`<tracker>`)** — **every status change is also recorded on the issue itself**, not only sent by email
+  (rationale: [`docs/security/roles.md` — Recording status transitions on the tracker](../../../../docs/security/roles.md#recording-status-transitions-on-the-tracker)).
 
   **The status record lives in a single rollup comment, not a new
-  comment per sync.** The first bot-authored comment on a tracker
-  is the **rollup comment** (created by the
-  [`security-issue-import`](../issue-import/SKILL.md)
-  skill); every subsequent pass — this sync skill, security-cve-allocate,
-  security-issue-deduplicate, security-issue-fix — appends a new
-  *entry* to that comment instead of posting a fresh one. The full shape, summary
-  conventions, upsert recipe, and legacy-comment-folding rules
-  live in the shared spec at
+  comment per sync.** The first bot-authored comment on a tracker is the **rollup comment** (created by
+  [`security-issue-import`](../issue-import/SKILL.md));
+  every later pass — this skill, security-cve-allocate, security-issue-deduplicate, security-issue-fix — appends an *entry* to it instead of posting a fresh comment.
+  Shape, summary conventions, upsert recipe and legacy-comment-folding rules:
   [`tools/github/status-rollup.md`](../../../../tools/github/status-rollup.md).
-  Re-read that file before composing the entry body — the
-  zero-extra-spacing rule is load-bearing and easy to miss.
+  Re-read it before composing the entry body — the zero-extra-spacing rule is load-bearing and easy to miss.
 
   **Standalone comments are reserved for release-manager
-  instructions only.** The rollup is the default surface for
-  every sync output — status changes, label rationale, milestone
-  moves, assignee swaps, reporter-draft notes, fix-PR links,
-  CVE-review-comment surfacing, legacy-fold entries, recap
-  pointers, blockers, *everything*. The **only** comment shapes
-  this skill posts as separate, first-class comments outside the
-  rollup are the two **release-manager-directed call-to-action**
-  comments documented further down in this Step 2b list: the
-  *Release-manager hand-off comment* (fired at the
-  `pr merged` → `fix released` transition, Step 12) and the
-  *Publication-ready notification comment* (fired at the
-  *Public advisory URL* update, Step 14): they tell the RM to *do something next*,
-  which a `<details>`-collapsed entry hides.
+  instructions only.** The rollup is the default surface for every sync output — status changes, label rationale, milestone moves, assignee swaps,
+  reporter-draft notes, fix-PR links, CVE-review-comment surfacing, legacy-fold entries, recap pointers, blockers, *everything*.
+  The **only** comments this skill posts outside the rollup are the release-manager-directed call-to-action comments further down this list:
+  the *Release-manager hand-off comment* (`pr merged` → `fix released`, Step 12)
+  and the *Publication-ready notification comment* (*Public advisory URL* update, Step 14):
+  they tell the RM to *do something next*, which a `<details>`-collapsed entry hides.
   Everything else goes into the rollup; do not invent a new standalone-comment shape because something "feels important enough".
 
   **Entry shape for a sync pass.** Emit the entry body below;
@@ -653,8 +463,7 @@ will change and *why*. Group them by category:
   The entry is collapsed inside `<details>`, so there is no line cap: write what the auditor needs, without padding.
   Each entry is *incremental* — what changed in this pass, what comes next; do not restate earlier entries.
 
-  **Reporter-notification line options** (one exactly, when
-  applicable — omit when no reporter notification is meaningful):
+  **Reporter-notification line options** (exactly one when applicable; omit when no reporter notification is meaningful):
 
   - *"Reporter has been notified on the original mail thread."* —
     when a status-update draft has been created in the same sync.
@@ -663,16 +472,12 @@ will change and *why*. Group them by category:
     the security team and is already in the loop.
   - *"Reporter notification still pending — see draft `<draftId>`."*
     — if a draft was created but the user has not yet sent it.
-    **Before emitting this line**, call
-    `mcp__claude_ai_Gmail__list_drafts` and confirm `<draftId>` is
-    in the result. If it is gone (sent or discarded between draft
-    creation and this status-comment post), flip to *"Reporter
+    **Before emitting this line**, call `mcp__claude_ai_Gmail__list_drafts` and confirm `<draftId>` is in the result.
+    If it is gone, flip to *"Reporter
     draft `<draftId>` is no longer in Drafts — sent or
     discarded."* — never assert "still pending" without checking.
-    This rule applies on **every** sync that emits the line,
-    including the sync that created the draft (the user may have
-    switched to Gmail and sent it before the comment landed), per
-    the [verify-before-claim rule](../../../../tools/gmail/operations.md#verify-before-claim--never-assert-a-draft-is-still-pending-without-checking).
+    This applies on **every** sync that emits the line, including the one that created the draft,
+    per the [verify-before-claim rule](../../../../tools/gmail/operations.md#verify-before-claim--never-assert-a-draft-is-still-pending-without-checking).
 
   **Summary action-label for a sync pass** — see the table in
   [`status-rollup.md`](../../../../tools/github/status-rollup.md#summary--action-labels).
@@ -683,19 +488,12 @@ will change and *why*. Group them by category:
 
   **Apply recipe** — `rollup-append` (the Status-rollup comment item in
   [Step 4](apply-and-push.md#step-4--apply-confirmed-changes)).
-  For a tracker that already carries a rollup (the common case)
-  it edits the existing rollup, not a fresh `gh issue comment`.
+  On a tracker that already carries a rollup (the common case) it edits the existing rollup, not a fresh `gh issue comment`;
+  on a tracker with **no rollup yet** (pre-dating the convention) the same call creates it,
+  and the pass also runs the legacy-fold sub-step below so the new rollup absorbs every pre-existing bot comment.
 
-  For a tracker with **no rollup yet** (legacy tracker pre-dating
-  the convention), the same call creates it; the pass
-  also runs the legacy-fold sub-step
-  below so the new rollup absorbs every pre-existing bot
-  comment.
-
-  **Fold legacy bot comments into the rollup.** Every sync pass
-  runs a legacy-fold sub-step. Step 1d's comment-mining scan
-  surfaces every pre-rollup bot comment on the tracker using the
-  detection rules in
+  **Fold legacy bot comments into the rollup.** Every sync pass runs a legacy-fold sub-step.
+  Step 1d's comment-mining scan surfaces every pre-rollup bot comment using
   [`status-rollup.md` — Detecting a legacy bot comment](../../../../tools/github/status-rollup.md#detecting-a-legacy-bot-comment)
   (content-anchored sweep: author on the security-team roster **and**
   body starts with one of `**Sync `, `**Status update`, `**Merged `,
@@ -716,62 +514,41 @@ will change and *why*. Group them by category:
 
   The tool keeps the legacy comment's `createdAt` date and author in the summary,
   left-trims every line (a single stray leading space wrecks markdown rendering inside `<details>`),
-  and deletes the original only after the append lands. Never
-  touch a comment authored by someone outside the security-team
-  roster (that is reporter discussion, not bot noise).
+  and deletes the original only after the append lands.
+  Never touch a comment authored by someone outside the security-team roster (that is reporter discussion, not bot noise).
 
-  When the same sync pass also needs to write a regular sync
-  entry, the legacy-fold entries are appended **first**
-  (chronologically), then the sync entry last. Tag the pass's
-  own summary as
-  `Reformat (N legacy comments folded)` when the fold is the
-  primary action; otherwise use `Sync (<headline>)` and mention
-  the fold count in the entry body.
+  When the same pass also writes a regular sync entry, the legacy-fold entries are appended **first** (chronologically), the sync entry last.
+  Tag the pass's own summary `Reformat (N legacy comments folded)` when the fold is the primary action;
+  otherwise use `Sync (<headline>)` and mention the fold count in the entry body.
 
   **Before emitting any rollup body — run the zero-whitespace
-  self-check.** `<details>` blocks in GitHub markdown break
-  silently when any line inside carries leading whitespace
-  (the tool supplies the blank line after `<summary>`, not the entry body's indentation). Re-read
-  [`status-rollup.md` — The rollup comment shape](../../../../tools/github/status-rollup.md#the-rollup-comment-shape)
-  before posting; the bug manifests as the entry rendering as a
-  single preformatted block and hiding every link. Do not
-  indent entries for "readability".
+  self-check.** `<details>` blocks break silently when any line inside carries leading whitespace
+  (the tool supplies the blank line after `<summary>`, not the entry body's indentation):
+  the entry renders as a single preformatted block and hides every link.
+  Re-read [`status-rollup.md` — The rollup comment shape](../../../../tools/github/status-rollup.md#the-rollup-comment-shape)
+  before posting, and do not indent entries for "readability".
 
-- **Remediation-developer fill-fields comment** — when this sync
-  pass detects that mandatory CVE body fields are not yet
-  populated, propose posting (or PATCH-updating) a comment tagging
-  the **remediation developer** with the concrete list of missing
-  fields. The tracker stays assigned to the remediation developer;
-  the release-manager hand-off is **not** fired until the gate
-  clears.
+- **Remediation-developer fill-fields comment** — when mandatory CVE body fields are not yet populated,
+  propose posting (or PATCH-updating) a comment tagging the **remediation developer** with the concrete list of missing fields.
+  The tracker stays assigned to the remediation developer; the release-manager hand-off is **not** fired until the gate clears.
 
   **This is its own first-class comment, not a rollup entry**: like the RM hand-off, it is a call to action.
 
   **Trigger — two firing points**:
 
-  1. **At the `pr created` → `pr merged` transition (Step 11)** —
-     when sync proposes the `pr created` → `pr merged` label swap,
+  1. **At the `pr created` → `pr merged` transition (Step 11)** — when sync proposes that label swap,
      check whether all six mandatory body fields are populated
      (*CWE*, *Affected versions*, *Severity*, *Reporter credited
      as*, *Short public summary for publish*, *PR with the fix*).
-     If any field is empty / `_No response_`, propose the
-     fill-fields comment with that field list. Issue stays
-     assigned to the remediation developer (who is also the fix-PR
-     author and the current assignee in the common case). **Do
-     not propose any RM-related action at Step 11**; that belongs
-     to Step 12.
-  2. **At the `pr merged` → `fix released` transition (Step 12)** —
-     after sync's Step 5b push attempt, check the CVE record state
-     in Vulnogram. If the state is still `DRAFT` for any reason
-     (one of the body fields was still empty, the JSON push was
-     blocked, the API push happened but the state did not advance
-     because the JSON failed CNA-schema validation, etc.),
-     **re-fire** the fill-fields comment with the refreshed list
-     of what is still blocking. **Do not** fire the RM hand-off,
-     do not flip the label to `fix released`, do not swap the
-     assignee — those all gate on `state == REVIEW`. A subsequent
-     sync run that finds the state finally promoted to `REVIEW`
-     will clear the gate and fire the RM hand-off then.
+     If any is empty / `_No response_`, propose the fill-fields comment with that field list.
+     The issue stays assigned to the remediation developer (in the common case also the fix-PR author and current assignee).
+     **Do not propose any RM-related action at Step 11**; that belongs to Step 12.
+  2. **At the `pr merged` → `fix released` transition (Step 12)** — after Step 5b's push attempt, check the CVE record state in Vulnogram.
+     If it is still `DRAFT` for any reason (a body field still empty, the push blocked,
+     or the push landed but the state did not advance because the JSON failed CNA-schema validation),
+     **re-fire** the fill-fields comment with the refreshed list of what is still blocking.
+     **Do not** fire the RM hand-off, flip the label to `fix released`, or swap the assignee — those all gate on `state == REVIEW`.
+     A later sync that finds the state promoted to `REVIEW` clears the gate and fires the RM hand-off then.
 
   **Idempotency + PATCH-in-place**. Same shape as the hand-off
   comment: scan for the marker
@@ -785,85 +562,58 @@ will change and *why*. Group them by category:
     render this run** — no-op; surface as
     *"fill-fields comment already posted on `<comment-url>` and
     the missing-fields list is unchanged (skipping)"*.
-  - **Marker found, current body does NOT match** (typically: the
-    missing-fields list changed because the remediation developer
-    filled some — but not all — fields between sync runs) —
+  - **Marker found, current body does NOT match** (typically the remediation developer filled some, but not all, fields between runs) —
     PATCH-edit the existing comment with the refreshed list.
 
   **Body source.** `tools/<cve-tool>/remediation-developer-fill-fields-comment.md`
   (for Vulnogram:
   [`tools/cve-tool-vulnogram/remediation-developer-fill-fields-comment.md`](../../../../tools/cve-tool-vulnogram/remediation-developer-fill-fields-comment.md)).
-  This template carries no OAuth-pushed / manual-paste variants —
-  the remediation developer's job is to fill in body fields, and
-  the API-push state is invisible to them.
+  It has no OAuth-pushed / manual-paste variants: the remediation developer fills body fields and never sees the API-push state.
 
-  **Resolving placeholders.** Inherits the same resolution rules
-  as the hand-off comment for the placeholders it shares
+  **Resolving placeholders.** The placeholders it shares with the hand-off comment
   (`CVE_ID`, `SOURCE_TAB_URL`, `TRACKER_URL`, `SECURITY_LIST`,
   `SECURITY_LIST_DOMAIN`, `FRAMEWORK_README_URL`,
-  `FRAMEWORK_SYNC_SKILL_URL`). Plus two unique placeholders:
+  `FRAMEWORK_SYNC_SKILL_URL`) resolve the same way. Plus two unique placeholders:
 
-  - `REMEDIATION_DEVELOPER_HANDLE` — read from the tracker's
-    *Remediation developer* body field. When the field carries a
-    `Full Name (@handle)` line, extract the `@handle` token. When
-    only the name is set, fall back to the fix-PR author's
-    `@`-handle (`author.login` from the Step 1b PR fetch — no
-    extra call) and propose adding the `@handle` to the body
-    field on the same sync pass (so the next sync resolves
-    cleanly).
-  - `MISSING_FIELDS_LIST` — Markdown bullet list, one line per
-    empty mandatory field, of the shape
-    Markdown bullets shaped `- **<Field name>** — currently the
-    empty placeholder; <one-line hint on how to fill it>`. The hint
-    comes from the project's
-    *Issue-template fields* docs; for Vulnogram-based projects
-    the hint is the field's `description` from
+  - `REMEDIATION_DEVELOPER_HANDLE` — read from the tracker's *Remediation developer* body field.
+    When it carries a `Full Name (@handle)` line, extract the `@handle` token.
+    When only the name is set, fall back to the fix-PR author's `@`-handle (`author.login` from the Step 1b PR fetch — no extra call)
+    and propose adding the `@handle` to the body field on the same pass, so the next sync resolves cleanly.
+  - `MISSING_FIELDS_LIST` — Markdown bullets, one per empty mandatory field, shaped
+    `- **<Field name>** — currently the
+    empty placeholder; <one-line hint on how to fill it>`.
+    The hint comes from the project's *Issue-template fields* docs;
+    for Vulnogram-based projects it is the field's `description` from
     `<project-config>/.github/ISSUE_TEMPLATE/issue_report.yml`.
 
-  **Apply mechanic.** See the *Remediation-developer fill-fields
-  comment* bullet in Step 4 below; POST vs PATCH decided by the
-  marker check above.
+  **Apply mechanic.** See the *Remediation-developer fill-fields comment* bullet in Step 4; POST vs PATCH is decided by the marker check above.
 
-  **Recap.** Surface the comment URL (new or PATCH-edited) in the
-  recap (Step 6) so the user can click through and verify the
-  list, plus a one-line note *"hand-off to RM blocked on N
+  **Recap.** Surface the comment URL (new or PATCH-edited) in the recap (Step 6), plus a one-line note *"hand-off to RM blocked on N
   field(s); fill-fields comment posted/refreshed"*.
 
-- **Release-manager hand-off comment** — when this sync pass
-  proposes the `pr merged` → `fix released` label swap (Step 12),
-  **also** propose posting a separate hand-off comment that walks
-  the release manager through the rest of the lifecycle (Steps
-  13–15) end-to-end, on a single tracker page, without forcing them
-  to consult the rollup or external docs.
+- **Release-manager hand-off comment** — when this pass proposes the `pr merged` → `fix released` label swap (Step 12),
+  **also** propose posting a separate hand-off comment that walks the release manager through Steps 13–15 end-to-end on the tracker page,
+  without the rollup or external docs.
 
   **This is its own first-class comment, not a rollup entry**: it is the release manager's one-shot orientation,
   which a `<details>` block would bury.
 
-  **Trigger — gated on `state == REVIEW`.** Fires *exactly once*
-  per tracker, at the sync pass that proposes
-  `pr merged` → `fix released` **AND** finds the CVE record state
-  in Vulnogram is `REVIEW` (verified by sync after Step 5b's push
-  attempt — the push includes the `body.CNA_private.state =
-  "REVIEW"` advance when all six mandatory body fields are
-  populated). When the CVE record is still in `DRAFT` after the
-  push attempt, **do not** fire this hand-off; fire the
-  *Remediation-developer fill-fields comment* instead and leave
-  the tracker assigned to the remediation developer. **The RM
-  must never receive this hand-off while the record is in
-  `DRAFT`** — that invariant is asserted in the template body
-  itself so the RM can recognise a misfire if it ever happens.
-  Do not propose it earlier than Step 12; do not propose it on
-  subsequent runs once it has already been posted (idempotency
-  check below).
+  **Trigger — gated on `state == REVIEW`.** Fires *exactly once* per tracker, at the pass that proposes `pr merged` → `fix released`
+  **AND** finds the CVE record state in Vulnogram is `REVIEW`
+  (verified after Step 5b's push attempt — the push includes the `body.CNA_private.state =
+  "REVIEW"` advance when all six mandatory body fields are populated).
+  When the record is still `DRAFT` after the push attempt, **do not** fire this hand-off;
+  fire the *Remediation-developer fill-fields comment* instead and leave the tracker assigned to the remediation developer.
+  **The RM must never receive this hand-off while the record is in `DRAFT`** — the template body asserts it, so the RM can recognise a misfire.
+  Do not propose it earlier than Step 12, nor again once posted (idempotency check below).
 
   **Idempotency + variant edit-in-place.** Before proposing, scan
   the issue's existing comments for the marker
   ```html
   <!-- apache-magpie: release-manager-handoff v1 -->
   ```
-  exactly. The marker is on line 1 of the comment body so a
-  literal prefix match over the comments the Step 1a fetch already
-  returned detects it without another call. Three outcomes:
+  exactly. It is on line 1 of the body, so a literal prefix match over the comments the Step 1a fetch already returned detects it without another call.
+  Three outcomes:
 
   - **No marker found.** Propose a fresh POST of the appropriate
     variant (per Step 5c's decision).
@@ -872,11 +622,9 @@ will change and *why*. Group them by category:
     already posted on `<comment-url>` and matches the current
     variant (skipping)"* in the observed-state dump.
   - **Marker found, current body does NOT match the variant the
-    skill would render this run.** Propose a PATCH-in-place
-    (rewrite the body to the current variant). Common cases:
-    a previous sync posted the manual-paste variant and this
-    sync's OAuth push succeeded → flip to the OAuth-pushed
-    variant; or vice-versa (Vulnogram token expired between sync runs).
+    skill would render this run.** Propose a PATCH-in-place (rewrite the body to the current variant).
+    Common cases: a previous sync posted the manual-paste variant and this sync's OAuth push succeeded → flip to the OAuth-pushed variant;
+    or vice-versa (Vulnogram token expired between sync runs).
     The PATCH keeps the comment URL, timeline position and delivered notifications.
 
   The `security-pages-checklist v1` checkbox is RM state, not
@@ -885,8 +633,7 @@ will change and *why*. Group them by category:
   mismatch, and when a PATCH does go out, carry a ticked
   `- [x]` over into the re-rendered body; resetting it would re-fire the security-pages reminder for a done step.
 
-  **Body source.** The comment body comes from the project's
-  configured CVE tool, in two **variants** picked by Step 5c:
+  **Body source.** The comment body comes from the project's configured CVE tool, in two **variants** picked by Step 5c:
 
   - **OAuth-pushed variant** —
     `tools/<cve-tool>/release-manager-handoff-comment-oauth-pushed.md`
@@ -901,41 +648,25 @@ will change and *why*. Group them by category:
     Used when Step 5b skipped (no credentials, expired session)
     or the push failed.
 
-  Both variants carry the same marker on line 1, so idempotency
-  detection is unchanged. Both templates are parameterised; the
-  substitutions the skill performs are listed in each template's
-  HTML-comment header (the OAuth-pushed variant additionally
-  takes `PUSH_TIMESTAMP`). Do not fork or paraphrase the
-  template body in the proposal — load it verbatim, substitute
-  the placeholders, post or PATCH per the idempotency rules
-  above.
+  Both variants carry the same marker on line 1.
+  The substitutions are listed in each template's HTML-comment header (the OAuth-pushed variant additionally takes `PUSH_TIMESTAMP`).
+  Do not fork or paraphrase the template body: load it verbatim, substitute the placeholders, post or PATCH per the idempotency rules above.
 
-  **Resolving placeholders.** All values come from configuration or
-  from the tracker itself, so there is no free-form drafting:
+  **Resolving placeholders.** All values come from configuration or the tracker, so there is no free-form drafting:
 
   - `CVE_ID` — from the tracker's *CVE tool link* body field.
-  - `RM_HANDLE` — looked up via the three-source cascade in Step 2c
-    (`release-trains.md` / Release Plan wiki / dev@
-    `[RESULT][VOTE]` thread). Same lookup the assignee swap uses;
-    do it once and reuse.
+  - `RM_HANDLE` — the three-source cascade in Step 2c (`release-trains.md` / Release Plan wiki / dev@ `[RESULT][VOTE]` thread);
+    the same lookup the assignee swap uses — do it once and reuse.
   - `SECURITY_LIST`, `USERS_LIST`, `ANNOUNCE_LIST` — from
     [`<project-config>/project.md`](../../../../<project-config>/project.md#mailing-lists).
   - `SOURCE_TAB_URL`, `EMAIL_TAB_URL` — substitute `<CVE-ID>` into
     `cve_tool_record_url_template` (from project.md), append
     `#source` / `#email` per [`tools/cve-tool-vulnogram/record.md`](../../../../tools/cve-tool-vulnogram/record.md#record-urls).
-  - `JSON_ANCHOR_URL` — the deep link the `generate-cve-json` tool
-    prints on every regen (the
-    `https://github.com/<tracker>/issues/<N>#cve-json--paste-ready-for-<cve-id-slug>`
-    anchor).
-  - `ARCHIVE_SCAN_URL` — the project's PonyMail public-search URL
-    template (`ponymail_public_search_url_template` from project.md),
-    parameterised with the CVE ID.
-  - `FRAMEWORK_RECORD_MD_URL`, `FRAMEWORK_SYNC_SKILL_URL`,
-    `FRAMEWORK_README_URL` — absolute GitHub URLs into
-    `apache/magpie` `main`, since the framework lives in
-    the gitignored snapshot at `<adopter-tracker>/.apache-magpie/`
-    that does not render through the parent-repo viewer (per the
-    absolute-URL rule used elsewhere in this repo).
+  - `JSON_ANCHOR_URL` — the deep link `generate-cve-json` prints on every regen
+    (the `https://github.com/<tracker>/issues/<N>#cve-json--paste-ready-for-<cve-id-slug>` anchor).
+  - `ARCHIVE_SCAN_URL` — `ponymail_public_search_url_template` from project.md, parameterised with the CVE ID.
+  - `FRAMEWORK_RECORD_MD_URL`, `FRAMEWORK_SYNC_SKILL_URL`, `FRAMEWORK_README_URL` — absolute GitHub URLs into `apache/magpie` `main`,
+    since the gitignored snapshot at `<adopter-tracker>/.apache-magpie/` does not render through the parent-repo viewer.
   - `CANNED_RESPONSES_URL` — absolute GitHub URL into the tracker
     repo's `<project-config>/canned-responses.md`.
   - `SECURITY_PAGES_URL` — the `security_pages_url` key from
@@ -945,98 +676,73 @@ will change and *why*. Group them by category:
     `security pages`. This is the one sanctioned deviation from the
     verbatim template, and the proposal flags the missing key.
 
-  **Apply mechanic** — see the *Release-manager hand-off comment*
-  bullet in Step 4 below; depending on the idempotency outcome it
-  is either a fresh `gh issue comment` (first hand-off) or a
-  `gh api -X PATCH` on the existing comment's REST id (variant
-  flip). Neither path PATCHes the rollup.
+  **Apply mechanic** — see the *Release-manager hand-off comment* bullet in Step 4:
+  a fresh `gh issue comment` (first hand-off) or a `gh api -X PATCH` on the existing comment's REST id (variant flip).
+  Neither path PATCHes the rollup.
 
-  **Recap.** Surface the comment URL (new or PATCH-edited) in the recap
-  (Step 6) so the user can click through and verify the result.
-  When the path was a PATCH, the recap notes which variant the
-  body now carries (*"flipped to OAuth-pushed variant after this
-  sync's auto-push succeeded"* or vice-versa).
+  **Recap.** Surface the comment URL (new or PATCH-edited) in the recap (Step 6).
+  After a PATCH, note which variant the body now carries
+  (*"flipped to OAuth-pushed variant after this sync's auto-push succeeded"* or vice-versa).
 
-- **Security-pages reminder comment** — the ASF security-committers
-  policy's post-announcement step *"The project team updates the
-  project's security pages"* is a website edit, not a tracker write, so
-  sync cannot perform it and cannot gate the close-out on it (the
-  close-out fires on the archive-URL signal and must not be delayed by
-  an out-of-band website change). What sync *can* do is carry the
-  checklist item that records it: both hand-off comment variants embed a
+- **Security-pages reminder comment** — the ASF security-committers policy's post-announcement step *"The project team updates the
+  project's security pages"* is a website edit, which sync cannot perform or gate the close-out on
+  (the close-out fires on the archive-URL signal).
+  Sync carries the checklist item that records it: both hand-off comment variants embed a
   `- [ ] <!-- apache-magpie: security-pages-checklist v1 --> Project
-  security pages updated with CVE_ID` box, and ticking the box records
-  the completion marker on the tracker. This proposal covers the case
-  where the marker has not been recorded by the time the advisory has
-  shipped.
+  security pages updated with CVE_ID` box, and ticking it records the completion marker on the tracker.
+  This proposal covers the marker still unrecorded after the advisory has shipped.
 
-  **Trigger.** Step 1g recorded `security_pages_reminder_pending:
-  true` for a closed-`announced` tracker — the *Public advisory URL*
-  body field is populated (the advisory has demonstrably shipped), no
-  ticked `- [x] <!-- apache-magpie: security-pages-checklist v1 -->`
-  item exists anywhere on the tracker, and no comment carries the
-  reminder marker below. The trigger state only exists on a closed
-  tracker (the Step 14 close-out adds `announced` and closes the
-  tracker in one apply), so this proposal is reached through the
+  **Trigger.** Step 1g recorded `security_pages_reminder_pending: true` for a closed-`announced` tracker —
+  the *Public advisory URL* body field is populated (the advisory has demonstrably shipped),
+  no ticked `- [x] <!-- apache-magpie: security-pages-checklist v1 -->` item exists anywhere on the tracker,
+  and no comment carries the reminder marker below.
+  The trigger state exists only on a closed tracker (the Step 14 close-out adds `announced` and closes in one apply),
+  so this proposal is reached through the
   [1g](gather.md#1g-recently-closed-trackers--check-cveorg-publication-state)
-  closed-bucket scan, never through the open-tracker signals. An
-  unticked box in the hand-off comment is the *pending* state that
-  fires the reminder, not the satisfied one.
+  closed-bucket scan, never through the open-tracker signals.
+  An unticked box in the hand-off comment is the *pending* state that fires the reminder, not the satisfied one.
 
   **Proposed action.** A short status comment tagging the release
   manager. Line 1 of the body is the reminder marker
   ```html
   <!-- apache-magpie: security-pages-reminder v1 -->
   ```
-  followed by one sentence naming the outstanding item with a link to
-  the project's security pages (the `security_pages_url` key from
+  followed by one sentence naming the outstanding item with a link to the project's security pages
+  (the `security_pages_url` key from
   [`<project-config>/project.md`](../../../../<project-config>/project.md#repositories);
-  when the key is unset, use the plain phrase *"the project's security
-  pages"* with no link and flag the missing key in the proposal), and
+  when unset, the plain phrase *"the project's security pages"* with no link, and flag the missing key in the proposal), and
   the checklist item
   `- [ ] <!-- apache-magpie: security-pages-checklist v1 --> Project security pages updated with CVE_ID`,
-  so ticking the box on either comment records the step. Follow the
-  [*"Brevity: emails state facts, not context"*](../../../../docs/editorial-guidelines.md#brevity-emails-state-facts-not-context)
-  rule: the RM has already seen the hand-off comment's version of this
-  ask; the reminder states the outstanding item, not the rationale.
+  so ticking the box on either comment records the step.
+  Per [*"Brevity: emails state facts, not context"*](../../../../docs/editorial-guidelines.md#brevity-emails-state-facts-not-context),
+  state the outstanding item, not the rationale (the RM has already seen it in the hand-off comment).
 
-  **Guard.** The reminder marker is what makes this once per tracker:
-  never re-propose while a comment carrying
-  `<!-- apache-magpie: security-pages-reminder v1 -->` exists, ticked
-  or not. The checklist marker cannot serve as the guard, because the
-  hand-off comment always carries it. This is a reminder-and-record
-  mechanism: never propose editing the website, reopening the
-  tracker, or any label on this signal's behalf.
+  **Guard.** The reminder marker makes this once per tracker:
+  never re-propose while a comment carrying `<!-- apache-magpie: security-pages-reminder v1 -->` exists, ticked or not.
+  The checklist marker cannot serve as the guard, because the hand-off comment always carries it.
+  Never propose editing the website, reopening the tracker, or any label on this signal's behalf.
 
-- **Publication-ready notification comment** — when this sync pass
-  proposes populating the *Public advisory URL* body field (Step 14
-  — see the *Advisory archived on `<users-list>`* row of the Step 1d
-  table), **also** propose posting a separate publication-ready
-  notification comment on the tracker. The comment tells the release
-  manager that the archive URL has been captured, the JSON has been
-  regenerated to include it as a `vendor-advisory` reference, and
-  the final paste + `READY` → `PUBLIC` move is now unblocked.
+- **Publication-ready notification comment** — when this pass proposes populating the *Public advisory URL* body field
+  (Step 14 — the *Advisory archived on `<users-list>`* row of the Step 1d table),
+  **also** propose a separate publication-ready notification comment telling the release manager that the archive URL is captured,
+  the JSON is regenerated with it as a `vendor-advisory` reference, and the final paste + `READY` → `PUBLIC` move is unblocked.
 
   **Why a second comment instead of one comment with two states.**
   The Step 12 hand-off ends at `READY` and points to this follow-up for `PUBLIC`;
   a fresh comment gives the RM a dated surface and a working `@`-mention.
 
-  **Trigger.** Fires *exactly once* per tracker, at the same sync
-  pass that proposes the *Public advisory URL* body update. Do not
-  propose it earlier (the URL is not yet captured) or repeatedly
-  (idempotency check below).
+  **Trigger.** Fires *exactly once* per tracker, at the pass that proposes the *Public advisory URL* body update —
+  not earlier (the URL is not captured yet), not repeatedly (idempotency check below).
 
   **Idempotency.** Before proposing, scan the issue's existing
   comments for the marker
   ```html
   <!-- apache-magpie: release-manager-publication-ready v1 -->
   ```
-  exactly. If a comment carrying this marker already exists, do not
-  re-post — surface as *"publication-ready comment already posted on
+  exactly. If a comment carrying it exists, do not re-post — surface as *"publication-ready comment already posted on
   `<comment-url>` (skipping)"* and move on.
 
-  **Body source.** Same load-from-tool-doc model as the hand-off
-  comment — the body comes from
+  **Body source.** Same load-from-tool-doc model as the hand-off comment:
   `tools/<cve-tool>/release-manager-publication-comment.md` (for
   Vulnogram:
   [`tools/cve-tool-vulnogram/release-manager-publication-comment.md`](../../../../tools/cve-tool-vulnogram/release-manager-publication-comment.md)).
@@ -1048,9 +754,8 @@ will change and *why*. Group them by category:
   **Apply mechanic** — same as the hand-off comment: a fresh
   `gh issue comment`, surfaced in the recap.
 
-- **Overdue-for-disclosure escalation** — when `overdue_for_disclosure: true`
-  (Step 1a) the tracker has passed its CVD window without the advisory being
-  sent.  Propose appending a rollup entry that:
+- **Overdue-for-disclosure escalation** — when `overdue_for_disclosure: true` (Step 1a), the tracker has passed its CVD window without the advisory being sent.
+  Propose appending a rollup entry that:
 
   1. Notes the elapsed time and the configured `window_days` ceiling (e.g.
      *"Tracker is {issue_age_days} days old; the project's CVD window is
@@ -1063,23 +768,18 @@ will change and *why*. Group them by category:
   3. Does **not** override or silence any other proposal — the overdue flag
      is additive context, not a shortcut past the normal lifecycle steps.
 
-  When `grace_period_expired: true` (fix shipped but grace period has also
-  lapsed), promote the rollup entry to a **separate first-class comment** (not
-  a `<details>` entry) so it is immediately visible to the release manager and
-  the security team without expanding the rollup.  Use the same idempotency
-  check as the RM hand-off comment — scan for the marker
+  When `grace_period_expired: true` (fix shipped but the grace period has also lapsed),
+  promote the entry to a **separate first-class comment** (not a `<details>` entry), visible to the release manager and the team without expanding the rollup.
+  Use the RM hand-off comment's idempotency check — scan for the marker
   ```html
   <!-- apache-magpie: disclosure-overdue v1 -->
   ```
-  before proposing; if it already exists, update it in-place via PATCH rather
-  than posting a duplicate.
+  before proposing; if it already exists, update it in-place via PATCH rather than posting a duplicate.
 
-- **Distributor pre-announcement draft** — when `distributor_notify_pending: true`
-  (Step 1a) the project maintains an embargo distributor list and the fix is
-  about to ship.  Propose a Gmail draft pre-announcement to the distributor
-  list declared in `<project-config>/distributor-list.md` (if that file exists;
-  if absent, surface a one-line note that the adopter should create it and
-  document the list URL there before this proposal can be executed).  The draft:
+- **Distributor pre-announcement draft** — when `distributor_notify_pending: true` (Step 1a), the project keeps an embargo distributor list and the fix is about to ship.
+  Propose a Gmail draft pre-announcement to the distributor list declared in `<project-config>/distributor-list.md`
+  (if that file is absent, surface a one-line note that the adopter should create it and document the list URL there before this proposal can be executed).
+  The draft:
 
   - Names the CVE ID and the affected product/versions from the tracker body.
   - States the expected public disclosure date as
@@ -1091,111 +791,72 @@ will change and *why*. Group them by category:
   - Is marked **DRAFT, NEVER SEND** until the team confirms the wording, the
     recipient list, and the timing.
 
-  Trigger condition: `distributor_notify_pending: true` AND the `announced`
-  label is absent AND no pre-announcement draft already exists in Gmail for
-  this tracker's thread (check via the existing Gmail draft-scan the skill
-  performs in Step 1e before proposing a new draft).
+  Trigger condition: `distributor_notify_pending: true` AND the `announced` label is absent
+  AND no pre-announcement draft already exists in Gmail for this tracker's thread (check via the Step 1e Gmail draft-scan before proposing a new draft).
 
 - **Reporter unresponsiveness (proceed-without-sign-off proposal)** —
   when Step 1c's staleness check
   ([`gather.md` 1c step 5](gather.md#1c-find-the-real-reporter-and-read-the-mailing-list-thread))
-  marks the reporter thread **stale** (the security team's latest
-  outbound message is older than
-  `security_inbox.reporter_response_timeout_days` — resolved per the
-  [configuration resolution order](../../../../AGENTS.md#configuration-resolution-order),
-  14 in both shipped organizations — with no reporter reply
-  since), propose a **numbered proposal item** — not a silent
-  status-comment entry — with this exact shape:
+  marks the reporter thread **stale** (the team's latest outbound message is older than `security_inbox.reporter_response_timeout_days` —
+  resolved per the [configuration resolution order](../../../../AGENTS.md#configuration-resolution-order), 14 in both shipped organizations —
+  with no reporter reply since), propose a **numbered proposal item** — not a silent status-comment entry — with this exact shape:
 
   > *N.* Reporter has not replied in **`<days>` days** — propose
   > proceeding with fix and announcement without further reporter
   > sign-off, per [ASF security policy](https://www.apache.org/security/committers.html).
 
-  Substitute the actual elapsed day count for `<days>`. This item is
-  purely a proposal: it does not itself flip any label, close anything,
-  or send anything — it asks the user to confirm that the team should
-  keep moving through the remaining steps (discussion, fix, release,
-  advisory) treating the reporter's last-known position as final,
-  rather than waiting on a further reply. If the user confirms, continue
-  normally with whichever other Step 2b items this sync pass already
-  proposes; do **not** hold those items back pending reporter reply once
-  the user has confirmed proceeding without them. Re-surface this item
-  on every subsequent sync pass while the thread remains stale (the
-  reporter may reply at any time, at which point the check in
-  `gather.md` no longer fires and this item stops appearing).
+  Substitute the actual elapsed day count for `<days>`.
+  The item is a proposal only (see [`SKILL.md` § 2b](SKILL.md#2b-proposed-changes)).
+  If the user confirms, continue with the other Step 2b items this pass proposes, treating the reporter's last-known position as final;
+  do **not** hold them back pending a reporter reply.
+  Re-surface the item on every later pass while the thread stays stale; it stops once the reporter replies and the `gather.md` check no longer fires.
 
-- **Draft email to reporter (other reasons)** — whenever the ball is in our
-  court on the email thread for any other reason (a question from the
-  reporter, a follow-up needed for triage, communicating a negative
-  assessment), propose a **Gmail draft** reply (not a sent message). State
-  the intent of the draft in one line and prefer to reuse a canned response
-  from [`canned-responses.md`](../../../../<project-config>/canned-responses.md) verbatim where
-  one applies. Show the exact subject, recipients, In-Reply-To, and body in
-  the proposal.
+- **Draft email to reporter (other reasons)** — whenever the ball is in our court on the thread for another reason
+  (a reporter question, a triage follow-up, a negative assessment), propose a **Gmail draft** reply (not a sent message).
+  State the draft's intent in one line, and reuse a canned response from
+  [`canned-responses.md`](../../../../<project-config>/canned-responses.md) verbatim where one applies.
+  Show the exact subject, recipients, In-Reply-To, and body in the proposal.
 
-  **Brevity** applies here too — if no canned response fits and you are
-  drafting fresh wording, keep it to the facts the reporter needs (the
-  question being answered, the decision being communicated) plus one
-  artifact link. See the "Brevity: emails state facts, not context"
-  section of [`AGENTS.md`](../../../../AGENTS.md).
+  **Brevity** applies: fresh wording carries only the facts the reporter needs (the question answered, the decision communicated) plus one artifact link,
+  per [*Brevity: emails state facts, not context*](../../../../docs/editorial-guidelines.md#brevity-emails-state-facts-not-context).
 
   **Route through the forwarder-relay adapter when one is registered.**
-  If the parent tracker carries a forwarder-adapter marker (set by
-  the optional
+  If the parent tracker carries a forwarder-adapter marker (set by the optional
   [`security-issue-import-via-forwarder`](../issue-import-via-forwarder/SKILL.md)
   sub-skill when `forwarders.enabled` is non-empty in
   [`<project-config>/project.md`](../../../../<project-config>/project.md)
-  and the inbound message matched a registered adapter), route any
-  drafted reply through that adapter's `contact_handle` and use the
-  adapter's `reporter_addressing_block` convention. See
-  [`tools/forwarder-relay/README.md`](../../../../tools/forwarder-relay/README.md)
-  for the contract — including the per-event do-relay / suppress
-  matrix the adapter applies to decide whether a draft should be
-  proposed at all (e.g. CVE-allocated and advisory-sent events
-  relay; routine credit-form questions and reviewer-comment relays
-  are suppressed). When no adapter is registered (the
-  `forwarders.enabled` list is empty, or the tracker has no
-  forwarder-adapter marker), proceed in direct-reporter mode as
-  written above — the draft targets the reporter on the inbound
-  thread.
+  and the inbound message matched a registered adapter),
+  route any drafted reply through that adapter's `contact_handle` and use its `reporter_addressing_block` convention.
+  Contract, including the per-event do-relay / suppress matrix that decides whether a draft is proposed at all
+  (e.g. CVE-allocated and advisory-sent events relay; routine credit-form questions and reviewer-comment relays are suppressed):
+  [`tools/forwarder-relay/README.md`](../../../../tools/forwarder-relay/README.md).
+  When no adapter is registered (`forwarders.enabled` is empty, or the tracker has no forwarder-adapter marker),
+  proceed in direct-reporter mode — the draft targets the reporter on the inbound thread.
   In either of those cases do not load or invoke the sub-skill at all:
   with `forwarders.enabled` empty its Step 0 returns no match, and the marker is the recorded result of the import-time `detect()`, so a tracker without it has no adapter to route through.
   The sub-skill's Step 1 stays the authoritative detection for the trackers that do carry the marker.
 
-  **Never send.** Always create a draft. Prefer attaching it to the
-  inbound mail thread (the preferred `oauth_curl` backend uses
-  `--thread-id` directly and preserves URLs verbatim; the discouraged
-  `claude_ai_mcp` backend resolves the latest message ID from the
-  inbound `threadId` and passes it as `replyToMessageId` but rewrites
-  embedded URLs — see [`draft-backends.md`](../../../../tools/gmail/draft-backends.md#privacy-warning--the-claudeai-gmail-mcp-rewrites-embedded-urls-into-google-tracking-redirects)). If Step 1c could not resolve a `threadId`,
-  fall back to a subject-matched draft (thread-attachment parameter
-  omitted, `subject: Re: <root subject>`) per the threading rule in
-  [`tools/gmail/threading.md`](../../../../tools/gmail/threading.md).
-  Surface which path was taken in the proposal. The Gmail MCP's
-  no-update-no-delete limitation — and the resulting rule that
-  corrections surface the prior `draftId` for manual discard
-  rather than silently shadowing it — is documented in
-  [`tools/gmail/operations.md`](../../../../tools/gmail/operations.md#hard-limitation--no-update-no-delete).
+  **Never send.** Always create a draft, preferably attached to the inbound mail thread
+  (the preferred `oauth_curl` backend uses `--thread-id` directly and preserves URLs verbatim;
+  the discouraged `claude_ai_mcp` backend resolves the latest message ID from the inbound `threadId` and passes it as `replyToMessageId` but rewrites embedded URLs —
+  see [`draft-backends.md`](../../../../tools/gmail/draft-backends.md#privacy-warning--the-claudeai-gmail-mcp-rewrites-embedded-urls-into-google-tracking-redirects)).
+  If Step 1c could not resolve a `threadId`, fall back to a subject-matched draft (thread-attachment parameter omitted, `subject: Re: <root subject>`)
+  per [`tools/gmail/threading.md`](../../../../tools/gmail/threading.md).
+  Surface which path was taken in the proposal.
+  The Gmail MCP's no-update-no-delete limitation — corrections surface the prior `draftId` for manual discard rather than silently shadowing it —
+  is in [`tools/gmail/operations.md`](../../../../tools/gmail/operations.md#hard-limitation--no-update-no-delete).
 
 - **Signal — a fix PR merged, but not onto the branch its milestone
-  ships from.** When proposing `pr created` → `pr merged` on a
-  tracker whose milestone is a **patch** release, check that the fix
-  is actually on that release's branch. A PR merged to the main
-  development branch does not reach a patch release unless it is
-  also backported, and the tracker's *Affected versions* upper bound
-  is a claim about which release contains the fix.
+  ships from.** When proposing `pr created` → `pr merged` on a tracker whose milestone is a **patch** release,
+  check that the fix is actually on that release's branch.
+  A PR merged to the main development branch reaches a patch release only if backported,
+  and the *Affected versions* upper bound claims which release contains the fix.
 
-  **Check it at `pr merged`, not at `fix released`.** By the time
-  the release is cut it is too late: the wave ships without the fix
-  and the advisory names a version that never contained it. This is
-  the same failure the *containment* half of the
-  [`fix released` gate](SKILL.md) exists to prevent, moved one step
-  earlier so it is still cheap to correct.
+  **Check it at `pr merged`, not at `fix released`.** Once the release is cut, the wave ships without the fix and the advisory names a version that never contained it.
+  This is the *containment* half of the [`fix released` gate](SKILL.md), moved one step earlier while it is still cheap to correct.
 
-  **How to check — content probe, not ancestry.** A cherry-pick
-  changes the SHA, so `compare/<sha>...<branch>` reporting
-  `diverged` is not evidence of absence. Pick a distinctive string
-  the fix introduces (a comment line, a new identifier), fetch the file on
+  **How to check — content probe, not ancestry.** A cherry-pick changes the SHA, so `compare/<sha>...<branch>` reporting `diverged` is not evidence of absence.
+  Pick a distinctive string the fix introduces (a comment line, a new identifier), fetch the file on
   each branch as a plain `gh` call, and look for the string in the output:
 
   ```bash
@@ -1203,20 +864,14 @@ will change and *why*. Group them by category:
     -H "Accept: application/vnd.github.raw+json"
   ```
 
-  Probe the development branch, the release branch the milestone
-  ships from, and the corresponding stable branch. Present the
-  result as a table — the asymmetry is the finding.
+  Probe the development branch, the release branch the milestone ships from, and the corresponding stable branch.
+  Present the result as a table — the asymmetry is the finding.
 
-  **Corroborating signal:** projects that automate backports use a
-  per-branch label (`backport-to-<branch>` or similar). Its absence
-  on a merged PR whose tracker is milestoned to that branch's
-  release is a strong hint, but the label is a *convention* and the
-  content probe is the *evidence* — do not conclude either way from
-  the label alone.
+  **Corroborating signal:** projects that automate backports use a per-branch label (`backport-to-<branch>` or similar).
+  Its absence on a merged PR whose tracker is milestoned to that branch's release is a strong hint,
+  but the label is a *convention* and the content probe is the *evidence* — do not conclude either way from the label alone.
 
-  **Two ways to resolve, and they are not equivalent** — surface
-  both and let the operator choose, because they change what ships
-  in the published record:
+  **Two ways to resolve, and they are not equivalent** — surface both and let the operator choose, because they change what ships in the published record:
 
   1. **Backport** — apply the branch label, milestone the PR to the
      patch release, and cherry-pick. The tracker's milestone and its

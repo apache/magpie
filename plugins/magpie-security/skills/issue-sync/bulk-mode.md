@@ -3,88 +3,60 @@
 
 # Bulk mode — syncing many issues in parallel
 
-> Extracted from [`SKILL.md`](SKILL.md) so subagents that only need
-> this slice can load just this file. Loaded automatically when the
-> orchestrator (or a subagent) is in the matching step.
-
-This subdoc carries the bulk-mode orchestration contract — how the orchestrator buckets trackers (CVE-affecting vs non-CVE-affecting), what subagents return, the merged-proposal review shape, hard rules, and when bulk mode is NOT appropriate.
+> Extracted from [`SKILL.md`](SKILL.md) so a bulk run loads only this slice.
 
 ---
 
 ## Bulk mode — syncing many issues in parallel
 
-When the user asks for a bulk sync (*"sync all open issues"*, *"sync #212, #214 and #218"*,
-*"refresh state of everything that is still `cve allocated`"*, or a triage-sweep variant), switch into **bulk mode**:
-each issue is assessed by a **separate subagent** running in parallel, and the orchestrator merges the results into a single
-combined proposal for the user to confirm once.
+In **bulk mode** (triggers in [`SKILL.md`](SKILL.md#bulk-mode--syncing-many-issues-in-parallel)) a **separate subagent** assesses each issue in parallel,
+and the orchestrator merges the results into one proposal the user confirms once.
 Subagents keep the per-issue mail threads, PR diffs and comment bodies out of the main context.
 
 ### Orchestrator responsibilities
 
-1. **Pick the issue list.** Resolve the user's selector into a
-   concrete list of issue numbers before spawning subagents. The
-   selectors the skill accepts, in order of precedence:
+1. **Pick the issue list.** Resolve the user's selector into concrete issue numbers before spawning subagents.
+   Selectors, in order of precedence:
 
    | User input | Resolves to |
    |---|---|
-   | `sync all` | every open issue in `<tracker>` **plus recently-closed trackers still awaiting a post-close cve.org publication check**. Resolve as: `gh issue list --repo <tracker> --state open --limit 100 --json number,title,labels` ∪ `gh issue list --repo <tracker> --state closed --label "announced" --limit 50 --json number,title,labels,closedAt --jq '[.[] \| select(.closedAt > (now - 90*86400 \| todate))]'`, then **drop any issue labelled `rejections-ledger`** (the rejected-without-tracker ledger issue is not a tracker — see note below). The closed bucket is limited to the last 90 days and to trackers carrying the `announced` label — those are the ones waiting for cve.org propagation + the final reporter notification, and for the release manager's security-pages checklist item (see [1g](gather.md#1g-recently-closed-trackers--check-cveorg-publication-state)). Everything else is a no-op on closed issues and is excluded. |
-   | `sync all open` | explicit open-only variant — `gh issue list --repo <tracker> --state open --limit 100 --json number,title,labels`, then **drop any issue labelled `rejections-ledger`**. No closed trackers. Use when you want the classic open-only sweep and nothing else. |
-   | `sync #212`, `sync 212`, `sync #212, #214, #218`, `sync #212-#218` | the issue number(s) verbatim — no resolution needed. Works on open and closed trackers alike (the closed-issue sub-steps run when the tracker is closed with `announced`). |
-   | `sync CVE-2026-40913` or `sync CVE-2026-40913, CVE-2026-40690` | regex-validate each token against `^CVE-\d{4}-\d{4,7}$` first (anything that does not match is a hard error — *never* interpolate an unvalidated free-form string into the search arg, which is in double quotes and would expand `$(...)`); then look up each validated CVE ID with `gh search issues "CVE-YYYY-NNNNN" --repo <tracker> --json number,title,body --jq '.[] | select(.body \| contains("CVE-YYYY-NNNNN")) \| .number'` (match against the body's *CVE tool link* field) and expand. |
-   | `sync <free-text>` (e.g. `sync JWT`, `sync KubernetesExecutor`) | title-substring match — run `gh issue list --repo <tracker> --state open --search "<free-text> in:title" --limit 100 --json number,title` and surface the matches back to the user for confirmation before dispatching (title matches are the fuzziest selector — always confirm, never auto-dispatch). |
+   | `sync all` | every open issue in `<tracker>` **plus recently-closed trackers still awaiting a post-close cve.org publication check**. Resolve as: `gh issue list --repo <tracker> --state open --limit 100 --json number,title,labels` ∪ `gh issue list --repo <tracker> --state closed --label "announced" --limit 50 --json number,title,labels,closedAt --jq '[.[] \| select(.closedAt > (now - 90*86400 \| todate))]'`, then **drop any issue labelled `rejections-ledger`** (see below). The closed bucket is the last 90 days of `announced` trackers — those awaiting cve.org propagation, the final reporter notification and the release manager's security-pages checklist item (see [1g](gather.md#1g-recently-closed-trackers--check-cveorg-publication-state)); other closed issues are no-ops and excluded. |
+   | `sync all open` | explicit open-only variant — `gh issue list --repo <tracker> --state open --limit 100 --json number,title,labels`, then **drop any issue labelled `rejections-ledger`**. No closed trackers. |
+   | `sync #212`, `sync 212`, `sync #212, #214, #218`, `sync #212-#218` | the issue number(s) verbatim. Works on open and closed trackers (the closed-issue sub-steps run when the tracker is closed with `announced`). |
+   | `sync CVE-2026-40913` or `sync CVE-2026-40913, CVE-2026-40690` | regex-validate each token against `^CVE-\d{4}-\d{4,7}$` first (a non-match is a hard error — *never* interpolate an unvalidated free-form string into the double-quoted search arg, which would expand `$(...)`); then look up each validated CVE ID with `gh search issues "CVE-YYYY-NNNNN" --repo <tracker> --json number,title,body --jq '.[] \| select(.body \| contains("CVE-YYYY-NNNNN")) \| .number'` (match against the body's *CVE tool link* field) and expand. |
+   | `sync <free-text>` (e.g. `sync JWT`, `sync KubernetesExecutor`) | title-substring match — run `gh issue list --repo <tracker> --state open --search "<free-text> in:title" --limit 100 --json number,title` and surface the matches for confirmation (the fuzziest selector — always confirm, never auto-dispatch). |
    | `sync <label>` (e.g. `sync announced`, `sync pr merged`) | all open issues carrying that label — `gh issue list --repo <tracker> --state open --label "<label>" --limit 100 --json number,title`. |
    | `sync announced` (as a label selector) | as above, open-only. To include the recently-closed `announced` bucket, use `sync all` (default) or `sync closed announced`. |
-   | `sync closed announced` | the recently-closed `announced` bucket by itself — useful when you want to run the cve.org publication-check sweep without touching open issues (for example, as a post-release cron). |
+   | `sync closed announced` | the recently-closed `announced` bucket alone — the cve.org publication-check sweep without open issues (e.g. a post-release cron). |
    | `sync open` | alias for `sync all open`. |
-   | `sync closed` | open *and* closed issues, **all** closed (not just recent `announced`). Explicit, narrow-scope request — most sync actions are no-ops on closed issues that are not in the `announced` bucket. |
+   | `sync closed` | open *and* **all** closed issues (not just recent `announced`). Explicit request only — most sync actions are no-ops on closed issues outside the `announced` bucket. |
 
-   Selectors can be combined: `sync #212, CVE-2026-40690, JWT`
-   resolves each independently and dispatches the union of the
-   resulting issue numbers. After resolving, **echo the final list
-   back to the user and ask for confirmation** before spawning
-   subagents — this catches fuzzy-match surprises (a title-substring
-   hit that was not intended, a CVE alias that matched two scope
-   trackers) before they cost an API round-trip. When the open /
-   closed buckets both contribute, group them in the echo so the
-   user can tell at a glance *"9 open, 2 recently-closed awaiting
-   cve.org"*.
+   Selectors combine: `sync #212, CVE-2026-40690, JWT` resolves each independently and dispatches the union.
+   After resolving, **echo the final list back to the user and ask for confirmation** before spawning subagents —
+   it catches fuzzy-match surprises (an unintended title hit, a CVE alias matching two scope trackers) before they cost a round-trip.
+   When both buckets contribute, group them in the echo: *"9 open, 2 recently-closed awaiting cve.org"*.
 
-   When the selector resolves to zero issues, tell the user and stop
-   — do not fall back to `sync all`.
+   When the selector resolves to zero issues, tell the user and stop — do not fall back to `sync all`.
 
-   When a selector's list call returns exactly its `--limit` (100, or
-   50 for the closed bucket), the set may be truncated.
-   Say so in the echo (*"the list hit the 100-issue cap — the set may
-   be incomplete"*) and offer to re-run that list with a larger
-   `--limit` before dispatching; never sweep a capped list silently.
+   When a list call returns exactly its `--limit` (100, or 50 for the closed bucket), the set may be truncated.
+   Say so in the echo (*"the list hit the 100-issue cap — the set may be incomplete"*) and offer to re-run with a larger `--limit` before dispatching;
+   never sweep a capped list silently.
 
-   **Exclude the rejections ledger.** The single open issue labelled
-   `rejections-ledger` (the rejected-without-tracker ledger written
-   by `security-issue-import`) is **not** a security tracker — it
-   carries no scope label and holds only rejection-record comments.
-   Drop it from every set-valued selector (`sync all`, `sync all
-   open`, label/title sweeps) so it is never dispatched a sync
-   subagent. An explicitly-named number (`sync #99`) still works if
-   the operator really means it.
+   **Exclude the rejections ledger.** The single open issue labelled `rejections-ledger` (written by `security-issue-import`) is **not** a security tracker:
+   it has no scope label and holds only rejection-record comments.
+   Drop it from every set-valued selector (`sync all`, `sync all open`, label/title sweeps);
+   an explicitly-named number (`sync #99`) still works.
 
 1b. **Pre-flight no-op classifier — skip trackers that obviously need no work.**
-    Before spawning subagents, do one batched read to fetch lightweight
-    state for every resolved tracker, classify each as
-    `dispatch` / `dispatch-urgent` / `skip-noop`, and dispatch
-    subagents only for the non-skipped ones: one GraphQL round-trip instead of a ~50 KB subagent transcript
-    per steady-state tracker (30–50% of a typical sweep).
+    Before spawning subagents, fetch lightweight state for every resolved tracker in one batched read,
+    classify each as `dispatch` / `dispatch-urgent` / `skip-noop`, and dispatch only the non-skipped ones:
+    one GraphQL round-trip instead of a ~50 KB subagent transcript per steady-state tracker (30–50% of a typical sweep).
 
-    **One query, one round-trip.** Build an aliased multi-field
-    GraphQL query that fetches state for every resolved issue at
-    once. The `body` field on `comments(last: 1)` lets the classifier
-    distinguish skill-authored writes from human activity (see
-    *Skill-or-bot detection* below).
+    **One query, one round-trip.** Build one aliased GraphQL query covering every resolved issue.
+    The `body` on `comments(last: 1)` separates skill-authored writes from human activity (see *Skill-or-bot detection* below).
 
-    Use the Write tool to write the query to
-    `<scratch>/sync-preflight.graphql` (`<scratch>` is the session
-    scratch directory as an absolute path), then run it as a plain
-    `gh` command — a `$(…)` around `gh` keeps it sandboxed under the
-    secure setup, where it cannot read its credentials:
+    Write the query with the Write tool to `<scratch>/sync-preflight.graphql` (`<scratch>` is the session scratch directory, absolute),
+    then run it as a plain `gh` command — a `$(…)` around `gh` keeps it sandboxed, where it cannot read its credentials:
 
     ```graphql
     query {
@@ -106,19 +78,14 @@ Subagents keep the per-issue mail threads, PR diffs and comment bodies out of th
     gh api graphql -F query=@<scratch>/sync-preflight.graphql
     ```
 
-    The aliased-field form (`i<N>: issue(number: <N>) { ... }`)
-    works for any number of issues in a single query.
-
-    **Skill-or-bot detection — required for the rules below.** The sync skill writes
-    rollup updates and RM hand-off comments as the operator's GitHub user, *not* a `*[bot]` account,
-    so recognise skill-authored comments by the **marker comment** every status-rollup / hand-off / wrap-up comment begins with:
+    **Skill-or-bot detection — required for the rules below.** The skill writes rollups and RM hand-offs as the operator's GitHub user, *not* a `*[bot]` account,
+    so recognise its comments by the **marker** every status-rollup / hand-off / wrap-up comment begins with:
 
     ```text
     <!-- apache-magpie: <comment-kind> v<N> -->
     ```
 
-    Concretely, treat the last-comment author as *bot-equivalent* if
-    **any** of these is true:
+    Treat the last-comment author as *bot-equivalent* if **any** of these holds:
 
     - `login in {github-actions[bot], dependabot[bot]}` or
       `login` ends with `[bot]` (real GitHub App accounts).
@@ -129,12 +96,10 @@ Subagents keep the per-issue mail threads, PR diffs and comment bodies out of th
       [`.apache-magpie-overrides/security-issue-sync.md`](../../../../docs/setup/agentic-overrides.md)
       (for adopters with personal-account bots).
 
-    The remaining rules use *"skill-or-bot last commenter"* as a
-    shorthand for this composite check.
+    The rules below call this composite check *"skill-or-bot"*.
 
-    **Classification rule table.** Apply the rules **in order**;
-    the first match wins. Conservative by design — `skip-noop`
-    fires only when multiple signals all align.
+    **Classification rule table.** Apply the rules **in order**; the first match wins.
+    Conservative by design — `skip-noop` fires only when several signals align.
 
     | Signals | Decision | Reason recorded in recap |
     |---|---|---|
@@ -152,151 +117,70 @@ Subagents keep the per-issue mail threads, PR diffs and comment bodies out of th
 
     **Hard rules**:
 
-    - **Never silent.** Every `skip-noop` decision appears in the
-      recap under a *"Pre-flight skipped"* group with the rule
-      that fired and the signals it saw. The user can request a
-      forced sync of any skipped tracker by name at confirmation
-      time (*"force-sync #232"*) — the orchestrator then spawns a
-      subagent for that tracker on the next turn.
-    - **Selector overrides default behaviour.** If the user named
-      explicit issue numbers (`sync #232, #233`) rather than a
-      label/state selector, **never skip** — they asked for those
-      specific trackers and a silent skip would be surprising.
-      Pre-flight only applies when the selector resolved to a set
-      (`sync all`, `sync announced`, label/title selectors).
-    - **Opt-out.** Pass `--no-preflight` in the user's selector
-      (e.g. `sync all --no-preflight`) to bypass the classifier
-      entirely and dispatch a subagent for every resolved tracker.
-      Useful for trust-but-verify sweeps after a rule change.
-    - **Dispatch-urgent is just dispatch.** The `dispatch-urgent`
-      decision tells the orchestrator to flag the tracker in the
-      recap as *"recent reporter activity"*, but the subagent it
-      spawns is identical to the normal dispatch path. The
-      distinction is for the operator's attention, not the
-      subagent's behaviour.
+    - **Never silent; never skips a named tracker.** See [Hard rules for bulk mode](#hard-rules-for-bulk-mode):
+      every skip is listed under *"Pre-flight skipped"* and can be `force-sync`ed,
+      and explicit issue numbers (`sync #232, #233`) are never skipped — pre-flight skips only for set selectors (`sync all`, `sync announced`, label/title).
+    - **Opt-out.** `--no-preflight` in the selector (e.g. `sync all --no-preflight`) bypasses the classifier and dispatches every resolved tracker —
+      for trust-but-verify sweeps after a rule change.
+    - **Dispatch-urgent is just dispatch.** It flags the tracker in the recap as *"recent reporter activity"*;
+      the subagent it spawns is identical — the distinction is for the operator's attention.
 
-    **What pre-flight does NOT do.** It does **not** decide
-    *what action* a tracker needs — that is still the subagent's
-    job. It only decides whether spawning a subagent is worth it
-    at all. A tracker classified as `dispatch` still goes through
-    the full Step 1 (gather) → Step 2 (proposal) flow inside its
-    subagent.
+    **What pre-flight does NOT do.** It does **not** decide *what action* a tracker needs — only whether a subagent is worth spawning.
+    A `dispatch` tracker still runs the full Step 1 (gather) → Step 2 (proposal) flow in its subagent.
 
-2. **Spawn one subagent per issue, in a single message.** Use the
-   `general-purpose` subagent type and send all `Agent` tool calls in
-   the **same assistant message** so they run concurrently. For 20
-   issues that survived pre-flight, that is 20 parallel `Agent`
-   calls in one turn. Trackers classified as `skip-noop` by Step 1b
-   are **not** dispatched — they only appear in the recap under the
-   *"Pre-flight skipped"* group.
+2. **Spawn one subagent per issue, in a single message.** Use the `general-purpose` subagent type
+   and send every `Agent` call in the **same assistant message** so they run concurrently (20 surviving issues = 20 parallel calls in one turn).
+   `skip-noop` trackers are **not** dispatched; they appear only under *"Pre-flight skipped"*.
 
-   Each subagent prompt must be self-contained and must instruct the
-   subagent to:
+   Each subagent prompt is self-contained and instructs the subagent to:
 
-   - Do **only Step 1** (gather state) from this skill — no
-     confirmations, no edits, no draft emails, no label changes, no
-     milestone creation, no comments. The subagent is a read-only
-     assessor.
-   - Read the issue, its closing-PR references, the fixing PR state
-     and milestone, the originating Gmail thread, and mine comments
-     and mail for the signals in the table in Step 1d.
-   - **Determine advisory-shipped state from the authoritative
-     source, never the tracker body.** For any tracker carrying
-     `cve allocated`, search the public `<users-list>` archive for
-     the CVE ID (PonyMail `search_list` on the users list, per
-     [`tools/ponymail/`](../../../../tools/ponymail/); Gmail fallback)
-     and cross-check the cve.org publication state (per
-     [`tools/cve-org/`](../../../../tools/cve-org/)). A `<users-list>`
-     archive hit authored by the release manager **is** the
-     advisory-shipped signal, and its `<mail-archive-url>/thread/<id>`
-     permalink is the *Public advisory URL*. The tracker body's
-     *Public advisory URL* field and `announced` label are a
-     **lagging mirror**: once populated they confirm shipment, but an
-     empty value is **never** proof the advisory did not ship — those
-     fields are only written on the *next* sync, after the release
-     manager sends the advisory out-of-band. A tracker still at
-     `fix released` with an empty *Public advisory URL* whose CVE is
-     already live on cve.org is a **Step 14→15 close-out**, not a
-     parked tracker; report it as such (see the `advisory_shipped` /
-     `advisory_url` fields below) so the orchestrator buckets it into
-     the close-out batch rather than leaving it stranded open on its
-     milestone.
-   - Return a **compact structured report** — not a freeform
-     narrative. The exact shape is below.
+   - Do **only Step 1** (gather state) — no confirmations, edits, draft emails, label changes, milestone creation or comments.
+     The subagent is a read-only assessor.
+   - Read the issue, its closing-PR references, the fixing PR's state and milestone, and the originating Gmail thread,
+     and mine comments and mail for the signals in the Step 1d table.
+   - **Determine advisory-shipped state from the authoritative source, never the tracker body.**
+     For any `cve allocated` tracker, search the public `<users-list>` archive for the CVE ID
+     (PonyMail `search_list`, per [`tools/ponymail/`](../../../../tools/ponymail/); Gmail fallback)
+     and cross-check cve.org publication state (per [`tools/cve-org/`](../../../../tools/cve-org/)).
+     A `<users-list>` hit authored by the release manager **is** the advisory-shipped signal, and its `<mail-archive-url>/thread/<id>` permalink is the *Public advisory URL*.
+     The body's *Public advisory URL* field and `announced` label are a **lagging mirror**, written only on the *next* sync after the out-of-band send:
+     populated, they confirm shipment; empty is **never** proof the advisory did not ship.
+     A `fix released` tracker with an empty *Public advisory URL* whose CVE is live on cve.org is a **Step 14→15 close-out**, not a parked tracker;
+     report it via `advisory_shipped` / `advisory_url` (below) so it is not left stranded on its milestone.
+   - Return a **compact structured report** in the shape below — not a freeform narrative.
 
-3. **Bucket trackers by CVE-record impact.** A tracker's proposed
-   changes fall into one of two buckets:
+3. **Bucket trackers by CVE-record impact.** Each proposed change falls into one of two buckets:
 
-   - **CVE-affecting** — any proposal that changes a body field
-     whose value lands in the regenerated CVE JSON pushed to
-     Vulnogram. Concretely: *Title* (issue title; ships into
-     `containers.cna.title`), *Short public summary for publish*,
-     *CWE*, *Severity*, *Affected versions*, *Reporter credited
-     as*, *Remediation developer*, *PR with the fix*, *Public
-     advisory URL*. Also: any change to the issue title itself
-     (the generator reads it verbatim into `title`). The
-     [pre-push hygiene gates in Step 5b 1b](apply-and-push.md#decision-flow) all
-     scan fields in this bucket; the bucket exists for the same
-     reason the gates do — these are the values that ship to
-     `cve.org` and stay there.
-   - **Non-CVE-affecting** — label flips, milestone touches,
-     assignee swaps, project-board column moves, status-rollup
-     entries, reporter Gmail drafts, RM hand-off comments
-     (template-bodied, no per-tracker CVE content). These
-     change tracker state but do not alter the published CVE
-     record.
+   - **CVE-affecting** — a change to a body field whose value lands in the regenerated CVE JSON pushed to Vulnogram:
+     *Title* (the issue title, read verbatim into `containers.cna.title`), *Short public summary for publish*, *CWE*, *Severity*, *Affected versions*,
+     *Reporter credited as*, *Remediation developer*, *PR with the fix*, *Public advisory URL*.
+     These are the values that ship to `cve.org` and stay there — the same fields the [pre-push hygiene gates in Step 5b 1b](apply-and-push.md#decision-flow) scan.
+   - **Non-CVE-affecting** — label flips, milestone touches, assignee swaps, project-board moves, status-rollup entries,
+     reporter Gmail drafts, RM hand-off comments (template-bodied, no per-tracker CVE content).
+     They change tracker state, not the published record.
 
    **The mechanical `allocated → review-ready` state push at
    `fix released` is NOT gated by the CVE-affecting bucket's
    per-item review**, which exists for *body-field content judgment* (summary wording, CWE choice, credit-line shape).
-   The `allocated → review-ready` (Vulnogram:
-   `DRAFT → REVIEW`) state push that a `pr merged → fix released`
-   transition mandates (see the atomicity rule in
-   [`apply-and-push.md` Step 5b](apply-and-push.md#step-5b--push-the-regenerated-json-to-the-cve-tool-via-the-adapter))
-   is mechanical, not a judgment call: it rides the **same
-   confirmation as the `fix released` label flip** in the
-   non-CVE-affecting bucket and executes in the same apply pass. Do
-   not hold a fix-released tracker's record at `allocated`/`DRAFT`
-   waiting for a separate CVE-affecting-bucket sign-off — that is the
-   deferral the atomicity rule forbids. (A body-field *content*
-   change that happens to land on the same tracker still goes through
-   the CVE-affecting review; only the state push is exempt.)
+   The `allocated → review-ready` (Vulnogram: `DRAFT → REVIEW`) push that a `pr merged → fix released` transition mandates
+   (the atomicity rule in [`apply-and-push.md` Step 5b](apply-and-push.md#step-5b--push-the-regenerated-json-to-the-cve-tool-via-the-adapter))
+   rides the **same confirmation as the `fix released` label flip** in the non-CVE-affecting bucket and executes in the same apply pass.
+   Do not hold a fix-released record at `allocated`/`DRAFT` for a separate CVE-affecting sign-off — that is the deferral the atomicity rule forbids.
+   A body-field *content* change on the same tracker still goes through the CVE-affecting review; only the state push is exempt.
 
 4. **Present buckets as merged bulk proposals; the
    CVE-affecting bucket gets a richer per-item view.** The
    proposal has three groups:
 
-   - **Pre-flight skipped** *(if any)* — list every tracker the
-     Step 1b classifier marked `skip-noop`, one per line, with
-     the rule that fired and the signals it saw. Example:
-     `#232 (closed 2025-12-04, announced label) — post-announce; CVE published`.
-     This group is **informational** — the proposal does **not**
-     ask the user to confirm or apply anything for these trackers.
-     The user can request a forced sync of any skipped tracker
-     by name at confirmation (*"force-sync #232"*) and the
-     orchestrator dispatches a subagent for it on the next turn.
-     Render the group at the **top** of the proposal so the user
-     sees the skip context before the proposed actions.
-   - **Non-CVE-affecting bucket** — fold into one combined
-     proposal, same shape as the legacy bulk mode. The user
-     confirms once with `all`, `NN:all`, `NN:1,3`, or per-issue
-     subsets, and the orchestrator applies them sequentially.
-     This bucket is bundled because the actions are reversible,
-     low-blast-radius, and do not leak into public CVE surfaces.
-   - **CVE-affecting bucket** — present **all proposed
-     CVE-record-affecting changes from all trackers as ONE
-     merged bulk proposal**, with per-tracker sections so the
-     user can review every body-field rewrite, every regen+push
-     target, every deferral condition at a glance. For each
-     tracker section the proposal shows: CVE ID, gate-failure
-     summary, every body-field update with old / new value
-     side by side, the planned regen+push action, any deferral
-     conditions. The user reviews the **whole bulk pack at
-     once** and signals which items to apply / skip / modify
-     using the same syntax as the non-CVE-affecting bucket
-     (`all`, `NN:all`, `NN:1,3`, `NN:skip`, `NN:edit <item>:
-     <new value>`). On confirmation the orchestrator applies
-     the confirmed items across all trackers sequentially.
+   - **Pre-flight skipped** *(if any)* — at the **top**, one line per `skip-noop` tracker with the rule that fired and the signals it saw,
+     e.g. `#232 (closed 2025-12-04, announced label) — post-announce; CVE published`.
+     **Informational** — nothing to confirm or apply; the user can `force-sync` any of them.
+   - **Non-CVE-affecting bucket** — one combined proposal, confirmed once (`all`, `NN:all`, `NN:1,3`, per-issue subsets) and applied sequentially.
+     Bundled because the actions are reversible, low-blast-radius, and stay off public CVE surfaces.
+   - **CVE-affecting bucket** — **all CVE-record-affecting changes from all trackers as ONE merged bulk proposal**, one section per tracker showing:
+     CVE ID, gate-failure summary, every body-field update with old / new value side by side, the planned regen+push action, any deferral conditions.
+     The user reviews the **whole pack at once** with the same syntax (`all`, `NN:all`, `NN:1,3`, `NN:skip`, `NN:edit <item>: <new value>`),
+     and the orchestrator applies the confirmed items across trackers sequentially.
 
    **Why bulk-review (and not per-tracker walk).** One merged proposal lets the operator compare summaries across trackers,
    spot two that should share a CWE, or three blocked on the same field, in one round-trip instead of N.
@@ -306,38 +190,24 @@ Subagents keep the per-issue mail threads, PR diffs and comment bodies out of th
    **Confirmation syntax** for the merged proposal:
 
    - `all` — apply every proposed change across all trackers.
-   - `<N>:all` — apply every change on tracker `<N>`; skip the
-     others.
-   - `<N>:1,3,5` — apply only the listed items on tracker
-     `<N>`.
+   - `<N>:all` — apply every change on tracker `<N>`; skip the others.
+   - `<N>:1,3,5` — apply only the listed items on tracker `<N>`.
    - `<N>:skip` — skip tracker `<N>` entirely.
-   - `<N>:edit <item-number>: <new value>` — replace the
-     proposed item with a free-form override before applying.
-   - `force-sync <N>` — dispatch a subagent for a tracker that
-     Step 1b classified as `skip-noop`. The orchestrator runs
-     the full Step 1 gather for `<N>` on the next turn and
-     folds its result into the next proposal. Use when the
-     pre-flight heuristic was wrong and you know there's work
-     to do.
+   - `<N>:edit <item-number>: <new value>` — replace the proposed item with a free-form override before applying.
+   - `force-sync <N>` — dispatch a subagent for a `skip-noop` tracker:
+     the full Step 1 gather runs on the next turn and its result folds into the next proposal.
    - `cancel` / `none` — apply nothing.
 
-   **Proposal order in the merged pack.** Trackers appear in
-   **ascending tracker-number order** so the operator can
-   navigate predictably across reruns. The operator can name a
-   different order at confirmation (*"apply #438 first; I want
-   to think about #232 last"*) and the orchestrator honours
-   it.
+   **Proposal order in the merged pack.** Trackers appear in **ascending tracker-number order**, stable across reruns.
+   The operator can name a different order at confirmation (*"apply #438 first; I want to think about #232 last"*) and the orchestrator honours it.
 
-5. **Apply sequentially, not in parallel.** Even though
-   assessment ran in parallel, the apply phase must be
-   sequential so `gh`-rate-limit surprises, partial failures,
-   and user interrupts stay legible. Do not spawn subagents for
-   the apply phase.
+5. **Apply sequentially, not in parallel.** Assessment ran in parallel, but the apply phase is sequential
+   so `gh` rate limits, partial failures and user interrupts stay legible.
+   Do not spawn subagents for the apply phase.
 
 ### Subagent report shape
 
-Each subagent must return a single code block (or JSON) with exactly
-these fields so the orchestrator can merge deterministically:
+Each subagent returns a single code block (or JSON) with exactly these fields, so the orchestrator merges deterministically:
 
 ```yaml
 issue: <N>
@@ -376,54 +246,29 @@ blockers: [<short reason the orchestrator or user must resolve before apply>, ..
 notes: <free-form one-to-three sentences, only if something does not fit above>
 ```
 
-The orchestrator uses the structured fields to produce the merged
-proposal table and relies on `blockers` to flag issues that cannot
-be resolved without user input (for example a missing Gmail thread
-or an ambiguous credit line). When `advisory_shipped` (or
-`cve_published`) is true while the tracker is still labelled
-`fix released`, the orchestrator buckets the tracker into the Step
-14→15 close-out **regardless** of whether the body's *Public advisory
-URL* field is still empty — the archive/cve.org signal is
-authoritative and the empty body field is just sync lag.
+The orchestrator builds the merged proposal table from these fields and uses `blockers` to flag what needs user input (e.g. a missing Gmail thread or an ambiguous credit line).
+When `advisory_shipped` (or `cve_published`) is true on a tracker still labelled `fix released`,
+bucket it into the Step 14→15 close-out **regardless** of an empty *Public advisory URL* body field — the archive/cve.org signal is authoritative; the empty field is sync lag.
 
 ### Hard rules for bulk mode
 
-- **No mutations in subagents.** Subagents must not call
-  `gh issue edit`, `gh issue comment`, `gh api … -X PATCH/POST`,
-  `gh label create`, `gh api …/milestones` (create), or any Gmail
-  send / draft-create tool. They are read-only. If a subagent
-  reports it did mutate something, the orchestrator must surface
-  that as a bug and stop.
-- **No new CVE allocations in subagents.** Printing the CVE
-  allocation URL is fine; actually allocating is a human step
-  anyway.
-- **Gmail drafts are created by the orchestrator**, only after user
-  confirmation, and only from the orchestrator's main context.
-- **Confidentiality still applies.** Subagents are bound by the
-  same rule: no `<tracker>` content may leak into any public surface.
-- **Link-form self-check still applies** to the orchestrator's
-  merged output — every `#NNN` must be rendered as a clickable link
-  per Golden rule 2.
-- **Pre-flight skips are never silent.** Every Step 1b `skip-noop`
-  decision appears explicitly in the proposal's *"Pre-flight
-  skipped"* group with the rule that fired. The user can
-  `force-sync <N>` any of them at confirmation. The opt-out
-  `--no-preflight` flag bypasses Step 1b entirely.
-- **Pre-flight never skips an explicitly-named tracker.** If the
-  user named issue numbers in the selector (`sync #232, #233`),
-  Step 1b only runs the classifier for context (so the recap can
-  surface *"#232 looks idle — sync anyway?"*) but never actually
-  skips. Skip-eligible selectors are state/label/title selectors
-  like `sync all` or `sync announced`.
+- **No mutations in subagents.** Subagents must not call `gh issue edit`, `gh issue comment`, `gh api … -X PATCH/POST`, `gh label create`,
+  `gh api …/milestones` (create), or any Gmail send / draft-create tool.
+  If a subagent reports a mutation, surface it as a bug and stop.
+- **No new CVE allocations in subagents.** Printing the CVE allocation URL is fine; allocating is a human step.
+- **Gmail drafts are created by the orchestrator**, only after user confirmation, from its main context.
+- **Confidentiality still applies** to subagents: no `<tracker>` content leaks into any public surface.
+- **Link-form self-check still applies** to the merged output — every `#NNN` is a clickable link per Golden rule 2.
+- **Pre-flight skips are never silent.** Every Step 1b `skip-noop` appears in the *"Pre-flight skipped"* group with the rule that fired;
+  the user can `force-sync <N>` any of them, and `--no-preflight` bypasses Step 1b entirely.
+- **Pre-flight never skips an explicitly-named tracker.** For named numbers (`sync #232, #233`) Step 1b runs the classifier only for context
+  (so the recap can say *"#232 looks idle — sync anyway?"*) and never skips.
+  Skip-eligible selectors are state/label/title selectors like `sync all` or `sync announced`.
 
 ### When bulk mode is **not** appropriate
 
 - The user asked for a single issue (`sync #216`). Run the normal flow in the main agent.
-- The user wants to *drive* the sync interactively ("walk me
-  through #216, I want to review each signal as we go"). Bulk mode
-  collapses the per-issue detail; use single-issue mode instead.
-- The proposed action requires deep multi-turn conversation with
-  the user (for example "help me decide whether this is even valid").
-  Single-issue mode is the right tool there.
+- The user wants to *drive* the sync interactively ("walk me through #216, I want to review each signal as we go") — bulk mode collapses the per-issue detail; use single-issue mode.
+- The action needs a deep multi-turn conversation (e.g. "help me decide whether this is even valid") — use single-issue mode.
 
 ---
