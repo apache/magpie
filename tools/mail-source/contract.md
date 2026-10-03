@@ -27,8 +27,8 @@
 `security-issue-sync`, `security-cve-allocate`, `security-issue-triage`)
 scan an inbound `<security-list>` for security reports, read threads,
 and draft replies. The skills treat every supported source — Gmail,
-PonyMail, IMAP, a static mbox snapshot, the next one we plug in —
-the **same way**: through the abstract operations defined here. The
+PonyMail, IMAP, a static mbox snapshot, a Mailman 3 archive, the next
+one we plug in — the **same way**: through the abstract operations defined here. The
 adopting project's `<project-config>/project.md → Mail sources`
 section declares *which* backends are configured, what *role* each
 plays, and which (if any) are *mandatory*.
@@ -38,8 +38,9 @@ expected to do* and *how the skills choose between configured
 backends*. Backend-specific docs —
 [`tools/gmail/tool.md`](../gmail/tool.md),
 [`tools/ponymail/tool.md`](../ponymail/tool.md),
-[`tools/mail-source/imap/README.md`](imap/README.md), and
-[`tools/mail-source/mbox/README.md`](mbox/README.md) —
+[`tools/mail-source/imap/README.md`](imap/README.md),
+[`tools/mail-source/mbox/README.md`](mbox/README.md), and
+[`tools/mail-source/mailman3/README.md`](mailman3/README.md) —
 implement this contract.
 
 ## Abstract operations
@@ -124,6 +125,7 @@ configuration determines this address.
 | [`ponymail`](../ponymail/tool.md) | ✓ | ✓ | ✗ | ✗ | ✗ | ✓ | Read-only public/private archive viewer; auth via ASF LDAP |
 | [`imap`](imap/README.md) | ✓ | ✓ | depends | ✓ | depends | ✓ | Concrete CLI in `imap/`; `create_draft` / `list_drafts` depend on whether the IMAP server exposes the Drafts folder writably to the agent (the adapter declines those ops when it does not) |
 | [`mbox`](mbox/README.md) | ✓ (offline) | ✓ | ✗ | ✗ | ✗ | ✗ (or `file://`) | Static archive snapshot; forensics / late triage only |
+| [`mailman3`](mailman3/README.md) | ✓ | ✓ | ✗ | ✗ | ✗ | ✓ | Read-only Hyperkitty archive over its JSON API; public archives only, a private archive needs subscriber access this adapter does not wire |
 
 Backends added by adopters extend the matrix in their own adapter
 README. The skill never assumes a backend has an op without

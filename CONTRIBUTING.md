@@ -1030,7 +1030,7 @@ Good entry points, in rough order of ramp-up cost:
    The label link above is always current, and the backlog is
    substantial. Two broad clusters recur:
    - **Tool / adapter bridges** — JIRA write path, Bugzilla, IMAP / mbox
-     concrete wiring, GitLab, Mailman 3 / Hyperkitty, Discourse, Zulip,
+     concrete wiring, GitLab, Discourse, Zulip,
      Matrix, Forgejo, OSV.dev, Pagure.
    - **Agent-CLI harness adapters** — Codex, Gemini, local-LLM, Cursor,
      Aider, gh-copilot, Goose, Amazon Q, Junie, OpenHands.

@@ -142,8 +142,9 @@ backend, not a requirement:**
 - **Read** backends: the
   [Claude Gmail MCP](https://docs.anthropic.com/en/docs/build-with-claude/mcp)
   (a security-team member's Gmail subscribed to the list), the ASF
-  **PonyMail** MCP (below), or a **local mbox / Maildir archive** for
-  offline / forensic triage
+  **PonyMail** MCP (below), a public **Mailman 3 / Hyperkitty** archive
+  ([`tools/mail-source/mailman3`](../../tools/mail-source/mailman3/README.md)),
+  or a **local mbox / Maildir archive** for offline / forensic triage
   ([`tools/mail-source/mbox`](../../tools/mail-source/mbox/README.md)).
 - **Draft** backends: Gmail, or the offline local **Maildir** backend
   (below).
