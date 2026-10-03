@@ -25,9 +25,9 @@ when_to_use: |
   anchor the import on (`security-issue-import-from-pr`).
 argument-hint: "[path-to-markdown-file]"
 capability: capability:intake
-surface_hash: sha256:a0bf5966806f210a
+surface_hash: sha256:436e75c5ccc0c6cf
 license: Apache-2.0
-measured_tokens: 6799
+measured_tokens: 6521
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -263,10 +263,7 @@ For each finding, prepare the tracker fields:
 
 ### 3a — Title
 
-The tracker title is the finding's `# Title` with the standard
-`[ Security Report ]` prefix prepended (per the issue-template
-convention; see
-[`tools/github/issue-template.md`](../../../../tools/github/issue-template.md)):
+The tracker title is the finding's `# Title` with the standard `[ Security Report ]` prefix prepended (per the issue-template convention; see [`tools/github/issue-template.md`](../../../../tools/github/issue-template.md)):
 
 ```text
 [ Security Report ] <finding title>
@@ -276,12 +273,7 @@ The title is otherwise untouched — title normalisation runs later, in `securit
 
 ### 3b — Issue body
 
-Map markdown sections to the standard `<tracker>` issue-template
-body fields (per
-[`tools/github/issue-template.md`](../../../../tools/github/issue-template.md);
-the role → concrete-name mapping comes from
-[`<project-config>/project.md`](../../../../<project-config>/project.md#issue-template-fields),
-with the heading literals declared under `tracker.body_fields`):
+Map markdown sections to the standard `<tracker>` issue-template body fields (per [`tools/github/issue-template.md`](../../../../tools/github/issue-template.md); the role → concrete-name mapping comes from [`<project-config>/project.md`](../../../../<project-config>/project.md#issue-template-fields), with the heading literals declared under `tracker.body_fields`):
 
 | Markdown source | Tracker body field | Shape |
 |---|---|---|
@@ -302,10 +294,7 @@ it is useful triage context but belongs in no template field, and there it stays
 
 ### 3c — Labels
 
-Apply at creation (the concrete label names come from
-`tracker.labels` in `<project-config>/project.md` —
-`needs_triage` and `security_marker`; literals below are the
-framework defaults):
+Apply at creation (the concrete label names come from `tracker.labels` in `<project-config>/project.md` — `needs_triage` and `security_marker`; literals below are the framework defaults):
 
 - **`needs triage`** — every finding from this skill enters the
   standard validity-assessment flow.
@@ -315,9 +304,7 @@ framework defaults):
 
 Do **not** apply a scope label; it is assigned at Step 5 of the handling process, after the validity assessment.
 The vocabulary lives in
-[`scope-labels.md`](../../../../<project-config>/scope-labels.md)
-and is enumerated under `scope_detection.labels` in
-[`<project-config>/project.md`](../../../../<project-config>/project.md#scope-detection).
+[`scope-labels.md`](../../../../<project-config>/scope-labels.md) and is enumerated under `scope_detection.labels` in [`<project-config>/project.md`](../../../../<project-config>/project.md#scope-detection).
 
 ### 3d — Project board
 
@@ -328,11 +315,9 @@ the skill still sets `Status` to `Needs triage` with `updateProjectV2ItemFieldVa
 
 ### 3e — Status-rollup comment
 
-The first entry on the tracker's status rollup
-([`tools/github/status-rollup.md`](../../../../tools/github/status-rollup.md)),
-with the action label `Import from markdown (<basename>, finding <K>/<N>)`.
-Draft only the entry body; Step 5d's tool writes the `<details>` envelope
-and creates the rollup with its marker line:
+The first entry on the tracker's status rollup ([`tools/github/status-rollup.md`](../../../../tools/github/status-rollup.md)), with the action label `Import from markdown (<basename>, finding <K>/<N>)`.
+Draft only the entry body;
+Step 5d's tool writes the `<details>` envelope and creates the rollup with its marker line:
 
 ```markdown
 **Imported from markdown file `<basename>` on <YYYY-MM-DD>** (severity: `<severity>`, category: `<category>`).
@@ -397,76 +382,10 @@ The batch is a serial loop, **not** parallel, so the `gh` calls and board mutati
 
 ### 5a — Create the tracker via `gh api`
 
-Bypasses the form so the `Security mailing list thread`
-required-field check does not fire. Same pattern as
-[`security-issue-import-from-pr`'s](../issue-import-from-pr/SKILL.md#7a--create-the-tracker-via-gh-api) Step 7a.
+Bypasses the form so the `Security mailing list thread` required-field check does not fire.
+Same pattern as [`security-issue-import-from-pr`'s](../issue-import-from-pr/SKILL.md#7a--create-the-tracker-via-gh-api) Step 7a.
 
-Write the body to a temp file (per finding):
-
-```bash
-cat > <scratch>/import-md-<basename>-<index>-body.md <<'EOF'
-### The issue description
-
-> **Imported from markdown file `<basename>` (finding <K>/<N>)** — there is no inbound `<security-list>` report; the markdown sections below are the verbatim source.
-
-**Details:**
-
-<## Details payload, verbatim>
-
-**Impact:**
-
-<## Impact payload, verbatim>
-
-**Reproduction steps:**
-
-<## Reproduction steps payload, verbatim>
-
-### Short public summary for publish
-
-_No response_
-
-### Affected versions
-
-`<owner>/<repo>` @ `<branch>` — versions to be confirmed during triage.
-
-### Security mailing list thread
-
-N/A — imported from markdown file `<basename>`; no <security-list> thread.
-
-### Public advisory URL
-
-_No response_
-
-### Reporter credited as
-
-_No response_
-
-### PR with the fix
-
-<location_url if it points at a <upstream> PR, else _No response_>
-
-### Remediation developer
-
-_No response_
-
-### CWE
-
-<category from metadata; free-text — actual CWE assigned at triage>
-
-### Severity
-
-<severity from metadata>
-
-### CVE tool link
-
-_No response_
-
-<details><summary>Recommended fix (per the source markdown)</summary>
-
-<## Recommended fix payload, verbatim>
-</details>
-EOF
-```
+Write the body to a temp file (per finding) from the template in [`tracker-body-template.md`](tracker-body-template.md).
 
 Create it per the safe-create recipe in
 [`tools/github/operations.md`](../../../../tools/github/operations.md#create) — the finding title is attacker-controlled.
@@ -482,8 +401,7 @@ gh api repos/<tracker>/issues \
   --jq '.number, .node_id, .html_url'
 ```
 
-No scope label, no `pr created` / `pr merged` — those come later
-in the lifecycle.
+No scope label, no `pr created` / `pr merged` — those come later in the lifecycle.
 
 Capture `number`, `node_id`, `html_url` from the response.
 

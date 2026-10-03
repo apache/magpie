@@ -18,9 +18,9 @@ when_to_use: |
   `security-issue-import`.
 argument-hint: "[pr-number] [repo:owner/name]"
 capability: capability:intake
-surface_hash: sha256:249e4ff2ba6b1d91
+surface_hash: sha256:4a4f2d125526784d
 license: Apache-2.0
-measured_tokens: 8059
+measured_tokens: 7895
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -536,58 +536,8 @@ Sequenced. Each step depends on the previous one's output.
 Creating through `gh api` bypasses the form's required-field check on `Security mailing list thread`,
 as [`security-issue-import`'s](../issue-import/SKILL.md) Step 7 does.
 
-Write the body to a temp file.
+Write the body to a temp file from the template in [`tracker-body-template.md`](tracker-body-template.md).
 `<scratch>` is the session scratch directory as an absolute path (fall back to `$TMPDIR`); `gh` may run outside the sandbox, where `$TMPDIR` differs, so pass it absolute paths.
-
-```bash
-cat > <scratch>/import-pr-<N>-body.md <<'EOF'
-### The issue description
-
-> **Imported from public PR <upstream>#<N>** — there is no inbound `security@` report; the PR description below is the public statement of the vulnerability.
-
-<verbatim PR body>
-
-### Short public summary for publish
-
-_No response_
-
-### Affected versions
-
-<per-scope shape>
-
-### Security mailing list thread
-
-N/A — opened from public PR <pr.url>; no security@ thread
-
-### Public advisory URL
-
-_No response_
-
-### Reporter credited as
-
-<proposed reporter>
-
-### PR with the fix
-
-<pr.url>
-
-### Remediation developer
-
-<proposed remediation developer>
-
-### CWE
-
-_No response_
-
-### Severity
-
-<proposed severity>
-
-### CVE tool link
-
-_No response_
-EOF
-```
 
 Create it per the safe-create recipe in
 [`tools/github/operations.md`](../../../../tools/github/operations.md#create):
