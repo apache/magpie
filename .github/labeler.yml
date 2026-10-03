@@ -27,6 +27,7 @@ contract:change-request:
           - any-glob-to-any-file:
               - 'tools/bitbucket/**'
               - 'tools/change-request/**'
+              - 'tools/forgejo/**'
               - 'tools/github/**'
               - 'tools/gitlab/**'
               - 'tools/jira-patch/**'
@@ -101,6 +102,7 @@ contract:source-control:
       - changed-files:
           - any-glob-to-any-file:
               - 'tools/asf-svn/**'
+              - 'tools/forgejo/**'
               - 'tools/fossil/**'
               - 'tools/github/**'
               - 'tools/gitlab/**'
@@ -112,6 +114,7 @@ contract:tracker:
       - changed-files:
           - any-glob-to-any-file:
               - 'tools/bitbucket/**'
+              - 'tools/forgejo/**'
               - 'tools/fossil/**'
               - 'tools/github/**'
               - 'tools/github-body-field/**'
