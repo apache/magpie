@@ -514,7 +514,7 @@ How it differs from a remote adoption:
   in-repo path that always resolves on a fresh clone — so the
   links are committed. They are written under **every active
   target dir** ([`agents.md`](agents.md)) — `.agents/skills/`
-  (the universal path shared by Codex, Cursor, Gemini CLI,
+  (the universal path shared by Codex, Cursor, Gemini CLI, Grok,
   Copilot, …), `.claude/skills/` (Claude Code), and
   `.github/skills/` (GitHub's skill loader) — so the framework's
   own skills are discoverable by any harness; `.gitignore`
@@ -1200,7 +1200,7 @@ into **every active target dir**, canonical first:
   skill at `.agents/skills/magpie-<n>` → relative path into the
   snapshot (`../../.apache-magpie/skills/<n>/`). Gitignored. This
   is the single placement that makes the framework discoverable to
-  Codex, Cursor, Gemini CLI, Copilot, OpenCode, and the rest of
+  Codex, Cursor, Gemini CLI, Grok, Copilot, OpenCode, and the rest of
   the shared-path cluster, and the one source every relay points
   at.
 

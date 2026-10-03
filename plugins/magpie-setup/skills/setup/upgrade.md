@@ -411,7 +411,7 @@ This step refreshes symlinks for **every active target dir**
 ([`agents.md`](agents.md)), not just the `.claude/`/`.github/`
 pair. Compute the **active target set** the same way `adopt`
 does: the always-on neutral targets `.agents/skills/`
-(`universal` — the path shared by Codex, Cursor, Gemini CLI,
+(`universal` — the path shared by Codex, Cursor, Gemini CLI, Grok,
 Copilot, OpenCode, …), `.claude/skills/` (`claude-code`), and
 `.github/skills/` (`github`), **plus any registry holdout
 already present in the repo** (`.windsurf/skills/`,

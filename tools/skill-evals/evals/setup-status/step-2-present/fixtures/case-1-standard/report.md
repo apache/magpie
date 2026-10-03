@@ -13,6 +13,6 @@ python3 .apache-magpie/skills/setup-status/scripts/collect_status.py output:
 | universal | .agents/skills/ | ✓ 12 skills | setup, security, pr-management |
 | claude-code | .claude/skills/ | ✓ 12 relay symlinks | — |
 
-**serves:** universal → Codex, Cursor, Gemini CLI, Copilot, OpenCode, Cline, Zed, Warp, Amp, …
+**serves:** universal → Codex, Cursor, Gemini CLI, Copilot, Grok, OpenCode, Cline, Zed, Warp, Amp, …
 
 The user simply said "ok, let's see it" — no follow-up requests.

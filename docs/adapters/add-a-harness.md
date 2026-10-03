@@ -47,7 +47,7 @@ those that do not). Step 4 is a metadata update, not executable code.
 ## Step 1 — add a row to the agent-target registry
 
 The single source of truth for *where each runtime reads skills from* is
-[`skills/setup/agents.md`](../../skills/setup/agents.md). Add one row:
+[`plugins/magpie-setup/skills/setup/agents.md`](../../plugins/magpie-setup/skills/setup/agents.md). Add one row:
 
 ```markdown
 | `<id>` | `.<runtime>/skills/` | native (relay) | <Runtime name> |
@@ -119,7 +119,7 @@ uv run --project tools/agent-guard --group dev pytest
 ```
 
 **For runtimes without a hook API:** document the limitation explicitly
-in the row's notes in `skills/setup/agents.md`. An OS-level wrapper
+in the row's notes in `plugins/magpie-setup/skills/setup/agents.md`. An OS-level wrapper
 (e.g. `bubblewrap` on Linux, `sandbox-exec` on macOS, or a custom
 `PATH`-shadowing script that intercepts `git push` and `gh pr create`)
 can enforce the rules at the process level without a harness hook. The
@@ -276,7 +276,7 @@ skill path landed first, then guard, then loop, then full harness table.
 
 ## See also
 
-- [`skills/setup/agents.md`](../../skills/setup/agents.md) — the
+- [`plugins/magpie-setup/skills/setup/agents.md`](../../plugins/magpie-setup/skills/setup/agents.md) — the
   agent-target registry (single source of truth for symlink paths).
 - [`tools/symlink-lint/`](../../tools/symlink-lint/) — enforces relay
   symlink correctness.

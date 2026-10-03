@@ -16,7 +16,7 @@ The collector emitted this dashboard:
 
 **serves** (which agents read each target dir):
 
-- `universal` — Codex, Cursor, Gemini CLI, GitHub Copilot, OpenCode, Cline, Zed, Warp, Amp, …
+- `universal` — Codex, Cursor, Gemini CLI, GitHub Copilot, Grok, OpenCode, Cline, Zed, Warp, Amp, …
 
 ### Skill families
 

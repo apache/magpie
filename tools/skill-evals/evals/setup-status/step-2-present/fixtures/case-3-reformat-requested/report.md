@@ -13,6 +13,6 @@ python3 .apache-magpie/skills/setup-status/scripts/collect_status.py output:
 | universal | .agents/skills/ | ✓ 12 skills | setup, security, pr-management |
 | claude-code | .claude/skills/ | ✓ 12 relay symlinks | — |
 
-**serves:** universal → Codex, Cursor, Gemini CLI, Copilot, …
+**serves:** universal → Codex, Cursor, Gemini CLI, Copilot, Grok, …
 
 The user said: "Can you render this as a cleaner ASCII art table instead of the pipe table format?"

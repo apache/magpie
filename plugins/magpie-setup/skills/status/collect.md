@@ -56,7 +56,7 @@ carries:
 | Field | Meaning |
 |---|---|
 | `id`, `dir` | Registry id and project skills directory. |
-| `reads` | The agents that read this directory, verbatim from the [`../setup/agents.md`](../setup/agents.md) registry. For `universal` this is the whole shared-path cluster (Codex, Cursor, Gemini CLI, Copilot, OpenCode, Cline, Zed, Warp, Amp, …), so one wired directory serves many agents. |
+| `reads` | The agents that read this directory, verbatim from the [`../setup/agents.md`](../setup/agents.md) registry. For `universal` this is the whole shared-path cluster (Codex, Cursor, Gemini CLI, Copilot, Grok, OpenCode, Cline, Zed, Warp, Amp, …), so one wired directory serves many agents. |
 | `expected_kind` | `canonical` for `universal`, `relay` for the rest. |
 | `present` | Directory exists on disk. |
 | `entries[]` | One per `magpie-*` entry: `name`, `skill`, `family`, `is_symlink`, `raw_target`, `resolves`, `kind`. |
