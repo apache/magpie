@@ -16,4 +16,4 @@
 > in.*
 >
 > *More on how Airflow handles maintainer review:*
-> [contributing-docs/05_pull_requests.rst](https://github.com/apache/airflow/blob/main/contributing-docs/05_pull_requests.rst).
+> [Contributing guide](https://github.com/apache/airflow/blob/main/contributing-docs/05_pull_requests.rst).

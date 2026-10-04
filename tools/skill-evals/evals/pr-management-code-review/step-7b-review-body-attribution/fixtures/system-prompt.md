@@ -19,8 +19,10 @@ A `COMMENT` body may use either sentence, since GitHub lets a `COMMENT`
 post without confirmed maintainer access: which one is correct depends
 on whether the poster's collaborator permission was confirmed, not on
 the words themselves; either sentence, taken verbatim, satisfies the
-rule. The footer ends with a link to the project's contributing
-pull-requests doc (`contributing-docs/05_pull_requests.rst`). The
+rule. The footer ends with a `[Contributing guide](...)` link to the
+project's contributing docs (`upstream_contributing_docs_url` from
+`project.md`; a project that has not set it drops those last two
+lines). The
 footer must be present verbatim: a paraphrase, a partial version, a
 blend of the two sentences, or a missing footer all fail the rule.
 
