@@ -120,4 +120,5 @@ extend-exclude = [
   "tools/*/uv.lock",
   "tools/agent-isolation/pinned-versions.toml",
   "*.svg",
+  "tools/skill-evals/evals/**",
 ]
