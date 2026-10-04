@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -151,6 +152,46 @@ class HostileInputTest(unittest.TestCase):
     def test_artefact_names_are_quoted(self) -> None:
         md = self.render(artefacts=[{"filename": "a|b\nc", "sha512": "aa", "sig": "s"}])
         self.assertNotIn("a|b", md)
+
+
+def unescaped(raw: str, md: str) -> re.Match[str] | None:
+    """`raw` occurring in `md` with its first character not backslash-escaped."""
+    return re.search(r"(?<!\\)" + re.escape(raw), md)
+
+
+class MarkdownInjectionTest(unittest.TestCase):
+    """Free text renders as text: no links, images, HTML, mentions or headings."""
+
+    def render(self, **changes: object) -> str:
+        return render_record.render(full() | changes, REQUIRED)["record_markdown"]
+
+    def test_image_link_and_html_are_escaped(self) -> None:
+        hostile = "![x](https://track.example/p.gif) [y](https://evil.example) <img src=x> <script>"
+        md = self.render(product_name=hostile, version="2.11.0")
+        title = md.splitlines()[0]
+        for raw in ("![x](", "[y](", "<img", "<script>"):
+            self.assertIsNone(unescaped(raw, title), raw)
+        self.assertIn("\\!\\[x\\]\\(", title)
+
+    def test_redaction_reason_and_injection_source_are_escaped(self) -> None:
+        md = self.render(
+            promote_revision="REDACTED",
+            redaction_reasons={"promote_revision": "see [here](https://evil.example)\n## Pwned"},
+            injection_flagged=True,
+            injection_sources=["the issue body <a href=x>"],
+        )
+        self.assertIsNone(unescaped("[here](", md))
+        self.assertNotIn("\n## Pwned", md)
+        self.assertIsNone(unescaped("<a href", md))
+
+    def test_team_mention_in_binding_voters_is_refused(self) -> None:
+        for bad in ("@apache/committers", "alice bob", "[x](y)", "@" + "a" * 40):
+            with self.subTest(handle=bad), self.assertRaises(render_record.InputError):
+                self.render(binding_voters=[bad])
+
+    def test_plain_handles_still_render_as_mentions(self) -> None:
+        md = self.render(binding_voters=["@committerA", "committer-b"])
+        self.assertIn("@committerA, @committer-b", md)
 
 
 if __name__ == "__main__":
