@@ -42,6 +42,7 @@ See [`../contract.md`](../contract.md) for the abstract mail-source-backend oper
 - **CLIs:** `curl`.
 - **Credentials / auth:** None: public archives are read anonymously (see [Private archives](#private-archives)).
 - **Network:** The adopter's Hyperkitty host only, e.g. `mail.python.org` or `lists.fedoraproject.org`.
+  Under the [secure agent setup](../../../docs/setup/secure-agent-setup.md#the-frameworks-own-claudesettingsjson), add that host to `sandbox.network.allowedDomains`: it is not on the default list.
 
 ## Capability claim
 
@@ -94,13 +95,21 @@ The response is an object with `count`, `next`, `previous`, and `results`.
 Each result carries `thread_id` (the root's `<hash>`), `subject`, `date_active`, `replies_count`, and the API URLs `starting_email` and `emails`.
 Results are sorted by `date_active`, the thread's last activity, newest first:
 follow `next` until a result's `date_active` is older than `since`, then stop.
+`date_active` is an ISO 8601 timestamp in the server's time zone, so compare it to `since` as a timezone-aware time, not as a string.
 A thread started before `since` that received a reply inside the window is included; the skills' tracker dedupe covers that case.
 To record a thread's ID, fetch its `starting_email` and take `message_id`.
 
 ### `read_thread(thread_id)`
 
 1. Derive `<hash>` from the root Message-ID.
-2. List the thread's messages in thread order:
+2. Fetch the thread:
+
+   ```bash
+   curl --fail -sS '<hyperkitty>/api/list/<list>/thread/<hash>/'
+   ```
+
+   A 404 means the Message-ID did not start a thread in this archive: see the fallback below.
+3. List the thread's messages in thread order, from the thread's `emails` URL:
 
    ```bash
    curl --fail -sS '<hyperkitty>/api/list/<list>/thread/<hash>/emails/?limit=100'
@@ -108,13 +117,13 @@ To record a thread's ID, fetch its `starting_email` and take `message_id`.
 
    Each entry carries `message_id`, `subject`, `date`, `sender_name`, and the API URLs `url`, `parent`, and `children`, but no body.
    Follow `next` for a thread longer than one page.
-3. Fetch each entry's `url`.
+   This list answers an unknown thread with 200 and no results rather than a 404, which is why step 2 checks the thread first.
+4. Fetch each entry's `url`.
    The full record adds `content`, the message text, and `attachments`.
 
-If step 2 returns 404, the Message-ID did not start a thread in this archive.
-Fetch `<hyperkitty>/api/list/<list>/email/<hash>/`:
-if the message is archived, its `thread` field is the API URL of the thread Hyperkitty filed it under, and that thread's `emails` URL lists the messages.
-If that request also returns 404, the message is not in this archive; report the operation as unavailable so the [resolution rule](../contract.md#resolution-rule--which-backend-runs-an-operation) can fall through.
+If step 2 returns 404, fetch `<hyperkitty>/api/list/<list>/email/<hash>/`.
+If the message is archived, its `thread` field is the API URL of the thread Hyperkitty filed it under: fetch it and continue at step 3 with that thread's `emails` URL.
+If this request also returns 404, the message is not in this archive; report the operation as unavailable so the [resolution rule](../contract.md#resolution-rule--which-backend-runs-an-operation) can fall through.
 
 ### `thread_url(thread_id)`
 
@@ -130,9 +139,9 @@ such a URL belongs in the tracker's *Security mailing list thread* field, never 
 ## Private archives
 
 Hyperkitty serves a private archive only to a signed-in account subscribed to the list, or to a site superuser.
-Anonymous API requests are refused, with HTTP 403 on a stock install.
+Anonymous API requests are refused: HTTP 403 on a stock install, or 401 on a site whose API settings put Basic authentication first.
 This adapter reads anonymously, so it cannot read a private archive; most `<security-list>` archives are private.
-Treat a 403 as *backend unavailable*: declare the adapter `mandatory: no` and let the [resolution rule](../contract.md#resolution-rule--which-backend-runs-an-operation) fall through to a backend with subscriber access, such as `gmail` or `imap`.
+Treat a 401 or 403 as *backend unavailable*: declare the adapter `mandatory: no` and let the [resolution rule](../contract.md#resolution-rule--which-backend-runs-an-operation) fall through to a backend with subscriber access, such as `gmail` or `imap`.
 Authenticated reads through a subscriber's web session are not wired yet.
 
 ## Security and privacy
