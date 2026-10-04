@@ -73,6 +73,7 @@ def _parser() -> argparse.ArgumentParser:
 def run(argv: list[str] | None = None) -> dict[str, Any]:
     parser = _parser()
     args = parser.parse_args(argv)
+    skill: str | None = None
     try:
         skill = normalise_skill(args.skill) if args.skill else None
     except ValueError as exc:
