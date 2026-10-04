@@ -47,6 +47,6 @@ Tool output:
   "keys_fingerprints": [
     "26389C7FF5982465406A1BDFB8E90D83CD36F86A"
   ],
-  "paste_recipe": "curl -s https://dist.apache.org/repos/dist/release/airflow/KEYS | gpg --import\ngpg --verify apache-airflow-2.11.0-source-release.tar.gz.asc apache-airflow-2.11.0-source-release.tar.gz\ngpg --verify apache-airflow-2.11.0-bin.tar.gz.asc apache-airflow-2.11.0-bin.tar.gz"
+  "paste_recipe": "curl -s 'https://dist.apache.org/repos/dist/release/airflow/KEYS' | gpg --import\ngpg --verify 'apache-airflow-2.11.0-source-release.tar.gz.asc' 'apache-airflow-2.11.0-source-release.tar.gz'\ngpg --verify 'apache-airflow-2.11.0-bin.tar.gz.asc' 'apache-airflow-2.11.0-bin.tar.gz'"
 }
 ```

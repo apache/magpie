@@ -37,7 +37,7 @@ argument-hint: "<version>-rcN [--post-to <planning-issue-url>] [--skip-repro] [-
 capability: capability:triage
 surface_hash: sha256:ed944a58facaae21
 license: Apache-2.0
-measured_tokens: 12569
+measured_tokens: 12585
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -318,7 +318,8 @@ uv run --project <framework>/tools/release-verify release-verify signatures \
 
 Each `classification` is `PASS` (good signature, key in `KEYS`),
 `KEY-NOT-IN-KEYS` (good signature, key not in `KEYS`) or `FAIL` (bad or
-missing signature; `detail` says which). When `detail` names a key
+missing signature, or one made by a revoked or expired key, or an expired
+signature; `detail` says which). When `detail` names a key
 absent from `KEYS`, fetch that public key from `<keyserver>` and re-run
 with `--extra-key` to tell the two apart; it is never a trust anchor.
 Anything but `PASS` fails the step: a key outside the project's trust

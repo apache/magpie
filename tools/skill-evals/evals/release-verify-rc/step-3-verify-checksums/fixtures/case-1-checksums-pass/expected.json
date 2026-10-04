@@ -18,5 +18,5 @@
     }
   ],
   "deprecated_md5_present": false,
-  "paste_recipe": "sha512sum --check apache-airflow-2.11.0-source-release.tar.gz.sha512\nsha256sum --check apache-airflow-2.11.0-source-release.tar.gz.sha256\nsha512sum --check apache-airflow-2.11.0-bin.tar.gz.sha512\nsha256sum --check apache-airflow-2.11.0-bin.tar.gz.sha256"
+  "paste_recipe": "sha512sum --check 'apache-airflow-2.11.0-source-release.tar.gz.sha512'\nsha256sum --check 'apache-airflow-2.11.0-source-release.tar.gz.sha256'\nsha512sum --check 'apache-airflow-2.11.0-bin.tar.gz.sha512'\nsha256sum --check 'apache-airflow-2.11.0-bin.tar.gz.sha256'"
 }

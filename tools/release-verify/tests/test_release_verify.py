@@ -123,7 +123,7 @@ def test_checksums_pass(staging: Path, capsys: pytest.CaptureFixture[str]) -> No
     assert out["status"] == "PASS"
     assert out["deprecated_md5_present"] is False
     assert [d["classification"] for r in out["results"] for d in r["digests"]] == ["PASS"] * 4
-    assert "sha512sum --check apache-foo-2.11.0-bin.tar.gz.sha512" in out["paste_recipe"]
+    assert "sha512sum --check 'apache-foo-2.11.0-bin.tar.gz.sha512'" in out["paste_recipe"]
 
 
 def test_checksums_mismatch_is_fail(staging: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -248,7 +248,7 @@ def test_binaries_clean_tree_pass(tmp_path: Path, capsys: pytest.CaptureFixture[
     out = run(capsys, "binaries", "--tree", str(tree), "--accept", "*.class", "--accept", "*.jar")
     assert out["status"] == "PASS"
     assert out["prohibited_found"] == [] and out["expected_binaries"] == []
-    assert out["paste_recipe"].startswith("find apache-foo-2.11.0-source-release \\( -type f \\( -name '*.class'")
+    assert out["paste_recipe"].startswith("find 'apache-foo-2.11.0-source-release' \\( -type f \\( -name '*.class'")
     assert "-type d -name '__pycache__'" in out["paste_recipe"]
 
 
@@ -316,7 +316,7 @@ def test_symlinks_validators_are_left_to_run(tmp_path: Path, capsys: pytest.Capt
     out = run(capsys, "symlinks", "--tree", str(tree), "--validator", "make check-links")
     assert out["status"] == "REVIEW"
     assert out["validators_to_run"] == ["make check-links"]
-    assert out["paste_recipe"].splitlines() == ["cd rc", rv.SYMLINK_RECIPE, "make check-links"]
+    assert out["paste_recipe"].splitlines() == ["cd 'rc'", rv.SYMLINK_RECIPE, "make check-links"]
 
 
 def test_symlink_recipe_flags_dangling_and_outside(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -453,7 +453,7 @@ def test_signature_pass(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> N
     assert out["results"] == [
         {"file": "artefact.tar.gz", "sig_file": "artefact.tar.gz.asc", "classification": "PASS", "fingerprint": fingerprints()["rm"], "key_in_keys": True}
     ]
-    assert out["paste_recipe"] == "curl -s https://example.org/KEYS | gpg --import\ngpg --verify artefact.tar.gz.asc artefact.tar.gz"
+    assert out["paste_recipe"] == "curl -s 'https://example.org/KEYS' | gpg --import\ngpg --verify 'artefact.tar.gz.asc' 'artefact.tar.gz'"
 
 
 @needs_gpg
@@ -571,3 +571,69 @@ def test_verdict_includes_jvm_artefacts_in_step_order() -> None:
     assert out["fail_steps"] == ["jvm-artefacts"]
     assert [s["step"] for s in out["step_summary"]] == ["binary-exclusion", "jvm-artefacts", "version-consistency"]
 
+
+# --- Security: recipes, local paths and stale signatures ---------------------
+
+
+def test_recipes_quote_hostile_file_names(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    hostile = "x$(touch pwned)`id`;rm -rf ~.tar.gz"
+    (tmp_path / hostile).write_bytes(b"payload")
+    (tmp_path / f"{hostile}.sha512").write_text(hashlib.sha512(b"payload").hexdigest() + "  " + hostile + "\n")
+    out = run(capsys, "checksums", "--dir", str(tmp_path), "--expect", "x*.tar.gz", "--digest", "sha512")
+    line = next(ln for ln in out["paste_recipe"].splitlines() if "sha512sum" in ln)
+    assert line == "sha512sum --check " + rv._shq(f"{hostile}.sha512")
+    assert "$(" not in line.replace(rv._shq(f"{hostile}.sha512"), "")
+
+
+def test_binary_and_symlink_recipes_quote_the_directory() -> None:
+    assert rv.binary_find_recipe("rc;id", []).startswith("find 'rc;id' ")
+
+
+def test_local_keys_path_never_reaches_the_recipe() -> None:
+    assert rv._shq(Path("/Users/someone/secret/KEYS").name) == "'KEYS'"
+
+
+def _fake_verify(monkeypatch: pytest.MonkeyPatch, status: list[str], returncode: int = 0) -> None:
+    def fake(home: Path, *args: str) -> subprocess.CompletedProcess[str]:
+        stdout = "".join(f"[GNUPG:] {line}\n" for line in status)
+        return subprocess.CompletedProcess(args, returncode, stdout, "")
+
+    monkeypatch.setattr(rv, "_gpg", fake)
+
+
+VALIDSIG = "VALIDSIG " + "A" * 40 + " 2026-01-01 1767225600 0 4 0 22 10 00 " + "B" * 40
+
+
+@pytest.mark.parametrize(
+    ("token", "detail"),
+    [("REVKEYSIG", "revoked key"), ("EXPKEYSIG", "expired key"), ("EXPSIG", "signature itself has expired")],
+)
+def test_stale_signature_never_passes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, token: str, detail: str) -> None:
+    artefact = tmp_path / "a.tar.gz"
+    artefact.write_bytes(b"x")
+    (tmp_path / "a.tar.gz.asc").write_text("sig")
+    _fake_verify(monkeypatch, [f"{token} " + "B" * 16 + " Someone", VALIDSIG])
+    result = rv.verify_one(tmp_path, artefact, {"B" * 40})
+    assert result["classification"] == "FAIL"
+    assert detail in result["detail"]
+
+
+def test_good_signature_still_passes_with_fake_gpg(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    artefact = tmp_path / "a.tar.gz"
+    artefact.write_bytes(b"x")
+    (tmp_path / "a.tar.gz.asc").write_text("sig")
+    _fake_verify(monkeypatch, ["GOODSIG " + "B" * 16 + " Someone", VALIDSIG])
+    assert rv.verify_one(tmp_path, artefact, {"B" * 40})["classification"] == "PASS"
+
+
+def test_gpg_home_path_is_redacted(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    home = tmp_path / "rv-gpg-abc"
+
+    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(cmd, 2, "", f"gpg: keybox '{home}/pubring.kbx' created\n")
+
+    monkeypatch.setattr(rv.shutil, "which", lambda _: "/usr/bin/gpg")
+    monkeypatch.setattr(rv.subprocess, "run", fake_run)
+    proc = rv._gpg(home, "--list-keys")
+    assert str(home) not in proc.stderr
+    assert "<gnupghome>/pubring.kbx" in proc.stderr

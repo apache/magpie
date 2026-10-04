@@ -215,13 +215,17 @@ def _gpg(home: Path, *args: str) -> subprocess.CompletedProcess[str]:
     gpg = shutil.which("gpg")
     if gpg is None:
         raise InputError("gpg not found on PATH")
-    return subprocess.run(
+    proc = subprocess.run(
         [gpg, "--batch", "--no-tty", "--no-autostart", "--homedir", str(home), *args],
         capture_output=True,
         text=True,
         check=False,
         env={**os.environ, "GNUPGHOME": str(home), "LC_ALL": "C"},
     )
+    # gpg names its home directory in some messages; the report may be posted
+    # to the planning issue, so local paths never reach it.
+    proc.stderr = proc.stderr.replace(str(home), "<gnupghome>")
+    return proc
 
 
 def _import(home: Path, data: bytes, label: str) -> None:
@@ -236,6 +240,13 @@ def _import(home: Path, data: bytes, label: str) -> None:
 def _fingerprints(home: Path) -> set[str]:
     proc = _gpg(home, "--with-colons", "--fingerprint", "--fingerprint", "--list-keys")
     return {line.split(":")[9].upper() for line in proc.stdout.splitlines() if line.startswith("fpr:")}
+
+
+STALE_SIGNATURE_STATUS = {
+    "REVKEYSIG": "signature made by a revoked key",
+    "EXPKEYSIG": "signature made by an expired key",
+    "EXPSIG": "the signature itself has expired",
+}
 
 
 def verify_one(home: Path, artefact: Path, keys_fprs: set[str]) -> dict[str, Any]:
@@ -253,6 +264,12 @@ def verify_one(home: Path, artefact: Path, keys_fprs: set[str]) -> dict[str, Any
     proc = _gpg(home, "--status-fd", "1", "--verify", str(sig), str(artefact))
     status = [ln[len("[GNUPG:] ") :].split() for ln in proc.stdout.splitlines() if ln.startswith("[GNUPG:] ")]
     validsig = next((s for s in status if s[0] == "VALIDSIG"), None)
+    # gpg still exits 0 with VALIDSIG for these; the release must not pass on them.
+    stale = next((s[0] for s in status if s[0] in STALE_SIGNATURE_STATUS), None)
+    if stale is not None:
+        result["fingerprint"] = validsig[-1].upper() if validsig else None
+        result["detail"] = STALE_SIGNATURE_STATUS[stale]
+        return result
     if proc.returncode == 0 and validsig is not None:
         signing, primary = validsig[1].upper(), validsig[-1].upper()
         in_keys = signing in keys_fprs or primary in keys_fprs
@@ -283,8 +300,8 @@ def signatures(directory: Path, patterns: Sequence[str], keys: str, keys_url: st
         for label, data in extra:
             _import(home, data, label)
         results = [verify_one(home, directory / name, keys_fprs) for name in artefacts]
-    lines = [f"curl -s {keys_url} | gpg --import" if keys_url else f"gpg --import {keys}"]
-    lines += [f"gpg --verify {r['sig_file']} {r['file']}" for r in results]
+    lines = [f"curl -s {_shq(keys_url)} | gpg --import" if keys_url else f"gpg --import {_shq(Path(keys).name)}"]
+    lines += [f"gpg --verify {_shq(r['sig_file'])} {_shq(r['file'])}" for r in results]
     status = "PASS" if results and all(r["classification"] == "PASS" for r in results) else "FAIL"
     return {
         "step": "signatures",
@@ -349,7 +366,7 @@ def checksums(directory: Path, patterns: Sequence[str], digests: Sequence[str]) 
         for kind in kinds:
             dfile = directory / f"{name}.{kind}"
             if kind != "md5":
-                recipe.append(f"{kind}sum --check {dfile.name}")
+                recipe.append(f"{kind}sum --check {_shq(dfile.name)}")
             if not dfile.is_file():
                 entries.append({"type": kind, "classification": "MISSING-DIGEST"})
                 status = "FAIL"
@@ -441,7 +458,7 @@ def binary_find_recipe(dirname: str, extra: Sequence[str]) -> str:
         if g in BASELINE_FILE_GLOBS or not g:
             continue
         preds.append(f"-path {_shq(dirname + '/' + _translate_glob(g))}" if "/" in g.lstrip("/") else f"-name {_shq(g)}")
-    return f"find {dirname} \\( -type f \\( " + " -o ".join(preds) + " \\) -o -type d -name '__pycache__' \\) -print"
+    return f"find {_shq(dirname)} \\( -type f \\( " + " -o ".join(preds) + " \\) -o -type d -name '__pycache__' \\) -print"
 
 
 def binaries(tree: Path, prohibit: Sequence[str], accept: Sequence[str], recipe_dir: str | None) -> dict[str, Any]:
@@ -512,7 +529,7 @@ def symlinks(tree: Path, validators: Sequence[str], recipe_dir: str | None) -> d
         status = "REVIEW"
     else:
         status = "PASS" if links else "SKIP"
-    recipe = [f"cd {recipe_dir or tree.name}", SYMLINK_RECIPE, *validators]
+    recipe = [f"cd {_shq(recipe_dir or tree.name)}", SYMLINK_RECIPE, *validators]
     return {
         "step": "source-tree-integrity",
         "status": status,
