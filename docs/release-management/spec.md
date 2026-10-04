@@ -411,7 +411,9 @@ loop before posting `+1`.
   previous release, no prohibited binaries, published-JVM-artefact
   compliance via `tools/maven-artifact-verify` — POM licence set,
   podling incubation disclaimer, companion `-sources.jar` /
-  `-javadoc.jar` with signatures and checksums — source-tree
+  `-javadoc.jar` with signatures and checksums, informational
+  observations (timestamp reproducibility signal, package/groupId
+  correspondence, companion content sanity) — source-tree
   integrity, version-string consistency, and — optional per
   `release-build.md § Reproducibility checks` — reproducibility: the
   source artefact rebuilt from the tag with `repro-archive build` at

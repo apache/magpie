@@ -738,3 +738,180 @@ def test_missing_directory_fails(tmp_path: Path) -> None:
     report = json.loads(buffer.getvalue())
     assert code == 2
     assert report["status"] == "FAIL"
+
+
+# --- informational observations: checks 5-7 (never affect status) --------
+
+
+def write_timed_jar(directory: Path, name: str, entries: dict[str, tuple[int, int, int, int, int, int]]) -> Path:
+    """Write a jar whose entries carry explicit MS-DOS date_time stamps."""
+    path = directory / name
+    with zipfile.ZipFile(path, "w") as zf:
+        for entry, stamp in entries.items():
+            info = zipfile.ZipInfo(entry, date_time=stamp)
+            info.external_attr = 0o644 << 16
+            zf.writestr(info, b"content")
+    return path
+
+
+def signed_companion(jar: Path, digest: str = "sha512") -> None:
+    (jar.parent / f"{jar.name}.asc").write_bytes(b"sig")
+    write_checksum(jar, digest)
+
+
+def observations(report: dict) -> dict:
+    return report["observations"]
+
+
+def test_timestamp_consistent_signal(tmp_path: Path) -> None:
+    write_pom(tmp_path, "foo-core-1.0.0.pom", pom_xml(licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=SCM))
+    write_staged(tmp_path)
+    stamp = (2026, 1, 1, 12, 0, 0)
+    write_timed_jar(tmp_path, "foo-core-1.0.0.jar", {f"org/apache/foo/C{i}.class": stamp for i in range(3)})
+    report = json.loads(mav_json(tmp_path, ()))
+    assert report["status"] == "PASS"
+    signal = observations(report)["timestamp_signal"][0]
+    assert signal["signal"] == "consistent"
+    assert signal["entries"] == 3 and signal["distinct_timestamps"] == 1
+    assert "does not claim the jar is reproducible" in signal["detail"]
+
+
+def test_timestamp_inconsistent_signal_never_fails(tmp_path: Path) -> None:
+    write_pom(tmp_path, "foo-core-1.0.0.pom", pom_xml(licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=SCM))
+    write_staged(tmp_path)
+    write_timed_jar(
+        tmp_path,
+        "foo-core-1.0.0.jar",
+        {"org/apache/foo/A.class": (2026, 1, 1, 12, 0, 0), "org/apache/foo/B.class": (2026, 1, 2, 12, 0, 2)},
+    )
+    report = json.loads(mav_json(tmp_path, ()))
+    # Varying timestamps are an observation, never a failure: the
+    # blocking checks all pass and the status stays PASS.
+    assert report["status"] == "PASS"
+    signal = observations(report)["timestamp_signal"][0]
+    assert signal["signal"] == "inconsistent"
+    assert signal["distinct_timestamps"] == 2
+    assert "does not claim the jar is unreproducible" in signal["detail"]
+
+
+def test_timestamp_insufficient_data_for_single_entry_jar(tmp_path: Path) -> None:
+    write_pom(tmp_path, "foo-core-1.0.0.pom", pom_xml(licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=SCM))
+    write_staged(tmp_path)
+    write_timed_jar(tmp_path, "foo-core-1.0.0.jar", {"org/apache/foo/A.class": (2026, 1, 1, 12, 0, 0)})
+    report = json.loads(mav_json(tmp_path, ()))
+    assert report["status"] == "PASS"
+    signal = observations(report)["timestamp_signal"][0]
+    assert signal["signal"] == "insufficient-data"
+    assert signal["entries"] == 1
+
+
+def test_namespace_proportion_and_roots(tmp_path: Path) -> None:
+    write_pom(tmp_path, "foo-core-1.0.0.pom", pom_xml(licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=SCM))
+    write_staged(tmp_path)
+    write_timed_jar(
+        tmp_path,
+        "foo-core-1.0.0.jar",
+        {
+            "org/apache/foo/A.class": (2026, 1, 1, 0, 0, 0),
+            "org/apache/foo/impl/B.class": (2026, 1, 1, 0, 0, 0),
+            "com/example/shaded/C.class": (2026, 1, 1, 0, 0, 0),
+            "module-info.class": (2026, 1, 1, 0, 0, 0),
+            "META-INF/versions/9/D.class": (2026, 1, 1, 0, 0, 0),
+            "META-INF/MANIFEST.MF": (2026, 1, 1, 0, 0, 0),
+        },
+    )
+    report = json.loads(mav_json(tmp_path, ()))
+    assert report["status"] == "PASS"
+    signal = observations(report)["namespace_signal"][0]
+    assert signal["under_org_apache"] is True
+    # module-info, META-INF/versions and META-INF itself are excluded:
+    # they are legitimate divergences, not signals.
+    assert signal["class_entries"] == 3
+    assert signal["matching_entries"] == 2
+    assert "2/3" in signal["detail"]
+    assert "org/apache/foo" in signal["package_roots"]
+    assert "com/example/shaded" in signal["package_roots"]
+
+
+def test_group_id_outside_org_apache_is_observation_only(tmp_path: Path) -> None:
+    write_pom(
+        tmp_path,
+        "foo-core-1.0.0.pom",
+        pom_xml(group_id="com.github.foo", licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=SCM),
+    )
+    write_staged(tmp_path)
+    write_timed_jar(tmp_path, "foo-core-1.0.0.jar", {"com/github/foo/A.class": (2026, 1, 1, 0, 0, 0)})
+    report = json.loads(mav_json(tmp_path, ()))
+    # A groupId outside org.apache.* is real policy, but deliberately
+    # informational: a published artefact's coordinates cannot be
+    # changed retroactively, so failing the RC would leave the RM no
+    # remedy. The status must stay PASS.
+    assert report["status"] == "PASS"
+    signal = observations(report)["namespace_signal"][0]
+    assert signal["under_org_apache"] is False
+    assert signal["matching_entries"] == 1
+
+
+def test_sources_jar_with_class_files_is_observed_not_failed(tmp_path: Path) -> None:
+    write_pom(tmp_path, "foo-core-1.0.0.pom", pom_xml(licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=SCM))
+    write_timed_jar(tmp_path, "foo-core-1.0.0.jar", {"org/apache/foo/A.class": (2026, 1, 1, 0, 0, 0)})
+    sources = write_timed_jar(
+        tmp_path,
+        "foo-core-1.0.0-sources.jar",
+        {"org/apache/foo/A.java": (2026, 1, 1, 0, 0, 0), "org/apache/foo/B.class": (2026, 1, 1, 0, 0, 0)},
+    )
+    signed_companion(sources)
+    javadoc = write_timed_jar(tmp_path, "foo-core-1.0.0-javadoc.jar", {"index.html": (2026, 1, 1, 0, 0, 0)})
+    signed_companion(javadoc)
+    report = json.loads(mav_json(tmp_path, ()))
+    assert report["status"] == "PASS"
+    content = {entry["kind"]: entry for entry in observations(report)["companion_content"]}
+    assert content["sources"]["signal"] == "contains-class-files"
+    assert "never a failure" in content["sources"]["detail"]
+    assert content["javadoc"]["signal"] == "content-present"
+
+
+def test_placeholder_companions_are_sanctioned(tmp_path: Path) -> None:
+    write_pom(tmp_path, "foo-core-1.0.0.pom", pom_xml(licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=SCM))
+    write_timed_jar(tmp_path, "foo-core-1.0.0.jar", {"org/apache/foo/A.class": (2026, 1, 1, 0, 0, 0)})
+    sources = write_timed_jar(tmp_path, "foo-core-1.0.0-sources.jar", {"META-INF/MANIFEST.MF": (2026, 1, 1, 0, 0, 0)})
+    signed_companion(sources)
+    javadoc = write_timed_jar(tmp_path, "foo-core-1.0.0-javadoc.jar", {"META-INF/MANIFEST.MF": (2026, 1, 1, 0, 0, 0)})
+    signed_companion(javadoc)
+    report = json.loads(mav_json(tmp_path, ()))
+    assert report["status"] == "PASS"
+    content = {entry["kind"]: entry for entry in observations(report)["companion_content"]}
+    assert content["sources"]["signal"] == "placeholder"
+    assert content["javadoc"]["signal"] == "placeholder"
+    assert "Maven-Central-sanctioned" in content["sources"]["detail"]
+
+
+def test_scala_and_kotlin_sources_count_as_sources(tmp_path: Path) -> None:
+    write_pom(tmp_path, "foo-core-1.0.0.pom", pom_xml(licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=SCM))
+    write_timed_jar(tmp_path, "foo-core-1.0.0.jar", {"org/apache/foo/A.class": (2026, 1, 1, 0, 0, 0)})
+    sources = write_timed_jar(
+        tmp_path,
+        "foo-core-1.0.0-sources.jar",
+        {"org/apache/foo/A.scala": (2026, 1, 1, 0, 0, 0), "org/apache/foo/B.kt": (2026, 1, 1, 0, 0, 0)},
+    )
+    signed_companion(sources)
+    javadoc = write_timed_jar(tmp_path, "foo-core-1.0.0-javadoc.jar", {"doc/index.html": (2026, 1, 1, 0, 0, 0)})
+    signed_companion(javadoc)
+    report = json.loads(mav_json(tmp_path, ()))
+    assert report["status"] == "PASS"
+    content = {entry["kind"]: entry for entry in observations(report)["companion_content"]}
+    # Scala/Kotlin projects publish their own source and doc formats;
+    # neither the sources nor the javadoc side may assert a
+    # Javadoc-specific layout.
+    assert content["sources"]["signal"] == "sources-present"
+    assert content["javadoc"]["signal"] == "content-present"
+
+
+def test_absent_main_jar_yields_no_observations(tmp_path: Path) -> None:
+    write_pom(tmp_path, "foo-core-1.0.0.pom", pom_xml(licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=SCM))
+    report = json.loads(mav_json(tmp_path, ()))
+    assert report["status"] == "PASS"
+    assert report["jars"][0]["companions"][0]["classification"] == "ABSENT"
+    assert observations(report)["timestamp_signal"] == []
+    assert observations(report)["namespace_signal"] == []
+    assert observations(report)["companion_content"] == []

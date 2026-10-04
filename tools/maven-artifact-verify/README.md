@@ -26,9 +26,11 @@ Verifies **locally staged JVM release-candidate artefacts** — the
 `.pom` files, the main jars and their companion `-sources.jar` /
 `-javadoc.jar` — the way `release-verify-rc` verifies a staged source
 artefact today. Implements the blocking checks 1–3 proposed in
-[apache/magpie#1173](https://github.com/apache/magpie/issues/1173);
-the Nexus staging-repository check (check 4) and the informational
-checks (5–7) are later PRs on that issue.
+[apache/magpie#1173](https://github.com/apache/magpie/issues/1173)
+and reports the issue's informational checks (5–7) as `observations`
+in the same JSON report; the Nexus staging-repository check (check 4)
+is implemented by [`tools/asf-nexus`](../asf-nexus/README.md) and
+`release-verify-rc` Step 6c.
 
 Until this tool exists, `release-verify-rc` handles a jar in exactly
 one direction: as *contraband inside the source tree* (Step 6's
@@ -77,10 +79,42 @@ blocking.
    the release key, which `release-verify-rc` Step 2 runs against the
    main artefacts, and the Step 6b recipe extends to the companions.
 
+The same run also reports the issue's **informational checks 5–7**
+under `observations` — signals for a human reviewer that never change
+the `status`:
+
+5. **Timestamp reproducibility signal** — whether every file entry of
+   a main jar shares one timestamp (consistent with
+   `project.build.outputTimestamp` being set) or varies across
+   entries. Worded as "consistent / not consistent with a reproducible
+   configuration", never as "reproducible" — only a rebuild-and-compare
+   can assert that. An empty or single-entry jar reports
+   `INSUFFICIENT-DATA`, never a pass. ZIP's MS-DOS entry times carry
+   2-second granularity and no timezone; entries are compared as raw
+   values within one jar and never converted to absolute times.
+6. **Namespace and package/groupId correspondence** — whether the
+   declared `groupId` sits under `org.apache.*` (informational even
+   for ASF top-level projects: published coordinates cannot be renamed
+   retroactively, so a gate would leave the RM no remedy), and the
+   proportion of the jar's class entries under the package path
+   derived from the groupId plus the package roots actually found — a
+   proportion and a list, never a boolean. `META-INF/` entries,
+   `module-info.class` and multi-release overrides are excluded as
+   legitimate divergences. Most useful for podlings, where it
+   surfaces whether the `org.apache.<project>` rename has happened.
+7. **Companion content sanity** — whether `-sources.jar` carries
+   `.java` / `.scala` / `.kt` sources and no `.class` files, and
+   whether `-javadoc.jar` is non-empty. Placeholder companions are a
+   Maven-Central-sanctioned pattern and are reported as such, never
+   failed; no Javadoc-specific structure is asserted (Scala/Kotlin
+   projects publish dokka/scaladoc output under the `-javadoc`
+   classifier).
+
 The overall `status` is `FAIL` when any check fails, `WARN` when only
 `INHERITED-UNVERIFIED` results remain, `PASS` otherwise, and `SKIP`
 when the staged set contains no `.pom` and no `.jar` at all — a
-non-JVM project's RC runs the tool and skips cleanly.
+non-JVM project's RC runs the tool and skips cleanly. The
+informational observations never change it.
 
 ## Prerequisites
 
@@ -117,9 +151,11 @@ not fail correct releases:
 - `packaging=pom` modules have no jar and are exempt from check 3
   (they still get checks 1 and 2).
 - Placeholder companion jars are a Maven-Central-sanctioned pattern;
-  check 3 only verifies presence, signatures and checksums, and never
-  opens a jar to judge its content (that is informational check 7, a
-  later PR).
+  check 3 verifies presence, signatures and checksums only, and the
+  check-7 observation reports a placeholder as the sanctioned pattern
+  it is, never a defect. Opening a jar reads the zip central
+  directory only (entry names and timestamps) — no entry content is
+  extracted.
 - Classified jars (`-tests`, `-shaded`, `-linux-x86_64`, …) are
   neither mains nor companions: a jar whose classifier is not
   `sources`/`javadoc` and that no staged POM declares is reported in

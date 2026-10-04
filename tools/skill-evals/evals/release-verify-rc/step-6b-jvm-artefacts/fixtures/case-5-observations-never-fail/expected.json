@@ -1,0 +1,13 @@
+{
+  "step": "jvm-artefacts",
+  "status": "PASS",
+  "pom_findings": [],
+  "companion_findings": [],
+  "observations": [
+    "foo-core-1.0.0.jar: entry timestamps vary (4 distinct across 118 entries) - not consistent with a reproducible configuration (project.build.outputTimestamp likely unset); observation does not claim the jar is unreproducible",
+    "foo-core-1.0.0.jar: groupId org.apache.foo is under org.apache.*; 45/47 class entries under the derived package path org/apache/foo; roots: com/example/relocated, org/apache/foo",
+    "foo-core-1.0.0-sources.jar: contains 3 .class entries (compiled code in the sources companion) - observation only, never a failure",
+    "foo-core-1.0.0-javadoc.jar: placeholder (empty or MANIFEST-only) - a Maven-Central-sanctioned pattern, not a defect"
+  ],
+  "paste_recipe": "uv run --project .apache-magpie/tools/maven-artifact-verify maven-artifact-verify \"dist/dev/foo/1.0.0-rc1\" --digests sha512 --podling"
+}

@@ -1,0 +1,13 @@
+{
+  "step": "jvm-artefacts",
+  "status": "PASS",
+  "pom_findings": [],
+  "companion_findings": [],
+  "observations": [
+    "foo-core-2.1.0.jar: every file entry shares one timestamp (204 entries, 1 distinct) - consistent with a reproducible configuration (project.build.outputTimestamp set); observation does not claim the jar is reproducible",
+    "foo-core-2.1.0.jar: groupId com.github.foo is NOT under org.apache.* (informational even for ASF projects - published coordinates cannot be renamed retroactively); 24/24 class entries under the derived package path com/github/foo; roots: com/github/foo",
+    "foo-core-2.1.0-sources.jar: 31 .java/.scala/.kt source entries; no .class entries",
+    "foo-core-2.1.0-javadoc.jar: 58 non-META-INF entries; documentation layout is not judged"
+  ],
+  "paste_recipe": "uv run --project .apache-magpie/tools/maven-artifact-verify maven-artifact-verify \"dist/dev/foo/2.1.0-rc1\" --digests sha512"
+}

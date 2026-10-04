@@ -49,9 +49,34 @@ Implements the blocking checks 1-3 of apache/magpie issue #1173
    ``packaging=pom`` modules are exempt (no jar), classified jars
    (``-tests``, ``-shaded``, ...) are neither mains nor companions.
 
+Informational observations (checks 5-7 of the same issue) are
+reported alongside and **never** affect ``status`` - they are
+signals for a human reviewer, not gates:
+
+5. **Timestamp reproducibility signal** - whether every file entry
+   of a main jar shares one timestamp (consistent with
+   ``project.build.outputTimestamp`` being set) or varies (not
+   consistent with one). The report never claims the jar is or is
+   not reproducible; an empty or single-entry jar reports
+   ``insufficient-data``.
+6. **Namespace and package/groupId correspondence** - whether the
+   declared ``groupId`` sits under ``org.apache.*``, and how many of
+   the jar's class-file entries live under the package path derived
+   from the groupId, plus the package roots actually found. Reported
+   as a proportion and a root list, never a boolean verdict.
+7. **Companion content sanity** - whether ``-sources.jar`` carries
+   ``.java`` / ``.scala`` / ``.kt`` sources and no ``.class`` files,
+   and whether ``-javadoc.jar`` is non-empty. Placeholder companions
+   are a Maven-Central-sanctioned pattern and are reported as such,
+   never failed.
+
+Opening a jar here reads the zip central directory only (entry
+names and timestamps); no entry content is extracted.
+
 The tool is stdlib-only and fully offline: it reads the staged
-directory, never the network. Nexus staging-repository checks are out
-of scope here (issue #1173, PR 2).
+directory, never the network. Nexus staging-repository checks are
+handled by `tools/asf-nexus` and `release-verify-rc` Step 6c (issue
+#1173, PR 2).
 
 Output is a single JSON document on stdout, in the shape
 `release-verify-rc` Step 6b consumes.
@@ -65,6 +90,7 @@ import json
 import re
 import sys
 import xml.etree.ElementTree as ET
+import zipfile
 from pathlib import Path
 
 MAVEN_NS = "http://maven.apache.org/POM/4.0.0"
@@ -495,6 +521,178 @@ def split_jar_name(name: str) -> tuple[str, str | None, str | None]:
     return m.group("stem"), m.group("version"), classifier
 
 
+SOURCE_EXTENSIONS = (".java", ".scala", ".kt")
+
+
+def timestamp_signal(jar: Path) -> dict:
+    """Check 5 - jar entry timestamp consistency (informational only).
+
+    If every file entry of the jar shares one timestamp, the project
+    almost certainly set ``project.build.outputTimestamp``; if the
+    timestamps vary, it almost certainly did not. The signal is
+    deliberately worded to never assert reproducibility either way -
+    only a rebuild-and-compare (``release-verify-rc`` Step 9) can do
+    that. An empty or single-entry jar gives no signal and reports
+    ``insufficient-data``, never a pass.
+
+    ZIP stores MS-DOS local times at 2-second granularity with no
+    timezone. Comparing entries *within one jar* needs neither a
+    tolerance nor a timezone assumption: the raw ``date_time`` tuples
+    are compared as-is and are never converted to absolute times.
+    """
+    with zipfile.ZipFile(jar) as archive:
+        times = [info.date_time for info in archive.infolist() if not info.is_dir()]
+    if len(times) <= 1:
+        return {
+            "jar": jar.name,
+            "signal": "insufficient-data",
+            "entries": len(times),
+            "detail": "an empty or single-entry jar gives no timestamp signal",
+        }
+    distinct = sorted(set(times))
+    if len(distinct) == 1:
+        return {
+            "jar": jar.name,
+            "signal": "consistent",
+            "entries": len(times),
+            "distinct_timestamps": 1,
+            "detail": "every file entry shares one timestamp - consistent with a "
+            "reproducible configuration (project.build.outputTimestamp set); "
+            "this observation does not claim the jar is reproducible",
+        }
+    return {
+        "jar": jar.name,
+        "signal": "inconsistent",
+        "entries": len(times),
+        "distinct_timestamps": len(distinct),
+        "detail": "entry timestamps vary - not consistent with a reproducible "
+        "configuration (project.build.outputTimestamp likely unset); this "
+        "observation does not claim the jar is unreproducible",
+    }
+
+
+def namespace_signal(jar: Path, pom: dict) -> dict:
+    """Check 6 - groupId namespace and package/groupId correspondence.
+
+    Two observations, informational **even for ASF top-level
+    projects** (a released artefact can legitimately sit outside
+    ``org.apache.*`` for historical reasons, and package/groupId
+    divergence is frequently legitimate - shaded or relocated
+    dependencies, multi-release jars, intentional naming): (a) whether
+    the declared ``groupId`` sits under ``org.apache.*``, and (b) how
+    many of the jar's class-file entries live under the package path
+    derived from the groupId, plus the package roots actually found -
+    a proportion and a list for the reviewer to judge, never a boolean
+    verdict. Most useful for podlings, where it surfaces whether the
+    ``org.apache.<project>`` rename has happened.
+
+    ``META-INF/`` entries, ``module-info.class`` and
+    ``META-INF/versions/<N>/`` multi-release overrides are excluded
+    from both the proportion and the roots: they are legitimate
+    divergences, not signals.
+    """
+    group_id = pom.get("group_id") or ""
+    expected_prefix = "/".join(part for part in group_id.split(".") if part)
+    with zipfile.ZipFile(jar) as archive:
+        names = archive.namelist()
+    class_entries = [name for name in names if name.endswith(".class") and not name.startswith("META-INF/") and name != "module-info.class"]
+    observation: dict = {
+        "jar": jar.name,
+        "group_id": group_id or None,
+        "under_org_apache": group_id == "org.apache" or group_id.startswith("org.apache."),
+    }
+    if not class_entries:
+        observation["detail"] = "no class-file entries outside META-INF/ and module-info.class; no package/groupId correspondence to report"
+        return observation
+    expected = expected_prefix + "/" if expected_prefix else ""
+    matching = sum(1 for name in class_entries if name.startswith(expected)) if expected else 0
+    roots = sorted({"/".join(name.split("/")[:3]) for name in class_entries})
+    shown = roots[:10]
+    detail = (
+        f"{matching}/{len(class_entries)} class entries under the package path '{expected_prefix}' derived from groupId '{group_id}'"
+        if expected
+        else f"POM declares no groupId; {len(class_entries)} class entries have no package path to compare against"
+    )
+    detail += f"; package roots (first three segments): {', '.join(shown)}"
+    if len(roots) > len(shown):
+        detail += f" (first {len(shown)} of {len(roots)} distinct roots)"
+    observation.update(
+        {
+            "class_entries": len(class_entries),
+            "matching_entries": matching,
+            "package_roots": shown,
+            "detail": detail,
+        }
+    )
+    return observation
+
+
+def companion_content_signal(companion: Path, classifier: str) -> dict:
+    """Check 7 - companion jar content sanity (informational only).
+
+    Whether ``-sources.jar`` carries ``.java`` / ``.scala`` / ``.kt``
+    sources and no ``.class`` files, and whether ``-javadoc.jar`` is
+    non-empty - both observations only. Placeholder companions are
+    explicitly permitted by Maven Central and are reported as such,
+    never failed; the javadoc side never asserts a Javadoc-specific
+    internal structure (Scala/Kotlin projects publish scaladoc/dokka
+    output under the ``-javadoc`` classifier for Central compliance).
+    Classified jars other than the two companions (``-tests``,
+    ``-shaded``, ...) are not part of the required set and are not
+    inspected here.
+    """
+    with zipfile.ZipFile(companion) as archive:
+        names = archive.namelist()
+    file_entries = [name for name in names if not name.endswith("/")]
+    content_entries = [name for name in file_entries if not name.startswith("META-INF/")]
+    if classifier == "sources":
+        if not content_entries:
+            return {
+                "jar": companion.name,
+                "kind": "sources",
+                "signal": "placeholder",
+                "detail": "empty or MANIFEST-only jar - placeholder companions are a Maven-Central-sanctioned pattern; observation only",
+            }
+        class_files = [name for name in content_entries if name.lower().endswith(".class")]
+        if class_files:
+            return {
+                "jar": companion.name,
+                "kind": "sources",
+                "signal": "contains-class-files",
+                "detail": f"{len(class_files)} .class entries inside a -sources.jar "
+                "(compiled code in the sources companion); observation only, never a failure",
+            }
+        sources = [name for name in content_entries if name.lower().endswith(SOURCE_EXTENSIONS)]
+        if sources:
+            return {
+                "jar": companion.name,
+                "kind": "sources",
+                "signal": "sources-present",
+                "detail": f"{len(sources)} .java/.scala/.kt source entries; no .class entries",
+            }
+        return {
+            "jar": companion.name,
+            "kind": "sources",
+            "signal": "no-sources-found",
+            "detail": "no .java/.scala/.kt and no .class entries inside the -sources.jar; observation only",
+        }
+    if not content_entries:
+        return {
+            "jar": companion.name,
+            "kind": "javadoc",
+            "signal": "placeholder",
+            "detail": "empty or MANIFEST-only jar - placeholder companions are a "
+            "Maven-Central-sanctioned pattern; observation only (content is not "
+            "structure-asserted: dokka/scaladoc output is equally valid)",
+        }
+    return {
+        "jar": companion.name,
+        "kind": "javadoc",
+        "signal": "content-present",
+        "detail": f"{len(content_entries)} non-META-INF entries; documentation layout is not judged",
+    }
+
+
 def verify_staged_dir(staged_dir: Path, digests: list[str], podling: bool) -> dict:
     # rglob, not glob: a staging directory in Maven-repository layout
     # (org/apache/foo/foo-core/1.0.0/...) is a JVM artefact set too — a
@@ -512,6 +710,7 @@ def verify_staged_dir(staged_dir: Path, digests: list[str], podling: bool) -> di
         "jars": [],
         "unmatched_jars": [],
         "findings": [],
+        "observations": {"timestamp_signal": [], "namespace_signal": [], "companion_content": []},
     }
 
     if not poms and not jars:
@@ -545,7 +744,8 @@ def verify_staged_dir(staged_dir: Path, digests: list[str], podling: bool) -> di
         report["poms"].append(entry)
 
     # --- check 3: per main jar ---
-    main_jars = []
+    main_jars: list[Path] = []
+    main_jar_poms: dict[Path, dict] = {}
     for pom_path, data in parsed.items():
         if "error" in data or data["packaging"] == "pom":
             continue
@@ -565,6 +765,7 @@ def verify_staged_dir(staged_dir: Path, digests: list[str], podling: bool) -> di
             main = pom_path.parent / f"{data['artifact_id']}-{data['version']}.jar"
             if main.exists():
                 main_jars.append(main)
+                main_jar_poms[main] = data
             else:
                 # The jar is published via the Nexus staging repository
                 # in the common ASF workflow and is not staged locally
@@ -608,6 +809,24 @@ def verify_staged_dir(staged_dir: Path, digests: list[str], podling: bool) -> di
     for main in main_jars:
         report["jars"].append(check_companions(main, digests, report["findings"]))
 
+    # --- informational observations (checks 5-7) ---
+    # These are signals for a human reviewer, never gates: they are
+    # appended to the report after the aggregate status is decided and
+    # their values are deliberately excluded from the aggregation
+    # below. A jar whose timestamps vary, whose groupId sits outside
+    # org.apache.*, or whose -sources.jar contains .class files still
+    # passes every blocking check.
+    observations = report["observations"]
+    for main in main_jars:
+        observations["timestamp_signal"].append(timestamp_signal(main))
+        pom_data = main_jar_poms.get(main)
+        if pom_data is not None:
+            observations["namespace_signal"].append(namespace_signal(main, pom_data))
+        for classifier in COMPANION_CLASSIFIERS:
+            companion = main.with_name(main.name[: -len(".jar")] + f"-{classifier}.jar")
+            if companion.exists():
+                observations["companion_content"].append(companion_content_signal(companion, classifier))
+
     # --- aggregate ---
     statuses = []
     for entry in report["poms"]:
@@ -645,7 +864,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="maven-artifact-verify",
         description="Verify locally staged JVM release-candidate artefacts "
-        "(POM licence set, podling disclaimer, companion jars). "
+        "(POM licence set, podling disclaimer, companion jars) and report "
+        "informational observations (timestamp reproducibility signal, "
+        "package/groupId correspondence, companion content sanity). "
         "Stdlib-only and offline; prints one JSON report.",
     )
     parser.add_argument("staged_dir", type=Path, help="directory holding the staged .pom / .jar artefacts")
