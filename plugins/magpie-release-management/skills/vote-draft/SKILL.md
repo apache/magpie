@@ -25,7 +25,7 @@ argument-hint: "<version>-rcN [--skip-verify-check <reason>]"
 capability: capability:resolve
 surface_hash: sha256:6d70a52ead840ca2
 license: Apache-2.0
-measured_tokens: 6661
+measured_tokens: 6842
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -146,6 +146,11 @@ When `vote_window_hours` is below 72 **and** `--expedited <reason>` is
 passed, the skill drafts the `[VOTE]` body with an `[EXPEDITED]`
 notice and a one-sentence reason. It also flags the RM's obligation to
 note the deviation in the project's next board report per ASF policy.
+The `[VOTE]` thread and the planning issue are public, so until the
+advisory ships the reason never names a CVE or calls the release a
+security fix ([`AGENTS.md` § Confidentiality](../../../../AGENTS.md#confidentiality-of-the-tracker-repository)):
+write it neutrally (*"Time-sensitive fix release"*), keep any approval
+the RM cited, and tell the RM what was left out.
 
 **Golden rule 5 — verify-rc gate.** The skill refuses to draft the
 `[VOTE]` if `release-verify-rc` has not reported PASS on the same RC.
@@ -374,6 +379,11 @@ planning issue recorded no SWHID or the project declares no
 convenience artefacts; only the *Reproducibility record* lines and the
 *Convenience artefacts* block vary with what the report provides.
 
+The `[EXPEDITED]` reason is public: until the advisory ships it names no
+CVE and does not call the release a security fix (Golden rule 4). Write
+it neutrally (*"Time-sensitive fix release"*), keep any approval the RM
+cited, and tell the RM what was left out.
+
 Present the draft subject + body to the RM. Ask for confirmation
 before proceeding to Step 3. Allow the RM to edit the body before
 confirming.
@@ -452,7 +462,8 @@ Next step: `release-vote-tally` after the window closes.
 
 When the vote is **expedited** (Golden rule 4), use the expedited
 variant: mark the header `(expedited)`, note the shortened window,
-state the `--expedited` reason, and restate the RM's obligation to
+state the `--expedited` reason (the same neutral wording as the `[VOTE]`
+body: no CVE, no "security fix" before the advisory), and restate the RM's obligation to
 record the deviation in the project's next board report per ASF policy:
 
 ```markdown

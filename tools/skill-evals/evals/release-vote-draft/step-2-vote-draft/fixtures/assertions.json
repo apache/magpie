@@ -47,5 +47,12 @@
     "type": "regex",
     "pattern": "release-approval",
     "flags": ""
+  },
+  "no_embargoed_security_framing": {
+    "field": "body",
+    "type": "regex",
+    "pattern": "CVE-\\d{4}-\\d+|security fix|vulnerability|vulnerabilities",
+    "flags": "i",
+    "negate": true
   }
 }
