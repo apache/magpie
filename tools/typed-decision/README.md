@@ -34,6 +34,9 @@ See [`tool.md`](tool.md) for full contract specifications and Python API usage.
 - **Credentials / auth:** `TYPESAFE_API_KEY` (or `JEV_API_KEY`) environment variable or home-directory key at `~/.config/apache-magpie/typesafe.key`.
   Outbound prompts are strictly gated through [`tools/privacy-llm/`](../privacy-llm/) and deny unapproved destinations by default.
 - **Network:** `api.typesafe.ai` over HTTPS.
+- **Secure agent setup:** under [`docs/setup/secure-agent-setup.md`](../../docs/setup/secure-agent-setup.md) the sandbox cannot read `~/`, so the key file is not found and every call resolves to `TypedDecisionUnavailable`.
+  After the privacy-llm opt-in is signed off, an adopter enables the provider by passing the key through an environment variable the clean-env wrapper forwards, and by adding `api.typesafe.ai` to their own `sandbox.network.allowedDomains`.
+  The framework's default allowlist does not include it, by design.
 
 ## Operations
 

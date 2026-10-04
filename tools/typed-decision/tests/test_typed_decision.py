@@ -64,12 +64,20 @@ def _make_mock_response(body: dict[str, Any] | list[Any] | str | int, status: in
 
 
 @pytest.fixture(autouse=True)
-def clean_environment(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Ensure tests run with clean typed-decision environment by default."""
+def clean_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
+    """Ensure tests run with clean typed-decision environment by default.
+
+    ``HOME`` and the working directory point at an empty temp dir, so a real
+    ``~/.config/apache-magpie/typesafe.key`` or a ``privacy-llm.md`` in the
+    caller's checkout cannot leak into the tests.
+    """
     monkeypatch.delenv("MAGPIE_TYPED_DECISION_PROVIDER", raising=False)
     monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
     monkeypatch.delenv("JEV_API_KEY", raising=False)
     monkeypatch.delenv("PRIVACY_LLM_CONFIG", raising=False)
+    monkeypatch.delenv("USERPROFILE", raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.chdir(tmp_path)
 
 
 @pytest.fixture
@@ -118,6 +126,16 @@ def test_fallback_env_var_key_succeeds(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("JEV_API_KEY", "jev-fallback-key")
     provider = JevProvider()
     assert provider.name == "jev"
+
+
+def test_home_key_file_is_picked_up() -> None:
+    """A key at ~/.config/apache-magpie/typesafe.key is used when no env var is set."""
+    key_dir = pathlib.Path.home() / ".config" / "apache-magpie"
+    key_dir.mkdir(parents=True)
+    (key_dir / "typesafe.key").write_text("file-secret-key\n", encoding="utf-8")
+    assert _is_jev_configured() is True
+    provider = JevProvider()
+    assert provider._api_key == "file-secret-key"
 
 
 # ---------------------------------------------------------------------------

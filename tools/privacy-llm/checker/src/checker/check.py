@@ -232,10 +232,33 @@ def _extract_opt_in_host(name: str) -> str | None:
     if url is not None:
         return host_of(url)
 
-    first_token = re.split(r"[\s—\-,(:]+", name.strip())[0]
+    # Hyphens are not separators here: they are legal inside hostname labels
+    # (``bedrock-runtime.eu-central-1.amazonaws.com``).
+    first_token = re.split(r"[\s—,(:]+", name.strip())[0]
     if _is_valid_hostname(first_token):
         return host_of("//" + first_token)
     return None
+
+
+_URL_IN_TEXT_RE = re.compile(r"[a-zA-Z][a-zA-Z0-9+.-]*://\S+")
+
+
+def _name_matches_description(opt_name: str, raw_desc: str) -> bool:
+    """Match a name-only opt-in against the provider description.
+
+    URLs are stripped from the description first, and the opt-in name (or its
+    short name) must appear as whole words. Otherwise a short opt-in name such
+    as ``AI (internal)`` would match inside ``https://api.typesafe.ai/...`` and
+    approve a provider nobody opted in to.
+    """
+    desc_lc = _URL_IN_TEXT_RE.sub(" ", raw_desc).strip().lower()
+    if not desc_lc:
+        return False
+    name_lc = opt_name.lower().strip()
+    for candidate in (name_lc, _shortname(name_lc)):
+        if candidate and re.search(rf"(?<!\w){re.escape(candidate)}(?!\w)", desc_lc):
+            return True
+    return False
 
 
 def _approve_endpoint_by_opt_in(
@@ -264,12 +287,7 @@ def _approve_endpoint_by_opt_in(
             if default_endpoint is not None:
                 def_host = host_of(default_endpoint)
                 if (entry.url == default_endpoint) or (def_host is not None and ep_host == def_host):
-                    name_lc = opt.name.lower()
-                    desc_to_check = (raw_desc or "").strip().lower()
-                    if not desc_to_check:
-                        matched = False
-                    elif name_lc in desc_to_check or _shortname(name_lc) in desc_to_check:
-                        matched = True
+                    matched = _name_matches_description(opt.name, raw_desc or "")
 
         if not matched:
             continue

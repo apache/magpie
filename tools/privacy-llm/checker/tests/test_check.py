@@ -481,6 +481,31 @@ def test_name_only_opt_in_requires_provider_in_desc():
     assert "denied" in v_mismatch.reason
 
 
+def test_name_only_opt_in_does_not_match_inside_endpoint_url():
+    """A short opt-in name must not match a fragment of the endpoint URL in raw_desc."""
+    for name in ("AI (internal)", "API — internal gateway", "v1 (internal)", "Type (internal)"):
+        opt = OptInEntry(name=name, data_residency="on-prem", approved_by="PMC 2026-09-01")
+        cfg = ParsedConfig(path=pathlib.Path("/dev/null"), llm_stack=[], opt_in=[opt])
+        v = check.check_endpoint(
+            "https://api.typesafe.ai/v1/systemone",
+            config=cfg,
+            default_endpoint="https://api.typesafe.ai/v1/systemone",
+            raw_desc="TypeSafe Jev (https://api.typesafe.ai/v1/systemone)",
+        )
+        assert v.approved is False, name
+
+
+def test_extract_opt_in_host_keeps_hyphenated_bare_host():
+    """A bare hostname containing hyphens is extracted whole, not cut at the first '-'."""
+    assert (
+        check._extract_opt_in_host("bedrock-runtime.eu-central-1.amazonaws.com (AWS Bedrock)")
+        == "bedrock-runtime.eu-central-1.amazonaws.com"
+    )
+    assert check._extract_opt_in_host("my-llm.example.org") == "my-llm.example.org"
+    # Name-only entries with a spaced dash separator still resolve to no host.
+    assert check._extract_opt_in_host("TypeSafe - Jev API") is None
+
+
 def test_extract_opt_in_host_rejects_model_version_tokens():
     """Model version tokens (3.5, 4.0, 1.0.0) are not treated as hostnames."""
     assert check._extract_opt_in_host("3.5 Sonnet (AWS Bedrock)") is None
