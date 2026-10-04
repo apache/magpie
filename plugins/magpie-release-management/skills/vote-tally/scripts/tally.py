@@ -109,13 +109,17 @@ def resolve_binding(sender: str, roster: list[dict[str, str]]) -> str | None:
 
 
 def _identity(sender: str, roster: list[dict[str, str]], via: str | None) -> str:
-    """The person behind a vote: their roster Apache ID when on the roster, else the address."""
+    """The person behind a vote: their roster Apache ID when on the roster, else the address.
+
+    The two are namespaced, so a non-roster sender written as a bare ``alice`` can
+    never collide with the roster member whose Apache ID is ``alice``.
+    """
     address = normalise_address(sender)
     if via is not None:
         for row in roster:
             if address in (row["primary_email"].lower(), f"{row['apache_id'].lower()}@apache.org"):
-                return row["apache_id"].lower()
-    return address
+                return "roster:" + row["apache_id"].lower()
+    return "address:" + address
 
 
 def _superseded(old: dict[str, Any], by: dict[str, Any]) -> dict[str, Any]:
@@ -211,10 +215,14 @@ def tally(
     }
     # One person, one vote: when someone votes more than once (a changed vote, or a
     # member writing from two addresses), only their latest vote counts. "Latest" is
-    # the newest date, falling back to thread order when dates tie or are missing;
-    # the earlier votes are listed in `superseded_votes` and never counted.
-    latest: dict[str, tuple[tuple[str, int], dict[str, Any]]] = {}
+    # thread order, the order the list archive received the votes, which is the order
+    # they must be passed in. A sender sets their own Date header, so the date never
+    # decides; a vote whose date runs backwards against thread order is flagged in
+    # `date_order_mismatches` for the RM. Earlier votes are listed in
+    # `superseded_votes` and never counted.
+    latest: dict[str, tuple[int, dict[str, Any]]] = {}
     superseded: list[dict[str, Any]] = []
+    mismatches: list[dict[str, Any]] = []
     for index, vote in enumerate(votes):
         if not isinstance(vote, dict) or "from" not in vote or "value" not in vote:
             raise InputError(f"vote #{index} needs 'from' and 'value'")
@@ -228,16 +236,23 @@ def tally(
             "via": via,
             "identity": identity,
         }
-        order = (str(vote.get("date") or ""), index)
         previous = latest.get(identity)
-        if previous is None or order >= previous[0]:
-            if previous is not None:
-                superseded.append(_superseded(previous[1], candidate))
-            latest[identity] = (order, candidate)
-        else:
-            superseded.append(_superseded(candidate, previous[1]))
+        if previous is not None:
+            superseded.append(_superseded(previous[1], candidate))
+            before, after = previous[1]["date"], candidate["date"]
+            if before and after and str(after) < str(before):
+                mismatches.append(
+                    {
+                        "identity": identity,
+                        "earlier_in_thread": previous[1]["from"],
+                        "earlier_date": before,
+                        "later_in_thread": candidate["from"],
+                        "later_date": after,
+                    }
+                )
+        latest[identity] = (index, candidate)
 
-    for _, counted in sorted(latest.values(), key=lambda item: item[0][1]):
+    for _, counted in sorted(latest.values(), key=lambda item: item[0]):
         entry = {"from": counted["from"], "date": counted["date"]}
         value, via = counted["value"], counted["via"]
         if value == "AMBIGUOUS":
@@ -282,6 +297,7 @@ def tally(
         "ambiguous": ambiguous,
         "halted_on_ambiguous": halted,
         "superseded_votes": superseded,
+        "date_order_mismatches": mismatches,
         "force_close": force_close,
         **counts,
         "pass_rule_applied": rule_text,

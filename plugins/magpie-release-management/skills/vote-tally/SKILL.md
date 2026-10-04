@@ -28,7 +28,7 @@ capability:
   - capability:resolve
 surface_hash: sha256:34592bfacb7cf955
 license: Apache-2.0
-measured_tokens: 5763
+measured_tokens: 5821
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -388,9 +388,13 @@ Build the table from its `voters` and `ambiguous`, adding each
 
 **One person, one vote.** When someone votes more than once (a changed
 vote, or a member writing from two addresses), only their latest vote
-counts: the newest `date`, else the later one in the thread. The earlier
-votes are listed in `superseded_votes`; name them in the tally so the RM
-can see the change. A clear later vote replaces an earlier ambiguous one.
+counts. "Latest" is thread order, the order the list archive received the
+votes, so pass the votes to the script in that order; a sender sets their
+own `Date` header, so the date never decides. The earlier votes are listed
+in `superseded_votes`; name them in the tally so the RM can see the change.
+A vote whose date runs backwards against thread order is listed in
+`date_order_mismatches`: surface it to the RM. A clear later vote replaces
+an earlier ambiguous one.
 
 **If any `ambiguous` entries exist** (`halted_on_ambiguous: true`):
 

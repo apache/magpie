@@ -313,20 +313,34 @@ class LatestVoteTest(unittest.TestCase):
         self.assertEqual((out["binding_plus1"], out["binding_minus1"]), (0, 1))
         self.assertEqual(len(out["voters"]), 1)
         gone = out["superseded_votes"][0]
-        self.assertEqual((gone["identity"], gone["value"]), ("alice", "+1"))
+        self.assertEqual((gone["identity"], gone["value"]), ("roster:alice", "+1"))
         self.assertEqual(gone["superseded_by"]["value"], "-1")
         self.assertFalse(out["halted_on_ambiguous"])
 
-    def test_date_wins_over_thread_order(self) -> None:
+    def test_thread_order_decides_not_the_sender_date(self) -> None:
+        # The sender writes their own Date header: a forged future date must not win.
         out = self.run_tally(
             [
-                self.at("alice@apache.org", "-1", "2026-06-12T09:00:00Z"),
+                self.at("alice@apache.org", "-1", "2099-01-01T00:00:00Z"),
                 self.at("alice@apache.org", "+1", "2026-06-11T09:00:00Z"),
             ]
         )
-        self.assertEqual((out["binding_plus1"], out["binding_minus1"]), (0, 1))
+        self.assertEqual((out["binding_plus1"], out["binding_minus1"]), (1, 0))
+        mismatch = out["date_order_mismatches"][0]
+        self.assertEqual(
+            (mismatch["identity"], mismatch["earlier_date"]), ("roster:alice", "2099-01-01T00:00:00Z")
+        )
 
-    def test_thread_order_breaks_ties_and_missing_dates(self) -> None:
+    def test_consistent_dates_raise_no_mismatch(self) -> None:
+        out = self.run_tally(
+            [
+                self.at("alice@apache.org", "+1", "2026-06-11T09:00:00Z"),
+                self.at("alice@apache.org", "-1", "2026-06-12T09:00:00Z"),
+            ]
+        )
+        self.assertEqual(out["date_order_mismatches"], [])
+
+    def test_missing_dates_follow_thread_order(self) -> None:
         out = self.run_tally(
             [self.at("alice@apache.org", "+1", None), self.at("alice@apache.org", "0", None)]
         )
@@ -340,7 +354,7 @@ class LatestVoteTest(unittest.TestCase):
             ]
         )
         self.assertEqual(out["binding_plus1"], 1)
-        self.assertEqual([v["identity"] for v in out["superseded_votes"]], ["dave"])
+        self.assertEqual([v["identity"] for v in out["superseded_votes"]], ["roster:dave"])
 
     def test_three_members_voting_twice_do_not_pass_alone(self) -> None:
         votes = [
@@ -377,6 +391,17 @@ class LatestVoteTest(unittest.TestCase):
             [self.at("fan@gmail.com", "+1", None), self.at("Fan <FAN@gmail.com>", "+1", None)]
         )
         self.assertEqual(out["nonbinding_plus1"], 1)
+
+    def test_bare_handle_never_collides_with_a_roster_member(self) -> None:
+        # "alice" (a GitHub-style handle, not on the roster) is not alice@apache.org.
+        out = self.run_tally(
+            [
+                self.at("alice@apache.org", "+1", "2026-06-11T09:00:00Z"),
+                self.at("alice", "-1", "2026-06-12T09:00:00Z"),
+            ]
+        )
+        self.assertEqual(out["superseded_votes"], [])
+        self.assertEqual((out["binding_plus1"], out["nonbinding_minus1"]), (1, 1))
 
     def test_distinct_voters_supersede_nothing(self) -> None:
         out = self.run_tally(
