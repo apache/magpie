@@ -88,7 +88,6 @@ import re
 import shlex
 import subprocess
 import sys
-import tomllib
 from collections.abc import Callable
 from pathlib import Path
 
@@ -435,6 +434,10 @@ def _read_attribution(path: Path) -> str | None:
         return None
     except (OSError, UnicodeDecodeError) as exc:
         raise ValueError(f"{path}: {exc}") from exc
+    # Imported here, not at the top: the module must import on a pre-3.11
+    # ``python3`` so ``_reexec_under_supported_python`` can run.
+    import tomllib
+
     try:
         data = tomllib.loads(text)
     except tomllib.TOMLDecodeError as exc:
@@ -1064,5 +1067,39 @@ def cli(argv: list[str] | None = None) -> int:
     return main()
 
 
+_MIN_PYTHON = (3, 11)
+_REEXEC_VAR = "_AGENT_GUARD_REEXEC"
+
+
+def _reexec_under_supported_python() -> None:
+    """Re-run this script under a 3.11+ interpreter when ``python3`` is older.
+
+    Hooks invoke the engine as a bare ``python3``, which resolves through the
+    user's ``PATH`` — often an activated project virtualenv pinned to an older
+    Python. Look for a versioned ``python3.N`` instead of failing; when there is
+    none, exit 1 with an actionable message rather than an ImportError
+    traceback on every shell call.
+    """
+    if sys.version_info[:2] >= _MIN_PYTHON:
+        return
+    import shutil
+
+    if not os.environ.get(_REEXEC_VAR):
+        # ponytail: probes up to python3.20; raise the bound when that ships.
+        for minor in range(20, _MIN_PYTHON[1] - 1, -1):
+            interpreter = shutil.which(f"python3.{minor}")
+            if interpreter:
+                os.environ[_REEXEC_VAR] = "1"
+                os.execv(interpreter, [interpreter, os.path.abspath(__file__), *sys.argv[1:]])
+    found = ".".join(map(str, sys.version_info[:3]))
+    sys.stderr.write(
+        f"agent-guard: needs Python 3.11+, but python3 is {found} ({sys.executable}) "
+        "and no python3.11+ is on PATH. The guard is NOT running. "
+        "Install Python 3.11+ or put a newer python3 first on PATH.\n"
+    )
+    raise SystemExit(1)
+
+
 if __name__ == "__main__":
+    _reexec_under_supported_python()
     raise SystemExit(cli())

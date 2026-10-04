@@ -62,7 +62,7 @@ few milliseconds for any command that is not a guarded `gh` / `git commit` /
 
 ## Prerequisites
 
-- **Runtime:** Python stdlib only — the hook runs as `python3 .../agent_guard/__init__.py` (3.11+), never via `uv`, so it needs no built/installed environment. The test suite runs under `uv run --directory tools/agent-guard --group dev pytest`.
+- **Runtime:** Python stdlib only — the hook runs as `python3 .../agent_guard/__init__.py` (3.11+), never via `uv`, so it needs no built/installed environment. When that `python3` is older — typically an activated project virtualenv — the engine re-runs itself under the newest `python3.N` (3.11+) on `PATH`, or exits 1 with an actionable message when there is none. The test suite runs under `uv run --directory tools/agent-guard --group dev pytest`.
 - **CLIs:** `git` and `gh` — the guards shell out (via `ctx.run`) to inspect commits, branch state, and GitHub Actions runs. None otherwise.
 - **Credentials / auth:** None. The guards read local `git` / `gh` state; `gh` must be on `PATH` for the `mark-ready` guard's Actions lookup.
 - **Network:** None in the hot path; the `mark-ready` guard reaches `api.github.com` (via `gh`) when it checks for awaiting-approval Actions runs.

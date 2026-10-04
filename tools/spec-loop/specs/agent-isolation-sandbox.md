@@ -153,6 +153,10 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
   `git --no-pager commit`), never by a fixed argv slice, and
   `GuardContext.git_subcommand()` gives contributed guards the same
   resolution `gh_subcommand()` gives for `gh` (#1330).
+  Hooks invoke the engine as a bare `python3`; when that resolves to a
+  pre-3.11 interpreter, the engine re-runs itself under the newest
+  `python3.N` (3.11+) on `PATH`, and exits 1 with an actionable message
+  when none exists.
   The `commit-trailer` guard follows the project's commit-attribution
   convention (#1385): it denies a `Co-Authored-By:` trailer unless the
   convention resolved for the repository being committed to (following
