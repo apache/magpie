@@ -23,31 +23,27 @@ How each [`tools/chat/`](../chat/README.md) verb maps onto the Discord MCP.
 ## `list_channels()`
 
 1. Call `mcp__discord__discord_list_channels` for the configured server (guild).
-2. Filter for standard text and announcement channels (guild text, announcements, or public forum threads).
-3. Drop every channel with `is_private: true`, channels residing under private categories, or channels where `@everyone` permissions deny view access.
-4. Filter by the channel names declared in `chat.channels` when configured, or include all public channels when `chat.channels` is empty.
-5. Return `[{id, name, is_private: false}]` per channel; never request or return private channels.
+2. Filter for standard text and announcement channels (`GUILD_TEXT` / `type: 0`, `GUILD_ANNOUNCEMENT` / `type: 5`).
+3. Drop every channel where `@everyone` has `VIEW_CHANNEL` denied (via channel permission overwrite or inherited from its parent category).
+4. Filter by the channel names or IDs declared in `chat.channels` when configured, or include all public channels when `chat.channels` is empty.
+5. Return `[{id, name, is_private: false}]` per channel; never return private channels or direct messages.
 
 ## `resolve_user(github_handle)`
 
 1. Call `mcp__discord__discord_search_members` with `github_handle`, then with the contributor's verified real name when one is known.
-2. For each candidate member, call `mcp__discord__discord_get_user_profile`:
-   Return `confirmed_by: "profile"` only when:
-   - A connected account names the GitHub handle (e.g. `connected_accounts: { github: "<github_handle>" }`), or
-   - The user's profile bio ("About Me") explicitly names the GitHub handle or its `github.com/<handle>` URL.
-   That is the Discord account's own claim; the consuming skill still requires the GitHub side, the directory, or the maintainer to confirm it (see [`community-signals.md` § Identity](../../plugins/magpie-contributor-growth/skills/nomination/community-signals.md#identity)).
-3. Otherwise return the best candidate with `confirmed_by: null`, or `null` when there is none.
+2. Return the best candidate member with `confirmed_by: null`, or `null` when there is none.
+   (Note: Discord bot tokens cannot read other users' OAuth connected accounts or user profile bios without user authorization, so bot-based resolution returns matching candidates with `confirmed_by: null`. The consuming skill still requires the GitHub side, the organization's directory, or the maintainer to confirm the account per [`community-signals.md` § Identity](../../plugins/magpie-contributor-growth/skills/nomination/community-signals.md#identity)).
 
 ## `search_messages(chat_user_id, since, until, channels)`
 
-1. Call `mcp__discord__discord_search_messages` with `author_id: chat_user_id` across the public channels returned by `list_channels()`.
-2. Restrict to messages sent within the window `[since, until]`.
+1. Determine target channels: if `channels` is provided and non-empty, restrict search to those channel IDs; otherwise use every public channel returned by `list_channels()`.
+2. Call `mcp__discord__discord_search_messages` with `author_id: chat_user_id` restricted to those target channels and within the window `[since, until]`.
 3. Page through the search results.
 4. Map each hit to:
    ```json
    {
      "url": "https://discord.com/channels/<guild_id>/<channel_id>/<message_id>",
-     "channel": "<channel_name_or_id>",
+     "channel": "<channel_id_or_name>",
      "ts": "<iso_timestamp>",
      "text": "<message_content>",
      "is_reply": true,
@@ -56,8 +52,8 @@ How each [`tools/chat/`](../chat/README.md) verb maps onto the Discord MCP.
    ```
    where:
    - `is_reply` is true when the message references another message (`message_reference` / in-reply-to).
-   - `answers_question` is true when the message is a reply to a message asking a question written by someone else.
-5. Drop any hit outside the public channels.
+   - `answers_question` is true when the message is a reply to a question asked by someone else.
+5. Drop any hit outside the resolved public channels.
 
 ## Tools this adapter never calls
 

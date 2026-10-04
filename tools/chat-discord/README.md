@@ -23,17 +23,22 @@
 
 **Vendor:** Discord
 
-**MCP:** Discord (mcp__discord__*)
+**MCP:** Discord — chrishayuk/discord-mcp (mcp__discord__*)
 
 The Discord adapter for the [`tools/chat/`](../chat/) contract: reads public channels of the project's Discord server through the Discord MCP, to see how a contributor helps others in chat.
 It is read-only — see [Operations](#operations) for the only tools it calls.
 
 ## Prerequisites
 
-- **Runtime:** None — the adapter is a mapping onto Discord MCP tools.
-- **CLIs:** None.
-- **Credentials / auth:** Discord bot token or MCP connector authorised for the project's Discord server (guild).
-- **Network:** Discord API (`discord.com`), through the connector.
+- **Runtime:** Node.js 20+ — the backing tool is the Discord MCP server ([`chrishayuk/discord-mcp`](https://github.com/chrishayuk/discord-mcp)), registered at user scope:
+  ```bash
+  claude mcp add discord -s user -- npx -y discord-mcp
+  ```
+- **CLIs:** `node` / `npx`.
+- **Credentials / auth:** A Discord bot token stored under `$HOME` at `~/.config/apache-magpie/discord-token` (or in `$DISCORD_BOT_TOKEN`), never in the project tree. The bot application must be authorized for the project's server (guild) with:
+  - **Permissions:** View Channels (`VIEW_CHANNEL`), Read Message History (`READ_MESSAGE_HISTORY`).
+  - **Privileged Gateway Intents:** Message Content Intent (`MESSAGE_CONTENT` — required for reading message `text` and searching messages), Server Members Intent (`GUILD_MEMBERS` — required for user search).
+- **Network:** Discord API (`discord.com`).
 
 ## Operations
 
@@ -47,7 +52,7 @@ In `<project-config>/project.md`:
 chat:
   kind: discord
   guild_id: "..."  # optional Discord server (guild) ID when the bot joins multiple servers
-  channels: []     # channel names; empty = every public channel
+  channels: []     # channel names or IDs; empty = every public channel
 ```
 
 ## Security and privacy
