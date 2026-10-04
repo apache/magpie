@@ -1,0 +1,9 @@
+{
+  "step": "nexus-staging",
+  "status": "PASS",
+  "staging_repos": [
+    {"id": "orgapachefoo-1024", "state": "closed", "matches_rc": true}
+  ],
+  "nexus_findings": [],
+  "paste_recipe": "curl -fsS -o /dev/null -w '%{http_code}\\n' \"https://repository.apache.org/content/repositories/orgapachefoo-1024/\"\ncurl -fsS -u \"$(cat ~/.config/apache-magpie/asf-nexus/nexus-credentials)\" \"https://repository.apache.org/service/local/staging/repository/orgapachefoo-1024\" | jq .data\ncurl -fsS -u \"$(cat ~/.config/apache-magpie/asf-nexus/nexus-credentials)\" \"https://repository.apache.org/service/local/staging/profile_repositories\" | jq -r '.data[] | [.repositoryId, .state, .profileName] | @tsv' | grep -i \"orgapachefoo\""
+}

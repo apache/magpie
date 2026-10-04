@@ -27,8 +27,10 @@ Verifies **locally staged JVM release-candidate artefacts** — the
 `-javadoc.jar` — the way `release-verify-rc` verifies a staged source
 artefact today. Implements the blocking checks 1–3 proposed in
 [apache/magpie#1173](https://github.com/apache/magpie/issues/1173);
-the Nexus staging-repository check (check 4) and the informational
-checks (5–7) are later PRs on that issue.
+the Nexus staging-repository check (check 4) is implemented by
+[`tools/asf-nexus`](../asf-nexus/README.md) and `release-verify-rc`
+Step 6c, and the informational checks (5–7) are later PRs on that
+issue.
 
 Until this tool exists, `release-verify-rc` handles a jar in exactly
 one direction: as *contraband inside the source tree* (Step 6's

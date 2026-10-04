@@ -78,6 +78,12 @@ contract:project-metadata:
           - any-glob-to-any-file:
               - 'tools/apache-projects/**'
 
+contract:release-staging:
+  - any:
+      - changed-files:
+          - any-glob-to-any-file:
+              - 'tools/asf-nexus/**'
+
 contract:report-relay:
   - any:
       - changed-files:

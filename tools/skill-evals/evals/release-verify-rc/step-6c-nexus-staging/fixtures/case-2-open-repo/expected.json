@@ -1,0 +1,9 @@
+{
+  "step": "nexus-staging",
+  "status": "FAIL",
+  "staging_repos": [
+    {"id": "orgapachefoo-1025", "state": "open", "matches_rc": true}
+  ],
+  "nexus_findings": ["orgapachefoo-1025 is open — still mutable, not a valid vote target; the RM must close it before the [VOTE] opens"],
+  "paste_recipe": "curl -fsS -o /dev/null -w '%{http_code}\\n' \"https://repository.apache.org/content/repositories/orgapachefoo-1025/\"\ncurl -fsS -u \"$(cat ~/.config/apache-magpie/asf-nexus/nexus-credentials)\" \"https://repository.apache.org/service/local/staging/repository/orgapachefoo-1025\" | jq .data"
+}
