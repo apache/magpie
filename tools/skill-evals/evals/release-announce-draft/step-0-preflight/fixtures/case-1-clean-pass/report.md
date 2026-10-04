@@ -8,15 +8,26 @@ Planning issue body excerpt:
   Download Page: https://airflow.apache.org/docs/apache-airflow/2.11.0/installation/installing-from-pypi.html
   Changelog: https://github.com/apache/airflow/blob/2.11.0/CHANGELOG.md
 
-release-management-config.md:
-  release_announce_backend: announce-list
-  announce_list: announce@apache.org
-  announce_cc_lists: dev@airflow.apache.org, users@airflow.apache.org
-  announce_subject_template: "[ANNOUNCE] Apache Airflow <version> released"
-  site_repo: apache/airflow-site
-  site_pr_files: landing-pages/site/content/en/_index.md, landing-pages/site/content/en/announcements/2.11.0.md
-  keys_file_url: https://dist.apache.org/repos/dist/release/airflow/KEYS
-
-Current UTC time: 2026-06-11 10:00 UTC (> 1 hour after promote timestamp)
+Current UTC time: 2026-06-11 10:00 UTC
 --skip-promote-wait was NOT passed.
---non-asf was NOT passed.
+
+release-config preflight output
+(`uv run --project <framework>/tools/release-config release-config preflight --skill announce-draft 2.11.0 --promote-timestamp 2026-06-10T08:00:00Z --download-page https://airflow.apache.org/docs/apache-airflow/2.11.0/installation/installing-from-pypi.html`):
+
+```json
+{
+  "ok": true,
+  "skill": "announce-draft",
+  "blockers": [],
+  "warnings": [],
+  "values": {
+    "version": "2.11.0",
+    "skip_promote_wait_override": false,
+    "non_asf": false,
+    "promote_clear_after_utc": null,
+    "promote_wait_active": false,
+    "download_page_url": "https://airflow.apache.org/docs/apache-airflow/2.11.0/installation/installing-from-pypi.html",
+    "release_announce_backend": "announce-list"
+  }
+}
+```

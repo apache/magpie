@@ -7,18 +7,30 @@ Planning issue body excerpt:
   [VOTE] thread opened: 2026-06-10 10:00 UTC
   [VOTE] discussion: https://github.com/apache/airflow/discussions/9001
 
-release-management-config.md:
-  release_approval_mechanism: github-discussion
-  is_asf_tlp: true
-  approval_window_hours: 72
-  approval_discussion_repo: apache/airflow
-  approval_discussion_category: Releases
-  release_approver_roster_path: projects/airflow/pmc-roster.md
-  result_subject_template: "[RESULT] [VOTE] Release Apache Airflow <version> from <version>-<rcN>"
-
-projects/airflow/pmc-roster.md: exists, contains 7 rows.
-
 Current UTC time: 2026-06-14 12:00 UTC
-Vote window elapsed: yes (96 hours since discussion opened)
 --force-close was NOT passed.
-Note: is_asf_tlp is true but release_approval_mechanism is github-discussion (not dev-list-vote).
+
+release-config preflight output
+(`uv run --project <framework>/tools/release-config release-config preflight --skill vote-tally 2.11.0-rc2 --vote-opened 2026-06-10T10:00:00Z`):
+
+```json
+{
+  "ok": false,
+  "skill": "vote-tally",
+  "blockers": [
+    "an ASF project (project.md → organization: ASF) requires release_approval_mechanism=dev-list-vote; config has github-discussion"
+  ],
+  "warnings": [],
+  "values": {
+    "roster_path": "projects/airflow/pmc-roster.md",
+    "version": "2.11.0",
+    "rc_number": "rc2",
+    "force_close": false,
+    "mechanism": "github-discussion",
+    "is_asf": true,
+    "window_hours": 72,
+    "elapsed_hours": 98.0,
+    "window_closes_utc": "2026-06-13T10:00:00Z"
+  }
+}
+```

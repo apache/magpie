@@ -26,7 +26,7 @@ argument-hint: "[--fingerprint <fp>] [--keys-url <url>] [--keyserver <host>]"
 capability: capability:resolve
 surface_hash: sha256:61e10c986bb0d3ec
 license: Apache-2.0
-measured_tokens: 4799
+measured_tokens: 4824
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -191,18 +191,27 @@ override file. Framework changes go via PR to
 
 ## Step 0 — Pre-flight check
 
-1. **Fingerprint resolvable.** Read `rm_key_fingerprint` from
-   `<project-config>/release-management-config.md` Signing section, or
-   from `.apache-magpie-overrides/user.md` under
-   `release_manager.gpg_fingerprint`. If `--fingerprint` was passed,
-   use that value. If no fingerprint can be resolved, stop.
-2. **`keys_file_url` resolvable.** Read from config Signing section or
-   `--keys-url` override. If unresolvable, stop.
-3. **`keyserver` resolvable.** Read from config or `--keyserver`; default
-   to `keys.openpgp.org`.
-4. **KEYS file readable.** Fetch the current KEYS file content from
+Resolve the inputs with the
+[`release-config`](../../../../tools/release-config/README.md) tool,
+passing any overrides the RM gave:
+
+```bash
+uv run --project <framework>/tools/release-config release-config preflight \
+  --skill keys-sync [--fingerprint <fp>] [--keys-url <url>] [--keyserver <host>]
+```
+
+It resolves the fingerprint, `keys_file_url` and `keyserver` from the
+flags, the config's Signing section and the RM's `user.md`, and prints
+`{"ok", "blockers", "warnings", "values"}`.
+Each `blockers` entry is a hard blocker; surface it as written.
+Surface `warnings` and carry on.
+Copy `fingerprint`, `keys_file_url` and `keyserver` from `values`.
+
+Then:
+
+1. **KEYS file readable.** Fetch the current KEYS file content from
    `keys_file_url`. If unreachable, stop.
-5. **Fingerprint presence check.** Scan the KEYS file for the configured
+2. **Fingerprint presence check.** Scan the KEYS file for the configured
    fingerprint string.
    - **Not found** → `verdict: "proceed"`.
    - **Found** → also query the keyserver for the UID currently
@@ -211,8 +220,8 @@ override file. Framework changes go via PR to
        Populate `noop_reason` naming the UID. No commands will be emitted.
      - Different UID (key rolled or uid updated) → `verdict: "blocked"`.
        Populate `blockers` describing the mismatch.
-6. **Drift check** — the generated pre-flight block reports snapshot drift.
-7. **Override consultation** — see *Adopter overrides* above.
+3. **Drift check** — the generated pre-flight block reports snapshot drift.
+4. **Override consultation** — see *Adopter overrides* above.
 
 Return ONLY valid JSON with this structure:
 

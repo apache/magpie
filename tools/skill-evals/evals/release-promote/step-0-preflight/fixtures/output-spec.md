@@ -19,7 +19,8 @@ The model must return ONLY valid JSON matching this schema:
 
 Grading rules:
 - `verdict` must be `"proceed"` when all blockers are resolved and the RM
-  is on the PMC roster (or `--non-asf` was passed).
+  is on the approver roster (or the project is not ASF: `non_asf` is true
+  because `project.md` does not declare `organization: ASF`).
 - `verdict` must be `"handoff-non-pmc"` when the RM fails the PMC gate but
   all other checks pass.
 - `verdict` must be `"blocked"` when any hard blocker (other than non-PMC)

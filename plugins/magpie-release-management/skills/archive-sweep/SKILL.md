@@ -26,7 +26,7 @@ capability:
   - capability:triage
 surface_hash: sha256:1665af8aae9c2b58
 license: Apache-2.0
-measured_tokens: 4447
+measured_tokens: 4407
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -160,7 +160,10 @@ override file. Framework changes go via PR to
 
 - **`<project-config>/release-management-config.md` readable** —
   `archive_retention_rule`, `release_dist_backend`, `release_dist_url_template`,
-  and the archive destination key for the chosen backend.
+  and the archive destination: `archive_url_template`, which defaults to
+  `https://archive.apache.org/dist/<project>/` (from `project_dist_name`)
+  for both ASF backends, `svnpubsub` and `atr`, and is required for any
+  other backend.
 - **`<project-config>/release-trains.md` readable** — the set of supported
   release lines and their current latest versions. Used to identify orphans.
 - **Distribution listing accessible** — the skill must be able to read the
@@ -180,19 +183,25 @@ override file. Framework changes go via PR to
 
 ## Step 0 — Pre-flight check
 
-1. **Config readable.** `<project-config>/release-management-config.md`
-   is accessible and contains `archive_retention_rule`,
-   `release_dist_backend`, and `release_dist_url_template`.
-2. **Release trains readable.** `<project-config>/release-trains.md` is
-   accessible and lists at least one supported release line.
-3. **Backend known.** `release_dist_backend` is one of `svnpubsub`, `atr`,
-   `github-releases`, `s3`, `self-hosted`.
-4. **Archive destination known.** The archive URL or bucket path for the
-   chosen backend is derivable from the config (for `svnpubsub`, the
-   default is `https://archive.apache.org/dist/<project>/`; other
-   backends resolve from their backend-specific archive key).
-5. **Drift check** — the generated pre-flight block reports snapshot drift.
-6. **Override consultation** — see *Adopter overrides* above.
+Run the checks with the
+[`release-config`](../../../../tools/release-config/README.md) tool:
+
+```bash
+uv run --project <framework>/tools/release-config release-config preflight --skill archive-sweep
+```
+
+It covers the required config keys, `release-trains.md` (at least one
+release line), the backend and the archive destination (the
+`archive.apache.org` default for `svnpubsub` and `atr`), and prints
+`{"ok", "blockers", "warnings", "values"}`.
+Each `blockers` entry is a hard blocker; surface it as written.
+Surface `warnings` and carry on.
+Copy `non_asf` and `dist_backend` from `values`.
+
+Then:
+
+1. **Drift check** — the generated pre-flight block reports snapshot drift.
+2. **Override consultation** — see *Adopter overrides* above.
 
 If any check fails, stop and surface what is missing.
 
@@ -208,11 +217,7 @@ Return ONLY valid JSON with this structure:
 ```
 
 `verdict` is `"proceed"` only when all hard blockers resolve.
-`non_asf` is `true` when the distribution surface is not an ASF one — that is,
-when `release_dist_backend` is neither `svnpubsub` nor `atr`. Both are ASF
-platforms publishing to `dist.apache.org`; the flag marks adopters whose
-releases live somewhere else entirely, so keying it on "not `svnpubsub`"
-would mislabel every ASF project using ATR.
+`non_asf` is `true` unless `project.md` declares `organization: ASF`.
 
 ---
 

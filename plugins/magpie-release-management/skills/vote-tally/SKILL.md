@@ -28,7 +28,7 @@ capability:
   - capability:resolve
 surface_hash: sha256:34592bfacb7cf955
 license: Apache-2.0
-measured_tokens: 5535
+measured_tokens: 5639
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -42,7 +42,7 @@ measured_tokens: 5535
      <version>-<rcN>           → fully-qualified RC identifier (e.g. 2.11.0-rc1)
      <vote-list>               → configured vote mailing list (e.g. dev@airflow.apache.org)
      <release-approver-roster> → path to the approver roster file
-                                  (default <project-config>/pmc-roster.md for ASF)
+                                  (release_approver_roster_path; default <project-config>/pmc-roster.md)
      Substitute these with concrete values from the adopting
      project's <project-config>/release-management-config.md before
      running any command below. -->
@@ -152,9 +152,10 @@ not attribute an implicit `+1` to the Release Manager.
 require 5 binding `+1`). Attempts to weaken it are a hard blocker.
 
 **Golden rule 6 — ASF TLP pinning.** For ASF TLP releases
-(`is_asf_tlp: true` in `<project-config>/release-management-config.md`),
+(a project whose `project.md` declares `organization: ASF` — the one
+ASF-identity rule; there is no separate `is_asf_tlp` key),
 the `release_approval_mechanism` must be `dev-list-vote`. The skill
-refuses to tally any other mechanism for an ASF TLP release.
+refuses to tally any other mechanism for an ASF project.
 
 ---
 
@@ -182,8 +183,10 @@ override file. Framework changes go via PR to
 - **Planning issue open** and labelled `vote-open` (or the RM
   provides the planning issue URL explicitly).
 - **`<project-config>/release-management-config.md` readable** —
-  `release_approval_mechanism`, `release_approver_roster_path`,
-  `vote_window_hours`, `result_subject_template`.
+  `release_approval_mechanism`, `vote_window_hours`,
+  `result_subject_template`, and optionally
+  `release_approver_roster_path` (default
+  `<project-config>/pmc-roster.md`).
 - **Approver roster readable** at `<release-approver-roster>`.
 - **Approval signal available** — PonyMail thread, GitHub Discussion,
   PR reviews, or maintainer-roster file, depending on the configured
@@ -195,7 +198,7 @@ override file. Framework changes go via PR to
 
 | Selector | Resolves to |
 |---|---|
-| `<version>-rcN` (positional) | RC identifier; must match the planning issue |
+| `<version>-rcN` (positional) | RC identifier (a dotted version of two or more numeric parts with no `.postN`, then `-rcN` with N ≥ 1, e.g. `2.11.0-rc2`); must match the planning issue |
 | `--force-close <reason>` | Proceed even if the window has not elapsed; reason logged in outputs |
 | `--planning-issue <url>` | Explicit planning issue URL (auto-detected if omitted) |
 
@@ -203,28 +206,36 @@ override file. Framework changes go via PR to
 
 ## Step 0 — Pre-flight check
 
-1. **RC identifier parseable.** `<version>-rcN` matches the expected
-   pattern (`X.Y.Z-rcN` or `X.Y.Z.post0-rcN`).
-2. **Planning issue found.** Either `--planning-issue <url>` was
+Run the deterministic checks with the
+[`release-config`](../../../../tools/release-config/README.md) tool,
+passing the time the `[VOTE]` thread opened, read from the planning
+issue:
+
+```bash
+uv run --project <framework>/tools/release-config release-config preflight \
+  --skill vote-tally <version>-rcN --vote-opened <ISO-8601> [--force-close <reason>]
+```
+
+It covers the RC identifier format (see *Inputs*), the
+required config keys, the pinning of an ASF project (`project.md` →
+`organization: ASF`) to `dev-list-vote`, the roster at
+`release_approver_roster_path` and the approval window,
+and prints `{"ok", "blockers", "warnings", "values"}`.
+Each `blockers` entry is a hard blocker; surface it as written.
+Surface `warnings` and carry on.
+Copy `force_close`, `mechanism` and `roster_path` from `values`.
+
+Then check what the tool cannot see:
+
+1. **Planning issue found.** Either `--planning-issue <url>` was
    passed or the skill finds an open planning issue on `<upstream>`
    labelled `vote-open` and matching `<version>` in its title.
-3. **`release-management-config.md` readable.** The required keys
-   (`release_approval_mechanism`, `release_approver_roster_path`,
-   `result_subject_template`) are present.
-4. **ASF TLP pinning.** If `is_asf_tlp: true`, the
-   `release_approval_mechanism` must be `dev-list-vote`. Any other
-   value is a hard blocker for ASF TLP releases.
-5. **Roster readable.** The file at `<release-approver-roster>` exists
-   and contains at least one row.
-6. **Vote window elapsed.** The configured approval window has elapsed
-   since the `[VOTE]` thread was opened (read from the planning issue),
-   **or** `--force-close <reason>` was passed.
-7. **No unresolved ambiguous votes from a previous partial run.** If
+2. **No unresolved ambiguous votes from a previous partial run.** If
    the planning issue already has an `AMBIGUOUS` note from a previous
    `release-vote-tally` run, surface it and ask whether to re-run from
    scratch or resolve inline.
-8. **Drift check** — the generated pre-flight block reports snapshot drift.
-9. **Override consultation** — see *Adopter overrides* above.
+3. **Drift check** — the generated pre-flight block reports snapshot drift.
+4. **Override consultation** — see *Adopter overrides* above.
 
 If any check fails (and is not overridden), stop and surface what is
 missing.
@@ -522,7 +533,7 @@ The AI-driven part ends with a hand-back artefact containing:
 | Symptom | Likely cause | Remediation |
 |---|---|---|
 | Pre-flight blocked — window not elapsed | Vote opened recently | Wait, or pass `--force-close` with a reason |
-| Pre-flight blocked — ASF TLP + non-list mechanism | `release_approval_mechanism` is not `dev-list-vote` for an ASF TLP | Fix the config or confirm this is not an ASF TLP release |
+| Pre-flight blocked — ASF project + non-list mechanism | `release_approval_mechanism` is not `dev-list-vote` while `project.md` declares `organization: ASF` | Fix `release_approval_mechanism`, or correct `organization` in `project.md` if the project is not an ASF one |
 | Roster member not found for a vote | Email in the thread does not match roster | RM updates the roster or provides a handle mapping |
 | Ambiguous vote halts tally | Conditional or retracted reply in the thread | RM resolves on the thread, then re-runs; or passes `--force-close` |
 | Pass rule override weakens baseline | `vote_pass_rule_overrides` sets a lower threshold than ASF baseline | Fix the config (baseline is a floor, not a ceiling) |

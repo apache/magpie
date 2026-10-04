@@ -11,19 +11,28 @@ Planning issue body excerpt:
 
 RC tag check: gh api repos/apache/foo/git/refs/tags/1.0.0-rc1 → 404 (does not exist)
 
-release-build.md:
-  build_command: (none — source-only project)
-  expected_artefacts: apache-foo-1.0.0-source.tar.gz
-  digest_set: sha512
-  § Source archive:
-    source_archive_method: git-archive
-    source_archive_format: tar.gz
-    source_archive_prefix: apache-foo-1.0.0
-    export_ignore_reviewed: (unset)
-  Root .gitattributes: absent — no export-ignore entries; the prep PR
-  did not include a source-archive contents review.
+Root .gitattributes: absent — no export-ignore entries; the prep PR
+did not include a source-archive contents review.
 
-release-management-config.md:
-  release_dist_backend: svnpubsub
-  release_dist_url_template: https://dist.apache.org/repos/dist/dev/foo/<version>-<rcN>/
-  rm_key_fingerprint: ABCD1234EF5678901234ABCD1234EF5678901234
+release-config preflight output
+(`uv run --project <framework>/tools/release-config release-config preflight --skill rc-cut 1.0.0 rc1`):
+
+```json
+{
+  "ok": false,
+  "skill": "rc-cut",
+  "blockers": [
+    "export_ignore_reviewed is unset in release-build.md § Source archive (archive_reviewed: false): run `release-prepare prep 1.0.0` — its Step 2f walks you through what ships in the source archive and lands `.gitattributes` in the prep PR"
+  ],
+  "warnings": [],
+  "values": {
+    "version": "1.0.0",
+    "rc_number": "rc1",
+    "archive_reviewed": false,
+    "allow_unreviewed_archive": false,
+    "signing_mode": "rm-key",
+    "staging_url": "https://dist.apache.org/repos/dist/dev/foo/1.0.0-rc1/",
+    "rc_tag": "1.0.0-rc1"
+  }
+}
+```

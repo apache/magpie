@@ -3,14 +3,28 @@
 
 Invocation: /release-prepare 2.11.0
 
-release-management-config.md:
-  release_branch_base: main
-  version_manifest_files: setup.cfg, airflow/__init__.py
-  category_x_dependencies: (empty)
-  release_planning_issue_template: (not set; use default)
+release-config preflight output
+(`uv run --project <framework>/tools/release-config release-config preflight --skill prepare 2.11.0`):
 
-release-trains.md contains entry for 2.x train, version 2.11.0,
-  Release Manager: @jmclean, base branch: main.
+```json
+{
+  "ok": true,
+  "skill": "prepare",
+  "blockers": [],
+  "warnings": [],
+  "values": {
+    "sub_command": "plan",
+    "version": "2.11.0",
+    "release_branch_base": "main",
+    "previous_tag": null,
+    "release_lines": [
+      "**`main`** — the 2.x train; next release `2.11.0`, Release Manager @jmclean."
+    ],
+    "organization": "ASF",
+    "automated_signing_offered": true
+  }
+}
+```
 
 gh pr list access confirmed: apache/airflow responds with merged PRs.
 Previous release tag detected: 2.10.3

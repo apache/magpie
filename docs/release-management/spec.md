@@ -856,14 +856,15 @@ backend table in
 [`projects/_template/release-management-config.md`](../../plugins/magpie-setup/templates/release-management-config.md))
 are required only when the corresponding backend is selected.
 
-ASF TLP releases are pinned to `release_approval_mechanism =
+Releases of an ASF project (`project.md` → `organization: ASF`) are
+pinned to `release_approval_mechanism =
 dev-list-vote` (mandatory per
 [`release-policy.html § release approval`](https://www.apache.org/legal/release-policy.html#release-approval))
 and `release_announce_backend = announce-list` (mandatory per
 [`release-policy.html § announcements`](https://www.apache.org/legal/release-policy.html#release-announcements)).
 `release-vote-tally` and `release-announce-draft` refuse to run an
-ASF TLP release against any other value; non-ASF adopters set the
-keys their workflow uses.
+ASF release against any other value; non-ASF adopters set the
+keys their workflow uses (and may not use `announce-list`).
 
 ## Eval
 

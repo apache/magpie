@@ -37,7 +37,7 @@ argument-hint: "<version>-rcN [--post-to <planning-issue-url>] [--skip-repro] [-
 capability: capability:triage
 surface_hash: sha256:ed944a58facaae21
 license: Apache-2.0
-measured_tokens: 12502
+measured_tokens: 12622
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -187,8 +187,9 @@ override file. Framework changes go via PR to
 ## Prerequisites
 
 - **`<project-config>/release-management-config.md` readable** —
-  `keys_file_url`, `keyserver`, `release_dist_url_template`,
-  `version_manifest_files`.
+  `keys_file_url`, `release_dist_url_template`,
+  `version_manifest_files`; `keyserver` is optional (default
+  `keys.openpgp.org`).
 - **`<project-config>/release-build.md` readable** — expected
   artefact list, digest set, binary-exclude list, RAT configuration
   path; `§ Source archive` and `§ Reproducibility checks` for Step 9
@@ -207,7 +208,7 @@ override file. Framework changes go via PR to
 
 | Selector | Resolves to |
 |---|---|
-| `<version>-rcN` (positional) | RC identifier to verify (e.g. `2.11.0-rc1`) |
+| `<version>-rcN` (positional) | RC identifier to verify: a dotted version of two or more numeric parts with no `.postN`, then `-rcN` with N ≥ 1 (e.g. `2.11.0-rc1`) |
 | `--post-to <url>` | Planning issue URL; if present, draft a comment for RM confirmation (never auto-posts) |
 | `--skip-repro` | Skip Step 9 even when `reproducibility_source` is `on`; ignored (Step 9 stays mandatory) when the project has `automated_release_signing: enabled` |
 | `--trusted-hardware` | The committer asserts this run executes on hardware they control, not on CI. 🪶 ASF-specific: required for the trusted-hardware attestation the `--post-to` comment carries under `automated_release_signing: enabled`; the skill can state the assertion, never make it |
@@ -216,21 +217,32 @@ override file. Framework changes go via PR to
 
 ## Step 0 — Pre-flight check
 
-1. **RC argument parseable.** `<version>-rcN` matches the expected
-   pattern (version digits, a `-rc` separator, a positive integer).
-2. **`release-management-config.md` readable.** Required keys
-   `keys_file_url`, `keyserver`, `release_dist_url_template`,
-   `version_manifest_files` are all present.
-3. **`release-build.md` readable.** Required sections: expected
-   artefact list, digest set, binary-exclude list, RAT configuration
-   path.
-4. **Staging URL derivable.** Substituting `<version>-rcN` into
-   `release_dist_url_template` produces a well-formed URL.
-5. **Staging URL reachable.** Fetch the derived staging URL. If it does
+Run the deterministic checks with the
+[`release-config`](../../../../tools/release-config/README.md) tool:
+
+```bash
+uv run --project <framework>/tools/release-config release-config preflight \
+  --skill verify-rc <version>-rcN [--post-to <url>]
+```
+
+It covers the RC argument format, the required config keys and
+`release-build.md` sections, the staging-URL derivation, the resolved
+`keyserver` (default `keys.openpgp.org`) and each convenience
+artefact's own `version` (default the release version) against its
+`version_scheme` (an unknown or absent scheme is a warning), and prints
+`{"ok", "blockers", "warnings", "values"}`.
+Each `blockers` entry is a hard blocker; surface it as written.
+Surface `warnings` and carry on.
+Copy `rc_tag`, `staging_url` (`null` when it cannot be derived) and
+`post_to` from `values`; later steps use `values.keyserver`.
+
+Then check what the tool cannot see:
+
+1. **Staging URL reachable.** Fetch `values.staging_url`. If it does
    not resolve to a live listing (e.g. HTTP 404), the RC has not been
    staged yet — this is a hard blocker. Record the URL and status code.
-6. **Drift check** — the generated pre-flight block reports snapshot drift.
-7. **Override consultation** — see *Adopter overrides* above.
+2. **Drift check** — the generated pre-flight block reports snapshot drift.
+3. **Override consultation** — see *Adopter overrides* above.
 
 If any check fails, stop and surface what is missing with the exact
 key name or URL pattern that is absent.

@@ -4,12 +4,28 @@
 Invocation: /release-prepare prep 2.11.0
 (no --planning-issue flag provided)
 
-release-management-config.md:
-  release_branch_base: main
-  version_manifest_files: setup.cfg, airflow/__init__.py
-  category_x_dependencies: (empty)
+release-config preflight output
+(`uv run --project <framework>/tools/release-config release-config preflight --skill prepare prep 2.11.0`):
 
-release-trains.md: Entry for 2.x train, version 2.11.0 present.
+```json
+{
+  "ok": true,
+  "skill": "prepare",
+  "blockers": [],
+  "warnings": [],
+  "values": {
+    "sub_command": "prep",
+    "version": "2.11.0",
+    "release_branch_base": "main",
+    "previous_tag": null,
+    "release_lines": [
+      "**`main`** — the 2.x train; next release `2.11.0`, Release Manager @jmclean."
+    ],
+    "organization": "ASF",
+    "automated_signing_offered": true
+  }
+}
+```
 
 gh issue list search on apache/airflow: no open issue with label
   "release-planning" and "2.11.0" in the title was found.

@@ -4,13 +4,24 @@
 RC tag: 2.11.0-rc1
 --post-to: not supplied
 
-release-management-config.md:
-  keys_file_url: https://dist.apache.org/repos/dist/release/airflow/KEYS
-  keyserver: keys.openpgp.org
-  release_dist_url_template: (KEY ABSENT — this key is missing from the config file)
-  version_manifest_files: setup.cfg, airflow/__init__.py
+release-config preflight output
+(`uv run --project <framework>/tools/release-config release-config preflight --skill verify-rc 2.11.0-rc1`):
 
-release-build.md: present and readable
+```json
+{
+  "ok": false,
+  "skill": "verify-rc",
+  "blockers": [
+    "required key `release_dist_url_template` is missing from release-management-config.md"
+  ],
+  "warnings": [],
+  "values": {
+    "rc_tag": "2.11.0-rc1",
+    "staging_url": null,
+    "keyserver": "keys.openpgp.org",
+    "post_to": null
+  }
+}
+```
 
-Note: `release_dist_url_template` is absent from release-management-config.md.
-The staging URL cannot be derived without it.
+No staging URL was derived, so nothing was fetched.

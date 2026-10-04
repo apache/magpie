@@ -44,3 +44,31 @@ release-verify-rc Step 9 result recorded on the planning issue for 4.1.0-rc2
   binaries.identical: apache-foo-4.1.0-bin.tar.gz, apache_foo-4.1.0-py3-none-any.whl
   binaries.differs:   registry.example.org/apache/foo:4.1.0
     (rebuilt image layer sha256 differs: base image not pinned by digest)
+
+release-config load output (metadata.convenience)
+(`uv run --project <framework>/tools/release-config release-config load --skill promote 4.1.0-rc2 --verify-binary apache-foo-4.1.0-bin.tar.gz=identical --verify-binary apache_foo-4.1.0-py3-none-any.whl=identical --verify-binary registry.example.org/apache/foo:4.1.0=differs`):
+
+```json
+{
+  "convenience": {
+    "publish": [
+      {
+        "name": "apache-foo-4.1.0-bin.tar.gz",
+        "publish_channel": "dist-release",
+        "publish_command": null
+      },
+      {
+        "name": "apache_foo-4.1.0-py3-none-any.whl",
+        "publish_channel": "pypi",
+        "publish_command": "twine upload dist/apache_foo-4.1.0-py3-none-any.whl"
+      }
+    ],
+    "held": [
+      {
+        "name": "registry.example.org/apache/foo:4.1.0",
+        "reason": "differs"
+      }
+    ]
+  }
+}
+```

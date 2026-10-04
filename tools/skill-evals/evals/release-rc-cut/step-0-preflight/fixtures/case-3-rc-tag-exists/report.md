@@ -1,6 +1,8 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
+Invocation: /release-rc-cut 2.12.0 rc1
+
 Planning issue: apache/airflow#47000 (open, labelled `release-planning`,
 title "Release Apache Airflow 2.12.0")
 Planning issue body excerpt:
@@ -9,14 +11,23 @@ Planning issue body excerpt:
 RC tag check: gh api repos/apache/airflow/git/refs/tags/2.12.0-rc1 → 200
   The tag 2.12.0-rc1 already exists on the remote (previous cut attempt).
 
-release-build.md:
-  build_command: python -m build --sdist
-  expected_artefacts: apache_airflow-2.12.0.tar.gz
-  digest_set: sha512
+release-config preflight output
+(`uv run --project <framework>/tools/release-config release-config preflight --skill rc-cut 2.12.0 rc1`):
 
-release-management-config.md:
-  release_dist_backend: svnpubsub
-  release_dist_url_template: https://dist.apache.org/repos/dist/dev/airflow/<version>-<rcN>/
-  rm_key_fingerprint: ABCD1234EF5678901234ABCD1234EF5678901234
-  source_archive_method: custom
-  export_ignore_reviewed: 2.11.0 (source-archive contents review completed in the 2.11.0 prep PR)
+```json
+{
+  "ok": true,
+  "skill": "rc-cut",
+  "blockers": [],
+  "warnings": [],
+  "values": {
+    "version": "2.12.0",
+    "rc_number": "rc1",
+    "archive_reviewed": true,
+    "allow_unreviewed_archive": false,
+    "signing_mode": "rm-key",
+    "staging_url": "https://dist.apache.org/repos/dist/dev/airflow/2.12.0-rc1/",
+    "rc_tag": "2.12.0-rc1"
+  }
+}
+```

@@ -25,7 +25,7 @@ argument-hint: "<version>-rcN [--skip-verify-check <reason>]"
 capability: capability:resolve
 surface_hash: sha256:6d70a52ead840ca2
 license: Apache-2.0
-measured_tokens: 6842
+measured_tokens: 6740
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -192,7 +192,7 @@ override file. Framework changes go via PR to
 
 | Selector | Resolves to |
 |---|---|
-| `<version>-rcN` (positional) | RC identifier; must match a staged RC |
+| `<version>-rcN` (positional) | RC identifier (a dotted version of two or more numeric parts with no `.postN`, then `-rcN` with N ≥ 1, e.g. `2.11.0-rc1`); must match a staged RC |
 | `--skip-verify-check <reason>` | Override the verify-rc gate; reason is logged |
 | `--expedited <reason>` | Allow `vote_window_hours` < 72; reason appears in the vote body |
 | `--planning-issue <url>` | Explicit planning issue URL (auto-detected if omitted) |
@@ -201,21 +201,33 @@ override file. Framework changes go via PR to
 
 ## Step 0 — Pre-flight check
 
-1. **RC identifier parseable.** `<version>-rcN` matches the expected
-   pattern (`X.Y.Z-rcN` or `X.Y.Z.post0-rcN` for post-releases).
-2. **Planning issue found.** Either `--planning-issue <url>` was
+Run the deterministic checks with the
+[`release-config`](../../../../tools/release-config/README.md) tool,
+passing the arguments as the RM typed them:
+
+```bash
+uv run --project <framework>/tools/release-config release-config preflight \
+  --skill vote-draft <version>-rcN [--skip-verify-check <reason>] [--expedited <reason>]
+```
+
+It covers the RC identifier format, the required config keys and the
+72-hour vote-window floor, and prints
+`{"ok", "blockers", "warnings", "values"}`.
+Each `blockers` entry is a hard blocker; surface it as written.
+Surface `warnings` and carry on.
+Copy `skip_verify_override` and `expedited` from `values`.
+
+Then check what the tool cannot see:
+
+1. **Planning issue found.** Either `--planning-issue <url>` was
    passed or the skill can find an open planning issue on `<upstream>`
    labelled `release-planning` and matching `<version>` in its title.
-3. **`release-management-config.md` readable.** The required keys
-   (`vote_window_hours`, `vote_dev_list`) are present.
-4. **Verify-rc gate.** The planning issue's most recent
+2. **Verify-rc gate.** The planning issue's most recent
    `release-verify-rc` comment reports `PASS` for `<version>-<rcN>`,
    **or** `--skip-verify-check <reason>` was passed. If neither
    condition holds, stop and surface what is missing.
-5. **Vote window valid.** `vote_window_hours` >= 72, or
-   `--expedited <reason>` was passed.
-6. **Drift check** — the generated pre-flight block reports snapshot drift.
-7. **Override consultation** — see *Adopter overrides* above.
+3. **Drift check** — the generated pre-flight block reports snapshot drift.
+4. **Override consultation** — see *Adopter overrides* above.
 
 If any check fails (and is not overridden), stop and surface what is
 missing.
@@ -240,33 +252,36 @@ or `expedited` rather than added to `blockers`.
 
 ## Step 1 — Load RC metadata
 
-Read the following from the planning issue body and
-`<project-config>/release-management-config.md`:
+Load the config-derived fields with the
+[`release-config`](../../../../tools/release-config/README.md) tool:
+
+```bash
+uv run --project <framework>/tools/release-config release-config load \
+  --skill vote-draft <version>-rcN
+```
+
+Its `metadata` carries `version`, `rc_number`, `keys_url`, `vote_list`,
+`vote_window_hours`, `subject_template`, `vote_backend` (`manual`
+default, or `atr`), `atr_platform_url` (only when `vote_backend = atr`),
+`verification_doc_url` and `reproducibility_doc_url` (rendered with
+`<version>-<rcN>` so voters read the pages at the tree under vote),
+`verification_skill` (the agentic one-liner a voter can run),
+`signing_mode`, and `convenience_artefacts` (name, `staging`,
+`vote_included`, `reproducibility`; empty for a source-only project).
+
+Read the rest from the planning issue body and the canned responses:
 
 | Metadata field | Source | Key / location |
 |---|---|---|
 | `product_name` | `release-management-config.md` | derived from `project_dist_name` (capitalised project display name) |
-| `version` | trigger argument | `<version>` |
-| `rc_number` | trigger argument | `<rcN>` |
 | `staging_url` | planning issue body | URL under `dist/dev/<project>/<version>-<rcN>/` (for `release_dist_backend = svnpubsub`) |
 | `svn_revision` | `svn info <staging_url>` | the committed SVN revision of the staged RC directory (**required** when `release_dist_backend = svnpubsub`; omit for other backends). Read it with `svn info --show-item last-changed-revision <staging_url>` (or `svn log -l1`). SVN branches are mutable, so this pins exactly which artefacts voters reviewed. |
 | `tag_url` | planning issue body | URL to the RC git tag |
-| `keys_url` | `release-management-config.md` | `keys_file_url` |
 | `changelog_url` | planning issue body | URL to changelog |
-| `vote_list` | `release-management-config.md` | `vote_dev_list` |
-| `vote_window_hours` | `release-management-config.md` | `vote_window_hours` |
-| `subject_template` | `release-management-config.md` | `vote_subject_template` (fallback to default) |
-| `vote_backend` | `release-management-config.md` | `release_vote_backend` (`manual` default, or `atr`) |
-| `atr_platform_url` | `release-management-config.md` | `atr_platform_url` (only when `vote_backend = atr`) |
 | `atr_revision` | *(optional)* | Specific ATR revision to vote on; omit to use the latest uploaded revision (`atr vote start --revision` defaults to latest — do not hard-depend on a `revisions` lookup) |
 | `canned_body` | `<project-config>/canned-responses.md` | `[VOTE]` template block, if present |
 | `repro_record` | planning issue body | the reproducibility record `release-rc-cut` posted: source commit, repository URL, the `swh:1:dir:` SWHID of the archive content (with its `origin` / `anchor` qualifiers), `SOURCE_DATE_EPOCH`, sha512 of the source artefact (see [`reproducibility.md`](../../../../docs/release-management/reproducibility.md)); if absent, say so and leave the lines out — never invent them; if only some fields are present, include those |
 | `atr_candidate_url` | planning issue body | URL of the candidate's ATR page with its check results (only when `vote_backend = atr`) |
-| `verification_doc_url` | `release-management-config.md` | `vote_verification_doc_url` — the human-readable "how to verify this RC" page, rendered with `<version>-<rcN>` so voters read the page at the tree under vote |
-| `reproducibility_doc_url` | `release-management-config.md` | `reproducibility_doc_url` — background on the reproducible source archive; rendered the same way |
-| `verification_skill` | `release-management-config.md` | `vote_verification_skill` (default `magpie-release-management:verify-rc`) — the agentic one-liner a voter can run |
-| `signing_mode` | `release-management-config.md` | `ci-automated` when `automated_release_signing: enabled` under `organization: ASF`, else `rm-key` |
-| `convenience_artefacts` | `release-build.md § Convenience artefacts` | the project's optional artefacts besides the source: name, `staging`, `vote_included`, `reproducibility`; empty for a source-only project |
 
 Surface the loaded metadata to the RM for confirmation before
 proceeding to Step 2.

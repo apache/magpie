@@ -8,16 +8,28 @@ Planning issue body excerpt:
   Download Page: https://airflow.apache.org/docs/apache-airflow/2.11.0/installation/installing-from-pypi.html
   Changelog: https://github.com/apache/airflow/blob/2.11.0/CHANGELOG.md
 
-release-management-config.md:
-  release_announce_backend: announce-list
-  announce_list: announce@apache.org
-  announce_cc_lists: dev@airflow.apache.org, users@airflow.apache.org
-  announce_subject_template: "[ANNOUNCE] Apache Airflow <version> released"
-  site_repo: apache/airflow-site
-  keys_file_url: https://dist.apache.org/repos/dist/release/airflow/KEYS
-
 Current UTC time: 2026-06-11 10:15 UTC
-Note: only 30 minutes have elapsed since the promote timestamp (09:45 UTC).
-The one-hour gate has NOT yet cleared; it clears at 10:45 UTC.
 --skip-promote-wait was NOT passed.
---non-asf was NOT passed.
+
+release-config preflight output
+(`uv run --project <framework>/tools/release-config release-config preflight --skill announce-draft 2.11.0 --promote-timestamp 2026-06-11T09:45:00Z --download-page https://airflow.apache.org/docs/apache-airflow/2.11.0/installation/installing-from-pypi.html`):
+
+```json
+{
+  "ok": false,
+  "skill": "announce-draft",
+  "blockers": [
+    "Promote-wait gate: promote commit was at 2026-06-11T09:45:00Z; the one-hour gate clears at 2026-06-11T10:45:00Z (in ~30 minutes). Pass --skip-promote-wait <reason> to override."
+  ],
+  "warnings": [],
+  "values": {
+    "version": "2.11.0",
+    "skip_promote_wait_override": false,
+    "non_asf": false,
+    "promote_clear_after_utc": "2026-06-11T10:45:00Z",
+    "promote_wait_active": true,
+    "download_page_url": "https://airflow.apache.org/docs/apache-airflow/2.11.0/installation/installing-from-pypi.html",
+    "release_announce_backend": "announce-list"
+  }
+}
+```

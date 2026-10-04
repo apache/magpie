@@ -40,7 +40,7 @@ argument-hint: "[prep | post] <version> [--review-archive] | automated-signing"
 capability: capability:resolve
 surface_hash: sha256:d553c5eab83e2635
 license: Apache-2.0
-measured_tokens: 13872
+measured_tokens: 14045
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -227,9 +227,12 @@ For Step 2's source-archive review (`prep`, Step 2f) — optional:
   would ship from *that* tree.
 
 For Step A (`automated-signing`, 🪶 ASF-specific):
-- **`project.md` declares `organization: ASF`.** The sub-command is
-  not offered otherwise; see [`organizations/ASF/organization.md`](../../../../organizations/ASF/organization.md)
-  → `release_process.automated_signing`.
+- **The project's organization offers it.** The organization manifest
+  key `release_process.automated_signing`, resolved `project.md` →
+  organization manifest → framework default (not offered), is set; of
+  the shipped organizations only
+  [`organizations/ASF/organization.md`](../../../../organizations/ASF/organization.md)
+  sets it. The sub-command is not offered otherwise.
 - **`release-build.md § Reproducibility checks`** — `reproducibility_source: on`
   and `reproducibility_binaries: byte-identical` (or no binaries).
 
@@ -240,7 +243,7 @@ For Step A (`automated-signing`, 🪶 ASF-specific):
 | Selector | Resolves to |
 |---|---|
 | `[prep \| post \| automated-signing]` (optional first argument) | Sub-command: `prep` = Step 2, `post` = Step 14, `automated-signing` = Step A (🪶 ASF-only, no `<version>`), omit = Step 1 |
-| `<version>` (positional) | Target release version string |
+| `<version>` (positional) | Target release version string (a dotted version of two or more numeric parts, no `.postN`, e.g. `2.11.0`) |
 | `--planning-issue <url>` | Explicit planning issue URL (auto-detected if omitted) |
 | `--release-branch <branch>` | Override the base branch for the prep or post PR |
 | `--previous-tag <tag>` | Override the previous release tag for the merged-PR query |
@@ -251,26 +254,41 @@ For Step A (`automated-signing`, 🪶 ASF-specific):
 
 ## Step 0 — Pre-flight check
 
-1. **Sub-command parsed.** Argument is one of: `<version>` (Step 1),
-   `prep <version>` (Step 2), `post <version>` (Step 14), or
-   `automated-signing` (Step A; 🪶 ASF-specific — if `project.md` does
-   not declare `organization: ASF`, block with *"automated release
-   signing is an ASF Infra offering; this project's organization does
-   not provide one"* and do not describe the flow further).
-2. **Version argument parseable.** `<version>` matches a semver-ish
-   pattern (`X.Y.Z`, `X.Y.Z.post0`, or similar).
-3. **`release-management-config.md` readable.** Required keys present:
-   `release_branch_base`, `version_manifest_files`.
-4. **`release-trains.md` readable.** A train record exists for `<version>`.
-5. **For Step 2 (`prep`):** Planning issue found and labelled
+Run the deterministic checks with the
+[`release-config`](../../../../tools/release-config/README.md) tool,
+passing the arguments as the RM typed them:
+
+```bash
+uv run --project <framework>/tools/release-config release-config preflight \
+  --skill prepare [prep|post|automated-signing] [<version>] \
+  [--release-branch <branch>] [--previous-tag <tag>]
+```
+
+It covers the sub-command, the version format (see *Inputs*), the
+automated-signing gate, the
+required config keys and `release-trains.md`, and prints
+`{"ok", "blockers", "warnings", "values"}`.
+Each `blockers` entry is a hard blocker; surface it as written.
+`automated-signing` is 🪶 ASF-specific: when the tool blocks it (the
+organization does not offer it), do not describe the flow further.
+Surface `warnings` and carry on.
+Copy `sub_command`, `version`, `release_branch_base` and `previous_tag`
+from `values`; fill `previous_tag` yourself when it is detectable at
+pre-flight.
+
+Then check what the tool cannot see:
+
+1. **Train record exists for `<version>`.** One of `values.release_lines`
+   (the release lines `release-trains.md` lists) covers `<version>`.
+2. **For Step 2 (`prep`):** Planning issue found and labelled
    `release-planning`. Either `--planning-issue <url>` was passed or
    the skill finds a `release-planning` issue on `<upstream>` matching
    `<version>` in its title.
-6. **For Step 14 (`post`):** Planning issue found and labelled
+3. **For Step 14 (`post`):** Planning issue found and labelled
    `announced`.
-7. **`<upstream>` access.** `gh pr list --repo <upstream>` succeeds.
-8. **Drift check** — the generated pre-flight block reports snapshot drift.
-9. **Override consultation** — see *Adopter overrides* above.
+4. **`<upstream>` access.** `gh pr list --repo <upstream>` succeeds.
+5. **Drift check** — the generated pre-flight block reports snapshot drift.
+6. **Override consultation** — see *Adopter overrides* above.
 
 If any check fails (and is not overridden), stop and surface what is
 missing with the exact config key name that is missing or the exact
@@ -893,14 +911,14 @@ Return ONLY valid JSON with this structure:
 
 ## Step A — Automated release signing setup (sub-command: `automated-signing`, 🪶 ASF-specific)
 
-> **Scope.** Only for a project whose `project.md` declares
-> `organization: ASF`. The option is an ASF Infra offering
+> **Scope.** Only for a project whose organization offers it: the
+> organization manifest key `release_process.automated_signing`,
+> resolved `project.md` → organization manifest → framework default
+> (not offered). The option is an ASF Infra offering
 > ([Infra § Automated release signing](https://infra.apache.org/release-signing.html#automated-release-signing))
-> and is resolved from
-> [`organizations/ASF/organization.md`](../../../../organizations/ASF/organization.md)
-> → `release_process.automated_signing`; for any other organization
-> the value is `null`, Step 0 blocks, and the flow is not described.
-> Non-ASF adopters keep the RM-key flow.
+> and only [`organizations/ASF/organization.md`](../../../../organizations/ASF/organization.md)
+> sets the key; where it resolves to `null` or unset, Step 0 blocks and
+> the flow is not described. Those adopters keep the RM-key flow.
 
 A one-time, version-less **drafting** step. Under the policy an ASF
 project may let CI sign the artefacts it builds with an
@@ -915,7 +933,8 @@ Background:
 
 All of the following, else stop and list what is missing:
 
-- `project.md` → `organization: ASF`.
+- `release_process.automated_signing` is set (`project.md` →
+  organization manifest → framework default; Step 0 checked it).
 - `release-build.md` → `source_archive_method: git-archive`,
   `reproducibility_source: on`, and `reproducibility_binaries:
   byte-identical` for every convenience binary in `expected_artefacts`

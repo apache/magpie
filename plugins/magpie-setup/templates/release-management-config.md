@@ -174,8 +174,11 @@ See
 
 ### Automated release signing (🪶 ASF-specific, optional)
 
-Offered only when `project.md` declares `organization: ASF`; the
-skills do not mention it to other adopters. Under
+Offered only when the project's organization offers it: the
+organization manifest key `release_process.automated_signing`,
+resolved `project.md` → organization manifest → framework default
+(not offered). Of the shipped organizations only `organizations/ASF/`
+sets it; the skills do not mention it to other adopters. Under
 [release-signing § Automated release signing](https://infra.apache.org/release-signing.html#automated-release-signing)
 an ASF project may let CI (GitHub Actions) sign the artefacts it
 builds with an **Infra-provisioned key** (4096-bit RSA, signing-only,
@@ -215,7 +218,7 @@ variants* below).
 | `vote_pass_rule_overrides` | *(none, uses ASF baseline: 3 binding +1 minimum, more binding +1 than -1)* |
 | `vote_subject_template` | `[VOTE] Release <Product Name> <version> from <version>-rcN` |
 | `result_subject_template` | `[RESULT] [VOTE] Release <Product Name> <version> from <version>-rcN` |
-| `release_approver_roster_path` | `<project-config>/pmc-roster.md` *(ASF default); non-ASF: e.g. `<project-config>/release-approvers.md`)* |
+| `release_approver_roster_path` | `<project-config>/pmc-roster.md` *(the default when unset; read by `release-vote-tally`, `release-promote` and `release-audit-report`; non-ASF: e.g. `<project-config>/release-approvers.md`)* |
 | `vote_verification_doc_url` | `https://github.com/<upstream>/blob/<version>-rcN/docs/verifying-a-release-candidate.md` — the human-readable "how to verify this RC" page; `<version>-rcN` is rendered so voters read the page at the tree under vote |
 | `reproducibility_doc_url` | `https://github.com/<upstream>/blob/<version>-rcN/.apache-magpie/docs/release-management/reproducibility.md` — or the framework copy on `apache/magpie` |
 | `vote_verification_skill` | `magpie-release-management:verify-rc` — the agentic one-liner the `[VOTE]` body offers voters |

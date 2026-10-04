@@ -23,7 +23,7 @@ argument-hint: "<version> [--planning-issue <url>]"
 capability: capability:stats
 surface_hash: sha256:576d71b04f203cd8
 license: Apache-2.0
-measured_tokens: 6651
+measured_tokens: 6772
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -157,9 +157,9 @@ present in the planning issue but their value is non-public.
 
 **Golden rule 5 — voter identity from the roster, not from email.** Binding
 voters are cited by their PMC roster handle (e.g. `@githubhandle`), never
-by the `From:` header of their vote email. The `pmc-roster.md` (or the
-configured `release_approver_roster_path`) is the authoritative handle
-source.
+by the `From:` header of their vote email. The roster at
+`release_approver_roster_path` (default `<project-config>/pmc-roster.md`)
+is the authoritative handle source.
 
 ---
 
@@ -188,8 +188,10 @@ override file. Framework changes go via PR to
   `audit_log_path` configured. The optional `product_name` key supplies the
   human-readable product name used in the record title and PR text; it
   defaults to `<project>` when absent.
-- **`<project-config>/pmc-roster.md`** (or `release_approver_roster_path`)
-  readable for binding-voter handle resolution.
+- **The approver roster** at `release_approver_roster_path` (default
+  `<project-config>/pmc-roster.md`, the same key `release-vote-tally`
+  and `release-promote` read) readable for binding-voter handle
+  resolution.
 
 ---
 
@@ -197,25 +199,36 @@ override file. Framework changes go via PR to
 
 | Selector | Resolves to |
 |---|---|
-| `<version>` (positional) | Release version string to audit |
+| `<version>` (positional) | Release version string to audit (a dotted version of two or more numeric parts, no `.postN`, e.g. `2.11.0`) |
 | `--planning-issue <url>` | Explicit planning issue URL (auto-detected if omitted) |
 
 ---
 
 ## Step 0 — Pre-flight check
 
-1. **Version argument parseable.** `<version>` matches the expected
-   semver-ish pattern (`X.Y.Z` or `X.Y.Z.post0`).
-2. **Planning issue found.** Either `--planning-issue <url>` was passed or
+Run the deterministic checks with the
+[`release-config`](../../../../tools/release-config/README.md) tool:
+
+```bash
+uv run --project <framework>/tools/release-config release-config preflight \
+  --skill audit-report <version>
+```
+
+It covers the version format, `audit_log_path`, and the roster at
+`release_approver_roster_path` (default `<project-config>/pmc-roster.md`),
+and prints `{"ok", "blockers", "warnings", "values"}`.
+Each `blockers` entry is a hard blocker; surface it as written.
+Surface `warnings` and carry on.
+Copy `audit_log_path` from `values` (`null` when unset).
+
+Then check what the tool cannot see:
+
+1. **Planning issue found.** Either `--planning-issue <url>` was passed or
    the skill can find a planning issue on `<upstream>` matching `<version>`
    in its title. Any issue state (open, closed) is accepted — the audit
    report is useful even when the issue is still open during a sweep.
-3. **`release-management-config.md` readable** and contains `audit_log_path`.
-4. **Roster file readable.** The file at `release_approver_roster_path`
-   (default `<project-config>/pmc-roster.md`) is readable and parses as a
-   valid roster.
-5. **Drift check** — the generated pre-flight block reports snapshot drift.
-6. **Override consultation** — see *Adopter overrides* above.
+2. **Drift check** — the generated pre-flight block reports snapshot drift.
+3. **Override consultation** — see *Adopter overrides* above.
 
 If any check fails, stop and surface what is missing with the exact key
 name (for config checks) or the exact search term used (for planning-issue
@@ -258,7 +271,7 @@ the configured archive backend, and `<project-config>/release-management-config.
 | `announce_archive_url` | planning issue body (`[ANNOUNCE]` archive URL); else resolve from the announce-list mail archive (see *Mail-archive resolution*) | `MISSING` |
 | `vote_binding_plus1` | vote tally from planning issue or `[RESULT]` thread | `MISSING` |
 | `vote_binding_minus1` | vote tally from planning issue or `[RESULT]` thread | `MISSING` |
-| `binding_voters` | roster handle list from `pmc-roster.md` crossed with `[RESULT]` | `MISSING` |
+| `binding_voters` | roster handle list from the roster at `release_approver_roster_path` (default `pmc-roster.md`) crossed with `[RESULT]` | `MISSING` |
 
 **Mail-archive resolution.** Before marking `vote_thread_url`,
 `result_thread_url`, or `announce_archive_url` as `MISSING`, resolve each

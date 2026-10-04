@@ -25,7 +25,7 @@ argument-hint: "<version> [--planning-issue <url>]"
 capability: capability:resolve
 surface_hash: sha256:edffafcd9d9948ab
 license: Apache-2.0
-measured_tokens: 6928
+measured_tokens: 6925
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -166,12 +166,14 @@ the skill surfaces it as a scope violation and asks the RM to confirm
 before including it.
 
 **Golden rule 7 — ASF TLP backend enforcement.** For an ASF TLP release
-(`release_announce_backend = announce-list` is the only legal value per
+(a project whose `project.md` declares `organization: ASF`;
+`release_announce_backend = announce-list` is the only legal value per
 [release-policy.html § announcements](https://www.apache.org/legal/release-policy.html#release-announcements)),
 the skill refuses to run against any other `release_announce_backend`
-value unless `--non-asf` is passed. Non-ASF adopters pass `--non-asf`
-explicitly; the skill then emits backend-shaped artefacts rather than the
-ASF `[ANNOUNCE]` format.
+value. For every other organization `non_asf` is true (derived from
+`organization`, never from a flag): `announce-list` is refused, and the
+skill emits backend-shaped artefacts rather than the ASF `[ANNOUNCE]`
+format.
 
 ---
 
@@ -210,41 +212,50 @@ override file. Framework changes go via PR to
 
 | Selector | Resolves to |
 |---|---|
-| `<version>` (positional) | Release version string to announce |
+| `<version>` (positional) | Release version string to announce (a dotted version of two or more numeric parts, no `.postN`, e.g. `2.11.0`) |
 | `--planning-issue <url>` | Explicit planning issue URL (auto-detected if omitted) |
 | `--promote-timestamp <ISO-8601>` | Override promote timestamp (when not in planning issue body) |
 | `--download-page <url>` | Override or supply the canonical Download Page URL |
 | `--skip-promote-wait <reason>` | Override the one-hour promote gate; reason is logged in both outputs |
-| `--non-asf` | Signal that this is a non-ASF adopter; backend-shaped artefacts emitted instead of ASF `[ANNOUNCE]` format |
 
 ---
 
 ## Step 0 — Pre-flight check
 
-1. **Version argument parseable.** `<version>` matches the expected
-   semver-ish pattern (`X.Y.Z` or `X.Y.Z.post0`).
-2. **Planning issue found and carries `promoted`.** Either
-   `--planning-issue <url>` was passed or the skill can find a `promoted`
-   planning issue on `<upstream>` matching `<version>` in its title.
-3. **`release-management-config.md` readable.** The required keys
-   (`announce_list`, `announce_subject_template`) are present.
-4. **Backend enforcement.** For ASF TLPs (`release_announce_backend =
-   announce-list`), `--non-asf` must NOT be present. For non-`announce-list`
-   backends in an ASF TLP context, the skill stops unless `--non-asf` was
-   passed.
-5. **Promote timestamp available.** The planning issue body contains a
-   promote timestamp, or `--promote-timestamp <ISO-8601>` was passed.
-6. **Promote wait gate.** Current time is at least one hour after the
-   promote timestamp, or `--skip-promote-wait <reason>` was passed.
-7. **Download Page URL available.** The URL is present in the planning
-   issue body, the config file, or via `--download-page <url>`.
-8. **Drift check** — the generated pre-flight block reports snapshot drift.
-9. **Override consultation** — see *Adopter overrides* above.
+First find the planning issue: either `--planning-issue <url>` was
+passed or the skill can find a planning issue on `<upstream>` matching
+`<version>` in its title.
+Read its promote timestamp and Download Page URL, if present, and pass
+them to the [`release-config`](../../../../tools/release-config/README.md)
+tool with the RM's arguments (a flag the RM passed wins):
+
+```bash
+uv run --project <framework>/tools/release-config release-config preflight \
+  --skill announce-draft <version> [--promote-timestamp <ISO-8601>] \
+  [--download-page <url>] [--skip-promote-wait <reason>]
+```
+
+It covers the version format, the required config keys, the
+announce-backend enforcement (an ASF project — `project.md` →
+`organization: ASF` — announces on `announce-list`, and only an ASF
+project may), the promote timestamp, the one-hour
+promote-wait gate and the Download Page URL, and prints
+`{"ok", "blockers", "warnings", "values"}`.
+Each `blockers` entry is a hard blocker; surface it as written — the
+promote-wait blocker names the exact UTC time the gate clears.
+Surface `warnings` and carry on.
+Copy `skip_promote_wait_override`, `non_asf` and
+`promote_clear_after_utc` from `values`; `non_asf` is true unless
+`project.md` declares `organization: ASF`.
+
+Then check what the tool cannot see:
+
+1. **Planning issue found and carries `promoted`.** Without it, block.
+2. **Drift check** — the generated pre-flight block reports snapshot drift.
+3. **Override consultation** — see *Adopter overrides* above.
 
 If any check fails (and is not overridden), stop and surface what is
-missing with the exact UTC time after which the gate clears (for the
-promote-wait check), or the exact key name that is missing (for config
-checks).
+missing.
 
 Return ONLY valid JSON with this structure:
 
@@ -262,29 +273,35 @@ Return ONLY valid JSON with this structure:
 `promote_clear_after_utc` field is non-null when the promote-wait gate
 is the only blocker; it gives the exact UTC moment after which the skill
 will proceed without `--skip-promote-wait`.
+The tool sets it only when the gate is its sole blocker; report `null`
+when the planning-issue check blocks too.
 
 ---
 
 ## Step 1 — Load release metadata
 
-Read the following from the planning issue body and
-`<project-config>/release-management-config.md`:
+Load the config-derived fields with the same tool, passing the promote
+timestamp Step 0 used:
+
+```bash
+uv run --project <framework>/tools/release-config release-config load \
+  --skill announce-draft <version> --promote-timestamp <ISO-8601>
+```
+
+Its `metadata` carries `version`, `promote_timestamp` (UTC), `keys_url`,
+`announce_list`, `announce_cc_lists`, `subject_template`, `site_repo`
+(may be absent for non-site backends), `site_pr_files` (with
+`<version>` rendered) and `release_announce_backend`.
+
+Read the rest from the planning issue body, Step 0 and the canned
+responses:
 
 | Metadata field | Source | Key / location |
 |---|---|---|
 | `product_name` | `release-management-config.md` | derived from `project_dist_name` (capitalised display name) |
-| `version` | trigger argument | `<version>` |
-| `promote_timestamp` | planning issue body or `--promote-timestamp` | UTC ISO-8601 timestamp of Step 10 promote commit |
 | `dist_release_url` | planning issue body | URL under `dist/release/<project>/<version>/` (for `release_dist_backend = svnpubsub`) |
-| `download_page_url` | planning issue body, config, or `--download-page` | canonical Download Page URL |
+| `download_page_url` | Step 0 `values.download_page_url` | canonical Download Page URL (planning issue body, config, or `--download-page`) |
 | `changelog_url` | planning issue body | URL to changelog for this release |
-| `keys_url` | `release-management-config.md` | `keys_file_url` |
-| `announce_list` | `release-management-config.md` | `announce_list` |
-| `announce_cc_lists` | `release-management-config.md` | `announce_cc_lists` |
-| `subject_template` | `release-management-config.md` | `announce_subject_template` |
-| `site_repo` | `release-management-config.md` | `site_repo` (may be absent for non-site backends) |
-| `site_pr_files` | `release-management-config.md` | `site_pr_files` list |
-| `release_announce_backend` | `release-management-config.md` | `release_announce_backend` |
 | `canned_body` | `<project-config>/canned-responses.md` | `[ANNOUNCE]` template block, if present |
 
 Surface the loaded metadata to the RM for confirmation before
@@ -313,7 +330,7 @@ Cc: <announce_cc_lists joined by ", ">
 Subject: [ANNOUNCE] <Product Name> <version> released
 
 NOTE: This email must be sent from your @apache.org address. The
-<announce-list> rejects non-@apache.org senders (for ASF TLPs).
+<announce-list> rejects non-@apache.org senders (for ASF projects).
 
 The Apache <Project Name> community is pleased to announce the release
 of <Product Name> <version>.
@@ -343,7 +360,7 @@ above routes through the CDN/mirror selector (closer.lua).>
 accepted this with the reason: <reason>.] ← include only when --skip-promote-wait
 ```
 
-**Non-ASF backend variants.** When `--non-asf` is passed, substitute the
+**Non-ASF backend variants.** When `non_asf` is true, substitute the
 backend-appropriate shape per the `release_announce_backend` value:
 
 - `github-release-notes`: a GitHub Release page body (no `To:` / `Cc:`
@@ -554,8 +571,8 @@ The AI-driven part ends with a hand-back artefact containing:
   URL instead.
 - **Never announce before the one-hour promote gate** unless
   `--skip-promote-wait <reason>` was passed.
-- **Never run with a non-`announce-list` backend for an ASF TLP release**
-  unless `--non-asf` was explicitly passed.
+- **Never run with a non-`announce-list` backend for an ASF project**
+  (`project.md` → `organization: ASF`).
 - **Never invent metadata.** All dist URLs, download page URLs, changelog
   URLs, and keys URLs must come from the planning issue body or the
   project config. Do not derive or guess paths.
@@ -568,7 +585,7 @@ The AI-driven part ends with a hand-back artefact containing:
 |---|---|---|
 | Pre-flight blocked — not promoted | Planning issue lacks `promoted` label | Complete Step 10 (`release-promote`), or supply `--planning-issue` pointing at a promoted issue |
 | Pre-flight blocked — promote-wait | Promote commit is less than one hour ago | Wait until `promote_clear_after_utc`, or pass `--skip-promote-wait <reason>` |
-| Pre-flight blocked — backend mismatch | ASF TLP configured with non-list backend | Fix `release_announce_backend` in config, or pass `--non-asf` for a non-ASF adopter |
+| Pre-flight blocked — backend mismatch | An ASF project configured with a non-list backend, or a non-ASF project with `announce-list` | Fix `release_announce_backend` in config, or correct `organization` in `project.md` |
 | Download Page URL missing | Not in planning issue or config | Supply via `--download-page <url>` |
 | Site-bump PR scope violation | A proposed file is not in `site_pr_files` | Confirm the extra file explicitly or remove it from the site bump |
 | `site_repo` missing | Config has no `site_repo` key | Add `site_repo` to `release-management-config.md`, or skip the site bump |
@@ -592,6 +609,6 @@ The AI-driven part ends with a hand-back artefact containing:
 - `release-audit-report` (proposed) — downstream step; records the
   complete lifecycle.
 - [ASF release policy § announcements](https://www.apache.org/legal/release-policy.html#release-announcements) —
-  the `<announce-list>` requirement for ASF TLP releases (see `release_announce_backend`).
+  the `<announce-list>` requirement for ASF releases (see `release_announce_backend`).
 - [ASF release distribution](https://infra.apache.org/release-distribution.html) —
   the `closer.lua` CDN/mirror selector requirement for download links.

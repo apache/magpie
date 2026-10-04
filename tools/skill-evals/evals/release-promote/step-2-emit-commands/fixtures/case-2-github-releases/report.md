@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-Pre-flight: PASS (verdict=proceed, rm_is_pmc=true, --non-asf implied by config)
+Pre-flight: PASS (verdict=proceed, rm_is_pmc=true, non_asf=true from project.md → organization: independent)
 
 Loaded metadata:
   version: 1.5.0

@@ -90,7 +90,8 @@ must return `archive_review: "skipped"`.
 
 **step-0-preflight case-5-automated-signing-non-asf**: `/release-prepare
 automated-signing` on a project whose organization manifest sets
-`release_process.automated_signing: null`. The model must block and
+`release_process.automated_signing: null` (resolved `project.md` →
+organization manifest → framework default). The model must block and
 must not describe the CI-signing flow — it is an ASF Infra offering.
 Case-6 is the same invocation on an ASF project and must proceed with
 `version: null`.

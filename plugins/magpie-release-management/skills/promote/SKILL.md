@@ -21,11 +21,11 @@ when_to_use: |
   `release-vote-tally` has confirmed `vote-passed` on the planning issue.
   Standalone: does not require `release-vote-tally` to have run in the
   same session — only that the planning issue carries `vote-passed`.
-argument-hint: "<version>-rc<N> [--planning-issue <url>] [--non-asf]"
+argument-hint: "<version>-rc<N> [--planning-issue <url>]"
 capability: capability:resolve
 surface_hash: sha256:4eec8687fdb07bbc
 license: Apache-2.0
-measured_tokens: 6883
+measured_tokens: 7026
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -157,8 +157,9 @@ guessing whether to overwrite or skip.
 **Golden rule 5 — PMC membership gate.** The `dist/release/` tree (for `release_dist_backend = svnpubsub`) is PMC-write-only
 by default per
 [release-policy.html](https://www.apache.org/legal/release-policy.html). If
-the RM is a committer but not on the PMC roster in
-`<project-config>/pmc-roster.md`, the skill emits an "ask a PMC member to
+the RM is a committer but not on the PMC roster at
+`release_approver_roster_path` (default
+`<project-config>/pmc-roster.md`), the skill emits an "ask a PMC member to
 publish" hand-off instead of the svn command set, while still emitting the
 non-svn portions (mirror note, proposed label, next steps).
 
@@ -200,9 +201,10 @@ file. Framework changes go via PR to `apache/magpie`.
   recorded on the issue.
 - **`<project-config>/release-management-config.md` readable** — required
   keys: `release_dist_backend`, `release_dist_url_template`.
-- **`<project-config>/pmc-roster.md` readable** — to check PMC membership
-  of the current RM; may be skipped with `--non-asf` when PMC concepts do
-  not apply.
+- **Approver roster readable** — the file at `release_approver_roster_path`
+  (default `<project-config>/pmc-roster.md`), to check PMC membership of
+  the current RM; skipped when `non_asf` is true (`project.md` does not
+  declare `organization: ASF`), where PMC concepts do not apply.
 - **RM identity known** — from the resolved `user.md` (field
   `release_manager.github_handle` or `release_manager.apache_id`).
 
@@ -212,47 +214,61 @@ file. Framework changes go via PR to `apache/magpie`.
 
 | Selector | Resolves to |
 |---|---|
-| `<version>-rc<N>` (positional) | Version string and RC number of the release candidate to promote |
+| `<version>-rc<N>` (positional) | Version string and RC number of the release candidate to promote (a dotted version of two or more numeric parts with no `.postN`, then `-rcN` with N ≥ 1, e.g. `2.11.0-rc1`) |
 | `--planning-issue <url>` | Explicit planning issue URL (auto-detected from `<upstream>` if omitted) |
 | `--result-vote-url <url>` | Archive URL of the `[RESULT] [VOTE]` thread (used in the `svn mv -m` message for `release_dist_backend = svnpubsub`; auto-read from planning issue if present) |
-| `--non-asf` | Signal that this is a non-ASF adopter; skips PMC membership check and ASF-specific policy notes |
 
 ---
 
 ## Step 0 — Pre-flight check
 
-1. **Argument parseable.** `<version>-rc<N>` matches the expected pattern
-   (e.g. `2.11.0-rc1`, `3.0.0-rc2`).
-2. **Planning issue found and carries `vote-passed`.** Either
+Run the deterministic checks with the
+[`release-config`](../../../../tools/release-config/README.md) tool
+(`--rm` defaults to the `apache_id` in the RM's `user.md`):
+
+```bash
+uv run --project <framework>/tools/release-config release-config preflight \
+  --skill promote <version>-rc<N> [--rm <apache-id>]
+```
+
+It covers the argument format, the required config keys, each
+convenience artefact's own `version` (default the release version)
+against its `version_scheme`, and the
+PMC gate against the roster at `release_approver_roster_path` (default
+`<project-config>/pmc-roster.md`), and prints
+`{"ok", "blockers", "warnings", "values"}`.
+Each `blockers` entry is a hard blocker; surface it as written.
+Surface `warnings` and carry on.
+Copy `version`, `rc`, `dist_backend`, `non_asf` and `rm_is_pmc` from
+`values`; `rm_is_pmc: false` is a hand-off, not a blocker.
+`non_asf` is derived from `project.md`: true unless it declares
+`organization: ASF`; a non-ASF project skips the PMC gate and the
+ASF-specific policy notes.
+
+Then check what the tool cannot see:
+
+1. **Planning issue found and carries `vote-passed`.** Either
    `--planning-issue <url>` was passed or the skill can locate an open
    planning issue on `<upstream>` matching `<version>` in its title.
-3. **`release-management-config.md` readable.** The required keys
-   (`release_dist_backend`, `release_dist_url_template`) are present.
-4. **Target URL not already populated.** For `svnpubsub` backend: attempt a
-   non-mutating directory listing of `dist/release/<project>/<version>/` (for `release_dist_backend = svnpubsub`);
+2. **Target URL not already populated.** For `svnpubsub` backend: attempt a
+   non-mutating directory listing of `values.target_url` (for `release_dist_backend = svnpubsub`);
    if any content is found, surface a hard blocker. For other backends:
    check whether the release already exists (e.g. `gh release view <version>`
    for `github-releases`).
-5. **PMC membership gate** (skipped when `--non-asf` is passed). Read
-   `<project-config>/pmc-roster.md` and verify the current RM appears in
-   the roster. If the RM is a committer but not a PMC member, set
-   `rm_is_pmc = false`; the skill continues to emit non-command outputs but
-   replaces the svn command set with a hand-off note.
-6. **Trusted-hardware validation recorded** (🪶 ASF-specific; only when
-   `release-management-config.md` sets `automated_release_signing:
-   enabled` under `organization: ASF`). The planning issue must carry a
-   `release-verify-rc` comment with the **Reproducibility validated on
-   trusted hardware** attestation for *this* `<version>-rc<N>` (every
-   artefact `identical`, `--trusted-hardware` asserted by the committer).
-   Absent → hard blocker: *"automated release signing requires every
-   artefact to be rebuilt bit-by-bit identical on trusted hardware before
-   publication ([Infra § Automated release signing](https://infra.apache.org/release-signing.html#automated-release-signing));
+3. **Trusted-hardware validation recorded** (🪶 ASF-specific; only when
+   `values.trusted_hardware_attestation_required` is `true`). The
+   planning issue must carry a `release-verify-rc` comment with the
+   **Reproducibility validated on trusted hardware** attestation for
+   *this* `<version>-rc<N>` (every artefact `identical`,
+   `--trusted-hardware` asserted by the committer). Absent → hard
+   blocker: *"automated release signing requires every artefact to be
+   rebuilt bit-by-bit identical on trusted hardware before publication
+   ([Infra § Automated release signing](https://infra.apache.org/release-signing.html#automated-release-signing));
    run `release-verify-rc <version>-rc<N> --trusted-hardware --post-to
-   <planning-issue>` on your own machine first"*. Not applicable (and
-   never mentioned) when the key is `off`, `requested`, or the project
-   is not ASF.
-7. **Drift check** — the generated pre-flight block reports snapshot drift.
-8. **Override consultation** — see *Adopter overrides* above.
+   <planning-issue>` on your own machine first"*. Otherwise never
+   mentioned.
+4. **Drift check** — the generated pre-flight block reports snapshot drift.
+5. **Override consultation** — see *Adopter overrides* above.
 
 If any check fails (except the PMC gate, which downgrades to hand-off),
 stop and surface what is missing.
@@ -272,7 +288,7 @@ Return ONLY valid JSON with this structure:
 ```
 
 `verdict` is `"proceed"` when all hard blockers resolve and the RM is on the
-PMC roster (or `--non-asf` was passed). `"handoff-non-pmc"` when the RM
+PMC roster (or `non_asf` is true). `"handoff-non-pmc"` when the RM
 fails the PMC gate but all other checks pass — the skill continues to later
 steps but replaces the promotion command set with a hand-off note.
 `"blocked"` when any hard blocker remains.
@@ -281,24 +297,34 @@ steps but replaces the promotion command set with a hand-off note.
 
 ## Step 1 — Load release metadata
 
-Read the following from the planning issue and
-`<project-config>/release-management-config.md`:
+Read from the planning issue (and git):
 
 | Metadata field | Source | Key / location |
 |---|---|---|
-| `version` | trigger argument | `<version>` (e.g. `2.11.0`) |
-| `rc` | trigger argument | `<rcN>` (e.g. `rc1`) |
-| `dist_backend` | `release-management-config.md` | `release_dist_backend` |
-| `dist_url_template` | `release-management-config.md` | `release_dist_url_template` |
 | `staging_url` | planning issue body | URL under `dist/dev/<project>/<version>-rcN/` (for `release_dist_backend = svnpubsub`, or backend-equivalent staging location) |
-| `target_url` | constructed | render `dist_url_template` with `<bucket>=release` and `<version>=<version>` (strip the `-rcN` suffix) |
 | `result_vote_url` | planning issue body or `--result-vote-url` | Archive URL of the `[RESULT] [VOTE]` thread; used in the `svn mv -m` message for `release_dist_backend = svnpubsub` |
-| `promote_command_template` | `release-management-config.md` | `release_publish_command_template` (required when `dist_backend = self-hosted`; ignored for the other backends, which have built-in recipes) |
 | `rc_commit_sha` | git / planning issue body | commit the `<version>-rc<N>` tag points to; the final `<version>` tag is cut on this SAME commit (no rebuild). `git rev-list -n1 <version>-rc<N>` |
-| `rm_gpg_fingerprint` | RM `user.md` | `release_manager.gpg_fingerprint`; the release key the final `<version>` tag is signed with |
-| `git_upstream_remote` | `release-management-config.md` | `git_upstream_remote`; the remote the final `<version>` tag is pushed to |
-| `convenience_artefacts` | `release-build.md § Convenience artefacts` | the project's optional, project-specific artefacts with their `publish_channel` / `publish_command`; empty for a source-only project |
 | `verify_rc_binaries` | planning issue body | the `release-verify-rc` Step 9 result for this RC: which convenience artefacts reproduced (`identical` / documented `WARN`) and which `differs` |
+
+Then load the config-derived fields with the same tool, passing one
+`--verify-binary <name>=<identical|warn|differs>` per convenience
+artefact from `verify_rc_binaries`:
+
+```bash
+uv run --project <framework>/tools/release-config release-config load \
+  --skill promote <version>-rc<N> [--verify-binary <name>=<status> …]
+```
+
+Its `metadata` carries `version`, `rc`, `dist_backend`,
+`dist_url_template`, `target_url` (the template rendered with
+`<bucket>=release` and the `-rcN` suffix stripped),
+`promote_command_template` (`release_publish_command_template`; required
+when `dist_backend = self-hosted`, ignored otherwise),
+`rm_gpg_fingerprint` (the RM's `user.md`
+`release_manager.gpg_fingerprint`, the key the final `<version>` tag is
+signed with), `git_upstream_remote` (where the final tag is pushed),
+`convenience_artefacts`, and `convenience` — the artefacts split into
+`publish` and `held` for Step 2's reproducibility gate.
 
 Surface the loaded metadata to the RM for a brief sanity check before
 proceeding to Step 2.
@@ -316,7 +342,7 @@ If `rm_is_pmc = false` (from Step 0), replace the command set with:
 ```text
 HAND-OFF: The distribution tree at dist/release/ (release_dist_backend=svnpubsub) is PMC-write-only.
 <RM's GitHub handle or apache_id> does not appear on the PMC roster in
-<project-config>/pmc-roster.md. Ask a PMC member to run the svn mv command below (release_dist_backend=svnpubsub)
+<release_approver_roster_path, default <project-config>/pmc-roster.md>. Ask a PMC member to run the svn mv command below (release_dist_backend=svnpubsub)
 on your behalf, or request PMC access from VP of <project>.
 
 The command set a PMC member would run:
@@ -417,9 +443,11 @@ one entry per artefact:
 published.** A convenience artefact is publishable only if the
 `release-verify-rc` run recorded on the planning issue rebuilt it from
 the voted tag and it reproduced: `identical`, or `WARN` with every
-difference matched by its `known_divergences`. For an artefact that
-reported `DIFFERS`, or that no verify-rc run covered, emit a **HOLD**
-note in place of its publish command:
+difference matched by its `known_divergences`.
+Step 1's `metadata.convenience` applies the rule: emit the
+`publish_command` of each `publish` entry, and for each `held` entry
+(`differs`, or `not checked` when no verify-rc run covered it) emit a
+**HOLD** note in place of its publish command:
 
 ```text
 HOLD: <artefact.name> — not published. release-verify-rc Step 9 did not
@@ -520,7 +548,7 @@ The AI-driven part ends with a hand-back artefact containing:
 | Pre-flight blocked — not vote-passed | Planning issue lacks `vote-passed` label | Rerun `release-vote-tally` or manually confirm the vote result on the planning issue |
 | Pre-flight blocked — target URL exists | Previous promote attempt may have partially landed | Inspect `dist/release/<project>/<version>/` (`release_dist_backend = svnpubsub`) manually; contact ASF Infra if the state is unclear |
 | Pre-flight blocked — config key missing | `release_dist_backend` or `release_dist_url_template` absent | Add the key to `<project-config>/release-management-config.md` |
-| Hand-off — non-PMC RM | RM not in `pmc-roster.md` | Ask a PMC member to run the `svn mv` (`release_dist_backend = svnpubsub`); or update the roster if the RM is already a PMC member and the roster is stale |
+| Hand-off — non-PMC RM | RM not on the roster at `release_approver_roster_path` (default `pmc-roster.md`) | Ask a PMC member to run the `svn mv` (`release_dist_backend = svnpubsub`); or update the roster if the RM is already a PMC member and the roster is stale |
 | Self-hosted template missing | `dist_backend = self-hosted` but no `release_publish_command_template` | Add the template key to `release-management-config.md` |
 
 ---
@@ -535,7 +563,8 @@ The AI-driven part ends with a hand-back artefact containing:
   adopter keys this skill reads (`release_dist_backend`,
   `release_dist_url_template`, `release_publish_command_template`).
 - [`<project-config>/pmc-roster.md`](../../../magpie-setup/templates/pmc-roster.md) —
-  PMC membership roster (used for the PMC gate).
+  PMC membership roster (used for the PMC gate; the default
+  `release_approver_roster_path`).
 - `release-vote-tally` (proposed) — upstream step; `vote-passed` label is
   the gate.
 - `release-announce-draft` — downstream step; drafts the `[ANNOUNCE]` email

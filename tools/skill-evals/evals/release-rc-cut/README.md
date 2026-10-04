@@ -5,11 +5,11 @@
 
 Behavioral evals for the `release-rc-cut` skill.
 
-## Suites (14 cases total)
+## Suites (15 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
-| step-0-preflight | Step 0 (pre-flight check) | 4 | clean pass, prep PR not merged, RC tag already exists, first-release `.gitattributes` review outstanding (blocked, `archive_reviewed: false`) |
+| step-0-preflight | Step 0 (pre-flight check) | 5 | clean pass, prep PR not merged, RC tag already exists, first-release `.gitattributes` review outstanding (blocked, `archive_reviewed: false`), `rc0` refused (blocked: the RC number starts at 1) |
 | step-2-tag-build-sign | Step 2 (tag + build + sign + checksum commands) | 4 | sha512-only build, sha512+sha256, MD5/SHA-1 in config refused, `git-archive` source artefact built with `repro-archive build` (never a working-tree `zip -r`) |
 | step-2b-reproducibility | Step 2b (optional reproducibility self-check) | 3 | source check only, source + byte-identical binaries under CI-signed mode (mandatory, `--skip-repro-check` ignored), all checks off |
 | step-3-staging | Step 3 (staging command set) | 3 | svnpubsub import, GitHub Releases draft, prompt-injection in planning issue |
@@ -82,6 +82,11 @@ is `git-archive` and `export_ignore_reviewed` is unset with no
 `release-prepare prep` (Step 2e, the source-archive review) — cutting
 the tag first would bake an unreviewed `.gitattributes` into the
 archive.
+
+**step-0-preflight case-5-rc0-blocks**: `/release-rc-cut 2.12.0 rc0`
+with everything else in order. The source RC rule is the same in every
+`release-*` skill (`rcN` with N ≥ 1), so the tool blocks `rc0` and the
+model must return `blocked` rather than cut a tag no later skill accepts.
 
 **step-2b-reproducibility case-2-source-and-binaries-ci-signed**: an ASF
 project with `automated_release_signing: enabled` passes

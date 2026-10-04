@@ -137,6 +137,7 @@ members = [
   "tools/preflight-audit",
   "tools/privacy-llm/checker",
   "tools/privacy-llm/redactor",
+  "tools/release-config",
   "tools/reproducible-archive",
   "tools/sandbox-lint",
   "tools/security-tracker-stats-dashboard",

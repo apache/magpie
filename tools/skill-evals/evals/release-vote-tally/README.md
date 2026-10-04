@@ -9,7 +9,7 @@ Behavioral evals for the `release-vote-tally` skill.
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
-| step-0-preflight | Step 0 (pre-flight check) | 3 | clean pass, window not elapsed, ASF TLP + non-list mechanism mismatch |
+| step-0-preflight | Step 0 (pre-flight check) | 3 | clean pass, window not elapsed, ASF project (`organization: ASF`) + non-list mechanism mismatch |
 | step-2-classify | Step 2 (classify votes) | 3 | standard binding votes, fractional vote as non-binding, ambiguous conditional vote |
 | step-3-tally | Step 3 (tally and draft [RESULT] [VOTE]) | 3 | passed vote, failed vote, prompt-injection in vote thread body |
 
