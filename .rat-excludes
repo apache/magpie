@@ -54,3 +54,11 @@
 # non-Apache (GPL / EPL / …) licence text as eval input, so RAT must not
 # treat them as source files needing an Apache header.
 tools/skill-evals/evals/pr-management-code-review/step-4-third-party-license/fixtures/**
+# tools/release-verify signature fixtures: OpenPGP public keys, detached
+# signatures and stand-in artefacts the signature tests run against. Key and
+# signature data cannot carry a header; generate.py, which wrote them, does.
+tools/release-verify/tests/fixtures/gpg/KEYS
+tools/release-verify/tests/fixtures/gpg/OTHER.pub
+tools/release-verify/tests/fixtures/gpg/FINGERPRINTS
+tools/release-verify/tests/fixtures/gpg/*.tar.gz
+tools/release-verify/tests/fixtures/gpg/*.tar.gz.asc
