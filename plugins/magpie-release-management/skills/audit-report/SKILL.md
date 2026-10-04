@@ -23,7 +23,7 @@ argument-hint: "<version> [--planning-issue <url>]"
 capability: capability:stats
 surface_hash: sha256:576d71b04f203cd8
 license: Apache-2.0
-measured_tokens: 6629
+measured_tokens: 6651
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -496,8 +496,9 @@ reviewers reported each, and every entry in `warnings` verbatim.
 <!-- END MAGPIE BLOCK: pre-pr-adversarial-review -->
 
 Present the PR title, body, and target file path to the RM. Ask for
-confirmation before opening the PR. If the RM confirms, open the PR via
-`gh pr create --repo <upstream> --title "<title>" --body "<body>" --base main`.
+confirmation before opening the PR. If the RM confirms, write the
+approved body to a file in the session scratch directory and open the PR via
+`gh pr create --web --repo <upstream> --title "<title>" --body-file <scratch>/audit-report-pr-body.md --base main`.
 
 Return ONLY valid JSON with this structure:
 

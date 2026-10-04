@@ -31,7 +31,7 @@ argument-hint: "<version> rc<N>"
 capability: capability:resolve
 surface_hash: sha256:60623e456e72bbf6
 license: Apache-2.0
-measured_tokens: 11783
+measured_tokens: 11801
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -786,8 +786,9 @@ The comment must include:
 - The proposed next label: `rc-staging`.
 
 Present the proposed comment to the RM. Ask for confirmation before
-posting. If the RM confirms, post the comment via
-`gh issue comment <planning-issue-number> --repo <upstream> --body "<body>"`.
+posting. If the RM confirms, write the approved comment to a file in the
+session scratch directory and post it via
+`gh issue comment <planning-issue-number> --repo <upstream> --body-file <scratch>/rc-cut-comment.md`.
 
 Return ONLY valid JSON with this structure:
 

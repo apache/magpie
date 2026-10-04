@@ -25,7 +25,7 @@ argument-hint: "<version> [--planning-issue <url>]"
 capability: capability:resolve
 surface_hash: sha256:edffafcd9d9948ab
 license: Apache-2.0
-measured_tokens: 6907
+measured_tokens: 6928
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -497,9 +497,9 @@ reviewers reported each, and every entry in `warnings` verbatim.
 <!-- END MAGPIE BLOCK: pre-pr-adversarial-review -->
 
 Present the PR title, body, and file scope to the RM. Ask for
-confirmation before opening the PR. If the RM confirms, open the PR
-via `gh pr create --repo <site_repo> --title "<title>" --body "<body>"
---base main`.
+confirmation before opening the PR. If the RM confirms, write the
+approved body to a file in the session scratch directory and open the PR via
+`gh pr create --web --repo <site_repo> --title "<title>" --body-file <scratch>/announce-pr-body.md --base main`.
 
 Return ONLY valid JSON with this structure:
 
