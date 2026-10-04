@@ -592,17 +592,36 @@ def test_checksum_file_with_bsd_tagged_line_passes(tmp_path: Path) -> None:
     assert report["status"] == "PASS"
 
 
-def test_checksum_file_with_gpg_print_md_line_passes(tmp_path: Path) -> None:
-    # `gpg --print-md` writes "<filename>: <DIGEST>" in upper case, and
-    # some ASF projects still publish that layout.
+def _gpg_print_md(name: str, hexdigest: str) -> str:
+    # The layout `gpg --print-md SHA512 <file>` really prints: upper-case
+    # groups of 8 hex characters separated by spaces, wrapped across lines
+    # with a hanging indent under the first group.
+    groups = [hexdigest.upper()[i : i + 8] for i in range(0, len(hexdigest), 8)]
+    indent = " " * (len(name) + 2)
+    lines = [" ".join(groups[i : i + 6]) for i in range(0, len(groups), 6)]
+    return f"{name}: " + ("\n" + indent).join(lines) + "\n"
+
+
+def test_checksum_file_with_gpg_print_md_layout_passes(tmp_path: Path) -> None:
+    # Some ASF projects still publish `gpg --print-md` output as the
+    # checksum file; a correct one must not be reported as a mismatch.
     write_pom(tmp_path, "foo-core-1.0.0.pom", pom_xml(licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=SCM))
     write_staged(tmp_path)
     companion = tmp_path / "foo-core-1.0.0-sources.jar"
     hasher = hashlib.sha512()
     hasher.update(companion.read_bytes())
-    (tmp_path / "foo-core-1.0.0-sources.jar.sha512").write_text(f"{companion.name}: {hasher.hexdigest().upper()}\n", encoding="utf-8")
+    (tmp_path / "foo-core-1.0.0-sources.jar.sha512").write_text(_gpg_print_md(companion.name, hasher.hexdigest()), encoding="utf-8")
     report = json.loads(mav_json(tmp_path, ()))
     assert report["status"] == "PASS"
+
+
+def test_checksum_file_with_wrong_gpg_print_md_digest_fails(tmp_path: Path) -> None:
+    write_pom(tmp_path, "foo-core-1.0.0.pom", pom_xml(licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=SCM))
+    write_staged(tmp_path)
+    (tmp_path / "foo-core-1.0.0-sources.jar.sha512").write_text(_gpg_print_md("foo-core-1.0.0-sources.jar", "ab" * 64), encoding="utf-8")
+    report = json.loads(mav_json(tmp_path, ()))
+    assert report["status"] == "FAIL"
+    assert any("checksum mismatch" in str(c.get("detail")) for e in report["jars"] for c in e["companions"])
 
 
 def test_checksum_file_with_wrong_digest_still_fails(tmp_path: Path) -> None:

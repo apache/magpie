@@ -407,7 +407,15 @@ def _checksum_status(companion: Path, digest_file: Path, digest: str) -> str | N
     text = digest_file.read_text(encoding="utf-8", errors="replace")
     hex_length = len(actual)
     match = re.search(rf"(?<![0-9a-fA-F])[0-9a-fA-F]{{{hex_length}}}(?![0-9a-fA-F])", text)
-    if match is None or match.group(0).lower() != actual:
+    recorded = match.group(0) if match is not None else None
+    if recorded is None:
+        # `gpg --print-md` splits the digest into space-separated groups
+        # and wraps it across lines, so there is no contiguous hex run;
+        # rejoin everything after the last ':' and compare that.
+        tail = re.sub(r"\s+", "", text.rsplit(":", 1)[-1])
+        if re.fullmatch(rf"[0-9a-fA-F]{{{hex_length}}}", tail):
+            recorded = tail
+    if recorded is None or recorded.lower() != actual:
         return f"checksum mismatch: {digest_file.name} does not match {companion.name}"
     return None
 

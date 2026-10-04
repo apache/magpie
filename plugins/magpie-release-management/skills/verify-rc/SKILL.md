@@ -37,7 +37,7 @@ argument-hint: "<version>-rcN [--post-to <planning-issue-url>] [--skip-repro] [-
 capability: capability:triage
 surface_hash: sha256:ed944a58facaae21
 license: Apache-2.0
-measured_tokens: 12380
+measured_tokens: 12502
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -593,9 +593,11 @@ requirements](https://central.sonatype.org/publish/requirements/):
    `-sources.jar` and `-javadoc.jar` exist and each carries its own
    `.asc` and checksums, the checksums verified against the jar's
    actual bytes. Offline the tool checks `.asc` presence only:
-   extend the paste-ready recipe with `gpg --verify <companion>.asc
-   <companion>` lines (same `KEYS` flow as Step 2) so the companions
-   get the same signature verification as the main artefacts. A main
+   extend the paste-ready recipe with one `gpg --verify <companion>.asc
+   <companion>` line per companion whose `.asc` is staged (same `KEYS`
+   flow as Step 2) so the companions get the same signature
+   verification as the main artefacts; a companion with no `.asc` is
+   already a finding and gets no line. A main
    jar declared by a staged POM but not staged locally is an
    observation (`ABSENT`), not a failure: in the common ASF workflow
    the jars are staged in the Nexus staging repository, which this
@@ -606,7 +608,8 @@ requirements](https://central.sonatype.org/publish/requirements/):
    absent jar is a `FAIL`.
 
 Emit the paste-ready recipe. Resolve every placeholder to a concrete
-value: `<staged-dir>` is the local directory holding the staged RC
+value: `<framework>` is the framework root (`.apache-magpie` in an
+adopter repository), `<staged-dir>` is the local directory holding the staged RC
 artefacts, `<digest-set>` is the `jvm_digest_set` key of
 `release-build.md § JVM artefact checks` when it is set, otherwise the
 § Digest set (comma-separated, default `sha512`), and pass
@@ -637,6 +640,11 @@ Return ONLY valid JSON with this structure:
   "paste_recipe": "<multi-line shell commands>"
 }
 ```
+
+`pom_findings` and `companion_findings` list only the checks that did
+not pass (`FAIL`, `INHERITED-UNVERIFIED`, `ABSENT`), one line each
+naming the artefact and what is wrong; a passing check is not a
+finding, and an empty list means there is nothing to report.
 
 `status` is the tool report's `status`, except that an `ABSENT` jar
 becomes `FAIL` when `release-build.md § JVM artefact checks` declares
