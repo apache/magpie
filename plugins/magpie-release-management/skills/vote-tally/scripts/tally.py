@@ -81,7 +81,7 @@ def parse_roster(text: str) -> list[dict[str, str]]:
             continue
         if header is None or all(re.fullmatch(r":?-+:?", c) for c in cells if c):
             continue
-        row = dict(zip(header, cells))
+        row = dict(zip(header, cells, strict=False))  # short rows leave trailing columns unset
         apache_id = row.get("apache id", "").lower()
         email = row.get("primary email", "").lower()
         if apache_id or email:
@@ -116,6 +116,16 @@ def _identity(sender: str, roster: list[dict[str, str]], via: str | None) -> str
             if address in (row["primary_email"].lower(), f"{row['apache_id'].lower()}@apache.org"):
                 return row["apache_id"].lower()
     return address
+
+
+def _superseded(old: dict[str, Any], by: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "identity": old["identity"],
+        "from": old["from"],
+        "date": old["date"],
+        "value": old["value"],
+        "superseded_by": {"from": by["from"], "date": by["date"], "value": by["value"]},
+    }
 
 
 def normalise_value(value: Any) -> str:
@@ -156,8 +166,7 @@ def apply_overrides(overrides: dict[str, Any]) -> tuple[dict[str, Any], list[str
         elif key == "binding_plus1_must_exceed_minus1":
             if value is not True:
                 errors.append(
-                    "binding_plus1_must_exceed_minus1 cannot be disabled; ignored "
-                    "(configuration error)"
+                    "binding_plus1_must_exceed_minus1 cannot be disabled; ignored (configuration error)"
                 )
         elif key == "max_binding_minus1":
             if not isinstance(value, int) or isinstance(value, bool) or value < 0:
@@ -200,19 +209,41 @@ def tally(
         "fractional_count": 0,
         "excluded_ambiguous_count": 0,
     }
-    seen: dict[str, list[dict[str, Any]]] = {}
+    # One person, one vote: when someone votes more than once (a changed vote, or a
+    # member writing from two addresses), only their latest vote counts. "Latest" is
+    # the newest date, falling back to thread order when dates tie or are missing;
+    # the earlier votes are listed in `superseded_votes` and never counted.
+    latest: dict[str, tuple[tuple[str, int], dict[str, Any]]] = {}
+    superseded: list[dict[str, Any]] = []
     for index, vote in enumerate(votes):
         if not isinstance(vote, dict) or "from" not in vote or "value" not in vote:
             raise InputError(f"vote #{index} needs 'from' and 'value'")
         value = normalise_value(vote["value"])
-        entry = {"from": vote["from"], "date": vote.get("date")}
+        via = resolve_binding(str(vote["from"]), roster)
+        identity = _identity(str(vote["from"]), roster, via)
+        candidate = {
+            "from": vote["from"],
+            "date": vote.get("date"),
+            "value": value,
+            "via": via,
+            "identity": identity,
+        }
+        order = (str(vote.get("date") or ""), index)
+        previous = latest.get(identity)
+        if previous is None or order >= previous[0]:
+            if previous is not None:
+                superseded.append(_superseded(previous[1], candidate))
+            latest[identity] = (order, candidate)
+        else:
+            superseded.append(_superseded(candidate, previous[1]))
+
+    for _, counted in sorted(latest.values(), key=lambda item: item[0][1]):
+        entry = {"from": counted["from"], "date": counted["date"]}
+        value, via = counted["value"], counted["via"]
         if value == "AMBIGUOUS":
             ambiguous.append(entry)
             counts["excluded_ambiguous_count"] += 1
             continue
-        via = resolve_binding(str(vote["from"]), roster)
-        identity = _identity(str(vote["from"]), roster, via)
-        seen.setdefault(identity, []).append(entry)
         binding = via is not None and value != "fractional"
         voters.append(
             {
@@ -229,12 +260,8 @@ def tally(
         suffix = {"+1": "plus1", "-1": "minus1", "0": "zero"}[value]
         counts[("binding_" if binding else "nonbinding_") + suffix] += 1
 
-    # One person, one vote: repeated votes (a changed vote, or the same member writing
-    # from two addresses) are never all counted. The tally halts until the model or RM
-    # passes only the vote that stands.
-    duplicates = [{"identity": who, "votes": entries} for who, entries in seen.items() if len(entries) > 1]
     rule, override_errors = apply_overrides(overrides)
-    halted = (bool(ambiguous) and not force_close) or bool(duplicates)
+    halted = bool(ambiguous) and not force_close
     result: str | None = None
     rule_text: str | None = None
     if mechanism == "dev-list-vote":
@@ -253,9 +280,8 @@ def tally(
         "mechanism": mechanism,
         "voters": voters,
         "ambiguous": ambiguous,
-        "halted_on_ambiguous": bool(ambiguous) and not force_close,
-        "duplicate_voters": duplicates,
-        "halted": halted,
+        "halted_on_ambiguous": halted,
+        "superseded_votes": superseded,
         "force_close": force_close,
         **counts,
         "pass_rule_applied": rule_text,

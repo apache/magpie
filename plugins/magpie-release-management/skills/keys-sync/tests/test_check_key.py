@@ -82,7 +82,9 @@ class AssessTest(unittest.TestCase):
 
     def test_ed25519_passes_without_bit_length(self) -> None:
         out = check(colons("22", "255", curve="ed25519"))
-        self.assertEqual((out["algorithm"], out["bit_length"], out["strength_check"]), ("EdDSA", None, "pass"))
+        self.assertEqual(
+            (out["algorithm"], out["bit_length"], out["strength_check"]), ("EdDSA", None, "pass")
+        )
 
     def test_ecdsa_p256_passes(self) -> None:
         out = check(colons("19", "256", curve="nistp256"))
@@ -127,7 +129,9 @@ class AssessTest(unittest.TestCase):
 class KeysDirTest(unittest.TestCase):
     def test_strip_keys(self) -> None:
         out = check_key.keys_dir("https://dist.apache.org/repos/dist/release/foo/KEYS")
-        self.assertEqual(out, {"svn_keys_dir_url": "https://dist.apache.org/repos/dist/release/foo", "error": None})
+        self.assertEqual(
+            out, {"svn_keys_dir_url": "https://dist.apache.org/repos/dist/release/foo", "error": None}
+        )
 
     def test_dist_dev_rejected(self) -> None:
         out = check_key.keys_dir("https://dist.apache.org/repos/dist/dev/foo/KEYS")
@@ -159,7 +163,12 @@ class AssessEdgeTest(unittest.TestCase):
         self.assertIn("below the ASF floor", out["strength_note"])
 
     def test_accepted_curves(self) -> None:
-        for algo, curve in (("22", "ed448"), ("19", "nistp384"), ("19", "nistp521"), ("19", "brainpoolp512r1")):
+        for algo, curve in (
+            ("22", "ed448"),
+            ("19", "nistp384"),
+            ("19", "nistp521"),
+            ("19", "brainpoolp512r1"),
+        ):
             with self.subTest(curve=curve):
                 self.assertEqual(check(colons(algo, "256", curve=curve))["verdict"], "proceed")
 
@@ -214,8 +223,12 @@ class CheckKeyCliTest(unittest.TestCase):
 
     def test_cli_assesses_a_listing(self) -> None:
         code, out = self.run_cli(
-            "--fingerprint", FPR.lower(), "--colons-file", self.colons_file(colons("1", "4096")),
-            "--today", TODAY.isoformat(),
+            "--fingerprint",
+            FPR.lower(),
+            "--colons-file",
+            self.colons_file(colons("1", "4096")),
+            "--today",
+            TODAY.isoformat(),
         )
         self.assertEqual(code, 0)
         self.assertEqual(out["verdict"], "proceed")
@@ -223,9 +236,12 @@ class CheckKeyCliTest(unittest.TestCase):
 
     def test_cli_blocks_an_expired_key(self) -> None:
         code, out = self.run_cli(
-            "--fingerprint", FPR, "--colons-file",
+            "--fingerprint",
+            FPR,
+            "--colons-file",
             self.colons_file(colons("1", "4096", expires=epoch("2026-06-18"))),
-            "--today", TODAY.isoformat(),
+            "--today",
+            TODAY.isoformat(),
         )
         self.assertEqual(code, 0)
         self.assertEqual(out["verdict"], "blocked")
@@ -242,8 +258,12 @@ class CheckKeyCliTest(unittest.TestCase):
 
     def test_cli_rejects_a_bad_date(self) -> None:
         code, out = self.run_cli(
-            "--fingerprint", FPR, "--colons-file", self.colons_file(colons("1", "4096")),
-            "--today", "19-06-2026",
+            "--fingerprint",
+            FPR,
+            "--colons-file",
+            self.colons_file(colons("1", "4096")),
+            "--today",
+            "19-06-2026",
         )
         self.assertEqual(code, 2)
         self.assertIn("error", out)

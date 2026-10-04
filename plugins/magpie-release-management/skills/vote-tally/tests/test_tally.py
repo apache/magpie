@@ -80,8 +80,12 @@ class TallyTest(unittest.TestCase):
 
     def test_three_binding_plus_one_passes(self) -> None:
         out = self.run_tally(
-            [vote("alice@apache.org", "+1"), vote("bob.martinez@apache.org", "+1"),
-             vote("carol@example.com", "+1"), vote("frank@gmail.com", "+1")]
+            [
+                vote("alice@apache.org", "+1"),
+                vote("bob.martinez@apache.org", "+1"),
+                vote("carol@example.com", "+1"),
+                vote("frank@gmail.com", "+1"),
+            ]
         )
         self.assertEqual(out["binding_plus1"], 3)
         self.assertEqual(out["nonbinding_plus1"], 1)
@@ -90,8 +94,11 @@ class TallyTest(unittest.TestCase):
 
     def test_two_binding_plus_one_fails(self) -> None:
         out = self.run_tally(
-            [vote("alice@apache.org", "+1"), vote("bob.martinez@apache.org", "+1"),
-             vote("carol@example.com", "-1")]
+            [
+                vote("alice@apache.org", "+1"),
+                vote("bob.martinez@apache.org", "+1"),
+                vote("carol@example.com", "-1"),
+            ]
         )
         self.assertEqual((out["binding_plus1"], out["binding_minus1"]), (2, 1))
         self.assertEqual(out["result"], "FAILED")
@@ -128,8 +135,11 @@ class TallyTest(unittest.TestCase):
 
     def test_ambiguous_excluded_under_force_close(self) -> None:
         out = self.run_tally(
-            [vote("alice@apache.org", "+1"), vote("bob.martinez@apache.org", "+1"),
-             vote("carol@example.com", "AMBIGUOUS")],
+            [
+                vote("alice@apache.org", "+1"),
+                vote("bob.martinez@apache.org", "+1"),
+                vote("carol@example.com", "AMBIGUOUS"),
+            ],
             force_close=True,
         )
         self.assertFalse(out["halted_on_ambiguous"])
@@ -147,8 +157,11 @@ class TallyTest(unittest.TestCase):
 
     def test_strengthening_override_applies(self) -> None:
         out = self.run_tally(
-            [vote("alice@apache.org", "+1"), vote("bob.martinez@apache.org", "+1"),
-             vote("carol@example.com", "+1")],
+            [
+                vote("alice@apache.org", "+1"),
+                vote("bob.martinez@apache.org", "+1"),
+                vote("carol@example.com", "+1"),
+            ],
             overrides={"min_binding_plus1": 5},
         )
         self.assertEqual(out["result"], "FAILED")
@@ -203,8 +216,12 @@ class TallyEdgeTest(unittest.TestCase):
 
     def test_max_binding_minus_one_override_acts_as_veto(self) -> None:
         out = self.run_tally(
-            [vote("alice@apache.org", "+1"), vote("bob.martinez@apache.org", "+1"),
-             vote("carol@example.com", "+1"), vote("dave.kim@apache.org", "-1")],
+            [
+                vote("alice@apache.org", "+1"),
+                vote("bob.martinez@apache.org", "+1"),
+                vote("carol@example.com", "+1"),
+                vote("dave.kim@apache.org", "-1"),
+            ],
             overrides={"max_binding_minus1": 0},
         )
         self.assertEqual(out["override_errors"], [])
@@ -247,8 +264,11 @@ class TallyCliTest(unittest.TestCase):
 
     def test_cli_prints_the_tally(self) -> None:
         code, out = self.run_cli(
-            [vote("alice@apache.org", "+1"), vote("bob.martinez@apache.org", "+1"),
-             vote("carol@example.com", "+1")]
+            [
+                vote("alice@apache.org", "+1"),
+                vote("bob.martinez@apache.org", "+1"),
+                vote("carol@example.com", "+1"),
+            ]
         )
         self.assertEqual(code, 0)
         self.assertEqual(out["result"], "PASSED")
@@ -270,8 +290,8 @@ class TallyCliTest(unittest.TestCase):
         self.assertIn("JSON object", out["error"])
 
 
-class DuplicateVoteTest(unittest.TestCase):
-    """One person, one vote: repeated votes halt the tally instead of counting twice."""
+class LatestVoteTest(unittest.TestCase):
+    """One person, one vote: only a voter's latest vote counts."""
 
     def setUp(self) -> None:
         self.roster = tally.parse_roster(ROSTER)
@@ -279,38 +299,94 @@ class DuplicateVoteTest(unittest.TestCase):
     def run_tally(self, votes, force_close=False):
         return tally.tally(votes, self.roster, {}, force_close, "dev-list-vote")
 
-    def test_same_member_voting_twice_halts(self) -> None:
+    @staticmethod
+    def at(sender: str, value: str, date: str | None) -> dict:
+        return {"from": sender, "value": value, "date": date}
+
+    def test_changed_vote_counts_only_the_latest(self) -> None:
         out = self.run_tally(
-            [vote("alice@apache.org", "+1"), vote("alice@apache.org", "+1"),
-             vote("bob.martinez@apache.org", "+1")]
+            [
+                self.at("alice@apache.org", "+1", "2026-06-11T09:00:00Z"),
+                self.at("alice@apache.org", "-1", "2026-06-12T09:00:00Z"),
+            ]
         )
-        self.assertTrue(out["halted"])
-        self.assertIsNone(out["result"])
-        self.assertEqual(out["duplicate_voters"][0]["identity"], "alice")
-        self.assertEqual(len(out["duplicate_voters"][0]["votes"]), 2)
+        self.assertEqual((out["binding_plus1"], out["binding_minus1"]), (0, 1))
+        self.assertEqual(len(out["voters"]), 1)
+        gone = out["superseded_votes"][0]
+        self.assertEqual((gone["identity"], gone["value"]), ("alice", "+1"))
+        self.assertEqual(gone["superseded_by"]["value"], "-1")
+        self.assertFalse(out["halted_on_ambiguous"])
 
-    def test_member_writing_from_two_addresses_is_one_identity(self) -> None:
-        # dave's primary address and his Apache ID address are the same person.
-        out = self.run_tally([vote("dave.kim@apache.org", "+1"), vote("dave@apache.org", "+1")])
-        self.assertEqual([d["identity"] for d in out["duplicate_voters"]], ["dave"])
-        self.assertTrue(out["halted"])
-
-    def test_force_close_does_not_bypass_duplicates(self) -> None:
-        out = self.run_tally([vote("alice@apache.org", "+1"), vote("alice@apache.org", "-1")], force_close=True)
-        self.assertTrue(out["halted"])
-        self.assertIsNone(out["result"])
-
-    def test_non_binding_duplicate_also_halts(self) -> None:
-        out = self.run_tally([vote("fan@gmail.com", "+1"), vote("Fan <FAN@gmail.com>", "+1")])
-        self.assertEqual([d["identity"] for d in out["duplicate_voters"]], ["fan@gmail.com"])
-
-    def test_distinct_voters_do_not_halt(self) -> None:
+    def test_date_wins_over_thread_order(self) -> None:
         out = self.run_tally(
-            [vote("alice@apache.org", "+1"), vote("bob.martinez@apache.org", "+1"),
-             vote("carol@example.com", "+1")]
+            [
+                self.at("alice@apache.org", "-1", "2026-06-12T09:00:00Z"),
+                self.at("alice@apache.org", "+1", "2026-06-11T09:00:00Z"),
+            ]
         )
-        self.assertEqual(out["duplicate_voters"], [])
-        self.assertFalse(out["halted"])
+        self.assertEqual((out["binding_plus1"], out["binding_minus1"]), (0, 1))
+
+    def test_thread_order_breaks_ties_and_missing_dates(self) -> None:
+        out = self.run_tally(
+            [self.at("alice@apache.org", "+1", None), self.at("alice@apache.org", "0", None)]
+        )
+        self.assertEqual((out["binding_plus1"], out["binding_zero"]), (0, 1))
+
+    def test_member_writing_from_two_addresses_is_one_voter(self) -> None:
+        out = self.run_tally(
+            [
+                self.at("dave.kim@apache.org", "+1", "2026-06-11T09:00:00Z"),
+                self.at("dave@apache.org", "+1", "2026-06-11T10:00:00Z"),
+            ]
+        )
+        self.assertEqual(out["binding_plus1"], 1)
+        self.assertEqual([v["identity"] for v in out["superseded_votes"]], ["dave"])
+
+    def test_three_members_voting_twice_do_not_pass_alone(self) -> None:
+        votes = [
+            self.at(a, "+1", d)
+            for a in ("alice@apache.org", "bob.martinez@apache.org")
+            for d in ("2026-06-11T09:00:00Z", "2026-06-11T10:00:00Z")
+        ]
+        out = self.run_tally(votes)
+        self.assertEqual(out["binding_plus1"], 2)
+        self.assertEqual(out["result"], "FAILED")
+
+    def test_clear_later_vote_replaces_an_ambiguous_one(self) -> None:
+        out = self.run_tally(
+            [
+                self.at("alice@apache.org", "AMBIGUOUS", "2026-06-11T09:00:00Z"),
+                self.at("alice@apache.org", "+1", "2026-06-12T09:00:00Z"),
+            ]
+        )
+        self.assertFalse(out["halted_on_ambiguous"])
+        self.assertEqual(out["binding_plus1"], 1)
+
+    def test_ambiguous_latest_vote_still_halts(self) -> None:
+        out = self.run_tally(
+            [
+                self.at("alice@apache.org", "+1", "2026-06-11T09:00:00Z"),
+                self.at("alice@apache.org", "AMBIGUOUS", "2026-06-12T09:00:00Z"),
+            ]
+        )
+        self.assertTrue(out["halted_on_ambiguous"])
+        self.assertIsNone(out["result"])
+
+    def test_non_binding_repeat_counts_once(self) -> None:
+        out = self.run_tally(
+            [self.at("fan@gmail.com", "+1", None), self.at("Fan <FAN@gmail.com>", "+1", None)]
+        )
+        self.assertEqual(out["nonbinding_plus1"], 1)
+
+    def test_distinct_voters_supersede_nothing(self) -> None:
+        out = self.run_tally(
+            [
+                vote("alice@apache.org", "+1"),
+                vote("bob.martinez@apache.org", "+1"),
+                vote("carol@example.com", "+1"),
+            ]
+        )
+        self.assertEqual(out["superseded_votes"], [])
         self.assertEqual(out["result"], "PASSED")
 
 

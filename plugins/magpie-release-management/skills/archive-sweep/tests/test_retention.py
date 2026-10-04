@@ -41,7 +41,9 @@ class SortTest(unittest.TestCase):
         )
 
     def test_listing_drops_slash_and_separates_non_versions(self) -> None:
-        self.assertEqual(retention.parse_listing("2.10.0/\nKEYS\n\nproviders/\n"), (["2.10.0"], ["KEYS", "providers"]))
+        self.assertEqual(
+            retention.parse_listing("2.10.0/\nKEYS\n\nproviders/\n"), (["2.10.0"], ["KEYS", "providers"])
+        )
 
 
 class SweepTest(unittest.TestCase):
@@ -54,7 +56,7 @@ class SweepTest(unittest.TestCase):
         self.assertEqual(out["handoff_reasons"], [])
 
     def test_multi_line(self) -> None:
-        trains = TWO_X + [{"label": "3.x", "pattern": "3.x"}]
+        trains = [*TWO_X, {"label": "3.x", "pattern": "3.x"}]
         out = retention.sweep(["2.9.0", "2.10.0", "2.11.0", "3.0.0", "3.0.1"], trains)
         self.assertEqual(out["past_retention"], ["2.9.0", "2.10.0", "3.0.0"])
         self.assertEqual(out["latest_of_each_line"], {"2.x": "2.11.0", "3.x": "3.0.1"})
@@ -88,7 +90,7 @@ class SweepTest(unittest.TestCase):
         self.assertEqual(out["orphans"], ["2.0.0"])
 
     def test_overlapping_patterns_go_unmapped(self) -> None:
-        trains = TWO_X + [{"label": "2.11", "pattern": "2.11.x"}]
+        trains = [*TWO_X, {"label": "2.11", "pattern": "2.11.x"}]
         out = retention.sweep(["2.11.0"], trains)
         self.assertEqual(out["unmapped"][0]["version"], "2.11.0")
 

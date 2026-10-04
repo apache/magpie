@@ -21,6 +21,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from typing import ClassVar
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
@@ -81,9 +82,14 @@ class CategoryXTest(unittest.TestCase):
 
     def test_artifact_of_maven_coordinate_matches(self) -> None:
         local = self.file("[options]\ninstall_requires =\n    cc-by-nc-widget>=1.2.0\n")
-        out = category_x.scan(["com.example:gpl-licensed-lib", "org.acme:cc-by-nc-widget"], [("setup.cfg", local)])
+        out = category_x.scan(
+            ["com.example:gpl-licensed-lib", "org.acme:cc-by-nc-widget"], [("setup.cfg", local)]
+        )
         self.assertTrue(out["category_x_hit"])
-        self.assertEqual(out["category_x_violations"], [{"identifier": "org.acme:cc-by-nc-widget", "found_in": "setup.cfg"}])
+        self.assertEqual(
+            out["category_x_violations"],
+            [{"identifier": "org.acme:cc-by-nc-widget", "found_in": "setup.cfg"}],
+        )
         self.assertEqual(out["first_match_lines"][0]["line"], 3)
         self.assertEqual(out["handoff_reason"], category_x.HANDOFF)
 
@@ -99,7 +105,14 @@ class CategoryXTest(unittest.TestCase):
 
 
 class NextDevVersionTest(unittest.TestCase):
-    CONFIGURED = ["setup.cfg", "airflow/__init__.py", "pyproject.toml", "pom.xml", "Cargo.toml", "VERSION"]
+    CONFIGURED: ClassVar[list[str]] = [
+        "setup.cfg",
+        "airflow/__init__.py",
+        "pyproject.toml",
+        "pom.xml",
+        "Cargo.toml",
+        "VERSION",
+    ]
 
     def test_formats(self) -> None:
         out = next_dev_version.next_versions("2.11.0", self.CONFIGURED)
@@ -117,7 +130,9 @@ class NextDevVersionTest(unittest.TestCase):
             "2.11.0", ["setup.cfg", "airflow/__init__.py"], ["setup.cfg", "airflow/version.py"]
         )
         stray = out["files"][1]
-        self.assertEqual((stray["configured"], stray["format"], stray["next_dev_version"]), (False, "unknown", None))
+        self.assertEqual(
+            (stray["configured"], stray["format"], stray["next_dev_version"]), (False, "unknown", None)
+        )
         self.assertTrue(stray["needs_rm_confirmation"])
         self.assertEqual(out["not_configured"], ["airflow/version.py"])
         self.assertTrue(out["needs_rm_confirmation"])

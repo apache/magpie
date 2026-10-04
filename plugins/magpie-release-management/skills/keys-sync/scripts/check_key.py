@@ -75,7 +75,7 @@ def _date(epoch: str) -> str | None:
         return None
     if "T" in epoch:  # ISO form some gpg builds print
         return f"{epoch[0:4]}-{epoch[4:6]}-{epoch[6:8]}"
-    return dt.datetime.fromtimestamp(int(epoch), dt.timezone.utc).date().isoformat()
+    return dt.datetime.fromtimestamp(int(epoch), dt.UTC).date().isoformat()
 
 
 def parse_colons(text: str) -> list[dict[str, Any]]:
@@ -166,7 +166,9 @@ def assess(key: dict[str, Any] | None, fingerprint: str, today: dt.date) -> dict
             passed = False
             notes.append(f"key expired on {key['expiry']}; extend its expiry or generate a new key")
         elif days <= EXPIRY_ADVISORY_DAYS:
-            notes.append(f"key expires on {key['expiry']}, within {EXPIRY_ADVISORY_DAYS} days; consider extending it")
+            notes.append(
+                f"key expires on {key['expiry']}, within {EXPIRY_ADVISORY_DAYS} days; consider extending it"
+            )
     out["strength_check"] = "pass" if passed else "fail"
     out["strength_note"] = "; ".join(notes) if notes else None
     out["verdict"] = "proceed" if passed else "blocked"
@@ -196,7 +198,10 @@ def list_key_file(path: Path) -> str:
 def keys_dir(url: str) -> dict[str, Any]:
     url = url.strip()
     if "/dist/dev/" in url or url.rstrip("/").endswith("/dist/dev"):
-        return {"svn_keys_dir_url": None, "error": "keys_file_url points at dist/dev; KEYS belongs in dist/release"}
+        return {
+            "svn_keys_dir_url": None,
+            "error": "keys_file_url points at dist/dev; KEYS belongs in dist/release",
+        }
     if not url.endswith("/KEYS"):
         return {"svn_keys_dir_url": None, "error": "keys_file_url does not end in /KEYS"}
     return {"svn_keys_dir_url": url[: -len("/KEYS")], "error": None}
@@ -224,7 +229,7 @@ def main(argv: list[str] | None = None) -> int:
         if not args.fingerprint or not (args.key_file or args.colons_file):
             raise InputError("key mode needs --fingerprint and --key-file")
         fpr = normalise_fpr(args.fingerprint)
-        today = dt.date.fromisoformat(args.today) if args.today else dt.datetime.now(dt.timezone.utc).date()
+        today = dt.date.fromisoformat(args.today) if args.today else dt.datetime.now(dt.UTC).date()
         if args.colons_file:
             colons = Path(args.colons_file).read_text(encoding="utf-8")
         else:

@@ -151,7 +151,9 @@ def render_value(field: str, value: Any, reasons: dict[str, str]) -> str:
             raise InputError("binding_voters must be roster handles, never email addresses")
         bad = [str(v) for v in value if not HANDLE_RE.fullmatch(str(v).strip())]
         if bad:
-            raise InputError(f"binding_voters must be plain roster handles; refused: {', '.join(map(repr, bad))}")
+            raise InputError(
+                f"binding_voters must be plain roster handles; refused: {', '.join(map(repr, bad))}"
+            )
         return ", ".join(handle(v) for v in value)
     return text(value)
 
@@ -231,7 +233,11 @@ def render(data: dict[str, Any], required: list[str]) -> dict[str, Any]:
         for f in ORDERED_FIELDS + [r for r in required if r not in ORDERED_FIELDS]
         if f in schema_fields and sentinel(data.get(f, MISSING)) == MISSING
     ]
-    gaps = [f"{f} is REDACTED but has no entry in redaction_reasons" for f in fields_redacted if not reasons.get(f)]
+    gaps = [
+        f"{f} is REDACTED but has no entry in redaction_reasons"
+        for f in fields_redacted
+        if not reasons.get(f)
+    ]
     if injection and not sources:
         gaps.append("injection_flagged is true but injection_sources is empty")
     if sentinel(product) == MISSING:
@@ -255,7 +261,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--schema", default=str(DEFAULT_SCHEMA), help="audit-record-schema.md path")
     args = parser.parse_args(argv)
     try:
-        raw = sys.stdin.read() if args.step1_json == "-" else Path(args.step1_json).read_text(encoding="utf-8")
+        raw = (
+            sys.stdin.read() if args.step1_json == "-" else Path(args.step1_json).read_text(encoding="utf-8")
+        )
         data = json.loads(raw)
         if not isinstance(data, dict):
             raise InputError("Step 1 JSON must be an object")

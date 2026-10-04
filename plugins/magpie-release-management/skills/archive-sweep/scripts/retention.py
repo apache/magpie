@@ -86,7 +86,8 @@ def release_parts(version: str) -> list[int]:
 
 
 def parse_listing(text: str) -> tuple[list[str], list[str]]:
-    versions, other = [], []
+    versions: list[str] = []
+    other: list[str] = []
     for raw in text.splitlines():
         entry = raw.strip().rstrip("/")
         if not entry:
@@ -135,7 +136,9 @@ def sweep(listing: list[str], trains: list[dict[str, Any]]) -> dict[str, Any]:
         elif len(hits) > 1:
             unmapped.append({"version": version, "reason": f"matches several trains: {', '.join(hits)}"})
         elif loose:
-            unmapped.append({"version": version, "reason": f"may belong to loose train(s): {', '.join(loose)}"})
+            unmapped.append(
+                {"version": version, "reason": f"may belong to loose train(s): {', '.join(loose)}"}
+            )
         else:
             orphans.append(version)
 

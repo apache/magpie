@@ -91,7 +91,7 @@ def find_previous(tags: list[str], version: str, train: str | None, prefix: str)
         if prefix:
             if not name.startswith(prefix):
                 continue
-            name = name[len(prefix):]
+            name = name[len(prefix) :]
         elif "/" in name:
             continue
         m = FINAL_RE.match(name)
@@ -117,7 +117,9 @@ def find_previous(tags: list[str], version: str, train: str | None, prefix: str)
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--tags", required=True, help="file of tag names or git ls-remote output ('-' for stdin)")
+    parser.add_argument(
+        "--tags", required=True, help="file of tag names or git ls-remote output ('-' for stdin)"
+    )
     parser.add_argument("--version", required=True)
     parser.add_argument("--train", help="train pattern, e.g. 2.x or 2.11.x")
     parser.add_argument("--tag-prefix", default="", help="namespace to strip, e.g. rel/")

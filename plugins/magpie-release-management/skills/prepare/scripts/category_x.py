@@ -95,7 +95,7 @@ def main(argv: list[str] | None = None) -> int:
         if not deny:
             out: dict[str, Any] = {"category_x_hit": False, "category_x_violations": [], "files_scanned": []}
         else:
-            out = scan(deny, files)  # type: ignore[arg-type]
+            out = scan(deny, files)
     except OSError as exc:
         print(json.dumps({"error": str(exc)}))
         return 2

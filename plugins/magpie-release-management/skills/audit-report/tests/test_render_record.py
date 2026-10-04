@@ -51,9 +51,18 @@ class SchemaTest(unittest.TestCase):
     def test_required_fields_come_from_schema_file(self) -> None:
         self.assertEqual(
             REQUIRED,
-            ["version", "rc_label", "vote_thread_url", "result_thread_url", "artefacts",
-             "promote_revision", "announce_archive_url", "vote_binding_plus1",
-             "vote_binding_minus1", "binding_voters"],
+            [
+                "version",
+                "rc_label",
+                "vote_thread_url",
+                "result_thread_url",
+                "artefacts",
+                "promote_revision",
+                "announce_archive_url",
+                "vote_binding_plus1",
+                "vote_binding_minus1",
+                "binding_voters",
+            ],
         )
 
 
@@ -140,8 +149,12 @@ class HostileInputTest(unittest.TestCase):
         self.assertEqual(row.count("`"), 2)
 
     def test_link_fields_accept_only_plain_https(self) -> None:
-        for bad in ("javascript:alert(1)", "http://lists.apache.org/x", "https://a.b/x)[y](https://evil",
-                    "https://a.b/x y"):
+        for bad in (
+            "javascript:alert(1)",
+            "http://lists.apache.org/x",
+            "https://a.b/x)[y](https://evil",
+            "https://a.b/x y",
+        ):
             with self.subTest(url=bad), self.assertRaises(render_record.InputError):
                 self.render(vote_thread_url=bad)
 
