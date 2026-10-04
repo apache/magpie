@@ -29,7 +29,8 @@ artefact today. Implements the blocking checks 1–3 proposed in
 [apache/magpie#1173](https://github.com/apache/magpie/issues/1173)
 and reports the issue's informational checks (5–7) as `observations`
 in the same JSON report; the Nexus staging-repository check (check 4)
-is implemented by [`tools/asf-nexus`](../asf-nexus/README.md) and
+is implemented by the read-only `tools/asf-nexus` adapter
+([#1505](https://github.com/apache/magpie/pull/1505)) and
 `release-verify-rc` Step 6c.
 
 Until this tool exists, `release-verify-rc` handles a jar in exactly
