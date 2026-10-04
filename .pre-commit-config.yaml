@@ -575,6 +575,14 @@ repos:
         entry: tools/dev/run-workspace-check.sh pytest "pytest --color=yes"
         files: ^(tools/[^/]+(/[^/]+)?/(src|tests|pyproject\.toml)|pyproject\.toml|tools/dev/run-workspace-check\.sh)
         pass_filenames: false
+      # Skills' sibling scripts (plugins/*/skills/*/scripts) are not
+      # workspace members; their stdlib unittest suites run here.
+      - id: skill-script-tests
+        name: unittest (skill sibling scripts)
+        language: system
+        entry: tools/dev/run-skill-script-tests.sh
+        files: ^(plugins/magpie-[^/]+/skills/[^/]+/(scripts|tests)/.*\.py|tools/dev/run-skill-script-tests\.sh)$
+        pass_filenames: false
 
   # Validate `skills/**`, every `tools/<name>/README.md`, and the
   # `docs/labels-and-capabilities.md` taxonomy via the

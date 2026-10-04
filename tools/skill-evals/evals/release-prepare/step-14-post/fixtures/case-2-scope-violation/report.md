@@ -17,3 +17,29 @@ The RM has not yet confirmed including it.
 
 Draft the post-release bump PR. Surface the scope violation for
 CHANGELOG.md before proposing the PR.
+
+Output of `python3 <skill-dir>/scripts/next_dev_version.py --version 2.11.0 --config <project-config>/release-management-config.md`:
+
+```json
+{
+  "current_version": "2.11.0",
+  "files": [
+    {
+      "file": "setup.cfg",
+      "configured": true,
+      "format": "python",
+      "next_dev_version": "2.12.0.dev0",
+      "needs_rm_confirmation": false
+    },
+    {
+      "file": "airflow/__init__.py",
+      "configured": true,
+      "format": "python",
+      "next_dev_version": "2.12.0.dev0",
+      "needs_rm_confirmation": false
+    }
+  ],
+  "not_configured": [],
+  "needs_rm_confirmation": false
+}
+```

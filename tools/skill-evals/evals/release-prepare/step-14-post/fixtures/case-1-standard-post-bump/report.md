@@ -17,3 +17,29 @@ category_x_dependencies: (empty — not relevant to post-bump)
 NOTICE/LICENSE: must NOT be touched in Step 14.
 
 Draft the post-release bump PR. Propose it to the RM — do not open it yet.
+
+Output of `python3 <skill-dir>/scripts/next_dev_version.py --version 2.11.0 --config <project-config>/release-management-config.md`:
+
+```json
+{
+  "current_version": "2.11.0",
+  "files": [
+    {
+      "file": "setup.cfg",
+      "configured": true,
+      "format": "python",
+      "next_dev_version": "2.12.0.dev0",
+      "needs_rm_confirmation": false
+    },
+    {
+      "file": "airflow/__init__.py",
+      "configured": true,
+      "format": "python",
+      "next_dev_version": "2.12.0.dev0",
+      "needs_rm_confirmation": false
+    }
+  ],
+  "not_configured": [],
+  "needs_rm_confirmation": false
+}
+```

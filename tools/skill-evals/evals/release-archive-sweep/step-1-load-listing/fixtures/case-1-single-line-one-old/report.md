@@ -12,3 +12,34 @@ archive_retention_rule: keep latest of each supported train only
 Current svn list output for dist/release/airflow/:
   2.10.0/
   2.11.0/
+
+trains.json (supported trains from release-trains.md):
+
+```json
+[{"label": "2.x", "pattern": "2.x"}]
+```
+
+Output of `python3 <skill-dir>/scripts/retention.py --listing listing.txt --trains trains.json` (listing.txt holds the svn list output above):
+
+```json
+{
+  "releases_found": [
+    "2.10.0",
+    "2.11.0"
+  ],
+  "past_retention": [
+    "2.10.0"
+  ],
+  "orphans": [],
+  "unmapped": [],
+  "latest_of_each_line": {
+    "2.x": "2.11.0"
+  },
+  "trains_without_releases": [],
+  "mapping_complete": true,
+  "retention_rule_error": false,
+  "handoff_required": false,
+  "handoff_reasons": [],
+  "non_version_entries": []
+}
+```

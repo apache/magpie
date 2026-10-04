@@ -28,7 +28,7 @@ capability:
   - capability:resolve
 surface_hash: sha256:34592bfacb7cf955
 license: Apache-2.0
-measured_tokens: 5639
+measured_tokens: 5678
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -335,7 +335,7 @@ from each reply body as follows:
 
 - `+1` (or `+1` with minor caveats that the next step resolves as
   unambiguous): classify as `+1`.
-- `0` or `-0`: classify as `0`.
+- `0`, `+0`, or `-0`: classify as `0`.
 - `-1` with an explicit reason: classify as `-1`.
 - A fractional value (`+0.5`, `+0.9`): classify as fractional; the
   next step treats this as non-binding.
@@ -348,17 +348,20 @@ Surface the raw signal list to the RM before proceeding to Step 2.
 
 ## Step 2 — Classify votes
 
-For each raw approval record from Step 1, determine the binding flag
-by cross-referencing the `from` field against the roster at
-`<release-approver-roster>`.
+Write the Step 1 records to a JSON file holding only `from`, `date`,
+and the parsed `value` — never reply text — and run:
 
-Resolution order:
-1. Exact match of `from` against the `Primary email` column.
-2. If `from` ends in `@apache.org`, match the local part against the
-   `Apache ID` column.
-3. No match → non-binding.
+```bash
+python3 <skill-dir>/scripts/tally.py --votes <votes.json> --roster <release-approver-roster> \
+  [--mechanism <mechanism>] [--force-close] [--overrides '<json>']
+```
 
-Produce a per-reply classification table:
+It resolves binding status from the roster (`Primary email`, then the
+`@apache.org` local part against `Apache ID`; a bare GitHub handle
+never matches, so it is non-binding), makes fractional votes
+non-binding, and counts nothing `AMBIGUOUS`. Fix any `error` and re-run.
+Build the table from its `voters` and `ambiguous`, adding each
+`raw_vote_line` and, for an ambiguous vote, the reason:
 
 ```json
 {
@@ -383,7 +386,7 @@ Produce a per-reply classification table:
 }
 ```
 
-**If any `ambiguous` entries exist:**
+**If any `ambiguous` entries exist** (`halted_on_ambiguous: true`):
 
 - Stop and surface the list.
 - Ask the RM to resolve each ambiguous vote on the thread (ask the
@@ -399,26 +402,13 @@ tally counts; they are listed under `excluded_ambiguous` in the tally.
 
 ## Step 3 — Tally and draft `[RESULT] [VOTE]`
 
-Sum the binding and non-binding classifications and evaluate the pass
-rule.
-
-**Pass rule evaluation (`dev-list-vote` ASF baseline):**
-
-```text
-binding_plus1  = count of {binding: true, value: "+1"} entries
-binding_minus1 = count of {binding: true, value: "-1"} entries
-pass = (binding_plus1 >= 3) AND (binding_plus1 > binding_minus1)
-```
-
-Apply any `vote_pass_rule_overrides` (strengthening only). If an
-override attempts to weaken the baseline, ignore it and flag the
-configuration error.
-
-**Result:** `PASSED` or `FAILED`.
-
-For non-list mechanisms (`github-discussion`, `pr-approval`,
-`maintainer-roster`), use the backend-specific pass rule from
-`release-management-config.md`.
+Take the counts, `result`, `pass_rule_applied`, and `proposed_label` from
+the `tally.py` output; never recount. Pass `vote_pass_rule_overrides` as
+`--overrides` (`min_binding_plus1`, `max_binding_minus1`): the script
+applies only values that strengthen the baseline and lists the rest in
+`override_errors` — flag each as a configuration error. For non-list
+mechanisms `result` is `null`: apply the backend rule from
+`release-management-config.md` to the counts.
 
 Draft the `[RESULT] [VOTE]` email:
 

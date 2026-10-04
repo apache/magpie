@@ -25,3 +25,12 @@ keyserver: keys.openpgp.org
 project_dist_name: airflow
 svn_keys_dir_url: https://dist.apache.org/repos/dist/release/airflow
 (derived by stripping /KEYS from keys_file_url)
+
+Output of `python3 <skill-dir>/scripts/check_key.py --keys-url https://dist.apache.org/repos/dist/release/airflow/KEYS`:
+
+```json
+{
+  "svn_keys_dir_url": "https://dist.apache.org/repos/dist/release/airflow",
+  "error": null
+}
+```

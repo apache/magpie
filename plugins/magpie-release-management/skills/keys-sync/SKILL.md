@@ -26,7 +26,7 @@ argument-hint: "[--fingerprint <fp>] [--keys-url <url>] [--keyserver <host>]"
 capability: capability:resolve
 surface_hash: sha256:61e10c986bb0d3ec
 license: Apache-2.0
-measured_tokens: 4824
+measured_tokens: 4794
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -245,27 +245,23 @@ for the same UID; the RM can proceed directly to `release-rc-cut`.
 
 ## Step 1 — Fetch and validate key
 
-Fetch the RM's public key block from the configured keyserver using the
-resolved `<fingerprint>`. Parse the key's algorithm, bit length (where
-applicable), primary UID, creation date, and expiry.
+Fetch the RM's **public** key block for `<fingerprint>` from the
+keyserver into a file (empty when the keyserver has none) and run:
 
-**Strength validation.** Apply the ASF minimum floor per
+```bash
+python3 <skill-dir>/scripts/check_key.py --key-file <fetched-key.asc> --fingerprint <fingerprint>
+```
+
+It reads the key in a throw-away `GNUPGHOME`, never the user's keyring,
+and applies the floor from
 [ASF release-signing](https://infra.apache.org/release-signing.html):
-
-| Algorithm | Minimum floor | Accepted |
-|---|---|---|
-| RSA | 2048 bits | ≥ 2048 |
-| DSA | 2048 bits | ≥ 2048 (DSA discouraged; always include a note) |
-| EdDSA (Ed25519) | curve-equivalent | yes |
-| ECDSA (P-256 or stronger) | curve-equivalent | yes |
-| Any other / RSA < 2048 / DSA < 2048 | — | no |
-
-If the key cannot be found on the keyserver, or if the key fails the
-strength floor, set `verdict` to `"blocked"` and populate `blockers`.
-
-If the key has an expiry date within 90 days of today, include an
-advisory note in `strength_note` (this does not block; the RM may
-choose to extend the key before proceeding).
+RSA and DSA at least 2048 bits, EdDSA (Ed25519) and ECDSA (P-256 or
+stronger) accepted, anything else (secp256k1 included) refused. A
+missing, sub-floor, or already-expired key is `blocked`. `strength_note`
+carries the failure reason, the DSA advisory, and a non-blocking
+advisory for an expiry within 90 days.
+On an `error` (no gpg, bad fingerprint), surface it; never judge the
+key by hand. Return the script's JSON unchanged.
 
 Return ONLY valid JSON with this structure:
 
@@ -283,12 +279,6 @@ Return ONLY valid JSON with this structure:
   "strength_note": "<string or null>"
 }
 ```
-
-`strength_check` is `null` when `key_found` is `false`.
-`strength_note` is non-null when `strength_check` is `"fail"`, when
-the algorithm is DSA (advisory regardless of bit length), or when the
-key expires within 90 days (advisory).
-`bit_length` is `null` for curve-based algorithms (Ed25519, P-256).
 
 ---
 
@@ -310,8 +300,10 @@ Using the public key block from Step 1, compose:
 2. **The command sequence** — a paste-ready block the RM executes under
    their own credentials. For ASF `svnpubsub` (the default when
    `keys_file_url` is a `dist.apache.org` URL), derive
-   `<svn-keys-dir-url>` by stripping `/KEYS` from the end of
-   `keys_file_url`:
+   `<svn-keys-dir-url>` with
+   `python3 <skill-dir>/scripts/check_key.py --keys-url <keys_file_url>`,
+   which strips `/KEYS` and returns an `error` for a `dist/dev` URL or one
+that does not end in `/KEYS`:
 
    ```text
    # 1. Check out only the KEYS-file directory
@@ -417,6 +409,7 @@ The AI-driven part ends with a hand-back artefact containing:
 | Pre-flight blocked — KEYS file unreachable | Network issue or incorrect `keys_file_url` | Correct `keys_file_url`; check network/VPN if accessing `dist.apache.org` |
 | Step 1 blocked — key not on keyserver | RM has not uploaded the public key yet | RM uploads to the keyserver first, then re-runs |
 | Step 1 blocked — key too weak | RSA or DSA below 2048 bits | RM generates a new key meeting the ASF strength floor; update `rm_key_fingerprint` |
+| Step 1 blocked — key expired | The key's expiry date has passed | RM extends the expiry and re-uploads to the keyserver, or generates a new key and updates `rm_key_fingerprint` |
 
 ---
 

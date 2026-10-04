@@ -24,3 +24,23 @@ release-management-config.md:
 
 Draft the planning issue body and title. Propose it to the RM — do not
 create the issue yet.
+
+Tags on apache/airflow (`git ls-remote --tags`): 2.9.3, 2.10.0, 2.10.1, 2.10.2, 2.10.3.
+
+Output of `python3 <skill-dir>/scripts/prev_tag.py --tags tags.txt --version 2.11.0 --train 2.x`:
+
+```json
+{
+  "version": "2.11.0",
+  "train": "2.x",
+  "previous_tag": "2.10.3",
+  "candidates_in_train": [
+    "2.9.3",
+    "2.10.0",
+    "2.10.1",
+    "2.10.2",
+    "2.10.3"
+  ],
+  "skipped_prerelease_tags": []
+}
+```

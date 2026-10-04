@@ -26,7 +26,7 @@ capability:
   - capability:triage
 surface_hash: sha256:1665af8aae9c2b58
 license: Apache-2.0
-measured_tokens: 4407
+measured_tokens: 4443
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -238,31 +238,34 @@ Return ONLY valid JSON with this structure:
    - `self-hosted`: the adopter-supplied listing command from
      `<project-config>/release-management-config.md`.
 
-2. **Map releases to trains.** Cross-reference the listing against
-   `<project-config>/release-trains.md`. Tag each release as either
-   belonging to a known train or as an orphan.
+   Save the entries, one per line, to `<listing.txt>`.
 
-3. **Apply the retention rule.** The `archive_retention_rule` field in
-   `<project-config>/release-management-config.md` controls what stays.
-   The ASF default rule is: **only the latest version of each supported
-   release train** remains on `dist/release/` (for `release_dist_backend = svnpubsub`); all earlier versions of
-   each train are past-retention. Project configs may add more specific
-   rules (e.g. keep the latest two of a given train) but may never drop
-   the latest-of-each-train floor.
+2. **Apply the retention rule.** Write the supported trains from
+   `<project-config>/release-trains.md` as JSON —
+   `{"label": "2.x", "pattern": "2.x"}` each, plus `"keep": N` where
+   `archive_retention_rule` keeps more than the latest — and run:
 
-4. **Safety check.** If the retention rule would mark the most-recent
-   version of any supported train as past-retention, abort the sweep and
-   surface a `retention-rule-error` hand-off. Do not emit any archival
-   commands.
+   ```bash
+   python3 <skill-dir>/scripts/retention.py --listing <listing.txt> --trains <trains.json>
+   ```
 
-5. **List orphans.** Collect all releases not mapped to any train. Emit
-   them in the hand-off block; propose no archival command for them.
+   Per train it keeps the newest `keep` (default 1) and marks earlier
+   versions past retention; releases on no train are `orphans`, never
+   archived. `keep` below 1 would archive a train's latest release: the
+   script sets `retention_rule_error` and empties `past_retention`, and
+   no archival command may be emitted.
+
+3. **Place what it could not.** A version in `unmapped` matched a loose
+   pattern or several trains: decide its train, list it in that train's
+   `"versions"`, and re-run until `mapping_complete` is true. A rule
+   `keep` cannot express goes to the RM; nothing may drop the
+   latest-of-each-train floor.
 
 Surface the classification table to the RM before proceeding to Step 2.
-
-List `releases_found`, `past_retention`, and `orphans` in ascending
-version order (oldest first) so the output is deterministic and matches
-the archival command order emitted in Step 2.
+Copy the lists, `latest_of_each_line`, `handoff_required`, and
+`handoff_reasons` from the script (already in ascending version order,
+matching Step 2's command order); write `retention_rule_summary`
+yourself.
 
 Return ONLY valid JSON with this structure:
 

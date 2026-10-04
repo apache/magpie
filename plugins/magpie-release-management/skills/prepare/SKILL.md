@@ -40,7 +40,7 @@ argument-hint: "[prep | post] <version> [--review-archive] | automated-signing"
 capability: capability:resolve
 surface_hash: sha256:d553c5eab83e2635
 license: Apache-2.0
-measured_tokens: 14045
+measured_tokens: 14285
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -329,9 +329,18 @@ gh pr list --repo <upstream> \
   --limit 500
 ```
 
-If `--previous-tag <tag>` was passed, use it directly; otherwise detect
-the latest existing semver tag on `<upstream>` for the same release
-train.
+If `--previous-tag <tag>` was passed, use it directly; otherwise:
+
+```bash
+git ls-remote --tags https://github.com/<upstream>.git > <tags.txt>
+python3 <skill-dir>/scripts/prev_tag.py --tags <tags.txt> --version <version> --train <train-pattern>
+```
+
+`<train-pattern>` comes from `release-trains.md` (e.g. `2.x`); add
+`--tag-prefix <ns>/` for namespaced tags. `previous_tag` is the highest
+final release tag below `<version>` in the train (the same major when no
+train is given), skipping release candidates and other pre-releases;
+when `null`, ask the RM.
 
 **Empty-set hand-off.** If the merged-PR set is empty and
 `--skip-empty-check` was not passed, return:
@@ -464,12 +473,19 @@ version, e.g. `2.11.0.dev0`) and the target version (e.g. `2.11.0`).
 ### 2b — Check Category-X dependencies
 
 Read `category_x_dependencies` from `release-management-config.md`.
-If the list is non-empty, check whether any identifier appears in the
-dependency specifications within the manifest files (e.g. `setup.cfg`,
-`pyproject.toml`) or in any dependency-lock file if configured.
+If the list is non-empty, scan local copies of the manifest files from
+2a and of any configured dependency-lock file:
 
-**Category-X hard stop.** If any `category_x_dependencies` identifier
-is found, return:
+```bash
+python3 <skill-dir>/scripts/category_x.py --deny <identifier> [--deny <identifier> ...] \
+  <repo-path>=<local-copy> [<repo-path>=<local-copy> ...]
+```
+
+It matches whole tokens case-insensitively (`-`, `_`, `.` alike), a
+`group:artifact` identifier also by its artifact name.
+
+**Category-X hard stop.** When `category_x_hit` is `true`, return its
+`category_x_hit`, `category_x_violations`, and `handoff_reason`:
 
 ```json
 {
@@ -775,16 +791,19 @@ when the review was not due or `source_archive_method` is `custom`.
 
 ### 14a — Determine the next development version
 
-From `<version>` (e.g. `2.11.0`), compute the next development version
-according to the pattern used in each `version_manifest_file`:
+```bash
+python3 <skill-dir>/scripts/next_dev_version.py --version <version> --config <project-config>/release-management-config.md
+```
 
-- For `pyproject.toml` / `setup.cfg` / `setup.py` style: `2.12.0.dev0`
-  (bump minor, add `.dev0`).
-- For Maven `pom.xml` style: `2.12.0-SNAPSHOT`.
-- For `Cargo.toml`: the skill surfaces the next version pattern and
-  asks the RM to confirm before substituting.
-- For unknown formats: surface the current string and ask the RM to
-  confirm the replacement string before proceeding.
+The script reads `version_manifest_files` from the resolved config and
+reports on those files. Python packaging files (`pyproject.toml`,
+`setup.cfg`, `setup.py`, and a `*.py` file only because it is a
+configured version file) get `2.12.0.dev0` and Maven `pom.xml`
+`2.12.0-SNAPSHOT` (minor bump from `2.11.0`). For `Cargo.toml`, unknown
+formats, and any file passed that is not in `version_manifest_files`
+(listed under `not_configured`), `next_dev_version` is `null` with
+`needs_rm_confirmation`: surface the current string and ask the RM to
+confirm the replacement before substituting.
 
 If the project uses a different next-version convention (e.g. patch
 bump rather than minor bump), the RM supplies the correct next version

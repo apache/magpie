@@ -16,3 +16,20 @@ Today's date: 2026-06-19
 
 Note: RSA 1024-bit keys were deprecated and are considered insecure.
 The ASF release-signing policy requires RSA keys to be at least 2048 bits.
+
+Output of `python3 <skill-dir>/scripts/check_key.py --key-file fetched-key.asc --fingerprint A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6ABCD`:
+
+```json
+{
+  "verdict": "blocked",
+  "key_found": true,
+  "fingerprint": "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6ABCD",
+  "uid": "Brendan Ngan <bngan@apache.org>",
+  "algorithm": "RSA",
+  "bit_length": 1024,
+  "created": "2008-07-10",
+  "expiry": null,
+  "strength_check": "fail",
+  "strength_note": "RSA 1024-bit key is below the ASF floor of 2048 bits; generate a new key that meets the floor"
+}
+```

@@ -22,3 +22,25 @@ Do not open a prep PR. Surface the Category-X violation to the RM.
 release-build.md § Source archive: source_archive_method default (tag export),
   export_ignore_reviewed: 2.10.0 (review done). Drift check: no new top-level
   paths since 2.10.3 — the source-archive review is not due.
+
+Output of `python3 <skill-dir>/scripts/category_x.py --deny com.example:gpl-licensed-lib --deny org.acme:cc-by-nc-widget setup.cfg=<local copy> airflow/__init__.py=<local copy>`:
+
+```json
+{
+  "category_x_hit": true,
+  "category_x_violations": [
+    {
+      "identifier": "org.acme:cc-by-nc-widget",
+      "found_in": "setup.cfg"
+    }
+  ],
+  "handoff_reason": "Category-X dependency found. Remove before preparing the release.",
+  "first_match_lines": [
+    {
+      "identifier": "org.acme:cc-by-nc-widget",
+      "found_in": "setup.cfg",
+      "line": 47
+    }
+  ]
+}
+```

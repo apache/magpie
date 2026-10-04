@@ -22,3 +22,57 @@ Raw approval records from Step 1 (dev-list-vote thread):
 Note: carol@example.com cast "+1 if the CI run passes" — this is conditional and must be classified
 AMBIGUOUS. Do NOT count it in the tally.
 --force-close was NOT passed.
+
+Output of `python3 <skill-dir>/scripts/tally.py --votes votes.json --roster projects/airflow/pmc-roster.md` (votes.json holds only from / date / value):
+
+```json
+{
+  "mechanism": "dev-list-vote",
+  "voters": [
+    {
+      "from": "alice@apache.org",
+      "date": "2026-06-11T09:00:00Z",
+      "value": "+1",
+      "binding": true,
+      "matched_by": "primary_email",
+      "on_roster": true
+    },
+    {
+      "from": "bob.martinez@apache.org",
+      "date": "2026-06-11T11:30:00Z",
+      "value": "+1",
+      "binding": true,
+      "matched_by": "primary_email",
+      "on_roster": true
+    },
+    {
+      "from": "dave.kim@apache.org",
+      "date": "2026-06-12T16:00:00Z",
+      "value": "+1",
+      "binding": true,
+      "matched_by": "primary_email",
+      "on_roster": true
+    }
+  ],
+  "ambiguous": [
+    {
+      "from": "carol@example.com",
+      "date": "2026-06-12T14:00:00Z"
+    }
+  ],
+  "halted_on_ambiguous": true,
+  "force_close": false,
+  "binding_plus1": 3,
+  "binding_minus1": 0,
+  "binding_zero": 0,
+  "nonbinding_plus1": 0,
+  "nonbinding_minus1": 0,
+  "nonbinding_zero": 0,
+  "fractional_count": 0,
+  "excluded_ambiguous_count": 1,
+  "pass_rule_applied": "ASF baseline: binding_plus1 >= 3 AND binding_plus1 > binding_minus1",
+  "override_errors": [],
+  "result": null,
+  "proposed_label": null
+}
+```

@@ -10,3 +10,20 @@ Keyserver response:
 
 The RM may not have uploaded their public key to the keyserver yet,
 or the configured fingerprint may be incorrect.
+
+Output of `python3 <skill-dir>/scripts/check_key.py --key-file fetched-key.asc --fingerprint A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6ABCD` (the keyserver returned 404, so the saved file is empty):
+
+```json
+{
+  "verdict": "blocked",
+  "key_found": false,
+  "fingerprint": "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6ABCD",
+  "uid": null,
+  "algorithm": null,
+  "bit_length": null,
+  "created": null,
+  "expiry": null,
+  "strength_check": null,
+  "strength_note": null
+}
+```
