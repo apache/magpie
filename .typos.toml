@@ -56,6 +56,9 @@ Nd = "Nd"
 # `mis-` prefix in `mis-allocation` is a legitimate compound, not a
 # typo of "miss" / "mist".
 mis = "mis"
+# `fpr` is GnuPG's `--with-colons` fingerprint record type, parsed by
+# tools/release-verify and the keys-sync key check; not a typo of "for".
+fpr = "fpr"
 # `pre-empted` is a real word; typos flags `empted` as a typo of
 # `emptied` only because of how it splits hyphenated words.
 empted = "empted"

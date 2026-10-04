@@ -26,5 +26,6 @@ Grading rules:
 - `notice_diff_lines` and `license_diff_lines` are the number of diff lines when a
   previous release was found; `null` when no previous release was found.
 - `diff_summary` must be a non-empty one-line description of the changes or
-  "no diff — no previous release found" or "no changes".
+  "no diff — no previous release found" or "no changes"; on `FAIL` it names the
+  file the current RC artefact lacks, never the absence of a previous release.
 - No extra keys are permitted in the response.

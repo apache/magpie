@@ -29,4 +29,5 @@ Grading rules:
 - `paste_recipe` must be a non-empty string containing the gpg import and verify commands.
 - A `KEY-NOT-IN-KEYS` classification must cause `status` to be `"FAIL"` — a key absent
   from the project trust anchor is never downgraded to a warning.
-- No extra keys are permitted in the response.
+- The response is the `release-verify signatures` JSON; diagnostic fields the tool adds
+  beyond this schema (`detail`, `keys_fingerprints`) may be passed through.

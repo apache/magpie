@@ -36,7 +36,13 @@ uv run --project tools/skill-evals skill-eval --cli tools/skill-evals/evals/rele
 
 ## Grading methodology
 
-Steps 0, 2, 3, 5, 6, 8 and 9 all emit structured JSON. Cases use
+Steps 0, 2, 3, 5, 6, 8 and 9 all emit structured JSON.
+In Steps 2, 3, 5, 6 and 8 each case feeds the
+[`release-verify`](../../../release-verify/README.md) tool's JSON for the
+scenario (produced by running the tool on equivalent fixture data); the
+classification logic itself is covered by that tool's pytest suite, so
+these cases grade how the model reads and reports the tool output, and
+the judgement the tool leaves to it (Step 5's `REVIEW`). Cases use
 `expected.json` for exact-field grading and `output-spec.md` to
 document the allowed schema.
 

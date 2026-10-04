@@ -182,7 +182,12 @@ Example shape:
 
 TODO: list the artefacts the build invocation produces and the
 release ships. Each entry: filename pattern, content type, whether
-it is the canonical source artefact or a convenience binary.
+it is the canonical source artefact or a convenience binary, and
+`required` or `optional` in its parenthesised attributes.
+`release-verify-rc` Step 1 fails the RC when a `required` artefact
+is not staged and only warns when an `optional` one is not; an entry
+with no marking is `required`. Every staged artefact, of either kind,
+must be signed and checksummed.
 
 Example shape:
 
@@ -198,9 +203,12 @@ signature regime.
 ## Digest set
 
 TODO: list which digests the project publishes alongside each
-artefact. ASF baseline is `sha512`; many projects also publish
-`sha256` for older downstream tools. `md5` is no longer accepted
-per ASF infrastructure guidance.
+artefact. ASF baseline is `sha512`, the only digest
+`release-verify-rc` Step 3 requires; many projects also publish
+`sha256` for older downstream tools, which Step 3 checks whenever it
+is staged (a mismatch fails the RC). `md5` is no longer accepted per
+ASF infrastructure guidance: a staged `.md5` is a warning, never a
+failure on its own.
 
 Example shape:
 
