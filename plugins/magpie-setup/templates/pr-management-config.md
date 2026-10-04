@@ -10,6 +10,7 @@
   - [Project-specific labels](#project-specific-labels)
   - [Grace windows](#grace-windows)
   - [Workflow choices](#workflow-choices)
+  - [Typed-decision pre-filter (opt-in)](#typed-decision-pre-filter-opt-in)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -86,3 +87,28 @@ default to use the standard variant.
 | `backport_branches` | *(empty)* | <a id="backports"></a>Base-branch patterns (e.g. `v*-test`, `release/*`) that receive only cherry-picks from the default branch. Enables the [backport check](../../magpie-pr-management/skills/pr-triage/backport-check.md) (Step 0.7) for PRs targeting them. Leave empty if the project does not cherry-pick. |
 | `backport_policy` | `fixes-only` | What a backport may carry. `fixes-only`: flag features, behaviour changes, new deprecations, removals and refactors for closing. `any`: skip the change-type check and only verify the backport is a faithful cherry-pick. |
 | `session_history_gist` | `enabled` | [Step 6b](../../../skills/pr-management-triage/session-history.md#step-6b--propose-session-history-gist-update) — propose appending each session to a private GitHub gist on the maintainer's account. Set to `disabled` to skip Step 6b unconditionally for this project (overrides the per-invocation `no-history` flag). The local state file at `.apache-magpie.session-state.json` is read regardless so an existing gist remains discoverable. See [`session-history.md`](../../../skills/pr-management-triage/session-history.md). |
+
+## Typed-decision pre-filter (opt-in)
+
+Runs an advisory classification pass during Step 2 triage alongside the deterministic decision table using `typed_decision.choice()`.
+The deterministic decision table always executes authoritatively to determine classifications and actions per `PRINCIPLES.md` §6.
+The pre-filter pass runs alongside it to record predictive telemetry and evaluate accuracy.
+Can be declared here or overridden in `.apache-magpie-overrides/pr-management-triage.md` (or `.apache-magpie-local/pr-management-triage.md`).
+
+| Key | Default | Notes |
+|---|---|---|
+| `enable_typed_decision_prefilter` | `false` | Enable the opt-in typed-decision pre-filter. When `false` (default), triage runs the deterministic decision table exclusively. When `true`, calls `typed_decision.choice()` alongside the decision table to record shadow predictions. On provider unavailability or low confidence, falls through cleanly. |
+| `typed_decision_confidence_threshold` | `0.85` | Minimum confidence score required to accept the pre-filter prediction as high confidence. |
+
+**Third-Party Endpoint and Privacy Prerequisites:**
+- Endpoint: `https://api.typesafe.ai/v1/systemone`
+- Credentials: `TYPESAFE_API_KEY` (or fallback `JEV_API_KEY`) or `~/.config/apache-magpie/typesafe.key`.
+- Privacy-LLM approval: Requires an opt-in entry in `<project-config>/privacy-llm.md` with non-empty `Data-residency contract` and valid non-placeholder `Approved-by` sign-offs.
+- Transmits public PR metadata (title, body, and commits); does not send private repository data.
+
+**Human-in-the-loop invariant:**
+Pre-filtering only gathers advisory predictions and evaluates accuracy.
+It NEVER bypasses the deterministic table or acts on a PR without explicit maintainer confirmation in the interaction loop.
+
+**Telemetry:**
+When enabled, every call is logged to `.apache-magpie-local/logs/pr-triage-typed-decision.jsonl` with `{pr, table_classification, predicted_label, confidence, latency_ms, match, outcome}` for adopter precision/recall evaluation.

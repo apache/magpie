@@ -25,9 +25,9 @@ when_to_use: |
   already triaged or in its grace window.
 argument-hint: "[pr:N] [label:LBL] [author:LOGIN] [review-for-me] [stale] [repo:owner/name]"
 capability: capability:triage
-surface_hash: sha256:5c92df54aab39ad7
+surface_hash: sha256:27129b96ac38f34d
 license: Apache-2.0
-measured_tokens: 5027
+measured_tokens: 5079
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
@@ -322,7 +322,9 @@ Selector semantics (`triage pr:<N>` / `label:<LBL>` / `author:<LOGIN>` / `review
 [`classify-and-act.md`](classify-and-act.md), once — the pre-filters
 (F1–F5c), the first-match-wins decision table, the Real-CI guard on
 `passing` rows, and the single-pass output contract are specified
-there.
+there. When `enable_typed_decision_prefilter` is enabled, an advisory
+shadow pre-filter runs alongside post-guard classification to record
+telemetry without altering decisions (see [`classify-and-act.md`](classify-and-act.md) Step 2.4).
 
 ---
 
