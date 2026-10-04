@@ -270,5 +270,49 @@ class TallyCliTest(unittest.TestCase):
         self.assertIn("JSON object", out["error"])
 
 
+class DuplicateVoteTest(unittest.TestCase):
+    """One person, one vote: repeated votes halt the tally instead of counting twice."""
+
+    def setUp(self) -> None:
+        self.roster = tally.parse_roster(ROSTER)
+
+    def run_tally(self, votes, force_close=False):
+        return tally.tally(votes, self.roster, {}, force_close, "dev-list-vote")
+
+    def test_same_member_voting_twice_halts(self) -> None:
+        out = self.run_tally(
+            [vote("alice@apache.org", "+1"), vote("alice@apache.org", "+1"),
+             vote("bob.martinez@apache.org", "+1")]
+        )
+        self.assertTrue(out["halted"])
+        self.assertIsNone(out["result"])
+        self.assertEqual(out["duplicate_voters"][0]["identity"], "alice")
+        self.assertEqual(len(out["duplicate_voters"][0]["votes"]), 2)
+
+    def test_member_writing_from_two_addresses_is_one_identity(self) -> None:
+        # dave's primary address and his Apache ID address are the same person.
+        out = self.run_tally([vote("dave.kim@apache.org", "+1"), vote("dave@apache.org", "+1")])
+        self.assertEqual([d["identity"] for d in out["duplicate_voters"]], ["dave"])
+        self.assertTrue(out["halted"])
+
+    def test_force_close_does_not_bypass_duplicates(self) -> None:
+        out = self.run_tally([vote("alice@apache.org", "+1"), vote("alice@apache.org", "-1")], force_close=True)
+        self.assertTrue(out["halted"])
+        self.assertIsNone(out["result"])
+
+    def test_non_binding_duplicate_also_halts(self) -> None:
+        out = self.run_tally([vote("fan@gmail.com", "+1"), vote("Fan <FAN@gmail.com>", "+1")])
+        self.assertEqual([d["identity"] for d in out["duplicate_voters"]], ["fan@gmail.com"])
+
+    def test_distinct_voters_do_not_halt(self) -> None:
+        out = self.run_tally(
+            [vote("alice@apache.org", "+1"), vote("bob.martinez@apache.org", "+1"),
+             vote("carol@example.com", "+1")]
+        )
+        self.assertEqual(out["duplicate_voters"], [])
+        self.assertFalse(out["halted"])
+        self.assertEqual(out["result"], "PASSED")
+
+
 if __name__ == "__main__":
     unittest.main()

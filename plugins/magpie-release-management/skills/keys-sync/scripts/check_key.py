@@ -58,6 +58,11 @@ ALGORITHMS = {"1": "RSA", "2": "RSA", "3": "RSA", "17": "DSA", "19": "ECDSA", "2
 EDDSA_CURVES = {"ed25519", "ed448"}
 ECDSA_CURVES = {"nistp256", "nistp384", "nistp521", "brainpoolp256r1", "brainpoolp384r1", "brainpoolp512r1"}
 FLOOR_BITS = 2048
+UNUSABLE_VALIDITY = {
+    "r": "key is revoked; generate a new key",
+    "i": "key is invalid (gpg could not validate it); fix or replace the key",
+    "d": "key is disabled",
+}
 EXPIRY_ADVISORY_DAYS = 90
 
 
@@ -83,6 +88,7 @@ def parse_colons(text: str) -> list[dict[str, Any]]:
         kind = f[0]
         if kind == "pub":
             current = {
+                "validity": f[1],
                 "algo_id": f[3],
                 "bits": int(f[2]) if f[2].isdigit() else None,
                 "created": _date(f[5]),
@@ -148,6 +154,12 @@ def assess(key: dict[str, Any] | None, fingerprint: str, today: dt.date) -> dict
             notes.append(f"ECDSA curve {key['curve'] or 'unknown'!r} is not P-256 or stronger")
     else:
         notes.append(f"public-key algorithm id {key['algo_id']} is not accepted for release signing")
+    # gpg's validity field: a revoked, invalid or disabled key never signs a release,
+    # whatever its strength or expiry date says.
+    unusable = UNUSABLE_VALIDITY.get(key.get("validity", ""))
+    if unusable:
+        passed = False
+        notes.append(unusable)
     if key["expiry"]:
         days = (dt.date.fromisoformat(key["expiry"]) - today).days
         if days < 0:

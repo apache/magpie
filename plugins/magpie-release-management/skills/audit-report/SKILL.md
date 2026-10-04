@@ -23,7 +23,7 @@ argument-hint: "<version> [--planning-issue <url>]"
 capability: capability:stats
 surface_hash: sha256:576d71b04f203cd8
 license: Apache-2.0
-measured_tokens: 6549
+measured_tokens: 6583
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -352,7 +352,9 @@ It renders `record_markdown` in this fixed shape (`_MISSING_` and
 and lists
 `schema_violations` against
 [`audit-record-schema.md`](audit-record-schema.md); it refuses an email
-address among the voters. A non-empty `input_gaps` names input the
+address among the voters, and a link field that is not a plain `https://`
+URL. Every value is escaped so planning-issue text cannot break the record's
+tables or add sections. A non-empty `input_gaps` names input the
 record still needs: supply it and re-run. Return its fields except
 `input_gaps`, and never edit `record_markdown` by hand.
 Schema violations are surfaced to the RM but do not block the PR

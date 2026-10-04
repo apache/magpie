@@ -108,6 +108,16 @@ def resolve_binding(sender: str, roster: list[dict[str, str]]) -> str | None:
     return None
 
 
+def _identity(sender: str, roster: list[dict[str, str]], via: str | None) -> str:
+    """The person behind a vote: their roster Apache ID when on the roster, else the address."""
+    address = normalise_address(sender)
+    if via is not None:
+        for row in roster:
+            if address in (row["primary_email"].lower(), f"{row['apache_id'].lower()}@apache.org"):
+                return row["apache_id"].lower()
+    return address
+
+
 def normalise_value(value: Any) -> str:
     text = str(value).strip()
     upper = text.upper()
@@ -190,6 +200,7 @@ def tally(
         "fractional_count": 0,
         "excluded_ambiguous_count": 0,
     }
+    seen: dict[str, list[dict[str, Any]]] = {}
     for index, vote in enumerate(votes):
         if not isinstance(vote, dict) or "from" not in vote or "value" not in vote:
             raise InputError(f"vote #{index} needs 'from' and 'value'")
@@ -200,6 +211,8 @@ def tally(
             counts["excluded_ambiguous_count"] += 1
             continue
         via = resolve_binding(str(vote["from"]), roster)
+        identity = _identity(str(vote["from"]), roster, via)
+        seen.setdefault(identity, []).append(entry)
         binding = via is not None and value != "fractional"
         voters.append(
             {
@@ -216,8 +229,12 @@ def tally(
         suffix = {"+1": "plus1", "-1": "minus1", "0": "zero"}[value]
         counts[("binding_" if binding else "nonbinding_") + suffix] += 1
 
+    # One person, one vote: repeated votes (a changed vote, or the same member writing
+    # from two addresses) are never all counted. The tally halts until the model or RM
+    # passes only the vote that stands.
+    duplicates = [{"identity": who, "votes": entries} for who, entries in seen.items() if len(entries) > 1]
     rule, override_errors = apply_overrides(overrides)
-    halted = bool(ambiguous) and not force_close
+    halted = (bool(ambiguous) and not force_close) or bool(duplicates)
     result: str | None = None
     rule_text: str | None = None
     if mechanism == "dev-list-vote":
@@ -236,7 +253,9 @@ def tally(
         "mechanism": mechanism,
         "voters": voters,
         "ambiguous": ambiguous,
-        "halted_on_ambiguous": halted,
+        "halted_on_ambiguous": bool(ambiguous) and not force_close,
+        "duplicate_voters": duplicates,
+        "halted": halted,
         "force_close": force_close,
         **counts,
         "pass_rule_applied": rule_text,

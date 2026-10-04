@@ -120,5 +120,38 @@ class RenderTest(unittest.TestCase):
             render_record.render(data, REQUIRED)
 
 
+class HostileInputTest(unittest.TestCase):
+    """Values come from the planning issue: they must not break or extend the record."""
+
+    def render(self, **changes: object) -> str:
+        data = full() | changes
+        return render_record.render(data, REQUIRED)["record_markdown"]
+
+    def test_newline_and_pipe_stay_inside_their_cell(self) -> None:
+        md = self.render(promote_revision="r1 |x|\n## Injected section")
+        self.assertNotIn("\n## Injected section", md)
+        row = next(line for line in md.splitlines() if line.startswith("| Promote revision"))
+        self.assertIn("\\|x\\|", row)
+
+    def test_backtick_cannot_close_a_code_span(self) -> None:
+        md = self.render(rc_label="rc1` [click](https://evil.example) `")
+        row = next(line for line in md.splitlines() if line.startswith("| RC"))
+        self.assertEqual(row.count("`"), 2)
+
+    def test_link_fields_accept_only_plain_https(self) -> None:
+        for bad in ("javascript:alert(1)", "http://lists.apache.org/x", "https://a.b/x)[y](https://evil",
+                    "https://a.b/x y"):
+            with self.subTest(url=bad), self.assertRaises(render_record.InputError):
+                self.render(vote_thread_url=bad)
+
+    def test_good_link_renders_as_autolink(self) -> None:
+        md = self.render()
+        self.assertIn("<https://lists.apache.org/thread/vote>", md)
+
+    def test_artefact_names_are_quoted(self) -> None:
+        md = self.render(artefacts=[{"filename": "a|b\nc", "sha512": "aa", "sig": "s"}])
+        self.assertNotIn("a|b", md)
+
+
 if __name__ == "__main__":
     unittest.main()

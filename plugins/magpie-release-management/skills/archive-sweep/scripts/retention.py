@@ -75,6 +75,10 @@ def version_key(version: str) -> tuple[Any, ...]:
     return (tuple(release), tail)
 
 
+def is_prerelease(version: str) -> bool:
+    return version_key(version)[1][0] == 0
+
+
 def release_parts(version: str) -> list[int]:
     match = VERSION_RE.match(version)
     assert match
@@ -135,6 +139,14 @@ def sweep(listing: list[str], trains: list[dict[str, Any]]) -> dict[str, Any]:
         else:
             orphans.append(version)
 
+    # A pre-release in the release area must never count as a train's latest release:
+    # it would keep the RC and propose archiving the real latest release.
+    prereleases: list[str] = []
+    for label in members:
+        finals = [v for v in members[label] if not is_prerelease(v)]
+        prereleases += [v for v in members[label] if is_prerelease(v)]
+        members[label] = finals
+    prereleases.sort(key=version_key)
     latest = {label: vs[-1] for label, vs in members.items() if vs}
     rule_errors = [
         f"train {label!r} keeps {keeps[label]} version(s); the latest of every supported train must stay"
@@ -155,16 +167,22 @@ def sweep(listing: list[str], trains: list[dict[str, Any]]) -> dict[str, Any]:
         "proposed for it — the RM must decide whether to archive, keep, or reconcile it into a known train"
         for v in orphans
     ]
+    reasons += [
+        f"{v} is a pre-release in the release area; it is not counted for retention and no archival "
+        "command will be proposed for it — the RM must decide whether it belongs there"
+        for v in prereleases
+    ]
     return {
         "releases_found": found,
         "past_retention": [] if rule_errors else past,
         "orphans": orphans,
+        "prereleases": prereleases,
         "unmapped": unmapped,
         "latest_of_each_line": latest,
         "trains_without_releases": [label for label, vs in members.items() if not vs],
         "mapping_complete": not unmapped,
         "retention_rule_error": bool(rule_errors),
-        "handoff_required": bool(rule_errors or orphans),
+        "handoff_required": bool(rule_errors or orphans or prereleases),
         "handoff_reasons": reasons,
     }
 

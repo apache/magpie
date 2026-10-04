@@ -26,7 +26,7 @@ argument-hint: "[--fingerprint <fp>] [--keys-url <url>] [--keyserver <host>]"
 capability: capability:resolve
 surface_hash: sha256:61e10c986bb0d3ec
 license: Apache-2.0
-measured_tokens: 4794
+measured_tokens: 4800
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -257,7 +257,8 @@ and applies the floor from
 [ASF release-signing](https://infra.apache.org/release-signing.html):
 RSA and DSA at least 2048 bits, EdDSA (Ed25519) and ECDSA (P-256 or
 stronger) accepted, anything else (secp256k1 included) refused. A
-missing, sub-floor, or already-expired key is `blocked`. `strength_note`
+missing, sub-floor, already-expired, revoked, invalid or disabled key
+is `blocked`. `strength_note`
 carries the failure reason, the DSA advisory, and a non-blocking
 advisory for an expiry within 90 days.
 On an `error` (no gpg, bad fingerprint), surface it; never judge the

@@ -249,5 +249,29 @@ class CheckKeyCliTest(unittest.TestCase):
         self.assertIn("error", out)
 
 
+class ValidityTest(unittest.TestCase):
+    """gpg's validity field: revoked, invalid and disabled keys never pass."""
+
+    def listing(self, validity: str) -> str:
+        return colons("1", "4096").replace("pub:-:", f"pub:{validity}:", 1)
+
+    def test_revoked_key_blocks(self) -> None:
+        out = check(self.listing("r"))
+        self.assertEqual(out["verdict"], "blocked")
+        self.assertIn("revoked", out["strength_note"])
+
+    def test_invalid_and_disabled_keys_block(self) -> None:
+        for validity, word in (("i", "invalid"), ("d", "disabled")):
+            with self.subTest(validity=validity):
+                out = check(self.listing(validity))
+                self.assertEqual(out["verdict"], "blocked")
+                self.assertIn(word, out["strength_note"])
+
+    def test_ordinary_validity_still_proceeds(self) -> None:
+        for validity in ("-", "u", "f", "q"):
+            with self.subTest(validity=validity):
+                self.assertEqual(check(self.listing(validity))["verdict"], "proceed")
+
+
 if __name__ == "__main__":
     unittest.main()

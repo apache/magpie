@@ -28,7 +28,7 @@ capability:
   - capability:resolve
 surface_hash: sha256:34592bfacb7cf955
 license: Apache-2.0
-measured_tokens: 5678
+measured_tokens: 5761
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -385,6 +385,12 @@ Build the table from its `voters` and `ambiguous`, adding each
   ]
 }
 ```
+
+**If `duplicate_voters` is not empty**, one person voted more than once
+(a changed vote, or a member writing from two addresses). The script never
+counts them all and halts (`halted: true`, `result: null`), even under
+`--force-close`. Surface the list, ask the RM which vote stands, and re-run
+with only that vote for each person.
 
 **If any `ambiguous` entries exist** (`halted_on_ambiguous: true`):
 

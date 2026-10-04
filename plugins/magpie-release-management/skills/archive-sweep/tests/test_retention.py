@@ -93,5 +93,27 @@ class SweepTest(unittest.TestCase):
         self.assertEqual(out["unmapped"][0]["version"], "2.11.0")
 
 
+class PrereleaseTest(unittest.TestCase):
+    """A pre-release in the release area never decides what is kept."""
+
+    def test_rc_never_displaces_the_latest_release(self) -> None:
+        out = retention.sweep(["2.10.5", "2.11.0-rc1", "2.10.4"], TWO_X)
+        self.assertEqual(out["latest_of_each_line"], {"2.x": "2.10.5"})
+        self.assertEqual(out["past_retention"], ["2.10.4"])
+        self.assertNotIn("2.10.5", out["past_retention"])
+        self.assertNotIn("2.11.0-rc1", out["past_retention"])
+
+    def test_prerelease_is_handed_to_the_rm(self) -> None:
+        out = retention.sweep(["2.10.5", "2.11.0rc1"], TWO_X)
+        self.assertEqual(out["prereleases"], ["2.11.0rc1"])
+        self.assertTrue(out["handoff_required"])
+        self.assertTrue(any("2.11.0rc1" in r and "pre-release" in r for r in out["handoff_reasons"]))
+
+    def test_post_release_still_counts_as_a_release(self) -> None:
+        out = retention.sweep(["2.10.5", "2.10.5.post1"], TWO_X)
+        self.assertEqual(out["latest_of_each_line"], {"2.x": "2.10.5.post1"})
+        self.assertEqual(out["prereleases"], [])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -26,7 +26,7 @@ capability:
   - capability:triage
 surface_hash: sha256:1665af8aae9c2b58
 license: Apache-2.0
-measured_tokens: 4443
+measured_tokens: 4481
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -251,7 +251,9 @@ Return ONLY valid JSON with this structure:
 
    Per train it keeps the newest `keep` (default 1) and marks earlier
    versions past retention; releases on no train are `orphans`, never
-   archived. `keep` below 1 would archive a train's latest release: the
+   archived. A pre-release in the release area is listed in `prereleases`,
+   never counted as a train's latest and never archived; it is a hand-off
+   to the RM. `keep` below 1 would archive a train's latest release: the
    script sets `retention_rule_error` and empties `past_retention`, and
    no archival command may be emitted.
 
