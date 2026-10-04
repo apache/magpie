@@ -549,6 +549,27 @@ def generate_markdown_report(
     return f"""<!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
+
+- [Typed-Decision PR Triage Evaluation](#typed-decision-pr-triage-evaluation)
+  - [Executive Summary](#executive-summary)
+  - [Methodology](#methodology)
+    - [1. Sample Selection](#1-sample-selection)
+    - [2. Ground Truth Definition](#2-ground-truth-definition)
+    - [3. Prompt Construction & Classifier Execution](#3-prompt-construction--classifier-execution)
+  - [Evaluation Results](#evaluation-results)
+    - [Overall Performance](#overall-performance)
+    - [Per-Class Precision and Recall](#per-class-precision-and-recall)
+    - [Confusion Matrix](#confusion-matrix)
+  - [Latency and Cost Economics](#latency-and-cost-economics)
+    - [Latency Distribution](#latency-distribution)
+    - [Cost Estimation](#cost-estimation)
+  - [Analysis & Safety Takeaways](#analysis--safety-takeaways)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
 # Typed-Decision PR Triage Evaluation
 
 Evaluation report comparing the `typed-decision` pre-filter (`typed_decision.choice()`)
