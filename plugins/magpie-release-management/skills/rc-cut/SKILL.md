@@ -31,7 +31,7 @@ argument-hint: "<version> rc<N>"
 capability: capability:resolve
 surface_hash: sha256:60623e456e72bbf6
 license: Apache-2.0
-measured_tokens: 11341
+measured_tokens: 9878
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -505,135 +505,13 @@ continue with Step 2c instead of Step 3.
 
 ## Step 2b — Emit reproducibility self-check commands (optional)
 
-Skipped when `reproducibility_source` is `off` **and**
-`reproducibility_binaries` is `off`, or when `--skip-repro-check` was
-passed and `signing_mode` is `rm-key`. Mandatory (the flag is ignored)
-when `signing_mode` is `ci-automated`. Run **after** the build and
-**before** signing: a non-reproducible build found here costs a rebuild,
-found by a voter it costs an RC.
-
-**Source (`reproducibility_source: on`).** Lint the artefact against
-the reproducible-builds.org checklist, rebuild it into a scratch
-directory from the same tag, and compare:
-
-```text
-# 1. every archive rule holds (single SOURCE_DATE_EPOCH mtime, sorted, uid/gid 0, a=rX,u+w, no PAX atime/ctime, gzip -n / zip -X)
-uv run --project <framework>/tools/reproducible-archive repro-archive check \
-  "<source-artefact-filename>" --epoch "<SOURCE_DATE_EPOCH>"
-# 2. rebuild from the tag and require byte-identical output
-mkdir -p rebuild
-uv run --project <framework>/tools/reproducible-archive repro-archive build \
-  --ref "<version>-<rcN>" --format <source_archive_format> \
-  --prefix "<source_archive_prefix>" -o "rebuild/<source-artefact-filename>"
-uv run --project <framework>/tools/reproducible-archive repro-archive compare --require-identical \
-  "<source-artefact-filename>" "rebuild/<source-artefact-filename>"
-```
-
-With `source_archive_method: custom` the `check` still runs (it lints
-any `.tar`, `.tar.gz` or `.zip`); the rebuild step re-runs
-`build_command` into `rebuild/` and compares with
-`repro-archive compare`. `content-identical` is then a warning to
-switch the build to `repro-archive build` or `repro-archive recipe`;
-`differs` is a stop.
-
-**Convenience artefacts.** One block per entry in
-`convenience_artefacts`, using the entry's `reproducibility` mode
-(default `reproducibility_binaries`). `byte-identical` — re-run the
-entry's `build_command` into `rebuild/` under the same
-`SOURCE_DATE_EPOCH` and compare bytes:
-
-```text
-export SOURCE_DATE_EPOCH="<SOURCE_DATE_EPOCH>"
-( cd rebuild && <artefact.build_command> )
-cmp "<artefact.name>" "rebuild/<artefact.name>" \
-  && echo "identical: <artefact.name>" || echo "DIFFERS: <artefact.name>"
-```
-
-`documented-divergence` — the same rebuild, then the entry's
-`verification_command` (for example `diffoscope <artefact.name>
-rebuild/<artefact.name>`); any difference not listed under the
-entry's `known_divergences` is a stop, listed ones are reported.
-`off` — state `SKIP` explicitly for that artefact. An artefact that
-does not reproduce here is not good to sign: it is not known to be
-what the tagged source produces, and `release-promote` will withhold
-its publication until a verify-rc run reproduces it.
-
-The RM runs the block and reports the outcome. Any `differs` /
-`DIFFERS` stops the cut: the RM fixes the build (or documents the
-divergence) and rebuilds before signing anything.
-
-Return ONLY valid JSON with this structure:
-
-```json
-{
-  "source_check_enabled": true | false,
-  "binary_check_mode": "off" | "byte-identical" | "documented-divergence",
-  "mandatory": true | false,
-  "source_check_commands": ["<repro-archive check …>", "<repro-archive build … rebuild/…>", "<repro-archive compare --require-identical …>"],
-  "binary_check_commands": ["<command>"],
-  "stop_on": ["differs", "DIFFERS"],
-  "proposed": true
-}
-```
-
-`mandatory` is `true` only when `signing_mode` is `ci-automated`.
-`source_check_commands` is empty when `source_check_enabled` is
-`false`; `binary_check_commands` is empty when `binary_check_mode` is
-`off`. `stop_on` always lists the verdicts that halt the cut.
-`proposed` is always `true`.
+Read [`reproducibility-self-check.md`](reproducibility-self-check.md) for this step; it is loaded only for an RM who wants the reproducibility self-check.
 
 ---
 
 ## Step 2c — CI-signed flow (🪶 ASF-specific, `signing_mode: ci-automated`)
 
-Only for a project whose organization offers automated signing
-(`release_process.automated_signing`, resolved `project.md` →
-organization manifest → framework default; only the ASF sets it) and
-whose `release-management-config.md` sets `automated_release_signing:
-enabled` after the one-time setup in `release-prepare automated-signing`
-(Infra-provisioned key, Security Team approval, workflow merged). For
-every other project this step does not exist and is never mentioned.
-
-Under
-[Infra § Automated release signing](https://infra.apache.org/release-signing.html#automated-release-signing)
-CI builds, signs and **stages** the artefacts; a committer re-validates
-them bit-by-bit on trusted hardware before anything is published. The
-RM still signs the **tag** with their own key (Section 1). Instead of
-Sections 3–4 and Step 3, emit:
-
-```text
-# 1. Push the signed tag — this triggers <ci_release_workflow>
-git push <git-upstream-remote> <version>-<rcN>
-# 2. Watch the run; it builds reproducibly (repro-archive), self-compares,
-#    checksums, and uploads to ATR (OIDC trusted publishing). It publishes nothing.
-gh run list --repo <upstream> --workflow <ci_release_workflow> --branch <version>-<rcN>
-gh run watch --repo <upstream> <run-id>
-# 3. Confirm the staged candidate and its checks in ATR
-atr check status <project> <version> --verbose
-# 4. Record the run URL and the SOURCE_DATE_EPOCH from the run log for Step 4
-```
-
-Then hand off: *"Before this RC can be promoted, a committer must run
-`release-verify-rc <version>-<rcN>` on their own hardware; its Step 9
-rebuilds every artefact and requires `identical`. `release-promote`
-refuses to promote without that attestation on the planning issue."*
-
-Return ONLY valid JSON with this structure:
-
-```json
-{
-  "signing_mode": "ci-automated",
-  "organization": "ASF",
-  "ci_release_workflow": "<path>",
-  "trigger_commands": ["git push <remote> <version>-<rcN>", "gh run list …", "gh run watch …"],
-  "local_sign_commands_omitted": true,
-  "trusted_hardware_validation_required": true,
-  "proposed": true
-}
-```
-
-`local_sign_commands_omitted` and `trusted_hardware_validation_required`
-are always `true` in this mode.
+Read [`ci-signed.md`](ci-signed.md) for this step; it is loaded only for `signing_mode: ci-automated`.
 
 ---
 
