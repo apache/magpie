@@ -15,13 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-"""Read `.apache-magpie.lock` — the one shape, not general YAML.
+"""Read `.apache-magpie.lock` and `.apache-magpie.local.lock` — fixed shapes, not general YAML.
 
 The lock is written by `setup`, never by hand, and its grammar is fixed by
 [`locks.md`]: `key: value` scalars at column 0, a `plugins:` sequence of
 `- name`, and a `reconciled:` mapping whose `skills:` child maps a skill's
 frontmatter `name:` to its `surface_hash`.  Comments and blank lines are
-ignored.
+ignored.  The gitignored `.apache-magpie.local.lock` is flat `key: value`
+lines under its own keys (`source_method`, `source_url`, `source_ref`,
+`fetched_commit`, `fetched_at`) and is read by `parse_local`.
 
 A real YAML parser is the obvious alternative and is rejected for one
 reason: this module is copied into an adopter's gitignored
@@ -37,7 +39,7 @@ never actually saw.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from pathlib import Path
 
 
@@ -62,6 +64,17 @@ class Lock:
     source: str | None = None
     plugins: list[str] = field(default_factory=list)
     reconciled: Reconciled | None = None
+
+
+@dataclass
+class LocalLock:
+    """`.apache-magpie.local.lock`: what this machine fetched, per `locks.md`."""
+
+    source_method: str | None = None
+    source_url: str | None = None
+    source_ref: str | None = None
+    fetched_commit: str | None = None
+    fetched_at: str | None = None
 
 
 def _strip_comment(line: str) -> str:
@@ -129,6 +142,23 @@ def parse(text: str) -> Lock:
 
         raise MalformedLock(f"indented line outside any block: {raw!r}")
     return lock
+
+
+def parse_local(text: str) -> LocalLock:
+    """Parse the local lock: `key: value` lines only, under its own keys."""
+    local = LocalLock()
+    for raw in text.splitlines():
+        line = _strip_comment(raw)
+        if not line.strip():
+            continue
+        if line[0] == " " or ":" not in line:
+            raise MalformedLock(f"not a key: value line: {raw!r}")
+        key, _, value = line.partition(":")
+        key = key.rstrip()
+        if key not in {f.name for f in fields(LocalLock)}:
+            raise MalformedLock(f"unknown key: {key!r}")
+        setattr(local, key, value.strip())
+    return local
 
 
 def load(path: Path) -> Lock | None:

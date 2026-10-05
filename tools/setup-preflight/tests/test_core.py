@@ -114,28 +114,87 @@ def test_a_snapshot_method_without_a_local_lock_was_never_fetched(project: Path)
     assert codes(project_findings(project, None)) == ["snapshot-never-fetched"]
 
 
+GIT_TAG_PIN = """\
+method: git-tag
+url:    https://github.com/apache/magpie.git
+ref:    v0.2.0
+commit: 1111111111111111111111111111111111111111
+"""
+
+FETCHED = """\
+# .apache-magpie.local.lock — gitignored; per-machine.
+
+source_method:    {method}
+source_url:       {url}
+source_ref:       {ref}
+fetched_commit:   {commit}
+fetched_at:       2026-10-05T12:00:00Z
+"""
+
+
+def write_local_lock(
+    root: Path,
+    *,
+    method: str = "git-tag",
+    url: str = "https://github.com/apache/magpie.git",
+    ref: str = "v0.2.0",
+    commit: str = "1111111111111111111111111111111111111111",
+) -> None:
+    """The local lock in the shape `install.md` and `upgrade.md` write it."""
+    (root / ".apache-magpie.local.lock").write_text(
+        FETCHED.format(method=method, url=url, ref=ref, commit=commit), encoding="utf-8"
+    )
+
+
+def test_a_local_lock_matching_the_pin_is_silent(project: Path) -> None:
+    """The local lock records what was fetched under its own keys
+    (`source_method`, `source_url`, `source_ref`, `fetched_commit`), and each
+    is compared with the committed key it records."""
+    write_lock(project, GIT_TAG_PIN)
+    write_local_lock(project)
+    assert project_findings(project, None) == []
+
+
+def test_a_local_lock_with_an_unknown_key_is_unreadable(project: Path) -> None:
+    write_lock(project, GIT_TAG_PIN)
+    (project / ".apache-magpie.local.lock").write_text("method: git-tag\nref: v0.2.0\n", encoding="utf-8")
+    found = project_findings(project, None)
+    assert codes(found) == ["snapshot-unreadable"]
+    assert found[0].facts == {"error": "unknown key: 'method'"}
+
+
 def test_a_snapshot_ref_mismatch_is_drift(project: Path) -> None:
-    write_lock(project, "method: git-tag\nref: v0.2.0\n")
-    (project / ".apache-magpie.local.lock").write_text("method: git-tag\nref: v0.1.0\n")
+    write_lock(project, GIT_TAG_PIN)
+    write_local_lock(project, ref="v0.1.0")
     found = project_findings(project, None)
     assert codes(found) == ["snapshot-drift"]
-    differs = found[0].facts["differs"]
-    assert isinstance(differs, dict)
-    assert differs["ref"] == {"project": "v0.2.0", "machine": "v0.1.0"}
+    assert found[0].facts["differs"] == {"ref": {"project": "v0.2.0", "machine": "v0.1.0"}}
+
+
+def test_a_fetched_commit_other_than_the_pinned_one_is_drift(project: Path) -> None:
+    write_lock(project, GIT_TAG_PIN)
+    write_local_lock(project, commit="2222222222222222222222222222222222222222")
+    found = project_findings(project, None)
+    assert codes(found) == ["snapshot-drift"]
+    assert found[0].facts["differs"] == {
+        "commit": {
+            "project": "1111111111111111111111111111111111111111",
+            "machine": "2222222222222222222222222222222222222222",
+        }
+    }
 
 
 def test_a_snapshot_method_or_url_mismatch_is_drift(project: Path) -> None:
     """A different fetch method or source needs a re-install, not an upgrade;
     the facts carry which key differs so the rule can say which."""
-    write_lock(project, "method: git-tag\nurl: https://a.example/magpie\nref: v0.2.0\n")
-    (project / ".apache-magpie.local.lock").write_text(
-        "method: git-branch\nurl: https://b.example/magpie\nref: v0.2.0\n"
-    )
+    write_lock(project, GIT_TAG_PIN)
+    write_local_lock(project, method="git-branch", url="https://b.example/magpie")
     found = project_findings(project, None)
     assert codes(found) == ["snapshot-drift"]
-    differs = found[0].facts["differs"]
-    assert isinstance(differs, dict)
-    assert set(differs) == {"method", "url"}
+    assert found[0].facts["differs"] == {
+        "method": {"project": "git-tag", "machine": "git-branch"},
+        "url": {"project": "https://github.com/apache/magpie.git", "machine": "https://b.example/magpie"},
+    }
 
 
 LOCAL = """\

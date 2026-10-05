@@ -330,6 +330,8 @@ committed version with drift detection.
    because an upgrade cannot fix it. `setup_preflight` compares all four
    keys (`method` and `url` since #1435), and its `step-2` rules section
    carries the three remedies.
+   Each committed key is compared with the local lock's own key for it:
+   `source_method`, `source_url`, `source_ref`, `fetched_commit` (#1491).
 5. Override files can be discovered and surfaced to skills without
    editing upstream skill bodies, and override text cannot weaken the
    safety/confidentiality baseline.

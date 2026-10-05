@@ -53,7 +53,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 from . import sections
-from .lockfile import Lock, MalformedLock, load
+from .lockfile import Lock, MalformedLock, load, parse_local
 from .version import InvalidVersion, below
 
 LOCAL_DIR = ".apache-magpie-local"
@@ -65,6 +65,14 @@ CACHE_NAME = ".preflight-cache.json"
 
 TRUSTED_MARKETPLACE = "apache/magpie"
 SNAPSHOT_METHODS = frozenset({"svn-zip", "git-tag", "git-branch"})
+#: Each pinned key in the committed lock, and the local-lock key that records
+#: what this machine actually fetched for it (`locks.md`, `upgrade.md` Step 1).
+LOCAL_COUNTERPART = {
+    "method": "source_method",
+    "url": "source_url",
+    "ref": "source_ref",
+    "commit": "fetched_commit",
+}
 #: The framework checkout linking its own in-repo `skills/` source.  The
 #: skills *are* the working tree, so there is no snapshot or floor to drift.
 LOCAL_METHOD = "local"
@@ -125,15 +133,13 @@ def _snapshot_findings(lock: Lock, root: Path) -> list[Finding]:
             )
         ]
     try:
-        from .lockfile import parse as parse_lock
-
-        local_lock = parse_lock(local.read_text(encoding="utf-8"))
+        local_lock = parse_local(local.read_text(encoding="utf-8"))
     except MalformedLock as exc:
         return [Finding("project", "snapshot-unreadable", "step-2", {"error": str(exc)})]
     drift = {
-        key: {"project": getattr(lock, key), "machine": getattr(local_lock, key)}
-        for key in ("method", "url", "ref", "commit")
-        if getattr(lock, key) is not None and getattr(lock, key) != getattr(local_lock, key)
+        key: {"project": getattr(lock, key), "machine": getattr(local_lock, local_key)}
+        for key, local_key in LOCAL_COUNTERPART.items()
+        if getattr(lock, key) is not None and getattr(lock, key) != getattr(local_lock, local_key)
     }
     if drift:
         return [Finding("project", "snapshot-drift", "step-2", {"differs": drift})]
