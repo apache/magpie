@@ -49,6 +49,13 @@ def test_supported_python_is_a_no_op() -> None:
     assert agent_guard._reexec_under_supported_python() is None
 
 
+def test_supported_python_clears_the_reexec_marker(monkeypatch: pytest.MonkeyPatch) -> None:
+    environ = {agent_guard._REEXEC_VAR: "1"}
+    monkeypatch.setattr(os, "environ", environ)
+    agent_guard._reexec_under_supported_python()
+    assert agent_guard._REEXEC_VAR not in environ
+
+
 def test_reexecs_under_newest_versioned_interpreter(
     old_python: dict[str, str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -64,10 +71,15 @@ def test_reexecs_under_newest_versioned_interpreter(
 
 
 @pytest.mark.parametrize(
-    ("environ", "which"),
+    ("environ", "which", "cause"),
     [
-        pytest.param({}, lambda _: None, id="no-newer-interpreter"),
-        pytest.param({agent_guard._REEXEC_VAR: "1"}, lambda _: "/usr/bin/python3.13", id="already-reexeced"),
+        pytest.param({}, lambda _: None, "no python3.11+ is on PATH", id="no-newer-interpreter"),
+        pytest.param(
+            {agent_guard._REEXEC_VAR: "1"},
+            lambda _: "/usr/bin/python3.13",
+            "the interpreter it re-ran under",
+            id="already-reexeced",
+        ),
     ],
 )
 def test_exits_with_actionable_message(
@@ -76,6 +88,7 @@ def test_exits_with_actionable_message(
     capsys: pytest.CaptureFixture[str],
     environ: dict[str, str],
     which: object,
+    cause: str,
 ) -> None:
     old_python.update(environ)
     monkeypatch.setattr(shutil, "which", which)
@@ -85,3 +98,4 @@ def test_exits_with_actionable_message(
     err = capsys.readouterr().err
     assert "needs Python 3.11+" in err
     assert "3.10.17" in err
+    assert cause in err

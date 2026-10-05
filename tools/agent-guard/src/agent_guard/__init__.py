@@ -1081,17 +1081,26 @@ def _reexec_under_supported_python() -> None:
     traceback on every shell call.
     """
     if sys.version_info[:2] >= _MIN_PYTHON:
+        # Drop the marker so commands the guard runs (``--exec``) do not
+        # inherit it and skip the search in a nested guard run.
+        os.environ.pop(_REEXEC_VAR, None)
         return
     import shutil
 
-    if not os.environ.get(_REEXEC_VAR):
-        # ponytail: probes up to python3.20; raise the bound when that ships.
-        for minor in range(20, _MIN_PYTHON[1] - 1, -1):
-            interpreter = shutil.which(f"python3.{minor}")
-            if interpreter:
-                os.environ[_REEXEC_VAR] = "1"
-                os.execv(interpreter, [interpreter, os.path.abspath(__file__), *sys.argv[1:]])
     found = ".".join(map(str, sys.version_info[:3]))
+    if os.environ.get(_REEXEC_VAR):
+        sys.stderr.write(
+            f"agent-guard: needs Python 3.11+, but the interpreter it re-ran under is "
+            f"{found} ({sys.executable}). The guard is NOT running. "
+            "Check which python3.N is first on PATH.\n"
+        )
+        raise SystemExit(1)
+    # Probes python3.20 down to python3.11; raise the upper bound when 3.21 ships.
+    for minor in range(20, _MIN_PYTHON[1] - 1, -1):
+        interpreter = shutil.which(f"python3.{minor}")
+        if interpreter:
+            os.environ[_REEXEC_VAR] = "1"
+            os.execv(interpreter, [interpreter, os.path.abspath(__file__), *sys.argv[1:]])
     sys.stderr.write(
         f"agent-guard: needs Python 3.11+, but python3 is {found} ({sys.executable}) "
         "and no python3.11+ is on PATH. The guard is NOT running. "
