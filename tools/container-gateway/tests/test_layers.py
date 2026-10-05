@@ -496,6 +496,69 @@ def test_a_backlink_to_another_worktree_is_refused(tmp_path: Path) -> None:
     _serve_refuses(wt)
 
 
+def _pointing_at(tmp_path: Path, target: Path) -> Path:
+    """A checkout whose `.git` file names `target` itself, the way a submodule's does."""
+    wt = tmp_path / "wt"
+    wt.mkdir(exist_ok=True)
+    (wt / ".git").write_text(f"gitdir: {target}\n")
+    return wt
+
+
+def test_a_gitdir_naming_the_git_dir_of_another_repository_is_refused(tmp_path: Path) -> None:
+    other = tmp_path / "other" / ".git"
+    _git_dir(other)
+    _serve_refuses(_pointing_at(tmp_path, other))
+    assert not (other / "apache-magpie").exists()
+
+
+def test_a_gitdir_naming_the_main_checkouts_git_dir_is_refused(tmp_path: Path) -> None:
+    main, wt = _worktree(tmp_path)
+    (wt / ".git").write_text(f"gitdir: {main / '.git'}\n")
+    _serve_refuses(wt)
+    assert not (main / ".git" / "apache-magpie").exists()
+
+
+def test_a_submodule_style_gitdir_whose_worktree_is_elsewhere_is_refused(tmp_path: Path) -> None:
+    other = tmp_path / "other" / ".git"
+    _git_dir(other)
+    (other / "config").write_text(f"[core]\n\tworktree = {tmp_path / 'other'}\n")
+    _serve_refuses(_pointing_at(tmp_path, other))
+
+
+def test_a_real_submodule_serves_from_its_own_git_dir(tmp_path: Path) -> None:
+    from container_gateway import __main__ as cli
+    from container_gateway import daemon
+
+    module = tmp_path / "super" / ".git" / "modules" / "sub"
+    _git_dir(module)
+    (module / "config").write_text('[core]\n\tbare = false\n\tworktree = "../../../sub"\n')
+    sub = tmp_path / "super" / "sub"
+    sub.mkdir()
+    (sub / ".git").write_text("gitdir: ../.git/modules/sub\n")
+    cfg = cli._config(_ns(sub), serving=True)
+    daemon.check_run_dir(cfg.run_dir, cfg.project_root)
+    assert cfg.run_dir.resolve().is_relative_to(module.resolve())
+    assert cfg.run_dir.is_dir()
+
+
+def test_stop_never_signals_through_a_gitdir_naming_another_repository(tmp_path: Path, monkeypatch) -> None:
+    import pytest
+
+    from container_gateway import __main__ as cli
+
+    other = tmp_path / "other" / ".git"
+    _git_dir(other)
+    (other / "apache-magpie" / "run" / "wt").mkdir(parents=True, mode=0o700)
+    wt = _pointing_at(tmp_path, other)
+
+    def no_kill(*_args: object) -> None:
+        raise AssertionError("os.kill reached")
+
+    monkeypatch.setattr(cli.os, "kill", no_kill)
+    with pytest.raises(SystemExit):
+        cli.cmd_stop(_ns(wt))
+
+
 def test_a_group_writable_common_dir_is_refused(tmp_path: Path) -> None:
     main, wt = _worktree(tmp_path)
     (main / ".git").chmod(0o775)

@@ -197,6 +197,30 @@ def _project_relative_parts(run_dir: Path, resolved_root: Path, project_root: Pa
     return None
 
 
+def _core_worktree(git_dir: Path) -> Path | None:
+    """The resolved ``core.worktree`` of ``git_dir/config``, or None when unset or unreadable."""
+    try:
+        lines = (git_dir / "config").read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeDecodeError):
+        return None
+    section = ""
+    value = None
+    for raw in lines:
+        line = raw.strip()
+        if not line or line[0] in "#;":
+            continue
+        if line.startswith("["):
+            section = line[1:].split("]", 1)[0].strip().lower()
+            continue
+        key, sep, val = line.partition("=")
+        if sep and section == "core" and key.strip().lower() == "worktree":
+            value = val.strip().strip('"')
+    if not value:
+        return None
+    path = Path(value)
+    return (path if path.is_absolute() else git_dir / path).resolve()
+
+
 def _verified_common_dir(resolved_root: Path, common: Path) -> Path:
     """The resolved git common directory, once it is shown to be this repository's.
 
@@ -204,11 +228,19 @@ def _verified_common_dir(resolved_root: Path, common: Path) -> Path:
     ``.git`` file, which the sandboxed agent can rewrite. Left unchecked,
     that would let it choose where the gateway creates its run directory
     and binds its sockets. So the anchor is accepted only the way git
-    itself links a worktree to its repository: the common directory is
+    itself links a checkout to its repository: the common directory is
     owned by this user, not group- or world-writable, and holds ``HEAD``
-    and ``objects/``; the worktree's private git directory is
-    ``<common>/worktrees/<name>``; and that directory's ``gitdir`` file
-    points back at this worktree's ``.git``. Anything else refuses.
+    and ``objects/``; and it links back to this checkout. For a linked worktree the private git directory is
+    ``<common>/worktrees/<name>`` and its ``gitdir`` file points back at
+    this worktree's ``.git``; for a submodule the ``.git`` file names the
+    common directory itself, whose ``core.worktree`` points back at this
+    checkout. Anything else refuses -- in particular a ``.git`` file
+    naming another repository's git directory outright.
+
+    The ownership check does not tell the sandboxed agent from the
+    operator, since both run as the same user; it only rules out a
+    directory planted by someone else. The back-link is what ties the
+    anchor to this checkout.
     """
     resolved_common = common.resolve()
     st = _lstat_or_none(resolved_common)
@@ -228,7 +260,13 @@ def _verified_common_dir(resolved_root: Path, common: Path) -> Path:
         except (OSError, UnicodeDecodeError, IndexError):
             _refuse(f"cannot read {dotgit}; refusing (pass --run-dir)")
         gitdir = (dotgit.parent / first.removeprefix("gitdir:").strip()).resolve()
-        if gitdir != resolved_common:  # a submodule's gitdir is its own common dir
+        if gitdir == resolved_common:  # a submodule's gitdir is its own common dir
+            if _core_worktree(resolved_common) != resolved_root:
+                _refuse(
+                    f"{resolved_common}/config has no core.worktree pointing back at {resolved_root}; "
+                    "refusing (pass --run-dir)"
+                )
+        else:
             if gitdir.parent != resolved_common / "worktrees":
                 _refuse(
                     f"worktree git directory {gitdir} is not under {resolved_common}/worktrees; "
