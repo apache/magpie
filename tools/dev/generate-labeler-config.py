@@ -73,6 +73,12 @@ EXCLUDES: dict[str, tuple[str, ...]] = {
 LABELS_LIMIT = 20
 
 TAXONOMY_RELPATH = Path("docs") / "labels-and-capabilities.md"
+_ALL_TAXONOMY_RE = re.compile(r"^\| `((?:family|capability|contract|substrate):[a-z0-9-]+)` \|", re.MULTILINE)
+_CONFIG_LABEL_RE = re.compile(r"^([a-z]+:[a-z0-9-]+):$", re.MULTILINE)
+
+# Taxonomy labels that are deliberately applied by hand, never from paths.
+# Each needs a reason; an entry here is the only way a label may lack a rule.
+UNMAPPED: dict[str, str] = {}
 _TAXONOMY_RE = re.compile(r"^\| `((?:family|capability):[a-z0-9-]+)` \|", re.MULTILINE)
 
 # The non-skill families and the paths they cover.
@@ -256,11 +262,45 @@ def render(by_label: dict[str, list[str]], path_rules: dict[str, list[str]] | No
     return "\n".join(lines).rstrip("\n") + "\n"
 
 
+def coverage_problems(root: Path) -> list[str]:
+    """Taxonomy labels with no labeler rule, and labeler rules for undefined labels."""
+    doc = root / TAXONOMY_RELPATH
+    defined = set(_ALL_TAXONOMY_RE.findall(doc.read_text(encoding="utf-8"))) if doc.is_file() else set()
+    config = root / CONFIG_RELPATH
+    configured = (
+        set(_CONFIG_LABEL_RE.findall(config.read_text(encoding="utf-8"))) if config.is_file() else set()
+    )
+    problems = [
+        f"{label} is defined in {TAXONOMY_RELPATH.as_posix()} but no rule applies it: declare it in a skill's "
+        "frontmatter or a tool README's **Capability:** line, or list it in UNMAPPED with a reason"
+        for label in sorted(defined - configured - set(UNMAPPED))
+    ]
+    problems += [
+        f"{label} has a labeler rule but is not defined in {TAXONOMY_RELPATH.as_posix()}"
+        for label in sorted(configured - defined)
+    ]
+    problems += [
+        f"UNMAPPED lists {label}, which is not a taxonomy label" for label in sorted(set(UNMAPPED) - defined)
+    ]
+    return problems
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--check", action="store_true", help="report drift without rewriting the file")
+    parser.add_argument(
+        "--check-coverage",
+        action="store_true",
+        help="fail when a taxonomy label has no labeler rule, or a rule names an undefined label",
+    )
     parser.add_argument("--root", type=Path, default=REPO_ROOT, help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
+
+    if args.check_coverage:
+        problems = coverage_problems(args.root)
+        for problem in problems:
+            print(problem, file=sys.stderr)
+        return 1 if problems else 0
 
     path = args.root / CONFIG_RELPATH
     expected = render(load_capabilities(args.root), load_path_rules(args.root))

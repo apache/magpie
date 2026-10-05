@@ -538,6 +538,16 @@ repos:
         entry: tools/dev/generate-labeler-config.py
         files: ^(tools/[^/]+/README\.md|\.github/labeler\.yml|tools/dev/generate-labeler-config\.py|plugins/magpie-[^/]+/skills/[^/]+/SKILL\.md|skills/[^/]+|docs/labels-and-capabilities\.md)$
         pass_filenames: false
+      # Every label docs/labels-and-capabilities.md defines must have a rule in
+      # .github/labeler.yml (or an UNMAPPED entry with a reason), and no rule
+      # may name an undefined label: a label nobody can apply automatically is
+      # how pull requests ended up unlabelled.
+      - id: check-labeler-coverage
+        name: check-labeler-coverage (every taxonomy label has a labeler rule)
+        language: system
+        entry: tools/dev/generate-labeler-config.py --check-coverage
+        files: ^(tools/[^/]+/README\.md|\.github/labeler\.yml|tools/dev/generate-labeler-config\.py|plugins/magpie-[^/]+/skills/[^/]+/SKILL\.md|skills/[^/]+|docs/labels-and-capabilities\.md)$
+        pass_filenames: false
   # Workspace-level static checks. Iterate over every uv-workspace
   # member declared in the root `pyproject.toml`'s
   # `[tool.uv.workspace] members` list via

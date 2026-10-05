@@ -153,3 +153,40 @@ def test_tool_only_plugin_and_tools_tree_are_family_tools_without_evals(tmp_path
 def test_limit_is_not_a_low_cliff() -> None:
     # actions/labeler drops every changed-files label when more than the limit match
     assert mod.LABELS_LIMIT >= 20
+
+
+def test_coverage_flags_a_taxonomy_label_without_a_rule(tmp_path: Path) -> None:
+    _taxonomy(tmp_path)
+    (tmp_path / ".github").mkdir()
+    mod.main(["--root", str(tmp_path)])  # nothing declares capability:resolve or :triage
+    problems = mod.coverage_problems(tmp_path)
+    assert any(p.startswith("capability:resolve is defined") for p in problems)
+    assert mod.main(["--root", str(tmp_path), "--check-coverage"]) == 1
+
+
+def test_coverage_passes_once_every_label_has_a_rule(tmp_path: Path) -> None:
+    _taxonomy(tmp_path)
+    _skill(
+        tmp_path,
+        "magpie-release-management",
+        "rc-cut",
+        "release-rc-cut",
+        "family: release-management\ncapability:\n  - capability:resolve\n  - capability:triage\n",
+    )
+    (tmp_path / "plugins" / "magpie-agent-guard" / "tools").mkdir(parents=True)
+    (tmp_path / ".github").mkdir()
+    mod.main(["--root", str(tmp_path)])
+    assert mod.coverage_problems(tmp_path) == []
+
+
+def test_coverage_flags_a_rule_for_an_undefined_label(tmp_path: Path) -> None:
+    _taxonomy(tmp_path)
+    (tmp_path / ".github").mkdir()
+    (tmp_path / ".github" / "labeler.yml").write_text(
+        "family:nonsense:\n  - changed-files: []\n", encoding="utf-8"
+    )
+    assert any("family:nonsense has a labeler rule" in p for p in mod.coverage_problems(tmp_path))
+
+
+def test_committed_config_covers_every_taxonomy_label() -> None:
+    assert mod.coverage_problems(mod.REPO_ROOT) == []

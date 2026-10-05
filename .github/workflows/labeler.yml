@@ -40,11 +40,12 @@
 # command. The labeler action reads the changed-file list and the config (from
 # the default branch) through the API.
 #
-# Who decides which issues get labels: the pull request's body names them, so
-# for a pull request opened by someone outside the project anyone could point
-# this token at any issue. Labels are therefore passed on immediately only when
-# the author is an OWNER, MEMBER or COLLABORATOR; an outside contributor's pull
-# request passes them on once a maintainer has merged it.
+# Who decides which issues get labels: a pull request's body names them, and
+# its author can edit the body at any time, even after the merge. So the body
+# is trusted only when the author is an OWNER, MEMBER or COLLABORATOR. For
+# anyone else the body is never read: their pull request labels only the issues
+# its merge actually closed, which GitHub records as the issue's closer and
+# nobody can edit afterwards.
 #
 # Labels are only ever added. A label a maintainer removes is re-added only
 # when the pull request is pushed to again and still matches the rule.
@@ -141,28 +142,46 @@ jobs:
           set -euo pipefail
           for pr in $PRS; do
             [[ "$pr" =~ ^[0-9]+$ ]] || continue
-            # The body chooses the issues, so only a project member's pull request,
-            # or a merged one, may label them.
             read -r assoc merged < <(gh api "repos/$REPO/pulls/$pr" --jq '"\(.author_association) \(.merged)"')
-            case "$assoc" in
-              OWNER|MEMBER|COLLABORATOR) ;;
-              *)
-                if [ "$merged" != "true" ]; then
-                  echo "#$pr: author is $assoc and the pull request is not merged; its issues are labelled on merge"
-                  continue
-                fi
-                ;;
-            esac
             labels=$(gh pr view "$pr" --repo "$REPO" --json labels \
               --jq '[.labels[].name | select(test("^(family|capability|contract|substrate):"))] | join(",")')
             [ -n "$labels" ] || continue
-            # Issues the pull request closes (GitHub's own link) and issues its body
-            # refers to (#N, or this repository's issue URL). Only numbers are kept.
             closing=$(gh pr view "$pr" --repo "$REPO" --json closingIssuesReferences \
               --jq '.closingIssuesReferences[].number')
-            mentioned=$(gh pr view "$pr" --repo "$REPO" --json body --jq '.body // ""' \
-              | grep -oE "(^|[^&0-9A-Za-z_/])#[0-9]+|github\.com/${REPO}/issues/[0-9]+" \
-              | grep -oE '[0-9]+$' || true)
+            case "$assoc" in
+              OWNER|MEMBER|COLLABORATOR)
+                # A project member's body is trusted: the issues it closes, and the
+                # issues it refers to (#N, or this repository's issue URL).
+                mentioned=$(gh pr view "$pr" --repo "$REPO" --json body --jq '.body // ""' \
+                  | grep -oE "(^|[^&0-9A-Za-z_/])#[0-9]+|github\.com/${REPO}/issues/[0-9]+" \
+                  | grep -oE '[0-9]+$' || true)
+                ;;
+              *)
+                # Anyone else: never the body, and only once merged. Keep just the
+                # issues whose recorded closer is this pull request.
+                if [ "$merged" != "true" ]; then
+                  echo "#$pr: author is $assoc and it is not merged; its closed issues are labelled on merge"
+                  continue
+                fi
+                mentioned=""
+                verified=""
+                for issue in $closing; do
+                  [[ "$issue" =~ ^[0-9]+$ ]] || continue
+                  closer=$(gh api graphql -F owner="${REPO%/*}" -F name="${REPO#*/}" -F number="$issue" -f query='
+                    query($owner: String!, $name: String!, $number: Int!) {
+                      repository(owner: $owner, name: $name) {
+                        issue(number: $number) {
+                          timelineItems(itemTypes: [CLOSED_EVENT], last: 10) {
+                            nodes { ... on ClosedEvent { closer { ... on PullRequest { number } } } }
+                          }
+                        }
+                      }
+                    }' --jq '[.data.repository.issue.timelineItems.nodes[].closer.number // empty] | map(tostring) | join(" ")' 2>/dev/null || true)
+                  if [[ " $closer " == *" $pr "* ]]; then verified=$(printf '%s\n%s' "$verified" "$issue"); fi
+                done
+                closing=$verified
+                ;;
+            esac
             for issue in $(printf '%s\n%s\n' "$closing" "$mentioned" | grep -E '^[0-9]+$' | sort -un | head -20); do
               [ "$issue" = "$pr" ] && continue
               kind=$(gh api "repos/$REPO/issues/$issue" --jq 'if .pull_request then "pull" else "issue" end' 2>/dev/null || true)
