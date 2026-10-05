@@ -18,7 +18,7 @@ source: >
   good-first-issue-author, mentoring-welcome, good-first-issue-sweep
   (plugins/magpie-mentoring/). Deterministic counting in
   tools/contributor-metrics; chat evidence through tools/chat
-  (contract:chat) and tools/chat-slack.
+  (contract:chat), tools/chat-slack, and tools/chat-discord.
 acceptance:
   - Every family skill is read-only or propose-before-post; none
     transitions, promotes, or announces without explicit maintainer
@@ -213,9 +213,9 @@ Adopter config scaffolds live in `plugins/magpie-setup/templates/`
   profile lookup. GitHub Discussions is the one GitHub-only signal,
   optional and marked as such.
 - Tools: `tools/chat` (`contract:chat`, read-only `list_channels`,
-  `resolve_user`, `search_messages`) and `tools/chat-slack` (Slack MCP
-  adapter, public channels only, never posts).
-  Discord is an extension point with no adapter yet.
+  `resolve_user`, `search_messages`), `tools/chat-slack` (Slack MCP
+  adapter, public channels only, never posts), and `tools/chat-discord`
+  (Discord MCP adapter, public channels only, never posts).
 
 ## Behaviour & contract
 
@@ -254,7 +254,7 @@ Adopter config scaffolds live in `plugins/magpie-setup/templates/`
 - **Community signals are evidence, not a score.** Step 3 of both
   skills collects `nomination/community-signals.md`: dev/users-list
   presence and release testing, chat answers through `contract:chat`
-  (Slack adapter; public channels only), GitHub Discussions answers,
+  (Slack or Discord adapter; public channels only), GitHub Discussions answers,
   and project-related posts on accounts the contributor linked
   themselves. Identities count only when confirmed: a chat or social
   profile that merely names the GitHub handle is a possible match, not
@@ -396,8 +396,8 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
   `magpie-mentoring`.
   A later family-maturity review may formalise the boundary or merge the
   families; for now, both specs cross-reference each other.
-- **Chat evidence is Slack-only.** `contract:chat` has one adapter
-  (`tools/chat-slack`); Discord and Matrix answers are not collected
+- **Chat evidence covers Slack and Discord.** `contract:chat` has two shipping adapters
+  (`tools/chat-slack`, `tools/chat-discord`); Matrix and Zulip answers are not collected
   until an adapter lands.
 - **`experimental` — no adopter pilot has run.** All twelve skills exist
   but no maintainer has run the full contributor-to-committer path

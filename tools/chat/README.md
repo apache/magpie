@@ -40,7 +40,7 @@ No verb posts, reacts, edits, or reads a direct message or a private channel.
 - **Runtime:** None of its own — this file is an adapter-contract *specification* (pure Markdown).
   Concrete prerequisites belong to whichever adapter the project declares.
 - **CLIs:** None for the contract itself.
-- **Credentials / auth:** Per adapter; the Slack adapter uses the Slack connector authorised for the project's workspace.
+- **Credentials / auth:** Per adapter; the Slack adapter uses the Slack connector authorised for the project's workspace; the Discord adapter uses a bot token stored under `$HOME` (`~/.config/apache-magpie/discord-token` or `$DISCORD_BOT_TOKEN`).
 - **Network:** Per adapter.
 
 ## Today's adapters
@@ -48,7 +48,7 @@ No verb posts, reacts, edits, or reads a direct message or a private channel.
 | Adapter | Status | Source | Notes |
 |---|---|---|---|
 | `slack` | shipping | [`tools/chat-slack/`](../chat-slack/) | Public channels of the project's Slack workspace through the Slack MCP. |
-| `discord` | placeholder | not implemented | Public channels of a Discord server. Tracked in [#1421](https://github.com/apache/magpie/issues/1421). |
+| `discord` | shipping | [`tools/chat-discord/`](../chat-discord/) | Public channels of a Discord server through the Discord MCP. |
 | `none` | placeholder | not implemented | Explicit *"no chat backend"*: every verb returns an empty result and the consuming skill reports chat as *not collected*. |
 
 ## Interface
@@ -107,7 +107,8 @@ No backend configured, or no messages: `[]`.
 ```yaml
 chat:
   kind: slack          # slack | discord | none
-  channels: []         # channel names; empty = every public channel
+  # guild_id: ""       # Discord only, optional: server (guild) ID when the bot joins several servers
+  channels: []         # channel names (Discord also accepts IDs); empty = every public channel
 ```
 
 A project with no `chat:` block is treated as `kind: none`.

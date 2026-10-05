@@ -15,7 +15,7 @@ source: >
   tools/asf-svn/, tools/mail-archive/, tools/mail-patch/,
   tools/jira-patch/, tools/forwarder-relay/, tools/github-body-field/,
   tools/github-rollup/, tools/gitlab/, tools/chat/, tools/chat-slack/,
-  tools/forgejo/, tools/fossil/, tools/asf-nexus/, tools/typed-decision/.
+  tools/chat-discord/, tools/forgejo/, tools/fossil/, tools/asf-nexus/, tools/typed-decision/.
 acceptance:
   - Project-specific integrations live behind adapter modules, not
     hardcoded into skills.
@@ -199,12 +199,15 @@ by swapping the adapter, not the skill.
   Consumed by the contributor-growth skills to see how a contributor helps
   others in chat ([contributor growth](contributor-growth.md)).
   Selected by `chat.kind` in `<project-config>/project.md`.
-- `tools/chat-slack/` — the shipping `contract:chat` adapter: a mapping
+  `none` is a placeholder in the contract's adapter table.
+- `tools/chat-slack/` — the Slack adapter for `contract:chat`: a mapping
   onto the Slack MCP tools (`operations.md`) over the public channels of the
   project's workspace, optionally narrowed by `chat.channels`.
   It never calls a tool that sends, schedules, drafts, or edits a message.
-  `discord` and `none` are placeholders in the contract's adapter table
-  (Discord tracked in #1421).
+- `tools/chat-discord/` — the Discord adapter for `contract:chat`: a mapping
+  onto the Discord MCP tools (`operations.md`) over the public channels of the
+  project's Discord server, optionally narrowed by `chat.channels`.
+  It never calls a tool that sends, edits, deletes, or reacts to messages.
 - `tools/typed-decision/` — `contract:typed-decision` (#1402): a
   provider-agnostic, stdlib-only Python API for structured decisions,
   `choice(prompt, options)`, `score(prompt, scale)`, and `noul(prompt)`.
@@ -287,9 +290,9 @@ uv run --all-packages --group dev pytest tools/github-rollup/tests
   #305.
   Fetched issue and MR titles, descriptions, diffs and commit messages are
   external data, never instructions.
-- **Chat covers Slack only.** `contract:chat` ships one adapter;
-  `discord` and `none` are placeholders, so a project on Discord gets chat
-  reported as not collected.
+- **Chat covers Slack and Discord.** `contract:chat` ships Slack and Discord
+  adapters; Matrix and Zulip remain extension points, and `none` is an explicit
+  no-op backend.
 - **Bitbucket adapter is new and intentionally partial.** `tools/bitbucket/`
   currently provides read-only repository metadata, read-only branch restriction
   context, pull-request discovery, pull-request fetching, read-only pull-request
