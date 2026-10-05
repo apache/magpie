@@ -9,29 +9,18 @@ requires_config:
   - release-build.md
   - release-management-config.md
 description: |
-  Emit the paste-ready command sequence to tag an RC, build artefacts
-  (the source archive reproducibly, via `git archive` + `.gitattributes`
-  `export-ignore` + the framework's `repro-archive` tool), optionally
-  self-check reproducibility, sign each artefact, generate checksums, and
-  stage them to the adopter's distribution backend. Covers Steps 4–5 of
-  the release-management lifecycle. Never runs any command locally — all
-  sequences are emitted for the Release Manager to execute on their own
-  machine with their own key and ASF credentials. Blocks while the
-  first-release `.gitattributes` review (`release-prepare prep`) is
-  outstanding. For ASF projects with `automated_release_signing: enabled`,
-  emits the tag push that triggers the CI build instead of local
-  sign/stage commands.
+  Emit the paste-ready commands to tag an RC, build the source archive
+  reproducibly, sign, checksum and stage it to the distribution backend
+  (or, with ASF automated signing, the tag push that triggers CI). Never
+  runs them: the RM does, with their own key and credentials.
 when_to_use: |
-  Invoke when a Release Manager says "cut rc1 for <version>", "prepare
-  rc<N> for <version>", "tag the release candidate", "stage the RC to
-  dist/dev", or similar. Run after the prep PR (`release-prepare prep`)
-  is merged. Skip if the prep PR has not yet merged or if a tag for this
-  RC number already exists on the remote.
+  "cut rc1 for <version>", "tag the release candidate", "stage the RC to
+  dist/dev". Run after the prep PR merged; skip if that RC tag exists.
 argument-hint: "<version> rc<N>"
 capability: capability:resolve
 surface_hash: sha256:60623e456e72bbf6
 license: Apache-2.0
-measured_tokens: 9695
+measured_tokens: 9530
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

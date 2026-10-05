@@ -8,24 +8,17 @@ mode: Drafting
 requires_config:
   - release-management-config.md
 description: |
-  Draft the `[ANNOUNCE]` email body and open (not merge) the site-bump PR
-  for a promoted release of `<upstream>`. Reads release metadata from the
-  planning issue and `<project-config>/release-management-config.md`;
-  produces a ready-to-copy `[ANNOUNCE]` subject + body and proposes the
-  site-bump PR. Never sends mail and never merges the PR without explicit
-  RM confirmation.
+  Draft the `[ANNOUNCE]` email and open (never merge) the site-bump PR for
+  a promoted release of `<upstream>`. Never sends mail.
 when_to_use: |
-  Invoke when a Release Manager says "draft the announce email for
-  <version>", "write the [ANNOUNCE] for <version>", "announce the
-  <version> release", or similar. Appropriate after the promote step
-  is confirmed and the planning issue carries the `promoted` label.
-  Standalone: does not require `release-vote-draft` to have run in
-  the same session — only that the release was promoted.
+  "draft the announce email for <version>", "write the [ANNOUNCE]",
+  "announce the <version> release", once the planning issue carries
+  `promoted`.
 argument-hint: "<version> [--planning-issue <url>]"
 capability: capability:resolve
 surface_hash: sha256:edffafcd9d9948ab
 license: Apache-2.0
-measured_tokens: 6725
+measured_tokens: 6612
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

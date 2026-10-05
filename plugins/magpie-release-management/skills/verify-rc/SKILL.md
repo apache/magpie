@@ -9,35 +9,20 @@ requires_config:
   - release-build.md
   - release-management-config.md
 description: |
-  Read-only pre-flight verification of a staged release candidate (RC)
-  for `<upstream>`. Checks artefact integrity (GPG signatures and
-  checksums), Apache RAT licence headers, NOTICE/LICENSE completeness,
-  prohibited-binary absence (including `.pyc` / `__pycache__`),
-  published-JVM-artefact compliance (POM licence/developers/scm,
-  podling incubation disclaimer, companion `-sources.jar` /
-  `-javadoc.jar` with their own signatures and checksums), source-tree
-  integrity (no dangling symlinks or broken internal references),
-  version-string consistency, and — optionally, per
-  `release-build.md § Reproducibility checks` — reproducibility: the
-  source archive is rebuilt from the tag with `repro-archive` and
-  compared byte-for-byte with the staged artefact, and convenience
-  binaries are rebuilt and compared (mandatory for ASF projects with
-  automated release signing, as the policy's validation on trusted
-  hardware). Emits a structured PASS / PASS-WITH-WARNINGS / FAIL report.
-  Makes no state change; a `--post-to <planning-issue>` flag proposes a
-  comment for explicit RM confirmation before any posting.
+  Read-only verification of a staged RC of `<upstream>`: signatures and
+  checksums, RAT headers, NOTICE/LICENSE, prohibited binaries, JVM
+  artefacts, source-tree integrity, version strings, and optionally
+  reproducibility. Emits a PASS / PASS-WITH-WARNINGS / FAIL report;
+  `--post-to` proposes a planning-issue comment for the RM to confirm.
 when_to_use: |
-  Invoke when a Release Manager or voter says "verify rc N for
-  <version>", "run pre-flight on <version>-rcN", "check the RC
-  artefacts for <version>", or similar. Appropriate during the RC
-  pre-flight phase — before the `[VOTE]` thread is opened (RM's
-  self-check) or during the vote window (any voter's dev loop). Can be
-  run standalone with no other release-* skill in the session.
+  "verify rc N for <version>", "run pre-flight on <version>-rcN", "check
+  the RC artefacts", by the RM before the `[VOTE]` or by any voter during
+  it. Runs standalone.
 argument-hint: "<version>-rcN [--post-to <planning-issue-url>] [--skip-repro] [--trusted-hardware]"
 capability: capability:triage
 surface_hash: sha256:ed944a58facaae21
 license: Apache-2.0
-measured_tokens: 9299
+measured_tokens: 9075
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

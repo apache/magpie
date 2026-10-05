@@ -8,25 +8,19 @@ mode: Drafting
 requires_config:
   - release-management-config.md
 description: |
-  Draft the diff that adds the Release Manager's public key to the
-  project's KEYS file (`<keys-file-url>`), emit a paste-ready `svn`
-  (or backend-equivalent) command sequence, remind the RM to upload to
-  the configured keyserver, and validate the key meets the ASF strength
-  floor. Never commits, never holds or reads the private key. Runs during
-  release preparation, before RC signing begins.
+  Add the Release Manager's public key to the project KEYS file: check it
+  meets the ASF strength floor, draft the KEYS diff, and emit the `svn`
+  (or backend) commands and keyserver reminder for the RM to run. Never
+  holds the private key, never commits.
 when_to_use: |
-  Invoke when a Release Manager says "add my key to KEYS", "sync my
-  signing key for the release", "run release-keys-sync", or any variation
-  on ensuring their public key appears in the project KEYS file before
-  artefacts are signed. Typically runs once per RM per project, during
-  release prep before `release-rc-cut`. A no-op — with a graceful report —
-  when the configured fingerprint is already present in KEYS for the same
-  UID.
+  "add my key to KEYS", "sync my signing key", "run release-keys-sync",
+  once per RM during release prep, before `release-rc-cut`. A no-op when
+  the key is already in KEYS.
 argument-hint: "[--fingerprint <fp>] [--keys-url <url>] [--keyserver <host>]"
 capability: capability:resolve
 surface_hash: sha256:61e10c986bb0d3ec
 license: Apache-2.0
-measured_tokens: 4677
+measured_tokens: 4593
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

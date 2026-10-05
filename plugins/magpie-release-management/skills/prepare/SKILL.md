@@ -9,38 +9,21 @@ requires_config:
   - release-management-config.md
   - release-trains.md
 description: |
-  Draft release preparation artefacts for `<upstream>`: the planning
-  issue, the version-bump and changelog prep PR (which, on a project's
-  first release, includes a guided review of what the `git archive`
-  source artefact ships and the `.gitattributes` `export-ignore`
-  entries that keep VCS/CI/editor metadata out), or the post-release
-  development-version bump PR. For ASF projects, the one-time
-  `automated-signing` setup drafts the Infra key request, the Security
-  Team notification and the reproducible-build workflow PR. Reads
-  release metadata from `<project-config>/release-trains.md` and
-  `<project-config>/release-management-config.md`. Every output is a
-  draft confirmed by the Release Manager before filing; the agent never
-  marks a PR ready, never merges, never closes any artefact, never files
-  a ticket and never sends mail.
+  Draft release-preparation artefacts for `<upstream>`: the planning
+  issue, the version-bump and changelog prep PR (with the first-release
+  review of what the source archive ships), the post-release dev-version
+  bump PR, and, for ASF projects, the one-time `automated-signing` setup.
+  Every output is a draft the RM confirms; nothing is merged, filed or sent.
 when_to_use: |
-  Invoke when a Release Manager says "prepare the <version> release",
-  "draft the planning issue for <version>", "open the prep PR for
-  <version>", "write the version bump for <version>", "draft the
-  post-release bump for <version>", "review what goes into the source
-  release", "set up CI release signing", or similar. Covers three
-  lifecycle moments: planning-issue creation (`/release-prepare
-  <version>`), version-bump prep PR (`/release-prepare prep <version>`,
-  which also runs the first-release source-archive review), and
-  post-release dev-version bump (`/release-prepare post <version>`);
-  plus the version-less, 🪶 ASF-only `/release-prepare
-  automated-signing` setup. Requires
-  `<project-config>/release-management-config.md` and
-  `<project-config>/release-trains.md` to exist.
+  "prepare the <version> release", "draft the planning issue", "open the
+  prep PR", "draft the post-release bump", "review what goes into the
+  source release", "set up CI release signing". Sub-commands: `plan`
+  (default), `prep`, `post`, `automated-signing`.
 argument-hint: "[prep | post] <version> [--review-archive] | automated-signing"
 capability: capability:resolve
 surface_hash: sha256:43e928f52996ee1b
 license: Apache-2.0
-measured_tokens: 5544
+measured_tokens: 5313
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
