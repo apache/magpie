@@ -77,7 +77,7 @@
     "commit_messages": [
       "chore(deps): bump apache/infrastructure-actions/allowlist-check"
     ],
-    "body": "Bumps the github-actions group with 1 update: [apache/infrastructure-actions/allowlist-check](https://github.com/apache/infrastructure-actions). Updates `apache/infrastructure-actions/allowlist-check` from 4e9c961f587f72b170874b6f5cd4ac15f7f26eb8 to bc817c8e9ad7d8216aab74223e32ea391e233b2c Depend...",
+    "body": "Bumps the github-actions group with 1 update: [apache/infrastructure-actions/allowlist-check](https://github.com/apache/infrastructure-actions). Updates `apache/infrastructure-actions/allowlist-check` from 4e9c961f587f72b170874b6f5cd4ac15f7f26eb8 to bc817c8e9ad7d8216aab74223e32ea391e233b2c...",
     "createdAt": "2026-08-18T10:40:36Z",
     "closedAt": "2026-08-25T09:46:29Z",
     "ground_truth_label": "passing",
@@ -496,7 +496,7 @@
     "commit_messages": [
       "refactor(security): trim the always-on descriptions of the security-model skills"
     ],
-    "body": "Fourth of a four-PR stack for the **security** family (#1344). ## Summary - `description` + `when_to_use` load in every session, for every installed skill. The three `security-model-*` skills spent ~250\u2013323 tokens there, against the 200-token budget. Most of it was rationale the body already cove...",
+    "body": "Fourth of a four-PR stack for the **security** family (#1344). ## Summary - `description` + `when_to_use` load in every session, for every installed skill. The three `security-model-*` skills spent ~250\u2013323 tokens there, against the 200-token budget. Most of it was rationale the body already covered...",
     "createdAt": "2026-09-27T20:58:15Z",
     "closedAt": "2026-09-27T23:38:21Z",
     "ground_truth_label": "deterministic_flag",
@@ -605,7 +605,7 @@
     "commit_messages": [
       "perf(security): bring the remaining security skills under the always-on budget (#1447)"
     ],
-    "body": "Seventh PR in the **security** family stack (#1344): the optimize-skill *fetch-upfront* pass. ## Summary The security skills re-ran the same reads per candidate, per tracker or per finding. They now fetch each shared set once per run and reuse it. The set of items processed and the per-item decis...",
+    "body": "Seventh PR in the **security** family stack (#1344): the optimize-skill *fetch-upfront* pass. ## Summary The security skills re-ran the same reads per candidate, per tracker or per finding. They now fetch each shared set once per run and reuse it. The set of items processed and the per-item decisions...",
     "createdAt": "2026-09-28T07:52:03Z",
     "closedAt": "2026-09-28T09:41:53Z",
     "ground_truth_label": "passing",
@@ -687,7 +687,7 @@
     "commit_messages": [
       "perf(security): bring the remaining security skills under the always-on budget"
     ],
-    "body": "Stacked on the P6 batching PR. Part of the **security** family optimization (#1344). ## Summary `description` + `when_to_use` load in every session, for every installed skill, whether it runs or not. The budget is 200 tokens per skill. Eight security skills were over it. Each now states its purpo...",
+    "body": "Stacked on the P6 batching PR. Part of the **security** family optimization (#1344). ## Summary `description` + `when_to_use` load in every session, for every installed skill, whether it runs or not. The budget is 200 tokens per skill. Eight security skills were over it. Each now states its purpose...",
     "createdAt": "2026-09-28T08:11:44Z",
     "closedAt": "2026-09-28T08:56:30Z",
     "ground_truth_label": "deterministic_flag",
@@ -714,7 +714,7 @@
     "commit_messages": [
       "feat(vetted-ops): tracker rollup and body-field writes through a sandbox-exempt entry point"
     ],
-    "body": "Stacked on the frontmatter PR. Part of the **security** family optimization (#1344). It is the prerequisite for moving the skills' rollup and body-field writes out of agent context. ## Why Under the secure setup, `gh` only escapes the sandbox as a plain command or through the vetted-ops dispatche...",
+    "body": "Stacked on the frontmatter PR. Part of the **security** family optimization (#1344). It is the prerequisite for moving the skills' rollup and body-field writes out of agent context. ## Why Under the secure setup, `gh` only escapes the sandbox as a plain command or through the vetted-ops dispatcher...",
     "createdAt": "2026-09-28T08:56:17Z",
     "closedAt": "2026-09-28T09:42:12Z",
     "ground_truth_label": "passing",
@@ -762,7 +762,7 @@
     "commit_messages": [
       "feat(contributor-growth): map contributors' GitHub handles to Slack, Discord, and social media"
     ],
-    "body": "## Summary - New `contributor-identity-map` skill maps any contributor's GitHub handle to their Slack, Discord, Matrix, mailing-list, and social-media handles. It works for everyone from a first-time PR author to a PMC member, so skills can invite, mention, or find people on the channels the proj...",
+    "body": "## Summary - New `contributor-identity-map` skill maps any contributor's GitHub handle to their Slack, Discord, Matrix, mailing-list, and social-media handles. It works for everyone from a first-time PR author to a PMC member, so skills can invite, mention, or find people on the channels the project...",
     "createdAt": "2026-09-28T09:00:08Z",
     "closedAt": "2026-09-28T09:07:29Z",
     "ground_truth_label": "passing",
@@ -839,7 +839,7 @@
     "commit_messages": [
       "fix(security): make the last sandbox-hostile gh calls plain, and fit the review block to PR imports"
     ],
-    "body": "Follow-ups from the security-family optimization (#1344). ## Summary - **workflow-security-audit** passed `--gh-token \"$(gh auth token)\"` to zizmor. Under the secure setup a `gh` inside `$(\u2026)` stays sandboxed, cannot read its credentials, and fails. zizmor reads its token from `GH_TOKEN` / `GITHU...",
+    "body": "Follow-ups from the security-family optimization (#1344). ## Summary - **workflow-security-audit** passed `--gh-token \"$(gh auth token)\"` to zizmor. Under the secure setup a `gh` inside `$(\u2026)` stays sandboxed, cannot read its credentials, and fails. zizmor reads its token from `GH_TOKEN` / `GITHUB_TOKEN`...",
     "createdAt": "2026-09-28T10:20:26Z",
     "closedAt": "2026-09-28T10:24:30Z",
     "ground_truth_label": "passing",
@@ -891,7 +891,7 @@
     "commit_messages": [
       "fix(vetted-ops): call only the installed copy, and stop excluding the in-repo one"
     ],
-    "body": "Follow-up from the security-family optimization (#1344). ## Summary - **Recipes called a copy no rule covers.** The `tools/osv` and `tools/cve-org` recipes, and `security-issue-sync`'s cve.org check, called `uv run --project /tools/vetted-ops vetted-op-read`. Every permission rule and sandbox exc...",
+    "body": "Follow-up from the security-family optimization (#1344). ## Summary - **Recipes called a copy no rule covers.** The `tools/osv` and `tools/cve-org` recipes, and `security-issue-sync`'s cve.org check, called `uv run --project /tools/vetted-ops vetted-op-read`. Every permission rule and sandbox exception...",
     "createdAt": "2026-09-28T10:42:34Z",
     "closedAt": "2026-09-28T15:21:34Z",
     "ground_truth_label": "passing",
@@ -914,7 +914,7 @@
     "commit_messages": [
       "docs(spec-loop): record the pr-triage backport check in the PR management spec"
     ],
-    "body": "## Summary - Projects that maintain release branches by cherry-picking get backport PRs mostly from bots, which pre-filters F1/F2 drop. So triage never checked whether a backport is exactly what landed on the default branch, or whether a release branch should take it at all. A feature, deprecatio...",
+    "body": "## Summary - Projects that maintain release branches by cherry-picking get backport PRs mostly from bots, which pre-filters F1/F2 drop. So triage never checked whether a backport is exactly what landed on the default branch, or whether a release branch should take it at all. A feature, deprecation...",
     "createdAt": "2026-09-28T15:18:20Z",
     "closedAt": "2026-09-28T15:26:22Z",
     "ground_truth_label": "passing",
@@ -941,7 +941,7 @@
     "commit_messages": [
       "docs(optimize-skill): record the style rules learned in the first wording pass"
     ],
-    "body": "First skill of the security-family wording pass (#1344): the optimize-skill *rewrite* pass, done paragraph by paragraph with the maintainer on `security-issue-import-from-pr`. ## Summary - **Wording.** One sentence per line, restated rationale cut, and links to the source (AGENTS.md, the `securit...",
+    "body": "First skill of the security-family wording pass (#1344): the optimize-skill *rewrite* pass, done paragraph by paragraph with the maintainer on `security-issue-import-from-pr`. ## Summary - **Wording.** One sentence per line, restated rationale cut, and links to the source (AGENTS.md, the `security-issue-fix`...",
     "createdAt": "2026-09-28T21:41:19Z",
     "closedAt": "2026-09-28T22:27:56Z",
     "ground_truth_label": "passing",
@@ -1016,7 +1016,7 @@
     "commit_messages": [
       "perf(security-issue-sync): wording pass"
     ],
-    "body": "Security-family wording pass (#1344): the optimize-skill *rewrite* pass, applied with the style rules the maintainer set while rewriting import-from-pr, import and triage paragraph by paragraph. Those rules are one sentence per line, restated rationale cut, pointers to the source instead of copie...",
+    "body": "Security-family wording pass (#1344): the optimize-skill *rewrite* pass, applied with the style rules the maintainer set while rewriting import-from-pr, import and triage paragraph by paragraph. Those rules are one sentence per line, restated rationale cut, pointers to the source instead of copies...",
     "createdAt": "2026-09-28T22:54:10Z",
     "closedAt": "2026-09-28T22:57:51Z",
     "ground_truth_label": "passing",
@@ -1041,7 +1041,7 @@
     "commit_messages": [
       "perf(security-issue-invalidate): wording pass"
     ],
-    "body": "Security-family wording pass (#1344): the optimize-skill *rewrite* pass, applied with the style rules the maintainer set while rewriting import-from-pr, import and triage paragraph by paragraph. Those rules are one sentence per line, restated rationale cut, pointers to the source instead of copie...",
+    "body": "Security-family wording pass (#1344): the optimize-skill *rewrite* pass, applied with the style rules the maintainer set while rewriting import-from-pr, import and triage paragraph by paragraph. Those rules are one sentence per line, restated rationale cut, pointers to the source instead of copies...",
     "createdAt": "2026-09-28T22:54:46Z",
     "closedAt": "2026-09-28T22:58:10Z",
     "ground_truth_label": "passing",
@@ -1066,7 +1066,7 @@
     "commit_messages": [
       "perf(security): wording pass on cve-allocate and issue-deduplicate"
     ],
-    "body": "Security-family wording pass (#1344): the optimize-skill *rewrite* pass, applied with the style rules the maintainer set while rewriting import-from-pr, import and triage paragraph by paragraph. Those rules are one sentence per line, restated rationale cut, pointers to the source instead of copie...",
+    "body": "Security-family wording pass (#1344): the optimize-skill *rewrite* pass, applied with the style rules the maintainer set while rewriting import-from-pr, import and triage paragraph by paragraph. Those rules are one sentence per line, restated rationale cut, pointers to the source instead of copies...",
     "createdAt": "2026-09-28T22:54:59Z",
     "closedAt": "2026-09-28T23:20:24Z",
     "ground_truth_label": "passing",
@@ -1091,7 +1091,7 @@
     "commit_messages": [
       "perf(security): wording pass on issue-fix and import-via-forwarder"
     ],
-    "body": "Security-family wording pass (#1344): the optimize-skill *rewrite* pass, applied with the style rules the maintainer set while rewriting import-from-pr, import and triage paragraph by paragraph. Those rules are one sentence per line, restated rationale cut, pointers to the source instead of copied...",
+    "body": "Security-family wording pass (#1344): the optimize-skill *rewrite* pass, applied with the style rules the maintainer set while rewriting import-from-pr, import and triage paragraph by paragraph. Those rules are one sentence per line, restated rationale cut, pointers to the source instead of copies...",
     "createdAt": "2026-09-28T22:55:13Z",
     "closedAt": "2026-09-28T23:01:16Z",
     "ground_truth_label": "passing",
@@ -1116,7 +1116,7 @@
     "commit_messages": [
       "perf(security): wording pass on import-from-md, import-from-scan, the model skills and the stats dashboard"
     ],
-    "body": "Security-family wording pass (#1344): the optimize-skill *rewrite* pass, applied with the style rules the maintainer set while rewriting import-from-pr, import and triage paragraph by paragraph. Those rules are one sentence per line, restated rationale cut, pointers to the source instead of copied...",
+    "body": "Security-family wording pass (#1344): the optimize-skill *rewrite* pass, applied with the style rules the maintainer set while rewriting import-from-pr, import and triage paragraph by paragraph. Those rules are one sentence per line, restated rationale cut, pointers to the source instead of copies...",
     "createdAt": "2026-09-28T22:55:31Z",
     "closedAt": "2026-09-28T23:01:26Z",
     "ground_truth_label": "passing",
@@ -1295,7 +1295,7 @@
     "commit_messages": [
       "fix(bitbucket): align cloud merge with land contract"
     ],
-    "body": "## Summary - Adds guarded Bitbucket Cloud pull-request merge support via `magpie-bitbucket pr merge --strategy {merge,squash,rebase}`. - Maps the Cloud merge path onto the change-request `land(id, strategy) -> landed_ref` contract shape, including extraction of the resulting merge commit when ava...",
+    "body": "## Summary - Adds guarded Bitbucket Cloud pull-request merge support via `magpie-bitbucket pr merge --strategy {merge,squash,rebase}`. - Maps the Cloud merge path onto the change-request `land(id, strategy) -> landed_ref` contract shape, including extraction of the resulting merge commit when available...",
     "createdAt": "2026-09-29T08:45:11Z",
     "closedAt": null,
     "ground_truth_label": "stale_review",
@@ -1321,7 +1321,7 @@
     "commit_messages": [
       "chore(deps): bump https://github.com/DavidAnson/markdownlint-cli2"
     ],
-    "body": "Bumps the pre-commit-hooks group with 1 update: [https://github.com/DavidAnson/markdownlint-cli2](https://github.com/DavidAnson/markdownlint-cli2). Updates `https://github.com/DavidAnson/markdownlint-cli2` from v0.23.2 to 0.23.3 [![Dependabot compatibility score](https://dependabot-badges.githuba...",
+    "body": "Bumps the pre-commit-hooks group with 1 update: [https://github.com/DavidAnson/markdownlint-cli2](https://github.com/DavidAnson/markdownlint-cli2). Updates `https://github.com/DavidAnson/markdownlint-cli2` from v0.23.2 to 0.23.3...",
     "createdAt": "2026-09-29T09:19:09Z",
     "closedAt": "2026-10-02T04:53:55Z",
     "ground_truth_label": "passing",
@@ -1347,7 +1347,7 @@
     "commit_messages": [
       "chore(deps): bump astral-sh/setup-uv in the github-actions group"
     ],
-    "body": "Bumps the github-actions group with 1 update: [astral-sh/setup-uv](https://github.com/astral-sh/setup-uv). Updates `astral-sh/setup-uv` from 10.1.0 to 10.2.0 [![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=astral-sh/setup-uv&pa...",
+    "body": "Bumps the github-actions group with 1 update: [astral-sh/setup-uv](https://github.com/astral-sh/setup-uv). Updates `astral-sh/setup-uv` from 10.1.0 to 10.2.0...",
     "createdAt": "2026-09-29T09:21:40Z",
     "closedAt": "2026-10-02T04:54:26Z",
     "ground_truth_label": "passing",
@@ -1470,7 +1470,7 @@
     "commit_messages": [
       "chore(deps): bump urllib3 from 2.7.0 to 2.8.0"
     ],
-    "body": "Bumps [urllib3](https://github.com/urllib3/urllib3) from 2.7.0 to 2.8.0. [![Dependabot compatibility score](https://dependabot-badges.githubapp.com/badges/compatibility_score?dependency-name=urllib3&package-manager=uv&previous-version=2.7.0&new-version=2.8.0)](https://docs.github.com/en/github/ma...",
+    "body": "Bumps [urllib3](https://github.com/urllib3/urllib3) from 2.7.0 to 2.8.0...",
     "createdAt": "2026-10-01T03:54:00Z",
     "closedAt": "2026-10-02T04:55:44Z",
     "ground_truth_label": "security_language_signal",
@@ -1518,7 +1518,7 @@
     "commit_messages": [
       "perf(mentoring): trim author skill routing metadata"
     ],
-    "body": "## Summary Shortened the description and invocation guidance for `good-first-issue-author` by removing details already covered in the skill body. The existing trigger phrases, scope restrictions, and confirmation requirements are preserved. The always-on estimate drops from 273 to 168 tokens, bel...",
+    "body": "## Summary Shortened the description and invocation guidance for `good-first-issue-author` by removing details already covered in the skill body. The existing trigger phrases, scope restrictions, and confirmation requirements are preserved. The always-on estimate drops from 273 to 168 tokens, below...",
     "createdAt": "2026-10-01T08:35:22Z",
     "closedAt": "2026-10-02T04:05:07Z",
     "ground_truth_label": "passing",
@@ -1779,7 +1779,7 @@
     "commit_messages": [
       "chore: gitignore .apache-magpie-local/"
     ],
-    "body": "`.apache-magpie-local/` is the personal, gitignored per-user layer (AGENTS.md), but this repo ignored it only through each clone's `.git/info/exclude`. The container-gateway log under `run/` got into two commits (#1456, #1458), and every eval run modified it. ## Summary - Add `/.apache-magpie-loc...",
+    "body": "`.apache-magpie-local/` is the personal, gitignored per-user layer (AGENTS.md), but this repo ignored it only through each clone's `.git/info/exclude`. The container-gateway log under `run/` got into two commits (#1456, #1458), and every eval run modified it. ## Summary - Add `/.apache-magpie-local/`...",
     "createdAt": "2026-10-03T19:28:33Z",
     "closedAt": "2026-10-03T19:30:16Z",
     "ground_truth_label": "passing",
@@ -1802,7 +1802,7 @@
     "commit_messages": [
       "perf(security-issue-import): wording pass on the sibling files"
     ],
-    "body": "Wording pass on the six sibling files of `security-issue-import` (#1344 follow-up), with the style rules the maintainer approved for the skill's `SKILL.md`. ## Summary - `screening-and-proposal.md`, `apply.md`, `duplicate-search.md`, `candidate-listing.md`, `existing-tracker-dedup.md`, `fix-alrea...",
+    "body": "Wording pass on the six sibling files of `security-issue-import` (#1344 follow-up), with the style rules the maintainer approved for the skill's `SKILL.md`. ## Summary - `screening-and-proposal.md`, `apply.md`, `duplicate-search.md`, `candidate-listing.md`, `existing-tracker-dedup.md`, `fix-already-in-progress.md`...",
     "createdAt": "2026-10-03T21:37:35Z",
     "closedAt": "2026-10-03T21:39:38Z",
     "ground_truth_label": "passing",
@@ -1971,7 +1971,7 @@
     "commit_messages": [
       "fix(tools): link the asf-nexus reference by PR number until it lands"
     ],
-    "body": "## Summary - Implement the informational checks 5\u20137 of #1173 in `maven-artifact-verify`, reported under a new `observations` section that **never changes `status`** \u2014 the issue's \"signals for a human reviewer, not a gate\" boundary, applied throughout: - **Check 5 \u2014 timestamp reproducibility signa...",
+    "body": "## Summary - Implement the informational checks 5\u20137 of #1173 in `maven-artifact-verify`, reported under a new `observations` section that **never changes `status`** \u2014 the issue's \"signals for a human reviewer, not a gate\" boundary, applied throughout: - **Check 5 \u2014 timestamp reproducibility signal...",
     "createdAt": "2026-10-04T06:23:32Z",
     "closedAt": null,
     "ground_truth_label": "passing",
@@ -1996,7 +1996,7 @@
     "commit_messages": [
       "fix(agent-guard): re-exec under Python 3.11+ when python3 is older"
     ],
-    "body": "## Summary - The `magpie-agent-guard` PreToolUse hook runs the engine as a bare `python3`. When that resolves to a pre-3.11 interpreter \u2014 typically an activated project virtualenv, e.g. Apache Airflow's `.venv` on 3.10 \u2014 the module-level `import tomllib` fails with `ModuleNotFoundError` on **ever...",
+    "body": "## Summary - The `magpie-agent-guard` PreToolUse hook runs the engine as a bare `python3`. When that resolves to a pre-3.11 interpreter \u2014 typically an activated project virtualenv, e.g. Apache Airflow's `.venv` on 3.10 \u2014 the module-level `import tomllib` fails with `ModuleNotFoundError` on **every**...",
     "createdAt": "2026-10-04T07:30:26Z",
     "closedAt": null,
     "ground_truth_label": "passing",
