@@ -381,7 +381,8 @@ names.) A guard file is **import-free** — it defines:
   `"git:commit"`, `"git:push"`, …); omit to run on every guarded command.
 - `guard(ctx)` — returns a deny-reason string to block, or `None` to allow.
   `ctx` is the `GuardContext`: `ctx.argv`, `ctx.raw`, `ctx.override(*names)`,
-  `ctx.gh_subcommand()`, `ctx.opt(short, long)`, `ctx.gh_body(...)`,
+  `ctx.gh_subcommand()`, `ctx.opt(short, long)` (first value),
+  `ctx.opts(short, long)` (every value of a repeated flag), `ctx.gh_body(...)`,
   `ctx.mentions(text)`, `ctx.positional_after(token)`, `ctx.repo_flag()`,
   `ctx.run(args)`, `ctx.ready_label`.
 

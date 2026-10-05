@@ -30,9 +30,11 @@ TRIGGERS = ["gh"]
 def guard(ctx):
     if ctx.gh_subcommand() != ("pr", "edit"):
         return None
-    label = ctx.opt("", "--add-label")
     ready = ctx.ready_label
-    if not label or label.strip().lower() != ready.strip().lower():
+    # gh accepts the flag repeatedly, each value a CSV list ("a,b" or 'a,"b"').
+    values = [value.replace('"', "") for value in ctx.opts("", "--add-label")]
+    labels = [label.strip().lower() for value in values for label in value.split(",")]
+    if ready.strip().lower() not in labels:
         return None
     if ctx.override("MAGPIE_ALLOW_MARK_READY"):
         return None

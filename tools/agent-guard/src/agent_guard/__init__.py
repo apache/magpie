@@ -201,14 +201,28 @@ def find_mentions(text: str) -> list[str]:
 
 
 def _opt_value(argv: list[str], short: str, long: str) -> str | None:
-    """Return the value of ``-x``/``--xxx`` (space- or ``=``-separated) or None."""
+    """Return the first value of ``-x``/``--xxx`` (space- or ``=``-separated) or None."""
+    return next(iter(_opt_values(argv, short, long)), None)
+
+
+def _opt_values(argv: list[str], short: str, long: str) -> list[str]:
+    """Every value of a repeatable ``-x``/``--xxx`` flag (space- or
+    ``=``-separated), in order.
+
+    The token taken as a value is still scanned as a possible flag: without
+    knowing every flag's arity, ``--body --add-label --add-label X`` cannot be
+    told apart from ``--add-label --add-label``, so both readings are kept."""
+    values: list[str] = []
     for i, tok in enumerate(argv):
         if tok in (short, long):
-            return argv[i + 1] if i + 1 < len(argv) else None
+            if i + 1 < len(argv):
+                values.append(argv[i + 1])
+            continue
         for prefix in (f"{long}=", f"{short}="):
             if tok.startswith(prefix):
-                return tok[len(prefix) :]
-    return None
+                values.append(tok[len(prefix) :])
+                break
+    return values
 
 
 # ``gh`` command groups, used to anchor subcommand detection. Matching against
@@ -651,6 +665,10 @@ class GuardContext:
 
     def opt(self, short: str, long: str) -> str | None:
         return _opt_value(self.argv, short, long)
+
+    def opts(self, short: str, long: str) -> list[str]:
+        """Every value of a repeatable flag; :meth:`opt` returns only the first."""
+        return _opt_values(self.argv, short, long)
 
     def gh_body(self, *, include_title: bool = False, read_files: bool = True) -> str:
         return gh_body_text(self.argv, include_title=include_title, read_files=read_files)

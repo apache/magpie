@@ -157,6 +157,23 @@ def test_mark_ready_pending_denied(monkeypatch):
     assert reason and "awaiting approval" in reason
 
 
+@pytest.mark.parametrize(
+    "labels",
+    [
+        pytest.param('--add-label triaged --add-label "ready for maintainer review"', id="repeated-flag"),
+        pytest.param('--add-label "triaged,ready for maintainer review"', id="comma-separated"),
+        pytest.param('--add-label=triaged --add-label="ready for maintainer review"', id="equals-form"),
+        pytest.param("--add-label 'triaged,\"ready for maintainer review\"'", id="csv-quoted"),
+        # gh reads the first --add-label as the --body value; the second adds the label.
+        pytest.param('--body --add-label --add-label "ready for maintainer review"', id="flag-as-value"),
+    ],
+)
+def test_mark_ready_pending_denied_for_every_add_label_form(monkeypatch, labels):
+    monkeypatch.setattr(agent_guard, "_run", fake_run(_mark_ready_handler("2")))
+    reason = dispatch(f"gh pr edit 5 --repo o/r {labels}")
+    assert reason and "awaiting approval" in reason
+
+
 def test_mark_ready_clean_allowed(monkeypatch):
     monkeypatch.setattr(agent_guard, "_run", fake_run(_mark_ready_handler("0")))
     assert dispatch('gh pr edit 5 --repo o/r --add-label "ready for maintainer review"') is None
