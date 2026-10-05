@@ -33,14 +33,17 @@ Grading rules:
   `STATE-UNVERIFIED` is the expected shape of the anonymous path.
 - `staging_repos` lists every staging repository surfaced — one entry
   when only the anonymous path ran, one per sibling when the
-  authenticated profile listing ran; `state` is the authoritative
+  authenticated profile listing ran, ordered by repository id
+  ascending; `state` is the authoritative
   value when it was read, `unverified` when it was not;
   `matches_rc` reflects whether the repository's inventory
   corresponds to the RC's declared version (the plain version, no
   `-rcN` suffix — that lives in the dist path).
 - `nexus_findings` carries only hard findings and warnings, one line
   each naming the repository or artefact and what is wrong; an empty
-  list means nothing to report.
+  list means nothing to report. A `SKIP` leaves it empty, except a
+  `SKIP` for a malformed staging repository id, which records the
+  rejected value as one line.
 - The resolved staging-repository id is validated before it reaches
   a URL: it must match the Nexus shape (`orgapache<project>-NNNN`);
   a non-matching value is a `"SKIP"` naming the bad value, never a
@@ -54,5 +57,8 @@ Grading rules:
   line), and the inventory crawl — inlined from the adapter's
   recipe 4 or referenced by name with the concrete repository id;
   it must contain no write verbs. For a `SKIP`, `paste_recipe` is a
-  comment naming the gate that skipped the step.
+  comment naming the gate that skipped the step. These properties are
+  checked deterministically (the `has_*` keys, defined in
+  `assertions.json`) rather than against one reference recipe, since
+  any recipe meeting them is correct.
 - No extra keys are permitted in the response.

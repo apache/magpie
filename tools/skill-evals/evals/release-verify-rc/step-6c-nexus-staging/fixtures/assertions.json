@@ -1,0 +1,34 @@
+{
+  "has_existence_check": {
+    "type": "regex",
+    "field": "paste_recipe",
+    "pattern": "https://repository\\.apache\\.org/content/repositories/(orgapache[a-z0-9]+-[0-9]+|snapshots)/"
+  },
+  "has_inventory_listing": {
+    "type": "regex",
+    "field": "paste_recipe",
+    "pattern": "crawl|href="
+  },
+  "has_credentialed_state_check": {
+    "type": "regex",
+    "field": "paste_recipe",
+    "pattern": "--netrc-file[\\s\\S]{0,200}?service/local/staging/"
+  },
+  "has_no_write_verbs": {
+    "type": "regex",
+    "field": "paste_recipe",
+    "pattern": "(-X|--request)\\s*['\"]?(POST|PUT|DELETE|PATCH)\\b|(^|\\s)(-d|--data|--data-binary|--data-raw|-F|--form|-T|--upload-file)\\s|service/local/staging/(bulk|profiles/[^\\s'\"]+/(finish|drop|promote|release))",
+    "negate": true
+  },
+  "has_no_inline_credentials": {
+    "type": "regex",
+    "field": "paste_recipe",
+    "pattern": "(^|\\s)(-u|--user)\\s+\\S",
+    "negate": true
+  },
+  "has_skip_comment": {
+    "type": "regex",
+    "field": "paste_recipe",
+    "pattern": "^\\s*#"
+  }
+}

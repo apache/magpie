@@ -11,5 +11,9 @@
   "nexus_findings": [
     "orgapachefoo-1027 holds artefacts for 1.0.1 but the RC declares release version 1.0.0 — the vote would cover jars for some other version"
   ],
-  "paste_recipe": "curl -fsS -o /dev/null -w '%{http_code}\n' \"https://repository.apache.org/content/repositories/orgapachefoo-1027/\"\ncurl -fsS --netrc-file ~/.config/apache-magpie/asf-nexus/netrc \"https://repository.apache.org/service/local/staging/repository/orgapachefoo-1027\" | jq .data\n# inventory crawl: paste and run the crawl() from tools/asf-nexus/operations.md recipe 4, base=\"https://repository.apache.org/content/repositories/orgapachefoo-1027\""
+  "has_existence_check": true,
+  "has_inventory_listing": true,
+  "has_credentialed_state_check": true,
+  "has_no_write_verbs": true,
+  "has_no_inline_credentials": true
 }

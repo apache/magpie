@@ -2,11 +2,19 @@
   "step": "nexus-staging",
   "status": "FAIL",
   "staging_repos": [
-    {"id": "orgapachefoo-1024", "state": "unverified", "matches_rc": true}
+    {
+      "id": "orgapachefoo-1024",
+      "state": "unverified",
+      "matches_rc": true
+    }
   ],
   "nexus_findings": [
     "foo-core-1.0.0-sources.jar has no sibling .asc in the staging repository — signature coverage must match the main artefacts",
     "STATE-UNVERIFIED: no Nexus credentials, so the authoritative closed state could not be read — verify by hand in the Nexus UI (stagingRepositories)"
   ],
-  "paste_recipe": "curl -fsS -o /dev/null -w '%{http_code}\\n' \"https://repository.apache.org/content/repositories/orgapachefoo-1024/\"\ncurl -fsS \"https://repository.apache.org/content/repositories/orgapachefoo-1024/\" | grep -oE 'href=\"[^\"]+\"'"
+  "has_existence_check": true,
+  "has_inventory_listing": true,
+  "has_credentialed_state_check": false,
+  "has_no_write_verbs": true,
+  "has_no_inline_credentials": true
 }

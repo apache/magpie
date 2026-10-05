@@ -92,10 +92,12 @@ Return ONLY valid JSON with this structure:
 
 `staging_repos` lists every staging repository surfaced for the
 project — a single entry on the anonymous path, one per sibling on
-the authenticated path; never silently pick one when there are
-several. `nexus_findings` carries only hard findings and warnings,
+the authenticated path, ordered by repository id ascending; never
+silently pick one when there are several. `nexus_findings` carries only hard findings and warnings,
 one line each naming the repository or artefact and what is wrong; an
-empty list means nothing to report.
+empty list means nothing to report. A `SKIP` leaves it empty, except
+a `SKIP` for a malformed staging repository id, which records the
+rejected value as one line so the RM sees what to correct.
 
 `status` is `FAIL` on any hard finding: repository not reachable at
 the id given for this RC (`404` — stated factually as "not reachable

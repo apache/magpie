@@ -11,5 +11,9 @@
   "nexus_findings": [
     "the id resolves to the snapshots repository (content/repositories/snapshots/) — never a valid vote target; the RC's jars appear to be 1.0.0-SNAPSHOT artefacts"
   ],
-  "paste_recipe": "curl -fsS -o /dev/null -w '%{http_code}\n' \"https://repository.apache.org/content/repositories/snapshots/\"\n# inventory crawl: paste and run the crawl() from tools/asf-nexus/operations.md recipe 4, base=\"https://repository.apache.org/content/repositories/snapshots\""
+  "has_existence_check": true,
+  "has_inventory_listing": true,
+  "has_credentialed_state_check": false,
+  "has_no_write_verbs": true,
+  "has_no_inline_credentials": true
 }

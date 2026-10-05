@@ -5,5 +5,9 @@
   "nexus_findings": [
     "nexus_staging_repo value 'orgapachefoo-latest' does not match the Nexus id shape (orgapache<project>-NNNN) — no probe run; supply a valid staging repository id"
   ],
-  "paste_recipe": "# Step 6c skips: nexus_staging_repo value 'orgapachefoo-latest' does not match the Nexus id shape (orgapache<project>-NNNN) — supply a valid id before any probe runs"
+  "has_existence_check": false,
+  "has_skip_comment": true,
+  "has_credentialed_state_check": false,
+  "has_no_write_verbs": true,
+  "has_no_inline_credentials": true
 }
