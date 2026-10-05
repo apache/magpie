@@ -695,7 +695,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--output-markdown",
         type=Path,
-        default=Path("docs/evals/typed-decision-pr-triage.md"),
+        default=None,
         help="Optional path to write generated markdown report.",
     )
     parser.add_argument(
