@@ -90,23 +90,14 @@ from pathlib import Path
 # Prompt construction
 # ---------------------------------------------------------------------------
 
-# Available slots: {corpus}, {roster}, {report}.
+# Used when a fixtures dir has no user-prompt-template.md.
+# Slots a custom user-prompt-template.md may use: {corpus}, {roster}, {report}.
 # Literal braces in a custom user-prompt-template.md that are NOT slots
 # must be doubled ({{ and }}) so Python's str.format() leaves them intact.
 USER_PROMPT_TEMPLATE = """\
-## Existing open trackers (corpus)
-
-{corpus}
-
-## Reporter roster (existing trackers mapped to reporter email)
-
-{roster}
-
-## Incoming report
-
 {report}
 
-Apply the semantic sweep and reporter-identity check. Return JSON only.
+Return JSON only.
 """
 
 

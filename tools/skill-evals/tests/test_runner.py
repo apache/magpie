@@ -372,17 +372,6 @@ def test_load_step_config_uses_custom_user_prompt_template(tmp_path: Path):
     assert user_prompt_template == "Custom: {report}"
 
 
-def test_load_step_config_uses_default_user_prompt_template_when_absent(tmp_path: Path):
-    fixtures_dir = _make_fixtures_dir(
-        tmp_path / "step-dir",
-        system_prompt="System.",
-    )
-    _, user_prompt_template = load_step_config(fixtures_dir)
-    assert "{corpus}" in user_prompt_template
-    assert "{roster}" in user_prompt_template
-    assert "{report}" in user_prompt_template
-
-
 def test_load_step_config_raises_when_neither_config_present(tmp_path: Path):
     fixtures_dir = tmp_path / "empty-fixtures"
     fixtures_dir.mkdir()
@@ -730,6 +719,83 @@ def test_main_bad_user_prompt_template_raises(tmp_path: Path):
 
     with pytest.raises(KeyError):
         main([str(fixtures_dir)])
+
+
+def _printed_user_prompt(capsys: pytest.CaptureFixture[str], case_dir: Path) -> str:
+    """Return the user prompt ``main`` prints for ``case_dir`` in print mode."""
+    rc, stdout, _ = _run_main(capsys, [str(case_dir)])
+    assert rc == 0
+    return stdout.split("--- USER PROMPT ---\n", 1)[1].split("\n--- EXPECTED ---\n", 1)[0]
+
+
+def test_main_default_user_prompt_holds_the_report_without_import_framing(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    """A step without user-prompt-template.md gets a neutral user turn, not the import step's."""
+    fixtures_dir = _make_fixtures_dir(tmp_path / "step-dir", system_prompt="System.")
+    case_dir = _make_case(fixtures_dir, "case-1", report="The incoming report.")
+
+    user_prompt = _printed_user_prompt(capsys, case_dir)
+
+    assert "The incoming report." in user_prompt
+    for import_text in ("Existing open trackers", "Reporter roster", "semantic sweep"):
+        assert import_text not in user_prompt
+
+
+_IMPORT_SWEEP_CASE = (
+    Path(__file__).parents[1]
+    / "evals/security-issue-import/step-2a-semantic-sweep/fixtures/case-1-clear-duplicate"
+)
+
+_SPDX_HEADER = (
+    "<!-- SPDX-License-Identifier: Apache-2.0\n     https://www.apache.org/licenses/LICENSE-2.0 -->"
+)
+
+# User prompt for semantic-sweep case-1, without the template's SPDX header.
+_IMPORT_SWEEP_CASE_1_USER_PROMPT = """\
+## Existing open trackers (corpus)
+
+#101 | 'Webserver: unauthenticated access to DAG run history via REST API'
+Body: An unauthenticated remote attacker can query /api/v1/dags/{dag_id}/dagRuns and retrieve full execution history including task logs without any credentials. Tested on Airflow 2.9.1. The endpoint lacks an auth check in airflow/api/
+
+#102 | 'Providers/SFTP: path traversal in SFTPHook when handling remote paths'
+Body: SFTPHook.retrieve_file() does not sanitise the remote_path argument. An operator-configured DAG can supply ../../../etc/passwd as remote_path and read arbitrary files from the SFTP server's host. Affected: airflow/providers/sftp/hooks/sftp.py
+
+#103 | 'API: SSRF via connection test endpoint allows internal network scanning'
+Body: The POST /api/v1/connections/test endpoint will attempt a live connection to whatever host:port is supplied. An authenticated user can use this to probe internal network hosts. airflow/api_fastapi/execution_api/routes/connections.py accepts
+
+#104 | 'Scheduler: RCE via crafted serialized DAG in DagBag'
+Body: A DAG file containing a crafted __reduce__ method in a custom operator can trigger arbitrary code execution during DagBag parsing. File: airflow/dag_processing/processor.py BaseSerialization.deserialize()
+
+
+## Reporter roster (existing trackers mapped to reporter email)
+
+#102: b.researcher@secfirm.io
+
+## Incoming report
+
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
+From: alice@example.com
+Subject: <PROJECT> REST API exposes DAG execution data without login
+
+I discovered that the Airflow REST API does not enforce authentication on the
+DAG runs endpoint. By sending a GET request to /api/v1/dags/my_dag/dagRuns
+with no Authorization header, I receive a full JSON response with task states,
+execution dates, and logs. This affects any Airflow deployment with the REST
+API enabled. Version tested: 2.9.3.
+
+
+Apply the semantic sweep and reporter-identity check. Return JSON only.
+"""
+
+
+def test_main_import_semantic_sweep_user_prompt_keeps_its_wording(capsys: pytest.CaptureFixture[str]):
+    """The semantic-sweep step renders its corpus, roster and report from its own template."""
+    assert _printed_user_prompt(capsys, _IMPORT_SWEEP_CASE) == (
+        _SPDX_HEADER + "\n\n" + _IMPORT_SWEEP_CASE_1_USER_PROMPT
+    )
 
 
 # ---------------------------------------------------------------------------
