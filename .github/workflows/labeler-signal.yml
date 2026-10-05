@@ -1,0 +1,39 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+---
+# A doorbell for labeler.yml, and nothing more.
+#
+# A `pull_request` run holds no privileges, so this one does nothing at all:
+# it has no permissions, checks nothing out and runs no code. Its only effect
+# is that it completes, which fires labeler.yml's `workflow_run` trigger in the
+# default branch's context, where the labeler reads the pull request through
+# the API and labels it. `edited` is included so a pull request that starts
+# referring to an issue passes its labels on to that issue.
+name: "Labeler signal"
+"on":
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review, edited]
+
+permissions: {}
+
+jobs:
+  signal:
+    runs-on: ubuntu-slim
+    timeout-minutes: 2
+    steps:
+      - name: Signal the labeler
+        run: echo "labeler.yml runs on this workflow's completion"

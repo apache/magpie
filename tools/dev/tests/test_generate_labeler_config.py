@@ -80,3 +80,76 @@ def test_main_rewrites_then_reports_in_sync(tmp_path: Path) -> None:
 
 def test_committed_config_is_in_sync() -> None:
     assert mod.main(["--check"]) == 0
+
+
+_TAXONOMY = """
+| `family:release-management` | opt-in | release skills |
+| `family:tools` | Substrate tools |
+| `family:ci` | workflows |
+| `family:docs` | docs |
+| `capability:resolve` | Resolve. |
+| `capability:triage` | Triage. |
+"""
+
+
+def _skill(root: Path, plugin: str, name: str, link: str, frontmatter: str) -> None:
+    d = root / "plugins" / plugin / "skills" / name
+    d.mkdir(parents=True)
+    (d / "SKILL.md").write_text(f"---\nname: {name}\n{frontmatter}---\n# {name}\n", encoding="utf-8")
+    (root / "skills").mkdir(exist_ok=True)
+    (root / "skills" / link).symlink_to(Path("..") / "plugins" / plugin / "skills" / name)
+    (root / "tools" / "skill-evals" / "evals" / link).mkdir(parents=True, exist_ok=True)
+
+
+def _taxonomy(root: Path) -> None:
+    (root / "docs").mkdir(exist_ok=True)
+    (root / "docs" / "labels-and-capabilities.md").write_text(_TAXONOMY, encoding="utf-8")
+
+
+def test_skill_family_and_capabilities_cover_skill_and_eval_suite(tmp_path: Path) -> None:
+    _taxonomy(tmp_path)
+    _skill(
+        tmp_path,
+        "magpie-release-management",
+        "rc-cut",
+        "release-rc-cut",
+        "family: release-management\ncapability:\n  - capability:resolve\n  - capability:triage\n",
+    )
+    rules = mod.load_path_rules(tmp_path)
+    skill = "plugins/magpie-release-management/skills/rc-cut/**"
+    suite = "tools/skill-evals/evals/release-rc-cut/**"
+    assert rules["capability:resolve"] == [skill, suite]
+    assert rules["capability:triage"] == [skill, suite]
+    # the plugin-wide glob already covers the skill directory, so it is pruned
+    assert rules["family:release-management"] == ["plugins/magpie-release-management/**", suite]
+
+
+def test_unknown_labels_are_never_emitted(tmp_path: Path) -> None:
+    _taxonomy(tmp_path)
+    _skill(
+        tmp_path,
+        "magpie-release-management",
+        "rc-cut",
+        "release-rc-cut",
+        "family: releases\ncapability: capability:resolving\n",
+    )
+    rules = mod.load_path_rules(tmp_path)
+    assert "family:releases" not in rules and "capability:resolving" not in rules
+
+
+def test_tool_only_plugin_and_tools_tree_are_family_tools_without_evals(tmp_path: Path) -> None:
+    _taxonomy(tmp_path)
+    (tmp_path / "plugins" / "magpie-agent-guard" / "tools").mkdir(parents=True)
+    _tool(tmp_path, "osv", "contract:security-cross-ref")
+    out = mod.render(mod.load_capabilities(tmp_path), mod.load_path_rules(tmp_path))
+    block = out.split("family:tools:\n", 1)[1].split("\n\n", 1)[0]
+    assert "'plugins/magpie-agent-guard/**'" in block
+    assert (
+        "- all-globs-to-any-file:\n              - 'tools/**'\n              - '!tools/skill-evals/evals/**'"
+        in block
+    )
+
+
+def test_limit_is_not_a_low_cliff() -> None:
+    # actions/labeler drops every changed-files label when more than the limit match
+    assert mod.LABELS_LIMIT >= 20

@@ -445,16 +445,21 @@ that adjusts the validator config to support a new triage rule is
 `capability:triage` (the change's purpose), not `substrate:framework-dev`
 (the file it edited).
 
-The tool-capability labels are pre-applied within an hour of a PR being opened:
-the scheduled [`.github/workflows/labeler.yml`](../.github/workflows/labeler.yml)
-labels each new PR once, with the `**Capability:**` of every tool directory it
-touches, from
-[`.github/labeler.yml`](../.github/labeler.yml), which
+Labels are pre-applied the moment a PR is opened or pushed to:
+[`.github/workflows/labeler.yml`](../.github/workflows/labeler.yml)
+runs on the completion of the unprivileged
+[`labeler-signal.yml`](../.github/workflows/labeler-signal.yml), from the default branch,
+and applies the rules in [`.github/labeler.yml`](../.github/labeler.yml), which
 [`tools/dev/generate-labeler-config.py`](../tools/dev/generate-labeler-config.py)
-generates from the tool READMEs.
+generates from the repository's own declarations:
+the `family:` and `capability:` frontmatter of every skill (covering its directory and its eval suite),
+the `**Capability:**` line of every tool README,
+and the paths of the non-skill families (`family:tools`, `family:ci`, `family:docs`).
+The same labels are passed on to the issues the PR closes or refers to.
+A daily run labels any open PR still without a `family:*` label.
 That is a starting point, not the answer: remove a label the change does not
-implement, and add the skill capability yourself.
-Bot PRs and sweeps that would gain more than eight labels are left unlabelled.
+implement, and add the capability it does implement when the paths do not show it.
+Bot PRs are left unlabelled.
 
 ### A new tool under `tools/`
 

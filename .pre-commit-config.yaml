@@ -533,10 +533,10 @@ repos:
   - repo: local
     hooks:
       - id: generate-labeler-config
-        name: generate-labeler-config (tool READMEs -> .github/labeler.yml)
+        name: generate-labeler-config (tool READMEs + skill frontmatter -> .github/labeler.yml)
         language: system
         entry: tools/dev/generate-labeler-config.py
-        files: ^(tools/[^/]+/README\.md|\.github/labeler\.yml|tools/dev/generate-labeler-config\.py)$
+        files: ^(tools/[^/]+/README\.md|\.github/labeler\.yml|tools/dev/generate-labeler-config\.py|plugins/magpie-[^/]+/skills/[^/]+/SKILL\.md|skills/[^/]+|docs/labels-and-capabilities\.md)$
         pass_filenames: false
   # Workspace-level static checks. Iterate over every uv-workspace
   # member declared in the root `pyproject.toml`'s
