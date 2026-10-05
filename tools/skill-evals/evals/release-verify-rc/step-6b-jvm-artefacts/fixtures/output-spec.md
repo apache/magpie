@@ -40,7 +40,9 @@ Grading rules:
   configuration" — and an empty or single-entry jar is
   `insufficient-data`, never a pass. A placeholder companion is
   reported as the Maven-Central-sanctioned pattern it is, never a
-  defect.
+  defect. A jar that cannot be opened at all reports `unreadable`
+  in each affected observation — check 3 never opens a jar, so the
+  blocking verdict is unaffected.
 - `paste_recipe` must be a non-empty string invoking
   `maven-artifact-verify` on the staged directory, with `--digests`
   set from `jvm_digest_set` when `release-build.md § JVM artefact

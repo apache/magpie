@@ -29,6 +29,8 @@ import json
 import zipfile
 from pathlib import Path
 
+import pytest
+
 import maven_artifact_verify as mav
 
 DISCLAIMER = (
@@ -937,3 +939,80 @@ def test_unreadable_jars_are_observations_not_crashes(tmp_path: Path) -> None:
     assert "not a readable zip archive" in observations["timestamp_signal"][0]["detail"]
     assert observations["namespace_signal"][0]["signal"] == "unreadable"
     assert {entry["signal"] for entry in observations["companion_content"]} == {"unreadable"}
+
+
+# --- damaged jars beyond the plain b"not a zip" case ----------------------
+
+
+def _set_zip_flag(data: bytes, sig: bytes, off: int) -> bytes:
+    raw = bytearray(data)
+    i = raw.find(sig)
+    flags = int.from_bytes(raw[i + off : i + off + 2], "little")
+    raw[i + off : i + off + 2] = (flags | 0x800).to_bytes(2, "little")
+    return bytes(raw)
+
+
+def write_damaged_jar(path: Path, variant: str) -> None:
+    """Write a jar damaged in the way `variant` names.
+
+    - ``not-a-zip``: bytes no zip reader accepts (BadZipFile).
+    - ``invalid-utf8-name``: entry name bytes that are not valid UTF-8
+      with the UTF-8 flag (bit 11) set in both headers - zipfile
+      decodes flagged names strictly, so this raises
+      ``UnicodeDecodeError`` (a ``ValueError`` subclass).
+    - ``high-version-bytes``: the central directory's "version needed
+      to extract" field patched upward (e.g. 12.9). CPython's zipfile
+      does not validate it at central-directory parse time, so this
+      does not raise - the case pins that the report is emitted
+      unchanged either way.
+    """
+    import io
+
+    if variant == "not-a-zip":
+        path.write_bytes(b"not a zip")
+        return
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("AAAAAAAAAA.class", b"x")
+    raw: bytearray = bytearray(buf.getvalue())
+    if variant == "invalid-utf8-name":
+        raw = bytearray(_set_zip_flag(bytes(raw), b"PK\x03\x04", 6))
+        raw = bytearray(_set_zip_flag(bytes(raw), b"PK\x01\x02", 8))
+        bad = bytes(range(0xF0, 0x100))  # 16 bytes, none valid UTF-8 lead/continuation
+        assert len(bad) == 16
+        raw = bytearray(bytes(raw).replace(b"AAAAAAAAAA.class", bad))
+    elif variant == "high-version-bytes":
+        i = raw.find(b"PK\x01\x02")
+        raw[i + 6 : i + 8] = (0x0C * 256 + 9).to_bytes(2, "little")  # version 12.9
+    else:
+        raise ValueError(f"unknown variant: {variant}")
+    path.write_bytes(bytes(raw))
+
+
+DAMAGED_VARIANTS = ["not-a-zip", "invalid-utf8-name", "high-version-bytes"]
+
+
+@pytest.mark.parametrize("variant", DAMAGED_VARIANTS)
+def test_damaged_jar_variants_emit_the_report(tmp_path: Path, variant: str) -> None:
+    write_pom(tmp_path, "foo-core-1.0.0.pom", pom_xml(licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=SCM))
+    write_damaged_jar(tmp_path / "foo-core-1.0.0.jar", variant)
+    for classifier in ("sources", "javadoc"):
+        companion = tmp_path / f"foo-core-1.0.0-{classifier}.jar"
+        write_damaged_jar(companion, variant)
+        signed_companion(companion)
+    report = json.loads(mav_json(tmp_path, ()))
+    # The invariant the observations promise: whatever the damage, the
+    # JSON report is emitted, check 3 still passes (bytes verified), and
+    # the blocking verdict is exactly what it would be without the
+    # observations.
+    assert report["status"] == "PASS"
+    assert report["findings"] == []
+    observations = report["observations"]
+    if variant == "high-version-bytes":
+        # CPython does not validate this field at parse time, so the
+        # single-entry main jar reads normally: insufficient-data.
+        assert observations["timestamp_signal"][0]["signal"] == "insufficient-data"
+    else:
+        assert observations["timestamp_signal"][0]["signal"] == "unreadable"
+        assert observations["namespace_signal"][0]["signal"] == "unreadable"
+        assert {entry["signal"] for entry in observations["companion_content"]} == {"unreadable"}

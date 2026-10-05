@@ -29,9 +29,9 @@ artefact today. Implements the blocking checks 1–3 proposed in
 [apache/magpie#1173](https://github.com/apache/magpie/issues/1173)
 and reports the issue's informational checks (5–7) as `observations`
 in the same JSON report; the Nexus staging-repository check (check 4)
-is implemented by the read-only `tools/asf-nexus` adapter
-([#1505](https://github.com/apache/magpie/pull/1505)) and
-`release-verify-rc` Step 6c.
+will be implemented by the read-only `tools/asf-nexus` adapter and
+`release-verify-rc` Step 6c — pending merge as
+[#1505](https://github.com/apache/magpie/pull/1505).
 
 Until this tool exists, `release-verify-rc` handles a jar in exactly
 one direction: as *contraband inside the source tree* (Step 6's
@@ -156,7 +156,10 @@ not fail correct releases:
   check-7 observation reports a placeholder as the sanctioned pattern
   it is, never a defect. Opening a jar reads the zip central
   directory only (entry names and timestamps) — no entry content is
-  extracted.
+  extracted. A jar that cannot be opened at all (truncated, corrupt
+  central directory, undecodable entry names) yields an `unreadable`
+  observation in each affected section — never a failure and never a
+  crash.
 - Classified jars (`-tests`, `-shaded`, `-linux-x86_64`, …) are
   neither mains nor companions: a jar whose classifier is not
   `sources`/`javadoc` and that no staged POM declares is reported in

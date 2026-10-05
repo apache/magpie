@@ -74,9 +74,10 @@ Opening a jar here reads the zip central directory only (entry
 names and timestamps); no entry content is extracted.
 
 The tool is stdlib-only and fully offline: it reads the staged
-directory, never the network. Nexus staging-repository checks are
-handled by `tools/asf-nexus` and `release-verify-rc` Step 6c (issue
-#1173, PR 2).
+directory, never the network. The Nexus staging-repository check
+(issue #1173, check 4) will be handled by the read-only
+`tools/asf-nexus` adapter and `release-verify-rc` Step 6c — pending
+merge as [#1505](https://github.com/apache/magpie/pull/1505).
 
 Output is a single JSON document on stdout, in the shape
 `release-verify-rc` Step 6b consumes.
@@ -543,7 +544,7 @@ def timestamp_signal(jar: Path) -> dict:
     try:
         with zipfile.ZipFile(jar) as archive:
             times = [info.date_time for info in archive.infolist() if not info.is_dir()]
-    except (zipfile.BadZipFile, OSError) as exc:
+    except (zipfile.BadZipFile, OSError, NotImplementedError, UnicodeDecodeError, ValueError) as exc:
         return {
             "jar": jar.name,
             "signal": "unreadable",
@@ -603,7 +604,7 @@ def namespace_signal(jar: Path, pom: dict) -> dict:
     try:
         with zipfile.ZipFile(jar) as archive:
             names = archive.namelist()
-    except (zipfile.BadZipFile, OSError) as exc:
+    except (zipfile.BadZipFile, OSError, NotImplementedError, UnicodeDecodeError, ValueError) as exc:
         return {
             "jar": jar.name,
             "group_id": group_id or None,
@@ -660,7 +661,7 @@ def companion_content_signal(companion: Path, classifier: str) -> dict:
     try:
         with zipfile.ZipFile(companion) as archive:
             names = archive.namelist()
-    except (zipfile.BadZipFile, OSError) as exc:
+    except (zipfile.BadZipFile, OSError, NotImplementedError, UnicodeDecodeError, ValueError) as exc:
         return {
             "jar": companion.name,
             "kind": classifier,
