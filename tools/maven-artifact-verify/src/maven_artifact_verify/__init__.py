@@ -540,8 +540,15 @@ def timestamp_signal(jar: Path) -> dict:
     tolerance nor a timezone assumption: the raw ``date_time`` tuples
     are compared as-is and are never converted to absolute times.
     """
-    with zipfile.ZipFile(jar) as archive:
-        times = [info.date_time for info in archive.infolist() if not info.is_dir()]
+    try:
+        with zipfile.ZipFile(jar) as archive:
+            times = [info.date_time for info in archive.infolist() if not info.is_dir()]
+    except (zipfile.BadZipFile, OSError) as exc:
+        return {
+            "jar": jar.name,
+            "signal": "unreadable",
+            "detail": f"not a readable zip archive: {exc}",
+        }
     if len(times) <= 1:
         return {
             "jar": jar.name,
@@ -593,8 +600,17 @@ def namespace_signal(jar: Path, pom: dict) -> dict:
     """
     group_id = pom.get("group_id") or ""
     expected_prefix = "/".join(part for part in group_id.split(".") if part)
-    with zipfile.ZipFile(jar) as archive:
-        names = archive.namelist()
+    try:
+        with zipfile.ZipFile(jar) as archive:
+            names = archive.namelist()
+    except (zipfile.BadZipFile, OSError) as exc:
+        return {
+            "jar": jar.name,
+            "group_id": group_id or None,
+            "under_org_apache": group_id == "org.apache" or group_id.startswith("org.apache."),
+            "signal": "unreadable",
+            "detail": f"not a readable zip archive: {exc}",
+        }
     class_entries = [name for name in names if name.endswith(".class") and not name.startswith("META-INF/") and name != "module-info.class"]
     observation: dict = {
         "jar": jar.name,
@@ -641,8 +657,16 @@ def companion_content_signal(companion: Path, classifier: str) -> dict:
     ``-shaded``, ...) are not part of the required set and are not
     inspected here.
     """
-    with zipfile.ZipFile(companion) as archive:
-        names = archive.namelist()
+    try:
+        with zipfile.ZipFile(companion) as archive:
+            names = archive.namelist()
+    except (zipfile.BadZipFile, OSError) as exc:
+        return {
+            "jar": companion.name,
+            "kind": classifier,
+            "signal": "unreadable",
+            "detail": f"not a readable zip archive: {exc}",
+        }
     file_entries = [name for name in names if not name.endswith("/")]
     content_entries = [name for name in file_entries if not name.startswith("META-INF/")]
     if classifier == "sources":
@@ -810,12 +834,12 @@ def verify_staged_dir(staged_dir: Path, digests: list[str], podling: bool) -> di
         report["jars"].append(check_companions(main, digests, report["findings"]))
 
     # --- informational observations (checks 5-7) ---
-    # These are signals for a human reviewer, never gates: they are
-    # appended to the report after the aggregate status is decided and
-    # their values are deliberately excluded from the aggregation
-    # below. A jar whose timestamps vary, whose groupId sits outside
-    # org.apache.*, or whose -sources.jar contains .class files still
-    # passes every blocking check.
+    # These are signals for a human reviewer, never gates: the
+    # aggregation below reads only report["poms"] and report["jars"],
+    # so the observations are structurally excluded from the verdict —
+    # not ordered after it. A jar whose timestamps vary, whose groupId
+    # sits outside org.apache.*, or whose -sources.jar contains .class
+    # files still passes every blocking check.
     observations = report["observations"]
     for main in main_jars:
         observations["timestamp_signal"].append(timestamp_signal(main))

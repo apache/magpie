@@ -38,7 +38,7 @@ Grading rules:
   verdict untouched. The wording must not assert reproducibility
   either way — "consistent / not consistent with a reproducible
   configuration" — and an empty or single-entry jar is
-  `INSUFFICIENT-DATA`, never a pass. A placeholder companion is
+  `insufficient-data`, never a pass. A placeholder companion is
   reported as the Maven-Central-sanctioned pattern it is, never a
   defect.
 - `paste_recipe` must be a non-empty string invoking

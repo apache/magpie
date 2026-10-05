@@ -90,7 +90,7 @@ the `status`:
    entries. Worded as "consistent / not consistent with a reproducible
    configuration", never as "reproducible" — only a rebuild-and-compare
    can assert that. An empty or single-entry jar reports
-   `INSUFFICIENT-DATA`, never a pass. ZIP's MS-DOS entry times carry
+   `insufficient-data`, never a pass. ZIP's MS-DOS entry times carry
    2-second granularity and no timezone; entries are compared as raw
    values within one jar and never converted to absolute times.
 6. **Namespace and package/groupId correspondence** — whether the

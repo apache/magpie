@@ -80,7 +80,7 @@ which are graded semantically.
   flagged in either direction; the informational observations
   (timestamp signal, package/groupId correspondence, companion
   content) never change the status and never assert reproducibility
-  either way — an empty or single-entry jar is `INSUFFICIENT-DATA`,
+  either way — an empty or single-entry jar is `insufficient-data`,
   and a placeholder companion is the sanctioned pattern, not a
   defect.
 - **Step 8**: `status` must be `"FAIL"` for any `match: false` or

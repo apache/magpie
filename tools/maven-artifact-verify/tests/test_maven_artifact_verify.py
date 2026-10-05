@@ -915,3 +915,25 @@ def test_absent_main_jar_yields_no_observations(tmp_path: Path) -> None:
     assert observations(report)["timestamp_signal"] == []
     assert observations(report)["namespace_signal"] == []
     assert observations(report)["companion_content"] == []
+
+
+def test_unreadable_jars_are_observations_not_crashes(tmp_path: Path) -> None:
+    # A zero-byte or truncated jar with a matching .asc and checksum
+    # passes check 3 (bytes verified); the observations that open the
+    # jar must degrade to an observation instead of crashing the run -
+    # otherwise an informational check takes down the blocking report.
+    write_pom(tmp_path, "foo-core-1.0.0.pom", pom_xml(licenses=APACHE_LICENSES, developers=DEVELOPERS, scm=SCM))
+    main = tmp_path / "foo-core-1.0.0.jar"
+    main.write_bytes(b"not a zip")
+    for classifier in ("sources", "javadoc"):
+        companion = tmp_path / f"foo-core-1.0.0-{classifier}.jar"
+        companion.write_bytes(b"not a zip")
+        signed_companion(companion)
+    report = json.loads(mav_json(tmp_path, ()))
+    assert report["status"] == "PASS"
+    assert report["findings"] == []
+    observations = report["observations"]
+    assert observations["timestamp_signal"][0]["signal"] == "unreadable"
+    assert "not a readable zip archive" in observations["timestamp_signal"][0]["detail"]
+    assert observations["namespace_signal"][0]["signal"] == "unreadable"
+    assert {entry["signal"] for entry in observations["companion_content"]} == {"unreadable"}
