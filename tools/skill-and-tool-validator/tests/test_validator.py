@@ -912,6 +912,19 @@ class TestRunValidation:
         ]
         assert [v.line for v in hits] == [1]
 
+    def test_delegated_pr_opener_is_matched_by_its_skills_name(self, tmp_path: Path) -> None:
+        # PRE_PR_REVIEW_DELEGATED is keyed by the skills/<flat> name, not the plugin alias.
+        root = _skill_root(tmp_path)
+        real = root / "plugins" / "magpie-security" / "skills" / "model-prepare"
+        real.mkdir(parents=True)
+        (real / "SKILL.md").write_text("# Prepare\n\nUse model_pr.py.\n")
+        (root / "skills" / "security-model-prepare").symlink_to(
+            Path("..", "plugins", "magpie-security", "skills", "model-prepare"), target_is_directory=True
+        )
+
+        hits = [v for v in run_validation(root) if v.category == "pre-pr-review-block"]
+        assert [v.path for v in hits] == [root / "skills" / "security-model-prepare" / "SKILL.md"]
+
 
 # ---------------------------------------------------------------------------
 # Principle-compliance SOFT warnings

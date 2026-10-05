@@ -3773,7 +3773,7 @@ def validate_pre_pr_review_block(root: Path | None = None) -> Iterable[Violation
     next to the step that creates the PR; `check-shared-blocks.py` fills it.
     """
     repo_root = root or find_repo_root()
-    for skill_dir in sorted(collect_skill_dirs(repo_root)):
+    for skill_dir in sorted(p for p in (repo_root / SKILLS_DIR).glob("*/") if not p.name.startswith(".")):
         openers: list[tuple[Path, int]] = []
         has_block = False
         files = sorted(f for f in skill_dir.rglob("*") if f.is_file() and f.suffix in _PR_OPENER_SUFFIXES)
