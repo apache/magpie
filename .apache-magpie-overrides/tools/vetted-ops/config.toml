@@ -68,3 +68,13 @@ close_reasons = ["completed", "not planned"]
     "label-list",
     "gql-pr-review-threads",
 ]
+
+# release-rc-cut emits every release command for the Release Manager and runs
+# none itself. Its only GitHub access is reading the upstream tags (Step 0, to
+# refuse an RC tag that already exists) and, after the RM confirms it, the
+# planning-issue comment (Step 4). `repo-issue-comment` writes, so it runs
+# through `vetted-op` and asks every time.
+"release-rc-cut" = [
+    "tags",
+    "repo-issue-comment",
+]
