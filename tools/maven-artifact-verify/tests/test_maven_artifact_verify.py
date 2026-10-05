@@ -960,11 +960,9 @@ def write_damaged_jar(path: Path, variant: str) -> None:
       with the UTF-8 flag (bit 11) set in both headers - zipfile
       decodes flagged names strictly, so this raises
       ``UnicodeDecodeError`` (a ``ValueError`` subclass).
-    - ``high-version-bytes``: the central directory's "version needed
-      to extract" field patched upward (e.g. 12.9). CPython's zipfile
-      does not validate it at central-directory parse time, so this
-      does not raise - the case pins that the report is emitted
-      unchanged either way.
+    - ``high-version-bytes``: the central directory's one-byte "version
+      needed to extract" field patched to 12.9 - zipfile rejects it
+      while parsing the central directory with ``NotImplementedError``.
     """
     import io
 
@@ -983,7 +981,7 @@ def write_damaged_jar(path: Path, variant: str) -> None:
         raw = bytearray(bytes(raw).replace(b"AAAAAAAAAA.class", bad))
     elif variant == "high-version-bytes":
         i = raw.find(b"PK\x01\x02")
-        raw[i + 6 : i + 8] = (0x0C * 256 + 9).to_bytes(2, "little")  # version 12.9
+        raw[i + 6] = 129  # version 12.9; the next byte is the host system
     else:
         raise ValueError(f"unknown variant: {variant}")
     path.write_bytes(bytes(raw))
@@ -1008,11 +1006,6 @@ def test_damaged_jar_variants_emit_the_report(tmp_path: Path, variant: str) -> N
     assert report["status"] == "PASS"
     assert report["findings"] == []
     observations = report["observations"]
-    if variant == "high-version-bytes":
-        # CPython does not validate this field at parse time, so the
-        # single-entry main jar reads normally: insufficient-data.
-        assert observations["timestamp_signal"][0]["signal"] == "insufficient-data"
-    else:
-        assert observations["timestamp_signal"][0]["signal"] == "unreadable"
-        assert observations["namespace_signal"][0]["signal"] == "unreadable"
-        assert {entry["signal"] for entry in observations["companion_content"]} == {"unreadable"}
+    assert observations["timestamp_signal"][0]["signal"] == "unreadable"
+    assert observations["namespace_signal"][0]["signal"] == "unreadable"
+    assert {entry["signal"] for entry in observations["companion_content"]} == {"unreadable"}
