@@ -51,9 +51,22 @@ verification with two confidence levels:
   repositories from an earlier RC are surfaced.
 
 Credentials live under
-`~/.config/apache-magpie/asf-nexus/nexus-credentials` (a `user:password`
-file, `chmod 600`), per the framework's home-directory rule. Recipes
-read them with `curl -u "$(cat ~/.config/apache-magpie/asf-nexus/nexus-credentials)"`.
+`~/.config/apache-magpie/asf-nexus/netrc` in netrc format —
+`machine repository.apache.org login <user> password <pass>`, `chmod
+600` — per the framework's home-directory rule. Recipes read them
+with `curl --netrc-file`, so the secret never appears in argv (a
+`-u user:pass` expands into `curl`'s command line, visible in `ps`
+and in any transcript that records the expanded command).
+
+Note two scope facts the recipes rely on. `~/.config/` is denied to
+the sandboxed agent by design, so recipes 2 and 3 (the authenticated
+staging API) are for the RM to paste into their **own** terminal; the
+agent's own run takes the anonymous path and reports
+`STATE-UNVERIFIED` for the state question. And a sandbox network
+refusal — the probe blocked before it left the machine — is reported
+as `STATE-UNVERIFIED` / not-probed, never as "repository not
+reachable": one says the runner could not see, the other says nothing
+is there.
 
 ## Endpoints
 
@@ -82,17 +95,23 @@ curl -fsS -o /dev/null -w '%{http_code}\n' \
 ```
 
 `200` — the repository exists and its tree is readable. `404` — the
-repository does not exist (or was already promoted/dropped): a
-**finding**, not a skip — the RC under vote has no reachable jar
-surface. Any other code — report the code verbatim and stop this
-recipe.
+repository does not exist (or was already promoted/dropped): a hard
+`FAIL` worded factually as "repository not reachable at the id given
+for this RC" — the same rule `staging-verification.md`, the Step 6c
+body and the troubleshooting table state; the RC under vote has no
+reachable jar surface. Any other code — report the code verbatim and
+stop this recipe; a refusal (sandbox network deny, `403` from a
+proxy) is `STATE-UNVERIFIED`, not a `404` and not a `FAIL`.
 
 ### 2. Authoritative state (authenticated, RM path)
 
 ```bash
-curl -fsS -u "$(cat ~/.config/apache-magpie/asf-nexus/nexus-credentials)" \
+curl -fsS --netrc-file ~/.config/apache-magpie/asf-nexus/netrc \
   "https://repository.apache.org/service/local/staging/repository/<repo>" | jq .data
 ```
+
+Paste this one into the RM's own terminal (`~/.config/` is denied to
+the sandboxed agent by design).
 
 Judge `data.state`: `closed` — the only state a `[VOTE]` may be
 opened against; `open` — mutable, **not** a valid vote target (a hard
@@ -101,12 +120,13 @@ finding, distinct from a missing repository); anything else, or
 and name what to verify by hand. A `401` on this recipe means the
 credentials are missing or stale: fall back to the anonymous path and
 report `STATE-UNVERIFIED` — a voter with no Nexus account must not be
-told the verification failed.
+told the verification failed. A sandbox network refusal is the same
+`STATE-UNVERIFIED`, never a `FAIL`.
 
 ### 3. Every staging repository for the project (authenticated, RM path)
 
 ```bash
-curl -fsS -u "$(cat ~/.config/apache-magpie/asf-nexus/nexus-credentials)" \
+curl -fsS --netrc-file ~/.config/apache-magpie/asf-nexus/netrc \
   "https://repository.apache.org/service/local/staging/profile_repositories" \
 | jq -r '.data[] | [.repositoryId, .state, .profileName] | @tsv' \
 | grep -i "orgapache<project>"
@@ -121,12 +141,54 @@ stale.
 
 ### 4. Artefact inventory (anonymous, every run)
 
-The web tree is a plain HTML directory listing; crawl it breadth-first
-with `curl` and `grep`, depth-limited to the project's coordinates:
+The web tree is a plain HTML directory listing, and the listing's
+entry hrefs are **absolute** URLs (verified against the live service
+in October 2026 — a real line from a `content/repositories/`
+directory):
+
+```html
+<td><a href="https://repository.apache.org/content/repositories/snapshots/org/apache/maven/plugins/maven-assembly-plugin/3.1.2-SNAPSHOT/">3.1.2-SNAPSHOT/</a></td>
+```
+
+Directories end with `/`; the parent link is the relative `../`; the
+page head also carries `favicon` / stylesheet hrefs a naive grep
+would sweep in. Crawl breadth-first, following only links inside the
+repository's own tree — the pattern matches both href flavours (the
+absolute URLs the live service emits and the relative form a proxy
+or a future Nexus version might emit), the guard keeps the crawl
+inside the repository tree, and `visited` makes the recursion
+terminate:
 
 ```bash
 base="https://repository.apache.org/content/repositories/<repo>"
-crawl() { curl -fsS "$1/" | grep -oE 'href="[^"?/]*/?"' | sed 's/href="//;s/"$//' | grep -v '^/' ; }
+crawl() {
+  visited=""
+  frontier="$base"
+  while [ -n "$frontier" ]; do
+    next=""
+    for dir in $frontier; do
+      case ",$visited," in *",$dir,"*) continue ;; esac
+      visited="$visited,$dir"
+      for href in $(curl -fsS "$dir/" | grep -oE 'href="[^"]+"' | sed 's/^href="//;s/"$//'); do
+        case "$href" in
+          "../") continue ;;
+          */)
+            path="${href%/}"
+            case "$path" in "$base"/*) ;; *) continue ;; esac
+            case ",$visited," in *",$path,"*) continue ;; esac
+            next="$next $path" ;;
+          *)
+            case "$href" in
+              "$base"/*) echo "${href#"$base/"}" ;;
+              *) echo "${dir#"$base"/}${href#/}" ;;
+            esac ;;
+        esac
+      done
+    done
+    frontier="$next"
+  done
+}
+crawl
 ```
 
 Collect every path; the classification rules need, per declared
@@ -156,7 +218,10 @@ Two hard exclusions, both `FAIL`-grade when violated:
 
 ## Egress summary
 
-One host (`repository.apache.org`, already covered by the sandbox's
-`.apache.org` suffix allowlist), one method (`GET`), zero
-write-verbs. That is the entire egress surface of this adapter — see
+One host (`repository.apache.org` — added to the sandbox's exact-host
+`allowedDomains` allowlists in this PR: `.claude/settings.json`,
+`tools/sandbox-lint/expected.json`, and the block in
+`docs/setup/secure-agent-setup.md`; the sandbox list is exact hosts
+only, so a suffix claim would have been false), one method (`GET`),
+zero write-verbs. That is the entire egress surface of this adapter — see
 `tools/egress-gateway/tool.md`, *Declared egress surfaces*.

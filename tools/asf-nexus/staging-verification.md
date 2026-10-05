@@ -58,9 +58,13 @@ warnings remain, `PASS` otherwise.
 
 - **Repository not reachable.** `404` at the id given for this RC —
   the jar surface the vote is supposed to cover does not exist there.
-  Report it as "not reachable at the id given for this RC"; a
-  `404` after a successful promotion is expected in other flows, so
-  the phrasing stays factual either way.
+  A hard `FAIL`, worded factually as "repository not reachable at the
+  id given for this RC" — the same rule `operations.md` recipe 1, the
+  Step 6c body and the troubleshooting table state; a `404` after a
+  successful promotion is expected in other flows, so the phrasing
+  stays factual either way. A sandbox network refusal is never this
+  finding: it is `STATE-UNVERIFIED` / not-probed — one says the
+  runner could not see, the other says nothing is there.
 - **Repository `open`.** An open staging repository is still mutable
   and is not a valid vote target — a `FAIL`, distinct from the
   not-reachable case (the two must never be conflated: one says
@@ -94,7 +98,9 @@ warnings remain, `PASS` otherwise.
   so the authoritative `closed` state could not be confirmed on the
   anonymous path. Name what to verify by hand in the Nexus UI. A
   voter with no Nexus account hitting this is the expected shape of
-  the anonymous path, not a defect in their environment.
+  the anonymous path, not a defect in their environment — and so is
+  a sandbox network refusal, which reports `STATE-UNVERIFIED` /
+  not-probed, never "repository not reachable".
 - **Stale sibling repositories.** The profile listing shows several
   staging repositories for the project. Surface all of them with
   their ids and states; proceed only with the one matching the RC's

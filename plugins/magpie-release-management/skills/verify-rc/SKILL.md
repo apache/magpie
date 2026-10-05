@@ -11,7 +11,8 @@ requires_config:
 description: |
   Read-only verification of a staged RC of `<upstream>`: signatures and
   checksums, RAT headers, NOTICE/LICENSE, prohibited binaries, JVM
-  artefacts, source-tree integrity, version strings, and optionally
+  artefacts, the Nexus staging repository behind them (ASF projects publishing
+  Maven artefacts), source-tree integrity, version strings, and optionally
   reproducibility. Emits a PASS / PASS-WITH-WARNINGS / FAIL report;
   `--post-to` proposes a planning-issue comment for the RM to confirm.
 when_to_use: |
@@ -20,7 +21,7 @@ when_to_use: |
   it. Runs standalone.
 argument-hint: "<version>-rcN [--post-to <planning-issue-url>] [--skip-repro] [--trusted-hardware]"
 capability: capability:triage
-surface_hash: sha256:ed944a58facaae21
+surface_hash: sha256:4db518b0b97e3ea8
 license: Apache-2.0
 measured_tokens: 9075
 ---
@@ -598,6 +599,13 @@ the RM has not yet confirmed posting.
 | Step 6b FAIL — companion checksum mismatch | The recorded digest does not match the companion jar's bytes (stale or corrupted checksum file) | RM re-deploys the companion set with regenerated checksums, re-cuts RC |
 | Step 6b WARN — `INHERITED-UNVERIFIED` | POM element inherited from a parent POM that is not staged locally | Verify against the effective POM (`mvn help:effective-pom`); if correct, no action |
 | Step 6b FAIL — jar absent but `jvm_companion_location: staged` | The RC was expected to stage its jars locally and did not | RM re-stages the jar set or corrects `release-build.md` |
+| Step 6c FAIL — staging repository not reachable | The id given for this RC serves nothing (wrong id, already promoted/dropped, or never deployed) | RM re-checks the id on the planning issue and the Nexus UI, re-deploys if never staged |
+| Step 6c FAIL — staging repository `open` | The close operation did not happen (or failed) before the vote | RM closes the staging repo in the Nexus UI, then re-runs verify-rc |
+| Step 6c FAIL — snapshots repository targeted | The RC's jars were deployed to the snapshots repository instead of a staging repository | RM re-deploys through the staging workflow; snapshots are never a vote target |
+| Step 6c FAIL — coordinates/version mismatch | The staging repository holds artefacts for a different version than the RC declares | RM re-deploys the correct version and re-checks for stale sibling repositories |
+| Step 6c FAIL — `.asc` or companion missing in staging | A `.jar`/`.pom` in the staging repository has no signature, or a main jar's `-sources.jar`/`-javadoc.jar` set is incomplete | RM re-deploys the complete signed set — Nexus close-time validation would reject the promotion anyway |
+| Step 6c WARN — `STATE-UNVERIFIED` | The runner has no Nexus credentials (or the sandbox refused the probe), so the authoritative `closed` state could not be read | RM verifies by hand in the Nexus UI (`stagingRepositories`); no action needed when it reads `closed` |
+| Step 6c WARN — stale sibling repositories | The profile holds several staging repositories for the project (retried deploys, earlier RCs) | RM drops the stale ones after confirming which id belongs to this RC |
 | Step 7 FAIL — dangling symlink | A committed symlink's target was stripped by `export-ignore` (or is otherwise absent) | RM fixes `.gitattributes` to ship the target (or drops the symlink), cuts new RC |
 | Step 7 FAIL — symlink resolves outside the archive | A committed symlink is absolute or climbs out of the tree with `..` | RM replaces it with a relative link to shipped content (or drops it), cuts new RC |
 | Step 7 FAIL — broken internal reference | A shipped file links to a path stripped from the artefact | RM stops stripping the referenced path, or repoints the reference at shipped content, cuts new RC |
@@ -633,6 +641,12 @@ the RM has not yet confirmed posting.
 - [`tools/maven-artifact-verify`](../../../../tools/maven-artifact-verify/README.md) —
   the JVM-artefact checker behind Step 6b (blocking checks 1–3 of
   [issue #1173](https://github.com/apache/magpie/issues/1173)).
+- [`tools/asf-nexus`](../../../../tools/asf-nexus/README.md) — the
+  read-only Nexus staging-repository adapter behind Step 6c (check 4
+  of [issue #1173](https://github.com/apache/magpie/issues/1173)):
+  endpoint contract, recipes, classification rules.
+- [ASF publishing Maven release artifacts](https://infra.apache.org/publishing-maven-artifacts.html) —
+  the stage / close / vote / promote workflow behind Step 6c.
 - [ASF Incubator distribution guidelines § Maven distribution](https://incubator.apache.org/guides/distribution.html) —
   the policy behind the Step 6b POM and disclaimer checks.
 - [Maven Central publishing requirements](https://central.sonatype.org/publish/requirements/) —

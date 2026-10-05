@@ -35,7 +35,8 @@ and [Maven Central's publishing requirements](https://central.sonatype.org/publi
    a companion with no `.asc` is already a finding and gets no line.
    A main jar declared by a staged POM but not staged locally is an observation (`ABSENT`), not a failure:
    in the common ASF workflow the jars are staged in the Nexus staging repository, which this step never reads
-   (read-only, and check 4 is a later PR on [#1173](https://github.com/apache/magpie/issues/1173)).
+   (read-only; the Nexus staging-repository check — check 4 of the issue — is the read-only `asf-nexus` adapter and
+   Step 6c, landing via [#1505](https://github.com/apache/magpie/pull/1505)).
    Classify an `ABSENT` jar against `release-build.md § JVM artefact checks` —
    when that file declares `jvm_companion_location: staged`, an absent jar is a `FAIL`.
 

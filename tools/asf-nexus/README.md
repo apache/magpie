@@ -51,11 +51,15 @@ output.
 - **Credentials / auth:** none for the anonymous read paths
   (`/content/repositories/<staging-repo>/`). The authenticated
   staging-API reads (`/service/local/staging/...`) need ASF Nexus
-  credentials; store them under
-  `~/.config/apache-magpie/asf-nexus/nexus-credentials` (a
-  `user:password` file, `chmod 600`) — never in the project tree. A
-  voter without Nexus credentials runs the anonymous path and reports
-  `STATE-UNVERIFIED` instead of failing anything.
+  credentials; store them as a netrc-format file at
+  `~/.config/apache-magpie/asf-nexus/netrc` (`chmod 600`) and read
+  them with `curl --netrc-file`, so the secret never appears in
+  argv — never a `-u user:pass` on the command line, and never in
+  the project tree. `~/.config/` is denied to the sandboxed agent by
+  design, so the authenticated recipes are for the RM's own
+  terminal; a voter (or the sandboxed agent itself) runs the
+  anonymous path and reports `STATE-UNVERIFIED` instead of failing
+  anything.
 - **Network:** `repository.apache.org` — read-only `GET`s only. The
   adapter never closes, drops, or promotes a staging repository, and
   never performs a write request of any kind.

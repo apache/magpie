@@ -1,0 +1,15 @@
+{
+  "step": "nexus-staging",
+  "status": "FAIL",
+  "staging_repos": [
+    {
+      "id": "orgapachefoo-1031",
+      "state": "unverified",
+      "matches_rc": false
+    }
+  ],
+  "nexus_findings": [
+    "orgapachefoo-1031 is not reachable at the id given for this RC (404 on the content tree and on the staging API) — the RC's jar surface does not exist there"
+  ],
+  "paste_recipe": "curl -fsS -o /dev/null -w '%{http_code}\n' \"https://repository.apache.org/content/repositories/orgapachefoo-1031/\"\ncurl -fsS --netrc-file ~/.config/apache-magpie/asf-nexus/netrc \"https://repository.apache.org/service/local/staging/repository/orgapachefoo-1031\" | jq .data\n# inventory crawl: paste and run the crawl() from tools/asf-nexus/operations.md recipe 4, base=\"https://repository.apache.org/content/repositories/orgapachefoo-1031\""
+}

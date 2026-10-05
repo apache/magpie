@@ -1,4 +1,4 @@
 {
-  "skill_md": "skills/release-verify-rc/SKILL.md",
-  "step_heading": "## Step 6c — Nexus staging repository (ASF projects publishing Maven artefacts)"
+  "skill_md": "skills/release-verify-rc/jvm-artefacts.md",
+  "step_heading": "## Step 6c \u2014 Nexus staging repository (ASF projects publishing Maven artefacts)"
 }

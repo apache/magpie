@@ -26,11 +26,11 @@ Grading rules:
 - `open` and not-reachable are distinct findings and must not be
   conflated: `open` says "something editable there", not-reachable
   says "nothing there".
-- `STATE-UNVERIFIED` (no Nexus credentials, so the authoritative
-  state could not be read on the anonymous path) and stale sibling
-  repositories are `"WARN"`s, never `"FAIL"`s — a voter with no
-  Nexus account hitting `STATE-UNVERIFIED` is the expected shape of
-  the anonymous path.
+- `STATE-UNVERIFIED` (no Nexus credentials, or the sandbox refused
+  the probe before it left the machine — a network refusal is never
+  "repository not reachable") and stale sibling repositories are
+  `"WARN"`s, never `"FAIL"`s — a voter with no Nexus account hitting
+  `STATE-UNVERIFIED` is the expected shape of the anonymous path.
 - `staging_repos` lists every staging repository surfaced — one entry
   when only the anonymous path ran, one per sibling when the
   authenticated profile listing ran; `state` is the authoritative
@@ -44,6 +44,10 @@ Grading rules:
 - `paste_recipe` must be a non-empty string with the existence check
   against `https://repository.apache.org/content/repositories/<id>/`
   using the concrete repository id, the authenticated state check
-  only when the case says credentials are available, and the
-  inventory crawl; it must contain no write verbs.
+  only when the case says credentials are available (reading them
+  with `curl --netrc-file`, never a `-u user:pass` on the command
+  line), and the inventory crawl — inlined from the adapter's
+  recipe 4 or referenced by name with the concrete repository id;
+  it must contain no write verbs. For a `SKIP`, `paste_recipe` is a
+  comment naming the gate that skipped the step.
 - No extra keys are permitted in the response.

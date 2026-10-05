@@ -16,11 +16,11 @@ Behavioural eval suite for the
 | `step-5-notice-license` | Step 5 — NOTICE/LICENSE presence | 2 | File presence (PASS/WARN/FAIL), diff-lines count, diff summary |
 | `step-6-binary-exclusion` | Step 6 — Binary exclusion check | 2 | Prohibited-binary detection (PASS/FAIL), expected-binary classification |
 | `step-6b-jvm-artefacts` | Step 6b — JVM artefact checks | 4 | Tool-report classification (PASS/WARN/FAIL), POM licence/`INHERITED-UNVERIFIED` handling, companion signature detection, `ABSENT` jar vs `jvm_companion_location` |
-| `step-6c-nexus-staging` | Step 6c — Nexus staging repository | 4 | Probe classification (PASS/WARN/FAIL), `open` vs not-reachable vs snapshots, anonymous-path `STATE-UNVERIFIED`, missing `.asc`, stale sibling repositories |
+| `step-6c-nexus-staging` | Step 6c — Nexus staging repository | 8 | Probe classification (PASS/WARN/FAIL/SKIP), `open` vs not-reachable vs snapshots vs coordinates/version mismatch, anonymous-path `STATE-UNVERIFIED`, missing `.asc`, stale sibling repositories, non-JVM skip |
 | `step-8-version-consistency` | Step 8 — Version string consistency | 2 | Exact version match across manifest files (PASS/FAIL) |
 | `step-9-reproducibility` | Step 9 — Reproducibility checks | 5 | `repro-archive compare` verdict → status (`identical` PASS, `differs` FAIL, `content-identical` WARN in RM-key mode / FAIL under automated signing), `mandatory` under `automated_release_signing: enabled` with `--skip-repro` ignored, `trusted_hardware_asserted` mirrors the flag, a project-specific convenience artefact whose rebuild differs (source identical, artefact `FAIL`, named in `binaries.differs`) |
 
-Total: **26 cases** across 9 step suites.
+Total: **30 cases** across 9 step suites.
 
 ## Run
 
@@ -83,11 +83,13 @@ which are graded semantically.
   given for this RC, repository `open`, snapshots repository
   targeted, coordinates/version mismatch, missing sibling `.asc`,
   incomplete companion set) is always `"FAIL"`; `STATE-UNVERIFIED`
-  (no Nexus credentials on the anonymous path) and stale sibling
+  (no Nexus credentials on the anonymous path, or a sandbox network
+  refusal — never reported as "not reachable") and stale sibling
   repositories are `"WARN"`s; `open` and not-reachable are distinct
   findings and never conflated; `staging_repos` surfaces every
   repository found — never a silently picked one; the paste recipe
-  carries no write verbs.
+  carries no write verbs and reads credentials with `--netrc-file`;
+  a non-JVM (or gate-failing) RC is an explicit `"SKIP"`.
 - **Step 8**: `status` must be `"FAIL"` for any `match: false` or
   `extracted: null`; dev/snapshot suffixes are always `match: false`.
 - **Step 9**: `differs` and `tag-moved` are always `"FAIL"`;
