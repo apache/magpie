@@ -115,8 +115,10 @@ INLINE_ALLOW_MARKERS=(
 # Where to look. Only `.md` files under skills + tool adapter docs
 # are scoped; Python sources under `tools/*/src/` and `tools/*/tests/`
 # may legitimately mention Airflow in fixtures and docstrings.
-# Scanned with `grep -R`, not `-r`: every `skills/<name>` is a symlink
-# into `plugins/`, and `-r` skips symlinks it meets while recursing.
+# Every `skills/<name>` is a symlink into `plugins/`. The file list is
+# built with `find -L`, which follows those links on both GNU and BSD;
+# `grep -R` alone does not do it portably (BSD grep, as shipped on
+# macOS, needs `-S` to follow links and GNU grep has no `-S`).
 SCAN_PATHS=(
   "skills"
   "tools"
@@ -164,21 +166,20 @@ main() {
     scan_specs+=( "E:$entry" )
   done
 
+  local -a scan_files=()
+  local scan_file
+  while IFS= read -r -d '' scan_file; do
+    scan_files+=( "$scan_file" )
+  done < <(find -L "${SCAN_PATHS[@]}" -type f -name '*.md' -print0 2>/dev/null)
+
   local spec
   for spec in "${scan_specs[@]}"; do
     local mode="${spec%%:*}"
     local pattern="${spec#*:}"
-    local matches
-    if [[ "$mode" == "F" ]]; then
-      matches=$(grep -RFn \
-        --include='*.md' \
-        "$pattern" \
-        "${SCAN_PATHS[@]}" 2>/dev/null || true)
-    else
-      matches=$(grep -REn \
-        --include='*.md' \
-        "$pattern" \
-        "${SCAN_PATHS[@]}" 2>/dev/null || true)
+    local matches=""
+    if [[ ${#scan_files[@]} -gt 0 ]]; then
+      # -H keeps the file name in each match even if only one file is scanned.
+      matches=$(grep -H -n "-$mode" -e "$pattern" -- "${scan_files[@]}" 2>/dev/null || true)
     fi
 
     if [[ -z "$matches" ]]; then
