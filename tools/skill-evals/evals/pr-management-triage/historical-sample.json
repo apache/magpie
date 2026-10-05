@@ -1091,7 +1091,7 @@
     "commit_messages": [
       "perf(security): wording pass on issue-fix and import-via-forwarder"
     ],
-    "body": "Security-family wording pass (#1344): the optimize-skill *rewrite* pass, applied with the style rules the maintainer set while rewriting import-from-pr, import and triage paragraph by paragraph. Those rules are one sentence per line, restated rationale cut, pointers to the source instead of copie...",
+    "body": "Security-family wording pass (#1344): the optimize-skill *rewrite* pass, applied with the style rules the maintainer set while rewriting import-from-pr, import and triage paragraph by paragraph. Those rules are one sentence per line, restated rationale cut, pointers to the source instead of copied...",
     "createdAt": "2026-09-28T22:55:13Z",
     "closedAt": "2026-09-28T23:01:16Z",
     "ground_truth_label": "passing",
@@ -1116,7 +1116,7 @@
     "commit_messages": [
       "perf(security): wording pass on import-from-md, import-from-scan, the model skills and the stats dashboard"
     ],
-    "body": "Security-family wording pass (#1344): the optimize-skill *rewrite* pass, applied with the style rules the maintainer set while rewriting import-from-pr, import and triage paragraph by paragraph. Those rules are one sentence per line, restated rationale cut, pointers to the source instead of copie...",
+    "body": "Security-family wording pass (#1344): the optimize-skill *rewrite* pass, applied with the style rules the maintainer set while rewriting import-from-pr, import and triage paragraph by paragraph. Those rules are one sentence per line, restated rationale cut, pointers to the source instead of copied...",
     "createdAt": "2026-09-28T22:55:31Z",
     "closedAt": "2026-09-28T23:01:26Z",
     "ground_truth_label": "passing",
