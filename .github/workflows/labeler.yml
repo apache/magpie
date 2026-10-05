@@ -40,6 +40,12 @@
 # command. The labeler action reads the changed-file list and the config (from
 # the default branch) through the API.
 #
+# Who decides which issues get labels: the pull request's body names them, so
+# for a pull request opened by someone outside the project anyone could point
+# this token at any issue. Labels are therefore passed on immediately only when
+# the author is an OWNER, MEMBER or COLLABORATOR; an outside contributor's pull
+# request passes them on once a maintainer has merged it.
+#
 # Labels are only ever added. A label a maintainer removes is re-added only
 # when the pull request is pushed to again and still matches the rule.
 ---
@@ -94,6 +100,10 @@ jobs:
                 echo "::error::unexpected head SHA"; exit 1
               fi
               prs=$(open_prs ".[] | select(.headRefOid == \"$HEAD_SHA\" and (.author.is_bot | not)) | .number")
+              if [ -z "$prs" ]; then  # closed: the merged pull request this commit belongs to
+                prs=$(gh api "repos/$REPO/commits/$HEAD_SHA/pulls" \
+                  --jq '.[] | select(.merged_at != null and (.user.type != "Bot")) | .number')
+              fi
               ;;
             workflow_dispatch)
               if [ -n "$PR_INPUT" ]; then
@@ -131,6 +141,18 @@ jobs:
           set -euo pipefail
           for pr in $PRS; do
             [[ "$pr" =~ ^[0-9]+$ ]] || continue
+            # The body chooses the issues, so only a project member's pull request,
+            # or a merged one, may label them.
+            read -r assoc merged < <(gh api "repos/$REPO/pulls/$pr" --jq '"\(.author_association) \(.merged)"')
+            case "$assoc" in
+              OWNER|MEMBER|COLLABORATOR) ;;
+              *)
+                if [ "$merged" != "true" ]; then
+                  echo "#$pr: author is $assoc and the pull request is not merged; its issues are labelled on merge"
+                  continue
+                fi
+                ;;
+            esac
             labels=$(gh pr view "$pr" --repo "$REPO" --json labels \
               --jq '[.labels[].name | select(test("^(family|capability|contract|substrate):"))] | join(",")')
             [ -n "$labels" ] || continue

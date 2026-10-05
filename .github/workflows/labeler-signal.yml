@@ -22,11 +22,12 @@
 # is that it completes, which fires labeler.yml's `workflow_run` trigger in the
 # default branch's context, where the labeler reads the pull request through
 # the API and labels it. `edited` is included so a pull request that starts
-# referring to an issue passes its labels on to that issue.
+# referring to an issue passes its labels on to that issue, and `closed` so a
+# merge passes an outside contributor's labels on (see labeler.yml).
 name: "Labeler signal"
 "on":
   pull_request:
-    types: [opened, reopened, synchronize, ready_for_review, edited]
+    types: [opened, reopened, synchronize, ready_for_review, edited, closed]
 
 permissions: {}
 
