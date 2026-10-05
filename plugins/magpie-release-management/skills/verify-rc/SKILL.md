@@ -23,7 +23,7 @@ argument-hint: "<version>-rcN [--post-to <planning-issue-url>] [--skip-repro] [-
 capability: capability:triage
 surface_hash: sha256:50ad09c17d8d7335
 license: Apache-2.0
-measured_tokens: 9665
+measured_tokens: 9717
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -411,7 +411,8 @@ Read [`jvm-artefacts.md`](jvm-artefacts.md) for this step; it is loaded only for
 
 ## Step 6c — Nexus staging repository (ASF projects publishing Maven artefacts)
 
-Read [`nexus-staging.md`](nexus-staging.md) for this step; it is loaded only when Step 6b ran and a staging repository id resolves.
+When Step 6b ran, read [`nexus-staging.md`](nexus-staging.md) for this step; its own gates (organization, a resolvable staging repository id, the id's shape) decide whether it probes or reports an explicit `SKIP` naming the reason.
+When Step 6b did not run, report Step 6c as `SKIP` (no JVM artefacts) without loading the file.
 
 ---
 

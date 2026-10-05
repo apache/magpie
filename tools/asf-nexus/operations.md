@@ -158,10 +158,9 @@ directory):
 <td><a href="https://repository.apache.org/content/repositories/snapshots/org/apache/maven/plugins/maven-assembly-plugin/3.1.2-SNAPSHOT/">3.1.2-SNAPSHOT/</a></td>
 ```
 
-Every href is **normalised first** (a relative href is prefixed with the directory being read),
-then the `"$base"/*` guard applies to files and directories alike before anything is echoed or
-enqueued — so relative directory links are crawled, relative file links come out clean, and the
-page-head `favicon` / stylesheet links can never reach the inventory:
+Every href is **normalised first**: a relative href is prefixed with the directory being read, and a root-relative one (`/favicon.ico`) is resolved against the host.
+Then the `"$base"/*` guard applies to files and directories alike before anything is echoed or enqueued.
+So relative directory links are crawled, relative file links come out clean, and page-head `favicon` / stylesheet links never reach the inventory:
 
 ```bash
 base="https://repository.apache.org/content/repositories/<repo>"
@@ -177,6 +176,7 @@ crawl() {
         case "$href" in
           "../") continue ;;
           "https://"*|"http://"*) path="$href" ;;
+          /*) path="https://repository.apache.org$href" ;;
           *) path="${dir%/}/${href#/}" ;;
         esac
         case "$path" in
@@ -196,17 +196,9 @@ crawl() {
 crawl
 ```
 
-Verified against a stubbed `curl` serving a mixed listing (absolute and relative directory links,
-a relative file link, the `../` parent link and the page-head `favicon` / stylesheet links): the
-inventory is exactly the repository's files, nothing else. The normalisation matches both href
-flavours — the absolute URLs the live service emits and the relative form a proxy or a future Nexus
-version might emit — the guard keeps the crawl inside the repository tree, and `visited` makes the
-recursion terminate. Collect every path; the classification rules need, per declared artefact: the
-main `<artifactId>-<version>.jar`, its `.pom`, both companions (`-sources.jar`, `-javadoc.jar`), and
-the `.asc` + checksum companions of each. Consumers that prefer JSON over the HTML crawl can use the
-authenticated content API (`GET /service/local/repositories/<repo>/content?path=/...`, `leaf: true`
-entries are files, each file entry carries `checksums: {"sha1": ..., "md5": ...}` computed by Nexus
-at deploy time).
+Verified against a stubbed `curl` serving a mixed listing (absolute, relative and root-relative links, the `../` parent link, and page-head `favicon` / stylesheet links): the inventory is exactly the repository's files, nothing else.
+The normalisation covers every href form — the absolute URLs the live service emits, and the relative or root-relative forms a proxy or a future Nexus version might emit.
+The guard keeps the crawl inside the repository tree, and `visited` makes the recursion terminate.
 
 Collect every path; the classification rules need, per declared
 artefact: the main `<artifactId>-<version>.jar`, its `.pom`, both
