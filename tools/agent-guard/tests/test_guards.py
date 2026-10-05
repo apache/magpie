@@ -357,6 +357,19 @@ def test_contributed_guard_from_env_dir(monkeypatch, tmp_path):
     assert dispatch("gh pr view 5 --json title") is None
 
 
+def test_gh_group_trigger_fires_past_a_global_flag(monkeypatch, tmp_path):
+    gdir = tmp_path / "guards.d"
+    gdir.mkdir()
+    (gdir / "pr_only.py").write_text(
+        'TRIGGERS = ["gh:pr"]\ndef guard(ctx):\n    return "contributed[pr-only]: denied"\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("MAGPIE_GUARD_DIRS", str(gdir))
+    assert dispatch("gh pr edit 5 --add-label x") is not None
+    assert dispatch("gh -R o/r pr edit 5 --add-label x") is not None
+    assert dispatch("gh -R o/r issue edit 5 --add-label x") is None
+
+
 def test_broken_contributed_guard_fails_open(monkeypatch, tmp_path):
     gdir = tmp_path / "guards.d"
     gdir.mkdir()

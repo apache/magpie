@@ -705,7 +705,9 @@ def command_kinds(seg: Segment) -> set[str]:
         if idx is not None:
             kinds.add(f"git:{seg.argv[idx]}")
     elif len(seg.argv) > 1 and head == "gh":
-        kinds.add(f"{head}:{seg.argv[1]}")
+        # Same for TRIGGERS = ["gh:pr"] behind `gh -R <repo> pr ...`.
+        sub = gh_subcommand(seg.argv)
+        kinds.add(f"{head}:{sub[0] if sub else seg.argv[1]}")
     return kinds
 
 
