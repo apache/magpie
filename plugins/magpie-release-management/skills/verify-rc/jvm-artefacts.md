@@ -35,9 +35,32 @@ and [Maven Central's publishing requirements](https://central.sonatype.org/publi
    a companion with no `.asc` is already a finding and gets no line.
    A main jar declared by a staged POM but not staged locally is an observation (`ABSENT`), not a failure:
    in the common ASF workflow the jars are staged in the Nexus staging repository, which this step never reads
-   (read-only, and check 4 is a later PR on [#1173](https://github.com/apache/magpie/issues/1173)).
+   (read-only; the Nexus staging-repository check — check 4 of the issue — is the read-only `asf-nexus` adapter and
+   Step 6c, landing via [#1505](https://github.com/apache/magpie/pull/1505)).
    Classify an `ABSENT` jar against `release-build.md § JVM artefact checks` —
    when that file declares `jvm_companion_location: staged`, an absent jar is a `FAIL`.
+
+The same tool run emits **informational observations** — checks 5–7 of [issue #1173](https://github.com/apache/magpie/issues/1173) —
+which are signals for the reviewer and never change the step's verdict:
+
+5. **Timestamp reproducibility signal** — whether every file entry of a main jar shares one timestamp (consistent with
+   `project.build.outputTimestamp` being set) or varies across entries. Worded as "consistent / not consistent with a
+   reproducible configuration", never as "reproducible" — only Step 9's rebuild-and-compare can assert that. An empty or
+   single-entry jar reports `insufficient-data`, never a pass.
+6. **Namespace and package/groupId correspondence** — whether the declared `groupId` sits under `org.apache.*` (informational even
+   for ASF top-level projects: published coordinates cannot be renamed retroactively, so there is no available remedy to gate on),
+   and the proportion of the jar's class entries under the package path derived from the groupId plus the package roots actually
+   found — a proportion and a list for the reviewer to judge, never a boolean. `META-INF/` entries, `module-info.class` and
+   multi-release overrides are excluded as legitimate divergences. Most useful for podlings, where it surfaces whether the
+   `org.apache.<project>` rename has happened.
+7. **Companion content sanity** — whether `-sources.jar` carries `.java` / `.scala` / `.kt` sources and no `.class` files, and
+   whether `-javadoc.jar` is non-empty. Placeholder companions are a Maven-Central-sanctioned pattern, reported as such and never
+   failed; no Javadoc-specific structure is asserted (Scala/Kotlin projects publish dokka/scaladoc output under the `-javadoc`
+   classifier). Classified jars (`-tests`, `-shaded`, …) are not part of the required set and are not inspected.
+
+   A jar that cannot be opened at all — truncated, corrupt central directory, undecodable entry names — yields an `unreadable`
+   observation in each affected section and never takes the run down: check 3 never opens a jar, so a damaged jar with a valid
+   signature and checksum can pass the blocking checks while the observations report that its contents could not be read.
 
 Emit the paste-ready recipe.
 Resolve every placeholder to a concrete value:
@@ -66,6 +89,7 @@ Return ONLY valid JSON with this structure:
   "tool_report": "<the maven-artifact-verify JSON report verbatim>",
   "pom_findings": ["<one line per POM finding>"],
   "companion_findings": ["<one line per jar finding>"],
+  "observations": ["<one line per informational observation>"],
   "paste_recipe": "<multi-line shell commands>"
 }
 ```
@@ -73,6 +97,10 @@ Return ONLY valid JSON with this structure:
 `pom_findings` and `companion_findings` list only the checks that did not pass (`FAIL`, `INHERITED-UNVERIFIED`, `ABSENT`),
 one line each naming the artefact and what is wrong;
 a passing check is not a finding, and an empty list means there is nothing to report.
+
+`observations` carries the tool's informational observations (checks 5–7), one line each naming the jar and what was observed;
+an empty list means the staged set carried none. They never change `status`: a jar whose timestamps vary, whose groupId sits
+outside `org.apache.*`, or whose `-sources.jar` contains `.class` files still passes every blocking check.
 
 `status` is the tool report's `status`,
 except that an `ABSENT` jar becomes `FAIL` when `release-build.md § JVM artefact checks` declares `jvm_companion_location: staged`
