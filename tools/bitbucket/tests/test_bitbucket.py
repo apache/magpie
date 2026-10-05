@@ -346,6 +346,7 @@ def test_cloud_get_pull_request_status_follows_next(
 ) -> None:
     opener = mock_opener(
         mock_build_opener,
+        {"id": 7, "state": "OPEN", "source": {"commit": {"hash": "abc123"}}},
         {
             "values": [{"key": "build", "state": "SUCCESSFUL"}],
             "next": "https://api.bitbucket.org/2.0/repositories/apache/magpie/pullrequests/7/statuses?page=2",
@@ -357,12 +358,14 @@ def test_cloud_get_pull_request_status_follows_next(
 
     first_request = opener.open.call_args_list[0].args[0]
     second_request = opener.open.call_args_list[1].args[0]
+    third_request = opener.open.call_args_list[2].args[0]
+    assert first_request.full_url == "https://api.bitbucket.org/2.0/repositories/apache/magpie/pullrequests/7"
     assert (
-        first_request.full_url
+        second_request.full_url
         == "https://api.bitbucket.org/2.0/repositories/apache/magpie/pullrequests/7/statuses"
     )
     assert (
-        second_request.full_url
+        third_request.full_url
         == "https://api.bitbucket.org/2.0/repositories/apache/magpie/pullrequests/7/statuses?page=2"
     )
     assert result["pull_request_id"] == "7"
@@ -874,17 +877,35 @@ def test_cli_pr_reviews_datacenter(datacenter_env: None, capsys: pytest.CaptureF
     assert output["review_decision"] == "approved"
 
 
-@patch("magpie_bitbucket.cloud.get_pull_request_status")
+@patch("urllib.request.build_opener")
+@pytest.mark.parametrize(
+    ("cloud_state", "expected_state"),
+    [("OPEN", "open"), ("MERGED", "merged"), ("DECLINED", "declined")],
+)
 def test_cli_pr_status_cloud(
-    mock_get_pull_request_status: MagicMock,
+    mock_build_opener: MagicMock,
+    cloud_state: str,
+    expected_state: str,
     cloud_env: None,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    mock_get_pull_request_status.return_value = {
-        "pull_request_id": "7",
-        "commit": "abc123",
-        "values": [{"key": "build", "state": "SUCCESSFUL"}],
-    }
+    mock_opener(
+        mock_build_opener,
+        {
+            "type": "pullrequest",
+            "id": 7,
+            "title": "Fix docs",
+            "state": cloud_state,
+            "source": {"branch": {"name": "fix-docs"}, "commit": {"type": "commit", "hash": "abc123def456"}},
+            "destination": {"branch": {"name": "main"}, "commit": {"type": "commit", "hash": "0f1e2d3c4b5a"}},
+        },
+        {
+            "values": [
+                {"type": "build", "key": "build", "name": "Build", "state": "SUCCESSFUL"},
+                {"type": "build", "key": "lint", "name": "Lint", "state": "FAILED"},
+            ],
+        },
+    )
 
     exit_code = main(["pr", "status", "7"])
 
@@ -892,9 +913,10 @@ def test_cli_pr_status_cloud(
     output = json.loads(captured.out)
     assert exit_code == 0
     assert output["pull_request_id"] == "7"
-    assert output["commit"] == "abc123"
-    assert output["checks"] == "passing"
-    assert output["check_details"][0]["key"] == "build"
+    assert output["state"] == expected_state
+    assert output["commit"] == "abc123def456"
+    assert output["checks"] == "failing"
+    assert [check["key"] for check in output["check_details"]] == ["build", "lint"]
 
 
 def test_normalize_pull_request_status_aggregate_values() -> None:

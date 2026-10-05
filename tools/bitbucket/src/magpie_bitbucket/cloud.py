@@ -493,7 +493,11 @@ def get_pull_request_merge_checks(config: BitbucketConfig, pull_request_id: str)
 
 
 def get_pull_request_status(config: BitbucketConfig, pull_request_id: str) -> dict[str, Any]:
-    """Fetch build statuses for a Bitbucket Cloud pull request."""
+    """Fetch a Bitbucket Cloud pull request and its build statuses."""
+    pull_request = get_pull_request(config, pull_request_id)
+    source = pull_request.get("source")
+    source_commit = source.get("commit") if isinstance(source, dict) else None
+
     workspace = quote_path(require(config.workspace, "BITBUCKET_WORKSPACE"))
     repo_slug = quote_path(require(config.repo_slug, "BITBUCKET_REPO_SLUG"))
     pr_id = quote_path(pull_request_id)
@@ -501,9 +505,11 @@ def get_pull_request_status(config: BitbucketConfig, pull_request_id: str) -> di
 
     combined: dict[str, Any] = {
         "pull_request_id": pull_request_id,
+        "commit": source_commit.get("hash") if isinstance(source_commit, dict) else None,
         "values": [],
         "paginated": True,
         "pages": [],
+        "pull_request": pull_request,
     }
 
     seen_urls = {url}
