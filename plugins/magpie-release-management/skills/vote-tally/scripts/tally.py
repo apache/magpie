@@ -29,6 +29,10 @@ and ``Primary email`` columns):
 2. when ``from`` ends in ``@apache.org``, its local part against ``Apache ID``;
 3. otherwise non-binding.
 
+``from`` is parsed as an address header, so only its real mailbox counts — an
+address written into the display name does not, and a ``from`` holding several
+addresses or none that parses is non-binding.
+
 Fractional votes are always non-binding. Ambiguous votes are never counted;
 without ``--force-close`` they halt the tally (``result`` is null).
 
@@ -45,13 +49,13 @@ import argparse
 import json
 import re
 import sys
+from email.utils import getaddresses
 from pathlib import Path
 from typing import Any
 
 BASELINE_MIN_BINDING_PLUS1 = 3
 BASELINE_RULE = "ASF baseline: binding_plus1 >= 3 AND binding_plus1 > binding_minus1"
 FRACTIONAL_RE = re.compile(r"^[+-]?0?\.\d+$")
-EMAIL_RE = re.compile(r"<([^<>\s]+@[^<>\s]+)>")
 
 
 class InputError(Exception):
@@ -89,14 +93,38 @@ def parse_roster(text: str) -> list[dict[str, str]]:
     return rows
 
 
+def _parse_sender(sender: str) -> str | None:
+    """The one mailbox address in ``sender``, lower-cased, or None when it is ambiguous.
+
+    A bare address or handle is taken as written. Anything with angle brackets is
+    parsed as an address header, so a display name that itself looks like an
+    address (``"<alice@apache.org>" <mallory@example.org>``) yields the real
+    mailbox, not the first bracketed string. Several addresses, or a header the
+    parser rejects, give None — such a vote is never binding.
+    """
+    text = sender.strip()
+    if "<" not in text and ">" not in text:
+        return text.lower()
+    addresses = [address for _, address in getaddresses([text]) if address]
+    if len(addresses) != 1 or "@" not in addresses[0]:
+        return None
+    return addresses[0].strip().lower()
+
+
 def normalise_address(sender: str) -> str:
-    match = EMAIL_RE.search(sender)
-    return (match.group(1) if match else sender).strip().lower()
+    address = _parse_sender(sender)
+    if address is None:
+        # Keep unparsable senders distinct from each other and from any real
+        # address, so one can never supersede another voter's vote.
+        return "unparsed:" + sender.strip().lower()
+    return address
 
 
 def resolve_binding(sender: str, roster: list[dict[str, str]]) -> str | None:
     """Return how the voter resolved as binding, or None when non-binding."""
-    address = normalise_address(sender)
+    address = _parse_sender(sender)
+    if address is None:
+        return None
     for row in roster:
         if row["primary_email"] and address == row["primary_email"]:
             return "primary_email"

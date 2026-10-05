@@ -70,6 +70,24 @@ class RosterTest(unittest.TestCase):
     def test_unknown_is_non_binding(self) -> None:
         self.assertIsNone(tally.resolve_binding("frank@gmail.com", self.roster))
 
+    def test_address_in_display_name_does_not_bind(self) -> None:
+        # The real mailbox is mallory's; alice's address is only the display name.
+        sender = '"<alice@apache.org>" <mallory@example.org>'
+        self.assertEqual(tally.normalise_address(sender), "mallory@example.org")
+        self.assertIsNone(tally.resolve_binding(sender, self.roster))
+
+    def test_ambiguous_sender_does_not_bind(self) -> None:
+        for sender in (
+            "Alice via <alice@apache.org> <mallory@example.org>",
+            "Alice <alice@apache.org>, Mallory <mallory@example.org>",
+            "<x> alice@apache.org",
+        ):
+            with self.subTest(sender=sender):
+                self.assertIsNone(tally.resolve_binding(sender, self.roster))
+
+    def test_display_name_with_comma_still_binds(self) -> None:
+        self.assertEqual(tally.resolve_binding('"Alice, N" <alice@apache.org>', self.roster), "primary_email")
+
 
 class TallyTest(unittest.TestCase):
     def setUp(self) -> None:
@@ -402,6 +420,18 @@ class LatestVoteTest(unittest.TestCase):
         )
         self.assertEqual(out["superseded_votes"], [])
         self.assertEqual((out["binding_plus1"], out["nonbinding_minus1"]), (1, 1))
+
+    def test_spoofed_display_name_cannot_replace_a_member_vote(self) -> None:
+        # A later -1 whose display name is alice's address must not supersede alice's +1.
+        out = self.run_tally(
+            [
+                self.at("Alice <alice@apache.org>", "+1", "2026-06-11T09:00:00Z"),
+                self.at('"<alice@apache.org>" <mallory@example.org>', "-1", "2026-06-12T09:00:00Z"),
+                self.at("Alice via <alice@apache.org> <mallory@example.org>", "-1", "2026-06-12T10:00:00Z"),
+            ]
+        )
+        self.assertEqual(out["superseded_votes"], [])
+        self.assertEqual((out["binding_plus1"], out["binding_minus1"], out["nonbinding_minus1"]), (1, 0, 2))
 
     def test_distinct_voters_supersede_nothing(self) -> None:
         out = self.run_tally(
