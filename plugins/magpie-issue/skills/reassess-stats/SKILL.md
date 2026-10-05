@@ -22,7 +22,7 @@ when_to_use: |
 capability: capability:stats
 surface_hash: sha256:44c7826660a3ae71
 license: Apache-2.0
-measured_tokens: 2922
+measured_tokens: 2971
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -131,17 +131,18 @@ aggregates across campaigns.
 
 ## Adopter overrides
 
-Before running the default behaviour documented below, this skill
-consults
-[`.apache-magpie-local/issue-reassess-stats.md`](../../../../docs/setup/agentic-overrides.md) (personal, gitignored) and [`.apache-magpie-overrides/issue-reassess-stats.md`](../../../../docs/setup/agentic-overrides.md) (committed, project-wide)
-in the adopter repo if it exists, and applies any agent-readable
-overrides it finds. See
-[`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md)
-for the contract.
+<!-- BEGIN MAGPIE BLOCK: adopter-overrides — generated from tools/dev/blocks/adopter-overrides.md -->
 
-**Hard rule**: agents NEVER modify the snapshot under
-`<adopter-repo>/.apache-magpie/`. Local modifications go in the
-override file.
+Before running its default behaviour, this skill consults
+[`.apache-magpie-local/issue-reassess-stats.md`](../../../../docs/setup/agentic-overrides.md) (personal, gitignored; applied first, wins on conflict) and
+[`.apache-magpie-overrides/issue-reassess-stats.md`](../../../../docs/setup/agentic-overrides.md) (committed, project-wide)
+in the adopter repo, if present, and applies any agent-readable overrides it finds.
+See [`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md) for the contract.
+
+**Hard rule**: agents NEVER modify the snapshot under `<adopter-repo>/.apache-magpie/`.
+Local modifications go in the override file; framework changes go via PR to `apache/magpie`.
+
+<!-- END MAGPIE BLOCK: adopter-overrides -->
 
 ---
 

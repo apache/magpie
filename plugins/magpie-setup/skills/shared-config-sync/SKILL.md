@@ -20,7 +20,7 @@ capability:
   - capability:platform
 surface_hash: sha256:bc445ef323563cd8
 license: Apache-2.0
-measured_tokens: 3700
+measured_tokens: 3729
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -33,14 +33,18 @@ It is the counterpart to the periodic `git pull --rebase --autostash` that the f
 
 ## Adopter overrides
 
-Before running the default behaviour below, this skill reads
-[`.apache-magpie-local/setup-shared-config-sync.md`](../../../../docs/setup/agentic-overrides.md) (personal, gitignored) and [`.apache-magpie-overrides/setup-shared-config-sync.md`](../../../../docs/setup/agentic-overrides.md) (committed, project-wide)
+<!-- BEGIN MAGPIE BLOCK: adopter-overrides — generated from tools/dev/blocks/adopter-overrides.md -->
+
+Before running its default behaviour, this skill consults
+[`.apache-magpie-local/setup-shared-config-sync.md`](../../../../docs/setup/agentic-overrides.md) (personal, gitignored; applied first, wins on conflict) and
+[`.apache-magpie-overrides/setup-shared-config-sync.md`](../../../../docs/setup/agentic-overrides.md) (committed, project-wide)
 in the adopter repo, if present, and applies any agent-readable overrides it finds.
-The contract (what overrides may contain, hard rules, reconciliation on framework upgrade, upstreaming) is in [`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md).
+See [`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md) for the contract.
 
 **Hard rule**: agents NEVER modify the snapshot under `<adopter-repo>/.apache-magpie/`.
-Local changes go in the override file.
-Framework changes go via PR to `apache/magpie`.
+Local modifications go in the override file; framework changes go via PR to `apache/magpie`.
+
+<!-- END MAGPIE BLOCK: adopter-overrides -->
 
 ---
 ## Hardcoded path

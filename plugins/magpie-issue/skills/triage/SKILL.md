@@ -25,7 +25,7 @@ when_to_use: |
 capability: capability:triage
 surface_hash: sha256:fb90bdc45aec5f8a
 license: Apache-2.0
-measured_tokens: 4973
+measured_tokens: 5035
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -129,13 +129,18 @@ Full detail: [external-content.md](external-content.md).
 
 ## Adopter overrides
 
-This skill consults
-[`.apache-magpie-local/issue-triage.md`](../../../../docs/setup/agentic-overrides.md) (personal, gitignored) and [`.apache-magpie-overrides/issue-triage.md`](../../../../docs/setup/agentic-overrides.md) (committed, project-wide)
-if they exist, applying any overrides found (contract:
-[`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md)).
-**Hard rule**: NEVER modify the snapshot under
-`<adopter-repo>/.apache-magpie/`; local modifications go in the
-override file, framework changes via PR to `apache/magpie`.
+<!-- BEGIN MAGPIE BLOCK: adopter-overrides — generated from tools/dev/blocks/adopter-overrides.md -->
+
+Before running its default behaviour, this skill consults
+[`.apache-magpie-local/issue-triage.md`](../../../../docs/setup/agentic-overrides.md) (personal, gitignored; applied first, wins on conflict) and
+[`.apache-magpie-overrides/issue-triage.md`](../../../../docs/setup/agentic-overrides.md) (committed, project-wide)
+in the adopter repo, if present, and applies any agent-readable overrides it finds.
+See [`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md) for the contract.
+
+**Hard rule**: agents NEVER modify the snapshot under `<adopter-repo>/.apache-magpie/`.
+Local modifications go in the override file; framework changes go via PR to `apache/magpie`.
+
+<!-- END MAGPIE BLOCK: adopter-overrides -->
 
 ---
 

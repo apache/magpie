@@ -36,7 +36,10 @@ The script creates the skill directory with:
 
 - ``SKILL.md`` carrying the framework's expected preamble (YAML
   frontmatter with ``license: Apache-2.0``, SPDX header,
-  placeholder-convention comment, ``Adopter overrides``,
+  placeholder-convention comment, an empty ``Adopter overrides``
+  shared-block region that ``tools/dev/check-shared-blocks.py --fix``
+  fills from ``tools/dev/blocks/adopter-overrides.md`` (it needs the
+  repo-root ``skills/<skill-name>`` entry to exist first),
   ``Inputs``, ``Prerequisites``, ``Step 0``; the generated pre-flight
   block covers snapshot drift);
 - placeholder ``scripts/`` / ``references/`` / ``assets/``
@@ -115,27 +118,8 @@ more detail and any context the agent needs upfront.
 
 ## Adopter overrides
 
-Before running the default behaviour documented
-below, this skill consults **two** override surfaces
-in the adopter repo, applying any agent-readable
-overrides it finds:
-
-1. [`.apache-magpie-local/{name}.md`](../../../docs/setup/agentic-overrides.md)
-   — personal, gitignored. Applied first; wins on
-   conflict.
-2. [`.apache-magpie-overrides/{name}.md`](../../../docs/setup/agentic-overrides.md)
-   — committed, project-wide. Applied next.
-
-See
-[`docs/setup/agentic-overrides.md`](../../../docs/setup/agentic-overrides.md)
-for the full contract — the lookup protocol, what
-overrides may contain, hard rules, the reconciliation
-flow on framework upgrade, upstreaming guidance.
-
-**Hard rule**: agents NEVER modify the snapshot under
-`<adopter-repo>/.apache-magpie/`. Local modifications
-go in the override file. Framework changes go via PR
-to `apache/magpie`.
+<!-- BEGIN MAGPIE BLOCK: adopter-overrides — generated from tools/dev/blocks/adopter-overrides.md -->
+<!-- END MAGPIE BLOCK: adopter-overrides -->
 
 ---
 

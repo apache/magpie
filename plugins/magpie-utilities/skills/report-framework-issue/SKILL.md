@@ -29,7 +29,7 @@ argument-hint: "[what broke, or a problem description]"
 capability: capability:platform
 surface_hash: sha256:f14640fa1249c172
 license: Apache-2.0
-measured_tokens: 4517
+measured_tokens: 4538
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -127,27 +127,25 @@ with the documented flow. See the absolute rule in
 
 ## Adopter overrides
 
-Before running the default behaviour documented below, this skill
-consults **two** override surfaces in the adopter repo, applying
-any agent-readable overrides it finds:
+<!-- BEGIN MAGPIE BLOCK: adopter-overrides — generated from tools/dev/blocks/adopter-overrides.md -->
 
-1. [`.apache-magpie-local/report-framework-issue.md`](../../../../docs/setup/agentic-overrides.md)
-   — personal, gitignored. Applied first; wins on conflict.
-2. [`.apache-magpie-overrides/report-framework-issue.md`](../../../../docs/setup/agentic-overrides.md)
-   — committed, project-wide. Applied next.
+Before running its default behaviour, this skill consults
+[`.apache-magpie-local/report-framework-issue.md`](../../../../docs/setup/agentic-overrides.md) (personal, gitignored; applied first, wins on conflict) and
+[`.apache-magpie-overrides/report-framework-issue.md`](../../../../docs/setup/agentic-overrides.md) (committed, project-wide)
+in the adopter repo, if present, and applies any agent-readable overrides it finds.
+See [`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md) for the contract.
 
-See
-[`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md)
-for the full contract. The keys this skill reads:
+**Hard rule**: agents NEVER modify the snapshot under `<adopter-repo>/.apache-magpie/`.
+Local modifications go in the override file; framework changes go via PR to `apache/magpie`.
+
+<!-- END MAGPIE BLOCK: adopter-overrides -->
+
+The keys this skill reads:
 
 | Key | Used for |
 |---|---|
 | `framework_repo` | Where framework issues are filed, in `owner/name` form. Default `apache/magpie`. Override only if the adopter tracks a fork of the framework. |
 | `extra_scrub_terms` | Additional adopter-specific strings to redact before filing (internal codenames, private hostnames, roster names). Appended to the built-in scrub cascade; never shortens it. |
-
-**Hard rule**: agents NEVER modify the snapshot under
-`<adopter-repo>/.apache-magpie/`. Local modifications go in the
-override file. Framework changes go via PR to `apache/magpie`.
 
 ---
 

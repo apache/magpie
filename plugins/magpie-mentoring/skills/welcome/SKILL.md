@@ -25,7 +25,7 @@ argument-hint: "[issue-or-pr-number]"
 capability: capability:review
 surface_hash: sha256:a61c6575d69da08a
 license: Apache-2.0
-measured_tokens: 3222
+measured_tokens: 3303
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
@@ -124,13 +124,18 @@ the absolute rule in
 
 ## Adopter overrides
 
-Before running the default behaviour documented below, this skill
-consults
-[`.apache-magpie-local/mentoring-welcome.md`](../../../../docs/setup/agentic-overrides.md) (personal, gitignored) and [`.apache-magpie-overrides/mentoring-welcome.md`](../../../../docs/setup/agentic-overrides.md) (committed, project-wide)
-in the adopter repo if it exists, and applies any agent-readable
-overrides it finds. See
-[`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md)
-for the override file shape.
+<!-- BEGIN MAGPIE BLOCK: adopter-overrides — generated from tools/dev/blocks/adopter-overrides.md -->
+
+Before running its default behaviour, this skill consults
+[`.apache-magpie-local/mentoring-welcome.md`](../../../../docs/setup/agentic-overrides.md) (personal, gitignored; applied first, wins on conflict) and
+[`.apache-magpie-overrides/mentoring-welcome.md`](../../../../docs/setup/agentic-overrides.md) (committed, project-wide)
+in the adopter repo, if present, and applies any agent-readable overrides it finds.
+See [`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md) for the contract.
+
+**Hard rule**: agents NEVER modify the snapshot under `<adopter-repo>/.apache-magpie/`.
+Local modifications go in the override file; framework changes go via PR to `apache/magpie`.
+
+<!-- END MAGPIE BLOCK: adopter-overrides -->
 
 ## Adopter contract
 

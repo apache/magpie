@@ -433,6 +433,11 @@ committed version with drift detection.
 23. The shared pre-flight block is propagated into every non-exempt
     `SKILL.md` by `tools/dev/check-shared-blocks.py`, and a skill of an
     exempt family carries none; the generator removes a stale one.
+    The `## Adopter overrides` section is likewise one declared block
+    (`tools/dev/blocks/adopter-overrides.md`) in every skill that carries the
+    section; the generator fills `{override_name}` per skill with the name of
+    the `skills/<name>` entry that points at it, and a skill no entry points at
+    is a hard error, never a silent skip.
 24. The block runs `tools/setup-preflight` as a single command and acts
     only on its verdict. `{"verdict": "ok"}` is silent. An `action`
     verdict carries, alongside each finding, the text of the rules

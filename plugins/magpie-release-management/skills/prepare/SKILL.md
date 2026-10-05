@@ -23,7 +23,7 @@ argument-hint: "[prep | post] <version> [--review-archive] | automated-signing"
 capability: capability:resolve
 surface_hash: sha256:43e928f52996ee1b
 license: Apache-2.0
-measured_tokens: 5313
+measured_tokens: 5373
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -150,16 +150,18 @@ Those belong to `release-keys-sync` (Step 3) and `release-rc-cut` (Steps 4–5).
 
 ## Adopter overrides
 
-Before running the default behaviour documented below, this skill
-consults
-[`.apache-magpie-local/release-prepare.md`](../../../../docs/setup/agentic-overrides.md) (personal, gitignored) and [`.apache-magpie-overrides/release-prepare.md`](../../../../docs/setup/agentic-overrides.md) (committed, project-wide)
-in the adopter repo if it exists, and applies any agent-readable
-overrides it finds.
+<!-- BEGIN MAGPIE BLOCK: adopter-overrides — generated from tools/dev/blocks/adopter-overrides.md -->
 
-**Hard rule**: agents NEVER modify the snapshot under
-`<adopter-repo>/.apache-magpie/`. Local modifications go in the
-override file. Framework changes go via PR to
-`apache/magpie`.
+Before running its default behaviour, this skill consults
+[`.apache-magpie-local/release-prepare.md`](../../../../docs/setup/agentic-overrides.md) (personal, gitignored; applied first, wins on conflict) and
+[`.apache-magpie-overrides/release-prepare.md`](../../../../docs/setup/agentic-overrides.md) (committed, project-wide)
+in the adopter repo, if present, and applies any agent-readable overrides it finds.
+See [`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md) for the contract.
+
+**Hard rule**: agents NEVER modify the snapshot under `<adopter-repo>/.apache-magpie/`.
+Local modifications go in the override file; framework changes go via PR to `apache/magpie`.
+
+<!-- END MAGPIE BLOCK: adopter-overrides -->
 
 ---
 

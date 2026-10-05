@@ -61,6 +61,17 @@ the one mechanism for both shapes:
   root `skill-surface-hash.py` walks) — a region discovered outside it is
   rejected rather than filled, so the mechanism cannot be used to
   propagate prose into arbitrary documentation by accident.
+* **Per-target parameter.** A declared block's source may contain the
+  placeholder `{override_name}`; it is substituted, per target, with the
+  name of the `skills/<name>` entry (in this repo, a symlink into
+  `plugins/magpie-<family>/skills/<dir>/`) that resolves to the target's
+  skill directory — e.g. `skills/issue-triage` for
+  `plugins/magpie-issue/skills/triage/`. That is the name an adopter's
+  override file carries (`.apache-magpie-overrides/issue-triage.md`), which
+  the plugin directory name alone does not give. A target whose directory
+  no `skills/<name>` entry resolves to — or more than one does — is an
+  error, never a silent skip: the region is left as it was and the run
+  fails. A source without the placeholder is rendered exactly as before.
 
 The two marker shapes are a deliberate, documented asymmetry — not a gap to
 close reflexively. Unifying them (moving `preflight-block.md` under
@@ -82,6 +93,10 @@ SKILLS = Path("skills")
 ALLOWED_ROOTS: tuple[Path, ...] = (SKILLS,)
 
 BLOCKS_DIR = Path("tools/dev/blocks")
+
+# The one per-target parameter a declared block source may carry. See the
+# module docstring's "Per-target parameter" bullet.
+OVERRIDE_NAME_PLACEHOLDER = "{override_name}"
 
 # --- the auto block: preflight ----------------------------------------------------
 #
@@ -208,7 +223,47 @@ def _indent_body(body: str, indent: str) -> str:
     return "\n".join(f"{indent}{line}" if line.strip() else "" for line in body.split("\n"))
 
 
-def declared_block_text(name: str, blocks_dir: Path = BLOCKS_DIR, indent: str = "") -> str:
+class UnresolvedParameterError(Exception):
+    """A declared block needs `{override_name}` but the target has no
+    single `skills/<name>` entry resolving to its directory."""
+
+
+def resolve_override_name(path: Path, skills_root: Path = SKILLS) -> tuple[str | None, str | None]:
+    """Return `(name, error)` for the `skills/<name>` entry whose resolved
+    location is `path`'s skill directory.
+
+    Exactly one match yields `(name, None)`. None, or more than one, yields
+    `(None, reason)` — an ambiguous mapping would silently pick one
+    adopter-facing override filename over another, so it is refused the
+    same way a missing one is."""
+    try:
+        target_dir = path.parent.resolve()
+    except OSError as exc:
+        return None, f"cannot resolve {path.parent}: {exc}"
+    matches: list[str] = []
+    if skills_root.is_dir():
+        for entry in sorted(skills_root.iterdir()):
+            try:
+                if entry.is_dir() and entry.resolve() == target_dir:
+                    matches.append(entry.name)
+            except OSError:
+                continue
+    if len(matches) == 1:
+        return matches[0], None
+    if not matches:
+        return None, f"no {skills_root.as_posix()}/<name> entry resolves to {target_dir}"
+    return (
+        None,
+        f"several {skills_root.as_posix()}/<name> entries resolve to {target_dir}: {', '.join(matches)}",
+    )
+
+
+def declared_block_text(
+    name: str,
+    blocks_dir: Path = BLOCKS_DIR,
+    indent: str = "",
+    override_name: str | None = None,
+) -> str:
     """The generated region for a declared block, indented by `indent` (the
     column the host's own BEGIN marker was found at — see `DECLARED_RE`'s
     `indent` group). Raises `FileNotFoundError` when the named block has no
@@ -230,6 +285,10 @@ def declared_block_text(name: str, blocks_dir: Path = BLOCKS_DIR, indent: str = 
         raise FileNotFoundError(source)
     raw = source.read_text()
     body = _strip_licence_header(raw).strip()
+    if OVERRIDE_NAME_PLACEHOLDER in body:
+        if override_name is None:
+            raise UnresolvedParameterError(name)
+        body = body.replace(OVERRIDE_NAME_PLACEHOLDER, override_name)
     indented_body = _indent_body(body, indent)
     begin = f"{indent}<!-- BEGIN MAGPIE BLOCK: {name} — generated from {source.as_posix()} -->"
     end = f"{indent}<!-- END MAGPIE BLOCK: {name} -->"
@@ -256,13 +315,20 @@ def strip_generated_regions(text: str) -> str:
     return text
 
 
-def fill_declared(text: str, blocks_dir: Path = BLOCKS_DIR) -> tuple[str, list[str]]:
+def fill_declared(
+    text: str,
+    blocks_dir: Path = BLOCKS_DIR,
+    override_name: str | None = None,
+    override_name_error: str | None = None,
+) -> tuple[str, list[str]]:
     """Fill every declared-block region found in `text` from `blocks_dir`.
 
     Returns `(new_text, errors)`. A region naming a block with no matching
     source file is left exactly as it was in `text` and reported as an
     error — never silently dropped, never silently left stale without
-    comment.
+    comment. The same holds for a block whose source carries
+    `{override_name}` when `override_name` is `None`;
+    `override_name_error` is the reason reported in that case.
     """
     errors: list[str] = []
 
@@ -270,9 +336,13 @@ def fill_declared(text: str, blocks_dir: Path = BLOCKS_DIR) -> tuple[str, list[s
         name = match.group("name")
         indent = match.group("indent")
         try:
-            return declared_block_text(name, blocks_dir, indent=indent)
+            return declared_block_text(name, blocks_dir, indent=indent, override_name=override_name)
         except FileNotFoundError as exc:
             errors.append(f"declares unknown block '{name}' — {exc.args[0]} does not exist")
+            return match.group(0)
+        except UnresolvedParameterError:
+            reason = override_name_error or "no override name was supplied"
+            errors.append(f"block '{name}' needs {OVERRIDE_NAME_PLACEHOLDER} but {reason}")
             return match.group(0)
 
     new_text = DECLARED_RE.sub(_replace, text)
@@ -324,6 +394,7 @@ def process_declared(
     *,
     blocks_dir: Path = BLOCKS_DIR,
     roots: tuple[Path, ...] = ALLOWED_ROOTS,
+    skills_root: Path = SKILLS,
     fix: bool = False,
 ) -> tuple[bool, list[str]]:
     """Process one candidate target file for declared-block regions.
@@ -341,7 +412,10 @@ def process_declared(
             f"{path}: carries a declared block region but is outside the allowed roots {tuple(str(r) for r in roots)}"
         ]
 
-    new_text, fill_errors = fill_declared(text, blocks_dir)
+    override_name, override_name_error = resolve_override_name(path, skills_root)
+    new_text, fill_errors = fill_declared(
+        text, blocks_dir, override_name=override_name, override_name_error=override_name_error
+    )
     errors = [f"{path}: {message}" for message in fill_errors]
     if new_text == text:
         return False, errors

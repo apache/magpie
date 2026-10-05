@@ -130,6 +130,11 @@ moved; **(3)** widen `WIRED_SKILLS_ROOT` below (or drop it in favour of
 the full `skills/` tree) once the tree is clean at that scope too. None of
 that is done here — the maintainer scoped it out of this landing
 deliberately, and this file does not touch `check-shared-blocks.py`.
+Update: the `Adopter overrides` preamble and its `Hard rule` admonition now
+come from one declared block, `tools/dev/blocks/adopter-overrides.md`, filled
+per skill (with a `{override_name}` parameter) by `check-shared-blocks.py`;
+`Snapshot drift` was removed earlier. A whole-tree re-run (step 2) is still
+to do.
 
 Run standalone (`python3 tools/dev/check-duplication.py`) or as the
 `check-duplication` prek hook, wired `pass_filenames: false` and

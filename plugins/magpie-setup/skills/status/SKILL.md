@@ -19,7 +19,7 @@ capability:
   - capability:platform
 surface_hash: sha256:85dfb8b48739fc11
 license: Apache-2.0
-measured_tokens: 2318
+measured_tokens: 2372
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -54,21 +54,18 @@ it rather than duplicating its checks.
 
 ## Adopter overrides
 
-Before running the default behaviour documented below, this skill
-consults (in order, first hit wins):
+<!-- BEGIN MAGPIE BLOCK: adopter-overrides — generated from tools/dev/blocks/adopter-overrides.md -->
 
-1. `.apache-magpie-local/setup-status.md` — personal, gitignored.
-2. `.apache-magpie-overrides/setup-status.md` — committed,
-   project-wide.
+Before running its default behaviour, this skill consults
+[`.apache-magpie-local/setup-status.md`](../../../../docs/setup/agentic-overrides.md) (personal, gitignored; applied first, wins on conflict) and
+[`.apache-magpie-overrides/setup-status.md`](../../../../docs/setup/agentic-overrides.md) (committed, project-wide)
+in the adopter repo, if present, and applies any agent-readable overrides it finds.
+See [`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md) for the contract.
 
-Both files are applied if present.  See
-[`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md)
-for the full lookup contract.
+**Hard rule**: agents NEVER modify the snapshot under `<adopter-repo>/.apache-magpie/`.
+Local modifications go in the override file; framework changes go via PR to `apache/magpie`.
 
-**Hard rule**: agents NEVER modify the snapshot under
-`<adopter-repo>/.apache-magpie/`. Local modifications go in the
-override file. Framework changes go via PR to
-`apache/magpie`.
+<!-- END MAGPIE BLOCK: adopter-overrides -->
 
 ---
 

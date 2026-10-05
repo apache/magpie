@@ -466,3 +466,115 @@ def test_strip_generated_regions_strips_indented_declared_block() -> None:
     assert "Some generated text." not in stripped
     assert "1. Item." in stripped
     assert "2. Next." in stripped
+
+
+# --- declared blocks: the {override_name} per-target parameter ---------------------
+
+
+def _plugin_layout(tmp_path: Path) -> tuple[Path, Path, Path]:
+    """Mirror this repo's self-adoption shape: the real skill directory
+    lives under `plugins/<family>/skills/<dir>/` and the repo-root
+    `skills/<name>` symlink — whose name differs from `<dir>` — points at
+    it. Returns `(skills_root, real_dir, blocks_dir)`."""
+    real_dir = tmp_path / "plugins" / "magpie-issue" / "skills" / "triage"
+    real_dir.mkdir(parents=True)
+    skills_root = tmp_path / "skills"
+    skills_root.mkdir()
+    (skills_root / "issue-triage").symlink_to(real_dir, target_is_directory=True)
+    blocks_dir = tmp_path / "blocks"
+    blocks_dir.mkdir()
+    (blocks_dir / "adopter-overrides.md").write_text(
+        "Consult `.apache-magpie-overrides/{override_name}.md`.\n"
+    )
+    return skills_root, real_dir, blocks_dir
+
+
+def test_override_name_is_the_skills_symlink_name_not_the_plugin_dir(tmp_path: Path) -> None:
+    skills_root, real_dir, blocks_dir = _plugin_layout(tmp_path)
+    target = skills_root / "issue-triage" / "SKILL.md"
+    target.write_text(f"# Triage\n\n{_declared_region('adopter-overrides')}\n")
+
+    changed, errors = MOD.process_declared(
+        target, blocks_dir=blocks_dir, roots=(skills_root,), skills_root=skills_root, fix=True
+    )
+    assert (changed, errors) == (True, [])
+    text = (real_dir / "SKILL.md").read_text()
+    assert "`.apache-magpie-overrides/issue-triage.md`" in text
+    assert "{override_name}" not in text
+    assert "triage.md`" not in text.replace("issue-triage.md`", "")
+
+    # Idempotent: the substituted text is what the next run regenerates.
+    assert MOD.process_declared(
+        target, blocks_dir=blocks_dir, roots=(skills_root,), skills_root=skills_root, fix=True
+    ) == (False, [])
+
+
+def test_resolve_override_name_maps_plugin_dir_to_symlink(tmp_path: Path) -> None:
+    skills_root, real_dir, _ = _plugin_layout(tmp_path)
+    assert MOD.resolve_override_name(real_dir / "SKILL.md", skills_root) == ("issue-triage", None)
+    assert MOD.resolve_override_name(skills_root / "issue-triage" / "SKILL.md", skills_root) == (
+        "issue-triage",
+        None,
+    )
+
+
+def test_unresolvable_override_name_is_an_error_not_a_silent_skip(tmp_path: Path) -> None:
+    skills_root, _, blocks_dir = _plugin_layout(tmp_path)
+    # A skill directory no `skills/<name>` entry points at.
+    orphan_dir = skills_root / "orphan"
+    orphan_dir.mkdir()
+    target = orphan_dir / "SKILL.md"
+    original = f"# Orphan\n\n{_declared_region('adopter-overrides')}\n"
+    target.write_text(original)
+
+    changed, errors = MOD.process_declared(
+        target, blocks_dir=blocks_dir, roots=(skills_root,), skills_root=tmp_path / "elsewhere", fix=True
+    )
+    assert changed is False
+    assert errors and "{override_name}" in errors[0] and "adopter-overrides" in errors[0]
+    # --fix must not write the region when it cannot resolve the parameter.
+    assert target.read_text() == original
+
+
+def test_ambiguous_override_name_is_an_error(tmp_path: Path) -> None:
+    skills_root, real_dir, _ = _plugin_layout(tmp_path)
+    (skills_root / "issue-triage-alias").symlink_to(real_dir, target_is_directory=True)
+    name, error = MOD.resolve_override_name(real_dir / "SKILL.md", skills_root)
+    assert name is None
+    assert error and "issue-triage" in error and "issue-triage-alias" in error
+
+
+def test_block_without_placeholder_renders_unchanged_and_needs_no_resolution(tmp_path: Path) -> None:
+    """A source without `{override_name}` must render byte-identically to
+    the pre-parameter generator, and must not fail on a target that has no
+    `skills/<name>` entry — the parameter is only resolved when used."""
+    blocks_dir = tmp_path / "blocks"
+    blocks_dir.mkdir()
+    (blocks_dir / "widget.md").write_text("Widget body text.\n")
+    region = _declared_region("widget")
+
+    with_name, errors_a = MOD.fill_declared(region, blocks_dir=blocks_dir, override_name="anything")
+    without_name, errors_b = MOD.fill_declared(
+        region, blocks_dir=blocks_dir, override_name=None, override_name_error="unresolved"
+    )
+    assert errors_a == errors_b == []
+    assert with_name == without_name == MOD.declared_block_text("widget", blocks_dir)
+
+
+def test_live_adopter_overrides_copies_use_their_skills_entry_name() -> None:
+    """Every live `adopter-overrides` region names the override file after
+    the `skills/<name>` entry it is reached through."""
+    import os
+
+    old = os.getcwd()
+    os.chdir(REPO)
+    try:
+        for path in sorted(Path("skills").glob("*/SKILL.md")):
+            text = path.read_text()
+            if "<!-- BEGIN MAGPIE BLOCK: adopter-overrides" not in text:
+                continue
+            name = path.parent.name
+            assert f"`.apache-magpie-local/{name}.md`" in text, path
+            assert f"`.apache-magpie-overrides/{name}.md`" in text, path
+    finally:
+        os.chdir(old)

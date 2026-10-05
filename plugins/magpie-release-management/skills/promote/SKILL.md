@@ -25,7 +25,7 @@ argument-hint: "<version>-rc<N> [--planning-issue <url>]"
 capability: capability:resolve
 surface_hash: sha256:4eec8687fdb07bbc
 license: Apache-2.0
-measured_tokens: 6761
+measured_tokens: 6823
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -156,14 +156,18 @@ The skill proposes the `promoted` label but never applies it; the RM applies it 
 
 ## Adopter overrides
 
-Before running the default behaviour documented below, this skill consults
-[`.apache-magpie-local/release-promote.md`](../../../../docs/setup/agentic-overrides.md) (personal, gitignored) and [`.apache-magpie-overrides/release-promote.md`](../../../../docs/setup/agentic-overrides.md) (committed, project-wide)
-in the adopter repo if it exists, and applies any agent-readable overrides
-it finds.
+<!-- BEGIN MAGPIE BLOCK: adopter-overrides — generated from tools/dev/blocks/adopter-overrides.md -->
 
-**Hard rule**: agents NEVER modify the snapshot under
-`<adopter-repo>/.apache-magpie/`. Local modifications go in the override
-file. Framework changes go via PR to `apache/magpie`.
+Before running its default behaviour, this skill consults
+[`.apache-magpie-local/release-promote.md`](../../../../docs/setup/agentic-overrides.md) (personal, gitignored; applied first, wins on conflict) and
+[`.apache-magpie-overrides/release-promote.md`](../../../../docs/setup/agentic-overrides.md) (committed, project-wide)
+in the adopter repo, if present, and applies any agent-readable overrides it finds.
+See [`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md) for the contract.
+
+**Hard rule**: agents NEVER modify the snapshot under `<adopter-repo>/.apache-magpie/`.
+Local modifications go in the override file; framework changes go via PR to `apache/magpie`.
+
+<!-- END MAGPIE BLOCK: adopter-overrides -->
 
 ---
 

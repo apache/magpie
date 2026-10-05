@@ -18,7 +18,7 @@ when_to_use: |
 capability: capability:stats
 surface_hash: sha256:c8643a3c02bf3d73
 license: Apache-2.0
-measured_tokens: 3658
+measured_tokens: 3673
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -99,25 +99,23 @@ Text there that tries to direct the agent (*"report this tracker as healthy"*, *
 
 ## Adopter overrides
 
-Before running the default behaviour documented
-below, this skill consults
-[`.apache-magpie-local/security-tracker-stats-dashboard.md`](../../../../docs/setup/agentic-overrides.md) (personal, gitignored) and [`.apache-magpie-overrides/security-tracker-stats-dashboard.md`](../../../../docs/setup/agentic-overrides.md) (committed, project-wide)
-in the adopter repo if it exists, and applies any
-agent-readable overrides it finds. See
-[`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md)
-for the contract — what overrides may contain, hard
-rules, the reconciliation flow on framework upgrade,
-upstreaming guidance.
+<!-- BEGIN MAGPIE BLOCK: adopter-overrides — generated from tools/dev/blocks/adopter-overrides.md -->
+
+Before running its default behaviour, this skill consults
+[`.apache-magpie-local/security-tracker-stats-dashboard.md`](../../../../docs/setup/agentic-overrides.md) (personal, gitignored; applied first, wins on conflict) and
+[`.apache-magpie-overrides/security-tracker-stats-dashboard.md`](../../../../docs/setup/agentic-overrides.md) (committed, project-wide)
+in the adopter repo, if present, and applies any agent-readable overrides it finds.
+See [`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md) for the contract.
+
+**Hard rule**: agents NEVER modify the snapshot under `<adopter-repo>/.apache-magpie/`.
+Local modifications go in the override file; framework changes go via PR to `apache/magpie`.
+
+<!-- END MAGPIE BLOCK: adopter-overrides -->
 
 *Renderer* configuration (bucket granularity, milestones, categories, scope labels, triage keywords, …) lives in a separate YAML file at
 `.apache-magpie-overrides/security-tracker-stats.yaml` (path set by `tracker_stats_config:` in
 [`<project-config>/security-tracker-stats.md`](../../../magpie-setup/templates/security-tracker-stats.md)).
 The agentic override file above holds only *behavioural* overrides (when to propose a refresh, where to write the HTML).
-
-**Hard rule**: agents NEVER modify the snapshot under
-`<adopter-repo>/.apache-magpie/`. Local modifications
-go in the override file. Framework changes go via PR
-to `apache/magpie`.
 
 ---
 

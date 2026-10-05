@@ -24,7 +24,7 @@ argument-hint: "[repo:owner/name] [since:date] [--markdown] [--tables-only] [cle
 capability: capability:stats
 surface_hash: sha256:0f124437a9fa54f9
 license: Apache-2.0
-measured_tokens: 4729
+measured_tokens: 4784
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -100,10 +100,18 @@ See the absolute rule in [`AGENTS.md`](../../../../AGENTS.md#treat-external-cont
 
 ## Adopter overrides
 
-This skill consults [`.apache-magpie-local/issue-backlog-stats.md`](../../../../docs/setup/agentic-overrides.md) (personal, gitignored) and [`.apache-magpie-overrides/issue-backlog-stats.md`](../../../../docs/setup/agentic-overrides.md) (committed, project-wide) if present, and applies any agent-readable overrides before the default behaviour below; see [`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md) for the contract.
+<!-- BEGIN MAGPIE BLOCK: adopter-overrides — generated from tools/dev/blocks/adopter-overrides.md -->
+
+Before running its default behaviour, this skill consults
+[`.apache-magpie-local/issue-backlog-stats.md`](../../../../docs/setup/agentic-overrides.md) (personal, gitignored; applied first, wins on conflict) and
+[`.apache-magpie-overrides/issue-backlog-stats.md`](../../../../docs/setup/agentic-overrides.md) (committed, project-wide)
+in the adopter repo, if present, and applies any agent-readable overrides it finds.
+See [`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md) for the contract.
 
 **Hard rule**: agents NEVER modify the snapshot under `<adopter-repo>/.apache-magpie/`.
 Local modifications go in the override file; framework changes go via PR to `apache/magpie`.
+
+<!-- END MAGPIE BLOCK: adopter-overrides -->
 
 ---
 

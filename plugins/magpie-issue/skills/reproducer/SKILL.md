@@ -27,7 +27,7 @@ when_to_use: |
 capability: capability:reassess
 surface_hash: sha256:85440f7009f84de6
 license: Apache-2.0
-measured_tokens: 5043
+measured_tokens: 5100
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -145,14 +145,18 @@ Full text: [golden-rule-details.md](golden-rule-details.md).
 
 ## Adopter overrides
 
-Consults
-[`.apache-magpie-local/issue-reproducer.md`](../../../../docs/setup/agentic-overrides.md) (personal, gitignored) and [`.apache-magpie-overrides/issue-reproducer.md`](../../../../docs/setup/agentic-overrides.md) (committed, project-wide)
-if they exist and applies any agent-readable overrides; see
-[`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md) for the contract.
+<!-- BEGIN MAGPIE BLOCK: adopter-overrides — generated from tools/dev/blocks/adopter-overrides.md -->
 
-**Hard rule**: agents NEVER modify the snapshot under
-`<adopter-repo>/.apache-magpie/`; local modifications go in the override
-file; framework changes go via PR to `apache/magpie`.
+Before running its default behaviour, this skill consults
+[`.apache-magpie-local/issue-reproducer.md`](../../../../docs/setup/agentic-overrides.md) (personal, gitignored; applied first, wins on conflict) and
+[`.apache-magpie-overrides/issue-reproducer.md`](../../../../docs/setup/agentic-overrides.md) (committed, project-wide)
+in the adopter repo, if present, and applies any agent-readable overrides it finds.
+See [`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md) for the contract.
+
+**Hard rule**: agents NEVER modify the snapshot under `<adopter-repo>/.apache-magpie/`.
+Local modifications go in the override file; framework changes go via PR to `apache/magpie`.
+
+<!-- END MAGPIE BLOCK: adopter-overrides -->
 
 ---
 

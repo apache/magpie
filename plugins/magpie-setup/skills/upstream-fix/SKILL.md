@@ -19,7 +19,7 @@ argument-hint: "[quirk description]"
 capability: capability:platform
 surface_hash: sha256:ac2752440081dd6c
 license: Apache-2.0
-measured_tokens: 5215
+measured_tokens: 5276
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -55,13 +55,20 @@ and opens **one PR per distinct defect**.
 
 ## Adopter overrides
 
-Before the default behaviour below, this skill reads
-[`.apache-magpie-local/setup-upstream-fix.md`](../../../../docs/setup/agentic-overrides.md) (personal, gitignored) and [`.apache-magpie-overrides/setup-upstream-fix.md`](../../../../docs/setup/agentic-overrides.md) (committed, project-wide)
-in the adopter repo, if present, and applies any agent-readable overrides.
-Contract: [`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md).
+<!-- BEGIN MAGPIE BLOCK: adopter-overrides — generated from tools/dev/blocks/adopter-overrides.md -->
+
+Before running its default behaviour, this skill consults
+[`.apache-magpie-local/setup-upstream-fix.md`](../../../../docs/setup/agentic-overrides.md) (personal, gitignored; applied first, wins on conflict) and
+[`.apache-magpie-overrides/setup-upstream-fix.md`](../../../../docs/setup/agentic-overrides.md) (committed, project-wide)
+in the adopter repo, if present, and applies any agent-readable overrides it finds.
+See [`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md) for the contract.
 
 **Hard rule**: agents NEVER modify the snapshot under `<adopter-repo>/.apache-magpie/`.
-Local changes go in the override file; framework changes go via PR to `apache/magpie`, which is what this skill opens.
+Local modifications go in the override file; framework changes go via PR to `apache/magpie`.
+
+<!-- END MAGPIE BLOCK: adopter-overrides -->
+
+A framework-change PR to `apache/magpie` is what this skill opens.
 
 ---
 
