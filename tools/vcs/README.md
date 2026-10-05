@@ -49,8 +49,8 @@ VCS the project enables under *Tools enabled → Source control*.
 - **Runtime:** Python 3.11+ run via `uv`; stdlib-only (no runtime
   dependencies). The `dev` group pulls `pytest`, `ruff`, `mypy`.
 - **CLIs:** Depends on the active backend — the tool shells out to the
-  underlying VCS binary. `git` for the complete backend; `hg` / `svn` are
-  detected but their bindings are not yet implemented.
+  underlying VCS binary: `git`, `hg` or `fossil` for the complete
+  backends. `svn` is detected but its binding is not yet implemented.
 - **Credentials / auth:** None of its own; write operations (`fetch`,
   `push`) inherit whatever auth the underlying VCS/remote needs.
 - **Network:** Local for read and local-write operations; `fetch` / `push`
