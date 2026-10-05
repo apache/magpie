@@ -55,11 +55,15 @@ for _parent in [_cur, *_cur.parents]:
         break
 
 try:
-    import typed_decision  # type: ignore[import-untyped]
-    from typed_decision.interface import DecisionProvider  # type: ignore[import-untyped]
+    import typed_decision  # type: ignore[import-untyped,import-not-found]
+    from typed_decision.exceptions import (  # type: ignore[import-untyped,import-not-found]
+        TypedDecisionUnavailable,
+    )
+    from typed_decision.interface import DecisionProvider  # type: ignore[import-untyped,import-not-found]
 except ImportError:
     typed_decision = None  # type: ignore[assignment]
     DecisionProvider = object  # type: ignore[misc,assignment]
+    TypedDecisionUnavailable = Exception  # type: ignore[misc,assignment]
 
 
 DEFAULT_TRIAGE_BUCKETS: tuple[str, ...] = (
@@ -195,133 +199,6 @@ def build_triage_prompt(pr_data: Mapping[str, Any] | str) -> str:
     )
 
 
-class CalibratedTriageProvider(DecisionProvider):
-    """Calibrated decision provider replicating Jev System-One classifier semantics.
-
-    Used when live credentials are not present (e.g. offline evaluation, CI, dry runs).
-    Simulates System-One calibrated confidence scores and fast response latencies.
-    """
-
-    def __init__(self, seed: int = 42) -> None:
-        self._seed = seed
-        self._call_count = 0
-
-    @property
-    def name(self) -> str:
-        return "calibrated-jev-sim"
-
-    def choice(self, prompt: str, options: list[str]) -> dict[str, Any]:
-        """Select triage bucket based on PR state features extracted from prompt."""
-        self._call_count += 1
-
-        # Extract features from prompt text
-        has_security = False
-        for pat in SECURITY_PATTERNS:
-            if pat.search(prompt):
-                has_security = True
-                break
-
-        is_draft = "IsDraft: true" in prompt
-        is_conflicting = "Mergeable: CONFLICTING" in prompt
-        is_unknown_mergeable = "Mergeable: UNKNOWN" in prompt
-
-        has_failed_checks = False
-        m_failed = re.search(r"FailedChecks: (\[.*?\])", prompt)
-        if m_failed and m_failed.group(1) not in ("[]", "UNKNOWN"):
-            has_failed_checks = True
-
-        has_rollup_failure = "StatusCheckRollup: FAILURE" in prompt
-        has_rollup_success = "StatusCheckRollup: SUCCESS" in prompt
-
-        m_threads = re.search(r"UnresolvedThreads: (\d+)", prompt)
-        unresolved_threads = int(m_threads.group(1)) if m_threads else 0
-
-        prompt_lower = prompt.lower()
-        has_author_confirmation = any(
-            phrase in prompt_lower
-            for phrase in (
-                "address review",
-                "review follow-up",
-                "addressed review",
-                "address review comments",
-                "author confirmed",
-                "all comments addressed",
-                "ready for review",
-                "this is ready",
-            )
-        )
-        has_stale_review_signal = any(
-            phrase in prompt_lower
-            for phrase in (
-                "review requested changes",
-                "align cloud merge with land contract",
-                "integrate discord adapter into registry",
-                "changes requested",
-            )
-        )
-
-        # Subtle / noisy indicator for deliberate ambiguity test
-        ambiguous = "reclassify" in prompt_lower or "informal" in prompt_lower
-
-        # Calibrated decision logic
-        if has_security:
-            label = "security_language_signal"
-            conf = 0.94 if not ambiguous else 0.72
-        elif is_conflicting or has_failed_checks or has_rollup_failure:
-            label = "deterministic_flag"
-            conf = 0.95
-        elif is_draft:
-            label = "stale_draft"
-            conf = 0.89
-        elif has_author_confirmation and unresolved_threads > 0:
-            label = "author_confirmed_ready"
-            conf = 0.91 if not ambiguous else 0.74
-        elif has_stale_review_signal and unresolved_threads > 0:
-            label = "stale_review"
-            conf = 0.87
-        elif unresolved_threads > 0:
-            # Ambiguous / unresolved review state: lower confidence causes clean fall-through
-            label = "deterministic_flag"
-            conf = 0.78
-        elif is_unknown_mergeable:
-            label = "unsettled_state"
-            conf = 0.81
-        elif has_rollup_success and unresolved_threads == 0:
-            label = "passing"
-            conf = 0.95
-        else:
-            label = "passing"
-            conf = 0.88
-
-        # Simulate calibrated System-One latency distribution: p50 ~98ms, p95 ~152ms
-        base_ms = 85.0 + ((self._call_count * 17) % 35)
-        if self._call_count % 19 == 0:
-            base_ms += 55.0  # slight p95 tail
-        sim_delay = base_ms / 1000.0
-        time.sleep(min(sim_delay, 0.005))  # Sleep up to 5ms for realism without slowing test runs
-
-        actual_latency_ms = base_ms
-
-        if label not in options:
-            label = options[0]
-
-        return {
-            "label": label,
-            "confidence": round(conf, 4),
-            "_simulated_latency_ms": actual_latency_ms,
-        }
-
-    def score(
-        self,
-        prompt: str,
-        scale: tuple[float, float] | list[float] | int | float,
-    ) -> dict[str, Any]:
-        return {"value": 1.0, "confidence": 0.9}
-
-    def noul(self, prompt: str) -> dict[str, Any]:
-        return {"probability": 0.5}
-
-
 @dataclass
 class EvalSampleResult:
     pr_number: int
@@ -333,6 +210,7 @@ class EvalSampleResult:
     agreed: bool
     high_confidence: bool
     outcome: str  # "high_confidence" | "low_confidence" | "fell_through"
+    error: str | None = None
 
 
 @dataclass
@@ -348,6 +226,7 @@ class ClassMetrics:
 
 @dataclass
 class EvaluationSummary:
+    provider_name: str
     total_samples: int
     overall_agreed: int
     overall_accuracy: float
@@ -369,12 +248,14 @@ class EvaluationSummary:
 
 def evaluate_dataset(
     samples: list[dict[str, Any]],
-    provider: DecisionProvider | None = None,
+    provider: DecisionProvider,
     confidence_threshold: float = DEFAULT_CONFIDENCE_THRESHOLD,
 ) -> tuple[list[EvalSampleResult], EvaluationSummary]:
     """Run typed_decision evaluation against a list of sample PRs."""
-    active_provider = provider or CalibratedTriageProvider()
     options = list(DEFAULT_TRIAGE_BUCKETS)
+    provider_name = getattr(provider, "name", type(provider).__name__)
+    if callable(provider_name):
+        provider_name = provider_name()
 
     results: list[EvalSampleResult] = []
     latencies: list[float] = []
@@ -387,21 +268,31 @@ def evaluate_dataset(
         prompt = build_triage_prompt(item)
 
         t0 = time.perf_counter()
-        if typed_decision is not None:
-            resp = typed_decision.choice(prompt, options, provider=active_provider)
+        error_msg: str | None = None
+        predicted = ""
+        confidence = 0.0
+        try:
+            if typed_decision is not None:
+                resp = typed_decision.choice(prompt, options, provider=provider)
+            else:
+                resp = provider.choice(prompt, options)
+            elapsed_ms = (time.perf_counter() - t0) * 1000.0
+            if "_simulated_latency_ms" in resp:
+                elapsed_ms = resp["_simulated_latency_ms"]
+            predicted = resp.get("label", "")
+            confidence = float(resp.get("confidence", 0.0))
+        except (TypedDecisionUnavailable, Exception) as exc:
+            elapsed_ms = (time.perf_counter() - t0) * 1000.0
+            error_msg = str(exc)
+
+        agreed = (predicted == ground_truth) and (error_msg is None)
+        high_conf = (confidence >= confidence_threshold) and (error_msg is None)
+        if error_msg is not None:
+            outcome = "fell_through"
+        elif high_conf:
+            outcome = "high_confidence"
         else:
-            resp = active_provider.choice(prompt, options)
-        elapsed_ms = (time.perf_counter() - t0) * 1000.0
-
-        if "_simulated_latency_ms" in resp:
-            elapsed_ms = resp["_simulated_latency_ms"]
-
-        predicted = resp.get("label", "")
-        confidence = float(resp.get("confidence", 0.0))
-
-        agreed = predicted == ground_truth
-        high_conf = confidence >= confidence_threshold
-        outcome = "high_confidence" if high_conf else "low_confidence"
+            outcome = "low_confidence"
 
         res = EvalSampleResult(
             pr_number=pr_number,
@@ -413,9 +304,11 @@ def evaluate_dataset(
             agreed=agreed,
             high_confidence=high_conf,
             outcome=outcome,
+            error=error_msg,
         )
         results.append(res)
-        latencies.append(elapsed_ms)
+        if error_msg is None:
+            latencies.append(elapsed_ms)
 
     # Compute overall statistics
     total = len(results)
@@ -433,20 +326,23 @@ def evaluate_dataset(
     # Latency percentiles
     sorted_lat = sorted(latencies)
     p50 = float(statistics.median(sorted_lat)) if sorted_lat else 0.0
-    p90 = _percentile(sorted_lat, 0.90)
-    p95 = _percentile(sorted_lat, 0.95)
-    p99 = _percentile(sorted_lat, 0.99)
+    p90 = _percentile(sorted_lat, 0.90) if sorted_lat else 0.0
+    p95 = _percentile(sorted_lat, 0.95) if sorted_lat else 0.0
+    p99 = _percentile(sorted_lat, 0.99) if sorted_lat else 0.0
     mean_lat = float(statistics.mean(sorted_lat)) if sorted_lat else 0.0
 
-    # Classes in ground truth and predictions
-    present_classes = sorted({r.ground_truth for r in results} | {r.predicted for r in results})
+    # Classes in ground truth and predictions (excluding empty fall-throughs)
+    present_classes = sorted(
+        {r.ground_truth for r in results} | {r.predicted for r in results if r.predicted}
+    )
 
     # Confusion matrix: [ground_truth][predicted] -> count
     confusion_matrix: dict[str, dict[str, int]] = {
         gt: dict.fromkeys(present_classes, 0) for gt in present_classes
     }
     for r in results:
-        confusion_matrix[r.ground_truth][r.predicted] += 1
+        if r.predicted and r.predicted in confusion_matrix[r.ground_truth]:
+            confusion_matrix[r.ground_truth][r.predicted] += 1
 
     # Per-class metrics
     per_class: dict[str, ClassMetrics] = {}
@@ -471,6 +367,7 @@ def evaluate_dataset(
         )
 
     summary = EvaluationSummary(
+        provider_name=provider_name,
         total_samples=total,
         overall_agreed=overall_agreed,
         overall_accuracy=round(overall_accuracy, 4),
@@ -577,6 +474,7 @@ against historical human maintainer triage labels on `apache/magpie`.
 
 ## Executive Summary
 
+- **Provider:** {summary.provider_name}
 - **Sample Size:** {sample_size} historical pull requests
 - **Date Range:** {date_range} (PRs {pr_range})
 - **Overall Agreement Rate:** **{overall_pct:.2f}%** ({summary.overall_agreed}/{summary.total_samples})
@@ -699,9 +597,10 @@ def main(argv: list[str] | None = None) -> int:
         help="Optional path to write generated markdown report.",
     )
     parser.add_argument(
-        "--live",
-        action="store_true",
-        help="Use configured live provider (Jev / TYPESAFE_API_KEY) if available.",
+        "--provider",
+        type=str,
+        default=None,
+        help="Decision provider name to use (defaults to configured live provider).",
     )
     args = parser.parse_args(argv)
 
@@ -712,18 +611,25 @@ def main(argv: list[str] | None = None) -> int:
     with open(args.dataset, encoding="utf-8") as f:
         samples = json.load(f)
 
-    provider: DecisionProvider | None = None
-    if args.live and typed_decision is not None:
-        try:
-            provider = typed_decision.get_provider()
-        except Exception as e:
-            print(
-                f"Warning: Live provider not available ({e}); using calibrated evaluation provider.",
-                file=sys.stderr,
-            )
-            provider = CalibratedTriageProvider()
-    else:
-        provider = CalibratedTriageProvider()
+    if typed_decision is None:
+        print(
+            "Error: typed_decision package is not available. Please ensure typed-decision is installed.",
+            file=sys.stderr,
+        )
+        return 1
+
+    try:
+        provider = (
+            typed_decision.get_provider(args.provider) if args.provider else typed_decision.get_provider()
+        )
+    except Exception as e:
+        print(
+            f"Error: Unable to initialize live DecisionProvider ({e}).\n"
+            "A live provider (e.g. TYPESAFE_API_KEY) is required by default to run evaluations. "
+            "For unit testing, pass a test double provider directly to evaluate_dataset().",
+            file=sys.stderr,
+        )
+        return 1
 
     results, summary = evaluate_dataset(samples, provider=provider, confidence_threshold=args.threshold)
 
