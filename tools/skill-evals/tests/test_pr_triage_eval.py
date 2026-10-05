@@ -48,12 +48,40 @@ from typed_decision.interface import (  # type: ignore[import-untyped,import-not
 
 from skill_evals.pr_triage_eval import (  # noqa: E402
     DEFAULT_TRIAGE_BUCKETS,
-    SECURITY_PATTERNS,
     build_triage_prompt,
     evaluate_dataset,
     generate_markdown_report,
     main,
 )
+
+SECURITY_PATTERNS = [
+    re.compile(r"\bCVE-\d{4}-\d+\b", re.I),
+    re.compile(r"\bsecurity vulnerability\b", re.I),
+    re.compile(r"\bsecurity issue\b", re.I),
+    re.compile(r"\bsecurity fix\b", re.I),
+    re.compile(r"\bsecurity bug\b", re.I),
+    re.compile(r"\bsecurity flaw\b", re.I),
+    re.compile(r"\bsecurity patch\b", re.I),
+    re.compile(r"\barbitrary code execution\b", re.I),
+    re.compile(r"\bremote code execution\b", re.I),
+    re.compile(r"\bRCE\b"),
+    re.compile(r"\bSQL injection\b", re.I),
+    re.compile(r"\bXSS\b"),
+    re.compile(r"\bCSRF\b"),
+    re.compile(r"\bSSRF\b"),
+    re.compile(r"\bpath traversal\b", re.I),
+    re.compile(r"\bdirectory traversal\b", re.I),
+    re.compile(r"\bprivilege escalation\b", re.I),
+    re.compile(r"\bauth bypass\b", re.I),
+    re.compile(r"\bauthentication bypass\b", re.I),
+    re.compile(r"\bauthorization bypass\b", re.I),
+    re.compile(r"\binsecure deserialization\b", re.I),
+    re.compile(r"\bheap overflow\b", re.I),
+    re.compile(r"\bbuffer overflow\b", re.I),
+    re.compile(r"\buse-after-free\b", re.I),
+    re.compile(r"\bexploit\b", re.I),
+    re.compile(r"\bexploitable\b", re.I),
+]
 
 
 class StubDecisionProvider(DecisionProvider):
