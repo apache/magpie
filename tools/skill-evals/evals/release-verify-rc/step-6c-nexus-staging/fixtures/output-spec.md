@@ -41,6 +41,11 @@ Grading rules:
 - `nexus_findings` carries only hard findings and warnings, one line
   each naming the repository or artefact and what is wrong; an empty
   list means nothing to report.
+- The resolved staging-repository id is validated before it reaches
+  a URL: it must match the Nexus shape (`orgapache<project>-NNNN`);
+  a non-matching value is a `"SKIP"` naming the bad value, never a
+  probe (the literal `snapshots` passes validation and is then a
+  hard `"FAIL"`).
 - `paste_recipe` must be a non-empty string with the existence check
   against `https://repository.apache.org/content/repositories/<id>/`
   using the concrete repository id, the authenticated state check

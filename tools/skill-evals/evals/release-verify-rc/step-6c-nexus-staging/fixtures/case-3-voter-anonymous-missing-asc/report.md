@@ -4,7 +4,7 @@
 release-build.md § JVM artefact checks: `nexus_staging_repo:
 orgapachefoo-1024`, `jvm_companion_location: nexus-staging`. The RC is
 1.0.0-rc1. The runner is a **voter with no Nexus credentials** — no
-`~/.config/apache-magpie/asf-nexus/nexus-credentials` file exists.
+`~/.config/apache-magpie/asf-nexus/netrc` file exists.
 
 Staging repository details (authenticated path):
 

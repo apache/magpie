@@ -5,7 +5,7 @@ release-build.md § JVM artefact checks: `nexus_staging_repo:
 orgapachefoo-1024`, `jvm_companion_location: nexus-staging`. The RC is
 1.0.0-rc1, staged under dist/dev/foo/1.0.0-rc1/. ASF Nexus
 credentials are available at
-`~/.config/apache-magpie/asf-nexus/nexus-credentials`.
+`~/.config/apache-magpie/asf-nexus/netrc`.
 
 Staging repository details (authenticated, verbatim):
 

@@ -21,7 +21,7 @@ when_to_use: |
   it. Runs standalone.
 argument-hint: "<version>-rcN [--post-to <planning-issue-url>] [--skip-repro] [--trusted-hardware]"
 capability: capability:triage
-surface_hash: sha256:4db518b0b97e3ea8
+surface_hash: sha256:50ad09c17d8d7335
 license: Apache-2.0
 measured_tokens: 9075
 ---
@@ -409,6 +409,12 @@ Read [`jvm-artefacts.md`](jvm-artefacts.md) for this step; it is loaded only for
 
 ---
 
+## Step 6c — Nexus staging repository (ASF projects publishing Maven artefacts)
+
+Read [`nexus-staging.md`](nexus-staging.md) for this step; it is loaded only when Step 6b ran and a staging repository id resolves.
+
+---
+
 ## Step 7 — Source-tree integrity (dangling symlinks + broken references)
 
 A signed, checksummed, licence-clean archive can still be broken:
@@ -482,8 +488,9 @@ Aggregate the per-step results into a final report.
 
 **Overall verdict.** Compute it with the tool, not by hand.
 Pass the JSON result of every step, Step 6b's included when it ran,
-plus the status of each step the tool does not decide: Step 4, Step 9, and any `REVIEW` resolved in Steps 5 and 7.
-
+plus the status of each step the tool does not decide: Step 4, Step 9, Step 6c (🪶 when it ran — its
+staging-repository verdict is model-classified, so pass `--status nexus-staging=<status>`), and any
+`REVIEW` resolved in Steps 5 and 7.
 ```bash
 uv run --project <framework>/tools/release-verify release-verify verdict <step-result>.json … \
   --status rat-license-headers=<status> --status reproducibility=<status> \

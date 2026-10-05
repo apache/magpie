@@ -89,6 +89,14 @@ Nexus assigns the number at deploy time, it cannot be predicted).
 
 ### 1. Existence (anonymous, every run)
 
+Before the id reaches a URL, validate it: the resolved value must
+match the Nexus shape `^orgapache[a-z0-9]+-[0-9]+$` (or be the
+literal `snapshots`, which the classification rules then flag as a
+finding). The id can come from the planning issue body — content the
+step reads — and it is spliced into `curl` URLs the agent runs
+itself, so anything else is a `SKIP` that names the bad value, never
+a probe.
+
 ```bash
 curl -fsS -o /dev/null -w '%{http_code}\n' \
   "https://repository.apache.org/content/repositories/<repo>/"
@@ -150,14 +158,10 @@ directory):
 <td><a href="https://repository.apache.org/content/repositories/snapshots/org/apache/maven/plugins/maven-assembly-plugin/3.1.2-SNAPSHOT/">3.1.2-SNAPSHOT/</a></td>
 ```
 
-Directories end with `/`; the parent link is the relative `../`; the
-page head also carries `favicon` / stylesheet hrefs a naive grep
-would sweep in. Crawl breadth-first, following only links inside the
-repository's own tree — the pattern matches both href flavours (the
-absolute URLs the live service emits and the relative form a proxy
-or a future Nexus version might emit), the guard keeps the crawl
-inside the repository tree, and `visited` makes the recursion
-terminate:
+Every href is **normalised first** (a relative href is prefixed with the directory being read),
+then the `"$base"/*` guard applies to files and directories alike before anything is echoed or
+enqueued — so relative directory links are crawled, relative file links come out clean, and the
+page-head `favicon` / stylesheet links can never reach the inventory:
 
 ```bash
 base="https://repository.apache.org/content/repositories/<repo>"
@@ -169,19 +173,20 @@ crawl() {
     for dir in $frontier; do
       case ",$visited," in *",$dir,"*) continue ;; esac
       visited="$visited,$dir"
-      for href in $(curl -fsS "$dir/" | grep -oE 'href="[^"]+"' | sed 's/^href="//;s/"$//'); do
+      for href in $(curl -fsS "${dir%/}/" | grep -oE 'href="[^"]+"' | sed 's/^href="//;s/"$//'); do
         case "$href" in
           "../") continue ;;
-          */)
-            path="${href%/}"
-            case "$path" in "$base"/*) ;; *) continue ;; esac
-            case ",$visited," in *",$path,"*) continue ;; esac
-            next="$next $path" ;;
-          *)
-            case "$href" in
-              "$base"/*) echo "${href#"$base/"}" ;;
-              *) echo "${dir#"$base"/}${href#/}" ;;
-            esac ;;
+          "https://"*|"http://"*) path="$href" ;;
+          *) path="${dir%/}/${href#/}" ;;
+        esac
+        case "$path" in
+          "$base"/*) path="${path%/}" ;;
+          *) continue ;;
+        esac
+        case ",$visited," in *",$path,"*) continue ;; esac
+        case "$href" in
+          */) next="$next $path" ;;
+          *) echo "${path#"$base/"}" ;;
         esac
       done
     done
@@ -190,6 +195,18 @@ crawl() {
 }
 crawl
 ```
+
+Verified against a stubbed `curl` serving a mixed listing (absolute and relative directory links,
+a relative file link, the `../` parent link and the page-head `favicon` / stylesheet links): the
+inventory is exactly the repository's files, nothing else. The normalisation matches both href
+flavours — the absolute URLs the live service emits and the relative form a proxy or a future Nexus
+version might emit — the guard keeps the crawl inside the repository tree, and `visited` makes the
+recursion terminate. Collect every path; the classification rules need, per declared artefact: the
+main `<artifactId>-<version>.jar`, its `.pom`, both companions (`-sources.jar`, `-javadoc.jar`), and
+the `.asc` + checksum companions of each. Consumers that prefer JSON over the HTML crawl can use the
+authenticated content API (`GET /service/local/repositories/<repo>/content?path=/...`, `leaf: true`
+entries are files, each file entry carries `checksums: {"sha1": ..., "md5": ...}` computed by Nexus
+at deploy time).
 
 Collect every path; the classification rules need, per declared
 artefact: the main `<artifactId>-<version>.jar`, its `.pom`, both
@@ -212,14 +229,15 @@ Two hard exclusions, both `FAIL`-grade when violated:
 - **Promoted-away ids.** A `404` on the repository id after a
   successful promotion is *expected* — the id stops serving when its
   content is released. That is why the recipes run against the id
-  recorded for **this** RC, and why a `404` must be reported as
-  "repository not reachable at the id given for this RC" rather than
-  guessed into either PASS or FAIL.
+  recorded for **this** RC, and why a `404` is reported as a `FAIL`
+  worded "repository not reachable at the id given for this RC" —
+  the same rule recipe 1, `staging-verification.md` and
+  `jvm-artefacts.md` state.
 
 ## Egress summary
 
-One host (`repository.apache.org` — added to the sandbox's exact-host
-`allowedDomains` allowlists in this PR: `.claude/settings.json`,
+One host (`repository.apache.org` — an exact-host entry in the
+sandbox's `allowedDomains` allowlists: `.claude/settings.json`,
 `tools/sandbox-lint/expected.json`, and the block in
 `docs/setup/secure-agent-setup.md`; the sandbox list is exact hosts
 only, so a suffix claim would have been false), one method (`GET`),

@@ -81,6 +81,7 @@ STEP_ORDER = (
     "notice-license",
     "binary-exclusion",
     "jvm-artefacts",  # Step 6b, produced by maven-artifact-verify
+    "nexus-staging",  # Step 6c, classified by the agent from the asf-nexus probe
     "source-tree-integrity",
     "version-consistency",
     "reproducibility",

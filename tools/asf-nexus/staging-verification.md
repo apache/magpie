@@ -38,9 +38,11 @@ with the reason stated explicitly:
   and must not be warned about one).
 - `release-build.md § JVM artefact checks` does not declare
   `jvm_artefact_checks: off`.
-- The project is an ASF one — `repository.apache.org` is ASF
-  infrastructure. Non-ASF adopters leave `nexus_staging_repo` unset
-  and the step skips on that alone.
+- The project is an ASF one — the resolved `organization`
+  (`<project-config>/project.md` → `organization`) is `ASF`, the
+  same chain Step 9's automated-signing gate reads;
+  `repository.apache.org` is ASF infrastructure. Non-ASF adopters
+  skip on this gate alone.
 - A staging repository id is resolvable: the
   `nexus_staging_repo` key of `release-build.md § JVM artefact
   checks`, then the planning issue body when the RM passed
