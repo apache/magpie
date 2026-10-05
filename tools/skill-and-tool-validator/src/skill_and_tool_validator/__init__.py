@@ -152,6 +152,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import glob
 import re
 import shlex
 import subprocess
@@ -1743,11 +1744,19 @@ def find_repo_root(start: Path | None = None) -> Path:
 
 
 def collect_files_to_check(root: Path | None = None) -> list[Path]:
-    """Return every .md file under skills/ that should be validated."""
+    """Return every .md file under skills/ that should be validated.
+
+    Each ``skills/<name>`` is a symlink into ``plugins/``; ``glob``'s ``**`` follows it
+    (``Path.rglob`` does not before Python 3.13) and skips dot-entries such as
+    ``.pytest_cache``. Paths stay under ``skills/<name>/``, one per real file.
+    """
     base = (root or find_repo_root()) / SKILLS_DIR
     if not base.exists():
         return []
-    return list(base.rglob("*.md"))
+    by_real_path: dict[Path, Path] = {}
+    for rel in sorted(glob.glob("**/*.md", root_dir=base, recursive=True)):
+        by_real_path.setdefault((base / rel).resolve(), base / rel)
+    return list(by_real_path.values())
 
 
 def collect_tool_dirs(root: Path | None = None) -> list[Path]:

@@ -115,6 +115,8 @@ INLINE_ALLOW_MARKERS=(
 # Where to look. Only `.md` files under skills + tool adapter docs
 # are scoped; Python sources under `tools/*/src/` and `tools/*/tests/`
 # may legitimately mention Airflow in fixtures and docstrings.
+# Scanned with `grep -R`, not `-r`: every `skills/<name>` is a symlink
+# into `plugins/`, and `-r` skips symlinks it meets while recursing.
 SCAN_PATHS=(
   "skills"
   "tools"
@@ -168,12 +170,12 @@ main() {
     local pattern="${spec#*:}"
     local matches
     if [[ "$mode" == "F" ]]; then
-      matches=$(grep -rFn \
+      matches=$(grep -RFn \
         --include='*.md' \
         "$pattern" \
         "${SCAN_PATHS[@]}" 2>/dev/null || true)
     else
-      matches=$(grep -rEn \
+      matches=$(grep -REn \
         --include='*.md' \
         "$pattern" \
         "${SCAN_PATHS[@]}" 2>/dev/null || true)

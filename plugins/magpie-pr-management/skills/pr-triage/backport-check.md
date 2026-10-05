@@ -12,7 +12,7 @@ branch?* and *is it allowed on a release branch at all?* This step
 answers both, early, before the main triage flow.
 
 **Runs only when `backport_branches` is set** in
-[`<project-config>/pr-management-config.md`](../../../magpie-setup/templates/pr-management-config.md#backports).
+[`<project-config>/pr-management-config.md`](../../../magpie-setup/templates/pr-management-config.md#workflow-choices).
 When it is empty (the default), skip this step entirely — the
 project does not cherry-pick.
 

@@ -894,6 +894,24 @@ class TestRunValidation:
             lines = [str(v) for v in violations[:10]]
             pytest.fail(f"{len(violations)} validation violation(s) found:\n" + "\n".join(lines))
 
+    def test_checks_files_of_symlinked_skills(self, tmp_path: Path) -> None:
+        # The real layout: skills/<flat> is a symlink into the plugin that ships it.
+        root = _skill_root(tmp_path)
+        real = root / "plugins" / "magpie-x" / "skills" / "alias"
+        real.mkdir(parents=True)
+        (real / "notes.md").write_text("Clone apache/airflow first.\n")
+        (root / "skills" / "x-flat").symlink_to(
+            Path("..", "plugins", "magpie-x", "skills", "alias"), target_is_directory=True
+        )
+
+        hits = [
+            v
+            for v in run_validation(root)
+            if v.path == root / "skills" / "x-flat" / "notes.md"
+            and "hardcoded project reference" in v.message
+        ]
+        assert [v.line for v in hits] == [1]
+
 
 # ---------------------------------------------------------------------------
 # Principle-compliance SOFT warnings
@@ -2174,6 +2192,24 @@ class TestCollectFilesToCheck:
 
         files = collect_files_to_check(root)
         assert any(f.name == "extra.md" for f in files)
+
+    def test_follows_symlinked_skill_dirs(self, tmp_path: Path) -> None:
+        # skills/<flat> is a symlink into plugins/magpie-<family>/skills/<alias>.
+        # Files come back under skills/<flat>/, once each, and dot-entries such
+        # as a pytest cache are skipped.
+        root = _skill_root(tmp_path)
+        real = root / "plugins" / "magpie-x" / "skills" / "alias"
+        (real / "sub").mkdir(parents=True)
+        (real / "SKILL.md").write_text("content")
+        (real / "sub" / "extra.md").write_text("content")
+        target = Path("..", "plugins", "magpie-x", "skills", "alias")
+        (root / "skills" / "x-flat").symlink_to(target, target_is_directory=True)
+        (root / "skills" / "x-twin").symlink_to(target, target_is_directory=True)
+        (root / "skills" / ".pytest_cache").mkdir()
+        (root / "skills" / ".pytest_cache" / "README.md").write_text("content")
+
+        files = sorted(f.relative_to(root).as_posix() for f in collect_files_to_check(root))
+        assert files == ["skills/x-flat/SKILL.md", "skills/x-flat/sub/extra.md"]
 
 
 # ---------------------------------------------------------------------------
