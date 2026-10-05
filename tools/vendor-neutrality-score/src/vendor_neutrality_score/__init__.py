@@ -94,6 +94,10 @@ CONTRACT_POLICY: dict[str, tuple[str, str]] = {
     "contract:report-relay": (AGNOSTIC, "Inbound security-report relay detection"),
     "contract:scan-format": (AGNOSTIC, "Security-scanner report parsing"),
     "contract:project-metadata": (SINGLE_ORG, "Governance rosters / people / releases"),
+    "contract:release-staging": (
+        SINGLE_ORG,
+        "Release-staging repository reads (ASF Nexus at repository.apache.org); read-only",
+    ),
     "contract:security-cross-ref": (
         VENDOR_BACKED,
         "Vulnerability database / cross-reference alias lookup (OSV.dev / NVD)",
@@ -146,6 +150,10 @@ CONTRACT_USAGE_TOKENS: dict[str, tuple[str, ...]] = {
     "contract:project-metadata": (
         r"mcp__apache-projects__",
         r"\bprojects\.apache\.org\b",
+    ),
+    "contract:release-staging": (
+        r"\brepository\.apache\.org\b",
+        r"\basf-nexus\b",
     ),
 }
 

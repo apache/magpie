@@ -224,14 +224,18 @@ disclaimer in `<description>`) and — for jars staged locally — the
 companion `-sources.jar` / `-javadoc.jar` set with their signatures
 and checksums, via
 [`tools/maven-artifact-verify`](../../../tools/maven-artifact-verify/README.md).
-When the staged artefact set contains no `.jar` and no `.pom`, the
-step skips cleanly and nothing here needs to be configured.
+Step 6c additionally verifies the ASF Nexus staging repository the
+jars resolve from, via the read-only
+[`tools/asf-nexus`](../../../tools/asf-nexus/README.md) adapter. When
+the staged artefact set contains no `.jar` and no `.pom`, both steps
+skip cleanly and nothing here needs to be configured.
 
 | Key | Value | Notes |
 |---|---|---|
 | `jvm_artefact_checks` | `on` | `on` (default) — run Step 6b whenever the staged set contains jars or POMs; `off` — skip (e.g. the project stages jars only through a platform checked elsewhere) |
 | `jvm_companion_location` | *(unset)* | `staged` — the companion `.pom` / `-sources.jar` / `-javadoc.jar` set is staged with the RC and must be present, each companion signed and checksummed; `nexus-staging` — the jars publish through the Nexus staging repository only, so a locally absent jar is an observation, not a failure; *(unset)* — same as `nexus-staging` |
 | `jvm_digest_set` | *(unset)* | digests each companion must carry; unset means the § Digest set above applies as-is |
+| `nexus_staging_repo` | *(unset)* | the ASF Nexus staging repository holding this RC's Maven artefacts — the id (`orgapache<project>-NNNN`, assigned by Nexus at deploy time and not predictable; read it from the planning issue or the deploy log) or the full `content/repositories/<id>` URL; Step 6c verifies it is `closed`, that its coordinates and version match this RC, and that every artefact carries its `.asc` and complete companion set; *(unset)* — Step 6c skips cleanly (non-ASF adopters, and ASF releases without Maven artefacts, leave it unset) |
 
 Model the companion set in § Expected artefact list too: for a
 `kind: jar` convenience artefact, name the `.pom`,

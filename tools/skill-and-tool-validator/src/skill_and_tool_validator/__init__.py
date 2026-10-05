@@ -390,6 +390,7 @@ TOOL_CAPABILITIES = {
     "contract:report-relay",
     "contract:scan-format",
     "contract:project-metadata",
+    "contract:release-staging",
     "contract:security-cross-ref",
     "contract:typed-decision",
     "substrate:analytics",

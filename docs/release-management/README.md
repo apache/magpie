@@ -132,6 +132,7 @@ says which file is missing.
 | File | What it carries | Read by |
 |---|---|---|
 | [`canned-responses.md`](../../plugins/magpie-setup/templates/canned-responses.md) | Reusable reporter-facing reply templates. | `announce-draft`, `vote-draft` |
+| [`project.md`](../../plugins/magpie-setup/templates/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `verify-rc` |
 
 <!-- END generated: skill-config -->
 
