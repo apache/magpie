@@ -538,6 +538,13 @@ to a home-dir path and update the tool to read from there.
 - **Always open PRs with `gh pr create --web`** so the human reviewer can check the title,
   body, and the generative-AI disclosure in the browser before submission. Pre-fill `--title`
   and `--body-file` (including the Gen-AI disclosure block) so they only need to review, not edit.
+- **Open a GitHub page for the human with `gh browse`, never `open <url>`.** The sandbox blocks
+  macOS `open` (Launch Services and Apple Events: error `-10822`), while `gh` runs outside it
+  (`sandbox.excludedCommands`) and `gh browse` is in `permissions.allow`, so it opens the page with no
+  prompt. Use `gh browse <PR-or-issue-number> -R <repo>`, `gh browse <path> -R <repo>` for a file, and
+  `gh browse <commit-SHA> -R <repo>` for a commit. Run it as a bare command: a pipe, `$(…)` or a
+  redirection puts `gh` back in the sandbox, where it fails. For a page `gh browse` cannot address,
+  give the user `! open <url>` to run themselves.
 - **Stack a series of dependent PRs with GitHub's stacked PRs — only with write access to `<upstream>`.**
   A stacked PR's base is the previous PR's branch, and a PR can only target a branch in the repository
   it is opened against, so every branch of a stack must be pushed to `<upstream>` itself, never to a fork.
