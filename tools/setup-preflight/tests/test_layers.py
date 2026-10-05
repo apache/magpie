@@ -17,7 +17,7 @@
 
 """Where config lives: the personal layer and the git common directory.
 
-The `git_common_dir` vectors below are duplicated, verbatim, in every tool
+The `git_common_dir` and main-checkout vectors below are duplicated, verbatim, in every tool
 that carries a copy of the helper (release-config, adversarial-review,
 agent-guard, privacy-llm checker, container-gateway, sandbox-lint,
 magpie-setup status).  Change them together.
@@ -164,6 +164,117 @@ def test_the_module_prints_where_each_layer_is(tmp_path: Path, capsys) -> None:
     assert out["personal_dir_exists"] is False
 
 
+# --- the main checkout of a linked worktree: shared vectors -------------------------
+
+LOCAL = ".apache-magpie-local"
+
+
+def _linked_worktree(tmp_path: Path, *, adopt: bool = True) -> tuple[Path, Path]:
+    main = tmp_path / "main"
+    wt_gitdir = main / ".git" / "worktrees" / "wt"
+    wt_gitdir.mkdir(parents=True)
+    (wt_gitdir / "commondir").write_text("../..\n")
+    wt = tmp_path / "wt"
+    wt.mkdir()
+    (wt / ".git").write_text(f"gitdir: {wt_gitdir}\n")
+    if adopt:
+        for root in (main, wt):
+            (root / ".apache-magpie.lock").write_text("method: local\n")
+    return main, wt
+
+
+def test_vector_main_worktree_of_a_linked_worktree(tmp_path: Path) -> None:
+    main, wt = _linked_worktree(tmp_path)
+    assert layers.main_worktree(wt) == main
+
+
+def test_vector_main_worktree_of_the_main_checkout_is_none(tmp_path: Path) -> None:
+    main, _ = _linked_worktree(tmp_path)
+    assert layers.main_worktree(main) is None
+
+
+def test_vector_main_worktree_of_a_bare_repository_is_none(tmp_path: Path) -> None:
+    common = tmp_path / "repo.git"
+    wt_gitdir = common / "worktrees" / "wt"
+    wt_gitdir.mkdir(parents=True)
+    (wt_gitdir / "commondir").write_text("../..\n")
+    wt = tmp_path / "wt"
+    wt.mkdir()
+    (wt / ".git").write_text(f"gitdir: {wt_gitdir}\n")
+    assert layers.main_worktree(wt) is None
+
+
+def test_vector_main_worktree_of_a_submodule_is_none(tmp_path: Path) -> None:
+    (tmp_path / "super" / ".git" / "modules" / "sub").mkdir(parents=True)
+    sub = tmp_path / "super" / "sub"
+    sub.mkdir()
+    (sub / ".git").write_text("gitdir: ../.git/modules/sub\n")
+    assert layers.main_worktree(sub) is None
+
+
+def test_vector_main_worktree_outside_a_repository_is_none(tmp_path: Path) -> None:
+    assert layers.main_worktree(tmp_path) is None
+
+
+def test_vector_adopted_worktree_without_its_own_dir_uses_the_main_checkouts(tmp_path: Path) -> None:
+    main, wt = _linked_worktree(tmp_path)
+    (main / LOCAL).mkdir()
+    assert layers.personal_layers(wt) == [wt / LOCAL, main / LOCAL]
+    assert layers.personal_dir(wt) == main / LOCAL
+
+
+def test_vector_adopted_worktree_with_its_own_dir_writes_there(tmp_path: Path) -> None:
+    main, wt = _linked_worktree(tmp_path)
+    (main / LOCAL).mkdir()
+    (wt / LOCAL).mkdir()
+    assert layers.personal_layers(wt) == [wt / LOCAL, main / LOCAL]
+    assert layers.personal_dir(wt) == wt / LOCAL
+
+
+def test_vector_adopted_worktree_with_neither_dir_writes_its_own(tmp_path: Path) -> None:
+    _, wt = _linked_worktree(tmp_path)
+    assert layers.personal_layers(wt) == [wt / LOCAL]
+    assert layers.personal_dir(wt) == wt / LOCAL
+
+
+def test_vector_a_worktree_falls_back_to_the_main_checkout_file_by_file(tmp_path: Path) -> None:
+    main, wt = _linked_worktree(tmp_path)
+    for root in (main, wt):
+        (root / LOCAL).mkdir()
+    (main / LOCAL / "a.md").write_text("main")
+    (main / LOCAL / "b.md").write_text("main")
+    (wt / LOCAL / "a.md").write_text("worktree")
+
+    def first(name: str) -> Path | None:
+        return next((p / name for p in layers.config_layers(wt) if (p / name).exists()), None)
+
+    assert first("a.md") == wt / LOCAL / "a.md"
+    assert first("b.md") == main / LOCAL / "b.md"
+
+
+def test_vector_the_main_checkout_does_not_fall_back(tmp_path: Path) -> None:
+    main, _ = _linked_worktree(tmp_path)
+    assert layers.personal_layers(main) == [main / LOCAL]
+    assert layers.personal_dir(main) == main / LOCAL
+
+
+def test_vector_an_unadopted_worktree_is_unchanged(tmp_path: Path) -> None:
+    main, wt = _linked_worktree(tmp_path, adopt=False)
+    (main / LOCAL).mkdir()
+    assert layers.personal_layers(wt) == [main / ".git" / "apache-magpie"]
+    assert layers.personal_dir(wt) == main / ".git" / "apache-magpie"
+
+
+def test_the_module_reports_the_main_checkout_fallback(tmp_path: Path, capsys) -> None:
+    main, wt = _linked_worktree(tmp_path)
+    (main / LOCAL).mkdir()
+    assert layers.main(["--project-root", str(wt)]) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["main_worktree"] == str(main)
+    assert out["personal_dir"] == str(main / LOCAL)
+    assert out["personal_layers"] == [str(wt / LOCAL), str(main / LOCAL)]
+
+
 # --- every copy of the helper stays identical ---------------------------------------
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -175,8 +286,9 @@ COPIES = (
     "tools/sandbox-lint/src/sandbox_lint/layers.py",
     "tools/agent-guard/src/agent_guard/__init__.py",
     "plugins/magpie-setup/skills/status/scripts/collect_status.py",
+    "plugins/magpie-pr-management/skills/pr-triage/scripts/typed_decision_prefilter.py",
 )
-SHARED = ("_absolute", "git_common_dir", "adopted", "personal_dir")
+SHARED = ("_absolute", "git_common_dir", "adopted", "main_worktree", "personal_dir", "personal_layers")
 
 
 def _functions(path: Path) -> dict[str, str]:

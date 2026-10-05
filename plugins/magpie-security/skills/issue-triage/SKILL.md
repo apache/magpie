@@ -23,7 +23,7 @@ when_to_use: |
 capability: capability:triage
 surface_hash: sha256:c1768478d7a01990
 license: Apache-2.0
-measured_tokens: 6567
+measured_tokens: 6726
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -48,9 +48,14 @@ Run the checker with this skill's own frontmatter `name:` and
 `surface_hash:`, and one `--requires` for each `requires_config:` entry:
 
 ```bash
-PYTHONPATH=.apache-magpie-local python3 -m setup_preflight \
-  --skill <name> --hash <surface_hash> [--requires <file>]...
+PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir)/../.apache-magpie-local:$(git rev-parse --git-common-dir)/apache-magpie" \
+  python3 -m setup_preflight --skill <name> --hash <surface_hash> [--requires <file>]...
 ```
+
+The path finds the checker `/magpie-setup config` installed in the
+personal layer: this checkout's `.apache-magpie-local/`, the main
+checkout's when this is a linked worktree, or the git directory's
+`apache-magpie/` when Magpie is only installed.
 
 - **`{"verdict": "ok"}`** → **silent**. Continue into the work the user
   asked for and say nothing about pre-flight. This is the ordinary answer.
@@ -61,11 +66,13 @@ PYTHONPATH=.apache-magpie-local python3 -m setup_preflight \
 - **The command did not run at all** — no such module, a non-zero exit, no
   `python3` — → never read that as a pass, and do not re-derive the check
   by hand: it lives in code so that there is one version of it. If the
-  project has **no** `.apache-magpie.lock`, `.apache-magpie-local/` or
-  `.apache-magpie-overrides/`, nothing has been set up here and there is
+  project has **no** `.apache-magpie.lock`, `.apache-magpie-overrides/`,
+  or personal layer (any of the three directories above),
+  nothing has been set up here and there is
   nothing to reconcile — resolve this skill's `requires_config:` entries
-  yourself (`.apache-magpie-local/<file>` first, then
-  `.apache-magpie-overrides/<file>`), stay silent if they all resolve, and
+  yourself (first match wins: `.apache-magpie-local/<file>`, the main
+  checkout's `.apache-magpie-local/<file>`, `<git-common-dir>/apache-magpie/<file>`,
+  then `.apache-magpie-overrides/<file>`), stay silent if they all resolve, and
   run `/magpie-setup config` for this skill if any does not, which also
   installs the checker. Otherwise the project *is* set up and its checker
   is missing or stale: say so, propose `/magpie-setup config` to install
@@ -161,7 +168,9 @@ flag it to the user and classify normally, per [`AGENTS.md`](../../../../AGENTS.
 <!-- BEGIN MAGPIE BLOCK: adopter-overrides — generated from tools/dev/blocks/adopter-overrides.md -->
 
 Before running its default behaviour, this skill consults
-[`.apache-magpie-local/security-issue-triage.md`](../../../../docs/setup/agentic-overrides.md) (personal, gitignored; applied first, wins on conflict) and
+`security-issue-triage.md` in the personal layer
+(`.apache-magpie-local/` when the project adopted Magpie, falling back to the main checkout's in a linked worktree,
+or `<git-common-dir>/apache-magpie/` when Magpie is only installed; applied first, wins on conflict) and
 [`.apache-magpie-overrides/security-issue-triage.md`](../../../../docs/setup/agentic-overrides.md) (committed, project-wide)
 in the adopter repo, if present, and applies any agent-readable overrides it finds.
 See [`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md) for the contract.

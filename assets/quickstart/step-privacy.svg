@@ -22,15 +22,15 @@
   Written by tools/dev/render-wizard.py. Illustrative of the shape of a
   run, not a recording of one.
 -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 675 544"
-     width="675" height="544" role="img"
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 705 544"
+     width="705" height="544" role="img"
      data-magpie-generated="render-wizard"
      aria-label="An animated privacy-llm run: the stack detected, the variant written locally, the PII redactor proven, and the approved-LLM gate refusing an unregistered local model">
   <title>Step 4 — set up privacy</title>
   <desc>Illustrative animation of the privacy-LLM setup. Not a recording.</desc>
-  <rect width="675" height="544" rx="10" fill="#1d1f21"/>
-  <rect x="0" y="0" width="675" height="34" rx="10" fill="#2b2e31"/>
-  <rect x="0" y="24" width="675" height="10" fill="#2b2e31"/>
+  <rect width="705" height="544" rx="10" fill="#1d1f21"/>
+  <rect x="0" y="0" width="705" height="34" rx="10" fill="#2b2e31"/>
+  <rect x="0" y="24" width="705" height="10" fill="#2b2e31"/>
   <circle cx="22" cy="17" r="6" fill="#3f4448"/>
   <circle cx="44" cy="17" r="6" fill="#3f4448"/>
   <circle cx="66" cy="17" r="6" fill="#3f4448"/>
@@ -41,7 +41,7 @@
     <text x="26" y="176" fill="#c5c8c6" opacity="0">    local inference  ollama, llama3.1:70b on :11434<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1516;0.1526;1" dur="7.5s" repeatCount="indefinite"/></text>
     <text x="26" y="200" fill="#c5c8c6" opacity="0">    private lists    private@acme.apache.org<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.2021;0.2031;1" dur="7.5s" repeatCount="indefinite"/></text>
     <text x="26" y="248" fill="#c5c8c6" opacity="0">  That is variant 2 - local inference. Written to<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.2527;0.2537;1" dur="7.5s" repeatCount="indefinite"/></text>
-    <text x="26" y="272" fill="#c5c8c6" opacity="0">  .apache-magpie-local/privacy-llm.md  (gitignored, yours)<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3032;0.3042;1" dur="7.5s" repeatCount="indefinite"/></text>
+    <text x="26" y="272" fill="#c5c8c6" opacity="0">  .git/apache-magpie/privacy-llm.md  (personal, never committed)<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3032;0.3042;1" dur="7.5s" repeatCount="indefinite"/></text>
     <text x="26" y="320" fill="#7f9f7f" opacity="0">  ✓ PII redactor    Other Researcher -&gt; N-a3f9d2<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.3537;0.3547;1" dur="7.5s" repeatCount="indefinite"/></text>
     <text x="26" y="344" fill="#7f9f7f" opacity="0">                    other@example.com -&gt; E-7c1b04<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.4043;0.4053;1" dur="7.5s" repeatCount="indefinite"/></text>
     <text x="26" y="392" fill="#d8a657" opacity="0">  ⚠ approved-LLM gate: llama3.1:70b is not in the registry<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.4548;0.4558;1" dur="7.5s" repeatCount="indefinite"/></text>

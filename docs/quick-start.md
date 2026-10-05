@@ -283,7 +283,8 @@ Two mechanisms, separate because they protect different people:
   them for hash-prefixed identifiers before any model sees the text.
 
 The skill detects your stack rather than interviewing you, writes the matching
-variant to the gitignored `.apache-magpie-local/`, then **proves it** by running
+variant to your personal layer (`<git-common-dir>/apache-magpie/`, or
+`.apache-magpie-local/` in an adopted repo), then **proves it** by running
 both. A gate that says no is the useful output: it names the unapproved model
 and leaves your configuration alone until you decide.
 

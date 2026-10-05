@@ -19,15 +19,17 @@ capability:
   - capability:platform
 surface_hash: sha256:49a65c36a0dc49ab
 license: Apache-2.0
-measured_tokens: 2051
+measured_tokens: 2218
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
 <!-- Placeholder convention (see ../../AGENTS.md#placeholder-convention-used-in-skill-files):
-     <project-config>  → resolved per file: `.apache-magpie-local/` (gitignored,
-                         personal) first, then `.apache-magpie-overrides/` (committed)
+     <project-config>  → resolved per file: the personal layer first
+                         (`.apache-magpie-local/` when adopted, falling back to the main
+                         checkout's in a linked worktree; `<git-common-dir>/apache-magpie/`
+                         when only installed), then `.apache-magpie-overrides/` (committed)
      <framework>       → the framework checkout or plugin root
      <private-list>    → the project's private PMC list
      <security-list>   → the project's security-report list -->
@@ -69,7 +71,10 @@ variant you land on before writing anything.
 Resolve `privacy-llm.md` through the lookup chain, per file,
 local first:
 
-1. `.apache-magpie-local/privacy-llm.md` — gitignored, yours;
+1. `privacy-llm.md` in the personal layer — yours, never committed:
+   `.apache-magpie-local/` when the project adopted Magpie (the main
+   checkout's, from a linked worktree that has none), else
+   `<git-common-dir>/apache-magpie/`;
 2. `.apache-magpie-overrides/privacy-llm.md` — committed, the
    project's.
 
@@ -123,11 +128,17 @@ Propose the variant your detection implies, say what it means in
 one sentence — *this permits the private list to be read by X and
 nothing else* — and let the user correct it.
 
-Then write `.apache-magpie-local/privacy-llm.md` from that
-variant's block, substituting the project's real list addresses.
-**Local, always, on this step.** Writing the gitignored copy
+Then write `privacy-llm.md` from that variant's block, substituting
+the project's real list addresses, into the personal layer — the
+`personal_dir` that `python3 -m setup_preflight.layers` prints
+(`<git-common-dir>/apache-magpie/` on a project that has not adopted
+Magpie, so nothing lands in its working tree).
+**Local, always, on this step.** Writing the personal copy
 needs nobody's permission, is invisible to every other clone, and
-is undone by deleting a directory.
+is undone by deleting a directory. Write
+`.apache-magpie-overrides/privacy-llm.md` instead only when the project
+has adopted Magpie **and** the user says the answer should bind every
+contributor — and then stage it, never commit.
 
 Two things this step may not do: **invent an endpoint** — if the
 detection is ambiguous, ask rather than assume — and **widen the
@@ -167,7 +178,7 @@ for it — and stop. Do not edit the file until the user picks.
 Everything so far is local and yours. If the project should
 *commit* this answer so every contributor's session is bound by
 it, that is [`adopt`](../setup/adopt.md), which promotes
-`.apache-magpie-local/` into the committed
+the personal layer into the committed
 `.apache-magpie-overrides/` and stages it for review.
 
 Say that in **one line** and name the command. Do not run it, do

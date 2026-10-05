@@ -86,14 +86,14 @@ default to use the standard variant.
 | `confirmation_handback_mode` | `reviewer-ping` | `request-author-confirmation` action's "If yes" branch. `reviewer-ping`: the author marks threads resolved and `@`-pings the reviewer for a final look + label. `maintainer-sweep`: the author replies with a short `yes / ready` and the next triage sweep promotes the PR to the maintainer review queue. Pick `maintainer-sweep` if your project runs a regular maintainer triage cadence and prefers a lightweight contributor confirmation over a reviewer-driven hand-back. See [`comment-templates.md#request-author-confirmation`](../../../skills/pr-management-triage/comment-templates.md) for both bodies. |
 | `backport_branches` | *(empty)* | Base-branch patterns (e.g. `v*-test`, `release/*`) that receive only cherry-picks from the default branch. Enables the [backport check](../../magpie-pr-management/skills/pr-triage/backport-check.md) (Step 0.7) for PRs targeting them. Leave empty if the project does not cherry-pick. |
 | `backport_policy` | `fixes-only` | What a backport may carry. `fixes-only`: flag features, behaviour changes, new deprecations, removals and refactors for closing. `any`: skip the change-type check and only verify the backport is a faithful cherry-pick. |
-| `session_history_gist` | `enabled` | [Step 6b](../../../skills/pr-management-triage/session-history.md#step-6b--propose-session-history-gist-update) — propose appending each session to a private GitHub gist on the maintainer's account. Set to `disabled` to skip Step 6b unconditionally for this project (overrides the per-invocation `no-history` flag). The local state file at `.apache-magpie.session-state.json` is read regardless so an existing gist remains discoverable. See [`session-history.md`](../../../skills/pr-management-triage/session-history.md). |
+| `session_history_gist` | `enabled` | [Step 6b](../../../skills/pr-management-triage/session-history.md#step-6b--propose-session-history-gist-update) — propose appending each session to a private GitHub gist on the maintainer's account. Set to `disabled` to skip Step 6b unconditionally for this project (overrides the per-invocation `no-history` flag). The local state file (`session-state.json` in the personal config layer) is read regardless so an existing gist remains discoverable. See [`session-history.md`](../../../skills/pr-management-triage/session-history.md). |
 
 ## Typed-decision pre-filter (opt-in)
 
 Runs an advisory classification pass during Step 2 triage alongside the deterministic decision table using `typed_decision.choice()`.
 The deterministic decision table always executes authoritatively to determine classifications and actions per `PRINCIPLES.md` §6.
 The pre-filter pass runs alongside it to record predictive telemetry and evaluate accuracy.
-Can be declared here or overridden in `.apache-magpie-overrides/pr-management-triage.md` (or `.apache-magpie-local/pr-management-triage.md`).
+Can be declared here or overridden in `.apache-magpie-overrides/pr-management-triage.md` (or `pr-management-triage.md` in the personal layer).
 
 | Key | Default | Notes |
 |---|---|---|

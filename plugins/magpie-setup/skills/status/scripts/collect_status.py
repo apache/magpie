@@ -387,21 +387,69 @@ def adopted(root: Path) -> bool:
     return (root / LOCK_NAME).is_file()
 
 
+def main_worktree(root: Path) -> Path | None:
+    """The main checkout of the linked worktree `root`, or `None`.
+
+    `<root>/.git` a file whose common git directory is named `.git` and is
+    the `.git` directory of its parent (a non-bare main checkout) → that
+    parent.  `None` for the main checkout itself, a bare repository, a
+    submodule, or no repository.  Reads files only, never spawns `git`.
+
+    The main checkout is located from the worktree's `.git` file, which an
+    agent able to write the worktree can rewrite.  That only selects
+    configuration the agent could already write into the worktree's own
+    `.apache-magpie-local/`, so following it grants no new capability.
+    """
+    if not (_absolute(root) / ".git").is_file():
+        return None
+    common = git_common_dir(root)
+    if common is None or common.name != ".git":
+        return None
+    main = common.parent
+    return main if (main / ".git").is_dir() else None
+
+
 def personal_dir(root: Path) -> Path | None:
-    """Where this user's configuration for `root` lives (may not exist yet)."""
+    """Where this user's configuration for `root` is written; never created here.
+
+    Adopted → `<root>/.apache-magpie-local`, except in a linked worktree
+    that has none while its main checkout has one: then the main
+    checkout's, so a worktree writes where it already reads.  Not adopted →
+    `<git-common-dir>/apache-magpie`.  May not exist yet.  `None` means
+    there is nowhere to keep it: not adopted and not a git repository.
+    """
     if adopted(root):
-        return root / LOCAL_DIR
+        own = root / LOCAL_DIR
+        main = main_worktree(root)
+        if own.is_dir() or main is None or not (main / LOCAL_DIR).is_dir():
+            return own
+        return main / LOCAL_DIR
     common = git_common_dir(root)
     return common / GIT_HOME_NAME if common is not None else None
 
 
 def personal_layers(root: Path) -> list[Path]:
-    """The personal layer, then a legacy in-tree one in an unadopted repository."""
-    layers = [] if (home := personal_dir(root)) is None else [home]
+    """Every personal directory a config file is looked up in, first match wins.
+
+    Adopted → `<root>/.apache-magpie-local`, then, in a linked worktree,
+    the main checkout's when it exists: `.apache-magpie-local/` is
+    gitignored, so a new worktree has none, and a file missing from its own
+    is found in the main checkout's.  Not adopted →
+    `<git-common-dir>/apache-magpie` (already shared by every worktree),
+    then a legacy in-tree `.apache-magpie-local/`.
+    """
+    if adopted(root):
+        found = [root / LOCAL_DIR]
+        main = main_worktree(root)
+        if main is not None and (main / LOCAL_DIR).is_dir():
+            found.append(main / LOCAL_DIR)
+        return found
+    common = git_common_dir(root)
+    found = [] if common is None else [common / GIT_HOME_NAME]
     legacy = root / LOCAL_DIR
-    if not adopted(root) and legacy.is_dir() and legacy not in layers:
-        layers.append(legacy)
-    return layers
+    if legacy.is_dir() and legacy not in found:
+        found.append(legacy)
+    return found
 
 
 def config_layers(root: Path) -> list[Path]:
@@ -459,12 +507,15 @@ def personal_layer_status(root: Path) -> dict:
     if home is None:
         location = "none"
     elif adopted(root):
-        location = "in-tree"
+        # A linked worktree with no `.apache-magpie-local/` of its own uses
+        # its main checkout's.
+        location = "in-tree" if home == root / LOCAL_DIR else "main-checkout"
     else:
         location = "git-dir"
     status = override_dir_status(home)
     status["path"] = str(home) if home is not None else None
     status["location"] = location
+    status["layers"] = [str(p) for p in personal_layers(root)]
     legacy = root / LOCAL_DIR
     status["legacy_in_tree"] = (not adopted(root)) and legacy.is_dir()
     return status
@@ -644,6 +695,11 @@ def render_markdown(d: dict) -> str:
         f"- **shared overrides** (`.apache-magpie-overrides/`): {ov_text} · "
         f"**personal overrides** (`{display_path(Path(d['repo']), local_ov.get('path'))}`): {local_ov_text}"
     )
+    if local_ov.get("location") == "main-checkout":
+        out.append(
+            "- **personal layer from the main checkout** — this linked worktree has no "
+            "`.apache-magpie-local/` of its own, so it reads and writes its main checkout's"
+        )
     if local_ov.get("legacy_in_tree"):
         out.append(
             "- ⚠️ **legacy `.apache-magpie-local/` in the working tree** — this repo has not adopted "

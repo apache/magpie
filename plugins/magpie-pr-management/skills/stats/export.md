@@ -29,8 +29,10 @@ maintainer's dashboards are directly comparable across days.
   carries only aggregate public-PR metadata, but secret-by-default is
   the conservative choice for a maintainer's personal account.
 - **Stable identity.** Reuse one gist per repo across runs (store its id
-  in the session-state file `<adopter-repo>/.apache-magpie.session-state.json`
-  under `stats_gist_id`, gitignored) so the same URL updates each run
+  in the session-state file, `session-state.json` in the personal config
+  layer — `<git-common-dir>/apache-magpie/` unless the project adopted
+  Magpie, else `.apache-magpie-local/` — under `stats_gist_id`; a legacy
+  repo-root `.apache-magpie.session-state.json` is still read) so the same URL updates each run
   rather than littering the account with one gist per day. `PATCH` the
   existing gist's `dashboard.html` file in place; only create a new gist
   the first time.
@@ -44,11 +46,11 @@ OUT=/tmp/pr-management-stats-<repo-slug>.html
 # ... agent writes the dashboard HTML to $OUT ...
 
 # 2. publish / update the secret gist (in place, same id across runs)
-GID="$(read stats_gist_id from .apache-magpie.session-state.json, if any)"
+GID="$(read stats_gist_id from the session-state file, if any)"
 if [ -z "$GID" ]; then
   URL=$(gh gist create "$OUT" --desc "<Project> — PR Backlog Dashboard (<date>)")
   GID=$(printf '%s' "$URL" | grep -oE '[0-9a-f]{20,}$')
-  # persist GID into .apache-magpie.session-state.json -> stats_gist_id
+  # persist GID into the session-state file -> stats_gist_id
 else
   # update in place — keeps the URL stable
   jq -n --rawfile c "$OUT" '{files:{"dashboard.html":{content:$c}}}' \

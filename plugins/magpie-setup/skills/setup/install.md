@@ -377,9 +377,10 @@ Tell the user, in this order:
    install delivers skills; it tells them nothing about this project.
    The first skill that needs project configuration stops and names
    what it needs, and [`/magpie-setup config`](config.md) supplies it
-   in gitignored `.apache-magpie-local/` — no `.gitignore` line to
-   negotiate, nothing staged, nobody's permission required, and it
-   works on a repo that has never adopted Magpie.
+   in the personal layer — on a repo that has never adopted Magpie,
+   `<git-common-dir>/apache-magpie/` inside the git directory, so there
+   is nothing in the working tree, no `.gitignore` line to negotiate,
+   nothing staged, and nobody's permission required.
 
    Name it here; do not run it. There is nothing to configure until
    the user picks a skill to run, and configuring every installed
@@ -1084,6 +1085,13 @@ never appear); [`skill-sources.md`](skill-sources.md) also adds
 them idempotently the first time a source is pinned on an older
 adoption.
 
+The `/.apache-magpie-local/` line belongs here because this method
+writes `<committed-lock>` (Step 4), which makes the project adopted, and
+an adopted project keeps its personal layer in the working tree.
+A marketplace install that never adopts adds no ignore line at all: its
+personal layer is `<git-common-dir>/apache-magpie/`, which git never
+tracks ([`config.md` Step 2](config.md#step-2--keep-the-personal-layer-invisible-to-git)).
+
 The `__pycache__/` and `*.pyc` lines (non-anchored — they match at
 any depth) keep the byte-compiled artefacts that framework skill
 scripts emit when run from the adopter checkout (e.g.
@@ -1247,6 +1255,7 @@ their symlinks; the `.apache-magpie-sources/` snapshot dir and
 ## Step 9 — Scaffold `.apache-magpie-overrides/` (FRESH only)
 
 Create `<repo-root>/.apache-magpie-overrides/` (directory) and scaffold the configuration by copying the template files from `<snapshot-dir>/projects/_template/` into it (excluding `.gitignore` and `pr-management-triage-ci-check-map.md` by default, to keep the committed override surface minimal).
+Never copy the five contributor-growth files — `committer-onboarding-config.md`, `committer-readiness.md`, `contributor-identities.md`, `contributor-nomination-config.md` and `contributor-sentiment-config.md`: that configuration is personal and is never committed ([`adopt.md`](adopt.md#magpie-contributor-growth-is-not-adoptable-by-default)).
 
 Create `.apache-magpie-overrides/README.md` with the following content:
 
@@ -1269,7 +1278,8 @@ in the framework for the full contract.
 Framework changes go via PR to `apache/magpie`.
 
 **Personal (non-shared) overrides** belong in
-`<repo-root>/.apache-magpie-local/` (gitignored). Use that
+`<repo-root>/.apache-magpie-local/` (gitignored; a linked worktree
+without its own falls back to the main checkout's). Use that
 directory for per-developer paths, local tooling, or role-
 specific capability enablements you do not want committed
 to this repo.

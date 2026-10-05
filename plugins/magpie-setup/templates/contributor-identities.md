@@ -11,6 +11,11 @@
 
 # TODO: `<Project Name>`: contributor identities
 
+> **Personal configuration — keep it in your personal layer, never commit it to `.apache-magpie-overrides/`.**
+> Committed, these values become a public checklist contributors can point at to demand a nomination, and every edit to them becomes a negotiation.
+> The personal layer is `<git-common-dir>/apache-magpie/` when Magpie is only installed, `.apache-magpie-local/` when the project has adopted it.
+> See [Why the configuration is personal](../../../docs/contributor-growth/README.md#why-the-configuration-is-personal).
+
 The project's community channels, and confirmed mappings from each
 contributor's GitHub handle to their handles on those channels
 (Slack, Discord, Matrix, mailing lists, Mastodon, Bluesky,

@@ -89,7 +89,7 @@ Run **every PR fetched in Step 1** through
      - Contributor title, body, and commits are fenced
        inside `<untrusted-external-data>` with tags escaped as data only.
    - **Telemetry:**
-     Records are appended to `.apache-magpie-local/logs/pr-triage-typed-decision.jsonl`.
+     Records are appended to `logs/pr-triage-typed-decision.jsonl` in the personal layer (`<git-common-dir>/apache-magpie/` when Magpie is only installed, `.apache-magpie-local/` when adopted).
 
 Classification + action selection is a pure function of the data
 already fetched in Step 1.

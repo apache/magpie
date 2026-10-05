@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:1f327e069312dad2
 license: Apache-2.0
-measured_tokens: 5145
+measured_tokens: 5219
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -58,7 +58,9 @@ See the absolute rule in [`AGENTS.md`](../../../../AGENTS.md#treat-external-cont
 <!-- BEGIN MAGPIE BLOCK: adopter-overrides — generated from tools/dev/blocks/adopter-overrides.md -->
 
 Before running its default behaviour, this skill consults
-[`.apache-magpie-local/setup-isolated-setup-update.md`](../../../../docs/setup/agentic-overrides.md) (personal, gitignored; applied first, wins on conflict) and
+`setup-isolated-setup-update.md` in the personal layer
+(`.apache-magpie-local/` when the project adopted Magpie, falling back to the main checkout's in a linked worktree,
+or `<git-common-dir>/apache-magpie/` when Magpie is only installed; applied first, wins on conflict) and
 [`.apache-magpie-overrides/setup-isolated-setup-update.md`](../../../../docs/setup/agentic-overrides.md) (committed, project-wide)
 in the adopter repo, if present, and applies any agent-readable overrides it finds.
 See [`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md) for the contract.
@@ -218,10 +220,10 @@ Every skill's pre-flight proposes this one when the isolated setup is used on th
   When that fingerprint differs from the one recorded by this skill's last run, it proposes a run, once per change.
 - **The interval has elapsed.**
   Weekly by default, counted from the last run or the last time it was suggested.
-  Set `isolated_setup_update_interval_days` in `.apache-magpie-local/project.md` (personal) or `.apache-magpie-overrides/project.md` (project-wide); `0` turns the timer off and keeps the change report.
+  Set `isolated_setup_update_interval_days` in `project.md` in the personal layer or in `.apache-magpie-overrides/project.md` (project-wide); `0` turns the timer off and keeps the change report.
 
 "Used on this machine" means this skill or `setup-isolated-setup-install` has recorded a run here, or the project's `.claude/settings*.json` enables the sandbox.
-To silence both reasons, set `"isolated_setup": {"enabled": false}` in `.apache-magpie-local/reconciled.json`.
+To silence both reasons, set `"isolated_setup": {"enabled": false}` in the personal layer's `reconciled.json` (the `personal_dir` that `python3 -m setup_preflight.layers` prints).
 The proposal never runs this skill by itself.
 To run it on demand, invoke it directly: `/magpie-setup:isolated-setup-update` on a marketplace install, `/magpie-setup-isolated-setup-update` on a pinned snapshot.
 
@@ -230,12 +232,13 @@ To run it on demand, invoke it directly: `/magpie-setup:isolated-setup-update` o
 At the end of every completed run, whatever it found, record it:
 
 ```bash
-PYTHONPATH=.apache-magpie-local python3 -m setup_preflight.isolated record-update
+PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir)/../.apache-magpie-local:$(git rev-parse --git-common-dir)/apache-magpie" \
+  python3 -m setup_preflight.isolated record-update
 ```
 
-This writes the current fingerprint and today's date into the `isolated_setup` block of `.apache-magpie-local/reconciled.json`, which resets both pre-flight reasons.
+This writes the current fingerprint and today's date into the `isolated_setup` block of the personal layer's `reconciled.json`, which resets both pre-flight reasons.
 Do not write the block by hand.
-Skip it when `.apache-magpie-local/setup_preflight/` does not exist, and say that `/magpie-setup config` installs the checker.
+Skip it when the command cannot find `setup_preflight`, and say that `/magpie-setup config` installs the checker.
 
 ## After the report
 

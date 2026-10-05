@@ -20,7 +20,7 @@ capability:
   - capability:platform
 surface_hash: sha256:bc445ef323563cd8
 license: Apache-2.0
-measured_tokens: 3729
+measured_tokens: 3761
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -36,7 +36,9 @@ It is the counterpart to the periodic `git pull --rebase --autostash` that the f
 <!-- BEGIN MAGPIE BLOCK: adopter-overrides — generated from tools/dev/blocks/adopter-overrides.md -->
 
 Before running its default behaviour, this skill consults
-[`.apache-magpie-local/setup-shared-config-sync.md`](../../../../docs/setup/agentic-overrides.md) (personal, gitignored; applied first, wins on conflict) and
+`setup-shared-config-sync.md` in the personal layer
+(`.apache-magpie-local/` when the project adopted Magpie, falling back to the main checkout's in a linked worktree,
+or `<git-common-dir>/apache-magpie/` when Magpie is only installed; applied first, wins on conflict) and
 [`.apache-magpie-overrides/setup-shared-config-sync.md`](../../../../docs/setup/agentic-overrides.md) (committed, project-wide)
 in the adopter repo, if present, and applies any agent-readable overrides it finds.
 See [`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md) for the contract.

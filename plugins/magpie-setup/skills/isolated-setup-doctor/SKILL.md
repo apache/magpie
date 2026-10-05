@@ -21,7 +21,7 @@ capability:
   - capability:reassess
 surface_hash: sha256:7d670b572d43bbeb
 license: Apache-2.0
-measured_tokens: 6034
+measured_tokens: 6064
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -154,7 +154,7 @@ The `-S` test is a defensive fallback for an already-serving backend whose socke
 |---|---|---|
 | `✓ <rt> reaches the container gateway at <sock>` | Pass | CLI → gateway → daemon all answer. |
 | `✗ … unset — gateway not wired into settings` | Fail | The reference `env` block is missing from project settings. |
-| `✗ gateway socket missing` | Fail | The `SessionStart` hook did not start the gateway, or it exited; check `<project>/.apache-magpie-local/run/container-gateway.log`. |
+| `✗ gateway socket missing` | Fail | The `SessionStart` hook did not start the gateway, or it exited; check `container-gateway.log` in the gateway's run directory — `<project>/.apache-magpie-local/run/` when adopted, else `<git-common-dir>/apache-magpie/run/<worktree-id>/`. |
 | `✗ gateway running without a <rt> backend` | Fail | `status` reports the gateway up but `serving` does not list this CLI's backend — the Podman machine or Docker daemon behind it is not running. Start it from outside the sandbox, then restart the gateway. |
 | `✗ connect … denied` | Fail | The gateway socket is not in `sandbox.network.allowUnixSockets`. |
 | `✗ gateway up, backend down` | Fail | Podman machine / Docker not running on the host; start it from your own terminal. |

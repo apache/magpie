@@ -2093,13 +2093,15 @@ def render_dashboard(
 # Gist publication (export.md — always-publish contract)
 # ============================================================
 
-SESSION_STATE_FILE = ".apache-magpie.session-state.json"
+#: The session-state file, kept in the personal config layer (export.md).
+SESSION_STATE_FILE = "session-state.json"
+#: Where it lived before: the adopter repo root.  Still read, never written.
+LEGACY_SESSION_STATE_FILE = ".apache-magpie.session-state.json"
 
 
 def _find_repo_root(start=None):
     """Walk up from ``start`` (default: cwd) to the nearest dir containing a
-    ``.git`` entry; fall back to cwd if none is found. The session-state file
-    lives at the adopter repo root per export.md."""
+    ``.git`` entry; fall back to cwd if none is found."""
     cur = Path(start or Path.cwd()).resolve()
     for parent in (cur, *cur.parents):
         if (parent / ".git").exists():
@@ -2107,34 +2109,67 @@ def _find_repo_root(start=None):
     return cur
 
 
+def _git_common_dir(root):
+    r = subprocess.run(
+        ["git", "-C", str(root), "rev-parse", "--path-format=absolute", "--git-common-dir"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    out = (r.stdout or "").strip()
+    return Path(out) if r.returncode == 0 and out else None
+
+
+def _personal_dir(root):
+    """The personal config layer, per ``setup_preflight/layers.py``.
+
+    Adopted (a ``.apache-magpie.lock``) → ``<root>/.apache-magpie-local``,
+    or the main checkout's from a linked worktree that has none.  Not
+    adopted → ``<git-common-dir>/apache-magpie``.  ``None`` outside git.
+    """
+    common = _git_common_dir(root)
+    if (root / ".apache-magpie.lock").is_file():
+        own = root / ".apache-magpie-local"
+        if own.is_dir() or common is None or common.name != ".git":
+            return own
+        main = common.parent / ".apache-magpie-local"
+        return main if main.is_dir() and common.parent != root else own
+    return common / "apache-magpie" if common is not None else None
+
+
 def _session_state_path():
-    return _find_repo_root() / SESSION_STATE_FILE
+    root = _find_repo_root()
+    home = _personal_dir(root)
+    return home / SESSION_STATE_FILE if home is not None else root / LEGACY_SESSION_STATE_FILE
+
+
+def _read_session_state(path):
+    """The session state at ``path``, else at the legacy repo-root location."""
+    legacy = _find_repo_root() / LEGACY_SESSION_STATE_FILE
+    for candidate in (path, legacy):
+        if not candidate.exists():
+            continue
+        try:
+            data = json.loads(candidate.read_text())
+        except (json.JSONDecodeError, OSError):
+            return {}
+        return data if isinstance(data, dict) else {}
+    return {}
 
 
 def read_stats_gist_id():
     """Return the stored ``stats_gist_id`` from the session-state file, or None."""
-    path = _session_state_path()
-    if not path.exists():
-        return None
-    try:
-        data = json.loads(path.read_text())
-    except (json.JSONDecodeError, OSError):
-        return None
-    gid = data.get("stats_gist_id")
+    gid = _read_session_state(_session_state_path()).get("stats_gist_id")
     return gid or None
 
 
 def store_stats_gist_id(gist_id):
     """Persist ``stats_gist_id`` into the session-state file (merging, not
-    clobbering other keys)."""
+    clobbering other keys; carrying over a legacy repo-root file's keys)."""
     path = _session_state_path()
-    data = {}
-    if path.exists():
-        try:
-            data = json.loads(path.read_text())
-        except (json.JSONDecodeError, OSError):
-            data = {}
+    data = _read_session_state(path)
     data["stats_gist_id"] = gist_id
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2) + "\n")
 
 

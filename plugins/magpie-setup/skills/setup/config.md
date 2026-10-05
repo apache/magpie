@@ -3,9 +3,16 @@
 
 # `setup config` — configure Magpie for yourself
 
-Scaffold and fill the project configuration a skill needs, in
-`.apache-magpie-local/` — gitignored, personal, nothing staged and
-nothing committed.
+Scaffold and fill the project configuration a skill needs, in the
+**personal layer** — nothing staged, nothing committed, nothing anyone
+else sees.
+Where that layer is depends on whether the project adopted Magpie
+(see [Step 0](#step-0--pre-flight)):
+
+| Project | Personal layer |
+|---|---|
+| Adopted (a `<committed-lock>` exists) | `<repo-root>/.apache-magpie-local/`, gitignored by `adopt`. In a linked worktree with none of its own, the main checkout's. |
+| Not adopted (Magpie only installed) | `<git-common-dir>/apache-magpie/`, inside the git directory: never in the working tree, never committable, shared by every worktree of the clone. |
 
 **This is the sub-action an individual runs.** It works on a repository
 whose maintainers have never heard of Magpie, it asks the project for
@@ -32,10 +39,11 @@ This is the common entry point, and it is **automatic**: a skill whose
 required configuration does not resolve runs this sub-action, says it is
 doing so, and then carries on with what the user actually asked for.
 
-That is allowed unasked because of what this touches — only
-`.apache-magpie-local/` and `.git/info/exclude`, both gitignored, both
-invisible to every other person and every other clone, both undone by
-deleting a directory. Nothing is staged, nothing is committed.
+That is allowed unasked because of what this touches — only the
+personal layer, which is invisible to every other person and every other
+clone, and undone by deleting one directory. Nothing is staged, nothing
+is committed, and on a project that has not adopted Magpie nothing at all
+is written to the working tree.
 
 When entered this way:
 
@@ -61,7 +69,24 @@ When entered this way:
    That is legitimate — it is how you hold one value of your own — but
    it is a decision, not a default. Offer to configure only the files
    the project has *not* committed, and make that the default choice.
-3. **Which skills.** Resolve `<skills>` to the set whose configuration
+3. **Where the personal layer is.** When the checker is installed, ask
+   it — the same `PYTHONPATH` as every skill's pre-flight:
+
+   ```bash
+   PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir)/../.apache-magpie-local:$(git rev-parse --git-common-dir)/apache-magpie" \
+     python3 -m setup_preflight.layers
+   ```
+
+   and write to its `personal_dir`. Before the first install, derive it
+   the same way: adopted → `<repo-root>/.apache-magpie-local/`, unless
+   this is a linked worktree without one and the main checkout
+   (`$(git rev-parse --path-format=absolute --git-common-dir)/..`) has
+   one, in which case the main checkout's; not adopted →
+   `$(git rev-parse --path-format=absolute --git-common-dir)/apache-magpie/`.
+   **Say which it is**, and on a worktree that falls back say that the
+   values are written to the main checkout's directory and so are shared
+   with every worktree that has none of its own.
+4. **Which skills.** Resolve `<skills>` to the set whose configuration
    is in scope.
 
 ## Step 1 — Work out what is actually needed
@@ -81,51 +106,56 @@ Report the three groups before writing anything. A user who runs this
 on a well-configured repo should be told "nothing to do" rather than
 walked through an interview.
 
-## Step 2 — Make the directory invisible to git
+## Step 2 — Keep the personal layer invisible to git
 
-`.apache-magpie-local/` must not be committable, and this sub-action
-must not edit a committed file to arrange that.
+The personal layer must not be committable, and this sub-action must not
+edit a committed file to arrange that.
 
-1. If `<repo-root>/.gitignore` already excludes `/.apache-magpie-local/`
-   — which `install` and `adopt` both arrange — nothing to do.
-2. Otherwise write `/.apache-magpie-local/` to
-   **`<repo-root>/.git/info/exclude`**, creating the file if needed and
-   appending if it exists. That file is per-clone and is never
-   committed, pushed, or seen by anyone else.
+- **Not adopted** → the layer is inside the git directory, which git
+  never tracks. There is nothing to arrange: no `.gitignore` line, no
+  `.git/info/exclude` line, nothing in the working tree. Create the
+  directory with mode `0700`.
+- **Adopted** → `adopt` already added `/.apache-magpie-local/` to the
+  committed `.gitignore`. If that line is missing, write it to the
+  per-clone `<repo-root>/.git/info/exclude` instead (never committed,
+  never pushed), and say the project's `.gitignore` lacks it.
 
-**Do not add a `.gitignore` line here.** `.gitignore` is a committed
-file; a sub-action whose whole promise is that it writes nothing anyone
-else will see must not open by editing one. `adopt` adds it, because
-`adopt` is already committing.
+**Never add a `.gitignore` line here, and never create
+`.apache-magpie-local/` or `.apache-magpie-overrides/` in a project that
+has not adopted Magpie.** Those are `adopt`'s, because `adopt` is already
+committing.
 
-Say which of the two happened.
+Say which case applied.
 
 ## Step 2a — Install the pre-flight checker
 
-Copy the framework's `setup_preflight/` package into
-`.apache-magpie-local/setup_preflight/`, replacing any copy already
+Copy the framework's `setup_preflight/` package into a
+`setup_preflight/` directory in the personal layer, replacing any copy already
 there. The package lives in this skill's own directory, `setup_preflight/`
 next to this file, so every install method has it: on a marketplace
 install that is inside the installed `magpie-setup` plugin, and on a
 snapshot install `<snapshot-dir>/tools/setup-preflight/src/setup_preflight/`
 reaches the same files.
 
-This is what every skill's pre-flight actually runs:
+This is what every skill's pre-flight actually runs — the path finds the
+copy in this checkout's `.apache-magpie-local/`, the main checkout's, or
+the git directory's `apache-magpie/`:
 
 ```bash
-PYTHONPATH=.apache-magpie-local python3 -m setup_preflight --skill … --hash …
+PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir)/../.apache-magpie-local:$(git rev-parse --git-common-dir)/apache-magpie" \
+  python3 -m setup_preflight --skill … --hash …
 ```
 
 It has to be copied rather than referenced. Under the sandbox the
 framework recommends, `~/.claude/plugins/cache/` is read-denied, so a
 module left in the plugin can be read by the agent's file tool but never
 *executed* by a shell — and a sandboxed marketplace install is exactly
-the case the check exists for. `.apache-magpie-local/` is gitignored
-(Step 2), so nothing here reaches another clone.
+the case the check exists for. The personal layer is gitignored or inside
+the git directory (Step 2), so nothing here reaches another clone.
 
 **Name it when you report.** This sub-action may run unattended from a
 skill's pre-flight, and its licence to do so rests on touching only
-gitignored paths. Copying an executable is still within that promise —
+the personal layer. Copying an executable is still within that promise —
 it is framework code of the same provenance as the plugin already
 installed, and it goes away with the directory — but it is a step beyond
 writing configuration files, so it is said out loud rather than done
@@ -135,7 +165,8 @@ Verify the copy answers before moving on; a checker that does not run
 makes every skill fall back to *step-0* of its `preflight-detail.md`:
 
 ```bash
-PYTHONPATH=.apache-magpie-local python3 -m setup_preflight --skill magpie-setup
+PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir)/../.apache-magpie-local:$(git rev-parse --git-common-dir)/apache-magpie" \
+  python3 -m setup_preflight --skill magpie-setup
 ```
 
 ## Step 3 — Scaffold and fill
@@ -143,7 +174,7 @@ PYTHONPATH=.apache-magpie-local python3 -m setup_preflight --skill magpie-setup
 For each missing required file, in the order the skills need them
 (`project.md` first — most others reference values it carries):
 
-1. **Copy the template** into `.apache-magpie-local/<file>` from the
+1. **Copy the template** into `<file>` in the personal layer from the
    `magpie-setup` plugin's `templates/<file>` (two directories above this
    file) on a marketplace install, or from
    `<snapshot-dir>/projects/_template/<file>` on a snapshot install. Both
@@ -167,13 +198,13 @@ For each missing required file, in the order the skills need them
    Otherwise include one question in the batch — `generated-by`
    (default), `assisted-by`, `co-authored-by`, `none`, or custom
    wording — and write the answer to
-   `.apache-magpie-local/commit-attribution.toml`.
+   `commit-attribution.toml` in the personal layer.
 5. **Leave what the user skips.** A `TODO` left in place is not an
    error: the skill that needs it names it when it needs it, and the
    skills that do not need it never look. Say that, so a half-filled
    file does not read as a failed run.
 
-Never write outside `.apache-magpie-local/` (Step 3c's harness command
+Never write outside the personal layer (Step 3c's harness command
 files are the one, named exception). Never stage anything. Never commit.
 
 ## Step 3b — Record what this run reconciled
@@ -181,8 +212,12 @@ files are the one, named exception). Never stage anything. Never commit.
 For every skill in scope (Step 1) whose `requires_config:` set now fully
 resolves, record that fact, keyed by that skill's frontmatter `name:`
 (e.g. `code-review`). **Everything this step writes
-stays inside `.apache-magpie-local/reconciled.json` — never the
-committed lock, adopted project or not.** The two branches below trigger
+stays inside the personal layer's `reconciled.json` — never the
+committed lock, adopted project or not.** That is the personal layer
+[Step 0](#step-0--pre-flight) item 3 located: this checkout's own
+`.apache-magpie-local/` (adopted), the main checkout's
+`.apache-magpie-local/` (a linked worktree of an adopted project with
+none of its own), or `<git-common-dir>/apache-magpie/` (not adopted). The two branches below trigger
 on **different** conditions — read the "not adopted" one's scope as
 looser than the "already adopted" one's; they are not the same rule
 applied to two stores.
@@ -217,7 +252,7 @@ applied to two stores.
   [`locks.md`](locks.md#the-reconciled-block--what-was-checked-not-what-to-install)
   already reserves for exactly this: `acknowledged.skills["<skill
   name>"] = <that skill's current surface_hash>`, in
-  `.apache-magpie-local/reconciled.json`.
+  the personal layer's `reconciled.json`.
 
   **A skill that already resolved before this run, and that Step 3
   touched nothing for, gets no entry here at all.**
@@ -234,7 +269,8 @@ applied to two stores.
   `requires_config` finding this run just resolved.
 
 **Skip this step entirely when nothing has ever been configured or
-adopted here** — no `<committed-lock>`, no `.apache-magpie-local/`, and
+adopted here** — no `<committed-lock>`, no personal layer (in any of
+the places Step 0 names), and
 no `.apache-magpie-overrides/` anywhere in the repo, the same
 nothing-to-reconcile gate
 [`reconcile.md`](reconcile.md#step-0--pre-flight) uses. That is the only
@@ -278,7 +314,7 @@ interviewed). A plain run mentions it in the recap instead.
    Say that the security family runs the reviewers whenever any is listed,
    whatever the mode, and that each run sends the change to those models'
    providers.
-3. **Write** `.apache-magpie-local/adversarial-review.md` from
+3. **Write** `adversarial-review.md` in the personal layer from
    the `adversarial-review.md` template (Step 3), with the chosen `reviewers`
    and `mode`. If the file already exists, show the difference and ask
    before replacing it. If the project committed one, this shadows it
@@ -311,8 +347,8 @@ Hand off to it only on the user's explicit yes; never run it unattended.
 
 Tell the user, in this order:
 
-1. **What was written**, by path, and that all of it is gitignored and
-   invisible to everyone else. List any Step 3c harness command files
+1. **What was written**, by path, and that all of it is in the personal
+   layer and invisible to everyone else. List any Step 3c harness command files
    separately: those sit in the user's home, outside every repository.
    On a plain `config` run with the `magpie-adversarial-review` plugin
    installed and no `adversarial-review.md`, add one line that
@@ -322,7 +358,7 @@ Tell the user, in this order:
    add one line that `contributor-calibrate` can derive the contributor
    thresholds from past nominations — state it, do not ask.
 1b. **What the reconciliation stamp recorded** (Step 3b), all of it in
-   the gitignored `.apache-magpie-local/reconciled.json` — on an
+   the personal layer's `reconciled.json` — on an
    unadopted project, the skill(s) whose `skills` entry was just
    written there, whether or not this run touched a file for them; on
    an already-adopted project, only the skill(s) whose missing
@@ -357,11 +393,13 @@ will see.
 
 ## Hard rules
 
-1. **Nothing outside `.apache-magpie-local/` and
-   `.git/info/exclude`.** No `.gitignore` edit, no `.claude/settings.json`
-   edit, no lock file, no staging, no commit. This includes Step 3b's
+1. **Nothing outside the personal layer** (plus, on an adopted project
+   whose `.gitignore` lacks the entry, one `.git/info/exclude` line).
+   No `.gitignore` edit, no `.claude/settings.json`
+   edit, no lock file, no staging, no commit, and nothing in the working
+   tree of a project that has not adopted Magpie. This includes Step 3b's
    reconciliation stamp: even on an already-adopted project, it never
-   touches the committed lock — only `.apache-magpie-local/reconciled.json`.
+   touches the committed lock — only the personal layer's `reconciled.json`.
    The one exception is Step 3c's harness command files: written under the
    user's home (never inside a repository), only the ones the user ticked,
    and never on a run entered from a skill's pre-flight.

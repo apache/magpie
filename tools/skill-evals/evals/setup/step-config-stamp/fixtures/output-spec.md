@@ -13,7 +13,8 @@ Return ONLY valid JSON with this structure:
     "<skill name>": "<surface_hash>"
   },
   "version": "<value>" | null,
-  "at": "<date>" | null
+  "at": "<date>" | null,
+  "write_location": "in-tree" | "main-checkout" | "git-dir" | null
 }
 ```
 
@@ -21,12 +22,12 @@ Return ONLY valid JSON with this structure:
   (to either the `skills` map or `acknowledged.skills`) for at least one
   skill in this run's scope; `false` otherwise. Two different situations
   both produce `false`: nothing has ever been configured or adopted in
-  this repo (no committed lock, no `.apache-magpie-local/`, no
+  this repo (no committed lock, no personal layer, no
   `.apache-magpie-overrides/`); or every skill in scope is on an
   already-adopted project and was already fully configured **before**
   this run, so Step 3 wrote no file for it this run.
 - `write_target` — where the entries land, always inside
-  `.apache-magpie-local/reconciled.json`, never the committed lock:
+  the personal layer's `reconciled.json`, never the committed lock:
   `"skills"` when the project is not adopted (its `skills` map, written
   for every skill in scope whether or not this run touched a file for
   it); `"acknowledged"` when it is already adopted (its
@@ -45,5 +46,12 @@ Return ONLY valid JSON with this structure:
   to date when nothing was written.
 - `at` — only set when `write_target` is `"skills"`: today's date,
   exactly as given. `null` otherwise, for the same reason as `version`.
+
+- `write_location` — which personal layer holds that `reconciled.json`:
+  `"in-tree"` for this checkout's own `.apache-magpie-local/` (adopted);
+  `"main-checkout"` for the main checkout's `.apache-magpie-local/`, used
+  by a linked worktree of an adopted project that has none of its own;
+  `"git-dir"` for `<git-common-dir>/apache-magpie/` (not adopted). `null`
+  when `write_stamp` is `false`.
 
 Do not include any text outside the JSON object.

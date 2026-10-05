@@ -245,7 +245,9 @@ Adopter config scaffolds live in `plugins/magpie-setup/templates/`
   not separate elected from deferred nominees is evidence-only, and
   capped counts are left out of a metric's distribution.
   The config diff carries numbers, `calibrated_on` and
-  `calibrated_window_months` only.
+  `calibrated_window_months` only, and is written to the personal
+  layer (`setup_preflight.layers` → `personal_dir`); calibration never
+  offers `.apache-magpie-overrides/`.
   `contributor-to-committer` warns on a mismatched window and suggests
   recalibrating after a year; `contributor-nomination` flags stale or
   mismatched calibration; `/magpie-setup config` offers calibration
@@ -267,6 +269,24 @@ Adopter config scaffolds live in `plugins/magpie-setup/templates/`
   people per `nomination/real-names.md`: the people directory first,
   then the GitHub profile name, then a consistent commit author name.
   A name is never inferred from an email address or a handle.
+- **Personal-recommended, not adoptable by default.**
+  Committer thresholds, nomination criteria, calibration floors,
+  sentiment caps and the identity map, committed to the repository,
+  become a public checklist contributors can point at to demand
+  promotion, and every edit to them a negotiation.
+  `/magpie-setup adopt` therefore leaves `magpie-contributor-growth`
+  out of the floor and recommends a personal install; it adds the
+  family only when the maintainer insists and explicitly accepts the
+  quoted risk, recording the acceptance as a comment above the entry
+  in `.apache-magpie.lock`.
+  Even then the five configuration files
+  (`committer-onboarding-config.md`, `committer-readiness.md`,
+  `contributor-identities.md`, `contributor-nomination-config.md`,
+  `contributor-sentiment-config.md`) live only in the personal layer:
+  `adopt` never promotes or scaffolds them into
+  `.apache-magpie-overrides/`, the skills write them only to the
+  personal layer and read the committed copy only as a fallback, and
+  `skill-and-tool-validate` warns (SOFT) when one is found there.
 - **Teaching register for first-contact.** `mentoring-welcome` and
   `good-first-issue-author` follow the Agentic Mentoring mode's tone
   contract (polite, never gatekeeping) and hand off to a human
@@ -297,6 +317,14 @@ Adopter config scaffolds live in `plugins/magpie-setup/templates/`
    submits ICLA forms or changes repository permissions without the
    nominator's direct action.
 4. All family skills pass `skill-and-tool-validate` with no errors.
+5. `/magpie-setup adopt` does not add `magpie-contributor-growth` to the
+   floor without an explicit, recorded acceptance of the gaming risk,
+   and never writes the family's configuration files to
+   `.apache-magpie-overrides/`.
+6. `contributor-calibrate` writes its floors to the personal layer
+   (the git-directory home on an unadopted repository) and never offers
+   `.apache-magpie-overrides/`
+   (`tools/skill-evals/evals/contributor-calibrate/step-6-write-configuration/`).
 
 ## Validation
 

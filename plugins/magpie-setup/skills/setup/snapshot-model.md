@@ -118,7 +118,9 @@ Gitignored in the adopter repo:
   potentially).
 - `<local-lock>` (per-machine state).
 - `.apache-magpie-local/` (personal, per-developer override
-  directory — see [Golden rule 7](overrides.md)).
+  directory — see [Golden rule 7](overrides.md)), when the project
+  adopted Magpie. A project that has not keeps it in
+  `<git-common-dir>/apache-magpie/` instead, which needs no entry.
 - The `magpie-*` symlinks `setup install` creates in every active
   target dir — the canonical ones in `.agents/skills/` (they
   target the gitignored snapshot) and the relays in

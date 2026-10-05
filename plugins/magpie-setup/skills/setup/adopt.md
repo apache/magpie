@@ -51,16 +51,60 @@ The floor is **seeded** with `magpie-setup`, `magpie-utilities` and
 the maintainer explicitly asks for more.
 
 It **never grows automatically** — not to match what this maintainer
-installed, not to match what the framework has started shipping. A
-maintainer-only family such as `magpie-security` stays a personal,
-user-scope install — committing it would make every contributor pay
-its always-on context cost for work only one person does.
+installed, not to match what the framework has started shipping.
+
+**Some families are better kept personal.** Say so when the user asks for them, as advice:
+
+- `magpie-security` — **cost.**
+  It is maintainer-only work;
+  committing it would make every contributor pay its always-on context cost for work only one person does.
+- `magpie-contributor-growth` — **gaming risk.**
+  It is excluded from adoption by default; see below.
 
 If the user asks for a larger floor, say what it costs and let them
 decide. Do not propose one. A floor they enlarge is still the floor:
 every later step — the lock in Step 2, the wiring in Step 3, `verify`,
 `uninstall` and `unadopt` — reads the list the lock actually carries,
 in floor order, never a fixed count.
+
+### `magpie-contributor-growth` is not adoptable by default
+
+Its configuration — committer thresholds, nomination criteria, calibration floors, sentiment caps and the identity map — is the project's private judgement about people.
+Committed to the repository, it becomes a public checklist:
+a contributor can point at a threshold and demand a nomination, and every later edit to it becomes a negotiation rather than a decision.
+
+When the user asks for `magpie-contributor-growth` in the floor:
+
+1. **Say no by default, and say why** — the gaming risk above, in one or two sentences.
+2. **Recommend the local alternative.**
+   Each maintainer who runs these skills installs the family for themselves (user scope, or install-only in this repo),
+   and its configuration stays in their personal layer, invisible to contributors.
+3. **Add it only if the user explicitly insists** after hearing that.
+   Then quote the risk back verbatim and ask for an explicit acceptance:
+
+   > Committing `magpie-contributor-growth` to the floor tells every contributor this project uses it, and invites them to ask how its thresholds are set.
+   > Its configuration still stays in each maintainer's personal layer and is never committed, but the commitment itself can be read as a promise of a measurable path to committer.
+   > Do you accept that risk? (yes / no)
+
+   Anything short of an unambiguous yes is a no: keep it out of the floor and carry on.
+4. **Record the acceptance in the lock** Step 2 writes, as a comment directly above the family's `plugins:` entry:
+
+   ```text
+   plugins:
+     - magpie-setup
+     - magpie-utilities
+     - magpie-agent-guard
+     # contributor-growth gaming risk accepted by <git user.name> on <YYYY-MM-DD>; config stays personal
+     - magpie-contributor-growth
+   ```
+
+   The lock is the project's adoption record, already committed and reviewed with the floor, and the entry it explains sits on the next line;
+   a comment needs no new key, no parser change, and no new file.
+   A re-adoption keeps the comment as it stands — Step 2's floor diff shows it — and `unadopt` removes it with the lock.
+
+**Even when adopted, its configuration is personal.**
+Steps 4a and 4b never promote or scaffold `committer-onboarding-config.md`, `committer-readiness.md`, `contributor-identities.md`, `contributor-nomination-config.md` or `contributor-sentiment-config.md` into `.apache-magpie-overrides/`;
+if one is already committed there, name it in the recap and recommend moving it back to the personal layer.
 
 ## Step 2 — Write the floor lock
 
@@ -189,14 +233,20 @@ in one run.
 
 ### 4a — Promote what is already configured locally
 
-Look for `.apache-magpie-local/`. Anything a maintainer configured for
-themselves with [`config`](config.md) is, by definition, a set of
+Look in the personal layer the project had **before** this adoption:
+`<git-common-dir>/apache-magpie/` (where [`config`](config.md) writes on
+an unadopted repo), then a legacy in-tree `.apache-magpie-local/`.
+Anything a maintainer configured for
+themselves with `config` is, by definition, a set of
 answers that already works on this project — which makes it the best
 starting point for what the project should publish.
 
-If the directory holds configuration files:
+If either holds configuration files:
 
-1. **List them, and say what each would become.** Promoting is
+1. **List them, and say what each would become.** Leave out the five
+   contributor-growth files (see
+   [above](#magpie-contributor-growth-is-not-adoptable-by-default)): they
+   are never promoted, and stay personal. Promoting is
    publishing: a value that was private to one clone becomes a fact
    every contributor reads. Name any that look personal rather than
    project-wide — a local clone path, a personal mail address — and
@@ -227,6 +277,23 @@ If the directory holds configuration files:
 Never delete a local file that differs, and never delete one the user
 declined to promote. The rule is: redundant copies go, deliberate ones
 stay and are named.
+
+6. **Move what stays personal into `.apache-magpie-local/`.** Once the
+   lock exists the personal layer *is* `.apache-magpie-local/`, and
+   `<git-common-dir>/apache-magpie/` is no longer read. Propose moving
+   every file left there (configuration, `reconciled.json`, the
+   `setup_preflight/` checker) into `.apache-magpie-local/`, creating it;
+   where a file exists in both, show both and let the user choose. Leave
+   its `run/` directory alone: a serving gateway's sockets must not move,
+   and the gateway of an adopted project serves from
+   `.apache-magpie-local/run/` from its next start — tell the user to
+   restart the gateway (end and reopen the session, or
+   `container-gateway-hook.sh stop` then `start`) and to update the
+   socket paths in `.claude/settings.local.json` to the new run
+   directory. Never overwrite a file in the move. Linked worktrees
+   need nothing: they fall back to the main checkout's
+   `.apache-magpie-local/`. A declined move is reported, with the
+   consequence that those files stop applying.
 
 ### 4b — Scaffold whatever is still missing
 
@@ -365,13 +432,16 @@ out of a committed document is the project's, not this maintainer's.
 
 Add `/.apache-magpie-local/` to the adopter repo's `.gitignore` if it
 is not there, and stage it. `adopt` is already writing committed
-files, so this is the sub-action that may do it — `config`
-deliberately does not, and uses `.git/info/exclude` instead.
+files, so this is the sub-action that may do it, and the only one that
+creates `.apache-magpie-local/` and `.apache-magpie-overrides/` in a
+working tree — `config` on an unadopted repo writes inside the git
+directory and needs no ignore entry at all.
 
 ### 4d — Write the reconciliation stamp
 
-**Migrate first, if there is anything to migrate.** If
-`.apache-magpie-local/reconciled.json` exists and carries a `skills`
+**Migrate first, if there is anything to migrate.** If the
+pre-adoption personal layer's `reconciled.json` (see
+[4a](#4a--promote-what-is-already-configured-locally)) exists and carries a `skills`
 map — written by an earlier
 [`config`](config.md#step-3b--record-what-this-run-reconciled) run,
 back when this project was not yet adopted — copy every one of its
@@ -425,7 +495,7 @@ same staged file rather than opening a new one. **Never commit.**
 
 Nothing configured or overridden this run, and nothing to migrate either
 (4a, 4b, and 4c all found nothing to do, and
-`.apache-magpie-local/reconciled.json` carried no `skills` map to begin
+the local `reconciled.json` carried no `skills` map to begin
 with) → leave the `reconciled:` block exactly as it was. A re-adoption
 run that changes only the floor, with no configuration change and no
 local stamp to migrate, stamps nothing new.
@@ -490,10 +560,15 @@ Tell the user, in this order:
   the lock without moving the map leaves a configured project with no
   baseline, and every skill's pre-flight proposes the one-time sweep
   again. Copy `version`, `at` and `skills` into
-  `.apache-magpie-local/reconciled.json` — merging into it, never
-  replacing it, so `verified_at`, `verify_suggested_at` and
-  `acknowledged` stay — which is exactly where a
-  configured-but-unadopted project's stamp belongs. If the copy cannot
+  `<git-common-dir>/apache-magpie/reconciled.json` — merging into it,
+  never replacing it, and carrying over `verified_at`,
+  `verify_suggested_at` and `acknowledged` from
+  `.apache-magpie-local/reconciled.json` — which is exactly where a
+  configured-but-unadopted project's stamp belongs. Without the lock,
+  `.apache-magpie-local/` becomes a legacy in-tree directory: it is
+  still read, and the pre-flight proposes moving it into
+  `<git-common-dir>/apache-magpie/`; offer that move here, with
+  confirmation. If the copy cannot
   be made, say plainly that the stamp went with the lock and that
   `/magpie-setup reconcile` re-establishes one.
 

@@ -7,7 +7,11 @@ Install method: `marketplace`, but this repo has never been adopted — no
 Scope: `config security-issue-triage` narrowed this run to one skill,
 `magpie-security-issue-triage`.
 
-Step 3 wrote: `.apache-magpie-local/naming-conventions.md`
+Personal layer (`personal_dir` from `python3 -m setup_preflight.layers`):
+  `/home/dev/acme/.git/apache-magpie/` — inside the git directory; there is
+  no `.apache-magpie-local/` in the working tree.
+
+Step 3 wrote: `/home/dev/acme/.git/apache-magpie/naming-conventions.md`
   (the only missing `requires_config:` entry for this skill).
 
 `magpie-security-issue-triage`'s current `surface_hash` (from its

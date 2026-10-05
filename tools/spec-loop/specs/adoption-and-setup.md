@@ -53,6 +53,39 @@ acceptance:
     never creates the layer. The rule lives in
     `setup_preflight/layers.py`, duplicated (with identical test vectors and
     an AST identity test) in each tool that resolves config.
+  - A linked worktree (`git worktree add`) of an adopted repository has no
+    `.apache-magpie-local/` of its own, since the directory is gitignored.
+    Its personal layers are its own `.apache-magpie-local/`, then the main
+    checkout's when that exists, per file, first match wins
+    (`personal_layers`), and its write target (`personal_dir`) is its own
+    directory if it exists, else the main checkout's if that exists, else
+    its own. The main checkout is found by reading files only
+    (`main_worktree`: the common git directory is named `.git` and is its
+    parent's `.git` directory; a main checkout, a bare repository, a
+    submodule or no repository has none). It is located from the
+    worktree's `.git` file, which a sandboxed agent can rewrite; that only
+    selects configuration the agent could already write into the
+    worktree's own directory, so it grants no new capability. The
+    container gateway's run directory and the sandbox-lint exemption do
+    not fall back: they stay per worktree. An unadopted repository needs
+    no fallback, since its git-directory home is already shared.
+  - `config` writes only the personal layer: on an unadopted repository
+    `<git-common-dir>/apache-magpie/` (located with
+    `python3 -m setup_preflight.layers`), with the pre-flight checker
+    copied there, nothing in the working tree and no `.git/info/exclude`
+    line; on an adopted one `.apache-magpie-local/` (the main checkout's,
+    from a linked worktree that has none). Only `adopt` creates
+    `.apache-magpie-local/`, its `.gitignore` entry and
+    `.apache-magpie-overrides/` in a working tree; it promotes from the
+    pre-adoption personal layer and proposes moving what stays personal
+    into `.apache-magpie-local/`. `worktree-init` copies or links no
+    personal config: the fallback covers it.
+  - Every skill's pre-flight runs the checker with
+    `PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir)/../.apache-magpie-local:$(git rev-parse --git-common-dir)/apache-magpie"`,
+    so the copy is found in this checkout's `.apache-magpie-local/`, the
+    main checkout's, or the git-directory home. The project-verdict
+    cache is keyed on the checkout, since worktrees may share one
+    personal layer.
   - An unadopted repository that still has an in-tree
     `.apache-magpie-local/` keeps working: it is read after the personal
     layer. The pre-flight reports it as the project-scope finding
@@ -74,6 +107,13 @@ acceptance:
     only when the maintainer explicitly asks, and every surface that reads
     it — the derived wiring, verify, uninstall, unadopt — reads the lock's
     `plugins` list in floor order rather than a fixed count.
+  - `magpie-contributor-growth` is not adoptable by default: `adopt`
+    explains the gaming risk of committed contributor-growth
+    configuration, recommends a personal install, and adds the family only
+    when the maintainer insists and explicitly accepts the quoted risk,
+    recording the acceptance as a comment above the entry in
+    `.apache-magpie.lock`. Its configuration files are never promoted or
+    scaffolded into `.apache-magpie-overrides/`, adopted or not.
   - Writing the committed default-set block touches only
     `extraKnownMarketplaces` and `enabledPlugins` in
     `.claude/settings.json`, preserves every other top-level key and an
@@ -193,17 +233,17 @@ committed version with drift detection.
 - Docs: `docs/setup/` (install recipes, agentic-overrides contract,
   prerequisites, `commit-attribution.md`).
 - Commit attribution: `commit-attribution.toml`, committed in
-  `.apache-magpie-overrides/` (project policy) and gitignored in
-  `.apache-magpie-local/` (a contributor's preference), scaffolded from
+  `.apache-magpie-overrides/` (project policy) and in the personal layer
+  (a contributor's preference), scaffolded from
   `plugins/magpie-setup/templates/commit-attribution.toml` (#1385).
 - Lock files: `.apache-magpie.lock` (committed — a pin on the snapshot
   methods, a floor on `method: marketplace`) and
   `.apache-magpie.local.lock` (gitignored, what this machine fetched).
   The lock also carries a generated `reconciled:` block — version, date,
   and a per-skill `surface_hash` map — once anything has been configured or
-  adopted; the identical shape lives in
-  `.apache-magpie-local/reconciled.json` for a configured-but-unadopted
-  project.
+  adopted; the identical shape lives in the personal layer's
+  `reconciled.json` (`<git-common-dir>/apache-magpie/`) for a
+  configured-but-unadopted project.
 
 ## Behaviour & contract
 
@@ -236,22 +276,23 @@ committed version with drift detection.
   privacy, or external-content-as-data baseline. If an override conflicts
   with those baseline rules, the framework rule wins and the conflict is
   surfaced.
-- **Personal, gitignored overrides** live under `.apache-magpie-local/`, a
+- **Personal overrides** live in the personal layer — `.apache-magpie-local/`
+  when adopted, `<git-common-dir>/apache-magpie/` when not — a
   per-person sibling to the committed `.apache-magpie-overrides/` that is
   never committed. It is read at runtime under the same additive-only
   guardrail as any override: it may carry a person's paths, wording, or
   capability/MCP enablement (for example a release manager enabling a
   Policy MCP that other members leave off), but it cannot weaken the safety,
   confidentiality, or privacy baseline. Precedence, first hit wins:
-  `.apache-magpie-local/` -> `.apache-magpie-overrides/` -> organization
-  defaults -> framework default. Adoption scaffolds the overrides store; the
-  `.gitignore` entry for the personal directory is the user's to add,
-  wherever they prefer it, so the directory stays untracked. This is the surface that makes hybrid
+  personal layer -> `.apache-magpie-overrides/` -> organization
+  defaults -> framework default. Adoption scaffolds the overrides store and
+  the `.gitignore` entry for `.apache-magpie-local/`; an unadopted
+  project's personal layer is inside the git directory and needs none. This is the surface that makes hybrid
   setups work: one person can run Magpie against a shared or non-adopting
   repo without committing anything or requiring teammates to opt in.
 - **One-shot default run.** A per-invocation switch runs a skill against
   framework defaults for that session only, ignoring both
-  `.apache-magpie-local/` and `.apache-magpie-overrides/`, without editing or
+  the personal layer and `.apache-magpie-overrides/`, without editing or
   removing either file. The safety baseline still applies.
 - **Adoption records a floor, not a pin.** On the marketplace path,
   `adopt` writes `.apache-magpie.lock` with `method: marketplace`, a
@@ -260,6 +301,13 @@ committed version with drift detection.
   contributors may run newer versions and more plugins, and nothing is
   ever downgraded, removed, or pinned. The derived
   `extraKnownMarketplaces` entry is written untagged.
+- **Some families are better kept personal.** `adopt` advises keeping
+  `magpie-security` personal (every contributor would pay its always-on
+  cost for one maintainer's work) and refuses `magpie-contributor-growth`
+  by default (committed thresholds and nomination criteria become a public
+  checklist contributors can point at to demand promotion). An explicit,
+  quoted risk acceptance overrides the refusal and is recorded as a lock
+  comment; the family's configuration still stays in the personal layer.
 - **The lock is harness-neutral; the wiring is not.** The lock is
   written on every client. `.claude/settings.json` is derived from it
   and written only where the harness can express it.
@@ -296,7 +344,7 @@ committed version with drift detection.
   `.apache-magpie-overrides/commit-attribution.toml`.
   `config` asks a contributor only when the project's file is absent or
   says `contributor-choice`, and writes
-  `.apache-magpie-local/commit-attribution.toml`.
+  `commit-attribution.toml` in the personal layer.
   This is the one configuration file where the project wins over the
   contributor's local copy; an unreadable file or unknown value fails
   closed to `generated-by`.
@@ -308,7 +356,7 @@ committed version with drift detection.
   the `magpie-adversarial-review` plugin installed) runs
   `adversarial-review detect`, pre-selects every available backend except
   the running harness's own model, writes
-  `.apache-magpie-local/adversarial-review.md` from its template, and
+  `adversarial-review.md` in the personal layer from its template, and
   offers the Codex / Gemini command files under the user's home directory,
   never inside a repository.
   `verify` check 8i reports configured reviewers whose CLI is gone and
@@ -357,17 +405,23 @@ committed version with drift detection.
 5. Override files can be discovered and surfaced to skills without
    editing upstream skill bodies, and override text cannot weaken the
    safety/confidentiality baseline.
-6. A gitignored `.apache-magpie-local/` is read as a per-person override
+6. The personal layer is read as a per-person override
    surface that layers above `.apache-magpie-overrides/` (personal-local ->
    committed -> organization -> framework default, first hit wins), under the
    same additive-only guardrail, and works on a repo that has not adopted
-   Magpie once its `.gitignore` line is present.
+   Magpie with nothing in its working tree (`<git-common-dir>/apache-magpie/`).
+   A linked worktree of an adopted repo falls back to its main checkout's
+   `.apache-magpie-local/`, per file.
 7. A one-shot switch runs a skill against framework defaults for a single
    session, ignoring both override surfaces without deleting them, and the
    safety baseline still applies.
 8. `adopt` on a marketplace install writes a `method: marketplace` lock
    carrying the installed version and the seeded floor, stages it, and
    commits nothing; the derived marketplace entry carries no version tag.
+   It leaves `magpie-contributor-growth` out of the floor unless the
+   maintainer explicitly accepts the stated gaming risk, which it records
+   as a lock comment, and never writes that family's configuration files
+   to `.apache-magpie-overrides/`.
 9. A pre-flight on a machine at or ahead of the floor prints nothing; one
    below it installs or updates only floor plugins, reports what ran, and
    stops for a restart without removing, downgrading or pinning anything.
@@ -394,7 +448,7 @@ committed version with drift detection.
 16. The reconciliation stamp applies to every adopted or configured
     project regardless of install method: an adopted project's stamp is
     the committed lock's `reconciled:` block; a configured-but-unadopted
-    project's identical stamp is `.apache-magpie-local/reconciled.json`; a
+    project's identical stamp is its personal layer's `reconciled.json`; a
     project with neither has no stamp and the pre-flight check is silent.
     A skill named in both stores at once is an expected transitional
     state — `config` on one machine, `adopt` on another — reported by
@@ -481,8 +535,8 @@ committed version with drift detection.
     a finding naming a section that does not ship is an error rather
     than a rule-less instruction to act. Criteria 9, 10, 16, 17 and 18
     are enforced by its tests.
-26. The checker is **copied into the adopter's gitignored
-    `.apache-magpie-local/`** by `/magpie-setup config` and refreshed
+26. The checker is **copied into the personal layer**
+    (`<git-common-dir>/apache-magpie/` unless adopted) by `/magpie-setup config` and refreshed
     there by `/magpie-setup upgrade`, because Bash can neither read nor
     execute the plugin cache under the framework's own recommended
     sandbox. The copy's source is the package inside the installed
@@ -494,7 +548,7 @@ committed version with drift detection.
     absence is what marks a project as never configured.
 27. `tools/setup-preflight` also has a **machine** scope for the isolated
     (secure agent) setup, reported only where it is used here — an
-    `isolated_setup` block in `.apache-magpie-local/reconciled.json`
+    `isolated_setup` block in the personal layer's `reconciled.json`
     written by `setup-isolated-setup-install` / `-update`, or a project
     `.claude/settings*.json` that enables the sandbox — and silenced by
     `"isolated_setup": {"enabled": false}`. It proposes
@@ -502,8 +556,8 @@ committed version with drift detection.
     files an install copies (`tools/agent-isolation/`,
     `tools/agent-guard/src/`, `tools/container-gateway/src/`, the dogfooded
     `.claude/settings.json`; documentation excluded), and otherwise every
-    `isolated_setup_update_interval_days` (personal
-    `.apache-magpie-local/project.md` → `.apache-magpie-overrides/project.md`,
+    `isolated_setup_update_interval_days` (the personal layer's
+    `project.md` → `.apache-magpie-overrides/project.md`,
     default 7, `0` disables the timer but not the change report). The
     fingerprint is computed from the framework source when the checkout
     carries it and otherwise read from a constant generated into the
@@ -522,8 +576,8 @@ committed version with drift detection.
     `tools/skill-evals/evals/setup/step-unknown-subaction`).
 30. `adopt` writes the project's commit-attribution convention to
     `.apache-magpie-overrides/commit-attribution.toml`; `config` writes a
-    contributor's preference to
-    `.apache-magpie-local/commit-attribution.toml` only when the project
+    contributor's preference to the personal layer's
+    `commit-attribution.toml` only when the project
     leaves the choice open. Resolution is project first, then contributor,
     then `generated-by`, failing closed to `generated-by` (#1385).
 31. `setup config` scaffolds every template from

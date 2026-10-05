@@ -3446,16 +3446,17 @@ The reminder is a one- or two-line suggestion.
 It never runs the update by itself and never blocks the skill you asked for.
 
 **Changing the frequency.**
-Set `isolated_setup_update_interval_days` under `setup:` in `.apache-magpie-local/project.md` (personal) or `.apache-magpie-overrides/project.md` (project-wide); the personal file wins.
+Set `isolated_setup_update_interval_days` under `setup:` in `project.md` in your personal layer or `.apache-magpie-overrides/project.md` (project-wide); the personal file wins.
 The default is `7`.
 `0` turns the timer off but still reports changes that come with an upgrade.
-To turn both off on a machine that does not use the isolated setup, set `"isolated_setup": {"enabled": false}` in `.apache-magpie-local/reconciled.json`.
+To turn both off on a machine that does not use the isolated setup, set `"isolated_setup": {"enabled": false}` in `reconciled.json` in your personal layer.
+The personal layer is `<git-common-dir>/apache-magpie/` when Magpie is only installed, `.apache-magpie-local/` when the project has adopted it.
 
 **Running it now.**
 Invoke the skill directly at any time: `/magpie-setup:isolated-setup-update` on a marketplace install, `/magpie-setup-isolated-setup-update` on a pinned snapshot.
 The pre-flight state is recorded when the run finishes, so a manual run also resets the timer.
 
-On a marketplace install, the pre-flight checker in `.apache-magpie-local/` sees a new fingerprint once `/magpie-setup upgrade` has refreshed it.
+On a marketplace install, the pre-flight checker in your personal layer sees a new fingerprint once `/magpie-setup upgrade` has refreshed it.
 The upgrade prompt after each plugin update tells you to run that.
 
 ### Direct steps

@@ -42,8 +42,8 @@ how to word it, and the prohibitions. Those live in each skill's
 ## Prerequisites
 
 - **Runtime** — Python 3.11+. Standard library only, deliberately: the
-  module is copied into an adopter's gitignored `.apache-magpie-local/`
-  and run with bare `python3`, where nothing else is available.
+  module is copied into the user's personal configuration layer and run
+  with bare `python3`, where nothing else is available.
 - **CLIs** — none required. The harness CLI (`claude plugin list --json`)
   is consulted when present and its absence is a supported state, not an
   error.
@@ -59,23 +59,28 @@ the framework itself recommends, `~/.claude/plugins/cache/` is
 read-denied, so a script shipped in the plugin can be read by the agent's
 file tool but never *executed* by a shell — and a sandboxed marketplace
 install is exactly the environment the reconciliation check was written
-for. So `/magpie-setup config` copies this module into
-`.apache-magpie-local/`, beside the configuration it already writes, and
+for. So `/magpie-setup config` copies this module into the personal
+layer, beside the configuration it already writes, and
 `/magpie-setup upgrade` refreshes that copy against the framework version
-now installed. It is removed when that directory is — `uninstall`
-deliberately preserves `.apache-magpie-local/`, personal configuration
-included, so it does not delete the checker either.
+now installed. The personal layer is `<git-common-dir>/apache-magpie/`
+when the project has only installed Magpie, and the gitignored
+`.apache-magpie-local/` when it has adopted it (in a linked worktree with
+none of its own, the main checkout's); `layers.py` decides, and
+`python3 -m setup_preflight.layers` prints it. The checker is removed when
+that directory is — `uninstall` deliberately preserves personal
+configuration, so it does not delete the checker either.
 
 That has a consequence worth stating plainly: pre-flight may run `config`
 unattended, so an unattended run can place an executable in the
-checkout. It is framework code of the same provenance as the plugin the
-adopter installed, it is gitignored, and it goes away with the directory
+checkout's personal layer. It is framework code of the same provenance as
+the plugin the adopter installed, it is never committed (inside the git
+directory, or gitignored), and it goes away with the directory
 — but it is a step beyond writing configuration files.
 
 ## Invocation
 
 ```bash
-python3 .apache-magpie-local/setup_preflight/cli.py \
+python3 <personal-layer>/setup_preflight/cli.py \
     --skill magpie-pr-management-triage \
     --hash sha256:9f1c4e… \
     --requires pr-management-config.md
@@ -115,7 +120,7 @@ assuming the project is fine.
 
 **`project`** findings are true of the checkout and identical for every
 skill invoked in it — the lock, snapshot drift, the marketplace floor.
-They are memoised in `.apache-magpie-local/.preflight-cache.json`, keyed
+They are memoised in `<personal-layer>/.preflight-cache.json`, keyed
 on the lock files' identity and the plugin listing and expiring after 15
 minutes, so the second and later skills in a session pay only for their
 own fingerprint comparison.

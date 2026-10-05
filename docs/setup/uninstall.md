@@ -12,6 +12,7 @@
   - [Verifying the removal](#verifying-the-removal)
   - [What remains after uninstall — and how to remove it](#what-remains-after-uninstall--and-how-to-remove-it)
     - [`.apache-magpie-overrides/`](#apache-magpie-overrides)
+    - [Your personal configuration](#your-personal-configuration)
     - [Symlinks pointing outside the snapshot](#symlinks-pointing-outside-the-snapshot)
     - [`post-checkout` hook with extra logic](#post-checkout-hook-with-extra-logic)
     - [Overlapping `.gitignore` entries](#overlapping-gitignore-entries)
@@ -179,6 +180,35 @@ git rm -r .apache-magpie-overrides/
 
 Or use `/magpie-setup uninstall --purge-overrides` to do
 this in one step.
+
+### Your personal configuration
+
+What `/magpie-setup config` wrote for you is preserved too:
+it is yours, and a later reinstall picks it up.
+Where it lives depends on whether the project adopted Magpie.
+
+**Installed only** (no committed `.apache-magpie.lock`) — it is
+inside the repository's git directory, shared by every worktree of
+the clone, and holds the container-gateway socket directories under
+`run/`.
+Stop the gateway first if you run it, then remove it from any
+worktree of the clone with:
+
+```bash
+rm -rf "$(git rev-parse --git-common-dir)/apache-magpie"
+```
+
+Nothing in the working tree changes, and there is no ignore entry
+to clean up.
+An older install may also have left an in-tree
+`.apache-magpie-local/` with a `/.apache-magpie-local/` line in
+`.git/info/exclude`; remove both by hand if present.
+
+**Adopted** — it is the gitignored `.apache-magpie-local/` at the
+repo root.
+Remove it with `rm -rf .apache-magpie-local/` in each checkout
+that has one; linked worktrees without their own share the main
+checkout's.
 
 ### Symlinks pointing outside the snapshot
 

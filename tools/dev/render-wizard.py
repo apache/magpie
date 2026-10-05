@@ -156,8 +156,8 @@ def script(family: str, required: list[str], desc: dict[str, str]) -> list[tuple
             out.append((FG, f"      {name}"))
             out.append((MUTED, f"          {_clip(desc.get(name, 'project-specific values'))}"))
     out.append((FG, ""))
-    out.append((OK, "  Written to .apache-magpie-local/  — nothing staged, nothing"))
-    out.append((OK, "  committed, no teammate affected."))
+    out.append((OK, "  Written to .git/apache-magpie/  — nothing in the working"))
+    out.append((OK, "  tree, nothing staged, no teammate affected."))
     out.append((FG, ""))
     out.append((MUTED, "  The project can also adopt Magpie, so contributors get this"))
     out.append((MUTED, "  on clone: /magpie-setup adopt"))
@@ -396,7 +396,7 @@ def step_privacy_script() -> list[tuple[str, str]]:
         (FG, "    private lists    private@acme.apache.org"),
         (FG, ""),
         (FG, "  That is variant 2 - local inference. Written to"),
-        (FG, "  .apache-magpie-local/privacy-llm.md  (gitignored, yours)"),
+        (FG, "  .git/apache-magpie/privacy-llm.md  (personal, never committed)"),
         (FG, ""),
         (OK, "  ✓ PII redactor    Other Researcher -> N-a3f9d2"),
         (OK, "                    other@example.com -> E-7c1b04"),
@@ -507,7 +507,7 @@ def setup_script() -> list[tuple[str, str]]:
         (OK, "  ✓ status line    shows the sandbox state and the Magpie version"),
         (FG, ""),
         (MUTED, "  Run a skill when you are ready. The first one that needs project"),
-        (MUTED, "  configuration writes it itself, into gitignored files."),
+        (MUTED, "  configuration writes it itself, into your personal layer."),
     ]
 
 
@@ -592,7 +592,7 @@ def build() -> dict[Path, str]:
         out[OUT_DIR / f"{family}.svg"] = render(
             f"/magpie-setup config — {family}",
             f"An animated /magpie-setup config run for the {family} family: the check failing, "
-            f"values derived from the repository, one question, and gitignored files written",
+            f"values derived from the repository, one question, and personal files written",
             f"Illustrative animation of a configuration run for the {family} family. Derived "
             f"from the skills' declared required configuration.",
             script(family, required, desc),

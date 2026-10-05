@@ -125,7 +125,7 @@ Someone else's claim about them is a `name-match` lead.
 
 ## Identity-file format
 
-The file is `<project-config>/contributor-identities.md`.
+The file is `<project-config>/contributor-identities.md`, kept in the personal layer and never committed to `.apache-magpie-overrides/`.
 Its YAML block holds the `identity_mapping` configuration and the
 `identities` list.
 Entries are keyed by GitHub login; the skill never removes one on its

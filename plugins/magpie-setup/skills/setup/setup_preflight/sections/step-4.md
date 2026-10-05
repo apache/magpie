@@ -43,7 +43,10 @@ Recorded on display, never on a decline this step does not wait for —
 that is what stops the same proposal reappearing on every later
 invocation, and it is what the checker reads to suppress it.
 
-**Every write merges into `.apache-magpie-local/reconciled.json`; it
+**Every write merges into the personal layer's `reconciled.json`
+(the `personal_dir` that `python3 -m setup_preflight.layers` prints); it
 never replaces the file.** Read it, set the one key, write the whole
 object back with every other key intact — and create the file, and
-`.apache-magpie-local/` itself, when either is absent.
+the personal layer itself, when either is absent — but only in the place
+that command names, never an in-tree `.apache-magpie-local/` in a project
+that has not adopted Magpie.

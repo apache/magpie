@@ -88,12 +88,15 @@ adopted or merely configured; they are not specific to this branch.
    double-install trap in
    [`SKILL.md` Golden rule 10](SKILL.md#golden-rules); name it.
 5. **Override surfaces (informational).** A plugin-installed
-   skill still reads `.apache-magpie-overrides/<skill>.md` and
-   `.apache-magpie-local/<skill>.md` from this repo at run time.
-   Report whether either directory exists, and whether
-   `.apache-magpie-local/` is gitignored — the one line that
-   makes personal overrides safe in a repo that has adopted
-   nothing.
+   skill still reads `<skill>.md` from the personal layer and
+   from `.apache-magpie-overrides/` at run time.
+   Report where the personal layer is (`personal_dir` from
+   `python3 -m setup_preflight.layers`:
+   `<git-common-dir>/apache-magpie/` in a repo that has adopted
+   nothing, which needs no ignore entry), whether it and the
+   overrides exist, and flag a legacy in-tree
+   `.apache-magpie-local/` in an unadopted repo — the pre-flight's
+   `legacy-local-dir` finding proposes moving it.
 6. **Secure-agent setup.** Report whether it is installed
    (`setup-isolated-setup-verify` is the full check) — a
    marketplace install delivers skills only, and never sandboxes
@@ -313,7 +316,21 @@ re-run with the family added to the pick.
 
 ### 5d. Local configuration, and what it shadows
 
-Read `.apache-magpie-local/`. For each file in it, report:
+First say where the personal layer is — the `personal_dir` and
+`personal_layers` that `python3 -m setup_preflight.layers` prints:
+
+- **adopted** → `.apache-magpie-local/`, which must be gitignored (✗
+  if `/.apache-magpie-local/` is missing from `.gitignore`); in a
+  linked worktree with none of its own, the main checkout's, read
+  file by file after the worktree's (say so — it is shared with
+  every such worktree);
+- **not adopted** → `<git-common-dir>/apache-magpie/`, inside the git
+  directory, needing no ignore entry. A `.apache-magpie-local/` still
+  in the working tree is a ⚠ legacy layout: it is read after the
+  personal layer, and the pre-flight's `legacy-local-dir` finding
+  proposes the move.
+
+Then read every personal layer. For each file in it, report:
 
 - **fills a gap** — the project commits no file of that name. This is
   the ordinary case for an unadopted repo and for anything the project
@@ -874,7 +891,7 @@ A static pass does not replace live verification in Gemini.
 
 ### 8i. Adversarial reviewers (if configured)
 
-When `adversarial-review.md` resolves (`.apache-magpie-local/` first, then
+When `adversarial-review.md` resolves (the personal layer first, then
 `.apache-magpie-overrides/`), run the tool's `detect` in its one-line form —
 `uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/<version>/tools/adversarial-review adversarial-review detect`,
 unquoted with a literal `~`, `<version>` the newest installed — and compare
@@ -908,7 +925,7 @@ When no `adversarial-review.md` resolves, this check is skipped.
 Runs the identical two checks
 [`reconcile.md` → The sweep](reconcile.md#the-sweep) performs — anchor
 resolution and `requires_config` resolution, over the identical scope
-(every skill named by a file under `.apache-magpie-local/` or
+(every skill named by a file under the personal layer or
 `.apache-magpie-overrides/`) — and reports the findings in the same
 shape. This is the same contract reused read-only, not a
 re-implementation: no baseline needed, the same two checks, the same
@@ -1004,9 +1021,10 @@ Every run of this sub-action that reaches the report — clean or with
 findings, on any of the three branches above (including
 [Local self-adoption checks](#local-self-adoption-checks), which
 skips checks 11 and 12 but still completes a run) — writes today's
-date as `verified_at` into `.apache-magpie-local/reconciled.json`,
-creating the file (and the directory, if absent) when neither exists
-yet. This is the always-local key the shared pre-flight block's
+date as `verified_at` into the personal layer's `reconciled.json`
+(the `personal_dir` above), creating the file (and the directory, if
+absent) when neither exists yet — never an in-tree
+`.apache-magpie-local/` in a repo that has not adopted Magpie. This is the always-local key the shared pre-flight block's
 end-of-run clock reads (step 10 of
 [`tools/dev/preflight-block.md`](../../../../tools/dev/preflight-block.md))
 to decide whether to suggest `verify` again; per

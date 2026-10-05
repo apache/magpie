@@ -8,6 +8,7 @@
 - [Contributor-growth skill family](#contributor-growth-skill-family)
   - [Install & first runs](#install--first-runs)
     - [Before the first run](#before-the-first-run)
+    - [Why the configuration is personal](#why-the-configuration-is-personal)
     - [Try these first](#try-these-first)
   - [Stage coverage](#stage-coverage)
   - [Skills](#skills)
@@ -65,24 +66,25 @@ happening — plus the other agents and the secure-isolation setup to run next.
 
 <!-- BEGIN generated: skill-config (tools/dev/check-skill-config.py --fix) -->
 
-![An animated `/magpie-setup config` run for the contributor-growth family: the check failing, the values derived from the repository, one question for the rest, and gitignored files written](../../assets/quickstart/wizard/contributor-growth.svg)
+![An animated `/magpie-setup config` run for the contributor-growth family: the check failing, the values derived from the repository, one question for the rest, and personal files written](../../assets/quickstart/wizard/contributor-growth.svg)
 
 *Illustrative — the real run derives more and asks better. What is true is
-the shape: it runs itself, it writes only gitignored files, and it stages
-nothing.*
+the shape: it runs itself, it writes only your personal layer, and it
+stages nothing.*
 
 Every skill here resolves project-specific values from the adopter's
 [`<project-config>/`](../../plugins/magpie-setup/templates/) directory — which is
-`.apache-magpie-local/` (gitignored, yours) first, then
-`.apache-magpie-overrides/` (committed, the project's).
+your personal layer first — `.apache-magpie-local/` (gitignored) in a
+project that adopted Magpie, `<git-common-dir>/apache-magpie/` in one
+that did not — then `.apache-magpie-overrides/` (committed, the project's).
 
 **For yourself:** `/magpie-setup config` scaffolds and fills these locally.
 Nothing is staged, nothing is committed, and it works on a repository that
 has never adopted Magpie.
 
-**For the project:** [`/magpie-setup adopt`](../setup/team-adoption.md)
-commits them for every contributor, either scaffolded directly or promoted
-from what you configured locally.
+**This configuration stays personal.** `/magpie-setup adopt` never
+promotes or scaffolds it into `.apache-magpie-overrides/`: committed
+thresholds would tell every contributor how to game them.
 
 **Required.** Without these a skill would act on a guess, so it stops and
 says which file is missing.
@@ -105,6 +107,24 @@ says which file is missing.
 | [`pmc-roster.md`](../../plugins/magpie-setup/templates/pmc-roster.md) | Who is binding. Read wherever a vote is counted or a PMC-only action is gated. | `candidate-screen`, `nomination` |
 
 <!-- END generated: skill-config -->
+
+### Why the configuration is personal
+
+This family is **personal-recommended and not adoptable by default.**
+Install it for yourself — user scope, or install-only in this repository — on the machine of each maintainer who runs these skills.
+`/magpie-setup adopt` leaves it out of the committed floor unless a maintainer explicitly insists and accepts the risk below, and records that acceptance in `.apache-magpie.lock`.
+
+The reason is gaming.
+Committer thresholds, nomination criteria, calibration floors, sentiment caps and the identity map are the project's private judgement about people.
+Committed to the repository, they become a public checklist:
+a contributor can point at a threshold and demand a nomination, and every later edit to it becomes a negotiation rather than a decision.
+
+So the five files this family adds — `committer-onboarding-config.md`, `committer-readiness.md`, `contributor-identities.md`, `contributor-nomination-config.md` and `contributor-sentiment-config.md` — always live in your personal layer, even in a project that has adopted Magpie and even when the family itself is in the floor:
+`<git-common-dir>/apache-magpie/` when Magpie is only installed, `.apache-magpie-local/` when the project has adopted it.
+Never commit them to `.apache-magpie-overrides/`;
+`adopt` does not promote or scaffold them there, and the skill validator warns when it finds one.
+`contributor-calibrate` writes its floors to the personal layer and never offers the committed one.
+Maintainers who want the same numbers share them the way they share the deliberation itself, on the private list.
 
 ### Try these first
 

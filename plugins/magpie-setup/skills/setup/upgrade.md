@@ -304,7 +304,7 @@ catches it before the overwrite would erase their work.
 
 **This reconciles overrides, not configuration.** It checks only the
 skills `.apache-magpie-overrides/` names — nothing about a skill this
-project has configured (via `.apache-magpie-local/`) but never
+project has configured (via the personal layer) but never
 overridden. [`reconcile.md`](reconcile.md) is the full, project-wide
 pass; this is the narrower slice that rides along with a snapshot
 refresh.
@@ -332,7 +332,7 @@ For each file in `<repo-root>/.apache-magpie-overrides/`:
      structure.
 3. **`requires_config` check** — resolve every one of the target
    skill's `requires_config:` entries through the lookup chain
-   (`.apache-magpie-local/<file>` then `.apache-magpie-overrides/<file>`).
+   (the personal layer's `<file>`, then `.apache-magpie-overrides/<file>`).
    An entry that resolves through neither is a finding — the same
    [`reconcile.md`](reconcile.md#the-sweep) check 3 surfaces — propose
    `/magpie-setup config <skill>` for it. Unlike check 2, this needs
@@ -360,7 +360,7 @@ by that skill's frontmatter `name:` (e.g.
 in whichever store [`reconcile.md`'s Step
 0.2](reconcile.md#step-0--pre-flight) would pick for this project — the
 committed lock's `reconciled.skills` map when adopted,
-`.apache-magpie-local/reconciled.json` otherwise. `git add` the lock
+the personal layer's `reconciled.json` otherwise. `git add` the lock
 alongside this upgrade's other committed-file changes when the target is
 the lock; never commit.
 
@@ -370,7 +370,10 @@ it, and the next `setup verify` or `reconcile` run will still name it.
 
 ### Refresh the pre-flight checker
 
-`.apache-magpie-local/setup_preflight/` is a **copy** of the framework's
+The `setup_preflight/` directory in the personal layer (the
+`personal_dir` that `python3 -m setup_preflight.layers` prints —
+`<git-common-dir>/apache-magpie/` when the project has not adopted
+Magpie) is a **copy** of the framework's
 `tools/setup-preflight` package, taken when
 [`config`](config.md#step-2a--install-the-pre-flight-checker) last ran.
 An upgrade moves the framework underneath it, so replace that copy with
@@ -395,7 +398,8 @@ introduces and this step closes. Verify the refreshed copy answers before
 reporting the upgrade complete:
 
 ```bash
-PYTHONPATH=.apache-magpie-local python3 -m setup_preflight --skill magpie-setup
+PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir)/../.apache-magpie-local:$(git rev-parse --git-common-dir)/apache-magpie" \
+  python3 -m setup_preflight --skill magpie-setup
 ```
 
 Skip this write entirely when `.apache-magpie-overrides/` is empty or
@@ -943,7 +947,7 @@ Overrides:
      file and update against the new framework structure)
 
 Reconciliation stamp:
-  written to <.apache-magpie.lock | .apache-magpie-local/reconciled.json>
+  written to <.apache-magpie.lock | <personal layer>/reconciled.json>
   skills:  <N> entries confirmed by this walk   (<K> left out — conflicts above)
   - <none written>   (when Overrides above had nothing to confirm)
 

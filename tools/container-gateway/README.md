@@ -57,6 +57,7 @@ Each worktree therefore runs its own gateway with its own sockets.
 `serve` refuses, before creating anything, a socket path longer than the 103 bytes a macOS unix socket allows; pass a shorter `--run-dir` then.
 Outside a git repository, a project that has not adopted Magpie has no default: pass `--run-dir`.
 Neither the run directory nor the personal layer is ever accepted as a bind-mount source.
+In a linked worktree of an adopted project both its own `.apache-magpie-local/` and the main checkout's (which it falls back to for configuration) are excluded; the run directory stays the worktree's own.
 Configuration is CLI flags with environment-variable equivalents and no config file: `--project`, `--run-dir`, `--backend podman|docker|auto` (repeatable), `--egress inject-if-available|require|off`, `--egress-port`, `--extra-bind-root` (repeatable), `--idle-timeout`, `--log-level`, `--pid-file`.
 A second start for the same project is a no-op when the pid file names a live process.
 It exits on `SessionEnd`, on `SIGTERM`, or after an idle timeout (default 4h) as a backstop for sessions that end without the hook firing.
@@ -156,6 +157,11 @@ Known and accepted, in the order you are likely to meet them:
 - **The run directory's trust anchor is `--project` (resolved), or a custom `--run-dir`'s own parent (resolved).**
   A symlink in the ancestor chain above that anchor is the host's own layout — `/tmp` and `/var` are symlinks on macOS, a home directory can sit on a linked volume — and is followed, not refused.
   Below the anchor, every component the gateway itself creates is checked with `lstat`: a symlink, a foreign owner or a group- or world-writable mode there is refused, and the pid file and the daemon log are opened `O_NOFOLLOW` regardless.
+- **In a linked worktree of a project that has not adopted Magpie, the run directory's anchor is located from the worktree's `.git` file.**
+  The gateway verifies that the git common directory it names is owned by the user and not group- or world-writable, holds `HEAD` and `objects/`, and that its `worktrees/<name>/gitdir` links back to this worktree.
+  An agent able to write files can still forge a complete layout of that shape inside directories it can already write, and the check cannot tell it from a real worktree.
+  The consequences are bounded: sockets only land where the agent could already create files, they are reachable only if that exact path is allowlisted in settings the agent cannot edit, and container binds stay limited to the worktree's own bind roots.
+  To remove the residual risk, pass `--run-dir` explicitly, or adopt Magpie, which puts the run directory in the worktree itself (`.apache-magpie-local/run/`).
 - **A bind source is checked on the host at decision time and re-resolved by the daemon at mount time.**
   A symlink swapped between those two moments is not caught — the check and the mount are two separate resolutions of the same path, and the gateway holds no lock on the filesystem in between.
 - **Images are shared across projects by design.**

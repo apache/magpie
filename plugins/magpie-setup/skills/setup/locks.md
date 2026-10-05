@@ -165,7 +165,7 @@ reconciled:
 **Written only by `setup`**: `adopt`, `reconcile` and `upgrade` write
 the committed block, and
 [`config`](config.md#step-3b--record-what-this-run-reconciled) writes
-only `.apache-magpie-local/reconciled.json`, never the lock. Never
+only the personal layer's `reconciled.json`, never the lock. Never
 hand-edited: a hand-written `sha256:` value is indistinguishable from a
 real one right up until the comparison it is supposed to gate silently
 agrees with a hash nobody actually computed.
@@ -190,16 +190,18 @@ beside whatever that method already records: the lock already states
 what the project expects, and this states what state its configuration
 is in. A project that has run `setup config` but never `setup adopt`
 has no committed lock to hold it, so the identical `version`/`at`/
-`skills` shape lives in `.apache-magpie-local/reconciled.json`
+`skills` shape lives in the personal layer's `reconciled.json`
+(`<git-common-dir>/apache-magpie/reconciled.json`, or a legacy in-tree
+`.apache-magpie-local/reconciled.json`)
 instead, next to the personal configuration it describes. **`skills`
 therefore lives in exactly one place, never both.** **Neither
 configured nor adopted — no `.apache-magpie.lock`, no
-`.apache-magpie-local/`, no `.apache-magpie-overrides/` — → no block
+personal layer, no `.apache-magpie-overrides/` — → no block
 anywhere**, because there is no configuration to have gone stale. A
 skill's own pre-flight treats that absence as nothing-to-reconcile,
 silently, not as a sweep to propose.
 
-**`.apache-magpie-local/reconciled.json` is a plain JSON object, never
+**The personal layer's `reconciled.json` is a plain JSON object, never
 wrapped in a `reconciled:` key** — the filename already says what it
 is. A **configured-but-unadopted** project, which has nowhere else to
 keep `version`/`at`/`skills`, carries the full shape:

@@ -17,7 +17,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:3f90b1ffdaa6e9ea
 license: Apache-2.0
-measured_tokens: 5539
+measured_tokens: 5630
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -63,7 +63,9 @@ document.
 <!-- BEGIN MAGPIE BLOCK: adopter-overrides — generated from tools/dev/blocks/adopter-overrides.md -->
 
 Before running its default behaviour, this skill consults
-[`.apache-magpie-local/setup-isolated-setup-install.md`](../../../../docs/setup/agentic-overrides.md) (personal, gitignored; applied first, wins on conflict) and
+`setup-isolated-setup-install.md` in the personal layer
+(`.apache-magpie-local/` when the project adopted Magpie, falling back to the main checkout's in a linked worktree,
+or `<git-common-dir>/apache-magpie/` when Magpie is only installed; applied first, wins on conflict) and
 [`.apache-magpie-overrides/setup-isolated-setup-install.md`](../../../../docs/setup/agentic-overrides.md) (committed, project-wide)
 in the adopter repo, if present, and applies any agent-readable overrides it finds.
 See [`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md) for the contract.
@@ -426,12 +428,14 @@ Suggest two follow-up routines the user can wire later:
 used on this machine and what it was installed against:
 
 ```bash
-PYTHONPATH=.apache-magpie-local python3 -m setup_preflight.isolated record-update
+PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir)/../.apache-magpie-local:$(git rev-parse --git-common-dir)/apache-magpie" \
+  python3 -m setup_preflight.isolated record-update
 ```
 
-It writes the `isolated_setup` block of the gitignored
-`.apache-magpie-local/reconciled.json` and nothing else. Skip it when
-`.apache-magpie-local/setup_preflight/` does not exist — say that
+It writes the `isolated_setup` block of the personal layer's
+`reconciled.json` (`<git-common-dir>/apache-magpie/` when the project has
+not adopted Magpie, `.apache-magpie-local/` when it has) and nothing
+else. Skip it when the command cannot find `setup_preflight` — say that
 `/magpie-setup config` installs the checker, and that the reminders start
 once it is there.
 

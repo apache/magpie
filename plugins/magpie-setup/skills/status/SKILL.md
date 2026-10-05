@@ -19,7 +19,7 @@ capability:
   - capability:platform
 surface_hash: sha256:85dfb8b48739fc11
 license: Apache-2.0
-measured_tokens: 2372
+measured_tokens: 2404
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -57,7 +57,9 @@ it rather than duplicating its checks.
 <!-- BEGIN MAGPIE BLOCK: adopter-overrides — generated from tools/dev/blocks/adopter-overrides.md -->
 
 Before running its default behaviour, this skill consults
-[`.apache-magpie-local/setup-status.md`](../../../../docs/setup/agentic-overrides.md) (personal, gitignored; applied first, wins on conflict) and
+`setup-status.md` in the personal layer
+(`.apache-magpie-local/` when the project adopted Magpie, falling back to the main checkout's in a linked worktree,
+or `<git-common-dir>/apache-magpie/` when Magpie is only installed; applied first, wins on conflict) and
 [`.apache-magpie-overrides/setup-status.md`](../../../../docs/setup/agentic-overrides.md) (committed, project-wide)
 in the adopter repo, if present, and applies any agent-readable overrides it finds.
 See [`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md) for the contract.

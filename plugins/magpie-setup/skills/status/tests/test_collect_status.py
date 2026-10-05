@@ -139,5 +139,74 @@ class PersonalLayerStatus(unittest.TestCase):
         self.assertIsNone(status["path"])
 
 
+LOCAL = ".apache-magpie-local"
+
+
+class MainWorktreeVectors(unittest.TestCase):
+    """The main-checkout vectors shared with `tools/setup-preflight/tests/test_layers.py`."""
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def linked_worktree(self, adopt: bool = True) -> tuple[Path, Path]:
+        main = self.tmp / "main"
+        wt_gitdir = main / ".git" / "worktrees" / "wt"
+        wt_gitdir.mkdir(parents=True)
+        (wt_gitdir / "commondir").write_text("../..\n")
+        wt = self.tmp / "wt"
+        wt.mkdir()
+        (wt / ".git").write_text(f"gitdir: {wt_gitdir}\n")
+        if adopt:
+            for root in (main, wt):
+                (root / ".apache-magpie.lock").write_text("method: local\n")
+        return main, wt
+
+    def test_vector_main_worktree_of_a_linked_worktree(self) -> None:
+        main, wt = self.linked_worktree()
+        self.assertEqual(cs.main_worktree(wt), main)
+        self.assertIsNone(cs.main_worktree(main))
+
+    def test_vector_main_worktree_of_a_bare_repository_is_none(self) -> None:
+        common = self.tmp / "repo.git"
+        wt_gitdir = common / "worktrees" / "wt"
+        wt_gitdir.mkdir(parents=True)
+        (wt_gitdir / "commondir").write_text("../..\n")
+        wt = self.tmp / "wt"
+        wt.mkdir()
+        (wt / ".git").write_text(f"gitdir: {wt_gitdir}\n")
+        self.assertIsNone(cs.main_worktree(wt))
+
+    def test_vector_main_worktree_of_a_submodule_is_none(self) -> None:
+        (self.tmp / "super" / ".git" / "modules" / "sub").mkdir(parents=True)
+        sub = self.tmp / "super" / "sub"
+        sub.mkdir()
+        (sub / ".git").write_text("gitdir: ../.git/modules/sub\n")
+        self.assertIsNone(cs.main_worktree(sub))
+        self.assertIsNone(cs.main_worktree(self.tmp))
+
+    def test_vector_adopted_worktree_falls_back_to_the_main_checkout(self) -> None:
+        main, wt = self.linked_worktree()
+        self.assertEqual(cs.personal_dir(wt), wt / LOCAL)
+        (main / LOCAL).mkdir()
+        self.assertEqual(cs.personal_layers(wt), [wt / LOCAL, main / LOCAL])
+        self.assertEqual(cs.personal_dir(wt), main / LOCAL)
+        status = cs.personal_layer_status(wt)
+        self.assertEqual(status["location"], "main-checkout")
+        self.assertEqual(status["path"], str(main / LOCAL))
+        (wt / LOCAL).mkdir()
+        self.assertEqual(cs.personal_dir(wt), wt / LOCAL)
+        self.assertEqual(cs.personal_layer_status(wt)["location"], "in-tree")
+
+    def test_vector_an_unadopted_worktree_is_unchanged(self) -> None:
+        main, wt = self.linked_worktree(adopt=False)
+        (main / LOCAL).mkdir()
+        self.assertEqual(cs.personal_layers(wt), [main / ".git" / "apache-magpie"])
+        self.assertEqual(cs.personal_dir(wt), main / ".git" / "apache-magpie")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -89,7 +89,11 @@ skills/:
     override`` header comment and does not contain heuristic patterns that
     attempt to weaken the framework's safety / confidentiality / privacy /
     external-content-as-data baseline.  Advisory only — prose explanations
-    of what NOT to do can false-positive here.
+    of what NOT to do can false-positive here.  A contributor-growth
+    configuration file found there (``PERSONAL_ONLY_CONFIG_FILES``) is
+    flagged instead: committed thresholds and nomination criteria become a
+    public checklist contributors can point at, so those files belong in the
+    personal layer only.
 15. Project-template drift (SOFT) — compares ``projects/_template/``
     with ``projects/non-asf-example/`` for structural drift: files
     referenced in the example README must exist on disk, every config
@@ -572,6 +576,20 @@ MODES_DOC_CATEGORY = "modes-doc-consistency"
 # SOFT advisory: override files in .apache-magpie-overrides/ must not weaken the
 # framework's safety / confidentiality / privacy / data-not-instructions baseline.
 OVERRIDE_CONTRACT_CATEGORY = "override-contract"
+# Contributor-growth configuration is personal by design: committed to
+# .apache-magpie-overrides/, thresholds, nomination criteria, calibration
+# floors, sentiment caps and the identity map become a public checklist
+# contributors can point at to demand promotion.  Found there, each is an
+# override-contract advisory (SOFT), never a failure.
+PERSONAL_ONLY_CONFIG_FILES: frozenset[str] = frozenset(
+    {
+        "committer-onboarding-config.md",
+        "committer-readiness.md",
+        "contributor-identities.md",
+        "contributor-nomination-config.md",
+        "contributor-sentiment-config.md",
+    }
+)
 # SOFT advisory: structural drift between projects/_template/ and
 # projects/non-asf-example/ — missing files, undocumented files, or h2 mismatches.
 TEMPLATE_DRIFT_CATEGORY = "template-drift"
@@ -3122,6 +3140,10 @@ def validate_override_contract(root: Path | None = None) -> Iterable[Violation]:
     - the canonical header comment is present, and
     - the text does not attempt to weaken the framework baseline.
 
+    A contributor-growth configuration file (``PERSONAL_ONLY_CONFIG_FILES``)
+    is reported as personal configuration that should not be committed, and
+    is not checked as an override.
+
     All violations are SOFT advisories.
     """
     repo_root = root or find_repo_root()
@@ -3132,6 +3154,18 @@ def validate_override_contract(root: Path | None = None) -> Iterable[Violation]:
     for override_file in sorted(overrides_dir.glob("*.md")):
         if override_file.name == "README.md":
             continue  # scaffold README is informational, not an override
+        if override_file.name in PERSONAL_ONLY_CONFIG_FILES:
+            yield Violation(
+                override_file,
+                None,
+                "override-contract [personal-config]: contributor-growth configuration "
+                "is committed to .apache-magpie-overrides/ — committed thresholds and "
+                "nomination criteria become a public checklist contributors can point at "
+                "to demand promotion; keep this file in the personal layer instead "
+                "(see docs/contributor-growth/README.md#why-the-configuration-is-personal)",
+                category=OVERRIDE_CONTRACT_CATEGORY,
+            )
+            continue  # a config file, not a skill override — skip the override checks
         try:
             text = override_file.read_text(encoding="utf-8")
         except OSError as exc:

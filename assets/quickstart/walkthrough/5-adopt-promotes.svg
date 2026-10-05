@@ -23,12 +23,12 @@
   Edit the transcript and re-render; check-quickstart-recording.py fails
   the build when this file no longer matches its source.
 -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 823 612"
-     width="823" height="612" role="img"
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 823 638"
+     width="823" height="638" role="img"
      data-magpie-rendered="render-screenshot"
      aria-label="Terminal transcript: 5-adopt-promotes">
   <title>5-adopt-promotes</title>
-  <rect width="823" height="612" rx="10" fill="#1d1f21"/>
+  <rect width="823" height="638" rx="10" fill="#1d1f21"/>
   <rect x="0" y="0" width="823" height="34" rx="10" fill="#2b2e31"/>
   <rect x="0" y="24" width="823" height="10" fill="#2b2e31"/>
   <circle cx="22" cy="17" r="6" fill="#3f4448"/>
@@ -49,6 +49,7 @@
     <text x="28" y="448" fill="#c5c8c6">    .gitignore                       /.apache-magpie-local/</text>
     <text x="28" y="500" fill="#c5c8c6">  Local copies now identical to the project's: removed, so the project</text>
     <text x="28" y="526" fill="#c5c8c6">  can correct them later and you will get the correction.</text>
-    <text x="28" y="578" fill="#c5c8c6">  Nothing else in .apache-magpie-local/ changed. It is still yours.</text>
+    <text x="28" y="578" fill="#c5c8c6">  The rest moved from .git/apache-magpie/ into .apache-magpie-local/,</text>
+    <text x="28" y="604" fill="#c5c8c6">  now your personal layer. Nothing in it changed. It is still yours.</text>
   </g>
 </svg>

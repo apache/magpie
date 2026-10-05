@@ -25,6 +25,7 @@ import dashboard
 
 
 def test_session_state_roundtrip(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
     state = tmp_path / dashboard.SESSION_STATE_FILE
     monkeypatch.setattr(dashboard, "_session_state_path", lambda: state)
 
@@ -38,6 +39,40 @@ def test_session_state_roundtrip(tmp_path, monkeypatch):
     data = json.loads(state.read_text())
     assert data["other"] == 1
     assert data["stats_gist_id"] == "newid000000000000000"
+
+
+
+def test_session_state_lives_in_the_git_dir_when_not_adopted(tmp_path, monkeypatch):
+    import subprocess
+
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    monkeypatch.chdir(tmp_path)
+    root = tmp_path.resolve()
+    assert dashboard._session_state_path() == root / ".git" / "apache-magpie" / "session-state.json"
+    dashboard.store_stats_gist_id("abc")
+    assert (root / ".git" / "apache-magpie" / "session-state.json").is_file()
+    assert sorted(p.name for p in root.iterdir()) == [".git"]
+
+
+def test_session_state_lives_in_tree_when_adopted(tmp_path, monkeypatch):
+    import subprocess
+
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    (tmp_path / ".apache-magpie.lock").write_text("method: local\n")
+    monkeypatch.chdir(tmp_path)
+    root = tmp_path.resolve()
+    assert dashboard._session_state_path() == root / ".apache-magpie-local" / "session-state.json"
+
+
+def test_a_legacy_repo_root_session_state_is_still_read(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".git").mkdir()
+    (tmp_path / dashboard.LEGACY_SESSION_STATE_FILE).write_text(json.dumps({"stats_gist_id": "old"}))
+    state = tmp_path / "home" / dashboard.SESSION_STATE_FILE
+    monkeypatch.setattr(dashboard, "_session_state_path", lambda: state)
+    assert dashboard.read_stats_gist_id() == "old"
+    dashboard.store_stats_gist_id("new")
+    assert json.loads(state.read_text())["stats_gist_id"] == "new"
 
 
 def test_gist_scope_available_detects_scope(monkeypatch):

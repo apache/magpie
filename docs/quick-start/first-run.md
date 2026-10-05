@@ -51,8 +51,8 @@ it again.
 
 You did not have to run anything: the skill invokes
 [`/magpie-setup config`](../../skills/setup/config.md) itself and says so.
-That is safe to do unasked because of what `config` touches — gitignored files
-in your clone and nothing else. It stages nothing, commits nothing, and
+That is safe to do unasked because of what `config` touches — files
+in your clone's git directory and nothing else. It stages nothing, commits nothing, and
 changes nothing any teammate can see.
 
 What it will **not** do is proceed on a guess. It did not label anything, post
@@ -75,25 +75,28 @@ them; a `TODO` left in place is not an error.
 
 ## 3. It writes, and nothing is committable
 
-![The config result: three files written to the gitignored local directory, the exclusion added to .git/info/exclude rather than .gitignore, and a note that a TODO left in place is not an error](../../assets/quickstart/walkthrough/3-scaffolded.svg)
+![The config result: three files written to the personal directory inside the clone's git directory, nothing added to .gitignore, and a note that a TODO left in place is not an error](../../assets/quickstart/walkthrough/3-scaffolded.svg)
 
-Everything lands in **`.apache-magpie-local/`**, which is yours:
+Everything lands in your **personal layer**, which is yours.
+On a repo that has not adopted Magpie that is
+**`<git-common-dir>/apache-magpie/`** (`.git/apache-magpie/` in an ordinary
+clone); on one that has, it is the gitignored `.apache-magpie-local/`.
 
-| | `.apache-magpie-local/` | `.apache-magpie-overrides/` |
+| | Personal layer | `.apache-magpie-overrides/` |
 |---|---|---|
 | Written by | `config` | `adopt` |
 | Committed | never | yes |
-| Who sees it | you, in this clone | everyone who clones the repo |
+| Who sees it | you, in this clone and its worktrees | everyone who clones the repo |
 | Needs permission | no | a maintainer decision |
 
 **Local wins, per file.** A skill takes your copy of `project.md` if you have
 one and the project's otherwise, deciding file by file — so you can hold one
 value of your own and take every other from the project.
 
-Note what it did about `.gitignore`: nothing. `.gitignore` is a committed
-file, and a sub-action promising to write nothing anyone else sees must not
-open by editing one. The exclusion goes in `.git/info/exclude`, which is
-per-clone and never committed.
+Note what it did about `.gitignore`: nothing, and it needed nothing.
+The git directory is never tracked, so a personal layer inside it needs no
+ignore entry anywhere, and the working tree is left exactly as it was.
+The flip side: it goes with the clone, so a fresh clone starts unconfigured.
 
 A `TODO` left in place is not an error. The skill that needs a value names it
 when it needs it; the skills that do not never look.
@@ -203,9 +206,10 @@ registered, and any companion packages. No repository records them, and a
 teammate cloning this repo gets none of them — which is why an MCP server a
 family depends on is named in that family's prerequisites rather than assumed.
 
-**Per clone, yours.** Everything `config` wrote, in
-`.apache-magpie-local/`. Gitignored, invisible to everyone else, and a
-complete end state: a contributor can work this way indefinitely on a
+**Per clone, yours.** Everything `config` wrote, in your personal layer —
+`<git-common-dir>/apache-magpie/` until the project adopts Magpie,
+`.apache-magpie-local/` after. Never committed, invisible to everyone else,
+shared by every worktree of the clone, and a complete end state: a contributor can work this way indefinitely on a
 repository that has never adopted Magpie.
 
 **Per project, committed.** Only if step 5 happened: the floor lock, the

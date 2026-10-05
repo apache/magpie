@@ -48,8 +48,8 @@ content schema, the create-vs-update logic, the local
 state-file location, and the maintainer-confirmation flow.
 
 The local state file
-(`.apache-magpie.session-state.json` at the adopter repo root,
-gitignored) is the persistence anchor — it stores the gist URL
+(`session-state.json` in the personal config layer, never committed)
+is the persistence anchor — it stores the gist URL
 across sessions so subsequent runs of the skill update the same
 gist rather than creating a new one each time.
 
@@ -64,11 +64,17 @@ This step is a no-op when:
 
 ## Local state file
 
-**Path.** `<adopter-repo-root>/.apache-magpie.session-state.json`.
+**Path.** `session-state.json` in the personal config layer — the
+`personal_dir` that `python3 -m setup_preflight.layers` prints:
+`<git-common-dir>/apache-magpie/` when the project has not adopted
+Magpie, `.apache-magpie-local/` when it has (the main checkout's, from a
+linked worktree that has none).
 
-**Status.** Gitignored. The adopter repo's snapshot mechanism
-already gitignores `.apache-magpie.local.lock` next to the
-session-state file; the same `.gitignore` entry covers both.
+**Status.** Never committed: the git-directory home is outside the
+working tree, and `.apache-magpie-local/` is gitignored by `adopt`. A
+`.apache-magpie.session-state.json` left at the repo root by an earlier
+version is still read when the new file does not exist; the next write
+goes to the new location, carrying its keys over.
 
 **Schema.**
 
@@ -250,7 +256,7 @@ About to CREATE a private gist on your account:
   Filename:    triage-history.md
   Visibility:  secret (default; not public)
   Length:      <N> lines
-  Local state will be written to: .apache-magpie.session-state.json
+  Local state will be written to: <personal layer>/session-state.json
 
 First 50 lines:
 ─────────────────────────────────────────────────────

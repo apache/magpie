@@ -69,7 +69,7 @@ guarantees are in
 [`tools/adversarial-review`](../../../../tools/adversarial-review/README.md).
 
 **When it runs.** Resolve `adversarial-review.md`
-(`.apache-magpie-local/` first, then `.apache-magpie-overrides/`).
+(the personal layer first, then `.apache-magpie-overrides/`).
 
 - No file, or an empty `reviewers` list → skip silently.
 - The `magpie-adversarial-review` plugin is not installed → skip, and say

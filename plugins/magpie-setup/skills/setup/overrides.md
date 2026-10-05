@@ -33,9 +33,12 @@ Every framework skill that supports overrides starts its run
 by consulting **two** directories in precedence order (first
 hit wins):
 
-1. `.apache-magpie-local/<this-skill>.md` — personal,
-   gitignored. Per-developer overrides that are never
-   committed.
+1. `<this-skill>.md` in the personal layer — per-developer
+   overrides that are never committed:
+   `.apache-magpie-local/` (gitignored) when the project adopted
+   Magpie, falling back to the main checkout's in a linked
+   worktree, or `<git-common-dir>/apache-magpie/` when Magpie is
+   only installed.
 2. `.apache-magpie-overrides/<this-skill>.md` — committed,
    project-wide. Overrides shared with every contributor.
 
@@ -50,8 +53,8 @@ for the full contract including the lookup protocol.
 
 - `<framework-skill>` — required. The skill name to scaffold
   / open the override for (e.g. `pr-management-triage`).
-- `--local` — place the override in `.apache-magpie-local/`
-  (personal, gitignored) instead of `.apache-magpie-overrides/`
+- `--local` — place the override in the personal layer
+  (never committed) instead of `.apache-magpie-overrides/`
   (committed, project-wide). Default: prompt.
 
 ## Step 0 — Pre-flight
@@ -70,14 +73,15 @@ for the full contract including the lookup protocol.
 ## Step 0b — Choose the override surface
 
 If `--local` was passed, route to the personal surface:
-`<override-path>` = `<repo-root>/.apache-magpie-local/<framework-skill>.md`.
+`<override-path>` = `<framework-skill>.md` in the personal layer — the
+`personal_dir` that `python3 -m setup_preflight.layers` prints.
 
 If `--local` was not passed and the repo is adopted, offer a
 choice:
 
 > *"Where should this override live?*
 >
-> - **Personal** (`.apache-magpie-local/`, gitignored) —
+> - **Personal** (the personal layer, never committed) —
 >   only you see it; works even on repos you have not adopted
 >   Magpie into.  Use for per-person paths, local tooling,
 >   role-specific capabilities.
@@ -95,7 +99,10 @@ preference.
 ## Step 1 — Resolve the override path
 
 Per the surface chosen in Step 0b:
-- **Personal:** `<override-path>` = `<repo-root>/.apache-magpie-local/<framework-skill>.md`.
+- **Personal:** `<override-path>` = `<framework-skill>.md` in the personal layer
+  (`personal_dir`: `<repo-root>/.apache-magpie-local/` when adopted, the
+  main checkout's from a linked worktree without one,
+  `<git-common-dir>/apache-magpie/` when not adopted).
 - **Shared:** `<override-path>` = `<repo-root>/.apache-magpie-overrides/<framework-skill>.md`.
 
 Also check the *other* surface: if a file already exists
@@ -141,7 +148,7 @@ distinguishes personal from shared overrides.
 
 <!-- apache-magpie agentic override
      Framework skill:    <framework-skill>
-     Surface:            personal (.apache-magpie-local/) OR
+     Surface:            personal (personal layer) OR
                          shared (.apache-magpie-overrides/)
      Pinned to snapshot: see ../.apache-magpie.lock for the SHA
                           this override was authored against.
@@ -178,9 +185,9 @@ remind the user:
 
 1. **Never modify the snapshot** at
    `<repo-root>/.apache-magpie/`. Local mods go in
-   `.apache-magpie-local/` (personal) or
+   the personal layer or
    `.apache-magpie-overrides/` (shared).
-2. **`.apache-magpie-local/` is gitignored and personal.**
+2. **The personal layer is personal and never committed.**
    Do not commit or push it. If others on the project need
    the same behaviour, move the override into the committed
    `.apache-magpie-overrides/` instead.
@@ -201,7 +208,7 @@ remind the user:
 - **Skill name typo** → list available skills, ask again.
 - **Non-adopted repo + no `--local` flag** → the committed
   surface is unavailable; offer the personal surface
-  (`.apache-magpie-local/`) as the fallback and note the
+  (the personal layer) as the fallback and note the
   user should run `setup` to adopt if they want
   the shared surface.
 - **The override target is on a framework skill that does

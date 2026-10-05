@@ -59,13 +59,23 @@ rule, carry both kinds of adopter-side content:
 
 The two directories:
 
-1. **`.apache-magpie-local/`** — personal, gitignored, never
-   committed and never pushed. Written by
-   [`/magpie-setup config`](../../skills/setup/config.md). This is
-   where an individual configures Magpie for themselves, and it
+1. **The personal layer** — yours, never committed and never pushed.
+   Written by [`/magpie-setup config`](../../skills/setup/config.md).
+   This is where an individual configures Magpie for themselves, and it
    **works on a repo that has not adopted Magpie** — which is the
    point of it. Nothing here asks the project for permission, and
    nothing here is visible to anyone else.
+   Where it lives depends on whether the project has adopted Magpie:
+   - **Installed only** (no committed `.apache-magpie.lock`) —
+     **`<git-common-dir>/apache-magpie/`**, inside the repository's git
+     directory (`.git/apache-magpie/` in an ordinary clone).
+     Nothing lands in the working tree: it is never committed, needs no
+     ignore entry, and is shared by every worktree of the clone.
+     It is also lost with the clone, so a fresh clone starts
+     unconfigured.
+     Outside a git repository there is no personal layer at all.
+   - **Adopted** — **`.apache-magpie-local/`** at the repo root,
+     gitignored by the line `adopt` adds to `.gitignore`.
 
 2. **`.apache-magpie-overrides/`** — committed, project-wide.
    Written by [`/magpie-setup adopt`](../../skills/setup/adopt.md),
@@ -73,7 +83,13 @@ The two directories:
    who clones the repo gets these.
 
 ```text
-<adopter-repo>/
+<adopter-repo>/                          installed only
+├── .git/
+│   └── apache-magpie/                   (inside .git, per-clone)
+│       ├── project.md                   config — yours
+│       └── <framework-skill-name>.md    override — yours
+
+<adopter-repo>/                          adopted
 ├── .apache-magpie-local/                (gitignored, per-person)
 │   ├── project.md                       config — yours
 │   ├── pr-management-config.md          config — yours
@@ -84,19 +100,44 @@ The two directories:
 │   └── <framework-skill-name>.md        override — the project's
 ```
 
-**Local wins, per file.** A skill reading `project.md` takes the local
+**The full lookup order**, per file, first match wins:
+
+1. the personal layer — `<git-common-dir>/apache-magpie/` when Magpie
+   is only installed, `.apache-magpie-local/` when it is adopted;
+2. **in a linked worktree of an adopted repo**, the main checkout's
+   `.apache-magpie-local/` (the checkout `git worktree add` ran from).
+   The directory is gitignored, so a new worktree has none of its own;
+   a file missing from the worktree's is found in the main checkout's.
+   When the worktree has no `.apache-magpie-local/` at all, writes go to
+   the main checkout's too, so a worktree writes where it reads;
+3. **legacy:** an in-tree `.apache-magpie-local/` in a repo that has
+   **not** adopted Magpie, left by an earlier version.
+   It is still read, and the pre-flight's `legacy-local-dir` finding
+   offers to move it into `<git-common-dir>/apache-magpie/`;
+4. `.apache-magpie-overrides/`.
+
+A skill that has to write the personal layer resolves it with
+`python3 -m setup_preflight.layers`, which prints `personal_dir` and the
+full `config_layers` list without creating anything.
+
+**Local wins, per file.** A skill reading `project.md` takes the personal
 copy if there is one and the committed copy otherwise; it makes that
 decision file by file, so you can hold one file locally and take every
-other from the project. For an override, the local file's instructions
+other from the project. For an override, the personal file's instructions
 are applied first and the committed file's are also applied unless the
-local one says to skip it. Neither directory is required to exist; a
+personal one says to skip it. Neither directory is required to exist; a
 skill that finds neither proceeds with framework defaults.
 
 One file is the exception: `commit-attribution.toml`. Which trailer an
 agent-assisted commit carries is project policy, so the committed copy
-wins whenever it sets a convention, and the local copy applies only
+wins whenever it sets a convention, and the personal copy applies only
 where the project leaves the choice open — see
 [`commit-attribution.md`](commit-attribution.md#how-the-convention-is-resolved).
+
+Some configuration never belongs in the committed directory at all.
+The contributor-growth family's thresholds, nomination criteria and
+identity map stay in the personal layer even in an adopted project;
+see [Why the configuration is personal](../contributor-growth/README.md#why-the-configuration-is-personal).
 
 The consequence worth knowing: **once the project commits a file you
 also hold locally, yours keeps winning.** `/magpie-setup verify`
@@ -108,18 +149,16 @@ silent.
 
 ### `.gitignore`, and the case where there is none
 
-`/magpie-setup install` and `/magpie-setup adopt` add
-`/.apache-magpie-local/` to the adopter repo's `.gitignore`.
+A project that has only installed Magpie needs no ignore entry:
+its personal layer is inside the git directory, which git never tracks.
+`/magpie-setup config` writes nothing to `.gitignore` or
+`.git/info/exclude`.
 
-`/magpie-setup config` does **not**: `.gitignore` is a committed
-file, and a sub-action whose whole promise is that it writes nothing
-anyone else will see must not start by editing one. It writes the
-same exclusion to **`.git/info/exclude`** instead — per-clone, never
-committed, needs nobody's permission. On a repo that has already
-adopted, the `.gitignore` line is there and the exclude entry is
-harmless duplication.
+`/magpie-setup adopt` adds `/.apache-magpie-local/` to the adopter
+repo's `.gitignore`: adopting is already a committed change, and the
+adopted personal layer sits in the working tree.
 
-To do it by hand:
+To do it by hand, in an adopted repo:
 
 ```text
 /.apache-magpie-local/
@@ -234,8 +273,10 @@ invocation with this opening protocol:
    existed but were not consulted, so the audit trail records
    the bypass rather than looking like a run with no overrides
    on disk. Otherwise, continue with step 1.
-1. Read `<adopter-repo>/.apache-magpie-local/<this-skill>.md`
-   (personal, gitignored) if it exists.
+1. Read `<personal-layer>/<this-skill>.md` (personal, never
+   committed) if it exists — the first match in the
+   [lookup order](#two-directories-one-lookup-chain--for-overrides-and-configuration)
+   above.
 2. Read `<adopter-repo>/.apache-magpie-overrides/<this-skill>.md`
    (committed, project-wide) if it exists.
 3. Surface the titles and override headlines
@@ -305,10 +346,10 @@ A framework agent NEVER:
   `<adopter-repo>/.apache-magpie/`. The snapshot is a build
   artefact — every modification gets blown away on the next
   `/magpie-setup upgrade`. Local mods go into
-  `.apache-magpie-local/` (personal) or
-  `.apache-magpie-overrides/` (shared).
-- Commits or pushes `.apache-magpie-local/` content. The
-  personal override directory is gitignored by design — it
+  the personal layer (`<git-common-dir>/apache-magpie/` or
+  `.apache-magpie-local/`) or `.apache-magpie-overrides/` (shared).
+- Commits or pushes personal-layer content. The
+  personal override directory is never committed by design — it
   carries per-person paths, credentials, and capability
   enablements the contributor has not chosen to share.
 - Proposes overrides be merged in by editing the framework

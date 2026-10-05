@@ -7,6 +7,10 @@ Install method: `marketplace`. `.apache-magpie.lock` exists in this repo
 Scope: `config pr-management-code-review` narrowed this run to one skill,
 `magpie-pr-management-code-review`.
 
+Personal layer (`personal_dir` from `python3 -m setup_preflight.layers`):
+  `/home/dev/acme/.apache-magpie-local/` — this checkout's own; it is the
+  main checkout, not a linked worktree.
+
 Step 3 wrote: `.apache-magpie-local/reviewer-routing.md`
   (the last missing `requires_config:` entry for this skill;
   `fix-workflow.md` was already committed at

@@ -19,6 +19,11 @@
 
 # TODO: `<Project Name>` — committer-onboarding configuration
 
+> **Personal configuration — keep it in your personal layer, never commit it to `.apache-magpie-overrides/`.**
+> Committed, these values become a public checklist contributors can point at to demand a nomination, and every edit to them becomes a negotiation.
+> The personal layer is `<git-common-dir>/apache-magpie/` when Magpie is only installed, `.apache-magpie-local/` when the project has adopted it.
+> See [Why the configuration is personal](../../../docs/contributor-growth/README.md#why-the-configuration-is-personal).
+
 **This file enumerates the capability-flag vocabulary for the
 `committer-onboarding` skill.** It is the contributor-growth
 counterpart to `release-management-config.md`'s backend-flag model:
@@ -30,8 +35,8 @@ without any skill-body edit.
 / ICLA model** (the ASF default). This file establishes the flag
 vocabulary so that a non-ASF adopter can declare their model here;
 the skill will read these flags in a follow-on update. New adopters
-should copy this file into their own
-`<project-config>/committer-onboarding-config.md` and replace every
+should copy this file into their personal layer
+as `committer-onboarding-config.md` and replace every
 `TODO`.
 
 Related scaffolds in the same adopter directory:

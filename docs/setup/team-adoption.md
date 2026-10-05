@@ -35,7 +35,7 @@ Three different things, often confused:
 | | Who does it | What it touches | Reversible by |
 |---|---|---|---|
 | **Install** | you, once per machine | Your agent: the [Apache Magpie Marketplace](marketplace.md) and the plugins you chose. **Nothing in the repo.** | you |
-| **[Individual use](individual-use.md)** | you, on any repo | Your own plugin choice, plus an optional gitignored `.apache-magpie-local/`. Works on a repo that has never heard of Magpie. | you |
+| **[Individual use](individual-use.md)** | you, on any repo | Your own plugin choice, plus optional personal configuration in your clone's git directory (`<git-common-dir>/apache-magpie/`) — nothing in the working tree. Works on a repo that has never heard of Magpie. | you |
 | **Adoption** *(this page)* | the repo's maintainers, once | Committed files every contributor sees: the default plugin set and the repo's overrides. | a maintainer, via a PR |
 
 Nothing here is a prerequisite for anything else. A contributor can use Magpie
@@ -68,6 +68,20 @@ maintainer happens to use: a maintainer-only family such as `magpie-security`
 stays a personal, user-scope install, so every contributor isn't paying its
 always-on context cost for work only one person does. The committed set is the
 floor everyone benefits from, not a roster of one person's preferences.
+
+**`magpie-contributor-growth` is personal-recommended and not adoptable by
+default.** Its configuration — committer thresholds, nomination criteria,
+calibration floors, sentiment caps and the identity map — is the project's
+private judgement about people. Committed, it becomes a public checklist: a
+contributor can point at a threshold and demand a nomination, and every later
+edit to it becomes a negotiation rather than a decision. So `adopt` leaves the
+family out of the floor and recommends that each maintainer who runs it
+installs it for themselves. It adds the family only if a maintainer insists
+and explicitly accepts that risk, and records who accepted it and when as a
+comment in `.apache-magpie.lock`. Even then its configuration stays in each
+maintainer's personal layer and is never committed to
+`.apache-magpie-overrides/` — see
+[Why the configuration is personal](../contributor-growth/README.md#why-the-configuration-is-personal).
 
 > [!NOTE]
 > The committed default set is **Claude Code only** today. Codex can only
@@ -157,6 +171,8 @@ below) will read to decide whether the override still earns its place.
 
 Use `--local` to put an override in your own gitignored `.apache-magpie-local/`
 instead, when the change is yours rather than the project's.
+In a linked worktree that has none of its own, that is the main checkout's
+`.apache-magpie-local/`, which the worktree already reads.
 
 ## Step 4 — Maintain it, and upstream what generalises
 
@@ -186,7 +202,11 @@ ceiling or an allowlist:
 - they can install any other family for themselves at any time;
 - they can use Magpie here without accepting the defaults at all — see
   [individual use](individual-use.md);
-- their own `.apache-magpie-local/` overrides still take effect.
+- their own `.apache-magpie-local/` overrides still take effect, including
+  from the main checkout when they work in a linked worktree. Personal
+  configuration held in `<git-common-dir>/apache-magpie/` from before the
+  adoption is no longer read once the lock is pulled; move it into
+  `.apache-magpie-local/`.
 
 ## Un-adopting
 

@@ -20,8 +20,9 @@
 # docs/setup/commit-attribution.md.
 #
 # In .apache-magpie-overrides/ (committed) this is the project's policy,
-# and it wins. In .apache-magpie-local/ (gitignored) it is one
-# contributor's preference, used only when the project's file is absent
+# and it wins. In the personal layer (.apache-magpie-local/ when the
+# project adopted Magpie, <git-common-dir>/apache-magpie/ otherwise) it is
+# one contributor's preference, used only when the project's file is absent
 # or says contributor-choice.
 
 # generated-by | assisted-by | co-authored-by | none | custom

@@ -433,6 +433,20 @@ def test_a_worktrees_common_dir_home_is_not_bindable(tmp_path: Path) -> None:
     assert deny is not None and "run directory or the personal config layer" in deny.reason
 
 
+def test_an_adopted_worktree_excludes_its_own_and_the_main_checkouts_personal_dir(tmp_path: Path) -> None:
+    """The worktree may read and write its main checkout's layer, so neither is bindable."""
+    main, wt = _worktree(tmp_path)
+    for root in (main, wt):
+        (root / ".apache-magpie.lock").write_text("method: local\n")
+    (main / ".apache-magpie-local").mkdir()
+    ctx = _context(wt)
+    assert wt.resolve() / ".apache-magpie-local" in ctx.excluded_bind_roots
+    assert main.resolve() / ".apache-magpie-local" in ctx.excluded_bind_roots
+    # The run directory stays per worktree, never the main checkout's.
+    assert wt.resolve() / ".apache-magpie-local" / "run" in ctx.excluded_bind_roots
+    assert main.resolve() / ".apache-magpie-local" / "run" not in ctx.excluded_bind_roots
+
+
 # --- the common-dir anchor must really be this repository's ----------------------
 
 
@@ -506,3 +520,104 @@ def test_an_excluded_root_reached_through_a_symlink_still_excludes(tmp_path: Pat
     assert resolve_bind_source(str(real / "src"), ctx)
     assert not resolve_bind_source(str(run), ctx)
     assert not resolve_bind_source(str(link / ".git" / "apache-magpie" / "run"), ctx)
+
+
+# --- the main checkout of a linked worktree: shared vectors -------------------------
+
+LOCAL = ".apache-magpie-local"
+
+
+def _linked_worktree(tmp_path: Path, *, adopt: bool = True) -> tuple[Path, Path]:
+    main = tmp_path / "main"
+    wt_gitdir = main / ".git" / "worktrees" / "wt"
+    wt_gitdir.mkdir(parents=True)
+    (wt_gitdir / "commondir").write_text("../..\n")
+    wt = tmp_path / "wt"
+    wt.mkdir()
+    (wt / ".git").write_text(f"gitdir: {wt_gitdir}\n")
+    if adopt:
+        for root in (main, wt):
+            (root / ".apache-magpie.lock").write_text("method: local\n")
+    return main, wt
+
+
+def test_vector_main_worktree_of_a_linked_worktree(tmp_path: Path) -> None:
+    main, wt = _linked_worktree(tmp_path)
+    assert layers.main_worktree(wt) == main
+
+
+def test_vector_main_worktree_of_the_main_checkout_is_none(tmp_path: Path) -> None:
+    main, _ = _linked_worktree(tmp_path)
+    assert layers.main_worktree(main) is None
+
+
+def test_vector_main_worktree_of_a_bare_repository_is_none(tmp_path: Path) -> None:
+    common = tmp_path / "repo.git"
+    wt_gitdir = common / "worktrees" / "wt"
+    wt_gitdir.mkdir(parents=True)
+    (wt_gitdir / "commondir").write_text("../..\n")
+    wt = tmp_path / "wt"
+    wt.mkdir()
+    (wt / ".git").write_text(f"gitdir: {wt_gitdir}\n")
+    assert layers.main_worktree(wt) is None
+
+
+def test_vector_main_worktree_of_a_submodule_is_none(tmp_path: Path) -> None:
+    (tmp_path / "super" / ".git" / "modules" / "sub").mkdir(parents=True)
+    sub = tmp_path / "super" / "sub"
+    sub.mkdir()
+    (sub / ".git").write_text("gitdir: ../.git/modules/sub\n")
+    assert layers.main_worktree(sub) is None
+
+
+def test_vector_main_worktree_outside_a_repository_is_none(tmp_path: Path) -> None:
+    assert layers.main_worktree(tmp_path) is None
+
+
+def test_vector_adopted_worktree_without_its_own_dir_uses_the_main_checkouts(tmp_path: Path) -> None:
+    main, wt = _linked_worktree(tmp_path)
+    (main / LOCAL).mkdir()
+    assert layers.personal_layers(wt) == [wt / LOCAL, main / LOCAL]
+    assert layers.personal_dir(wt) == main / LOCAL
+
+
+def test_vector_adopted_worktree_with_its_own_dir_writes_there(tmp_path: Path) -> None:
+    main, wt = _linked_worktree(tmp_path)
+    (main / LOCAL).mkdir()
+    (wt / LOCAL).mkdir()
+    assert layers.personal_layers(wt) == [wt / LOCAL, main / LOCAL]
+    assert layers.personal_dir(wt) == wt / LOCAL
+
+
+def test_vector_adopted_worktree_with_neither_dir_writes_its_own(tmp_path: Path) -> None:
+    _, wt = _linked_worktree(tmp_path)
+    assert layers.personal_layers(wt) == [wt / LOCAL]
+    assert layers.personal_dir(wt) == wt / LOCAL
+
+
+def test_vector_a_worktree_falls_back_to_the_main_checkout_file_by_file(tmp_path: Path) -> None:
+    main, wt = _linked_worktree(tmp_path)
+    for root in (main, wt):
+        (root / LOCAL).mkdir()
+    (main / LOCAL / "a.md").write_text("main")
+    (main / LOCAL / "b.md").write_text("main")
+    (wt / LOCAL / "a.md").write_text("worktree")
+
+    def first(name: str) -> Path | None:
+        return next((p / name for p in layers.config_layers(wt) if (p / name).exists()), None)
+
+    assert first("a.md") == wt / LOCAL / "a.md"
+    assert first("b.md") == main / LOCAL / "b.md"
+
+
+def test_vector_the_main_checkout_does_not_fall_back(tmp_path: Path) -> None:
+    main, _ = _linked_worktree(tmp_path)
+    assert layers.personal_layers(main) == [main / LOCAL]
+    assert layers.personal_dir(main) == main / LOCAL
+
+
+def test_vector_an_unadopted_worktree_is_unchanged(tmp_path: Path) -> None:
+    main, wt = _linked_worktree(tmp_path, adopt=False)
+    (main / LOCAL).mkdir()
+    assert layers.personal_layers(wt) == [main / ".git" / "apache-magpie"]
+    assert layers.personal_dir(wt) == main / ".git" / "apache-magpie"

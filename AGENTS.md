@@ -76,11 +76,18 @@ The framework has two layers:
    release trains, canned responses, security-model references, and
    milestone conventions. Lives in the adopter's
    `<project-config>/` directory and is **not** shipped with this
-   framework. `<project-config>` resolves **per file, local first**:
-   `.apache-magpie-local/<file>` (personal, gitignored, written by
-   `/magpie-setup config`) if it exists, else
-   `.apache-magpie-overrides/<file>` (committed, project-wide,
-   written by `/magpie-setup adopt`). See
+   framework. `<project-config>` resolves **per file, personal first**:
+   the personal layer (never committed, written by `/magpie-setup config`)
+   if the file is there, else `.apache-magpie-overrides/<file>`
+   (committed, project-wide, written by `/magpie-setup adopt`).
+   The personal layer is `<git-common-dir>/apache-magpie/` in a repo
+   that has only installed Magpie (inside the git directory: nothing in
+   the working tree, no ignore entry, shared by every worktree), and
+   `.apache-magpie-local/` (gitignored) in a repo that has adopted it
+   (committed `.apache-magpie.lock`); a linked worktree of an adopted
+   repo falls back to its main checkout's `.apache-magpie-local/`.
+   A legacy in-tree `.apache-magpie-local/` in an unadopted repo is
+   still read, after the git-directory home. See
    [`docs/setup/agentic-overrides.md`](docs/setup/agentic-overrides.md).
    The
    [`projects/_template/`](plugins/magpie-setup/templates/) directory in this
@@ -328,16 +335,19 @@ shared project configuration. It is distinct from the per-skill override
 chain used when an adopter tailors a framework workflow:
 
 ```text
-.apache-magpie-local/<skill>.md
-  →  .apache-magpie-overrides/<skill>.md
-    →  framework default
+<personal-layer>/<skill>.md          <git-common-dir>/apache-magpie/ (installed only)
+                                     or .apache-magpie-local/ (adopted)
+  →  <main-checkout>/.apache-magpie-local/<skill>.md   (adopted, linked worktree only)
+  →  .apache-magpie-local/<skill>.md                   (unadopted, legacy in-tree only)
+    →  .apache-magpie-overrides/<skill>.md
+      →  framework default
 ```
 
 There is no organization layer in the per-skill chain: an organization
 supplies config-key defaults to the chain above, not skill overrides.
 
-`.apache-magpie-local/` is the personal, gitignored layer and takes
-precedence over the committed `.apache-magpie-overrides/` layer when both
+The personal layer is never committed — inside the git directory, or
+gitignored — and takes precedence over the committed `.apache-magpie-overrides/` layer when both
 provide the same setting. Both override surfaces are additive only: they
 may provide adopter-specific paths, wording, or capability/MCP enablement,
 but they cannot weaken the safety, confidentiality, privacy, or

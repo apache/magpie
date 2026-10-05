@@ -574,7 +574,7 @@ def test_live_adopter_overrides_copies_use_their_skills_entry_name() -> None:
             if "<!-- BEGIN MAGPIE BLOCK: adopter-overrides" not in text:
                 continue
             name = path.parent.name
-            assert f"`.apache-magpie-local/{name}.md`" in text, path
+            assert f"`{name}.md` in the personal layer" in text, path
             assert f"`.apache-magpie-overrides/{name}.md`" in text, path
     finally:
         os.chdir(old)

@@ -37,4 +37,5 @@
   Local copies now identical to the project's: removed, so the project
   can correct them later and you will get the correction.
 
-  Nothing else in .apache-magpie-local/ changed. It is still yours.
+  The rest moved from .git/apache-magpie/ into .apache-magpie-local/,
+  now your personal layer. Nothing in it changed. It is still yours.

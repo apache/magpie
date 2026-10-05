@@ -22,9 +22,14 @@
 
 # TODO: `<Project Name>` — contributor-nomination configuration
 
+> **Personal configuration — keep it in your personal layer, never commit it to `.apache-magpie-overrides/`.**
+> Committed, these values become a public checklist contributors can point at to demand a nomination, and every edit to them becomes a negotiation.
+> The personal layer is `<git-common-dir>/apache-magpie/` when Magpie is only installed, `.apache-magpie-local/` when the project has adopted it.
+> See [Why the configuration is personal](../../../docs/contributor-growth/README.md#why-the-configuration-is-personal).
+
 Per-project configuration for the
 [`contributor-nomination`](../../../skills/contributor-nomination/SKILL.md)
-skill. Copy into your `<project-config>/` directory and replace
+skill. Copy into your personal layer and replace
 every TODO.
 
 **Thresholds are optional.** If this file does not declare

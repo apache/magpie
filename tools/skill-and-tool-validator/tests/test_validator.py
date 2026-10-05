@@ -54,6 +54,7 @@ from skill_and_tool_validator import (
     ORGANIZATION_CATEGORY,
     OVERRIDE_CONTRACT_CATEGORY,
     OVERRIDES_DIR,
+    PERSONAL_ONLY_CONFIG_FILES,
     PRINCIPLE_CATEGORY,
     PRIVACY_CATEGORY,
     SECURITY_PATTERN_CATEGORY,
@@ -4383,6 +4384,26 @@ class TestValidateOverrideContract:
         override_file.write_text(_NO_HEADER_OVERRIDE)
         violations = list(validate_override_contract(tmp_path))
         assert all(v.path == override_file for v in violations)
+
+    @pytest.mark.parametrize("name", sorted(PERSONAL_ONLY_CONFIG_FILES))
+    def test_contributor_growth_config_in_overrides_warns(self, tmp_path: Path, name: str) -> None:
+        overrides = self._make_overrides_dir(tmp_path)
+        config = overrides / name
+        config.write_text("# Thresholds\n\nmin_prs: 30\n")
+        violations = list(validate_override_contract(tmp_path))
+        assert len(violations) == 1
+        violation = violations[0]
+        assert violation.path == config
+        assert "personal-config" in violation.message
+        assert violation.category == OVERRIDE_CONTRACT_CATEGORY
+        # A warning, never a failure.
+        assert OVERRIDE_CONTRACT_CATEGORY in SOFT_CATEGORIES
+
+    def test_other_config_in_overrides_not_flagged_personal(self, tmp_path: Path) -> None:
+        overrides = self._make_overrides_dir(tmp_path)
+        (overrides / "pr-management-config.md").write_text("# Config\n")
+        violations = list(validate_override_contract(tmp_path))
+        assert not any("personal-config" in v.message for v in violations)
 
     def test_clean_override_discoverable_without_editing_skill(self, tmp_path: Path) -> None:
         """A clean override file produces no violations — confirming discoverability."""

@@ -15,7 +15,7 @@
 > | You have | A worktree needs |
 > |---|---|
 > | Marketplace install, repo adopted | nothing from the framework — the plugins are user-scope and everything `adopt` commits is checked out by git |
-> | Marketplace install, configured with [`config`](config.md) | the `.apache-magpie-local/` link — Step 0b |
+> | Marketplace install, configured with [`config`](config.md) | nothing — the personal layer is found from the worktree by itself (Step 0b) |
 > | Pinned snapshot install, adopted or not | the snapshot link *and* the per-worktree skill symlinks — Steps 1 and 1b. Both are gitignored, so git brings neither |
 > | Self-adoption in the framework checkout | neither of those: here `skills/` and its relays are committed, so the checkout already has them |
 > | **Any of the above, under the secure sandbox** | this worktree's absolute path in its own gitignored `.claude/settings.local.json` — Step 1c |
@@ -89,12 +89,10 @@ Before either link, work out whether this worktree needs one:
 
 - **No `.apache-magpie/` in the main checkout** → no snapshot to share;
   this is a marketplace install. Skip Step 1.
-- **No `.apache-magpie-local/` in the main checkout** → nothing
-  configured locally; either the repo is adopted (so the configuration
-  is committed and git already put it here) or nothing is configured
-  yet. Skip Step 0b.
+Personal configuration never needs a link (Step 0b), so the snapshot is
+the only thing this step can find to share.
 
-If both are true there is nothing to link — say so:
+If there is no snapshot there is nothing to link — say so:
 *"nothing to link: the plugins are user-scope and the project's
 configuration is committed."* That is the expected outcome on the
 recommended path, and reporting it as a finished state is the point. Do
@@ -107,28 +105,23 @@ marketplace-installed, fully adopted repo still needs here. Skipping to
 the end because the links were unnecessary is how a worktree ends up
 unable to read its own files.
 
-## Step 0b — Link the local configuration
+## Step 0b — Personal configuration needs no link
 
-`.apache-magpie-local/` is a working-directory directory, so a fresh
-worktree has none — and a contributor who configured Magpie for
-themselves in the main checkout would have to do it again in every
-worktree, then keep the copies in step by hand.
+A worktree finds the personal configuration on its own, so this step
+creates nothing:
 
-Link it the same way as the snapshot, for the same reason: one local
-configuration on disk, every worktree reading it.
+- **Not adopted** → the personal layer is `<git-common-dir>/apache-magpie/`,
+  inside the git directory every worktree of the clone shares.
+- **Adopted** → `.apache-magpie-local/` is gitignored, so a fresh
+  worktree has none, and every skill falls back to the main checkout's,
+  file by file; `config` run from the worktree writes there too. A file
+  the worktree keeps in its own `.apache-magpie-local/` wins over the
+  main checkout's, which is how one worktree holds a value of its own.
 
-- **Main checkout has `.apache-magpie-local/`, worktree has nothing** →
-  create the symlink.
-- **Worktree already has a symlink to it** → no-op.
-- **Worktree has a real directory** → do *not* replace it. Say so and
-  stop at this step: a per-worktree configuration is unusual but it is
-  someone's deliberate choice, and it may hold the only copy of a value
-  they filled in. Offer the move-aside, do not perform it.
-- **Main checkout has none** → nothing to link. Say so in one line and
-  carry on; `/magpie-setup config` creates it when the user wants it.
-
-The snapshot steps below are the same shape and run whether or not this
-one did anything.
+Report which of the two applies, in one line.
+A worktree that still carries a `.apache-magpie-local` **symlink** from an
+earlier version of this step keeps working; say it is no longer needed
+and offer to remove it, never remove it unasked.
 
 ## Step 1 — Create the snapshot symlink
 

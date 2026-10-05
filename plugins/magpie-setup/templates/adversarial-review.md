@@ -9,8 +9,9 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-<!-- Template — `setup config` writes this to .apache-magpie-local/adversarial-review.md
-     (personal) after running `adversarial-review detect`; `setup adopt` may
+<!-- Template — `setup config` writes this to adversarial-review.md in the
+     personal layer (.apache-magpie-local/ when adopted, else
+     <git-common-dir>/apache-magpie/) after running `adversarial-review detect`; `setup adopt` may
      promote a copy to .apache-magpie-overrides/ (project default). A
      personal file overrides the project's as a whole. -->
 

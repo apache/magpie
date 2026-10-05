@@ -19,17 +19,19 @@ when_to_use: >-
   contributor and is not an install.
 argument-hint: "[install|config|adopt|unadopt|upgrade|worktree-init|verify|reconcile|override skill-name|uninstall]"
 capability: capability:platform
-surface_hash: sha256:9a4903f60b44e5b3
+surface_hash: sha256:a351597d6ed55eaf
 license: Apache-2.0
-measured_tokens: 4530
+measured_tokens: 4600
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/legal/release-policy.html -->
 
 <!-- Placeholder convention (see ../../AGENTS.md#placeholder-convention-used-in-skill-files):
-     <project-config>           → per file, first hit wins: adopter's
-                                  `.apache-magpie-local/` (gitignored, personal) then
+     <project-config>           → per file, first hit wins: the personal layer
+                                  (`.apache-magpie-local/` when adopted, falling back to the
+                                  main checkout's in a linked worktree;
+                                  `<git-common-dir>/apache-magpie/` when only installed) then
                                   `.apache-magpie-overrides/` (committed, project-wide)
      <snapshot-dir>             → `.apache-magpie/` (gitignored snapshot of the framework)
      <committed-lock>           → `.apache-magpie.lock` (committed — project's pin)
@@ -132,7 +134,7 @@ The skill dispatches by the first positional argument:
 | `setup install` | [`install.md`](install.md) | Same as no-arg — explicit form. Main-checkout only. |
 | `setup install method:marketplace` | [`install.md` → Step M0b](install.md#step-m0b--pre-fill-from-the-committed-floor) | The default path, named explicitly. Prints the agent's `marketplace add` + `plugin install` commands and writes nothing to the repo. Works in a worktree, and in a repo that has adopted nothing. |
 | `setup install method:svn-zip\|git-tag\|git-branch` | [`install.md`](install.md) | The pinned snapshot install — the fallback path. Main-checkout only. |
-| `setup config` | [`config.md`](config.md) | **Not an install, and not adoption.** Configure the installed skills for *you*, in gitignored `.apache-magpie-local/`. Works on any repo, adopted or not, with nobody's permission. Writes nothing committable and stages nothing. |
+| `setup config` | [`config.md`](config.md) | **Not an install, and not adoption.** Configure the installed skills for *you*, in the personal layer — `<git-common-dir>/apache-magpie/` on a repo that has not adopted Magpie (nothing in the working tree), the gitignored `.apache-magpie-local/` on one that has. Works on any repo, adopted or not, with nobody's permission. Writes nothing committable and stages nothing. |
 | `setup config <skill>` | [`config.md`](config.md) | The same, narrowed to one skill's required configuration. |
 | `setup config adversarial-review` | [`config.md`](config.md#step-3c--adversarial-reviewers-optional) | Detect the installed model CLIs and configure them as adversarial reviewers. |
 | `setup adopt` | [`adopt.md`](adopt.md) | **Not an install.** Commit the repo's recommended default plugin set and scaffold its overrides store, so every contributor arrives with them. Needs an explicit maintainer decision; stages, never commits. Default set is Claude Code only. |
@@ -151,7 +153,7 @@ The marker has two reasons: `upgrade` and the snapshot fallback of `install`/`un
 A marketplace install touches no repo state and runs anywhere.
 
 **`reconcile` is restricted only when the project is adopted**, because its stamp then goes to the committed lock.
-A configured-but-unadopted project writes the gitignored `.apache-magpie-local/reconciled.json` and has no worktree restriction ([`reconcile.md` Step 0](reconcile.md#step-0--pre-flight)).
+A configured-but-unadopted project writes `reconciled.json` in its personal layer, `<git-common-dir>/apache-magpie/`, and has no worktree restriction ([`reconcile.md` Step 0](reconcile.md#step-0--pre-flight)).
 
 **`adopt` and `upgrade` always chain into `worktree-init`** on every linked worktree.
 It is a no-op with no worktrees and idempotent where they already look wired, which is how broken symlinks and newly always-on families get repaired — nobody has to re-run anything per worktree.

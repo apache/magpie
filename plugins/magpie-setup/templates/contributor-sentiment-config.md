@@ -11,9 +11,14 @@
 
 # Contributor-sentiment thresholds
 
+> **Personal configuration — keep it in your personal layer, never commit it to `.apache-magpie-overrides/`.**
+> Committed, these values become a public checklist contributors can point at to demand a nomination, and every edit to them becomes a negotiation.
+> The personal layer is `<git-common-dir>/apache-magpie/` when Magpie is only installed, `.apache-magpie-local/` when the project has adopted it.
+> See [Why the configuration is personal](../../../docs/contributor-growth/README.md#why-the-configuration-is-personal).
+
 Signal thresholds for `contributor-sentiment`, which measures whether the
 project got healthier to contribute to. Copy this file into your
-`<project-config>/` directory and change only the values you disagree with —
+personal layer and change only the values you disagree with —
 **every key below is optional, and the default applies when it is absent or
 when the whole file is.**
 

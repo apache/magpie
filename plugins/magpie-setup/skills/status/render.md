@@ -152,8 +152,11 @@ this before assigning health:
 | `gitignore.targets[].all_unignored` | ✅ expected — symlinks are committed | not applicable — no framework symlinks exist under this method | not the pattern used; ignore |
 | `gitignore.targets[].glob_ignored` + `setup_unignored` | not used | not applicable — no framework symlinks exist under this method | ✅ expected — symlinks gitignored, bootstrap tracked |
 | `drift.checked == false` | ✅ nothing to drift against | ✅ nothing to drift against — see `committed_lock.plugins` / `min_version` instead, via [`/magpie-setup verify`](../setup/verify.md#adoption-floor) | depends on `reason` (see [`collect.md`](collect.md#drift)) |
-| `local_overrides.present == false` | ✅ optional personal surface — not required | ✅ same — `.apache-magpie-local/` is always optional | ✅ same — `.apache-magpie-local/` is always optional |
+| `local_overrides.present == false` | ✅ optional personal surface — not required | ✅ same — the personal layer is always optional | ✅ same — the personal layer is always optional |
+| `local_overrides.location == "main-checkout"` | ✅ expected in a linked worktree — reads and writes the main checkout's `.apache-magpie-local/` | same | same |
+| `local_overrides.legacy_in_tree == true` | not applicable — adopted | ⚠️ legacy in-tree `.apache-magpie-local/` in an unadopted repo — the pre-flight proposes moving it to `<git-common-dir>/apache-magpie/` | not applicable — adopted |
 | `gitignore.local_overrides_ignored == false` | advisory: add `/.apache-magpie-local/` to `.gitignore` | same advisory | same advisory |
+| `gitignore.local_overrides_ignored == null` | not applicable | ✅ expected when not adopted — the personal layer is in the git directory | not applicable |
 
 Never report a self-adopted framework checkout, or a `method:marketplace`
 adopter, as unhealthy merely for lacking a snapshot, a local lock, or

@@ -31,7 +31,7 @@ nothing to reconcile for it. This sub-action is also runnable directly,
 any time, as a health check on the project's configuration surface.
 
 **Nothing to reconcile is a valid, silent outcome.** No
-`.apache-magpie.lock`, no `.apache-magpie-local/`, and no
+`.apache-magpie.lock`, no personal layer, and no
 `.apache-magpie-overrides/` means the project has never configured or
 adopted anything — there is no configuration surface that could have
 gone stale. Say so in one line and stop; do not scaffold anything, and
@@ -46,7 +46,12 @@ do not treat the absence as a finding.
 ## Step 0 — Pre-flight
 
 1. **Gate on nothing-configured.** Check for `.apache-magpie.lock`,
-   `.apache-magpie-local/`, and `.apache-magpie-overrides/`. All three
+   the personal layer, and `.apache-magpie-overrides/`. The personal
+   layer is wherever `python3 -m setup_preflight.layers` says
+   (`personal_layers`): `.apache-magpie-local/` when adopted — the main
+   checkout's too, from a linked worktree — and
+   `<git-common-dir>/apache-magpie/` (or a legacy in-tree
+   `.apache-magpie-local/`) when not. All three
    absent → say there is nothing to reconcile and stop. Otherwise
    continue.
 2. **Decide which store the stamp belongs in**, per
@@ -54,14 +59,14 @@ do not treat the absence as a finding.
    - `.apache-magpie.lock` exists (adopted, any method) → the stamp's
      `version`/`at`/`skills` block lives **in the committed lock**,
      beside the floor it already records.
-   - No committed lock, but `.apache-magpie-local/` or
+   - No committed lock, but the personal layer or
      `.apache-magpie-overrides/` exists (configured but not adopted) →
-     the identical block lives in `.apache-magpie-local/reconciled.json`,
+     the identical block lives in the personal layer's `reconciled.json`,
      a **flat JSON object** — never wrapped in a `reconciled:` key, the
      filename already says what it is.
 
    `verified_at`, `verify_suggested_at`, and `acknowledged` always live
-   in `.apache-magpie-local/reconciled.json`, on every project
+   in the personal layer's `reconciled.json`, on every project
    regardless of adoption state — never in the committed lock, even
    when adopted. Read that file now if it exists; you will write to it
    either way.
@@ -105,8 +110,8 @@ baseline required.
 
 1. **Enumerate the scope.** A skill is in scope when an **override
    file names it** (`.apache-magpie-overrides/<skill>.md` or
-   `.apache-magpie-local/<skill>.md`), **or** when one of its
-   `requires_config:` entries **resolves** from `.apache-magpie-local/`
+   `<skill>.md` in the personal layer), **or** when one of its
+   `requires_config:` entries **resolves** from the personal layer
    or `.apache-magpie-overrides/`. A project that supplies a skill's
    configuration has configured that skill, whether or not it also
    overrides it — so take the broad reading rather than trying to
@@ -118,7 +123,7 @@ baseline required.
 
 2. **Anchor resolution.** For every override file
    (`.apache-magpie-overrides/<skill>.md` or
-   `.apache-magpie-local/<skill>.md`), read the target skill's
+   `<skill>.md` in the personal layer), read the target skill's
    `SKILL.md` **and every sibling `*.md` detail file directly inside
    that skill's directory** (a multi-file skill such as `setup` or
    `pr-management-triage` keeps steps and golden rules in those detail
@@ -139,7 +144,7 @@ baseline required.
 
 3. **`requires_config` resolution.** For every skill in scope, resolve
    each `requires_config:` entry through the lookup chain
-   (`.apache-magpie-local/<file>` then `.apache-magpie-overrides/<file>`,
+   (the personal layer's `<file>`, then `.apache-magpie-overrides/<file>`,
    [`agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md)).
    An entry that resolves through neither is a finding: *"`<skill
    name>` requires `<file>`, which is not configured"* — propose
@@ -169,7 +174,7 @@ baseline required.
    `.apache-magpie-overrides/`, mapped to a framework version through
    the marketplace clone's own git history (or, on a snapshot install,
    the local git history of `<snapshot-dir>`); else the mtimes of files
-   under `.apache-magpie-local/`; else nothing, and the report says so
+   in the personal layer; else nothing, and the report says so
    rather than inventing a number. Phrase whatever is found as an
    estimate — *"your configuration looks like it was written around
    0.1.x"* — never as a fact; the two checks above do not depend on it
@@ -228,7 +233,7 @@ suppressed by a write that never happened.
   declined, just unverified this run.
 - **A both-stores collision** (Step 0.3) — confirming drops that
   skill's redundant `skills` entry from
-  `.apache-magpie-local/reconciled.json`, leaving the committed lock
+  the personal layer's `reconciled.json`, leaving the committed lock
   as the single store and the three always-local keys untouched.
   Declining leaves both entries in place; the local one keeps winning
   and the collision is reported again next run.
@@ -285,7 +290,7 @@ Unchecked (sandboxed session — plugin cache not readable):
   - <skill list>  →  re-run /magpie-setup reconcile outside the sandbox
 
 Stamp:
-  written to <.apache-magpie.lock | .apache-magpie-local/reconciled.json>
+  written to <.apache-magpie.lock | <personal layer>/reconciled.json>
   version: <value>   at: <today>
   skills:  <N> entries   (<K> confirmed this run, <D> declined and
                           acknowledged, <U> left unchecked)

@@ -50,7 +50,7 @@ from typing import Any, NoReturn
 
 from . import backends as _backends
 from .labels import project_slug
-from .layers import git_common_dir, personal_dir
+from .layers import LOCAL_DIR, git_common_dir, main_worktree, personal_dir, personal_layers
 from .policy import PolicyContext
 from .relay import Handler, Relay, serve_unix, unix_connector
 
@@ -543,9 +543,15 @@ def build_context(cfg: Config, backend: _backends.Backend, proxy_env: dict[str, 
     # source on their own: the run directory holds this gateway's sockets,
     # and an unadopted repository's personal layer sits inside `.git/`,
     # which a bind of the project root reaches but a container has no
-    # business being handed directly.
-    home = personal_dir(cfg.project_root.resolve())
-    excluded = tuple(p.resolve() for p in (cfg.run_dir, home) if p is not None)
+    # business being handed directly.  A linked worktree of an adopted
+    # repository may read and write its main checkout's
+    # `.apache-magpie-local/`, so both that one and the worktree's own are
+    # excluded, whichever of them exists today.
+    root = cfg.project_root.resolve()
+    personal: list[Path | None] = [personal_dir(root), *personal_layers(root), root / LOCAL_DIR]
+    if (main := main_worktree(root)) is not None:
+        personal.append(main / LOCAL_DIR)
+    excluded = tuple(dict.fromkeys(p.resolve() for p in (cfg.run_dir, *personal) if p is not None))
     return PolicyContext(
         project_slug(cfg.project_root),
         cfg.project_root.resolve(),

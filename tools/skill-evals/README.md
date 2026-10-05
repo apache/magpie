@@ -11,7 +11,7 @@ Behavioral eval harness for Apache Magpie skills. Each eval suite tests a skill 
 
 Suites are currently implemented for:
 
-- **setup** — 92 cases across 23 steps (step-verify-drift, step-overrides-surface, step-override-bypass, step-m3-baseline-pick, step-m4-install-gates, step-m5-no-repo-offer, step-adopt-settings-merge, verify-default-set, uninstall-default-set, lock-marketplace-parse, adopt-write-floor, setup-prefill-from-floor, preflight-floor, upgrade-adoption-split, verify-floor, adopt-review-process, step-reconcile, step-verify, step-config-stamp, step-config-adversarial, step-adopt-stamp, step-upgrade-stamp)
+- **setup** — 95 cases across 23 steps (step-verify-drift, step-overrides-surface, step-override-bypass, step-m3-baseline-pick, step-m4-install-gates, step-m5-no-repo-offer, step-adopt-settings-merge, verify-default-set, uninstall-default-set, lock-marketplace-parse, adopt-write-floor, setup-prefill-from-floor, preflight-floor, upgrade-adoption-split, verify-floor, adopt-review-process, step-reconcile, step-verify, step-config-stamp, step-config-adversarial, step-adopt-stamp, step-upgrade-stamp)
 - **setup-isolated-setup-install** — 14 cases across 4 steps (runtime-routing, step-snapshot-drift, step-scope-confirm, step-hardware-key)
 - **setup-privacy-llm** — 6 cases across 2 steps (step-1-resolve, step-4-gate)
 - **setup-shared-config-sync** — 12 cases across 2 steps (step-3-decide-action, step-5-draft-commit)
@@ -90,7 +90,7 @@ Suites are currently implemented for:
 - **write-skill** — 5 cases across 1 suite (step-5-security-checklist)
 - **setup-privacy-llm** — 6 cases across 2 suites (step-1-resolve, step-4-gate)
 - **preflight-reconciliation** — 7 cases across 1 suite (step-reconciliation)
-- **contributor-calibrate** — 7 cases across 2 suites (step-1-find-nominations, step-4-propose-floors)
+- **contributor-calibrate** — 11 cases across 3 suites (step-1-find-nominations, step-4-propose-floors, step-6-write-configuration)
 - **contributor-candidate-screen** — 13 cases across 6 suites (step-0-gates, step-2-pre-filter, step-3-measure-and-shortlist, step-4-write-report, step-5-deliver)
 
 ## Prerequisites

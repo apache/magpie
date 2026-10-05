@@ -63,7 +63,7 @@
     <text x="26" y="896" fill="#7f9f7f" opacity="0">  ✓ clean env      credentials stripped before the agent starts<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.7186;0.7196;1" dur="13.2s" repeatCount="indefinite"/></text>
     <text x="26" y="920" fill="#7f9f7f" opacity="0">  ✓ status line    shows the sandbox state and the Magpie version<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.7474;0.7484;1" dur="13.2s" repeatCount="indefinite"/></text>
     <text x="26" y="968" fill="#8a8f94" opacity="0">  Run a skill when you are ready. The first one that needs project<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.7761;0.7771;1" dur="13.2s" repeatCount="indefinite"/></text>
-    <text x="26" y="992" fill="#8a8f94" opacity="0">  configuration writes it itself, into gitignored files.<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.8048;0.8058;1" dur="13.2s" repeatCount="indefinite"/></text>
+    <text x="26" y="992" fill="#8a8f94" opacity="0">  configuration writes it itself, into your personal layer.<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.8048;0.8058;1" dur="13.2s" repeatCount="indefinite"/></text>
     <rect x="26" y="979" width="10" height="17" fill="#c5c8c6"><animate attributeName="opacity" values="1;1;0;0;1" dur="1.2s" repeatCount="indefinite"/></rect>
   </g>
 </svg>

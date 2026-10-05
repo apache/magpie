@@ -69,6 +69,15 @@ link integrity, and placeholder conventions.
    warns when any phrase has been dropped. Silently skipped when
    git or the base ref is unavailable. Override via
    `SKILL_VALIDATOR_BASE_REF`.
+7. **Override contract** — Every override file in a scanned tree's
+   `.apache-magpie-overrides/` carries the canonical header and does
+   not weaken the safety baseline.
+   A contributor-growth configuration file found there
+   (`committer-onboarding-config.md`, `committer-readiness.md`,
+   `contributor-identities.md`, `contributor-nomination-config.md`,
+   `contributor-sentiment-config.md`) is reported as personal
+   configuration that should not be committed: see
+   [Why the configuration is personal](../../docs/contributor-growth/README.md#why-the-configuration-is-personal).
 
 SOFT advisories are surfaced as warnings on stderr without failing
 the run. The reviewer has the final say on borderline cases.

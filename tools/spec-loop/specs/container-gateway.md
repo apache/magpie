@@ -122,7 +122,10 @@ every worktree has its own gateway. `serve` refuses a socket path over
 the 103-byte macOS `sun_path` limit before creating anything. Outside a git repository an
 unadopted project has no default and `serve` requires `--run-dir`. The
 run directory and the personal layer are never accepted as bind-mount
-sources.
+sources. In a linked worktree of an adopted project, which reads its main
+checkout's `.apache-magpie-local/` when it has none of its own, both
+that directory and the worktree's own are excluded; the run directory
+itself stays per worktree and never falls back to the main checkout.
 Every setting that names a gateway socket needs its **absolute**
 path. `CONTAINER_HOST` / `DOCKER_HOST` do **not** honour a
 project-relative `unix://./…` value: a `unix://` URL's authority is
@@ -478,6 +481,18 @@ PYTHONPATH=tools/skill-evals/src python3 -m skill_evals.runner \
   block by hand, or takes the settings diff
   `setup-isolated-setup-install` Step L proposes. Automating it in
   `/magpie-setup config` is the follow-up.
+- **Residual risk — a forged worktree layout.** In a linked worktree
+  of a project that has not adopted Magpie, the run directory's anchor
+  (the git common directory) is located from the worktree's `.git`
+  file. The gateway verifies ownership and mode, `HEAD` and `objects/`,
+  and the `worktrees/<name>/gitdir` back-link, but an agent able to
+  write files can forge a complete layout inside directories it can
+  already write, so the check cannot distinguish it from a real
+  worktree. The consequences are bounded: sockets only land where the
+  agent could already create files, are reachable only if that exact
+  path is allowlisted in settings the agent cannot edit, and container
+  binds remain limited to the worktree's bind roots. Mitigation: pass
+  `--run-dir` explicitly, or adopt (per-worktree in-tree run dir).
 - A create, exec or build field the gateway has not learned is refused,
   so a daemon feature that arrives after this table is unavailable
   through the gateway until the allow-list learns it. The refusal names

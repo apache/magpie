@@ -36,7 +36,7 @@ python3 <framework>/skills/setup-status/scripts/collect_status.py --format json 
 | `active_target_ids` | The subset of registry ids whose directory is present on disk. |
 | `families` | The installed-skill roster grouped by family (see below). |
 | `overrides` | `{present, has_readme, skill_count}` for `.apache-magpie-overrides/` (committed, shared). |
-| `local_overrides` | `{present, has_readme, skill_count}` for `.apache-magpie-local/` (gitignored, personal). Always reported; `present: false` when the directory does not exist. |
+| `local_overrides` | `{present, has_readme, skill_count, path, location, layers, legacy_in_tree}` for the personal layer. `location` is `in-tree` (`.apache-magpie-local/`, adopted), `main-checkout` (an adopted linked worktree with none of its own, using its main checkout's), `git-dir` (`<git-common-dir>/apache-magpie/`, not adopted) or `none` (not adopted and not a git repository); `layers` lists every personal directory read, first match wins; `legacy_in_tree` flags an old `.apache-magpie-local/` in an unadopted repo. Always reported; `present: false` when the directory does not exist. |
 | `post_checkout_hook` | `{present, executable, has_sandbox_helper, has_stale_verify_line}`. `has_stale_verify_line` true means the hook still carries the long-removed `--auto-fix-symlinks` line — remediation is `setup upgrade`. |
 | `gitignore` | Coverage flags (see below). |
 
@@ -110,7 +110,9 @@ for the *intended* set, and use the on-disk read for the
 Top-level flags (`snapshot_ignored`, `local_lock_ignored`,
 `local_overrides_ignored`, `settings_local_ignored`) plus a
 per-target map.  `local_overrides_ignored` is `true` when
-`/.apache-magpie-local/` appears in `.gitignore`. Each target
+`/.apache-magpie-local/` appears in `.gitignore`, and `null` in a repo
+that has not adopted Magpie, whose personal layer sits in the git
+directory and needs no entry. Each target
 carries `glob_ignored` + `setup_unignored` (the **normal-adopter**
 pattern: ignore the symlinks, keep the bootstrap tracked) and
 `all_unignored` (the **self-adoption** pattern: every `magpie-*`

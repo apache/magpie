@@ -19,7 +19,7 @@ argument-hint: "[quirk description]"
 capability: capability:platform
 surface_hash: sha256:ac2752440081dd6c
 license: Apache-2.0
-measured_tokens: 5276
+measured_tokens: 5303
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -58,7 +58,9 @@ and opens **one PR per distinct defect**.
 <!-- BEGIN MAGPIE BLOCK: adopter-overrides — generated from tools/dev/blocks/adopter-overrides.md -->
 
 Before running its default behaviour, this skill consults
-[`.apache-magpie-local/setup-upstream-fix.md`](../../../../docs/setup/agentic-overrides.md) (personal, gitignored; applied first, wins on conflict) and
+`setup-upstream-fix.md` in the personal layer
+(`.apache-magpie-local/` when the project adopted Magpie, falling back to the main checkout's in a linked worktree,
+or `<git-common-dir>/apache-magpie/` when Magpie is only installed; applied first, wins on conflict) and
 [`.apache-magpie-overrides/setup-upstream-fix.md`](../../../../docs/setup/agentic-overrides.md) (committed, project-wide)
 in the adopter repo, if present, and applies any agent-readable overrides it finds.
 See [`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md) for the contract.
@@ -208,7 +210,7 @@ Do this **once per quirk**, in `<framework-clone>`:
    [`tools/adversarial-review`](../../../../tools/adversarial-review/README.md).
 
    **When it runs.** Resolve `adversarial-review.md`
-   (`.apache-magpie-local/` first, then `.apache-magpie-overrides/`).
+   (the personal layer first, then `.apache-magpie-overrides/`).
 
    - No file, or an empty `reviewers` list → skip silently.
    - The `magpie-adversarial-review` plugin is not installed → skip, and say

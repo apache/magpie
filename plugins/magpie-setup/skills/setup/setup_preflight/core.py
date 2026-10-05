@@ -446,7 +446,10 @@ def isolated_setup_findings(
 
 
 def _cache_key(root: Path, installed: dict[str, str] | None) -> str:
-    parts: list[str] = []
+    # Linked worktrees of an adopted repository can share their main
+    # checkout's personal layer, and so this cache file: key it on the
+    # checkout as well, so one worktree never serves another's verdict.
+    parts: list[str] = ["root:" + str(root.resolve())]
     for name in (LOCK_NAME, LOCAL_LOCK_NAME):
         path = root / name
         parts.append(
@@ -477,7 +480,8 @@ def cached_project_findings(
     """Project findings, reusing a recent verdict computed from the same inputs.
 
     Returns `(findings, was_cached)`.  The cache lives in the personal
-    layer (`layers.personal_dir`), is keyed on the lock files' identity and
+    layer (`layers.personal_dir`, which in a linked worktree of an adopted
+    repository may be its main checkout's), is keyed on the checkout, the lock files' identity and
     the plugin listing, and expires so that a plugin installed mid-session
     is picked up by the next skill rather than at the end of the day.  A
     project whose personal layer does not exist is not cached at all —

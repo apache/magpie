@@ -25,7 +25,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 685 712"
      width="685" height="712" role="img"
      data-magpie-generated="render-wizard"
-     aria-label="An animated /magpie-setup config run for the issue family: the check failing, values derived from the repository, one question, and gitignored files written">
+     aria-label="An animated /magpie-setup config run for the issue family: the check failing, values derived from the repository, one question, and personal files written">
   <title>/magpie-setup config — issue</title>
   <desc>Illustrative animation of a configuration run for the issue family. Derived from the skills' declared required configuration.</desc>
   <rect width="685" height="712" rx="10" fill="#1d1f21"/>
@@ -51,8 +51,8 @@
     <text x="26" y="488" fill="#8a8f94" opacity="0">          Evidence-package directory layout and frozen-copy…<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.5041;0.5051;1" dur="9.8s" repeatCount="indefinite"/></text>
     <text x="26" y="512" fill="#c5c8c6" opacity="0">      runtime-invocation.md<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.5429;0.5439;1" dur="9.8s" repeatCount="indefinite"/></text>
     <text x="26" y="536" fill="#8a8f94" opacity="0">          Build prerequisite, run-a-single-file recipe,…<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.5816;0.5826;1" dur="9.8s" repeatCount="indefinite"/></text>
-    <text x="26" y="584" fill="#7f9f7f" opacity="0">  Written to .apache-magpie-local/  — nothing staged, nothing<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.6204;0.6214;1" dur="9.8s" repeatCount="indefinite"/></text>
-    <text x="26" y="608" fill="#7f9f7f" opacity="0">  committed, no teammate affected.<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.6592;0.6602;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="584" fill="#7f9f7f" opacity="0">  Written to .git/apache-magpie/  — nothing in the working<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.6204;0.6214;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="608" fill="#7f9f7f" opacity="0">  tree, nothing staged, no teammate affected.<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.6592;0.6602;1" dur="9.8s" repeatCount="indefinite"/></text>
     <text x="26" y="656" fill="#8a8f94" opacity="0">  The project can also adopt Magpie, so contributors get this<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.6980;0.6990;1" dur="9.8s" repeatCount="indefinite"/></text>
     <text x="26" y="680" fill="#8a8f94" opacity="0">  on clone: /magpie-setup adopt<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.7367;0.7377;1" dur="9.8s" repeatCount="indefinite"/></text>
     <rect x="26" y="667" width="10" height="17" fill="#c5c8c6"><animate attributeName="opacity" values="1;1;0;0;1" dur="1.2s" repeatCount="indefinite"/></rect>

@@ -45,7 +45,7 @@ One small TOML file per layer:
 | Layer | File | Committed? |
 |---|---|---|
 | Project | `.apache-magpie-overrides/commit-attribution.toml` | Yes — set by `setup adopt` |
-| Contributor | `.apache-magpie-local/commit-attribution.toml` | No — set by `setup config` |
+| Contributor | `commit-attribution.toml` in the personal layer (`<git-common-dir>/apache-magpie/`, or `.apache-magpie-local/` once adopted) | No — set by `setup config` |
 
 ```toml
 # generated-by | assisted-by | co-authored-by | none | custom

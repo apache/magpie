@@ -20,14 +20,14 @@
 
 > /magpie-setup config
 
-  Written to .apache-magpie-local/  - gitignored, this clone only
+  Written to .git/apache-magpie/  - inside the git directory, this clone only
 
     project.md                                   2 values, 1 TODO
     pr-management-config.md                      2 values, 1 TODO
     pr-management-triage-comment-templates.md    0 values, 4 TODO
 
-  Added /.apache-magpie-local/ to .git/info/exclude, not to .gitignore -
-  .gitignore is committed, and nothing here should be.
+  Nothing in the working tree, no ignore entry needed: git never
+  tracks its own directory, and nothing here should be committed.
 
   Nothing staged. Nothing committed. No teammate sees any of this.
 

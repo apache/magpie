@@ -620,7 +620,7 @@ Magpie does that itself, when you run a skill, so you have no extra step to reme
 
 Every skill runs a short self-check in its pre-flight.
 It compares the skill's current configuration surface (its `surface_hash`) with the value recorded when this project was last reconciled.
-That value is kept in the `reconciled:` stamp: in the committed `.apache-magpie.lock` if the project is adopted, or in the gitignored `.apache-magpie-local/reconciled.json` if you have only configured it
+That value is kept in the `reconciled:` stamp: in the committed `.apache-magpie.lock` if the project is adopted, or in `reconciled.json` in your personal layer (`<git-common-dir>/apache-magpie/`) if you have only configured it
 (format in [`locks.md`](../../plugins/magpie-setup/skills/setup/locks.md#the-reconciled-block--what-was-checked-not-what-to-install)).
 Nothing is fetched over the network, and a skill whose surface has not changed stays silent.
 

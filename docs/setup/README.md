@@ -78,7 +78,7 @@ Nothing is written before you approve it.
 <!-- BEGIN generated: skill-config (tools/dev/check-skill-config.py --fix) -->
 
 **Nothing here has to be configured.** These skills read the file below
-when it exists — yours in `.apache-magpie-local/` or the project's in
+when it exists — yours in your personal layer or the project's in
 `.apache-magpie-overrides/` — and fall back to a documented default when
 it does not.
 
@@ -199,7 +199,7 @@ for the complete rule.
   enabling a Policy MCP, a security triage member enabling a
   private CVE database) without touching shared project config:
   register the server in user-scope Claude settings, then write a
-  personal `.apache-magpie-local/<skill>.md` override.
+  personal `<skill>.md` override in your personal layer.
 
 ## Typical lifecycle
 

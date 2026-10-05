@@ -175,7 +175,23 @@ Magpie (a committed `.apache-magpie.lock`), otherwise
 `<git-common-dir>/apache-magpie/run/<worktree-id>/` — the absolute path of
 `git rev-parse --git-common-dir`, which is the main checkout's `.git`
 from every worktree, then `main` for the main working tree or the
-linked worktree's `.git/worktrees/<name>` name. All four values are **absolute**
+linked worktree's `.git/worktrees/<name>` name. Compute the run directory in the worktree being wired, never by hand:
+
+```bash
+# adopted (a committed .apache-magpie.lock): the run directory is in the tree
+[ -f .apache-magpie.lock ] && echo "$PWD/.apache-magpie-local/run"
+# not adopted: one per worktree, inside the git directory
+common=$(git rev-parse --path-format=absolute --git-common-dir)
+gitdir=$(git rev-parse --path-format=absolute --git-dir)
+if [ "$gitdir" = "$common" ]; then wid=main; else wid=${gitdir##*/}; fi
+echo "$common/apache-magpie/run/$wid"
+```
+
+and propose `unix://<run-dir>/podman.sock`, `unix://<run-dir>/docker.sock`
+and the same two socket paths for `allowUnixSockets`. A linked worktree
+gets its own entries in its own `.claude/settings.local.json`: the
+run directory is per worktree whatever the adoption state.
+All four values are **absolute**
 paths and therefore per-machine: the CLIs do not resolve a
 project-relative `unix://./…` value against the cwd — the URL
 authority is read as a host component, so `unix://./x` dials

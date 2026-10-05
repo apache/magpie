@@ -107,10 +107,132 @@ CONFIG_FILES: tuple[str, ...] = (
     "pr-triage.md",
     "pr-management-config.md",
 )
-OVERRIDE_DIRS: tuple[str, ...] = (
-    ".apache-magpie-local",
-    ".apache-magpie-overrides",
-)
+# Where Magpie config lives: the same rule as setup_preflight/layers.py,
+# inlined because this script runs standalone.  Kept identical to the other
+# copies by tools/setup-preflight/tests/test_layers.py.
+LOCK_NAME = ".apache-magpie.lock"
+LOCAL_DIR = ".apache-magpie-local"
+OVERRIDES_DIR = ".apache-magpie-overrides"
+GIT_HOME_NAME = "apache-magpie"
+
+
+def _absolute(path: Path) -> Path:
+    return Path(os.path.normpath(os.path.abspath(path)))
+
+
+def git_common_dir(root: Path) -> Path | None:
+    """The repository's common git directory, or `None` when `root` is not a repo.
+
+    `<root>/.git` a directory → that directory.  A file reading
+    `gitdir: <path>` (a linked worktree, or a submodule) → that worktree git
+    directory, and then the directory its `commondir` file names (relative
+    to the worktree git directory), when it has one.  Relative paths resolve
+    against the file that holds them.
+    """
+    dotgit = _absolute(root) / ".git"
+    if dotgit.is_dir():
+        return dotgit
+    if not dotgit.is_file():
+        return None
+    try:
+        first = dotgit.read_text(encoding="utf-8").splitlines()[0].strip()
+    except (OSError, UnicodeDecodeError, IndexError):
+        return None
+    if not first.startswith("gitdir:"):
+        return None
+    target = first.removeprefix("gitdir:").strip()
+    if not target:
+        return None
+    gitdir = _absolute(dotgit.parent / target)
+    if not gitdir.is_dir():
+        return None
+    commondir = gitdir / "commondir"
+    if not commondir.is_file():
+        return gitdir
+    try:
+        common = commondir.read_text(encoding="utf-8").strip()
+    except (OSError, UnicodeDecodeError):
+        return None
+    if not common:
+        return gitdir
+    resolved = _absolute(gitdir / common)
+    return resolved if resolved.is_dir() else None
+
+
+def adopted(root: Path) -> bool:
+    """Whether the project has adopted Magpie: a committed lock exists."""
+    return (root / LOCK_NAME).is_file()
+
+
+def main_worktree(root: Path) -> Path | None:
+    """The main checkout of the linked worktree `root`, or `None`.
+
+    `<root>/.git` a file whose common git directory is named `.git` and is
+    the `.git` directory of its parent (a non-bare main checkout) → that
+    parent.  `None` for the main checkout itself, a bare repository, a
+    submodule, or no repository.  Reads files only, never spawns `git`.
+
+    The main checkout is located from the worktree's `.git` file, which an
+    agent able to write the worktree can rewrite.  That only selects
+    configuration the agent could already write into the worktree's own
+    `.apache-magpie-local/`, so following it grants no new capability.
+    """
+    if not (_absolute(root) / ".git").is_file():
+        return None
+    common = git_common_dir(root)
+    if common is None or common.name != ".git":
+        return None
+    main = common.parent
+    return main if (main / ".git").is_dir() else None
+
+
+def personal_dir(root: Path) -> Path | None:
+    """Where this user's configuration for `root` is written; never created here.
+
+    Adopted → `<root>/.apache-magpie-local`, except in a linked worktree
+    that has none while its main checkout has one: then the main
+    checkout's, so a worktree writes where it already reads.  Not adopted →
+    `<git-common-dir>/apache-magpie`.  May not exist yet.  `None` means
+    there is nowhere to keep it: not adopted and not a git repository.
+    """
+    if adopted(root):
+        own = root / LOCAL_DIR
+        main = main_worktree(root)
+        if own.is_dir() or main is None or not (main / LOCAL_DIR).is_dir():
+            return own
+        return main / LOCAL_DIR
+    common = git_common_dir(root)
+    return common / GIT_HOME_NAME if common is not None else None
+
+
+def personal_layers(root: Path) -> list[Path]:
+    """Every personal directory a config file is looked up in, first match wins.
+
+    Adopted → `<root>/.apache-magpie-local`, then, in a linked worktree,
+    the main checkout's when it exists: `.apache-magpie-local/` is
+    gitignored, so a new worktree has none, and a file missing from its own
+    is found in the main checkout's.  Not adopted →
+    `<git-common-dir>/apache-magpie` (already shared by every worktree),
+    then a legacy in-tree `.apache-magpie-local/`.
+    """
+    if adopted(root):
+        found = [root / LOCAL_DIR]
+        main = main_worktree(root)
+        if main is not None and (main / LOCAL_DIR).is_dir():
+            found.append(main / LOCAL_DIR)
+        return found
+    common = git_common_dir(root)
+    found = [] if common is None else [common / GIT_HOME_NAME]
+    legacy = root / LOCAL_DIR
+    if legacy.is_dir() and legacy not in found:
+        found.append(legacy)
+    return found
+
+
+def config_layers(root: Path) -> list[Path]:
+    """Every directory a config file is looked up in, first match wins."""
+    return [*personal_layers(root), root / OVERRIDES_DIR]
+
 
 _FENCE_PATTERN = re.compile(r"^```ya?ml[ \t]*\n(.*?)^```[ \t]*$", re.M | re.S)
 _COMMENT_PATTERN = re.compile(r"(^|\s)#.*$")
@@ -220,7 +342,9 @@ def resolve_prefilter_config(
          - ``MAGPIE_ENABLE_TYPED_DECISION_PREFILTER``
          - ``MAGPIE_TYPED_DECISION_CONFIDENCE_THRESHOLD``
          - ``MAGPIE_TYPED_DECISION_LOG_PATH``
-      3. ``.apache-magpie-local/`` override files (personal, gitignored)
+      3. The personal layer (``.apache-magpie-local/`` when adopted, with a
+         linked worktree falling back to the main checkout's; otherwise
+         ``<git-common-dir>/apache-magpie/``, then a legacy in-tree dir)
       4. ``.apache-magpie-overrides/`` override files (committed, project-wide)
       5. ``<project_root>/pr-management-config.md`` (adopter config)
       6. Framework defaults: ``enabled=False``, ``confidence_threshold=0.85``
@@ -234,10 +358,10 @@ def resolve_prefilter_config(
         "typed_decision_log_path",
     }
 
-    # Search override layers in order: personal local, then committed overrides
-    for layer in OVERRIDE_DIRS:
+    # Search the layers in order: personal, then committed overrides
+    for layer in config_layers(root):
         for fname in CONFIG_FILES:
-            path = root / layer / fname
+            path = layer / fname
             if path.is_file():
                 try:
                     text = path.read_text(encoding="utf-8")
@@ -289,12 +413,9 @@ def resolve_prefilter_config(
     threshold = _parse_float(raw_threshold, DEFAULT_CONFIDENCE_THRESHOLD)
 
     raw_log = found_kv.get("typed_decision_log_path")
-    if raw_log:
-        log_path = Path(raw_log).resolve()
-    else:
-        # Default log path inside .apache-magpie-local/logs/
-        local_logs = root / ".apache-magpie-local" / "logs"
-        log_path = local_logs / "pr-triage-typed-decision.jsonl"
+    # Default: the personal layer's logs/; none when the project has no
+    # personal layer (unadopted and not a git repository).
+    log_path = Path(raw_log).resolve() if raw_log else _default_log_path(root)
 
     return PrefilterConfig(
         enabled=enabled,
@@ -389,8 +510,13 @@ def build_triage_prompt(pr_data: Mapping[str, Any] | str) -> str:
     )
 
 
+def _default_log_path(root: Path) -> Path | None:
+    home = personal_dir(root)
+    return home / "logs" / "pr-triage-typed-decision.jsonl" if home is not None else None
+
+
 def log_prefilter_call(
-    log_path: Path,
+    log_path: Path | None,
     *,
     predicted_label: str | None,
     confidence: float | None,
@@ -405,8 +531,11 @@ def log_prefilter_call(
     """Append a structured JSON line logging the pre-filter call.
 
     Logs: {timestamp, pr, table_classification, predicted_label, confidence,
-           latency_ms, match, outcome}.
+           latency_ms, match, outcome}.  Nothing is logged when there is no
+    personal layer to log into (``log_path`` is ``None``).
     """
+    if log_path is None:
+        return
     record: dict[str, Any] = {
         "timestamp": datetime.datetime.now(datetime.UTC).isoformat(),
         "pr": pr_identifier,
@@ -451,13 +580,7 @@ def prefilter_pr(
         PrefilterResult indicating advisory prediction and confidence status.
     """
     resolved_cfg = config or resolve_prefilter_config(project_root)
-    effective_log_path = (
-        log_path
-        or resolved_cfg.log_path
-        or (
-            _find_repo_root(project_root) / ".apache-magpie-local" / "logs" / "pr-triage-typed-decision.jsonl"
-        )
-    )
+    effective_log_path = log_path or resolved_cfg.log_path or _default_log_path(_find_repo_root(project_root))
 
     # 1. Flag off: behaves identically to baseline (no provider call, no prefill)
     if not resolved_cfg.enabled:

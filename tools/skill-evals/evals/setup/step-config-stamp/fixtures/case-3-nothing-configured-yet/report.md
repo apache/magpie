@@ -5,8 +5,9 @@ Install method: `marketplace`, not adopted — no `.apache-magpie.lock`
 anywhere in the tree.
 
 This repo has never run `config`, `adopt`, or any override:
-  `.apache-magpie-local/`      -> absent
-  `.apache-magpie-overrides/`  -> absent
+  personal layer `/home/dev/acme/.git/apache-magpie/` -> absent
+  `.apache-magpie-local/`                            -> absent
+  `.apache-magpie-overrides/`                        -> absent
 
 Scope: `config issue-triage` narrowed this run to one skill,
 `magpie-issue-triage`, whose `requires_config:` list is empty — it needs

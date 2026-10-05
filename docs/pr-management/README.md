@@ -94,16 +94,17 @@ happening — plus the other agents and the secure-isolation setup to run next.
 
 <!-- BEGIN generated: skill-config (tools/dev/check-skill-config.py --fix) -->
 
-![An animated `/magpie-setup config` run for the pr-management family: the check failing, the values derived from the repository, one question for the rest, and gitignored files written](../../assets/quickstart/wizard/pr-management.svg)
+![An animated `/magpie-setup config` run for the pr-management family: the check failing, the values derived from the repository, one question for the rest, and personal files written](../../assets/quickstart/wizard/pr-management.svg)
 
 *Illustrative — the real run derives more and asks better. What is true is
-the shape: it runs itself, it writes only gitignored files, and it stages
-nothing.*
+the shape: it runs itself, it writes only your personal layer, and it
+stages nothing.*
 
 Every skill here resolves project-specific values from the adopter's
 [`<project-config>/`](../../plugins/magpie-setup/templates/) directory — which is
-`.apache-magpie-local/` (gitignored, yours) first, then
-`.apache-magpie-overrides/` (committed, the project's).
+your personal layer first — `.apache-magpie-local/` (gitignored) in a
+project that adopted Magpie, `<git-common-dir>/apache-magpie/` in one
+that did not — then `.apache-magpie-overrides/` (committed, the project's).
 
 **For yourself:** `/magpie-setup config` scaffolds and fills these locally.
 Nothing is staged, nothing is committed, and it works on a repository that

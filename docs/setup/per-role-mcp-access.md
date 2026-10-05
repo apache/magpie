@@ -36,9 +36,11 @@ tool that non-members should not have.
 
 This recipe shows how to enable an MCP server **only for yourself**,
 for **only the skills that need it**, without touching the committed
-project config. The mechanism is the `.apache-magpie-local/` personal
-override directory: a gitignored, per-developer layer that the framework
-reads before shared config on every skill invocation.
+project config. The mechanism is the personal override layer: a
+per-developer directory, never committed, that the framework reads before
+shared config on every skill invocation. In an adopted repo it is the
+gitignored `.apache-magpie-local/`, which this page uses; in a repo that
+has only installed Magpie it is `<git-common-dir>/apache-magpie/`.
 
 The recipe has two steps:
 
@@ -64,8 +66,9 @@ directory is untouched. The committed lock is untouched.
 
   On a repo that has not adopted Magpie, perform a whole-user install
   (see [`secure-agent-setup.md`](secure-agent-setup.md) § User-scope
-  install), add `/.apache-magpie-local/` to the repo's `.gitignore`,
-  then return here.
+  install) and use `"$(git rev-parse --git-common-dir)/apache-magpie"`
+  wherever this page says `.apache-magpie-local`: it is inside the git
+  directory, so it needs no `.gitignore` entry.
 
 ## Step 1 — Register the MCP server in your Claude Code user settings
 
@@ -266,8 +269,8 @@ Move to a framework PR against `apache/magpie` when:
 
 These apply to personal override files in the same way as shared ones:
 
-- **Never commit or push `.apache-magpie-local/`**. The directory is
-  gitignored for this reason — it may carry credentials and personal
+- **Never commit or push the personal layer**. It is gitignored, or
+  inside the git directory, for this reason — it may carry credentials and personal
   paths.
 - **Never weaken the safety, confidentiality, or privacy baseline.** An
   override that attempts to remove a confirmation step, skip a redaction

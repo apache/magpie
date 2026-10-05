@@ -60,6 +60,8 @@ PLUGINS = Path("plugins")
 # `projects/_template` is a symlink to it. Generated links name this path
 # because GitHub does not follow a directory symlink.
 TEMPLATE_DIR = Path("plugins/magpie-setup/templates")
+#: Families whose configuration is never committed by `adopt` (adopt.md).
+PERSONAL_ONLY_FAMILIES = frozenset({"contributor-growth"})
 TEMPLATE_INDEX = TEMPLATE_DIR / "README.md"
 
 BEGIN = "<!-- BEGIN generated: skill-config (tools/dev/check-skill-config.py --fix) -->"
@@ -192,33 +194,44 @@ def render(family: str, skills: dict[str, tuple[list[str], set[str]]], desc: dic
         lines += [
             f"![An animated `/magpie-setup config` run for the {family} family: the check "
             f"failing, the values derived from the repository, one question for the rest, "
-            f"and gitignored files written]"
+            f"and personal files written]"
             f"(../../assets/quickstart/wizard/{family}.svg)",
             "",
             "*Illustrative — the real run derives more and asks better. What is true is",
-            "the shape: it runs itself, it writes only gitignored files, and it stages",
-            "nothing.*",
+            "the shape: it runs itself, it writes only your personal layer, and it",
+            "stages nothing.*",
             "",
             "Every skill here resolves project-specific values from the adopter's",
             f"[`<project-config>/`](../../{TEMPLATE_DIR.as_posix()}/) directory — which is",
-            "`.apache-magpie-local/` (gitignored, yours) first, then",
-            "`.apache-magpie-overrides/` (committed, the project's).",
+            "your personal layer first — `.apache-magpie-local/` (gitignored) in a",
+            "project that adopted Magpie, `<git-common-dir>/apache-magpie/` in one",
+            "that did not — then `.apache-magpie-overrides/` (committed, the project's).",
             "",
             "**For yourself:** `/magpie-setup config` scaffolds and fills these locally.",
             "Nothing is staged, nothing is committed, and it works on a repository that",
             "has never adopted Magpie.",
             "",
-            "**For the project:** [`/magpie-setup adopt`](../setup/team-adoption.md)",
-            "commits them for every contributor, either scaffolded directly or promoted",
-            "from what you configured locally.",
-            "",
         ]
+        if family in PERSONAL_ONLY_FAMILIES:
+            lines += [
+                "**This configuration stays personal.** `/magpie-setup adopt` never",
+                "promotes or scaffolds it into `.apache-magpie-overrides/`: committed",
+                "thresholds would tell every contributor how to game them.",
+                "",
+            ]
+        else:
+            lines += [
+                "**For the project:** [`/magpie-setup adopt`](../setup/team-adoption.md)",
+                "commits them for every contributor, either scaffolded directly or promoted",
+                "from what you configured locally.",
+                "",
+            ]
     else:
         # Saying "configure these" over a table of things you need not configure
         # is how a family that asks nothing of an adopter reads as one that does.
         lines += [
             "**Nothing here has to be configured.** These skills read the file below",
-            "when it exists — yours in `.apache-magpie-local/` or the project's in",
+            "when it exists — yours in your personal layer or the project's in",
             "`.apache-magpie-overrides/` — and fall back to a documented default when",
             "it does not.",
             "",
