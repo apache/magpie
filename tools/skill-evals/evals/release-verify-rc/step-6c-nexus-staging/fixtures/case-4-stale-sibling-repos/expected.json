@@ -1,0 +1,20 @@
+{
+  "step": "nexus-staging",
+  "status": "WARN",
+  "staging_repos": [
+    {
+      "id": "orgapachefoo-1023",
+      "state": "open",
+      "matches_rc": false
+    },
+    {
+      "id": "orgapachefoo-1024",
+      "state": "closed",
+      "matches_rc": true
+    }
+  ],
+  "nexus_findings": [
+    "orgapachefoo-1023 is a stale sibling staging repository (open, holds 0.9.0 from an abandoned attempt) — drop it after confirming this RC is orgapachefoo-1024"
+  ],
+  "paste_recipe": "curl -fsS -o /dev/null -w '%{http_code}\\n' \"https://repository.apache.org/content/repositories/orgapachefoo-1024/\"\ncurl -fsS --netrc-file ~/.config/apache-magpie/asf-nexus/netrc \"https://repository.apache.org/service/local/staging/repository/orgapachefoo-1024\" | jq .data\ncurl -fsS --netrc-file ~/.config/apache-magpie/asf-nexus/netrc \"https://repository.apache.org/service/local/staging/profile_repositories\" | jq -r '.data[] | [.repositoryId, .state, .profileName] | @tsv' | grep -i \"orgapachefoo\"\n# inventory crawl: paste and run the crawl() from tools/asf-nexus/operations.md recipe 4, base=\"https://repository.apache.org/content/repositories/orgapachefoo-1024\""
+}

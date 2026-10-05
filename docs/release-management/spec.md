@@ -413,7 +413,10 @@ loop before posting `+1`.
   podling incubation disclaimer, companion `-sources.jar` /
   `-javadoc.jar` with signatures and checksums, informational
   observations (timestamp reproducibility signal, package/groupId
-  correspondence, companion content sanity) — source-tree
+  correspondence, companion content sanity) — the Nexus staging
+  repository behind them via the read-only `tools/asf-nexus` adapter
+  (closed state, matching coordinates, signed complete sets;
+  ASF-only), source-tree
   integrity, version-string consistency, and — optional per
   `release-build.md § Reproducibility checks` — reproducibility: the
   source artefact rebuilt from the tag with `repro-archive build` at

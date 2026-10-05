@@ -95,8 +95,9 @@ code lands.
   NOTICE/LICENSE, prohibited binaries, published-JVM-artefact
   compliance via `tools/maven-artifact-verify` — POM licence set,
   podling disclaimer, companion jars, plus informational
-  reproducibility / namespace / companion-content observations;
-  version consistency,
+  reproducibility / namespace / companion-content observations —
+  plus the Nexus staging repository behind them via the read-only
+  `tools/asf-nexus` adapter (ASF-only); version consistency,
   Step 6);
   `release-vote-draft` (`mode: Drafting`) drafts the `[VOTE]` email body
   and planning-issue comment after a PASS pre-flight, never sending or

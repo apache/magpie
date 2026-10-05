@@ -1,0 +1,7 @@
+{
+  "step": "nexus-staging",
+  "status": "SKIP",
+  "staging_repos": [],
+  "nexus_findings": [],
+  "paste_recipe": "# Step 6c skips: the Step 1 listing contains no .jar or .pom — a source-only RC has no Nexus staging surface to probe"
+}
