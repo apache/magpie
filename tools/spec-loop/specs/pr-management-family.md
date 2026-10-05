@@ -72,7 +72,11 @@ same directory; the behaviour is unchanged.
   Detail files: `prerequisites.md`, `fetch-and-batch.md`,
   `classify-and-act.md`, `actions.md`, `interaction-loop.md`,
   `stale-sweeps.md`, `comment-templates.md`, `session-history.md`,
-  `contract-binding.md`, and `rationale.md`.
+  `contract-binding.md`, `backport-check.md`, `workflow-approval.md`, and
+  `rationale.md`.
+  It also ships agent-guard guards under `guards/` (`mark_ready.py`,
+  `mention.py`) and the opt-in shadow pre-filter
+  `scripts/typed_decision_prefilter.py` with its tests under `tests/`.
 - Skill: `pr-management-stats` — read-only summary tables of the open PR
   backlog, grouped by area label, age bucket, and triage state. No tracker
   state is mutated. Ships `mode: Triage` + `capability: capability:stats`
@@ -151,6 +155,36 @@ same directory; the behaviour is unchanged.
   hand-off, surface or close and never merges. With `backport_branches`
   empty the step is skipped. Regression cases:
   `tools/skill-evals/evals/pr-management-triage/backport-check/`.
+- **Acted-on PRs are not re-surfaced in the same session.**
+  After pagination dedup, Step 1 of `pr-management-triage` silently drops
+  every PR the session cache holds under a terminal `action_taken` whose
+  cached `head_sha` equals the freshly fetched head SHA: it appears in no
+  group, progress line, or Step 6 summary.
+  A changed head SHA falls through to the existing staleness rule and is
+  re-classified; the suppression dies with the session cache (#1479).
+- **The mark-ready guard sees every label.** The skill-contributed
+  `guards/mark_ready.py` agent-guard guard enforces Golden rule 1b — no
+  `ready for maintainer review` label while the head SHA has Actions runs
+  awaiting approval — and fails open when the lookup cannot be made.
+  It reads every `--add-label` value of a `gh pr edit` (repeated flags,
+  `=` form, and CSV lists with or without double quotes) through
+  `GuardContext.opts()`, so the ready label cannot slip past bundled with
+  another label (#1525).
+- **Typed-decision shadow pre-filter is advisory and opt-in.** With
+  `enable_typed_decision_prefilter: true` in `pr-management-config.md`
+  (default `false`; threshold `typed_decision_confidence_threshold`,
+  default `0.85`), Step 2 of `pr-management-triage` runs
+  `scripts/typed_decision_prefilter.py` alongside the post-guard
+  classification.
+  It calls a third-party `typed_decision.choice()` endpoint with public PR
+  metadata (title, body, and commit messages fenced as untrusted data),
+  and only after a `<project-config>/privacy-llm.md` opt-in entry with a
+  data-residency contract and maintainer sign-off.
+  The decision table and Real-CI guard stay authoritative: the pass only
+  appends `high_confidence` / `low_confidence` / `fell_through` records to
+  `.apache-magpie-local/logs/pr-triage-typed-decision.jsonl`, and any
+  missing credential, approval, or network error falls through without
+  affecting triage (#1403).
 - **The fold timestamp is untrusted input to stats.** The
   `pr-triage-fold` block lives in the PR body, which the author controls.
   `tools/pr-management-stats/reference.py` (`fold_triaged_at`) treats an

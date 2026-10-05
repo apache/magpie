@@ -41,6 +41,12 @@ The three mechanisms, in order of preference:
 1. **Placeholders** for project-specific *values* (`<tracker>`,
    `<upstream>`, `<security-list>`, `<default-branch>`, …), resolved from
    `<project-config>/`. This is the default and already widely used.
+   `<project-config>` resolves per file, personal layer first, then the
+   committed `.apache-magpie-overrides/`; the personal layer lives outside
+   the working tree (`<git-common-dir>/apache-magpie/`) when a project has
+   only installed Magpie (#1533, #1535; see
+   [adoption-and-setup.md](adoption-and-setup.md)), so a non-adopting
+   project carries no Magpie files in its working tree.
 2. **Adapters** for swapping the backing *system* a step talks to
    (`tools/gmail`, `tools/ponymail`, `tools/jira`, `tools/github`,
    `tools/mail-source`). See [adapters.md](adapters.md).

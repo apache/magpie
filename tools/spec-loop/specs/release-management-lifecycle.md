@@ -85,7 +85,8 @@ code lands.
   holding or reading the private key (Step 3); `release-rc-cut`
   (`mode: Drafting`) emits the paste-ready tag / build / sign / checksum /
   staging command sequences for an RC, run locally by the RM with their
-  own key (Steps 4–5); `release-announce-draft`
+  own key (Steps 4–5), its only GitHub access being the vetted `tags`
+  read and `repo-issue-comment` write (#1518); `release-announce-draft`
   (`mode: Drafting`) drafts
   the `[ANNOUNCE]` body and proposes the site-bump PR for a promoted
   release (Step 11), enforcing the one-hour promote-wait gate,
@@ -112,6 +113,28 @@ code lands.
   record from the planning issue, vote thread, artefact list, and announce
   archive URL and proposes the audit-log PR, read-only on every release
   surface (Step 13). All ten skills have now shipped.
+- Deterministic helpers, so fixed rules run as code rather than being
+  re-derived from prose each run:
+  `tools/release-config` (#1510) loads the adopter's release configuration
+  and runs every skill's deterministic Step 0 checks
+  (`release-config preflight --skill <name>`, JSON `blockers` / `warnings` /
+  `values`) and the Step 1 config metadata (`release-config load`), with
+  shared rules (version / RC format, approver roster, ASF identity,
+  automated-signing offer, archive destination) implemented once.
+  `tools/release-verify` (#1511) runs `release-verify-rc`'s mechanical steps
+  offline (`inventory`, `signatures`, `checksums`, `notice-license`,
+  `binaries`, `symlinks`, `version`, `verdict`), verifying signatures in a
+  throwaway `GNUPGHOME` and refusing a `KEYS` file with private-key material.
+  Per-skill sibling scripts (#1512) under `skills/<alias>/scripts/` with
+  stdlib `unittest` suites in `skills/<alias>/tests/`: `archive-sweep`
+  `retention.py`, `audit-report` `render_record.py`, `keys-sync`
+  `check_key.py`, `prepare` `category_x.py` / `next_dev_version.py` /
+  `prev_tag.py`, and `vote-tally` `tally.py`; the `skill-script-tests`
+  pre-commit hook (`tools/dev/run-skill-script-tests.sh`) runs them.
+- Conditional steps load only when they run (#1515): `prepare` splits into
+  `plan.md`, `prep.md`, `post.md` and `automated-signing.md`; `rc-cut` into
+  `ci-signed.md` and `reproducibility-self-check.md`; `verify-rc` into
+  `jvm-artefacts.md`, `nexus-staging.md` and `reproducibility.md`.
 - Adapters it will read/draft through: `tools/github`, `tools/ponymail`
   (vote threads), `tools/gmail` (announce/vote drafts), plus the project's
   `svn` dist tree as a distribution backend.
@@ -133,6 +156,18 @@ code lands.
 - **Conservative tally.** `release-vote-tally` classifies +1/0/-1 binding
   vs non-binding against the PMC roster and refuses to count ambiguous
   votes, flagging `AMBIGUOUS, needs RM call` rather than guessing.
+  `tally.py` binds a vote only to the real mailbox of its `from` header,
+  parsed as an address header: an address written into the display name
+  does not count, and a `from` with several addresses or none that parses
+  is non-binding and can never supersede another voter's vote (#1530).
+- **Public release text carries no embargoed security framing.** An
+  `--expedited` reason reaches the public `[VOTE]` body and planning-issue
+  comment, so until the advisory ships `release-vote-draft` writes it
+  neutrally, with no CVE ID and no "security fix", keeps any approval the
+  RM cited, and tells the RM what was left out (#1509).
+- **Bodies go through a file.** PR and comment bodies are written to a
+  scratch file and passed with `--body-file`, and PRs open with
+  `gh pr create --web` for the RM to review (#1502).
 - **Read-only verification.** `release-verify-rc` (signatures, checksums,
   RAT license headers, NOTICE/LICENSE, prohibited binaries, source-tree
   integrity, version consistency, and the optional reproducibility step)
@@ -234,6 +269,9 @@ test -f .agents/skills/magpie-release-verify-rc/SKILL.md
 test -f .agents/skills/magpie-release-vote-tally/SKILL.md
 test -f .agents/skills/magpie-release-promote/SKILL.md
 uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-validate
+uv run --project tools/release-config python -m pytest
+uv run --project tools/release-verify python -m pytest
+tools/dev/run-skill-script-tests.sh
 uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/release-announce-draft/
 ```
 
@@ -264,6 +302,9 @@ uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/release-an
   values (`project_dist_name: magpie`, ATR for both backends).
   `.apache-magpie-overrides/release-build.md` likewise differs from
   `projects/magpie/release-build.md`.
-- **The family's `SKILL.md` files are the largest in the catalogue.**
-  Eight of the ten are over the 500-line cap (`release-prepare` 1,208,
-  `release-verify-rc` 968, `release-rc-cut` 932).
+- **Several of the family's `SKILL.md` files are still over the 500-line
+  cap.** After the helper tools, sibling scripts, conditional-step split and
+  wording passes (#1510–#1519), six of the ten remain over it
+  (`release-rc-cut` 696, `release-verify-rc` 684, `release-announce-draft`
+  529, `release-vote-draft` 528, `release-audit-report` 516,
+  `release-promote` 504); `release-prepare` fell from 1,208 to 399.

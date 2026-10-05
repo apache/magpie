@@ -199,7 +199,8 @@ adopter-facing page.
 4. Every catalogue lists all ten family plugins and no all-in-one.
 5. A skill invoked through a family plugin resolves its own
    `surface_hash:` from its shipped frontmatter and its reconciliation
-   stamp from the committed lock or the local file exactly as a
+   stamp from the committed lock or the personal layer's `reconciled.json`
+   (`<git-common-dir>/apache-magpie/` when only installed) exactly as a
    snapshot-installed skill does — no marketplace-specific branch in the
    check — closing the gap named in
    [`adoption-and-setup.md`](adoption-and-setup.md#what-it-does).

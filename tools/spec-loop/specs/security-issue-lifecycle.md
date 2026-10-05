@@ -54,6 +54,9 @@ publication, with a human gate and an audit-log entry at every step.
   `tracker-update.md`; `issue-triage/classification.md`;
   `issue-sync/mail-preflight.md`, `next-step.md`;
   `cve-allocate/tracker-updates.md`, `title-normalize.md`.
+  The tracker body templates of `issue-import-from-md` and
+  `issue-import-from-pr` live in a `tracker-body-template.md` sibling of
+  each (#1499).
   Moved headings keep a one-line pointer in `SKILL.md` so anchors still
   resolve, and eval `step-config.json` files point at the sibling.
 - Shared recipes instead of per-skill copies (#1437): the safe-create
@@ -193,6 +196,26 @@ publication, with a human gate and an audit-log entry at every step.
   which the secure setup needs; #1453 made the last one plain too
   (`security-issue-invalidate` Step 1 no longer redirects `gh issue view`
   into a file, it reads the JSON the plain command prints).
+  Keyword dedup and fix-already-public searches (`security-issue-import`
+  Steps 2a–2c, `-from-md` Step 2) clean the attacker-controlled keywords
+  with `tr -cd 'A-Za-z0-9._ -'` into a file as one command, then run a
+  plain `gh search` with the cleaned keywords single-quoted, never a
+  variable set in the same command (#1465).
+  `security-issue-import-from-pr` reads the upstream PR, description
+  included, through vetted-ops' `pr-view-with-body` read operation instead
+  of a redirected `gh pr view`, and sets its configured labels at tracker
+  creation (#1457).
+- **Bulk sync pre-flight and CVE push rules (#1501).**
+  In `security-issue-sync` bulk mode the 24-hour `dispatch-urgent` rule
+  (a non-skill comment under a day old) is checked before the 7-day
+  `updatedAt` safety override, which would otherwise always catch it
+  first; `tools/preflight-audit`'s classifier uses the same order.
+  Trackers named by a CVE ID selector (`sync CVE-…`), like explicit issue
+  numbers, are never skipped by pre-flight.
+  At Step 5b a `not-configured` CVE-tool session skips the push silently
+  on ordinary runs, but on a `fix released` transition, where the record
+  still needs `allocated → review-ready`, it raises the same deferral
+  blocker in the Step 6 recap as an `expired` session.
 - **Small always-on footprint (#1447).**
   Each security skill's `description` and `when_to_use`, which load in
   every session, state only its purpose, main trigger phrases and where

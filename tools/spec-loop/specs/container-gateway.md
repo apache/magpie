@@ -81,9 +81,12 @@ CLIs speak. Three properties fall out of the policy:
 
 - `tools/container-gateway/` — the tool: `pyproject.toml` (stdlib-only
   runtime, `dev` group for pytest / ruff / mypy), `src/container_gateway/`
-  (`__main__.py` CLI, `proxy.py` unix-socket HTTP relay, `policy.py`
-  pure request/response policy, `backends.py` discovery, `labels.py`
-  project identity), `tests/`, `README.md` (how-to) and `tool.md`
+  (`__main__.py` CLI — serve / stop / status, `daemon.py` run directory,
+  pid file, sockets, process lifetime and the git-common-dir anchor check,
+  `layers.py` personal-layer resolution, `relay.py` and `http.py`
+  unix-socket HTTP relay, `routes.py` API path mapping, `decisions.py` /
+  `policy.py` / `policy_shape.py` pure request/response policy,
+  `backends.py` discovery, `labels.py` project identity), `tests/`, `README.md` (how-to) and `tool.md`
   (contract). Capability: `substrate:sandbox`. Harness: agnostic.
 - `tools/agent-isolation/container-gateway-hook.sh` — Claude Code
   `SessionStart` (`start`) / `SessionEnd` (`stop`) hook, installed to
@@ -485,7 +488,15 @@ PYTHONPATH=tools/skill-evals/src python3 -m skill_evals.runner \
   of a project that has not adopted Magpie, the run directory's anchor
   (the git common directory) is located from the worktree's `.git`
   file. The gateway verifies ownership and mode, `HEAD` and `objects/`,
-  and the `worktrees/<name>/gitdir` back-link, but an agent able to
+  and a back-link to the checkout: the `worktrees/<name>/gitdir` file for
+  a linked worktree, or, when the `.git` file names the common directory
+  itself (the submodule layout), a `core.worktree` in `<common>/config`
+  that resolves to the checkout (#1537).
+  A `.git` file naming another repository's git directory outright is
+  refused and points at `--run-dir`.
+  The ownership check does not tell the agent from the operator (both
+  run as the same user); the back-link is what ties the anchor to the
+  checkout. But an agent able to
   write files can forge a complete layout inside directories it can
   already write, so the check cannot distinguish it from a real
   worktree. The consequences are bounded: sockets only land where the

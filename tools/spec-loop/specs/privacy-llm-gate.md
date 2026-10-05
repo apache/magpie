@@ -38,6 +38,16 @@ artefact for leakage before emission.
   (`privacy-llm-check`; `--config` to name the config file,
   `--reads-private-list` so the banner says a PMC-private list is in
   play, `--quiet` to print nothing on approval).
+  The `checker` package also exports `check_endpoint(endpoint)`, the
+  runtime counterpart for a tool that makes its own outbound LLM call
+  (first consumer: [`tools/typed-decision/`](adapters.md), #1402).
+  It rejects a non-HTTP(S) URL, a fragment, or userinfo; approves
+  `localhost` and `*.apache.org` minus the carve-outs; and otherwise
+  requires an opt-in entry in `privacy-llm.md` whose host matches exactly
+  (or, for a name-only entry, the provider's default endpoint plus a
+  whole-word name match) with a data-residency contract and a
+  non-placeholder `Approved-by`.
+  The free-text Claude Code rule of the stack check does not apply to it.
 - `tools/privacy-llm/models.md` — the approved-model registry and its
   carve-outs.
 - `tools/privacy-llm/redactor/` — the PII redactor (name→`N-<hash>`,
@@ -81,6 +91,17 @@ artefact for leakage before emission.
   it serves from rented third-party GPU hardware and its pilot traffic is
   visible to gateway admins. The carve-out binds the private-data gate
   only; public-content skills may use such an endpoint freely.
+- **Tool-initiated LLM calls are gated per endpoint, before any bytes
+  leave.** A tool that calls a model itself checks the destination with
+  `check_endpoint` before assembling the request; a denial means no network
+  request is made.
+  This gate is the egress boundary only: redaction of private source
+  content stays the calling skill's job, per `wiring.md`.
+- **Public-bound reviewer CLIs are outside the gate by design.** The
+  `adversarial-review` reviewers (`codex`, `copilot`, `gemini`, `grok`,
+  `claude`) receive only the diff and the public PR text, so `models.md`
+  excludes them from the active stack
+  ([adversarial review](adversarial-review.md)).
 - **Redact before read; reveal locally.** Skills operate on hashed
   identifiers; the reverse map never goes to an LLM and is never committed.
 - **Reporter credit is preserved** (CVE `credits[]`) only after the

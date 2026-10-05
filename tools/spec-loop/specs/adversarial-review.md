@@ -125,7 +125,14 @@ before the PR is created, through one shared block.
   switched off and `--output-schema`; `copilot -p` with the shell and write
   tools denied; `gemini --approval-mode plan -o json`; `claude -p` with
   `--strict-mcp-config` and Bash, the editing tools, web access and `Task`
-  disallowed. `tests/test_backends.py` pins each line, so a regression that
+  disallowed.
+  `grok` is kept read-only by a tool allowlist
+  (`--tools read_file,grep,list_dir`), `--no-subagents`,
+  `--disable-web-search`, and `--deny` rules for `Bash`, `Edit`, `Write`,
+  `WebFetch` and `MCPTool`, with the brief passed by `--prompt-file`;
+  its `--permission-mode plan` is deliberately not used because grok accepts
+  but does not enforce it, and a run whose `stopReason` is not `end_turn` is
+  reported as a failed review (#1446). `tests/test_backends.py` pins each line, so a regression that
   drops a read-only flag fails.
 - **The input builder is the privacy boundary.** The prompt carries only the
   diff, the changed-file list and the public PR text, so no privacy-LLM gate
@@ -255,9 +262,16 @@ Behavioural eval suites under `tools/skill-evals/evals/`:
   `unavailable`; `setup config` says so.
 - **Reviewers can read beyond the prompt.** `codex -s read-only` restricts
   writes and network, not reads, so an instruction injected into the diff
-  could have it read a file elsewhere on the machine; `copilot` and `gemini`
-  keep any MCP servers they are configured with.
+  could have it read a file elsewhere on the machine, and `grok`'s
+  `read_file` and `grep` are likewise not confined to the working directory;
+  `copilot` and `gemini` keep any MCP servers they are configured with, and
+  `grok` keeps its MCP servers connected but auto-denies every MCP tool call
+  (`--deny MCPTool`).
   The README tells operators to keep private checkouts away from review
   machines or leave `codex` out.
 - **Copilot CLI has no command file.** `setup` can only show the one-line
   invocation for it.
+- **Grok is a reviewer only, not a command-file harness.** `commands
+  --harness` covers `claude`, `codex`, `gemini` and `copilot`; a maintainer
+  working inside grok cannot be offered a generated command, though `detect`
+  recognises grok as `self` from `GROK_SESSION_ID`.

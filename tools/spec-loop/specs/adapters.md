@@ -2,7 +2,7 @@
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
 ---
-title: Adapters (Gmail / PonyMail / Jira / GitHub / GitLab / Bitbucket / mail-source / SourceHut / maildir / VCS / change-request / chat)
+title: Adapters (Gmail / PonyMail / Jira / GitHub / GitLab / Bitbucket / Forgejo / mail-source / SourceHut / maildir / VCS / Fossil / change-request / chat / typed-decision)
 status: experimental
 kind: feature
 mode: infra
@@ -14,7 +14,8 @@ source: >
   tools/sourcehut/, tools/maildir/, tools/vcs/, tools/change-request/,
   tools/asf-svn/, tools/mail-archive/, tools/mail-patch/,
   tools/jira-patch/, tools/forwarder-relay/, tools/github-body-field/,
-  tools/github-rollup/, tools/gitlab/, tools/chat/, tools/chat-slack/.
+  tools/github-rollup/, tools/gitlab/, tools/chat/, tools/chat-slack/,
+  tools/forgejo/, tools/fossil/, tools/asf-nexus/, tools/typed-decision/.
 acceptance:
   - Project-specific integrations live behind adapter modules, not
     hardcoded into skills.
@@ -24,7 +25,7 @@ acceptance:
     redactor before any LLM read.
 ---
 
-# Adapters (Gmail / PonyMail / Jira / GitHub / GitLab / Bitbucket / SourceHut / maildir / VCS / change-request / chat)
+# Adapters (Gmail / PonyMail / Jira / GitHub / GitLab / Bitbucket / Forgejo / SourceHut / maildir / VCS / Fossil / change-request / chat / typed-decision)
 
 ## What it does
 
@@ -75,11 +76,19 @@ by swapping the adapter, not the skill.
   pull-request commit fetching, read-only pull-request diff fetching,
   comments-only pull-request discussion fetching, read-only pull-request
   review-state fetching, read-only merge-check context fetching, and
-  read-only pull-request status fetching behind one CLI surface. It is not
-  a complete `contract:change-request` or `contract:tracker` backend yet;
-  deeper Jira handoff, broader issue writes, review/merge writes, broader
-  repository permissions, and fuller Pipelines run/log/retry coverage remain
-  tracked in #606.
+  read-only pull-request status fetching behind one CLI surface.
+  On Cloud, `pr status` fetches the pull request first and reports its
+  state and source commit alongside the `/statuses` build checks, matching
+  the Data Center payload (#1526).
+  Confirmed Cloud-only pull-request writes cover comments,
+  approve/unapprove, request-changes, decline, and `pr merge --strategy
+  {merge,squash,rebase} --expected-source-commit <sha>`, which re-checks the
+  head commit immediately before the merge POST so a moved head fails closed
+  (#1471); it does not enforce approval or build gates itself.
+  It is not a complete `contract:change-request` or `contract:tracker`
+  backend yet; deeper Jira handoff, broader issue writes, Data Center
+  review/merge writes, broader repository permissions, and fuller Pipelines
+  run/log/retry coverage remain tracked in #606.
 - `tools/gitlab/` (`magpie-gitlab`) — partial, read-only GitLab REST API v4
   bridge, declared `contract:tracker + contract:source-control +
   contract:change-request` with `**Coverage:** partial`.
@@ -96,6 +105,18 @@ by swapping the adapter, not the skill.
   note the cap on stderr; `--limit` rejects values below 1.
   No write or mutation operations exist.
   Offline tests mock every HTTP response.
+- `tools/forgejo/` — doc-only Forgejo / Gitea adapter (#1469, part of
+  #310), declared `contract:tracker + contract:source-control +
+  contract:change-request` with `**Coverage:** partial`.
+  It mirrors the `tools/github/` file set (`tool.md`, `operations.md`,
+  `source-control.md`, `issue-template.md`, `labels.md`,
+  `project-board.md`, `status-rollup.md`): skills drive the `tea` CLI and
+  REST recipes against `$FORGEJO_HOST/api/v1/` with
+  `Authorization: token $TEA_TOKEN`, and the `change-request` `land` verb
+  resolves to `tea pr merge`.
+  The project board is documented as unsupported / no-op, since
+  Forgejo/Gitea expose no REST card/column management.
+  There is no local package and no test suite.
 - `tools/sourcehut/` — SourceHut (sr.ht) forge bridge: ticket tracking
   (`todo.sr.ht`), mailing-list patchset review (`lists.sr.ht`), CI build
   status (`builds.sr.ht`), and repository reads (`git.sr.ht`/`hg.sr.ht`)
@@ -105,12 +126,33 @@ by swapping the adapter, not the skill.
   reads, `svn` command-sequence generation for releases and KEYS updates.
   Never runs `svn commit`; emits paste-ready commands for the Release
   Manager.
+- `tools/asf-nexus/` — doc-only, read-only `contract:release-staging`
+  adapter (`**Organization:** ASF`, #1505) for the Nexus staging repository
+  at `repository.apache.org`, consumed by `release-verify-rc` Step 6c.
+  `curl` recipes check that the staged repository is `closed`, that its
+  coordinates and version match the RC, and that every artefact carries its
+  `.asc` and checksums; the anonymous `/content/repositories/<id>/` path
+  needs no credentials, while the authenticated staging-API reads use a
+  netrc file under `~/.config/apache-magpie/asf-nexus/` and are for the
+  RM's own terminal.
+  It never closes, drops, or promotes a staging repository; non-ASF
+  adopters leave `nexus_staging_repo` unset and the step skips
+  ([release management](release-management-lifecycle.md)).
 - `tools/vcs/` (`magpie-vcs`) — unified CLI over the abstract
   source-control capability (`contract:source-control`). Dispatches
   branch, stage, commit, diff, log, fetch, and push operations to the
-  active VCS backend (Git today), so skills call the abstract operation
+  active VCS backend, so skills call the abstract operation
   and the backend is detected from the working copy or forced with
   `--backend`/`$MAGPIE_VCS`.
+  `git`, `hg`, and `fossil` are complete backends; `svn` is detected but
+  remains an extension point (#602).
+  A Fossil checkout is detected by its `.fslckout` (or `_FOSSIL_`) marker
+  (#1494).
+- `tools/fossil/` (`magpie-fossil`) — stdlib-only Fossil SCM forge bridge,
+  `contract:tracker + contract:source-control`: ticket read/write (create,
+  comment, status, fields), wiki and forum reads, by direct queries on the
+  local repository database; it resolves the repository from the same
+  `.fslckout` / `_FOSSIL_` markers or `-R/--repository`.
 - `tools/change-request/` — Markdown contract spec for the
   `contract:change-request` capability (PR / MR abstraction). Declares
   the interface: `list_open`, `get`, `get_discussion`, `post_review`,
@@ -119,7 +161,17 @@ by swapping the adapter, not the skill.
   in `project.md` (ASF default: `tools/github/`).
 - `tools/mail-source/` — abstract mail backend contract (operations,
   capability matrix, adopter-declaration syntax) with concrete IMAP,
-  mbox, and Mailman 3 / Hyperkitty implementations. Skills (`security-issue-import`,
+  mbox, and Mailman 3 / Hyperkitty implementations.
+  `tools/mail-source/imap/` is a stdlib-`imaplib` uv package with six
+  console scripts, one per contract operation (`imap-source-threads`,
+  `-read`, `-drafts`, `-sent`, `-create-draft`, `-thread-url`), each
+  printing one JSON document; `create_draft` only `APPEND`s to the drafts
+  folder and never sends, and an operation whose folder is unset or missing
+  declines with exit 3 so the resolution chain falls through (#1466).
+  `tools/mail-source/mailman3/` is a doc-only, read-only backend over
+  Hyperkitty's JSON API (`list_recent_threads`, `read_thread`,
+  `thread_url`); it has no drafts or sent view, so it pairs with a drafting
+  backend (#1474). Skills (`security-issue-import`,
   `security-issue-sync`, `security-cve-allocate`) address every mail
   source through this contract rather than calling Gmail or PonyMail
   directly; the adopter's `<project-config>/project.md → Mail sources`
@@ -153,6 +205,23 @@ by swapping the adapter, not the skill.
   It never calls a tool that sends, schedules, drafts, or edits a message.
   `discord` and `none` are placeholders in the contract's adapter table
   (Discord tracked in #1421).
+- `tools/typed-decision/` — `contract:typed-decision` (#1402): a
+  provider-agnostic, stdlib-only Python API for structured decisions,
+  `choice(prompt, options)`, `score(prompt, scale)`, and `noul(prompt)`.
+  The one backend is TypeSafe's Jev API (`api.typesafe.ai/v1/systemone`,
+  model pinned to `systemone-2026-06-01`), selected by
+  `MAGPIE_TYPED_DECISION_PROVIDER` or by a configured `TYPESAFE_API_KEY` /
+  `JEV_API_KEY` / `~/.config/apache-magpie/typesafe.key`.
+  Every outbound prompt first passes the privacy-LLM endpoint check
+  (`checker.check_endpoint`, see [privacy-llm-gate.md](privacy-llm-gate.md)),
+  which denies the third-party host unless `<project-config>/privacy-llm.md`
+  carries a signed-off opt-in.
+  The contract is fail-open: a missing key, a denied gate, a timeout (one
+  retry after 30 s), an HTTP error, or an out-of-range answer raises
+  `TypedDecisionUnavailable`, never a fabricated answer, and callers fall
+  back to their own reasoning or the maintainer.
+  Its consumer is the opt-in shadow pre-filter in `pr-management-triage`
+  ([PR management](pr-management-family.md)).
 
 ## Behaviour & contract
 
@@ -200,6 +269,9 @@ for t in gmail maildir ponymail jira github bitbucket gitlab; do
   uv run --project tools/$t --group dev pytest || echo "check tools/$t test setup"
 done
 uv run --project tools/vcs --group dev pytest || echo "check tools/vcs test setup"
+for t in fossil typed-decision mail-source/imap; do
+  uv run --project tools/$t --group dev pytest || echo "check tools/$t test setup"
+done
 uv run --all-packages --group dev pytest tools/github-rollup/tests
 ```
 
@@ -238,6 +310,18 @@ uv run --all-packages --group dev pytest tools/github-rollup/tests
   CI URLs, and raw payloads are external data, never agent instructions;
   private or embargoed content must follow the
   approved-LLM/privacy gate before model use.
+- **Forgejo adapter is doc-only and partial.** `tools/forgejo/` is a set
+  of `tea` / REST recipes with no package or tests and no adopter pilot;
+  the project-board capability is a no-op, and full coverage remains part
+  of #310.
+- **Mailman 3 backend reads only.** It covers no drafts or sent mail, and
+  the `hyperkitty` placeholder of the separate `mail-archive` contract
+  (search-URL construction) is not implemented by it.
+- **Typed decision has one provider.** Jev is a third-party endpoint, so it
+  works only after a privacy-LLM opt-in and, under the secure agent setup,
+  after the adopter forwards the key and allowlists `api.typesafe.ai`
+  (the framework default allowlist does not include it); otherwise every
+  call is `TypedDecisionUnavailable`.
 - **SourceHut adapter is new and untested end-to-end.** `tools/sourcehut/`
   ships the GraphQL-based bridge (ticket, patchset, CI, repo), but no
   adopter pilot has exercised it; signal/roster heuristics may change.

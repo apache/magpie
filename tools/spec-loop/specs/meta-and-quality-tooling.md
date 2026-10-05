@@ -39,7 +39,18 @@ trustworthy as it grows.
   (soft check: warns when a skill has no eval suite). A skill's `name:` must
   equal the directory its `SKILL.md` actually lives in — the family-plugin
   directory name, which is the alias every harness invokes it by (#1361).
+  The per-file checks reach every skill through its `skills/<name>` symlink
+  into `plugins/`: `collect_files_to_check()` walks `skills/` with `glob`'s
+  `**` (which follows the links, unlike `Path.rglob` before Python 3.13),
+  skips dot-entries, and returns each real file once under its
+  `skills/<name>/` path; the pre-PR-review delegation check iterates the
+  `skills/<name>` entries, so it matches by the `skills/` name (#1522).
   CLI: `skill-and-tool-validate`.
+- `tools/dev/check-placeholders.sh` fails on hardcoded project references
+  in skill and tool Markdown.
+  It builds its file list with `find -L`, so it follows the `skills/<name>`
+  symlinks on both GNU and BSD (macOS) grep, and greps that list with `-H`
+  so each match keeps its `skills/<name>/...` path (#1522, #1531).
 - `tools/skill-evals/` — harness for measuring skill behaviour. A case whose
   CLI produced no usable JSON reports ERROR unless something asserts on a
   synthetic wrap key (`raw_output` / `stderr` / `exit_code`, via
@@ -60,6 +71,10 @@ trustworthy as it grows.
   explains the decision without restating it, because the decision itself
   is compared exactly in its own structured fields; it answers no only on
   a different or contradictory conclusion (#1398).
+  A step with no `user-prompt-template.md` gets a neutral user prompt: the
+  case report followed by "Return JSON only."; a step that needs the
+  `{corpus}` / `{roster}` / `{report}` framing carries its own template, as
+  `security-issue-import/step-2a-semantic-sweep` does (#1524).
 - `tools/sandbox-lint/` — lints the sandbox/permissions configuration.
 - `tools/symlink-lint/` — lints the framework's self-adoption skill
   symlinks: rejects cyclic symlinks, misdirected relays (canonical/
@@ -125,8 +140,18 @@ trustworthy as it grows.
   `skill-and-tool-validator` rejects a `measured_tokens:` value that is not
   a positive integer; whether the value is current is this tool's check.
 - `tools/dev/generate-labeler-config.py` generates `.github/labeler.yml`
-  from the `**Capability:**` line of every `tools/<name>/README.md`, kept in
-  sync by a prek hook; `.github/workflows/labeler.yml` applies it (#1382).
+  from the `**Capability:**` line of every `tools/<name>/README.md`
+  (`contract:*` / `substrate:*`), the `family:` / `capability:` frontmatter
+  of every skill (its directory and its eval suite, found through the
+  `skills/` symlink), and the paths of the non-skill families
+  (`family:tools`, `family:ci`, `family:docs`, `family:setup`), emitting only
+  labels `docs/labels-and-capabilities.md` defines (#1527).
+  The `generate-labeler-config` prek hook keeps it in sync; the
+  `check-labeler-coverage` hook (`--check-coverage`) fails when a taxonomy
+  label has no rule and is not listed in `UNMAPPED` with a reason, or when a
+  rule names an undefined label.
+  `.github/workflows/labeler.yml` applies it, triggered by the unprivileged
+  `.github/workflows/labeler-signal.yml` doorbell (#1382, #1527).
 
 ## Behaviour & contract
 
@@ -197,14 +222,33 @@ trustworthy as it grows.
   matches the PR's base branch and a stacked PR based on another PR's branch
   would wait forever on the required `zizmor` check; its `push` trigger stays
   limited to `main` (#1440).
-- **Tool-capability labels are pre-applied, once.** The labeler workflow runs
-  hourly (and on `workflow_dispatch`) in the repository's own context rather
-  than on `pull_request_target`, checks out nothing from a PR, and labels only
-  the non-bot PRs opened since the previous successful run started (24 hours
-  back on the first run). Each PR is labelled once, so a label a maintainer
-  removes stays removed. Eval fixtures and spec-loop specs do not count as
-  touching their tool, and a PR that would gain more than eight labels gets
-  none. The labels are a starting point to correct, not the answer (#1382).
+- **Labels are pre-applied on every push, and only ever added.**
+  `labeler-signal.yml` is a `pull_request` run with no permissions, checkout
+  or code (on opened, reopened, synchronize, ready_for_review, edited and
+  closed); its completion fires `labeler.yml` on `workflow_run`, which always
+  runs from the default branch and never uses `pull_request_target` or checks
+  out anything from a PR.
+  The only value it takes from the event is the head SHA, checked to be 40 hex
+  characters and used to find the open non-bot PR (or, once merged, the merged
+  one).
+  A daily schedule labels any open non-bot PR still without a `family:*`
+  label, and `workflow_dispatch` labels one PR or runs that safety net.
+  A label a maintainer removes comes back only when the PR is pushed again and
+  still matches the rule.
+  The changed-files label limit is 20.
+  Eval fixtures and spec-loop specs do not count as touching their tool.
+  The labels are a starting point to correct, not the answer (#1382, #1527).
+- **Labels pass on to linked issues, gated by author trust.** The PR's
+  `family:` / `capability:` / `contract:` / `substrate:` labels are added to
+  the issues it closes.
+  For an OWNER, MEMBER or COLLABORATOR author they are also added to issues
+  its body introduces with a reference phrase ("Part of #N", "Refs #N",
+  "Related to #N", "Relates to #N", "Follow-up to #N", as `#N` or this
+  repository's issue URL); a passing `#N` is not a reference (#1528).
+  Anyone else's body is never read: once merged, their PR labels only the
+  issues whose timeline `ClosedEvent` names that PR as the closer.
+  Each number is checked to be an issue, not a PR, and at most 20 are
+  labelled per PR.
 - **Eval trust roles stay separate.** Mock tool output in `report.md` enters the user turn as untrusted data.
   Repository policy read from a trusted revision may enter through a case-level `trusted-context.md`, which the runner appends only to the system prompt.
 
@@ -255,7 +299,9 @@ trustworthy as it grows.
    implementation are explicitly marked reserved or future. The tool
    READMEs' `**Capability:**` lines also generate `.github/labeler.yml`
    (`tools/dev/generate-labeler-config.py`, kept in sync by a prek hook),
-   which pre-applies `contract:*` / `substrate:*` labels to new PRs.
+   together with skills' `family:` / `capability:` frontmatter; that config
+   pre-applies the labels to PRs and their linked issues, and every taxonomy
+   label has a labeler rule or an `UNMAPPED` reason (`check-labeler-coverage`).
 6. `docs/modes.md` skill lists and shipped counts are checked against
    live skill frontmatter.
 7. `spec-inventory` emits a compact, deterministic routing map for specs,

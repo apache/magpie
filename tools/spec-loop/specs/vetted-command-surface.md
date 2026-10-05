@@ -171,6 +171,10 @@ per [`docs/adapters/registry.md`](../../../docs/adapters/registry.md).
    a test asserting the two never cross. Repo health, release management,
    mentoring and contributor growth remain; each needs its own operations and
    its own caller manifests, and none needs a second dispatcher.
+   `pr-view` deliberately leaves the PR `body` out, so the pr-management sweeps
+   do not load every PR description; `pr-view-with-body` returns the same fields
+   plus `body`, against the policy-pinned upstream only, and is granted to
+   `security-issue-import-from-pr`, which builds the tracker body from it (#1457).
 
    *Repo health, release management, contributor growth and mentoring have
    landed*, completing the pass over the families that touch the forge. They
@@ -179,6 +183,15 @@ per [`docs/adapters/registry.md`](../../../docs/adapters/registry.md).
    overwhelmingly read surfaces; mentoring needed none at all, working entirely
    through the issue and PR operations. A family earns new operations only when
    it has a shape the catalogue lacks.
+   `release-rc-cut` needed none either: its only GitHub access is the existing
+   `tags` read in Step 0 and, after the Release Manager confirms it, the
+   `repo-issue-comment` planning-issue comment, which runs through `vetted-op`
+   and asks every time (#1518).
+   `tags` lists every tag under a prefix, so the skill treats the RC tag as
+   existing only on an exact `refs/tags/<version>-<rcN>` line (`rc1` also
+   lists `rc10`).
+   The README's caller example and Magpie's own policy grant
+   `"release-rc-cut" = ["tags", "repo-issue-comment"]` (#1520).
 
    Several shapes are refused rather than wrapped, and will stay refused:
    free-text search (`gh search issues` / `prs`, and GraphQL's `search(...)`)

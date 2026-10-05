@@ -230,8 +230,18 @@ committed version with drift detection.
 - Skill: `setup-status` — renders a Markdown adoption dashboard: install
   method and pin, drift between local and committed locks, which skills
   are wired in the current repo.
+  Its `local_overrides` field reports where the personal layer is
+  (`in-tree`, `main-checkout`, `git-dir` or `none`), every personal
+  directory read, and a `legacy_in_tree` flag for an old in-tree
+  `.apache-magpie-local/` in an unadopted repo; `local_overrides_ignored`
+  is `null` when unadopted, since the git-directory home needs no ignore
+  entry.
 - Docs: `docs/setup/` (install recipes, agentic-overrides contract,
   prerequisites, `commit-attribution.md`).
+  `docs/setup/uninstall.md` states that uninstall preserves the personal
+  layer and gives the manual removal for each home
+  (`rm -rf "$(git rev-parse --git-common-dir)/apache-magpie"` when only
+  installed, `.apache-magpie-local/` per checkout when adopted).
 - Commit attribution: `commit-attribution.toml`, committed in
   `.apache-magpie-overrides/` (project policy) and in the personal layer
   (a contributor's preference), scaffolded from
@@ -261,12 +271,18 @@ committed version with drift detection.
   every other agent dir (`.claude/skills/`, `.github/skills/`, holdouts)
   gets per-skill relay symlinks into it. This is uniform — there is no
   per-project skills-dir convention to detect.
+  Grok is a native relay target (`.grok/skills/`, #1488), not a reader of
+  the canonical path: it reads `.agents/skills/` only at user scope.
+  It also reads Claude Code skills, so `.claude/skills/` relays reach it too.
 - **Committed lock is the source of truth.** A fresh contributor runs
   `/magpie-setup` and re-installs to the project's pinned version on the
   snapshot methods, or is brought up to its floor on `method: marketplace`.
 - **Drift detection** at the top of every framework skill: if the
   gitignored local lock has drifted from the committed pin, the skill
   proposes `/magpie-setup upgrade`.
+  The check is the shared pre-flight block's `setup_preflight` run (see
+  criteria 4 and 24); skills carry no `## Snapshot drift` section of their
+  own (removed in #1470).
 - **Overrides are agent-readable Markdown** under
   `.apache-magpie-overrides/`, consulted at runtime and merged before
   default behaviour ([pairing/correctability is the model]).
@@ -434,6 +450,8 @@ committed version with drift detection.
 13. `verify` reports a missing lock and an ahead-of-floor machine as not
     faults, and a shortfall as one.
 14. `unadopt` removes the lock; `uninstall` leaves it; each says which.
+    Neither removes the personal layer; removing it is a documented manual
+    step (`docs/setup/uninstall.md` § Your personal configuration).
 15. Every shipped skill carries a generated `surface_hash:` fingerprint
     covering its `requires_config:` list and the structural anchors in its
     `SKILL.md` and every sibling `*.md` detail file in its own directory
@@ -603,8 +621,9 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
 - `stable`; gaps appear as new agent targets to add to the registry
   ([`agents.md`](../../../plugins/magpie-setup/skills/setup/agents.md)) or new override
   surfaces — recorded by the plan pass.
-- **Built since first recorded as gaps:** the `.apache-magpie-local/`
-  personal override surface (acceptance 6) and the one-shot default-run
+- **Built since first recorded as gaps:** the personal override surface
+  (acceptance 6; `.apache-magpie-local/` when adopted,
+  `<git-common-dir>/apache-magpie/` when only installed, since #1533/#1535) and the one-shot default-run
   switch (acceptance 7, the `--no-overrides` flag in
   `docs/setup/agentic-overrides.md` § One-shot defaults run) both ship.
   They were tracked as work items `magpie-local-convention` and
