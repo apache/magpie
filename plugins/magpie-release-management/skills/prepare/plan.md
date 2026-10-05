@@ -23,14 +23,11 @@ git ls-remote --tags https://github.com/<upstream>.git > <tags.txt>
 python3 <skill-dir>/scripts/prev_tag.py --tags <tags.txt> --version <version> --train <train-pattern>
 ```
 
-`<train-pattern>` comes from `release-trains.md` (e.g. `2.x`); add
-`--tag-prefix <ns>/` for namespaced tags. `previous_tag` is the highest
-final release tag below `<version>` in the train (the same major when no
-train is given), skipping release candidates and other pre-releases;
-when `null`, ask the RM.
+`<train-pattern>` comes from `release-trains.md` (e.g. `2.x`); add `--tag-prefix <ns>/` for namespaced tags.
+`previous_tag` is the highest final release tag below `<version>` in the train (the same major when no train is given),
+skipping release candidates and other pre-releases; when `null`, ask the RM.
 
-**Empty-set hand-off.** If the merged-PR set is empty and
-`--skip-empty-check` was not passed, return:
+**Empty-set hand-off.** If the merged-PR set is empty and `--skip-empty-check` was not passed, return:
 
 ```json
 {
@@ -40,18 +37,14 @@ when `null`, ask the RM.
 }
 ```
 
-Do not proceed to the planning issue draft when `empty_pr_set` is
-`true`.
+Do not proceed to the planning issue draft when `empty_pr_set` is `true`.
 
 ## 1b — Draft the planning issue body
 
 Compose the planning issue body using:
 
-- `release_planning_issue_template` from config (path under
-  `<project-config>/`), if present; otherwise use the default template
-  below.
-- The version, release train, release branch, previous tag, and the
-  merged-PR set.
+- `release_planning_issue_template` from config (path under `<project-config>/`), if present; otherwise the default template below.
+- The version, release train, release branch, previous tag, and the merged-PR set.
 
 Default planning issue template:
 
@@ -103,23 +96,19 @@ Default planning issue template:
 - [ANNOUNCE] sent: (TBD)
 ```
 
-Present the draft issue title and body to the RM. Ask for
-confirmation before creating the issue.
+Present the draft issue title and body to the RM.
+Ask for confirmation before creating the issue.
 
 Proposed issue title: `Release <Product Name> <version>`
 
-If the RM confirms, write the body to a temp file (the planning issue body
-is internally-generated content, not attacker-controlled, but using
-`--body-file` avoids shell-quoting edge cases with multi-line bodies):
+If the RM confirms, write the approved body to `<scratch>/planning-issue-body-<version>.md` with the Write tool
+(`<scratch>` is the session scratch directory as an absolute path) and create the issue with a plain `gh` call:
 
 ```bash
-cat > /tmp/planning-issue-body-<version>.md <<'EOF'
-<body>
-EOF
 gh issue create \
   --repo <upstream> \
   --title "Release <Product Name> <version>" \
-  --body-file /tmp/planning-issue-body-<version>.md \
+  --body-file <scratch>/planning-issue-body-<version>.md \
   --label "release-planning"
 ```
 
@@ -136,6 +125,5 @@ Return ONLY valid JSON with this structure:
 }
 ```
 
-`proposed` is always `true` at the point this JSON is returned — the
-issue has not yet been created. Creation happens only after the RM's
-explicit confirmation in the conversation.
+`proposed` is always `true` at the point this JSON is returned — the issue has not yet been created.
+Creation happens only after the RM's explicit confirmation in the conversation.

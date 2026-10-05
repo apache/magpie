@@ -9,29 +9,24 @@ Read `version_manifest_files` from `release-management-config.md`.
 For each file, read the current version string embedded in it:
 
 ```bash
-gh api repos/<upstream>/contents/<manifest-file> \
-  --jq '.content' | base64 -d
+gh api -H "Accept: application/vnd.github.raw+json" repos/<upstream>/contents/<manifest-file>
 ```
 
-Identify the version string to replace (the current development
-version, e.g. `2.11.0.dev0`) and the target version (e.g. `2.11.0`).
+Identify the version string to replace (the current development version, e.g. `2.11.0.dev0`) and the target version (e.g. `2.11.0`).
 
 ## 2b — Check Category-X dependencies
 
 Read `category_x_dependencies` from `release-management-config.md`.
-If the list is non-empty, scan local copies of the manifest files from
-2a and of any configured dependency-lock file:
+If the list is non-empty, scan local copies of the manifest files from 2a and of any configured dependency-lock file:
 
 ```bash
 python3 <skill-dir>/scripts/category_x.py --deny <identifier> [--deny <identifier> ...] \
   <repo-path>=<local-copy> [<repo-path>=<local-copy> ...]
 ```
 
-It matches whole tokens case-insensitively (`-`, `_`, `.` alike), a
-`group:artifact` identifier also by its artifact name.
+It matches whole tokens case-insensitively (`-`, `_`, `.` alike), a `group:artifact` identifier also by its artifact name.
 
-**Category-X hard stop.** When `category_x_hit` is `true`, return its
-`category_x_hit`, `category_x_violations`, and `handoff_reason`:
+**Category-X hard stop.** When `category_x_hit` is `true`, return its `category_x_hit`, `category_x_violations`, and `handoff_reason`:
 
 ```json
 {
@@ -47,22 +42,18 @@ Do not proceed to the diff draft when `category_x_hit` is `true`.
 
 ## 2c — Draft the NOTICE / LICENSE diff
 
-Read the current `NOTICE` and `LICENSE` files from `<upstream>` on
-`<release-branch-base>` and compare to the previous release tag.
+Read the current `NOTICE` and `LICENSE` files from `<upstream>` on `<release-branch-base>` and compare to the previous release tag.
 
 For each removed attribution in `NOTICE`:
-- If the corresponding dependency still appears in the dependency tree
-  or in vendored code: flag as an unjustified removal (hand-off).
-- If the dependency was cleanly removed from the project: the removal
-  is justified; note it in the prep PR body.
+- If the corresponding dependency still appears in the dependency tree or in vendored code: flag as an unjustified removal (hand-off).
+- If the dependency was cleanly removed from the project: the removal is justified; note it in the prep PR body.
 
-For `LICENSE`: flag any new `category_b` dependency that requires a
-`LICENSE` entry but is not yet listed.
+For `LICENSE`: flag any new `category_b` dependency that requires a `LICENSE` entry but is not yet listed.
 
 ## 2d — Draft the changelog entry
 
-Compose a changelog entry from the merged-PR set recorded in the
-planning issue body. Group PRs by label category:
+Compose a changelog entry from the merged-PR set recorded in the planning issue body.
+Group PRs by label category:
 
 ```markdown
 ## <version> (<ISO date>)
@@ -80,34 +71,27 @@ planning issue body. Group PRs by label category:
 - #N <title> ([#N](<url>))
 ```
 
-Changelog coverage must be ≥ 90% of the merged-PR set. If fewer than
-90% of PRs can be categorised, surface the uncategorised set and ask
-the RM to classify before the PR is opened.
+Changelog coverage must be ≥ 90% of the merged-PR set.
+If fewer than 90% of PRs can be categorised, surface the uncategorised set and ask the RM to classify before the PR is opened.
 
 ## 2e — Source-archive contents review (first release, or on drift)
 
-With `source_archive_method: git-archive` (the default in
-`release-build.md § Source archive`) the source artefact is an export
-of the tagged tree that honours `.gitattributes` `export-ignore`. The
-attributes are read from the tree being archived, so they have to be
-committed **before** the RC tag — which is why this review lands in
-the prep PR and why `release-rc-cut` blocks while it is outstanding.
+With `source_archive_method: git-archive` (the default in `release-build.md § Source archive`)
+the source artefact is an export of the tagged tree that honours `.gitattributes` `export-ignore`.
+The attributes are read from the tree being archived, so they have to be committed **before** the RC tag —
+which is why this review lands in the prep PR and why `release-rc-cut` blocks while it is outstanding.
 Full rationale and the classification buckets:
 [`docs/release-management/reproducibility.md` § The first-release `.gitattributes` review](../../../../docs/release-management/reproducibility.md#the-first-release-gitattributes-review).
 
-**When the full review runs:** `export_ignore_reviewed` is unset in
-`release-build.md`, or `--review-archive` was passed, or
-`source_archive_method` is `git-archive` and the file has no
-`§ Source archive` at all. **Otherwise** run only the drift check
-(below). With `source_archive_method: custom` skip the sub-step and
-say so (`archive_review: "skipped"`).
+**When the full review runs:** `export_ignore_reviewed` is unset in `release-build.md`, or `--review-archive` was passed,
+or `source_archive_method` is `git-archive` and the file has no `§ Source archive` at all.
+**Otherwise** run only the drift check (below).
+With `source_archive_method: custom` skip the sub-step and say so (`archive_review: "skipped"`).
 
-This is an **education step**: the operator ends up knowing why every
-top-level path ships or does not. Do not guess; show, classify,
-explain, and ask.
+This is an **education step**: the operator ends up knowing why every top-level path ships or does not.
+Do not guess; show, classify, explain, and ask.
 
-1. **List what would ship today** from the local clone at the release
-   branch tip, and what is tracked:
+1. **List what would ship today** from the local clone at the release branch tip, and what is tracked:
 
    ```bash
    git archive --format=tar HEAD | tar -tf - | sort > /tmp/would-ship.txt
@@ -115,39 +99,28 @@ explain, and ask.
    cat .gitattributes 2>/dev/null | grep export-ignore   # what is already excluded
    ```
 
-2. **Classify every top-level entry** into one bucket and say which —
-   *ship* (source, docs, build descriptors, lock files, `README*`),
-   *ship, never excludable* (`LICENSE`, `NOTICE`, `DISCLAIMER`,
-   `licenses/`), *ship, input to voter checks* (RAT excludes, in-tree
-   validators), *project's call* (`.asf.yaml`, `doap_*.rdf`,
-   `.gitignore`, large assets), *exclude: VCS metadata*
-   (`.gitattributes`, `.gitmodules`, `.mailmap`), *exclude: CI / bot
-   config* (`.github/workflows/`, `.github/dependabot.yml`,
-   `.gitlab-ci.yml`, `.travis.yml`, `.circleci/`,
-   `.pre-commit-config.yaml`), *exclude: editor / IDE* (`.idea/`,
-   `.vscode/`, `.devcontainer/`), *exclude: lint config not needed to
-   build* (`.lychee.toml`, `.markdownlint.json`, `.typos.toml`,
-   `.zizmor.yml`, `.yamllint`, `.codespellrc`), *agent-view dirs*
-   (`.claude/`, `.agents/`, `.kiro/`, `.cursor/` — exclude relay
-   symlink dirs, keep a single-hop canonical view if shipped files link
-   into it), *exclude: release-tooling scratch*
-   (`.apache-magpie.session-state.json`, `.apache-magpie.local.lock`).
-   Look inside `.github/` and the agent-view dirs; part of a directory
-   may ship (issue templates a shipped skill links to) while the rest
-   is excluded.
+2. **Classify every top-level entry** into one bucket and say which:
+   - *ship* (source, docs, build descriptors, lock files, `README*`);
+   - *ship, never excludable* (`LICENSE`, `NOTICE`, `DISCLAIMER`, `licenses/`);
+   - *ship, input to voter checks* (RAT excludes, in-tree validators);
+   - *project's call* (`.asf.yaml`, `doap_*.rdf`, `.gitignore`, large assets);
+   - *exclude: VCS metadata* (`.gitattributes`, `.gitmodules`, `.mailmap`);
+   - *exclude: CI / bot config* (`.github/workflows/`, `.github/dependabot.yml`, `.gitlab-ci.yml`, `.travis.yml`, `.circleci/`, `.pre-commit-config.yaml`);
+   - *exclude: editor / IDE* (`.idea/`, `.vscode/`, `.devcontainer/`);
+   - *exclude: lint config not needed to build* (`.lychee.toml`, `.markdownlint.json`, `.typos.toml`, `.zizmor.yml`, `.yamllint`, `.codespellrc`);
+   - *agent-view dirs* (`.claude/`, `.agents/`, `.kiro/`, `.cursor/` — exclude relay symlink dirs, keep a single-hop canonical view if shipped files link into it);
+   - *exclude: release-tooling scratch* (`.apache-magpie.session-state.json`, `.apache-magpie.local.lock`).
 
-3. **Check references before proposing any exclusion**:
-   `git grep -l -- '<path>'` over tracked files. A path that a shipped
-   file links to must not be excluded or `release-verify-rc` Step 7
-   fails the RC on a dangling reference; name the referrers and offer
-   the alternative (keep it, or repoint the reference). Flag every
-   committed symlink whose target would be stripped, and every symlink
-   that points at another symlink (safe extractors reject chains).
+   Look inside `.github/` and the agent-view dirs;
+   part of a directory may ship (issue templates a shipped skill links to) while the rest is excluded.
 
-4. **Propose the entries** — root-anchored (`/.pre-commit-config.yaml`)
-   for root-only files, directory form (`.idea/`) for directories, one
-   rationale comment per entry — and show the before/after listing
-   diff:
+3. **Check references before proposing any exclusion**: `git grep -l -- '<path>'` over tracked files.
+   A path that a shipped file links to must not be excluded, or `release-verify-rc` Step 7 fails the RC on a dangling reference;
+   name the referrers and offer the alternative (keep it, or repoint the reference).
+   Flag every committed symlink whose target would be stripped, and every symlink that points at another symlink (safe extractors reject chains).
+
+4. **Propose the entries** — root-anchored (`/.pre-commit-config.yaml`) for root-only files, directory form (`.idea/`) for directories,
+   one rationale comment per entry — and show the before/after listing diff:
 
    ```bash
    # "before": the attributes committed at HEAD
@@ -160,39 +133,27 @@ explain, and ask.
      "$TMPDIR/before.tar.gz" "$TMPDIR/after.tar.gz"   # 'removed' = exactly what the review strips
    ```
 
-   Walk the RM through each proposed entry; each one is confirmed or
-   dropped individually. Never exclude `LICENSE`, `NOTICE`,
-   `DISCLAIMER`, a build descriptor, the RAT excludes, or a referenced
-   path, even if asked — say why and keep it.
+   Walk the RM through each proposed entry; each one is confirmed or dropped individually.
+   Never exclude `LICENSE`, `NOTICE`, `DISCLAIMER`, a build descriptor, the RAT excludes, or a referenced path, even if asked — say why and keep it.
 
-5. **Record the decision.** `.gitattributes` joins the prep PR file set
-   (2f), and the prep PR sets `export_ignore_reviewed: <version>` in
-   `release-build.md § Source archive` so the full review does not
-   repeat. If the RM confirms an existing `.gitattributes` unchanged,
-   still set the marker (`archive_review: "confirmed-existing"`).
+5. **Record the decision.** `.gitattributes` joins the prep PR file set (2f),
+   and the prep PR sets `export_ignore_reviewed: <version>` in `release-build.md § Source archive` so the full review does not repeat.
+   If the RM confirms an existing `.gitattributes` unchanged, still set the marker (`archive_review: "confirmed-existing"`).
 
-**Drift check (later releases).** Top-level entries added since the
-last reviewed tag — `git diff --name-only <previous-tag> HEAD | cut -d/
--f1 | sort -u` — that fall in an *exclude* bucket are surfaced as
-candidates with the same confirm-each flow; nothing new → `archive_review:
-"skipped"` with the note *"no new top-level paths since `<previous-tag>`"*.
+**Drift check (later releases).** Top-level entries added since the last reviewed tag —
+`git diff --name-only <previous-tag> HEAD | cut -d/ -f1 | sort -u` — that fall in an *exclude* bucket are surfaced as candidates with the same confirm-each flow;
+nothing new → `archive_review: "skipped"` with the note *"no new top-level paths since `<previous-tag>`"*.
 
 ## 2f — Compose the prep PR
 
 The prep PR touches:
-1. Each file in `version_manifest_files` — replace current dev
-   version string with `<version>`.
-2. The changelog file (if `changelog_file` is set in config) — prepend
-   the new changelog entry.
+1. Each file in `version_manifest_files` — replace current dev version string with `<version>`.
+2. The changelog file (if `changelog_file` is set in config) — prepend the new changelog entry.
 3. `NOTICE` — apply the justified attribution changes (if any).
-4. `LICENSE` — apply any required Category-B attribution additions
-   (if any).
-5. `.gitattributes` and `<project-config>/release-build.md`
-   (`export_ignore_reviewed`) — only when 2e proposed or confirmed the
-   review.
+4. `LICENSE` — apply any required Category-B attribution additions (if any).
+5. `.gitattributes` and `<project-config>/release-build.md` (`export_ignore_reviewed`) — only when 2e proposed or confirmed the review.
 
-Present the full set of file diffs to the RM for confirmation before
-opening the PR.
+Present the full set of file diffs to the RM for confirmation before opening the PR.
 
 <!-- BEGIN MAGPIE BLOCK: pre-pr-adversarial-review — generated from tools/dev/blocks/pre-pr-adversarial-review.md -->
 
@@ -267,9 +228,8 @@ reviewers reported each, and every entry in `warnings` verbatim.
 
 <!-- END MAGPIE BLOCK: pre-pr-adversarial-review -->
 
-**Scope enforcement.** If the diff touches any file outside the set
-above, surface it as a scope violation and ask the RM to confirm before
-including it.
+**Scope enforcement.** If the diff touches any file outside the set above,
+surface it as a scope violation and ask the RM to confirm before including it.
 
 Proposed PR title: `chore: prepare <version> release`
 
@@ -303,8 +263,8 @@ Entry added for <version> covering <N> merged PRs since <previous-tag>.
 Generated by `release-prepare` (magpie-release-prepare).
 ```
 
-Present the PR title, body, and diff scope to the RM. Ask for
-confirmation before opening the PR.
+Present the PR title, body, and diff scope to the RM.
+Ask for confirmation before opening the PR.
 
 Return ONLY valid JSON with this structure:
 
@@ -323,10 +283,8 @@ Return ONLY valid JSON with this structure:
 ```
 
 `proposed` is always `true` at the point this JSON is returned.
-`category_x_hit` and `notice_removal_unjustified` are `false` because
-the skill would have stopped in 2b or 2c if they were `true`.
-`archive_review` is `"proposed"` when 2e proposed `.gitattributes`
-entries (and `.gitattributes` appears in `files_in_scope`),
-`"confirmed-existing"` when the RM confirmed the existing entries
-unchanged (only `release-build.md` joins the file set), `"skipped"`
-when the review was not due or `source_archive_method` is `custom`.
+`category_x_hit` and `notice_removal_unjustified` are `false` because the skill would have stopped in 2b or 2c if they were `true`.
+`archive_review` is:
+- `"proposed"` when 2e proposed `.gitattributes` entries (and `.gitattributes` appears in `files_in_scope`);
+- `"confirmed-existing"` when the RM confirmed the existing entries unchanged (only `release-build.md` joins the file set);
+- `"skipped"` when the review was not due or `source_archive_method` is `custom`.
