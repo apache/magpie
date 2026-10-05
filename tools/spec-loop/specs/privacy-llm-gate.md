@@ -48,7 +48,16 @@ artefact for leakage before emission.
 - `docs/setup/privacy-llm.md` — adopter-facing setup.
 - Adopter config: `<project-config>/privacy-llm.md`, scaffolded from
   `plugins/magpie-setup/templates/privacy-llm.md` (moved from
-  `projects/_template/` in #1410).
+  `projects/_template/` in #1410). Without `--config` or
+  `$PRIVACY_LLM_CONFIG`, the checker looks it up per config layer, first
+  match wins: the personal layer (`<cwd>/.apache-magpie-local/` in an
+  adopted repository, `<git-common-dir>/apache-magpie/` otherwise), then a
+  legacy in-tree `.apache-magpie-local/` of an unadopted repository, then
+  the committed `.apache-magpie-overrides/`. The `.apache-magpie/`
+  framework snapshot is never looked in: it is replaced by every upgrade
+  and holds no adopter config, and the earlier snapshot-then-overrides
+  order never read the personal file `setup-privacy-llm` writes. A file
+  found nowhere stops the gate.
 - Skill: `setup-privacy-llm` (`plugins/magpie-setup/skills/privacy-llm/`)
   detects the LLM stack in use, writes `<project-config>/privacy-llm.md`,
   and runs the gate and the redactor end to end so the approval is

@@ -117,8 +117,6 @@ GUARD_TIMEOUT = 10  # seconds for any subprocess (gh / git) a guard shells out t
 # Commit attribution (docs/setup/commit-attribution.md): one small TOML file
 # per layer, the project's committed and the contributor's gitignored.
 ATTRIBUTION_FILE = "commit-attribution.toml"
-ATTRIBUTION_PROJECT_DIR = ".apache-magpie-overrides"
-ATTRIBUTION_LOCAL_DIR = ".apache-magpie-local"
 ATTRIBUTION_CONVENTIONS = frozenset({"generated-by", "assisted-by", "co-authored-by", "none", "custom"})
 ATTRIBUTION_CONTRIBUTOR_CHOICE = "contributor-choice"  # project file only
 DEFAULT_ATTRIBUTION = "generated-by"
@@ -436,6 +434,99 @@ def _find_repo_root(start: Path) -> Path | None:
     return None
 
 
+# --------------------------------------------------------------------------- #
+# Where a project's Magpie configuration lives
+#
+# A copy of `setup_preflight/layers.py`, inlined because this file runs as a
+# plain script (``python3 .../agent_guard/__init__.py``) and cannot import a
+# sibling.  Keep ``git_common_dir`` identical to that copy;
+# ``tools/setup-preflight/tests/test_layers.py`` checks every copy.  Adopted
+# repository (a committed ``.apache-magpie.lock``): the personal layer is
+# ``<repo>/.apache-magpie-local/``.  Not adopted: ``<git-common-dir>/apache-magpie/``,
+# with a legacy in-tree ``.apache-magpie-local/`` still read after it.  The
+# committed layer is ``<repo>/.apache-magpie-overrides/``.  Nothing here
+# creates a directory.
+# --------------------------------------------------------------------------- #
+
+LOCK_NAME = ".apache-magpie.lock"
+LOCAL_DIR = ".apache-magpie-local"
+OVERRIDES_DIR = ".apache-magpie-overrides"
+GIT_HOME_NAME = "apache-magpie"
+
+
+def _absolute(path: Path) -> Path:
+    return Path(os.path.normpath(os.path.abspath(path)))
+
+
+def git_common_dir(root: Path) -> Path | None:
+    """The repository's common git directory, or `None` when `root` is not a repo.
+
+    `<root>/.git` a directory → that directory.  A file reading
+    `gitdir: <path>` (a linked worktree, or a submodule) → that worktree git
+    directory, and then the directory its `commondir` file names (relative
+    to the worktree git directory), when it has one.  Relative paths resolve
+    against the file that holds them.
+    """
+    dotgit = _absolute(root) / ".git"
+    if dotgit.is_dir():
+        return dotgit
+    if not dotgit.is_file():
+        return None
+    try:
+        first = dotgit.read_text(encoding="utf-8").splitlines()[0].strip()
+    except (OSError, UnicodeDecodeError, IndexError):
+        return None
+    if not first.startswith("gitdir:"):
+        return None
+    target = first.removeprefix("gitdir:").strip()
+    if not target:
+        return None
+    gitdir = _absolute(dotgit.parent / target)
+    if not gitdir.is_dir():
+        return None
+    commondir = gitdir / "commondir"
+    if not commondir.is_file():
+        return gitdir
+    try:
+        common = commondir.read_text(encoding="utf-8").strip()
+    except (OSError, UnicodeDecodeError):
+        return None
+    if not common:
+        return gitdir
+    resolved = _absolute(gitdir / common)
+    return resolved if resolved.is_dir() else None
+
+
+def adopted(root: Path) -> bool:
+    """Whether the project has adopted Magpie: a committed lock exists."""
+    return (root / LOCK_NAME).is_file()
+
+
+def personal_dir(root: Path) -> Path | None:
+    """Where this user's configuration for `root` lives (may not exist yet)."""
+    if adopted(root):
+        return root / LOCAL_DIR
+    common = git_common_dir(root)
+    return common / GIT_HOME_NAME if common is not None else None
+
+
+def personal_layers(root: Path) -> list[Path]:
+    """The personal layer, then a legacy in-tree one in an unadopted repository."""
+    layers = [] if (home := personal_dir(root)) is None else [home]
+    legacy = root / LOCAL_DIR
+    if not adopted(root) and legacy.is_dir() and legacy not in layers:
+        layers.append(legacy)
+    return layers
+
+
+def config_layers(root: Path) -> list[Path]:
+    """Every directory a config file is looked up in, first match wins."""
+    return [*personal_layers(root), root / OVERRIDES_DIR]
+
+
+ATTRIBUTION_PROJECT_DIR = OVERRIDES_DIR
+
+
 def _read_attribution(path: Path) -> str | None:
     """The ``convention`` value of one ``commit-attribution.toml``.
 
@@ -468,7 +559,8 @@ def resolve_commit_attribution(repo_root: Path | None) -> str:
     """The commit-attribution convention in force for ``repo_root``.
 
     See ``docs/setup/commit-attribution.md``. The project's committed choice
-    wins when it makes one; the contributor's gitignored choice applies only
+    wins when it makes one; the contributor's personal choice (the first
+    personal layer holding the file, see ``personal_layers``) applies only
     when the project's file is absent, sets no ``convention``, or sets
     ``contributor-choice``. Anything unreadable, unparsable or unknown
     resolves to the default, which is the conservative answer for every guard
@@ -480,7 +572,11 @@ def resolve_commit_attribution(repo_root: Path | None) -> str:
         project = _read_attribution(repo_root / ATTRIBUTION_PROJECT_DIR / ATTRIBUTION_FILE)
         if project is not None and project != ATTRIBUTION_CONTRIBUTOR_CHOICE:
             return project if project in ATTRIBUTION_CONVENTIONS else DEFAULT_ATTRIBUTION
-        local = _read_attribution(repo_root / ATTRIBUTION_LOCAL_DIR / ATTRIBUTION_FILE)
+        local = None
+        for layer in personal_layers(repo_root):
+            local = _read_attribution(layer / ATTRIBUTION_FILE)
+            if local is not None:
+                break
     except ValueError:
         return DEFAULT_ATTRIBUTION
     if local in ATTRIBUTION_CONVENTIONS:

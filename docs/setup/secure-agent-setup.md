@@ -558,6 +558,8 @@ below, annotated.
         // sandboxed podman / docker CLI can connect(2) to them:
         //   "<project>/.apache-magpie-local/run/podman.sock",
         //   "<project>/.apache-magpie-local/run/docker.sock"
+        // (or "<git-common-dir>/apache-magpie/run/<worktree-id>/{podman,docker}.sock"
+        // for a project that has not adopted Magpie)
         // never the daemon socket itself: that is host access, see sandbox-troubleshooting.md
       ],
       "allowedDomains": [          // every host the framework legitimately reaches
@@ -2676,6 +2678,12 @@ Wire it as a `SessionStart` / `SessionEnd` pair in `~/.claude/settings.json`, al
 
 Every setting that points something at a gateway socket needs that socket's **absolute** path, which is per-machine, so the whole project-settings block belongs in the gitignored `.claude/settings.local.json` — nothing is committed.
 Add it by hand, substituting your own project's absolute path for `<project>` — nothing writes it for you.
+The gateway serves from the `run/` directory of the personal config layer:
+`<project>/.apache-magpie-local/run/` when the project has adopted Magpie (a committed `.apache-magpie.lock`),
+and `<git-common-dir>/apache-magpie/run/<worktree-id>/` when it has not — inside the repository's git directory, so nothing lands in the working tree.
+`git rev-parse --git-common-dir` prints the common directory (the main checkout's `.git`, also from a linked worktree);
+`<worktree-id>` is `main` for the main working tree and the `<name>` of `.git/worktrees/<name>` for a linked worktree (it must match `[A-Za-z0-9._-]+`), so each worktree has its own gateway and sockets.
+use its absolute path in place of `<project>/.apache-magpie-local` in the block below.
 (`setup-isolated-setup-install` Step L proposes the same block as a settings diff; `/magpie-setup config` does **not** write it, and automating it there is a recorded follow-up.)
 
 ```jsonc
@@ -2700,7 +2708,7 @@ Add it by hand, substituting your own project's absolute path for `<project>` �
 The CLIs do not resolve it against the cwd: a `unix://` URL's authority is parsed as a host component, so `unix://./.apache-magpie-local/run/podman.sock` dials `/.//.apache-magpie-local/run/podman.sock` and `unix://.apache-magpie-local/run/podman.sock` dials `/.apache-magpie-local//run/podman.sock`, neither of which exists (verified against podman 6.1.0).
 `unix:///absolute/path` is the only spelling that reaches the socket, and paying for it in a per-machine file is the cost of that.
 
-Never add the real daemon socket to `allowUnixSockets` under any name: the framework's `sandbox-lint` tool rejects an entry whose basename is `docker.sock`, `podman.sock`, or ends in `-api.sock`, unless its parent directory is `.apache-magpie-local/run`.
+Never add the real daemon socket to `allowUnixSockets` under any name: the framework's `sandbox-lint` tool rejects an entry whose basename is `docker.sock`, `podman.sock`, or ends in `-api.sock`, unless its parent directory is the gateway's run directory, `<project>/.apache-magpie-local/run` or `<git-common-dir>/apache-magpie/run/<worktree-id>`.
 
 ### Egress
 
@@ -3359,7 +3367,8 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
       daemon socket in `allowUnixSockets` — an entry whose
       basename is `docker.sock`, `podman.sock`, or ends in
       `-api.sock`, unless its parent directory is
-      `.apache-magpie-local/run`, is ✗: it is the same invariant
+      `.apache-magpie-local/run` or `<git-common-dir>/apache-magpie/run/<worktree-id>`,
+      is ✗: it is the same invariant
       `tools/sandbox-lint` enforces.
     On any ✗, point at
     [`docs/setup/sandbox-troubleshooting.md` → Docker / Podman command fails with a socket error](sandbox-troubleshooting.md#docker--podman-command-fails-with-a-socket-error)

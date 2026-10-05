@@ -203,6 +203,9 @@ class PolicyContext:
     bind_roots: tuple[Path, ...]
     proxy_env: dict[str, str] | None
     egress_mode: str = "inject-if-available"
+    #: Directories under a bind root that are never a bind source themselves:
+    #: the gateway's run directory and the personal config layer.
+    excluded_bind_roots: tuple[Path, ...] = ()
 
 
 def _host(body: dict[str, Any], libpod: bool) -> dict[str, Any]:
@@ -232,12 +235,43 @@ def _is_path_like(spec: str) -> bool:
     return "/" in spec or "\\" in spec
 
 
+def _is_excluded(real: Path, ctx: PolicyContext) -> bool:
+    """Whether resolved `real` is, or is under, an excluded bind root.
+
+    The roots are resolved too: `real` already is, and comparing it with an
+    unresolved root (macOS `/var` → `/private/var`, a symlinked checkout)
+    would never match and silently drop the exclusion.
+    """
+    for ex in ctx.excluded_bind_roots:
+        try:
+            rex = ex.resolve(strict=False)
+        except (OSError, RuntimeError):
+            return True  # cannot tell where it is: treat as excluded
+        if real == rex or rex in real.parents:
+            return True
+    return False
+
+
 def resolve_bind_source(src: str, ctx: PolicyContext) -> bool:
     try:
         real = Path(src).resolve(strict=False)
     except (OSError, RuntimeError):
         return False
+    if _is_excluded(real, ctx):
+        return False
     return any(real == root.resolve() or root.resolve() in real.parents for root in ctx.bind_roots)
+
+
+def _bind_deny(src: str, ctx: PolicyContext) -> Deny:
+    """Why `src` was refused as a bind source (after `resolve_bind_source` said no)."""
+    try:
+        real = Path(src).resolve(strict=False)
+    except (OSError, RuntimeError):
+        real = None
+    if real is not None and _is_excluded(real, ctx):
+        return Deny(f"bind-mount: {src} is the gateway's run directory or the personal config layer")
+    roots = ", ".join(str(r) for r in ctx.bind_roots)
+    return Deny(f"bind-mount: {src} is outside the allowed roots ({roots})")
 
 
 def _list_of_dicts_deny(name: str, value: Any) -> Deny | None:
@@ -517,8 +551,7 @@ def _mount_type_deny(
     if mtype == "bind":
         source = str(entry.get(source_key, ""))
         if not resolve_bind_source(source, ctx):
-            roots = ", ".join(str(r) for r in ctx.bind_roots)
-            return Deny(f"bind-mount: {source} is outside the allowed roots ({roots})")
+            return _bind_deny(source, ctx)
         return None
     if mtype == "volume":
         if _volume_driver_config(entry):
@@ -538,8 +571,7 @@ def _mounts_deny(
         for spec in host.get("Binds") or []:
             src = str(spec).split(":", 1)[0]
             if src and _is_path_like(src) and not resolve_bind_source(src, ctx):
-                roots = ", ".join(str(r) for r in ctx.bind_roots)
-                return Deny(f"bind-mount: {src} is outside the allowed roots ({roots})")
+                return _bind_deny(src, ctx)
 
     type_key, source_key = ("type", "source") if libpod else ("Type", "Source")
     mounts = body.get("mounts") if libpod else host.get("Mounts")

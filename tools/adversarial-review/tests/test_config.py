@@ -68,6 +68,29 @@ def test_personal_layer_wins_whole(tmp_path):
     )
 
 
+def _write(layer, body):
+    layer.mkdir(parents=True, exist_ok=True)
+    (layer / "adversarial-review.md").write_text(
+        f"```yaml\nadversarial_review:\n  mode: off\n  reviewers: {body}\n```\n", encoding="utf-8"
+    )
+
+
+def test_an_unadopted_repo_reads_the_git_dir_home_before_a_legacy_dir(tmp_path):
+    (tmp_path / ".git").mkdir()
+    _write(tmp_path / ".apache-magpie-local", "[codex]")
+    assert resolve(tmp_path).reviewers == ("codex",)
+    _write(tmp_path / ".git" / "apache-magpie", "[gemini]")
+    cfg = resolve(tmp_path)
+    assert cfg.reviewers == ("gemini",)
+    assert cfg.source == tmp_path / ".git" / "apache-magpie" / "adversarial-review.md"
+
+
+def test_an_adopted_repo_ignores_the_git_dir_home(tmp_path):
+    (tmp_path / ".apache-magpie.lock").write_text("method: local\n")
+    _write(tmp_path / ".git" / "apache-magpie", "[gemini]")
+    assert resolve(tmp_path) == ReviewConfig()
+
+
 @pytest.mark.parametrize(
     ("block", "message"),
     [

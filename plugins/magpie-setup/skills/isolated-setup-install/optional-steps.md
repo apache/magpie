@@ -168,7 +168,14 @@ exactly as for K.2's touch-overlay hooks.
 **L.3 — Project wiring.** Propose the `env` block
 (`CONTAINER_HOST` / `DOCKER_HOST`) and the `allowUnixSockets` pair
 as a single settings diff into the gitignored
-`.claude/settings.local.json`. All four values are **absolute**
+`.claude/settings.local.json`. The sockets are `podman.sock` and
+`docker.sock` in the gateway's run directory:
+`<project>/.apache-magpie-local/run/` when the project has adopted
+Magpie (a committed `.apache-magpie.lock`), otherwise
+`<git-common-dir>/apache-magpie/run/<worktree-id>/` — the absolute path of
+`git rev-parse --git-common-dir`, which is the main checkout's `.git`
+from every worktree, then `main` for the main working tree or the
+linked worktree's `.git/worktrees/<name>` name. All four values are **absolute**
 paths and therefore per-machine: the CLIs do not resolve a
 project-relative `unix://./…` value against the cwd — the URL
 authority is read as a host component, so `unix://./x` dials
@@ -177,7 +184,8 @@ Nothing gateway-related is committed to `.claude/settings.json`.
 Never propose the real
 daemon socket under any name; `tools/sandbox-lint` rejects an
 `allowUnixSockets` entry named `docker.sock` / `podman.sock` /
-`*-api.sock` outside `.apache-magpie-local/run/`.
+`*-api.sock` outside the gateway's run directory
+(`.apache-magpie-local/run/` or `<git-common-dir>/apache-magpie/run/<worktree-id>/`).
 
 Tell the operator plainly, every time this step runs:
 

@@ -31,12 +31,16 @@ from pathlib import Path
 
 from . import backends as _backends
 from . import daemon
+from .layers import LOCAL_DIR, InvalidWorktreeId, default_run_dir
 
 
 def _common(p: argparse.ArgumentParser) -> None:
     p.add_argument("--project", type=Path, default=Path.cwd(), help="project root (default: cwd)")
     p.add_argument(
-        "--run-dir", type=Path, help="socket + pid directory (default: <project>/.apache-magpie-local/run)"
+        "--run-dir",
+        type=Path,
+        help="socket + pid directory (default: <project>/.apache-magpie-local/run when the project adopted "
+        "Magpie, else <git-common-dir>/apache-magpie/run/<worktree-id>)",
     )
     p.add_argument(
         "--pid-file",
@@ -57,9 +61,28 @@ def _absolute(path: Path) -> Path:
     return path if path.is_absolute() else Path.cwd() / path
 
 
-def _config(ns: argparse.Namespace) -> daemon.Config:
+def _config(ns: argparse.Namespace, *, serving: bool = False) -> daemon.Config:
     root = ns.project.resolve()  # the trust anchor: the operator's own --project value
-    run_dir = _absolute(ns.run_dir) if ns.run_dir is not None else root / ".apache-magpie-local" / "run"
+    if ns.run_dir is not None:
+        run_dir = _absolute(ns.run_dir)
+    else:
+        try:
+            default = default_run_dir(root)
+        except InvalidWorktreeId as exc:
+            print(f"container-gateway: {exc}; refusing — pass --run-dir", file=sys.stderr)
+            raise SystemExit(2) from exc
+        if default is None and serving:
+            # Not adopted and not a git repository: there is nowhere outside
+            # the working tree to put the sockets, and nothing goes inside it.
+            print(
+                f"container-gateway: {root} has not adopted Magpie and is not a git repository; "
+                "pass --run-dir",
+                file=sys.stderr,
+            )
+            raise SystemExit(2)
+        # `stop` / `status` only read, and `validate_run_dir` never creates:
+        # with no default they look where nothing can have been served.
+        run_dir = default if default is not None else root / LOCAL_DIR / "run"
     pid_file = _absolute(ns.pid_file) if ns.pid_file is not None else run_dir / "container-gateway.pid"
     return daemon.Config(
         project_root=root,
@@ -113,7 +136,11 @@ def _daemonize(log_path: Path) -> None:
 
 
 def cmd_serve(ns: argparse.Namespace) -> int:
-    cfg = _config(ns)
+    cfg = _config(ns, serving=True)
+    # Before anything is created: a unix socket path longer than the
+    # platform's sun_path (104 bytes on macOS, NUL included) cannot be bound.
+    for key in ("podman", "docker"):
+        daemon.check_socket_path(daemon.paths(cfg.run_dir)[key])
     daemon.check_run_dir(cfg.run_dir, cfg.project_root)
     running, _ = daemon.probe_pid_lock(cfg.pid_file)
     if running:

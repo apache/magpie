@@ -174,6 +174,51 @@ def test_commit_attribution_fails_closed(tmp_path, project, local):
     assert reason and "Co-Authored-By" in reason and "'generated-by'" in reason
 
 
+def test_commit_attribution_reads_the_git_dir_home_of_an_unadopted_repo(tmp_path):
+    """Not adopted: the contributor's file lives inside `.git/`, not the tree."""
+    (tmp_path / ".git" / "apache-magpie").mkdir(parents=True)
+    (tmp_path / ".git" / "apache-magpie" / "commit-attribution.toml").write_text(
+        'convention = "co-authored-by"\n'
+    )
+    assert dispatch(COAUTHOR_COMMIT, cwd=str(tmp_path)) is None
+
+
+def test_commit_attribution_git_dir_home_wins_over_a_legacy_local_dir(tmp_path):
+    repo = _attribution_repo(tmp_path, None, 'convention = "co-authored-by"\n')
+    (repo / ".git" / "apache-magpie").mkdir()
+    (repo / ".git" / "apache-magpie" / "commit-attribution.toml").write_text('convention = "generated-by"\n')
+    assert dispatch(COAUTHOR_COMMIT, cwd=str(repo)) is not None
+
+
+def test_commit_attribution_from_a_linked_worktree_reads_the_shared_home(tmp_path):
+    main = tmp_path / "main"
+    wt_gitdir = main / ".git" / "worktrees" / "wt"
+    wt_gitdir.mkdir(parents=True)
+    (wt_gitdir / "commondir").write_text("../..\n")
+    (main / ".git" / "apache-magpie").mkdir()
+    (main / ".git" / "apache-magpie" / "commit-attribution.toml").write_text(
+        'convention = "co-authored-by"\n'
+    )
+    wt = tmp_path / "wt"
+    wt.mkdir()
+    (wt / ".git").write_text(f"gitdir: {wt_gitdir}\n")
+    assert dispatch(COAUTHOR_COMMIT, cwd=str(wt)) is None
+
+
+def test_commit_attribution_in_an_adopted_repo_ignores_the_git_dir_home(tmp_path):
+    (tmp_path / ".git" / "apache-magpie").mkdir(parents=True)
+    (tmp_path / ".git" / "apache-magpie" / "commit-attribution.toml").write_text(
+        'convention = "co-authored-by"\n'
+    )
+    (tmp_path / ".apache-magpie.lock").write_text("method: local\n")
+    assert dispatch(COAUTHOR_COMMIT, cwd=str(tmp_path)) is not None
+    (tmp_path / ".apache-magpie-local").mkdir()
+    (tmp_path / ".apache-magpie-local" / "commit-attribution.toml").write_text(
+        'convention = "co-authored-by"\n'
+    )
+    assert dispatch(COAUTHOR_COMMIT, cwd=str(tmp_path)) is None
+
+
 def test_commit_attribution_found_from_a_subdirectory(tmp_path):
     repo = _attribution_repo(tmp_path, 'convention = "co-authored-by"\n')
     sub = repo / "src" / "pkg"

@@ -131,8 +131,12 @@ substitute `<private-list>` for your project's actual list):
 
 1. Place the file at `<project-config>/privacy-llm.md` in your
    adopter repo (alongside `project.md`).
-2. Commit it. The file is project-config — it travels with the
-   repo, not per-machine.
+2. Commit it if the project adopted Magpie
+   (`.apache-magpie-overrides/privacy-llm.md`), so it travels with the
+   repo. If you only installed Magpie families, it stays personal in
+   `<git-common-dir>/apache-magpie/privacy-llm.md` and is never committed;
+   the [checker README](../../tools/privacy-llm/checker/README.md#config-file-lookup)
+   lists every location the gate reads.
 3. Run `/magpie-setup:isolated-setup-verify` to confirm the existing
    secure-agent setup is in place — no new secure-setup steps
    are needed for Variant 1.

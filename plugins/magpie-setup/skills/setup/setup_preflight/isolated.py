@@ -39,8 +39,9 @@ The fingerprint is computed from the framework source when this checkout
 has it — the framework's own tree, or a pinned snapshot under
 `.apache-magpie/` — and otherwise taken from the constant generated into
 `isolated_fingerprint.py`.  The constant is what a marketplace install
-sees: the copy of this package in `.apache-magpie-local/` is refreshed by
-`/magpie-setup upgrade`, which is exactly the moment the constant moves.
+sees: the copy of this package in the personal config layer (see
+`layers.py`) is refreshed by `/magpie-setup upgrade`, which is exactly the
+moment the constant moves.
 
 Run as a module it also records what happened, so nothing hand-writes a
 fingerprint into the stamp:
@@ -61,6 +62,8 @@ import sys
 from datetime import date
 from pathlib import Path
 
+from .layers import config_layers, personal_dir, personal_layers
+
 #: The files a secure-setup install copies or mirrors, relative to the
 #: framework root.  Documentation is left out on purpose: a reworded
 #: paragraph changes nothing on the user's machine and must not send them
@@ -79,7 +82,6 @@ _SKIP_NAMES = frozenset({".DS_Store"})
 _MARKER = "tools/agent-isolation"
 SNAPSHOT_DIR = ".apache-magpie"
 
-LOCAL_DIR = ".apache-magpie-local"
 STAMP_NAME = "reconciled.json"
 BLOCK = "isolated_setup"
 
@@ -154,12 +156,13 @@ def sandbox_enabled_in_project(root: Path) -> bool:
 def interval_days(root: Path) -> int:
     """`isolated_setup_update_interval_days`, personal config first.
 
-    Read from `.apache-magpie-local/project.md`, then
-    `.apache-magpie-overrides/project.md`; a week when neither sets it.
-    `0` turns the timed reminder off (a change is still reported).
+    Read from `project.md` in each config layer in turn (`layers.py`:
+    personal, legacy in-tree, then `.apache-magpie-overrides/`); a week when
+    none sets it.  `0` turns the timed reminder off (a change is still
+    reported).
     """
-    for directory in (LOCAL_DIR, ".apache-magpie-overrides"):
-        path = root / directory / "project.md"
+    for directory in config_layers(root):
+        path = directory / "project.md"
         try:
             match = _INTERVAL_RE.search(path.read_text(encoding="utf-8"))
         except OSError:
@@ -172,16 +175,31 @@ def interval_days(root: Path) -> int:
 # --- recording ----------------------------------------------------------------------
 
 
+class NoPersonalLayer(RuntimeError):
+    """An unadopted project outside a git repository has nowhere to record."""
+
+
 def _stamp_path(root: Path) -> Path:
-    return root / LOCAL_DIR / STAMP_NAME
+    home = personal_dir(root)
+    if home is None:
+        raise NoPersonalLayer(
+            f"{root} has not adopted Magpie and is not a git repository; "
+            "there is no personal config layer to record into"
+        )
+    return home / STAMP_NAME
 
 
 def _load_stamp(root: Path) -> dict[str, object]:
-    try:
-        loaded = json.loads(_stamp_path(root).read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return {}
-    return loaded if isinstance(loaded, dict) else {}
+    """The stamp as read: personal layer first, then the legacy in-tree one."""
+    for layer in personal_layers(root):
+        try:
+            loaded = json.loads((layer / STAMP_NAME).read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            continue
+        except (OSError, json.JSONDecodeError):
+            return {}
+        return loaded if isinstance(loaded, dict) else {}
+    return {}
 
 
 def record(root: Path, event: str, today: date | None = None) -> dict[str, object]:
@@ -190,6 +208,11 @@ def record(root: Path, event: str, today: date | None = None) -> dict[str, objec
     `update` — the update skill ran here: its fingerprint is now the one it
     checked against.  `reminder` — the suggestion was shown, taken or not,
     which re-arms both the timer and this particular change.
+
+    The stamp is written to the personal layer, which this creates when it
+    does not exist yet (inside the git directory for an unadopted
+    repository, never the working tree).  A stamp still in the legacy
+    in-tree directory is read and carried over, not deleted.
     """
     stamp = _load_stamp(root)
     raw = stamp.get(BLOCK)
@@ -208,7 +231,7 @@ def record(root: Path, event: str, today: date | None = None) -> dict[str, objec
         block["acknowledged"] = fingerprint
     stamp[BLOCK] = block
     path = _stamp_path(root)
-    path.parent.mkdir(exist_ok=True)
+    path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".tmp")
     tmp.write_text(json.dumps(stamp, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     tmp.replace(path)
@@ -260,7 +283,11 @@ def main(argv: list[str] | None = None) -> int:
         print(current(root) or "")
         return 0
     if args.action in ("record-update", "record-reminder"):
-        block = record(root, args.action.removeprefix("record-"))
+        try:
+            block = record(root, args.action.removeprefix("record-"))
+        except NoPersonalLayer as exc:
+            print(f"{args.action}: {exc}", file=sys.stderr)
+            return 2
         print(json.dumps({BLOCK: block}, indent=2, sort_keys=True))
         return 0
 

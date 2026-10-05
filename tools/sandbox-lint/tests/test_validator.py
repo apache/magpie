@@ -600,6 +600,85 @@ def test_gateway_socket_under_the_given_project_root_passes(baseline: dict[str, 
     assert not [e for e in errors if "daemon socket" in e], errors
 
 
+def test_gateway_socket_in_the_git_dir_of_an_unadopted_project_passes(
+    baseline: dict[str, Any], tmp_path: Path
+) -> None:
+    project_root = tmp_path / "real-project"
+    (project_root / ".git").mkdir(parents=True)
+    settings = copy.deepcopy(baseline)
+    settings["sandbox"]["network"]["allowUnixSockets"] = [
+        str(project_root / ".git" / "apache-magpie" / "run" / "main" / "podman.sock"),
+        "./.git/apache-magpie/run/main/docker.sock",
+    ]
+    errors = check_invariants(settings, project_root=project_root)
+    assert not [e for e in errors if "daemon socket" in e], errors
+
+
+def test_gateway_socket_of_a_linked_worktree_under_the_common_dir_passes(
+    baseline: dict[str, Any], tmp_path: Path
+) -> None:
+    main = tmp_path / "main"
+    wt_gitdir = main / ".git" / "worktrees" / "wt"
+    wt_gitdir.mkdir(parents=True)
+    (wt_gitdir / "commondir").write_text("../..\n")
+    worktree = tmp_path / "wt"
+    worktree.mkdir()
+    (worktree / ".git").write_text(f"gitdir: {wt_gitdir}\n")
+    settings = copy.deepcopy(baseline)
+    settings["sandbox"]["network"]["allowUnixSockets"] = [
+        str(main / ".git" / "apache-magpie" / "run" / "wt" / "podman.sock")
+    ]
+    assert not [e for e in check_invariants(settings, project_root=worktree) if "daemon socket" in e]
+    # Another worktree's run directory of the same repository is not this one's.
+    settings["sandbox"]["network"]["allowUnixSockets"] = [
+        str(main / ".git" / "apache-magpie" / "run" / "main" / "podman.sock")
+    ]
+    assert [e for e in check_invariants(settings, project_root=worktree) if "daemon socket" in e]
+    # Another repository's git-directory home is not this project's.
+    settings["sandbox"]["network"]["allowUnixSockets"] = [
+        str(tmp_path / "other" / ".git" / "apache-magpie" / "run" / "wt" / "podman.sock")
+    ]
+    assert [e for e in check_invariants(settings, project_root=worktree) if "daemon socket" in e]
+
+
+def test_gateway_socket_in_the_in_tree_dir_of_an_adopted_project_passes(
+    baseline: dict[str, Any], tmp_path: Path
+) -> None:
+    project_root = tmp_path / "real-project"
+    (project_root / ".git").mkdir(parents=True)
+    (project_root / ".apache-magpie.lock").write_text("method: local\n")
+    settings = copy.deepcopy(baseline)
+    settings["sandbox"]["network"]["allowUnixSockets"] = [
+        str(project_root / ".apache-magpie-local" / "run" / "podman.sock")
+    ]
+    assert not [e for e in check_invariants(settings, project_root=project_root) if "daemon socket" in e]
+
+
+def test_decoy_git_dir_home_run_path_is_rejected_with_a_project_root(
+    baseline: dict[str, Any], tmp_path: Path
+) -> None:
+    project_root = tmp_path / "real-project"
+    (project_root / ".git").mkdir(parents=True)
+    settings = copy.deepcopy(baseline)
+    settings["sandbox"]["network"]["allowUnixSockets"] = [
+        str(tmp_path / "evil" / ".git" / "apache-magpie" / "run" / "main" / "podman.sock")
+    ]
+    errors = check_invariants(settings, project_root=project_root)
+    assert any("names a container daemon socket" in e for e in errors), errors
+
+
+def test_git_dir_home_socket_passes_the_unanchored_suffix_match(baseline: dict[str, Any]) -> None:
+    settings = copy.deepcopy(baseline)
+    settings["sandbox"]["network"]["allowUnixSockets"] = [
+        "/Users/x/proj/.git/apache-magpie/run/wt-1/podman.sock"
+    ]
+    assert not [e for e in check_invariants(settings) if "daemon socket" in e]
+    # The suffix match requires a valid worktree id below `run/`.
+    for bad in ("/Users/x/proj/.git/apache-magpie/run/podman.sock", "/x/apache-magpie/run/a b/podman.sock"):
+        settings["sandbox"]["network"]["allowUnixSockets"] = [bad]
+        assert [e for e in check_invariants(settings) if "daemon socket" in e], bad
+
+
 def test_infer_project_root_from_dot_claude_settings_path(tmp_path: Path) -> None:
     from sandbox_lint import _infer_project_root
 

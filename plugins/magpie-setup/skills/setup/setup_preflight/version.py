@@ -28,8 +28,8 @@ version like any other: an adopter running one has accepted that it moves,
 and telling them they are up to date when they are not would be the same
 bug as telling them to downgrade.
 
-Deliberately not `packaging.version`: this module is copied into an
-adopter's gitignored `.apache-magpie-local/` and run with bare `python3`,
+Deliberately not `packaging.version`: this module is copied into the
+user's personal config layer (see `layers.py`) and run with bare `python3`,
 so it cannot depend on anything outside the standard library.
 """
 

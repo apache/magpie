@@ -53,12 +53,18 @@ from datetime import date, datetime
 from pathlib import Path
 
 from . import sections
+from .layers import (
+    LOCK_NAME,
+    OVERRIDES_DIR,
+    git_common_dir,
+    legacy_local_dir,
+    personal_dir,
+    personal_layers,
+    resolve,
+)
 from .lockfile import Lock, MalformedLock, load, parse_local
 from .version import InvalidVersion, below
 
-LOCAL_DIR = ".apache-magpie-local"
-OVERRIDES_DIR = ".apache-magpie-overrides"
-LOCK_NAME = ".apache-magpie.lock"
 LOCAL_LOCK_NAME = ".apache-magpie.local.lock"
 STAMP_NAME = "reconciled.json"
 CACHE_NAME = ".preflight-cache.json"
@@ -176,14 +182,56 @@ def _floor_findings(lock: Lock, installed: dict[str, str] | None) -> list[Findin
     ]
 
 
+def legacy_layout_findings(root: Path) -> list[Finding]:
+    """An unadopted repository still keeping personal config in its working tree.
+
+    It keeps working — the directory is read after the personal layer — but
+    a project that has not adopted Magpie should carry nothing of it in the
+    tree, so the move is put to the user.  Never performed here.
+    """
+    legacy = legacy_local_dir(root)
+    if legacy is None:
+        return []
+    home = personal_dir(root)
+    common = git_common_dir(root)
+    exclude = common / "info" / "exclude" if common is not None else None
+    try:
+        exclude_lines = (
+            exclude.read_text(encoding="utf-8").splitlines()
+            if exclude is not None and exclude.is_file()
+            else []
+        )
+    except (OSError, UnicodeDecodeError):
+        exclude_lines = []
+    return [
+        Finding(
+            "project",
+            "legacy-local-dir",
+            "step-12",
+            {
+                "legacy_dir": str(legacy),
+                "personal_dir": str(home) if home is not None else None,
+                "personal_dir_exists": bool(home is not None and home.is_dir()),
+                "exclude_file": str(exclude) if exclude is not None else None,
+                "exclude_has_entry": any(
+                    line.strip()
+                    in ("/.apache-magpie-local/", "/.apache-magpie-local", ".apache-magpie-local/")
+                    for line in exclude_lines
+                ),
+            },
+        )
+    ]
+
+
 def project_findings(root: Path, installed: dict[str, str] | None) -> list[Finding]:
     """Everything true of the checkout rather than of one skill."""
     lock = load(root / LOCK_NAME)
     if lock is None:
         # A supported end state, not a fault: the marketplace install
         # without adoption, or nothing at all.  Skill scope decides whether
-        # anything is actually missing.
-        return []
+        # anything is actually missing.  The one thing to say is where an
+        # unadopted repository keeps its personal config.
+        return legacy_layout_findings(root)
     if lock.method in SNAPSHOT_METHODS:
         return _snapshot_findings(lock, root)
     if lock.method == "marketplace":
@@ -197,8 +245,11 @@ def project_findings(root: Path, installed: dict[str, str] | None) -> list[Findi
 
 
 def _read_stamp(root: Path) -> dict[str, object]:
-    path = root / LOCAL_DIR / STAMP_NAME
-    if not path.exists():
+    """The stamp from the personal layer, else the legacy in-tree directory."""
+    path = next(
+        (layer / STAMP_NAME for layer in personal_layers(root) if (layer / STAMP_NAME).exists()), None
+    )
+    if path is None:
         return {}
     try:
         loaded = json.loads(path.read_text(encoding="utf-8"))
@@ -208,16 +259,20 @@ def _read_stamp(root: Path) -> dict[str, object]:
 
 
 def _resolves(root: Path, name: str) -> bool:
-    return (root / LOCAL_DIR / name).exists() or (root / OVERRIDES_DIR / name).exists()
+    return resolve(root, name) is not None
 
 
 def configured_at_all(root: Path) -> bool:
     """Has anything ever been configured or adopted here?
 
-    All three absent means there is nothing to reconcile, and the whole
-    fingerprint comparison is skipped in silence.
+    The lock, the personal layer (wherever it lives for this project, or
+    the legacy in-tree directory), or the committed overrides.  All absent
+    means there is nothing to reconcile, and the whole fingerprint
+    comparison is skipped in silence.
     """
-    return any((root / part).exists() for part in (LOCK_NAME, LOCAL_DIR, OVERRIDES_DIR))
+    if (root / LOCK_NAME).exists() or (root / OVERRIDES_DIR).exists():
+        return True
+    return any(layer.is_dir() for layer in personal_layers(root))
 
 
 def skill_findings(
@@ -397,6 +452,8 @@ def _cache_key(root: Path, installed: dict[str, str] | None) -> str:
         parts.append(
             f"{name}:{path.stat().st_mtime_ns}:{path.stat().st_size}" if path.exists() else f"{name}:-"
         )
+    # The legacy-layout finding depends on the in-tree directory existing.
+    parts.append("legacy:" + ("1" if legacy_local_dir(root) is not None else "-"))
     parts.append("installed:" + ("?" if installed is None else json.dumps(installed, sort_keys=True)))
     # The verdict is also a function of this code: an upgrade that refreshes
     # the checker must not keep serving the previous checker's answer.
@@ -404,7 +461,8 @@ def _cache_key(root: Path, installed: dict[str, str] | None) -> str:
     parts.append(
         "checker:"
         + ",".join(
-            f"{p.stat().st_mtime_ns}:{p.stat().st_size}" for p in (here / "core.py", here / "lockfile.py")
+            f"{p.stat().st_mtime_ns}:{p.stat().st_size}"
+            for p in (here / "core.py", here / "layers.py", here / "lockfile.py")
         )
     )
     return "|".join(parts)
@@ -418,16 +476,16 @@ def cached_project_findings(
 ) -> tuple[list[Finding], bool]:
     """Project findings, reusing a recent verdict computed from the same inputs.
 
-    Returns `(findings, was_cached)`.  The cache lives in the gitignored
-    `.apache-magpie-local/`, is keyed on the lock files' identity and the
-    plugin listing, and expires so that a plugin installed mid-session is
-    picked up by the next skill rather than at the end of the day.  A
-    project with no local directory is not cached at all — writing one
-    would create the very state whose absence the skill scope reads as
-    "never configured".
+    Returns `(findings, was_cached)`.  The cache lives in the personal
+    layer (`layers.personal_dir`), is keyed on the lock files' identity and
+    the plugin listing, and expires so that a plugin installed mid-session
+    is picked up by the next skill rather than at the end of the day.  A
+    project whose personal layer does not exist is not cached at all —
+    creating it would create the very state whose absence the skill scope
+    reads as "never configured".
     """
-    local_dir = root / LOCAL_DIR
-    if not local_dir.is_dir():
+    local_dir = personal_dir(root)
+    if local_dir is None or not local_dir.is_dir():
         return project_findings(root, installed), False
 
     stamp_now = now if now is not None else time.time()

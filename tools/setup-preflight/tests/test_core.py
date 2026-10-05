@@ -228,6 +228,7 @@ def test_a_malformed_lock_raises_rather_than_reading_as_no_lock(project: Path) -
 
 
 def test_nothing_configured_means_nothing_to_reconcile(project: Path) -> None:
+    """A bare git repository: no lock, no personal layer, no overrides."""
     assert not configured_at_all(project)
     assert skill_findings(project, "magpie-x", "sha256:abc", []) == []
 
@@ -360,12 +361,18 @@ def test_the_cache_expires(project: Path) -> None:
 
 
 def test_an_unconfigured_project_is_never_cached(project: Path) -> None:
-    """Writing a cache file would create `.apache-magpie-local/`, which is
-    one of the three paths whose absence means "never configured"."""
+    """Writing a cache file would create the personal layer, whose absence
+    is part of what means "never configured"."""
     write_lock(project, MARKETPLACE)
     _, cached = cached_project_findings(project, None)
     assert cached is False
     assert not (project / ".apache-magpie-local").exists()
+
+
+def test_an_unconfigured_unadopted_project_is_never_cached(project: Path) -> None:
+    _, cached = cached_project_findings(project, None)
+    assert cached is False
+    assert not (project / ".git" / "apache-magpie").exists()
 
 
 # --- already-shown suppression ------------------------------------------------------
@@ -387,3 +394,125 @@ def test_a_declined_sweep_stays_declined_until_the_version_moves(project: Path) 
     write_lock(project, MARKETPLACE)
     write_stamp(project, {"acknowledged": {"sweep": "0.2.0"}})
     assert skill_findings(project, "magpie-x", "sha256:abc", []) == []
+
+
+# --- where personal config lives ----------------------------------------------------
+
+
+def test_an_unadopted_repo_reads_its_stamp_from_the_git_dir_home(project: Path) -> None:
+    home = project / ".git" / "apache-magpie"
+    home.mkdir()
+    (home / "reconciled.json").write_text(json.dumps({"verified_at": "2026-09-01"}))
+    assert configured_at_all(project)
+    assert codes(verify_findings(project, 14, today=date(2026, 9, 22))) == ["verify-overdue"]
+
+
+def test_requires_config_resolves_from_the_git_dir_home(project: Path) -> None:
+    home = project / ".git" / "apache-magpie"
+    home.mkdir()
+    (home / "a.md").write_text("x")
+    assert skill_findings(project, "magpie-x", None, ["a.md"]) == []
+
+
+def test_an_adopted_repo_does_not_read_the_git_dir_home(project: Path) -> None:
+    write_lock(project, MARKETPLACE)
+    home = project / ".git" / "apache-magpie"
+    home.mkdir()
+    (home / "a.md").write_text("x")
+    assert codes(skill_findings(project, "magpie-x", None, ["a.md"])) == ["config-missing"]
+
+
+def test_the_git_dir_home_is_found_from_a_linked_worktree(tmp_path: Path) -> None:
+    main = tmp_path / "main"
+    wt_gitdir = main / ".git" / "worktrees" / "wt"
+    wt_gitdir.mkdir(parents=True)
+    (wt_gitdir / "commondir").write_text("../..\n")
+    home = main / ".git" / "apache-magpie"
+    home.mkdir()
+    (home / "a.md").write_text("x")
+    wt = tmp_path / "wt"
+    wt.mkdir()
+    (wt / ".git").write_text(f"gitdir: {wt_gitdir}\n")
+    assert configured_at_all(wt)
+    assert skill_findings(wt, "magpie-x", None, ["a.md"]) == []
+
+
+def test_a_legacy_in_tree_dir_still_works_and_is_reported(project: Path) -> None:
+    legacy = project / ".apache-magpie-local"
+    legacy.mkdir()
+    (legacy / "a.md").write_text("x")
+    (legacy / "reconciled.json").write_text(json.dumps({"verified_at": "2026-09-01"}))
+    info = project / ".git" / "info"
+    info.mkdir()
+    (info / "exclude").write_text("# comment\n/.apache-magpie-local/\n")
+    assert configured_at_all(project)
+    assert skill_findings(project, "magpie-x", None, ["a.md"]) == []
+    assert codes(verify_findings(project, 14, today=date(2026, 9, 22))) == ["verify-overdue"]
+    [finding] = project_findings(project, None)
+    assert finding.code == "legacy-local-dir"
+    assert finding.scope == "project"
+    assert finding.facts == {
+        "legacy_dir": str(legacy),
+        "personal_dir": str(project / ".git" / "apache-magpie"),
+        "personal_dir_exists": False,
+        "exclude_file": str(info / "exclude"),
+        "exclude_has_entry": True,
+    }
+    # Reading and reporting moved nothing and created nothing.
+    assert not (project / ".git" / "apache-magpie").exists()
+    assert (legacy / "a.md").is_file()
+
+
+def test_the_git_dir_home_wins_over_the_legacy_dir(project: Path) -> None:
+    legacy = project / ".apache-magpie-local"
+    legacy.mkdir()
+    (legacy / "reconciled.json").write_text(json.dumps({"verified_at": "2026-09-01"}))
+    home = project / ".git" / "apache-magpie"
+    home.mkdir()
+    (home / "reconciled.json").write_text(json.dumps({"verified_at": "2026-09-20"}))
+    assert verify_findings(project, 14, today=date(2026, 9, 22)) == []
+
+
+def test_an_adopted_repo_with_an_in_tree_local_dir_is_not_legacy(project: Path) -> None:
+    write_lock(project, LOCAL)
+    (project / ".apache-magpie-local").mkdir()
+    assert project_findings(project, None) == []
+
+
+def test_a_legacy_dir_outside_a_git_repo_is_reported_with_nowhere_to_go(tmp_path: Path) -> None:
+    (tmp_path / ".apache-magpie-local").mkdir()
+    [finding] = project_findings(tmp_path, None)
+    assert finding.facts["personal_dir"] is None
+    assert finding.facts["exclude_file"] is None
+
+
+def test_not_a_git_repo_and_not_adopted_has_nothing_configured(tmp_path: Path) -> None:
+    assert not configured_at_all(tmp_path)
+    assert skill_findings(tmp_path, "magpie-x", "sha256:abc", []) == []
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_reading_never_creates_the_personal_layer(project: Path) -> None:
+    skill_findings(project, "magpie-x", "sha256:abc", ["a.md"])
+    verify_findings(project, 14, today=date(2026, 9, 22))
+    cached_project_findings(project, None)
+    assert sorted(p.name for p in project.iterdir()) == [".git"]
+    assert list((project / ".git").iterdir()) == []
+
+
+def test_an_unadopted_repo_caches_in_the_git_dir_home(project: Path) -> None:
+    (project / ".git" / "apache-magpie").mkdir()
+    cached_project_findings(project, None)
+    _, cached = cached_project_findings(project, None)
+    assert cached is True
+    assert (project / ".git" / "apache-magpie" / ".preflight-cache.json").is_file()
+    assert not (project / ".apache-magpie-local").exists()
+
+
+def test_a_legacy_dir_appearing_invalidates_the_cache(project: Path) -> None:
+    (project / ".git" / "apache-magpie").mkdir()
+    first, _ = cached_project_findings(project, None)
+    assert first == []
+    (project / ".apache-magpie-local").mkdir()
+    found, cached = cached_project_findings(project, None)
+    assert cached is False and codes(found) == ["legacy-local-dir"]

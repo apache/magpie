@@ -80,7 +80,7 @@ for rt in podman docker; do
   case "$url" in
     unix:///*) ;;
     unix://*|unix:*)
-      echo "PROBE: ${rt}-runtime → ✗ ($( [ "$rt" = podman ] && echo CONTAINER_HOST || echo DOCKER_HOST )=$url is not absolute — the CLIs do not resolve a relative unix:// value against the cwd; use unix:///<project>/.apache-magpie-local/run/$rt.sock)"
+      echo "PROBE: ${rt}-runtime → ✗ ($( [ "$rt" = podman ] && echo CONTAINER_HOST || echo DOCKER_HOST )=$url is not absolute — the CLIs do not resolve a relative unix:// value against the cwd; use unix:///<project>/.apache-magpie-local/run/$rt.sock if the project adopted Magpie, else unix:///<git-common-dir>/apache-magpie/run/<worktree-id>/$rt.sock)"
       continue ;;
   esac
   sock="${url#unix://}"

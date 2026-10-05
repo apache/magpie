@@ -38,10 +38,28 @@ acceptance:
   - Drift between the committed pin and the local install is detected and
     surfaced with an upgrade proposal, or with a full re-install proposal
     when the local install's method or URL differs from the pin.
-  - A gitignored `.apache-magpie-local/` supplies per-person overrides that
-    layer above the committed `.apache-magpie-overrides/`, cannot weaken the
-    safety baseline, and can be ignored for a single run via a one-shot
-    default switch.
+  - A personal config layer supplies per-person overrides that layer above
+    the committed `.apache-magpie-overrides/`, cannot weaken the safety
+    baseline, and can be ignored for a single run via a one-shot default
+    switch. In an adopted repository (one with a committed
+    `.apache-magpie.lock`) it is the gitignored `<repo>/.apache-magpie-local/`.
+    In a repository that has not adopted Magpie it is
+    `<git-common-dir>/apache-magpie/` — inside the git directory, never the
+    working tree, so a project that has not adopted Magpie stores nothing in
+    its tree, needs no ignore entry, and shares one layer across all its
+    worktrees; outside a git repository such a project has no personal
+    layer. The git common directory is read from `.git` (directory, or a
+    `gitdir:` file plus its `commondir`) without spawning git, and a read
+    never creates the layer. The rule lives in
+    `setup_preflight/layers.py`, duplicated (with identical test vectors and
+    an AST identity test) in each tool that resolves config.
+  - An unadopted repository that still has an in-tree
+    `.apache-magpie-local/` keeps working: it is read after the personal
+    layer. The pre-flight reports it as the project-scope finding
+    `legacy-local-dir` (rules section `step-12`), whose rules propose — with
+    explicit confirmation, never silently — moving its contents into the
+    git-directory home and removing the `/.apache-magpie-local/` line from
+    `.git/info/exclude`.
   - A marketplace install never writes the committed default-set block or
     scaffolds `.apache-magpie-overrides/`, and never offers to: those are
     adoption, reached only through `setup adopt`. The install recap names
@@ -89,8 +107,12 @@ acceptance:
   - The reconciliation stamp this fingerprint is checked against applies to
     every adopted or configured project, any install method: an adopted
     project's stamp lives in the committed lock's `reconciled:` block, a
-    configured-but-unadopted project's identical stamp lives in
-    `.apache-magpie-local/reconciled.json`, and a project that has neither
+    configured project's identical stamp lives in `reconciled.json` in the
+    personal layer (`.apache-magpie-local/` when adopted,
+    `<git-common-dir>/apache-magpie/` otherwise, read from a legacy in-tree
+    `.apache-magpie-local/` as a fallback), alongside the pre-flight's
+    project-verdict cache, which is written only into a personal layer that
+    already exists; a project that has neither
     configured nor adopted anything carries no stamp at all.
   - A skill whose own hash differs from its stamped entry says whether a
     `requires_config` entry stopped resolving or a structural anchor moved,

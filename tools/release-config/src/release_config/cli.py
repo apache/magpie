@@ -30,7 +30,7 @@ from release_config.preflight import SKILLS, metadata, normalise_skill, prefligh
 
 def _parser() -> argparse.ArgumentParser:
     common = argparse.ArgumentParser(add_help=False)
-    common.add_argument("--project-root", default=".", help="adopter repo root holding .apache-magpie-local/ and .apache-magpie-overrides/ (default: cwd)")
+    common.add_argument("--project-root", default=".", help="repository root whose Magpie config layers are read (default: cwd)")
     common.add_argument("--config-dir", help="read every config file from this one directory instead of the layered lookup")
     common.add_argument(
         "--user-config", help="user.md to read (default: $APACHE_MAGPIE_USER_CONFIG, ~/.config/apache-magpie/user.md, <project-config>/user.md)"

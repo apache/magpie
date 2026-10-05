@@ -88,7 +88,11 @@ gateways together as the *socket gateways* row.
    which the sandbox denies by design). See [`README.md`](README.md).
 2. Point `CONTAINER_HOST` / `DOCKER_HOST` at its two sockets, and allow
    those two sockets (never the real daemon socket) in
-   `sandbox.network.allowUnixSockets`.
+   `sandbox.network.allowUnixSockets`. They are in
+   `<project>/.apache-magpie-local/run/` for a project that adopted Magpie
+   and `<git-common-dir>/apache-magpie/run/<worktree-id>/` for one that did not, one
+   directory per worktree (see
+   [`README.md`](README.md)).
 3. Optionally wire `tools/agent-isolation/container-gateway-hook.sh` as a
    Claude Code `SessionStart` / `SessionEnd` hook so the gateway starts and
    stops with the session; other harnesses start it by hand or from their

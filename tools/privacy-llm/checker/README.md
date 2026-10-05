@@ -52,8 +52,8 @@ From the framework's root (this repository when running standalone;
 the snapshot path inside an adopting tracker repo):
 
 ```bash
-# Default lookup — reads <cwd>/.apache-magpie/privacy-llm.md or
-# <cwd>/.apache-magpie-overrides/privacy-llm.md.
+# Default lookup — the personal layer, then the committed overrides
+# (see "Config file lookup" below).
 uv run --project tools/privacy-llm/checker privacy-llm-check
 
 # Skill-style invocation: tells the user the check fires because
@@ -88,11 +88,19 @@ In order of precedence:
 |---|---|
 | `--config <path>` | Explicit override; absolute or relative to `<cwd>`. |
 | `$PRIVACY_LLM_CONFIG` | Environment-variable override. |
-| `<cwd>/.apache-magpie/privacy-llm.md` | Standard adopter location (the framework's `<project-config>` substitutes here). |
-| `<cwd>/.apache-magpie-overrides/privacy-llm.md` | Alternative location used by adopters who keep overrides in a separate dir. |
+| `<cwd>/.apache-magpie-local/privacy-llm.md` | Personal layer of a project that **adopted** Magpie (has a committed `.apache-magpie.lock`). Gitignored. |
+| `<git-common-dir>/apache-magpie/privacy-llm.md` | Personal layer of a project that only **installed** Magpie families. Inside the git directory, so it is never committed and needs no ignore entry; shared by every worktree. |
+| `<cwd>/.apache-magpie-local/privacy-llm.md` (unadopted repo) | Legacy in-tree personal layer, still read until the pre-flight's `legacy-local-dir` finding moves it. |
+| `<cwd>/.apache-magpie-overrides/privacy-llm.md` | Committed, project-wide declaration, written by `/magpie-setup adopt`. |
+
+The personal layer wins, so one maintainer can declare a stricter or
+different stack for their own runs without changing the project's.
+The framework snapshot (`.apache-magpie/`) is not looked in: `upgrade`
+replaces it and the framework ships no `privacy-llm.md` there.
 
 If none of the candidates exist, the checker exits 2 with the list
-of paths it tried.
+of paths it tried, and the skill stops: a missing declaration never
+passes the gate.
 
 ## Test
 

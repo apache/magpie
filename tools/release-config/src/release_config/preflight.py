@@ -52,6 +52,7 @@ from release_config.config import (
     plus_one_hour,
     render_dist_url,
 )
+from release_config.layers import config_layers
 
 FINGERPRINT = re.compile(r"^[0-9A-F]{40}$")
 
@@ -103,7 +104,8 @@ def _now(args: argparse.Namespace) -> datetime:
 
 def _require_file(result: Result, cfg: Loaded, name: str) -> bool:
     if cfg.sources.get(name) is None:
-        result.block(f"{name} not found in <project-config> (looked in .apache-magpie-local/ then .apache-magpie-overrides/)")
+        looked = ", then ".join(cfg.resolver.display(layer) or str(layer) for layer in config_layers(cfg.resolver.project_root))
+        result.block(f"{name} not found in <project-config> (looked in {looked})")
         return False
     return True
 

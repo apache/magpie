@@ -73,7 +73,9 @@ UNTRUSTED_NOTE = (
 def _add_run_parser(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     run = sub.add_parser("run", help="run reviewers over a change and print merged findings as JSON")
     run.add_argument("--reviewers", help="comma-separated backends; default: the configured list")
-    run.add_argument("--project-root", default=".", help="where .apache-magpie-local/ and -overrides/ live")
+    run.add_argument(
+        "--project-root", default=".", help="repository root whose Magpie config layers are read"
+    )
     run.add_argument("--repo-dir", default=".", help="the git checkout that holds the change")
     run.add_argument("--target", default="branch", help="branch | pr:<N> | diff:<path>")
     run.add_argument("--base", default="origin/main", help="base ref for --target branch")

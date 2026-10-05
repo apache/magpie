@@ -40,6 +40,8 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
+from sandbox_lint.layers import GIT_HOME_NAME, LOCAL_DIR, RUN_DIR_NAME, run_dir_candidates, valid_worktree_id
+
 # ---------------------------------------------------------------------------
 # Defaults
 # ---------------------------------------------------------------------------
@@ -194,10 +196,15 @@ def deep_diff(actual: Any, expected: Any, path: str = "$") -> list[str]:
 def check_invariants(settings: dict[str, Any], project_root: Path | None = None) -> list[str]:
     """Return list of invariant violations; empty list means OK.
 
-    ``project_root``, when given, anchors the ``.apache-magpie-local/run``
+    ``project_root``, when given, anchors the gateway-run-directory
     exemption for daemon-socket entries in ``allowUnixSockets``: an entry is
     exempt only when it resolves to exactly
-    ``<project_root>/.apache-magpie-local/run/<name>``. Without a
+    ``<project_root>/.apache-magpie-local/run/<name>`` (adopted project) or
+    ``<git-common-dir>/apache-magpie/run/<worktree-id>/<name>`` (not adopted;
+    ``<worktree-id>`` is ``main`` or the linked worktree's gitdir name; the common
+    directory is ``.git`` in a main checkout and the main checkout's
+    ``.git`` in a linked worktree) -- the two places the container gateway
+    serves from by default (``layers.run_dir_candidates``). Without a
     ``project_root`` (the default), the exemption falls back to an
     unanchored suffix match on the parent directory string, and a decoy
     path such as ``/tmp/evil/.apache-magpie-local/run/podman.sock`` is
@@ -295,7 +302,8 @@ def check_invariants(settings: dict[str, Any], project_root: Path | None = None)
     # control of the container runtime -- equivalent to host root on most
     # setups. The container gateway (tools/container-gateway) is the only
     # sanctioned path: it enforces its own policy in front of the real
-    # socket, and its sockets live under .apache-magpie-local/run/, never
+    # socket, and its sockets live under .apache-magpie-local/run/ (adopted
+    # project) or <git-common-dir>/apache-magpie/run/<worktree-id>/ (not adopted), never
     # the daemon's own well-known path.
     for entry in settings.get("sandbox", {}).get("network", {}).get("allowUnixSockets", []):
         stripped = entry.rstrip("/")
@@ -311,14 +319,21 @@ def check_invariants(settings: dict[str, Any], project_root: Path | None = None)
             parent_path = Path(parent) if parent else Path()
             if not parent_path.is_absolute():
                 parent_path = project_root / parent_path
-            expected_parent = project_root / ".apache-magpie-local" / "run"
-            is_exempt = os.path.normpath(str(parent_path)) == os.path.normpath(str(expected_parent))
+            expected_parents = run_dir_candidates(project_root)
+            is_exempt = any(
+                os.path.normpath(str(parent_path)) == os.path.normpath(str(expected))
+                for expected in expected_parents
+            )
         else:
-            is_exempt = parent.endswith(".apache-magpie-local/run")
+            head, _, wid = parent.rpartition("/")
+            is_exempt = parent.endswith(f"{LOCAL_DIR}/{RUN_DIR_NAME}") or (
+                head.endswith(f"/{GIT_HOME_NAME}/{RUN_DIR_NAME}") and valid_worktree_id(wid)
+            )
         if not is_exempt:
             errors.append(
                 f"sandbox.network.allowUnixSockets: {entry} names a container daemon socket; "
-                "route through the container gateway (<project>/.apache-magpie-local/run/*.sock) instead"
+                "route through the container gateway (<project>/.apache-magpie-local/run/*.sock, "
+                "or <git-common-dir>/apache-magpie/run/<worktree-id>/*.sock when the project has not adopted Magpie) instead"
             )
 
     return errors

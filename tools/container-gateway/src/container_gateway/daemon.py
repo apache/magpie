@@ -19,7 +19,9 @@
 
 The daemon runs OUTSIDE the sandbox, with the operator's own privileges,
 while the run directory it serves out of (``.apache-magpie-local/run/``
-by default) lives inside the project tree the sandboxed agent can write,
+in an adopted project, ``<git-common-dir>/apache-magpie/run/<worktree-id>/``
+otherwise
+-- see ``layers.default_run_dir``) lives where the sandboxed agent can write,
 delete and symlink freely. Every guard in this module exists to stop a
 planted symlink, a pre-existing non-directory, or a stale/foreign pid
 file from turning "start the gateway" into "the daemon opens, writes or
@@ -48,6 +50,7 @@ from typing import Any, NoReturn
 
 from . import backends as _backends
 from .labels import project_slug
+from .layers import git_common_dir, personal_dir
 from .policy import PolicyContext
 from .relay import Handler, Relay, serve_unix, unix_connector
 
@@ -90,7 +93,11 @@ def paths(run_dir: Path) -> dict[str, Path]:
 
 def check_socket_path(p: Path) -> None:
     if len(str(p).encode()) > MAX_SUN_PATH:
-        print(f"container-gateway: socket path too long ({p}); pass a shorter --run-dir", file=sys.stderr)
+        print(
+            f"container-gateway: socket path too long ({len(str(p).encode())} bytes > {MAX_SUN_PATH}: {p}); "
+            "pass a shorter --run-dir",
+            file=sys.stderr,
+        )
         raise SystemExit(2)
 
 
@@ -190,6 +197,53 @@ def _project_relative_parts(run_dir: Path, resolved_root: Path, project_root: Pa
     return None
 
 
+def _verified_common_dir(resolved_root: Path, common: Path) -> Path:
+    """The resolved git common directory, once it is shown to be this repository's.
+
+    The common directory of a linked worktree is read from the worktree's
+    ``.git`` file, which the sandboxed agent can rewrite. Left unchecked,
+    that would let it choose where the gateway creates its run directory
+    and binds its sockets. So the anchor is accepted only the way git
+    itself links a worktree to its repository: the common directory is
+    owned by this user, not group- or world-writable, and holds ``HEAD``
+    and ``objects/``; the worktree's private git directory is
+    ``<common>/worktrees/<name>``; and that directory's ``gitdir`` file
+    points back at this worktree's ``.git``. Anything else refuses.
+    """
+    resolved_common = common.resolve()
+    st = _lstat_or_none(resolved_common)
+    if st is None or not stat.S_ISDIR(st.st_mode):
+        _refuse(f"the repository's git directory ({common}) is not a directory; refusing")
+    if st.st_uid != os.getuid() or st.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
+        _refuse(
+            f"the repository's git directory ({resolved_common}) is not owned by you "
+            "or is group/world-writable; refusing (pass --run-dir)"
+        )
+    if not (resolved_common / "HEAD").is_file() or not (resolved_common / "objects").is_dir():
+        _refuse(f"{resolved_common} is not a git directory (no HEAD/objects); refusing (pass --run-dir)")
+    dotgit = resolved_root / ".git"
+    if dotgit.is_file():
+        try:
+            first = dotgit.read_text(encoding="utf-8").splitlines()[0].strip()
+        except (OSError, UnicodeDecodeError, IndexError):
+            _refuse(f"cannot read {dotgit}; refusing (pass --run-dir)")
+        gitdir = (dotgit.parent / first.removeprefix("gitdir:").strip()).resolve()
+        if gitdir != resolved_common:  # a submodule's gitdir is its own common dir
+            if gitdir.parent != resolved_common / "worktrees":
+                _refuse(
+                    f"worktree git directory {gitdir} is not under {resolved_common}/worktrees; "
+                    "refusing (pass --run-dir)"
+                )
+            try:
+                back = (gitdir / "gitdir").read_text(encoding="utf-8").strip()
+            except (OSError, UnicodeDecodeError):
+                _refuse(f"{gitdir}/gitdir is missing or unreadable; refusing (pass --run-dir)")
+            back_path = Path(back) if Path(back).is_absolute() else gitdir / back
+            if back_path.resolve() != dotgit.resolve():
+                _refuse(f"{gitdir}/gitdir does not point back at {dotgit}; refusing (pass --run-dir)")
+    return resolved_common
+
+
 def _owned_components(
     run_dir: Path, resolved_root: Path, project_root: Path
 ) -> list[tuple[Path, str]] | None:
@@ -205,8 +259,13 @@ def _owned_components(
 
     Inside the project tree the components are every step from the
     resolved project root down to the run directory --
-    ``.apache-magpie-local`` then ``run`` in the default layout. For a
-    custom ``--run-dir`` outside the project tree the anchor is that
+    ``.apache-magpie-local`` then ``run`` in an adopted project's default
+    layout, ``.git`` then ``apache-magpie``, ``run`` and ``main`` in an
+    unadopted main checkout. An unadopted linked worktree's run directory
+    sits under the repository's git common directory (the main checkout's
+    ``.git``), which is then the anchor and ``apache-magpie``, ``run`` and
+    ``<worktree-id>`` the owned components. For a custom
+    ``--run-dir`` outside both, the anchor is that
     directory's own parent, which this module never creates and which is
     resolved rather than refused; the run directory itself is then the
     only owned component. Either way the pid file and the sockets inside
@@ -226,6 +285,24 @@ def _owned_components(
             components.append((current, f"the project's {part} directory"))
         components.append((current / parts[-1], "the run directory"))
         return components
+    # A linked worktree of a repository that has not adopted Magpie serves
+    # from `<git-common-dir>/apache-magpie/run/<id>`, and its common directory is
+    # the main checkout's `.git`, outside this worktree. That directory is
+    # the second trust anchor: it exists whenever the repository does, and
+    # the components below it -- `apache-magpie`, `run`, `<worktree-id>` -- are created
+    # and checked one at a time exactly like the in-tree ones above.
+    common = git_common_dir(resolved_root)
+    if common is not None:
+        parts = _project_relative_parts(run_dir, common.resolve(), common)
+        if parts is not None:
+            resolved_common = _verified_common_dir(resolved_root, common)
+            components = []
+            current = resolved_common
+            for part in parts[:-1]:
+                current = current / part
+                components.append((current, f"the repository's git-directory {part} directory"))
+            components.append((current / parts[-1], "the run directory"))
+            return components
     parent = run_dir.parent
     if _lstat_or_none(parent) is None:
         return None
@@ -462,8 +539,20 @@ def build_context(cfg: Config, backend: _backends.Backend, proxy_env: dict[str, 
     """
     roots = [cfg.project_root.resolve()]
     roots.extend(root.resolve() for root in cfg.extra_bind_roots)
+    # The personal config layer and the run directory are never a bind
+    # source on their own: the run directory holds this gateway's sockets,
+    # and an unadopted repository's personal layer sits inside `.git/`,
+    # which a bind of the project root reaches but a container has no
+    # business being handed directly.
+    home = personal_dir(cfg.project_root.resolve())
+    excluded = tuple(p.resolve() for p in (cfg.run_dir, home) if p is not None)
     return PolicyContext(
-        project_slug(cfg.project_root), cfg.project_root.resolve(), tuple(roots), proxy_env, cfg.egress_mode
+        project_slug(cfg.project_root),
+        cfg.project_root.resolve(),
+        tuple(roots),
+        proxy_env,
+        cfg.egress_mode,
+        excluded_bind_roots=excluded,
     )
 
 

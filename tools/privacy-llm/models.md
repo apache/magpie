@@ -157,7 +157,12 @@ silently grow into.
 ## Adopter config — `<project-config>/privacy-llm.md`
 
 Adopters declare their privacy-LLM posture in a single markdown
-file at `<project-config>/privacy-llm.md`. The framework's
+file at `<project-config>/privacy-llm.md`.
+Like every `<project-config>` file it resolves personal layer first:
+`.apache-magpie-local/` in a project that adopted Magpie,
+`<git-common-dir>/apache-magpie/` in one that only installed families,
+then the committed `.apache-magpie-overrides/`.
+The [checker README](checker/README.md#config-file-lookup) has the full lookup order. The framework's
 [`projects/_template/privacy-llm.md`](../../plugins/magpie-setup/templates/privacy-llm.md)
 ships a starting point pre-filled with the Claude-Code default;
 adopters customise from there.

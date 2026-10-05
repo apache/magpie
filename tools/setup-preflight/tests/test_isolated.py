@@ -28,7 +28,7 @@ import pytest
 from setup_preflight import isolated
 from setup_preflight.core import isolated_setup_findings
 
-from .conftest import write_stamp
+from .conftest import personal, write_stamp
 
 TODAY = date(2026, 9, 26)
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -117,9 +117,7 @@ def test_the_interval_is_configurable_personal_config_first(project: Path) -> No
         "setup:\n  isolated_setup_update_interval_days: 30\n"
     )
     assert isolated_setup_findings(project, today=TODAY) == []
-    (project / ".apache-magpie-local" / "project.md").write_text(
-        "setup:\n  isolated_setup_update_interval_days: 3\n"
-    )
+    (personal(project) / "project.md").write_text("setup:\n  isolated_setup_update_interval_days: 3\n")
     assert codes(isolated_setup_findings(project, today=TODAY)) == ["isolated-setup-update-due"]
 
 
@@ -149,10 +147,49 @@ def test_recording_an_update_clears_both_reasons(project: Path) -> None:
 def test_recording_keeps_the_rest_of_the_stamp(project: Path) -> None:
     write_stamp(project, {"verified_at": "2026-09-01", "acknowledged": {"sweep": "0.2.0"}})
     isolated.record(project, "reminder", today=TODAY)
-    stamp = json.loads((project / ".apache-magpie-local" / "reconciled.json").read_text())
+    stamp = json.loads((personal(project) / "reconciled.json").read_text())
     assert stamp["verified_at"] == "2026-09-01"
     assert stamp["acknowledged"] == {"sweep": "0.2.0"}
     assert stamp["isolated_setup"]["reminded_at"] == "2026-09-26"
+
+
+def test_recording_in_an_unadopted_repo_writes_the_git_dir_home(project: Path) -> None:
+    """Never the working tree: the stamp lands inside `.git/`."""
+    isolated.record(project, "reminder", today=TODAY)
+    assert (project / ".git" / "apache-magpie" / "reconciled.json").is_file()
+    assert not (project / ".apache-magpie-local").exists()
+
+
+def test_recording_in_an_adopted_repo_writes_the_in_tree_local_dir(project: Path) -> None:
+    (project / ".apache-magpie.lock").write_text("method: local\nsource: skills/\n")
+    isolated.record(project, "reminder", today=TODAY)
+    assert (project / ".apache-magpie-local" / "reconciled.json").is_file()
+    assert not (project / ".git" / "apache-magpie").exists()
+
+
+def test_recording_carries_a_legacy_stamp_over_to_the_git_dir_home(project: Path) -> None:
+    legacy = project / ".apache-magpie-local"
+    legacy.mkdir()
+    (legacy / "reconciled.json").write_text(json.dumps({"verified_at": "2026-09-01"}))
+    isolated.record(project, "reminder", today=TODAY)
+    stamp = json.loads((project / ".git" / "apache-magpie" / "reconciled.json").read_text())
+    assert stamp["verified_at"] == "2026-09-01"
+    # Read and carried over, never deleted: moving it is the user's call.
+    assert (legacy / "reconciled.json").is_file()
+
+
+def test_recording_outside_a_git_repo_without_adoption_refuses(tmp_path: Path) -> None:
+    with pytest.raises(isolated.NoPersonalLayer):
+        isolated.record(tmp_path, "reminder", today=TODAY)
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_the_interval_is_read_from_a_legacy_local_dir(project: Path) -> None:
+    legacy = project / ".apache-magpie-local"
+    legacy.mkdir()
+    (legacy / "project.md").write_text("setup:\n  isolated_setup_update_interval_days: 3\n")
+    assert isolated.interval_days(project) == 3
+    assert not (project / ".git" / "apache-magpie").exists()
 
 
 def test_a_snapshot_install_reads_the_fingerprint_from_the_snapshot(project: Path) -> None:

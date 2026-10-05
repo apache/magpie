@@ -17,8 +17,8 @@
 
 """`python3 -m setup_preflight` — the form the shared pre-flight block uses.
 
-The block runs the copy in the adopter's gitignored
-`.apache-magpie-local/`, which is on `PYTHONPATH` rather than installed,
+The block runs the copy in the user's personal config layer (see
+`layers.py`), which is on `PYTHONPATH` rather than installed,
 so `-m` is what resolves the package's own relative imports.
 """
 

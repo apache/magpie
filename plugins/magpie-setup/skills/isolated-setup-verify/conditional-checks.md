@@ -262,14 +262,17 @@ reading this file; read the section for a check whose condition holds.
       (`.claude/settings.json`, `.claude/settings.local.json`,
       `~/.claude/settings.json`) for an entry whose basename is
       `docker.sock`, `podman.sock`, or ends in `-api.sock`, unless
-      its parent directory is `.apache-magpie-local/run`. Any hit
+      its parent directory is the gateway's run directory —
+      `<project>/.apache-magpie-local/run` or
+      `<git-common-dir>/apache-magpie/run/<worktree-id>`. Any hit
       is ✗, quoting the offending entry, with this exact note —
       it is the same invariant `tools/sandbox-lint` enforces:
 
       > `sandbox.network.allowUnixSockets: <entry> names a
       > container daemon socket; route through the container
-      > gateway (<project>/.apache-magpie-local/run/*.sock)
-      > instead`
+      > gateway (<project>/.apache-magpie-local/run/*.sock,
+      > or <git-common-dir>/apache-magpie/run/<worktree-id>/*.sock when the
+      > project has not adopted Magpie) instead`
 
     Install detail:
     [`docs/setup/secure-agent-setup.md` → Container gateway](../../../../docs/setup/secure-agent-setup.md#container-gateway).

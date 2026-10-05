@@ -16,8 +16,10 @@
 # specific language governing permissions and limitations
 # under the License.
 """
-`adversarial-review.md`: the personal layer (`.apache-magpie-local/`) wins over
-the project layer (`.apache-magpie-overrides/`), whole file, not key by key.
+`adversarial-review.md`: the personal layer wins over the project layer
+(`.apache-magpie-overrides/`), whole file, not key by key. The personal layer
+is `.apache-magpie-local/` in a repository that adopted Magpie and
+`<git-common-dir>/apache-magpie/` in one that did not (see `layers.py`).
 
 The file is Markdown carrying one fenced ```yaml block. The runtime is
 stdlib-only, so this parses exactly the subset the documented shape uses — a
@@ -33,10 +35,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .backends import BACKENDS
+from .layers import config_layers
 
 MODES = ("on-pr-create", "on-demand", "off")
 FILE_NAME = "adversarial-review.md"
-LAYERS = (".apache-magpie-local", ".apache-magpie-overrides")
 ROOT_KEYS = ("mode", "reviewers", "timeout_minutes", "models")
 
 _FENCE = re.compile(r"^```ya?ml[ \t]*\n(.*?)^```[ \t]*$", re.M | re.S)
@@ -127,8 +129,8 @@ def parse(text: str, source: Path) -> ReviewConfig:
 
 
 def resolve(project_root: Path) -> ReviewConfig:
-    for layer in LAYERS:
-        path = project_root / layer / FILE_NAME
+    for layer in config_layers(project_root):
+        path = layer / FILE_NAME
         if path.is_file():
             return parse(path.read_text(encoding="utf-8"), path)
     return ReviewConfig()

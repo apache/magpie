@@ -680,13 +680,17 @@ Check the machine's real state from **outside** the sandbox (a `!`-prefixed shel
 The container daemon socket is root-equivalent over whatever the daemon mounts: a default Podman machine mounts `/Users`, `/private`, and `/var/folders` read-write, and Docker Desktop's daemon is no narrower.
 Neither excluding `docker` / `podman` from the sandbox with `sandbox.excludedCommands`, which some upstream guidance suggests, nor listing the daemon socket itself in `sandbox.network.allowUnixSockets` is acceptable for that reason: both hand the agent unrestricted host access through the daemon.
 The framework's `sandbox-lint` tool enforces the second half of that.
-It rejects any `allowUnixSockets` entry whose basename is `docker.sock`, `podman.sock`, or ends in `-api.sock`, unless the entry's parent directory is `.apache-magpie-local/run`.
+It rejects any `allowUnixSockets` entry whose basename is `docker.sock`, `podman.sock`, or ends in `-api.sock`, unless the entry's parent directory is the gateway's run directory: `<project>/.apache-magpie-local/run` or `<git-common-dir>/apache-magpie/run/<worktree-id>`.
 
 On macOS, the podman CLI's default connection to a Podman machine goes over `ssh://`, using an identity file under `~/.local/share/containers/podman/machine/`, a path the framework's blanket `~/` read denial already covers.
 The machine's actual API socket lives elsewhere, under `$TMPDIR/podman/<machine>-api.sock` (`podman machine inspect --format '{{.ConnectionInfo.PodmanSocket.Path}}'` prints the exact path), not under `~/.local/share` as the ssh identity path might suggest.
 
 The supported route is the [container gateway](../../tools/container-gateway/README.md).
-It runs outside the sandbox, holds the only connection to the real daemon socket, and exposes two policy-checked sockets of its own under `<project>/.apache-magpie-local/run/`.
+It runs outside the sandbox, holds the only connection to the real daemon socket, and exposes two policy-checked sockets of its own in its run directory:
+`<project>/.apache-magpie-local/run/` for a project that has adopted Magpie,
+and `<git-common-dir>/apache-magpie/run/<worktree-id>/` for one that has not (`git rev-parse --git-common-dir` prints the common directory; it is the main checkout's `.git`, also from a linked worktree).
+Below, `<run-dir>` is whichever of the two applies.
+`<worktree-id>` is `main` for the main working tree and the `<name>` of `.git/worktrees/<name>` for a linked worktree (it must match `[A-Za-z0-9._-]+`), so each worktree has its own gateway and sockets.
 `CONTAINER_HOST` and `DOCKER_HOST` point at `podman.sock` and `docker.sock` in that directory, only those two sockets are ever added to `allowUnixSockets`, and a `SessionStart` hook starts the gateway when a session begins.
 See [Container gateway](secure-agent-setup.md#container-gateway) in the setup guide for the full install.
 
@@ -696,16 +700,16 @@ See [Container gateway](secure-agent-setup.md#container-gateway) in the setup gu
 |---|---|---|
 | `failed to read identity "…/machine/machine": operation not permitted` | `CONTAINER_HOST` / `DOCKER_HOST` are unset, so the CLI fell back to its default connection instead of the gateway | Add the reference `env` block below to `.claude/settings.local.json` |
 | `dial unix /.//.apache-magpie-local/run/podman.sock` — note the leading `/.//` | `CONTAINER_HOST` / `DOCKER_HOST` use a project-relative `unix://./…` value, which the CLIs do **not** resolve against the cwd | Use the absolute `unix:///<project>/…` spelling in the `env` block below |
-| `dial unix /<project>/.apache-magpie-local/run/podman.sock: connect: no such file or directory` | The gateway is not running for this project | Run `~/.claude/scripts/container-gateway-hook.sh start` from a terminal, or check `<project>/.apache-magpie-local/run/container-gateway.log` for why it did not start |
-| `dial unix /<project>/.apache-magpie-local/run/podman.sock: connect: operation not permitted` | The gateway is running but its socket is missing from `sandbox.network.allowUnixSockets` | Add both gateway sockets as absolute paths, per [Container gateway](secure-agent-setup.md#container-gateway) |
+| `dial unix /<run-dir>/podman.sock: connect: no such file or directory` | The gateway is not running for this project | Run `~/.claude/scripts/container-gateway-hook.sh start` from a terminal, or check `<run-dir>/container-gateway.log` for why it did not start |
+| `dial unix /<run-dir>/podman.sock: connect: operation not permitted` | The gateway is running but its socket is missing from `sandbox.network.allowUnixSockets` | Add both gateway sockets as absolute paths, per [Container gateway](secure-agent-setup.md#container-gateway) |
 | `no podman or docker backend found; nothing to serve` in the gateway log, while `podman` works by hand | On macOS the gateway asked `podman machine inspect` for the socket path, and that command renders it from the **caller's** `TMPDIR` | Update the framework: discovery now also probes `getconf DARWIN_USER_TEMP_DIR`/`podman/`, so a hook whose `TMPDIR` differs from the machine's still finds the socket |
 
 ```jsonc
 // .claude/settings.local.json (gitignored, per machine — NOT committed)
 {
   "env": {
-    "CONTAINER_HOST": "unix:///<project>/.apache-magpie-local/run/podman.sock",
-    "DOCKER_HOST": "unix:///<project>/.apache-magpie-local/run/docker.sock"
+    "CONTAINER_HOST": "unix:///<run-dir>/podman.sock",
+    "DOCKER_HOST": "unix:///<run-dir>/docker.sock"
   }
 }
 ```

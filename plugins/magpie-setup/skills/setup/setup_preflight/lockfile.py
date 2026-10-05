@@ -26,8 +26,8 @@ lines under its own keys (`source_method`, `source_url`, `source_ref`,
 `fetched_commit`, `fetched_at`) and is read by `parse_local`.
 
 A real YAML parser is the obvious alternative and is rejected for one
-reason: this module is copied into an adopter's gitignored
-`.apache-magpie-local/` and run with bare `python3`, where no third-party
+reason: this module is copied into the user's personal config layer
+(see `layers.py`) and run with bare `python3`, where no third-party
 package is available.  Vendoring a YAML implementation to read four keys
 would be the larger sin.
 

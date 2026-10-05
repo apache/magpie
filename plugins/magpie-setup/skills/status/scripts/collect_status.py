@@ -19,10 +19,10 @@
 
 Read-only. Enumerates the on-disk adoption artefacts —
 the two lock files, the framework-skill symlinks across every
-agent target, the snapshot, the overrides directories (both the
-committed .apache-magpie-overrides/ and the personal
-.apache-magpie-local/), the post-checkout hook, and the
-.gitignore coverage — and emits a single JSON document the
+agent target, the snapshot, the config layers (the committed
+.apache-magpie-overrides/ and the personal layer — .apache-magpie-local/
+in an adopted repo, <git-common-dir>/apache-magpie/ otherwise), the
+post-checkout hook, and the .gitignore coverage — and emits a single JSON document the
 ``setup-status`` skill renders into a dashboard.
 
 The script never fetches over the network and never writes: the
@@ -328,6 +328,87 @@ def compute_drift(committed: dict | None, local: dict | None) -> dict:
     }
 
 
+# --- where Magpie config lives ------------------------------------------------
+# A copy of `setup/setup_preflight/layers.py`, inlined because this file runs
+# as a plain script.  Keep `git_common_dir` identical to that copy;
+# `tools/setup-preflight/tests/test_layers.py` checks every copy.
+
+LOCK_NAME = ".apache-magpie.lock"
+LOCAL_DIR = ".apache-magpie-local"
+OVERRIDES_DIR = ".apache-magpie-overrides"
+GIT_HOME_NAME = "apache-magpie"
+
+
+def _absolute(path: Path) -> Path:
+    return Path(os.path.normpath(os.path.abspath(path)))
+
+
+def git_common_dir(root: Path) -> Path | None:
+    """The repository's common git directory, or `None` when `root` is not a repo.
+
+    `<root>/.git` a directory → that directory.  A file reading
+    `gitdir: <path>` (a linked worktree, or a submodule) → that worktree git
+    directory, and then the directory its `commondir` file names (relative
+    to the worktree git directory), when it has one.  Relative paths resolve
+    against the file that holds them.
+    """
+    dotgit = _absolute(root) / ".git"
+    if dotgit.is_dir():
+        return dotgit
+    if not dotgit.is_file():
+        return None
+    try:
+        first = dotgit.read_text(encoding="utf-8").splitlines()[0].strip()
+    except (OSError, UnicodeDecodeError, IndexError):
+        return None
+    if not first.startswith("gitdir:"):
+        return None
+    target = first.removeprefix("gitdir:").strip()
+    if not target:
+        return None
+    gitdir = _absolute(dotgit.parent / target)
+    if not gitdir.is_dir():
+        return None
+    commondir = gitdir / "commondir"
+    if not commondir.is_file():
+        return gitdir
+    try:
+        common = commondir.read_text(encoding="utf-8").strip()
+    except (OSError, UnicodeDecodeError):
+        return None
+    if not common:
+        return gitdir
+    resolved = _absolute(gitdir / common)
+    return resolved if resolved.is_dir() else None
+
+
+def adopted(root: Path) -> bool:
+    """Whether the project has adopted Magpie: a committed lock exists."""
+    return (root / LOCK_NAME).is_file()
+
+
+def personal_dir(root: Path) -> Path | None:
+    """Where this user's configuration for `root` lives (may not exist yet)."""
+    if adopted(root):
+        return root / LOCAL_DIR
+    common = git_common_dir(root)
+    return common / GIT_HOME_NAME if common is not None else None
+
+
+def personal_layers(root: Path) -> list[Path]:
+    """The personal layer, then a legacy in-tree one in an unadopted repository."""
+    layers = [] if (home := personal_dir(root)) is None else [home]
+    legacy = root / LOCAL_DIR
+    if not adopted(root) and legacy.is_dir() and legacy not in layers:
+        layers.append(legacy)
+    return layers
+
+
+def config_layers(root: Path) -> list[Path]:
+    """Every directory a config file is looked up in, first match wins."""
+    return [*personal_layers(root), root / OVERRIDES_DIR]
+
+
 def gitignore_coverage(root: Path, targets: list[dict]) -> dict:
     gi = root / ".gitignore"
     text = gi.read_text(encoding="utf-8") if gi.is_file() else ""
@@ -336,7 +417,9 @@ def gitignore_coverage(root: Path, targets: list[dict]) -> dict:
         "present": gi.is_file(),
         "snapshot_ignored": "/.apache-magpie/" in lines,
         "local_lock_ignored": "/.apache-magpie.local.lock" in lines,
-        "local_overrides_ignored": "/.apache-magpie-local/" in lines,
+        # Only an adopted repo keeps its personal layer in the working tree;
+        # elsewhere it lives inside the git directory and needs no entry.
+        "local_overrides_ignored": ("/.apache-magpie-local/" in lines) if adopted(root) else None,
         "settings_local_ignored": "/.claude/settings.local.json" in lines,
         "targets": {},
     }
@@ -358,10 +441,9 @@ def gitignore_coverage(root: Path, targets: list[dict]) -> dict:
     return cov
 
 
-def override_dir_status(root: Path, dirname: str) -> dict:
-    """Describe one override directory (committed or personal-local)."""
-    d = root / dirname
-    if not d.is_dir():
+def override_dir_status(d: Path | None) -> dict:
+    """Describe one override directory (committed or personal)."""
+    if d is None or not d.is_dir():
         return {"present": False, "has_readme": False, "skill_count": 0}
     skill_files = [p for p in d.iterdir() if p.is_file() and p.suffix == ".md" and p.name != "README.md"]
     return {
@@ -371,8 +453,35 @@ def override_dir_status(root: Path, dirname: str) -> dict:
     }
 
 
+def personal_layer_status(root: Path) -> dict:
+    """Where this user's personal layer is, what it holds, and any legacy copy."""
+    home = personal_dir(root)
+    if home is None:
+        location = "none"
+    elif adopted(root):
+        location = "in-tree"
+    else:
+        location = "git-dir"
+    status = override_dir_status(home)
+    status["path"] = str(home) if home is not None else None
+    status["location"] = location
+    legacy = root / LOCAL_DIR
+    status["legacy_in_tree"] = (not adopted(root)) and legacy.is_dir()
+    return status
+
+
+def display_path(root: Path, path: str | None) -> str:
+    if path is None:
+        return "none (not a git repository)"
+    try:
+        return Path(path).relative_to(root).as_posix() + "/"
+    except ValueError:
+        return path + "/"
+
+
 def hook_status(root: Path) -> dict:
-    hook = root / ".git" / "hooks" / "post-checkout"
+    common = git_common_dir(root)
+    hook = (common if common is not None else root / ".git") / "hooks" / "post-checkout"
     if not hook.is_file():
         return {"present": False}
     content = hook.read_text(encoding="utf-8", errors="replace")
@@ -533,8 +642,13 @@ def render_markdown(d: dict) -> str:
     local_ov_text = f"present ({local_ov['skill_count']} skill(s))" if local_ov["present"] else "—"
     out.append(
         f"- **shared overrides** (`.apache-magpie-overrides/`): {ov_text} · "
-        f"**personal overrides** (`.apache-magpie-local/`): {local_ov_text}"
+        f"**personal overrides** (`{display_path(Path(d['repo']), local_ov.get('path'))}`): {local_ov_text}"
     )
+    if local_ov.get("legacy_in_tree"):
+        out.append(
+            "- ⚠️ **legacy `.apache-magpie-local/` in the working tree** — this repo has not adopted "
+            "Magpie, so personal config belongs in the git directory; the pre-flight proposes the move"
+        )
     out.append(f"- **hook:** {'installed' if d['post_checkout_hook']['present'] else '—'}")
     out.append("- → deep check (integrity, permissions, worktrees): `setup verify`")
     return "\n".join(out) + "\n"
@@ -582,8 +696,8 @@ def main(argv: list[str] | None = None) -> int:
         "agent_targets": targets,
         "active_target_ids": [t["id"] for t in targets if t["present"]],
         "families": families_installed(canonical["entries"]),
-        "overrides": override_dir_status(root, ".apache-magpie-overrides"),
-        "local_overrides": override_dir_status(root, ".apache-magpie-local"),
+        "overrides": override_dir_status(root / OVERRIDES_DIR),
+        "local_overrides": personal_layer_status(root),
         "post_checkout_hook": hook_status(root),
         "gitignore": gitignore_coverage(root, targets),
     }

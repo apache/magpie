@@ -23,8 +23,10 @@ list`, `§ Build invocation`), one fenced YAML list
 content is always blockquoted (`> …`) or follows a `Template guidance` /
 `Example shape:` lead-in in the templates, so it is skipped.
 
-`<project-config>` resolves **per file, local first**:
-`.apache-magpie-local/<file>`, then `.apache-magpie-overrides/<file>`.
+`<project-config>` resolves **per file, personal first**: each layer of
+`layers.config_layers` in turn — the personal layer (`.apache-magpie-local/`
+in an adopted repository, `<git-common-dir>/apache-magpie/` otherwise, then
+a legacy in-tree `.apache-magpie-local/`), then `.apache-magpie-overrides/`.
 """
 
 from __future__ import annotations
@@ -35,7 +37,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-LAYERS = (".apache-magpie-local", ".apache-magpie-overrides")
+from release_config.layers import config_layers
+
 PROJECT_CONFIG_PREFIX = "<project-config>/"
 
 _KEY_CELL = re.compile(r"^`([a-z_][a-z0-9_.]*)`$")
@@ -71,8 +74,8 @@ class Resolver:
         if self.config_dir is not None:
             path = self.config_dir / name
             return path if path.is_file() else None
-        for layer in LAYERS:
-            path = self.project_root / layer / name
+        for layer in config_layers(self.project_root):
+            path = layer / name
             if path.is_file():
                 return path
         return None

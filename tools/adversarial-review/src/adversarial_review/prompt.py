@@ -36,6 +36,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ._util import first_line
+from .layers import config_layers
 
 MAX_DIFF_CHARS = 400_000
 
@@ -153,8 +154,10 @@ def tracker_warning(repo_dir: Path, env: Mapping[str, str] | None = None) -> str
         origin = _run("git", repo_dir, ["remote", "get-url", "origin"], env).strip()
     except InputError:
         return None
-    project = root / ".apache-magpie-overrides" / "project.md"
-    if not project.is_file():
+    project = next(
+        (layer / "project.md" for layer in config_layers(root) if (layer / "project.md").is_file()), None
+    )
+    if project is None:
         return None
     try:
         text = project.read_text(encoding="utf-8", errors="replace")
@@ -163,8 +166,12 @@ def tracker_warning(repo_dir: Path, env: Mapping[str, str] | None = None) -> str
     declared = _TABLE_TRACKER.search(text) or _YAML_TRACKER.search(text)
     slug = _REMOTE_SLUG.search(origin)
     if declared and slug and declared.group(1).lower() == slug.group(1).lower():
+        try:
+            shown = project.relative_to(root).as_posix()
+        except ValueError:
+            shown = str(project)
         return (
             f"the reviewed checkout is the tracker {declared.group(1)} named in its "
-            ".apache-magpie-overrides/project.md; reviewers can read every file in it"
+            f"{shown}; reviewers can read every file in it"
         )
     return None

@@ -24,7 +24,6 @@ import textwrap
 import pytest
 
 from checker.config import (
-    DEFAULT_CONFIG_DIRS,
     DEFAULT_CONFIG_FILENAME,
     host_of,
     locate_config_path,
@@ -53,24 +52,59 @@ def test_locate_env_used_when_no_explicit(tmp_path: pathlib.Path, monkeypatch):
     assert locate_config_path(None) == env_path
 
 
-def test_locate_default_first_existing(tmp_path: pathlib.Path, monkeypatch):
+def test_locate_default_personal_layer_first(tmp_path: pathlib.Path, monkeypatch):
+    """The file `setup-privacy-llm` writes for an unadopted repo is the one read."""
     monkeypatch.delenv("PRIVACY_LLM_CONFIG", raising=False)
     monkeypatch.chdir(tmp_path)
-    cfg_dir = tmp_path / DEFAULT_CONFIG_DIRS[0]
-    cfg_dir.mkdir()
-    cfg = cfg_dir / DEFAULT_CONFIG_FILENAME
-    cfg.write_text("# stub")
+    home = tmp_path / ".git" / "apache-magpie"
+    home.mkdir(parents=True)
+    (tmp_path / ".apache-magpie-overrides").mkdir()
+    (tmp_path / ".apache-magpie-overrides" / DEFAULT_CONFIG_FILENAME).write_text("# project")
+    cfg = home / DEFAULT_CONFIG_FILENAME
+    cfg.write_text("# personal")
+    assert locate_config_path(None) == cfg
+
+
+def test_locate_default_adopted_repo_reads_in_tree_local(tmp_path: pathlib.Path, monkeypatch):
+    monkeypatch.delenv("PRIVACY_LLM_CONFIG", raising=False)
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".apache-magpie.lock").write_text("method: local\n")
+    local = tmp_path / ".apache-magpie-local"
+    local.mkdir()
+    cfg = local / DEFAULT_CONFIG_FILENAME
+    cfg.write_text("# personal")
+    assert locate_config_path(None) == cfg
+
+
+def test_locate_default_reads_a_legacy_local_dir(tmp_path: pathlib.Path, monkeypatch):
+    monkeypatch.delenv("PRIVACY_LLM_CONFIG", raising=False)
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".git").mkdir()
+    local = tmp_path / ".apache-magpie-local"
+    local.mkdir()
+    cfg = local / DEFAULT_CONFIG_FILENAME
+    cfg.write_text("# personal")
     assert locate_config_path(None) == cfg
 
 
 def test_locate_default_falls_back_to_overrides(tmp_path: pathlib.Path, monkeypatch):
     monkeypatch.delenv("PRIVACY_LLM_CONFIG", raising=False)
     monkeypatch.chdir(tmp_path)
-    cfg_dir = tmp_path / DEFAULT_CONFIG_DIRS[1]
+    cfg_dir = tmp_path / ".apache-magpie-overrides"
     cfg_dir.mkdir()
     cfg = cfg_dir / DEFAULT_CONFIG_FILENAME
     cfg.write_text("# stub")
     assert locate_config_path(None) == cfg
+
+
+def test_locate_default_never_reads_the_framework_snapshot(tmp_path: pathlib.Path, monkeypatch):
+    """`.apache-magpie/` is the replaceable framework snapshot, not config."""
+    monkeypatch.delenv("PRIVACY_LLM_CONFIG", raising=False)
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".apache-magpie").mkdir()
+    (tmp_path / ".apache-magpie" / DEFAULT_CONFIG_FILENAME).write_text("# stub")
+    with pytest.raises(FileNotFoundError):
+        locate_config_path(None)
 
 
 def test_locate_raises_when_nothing_found(tmp_path: pathlib.Path, monkeypatch):

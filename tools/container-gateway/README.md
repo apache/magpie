@@ -47,7 +47,16 @@ It connects to the real daemon socket, which the sandbox denies by design.
 uv run --project tools/container-gateway container-gateway --project .
 ```
 
-It listens on two unix sockets under `<project>/.apache-magpie-local/run/`: `podman.sock` (libpod + compat API, for the podman CLI) and `docker.sock` (compat API, for the docker CLI).
+It listens on two unix sockets in its run directory: `podman.sock` (libpod + compat API, for the podman CLI) and `docker.sock` (compat API, for the docker CLI).
+The run directory is the `run/` subdirectory of the personal config layer:
+`<project>/.apache-magpie-local/run/` when the project has adopted Magpie (it has a committed `.apache-magpie.lock`),
+and `<git-common-dir>/apache-magpie/run/<worktree-id>/` when it has not — inside the repository's git directory, never the working tree.
+The git common directory is `<project>/.git` in a main checkout and the main checkout's `.git` in a linked worktree.
+`<worktree-id>` is `main` for the main working tree and, for a linked worktree, the name of its private git directory (the `<name>` in `.git/worktrees/<name>`), which must match `[A-Za-z0-9._-]+` — the gateway refuses to serve otherwise.
+Each worktree therefore runs its own gateway with its own sockets.
+`serve` refuses, before creating anything, a socket path longer than the 103 bytes a macOS unix socket allows; pass a shorter `--run-dir` then.
+Outside a git repository, a project that has not adopted Magpie has no default: pass `--run-dir`.
+Neither the run directory nor the personal layer is ever accepted as a bind-mount source.
 Configuration is CLI flags with environment-variable equivalents and no config file: `--project`, `--run-dir`, `--backend podman|docker|auto` (repeatable), `--egress inject-if-available|require|off`, `--egress-port`, `--extra-bind-root` (repeatable), `--idle-timeout`, `--log-level`, `--pid-file`.
 A second start for the same project is a no-op when the pid file names a live process.
 It exits on `SessionEnd`, on `SIGTERM`, or after an idle timeout (default 4h) as a backstop for sessions that end without the hook firing.
@@ -55,8 +64,15 @@ It exits on `SessionEnd`, on `SIGTERM`, or after an idle timeout (default 4h) as
 ## Point the CLIs at it
 
 ```bash
+# adopted project
 export CONTAINER_HOST=unix://$PWD/.apache-magpie-local/run/podman.sock
 export DOCKER_HOST=unix://$PWD/.apache-magpie-local/run/docker.sock
+# project that has not adopted Magpie
+common=$(cd "$(git rev-parse --git-common-dir)" && pwd -P)
+gitdir=$(cd "$(git rev-parse --git-dir)" && pwd -P)
+if [ "$gitdir" = "$common" ]; then id=main; else id=${gitdir##*/}; fi
+export CONTAINER_HOST=unix://$common/apache-magpie/run/$id/podman.sock
+export DOCKER_HOST=unix://$common/apache-magpie/run/$id/docker.sock
 ```
 
 The path must be absolute.

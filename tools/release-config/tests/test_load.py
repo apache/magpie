@@ -45,6 +45,42 @@ def test_local_layer_wins_whole_file(project, load):
     assert loaded["sources"]["release-build.md"] == ".apache-magpie-overrides/release-build.md"
 
 
+def test_an_unadopted_repo_reads_the_git_dir_home_first(project, load):
+    root = project()
+    (root / ".git").mkdir()
+    home = root / ".git" / "apache-magpie"
+    home.mkdir()
+    (home / "release-management-config.md").write_text("| Key | Value |\n|---|---|\n| `release_dist_backend` | `atr` |\n", encoding="utf-8")
+    legacy = root / ".apache-magpie-local"
+    legacy.mkdir()
+    (legacy / "release-management-config.md").write_text("| Key | Value |\n|---|---|\n| `release_dist_backend` | `svnpubsub` |\n", encoding="utf-8")
+    loaded = load(root, None)
+    assert loaded["sources"]["release-management-config.md"] == ".git/apache-magpie/release-management-config.md"
+    assert loaded["config"]["release_dist_backend"] == "atr"
+
+
+def test_an_unadopted_repo_still_reads_a_legacy_local_dir(project, load):
+    root = project()
+    (root / ".git").mkdir()
+    legacy = root / ".apache-magpie-local"
+    legacy.mkdir()
+    (legacy / "release-management-config.md").write_text("| Key | Value |\n|---|---|\n| `release_dist_backend` | `atr` |\n", encoding="utf-8")
+    loaded = load(root, None)
+    assert loaded["sources"]["release-management-config.md"] == ".apache-magpie-local/release-management-config.md"
+    assert not (root / ".git" / "apache-magpie").exists()
+
+
+def test_an_adopted_repo_ignores_the_git_dir_home(project, load):
+    root = project()
+    (root / ".git" / "apache-magpie").mkdir(parents=True)
+    (root / ".git" / "apache-magpie" / "release-management-config.md").write_text(
+        "| Key | Value |\n|---|---|\n| `release_dist_backend` | `atr` |\n", encoding="utf-8"
+    )
+    (root / ".apache-magpie.lock").write_text("method: local\n", encoding="utf-8")
+    loaded = load(root, None)
+    assert loaded["sources"]["release-management-config.md"] == ".apache-magpie-overrides/release-management-config.md"
+
+
 def test_config_dir_reads_one_directory(project, tmp_path):
     root = project()
     out = cli.run(["load", "--project-root", str(tmp_path / "elsewhere"), "--config-dir", str(root / ".apache-magpie-overrides")])

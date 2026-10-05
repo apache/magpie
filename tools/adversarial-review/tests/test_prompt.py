@@ -130,6 +130,18 @@ def test_tracker_checkout_warns(git_repo):
     assert warning is not None and "acme/tracker" in warning
 
 
+def test_tracker_checkout_warns_from_the_personal_layer(git_repo):
+    """An unadopted tracker clone configured only for this user still warns."""
+    subprocess.run(
+        ["git", "-C", str(git_repo), "remote", "add", "origin", "git@github.com:acme/tracker.git"], check=True
+    )
+    home = git_repo / ".git" / "apache-magpie"
+    home.mkdir()
+    (home / "project.md").write_text("| `tracker_repo` | `acme/tracker` | private |\n", encoding="utf-8")
+    warning = tracker_warning(git_repo)
+    assert warning is not None and ".git/apache-magpie/project.md" in warning
+
+
 def test_other_checkout_does_not_warn(git_repo):
     subprocess.run(
         ["git", "-C", str(git_repo), "remote", "add", "origin", "https://github.com/acme/product.git"],

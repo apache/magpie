@@ -25,10 +25,21 @@ from pathlib import Path
 
 import pytest
 
+from setup_preflight.layers import personal_dir
+
 
 @pytest.fixture
 def project(tmp_path: Path) -> Path:
+    """A git repository (a bare `.git/` directory is all the layers read)."""
+    (tmp_path / ".git").mkdir()
     return tmp_path
+
+
+def personal(root: Path) -> Path:
+    """This project's personal config layer, which must exist as a location."""
+    home = personal_dir(root)
+    assert home is not None, "the fixture project is a git repository"
+    return home
 
 
 def write_lock(root: Path, body: str) -> None:
@@ -36,6 +47,7 @@ def write_lock(root: Path, body: str) -> None:
 
 
 def write_stamp(root: Path, payload: dict[str, object]) -> None:
-    local = root / ".apache-magpie-local"
-    local.mkdir(exist_ok=True)
+    """The stamp, in whichever personal layer this project uses."""
+    local = personal(root)
+    local.mkdir(parents=True, exist_ok=True)
     (local / "reconciled.json").write_text(json.dumps(payload), encoding="utf-8")

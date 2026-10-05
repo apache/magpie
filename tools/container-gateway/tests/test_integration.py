@@ -76,7 +76,12 @@ def _short_project_dir() -> Path:
     ``tests/test_daemon.py``'s ``short_run_dir`` fixture, so it stays short
     everywhere ``tmp_path`` might not.
     """
-    return Path(tempfile.mkdtemp(prefix="cg-"))
+    project = Path(tempfile.mkdtemp(prefix="cg-"))
+    # An adopted project (a lock file), so the gateway serves from the
+    # in-tree `.apache-magpie-local/run` these tests address: a bare temp
+    # directory is neither adopted nor a git repository and has no default.
+    (project / ".apache-magpie.lock").write_text("method: local\n", encoding="utf-8")
+    return project
 
 
 def _check_socket_path_length(project: Path, kind: str) -> Path:

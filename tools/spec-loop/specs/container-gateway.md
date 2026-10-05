@@ -108,9 +108,21 @@ CLIs speak. Three properties fall out of the policy:
 ### Process model
 
 One gateway process per project, keyed by the project root. It listens
-on `<project>/.apache-magpie-local/run/podman.sock` (libpod + compat
-API, for the podman CLI) and `<project>/.apache-magpie-local/run/docker.sock`
-(compat API, for the docker CLI). Both files sit inside the project tree.
+on `<run-dir>/podman.sock` (libpod + compat API, for the podman CLI) and
+`<run-dir>/docker.sock` (compat API, for the docker CLI), where
+`<run-dir>` is the `run/` directory of the personal config layer:
+`<project>/.apache-magpie-local/run` for a project that has adopted
+Magpie, `<git-common-dir>/apache-magpie/run/<worktree-id>` for one that has not (inside
+the git directory, never the working tree; for a linked worktree the
+common directory is the main checkout's `.git`, which is then the trust
+anchor the run-directory guards walk from). `<worktree-id>` is `main`
+for the main working tree and the linked worktree's `.git/worktrees/<name>`
+name, validated against `[A-Za-z0-9._-]+` (anything else is refused), so
+every worktree has its own gateway. `serve` refuses a socket path over
+the 103-byte macOS `sun_path` limit before creating anything. Outside a git repository an
+unadopted project has no default and `serve` requires `--run-dir`. The
+run directory and the personal layer are never accepted as bind-mount
+sources.
 Every setting that names a gateway socket needs its **absolute**
 path. `CONTAINER_HOST` / `DOCKER_HOST` do **not** honour a
 project-relative `unix://./…` value: a `unix://` URL's authority is
@@ -325,7 +337,8 @@ only the URL.
 
 CLI flags with environment-variable equivalents, no config file:
 `--project <root>` (default: cwd), `--run-dir` (default
-`<root>/.apache-magpie-local/run`), `--backend podman|docker|auto`
+`<root>/.apache-magpie-local/run` when adopted, else
+`<git-common-dir>/apache-magpie/run/<worktree-id>`), `--backend podman|docker|auto`
 (repeatable; default auto), `--egress inject-if-available|require|off`,
 `--egress-port` (default: the egress gateway's), `--extra-bind-root
 <path>` (repeatable; for adopters whose tests need a data directory

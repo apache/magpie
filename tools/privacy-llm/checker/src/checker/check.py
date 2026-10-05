@@ -412,8 +412,10 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help=(
             "Path to the privacy-llm.md config. Default: "
-            "$PRIVACY_LLM_CONFIG, then "
-            "<cwd>/.apache-magpie/privacy-llm.md, then "
+            "$PRIVACY_LLM_CONFIG, then privacy-llm.md in the personal "
+            "config layer (<cwd>/.apache-magpie-local/ when the repository "
+            "adopted Magpie, <git-common-dir>/apache-magpie/ otherwise, "
+            "then a legacy <cwd>/.apache-magpie-local/), then "
             "<cwd>/.apache-magpie-overrides/privacy-llm.md."
         ),
     )

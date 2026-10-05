@@ -33,6 +33,8 @@ import pathlib
 import re
 import urllib.parse
 
+from checker.layers import config_layers
+
 # Section-heading anchors the parser keys off. Matching is
 # case-insensitive on the heading text but the leading `## ` is
 # required.
@@ -43,13 +45,19 @@ _HEADING_OPT_IN = "approved third-party endpoints (opt-in)"
 DEFAULT_CONFIG_FILENAME = "privacy-llm.md"
 ENV_CONFIG_PATH = "PRIVACY_LLM_CONFIG"
 
-# The standard adopter location: <repo-root>/<project-config>/
-# privacy-llm.md. The framework's <project-config> placeholder
-# resolves at adoption time to either `.apache-magpie/` (the
-# committed adopter-config dir under the tracker) or
-# `.apache-magpie-overrides/` (the override dir). The checker
-# tries both, in that order.
-DEFAULT_CONFIG_DIRS = (".apache-magpie", ".apache-magpie-overrides")
+# The standard adopter location is `<project-config>/privacy-llm.md`, and
+# `<project-config>` resolves per file, personal first (`layers.py`): the
+# personal layer (`.apache-magpie-local/` in an adopted repository,
+# `<git-common-dir>/apache-magpie/` otherwise, then a legacy in-tree
+# `.apache-magpie-local/`), then the committed `.apache-magpie-overrides/`.
+#
+# `.apache-magpie/` is deliberately NOT looked in: it is the gitignored
+# framework snapshot, replaced wholesale by `/magpie-setup upgrade`, and the
+# framework ships no `privacy-llm.md` at its root, so nothing legitimate
+# lives there. Earlier versions looked there and in the overrides only,
+# which meant the `privacy-llm.md` that `setup-privacy-llm` writes to the
+# personal layer was never read. Dropping a location can only make the
+# gate stop (no config found) rather than pass.
 
 
 @dataclasses.dataclass(frozen=True)
@@ -94,7 +102,7 @@ class ParsedConfig:
 def locate_config_path(explicit: str | None = None) -> pathlib.Path:
     """Resolve the config path: ``--config`` → env → default lookup.
 
-    Default lookup walks the standard adopter locations relative to
+    Default lookup walks the config layers (``layers.config_layers``) of
     the current working directory. Returns the first existing file;
     raises :class:`FileNotFoundError` if none exists, with the list
     of paths tried.
@@ -104,7 +112,7 @@ def locate_config_path(explicit: str | None = None) -> pathlib.Path:
     if env_path := os.environ.get(ENV_CONFIG_PATH):
         return pathlib.Path(env_path).expanduser()
     cwd = pathlib.Path.cwd()
-    candidates = [cwd / d / DEFAULT_CONFIG_FILENAME for d in DEFAULT_CONFIG_DIRS]
+    candidates = [layer / DEFAULT_CONFIG_FILENAME for layer in config_layers(cwd)]
     for c in candidates:
         if c.is_file():
             return c
