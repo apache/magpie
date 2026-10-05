@@ -6,10 +6,11 @@ Invocation: /release-rc-cut 2.12.0 rc1
 Planning issue: apache/airflow#47000 (open, labelled `release-planning`,
 title "Release Apache Airflow 2.12.0")
 Planning issue body excerpt:
-  Prep PR: apache/airflow#46990 — OPEN (still under review; label
-  `prep-pr-open` still present on the planning issue)
+  Prep PR: apache/airflow#46990 — MERGED (label prep-pr-open absent)
+  No RC tag exists yet for 2.12.0-rc1.
 
-RC tag check: vetted-op-read tags 2.12.0-rc1 → (no output)
+RC tag check: vetted-op-read tags 2.12.0-rc1 → refs/tags/2.12.0-rc10
+refs/tags/2.12.0-rc11
 
 release-config preflight output
 (`uv run --project <framework>/tools/release-config release-config preflight --skill rc-cut 2.12.0 rc1`):

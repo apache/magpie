@@ -238,6 +238,7 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
 "license-compliance-audit" = ["repo-view", "repo-tree", "repo-file"]
 "flaky-test-triage"     = ["run-list", "run-view", "pr-view"]
 "release-verify-rc"     = ["release-list", "release-view", "tags", "repo-file"]
+"release-rc-cut"        = ["tags", "repo-issue-comment"]
 "contributor-nomination" = ["user-profile", "pr-list", "repo-issue-list"]
 "mentoring-welcome"     = ["repo-issue-view", "repo-issue-comment", "pr-view"]
 ```

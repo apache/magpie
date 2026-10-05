@@ -20,7 +20,7 @@ argument-hint: "<version> rc<N>"
 capability: capability:resolve
 surface_hash: sha256:60623e456e72bbf6
 license: Apache-2.0
-measured_tokens: 9530
+measured_tokens: 9743
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -116,7 +116,10 @@ This skill composes with:
 **Golden rule 1 — agent never runs any command locally.**
 The four-section command block (tag, build, sign, checksums) and the staging command block are paste-ready recipes.
 The skill emits them; the RM executes them on their own machine.
-No `git tag`, `gpg`, `svn`, `aws`, or `gh` invocation is made by this skill.
+No `git tag`, `gpg`, `svn` or `aws` invocation is made by this skill.
+Its only GitHub access goes through two [vetted operations](../../../../tools/vetted-ops/README.md):
+`tags`, a read of the upstream tags in Step 0, and `repo-issue-comment`, the planning-issue comment in Step 4,
+posted only after the RM confirms it.
 
 **Golden rule 2 — agent never handles the signing key.**
 The skill emits `gpg --detach-sign --armor <artefact>` commands per artefact.
@@ -234,8 +237,10 @@ Then check what the tool cannot see:
 2. **Prep PR merged.** The planning issue indicates a prep PR is merged
    (label `prep-pr-open` absent, or PR in `merged` state). If the prep
    PR has not yet merged, block.
-3. **RC tag does not exist.** `gh api repos/<upstream>/git/refs/tags/<version>-<rcN>`
-   returns 404; if it returns 200, the tag already exists — block and report
+3. **RC tag does not exist.** Read the upstream tags with
+   `uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller release-rc-cut tags <version>-<rcN>`.
+   It prints one ref per line for every tag starting with that prefix, so `rc1` also lists `rc10`:
+   the tag exists only when a line is exactly `refs/tags/<version>-<rcN>`. If it does, block and report
    `rc_tag_exists: true`.
 4. **Drift check** — the generated pre-flight block reports snapshot drift.
 5. **Override consultation** — see *Adopter overrides* above.
@@ -560,8 +565,11 @@ The comment must include:
 - The proposed next label: `rc-staging`.
 
 Present the proposed comment to the RM and ask for confirmation before posting (Golden rule 4).
-If the RM confirms, write the approved comment to a file in the session scratch directory and post it via
-`gh issue comment <planning-issue-number> --repo <upstream> --body-file <scratch>/rc-cut-comment.md`.
+If the RM confirms, write the approved comment to `<scratch>/rc-cut-comment.md` and post it with
+`uv run --project ~/.claude/magpie/vetted-ops vetted-op --caller release-rc-cut repo-issue-comment <planning-issue-number> <scratch>/rc-cut-comment.md`
+(every write still asks).
+Without the secure setup, the same two calls are the plain `gh api repos/<upstream>/git/matching-refs/tags/<version>-<rcN> --jq '.[].ref'`
+and `gh issue comment <planning-issue-number> --repo <upstream> --body-file <scratch>/rc-cut-comment.md`.
 
 Return ONLY valid JSON with this structure:
 
@@ -600,7 +608,7 @@ The AI-driven part ends with a hand-back artefact containing:
 
 ## Hard rules
 
-- **Never run any command locally** — no `git`, `gpg`, `svn`, `aws`, or `gh` invocation by this skill (Golden rule 1).
+- **Never run any command locally** — no `git`, `gpg`, `svn` or `aws` invocation by this skill, and GitHub only through the two vetted operations (Golden rule 1).
 - **Never handle the signing key** — no passphrase, no key-file path, no `gpg` invocation (Golden rule 2).
 - **Never emit MD5 or SHA-1 checksum commands**, even if configured (Golden rule 3).
 - **Never stage to `dist/release/`**; only `dist/dev/` paths are permitted for `release_dist_backend = svnpubsub` (Golden rule 5).

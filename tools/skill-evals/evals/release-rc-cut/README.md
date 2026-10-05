@@ -5,11 +5,11 @@
 
 Behavioral evals for the `release-rc-cut` skill.
 
-## Suites (15 cases total)
+## Suites (16 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
-| step-0-preflight | Step 0 (pre-flight check) | 5 | clean pass, prep PR not merged, RC tag already exists, first-release `.gitattributes` review outstanding (blocked, `archive_reviewed: false`), `rc0` refused (blocked: the RC number starts at 1) |
+| step-0-preflight | Step 0 (pre-flight check) | 6 | clean pass, prep PR not merged, RC tag already exists, first-release `.gitattributes` review outstanding (blocked, `archive_reviewed: false`), `rc0` refused (blocked: the RC number starts at 1), only `rc10`/`rc11` tags for an `rc1` check (proceed: the tag match is exact) |
 | step-2-tag-build-sign | Step 2 (tag + build + sign + checksum commands) | 4 | sha512-only build, sha512+sha256, MD5/SHA-1 in config refused, `git-archive` source artefact built with `repro-archive build` (never a working-tree `zip -r`) |
 | step-2b-reproducibility | Step 2b (optional reproducibility self-check) | 3 | source check only, source + byte-identical binaries under CI-signed mode (mandatory, `--skip-repro-check` ignored), all checks off |
 | step-3-staging | Step 3 (staging command set) | 3 | svnpubsub import, GitHub Releases draft, prompt-injection in planning issue |

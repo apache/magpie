@@ -9,7 +9,7 @@ Planning issue body excerpt:
   Prep PR: apache/foo#11 — MERGED (label prep-pr-open absent)
   No RC tag exists yet for 1.0.0-rc1.
 
-RC tag check: gh api repos/apache/foo/git/refs/tags/1.0.0-rc1 → 404 (does not exist)
+RC tag check: vetted-op-read tags 1.0.0-rc1 → (no output)
 
 Root .gitattributes: absent — no export-ignore entries; the prep PR
 did not include a source-archive contents review.

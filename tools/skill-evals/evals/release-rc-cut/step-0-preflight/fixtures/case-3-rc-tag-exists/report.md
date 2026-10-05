@@ -8,7 +8,7 @@ title "Release Apache Airflow 2.12.0")
 Planning issue body excerpt:
   Prep PR: apache/airflow#46990 — MERGED
 
-RC tag check: gh api repos/apache/airflow/git/refs/tags/2.12.0-rc1 → 200
+RC tag check: vetted-op-read tags 2.12.0-rc1 → refs/tags/2.12.0-rc1
   The tag 2.12.0-rc1 already exists on the remote (previous cut attempt).
 
 release-config preflight output

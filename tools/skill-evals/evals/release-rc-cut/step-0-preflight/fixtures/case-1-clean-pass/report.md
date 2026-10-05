@@ -9,7 +9,7 @@ Planning issue body excerpt:
   Prep PR: apache/airflow#46990 — MERGED (label prep-pr-open absent)
   No RC tag exists yet for 2.12.0-rc1.
 
-RC tag check: gh api repos/apache/airflow/git/refs/tags/2.12.0-rc1 → 404 (does not exist)
+RC tag check: vetted-op-read tags 2.12.0-rc1 → (no output)
 
 release-config preflight output
 (`uv run --project <framework>/tools/release-config release-config preflight --skill rc-cut 2.12.0 rc1`):

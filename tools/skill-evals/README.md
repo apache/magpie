@@ -75,7 +75,7 @@ Suites are currently implemented for:
 - **release-keys-sync** — 9 cases across 3 suites (step-0-preflight, step-1-key-fetch, step-2-svn-commands)
 - **release-prepare** — 15 cases across 4 suites (step-0-preflight, step-1-plan, step-14-post, step-2-prep)
 - **release-promote** — 9 cases across 2 suites (step-0-preflight, step-2-emit-commands)
-- **release-rc-cut** — 15 cases across 4 suites (step-0-preflight, step-2-tag-build-sign, step-2b-reproducibility, step-3-staging)
+- **release-rc-cut** — 16 cases across 4 suites (step-0-preflight, step-2-tag-build-sign, step-2b-reproducibility, step-3-staging)
 - **release-verify-rc** — 22 cases across 8 suites (step-0-preflight, step-2-verify-signatures, step-3-verify-checksums, step-5-notice-license, step-6-binary-exclusion, step-6b-jvm-artefacts, step-8-version-consistency, step-9-reproducibility)
 - **release-vote-draft** — 9 cases across 3 suites (step-0-preflight, step-2-vote-draft, step-3-planning-comment)
 - **release-vote-tally** — 9 cases across 3 suites (step-0-preflight, step-2-classify, step-3-tally)
