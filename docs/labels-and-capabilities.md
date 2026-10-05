@@ -456,7 +456,10 @@ generates from the repository's own declarations:
 the `family:` and `capability:` frontmatter of every skill (covering its directory and its eval suite),
 the `**Capability:**` line of every tool README,
 and the paths of the non-skill families (`family:tools`, `family:ci`, `family:docs`).
-The same labels are passed on to the issues the PR closes or refers to.
+The same labels are passed on to the issues the PR closes,
+and, for a project member's PR, to issues its description introduces with a reference phrase
+("Part of #N", "Refs #N", "Related to #N", "Relates to #N", "Follow-up to #N"); a passing `#N` is not a reference.
+An outside contributor's PR labels only the issues its merge closed.
 A daily run labels any open PR still without a `family:*` label.
 That is a starting point, not the answer: remove a label the change does not
 implement, and add the capability it does implement when the paths do not show it.
