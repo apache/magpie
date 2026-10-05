@@ -410,7 +410,7 @@ backend the adopter wired in. The framework consumes six:
 | Gmail MCP (claude.ai) | `mcp__claude_ai_Gmail__*` | [`tools/gmail`](../tools/gmail/) | `contract:mail-source` + `contract:mail-create` + `contract:mail-archive` | — |
 | PonyMail MCP (`apache/comdev`) | `mcp__ponymail__*` | [`tools/ponymail`](../tools/ponymail/) | `contract:mail-archive` + `contract:mail-source` | ASF |
 | Slack MCP (claude.ai) | `mcp__claude_ai_Slack__*` | [`tools/chat-slack`](../tools/chat-slack/) | `contract:chat` | — |
-| Discord MCP (`chrishayuk/discord-mcp`) | `mcp__discord__*` | [`tools/chat-discord`](../tools/chat-discord/) | `contract:chat` | — |
+| Discord MCP (`PaSympa/discord-mcp`) | `mcp__discord__*` | [`tools/chat-discord`](../tools/chat-discord/) | `contract:chat` | — |
 | apache-projects MCP (`apache/comdev`) | `mcp__apache-projects__*` | [`tools/apache-projects`](../tools/apache-projects/) | `contract:project-metadata` | ASF |
 
 Each wrapping tool declares this relationship in its own README with an

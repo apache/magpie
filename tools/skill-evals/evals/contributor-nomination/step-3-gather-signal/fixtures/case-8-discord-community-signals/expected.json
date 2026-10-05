@@ -1,0 +1,14 @@
+{
+  "community_classes": {
+    "msg-1": "constructive",
+    "msg-2": "constructive"
+  },
+  "community_indicator": {
+    "constructive": 2,
+    "unconstructive": 0,
+    "net": 2
+  },
+  "possible_matches_not_used": [],
+  "candidate_asked": false,
+  "injection_attempt_detected": false
+}

@@ -24,7 +24,11 @@ How each [`tools/chat/`](../chat/README.md) verb maps onto the Discord MCP.
 
 1. Call `mcp__discord__discord_list_channels` for the configured server (guild).
 2. Filter for standard text and announcement channels (`GUILD_TEXT` / `type: 0`, `GUILD_ANNOUNCEMENT` / `type: 5`).
-3. Drop every channel where `@everyone` has `VIEW_CHANNEL` denied (via channel permission overwrite or inherited from its parent category).
+3. Verify channel visibility for the `@everyone` role:
+   - Check the guild-level `@everyone` base role permission for `VIEW_CHANNEL`.
+   - When `@everyone` has `VIEW_CHANNEL` enabled in the guild base role, a channel is public unless either the channel or its parent category carries an explicit deny overwrite for `@everyone`.
+   - When `@everyone` lacks `VIEW_CHANNEL` in the guild base role, a channel is only public if the channel (or its parent category) carries an explicit allow overwrite granting `VIEW_CHANNEL` to `@everyone`.
+   - Drop every channel where effective permissions do not grant `VIEW_CHANNEL` to `@everyone`.
 4. Filter by the channel names or IDs declared in `chat.channels` when configured, or include all public channels when `chat.channels` is empty.
 5. Return `[{id, name, is_private: false}]` per channel; never return private channels or direct messages.
 
@@ -51,6 +55,7 @@ How each [`tools/chat/`](../chat/README.md) verb maps onto the Discord MCP.
    }
    ```
    where:
+   - `<guild_id>` resolves to `chat.guild_id` from `<project-config>/project.md` when declared, or to `channel.guild_id` from the channel metadata returned by `list_channels()` (or the sole guild from `mcp__discord__discord_list_guilds`).
    - `is_reply` is true when the message references another message (`message_reference` / in-reply-to).
    - `answers_question` is true when the message is a reply to a question asked by someone else.
 5. Drop any hit outside the resolved public channels.
