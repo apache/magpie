@@ -5,5 +5,7 @@
   "companion_findings": [
     "foo-core-1.0.0-sources.jar: missing .asc signature file (foo-core-1.0.0-sources.jar.asc)"
   ],
-  "paste_recipe": "uv run --project .apache-magpie/tools/maven-artifact-verify maven-artifact-verify \"dist/dev/foo/1.0.0-rc1\" --digests sha512\ngpg --verify \"dist/dev/foo/1.0.0-rc1/foo-core-1.0.0-javadoc.jar.asc\" \"dist/dev/foo/1.0.0-rc1/foo-core-1.0.0-javadoc.jar\""
+  "has_tool_invocation": true,
+  "has_sha512_digests": true,
+  "has_podling_flag": false
 }

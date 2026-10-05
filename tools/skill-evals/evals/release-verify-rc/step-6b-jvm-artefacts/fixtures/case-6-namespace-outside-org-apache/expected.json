@@ -9,5 +9,7 @@
     "foo-core-2.1.0-sources.jar: 31 .java/.scala/.kt source entries; no .class entries",
     "foo-core-2.1.0-javadoc.jar: 58 non-META-INF entries; documentation layout is not judged"
   ],
-  "paste_recipe": "uv run --project .apache-magpie/tools/maven-artifact-verify maven-artifact-verify \"dist/dev/foo/2.1.0-rc1\" --digests sha512"
+  "has_tool_invocation": true,
+  "has_sha512_digests": true,
+  "has_podling_flag": false
 }

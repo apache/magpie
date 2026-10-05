@@ -1,0 +1,17 @@
+{
+  "has_tool_invocation": {
+    "type": "regex",
+    "field": "paste_recipe",
+    "pattern": "maven-artifact-verify[^\\n]*\\s[\"']?dist/dev/[^\\s\"']+-rc[0-9]+"
+  },
+  "has_sha512_digests": {
+    "type": "regex",
+    "field": "paste_recipe",
+    "pattern": "--digests[=\\s]+[\"']?sha512"
+  },
+  "has_podling_flag": {
+    "type": "regex",
+    "field": "paste_recipe",
+    "pattern": "maven-artifact-verify[^\\n]*\\s--podling\\b"
+  }
+}

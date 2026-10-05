@@ -48,5 +48,8 @@ Grading rules:
   set from `jvm_digest_set` when `release-build.md § JVM artefact
   checks` sets it, otherwise from the § Digest set, and `--podling`
   passed only when the source artefact ships a `DISCLAIMER` /
-  `DISCLAIMER-WIP`.
+  `DISCLAIMER-WIP`. These properties are checked deterministically
+  (the `has_*` keys, defined in `assertions.json`) rather than
+  against one reference recipe; extra lines such as `gpg --verify`
+  for the companions are fine.
 - No extra keys are permitted in the response.

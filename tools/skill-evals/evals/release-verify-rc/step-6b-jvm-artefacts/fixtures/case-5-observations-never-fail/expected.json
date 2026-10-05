@@ -9,5 +9,7 @@
     "foo-core-1.0.0-sources.jar: contains 3 .class entries (compiled code in the sources companion) - observation only, never a failure",
     "foo-core-1.0.0-javadoc.jar: placeholder (empty or MANIFEST-only) - a Maven-Central-sanctioned pattern, not a defect"
   ],
-  "paste_recipe": "uv run --project .apache-magpie/tools/maven-artifact-verify maven-artifact-verify \"dist/dev/foo/1.0.0-rc1\" --digests sha512 --podling"
+  "has_tool_invocation": true,
+  "has_sha512_digests": true,
+  "has_podling_flag": true
 }
