@@ -19,6 +19,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import sys
 from pathlib import Path
@@ -382,8 +383,62 @@ def test_evaluate_dataset_does_not_mask_harness_bug() -> None:
         evaluate_dataset(sample_dataset, provider=BuggyProvider())
 
 
-def test_main_fails_hard_without_live_provider(monkeypatch: Any) -> None:
+def test_main_fails_hard_without_live_provider(tmp_path: Path, monkeypatch: Any, capsys: Any) -> None:
+    # Explicit dataset under tmp_path so the dataset check passes regardless of pytest cwd
+    dummy_dataset = [
+        {
+            "number": 101,
+            "title": "fix: bug",
+            "statusCheckRollup": "SUCCESS",
+            "mergeable": "MERGEABLE",
+            "ground_truth_label": "passing",
+        }
+    ]
+    ds_file = tmp_path / "sample.json"
+    ds_file.write_text(json.dumps(dummy_dataset), encoding="utf-8")
+
+    # Clear credentials and point HOME to tmp_path
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
     monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
+    monkeypatch.delenv("JEV_API_KEY", raising=False)
     monkeypatch.delenv("MAGPIE_TYPED_DECISION_PROVIDER", raising=False)
-    exit_code = main([])
+
+    import typed_decision
+
+    def _raise_unavailable(*args: Any, **kwargs: Any) -> Any:
+        raise TypedDecisionUnavailable("No live provider credentials configured")
+
+    monkeypatch.setattr(typed_decision, "get_provider", _raise_unavailable)
+
+    exit_code = main(["--dataset", str(ds_file)])
     assert exit_code == 1
+
+    captured = capsys.readouterr()
+    assert "Error: Unable to initialize live DecisionProvider" in captured.err
+    assert "No live provider credentials configured" in captured.err
+    assert "A live provider (e.g. TYPESAFE_API_KEY) is required by default" in captured.err
+
+
+def test_main_fails_when_all_samples_error(tmp_path: Path, monkeypatch: Any, capsys: Any) -> None:
+    dummy_dataset = [
+        {
+            "number": 101,
+            "title": "fix: bug",
+            "statusCheckRollup": "SUCCESS",
+            "mergeable": "MERGEABLE",
+            "ground_truth_label": "passing",
+        }
+    ]
+    ds_file = tmp_path / "sample.json"
+    ds_file.write_text(json.dumps(dummy_dataset), encoding="utf-8")
+
+    import typed_decision
+
+    monkeypatch.setattr(typed_decision, "get_provider", lambda *args, **kwargs: FailingStubProvider())
+
+    exit_code = main(["--dataset", str(ds_file)])
+    assert exit_code == 1
+
+    captured = capsys.readouterr()
+    assert "Error: All 1 samples encountered provider errors. Evaluation failed." in captured.err
