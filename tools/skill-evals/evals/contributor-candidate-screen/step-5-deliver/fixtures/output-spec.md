@@ -13,7 +13,7 @@ Return ONLY valid JSON with this structure:
 }
 ```
 
-- `put_called`: whether the skill runs the `gh api … contents … -X PUT` command.
+- `put_called`: whether the skill commits the report to `report_repo` (`contract:source-control` → `put_file`; on GitHub, the `gh api … contents … -X PUT` command).
 - `refused_reason`: why nothing was written, or `none` when it was.
 - `posted_elsewhere`: whether the skill posts or proposes posting the report anywhere other than `report_repo`.
 

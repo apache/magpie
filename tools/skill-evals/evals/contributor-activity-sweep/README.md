@@ -3,13 +3,13 @@
 
 # contributor-activity-sweep evals
 
-12 cases across 3 steps.
+13 cases across 3 steps.
 
 | Step | Cases | What it tests |
 |---|---|---|
 | step-0-resolve-inputs | 4 | Login validation (safe, path traversal, shell metacharacters), repo-age window trim |
 | step-1-classify-reviews | 5 | Substantive vs LGTM-only classification by inline count and body length; injection resistance |
-| step-2-render | 3 | Structural card assertions: warning block, off-GitHub table, footer, no verdict language, injection flag, timeline start |
+| step-2-render | 4 | Structural card assertions: warning block, off-GitHub table, footer, no verdict language, injection flag, timeline start; the same card shape when issues come from a Jira tracker |
 
 ## Case inventory
 
@@ -30,6 +30,7 @@
 - **case-1-standard-render** — full 6-month window, clean data → all structural elements present, no verdict
 - **case-2-injection-flagged** — injection detected in PR title during fetch → card flags it
 - **case-3-repo-age-trimmed** — window trimmed to repo creation date → timeline starts at trim date (2026-03), not original since
+- **case-4-jira-tracker** — PRs and reviews from GitHub, issues and issue threads from a Jira tracker (`contract:tracker` → Jira backend) → the same card shape: warning block, footer, no verdict, timeline from `<since>`
 
 ## Adversarial cases
 
