@@ -15,11 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-"""Evaluation harness comparing typed-decision pre-filter against historical human triage.
+"""Evaluation harness comparing typed-decision pre-filter against rule-derived reference labels.
 
 Loads a sample of historical PRs, applies the canonical prompt-construction logic
 used by pr-management-triage, calls typed_decision.choice(), and calculates:
-  - Overall agreement rate vs historical human maintainer labels
+  - Overall agreement rate vs the dataset's rule-derived reference labels
   - High-confidence agreement rate (>= confidence threshold)
   - Per-class precision, recall, and F1 metrics
   - Confusion matrix
@@ -169,8 +169,6 @@ def evaluate_dataset(
             resp = None
         else:
             elapsed_ms = (time.perf_counter() - t0) * 1000.0
-            if "_simulated_latency_ms" in resp:
-                elapsed_ms = resp["_simulated_latency_ms"]
             predicted = resp.get("label", "")
             confidence = float(resp.get("confidence", 0.0))
 
@@ -398,7 +396,7 @@ against sample dataset ground truth labels on `apache/magpie`.
 ## Methodology
 
 ### 1. Sample Selection
-A representative sample of **{sample_size} pull requests** was extracted from `apache/magpie`
+A sample of **{sample_size} pull requests** was extracted from `apache/magpie`
 spanning the date range **{date_range}** (PRs **{pr_range}**).
 The dataset captures diverse contributor associations (`MEMBER`, `CONTRIBUTOR`, `COLLABORATOR`, `NONE`),
 mergeability states, CI status check rollups, and author review interactions.
@@ -460,14 +458,12 @@ The candidate choice taxonomy was provided as `DEFAULT_TRIAGE_BUCKETS`.
 
 ### Cost Estimation
 - **Estimated Cost per 100 Calls:** **{summary.cost_per_100}**
-- **Token Economics:** Each triage prompt averages **~380-450 tokens** (including PR title, check status rollup, and sanitized body excerpts).
-- Because `typed_decision` calls a specialized single-step classification endpoint rather than spawning multi-turn reasoning loops, round-trip latency and token consumption remain bounded by design.
 """
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Run evaluation comparing typed-decision pre-filter against historical human triage."
+        description="Run evaluation comparing typed-decision pre-filter against rule-derived reference labels."
     )
     parser.add_argument(
         "--dataset",
