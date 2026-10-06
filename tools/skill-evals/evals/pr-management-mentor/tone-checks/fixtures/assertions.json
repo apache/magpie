@@ -11,6 +11,12 @@
     "pattern": "as an ai|language model|i'?m an ai|i was trained|my training",
     "flags": "i"
   },
+  "has_meta_first_line_quote": {
+    "type": "regex",
+    "field": "offending_text",
+    "pattern": "reaching out because the PR is missing a reproduction script",
+    "flags": "i"
+  },
   "has_jargon_quote": {
     "type": "regex",
     "field": "offending_text",

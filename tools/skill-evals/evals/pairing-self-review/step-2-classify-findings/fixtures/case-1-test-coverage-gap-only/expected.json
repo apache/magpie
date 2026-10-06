@@ -1,0 +1,6 @@
+{
+  "has_only_test_coverage_findings": true,
+  "has_security_finding": false,
+  "has_conventions_finding": false,
+  "has_blocking_severity": false
+}

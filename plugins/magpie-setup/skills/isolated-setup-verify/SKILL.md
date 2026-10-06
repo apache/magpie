@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:393e3ecdf80a56a9
 license: Apache-2.0
-measured_tokens: 5010
+measured_tokens: 5050
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -97,7 +97,8 @@ Walk each in order:
    Symlinks into a `~/.claude-config` sync repo are equivalent to direct files; resolve the link target and check that.
    A missing `sandbox-error-hint.sh` is ⚠ (not ✗), for the same reason as check 2.
 4. `claude-iso` shell function defined and sourced.
-   The grep pattern is the source line in `~/.bashrc` / `~/.zshrc`.
+   The grep pattern is the source line in `~/.bashrc` / `~/.zshrc`; its presence alone decides this check (✓ when present).
+   A sourced script that is missing from `~/.claude/scripts/` is check 3's finding, not this one's.
    Check whether `alias claude='claude-iso'` is set; report it as a note (the doc makes it optional).
 5. **Tool versions.** Two rules: an exact-pin match for the sandbox primitives, and a hard floor for the agent runtime.
 

@@ -25,7 +25,7 @@ argument-hint: "[--tool <name>] [--report <path>] [--finding <id>]"
 capability: capability:fix
 surface_hash: sha256:a31ea1f8e96846eb
 license: Apache-2.0
-measured_tokens: 4778
+measured_tokens: 4810
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -392,8 +392,10 @@ Write the commit message per the project's convention and record the hand-back a
 
 The AI-driven part ends with a hand-back artefact containing:
 
-- **Tool + finding count** — which audit tool, how many findings
-  addressed.
+- **Tool + finding count** — which audit tool, and how many findings
+  were addressed, stated as a number.
+  A description of the edits made is not a count;
+  the maintainer must not have to tally the fixes themselves.
 - **Branch name** and local commit hash.
 - **Verify command** and its result (tool output after fixes).
 - **Diff scope summary** — files changed and one-line *"why each"*.

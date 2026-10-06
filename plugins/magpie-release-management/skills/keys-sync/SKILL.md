@@ -20,7 +20,7 @@ argument-hint: "[--fingerprint <fp>] [--keys-url <url>] [--keyserver <host>]"
 capability: capability:resolve
 surface_hash: sha256:61e10c986bb0d3ec
 license: Apache-2.0
-measured_tokens: 4812
+measured_tokens: 4871
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -200,7 +200,10 @@ Then:
      - Same UID as appears in the KEYS key block → `verdict: "noop"`.
        Populate `noop_reason` naming the UID. No commands will be emitted.
      - Different UID (key rolled or uid updated) → `verdict: "blocked"`.
-       Populate `blockers` describing the mismatch.
+       Populate `blockers` describing the mismatch: both UIDs, and the hand-off of golden rule 4.
+       The RM decides whether to append the updated key block or replace the existing one,
+       then updates `rm_key_fingerprint` if the key itself changed.
+       Present both options; do not pick one for the RM.
 3. **Drift check** — the generated pre-flight block reports snapshot drift.
 4. **Override consultation** — see *Adopter overrides* above.
 

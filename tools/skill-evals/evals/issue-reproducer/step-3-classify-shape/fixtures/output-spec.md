@@ -13,10 +13,11 @@ Return ONLY valid JSON with this structure:
 ```
 
 Shape taxonomy reference:
-- **A** — self-contained single-file script that runs as-is (no external fixtures, no framework boilerplate)
+- **A** — self-contained single-file script that runs as-is (no external fixtures, no framework boilerplate).
+  The reproducer runs against the project's own runtime, so a script that uses the project's normal APIs — opening a session on the project's database, reading its configuration — is still A; that installed, initialised project environment is not an external fixture.
 - **B** — near-complete but requires minor additions (missing imports, missing `if __name__ == "__main__"`, etc.)
 - **C** — framework test method (e.g. `def test_foo(self)`) needing a test class/runner wrapper
-- **D** — multi-file project or requires external fixtures
+- **D** — multi-file project, or requires external fixtures the reporter supplies separately (data files, extra modules, an archive) beyond the project's own runtime
 - **E-vague** — a fragment or claim that CANNOT be turned into a faithful test without inventing unstated setup. If constructing a runnable reproducer would require guessing environment variables, backend/secrets configuration, fixtures, or the surrounding call context that the reporter never gave, it is **E-vague** — even when a bare code line and a specific exception (e.g. a `KeyError`) are shown. A single invocation line is NOT a clear entry point when you still cannot set up what it depends on.
 - **E-precise** — a fragment or claim whose stated content is sufficient ON ITS OWN to construct a faithful test, with no invented setup required (an algebraic/specifiable claim, e.g. "`x?.y?.z` returns null on Maps but throws on user classes"). E-precise is instantiation of an explicit, self-sufficient claim; if you would have to invent inputs, structure, or configuration, it is E-vague instead.
 - **F** — stack trace / error log only, no code

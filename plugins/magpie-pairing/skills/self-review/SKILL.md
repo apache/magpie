@@ -20,7 +20,7 @@ argument-hint: "[base:<ref>] [staged] [path:<glob>]"
 capability: capability:review
 surface_hash: sha256:ea0a2e29bb2aa0e0
 license: Apache-2.0
-measured_tokens: 3616
+measured_tokens: 3688
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
@@ -206,6 +206,8 @@ Apply the trusted project policy whether compatibility is broken, compatible, or
 When the complete graph is compatible but changed code directly uses an API newer than its direct dependency's lower bound, that policy may still support a separate finding.
 If the trusted policy requires an accurate direct bound, a release marker, or another handoff, record a finding at the severity the project rule supports and recommend that mechanism.
 Do not claim a runtime failure or prescribe a direct version bump when the trusted project release process says contributors must not make one.
+When the diff already applies the mechanism the trusted policy requires (for example the release marker is present on that dependency) and the effective graph is compatible, the dependency is handled: record no finding for it on any axis.
+The direct lower bound staying below the newly used API is then the policy's intended state until release preparation updates it, not a correctness gap.
 Carry the same `dependency_evidence` ledger into that separate policy finding so its runtime classification and policy basis remain explicit.
 
 A dependency-version finding without `dependency_evidence` is incomplete and must not be surfaced.

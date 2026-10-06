@@ -55,6 +55,11 @@
     "field": "findings",
     "rubric": "The dependency_evidence explicitly classifies runtime compatibility as unknown because metadata coverage is partial and no concrete supported failing resolution is established."
   },
+  "has_only_test_coverage_findings": {
+    "type": "judge",
+    "field": "findings",
+    "rubric": "Every entry in findings, if there are any, is a correctness finding about missing test coverage for the changed code (for example no test for the new ValueError on negative n). An empty findings list also holds. The property is false if any finding raises something other than a test-coverage gap, such as a behaviour change, an API break, a missing import, a style point, or a security concern."
+  },
   "has_empty_findings": {"type": "regex", "field": "findings", "pattern": "^\\[\\s*\\]$", "flags": "s"},
   "has_all_axes_without_findings": {
     "type": "judge",

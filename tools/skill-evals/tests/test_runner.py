@@ -892,6 +892,21 @@ def test_extract_json_malformed_braces_returns_error():
     assert err is not None
 
 
+def test_extract_json_survives_stray_brace_in_prose():
+    """A stray brace in the preamble defeats the brace counter, not the decoder."""
+    text = 'Grading the {fields left open.\n{"$.a": {"match": true, "reason": "ok"}}'
+    value, err = extract_json_from_output(text)
+    assert err is None
+    assert value == {"$.a": {"match": True, "reason": "ok"}}
+
+
+def test_extract_json_survives_unbalanced_brace_inside_a_string():
+    text = 'Verdict: {"$.a": {"match": false, "reason": "candidate drops the closing \'}\'"}}'
+    value, err = extract_json_from_output(text)
+    assert err is None
+    assert value == {"$.a": {"match": False, "reason": "candidate drops the closing '}'"}}
+
+
 # ---------------------------------------------------------------------------
 # compare_outputs
 # ---------------------------------------------------------------------------
@@ -1537,6 +1552,57 @@ def test_batch_grade_reports_a_verdict_missing_twice(tmp_path: Path):
         script.unlink()
 
 
+def _flaky_grader(monkeypatch, replies: list[str]) -> list[str]:
+    """Patch run_cli to return ``replies`` in order; return the prompt log."""
+    calls: list[str] = []
+
+    def fake_run_cli(cli, prompt, timeout=120):
+        calls.append(prompt)
+        return replies[min(len(calls), len(replies)) - 1], "", 0
+
+    monkeypatch.setattr("skill_evals.runner.run_cli", fake_run_cli)
+    return calls
+
+
+def test_batch_grade_retries_once_on_unusable_output(monkeypatch):
+    """An unparsable grader reply is noise, not a verdict: ask once more."""
+    calls = _flaky_grader(
+        monkeypatch, ["I think both fields match.", '{"$.a": {"match": true, "reason": "ok"}}']
+    )
+    result = batch_grade_prose_fields([("$.a", "x", "y")], "grader", timeout=5)
+    assert result["$.a"] == (True, "")
+    assert len(calls) == 2
+
+
+def test_batch_grade_reports_unusable_output_after_the_retry(monkeypatch):
+    calls = _flaky_grader(monkeypatch, ["no json here"])
+    ok, note = batch_grade_prose_fields([("$.a", "x", "y")], "grader", timeout=5)["$.a"]
+    assert ok is False
+    assert "unusable output" in note
+    assert len(calls) == 2
+
+
+def test_batch_grade_does_not_retry_a_no(monkeypatch):
+    """A parsed NO is a verdict; re-asking could launder it into a YES."""
+    calls = _flaky_grader(
+        monkeypatch,
+        [
+            '{"$.a": {"match": false, "reason": "different verdict"}}',
+            '{"$.a": {"match": true, "reason": "ok"}}',
+        ],
+    )
+    ok, note = batch_grade_prose_fields([("$.a", "x", "y")], "grader", timeout=5)["$.a"]
+    assert ok is False
+    assert "different verdict" in note
+    assert len(calls) == 1
+
+
+def test_grade_prose_field_retries_once_on_unusable_output(monkeypatch):
+    calls = _flaky_grader(monkeypatch, ["", '{"match": true, "reason": "ok"}'])
+    assert grade_prose_field("$.a", "x", "y", "grader", timeout=5) == (True, "")
+    assert len(calls) == 2
+
+
 # ---------------------------------------------------------------------------
 # compare_with_grader (uses the batched grader path)
 # ---------------------------------------------------------------------------
@@ -2106,6 +2172,13 @@ def test_batch_judge_grader_error_returns_none():
     holds, note = batch_judge_assertions(specs, {"body": "x"}, "false", 10)["has_flag"]
     assert holds is None
     assert "exited" in note
+
+
+def test_batch_judge_retries_once_on_unusable_output(monkeypatch):
+    calls = _flaky_grader(monkeypatch, ["Holds.", '{"has_flag": {"holds": false, "reason": "absent"}}'])
+    specs = {"has_flag": {"type": "judge", "rubric": "is it flagged"}}
+    assert batch_judge_assertions(specs, {"body": "x"}, "judge", 10)["has_flag"] == (False, "absent")
+    assert len(calls) == 2
 
 
 # ---------------------------------------------------------------------------

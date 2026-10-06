@@ -1,4 +1,4 @@
 {
   "disposition": "VALID",
-  "rationale": "An authenticated user with explicitly restricted DAG-scoped permissions is able to read connection credentials belonging to a DAG they have no access to, via the REST API. The trust-boundary cheat-sheet maps 'authenticated UI/REST user with restricted DAG-scoped perms reads other DAGs' data' directly to VALID. This is a documented Security Model violation — DAG-scoped access control must be enforced at the API layer. Prior CVEs exist on this shape (cross-DAG data leakage via REST). The attack vector does not require operator or DAG-author trust."
+  "rationale": "An authenticated user with explicitly restricted DAG-scoped permissions is able to read XCom data, including a credential, belonging to a DAG they have no access to, via the REST API. The trust-boundary cheat-sheet maps 'authenticated UI/REST user with restricted DAG-scoped perms reads other DAGs' data' directly to VALID. This is a documented Security Model violation — DAG-scoped access control must be enforced at the API layer. The attack vector does not require operator or DAG-author trust."
 }

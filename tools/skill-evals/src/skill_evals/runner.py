@@ -349,7 +349,36 @@ def extract_json_from_output(text: str) -> tuple[object | None, str | None]:
         except json.JSONDecodeError:
             pass
 
+    decoded = _decode_largest_embedded_json(text)
+    if decoded is not None:
+        return decoded, None
+
     return None, "no JSON object or array found in model output"
+
+
+def _decode_largest_embedded_json(text: str) -> object | None:
+    """Return the largest JSON object or array that decodes from inside ``text``.
+
+    The brace counter in :func:`_find_largest_brace_block` does not know about
+    JSON strings, so a stray ``{`` or ``}`` in surrounding prose, or inside a
+    string value (a grader reason quoting ``{name}``), shifts its depth and the
+    block it returns no longer parses. Decoding from every opener with the real
+    JSON decoder has no such blind spot. Only reached when the cheaper
+    strategies found nothing, so it never changes an answer they already give.
+    """
+    decoder = json.JSONDecoder()
+    best: object | None = None
+    best_len = 0
+    for i, ch in enumerate(text):
+        if ch not in "{[":
+            continue
+        try:
+            value, end = decoder.raw_decode(text, i)
+        except json.JSONDecodeError:
+            continue
+        if end - i > best_len:
+            best, best_len = value, end - i
+    return best
 
 
 def _find_largest_brace_block(text: str) -> str | None:
@@ -457,6 +486,32 @@ def load_grading_schema(fixtures_dir: Path) -> set[str]:
     return set(DEFAULT_PROSE_FIELDS) | set(fields)
 
 
+def _call_grader(prompt: str, grader_cli: str, timeout: int) -> tuple[object | None, str | None]:
+    """Run the grader once and parse its reply; retry once if the reply is unusable.
+
+    Returns ``(verdict, None)`` or ``(None, <one-line failure note>)``.
+    Timeouts, invocation errors and non-zero exits are reported at once.
+    A reply that holds no parsable JSON is asked again a single time: it
+    carries no verdict, so re-asking cannot turn a ``NO`` into a ``YES``,
+    and it otherwise fails the case for a reason that has nothing to do
+    with the output under test.
+    """
+    err: str | None = None
+    for _ in range(2):
+        try:
+            stdout, stderr, rc = run_cli(grader_cli, prompt, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            return None, f"grader CLI timed out after {timeout}s"
+        except OSError as exc:
+            return None, f"grader CLI invocation failed ({exc})"
+        if rc != 0:
+            return None, f"grader CLI exited {rc} ({stderr.strip()[:200]})"
+        verdict, err = extract_json_from_output(stdout)
+        if err is None and isinstance(verdict, dict):
+            return verdict, None
+    return None, f"grader returned unusable output ({err or 'not a dict'})"
+
+
 def _render_field_value(value: object) -> str:
     """Render an expected/candidate field value for the grader prompt."""
     if isinstance(value, str):
@@ -483,17 +538,11 @@ def grade_prose_field(
         expected_value=_render_field_value(expected_value),
         candidate_value=_render_field_value(actual_value),
     )
-    try:
-        stdout, stderr, rc = run_cli(grader_cli, prompt, timeout=timeout)
-    except subprocess.TimeoutExpired:
-        return False, f"{field_path}: grader CLI timed out after {timeout}s"
-    except OSError as exc:
-        return False, f"{field_path}: grader CLI invocation failed ({exc})"
-    if rc != 0:
-        return False, f"{field_path}: grader CLI exited {rc} ({stderr.strip()[:200]})"
-    verdict, err = extract_json_from_output(stdout)
-    if err is not None or not isinstance(verdict, dict) or "match" not in verdict:
-        return False, f"{field_path}: grader returned unusable output ({err or 'missing match key'})"
+    verdict, failure = _call_grader(prompt, grader_cli, timeout)
+    if verdict is None:
+        return False, f"{field_path}: {failure}"
+    if not isinstance(verdict, dict) or "match" not in verdict:
+        return False, f"{field_path}: grader returned unusable output (missing match key)"
     match = bool(verdict.get("match"))
     reason = str(verdict.get("reason", "")).strip()
     if match:
@@ -634,17 +683,9 @@ def _batch_grade_once(
     caller never silently drops a field.
     """
     prompt = BATCH_GRADER_RUBRIC.format(fields_block=_format_batch_fields_block(pairs))
-    try:
-        stdout, stderr, rc = run_cli(grader_cli, prompt, timeout=timeout)
-    except subprocess.TimeoutExpired:
-        return {p: (False, f"grader CLI timed out after {timeout}s") for p, _, _ in pairs}
-    except OSError as exc:
-        return {p: (False, f"grader CLI invocation failed ({exc})") for p, _, _ in pairs}
-    if rc != 0:
-        return {p: (False, f"grader CLI exited {rc} ({stderr.strip()[:200]})") for p, _, _ in pairs}
-    verdict, err = extract_json_from_output(stdout)
-    if err is not None or not isinstance(verdict, dict):
-        return {p: (False, f"grader returned unusable output ({err or 'not a dict'})") for p, _, _ in pairs}
+    verdict, failure = _call_grader(prompt, grader_cli, timeout)
+    if not isinstance(verdict, dict):
+        return {p: (False, failure or "grader returned unusable output (not a dict)") for p, _, _ in pairs}
     result: dict[str, tuple[bool, str]] = {}
     for path, _, _ in pairs:
         entry = verdict.get(path)
@@ -953,17 +994,9 @@ def batch_judge_assertions(
         output=json.dumps(actual, indent=2, ensure_ascii=False, sort_keys=True),
         props_block=_format_judge_props_block(specs),
     )
-    try:
-        stdout, stderr, rc = run_cli(grader_cli, prompt, timeout=timeout)
-    except subprocess.TimeoutExpired:
-        return dict.fromkeys(specs, (None, f"grader CLI timed out after {timeout}s"))
-    except OSError as exc:
-        return dict.fromkeys(specs, (None, f"grader CLI invocation failed ({exc})"))
-    if rc != 0:
-        return dict.fromkeys(specs, (None, f"grader CLI exited {rc} ({stderr.strip()[:200]})"))
-    verdict, err = extract_json_from_output(stdout)
-    if err is not None or not isinstance(verdict, dict):
-        return dict.fromkeys(specs, (None, f"grader returned unusable output ({err or 'not a dict'})"))
+    verdict, failure = _call_grader(prompt, grader_cli, timeout)
+    if not isinstance(verdict, dict):
+        return dict.fromkeys(specs, (None, failure or "grader returned unusable output (not a dict)"))
     result: dict[str, tuple[bool | None, str]] = {}
     for key in specs:
         entry = verdict.get(key)
