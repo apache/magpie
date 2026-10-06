@@ -8,11 +8,11 @@ Return ONLY valid JSON with this structure:
 ```json
 {
   "report": "<the full markdown report>",
-  "has_floor_note": true | false
+  "has_surfacing_note": true | false
 }
 ```
 
 - `report`: the report exactly as it would be written.
-- `has_floor_note`: whether the report states at the top that it is a floor for noticing candidates, never a decision.
+- `has_surfacing_note`: whether the report states at the top that it only surfaces details about likely candidates, deliberately lists more people than the governing body would consider, is not a ranking, does not say whether anyone is ready, and that every decision is made by the governing body's members.
 
 Do not include any text outside the JSON object.

@@ -27,8 +27,12 @@
 
 Per-project thresholds for the
 [`contributor-to-committer`](../../../skills/contributor-to-committer/SKILL.md)
-readiness tracker. Copy into your personal layer and
+activity brief. Copy into your personal layer and
 replace every TODO.
+
+The thresholds are reference levels shown next to a contributor's counts.
+The skill never turns them into a status, a ranking, or a readiness verdict;
+the decision is always the PMC's.
 
 **Thresholds are optional.** If this file does not declare thresholds,
 the skill falls back to `contributor-nomination-config.md` thresholds,
@@ -52,6 +56,7 @@ to update them.
 | `area_label_prefix` | TODO or leave blank (default `area:`) | Label prefix that marks a PR's area; used for area breadth and the per-area table in the brief. |
 | `calibrated_on` | leave blank | Written by `calibrate` when it sets the thresholds below from past nominations; other skills suggest recalibrating after 12 months. |
 | `calibration_recency_halflife_years` | `2` | How fast `calibrate` down-weights older nominations. |
+| `calibration_relaxation` | `0.75` | Deliberate relaxation: `calibrate` sets each floor to this share of what the project elected (greater than 0, at most 1), so the skills surface more people than the PMC would consider. The floors only surface information; the PMC decides. |
 | `calibrated_window_months` | leave blank | Written by `calibrate`: the activity window the floors were derived for. The skills warn when it differs from the assessment window. |
 | `community_negative_weight` | `1` | How much each unconstructive community item subtracts from the community indicator; the indicator never feeds a threshold. |
 

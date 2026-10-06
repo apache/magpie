@@ -21,7 +21,7 @@ All rows voted in the last year, so every row has the same recency weight. Metri
   "floors": {
     "committer": {
       "issues_filed": 0,
-      "prs_merged": 48
+      "prs_merged": 36
     }
   },
   "evidence_only": {
@@ -30,6 +30,7 @@ All rows voted in the last year, so every row has the same recency weight. Metri
     ]
   },
   "no_floors_for": [],
+  "relaxation": 0.75,
   "notes": []
 }
 ```

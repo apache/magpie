@@ -15,12 +15,12 @@ when_to_use: |
   Invoke when asked "show me activity for <handle>", "what has <handle> been doing lately",
   or "give me a quick summary of <handle>'s contributions".
   Also invoke as a pre-check before contributor-nomination.
-  Skip when the user explicitly wants a nomination-readiness assessment (use `contributor-nomination` instead).
+  Skip when the user wants a full nomination evidence brief (use `contributor-nomination` instead).
 argument-hint: "<github-handle> [window:Nm]"
 capability: capability:stats
 surface_hash: sha256:748187f2d78d9991
 license: Apache-2.0
-measured_tokens: 3471
+measured_tokens: 3569
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -107,11 +107,15 @@ section for the nominator to fill in by hand.
 
 **No assessment, no verdict.** This skill produces raw counts and a
 timeline — it does not evaluate whether the contributor is ready for
-nomination, nor does it rank or score them. All interpretation is the
-nominator's responsibility.
+nomination, nor does it rank or score them. It only surfaces
+information; whether and when to nominate anyone is always the
+decision of `<governance-body>` members. When asked about several
+handles, render one card per handle in alphabetical order of GitHub
+handle, never ordered by any count. See
+[Surface information, never rank](../../../../docs/contributor-growth/README.md#surface-information-never-rank).
 
 The counts here are raw: nothing is discounted for visibly automated or low-signal activity.
-The readiness and nomination skills apply that discount, judged against the project's own expectations, and report raw and adjusted counts side by side — see [`automated-contributions.md`](../nomination/automated-contributions.md).
+The activity-brief and nomination skills apply that discount, judged against the project's own expectations, and report raw and adjusted counts side by side — see [`automated-contributions.md`](../nomination/automated-contributions.md).
 Do not read a raw count on this card as the number those skills will measure.
 
 The skill is read-only and produces no GitHub mutations.
@@ -307,7 +311,8 @@ a score, or language like "clearly ready" or "strong candidate."
 ## (<since> → <today>)
 
 > ⚠️  GitHub-visible activity only. Contributors can contribute in many
->     ways beyond code.
+>     ways beyond code. This card only surfaces information; it is not a
+>     ranking or a verdict, and the <governance-body> decides.
 
 ### GitHub-visible activity
 

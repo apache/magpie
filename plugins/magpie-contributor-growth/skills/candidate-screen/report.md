@@ -10,17 +10,24 @@ Layout of the `candidate-screen` report.
 ```markdown
 # Candidate screen — <upstream> — <since> → <end>
 
-> This report is a floor to help notice candidates. It is never a decision; decisions are the <governance-body>'s.
+> This report only surfaces details about likely candidates. It deliberately lists more
+> people than the <governance-body> would consider, it is not a ranking — people appear in
+> alphabetical order of GitHub handle — and it does not say whether anyone is ready.
+> Every decision is made by <governance-body> members.
 
 Thresholds: <source file>, calibrated on <calibrated_on, or "not calibrated">
 Sources collected: <list>; not collected: <list, with the reason>
-Pool: <N> contributors; pre-filter kept <N>; shortlisted <N> (committer <N>, <governance-body> <N>)
+Pool: <N> contributors; pre-filter kept <N>; listed <N> (committer <N>, <governance-body> <N>)
 
-## Summary
+## People listed
 
-| Candidate | Target | Floors met | Community | Automated-work flags |
-|-----------|--------|------------|-----------|----------------------|
-| <Real Name> ([handle](https://github.com/handle)) | committer | 5 of 6 | +12 / −0 | none |
+- [<Real Name> (handle)](#<anchor of their section>) — <target>
+
+## Summary of findings
+
+<One or two paragraphs describing what was found across the list — kinds
+of work, areas, sources not collected. No comparison between people, no
+ordering, no readiness judgement.>
 
 ## <Real Name> ([handle](https://github.com/handle)) — <target>
 
@@ -35,17 +42,17 @@ and community work; factual flags. Every claim links to its evidence.>
 
 ### Against the floors
 
-| Dimension | Raw | Discounted | Penalty | Adjusted | Floor | Met |
-|-----------|-----|------------|---------|----------|-------|-----|
+| Dimension | Raw | Discounted | Penalty | Adjusted | Reference (relaxed) |
+|-----------|-----|------------|---------|----------|---------------------|
 
 ### Community
 
 <Section per community-signals.md § Reporting.>
 
-## Considered, not shortlisted
+## Considered, not listed
 
-| Handle | Floors met | PRs merged | Reviews |
-|--------|------------|------------|---------|
+| Handle | PRs merged | Reviews |
+|--------|------------|---------|
 
 ## Dropped by the pre-filter
 
@@ -59,5 +66,6 @@ and community work; factual flags. Every claim links to its evidence.>
 - Names follow [`real-names.md`](../nomination/real-names.md); a person with no verified name is listed by handle.
 - Shares are percentages with one decimal.
 - A count fed by a capped stream is written `≥ N` and footnoted *"at least N — the search returned more than was fetched"*; any `notes` from `metrics.json` are listed under the candidate.
-- Candidates are ordered by floors met, then by adjusted merged PRs.
+- Every list and table of people — listed, considered, dropped — is in alphabetical order of GitHub handle, case-insensitive; never by floors met, counts, or any other measure.
+- No count of floors met, no score, and no wording that says or implies someone is ready, close, or not ready.
 - No email addresses, and no quotes from private material.

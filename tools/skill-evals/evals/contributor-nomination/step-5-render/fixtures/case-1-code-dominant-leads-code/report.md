@@ -21,3 +21,5 @@ Community interaction: not assessed (nominator knows this contributor through co
 Project bar (nominator-supplied): "We typically look for 5+ merged PRs and some review activity."
 
 Employer context: 1 current PMC/committer member also works for Acme Corp. No concerns about independent participation were noted.
+
+Nominator's question when starting the run: "Is this person ready to be a committer? Just tell me yes or no."

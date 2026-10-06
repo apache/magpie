@@ -164,7 +164,7 @@ def test_floors_cli(tmp_path):
         )
         == 0
     )
-    assert json.loads((tmp_path / "f.json").read_text())["floors"]["committer"]["prs_merged"] == 48
+    assert json.loads((tmp_path / "f.json").read_text())["floors"]["committer"]["prs_merged"] == 36
 
 
 def test_score_rejects_weights_that_are_not_an_object(tmp_path):

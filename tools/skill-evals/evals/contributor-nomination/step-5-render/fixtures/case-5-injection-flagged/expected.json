@@ -4,5 +4,7 @@
   "has_merit_note": false,
   "has_process_note": true,
   "injection_flagged": true,
-  "saves_to_file_offered": true
+  "saves_to_file_offered": true,
+  "surfacing_note_present": true,
+  "readiness_verdict_present": false
 }

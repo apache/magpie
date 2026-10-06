@@ -12,8 +12,8 @@ Each skill's own Step 3 says how the result is presented to the maintainer.
 
 - **Evidence plus a separate indicator.**
   Community signals are listed as linked evidence and summarised in the community indicator below.
-  The classification and the indicator never change activity counts, threshold pass/fail, or the traffic light.
-  Two things collected here are facts rather than judgements, and do feed the readiness check: the count of `<dev-list>` threads started and replies from a confirmed address is the activity metric `mailing_list_posts`, which a project may give a floor like any other count; and any confirmed collected row means an off-GitHub signal is present.
+  The classification and the indicator never change activity counts or how they are shown against reference levels.
+  Two things collected here are facts rather than judgements, and do feed the activity comparison: the count of `<dev-list>` threads started and replies from a confirmed address is the activity metric `mailing_list_posts`, which a project may give a floor like any other count; and any confirmed collected row means an off-GitHub signal is present.
 - **The candidate is never contacted.**
   Everything here comes from public archives and public channels.
 - **Confirmed identity or not used.**

@@ -1,5 +1,6 @@
 {
-  "has_floor_note": true,
+  "has_surfacing_note": true,
   "no_at_mentions": true,
-  "uses_verified_name": true
+  "uses_verified_name": true,
+  "no_floors_met_count": true
 }

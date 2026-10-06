@@ -1,5 +1,6 @@
 {
-  "has_floor_note": true,
+  "has_surfacing_note": true,
   "no_at_mentions": true,
-  "marks_capped_as_minimum": true
+  "marks_capped_as_minimum": true,
+  "no_floors_met_count": true
 }

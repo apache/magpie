@@ -21,8 +21,9 @@ For each metric and each target, over the configured assessment window:
 
 1. Compute the weighted 25th percentile and the weighted median of the **elected** rows, and the weighted median of the **deferred** rows.
    Show them split into the last three years and older, so the maintainer can see whether the bar has moved.
-2. **Proposed floor** = the weighted 25th percentile of elected rows, rounded down to an integer.
-3. If that floor is at or below the weighted median of deferred rows, the metric does **not separate** elected from deferred nominees.
+2. **Proposed floor** = the weighted 25th percentile of elected rows × `calibration_relaxation` (default `0.75`), rounded down to an integer.
+   The relaxation is deliberate: the floors sit well below what the project has elected, so the lists built on them show more people than the `<governance-body>` would consider, and the decision stays with its members.
+3. If the unrelaxed weighted 25th percentile, rounded down, is at or below the weighted median of deferred rows, the metric does **not separate** elected from deferred nominees.
    Propose it as **evidence only**: floor `0`, advisory, shown in briefs but never required.
    Say plainly that it does not separate.
 4. A target with fewer than five elected rows gets no proposed floors; say so and leave its thresholds unchanged.
@@ -43,5 +44,5 @@ For each metric and each target, over the configured assessment window:
 
 ## Output
 
-A diff to both files that sets, for each target, the proposed floors (evidence-only metrics at `0` with the note *"evidence only — does not separate elected from deferred"*), `calibrated_on: <today>`, and `calibrated_window_months: <the configured window>`, so the floors are never read against a different window.
+A diff to both files that sets, for each target, the proposed (relaxed) floors (evidence-only metrics at `0` with the note *"evidence only — does not separate elected from deferred"*), `calibrated_on: <today>`, and `calibrated_window_months: <the configured window>`, so the floors are never read against a different window.
 The diff contains no name, no handle, no count of nominees, and no description of how the numbers were derived.

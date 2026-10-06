@@ -30,6 +30,14 @@
 | **Status** | Proposed. |
 | **Scope** | The `contributor-growth` family: a penalty in `automated-contributions.md`, a new `tools/contributor-metrics` tool, two new skills (`calibrate`, `candidate-screen`), a shared `community-signals.md` used by `nomination` and `contributor-to-committer`, a new `tools/chat` contract with a Slack adapter, and a hand-off from `/magpie-setup config`. |
 
+> **Amended 2026-10-06 — surface information, never rank.**
+> The shipped skills no longer rank or judge anyone.
+> `candidate-screen` lists likely candidates alphabetically by GitHub handle, with no floors-met count, and its report is that list linked to each person's details plus a one-or-two-paragraph summary of findings.
+> `contributor-to-committer` drops the traffic light and per-dimension statuses.
+> `calibrate` deliberately relaxes the floors it proposes (`calibration_relaxation`, default `0.75` of the elected 25th percentile) so the lists show more people than the PMC would consider.
+> Where this document describes a shortlist, a summary table of floors met, or unrelaxed floors, read it as superseded by
+> [Surface information, never rank](../contributor-growth/README.md#surface-information-never-rank).
+
 ## What is wrong
 
 An adopter used the family to surface committer and `<governance-body>` candidates, calibrating the thresholds by hand from the project's own past nomination decisions.

@@ -6,6 +6,7 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [Contributor-growth skill family](#contributor-growth-skill-family)
+  - [Surface information, never rank](#surface-information-never-rank)
   - [Install & first runs](#install--first-runs)
     - [Before the first run](#before-the-first-run)
     - [Why the configuration is personal](#why-the-configuration-is-personal)
@@ -30,8 +31,8 @@
 
 Maintainer-facing skills that span the contributor-to-committer path:
 welcoming first-time contributors, keeping the issue backlog newcomer-
-ready, tracking contribution activity, checking readiness against declared
-thresholds, measuring contributor sentiment, assembling nomination evidence,
+ready, tracking contribution activity, comparing it with the project's
+reference levels, measuring contributor sentiment, assembling nomination evidence,
 and walking nominators through post-vote onboarding. Nine skills cover the staged path from first contact
 through committer promotion.
 
@@ -47,6 +48,27 @@ them makes the adopter configuration and the evaluation story coherent.
 > - A nomination brief built from a year of evidence rather than a recent impression
 > - The post-vote checklist, from ICLA to welcome mail, with the steps that need a PMC chair marked
 > - It names what GitHub cannot see — mailing lists, release votes, mentoring — instead of quietly scoring without them
+
+## Surface information, never rank
+
+The skills that look at people — `activity-sweep`, `calibrate`, `candidate-screen`, `contributor-to-committer` and `nomination` — only surface information.
+The decision about who is nominated, and when, is always made by PMC members.
+
+- **Never a ranking.**
+  No skill orders people by any measure, scores them against each other, or picks a "top" few.
+  Every list of people is in alphabetical order of GitHub handle, compared case-insensitively.
+- **Never a verdict.**
+  No skill says or suggests whether someone is ready, close, or not ready to be nominated.
+  Counts are shown next to the project's reference levels as plain numbers, without a status, a band or a recommendation.
+- **Deliberately more, not fewer.**
+  A list of likely candidates includes more people than the PMC would consider, on purpose, so that nobody is overlooked.
+  `calibrate` sets its reference levels well below what the project has actually elected — by default three quarters of it (`calibration_relaxation`, `0.75`) — to make that true.
+  Appearing on a list means only that someone's details are worth a look.
+- **A report is a list and a summary.**
+  A report lists the people it covers, alphabetically, each linked to their details, followed by a paragraph or two summarising what was found.
+  The summary describes the findings; it does not judge or recommend anyone.
+
+Every brief and report these skills produce says this at the top.
 
 ## Install & first runs
 
@@ -163,11 +185,11 @@ below sends, merges, or posts anything without you confirming it.*
 | **Issue on-ramp** | [`good-first-issue-author`](../../skills/good-first-issue-author/SKILL.md) | Drafts one net-new good first issue from a supplied gap or small task; a suitability gate and R1–R9 readiness checklist gate the draft; waits for maintainer confirmation before filing via `gh`. |
 | **Backlog curation** | [`good-first-issue-sweep`](../../skills/good-first-issue-sweep/SKILL.md) | Sweeps the open issue backlog for existing issues that could be labelled as good first issues; scores each against the G1–G7 suitability rubric; classifies as READY / NEAR-MISS / SKIP and proposes labels after explicit maintainer confirmation. |
 | **Activity tracking** | [`contributor-activity-sweep`](../../skills/contributor-activity-sweep/SKILL.md) | Produces a read-only GitHub activity card (PRs authored, code reviews, issues, comments) over a configurable window. |
-| **Calibration** | [`contributor-calibrate`](../../skills/contributor-calibrate/SKILL.md) | Derives committer and PMC threshold floors from the project's own past nomination decisions on the private list; proposes a config diff holding numbers only, with nothing about any nominee leaving the session. |
-| **Candidate screening** | [`contributor-candidate-screen`](../../skills/contributor-candidate-screen/SKILL.md) | Screens every recent contributor against the calibrated floors, shortlists committer and PMC candidates, and writes a per-candidate evidence report — areas, floors, community signals, two or three paragraphs each — to a repository the GitHub API reports as private, after the maintainer has read it. |
-| **Readiness check** | [`contributor-to-committer`](../../skills/contributor-to-committer/SKILL.md) | Maps a contributor's GitHub activity against the adopter's PMC-declared committer or PMC thresholds; surfaces a traffic-light brief (Not yet / Approaching / Ready to nominate) and a gap table showing what would close each remaining gap. Read-only; never opens a nomination thread. |
+| **Calibration** | [`contributor-calibrate`](../../skills/contributor-calibrate/SKILL.md) | Derives committer and PMC reference levels from the project's own past nomination decisions on the private list, deliberately relaxed well below what the project elected; proposes a config diff holding numbers only, with nothing about any nominee leaving the session. |
+| **Candidate screening** | [`contributor-candidate-screen`](../../skills/contributor-candidate-screen/SKILL.md) | Surfaces details about likely committer and PMC candidates — deliberately more people than the PMC would consider — and writes a report to a repository the GitHub API reports as private, after the maintainer has read it: an alphabetical list linked to each person's details, and a paragraph or two summarising the findings. Never a ranking, never a verdict. |
+| **Activity vs. reference** | [`contributor-to-committer`](../../skills/contributor-to-committer/SKILL.md) | Shows a contributor's activity next to the project's committer or PMC reference levels, as plain numbers with the difference, and a short factual summary. No status, band, or readiness verdict. Read-only; never opens a nomination thread. |
 | **Identity mapping** | [`contributor-identity-map`](../../skills/contributor-identity-map/SKILL.md) | Maps any contributor's GitHub handle to their Slack, Discord, Matrix, mailing-list, and social-media handles; infers from the sources the session can reach and records only the mappings a maintainer confirms. Used by `committer-onboarding` and `contributor-nomination`. |
-| **Nomination brief** | [`contributor-nomination`](../../skills/contributor-nomination/SKILL.md) | Assembles evidence prose for a committer or PMC vote thread: activity breadth, consistency, vendor-neutrality context, and a nomination-ready summary. Read-only; never posts to any list. |
+| **Nomination brief** | [`contributor-nomination`](../../skills/contributor-nomination/SKILL.md) | Assembles evidence for a committer or PMC discussion: activity breadth, consistency, vendor-neutrality context, and factual narrative prose. Never rates the contributor or says whether they are ready. Read-only; never posts to any list. |
 | **Sentiment analysis** | [`contributor-sentiment`](../../skills/contributor-sentiment/SKILL.md) | Analyse contributor sentiment signals (issue tone, PR abandonment, response-time frustration) to surface early-warning indicators of contributor disengagement. Read-only. |
 | **Onboarding concierge** | [`onboarding-concierge`](../../skills/onboarding-concierge/SKILL.md) | Interactive first-session guide for new contributors: walks through repo setup, points to good first issues, introduces project conventions and communication channels. |
 | **Post-vote onboarding** | [`committer-onboarding`](../../skills/committer-onboarding/SKILL.md) | Walks the nominator through ICLA check, account provisioning, permissions grant, and the welcome announcement for committer and PMC promotions at ASF TLPs and podlings. |

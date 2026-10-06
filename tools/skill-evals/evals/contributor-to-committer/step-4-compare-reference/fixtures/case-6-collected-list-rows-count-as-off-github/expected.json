@@ -1,0 +1,38 @@
+{
+  "dimensions": {
+    "prs_merged": {
+      "current": 8,
+      "reference": 5,
+      "difference": 3
+    },
+    "reviews_total": {
+      "current": 6,
+      "reference": 3,
+      "difference": 3
+    },
+    "reviews_substantive": {
+      "current": 3,
+      "reference": 2,
+      "difference": 1
+    },
+    "issues_filed": {
+      "current": 0,
+      "reference": 0,
+      "difference": null
+    },
+    "threads_commented": {
+      "current": 9,
+      "reference": 5,
+      "difference": 4
+    },
+    "area_breadth": {
+      "current": 2,
+      "reference": 0,
+      "difference": null
+    },
+    "off_github": {
+      "current": "present"
+    }
+  },
+  "verdict_given": false
+}

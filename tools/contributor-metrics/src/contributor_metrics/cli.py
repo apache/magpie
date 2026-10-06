@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from contributor_metrics.fetch import GhError, InvalidLogin, InvalidRepo, fetch_items
-from contributor_metrics.floors import propose_floors
+from contributor_metrics.floors import DEFAULT_RELAXATION, propose_floors
 from contributor_metrics.model import Item, Weights
 from contributor_metrics.score import score
 
@@ -71,12 +71,24 @@ def main(argv: Sequence[str] | None = None) -> int:
     fl.add_argument("--today", default=date.today().isoformat())
     fl.add_argument("--halflife", type=float, default=2.0)
     fl.add_argument("--min-elected", type=int, default=5)
+    fl.add_argument(
+        "--relaxation",
+        type=float,
+        default=DEFAULT_RELAXATION,
+        help="scale the elected p25 down by this factor, in (0, 1]; deliberately surfaces more people",
+    )
     fl.add_argument("--out", required=True)
     args = p.parse_args(argv)
 
     if args.cmd == "floors":
         rows = json.loads(Path(args.rows).read_text())
-        result = propose_floors(rows, today=args.today, halflife=args.halflife, min_elected=args.min_elected)
+        result = propose_floors(
+            rows,
+            today=args.today,
+            halflife=args.halflife,
+            min_elected=args.min_elected,
+            relaxation=args.relaxation,
+        )
         Path(args.out).write_text(json.dumps(result, indent=2))
         return 0
 

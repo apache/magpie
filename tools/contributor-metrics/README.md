@@ -89,7 +89,7 @@ contributor-metrics score --items items.json [--classes classes.json] [--weights
 ### `floors`
 
 ```bash
-contributor-metrics floors --rows rows.json [--today YYYY-MM-DD] [--halflife 2] [--min-elected 5] --out floors.json
+contributor-metrics floors --rows rows.json [--today YYYY-MM-DD] [--halflife 2] [--min-elected 5] [--relaxation 0.75] --out floors.json
 ```
 
 Proposes threshold floors from measured past nominations, for `contributor-calibrate`.
@@ -97,11 +97,13 @@ Proposes threshold floors from measured past nominations, for `contributor-calib
 
 - Rows are weighted by recency, `0.5 ** (age_years / halflife)`; withdrawn rows are ignored.
 - The weighted percentile is the smallest value whose cumulative weight reaches the percentile's share of the total weight.
-- The floor is the weighted 25th percentile of elected rows, rounded down; when it is at or below the weighted median of deferred rows the metric is *evidence only* (floor `0`).
+- The floor is the weighted 25th percentile of elected rows multiplied by `--relaxation` (default `0.75`), rounded down.
+  The relaxation is deliberate: the floors sit well below what the project has elected, so the lists built on them surface more people than the governing body would pick, and the decision stays with that body.
+- When the unrelaxed weighted 25th percentile, rounded down, is at or below the weighted median of deferred rows, the metric is *evidence only* (floor `0`).
 - A target with fewer than `--min-elected` elected rows gets no floors.
 - A capped value is left out of that metric's distribution and counted in `excluded_capped`.
 
-Output: `{"floors": {target: {metric: int}}, "evidence_only": {target: [metric]}, "no_floors_for": [target], "distribution": {...}, "notes": [...]}`.
+Output: `{"floors": {target: {metric: int}}, "evidence_only": {target: [metric]}, "no_floors_for": [target], "distribution": {...}, "relaxation": float, "notes": [...]}`.
 
 ## Output schema
 

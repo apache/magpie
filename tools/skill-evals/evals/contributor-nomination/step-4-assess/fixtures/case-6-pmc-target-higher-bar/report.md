@@ -20,20 +20,7 @@ Upstream: apache/example-project
 PR merge rate: 86% (6 of 7)
 Substantive review ratio: 40% (2 of 5)
 
-No thresholds declared in contributor-nomination-config.md.
-Framework defaults apply.
-
-Committer default bars (for reference):
-  PRs merged ≥ 5 → met (6)
-  Reviews given ≥ 3 → met (5)
-  Substantive reviews ≥ 2 → met (2)
-  Comments ≥ 5 → met (12)
-
-PMC default bars:
-  PRs merged ≥ 10 → NOT met (6)
-  Reviews given ≥ 8 → NOT met (5)
-  Substantive reviews ≥ 4 → NOT met (2)
-  Comments ≥ 10 → met (12)
+No thresholds declared in contributor-nomination-config.md, so no reference levels are shown; the brief reports the counts only.
 
 ## Off-GitHub signal (nominator-supplied)
 

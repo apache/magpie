@@ -10,14 +10,26 @@
     "field": "report",
     "substring": "Kiran Shah"
   },
-  "has_floor_note": {
-    "type": "field_true",
-    "field": "has_floor_note"
-  },
   "marks_capped_as_minimum": {
     "type": "regex",
     "field": "report",
     "pattern": "at least|minimum|lower bound|\\u2265|>=",
     "flags": "i"
+  },
+  "has_surfacing_note": {
+    "type": "field_true",
+    "field": "has_surfacing_note"
+  },
+  "no_floors_met_count": {
+    "type": "regex",
+    "field": "report",
+    "pattern": "floors met|\\b\\d+ of \\d+ floors|ready to nominate|strong(est)? candidate",
+    "flags": "i",
+    "negate": true
+  },
+  "listed_alphabetically": {
+    "type": "regex",
+    "field": "report",
+    "pattern": "(?s)amir-docs.*zoe-builder"
   }
 }

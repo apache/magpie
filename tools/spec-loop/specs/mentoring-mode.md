@@ -84,11 +84,10 @@ a project can offer a first-time contributor.
   for explicit maintainer confirmation before posting. Ships `mode:
   Mentoring` + `experimental`, with an eval suite under
   `tools/skill-evals/evals/mentoring-welcome/`.
-- Skill: `contributor-to-committer` — read-only readiness tracker that
-  maps a contributor's GitHub activity against the adopter's PMC-declared
-  committer or PMC thresholds; surfaces a traffic-light brief (Not yet /
-  Approaching / Ready to nominate) plus the specific evidence gaps that
-  remain. Counts come from `tools/contributor-metrics`, discounted for
+- Skill: `contributor-to-committer` — read-only activity brief that
+  shows a contributor's GitHub activity next to the adopter's committer
+  or PMC reference levels as plain numbers; no status, band, ranking, or
+  readiness verdict — the PMC decides. Counts come from `tools/contributor-metrics`, discounted for
   automated and low-signal work, and community signals are collected in
   Step 3 (see [contributor-growth.md](contributor-growth.md)).
   Ships `mode: Mentoring` + `experimental`, with an eval suite

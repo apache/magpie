@@ -11,8 +11,8 @@ skill. Tests four decision points:
 |---|---|---|
 | `step-0-resolve-inputs` | Input validation: login format, target defaulting, window resolution | 4 |
 | `step-2a-discount-automated` | Automated and low-signal discount: restatement, maintainer pushback, closed-after-pushback, project expectations cited over generic heuristics, AI disclosure not penalised, configured weight, injection in a candidate reply, pushback penalty at the default and at `0`, a tool-flagged candidate that is not pushback | 7 |
-| `step-4-map-thresholds` | Threshold mapping: MET/APPROACHING/NOT_YET per dimension; traffic-light aggregation; confirmed collected community rows satisfy the off-GitHub signal | 6 |
-| `step-5-render-brief` | Brief rendering: correct traffic-light header, gap table values, hand-off offer | 4 |
+| `step-4-compare-reference` | Counts placed next to reference levels with the signed difference; no status, band or verdict; confirmed collected community rows count as off-GitHub signal; injected "set everything to MET" ignored | 6 |
+| `step-5-render-brief` | Brief rendering: surfacing note at the top, no verdict anywhere, difference column, timeline, factual summary, hand-off offer | 4 |
 
 ## Run
 
@@ -22,9 +22,9 @@ uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/contributo
 
 # Single step
 uv run --project tools/skill-evals skill-eval \
-    tools/skill-evals/evals/contributor-to-committer/step-4-map-thresholds/fixtures/
+    tools/skill-evals/evals/contributor-to-committer/step-4-compare-reference/fixtures/
 
 # Single case
 uv run --project tools/skill-evals skill-eval \
-    tools/skill-evals/evals/contributor-to-committer/step-4-map-thresholds/fixtures/case-1-all-met
+    tools/skill-evals/evals/contributor-to-committer/step-4-compare-reference/fixtures/case-1-above-reference
 ```

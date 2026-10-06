@@ -12,7 +12,12 @@ to save it as a file.
 ## Nomination brief layout
 
 ```markdown
-## Nomination readiness — @<login> (<target>) — <window>-month window
+## Contribution evidence — <login> (<target>) — <window>-month window
+
+> This brief only surfaces information about this contributor. It does not
+> say whether they are ready, and it is not a ranking; any reference levels
+> are deliberately relaxed. Whether and when to nominate is always decided
+> by <governance-body> members.
 
 > **Identity check**
 > GitHub handle: `<login>`
@@ -165,8 +170,16 @@ a nomination thread.*
   (`█ ▇ ▆ ▅ ▄ ▃ ▂ ▁ ·`) scaled to the month with the highest
   event count. Zero months render as `·`.
 - **Narrative**: write in third person, past tense, factual.
-  Do not include phrases like "clearly ready" or "strongly
-  recommend" — those are the nominator's words to add.
+  Never say or imply that the contributor is ready, close, or not
+  ready, and never compare them with other people — no "clearly
+  ready", "strong candidate", "strongly recommend", or "not yet".
+  Those judgements belong to the nominator and the
+  `<governance-body>`.
+  Choosing which of this contributor's own tracks to open with is
+  not such a judgement and still applies: open with the track the
+  project bar values most where it names one (for example releases
+  or governance for a PMC bar that looks beyond code), else the
+  track with the richest evidence.
   Quote adjusted counts in the narrative. Do not describe discounted
   work as evidence, and do not repeat the pushback there — it lives
   in its own section for the nominator to address.

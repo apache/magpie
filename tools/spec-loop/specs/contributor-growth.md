@@ -91,14 +91,17 @@ Adopter config scaffolds live in `plugins/magpie-setup/templates/`
   participation, issues, and comments over a configurable window.
   Ships `mode: Triage` + `experimental`, eval suite under
   `tools/skill-evals/evals/contributor-activity-sweep/`.
-- Skill: `contributor-nomination` — nomination-readiness brief for a
+- Skill: `contributor-nomination` — nomination evidence brief for a
   named contributor: activity breadth, consistency, vendor-neutrality
-  context, and evidence prose for a committer or PMC thread.
+  context, and factual evidence prose for a committer or PMC thread;
+  never rates the contributor or says whether they are ready.
   Read-only; never posts to any list. Ships `mode: Triage`
   + `experimental`, eval suite under
   `tools/skill-evals/evals/contributor-nomination/`.
 - Skill: `contributor-calibrate` — derives committer and PMC
-  threshold floors from the project's past nomination decisions on
+  reference floors, deliberately relaxed (default 0.75 of the elected
+  25th percentile, `calibration_relaxation`), from the project's past
+  nomination decisions on
   the private list (behind the privacy-LLM gate), honouring a holdout
   date and excluded threads; proposes a numbers-only config diff and
   keeps per-nominee data in the session scratch directory. Ships
@@ -106,8 +109,10 @@ Adopter config scaffolds live in `plugins/magpie-setup/templates/`
   `tools/skill-evals/evals/contributor-calibrate/`.
 - Skill: `contributor-candidate-screen` — screens every recent
   contributor against the floors (deterministic pre-filter, every drop
-  logged), shortlists committer and PMC candidates, and writes a
-  per-candidate report with areas, floors, community signals and verified
+  logged), lists likely committer and PMC candidates — deliberately
+  more than the PMC would consider, alphabetically by handle, never
+  ranked or judged — and writes a report (the list linked to details,
+  plus a one-or-two-paragraph summary of findings) with areas, floors, community signals and verified
   real names; commits it only to a repository the GitHub API reports as
   private, checked twice, after the maintainer confirms; no
   `@`-mentions. Ships `mode: Triage` + `experimental`, eval suite under
@@ -140,11 +145,11 @@ Adopter config scaffolds live in `plugins/magpie-setup/templates/`
   `contributor-nomination` (Step 3). Ships `mode: Triage` +
   `experimental`, eval suite under
   `tools/skill-evals/evals/contributor-identity-map/`.
-- Skill: `contributor-to-committer` — read-only readiness tracker that
-  maps a contributor's GitHub activity against the adopter's PMC-declared
-  committer or PMC thresholds; surfaces a traffic-light brief (Not yet /
-  Approaching / Ready to nominate) plus the specific evidence gaps that
-  remain. Ships `mode: Mentoring` + `experimental`.
+- Skill: `contributor-to-committer` — read-only activity brief that
+  shows a contributor's GitHub activity next to the adopter's committer
+  or PMC reference levels as plain numbers with the difference; no
+  status, band, ranking, or readiness verdict, and several contributors
+  are listed alphabetically by handle with a short summary. Ships `mode: Mentoring` + `experimental`.
 - Skill: `contributor-sentiment` — measures contributor-sentiment
   signals over a window (thread tone, time-to-first-reply, first-PR
   retention, reviewer-load Gini), compares them with a pre-adoption

@@ -21,8 +21,8 @@ All rows voted in the last year, so every row has the same recency weight. Metri
 {
   "floors": {
     "committer": {
-      "issues_filed": 3,
-      "prs_merged": 48
+      "issues_filed": 2,
+      "prs_merged": 36
     },
     "pmc": {}
   },
@@ -33,6 +33,7 @@ All rows voted in the last year, so every row has the same recency weight. Metri
   "no_floors_for": [
     "pmc"
   ],
+  "relaxation": 0.75,
   "notes": [
     "pmc: 2 elected rows, fewer than 5; no floors proposed"
   ]

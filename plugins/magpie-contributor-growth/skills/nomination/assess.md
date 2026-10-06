@@ -74,65 +74,40 @@ priority, not subordinate it to line counts.
 across ASF projects — by project size, velocity, culture, and
 the candidate's specific track. The skill reports raw numbers
 and nominator-supplied context, and lets the PMC judge against
-the project's own bar. Ratings are only applied when the
-project's `contributor-nomination-config.md` explicitly
-declares thresholds calibrated to that project.
+the project's own bar. The brief never rates a count and never
+says whether the contributor is ready: when the project's
+`contributor-nomination-config.md` declares thresholds, they are
+shown as reference levels next to the counts, nothing more.
 
 ---
 
 ## Part 1 — GitHub activity summary
 
 Report the counts from [`fetch.md`](fetch.md), raw and adjusted per
-[Part 1b](#part-1b--automated-and-low-signal-contributions), without
-applying ratings unless thresholds are declared in
-`<project-config>/contributor-nomination-config.md`:
+[Part 1b](#part-1b--automated-and-low-signal-contributions), as plain
+numbers:
 
-| Area | Raw | Adjusted | Rating (if configured) |
+| Area | Raw | Adjusted | Reference (if configured) |
 |---|---|---|---|
-| PRs opened | N | N.N | — or configured rating |
-| PRs merged | N | N.N | — or configured rating |
-| Reviews given | N | N.N | — |
-| Substantive reviews | N | N.N | — |
-| Issues filed | N | N.N | — |
-| Issue / PR comments | N | N.N | — |
+| PRs opened | N | N.N | — |
+| PRs merged | N | N.N | N or — |
+| Reviews given | N | N.N | N or — |
+| Substantive reviews | N | N.N | N or — |
+| Issues filed | N | N.N | N or — |
+| Issue / PR comments | N | N.N | N or — |
 
-Ratings, configured or default, are applied to the adjusted count.
-
-If the config declares thresholds, apply them and show the
-rating. If not, apply the **low-bar defaults** below — clearly
-labelled in the brief as defaults, not project-specific
-standards — alongside the project-context note from Step 3:
-
-| Area | Default low bar (committer) | Default low bar (PMC) |
-|---|---|---|
-| PRs merged | ≥ 5 | ≥ 10 |
-| Reviews given | ≥ 3 | ≥ 8 |
-| Substantive reviews | ≥ 2 | ≥ 4 |
-| Comments | ≥ 5 | ≥ 10 |
-
-These defaults represent a reasonable low bar for a mid-size
-active project — not a universal standard. Two important
-caveats:
-
-- **Some projects set much higher bars.** Large, high-velocity
-  projects may expect significantly more before nominating.
-  Always calibrate against the project's own recent nominations.
-- **Some projects give committership more freely.** A few ASF
-  projects nominate contributors after very small contributions
-  as a welcoming gesture. If that is this project's culture,
-  set thresholds accordingly in
-  `<project-config>/contributor-nomination-config.md` — do not
-  let framework defaults imply the project is doing it wrong.
-
-When the brief is rendered, label any rating drawn from defaults
-with *(framework default — calibrate for your project)* so the
-PMC knows not to treat it as the project's own standard.
+The *Reference* column shows the value declared in
+`<project-config>/contributor-nomination-config.md`, or `—` when none
+is declared. It is context, not a test: no rating, status, or
+pass/fail mark is attached to any count, and the framework applies no
+default bar of its own. Label the column *(deliberately relaxed —
+the PMC decides)* when the values came from `calibrate`.
 
 ---
 
 ## Part 1b — Automated and low-signal contributions
 
-Apply [`automated-contributions.md`](automated-contributions.md) to the GitHub items before rating anything.
+Apply [`automated-contributions.md`](automated-contributions.md) to the GitHub items before reporting any count.
 In short:
 
 - The project's own expectations, listed in `automated_contribution_expectations`, are read first and cited as the basis of every flag they decide; the generic heuristics cover only what the project has not documented.

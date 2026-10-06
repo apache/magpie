@@ -12,18 +12,20 @@ description: |
   Read-only nomination brief for a named contributor on <upstream>.
   Aggregates GitHub activity across contribution tracks, off-GitHub signal,
   and vendor-neutrality context for committer or PMC nomination threads.
+  Surfaces information only: never rates the contributor or says whether they are ready.
 when_to_use: |
   Invoke when a maintainer says "assess <handle> for nomination",
   "is <handle> ready to be a committer", "build the case for nominating <handle>",
-  "how active has <handle> been", or evaluating committer/PMC readiness.
+  "how active has <handle> been", or gathering evidence for a committer/PMC discussion.
+  It answers with information, never a verdict.
   Skip for questions about a specific PR or issue. Skip when no GitHub
   handle has been provided and the user has not indicated they want to
   assess a contributor.
 argument-hint: "<github-handle> [window:Nm] [target:committer|pmc]"
 capability: capability:stats
-surface_hash: sha256:ce38f115ea57c59b
+surface_hash: sha256:d78eb556cf43aa79
 license: Apache-2.0
-measured_tokens: 5036
+measured_tokens: 5187
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -96,8 +98,8 @@ is in. `/magpie-setup verify` is the full diagnostic.
 > the off-GitHub signal sections and the nomination brief template, but
 > you will need to supply all contribution counts manually.
 
-Read-only skill that answers *"is this contributor ready to be
-nominated, and what is the evidence?"* for a single GitHub handle
+Read-only skill that answers *"what is the evidence of this
+contributor's work?"* for a single GitHub handle
 on `<upstream>`. Primary output is a **nomination brief** with
 four sections:
 
@@ -105,7 +107,13 @@ four sections:
 |---|---|---|
 | **Contributions** | All tracks in one table — GitHub-derived counts (code, review, issues) and nominator-supplied signal (mailing list, docs, community, testing, mentoring) | Full picture; no track privileged over another |
 | **Activity timeline** | Month-by-month activity bar across the window — neutral, no rating | Context for when contributions happened; merit once earned does not expire |
-| **Nomination narrative** | One paragraph of evidence prose, ready to paste into a nomination thread | Saves the nominator an hour of archaeology |
+| **Nomination narrative** | One paragraph of factual evidence prose the nominator can adapt for a nomination thread | Saves the nominator an hour of archaeology |
+
+**This skill surfaces information; `<governance-body>` members decide.**
+Even when asked *"is <handle> ready?"*, it never says or suggests whether the contributor is ready, close, or not ready, never rates their activity, and never compares them with other people.
+Configured thresholds are shown only as reference levels next to the counts — deliberately relaxed ones — never turned into a rating.
+Whether and when to nominate is always the decision of `<governance-body>` members.
+See [Surface information, never rank](../../../../docs/contributor-growth/README.md#surface-information-never-rank).
 
 The skill is read-only and produces no GitHub mutations. Every
 output is a draft the maintainer reviews, adjusts, and acts on —

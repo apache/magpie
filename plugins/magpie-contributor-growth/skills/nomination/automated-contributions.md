@@ -3,7 +3,7 @@
 
 # Automated and low-signal contributions
 
-Shared definition of the discount that the readiness and nomination skills apply to visibly automated or low-signal GitHub activity.
+Shared definition of the discount that the activity-brief and nomination skills apply to visibly automated or low-signal GitHub activity.
 [`SKILL.md` § Step 4](SKILL.md#step-4--assess) of this skill and [`contributor-to-committer` § Step 2a](../contributor-to-committer/SKILL.md#step-2a--discount-automated-and-low-signal-contributions) both apply it; each skill's own step says which config file it reads the settings from.
 
 A count of PRs and comments rewards volume.
@@ -17,7 +17,7 @@ This file defines what is discounted, by how much, and how the brief shows it.
 
 - **A signal for humans, never a verdict.**
   The discount adjusts counts and surfaces evidence.
-  It never on its own disqualifies a contributor, never moves the traffic light to *Not yet* by itself, and never removes the contributor from a sweep.
+  It never on its own disqualifies a contributor, never changes how a contributor is presented, and never removes the contributor from a sweep.
   The maintainer or the PMC decides what the evidence means.
 - **Using AI tools is not penalised.**
   A `Generated-by:`, `Assisted-by:` or similar trailer, a disclosure in the PR description, or a contributor saying they used an assistant is never a signal on its own.
@@ -209,4 +209,4 @@ If nothing was flagged, render one line instead: *"No contributions discounted (
 
 Describe flagged items factually — *"drew maintainer pushback (P2 — not reviewed by the author)"*.
 Do not label the contributor, speculate about which tool they used, or reproduce the pushback text.
-When pushback exists, name it in the brief's summary as a negative signal the maintainers should weigh, next to the traffic light or the narrative, and state plainly that it is not a disqualification.
+When pushback exists, name it in the brief's summary as a negative signal the maintainers should weigh, in the summary or the narrative, and state plainly that it is not a disqualification.

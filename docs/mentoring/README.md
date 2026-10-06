@@ -137,7 +137,7 @@ below sends, merges, or posts anything without you confirming it.*
 | [`mentoring-welcome`](../../skills/mentoring-welcome/SKILL.md) | Draft a first-contact orientation comment for a first-time contributor on a newly opened issue or PR; detects first-time authorship via the GitHub `author_association` field; skips repeat contributors. | experimental |
 | [`newcomer-issue-explainer`](../../skills/newcomer-issue-explainer/SKILL.md) | Explain a single issue's context, relevant code paths, and expected approach to a newcomer who has claimed it; teaching register, never gatekeeps. | experimental |
 | [`good-first-issue-sweep`](../../skills/good-first-issue-sweep/SKILL.md) | Sweep the open issue backlog for existing issues that could be labelled as good first issues; scores each against the G1–G7 suitability rubric and classifies as READY / NEAR-MISS / SKIP; proposes labels only after explicit maintainer confirmation. | experimental |
-| [`contributor-to-committer`](../../skills/contributor-to-committer/SKILL.md) | Read-only readiness tracker that maps a contributor's GitHub activity against the adopter's declared committer/PMC thresholds; surfaces a traffic-light brief (Not yet / Approaching / Ready to nominate) plus the specific evidence gaps that remain. (`family: contributor-growth` — cross-listed here for the mentoring path continuity.) | experimental |
+| [`contributor-to-committer`](../../skills/contributor-to-committer/SKILL.md) | Read-only brief showing a contributor's GitHub activity next to the adopter's committer/PMC reference levels as plain numbers with the difference; surfaces information only — no ranking, status, or readiness verdict, the PMC decides. (`family: contributor-growth` — cross-listed here for the mentoring path continuity.) | experimental |
 
 All six skills are read-only on tracker state or draft-then-confirm: no
 skill posts, labels, closes, or files anything without explicit maintainer
@@ -165,12 +165,12 @@ confirmation in-session.
 - **`newcomer-issue-explainer`** — the issue-context skill. When a newcomer
   claims a good-first-issue, explains the relevant code paths, project context,
   and expected approach in a teaching register.
-- **`contributor-to-committer`** — the readiness-tracking skill. Takes a
-  GitHub handle, fetches their public activity on `<upstream>`, and maps it
-  against the adopter's declared committer or PMC thresholds from
-  `committer-readiness.md`. Returns a traffic-light verdict (Not yet /
-  Approaching / Ready to nominate) plus a gap table showing exactly what
-  evidence the contributor still needs. Read-only; never opens a nomination
+- **`contributor-to-committer`** — the activity-brief skill. Takes a
+  GitHub handle, fetches their public activity on `<upstream>`, and shows it
+  next to the adopter's committer or PMC reference levels from
+  `committer-readiness.md`, as plain numbers with the difference. It only
+  surfaces information: no status, band, ranking, or readiness verdict —
+  the PMC decides. Read-only; never opens a nomination
   thread, sends a message, or modifies any record.
 - **`good-first-issue-sweep`** — the backlog-curation skill. Sweeps the
   open issue backlog and scores each issue against the G1–G7 suitability

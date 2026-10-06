@@ -3,33 +3,37 @@
 
 # Render brief
 
-Layout and rendering rules for the readiness brief produced in Step 5.
+Layout and rendering rules for the activity brief produced in Step 5.
 
 ---
 
 ## Brief layout
 
 ```text
-## Committer-path readiness — <name> on <upstream>
+## Contributor activity — <name> on <upstream>
 ## Target: <target>  |  Window: <since> → today (<window> months)
-## Thresholds from: <source — config file name or "runtime (maintainer-supplied)">
+## Reference levels from: <source — config file name or "runtime (maintainer-supplied)">
 
-### Overall: <traffic-light — ✓ Ready to nominate | ~ Approaching | ✗ Not yet>
+> This brief only surfaces information. The reference levels are deliberately relaxed,
+> so they show more than the <governance-body> would expect. It is not a ranking and it
+> does not say whether this contributor is ready; that decision is always made by
+> <governance-body> members.
+
 [If pushback_items > 0: ⚠ Maintainer pushback on <N> contributions — see "Automated and low-signal contributions". A signal to weigh, not a disqualification.]
 
-### Activity vs. thresholds
+### Activity next to reference levels
 
-| Dimension           | Raw      | Discounted | Penalty | Adjusted | Required | Status      | Gap        |
-|---------------------|----------|------------|---------|----------|----------|-------------|------------|
-| PRs merged          | N        | N.N        | −N.N    | N.N      | N        | MET/~/?     | −N or —    |
-| Reviews total       | N        | N.N        | −N.N    | N.N      | N        | MET/~/?     | −N or —    |
-| Reviews substantive | N        | N.N        | −N.N    | N.N      | N        | MET/~/?     | −N or —    |
-| Issues filed        | N        | N.N        | −N.N    | N.N      | N (or 0) | MET/~/?     | −N or —    |
-| PR/issue comments   | N        | N.N        | −N.N    | N.N      | N        | MET/~/?     | −N or —    |
-| Area breadth        | N areas  | N areas    | —       | N areas  | N areas  | MET/~/?     | −N or —    |
-| Issues triaged      | N        | N.N        | −N.N    | N.N      | N (or 0) | MET/~/?     | −N or —    |
-| Dev-list posts      | N        | —          | —       | N        | N (or 0) | MET/~/?     | −N or —    |
-| Off-GitHub          | present/absent | — | — | — | present | MET/? | —          |
+| Dimension           | Raw      | Discounted | Penalty | Adjusted | Reference | Difference |
+|---------------------|----------|------------|---------|----------|-----------|------------|
+| PRs merged          | N        | N.N        | −N.N    | N.N      | N         | ±N.N or —  |
+| Reviews total       | N        | N.N        | −N.N    | N.N      | N         | ±N.N or —  |
+| Reviews substantive | N        | N.N        | −N.N    | N.N      | N         | ±N.N or —  |
+| Issues filed        | N        | N.N        | −N.N    | N.N      | N (or 0)  | ±N.N or —  |
+| PR/issue comments   | N        | N.N        | −N.N    | N.N      | N         | ±N.N or —  |
+| Area breadth        | N areas  | N areas    | —       | N areas  | N areas   | ±N or —    |
+| Issues triaged      | N        | N.N        | −N.N    | N.N      | N (or 0)  | ±N.N or —  |
+| Dev-list posts      | N        | —          | —       | N        | N (or 0)  | ±N or —    |
+| Off-GitHub          | present/absent | — | — | — | —        | —          |
 
 [Cap note if any stream hit the 300-result budget]
 [Note if thresholds are qualitative / runtime-supplied]
@@ -58,29 +62,48 @@ Layout and rendering rules for the readiness brief produced in Step 5.
 
 ### Summary
 
-<One paragraph: traffic-light colour with key evidence. For Approaching
-and Not yet: name the specific gaps and what would close them. For
-Ready: state the key evidence and suggest the maintainer consider
-opening a contributor-nomination run for the full brief.
+<One or two paragraphs describing what was found: the tracks and areas
+the contributor worked in, notable counts, and off-GitHub and community
+signal. Factual only — never say or imply ready, close, not ready,
+approaching, or that anyone should or should not be nominated.
 If any contribution drew maintainer pushback, say so here as a negative
 signal, cite the expectation it conflicted with, and state that it is not
 a disqualification.>
+```
+
+## Several contributors — report layout
+
+```text
+## Contributor activity — <upstream> — <since> → today
+
+> This report only surfaces information about the contributors below. It deliberately
+> covers more than the <governance-body> would consider, it is not a ranking — people
+> appear in alphabetical order of GitHub handle — and it does not say whether anyone is
+> ready. Every decision is made by <governance-body> members.
+
+- [<name>](#<anchor of their brief>)
+- [<name>](#<anchor of their brief>)
+
+<One or two paragraphs summarising the findings across the group — what
+kinds of work were seen, where the data is thin, what was not collected.
+No comparison between people, no ordering, no readiness judgement.>
+
+<Each contributor's brief, in the same alphabetical order.>
 ```
 
 ---
 
 ## Rendering rules
 
-- **Traffic-light symbols**: `✓ Ready to nominate`, `~ Approaching`,
-  `✗ Not yet`.
-- **Gap column**: show the shortfall against the adjusted count as `−N`
-  for numeric thresholds where status is APPROACHING or NOT_YET; show `—`
-  for MET dimensions or threshold-0 dimensions.
+- **No verdict**: no traffic light, status column, band, score, or
+  readiness wording anywhere in the brief.
+- **Difference column**: adjusted count minus the reference level, signed;
+  `—` when the reference is 0 or not declared.
+- **Ordering**: with several contributors, alphabetical by GitHub handle,
+  case-insensitive — never by any count or measure.
 - **Raw and adjusted**: when nothing was discounted the two columns are
   equal; keep both so the reader can see the discount ran.
 - **Penalty**: show `−N.N`, or `—` when zero.
-- **Status symbols**: `MET`, `~` (approaching), `✗` (not yet), or
-  `?` (narrative only — no numeric threshold).
 - **Bar chart**: Unicode block characters (`█ ▇ ▆ ▅ ▄ ▃ ▂ ▁ ·`)
   scaled to the month with the highest combined event count. Zero
   months render as `·`.

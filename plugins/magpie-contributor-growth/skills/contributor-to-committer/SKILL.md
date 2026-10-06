@@ -9,21 +9,22 @@ requires_config:
   - committer-readiness.md
   - project.md
 description: |
-  Read-only readiness tracker mapping a contributor's activity against declared
-  committer or PMC thresholds. Surfaces a traffic-light brief (Not yet /
-  Approaching / Ready to nominate) and remaining evidence gaps.
+  Read-only brief showing a contributor's activity next to the project's
+  committer or PMC reference levels, as plain numbers. Surfaces information
+  only: no ranking, no status, no readiness verdict — the PMC decides.
 when_to_use: |
   Invoke when asked "how close is <handle> to being a committer", "is <handle> approaching the bar",
   "track <handle>'s path to committer", "what does <handle> still need for nomination",
-  or any variation on assessing readiness against declared thresholds.
+  or any variation on comparing activity with the project's reference levels.
+  It answers with information, never a verdict.
   Also useful as a periodic sweep across several contributors the team is mentoring.
   Skip when the user wants a full nomination brief (use `contributor-nomination` instead)
   or when no GitHub handle has been provided.
 argument-hint: "<github-handle> [target:committer|pmc] [window:Nm]"
 capability: capability:stats
-surface_hash: sha256:e76cde2e102facc4
+surface_hash: sha256:bdf92c88a304ddea
 license: Apache-2.0
-measured_tokens: 4914
+measured_tokens: 4946
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -90,33 +91,38 @@ is in. `/magpie-setup verify` is the full diagnostic.
 
 > **GitHub projects only.** This skill uses the GitHub CLI (`gh`) for
 > all activity data. Projects not on GitHub can use the off-GitHub
-> signal section and the gap table, but will need to supply all counts
+> signal section and the activity table, but will need to supply all counts
 > manually.
 
-Read-only path tracker that answers *"where on the committer path is
-this contributor, and what gaps remain?"* for a single GitHub handle
-on `<upstream>`. Primary output is a **readiness brief** with:
+Read-only skill that answers *"what has this contributor done, and how
+does it compare with the project's reference levels?"* for a GitHub handle
+on `<upstream>`. Primary output is an **activity brief** with:
 
 | Section | What it shows | Maintainer use |
 |---|---|---|
-| **Traffic light** | Not yet / Approaching / Ready to nominate | At-a-glance status for a mentoring conversation |
-| **Gap table** | Per-threshold current vs. required, gap remaining | Shows exactly what to encourage next |
-| **Narrative** | One paragraph summarising the picture | Ready to share in a mentoring thread |
+| **Activity table** | Per-dimension counts next to the project's reference level, with the difference | Facts for a mentoring conversation |
+| **Summary** | One or two paragraphs describing what was found | Context to share with other `<governance-body>` members |
+
+**This skill surfaces information; `<governance-body>` members decide.**
+It never ranks people, never assigns a status, band or traffic light, and never says or suggests whether anyone is ready, close, or not ready to be nominated.
+The reference levels are deliberately relaxed, so they show more than the `<governance-body>` would expect, and a count above or below one is a number, not a judgement.
+When it covers several contributors, they are listed in alphabetical order of GitHub handle.
+See [Surface information, never rank](../../../../docs/contributor-growth/README.md#surface-information-never-rank).
 
 The skill is read-only and produces no GitHub mutations. Every output
 is a draft the maintainer reviews before acting — the agent never
 opens a nomination thread, sends a message, or modifies any record.
 
-**Thresholds come from the adopter's config.** The skill reads
+**Reference levels come from the adopter's config** (the thresholds, as the config files call them). The skill reads
 `<project-config>/committer-readiness.md` if it exists. If not, it
 falls back to the thresholds in
 `<project-config>/contributor-nomination-config.md`. If neither
 declares thresholds, the skill asks the maintainer for the project's
-typical bar before assessing.
+typical bar before comparing.
 Both files are personal configuration, read from the personal layer first and from `.apache-magpie-overrides/` only as a fallback; [they belong in the personal layer](../../../../docs/contributor-growth/README.md#why-the-configuration-is-personal).
 
 **Visibly automated and low-signal contributions count for less.**
-Comments that only restate what is already written, and contributions maintainers pushed back on as unreviewed or generated, are discounted before thresholds are applied; work closed after that pushback does not count at all, and each pushed-back thread also carries a small penalty.
+Comments that only restate what is already written, and contributions maintainers pushed back on as unreviewed or generated, are discounted before counts are compared with the reference levels; work closed after that pushback does not count at all, and each pushed-back thread also carries a small penalty.
 Using AI tools is not penalised, the discount is judged against the project's own documented expectations where it has them, and it is a signal for the maintainer, never a disqualification.
 See [Step 2a](#step-2a--discount-automated-and-low-signal-contributions).
 
@@ -153,8 +159,8 @@ Local modifications go in the override file; framework changes go via PR to `apa
 
 Resolve in order:
 
-1. **`<login>`** — the GitHub handle to assess. From the argument, or
-   prompt the user if absent. Validate:
+1. **`<login>`** — the GitHub handle to look at. From the argument, or
+   prompt the user if absent. Several handles may be given; run Steps 1–4 for each, then render per Step 5's several-contributor layout. Validate each:
    ```bash
    echo "<login>" | grep -Px '[A-Za-z0-9][A-Za-z0-9\-]{0,38}'
    ```
@@ -181,7 +187,7 @@ Resolve in order:
 Confirm with the user before fetching:
 
 ```text
-Readiness assessment: @<login> on <upstream>
+Activity brief: <login> on <upstream>
 Target: <target>  |  Window: <since> → today (<window> months)
 
 Proceed? [Y/n]
@@ -226,7 +232,7 @@ When `calibrated_window_months` differs from `<window>`, warn in the brief heade
 Record the resolved thresholds as `<thresholds>` (structured when
 from config files, narrative when from the runtime fallback). Surface
 the source in the brief header so the maintainer knows what the
-assessment is measuring against.
+counts are shown against.
 
 **Load discount settings.**
 Resolve each key of the [automated-contribution configuration](../nomination/automated-contributions.md#configuration) — `automated_contribution_weight`, `restatement_comment_weight`, `closed_after_pushback_weight`, `automated_pushback_penalty`, `automated_contribution_expectations`, `automated_pushback_phrases` — per key, in order:
@@ -293,13 +299,13 @@ Apply [`automated-contributions.md`](../nomination/automated-contributions.md) t
    Any `notes` in it (an unknown item id, an out-of-range setting) go into the brief.
 4. **Record** `pushback_items`, the number of distinct maintainers who pushed back, and the inspected-versus-total counts.
 
-This step reduces counts; it never changes a band on its own and never ends the assessment.
+This step reduces counts; it never ends the run.
 
 ---
 
 ## Step 3 — Gather off-GitHub signal
 
-Collect community signals per [`community-signals.md`](../nomination/community-signals.md) and record the `dev-list` rows (threads started plus replies) as `mailing_list_posts`, the community items, and the community indicator for the brief; the indicator never changes a status or the band.
+Collect community signals per [`community-signals.md`](../nomination/community-signals.md) and record the `dev-list` rows (threads started plus replies) as `mailing_list_posts`, the community items, and the community indicator for the brief; the indicator is shown on its own and never feeds a comparison.
 
 Ask the maintainer once for off-GitHub contributions the contributor
 is known for. Do not ask the contributor — committer path tracking is
@@ -328,11 +334,10 @@ note in the brief that GitHub-only activity was assessed.
 
 ---
 
-## Step 4 — Map to readiness thresholds
+## Step 4 — Compare with reference levels
 
-Compare the fetched counts (from Step 2) and off-GitHub signal (from
-Step 3) against `<thresholds>` (from Step 1). For each threshold
-dimension:
+Place the fetched counts (from Step 2) and off-GitHub signal (from
+Step 3) next to `<thresholds>` (from Step 1). For each dimension:
 
 Every count in this step is the **adjusted** count from Step 2a; the raw count travels alongside it for the brief.
 
@@ -346,44 +351,29 @@ Every count in this step is the **adjusted** count from Step 2a; the raw count t
 | `area_breadth` | `area_breadth` vs. threshold (0 = no requirement) |
 | `issues_triaged` | `issues_triaged` vs. threshold (0 = no requirement) |
 | `mailing_list_posts` | development-list threads started plus replies vs. threshold (0 = no requirement); counted only when the contributor's list address is confirmed |
-| `off_github` | qualitative — required `present`; MET if the maintainer described any off-GitHub signal or Step 3 collected any confirmed community row, NOT_YET if both are absent |
+| `off_github` | qualitative — `present` if the maintainer described any off-GitHub signal or Step 3 collected any confirmed community row, `absent` if both are absent; always shown, whatever the config says |
 
-For each dimension, assign one of three statuses:
-
-- **MET** — count equals or exceeds the threshold, or threshold is 0
-- **APPROACHING** — count is at least 50 % of the threshold
-- **NOT_YET** — count is below 50 % of the threshold
+For each numeric dimension record the adjusted count, the reference
+level, and the **difference** (`count − reference`; `—` when the
+reference is 0 or not declared). That is all: no status, no band, no
+aggregate across dimensions, and nothing that reads as ready, close, or
+not ready. A count below a reference level is a fact for the
+`<governance-body>` to weigh, as is a count above it.
 
 When thresholds were supplied as a runtime narrative (no config file),
-skip numeric MET/APPROACHING/NOT_YET and instead record a qualitative
-`narrative_only` assessment per dimension, noting what the maintainer
-said and how the observed activity relates to it.
-
-**Traffic-light logic.** *Mandatory dimensions* are the ones the config
-declares with a threshold greater than 0, plus `off_github`, which is
-not a config threshold and is always mandatory: an absent off-GitHub
-signal is NOT_YET, never auto-MET. Numeric dimensions with threshold 0,
-or not declared in the config, are advisory: always treated as MET and
-excluded from the aggregate below (no gap shown for them).
-
-- **Ready to nominate** — every mandatory dimension is MET (or
-  narrative_only with strong signal)
-- **Not yet** — any mandatory dimension is NOT_YET
-- **Approaching** — otherwise: no mandatory dimension is NOT_YET, but
-  at least one is still APPROACHING (not all are MET)
-
-These three bands are exhaustive and mutually exclusive: each mandatory
-dimension is exactly MET, APPROACHING, or NOT_YET, so every run lands in
-exactly one band.
+skip the numeric difference and instead record, per dimension, what the
+maintainer said and the observed activity next to it, without
+characterising how the two relate.
 
 Maintainer pushback found in Step 2a lowers the adjusted counts and nothing else.
-It does not move the band by itself; the brief surfaces it next to the band for the maintainer to weigh.
+The brief surfaces it in its own section for the maintainer to weigh.
 
 ---
 
-## Step 5 — Render readiness brief
+## Step 5 — Render the activity brief
 
 Produce the brief and present it to the maintainer for review. Brief layout, bar charts, and rendering rules live in [render-brief.md](render-brief.md).
+For several contributors, render the report layout there: an alphabetical list of the contributors, each linked to their brief, and a paragraph or two summarising the findings — never an ordering by any measure, and never a judgement of anyone's readiness.
 
 ### After presenting the brief
 
@@ -399,7 +389,7 @@ Would you like to:
 
 If [3], take the item links to clear, return those items to full weight, recompute Steps 4 and 5, and record in the brief how many flags `<viewer>` cleared.
 
-If [1], write to `committer-readiness-<login>-<today>.md` in the
+If [1], write to `contributor-activity-<login>-<today>.md` in the
 project root using the Write tool, not shell interpolation.
 
 If [2], hand off to `contributor-nomination` with `<login>`,

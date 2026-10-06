@@ -10,18 +10,19 @@ requires_config:
   - contributor-nomination-config.md
   - project.md
 description: |
-  Screen all contributors against the calibrated floors, shortlist
-  committer and <governance-body> candidates, and write a
-  per-candidate evidence report to a verified-private repository.
+  Surface details about likely committer and <governance-body>
+  candidates — deliberately more people than would be picked — as an
+  alphabetical list with a short summary, in a verified-private
+  repository. Never a ranking or a readiness verdict.
 when_to_use: |
   Invoke on "screen for committer candidates", "who should we
   consider nominating", or "run the candidate report". Run after
   calibrate. Skip for one named person — use nomination.
 argument-hint: "[target:committer|pmc|both] [window:6m] [end:YYYY-MM-DD]"
 capability: capability:stats
-surface_hash: sha256:a85d8562c0c9e801
+surface_hash: sha256:29c980868dbea19a
 license: Apache-2.0
-measured_tokens: 3293
+measured_tokens: 3551
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -88,9 +89,13 @@ is in. `/magpie-setup verify` is the full diagnostic.
 
 <!-- END MAGPIE PREFLIGHT -->
 
-Screen every recent contributor against the project's floors, shortlist the people worth a closer look for committer or `<governance-body>` membership, and write one report with the evidence for each.
-The report is a floor to help the `<governance-body>` notice candidates it might otherwise overlook.
-It is never a decision, and it says so at the top.
+Screen every recent contributor against the project's relaxed floors, list the likely candidates for committer or `<governance-body>` membership, and write one report with details about each.
+
+**This skill surfaces information; `<governance-body>` members decide.**
+The list deliberately includes more people than the `<governance-body>` would consider, so nobody is overlooked; being on it means only that someone's details are worth a look.
+It is never a ranking — every list of people is in alphabetical order of GitHub handle — and it never says or suggests whether anyone is ready.
+The report says so at the top.
+See [Surface information, never rank](../../../../docs/contributor-growth/README.md#surface-information-never-rank).
 
 The report describes people who do not know they are being discussed, so it goes only to a repository the GitHub API reports as private, after the maintainer has read it.
 
@@ -119,7 +124,7 @@ Local modifications go in the override file; framework changes go via PR to `apa
 
 | Argument | Default | Meaning |
 |---|---|---|
-| `target:committer\|pmc\|both` | `both` | Which shortlist to build |
+| `target:committer\|pmc\|both` | `both` | Which list to build |
 | `window:Nm` | the configured window, else `6m` | Activity window |
 | `end:YYYY-MM-DD` | today | Last day of the window |
 
@@ -153,7 +158,7 @@ When neither is available, stop: without a roster the skill cannot tell candidat
 
 **Map roster ids to GitHub handles** before comparing: use the directory's GitHub field for each id, or the maintainer.
 Never guess from a similar name.
-List every roster id without a confirmed handle in `unmapped_roster_ids` and ask the maintainer to map them, so that no current committer is shortlisted as a committer candidate and no committer is silently left out of the `<governance-body>` pool.
+List every roster id without a confirmed handle in `unmapped_roster_ids` and ask the maintainer to map them, so that no current committer is listed as a committer candidate and no committer is silently left out of the `<governance-body>` pool.
 
 **Never truncate the pool.**
 GitHub search returns at most 1000 results.
@@ -174,7 +179,7 @@ Log everyone dropped, with both counts, in `dropped`; nobody leaves the pool sil
 
 ---
 
-## Step 3 — Measure and shortlist
+## Step 3 — Measure and list
 
 For each person who survived the pre-filter:
 
@@ -182,17 +187,21 @@ For each person who survived the pre-filter:
 2. Compare each numeric floor with the adjusted count.
    A metric the config marks *evidence only* never counts as missing.
    A metric fed by a stream in `caps_hit` is a minimum: if it already meets the floor it is met; if it does not, it is *unknown* — not counted as missing — and the report says so.
-3. **Shortlist** the person when they miss at most `shortlist_max_missing` floors.
+3. **List** the person as a likely candidate when they miss at most `shortlist_max_missing` floors.
+   When in doubt — an unknown metric, a borderline count — list them; the list is deliberately inclusive.
 
-For each shortlisted candidate, collect community signals per [`community-signals.md`](../nomination/community-signals.md) and resolve their name per [`real-names.md`](../nomination/real-names.md).
-Everyone measured but not shortlisted goes into *considered, not shortlisted* with their counts.
+For each listed candidate, collect community signals per [`community-signals.md`](../nomination/community-signals.md) and resolve their name per [`real-names.md`](../nomination/real-names.md).
+Everyone measured but not listed goes into *considered, not listed* with their counts.
+How many floors someone met is used only to decide whether to list them; it never appears in the report and never orders anyone.
 
 ---
 
 ## Step 4 — Write the report
 
 Write the report per [`report.md`](report.md) to `<scratch>/candidate-screen/<end>-candidate-screen.md`.
-For each shortlisted candidate write two or three paragraphs: what they built and in which areas, their review, mentoring and community work, and factual flags — maintainer pushback on automated work, a single area or single vendor dominating their work where that is known.
+The report opens with the people listed, in alphabetical order of GitHub handle, each linked to their section, followed by one or two paragraphs summarising the findings across the list.
+Each person's section, in the same order, holds two or three paragraphs of details: what they built and in which areas, their review, mentoring and community work, and factual flags — maintainer pushback on automated work, a single area or single vendor dominating their work where that is known.
+Nothing in the report compares people with each other, orders them by any measure, counts floors met, or says or implies that anyone is ready, close, or not ready.
 Every claim links to its evidence.
 Handles appear as plain profile links, never as `@`-mentions.
 
@@ -217,7 +226,9 @@ Nothing is posted anywhere else — no issue, comment, list, or chat.
 
 ## Hard rules
 
-- The report is a floor for noticing candidates, never a decision; it says so at the top.
+- The report only surfaces information about likely candidates, deliberately more than the `<governance-body>` would consider; it is never a ranking or a decision, and it says so at the top.
+- Every list of people is alphabetical by GitHub handle, case-insensitive.
+- No readiness verdict, score, or floors-met count about any person.
 - The report goes only to a repository `gh api` reports as private, checked before showing and again before writing; never a gist.
 - No `@`-mentions in the report.
 - Nothing is written without the maintainer's explicit yes.

@@ -11,6 +11,10 @@ from typing import Any
 
 RECENT_YEARS = 3.0
 
+# Floors are deliberately set below what the project has elected, so the lists built on them
+# surface more people than the governing body would pick; the decision is always theirs.
+DEFAULT_RELAXATION = 0.75
+
 
 def weighted_percentile(values: Sequence[tuple[float, float]], q: float) -> float:
     """Smallest value whose cumulative weight reaches q times the total weight (nearest rank)."""
@@ -45,8 +49,14 @@ def propose_floors(
     today: str,
     halflife: float = 2.0,
     min_elected: int = 5,
+    relaxation: float = DEFAULT_RELAXATION,
 ) -> dict[str, Any]:
-    """Propose per-target floors: the recency-weighted p25 of elected rows, or evidence-only when it does not separate."""
+    """Propose per-target floors: the recency-weighted p25 of elected rows, scaled down by `relaxation`.
+
+    Separation is tested on the unrelaxed p25; a metric that does not separate is evidence-only.
+    """
+    if not 0.0 < relaxation <= 1.0:
+        raise ValueError(f"relaxation must be in (0, 1], got {relaxation}")
     rows = [r for r in rows if r.get("outcome") in ("elected", "deferred")]
     targets = sorted({r["target"] for r in rows})
     metrics = sorted({m for r in rows for m in r.get("metrics", {})})
@@ -55,6 +65,7 @@ def propose_floors(
         "evidence_only": {},
         "no_floors_for": [],
         "distribution": {},
+        "relaxation": relaxation,
         "notes": [],
     }
     for target in targets:
@@ -93,11 +104,10 @@ def propose_floors(
             elected_p25 = dist["elected"]["p25"]
             if elected_p25 is None:
                 continue
-            floor = math.floor(elected_p25)
             deferred_median = dist["deferred"]["median"]
-            if deferred_median is not None and floor <= deferred_median:
+            if deferred_median is not None and math.floor(elected_p25) <= deferred_median:
                 out["floors"][target][metric] = 0
                 out["evidence_only"][target].append(metric)
             else:
-                out["floors"][target][metric] = floor
+                out["floors"][target][metric] = math.floor(relaxation * elected_p25)
     return out

@@ -56,7 +56,7 @@ Suites are currently implemented for:
 - **security-model-update** — 15 cases across 3 steps (step-1-disposition-map, step-2-kn-entry-rules, step-3-regression-gate); the precedence-promotion trap, the four known-non-finding entry rules, and the blocking regression gate
 - **audit-finding-fix** — 12 cases across 4 suites (step-2-parse-findings, step-5-scope-check, step-6-compose-commit, step-7-handback)
 - **contributor-nomination** — 30 cases across 4 suites (step-0-resolve-inputs, step-3-gather-signal, step-4-assess, step-5-render)
-- **contributor-to-committer** — 21 cases across 4 suites (step-0-resolve-inputs, step-2a-discount-automated, step-4-map-thresholds, step-5-render-brief)
+- **contributor-to-committer** — 21 cases across 4 suites (step-0-resolve-inputs, step-2a-discount-automated, step-4-compare-reference, step-5-render-brief)
 - **dependency-audit** — 8 cases across 2 suites (step-findings-report, step-scope-selection)
 - **dependency-license-audit** — 19 cases across 4 suites (step-license-classification, step-license-normalization, step-license-report, step-scope-selection)
 - **flaky-test-triage** — 10 cases across 3 suites (step-classify, step-reporting, step-scope-and-config)
@@ -91,7 +91,7 @@ Suites are currently implemented for:
 - **setup-privacy-llm** — 6 cases across 2 suites (step-1-resolve, step-4-gate)
 - **preflight-reconciliation** — 7 cases across 1 suite (step-reconciliation)
 - **contributor-calibrate** — 11 cases across 3 suites (step-1-find-nominations, step-4-propose-floors, step-6-write-configuration)
-- **contributor-candidate-screen** — 13 cases across 6 suites (step-0-gates, step-2-pre-filter, step-3-measure-and-shortlist, step-4-write-report, step-5-deliver)
+- **contributor-candidate-screen** — 14 cases across 6 suites (step-0-gates, step-2-pre-filter, step-3-measure-and-list, step-4-write-report, step-5-deliver)
 
 ## Prerequisites
 

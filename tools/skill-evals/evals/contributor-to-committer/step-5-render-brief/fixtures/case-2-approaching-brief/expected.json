@@ -1,9 +1,0 @@
-{
-  "traffic_light_symbol": "~ Approaching",
-  "gap_table_correct": true,
-  "timeline_present": true,
-  "summary_paragraph_present": true,
-  "offers_save_to_file": true,
-  "offers_handoff_to_nomination": true,
-  "no_github_mutation": true
-}
