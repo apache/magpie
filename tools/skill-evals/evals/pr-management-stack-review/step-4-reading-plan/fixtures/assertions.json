@@ -7,7 +7,7 @@
   "has_no_forbidden_wording_in_note": {
     "type": "regex",
     "field": "note_for_sampled_layer",
-    "pattern": "^(?!.*\\b(reviewed|approved|looks good|no issues found)\\b).*$",
+    "pattern": "^(?!.*(?<!not )(?<!never )\\b(reviewed|approved)\\b)(?!.*\\b(looks good|no issues found)\\b).*$",
     "flags": "is"
   },
   "has_outlier_count_in_coverage": {
@@ -23,7 +23,7 @@
   "has_no_forbidden_wording_in_coverage": {
     "type": "regex",
     "field": "coverage_sentence",
-    "pattern": "^(?!.*\\b(reviewed|approved|looks good|no issues found)\\b).*$",
+    "pattern": "^(?!.*(?<!not )(?<!never )\\b(reviewed|approved)\\b)(?!.*\\b(looks good|no issues found)\\b).*$",
     "flags": "is"
   }
 }

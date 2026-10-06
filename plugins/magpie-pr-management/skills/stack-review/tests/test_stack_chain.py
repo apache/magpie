@@ -267,7 +267,9 @@ class ChainTest(unittest.TestCase):
         self.assertEqual(report["trunk_touches_stack_files"], [])
         self.assertEqual([layer["position"] for layer in report["layers"]], [2])
         self.assertEqual(report["layers"][0]["own_commits"], 1)
-        self.assertEqual([layer["position"] for layer in stack_chain.seams(PREFIX, 2, start=2)["layers"]], [2])
+        self.assertEqual(
+            [layer["position"] for layer in stack_chain.seams(PREFIX, 2, start=2)["layers"]], [2]
+        )
         self.assertEqual(stack_chain.floors(PREFIX, 2, start=2)["floor_changes"], [])
         with self.assertRaises(SystemExit):
             stack_chain.chain(PREFIX, 2, start=3)
@@ -306,7 +308,9 @@ class ChainTest(unittest.TestCase):
         self.assertEqual(stack_chain.removed_definitions(diff), ({"TIMEOUT": "pkg/settings.py"}, []))
 
     def test_fetch_command_quotes_the_trunk_and_digest_runs_without_refs(self) -> None:
-        cmd = stack_chain.fetch_command("https://example.invalid/o/r.git", "magpie-stack/7", "main;`id`", {1: 11})
+        cmd = stack_chain.fetch_command(
+            "https://example.invalid/o/r.git", "magpie-stack/7", "main;`id`", {1: 11}
+        )
         self.assertIn("'+refs/heads/main;`id`:refs/magpie-stack/7/trunk'", cmd)
         out = io.StringIO()
         with redirect_stdout(out):

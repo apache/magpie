@@ -436,7 +436,9 @@ def main(argv: list[str] | None = None) -> int:
         cmd.add_argument("--prefix", required=True)
         cmd.add_argument("--size", required=True, type=int)
         if name != "cleanup-command":
-            cmd.add_argument("--from", dest="start", type=int, default=1, help="lowest open position (default 1)")
+            cmd.add_argument(
+                "--from", dest="start", type=int, default=1, help="lowest open position (default 1)"
+            )
         if name == "seams":
             cmd.add_argument(
                 "--layers", type=_parse_layers, help="comma-separated positions to analyse (default all open)"
