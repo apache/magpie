@@ -1,12 +1,13 @@
 {
   "skill_md": "skills/committer-onboarding/SKILL.md",
-  "step_heading": "## Step 1 — IP-compliance check and communications",
+  "step_heading": "## Step 1 \u2014 IP-compliance check and communications",
   "also_include": [
     "plugins/magpie-contributor-growth/skills/committer-onboarding/detail/intake-icla.md",
     "plugins/magpie-contributor-growth/skills/committer-onboarding/detail/intake-dco.md",
     "plugins/magpie-contributor-growth/skills/committer-onboarding/detail/intake-no-cla.md",
     "plugins/magpie-contributor-growth/skills/committer-onboarding/detail/governance-asf-pmc.md",
     "plugins/magpie-contributor-growth/skills/committer-onboarding/detail/governance-github-codeowners.md",
-    "plugins/magpie-contributor-growth/skills/committer-onboarding/detail/governance-maintainer-roster.md"
+    "plugins/magpie-contributor-growth/skills/committer-onboarding/detail/governance-maintainer-roster.md",
+    "plugins/magpie-contributor-growth/skills/committer-onboarding/detail/email-templates.md"
   ]
 }

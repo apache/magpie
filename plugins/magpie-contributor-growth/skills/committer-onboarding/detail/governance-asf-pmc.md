@@ -95,10 +95,10 @@ Once the ASF account exists (Whimsy shows the new Apache ID under the project's 
   (not just the committer section) at
   https://whimsy.apache.org/roster/ppmc/<podling> (podling) or
   update committee-info.txt (TLP).
-- [ ] **Private mailing list** — add the new PPMC member (podling) or PMC member (TLP)
-  to private@ via Whimsy mailing list management or the
-  Mailman admin interface; the list is moderated, so they
-  cannot self-subscribe.
+- [ ] **Private mailing list** — the new PPMC member (podling) or PMC member (TLP)
+  subscribes to private@ themselves, via Whimsy or a request to
+  `private-subscribe@<project>.apache.org` that a moderator approves
+  (`karma-grant.md § Mailing lists`); the nominator only confirms it happened.
 - [ ] **Board report note (TLPs only)** — note the new PMC
   member in the next quarterly board report.
 - [ ] **Welcome announcement** — post on dev@.
@@ -117,7 +117,7 @@ Communications sent:
   ✓ Welcome announcement → dev@<podling>.apache.org
 
 Karma granted:
-  ✓ GitHub org invite
+  ✓ GitHub access (gitbox, automatic once the account is linked)
   ✓ Jira / issue tracker
   ✓ Whimsy roster updated
   ✓ Private list subscribed

@@ -9,3 +9,5 @@ Candidate, vote details, and ICLA lookup result:
 {report}
 
 Do not send anything yet — produce drafts for nominator review.
+
+Answer with a single JSON object holding the fields in the output spec, with the drafts' full text in a `drafts` object.
