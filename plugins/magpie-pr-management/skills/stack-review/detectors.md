@@ -109,6 +109,21 @@ A stack that drops a runtime version moves its distribution-manifest floors in o
 Every layer below the manifest move is still released under the old floor; a construct the old floor does not provide, used at that layer's own head, is the inferred `ordering` finding of Step 3 — verify it with `git grep` at the head and quote the line, then name the merge unit (*layers a–b together*).
 Grep for constructs the new floor introduced and the old one lacks — for a language-version bump, read the release notes of the versions in between for the list; for a dependency floor, the APIs the stack starts calling.
 
+## Finding classes (Step 3)
+
+| Class | Evidence | Severity |
+|---|---|---|
+| chain | `contains_below: false` for a layer above the bottom (stale base), or `merge_commits > 0` | `blocking` — cascade rebase needed |
+| ordering | `seams` hit `at_own_head`: a definition removed in layer k is still used at k's own head | `blocking` — layer k is not green on its own |
+| ordering | `seams` hit `at_later_heads`: a later layer j references a name removed below it — verify at head j | `blocking` for layer j when the definition is absent there (a use reintroduced after its removal); an observation when j re-adds the definition |
+| ordering | inferred, verified at the head: a layer uses a construct above the floor its own head declares (`floors.json`), or depends on a later layer to work or release | `major`; names the merge unit (*layers a–b together*) |
+| trunk-drift | `seams` hit `new_on_trunk`, or `trunk_touches_stack_files` non-empty | `major` — breaks on the next rebase; `behind_trunk_commits` alone is informational |
+| wrong-layer | a hunk (`overlap` file, `outliers` hunk, off-theme file) whose content belongs to another layer's stated purpose; `layers` = carrying layer and owning layer | `minor` as an unread candidate and for mechanical spillover with an unchanged end state; `major` only when it changes a layer's green-on-its-own status, packaging or runtime behaviour |
+| duplicate | `release_note_in_several_layers`, `generated_in_several_layers`, `lock_without_manifest` | `major` |
+| narrative | title or body claims more or less than commits, class histogram and read hunks show; stack maps disagree across bodies or describe a larger unit than the GitHub stack; a body omits what a commit explains; two layers' commits contradict each other on the same fact | `minor`; `major` when a body describes a different layer |
+| residue | a token the stack retires still present at the top head: *residue* in files no layer touches, *partial update* in a touched file | `minor` — *noticed, not exhaustive* |
+| gates | red, cancelled or unverified CI, unresolved threads, drafts, missing approvals per layer | rows in the layer table, not findings |
+
 ## Narrative check (Step 3, class `narrative`)
 
 For each layer compare four things: the title and body (what the author says the layer does), `commit_messages` (what the commits say, including the bodies), the ledger's `classes` + `dir_histogram` (what the files say), and the read hunks.
