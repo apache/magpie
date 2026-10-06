@@ -17,14 +17,14 @@ when_to_use: |
   Invoke on "review my PRs", "go through my review queue", "review PR NNN",
   "review the area:scheduler PRs", "do my review pass", or any "look over PRs
   I'm responsible for, one at a time". Also fires on "review my CODEOWNER
-  PRs", "pair this PR with Codex / adversarial review", and "review the
+  PRs", "pair this PR with an adversarial review", and "review the
   ready-for-maintainer-review queue". Run after `pr-management-triage` has
   produced reviewable PRs; skip when triage has not engaged the PR.
 argument-hint: "[pr:N] [area:LBL] [collab:true|false] [team:NAME] [ready] [dry-run]"
 capability: capability:review
 surface_hash: sha256:fdcc0dc2063f0bf4
 license: Apache-2.0
-measured_tokens: 5055
+measured_tokens: 5053
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
