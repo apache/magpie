@@ -9,27 +9,24 @@ requires_config:
   - project.md
 organization: ASF
 description: |
-  Post-vote committer and PMC onboarding for Apache projects.
-  Walks the nominator through every step from ICLA check to
-  welcome announcement for both incubating podlings and
-  graduated top-level projects, including mapping the new
-  committer's GitHub handle to their Slack, Discord, and
-  social-media identities for the nominator to confirm.
+  Post-vote committer and PMC onboarding for Apache projects, podling
+  or top-level: walks the nominator from ICLA check to welcome
+  announcement, and maps the new committer's GitHub handle to their
+  Slack, Discord, and social-media identities for the nominator to
+  confirm.
 when_to_use: |
-  Invoke after a committer or PMC vote has closed and the
-  nominator needs to carry out the post-vote steps. Trigger
-  phrases: "the vote passed", "onboard the new committer",
-  "what do I do after the vote", "set up their account",
-  "grant karma", "request their Apache account", "file the
-  secretary request", "send the congratulations email". Also
-  appropriate immediately after running contributor-nomination
-  when the user asks what comes next after the vote.
+  Invoke once a committer or PMC vote has closed: "the vote passed",
+  "onboard the new committer", "what do I do after the vote",
+  "set up their account", "grant karma",
+  "request their Apache account", "file the
+  secretary request", "send the congratulations email", or "what
+  comes next" after contributor-nomination. Skip while the vote is open.
 capability:
   - capability:resolve
   - capability:triage
 surface_hash: sha256:fc0108bae9d7b687
 license: Apache-2.0
-measured_tokens: 5198
+measured_tokens: 5166
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
