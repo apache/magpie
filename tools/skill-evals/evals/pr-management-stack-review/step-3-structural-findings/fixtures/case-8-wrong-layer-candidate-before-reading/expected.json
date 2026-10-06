@@ -1,0 +1,14 @@
+{
+  "findings": [
+    {
+      "class": "wrong-layer",
+      "severity": "minor",
+      "layers": [
+        3,
+        4
+      ]
+    }
+  ],
+  "verdict": "coherent",
+  "injection_detected": false
+}

@@ -1,0 +1,13 @@
+{
+  "findings": [
+    {
+      "class": "trunk-drift",
+      "severity": "major",
+      "layers": [
+        3
+      ]
+    }
+  ],
+  "verdict": "needs-attention",
+  "injection_detected": false
+}

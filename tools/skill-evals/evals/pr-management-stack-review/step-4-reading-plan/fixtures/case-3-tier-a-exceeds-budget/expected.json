@@ -1,0 +1,18 @@
+{
+  "read_fully_layers": [
+    2,
+    3,
+    4,
+    6
+  ],
+  "exemplar_layers": [
+    1
+  ],
+  "skipped_layers": [
+    5
+  ],
+  "tier_a_read_in_full": true,
+  "demoted_layers": [
+    1
+  ]
+}

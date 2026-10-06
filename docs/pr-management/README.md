@@ -24,7 +24,7 @@
 > Apache-Software-Foundation-specific assumptions baked in.
 
 Maintainer-facing PR-queue management for projects with a public
-contributor PR queue. Eight skills that compose into a complete
+contributor PR queue. Nine skills that compose into a complete
 triage + review + mentoring + hygiene pass:
 
 1. **Agentic Triage** — sweep open PRs, classify against the project's
@@ -59,6 +59,12 @@ triage + review + mentoring + hygiene pass:
 8. **Reviewer routing** — suggest the best-fit reviewer(s) for a
    new PR based on path ownership, recent review history, and
    current load.
+9. **Stack review** — review a GitHub stacked pull request as one
+   unit: chain currency, file-by-layer matrix, removed-definition
+   seams, narrative drift, and code read by tier with a coverage
+   table. Drafts one rolling `COMMENT` on the lowest open layer and
+   names the layers that deserve a `code-review` pass. Never
+   approves.
 
 Why a framework skill family? These skills were originally
 maintained inside one ASF project's developer-tooling repo as
@@ -78,7 +84,7 @@ wording, CI-check → doc-URL map, review-criteria source files).
 
 ## Install & first runs
 
-Install just this family — one plugin, 8 skills. Maintainer-facing PR-queue management.
+Install just this family — one plugin, 9 skills. Maintainer-facing PR-queue management.
 
 Once you have [added the marketplace](../setup/marketplace-install.md):
 
@@ -119,11 +125,11 @@ says which file is missing.
 
 | File | What it carries | Read by |
 |---|---|---|
-| [`pr-management-code-review-criteria.md`](../../plugins/magpie-setup/templates/pr-management-code-review-criteria.md) | List of project's review-criteria source files (repo-wide AGENTS.md, code-review docs, per-area AGENTS.md), security-model calibration doc, backport-branch pattern, section-anchor URLs. | `code-review` |
+| [`pr-management-code-review-criteria.md`](../../plugins/magpie-setup/templates/pr-management-code-review-criteria.md) | List of project's review-criteria source files (repo-wide AGENTS.md, code-review docs, per-area AGENTS.md), security-model calibration doc, backport-branch pattern, section-anchor URLs. | `code-review`, `stack-review` |
 | [`pr-management-config.md`](../../plugins/magpie-setup/templates/pr-management-config.md) | Committers team handle, area-label prefix, project-specific labels (`ready for maintainer review`, etc.), grace windows. | `pr-stale-sweep`, `pr-triage`, `quick-merge`, `stats` |
 | [`pr-management-quick-merge-config.md`](../../plugins/magpie-setup/templates/pr-management-quick-merge-config.md) | Thresholds, path globs, and the merge-command template for the express lane. | `quick-merge` |
 | [`pr-management-triage-comment-templates.md`](../../plugins/magpie-setup/templates/pr-management-triage-comment-templates.md) | Comment-body URLs (PR quality criteria, two-stage triage rationale), AI-attribution footer wording, project display name. | `pr-triage` |
-| [`project.md`](../../plugins/magpie-setup/templates/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `code-review`, `mentor`, `pr-stale-sweep`, `pr-triage`, `quick-merge`, `reviewer-routing` |
+| [`project.md`](../../plugins/magpie-setup/templates/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `code-review`, `mentor`, `pr-stale-sweep`, `pr-triage`, `quick-merge`, `reviewer-routing`, `stack-review` |
 | [`reviewer-roster.md`](../../plugins/magpie-setup/templates/reviewer-roster.md) | Who reviews what. | `reviewer-routing` |
 
 **Optional.** Each has a documented fallback; absent, the skill still runs.
@@ -204,6 +210,7 @@ below sends, merges, or posts anything without you confirming it.*
 | [`pr-stale-sweep`](../../skills/pr-stale-sweep/SKILL.md) | Sweep open PRs for inactivity past a configurable threshold; classify as `NUDGE` or `CLOSE-STALE` and post one comment per PR on confirmation. |
 | [`pre-first-pr-check`](../../skills/pre-first-pr-check/SKILL.md) | Pre-flight a contributor's first PR against project conventions before it reaches a human reviewer. |
 | [`reviewer-routing`](../../skills/reviewer-routing/SKILL.md) | Suggest the best-fit reviewer(s) for a new PR based on path ownership, recent review history, and current load. |
+| [`pr-management-stack-review`](../../skills/pr-management-stack-review/SKILL.md) | Review a GitHub stacked pull request as one unit — chain, file-by-layer matrix, removed-definition seams, narrative drift, code by tier with a coverage table. One rolling `COMMENT` on the lowest open layer; never approves; hands each layer to `pr-management-code-review`. |
 
 ## Cross-references
 

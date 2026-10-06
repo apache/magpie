@@ -119,6 +119,11 @@ wanted to skip.
   the branch merely trails the base, `BLOCKED` means a required check
   or review is missing.
 - `gh pr diff <N> --repo <repo>` — the unified diff
+- One GraphQL probe for stack membership, because `gh pr view --json`
+  has no `stack` field:
+  `gh api graphql -f query='{ repository(owner:"<owner>", name:"<name>") { pullRequest(number:<N>) { stackEntry { position } stack { number size } } } }'`
+  — a non-null `stack` means the PR is a layer of a stack (see the
+  edge case below).
 - For every touched directory, locate any nearby `AGENTS.md`:
 
   ```bash
@@ -932,6 +937,17 @@ backport calibration in
 prefer `COMMENT` over `REQUEST_CHANGES` unless the cherry-pick
 has clearly drifted from the merged-on-main change. Note the
 base ref in the headline so the maintainer sees it.
+
+### PR is a layer of a stack
+
+When the Step 2 stack probe returns a non-null `stack`, the PR's base
+is the branch of the layer below, not the trunk, and its diff is that
+layer alone. Add `Stack: #<S> layer <k>/<size>` to the headline, do **not**
+apply the backport calibration to the non-trunk base, and say once per
+stack: *"Chain, ordering and cross-layer checks are
+`pr-management-stack-review pr:<N>`; continuing with this layer's
+line-by-line review."* Approving a layer stays this skill's job; the
+stack skill never approves.
 
 ### PR has zero diff (e.g. label-only change)
 

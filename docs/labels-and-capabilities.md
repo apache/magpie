@@ -237,6 +237,7 @@ Capabilities for every skill currently in
 | `reviewer-routing` | `capability:triage` *(scores the configured reviewer roster on area match, git-history familiarity, and open-review load; proposes a primary reviewer plus optional backup — read-only, propose-then-confirm)* |
 | `pr-management-quick-merge` | `capability:triage` + `capability:review` *(screens the ready-for-review queue for trivial, all-gates-green PRs — triage; submits the maintainer's approve on per-PR confirmation — review)* |
 | `pr-management-code-review` | `capability:review` |
+| `pr-management-stack-review` | `capability:review` *(stack-level review of a GitHub stacked pull request; posts one `COMMENT`, never a review event)* |
 | `pairing-self-review` | `capability:review` |
 | `pairing-multi-agent-review` | `capability:review` |
 | `pre-first-pr-check` | `capability:review` *(newcomer-facing pre-flight checklist: SPDX headers, commit shape, Generated-by trailer, placeholder convention — read-only)* |

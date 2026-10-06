@@ -1,0 +1,17 @@
+{
+  "action": "review",
+  "stop_reason": null,
+  "lowest_open_layer": 1,
+  "merged_layers": [],
+  "draft_layers": [
+    1,
+    2
+  ],
+  "self_authored": false,
+  "unverified_ci_layers": [
+    1,
+    2
+  ],
+  "handoff": "",
+  "trunk_gated_by_pr": 940
+}

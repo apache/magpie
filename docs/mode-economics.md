@@ -233,6 +233,7 @@ to input.
 | `pr-management-triage` | Single PR triage pass | 5K–30K | PR diff size and comment count | Not measured |
 | `pr-management-stats` | Weekly queue report | 10K–50K | Number of open PRs read | Not measured |
 | `pr-management-code-review` | Single PR deep review | 15K–80K | Diff size; code-heavy PRs are expensive | Not measured |
+| `pr-management-stack-review` | One stack (5–10 layers) | 30K–150K | Lines read in full (Tier A/B); structure is script-side and nearly free, mechanical and generated layers cost one exemplar each | Not measured |
 | `issue-triage` | Single issue classification | 4K–15K | Issue body length + similar-issue cross-check sample | 34,825 |
 | `issue-reassess` | Pool-level sweep (10 issues) | 30K–120K | Pool size; batch cost scales linearly | Not measured |
 | `security-issue-import` | Single inbound report | 8K–25K | Report length + known-dup cross-check | Not measured |

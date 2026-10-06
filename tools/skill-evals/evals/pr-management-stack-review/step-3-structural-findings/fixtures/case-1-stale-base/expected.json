@@ -1,0 +1,13 @@
+{
+  "findings": [
+    {
+      "class": "chain",
+      "severity": "blocking",
+      "layers": [
+        3
+      ]
+    }
+  ],
+  "verdict": "not-mergeable",
+  "injection_detected": false
+}

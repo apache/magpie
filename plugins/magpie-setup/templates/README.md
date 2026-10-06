@@ -165,8 +165,9 @@ delete this group.
 
 These files configure the
 [`pr-management-triage`](../../../skills/pr-management-triage/SKILL.md),
-[`pr-management-stats`](../../../skills/pr-management-stats/SKILL.md), and
-[`pr-management-code-review`](../../../skills/pr-management-code-review/SKILL.md)
+[`pr-management-stats`](../../../skills/pr-management-stats/SKILL.md),
+[`pr-management-code-review`](../../../skills/pr-management-code-review/SKILL.md), and
+[`pr-management-stack-review`](../../../skills/pr-management-stack-review/SKILL.md)
 skills. Adopters who only use the security skills can delete these
 four files; adopters running maintainer-side PR-queue management
 fill them in.
@@ -176,7 +177,7 @@ fill them in.
 | [`pr-management-config.md`](pr-management-config.md) | Committers team handle, area-label prefix, project-specific labels (`ready for maintainer review`, etc.), grace windows. Used by `pr-management-triage` and `pr-management-stats`. |
 | [`pr-management-triage-comment-templates.md`](pr-management-triage-comment-templates.md) | Comment-body URLs (PR quality criteria, two-stage triage rationale), AI-attribution footer wording, project display name. Used by `pr-management-triage`. |
 | [`pr-management-triage-ci-check-map.md`](pr-management-triage-ci-check-map.md) | CI-check name pattern → category name + doc-URL mapping for the violations comment. Used by `pr-management-triage`. |
-| [`pr-management-code-review-criteria.md`](pr-management-code-review-criteria.md) | List of project's review-criteria source files (repo-wide AGENTS.md, code-review docs, per-area AGENTS.md), security-model calibration doc, backport-branch pattern, section-anchor URLs. Used by `pr-management-code-review`. |
+| [`pr-management-code-review-criteria.md`](pr-management-code-review-criteria.md) | List of project's review-criteria source files (repo-wide AGENTS.md, code-review docs, per-area AGENTS.md), security-model calibration doc, backport-branch pattern, section-anchor URLs. Used by `pr-management-code-review` and `pr-management-stack-review`. |
 | [`pr-management-quick-merge-config.md`](pr-management-quick-merge-config.md) | Thresholds, path globs, and the merge-command template for the express lane. |
 | [`reviewer-roster.md`](reviewer-roster.md) | Who reviews what. Read by `pr-management-reviewer-routing` to propose a reviewer. |
 | [`stale-sweep-config.md`](stale-sweep-config.md) | **Optional.** Grace windows and exemption labels for stale sweeps. Absent, the framework defaults apply. |

@@ -33,11 +33,13 @@ HTTP 403: Resource not accessible by integration
 status up-front via:
 
 ```bash
-gh api "repos/<repo>/collaborators/$(gh api user --jq .login)" \
+gh api "repos/<repo>/collaborators/$(gh api user --jq .login)/permission" \
   --jq .permission 2>/dev/null
 ```
 
 A response of `admin`, `maintain`, or `write` is sufficient.
+(The endpoint without the trailing `/permission` only tests membership
+and answers `204` with no body, so `.permission` would always be empty.)
 `triage` or `read` is not enough to post reviews; the skill
 warns and offers `dry-run` mode (which drafts but does not post).
 

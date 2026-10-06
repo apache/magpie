@@ -92,6 +92,7 @@ Suites are currently implemented for:
 - **preflight-reconciliation** — 7 cases across 1 suite (step-reconciliation)
 - **contributor-calibrate** — 11 cases across 3 suites (step-1-find-nominations, step-4-propose-floors, step-6-write-configuration)
 - **contributor-candidate-screen** — 14 cases across 6 suites (step-0-gates, step-2-pre-filter, step-3-measure-and-list, step-4-write-report, step-5-deliver)
+- **pr-management-stack-review** — 33 cases across 4 suites (step-1-gate, step-3-structural-findings, step-4-reading-plan, step-6-post)
 
 ## Prerequisites
 

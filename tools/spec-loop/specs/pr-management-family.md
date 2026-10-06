@@ -88,6 +88,20 @@ same directory; the behaviour is unchanged.
   Detail files include `prerequisites.md`, `selectors.md`, `review-flow.md`,
   `review-loop.md`, `criteria.md`, `slop-detection.md`, `adversarial.md`,
   and `posting.md`.
+- Skill: `pr-management-stack-review` (`stack-review/`) — stack-level review
+  of a GitHub stacked pull request. Resolves the stack from a member PR or
+  its stack number, fetches the layer heads into `refs/magpie-stack/<S>/*`
+  (proposed once, cleaned up at the end), and runs two stdlib scripts:
+  `scripts/stack_ledger.py` (file-by-layer matrix, hunk-shape mechanical
+  detection, outliers, duplicate release notes, regenerated generated
+  files, lock-without-manifest, reading plan and coverage table) and
+  `scripts/stack_chain.py` (chain currency, merge commits, trunk drift,
+  removed-definition seams at the layer's own head, later heads and new
+  trunk uses). Code is read by tier; the report carries the coverage
+  table. Posts one rolling `COMMENT` on the lowest open layer (marker,
+  updated in place) and never a review event. Ships `mode: Triage` +
+  `experimental`. Detail files: `resolve.md`, `detectors.md`, `tiers.md`,
+  `report.md`, `adopter-config.md`, `invocation.md`; tests under `tests/`.
 - Skill: `pr-management-quick-merge` — read-only express-lane screener
   for trivial, low-risk PRs (docs, changelog, translations, tests) that
   pass every quality gate; surfaces ranked candidates with diff summaries
@@ -262,6 +276,17 @@ same directory; the behaviour is unchanged.
   Step 5 from the parent, since subagents have no shell.
   The resolution order is in `prerequisites.md` §2 and pinned by the
   `step-2-reviewer-resolution` eval suite.
+- **A stack is reviewed as structure first, code by tier.**
+  `pr-management-stack-review` answers chain, ordering, duplicate and
+  trunk-drift questions for every file of the stack deterministically,
+  and reads code only where the ledger points (overlap files, seam hits,
+  outlier hunks, small semantic layers in full, one exemplar per repeated
+  shape otherwise). Every report and comment carries the script-rendered
+  coverage table; a sampled layer is never called reviewed. `blocking`
+  requires deterministic or head-verified evidence. The skill emits no
+  `APPROVE` or `REQUEST_CHANGES`; layer approval stays with
+  `pr-management-code-review`, which the stack report names per layer.
+  Regression cases: `tools/skill-evals/evals/pr-management-stack-review/`.
 - **Config-driven, not skill-edited.** Project-specific values
   (committers team handle, area-label prefix, comment-template wording,
   CI-check → doc-URL map, review criteria, quick-merge path globs) all
@@ -314,6 +339,11 @@ same directory; the behaviour is unchanged.
    policy violation, already landed, or unverified before the main flow,
    and never proposes handing off a change that is not a fix under
    `backport_policy: fixes-only`.
+10. `pr-management-stack-review` never posts a review event, posts at most
+    one comment per stack (updated in place on re-runs), and renders the
+    coverage table in every report; its eval suite pins the Step 1 gate,
+    the Step 3 finding table, the Step 4 tier plan and the Step 6 posting
+    rules.
 
 ## Validation
 
@@ -322,6 +352,8 @@ test -f .agents/skills/magpie-pr-management-triage/SKILL.md
 test -f .agents/skills/magpie-pr-management-stats/SKILL.md
 test -f .agents/skills/magpie-pr-management-code-review/SKILL.md
 test -f .agents/skills/magpie-pr-management-quick-merge/SKILL.md
+test -f .agents/skills/magpie-pr-management-stack-review/SKILL.md
+tools/dev/run-skill-script-tests.sh
 test -f .agents/skills/magpie-pr-management-mentor/SKILL.md
 test -f docs/pr-management/README.md
 uv run --all-packages --group dev pytest tools/pr-management-stats/tests

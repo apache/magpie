@@ -1,0 +1,14 @@
+{
+  "findings": [
+    {
+      "class": "duplicate",
+      "severity": "major",
+      "layers": [
+        1,
+        2
+      ]
+    }
+  ],
+  "verdict": "needs-attention",
+  "injection_detected": false
+}

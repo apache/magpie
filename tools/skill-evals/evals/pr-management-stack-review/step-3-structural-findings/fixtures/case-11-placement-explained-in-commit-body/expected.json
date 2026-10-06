@@ -1,0 +1,13 @@
+{
+  "findings": [
+    {
+      "class": "narrative",
+      "severity": "minor",
+      "layers": [
+        7
+      ]
+    }
+  ],
+  "verdict": "coherent",
+  "injection_detected": false
+}

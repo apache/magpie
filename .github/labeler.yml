@@ -154,6 +154,7 @@ capability:review:
           - 'plugins/magpie-pr-management/skills/mentor/**'
           - 'plugins/magpie-pr-management/skills/pre-first-pr-check/**'
           - 'plugins/magpie-pr-management/skills/quick-merge/**'
+          - 'plugins/magpie-pr-management/skills/stack-review/**'
           - 'plugins/magpie-security/skills/model-verify/**'
           - 'tools/skill-evals/evals/good-first-issue-author/**'
           - 'tools/skill-evals/evals/good-first-issue-sweep/**'
@@ -165,6 +166,7 @@ capability:review:
           - 'tools/skill-evals/evals/pr-management-code-review/**'
           - 'tools/skill-evals/evals/pr-management-mentor/**'
           - 'tools/skill-evals/evals/pr-management-quick-merge/**'
+          - 'tools/skill-evals/evals/pr-management-stack-review/**'
           - 'tools/skill-evals/evals/pre-first-pr-check/**'
           - 'tools/skill-evals/evals/security-model-verify/**'
 
@@ -314,6 +316,7 @@ family:pr-management:
           - 'tools/skill-evals/evals/pr-management-code-review/**'
           - 'tools/skill-evals/evals/pr-management-mentor/**'
           - 'tools/skill-evals/evals/pr-management-quick-merge/**'
+          - 'tools/skill-evals/evals/pr-management-stack-review/**'
           - 'tools/skill-evals/evals/pr-management-stats/**'
           - 'tools/skill-evals/evals/pr-management-triage/**'
           - 'tools/skill-evals/evals/pr-stale-sweep/**'

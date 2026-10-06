@@ -1,0 +1,7 @@
+{
+  "action": "post-new",
+  "target_pr": 901,
+  "review_event": "none",
+  "footer_variant": "maintainer-confirmed",
+  "update_old_comment_to_pointer": false
+}

@@ -52,7 +52,7 @@
       "name": "magpie-pr-management",
       "source": "./plugins/magpie-pr-management",
       "version": "0.9.0.dev202609262258",
-      "description": "Apache Magpie pr-management family (8 skills)."
+      "description": "Apache Magpie pr-management family (9 skills)."
     },
     {
       "name": "magpie-release-management",

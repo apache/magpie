@@ -1,6 +1,6 @@
 {
   "name": "magpie-pr-management",
-  "description": "Apache Magpie \u2014 PR-queue management: triage, stats, deep code review, quick-merge, stale-sweep, reviewer routing, pre-first-PR checks.",
+  "description": "Apache Magpie \u2014 PR-queue management: triage, stats, deep code review, stack review, quick-merge, stale-sweep, reviewer routing, pre-first-PR checks.",
   "version": "0.9.0.dev202609262258",
   "author": {
     "name": "Apache Magpie",

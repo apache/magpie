@@ -206,7 +206,7 @@ DESC = {
     "security": "security-issue handling lifecycle — import through CVE publication, triage, sync, dedup, invalidate. Maintainer-only.",
     "release-management": "ASF release lifecycle: plan, RC cut/sign, vote, tally, promote, announce, archive, audit.",
     "setup": "framework install/maintenance: install (adopt), upgrade, verify, override, status, secure-agent setup, shared-config sync.",
-    "pr-management": "PR-queue management: triage, stats, deep code review, quick-merge, stale-sweep, reviewer routing, pre-first-PR checks.",
+    "pr-management": "PR-queue management: triage, stats, deep code review, stack review, quick-merge, stale-sweep, reviewer routing, pre-first-PR checks.",
     "issue": "issue lifecycle: triage, reproduction, fix drafting, reassess, stale-sweep, dedup, backlog stats.",
     "repo-health": "read-only repo-health audits: runner labels, workflow security, dependency/license/NOTICE, flaky tests, audit-finding fixes.",
     "contributor-growth": "path-to-committer: activity sweeps, nominations, sentiment, readiness, committer/post-vote onboarding.",

@@ -1,0 +1,7 @@
+{
+  "action": "post-new",
+  "target_pr": 901,
+  "review_event": "none",
+  "footer_variant": "role-neutral",
+  "update_old_comment_to_pointer": false
+}
