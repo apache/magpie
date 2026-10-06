@@ -1,0 +1,21 @@
+{
+  "has_find": {
+    "type": "regex",
+    "field": "paste_recipe",
+    "pattern": "(^|[\\s;&|])find\\s"
+  },
+  "has_baseline_globs": {
+    "type": "contains_all",
+    "field": "paste_recipe",
+    "substrings": [
+      "*.class",
+      "*.jar",
+      "*.so",
+      "*.dylib",
+      "*.dll",
+      "*.exe",
+      "*.pyc",
+      "__pycache__"
+    ]
+  }
+}

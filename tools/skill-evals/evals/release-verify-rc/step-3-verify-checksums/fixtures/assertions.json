@@ -1,0 +1,12 @@
+{
+  "has_sha512_check": {
+    "type": "regex",
+    "field": "paste_recipe",
+    "pattern": "sha512sum[^\\n]*\\s(-c\\b|--check\\b)"
+  },
+  "has_sha256_check": {
+    "type": "regex",
+    "field": "paste_recipe",
+    "pattern": "sha256sum[^\\n]*\\s(-c\\b|--check\\b)"
+  }
+}

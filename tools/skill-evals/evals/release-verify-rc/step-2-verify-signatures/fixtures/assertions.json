@@ -1,0 +1,12 @@
+{
+  "has_keys_import": {
+    "type": "regex",
+    "field": "paste_recipe",
+    "pattern": "gpg\\d*[^\\n]*--import(?![-\\w])"
+  },
+  "has_sig_verify": {
+    "type": "regex",
+    "field": "paste_recipe",
+    "pattern": "gpg\\d*[^\\n]*--verify\\b[^\\n]*\\.asc"
+  }
+}

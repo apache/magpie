@@ -24,5 +24,8 @@ Grading rules:
 - `paste_recipe` must be a non-empty string with a `find` that includes the
   fixed baseline (`.class`, `.jar`, `.so`, `.dylib`, `.dll`, `.exe`, `.pyc`,
   `__pycache__`) and any extra globs from `release-build.md` beyond that
-  baseline.
+  baseline. The baseline is checked deterministically (the `has_*` keys,
+  defined in `assertions.json`) rather than against one reference recipe;
+  different quoting, or splitting the scan across several `find` calls,
+  is fine.
 - No extra keys are permitted in the response.

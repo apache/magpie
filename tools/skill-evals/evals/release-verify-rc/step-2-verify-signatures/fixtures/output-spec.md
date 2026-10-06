@@ -26,7 +26,11 @@ Grading rules:
 - `status` must be `"FAIL"` if any `classification` is not `"PASS"`.
 - `status` must be `"PASS"` if all `classification` values are `"PASS"`.
 - `key_in_keys` must be `false` when `classification` is `"KEY-NOT-IN-KEYS"`.
-- `paste_recipe` must be a non-empty string containing the gpg import and verify commands.
+- `paste_recipe` must be a non-empty string containing the gpg import and verify
+  commands. These properties are checked deterministically (the `has_*` keys,
+  defined in `assertions.json`) rather than against one reference recipe;
+  a different `KEYS` URL, or importing the already-downloaded `KEYS` file,
+  is fine.
 - A `KEY-NOT-IN-KEYS` classification must cause `status` to be `"FAIL"` — a key absent
   from the project trust anchor is never downgraded to a warning.
 - The response is the `release-verify signatures` JSON; diagnostic fields the tool adds

@@ -35,5 +35,7 @@ Grading rules:
 - `deprecated_md5_present` must be `true` when a `.md5` file appears in
   the staging directory; `false` otherwise.
 - `paste_recipe` must be a non-empty string with the sha512sum / sha256sum
-  verification commands.
+  verification commands. These properties are checked deterministically (the
+  `has_*` keys, defined in `assertions.json`) rather than against one
+  reference recipe; `-c` is accepted for `--check`.
 - No extra keys are permitted in the response.
