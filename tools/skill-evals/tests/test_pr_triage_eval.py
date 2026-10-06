@@ -299,6 +299,7 @@ def test_evaluate_dataset_and_report_generation() -> None:
     assert summary.high_conf_agreed == 3
     assert summary.high_conf_accuracy == 1.0
     assert summary.fallthrough_total == 0
+    assert summary.error_total == 0
     assert summary.cost_per_100 == "TBD (early-access pricing not public)"
 
     assert "passing" in summary.per_class
@@ -337,11 +338,48 @@ def test_evaluate_dataset_handles_mid_run_provider_failure() -> None:
     results, summary = evaluate_dataset(sample_dataset, provider=provider, confidence_threshold=0.85)
 
     assert len(results) == 1
-    assert results[0].outcome == "fell_through"
+    assert results[0].outcome == "error"
     assert results[0].error == "Simulated endpoint timeout"
     assert results[0].agreed is False
-    assert summary.fallthrough_total == 1
+    assert summary.error_total == 1
+    assert summary.error_rate == 1.0
+    assert summary.fallthrough_total == 0
+    assert summary.fallthrough_rate == 0.0
     assert summary.overall_agreed == 0
+
+
+def test_evaluate_dataset_does_not_mask_harness_bug() -> None:
+    class BuggyProvider(DecisionProvider):
+        @property
+        def name(self) -> str:
+            return "buggy-provider"
+
+        def choice(self, prompt: str, options: list[str]) -> dict[str, Any]:
+            raise TypeError("Harness type mismatch")
+
+        def score(
+            self,
+            prompt: str,
+            scale: tuple[float, float] | list[float] | int | float,
+        ) -> dict[str, Any]:
+            return {}
+
+        def noul(self, prompt: str) -> dict[str, Any]:
+            return {}
+
+    sample_dataset = [
+        {
+            "number": 302,
+            "title": "fix: bug",
+            "statusCheckRollup": "SUCCESS",
+            "mergeable": "MERGEABLE",
+            "ground_truth_label": "passing",
+        }
+    ]
+    import pytest
+
+    with pytest.raises(TypeError, match="Harness type mismatch"):
+        evaluate_dataset(sample_dataset, provider=BuggyProvider())
 
 
 def test_main_fails_hard_without_live_provider(monkeypatch: Any) -> None:

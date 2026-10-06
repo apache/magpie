@@ -35,6 +35,7 @@ import math
 import statistics
 import sys
 import time
+import urllib.error
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -63,7 +64,18 @@ try:
 except ImportError:
     typed_decision = None  # type: ignore[assignment]
     DecisionProvider = object  # type: ignore[misc,assignment]
-    TypedDecisionUnavailable = Exception  # type: ignore[misc,assignment]
+
+    class TypedDecisionUnavailable(Exception):  # type: ignore[misc,no-redef]
+        pass
+
+
+PROVIDER_CALL_ERRORS = (
+    TypedDecisionUnavailable,
+    urllib.error.URLError,
+    TimeoutError,
+    ConnectionError,
+    OSError,
+)
 
 from typed_decision_prefilter import (  # type: ignore[import-untyped,import-not-found]  # noqa: E402
     DEFAULT_CONFIDENCE_THRESHOLD,
@@ -108,6 +120,8 @@ class EvaluationSummary:
     high_conf_accuracy: float
     fallthrough_total: int
     fallthrough_rate: float
+    error_total: int
+    error_rate: float
     latency_p50_ms: float
     latency_p90_ms: float
     latency_p95_ms: float
@@ -149,23 +163,29 @@ def evaluate_dataset(
                 resp = typed_decision.choice(prompt, options, provider=provider)
             else:
                 resp = provider.choice(prompt, options)
+        except PROVIDER_CALL_ERRORS as exc:
+            elapsed_ms = (time.perf_counter() - t0) * 1000.0
+            error_msg = str(exc)
+            resp = None
+        else:
             elapsed_ms = (time.perf_counter() - t0) * 1000.0
             if "_simulated_latency_ms" in resp:
                 elapsed_ms = resp["_simulated_latency_ms"]
             predicted = resp.get("label", "")
             confidence = float(resp.get("confidence", 0.0))
-        except (TypedDecisionUnavailable, Exception) as exc:
-            elapsed_ms = (time.perf_counter() - t0) * 1000.0
-            error_msg = str(exc)
 
-        agreed = (predicted == ground_truth) and (error_msg is None)
-        high_conf = (confidence >= confidence_threshold) and (error_msg is None)
         if error_msg is not None:
-            outcome = "fell_through"
-        elif high_conf:
+            outcome = "error"
+            agreed = False
+            high_conf = False
+        elif confidence >= confidence_threshold:
             outcome = "high_confidence"
+            agreed = predicted == ground_truth
+            high_conf = True
         else:
             outcome = "low_confidence"
+            agreed = predicted == ground_truth
+            high_conf = False
 
         res = EvalSampleResult(
             pr_number=pr_number,
@@ -193,8 +213,13 @@ def evaluate_dataset(
     high_conf_agreed = sum(1 for r in high_conf_items if r.agreed)
     high_conf_accuracy = (high_conf_agreed / high_conf_total) if high_conf_total > 0 else 0.0
 
-    fallthrough_total = total - high_conf_total
+    low_conf_items = [r for r in results if r.outcome == "low_confidence"]
+    fallthrough_total = len(low_conf_items)
     fallthrough_rate = (fallthrough_total / total) if total > 0 else 0.0
+
+    error_items = [r for r in results if r.outcome == "error"]
+    error_total = len(error_items)
+    error_rate = (error_total / total) if total > 0 else 0.0
 
     # Latency percentiles
     sorted_lat = sorted(latencies)
@@ -249,6 +274,8 @@ def evaluate_dataset(
         high_conf_accuracy=round(high_conf_accuracy, 4),
         fallthrough_total=fallthrough_total,
         fallthrough_rate=round(fallthrough_rate, 4),
+        error_total=error_total,
+        error_rate=round(error_rate, 4),
         latency_p50_ms=round(p50, 1),
         latency_p90_ms=round(p90, 1),
         latency_p95_ms=round(p95, 1),
@@ -506,6 +533,13 @@ def main(argv: list[str] | None = None) -> int:
 
     results, summary = evaluate_dataset(samples, provider=provider, confidence_threshold=args.threshold)
 
+    if summary.total_samples > 0 and summary.error_total == summary.total_samples:
+        print(
+            f"Error: All {summary.total_samples} samples encountered provider errors. Evaluation failed.",
+            file=sys.stderr,
+        )
+        return 1
+
     dates = [s["createdAt"][:10] for s in samples if s.get("createdAt")]
     date_range = f"{min(dates)} to {max(dates)}" if dates else "2026-08-04 to 2026-10-04"
     numbers = [s["number"] for s in samples if s.get("number")]
@@ -541,6 +575,11 @@ def main(argv: list[str] | None = None) -> int:
     print(
         f"High-confidence agreement: {summary.high_conf_accuracy * 100:.2f}% ({summary.high_conf_agreed}/{summary.high_conf_total})"
     )
+    print(
+        f"Fall-through (low confidence): {summary.fallthrough_total} ({summary.fallthrough_rate * 100:.1f}%)"
+    )
+    if summary.error_total > 0:
+        print(f"Provider errors: {summary.error_total} ({summary.error_rate * 100:.1f}%)")
     print(f"Latency p50 / p95: {summary.latency_p50_ms:.1f}ms / {summary.latency_p95_ms:.1f}ms")
     return 0
 
