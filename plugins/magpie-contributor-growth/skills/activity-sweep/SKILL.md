@@ -18,9 +18,9 @@ when_to_use: |
   Skip when the user wants a full nomination evidence brief (use `contributor-nomination` instead).
 argument-hint: "<github-handle> [window:Nm]"
 capability: capability:stats
-surface_hash: sha256:748187f2d78d9991
+surface_hash: sha256:a39919af92a37e2d
 license: Apache-2.0
-measured_tokens: 3569
+measured_tokens: 3361
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -138,8 +138,8 @@ Resolve in order:
    echo "<login>" | grep -Px '[A-Za-z0-9][A-Za-z0-9\-]{0,38}'
    ```
    If the value does not match, reject it and ask for a valid handle.
-   Do not interpolate `<login>` unescaped into shell strings. Write
-   all query strings to a tempfile and pass via `-f query=@/tmp/...`.
+   Do not interpolate `<login>` unescaped into shell strings; the
+   Step 1 tool passes it to `gh` only through a tempfile it writes.
 
 2. **Window** (`<window>`) — integer number of months, default 6.
    Compute `<since>` as the ISO-8601 date `<window>` months before
@@ -172,130 +172,62 @@ Proceed? [Y/n]
 
 ## Step 1 — Fetch and classify activity
 
-Four streams. All are scoped to `<upstream>` and date-bounded to
-`created:><since>` or `updated:><since>` as appropriate.
-
-**Budget**: at most 3 paginated fetches per stream (≤ 300 results per
-stream). If a stream hits the cap, record the count as a minimum and
-note the cap hit in the output.
-
-**Injection guard**: write `<login>` and query strings to tempfiles;
-never interpolate them directly into shell double-quotes.
-
-### Stream 1 — PRs authored
+Run [`contributor-metrics`](../../../../tools/contributor-metrics/README.md), the family's counting tool, once for `<login>` on `<upstream>` from `<since>` (after any repo-age trim) to today, then count the fetched items with its offline `score`:
 
 ```bash
-printf '%s' "repo:<upstream> type:pr author:<login> created:><since>" \
-  > /tmp/cas-pr-query.txt
-
-gh api graphql \
-  -F query=@/tmp/cas-pr-query.txt \
-  -F batchSize=100 \
-  -f cursor='' \
-  -f gql='query($query:String!,$batchSize:Int!,$cursor:String){
-    search(query:$query,type:ISSUE,first:$batchSize,after:$cursor){
-      issueCount
-      pageInfo{hasNextPage endCursor}
-      nodes{...on PullRequest{number state merged mergedAt createdAt}}
-    }
-  }'
+uv run --directory <framework>/tools/contributor-metrics contributor-metrics fetch \
+  --repo <upstream> --login <login> --since <since> --end <today> \
+  --substantive-body-chars 50 --substantive-line-comments 3 \
+  --out <scratch>/items.json
+uv run --directory <framework>/tools/contributor-metrics contributor-metrics score \
+  --items <scratch>/items.json --timeline-kinds pr,issue,review,thread \
+  --out <scratch>/metrics.json
 ```
 
-Record: total opened, total merged, merge rate (merged / opened).
+- Exit `2` means `<login>` or `<since>` is invalid: stop and report it.
+- Exit `1` means `gh` failed: stop and show its error.
 
-### Stream 2 — PR reviews given
+Every item is dated by `<login>`'s own activity inside the window.
+No classes are passed, so nothing is discounted; read only the `raw` values from `metrics.json`:
 
-```bash
-gh search prs \
-  --repo <upstream> \
-  --reviewed-by <login> \
-  --created "><since>" \
-  --json number,title \
-  --limit 300
-```
+| Card track | `metrics.json` field |
+|---|---|
+| PRs authored — opened, merged, merge rate | `metrics.prs_opened.raw`, `metrics.prs_merged.raw`, `merge_rate.raw` (a fraction; `null` with no PRs) |
+| PR reviews given — total, substantive | `metrics.reviews_total.raw`, `metrics.reviews_substantive.raw` |
+| Issues filed | `metrics.issues_filed.raw` |
+| PR / issue comments | `metrics.threads_commented.raw` |
+| Activity timeline | `timeline` |
 
-For each returned PR number, fetch the full review thread including
-inline comments:
-
-```graphql
-query($owner: String!, $repo: String!, $pr: Int!, $login: String!) {
-  repository(owner: $owner, name: $repo) {
-    pullRequest(number: $pr) {
-      reviews(first: 100) {
-        nodes {
-          author { login }
-          state
-          body
-          comments { totalCount }
-        }
-      }
-    }
-  }
-}
-```
-
-For each review where `author.login == <login>`, count it as
-**substantive** if either:
-- `comments.totalCount >= 3` (three or more inline code comments), or
-- `body` length > 50 characters (meaningful top-level review body).
-
+**Reviews** count one per reviewed PR.
+A reviewed PR is **substantive** when one of `<login>`'s reviews on it has
+`comments.totalCount >= 3` (three or more inline code comments) or a
+`body` longer than 50 characters (a meaningful top-level review body).
 A threshold of 3 inline comments filters out drive-by nits (typos,
 spacing) while still catching reviewers who work line-by-line without
 writing a top-level summary. Reviews below both thresholds are counted
 as LGTM-only.
 
-Record: total reviews, substantive reviews, total inline comments left
-across all reviewed PRs.
+**Comments** count distinct threads commented on, not individual
+comments — report it as such.
 
-### Stream 3 — Issues filed
+**Budget**: each stream fetches at most 300 results. A stream named in
+`caps_hit` (`prs_opened`, `reviews_total`, `issues_filed`,
+`threads_commented`) returned more: record its counts as a minimum and
+note the cap hit in the output.
 
-```bash
-printf '%s' "repo:<upstream> type:issue author:<login> created:><since>" \
-  > /tmp/cas-issue-query.txt
-
-gh api graphql \
-  -F query=@/tmp/cas-issue-query.txt \
-  -F batchSize=100 \
-  -f cursor='' \
-  -f gql='query($query:String!,$batchSize:Int!,$cursor:String){
-    search(query:$query,type:ISSUE,first:$batchSize,after:$cursor){
-      issueCount
-      pageInfo{hasNextPage endCursor}
-      nodes{...on Issue{number state createdAt}}
-    }
-  }'
-```
-
-Record: total issues filed.
-
-### Stream 4 — PR and issue comments
-
-```bash
-printf '%s' "repo:<upstream> commenter:<login> updated:><since>" \
-  > /tmp/cas-comment-query.txt
-
-gh api graphql \
-  -F query=@/tmp/cas-comment-query.txt \
-  -F batchSize=100 \
-  -f cursor='' \
-  -f gql='query($query:String!,$batchSize:Int!,$cursor:String){
-    search(query:$query,type:ISSUE,first:$batchSize,after:$cursor){
-      issueCount
-      pageInfo{hasNextPage endCursor}
-      nodes{...on Issue{number}...on PullRequest{number}}
-    }
-  }'
-```
-
-Record: total threads commented on. (GitHub search returns distinct
-threads, not individual comment count — report it as such.)
+**Injection guard**: the tool validates `<login>` and passes it to `gh`
+only inside a search string written to a tempfile; never interpolate
+`<login>` into any other shell command. `items.json` and `metrics.json`
+hold links, dates, counts and flags only — no titles, bodies or comment
+text.
 
 ### Activity timeline
 
-For each stream, bucket events by calendar month. Combine all streams
-into a single per-month event count for the timeline bar. Only render
-months from `<since>` (after any repo-age trim) onward — do not
-render months that pre-date the repo's creation.
+`timeline` is the per-month event count of the four card streams
+combined, zero-filled from `<since>` (after any repo-age trim) — so
+months that pre-date the repo's creation are never rendered. Issues
+triaged are left out of it: the tool fetches them too, but this card
+does not show them, and those threads are already counted as comments.
 
 ---
 

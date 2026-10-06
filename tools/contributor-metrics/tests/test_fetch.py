@@ -418,3 +418,25 @@ def test_fetch_rejects_a_repository_without_owner(fake_gh):
     with pytest.raises(InvalidRepo):
         fetch_items("justarepo", "alice", since="2026-03-01", end="2026-08-31", phrases=(), maintainers=())
     assert fake_gh.calls == []
+
+
+def test_substantive_thresholds_are_configurable(fake_gh):
+    nodes = [
+        review_node(21, "2026-05-02T10:00:00Z", body="x" * 60),
+        review_node(22, "2026-05-02T10:00:00Z", comments=2),
+        review_node(23, "2026-05-02T10:00:00Z", comments=3),
+        review_node(24, "2026-05-02T10:00:00Z", body="x" * 50),
+    ]
+    fake_gh.responses = streams(contributionsCollection=contributions(nodes))
+    items, _, _ = fetch_items(
+        "o/r",
+        "alice",
+        since="2026-03-01",
+        end="2026-08-31",
+        phrases=(),
+        maintainers=(),
+        substantive_body_chars=50,
+        substantive_line_comments=3,
+    )
+    substantive = {i.id for i in items if i.kind == "review" and i.substantive}
+    assert substantive == {"review-21", "review-23"}

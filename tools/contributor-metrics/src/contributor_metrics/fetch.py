@@ -36,6 +36,7 @@ GENERIC_PHRASES = (
 )
 PAGES = 3
 AUTHORED_BUDGET, REVIEW_BUDGET, THREAD_BUDGET = 50, 20, 100
+SUBSTANTIVE_BODY_CHARS, SUBSTANTIVE_LINE_COMMENTS = 100, 1
 RETRYABLE = ("rate limit", "secondary rate", "abuse", "http 502", "http 503", "timed out", "timeout")
 MAX_TRIES = 6
 
@@ -172,8 +173,19 @@ def _chunks(since: str, end: str) -> list[tuple[str, str]]:
     return out
 
 
-def _reviews(repo: str, login: str, since: str, end: str) -> tuple[list[Item], bool]:
-    """One item per reviewed PR, dated by the candidate's first review in the window."""
+def _reviews(
+    repo: str,
+    login: str,
+    since: str,
+    end: str,
+    body_chars: int = SUBSTANTIVE_BODY_CHARS,
+    line_comments: int = SUBSTANTIVE_LINE_COMMENTS,
+) -> tuple[list[Item], bool]:
+    """One item per reviewed PR, dated by the candidate's first review in the window.
+
+    The PR is substantive when any of those reviews has a body longer than `body_chars`
+    characters or at least `line_comments` line comments.
+    """
     by_pr: dict[int, dict[str, Any]] = {}
     capped = False
     for frm, to in _chunks(since, end):
@@ -203,8 +215,8 @@ def _reviews(repo: str, login: str, since: str, end: str) -> tuple[list[Item], b
                 entry = by_pr.setdefault(pr["number"], {"pr": pr, "first": day, "substantive": False})
                 entry["first"] = min(entry["first"], day)
                 if (
-                    len(review.get("body") or "") > 100
-                    or (review.get("comments") or {}).get("totalCount", 0) > 0
+                    len(review.get("body") or "") > body_chars
+                    or (review.get("comments") or {}).get("totalCount", 0) >= line_comments
                 ):
                     entry["substantive"] = True
             if not conn["pageInfo"]["hasNextPage"]:
@@ -270,6 +282,8 @@ def fetch_items(
     end: str,
     phrases: Iterable[str],
     maintainers: Iterable[str],
+    substantive_body_chars: int = SUBSTANTIVE_BODY_CHARS,
+    substantive_line_comments: int = SUBSTANTIVE_LINE_COMMENTS,
 ) -> tuple[list[Item], list[str], list[str]]:
     """Fetch the five activity streams inside [since, end].
 
@@ -295,7 +309,7 @@ def fetch_items(
             caps.append(name)
         items += [_authored(kind, n, end) for n in nodes]
 
-    reviews, capped = _reviews(repo, login, since, end)
+    reviews, capped = _reviews(repo, login, since, end, substantive_body_chars, substantive_line_comments)
     if capped:
         caps.append("reviews_total")
     items += reviews

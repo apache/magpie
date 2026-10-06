@@ -46,13 +46,18 @@ Comment bodies never leave `fetch`; its output holds links and flags only.
 ### `fetch`
 
 ```bash
-contributor-metrics fetch --repo <upstream> --login <handle> --end YYYY-MM-DD --months 6 \
+contributor-metrics fetch --repo <upstream> --login <handle> --end YYYY-MM-DD (--months 6 | --since YYYY-MM-DD) \
+  [--substantive-body-chars 100] [--substantive-line-comments 1] \
   [--phrases-file <file>] [--maintainers-file <file>] [--cache-dir <dir>] --out items.json
 ```
 
+- `--since` — the window start; it overrides `--months` for a window that is not a whole number of months, such as one trimmed to the repository's creation date.
+  An invalid date, or one after `--end`, exits `2` before any `gh` call.
+- `--substantive-body-chars` / `--substantive-line-comments` — a reviewed PR is *substantive* when one of the contributor's reviews on it has a body longer than the first or at least the second many line comments; defaults `100` and `1`.
+
 - `--phrases-file` — one extra pushback phrase per line (the project's `automated_pushback_phrases`), added to the generic list.
 - `--maintainers-file` — whitespace-separated handles treated as maintainers in addition to `OWNER` / `MEMBER` / `COLLABORATOR` authors.
-- `--cache-dir` — where fetched items are cached per repository, handle, window, phrases and roster; default `$TMPDIR/contributor-metrics-cache`. A second fetch with the same key reads the cache and makes no `gh` call. The cache holds links and flags only, never comment bodies.
+- `--cache-dir` — where fetched items are cached per repository, handle, window, phrases, roster and substantive thresholds; default `$TMPDIR/contributor-metrics-cache`. A second fetch with the same key reads the cache and makes no `gh` call. The cache holds links and flags only, never comment bodies.
   Weights, penalty and area prefix are applied by `score`, not cached, so changing them needs no refetch; anything that changes on GitHub after a fetch (a new label, a late comment) is picked up only with `--refresh`, or by deleting the cache directory.
 - `--refresh` — ignore any cached result for this key and fetch again.
 - `--repo` must be `owner/name`; anything else exits `2` before any `gh` call.
@@ -63,7 +68,7 @@ Every item is dated by the contributor's own activity and must fall inside `[sin
 |---|---|---|---|
 | PRs authored | search `repo:<repo> type:pr author:<login> created:<since>..<end>` | creation; *merged* only when `mergedAt` ≤ `end` | `pr` |
 | Issues filed | search `repo:<repo> type:issue author:<login> created:<since>..<end>` | creation | `issue` |
-| Reviews | `contributionsCollection` between `since` and `end`, one item per reviewed PR | the first review in the window; *substantive* when any of those reviews has a body over 100 characters or a line comment — every reviewed PR is checked | `review` |
+| Reviews | `contributionsCollection` between `since` and `end`, one item per reviewed PR | the first review in the window; *substantive* when any of those reviews has a body over 100 characters or a line comment (or the configured thresholds) — every reviewed PR is checked | `review` |
 | Threads commented | search `repo:<repo> commenter:<login> created:<=<end> updated:>=<since>` | the contributor's first comment in the window; a thread with none is dropped | `thread` |
 | Issues triaged | search `repo:<repo> type:issue commenter:<login> -author:<login> created:<=<end> updated:>=<since>` | as threads | `triage` |
 
@@ -78,13 +83,14 @@ Rate-limit and transient `gh` errors are retried with exponential backoff (up to
 
 ```bash
 contributor-metrics score --items items.json [--classes classes.json] [--weights weights.json] \
-  [--area-prefix area:] [--since YYYY-MM-DD] --out metrics.json
+  [--area-prefix area:] [--since YYYY-MM-DD] [--timeline-kinds pr,issue,review,thread] --out metrics.json
 ```
 
 - `--classes` — `{"<item id>": "P" | "R" | "C"}`, as confirmed by the calling skill; unknown ids and other values are reported in `notes` and ignored.
 - `--weights` — any of `automated_contribution_weight`, `restatement_comment_weight`, `closed_after_pushback_weight`, `automated_pushback_penalty`; a missing, non-numeric or out-of-range value falls back to its default with a note.
 - `--area-prefix` — the label prefix that marks a PR's area (the project's `area_label_prefix`).
 - `--since` — score only a sub-window of what was fetched, e.g. the 6-month window from a 12-month fetch.
+- `--timeline-kinds` — the item kinds the monthly `timeline` counts, comma-separated; default every kind.
 
 ### `floors`
 

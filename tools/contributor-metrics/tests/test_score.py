@@ -178,3 +178,16 @@ def test_area_shares_are_over_all_merged_prs_with_an_unlabelled_row():
 def test_boolean_weight_is_rejected():
     weights, notes = Weights.from_mapping({"automated_pushback_penalty": True})
     assert weights.penalty == 0.25 and len(notes) == 1
+
+
+def test_timeline_kinds_limits_the_timeline():
+    url = "https://github.com/o/r/issues/9"
+    triage = Item(id="triage-9", kind="triage", url=url, thread=url, created_at="2026-05-03")
+    thread = Item(id="thread-9", kind="thread", url=url, thread=url, created_at="2026-05-03")
+    weights, _ = Weights.from_mapping({})
+    items = [pr(1), review(2), thread, triage]
+    full = score(items, {}, weights, since=SINCE, end=END)
+    limited = score(items, {}, weights, since=SINCE, end=END, timeline_kinds=("pr", "review", "thread"))
+    assert full["timeline"]["2026-05"] == 4
+    assert limited["timeline"]["2026-05"] == 3
+    assert limited["metrics"]["issues_triaged"]["raw"] == 1

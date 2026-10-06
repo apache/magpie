@@ -48,8 +48,12 @@ def score(
     end: str,
     area_prefix: str = "area:",
     caps_hit: Iterable[str] = (),
+    timeline_kinds: Iterable[str] | None = None,
 ) -> dict[str, Any]:
-    """Apply weights and the pushback penalty to the items inside [since, end]."""
+    """Apply weights and the pushback penalty to the items inside [since, end].
+
+    `timeline_kinds`, when given, limits the monthly timeline to those item kinds.
+    """
     in_window = [i for i in items if since <= i.created_at[:10] <= end]
     known = {i.id for i in in_window}
     notes: list[str] = []
@@ -115,8 +119,9 @@ def score(
     }
 
     timeline = dict.fromkeys(_months(since, end), 0)
+    kinds = None if timeline_kinds is None else set(timeline_kinds)
     for i in in_window:
-        if w(i) > 0 and i.created_at[:7] in timeline:
+        if (kinds is None or i.kind in kinds) and w(i) > 0 and i.created_at[:7] in timeline:
             timeline[i.created_at[:7]] += 1
 
     flagged = [

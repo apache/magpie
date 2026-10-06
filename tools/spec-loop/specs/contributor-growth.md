@@ -88,7 +88,9 @@ Adopter config scaffolds live in `plugins/magpie-setup/templates/`
   `tools/skill-evals/evals/mentoring-welcome/`.
 - Skill: `contributor-activity-sweep` — read-only GitHub activity
   card for a named contributor: PR authorship, code-review
-  participation, issues, and comments over a configurable window.
+  participation, issues, and comments over a configurable window,
+  counted by `tools/contributor-metrics` (raw counts only, its own
+  substantive-review thresholds, timeline without issues triaged).
   Ships `mode: Triage` + `experimental`, eval suite under
   `tools/skill-evals/evals/contributor-activity-sweep/`.
 - Skill: `contributor-nomination` — nomination evidence brief for a
@@ -179,11 +181,14 @@ Adopter config scaffolds live in `plugins/magpie-setup/templates/`
 - Tool: `tools/contributor-metrics` (`substrate:analytics`,
   stdlib-only, shells out to `gh`) with three subcommands.
   `fetch` collects five GitHub streams, applies the substantive-review
-  rule, flags pushback candidates, and caches by repository, handle,
-  window, phrases and roster (`--refresh` bypasses the cache).
+  rule (thresholds overridable per caller), flags pushback candidates,
+  and caches by repository, handle, window, phrases, roster and
+  thresholds (`--refresh` bypasses the cache); `--since` sets a window
+  that is not a whole number of months.
   `score` applies weights and the penalty and returns per-area shares
   (with an `(unlabelled)` row), merge rate, a monthly timeline, and
-  which streams hit their search cap; `--since` scores a sub-window.
+  which streams hit their search cap; `--since` scores a sub-window
+  and `--timeline-kinds` limits the timeline to some item kinds.
   `floors` computes recency-weighted nearest-rank percentiles for
   calibration.
   Unit tests under `tools/contributor-metrics/tests/`.

@@ -229,3 +229,57 @@ def test_fetch_cli_invalid_repo_exit_2(tmp_path):
         ]
     )
     assert rc == 2
+
+
+def _fetch_args(tmp_path, *extra):
+    return [
+        "fetch",
+        "--repo",
+        "o/r",
+        "--login",
+        "alice",
+        "--end",
+        "2026-08-31",
+        "--cache-dir",
+        str(tmp_path / "c"),
+        "--out",
+        str(tmp_path / "a.json"),
+        *extra,
+    ]
+
+
+def test_fetch_since_overrides_months(tmp_path, monkeypatch):
+    seen = {}
+
+    def fake_fetch(*a, **k):
+        seen.update(k)
+        return [], [], []
+
+    monkeypatch.setattr("contributor_metrics.cli.fetch_items", fake_fetch)
+    assert main(_fetch_args(tmp_path, "--months", "6", "--since", "2026-07-15")) == 0
+    assert seen["since"] == "2026-07-15"
+    assert json.loads((tmp_path / "a.json").read_text())["since"] == "2026-07-15"
+
+
+def test_fetch_rejects_a_bad_or_late_since(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        "contributor_metrics.cli.fetch_items", lambda *a, **k: (_ for _ in ()).throw(AssertionError)
+    )
+    assert main(_fetch_args(tmp_path, "--since", "2026-13-01")) == 2
+    assert main(_fetch_args(tmp_path, "--since", "2026-09-01")) == 2
+    assert not (tmp_path / "a.json").exists()
+
+
+def test_fetch_substantive_thresholds_reach_fetch_and_the_cache_key(tmp_path, monkeypatch):
+    calls = []
+
+    def fake_fetch(*a, **k):
+        calls.append((k["substantive_body_chars"], k["substantive_line_comments"]))
+        return [], [], []
+
+    monkeypatch.setattr("contributor_metrics.cli.fetch_items", fake_fetch)
+    assert main(_fetch_args(tmp_path)) == 0
+    assert (
+        main(_fetch_args(tmp_path, "--substantive-body-chars", "50", "--substantive-line-comments", "3")) == 0
+    )
+    assert calls == [(100, 1), (50, 3)]

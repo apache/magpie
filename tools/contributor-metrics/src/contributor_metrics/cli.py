@@ -15,7 +15,14 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-from contributor_metrics.fetch import GhError, InvalidLogin, InvalidRepo, fetch_items
+from contributor_metrics.fetch import (
+    SUBSTANTIVE_BODY_CHARS,
+    SUBSTANTIVE_LINE_COMMENTS,
+    GhError,
+    InvalidLogin,
+    InvalidRepo,
+    fetch_items,
+)
 from contributor_metrics.floors import DEFAULT_RELAXATION, propose_floors
 from contributor_metrics.model import Item, Weights
 from contributor_metrics.score import score
@@ -28,9 +35,19 @@ def _since(end: str, months: int) -> str:
 
 
 def _cache_file(
-    cache_dir: str, repo: str, login: str, since: str, end: str, phrases: list[str], maintainers: list[str]
+    cache_dir: str,
+    repo: str,
+    login: str,
+    since: str,
+    end: str,
+    phrases: list[str],
+    maintainers: list[str],
+    substantive: tuple[int, int] = (SUBSTANTIVE_BODY_CHARS, SUBSTANTIVE_LINE_COMMENTS),
 ) -> Path:
-    key = hashlib.sha256(json.dumps([sorted(phrases), sorted(maintainers)]).encode()).hexdigest()[:12]
+    parts: list[Any] = [sorted(phrases), sorted(maintainers)]
+    if substantive != (SUBSTANTIVE_BODY_CHARS, SUBSTANTIVE_LINE_COMMENTS):
+        parts.append(list(substantive))  # default thresholds keep the keys of existing caches
+    key = hashlib.sha256(json.dumps(parts).encode()).hexdigest()[:12]
     return Path(cache_dir) / f"{repo.replace('/', '__')}__{login}__{since}__{end}__{key}.json"
 
 
@@ -49,6 +66,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     f.add_argument("--login", required=True)
     f.add_argument("--end", required=True)
     f.add_argument("--months", type=int, default=6)
+    f.add_argument("--since", help="window start YYYY-MM-DD; overrides --months")
+    f.add_argument(
+        "--substantive-body-chars",
+        type=int,
+        default=SUBSTANTIVE_BODY_CHARS,
+        help="a review is substantive when its body is longer than this many characters",
+    )
+    f.add_argument(
+        "--substantive-line-comments",
+        type=int,
+        default=SUBSTANTIVE_LINE_COMMENTS,
+        help="... or when it carries at least this many line comments",
+    )
     f.add_argument(
         "--cache-dir",
         default=os.path.join(os.environ.get("TMPDIR") or tempfile.gettempdir(), "contributor-metrics-cache"),
@@ -63,6 +93,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     s.add_argument("--weights")
     s.add_argument("--area-prefix", default="area:")
     s.add_argument("--since", help="score only items on or after this date (a sub-window of the fetched one)")
+    s.add_argument(
+        "--timeline-kinds",
+        help="comma-separated item kinds the timeline counts (default: every kind)",
+    )
     s.add_argument("--out", required=True)
     fl = sub.add_parser("floors", help="propose threshold floors from measured past nominations")
     fl.add_argument(
@@ -93,10 +127,23 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     if args.cmd == "fetch":
-        since = _since(args.end, args.months)
+        try:
+            end_day = date.fromisoformat(args.end)
+            since = (
+                date.fromisoformat(args.since).isoformat() if args.since else _since(args.end, args.months)
+            )
+        except ValueError as exc:
+            print(f"invalid date (expected YYYY-MM-DD): {exc}", file=sys.stderr)
+            return 2
+        if since > end_day.isoformat():
+            print(f"--since {since} is after --end {args.end}", file=sys.stderr)
+            return 2
+        substantive = (args.substantive_body_chars, args.substantive_line_comments)
         phrases = Path(args.phrases_file).read_text().splitlines() if args.phrases_file else []
         maintainers = Path(args.maintainers_file).read_text().split() if args.maintainers_file else []
-        cached = _cache_file(args.cache_dir, args.repo, args.login, since, args.end, phrases, maintainers)
+        cached = _cache_file(
+            args.cache_dir, args.repo, args.login, since, args.end, phrases, maintainers, substantive
+        )
         if cached.exists() and not args.refresh:
             Path(args.out).write_text(cached.read_text())
             return 0
@@ -108,6 +155,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 end=args.end,
                 phrases=phrases,
                 maintainers=maintainers,
+                substantive_body_chars=substantive[0],
+                substantive_line_comments=substantive[1],
             )
         except InvalidLogin as exc:
             print(f"invalid GitHub handle: {exc}", file=sys.stderr)
@@ -147,6 +196,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         end=data["end"],
         area_prefix=args.area_prefix,
         caps_hit=data.get("caps_hit", []),
+        timeline_kinds=tuple(k.strip() for k in args.timeline_kinds.split(",") if k.strip())
+        if args.timeline_kinds
+        else None,
     )
     result["notes"] = notes + list(data.get("notes", [])) + result["notes"]
     Path(args.out).write_text(json.dumps(result, indent=2))
