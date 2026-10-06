@@ -8,7 +8,7 @@ kind: feature
 mode: Triage
 source: >
   MISSION.md § Technical scope (Triage). docs/modes.md § Triage
-  (38 skills). Implemented by the pr-management, issue, security,
+  (39 skills). Implemented by the pr-management, issue, security,
   contributor-growth, repo-health, and release-management skill
   families.
 acceptance:

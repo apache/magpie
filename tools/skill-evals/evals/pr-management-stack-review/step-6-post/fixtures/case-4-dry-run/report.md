@@ -3,6 +3,6 @@
 
 stack #910, layers 901 (pos 1), 902 (pos 2), 903 (pos 3); lowest open layer: PR #901
 viewer permission: write
-existing comment with marker `<!-- magpie-stack-review stack=910 -->`: none
+existing comment with marker `<!-- magpie-stack-review stack=910 heads=3f9a0c1d2b4e5f60 -->`: none
 dry-run: true
 heads changed since Step 1: false

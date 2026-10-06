@@ -36,6 +36,10 @@ import stack_chain
 # inherited from a hook would point `git` at the outer repository instead.
 for _var in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR", "GIT_PREFIX"):
     os.environ.pop(_var, None)
+# A contributor's global and system config (a hooks path, signing, templates)
+# must not run against the throwaway repositories.
+os.environ["GIT_CONFIG_GLOBAL"] = os.devnull
+os.environ["GIT_CONFIG_NOSYSTEM"] = "1"
 
 PREFIX = "magpie-stack/test"
 
@@ -248,6 +252,68 @@ class ChainTest(unittest.TestCase):
         with self.assertRaises(SystemExit) as ctx:
             stack_chain.chain(PREFIX, 3)
         self.assertIn("missing refs", str(ctx.exception))
+
+    def test_from_skips_a_merged_bottom_layer(self) -> None:
+        # Layer 1 was squash-merged into the trunk and layer 2 rebased onto it;
+        # only layer 2 is fetched. Analysing from position 2 must not report
+        # the squash commit as trunk drift or layer 2 as missing its base.
+        _git(self.repo, "checkout", "-q", "main")
+        _commit(self.repo, "pkg/user.py", "value = 1\n", "layer 1 (squash-merged)")
+        _git(self.repo, "update-ref", f"refs/{PREFIX}/trunk", "HEAD")
+        self._layer(2, "pkg/compat.py", "", "layer 2: remove the shim")
+        report = stack_chain.chain(PREFIX, 2, start=2)
+        self.assertTrue(report["linear"])
+        self.assertEqual(report["behind_trunk_commits"], 0)
+        self.assertEqual(report["trunk_touches_stack_files"], [])
+        self.assertEqual([layer["position"] for layer in report["layers"]], [2])
+        self.assertEqual(report["layers"][0]["own_commits"], 1)
+        self.assertEqual([layer["position"] for layer in stack_chain.seams(PREFIX, 2, start=2)["layers"]], [2])
+        self.assertEqual(stack_chain.floors(PREFIX, 2, start=2)["floor_changes"], [])
+        with self.assertRaises(SystemExit):
+            stack_chain.chain(PREFIX, 2, start=3)
+
+    def test_new_on_trunk_compares_full_hit_sets_before_capping(self) -> None:
+        uses = [f"from pkg.compat import shim  # use {i:02d}\n" for i in range(20)]
+        _commit(self.repo, "pkg/many.py", "".join(uses), "twenty uses")
+        merge_base = _git(self.repo, "rev-parse", "HEAD")
+        # The trunk drops the first use. Capping each side at 12 before comparing
+        # would report "use 12" as new; nothing is.
+        _commit(self.repo, "pkg/many.py", "".join(uses[1:]), "drop one use")
+        trunk = _git(self.repo, "rev-parse", "HEAD")
+        self.assertEqual(stack_chain.new_on_trunk("shim", merge_base, trunk), [])
+
+    def test_grep_matches_names_literally(self) -> None:
+        _commit(self.repo, "web/app.js", "const get$ = 1;\nexport const getter = get$;\n", "js")
+        hits = stack_chain.grep_at("HEAD", "get$")
+        self.assertEqual([h.split(":")[0] for h in hits], ["web/app.js", "web/app.js"])
+
+    def test_non_utf8_files_do_not_end_the_run(self) -> None:
+        target = self.repo / "data" / "latin1.properties"
+        target.parent.mkdir(parents=True)
+        target.write_bytes("name=\xe9t\xe9 \xe0 Z\xfcrich\n".encode("latin-1"))
+        _git(self.repo, "add", "-A")
+        _git(self.repo, "commit", "-q", "-m", "latin-1 file")
+        self._layer(1, "pkg/compat.py", "", "layer 1: remove shim")
+        report = stack_chain.seams(PREFIX, 1)
+        self.assertIn("shim", report["layers"][0]["hits"])
+
+    def test_constants_are_only_extracted_from_source_files(self) -> None:
+        diff = (
+            "diff --git a/Makefile b/Makefile\n--- a/Makefile\n+++ b/Makefile\n@@ -1 +0,0 @@\n-PATH=/usr/bin\n"
+            "diff --git a/pkg/settings.py b/pkg/settings.py\n--- a/pkg/settings.py\n+++ b/pkg/settings.py\n"
+            "@@ -1 +0,0 @@\n-TIMEOUT = 30\n"
+        )
+        self.assertEqual(stack_chain.removed_definitions(diff), ({"TIMEOUT": "pkg/settings.py"}, []))
+
+    def test_fetch_command_quotes_the_trunk_and_digest_runs_without_refs(self) -> None:
+        cmd = stack_chain.fetch_command("https://example.invalid/o/r.git", "magpie-stack/7", "main;`id`", {1: 11})
+        self.assertIn("'+refs/heads/main;`id`:refs/magpie-stack/7/trunk'", cmd)
+        out = io.StringIO()
+        with redirect_stdout(out):
+            stack_chain.main(["digest", "--head", f"2={'a' * 40}", "--head", f"3={'b' * 40}"])
+        self.assertEqual(out.getvalue().strip(), stack_chain.heads_digest({2: "a" * 40, 3: "b" * 40}))
+        with self.assertRaises(SystemExit):
+            stack_chain.main(["seams", "--prefix", PREFIX, "--size", "2", "--layers", "3,x"])
 
 
 if __name__ == "__main__":

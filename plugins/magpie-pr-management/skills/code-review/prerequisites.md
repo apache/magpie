@@ -33,14 +33,19 @@ HTTP 403: Resource not accessible by integration
 status up-front via:
 
 ```bash
-gh api "repos/<repo>/collaborators/$(gh api user --jq .login)/permission" \
-  --jq .permission 2>/dev/null
+gh api user --jq .login
+gh api repos/<repo>/collaborators/<viewer>/permission --jq .permission
 ```
 
-A response of `admin`, `maintain`, or `write` is sufficient.
+Run them as two plain commands, substituting the login the first
+prints: a `$(…)`, pipe or redirect around `gh` keeps it sandboxed
+under the secure setup, where it cannot authenticate.
+A response of `admin` or `write` is sufficient (the field carries
+the legacy values only: `maintain` reports as `write`, `triage` as
+`read`; the fine-grained role is in `.role_name`).
 (The endpoint without the trailing `/permission` only tests membership
 and answers `204` with no body, so `.permission` would always be empty.)
-`triage` or `read` is not enough to post reviews; the skill
+`read` is not enough to post reviews; the skill
 warns and offers `dry-run` mode (which drafts but does not post).
 
 This result also decides which `COMMENT` AI-attribution footer

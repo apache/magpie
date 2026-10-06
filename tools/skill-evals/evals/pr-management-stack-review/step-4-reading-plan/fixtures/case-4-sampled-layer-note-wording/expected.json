@@ -17,6 +17,6 @@
     2,
     4
   ],
-  "note_has_sampled_tag": true,
-  "note_avoids_forbidden_wording": true
+  "has_sampled_tag_in_note": true,
+  "has_no_forbidden_wording_in_note": true
 }

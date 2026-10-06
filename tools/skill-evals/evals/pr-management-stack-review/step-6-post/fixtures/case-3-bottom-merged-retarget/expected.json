@@ -3,5 +3,6 @@
   "target_pr": 902,
   "review_event": "none",
   "footer_variant": "maintainer-confirmed",
-  "update_old_comment_to_pointer": true
+  "update_old_comment_to_pointer": true,
+  "foreign_marker_flagged": false
 }

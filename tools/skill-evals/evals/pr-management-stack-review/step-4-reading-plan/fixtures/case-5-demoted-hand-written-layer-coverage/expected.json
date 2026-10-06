@@ -19,6 +19,7 @@
     7,
     8
   ],
-  "coverage_mentions_counts": true,
-  "coverage_avoids_forbidden_wording": true
+  "has_outlier_count_in_coverage": true,
+  "has_unread_hunk_count_in_coverage": true,
+  "has_no_forbidden_wording_in_coverage": true
 }

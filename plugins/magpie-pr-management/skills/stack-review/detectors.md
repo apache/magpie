@@ -137,4 +137,4 @@ A bare version token (`X.Y`) matches package versions and must not be used alone
 
 Without local refs, build each layer's diff with `gh pr diff <N> --repo <repo>` and the file lists with `gh pr diff <N> --name-only`.
 The ledger and the narrative check run unchanged (commit messages come from `gh pr view <N> --json commits`); `chain`, `seams`, `floors` and the residue check are skipped and the coverage table says *chain: skipped (no-fetch)*, *seams: skipped (no-fetch)*, *floors: skipped (no-fetch)*.
-A `blocking` verdict is still possible from the ledger alone only for `duplicate` findings; ordering and chain problems are *unknown*, and the report says so.
+The verdict can reach at most *needs attention before the bottom merges* from the ledger alone (`duplicate` and `narrative` findings); ordering and chain problems are *unknown*, and the report says so.

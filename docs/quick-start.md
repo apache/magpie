@@ -175,7 +175,7 @@ draws the line.
 
 **Every skill configures itself on first use.** You do not have to remember
 which projects are set up, or run anything to prepare a family before you use
-it: 66 of the 79 skills open with a silent pre-flight — the ten exceptions are
+it: 69 of the 79 skills open with a silent pre-flight — the ten exceptions are
 the setup skills themselves, which are what you run to fix whatever it finds.
 
 The first time you call a skill in a project, that pre-flight works out how

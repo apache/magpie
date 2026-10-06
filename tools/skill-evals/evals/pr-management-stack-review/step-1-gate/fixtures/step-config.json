@@ -1,4 +1,7 @@
 {
   "skill_md": "skills/pr-management-stack-review/SKILL.md",
-  "step_heading": "## Step 1 — Resolve the stack and gate"
+  "step_heading": "## Step 1 \u2014 Resolve the stack and gate",
+  "also_include": [
+    "plugins/magpie-pr-management/skills/stack-review/resolve.md"
+  ]
 }
