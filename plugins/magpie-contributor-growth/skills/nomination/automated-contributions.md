@@ -92,7 +92,8 @@ Inspect at most the 50 most recent authored PRs and issues for pushback, and at 
 Items beyond the budget keep full weight.
 The brief states how many items of each kind were inspected.
 
-For each authored PR or issue, and each thread the candidate commented in, fetch the conversation:
+For each authored PR or issue, and each thread the candidate commented in, fetch the conversation.
+[`contributor-metrics`](../../../../tools/contributor-metrics/README.md) does this inside its backends; on GitHub it runs the query below, and on a Jira tracker it reads the issue's comments, with only the tracker roster marking a maintainer:
 
 ```graphql
 query($owner: String!, $repo: String!, $number: Int!) {

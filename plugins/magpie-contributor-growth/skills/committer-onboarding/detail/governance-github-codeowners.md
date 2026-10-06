@@ -28,8 +28,11 @@ Take the team slug, CODEOWNERS path, and vote channel from `committer_governance
 
 #### Checklist — github-codeowners
 
-- [ ] **GitHub team invite** — invite the candidate's GitHub handle to
-  `committer_governance_github_codeowners.maintainers_team` via:
+- [ ] **GitHub team invite** — add the candidate's GitHub handle to
+  `committer_governance_github_codeowners.maintainers_team`
+  (`contract:people` → `add_team_member(<org>/<team-slug>, <github-handle>)`,
+  a write the nominator confirms before it runs). The GitHub adapter's
+  command ([`operations.md` § People](../../../../../tools/github/operations.md#people)):
 
   ```bash
   gh api --method PUT \

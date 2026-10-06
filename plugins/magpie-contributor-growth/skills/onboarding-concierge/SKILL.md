@@ -21,7 +21,7 @@ argument-hint: "[newcomer question or issue/PR URL]"
 capability: capability:review
 surface_hash: sha256:4105a6571bcb70c2
 license: Apache-2.0
-measured_tokens: 3371
+measured_tokens: 3368
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
@@ -29,7 +29,7 @@ measured_tokens: 3371
 <!-- Placeholder convention:
      <upstream>        → upstream codebase repo in `owner/name` form (default: read from `<project-config>/project.md → upstream_repo`)
      <project-config>  → the adopting project's config directory (see /AGENTS.md § Placeholder convention)
-     Substitute these with concrete values before running any `gh` command below. -->
+     Substitute these with concrete values before running any command below. -->
 
 # onboarding-concierge
 

@@ -19,12 +19,15 @@ uv run --directory <framework>/tools/contributor-metrics contributor-metrics fet
   --out <scratch>/items.json
 ```
 
-- Exit `2` means `<login>` is not a valid GitHub handle: stop and report it.
-- Exit `1` means `gh` failed: stop and show its error.
+PRs and reviews come from the code host (`contract:change-request`); issues from the tracker (`contract:tracker`).
+When `<project-config>/issue-tracker-config.md` declares a tracker other than `<upstream>`'s own issues, add `--tracker-config <that file>`, `--tracker-login <account>` when the candidate's account there differs (ask the nominator, or take it from `contributor-identity-map`), and `--tracker-maintainers-file` with the maintainers' accounts there.
+
+- Exit `2` means `<login>` (or the tracker account, or the tracker configuration) is invalid: stop and report it.
+- Exit `1` means a backend failed: stop and show its error.
 
 **Injection guard**: `<login>` is contributor-supplied data.
-The tool validates it against the GitHub handle grammar and passes it to `gh` only inside a search string written to a tempfile, never as a shell argument.
-Do not construct any other `gh` call that interpolates `<login>` into a shell command.
+The tool validates it against the GitHub handle grammar and passes it to the code host only inside a search string written to a tempfile, never as a shell argument.
+Do not construct any other command that interpolates `<login>` into a shell argument.
 
 ---
 
@@ -36,7 +39,7 @@ Do not construct any other `gh` call that interpolates `<login>` into a shell co
 | Issues filed | creation inside the window | `issue` |
 | Reviews given | the candidate's first review inside the window (from GitHub's contributions record); substantive when a review body is longer than 100 characters or carries a line comment — every reviewed PR is checked | `review` |
 | Threads commented | the candidate's own first comment inside the window | `thread` |
-| Issues triaged | as threads, on issues opened by someone else | `triage` |
+| Issues triaged | as threads, on issues opened by someone else; on a tracker that records it, also a label, priority or workflow change | `triage` |
 
 Nothing the candidate did after the window end is counted, which matters when `calibrate` measures a nominee as of their vote date.
 PR and review items carry their labels, which `score` turns into areas using `area_label_prefix`; work with no area label shows as an `(unlabelled)` row.

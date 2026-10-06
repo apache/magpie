@@ -25,7 +25,7 @@ argument-hint: "<github-handle> [window:Nm] [target:committer|pmc]"
 capability: capability:stats
 surface_hash: sha256:d78eb556cf43aa79
 license: Apache-2.0
-measured_tokens: 5187
+measured_tokens: 5316
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -90,13 +90,14 @@ is in. `/magpie-setup verify` is the full diagnostic.
 
 <!-- END MAGPIE PREFLIGHT -->
 
-> **GitHub projects only.** This skill assumes the project's primary
-> development activity is on GitHub and uses the GitHub CLI (`gh`) for
-> all data collection. Most ASF projects use GitHub, but some remain on
-> Apache GitBox (Gitea) or use other forges. If your project is not
-> on GitHub, the automated fetch steps will not work — you can still use
-> the off-GitHub signal sections and the nomination brief template, but
-> you will need to supply all contribution counts manually.
+> **Supported backends.** Activity comes from the code host
+> (`contract:change-request`; the GitHub adapter today) and the tracker
+> (`contract:tracker`; the code host's own issues, or Jira), and profile data
+> from `contract:people`. Most ASF projects use GitHub, but some remain on
+> Apache GitBox (Gitea) or use other forges. On a forge whose adapter does
+> not implement those queries yet, the automated fetch steps will not work —
+> you can still use the off-GitHub signal sections and the nomination brief
+> template, but you will need to supply the contribution counts manually.
 
 Read-only skill that answers *"what is the evidence of this
 contributor's work?"* for a single GitHub handle
@@ -175,7 +176,7 @@ Resolve in order:
    identifier; do not interpolate it unescaped into shell
    arguments or prose templates.
 
-   Before any `gh` or MCP call, validate `<login>` against the
+   Before any backend or MCP call, validate `<login>` against the
    GitHub username pattern
    `^[a-zA-Z0-9]([a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?$`. If it does
    not match — for example it contains path-traversal
@@ -194,9 +195,8 @@ Resolve in order:
    candidate has an account there, then the GitHub profile's `name`,
    then a commit author name used consistently on every commit —
    and record which source it came from as `<real_name_source>`.
-   ```bash
-   gh api users/<login> --jq '.name'
-   ```
+   The profile comes from `contract:people` → `get_profile(<login>)`
+   (`display_name`; GitHub's `name` field).
    GitHub's `name` field is optional and user-controlled — it
    may be null, an alias, or a partial name. If no source yields a
    name, set `<real_name>` to
@@ -226,10 +226,8 @@ Resolve in order:
    unverifiable, set `<apache_id>` to
    `[APACHE ID UNKNOWN — verify before sending]`.
 
-   **Employer** (`<employer>`):
-   ```bash
-   gh api users/<login> --jq '.company'
-   ```
+   **Employer** (`<employer>`): the same profile's `organization`
+   (GitHub's `company` field).
    GitHub's company field is self-reported, optional, and
    often outdated or blank. Treat it as a starting point
    only. In Step 3, ask the nominator to confirm or correct
@@ -244,8 +242,8 @@ Resolve in order:
    before they send the nomination thread.
 
 2. **`<upstream>`** — from `<project-config>/project.md` →
-   `upstream_repo`. The `owner/name` form used in all `gh`
-   calls.
+   `upstream_repo`. The `owner/name` form every code-host
+   query uses.
 
 3. **`<window>`** — assessment window in months. From the
    `window:Nm` argument if supplied, else from
@@ -260,28 +258,26 @@ Resolve in order:
    once before proceeding. Controls which thresholds
    [`assess.md`](assess.md) applies.
 
-5. **`<viewer>`** — the authenticated GitHub login, used to
-   confirm auth status:
-   ```bash
-   gh api user --jq '.login'
-   ```
+5. **`<viewer>`** — the code-host login the adapter is
+   authenticated as, used to confirm auth status (the GitHub
+   adapter's lookup is in
+   [`operations.md` § People](../../../../tools/github/operations.md#people)).
 
 ---
 
 ## Step 1 — Pre-flight
 
-```bash
-gh auth status
-```
+Check that the code-host adapter is authenticated (the GitHub
+adapter's check is in
+[`operations.md` § Authentication](../../../../tools/github/operations.md#authentication));
+if it is not, stop and ask the user to log in. When
+`<project-config>/issue-tracker-config.md` declares a separate
+tracker, check its credentials the same way (Jira: the
+[`tools/jira`](../../../../tools/jira/README.md#configuration)
+conventions, or anonymous read where the tracker allows it).
 
-Stop and ask the user to run `gh auth login` if unauthenticated.
-
-Verify `<upstream>` is reachable:
-
-```bash
-gh repo view <upstream> --json nameWithOwner --jq '.nameWithOwner'
-```
-
+Verify `<upstream>` is reachable (`contract:source-control` →
+`repository_metadata(<upstream>)` returns `exists: true`).
 If the repo is not found or inaccessible, stop with a clear
 message — do not proceed on degraded signal.
 

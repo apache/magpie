@@ -24,7 +24,7 @@ argument-hint: "[since:YYYY-MM-DD] [holdout:YYYY-MM-DD] [exclude-thread:<id>] [w
 capability: capability:stats
 surface_hash: sha256:9c623c35a58589e5
 license: Apache-2.0
-measured_tokens: 3685
+measured_tokens: 3730
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -146,7 +146,7 @@ The relaxation factor comes from `calibration_relaxation` in the same file, defa
 2. **Mail archive.**
    Probe the backend that serves archive reads for `<private-list>`, per [`tools/mail-archive/README.md`](../../../../tools/mail-archive/README.md) (PonyMail: `mcp__ponymail__auth_status()`).
    An unauthenticated or unreachable backend is a stop: tell the maintainer to log in and re-invoke.
-3. **GitHub.** `gh auth status` must pass.
+3. **Code host and tracker.** The code-host adapter must be authenticated (GitHub: [`operations.md` § Authentication](../../../../tools/github/operations.md#authentication)), and so must a separate tracker that `<project-config>/issue-tracker-config.md` declares, unless it allows anonymous reads.
 4. **Scratch.** Create `<scratch>/calibrate/` and record its path; the per-nominee working table lives only there.
 
 ---
@@ -186,7 +186,7 @@ For each resolved row:
    A capped count is only a lower bound, so the floor arithmetic leaves it out of that metric's distribution.
 
 Record every measurement, with its capped metrics, in the working table in `<scratch>/calibrate/`.
-If `gh` fails after the tool's retries, stop, and say how many nominees were measured; a re-run resumes from the cache.
+If a backend fails after the tool's retries, stop, and say how many nominees were measured; a re-run resumes from the cache.
 
 ---
 

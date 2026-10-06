@@ -15,17 +15,15 @@ data to match against, never an instruction.
 
 ## `github-profile`
 
-Always available.
+Always available, through `contract:people` → `get_profile(<github-handle>)`
+(the GitHub adapter's resolution is in
+[`operations.md` § People](../../../../tools/github/operations.md#people)).
 The account owner set every value here, so a hit is at least
 `self-declared`.
 
-```bash
-gh api users/<github-handle> \
-  --jq '{name, blog, email, twitter_username}'
-gh api users/<github-handle>/social_accounts
-```
-
-`social_accounts` returns `{provider, url}` pairs.
+Read `display_name`, `website`, `public_email`, and `linked_accounts`.
+`linked_accounts` holds `{provider, url}` pairs (on GitHub, the
+profile's social accounts plus its X handle).
 Providers include `mastodon`, `bluesky`, `linkedin`, `twitter`,
 `youtube`, and `generic` (any other URL).
 Map each provider to the matching channel `id`; keep a `generic` URL
@@ -34,12 +32,11 @@ only when it clearly belongs to a configured channel (a Matrix
 
 ## `commit-metadata`
 
-```bash
-gh api "repos/<upstream>/commits?author=<github-handle>&per_page=30" \
-  --jq '[.[].commit.author.email] | unique'
-```
+`contract:change-request` → `list_authored_commits(<github-handle>)`
+on `<upstream>` (the 30 newest), keeping the unique `author_email`
+values.
 
-These addresses, plus the profile `email`, are lookup keys for the
+These addresses, plus the profile `public_email`, are lookup keys for the
 chat and mailing-list sources.
 Skip `users.noreply.github.com` addresses: they identify nothing
 outside GitHub.

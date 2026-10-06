@@ -179,8 +179,18 @@ Adopter config scaffolds live in `plugins/magpie-setup/templates/`
   `real-names.md` (how people are named in briefs and reports),
   alongside the step files `fetch.md`, `assess.md`, and `render.md`.
 - Tool: `tools/contributor-metrics` (`substrate:analytics`,
-  stdlib-only, shells out to `gh`) with three subcommands.
-  `fetch` collects five GitHub streams, applies the substantive-review
+  stdlib-only plus the `jira-bridge` workspace client) with three
+  subcommands.
+  `fetch` collects five streams through a backend seam: change-request
+  activity (PRs authored, reviews, PR threads) from the code host and
+  issue activity (issues filed, triaged, commented) from the tracker,
+  which may differ. The `github` backend serves both sides by default,
+  unchanged; the `jira` backend serves the tracker side when
+  `<project-config>/issue-tracker-config.md` (`--tracker-config`) names
+  `tracker_type: jira`, for the contributor's `--tracker-login`, with
+  triage read from issue history (status, labels, component, priority,
+  assignee, resolution, fix version) as well as comments.
+  It applies the substantive-review
   rule (thresholds overridable per caller), flags pushback candidates,
   and caches by repository, handle, window, phrases, roster and
   thresholds (`--refresh` bypasses the cache); `--since` sets a window
@@ -192,6 +202,16 @@ Adopter config scaffolds live in `plugins/magpie-setup/templates/`
   `floors` computes recency-weighted nearest-rank percentiles for
   calibration.
   Unit tests under `tools/contributor-metrics/tests/`.
+- Contracts: the skills name contract operations, not `gh` commands —
+  `contract:change-request` (`list_authored`, `list_reviews_given`,
+  `list_authored_commits`), `contract:tracker` (`tools/tracker`:
+  `list_filed`, `list_triaged`, `list_commented`, `list_created`,
+  `first_reply`), `contract:source-control` (`repository_metadata`,
+  `put_file`) and `contract:people` (`tools/people`: `get_profile`,
+  `list_collaborators`, `add_team_member`). GitHub implements all of
+  them (`tools/github/operations.md`); Jira the tracker queries and
+  profile lookup. GitHub Discussions is the one GitHub-only signal,
+  optional and marked as such.
 - Tools: `tools/chat` (`contract:chat`, read-only `list_channels`,
   `resolve_user`, `search_messages`) and `tools/chat-slack` (Slack MCP
   adapter, public channels only, never posts).
@@ -199,9 +219,9 @@ Adopter config scaffolds live in `plugins/magpie-setup/templates/`
 
 ## Behaviour & contract
 
-- **Read-only or propose-then-confirm.** Skills read GitHub
-  collaborator lists, `author_association` fields, and public
-  activity histories; they never write a comment, post an
+- **Read-only or propose-then-confirm.** Skills read repository
+  collaborator lists, first-time-contributor signals, and public
+  activity histories through the contracts above; they never write a comment, post an
   announcement, or modify a roster without explicit maintainer
   confirmation.
 - **Governance steps are paste-ready recipes, not autopilot.**
@@ -225,7 +245,7 @@ Adopter config scaffolds live in `plugins/magpie-setup/templates/`
   penalty and adjusted values, and pushback is a signal to weigh,
   never a disqualification.
 - **Counting is deterministic.** Both skills collect activity with
-  `tools/contributor-metrics`: five GitHub streams (PRs authored,
+  `tools/contributor-metrics`: five streams (PRs authored,
   issues filed, reviews with one shared substantive rule, threads
   commented, issues triaged on other people's issues), per-area shares
   from `area_label_prefix` labels, and the weights and penalty above.
@@ -272,12 +292,14 @@ Adopter config scaffolds live in `plugins/magpie-setup/templates/`
   pre-filter the PMC pool, and treats a capped count below its floor as
   unknown (written `>= N`), never missing.
   The report is committed to `report_repo` only after the maintainer
-  confirms, and only when `gh api` reports the repository private,
+  confirms, and only when the code host reports the repository private
+  (`contract:source-control` → `repository_metadata`),
   checked before showing and again before writing; a gist is never
   offered. The report uses plain profile links, never `@`-mentions.
 - **Real names are verified, never inferred.** Briefs and reports name
   people per `nomination/real-names.md`: the people directory first,
-  then the GitHub profile name, then a consistent commit author name.
+  then the code-host profile name (`contract:people` → `get_profile`),
+  then a consistent commit author name.
   A name is never inferred from an email address or a handle.
 - **Personal-recommended, not adoptable by default.**
   Committer thresholds, nomination criteria, calibration floors,

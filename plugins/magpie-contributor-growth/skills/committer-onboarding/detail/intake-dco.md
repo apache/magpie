@@ -11,7 +11,8 @@ Read this file only when `committer_intake.model` is `dco`.
 **`dco` model:**
 
 Verify that the candidate's recent merged PRs carry the valid `Signed-off-by:` line the Developer Certificate of Origin requires.
-Fetch the candidate's last N merged PRs in `<upstream>` (N ≥ `committer_intake_dco.min_signed_off_prs` from the config, default 1) and check whether each commit body includes `Signed-off-by: <name> <email>`.
+Fetch the candidate's last N merged changes in `<upstream>` (N ≥ `committer_intake_dco.min_signed_off_prs` from the config, default 1) and check whether each commit body includes `Signed-off-by: <name> <email>`: `contract:change-request` → `list_authored(<github-handle>, state: landed)` for the changes, and `list_authored_commits(<github-handle>)` for their commits, whose `signed_off_by` flag answers the question.
+The GitHub adapter's command ([`operations.md` § Contributor activity](../../../../../tools/github/operations.md#contributor-activity-read-only)):
 
 ```bash
 gh pr list --repo <upstream> --author <github-handle> --state merged \

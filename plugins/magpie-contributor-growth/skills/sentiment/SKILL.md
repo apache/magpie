@@ -20,7 +20,7 @@ argument-hint: "[window:Nm] [baseline:YYYY-MM-DD..YYYY-MM-DD]"
 capability: capability:stats
 surface_hash: sha256:c325db1d99634a51
 license: Apache-2.0
-measured_tokens: 4809
+measured_tokens: 4618
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -95,7 +95,7 @@ The four signal dimensions are described in full at
 This skill automates the data-collection and scoring; the maintainer
 reviews the report and makes the promotion decision.
 
-The skill is **read-only**: it queries public GitHub data, produces
+The skill is **read-only**: it queries public code-host and tracker data, produces
 a report, and stops. It never posts a comment, never modifies a label,
 never changes a spec file. All interpretation is the maintainer's.
 
@@ -147,33 +147,23 @@ Wait for confirmation (or correction) before proceeding to Step 1.
 Fetch data for the active window **and** the baseline window in parallel
 where the CLI supports it; otherwise fetch them sequentially.
 
+The signals below name the contract operations they use; the GitHub adapter's resolutions (and their `author_association` filters) are in [`operations.md` § Contributor activity](../../../../tools/github/operations.md#contributor-activity-read-only).
+Issues come from the tracker (`contract:tracker`, [`tools/tracker`](../../../../tools/tracker/README.md)) — `<upstream>`'s own issues, or the tracker `<project-config>/issue-tracker-config.md` declares — and changes and reviews from the code host (`contract:change-request`).
+
 **Signal A — Thread tone sample**
 
-Fetch up to 50 PRs or issues opened by first-time contributors
-(GitHub `author_association: FIRST_TIME_CONTRIBUTOR` or
-`author_association: FIRST_TIMER`) in the active window:
+Take up to 50 issues opened by first-time contributors in the active
+window: `contract:tracker` → `list_created(<since>, <until>)`, keeping
+`kind: issue` items whose `author_first_time` is true (on GitHub,
+`author_association` `FIRST_TIME_CONTRIBUTOR` or `FIRST_TIMER`), in
+listing order, first 50.
 
-```bash
-gh api "repos/<upstream>/issues?state=all&per_page=100&since=<since>" \
-  --paginate --jq \
-  '[.[] | select(.pull_request == null) |
-    select(.author_association == "FIRST_TIME_CONTRIBUTOR" or
-           .author_association == "FIRST_TIMER") |
-    {number: .number, created_at: .created_at}]' \
-  | python3 -c "import json,sys; items=json.load(sys.stdin); print(json.dumps(items[:50]))"
-```
+For each sampled item, read the first maintainer comment
+(`contract:tracker` → `first_reply(<id>)`; a maintainer is a
+`COLLABORATOR`, `MEMBER`, or `OWNER` on GitHub, a rostered maintainer
+on a tracker without that signal).
 
-For each sampled item, fetch the first maintainer comment (from a user
-whose `author_association` is `COLLABORATOR`, `MEMBER`, or `OWNER`):
-
-```bash
-gh api "repos/<upstream>/issues/<number>/comments?per_page=10" \
-  --jq '[.[] | select(.author_association == "COLLABORATOR" or
-                      .author_association == "MEMBER" or
-                      .author_association == "OWNER")] | first'
-```
-
-Exclude bot accounts: skip any comment where `.user.login` ends in
+Exclude bot accounts: skip any comment whose author ends in
 `[bot]` or matches `dependabot`, `github-actions`, `renovate`, or
 `greenkeeper`.
 
@@ -186,47 +176,31 @@ Repeat the same fetch for the baseline window.
 
 **Signal B — Time-to-first-reply**
 
-Fetch all PRs and issues opened in the active window:
+Take every issue and change opened in the active window:
+`contract:tracker` → `list_created(<since>, <until>)` (on GitHub it
+lists PRs alongside issues, `kind: change`); when the tracker is not
+the code host, add the changes from `contract:change-request` →
+`list_authored(<since>, <until>)` with no person.
 
-```bash
-gh api "repos/<upstream>/issues?state=all&per_page=100&since=<since>" \
-  --paginate --jq \
-  '[.[] | {number: .number,
-            type: (if .pull_request then "pr" else "issue" end),
-            created_at: .created_at,
-            author_association: .author_association}]'
-```
-
-For each item, fetch the first maintainer comment timestamp (same bot-
-exclusion rule as above). Compute elapsed hours = (first_reply_created_at
-− created_at) in hours. Items with no maintainer reply get
-`reply_hours: null` and are excluded from the median computation (they
-are counted separately as `no_reply_count`).
+For each item, read the first maintainer comment timestamp
+(`first_reply`, same bot-exclusion rule as above). Compute elapsed
+hours = (first_reply_created_at − created_at) in hours. Items with no
+maintainer reply get `reply_hours: null` and are excluded from the
+median computation (they are counted separately as `no_reply_count`).
 
 Repeat for the baseline window.
 
 **Signal C — First-PR retention**
 
 Identify contributors who opened their **first ever** PR to `<upstream>`
-during the active window:
-
-```bash
-gh api "repos/<upstream>/pulls?state=all&per_page=100&sort=created&direction=asc" \
-  --paginate --jq \
-  '[.[] | select(.created_at >= "<since>" and .created_at <= "<until>") |
-    select(.author_association == "FIRST_TIME_CONTRIBUTOR" or
-           .author_association == "FIRST_TIMER") |
-    {login: .user.login, created_at: .created_at, merged_at: .merged_at,
-     closed_at: .closed_at}]'
-```
+during the active window: `contract:change-request` →
+`list_authored(<since>, <until>)` with no person, keeping changes whose
+`author_first_time` is true, and record each author's login,
+`created`, `landed_at`, and closing date.
 
 For each such contributor, check whether they opened a second PR within
 180 days of the first being closed (merged or closed-without-merge):
-
-```bash
-gh api "repos/<upstream>/pulls?state=all&per_page=20&creator=<login>" \
-  --jq '[.[] | .created_at] | sort | .[1]'
-```
+`list_authored(<login>, …)` and take the second-earliest `created`.
 
 Compute retention_rate = (second_pr_count / cohort_size) × 100 — a
 **percentage** on a 0–100 scale, rounded to 1 decimal place.
@@ -239,23 +213,11 @@ as the first-PR open window).
 
 **Signal D — Reviewer load**
 
-Fetch all PR reviews submitted by collaborators/members in the active
-window. Count reviews per reviewer. Compute the Gini coefficient:
-
-```bash
-gh api "repos/<upstream>/pulls?state=closed&per_page=100&since=<since>" \
-  --paginate --jq '[.[] | .number]'
-```
-
-For each PR number, fetch reviews:
-
-```bash
-gh api "repos/<upstream>/pulls/<number>/reviews" \
-  --jq '[.[] | select(.user.author_association == "COLLABORATOR" or
-                      .user.author_association == "MEMBER" or
-                      .user.author_association == "OWNER") |
-         .user.login]'
-```
+Take every review maintainers submitted on changes closed in the active
+window (`contract:change-request` → `list_reviews_given(<since>, <until>)`
+with no person, keeping reviewers who are maintainers — on GitHub,
+`author_association` `COLLABORATOR`, `MEMBER`, or `OWNER`). Count
+reviews per reviewer and compute the Gini coefficient.
 
 Aggregate counts per login. Compute Gini as:
 

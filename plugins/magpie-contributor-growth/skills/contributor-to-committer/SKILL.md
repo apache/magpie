@@ -24,7 +24,7 @@ argument-hint: "<github-handle> [target:committer|pmc] [window:Nm]"
 capability: capability:stats
 surface_hash: sha256:bdf92c88a304ddea
 license: Apache-2.0
-measured_tokens: 4946
+measured_tokens: 5210
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -89,10 +89,11 @@ is in. `/magpie-setup verify` is the full diagnostic.
 
 <!-- END MAGPIE PREFLIGHT -->
 
-> **GitHub projects only.** This skill uses the GitHub CLI (`gh`) for
-> all activity data. Projects not on GitHub can use the off-GitHub
-> signal section and the activity table, but will need to supply all counts
-> manually.
+> **Supported backends.** Activity comes from the code host
+> (`contract:change-request`; the GitHub adapter today) and the tracker
+> (`contract:tracker`; the code host's own issues, or Jira). Projects on
+> another forge can use the off-GitHub signal section and the activity
+> table, but will need to supply the change-request counts manually.
 
 Read-only skill that answers *"what has this contributor done, and how
 does it compare with the project's reference levels?"* for a GitHub handle
@@ -197,18 +198,10 @@ Proceed? [Y/n]
 
 ## Step 1 — Pre-flight
 
-```bash
-gh auth status
-```
+Check that the code-host adapter is authenticated (the GitHub adapter's auth check is in [`operations.md` § Authentication](../../../../tools/github/operations.md#authentication)); if it is not, stop and ask the user to log in.
+When `<project-config>/issue-tracker-config.md` declares a separate tracker, check its credentials the same way (Jira: the [`tools/jira`](../../../../tools/jira/README.md#configuration) conventions, or anonymous read where the tracker allows it).
 
-Stop and ask the user to run `gh auth login` if unauthenticated.
-
-Verify `<upstream>` is reachable:
-
-```bash
-gh repo view <upstream> --json nameWithOwner --jq '.nameWithOwner'
-```
-
+Verify `<upstream>` is reachable (`contract:source-control` → `repository_metadata(<upstream>)` returns `exists: true`).
 If the repo is not found or inaccessible, stop with a clear message.
 
 **Load thresholds.** Check in order:
@@ -261,13 +254,16 @@ uv run --directory <framework>/tools/contributor-metrics contributor-metrics fet
   --out <scratch>/items.json
 ```
 
-- Exit `2` means `<login>` is not a valid GitHub handle: stop and report it.
-- Exit `1` means `gh` failed: stop and show its error.
+PRs and reviews come from the code host (`contract:change-request` → `list_authored`, `list_reviews_given`); issues from the tracker (`contract:tracker` → `list_filed`, `list_triaged`, `list_commented`).
+When `<project-config>/issue-tracker-config.md` declares a tracker other than `<upstream>`'s own issues, add `--tracker-config <that file>`, `--tracker-login <account>` when the candidate's account there differs (ask the maintainer, or take it from `contributor-identity-map`), and `--tracker-maintainers-file` with the maintainers' accounts there.
 
-The tool collects five streams — PRs authored, issues filed, reviews given (from GitHub's contributions record), threads commented, and issues triaged (other people's issues the candidate commented on) — at most 300 results each, every item dated by the candidate's own activity inside the window.
+- Exit `2` means `<login>` (or the tracker account, or the tracker configuration) is invalid: stop and report it.
+- Exit `1` means a backend failed: stop and show its error.
+
+The tool collects five streams — PRs authored, issues filed, reviews given (on GitHub, from its contributions record), threads commented, and issues triaged (other people's issues the candidate commented on or, where the tracker records it, re-labelled, re-prioritised or moved through the workflow) — at most 300 results each, every item dated by the candidate's own activity inside the window.
 It marks a review **substantive** when its body is longer than 100 characters or it carries a line comment, checking every reviewed PR.
 A stream listed in `caps_hit` returned more results than were fetched: record its counts as minimums and note the cap in the brief.
-The handle reaches `gh` only through a tempfile the tool writes, never a shell argument.
+The handle reaches the code host only through a tempfile the tool writes, never a shell argument.
 
 Each item in `items.json` carries a link, its kind, dates, area labels, and a `pushback_candidate` link when a maintainer comment on it contains a known pushback phrase.
 No comment bodies are in the file.

@@ -23,7 +23,7 @@ argument-hint: "<github-handle>[,<github-handle>...] [context:standalone|onboard
 capability: capability:intake
 surface_hash: sha256:78eccfcead182fca
 license: Apache-2.0
-measured_tokens: 3460
+measured_tokens: 3486
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -184,7 +184,7 @@ would tell anyone watching the repository who is being discussed.
 1. **The anchor.** One or more GitHub logins.
    When the maintainer names a person rather than a login, ask for
    the login; never derive it from the name.
-   Check each login exists with `gh api users/<github-handle>`.
+   Check each login exists (`contract:people` → `get_profile(<github-handle>)` returns a profile).
 2. **The context.** From the caller, else `standalone`.
 3. **Existing entries.** Look each login up under `identities`.
    Show an existing entry and infer only the channels it is
@@ -204,13 +204,13 @@ Per-source commands are in [`sources.md`](sources.md).
 
 | Source | Reachable when | What it yields |
 |---|---|---|
-| `github-profile` | always (`gh`) | X, Mastodon, Bluesky, LinkedIn, personal site, public email — declared by the account owner |
+| `github-profile` | always (`contract:people` → `get_profile`) | X, Mastodon, Bluesky, LinkedIn, personal site, public email — declared by the account owner |
 | `org-directory` | the organization has a people directory (for the ASF, Whimsy) | organization ID ↔ GitHub login, as the owner set it |
 | `slack` | a Slack tool is connected to the project's workspace | member handle and ID, matched by the contributor's known emails, then by name |
 | `discord`, `matrix`, `zulip` | a tool for that service is connected | member handle, matched the same way |
 | `mailing-lists` | a mail-archive tool is reachable | the addresses the contributor posts from, matched by the known emails |
 | `contributor-text` | always | handles the contributor stated in their own issues, PRs, comments, or emails |
-| `commit-metadata` | always (`gh`) | email addresses, used only as lookup keys for the other sources |
+| `commit-metadata` | always (`contract:change-request` → `list_authored_commits`) | email addresses, used only as lookup keys for the other sources |
 
 ---
 

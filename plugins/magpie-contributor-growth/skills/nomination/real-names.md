@@ -11,8 +11,8 @@ Take the first source that yields a name:
 
 1. **The organization's people directory**, when the person has an account there — for ASF, `mcp__apache-projects__get_person(<apache_id>)`.
    `search_people(<name>)` may *confirm* a name already found elsewhere; it never supplies one on its own.
-2. **The GitHub profile's `name` field** — `gh api users/<login> --jq '.name'`.
-3. **The author name on the person's commits to `<upstream>`**, when every commit authored by the handle carries the same name.
+2. **The GitHub profile's `name` field** — `contract:people` → `get_profile(<login>)` → `display_name` (on another code host, its profile's display name).
+3. **The author name on the person's commits to `<upstream>`** (`contract:change-request` → `list_authored_commits` → `author_name`), when every commit authored by the handle carries the same name.
 
 When sources disagree, the directory wins and the brief notes the disagreement in one line.
 When none yields a name, use the handle alone, and mark the name as unknown where the skill has a sentinel for it.

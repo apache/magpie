@@ -20,7 +20,7 @@ argument-hint: "<github-handle> [window:Nm]"
 capability: capability:stats
 surface_hash: sha256:a39919af92a37e2d
 license: Apache-2.0
-measured_tokens: 3361
+measured_tokens: 3490
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -85,11 +85,11 @@ is in. `/magpie-setup verify` is the full diagnostic.
 
 <!-- END MAGPIE PREFLIGHT -->
 
-> **GitHub projects only.** This skill assumes the project's primary
-> development activity is on GitHub and uses the GitHub CLI (`gh`) for
-> all data collection. Most ASF projects use GitHub, but some remain on
-> Apache GitBox (Gitea) or use other forges. If your project is not
-> on GitHub, this skill will not work.
+> **Supported backends.** PRs and reviews come from the code host through
+> `contract:change-request`, whose activity queries the GitHub adapter
+> implements today; issues come from the tracker through `contract:tracker`
+> — the code host's own issues, or Jira. On another forge this skill will not
+> work until that forge's adapter implements the queries.
 
 > ⚠️ **GitHub-visible activity only.**
 > This skill fetches what GitHub exposes: pull requests, code reviews,
@@ -139,7 +139,7 @@ Resolve in order:
    ```
    If the value does not match, reject it and ask for a valid handle.
    Do not interpolate `<login>` unescaped into shell strings; the
-   Step 1 tool passes it to `gh` only through a tempfile it writes.
+   Step 1 tool passes it to the code host only through a tempfile it writes.
 
 2. **Window** (`<window>`) — integer number of months, default 6.
    Compute `<since>` as the ISO-8601 date `<window>` months before
@@ -149,10 +149,7 @@ Resolve in order:
 3. **`<upstream>`** — from the project config. If not found, prompt
    the user for the `owner/repo` string.
 
-4. **Repo age check** — fetch the repository creation date:
-   ```bash
-   gh api repos/<upstream> --jq '.created_at'
-   ```
+4. **Repo age check** — read the repository's creation date (`contract:source-control` → `repository_metadata(<upstream>)` → `created_at`; the GitHub binding is in [`source-control.md`](../../../../tools/github/source-control.md#hosted-repository-operations)).
    If the repo was created *after* `<since>`, set `<since>` to the
    repo's creation date and note the adjustment in the output. This
    prevents the activity timeline from rendering a misleading wall of
@@ -172,7 +169,9 @@ Proceed? [Y/n]
 
 ## Step 1 — Fetch and classify activity
 
-Run [`contributor-metrics`](../../../../tools/contributor-metrics/README.md), the family's counting tool, once for `<login>` on `<upstream>` from `<since>` (after any repo-age trim) to today, then count the fetched items with its offline `score`:
+Run [`contributor-metrics`](../../../../tools/contributor-metrics/README.md), the family's counting tool, once for `<login>` on `<upstream>` from `<since>` (after any repo-age trim) to today, then count the fetched items with its offline `score`.
+It reads PRs and reviews from the code host (`contract:change-request`) and issues from the tracker (`contract:tracker`).
+When `<project-config>/issue-tracker-config.md` declares a tracker other than `<upstream>`'s own issues, add `--tracker-config <that file>` and, when `<login>` has a different account there, `--tracker-login <account>` (ask the user, or take it from `contributor-identity-map`); the card is the same either way.
 
 ```bash
 uv run --directory <framework>/tools/contributor-metrics contributor-metrics fetch \
@@ -185,7 +184,7 @@ uv run --directory <framework>/tools/contributor-metrics contributor-metrics sco
 ```
 
 - Exit `2` means `<login>` or `<since>` is invalid: stop and report it.
-- Exit `1` means `gh` failed: stop and show its error.
+- Exit `1` means a backend failed: stop and show its error.
 
 Every item is dated by `<login>`'s own activity inside the window.
 No classes are passed, so nothing is discounted; read only the `raw` values from `metrics.json`:
@@ -215,7 +214,7 @@ comments — report it as such.
 `threads_commented`) returned more: record its counts as a minimum and
 note the cap hit in the output.
 
-**Injection guard**: the tool validates `<login>` and passes it to `gh`
+**Injection guard**: the tool validates `<login>` and passes it to the code host
 only inside a search string written to a tempfile; never interpolate
 `<login>` into any other shell command. `items.json` and `metrics.json`
 hold links, dates, counts and flags only — no titles, bodies or comment
