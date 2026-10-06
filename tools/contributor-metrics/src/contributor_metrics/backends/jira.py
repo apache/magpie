@@ -53,6 +53,7 @@ class JiraTracker:
     url: str
     project: str
     token: str | None = None
+    token_host: str | None = None
     auth_scheme: str | None = None
     opener: Callable[[Any], Any] | None = field(default=None, repr=False)
     sleep: Callable[[float], None] | None = field(default=None, repr=False)
@@ -62,11 +63,17 @@ class JiraTracker:
             raise InvalidJiraConfig(f"invalid Jira project key {self.project!r}")
         try:
             self.rest = JiraRest(
-                self.url, token=self.token, auth_scheme=self.auth_scheme, opener=self.opener, sleep=self.sleep
+                self.url,
+                token=self.token,
+                token_host=self.token_host,
+                auth_scheme=self.auth_scheme,
+                opener=self.opener,
+                sleep=self.sleep,
             )
         except JiraRestConfigError as exc:
             raise InvalidJiraConfig(str(exc)) from exc
         self.url = self.rest.url
+        self.token = None  # the credential lives only inside the REST client
 
     def _search(self, jql: str, pages: int, expand: str = "") -> tuple[list[dict[str, Any]], int]:
         try:
@@ -116,6 +123,8 @@ class JiraTracker:
         who = login.lower()
         caps: list[str] = []
         notes: list[str] = []
+        if self.rest.auth_note:
+            notes.append(f"jira: {self.rest.auth_note}")
         if not maintainers:
             notes.append(
                 "jira: no maintainer roster given, so no pushback candidates were flagged on Jira issues"

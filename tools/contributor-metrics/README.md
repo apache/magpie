@@ -42,7 +42,7 @@ Comment bodies never leave `fetch`; its output holds links and flags only.
 - **Runtime:** Python 3.11+ run via `uv` (`uv run --directory tools/contributor-metrics contributor-metrics …`); stdlib-only, no third-party dependencies.
 - **Runtime (Jira backend):** the `jira-bridge` workspace package ([`tools/jira`](../jira/README.md)), whose stdlib-only REST client makes the Jira reads; `uv` installs it with the tool.
 - **CLIs:** `uv`; `gh` — the GitHub backend shells out to it for all GitHub access.
-- **Credentials / auth:** an authenticated `gh` session (`gh auth status` must pass). With a Jira tracker, the [`tools/jira`](../jira/README.md#configuration) conventions: `JIRA_API_TOKEN` (or `~/.config/apache-magpie/jira-token`) and `JIRA_AUTH_SCHEME`, or none for anonymous reads.
+- **Credentials / auth:** an authenticated `gh` session (`gh auth status` must pass). With a Jira tracker, the [`tools/jira`](../jira/README.md#configuration) conventions: `JIRA_API_TOKEN` and `JIRA_API_HOST` (or `token=` / `host=` lines in `~/.config/apache-magpie/jira-token`) and `JIRA_AUTH_SCHEME`, or none for anonymous reads. The token goes only to the host confirmed for it, over HTTPS, never across a redirect; for any other configured host the fetch reads anonymously and says so in `notes`.
 - **Network:** `api.github.com` via `gh`; with a Jira tracker, the configured Jira host.
 
 ## Invocation

@@ -88,7 +88,15 @@ def history(author, created, *fields):
 
 
 def tracker(fake, **kw):
-    return JiraTracker(BASE, "FOO", token=kw.pop("token", ""), opener=fake, sleep=lambda s: None, **kw)
+    return JiraTracker(
+        BASE,
+        "FOO",
+        token=kw.pop("token", ""),
+        token_host=kw.pop("token_host", "issues.example.org"),
+        opener=fake,
+        sleep=lambda s: None,
+        **kw,
+    )
 
 
 def answers(filed=(), scanned=(), targeted=(), scan_total=None):
@@ -318,3 +326,13 @@ def test_a_failing_field_change_search_degrades_to_the_scan():
     items, _, notes = run(fake)
     assert [i.id for i in items] == ["triage-FOO-20"]
     assert any("field-change search failed" in n for n in notes)
+
+
+def test_an_unconfirmed_host_reads_anonymously_with_a_note():
+    fake = FakeJira(answers())
+    _, _, notes = tracker(fake, token="pat123", token_host="jira.elsewhere.org").fetch(
+        "jdoe", since="2026-03-01", end="2026-08-31", phrases=(), maintainers=("m",)
+    )
+    assert all(r.get_header("Authorization") is None for r in fake.requests)
+    assert any("reading anonymously" in n for n in notes)
+    assert not any("pat123" in n for n in notes)

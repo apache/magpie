@@ -244,7 +244,14 @@ Output:
 ## People and contributor-activity reads
 
 The read-only activity queries of [`contract:tracker`](../tracker/README.md) and the profile lookup of [`contract:people`](../people/README.md), against the same Jira Data Center REST API v2 the bridge uses and with the same configuration (`ISSUE_TRACKER_URL`, `ISSUE_TRACKER_PROJECT`, `JIRA_API_TOKEN`, `JIRA_AUTH_SCHEME`).
-The per-person streams are implemented by the `jira` backend of [`tools/contributor-metrics`](../contributor-metrics/README.md#backends) over `jira_bridge.rest`, which also honours a token in `~/.config/apache-magpie/jira-token`; the others are plain REST reads a skill makes.
+The per-person streams are implemented by the `jira` backend of [`tools/contributor-metrics`](../contributor-metrics/README.md#backends) over `jira_bridge.rest`; the others are plain REST reads a skill makes.
+
+`jira_bridge.rest` treats the token as the user's personal credential and the URL as project configuration, which anyone with write access can commit:
+
+- the URL must be `https://` (`http://` only for `localhost`, `127.0.0.1` or `::1`);
+- the token is sent only to the host the user confirmed for it — `JIRA_API_HOST`, or a `host=` line beside a `token=` line in `~/.config/apache-magpie/jira-token` — and only on requests to that host; for any other host it is withheld, reads go out anonymously, and the caller is told why;
+- redirects are refused, so the token never follows one;
+- the token never appears in an error message.
 `<user>` is the person's Jira username, validated against `[A-Za-z0-9._@+-]{1,255}` before it reaches a query.
 
 | Verb | Jira resolution |
