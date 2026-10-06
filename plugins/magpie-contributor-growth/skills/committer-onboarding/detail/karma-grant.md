@@ -1,23 +1,19 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # Karma grant guide
 
-Step-by-step instructions for each karma-grant action in
-Step 3 of `committer-onboarding`. Work through these in
-order; confirm each one with the nominator before moving on.
+Step-by-step instructions for each karma-grant action in Step 3 of `committer-onboarding`.
+Work through them in order; confirm each one with the nominator before moving on.
 
-Whimsy (https://whimsy.apache.org) is the most convenient tool for
-roster management at the ASF. It is a derived source. The
-authoritative records are:
+Whimsy (https://whimsy.apache.org) is the most convenient ASF roster tool, but a derived source.
+The authoritative records are:
 
 - **Committer group membership** → LDAP (grants actual resource access)
 - **PMC membership** → `committee-info.txt` in the foundation/officers
   SVN repository (the official ASF record per policy; LDAP committee
   group is a derived copy)
 
-Whimsy writes to both LDAP and committee-info.txt when you use the
-roster tool, so using Whimsy is the correct single step for either
-type of addition. GitHub org membership and other downstream systems
-derive from LDAP automatically via gitbox.
+Whimsy's roster tool writes to both LDAP and committee-info.txt, so it is the correct single step for either type of addition.
+GitHub org membership and other downstream systems derive from LDAP automatically via gitbox.
 
 ---
 
@@ -64,9 +60,7 @@ grants project resource access and updates the public roster.
 
 ## Mailing lists
 
-Mailing list subscriptions are self-managed by the new committer or
-PMC/PPMC member. The nominator does not need to subscribe them or
-take any action on their behalf.
+The new committer or PMC/PPMC member manages their own mailing list subscriptions; the nominator takes no action on their behalf.
 
 **Public lists** — the new member subscribes themselves via the
 Whimsy self-service page:
@@ -105,6 +99,5 @@ shows the new project:
 https://whimsy.apache.org/roster/committer/<apache-id>
 ```
 
-If the profile does not show the project after 15 minutes,
-the LDAP sync may be lagging — wait another 15 minutes and retry.
-If still missing, raise with infrastructure@apache.org.
+If the profile does not show the project after 15 minutes, the LDAP sync may be lagging: wait another 15 minutes and retry.
+If still missing, raise it with infrastructure@apache.org.

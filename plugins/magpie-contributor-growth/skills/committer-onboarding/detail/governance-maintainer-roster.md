@@ -9,25 +9,21 @@ Read this file only when `committer_governance.model` is `maintainer-roster`.
 ## Step 0 — vote bar
 
 **For `maintainer-roster` governance model:**
-The vote bar is `committer_governance_maintainer_roster.min_approvals`
-approvals from existing listed maintainers. Count approvals from the
-vote channel declared in `committer_governance_maintainer_roster.vote_channel`.
+The vote bar is `committer_governance_maintainer_roster.min_approvals` approvals from existing listed maintainers, counted on the vote channel declared in `committer_governance_maintainer_roster.vote_channel`.
 Report the total approvals received vs. the minimum required.
 
 ## Step 1c — account request
 
 **`maintainer-roster` model:**
 
-No external account-creation request is needed. Continue with
-Step 2, then Step 3 (roster file update and notification
-announcement).
+No external account-creation request is needed.
+Continue with Step 2, then Step 3 (roster file update and notification announcement).
 
 ## Step 3 — access checklist
 
 ### `maintainer-roster` model
 
-Use the values from `committer_governance_maintainer_roster` in the
-config for the roster file path and minimum approvals.
+Take the roster file path and minimum approvals from `committer_governance_maintainer_roster` in the config.
 
 #### Checklist — maintainer-roster
 
@@ -46,7 +42,7 @@ config for the roster file path and minimum approvals.
   and open it only after confirmation.
 
 - [ ] **Welcome announcement** — post to the project's community channel
-  per project conventions. Draft in Step 3a below.
+  per project conventions, drafted in Step 3a.
 
 ## Step 4 — completion summary example
 

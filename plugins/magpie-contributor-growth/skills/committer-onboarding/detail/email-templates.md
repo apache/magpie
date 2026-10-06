@@ -1,9 +1,8 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # Email templates
 
-Fill every `<placeholder>` before showing the draft to the
-nominator. Do not send any of these without explicit nominator
-confirmation.
+Fill every `<placeholder>` before showing the draft to the nominator.
+Do not send any of these without explicit nominator confirmation.
 
 ---
 
@@ -102,8 +101,7 @@ On behalf of the <project> PPMC,  [use PMC for TLPs]
 **Subject:** [ACCOUNT REQUEST] <project> — <candidate name>
 
 > **Send only after ICLA is confirmed filed and processed.**
-> If unsure, ask the nominator to confirm with
-> secretary@apache.org before sending this email.
+> If unsure, ask the nominator to confirm with secretary@apache.org first.
 
 ```text
 Hi,
@@ -142,8 +140,7 @@ Thanks,
 **To:** `dev@<podling>.apache.org`
 **Subject:** [ANNOUNCE] New committer — <candidate name>
 
-> Post this publicly only *after* the account exists and
-> karma has been granted.
+> Post this publicly only *after* the account exists and karma has been granted.
 
 ```text
 Hi all,

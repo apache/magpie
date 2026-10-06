@@ -10,12 +10,8 @@ Read this file only when `committer_intake.model` is `dco`.
 
 **`dco` model:**
 
-Verify that the candidate's recent merged PRs carry a valid
-`Signed-off-by:` line as required by the Developer Certificate of
-Origin. Fetch the last N merged PRs (where N ≥
-`committer_intake_dco.min_signed_off_prs` from the config, default 1)
-authored by the candidate in `<upstream>` and check whether each commit
-body includes `Signed-off-by: <name> <email>`.
+Verify that the candidate's recent merged PRs carry the valid `Signed-off-by:` line the Developer Certificate of Origin requires.
+Fetch the candidate's last N merged PRs in `<upstream>` (N ≥ `committer_intake_dco.min_signed_off_prs` from the config, default 1) and check whether each commit body includes `Signed-off-by: <name> <email>`.
 
 ```bash
 gh pr list --repo <upstream> --author <github-handle> --state merged \
@@ -24,7 +20,7 @@ gh pr list --repo <upstream> --author <github-handle> --state merged \
 
 Outcomes:
 - **Sign-off found on ≥ min_signed_off_prs PRs** → DCO check passes;
-  proceed to Step 1b. Link `committer_intake_dco.reference_url` in the
+  proceed to Step 1b, linking `committer_intake_dco.reference_url` in the
   congratulations email.
 - **Sign-off missing on one or more checked PRs** → flag the gap to the
   nominator. Do not block onboarding if the project's DCO policy permits

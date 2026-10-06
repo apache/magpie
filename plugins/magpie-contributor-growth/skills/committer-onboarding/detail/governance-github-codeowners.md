@@ -9,27 +9,22 @@ Read this file only when `committer_governance.model` is `github-codeowners`.
 ## Step 0 — vote bar
 
 **For `github-codeowners` governance model:**
-The vote bar comes from `committer_governance_github_codeowners.vote_channel`
-in the config. There is no "binding" vs "non-binding" distinction —
-count approvals from reviewers listed in CODEOWNERS or the maintainer
-team. Minimum approvals required: project-defined (consult the project's
-`CONTRIBUTING.md` or the value in the config file if specified).
+The vote bar comes from `committer_governance_github_codeowners.vote_channel` in the config.
+There is no "binding" vs "non-binding" distinction: count approvals from reviewers listed in CODEOWNERS or the maintainer team.
+The minimum is project-defined: consult the project's `CONTRIBUTING.md`, or the value in the config file if specified.
 
 ## Step 1c — account request
 
 **`github-codeowners` model:**
 
-No external account-creation request is needed — the candidate
-already has a GitHub account used during contribution. Continue
-with Step 2, then Step 3 (invite to the GitHub maintainer team and
-optional CODEOWNERS update).
+No external account-creation request is needed: the candidate already has the GitHub account they contributed with.
+Continue with Step 2, then Step 3 (GitHub maintainer-team invite and optional CODEOWNERS update).
 
 ## Step 3 — access checklist
 
 ### `github-codeowners` model
 
-Use the values from `committer_governance_github_codeowners` in the
-config for the team slug, CODEOWNERS path, and vote channel.
+Take the team slug, CODEOWNERS path, and vote channel from `committer_governance_github_codeowners` in the config.
 
 #### Checklist — github-codeowners
 
@@ -50,8 +45,8 @@ config for the team slug, CODEOWNERS path, and vote channel.
   Show the diff to the nominator and open the PR only after confirmation.
 
 - [ ] **Welcome announcement** — post to the project's community channel
-  (GitHub Discussion, mailing list, or Slack, per project conventions).
-  Draft in Step 3a below.
+  (GitHub Discussion, mailing list, or Slack, per project conventions),
+  drafted in Step 3a.
 
 ## Step 4 — completion summary example
 

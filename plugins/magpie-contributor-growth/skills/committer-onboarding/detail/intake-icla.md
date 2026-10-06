@@ -10,18 +10,12 @@ Read this file only when `committer_intake.model` is `icla` (the default).
 
 **`icla` model (default):**
 
-Open https://whimsy.apache.org/roster/committer/<apache-id> if
-the candidate already has an Apache ID. An existing Apache
-account implies an ICLA on file; skip to Step 1b.
+If the candidate already has an Apache ID, open https://whimsy.apache.org/roster/committer/<apache-id>.
+An existing Apache account implies an ICLA on file; skip to Step 1b.
 
-If `<apache-id>` is "none", check whether the candidate's legal
-name appears on the signed ICLA list:
-https://people.apache.org/committer-index.html (search by name).
+If `<apache-id>` is "none", search the signed ICLA list for the candidate's legal name: https://people.apache.org/committer-index.html.
 
-The public index is updated by the secretary after processing —
-there is typically a lag of several days between the candidate
-emailing the ICLA and it appearing on the list. Ask the
-nominator whether the candidate has already said they filed it.
+The secretary updates the public index only after processing, typically several days after the candidate emails the ICLA, so ask the nominator whether the candidate has already said they filed it.
 
 Three outcomes:
 
@@ -31,13 +25,12 @@ Three outcomes:
   Step 1b using the "submitted, awaiting processing" congratulations
   variant (no ICLA instructions — they have already filed). Hold
   the secretary account-creation request until the nominator
-  confirms the secretary has processed it (i.e. it appears on the
-  index or the secretary replies). Note the hold clearly so the
+  confirms the secretary has processed it (it appears on the
+  index or the secretary replies), and note the hold clearly so the
   nominator knows to follow up.
 - **No ICLA filed** (not on index and candidate has not said they
   filed it) → include the ICLA instruction block in the
-  congratulations email (see
-  [`detail/email-templates.md`](email-templates.md) §
-  ICLA instructions). Onboarding cannot proceed to account
-  creation until the ICLA is processed; flag the waiting step
-  clearly.
+  congratulations email
+  ([`detail/email-templates.md`](email-templates.md) §
+  ICLA instructions). Flag clearly that account creation waits
+  until the ICLA is processed.

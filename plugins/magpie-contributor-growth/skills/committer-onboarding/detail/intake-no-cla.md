@@ -10,9 +10,5 @@ Read this file only when `committer_intake.model` is `no-cla`.
 
 **`no-cla` model:**
 
-Skip the IP-compliance check entirely. Include a brief note in the
-congratulations email explaining the project's open/trust-based
-contribution model (use `committer_intake_nocla.explanation` if set,
-otherwise a default: *"This project does not require a contributor
-agreement — contributions are accepted under the project's open licence
-on a trust basis."*). Proceed directly to Step 1b.
+Skip the IP-compliance check entirely and proceed directly to Step 1b.
+Include a brief note in the congratulations email explaining the project's open/trust-based contribution model: `committer_intake_nocla.explanation` if set, otherwise the default *"This project does not require a contributor agreement — contributions are accepted under the project's open licence on a trust basis."*
