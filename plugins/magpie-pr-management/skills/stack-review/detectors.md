@@ -11,7 +11,7 @@ Both are standard library only and live in [`scripts/`](scripts/); their tests i
 ```bash
 python3 <skill-dir>/scripts/stack_chain.py fetch-command \
   --repo-url https://github.com/<repo>.git --prefix magpie-stack/<S> --trunk <stack baseRefName> \
-  --pr 1=<N1> --pr 2=<N2> …
+  --pr <k0>=<N_k0> --pr <k0+1>=<N_k0+1> …   # open layers only: <k0> is the lowest open position
 ```
 
 Every other `stack_chain.py` subcommand takes `--repo <clone>` before the subcommand name, so the working directory does not matter.
@@ -20,12 +20,13 @@ It prints one `git fetch --no-tags … +refs/pull/<N>/head:refs/magpie-stack/<S>
 Propose it; run it on confirmation, from the clone's root.
 It writes refs under `refs/magpie-stack/` only — no branch, no checkout, no working-tree change.
 `cleanup-command --prefix magpie-stack/<S> --size <size>` prints the matching `git update-ref -d` sequence for Step 7.
+`chain`, `seams` and `floors` take `--from <k0>`: merged layers below it are neither fetched nor analysed, and the trunk is `<k0>`'s base, so a merged layer's squash or merge commit never reads as trunk drift, a stale base or an empty layer.
 
 Layer diffs are three-dot diffs between adjacent heads, which is what GitHub shows for the layer (`gh pr diff` gives byte-different but ledger-identical input):
 
 ```bash
-git -C <clone> diff refs/magpie-stack/<S>/trunk...refs/magpie-stack/<S>/1 > 1.diff
-git -C <clone> diff refs/magpie-stack/<S>/1...refs/magpie-stack/<S>/2 > 2.diff
+git -C <clone> diff refs/magpie-stack/<S>/trunk...refs/magpie-stack/<S>/<k0> > <k0>.diff
+git -C <clone> diff refs/magpie-stack/<S>/<k0>...refs/magpie-stack/<S>/<k0+1> > <k0+1>.diff
 ```
 
 ## `stack_ledger.py ledger`

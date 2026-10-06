@@ -16,7 +16,7 @@ Return ONLY valid JSON with this structure:
 ```
 
 Rules:
-- One entry per stack-level finding, using the class and severity the Step 3 table assigns to that evidence; `layers` lists every position involved, ascending — for `wrong-layer`, the layer carrying the hunk and the layer it belongs to; for an ordering finding, every layer of the merge unit it names (the inclusive range from the layer that needs the later one through the layer that provides it), or, for a reintroduced name, the layer that removed it and the layer that reintroduces it.
+- One entry per stack-level finding, using the class and severity the Step 3 table assigns to that evidence; `layers` lists every position involved, ascending — for `wrong-layer`, the layer carrying the hunk and the layer it belongs to; for an ordering finding, every layer of the merge unit it names (the inclusive range from the layer that needs the later one through the layer that provides it), or, for a reintroduced name, the layer that removed it and the layer that reintroduces it; for `narrative`, only the layer whose title or body misdescribes it, not the layer whose commit explains it.
 - Per-layer gate state (red, cancelled or unverified CI, unresolved threads, drafts, approvals) is never a finding.
 - A `seams` hit at a later head is `blocking` ordering for that later layer when the input says the definition is absent at its head (a use reintroduced after the removal), and only an observation when that layer re-adds the definition.
 - Read the commit messages quoted in the input before classifying: a placement a commit body explains is `narrative` (minor), never `wrong-layer`.
