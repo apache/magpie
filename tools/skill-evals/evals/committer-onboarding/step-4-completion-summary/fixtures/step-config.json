@@ -1,4 +1,7 @@
 {
   "skill_md": "skills/committer-onboarding/SKILL.md",
-  "step_heading": "## Step 4 — Completion summary"
+  "step_heading": "## Step 4 — Completion summary",
+  "also_include": [
+    "plugins/magpie-contributor-growth/skills/committer-onboarding/detail/governance-asf-pmc.md"
+  ]
 }

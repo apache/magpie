@@ -1,4 +1,9 @@
 {
   "skill_md": "skills/committer-onboarding/SKILL.md",
-  "step_heading": "## Step 3 — Post-vote access and checklist"
+  "step_heading": "## Step 3 — Post-vote access and checklist",
+  "also_include": [
+    "plugins/magpie-contributor-growth/skills/committer-onboarding/detail/governance-asf-pmc.md",
+    "plugins/magpie-contributor-growth/skills/committer-onboarding/detail/governance-github-codeowners.md",
+    "plugins/magpie-contributor-growth/skills/committer-onboarding/detail/governance-maintainer-roster.md"
+  ]
 }

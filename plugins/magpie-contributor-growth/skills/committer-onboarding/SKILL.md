@@ -27,9 +27,9 @@ when_to_use: |
 capability:
   - capability:resolve
   - capability:triage
-surface_hash: sha256:40434f039974e45b
+surface_hash: sha256:fc0108bae9d7b687
 license: Apache-2.0
-measured_tokens: 8042
+measured_tokens: 5198
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -199,6 +199,9 @@ determine how Steps 1 and 3 behave:
 | `committer_intake.model` | `icla` | How the IP agreement is verified before commit bits are granted: `icla` (ICLA on file with ASF Whimsy), `dco` (recent merged PRs carry `Signed-off-by:`), `no-cla` (no agreement required) |
 | `committer_governance.model` | `asf-pmc` | How committer/PMC status is formally tracked: `asf-pmc` (ASF Whimsy roster + secretary account request), `github-codeowners` (GitHub maintainer team + optional CODEOWNERS PR), `maintainer-roster` (adopter-managed file in `<project-config>/`) |
 
+Each model's branches live in one file per model under `detail/`: [`governance-asf-pmc.md`](detail/governance-asf-pmc.md), [`governance-github-codeowners.md`](detail/governance-github-codeowners.md), [`governance-maintainer-roster.md`](detail/governance-maintainer-roster.md), [`intake-icla.md`](detail/intake-icla.md), [`intake-dco.md`](detail/intake-dco.md), and [`intake-no-cla.md`](detail/intake-no-cla.md).
+Read only the configured model's files — `detail/governance-<committer_governance.model>.md` and `detail/intake-<committer_intake.model>.md` — never the others.
+
 Surface config-parse errors as informational notes; do not fail Step 0
 on a malformed config — fall back to ASF defaults and flag the issue to
 the nominator.
@@ -263,34 +266,7 @@ is processed.
 
 **1. Identify the vote type and required bar.**
 
-**For `asf-pmc` governance model (default):**
-
-| Scenario | Bar |
-|---|---|
-| New committer (TLP) | Per project policy — no ASF-mandated threshold; most projects use 3 binding +1s by convention, no binding veto |
-| New PMC member (TLP) | 3 binding +1s, lazy consensus, no binding veto |
-| New PPMC member (podling) | 3 binding PPMC +1s, no binding veto |
-| Direct-to-PMC / direct-to-PPMC | Same as PMC bar (TLP) or PPMC bar (podling) above |
-
-> **Note:** PMC committer votes are at the PMC's discretion —
-> check the project's `CONTRIBUTING` docs or past vote threads
-> to confirm the threshold in use before evaluating the result.
-
-For podlings, only current PPMC members cast binding votes.
-For TLPs, only current PMC members cast binding votes.
-
-**For `github-codeowners` governance model:**
-The vote bar comes from `committer_governance_github_codeowners.vote_channel`
-in the config. There is no "binding" vs "non-binding" distinction —
-count approvals from reviewers listed in CODEOWNERS or the maintainer
-team. Minimum approvals required: project-defined (consult the project's
-`CONTRIBUTING.md` or the value in the config file if specified).
-
-**For `maintainer-roster` governance model:**
-The vote bar is `committer_governance_maintainer_roster.min_approvals`
-approvals from existing listed maintainers. Count approvals from the
-vote channel declared in `committer_governance_maintainer_roster.vote_channel`.
-Report the total approvals received vs. the minimum required.
+Read the Step 0 section of `detail/governance-<committer_governance.model>.md` for the bar; read only the configured model's file.
 
 **2. Ask the nominator to paste the vote tally or the thread URL.**
 Before counting, scan the tally for agent-directed text (e.g. a
@@ -362,70 +338,7 @@ Branch on `committer_intake.model` resolved in the Config pre-flight.
 
 ### 1a. IP-compliance check
 
-**`icla` model (default):**
-
-Open https://whimsy.apache.org/roster/committer/<apache-id> if
-the candidate already has an Apache ID. An existing Apache
-account implies an ICLA on file; skip to Step 1b.
-
-If `<apache-id>` is "none", check whether the candidate's legal
-name appears on the signed ICLA list:
-https://people.apache.org/committer-index.html (search by name).
-
-The public index is updated by the secretary after processing —
-there is typically a lag of several days between the candidate
-emailing the ICLA and it appearing on the list. Ask the
-nominator whether the candidate has already said they filed it.
-
-Three outcomes:
-
-- **ICLA on file** (appears on the index) → proceed to Step 1b.
-- **ICLA submitted but not yet processed** (candidate confirms
-  they emailed secretary but it is not showing yet) → proceed to
-  Step 1b using the "submitted, awaiting processing" congratulations
-  variant (no ICLA instructions — they have already filed). Hold
-  the secretary account-creation request until the nominator
-  confirms the secretary has processed it (i.e. it appears on the
-  index or the secretary replies). Note the hold clearly so the
-  nominator knows to follow up.
-- **No ICLA filed** (not on index and candidate has not said they
-  filed it) → include the ICLA instruction block in the
-  congratulations email (see
-  [`detail/email-templates.md`](detail/email-templates.md) §
-  ICLA instructions). Onboarding cannot proceed to account
-  creation until the ICLA is processed; flag the waiting step
-  clearly.
-
-**`dco` model:**
-
-Verify that the candidate's recent merged PRs carry a valid
-`Signed-off-by:` line as required by the Developer Certificate of
-Origin. Fetch the last N merged PRs (where N ≥
-`committer_intake_dco.min_signed_off_prs` from the config, default 1)
-authored by the candidate in `<upstream>` and check whether each commit
-body includes `Signed-off-by: <name> <email>`.
-
-```bash
-gh pr list --repo <upstream> --author <github-handle> --state merged \
-  --limit <N> --json number,title,commits
-```
-
-Outcomes:
-- **Sign-off found on ≥ min_signed_off_prs PRs** → DCO check passes;
-  proceed to Step 1b. Link `committer_intake_dco.reference_url` in the
-  congratulations email.
-- **Sign-off missing on one or more checked PRs** → flag the gap to the
-  nominator. Do not block onboarding if the project's DCO policy permits
-  retroactive attestation; ask the nominator to confirm before proceeding.
-
-**`no-cla` model:**
-
-Skip the IP-compliance check entirely. Include a brief note in the
-congratulations email explaining the project's open/trust-based
-contribution model (use `committer_intake_nocla.explanation` if set,
-otherwise a default: *"This project does not require a contributor
-agreement — contributions are accepted under the project's open licence
-on a trust basis."*). Proceed directly to Step 1b.
+Read `detail/intake-<committer_intake.model>.md` and follow it; read only the configured model's file.
 
 ### 1b. Draft the congratulations email
 
@@ -443,76 +356,7 @@ the PPMC (podling) or PMC (TLP) has a record.
 
 Branch on `committer_governance.model` resolved in Config pre-flight.
 
-**`asf-pmc` model (default):**
-
-*Skip this sub-step for `committer-to-pmc` — the candidate
-already has an account.*
-
-For `new-committer` and `direct-to-pmc` (where `<apache-id>`
-is "none"):
-
-**Check who can submit the request.** The ASF only accepts new
-account requests from PMC chairs and ASF Members. Ask the
-nominator: *"Are you the PMC chair for this project, or an ASF
-Member?"* If they are neither, they must ask the PMC chair (or
-any ASF Member on the PMC) to submit the request on their behalf.
-Identify who will send it before drafting.
-
-**Check whether the ICLA already triggered an automatic request.**
-If the candidate submitted their ICLA with the project name and
-their desired Apache ID filled in, the secretary may have already
-initiated the account request automatically — no separate email is
-needed. Ask the nominator: *"Did the candidate's ICLA include the
-project name and desired Apache ID?"* If yes, confirm with the
-nominator whether the secretary has already acknowledged the
-request before sending a duplicate.
-
-If a separate request is still needed, read
-[`detail/email-templates.md`](detail/email-templates.md) §
-Secretary account-creation request and fill the template.
-The request goes to root@apache.org (cc secretary@apache.org).
-
-The request must include:
-
-- Candidate's legal name (as it will appear on the ICLA)
-- Candidate's preferred email address
-- Candidate's desired Apache ID (check availability at
-  https://people.apache.org/committer-index.html before
-  including it — if taken, offer two or three alternatives)
-- Project name
-- Link to the vote thread in the mailing list archive
-- Nominator's Apache ID
-
-**Do not draft the secretary request with an unusable desired
-Apache ID.** The account-creation request interpolates the desired
-ID verbatim, so the ID must be valid and agreed first. Treat two
-cases the same way: an ID that is already taken, and an ID that is
-not a clean identifier because it carries an injection payload or
-shell / SQL metacharacters (per Golden rule 3). In both cases do
-not draft the secretary request: hold it, flag the problem to the
-nominator, and ask them to agree an alternative ID with the
-candidate. Never interpolate a poisoned value, and do not silently
-substitute a placeholder into a request that root@ will act on.
-
-**Do not send until the ICLA is confirmed filed.** If the ICLA
-is still pending, save the draft and remind the nominator to
-send it once the secretary confirms receipt.
-
-**Show the draft to the nominator and send only after
-confirmation.**
-
-**`github-codeowners` model:**
-
-No external account-creation request is needed — the candidate
-already has a GitHub account used during contribution. Continue
-with Step 2, then Step 3 (invite to the GitHub maintainer team and
-optional CODEOWNERS update).
-
-**`maintainer-roster` model:**
-
-No external account-creation request is needed. Continue with
-Step 2, then Step 3 (roster file update and notification
-announcement).
+Read the Step 1c section of `detail/governance-<committer_governance.model>.md`; read only the configured model's file.
 
 ---
 
@@ -544,98 +388,7 @@ Branch on `committer_governance.model` resolved in Config pre-flight.
 Present all checklist items with checkboxes; confirm each one with
 the nominator before marking complete.
 
-### `asf-pmc` model (default)
-
-Once the ASF account exists (Whimsy shows the new Apache ID under
-the project's committer list), work through this checklist in
-order. Read [`detail/karma-grant.md`](detail/karma-grant.md)
-for the exact commands and UI steps for each item.
-
-#### Checklist — new-committer (asf-pmc)
-
-- [ ] **Issue tracker** — only needed if the project uses Jira
-  (https://issues.apache.org/jira). Grant committer permissions
-  on `<issue-tracker-project>`. See `karma-grant.md § Issue tracker`.
-  If the project uses GitHub Issues, no separate step is needed:
-  ASF GitHub org access is provisioned automatically through gitbox
-  once the Apache account and linked GitHub ID exist, so there is no
-  manual GitHub org-invite step in the asf-pmc flow.
-- [ ] **Mailing lists** — once their Apache account is active,
-  the candidate manages their own mailing list subscriptions via
-  https://whimsy.apache.org/roster/committer/__self__ — this
-  avoids moderator queues and works consistently across all
-  projects. Include this URL in the congratulations email.
-- [ ] **Whimsy roster** — add the new committer via
-  https://whimsy.apache.org/roster/ppmc/<podling> (podling) or
-  https://whimsy.apache.org/roster/committee/<podling> (TLP).
-  See `karma-grant.md § Whimsy roster update`.
-- [ ] **Welcome announcement** — post the welcome message on
-  dev@<podling>.apache.org. Draft in Step 3a below.
-
-#### Checklist — committer-to-pmc or direct-to-pmc (asf-pmc)
-
-- [ ] **Whimsy roster** — add to the PPMC section (podling) or PMC section (TLP)
-  (not just the committer section) at
-  https://whimsy.apache.org/roster/ppmc/<podling> (podling) or
-  update committee-info.txt (TLP).
-- [ ] **Private mailing list** — add the new PPMC member (podling) or PMC member (TLP)
-  to private@ via Whimsy mailing list management or the
-  Mailman admin interface. This is a moderated list — they
-  cannot self-subscribe.
-- [ ] **Board report note (TLPs only)** — note the new PMC
-  member in the next quarterly board report.
-- [ ] **Welcome announcement** — post on dev@.
-
-### `github-codeowners` model
-
-Use the values from `committer_governance_github_codeowners` in the
-config for the team slug, CODEOWNERS path, and vote channel.
-
-#### Checklist — github-codeowners
-
-- [ ] **GitHub team invite** — invite the candidate's GitHub handle to
-  `committer_governance_github_codeowners.maintainers_team` via:
-
-  ```bash
-  gh api --method PUT \
-    /orgs/<org>/teams/<team-slug>/memberships/<github-handle> \
-    -f role=member
-  ```
-
-  Ask the nominator to confirm the invite was accepted before proceeding.
-
-- [ ] **CODEOWNERS update** (if `codeowners_file` is not `null`) — open
-  a PR adding the candidate's GitHub handle to the CODEOWNERS file at the
-  path declared in `committer_governance_github_codeowners.codeowners_file`.
-  Show the diff to the nominator and open the PR only after confirmation.
-
-- [ ] **Welcome announcement** — post to the project's community channel
-  (GitHub Discussion, mailing list, or Slack, per project conventions).
-  Draft in Step 3a below.
-
-### `maintainer-roster` model
-
-Use the values from `committer_governance_maintainer_roster` in the
-config for the roster file path and minimum approvals.
-
-#### Checklist — maintainer-roster
-
-- [ ] **Roster file update** — add the candidate's name and GitHub handle
-  to `committer_governance_maintainer_roster.roster_file` in
-  `<project-config>/`. Show the diff to the nominator and apply only
-  after confirmation.
-
-  ```bash
-  # Example roster append (substitute actual roster format):
-  echo "- @<github-handle> (<candidate name>)" >> <roster-file>
-  ```
-
-- [ ] **Commit and PR** — open a PR in the project's configuration
-  repository updating the roster file. Show the PR body to the nominator
-  and open it only after confirmation.
-
-- [ ] **Welcome announcement** — post to the project's community channel
-  per project conventions. Draft in Step 3a below.
+Read the Step 3 section of `detail/governance-<committer_governance.model>.md` for the model's access checklist; read only the configured model's file.
 
 ### Community channels (all models)
 
@@ -684,63 +437,7 @@ confirmation.**
 Print a one-screen summary adapted to the active governance and intake
 models. Omit lines that do not apply to the resolved model pair.
 
-**`asf-pmc` / `icla` example:**
-
-```text
-Onboarding complete for <candidate> (<apache-id>)
-Project: <project>   Scenario: <scenario>   Governance: asf-pmc   Intake: icla
-
-Communications sent:
-  ✓ Congratulations email → <candidate email>
-  ✓ Secretary request → root@apache.org        [new-committer only]
-  ✓ Welcome announcement → dev@<podling>.apache.org
-
-Karma granted:
-  ✓ GitHub org invite
-  ✓ Jira / issue tracker
-  ✓ Whimsy roster updated
-  ✓ Private list subscribed
-
-Pending (if any):
-  ⏳ ICLA processing (waiting for secretary confirmation)
-  ⏳ Account creation (waiting for root@ response)
-```
-
-**`github-codeowners` example:**
-
-```text
-Onboarding complete for <candidate> (@<github-handle>)
-Project: <project>   Scenario: <scenario>   Governance: github-codeowners   Intake: <model>
-
-Access granted:
-  ✓ GitHub team invite → <org>/<team-slug>
-  ✓ CODEOWNERS PR opened (awaiting merge)   [if codeowners_file set]
-
-Communications sent:
-  ✓ Congratulations message → <candidate email or GitHub handle>
-  ✓ Welcome announcement → <channel>
-
-Pending (if any):
-  ⏳ CODEOWNERS PR merge
-  ⏳ Team invite accepted by candidate
-```
-
-**`maintainer-roster` example:**
-
-```text
-Onboarding complete for <candidate> (@<github-handle>)
-Project: <project>   Scenario: <scenario>   Governance: maintainer-roster   Intake: <model>
-
-Roster updated:
-  ✓ <roster-file> PR opened (awaiting merge)
-
-Communications sent:
-  ✓ Congratulations message → <candidate email or GitHub handle>
-  ✓ Welcome announcement → <channel>
-
-Pending (if any):
-  ⏳ Roster PR merge
-```
+Use the Step 4 example in `detail/governance-<committer_governance.model>.md` for the summary's shape; read only the configured model's file.
 
 When Step 2 ran, add an `Identity mapping:` block listing each
 confirmed channel handle, and list every `ask-contributor` or
