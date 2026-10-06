@@ -25,7 +25,8 @@ description = "Deterministic contributor activity counts, area shares and automa
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
-dependencies = []
+# The Jira backend reads through tools/jira's REST client (a workspace member, stdlib only).
+dependencies = ["jira-bridge"]
 
 [project.scripts]
 contributor-metrics = "contributor_metrics:main"

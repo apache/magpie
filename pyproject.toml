@@ -110,6 +110,7 @@ package = false
 # the source; workspace members inherit the root's sources.
 magpie-dev = { workspace = true }
 checker = { workspace = true }
+jira-bridge = { workspace = true }
 
 
 [tool.uv.workspace]

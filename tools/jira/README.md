@@ -46,7 +46,7 @@ tracker bridge; adopters using GitHub Issues or other trackers
 contribute a parallel `tools/<tracker>/` directory.
 
 The bridge provides both **read** and **write** subcommands.
-The read-only contributor-activity queries of `contract:tracker` and the profile lookup of `contract:people` are implemented separately, in Python, by the `jira` backend of [`tools/contributor-metrics`](../contributor-metrics/README.md); see [People and contributor-activity reads](#people-and-contributor-activity-reads).
+The read-only contributor-activity queries of `contract:tracker` run in Python, in the `jira` backend of [`tools/contributor-metrics`](../contributor-metrics/README.md#backends), through this package's read-only REST client, `jira_bridge.rest`; the profile lookup of `contract:people` is a single REST read. See [People and contributor-activity reads](#people-and-contributor-activity-reads).
 Write operations require `JIRA_API_TOKEN` and follow the same
 write-path discipline as the GitHub bridge: every mutation is
 gated on explicit user confirmation in the calling skill — the
@@ -67,7 +67,7 @@ tools/jira/
 ├── README.md          (this file)
 ├── bridge.groovy      (Groovy reference implementation)
 ├── pyproject.toml     (Python test harness config)
-├── src/jira_bridge/   (package stub for test harness)
+├── src/jira_bridge/   (read-only Python REST client, rest.py; test harness package)
 └── tests/             (pytest test suite)
 ```
 
@@ -244,7 +244,7 @@ Output:
 ## People and contributor-activity reads
 
 The read-only activity queries of [`contract:tracker`](../tracker/README.md) and the profile lookup of [`contract:people`](../people/README.md), against the same Jira Data Center REST API v2 the bridge uses and with the same configuration (`ISSUE_TRACKER_URL`, `ISSUE_TRACKER_PROJECT`, `JIRA_API_TOKEN`, `JIRA_AUTH_SCHEME`).
-The per-person streams are implemented by the `jira` backend of [`tools/contributor-metrics`](../contributor-metrics/README.md); the others are plain REST reads a skill makes.
+The per-person streams are implemented by the `jira` backend of [`tools/contributor-metrics`](../contributor-metrics/README.md#backends) over `jira_bridge.rest`, which also honours a token in `~/.config/apache-magpie/jira-token`; the others are plain REST reads a skill makes.
 `<user>` is the person's Jira username, validated against `[A-Za-z0-9._@+-]{1,255}` before it reaches a query.
 
 | Verb | Jira resolution |

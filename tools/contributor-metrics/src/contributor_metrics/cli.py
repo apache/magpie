@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
-"""contributor-metrics CLI: `fetch` from GitHub, `score` offline."""
+"""contributor-metrics CLI: `fetch` from the code host and tracker, `score` offline."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import sys
 import tempfile
 from collections.abc import Sequence
@@ -15,6 +16,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+from contributor_metrics.backends.jira import InvalidJiraConfig, InvalidJiraUser, JiraError, JiraTracker
 from contributor_metrics.fetch import (
     SUBSTANTIVE_BODY_CHARS,
     SUBSTANTIVE_LINE_COMMENTS,
@@ -43,12 +45,61 @@ def _cache_file(
     phrases: list[str],
     maintainers: list[str],
     substantive: tuple[int, int] = (SUBSTANTIVE_BODY_CHARS, SUBSTANTIVE_LINE_COMMENTS),
+    backends: dict[str, Any] | None = None,
 ) -> Path:
     parts: list[Any] = [sorted(phrases), sorted(maintainers)]
     if substantive != (SUBSTANTIVE_BODY_CHARS, SUBSTANTIVE_LINE_COMMENTS):
         parts.append(list(substantive))  # default thresholds keep the keys of existing caches
+    if backends:
+        parts.append(backends)  # GitHub-only fetches keep the keys of existing caches
     key = hashlib.sha256(json.dumps(parts).encode()).hexdigest()[:12]
     return Path(cache_dir) / f"{repo.replace('/', '__')}__{login}__{since}__{end}__{key}.json"
+
+
+_CONFIG_ROW = re.compile(r"^\|\s*`?(url|project_key|tracker_type)`?\s*\|\s*(.*?)\s*\|\s*$")
+TRACKER_TYPES = {"jira": "jira", "github-issues": "github", "github": "github"}
+
+
+def read_tracker_config(path: str) -> dict[str, str]:
+    """`url`, `project_key` and `tracker_type` from `<project-config>/issue-tracker-config.md`.
+
+    The file's *URL and project key* table is the source other skills read for
+    `<issue-tracker>`; unset (`TODO:`) values are skipped.
+    """
+    out: dict[str, str] = {}
+    for line in Path(path).read_text().splitlines():
+        m = _CONFIG_ROW.match(line.strip())
+        if not m:
+            continue
+        value = m.group(2).strip().strip("`").strip()
+        if value and not value.upper().startswith("TODO"):
+            out.setdefault(m.group(1), value)
+    return out
+
+
+def _resolve_tracker(args: argparse.Namespace) -> tuple[str, str, str]:
+    """(kind, url, project) for the tracker side; flags override the config file."""
+    cfg = read_tracker_config(args.tracker_config) if args.tracker_config else {}
+    kind = args.tracker or TRACKER_TYPES.get(cfg.get("tracker_type", "").lower(), "")
+    if not kind:
+        if cfg.get("tracker_type"):
+            raise InvalidJiraConfig(
+                f"unsupported tracker_type {cfg['tracker_type']!r} (expected jira or github-issues)"
+            )
+        kind = "github"
+    url = project = ""
+    if kind == "jira":
+        url = args.jira_url or cfg.get("url") or os.environ.get("ISSUE_TRACKER_URL", "")
+        project = args.jira_project or cfg.get("project_key") or os.environ.get("ISSUE_TRACKER_PROJECT", "")
+        if not url or not project:
+            raise InvalidJiraConfig(
+                "a Jira tracker needs a URL and a project key (config file, flags or environment)"
+            )
+    elif cfg.get("project_key") and cfg["project_key"].lower() != args.repo.lower():
+        raise InvalidJiraConfig(
+            f"GitHub issues on {cfg['project_key']!r} differ from --repo {args.repo!r}; not supported"
+        )
+    return kind, url, project
 
 
 def _read(path: str | None) -> dict[str, Any]:
@@ -61,9 +112,34 @@ def _read(path: str | None) -> dict[str, Any]:
 def main(argv: Sequence[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="contributor-metrics")
     sub = p.add_subparsers(dest="cmd", required=True)
-    f = sub.add_parser("fetch", help="fetch a contributor's activity items from GitHub")
-    f.add_argument("--repo", required=True)
-    f.add_argument("--login", required=True)
+    f = sub.add_parser("fetch", help="fetch a contributor's activity items from the code host and tracker")
+    f.add_argument("--repo", required=True, help="the code-host repository, owner/name")
+    f.add_argument("--login", required=True, help="the contributor's code-host handle")
+    f.add_argument(
+        "--code-host",
+        choices=("github",),
+        default="github",
+        help="backend for PRs and reviews (default github)",
+    )
+    f.add_argument(
+        "--tracker",
+        choices=("github", "jira"),
+        help="backend for issues; default: from --tracker-config, else the code host",
+    )
+    f.add_argument(
+        "--tracker-config", help="<project-config>/issue-tracker-config.md (tracker_type, url, project_key)"
+    )
+    f.add_argument("--jira-url", help="Jira base URL; overrides the config file and ISSUE_TRACKER_URL")
+    f.add_argument(
+        "--jira-project", help="Jira project key; overrides the config file and ISSUE_TRACKER_PROJECT"
+    )
+    f.add_argument(
+        "--tracker-login", help="the contributor's account on the tracker, when it differs from --login"
+    )
+    f.add_argument(
+        "--tracker-maintainers-file",
+        help="whitespace-separated maintainer accounts on the tracker (default: --maintainers-file)",
+    )
     f.add_argument("--end", required=True)
     f.add_argument("--months", type=int, default=6)
     f.add_argument("--since", help="window start YYYY-MM-DD; overrides --months")
@@ -141,8 +217,45 @@ def main(argv: Sequence[str] | None = None) -> int:
         substantive = (args.substantive_body_chars, args.substantive_line_comments)
         phrases = Path(args.phrases_file).read_text().splitlines() if args.phrases_file else []
         maintainers = Path(args.maintainers_file).read_text().split() if args.maintainers_file else []
+        try:
+            kind, jira_url, jira_project = _resolve_tracker(args)
+        except (InvalidJiraConfig, OSError) as exc:
+            print(f"invalid tracker configuration: {exc}", file=sys.stderr)
+            return 2
+        tracker_login = args.tracker_login or args.login
+        tracker_maintainers = (
+            Path(args.tracker_maintainers_file).read_text().split() if args.tracker_maintainers_file else None
+        )
+        backends: dict[str, Any] = {}
+        tracker_kwargs: dict[str, Any] = {}
+        if kind == "jira":
+            backends = {
+                "code_host": args.code_host,
+                "tracker": "jira",
+                "tracker_url": jira_url.rstrip("/"),
+                "tracker_project": jira_project,
+                "tracker_login": tracker_login,
+            }
+            try:
+                tracker = JiraTracker(jira_url, jira_project)
+            except InvalidJiraConfig as exc:
+                print(f"invalid tracker configuration: {exc}", file=sys.stderr)
+                return 2
+            tracker_kwargs = {
+                "tracker": tracker,
+                "tracker_login": tracker_login,
+                "tracker_maintainers": tracker_maintainers,
+            }
         cached = _cache_file(
-            args.cache_dir, args.repo, args.login, since, args.end, phrases, maintainers, substantive
+            args.cache_dir,
+            args.repo,
+            args.login,
+            since,
+            args.end,
+            phrases,
+            maintainers,
+            substantive,
+            {**backends, "tracker_maintainers": sorted(tracker_maintainers or [])} if backends else None,
         )
         if cached.exists() and not args.refresh:
             Path(args.out).write_text(cached.read_text())
@@ -157,6 +270,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 maintainers=maintainers,
                 substantive_body_chars=substantive[0],
                 substantive_line_comments=substantive[1],
+                **tracker_kwargs,
             )
         except InvalidLogin as exc:
             print(f"invalid GitHub handle: {exc}", file=sys.stderr)
@@ -164,10 +278,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         except InvalidRepo as exc:
             print(f"invalid repository (expected owner/name): {exc}", file=sys.stderr)
             return 2
+        except InvalidJiraUser as exc:
+            print(f"invalid Jira username: {exc}", file=sys.stderr)
+            return 2
         except GhError as exc:
             print(f"gh failed: {exc}", file=sys.stderr)
             return 1
-        payload = {
+        except JiraError as exc:
+            print(f"jira failed: {exc}", file=sys.stderr)
+            return 1
+        payload: dict[str, Any] = {
             "login": args.login,
             "repo": args.repo,
             "since": since,
@@ -176,6 +296,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             "notes": fetch_notes,
             "items": [i.to_json() for i in items],
         }
+        if backends:
+            payload["backends"] = backends
         text = json.dumps(payload, indent=2)
         cached.parent.mkdir(parents=True, exist_ok=True)
         cached.write_text(text)

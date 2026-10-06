@@ -283,3 +283,114 @@ def test_fetch_substantive_thresholds_reach_fetch_and_the_cache_key(tmp_path, mo
         main(_fetch_args(tmp_path, "--substantive-body-chars", "50", "--substantive-line-comments", "3")) == 0
     )
     assert calls == [(100, 1), (50, 3)]
+
+
+JIRA_CONFIG = """# Issue tracker
+
+| Key | Value |
+|---|---|
+| `url` | `https://issues.example.org/jira` |
+| `project_key` | `FOO` |
+| `tracker_type` | jira |
+| `issue_url_template` | `https://issues.example.org/jira/browse/<KEY>` |
+"""
+
+
+def test_read_tracker_config_reads_the_url_table(tmp_path):
+    from contributor_metrics.cli import read_tracker_config
+
+    (tmp_path / "issue-tracker-config.md").write_text(JIRA_CONFIG)
+    cfg = read_tracker_config(str(tmp_path / "issue-tracker-config.md"))
+    assert cfg == {"url": "https://issues.example.org/jira", "project_key": "FOO", "tracker_type": "jira"}
+
+
+def test_fetch_with_a_jira_tracker_config_routes_issues_to_jira(tmp_path, monkeypatch):
+    (tmp_path / "issue-tracker-config.md").write_text(JIRA_CONFIG)
+    seen = {}
+
+    def fake_fetch(*a, **k):
+        seen.update(k)
+        return [], [], []
+
+    monkeypatch.setattr("contributor_metrics.cli.fetch_items", fake_fetch)
+    monkeypatch.delenv("JIRA_API_TOKEN", raising=False)
+    rc = main(
+        _fetch_args(
+            tmp_path,
+            "--tracker-config",
+            str(tmp_path / "issue-tracker-config.md"),
+            "--tracker-login",
+            "jdoe",
+        )
+    )
+    assert rc == 0
+    tracker = seen["tracker"]
+    assert (tracker.url, tracker.project) == ("https://issues.example.org/jira", "FOO")
+    assert seen["tracker_login"] == "jdoe"
+    out = json.loads((tmp_path / "a.json").read_text())
+    assert out["backends"] == {
+        "code_host": "github",
+        "tracker": "jira",
+        "tracker_url": "https://issues.example.org/jira",
+        "tracker_project": "FOO",
+        "tracker_login": "jdoe",
+    }
+
+
+def test_flags_override_the_tracker_config(tmp_path, monkeypatch):
+    (tmp_path / "issue-tracker-config.md").write_text(JIRA_CONFIG)
+    seen = {}
+    monkeypatch.setattr("contributor_metrics.cli.fetch_items", lambda *a, **k: seen.update(k) or ([], [], []))
+    args = _fetch_args(
+        tmp_path,
+        "--tracker-config",
+        str(tmp_path / "issue-tracker-config.md"),
+        "--jira-project",
+        "BAR",
+    )
+    assert main(args) == 0
+    assert seen["tracker"].project == "BAR"
+
+
+def test_github_only_fetch_output_has_no_backends_key(tmp_path, monkeypatch):
+    seen = {}
+    monkeypatch.setattr("contributor_metrics.cli.fetch_items", lambda *a, **k: seen.update(k) or ([], [], []))
+    assert main(_fetch_args(tmp_path)) == 0
+    assert "tracker" not in seen
+    assert "backends" not in json.loads((tmp_path / "a.json").read_text())
+
+
+def test_github_issues_config_for_the_same_repo_is_the_default(tmp_path, monkeypatch):
+    (tmp_path / "c.md").write_text("| `tracker_type` | github-issues |\n| `project_key` | `o/r` |\n")
+    seen = {}
+    monkeypatch.setattr("contributor_metrics.cli.fetch_items", lambda *a, **k: seen.update(k) or ([], [], []))
+    assert main(_fetch_args(tmp_path, "--tracker-config", str(tmp_path / "c.md"))) == 0
+    assert "tracker" not in seen
+
+
+def test_unsupported_tracker_type_exits_2(tmp_path, monkeypatch):
+    (tmp_path / "c.md").write_text("| `tracker_type` | bugzilla |\n")
+    monkeypatch.setattr(
+        "contributor_metrics.cli.fetch_items", lambda *a, **k: (_ for _ in ()).throw(AssertionError)
+    )
+    assert main(_fetch_args(tmp_path, "--tracker-config", str(tmp_path / "c.md"))) == 2
+
+
+def test_jira_without_url_exits_2(tmp_path, monkeypatch):
+    monkeypatch.delenv("ISSUE_TRACKER_URL", raising=False)
+    monkeypatch.delenv("ISSUE_TRACKER_PROJECT", raising=False)
+    assert main(_fetch_args(tmp_path, "--tracker", "jira")) == 2
+
+
+def test_the_tracker_is_part_of_the_cache_key(tmp_path, monkeypatch):
+    (tmp_path / "issue-tracker-config.md").write_text(JIRA_CONFIG)
+    calls = []
+
+    def fake_fetch(*a, **k):
+        calls.append(k)
+        return [], [], []
+
+    monkeypatch.setattr("contributor_metrics.cli.fetch_items", fake_fetch)
+    assert main(_fetch_args(tmp_path)) == 0
+    assert main(_fetch_args(tmp_path, "--tracker-config", str(tmp_path / "issue-tracker-config.md"))) == 0
+    assert len(calls) == 2

@@ -10,6 +10,7 @@
     - [`fetch`](#fetch)
     - [`score`](#score)
     - [`floors`](#floors)
+  - [Backends](#backends)
   - [Output schema](#output-schema)
   - [Failure modes](#failure-modes)
 
@@ -24,7 +25,7 @@
 
 **Kind:** implementation
 
-**Vendor:** GitHub
+**Vendor:** agnostic
 
 **Harness:** agnostic
 
@@ -34,12 +35,15 @@ It is the deterministic half of the contributor-growth skills.
 `fetch` flags pushback *candidates* — a maintainer comment that contains a known pushback phrase — but never decides: the calling skill reads each candidate, confirms or rejects it by the rules in `automated-contributions.md`, classifies restatements, and hands the classes back to `score`.
 Comment bodies never leave `fetch`; its output holds links and flags only.
 
+`fetch` reads change-request activity (PRs authored, reviews, PR threads) from the project's **code host** and issue activity (issues filed, triaged, commented) from its **tracker**, which may be a different system — see [Backends](#backends).
+
 ## Prerequisites
 
 - **Runtime:** Python 3.11+ run via `uv` (`uv run --directory tools/contributor-metrics contributor-metrics …`); stdlib-only, no third-party dependencies.
-- **CLIs:** `uv`; `gh` — the script shells out to it for all GitHub access.
-- **Credentials / auth:** an authenticated `gh` session (`gh auth status` must pass).
-- **Network:** `api.github.com` via `gh`.
+- **Runtime (Jira backend):** the `jira-bridge` workspace package ([`tools/jira`](../jira/README.md)), whose stdlib-only REST client makes the Jira reads; `uv` installs it with the tool.
+- **CLIs:** `uv`; `gh` — the GitHub backend shells out to it for all GitHub access.
+- **Credentials / auth:** an authenticated `gh` session (`gh auth status` must pass). With a Jira tracker, the [`tools/jira`](../jira/README.md#configuration) conventions: `JIRA_API_TOKEN` (or `~/.config/apache-magpie/jira-token`) and `JIRA_AUTH_SCHEME`, or none for anonymous reads.
+- **Network:** `api.github.com` via `gh`; with a Jira tracker, the configured Jira host.
 
 ## Invocation
 
@@ -48,8 +52,13 @@ Comment bodies never leave `fetch`; its output holds links and flags only.
 ```bash
 contributor-metrics fetch --repo <upstream> --login <handle> --end YYYY-MM-DD (--months 6 | --since YYYY-MM-DD) \
   [--substantive-body-chars 100] [--substantive-line-comments 1] \
-  [--phrases-file <file>] [--maintainers-file <file>] [--cache-dir <dir>] --out items.json
+  [--phrases-file <file>] [--maintainers-file <file>] [--cache-dir <dir>] \
+  [--tracker-config <project-config>/issue-tracker-config.md] [--tracker-login <account>] \
+  [--tracker-maintainers-file <file>] --out items.json
 ```
+
+- `--tracker-config` — the project's issue-tracker configuration; its `tracker_type`, `url` and `project_key` select the tracker backend (see [Backends](#backends)). Without it, the tracker is the code host.
+- `--tracker-login` — the contributor's account on the tracker when it differs from their code-host handle (a Jira username); `--tracker-maintainers-file` — maintainer accounts on the tracker, for pushback candidates there.
 
 - `--since` — the window start; it overrides `--months` for a window that is not a whole number of months, such as one trimmed to the repository's creation date.
   An invalid date, or one after `--end`, exits `2` before any `gh` call.
@@ -111,6 +120,33 @@ Proposes threshold floors from measured past nominations, for `contributor-calib
 
 Output: `{"floors": {target: {metric: int}}, "evidence_only": {target: [metric]}, "no_floors_for": [target], "distribution": {...}, "relaxation": float, "notes": [...]}`.
 
+## Backends
+
+`fetch` has two sides, and a backend answers one side or both:
+
+| Side | Contract | Streams | Backends |
+|---|---|---|---|
+| code host | [`contract:change-request`](../change-request/README.md#contributor-activity-queries-read-only) | PRs authored, reviews, PR threads | `github` |
+| tracker | [`contract:tracker`](../tracker/README.md) | issues filed, issues triaged, issue threads | `github`, `jira` |
+
+**GitHub for both (the default).** One pass over `<upstream>`, exactly as described above: threads are searched across issues and PRs together, and the output has no `backends` key.
+
+**A Jira tracker.** When `--tracker-config` names `tracker_type: jira` (or `--tracker jira`), GitHub answers the code-host side — its thread search narrowed to `type:pr` — and the `jira` backend answers the tracker side from the configured project, for `--tracker-login`:
+
+| Stream | Jira source | Dated by | Item kind |
+|---|---|---|---|
+| Issues filed | JQL `project = <KEY> AND reporter = <user> AND created` in the window | creation | `issue` |
+| Issues triaged | an issue someone else reported on which the user changed `status`, `labels`, `component`, `priority`, `assignee`, `resolution` or `Fix Version`, or commented | the user's first such action in the window | `triage` |
+| Threads commented | an issue the user commented on | the user's first comment in the window | `thread` |
+
+Candidates for the last two come from every issue updated in the window (at most 1,000, most recent first; beyond that both streams are listed in `caps_hit` and a note says how many were not scanned) plus a direct `CHANGED BY <user> DURING (…)` search, which finds field changes on older issues too.
+Jira has no author association, so only the tracker maintainer roster (`--tracker-maintainers-file`, else `--maintainers-file`) marks a pushback candidate; with no roster, none is flagged and a note says so.
+Item ids carry the issue key (`issue-FOO-12`, `triage-FOO-12`, `thread-FOO-12`) and links point at `<url>/browse/<KEY>`.
+The output gains `"backends": {"code_host", "tracker", "tracker_url", "tracker_project", "tracker_login"}`, and the cache key includes them.
+
+The Jira URL and project key resolve as other skills resolve `<issue-tracker>`: from `issue-tracker-config.md`, overridden by `--jira-url` / `--jira-project`, else `ISSUE_TRACKER_URL` / `ISSUE_TRACKER_PROJECT`.
+The HTTP client is [`tools/jira`](../jira/README.md)'s `jira_bridge.rest`, so the network surface stays in the tracker adapter.
+
 ## Output schema
 
 `metrics.json`:
@@ -147,5 +183,6 @@ Output: `{"floors": {target: {metric: int}}, "evidence_only": {target: [metric]}
 ## Failure modes
 
 - Invalid handle → exit 2, no `gh` call.
-- `gh` error → exit 1 with the `gh` stderr.
+- Invalid or incomplete tracker configuration, an unsupported `tracker_type`, or an invalid Jira username → exit 2, no request.
+- `gh` error → exit 1 with the `gh` stderr; Jira error → exit 1 with the HTTP status.
 - A stream at its cap → listed in `caps_hit`; the counts it feeds are floors.

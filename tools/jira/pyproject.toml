@@ -22,11 +22,11 @@ build-backend = "hatchling.build"
 [project]
 name = "jira-bridge"
 version = "0.1.0"
-description = "Test harness for the JIRA REST bridge (bridge.groovy)."
+description = "JIRA REST bridge: test harness for bridge.groovy and a read-only Python REST client."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
-# All logic lives in bridge.groovy; this package ships only tests.
+# Write logic lives in bridge.groovy; the package ships a stdlib-only read client (jira_bridge.rest).
 dependencies = []
 
 [tool.hatch.build.targets.wheel]
