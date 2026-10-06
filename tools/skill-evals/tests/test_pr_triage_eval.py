@@ -40,6 +40,7 @@ for _parent in [_cur, *_cur.parents]:
     if _src.is_dir() and _td_src.is_dir():
         break
 
+import typed_decision  # type: ignore[import-untyped,import-not-found]  # noqa: E402
 from typed_decision.exceptions import (  # type: ignore[import-untyped,import-not-found]  # noqa: E402
     TypedDecisionUnavailable,
 )
@@ -404,8 +405,6 @@ def test_main_fails_hard_without_live_provider(tmp_path: Path, monkeypatch: Any,
     monkeypatch.delenv("JEV_API_KEY", raising=False)
     monkeypatch.delenv("MAGPIE_TYPED_DECISION_PROVIDER", raising=False)
 
-    import typed_decision
-
     def _raise_unavailable(*args: Any, **kwargs: Any) -> Any:
         raise TypedDecisionUnavailable("No live provider credentials configured")
 
@@ -432,8 +431,6 @@ def test_main_fails_when_all_samples_error(tmp_path: Path, monkeypatch: Any, cap
     ]
     ds_file = tmp_path / "sample.json"
     ds_file.write_text(json.dumps(dummy_dataset), encoding="utf-8")
-
-    import typed_decision
 
     monkeypatch.setattr(typed_decision, "get_provider", lambda *args, **kwargs: FailingStubProvider())
 

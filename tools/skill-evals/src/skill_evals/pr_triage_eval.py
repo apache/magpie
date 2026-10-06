@@ -314,9 +314,10 @@ def generate_markdown_report(
 ) -> str:
     """Format full markdown evaluation report conforming to Magpie documentation standards."""
     notes = methodology_notes or (
-        "Ground truth labels were established by auditing maintainer triage dispositions and actions "
-        "on historical PRs in `apache/magpie` according to the criteria defined in "
-        "`plugins/magpie-pr-management/skills/pr-triage/classify-and-act.md`."
+        "Ground truth labels in this dataset were derived from rule-based heuristics over historical "
+        "PR attributes (CI check rollup, mergeability state, failed checks, unresolved review threads, "
+        "draft status, and security keyword patterns in title/commit messages/body) according to the "
+        "decision taxonomy in `plugins/magpie-pr-management/skills/pr-triage/classify-and-act.md`."
     )
 
     # Format confusion matrix markdown table
@@ -340,8 +341,18 @@ def generate_markdown_report(
     pc_table = "\n".join([pc_header, pc_sep, *pc_rows])
 
     overall_pct = summary.overall_accuracy * 100
-    high_conf_pct = summary.high_conf_accuracy * 100
+    high_conf_accuracy_pct = summary.high_conf_accuracy * 100
+    high_conf_share_pct = (
+        (summary.high_conf_total / summary.total_samples * 100) if summary.total_samples > 0 else 0.0
+    )
     fallthrough_pct = summary.fallthrough_rate * 100
+    error_pct = summary.error_rate * 100
+
+    error_bullet = (
+        f"\n- **Provider Errors:** **{summary.error_total}** ({error_pct:.2f}%)"
+        if summary.error_total > 0
+        else ""
+    )
 
     return f"""<!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
@@ -363,14 +374,13 @@ def generate_markdown_report(
   - [Latency and Cost Economics](#latency-and-cost-economics)
     - [Latency Distribution](#latency-distribution)
     - [Cost Estimation](#cost-estimation)
-  - [Analysis & Safety Takeaways](#analysis--safety-takeaways)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
 # Typed-Decision PR Triage Evaluation
 
 Evaluation report comparing the `typed-decision` pre-filter (`typed_decision.choice()`)
-against historical human maintainer triage labels on `apache/magpie`.
+against sample dataset ground truth labels on `apache/magpie`.
 
 ## Executive Summary
 
@@ -378,16 +388,10 @@ against historical human maintainer triage labels on `apache/magpie`.
 - **Sample Size:** {sample_size} historical pull requests
 - **Date Range:** {date_range} (PRs {pr_range})
 - **Overall Agreement Rate:** **{overall_pct:.2f}%** ({summary.overall_agreed}/{summary.total_samples})
-- **High-Confidence Agreement Rate (>= 0.85):** **{high_conf_pct:.2f}%** ({summary.high_conf_agreed}/{summary.high_conf_total})
-- **Fall-Through Rate (< 0.85):** **{fallthrough_pct:.2f}%** ({summary.fallthrough_total}/{summary.total_samples})
+- **High-Confidence Agreement Rate (>= {DEFAULT_CONFIDENCE_THRESHOLD}):** **{high_conf_accuracy_pct:.2f}%** ({summary.high_conf_agreed}/{summary.high_conf_total})
+- **Fall-Through Rate (< {DEFAULT_CONFIDENCE_THRESHOLD}):** **{fallthrough_pct:.2f}%** ({summary.fallthrough_total}/{summary.total_samples}){error_bullet}
 - **Latency (p50 / p95):** **{summary.latency_p50_ms:.1f}ms** / **{summary.latency_p95_ms:.1f}ms**
 - **Estimated Cost per 100 Calls:** **{summary.cost_per_100}**
-
-The results demonstrate that the `typed-decision` pre-filter achieves high agreement
-with historical maintainer triage decisions on clean and deterministic PR states.
-For ambiguous or edge cases, calibrated confidence scores drop below the threshold ({DEFAULT_CONFIDENCE_THRESHOLD}),
-allowing the shadow pre-filter to fall through cleanly to the authoritative decision table without
-introducing false-positive mutations.
 
 ---
 
@@ -425,9 +429,10 @@ The candidate choice taxonomy was provided as `DEFAULT_TRIAGE_BUCKETS`.
 |---|---|
 | Total Evaluated Samples | **{summary.total_samples}** |
 | Overall Agreement Rate | **{overall_pct:.2f}%** ({summary.overall_agreed}/{summary.total_samples}) |
-| High-Confidence Submissions (>= {DEFAULT_CONFIDENCE_THRESHOLD}) | **{summary.high_conf_total}** ({100 - fallthrough_pct:.1f}%) |
-| High-Confidence Agreement Rate | **{high_conf_pct:.2f}%** ({summary.high_conf_agreed}/{summary.high_conf_total}) |
+| High-Confidence Submissions (>= {DEFAULT_CONFIDENCE_THRESHOLD}) | **{summary.high_conf_total}** ({high_conf_share_pct:.1f}%) |
+| High-Confidence Agreement Rate | **{high_conf_accuracy_pct:.2f}%** ({summary.high_conf_agreed}/{summary.high_conf_total}) |
 | Fall-Through Rate (< {DEFAULT_CONFIDENCE_THRESHOLD}) | **{fallthrough_pct:.2f}%** ({summary.fallthrough_total}/{summary.total_samples}) |
+| Provider Errors | **{summary.error_total}** ({error_pct:.1f}%) |
 
 ### Per-Class Precision and Recall
 
@@ -437,7 +442,7 @@ The candidate choice taxonomy was provided as `DEFAULT_TRIAGE_BUCKETS`.
 
 {cm_table}
 
-*Rows represent historical human ground truth; columns represent model predictions.*
+*Rows represent dataset ground truth; columns represent model predictions.*
 
 ---
 
@@ -457,14 +462,6 @@ The candidate choice taxonomy was provided as `DEFAULT_TRIAGE_BUCKETS`.
 - **Estimated Cost per 100 Calls:** **{summary.cost_per_100}**
 - **Token Economics:** Each triage prompt averages **~380-450 tokens** (including PR title, check status rollup, and sanitized body excerpts).
 - Because `typed_decision` calls a specialized single-step classification endpoint rather than spawning multi-turn reasoning loops, round-trip latency and token consumption remain bounded by design.
-
----
-
-## Analysis & Safety Takeaways
-
-1. **High Precision on Clear Signals:** The classifier achieves 95%+ precision on `passing`, `deterministic_flag`, and `security_language_signal`, reliably distinguishing green PRs from failing or security-sensitive PRs.
-2. **Effective Fail-Closed Threshold:** When author comments are ambiguous or review threads are partially addressed, model confidence drops into the 0.65-0.78 range. Under the configured threshold (`0.85`), these cases fall through to the deterministic decision table without creating incorrect triage marks.
-3. **Rollout Recommendation:** The shadow pre-filter architecture introduced in PR #1403 is safe for broader opt-in testing. It provides telemetry without altering decisions, guaranteeing zero regression against human-in-the-loop invariants.
 """
 
 
