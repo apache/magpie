@@ -3,6 +3,7 @@
 
 - [GitHub — source-control (VCS) capability](#github--source-control-vcs-capability)
   - [What the skills require](#what-the-skills-require)
+  - [Hosted-repository operations](#hosted-repository-operations)
   - [Distributed-VCS assumptions](#distributed-vcs-assumptions)
   - [When to replace this capability](#when-to-replace-this-capability)
 
@@ -59,6 +60,20 @@ the same abstract operation.
 Write-path operations (`commit`, `push`, `rebase`) stay gated on
 explicit user confirmation in the calling skill, exactly as the
 tracker write paths are.
+
+## Hosted-repository operations
+
+Two operations act on the hosted repository rather than on a local checkout.
+The contributor-growth skills use them to trim a measurement window to the repository's age and to commit a private report without cloning the report repository.
+
+| Abstract operation | GitHub binding | Used by |
+|---|---|---|
+| `repository_metadata(repo)` → `{exists, private, created_at, default_branch}` | `gh api repos/<repo> --jq '{private, created_at, default_branch}'` (a 404 means `exists: false`) | contributor-activity-sweep (window trim), contributor-candidate-screen (private-repository gate), contributor-to-committer and contributor-nomination (pre-flight reachability) |
+| `put_file(repo, path, content, message)` → commit | `gh api repos/<repo>/contents/<path> -X PUT --input <payload.json>`, with the existing file's `sha` in the payload when replacing it | contributor-candidate-screen (report delivery) |
+
+`put_file` is a write: it fires only after the calling skill has shown the content and received an explicit yes.
+The GitHub binding takes its payload from a file (`message`, base64 `content`, and `sha` when replacing), so nothing in the content reaches a shell argument; read the existing `sha` first with `gh api repos/<repo>/contents/<path> --jq .sha`.
+A backend with no hosted-repository API (a bare Git or Subversion server) implements `put_file` as clone, commit and push through the operations above, and `repository_metadata.private` from the server's access configuration, or raises `NotApplicable` when it cannot tell — the calling skill then refuses to write a private report.
 
 ## Distributed-VCS assumptions
 

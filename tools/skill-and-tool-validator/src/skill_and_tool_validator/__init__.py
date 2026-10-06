@@ -397,6 +397,7 @@ TOOL_CAPABILITIES = {
     "contract:release-staging",
     "contract:security-cross-ref",
     "contract:typed-decision",
+    "contract:people",
     "substrate:analytics",
     "substrate:sandbox",
     "substrate:action-guard",

@@ -17,6 +17,10 @@
     - [`land(id, strategy) to landed_ref`](#landid-strategy-to-landed_ref)
     - [`reject(id, reason) to ok`](#rejectid-reason-to-ok)
     - [`status(id) to {state, checks, mergeable}`](#statusid-to-state-checks-mergeable)
+  - [Contributor-activity queries (read-only)](#contributor-activity-queries-read-only)
+    - [`list_authored(person, since, end, state) to {total, items: [change_ref]}`](#list_authoredperson-since-end-state-to-total-items-change_ref)
+    - [`list_reviews_given(person, since, end) to {total, items: [review_ref]}`](#list_reviews_givenperson-since-end-to-total-items-review_ref)
+    - [`list_authored_commits(person, limit) to [commit_ref]`](#list_authored_commitsperson-limit-to-commit_ref)
   - [Generic lifecycle verbs](#generic-lifecycle-verbs)
   - [Skills that consume this contract](#skills-that-consume-this-contract)
   - [ASF defaults](#asf-defaults)
@@ -272,6 +276,48 @@ Read the CI / mergeable status of the proposal.
   answer to #669's *"graceful degradation for non-GitHub CI /
   mergeable status"* open question.
 
+## Contributor-activity queries (read-only)
+
+The contributor-growth skills measure what a person did over a window.
+These three verbs are read-only, never mutate a proposal, and never return a comment or review body: they return links, dates, counts and flags.
+The concrete queries live in each adapter (GitHub: [`operations.md` § Contributor activity](../github/operations.md#contributor-activity-read-only)).
+
+| Verb | GitHub | JIRA patch / mail patch | GitLab / Forgejo / Bitbucket |
+|---|---|---|---|
+| `list_authored` | shipping | follow-up | follow-up |
+| `list_reviews_given` | shipping | follow-up | follow-up |
+| `list_authored_commits` | shipping | follow-up | follow-up |
+
+A backend that does not implement a verb raises `NotApplicable`; the consuming skill reports the stream as *not collected* rather than as zero.
+
+### `list_authored(person, since, end, state) to {total, items: [change_ref]}`
+
+Changes proposed by one person — or by anyone, when `person` is omitted — inside a window.
+
+- **When it fires.** Measuring a contributor's authored changes (`contributor-to-committer`, `contributor-nomination`, `contributor-activity-sweep`, through [`tools/contributor-metrics`](../contributor-metrics/README.md)); building the candidate pool from everyone whose change landed in the window (`contributor-candidate-screen`); first-change cohorts in `contributor-sentiment`.
+- **Inputs.** `person` (optional); `since`, `end`; `state` — `any` (dated by creation) or `landed` (dated by landing); `count_only` — return `total` without items, for cheap pre-filters.
+- **Output.** `total`, and `items[]` of `change_ref`: `id`, `permalink`, `author`, `state` (a generic lifecycle verb), `created`, `landed_at` (or `null`), `labels[]`, and `author_first_time` (`true` when it is the author's first change to the repository, `null` when the backend cannot tell).
+  A `landed` change counts as landed only when `landed_at` ≤ `end`.
+- **Truncation.** An adapter whose search is capped says so (`capped: true`) rather than return a short list as if it were complete.
+
+### `list_reviews_given(person, since, end) to {total, items: [review_ref]}`
+
+Reviews one person gave — or everyone, when `person` is omitted — inside a window, one record per reviewed change and reviewer.
+
+- **When it fires.** Review counts in the contributor-growth skills; reviewer load in `contributor-sentiment`.
+- **Inputs.** `person` (optional); `since`, `end`; `count_only`.
+- **Output.** `review_ref`: `change_id`, `change_permalink`, `reviewer`, `first_review_at` (the reviewer's first review on that change inside the window), `body_length` (the longest review body, in characters), `inline_comment_count` (the most inline comments on one review), and `labels[]` of the change.
+  The caller decides what is *substantive* from `body_length` and `inline_comment_count`; the adapter never returns the body itself.
+
+### `list_authored_commits(person, limit) to [commit_ref]`
+
+Commits authored by one person on the project's default branch.
+
+- **When it fires.** The DCO check in `committer-onboarding` (does every merged change carry `Signed-off-by:`?); the commit author name in [`real-names.md`](../../plugins/magpie-contributor-growth/skills/nomination/real-names.md); commit e-mail addresses as lookup keys in `contributor-identity-map`.
+- **Inputs.** `person`; `limit` (default 30, newest first).
+- **Output.** `commit_ref`: `sha`, `change_id` (or `null`), `author_name`, `author_email`, `signed_off_by` (`true` when the message carries a `Signed-off-by:` trailer for the author).
+  Addresses are lookup keys only; a skill never shows one in a draft or brief.
+
 ## Generic lifecycle verbs
 
 The skills speak in generic verbs about a proposal's lifecycle. The
@@ -307,6 +353,7 @@ contract is the interface those call sites resolve through.
 | [`pr-management-quick-merge`](../../skills/pr-management-quick-merge/SKILL.md) | `list_open`, `get`, `status`, `post_review` (approve), `land` (on per-PR confirmation). |
 | [`pr-management-mentor`](../../skills/pr-management-mentor/SKILL.md) | `get`, `get_discussion`, `post_review` (comment). |
 | [`pr-management-stats`](../../skills/pr-management-stats/SKILL.md) | `list_open` (read-only queue metrics). |
+| `contributor-*` skills and `committer-onboarding` | `list_authored`, `list_reviews_given`, `list_authored_commits` — read-only; see [Contributor-activity queries](#contributor-activity-queries-read-only). |
 
 `pr-management-triage` is refactored in this PR to name the contract
 verbs and document the GitHub binding as the *resolution* of those

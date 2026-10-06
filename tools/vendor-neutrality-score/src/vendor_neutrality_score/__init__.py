@@ -106,6 +106,10 @@ CONTRACT_POLICY: dict[str, tuple[str, str]] = {
         VENDOR_BACKED,
         "Provider-agnostic typed decision backend (Choice / Score / Noul)",
     ),
+    "contract:people": (
+        VENDOR_BACKED,
+        "Forge / tracker accounts: profile lookup, repository collaborators, team membership",
+    ),
 }
 
 # Which capability *contract* a skill actually invokes, keyed by

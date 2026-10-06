@@ -59,6 +59,8 @@ extension point = a documented, labelled slot with a tracking issue.
 | Agent harness | Claude Code, [Codex](codex.md) `experimental` ([#313](https://github.com/apache/magpie/issues/313)), [Gemini CLI](gemini.md) `experimental` ([#314](https://github.com/apache/magpie/issues/314)), [Local LLM (Ollama / llama.cpp / vLLM)](local-llm.md) ([#315](https://github.com/apache/magpie/issues/315)), [Cursor](cursor.md) ([#316](https://github.com/apache/magpie/issues/316)), [Goose](goose.md) `guide only` ([#319](https://github.com/apache/magpie/issues/319)), [Aider](aider.md) `guide only` ([#317](https://github.com/apache/magpie/issues/317)), [GitHub Copilot](copilot.md) `guide only` ([#318](https://github.com/apache/magpie/issues/318)), Grok `reviewer backend only` ([#1416](https://github.com/apache/magpie/issues/1416)) | Amazon Q [#320](https://github.com/apache/magpie/issues/320)–OpenHands [#322](https://github.com/apache/magpie/issues/322) |
 | Security cross-ref | [`tools/osv`](../../tools/osv/) | — |
 | [`tools/typed-decision`](../../tools/typed-decision/) | TypeSafe Jev API | Local models / llama.cpp / Ollama ([#1431](https://github.com/apache/magpie/issues/1431)) |
+| [`tools/people`](../../tools/people/) | [`github`](../../tools/github/), [`jira`](../../tools/jira/) (profile lookup) | GitLab, Forgejo, Bitbucket |
+| [`tools/tracker`](../../tools/tracker/) (activity queries) | [`github`](../../tools/github/), [`jira`](../../tools/jira/) | GitLab, Forgejo, Bitbucket |
 
 ## In-tree organizations
 

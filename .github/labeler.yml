@@ -467,6 +467,14 @@ contract:mail-source:
               - 'tools/maildir/**'
               - 'tools/ponymail/**'
 
+contract:people:
+  - any:
+      - changed-files:
+          - any-glob-to-any-file:
+              - 'tools/github/**'
+              - 'tools/jira/**'
+              - 'tools/people/**'
+
 contract:project-metadata:
   - any:
       - changed-files:
@@ -522,6 +530,7 @@ contract:tracker:
               - 'tools/gitlab/**'
               - 'tools/jira/**'
               - 'tools/sourcehut/**'
+              - 'tools/tracker/**'
 
 contract:typed-decision:
   - any:

@@ -20,6 +20,7 @@
     - [`assign <KEY> <username>`](#assign-key-username)
     - [`field <KEY> <field-name> --value <value>` / `--value-json <json>`](#field-key-field-name---value-value----value-json-json)
     - [`attach <KEY> <file>`](#attach-key-file)
+  - [People and contributor-activity reads](#people-and-contributor-activity-reads)
   - [Configuration](#configuration)
   - [Output contract](#output-contract)
   - [Write-path discipline](#write-path-discipline)
@@ -33,7 +34,7 @@
 
 # JIRA bridge
 
-**Capability:** contract:tracker
+**Capability:** contract:tracker + contract:people
 
 **Kind:** implementation
 
@@ -45,6 +46,7 @@ tracker bridge; adopters using GitHub Issues or other trackers
 contribute a parallel `tools/<tracker>/` directory.
 
 The bridge provides both **read** and **write** subcommands.
+The read-only contributor-activity queries of `contract:tracker` and the profile lookup of `contract:people` are implemented separately, in Python, by the `jira` backend of [`tools/contributor-metrics`](../contributor-metrics/README.md); see [People and contributor-activity reads](#people-and-contributor-activity-reads).
 Write operations require `JIRA_API_TOKEN` and follow the same
 write-path discipline as the GitHub bridge: every mutation is
 gated on explicit user confirmation in the calling skill — the
@@ -238,6 +240,25 @@ Output:
 ```json
 {"ok": true, "key": "FOO-9999", "attachments": [{"id": "99", "filename": "report.txt"}]}
 ```
+
+## People and contributor-activity reads
+
+The read-only activity queries of [`contract:tracker`](../tracker/README.md) and the profile lookup of [`contract:people`](../people/README.md), against the same Jira Data Center REST API v2 the bridge uses and with the same configuration (`ISSUE_TRACKER_URL`, `ISSUE_TRACKER_PROJECT`, `JIRA_API_TOKEN`, `JIRA_AUTH_SCHEME`).
+The per-person streams are implemented by the `jira` backend of [`tools/contributor-metrics`](../contributor-metrics/README.md); the others are plain REST reads a skill makes.
+`<user>` is the person's Jira username, validated against `[A-Za-z0-9._@+-]{1,255}` before it reaches a query.
+
+| Verb | Jira resolution |
+|---|---|
+| tracker `list_filed(<user>, since, end)` | `GET /rest/api/2/search` with JQL `project = "<KEY>" AND reporter = "<user>" AND created >= "<since>" AND created <= "<end> 23:59"` |
+| tracker `list_triaged(<user>, since, end)` | `GET /rest/api/2/search?expand=changelog&fields=comment,…` over `project = "<KEY>" AND updated >= "<since>" AND created <= "<end> 23:59"`; an issue the user did not report counts when its changelog shows the user changing `status`, `labels`, `component`, `priority`, `assignee`, `resolution` or `Fix Version`, or the user commented, inside the window — dated by the first such action |
+| tracker `list_commented(<user>, since, end)` | the same search; an issue counts when the user commented inside the window, dated by the first such comment |
+| tracker `list_created(since, until)` | `project = "<KEY>" AND created >= "<since>" AND created <= "<until> 23:59"`; `author_first_time` from one `reporter = "<author>" AND created < "<created>"` count per author |
+| tracker `first_reply(<KEY-N>)` | `GET /rest/api/2/issue/<KEY-N>/comment`, the first comment by a rostered maintainer (Jira has no author-association signal) |
+| people `get_profile(<user>)` | `GET /rest/api/2/user?username=<user>` → `displayName`; a 404 means the account does not exist. Organisation, website and linked accounts are not exposed: `null`. |
+| people `list_collaborators`, `add_team_member` | not provided — Jira has no repository collaborators or forge teams (`NotApplicable`) |
+
+Jira has no pull requests: authored changes and reviews come from the project's code host through `contract:change-request`.
+Comment bodies are read inside the backend to find pushback candidates and never leave it.
 
 ## Configuration
 

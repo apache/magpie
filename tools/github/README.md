@@ -13,7 +13,7 @@
 
 # `tools/github/`
 
-**Capability:** contract:tracker + contract:source-control + contract:change-request
+**Capability:** contract:tracker + contract:source-control + contract:change-request + contract:people
 
 **Kind:** implementation
 
@@ -23,7 +23,8 @@
 
 GitHub REST + GraphQL substrate. Pure read/write wrapper used by every lifecycle phase (triage / intake / fix / resolve / stats). See [`tool.md`](tool.md) for the operation catalogue and the per-area files ([`issue-template.md`](issue-template.md), [`labels.md`](labels.md), [`operations.md`](operations.md), [`project-board.md`](project-board.md), [`status-rollup.md`](status-rollup.md)) for specifics.
 
-This tool implements three capability contracts: `contract:tracker` (issues / boards / labels), `contract:source-control` (Git branch / commit / diff / push, documented in [`source-control.md`](source-control.md)), and `contract:change-request` — the pull-request review/merge gate driven by `gh pr`. GitHub is **no longer the sole change-request backend**: [`tools/change-request/`](../change-request/) defines the backend-neutral contract, and [`tools/jira-patch/`](../jira-patch/) and [`tools/mail-patch/`](../mail-patch/) implement it for JIRA+SVN and `[PATCH]`-mail projects. On GitHub the `change-request` `land` verb resolves to `gh pr merge` (the forge lands and closes atomically); the SVN-first backends delegate `land` to `contract:source-control`.
+This tool implements four capability contracts: `contract:tracker` (issues / boards / labels), `contract:source-control` (Git branch / commit / diff / push, documented in [`source-control.md`](source-control.md)), and `contract:change-request` — the pull-request review/merge gate driven by `gh pr`. GitHub is **no longer the sole change-request backend**: [`tools/change-request/`](../change-request/) defines the backend-neutral contract, and [`tools/jira-patch/`](../jira-patch/) and [`tools/mail-patch/`](../mail-patch/) implement it for JIRA+SVN and `[PATCH]`-mail projects. On GitHub the `change-request` `land` verb resolves to `gh pr merge` (the forge lands and closes atomically); the SVN-first backends delegate `land` to `contract:source-control`.
+The fourth, `contract:people` — profile lookup, repository collaborators, team membership — is resolved in [`operations.md` § People](operations.md#people); the read-only contributor-activity queries of the tracker and change-request contracts in [`operations.md` § Contributor activity](operations.md#contributor-activity-read-only).
 
 ## Prerequisites
 
