@@ -6,6 +6,7 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [tools/chat-discord/ — operations](#toolschat-discord--operations)
+  - [Guild resolution](#guild-resolution)
   - [`list_channels()`](#list_channels)
   - [`resolve_user(github_handle)`](#resolve_usergithub_handle)
   - [`search_messages(chat_user_id, since, until, channels)`](#search_messageschat_user_id-since-until-channels)
@@ -20,9 +21,18 @@
 
 How each [`tools/chat/`](../chat/README.md) verb maps onto the Discord MCP.
 
+## Guild resolution
+
+Before invoking any Discord tool, resolve `<guild_id>`:
+1. `chat.guild_id` from `<project-config>/project.md` when declared.
+2. Else, call `mcp__discord__discord_list_guilds`: if exactly one guild is returned, use that sole guild ID.
+3. Else (multiple guilds returned or none), stop and ask the user or maintainer to declare `chat.guild_id`.
+
+Use this resolved `<guild_id>` for all MCP calls that take `guild_id` (`discord_list_channels`, `discord_search_members`, `discord_search_guild_messages`, `discord_audit_permissions`) and for constructing message URLs (`https://discord.com/channels/<guild_id>/<channel_id>/<message_id>`).
+
 ## `list_channels()`
 
-1. Call `mcp__discord__discord_list_channels` for the configured server (guild).
+1. Call `mcp__discord__discord_list_channels(guild_id: <guild_id>)` for the resolved server (guild).
 2. Filter for standard text and announcement channels (`type: "GuildText"`, `type: "GuildAnnouncement"`).
 3. Verify channel visibility for the `@everyone` role:
    - Check the guild-level `@everyone` base role permission for `VIEW_CHANNEL`.
@@ -34,7 +44,7 @@ How each [`tools/chat/`](../chat/README.md) verb maps onto the Discord MCP.
 
 ## `resolve_user(github_handle)`
 
-1. Call `mcp__discord__discord_search_members` with `github_handle`, then with the contributor's verified real name when one is known.
+1. Call `mcp__discord__discord_search_members(guild_id: <guild_id>, query: ...)` with `github_handle`, then with the contributor's verified real name when one is known.
 2. Return the best candidate member with `confirmed_by: null`, or `null` when there is none.
    (Note: Discord bot tokens cannot read other users' OAuth connected accounts or user profile bios without user authorization, so bot-based resolution returns matching candidates with `confirmed_by: null`. The consuming skill still requires the GitHub side, the organization's directory, or the maintainer to confirm the account per [`community-signals.md` § Identity](../../plugins/magpie-contributor-growth/skills/nomination/community-signals.md#identity)).
 
@@ -55,7 +65,7 @@ How each [`tools/chat/`](../chat/README.md) verb maps onto the Discord MCP.
    }
    ```
    where:
-   - `<guild_id>` resolves to `chat.guild_id` from `<project-config>/project.md` when declared, or to `channel.guild_id` from the channel metadata returned by `list_channels()` (or the sole guild from `mcp__discord__discord_list_guilds`).
+   - `<guild_id>` is the guild ID resolved at the top of operations.
    - `is_reply` is true when the message references another message (`message_reference` / in-reply-to).
    - `answers_question` is true when the message is a reply to a question asked by someone else.
 5. Drop any hit outside the resolved public channels.
