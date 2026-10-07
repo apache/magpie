@@ -23,7 +23,7 @@ How each [`tools/chat/`](../chat/README.md) verb maps onto the Discord MCP.
 ## `list_channels()`
 
 1. Call `mcp__discord__discord_list_channels` for the configured server (guild).
-2. Filter for standard text and announcement channels (`GUILD_TEXT` / `type: 0`, `GUILD_ANNOUNCEMENT` / `type: 5`).
+2. Filter for standard text and announcement channels (`type: "GuildText"`, `type: "GuildAnnouncement"`).
 3. Verify channel visibility for the `@everyone` role:
    - Check the guild-level `@everyone` base role permission for `VIEW_CHANNEL`.
    - When `@everyone` has `VIEW_CHANNEL` enabled in the guild base role, a channel is public unless either the channel or its parent category carries an explicit deny overwrite for `@everyone`.
