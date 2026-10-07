@@ -118,6 +118,7 @@ def test_local_rejects_remote_http_endpoint() -> None:
 def test_local_allows_loopback_http_and_any_https() -> None:
     """Loopback HTTP and arbitrary HTTPS endpoints pass the transport check."""
     LocalProvider(model="m", endpoint="http://localhost:11434/v1/chat/completions")
+    LocalProvider(model="m", endpoint="http://LOCALHOST:11434/v1/chat/completions")
     LocalProvider(model="m", endpoint="http://127.0.0.1:8080/v1/chat/completions")
     LocalProvider(model="m", endpoint="https://127.0.0.1:8080/v1/chat/completions")
 
@@ -185,6 +186,7 @@ def test_local_choice_request_shape_and_result() -> None:
         assert isinstance(req.data, bytes)
         body = json.loads(req.data.decode("utf-8"))
         assert body["model"] == "qwen3.5:9b"
+        assert body["temperature"] == 0.0
         assert body["stream"] is False
         assert "Classify issue description" in body["messages"][0]["content"]
         assert json.dumps(["bug", "feature", "question"]) in body["messages"][0]["content"]
@@ -203,6 +205,22 @@ def test_local_choice_accepts_fenced_content() -> None:
     provider = LocalProvider(model="m")
     fenced = '```json\n{"label": "feature", "confidence": 0.7}\n```'
     mock_resp = _chat_completion_response(fenced)
+    with patch("urllib.request.OpenerDirector.open", return_value=mock_resp):
+        assert provider.choice("Classify this", ["bug", "feature"]) == {
+            "label": "feature",
+            "confidence": 0.7,
+        }
+
+
+def test_local_choice_accepts_reasoning_preamble_before_fence() -> None:
+    """Reasoning tags and prose before a fenced JSON decision are ignored."""
+    provider = LocalProvider(model="m")
+    content = (
+        "<think>Consider the available labels.</think>\n"
+        "Here is the decision:\n"
+        '```json\n{"label": "feature", "confidence": 0.7}\n```'
+    )
+    mock_resp = _chat_completion_response(content)
     with patch("urllib.request.OpenerDirector.open", return_value=mock_resp):
         assert provider.choice("Classify this", ["bug", "feature"]) == {
             "label": "feature",

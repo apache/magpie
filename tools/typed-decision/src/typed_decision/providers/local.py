@@ -38,6 +38,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
 import socket
 import time
 import urllib.error
@@ -58,6 +59,8 @@ LOCAL_MODEL_ENV = "MAGPIE_TYPED_DECISION_LOCAL_MODEL"
 LOCAL_API_KEY_ENV = "MAGPIE_TYPED_DECISION_LOCAL_API_KEY"
 
 _LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+_THINKING_BLOCK_RE = re.compile(r"<think>.*?</think>", re.IGNORECASE | re.DOTALL)
+_FENCED_JSON_RE = re.compile(r"```(?:json)?\s*(\{.*?\})\s*```", re.IGNORECASE | re.DOTALL)
 
 
 class NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -82,7 +85,7 @@ def _require_https(url: str) -> None:
     parsed = urllib.parse.urlparse(url)
     if parsed.scheme == "https":
         return
-    if parsed.scheme == "http" and parsed.hostname in _LOOPBACK_HOSTS:
+    if parsed.scheme == "http" and (parsed.hostname or "").lower() in _LOOPBACK_HOSTS:
         return
     raise TypedDecisionUnavailable(
         f"Insecure endpoint URL: '{url}' must use HTTPS (plain HTTP is only allowed for loopback hosts)"
@@ -200,9 +203,9 @@ def _decision_schema(operation: str, options: list[str] | None = None) -> dict[s
 def _extract_decision_object(resp: dict[str, Any]) -> dict[str, Any]:
     """Extract the decision JSON object from an OpenAI chat-completions response.
 
-    Reads ``choices[0].message.content`` and parses it as JSON. Content fenced
-    with ```-blocks (emitted by some runtimes even under a JSON schema) is
-    unwrapped before parsing.
+    Reads ``choices[0].message.content`` and parses it as JSON. Reasoning tags
+    are removed, and JSON in a fenced block is extracted even when a runtime
+    adds a preamble before it.
     """
     choices = resp.get("choices")
     if not isinstance(choices, list) or not choices:
@@ -215,12 +218,10 @@ def _extract_decision_object(resp: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(content, str) or not content.strip():
         raise TypedDecisionUnavailable("Malformed response from local model endpoint: empty message content")
 
-    text = content.strip()
-    if text.startswith("```"):
-        newline = text.find("\n")
-        text = text[newline + 1 :] if newline != -1 else text.lstrip("`")
-        if text.rstrip().endswith("```"):
-            text = text.rstrip()[:-3]
+    text = _THINKING_BLOCK_RE.sub("", content).strip()
+    fenced_json = _FENCED_JSON_RE.search(text)
+    if fenced_json:
+        text = fenced_json.group(1)
 
     try:
         decision = json.loads(text)
@@ -386,6 +387,7 @@ class LocalProvider(DecisionProvider):
         payload = {
             "model": self._model,
             "messages": [{"role": "user", "content": vetted_content}],
+            "temperature": 0.0,
             "stream": False,
             "response_format": {
                 "type": "json_schema",

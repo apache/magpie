@@ -140,6 +140,7 @@ hosted OpenAI-compatible chat-completions endpoint:
 
 - **Endpoints:** any self-hosted runtime speaking the OpenAI wire format — Ollama (`http://localhost:11434/v1/chat/completions`, the default), llama.cpp server (`:8080/v1`), or vLLM (`:8000/v1`).
 - **Structured Outputs:** every request carries a strict `response_format: json_schema` constraining the decision shape (`label` pinned to the candidate `options` via `enum`, bounded `value` / `probability`); returned fields are re-validated against the contract and anything malformed raises `TypedDecisionUnavailable`.
+- **Deterministic, tolerant responses:** requests set `temperature: 0.0`; JSON in a markdown fence is parsed even when reasoning tags or prose precede it.
 - **Zero Third-Party Dependencies:** implemented with Python's standard `urllib.request` library.
 - **No Credentials by Default:** local endpoints are typically unauthenticated; an optional Bearer key can be supplied via `MAGPIE_TYPED_DECISION_LOCAL_API_KEY` (e.g. a vLLM `--api-key`).
 - **Loopback Privacy Posture:** plain HTTP is only allowed for loopback hosts (`localhost`, `127.0.0.1`, `::1`), which the privacy-llm gate default-approves; any other host needs HTTPS and, unless it is a default-approved `*.apache.org` endpoint, an explicit opt-in entry. Environment proxies (`HTTP_PROXY` / `HTTPS_PROXY`) are disabled and redirects are rejected, so a loopback URL stays loopback for the entire request.

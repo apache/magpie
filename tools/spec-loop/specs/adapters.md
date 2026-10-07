@@ -216,6 +216,8 @@ by swapping the adapter, not the skill.
   unavailable. Jev credentials use `TYPESAFE_API_KEY`, `JEV_API_KEY`, or
   `~/.config/apache-magpie/typesafe.key`; the local provider requires a
   configured model and optionally accepts `MAGPIE_TYPED_DECISION_LOCAL_API_KEY`.
+  Local requests use temperature 0.0, and response parsing tolerates reasoning
+  tags and prose before a fenced JSON decision.
   Every outbound prompt passes the privacy-LLM endpoint check
   (`checker.check_endpoint`, see [privacy-llm-gate.md](privacy-llm-gate.md)):
   Jev requires a signed-off opt-in in `<project-config>/privacy-llm.md`, while
