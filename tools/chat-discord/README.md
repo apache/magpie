@@ -32,8 +32,13 @@ It is read-only — see [Operations](#operations) for the only tools it calls.
 
 - **Runtime:** Node.js 22+ — the backing tool is the Discord MCP server ([`PaSympa/discord-mcp`](https://github.com/PaSympa/discord-mcp)), registered at user scope with the package pinned:
   ```bash
-  claude mcp add discord -s user -e DISCORD_TOKEN="$(cat ~/.config/apache-magpie/discord-token)" -- npx -y @pasympa/discord-mcp@2.2.0
+  claude mcp add discord -s user \
+    -e DISCORD_TOKEN="$(cat ~/.config/apache-magpie/discord-token)" \
+    -e DISCORD_MCP_TOOLSETS=discovery,messages,members,permissions \
+    -e DISCORD_ALLOWED_GUILDS=<guild_id> \
+    -- npx -y @pasympa/discord-mcp@2.2.0
   ```
+  `-e DISCORD_MCP_TOOLSETS=discovery,messages,members,permissions` drops the `dm` toolset so DM tools are never registered. `-e DISCORD_ALLOWED_GUILDS=<guild_id>` restricts the server to the project's guild. Because the `messages` toolset still provides write tools, the bot application's own Discord permissions (`VIEW_CHANNEL` + `READ_MESSAGE_HISTORY` only, without `SEND_MESSAGES` or `ADD_REACTIONS`) remain the real enforcement.
 - **CLIs:** `node` / `npx`.
 - **Credentials / auth:** A Discord bot token stored under `$HOME` at `~/.config/apache-magpie/discord-token` (or in `$DISCORD_TOKEN`), never in the project tree.
   - The token reaches the MCP server via the `-e DISCORD_TOKEN=...` argument passed during `claude mcp add` registration, which Claude Code stores in user configuration and injects directly into the MCP server process at launch.

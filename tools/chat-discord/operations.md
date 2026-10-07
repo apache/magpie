@@ -10,7 +10,7 @@
   - [`list_channels()`](#list_channels)
   - [`resolve_user(github_handle)`](#resolve_usergithub_handle)
   - [`search_messages(chat_user_id, since, until, channels)`](#search_messageschat_user_id-since-until-channels)
-  - [Tools this adapter never calls](#tools-this-adapter-never-calls)
+  - [Permitted tools and read-only enforcement](#permitted-tools-and-read-only-enforcement)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -70,6 +70,9 @@ Use this resolved `<guild_id>` for all MCP calls that take `guild_id` (`discord_
    - `answers_question` is true when the message is a reply to a question asked by someone else.
 5. Drop any hit outside the resolved public channels.
 
-## Tools this adapter never calls
+## Permitted tools and read-only enforcement
 
-`discord_send_message`, `discord_create_message`, `discord_edit_message`, `discord_delete_message`, `discord_add_reaction`, and any tool that reads direct messages (`discord_get_dm_channel`, `discord_get_private_channel`).
+The adapter calls **only** the read tools explicitly named in this document:
+`discord_list_guilds`, `discord_list_channels`, `discord_search_members`, `discord_search_guild_messages`, `discord_read_messages`, `discord_audit_permissions`, `discord_get_channel_permissions`.
+
+Direct message tools are dropped at registration via `-e DISCORD_MCP_TOOLSETS=discovery,messages,members,permissions`. Write tools in the messages toolset (`discord_reply_message`, `discord_send_embed`, `discord_forward_message`, `discord_crosspost_message`, etc.) are never invoked by this adapter, and enforcement is guaranteed by the bot application's Discord permissions (authorized with `View Channels` and `Read Message History` only).
