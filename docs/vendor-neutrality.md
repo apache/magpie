@@ -178,9 +178,9 @@ vulnerability cross-reference client [`tools/osv`](../tools/osv/)
 implements the `contract:security-cross-ref` capability.
 Similarly, structured low-latency decisions sit behind the
 `contract:typed-decision` contract ([`tools/typed-decision`](../tools/typed-decision/)),
-with TypeSafe's Jev API as the initial reference backend and local
-inference (via llama.cpp, Ollama, or vLLM) tracked as the second backend to
-ensure cross-vendor choice.
+with TypeSafe's Jev API as the initial reference backend; a local
+OpenAI-compatible provider supports llama.cpp, Ollama, or vLLM as a second
+option for cross-vendor choice.
 
 The distinction Magpie enforces: **vendor-specific *integrations* are
 expected and welcome; vendor-specific *workflows* are forbidden.** A

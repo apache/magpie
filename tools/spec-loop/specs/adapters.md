@@ -208,18 +208,24 @@ by swapping the adapter, not the skill.
 - `tools/typed-decision/` — `contract:typed-decision` (#1402): a
   provider-agnostic, stdlib-only Python API for structured decisions,
   `choice(prompt, options)`, `score(prompt, scale)`, and `noul(prompt)`.
-  The one backend is TypeSafe's Jev API (`api.typesafe.ai/v1/systemone`,
-  model pinned to `systemone-2026-06-01`), selected by
-  `MAGPIE_TYPED_DECISION_PROVIDER` or by a configured `TYPESAFE_API_KEY` /
-  `JEV_API_KEY` / `~/.config/apache-magpie/typesafe.key`.
-  Every outbound prompt first passes the privacy-LLM endpoint check
-  (`checker.check_endpoint`, see [privacy-llm-gate.md](privacy-llm-gate.md)),
-  which denies the third-party host unless `<project-config>/privacy-llm.md`
-  carries a signed-off opt-in.
-  The contract is fail-open: a missing key, a denied gate, a timeout (one
-  retry after 30 s), an HTTP error, or an out-of-range answer raises
-  `TypedDecisionUnavailable`, never a fabricated answer, and callers fall
-  back to their own reasoning or the maintainer.
+  The Jev provider connects to TypeSafe's API (`api.typesafe.ai/v1/systemone`,
+  model pinned to `systemone-2026-06-01`); the local provider connects to a
+  self-hosted OpenAI-compatible chat-completions endpoint such as Ollama,
+  llama.cpp, or vLLM. `MAGPIE_TYPED_DECISION_PROVIDER` selects `jev` or
+  `local`; when unset, the registry selects configured Jev or reports
+  unavailable. Jev credentials use `TYPESAFE_API_KEY`, `JEV_API_KEY`, or
+  `~/.config/apache-magpie/typesafe.key`; the local provider requires a
+  configured model and optionally accepts `MAGPIE_TYPED_DECISION_LOCAL_API_KEY`.
+  Every outbound prompt passes the privacy-LLM endpoint check
+  (`checker.check_endpoint`, see [privacy-llm-gate.md](privacy-llm-gate.md)):
+  Jev requires a signed-off opt-in in `<project-config>/privacy-llm.md`, while
+  loopback local endpoints are default-approved and other hosts require HTTPS
+  and the applicable opt-in. The local provider disables environment proxies
+  and rejects redirects to keep requests at the configured endpoint.
+  The contract is fail-open: a missing key or model, a denied gate, a timeout
+  (one retry after 30 s), an HTTP error, or an invalid/out-of-range answer
+  raises `TypedDecisionUnavailable`, never a fabricated answer, and callers
+  fall back to their own reasoning or the maintainer.
   Its consumer is the opt-in shadow pre-filter in `pr-management-triage`
   ([PR management](pr-management-family.md)).
 
@@ -317,11 +323,6 @@ uv run --all-packages --group dev pytest tools/github-rollup/tests
 - **Mailman 3 backend reads only.** It covers no drafts or sent mail, and
   the `hyperkitty` placeholder of the separate `mail-archive` contract
   (search-URL construction) is not implemented by it.
-- **Typed decision has one provider.** Jev is a third-party endpoint, so it
-  works only after a privacy-LLM opt-in and, under the secure agent setup,
-  after the adopter forwards the key and allowlists `api.typesafe.ai`
-  (the framework default allowlist does not include it); otherwise every
-  call is `TypedDecisionUnavailable`.
 - **SourceHut adapter is new and untested end-to-end.** `tools/sourcehut/`
   ships the GraphQL-based bridge (ticket, patchset, CI, repo), but no
   adopter pilot has exercised it; signal/roster heuristics may change.
