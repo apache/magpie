@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version >= '3.15'",
@@ -137,7 +137,7 @@ wheels = [
 
 [[package]]
 name = "apache-magpie"
-version = "0.9.0.dev202609262258"
+version = "0.9.0.dev202610072102"
 source = { virtual = "." }
 
 [package.dev-dependencies]
