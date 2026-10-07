@@ -35,7 +35,7 @@ It is read-only — see [Operations](#operations) for the only tools it calls.
   claude mcp add discord -s user -e DISCORD_TOKEN="$(cat ~/.config/apache-magpie/discord-token)" -- npx -y @pasympa/discord-mcp@2.2.0
   ```
 - **CLIs:** `node` / `npx`.
-- **Credentials / auth:** A Discord bot token stored under `$HOME` at `~/.config/apache-magpie/discord-token` (or in `$DISCORD_BOT_TOKEN`), never in the project tree.
+- **Credentials / auth:** A Discord bot token stored under `$HOME` at `~/.config/apache-magpie/discord-token` (or in `$DISCORD_TOKEN`), never in the project tree.
   - The token reaches the MCP server via the `-e DISCORD_TOKEN=...` argument passed during `claude mcp add` registration, which Claude Code stores in user configuration and injects directly into the MCP server process at launch.
   - When running under the Layer 0 clean-environment wrapper (`agent-iso` / `claude-iso`, see [`tools/agent-isolation/`](../agent-isolation/README.md)), parent shell environment variables are stripped by default; if `DISCORD_TOKEN` is exported in the parent shell instead of configured in the MCP registration, the launcher must explicitly permit it via `AGENT_ISO_ALLOW=DISCORD_TOKEN` (or legacy `CLAUDE_ISO_ALLOW=DISCORD_TOKEN`). Registering the MCP server with `-e DISCORD_TOKEN=...` avoids relying on parent shell environment variables as Claude manages the MCP server process environment directly.
   - The bot application must be authorized for the project's server (guild) with:
