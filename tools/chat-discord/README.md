@@ -60,8 +60,10 @@ In `<project-config>/project.md`:
 chat:
   kind: discord
   guild_id: "..."  # optional Discord server (guild) ID when the bot joins multiple servers
-  channels: []     # channel names or IDs; empty = every public channel
+  channels: []     # public channel names or IDs (recommended: declare all public channels explicitly)
 ```
+
+Adopters should explicitly list their public channels in `chat.channels` (e.g. `channels: ["general", "dev", "announcements"]`). Because a bot application authorized with `VIEW_CHANNEL` server-wide sees every channel it has access to (including private staff or moderation channels), explicitly declaring public channels provides deterministic scoping and prevents accidental inspection of private channels.
 
 ## Security and privacy
 

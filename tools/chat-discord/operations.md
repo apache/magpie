@@ -34,12 +34,15 @@ Use this resolved `<guild_id>` for all MCP calls that take `guild_id` (`discord_
 
 1. Call `mcp__discord__discord_list_channels(guild_id: <guild_id>)` for the resolved server (guild).
 2. Filter for standard text and announcement channels (`type: "GuildText"`, `type: "GuildAnnouncement"`).
-3. Verify channel visibility for the `@everyone` role:
-   - Check the guild-level `@everyone` base role permission for `VIEW_CHANNEL`.
-   - When `@everyone` has `VIEW_CHANNEL` enabled in the guild base role, a channel is public unless either the channel or its parent category carries an explicit deny overwrite for `@everyone`.
-   - When `@everyone` lacks `VIEW_CHANNEL` in the guild base role, a channel is only public if the channel (or its parent category) carries an explicit allow overwrite granting `VIEW_CHANNEL` to `@everyone`.
-   - Drop every channel where effective permissions do not grant `VIEW_CHANNEL` to `@everyone`.
-4. Filter by the channel names or IDs declared in `chat.channels` when configured, or include all public channels when `chat.channels` is empty.
+3. Verify public channel visibility:
+   - In `@pasympa/discord-mcp@2.2.0`, `discord_list_channels` returns only `{id, name, type}` (no overwrites or parent category IDs), `discord_list_roles` explicitly excludes `@everyone`, and no tool returns base guild `@everyone` role permissions.
+   - Because a bot authorized with `VIEW_CHANNEL` server-wide sees all private channels it has access to, public visibility cannot be inferred from channel presence alone.
+   - Channel overwrites are available via `mcp__discord__discord_get_channel_permissions(channel_id: <channel_id>)` or `mcp__discord__discord_audit_permissions(guild_id: <guild_id>)`.
+   - The adapter enforces a conservative public-channel rule: a channel is treated as public only if:
+     a. It is explicitly listed in `chat.channels` in `<project-config>/project.md`, OR
+     b. An explicit allow overwrite granting `VIEW_CHANNEL` to the `@everyone` role is confirmed via `discord_get_channel_permissions` or `discord_audit_permissions`.
+   - Drop every channel that fails both checks as private.
+4. Filter by the channel names or IDs declared in `chat.channels` when configured.
 5. Return `[{id, name, is_private: false}]` per channel; never return private channels or direct messages.
 
 ## `resolve_user(github_handle)`
