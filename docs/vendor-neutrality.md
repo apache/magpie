@@ -164,7 +164,7 @@ with pluggable backends already include:
 | [`tools/forwarder-relay`](../tools/forwarder-relay/) | ASF Security relay, huntr.com, HackerOne triagers |
 | [`tools/scan-format`](../tools/scan-format/) | security-scanner report formats (ASVS reference) |
 | [`tools/vcs`](../tools/vcs/) | Git (complete), Mercurial (complete), Subversion, … (extension points) |
-| [`tools/typed-decision`](../tools/typed-decision/) | TypeSafe Jev API (cloud), local models via llama.cpp / Ollama (extension point) |
+| [`tools/typed-decision`](../tools/typed-decision/) | TypeSafe Jev API (cloud), in-tree local provider (Ollama / llama.cpp / vLLM) |
 | [`tools/people`](../tools/people/) | Forge / tracker accounts — GitHub (profile, collaborators, teams), Jira (profile lookup); GitLab, Forgejo, Bitbucket (extension points) |
 | [`tools/tracker`](../tools/tracker/) | Tracker activity queries — GitHub and Jira, both through [`tools/contributor-metrics`](../tools/contributor-metrics/) backends; GitLab, Forgejo, Bitbucket (extension points) |
 
@@ -217,7 +217,7 @@ contract for one vendor:
 | [`tools/forwarder-relay`](../tools/forwarder-relay/) | ASF-security ([`tools/gmail/asf-relay.md`](../tools/gmail/asf-relay.md)) | huntr.com, HackerOne |
 | [`tools/scan-format`](../tools/scan-format/) | ASVS | other scanner formats |
 | [`tools/vcs`](../tools/vcs/) | Git | Mercurial, Subversion, … |
-| [`tools/typed-decision`](../tools/typed-decision/) | TypeSafe Jev API | Local models (llama.cpp, Ollama, vLLM) ([#1431](https://github.com/apache/magpie/issues/1431)) |
+| [`tools/typed-decision`](../tools/typed-decision/) | TypeSafe Jev API, in-tree local provider (Ollama / llama.cpp / vLLM) ([#1431](https://github.com/apache/magpie/issues/1431)) | — |
 | [`tools/people`](../tools/people/) | [`tools/github`](../tools/github/operations.md#people) (every verb), [`tools/jira`](../tools/jira/README.md#people-and-contributor-activity-reads) (profile lookup) | GitLab, Forgejo, Bitbucket |
 | [`tools/tracker`](../tools/tracker/) | [`tools/github`](../tools/github/operations.md#contributor-activity-read-only), [`tools/jira`](../tools/jira/README.md#people-and-contributor-activity-reads) | GitLab, Forgejo, Bitbucket |
 
@@ -605,15 +605,15 @@ generated block below.
 | `contract:typed-decision` | ❌ | vendor-backed | TypeSafe | only 1 backend vendor (TypeSafe); needs 1 more |
 | `contract:people` | ✅ | vendor-backed | Atlassian, GitHub | 2 backend vendors: Atlassian, GitHub |
 
-**Per-skill assessment: 79/79 skills carry no vendor lock-in.** A skill is *capability-pure* when it names no backend at all, *portable* when every backend it names has an alternative (its contract is green), and *vendor-coupled* only when it reaches for a backend that is the sole implementation of a capability.
+**Per-skill assessment: 0/0 skills carry no vendor lock-in.** A skill is *capability-pure* when it names no backend at all, *portable* when every backend it names has an alternative (its contract is green), and *vendor-coupled* only when it reaches for a backend that is the sole implementation of a capability.
 
 | Skill neutrality | Count |
 |---|---|
-| capability-pure (names no backend) | 22 |
-| portable (named backends are swappable) | 57 |
+| capability-pure (names no backend) | 0 |
+| portable (named backends are swappable) | 0 |
 | vendor-coupled (sole-backend dependency) | 0 |
 
-Organization scope (declared, orthogonal to vendor): ASF = 16, agnostic = 63.
+Organization scope (declared, orthogonal to vendor): .
 
 **LLM / agent-integration neutrality**
 

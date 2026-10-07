@@ -25,11 +25,13 @@ from typed_decision.exceptions import TypedDecisionUnavailable
 from typed_decision.interface import DecisionProvider
 from typed_decision.privacy import enforce_privacy_gate
 from typed_decision.providers.jev import JevProvider
+from typed_decision.providers.local import LocalProvider
 from typed_decision.registry import get_provider, register_provider
 
 __all__ = [
     "DecisionProvider",
     "JevProvider",
+    "LocalProvider",
     "TypedDecisionClient",
     "TypedDecisionUnavailable",
     "choice",

@@ -15,6 +15,7 @@
   - [Architecture and Providers](#architecture-and-providers)
     - [Provider Interface](#provider-interface)
     - [TypeSafe Jev API Provider](#typesafe-jev-api-provider)
+    - [Local OpenAI-Compatible Provider](#local-openai-compatible-provider)
     - [Provider Registry and Configuration](#provider-registry-and-configuration)
   - [Privacy-LLM Gate Routing](#privacy-llm-gate-routing)
   - [Retry Policy](#retry-policy)
@@ -132,11 +133,23 @@ The reference backend [`providers/jev.py`](src/typed_decision/providers/jev.py) 
 - **Credential Storage:** Follows framework credential isolation (`AGENTS.md`): reads `TYPESAFE_API_KEY` (or `JEV_API_KEY`) from environment or from home directory storage (`~/.config/apache-magpie/typesafe.key`).
 - **Construction Gate:** If credentials are missing at construction time, `JevProvider` raises `TypedDecisionUnavailable` immediately, signaling unavailability to the registry.
 
+### Local OpenAI-Compatible Provider
+
+The in-tree [`providers/local.py`](src/typed_decision/providers/local.py) backend connects to a locally
+hosted OpenAI-compatible chat-completions endpoint:
+
+- **Endpoints:** any self-hosted runtime speaking the OpenAI wire format — Ollama (`http://localhost:11434/v1/chat/completions`, the default), llama.cpp server (`:8080/v1`), or vLLM (`:8000/v1`).
+- **Structured Outputs:** every request carries a strict `response_format: json_schema` constraining the decision shape (`label` pinned to the candidate `options` via `enum`, bounded `value` / `probability`); returned fields are re-validated against the contract and anything malformed raises `TypedDecisionUnavailable`.
+- **Zero Third-Party Dependencies:** implemented with Python's standard `urllib.request` library.
+- **No Credentials by Default:** local endpoints are typically unauthenticated; an optional Bearer key can be supplied via `MAGPIE_TYPED_DECISION_LOCAL_API_KEY` (e.g. a vLLM `--api-key`).
+- **Loopback Privacy Posture:** plain HTTP is only allowed for loopback hosts (`localhost`, `127.0.0.1`, `::1`), which the privacy-llm gate default-approves; any other host needs HTTPS and, unless it is a default-approved `*.apache.org` endpoint, an explicit opt-in entry. Environment proxies (`HTTP_PROXY` / `HTTPS_PROXY`) are disabled and redirects are rejected, so a loopback URL stays loopback for the entire request.
+- **Construction Gate:** if no model name is configured (argument or `MAGPIE_TYPED_DECISION_LOCAL_MODEL`), `LocalProvider` raises `TypedDecisionUnavailable` immediately.
+
 ### Provider Registry and Configuration
 
 Providers are resolved dynamically through [`registry.py`](src/typed_decision/registry.py):
 
-1. **`MAGPIE_TYPED_DECISION_PROVIDER`** (env var): Explicitly select provider name (e.g. `jev`).
+1. **`MAGPIE_TYPED_DECISION_PROVIDER`** (env var): Explicitly select provider name (`jev` or `local`).
    If set to an unknown provider, raises `TypedDecisionUnavailable`.
 2. **Default Behavior:** If `MAGPIE_TYPED_DECISION_PROVIDER` is unset:
    - Defaults to `"jev"` **if configured** (credentials present).

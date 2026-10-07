@@ -25,11 +25,13 @@ from typing import Any
 from typed_decision.exceptions import TypedDecisionUnavailable
 from typed_decision.interface import DecisionProvider
 from typed_decision.providers.jev import JevProvider, _resolve_api_key
+from typed_decision.providers.local import LocalProvider
 
 DEFAULT_PROVIDER_ENV = "MAGPIE_TYPED_DECISION_PROVIDER"
 
 _REGISTRY: dict[str, type[DecisionProvider]] = {
     "jev": JevProvider,
+    "local": LocalProvider,
 }
 
 
