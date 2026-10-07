@@ -54,8 +54,14 @@ Use this resolved `<guild_id>` for all MCP calls that take `guild_id` (`discord_
 ## `search_messages(chat_user_id, since, until, channels)`
 
 1. Determine target channels: if `channels` is provided and non-empty, restrict search to those channel IDs; otherwise use every public channel returned by `list_channels()`.
-2. Call `mcp__discord__discord_search_messages` with `author_id: chat_user_id` restricted to those target channels and within the window `[since, until]`.
-3. Page through the search results.
+2. Retrieve messages using `@pasympa/discord-mcp@2.2.0`:
+   - **Via `mcp__discord__discord_search_guild_messages`**:
+     Call with `guild_id: <guild_id>`, `query: <keyword>`, optional `channel_id`, optional `author_id: chat_user_id`, and `limit: 25` (capped at ≤25 by the server). Because the server does not support date bounds or offset pagination, the adapter filters returned messages locally by timestamp to match `[since, until]`. The 25-hit cap per query applies.
+   - **Via `mcp__discord__discord_read_messages` (channel walk)**:
+     To retrieve messages across a channel or beyond the 25-hit guild search limit, walk each target channel calling `mcp__discord__discord_read_messages(channel_id: <channel_id>, since: <since_timestamp>, limit: 100)`. Because `discord_read_messages` returns the message author as a user tag (e.g. `username#0000` or display tag) rather than a snowflake ID, filter messages matching the member tag resolved during `resolve_user()`. Filter timestamps to fall within `[since, until]`.
+3. Derive reply and question-answering indicators:
+   - Neither tool returns `message_reference`, so `is_reply` is best-effort: inspect message content for reply indicators or user mentions, or read local context via `mcp__discord__discord_read_messages(channel_id: <channel_id>, around: <message_id>, limit: 5)` to observe if the message directly responds to another user. If contextual reference cannot be confirmed, mark `is_reply: false`.
+   - `answers_question` is true when `is_reply` is true (or contextual inspection confirms a response) and the referenced/preceding message is a question asked by another member.
 4. Map each hit to:
    ```json
    {
@@ -69,8 +75,8 @@ Use this resolved `<guild_id>` for all MCP calls that take `guild_id` (`discord_
    ```
    where:
    - `<guild_id>` is the guild ID resolved at the top of operations.
-   - `is_reply` is true when the message references another message (`message_reference` / in-reply-to).
-   - `answers_question` is true when the message is a reply to a question asked by someone else.
+   - `is_reply` is best-effort per step 3.
+   - `answers_question` is derived per step 3.
 5. Drop any hit outside the resolved public channels.
 
 ## Permitted tools and read-only enforcement
