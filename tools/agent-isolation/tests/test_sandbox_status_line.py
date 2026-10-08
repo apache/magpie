@@ -61,6 +61,9 @@ GIT_ENV = {
     **os.environ,
     "GIT_CONFIG_GLOBAL": os.devnull,
     "GIT_CONFIG_SYSTEM": os.devnull,
+    # Hermetic: an inherited GIT_CONFIG_COUNT (e.g. safe.bareRepository=explicit
+    # from an agent harness) would make `worktree add` on a bare repo fail.
+    "GIT_CONFIG_COUNT": "0",
     "GIT_AUTHOR_NAME": "T",
     "GIT_AUTHOR_EMAIL": "t@example.invalid",
     "GIT_COMMITTER_NAME": "T",

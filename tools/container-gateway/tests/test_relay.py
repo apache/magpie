@@ -30,7 +30,8 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
-from collections.abc import Awaitable, Callable, Coroutine
+import tempfile
+from collections.abc import Awaitable, Callable, Coroutine, Iterator
 from pathlib import Path
 from typing import Any, TypeVar
 
@@ -63,6 +64,13 @@ async def _serve_unix_or_skip(
         # a static analyser the except branch never falls through -- without
         # it, CodeQL reads the code below as running with nothing assigned.
         raise
+
+
+@pytest.fixture
+def short_sock_dir() -> Iterator[Path]:
+    """A short directory: pytest's ``tmp_path`` overflows the AF_UNIX path limit on macOS."""
+    with tempfile.TemporaryDirectory(prefix="gw") as d:
+        yield Path(d)
 
 
 def stack(root: Path) -> tuple[FakeBackend, Relay]:
@@ -137,12 +145,12 @@ def test_ping_passes_through(tmp_path: Path) -> None:
     run(scenario())
 
 
-def test_serve_unix_binds_owner_only(tmp_path: Path) -> None:
+def test_serve_unix_binds_owner_only(short_sock_dir: Path) -> None:
     async def scenario() -> None:
         async def handler(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
             writer.close()
 
-        sock = tmp_path / "gw.sock"
+        sock = short_sock_dir / "gw.sock"
         # Bound outside the try that owns the close, so the `finally`
         # below can never reference a name the bind failed to assign.
         server = await _serve_unix_or_skip(sock, handler)
@@ -155,7 +163,7 @@ def test_serve_unix_binds_owner_only(tmp_path: Path) -> None:
     run(scenario())
 
 
-def test_serve_unix_does_not_unlink_a_pre_existing_file(tmp_path: Path) -> None:
+def test_serve_unix_does_not_unlink_a_pre_existing_file(short_sock_dir: Path) -> None:
     """``serve_unix`` never removes what was there before it -- the daemon does, and only
 
     after ``check_socket_type`` has confirmed it is safe to. This drives
@@ -169,7 +177,7 @@ def test_serve_unix_does_not_unlink_a_pre_existing_file(tmp_path: Path) -> None:
         async def handler(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
             writer.close()
 
-        sock = tmp_path / "gw.sock"
+        sock = short_sock_dir / "gw.sock"
         sock.write_text("not a socket")
         with contextlib.suppress(OSError):
             server = await serve_unix(sock, handler)
