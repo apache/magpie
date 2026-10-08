@@ -7,7 +7,7 @@ mode: Meta
 description: >-
   Check the secure agent setup against its checklist and report done,
   missing or partial for each item, with the evidence — paths, command
-  output, versions. Covers Claude Code, Codex and Gemini CLI.
+  output, versions. Covers Claude Code, Codex, Gemini CLI and Copilot CLI.
   Read-only.
 when_to_use: >-
   When the user asks whether their secure setup is complete, or right
@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:393e3ecdf80a56a9
 license: Apache-2.0
-measured_tokens: 5050
+measured_tokens: 5098
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -40,6 +40,8 @@ When the selected runtime is Gemini CLI, follow
 [docs/adapters/gemini.md](../../../../docs/adapters/gemini.md#verify): check the workspace profile, guard registration, skill discovery, and actual runtime behavior.
 Report static and live checks separately, including any checks not run and the documented isolation limits.
 Do not require Claude configuration; then stop before the Claude-specific checks below.
+
+When the selected runtime is Copilot CLI, follow [docs/adapters/copilot.md](../../../../docs/adapters/copilot.md#verify): check the hook registration and probe an allow, a deny and a silent write.
 
 When the harness is Claude Code, continue with the existing checks below.
 If the harness cannot be determined, ask once.

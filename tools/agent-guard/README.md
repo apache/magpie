@@ -15,6 +15,7 @@
     - [OpenCode](#opencode)
     - [Kiro CLI](#kiro-cli)
     - [Gemini CLI](#gemini-cli)
+    - [Copilot CLI](#copilot-cli)
     - [Harness-neutral path (any runtime)](#harness-neutral-path-any-runtime)
   - [Contributing guards](#contributing-guards)
   - [Tests](#tests)
@@ -309,6 +310,39 @@ with a warning, so verify a known denial after installation.
 The hook covers shell commands; native file and MCP tools still need their
 own permissions, and shell execution still needs an OS sandbox.
 See the [harness contract](../../docs/adapters/gemini.md).
+
+### Copilot CLI
+
+The repository's [`.github/hooks/magpie.json`](../../.github/hooks/magpie.json)
+wires the `--copilot` adapter to Copilot CLI's `preToolUse` event (the
+PascalCase `PreToolUse` payload is accepted too).
+The adapter prints one JSON decision on stdout and exits `0`:
+
+- a guard hit → `permissionDecision: "deny"` with the reason;
+- one simple read-only command (`gh pr view`, `gh issue list`, `gh search`,
+  `git status/diff/log`, GET-only `gh api`, `vetted-op-read`) →
+  `"allow"`, so reads never prompt;
+- anything else, including any compound command or write → no output, and
+  Copilot's normal permission flow decides.
+
+Manual registration, with the path replaced by the resolved framework directory:
+
+```json
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "type": "command",
+        "bash": "python3 \"/absolute/path/to/magpie/tools/agent-guard/src/agent_guard/__init__.py\" --copilot",
+        "timeoutSec": 10
+      }
+    ]
+  }
+}
+```
+
+See [the Copilot install lifecycle](../../docs/adapters/copilot.md#install).
 
 ### Harness-neutral path (any runtime)
 

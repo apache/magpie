@@ -108,7 +108,8 @@ machine and the other on shared cloud infrastructure.
 
 - A Copilot equivalent of the Codex project policy file: Copilot exposes
   no committed sandbox / approval profile for `tools/sandbox-lint` to
-  validate, so there is no Copilot branch in that validator.
+  validate, so there is no Copilot branch in that validator. The
+  committed surface is the `.github/hooks/magpie.json` guard hook.
 - Gating `git push` at the wrapper for this harness - see the Layer 0
   caveat above; that is an `agent-isolation` gap, not a Copilot one.
 - Running the Coding Agent anywhere in the embargoed security
@@ -120,8 +121,11 @@ machine and the other on shared cloud infrastructure.
    Magpie skill from `.agents/skills/` or `.github/skills/`.
 2. `.github/copilot-instructions.md` exists and points at `AGENTS.md`
    and the adopter's `<project-config>/`.
-3. Copilot CLI sessions confirm each command; `--allow-all` / `--yolo`
-   are documented as prohibited.
+3. Copilot CLI sessions confirm each write; `--allow-all` / `--yolo`
+   are documented as prohibited. Provably read-only commands are allowed
+   by the `--copilot` guard hook without a prompt (PRINCIPLES.md §1,
+   *Avoiding prompt fatigue*), and the isolated-setup install asks no
+   question beyond the single apply confirmation.
 4. Every Coding Agent workflow terminates at a Draft Pull Request.
 5. The Coding Agent is excluded from private security-tracker material,
    and CLI use on such material is gated on an adopter opt-in in
@@ -150,9 +154,10 @@ uv run prek run doctoc --all-files
 ## Known gaps
 
 - **No committed policy profile to lint.** Codex and Gemini both ship a
-  project-scoped profile that `tools/sandbox-lint` checks. Copilot has
-  no equivalent surface, so its posture rests on documentation and
-  operator discipline rather than a validated file.
+  project-scoped profile that `tools/sandbox-lint` checks. Copilot's
+  repository settings cannot carry tool allow rules, so its posture is
+  the guard hook plus documentation; the hook is tested in
+  `tools/agent-guard/tests/test_copilot.py`, not linted.
 - **No push gate at the wrapper.** Tracked as an `agent-isolation`
   limitation for every generic `agent-iso <cli>` invocation, not
   specific to Copilot.

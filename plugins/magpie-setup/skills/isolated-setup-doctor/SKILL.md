@@ -21,7 +21,7 @@ capability:
   - capability:reassess
 surface_hash: sha256:7d670b572d43bbeb
 license: Apache-2.0
-measured_tokens: 6064
+measured_tokens: 6108
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -44,6 +44,8 @@ When the selected runtime is Gemini CLI, follow
 [docs/adapters/gemini.md](../../../../docs/adapters/gemini.md#doctor): verify the profile first, then diagnose the actual tool result in the active Gemini session.
 Distinguish policy refusal, sandbox expansion, hook or trust failures, and wrapper or authentication problems.
 Do not require Claude configuration or prescribe Claude settings changes; then stop before the Claude-specific probes below.
+
+When the selected runtime is Copilot CLI, follow [docs/adapters/copilot.md](../../../../docs/adapters/copilot.md#doctor): verify the hook first, then diagnose the actual tool result in the live session.
 
 When the harness is Claude Code, continue below.
 If the harness cannot be determined, ask once.

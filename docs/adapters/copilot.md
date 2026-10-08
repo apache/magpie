@@ -21,7 +21,12 @@
     - [Coding Agent Draft PR boundary](#coding-agent-draft-pr-boundary)
     - [Embargoed security and Privacy-LLM boundary](#embargoed-security-and-privacy-llm-boundary)
   - [Clean-environment wrapper and isolation](#clean-environment-wrapper-and-isolation)
+  - [Install](#install)
+  - [Security model](#security-model)
   - [Verify](#verify)
+  - [Update](#update)
+  - [Doctor](#doctor)
+  - [setup-isolated lifecycle](#setup-isolated-lifecycle)
   - [See also](#see-also)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -207,6 +212,57 @@ The `agent-iso` launcher scrubs ambient cloud tokens while preserving local deve
 > [!WARNING]
 > **Layer 0 Isolation Caveat:** As documented in [`tools/agent-isolation/README.md`](../../tools/agent-isolation/README.md), generic harness invocations (`agent-iso <cli>`) provide **Layer 0 environment stripping only — no push gate**. Copilot receives the live `SSH_AUTH_SOCK` with nothing gating a `git push` at the wrapper boundary. Gating remote pushes relies on operator diligence, keeping `--allow-all` / `--yolo` off, and branch protection rules.
 
+## Install
+
+Copilot CLI has no committed sandbox profile, so the isolated setup is a
+**hook plus a short user-level allow list**, installed with no questions asked.
+The hook is the [`--copilot` adapter](../../tools/agent-guard/README.md#copilot-cli)
+of agent-guard, registered in `.github/hooks/magpie.json`
+(the [committed file](../../.github/hooks/magpie.json) in a framework checkout; adopters point it at
+`.apache-magpie/tools/agent-guard/...`).
+
+The install is non-interactive by design ([PRINCIPLES.md §1, *Avoiding prompt
+fatigue*](../../PRINCIPLES.md)). The skill proposes the whole change as one
+diff and applies it on a single confirmation:
+
+1. **Register the hook.** Merge one `magpie-agent-guard` `preToolUse` entry into
+   `.github/hooks/magpie.json`; preserve unrelated hooks and never add a duplicate.
+2. **Detect, don't ask.** Write the mail-source declaration the skills need
+   (`<project-config>/project.md → Mail sources`) from the MCP servers already
+   present in `~/.copilot/mcp-config.json` (draft-only Gmail, PonyMail). A missing
+   server is reported with its install command, not asked about.
+3. **Keep repository policy repository-safe.** `.github/copilot/settings.json`
+   accepts only a fixed key set (`hooks`, `deniedUrls`, `disableAllHooks`, ...);
+   it cannot carry tool allow rules, so nothing else is written there.
+4. **Launch.** `agent-iso copilot` (see above). Trust the folder yourself;
+   repository content cannot grant its own trust, and setup never edits
+   `trustedFolders`.
+
+What the hook decides, per shell call:
+
+| Command | Decision |
+|---|---|
+| Matches an agent-guard rule (push gates, trailers, ...) | `deny` with the reason |
+| One simple read-only call (`gh pr view`, `gh issue list`, `gh search`, `git status/diff/log`, GET-only `gh api`, `vetted-op-read`) | `allow` — no prompt |
+| Anything else, including every write and any compound command | no opinion — Copilot's normal prompt |
+
+Writes keep exactly one confirmation: the sync **apply gate**. Never pass
+`--allow-all-tools`, `--allow-all` or `--yolo`; set
+`permissions.disableBypassPermissionsMode` to `"disable"` in user settings to
+make that unforgeable.
+
+## Security model
+
+- The hook inspects shell calls only; native file tools, MCP tools and web
+  fetches use Copilot's own permissions. Keep `~/.config/gh` and cloud credential
+  directories out of `--add-dir`.
+- Command hooks are fail-closed on a crash and fail-open on a timeout, so a
+  verified denial after install is part of [Verify](#verify).
+- `allow` is emitted only for a single simple command: any shell metacharacter,
+  redirection, substitution, `-c` config override or write-shaped `gh api` flag
+  falls back to the prompt.
+- `agent-iso copilot` remains Layer 0 only (no push gate at the wrapper).
+
 ## Verify
 
 Verify that the GitHub Copilot harness wiring conforms to framework standards:
@@ -223,7 +279,35 @@ PYTHONUTF8=1 uv run --project tools/vendor-neutrality-score vendor-neutrality-sc
 
 # 4. Check documentation table of contents and formatting
 uv run prek run doctoc --all-files
+
+# 5. Prove the hook: a guard hit denies, a read allows, a write stays silent
+echo '{"tool_name":"Bash","tool_input":{"command":"gh pr view 1"}}' \
+  | python3 tools/agent-guard/src/agent_guard/__init__.py --copilot   # permissionDecision: allow
+echo '{"tool_name":"Bash","tool_input":{"command":"gh pr create"}}' \
+  | python3 tools/agent-guard/src/agent_guard/__init__.py --copilot   # no output (prompt)
 ```
+
+## Update
+
+Compare `.github/hooks/magpie.json` with the framework's committed copy and
+report drift; never loosen the hook or add an `allow` rule automatically.
+Re-run [Verify](#verify) after a Copilot CLI upgrade, since hook payloads are
+an evolving interface (both the `preToolUse` camelCase and `PreToolUse`
+Claude-compatible shapes are accepted).
+
+## Doctor
+
+Run [Verify](#verify) first, then diagnose in the live session: a prompt on a
+read-only `gh`/`git` call means the hook did not run (wrong path, hooks
+disabled, untrusted folder); a missing `deny` means the same. Report native
+approval and network failures separately from hook failures.
+
+## setup-isolated lifecycle
+
+The four `setup-isolated-setup-*` skills route Copilot sessions to
+[Install](#install), [Verify](#verify), [Update](#update) and [Doctor](#doctor).
+The remaining steps in those skills are Claude-specific and must not run
+after the Copilot branch.
 
 ## See also
 

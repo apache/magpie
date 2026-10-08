@@ -1091,6 +1091,119 @@ def gemini_main() -> int:
     return ALLOW_EXIT
 
 
+# Read-only commands the Copilot adapter answers ``allow`` for, so they never
+# prompt (PRINCIPLES.md §1, "Avoiding prompt fatigue"). Matching is on parsed
+# argv of a single simple command only: any shell metacharacter, redirection,
+# substitution or chaining falls back to Copilot's normal prompt.
+_COPILOT_SHELL_META = re.compile(r"[;&|<>`$()\n\r\\{}]")
+_COPILOT_GH_READ = {
+    ("pr", "view"), ("pr", "list"), ("pr", "diff"), ("pr", "checks"),
+    ("issue", "view"), ("issue", "list"),
+    ("repo", "view"), ("repo", "list"),
+    ("run", "view"), ("run", "list"),
+    ("workflow", "view"), ("workflow", "list"),
+    ("release", "view"), ("release", "list"),
+    ("label", "list"), ("cache", "list"),
+}  # fmt: skip
+_COPILOT_GH_API_WRITE = re.compile(r"^(-X|--method|-f|-F|--field|--raw-field|--input)(=.*)?$|^-[XfF].+")
+_COPILOT_GIT_READ = {
+    "status", "diff", "log", "show", "rev-parse", "ls-files", "blame", "describe",
+    "merge-base", "cat-file", "rev-list", "shortlog", "ls-remote",
+}  # fmt: skip
+_COPILOT_GIT_FLAG_DENY = {"--output", "--ext-diff", "--textconv", "--exec-path"}
+
+
+def copilot_read_only(command: str) -> bool:
+    """True when *command* is one simple, side-effect-free read.
+
+    Deliberately narrow: the answer ``allow`` skips Copilot's own prompt, so
+    anything uncertain returns False and keeps the default behaviour.
+    """
+    if _COPILOT_SHELL_META.search(command):
+        return False
+    try:
+        argv = shlex.split(command)
+    except ValueError:
+        return False
+    if len(argv) < 2:
+        return False
+    head = os.path.basename(argv[0])
+    if head == "gh":
+        rest = [a for a in argv[1:] if not a.startswith("-")]
+        if len(rest) >= 2 and (rest[0], rest[1]) in _COPILOT_GH_READ:
+            return True
+        if rest[:1] == ["search"] or rest[:2] == ["auth", "status"]:
+            return True
+        if rest[:1] == ["api"] and rest[1:2] != ["graphql"]:
+            return not any(_COPILOT_GH_API_WRITE.match(a) for a in argv[2:])
+        return False
+    if head == "git":
+        if any(a.split("=")[0] in _COPILOT_GIT_FLAG_DENY for a in argv):
+            return False
+        return argv[1] in _COPILOT_GIT_READ
+    return "vetted-op-read" in argv[:6] and argv[0] in {"uv", "uvx"}
+
+
+def _copilot_command(event: dict[str, object]) -> tuple[str, str | None] | None:
+    """Extract ``(command, cwd)`` from either Copilot payload shape."""
+    name = event.get("tool_name", event.get("toolName"))
+    if not isinstance(name, str) or name.lower() not in {"bash", "shell"}:
+        return None
+    args = event.get("tool_input", event.get("toolArgs"))
+    if isinstance(args, str):
+        try:
+            args = json.loads(args)
+        except (json.JSONDecodeError, ValueError):
+            return None
+    if not isinstance(args, dict) or not isinstance(args.get("command"), str):
+        return None
+    cwd = event.get("cwd")
+    return args["command"], cwd if isinstance(cwd, str) else None
+
+
+def _copilot_emit(decision: str, reason: str) -> None:
+    json.dump(
+        {
+            "permissionDecision": decision,
+            "permissionDecisionReason": reason,
+            "hookSpecificOutput": {
+                "hookEventName": "PreToolUse",
+                "permissionDecision": decision,
+                "permissionDecisionReason": reason,
+            },
+        },
+        sys.stdout,
+    )
+    sys.stdout.write("\n")
+
+
+def copilot_main() -> int:
+    """Copilot CLI ``PreToolUse`` adapter.
+
+    Accepts both the PascalCase (Claude/VS Code-compatible) and camelCase
+    payloads. A guard hit emits one ``deny`` decision; a provably read-only
+    command emits ``allow`` so it does not prompt; everything else prints
+    nothing and Copilot's normal permission flow decides. Malformed events are
+    silent, like every other adapter.
+    """
+    try:
+        event = json.load(sys.stdin)
+    except (json.JSONDecodeError, ValueError):
+        return ALLOW_EXIT
+    if not isinstance(event, dict):
+        return ALLOW_EXIT
+    parsed = _copilot_command(event)
+    if parsed is None:
+        return ALLOW_EXIT
+    command, cwd = parsed
+    reason = dispatch(command, cwd)
+    if reason:
+        _copilot_emit("deny", reason)
+    elif copilot_read_only(command):
+        _copilot_emit("allow", "magpie: read-only command")
+    return ALLOW_EXIT
+
+
 def check_main(argv: list[str]) -> int:
     """Harness-neutral check-only entry point (``--check``).
 
@@ -1210,6 +1323,7 @@ def cli(argv: list[str] | None = None) -> int:
     ``--opencode`` → the OpenCode adapter (:func:`opencode_main`).
     ``--kiro`` → the Kiro CLI adapter (:func:`kiro_main`).
     ``--gemini`` → the Gemini CLI adapter (:func:`gemini_main`).
+    ``--copilot`` → the Copilot CLI adapter (:func:`copilot_main`).
     ``--check <cmd…>`` → harness-neutral check-only (:func:`check_main`).
     ``--exec <cmd…>`` → harness-neutral check-then-exec (:func:`exec_main`).
 
@@ -1224,6 +1338,8 @@ def cli(argv: list[str] | None = None) -> int:
         return kiro_main()
     if args and args[0] == "--gemini":
         return gemini_main()
+    if args and args[0] == "--copilot":
+        return copilot_main()
     if args and args[0] == "--check":
         return check_main(args[1:])
     if args and args[0] == "--exec":

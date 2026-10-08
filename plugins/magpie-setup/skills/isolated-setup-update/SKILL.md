@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:1f327e069312dad2
 license: Apache-2.0
-measured_tokens: 5219
+measured_tokens: 5260
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -40,6 +40,8 @@ The remainder of this skill is the Claude Code update branch.
 When the selected runtime is Gemini CLI, follow [docs/adapters/gemini.md](../../../../docs/adapters/gemini.md#update): compare the workspace profile, guard path, wrapper, and runtime version with the existing installation's sources.
 Report drift and proposed changes only; do not apply changes or require Claude configuration.
 Then stop before the Claude-specific drift report below.
+
+When the selected runtime is Copilot CLI, follow [docs/adapters/copilot.md](../../../../docs/adapters/copilot.md#update): report hook drift against the framework copy; never loosen policy automatically.
 
 When the harness is Claude Code, continue below.
 If the harness cannot be determined, ask once.

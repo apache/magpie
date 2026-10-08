@@ -17,7 +17,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:3f90b1ffdaa6e9ea
 license: Apache-2.0
-measured_tokens: 5630
+measured_tokens: 5726
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -46,8 +46,11 @@ When the selected runtime is Gemini CLI, follow
 Do not require or write Claude configuration.
 After completing the Gemini branch, stop before the Claude-specific procedure below.
 
+When the selected runtime is Copilot CLI, follow [docs/adapters/copilot.md](../../../../docs/adapters/copilot.md#install): register the guard hook, detect and declare mail sources from the MCP servers already present, and ask nothing beyond the single apply confirmation (PRINCIPLES.md §1, *Avoiding prompt fatigue*). Do not require or write Claude configuration.
+After completing the Copilot branch, stop before the Claude-specific procedure below.
+
 When the harness is Claude Code, continue below. If the harness cannot be
-determined, ask once rather than applying one runtime's policy to another.
+determined from the session or executable, stop and report that; never guess and never prompt.
 
 This skill is the **on-ramp** for adopters who do not yet have the
 secure setup running. It is a thin walkthrough wrapper around the
