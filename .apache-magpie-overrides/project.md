@@ -201,7 +201,8 @@ remaining backends (and skips ops that no available backend supports).
 
 | Backend | Role | Mandatory | Notes |
 |---|---|---|---|
-| *(none declared)* | — | — | Inherits the ASF organization default (`mail_provider`); Apache Magpie has no project security list to read |
+| `gmail` | primary | no | Draft-only Gmail MCP (`gmail-plaintext`); Apache Magpie has no project security list to read |
+| `ponymail` | fallback | no | Read-only public ASF archive |
 
 > **Mail backend selection is org-level.** The `mail_provider` block in
 > your organization manifest sets the primary and fallback backends
