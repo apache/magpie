@@ -466,6 +466,15 @@ Step 6 below describes how to verify the state advance landed (and what to do if
      --cve-id <CVE-ID> --json-file <scratch>/cve-<CVE-ID>-<N>.json
    ```
 
+   The push merges into the live record and refuses to rename an affected product or package.
+   Two explicit overrides exist; use them only after confirming with the user:
+
+   - `--replace-references` — replace `references[]` instead of keeping existing URLs.
+     Needed to drop a reference that must no longer appear (a private mailing-list thread, a reverted PR), since merge mode keeps them.
+   - `--allow-product-change` — allow a product/package rename.
+     Right when the project's generator config intentionally defines the name (for example a Helm chart with a `pkg:helm` purl) and the live record is still `DRAFT`;
+     never on a published record.
+
    `state_transition` is omitted: the JSON already carries the generator-computed state,
    which an adapter that embeds state in the record body (Vulnogram does) writes in the same call;
    an adapter that needs a separate state-flip call does it internally, keeping the call atomic from the skill's side.
