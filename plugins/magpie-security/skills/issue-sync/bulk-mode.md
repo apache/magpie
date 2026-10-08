@@ -78,6 +78,31 @@ Subagents keep the per-issue mail threads, PR diffs and comment bodies out of th
     gh api graphql -F query=@<scratch>/sync-preflight.graphql
     ```
 
+    To review the batched result without printing the private last-comment body, use this `jq` projection and apply the rule table below to its output:
+
+    ```bash
+    gh api graphql -F query=@<scratch>/sync-preflight.graphql |
+      jq '
+        .data.repository
+        | to_entries
+        | map(
+            .value
+            | {
+                issue: .number,
+                state: .state,
+                closedAt: .closedAt,
+                updatedAt: .updatedAt,
+                labels: [.labels.nodes[].name],
+                last_comment_author: (.comments.nodes[0].author.login // null),
+                last_comment_at: (.comments.nodes[0].createdAt // null),
+                skill_comment: ((.comments.nodes[0].body // "") | startswith("<!-- apache-magpie: "))
+              }
+          )
+      '
+    ```
+
+    Keep the classifier in the rule table rather than building it as a nested `jq if` expression; that keeps the decisions reviewable and avoids emitting comment text.
+
     **Skill-or-bot detection — required for the rules below.** The skill writes rollups and RM hand-offs as the operator's GitHub user, *not* a `*[bot]` account,
     so recognise its comments by the **marker** every status-rollup / hand-off / wrap-up comment begins with:
 
