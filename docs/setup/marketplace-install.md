@@ -34,7 +34,7 @@ registry sits in between.
 
 ## The recommended baseline
 
-Take these three on every machine, whichever agent you use:
+Install `magpie-setup` and `magpie-utilities`, plus `magpie-agent-guard` where your agent's marketplace offers it:
 
 | Plugin | Why |
 |---|---|
@@ -42,9 +42,9 @@ Take these three on every machine, whichever agent you use:
 | `magpie-agent-guard` | The deterministic pre-execution guard — a hook that inspects each shell command before it runs and denies the dangerous shapes outright. Not a family; a safety net under everything else. |
 | `magpie-utilities` | `list-skills` and the rest of the small tools you reach for when you want to know what is actually installed. |
 
-These three are exactly the **floor** a project commits when it adopts Magpie,
-so taking them yourself is taking what a project would recommend to every
-contributor. Then add families against a problem you have today —
+These three are exactly the **floor** a Claude Code project commits when it adopts Magpie.
+Taking the available baseline plugins yourself is taking what a project would recommend to every contributor.
+Then add families against a problem you have today —
 [What each family solves](../quick-start/families.md) is the menu — and run the
 [secure-agent setup](../quick-start.md#step-3--isolate--guard), which is
 part of setting up rather than a later hardening pass.
@@ -114,15 +114,15 @@ because nothing is installed yet to hear the request.
 
 ```bash
 codex plugin marketplace add apache/magpie
-codex plugin install magpie-setup
-codex plugin install magpie-agent-guard
-codex plugin install magpie-utilities
+codex plugin add magpie-setup@apache-magpie
+codex plugin add magpie-utilities@apache-magpie
 ```
 
-`magpie-setup` installs by default when you add the marketplace, so its line is
-only needed if you removed it; the other two baseline plugins are not, so take
-them here. Add further families the same way. Verify with `/plugins` inside
-Codex, or `codex plugin list` from the shell.
+`magpie-setup` installs by default when you add the marketplace, so its line is only needed if you removed it.
+`magpie-utilities` is not installed by default, so add it explicitly.
+`magpie-agent-guard` is not listed in [Magpie's Codex marketplace](../../.agents/plugins/marketplace.json).
+Add further families the same way.
+Verify with `/plugins` inside Codex, or `codex plugin list` from the shell.
 
 Codex has no auto-update setting for marketplaces, so refreshing is a manual
 step — `codex plugin marketplace upgrade` re-pulls the configured Git snapshots.

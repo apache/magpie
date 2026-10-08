@@ -111,7 +111,7 @@ codex plugin marketplace add obra/superpowers-marketplace
 Then:
 
 ```text
-codex plugin install superpowers
+codex plugin add superpowers@superpowers-marketplace
 ```
 
 **VS Code / GitHub Copilot**

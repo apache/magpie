@@ -43,7 +43,7 @@
         },
         "codex": {
           "marketplace": "obra/superpowers-marketplace",
-          "install": "codex plugin install superpowers"
+          "install": "codex plugin add superpowers@superpowers-marketplace"
         },
         "cursor": {
           "marketplace": null,
