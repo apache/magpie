@@ -46,6 +46,8 @@ import urllib.parse
 import urllib.request
 from typing import Any
 
+from checker.check import _LOCAL_HOSTS
+
 from typed_decision.exceptions import TypedDecisionUnavailable
 from typed_decision.interface import DecisionProvider
 from typed_decision.privacy import enforce_privacy_gate
@@ -58,7 +60,9 @@ LOCAL_ENDPOINT_ENV = "MAGPIE_TYPED_DECISION_LOCAL_ENDPOINT"
 LOCAL_MODEL_ENV = "MAGPIE_TYPED_DECISION_LOCAL_MODEL"
 LOCAL_API_KEY_ENV = "MAGPIE_TYPED_DECISION_LOCAL_API_KEY"
 
-_LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+# The privacy gate's own loopback set, so the transport check and the gate
+# cannot disagree about which hosts count as local-only.
+_LOOPBACK_HOSTS = _LOCAL_HOSTS
 _THINKING_BLOCK_RE = re.compile(r"<think>.*?</think>", re.IGNORECASE | re.DOTALL)
 _FENCED_JSON_RE = re.compile(r"```(?:json)?\s*(\{.*?\})\s*```", re.IGNORECASE | re.DOTALL)
 
