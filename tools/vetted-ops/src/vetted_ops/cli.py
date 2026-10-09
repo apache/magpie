@@ -52,6 +52,7 @@ cannot verify TLS) while its writes keep their confirmation.
 from __future__ import annotations
 
 import argparse
+import json
 import subprocess
 import sys
 import urllib.error
@@ -126,6 +127,10 @@ def _validate_params(
             resolved[name] = ops_mod.commit_hash(raw)
         elif name == "cve_id":
             resolved[name] = ops_mod.cve_id(raw)
+        elif name == "date":
+            resolved[name] = ops_mod.date(raw)
+        elif name == "cursor":
+            resolved[name] = ops_mod.cursor(raw)
         elif name == "action":
             resolved[name] = ops_mod.action(raw)
         elif name == "field":
@@ -198,6 +203,12 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
     parser.add_argument("--caller", help="the skill or plugin invoking this operation")
     parser.add_argument("--config", type=Path, default=None, help="path to the policy TOML")
     parser.add_argument("--dry-run", action="store_true", help="print the argv that would run, then exit")
+    parser.add_argument(
+        "--save",
+        metavar="NAME",
+        default=None,
+        help="write a read operation's output to <workspace>/saved/NAME and print one JSON line instead",
+    )
     parser.add_argument("operation", nargs="?", help="operation name, or 'list-ops' / 'policy'")
     parser.add_argument("params", nargs="*", help="operation parameters, positionally")
     args = parser.parse_args(argv)
@@ -253,6 +264,10 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
             )
         params, body = _validate_params(op, list(args.params), config)
         command = build_argv(op, params, config)
+        # A write's output is its confirmation and stays on screen; a procedure
+        # already keeps its bodies out of the caller's context.
+        if args.save is not None and (op.writes or op.backend == "procedure"):
+            raise ops_mod.ParamError(f"--save applies to read operations only, and {op.name!r} is not one")
     except (ops_mod.ParamError, ConfigError) as exc:
         print(f"vetted-op: refused: {exc}", file=sys.stderr)
         return EXIT_POLICY
@@ -280,6 +295,12 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
             raise ops_mod.ParamError(f"operation {op.name!r} produced invalid command type")
         # No shell. The argv list is passed through verbatim, and any body travels
         # on stdin as bytes we already read — `gh` opens no file of ours.
+        if args.save is not None:
+            captured = subprocess.run(command, check=False, input=body, stdout=subprocess.PIPE)
+            if captured.returncode != EXIT_OK:
+                print(f"vetted-op: {op.name} failed (gh exit {captured.returncode})", file=sys.stderr)
+                return EXIT_COMMAND
+            return _save(args.save, captured.stdout, config)
         completed = subprocess.run(command, check=False, input=body)
         if completed.returncode != EXIT_OK:
             print(f"vetted-op: {op.name} failed (gh exit {completed.returncode})", file=sys.stderr)
@@ -288,6 +309,10 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
     elif op.backend == "http-read":
         if not isinstance(command, dict):
             raise ops_mod.ParamError(f"operation {op.name!r} produced invalid request descriptor")
+        if args.save is not None:
+            sink = bytearray()
+            code = _run_http(command, body=body, sink=sink)
+            return code if code != EXIT_OK else _save(args.save, bytes(sink), config)
         return _run_http(command, body=body)
     else:  # pragma: no cover
         raise ops_mod.ParamError(f"unknown backend {op.backend!r}")
@@ -323,8 +348,19 @@ def _run_procedure(op: ops_mod.Op, plan: procedures.Plan, body: bytes | None, *,
         return EXIT_COMMAND
 
 
-def _run_http(request_desc: dict[str, object], *, body: bytes | None) -> int:
-    """Execute an HTTP read operation."""
+def _save(name: str, data: bytes, config: Config) -> int:
+    """Write saved output and report where, in one line the caller can parse."""
+    try:
+        path = ops_mod.save_output(name, data, workspace=config.workspace)
+    except ops_mod.ParamError as exc:
+        print(f"vetted-op: refused: {exc}", file=sys.stderr)
+        return EXIT_POLICY
+    print(json.dumps({"saved": str(path), "bytes": len(data)}))
+    return EXIT_OK
+
+
+def _run_http(request_desc: dict[str, object], *, body: bytes | None, sink: bytearray | None = None) -> int:
+    """Execute an HTTP read operation, streaming to stdout or into ``sink``."""
     url = request_desc.get("url")
     method = request_desc.get("method", "GET")
     headers = request_desc.get("headers", {})
@@ -353,6 +389,9 @@ def _run_http(request_desc: dict[str, object], *, body: bytes | None) -> int:
     try:
         with urllib.request.urlopen(req, timeout=30) as response:
             result = response.read()
+            if sink is not None:
+                sink.extend(result)
+                return EXIT_OK
             sys.stdout.buffer.write(result)
             sys.stdout.buffer.flush()
             return EXIT_OK

@@ -69,6 +69,40 @@ close_reasons = ["completed", "not planned"]
     "gql-pr-review-threads",
 ]
 
+# pr-management-triage reads a whole sweep through `vetted-op-read --save`,
+# so the pages land in the workspace for `pr-management triage classify`
+# rather than in the agent's context. Reads only: every triage mutation stays a
+# confirmed `gh` call.
+"pr-management-triage" = [
+    "viewer",
+    "gql-pr-triage-preflight",
+    "gql-pr-triage-open",
+    "gql-pr-triage-label",
+    "gql-pr-triage-author",
+    "gql-pr-triage-review-requested",
+    "gql-pr-triage-one",
+    "gql-main-recent-failures",
+    "runs-action-required",
+    "runs-at-head",
+    "check-runs",
+    "compare-behind",
+    "team-members",
+    "upstream-permission",
+    "pr-view-with-body",
+    "gql-pr-liveness",
+]
+
+# pr-management-stats is a read-only dashboard: its reads are saved with
+# `vetted-op-read --save` for `pr-management stats build`, and it gets no write
+# operation at all. Publishing the gist is a confirmed bare `gh gist` call.
+"pr-management-stats" = [
+    "viewer",
+    "gql-pr-stats-open",
+    "gql-pr-stats-closed-page",
+    "gql-pr-stats-closed-search",
+    "team-members",
+]
+
 # release-rc-cut emits every release command for the Release Manager and runs
 # none itself. Its only GitHub access is reading the upstream tags (Step 0, to
 # refuse an RC tag that already exists) and, after the RM confirms it, the

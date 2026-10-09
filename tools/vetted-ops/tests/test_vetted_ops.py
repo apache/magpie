@@ -111,6 +111,8 @@ def test_every_op_declares_validators_for_all_its_params() -> None:
         "cve_id",
         "action",
         "field",
+        "date",
+        "cursor",
     }
     for op in ops.OPS.values():
         for param in op.params:
@@ -123,6 +125,8 @@ def test_every_builder_produces_a_gh_argv(policy: config.Config) -> None:
     """Every 'gh' operation must invoke nothing other than gh."""
     sample = {
         "number": "1",
+        "date": "2026-01-31",
+        "cursor": "start",
         "comment_id": "1",
         "run_id": "42",
         "ref": "main",
@@ -601,6 +605,9 @@ def test_no_read_operation_sends_fields_without_an_explicit_get(policy: config.C
     """
     sample = {
         "number": "1",
+        "date": "2026-01-31",
+        "cursor": "start",
+        "commit_hash": "abc1234",
         "comment_id": "1",
         "run_id": "42",
         "ref": "main",
@@ -837,7 +844,7 @@ def test_every_shipped_query_is_registered_as_an_operation() -> None:
     """A .graphql file nobody registered is dead weight; a registration with no
     file is a runtime failure. Neither should survive review."""
     on_disk = {q.stem for q in ops.QUERIES_DIR.glob("*.graphql")}
-    assert on_disk == set(ops.GRAPHQL_QUERIES)
+    assert on_disk == set(ops.GRAPHQL_QUERIES) | ops.SEARCH_DOCUMENTS
     for name in ops.GRAPHQL_QUERIES:
         assert f"gql-{name}" in ops.OPS
 
@@ -879,6 +886,9 @@ def test_tracker_and_upstream_operations_never_cross(policy: config.Config) -> N
     """
     sample = {
         "number": "1",
+        "date": "2026-01-31",
+        "cursor": "start",
+        "commit_hash": "abc1234",
         "comment_id": "1",
         "run_id": "42",
         "ref": "main",
@@ -960,6 +970,9 @@ def test_no_operation_interpolates_a_traversing_ref(policy: config.Config) -> No
     """Belt and braces: no built argv may contain a `..` path segment."""
     sample = {
         "number": "1",
+        "date": "2026-01-31",
+        "cursor": "start",
+        "commit_hash": "abc1234",
         "comment_id": "1",
         "run_id": "42",
         "ref": "main",
@@ -1293,6 +1306,9 @@ def test_every_tracker_operation_refuses_rather_than_retargeting(
     def args_for(op: ops.Op) -> dict[str, str]:
         sample = {
             "number": "1",
+            "date": "2026-01-31",
+            "cursor": "start",
+            "commit_hash": "abc1234",
             "comment_id": "1",
             "run_id": "1",
             "ref": "main",

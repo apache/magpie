@@ -12,6 +12,9 @@
     - [The boundary is the entry point, not `--caller`](#the-boundary-is-the-entry-point-not---caller)
   - [Configuration](#configuration)
   - [CLI](#cli)
+    - [Saving a read instead of printing it](#saving-a-read-instead-of-printing-it)
+    - [The pr-management-triage reads](#the-pr-management-triage-reads)
+    - [The pr-management-stats reads](#the-pr-management-stats-reads)
   - [Tracker procedures: rollup and body-field writes](#tracker-procedures-rollup-and-body-field-writes)
   - [Wiring it into settings](#wiring-it-into-settings)
   - [Tests](#tests)
@@ -107,8 +110,9 @@ For HTTP operations, URLs are built from closed templates and injected parameter
 The backend `"http-read"` implies `writes=False`, enforced by the dispatcher.
 - **No `curl` or `wget` is involved.**
 The `urllib.request` implementation automatically obeys `HTTP_PROXY` and `HTTPS_PROXY` environment variables (egress gateway).
-- **HTTP responses are streamed to stdout, never to files.**
-There is no local filesystem exposure for downloaded data.
+- **HTTP responses are streamed to stdout**, or, with `--save`, written to one
+file in a `saved/` directory you marked for it, and nowhere else (see
+[Saving a read instead of printing it](#saving-a-read-instead-of-printing-it)).
 - **Read-modify-write procedures stay on the tracker.**
 The `procedure` backend (see [Tracker procedures](#tracker-procedures-rollup-and-body-field-writes)) runs a fixed sequence of `gh` calls, and every call passes a runner check first: `gh` only, no shell, `gh issue view|comment|edit` only with `--repo <tracker>`, `gh api` only under `repos/<tracker>/`, no `-F key=@<file>` or `--body-file <path>` (bodies travel on stdin), and no write at all from an operation declared read-only.
 - **The catalogue is closed.**
@@ -217,6 +221,11 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
 "security-issue-deduplicate" = ["osv-get-vuln", "rollup-append", "rollup-fold"]
 "dependency-audit"      = ["osv-query-package", "osv-query-commit", "osv-query-batch"]
 "pr-management-triage"  = ["pr-list", "pr-view", "pr-checks", "gql-pr-liveness",
+                           "gql-pr-triage-open", "gql-pr-triage-label", "gql-pr-triage-author",
+                           "gql-pr-triage-review-requested", "gql-pr-triage-one", "gql-pr-triage-preflight",
+                           "gql-main-recent-failures", "runs-action-required", "runs-at-head", "check-runs",
+                           "compare-behind", "team-members", "upstream-permission", "viewer",
+                           "pr-view-with-body",
                            "pr-add-label", "pr-remove-label", "pr-draft", "pr-ready",
                            "pr-comment", "pr-update-branch", "run-rerun-failed",
                            "workflow-approve"]
@@ -228,7 +237,8 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                                "commits-by-path", "repo-file", "label-list",
                                "gql-pr-review-threads", "pr-review-approve",
                                "pr-review-request-changes", "pr-review-comment"]
-"pr-management-stats"   = ["pr-list", "pr-view", "gql-pr-review-threads"]
+"pr-management-stats"   = ["viewer", "gql-pr-stats-open", "gql-pr-stats-closed-page",
+                           "gql-pr-stats-closed-search", "team-members"]
 "issue-triage"          = ["repo-issue-view", "repo-issue-comments", "repo-issue-list",
                            "repo-issue-add-label", "repo-issue-remove-label",
                            "repo-issue-comment"]
@@ -297,6 +307,71 @@ vetted-op --caller <name> <operation> [param …] --dry-run   # print argv, run 
 
 Exit codes: `0` ok, `2` usage, `3` refused by policy or validation, `4` the
 underlying command failed.
+
+### Saving a read instead of printing it
+
+```bash
+vetted-op-read --caller pr-management-triage --save triage-pages.json gql-pr-triage-open
+# {"saved": "/tmp/agent-scratch/saved/triage-pages.json", "bytes": 482113}
+```
+
+`--save NAME` writes a **read** operation's output to `<workspace>/saved/NAME`
+and prints one JSON line instead of the output itself. It exists for reads too
+large to carry through the caller's context — a full triage sweep is hundreds of
+kilobytes — which a deterministic tool then reads from the file.
+
+- Only reads: a write, or a procedure, with `--save` is refused.
+- `NAME` is one path component (`[A-Za-z0-9][A-Za-z0-9._-]*`, at most 100
+  characters).
+- **`--save` never widens what the caller can write.** `vetted-op-read` runs
+  outside the sandbox and `--config` can name any policy file, including one
+  the agent wrote, so the policy's `workspace` proves nothing about who may
+  write there. `--save` therefore writes only into a `<workspace>/saved/`
+  directory that **already exists and holds a regular `.vetted-ops-save`
+  file** — it creates neither. Whoever made them, you or a sandboxed agent
+  inside its own writable roots, could already write there. Create them once:
+
+  ```bash
+  mkdir -m 700 <workspace>/saved && touch <workspace>/saved/.vetted-ops-save
+  ```
+
+- The workspace passes the same ownership and mode checks as for body files;
+  `saved/` must be yours and closed to group and world. The output goes to an
+  exclusively created temporary file, written `0600`, then renamed over `NAME`,
+  so a symlink or hard link planted under that name is replaced, never written
+  through. Every path is opened with `O_NOFOLLOW` relative to the checked
+  workspace.
+- An HTTP read saved this way still never touches any other path.
+
+### The pr-management-triage reads
+
+| Operation | Parameters | Returns |
+|---|---|---|
+| `gql-pr-triage-open` | — | every open PR, every page (`--paginate --slurp`), in the triage shape of [`queries/pr-triage-search.graphql`](src/vetted_ops/queries/pr-triage-search.graphql) |
+| `gql-pr-triage-label` | `label` (policy `upstream_labels`) | the same, narrowed to one label |
+| `gql-pr-triage-author` | `login` | the same, narrowed to one author |
+| `gql-pr-triage-review-requested` | `login` | the same, narrowed to a requested reviewer |
+| `gql-pr-triage-one` | `number` | one PR in the same shape |
+| `gql-pr-triage-preflight` | — | the viewer's login and permission on the upstream repo, and every label name (all pages) |
+| `gql-main-recent-failures` | — | the check contexts of the ten most recently merged PRs |
+| `runs-action-required` | — | every run awaiting approval, every page |
+| `check-runs` | `commit_hash` | every check run on one commit, every page |
+| `runs-at-head` | `commit_hash` | every workflow run on one head commit, every page — the pre-mutation guards' read |
+| `compare-behind` | `base head` | `{base, behind_by, ahead_by}` |
+| `team-members` | `team` (slug; org from policy) | one login per line |
+
+The search string is built by the operation, `repo:<upstream>` first, so the
+selector parameter narrows a sweep and cannot re-aim it.
+
+### The pr-management-stats reads
+
+| Operation | Parameters | Returns |
+|---|---|---|
+| `gql-pr-stats-open` | — | every open PR, every page, in the dashboard shape of [`queries/pr-stats-open.graphql`](src/vetted_ops/queries/pr-stats-open.graphql) |
+| `gql-pr-stats-closed-page` | `cursor` (opaque base64, or `start`) | one page (50) of closed and merged PRs, newest update first — the default closed path, outside the search index; `pr-management stats build` names the next cursor until a page predates the cutoff |
+| `gql-pr-stats-closed-search` | `date` (strict `YYYY-MM-DD`) | closed and merged PRs since the date through the search index, every page — the `fast-closed` opt-in, capped at 1000 |
+
+The open sweep carries each PR's changed files (for the CODEOWNERS panel); the committers roster comes from `team-members`.
 
 ## Tracker procedures: rollup and body-field writes
 
