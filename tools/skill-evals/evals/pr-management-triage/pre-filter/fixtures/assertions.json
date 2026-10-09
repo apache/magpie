@@ -1,3 +1,0 @@
-{
-  "has_reason_maintainer_codrafting": {"type": "regex", "field": "reason", "pattern": "kaxil|co-?draft|co-?author|collaborator|maintainer", "flags": "i"}
-}

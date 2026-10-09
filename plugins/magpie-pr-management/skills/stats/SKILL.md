@@ -21,7 +21,7 @@ argument-hint: "[repo:owner/name] [since:date] [clear-cache]"
 capability: capability:stats
 surface_hash: sha256:fd94b69bab128b4c
 license: Apache-2.0
-measured_tokens: 3561
+measured_tokens: 3578
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -128,7 +128,7 @@ Adopter overrides and the shared adopter configuration (area-label prefix, triag
 
 **Golden rule 1 — no mutations, ever.** This skill only reads. It must not post comments, add labels, close, rebase, or approve anything. If the maintainer asks for stats and also wants an action, decline the mutation and redirect to `pr-management-triage`.
 
-**Golden rule 2 — reuse pr-management-triage's triage-detection.** The "triaged" count and "responded" count depend on the same `Pull Request quality criteria` marker string and the same collaborator set (`OWNER`/`MEMBER`/`COLLABORATOR`) that drive the triage-marker rows in `pr-management-triage/classify-and-act.md` (rows 3–4 — `already_triaged`). Don't invent a second definition — both skills must agree on "is this PR triaged".
+**Golden rule 2 — reuse pr-management-triage's triage-detection.** The "triaged" count and "responded" count depend on the same `Pull Request quality criteria` marker string and the same collaborator set (`OWNER`/`MEMBER`/`COLLABORATOR`) that drive the triage-marker rows (3–4, `already_triaged`) of `pr-management-triage` — one implementation, [`tools/pr-management` → Shared rules](../../../../tools/pr-management/README.md#shared-rules). Don't invent a second definition — both skills must agree on "is this PR triaged".
 
 Golden rules 3–9 move to the sibling that applies them — rule 3 in [`fetch.md`](fetch.md), rules 4–8 in [`render.md`](render.md), rule 9 in [`classify.md`](classify.md); read them before Steps 5a–6.
 

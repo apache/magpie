@@ -171,7 +171,7 @@ maintainer confirmation — see
 for the full contract.
 
 The closest existing surface is
-[`pr-management-triage/comment-templates.md`](../skills/pr-management-triage/comment-templates.md),
+[`pr-management triage render`](../tools/pr-management/README.md#triage-render--the-contributor-facing-bodies),
 which carries Agentic Triage classification responses — informational,
 not pedagogical. It is **not** Agentic Mentoring.
 

@@ -1,5 +1,0 @@
-{
-  "classification": "deterministic_flag",
-  "action": "rebase",
-  "has_reason_no_real_ci": true
-}

@@ -11,7 +11,7 @@ is:pr is:open repo:<repo> label:"ready for maintainer review" sort:updated-asc
 ```
 
 Walk every page with the family's batched query from
-[`pr-management-triage/fetch-and-batch.md`](../pr-triage/fetch-and-batch.md),
+[`pr-management triage classify`](../../../../tools/pr-management/README.md#triage-classify--pr-management-triage-step-2),
 **extended with the per-PR file list and churn totals** the triviality screen
 needs:
 
@@ -30,7 +30,7 @@ complexity ceiling trips — the `files` connection adds nodes).
 
 Fetch the repo-scoped `action_required` workflow-run index once per session
 (same REST call as
-[`pr-management-triage/fetch-and-batch.md#mandatory-action_required-run-index-per-page`](../pr-triage/fetch-and-batch.md#mandatory-action_required-run-index-per-page))
+[`the triage `runs-action-required` read`](../../../../tools/vetted-ops/README.md#the-pr-management-triage-reads))
 — a PR with a run awaiting approval is **not** gate-green even if its rollup
 reads SUCCESS.
 

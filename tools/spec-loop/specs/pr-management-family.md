@@ -69,11 +69,14 @@ same directory; the behaviour is unchanged.
   Classifies each candidate against a project decision table and proposes
   a disposition; the maintainer confirms per PR or per group. State changes
   execute on confirmation only. Ships `mode: Triage` + `experimental`.
-  Detail files: `prerequisites.md`, `fetch-and-batch.md`,
-  `classify-and-act.md`, `actions.md`, `interaction-loop.md`,
-  `stale-sweeps.md`, `comment-templates.md`, `session-history.md`,
-  `contract-binding.md`, `backport-check.md`, `workflow-approval.md`, and
-  `rationale.md`.
+  The deterministic work runs in `tools/pr-management` (`triage classify`,
+  `render`, `fold`, `guard`, `session`) over reads saved with
+  `vetted-op-read --save`; the agent never evaluates a rule or writes a body.
+  Detail files: `prerequisites.md`, `interaction-loop.md`,
+  `workflow-approval.md`, `backport-check.md`, `session-history.md`,
+  `contract-binding.md`, `typed-decision-prefilter.md`, `design-notes.md`,
+  one file per decision row or sweep under `classifications/`, and one per
+  action under `actions/`; `triage classify` names which of them a run loads.
   It also ships agent-guard guards under `guards/` (`mark_ready.py`,
   `mention.py`) and the opt-in shadow pre-filter
   `scripts/typed_decision_prefilter.py` with its tests under `tests/`.
@@ -135,6 +138,17 @@ same directory; the behaviour is unchanged.
   a label, comment, or state change without the maintainer typing a
   confirmation in-session. The single exception class — `pr-management-stats`
   — is unconditionally read-only; it emits rendered tables, never a write.
+- **Triage rules run as code, not as model judgement.** `pr-management triage
+  classify` evaluates the pre-filters, the first-match-wins decision table,
+  the stale sweeps and bot-draft promotion over the saved sweep and prints
+  groups in presentation order with the documents each one needs. A decision
+  that depends on data the sweep lacks (a truncated rollup page, commits
+  behind, a login's permission, live mergeability) comes back under `needs`
+  as a vetted read; the skill runs it and classifies again. Every mutation is
+  preceded by `triage guard` on fresh reads (moved head, pending workflow
+  approval, unknown or conflicting mergeability), and every contributor-facing
+  body comes from `triage render`, which allows only the author's
+  `@`-mention. Regression cases: `tools/pr-management/tests/`.
 - **Stable per-PR drill-in progress.** `pr-management-triage` prefixes each
   individual drill-in with the PR's original one-based group position and
   group size plus the active `classify → propose <action>` transition.
@@ -154,8 +168,8 @@ same directory; the behaviour is unchanged.
   marker by anyone other than the viewer counts toward a close only after
   its author passes the live maintainer check, and a marker comment never
   double-counts as maintainer activity.
-  Regression cases: `tools/skill-evals/evals/pr-management-triage/`
-  decision-table fixtures, including `case-22-fold-by-another-triager`.
+  Regression cases: `tools/pr-management/tests/test_triage_classify.py`,
+  including `test_case_22_fold_by_another_triager_without_by`.
 - **Backports are checked early, when the project cherry-picks.** With
   `backport_branches` set in `pr-management-config.md`,
   `pr-management-triage` runs Step 0.7 before the main flow on every open
@@ -170,7 +184,7 @@ same directory; the behaviour is unchanged.
   empty the step is skipped. Regression cases:
   `tools/skill-evals/evals/pr-management-triage/backport-check/`.
 - **Acted-on PRs are not re-surfaced in the same session.**
-  After pagination dedup, Step 1 of `pr-management-triage` silently drops
+  After pagination dedup, `triage classify` silently drops
   every PR the session cache holds under a terminal `action_taken` whose
   cached `head_sha` equals the freshly fetched head SHA: it appears in no
   group, progress line, or Step 6 summary.
@@ -210,9 +224,8 @@ same directory; the behaviour is unchanged.
   a general comment, a review-thread comment, or a submitted top-level review
   whose body is non-empty after stripping whitespace — came from a maintainer,
   was posted after the latest author push, and is less than 72 hours old.
-  Regression cases:
-  `tools/skill-evals/evals/pr-management-triage/pre-filter/fixtures/case-11`
-  … `case-21`.
+  Regression cases: the F5a tests in
+  `tools/pr-management/tests/test_triage_classify.py`.
 - **Quick-merge never merges.** `pr-management-quick-merge` surfaces
   candidates and the maintainer runs the exact `gh pr merge` command
   themselves. Automated merge belongs to a future Auto-merge mode that is
@@ -357,6 +370,7 @@ tools/dev/run-skill-script-tests.sh
 test -f .agents/skills/magpie-pr-management-mentor/SKILL.md
 test -f docs/pr-management/README.md
 uv run --all-packages --group dev pytest tools/pr-management-stats/tests
+uv run --all-packages --group dev pytest tools/pr-management/tests
 uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-validate
 ```
 

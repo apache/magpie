@@ -134,6 +134,7 @@ members = [
   "tools/mail-source/imap",
   "tools/maven-artifact-verify",
   "tools/permission-audit",
+  "tools/pr-management",
   "tools/pr-management-stats",
   "tools/preflight-audit",
   "tools/privacy-llm/checker",

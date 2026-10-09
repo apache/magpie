@@ -111,12 +111,11 @@ The token used by `gh` must carry the `gist` OAuth scope. Step
 6b's pre-flight check:
 
 ```bash
-scopes=$(gh auth status 2>&1 | sed -n 's/.*Token scopes: //p' | head -1)
-case "$scopes" in
-  *gist*) ;;
-  *) echo "history-gist: gh token lacks 'gist' scope — skipping. Re-run \`gh auth refresh -s gist\` to enable." >&2; exit 0 ;;
-esac
+gh auth status
 ```
+
+Run it as a bare command (a pipe or `$(…)` keeps `gh` inside the sandbox, where it cannot read its credentials).
+If the `Token scopes:` line does not list `gist`, skip Step 6b with one line: *"history-gist: gh token lacks 'gist' scope — skipping. Run `gh auth refresh -s gist` to enable."*
 
 A missing scope is **not** an error — Step 6b is opt-in and
 soft-fails to a one-line notice so the rest of the session
@@ -308,7 +307,7 @@ maintainer's collaborators with access to the link.
 The skill MUST NOT include:
 
 - PR comment bodies verbatim (only the action verb + reason
-  string from `classify-and-act.md`),
+  string from `triage classify`),
 - diff snippets (those live only in the per-session scratch
   cache),
 - author email addresses or any field outside the PR / repo

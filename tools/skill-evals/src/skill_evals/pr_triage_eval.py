@@ -315,7 +315,7 @@ def generate_markdown_report(
         "Ground truth labels in this dataset were derived from rule-based heuristics over historical "
         "PR attributes (CI check rollup, mergeability state, failed checks, unresolved review threads, "
         "draft status, and security keyword patterns in title/commit messages/body) according to the "
-        "decision taxonomy in `plugins/magpie-pr-management/skills/pr-triage/classify-and-act.md`."
+        "decision taxonomy in `tools/pr-management/src/pr_management/triage/classify.py`."
     )
 
     # Format confusion matrix markdown table

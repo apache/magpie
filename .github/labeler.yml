@@ -551,6 +551,7 @@ substrate:analytics:
           - any-glob-to-any-file:
               - 'tools/contributor-metrics/**'
               - 'tools/dashboard-generator/**'
+              - 'tools/pr-management/**'
               - 'tools/pr-management-stats/**'
               - 'tools/preflight-audit/**'
               - 'tools/security-tracker-stats-dashboard/**'

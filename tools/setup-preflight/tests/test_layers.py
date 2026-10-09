@@ -280,6 +280,7 @@ def test_the_module_reports_the_main_checkout_fallback(tmp_path: Path, capsys) -
 REPO_ROOT = Path(__file__).resolve().parents[3]
 COPIES = (
     "tools/release-config/src/release_config/layers.py",
+    "tools/pr-management/src/pr_management/layers.py",
     "tools/adversarial-review/src/adversarial_review/layers.py",
     "tools/privacy-llm/checker/src/checker/layers.py",
     "tools/container-gateway/src/container_gateway/layers.py",

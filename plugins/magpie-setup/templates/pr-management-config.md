@@ -10,6 +10,7 @@
   - [Project-specific labels](#project-specific-labels)
   - [Grace windows](#grace-windows)
   - [Workflow choices](#workflow-choices)
+  - [CI check patterns](#ci-check-patterns)
   - [Typed-decision pre-filter (opt-in)](#typed-decision-pre-filter-opt-in)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -34,8 +35,8 @@ existing conventions.
 
 | Key | Value | Used by |
 |---|---|---|
-| `committers_team` | `<github-org>/<committers-team-slug>` | `classify-and-act.md` row F5b — team-mention detection. Used to recognise PR comments that `@`-mention the project's committers as a maintainer-to-maintainer ping. Example: `apache/airflow-committers`. |
-| `area_label_prefix` | `area:` | `classify-and-act.md`, `pr-management-stats` — area-label grouping. Adjust to the prefix your project uses for area labels (e.g. `comp:`, `module:`), or leave blank if your project doesn't group PRs by area. |
+| `committers_team` | `<github-org>/<committers-team-slug>` | `pr-management triage classify` — pre-filters F5b / F5c and every maintainer test (team membership). Used to recognise PR comments that `@`-mention the project's committers as a maintainer-to-maintainer ping. Example: `apache/airflow-committers`. |
+| `area_label_prefix` | `area:` | `pr-management triage classify`, `pr-management-stats` — area-label grouping. Adjust to the prefix your project uses for area labels (e.g. `comp:`, `module:`), or leave blank if your project doesn't group PRs by area. |
 
 ## Project-specific labels
 
@@ -82,11 +83,21 @@ default to use the standard variant.
 
 | Key | Default | Notes |
 |---|---|---|
-| `triage_feedback_channel` | `pr-body` | Where the deterministic quality-violation feedback for the `draft`, `comment` (deterministic-flag), and `close` actions is delivered. `pr-body` (default): the violations are **folded into the PR description** as a managed marker block — editing a PR body does **not** notify subscribers, so the maintainer mailbox stays quiet (the [denoise rationale](../../../skills/pr-management-triage/rationale.md#why-fold-feedback-into-the-pr-body-denoise)). `comment`: the legacy behaviour — the same feedback is posted as a PR comment, which notifies every subscriber. Pings, `request-author-confirmation`, security-language, suspicious-changes, and stale-sweep messages are unaffected by this key — their purpose *is* to notify a human, so they always post a comment. See [`actions.md`](../../../skills/pr-management-triage/actions.md) and [`comment-templates.md#body-fold-rendering`](../../../skills/pr-management-triage/comment-templates.md#body-fold-rendering). |
-| `confirmation_handback_mode` | `reviewer-ping` | `request-author-confirmation` action's "If yes" branch. `reviewer-ping`: the author marks threads resolved and `@`-pings the reviewer for a final look + label. `maintainer-sweep`: the author replies with a short `yes / ready` and the next triage sweep promotes the PR to the maintainer review queue. Pick `maintainer-sweep` if your project runs a regular maintainer triage cadence and prefers a lightweight contributor confirmation over a reviewer-driven hand-back. See [`comment-templates.md#request-author-confirmation`](../../../skills/pr-management-triage/comment-templates.md) for both bodies. |
+| `triage_feedback_channel` | `pr-body` | Where every contributor-facing triage note is delivered. `pr-body` (default): one maintainer-triage note is **folded into the PR description** and replaced in place on every refresh — editing a PR body notifies nobody but the `@`-mentioned author, so the maintainer mailbox stays quiet (the [denoise rationale](../../magpie-pr-management/skills/pr-triage/design-notes.md#why-fold-feedback-into-the-pr-body-denoise)). `comment`: the legacy behaviour — each note is posted as a PR comment, which notifies every subscriber. The suspicious-changes receipt always posts as a comment. `pr-management triage render` and `triage fold` implement both channels. |
+| `confirmation_handback_mode` | `reviewer-ping` | `request-author-confirmation` action's "If yes" branch. `reviewer-ping`: the author marks threads resolved and `@`-pings the reviewer for a final look + label. `maintainer-sweep`: the author replies with a short `yes / ready` and the next triage sweep promotes the PR to the maintainer review queue. Pick `maintainer-sweep` if your project runs a regular maintainer triage cadence and prefers a lightweight contributor confirmation over a reviewer-driven hand-back. See [`triage render#request-author-confirmation`](../../../tools/pr-management/README.md#triage-render--the-contributor-facing-bodies) for both bodies. |
 | `backport_branches` | *(empty)* | Base-branch patterns (e.g. `v*-test`, `release/*`) that receive only cherry-picks from the default branch. Enables the [backport check](../../magpie-pr-management/skills/pr-triage/backport-check.md) (Step 0.7) for PRs targeting them. Leave empty if the project does not cherry-pick. |
 | `backport_policy` | `fixes-only` | What a backport may carry. `fixes-only`: flag features, behaviour changes, new deprecations, removals and refactors for closing. `any`: skip the change-type check and only verify the backport is a faithful cherry-pick. |
 | `session_history_gist` | `enabled` | [Step 6b](../../../skills/pr-management-triage/session-history.md#step-6b--propose-session-history-gist-update) — propose appending each session to a private GitHub gist on the maintainer's account. Set to `disabled` to skip Step 6b unconditionally for this project (overrides the per-invocation `no-history` flag). The local state file (`session-state.json` in the personal config layer) is read regardless so an existing gist remains discoverable. See [`session-history.md`](../../../skills/pr-management-triage/session-history.md). |
+
+## CI check patterns
+
+Regular expressions the classifier matches against check names.
+Leave a value empty to use the framework default.
+
+| Key | Default | Notes |
+|---|---|---|
+| `real_ci_patterns` | *(empty)* | Check names that are **real CI**, as regexes matched from the start of the name, case-insensitive (e.g. `` `Tests` `Static checks` `Build` ``). A green rollup counts as `passing` only when one context matches. Empty: any context that is not a known bot or labeler check (`Mergeable`, `WIP`, `DCO`, `boring-cyborg`, …) counts. |
+| `static_check_patterns` | *(empty)* | Extra **static-check** name fragments, added to the built-in list (`lint`, `mypy`, `ruff`, `pre-commit`, `spelling`, `build docs`, …). A failure here routes to a code-fix comment instead of a rerun. |
 
 ## Typed-decision pre-filter (opt-in)
 

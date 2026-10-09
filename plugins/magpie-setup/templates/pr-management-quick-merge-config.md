@@ -65,7 +65,7 @@ the skill falls back to the default noted in its row.
 `real_ci_patterns` is **read from the shared
 [`<project-config>/pr-management-config.md`](pr-management-config.md)** — do not
 duplicate it here. The skill uses it for the
-[Real-CI guard](../../../skills/pr-management-triage/classify-and-act.md#real-ci-guard)
+[Real-CI guard](../../../tools/pr-management/README.md#shared-rules)
 in gate G2 so a SUCCESS rollup that comes only from bot checks
 (`Mergeable`/`DCO`/`boring-cyborg`) is not mistaken for green CI.
 

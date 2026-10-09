@@ -230,7 +230,7 @@ to input.
 
 | Skill | Typical invocation | Planning estimate | Primary cost driver | Replay p50 tokens |
 |---|---|---|---|---|
-| `pr-management-triage` | Single PR triage pass | 5K–30K | PR diff size and comment count | Not measured |
+| `pr-management-triage` | Single PR triage pass | 10K–20K | Number of classifications and actions present (each loads its own file); the sweep data itself stays in files `tools/pr-management` reads | Not measured |
 | `pr-management-stats` | Weekly queue report | 10K–50K | Number of open PRs read | Not measured |
 | `pr-management-code-review` | Single PR deep review | 15K–80K | Diff size; code-heavy PRs are expensive | Not measured |
 | `pr-management-stack-review` | One stack (5–10 layers) | 30K–150K | Lines read in full (Tier A/B); structure is script-side and nearly free, mechanical and generated layers cost one exemplar each | Not measured |

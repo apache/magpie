@@ -29,9 +29,9 @@ touching any PR:
    `suspicious changes detected`) must exist on `<repo>`;
    missing ones degrade to "post the comment, skip the label"
    with a warning.
-3. Initialise (or read) the session cache at
-   `/tmp/pr-management-triage-cache-<repo-slug>.json` (see
-   [`fetch-and-batch.md#session-cache`](fetch-and-batch.md)).
+3. Note the session cache at
+   `<scratch>/triage-session.json` (see
+   [`triage session record`](../../../../tools/pr-management/README.md#triage-session-record--triage-session-summary)).
 
 A failure of step 1 is a **stop** — surface it and ask the
 maintainer to run `gh auth login`. Steps 2 and 3 degrade
@@ -79,106 +79,40 @@ calibration view.
 
 ---
 
-## 2. Viewer has collaborator access to `<repo>` (blocking for mutations)
+## 1b. A save directory for the sweep (blocking, one-time)
 
-Issue **one** GraphQL query that asks GitHub about both the
-repository and the viewer's permission in that repository. Do
-not issue two separate `gh api` calls:
+Every read in this skill is saved with `vetted-op-read --save`, which writes only into a `saved/` directory under the vetted-ops workspace that holds a `.vetted-ops-save` marker — it creates neither, so it can never write where you could not.
+If the first save refuses with *"holds no .vetted-ops-save file"* or *"is unusable"*, ask the maintainer to create it once (the workspace path is in the refusal):
 
-```graphql
-query($owner: String!, $repo: String!) {
-  viewer { login }
-  repository(owner: $owner, name: $repo) {
-    name
-    viewerPermission   # READ / TRIAGE / WRITE / MAINTAIN / ADMIN / null
-  }
-}
+```bash
+mkdir -m 700 <workspace>/saved && touch <workspace>/saved/.vetted-ops-save
 ```
-
-Pass condition: `viewerPermission` is `WRITE`, `MAINTAIN`, or
-`ADMIN`. `TRIAGE` is sufficient for label/close/draft operations
-but **not** for workflow approval — if the viewer is only
-`TRIAGE`, note that `pending_workflow_approval` PRs will surface
-in the proposal but the `approve-workflow` action will fall back
-to "ask a WRITE-level maintainer".
-
-On failure (`READ` or `null`), stop and say which repo the
-viewer lacks access to, plus the recommended next step
-(*"ask to be added as a collaborator"* or *"check you're
-logged in as the right account"*).
-
-Cache the result of this query in the session scratch file so
-repeated invocations within the same working session don't
-re-check.
 
 ---
 
-## 3. Required labels exist on `<repo>` (non-blocking — degrade)
+## 2–3. Viewer permission and the triage labels
 
-The skill uses three triage-specific labels:
+One read, one check:
 
-| Label | Used by |
-|---|---|
-| `ready for maintainer review` | `mark-ready` action |
-| `closed because of multiple quality violations` | `close` action when author has >3 flagged PRs |
-| `suspicious changes detected` | `flag-suspicious` action from workflow approval |
-
-Check them in the same query as step 2 by appending aliased
-`label(name: "...")` lookups:
-
-```graphql
-query($owner: String!, $repo: String!) {
-  viewer { login }
-  repository(owner: $owner, name: $repo) {
-    viewerPermission
-    ready:        label(name: "ready for maintainer review") { id }
-    closed_quality: label(name: "closed because of multiple quality violations") { id }
-    suspicious:   label(name: "suspicious changes detected") { id }
-  }
-}
+```bash
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller pr-management-triage --save preflight.json gql-pr-triage-preflight
+uv run --project <framework>/tools/pr-management pr-management triage preflight --saved-dir <workspace>/saved
 ```
 
-For each missing label, emit a single-line warning. The skill
-**does not** auto-create labels — creating labels is a
-repository-admin decision and silently adding them would
-surprise the maintainers who manage the label set. Instead, the
-relevant action falls back to "post the comment, skip the
-label add, log a one-line warning that the label is missing".
+- `ok: false` → stop and show `blocking` (the viewer has read access or none: *"ask to be added as a collaborator"* or *"check you're logged in as the right account"*).
+- `warnings` → show each once. `TRIAGE` permission is enough for labels, closes and drafts but not for workflow approval, which then falls back to "ask a WRITE-level maintainer".
+- `missing_labels` → the action that would add one posts its note and skips the label. The skill **does not** create labels — that is a repository-admin decision. A missing ready label means `mark-ready` cannot run at all. On `<upstream>` a missing label is itself an anomaly worth flagging.
 
-On `<upstream>`, all three labels are expected to exist and
-a missing label is itself an anomaly worth flagging.
+The labels checked are the configured ones (`ready_for_maintainer_review`, `quality_violations_close`, `suspicious_changes`).
 
 ---
 
-## 4. Session scratch cache available (non-blocking)
+## 4. Session cache
 
-The scratch cache lives at
-`/tmp/pr-management-triage-cache-<repo-slug>.json` where `<repo-slug>` is
-`<owner>__<name>` (e.g. `apache__project`). It stores:
-
-- viewer login and `viewerPermission` (so we don't re-check in
-  the same session)
-- `(pr_number, head_sha) -> classification` for the PRs already
-  seen this session
-- `(pr_number, head_sha) -> last_action` for the PRs already
-  acted on
-- a `label_ids` map so we don't re-resolve label node IDs per
-  action
-
-If the file is missing, initialise it empty. If the file is
-corrupted (invalid JSON, wrong schema), delete it and warn the
-maintainer — it's purely a performance cache, losing it is
-harmless. Never block on cache read/write errors.
-
-The session cache is invalidated by passing `clear-cache` on
-invocation, and individual entries are invalidated naturally by
-the `head_sha` key — a contributor pushing a new commit will
-produce a new SHA and a cache miss.
-
-Do **not** use this cache across pull-request runs for
-decisions — always re-enrich the current page before acting on
-it. The cache's job is to skip *classification*, not to skip
-*verification*.
+The session cache is `<scratch>/triage-session.json`, written by `triage session record` and read by `triage classify --session`.
+A PR recorded with a terminal action and an unchanged head is skipped for the rest of the session; a new push produces a new head and re-classifies it.
+A missing file is an empty session; `clear-cache` deletes it.
+The cache skips *classification*, never *verification*: every mutation still guards on fresh reads.
 
 ---
 
@@ -196,7 +130,7 @@ gh api --help
 Any missing subcommand means an older `gh` — warn and skip the
 affected action (most commonly `gh pr update-branch`, which
 landed in `gh` 2.20+; earlier versions need the REST call from
-[`actions.md#rebase`](actions.md)).
+[`actions/rebase.md`](actions/rebase.md)).
 
 ---
 

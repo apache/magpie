@@ -26,7 +26,7 @@ AI-attribution footer wording, and the project display name —
 plus any template body the project intentionally overrides.
 
 The framework's
-[`comment-templates.md`](../skills/pr-management-triage/comment-templates.md)
+[`triage render`](../tools/pr-management/README.md#triage-render--the-contributor-facing-bodies)
 ships the default bodies for every triage template; the skill
 reads this file for the URLs / wording and renders the
 framework defaults with them. **Do not duplicate the framework
@@ -78,7 +78,7 @@ block) rather than posted as a comment — so the marker appears in
 the PR body. The block still carries the
 `Pull Request quality criteria` link text, so the same marker
 detection works in both channels. See
-[`comment-templates.md#body-fold-rendering`](../skills/pr-management-triage/comment-templates.md#body-fold-rendering).
+[`triage render`](../tools/pr-management/README.md#triage-render--the-contributor-facing-bodies).
 
 | Concept | Value |
 |---|---|
@@ -108,14 +108,14 @@ as a comment (the default `pr-body` channel), the framework uses
 the parallel `<ai_attribution_footer_body>` variant — same
 `<PROJECT>` / `<two_stage_triage_rationale_url>` substitutions,
 worded for a description edit. See
-[`comment-templates.md#body-fold-rendering`](../skills/pr-management-triage/comment-templates.md#body-fold-rendering).
+[`triage render`](../tools/pr-management/README.md#triage-render--the-contributor-facing-bodies).
 
 ## Template body overrides
 
 Leave this section empty unless your project needs a body
 that differs from the framework default for a specific
 template. The framework's
-[`comment-templates.md`](../skills/pr-management-triage/comment-templates.md)
+[`triage render`](../tools/pr-management/README.md#triage-render--the-contributor-facing-bodies)
 documents every template with its default body and the
 placeholder-resolution contract — the skill picks the
 default automatically.

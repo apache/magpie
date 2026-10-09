@@ -260,16 +260,16 @@ fixed order so the cheapest, most reversible mutations land
 first:
 
 1. **Approve indices**: for each PR, run
-   [`actions.md#approve-workflow`](actions.md) against the PR's
+   [`actions/approve-workflow.md`](actions/approve-workflow.md) against the PR's
    head SHA. On success, update the session cache with
    `action_taken: "approve-workflow"` so the PR doesn't
    resurface in this session.
 2. **Flag-suspicious indices**: for each PR, run
-   [`actions.md#flag-suspicious`](actions.md) against the
+   [`flag-suspicious`](actions/approve-workflow.md#flag-suspicious--close-all-open-prs-by-the-author) against the
    *author*, not just the PR. The flag is an author-level
    decision — all their currently-open PRs close with the
    `suspicious changes detected` label. The body comes from
-   [`comment-templates.md#suspicious-changes`](comment-templates.md).
+   the `suspicious-changes` template (`triage render --action flag-suspicious`).
    Two flagged PRs by the same author collapse to a single
    author-level flag (don't double-close their PRs).
 3. **Skip indices** (and any unlisted index): no mutations, no
