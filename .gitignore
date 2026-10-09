@@ -37,7 +37,7 @@ logs
 
 # Local per-adopter framework state (triage session-history gist id,
 # stats dashboard gist id, …). Written by the pr-management skills at the
-# repo root; never committed (see skills/pr-management-stats/export.md and
+# repo root; never committed (see tools/pr-management/src/pr_management/stats/build.py and
 # skills/pr-management-triage/session-history.md).
 /.apache-magpie.session-state.json
 

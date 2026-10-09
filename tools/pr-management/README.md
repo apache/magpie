@@ -14,6 +14,7 @@
     - [`triage fold` — splice the note into the PR body](#triage-fold--splice-the-note-into-the-pr-body)
     - [`triage guard` — the pre-mutation checks](#triage-guard--the-pre-mutation-checks)
     - [`triage session record` / `triage session summary`](#triage-session-record--triage-session-summary)
+    - [`stats build` — the pr-management-stats dashboard](#stats-build--the-pr-management-stats-dashboard)
     - [`config`](#config)
   - [Shared rules](#shared-rules)
   - [What it reads](#what-it-reads)
@@ -30,7 +31,7 @@
 
 **Harness:** agnostic
 
-The deterministic core of the `pr-management` skills.
+The deterministic core of the `pr-management` skills: pr-management-triage's classification, guards and bodies, and the whole pr-management-stats dashboard.
 It reads the reads a skill saved with `vetted-op-read --save`, plus the adopter's `<project-config>`, and prints one JSON document.
 Every rule that is a function of PR state — the triage pre-filters and decision table, maintainer detection, triage markers, the real-CI guard, grace windows — runs here, so the agent never evaluates one and every run gives the same answer.
 What stays with the agent is judgement: inspecting a diff before approving a workflow, reading an author's reply, wording, and the maintainer conversation.
@@ -38,7 +39,7 @@ What stays with the agent is judgement: inspecting a diff before approving a wor
 ## Prerequisites
 
 - **Runtime:** Python 3.11+, stdlib only; run via `uv run --project <framework>/tools/pr-management`.
-- **CLIs:** None beyond the runtime. It never calls `gh`: under the secure setup `gh` only works outside the sandbox, so the skill fetches through [`vetted-ops`](../vetted-ops/README.md) and this tool reads the saved files.
+- **CLIs:** None beyond the runtime. It never calls `gh`: under the secure setup `gh` only works outside the sandbox, so the skill fetches through [`vetted-ops`](../vetted-ops/README.md) and this tool reads the saved files. The one exception is the CI mode `stats build --fetch-with-gh`, which shells out to `gh`.
 - **Credentials / auth:** None (`--fetch-with-gh`: an authenticated `gh`).
 - **Network:** None — reads local files only (`--fetch-with-gh`: `api.github.com` through `gh`).
 
@@ -133,6 +134,35 @@ uv run --project <framework>/tools/pr-management pr-management triage session su
 
 `record` writes the session cache `triage classify --session` reads: a PR recorded terminal with an unchanged head is suppressed on the next classification.
 `summary` prints the Step 6 counts and a ready-to-print `text` block.
+
+### `stats build` — the pr-management-stats dashboard
+
+The skill saves the reads, from the [pr-management-stats reads](../vetted-ops/README.md#the-pr-management-stats-reads):
+
+```bash
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller pr-management-stats --save stats-open.json gql-pr-stats-open
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller pr-management-stats --save team-members.txt team-members <committers-team-slug>
+```
+
+then builds:
+
+```bash
+uv run --project <framework>/tools/pr-management pr-management stats build --saved-dir <workspace>/saved \
+  --viewer <login> --out <scratch>/dashboard.html [--since YYYY-MM-DD] [--fast-closed] [--format markdown]
+```
+
+| Key | Meaning |
+|---|---|
+| `needs` | a read the build depends on, as `{op, params, save}` — the open sweep, or the next `gql-pr-stats-closed-page` (`start` first, then each page's end cursor, until a page's oldest update predates the cutoff); with `--fast-closed`, the one `gql-pr-stats-closed-search <date>` read instead. Save it and build again. Nothing else is printed while `needs` is non-empty. |
+| `out`, `format` | the dashboard written (HTML, every panel, the legend and methodology; or the Markdown fallback), with a `.json` sidecar of the counts next to it |
+| `summary` | health rating, hero numbers, the top recommendations as `title — command`, and the stable one-line `line` |
+| `partial`, `cap_note` | the fetch was cut short; the closed series hit the 1000-result search cap — which weeks are truncated and which are authoritative. Both also appear as banners in the HTML. |
+| `publish` | the stable gist: `gist_id` from the personal layer's `session-state.json` (`stats_gist_id`), and the exact bare `command` — `gh gist create …` the first time, `gh api -X PATCH gists/<id> --input <payload>` after (the tool writes the payload). The tool never writes to GitHub. |
+
+After a first `gh gist create`, `pr-management stats record-gist <id>` stores the id so later runs update the same URL.
+
+CODEOWNERS is read from the adopter checkout (`.github/CODEOWNERS`, `CODEOWNERS`, `docs/CODEOWNERS`).
+`--fetch-with-gh [--repo owner/name]` fetches through `gh` directly instead of the saved files, for a CI job outside the sandbox; it uses the search index for closed PRs.
 
 ### `config`
 

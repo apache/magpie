@@ -251,6 +251,61 @@ def _config(args: argparse.Namespace) -> dict[str, Any]:
     return data
 
 
+# --- pr-management-stats --------------------------------------------------------
+
+
+def _add_stats_parsers(sub: Any) -> None:
+    stats = sub.add_parser("stats", help="pr-management-stats")
+    stats_sub = stats.add_subparsers(dest="command", required=True)
+    bld = stats_sub.add_parser("build", help="fetch-free build of the whole dashboard from the saved reads")
+    bld.add_argument(
+        "--saved-dir", type=Path, default=None, help="the vetted-ops workspace's saved/ directory"
+    )
+    bld.add_argument("--viewer", required=True, help="the authenticated maintainer's login")
+    bld.add_argument(
+        "--out", type=Path, required=True, help="the dashboard file to write (keep it dashboard.html)"
+    )
+    bld.add_argument("--since", default=None, help="cutoff YYYY-MM-DD (default: six weeks ago)")
+    bld.add_argument(
+        "--fast-closed", action="store_true", help="closed PRs from the search index (capped, lags)"
+    )
+    bld.add_argument("--format", choices=("html", "markdown"), default="html")
+    bld.add_argument(
+        "--fetch-with-gh", action="store_true", help="fetch through gh directly (CI, outside the sandbox)"
+    )
+    bld.add_argument("--repo", default=None, help="owner/name for --fetch-with-gh (default: upstream_repo)")
+    bld.add_argument("--now", default=None, help="evaluate as of this ISO-8601 time (tests, replays)")
+    rec = stats_sub.add_parser("record-gist", help="store the dashboard gist's id for in-place updates")
+    rec.add_argument("gist_id")
+
+
+def _stats(args: argparse.Namespace) -> dict[str, Any]:
+    from .stats import build as stats_build
+
+    if args.command == "record-gist":
+        if not args.gist_id.isalnum():
+            raise SystemExit(f"pr-management: {args.gist_id!r} is not a gist id")
+        return stats_build.record_gist(args.project_root, args.gist_id)
+    if args.since is not None:
+        try:
+            dt.datetime.strptime(args.since, "%Y-%m-%d")
+        except ValueError:
+            raise SystemExit(f"pr-management: --since {args.since!r} is not YYYY-MM-DD") from None
+    return stats_build.build(
+        project_root=args.project_root,
+        config_dir=args.config_dir,
+        saved=args.saved_dir,
+        viewer=args.viewer,
+        out=args.out,
+        since=args.since,
+        fast_closed=args.fast_closed,
+        fetch_with_gh=args.fetch_with_gh,
+        repo=args.repo,
+        fmt=args.format,
+        now=_now(args.now) if args.now else None,
+    )
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="pr-management", description=__doc__.splitlines()[0])
     parser.add_argument("--project-root", type=Path, default=Path.cwd(), help="the adopter repository root")
@@ -330,6 +385,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     summ.add_argument("--classify", type=Path, default=None, help="this session's classify output")
     summ.add_argument("--now", default=None)
 
+    _add_stats_parsers(sub)
+
     args = parser.parse_args(argv)
     result: dict[str, Any] = {}
     if args.family == "config":
@@ -348,6 +405,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
     elif args.family == "triage" and args.command == "guard":
         result = _triage_guard(args)
+    elif args.family == "stats":
+        result = _stats(args)
     else:  # pragma: no cover - argparse enforces the choices
         parser.error("unknown command")
     json.dump(result, sys.stdout, indent=2, default=str, ensure_ascii=False)

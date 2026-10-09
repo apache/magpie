@@ -83,7 +83,7 @@ same directory; the behaviour is unchanged.
 - Skill: `pr-management-stats` — read-only summary tables of the open PR
   backlog, grouped by area label, age bucket, and triage state. No tracker
   state is mutated. Ships `mode: Triage` + `capability: capability:stats`
-  + `experimental`. Backed by `tools/pr-management-stats/`.
+  + `experimental`. Backed by `tools/pr-management/` (`pr-management stats build`).
 - Skill: `pr-management-code-review` (`code-review/`) — deep, line-aware
   code review one PR at a time; applies project criteria and drafts an
   `APPROVE` / `REQUEST_CHANGES` / `COMMENT` review with inline comments;
@@ -123,7 +123,7 @@ same directory; the behaviour is unchanged.
   local branch; [pairing mode](pairing-mode.md)).
 - Family README: `docs/pr-management/README.md` — family overview, skill
   table, adopter-config scaffold.
-- Tool: `tools/pr-management-stats/` — deterministic Python backing for
+- Tool: `tools/pr-management/` (`pr_management.stats`) — deterministic Python backing for
   `pr-management-stats`; ships its own tests.
 - Adopter config (templates in `plugins/magpie-setup/templates/`, which
   `projects/_template/` links to): `project.md`,
@@ -215,7 +215,7 @@ same directory; the behaviour is unchanged.
   affecting triage (#1403).
 - **The fold timestamp is untrusted input to stats.** The
   `pr-triage-fold` block lives in the PR body, which the author controls.
-  `tools/pr-management-stats/reference.py` (`fold_triaged_at`) treats an
+  `tools/pr-management/src/pr_management/stats/reference.py` (`fold_triaged_at`, via the shared `markers.parse_fold`) treats an
   unparsable or timezone-naive `triaged=` value as no fold event rather
   than crashing the run, and tries every marker, so a malformed one above
   the real block cannot hide it (`tests/test_fold_parsing.py`).
@@ -369,7 +369,6 @@ test -f .agents/skills/magpie-pr-management-stack-review/SKILL.md
 tools/dev/run-skill-script-tests.sh
 test -f .agents/skills/magpie-pr-management-mentor/SKILL.md
 test -f docs/pr-management/README.md
-uv run --all-packages --group dev pytest tools/pr-management-stats/tests
 uv run --all-packages --group dev pytest tools/pr-management/tests
 uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-validate
 ```

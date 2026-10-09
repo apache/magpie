@@ -5372,7 +5372,7 @@ class TestValidateNoTelemetryImports:
 
     def test_tool_root_python_outside_src_is_scanned(self, tmp_path: Path) -> None:
         # Several substrate tools keep Python at the tool root rather than
-        # under src/ (pr-management-stats/dashboard.py and friends). A
+        # under src/ (dashboard-generator and friends). A
         # src/-only scan exempted every one of them while tool.md promised
         # the opposite.
         root = self._make_tool(

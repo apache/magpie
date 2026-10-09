@@ -3741,7 +3741,7 @@ def validate_no_telemetry_imports(root: Path | None = None) -> Iterable[Violatio
 
         # Scan every Python file the tool owns, not just ``src/``.  Several
         # substrate tools keep their Python at the tool root
-        # (``pr-management-stats/dashboard.py``,
+        # (``dashboard-generator/``,
         # ``security-tracker-stats-dashboard/render.py``, …), and a
         # ``src/``-only scan silently exempted them while
         # ``tools/egress-gateway/tool.md`` promised that "a substrate tool

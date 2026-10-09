@@ -44,6 +44,8 @@ ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["B", "SIM"]
+# The rendered dashboard's typography (en dashes, ×) is intentional.
+"src/pr_management/stats/dashboard.py" = ["RUF001", "RUF002"]
 
 [tool.mypy]
 python_version = "3.11"
@@ -55,6 +57,14 @@ check_untyped_defs = true
 no_implicit_optional = true
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
+
+# The dashboard renderer moved in from tools/pr-management-stats untyped;
+# its call sites are checked, its 2,500 lines of HTML building are not yet.
+[[tool.mypy.overrides]]
+module = ["pr_management.stats.reference", "pr_management.stats.dashboard"]
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = false
 
 [[tool.mypy.overrides]]
 module = "tests.*"

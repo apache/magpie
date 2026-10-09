@@ -1,0 +1,1 @@
+{"next": "propose-publish", "command": "gh api -X PATCH gists/abc123 --input /scratch/dashboard.gist-payload.json", "mentions_incomplete": true}

@@ -39,7 +39,7 @@ suggestion the human signs off on.
   skipping maintainer-court and ready-labelled PRs), and
   `reviewer-routing` (roster-bounded reviewer suggestion; see
   [reviewer-routing.md](reviewer-routing.md)).
-  Reference implementation: `tools/pr-management-stats/`.
+  Reference implementation: `tools/pr-management/` (`pr_management.stats`).
 - General issues: `issue-triage`, `issue-reassess`, `issue-reproducer`,
   `issue-stale-sweep` (configurable inactivity sweep: nudge or
   propose-close after a warning window; waits for confirmation before

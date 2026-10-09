@@ -552,7 +552,6 @@ substrate:analytics:
               - 'tools/contributor-metrics/**'
               - 'tools/dashboard-generator/**'
               - 'tools/pr-management/**'
-              - 'tools/pr-management-stats/**'
               - 'tools/preflight-audit/**'
               - 'tools/security-tracker-stats-dashboard/**'
               - 'tools/skill-token-count/**'

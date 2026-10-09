@@ -41,7 +41,6 @@ members = [
     "permission-audit",
     "pilot-report-validator",
     "pr-management",
-    "pr-management-stats",
     "preflight-audit",
     "redactor",
     "release-config",
@@ -1297,21 +1296,6 @@ wheels = [
 name = "pr-management"
 version = "0.1.0"
 source = { editable = "tools/pr-management" }
-
-[package.dev-dependencies]
-dev = [
-    { name = "magpie-dev" },
-]
-
-[package.metadata]
-
-[package.metadata.requires-dev]
-dev = [{ name = "magpie-dev", editable = "tools/dev" }]
-
-[[package]]
-name = "pr-management-stats"
-version = "0.1.0"
-source = { virtual = "tools/pr-management-stats" }
 
 [package.dev-dependencies]
 dev = [

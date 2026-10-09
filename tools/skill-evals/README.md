@@ -32,7 +32,7 @@ Suites are currently implemented for:
 - **issue-reassess-stats** — 8 cases across 3 steps (step-1-fetch-verdicts, step-2-classify, step-3-aggregate)
 - **pr-management-code-review**: 126 cases across 28 suites (selector-resolution, step-1-selectors-match-chips, step-2-reviewer-resolution, step-2.5-slop-detection, step-3-security-disclosure-scan, step-3-ai-authorship-disclosure, step-4-* checks, step-5-adversarial-integration, step-6-disposition, step-7b-review-body-attribution, review-risk-classify, injection-guard, review-disposition, review-handoff)
 - **pr-management-mentor** — 29 cases across 3 steps (tone-checks, hand-off)
-- **pr-management-stats** — 13 cases across 2 steps (classify, pressure-weight)
+- **pr-management-stats** — 6 cases across 1 step (build-loop)
 - **pr-management-triage** — 33 cases across 6 steps (backport-check, classify-loop, deliver-note, guard-reroute, terminal-links, interaction-progress); the pre-filters, decision table and pagination are pytest-tested in `tools/pr-management`
 - **list-skills** — 8 cases across 2 steps (step-1-command, step-2-present)
 - **setup-isolated-setup-verify** — 17 cases across 3 steps (runtime-routing, step-1-classify, step-2-recommend)

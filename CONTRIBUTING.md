@@ -236,7 +236,7 @@ every piece of context it needs from some combination of the four
 │   ├── skill-and-tool-validator/  # Validate SKILL.md frontmatter + links + placeholders
 │   ├── skill-evals/      # Behavioral eval harness for skill steps
 │   ├── dashboard-generator/  # HTML dashboard reference impl (Groovy + Python)
-│   ├── pr-management-stats/  # Maintainer dashboard data layer
+│   ├── pr-management/    # Deterministic core of the pr-management skills (triage, stats dashboard)
 │   ├── security-tracker-stats-dashboard/  # Security-side stats
 │   ├── probe-templates/  # Boilerplate for sandbox-probe scripts
 │   └── dev/              # Local checkers (placeholders, agent pre-commit)
@@ -311,7 +311,7 @@ needs to fill in.
 | CVE workflow | `vulnogram/`, `cve-org/` | ASF Vulnogram (CVE allocation + JSON generation); MITRE CVE Services v2 |
 | Runtime / safety | `agent-isolation/`, `privacy-llm/`, `sandbox-lint/` | Bubblewrap + network-allowlist sandbox; redactor + checker for privacy-LLM gating; settings.json linter |
 | Dev loop | `skill-and-tool-validator/`, `skill-evals/`, `dev/` | SKILL.md validation; behavioral eval harness; local placeholder + pre-commit checkers |
-| Reporting | `dashboard-generator/`, `pr-management-stats/`, `security-tracker-stats-dashboard/` | HTML dashboards for maintainer + security review |
+| Reporting | `dashboard-generator/`, `pr-management/`, `security-tracker-stats-dashboard/` | HTML dashboards for maintainer + security review |
 | Authoring | `probe-templates/` | Boilerplate scaffold for sandbox probes |
 
 New tool subtrees follow the same pattern: a `tool.md` or
