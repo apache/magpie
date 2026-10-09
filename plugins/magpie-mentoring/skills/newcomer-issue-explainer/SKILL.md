@@ -12,7 +12,7 @@ description: |
   files to read first, what "done" looks like, and where to ask
   follow-up questions — without writing any code. First confirms the
   issue is open, non-security, and scope-clear, then drafts the
-  explanation for maintainer review. Read-only until confirmed.
+  explanation for maintainer review. Posts nothing without explicit maintainer confirmation.
 when_to_use: |
   Invoke when a maintainer says "explain this good-first-issue to a
   newcomer", "write a beginner explanation for issue NNN", or "help a
@@ -23,7 +23,7 @@ argument-hint: "[issue-number or issue-URL]"
 capability: capability:review
 surface_hash: sha256:8cfe453a3113abe2
 license: Apache-2.0
-measured_tokens: 3560
+measured_tokens: 3563
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->

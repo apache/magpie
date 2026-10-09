@@ -16,10 +16,10 @@ description: |
   after explicit maintainer confirmation.
 when_to_use: |
   Invoke when a maintainer says "find good first issues in the backlog",
-  "which open issues could a newcomer pick up", or "label existing
-  issues as good first issue". Skip when the goal is to draft a
-  brand-new issue from a known gap — use `good-first-issue-author`
-  for that. Ask before running if
+  "which open issues could a newcomer pick up", "label existing issues
+  as good first issue", or "curate the backlog for newcomers". Skip
+  when the goal is to draft a brand-new issue from a known gap — use
+  `good-first-issue-author` for that. Ask before running if
   `<project-config>/good-first-issue-config.md` is absent.
 argument-hint: "[--component <label>] [--label <filter-label>] [--limit <N>]"
 capability:
@@ -27,7 +27,7 @@ capability:
   - capability:triage
 surface_hash: sha256:591ae352325ca83d
 license: Apache-2.0
-measured_tokens: 4310
+measured_tokens: 4319
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
