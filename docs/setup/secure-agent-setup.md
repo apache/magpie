@@ -592,8 +592,19 @@ below, annotated.
         // packages `language: node` hooks install (markdownlint-cli2's
         // deps, the Claude Code CLI behind `check-claude-mods`), and
         // `releases.astral.sh` the uv and managed-Python builds that
-        // prek and uv fetch. Build-time downloads only, all from the
-        // tools' official release hosts.
+        // prek and uv fetch. All three are the tools' official release
+        // hosts, used for build-time downloads.
+        //
+        // Egress trade-off: `nodejs.org` and `releases.astral.sh` only
+        // serve downloads, but `registry.npmjs.org` also accepts
+        // `npm publish` on the same host (unlike PyPI, whose uploads go to
+        // `upload.pypi.org`, which is not allowed). A compromised
+        // sandboxed command carrying its own npm token could publish data
+        // out through it. That is the same class of channel the GitHub
+        // hosts above already open (a gist, a push or an issue with an
+        // attacker's token), so it adds a channel, not a new kind of risk.
+        // To close it, drop `registry.npmjs.org` here and build the node
+        // hooks' environments outside the sandbox or in CI.
         "registry.npmjs.org", "nodejs.org", "releases.astral.sh"
       ],
       // Lets native-TLS CLI tools (lychee — and, per the schema, gh /
