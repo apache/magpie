@@ -12,6 +12,7 @@ docs/superpowers/
 logs
 .build
 .claude/worktrees/
+.worktrees/
 .claude/settings.local.json
 # Skill source lives in skills/. The framework self-adopts by committing
 # magpie-<skill> symlinks (see skills/setup/adopt.md → "Local
