@@ -10,23 +10,20 @@ description: |
   Given an open good-first-issue on the configured `<upstream>` repo,
   explain it in beginner terms and sketch a concrete approach: which
   files to read first, what "done" looks like, and where to ask
-  follow-up questions — without writing any code or fix. First runs an
-  issue assessment to confirm the issue is open, non-security, and
-  scope-clear. Then drafts the explanation for maintainer review.
-  Read-only; nothing is posted without explicit maintainer confirmation.
+  follow-up questions — without writing any code. First confirms the
+  issue is open, non-security, and scope-clear, then drafts the
+  explanation for maintainer review. Read-only until confirmed.
 when_to_use: |
   Invoke when a maintainer says "explain this good-first-issue to a
-  newcomer", "write a beginner explanation for issue NNN", "help a
-  new contributor understand issue NNN", or "draft a starting-point
-  comment for NNN". Also suitable when a contributor asks "where should
-  I start on this issue?" and the maintainer wants an agent-drafted
-  orientation before replying. Skip when the issue is security-sensitive,
-  already closed, or too vague to explain without scope-setting.
+  newcomer", "write a beginner explanation for issue NNN", or "help a
+  new contributor understand issue NNN". Skip when the issue is
+  security-sensitive, closed, or too vague to explain without
+  scope-setting.
 argument-hint: "[issue-number or issue-URL]"
 capability: capability:review
 surface_hash: sha256:8cfe453a3113abe2
 license: Apache-2.0
-measured_tokens: 3618
+measured_tokens: 3550
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->

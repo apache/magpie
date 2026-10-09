@@ -9,20 +9,17 @@ requires_config:
   - issue-tracker-config.md
   - project.md
 description: |
-  Sweep the open `<issue-tracker>` backlog for existing issues that
-  could be labelled as good first issues. Classifies each candidate as
-  READY (propose the GFI label), NEAR-MISS (surface edits to make it
-  GFI-ready), or SKIP using the G1–G7 suitability rubric. Applies
-  labels only after explicit maintainer confirmation; never edits issue
-  bodies without the maintainer's direction.
+  Sweep the open `<issue-tracker>` backlog for issues that could be
+  labelled as good first issues. Classifies each candidate as READY
+  (propose the GFI label), NEAR-MISS (surface edits to make it
+  GFI-ready), or SKIP using the G1–G7 rubric. Applies labels only
+  after explicit maintainer confirmation.
 when_to_use: |
   Invoke when a maintainer says "find good first issues in the backlog",
-  "which open issues could a newcomer pick up", "label existing issues
-  as good first issue", or "curate the backlog for newcomers". Also
-  useful before a mentoring push or contributor-growth sprint when the
-  team wants to stock the on-ramp queue from existing work. Skip when
-  the goal is to draft a brand-new issue from a known gap — use
-  `good-first-issue-author` for that. Ask before running if
+  "which open issues could a newcomer pick up", or "label existing
+  issues as good first issue". Skip when the goal is to draft a
+  brand-new issue from a known gap — use `good-first-issue-author`
+  for that. Ask before running if
   `<project-config>/good-first-issue-config.md` is absent.
 argument-hint: "[--component <label>] [--label <filter-label>] [--limit <N>]"
 capability:
@@ -30,7 +27,7 @@ capability:
   - capability:triage
 surface_hash: sha256:591ae352325ca83d
 license: Apache-2.0
-measured_tokens: 4364
+measured_tokens: 4302
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->

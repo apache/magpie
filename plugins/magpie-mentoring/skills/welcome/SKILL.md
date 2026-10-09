@@ -14,18 +14,16 @@ description: |
   pointers, and expected next steps. Waits for explicit maintainer
   confirmation before posting. Does not post for repeat contributors.
 when_to_use: |
-  Invoke when a maintainer says "welcome the contributor on issue/PR NNN",
-  "send the first-time contributor message on NNN", "orient this new
-  contributor on NNN", or chains this skill after
-  `pr-management-triage` identifies a first-time-contributor thread.
-  Skip when the author is a known committer or repeat contributor, when
-  the thread is security-sensitive, or when the maintainer has already
-  replied.
+  Invoke when a maintainer says "welcome the contributor on issue/PR NNN"
+  or chains this skill after `pr-management-triage` identifies a
+  first-time-contributor thread. Skip when the author is a known
+  committer or repeat contributor, when the thread is security-sensitive,
+  or when the maintainer has already replied.
 argument-hint: "[issue-or-pr-number]"
 capability: capability:review
 surface_hash: sha256:a61c6575d69da08a
 license: Apache-2.0
-measured_tokens: 3461
+measured_tokens: 3439
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
