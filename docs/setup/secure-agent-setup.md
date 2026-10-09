@@ -584,7 +584,17 @@ below, annotated.
         // docs link to — the wildcard link-target hosts that used to
         // live here (`*.apache.org`, `*.nist.gov`, `lychee.cli.rs`, …)
         // were removed when the hook went offline.
-        "*.crates.io", "static.rust-lang.org"
+        "*.crates.io", "static.rust-lang.org",
+        // The prek toolchains for the node and python hooks, so a
+        // sandboxed `prek run` can build its hook envs the way CI does:
+        // `nodejs.org` serves the Node that `default_language_version`
+        // pins when the system one differs, `registry.npmjs.org` the
+        // packages `language: node` hooks install (markdownlint-cli2's
+        // deps, the Claude Code CLI behind `check-claude-mods`), and
+        // `releases.astral.sh` the uv and managed-Python builds that
+        // prek and uv fetch. Build-time downloads only, all from the
+        // tools' official release hosts.
+        "registry.npmjs.org", "nodejs.org", "releases.astral.sh"
       ],
       // Lets native-TLS CLI tools (lychee — and, per the schema, gh /
       // gcloud / terraform) verify TLS through the sandbox's

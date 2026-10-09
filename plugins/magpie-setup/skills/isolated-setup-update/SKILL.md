@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:1f327e069312dad2
 license: Apache-2.0
-measured_tokens: 5260
+measured_tokens: 5314
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -157,7 +157,8 @@ Walk each:
    Two `sandbox.network.*` settings are worth a look while diffing, but neither is a "missing default" to re-add:
 
    - **`allowedDomains` is deliberately narrow.**
-     The dogfooded default allows `*.crates.io` and `static.rust-lang.org`, the only hosts prek needs to bootstrap a rustup toolchain and `cargo install` the `lychee` link-check hook on first run.
+     The dogfooded default allows `*.crates.io` and `static.rust-lang.org`, the only hosts prek needs to bootstrap a rustup toolchain and `cargo install` the `lychee` link-check hook on first run, and `registry.npmjs.org`, `nodejs.org` and `releases.astral.sh`, which prek's node and python hooks build their environments from.
+     A settings file missing those three is behind, so report their *absence* as drift.
      The wildcard link-target hosts that once sat beside them (`*.apache.org`, `*.anthropic.com`, `*.claude.com`, `*.mitre.org`, `*.nist.gov`, `*.github.io`, `gist.github.com`, `astral.sh`, `json.schemastore.org`, `lychee.cli.rs`, `sdkman.io`) were dropped when the hook went offline (`offline = true` in `.lychee.toml`): lychee no longer fetches the URLs the docs link to.
      A settings file without those hosts is current, not stale — report their *presence* as dead weight to drop, never their absence as drift.
    - **`enableWeakerNetworkIsolation: true`.**

@@ -58,7 +58,10 @@
         "oauth2.googleapis.com",
         "gmail.googleapis.com",
         "*.crates.io",
-        "static.rust-lang.org"
+        "static.rust-lang.org",
+        "registry.npmjs.org",
+        "nodejs.org",
+        "releases.astral.sh"
       ],
       "enableWeakerNetworkIsolation": true
     },
