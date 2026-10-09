@@ -23,7 +23,7 @@ argument-hint: "[issue-or-pr-number]"
 capability: capability:review
 surface_hash: sha256:a61c6575d69da08a
 license: Apache-2.0
-measured_tokens: 3439
+measured_tokens: 3437
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
