@@ -1,0 +1,235 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+# Bumps the npm packages pinned in `.pre-commit-config.yaml` hooks'
+# `additional_dependencies`, which Dependabot's `pre-commit` ecosystem never
+# touches. Today that is the Claude Code CLI behind the `check-claude-mods`
+# hook. `tools/dev/bump-hook-npm-pins.py` picks the newest stable release that
+# has cleared the package's cooldown — 12 hours for Claude Code, 7 days by
+# default. Claude Code is a dev-only tool here: CI runs it to check the mods,
+# and nothing from it ships.
+#
+# Three times a week (Monday, Wednesday, Friday), so a pin trails the newest
+# eligible release by a few days at most without a PR every day. Also runnable
+# from the Actions tab (*Run workflow*).
+#
+# ONE PULL REQUEST, UPDATED IN PLACE. Every run targets the same branch,
+# `chore/bump-hook-npm-pins`. While a bump PR is open, a later run with a newer
+# target replaces that branch's commit with a fresh one on top of current
+# `main`, and the same PR now carries the newer bump; bumps never pile up as
+# separate PRs. A run whose result matches what the open PR already carries
+# changes nothing.
+#
+# The replacement is built on a throwaway branch first and the PR branch is
+# moved onto it only once the signed commit exists, so a failed run never
+# leaves the PR pointing at an empty or half-made branch.
+#
+# SHAPE, as in `bump-dev-version.yml`, whose header explains each choice:
+#
+#   prepare  ->  signed candidate commit, then the PR branch moved onto it
+#   open-pr  ->  open the draft PR, or refresh the open one and return it to draft
+#   cleanup  ->  delete the throwaway branch, whatever happened
+#
+# The PR is a draft because GitHub raises no `pull_request` events for what
+# `GITHUB_TOKEN` does, so its checks start only when a maintainer presses
+# *Ready for review*. An update puts an already-ready PR back into draft for
+# the same reason: the new commit has no checks until it is marked ready
+# again. Those checks include the `check-claude-mods` step of `prek`, which
+# re-checks every mod against the new pin — the point of the bump.
+---
+name: bump hook npm pins
+
+on:  # yamllint disable-line rule:truthy
+  schedule:
+    - cron: "17 4 * * 1,3,5"
+  workflow_dispatch:
+
+permissions: {}
+
+env:
+  BRANCH: chore/bump-hook-npm-pins
+
+jobs:
+  prepare:
+    name: Build the candidate commit
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    permissions:
+      # Creating the throwaway branch, committing onto it, moving the PR branch.
+      contents: write
+    outputs:
+      updated: ${{ steps.candidate.outputs.updated }}
+      tmp_branch: ${{ steps.candidate.outputs.tmp_branch }}
+      bumps: ${{ steps.bump.outputs.bumps }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          # The commit is created through GitHub's API rather than `git push`,
+          # so the job never needs the checkout's credentials on disk.
+          persist-credentials: false
+          fetch-depth: 1
+
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7  # v10.2.0
+        with:
+          enable-cache: true
+        # A distinct cache slot per job; see `bump-dev-version.yml`.
+          cache-suffix: "bump-hook-npm-pins"
+
+      - name: Bump the pins
+        id: bump
+        run: |
+          set -euo pipefail
+          uv run --project tools/dev python tools/dev/bump-hook-npm-pins.py \
+            | tee "$RUNNER_TEMP/bumps.txt"
+          {
+            echo "bumps<<BUMPS_EOF"
+            cat "$RUNNER_TEMP/bumps.txt"
+            echo "BUMPS_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Commit the candidate and move the PR branch onto it
+        id: candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          config=.pre-commit-config.yaml
+
+          # Compare against what the bump branch carries, when there is one,
+          # not against `main`: while a bump PR is open, `main` still has the
+          # old pins, but the PR may already have exactly these.
+          if gh api "repos/$REPO/git/ref/heads/$BRANCH" >/dev/null 2>&1; then
+            gh api -H "Accept: application/vnd.github.raw" \
+              "repos/$REPO/contents/$config?ref=$BRANCH" > "$RUNNER_TEMP/current.yaml"
+          else
+            git show "HEAD:$config" > "$RUNNER_TEMP/current.yaml"
+          fi
+          if cmp -s "$config" "$RUNNER_TEMP/current.yaml"; then
+            echo "Pins already current on \`main\` or in the open bump PR; nothing to do." \
+              >> "$GITHUB_STEP_SUMMARY"
+            echo "updated=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          {
+            echo "chore: bump npm pins in prek hooks"
+            echo
+            cat "$RUNNER_TEMP/bumps.txt"
+            echo
+            echo "Generated by .github/workflows/bump-hook-npm-pins.yml with"
+            echo "tools/dev/bump-hook-npm-pins.py: the newest stable release past the"
+            echo "package's cooldown (12 hours for Claude Code, 7 days otherwise)."
+          } > "$RUNNER_TEMP/bump-message.txt"
+
+          tmp="chore/bump-hook-npm-pins-tmp-$RUN_ID"
+          gh api "repos/$REPO/git/refs" \
+            -f "ref=refs/heads/$tmp" -f "sha=$HEAD_SHA" >/dev/null
+          # From here on the throwaway branch exists; `cleanup` deletes it.
+          echo "tmp_branch=$tmp" >> "$GITHUB_OUTPUT"
+
+          # Committed through GitHub's API, not `git commit`: the commit comes
+          # back signed by GitHub and shows as Verified, with no key material
+          # in CI.
+          uv run --project tools/dev python tools/dev/gh-signed-commit.py \
+            --branch "$tmp" \
+            --expected-head-oid "$HEAD_SHA" \
+            --message-file "$RUNNER_TEMP/bump-message.txt" \
+            --repo "$REPO"
+          commit=$(gh api "repos/$REPO/git/ref/heads/$tmp" --jq .object.sha)
+
+          # Point the PR branch at the new commit: create it on the first bump,
+          # force-move it while a bump PR is open. A force move is right here —
+          # the branch holds nothing but the previous bump, which this one
+          # replaces.
+          if gh api "repos/$REPO/git/ref/heads/$BRANCH" >/dev/null 2>&1; then
+            gh api -X PATCH "repos/$REPO/git/refs/heads/$BRANCH" \
+              -f "sha=$commit" -F force=true >/dev/null
+          else
+            gh api "repos/$REPO/git/refs" \
+              -f "ref=refs/heads/$BRANCH" -f "sha=$commit" >/dev/null
+          fi
+          echo "updated=true" >> "$GITHUB_OUTPUT"
+
+  open-pr:
+    name: Open or refresh the bump pull request
+    needs: prepare
+    if: needs.prepare.outputs.updated == 'true'
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Open the pull request, or refresh the open one
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          BUMPS: ${{ needs.prepare.outputs.bumps }}
+        run: |
+          set -euo pipefail
+          {
+            echo "Bumps the npm packages pinned in \`.pre-commit-config.yaml\` hooks:"
+            echo
+            echo '```text'
+            printf '%s\n' "$BUMPS"
+            echo '```'
+            echo
+            echo "Each is the newest stable release past its cooldown (12 hours for Claude"
+            echo "Code, 7 days otherwise) — see \`tools/dev/bump-hook-npm-pins.py\`. Later runs"
+            echo "update this PR in place until it is merged."
+            echo
+            echo "The commit is signed by GitHub. GitHub raises no events for anything"
+            echo "\`GITHUB_TOKEN\` does, so the required checks start out unstarted:"
+            echo "**press *Ready for review* to start them.** The \`prek\` run includes"
+            echo "\`check-claude-mods\`, which re-checks every mod against the new pin."
+            echo
+            echo "Opened by [\`bump-hook-npm-pins.yml\`](.github/workflows/bump-hook-npm-pins.yml)."
+          } > "$RUNNER_TEMP/body.md"
+
+          number=$(gh pr list --repo "$REPO" --head "$BRANCH" --state open \
+            --json number --jq '.[0].number // empty')
+          if [[ -n "$number" ]]; then
+            gh pr edit "$number" --repo "$REPO" --body-file "$RUNNER_TEMP/body.md"
+            # The new commit has no checks yet; back to draft so marking it
+            # ready starts them, as for a fresh bump PR.
+            gh pr ready "$number" --repo "$REPO" --undo || true
+            echo "Updated #$number with the new bump." >> "$GITHUB_STEP_SUMMARY"
+          else
+            url=$(gh pr create --repo "$REPO" --base main --head "$BRANCH" --draft \
+              --title "chore: bump npm pins in prek hooks" \
+              --body-file "$RUNNER_TEMP/body.md")
+            echo "Opened $url" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  cleanup:
+    name: Drop the throwaway branch
+    needs: [prepare, open-pr]
+    if: always() && needs.prepare.outputs.tmp_branch != ''
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Delete the throwaway branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TMP_BRANCH: ${{ needs.prepare.outputs.tmp_branch }}
+        run: gh api "repos/$REPO/git/refs/heads/$TMP_BRANCH" -X DELETE || true

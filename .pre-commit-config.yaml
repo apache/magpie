@@ -335,6 +335,61 @@ repos:
         entry: python3 tools/dev/check-family-plugins.py --fix
         files: ^(skills/.*/SKILL\.md|plugins/.*|\.claude-plugin/(marketplace|plugin)\.json|\.codex-plugin/plugin\.json|\.agents/plugins/marketplace\.json|(plugin|marketplace)\.json|gemini-extension\.json|apm\.yml|pyproject\.toml)$
         pass_filenames: false
+  # Claude Code mods — `claude plugin validate --strict` and `claude plugin
+  # test` on every plugin whose `hooks/hooks.json` declares `modules`
+  # (docs/when-to-use-mods.md). Claude Code loads a hooks module only after
+  # static analysis passes; a module that fails it never runs, and nothing
+  # else in the tree notices. A no-op until the tree has a mod.
+  #
+  # `language: node` with the CLI pinned in `additional_dependencies`, so
+  # prek installs it into a cached hook env, the way `lychee` gets its
+  # toolchain: no local Claude Code needed, and CI needs no install step.
+  #
+  # `stages: [manual]`: the hook env is a ~200 MB native binary, which is
+  # not worth fetching on every contributor's first commit for a check that
+  # concerns only the few who write mods. CI runs it on every event (its own
+  # step in `.github/workflows/pre-commit.yml`); locally it is
+  # `prek run check-claude-mods --hook-stage manual --all-files`.
+  #
+  # Claude Code is a dev-only tool here: CI runs it to check the mods, it is
+  # not a dependency of anything Magpie ships, and nothing from it goes into a
+  # release or a plugin.
+  #
+  # The pin is moved by `.github/workflows/bump-hook-npm-pins.yml` (Dependabot's
+  # `pre-commit` ecosystem never touches `additional_dependencies`), with a
+  # 12-hour cooldown rather than the 7 days the rest of the tree uses. A
+  # cooldown buys time for a bad or compromised release to be withdrawn
+  # before CI installs it. Claude Code ships several times a day and replaces
+  # a bad release within hours, so 12 hours already covers that window; and
+  # a security problem in it is fixed by the next release, so a week-long wait
+  # would keep CI on the known-bad version instead of protecting it. The mods
+  # API is also still moving, and adopters auto-update, so the check has to
+  # track what they actually run. Being dev-only (above), the worst a bad
+  # version can do is fail or wrongly pass this check. See
+  # `tools/dev/bump-hook-npm-pins.py`.
+  - repo: local
+    hooks:
+      - id: check-claude-mods
+        name: check-claude-mods (claude plugin validate --strict / test)
+        language: node
+        entry: tools/dev/check-claude-mods.sh
+        additional_dependencies: ["@anthropic-ai/claude-code@2.1.295"]
+        files: ^(.*/hooks/.*|.*\.claude-plugin/plugin\.json|tools/dev/check-claude-mods\.sh)$
+        pass_filenames: false
+        stages: [manual]
+  # The same check on ordinary commits, with the contributor's own Claude
+  # Code: `language: system`, so nothing is downloaded. It skips itself when
+  # `claude` is not installed, and when the installed one is older than the
+  # pin above (an older CLI may not know events a mod uses). A newer one
+  # runs. CI's pinned run above stays the authoritative result.
+  - repo: local
+    hooks:
+      - id: check-claude-mods-local
+        name: check-claude-mods-local (local Claude Code, skipped if absent)
+        language: system
+        entry: tools/dev/check-claude-mods.sh --local
+        files: ^(.*/hooks/.*|.*\.claude-plugin/plugin\.json|tools/dev/check-claude-mods\.sh)$
+        pass_filenames: false
   # Every shared prose block a skill carries — the auto-inserted setup
   # pre-flight, plus any number of declared blocks. It cannot be a hook: on
   # most harnesses *no code runs at all* when a plugin is installed or

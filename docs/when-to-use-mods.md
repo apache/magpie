@@ -177,11 +177,20 @@ The hooks manifest at `hooks/hooks.json` lists the mod modules to load:
 ```
 
 The module (`hooks/register.ts`) exports a `register(on, options)` function that registers event listeners with the harness.
+It imports only its own files, by relative path, and `claude-code`.
+Node built-ins such as `node:fs` are not available: reach files, the environment and processes through the mods API (`$.fs`, `$.env`, `$.process`), so the `calls:` line `claude plugin validate` prints is the module's whole surface.
+`hooks/hooks.json` can also carry the plugin's settings hooks under `hooks`, next to `modules`; a mod that takes over from a settings hook keeps that hook wired there for sessions where mods do not load.
 
 Every mod must include unit tests and pass strict validation before landing:
 1. **Static Validation**: Mod modules must pass `claude plugin validate <dir> --strict` to verify hooked events and API calls.
-2. **Automated Unit Tests**: Hook logic must be tested using `claude plugin test` with corresponding `*.test.ts` test suites.
-3. **CI Integration**: Plugin validation and test suites must run alongside standard pre-commit hooks and Python test runners.
+   Claude Code runs the same analysis when it loads a mod and skips a module that fails it, so a mod that fails here does nothing at all on an adopter's machine.
+2. **Automated Unit Tests**: Hook logic must be tested using `claude plugin test` with corresponding `*.test.ts` test suites written against `claude-code/testing`.
+   A mod with no tests fails the check.
+3. **CI Integration**: the `check-claude-mods` prek hook ([`tools/dev/check-claude-mods.sh`](../tools/dev/check-claude-mods.sh)) runs both commands on every plugin whose `hooks/hooks.json` declares `modules`, on every pull request and push to `main`.
+   prek installs a pinned Claude Code into the hook environment, so neither a local install nor a login is needed.
+   The hook is in the `manual` stage, so ordinary commits skip it; run it before pushing a mod with `prek run check-claude-mods --hook-stage manual --all-files`.
+   The pin is bumped three times a week, with a 12-hour cooldown, by [`bump-hook-npm-pins.yml`](../.github/workflows/bump-hook-npm-pins.yml).
+   Claude Code is a dev-only tool here: CI runs it to check the mods, it is not a dependency of anything Magpie ships, and nothing from it goes into a release or a plugin.
 
 ## See also
 

@@ -223,13 +223,17 @@ jobs:
         # matches no hook at all. It warns rather than failing, so the
         # comma form looks like it worked while skipping nothing.
         #
+        # `--skip check-claude-mods-local`: the contributor-side twin of
+        # `check-claude-mods`, using a local Claude Code the runner does not
+        # have. The pinned hook runs in its own step below.
+        #
         # `--skip lychee`: the link check is whole-repo on every event,
         # in the dedicated step below. See its comment for why it cannot
         # ride along with `PREK_SCOPE`.
         run: >-
           prek run --show-diff-on-failure --color=always $PREK_SCOPE
           --skip workspace-pytest --skip identity --skip skill-token-count
-          --skip lychee
+          --skip lychee --skip check-claude-mods-local
       # The link check runs over the whole repository on every event,
       # `main` and pull request alike — `PREK_SCOPE` does not apply.
       #
@@ -266,3 +270,16 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: prek run lychee --color=always --all-files
+      # Claude Code mods: `claude plugin validate --strict` and `claude plugin
+      # test` on every plugin whose `hooks/hooks.json` declares `modules`. The
+      # hook is `stages: [manual]` so contributors' commits never fetch the
+      # Claude Code binary it pins, which means the `Run prek` step above never
+      # runs it — this step is the only place it runs on its own.
+      #
+      # Whole repo on both events, like lychee and for a similar reason: the
+      # pin bump in `.pre-commit-config.yaml` touches no mod file, yet it is
+      # exactly the change that has to re-check every mod against the new
+      # version. A no-op (no binary fetched) while the tree has no mod.
+      - name: Run prek (Claude Code mods — whole repo, both events)
+        if: ${{ !cancelled() }}
+        run: prek run check-claude-mods --hook-stage manual --color=always --all-files
