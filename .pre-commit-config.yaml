@@ -137,8 +137,13 @@ repos:
       - id: end-of-file-fixer
         name: Make sure that there is an empty line at the end
         exclude: &sandbox_write_denied ^(\.claude/(settings\.json|skills/)|plugins/magpie-setup/hooks/|\.apache-magpie-overrides/tools/vetted-ops/)
+      # `--fix=lf`, not the default `auto`: `auto` only fails a file
+      # that mixes the two styles, so a file converted wholesale to
+      # CRLF (an editor on Windows, `core.autocrlf=true`) passes and
+      # lands as a whole-file rewrite. `lf` converts any CRLF to LF.
       - id: mixed-line-ending
-        name: Detect if mixed line ending is used (\r vs. \r\n)
+        name: Enforce LF line endings (convert \r\n to \n)
+        args: [--fix=lf]
         exclude: *sandbox_write_denied
       - id: trailing-whitespace
         name: Remove trailing whitespace at end of line
