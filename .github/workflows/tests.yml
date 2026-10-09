@@ -167,6 +167,10 @@ jobs:
       contents: read
     strategy:
       fail-fast: false
+      # The full matrix is ~46 jobs. ASF Infra policy caps a workflow at
+      # 20 concurrent jobs and recommends 15:
+      # https://infra.apache.org/github-actions-policy.html
+      max-parallel: 15
       matrix:
         project: ${{ fromJSON(needs.members.outputs.members) }}
     # GitHub Actions log viewer renders ANSI colour escapes; without
