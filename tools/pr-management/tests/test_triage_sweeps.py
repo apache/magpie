@@ -22,6 +22,7 @@ from typing import Any
 
 from pr_management import config, model, people
 from pr_management.triage import classify as C
+from pr_management.triage import run as triage_run
 from pr_management.triage import sweeps
 
 from .helpers import NOW, ago, check, comment, pr, review, thread
@@ -45,7 +46,7 @@ def run(
         p.commits_behind = 0
         if liveness and p.number in liveness:
             p.extra["liveness"] = liveness[p.number]
-    return C.classify(
+    return triage_run.classify(
         prs,
         _cfg(),
         C.Options(viewer=viewer, now=NOW),
@@ -423,7 +424,7 @@ def test_every_sweep_row_and_action_has_a_document() -> None:
 
 def test_sweeps_can_be_turned_off() -> None:
     prs = [model.from_node(pr(draft=True, updated=ago(days=15), committed=ago(days=20)))]
-    (d,) = C.classify(
+    (d,) = triage_run.classify(
         prs, _cfg(), C.Options(viewer="v", now=NOW, sweeps=False), people.Maintainers(), {}, set()
     )
     assert d.row is None or not d.row.startswith("sweep")

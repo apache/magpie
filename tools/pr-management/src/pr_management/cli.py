@@ -41,6 +41,7 @@ from .triage import guards as triage_guards
 from .triage import output as triage_output
 from .triage import preflight as triage_preflight
 from .triage import render as triage_render
+from .triage import run as triage_run
 from .triage import session as triage_session
 from .triage import sweeps as triage_sweeps
 
@@ -104,7 +105,7 @@ def _triage_classify(args: argparse.Namespace) -> dict[str, Any]:
     opts = triage_classify.Options(
         viewer=args.viewer, now=_now(args.now), authors=args.authors, session=session
     )
-    decisions = triage_classify.classify(
+    decisions = triage_run.classify(
         prs,
         cfg,
         opts,
@@ -330,8 +331,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     summ.add_argument("--now", default=None)
 
     args = parser.parse_args(argv)
+    result: dict[str, Any] = {}
     if args.family == "config":
-        result: dict[str, Any] = _config(args)
+        result = _config(args)
     elif args.family == "triage" and args.command == "classify":
         result = _triage_classify(args)
     elif args.family == "triage" and args.command == "render":

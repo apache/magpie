@@ -27,7 +27,7 @@ argument-hint: "[pr:N] [label:LBL] [author:LOGIN] [review-for-me] [stale] [repo:
 capability: capability:triage
 surface_hash: sha256:54dc4ba1be7b36d4
 license: Apache-2.0
-measured_tokens: 4828
+measured_tokens: 4869
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
@@ -336,6 +336,7 @@ When `prefetch` or `needs` is non-empty, run each listed read with `--save <save
 When `enable_typed_decision_prefilter` is on, run the shadow pass in [`typed-decision-prefilter.md`](typed-decision-prefilter.md); it never changes a decision.
 
 **Step 3 — group and present:** the groups arrive ordered; present them one at a time per [`interaction-loop.md`](interaction-loop.md), reading each group's `docs` first. The bot-draft group (Step 0.5 of the old flow) and the stale-sweep groups come in the same list.
+With no groups, go straight to Step 6. When `config.warnings` asks to check with the maintainer before continuing (a sweep surfaced more than 50 candidates), ask before presenting anything.
 
 **Step 4 — execute:** on confirmation, follow the group's action file; each one guards on fresh reads before it mutates and records the PR in the session cache.
 

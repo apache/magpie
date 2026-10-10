@@ -28,7 +28,6 @@ from __future__ import annotations
 
 import datetime as dt
 from collections import Counter
-from dataclasses import dataclass, field
 from typing import Any
 
 from .. import ci, markers
@@ -36,6 +35,7 @@ from ..config import Config
 from ..model import COLLABORATOR_ASSOCIATIONS, PR
 from ..people import Maintainers, is_bot
 from . import signals as S
+from .types import Decision, Options
 
 #: Classification documents, one per decision row (paths relative to the skill).
 ROW_DOCS: dict[str, str] = {
@@ -113,30 +113,6 @@ GROUP_ORDER: tuple[tuple[str, str], ...] = (
 )
 
 DESTRUCTIVE = frozenset({"close", "close-stale"})
-
-
-@dataclass
-class Options:
-    viewer: str
-    now: dt.datetime
-    #: "default" (skip collaborators), "all", or "collaborators".
-    authors: str = "default"
-    session: dict[str, dict[str, Any]] = field(default_factory=dict)
-    #: Run Step 0.5 and the Step 5 stale sweeps after the table.
-    sweeps: bool = True
-
-
-@dataclass
-class Decision:
-    pr: PR
-    outcome: str  # "suppressed" | "filtered" | "needs" | "skip" | "act"
-    row: str | None = None
-    filter: str | None = None
-    classification: str | None = None
-    action: str | None = None
-    reason: str = ""
-    details: dict[str, Any] = field(default_factory=dict)
-    needs: list[dict[str, Any]] = field(default_factory=list)
 
 
 def _days(delta: dt.timedelta) -> int:
@@ -420,15 +396,6 @@ def decide(
     # and a fresh one the author is still working on.
     if pr.rollup_state == "SUCCESS" and pr.mergeable == "MERGEABLE" and not sig.threads and not pr.is_draft:
         if not sig.real_ci:
-            if pending:
-                return _row(
-                    pr,
-                    "1",
-                    "pending_workflow_approval",
-                    "approve-workflow",
-                    "First-time contributor — review the diff and approve CI, or flag suspicious",
-                    runs=pending,
-                )
             return _flag(
                 pr,
                 cfg,
@@ -537,12 +504,7 @@ def classify(
             decision.details["degraded_from"] = "draft"
             decision.action = "comment"
         decisions.append(decision)
-    if not opts.sweeps:
-        return decisions
-    from .sweeps import sweep
-
-    swept = {d.pr.number: d for d in sweep(prs, decisions, cfg, opts, people, action_required, systemic)}
-    return [swept.pop(d.pr.number, d) for d in decisions]
+    return decisions
 
 
 def _glob(name: str, pattern: str) -> bool:

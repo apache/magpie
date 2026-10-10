@@ -1,0 +1,1 @@
+{"next": "save-body", "command": "uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller pr-management-triage --save body-102.json pr-view-with-body 102"}

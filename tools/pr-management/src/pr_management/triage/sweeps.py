@@ -34,16 +34,15 @@ from __future__ import annotations
 
 import datetime as dt
 from collections import Counter
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from .. import markers
 from ..config import Config
 from ..model import COLLABORATOR_ASSOCIATIONS, PR
 from ..people import Maintainers, is_bot
 from . import signals as S
-
-if TYPE_CHECKING:
-    from .classify import Decision, Options
+from .classify import decide
+from .types import Decision, Options
 
 #: Sweep 4's label-age and quiet windows, and Sweep 5's reply window.
 SWEEP_WINDOW = dt.timedelta(days=7)
@@ -81,7 +80,6 @@ def liveness_from(document: Any) -> dict[str, Any] | None:
 
 
 def _decision(pr: PR, row: str, classification: str, action: str, reason: str, **details: Any) -> Decision:
-    from .classify import Decision
 
     outcome = "skip" if action == "skip" else "act"
     return Decision(
@@ -180,7 +178,6 @@ def _sweep4(
     action_required: dict[str, list[dict[str, Any]]],
     systemic: set[str],
 ) -> Decision | None:
-    from .classify import Decision, decide
 
     now = opts.now
     added = pr.label_added_at(cfg.ready_label)
@@ -325,7 +322,6 @@ def _stale(
     sweep5: bool,
     now: dt.datetime,
 ) -> Decision | None:
-    from .classify import Decision
 
     idle = now - pr.updated if pr.updated else dt.timedelta(0)
     if pr.is_draft:
