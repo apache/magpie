@@ -345,3 +345,12 @@ reading this file; read the section for a check whose condition holds.
     - **14c — no `allow`.** No `permissions.allow` entry matches the tool's
       invocation. One is ✗: each run sends the change to other model
       providers and must keep its prompt.
+    - **14d — the link resolves into the plugin.**
+      `~/.claude/magpie/adversarial-review` is a symlink to
+      `~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/<version>/tools/adversarial-review`,
+      and that directory exists. A broken link is ⚠: the exclusion matches
+      nothing that runs, so reviews stay sandboxed and every reviewer reports
+      `unavailable`; a new session lets the plugin's `SessionStart` hook
+      re-point it. A real file or directory at the path, or a link anywhere
+      else, is ✗: the exclusion would run that code outside the sandbox, and
+      the hook refuses to replace anything that is not a symlink.

@@ -3413,7 +3413,9 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
     the sandbox); the older `magpie-adversarial-review/*/tools/adversarial-review`
     exclusion is ✗ (its `*` also matches options spliced in where the version
     sits); a missing deny is ✗ (the exclusion runs that code
-    unsandboxed); an `allow` is ✗ (each run sends the change to other
+    unsandboxed); a broken `~/.claude/magpie/adversarial-review` link is ⚠
+    (reviews stay sandboxed), and a real file or directory there, or a link
+    outside the plugin cache, is ✗ (the exclusion would run it unsandboxed); an `allow` is ✗ (each run sends the change to other
     model providers and must keep its prompt).
 15. **Working directories under the read block**, if
     `permissions.blockReadsOutsideWorkingDirectories` is on in any
