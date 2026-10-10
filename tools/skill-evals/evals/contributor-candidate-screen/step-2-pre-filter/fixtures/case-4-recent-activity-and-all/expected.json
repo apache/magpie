@@ -1,0 +1,23 @@
+{
+  "kept": [
+    "india",
+    "lima"
+  ],
+  "dropped": [
+    {
+      "handle": "juliet",
+      "merged_prs": 60,
+      "reviewed_prs": 40
+    },
+    {
+      "handle": "kilo",
+      "merged_prs": 45,
+      "reviewed_prs": 10
+    },
+    {
+      "handle": "mike",
+      "merged_prs": 33,
+      "reviewed_prs": 175
+    }
+  ]
+}

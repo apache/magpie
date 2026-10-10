@@ -91,7 +91,7 @@ Suites are currently implemented for:
 - **setup-privacy-llm** — 6 cases across 2 suites (step-1-resolve, step-4-gate)
 - **preflight-reconciliation** — 7 cases across 1 suite (step-reconciliation)
 - **contributor-calibrate** — 11 cases across 3 suites (step-1-find-nominations, step-4-propose-floors, step-6-write-configuration)
-- **contributor-candidate-screen** — 14 cases across 6 suites (step-0-gates, step-2-pre-filter, step-3-measure, step-4-write-report, step-5-deliver)
+- **contributor-candidate-screen** — 15 cases across 6 suites (step-0-gates, step-2-pre-filter, step-3-measure, step-4-write-report, step-5-deliver)
 - **pr-management-stack-review** — 11 cases across 2 suites (step-3-structural-findings, step-4-reading-plan); the gate, mechanical findings, verdict and posting are pytest-tested in `tools/pr-management`
 
 ## Prerequisites

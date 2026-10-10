@@ -57,6 +57,9 @@ and there are no meaningful framework defaults.
 | `report_repo` | TODO: `owner/name` of a **private** repository | Where `candidate-screen` commits its report. The skill refuses unless the GitHub API reports the repository as private; restrict it to `<governance-body>` members. |
 | `report_path` | `reports/` | Directory inside `report_repo` for the reports. |
 | `screen_prefilter_ratio` | `0.5` | `candidate-screen` keeps a contributor for full measurement when merged PRs or reviews reach this share of the floor. |
+| `screen_prefilter_require` | `any` | `any`: one of merged PRs and reviews reaching its share of the floor keeps a contributor; `all`: both must. |
+| `screen_prefilter_targets` | `committer` | `committer`: the count pre-filter applies to the committer pool only; `both`: to the <governance-body> pool as well. |
+| `screen_recent_activity_months` | `4` | Drop anyone with no change landed in the last N months of the window, for both targets; `0` turns the check off. |
 
 ---
 

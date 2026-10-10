@@ -111,7 +111,10 @@ Adopter config scaffolds live in `plugins/magpie-setup/templates/`
   `tools/skill-evals/evals/contributor-calibrate/`.
 - Skill: `contributor-candidate-screen` — cuts the long tail of recent
   contributors with a deterministic pre-filter against the floors (every
-  drop logged; the only place the floors are used), measures everyone
+  drop logged; the only place the floors are used; configurable as `any`
+  or `all` counts, for the committer pool or both pools, plus a
+  recent-activity check that drops anyone with nothing landed in the
+  last `screen_recent_activity_months`), measures everyone
   who remains — deliberately more than the PMC would consider,
   alphabetically by handle, never scored, ranked, shortlisted or judged —
   and writes a report (the list linked to details, plus a
