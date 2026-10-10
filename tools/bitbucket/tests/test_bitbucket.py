@@ -48,6 +48,7 @@ from magpie_bitbucket.normalize import (
     issue_comments,
     issue_list,
     merged_pull_request,
+    posted_pull_request_review,
     pull_request,
     pull_request_approval,
     pull_request_change_request,
@@ -4279,3 +4280,364 @@ def test_cli_pr_merge_task_status_datacenter_fails_without_request(
 
     stderr = capsys.readouterr().err
     assert "merge task-status reads are not supported" in stderr
+
+
+def test_cloud_post_pull_request_review_comment_only(
+    cloud_env: None,
+) -> None:
+    with (
+        patch(
+            "magpie_bitbucket.cloud.create_pull_request_comment",
+            return_value={
+                "pull_request_id": "7",
+                "comment": {
+                    "id": 601,
+                    "content": {"raw": "Review body."},
+                    "deleted": False,
+                },
+            },
+        ) as mock_comment,
+        patch("magpie_bitbucket.cloud.approve_pull_request") as mock_approve,
+        patch("magpie_bitbucket.cloud.request_pull_request_changes") as mock_request_changes,
+    ):
+        result = cloud.post_pull_request_review(
+            load_config(),
+            "7",
+            "comment",
+            "Review body.",
+        )
+
+    mock_comment.assert_called_once_with(
+        load_config(),
+        "7",
+        "Review body.",
+    )
+    mock_approve.assert_not_called()
+    mock_request_changes.assert_not_called()
+
+    assert result["verdict"] == "comment"
+    assert result["comment"]["id"] == 601
+    assert result["participant"] is None
+
+
+def test_cloud_post_pull_request_review_approve_posts_body_before_verdict(
+    cloud_env: None,
+) -> None:
+    order: list[str] = []
+
+    def create_comment(*args: Any) -> dict[str, Any]:
+        order.append("comment")
+        return {
+            "pull_request_id": "7",
+            "comment": {
+                "id": 601,
+                "content": {"raw": "LGTM."},
+                "deleted": False,
+            },
+        }
+
+    def approve(*args: Any) -> dict[str, Any]:
+        order.append("approve")
+        return {
+            "pull_request_id": "7",
+            "participant": {
+                "approved": True,
+                "state": "approved",
+            },
+        }
+
+    with (
+        patch(
+            "magpie_bitbucket.cloud.create_pull_request_comment",
+            side_effect=create_comment,
+        ),
+        patch(
+            "magpie_bitbucket.cloud.approve_pull_request",
+            side_effect=approve,
+        ),
+    ):
+        result = cloud.post_pull_request_review(
+            load_config(),
+            "7",
+            "approve",
+            "LGTM.",
+        )
+
+    assert order == ["comment", "approve"]
+    assert result["verdict"] == "approve"
+    assert result["participant"]["approved"] is True
+
+
+def test_cloud_post_pull_request_review_request_changes(
+    cloud_env: None,
+) -> None:
+    with (
+        patch(
+            "magpie_bitbucket.cloud.create_pull_request_comment",
+            return_value={
+                "pull_request_id": "7",
+                "comment": {
+                    "id": 601,
+                    "content": {"raw": "Please fix this."},
+                    "deleted": False,
+                },
+            },
+        ),
+        patch(
+            "magpie_bitbucket.cloud.request_pull_request_changes",
+            return_value={
+                "pull_request_id": "7",
+                "participant": {
+                    "approved": False,
+                    "state": "changes_requested",
+                },
+            },
+        ) as mock_request_changes,
+    ):
+        result = cloud.post_pull_request_review(
+            load_config(),
+            "7",
+            "request-changes",
+            "Please fix this.",
+        )
+
+    mock_request_changes.assert_called_once()
+    assert result["verdict"] == "request-changes"
+    assert result["participant"]["state"] == "changes_requested"
+
+
+def test_cloud_post_pull_request_review_rejects_invalid_verdict_before_write(
+    cloud_env: None,
+) -> None:
+    with (
+        patch("magpie_bitbucket.cloud.create_pull_request_comment") as mock_comment,
+        patch("magpie_bitbucket.cloud.approve_pull_request") as mock_approve,
+    ):
+        with pytest.raises(
+            BitbucketError,
+            match="Unsupported pull request review verdict",
+        ):
+            cloud.post_pull_request_review(
+                load_config(),
+                "7",
+                "dismiss",
+                "Review body.",
+            )
+
+    mock_comment.assert_not_called()
+    mock_approve.assert_not_called()
+
+
+def test_cloud_post_pull_request_review_reports_partial_failure(
+    cloud_env: None,
+) -> None:
+    with (
+        patch(
+            "magpie_bitbucket.cloud.create_pull_request_comment",
+            return_value={
+                "pull_request_id": "7",
+                "comment": {
+                    "id": 601,
+                    "content": {"raw": "LGTM."},
+                    "deleted": False,
+                },
+            },
+        ),
+        patch(
+            "magpie_bitbucket.cloud.approve_pull_request",
+            side_effect=BitbucketError("approve failed"),
+        ),
+        pytest.raises(
+            BitbucketError,
+            match="review body was posted",
+        ) as exc,
+    ):
+        cloud.post_pull_request_review(
+            load_config(),
+            "7",
+            "approve",
+            "LGTM.",
+        )
+
+    assert "before retrying" in str(exc.value)
+
+
+def test_datacenter_post_pull_request_review_unsupported(
+    datacenter_env: None,
+) -> None:
+    with pytest.raises(
+        BitbucketError,
+        match="Data Center pull request post-review writes are not supported",
+    ):
+        datacenter.post_pull_request_review(
+            load_config(),
+            "9",
+            "approve",
+            "LGTM.",
+        )
+
+
+def test_normalize_posted_pull_request_review() -> None:
+    normalized = posted_pull_request_review(
+        "cloud",
+        {
+            "pull_request_id": "7",
+            "verdict": "approve",
+            "comment": {
+                "id": 601,
+                "content": {"raw": "LGTM."},
+                "user": {"display_name": "Alice"},
+                "deleted": False,
+            },
+            "participant": {
+                "approved": True,
+                "state": "approved",
+            },
+        },
+    )
+
+    assert normalized["ok"] is True
+    assert normalized["backend"] == "bitbucket-cloud"
+    assert normalized["operation"] == "pull-request-review"
+    assert normalized["pull_request_id"] == "7"
+    assert normalized["verdict"] == "approve"
+    assert normalized["comment"]["body"] == "LGTM."
+    assert normalized["participant"]["approved"] is True
+
+
+@patch("magpie_bitbucket.cloud.post_pull_request_review")
+def test_cli_pr_review_cloud(
+    mock_post_review: MagicMock,
+    cloud_env: None,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    body_file = tmp_path / "review.md"
+    body_file.write_text("LGTM.", encoding="utf-8")
+
+    mock_post_review.return_value = {
+        "pull_request_id": "7",
+        "verdict": "approve",
+        "comment": {
+            "id": 601,
+            "content": {"raw": "LGTM."},
+            "user": {"display_name": "Alice"},
+            "deleted": False,
+        },
+        "participant": {
+            "approved": True,
+            "state": "approved",
+        },
+    }
+
+    exit_code = main(
+        [
+            "pr",
+            "review",
+            "7",
+            "--verdict",
+            "approve",
+            "--body-file",
+            str(body_file),
+        ]
+    )
+
+    assert exit_code == 0
+
+    mock_post_review.assert_called_once_with(
+        load_config(),
+        "7",
+        "approve",
+        "LGTM.",
+    )
+
+    output = json.loads(capsys.readouterr().out)
+
+    assert output["ok"] is True
+    assert output["operation"] == "pull-request-review"
+    assert output["verdict"] == "approve"
+    assert output["comment"]["body"] == "LGTM."
+    assert output["participant"]["approved"] is True
+
+
+@patch("magpie_bitbucket.cloud.post_pull_request_review")
+def test_cli_pr_review_rejects_empty_body_before_write(
+    mock_post_review: MagicMock,
+    cloud_env: None,
+    tmp_path: Path,
+) -> None:
+    body_file = tmp_path / "empty-review.md"
+    body_file.write_text("   ", encoding="utf-8")
+
+    with pytest.raises(
+        BitbucketError,
+        match="Comment body file must not be empty",
+    ):
+        main(
+            [
+                "pr",
+                "review",
+                "7",
+                "--verdict",
+                "approve",
+                "--body-file",
+                str(body_file),
+            ]
+        )
+
+    mock_post_review.assert_not_called()
+
+
+@patch("magpie_bitbucket.client.urllib.request.build_opener")
+def test_cli_pr_review_datacenter_fails_without_request(
+    mock_build_opener: MagicMock,
+    datacenter_env: None,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    body_file = tmp_path / "review.md"
+    body_file.write_text("LGTM.", encoding="utf-8")
+
+    exit_code = package_main(
+        [
+            "pr",
+            "review",
+            "9",
+            "--verdict",
+            "approve",
+            "--body-file",
+            str(body_file),
+        ]
+    )
+
+    assert exit_code == 1
+    mock_build_opener.assert_not_called()
+
+    stderr = capsys.readouterr().err
+    assert "post-review writes are not supported" in stderr
+
+
+@patch("magpie_bitbucket.cloud.post_pull_request_review")
+def test_cli_pr_review_rejects_invalid_verdict_before_write(
+    mock_post_review: MagicMock,
+    cloud_env: None,
+    tmp_path: Path,
+) -> None:
+    body_file = tmp_path / "review.md"
+    body_file.write_text("Review body.", encoding="utf-8")
+
+    with pytest.raises(SystemExit) as exc:
+        main(
+            [
+                "pr",
+                "review",
+                "7",
+                "--verdict",
+                "dismiss",
+                "--body-file",
+                str(body_file),
+            ]
+        )
+
+    assert exc.value.code == 2
+    mock_post_review.assert_not_called()

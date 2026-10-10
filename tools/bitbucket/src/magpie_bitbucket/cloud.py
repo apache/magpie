@@ -683,6 +683,59 @@ def create_pull_request_comment(
     }
 
 
+def post_pull_request_review(
+    config: BitbucketConfig,
+    pull_request_id: str,
+    verdict: str,
+    body: str,
+) -> dict[str, Any]:
+    """Post a confirmed review body and verdict to a Bitbucket Cloud pull request."""
+    if verdict not in {"comment", "approve", "request-changes"}:
+        raise BitbucketError(f"Unsupported pull request review verdict: {verdict}")
+
+    comment_result = create_pull_request_comment(
+        config,
+        pull_request_id,
+        body,
+    )
+
+    comment = comment_result.get("comment")
+
+    if verdict == "comment":
+        return {
+            "pull_request_id": pull_request_id,
+            "verdict": verdict,
+            "comment": comment,
+            "participant": None,
+        }
+
+    try:
+        if verdict == "approve":
+            verdict_result = approve_pull_request(
+                config,
+                pull_request_id,
+            )
+        else:
+            verdict_result = request_pull_request_changes(
+                config,
+                pull_request_id,
+            )
+    except BitbucketError as exc:
+        raise BitbucketError(
+            "Bitbucket pull request review body was posted, but the "
+            f"{verdict} verdict failed. Inspect `pr discussion {pull_request_id}` "
+            f"and `pr reviews {pull_request_id}` before retrying to avoid "
+            "duplicating the review comment."
+        ) from exc
+
+    return {
+        "pull_request_id": pull_request_id,
+        "verdict": verdict,
+        "comment": comment,
+        "participant": verdict_result.get("participant"),
+    }
+
+
 def get_pull_request_discussion(config: BitbucketConfig, pull_request_id: str) -> dict[str, Any]:
     """Fetch pull request comments from Bitbucket Cloud."""
     workspace = quote_path(require(config.workspace, "BITBUCKET_WORKSPACE"))

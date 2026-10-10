@@ -277,6 +277,28 @@ def created_pull_request_comment(
     }
 
 
+def posted_pull_request_review(
+    kind: str,
+    raw: dict[str, Any],
+) -> dict[str, Any]:
+    """Normalize a posted pull-request review."""
+    comment = raw.get("comment")
+    normalized_comment = _cloud_comment(comment) if kind == "cloud" and isinstance(comment, dict) else {}
+
+    participant = raw.get("participant")
+
+    return {
+        "ok": bool(normalized_comment),
+        "backend": "bitbucket-cloud" if kind == "cloud" else "bitbucket-datacenter",
+        "operation": "pull-request-review",
+        "pull_request_id": _string(raw.get("pull_request_id")),
+        "verdict": _string(raw.get("verdict")),
+        "comment": normalized_comment,
+        "participant": participant if isinstance(participant, dict) else None,
+        "raw": raw,
+    }
+
+
 def pull_request_discussion(kind: str, raw: dict[str, Any]) -> dict[str, Any]:
     """Normalize pull request discussion/comments from Bitbucket."""
     values = raw.get("values")
