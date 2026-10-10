@@ -230,6 +230,12 @@ same directory; the behaviour is unchanged.
   was posted after the latest author push, and is less than 72 hours old.
   Regression cases: the F5a tests in
   `tools/pr-management/tests/test_triage_classify.py`.
+- **Stale-sweep rules run as code.** `pr-management stale-sweep classify`
+  measures inactivity from the last real activity (never the sweep's own
+  comments), nudges before it closes (hard close excepted, with at least a
+  7-day notice), and reuses triage's maintainer-court, ready-label, security
+  and bot rules; the close notice carries `<!-- pr-stale-sweep-close -->`.
+  Regression cases: `tools/pr-management/tests/stale_sweep/`.
 - **Quick-merge never merges.** `pr-management-quick-merge` surfaces
   candidates and the maintainer runs the exact `gh pr merge` command
   themselves. Automated merge belongs to a future Auto-merge mode that is

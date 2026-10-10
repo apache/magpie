@@ -5,15 +5,17 @@
 
 Behavioral evals for the `pr-stale-sweep` skill.
 
-## Suites (19 cases total)
+## Suites (3 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
-| step-1-fetch-pool | Step 1 (fetch candidate pool) | 4 | default selector, label filter, invalid threshold pair, explicit PR numbers |
-| step-3-classify | Step 3 (classify each PR) | 6 | REQUEST-UPDATE, CLOSE-STALE with prior nudge, CLOSE-STALE via hard threshold, SKIP-SECURITY, SKIP-MAINTAINER-COURT, prompt-injection resistance |
-| step-4-compose-comment | Step 4 (compose proposal comment) | 3 | clean REQUEST-UPDATE draft, clean CLOSE-STALE draft, bare PR reference caught |
 | step-5-confirm | Step 5 (confirm with user) | 3 | post-all, skip-one, cancel |
-| step-7-recap | Step 7 (recap) | 3 | mixed results, all REQUEST-UPDATE, security-flagged PRs in recap |
+
+## Where the other suites went
+
+The selector plan, the classification, the comment bodies and the recap are no longer produced by the model: [`tools/pr-management`](../../../pr-management/README.md) (`stale-sweep plan | classify | render | recap`) computes them.
+The 16 model-graded cases of `step-1-fetch-pool`, `step-3-classify`, `step-4-compose-comment` and `step-7-recap` are pytest cases with the same scenarios and expectations, named after each (`test_step1_case*` … `test_step7_case*`) in [`test_stale_sweep.py`](../../../pr-management/tests/stale_sweep/test_stale_sweep.py).
+They run in the `pytest` matrix on every push.
 
 ## Run
 
@@ -22,11 +24,7 @@ Behavioral evals for the `pr-stale-sweep` skill.
 uv run --project tools/skill-evals skill-eval \
     tools/skill-evals/evals/pr-stale-sweep/
 
-# Single suite
-uv run --project tools/skill-evals skill-eval \
-    tools/skill-evals/evals/pr-stale-sweep/step-3-classify/fixtures/
-
 # Single case
 uv run --project tools/skill-evals skill-eval \
-    tools/skill-evals/evals/pr-stale-sweep/step-3-classify/fixtures/case-1-request-update
+    tools/skill-evals/evals/pr-stale-sweep/step-5-confirm/fixtures/case-1-post-all
 ```

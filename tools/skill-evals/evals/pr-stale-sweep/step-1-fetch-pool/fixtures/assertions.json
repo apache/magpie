@@ -1,3 +1,0 @@
-{
-  "has_error_threshold_order": {"type": "regex", "field": "error", "pattern": "warn_days.{0,40}(less than|<|before|smaller|below).{0,20}close_days|warn_days.{0,20}close_days", "flags": "i"}
-}

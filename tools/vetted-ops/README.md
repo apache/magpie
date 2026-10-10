@@ -248,6 +248,11 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                                "gql-pr-review-decision",
                                "runs-action-required",
                                "pr-diff"]
+"pr-stale-sweep" = ["gql-pr-stale-open",
+                    "gql-pr-stale-label",
+                    "gql-pr-stale-one",
+                    "team-members",
+                    "upstream-permission"]
 "issue-triage"          = ["repo-issue-view", "repo-issue-comments", "repo-issue-list",
                            "repo-issue-add-label", "repo-issue-remove-label",
                            "repo-issue-comment"]
@@ -380,6 +385,9 @@ selector parameter narrows a sweep and cannot re-aim it.
 | `gql-pr-express-one` | `number` | one PR in the same shape | quick-merge |
 | `gql-pr-review-decision` | `number` | review decision, approvals so far, and the base branch's required approving-review count | quick-merge |
 | `pr-live-state` | `number` | live `{number, head_sha, mergeable, mergeable_state}` (REST computes mergeability on demand) | quick-merge |
+| `gql-pr-stale-open` | — | every open, non-draft PR in the pr-stale-sweep shape (raw comment bodies), all pages | pr-stale-sweep |
+| `gql-pr-stale-label` | `label` (policy `upstream_labels`) | the same, narrowed to one label | pr-stale-sweep |
+| `gql-pr-stale-one` | `number` | one PR in the same shape | pr-stale-sweep |
 
 ### The pr-management-stats reads
 

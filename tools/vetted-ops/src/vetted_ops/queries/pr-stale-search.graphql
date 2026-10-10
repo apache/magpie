@@ -1,0 +1,81 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+# One page of open, non-draft upstream PRs in the shape pr-stale-sweep
+# classifies on, for `gh api graphql --paginate --slurp`. Comments carry the
+# raw `body`: the stale-sweep nudge marker is an HTML comment, which
+# `bodyText` strips. The search connection's pageInfo is the document's only
+# pageInfo, so `gh --paginate` follows it.
+#
+# The builder writes `repo:<upstream>` from policy into $searchQuery itself,
+# so this query cannot be pointed at another repository. The StalePR
+# fragment must stay identical to the one in pr-stale-one.graphql (a test
+# checks it).
+query($searchQuery: String!, $endCursor: String) {
+  search(query: $searchQuery, type: ISSUE, first: 25, after: $endCursor) {
+    pageInfo { hasNextPage endCursor }
+    issueCount
+    nodes { ...StalePR }
+  }
+}
+
+fragment StalePR on PullRequest {
+  number
+  title
+  url
+  id
+  createdAt
+  updatedAt
+  isDraft
+  body
+  mergeable
+  baseRefName
+  headRefName
+  headRefOid
+  author { login }
+  authorAssociation
+  labels(first: 30) { nodes { name } }
+  commits(last: 20) {
+    totalCount
+    nodes { commit { oid committedDate message } }
+  }
+  head: commits(last: 1) {
+    nodes { commit { oid committedDate } }
+  }
+  reviewThreads(first: 20) {
+    totalCount
+    nodes {
+      isResolved
+      comments(last: 3) {
+        nodes { author { login } authorAssociation url bodyText createdAt }
+      }
+    }
+  }
+  latestReviews(first: 20) {
+    nodes { state author { login } authorAssociation submittedAt body }
+  }
+  comments(last: 20) {
+    nodes { author { login } authorAssociation url createdAt body bodyText }
+  }
+  timelineItems(itemTypes: [LABELED_EVENT, UNLABELED_EVENT], last: 10) {
+    nodes {
+      __typename
+      ... on LabeledEvent { createdAt label { name } }
+      ... on UnlabeledEvent { createdAt label { name } }
+    }
+  }
+}

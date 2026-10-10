@@ -16,6 +16,7 @@
     - [`triage session record` / `triage session summary`](#triage-session-record--triage-session-summary)
     - [`stats build` — the pr-management-stats dashboard](#stats-build--the-pr-management-stats-dashboard)
     - [`quick-merge screen` — pr-management-quick-merge](#quick-merge-screen--pr-management-quick-merge)
+    - [`stale-sweep` — pr-stale-sweep](#stale-sweep--pr-stale-sweep)
     - [`config`](#config)
   - [Shared rules](#shared-rules)
   - [What it reads](#what-it-reads)
@@ -177,6 +178,21 @@ uv run --project <framework>/tools/pr-management pr-management quick-merge sessi
 Globs: `**` is any number of segments, other segments are `fnmatch`, case-sensitive.
 `approve-check` enforces the approve protocol (head lock, gates re-checked, diff viewed this session) and prints the `gh pr review` command.
 It prints `{ready, needs_approval, drops, drop_reasons, needs, prefetch, handoff, summary, docs, warnings}`; every printed command is built with `shlex.join`.
+
+### `stale-sweep` — pr-stale-sweep
+
+```bash
+uv run --project <framework>/tools/pr-management pr-management stale-sweep plan <selector...>
+uv run --project <framework>/tools/pr-management pr-management stale-sweep classify --saved-dir <workspace>/saved [--now <iso>] <selector...>
+uv run --project <framework>/tools/pr-management pr-management stale-sweep render --saved-dir <workspace>/saved --pr N --out-dir <dir>
+uv run --project <framework>/tools/pr-management pr-management stale-sweep record --session <file> --pr N --class <class> --outcome posted|closed|skipped|failed [--comment-url <url>]
+uv run --project <framework>/tools/pr-management pr-management stale-sweep recap --session <file> --saved-dir <workspace>/saved
+```
+
+`plan` resolves the selector and thresholds (`pr_warn_days` / `pr_close_days` / `pr_hard_close_days`, default 45 / 90 / 180) and lists the reads to save.
+`classify` measures inactivity from the last real activity — never the sweep's own comments — and sorts every PR into `REQUEST-UPDATE`, `CLOSE-STALE` (only after a standing nudge at least 7 days old, or past the hard-close threshold), `SKIP-NUDGE-PENDING`, `SKIP-SECURITY`, `SKIP-MAINTAINER-COURT`, `SKIP-READY-LABEL` or `SKIP-NO-TIMESTAMPS`, reusing the triage maintainer-court, ready-label, security and bot rules.
+It reports `over_cap` instead of truncating.
+`render` writes the comment (author-only mention, linked references) and the `shlex.join`-built `gh` commands; `recap` prints the counts with every PR linked.
 
 ### `config`
 

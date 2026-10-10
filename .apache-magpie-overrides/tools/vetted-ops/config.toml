@@ -116,6 +116,16 @@ close_reasons = ["completed", "not planned"]
     "pr-diff",
 ]
 
+# pr-stale-sweep saves the candidate pool and classifies it with
+# `pr-management stale-sweep`. Reads only: nudges and closes stay confirmed `gh` calls.
+"pr-stale-sweep" = [
+    "gql-pr-stale-open",
+    "gql-pr-stale-label",
+    "gql-pr-stale-one",
+    "team-members",
+    "upstream-permission",
+]
+
 # release-rc-cut emits every release command for the Release Manager and runs
 # none itself. Its only GitHub access is reading the upstream tags (Step 0, to
 # refuse an RC tag that already exists) and, after the RM confirms it, the
