@@ -261,6 +261,17 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                                 "gql-pr-by-head",
                                 "pr-checks",
                                 "pr-comments"]
+"pr-management-mentor" = ["viewer",
+                          "repo-issue-view",
+                          "pr-view-with-body",
+                          "pr-comments",
+                          "team-members",
+                          "upstream-permission"]
+"reviewer-routing" = ["pr-view-with-body",
+                      "repo-issue-view",
+                      "commits-by-path",
+                      "pr-search-review-requested",
+                      "repo-file"]
 "issue-triage"          = ["repo-issue-view", "repo-issue-comments", "repo-issue-list",
                            "repo-issue-add-label", "repo-issue-remove-label",
                            "repo-issue-comment"]

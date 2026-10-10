@@ -1,9 +1,0 @@
-{
-  "verdict": "blocked",
-  "blockers": ["no roster file found — create reviewer-roster.md or release-trains.md in the project config directory"],
-  "privacy_gate_passed": true,
-  "roster_source": null,
-  "item_type": "pr",
-  "item_number": 99,
-  "upstream_repo": "apache/example"
-}

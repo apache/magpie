@@ -31,7 +31,7 @@ Suites are currently implemented for:
 - **issue-fix-workflow** — 20 cases across 7 steps (step-2-locate-area, step-6-scope-check, step-7-compose-commit, step-8-handback)
 - **issue-reassess-stats** — 8 cases across 3 steps (step-1-fetch-verdicts, step-2-classify, step-3-aggregate)
 - **pr-management-code-review** — 56 cases across 15 suites; the 13 scripted suites moved to `tools/pr-management/tests/code_review`
-- **pr-management-mentor** — 29 cases across 3 steps (tone-checks, hand-off)
+- **pr-management-mentor** — 6 cases across 2 steps (intervention, tone-checks); the hand-off triggers and deterministic tone rules are pytest-tested in `tools/pr-management`
 - **pr-management-stats** — 6 cases across 1 step (build-loop)
 - **pr-management-triage** — 33 cases across 6 steps (backport-check, classify-loop, deliver-note, guard-reroute, terminal-links, interaction-progress); the pre-filters, decision table and pagination are pytest-tested in `tools/pr-management`
 - **list-skills** — 8 cases across 2 steps (step-1-command, step-2-present)
@@ -48,7 +48,7 @@ Suites are currently implemented for:
 - **contributor-sentiment** — 10 cases across 3 steps (step-0-resolve-inputs, step-2-score-signals, step-3-generate-report)
 - **onboarding-concierge** — 10 cases across 2 steps (question-classify, answer-draft)
 - **newcomer-issue-explainer** — 11 cases across 2 steps (issue-assessment, explanation-quality)
-- **pre-first-pr-check** — 9 cases across 2 steps (step-2-check-categories, step-3-compose-report)
+- **pre-first-pr-check** — 2 cases across 1 step (step-2-check-categories); the scripted categories and the report are pytest-tested in `tools/pr-management`
 - **pr-stale-sweep** — 3 cases across 1 step (step-5-confirm); plan, classify, render and recap are pytest-tested in `tools/pr-management`
 - **report-framework-issue** — 6 cases across 1 step (step-scrub); redaction-category classifier with a `safe_to_file` gate and injection resistance
 - **security-model-verify** — 11 cases across 2 steps (step-a-discoverability, step-b-completeness); the mechanical-versus-maintainer remediation split, and completeness grading that never blocks
@@ -79,7 +79,7 @@ Suites are currently implemented for:
 - **release-verify-rc** — 33 cases across 9 suites (step-0-preflight, step-2-verify-signatures, step-3-verify-checksums, step-5-notice-license, step-6-binary-exclusion, step-6b-jvm-artefacts, step-6c-nexus-staging, step-8-version-consistency, step-9-reproducibility)
 - **release-vote-draft** — 9 cases across 3 suites (step-0-preflight, step-2-vote-draft, step-3-planning-comment)
 - **release-vote-tally** — 9 cases across 3 suites (step-0-preflight, step-2-classify, step-3-tally)
-- **reviewer-routing** — 7 cases across 2 suites (step-0-preflight, step-score-and-propose)
+- **reviewer-routing** — 1 case across 1 suite (step-score-and-propose); pre-flight and scoring are pytest-tested in `tools/pr-management`
 - **security-issue-import-from-scan** — 4 cases across 1 suite (step-c-bucket)
 - **security-issue-import-via-forwarder** — 18 cases across 4 suites (step-0-preflight, step-1-detect-adapter, step-2-extract-credit, step-3-route-drafts)
 - **security-tracker-stats-dashboard** — 11 cases across 3 suites (step-1-resolve-config, step-2-cache-freshness, step-3-hard-rules)

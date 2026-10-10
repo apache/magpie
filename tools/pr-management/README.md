@@ -19,6 +19,9 @@
     - [`stale-sweep` — pr-stale-sweep](#stale-sweep--pr-stale-sweep)
     - [`stack-review` — pr-management-stack-review](#stack-review--pr-management-stack-review)
     - [`code-review` — pr-management-code-review](#code-review--pr-management-code-review)
+    - [`mentor` — pr-management-mentor](#mentor--pr-management-mentor)
+    - [`reviewer-routing` — reviewer-routing](#reviewer-routing--reviewer-routing)
+    - [`pre-first-pr` — pre-first-pr-check](#pre-first-pr--pre-first-pr-check)
     - [`config`](#config)
   - [Shared rules](#shared-rules)
   - [What it reads](#what-it-reads)
@@ -235,6 +238,38 @@ uv run --project <framework>/tools/pr-management pr-management code-review <subc
 When a saved read is missing, a subcommand returns `needs: [{op, params, save, why}]`; the skill runs each bare `vetted-op-read --save` and re-runs it.
 The agent keeps reading the diff, writing findings and judging severity.
 
+### `mentor` — pr-management-mentor
+
+```bash
+uv run --project <framework>/tools/pr-management pr-management mentor config
+uv run --project <framework>/tools/pr-management pr-management mentor assess --saved-dir <workspace>/saved --kind pr|issue --number N --viewer <login>
+uv run --project <framework>/tools/pr-management pr-management mentor render --kind missing-repro|missing-version|convention-pointer|why-question|hand-off [--author <login>] [--pointer <url>] [--open-question-file <file>] --out <file>
+uv run --project <framework>/tools/pr-management pr-management mentor tone-check --draft <file> --author <login>
+uv run --project <framework>/tools/pr-management pr-management mentor log --kind pr|issue --number N --outcome posted|discarded|declined --trigger <t>
+```
+
+`assess` checks the hand-off triggers in the order 4 → 3 → 1 → 2, then whether a maintainer is engaged, and returns `config_error`, `handoff`, `maintainer_engaged` or `draft` with the pointers and the documents to read.
+`render` refuses a half-rendered body and runs the deterministic tone rules; `tone-check` runs them on a draft.
+
+### `reviewer-routing` — reviewer-routing
+
+```bash
+uv run --project <framework>/tools/pr-management pr-management reviewer-routing preflight --target <ref> --privacy-exit <code> [--privacy-message <text>]
+uv run --project <framework>/tools/pr-management pr-management reviewer-routing propose --target <ref> --saved-dir <workspace>/saved [--area <a>...] [--no-codeowners] [--injection]
+```
+
+`propose` returns `needs` until every read is saved, then the primary, the backup, every candidate's score and the proposal text.
+
+### `pre-first-pr` — pre-first-pr-check
+
+```bash
+uv run --project <framework>/tools/pr-management pr-management pre-first-pr check --repo-dir <checkout> [--base <ref>] [--path <p>...] --out <file>
+uv run --project <framework>/tools/pr-management pr-management pre-first-pr report --check <file> --judgement <file>
+```
+
+`check` runs read-only `git` locally and scores categories A (SPDX header in the first ten lines, licence from `project.md`), B2 (AI `Co-Authored-By`), B3 (the attribution convention, resolved like the agent-guard), C (declared placeholders) and D (binaries, `.env*`, token-like strings, files over 1 MB).
+`report` merges the agent's judgement on B1, B3, D's wording and E and prints the readiness signal; a category that never ran counts as blocking.
+
 ### `config`
 
 Prints the resolved configuration — useful when a value is not the one expected.
@@ -264,6 +299,7 @@ Other skills link here instead of restating them; change a rule in code and here
 - **Mergeability** — `UNKNOWN` is "not yet computed", never "mergeable": passing needs `MERGEABLE`, and every guard refuses on `UNKNOWN`.
 - **Strip-ready-on-downgrade** — a ready-labelled PR that regresses into a `deterministic_flag` `draft` / `comment` / `close` loses the label, unless a collaborator thread is open (a merit discussion): then `draft` becomes feedback only, `close` delivers its reasoning and label but leaves the PR open, and the label stays.
 - **Reason strings** — one line, factual, signal first and proposal verb last; no emoji, no editorialising, no generated prose. The table's templates are the whole surface.
+- **Routing score** — area 3 each (cap 6), familiarity 2 per path (cap 6), CODEOWNERS 2, load −1 per review above 2 (floor −5); an OVERLOADED member is never the primary.
 
 ## What it reads
 

@@ -151,6 +151,25 @@ close_reasons = ["completed", "not planned"]
     "pr-comments",
 ]
 
+# pr-management-mentor reads one thread. Reads only: posting stays a confirmed `gh` call.
+"pr-management-mentor" = [
+    "viewer",
+    "repo-issue-view",
+    "pr-view-with-body",
+    "pr-comments",
+    "team-members",
+    "upstream-permission",
+]
+
+# reviewer-routing scores the roster from saved reads. Reads only.
+"reviewer-routing" = [
+    "pr-view-with-body",
+    "repo-issue-view",
+    "commits-by-path",
+    "pr-search-review-requested",
+    "repo-file",
+]
+
 # release-rc-cut emits every release command for the Release Manager and runs
 # none itself. Its only GitHub access is reading the upstream tags (Step 0, to
 # refuse an RC tag that already exists) and, after the RM confirms it, the

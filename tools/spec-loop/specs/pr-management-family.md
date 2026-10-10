@@ -130,6 +130,10 @@ same directory; the behaviour is unchanged.
   `reviewer-routing` (`mode: Triage`; [reviewer routing](reviewer-routing.md)),
   and `pre-first-pr-check` (`mode: Pairing`, read-only newcomer checklist on a
   local branch; [pairing mode](pairing-mode.md)).
+  `pr-management-mentor`, `reviewer-routing` and `pre-first-pr-check` run their
+  rules in `tools/pr-management` (`mentor assess|render|tone-check|log`,
+  `reviewer-routing preflight|propose`, `pre-first-pr check|report`); their
+  detail files are per-classification under `classifications/`.
 - Family README: `docs/pr-management/README.md` — family overview, skill
   table, adopter-config scaffold.
 - Tool: `tools/pr-management/` (`pr_management.stats`) — deterministic Python backing for

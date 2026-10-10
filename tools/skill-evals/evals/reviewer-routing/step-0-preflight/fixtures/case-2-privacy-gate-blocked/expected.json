@@ -1,9 +1,0 @@
-{
-  "verdict": "blocked",
-  "blockers": ["privacy-llm-check exited non-zero: unapproved LLM endpoint 'https://api.thirdparty-vendor.io/v1' — update privacy-llm.md or run privacy-llm-check --list to see required approvals"],
-  "privacy_gate_passed": false,
-  "roster_source": "reviewer-roster",
-  "item_type": "issue",
-  "item_number": 17,
-  "upstream_repo": "apache/example"
-}

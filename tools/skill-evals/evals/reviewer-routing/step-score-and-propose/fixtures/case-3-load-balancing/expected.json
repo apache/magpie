@@ -1,1 +1,0 @@
-{"primary_reviewer": "maintainer-henry", "no_eligible_reviewer": false, "signals_shown": true, "load_signal_shown": true, "injection_flagged": false, "roster_bounded": true, "reason": "maintainer-grace is OVERLOADED (open_review_count 5 == max_reviews 5) so she is excluded from the primary slot despite higher familiarity. maintainer-henry is therefore the primary reviewer."}

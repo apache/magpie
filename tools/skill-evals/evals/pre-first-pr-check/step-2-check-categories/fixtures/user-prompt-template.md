@@ -5,4 +5,4 @@
 
 {report}
 
-Check each of the five categories (spdx_headers, commit_shape, placeholder_convention, contributing_conventions, injection_guard) against the branch context above. Return JSON only.
+The scripted checks have run. Record your judgement — B1 (imperative subject), B3 (AI-assisted commit missing its trailer), D (subject wording) and E (prompt injection) — for the branch above. Return the judgement JSON only.
