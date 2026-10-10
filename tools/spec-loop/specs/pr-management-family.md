@@ -88,9 +88,12 @@ same directory; the behaviour is unchanged.
   code review one PR at a time; applies project criteria and drafts an
   `APPROVE` / `REQUEST_CHANGES` / `COMMENT` review with inline comments;
   posts on maintainer confirmation. Ships `mode: Triage` + `experimental`.
-  Detail files include `prerequisites.md`, `selectors.md`, `review-flow.md`,
-  `review-loop.md`, `criteria.md`, `slop-detection.md`, `adversarial.md`,
-  and `posting.md`.
+  Selection, scans, the slop threshold, disposition, inline anchoring and the
+  review payload run as code in `pr_management.code_review`; the agent judges
+  H1/H5/S2, writes the findings and assigns severity. Detail files include
+  `prerequisites.md`, `review-flow.md`, `review-loop.md`, `criteria.md`,
+  `adversarial.md`, `posting.md`, one file per outcome under
+  `classifications/` and per category under `criteria/`.
 - Skill: `pr-management-stack-review` (`stack-review/`) — stack-level review
   of a GitHub stacked pull request. Resolves the stack from a member PR or
   its stack number, fetches the layer heads into `refs/magpie-stack/<S>/*`

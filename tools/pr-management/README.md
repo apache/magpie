@@ -18,6 +18,7 @@
     - [`quick-merge screen` — pr-management-quick-merge](#quick-merge-screen--pr-management-quick-merge)
     - [`stale-sweep` — pr-stale-sweep](#stale-sweep--pr-stale-sweep)
     - [`stack-review` — pr-management-stack-review](#stack-review--pr-management-stack-review)
+    - [`code-review` — pr-management-code-review](#code-review--pr-management-code-review)
     - [`config`](#config)
   - [Shared rules](#shared-rules)
   - [What it reads](#what-it-reads)
@@ -209,6 +210,30 @@ uv run --project <framework>/tools/pr-management pr-management stack-review resi
 `findings` maps the detectors' output to finding classes and severities, separating what still needs judgement; `verdict` computes the verdict and sorts the findings; `post` finds the marker comment, flags foreign markers, compares heads and prints the post commands.
 The detectors run as `python -m pr_management.stack_review.stack_chain` / `stack_ledger` on the local clone.
 Every printed command is built with `shlex.join`.
+
+### `code-review` — pr-management-code-review
+
+```bash
+uv run --project <framework>/tools/pr-management pr-management code-review <subcommand> --saved-dir <workspace>/saved ...
+```
+
+| Subcommand | Prints |
+|---|---|
+| `resolve`, `queue` | the ordered review queue with match chips and skip reasons (the five "my reviews" signals and every selector) |
+| `context` | the PR headline, the slop signals, the security and AI-disclosure scans, the `AGENTS.md` files that apply, the real-CI result |
+| `slop-outcome` | the slop outcome once the agent has judged H1, H5 and S2 |
+| `deps` | the dependency-constraint ledger: `broken`, `compatible` or `unknown` |
+| `disposition` | `APPROVE` / `REQUEST_CHANGES` / `COMMENT`, the footer variant and any conflict note |
+| `reviewers` | ranked reviewer suggestions |
+| `render` | the review body file, the payload file, inline anchors (line, side, position) and the `shlex.join`-built post command |
+| `pick` | the parsed picker choice |
+| `mention-scan`, `verify-footer` | live `@`-mentions in a draft; whether the footer matches the template |
+| `guard` | the head-SHA recheck before posting |
+| `slop-comment` | the slop-warning body and its `gh pr comment` command |
+| `session record`, `session summary` | the session counts and summary text |
+
+When a saved read is missing, a subcommand returns `needs: [{op, params, save, why}]`; the skill runs each bare `vetted-op-read --save` and re-runs it.
+The agent keeps reading the diff, writing findings and judging severity.
 
 ### `config`
 

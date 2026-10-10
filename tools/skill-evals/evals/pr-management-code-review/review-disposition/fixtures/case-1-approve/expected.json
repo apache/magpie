@@ -1,4 +1,0 @@
-{
-  "disposition": "APPROVE",
-  "reason": "Every approval gate is satisfied (green CI, no unresolved threads or blocking maintainer reviews, no blocking or major findings), so Golden rules 7 and 8 hold and APPROVE is correct."
-}

@@ -1,0 +1,90 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+# Every open upstream PR in the shape pr-management-code-review builds the
+# "my reviews" queue from: the five signals (review requests, changed files,
+# mentions, the viewer's reviews) and the headline fields, for
+# `gh api graphql --paginate --slurp`. The pullRequests connection carries the
+# document's only pageInfo, which is what `gh --paginate` follows.
+#
+# $owner / $repo are supplied by the dispatcher from policy, never by the
+# caller, so this query cannot be pointed at another repository.
+query($owner: String!, $repo: String!, $endCursor: String) {
+  repository(owner: $owner, name: $repo) {
+    pullRequests(states: OPEN, first: 20, after: $endCursor, orderBy: {field: UPDATED_AT, direction: DESC}) {
+      pageInfo { hasNextPage endCursor }
+      nodes {
+        number
+        title
+        url
+        isDraft
+        createdAt
+        updatedAt
+        headRefOid
+        baseRefName
+        author { login }
+        authorAssociation
+        mergeable
+        mergeStateStatus
+        additions
+        deletions
+        changedFiles
+        bodyText
+        labels(first: 30) { nodes { name } }
+        reviewRequests(first: 20) {
+          nodes {
+            requestedReviewer {
+              __typename
+              ... on User { login }
+              ... on Team { slug organization { login } }
+            }
+          }
+        }
+        files(first: 100) { totalCount nodes { path } }
+        comments(last: 30) { nodes { author { login } bodyText } }
+        reviews(last: 30) {
+          nodes {
+            author { login }
+            state
+            submittedAt
+            bodyText
+            commit { oid }
+            comments(first: 10) { nodes { bodyText } }
+          }
+        }
+        commits(last: 30) { nodes { commit { message } } }
+        reviewThreads(first: 50) { totalCount nodes { isResolved } }
+        latest: commits(last: 1) {
+          nodes {
+            commit {
+              statusCheckRollup {
+                state
+                contexts(first: 50) {
+                  nodes {
+                    __typename
+                    ... on CheckRun { name conclusion status }
+                    ... on StatusContext { context state }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

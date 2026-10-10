@@ -236,7 +236,8 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                                "pr-search-review-requested", "pr-search-mentions",
                                "pr-search-reviewed-by", "pr-search-team-review-requested",
                                "commits-by-path", "repo-file", "label-list",
-                               "gql-pr-review-threads", "pr-review-approve",
+                               "gql-pr-review-threads", "team-members", "gql-pr-liveness", "gql-cr-open", "gql-cr-pr", "gql-cr-pr-stack", "cr-codeowners-github", "cr-codeowners-root", "cr-codeowners-docs", "cr-pr-template", "cr-viewer-commits", "cr-commit-files", "cr-path-commits", "cr-commit-pulls",
+                               "pr-review-approve",
                                "pr-review-request-changes", "pr-review-comment"]
 "pr-management-stats"   = ["viewer", "gql-pr-stats-open", "gql-pr-stats-closed-page",
                            "gql-pr-stats-closed-search", "team-members"]
@@ -398,6 +399,17 @@ selector parameter narrows a sweep and cannot re-aim it.
 | `gql-stack-of-pr` | `number` | the stack a member PR belongs to, every entry | stack-review |
 | `gql-stack-scan` | — | every open PR's stack number, all pages | stack-review |
 | `gql-pr-by-head` | `head` | open PRs whose head is one branch (the trunk walk) | stack-review |
+| `gql-cr-open` | — | every open PR in the code-review queue shape, all pages | code-review |
+| `gql-cr-pr` | `number` | one PR's review context: headline, files, threads, reviews, checks | code-review |
+| `gql-cr-pr-stack` | `number` | the stack a PR belongs to, for stacked-layer reviews | code-review |
+| `cr-codeowners-github` | — | `.github/CODEOWNERS` from the default branch | code-review |
+| `cr-codeowners-root` | — | `CODEOWNERS` at the repository root | code-review |
+| `cr-codeowners-docs` | — | `docs/CODEOWNERS` | code-review |
+| `cr-pr-template` | — | the repository's pull-request template | code-review |
+| `cr-viewer-commits` | `login date ref` | the viewer's commits on the base branch since a date | code-review |
+| `cr-commit-files` | `commit_hash` | the files a commit touched | code-review |
+| `cr-path-commits` | `path` | the commits that touched a path | code-review |
+| `cr-commit-pulls` | `commit_hash` | the merged PRs a commit belongs to | code-review |
 
 ### The pr-management-stats reads
 

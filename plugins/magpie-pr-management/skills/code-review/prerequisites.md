@@ -3,7 +3,7 @@
 
 # Prerequisites — pre-flight checks
 
-The skill performs three pre-flight checks before fetching any
+The skill performs three pre-flight checks before reviewing any
 PR. Failures of check 1 are a hard stop; checks 2 and 3 degrade
 gracefully with a one-line warning each.
 
@@ -21,38 +21,25 @@ selected protocol works (the skill uses HTTPS GraphQL queries via
 go through SSH).
 
 The active account must additionally be a **collaborator** on
-the target repo (`<upstream>` by default). Without
-collaborator access, the eventual `gh pr review` mutation in
-[`posting.md`](posting.md) returns:
-
-```text
-HTTP 403: Resource not accessible by integration
-```
-
-…with no other indication. The skill probes for collaborator
-status up-front via:
+the target repo (`<upstream>` by default): without collaborator
+access the eventual post returns `HTTP 403: Resource not accessible
+by integration` and nothing else. Read the login and the permission:
 
 ```bash
-gh api user --jq .login
-gh api repos/<repo>/collaborators/<viewer>/permission --jq .permission
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller pr-management-code-review viewer
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller pr-management-code-review --save permission.txt upstream-permission <viewer>
 ```
 
-Run them as two plain commands, substituting the login the first
-prints: a `$(…)`, pipe or redirect around `gh` keeps it sandboxed
-under the secure setup, where it cannot authenticate.
-A response of `admin` or `write` is sufficient (the field carries
-the legacy values only: `maintain` reports as `write`, `triage` as
-`read`; the fine-grained role is in `.role_name`).
-(The endpoint without the trailing `/permission` only tests membership
-and answers `204` with no body, so `.permission` would always be empty.)
-`read` is not enough to post reviews; the skill
-warns and offers `dry-run` mode (which drafts but does not post).
+`admin` or `write` is sufficient (the field carries the legacy values
+only: `maintain` reports as `write`, `triage` as `read`).
+`read` is not enough to post reviews; warn and offer `dry-run` mode
+(which drafts but does not post).
 
-This result also decides which `COMMENT` AI-attribution footer
-[`posting.md`](posting.md) renders: GitHub itself blocks `APPROVE`/
-`REQUEST_CHANGES` from an account without write access, but a
-`COMMENT` can still post after the warning above, so its footer
-must not claim a maintainer confirmed it unless this check says so.
+The saved permission also decides which `COMMENT` footer `render`
+uses: GitHub blocks `APPROVE` / `REQUEST_CHANGES` from an account
+without write access, but a `COMMENT` can still post after the warning
+above, so its footer must not claim a maintainer confirmed it unless
+this check says so.
 
 If `gh auth status` fails entirely, surface it and ask the
 maintainer to run `gh auth login`. Do not proceed.
@@ -117,133 +104,64 @@ command but never fires it.
 
 ## 3. Resolve the selector and compute working set (DEGRADES)
 
-Translate the selector from [`selectors.md`](selectors.md) into a
-GraphQL query and fetch the working list. The default
-selector is the **"my reviews"** union of five signals:
+Save the open-PR sweep and build the queue:
 
-1. **Review-requested** — open PRs where review is requested
-   from `<viewer>`.
-2. **Touching files I've recently modified** — open PRs that
-   change any file in the maintainer's "active set" (files
-   from the maintainer's open PRs on `<repo>` and files the
-   maintainer has authored commits to on the base branch in
-   the past 30 days).
-3. **Codeowner** — open PRs that touch any file
-   `CODEOWNERS` assigns to `<viewer>` directly or via team.
-4. **Mentioned** — open PRs whose body / comments / reviews /
-   commit messages contain `@<viewer>`.
-5. **Reviewed-before** — open PRs that already have a real
-   `gh pr review` from `<viewer>` (any state). Triage comments
-   are excluded — they live in `comments[]`, not `reviews[]`.
+```bash
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller pr-management-code-review --save cr-open.json gql-cr-open
+uv run --project <framework>/tools/pr-management pr-management code-review queue --saved-dir <workspace>/saved --viewer <viewer> <selector…>
+```
 
-See [`selectors.md`](selectors.md) for each signal's exact
-query and the available `*-only` / `no-*` selectors that
-narrow the union.
+The first run lists what else it needs under `needs` — the ownership
+file (`cr-codeowners-github`, falling back to `cr-codeowners-root`
+then `cr-codeowners-docs` on a 404), each `CODEOWNERS` team's roster
+(`team-members`, the team's own membership — not the organisation's),
+the viewer's base-branch commits for touching-mine
+(`cr-viewer-commits`) and each commit's files (`cr-commit-files`).
+Save them and run `queue` again until `needs` is empty; the reads
+are cached for the session in the saved directory.
 
-The active-set, codeowner, and team-membership computations
-run once at the start of the session and are cached for the
-rest of the run. The whole resolution stays well under the
-maintainer's GraphQL budget.
-
-If the selector produces zero PRs, say so and exit:
-
-> *No PRs match `<selector>` on `<repo>`. Nothing to review.*
-
-Do not silently widen the search ("…so I'll show you PRs from
-last month instead"). If the maintainer wants a wider net, they
-re-invoke with a different selector.
+Announce `announcements` once (an empty touching-mine set, a missing
+`CODEOWNERS`). When the queue is empty, print `empty_message` and
+exit — never widen the search silently.
 
 ---
 
 ## CI precheck (per PR, not per session)
 
-Before showing each PR's headline (Step 2 in `SKILL.md`), the
-skill checks the PR's status-check rollup state. This is
-already in the per-PR `gh pr view` payload — it does not require
-a separate call. The state is one of:
+`context` reports the PR's rollup state and whether real CI ran (`ci`), and `disposition` applies them:
 
-- `SUCCESS` — **run the Real-CI guard below before treating this
-  as green.** If the guard passes, proceed normally and `APPROVE`
-  is on the table.
-- `PENDING` — proceed but flag in the headline ("CI still
-  running"); the maintainer may want to defer the approve and
-  use `[S]kip-for-now`.
-- `FAILURE` / `ERROR` — proceed but per Golden rule 8 in
-  `SKILL.md`, `APPROVE` is off the table; downgrade to
-  `COMMENT` or `REQUEST_CHANGES`.
-- `EXPECTED` (workflow approval pending) — surface explicitly
-  and recommend `pr-management-triage pr:<N>` for the workflow-approval
-  flow first; do not attempt to review the PR until CI has
-  actually run.
+- `SUCCESS` with real CI — `APPROVE` stays on the table.
+- `PENDING` — flag it in the headline ("CI still running"); the maintainer may defer with `[S]kip-for-now`.
+- `FAILURE` / `ERROR` — `APPROVE` is off the table (Golden rule 8); `COMMENT`, or `REQUEST_CHANGES` when you judge the failure diff-caused.
+- `EXPECTED` (workflow approval pending) — recommend `pr-management-triage pr:<N>` for the workflow-approval flow first; do not review a PR whose CI has not run.
 
 ### Real-CI guard
 
-**Mandatory whenever the rollup reads `SUCCESS`.** A rollup state
-of `SUCCESS` does not mean the project's CI ran. The rollup
-aggregates only completed check-runs, and fast bot checks
-(`Mergeable`, `WIP`, `DCO`, `boring-cyborg`) succeed
-unconditionally — so on a PR whose real workflows are held in
-`action_required` awaiting first-time-contributor approval, the
-bots alone pull the rollup to `SUCCESS` while nothing has been
-built, linted or tested. The `EXPECTED` branch above never fires
-in that case, because the state is not `EXPECTED`.
+**Mandatory whenever the rollup reads `SUCCESS`.** Fast bot checks
+(`Mergeable`, `WIP`, `DCO`, `boring-cyborg`) succeed unconditionally, so on
+a PR whose real workflows are held in `action_required` the bots alone pull
+the rollup to `SUCCESS` while nothing has been built, linted or tested.
+The guard is the shared rule in
+[`tools/pr-management` → Shared rules](../../../../tools/pr-management/README.md#shared-rules)
+(the adopter's `real_ci_patterns`); `context` and `queue` apply it:
 
-Walk `statusCheckRollup` and confirm at least one context comes
-from the project's own CI rather than an external bot. If none
-does, the PR's merge-readiness is **unknown**, not green:
-
-- Say so in the headline (`CI: no real CI has run`) rather than
-  reporting it as passing.
-- `APPROVE` is off the table. Golden rule 8 covers a PR whose
-  real CI never ran exactly as it covers one that fails.
-- Rank it **below** every PR with a real run when ordering a
-  queue, however small the diff. A change nothing has verified is
-  not a cheap review: static checks, type checks and the test
-  matrix routinely fail on diffs that read as obviously correct,
-  and clearing it costs a workflow approval plus a full CI cycle
-  before anything can move.
-- Report what reading the code established, and say plainly that
-  CI is unverified. Do not predict the outcome — "approvable once
-  CI runs" claims knowledge the reviewer does not have.
+- the headline says `CI: no real CI has run (bot checks only)` rather than passing;
+- `APPROVE` is off the table — Golden rule 8 covers a PR whose real CI never ran exactly as it covers one that fails;
+- `queue` ranks it **below** every PR with a real run, however small the diff;
+- report what reading the code established and say plainly that CI is unverified — never "approvable once CI runs".
 
 Releasing the held workflow runs is a triage action: point the
-maintainer at `pr-management-triage pr:<N>` rather than doing it
-inside this skill.
-
-This mirrors the
-[Real-CI guard](../../../../tools/pr-management/README.md#shared-rules) that
-`pr-management-triage` already applies before classifying any PR
-as `passing`; the same rollup behaviour applies here.
+maintainer at `pr-management-triage pr:<N>`.
 
 ---
 
 ## Browser-open availability (DEGRADES)
 
-The skill prompts before opening each PR's files tab in the
-maintainer's default browser (see Golden rule 11 in
-[`review-flow.md`](review-flow.md)). The opener is `xdg-open` (Linux),
-`open` (macOS), or `start` (Windows). At session start the
-skill checks that at least one is on `$PATH`:
-
-```bash
-command -v xdg-open >/dev/null 2>&1 \
-  || command -v open >/dev/null 2>&1 \
-  || command -v start >/dev/null 2>&1 \
-  || echo "missing"
-```
-
-If none is available (headless session, container with no
-freedesktop tools), announce once and degrade — the prompt is
-still asked, but on `[y]` the skill **prints the files-tab
-URL** instead of trying to launch:
-
-> *No browser opener (`xdg-open` / `open` / `start`) available
-> — on `[y]` I'll print the files-tab URL for you to click
-> manually.*
-
-The PR URL is still always rendered per Golden rule 10, so
-the maintainer can click it directly in any URL-aware
-terminal at any time.
+The sandbox blocks the OS opener (`open`, `xdg-open`, `start`), so the
+skill never launches a browser itself. On the Step 1 `[y]`, hand the
+maintainer the files-tab URL (`files_tab` from `context`) as
+`! open <url>` to run themselves, or print it to click — the PR URL is
+always on the headline anyway (Golden rule 10).
 
 ---
 
@@ -252,11 +170,14 @@ terminal at any time.
 If the maintainer passes `repo:<owner>/<name>`, all checks
 target that repo. For repos that aren't `<upstream>`, also
 check that the conventional `area:*` labels exist (since
-[`selectors.md`](selectors.md) supports `area:` filters):
+[`classifications/selector-area.md`](classifications/selector-area.md) supports `area:` filters):
 
 ```bash
 gh label list --repo <repo> --search "area:" --limit 1
 ```
+
+(a bare `gh` command; the `repo:` override also needs a vetted-ops
+policy whose `upstream` is that repository, passed with `--config`).
 
 If no `area:` labels exist, warn:
 
