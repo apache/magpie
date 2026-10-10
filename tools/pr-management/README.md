@@ -15,6 +15,7 @@
     - [`triage guard` — the pre-mutation checks](#triage-guard--the-pre-mutation-checks)
     - [`triage session record` / `triage session summary`](#triage-session-record--triage-session-summary)
     - [`stats build` — the pr-management-stats dashboard](#stats-build--the-pr-management-stats-dashboard)
+    - [`quick-merge screen` — pr-management-quick-merge](#quick-merge-screen--pr-management-quick-merge)
     - [`config`](#config)
   - [Shared rules](#shared-rules)
   - [What it reads](#what-it-reads)
@@ -163,6 +164,19 @@ After a first `gh gist create`, `pr-management stats record-gist <id>` stores th
 
 CODEOWNERS is read from the adopter checkout (`.github/CODEOWNERS`, `CODEOWNERS`, `docs/CODEOWNERS`).
 `--fetch-with-gh [--repo owner/name]` fetches through `gh` directly instead of the saved files, for a CI job outside the sandbox; it uses the search index for closed PRs.
+
+### `quick-merge screen` — pr-management-quick-merge
+
+```bash
+uv run --project <framework>/tools/pr-management pr-management quick-merge screen --saved-dir <workspace>/saved [--tier A|B] [--max-churn N] [--pr N] [--session <file>]
+uv run --project <framework>/tools/pr-management pr-management quick-merge approve-check --saved-dir <workspace>/saved --pr N --head <sha> [--session <file>] [--out-dir <dir>]
+uv run --project <framework>/tools/pr-management pr-management quick-merge session view|approve --session <file> --pr N --head <sha>
+```
+
+`screen` applies Stage 1 (gates G1→G7: ready label, real CI green, no failed or pending checks, no pending workflow approval, no batch conflict, no unresolved collaborator thread, no changes requested after the last commit), Stage 2 (`max_churn` / `max_files`, deny before allow, tier A/B) and Stage 3 (the live `pr-live-state` read: `clean` / `has_hooks` / `unstable` / `behind` → ready; `blocked` + `REVIEW_REQUIRED` → needs approval; `dirty` → `gate:G5-conflict`; other `blocked` → `gate:G5-blocked`; unknown → `gate:G5-unknown`) over `express-ready.json`, ranks the ready PRs (tier A, churn, oldest) and prints each merge command for the maintainer to run.
+Globs: `**` is any number of segments, other segments are `fnmatch`, case-sensitive.
+`approve-check` enforces the approve protocol (head lock, gates re-checked, diff viewed this session) and prints the `gh pr review` command.
+It prints `{ready, needs_approval, drops, drop_reasons, needs, prefetch, handoff, summary, docs, warnings}`; every printed command is built with `shlex.join`.
 
 ### `config`
 

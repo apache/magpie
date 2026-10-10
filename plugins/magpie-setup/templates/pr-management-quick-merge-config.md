@@ -72,7 +72,7 @@ in gate G2 so a SUCCESS rollup that comes only from bot checks
 ## Path globs
 
 Matched against repo-relative POSIX paths. Deny is evaluated first and wins
-(see [`candidate-rules.md` Path matching](../../../skills/pr-management-quick-merge/candidate-rules.md#path-matching)).
+(see [`candidate-rules.md` Path matching](../../../tools/pr-management/README.md#quick-merge-screen--pr-management-quick-merge)).
 
 ### `tier_a_allow_globs` — documentation / text only (highest confidence)
 
@@ -137,7 +137,7 @@ core/security/build change after only a skim. When unsure, add the path here.
 
 The skill's one permitted mutation is an APPROVE review, submitted only on the
 maintainer's explicit per-PR confirmation (see
-[`SKILL.md` Step 3b](../../../skills/pr-management-quick-merge/SKILL.md#step-3b--optional-approve-action)).
+[`SKILL.md` Step 3b](../../../skills/pr-management-quick-merge/actions/approve.md)).
 
 | Key | Default | Meaning |
 |---|---|---|

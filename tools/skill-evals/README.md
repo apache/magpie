@@ -68,7 +68,7 @@ Suites are currently implemented for:
 - **issue-stale-sweep** — 19 cases across 5 suites (step-1-fetch-pool, step-3-classify, step-4-compose-comment, step-5-confirm, step-7-recap)
 - **license-compliance-audit** — 9 cases across 2 suites (step-findings-report, step-scope-selection)
 - **mentoring-welcome** — 20 cases across 2 suites (tone-checks, welcome-decision)
-- **pr-management-quick-merge** — 21 cases across 3 suites (stage-1-quality-gate, stage-2-triviality, stage-3-merge-readiness)
+- **pr-management-quick-merge** — 5 cases across 1 suite (approve-protocol); the gates, triviality screen and live buckets are pytest-tested in `tools/pr-management`
 - **release-announce-draft** — 9 cases across 3 suites (step-0-preflight, step-2-announce-draft, step-3-site-bump)
 - **release-archive-sweep** — 10 cases across 3 suites (step-0-preflight, step-1-load-listing, step-2-emit-commands)
 - **release-audit-report** — 9 cases across 3 suites (step-0-preflight, step-1-gather-record, step-2-assemble-record)

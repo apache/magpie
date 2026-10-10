@@ -5,44 +5,22 @@
 
 Behavioral evals for the `pr-management-quick-merge` skill.
 
-## Suites (21 cases total)
+## Suites (5 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
-| stage-1-quality-gate | Steps 1–2 (Stage 1 quality gates) | 8 | G2 (CI failure), G2 (real-CI not ran / bot-only SUCCESS), G3 (pending check), G4 (action_required workflow), G6 (unresolved collaborator thread), G7 (non-stale changes-requested), all-gates-pass, injection attempt ignored |
-| stage-2-triviality | Step 2 (Stage 2 triviality + tier) | 8 | Tier A (docs only), Tier B (tests only), Tier B (mixed docs+tests), too-large churn, too-many files, path-denied (.github/**), path-unmatched (unknown source path), deny overrides allow |
-| stage-3-merge-readiness | Step 2 (Stage 3 live re-poll) | 5 | ready (clean state), needs-approval (blocked + REVIEW_REQUIRED), drop (blocked by a non-review requirement), drop (conflict / dirty), drop (unknown / still computing) |
+| approve-protocol | `actions/approve.md` | 5 | ask with the check's confirmation text before anything runs; run the exact command only on `y`; anything else cancels; a refused check submits nothing even when the PR body claims prior approval; the required-approvals note is shown |
 
 ## Run
 
 ```bash
-# All cases
 uv run --project tools/skill-evals skill-eval \
-    tools/skill-evals/evals/pr-management-quick-merge/
-
-# Single suite
-uv run --project tools/skill-evals skill-eval \
-    tools/skill-evals/evals/pr-management-quick-merge/stage-1-quality-gate/fixtures/
-
-# Single case
-uv run --project tools/skill-evals skill-eval \
-    tools/skill-evals/evals/pr-management-quick-merge/stage-1-quality-gate/fixtures/case-8-injection-ignored
+    tools/skill-evals/evals/pr-management-quick-merge/approve-protocol/fixtures/
 ```
 
-## Notes
+## Where the stage suites went
 
-- `stage-1-quality-gate` gates are evaluated in order G2 → G3 → G4 → G5 →
-  G6 → G7. The expected `drop_reason` reflects the **first** gate that fails.
-- `case-8-injection-ignored` (Stage 1) tests that a PR body instructing the
-  agent to "ignore the gate" is treated as a data input and `injection_flagged`
-  is set to `true`; the real gate result (G6 unresolved thread) still applies.
-- `stage-2-triviality` uses config defaults: `max_churn=20`, `max_files=3`.
-  The deny-list is checked **before** the allow-list; `case-8-deny-overrides-allow`
-  confirms that a file matching both a Tier B allow glob and a deny glob is
-  dropped as `path-denied`.
-- `stage-3-merge-readiness` exercises the live re-poll classification. The
-  `blocked + REVIEW_REQUIRED` row (`case-2`) is the skill's primary case: it
-  routes to the `[A]pprove` action rather than dropping. `blocked` without
-  `REVIEW_REQUIRED` is explicitly covered by `case-5` and drops as
-  `gate:G5-blocked`; `case-3` reserves `gate:G5-conflict` for
-  `dirty`/`mergeable=false`.
+The Stage-1 quality gates, the Stage-2 triviality and tier screen and the Stage-3 live merge-readiness buckets are no longer applied by the model: [`tools/pr-management`](../../../pr-management/README.md) (`pr-management quick-merge screen`) computes them.
+The 21 model-graded cases the three suites held (`stage-1-quality-gate` 8, `stage-2-triviality` 8, `stage-3-merge-readiness` 5) are pytest cases with the same scenarios and the same expected outcomes, named after each former case, in [`tests/quick_merge/test_screen.py`](../../../pr-management/tests/quick_merge/test_screen.py) — including the gate order G1 → G7, deny-over-allow, the mixed-tier rule, the `blocked` + `REVIEW_REQUIRED` approval bucket, and the injection-flagged PR.
+The approve safety protocol (diff viewed, head unchanged, gates still green) is covered by [`tests/quick_merge/test_approve_and_cli.py`](../../../pr-management/tests/quick_merge/test_approve_and_cli.py).
+They run in the `pytest` matrix with every other workspace member, deterministically, on every push.

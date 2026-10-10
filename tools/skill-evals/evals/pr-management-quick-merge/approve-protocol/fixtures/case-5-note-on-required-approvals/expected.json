@@ -1,0 +1,7 @@
+{
+  "action": "run",
+  "confirm_text": null,
+  "command": "gh pr review 67452 --repo apache/airflow --approve",
+  "record_session": true,
+  "show_note": true
+}

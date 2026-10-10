@@ -14,6 +14,7 @@
   - [CLI](#cli)
     - [Saving a read instead of printing it](#saving-a-read-instead-of-printing-it)
     - [The pr-management-triage reads](#the-pr-management-triage-reads)
+    - [The other pr-management reads](#the-other-pr-management-reads)
     - [The pr-management-stats reads](#the-pr-management-stats-reads)
   - [Tracker procedures: rollup and body-field writes](#tracker-procedures-rollup-and-body-field-writes)
   - [Wiring it into settings](#wiring-it-into-settings)
@@ -239,6 +240,14 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                                "pr-review-request-changes", "pr-review-comment"]
 "pr-management-stats"   = ["viewer", "gql-pr-stats-open", "gql-pr-stats-closed-page",
                            "gql-pr-stats-closed-search", "team-members"]
+"pr-management-quick-merge" = ["viewer",
+                               "gql-pr-triage-preflight",
+                               "gql-pr-express-ready",
+                               "gql-pr-express-one",
+                               "pr-live-state",
+                               "gql-pr-review-decision",
+                               "runs-action-required",
+                               "pr-diff"]
 "issue-triage"          = ["repo-issue-view", "repo-issue-comments", "repo-issue-list",
                            "repo-issue-add-label", "repo-issue-remove-label",
                            "repo-issue-comment"]
@@ -362,6 +371,15 @@ kilobytes — which a deterministic tool then reads from the file.
 
 The search string is built by the operation, `repo:<upstream>` first, so the
 selector parameter narrows a sweep and cannot re-aim it.
+
+### The other pr-management reads
+
+| Operation | Parameters | Returns | Skill |
+|---|---|---|---|
+| `gql-pr-express-ready` | `label` (policy `upstream_labels`) | the open PRs carrying that label in the triage shape plus each PR's changed files, every page | quick-merge |
+| `gql-pr-express-one` | `number` | one PR in the same shape | quick-merge |
+| `gql-pr-review-decision` | `number` | review decision, approvals so far, and the base branch's required approving-review count | quick-merge |
+| `pr-live-state` | `number` | live `{number, head_sha, mergeable, mergeable_state}` (REST computes mergeability on demand) | quick-merge |
 
 ### The pr-management-stats reads
 

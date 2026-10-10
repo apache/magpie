@@ -1,6 +1,0 @@
-{
-  "disposition": "drop",
-  "tier": null,
-  "drop_reason": "too-large",
-  "reason": "Churn is 25 lines, exceeding the max_churn budget of 20."
-}

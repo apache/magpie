@@ -110,6 +110,10 @@ same directory; the behaviour is unchanged.
   pass every quality gate; surfaces ranked candidates with diff summaries
   and the exact merge command. Never merges autonomously. Ships `mode:
   Triage` + `experimental`.
+  The screen runs as code (`pr-management quick-merge screen` / `approve-check`)
+  over reads saved with `vetted-op-read --save`; one file per gate, bucket,
+  tier and drop reason under `classifications/`, and
+  `actions/{present,approve,hand-off}.md`.
 - Skill: `pr-management-mentor` — drafts a teaching-register comment on a
   single GitHub issue or PR thread; waits for explicit maintainer
   confirmation before posting. Ships `mode: Mentoring` + `experimental`.

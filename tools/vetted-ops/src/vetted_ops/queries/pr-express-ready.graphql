@@ -1,0 +1,100 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+# The `ready for maintainer review` queue in the triage shape plus each PR's
+# changed files, for pr-management-quick-merge (all pages, `--paginate
+# --slurp`). The builder writes `repo:<upstream>` from policy into
+# $searchQuery, so the query cannot be re-aimed. The search connection's
+# pageInfo is the only one in the document. The TriagePR fragment must stay
+# identical to pr-triage-search.graphql (a test checks it).
+query($searchQuery: String!, $endCursor: String) {
+  search(query: $searchQuery, type: ISSUE, first: 15, after: $endCursor) {
+    pageInfo { hasNextPage endCursor }
+    issueCount
+    nodes {
+      ...TriagePR
+      ... on PullRequest { files(first: 100) { nodes { path additions deletions } } }
+    }
+  }
+}
+
+fragment TriagePR on PullRequest {
+  number
+  title
+  url
+  id
+  createdAt
+  updatedAt
+  isDraft
+  body
+  mergeable
+  baseRefName
+  headRefName
+  headRefOid
+  additions
+  deletions
+  changedFiles
+  author { login }
+  authorAssociation
+  labels(first: 30) { nodes { name } }
+  assignees(first: 10) { nodes { login } }
+  commits(last: 100) {
+    totalCount
+    nodes { commit { oid committedDate message } }
+  }
+  head: commits(last: 1) {
+    nodes {
+      commit {
+        oid
+        committedDate
+        statusCheckRollup {
+          state
+          contexts(first: 50) {
+            totalCount
+            nodes {
+              __typename
+              ... on CheckRun { name conclusion status startedAt completedAt }
+              ... on StatusContext { context state createdAt }
+            }
+          }
+        }
+      }
+    }
+  }
+  reviewThreads(first: 30) {
+    totalCount
+    nodes {
+      isResolved
+      comments(first: 5) {
+        nodes { author { login } authorAssociation url bodyText createdAt }
+      }
+    }
+  }
+  latestReviews(first: 20) {
+    nodes { state author { login } authorAssociation submittedAt body }
+  }
+  comments(last: 10) {
+    nodes { author { login } authorAssociation url createdAt bodyText }
+  }
+  timelineItems(itemTypes: [LABELED_EVENT, UNLABELED_EVENT], last: 20) {
+    nodes {
+      __typename
+      ... on LabeledEvent { createdAt label { name } }
+      ... on UnlabeledEvent { createdAt label { name } }
+    }
+  }
+}

@@ -103,6 +103,19 @@ close_reasons = ["completed", "not planned"]
     "team-members",
 ]
 
+# pr-management-quick-merge screens the ready queue from saved reads. Reads only:
+# it never merges; the maintainer runs the printed merge command.
+"pr-management-quick-merge" = [
+    "viewer",
+    "gql-pr-triage-preflight",
+    "gql-pr-express-ready",
+    "gql-pr-express-one",
+    "pr-live-state",
+    "gql-pr-review-decision",
+    "runs-action-required",
+    "pr-diff",
+]
+
 # release-rc-cut emits every release command for the Release Manager and runs
 # none itself. Its only GitHub access is reading the upstream tags (Step 0, to
 # refuse an RC tag that already exists) and, after the RM confirms it, the

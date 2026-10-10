@@ -1,0 +1,7 @@
+{
+  "action": "ask",
+  "confirm_text": "Submit an APPROVE review on #67452? This is your maintainer review of this change. [y/N]",
+  "command": null,
+  "record_session": false,
+  "show_note": false
+}
