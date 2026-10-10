@@ -20,7 +20,7 @@
 
 **Kind:** implementation
 
-**Vendor:** TypeSafe
+**Vendor:** TypeSafe + self-hosted OpenAI-compatible
 
 **Harness:** agnostic
 

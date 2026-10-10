@@ -125,6 +125,51 @@ def test_load_tools_unknown_coverage_raises(tmp_path) -> None:
         vns.load_tools(tmp_path)
 
 
+def test_one_tool_with_two_vendors_turns_contract_green() -> None:
+    tools = [
+        _tool(
+            "typed-decision",
+            "contract:typed-decision",
+            vns.IMPLEMENTATION,
+            "TypeSafe + self-hosted OpenAI-compatible",
+        )
+    ]
+    r = _result(vns.score_contracts(tools), "contract:typed-decision")
+    assert r.green is True
+    assert r.vendors == ["TypeSafe", "self-hosted OpenAI-compatible"]
+
+
+def test_vendor_list_is_unioned_across_tools() -> None:
+    tools = [
+        _tool("github", "contract:tracker", vns.IMPLEMENTATION, "GitHub"),
+        _tool("multi", "contract:tracker", vns.IMPLEMENTATION, "GitHub + Atlassian"),
+    ]
+    r = _result(vns.score_contracts(tools), "contract:tracker")
+    assert r.vendors == ["Atlassian", "GitHub"]
+
+
+def _write_vendor_tool(root, vendor: str) -> None:
+    d = root / "tools" / "multi"
+    d.mkdir(parents=True)
+    (d / "README.md").write_text(
+        f"# multi\n\n**Capability:** contract:tracker\n**Kind:** implementation\n**Vendor:** {vendor}\n",
+        encoding="utf-8",
+    )
+
+
+def test_load_tools_reads_vendor_list(tmp_path) -> None:
+    _write_vendor_tool(tmp_path, "GitHub + Atlassian")
+    (tool,) = vns.load_tools(tmp_path)
+    assert tool.vendors == ("GitHub", "Atlassian")
+
+
+@pytest.mark.parametrize("vendor", ["agnostic + GitHub", "GitHub +", "GitHub + + Atlassian"])
+def test_load_tools_rejects_bad_vendor_list(tmp_path, vendor: str) -> None:
+    _write_vendor_tool(tmp_path, vendor)
+    with pytest.raises(ValueError, match="Vendor"):
+        vns.load_tools(tmp_path)
+
+
 def test_agnostic_contract_is_green_with_only_an_interface() -> None:
     tools = [_tool("scan-format", "contract:scan-format", vns.INTERFACE, "agnostic")]
     r = _result(vns.score_contracts(tools), "contract:scan-format")
