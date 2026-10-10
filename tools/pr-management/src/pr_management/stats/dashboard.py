@@ -1660,10 +1660,12 @@ def render_pressure(pressure, area_prefix):
         return '<h2>Pressure by area</h2><div class="caveat">No areas with ≥3 contributor PRs.</div>'
     out = [
         "<h2>Pressure by area</h2>",
-        '<div class="caveat">Pressure score = weighted sum of urgent PR conditions per area '
-        "(untriaged &gt;4w ×5, 1–4w ×3, &lt;1w ×1; triaged-waiting &gt;7d ×2; ready ×1). "
-        "Age columns show the age distribution of the area's open non-draft contributor PRs "
-        "as <strong>ready/all</strong> (PRs labelled ready-for-review / total in that age bucket).</div>",
+        (
+            '<div class="caveat">Pressure score = weighted sum of urgent PR conditions per area '
+            "(untriaged &gt;4w ×5, 1–4w ×3, &lt;1w ×1; triaged-waiting &gt;7d ×2; ready ×1). "
+            "Age columns show the age distribution of the area's open non-draft contributor PRs "
+            "as <strong>ready/all</strong> (PRs labelled ready-for-review / total in that age bucket).</div>"
+        ),
     ]
     for area, v in pressure:
         band = "high" if v["score"] >= 30 else ("medium" if v["score"] >= 15 else "low")
@@ -1930,8 +1932,10 @@ def render_detailed_tables(table1, table2, cutoff, repo):
     # Table 1
     t1 = [
         f"<details><summary>Triaged PRs — Final State since {cutoff.date()} ({esc(repo)})</summary><table>",
-        "<tr><th>Area</th><th>Triaged Total</th><th>Closed</th><th>%Closed</th>"
-        "<th>Merged</th><th>%Merged</th><th>Responded</th><th>%Responded</th></tr>",
+        (
+            "<tr><th>Area</th><th>Triaged Total</th><th>Closed</th><th>%Closed</th>"
+            "<th>Merged</th><th>%Merged</th><th>Responded</th><th>%Responded</th></tr>"
+        ),
     ]
     for r in table1:
         cls = "total" if r.get("_is_total") else ""
@@ -1951,10 +1955,12 @@ def render_detailed_tables(table1, table2, cutoff, repo):
     # Table 2
     t2 = [
         f"<details><summary>Triaged PRs — Still Open ({esc(repo)})</summary><table>",
-        "<tr><th>Area</th><th>Total</th><th>Contrib</th><th>%Contrib</th>"
-        "<th>Draft</th><th>%Draft</th><th>Non-Draft</th>"
-        "<th>Triaged</th><th>Responded</th><th>%Resp</th>"
-        "<th>Ready</th><th>%Ready</th><th>Drafted by triager</th></tr>",
+        (
+            "<tr><th>Area</th><th>Total</th><th>Contrib</th><th>%Contrib</th>"
+            "<th>Draft</th><th>%Draft</th><th>Non-Draft</th>"
+            "<th>Triaged</th><th>Responded</th><th>%Resp</th>"
+            "<th>Ready</th><th>%Ready</th><th>Drafted by triager</th></tr>"
+        ),
     ]
     for r in table2:
         cls = "total" if r.get("_is_total") else ""
