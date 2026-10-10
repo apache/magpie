@@ -354,6 +354,17 @@ def gh_subcommand(argv: list[str]) -> tuple[str, str] | None:
     return None
 
 
+def _json_strings(value: object) -> list[str]:
+    """Every string in a JSON value, depth first."""
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, dict):
+        return [s for v in value.values() for s in _json_strings(v)]
+    if isinstance(value, list):
+        return [s for v in value for s in _json_strings(v)]
+    return []
+
+
 def gh_body_text(argv: list[str], *, include_title: bool, read_files: bool) -> str:
     """Concatenate the inline ``--body`` (and optionally ``--title``) plus, when
     ``read_files`` is set, the contents of any ``--body-file``."""
@@ -819,6 +830,134 @@ class GuardContext:
 
     def mentions(self, text: str) -> list[str]:
         return find_mentions(text)
+
+    def committed_config_value(self, filename: str, key: str) -> str | None:
+        """A `` | `key` | value | `` row from the **committed** project config.
+
+        A value that widens what a guard allows must come from a file the
+        agent cannot simply write: ``.apache-magpie-overrides/<filename>`` in
+        the repository the hook runs in, tracked by git, not a symlink, and
+        byte-identical to its ``HEAD`` version (an uncommitted edit, or a
+        file in a scratch repository the agent made, does not count).
+        """
+        root = _find_repo_root(Path(self.cwd or os.getcwd()).resolve())
+        if root is None:
+            return None
+        rel = f"{OVERRIDES_DIR}/{filename}"
+        path = root / rel
+        if path.is_symlink() or not path.is_file():
+            return None
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError:
+            return None
+        committed = _run(["git", "show", f"HEAD:{rel}"], cwd=str(root))
+        if committed is None or committed.strip() != text.strip():
+            return None
+        for line in text.splitlines():
+            cells = [c.strip() for c in line.strip().strip("|").split("|")]
+            if len(cells) >= 2 and cells[0] == f"`{key}`":
+                match = re.match(r"`([^`]+)`", cells[1])
+                return match.group(1).strip() if match else None
+        return None
+
+    def gh_input_json(self) -> object | None:
+        """The JSON payload of ``gh api --input <file>``, or None."""
+        path = self.opt("--input", "--input")
+        if not path or path == "-":
+            return None
+        try:
+            return json.loads(Path(path).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+
+    def target_repo_owner(self) -> str | None:
+        """The owner of the repository a ``gh`` command acts on: ``--repo``, else the checkout's."""
+        repo = self.opt("-R", "--repo")
+        if repo:
+            return repo.split("/", 1)[0].lower() if "/" in repo else None
+        owner = self.run(["gh", "repo", "view", "--json", "owner", "--jq", ".owner.login"])
+        return owner.lower() if owner else None
+
+    def gh_api_posted_text(self) -> tuple[list[str], bool] | None:
+        """Every value a non-``GET`` ``gh api`` call would send, and whether all of it was readable.
+
+        ``None`` for anything that is not ``gh api``, and for an explicit
+        ``GET``. No endpoint or mutation list: a write to any endpoint is
+        scanned, so a newly added endpoint cannot slip past. The flags are
+        parsed the way ``gh`` accepts them — ``-X POST``, ``-XPOST``,
+        ``--method=POST``, ``-f k=v``, ``-fk=v``, ``--raw-field=k=v``, the
+        same for ``-F`` / ``--field`` (whose ``@file`` is read) and
+        ``--input`` (every string in its JSON). Text on stdin cannot be
+        inspected, so it comes back as not readable.
+        """
+        sub = self.gh_subcommand()
+        if sub is None or sub[0] != "api" or "api" not in self.argv:
+            return None
+        idx = self.argv.index("api")
+        method: str | None = None
+        raw_fields: list[str] = []
+        typed_fields: list[str] = []
+        inputs: list[str] = []
+        tokens = self.argv[idx + 1 :]
+        k = 0
+        while k < len(tokens):
+            tok = tokens[k]
+            value: str | None = None
+            for flags, sink in (
+                (("-X", "--method"), "method"),
+                (("-f", "--raw-field"), "raw"),
+                (("-F", "--field"), "typed"),
+                (("--input",), "input"),
+            ):
+                for flag in flags:
+                    if tok == flag:
+                        value = tokens[k + 1] if k + 1 < len(tokens) else ""
+                        k += 1
+                    elif flag.startswith("--") and tok.startswith(flag + "="):
+                        value = tok[len(flag) + 1 :]
+                    elif not flag.startswith("--") and tok.startswith(flag) and len(tok) > len(flag):
+                        value = tok[len(flag) :]
+                    if value is not None:
+                        break
+                if value is not None:
+                    if sink == "method":
+                        method = value.upper()
+                    elif sink == "raw":
+                        raw_fields.append(value)
+                    elif sink == "typed":
+                        typed_fields.append(value)
+                    else:
+                        inputs.append(value)
+                    break
+            k += 1
+        if method is None:
+            method = "POST" if (raw_fields or typed_fields or inputs) else "GET"
+        if method == "GET":
+            return None
+        texts: list[str] = [v.partition("=")[2] for v in raw_fields]
+        readable = True
+        for field in typed_fields:
+            value = field.partition("=")[2]
+            if value.startswith("@"):
+                if value == "@-":
+                    readable = False
+                    continue
+                try:
+                    texts.append(Path(value[1:]).read_text(encoding="utf-8", errors="replace"))
+                except OSError:
+                    readable = False
+            else:
+                texts.append(value)
+        for path in inputs:
+            if path == "-":
+                readable = False
+                continue
+            try:
+                texts.extend(_json_strings(json.loads(Path(path).read_text(encoding="utf-8"))))
+            except (OSError, ValueError):
+                readable = False
+        return texts, readable
 
     def positional_after(self, sub_token: str) -> str | None:
         try:

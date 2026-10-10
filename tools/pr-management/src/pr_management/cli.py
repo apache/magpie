@@ -306,6 +306,29 @@ def _stats(args: argparse.Namespace) -> dict[str, Any]:
     )
 
 
+def _family_plugins() -> dict[str, Any]:
+    """Every `pr_management.<family>.cli` module, keyed by the family name it registers.
+
+    A family adds its subcommands without editing this file: it ships a
+    `cli.py` with `FAMILY` (the subcommand name), `add_parsers(sub)` and
+    `dispatch(args) -> dict`.
+    """
+    import importlib
+    import pkgutil
+
+    found: dict[str, Any] = {}
+    package = importlib.import_module(__package__ or "pr_management")
+    for info in sorted(pkgutil.iter_modules(package.__path__), key=lambda i: i.name):
+        if not info.ispkg or info.name in ("triage", "stats"):
+            continue
+        try:
+            module = importlib.import_module(f"{package.__name__}.{info.name}.cli")
+        except ModuleNotFoundError:
+            continue
+        found[module.FAMILY] = module
+    return found
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="pr-management", description=__doc__.splitlines()[0])
     parser.add_argument("--project-root", type=Path, default=Path.cwd(), help="the adopter repository root")
@@ -386,6 +409,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     summ.add_argument("--now", default=None)
 
     _add_stats_parsers(sub)
+    plugins = _family_plugins()
+    for plugin in plugins.values():
+        plugin.add_parsers(sub)
 
     args = parser.parse_args(argv)
     result: dict[str, Any] = {}
@@ -405,6 +431,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
     elif args.family == "triage" and args.command == "guard":
         result = _triage_guard(args)
+    elif args.family in plugins:
+        result = plugins[args.family].dispatch(args)
     elif args.family == "stats":
         result = _stats(args)
     else:  # pragma: no cover - argparse enforces the choices

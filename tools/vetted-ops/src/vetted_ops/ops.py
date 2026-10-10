@@ -2391,6 +2391,26 @@ _register(
 )
 
 
+# ---- per-skill catalogue extensions ----------------------------------------
+#
+# A skill family's operations may live in their own `ops_<family>.py` module in
+# this package, which registers through `_register` like everything above. The
+# catalogue stays closed: only modules shipped inside the package are loaded,
+# so adding one is the same reviewed change as adding an operation here.
+
+
+def _load_extensions() -> None:
+    import importlib
+    import pkgutil
+
+    for info in pkgutil.iter_modules([str(Path(__file__).parent)]):
+        if info.name.startswith("ops_"):
+            importlib.import_module(f"{__package__}.{info.name}")
+
+
+_load_extensions()
+
+
 def resolve(name: str) -> Op:
     try:
         return OPS[name]

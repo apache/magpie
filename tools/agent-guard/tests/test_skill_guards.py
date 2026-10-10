@@ -137,6 +137,230 @@ def test_mention_override(monkeypatch):
     assert dispatch('MAGPIE_ALLOW_MENTIONS=1 gh pr comment 5 --body "@bob ping"') is None
 
 
+def test_review_body_may_mention_nobody(monkeypatch):
+    monkeypatch.setattr(agent_guard, "_run", fake_run(gh_stub(author="alice")))
+    reason = dispatch('gh pr review 5 --comment --body "@alice @bob see inline"')
+    assert reason and "review body" in reason
+
+
+def test_review_body_without_mentions_allowed():
+    assert dispatch('gh pr review 5 --comment --body "see the inline comments"') is None
+
+
+def test_graphql_review_payload_is_scanned(tmp_path):
+    import json
+
+    payload = tmp_path / "review.json"
+    payload.write_text(
+        json.dumps(
+            {
+                "query": "mutation($body: String!) { addPullRequestReview(input: {}) { clientMutationId } }",
+                "variables": {
+                    "body": "Summary",
+                    "threads": [{"body": "ask `@carol`"}, {"body": "@dave look"}],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    reason = dispatch(f"gh api graphql --input {payload}")
+    assert reason and "dave" in reason and "carol" not in reason
+
+
+def test_any_graphql_write_is_scanned_not_just_reviews(tmp_path):
+    """No mutation list: any GraphQL call sending an @-mention is refused."""
+    import json
+
+    payload = tmp_path / "q.json"
+    payload.write_text(
+        json.dumps({"query": "mutation { somethingNew(input: {}) { ok } }", "variables": {"note": "@x"}})
+    )
+    assert dispatch(f"gh api graphql --input {payload}")
+
+
+def _git(repo, *args):
+    import subprocess
+
+    subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True)
+
+
+def _repo_with_team(tmp_path, handle, *, commit=True):
+    _git(tmp_path, "init", "-q")
+    overrides = tmp_path / ".apache-magpie-overrides"
+    overrides.mkdir()
+    (overrides / "mentoring-config.md").write_text(
+        f"| Key | Value | Notes |\n|---|---|---|\n| `maintainer_team_handle` | `{handle}` | x |\n",
+        encoding="utf-8",
+    )
+    if commit:
+        _git(tmp_path, "add", "-A")
+        _git(
+            tmp_path,
+            "-c",
+            "user.name=t",
+            "-c",
+            "user.email=t@example.org",
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "-q",
+            "-m",
+            "config",
+        )
+    return tmp_path
+
+
+def _handoff(repo, body, repo_flag="--repo acme/product"):
+    f = repo / "b.md"
+    f.write_text(body, encoding="utf-8")
+    return agent_guard.dispatch(f"gh issue comment 7 {repo_flag} --body-file {f}", cwd=str(repo))
+
+
+def test_mentoring_handoff_may_mention_the_configured_team(monkeypatch, tmp_path):
+    repo = _repo_with_team(tmp_path, "@acme/committers")
+    monkeypatch.setattr(agent_guard, "_run", _with_git(gh_stub(author="alice")))
+    assert _handoff(repo, "@acme/committers — handing this off: should this be a plugin?") is None
+
+
+def _with_git(gh_handler):
+    """Real `git` (the committed-config check needs it), stubbed `gh`."""
+    import subprocess
+
+    def _stub(args, cwd=None):
+        if args and args[0] == "git":
+            done = subprocess.run(args, cwd=cwd, capture_output=True, text=True)
+            return done.stdout.strip() if done.returncode == 0 else None
+        return gh_handler(args)
+
+    return _stub
+
+
+def test_handoff_exemption_needs_the_template_opening(monkeypatch, tmp_path):
+    repo = _repo_with_team(tmp_path, "@acme/committers")
+    monkeypatch.setattr(agent_guard, "_run", _with_git(gh_stub(author="alice")))
+    reason = _handoff(repo, "hey @acme/committers look")
+    assert reason and "acme/committers" in reason
+
+
+def test_handoff_exemption_covers_the_team_only(monkeypatch, tmp_path):
+    repo = _repo_with_team(tmp_path, "@acme/committers")
+    monkeypatch.setattr(agent_guard, "_run", _with_git(gh_stub(author="alice")))
+    reason = _handoff(repo, "@acme/committers — handing this off: also @bob")
+    assert reason and "bob" in reason
+
+
+def test_handoff_ignores_an_uncommitted_team(monkeypatch, tmp_path):
+    repo = _repo_with_team(tmp_path, "@acme/committers", commit=False)
+    monkeypatch.setattr(agent_guard, "_run", _with_git(gh_stub(author="alice")))
+    assert _handoff(repo, "@acme/committers — handing this off: q")
+
+
+def test_handoff_ignores_an_edited_committed_team(monkeypatch, tmp_path):
+    repo = _repo_with_team(tmp_path, "@acme/committers")
+    (repo / ".apache-magpie-overrides" / "mentoring-config.md").write_text(
+        "| `maintainer_team_handle` | `@acme/other` | x |\n"
+    )
+    monkeypatch.setattr(agent_guard, "_run", _with_git(gh_stub(author="alice")))
+    assert _handoff(repo, "@acme/other — handing this off: q")
+
+
+def test_handoff_never_reaches_another_organisation(monkeypatch, tmp_path):
+    repo = _repo_with_team(tmp_path, "@other-org/committers")
+    monkeypatch.setattr(agent_guard, "_run", _with_git(gh_stub(author="alice")))
+    assert _handoff(repo, "@other-org/committers — handing this off: q")
+
+
+def test_handoff_ignores_a_team_set_only_in_the_personal_layer(monkeypatch, tmp_path):
+    _git(tmp_path, "init", "-q")
+    local = tmp_path / ".apache-magpie-local"
+    local.mkdir()
+    (local / "mentoring-config.md").write_text("| `maintainer_team_handle` | `@acme/x` | x |\n")
+    monkeypatch.setattr(agent_guard, "_run", _with_git(gh_stub(author="alice")))
+    assert _handoff(tmp_path, "@acme/x — handing this off: q")
+
+
+# --- bodies the guard cannot read, and text posted through `gh api` --------- #
+
+
+def test_comment_body_on_stdin_is_refused(monkeypatch):
+    monkeypatch.setattr(agent_guard, "_run", fake_run(gh_stub(author="alice")))
+    reason = dispatch("gh pr comment 5 --body-file -")
+    assert reason and "cannot be inspected" in reason
+
+
+def test_unreadable_body_file_is_refused(monkeypatch, tmp_path):
+    monkeypatch.setattr(agent_guard, "_run", fake_run(gh_stub(author="alice")))
+    reason = dispatch(f"gh pr edit 5 --body-file {tmp_path / 'missing.md'}")
+    assert reason and "cannot be inspected" in reason
+
+
+def test_review_body_on_stdin_is_refused():
+    reason = dispatch("gh pr review 5 --comment --body-file -")
+    assert reason and "cannot be inspected" in reason
+
+
+def test_rest_comment_through_gh_api_is_scanned(tmp_path):
+    body = tmp_path / "c.md"
+    body.write_text("ping @bob", encoding="utf-8")
+    reason = dispatch(f"gh api repos/acme/product/issues/5/comments -F body=@{body}")
+    assert reason and "bob" in reason
+
+
+def test_rest_review_field_through_gh_api_is_scanned():
+    reason = dispatch(
+        'gh api -X POST repos/acme/product/pulls/5/reviews -f body="cc @carol" -f event=COMMENT'
+    )
+    assert reason and "carol" in reason
+
+
+def test_graphql_comment_mutation_in_a_field_is_scanned():
+    reason = dispatch(
+        'gh api graphql -f query="mutation { addComment(input: {subjectId: \\"X\\", body: \\"@dave hi\\"}) '
+        '{ clientMutationId } }"'
+    )
+    assert reason and "dave" in reason
+
+
+def test_graphql_on_stdin_is_refused():
+    reason = dispatch("gh api graphql --input -")
+    assert reason and "cannot be inspected" in reason
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        'gh api -XPOST repos/acme/product/issues/5/comments -f body="hi @bob"',
+        'gh api --method=PATCH repos/acme/product/issues/comments/9 -f body="hi @bob"',
+        'gh api repos/acme/product/issues/5/comments -fbody="hi @bob"',
+        'gh api repos/acme/product/issues/5/comments --raw-field=body="hi @bob"',
+        'gh api repos/acme/product/issues/5/comments --field=body="hi @bob"',
+        'gh api repos/acme/product/some/new/endpoint -f note="hi @bob"',
+    ],
+)
+def test_every_spelling_of_a_gh_api_write_is_scanned(command):
+    reason = dispatch(command)
+    assert reason and "bob" in reason
+
+
+def test_a_field_file_in_attached_form_is_read(tmp_path):
+    body = tmp_path / "c.md"
+    body.write_text("ping @bob", encoding="utf-8")
+    assert dispatch(f"gh api repos/acme/product/issues/5/comments --field=body=@{body}")
+
+
+def test_an_explicit_get_is_not_scanned():
+    assert dispatch('gh api -X GET search/issues -f q="mentions:@bob"') is None
+
+
+def test_api_reads_are_not_scanned():
+    assert dispatch("gh api repos/acme/product/issues/5/comments") is None
+    assert dispatch('gh api graphql -f query="query { viewer { login } }"') is None
+
+
+def test_api_text_without_mentions_passes():
+    assert dispatch('gh api repos/acme/product/issues/5/comments -f body="thanks, merged"') is None
+
+
 # --- mark-ready guard (skill-owned) ---------------------------------------- #
 
 

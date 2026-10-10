@@ -29,6 +29,23 @@ on their **own** PR/issue — when the target's author is the authenticated ``gh
 user, mentioning maintainers is a legitimate self-directed nudge to one's own
 reviewers, not the drive-by maintainer spam this guard exists to stop.
 Otherwise maintainer handles must be backtick-quoted so they never notify.
+
+Two further surfaces:
+
+* **Review and API posting** (`gh pr review --body/--body-file`, and every
+  value a non-GET `gh api` call sends — every field, in every spelling `gh`
+  accepts, and every `--input` string — whatever the endpoint): such text
+  may @-mention nobody, not even the author, whose "your move" signal is
+  the triage note.
+* **Uninspectable text** (a body on stdin, an unreadable body or field
+  file) is refused: the guard cannot confirm it is clean.
+* **The mentoring hand-off**: `pr-management-mentor` hands a thread to the
+  maintainers with a body that opens "@<team> — handing this off:". That one
+  mention is allowed when <team> is the `maintainer_team_handle` of the
+  *committed* `.apache-magpie-overrides/mentoring-config.md` (tracked and
+  identical to `HEAD`), belongs to the organisation that owns the target
+  repository, and is the only non-author mention in the body.
+
 Discovered by
 the agent-guard PreToolUse dispatcher from a guards.d directory — see
 tools/agent-guard for the engine and the GuardContext API. Import-free:
@@ -38,7 +55,51 @@ everything comes from ``ctx``.
 TRIGGERS = ["gh"]
 
 
+HANDOFF_OPENING = " — handing this off:"
+UNREADABLE = "\x00UNREADABLE_BODY_FILE\x00"
+
+
+def _uninspectable(what):
+    return (
+        f"agent-guard[mention]: the text of this {what} cannot be inspected (read from stdin, or an "
+        "unreadable file), so the guard cannot confirm it @-mentions no maintainer. Pass the text in a "
+        "readable file, or override with MAGPIE_ALLOW_MENTIONS=1 for a deliberate exception."
+    )
+
+
+def _nobody(what, mentions):
+    return (
+        f"agent-guard[mention]: {what} may not @-mention anyone; refusing to notify {mentions}. "
+        "Reference them as backticked `login` (no @), or override with MAGPIE_ALLOW_MENTIONS=1 "
+        "for a deliberate exception."
+    )
+
+
 def guard(ctx):
+    # Anything a non-GET `gh api` call sends, whatever the endpoint. No author
+    # exemption here.
+    api = ctx.gh_api_posted_text()
+    if api is not None:
+        if ctx.override("MAGPIE_ALLOW_MENTIONS"):
+            return None
+        texts, readable = api
+        if not readable:
+            return _uninspectable("API call")
+        mentions = sorted({m for text in texts for m in ctx.mentions(text)})
+        return _nobody("text sent by `gh api`", mentions) if mentions else None
+
+    sub = ctx.gh_subcommand()
+    if sub == ("pr", "review") and (
+        ctx.opt("-b", "--body") is not None or ctx.opt("-F", "--body-file") is not None
+    ):
+        if ctx.override("MAGPIE_ALLOW_MENTIONS"):
+            return None
+        body = ctx.gh_body(read_files=True)
+        if ctx.opt("-F", "--body-file") == "-" or UNREADABLE in body:
+            return _uninspectable("review")
+        mentions = sorted(set(ctx.mentions(body)))
+        return _nobody("a review body", mentions) if mentions else None
+
     sub = ctx.gh_subcommand()
     if sub is None:
         return None
@@ -52,10 +113,13 @@ def guard(ctx):
     if not (is_pr_body_edit or is_comment):
         return None
 
-    mentions = ctx.mentions(ctx.gh_body(read_files=True))
-    if not mentions:
-        return None
     if ctx.override("MAGPIE_ALLOW_MENTIONS"):
+        return None
+    body = ctx.gh_body(read_files=True)
+    if ctx.opt("-F", "--body-file") == "-" or UNREADABLE in body:
+        return _uninspectable("folded triage note" if is_pr_body_edit else "comment")
+    mentions = ctx.mentions(body)
+    if not mentions:
         return None
 
     # Both channels share one rule: only the PR/issue author may be @-mentioned.
@@ -84,6 +148,8 @@ def guard(ctx):
     if operator and operator.lower() == author.lower():
         return None
     offenders = sorted({m for m in mentions if m != author.lower()})
+    if offenders and is_comment and _is_mentoring_handoff(ctx, offenders):
+        return None
     if offenders:
         return (
             f"agent-guard[mention]: a {surface} may only @-mention the PR author "
@@ -92,3 +158,20 @@ def guard(ctx):
             "MAGPIE_ALLOW_MENTIONS=1 for a deliberate exception."
         )
     return None
+
+
+def _is_mentoring_handoff(ctx, offenders):
+    """The one mention the mentoring hand-off exists to make, and nothing else."""
+    team = (
+        (ctx.committed_config_value("mentoring-config.md", "maintainer_team_handle") or "")
+        .lstrip("@")
+        .lower()
+    )
+    if not team or "/" not in team or offenders != [team]:
+        return False
+    # The team must belong to the organisation that owns the repository the
+    # comment goes to: a hand-off never reaches outside the project.
+    if team.split("/", 1)[0] != (ctx.target_repo_owner() or ""):
+        return False
+    body = (ctx.gh_body(read_files=True) or "").lstrip().lower()
+    return body.startswith(f"@{team}{HANDOFF_OPENING}")
