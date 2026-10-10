@@ -330,6 +330,7 @@ def test_the_allowlist_of_the_api_endpoint_repository_governs(monkeypatch, tmp_p
         'gh pr comment 5 --body "@bob"',
         'gh pr comment https://github.com/victim/other/pull/5 --repo acme/product --body "@bob"',
         'gh pr comment 5 --repo acme/product --repo victim/other --body "@bob"',
+        'gh pr comment 5 --repo acme/product -Rvictim/other --body "@bob"',
         'gh api repos/acme/product/../../victim/other/issues/5/comments -f body="@bob"',
         'gh api repos/acme/product%2F..%2F../victim/issues/5/comments -f body="@bob"',
         'gh api repos/{owner}/{repo}/issues/5/comments -f body="@bob"',
@@ -339,6 +340,13 @@ def test_the_allowlist_of_the_api_endpoint_repository_governs(monkeypatch, tmp_p
 def test_no_allowlist_unless_the_target_is_explicit_and_unambiguous(monkeypatch, tmp_path, command):
     monkeypatch.setattr(agent_guard, "_run", served(_allow("@bob")))
     assert agent_guard.dispatch(command, cwd=str(tmp_path))
+
+
+def test_the_attached_short_repo_flag_names_the_target(monkeypatch, tmp_path):
+    monkeypatch.setattr(agent_guard, "_run", served(_allow("@bob")))
+    assert (
+        agent_guard.dispatch('gh pr comment 5 -Racme/product --body "@alice @bob"', cwd=str(tmp_path)) is None
+    )
 
 
 def test_a_pr_url_names_the_target(monkeypatch, tmp_path):

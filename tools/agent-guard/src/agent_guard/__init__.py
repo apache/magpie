@@ -947,6 +947,9 @@ class GuardContext:
             found = {m.group(1).lower()} if m else set()
         else:
             found = {r.lower() for r in self.opts("-R", "--repo")}
+            # `gh` also takes the attached short form (`-ROWNER/REPO`), last one
+            # winning; count it so two disagreeing spellings stay ambiguous.
+            found |= {t[2:].lower() for t in self.argv if t.startswith("-R") and len(t) > 2 and t[2] != "="}
             # Only the selector positional (`gh pr comment <URL>`) names a
             # repository; a URL inside --body or any other value is text.
             selector = self.positional_after(sub[1]) if sub is not None else None
