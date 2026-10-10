@@ -47,7 +47,9 @@ uvx --from <plugin>/tools/adversarial-review adversarial-review run --base origi
 uvx --from <plugin>/tools/adversarial-review adversarial-review run --target pr:123 --repo owner/name
 ```
 
-`<plugin>` is the installed `magpie-adversarial-review` plugin, for example `~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/<version>`.
+`<plugin>/tools/adversarial-review` is `~/.claude/magpie/adversarial-review` in Claude Code: the plugin's `SessionStart` hook ([`hooks/link-stable-path.sh`](hooks/link-stable-path.sh)) points that path at the installed version every session, so the sandbox exclusion names a fixed path instead of a wildcard where the version sits.
+A `*` there would also match spaces, letting a command with extra `uv` options spliced in at that position (`--with <any package>`, a second `--from`) run outside the sandbox.
+Other harnesses use the installed plugin directory, for example `~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/<version>/tools/adversarial-review`.
 
 `run` reads the reviewer list from `adversarial-review.md` (`.apache-magpie-local/` first, then `.apache-magpie-overrides/`, under `--project-root`), or from `--reviewers codex,copilot`.
 The model running the harness is skipped; `--self none` turns that off.

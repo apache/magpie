@@ -912,8 +912,8 @@ See [the Grok verification contract](../../../../docs/adapters/grok.md#verify).
 
 When `adversarial-review.md` resolves (the personal layer first, then
 `.apache-magpie-overrides/`), run the tool's `detect` in its one-line form —
-`uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/<version>/tools/adversarial-review adversarial-review detect`,
-unquoted with a literal `~`, `<version>` the newest installed — and compare
+`uvx --from ~/.claude/magpie/adversarial-review adversarial-review detect`,
+unquoted with a literal `~` — and compare
 it with the configured `reviewers`.
 
 - ✓ when every configured reviewer is available, or is `self` (skipped

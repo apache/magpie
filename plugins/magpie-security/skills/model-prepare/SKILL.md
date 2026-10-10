@@ -19,7 +19,7 @@ argument-hint: "[repo-or-project]"
 capability: capability:authoring
 surface_hash: sha256:db4f1e33c6b3fab3
 license: Apache-2.0
-measured_tokens: 4647
+measured_tokens: 4631
 ---
 
 # Security model prepare
@@ -285,11 +285,11 @@ exclusion matches; a quoted or expanded path stays sandboxed and every
 reviewer reports `unavailable`:
 
 ```bash
-uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/<version>/tools/adversarial-review adversarial-review run --project-root <adopter-repo> --repo-dir <checkout-being-pushed> --base <pr-base-ref> --title "<pr-title>" --body-file <pr-body-file>
+uvx --from ~/.claude/magpie/adversarial-review adversarial-review run --project-root <adopter-repo> --repo-dir <checkout-being-pushed> --base <pr-base-ref> --title "<pr-title>" --body-file <pr-body-file>
 ```
 
-`<version>` is the newest directory under
-`~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/`. The body
+The plugin points `~/.claude/magpie/adversarial-review` at its installed version
+at the start of every session. The body
 file must sit in the checkout or a temporary directory; the tool refuses any
 other path. For a patch someone else proposed, replace `--base … --body-file
 …` with `--target pr:<number> --repo <owner/name>`; for a diff file, with

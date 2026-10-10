@@ -507,13 +507,18 @@ below, annotated.
     // and their runner refuses any gh call outside repos/<tracker>/. It keeps
     // its `ask` below. Never exclude `vetted-op`: that runs the whole write
     // catalogue unsandboxed.
+    // The adversarial-review tool runs the reviewer CLIs, which need network
+    // and their own credentials. Like the vetted-ops entries, it names the
+    // fixed link its plugin's SessionStart hook maintains, never a `*` where
+    // the plugin version sits: that would also match `uv` options spliced in
+    // at that position and run them unsandboxed.
     "excludedCommands": [
       "gh *",
       "uv run --project ~/.claude/magpie/vetted-ops vetted-op-read *",
       "uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *",
       "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *",
       "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *",
-      "uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/*/tools/adversarial-review adversarial-review *"
+      "uvx --from ~/.claude/magpie/adversarial-review adversarial-review *"
     ],
     // The `lychee` link-check hook runs in OFFLINE mode (`offline =
     // true` in `.lychee.toml`): it validates only local cross-file and
@@ -3400,13 +3405,17 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
 14. **Adversarial-review exclusion**, if the
     `magpie-adversarial-review` plugin is installed (n/a otherwise).
     `sandbox.excludedCommands` contains
-    `"uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/*/tools/adversarial-review adversarial-review *"`,
+    `"uvx --from ~/.claude/magpie/adversarial-review adversarial-review *"`,
     `permissions.deny` contains
     `Edit(~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/**)`,
     and **no** `permissions.allow` entry covers the tool. A missing
     exclusion is ⚠ (every reviewer reports `unavailable` from inside
-    the sandbox); a missing deny is ✗ (the exclusion runs that code
-    unsandboxed); an `allow` is ✗ (each run sends the change to other
+    the sandbox); the older `magpie-adversarial-review/*/tools/adversarial-review`
+    exclusion is ✗ (its `*` also matches options spliced in where the version
+    sits); a missing deny is ✗ (the exclusion runs that code
+    unsandboxed); a broken `~/.claude/magpie/adversarial-review` link is ⚠
+    (reviews stay sandboxed), and a real file or directory there, or a link
+    outside the plugin cache, is ✗ (the exclusion would run it unsandboxed); an `allow` is ✗ (each run sends the change to other
     model providers and must keep its prompt).
 15. **Working directories under the read block**, if
     `permissions.blockReadsOutsideWorkingDirectories` is on in any

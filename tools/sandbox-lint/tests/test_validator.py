@@ -189,6 +189,24 @@ def test_mid_rule_wildcard_in_allow_is_an_invariant_error(baseline: dict[str, An
     assert any(rule in e for e in errors), errors
 
 
+def test_mid_entry_wildcard_in_excluded_commands_is_an_invariant_error(
+    baseline: dict[str, Any],
+) -> None:
+    weakened = copy.deepcopy(baseline)
+    entry = (
+        "uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/*"
+        "/tools/adversarial-review adversarial-review *"
+    )
+    weakened["sandbox"]["excludedCommands"].append(entry)
+    errors = check_invariants(weakened)
+    assert any(entry in e for e in errors), errors
+
+
+def test_adversarial_review_exclusion_names_the_stable_path(baseline: dict[str, Any]) -> None:
+    entries = [e for e in baseline["sandbox"]["excludedCommands"] if "adversarial-review" in e]
+    assert entries == ["uvx --from ~/.claude/magpie/adversarial-review adversarial-review *"]
+
+
 def test_catch_all_gh_ask_rule_is_an_invariant_error(baseline: dict[str, Any]) -> None:
     weakened = copy.deepcopy(baseline)
     weakened["permissions"]["ask"].append("Bash(gh *)")

@@ -299,11 +299,11 @@ interviewed). A plain run mentions it in the recap instead.
    exclusion matches:
 
    ```bash
-   uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/<version>/tools/adversarial-review adversarial-review detect
+   uvx --from ~/.claude/magpie/adversarial-review adversarial-review detect
    ```
 
-   `<version>` is the newest directory under
-   `~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/`. Report
+   The plugin points `~/.claude/magpie/adversarial-review` at its installed version
+   at the start of every session. Report
    each backend: available or not, with the reason, and which one is `self` —
    the model this harness runs, which is never used as its own reviewer.
    `detect` makes no model call, so a CLI that is installed but logged out

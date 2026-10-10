@@ -85,11 +85,11 @@ The agent runs the reviewers itself, at Step 5 of
    exclusion matches:
 
    ```bash
-   uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/<version>/tools/adversarial-review adversarial-review run --reviewers <list> --target pr:<N> --repo <upstream> --project-root <repo-root> --repo-dir <empty-temp-dir>
+   uvx --from ~/.claude/magpie/adversarial-review adversarial-review run --reviewers <list> --target pr:<N> --repo <upstream> --project-root <repo-root> --repo-dir <empty-temp-dir>
    ```
 
-   `<version>` is the newest directory under
-   `~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/`. Omit
+   The plugin points `~/.claude/magpie/adversarial-review` at its installed version
+   at the start of every session. Omit
    `--reviewers` when the list came from `adversarial-review.md`.
 
 - **What leaves the machine.** The PR's diff, title and body go to each

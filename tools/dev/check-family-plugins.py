@@ -239,6 +239,7 @@ VETTED_OPS_LINK_HOOK = "tools/vetted-ops/hooks/link-stable-path.sh"
 # network and their own credentials), so like vetted-ops it has to run from the
 # installed plugin tree, where the agent calling it cannot rewrite it.
 ADVERSARIAL_REVIEW_ENTRY = "tools/adversarial-review/src/adversarial_review/cli.py"
+ADVERSARIAL_REVIEW_LINK_HOOK = "tools/adversarial-review/hooks/link-stable-path.sh"
 SUBSTRATE_PLUGINS: dict[str, dict] = {
     "magpie-agent-guard": {
         "description": (
@@ -312,7 +313,27 @@ SUBSTRATE_PLUGINS: dict[str, dict] = {
             "tools/adversarial-review": "adversarial-review",
             "commands/adversarial-review.md": "adversarial-review/commands/adversarial-review.md",
         },
-        "must_resolve": (ADVERSARIAL_REVIEW_ENTRY, "commands/adversarial-review.md"),
+        # The entry point, the published command, and the hook that keeps the
+        # fixed path the sandbox exclusion names (~/.claude/magpie/adversarial-review)
+        # on this version.
+        "must_resolve": (
+            ADVERSARIAL_REVIEW_ENTRY,
+            "commands/adversarial-review.md",
+            ADVERSARIAL_REVIEW_LINK_HOOK,
+        ),
+        "hooks": {
+            "SessionStart": [
+                {
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": f'bash "${{CLAUDE_PLUGIN_ROOT}}/{ADVERSARIAL_REVIEW_LINK_HOOK}"',
+                            "timeout": 10,
+                        }
+                    ],
+                }
+            ]
+        },
     },
 }
 
