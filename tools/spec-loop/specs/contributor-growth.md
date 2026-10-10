@@ -109,12 +109,13 @@ Adopter config scaffolds live in `plugins/magpie-setup/templates/`
   keeps per-nominee data in the session scratch directory. Ships
   `mode: Triage` + `experimental`, eval suite under
   `tools/skill-evals/evals/contributor-calibrate/`.
-- Skill: `contributor-candidate-screen` — screens every recent
-  contributor against the floors (deterministic pre-filter, every drop
-  logged), lists likely committer and PMC candidates — deliberately
-  more than the PMC would consider, alphabetically by handle, never
-  ranked or judged — and writes a report (the list linked to details,
-  plus a one-or-two-paragraph summary of findings) with areas, floors, community signals and verified
+- Skill: `contributor-candidate-screen` — cuts the long tail of recent
+  contributors with a deterministic pre-filter against the floors (every
+  drop logged; the only place the floors are used), measures everyone
+  who remains — deliberately more than the PMC would consider,
+  alphabetically by handle, never scored, ranked, shortlisted or judged —
+  and writes a report (the list linked to details, plus a
+  one-or-two-paragraph summary of findings) with activity data, areas, community signals and verified
   real names; commits it only to a repository the GitHub API reports as
   private, checked twice, after the maintainer confirms; no
   `@`-mentions. Ships `mode: Triage` + `experimental`, eval suite under

@@ -35,6 +35,9 @@
 > `candidate-screen` lists likely candidates alphabetically by GitHub handle, with no floors-met count, and its report is that list linked to each person's details plus a one-or-two-paragraph summary of findings.
 > `contributor-to-committer` drops the traffic light and per-dimension statuses.
 > `calibrate` deliberately relaxes the floors it proposes (`calibration_relaxation`, default `0.75` of the elected 25th percentile) so the lists show more people than the PMC would consider.
+> **Amended 2026-10-10 — data only.**
+> `candidate-screen` uses the floors only in its pre-filter, to drop the long tail.
+> Everyone who passes it is measured and appears in the report with their data; nobody is compared with the floors, shortlisted, or left out, and the report has no threshold column.
 > Where this document describes a shortlist, a summary table of floors met, or unrelaxed floors, read it as superseded by
 > [Surface information, never rank](../contributor-growth/README.md#surface-information-never-rank).
 

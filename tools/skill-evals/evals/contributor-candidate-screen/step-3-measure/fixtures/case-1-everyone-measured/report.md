@@ -1,8 +1,8 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-shortlist_max_missing: 2
-Floors (committer): prs_merged 40, reviews_total 20, reviews_substantive 3, threads_commented 35, area_breadth 5, issues_filed 2 (evidence only — does not separate elected from deferred).
+Floors (committer): prs_merged 40, reviews_total 20, reviews_substantive 3, threads_commented 35, area_breadth 5, issues_filed 0 (evidence only).
+All five people below passed the pre-filter.
 
 Adjusted counts:
 | Handle | prs_merged | reviews_total | reviews_substantive | threads_commented | area_breadth | issues_filed |

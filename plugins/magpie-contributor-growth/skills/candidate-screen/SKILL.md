@@ -10,19 +10,20 @@ requires_config:
   - contributor-nomination-config.md
   - project.md
 description: |
-  Surface details about likely committer and <governance-body>
-  candidates — deliberately more people than would be picked — as an
-  alphabetical list with a short summary, in a verified-private
-  repository. Never a ranking or a readiness verdict.
+  Surface activity data about recent contributors who pass a
+  long-tail pre-filter — for committer and <governance-body>
+  discussions — as an alphabetical list with details, in a
+  verified-private repository. Data only: no scoring, ranking,
+  floor comparison or readiness verdict.
 when_to_use: |
   Invoke on "screen for committer candidates", "who should we
   consider nominating", or "run the candidate report". Run after
   calibrate. Skip for one named person — use nomination.
 argument-hint: "[target:committer|pmc|both] [window:6m] [end:YYYY-MM-DD]"
 capability: capability:stats
-surface_hash: sha256:29c980868dbea19a
+surface_hash: sha256:a1767d466ee963d1
 license: Apache-2.0
-measured_tokens: 3695
+measured_tokens: 3723
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -89,10 +90,11 @@ is in. `/magpie-setup verify` is the full diagnostic.
 
 <!-- END MAGPIE PREFLIGHT -->
 
-Screen every recent contributor against the project's relaxed floors, list the likely candidates for committer or `<governance-body>` membership, and write one report with details about each.
+Cut the long tail of recent contributors with a cheap pre-filter, measure everyone who remains, and write one report with the activity data of each, for committer or `<governance-body>` discussions.
 
-**This skill surfaces information; `<governance-body>` members decide.**
-The list deliberately includes more people than the `<governance-body>` would consider, so nobody is overlooked; being on it means only that someone's details are worth a look.
+**This skill shows data; `<governance-body>` members decide.**
+The floors are used only by the pre-filter, to drop people whose activity is too small to be worth measuring; after that nobody is compared with them, scored, shortlisted or left out.
+The report deliberately includes more people than the `<governance-body>` would consider, so nobody is overlooked; being in it means only that someone's data is worth a look.
 It is never a ranking — every list of people is in alphabetical order of GitHub handle — and it never says or suggests whether anyone is ready.
 The report says so at the top.
 See [Surface information, never rank](../../../../docs/contributor-growth/README.md#surface-information-never-rank).
@@ -128,7 +130,8 @@ Local modifications go in the override file; framework changes go via PR to `apa
 | `window:Nm` | the configured window, else `6m` | Activity window |
 | `end:YYYY-MM-DD` | today | Last day of the window |
 
-From `<project-config>/contributor-nomination-config.md`: `report_repo` (required), `report_path` (default `reports/`), `screen_prefilter_ratio` (default `0.5`), `shortlist_max_missing` (default `2`).
+From `<project-config>/contributor-nomination-config.md`: `report_repo` (required), `report_path` (default `reports/`), `screen_prefilter_ratio` (default `0.5`).
+A `shortlist_max_missing` left over from an earlier version is ignored; say so once at the start of the run.
 Floors come from `<project-config>/committer-readiness.md`, else `contributor-nomination-config.md`, resolved as `contributor-to-committer` Step 1 does.
 Both files are personal configuration, read from the personal layer first and from `.apache-magpie-overrides/` only as a fallback; [they belong in the personal layer](../../../../docs/contributor-growth/README.md#why-the-configuration-is-personal).
 
@@ -179,29 +182,26 @@ Log everyone dropped, with both counts, in `dropped`; nobody leaves the pool sil
 
 ---
 
-## Step 3 — Measure and list
+## Step 3 — Measure
 
 For each person who survived the pre-filter:
 
 1. Run `contributor-metrics fetch` and `score` exactly as [`contributor-to-committer` Step 2 and Step 2a](../contributor-to-committer/SKILL.md#step-2--fetch-contributor-activity) do, confirming pushback candidates on meaning.
-2. Compare each numeric floor with the adjusted count.
-   A metric the config marks *evidence only* never counts as missing.
-   A metric fed by a stream in `caps_hit` is a minimum: if it already meets the floor it is met; if it does not, it is *unknown* — not counted as missing — and the report says so.
-3. **List** the person as a likely candidate when they miss at most `shortlist_max_missing` floors.
-   When in doubt — an unknown metric, a borderline count — list them; the list is deliberately inclusive.
+   `score` computes adjusted counts — data about the person's own activity, not a score of the person.
+2. A metric fed by a stream in `caps_hit` is a minimum; the report says so.
+3. Collect community signals per [`community-signals.md`](../nomination/community-signals.md) and resolve the person's name per [`real-names.md`](../nomination/real-names.md).
 
-For each listed candidate, collect community signals per [`community-signals.md`](../nomination/community-signals.md) and resolve their name per [`real-names.md`](../nomination/real-names.md).
-Everyone measured but not listed goes into *considered, not listed* with their counts.
-How many floors someone met is used only to decide whether to list them; it never appears in the report and never orders anyone.
+Everyone measured goes into the report.
+Do not compare anyone's counts with the floors, count floors met or missed, or select a subset: the pre-filter in Step 2 is the only place the floors are used.
 
 ---
 
 ## Step 4 — Write the report
 
 Write the report per [`report.md`](report.md) to `<scratch>/candidate-screen/<end>-candidate-screen.md`.
-The report opens with the people listed, in alphabetical order of GitHub handle, each linked to their section, followed by one or two paragraphs summarising the findings across the list.
+The report opens with everyone measured, in alphabetical order of GitHub handle, each linked to their section, followed by one or two paragraphs summarising the findings across the list.
 Each person's section, in the same order, holds two or three paragraphs of details: what they built and in which areas, their review, mentoring and community work, and factual flags — maintainer pushback on automated work, a single area or single vendor dominating their work where that is known.
-Nothing in the report compares people with each other, orders them by any measure, counts floors met, or says or implies that anyone is ready, close, or not ready.
+Nothing in the report compares people with each other or with the floors, orders them by any measure, scores them, counts floors met, or says or implies that anyone is ready, close, or not ready.
 Every claim links to its evidence.
 Handles appear as plain profile links, never as `@`-mentions.
 
@@ -222,9 +222,10 @@ Nothing is posted anywhere else — no issue, comment, list, or chat.
 
 ## Hard rules
 
-- The report only surfaces information about likely candidates, deliberately more than the `<governance-body>` would consider; it is never a ranking or a decision, and it says so at the top.
+- The report only shows data about everyone who passed the pre-filter, deliberately more people than the `<governance-body>` would consider; it is never a ranking, a score or a decision, and it says so at the top.
+- The floors are used only by the pre-filter; no one's counts are compared with them in the report.
 - Every list of people is alphabetical by GitHub handle, case-insensitive.
-- No readiness verdict, score, or floors-met count about any person.
+- No readiness verdict, score, shortlist, or floors-met count about any person.
 - The report goes only to a repository its code host reports as private (`repository_metadata`), checked before showing and again before writing; never a gist.
 - No `@`-mentions in the report.
 - Nothing is written without the maintainer's explicit yes.

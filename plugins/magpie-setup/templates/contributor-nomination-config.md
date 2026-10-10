@@ -57,7 +57,6 @@ and there are no meaningful framework defaults.
 | `report_repo` | TODO: `owner/name` of a **private** repository | Where `candidate-screen` commits its report. The skill refuses unless the GitHub API reports the repository as private; restrict it to `<governance-body>` members. |
 | `report_path` | `reports/` | Directory inside `report_repo` for the reports. |
 | `screen_prefilter_ratio` | `0.5` | `candidate-screen` keeps a contributor for full measurement when merged PRs or reviews reach this share of the floor. |
-| `shortlist_max_missing` | `2` | `candidate-screen` lists a contributor as a likely candidate when they miss at most this many floors (evidence-only metrics excluded). The list is deliberately inclusive and is never a ranking. |
 
 ---
 

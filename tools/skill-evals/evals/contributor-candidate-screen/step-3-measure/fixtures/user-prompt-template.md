@@ -5,4 +5,4 @@
 
 {report}
 
-Build the list of likely candidates from the measured counts. Return JSON only.
+Decide whose data goes into the report from the measured counts. Return JSON only.

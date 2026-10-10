@@ -31,5 +31,12 @@
     "type": "regex",
     "field": "report",
     "pattern": "(?s)amir-docs.*zoe-builder"
+  },
+  "no_threshold_column": {
+    "type": "regex",
+    "field": "report",
+    "pattern": "Reference \\(relaxed\\)|Against the floors|missed floors|floors missed",
+    "flags": "i",
+    "negate": true
   }
 }
