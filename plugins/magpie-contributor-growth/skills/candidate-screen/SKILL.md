@@ -23,7 +23,7 @@ argument-hint: "[target:committer|pmc|both] [window:6m] [end:YYYY-MM-DD]"
 capability: capability:stats
 surface_hash: sha256:a1767d466ee963d1
 license: Apache-2.0
-measured_tokens: 3994
+measured_tokens: 4042
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -196,7 +196,7 @@ For each person who survived the pre-filter:
 1. Run `contributor-metrics fetch` and `score` exactly as [`contributor-to-committer` Step 2 and Step 2a](../contributor-to-committer/SKILL.md#step-2--fetch-contributor-activity) do, confirming pushback candidates on meaning.
    `score` computes adjusted counts — data about the person's own activity, not a score of the person.
 2. A metric fed by a stream in `caps_hit` is a minimum; the report says so.
-3. Collect community signals per [`community-signals.md`](../nomination/community-signals.md) and resolve the person's name per [`real-names.md`](../nomination/real-names.md).
+3. Collect community signals per [`community-signals.md`](../nomination/community-signals.md), including its step that asks the maintainer for the addresses people post from ([Ask the maintainer for addresses](../nomination/community-signals.md#ask-the-maintainer-for-addresses)) — ask once for everyone, after measuring — and resolve the person's name per [`real-names.md`](../nomination/real-names.md).
 
 Everyone measured goes into the report.
 Do not compare anyone's counts with the floors, count floors met or missed, or select a subset: the pre-filter in Step 2 is the only place the floors are used.
