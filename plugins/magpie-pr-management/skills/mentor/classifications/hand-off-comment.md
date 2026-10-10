@@ -20,7 +20,7 @@ One template for all four triggers. It does **not** summarise the conversation �
    gh issue comment <N> --repo <upstream> --body-file <scratch>/handoff.md
    ```
 
-   (`gh pr comment` for a PR.) The agent-guard `mention` guard lets this one team mention through: the team is the `maintainer_team_handle` in the committed `.apache-magpie-overrides/mentoring-config.md`, and the body opens with the template's `— handing this off:` line. Any other mention in the body is still blocked.
+   (`gh pr comment` for a PR.) The agent-guard `mention` guard lets this one team mention through: the team is the `maintainer_team_handle` in `.apache-magpie-overrides/mentoring-config.md` as GitHub serves it from the target repository's default branch (a local edit does not count), it belongs to the organisation that owns that repository, and the body opens with the template's `— handing this off:` line. Any other mention in the body is still blocked.
 5. Record it: `uv run --project <framework>/tools/pr-management pr-management mentor log --kind <pr|issue> --number <N> --outcome handed-off --trigger <n>`. The skill does not return to a handed-off thread.
 
 The hand-off never contains a summary of the thread, a guess at what the maintainer should do, an apology, a retry offer, or a further doc link: anything added pre-loads the maintainer's read of the conversation.

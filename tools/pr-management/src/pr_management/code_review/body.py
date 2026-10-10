@@ -86,7 +86,7 @@ def verify_footer(body: str, variant: str | None = None) -> dict[str, Any]:
     return {"footer_present": False, "variant": None, "action": "block"}
 
 
-def escape_handles(text: str) -> str:
+def escape_handles(text: str, allowed: frozenset[str] = frozenset()) -> str:
     """Backtick every live `@handle` outside code, so posting it notifies nobody."""
     out = []
     inside = False
@@ -99,12 +99,19 @@ def escape_handles(text: str) -> str:
             out.append(line)
             continue
         pieces = re.split(r"(`[^`]*`)", line)
-        pieces = [p if p.startswith("`") else _MENTION.sub(lambda m: f"`@{m.group(1)}`", p) for p in pieces]
+        pieces = [
+            p
+            if p.startswith("`")
+            else _MENTION.sub(
+                lambda m: m.group(0) if m.group(1).lower() in allowed else f"`@{m.group(1)}`", p
+            )
+            for p in pieces
+        ]
         out.append("".join(pieces))
     return "\n".join(out)
 
 
-def mention_scan(text: str) -> list[dict[str, Any]]:
+def mention_scan(text: str, allowed: frozenset[str] = frozenset()) -> list[dict[str, Any]]:
     """Live `@`-mentions outside code spans, fences, decorators and cron aliases."""
     hits = []
     inside = False
@@ -117,7 +124,7 @@ def mention_scan(text: str) -> list[dict[str, Any]]:
         prose = re.sub(r"`[^`]*`", "", line)
         for match in _MENTION.finditer(prose):
             handle = match.group(1)
-            if handle.lower() in _CRON:
+            if handle.lower() in _CRON or handle.lower() in allowed:
                 continue
             hits.append({"handle": handle, "line": number, "text": line.strip()})
     return hits
@@ -191,6 +198,7 @@ def compose(
     reviewers: list[dict[str, Any]] | None = None,
     conflict_note: str | None = None,
     security_note: str | None = None,
+    allowed: frozenset[str] = frozenset(),
 ) -> str:
     """The review body, in the template's section order; empty sections are omitted."""
     anchored = [i for i, f in enumerate(findings, start=1) if f.get("line")]
@@ -224,11 +232,14 @@ def compose(
             "and optional."
         )
     parts.append(footer_text)
-    return escape_handles("\n\n".join(p for p in parts if p))
+    return escape_handles("\n\n".join(p for p in parts if p), allowed)
 
 
 def inline_comments(
-    findings: list[dict[str, Any]], kept: list[int], files: list[difflib.DiffFile]
+    findings: list[dict[str, Any]],
+    kept: list[int],
+    files: list[difflib.DiffFile],
+    allowed: frozenset[str] = frozenset(),
 ) -> dict[str, Any]:
     """The picked comments as review threads (line/side), and the ones the diff cannot anchor."""
     anchored = [f for f in findings if f.get("line")]
@@ -241,7 +252,7 @@ def inline_comments(
             files, str(finding["file"]), int(finding["line"]), str(finding.get("side") or "RIGHT")
         )
         text = escape_handles(
-            str(finding.get("comment") or finding.get("explanation") or finding.get("rule_id") or "")
+            str(finding.get("comment") or finding.get("explanation") or finding.get("rule_id") or ""), allowed
         )
         if spot is None:
             unanchorable.append({"index": index, "file": finding["file"], "line": finding["line"]})

@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Any
 
 from .. import config as core_config
+from .. import mentions
 from ..layers import personal_dir
 from ..people import Maintainers, load_permissions, load_team
 from . import config, render, thread, tone
@@ -75,6 +76,7 @@ def add_parsers(sub: Any) -> None:
     ren.add_argument("--pointer", default=None, help="the convention_pointers trigger the comment links")
     ren.add_argument("--open-question-file", type=Path, default=None, help="hand-off: one-line open question")
     ren.add_argument("--out", type=Path, required=True)
+    mentions.add_flag(ren)
 
     chk = cmd.add_parser("tone-check", help="run the deterministic tone rules on a draft")
     chk.add_argument("--draft", type=Path, required=True)
@@ -132,7 +134,8 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
         return result
     if args.command == "render":
         question = args.open_question_file.read_text(encoding="utf-8") if args.open_question_file else None
-        upstream = core_config.load(args.project_root, args.config_dir).upstream_repo
+        core = mentions.apply_flag(core_config.load(args.project_root, args.config_dir), args)
+        upstream = core.upstream_repo
         return render.render(
             cfg,
             kind=args.kind,
@@ -141,6 +144,7 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
             open_question=question,
             upstream=upstream,
             out=args.out,
+            allowed=mentions.allowed(core),
         )
     if args.command == "tone-check":
         return tone.check(args.draft.read_text(encoding="utf-8"), author=args.author, footer=cfg.footer)

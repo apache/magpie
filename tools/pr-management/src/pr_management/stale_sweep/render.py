@@ -31,6 +31,7 @@ from importlib import resources
 from pathlib import Path
 from typing import Any
 
+from .. import mentions
 from ..config import Config
 from ..triage.render import enforce
 
@@ -61,7 +62,7 @@ def render(entry: dict[str, Any], cfg: Config, out_dir: Path) -> dict[str, Any]:
     body = _template(TEMPLATES[cls])
     for key, value in values.items():
         body = body.replace(key, value)
-    body, mentioned = enforce(body, entry["author"], cfg.upstream_repo)
+    body, mentioned = enforce(body, entry["author"], cfg.upstream_repo, mentions.allowed(cfg))
     leftover = sorted(set(_PLACEHOLDER.findall(re.sub(r"<!--.*?-->", "", body, flags=re.DOTALL))))
     number = int(entry["number"])
     out_dir.mkdir(parents=True, exist_ok=True)

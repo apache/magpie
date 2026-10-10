@@ -27,7 +27,7 @@ argument-hint: "[pr:N] [label:LBL] [author:LOGIN] [review-for-me] [stale] [repo:
 capability: capability:triage
 surface_hash: sha256:54dc4ba1be7b36d4
 license: Apache-2.0
-measured_tokens: 4869
+measured_tokens: 4920
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
@@ -292,8 +292,11 @@ author; under `comment` it posts as a comment. The delivery is in
 **Golden rule 11 — the note notifies the author, and only the author.**
 Only the author is `@`-mentioned and assigned; every maintainer
 handle is backtick-quoted. The renderer guarantees it and the
-agent-guard `mention` guard enforces it. Exemption: on your own
-PR, mentioning your reviewers is allowed.
+agent-guard `mention` guard enforces it. Exemptions: on your own
+PR, mentioning your reviewers is allowed; a project's committed
+`mention_allowlist` keeps the handles it names live everywhere;
+and a maintainer can allow one handle for one note with
+`--allow-mention` plus `MAGPIE_ALLOW_MENTIONS=1`.
 
 ---
 

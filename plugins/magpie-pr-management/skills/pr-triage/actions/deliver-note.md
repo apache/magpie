@@ -27,6 +27,7 @@ Write the group entry's `details` object from the classify output to `<scratch>/
 The result names the `body_file`, the `channel`, whether to `assign_author` / `unassign_author`, and a `preview`.
 Show the maintainer the preview and the channel before the mutation: under `pr-body` the note folds into the description (only the author is notified); under `comment` it posts as a comment (every subscriber is notified).
 Never edit the rendered body to add a mention, and never post a `warnings` entry about an unresolved placeholder — fix the config value instead.
+To keep a handle live, it goes in the project's `mention_allowlist`, or — when the maintainer asks for it on this one note — `--allow-mention <login>` on the render and `MAGPIE_ALLOW_MENTIONS=1` on the posting command.
 
 ## 2a. Channel `pr-body` (default) — fold into the description
 

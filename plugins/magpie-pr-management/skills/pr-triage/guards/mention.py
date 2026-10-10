@@ -39,12 +39,19 @@ Two further surfaces:
   the triage note.
 * **Uninspectable text** (a body on stdin, an unreadable body or field
   file) is refused: the guard cannot confirm it is clean.
+* **The project allowlist**: handles in `mention_allowlist` of
+  `.apache-magpie-overrides/pr-management-config.md` *as GitHub serves it
+  from the target repository's default branch* are never refused, on any
+  surface — the same key every `pr-management` renderer honours. Only a
+  reviewed, merged change can put a handle there; a local edit, commit or
+  scratch repository cannot.
 * **The mentoring hand-off**: `pr-management-mentor` hands a thread to the
   maintainers with a body that opens "@<team> — handing this off:". That one
   mention is allowed when <team> is the `maintainer_team_handle` of the
-  *committed* `.apache-magpie-overrides/mentoring-config.md` (tracked and
-  identical to `HEAD`), belongs to the organisation that owns the target
-  repository, and is the only non-author mention in the body.
+  `.apache-magpie-overrides/mentoring-config.md` on the target
+  repository's default branch (read from GitHub, like the allowlist),
+  belongs to the organisation that owns the target repository, and is the
+  only non-author mention in the body.
 
 Discovered by
 the agent-guard PreToolUse dispatcher from a guards.d directory — see
@@ -75,6 +82,12 @@ def _nobody(what, mentions):
     )
 
 
+def _allowlist(ctx):
+    """Handles the project lets every surface keep live: the committed `mention_allowlist`."""
+    values = ctx.committed_config_values("pr-management-config.md", "mention_allowlist")
+    return {v.strip().lstrip("@").lower() for v in values if v.strip()}
+
+
 def guard(ctx):
     # Anything a non-GET `gh api` call sends, whatever the endpoint. No author
     # exemption here.
@@ -85,7 +98,7 @@ def guard(ctx):
         texts, readable = api
         if not readable:
             return _uninspectable("API call")
-        mentions = sorted({m for text in texts for m in ctx.mentions(text)})
+        mentions = sorted({m for text in texts for m in ctx.mentions(text)} - _allowlist(ctx))
         return _nobody("text sent by `gh api`", mentions) if mentions else None
 
     sub = ctx.gh_subcommand()
@@ -97,7 +110,7 @@ def guard(ctx):
         body = ctx.gh_body(read_files=True)
         if ctx.opt("-F", "--body-file") == "-" or UNREADABLE in body:
             return _uninspectable("review")
-        mentions = sorted(set(ctx.mentions(body)))
+        mentions = sorted(set(ctx.mentions(body)) - _allowlist(ctx))
         return _nobody("a review body", mentions) if mentions else None
 
     sub = ctx.gh_subcommand()
@@ -119,7 +132,7 @@ def guard(ctx):
     if ctx.opt("-F", "--body-file") == "-" or UNREADABLE in body:
         return _uninspectable("folded triage note" if is_pr_body_edit else "comment")
     mentions = ctx.mentions(body)
-    if not mentions:
+    if not set(mentions) - _allowlist(ctx):
         return None
 
     # Both channels share one rule: only the PR/issue author may be @-mentioned.
@@ -147,7 +160,7 @@ def guard(ctx):
     operator = ctx.run(["gh", "api", "user", "--jq", ".login"])
     if operator and operator.lower() == author.lower():
         return None
-    offenders = sorted({m for m in mentions if m != author.lower()})
+    offenders = sorted({m for m in mentions if m != author.lower()} - _allowlist(ctx))
     if offenders and is_comment and _is_mentoring_handoff(ctx, offenders):
         return None
     if offenders:

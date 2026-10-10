@@ -118,6 +118,9 @@ class Config:
     check_map: list[CheckCategory] = field(default_factory=list)
     conflicts_url: str | None = None
 
+    #: Handles a rendered body may keep live (`mention_allowlist`); see mentions.py.
+    mention_allowlist: list[str] = field(default_factory=list)
+
     marker: str = DEFAULT_MARKER
     urls: dict[str, str] = field(default_factory=dict)
     footer: str | None = None
@@ -216,6 +219,8 @@ def load(project_root: Path, config_dir: Path | None = None) -> Config:
             cfg.backport_branches = mdconfig.tokens(cells[1]) if len(cells) > 1 else []
         elif key == "real_ci_patterns" and len(cells) > 1:
             cfg.real_ci_patterns = mdconfig.tokens(cells[1])
+        elif key == "mention_allowlist" and len(cells) > 1:
+            cfg.mention_allowlist = mdconfig.tokens(cells[1])
         elif key == "static_check_patterns" and len(cells) > 1:
             cfg.static_check_patterns = [*STATIC_CHECK_PATTERNS, *mdconfig.tokens(cells[1])]
         grace_attr = _GRACE_ROWS.get(cells[0].lower())

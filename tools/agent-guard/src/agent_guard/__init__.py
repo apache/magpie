@@ -462,6 +462,46 @@ def _find_repo_root(start: Path) -> Path | None:
 LOCK_NAME = ".apache-magpie.lock"
 LOCAL_DIR = ".apache-magpie-local"
 OVERRIDES_DIR = ".apache-magpie-overrides"
+
+_REPO_SLUG = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*")
+
+#: ``gh api`` flags that take a separate value, so the endpoint is the first other token.
+_GH_API_VALUE_FLAGS = frozenset(
+    {
+        "-X",
+        "--method",
+        "-f",
+        "--raw-field",
+        "-F",
+        "--field",
+        "-H",
+        "--header",
+        "--input",
+        "-q",
+        "--jq",
+        "-t",
+        "--template",
+        "--hostname",
+        "--cache",
+        "-p",
+        "--preview",
+    }
+)
+
+
+def _gh_api_endpoint(args: list[str]) -> str | None:
+    """The endpoint positional of a ``gh api`` argument list (everything after ``api``)."""
+    skip = False
+    for tok in args:
+        if skip:
+            skip = False
+        elif tok in _GH_API_VALUE_FLAGS:
+            skip = True
+        elif not tok.startswith("-"):
+            return tok
+    return None
+
+
 GIT_HOME_NAME = "apache-magpie"
 
 
@@ -831,35 +871,47 @@ class GuardContext:
     def mentions(self, text: str) -> list[str]:
         return find_mentions(text)
 
-    def committed_config_value(self, filename: str, key: str) -> str | None:
-        """A `` | `key` | value | `` row from the **committed** project config.
+    def _committed_config_text(self, filename: str) -> str | None:
+        """``.apache-magpie-overrides/<filename>`` on the target repository's default branch, on GitHub.
 
-        A value that widens what a guard allows must come from a file the
-        agent cannot simply write: ``.apache-magpie-overrides/<filename>`` in
-        the repository the hook runs in, tracked by git, not a symlink, and
-        byte-identical to its ``HEAD`` version (an uncommitted edit, or a
-        file in a scratch repository the agent made, does not count).
+        A value that widens what a guard allows must come from somewhere the
+        agent cannot write. Anything local fails that test — the agent can
+        edit a file, commit it, or ``cd`` into a scratch repository it made —
+        so the guard reads the copy GitHub serves from the default branch of
+        the repository the command posts to, which only a reviewed, merged
+        change can alter. A fork or scratch repository only ever governs
+        itself. Unreadable → None, and the guard falls back to the strict rule.
         """
-        root = _find_repo_root(Path(self.cwd or os.getcwd()).resolve())
-        if root is None:
+        repo = self.target_repo()
+        if repo is None:
             return None
-        rel = f"{OVERRIDES_DIR}/{filename}"
-        path = root / rel
-        if path.is_symlink() or not path.is_file():
-            return None
-        try:
-            text = path.read_text(encoding="utf-8")
-        except OSError:
-            return None
-        committed = _run(["git", "show", f"HEAD:{rel}"], cwd=str(root))
-        if committed is None or committed.strip() != text.strip():
-            return None
-        for line in text.splitlines():
+        return self.run(
+            [
+                "gh",
+                "api",
+                f"repos/{repo}/contents/{OVERRIDES_DIR}/{filename}",
+                "-H",
+                "Accept: application/vnd.github.raw",
+            ]
+        )
+
+    def _committed_row(self, filename: str, key: str) -> str | None:
+        text = self._committed_config_text(filename)
+        for line in (text or "").splitlines():
             cells = [c.strip() for c in line.strip().strip("|").split("|")]
             if len(cells) >= 2 and cells[0] == f"`{key}`":
-                match = re.match(r"`([^`]+)`", cells[1])
-                return match.group(1).strip() if match else None
+                return cells[1]
         return None
+
+    def committed_config_value(self, filename: str, key: str) -> str | None:
+        """The first backticked value of a `` | `key` | value | `` row of the config on the target repository's default branch."""
+        cell = self._committed_row(filename, key)
+        match = re.match(r"`([^`]+)`", cell or "")
+        return match.group(1).strip() if match else None
+
+    def committed_config_values(self, filename: str, key: str) -> list[str]:
+        """Every backticked value of a `` | `key` | value | `` row of the config on the target repository's default branch."""
+        return [t.strip() for t in re.findall(r"`([^`]+)`", self._committed_row(filename, key) or "")]
 
     def gh_input_json(self) -> object | None:
         """The JSON payload of ``gh api --input <file>``, or None."""
@@ -871,13 +923,49 @@ class GuardContext:
         except (OSError, ValueError):
             return None
 
+    def target_repo(self) -> str | None:
+        """``OWNER/REPO`` a ``gh`` command explicitly acts on, or None when that is not certain.
+
+        Only guards that *widen* a rule ask, so anything ambiguous answers
+        None and the strict rule stands. ``gh api`` acts on the repository in
+        a plain ``repos/OWNER/REPO/…`` endpoint; ``graphql`` and any other
+        endpoint can reach any repository, and an endpoint with ``.`` / ``..``
+        segments, percent-encoding or ``{owner}`` placeholders is refused
+        rather than resolved. Every other command must name its repository —
+        through ``--repo`` and/or a PR / issue URL as the selector
+        positional — and all of them must agree. There is no fallback to the
+        checkout: a ``cd`` or ``GH_REPO`` earlier on the line would change
+        what ``gh`` posts to without the guard seeing it.
+        """
+        sub = self.gh_subcommand()
+        if sub is not None and sub[0] == "api" and "api" in self.argv:
+            endpoint = _gh_api_endpoint(self.argv[self.argv.index("api") + 1 :]) or ""
+            path = endpoint.split("?", 1)[0].split("#", 1)[0]
+            if any(c in path for c in "%{}\\") or any(seg in (".", "..") for seg in path.split("/")):
+                return None
+            m = re.fullmatch(r"/?repos/([^/]+/[^/]+)(?:/.*)?", path)
+            found = {m.group(1).lower()} if m else set()
+        else:
+            found = {r.lower() for r in self.opts("-R", "--repo")}
+            # Only the selector positional (`gh pr comment <URL>`) names a
+            # repository; a URL inside --body or any other value is text.
+            selector = self.positional_after(sub[1]) if sub is not None else None
+            m = re.fullmatch(
+                r"https?://(?:www\.)?github\.com/([^/]+/[^/#?]+)/(?:pull|issues)/\d+(?:[/#?].*)?",
+                selector or "",
+                re.IGNORECASE,
+            )
+            if m:
+                found.add(m.group(1).lower())
+        if len(found) != 1:
+            return None
+        repo = found.pop()
+        return repo if _REPO_SLUG.fullmatch(repo) else None
+
     def target_repo_owner(self) -> str | None:
-        """The owner of the repository a ``gh`` command acts on: ``--repo``, else the checkout's."""
-        repo = self.opt("-R", "--repo")
-        if repo:
-            return repo.split("/", 1)[0].lower() if "/" in repo else None
-        owner = self.run(["gh", "repo", "view", "--json", "owner", "--jq", ".owner.login"])
-        return owner.lower() if owner else None
+        """The owner of the repository a ``gh`` command acts on (see :meth:`target_repo`)."""
+        repo = self.target_repo()
+        return repo.split("/", 1)[0] if repo else None
 
     def gh_api_posted_text(self) -> tuple[list[str], bool] | None:
         """Every value a non-``GET`` ``gh api`` call would send, and whether all of it was readable.

@@ -40,7 +40,7 @@ from importlib import resources
 from pathlib import Path
 from typing import Any
 
-from .. import ci, markers, mdconfig
+from .. import ci, markers, mdconfig, mentions
 from ..config import CONFIRMATION_MARKER, FOLD_CLOSE, FOLD_OPEN, Config
 from ..model import PR
 from . import signals
@@ -349,8 +349,10 @@ def _substitute(text: str, values: dict[str, str]) -> str:
     return text
 
 
-def enforce(text: str, author: str, upstream: str | None) -> tuple[str, list[str]]:
-    """Author-only `@`-mentions and no bare `#NNN`, outside code spans and HTML comments."""
+def enforce(
+    text: str, author: str, upstream: str | None, allowed: frozenset[str] = frozenset()
+) -> tuple[str, list[str]]:
+    """Author-only `@`-mentions — plus any `allowed` handle — and no bare `#NNN`, outside code and comments."""
     out_lines = []
     mentioned: list[str] = []
     inside_fence = False
@@ -369,7 +371,7 @@ def enforce(text: str, author: str, upstream: str | None) -> tuple[str, list[str
 
             def handle(match: re.Match[str]) -> str:
                 login = match.group(1)
-                if login.lower() == author.lower():
+                if login.lower() == author.lower() or login.lower() in allowed:
                     if login not in mentioned:
                         mentioned.append(login)
                     return match.group(0)
@@ -510,7 +512,7 @@ def render(
         if stem == "ready-flip":
             result.unassign_author = True
 
-    body, mentioned = enforce(body, pr.author, cfg.upstream_repo)
+    body, mentioned = enforce(body, pr.author, cfg.upstream_repo, mentions.allowed(cfg))
     result.body = body
     result.mentions = [f"@{m}" for m in mentioned]
     leftover = sorted(set(PLACEHOLDER.findall(re.sub(r"<!--.*?-->", "", body, flags=re.DOTALL))))

@@ -34,7 +34,7 @@ from fnmatch import fnmatchcase
 from pathlib import Path
 from typing import Any
 
-from . import ci, config, mdconfig, model, people
+from . import ci, config, mdconfig, mentions, model, people
 from .triage import classify as triage_classify
 from .triage import fold as triage_fold
 from .triage import guards as triage_guards
@@ -139,7 +139,7 @@ def _triage_classify(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def _triage_render(args: argparse.Namespace) -> dict[str, Any]:
-    cfg = config.load(args.project_root, args.config_dir)
+    cfg = mentions.apply_flag(config.load(args.project_root, args.config_dir), args)
     resolver = mdconfig.Resolver(args.project_root, args.config_dir)
     saved: Path = args.saved_dir
     pages = [Path(p) for p in args.pages] or [saved / SAVED["pages"]]
@@ -369,6 +369,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     grd.add_argument("--saved-dir", type=Path, required=True)
 
     ren = triage_sub.add_parser("render", help="render the contributor-facing body of one action")
+    mentions.add_flag(ren)
     ren.add_argument(
         "--saved-dir", type=Path, required=True, help="the vetted-ops workspace's saved/ directory"
     )

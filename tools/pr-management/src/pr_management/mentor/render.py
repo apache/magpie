@@ -73,6 +73,7 @@ def render(
     open_question: str | None = None,
     upstream: str | None = None,
     out: Path,
+    allowed: frozenset[str] = frozenset(),
 ) -> dict[str, Any]:
     errors: list[str] = []
     if cfg.footer is None:
@@ -86,7 +87,7 @@ def render(
             errors.append("maintainer_team_handle must be an @org/team handle")
         if errors:
             return {"ok": False, "errors": errors}
-        question = _silence_mentions(_link_numbers(question, upstream), set())
+        question = _silence_mentions(_link_numbers(question, upstream), set(allowed))
         body = (
             _template("hand-off")
             .replace("<maintainer_team_handle>", handle)

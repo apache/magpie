@@ -24,7 +24,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .. import config, model, people
+from .. import config, mentions, model, people
 from . import classify as stale_classify
 from . import plan as stale_plan
 from . import recap as stale_recap
@@ -50,6 +50,7 @@ def add_parsers(sub: Any) -> None:
     cls.add_argument("selector", nargs="*")
 
     ren = cmds.add_parser("render", help="Step 4: the comment for one proposal")
+    mentions.add_flag(ren)
     ren.add_argument("--saved-dir", type=Path, required=True)
     ren.add_argument("--pr", type=int, required=True)
     ren.add_argument("--out-dir", type=Path, required=True)
@@ -72,7 +73,7 @@ def _now(value: str | None) -> dt.datetime:
 
 
 def dispatch(args: argparse.Namespace) -> dict[str, Any]:
-    cfg = config.load(args.project_root, args.config_dir)
+    cfg = mentions.apply_flag(config.load(args.project_root, args.config_dir), args)
     if args.command == "plan":
         return stale_plan.build(
             args.selector, args.project_root, args.config_dir, cfg.committers_team

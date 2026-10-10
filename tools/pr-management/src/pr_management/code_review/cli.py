@@ -33,7 +33,7 @@ import shlex
 from pathlib import Path
 from typing import Any
 
-from .. import config, model
+from .. import config, mentions, model
 from ..triage import guards as triage_guards
 from . import body as review_body
 from . import codeowners, criteria, data, deps, disposition, reviewers, scans, selectors, session, slop
@@ -423,7 +423,8 @@ def _render(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any]:
     summary = Path(args.summary).read_text(encoding="utf-8").strip()
     anchored = [f for f in findings if f.get("line")]
     picked = review_body.pick(args.keep or "A", len(anchored)) if args.inline == "on" else {"keep": []}
-    inline = review_body.inline_comments(findings, picked["keep"], files)
+    allow = mentions.allowed(cfg)
+    inline = review_body.inline_comments(findings, picked["keep"], files, allow)
     kept = [k for k in picked["keep"] if k not in {u["index"] for u in inline["unanchorable"]}]
     variant = disposition.footer_variant(args.disposition, args.permission or pr.viewer_permission)
     project = cfg.project_name or (cfg.upstream_repo or "the project").split("/")[-1].capitalize()
@@ -442,6 +443,7 @@ def _render(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any]:
         conflict = "GitHub has not yet computed whether this branch merges cleanly with its base."
     security_note = Path(args.security_note).read_text(encoding="utf-8") if args.security_note else None
     text = review_body.compose(
+        allowed=allow,
         summary=summary,
         findings=findings,
         inline_kept=kept,
@@ -453,7 +455,7 @@ def _render(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any]:
     args.out_dir.mkdir(parents=True, exist_ok=True)
     body_file = args.out_dir / f"review-body-{args.pr}.md"
     body_file.write_text(text + "\n", encoding="utf-8")
-    hits = review_body.mention_scan(text + "\n" + "\n".join(t["body"] for t in inline["threads"]))
+    hits = review_body.mention_scan(text + "\n" + "\n".join(t["body"] for t in inline["threads"]), allow)
     check = review_body.verify_footer(text, variant)
     flag = {"APPROVE": "--approve", "REQUEST_CHANGES": "--request-changes", "COMMENT": "--comment"}[
         args.disposition
@@ -533,7 +535,7 @@ def _slop_comment(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any
             disposition.footer_variant("COMMENT", args.permission), project, cfg.contributing_docs_url
         ),
     )
-    text = review_body.escape_handles(text)
+    text = review_body.escape_handles(text, mentions.allowed(cfg))
     args.out_dir.mkdir(parents=True, exist_ok=True)
     path = args.out_dir / f"slop-warning-{args.pr}.md"
     path.write_text(text, encoding="utf-8")
@@ -611,6 +613,7 @@ def add_parsers(sub: Any) -> None:
     rev.add_argument("--now", default=None)
 
     ren = commands.add_parser("render", help="Steps 7a-7b: the body, the inline threads, the post command")
+    mentions.add_flag(ren)
     ren.add_argument("--saved-dir", type=Path, required=True)
     ren.add_argument("--pr", type=int, required=True)
     ren.add_argument("--findings", required=True)
@@ -628,6 +631,7 @@ def add_parsers(sub: Any) -> None:
     pic.add_argument("--count", type=int, required=True)
 
     men = commands.add_parser("mention-scan", help="live @-mentions outside code")
+    mentions.add_flag(men)
     men.add_argument("--body", type=Path, required=True)
 
     ver = commands.add_parser("verify-footer", help="Golden rule 5: the verbatim footer is present")
@@ -641,6 +645,7 @@ def add_parsers(sub: Any) -> None:
     grd.add_argument("--viewer", required=True)
 
     slc = commands.add_parser("slop-comment", help="the [C] warning body and the [X] close commands")
+    mentions.add_flag(slc)
     slc.add_argument("--pr", type=int, required=True)
     slc.add_argument("--issues", required=True, help="one plain-English issue per line")
     slc.add_argument("--out-dir", type=Path, required=True)
@@ -663,7 +668,7 @@ def add_parsers(sub: Any) -> None:
 
 
 def dispatch(args: argparse.Namespace) -> dict[str, Any]:
-    cfg = config.load(args.project_root, args.config_dir)
+    cfg = mentions.apply_flag(config.load(args.project_root, args.config_dir), args)
     command = args.command
     if command == "resolve":
         try:
@@ -699,7 +704,7 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
     if command == "pick":
         return review_body.pick(args.spec, args.count)
     if command == "mention-scan":
-        hits = review_body.mention_scan(args.body.read_text(encoding="utf-8"))
+        hits = review_body.mention_scan(args.body.read_text(encoding="utf-8"), mentions.allowed(cfg))
         return {"live_handles": [h["handle"] for h in hits], "prompt_shown": bool(hits), "hits": hits}
     if command == "verify-footer":
         return review_body.verify_footer(args.body.read_text(encoding="utf-8"), args.variant)

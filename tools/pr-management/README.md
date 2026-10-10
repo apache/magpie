@@ -298,6 +298,8 @@ Other skills link here instead of restating them; change a rule in code and here
 - **Systemic failure** — a check name failing on at least two of the ten most recently merged PRs.
 - **Mergeability** — `UNKNOWN` is "not yet computed", never "mergeable": passing needs `MERGEABLE`, and every guard refuses on `UNKNOWN`.
 - **Strip-ready-on-downgrade** — a ready-labelled PR that regresses into a `deterministic_flag` `draft` / `comment` / `close` loses the label, unless a collaborator thread is open (a merit discussion): then `draft` becomes feedback only, `close` delivers its reasoning and label but leaves the PR open, and the label stays.
+- **Mentions** ([`mentions.py`](src/pr_management/mentions.py)) — every renderer (triage notes, stale-sweep comments, mentor comments, code-review bodies) keeps only the PR author live and backtick-quotes every other handle, except those in `mention_allowlist` (`pr-management-config.md`) and those one call adds with `--allow-mention <login>`.
+  The agent-guard `mention` guard honours `mention_allowlist` only from `.apache-magpie-overrides/pr-management-config.md` as GitHub serves it from the target repository's default branch, so a local edit or commit does not widen it; a per-call addition also needs `MAGPIE_ALLOW_MENTIONS=1` on the posting command.
 - **Reason strings** — one line, factual, signal first and proposal verb last; no emoji, no editorialising, no generated prose. The table's templates are the whole surface.
 - **Routing score** — area 3 each (cap 6), familiarity 2 per path (cap 6), CODEOWNERS 2, load −1 per review above 2 (floor −5); an OVERLOADED member is never the primary.
 
