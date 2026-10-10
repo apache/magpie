@@ -5,7 +5,7 @@
 
 **Capability:** substrate:framework-dev
 
-**Harness:** Claude Code, Codex, Cursor, Gemini CLI, OpenCode, Kiro
+**Harness:** Claude Code, Codex, Cursor, Gemini CLI, OpenCode, Kiro, Grok
 
 A spec-driven build loop for this framework, in the general
 [Ralph](https://ghuntley.com/ralph/) style (run a fresh agent context
@@ -27,11 +27,13 @@ picks its run convention:
 - `gemini` — `gemini --approval-mode default --prompt "<prompt>"`.
 - `opencode` — `opencode run --auto --model … "<prompt>"`, prompt as a
   positional argument.
+- `grok` — `grok --always-approve --cwd … --prompt-file …`, with explicit
+  deny rules for remote mutation.
 
 `SPEC_LOOP_HARNESS` defaults from the agent basename, so
 `SPEC_LOOP_AGENT=codex`, `SPEC_LOOP_AGENT=cursor-agent`,
-`SPEC_LOOP_AGENT=gemini`, or `SPEC_LOOP_AGENT=opencode` is usually all that
-is needed:
+`SPEC_LOOP_AGENT=gemini`, `SPEC_LOOP_AGENT=opencode`, or
+`SPEC_LOOP_AGENT=grok` is usually all that is needed:
 
 ```bash
 SPEC_LOOP_AGENT=codex tools/spec-loop/loop.sh build 5
@@ -46,6 +48,10 @@ SPEC_LOOP_AGENT=opencode SPEC_LOOP_MODEL=anthropic/claude-sonnet-4-5 \
   tools/spec-loop/loop.sh build 5
 ```
 
+```bash
+SPEC_LOOP_AGENT=grok tools/spec-loop/loop.sh build 5
+```
+
 **Gemini CLI:** the launcher uses `--approval-mode default` instead of `--yolo`.
 With the shipped profile, calls requiring confirmation are refused headlessly, so unattended build iterations that need edits cannot complete.
 See the [Gemini runner notes](../../docs/adapters/gemini.md#spec-loop-runner) for supported use and upgrade impact.
@@ -53,8 +59,9 @@ See the [Gemini runner notes](../../docs/adapters/gemini.md#spec-loop-runner) fo
 All conventions run the agent non-interactively.
 The profiles other than Gemini request automatic approval; their safety rails (never push, never open a PR) come from
 the OS sandbox, missing push/write credentials, repo hooks, and the loop's own
-guards. Claude also gets per-invocation `--disallowedTools` hard-deny flags;
-the other harnesses rely on their own policy/config plus the external sandbox.
+guards. Claude gets per-invocation `--disallowedTools` hard-deny flags.
+Grok gets equivalent per-invocation `--deny` rules for `git push` and `gh`.
+The remaining harnesses rely on their own policy/config plus the external sandbox.
 See the SECURITY notes in [`loop.sh`](loop.sh).
 
 ## Prerequisites
@@ -64,7 +71,7 @@ See the SECURITY notes in [`loop.sh`](loop.sh).
 - **CLIs:** `git` (required — must run inside a git checkout), `gh`
   (for open-PR duplicate-work checks), and one supported headless agent
   CLI (`SPEC_LOOP_AGENT`, default `claude`; also supports `codex`,
-  `cursor` / `cursor-agent`, `gemini`, and `opencode`).
+  `cursor` / `cursor-agent`, `gemini`, `opencode`, `kiro-cli`, and `grok`).
 - **Credentials / auth:** `gh` must be authenticated for the PR checks;
   the loop is designed to run with **no** push/write credentials in the
   environment (it hard-denies `git push` and `gh` writes).
@@ -131,13 +138,13 @@ for Claude, as defence in depth, the loop also hard-denies `git push` and
 - `SPEC_LOOP_BASE` — branch to fork work items from. Defaults to `main`;
   set it explicitly to build on top of a different branch.
 - `SPEC_LOOP_AGENT` — supported headless agent CLI or wrapper to run
-  (default `claude`; `codex`, `cursor`, `gemini`, and `opencode` are
-  first-class harnesses).
+  (default `claude`; `codex`, `cursor`, `gemini`, `opencode`, `kiro-cli`,
+  and `grok` are first-class harnesses).
 - `SPEC_LOOP_HARNESS` — override the invocation convention when the CLI
-  name does not imply it (`claude`, `codex`, `cursor`, `gemini`, or
-  `opencode`).
+  name does not imply it (`claude`, `codex`, `cursor`, `gemini`,
+  `opencode`, `kiro`, or `grok`).
 - `SPEC_LOOP_MODEL` — model passed to the agent CLI. Defaults to `sonnet`
-  for Claude; Codex/Cursor/Gemini/OpenCode use their configured default
+  for Claude; Codex/Cursor/Gemini/OpenCode/Grok use their configured default
   unless this is set.
 - `SPEC_LOOP_EFFORT` — reasoning-effort band: `low`, `medium`, or `high`.
   Unset means no effort flag is passed. Mapped per harness (Claude/Kiro

@@ -16,6 +16,7 @@
   - [Guard behavior](#guard-behavior)
   - [Verify](#verify)
   - [Update and uninstall](#update-and-uninstall)
+  - [Spec-loop runner](#spec-loop-runner)
   - [Known limitations](#known-limitations)
   - [Developer checks](#developer-checks)
   - [Upstream references](#upstream-references)
@@ -26,8 +27,9 @@
 
 **Capability:** platform:harness
 
-Grok Build is supported for the deterministic Magpie action guard.
-This does not add Grok spec-loop, headless-runner, or dedicated sandbox-profile support.
+Grok Build is supported for the deterministic Magpie action guard and the
+spec-loop headless runner.
+This does not add a dedicated Grok sandbox profile.
 
 ## Harness contract
 
@@ -166,10 +168,31 @@ A hand-edited copy must be shown for review before replacement or removal.
 Repository uninstall removes only the Magpie-owned project hook.
 It does not uninstall a user's marketplace plugin and does not change Grok trust.
 
+## Spec-loop runner
+
+Grok Build 1.0.50 was live-verified as a headless spec-loop runtime.
+
+The runner uses `--prompt-file` for the assembled prompt, `--cwd` for the
+repository root, and `--always-approve` for unattended local edits inside the
+external Magpie sandbox.
+`SPEC_LOOP_OUTPUT_FORMAT=text` maps to Grok's `plain` output and
+`stream-json` maps to `streaming-json`.
+`SPEC_LOOP_MODEL` maps to `--model`, while `SPEC_LOOP_EFFORT` maps to
+`--reasoning-effort low|medium|high`.
+
+The runner also supplies explicit `--deny` rules for `git push` and `gh`.
+On Grok Build 1.0.50 these exact rule shapes were live-verified to deny the
+matching shell calls before execution even with `--always-approve`.
+
+A disposable repository probe confirmed that the same profile can create a
+local file headlessly while leaving unrelated tracked files unchanged.
+
 ## Known limitations
 
-This integration is action-guard only.
-It does not add a Grok-specific spec-loop runner or headless execution profile.
+Grok spec-loop support relies on the same external OS sandbox required by the
+other unattended harness profiles.
+The per-invocation deny rules are defense in depth rather than a replacement
+for that sandbox.
 
 Malformed or unrelated input handled inside the adapter is deliberately
 fail-open. Hook-process exit 2 is fail-closed on the Grok 1.0.50 runtime tested:

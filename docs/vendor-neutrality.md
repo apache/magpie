@@ -648,7 +648,7 @@ Organization scope (declared, orthogonal to vendor): ASF = 16, agnostic = 63.
 | `skill-reconciler-diff` | framework-dev | any | ✅ agnostic |
 | `skill-token-count` | framework-dev, analytics | any | ✅ agnostic |
 | `spec-inventory` | framework-dev, analytics | any | ✅ agnostic |
-| `spec-loop` | framework-dev | Claude Code, Codex, Cursor, Gemini CLI, Kiro, OpenCode | ✅ portable |
+| `spec-loop` | framework-dev | Claude Code, Codex, Cursor, Gemini CLI, Grok, Kiro, OpenCode | ✅ portable |
 | `spec-status-index` | framework-dev, analytics | any | ✅ agnostic |
 | `spec-validator` | framework-dev | any | ✅ agnostic |
 | `symlink-lint` | framework-dev | any | ✅ agnostic |
@@ -662,7 +662,7 @@ Harness → substrate tools it supports:
 - **Copilot** (1): `agent-guard`
 - **Cursor** (2): `sandbox-lint`, `spec-loop`
 - **Gemini CLI** (3): `agent-guard`, `sandbox-lint`, `spec-loop`
-- **Grok** (1): `agent-guard`
+- **Grok** (2): `agent-guard`, `spec-loop`
 - **Kiro** (3): `agent-guard`, `sandbox-lint`, `spec-loop`
 - **OpenCode** (3): `agent-guard`, `sandbox-lint`, `spec-loop`
 - **any harness** (29): `adversarial-review`, `agent-isolation`, `container-gateway`, `contributor-metrics`, `dashboard-generator`, `dev`, `egress-gateway`, `maven-artifact-verify`, `permission-audit`, `pilot-report-validator`, `pr-management`, `preflight-audit`, `privacy-llm`, `probe-templates`, `release-config`, `release-verify`, `reproducible-archive`, `security-tracker-stats-dashboard`, `setup-preflight`, `skill-and-tool-validator`, `skill-evals`, `skill-reconciler-diff`, `skill-token-count`, `spec-inventory`, `spec-status-index`, `spec-validator`, `symlink-lint`, `vendor-neutrality-score`, `vetted-ops`

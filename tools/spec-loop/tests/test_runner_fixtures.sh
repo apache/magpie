@@ -197,6 +197,30 @@ test_harness_command_construction() {
     assert_contains "$TMPDIR_TEST/gemini.log" "<--output-format> <stream-json>"
     assert_contains "$TMPDIR_TEST/gemini.log" "<--model> <gemini-test>"
     assert_contains "$TMPDIR_TEST/gemini.log" "<--prompt> <PROMPT BODY>"
+
+    # Grok Build 1.0.50: prompt-file headless mode, explicit cwd,
+    # unattended approval, remote-write denies, output mapping, model,
+    # and framework effort mapping.
+    make_fake_agent "$TMPDIR_TEST/grok" "$TMPDIR_TEST/grok.log"
+    spec_loop_launch_agent grok "$TMPDIR_TEST/grok" /repo "$TMPDIR_TEST/prompt.md" grok-test stream-json high
+    wait "$SPEC_LOOP_AGENT_PID"
+    assert_contains "$TMPDIR_TEST/grok.log" "<--always-approve>"
+    assert_contains "$TMPDIR_TEST/grok.log" "<--cwd> </repo>"
+    assert_contains "$TMPDIR_TEST/grok.log" "<--deny> <Bash(git push:*)>"
+    assert_contains "$TMPDIR_TEST/grok.log" "<--deny> <Bash(gh:*)>"
+    assert_contains "$TMPDIR_TEST/grok.log" "<--output-format> <streaming-json>"
+    assert_contains "$TMPDIR_TEST/grok.log" "<--model> <grok-test>"
+    assert_contains "$TMPDIR_TEST/grok.log" "<--reasoning-effort> <high>"
+    assert_contains "$TMPDIR_TEST/grok.log" "<--prompt-file> <$TMPDIR_TEST/prompt.md>"
+    assert_not_contains "$TMPDIR_TEST/grok.log" "stdin:PROMPT BODY"
+
+    # Default text output maps to Grok's plain headless format and unset
+    # effort must not add a reasoning-effort flag.
+    spec_loop_launch_agent grok "$TMPDIR_TEST/grok" /repo "$TMPDIR_TEST/prompt.md" "" text
+    wait "$SPEC_LOOP_AGENT_PID"
+    assert_contains "$TMPDIR_TEST/grok.log" "<--output-format> <plain>"
+    assert_not_contains "$TMPDIR_TEST/grok.log" "<--reasoning-effort>"
+    assert_not_contains "$TMPDIR_TEST/grok.log" "<--model>"
 }
 
 # loop.sh validates SPEC_LOOP_EFFORT at startup (reject anything other than
