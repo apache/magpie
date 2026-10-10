@@ -7,25 +7,21 @@ mode: Meta
 description: |
   Compare two near-duplicate skills — typically an ASF variant and a
   non-ASF or multi-project variant — and classify every difference as
-  ALLOWED, DRIFT, or SAFETY-BASELINE. Produces a structured diff and
-  a reconciliation proposal. Read-only: it never rewrites either skill;
-  convergence is a separate confirmed authoring step. A safety-baseline
-  divergence is always a must-fix, never silently merged into
-  allowed-divergence noise.
+  ALLOWED, DRIFT, or SAFETY-BASELINE. Produces a structured diff and a
+  reconciliation proposal; read-only, it never rewrites either skill.
 when_to_use: |
   Invoke when a maintainer says "reconcile <skill-A> and <skill-B>",
   "diff these two skill copies", "check if <skill-A> and <skill-B> have
-  drifted", "are these two skills in sync", "compare the ASF and non-ASF
-  variants", or "do these two copies agree on the safety baseline". Also a
-  natural companion to any cross-project adoption where the same skill
-  exists in both the framework and an adopter's override layer. Skip when
-  the user wants to actually merge or rewrite one of the copies — that is
-  write-skill or optimize-skill after the reconciler has surfaced the
-  proposal.
+  drifted", "compare the ASF and non-ASF variants", or "do these two
+  copies agree on the safety baseline". Also for cross-project adoption,
+  where the same skill exists in both the framework and an adopter's
+  override layer. Skip when the user wants to merge or rewrite a copy —
+  that is write-skill or optimize-skill after the reconciler has
+  surfaced the proposal.
 capability: capability:reconciliation
 surface_hash: sha256:964dbda42cb402ce
 license: Apache-2.0
-measured_tokens: 4641
+measured_tokens: 4589
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
