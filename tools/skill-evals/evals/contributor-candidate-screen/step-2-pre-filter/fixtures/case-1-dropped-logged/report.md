@@ -2,6 +2,7 @@
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
 screen_prefilter_ratio: 0.5
+screen_recent_activity_months: 0
 Floors (committer): prs_merged 40, reviews_total 20.
 
 Count-only results for the window:

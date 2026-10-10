@@ -23,7 +23,7 @@ argument-hint: "[target:committer|pmc|both] [window:6m] [end:YYYY-MM-DD]"
 capability: capability:stats
 surface_hash: sha256:a1767d466ee963d1
 license: Apache-2.0
-measured_tokens: 3723
+measured_tokens: 4042
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -130,7 +130,7 @@ Local modifications go in the override file; framework changes go via PR to `apa
 | `window:Nm` | the configured window, else `6m` | Activity window |
 | `end:YYYY-MM-DD` | today | Last day of the window |
 
-From `<project-config>/contributor-nomination-config.md`: `report_repo` (required), `report_path` (default `reports/`), `screen_prefilter_ratio` (default `0.5`).
+From `<project-config>/contributor-nomination-config.md`: `report_repo` (required), `report_path` (default `reports/`), `screen_prefilter_ratio` (default `0.5`), `screen_prefilter_require` (`any` or `all`, default `any`), `screen_prefilter_targets` (`committer` or `both`, default `committer`), `screen_recent_activity_months` (default `4`; `0` turns the check off).
 A `shortlist_max_missing` left over from an earlier version is ignored; say so once at the start of the run.
 Floors come from `<project-config>/committer-readiness.md`, else `contributor-nomination-config.md`, resolved as `contributor-to-committer` Step 1 does.
 Both files are personal configuration, read from the personal layer first and from `.apache-magpie-overrides/` only as a fallback; [they belong in the personal layer](../../../../docs/contributor-growth/README.md#why-the-configuration-is-personal).
@@ -172,13 +172,20 @@ If even a one-day slice exceeds the cap, stop and say so rather than build a par
 
 ## Step 2 — Pre-filter
 
-**`<governance-body>` target:** no pre-filter — the pool is the current committers who are not members, small enough to measure in full.
+The pre-filter only drops the long tail; it is the one place the floors are used.
 
-**Committer target:** for each person in the pool, run two count-only queries — changes landed (`list_authored(person, state: landed, count_only)`) and changes reviewed (`list_reviews_given(person, count_only)`), in the window — reading `total` only.
-Keep the person when either count is at least `screen_prefilter_ratio` × its floor.
-A floor of `0` (an evidence-only metric) is ignored here; it never keeps anyone by itself.
-Only these two counts are cheap enough to pre-filter a large pool; list, triage and community activity are measured in Step 3 for everyone who stays.
-Log everyone dropped, with both counts, in `dropped`; nobody leaves the pool silently.
+**Recent activity (both targets).**
+When `screen_recent_activity_months` is above `0`, run one count-only query per person — changes landed in the last that many months of the window (`list_authored(person, state: landed, since: <end> − N months, count_only)`) — and drop anyone whose `total` is `0`.
+Someone who stopped contributing months ago has nothing current for the `<governance-body>` to look at, however busy the start of the window was.
+
+**Counts.**
+For each person still in the pool, run two count-only queries — changes landed (`list_authored(person, state: landed, count_only)`) and changes reviewed (`list_reviews_given(person, count_only)`), in the window — reading `total` only, and compare each with `screen_prefilter_ratio` × its floor for the person's target.
+With `screen_prefilter_require: any`, keep the person when either count reaches its share; with `all`, only when both do.
+A floor of `0` (an evidence-only metric) is ignored here: it never keeps anyone by itself, and with `all` it is not required.
+The count check applies to the committer target, and to the `<governance-body>` target too when `screen_prefilter_targets` is `both`; otherwise the `<governance-body>` pool — the current committers who are not members — is small enough to measure in full and only the recent-activity check applies to it.
+
+Only these counts are cheap enough to pre-filter a large pool; list, triage and community activity are measured in Step 3 for everyone who stays.
+Log everyone dropped, with both counts, the landed count for the recent months when it was checked, and which check dropped them, in `dropped`; nobody leaves the pool silently.
 
 ---
 
@@ -189,7 +196,7 @@ For each person who survived the pre-filter:
 1. Run `contributor-metrics fetch` and `score` exactly as [`contributor-to-committer` Step 2 and Step 2a](../contributor-to-committer/SKILL.md#step-2--fetch-contributor-activity) do, confirming pushback candidates on meaning.
    `score` computes adjusted counts — data about the person's own activity, not a score of the person.
 2. A metric fed by a stream in `caps_hit` is a minimum; the report says so.
-3. Collect community signals per [`community-signals.md`](../nomination/community-signals.md) and resolve the person's name per [`real-names.md`](../nomination/real-names.md).
+3. Collect community signals per [`community-signals.md`](../nomination/community-signals.md), including its step that asks the maintainer for the addresses people post from ([Ask the maintainer for addresses](../nomination/community-signals.md#ask-the-maintainer-for-addresses)) — ask once for everyone, after measuring — and resolve the person's name per [`real-names.md`](../nomination/real-names.md).
 
 Everyone measured goes into the report.
 Do not compare anyone's counts with the floors, count floors met or missed, or select a subset: the pre-filter in Step 2 is the only place the floors are used.

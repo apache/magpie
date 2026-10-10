@@ -6,30 +6,22 @@ family: utilities
 mode: Meta
 description: |
   Print a human-readable index of every skill installed for this
-  repository, grouped by the family each one declares, with the
-  name to invoke it by and the first sentence of its
-  `description`. Discovery is installation-aware: it covers a
-  pinned snapshot install, the framework checkout, and
-  marketplace plugin installs, so the index matches what the
-  agent can actually run. Generated on every run from live
-  `SKILL.md` frontmatter, so it never goes stale when skills are
-  added, removed, or rewritten.
+  repository, grouped by the family each one declares, with the name to
+  invoke it by and the first sentence of its `description`. Generated on
+  every run from live `SKILL.md` frontmatter, so it never goes stale.
 when_to_use: |
-  Invoke when a human asks *"what skills are available"*, *"list
-  the skills"*, *"show me the skills in this repo"*, *"give me a
-  table of contents for the skills"*, or invokes it under
-  whichever name their install method uses.
-  Skill names differ on this install:
-  `/magpie-utilities:list-skills` on a marketplace family-plugin
-  install, `/magpie-list-skills` on the pinned snapshot.
-  This is a help-style overview for humans onboarding to the
-  repository — agents route via the live frontmatter
-  `description` field directly and do not need this index to
-  choose a skill.
+  Invoke when a human asks *"what skills are available"*, *"list the
+  skills"*, *"show me the skills in this repo"*, or *"give me a table of
+  contents for the skills"*.
+  Invocation names differ per install: `/magpie-utilities:list-skills` on
+  a marketplace family-plugin install, `/magpie-list-skills` on the
+  pinned snapshot.
+  This is a help-style overview for humans — agents route via the live
+  frontmatter `description` field directly.
 capability: capability:stats
 surface_hash: sha256:5b9c9751b398f81b
 license: Apache-2.0
-measured_tokens: 2413
+measured_tokens: 2312
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -97,12 +89,10 @@ is in. `/magpie-setup verify` is the full diagnostic.
 <!-- END MAGPIE PREFLIGHT -->
 
 Print a human-readable index of the skills installed for this
-repository. The index is generated on every run from live
-`SKILL.md` frontmatter — there is no cached copy to keep in sync.
-The skill exists for humans (newcomers reading the repo,
-maintainers checking what is available); agents route invocations
-via the same frontmatter the script reads, so this skill is
-purely informational.
+repository, generated on every run from live `SKILL.md` frontmatter —
+there is no cached copy to keep in sync. The skill exists for humans;
+agents route invocations via the same frontmatter the script reads, so
+this skill is purely informational.
 
 What counts as "installed" depends on how Magpie was put in
 place, so the script covers all three shapes and labels which one

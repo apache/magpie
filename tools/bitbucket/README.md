@@ -73,6 +73,7 @@ Implemented read-only commands:
 - `magpie-bitbucket pr discussion <id>`
 - `magpie-bitbucket pr comment <id> --body-file <path>` (Cloud-only write)
 - `magpie-bitbucket pr reviews <id>`
+- `magpie-bitbucket pr review <id> --verdict {comment,approve,request-changes} --body-file <path>` (Cloud-only write)
 - `magpie-bitbucket pr approve <id>` (Cloud-only write)
 - `magpie-bitbucket pr unapprove <id>` (Cloud-only write)
 - `magpie-bitbucket pr request-changes <id>` (Cloud-only write)
@@ -155,11 +156,11 @@ surface:
 | Change requests | `get_discussion` / `pr discussion <id>` | Partial read-only | Fetches a comments-only discussion subset with pagination. Participants beyond comment authors and unresolved-thread accounting remain incomplete. |
 | Change requests | `pr comment <id> --body-file <path>` | Partial write, Cloud only | Creates one top-level Bitbucket Cloud pull-request comment from a caller-supplied body file after explicit caller-side confirmation. Data Center PR comment writes remain unsupported in this command. |
 | Change requests | `reviews` supplement / `pr reviews <id>` | Partial read-only | Fetches reviewers, approvals, change-request signals, pending review requests, normalized review events, and an aggregate review decision. This does not post reviews or mutate PR state. |
-| Change requests | `pr approve <id>` / `pr unapprove <id>` | Partial write, Cloud only | Approves or withdraws the authenticated user's approval after explicit caller-side confirmation. Data Center approval writes remain unsupported by these commands. This does not implement the full `post_review` contract surface. |
-| Change requests | `pr request-changes <id>` / `pr remove-request-changes <id>` | Partial write, Cloud only | Requests changes or removes the authenticated user's change request after explicit caller-side confirmation. Data Center change-request writes remain unsupported by these commands. This does not implement the full `post_review` contract surface. |
+| Change requests | `pr approve <id>` / `pr unapprove <id>` | Partial write, Cloud only | Approves or withdraws the authenticated user's approval after explicit caller-side confirmation. Data Center approval writes remain unsupported by these commands. For a review body together with a verdict, use `pr review` (the `post_review` contract). |
+| Change requests | `pr request-changes <id>` / `pr remove-request-changes <id>` | Partial write, Cloud only | Requests changes or removes the authenticated user's change request after explicit caller-side confirmation. Data Center change-request writes remain unsupported by these commands. For a review body together with a verdict, use `pr review` (the `post_review` contract). |
 | Change requests | `pr decline <id>` | Partial write, Cloud only | Declines one Bitbucket Cloud pull request after explicit caller-side confirmation. Data Center decline writes remain unsupported by this command. |
 | Change requests | `merge_checks` supplement / `pr merge-checks <id>` | Partial read-only | Fetches known read-only merge-check context, including Data Center merge-test results, reported mergeability/conflict fields, status checks, review decision, and normalized blockers. Unknown backend signals remain unknown. This does not merge or mutate PR state. |
-| Change requests | `post_review` | Not implemented | Follow-up work for #606. |
+| Change requests | `post_review` / `pr review <id> --verdict {comment,approve,request-changes} --body-file <path>` | Partial write, Cloud only | Implements the backend-neutral review contract for Bitbucket Cloud after explicit caller-side confirmation. `comment` posts the review body only. `approve` and `request-changes` post the body first and then apply the corresponding Bitbucket verdict. If the second mutation fails after the body was posted, the command fails with an explicit partial-outcome warning so callers inspect the PR before retrying. Data Center post-review writes remain unsupported. |
 | Change requests | `land` / `pr merge <id> --strategy {merge,squash,rebase} --expected-source-commit <sha>` | Partial write, Cloud only | Submits a Bitbucket Cloud pull-request merge after explicit caller-side confirmation. The caller must run and inspect `pr merge-checks <id>` before invoking this command; `pr merge` does not independently enforce approval, build-status, or merge-check gates. The expected source commit (7–40 hexadecimal characters, rejected before any request otherwise) is checked immediately before the merge POST so a changed PR head fails closed. The requested strategy is mapped to Bitbucket's merge strategy (reported as `backend_strategy`) and the resulting merge commit is returned as `landed_ref` when available. An asynchronous merge may be accepted before a `landed_ref` is available; `merge_status` is then `submitted`, with Bitbucket's own task state in `task_status` and the task URL in `task_url`. A timeout on the merge POST is reported as "outcome unknown" — check `pr get <id>` before retrying, since the merge may already be running. Data Center merge writes remain unsupported. |
 | Change requests | `pr merge-task-status <id> <task-id>` | Partial read-only, Cloud only | Fetches the status of an asynchronous Bitbucket Cloud pull-request merge task. Pending tasks normalize to `merge_status=submitted`; successful tasks expose `merge_result.merge_commit.hash` as `landed_ref`; failed tasks normalize to `merge_status=failed`. Data Center merge task-status reads remain unsupported. |
 | Change requests | `reject` | Not implemented | Follow-up work for #606. |
@@ -214,6 +215,11 @@ uv run --project tools/bitbucket magpie-bitbucket pr comment 123 --body-file /tm
 
 # Fetch pull request review state
 uv run --project tools/bitbucket magpie-bitbucket pr reviews 123
+
+# Post a confirmed backend-neutral review
+uv run --project tools/bitbucket magpie-bitbucket pr review 123 \
+  --verdict approve \
+  --body-file /tmp/review.md
 
 # Approve a Bitbucket Cloud pull request after caller-side confirmation
 uv run --project tools/bitbucket magpie-bitbucket pr approve 123

@@ -3,6 +3,7 @@
 
 Target: committer.
 screen_prefilter_ratio: 0.5
+screen_recent_activity_months: 0
 Floors (committer): prs_merged 40, reviews_total 0 (evidence only).
 
 Count-only results for the window:

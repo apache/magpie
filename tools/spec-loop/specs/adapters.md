@@ -314,7 +314,8 @@ uv run --all-packages --group dev pytest tools/github-rollup/tests
   the calling skill must obtain explicit user confirmation before invoking a
   mutation. The bridge executes only the confirmed action; current write
   coverage is Bitbucket Cloud issue-comment creation, Bitbucket Cloud
-  pull-request comment creation, and Bitbucket Cloud pull-request
+  pull-request comment creation, backend-neutral `post_review` through
+  comment/approve/request-changes, and Bitbucket Cloud pull-request
   approve/unapprove, request-changes/remove-request-changes, decline, and
   strategy-aware merge actions pinned to a caller-confirmed source commit
   (7–40 hex characters); gate checks before a merge are the caller's

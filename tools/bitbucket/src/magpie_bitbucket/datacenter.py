@@ -451,6 +451,19 @@ def create_pull_request_comment(
     raise BitbucketError(msg)
 
 
+def post_pull_request_review(
+    config: BitbucketConfig,
+    pull_request_id: str,
+    verdict: str,
+    body: str,
+) -> dict[str, Any]:
+    """Reject post-review writes for Bitbucket Data Center for now."""
+    _ = (config, pull_request_id, verdict, body)
+    raise BitbucketError(
+        "Bitbucket Data Center pull request post-review writes are not supported by this command yet"
+    )
+
+
 def get_pull_request_discussion(config: BitbucketConfig, pull_request_id: str) -> dict[str, Any]:
     """Fetch pull request activities from Bitbucket Data Center."""
     project_key = quote_path(require(config.project_key, "BITBUCKET_PROJECT_KEY"))
