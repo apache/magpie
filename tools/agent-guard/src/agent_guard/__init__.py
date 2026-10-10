@@ -489,17 +489,140 @@ _GH_API_VALUE_FLAGS = frozenset(
 )
 
 
+#: ``gh api`` flags that take no value.
+_GH_API_BOOL_FLAGS = frozenset({"--paginate", "--slurp", "-i", "--include", "--silent", "--verbose"})
+
+
 def _gh_api_endpoint(args: list[str]) -> str | None:
-    """The endpoint positional of a ``gh api`` argument list (everything after ``api``)."""
-    skip = False
-    for tok in args:
-        if skip:
-            skip = False
-        elif tok in _GH_API_VALUE_FLAGS:
-            skip = True
-        elif not tok.startswith("-"):
-            return tok
-    return None
+    """The endpoint positional of a ``gh api`` argument list (everything after ``api``).
+
+    None unless the line parses unambiguously: an unknown flag (whose arity
+    the guard cannot know) or a second positional means the endpoint cannot
+    be told for certain.
+    """
+    endpoint: str | None = None
+    i = 0
+    while i < len(args):
+        tok = args[i]
+        if tok == "--":
+            rest = args[i + 1 :]
+            if endpoint is not None or len(rest) != 1:
+                return None
+            return rest[0]
+        if tok.startswith("--"):
+            name = tok.split("=", 1)[0]
+            if name in _GH_API_VALUE_FLAGS:
+                i += 1 if "=" in tok else 2
+                continue
+            if name in _GH_API_BOOL_FLAGS and "=" not in tok:
+                i += 1
+                continue
+            return None
+        if tok.startswith("-") and len(tok) > 1:
+            flag = tok[:2]
+            if flag in _GH_API_VALUE_FLAGS:
+                i += 1 if len(tok) > 2 else 2
+                continue
+            if tok in _GH_API_BOOL_FLAGS:
+                i += 1
+                continue
+            return None
+        if endpoint is not None:
+            return None
+        endpoint = tok
+        i += 1
+    return endpoint
+
+
+#: Value-taking flags of the ``gh pr`` / ``gh issue`` commands the mention
+#: guards widen (comment, edit, review), besides ``-R`` / ``--repo``.
+_GH_TARGET_VALUE_LONG = frozenset(
+    {
+        "--body",
+        "--body-file",
+        "--title",
+        "--base",
+        "--milestone",
+        "--add-label",
+        "--remove-label",
+        "--add-reviewer",
+        "--remove-reviewer",
+        "--add-assignee",
+        "--remove-assignee",
+        "--add-project",
+        "--remove-project",
+    }
+)
+_GH_TARGET_BOOL_LONG = frozenset(
+    {
+        "--approve",
+        "--comment",
+        "--request-changes",
+        "--edit-last",
+        "--delete-last",
+        "--yes",
+        "--create-if-none",
+        "--editor",
+        "--web",
+        "--remove-milestone",
+    }
+)
+_GH_TARGET_VALUE_SHORT = frozenset("bFtBm")
+_GH_TARGET_BOOL_SHORT = frozenset("acrew")
+
+
+def _gh_target_args(args: list[str]) -> tuple[list[str], list[str]] | None:
+    """Every ``--repo`` value and the positionals of a ``gh pr|issue`` argument list.
+
+    Parsed with each flag's arity, the way ``gh`` reads the line, so a flag's
+    value is never mistaken for a repository or a selector — ``--body
+    -Racme/x`` is body text, not ``-R``. None when the line cannot be read
+    for certain: an unknown flag, or combined short flags.
+    """
+    repos: list[str] = []
+    positionals: list[str] = []
+    i = 0
+    while i < len(args):
+        tok = args[i]
+        if tok == "--":
+            positionals.extend(args[i + 1 :])
+            break
+        if tok.startswith("--"):
+            name, eq, value = tok.partition("=")
+            if name == "--repo":
+                if not eq:
+                    if i + 1 >= len(args):
+                        return None
+                    value = args[i + 1]
+                    i += 1
+                repos.append(value)
+            elif name in _GH_TARGET_VALUE_LONG:
+                i += 0 if eq else 1
+            elif name not in _GH_TARGET_BOOL_LONG or eq:
+                return None
+            i += 1
+            continue
+        if tok.startswith("-") and len(tok) > 1:
+            letter, rest = tok[1], tok[2:]
+            if letter == "R":
+                value = rest[1:] if rest.startswith("=") else rest
+                if not value:
+                    if i + 1 >= len(args):
+                        return None
+                    value = args[i + 1]
+                    i += 1
+                repos.append(value)
+            elif letter in _GH_TARGET_VALUE_SHORT:
+                i += 0 if rest else 1
+            elif letter not in _GH_TARGET_BOOL_SHORT or rest:
+                return None
+            i += 1
+            continue
+        positionals.append(tok)
+        i += 1
+    if len(positionals) > 1:
+        return None
+    return repos, positionals
 
 
 GIT_HOME_NAME = "apache-magpie"
@@ -946,16 +1069,16 @@ class GuardContext:
             m = re.fullmatch(r"/?repos/([^/]+/[^/]+)(?:/.*)?", path)
             found = {m.group(1).lower()} if m else set()
         else:
-            found = {r.lower() for r in self.opts("-R", "--repo")}
-            # `gh` also takes the attached short form (`-ROWNER/REPO`), last one
-            # winning; count it so two disagreeing spellings stay ambiguous.
-            found |= {t[2:].lower() for t in self.argv if t.startswith("-R") and len(t) > 2 and t[2] != "="}
+            parsed = _gh_target_args(self.argv[self.argv.index(sub[1]) + 1 :]) if sub is not None else None
+            if parsed is None:
+                return None
+            repos, positionals = parsed
+            found = {r.lower() for r in repos}
             # Only the selector positional (`gh pr comment <URL>`) names a
             # repository; a URL inside --body or any other value is text.
-            selector = self.positional_after(sub[1]) if sub is not None else None
             m = re.fullmatch(
                 r"https?://(?:www\.)?github\.com/([^/]+/[^/#?]+)/(?:pull|issues)/\d+(?:[/#?].*)?",
-                selector or "",
+                positionals[0] if positionals else "",
                 re.IGNORECASE,
             )
             if m:
