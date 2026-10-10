@@ -1,7 +1,17 @@
 {
   "skill_md": "skills/pr-management-stack-review/SKILL.md",
-  "step_heading": "## Step 3 \u2014 Structural findings",
+  "step_heading": "## Step 3 — Structural findings",
   "also_include": [
-    "plugins/magpie-pr-management/skills/stack-review/detectors.md"
+    "plugins/magpie-pr-management/skills/stack-review/classifications/chain.md",
+    "plugins/magpie-pr-management/skills/stack-review/classifications/ordering.md",
+    "plugins/magpie-pr-management/skills/stack-review/classifications/trunk-drift.md",
+    "plugins/magpie-pr-management/skills/stack-review/classifications/wrong-layer.md",
+    "plugins/magpie-pr-management/skills/stack-review/classifications/duplicate.md",
+    "plugins/magpie-pr-management/skills/stack-review/classifications/narrative.md",
+    "plugins/magpie-pr-management/skills/stack-review/classifications/residue.md",
+    "plugins/magpie-pr-management/skills/stack-review/classifications/verdict-coherent.md",
+    "plugins/magpie-pr-management/skills/stack-review/classifications/verdict-merge-unit.md",
+    "plugins/magpie-pr-management/skills/stack-review/classifications/verdict-needs-attention.md",
+    "plugins/magpie-pr-management/skills/stack-review/classifications/verdict-not-mergeable.md"
   ]
 }

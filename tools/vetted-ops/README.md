@@ -253,6 +253,13 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                     "gql-pr-stale-one",
                     "team-members",
                     "upstream-permission"]
+"pr-management-stack-review" = ["viewer",
+                                "upstream-permission",
+                                "gql-stack-of-pr",
+                                "gql-stack-scan",
+                                "gql-pr-by-head",
+                                "pr-checks",
+                                "pr-comments"]
 "issue-triage"          = ["repo-issue-view", "repo-issue-comments", "repo-issue-list",
                            "repo-issue-add-label", "repo-issue-remove-label",
                            "repo-issue-comment"]
@@ -388,6 +395,9 @@ selector parameter narrows a sweep and cannot re-aim it.
 | `gql-pr-stale-open` | — | every open, non-draft PR in the pr-stale-sweep shape (raw comment bodies), all pages | pr-stale-sweep |
 | `gql-pr-stale-label` | `label` (policy `upstream_labels`) | the same, narrowed to one label | pr-stale-sweep |
 | `gql-pr-stale-one` | `number` | one PR in the same shape | pr-stale-sweep |
+| `gql-stack-of-pr` | `number` | the stack a member PR belongs to, every entry | stack-review |
+| `gql-stack-scan` | — | every open PR's stack number, all pages | stack-review |
+| `gql-pr-by-head` | `head` | open PRs whose head is one branch (the trunk walk) | stack-review |
 
 ### The pr-management-stats reads
 

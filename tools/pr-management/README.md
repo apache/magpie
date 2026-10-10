@@ -17,6 +17,7 @@
     - [`stats build` — the pr-management-stats dashboard](#stats-build--the-pr-management-stats-dashboard)
     - [`quick-merge screen` — pr-management-quick-merge](#quick-merge-screen--pr-management-quick-merge)
     - [`stale-sweep` — pr-stale-sweep](#stale-sweep--pr-stale-sweep)
+    - [`stack-review` — pr-management-stack-review](#stack-review--pr-management-stack-review)
     - [`config`](#config)
   - [Shared rules](#shared-rules)
   - [What it reads](#what-it-reads)
@@ -193,6 +194,21 @@ uv run --project <framework>/tools/pr-management pr-management stale-sweep recap
 `classify` measures inactivity from the last real activity — never the sweep's own comments — and sorts every PR into `REQUEST-UPDATE`, `CLOSE-STALE` (only after a standing nudge at least 7 days old, or past the hard-close threshold), `SKIP-NUDGE-PENDING`, `SKIP-SECURITY`, `SKIP-MAINTAINER-COURT`, `SKIP-READY-LABEL` or `SKIP-NO-TIMESTAMPS`, reusing the triage maintainer-court, ready-label, security and bot rules.
 It reports `over_cap` instead of truncating.
 `render` writes the comment (author-only mention, linked references) and the `shlex.join`-built `gh` commands; `recap` prints the counts with every PR linked.
+
+### `stack-review` — pr-management-stack-review
+
+```bash
+uv run --project <framework>/tools/pr-management pr-management stack-review resolve --saved-dir <workspace>/saved --viewer <login> (--pr N | --stack S) [--clone <dir>]
+uv run --project <framework>/tools/pr-management pr-management stack-review findings --chain <file> --seams <file> --floors <file> --ledger <file> [--no-fetch]
+uv run --project <framework>/tools/pr-management pr-management stack-review verdict --findings <file> --ledger <file>
+uv run --project <framework>/tools/pr-management pr-management stack-review post --saved-dir <workspace>/saved --viewer <login> --resolved <file> --recheck <file> --body-file <file> [--dry-run]
+uv run --project <framework>/tools/pr-management pr-management stack-review residue-command --clone <dir> --prefix <p> --size <n> --variant <v>...
+```
+
+`resolve` walks the stack and the trunk chain, decides the gate and stop reasons, the lowest open layer, the CI cells and the size line, and prints the fetch, diff and cleanup commands.
+`findings` maps the detectors' output to finding classes and severities, separating what still needs judgement; `verdict` computes the verdict and sorts the findings; `post` finds the marker comment, flags foreign markers, compares heads and prints the post commands.
+The detectors run as `python -m pr_management.stack_review.stack_chain` / `stack_ledger` on the local clone.
+Every printed command is built with `shlex.join`.
 
 ### `config`
 

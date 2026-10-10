@@ -126,6 +126,18 @@ close_reasons = ["completed", "not planned"]
     "upstream-permission",
 ]
 
+# pr-management-stack-review resolves a stack from saved reads. Reads only:
+# the rolling stack comment stays a confirmed `gh` call.
+"pr-management-stack-review" = [
+    "viewer",
+    "upstream-permission",
+    "gql-stack-of-pr",
+    "gql-stack-scan",
+    "gql-pr-by-head",
+    "pr-checks",
+    "pr-comments",
+]
+
 # release-rc-cut emits every release command for the Release Manager and runs
 # none itself. Its only GitHub access is reading the upstream tags (Step 0, to
 # refuse an RC tag that already exists) and, after the RM confirms it, the

@@ -94,17 +94,19 @@ same directory; the behaviour is unchanged.
 - Skill: `pr-management-stack-review` (`stack-review/`) — stack-level review
   of a GitHub stacked pull request. Resolves the stack from a member PR or
   its stack number, fetches the layer heads into `refs/magpie-stack/<S>/*`
-  (proposed once, cleaned up at the end), and runs two stdlib scripts:
-  `scripts/stack_ledger.py` (file-by-layer matrix, hunk-shape mechanical
-  detection, outliers, duplicate release notes, regenerated generated
-  files, lock-without-manifest, reading plan and coverage table) and
-  `scripts/stack_chain.py` (chain currency, merge commits, trunk drift,
-  removed-definition seams at the layer's own head, later heads and new
-  trunk uses). Code is read by tier; the report carries the coverage
+  (proposed once, cleaned up at the end), and runs the detectors in
+  `tools/pr-management` (`pr_management.stack_review.stack_ledger`: file-by-layer
+  matrix, hunk-shape mechanical detection, outliers, duplicate release notes,
+  regenerated generated files, lock-without-manifest, reading plan and coverage
+  table; `stack_chain`: chain currency, merge commits, trunk drift,
+  removed-definition seams at the layer's own head, later heads and new trunk
+  uses); resolve, findings mapping, verdict and posting are
+  `pr-management stack-review` subcommands. Code is read by tier; the report carries the coverage
   table. Posts one rolling `COMMENT` on the lowest open layer (marker,
   updated in place) and never a review event. Ships `mode: Triage` +
-  `experimental`. Detail files: `resolve.md`, `detectors.md`, `tiers.md`,
-  `report.md`, `adopter-config.md`, `invocation.md`; tests under `tests/`.
+  `experimental`. Detail files: `tiers.md`, `report.md`, `adopter-config.md`,
+  `invocation.md`, and one file per finding class / verdict / step outcome
+  under `classifications/`; tests under `tools/pr-management/tests/stack_review/`.
 - Skill: `pr-management-quick-merge` — read-only express-lane screener
   for trivial, low-risk PRs (docs, changelog, translations, tests) that
   pass every quality gate; surfaces ranked candidates with diff summaries
