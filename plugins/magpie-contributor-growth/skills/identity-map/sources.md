@@ -146,6 +146,10 @@ identities:
         grade: self-declared
       discord:
         status: ask-contributor    # confirmed channel, handle not yet shared
+      mailing_list:
+        addresses: ["priya@example.org"]   # posting addresses not seen on her commits
+        source: maintainer
+        grade: maintainer-confirmed
     confirmed_by: jmclean
     confirmed_on: 2026-09-28
 ```

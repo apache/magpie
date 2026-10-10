@@ -23,7 +23,7 @@ when_to_use: |
   assess a contributor.
 argument-hint: "<github-handle> [window:Nm] [target:committer|pmc]"
 capability: capability:stats
-surface_hash: sha256:d78eb556cf43aa79
+surface_hash: sha256:d088479a32dcc0cf
 license: Apache-2.0
 measured_tokens: 5318
 ---

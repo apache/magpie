@@ -35,10 +35,28 @@ A mailing-list address, chat account, or social account counts as the contributo
 1. the address appears as an author email on the contributor's own commits to `<upstream>`;
 2. the organization's people directory ties it to the contributor (ASF: `mcp__apache-projects__get_person`);
 3. the account is linked from the contributor's own GitHub profile **and** links back to that GitHub profile — a one-way link proves only that the contributor pointed at the account, not that it is theirs;
-4. the maintainer running the skill confirms it.
+4. the maintainer running the skill confirms it — in this run (see [Ask the maintainer for addresses](#ask-the-maintainer-for-addresses)), or earlier, as a channel recorded with `confirmed_by` in `<project-config>/contributor-identities.md` in the personal layer.
 
 A chat or social profile that names the contributor's GitHub handle is that account's own claim — anyone can write it — so on its own it is not a confirmation (`tools/chat` `resolve_user` → `confirmed_by: "profile"` means exactly that claim).
-It, and anything else — a similar display name, a matching first name, a guess from an email address — goes into a *possible match, not used* list shown to the maintainer, and contributes nothing.
+It, and anything else — a similar display name, a matching first name, a guess from an email address — goes into a *possible match, not used* list shown to the maintainer, and contributes nothing until the maintainer confirms it.
+
+### Ask the maintainer for addresses
+
+Contributors often post from an address they never commit with — a work address, or one whose `From` header the list rewrites (`Name via <list>`).
+Before collecting list signals, read `contributor-identities.md` from the personal layer and add every `mailing_list` address recorded there with `confirmed_by`.
+Then, for each contributor with no confirmed address, or whose confirmed addresses have no messages in the window:
+
+1. Find *possible matches* in both directions:
+   - search `<dev-list>` and `<users-list>` in the window for senders whose display name matches a name the contributor uses (profile name, commit author name, directory name);
+   - for contributors still without a match, list every distinct sender in the window and make best guesses — name order and transliteration variants, initials, an address local part resembling the handle or name, a domain matching the company on their profile — graded *strong*, *plausible* or *weak*, leaving out senders already confirmed for someone else.
+   Each possible match shows its address (or *rewritten*, when the list hid it), the display name, the number of messages, one example link, and why it was proposed.
+2. Show the possible matches to the maintainer, one table per contributor, every row defaulting to **reject**, and ask them to accept or reject each and to add any address they know.
+   Never accept a row on the maintainer's behalf, and never attribute a message from an unaccepted address.
+3. Propose the diff to `contributor-identities.md` in the personal layer — one `mailing_list` channel per accepted address, with `source: maintainer`, `grade: maintainer-confirmed`, `confirmed_by` and `confirmed_on` — in the [identity-file format](../identity-map/sources.md#identity-file-format).
+   Write it only after the maintainer confirms the diff; never to `.apache-magpie-overrides/`.
+4. Collect list signals for the accepted addresses as for any confirmed one.
+
+A later run reads the recorded addresses and asks again only about contributors who still have none.
 
 ---
 
