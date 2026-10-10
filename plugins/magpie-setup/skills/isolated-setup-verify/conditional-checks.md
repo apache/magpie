@@ -331,12 +331,16 @@ reading this file; read the section for a check whose condition holds.
     When it is:
 
     - **14a — the exclusion.** `sandbox.excludedCommands` contains
-      `uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/*/tools/adversarial-review adversarial-review *`.
+      `uvx --from ~/.claude/magpie/adversarial-review adversarial-review *`.
+      The older form with `magpie-adversarial-review/*/tools/adversarial-review`
+      in place of that path is ✗: its `*` also matches options spliced in where
+      the version sits, and those run outside the sandbox once approved.
       Missing is ⚠, not ✗: nothing unsafe happens, but every run stays
       sandboxed, where the reviewer CLIs cannot read their credentials,
       and every reviewer reports `unavailable`.
     - **14b — the plugin cache is not agent-writable.** `permissions.deny`
-      contains `Edit(~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/**)`.
+      contains `Edit(~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/**)`
+      and `Edit(~/.claude/magpie/**)`, which covers the link the exclusion names.
       Missing is ✗: the exclusion runs that code outside the sandbox.
     - **14c — no `allow`.** No `permissions.allow` entry matches the tool's
       invocation. One is ✗: each run sends the change to other model

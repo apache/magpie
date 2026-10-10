@@ -8,7 +8,7 @@
       "uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *",
       "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *",
       "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *",
-      "uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/*/tools/adversarial-review adversarial-review *",
+      "uvx --from ~/.claude/magpie/adversarial-review adversarial-review *",
       "~/.claude/scripts/magpie-run-evals.sh *"
     ],
     "filesystem": {

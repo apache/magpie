@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:1f327e069312dad2
 license: Apache-2.0
-measured_tokens: 5314
+measured_tokens: 5455
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -213,6 +213,10 @@ Rules and `sandbox.excludedCommands` entries spelled `~/.claude/plugins/cache/ap
 The `*` also matches spaces, so it approves, and runs unsandboxed, a command with extra `uv` options spliced in where the version sits.
 Report each one as a must-fix and propose the replacement, which names the fixed path the plugin's `SessionStart` hook maintains: `~/.claude/magpie/vetted-ops`.
 Check the user-scope settings and any agent definition whose `tools:` list carries the rule, not only the project's `.claude/settings.json`.
+
+**The adversarial-review exclusion has the same must-fix.**
+A `sandbox.excludedCommands` entry spelled `uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/*/tools/adversarial-review adversarial-review *` is the pre-fixed-path form: once the command is approved, a run with `uv` options spliced in where the version sits goes outside the sandbox.
+Report it as a must-fix whenever the `magpie-adversarial-review` plugin is installed, and propose `uvx --from ~/.claude/magpie/adversarial-review adversarial-review *`, the fixed path that plugin's `SessionStart` hook maintains.
 
 ## When the pre-flight proposes this skill
 

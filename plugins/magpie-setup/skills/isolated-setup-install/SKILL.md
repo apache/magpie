@@ -17,7 +17,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:3f90b1ffdaa6e9ea
 license: Apache-2.0
-measured_tokens: 5726
+measured_tokens: 5787
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -320,19 +320,23 @@ is not, skip this step and say so.
 The reviewer CLIs it runs (`codex`, `copilot`, `gemini`, `grok`, `claude`)
 need network access and read their own credentials (`~/.codex`,
 `~/.copilot`, `~/.gemini`, `~/.grok`, `~/.claude`), which this sandbox denies. The tool therefore
-runs outside it, through one exclusion that names the installed plugin:
+runs outside it, through one exclusion. It names `~/.claude/magpie/adversarial-review`,
+a link the plugin's `SessionStart` hook points at the installed version every
+session, never a `*` where the version sits: that would also match `uv`
+options spliced in at that position, and run them outside the sandbox.
 
 ```jsonc
 "sandbox": {
   "excludedCommands": [
-    "uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/*/tools/adversarial-review adversarial-review *"
+    "uvx --from ~/.claude/magpie/adversarial-review adversarial-review *"
   ]
 },
 "permissions": {
   "deny": [
     // the tool runs unsandboxed, so the code it runs must not be editable
     // by the agent that calls it
-    "Edit(~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/**)"
+    "Edit(~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/**)",
+    "Edit(~/.claude/magpie/**)"
   ]
 }
 ```

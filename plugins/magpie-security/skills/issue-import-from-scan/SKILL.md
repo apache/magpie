@@ -19,7 +19,7 @@ argument-hint: "[scan-source ...]  (one or more GitHub issues and/or report fold
 capability: capability:intake
 surface_hash: sha256:3aa895ba2115c1d9
 license: Apache-2.0
-measured_tokens: 5578
+measured_tokens: 5563
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -326,11 +326,11 @@ Accept per-finding or bulk grammar (`all` / `NN,MM` / `bucket:<name>` / `skip` /
      reviewer reports `unavailable`:
 
      ```bash
-     uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/<version>/tools/adversarial-review adversarial-review run --project-root <adopter-repo> --repo-dir <checkout-being-pushed> --base <pr-base-ref> --title "<pr-title>" --body-file <pr-body-file>
+     uvx --from ~/.claude/magpie/adversarial-review adversarial-review run --project-root <adopter-repo> --repo-dir <checkout-being-pushed> --base <pr-base-ref> --title "<pr-title>" --body-file <pr-body-file>
      ```
 
-     `<version>` is the newest directory under
-     `~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/`. The body
+     The plugin points `~/.claude/magpie/adversarial-review` at its installed version
+     at the start of every session. The body
      file must sit in the checkout or a temporary directory; the tool refuses any
      other path. For a patch someone else proposed, replace `--base … --body-file
      …` with `--target pr:<number> --repo <owner/name>`; for a diff file, with

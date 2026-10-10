@@ -297,10 +297,13 @@ The reference model is four layers, layered:
      `excludedCommands` and `ask`, and its tests assert the tracker
      dispatcher is excluded and asked but not allowed, and that
      `vetted-op` is never excluded.
-   - the adversarial-review tool, in its single-line installed-plugin
-     form (`uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/*/tools/adversarial-review adversarial-review *`),
+   - the adversarial-review tool, in its single-line form
+     (`uvx --from ~/.claude/magpie/adversarial-review adversarial-review *`),
      because the reviewer CLIs need network and their own credentials
-     (#1371). The plugin cache is `Edit`-denied, and there is
+     (#1371). The path is the fixed link its plugin's `SessionStart` hook
+     maintains, never a `*` where the version sits, which would also match
+     `uv` options spliced in there; sandbox-lint rejects a `*` before the end
+     of any excluded command. The plugin cache and the link are `Edit`-denied, and there is
      deliberately no `allow` rule, so every run keeps its prompt.
      Install Step R wires it; verify check 14 checks the exclusion, the
      deny and the absence of an allow.

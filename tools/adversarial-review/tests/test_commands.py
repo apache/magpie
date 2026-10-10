@@ -26,7 +26,7 @@ from pathlib import Path
 import pytest
 
 from adversarial_review import main
-from adversarial_review.commands import HARNESSES, PLUGIN_DIR, render
+from adversarial_review.commands import HARNESSES, PLUGIN_DIR, STABLE_PATH, render
 
 REPO = Path(__file__).resolve().parents[3]
 SHIPPED = Path(__file__).resolve().parents[1] / "commands" / "adversarial-review.md"
@@ -40,11 +40,13 @@ def test_harness_set():
     assert list(HARNESSES) == ["claude", "codex", "gemini", "copilot"]
 
 
-def test_claude_command_reads_the_version_from_the_plugin_root():
+def test_claude_command_runs_the_tool_from_the_stable_path():
     path, content = render("claude")
     assert path == "commands/adversarial-review.md"
     assert content.startswith("---\n# SPDX-License-Identifier: Apache-2.0\n")
-    assert "$ARGUMENTS" in content and "${CLAUDE_PLUGIN_ROOT}" in content
+    assert "$ARGUMENTS" in content
+    assert f"uvx --from {STABLE_PATH} adversarial-review run" in content
+    assert "<version>" not in content
     assert "unquoted and with a literal `~`" in content
 
 
@@ -79,19 +81,36 @@ def test_no_command_bakes_in_a_version_or_quotes_the_path():
     matches the sandbox exclusion."""
     for harness in HARNESSES:
         line = _invocation_line(render(harness)[1])
-        assert "/<version>/" in line
+        if harness == "claude":
+            assert line.startswith(f"uvx --from {STABLE_PATH} adversarial-review run")
+        else:
+            assert "/<version>/" in line
         assert '"' not in line.split(" adversarial-review run")[0]
 
 
-@pytest.mark.parametrize("harness", HARNESSES)
-def test_the_invocation_matches_the_sandbox_exclusion(harness):
+def _exclusion_pattern() -> str:
     excluded = json.loads((REPO / "tools" / "sandbox-lint" / "expected.json").read_text())["sandbox"][
         "excludedCommands"
     ]
     [pattern] = [p for p in excluded if "adversarial-review" in p]
-    line = _invocation_line(render(harness)[1]).replace("<version>", "0.2.0.dev202609240000")
-    line = re.sub(r"<target>", "branch", line)
-    assert fnmatch.fnmatchcase(line, pattern), (line, pattern)
+    return pattern
+
+
+def test_the_claude_invocation_matches_the_sandbox_exclusion():
+    """The exclusion is a Claude Code setting; the other harnesses ask to leave
+    their own sandbox instead."""
+    line = re.sub(r"<target>", "branch", _invocation_line(render("claude")[1]))
+    assert fnmatch.fnmatchcase(line, _exclusion_pattern()), line
+
+
+def test_the_sandbox_exclusion_has_no_wildcard_before_the_tool_name():
+    """A `*` where the plugin version sits also matches spaces, so it would let a
+    command with extra uv options spliced in there run outside the sandbox."""
+    pattern = _exclusion_pattern()
+    assert pattern.startswith(f"uvx --from {STABLE_PATH} adversarial-review ")
+    assert "*" not in pattern[:-1]
+    spliced = f"uvx --from {STABLE_PATH} --with evil --from /tmp/x adversarial-review run --target branch"
+    assert not fnmatch.fnmatchcase(spliced, pattern)
 
 
 @pytest.mark.parametrize("harness", ["claude", "codex", "gemini"])

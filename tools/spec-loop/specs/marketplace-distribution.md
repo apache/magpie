@@ -147,9 +147,11 @@ adopter-facing page.
   Each inherits the shared manifest metadata, declares no `skills`, exposes
   its `tools/<name>` through a symlink whose entry point must resolve, and
   declares hook wiring only where it has a hook: agent-guard's `PreToolUse`,
-  and vetted-ops' `SessionStart` hook (`tools/vetted-ops/hooks/link-stable-path.sh`,
-  #1406), which points the fixed path `~/.claude/magpie/vetted-ops` at the
-  installed version each session so permission rules never name a versioned
+  and the `SessionStart` hooks of vetted-ops (`tools/vetted-ops/hooks/link-stable-path.sh`,
+  #1406) and adversarial-review (`tools/adversarial-review/hooks/link-stable-path.sh`),
+  which point the fixed paths `~/.claude/magpie/vetted-ops` and
+  `~/.claude/magpie/adversarial-review` at the installed version each session
+  so permission rules and sandbox exclusions never name a versioned
   plugin-cache glob. `magpie-adversarial-review` additionally publishes a
   `commands/adversarial-review.md` link to the command file generated into
   `tools/adversarial-review/commands/`, which Claude Code exposes as

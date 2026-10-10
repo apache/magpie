@@ -233,6 +233,18 @@ def check_invariants(settings: dict[str, Any], project_root: Path | None = None)
     if sandbox.get("enabled") is not True:
         errors.append("sandbox.enabled: must be true")
 
+    # Same matching as a Bash allow rule (see `permissions.allow` below): a `*`
+    # before the end also matches options spliced in at that position, and an
+    # excluded command runs outside the sandbox once approved (the
+    # adversarial-review exclusion once globbed the plugin version this way).
+    for entry in sandbox.get("excludedCommands", []) or []:
+        if isinstance(entry, str) and "*" in entry[:-1]:
+            errors.append(
+                f"sandbox.excludedCommands: {entry!r} has a '*' before the end of the command, "
+                "so any options inserted at that position also run outside the sandbox; "
+                "name the exact value there and use '*' only at the end"
+            )
+
     fs = sandbox.get("filesystem")
     if not isinstance(fs, dict):
         errors.append("sandbox.filesystem: missing or not an object")
