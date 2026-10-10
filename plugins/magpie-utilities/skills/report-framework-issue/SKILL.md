@@ -5,31 +5,25 @@ name: report-framework-issue
 family: utilities
 mode: Meta
 description: |
-  Help an adopter or framework developer file a clean, redacted
-  GitHub issue against the Apache Magpie framework repo when a
-  skill, tool, or doc misbehaves. It gathers the problem from the
-  user — never from the raw session transcript — then runs a
-  mandatory public-disclosure scrub before rendering the report
-  into the framework's `bug_report` / `change_proposal` issue
-  template, checking for duplicates, and filing via
-  `gh issue create --web` only on explicit confirmation. The scrub
-  is the point: the destination is a public repo, so the skill
-  strips any private tracker, embargoed-CVE, private-list, or
-  cross-project content the report would otherwise leak.
+  File a clean, redacted GitHub issue against the Apache Magpie
+  framework repo when a skill, tool, or doc misbehaves. Gathers the
+  problem from the user — never the raw session transcript — runs a
+  mandatory public-disclosure scrub, renders the report into the
+  framework's issue template, and files via `gh issue create --web`
+  only on explicit confirmation.
 when_to_use: |
-  Invoke when the user says "report this to the framework", "file
-  a magpie bug", "the setup skill is broken — open an issue on
-  magpie", "this magpie tool crashed and I want to report it", or
-  "propose a change to the framework" — any variation on turning a
-  problem they hit *while using Magpie itself* into an issue on the
-  framework repo (`apache/magpie`). Skip when the problem is in the
-  adopter's own project: issues on their `<tracker>` or
-  `<upstream>` have their own skills, not this one.
+  Invoke when the user says "report this to the framework", "file a
+  magpie bug", "the setup skill is broken — open an issue on magpie",
+  or "propose a change to the framework" — turning a problem hit *while
+  using Magpie itself* into an issue on the framework repo
+  (`apache/magpie`). Skip when the problem is in the adopter's own
+  project: issues on their `<tracker>` or `<upstream>` have their own
+  skills, not this one.
 argument-hint: "[what broke, or a problem description]"
 capability: capability:platform
 surface_hash: sha256:f14640fa1249c172
 license: Apache-2.0
-measured_tokens: 4697
+measured_tokens: 4604
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
