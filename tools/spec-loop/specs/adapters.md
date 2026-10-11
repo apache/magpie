@@ -96,8 +96,8 @@ by swapping the adapter, not the skill.
   [`vetted-command-surface.md`](vetted-command-surface.md)).
 - `tools/bitbucket/` — partial Bitbucket Cloud and Bitbucket
   Data Center bridge foundation. Supports repository metadata reads,
-  read-only branch restriction context, Cloud-only issue listing/fetching, issue comment fetching, issue attachment metadata fetching, and confirmed issue comment creation,
-  open pull-request listing, single pull-request fetching, read-only
+  read-only branch restriction context, open pull-request listing,
+  single pull-request fetching, read-only
   pull-request commit fetching, read-only pull-request diff fetching,
   comments-only pull-request discussion fetching, read-only pull-request
   review-state fetching, read-only merge-check context fetching, and
@@ -111,8 +111,11 @@ by swapping the adapter, not the skill.
   {merge,squash,rebase} --expected-source-commit <sha>`, which re-checks the
   head commit immediately before the merge POST so a moved head fails closed
   (#1471); it does not enforce approval or build gates itself.
+  Atlassian fully removed the native Bitbucket Cloud Issue Tracker API on
+  2026-08-20, so the historical `issue` CLI commands now fail closed before
+  any request and direct callers toward linked Jira coverage.
   It is not a complete `contract:change-request` or `contract:tracker`
-  backend yet; deeper Jira handoff, broader issue writes, Data Center
+  backend yet; deeper Jira handoff, Data Center
   review/merge writes, broader repository permissions, and fuller Pipelines
   run/log/retry coverage remain tracked in #606.
 - `tools/gitlab/` (`magpie-gitlab`) — partial, read-only GitLab REST API v4
@@ -343,14 +346,15 @@ uv run --all-packages --group dev pytest tools/github-rollup/tests
   commit fetching, read-only pull-request diff fetching, comments-only pull-request
   discussion fetching, read-only review-state fetching, Cloud-only pull-request task listing/fetching,
   Cloud-only asynchronous merge task-status fetching, read-only merge-check context fetching,
-  read-only pull-request status fetching, and Cloud-only issue listing/fetching, issue comment fetching,
-  issue attachment metadata fetching, and confirmed issue comment creation;
-  #606 remains open for full tracker/change-request coverage.
+  and read-only pull-request status fetching. Native Bitbucket Cloud issue
+  commands fail closed because Atlassian removed the Issue Tracker API on
+  2026-08-20; #606 remains open for linked Jira tracker coverage and the
+  remaining change-request gaps.
 - Bitbucket write operations follow the framework write-path discipline:
   the calling skill must obtain explicit user confirmation before invoking a
   mutation. The bridge executes only the confirmed action; current write
-  coverage is Bitbucket Cloud issue-comment creation, Bitbucket Cloud
-  pull-request comment creation, backend-neutral `post_review` through
+  coverage is Bitbucket Cloud pull-request comment creation,
+  backend-neutral `post_review` through
   comment/approve/request-changes, backend-neutral `reject`, and Bitbucket
   Cloud pull-request approve/unapprove, request-changes/remove-request-changes,
   decline, and
