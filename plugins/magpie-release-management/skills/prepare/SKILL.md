@@ -23,7 +23,7 @@ argument-hint: "[prep | post] <version> [--review-archive] | automated-signing"
 capability: capability:resolve
 surface_hash: sha256:43e928f52996ee1b
 license: Apache-2.0
-measured_tokens: 5532
+measured_tokens: 5550
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -208,7 +208,7 @@ For Step A (`automated-signing`, 🪶 ASF-specific):
 | Selector | Resolves to |
 |---|---|
 | `[prep \| post \| automated-signing]` (optional first argument) | Sub-command: `prep` = Step 2, `post` = Step 14, `automated-signing` = Step A (🪶 ASF-only, no `<version>`), omit = Step 1 |
-| `<version>` (positional) | Target release version string (a dotted version of two or more numeric parts, no `.postN`, e.g. `2.11.0`) |
+| `<version>` (positional) | Target release version string (a dotted version of two or more numeric parts, no `.postN` (or a calendar date `YYYY-MM-DD` for a release wave named by date), e.g. `2.11.0`) |
 | `--planning-issue <url>` | Explicit planning issue URL (auto-detected if omitted) |
 | `--release-branch <branch>` | Override the base branch for the prep or post PR |
 | `--previous-tag <tag>` | Override the previous release tag for the merged-PR query |
