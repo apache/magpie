@@ -298,8 +298,13 @@ def test_gi_python_only_reports_an_interpreter_that_can_import_gi() -> None:
 
 
 def _run(*args: str) -> subprocess.CompletedProcess[str]:
+    # A commit made under the overlay's own `wrap` exports
+    # MAGPIE_GPG_TOUCH_WRAPPED_SIGNER to its hooks, and with it set the script
+    # reports a signature in flight whatever is running; the probes here must
+    # see only the processes the test starts.
+    env = {k: v for k, v in os.environ.items() if k != "MAGPIE_GPG_TOUCH_WRAPPED_SIGNER"}
     return subprocess.run(
-        ["bash", str(SCRIPT), *args], capture_output=True, text=True
+        ["bash", str(SCRIPT), *args], capture_output=True, text=True, env=env
     )
 
 
