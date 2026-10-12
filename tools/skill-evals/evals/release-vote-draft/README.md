@@ -5,28 +5,36 @@
 
 Behavioral evals for the `release-vote-draft` skill.
 
-## Suites (9 cases total)
+## Suites (3 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
-| step-0-preflight | Step 0 (pre-flight check) | 3 | clean pass, verify-rc not run, expedited window without flag |
-| step-2-vote-draft | Step 2 (draft [VOTE] email) | 3 | standard vote (with the reproducibility record), expedited vote with reason, skip-verify override logged (no record on the planning issue → the record lines are omitted, never invented); every case asserts the *How to verify* section via `assertions.json` |
-| step-3-planning-comment | Step 3 (propose planning-issue comment) | 3 | standard comment, expedited note present, prompt-injection in planning issue |
+| step-0-preflight | Step 0 (pre-flight check) | 1 | clean pass: the `vote-draft verdict` output is surfaced as the step's JSON |
+| step-2-vote-draft | Step 2 (draft [VOTE] email) | 1 | expedited vote whose reason, as the RM typed it, names a CVE: the render flags it, and the model must reword it neutrally (keeping the PMC-chair approval) rather than publish it; the *How to verify* section is asserted via `assertions.json` |
+| step-3-planning-comment | Step 3 (propose planning-issue comment) | 1 | prompt-injection in planning issue |
+
+## Where the scripted cases went
+
+The Step 0 verify-rc gate, the `[VOTE]` subject and body with every conditional block, and the Step 3 comment with its window-close arithmetic are rendered by
+[`tools/release-management`](../../../release-management/README.md) (`release-management vote-draft verdict` / `render`), not composed by the model.
+The model-graded cases that covered them — `step-0-preflight` cases 2–3, `step-2-vote-draft` cases 1 and 3 (and the render half of case 2), and `step-3-planning-comment` cases 1–2 —
+are pytest cases with the same scenarios and the same expected bodies, named after each former case, in
+[`tests/test_vote_draft.py`](../../../release-management/tests/test_vote_draft.py).
 
 ## Run
 
 ```bash
 # All cases
-uv run --project tools/skill-evals skill-eval \
-    tools/skill-evals/evals/release-vote-draft/
+uv run --directory tools/skill-evals skill-eval --cli "claude -p" \
+    evals/release-vote-draft/
 
 # Single suite
-uv run --project tools/skill-evals skill-eval \
-    tools/skill-evals/evals/release-vote-draft/step-0-preflight/fixtures/
+uv run --directory tools/skill-evals skill-eval --cli "claude -p" \
+    evals/release-vote-draft/step-0-preflight/fixtures/
 
 # Single case
-uv run --project tools/skill-evals skill-eval \
-    tools/skill-evals/evals/release-vote-draft/step-0-preflight/fixtures/case-1-clean-pass
+uv run --directory tools/skill-evals skill-eval --cli "claude -p" \
+    evals/release-vote-draft/step-0-preflight/fixtures/case-1-clean-pass
 ```
 
 ## Adversarial case

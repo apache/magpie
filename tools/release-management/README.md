@@ -11,6 +11,8 @@
   - [Commands](#commands)
     - [`rc-cut`](#rc-cut)
     - [`verify-rc`](#verify-rc)
+    - [`vote-draft`](#vote-draft)
+    - [`vote-tally`](#vote-tally)
   - [Tests](#tests)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -32,7 +34,7 @@ for `release-verify-rc` it also classifies the output of each check the voter ra
 The agent presents the output and keeps only the judgement; the release manager runs every command on their own machine.
 
 **It runs nothing.**
-No command here invokes `git`, `gpg`, `svn`, `gh`, `aws` or `atr`, reads a key, sends mail or touches the network.
+No command here invokes `git`, `gpg`, `svn`, `gh`, `aws` or `atr`, reads a key, sends mail, posts a comment, casts a vote or touches the network.
 A render that would emit something a skill must refuse (a `dist/release/` staging target, an MD5 or SHA-1 digest)
 exits `2` with `{"ok": false, "refused": "<why>"}` instead of printing a block.
 
@@ -102,10 +104,33 @@ Until it has every input a step needs, it prints `status: null` and `pending`, n
 | `repro [--skip-repro] [--trusted-hardware] [--recorded-commit] [--tag-commit] [--recorded-swhid] [--atr-swhid] [--epoch] [--check F] [--compare F] [--binary NAME=identical\|differs\|known:P]…` | Step 9: whether it runs (`mandatory` under `ci-automated`, where `--skip-repro` is ignored), the recipe, and the roll-up: the source table (RM-key vs automated signing), the SWHID compared without qualifiers, each convenience artefact by its own mode, `binaries.differs` for `release-promote`. |
 | `report --verdict F [--repro F] [--compare F] [--post-to URL] [--trusted-hardware] [--committer H] [--finding S=T]… [--fail-detail T]… [--warn-detail T]…` | Step 10: the report text (with the voter-obligation reminder), and with `--post-to` the comment to propose, carrying the *Reproducibility validated on trusted hardware* attestation only under `ci-automated`, Step 9 `PASS` with every artefact identical, and `--trusted-hardware`. The overall verdict is `release-verify verdict`'s; an unresolved one is refused. |
 
+### `vote-draft`
+
+`--preflight` is what `release-config preflight --skill vote-draft …` printed; `--load` what `release-config load --skill vote-draft <version>-rcN` printed.
+
+| Command | Prints |
+|---|---|
+| `verdict --preflight F [--planning-issue U] --verify-rc-verdict PASS\|PASS-WITH-WARNINGS\|FAIL\|none [--verify-rc-for <version>-rcN]` | The Step 0 JSON: the preflight blockers, plus one for a missing planning issue and the verify-rc gate. A `PASS` counts only for this exact RC (`rc10` is not `rc1`); `FAIL` or no comment blocks; an accepted `--skip-verify-check` resolves it; `PASS-WITH-WARNINGS` proceeds with a warning. |
+| `render --step 2 --load F --product-name N --tag-url … --changelog-url … [--svn-revision R] [--rc-comment F \| --repository/--commit/--swhid/--epoch/--sha512] [--canned-body F] [--expedited R] [--skip-verify-check R] [--atr-candidate-url U] [--atr-revision R] [--planning-issue U] [--project P] [--rm-name N]` | The `[VOTE]` subject (`vote_subject_template`) and body: the default template or the canned one with its placeholders substituted, the SVN revision (`svnpubsub`), the convenience-artefact block, the *How to verify* section (only the reproducibility-record lines the planning issue provides, the fixed *Agentic path* paragraph, the manual links, the ATR candidate page, the CI-signed paragraph, the voter-obligation sentence; appended to a canned body that lacks it), the `[EXPEDITED]` / `[SKIP-VERIFY]` notices; and `atr_vote_command` under `vote_backend = atr`. The record is parsed from release-rc-cut's own planning-issue comment. |
+| `render --step 3 --load F --product-name N --sent-at T [--subject S] [--expedited R]` | The planning-issue comment, standard or expedited, with the window close `--sent-at` + `vote_window_hours` in UTC. |
+
+Refused (exit `2`): a missing staging, tag, changelog or KEYS URL; no `--svn-revision` under `svnpubsub`; no `--atr-candidate-url` under `atr`; a window below 72 hours without `--expedited`.
+An `--expedited` reason naming a CVE or a security fix comes back as a `warnings` entry: rewording it is the agent's judgement.
+
+### `vote-tally`
+
+| Command | Prints |
+|---|---|
+| `verdict --preflight F [--planning-issue U] [--comments F] [--ambiguous-note-acknowledged]` | The Step 0 JSON: the preflight blockers, plus one for a missing planning issue and one for an `AMBIGUOUS` note a previous run left on it, until the RM has answered it. |
+| `archive-url --load F` | `mail_archive_url_template` rendered for the vote list. |
+| `preclassify --replies F` | `parsed_value` for every bare vote line (`+1`, `0`, `+0`, `-0`, `-1`, `+0.x`, optionally `(binding)` / `(non-binding)`); anything else is `needs_judgement`, for the agent. |
+| `tally --votes F --roster F [--mechanism M] [--force-close] [--overrides J] [--min-approvals N]` | Binding resolution against the roster, one person one vote, fractional votes non-binding, `AMBIGUOUS` never counted (a halt without `--force-close`), and the pass rule: the ASF baseline, strengthened only, for `dev-list-vote`; `approval_pr_min_approvals` for `pr-approval`. `github-discussion` and `maintainer-roster` have no specified rule, so `result` is `null` for the agent. Reply text never reaches it. Formerly `vote-tally/scripts/tally.py`; its own `parse_roster`, not release-config's. |
+| `render --load F --tally F [--product-name N] [--result R --rule T] [--rm-name N]` | The `[RESULT] [VOTE]` subject (`result_subject_template`) and body: PASSED / FAILED, the counts, the outcome lines and proposed label, the per-voter table (no reply text). Refuses a halted tally, and a `null` result without `--result` and `--rule`. |
+
 ## Tests
 
 ```bash
 uv run --project tools/release-management pytest
 ```
 
-The scripted cases of the retired model-graded `release-rc-cut` suites live in `tests/test_rc_cut.py`, and those of `release-verify-rc` in `tests/test_verify_rc.py`, named after each former case.
+The scripted cases of the retired model-graded `release-rc-cut`, `release-verify-rc`, `release-vote-draft` and `release-vote-tally` suites live in `tests/test_rc_cut.py`, `tests/test_verify_rc.py`, `tests/test_vote_draft.py` and `tests/test_vote_tally.py`, named after each former case.

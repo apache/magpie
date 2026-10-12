@@ -28,6 +28,8 @@ from typing import Any
 import pytest
 
 from release_management.rc_cut import render
+from release_management.vote_draft import render as vote_draft
+from release_management.vote_tally import render as vote_tally
 
 release_config_cli = pytest.importorskip("release_config.cli")
 
@@ -232,3 +234,71 @@ def test_verify_rc_reads_a_real_load(tmp_path: Path) -> None:
     assert "--manifest setup.cfg" in commands["version"]
     assert checks.rat(v, report=None, exit_code=0)["status"] == "PASS"
     assert repro.plan(v, skip_repro=False)["source_enabled"] is True
+
+
+def _load_for(tmp_path: Path, skill: str, rc_id: str, extra: dict[str, Any]) -> dict[str, Any]:
+    config = tmp_path / ".apache-magpie-overrides"
+    config.mkdir(exist_ok=True)
+    (config / "release-management-config.md").write_text(_rmc(RMC | extra), encoding="utf-8")
+    (config / "release-build.md").write_text(BUILD, encoding="utf-8")
+    (config / "project.md").write_text(
+        "# Project\n\n| Key | Value |\n|---|---|\n| `organization` | `ASF` |\n", encoding="utf-8"
+    )
+    return release_config_cli.run(
+        [
+            "load",
+            "--project-root",
+            str(tmp_path),
+            "--user-config",
+            str(tmp_path / "absent.md"),
+            "--skill",
+            skill,
+            rc_id,
+        ]
+    )
+
+
+def test_vote_draft_renders_from_a_real_load(tmp_path: Path) -> None:
+    loaded = _load_for(
+        tmp_path,
+        "vote-draft",
+        "1.0.0-rc1",
+        {
+            "vote_subject_template": "[VOTE] Release <Product Name> <version> from <version>-rcN",
+            "vote_verification_doc_url": "https://github.com/apache/foo/blob/<version>-rcN/docs/verify.md",
+        },
+    )
+    draft = vote_draft.VoteDraft.from_load(loaded, product_name="Apache Foo")
+    out = vote_draft.step2(draft, tag_url="t", changelog_url="c", svn_revision="42")
+    assert out["subject"] == "[VOTE] Release Apache Foo 1.0.0 from 1.0.0-rc1"
+    assert "To: dev@foo.apache.org" in out["body"]
+    assert "https://dist.apache.org/repos/dist/dev/foo/1.0.0-rc1/\n  (SVN revision: r42)" in out["body"]
+    assert "https://github.com/apache/foo/blob/1.0.0-rc1/docs/verify.md" in out["body"]
+    assert "https://dist.apache.org/repos/dist/release/foo/KEYS" in out["body"]
+    assert "open for at least 72 hours" in out["body"]
+    assert (
+        vote_draft.step3(draft, sent_at="2026-06-11T15:00:00Z")["window_closes_utc"] == "2026-06-14T15:00:00Z"
+    )
+
+
+def test_vote_tally_renders_from_a_real_load(tmp_path: Path) -> None:
+    loaded = _load_for(
+        tmp_path,
+        "vote-tally",
+        "1.0.0-rc1",
+        {
+            "result_subject_template": "[RESULT] [VOTE] Release <Product Name> <version> from <version>-rcN",
+            "mail_archive_url_template": "https://lists.apache.org/list.html?<dev-list>",
+        },
+    )
+    assert vote_tally.archive_url(loaded)["url"] == "https://lists.apache.org/list.html?dev@foo.apache.org"
+    tallied = {
+        "result": "PASSED",
+        "pass_rule_applied": "r",
+        "binding_plus1": 3,
+        "voters": [],
+        "ambiguous": [],
+    }
+    out = vote_tally.result_draft(loaded, tallied, product_name="Apache Foo")
+    assert out["subject"] == "[RESULT] [VOTE] Release Apache Foo 1.0.0 from 1.0.0-rc1"
+    assert out["body"].startswith("To: dev@foo.apache.org\n")

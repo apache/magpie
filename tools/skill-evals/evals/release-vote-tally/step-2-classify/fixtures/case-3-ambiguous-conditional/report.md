@@ -23,7 +23,45 @@ Note: carol@example.com cast "+1 if the CI run passes" — this is conditional a
 AMBIGUOUS. Do NOT count it in the tally.
 --force-close was NOT passed.
 
-Output of `python3 <skill-dir>/scripts/tally.py --votes votes.json --roster projects/airflow/pmc-roster.md` (votes.json holds only from / date / value):
+Output of `release-management vote-tally preclassify --replies <scratch>/replies.json` (replies.json holds from / date / raw_vote_line):
+
+```json
+{
+  "replies": [
+    {
+      "from": "alice@apache.org",
+      "date": "2026-06-11T09:00:00Z",
+      "raw_vote_line": "+1",
+      "parsed_value": "+1",
+      "needs_judgement": false
+    },
+    {
+      "from": "bob.martinez@apache.org",
+      "date": "2026-06-11T11:30:00Z",
+      "raw_vote_line": "+1 all looks good",
+      "parsed_value": null,
+      "needs_judgement": true
+    },
+    {
+      "from": "carol@example.com",
+      "date": "2026-06-12T14:00:00Z",
+      "raw_vote_line": "+1 if the CI run passes",
+      "parsed_value": null,
+      "needs_judgement": true
+    },
+    {
+      "from": "dave.kim@apache.org",
+      "date": "2026-06-12T16:00:00Z",
+      "raw_vote_line": "+1 (binding)",
+      "parsed_value": "+1",
+      "needs_judgement": false
+    }
+  ],
+  "needs_judgement": 2
+}
+```
+
+Output of `release-management vote-tally tally --votes votes.json --roster projects/airflow/pmc-roster.md` (votes.json holds only from / date / value):
 
 ```json
 {
@@ -61,6 +99,8 @@ Output of `python3 <skill-dir>/scripts/tally.py --votes votes.json --roster proj
     }
   ],
   "halted_on_ambiguous": true,
+  "superseded_votes": [],
+  "date_order_mismatches": [],
   "force_close": false,
   "binding_plus1": 3,
   "binding_minus1": 0,
