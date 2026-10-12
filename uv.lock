@@ -45,6 +45,7 @@ members = [
     "preflight-audit",
     "redactor",
     "release-config",
+    "release-management",
     "release-verify",
     "reproducible-archive",
     "sandbox-lint",
@@ -1744,6 +1745,25 @@ dev = [
 
 [package.metadata.requires-dev]
 dev = [{ name = "magpie-dev", editable = "tools/dev" }]
+
+[[package]]
+name = "release-management"
+version = "0.1.0"
+source = { editable = "tools/release-management" }
+
+[package.dev-dependencies]
+dev = [
+    { name = "magpie-dev" },
+    { name = "release-config" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "magpie-dev", editable = "tools/dev" },
+    { name = "release-config", editable = "tools/release-config" },
+]
 
 [[package]]
 name = "release-verify"

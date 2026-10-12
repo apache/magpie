@@ -111,6 +111,7 @@ package = false
 magpie-dev = { workspace = true }
 checker = { workspace = true }
 jira-bridge = { workspace = true }
+release-config = { workspace = true }
 
 
 [tool.uv.workspace]
@@ -139,6 +140,7 @@ members = [
   "tools/privacy-llm/checker",
   "tools/privacy-llm/redactor",
   "tools/release-config",
+  "tools/release-management",
   "tools/release-verify",
   "tools/reproducible-archive",
   "tools/sandbox-lint",

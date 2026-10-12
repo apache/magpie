@@ -297,7 +297,7 @@ def check_rc_cut(cfg: Loaded, args: argparse.Namespace, result: Result) -> None:
             elif build.found:
                 result.block(
                     "export_ignore_reviewed is unset in release-build.md § Source archive (archive_reviewed: false): "
-                    f"run `release-prepare prep {version or '<version>'}` — its Step 2f walks you through what ships in the source archive "
+                    f"run `release-prepare prep {version or '<version>'}` — its Step 2e walks you through what ships in the source archive "
                     "and lands `.gitattributes` in the prep PR"
                 )
     _signing_consistency(result, cfg)

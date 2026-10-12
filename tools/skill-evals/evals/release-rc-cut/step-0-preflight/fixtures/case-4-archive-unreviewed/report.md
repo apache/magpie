@@ -22,7 +22,7 @@ release-config preflight output
   "ok": false,
   "skill": "rc-cut",
   "blockers": [
-    "export_ignore_reviewed is unset in release-build.md § Source archive (archive_reviewed: false): run `release-prepare prep 1.0.0` — its Step 2f walks you through what ships in the source archive and lands `.gitattributes` in the prep PR"
+    "export_ignore_reviewed is unset in release-build.md § Source archive (archive_reviewed: false): run `release-prepare prep 1.0.0` — its Step 2e walks you through what ships in the source archive and lands `.gitattributes` in the prep PR"
   ],
   "warnings": [],
   "values": {

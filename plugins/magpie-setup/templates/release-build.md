@@ -53,7 +53,7 @@ voter rebuilding from the tag gets byte-identical bytes. See
 | `source_archive_method` | `git-archive` | `git-archive` (default; `release-rc-cut` emits `repro-archive build`) or `custom` (the source artefact comes out of `build_command` below and `.gitattributes` is not consulted) |
 | `source_archive_format` | `tar.gz` | `tar.gz` or `zip` |
 | `source_archive_prefix` | `apache-<project>-<version>` | top-level directory inside the archive |
-| `export_ignore_reviewed` | *(unset)* | set to the `<version>` at which the first-release `.gitattributes` review (`release-prepare prep` Step 2f) was completed; while unset, `release-rc-cut` blocks on an unreviewed archive |
+| `export_ignore_reviewed` | *(unset)* | set to the `<version>` at which the first-release `.gitattributes` review (`release-prepare prep` Step 2e) was completed; while unset, `release-rc-cut` blocks on an unreviewed archive |
 
 **What to `export-ignore`.** VCS, CI and editor metadata that a
 source consumer never needs (`.github/workflows/`,

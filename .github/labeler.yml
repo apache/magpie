@@ -606,6 +606,7 @@ substrate:release:
           - any-glob-to-any-file:
               - 'tools/maven-artifact-verify/**'
               - 'tools/release-config/**'
+              - 'tools/release-management/**'
               - 'tools/release-verify/**'
               - 'tools/reproducible-archive/**'
 
