@@ -19,9 +19,25 @@
 
 from __future__ import annotations
 
+import os
+from collections.abc import Iterator
 from pathlib import Path
 
+import pytest
+
 from container_gateway import layers
+
+
+@pytest.fixture(autouse=True)
+def _private_umask() -> Iterator[None]:
+    # The gateway refuses a group- or world-writable `.git`; pin the umask so
+    # fixture directories don't inherit a developer's 0002 and trip that guard.
+    previous = os.umask(0o022)
+    try:
+        yield
+    finally:
+        os.umask(previous)
+
 
 # --- git_common_dir: shared vectors -------------------------------------------------
 
