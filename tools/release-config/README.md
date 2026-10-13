@@ -87,7 +87,7 @@ Blockquoted examples and `Template guidance` / `Example shape` lead-ins are neve
 
 Rules more than one skill applies have one implementation, so every skill gives the same answer:
 
-- **Source version and RC.** The source release candidate every skill takes (`<version>` plus `rcN`, tagged `<version>-rcN`): `<version>` is a dotted version of two or more numeric parts with no `.postN` (`2.11`, `2.11.0`, `2.11.0.1`); the RC is `rcN` with N ≥ 1 (`rc0` and `rc01` block).
+- **Source version and RC.** The source release candidate every skill takes (`<version>` plus `rcN`, tagged `<version>-rcN`): `<version>` is a dotted version of two or more numeric parts with no `.postN` (`2.11`, `2.11.0`, `2.11.0.1`), or a calendar date `YYYY-MM-DD` for a release wave named by date (`2026-10-06`; an impossible date such as `2026-02-30` blocks); the RC is `rcN` with N ≥ 1 (`rc0` and `rc01` block).
   `rc-cut`, `verify-rc`, `vote-draft`, `vote-tally` and `promote` check the RC; `announce-draft`, `audit-report` and `prepare` check the version alone.
 - **Convenience-artefact versions.** Each § Convenience artefacts entry may carry its own `version` (default the release version; `<version>` in it is rendered, e.g. `<version>.post1`), validated by the entry's optional `version_scheme`: a wheel `2.10.5.post1` passes against source release `2.10.5`.
   `promote` renders the artefact's name and `publish_command` with that version.

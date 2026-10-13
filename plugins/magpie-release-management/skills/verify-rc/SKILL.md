@@ -23,7 +23,7 @@ argument-hint: "<version>-rcN [--post-to <planning-issue-url>] [--skip-repro] [-
 capability: capability:triage
 surface_hash: sha256:50ad09c17d8d7335
 license: Apache-2.0
-measured_tokens: 9936
+measured_tokens: 9954
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -188,7 +188,7 @@ Local modifications go in the override file; framework changes go via PR to `apa
 
 | Selector | Resolves to |
 |---|---|
-| `<version>-rcN` (positional) | RC identifier to verify: a dotted version of two or more numeric parts with no `.postN`, then `-rcN` with N ≥ 1 (e.g. `2.11.0-rc1`) |
+| `<version>-rcN` (positional) | RC identifier to verify: a dotted version of two or more numeric parts with no `.postN` (or a calendar date `YYYY-MM-DD` for a release wave named by date), then `-rcN` with N ≥ 1 (e.g. `2.11.0-rc1`) |
 | `--post-to <url>` | Planning issue URL; if present, draft a comment for RM confirmation (never auto-posts) |
 | `--skip-repro` | Skip Step 9 even when `reproducibility_source` is `on`; ignored (Step 9 stays mandatory) when the project has `automated_release_signing: enabled` |
 | `--trusted-hardware` | The committer asserts this run executes on hardware they control, not on CI. 🪶 ASF-specific: required for the trusted-hardware attestation the `--post-to` comment carries under `automated_release_signing: enabled`; the skill can state the assertion, never make it |

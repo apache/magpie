@@ -183,11 +183,19 @@ def _target_url(cfg: Loaded, version: str | None) -> str | None:
 
 
 def _source_version(result: Result, args: argparse.Namespace, index: int = 0) -> str | None:
-    return _version(result, args, versions.SOURCE_VERSION, versions.SOURCE_VERSION_SHAPE, index)
+    version = _version(result, args, versions.SOURCE_VERSION, versions.SOURCE_VERSION_SHAPE, index)
+    if version is not None and not versions.is_source_version(version):
+        result.block(f"version {version!r} is not a real calendar date")
+        return None
+    return version
 
 
 def _source_rc_id(result: Result, args: argparse.Namespace) -> tuple[str | None, str | None]:
-    return _rc_id(result, args, versions.SOURCE_RC_ID, versions.SOURCE_RC_ID_SHAPE)
+    version, rc = _rc_id(result, args, versions.SOURCE_RC_ID, versions.SOURCE_RC_ID_SHAPE)
+    if version is not None and not versions.is_source_version(version):
+        result.block(f"RC identifier version {version!r} is not a real calendar date")
+        return None, None
+    return version, rc
 
 
 def _convenience_versions(result: Result, cfg: Loaded, version: str | None, rc: str | None) -> None:

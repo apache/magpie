@@ -282,13 +282,18 @@ def test_main_returns_one_on_missing_symlink(tmp_path: Path, monkeypatch: pytest
 
 def _git_repo(root: Path, gitattributes: str = "") -> None:
     """Init a git repo at ``root``, write ``.gitattributes``, and stage every
-    file so `git write-tree` / `git archive` have a tree to work on."""
-    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
-    subprocess.run(["git", "config", "user.email", "t@example.com"], cwd=root, check=True)
-    subprocess.run(["git", "config", "user.name", "t"], cwd=root, check=True)
+    file so `git write-tree` / `git archive` have a tree to work on.
+
+    Global and system git config are ignored so a developer's
+    ``core.excludesFile`` (e.g. one ignoring ``/.claude/``) cannot drop fixture
+    files from the staged tree."""
+    env = {**os.environ, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"}
+    subprocess.run(["git", "init", "-q"], cwd=root, check=True, env=env)
+    subprocess.run(["git", "config", "user.email", "t@example.com"], cwd=root, check=True, env=env)
+    subprocess.run(["git", "config", "user.name", "t"], cwd=root, check=True, env=env)
     if gitattributes:
         (root / ".gitattributes").write_text(gitattributes)
-    subprocess.run(["git", "add", "-A"], cwd=root, check=True)
+    subprocess.run(["git", "add", "-A"], cwd=root, check=True, env=env)
 
 
 def test_archive_single_hop_links_clean(tmp_path: Path) -> None:

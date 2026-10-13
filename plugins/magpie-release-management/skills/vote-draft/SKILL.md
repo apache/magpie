@@ -25,7 +25,7 @@ argument-hint: "<version>-rcN [--skip-verify-check <reason>]"
 capability: capability:resolve
 surface_hash: sha256:6d70a52ead840ca2
 license: Apache-2.0
-measured_tokens: 6842
+measured_tokens: 6860
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -178,7 +178,7 @@ Local modifications go in the override file; framework changes go via PR to `apa
 
 | Selector | Resolves to |
 |---|---|
-| `<version>-rcN` (positional) | RC identifier (a dotted version of two or more numeric parts with no `.postN`, then `-rcN` with N ≥ 1, e.g. `2.11.0-rc1`); must match a staged RC |
+| `<version>-rcN` (positional) | RC identifier (a dotted version of two or more numeric parts with no `.postN` (or a calendar date `YYYY-MM-DD` for a release wave named by date), then `-rcN` with N ≥ 1, e.g. `2.11.0-rc1`); must match a staged RC |
 | `--skip-verify-check <reason>` | Override the verify-rc gate; reason is logged |
 | `--expedited <reason>` | Allow `vote_window_hours` < 72; reason appears in the vote body |
 | `--planning-issue <url>` | Explicit planning issue URL (auto-detected if omitted) |

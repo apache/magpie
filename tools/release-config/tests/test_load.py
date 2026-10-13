@@ -131,11 +131,20 @@ def test_shipped_org_manifests_automated_signing():
         ("2.11.0.post1", "rc1", False),
         ("2", "rc1", False),
         ("2.11.0", "rc0", False),
+        ("2026-10-06", "rc1", True),
+        ("2026-10-06", "rc0", False),
+        ("2026-13-01", "rc1", False),
+        ("2026-02-30", "rc1", False),
+        ("26-10-06", "rc1", False),
     ],
 )
 def test_source_version_rule(version, rc, ok):
-    assert bool(versions.SOURCE_VERSION.match(version) and versions.RC.match(rc)) is ok
-    assert bool(versions.SOURCE_RC_ID.match(f"{version}-{rc}")) is ok
+    assert bool(versions.is_source_version(version) and versions.RC.match(rc)) is ok
+    match = versions.SOURCE_RC_ID.match(f"{version}-{rc}")
+    assert bool(match and versions.is_source_version(match.group("version"))) is ok
+    if ok:
+        assert match is not None
+        assert match.group("version") == version and match.group("rc") == rc
 
 
 @pytest.mark.parametrize(
