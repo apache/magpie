@@ -30,6 +30,10 @@ on:  # yamllint disable-line rule:truthy
 
 permissions: {}
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   # Discover workspace members from the root pyproject.toml so the
   # pytest matrix below is data-driven — adding a new tool is a

@@ -29,6 +29,10 @@ on:  # yamllint disable-line rule:truthy
 
 permissions: {}
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 # Apache RAT (Release Audit Tool) verifies every source file carries an
 # approved licence header — the same check ASF Infra runs on release
 # artefacts, run here on every PR so header drift is caught before merge.
