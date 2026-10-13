@@ -434,3 +434,17 @@ def test_cli_tag_exists(tmp_path, capsys) -> None:
     refs.write_text("refs/tags/2.12.0-rc10\n", encoding="utf-8")
     assert main(["rc-cut", "tag-exists", "--refs", str(refs), "2.12.0-rc1"]) == 0
     assert json.loads(capsys.readouterr().out)["rc_tag_exists"] is False
+
+
+def test_a_hostile_config_value_is_quoted_in_every_block() -> None:
+    bad = "$(touch pwned)"
+    c = cut(method="git-archive", prefix=bad, artefacts=[(f"foo{bad}.tar.gz", "source")], repro_source="on")
+    step2 = render.step2(c)
+    assert '--prefix "\\$(touch pwned)"' in step2["section_2_build_command"]
+    assert "gpg --detach-sign --armor 'foo$(touch pwned).tar.gz'" in step2["section_3_sign_commands"]
+    assert (
+        "sha512sum 'foo$(touch pwned).tar.gz' > 'foo$(touch pwned).tar.gz.sha512'"
+        in step2["section_4_checksum_commands"]
+    )
+    check = render.step2b(c, epoch="1")["source_check_commands"]
+    assert any('check "foo\\$(touch pwned).tar.gz"' in cmd for cmd in check)

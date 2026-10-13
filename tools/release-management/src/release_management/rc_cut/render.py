@@ -28,11 +28,13 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
+from release_management.shell import dq, w
+
 PROHIBITED_DIGESTS = frozenset({"md5", "sha1"})
 DIGEST_TOOLS = {"sha512": "sha512sum", "sha256": "sha256sum"}
 STOP_ON = ["differs", "DIFFERS"]
 REPRO = "uv run --project <framework>/tools/reproducible-archive repro-archive"
-EPOCH_FROM_TOOL = f'export SOURCE_DATE_EPOCH="$({REPRO} epoch --ref "{{tag}}")"'
+EPOCH_FROM_TOOL = f'export SOURCE_DATE_EPOCH="$({REPRO} epoch --ref {{tag}})"'
 
 
 class RenderError(ValueError):
@@ -155,15 +157,15 @@ def _source_block(cut: RcCut) -> list[str]:
             raise RenderError("source_archive_method is custom but build_command is unset")
         return [
             *lines,
-            f'export SOURCE_DATE_EPOCH="$(git log -1 --format=%ct "{cut.tag}")"',
+            f'export SOURCE_DATE_EPOCH="$(git log -1 --format=%ct {dq(cut.tag)})"',
             str(build_command),
         ]
     lines += [
         f"{REPRO} build \\",
-        f'  --ref "{cut.tag}" --format {cut.meta.get("source_archive_format") or "tar.gz"} \\',
-        f'  --prefix "{cut.meta.get("source_archive_prefix") or ""}" \\',
-        f'  --origin "https://github.com/{cut.upstream}" \\',
-        f'  -o "{cut.source_artefact}"',
+        f"  --ref {dq(cut.tag)} --format {w(cut.meta.get('source_archive_format') or 'tar.gz')} \\",
+        f"  --prefix {dq(cut.meta.get('source_archive_prefix') or '')} \\",
+        f"  --origin {dq('https://github.com/' + cut.upstream)} \\",
+        f"  -o {dq(cut.source_artefact)}",
         "# → prints: commit <sha>, SOURCE_DATE_EPOCH <epoch>, sha512 <digest>,",
         "#           swhid_rev swh:1:rev:<sha>;origin=…, swhid_dir swh:1:dir:<tree>;origin=…;anchor=…,",
         "#           swhid_dir_note <identical to | differs from> the repository tree",
@@ -172,7 +174,7 @@ def _source_block(cut: RcCut) -> list[str]:
         lines += [
             "",
             "# Convenience binaries (build_command):",
-            EPOCH_FROM_TOOL.format(tag=cut.tag),
+            EPOCH_FROM_TOOL.format(tag=dq(cut.tag)),
             str(build_command),
         ]
     return lines
@@ -186,7 +188,7 @@ def _convenience_blocks(cut: RcCut) -> list[str]:
     for entry in entries:
         lines += [
             f"# Convenience artefact: {entry['name']} ({entry.get('kind') or 'artefact'}) — built from the tagged source",
-            EPOCH_FROM_TOOL.format(tag=cut.tag),
+            EPOCH_FROM_TOOL.format(tag=dq(cut.tag)),
             cut.render(entry.get("build_command") or "<build_command>"),
             "",
         ]
@@ -197,10 +199,10 @@ def step2(cut: RcCut) -> dict[str, Any]:
     """Step 2: tag, build, sign and checksum commands."""
     tag_cmds = "\n".join(
         [
-            f"git tag -s {cut.tag} \\",
-            f'  -m "Release {cut.version} {cut.rc_label}" \\',
+            f"git tag -s {w(cut.tag)} \\",
+            f"  -m {dq(f'Release {cut.version} {cut.rc_label}')} \\",
             "  HEAD",
-            f"git push {cut.remote} {cut.tag}",
+            f"git push {w(cut.remote)} {w(cut.tag)}",
         ]
     )
     build = "\n".join([*_source_block(cut), "", *_convenience_blocks(cut)])
@@ -216,8 +218,12 @@ def step2(cut: RcCut) -> dict[str, Any]:
         sign: list[str] = []
         sums: list[str] = []
     else:
-        sign = [f"gpg --detach-sign --armor {a}" for a in cut.artefacts]
-        sums = [f"{DIGEST_TOOLS.get(d, d + 'sum')} {a} > {a}.{d}" for a in cut.artefacts for d in cut.digests]
+        sign = [f"gpg --detach-sign --armor {w(a)}" for a in cut.artefacts]
+        sums = [
+            f"{DIGEST_TOOLS.get(d, d + 'sum')} {w(a)} > {w(f'{a}.{d}')}"
+            for a in cut.artefacts
+            for d in cut.digests
+        ]
     sections = [
         "## Section 1 — Tag",
         tag_cmds,
@@ -272,13 +278,13 @@ def step2b(cut: RcCut, *, skip: bool = False, epoch: str = "<SOURCE_DATE_EPOCH>"
             if cut.meta.get("source_archive_method") == "custom"
             else [
                 "mkdir -p rebuild",
-                f'{REPRO} build --ref "{cut.tag}" --format {fmt} --prefix "{prefix}" -o "rebuild/{src}"',
+                f"{REPRO} build --ref {dq(cut.tag)} --format {w(fmt)} --prefix {dq(prefix)} -o {dq('rebuild/' + src)}",
             ]
         )
         result["source_check_commands"] = [
-            f'{REPRO} check "{src}" --epoch "{epoch}"',
+            f"{REPRO} check {dq(src)} --epoch {dq(epoch)}",
             *rebuild,
-            f'{REPRO} compare --require-identical "{src}" "rebuild/{src}"',
+            f"{REPRO} compare --require-identical {dq(src)} {dq('rebuild/' + src)}",
         ]
     binary_cmds: list[str] = []
     for entry in cut.convenience():
@@ -288,16 +294,18 @@ def step2b(cut: RcCut, *, skip: bool = False, epoch: str = "<SOURCE_DATE_EPOCH>"
             binary_cmds.append(f"# SKIP: {name} (reproducibility off)")
             continue
         binary_cmds += [
-            f'export SOURCE_DATE_EPOCH="{epoch}"',
+            f"export SOURCE_DATE_EPOCH={dq(epoch)}",
             f"( cd rebuild && {cut.render(entry.get('build_command') or '<build_command>')} )",
         ]
         if mode == "documented-divergence":
             binary_cmds.append(
-                cut.render(entry.get("verification_command") or f"diffoscope {name} rebuild/{name}")
+                cut.render(
+                    entry.get("verification_command") or f"diffoscope {w(name)} {w('rebuild/' + name)}"
+                )
             )
         else:
             binary_cmds.append(
-                f'cmp "{name}" "rebuild/{name}" && echo "identical: {name}" || echo "DIFFERS: {name}"'
+                f"cmp {dq(name)} {dq('rebuild/' + name)} && echo {dq('identical: ' + name)} || echo {dq('DIFFERS: ' + name)}"
             )
     result["binary_check_commands"] = binary_cmds
     blocks = []
@@ -321,10 +329,10 @@ def step2c(cut: RcCut, *, organization: str = "ASF") -> dict[str, Any]:
         raise RenderError("Step 2c applies only when signing_mode is ci-automated")
     workflow = str(cut.config.get("ci_release_workflow") or "<ci_release_workflow>")
     trigger = [
-        f"git push {cut.remote} {cut.tag}",
-        f"gh run list --repo {cut.upstream} --workflow {workflow} --branch {cut.tag}",
-        f"gh run watch --repo {cut.upstream} <run-id>",
-        f"atr check status {cut.project} {cut.version} --verbose",
+        f"git push {w(cut.remote)} {w(cut.tag)}",
+        f"gh run list --repo {w(cut.upstream)} --workflow {w(workflow)} --branch {w(cut.tag)}",
+        f"gh run watch --repo {w(cut.upstream)} <run-id>",
+        f"atr check status {w(cut.project)} {w(cut.version)} --verbose",
     ]
     text = "\n".join(
         [
@@ -377,19 +385,21 @@ def step3(cut: RcCut, *, asf_id: str = "<asf-id>", local_dir: str = "<local-arte
             raise RenderError("staging_url is unset: release_dist_url_template did not render")
         _assert_dev_only(url)
         staging = [
-            f"svn import {local_dir}/ \\\n  {url.rstrip('/')}/ \\\n  --username {asf_id} \\\n"
-            f'  -m "Release {cut.project} {cut.version} {cut.rc}"'
+            f"svn import {w(local_dir)}/ \\\n  {w(url.rstrip('/') + '/')} \\\n  --username {w(asf_id)} \\\n"
+            f"  -m {dq(f'Release {cut.project} {cut.version} {cut.rc}')}"
         ]
     elif backend == "github-releases":
-        files = " ".join(f"{a} {a}.asc " + " ".join(f"{a}.{d}" for d in cut.digests) for a in cut.artefacts)
+        files = " ".join(
+            w(n) for a in cut.artefacts for n in (a, f"{a}.asc", *(f"{a}.{d}" for d in cut.digests))
+        )
         staging = [
-            f'gh release create {cut.tag} \\\n  --repo {cut.upstream} \\\n  --title "Release {cut.version} {cut.rc_label}" \\\n  --prerelease \\\n  --draft',
-            f"gh release upload {cut.tag} --repo {cut.upstream} \\\n  {files}",
+            f"gh release create {w(cut.tag)} \\\n  --repo {w(cut.upstream)} \\\n  --title {dq(f'Release {cut.version} {cut.rc_label}')} \\\n  --prerelease \\\n  --draft",
+            f"gh release upload {w(cut.tag)} --repo {w(cut.upstream)} \\\n  {files}",
         ]
     elif backend == "s3":
         if not url:
             raise RenderError("staging_url is unset: release_dist_url_template did not render")
-        staging = [f"aws s3 cp --recursive {local_dir}/ \\\n  {url.rstrip('/')}/"]
+        staging = [f"aws s3 cp --recursive {w(local_dir)}/ \\\n  {w(url.rstrip('/') + '/')}"]
     elif backend == "self-hosted":
         template = cut.config.get("release_publish_command_template")
         if not template:
@@ -404,12 +414,12 @@ def step3(cut: RcCut, *, asf_id: str = "<asf-id>", local_dir: str = "<local-arte
     if vote_backend == "atr":
         for a in cut.artefacts:
             atr += [
-                f"atr upload {cut.project} {cut.version} {name} {name}"
+                f"atr upload {w(cut.project)} {w(cut.version)} {w(name)} {w(name)}"
                 for name in (a, f"{a}.asc", *(f"{a}.{d}" for d in cut.digests))
             ]
         atr += [
-            f"atr check status   {cut.project} {cut.version} --verbose   # confirm checks pass",
-            f"atr check concerns {cut.project} {cut.version}             # list any concern-group keys to ack at vote time",
+            f"atr check status   {w(cut.project)} {w(cut.version)} --verbose   # confirm checks pass",
+            f"atr check concerns {w(cut.project)} {w(cut.version)}             # list any concern-group keys to ack at vote time",
         ]
     registry = []
     travelling = []
