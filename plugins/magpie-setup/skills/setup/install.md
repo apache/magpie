@@ -844,7 +844,7 @@ available). These pre-populate `<project-config>/project.md` in Step 9:
     - `commits_list` is the target of the `commits` or `pullrequests` notification.
     - `dev_list` is the target of the `dev` or `issues` or `pullrequests` notification containing `dev@`. If not found, default to `dev@<project>.apache.org`.
     - `users_list` is the target of the `users` notification, or defaults to `users@<project>.apache.org`.
-    - `security_list` defaults to `security@<project>.apache.org`.
+    - `security_list` has no default: not every ASF project has a dedicated `security@<project>.apache.org` list. Detect it and ask, as [`adopt.md` Step 4b](adopt.md#4b--scaffold-whatever-is-still-missing) does; when no dedicated list is found, recommend requesting one from ASF Infra and offer `private@<project>.apache.org` only as a flagged fallback.
     - `private_list` defaults to `private@<project>.apache.org`.
     - `announce_list` defaults to `announce@apache.org`.
   - `github.homepage` in `.asf.yaml` may refine `product_family_url` if the GitHub repo homepage was empty.
@@ -1289,7 +1289,7 @@ to this repo.
 - Read the template `projects/_template/project.md` from the snapshot.
 - Replace the placeholder `TODO` lines with the values auto-sourced in Step 4b:
   - Always (organization-agnostic): `upstream_repo`, `upstream_default_branch`, `product_family_url`, `labels`.
-  - **Only when `organization: ASF`** (the ASF-specific block of Step 4b): `dev_list`, `commits_list`, `users_list`, `private_list`, `security_list`, `announce_list`. For a non-ASF `organization`, leave these as `TODO` — do not write `apache.org` addresses.
+  - **Only when `organization: ASF`** (the ASF-specific block of Step 4b): `dev_list`, `commits_list`, `users_list`, `private_list`, `announce_list`. `security_list` is not auto-sourced: settle it with the detect-and-recommend rule in `adopt.md` Step 4b ("Ask where security reports go explicitly"). For a non-ASF `organization`, leave these as `TODO` — do not write `apache.org` addresses.
 - Prompt the user to confirm the auto-sourced values, and only ask them to input values for stable fields that were absent or couldn't be derived.
 - Stage the written files in `.apache-magpie-overrides/` to git (`git add`).
 

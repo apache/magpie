@@ -101,7 +101,7 @@ produces.
 
 | Key | Value | Notes |
 |---|---|---|
-| `security_list` | TODO: e.g. `security@foo.apache.org` | Inbound reports; **not** publicly archived (auto-sourced default) |
+| `security_list` | TODO: e.g. `security@foo.apache.org` | Inbound reports; **not** publicly archived (asked on adopt; with no dedicated list, request one from ASF Infra, and use `private@<project>.apache.org` only as a flagged fallback) |
 | `private_list` | TODO: e.g. `private@foo.apache.org` | PMC escalation; **not** publicly archived (auto-sourced default) |
 | `users_list` | TODO: e.g. `users@foo.apache.org` | Public advisories end up here; publicly archived (auto-sourced from `.asf.yaml` or default) |
 | `dev_list` | TODO: e.g. `dev@foo.apache.org` | Release `[RESULT][VOTE]` threads; publicly archived (auto-sourced from `.asf.yaml` or default) |
