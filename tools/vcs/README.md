@@ -103,6 +103,11 @@ Write operations stay gated on explicit user confirmation **in the
 calling skill**, exactly as the tracker write paths are — the tool does
 not add its own prompt.
 
+On a centralized backend (`svn`) the change becomes public at `commit`
+and `new-branch` (a server-side copy), not at `push`, so whatever a skill
+runs just before publishing (a confirmation naming the remote, a pre-push
+scrub) must gate those operations instead.
+
 ## Backends
 
 | Backend | Status | Notes |
@@ -125,13 +130,15 @@ documented in [`tools/asf-svn/source-control.md`](../asf-svn/source-control.md#c
 | `stage <paths…>` | `svn add` for new paths (and unversioned parents), `svn delete` for paths gone from disk; versioned paths are a no-op |
 | `commit -m` | `svn commit` of every modified or scheduled (`stage`d) path in the working copy — SVN has no staging area, so unrelated edits go too; unversioned files need `stage` first. Written straight to the server |
 | `diff --cached` | error: no staging area |
-| `log` | server history up to `HEAD`, one `r<rev> <subject>` line per revision; `--grep` / `--author` are regexes, `--since` takes an ISO 8601 date |
+| `diff --base <rev>` | the working copy against a **revision** (a number, `HEAD`, `BASE`, `COMMITTED`, `PREV` or `{DATE}`); a line-of-work name such as `main` or `trunk` is refused |
+| `log` | server history up to `HEAD`, one `r<rev> <subject>` line per revision; `--grep` / `--author` are regexes, `--since` takes an ISO 8601 date. With `--grep` / `--author` / `--since`, `-n` caps the output only: the path's whole history (back to `--since`, if given) is fetched before filtering, which is slow on a large shared repository such as svn.apache.org |
 | `cat <rev> <path>` | the path as it was at `<rev>` (pegged URL), even if since moved or deleted |
 | `fetch` | no-op: refs live on the server and every history read queries it |
 | `push` | error: `commit` already published the change |
 
-A caller that needs to tell the models apart checks
-`VCSBackend.distributed`.
+A caller using the Python API tells the models apart with
+`VCSBackend.distributed`; a skill using the CLI checks for
+`magpie-vcs detect` printing `svn`.
 
 Supported scope, and what is not:
 

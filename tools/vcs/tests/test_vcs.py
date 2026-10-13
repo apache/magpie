@@ -392,6 +392,28 @@ def test_svn_log_filters(svn_wc: Path) -> None:
 
 
 @svn_required
+def test_svn_stage_keeps_dangling_versioned_symlink(svn_wc: Path) -> None:
+    (svn_wc / "link").symlink_to("nowhere")  # dangling from the start
+    _svn(svn_wc, "add", "link")
+    _svn(svn_wc, "commit", "-m", "add dangling link")
+    _svn(svn_wc, "update")
+    backend = SubversionBackend(svn_wc)
+    backend.stage(["link"])
+    assert backend.status() == ""  # not scheduled for deletion
+    assert (svn_wc / "link").is_symlink()
+
+
+@svn_required
+def test_svn_diff_base_takes_a_revision(svn_wc: Path) -> None:
+    backend = SubversionBackend(svn_wc)
+    (svn_wc / "file.txt").write_text("changed\n")
+    assert "+changed" in backend.diff(base="HEAD")
+    for name in ("trunk", "main", "branches/fix"):
+        with pytest.raises(VCSError, match="takes a revision"):
+            backend.diff(base=name)
+
+
+@svn_required
 def test_svn_diff_and_cat(svn_wc: Path) -> None:
     backend = SubversionBackend(svn_wc)
     (svn_wc / "file.txt").write_text("changed\n")

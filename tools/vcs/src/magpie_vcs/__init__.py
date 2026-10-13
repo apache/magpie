@@ -646,6 +646,13 @@ class SubversionBackend(VCSBackend):
             raise VCSError("svn does not support staging area/cached diff")
         args = ["diff"]
         if base:
+            # svn compares the working copy against a *revision*; a line-of-work
+            # name (`trunk`, a branch) would end in svn's own syntax error.
+            if not re.fullmatch(r"\d+|HEAD|BASE|COMMITTED|PREV|\{[^{}]+\}", base):
+                raise VCSError(
+                    f"svn diff --base takes a revision (a number, HEAD, BASE, COMMITTED, PREV "
+                    f"or {{DATE}}), not {base!r}"
+                )
             args.extend(["-r", base])
         return self._svn(*args, "--", *paths)
 
@@ -732,7 +739,9 @@ class SubversionBackend(VCSBackend):
             raise VCSError("stage: refusing to stage nothing (pass explicit paths)")
         # `svn add` schedules new paths (and their unversioned parents) and
         # skips versioned ones; a path gone from disk is scheduled for deletion.
-        missing = [p for p in paths if not (self.root / p).exists()]
+        # lexists, not exists: a versioned symlink whose target is missing is
+        # still on disk and must not be scheduled for deletion.
+        missing = [p for p in paths if not os.path.lexists(self.root / p)]
         present = [p for p in paths if p not in missing]
         if missing:
             self._svn("delete", "--", *missing, capture=False)
