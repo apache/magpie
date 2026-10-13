@@ -13,6 +13,8 @@
     - [`verify-rc`](#verify-rc)
     - [`vote-draft`](#vote-draft)
     - [`vote-tally`](#vote-tally)
+    - [`promote`](#promote)
+    - [`announce-draft`](#announce-draft)
   - [Tests](#tests)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -34,8 +36,8 @@ for `release-verify-rc` it also classifies the output of each check the voter ra
 The agent presents the output and keeps only the judgement; the release manager runs every command on their own machine.
 
 **It runs nothing.**
-No command here invokes `git`, `gpg`, `svn`, `gh`, `aws` or `atr`, reads a key, sends mail, posts a comment, casts a vote or touches the network.
-A render that would emit something a skill must refuse (a `dist/release/` staging target, an MD5 or SHA-1 digest)
+No command here invokes `git`, `gpg`, `svn`, `gh`, `aws` or `atr`, reads a key, sends mail, posts a comment, opens a PR, applies a label, casts a vote or touches the network.
+A render that would emit something a skill must refuse (a `dist/release/` staging target, an MD5 or SHA-1 digest, an unconfigured backend)
 exits `2` with `{"ok": false, "refused": "<why>"}` instead of printing a block.
 
 ## Prerequisites
@@ -127,10 +129,26 @@ An `--expedited` reason naming a CVE or a security fix comes back as a `warnings
 | `tally (--votes F \| --pr-reviews F [--login-map F]) --roster F [--mechanism M] [--force-close] [--overrides J] [--min-approvals N]` | `--pr-reviews` takes the release PR's gh `reviews` JSON: each reviewer's latest review is their vote (`APPROVED` +1, `CHANGES_REQUESTED` -1, `DISMISSED` none; `COMMENTED` skipped), logins mapped to roster emails by `--login-map`, with `pr_reviewers` saying what decided each. Binding resolution against the roster, one person one vote, fractional votes non-binding, `AMBIGUOUS` never counted (a halt without `--force-close`), and the pass rule: the ASF baseline, strengthened only, for `dev-list-vote`; `approval_pr_min_approvals` for `pr-approval`. `github-discussion` and `maintainer-roster` have no specified rule, so `result` is `null` for the agent. Reply text never reaches it. Formerly `vote-tally/scripts/tally.py`; its own `parse_roster`, not release-config's. |
 | `render --load F --tally F [--product-name N] [--result R --rule T] [--rm-name N]` | The `[RESULT] [VOTE]` subject (`result_subject_template`) and body: PASSED / FAILED, the counts, the outcome lines and proposed label, the per-voter table (no reply text). Refuses a halted tally, and a `null` result without `--result` and `--rule`. |
 
+### `promote`
+
+| Command | Prints |
+|---|---|
+| `verdict --preflight <file> [--vote-passed] [--target-populated] [--attestation] [--no-planning-issue] [--planning-issue URL]` | The Step 0 JSON: `release-config preflight`'s blockers as written, plus one per planning-issue fact that fails — `vote-passed` absent (no override), the target already populated (hand off to Infra), the trusted-hardware attestation missing when `ci-automated` requires it. `rm_is_pmc: false` with nothing else failing is `handoff-non-pmc`. Fail-closed: an unset flag is the blocking side. `read` names the blocker / outcome file to load. |
+| `render --load <file> [--handoff --rm ID --roster-path P] [--apache-id] [--result-vote-url] [--rc-commit-sha] [--draft-tag T [--draft-tag-confirmed]]` | The Step 2 JSON: `command_block` shaped by `dist_backend` — `svn mv` + `svn list` + the final signed `<version>` tag on the RC commit (`svnpubsub`), `gh release edit --draft=false --tag` (`github-releases`), `aws s3 mv --recursive` with the bucket read from `release_dist_url_template` (`s3`), or `release_publish_command_template` (`self-hosted`) — then the hand-off note, the convenience artefacts (publish commands verbatim, a HOLD note per held artefact) and the mandatory mirror note. Refuses `self-hosted` without its template, an unreadable S3 bucket, an unconfirmed draft-tag discrepancy and an unknown backend. |
+
+### `announce-draft`
+
+| Command | Prints |
+|---|---|
+| `verdict --preflight <file> [--promoted] [--no-planning-issue]` | The Step 0 JSON: the preflight blockers as written (the promote-wait blocker verbatim), plus one when `promoted` is absent; `promote_clear_after_utc` is kept only while the gate is the sole blocker. |
+| `render --step 2 --load <file> --product-name N --download-page U --changelog-url U [--skip-promote-wait R] [--canned-body F] [--convenience KIND=LOC …]` | The subject from `announce_subject_template` and the body for `release_announce_backend`: the `[ANNOUNCE]` email with `To:` / `Cc:` and the `@apache.org` reminder (`announce-list`), or the `github-release-notes`, `site-post` and `discord-channel` shapes. A `canned_body` gets its placeholders substituted (and the reminder prepended if it lacks one). Warns when the Download Page is a `dist.apache.org` URL. |
+| `render --step 3 --load <file> --product-name N [--files F …] [--confirm-extra F …]` | The site-bump PR title, body and `gh pr create --web` line; `scope_violations` is the proposed files minus `site_pr_files` until the RM confirms them. The skip signal when `site_repo` is unset. |
+
 ## Tests
 
 ```bash
 uv run --project tools/release-management pytest
 ```
 
-The scripted cases of the retired model-graded `release-rc-cut`, `release-verify-rc`, `release-vote-draft` and `release-vote-tally` suites live in `tests/test_rc_cut.py`, `tests/test_verify_rc.py`, `tests/test_vote_draft.py` and `tests/test_vote_tally.py`, named after each former case.
+The scripted cases of the retired model-graded `release-rc-cut`, `release-verify-rc`, `release-vote-draft`, `release-vote-tally`, `release-promote` and `release-announce-draft` suites live in `tests/test_rc_cut.py`, `tests/test_verify_rc.py`, `tests/test_vote_draft.py`, `tests/test_vote_tally.py`, `tests/test_promote.py` and `tests/test_announce_draft.py`, named after each former case.
+`tests/test_integration.py` renders each skill from what `release-config load` really prints.

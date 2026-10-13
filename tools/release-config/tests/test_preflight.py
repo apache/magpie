@@ -787,3 +787,16 @@ def test_prepare_blockers(project, preflight):
 
 def test_prepare_no_arguments(project, preflight):
     blocked_on(preflight(project(), "prepare"), "no sub-command or version")
+
+
+def test_promote_self_hosted_needs_publish_template(project, preflight):
+    result = preflight(project({"release_dist_backend": "self-hosted"}), "promote", "1.1.0-rc1", "--rm", "johndoe")
+    blocked_on(result, "release_publish_command_template is unset")
+    ok = preflight(
+        project({"release_dist_backend": "self-hosted", "release_publish_command_template": "publish.sh <version>"}),
+        "promote",
+        "1.1.0-rc1",
+        "--rm",
+        "johndoe",
+    )
+    assert not any("release_publish_command_template" in b for b in ok["blockers"]), ok

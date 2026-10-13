@@ -70,12 +70,12 @@ Suites are currently implemented for:
 - **license-compliance-audit** — 9 cases across 2 suites (step-findings-report, step-scope-selection)
 - **mentoring-welcome** — 20 cases across 2 suites (tone-checks, welcome-decision)
 - **pr-management-quick-merge** — 5 cases across 1 suite (approve-protocol); the gates, triviality screen and live buckets are pytest-tested in `tools/pr-management`
-- **release-announce-draft** — 9 cases across 3 suites (step-0-preflight, step-2-announce-draft, step-3-site-bump)
+- **release-announce-draft** — 2 cases across 2 suites (step-0-preflight, step-3-site-bump); the Step 0 verdict and Steps 2–3 are rendered and pytest-tested in `tools/release-management`
 - **release-archive-sweep** — 10 cases across 3 suites (step-0-preflight, step-1-load-listing, step-2-emit-commands)
 - **release-audit-report** — 9 cases across 3 suites (step-0-preflight, step-1-gather-record, step-2-assemble-record)
 - **release-keys-sync** — 9 cases across 3 suites (step-0-preflight, step-1-key-fetch, step-2-svn-commands)
 - **release-prepare** — 15 cases across 4 suites (step-0-preflight, step-1-plan, step-14-post, step-2-prep)
-- **release-promote** — 9 cases across 2 suites (step-0-preflight, step-2-emit-commands)
+- **release-promote** — 2 cases across 2 suites (step-0-preflight, step-2-emit-commands); the Step 0 verdict and Step 2 are rendered and pytest-tested in `tools/release-management`
 - **release-rc-cut** — 7 cases across 2 suites (step-0-preflight, step-3-staging); Steps 2, 2b and 3 are rendered and pytest-tested in `tools/release-management`
 - **release-verify-rc** — 17 cases across 8 suites (step-0-preflight, step-2-verify-signatures, step-3-verify-checksums, step-5-notice-license, step-6-binary-exclusion, step-6b-jvm-artefacts, step-6c-nexus-staging, step-8-version-consistency); the scripted Step 6b, 6c and 9 cases are pytest cases in `tools/release-management/tests/test_verify_rc.py`
 - **release-vote-draft** — 3 cases across 3 suites (step-0-preflight, step-2-vote-draft, step-3-planning-comment); the verdict, the `[VOTE]` body and the planning-issue comment are rendered and pytest-tested in `tools/release-management`

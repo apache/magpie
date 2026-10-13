@@ -27,6 +27,8 @@ from typing import Any
 
 import pytest
 
+from release_management.announce_draft import render as announce
+from release_management.promote import render as promote
 from release_management.rc_cut import render
 from release_management.vote_draft import render as vote_draft
 from release_management.vote_tally import render as vote_tally
@@ -302,3 +304,79 @@ def test_vote_tally_renders_from_a_real_load(tmp_path: Path) -> None:
     out = vote_tally.result_draft(loaded, tallied, product_name="Apache Foo")
     assert out["subject"] == "[RESULT] [VOTE] Release Apache Foo 1.0.0 from 1.0.0-rc1"
     assert out["body"].startswith("To: dev@foo.apache.org\n")
+
+
+def _project(tmp_path: Path, extra: dict[str, Any] | None = None) -> None:
+    config = tmp_path / ".apache-magpie-overrides"
+    config.mkdir(exist_ok=True)
+    (config / "release-management-config.md").write_text(_rmc(RMC | (extra or {})), encoding="utf-8")
+    (config / "release-build.md").write_text(BUILD, encoding="utf-8")
+    (config / "project.md").write_text(
+        "# Project\n\n| Key | Value |\n|---|---|\n| `organization` | `ASF` |\n", encoding="utf-8"
+    )
+
+
+def _run(tmp_path: Path, command: str, skill: str, *argv: str) -> dict[str, Any]:
+    result: dict[str, Any] = release_config_cli.run(
+        [
+            command,
+            "--project-root",
+            str(tmp_path),
+            "--user-config",
+            str(tmp_path / "absent.md"),
+            "--skill",
+            skill,
+            *argv,
+        ]
+    )
+    return result
+
+
+def test_promote_renders_from_a_real_load(tmp_path: Path) -> None:
+    _project(tmp_path)
+    pre = _run(tmp_path, "preflight", "promote", "1.0.0-rc1", "--rm", "nobody")
+    verdict = promote.verdict(pre, vote_passed=True, target_populated=False)
+    # No roster file: the RM is treated as not on the roster, which is a hand-off.
+    assert verdict["verdict"] == "handoff-non-pmc" and verdict["dist_backend"] == "svnpubsub"
+    loaded = _run(tmp_path, "load", "promote", "1.0.0-rc1")
+    p = promote.Promote.from_load(loaded, upstream="apache/foo", project="foo", product_name="Apache Foo")
+    out = promote.step2(
+        p, handoff=True, rm="nobody", apache_id="nobody", result_vote_url="u", rc_commit_sha="abc"
+    )
+    assert "https://dist.apache.org/repos/dist/dev/foo/1.0.0-rc1/ \\" in out["command_block"]
+    assert "svn list https://dist.apache.org/repos/dist/release/foo/1.0.0/" in out["command_block"]
+    assert "git push apache refs/tags/1.0.0" in out["command_block"]
+    assert out["handoff_note"]
+
+
+def test_announce_draft_renders_from_a_real_load(tmp_path: Path) -> None:
+    _project(
+        tmp_path,
+        {
+            "announce_list": "announce@apache.org",
+            "announce_cc_lists": ["dev@foo.apache.org"],
+            "announce_subject_template": "[ANNOUNCE] Apache Foo <version> released",
+            "site_repo": "apache/foo-site",
+            "site_pr_files": ["content/announcements/<version>.md"],
+        },
+    )
+    pre = _run(
+        tmp_path,
+        "preflight",
+        "announce-draft",
+        "1.0.0",
+        "--promote-timestamp",
+        "2026-06-10T08:00:00Z",
+        "--now",
+        "2026-06-11T10:00:00Z",
+        "--download-page",
+        "https://foo.apache.org/download",
+    )
+    assert announce.verdict(pre, promoted=True)["verdict"] == "proceed"
+    loaded = _run(tmp_path, "load", "announce-draft", "1.0.0", "--promote-timestamp", "2026-06-10T08:00:00Z")
+    a = announce.Announce.from_load(loaded, product_name="Apache Foo")
+    draft = announce.step2(a, download_page="https://foo.apache.org/download", changelog_url="https://c")
+    assert draft["subject"] == "[ANNOUNCE] Apache Foo 1.0.0 released"
+    assert "Cc: dev@foo.apache.org" in draft["body"] and "foo/KEYS" in draft["body"]
+    site = announce.step3(a)
+    assert site["files_in_scope"] == ["content/announcements/1.0.0.md"] and site["proposed"] is True

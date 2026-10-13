@@ -1,9 +1,0 @@
-{
-  "verdict": "handoff-non-pmc",
-  "blockers": [],
-  "rm_is_pmc": false,
-  "non_asf": false,
-  "version": "2.11.0",
-  "rc": "rc1",
-  "dist_backend": "svnpubsub"
-}

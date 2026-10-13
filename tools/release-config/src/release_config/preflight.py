@@ -437,6 +437,8 @@ def check_announce_draft(cfg: Loaded, args: argparse.Namespace, result: Result) 
 def check_promote(cfg: Loaded, args: argparse.Namespace, result: Result) -> None:
     version, rc = _source_rc_id(result, args)
     _require_keys(result, cfg, ("release_dist_backend", "release_dist_url_template"))
+    if cfg.raw.get("release_dist_backend") == "self-hosted" and not cfg.raw.get("release_publish_command_template"):
+        result.block("release_dist_backend is self-hosted but release_publish_command_template is unset — add the template to release-management-config.md")
     rm_is_pmc: bool | None = None
     if cfg.is_asf:
         identity = args.rm or _user_value(cfg, "apache_id") or _user_value(cfg, "release_manager.apache_id")

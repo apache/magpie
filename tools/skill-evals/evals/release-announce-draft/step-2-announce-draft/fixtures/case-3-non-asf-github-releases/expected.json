@@ -1,9 +1,0 @@
-{
-  "subject": "MyProject 1.5.0 released",
-  "backend": "github-release-notes",
-  "skip_promote_wait_logged": false,
-  "asf_address_reminder_present": false,
-  "has_apache_org_sender_reminder": false,
-  "has_download_link": true,
-  "has_changelog_link": true
-}
