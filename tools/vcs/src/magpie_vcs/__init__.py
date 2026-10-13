@@ -769,9 +769,15 @@ class SubversionBackend(VCSBackend):
         self._svn("cleanup", "--remove-unversioned", capture=False)
 
     def cat(self, rev: str, path: str) -> str:
-        # Peg the URL at rev so the path resolves as it was then, even if it
-        # has since moved or been deleted from the working copy.
-        return self._svn("cat", f"{self._url()}/{quote(path)}@{rev}")
+        # Operative revision on the working-copy path (pegged at BASE) follows
+        # copy history, so a pre-branch revision resolves through trunk. A
+        # trailing "@" keeps an "@" inside the path from being read as a peg.
+        try:
+            return self._svn("cat", "-r", rev, "--", f"{path}@")
+        except VCSError:
+            # The path is no longer in the working copy (moved or deleted):
+            # resolve it as it was at rev on this line of work instead.
+            return self._svn("cat", f"{self._url()}/{quote(path)}@{rev}")
 
 
 # Registry, in detection-priority order. New VCS bridges register here.

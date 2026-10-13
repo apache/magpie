@@ -429,6 +429,18 @@ def test_svn_diff_and_cat(svn_wc: Path) -> None:
 
 
 @svn_required
+def test_svn_cat_follows_branch_history(svn_wc: Path) -> None:
+    backend = SubversionBackend(svn_wc)
+    backend.create_branch("feature")  # r4: copy of trunk@3
+    assert backend.cat("2", "file.txt") == "hello\n"  # pre-branch revision, via copy history
+    (svn_wc / "file.txt").unlink()
+    backend.stage(["file.txt"])
+    backend.commit("drop file.txt")  # r5: gone from the working copy
+    _svn(svn_wc, "update")
+    assert backend.cat("4", "file.txt") == "hello\n"  # deleted path still resolves at an older rev
+
+
+@svn_required
 def test_svn_reset_worktree(svn_wc: Path) -> None:
     backend = SubversionBackend(svn_wc)
     _svn(svn_wc, "propset", "svn:ignore", "ignored.txt", ".")
