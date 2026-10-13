@@ -171,6 +171,21 @@ ref:    v1.0.0
       assert(result.message?.includes('Local snapshot lockfile missing'));
     });
 
+    test('returns false drift for local self-adoption method', async () => {
+      const fs = createTestEnv();
+      const exists = async (p: string) => await fs.exists(p);
+      const read = async (p: string) => await fs.read(p);
+      const lockContent = `method: local
+source: skills/
+`;
+      fs.set(joinPath(workspaceDir, '.apache-magpie.lock'), lockContent);
+
+      const result = await checkSetupDrift(exists, read, workspaceDir, pluginDir);
+      assertStrictEqual(result.isAdopted, true);
+      assertStrictEqual(result.hasDrift, false);
+      assertStrictEqual(result.message, undefined);
+    });
+
     test('resolves plugin version correctly from candidate paths', async () => {
       const fs = createTestEnv();
       const exists = async (p: string) => await fs.exists(p);

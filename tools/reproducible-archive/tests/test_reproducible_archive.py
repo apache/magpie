@@ -194,9 +194,10 @@ def test_symlink_mode_is_platform_independent(fmt: str) -> None:
     macos = [*base, ra.Entry("p/link", "symlink", 0o755, linkname="target")]
     linux = [*base, ra.Entry("p/link", "symlink", 0o777, linkname="target")]
     write = ra.write_zip if fmt == "zip" else ra.write_tar_gz
-    assert write(macos, EPOCH) == write(linux, EPOCH)
+    macos_archive, linux_archive = write(macos, EPOCH), write(linux, EPOCH)
+    assert macos_archive == linux_archive
     assert ra.swhid_dir_of_entries(macos, "p") == ra.swhid_dir_of_entries(linux, "p")
-    packed = ra.read_zip_entries(write(macos, EPOCH)) if fmt == "zip" else ra.read_tar_entries(write(macos, EPOCH))
+    packed = ra.read_zip_entries(macos_archive) if fmt == "zip" else ra.read_tar_entries(macos_archive)
     assert [e.mode for e in packed if e.kind == "symlink"] == [0o777]
 
 

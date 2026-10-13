@@ -396,7 +396,16 @@ export async function checkSetupDrift(
       };
     }
 
-    // 2. Snapshot methods (git-tag, git-branch, svn-zip)
+    // 2. Method: local (the framework checkout's self-adoption). Skills link
+    // the in-tree skills/ source, so there is no snapshot that can drift.
+    if (method === 'local') {
+      return {
+        isAdopted: true,
+        hasDrift: false,
+      };
+    }
+
+    // 3. Snapshot methods (git-tag, git-branch, svn-zip)
     if (method === 'git-tag' || method === 'git-branch' || method === 'svn-zip') {
       const localLockPath = joinPath(workspaceDir, '.apache-magpie.local.lock');
       const committedPin = lockData.ref || lockData.commit;
