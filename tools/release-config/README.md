@@ -68,6 +68,7 @@ uv run --project <framework>/tools/release-config release-config load --skill pr
 
 Prints `sources` (which file each config came from), `config` (the `release-management-config.md` keys with defaults applied), `build` (`release-build.md`: build command, expected artefacts, digest set, source-archive and reproducibility keys, convenience artefacts), `derived` (`signing_mode`, `is_asf`, `non_asf`, `automated_signing_offered` and the file that decided it, `approver_roster_path`, `release_lines`) and, with `--skill`, `metadata` — the config-derived fields of that skill's Step 1 table under the names the table uses.
 For `promote`, `metadata.convenience` splits the convenience artefacts into `publish` (verify-rc reported `identical` or `warn`) and `held` (`differs`, or no result).
+For `verify-rc`, `metadata` carries everything the [`release-management verify-rc`](../release-management/README.md#verify-rc) commands need: each expected artefact with `required` (`false` when its attributes say `optional`), the extra prohibited globs and accepted exceptions of `§ Binary-exclude list`, the RAT config and excludes paths of `§ Apache RAT configuration`, `source_tree_validators`, the `§ JVM artefact checks` keys, and the source-archive and reproducibility keys.
 
 ## What it reads
 

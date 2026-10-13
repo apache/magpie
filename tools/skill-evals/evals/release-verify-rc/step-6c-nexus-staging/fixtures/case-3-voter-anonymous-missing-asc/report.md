@@ -6,6 +6,13 @@ orgapachefoo-1024`, `jvm_companion_location: nexus-staging`. The RC is
 1.0.0-rc1. The runner is a **voter with no Nexus credentials** — no
 `~/.config/apache-magpie/asf-nexus/netrc` file exists.
 
+Existence check (anonymous):
+
+```text
+curl -fsS -o /dev/null -w '%{http_code}\n' "https://repository.apache.org/content/repositories/orgapachefoo-1024/"
+→ HTTP 200 OK
+```
+
 Staging repository details (authenticated path):
 
 ```text
@@ -19,10 +26,32 @@ trimmed to one module):
 
 ```text
 /org/apache/foo/foo-core/1.0.0/
-  foo-core-1.0.0.jar            foo-core-1.0.0.jar.asc
-  foo-core-1.0.0.pom            foo-core-1.0.0.pom.asc
-  foo-core-1.0.0-sources.jar
-  foo-core-1.0.0-javadoc.jar    foo-core-1.0.0-javadoc.jar.asc
+  foo-core-1.0.0.jar            foo-core-1.0.0.jar.asc            foo-core-1.0.0.jar.sha1
+  foo-core-1.0.0.pom            foo-core-1.0.0.pom.asc            foo-core-1.0.0.pom.sha1
+  foo-core-1.0.0-sources.jar                                      foo-core-1.0.0-sources.jar.sha1
+  foo-core-1.0.0-javadoc.jar    foo-core-1.0.0-javadoc.jar.asc    foo-core-1.0.0-javadoc.jar.sha1
+```
+
+`release-management verify-rc nexus --inventory <inventory.json> --existence-code 200 --crawl <crawl.txt>`
+(no `--rm-credentials`: the runner has none) printed:
+
+```json
+{
+  "step": "nexus-staging",
+  "status": "FAIL",
+  "staging_repos": [
+    {
+      "id": "orgapachefoo-1024",
+      "state": "unverified",
+      "matches_rc": true
+    }
+  ],
+  "nexus_findings": [
+    "foo-core-1.0.0-sources.jar has no sibling .asc in the staging repository — signature coverage must match the main artefacts",
+    "STATE-UNVERIFIED: no Nexus credentials, so the authoritative closed state could not be read — verify by hand in the Nexus UI (stagingRepositories)"
+  ],
+  "paste_recipe": "# 1. Existence (anonymous, every run)\ncurl -fsS -o /dev/null -w '%{http_code}\\n' \\\n  \"https://repository.apache.org/content/repositories/orgapachefoo-1024/\"\n\n# 4. Artefact inventory (anonymous web-tree crawl, every run)\nbase=\"https://repository.apache.org/content/repositories/orgapachefoo-1024\"\ncrawl() {\n  visited=\"\"\n  frontier=\"$base\"\n  while [ -n \"$frontier\" ]; do\n    next=\"\"\n    for dir in $frontier; do\n      case \",$visited,\" in *\",$dir,\"*) continue ;; esac\n      visited=\"$visited,$dir\"\n      for href in $(curl -fsS \"${dir%/}/\" | grep -oE 'href=\"[^\"]+\"' | sed 's/^href=\"//;s/\"$//'); do\n        case \"$href\" in\n          \"../\") continue ;;\n          \"https://\"*|\"http://\"*) path=\"$href\" ;;\n          /*) path=\"https://repository.apache.org$href\" ;;\n          *) path=\"${dir%/}/${href#/}\" ;;\n        esac\n        case \"$path\" in\n          \"$base\"/*) path=\"${path%/}\" ;;\n          *) continue ;;\n        esac\n        case \",$visited,\" in *\",$path,\"*) continue ;; esac\n        case \"$href\" in\n          */) next=\"$next $path\" ;;\n          *) echo \"${path#\"$base/\"}\" ;;\n        esac\n      done\n    done\n    frontier=\"$next\"\n  done\n}\ncrawl"
+}
 ```
 
 Things to classify here:

@@ -62,6 +62,13 @@ class BuildConfig:
     digest_set: list[str] = field(default_factory=list)
     convenience_artefacts: list[dict[str, Any]] = field(default_factory=list)
     template_example_skipped: bool = False
+    # verify-rc: the free-form sections, parsed once here rather than read by the agent.
+    optional_artefacts: list[str] = field(default_factory=list)
+    binary_prohibit: list[str] = field(default_factory=list)
+    binary_accept: list[str] = field(default_factory=list)
+    rat_config_path: str | None = None
+    rat_excludes_path: str | None = None
+    source_tree_validators: list[str] = field(default_factory=list)
 
     def value(self, key: str, default: Any = None) -> Any:
         value = self.table.get(key)
@@ -111,6 +118,97 @@ def _expected_artefacts(block: str | None) -> list[dict[str, str]]:
     return out
 
 
+#: Step 6's fixed baseline: a backticked baseline entry in § Binary-exclude list is prose, not an extra glob.
+BINARY_BASELINE = frozenset(
+    {".class", ".jar", ".so", ".dylib", ".dll", ".exe", ".pyc", "__pycache__", "*.class", "*.jar", "*.so", "*.dylib", "*.dll", "*.exe", "*.pyc"}
+)
+
+
+def _tokens_with_tails(block: str | None) -> list[tuple[str, str, str]]:
+    """(text before, token, text after up to the next token) for every backticked token of `block`."""
+    if not block:
+        return []
+    spans = [(m.start(), m.end(), m.group(1).strip()) for m in re.finditer(r"`([^`]+)`", block)]
+    out: list[tuple[str, str, str]] = []
+    for index, (start, end, token) in enumerate(spans):
+        before = block[spans[index - 1][1] if index else 0 : start]
+        after = block[end : spans[index + 1][0] if index + 1 < len(spans) else len(block)]
+        out.append((before, token, after))
+    return out
+
+
+def _optional_artefacts(block: str | None) -> list[str]:
+    """Expected-artefact names whose own attributes say `optional`; unmarked entries are required."""
+    names = {a["name"] for a in _expected_artefacts(block)}
+    out: list[str] = []
+    for _, token, after in _tokens_with_tails(block):
+        if token in names and re.search(r"\boptional\b", after, re.IGNORECASE):
+            out.append(token)
+    return out
+
+
+def _binary_exclude(block: str | None) -> tuple[list[str], list[str]]:
+    """§ Binary-exclude list → (extra prohibited globs, known-accepted exceptions).
+
+    A backticked path or glob is an exception when the words after it say
+    `accepted` / `exception`, else an extra prohibited glob. Baseline entries
+    named in prose are already scanned and are not repeated.
+    """
+    prohibit: list[str] = []
+    accept: list[str] = []
+    for _, token, after in _tokens_with_tails(block):
+        if " " in token or token in BINARY_BASELINE or not re.search(r"[./*]", token):
+            continue
+        target = accept if re.search(r"\baccept|\bexception", after, re.IGNORECASE) else prohibit
+        if token not in target:
+            target.append(token)
+    return prohibit, accept
+
+
+def _rat_paths(block: str | None) -> tuple[str | None, str | None]:
+    """§ Apache RAT configuration → (RAT config path, RAT excludes path).
+
+    The excludes path is the first backticked token the words before it call
+    an exclude (`excludes file:`, `with excludes in`); the config path is the
+    first other one.
+    """
+    config: str | None = None
+    excludes: str | None = None
+    for before, token, _ in _tokens_with_tails(block):
+        if excludes is None and re.search(r"exclude", before, re.IGNORECASE):
+            excludes = token
+        elif config is None:
+            config = token
+    return config, excludes
+
+
+def _validators(table: dict[str, Any], lines: list[str] | None) -> list[str]:
+    """`source_tree_validators`: a table row, else a YAML list in the section's first unquoted fence."""
+    value = table.get("source_tree_validators")
+    if isinstance(value, list):
+        return [str(v) for v in value]
+    if isinstance(value, str) and value:
+        return [value]
+    fence = md.first_fence(lines)
+    if not fence:
+        return []
+    out: list[str] = []
+    inside = False
+    for raw in fence.splitlines():
+        stripped = raw.strip()
+        if re.fullmatch(r"source_tree_validators:\s*(\[\])?", stripped):
+            inside = True
+            continue
+        if inside and stripped.startswith("- "):
+            item = stripped[2:].strip()
+            if len(item) >= 2 and item[0] == item[-1] and item[0] in "\"'":
+                item = item[1:-1]
+            out.append(item)
+        elif inside and stripped and not stripped.startswith("#"):
+            break
+    return out
+
+
 def load_build(text: str | None) -> BuildConfig:
     if text is None:
         return BuildConfig(found=False)
@@ -124,6 +222,7 @@ def load_build(text: str | None) -> BuildConfig:
         "reproducibility_checks": "Reproducibility checks",
         "binary_exclude": "Binary-exclude",
         "rat_configuration": "RAT configuration",
+        "source_tree_validators": "Source-tree validators",
     }
     sections = {key: md.section_lines(text, title) for key, title in names.items()}
     build.sections = {key: lines is not None for key, lines in sections.items()}
@@ -146,6 +245,12 @@ def load_build(text: str | None) -> BuildConfig:
     else:
         tokens = md.backtick_tokens(md.first_text_block(sections["digest_set"]))
         build.digest_set = [t.lower() for t in tokens if _DIGEST.match(t)]
+
+    if not build.table.get("expected_artefacts"):
+        build.optional_artefacts = _optional_artefacts(md.first_text_block(sections["expected_artefacts"]))
+    build.binary_prohibit, build.binary_accept = _binary_exclude(md.first_text_block(sections["binary_exclude"]))
+    build.rat_config_path, build.rat_excludes_path = _rat_paths(md.first_text_block(sections["rat_configuration"]))
+    build.source_tree_validators = _validators(build.table, sections["source_tree_validators"])
 
     fence = md.first_fence(sections["convenience_artefacts"], "yaml")
     entries = md.parse_yaml_list(fence, "convenience_artefacts") if fence else None

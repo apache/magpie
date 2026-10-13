@@ -636,6 +636,14 @@ def _convenience_split(cfg: Loaded, version: str | None, verify: list[str]) -> d
     return {"publish": publish, "held": held}
 
 
+def _digest_list(value: Any) -> list[str]:
+    """A table digest cell (`sha512` or `sha512` `sha256`, or `sha512, sha256`) as a list; unset → []."""
+    if not value:
+        return []
+    items = value if isinstance(value, list) else str(value).split(",")
+    return [str(d).strip().lower() for d in items if str(d).strip()]
+
+
 def metadata(skill: str | None, cfg: Loaded, args: argparse.Namespace) -> dict[str, Any]:
     """The config-derived Step 1 fields of a skill, named as its Step 1 table names them."""
     if skill is None:
@@ -711,5 +719,36 @@ def metadata(skill: str | None, cfg: Loaded, args: argparse.Namespace) -> dict[s
             "rm_gpg_fingerprint": _user_value(cfg, "release_manager.gpg_fingerprint"),
             "git_upstream_remote": cfg.get("git_upstream_remote"),
             "convenience": _convenience_split(cfg, version, args.verify_binary or []),
+        }
+    if skill == "verify-rc":
+        optional = set(build.optional_artefacts)
+        return common | {
+            "rc": rc,
+            "rc_tag": f"{version}-{rc}" if version and rc else None,
+            "organization": cfg.organization,
+            "staging_url": _staging_url(cfg, version, rc),
+            "target_url": _target_url(cfg, version),
+            "keys_file_url": cfg.raw.get("keys_file_url"),
+            "keyserver": cfg.get("keyserver"),
+            "version_manifest_files": cfg.raw.get("version_manifest_files") or [],
+            "expected_artefacts": [
+                {"name": _render(a["name"], version, rc), "kind": a["kind"], "required": a["name"] not in optional} for a in build.expected_artefacts
+            ],
+            "digest_set": build.digest_set,
+            "binary_prohibit": build.binary_prohibit,
+            "binary_accept": build.binary_accept,
+            "rat_config_path": build.rat_config_path,
+            "rat_excludes_path": build.rat_excludes_path,
+            "source_tree_validators": build.source_tree_validators,
+            "jvm_artefact_checks": str(build.value("jvm_artefact_checks", "on")),
+            "jvm_companion_location": build.value("jvm_companion_location"),
+            "jvm_digest_set": _digest_list(build.value("jvm_digest_set")),
+            "nexus_staging_repo": build.value("nexus_staging_repo"),
+            "source_archive_method": build.source_archive_method,
+            "source_archive_format": build.as_dict()["source_archive_format"],
+            "source_archive_prefix": _render(build.value("source_archive_prefix"), version),
+            "reproducibility_source": build.reproducibility_source,
+            "reproducibility_binaries": build.reproducibility_binaries,
+            "build_command": build.build_command,
         }
     return common | {"rc": rc, "staging_url": _staging_url(cfg, version, rc), "target_url": _target_url(cfg, version)}

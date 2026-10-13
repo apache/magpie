@@ -77,7 +77,7 @@ Suites are currently implemented for:
 - **release-prepare** — 15 cases across 4 suites (step-0-preflight, step-1-plan, step-14-post, step-2-prep)
 - **release-promote** — 9 cases across 2 suites (step-0-preflight, step-2-emit-commands)
 - **release-rc-cut** — 7 cases across 2 suites (step-0-preflight, step-3-staging); Steps 2, 2b and 3 are rendered and pytest-tested in `tools/release-management`
-- **release-verify-rc** — 33 cases across 9 suites (step-0-preflight, step-2-verify-signatures, step-3-verify-checksums, step-5-notice-license, step-6-binary-exclusion, step-6b-jvm-artefacts, step-6c-nexus-staging, step-8-version-consistency, step-9-reproducibility)
+- **release-verify-rc** — 17 cases across 8 suites (step-0-preflight, step-2-verify-signatures, step-3-verify-checksums, step-5-notice-license, step-6-binary-exclusion, step-6b-jvm-artefacts, step-6c-nexus-staging, step-8-version-consistency); the scripted Step 6b, 6c and 9 cases are pytest cases in `tools/release-management/tests/test_verify_rc.py`
 - **release-vote-draft** — 9 cases across 3 suites (step-0-preflight, step-2-vote-draft, step-3-planning-comment)
 - **release-vote-tally** — 9 cases across 3 suites (step-0-preflight, step-2-classify, step-3-tally)
 - **reviewer-routing** — 1 case across 1 suite (step-score-and-propose); pre-flight and scoring are pytest-tested in `tools/pr-management`

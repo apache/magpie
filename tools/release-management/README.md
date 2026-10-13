@@ -10,6 +10,7 @@
   - [How to use](#how-to-use)
   - [Commands](#commands)
     - [`rc-cut`](#rc-cut)
+    - [`verify-rc`](#verify-rc)
   - [Tests](#tests)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -26,7 +27,8 @@
 The deterministic core of the `release-management` skills.
 [`release-config`](../release-config/README.md) resolves the configuration and runs each skill's Step 0;
 this tool takes what `release-config load` printed and renders everything the skill hands the release manager:
-paste-ready command blocks, mail drafts, planning-issue comments.
+paste-ready command blocks, mail drafts, planning-issue comments;
+for `release-verify-rc` it also classifies the output of each check the voter ran.
 The agent presents the output and keeps only the judgement; the release manager runs every command on their own machine.
 
 **It runs nothing.**
@@ -83,10 +85,27 @@ Refusals, in code rather than prose:
 - **Failed reproducibility** — Step 4 refuses `differs` outcomes and `content-identical` where byte identity is required, before proposing `rc-staging`.
 - **Missing inputs** — `svnpubsub` staging without `--asf-id`, or a `repro-archive` command with no known framework root (`--framework`).
 
+### `verify-rc`
+
+Every command takes `--load <file>` (what `release-config load --skill verify-rc <version>-rcN` printed) except `source-tree`,
+and reads the files the agent saved from a check's own run: a tool's JSON, RAT's output, the Nexus probe output.
+It never runs `gpg`, `curl`, RAT, a rebuild or any other check.
+Until it has every input a step needs, it prints `status: null` and `pending`, naming what is missing.
+
+| Command | Prints |
+|---|---|
+| `args [--staging-copy D] [--keys-file F] [--unpacked-dir D] [--previous-dir D]` | `commands`: the `release-verify` invocation of each of Steps 1–3 and 5–8 and `all`, one `--expect` per required and `--expect-optional` per optional expected artefact (in order), `--digest` (sha512 always, sha256 when listed; md5 never), `--prohibit` / `--accept` from the Binary-exclude list, `--validator`, `--manifest`; plus `unpacked_dir`. |
+| `rat [--exit-code N] [--report F]` | Step 4: `paste_recipe` from the RAT config and excludes paths; `PASS` on exit 0 with nothing listed, `FAIL` on a non-zero exit or any `unapproved_files` (parsed from `!?????` lines and the `Files with unapproved licenses:` block); `SKIP` with `status: WARN` when no RAT configuration is declared. |
+| `source-tree --symlinks F --validator-result CODE[:DETAIL]…` | Step 7: a `release-verify symlinks` `REVIEW` resolved from each validator's exit code (any non-zero → one `validator_failures` entry, `FAIL`); a tool `FAIL` / `PASS` / `SKIP` is final. |
+| `jvm --inventory F [--staged-dir D] [--tree D] [--report F]` | Step 6b: `SKIP` without a `.jar` / `.pom` or under `jvm_artefact_checks: off`; the `maven-artifact-verify` recipe (`--digests` from `jvm_digest_set`, else the digest set; `--podling` only when `DISCLAIMER` / `DISCLAIMER-WIP` sits at the tree root); with `--report`, the step's JSON: findings for every non-passing check, `ABSENT` a `FAIL` only under `jvm_companion_location: staged`, observations that never change the status, and one `gpg --verify` per companion whose `.asc` is staged. |
+| `nexus --inventory F [--issue-body F] [--rm-credentials] [--not-probed \| --existence-code N] [--state F] [--profile F] [--crawl F]` | Step 6c: the gates (JVM artefacts, checks on, organization `ASF`, a resolvable id), the id-shape check (`^orgapache[a-z0-9]+-[0-9]+$` or `snapshots`, else a `SKIP` naming the value — the id is spliced into `curl` URLs), the read-only recipe (anonymous existence and crawl; the `--netrc-file` state and profile reads only with `--rm-credentials`), and the classification: `404` not reachable, `open`, snapshots, version mismatch, missing `.asc`, incomplete companion set (`packaging=pom` exempt) as `FAIL`; `STATE-UNVERIFIED` (no credentials, a refused probe, any other code) and stale siblings as `WARN`. |
+| `repro [--skip-repro] [--trusted-hardware] [--recorded-commit] [--tag-commit] [--recorded-swhid] [--atr-swhid] [--epoch] [--check F] [--compare F] [--binary NAME=identical\|differs\|known:P]…` | Step 9: whether it runs (`mandatory` under `ci-automated`, where `--skip-repro` is ignored), the recipe, and the roll-up: the source table (RM-key vs automated signing), the SWHID compared without qualifiers, each convenience artefact by its own mode, `binaries.differs` for `release-promote`. |
+| `report --verdict F [--repro F] [--compare F] [--post-to URL] [--trusted-hardware] [--committer H] [--finding S=T]… [--fail-detail T]… [--warn-detail T]…` | Step 10: the report text (with the voter-obligation reminder), and with `--post-to` the comment to propose, carrying the *Reproducibility validated on trusted hardware* attestation only under `ci-automated`, Step 9 `PASS` with every artefact identical, and `--trusted-hardware`. The overall verdict is `release-verify verdict`'s; an unresolved one is refused. |
+
 ## Tests
 
 ```bash
 uv run --project tools/release-management pytest
 ```
 
-The scripted cases of the retired model-graded `release-rc-cut` suites live in `tests/test_rc_cut.py`, named after each former case.
+The scripted cases of the retired model-graded `release-rc-cut` suites live in `tests/test_rc_cut.py`, and those of `release-verify-rc` in `tests/test_verify_rc.py`, named after each former case.

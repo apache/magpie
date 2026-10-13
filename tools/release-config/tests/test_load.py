@@ -313,3 +313,92 @@ def test_main_prints_json(project, capsys):
 def test_unknown_skill_is_usage_error(project):
     with pytest.raises(SystemExit):
         cli.run(["preflight", "--project-root", str(project()), "--skill", "nope"])
+
+
+BUILD_VERIFY = """\
+# Apache Foo: release-build configuration
+
+## Source-tree validators
+
+```yaml
+source_tree_validators:
+  - "uv run --project tools/symlink-lint symlink-lint ."
+  - "make check-links"
+```
+
+## Expected artefact list
+
+- `apache-foo-<version>-source-release.zip`, canonical source artefact (required, signed, checksummed).
+- `apache-foo-<version>-bin.tar.gz`, convenience binary (optional, signed, checksummed).
+
+## Digest set
+
+- `sha512`, required.
+
+## JVM artefact checks
+
+| Key | Value | Notes |
+|---|---|---|
+| `jvm_artefact_checks` | `on` | |
+| `jvm_companion_location` | `staged` | |
+| `jvm_digest_set` | `sha512` `sha1` | |
+| `nexus_staging_repo` | `orgapachefoo-1024` | |
+
+## Binary-exclude list
+
+- `assets/vendor/**/*.min.js` — additional prohibited glob (vendored minified JS).
+- `third-party/some-native.so` — known-accepted exception (ships with a documented source counterpart).
+
+The baseline (`.class`, `.jar`, `.pyc`) is always scanned.
+
+## Apache RAT configuration
+
+- **RAT plugin config:** `pom.xml § rat-maven-plugin`.
+- **RAT excludes file:** `rat-excludes.txt`.
+"""
+
+
+def test_verify_rc_metadata(project, load):
+    meta = load(project(build=BUILD_VERIFY), "verify-rc", "1.1.0-rc2")["metadata"]
+    assert meta["rc_tag"] == "1.1.0-rc2"
+    assert meta["organization"] == "ASF"
+    assert meta["staging_url"] == "https://dist.apache.org/repos/dist/dev/foo/1.1.0-rc2/"
+    assert meta["keys_file_url"] == "https://dist.apache.org/repos/dist/release/foo/KEYS"
+    assert meta["version_manifest_files"] == ["setup.cfg", "foo/__init__.py"]
+    assert meta["expected_artefacts"] == [
+        {"name": "apache-foo-1.1.0-source-release.zip", "kind": "source", "required": True},
+        {"name": "apache-foo-1.1.0-bin.tar.gz", "kind": "convenience", "required": False},
+    ]
+    assert meta["binary_prohibit"] == ["assets/vendor/**/*.min.js"]
+    assert meta["binary_accept"] == ["third-party/some-native.so"]
+    assert meta["rat_config_path"] == "pom.xml § rat-maven-plugin"
+    assert meta["rat_excludes_path"] == "rat-excludes.txt"
+    assert meta["source_tree_validators"] == ["uv run --project tools/symlink-lint symlink-lint .", "make check-links"]
+    assert meta["jvm_artefact_checks"] == "on"
+    assert meta["jvm_companion_location"] == "staged"
+    assert meta["jvm_digest_set"] == ["sha512", "sha1"]
+    assert meta["nexus_staging_repo"] == "orgapachefoo-1024"
+
+
+def test_verify_rc_metadata_source_only_defaults(project, load):
+    meta = load(project(), "verify-rc", "1.1.0-rc1")["metadata"]
+    assert meta["expected_artefacts"] == [{"name": "apache-foo-1.1.0-source.tar.gz", "kind": "source", "required": True}]
+    assert meta["binary_prohibit"] == [] and meta["binary_accept"] == []
+    assert meta["rat_config_path"] is None
+    assert meta["rat_excludes_path"] == ".rat-excludes"
+    assert meta["source_tree_validators"] == []
+    assert meta["jvm_artefact_checks"] == "on"
+    assert meta["jvm_digest_set"] == [] and meta["nexus_staging_repo"] is None
+    assert meta["reproducibility_source"] == "on"
+
+
+def test_verify_rc_rat_prose_form():
+    build = load_build("## Apache RAT configuration\n\nRAT runs in CI (`.github/workflows/rat.yml`) with excludes in\n`.rat-excludes` at the repo root.\n")
+    assert (build.rat_config_path, build.rat_excludes_path) == (".github/workflows/rat.yml", ".rat-excludes")
+
+
+def test_verify_rc_template_sections_parse_empty():
+    build = load_build((TEMPLATES / "release-build.md").read_text(encoding="utf-8"))
+    assert build.binary_prohibit == [] and build.binary_accept == []
+    assert build.source_tree_validators == []
+    assert build.optional_artefacts == []

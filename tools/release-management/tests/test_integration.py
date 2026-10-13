@@ -193,3 +193,42 @@ def test_custom_build_emits_a_complete_real_reproducibility_record(
     assert record["swhid_dir"].startswith("swh:1:dir:")
     assert record["swhid_dir_note"] == "identical to the repository tree"
     assert render.step4(cut, record=record)["record_missing"] == []
+
+
+def test_verify_rc_reads_a_real_load(tmp_path: Path) -> None:
+    from release_management.verify_rc import args as verify_args
+    from release_management.verify_rc import checks, repro
+    from release_management.verify_rc.common import VerifyRc
+
+    config = tmp_path / ".apache-magpie-overrides"
+    config.mkdir()
+    (config / "release-management-config.md").write_text(_rmc(RMC), encoding="utf-8")
+    build = BUILD + "\n## Apache RAT configuration\n\n- **RAT excludes file:** `.rat-excludes`.\n"
+    (config / "release-build.md").write_text(build, encoding="utf-8")
+    (config / "project.md").write_text(
+        "# Project\n\n| Key | Value |\n|---|---|\n| `organization` | `ASF` |\n", encoding="utf-8"
+    )
+    loaded = release_config_cli.run(
+        [
+            "load",
+            "--project-root",
+            str(tmp_path),
+            "--user-config",
+            str(tmp_path / "absent.md"),
+            "--skill",
+            "verify-rc",
+            "1.0.0-rc1",
+        ]
+    )
+    v = VerifyRc.from_load(loaded)
+    assert (v.rc_tag, v.source_artefact, v.is_asf, v.ci_automated) == (
+        "1.0.0-rc1",
+        "apache-foo-1.0.0-source.tar.gz",
+        True,
+        False,
+    )
+    commands = verify_args.invocations(v)["commands"]
+    assert '--expect "apache-foo-1.0.0-source.tar.gz"' in commands["inventory"]
+    assert "--manifest setup.cfg" in commands["version"]
+    assert checks.rat(v, report=None, exit_code=0)["status"] == "PASS"
+    assert repro.plan(v, skip_repro=False)["source_enabled"] is True

@@ -85,7 +85,7 @@ Rules the subcommands apply:
 
 ## Wiring
 
-- `release-verify-rc` Steps 1–3 and 5–8 run the matching subcommand, and Step 10 runs `verdict` (or the skill runs `all` once). Step 4 (Apache RAT) is build-system specific and Step 9 uses [`reproducible-archive`](../reproducible-archive/README.md); both report their status into `verdict` with `--status`.
+- `release-verify-rc` Steps 1–3 and 5–8 run the matching subcommand, and Step 10 runs `verdict` (or the skill runs `all` once). Step 4 (Apache RAT) is build-system specific and Step 9 uses [`reproducible-archive`](../reproducible-archive/README.md); both report their status into `verdict` with `--status`. [`release-management verify-rc args`](../release-management/README.md#verify-rc) writes every invocation from `release-build.md`, and `verify-rc source-tree` resolves a Step 7 `REVIEW`.
 - The workspace pre-commit hooks (`ruff`, `mypy`, `pytest`) pick the project up from the root `pyproject.toml` `[tool.uv.workspace] members` list.
 
 ## Tests
