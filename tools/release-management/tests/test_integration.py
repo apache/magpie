@@ -380,3 +380,46 @@ def test_announce_draft_renders_from_a_real_load(tmp_path: Path) -> None:
     assert "Cc: dev@foo.apache.org" in draft["body"] and "foo/KEYS" in draft["body"]
     site = announce.step3(a)
     assert site["files_in_scope"] == ["content/announcements/1.0.0.md"] and site["proposed"] is True
+
+
+def test_prepare_decides_from_a_real_preflight_and_load(tmp_path: Path) -> None:
+    from release_management.prepare import archive as prepare_archive
+    from release_management.prepare import plan as prepare_plan
+    from release_management.prepare import prep as prepare_prep
+    from release_management.prepare import signing as prepare_signing
+
+    _project(
+        tmp_path,
+        {
+            "release_vote_backend": "atr",
+            "changelog_label_categories": ["needs-review=Other changes"],
+        },
+    )
+    (tmp_path / ".apache-magpie-overrides" / "release-trains.md").write_text(
+        "# Release trains\n\n## Release branches currently in flight\n\n"
+        "- **`main`** — the 1.x train; next release `1.1.0`, Release Manager @rm.\n",
+        encoding="utf-8",
+    )
+    pre = _run(tmp_path, "preflight", "prepare", "prep", "1.1.0")
+    url = "https://github.com/apache/foo/issues/1"
+    verdict = prepare_plan.verdict(
+        pre, planning_issue=url, planning_labels=["release-planning"], gh_access=True
+    )
+    assert verdict["verdict"] == "proceed" and verdict["train_covered"] is True
+    assert prepare_plan.verdict(_run(tmp_path, "preflight", "prepare", "2.0.0"), gh_access=True)[
+        "blockers"
+    ] == ["release-trains.md has no entry for version 2.0.0 or a 2.x train"]
+
+    loaded = _run(tmp_path, "load", "prepare", "prep", "1.1.0")
+    mode = prepare_archive.mode(loaded, previous_tag="1.0.0")
+    assert mode["mode"] == "drift" and mode["export_ignore_reviewed"] == "1.0.0"
+    cats = prepare_prep.parse_categories(loaded["config"].get("changelog_label_categories"))
+    assert cats == {"needs-review": "Other changes"}
+    assert loaded["config"]["version_manifest_files"] == ["setup.cfg"]
+
+    signing_load = _run(tmp_path, "load", "prepare", "automated-signing")
+    gate = prepare_signing.eligibility(signing_load, verify_rc_identical=True)
+    assert gate["eligible"] is True, gate["missing_conditions"]
+    assert prepare_signing.eligibility(signing_load)["missing_conditions"] == [
+        prepare_signing.NOT_REPRODUCIBLE
+    ]

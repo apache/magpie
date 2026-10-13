@@ -59,6 +59,13 @@ ship in the same adopter directory and are referenced from here:
 | `release_planning_issue_template` | `<project-config>/release-planning-issue.md` |
 | `release_branch_base` | `main` |
 | `version_manifest_files` | `setup.cfg`, `foo/__init__.py` |
+| `changelog_label_categories` | *(optional)* e.g. `kind/feature=Features`, `kind/bug-fix=Bug fixes`, `area/docs=Documentation` |
+
+> `changelog_label_categories` (optional) maps PR labels to the
+> `release-prepare prep` changelog sections (*Features*, *Bug fixes*,
+> *Documentation*, *Other changes*), as `LABEL=SECTION` pairs. Unset, a
+> label is sorted by its words (`kind/bug-fix` → *Bug fixes*); PRs no rule
+> places stay uncategorised until the RM assigns them.
 
 > `git_upstream_remote` is the **git remote name** in the RM's local
 > checkout that points at the upstream release repo (`<upstream>`), used

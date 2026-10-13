@@ -139,12 +139,15 @@ code lands.
   Per-skill sibling scripts (#1512) under `skills/<alias>/scripts/` with
   stdlib `unittest` suites in `skills/<alias>/tests/`: `archive-sweep`
   `retention.py`, `audit-report` `render_record.py`, `keys-sync`
-  `check_key.py`, `prepare` `category_x.py` / `next_dev_version.py` /
-  `prev_tag.py`; the `skill-script-tests` pre-commit hook
+  `check_key.py`; the `skill-script-tests` pre-commit hook
   (`tools/dev/run-skill-script-tests.sh`) runs them. The `vote-tally`
   tally (formerly `tally.py`) is `release-management vote-tally tally`
   in `tools/release-management`, beside the `vote-draft` and `vote-tally`
-  renders.
+  renders; `prepare`'s former `prev_tag.py`, `category_x.py` and
+  `next_dev_version.py` are `release-management prepare prev-tag`,
+  `category-x` and `next-dev-version`, beside its Step 0 verdict, the
+  planning-issue and PR renders, the changelog coverage check, the 2e
+  archive review and the Step A eligibility gate and workflow render.
 - Conditional steps load only when they run (#1515): `prepare` splits into
   `plan.md`, `prep.md`, `post.md` and `automated-signing.md`; `rc-cut` into
   `ci-signed.md` and `reproducibility-self-check.md`; `verify-rc` into

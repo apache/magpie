@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -31,20 +30,20 @@ lines are accepted, ``^{}`` peel entries are folded) and prints the highest
 
 ``previous_tag`` is null when no tag qualifies (a first release, or a train
 with no earlier release); the model then asks the Release Manager.
-Exit 0 on success, 2 on bad input.
+Formerly a script beside the skill; now `release-management prepare prev-tag`,
+which exits 2 on bad input. `train_of` / `covers` reuse the same train
+matching for the Step 0 check that `release-trains.md` covers `<version>`.
 """
 
 from __future__ import annotations
 
-import argparse
-import json
 import re
-import sys
-from pathlib import Path
 from typing import Any
 
 FINAL_RE = re.compile(r"^v?(\d+(?:\.\d+)+)(?:[.-]?post(\d+))?$")
 TRAIN_RE = re.compile(r"^(\d+(?:\.\d+)*)\.x$")
+TRAIN_IN_TEXT = re.compile(r"(?<![\w.])\d+(?:\.\d+)*\.x(?![\w])")
+VERSION_IN_TEXT = re.compile(r"(?<![\w.])v?(\d+(?:\.\d+)+)(?:[.-]?post(\d+))?(?![\w.]*\w)")
 
 
 class InputError(Exception):
@@ -56,6 +55,35 @@ def key(release: str, post: str | None) -> tuple[tuple[int, ...], int]:
     while len(parts) > 1 and parts[-1] == 0:
         parts.pop()
     return tuple(parts), int(post) if post is not None else -1
+
+
+def parse_train(train: str) -> tuple[int, ...]:
+    """`2.x` → `(2,)`, `2.11.x` → `(2, 11)`."""
+    match = TRAIN_RE.match(train.strip())
+    if not match:
+        raise InputError(f"--train {train!r} is not a dotted prefix ending in .x (e.g. 2.x)")
+    return tuple(int(p) for p in match.group(1).split("."))
+
+
+def covers(line: str, version: str) -> bool | None:
+    """Whether one `release-trains.md` release line covers `version`.
+
+    True when a train pattern in it (`2.x`, `2.11.x`) contains the version, or it
+    names the version itself; False when it names trains or versions and none
+    match; None when it names neither, so the agent reads the line itself.
+    """
+    target = FINAL_RE.match(version)
+    if not target:
+        return None
+    parts = tuple(int(p) for p in target.group(1).split("."))
+    trains = [parse_train(m.group(0)) for m in TRAIN_IN_TEXT.finditer(line)]
+    versions = list(VERSION_IN_TEXT.finditer(line))
+    if not trains and not versions:
+        return None
+    if any(parts[: len(prefix)] == prefix for prefix in trains):
+        return True
+    target_key = key(target.group(1), target.group(2))
+    return any(key(m.group(1), m.group(2)) == target_key for m in versions)
 
 
 def tag_names(text: str) -> list[str]:
@@ -76,13 +104,7 @@ def find_previous(tags: list[str], version: str, train: str | None, prefix: str)
     if not target:
         raise InputError(f"--version {version!r} is not a final release version")
     target_key = key(target.group(1), target.group(2))
-    if train:
-        match = TRAIN_RE.match(train.strip())
-        if not match:
-            raise InputError(f"--train {train!r} is not a dotted prefix ending in .x (e.g. 2.x)")
-        train_prefix = tuple(int(p) for p in match.group(1).split("."))
-    else:
-        train_prefix = (int(target.group(1).split(".")[0]),)
+    train_prefix = parse_train(train) if train else (int(target.group(1).split(".")[0]),)
 
     candidates: list[tuple[tuple[tuple[int, ...], int], str]] = []
     skipped_prerelease: list[str] = []
@@ -113,26 +135,3 @@ def find_previous(tags: list[str], version: str, train: str | None, prefix: str)
         "candidates_in_train": [t for _, t in candidates],
         "skipped_prerelease_tags": skipped_prerelease,
     }
-
-
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument(
-        "--tags", required=True, help="file of tag names or git ls-remote output ('-' for stdin)"
-    )
-    parser.add_argument("--version", required=True)
-    parser.add_argument("--train", help="train pattern, e.g. 2.x or 2.11.x")
-    parser.add_argument("--tag-prefix", default="", help="namespace to strip, e.g. rel/")
-    args = parser.parse_args(argv)
-    try:
-        text = sys.stdin.read() if args.tags == "-" else Path(args.tags).read_text(encoding="utf-8")
-        out = find_previous(tag_names(text), args.version, args.train, args.tag_prefix)
-    except (InputError, OSError) as exc:
-        print(json.dumps({"error": str(exc)}))
-        return 2
-    print(json.dumps(out, indent=2))
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())

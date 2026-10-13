@@ -74,7 +74,7 @@ Suites are currently implemented for:
 - **release-archive-sweep** — 10 cases across 3 suites (step-0-preflight, step-1-load-listing, step-2-emit-commands)
 - **release-audit-report** — 9 cases across 3 suites (step-0-preflight, step-1-gather-record, step-2-assemble-record)
 - **release-keys-sync** — 9 cases across 3 suites (step-0-preflight, step-1-key-fetch, step-2-svn-commands)
-- **release-prepare** — 15 cases across 4 suites (step-0-preflight, step-1-plan, step-14-post, step-2-prep)
+- **release-prepare** — 6 cases across 3 suites (step-0-preflight, step-1-plan, step-2-prep); the Step 0 verdict, the planning issue, the changelog, the prep and post-release PRs and the 2e bucket table are rendered and pytest-tested in `tools/release-management`
 - **release-promote** — 2 cases across 2 suites (step-0-preflight, step-2-emit-commands); the Step 0 verdict and Step 2 are rendered and pytest-tested in `tools/release-management`
 - **release-rc-cut** — 7 cases across 2 suites (step-0-preflight, step-3-staging); Steps 2, 2b and 3 are rendered and pytest-tested in `tools/release-management`
 - **release-verify-rc** — 17 cases across 8 suites (step-0-preflight, step-2-verify-signatures, step-3-verify-checksums, step-5-notice-license, step-6-binary-exclusion, step-6b-jvm-artefacts, step-6c-nexus-staging, step-8-version-consistency); the scripted Step 6b, 6c and 9 cases are pytest cases in `tools/release-management/tests/test_verify_rc.py`

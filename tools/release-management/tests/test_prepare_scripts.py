@@ -15,19 +15,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
+"""The former skill-local scripts of release-prepare (prev_tag, category_x,
+next_dev_version), moved into `release_management.prepare` with their tests."""
+
 from __future__ import annotations
 
-import sys
 import tempfile
 import unittest
 from pathlib import Path
 from typing import ClassVar
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-
-import category_x
-import next_dev_version
-import prev_tag
+from release_management.prepare import category_x, next_dev_version, prev_tag
 
 LS_REMOTE = """\
 aaa\trefs/tags/2.10.2
@@ -162,7 +160,3 @@ class NextDevVersionTest(unittest.TestCase):
     def test_config_without_key_is_an_error(self) -> None:
         with self.assertRaises(ValueError):
             next_dev_version.configured_files("| `release_branch_base` | `main` |\n")
-
-
-if __name__ == "__main__":
-    unittest.main()

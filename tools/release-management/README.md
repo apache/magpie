@@ -15,6 +15,7 @@
     - [`vote-tally`](#vote-tally)
     - [`promote`](#promote)
     - [`announce-draft`](#announce-draft)
+    - [`prepare`](#prepare)
   - [Tests](#tests)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -144,11 +145,35 @@ An `--expedited` reason naming a CVE or a security fix comes back as a `warnings
 | `render --step 2 --load <file> --product-name N --download-page U --changelog-url U [--skip-promote-wait R] [--canned-body F] [--convenience KIND=LOC …]` | The subject from `announce_subject_template` and the body for `release_announce_backend`: the `[ANNOUNCE]` email with `To:` / `Cc:` and the `@apache.org` reminder (`announce-list`), or the `github-release-notes`, `site-post` and `discord-channel` shapes. A `canned_body` gets its placeholders substituted (and the reminder prepended if it never names a bare `@apache.org`). Warns when the Download Page is a `dist.apache.org` URL. |
 | `render --step 3 --load <file> --product-name N [--files F …] [--confirm-extra F …]` | The site-bump PR title, body and `gh pr create --web` line; `scope_violations` is the proposed files minus `site_pr_files` until the RM confirms them. The skip signal when `site_repo` is unset. |
 
+### `prepare`
+
+`--preflight` is what `release-config preflight --skill prepare …` printed; `--load` what `release-config load --skill prepare …` printed;
+`--prs` what `gh pr list --json number,title,url,labels,mergedAt` printed.
+Formerly skill-local scripts: `prev-tag`, `category-x` and `next-dev-version` print what `prev_tag.py`, `category_x.py` and `next_dev_version.py` printed, and exit `2` with `{"error"}` on bad input.
+
+| Command | Prints |
+|---|---|
+| `verdict --preflight F [--planning-issue U --planning-label L …] [--gh-access] [--previous-tag T] [--train-confirmed]` | The Step 0 JSON: the preflight blockers as written, plus one when no `release_lines` entry covers `<version>` (a train pattern such as `2.x` containing it, or the version itself; the `prev-tag` train matching), when no line names a train or version at all until `--train-confirmed`, when `prep` / `post` has no planning issue or it lacks `release-planning` / `announced`, and when `--gh-access` is absent. Fail-closed. |
+| `prev-tag --tags F --version V [--train T] [--tag-prefix P]` | 1a: the highest final release tag below the version in the train, skipping pre-releases. |
+| `plan-query --upstream U --base B [--previous-tag T] [--tag-date D]` | 1a: the `gh api … commits/<tag>` read that dates the tag, and the `gh pr list --search "merged:>=<date>"` query (a non-ISO date is refused). |
+| `plan --prs F --version V --product-name N --base B [--previous-tag T] [--upstream U] [--train N] [--rm N] [--template F] [--skip-empty-check [WHY]] [--opened-at T]` | 1a/1b: the empty-set hand-off (`empty_pr_set: true`), or the issue title, body (the default template, or `release_planning_issue_template` with its placeholders filled; PRs numbered and grouped by first label), the quoted `gh issue create` line and `unfilled_placeholders`. |
+| `versions --target V PATH=LOCAL…` | 2a: the current version string in each manifest (`release-verify version`'s extraction, reimplemented), `current_dev_version`, and `needs_reading` for a file it cannot read. |
+| `category-x --deny ID… PATH=LOCAL…` | 2b: the Category-X hard stop, whole-token and separator-insensitive. |
+| `notice --diff F` | 2c: the attribution paragraphs a NOTICE diff (unified, or a GitHub `patch`) removes and adds. Whether a removal is justified stays with the agent. |
+| `changelog --prs F --version V [--date D] [--load F] [--category LABEL=SECTION…] [--assign N=SECTION…]` | 2d: the entry by section (*Features*, *Bug fixes*, *Documentation*, *Other changes*; `changelog_label_categories` from the config, else the label's words), `changelog_coverage_pct` and `coverage_ok` (≥ 90%), the `uncategorised` PRs. |
+| `archive-mode --load F [--review-archive] [--previous-tag T]` | 2e: `full` (`export_ignore_reviewed` unset or `--review-archive`), `drift`, or `skipped` (`custom`), and the read-only listings to save into `$TMPDIR`. |
+| `archive-review --tracked F [--gitattributes F] [--symlinks F] [--refs F] [--changed F] [--exclude P…] [--keep P…] [--reason P=WHY…] [--load F] [--voter-input P…]` | 2e: every top-level entry in its bucket (`.github/` and the agent-view dirs one level down), `needs_rm` for the *project's call* and unclassified ones, the exclude-bucket entries in `.gitattributes` form (`/file`, `dir/`) with a comment each, `refused` for a never-excludable path or one a shipped file references, the shipped symlinks that chain or whose target would be stripped, the `git grep` loop and the before/after `repro-archive` commands; with `--changed`, the drift check (`archive_review: "skipped"` when nothing new). |
+| `prep-pr --load F --version V --product-name N --changelog F [--versions F \| --current-version S] [--previous-tag T] [--notice-summary S] [--notice-changed] [--license-changed] [--archive-review E] [--archive-entry ENTRY=WHY…] [--files F…] [--confirm-extra F…]` | 2f: the prep PR title, body and `files_in_scope` / `scope_violations` against the 2f set. Refuses coverage below 90%, an `archive_review` outside the enum or inconsistent with the entries, and an unknown current version. |
+| `next-dev-version --version V (--config F \| --version-files A,B) [FILE…]` | 14a: the next development version per configured file. |
+| `post-pr --next F --product-name N [--next-version V] [--files F…] [--confirm-extra F…]` | 14b: the post-release bump PR title, body and scope against `version_manifest_files`. Refuses a file with no next version, files that disagree (until `--next-version`), and confirming `NOTICE` / `LICENSE`. |
+| `signing-eligibility --load F [--verify-rc-identical]` | A1 (🪶 ASF-only): `eligible` and every `missing_conditions` entry — organization `ASF` offering it, `git-archive`, `reproducibility_source: on`, `byte-identical` binaries, the verify-rc report (the flag), an `atr` backend. |
+| `signing-render --load F --template F --project P [--infra-ticket T]` | A4/A5: the workflow template with the slug, artefact prefix, source format and `build_command`, the unpinned actions, and the `release-management-config.md § Signing` diff. Refuses a slug or prefix it cannot write, and any rendered key material or signing step. |
+
 ## Tests
 
 ```bash
 uv run --project tools/release-management pytest
 ```
 
-The scripted cases of the retired model-graded `release-rc-cut`, `release-verify-rc`, `release-vote-draft`, `release-vote-tally`, `release-promote` and `release-announce-draft` suites live in `tests/test_rc_cut.py`, `tests/test_verify_rc.py`, `tests/test_vote_draft.py`, `tests/test_vote_tally.py`, `tests/test_promote.py` and `tests/test_announce_draft.py`, named after each former case.
+The scripted cases of the retired model-graded `release-rc-cut`, `release-verify-rc`, `release-vote-draft`, `release-vote-tally`, `release-promote`, `release-announce-draft` and `release-prepare` suites live in `tests/test_rc_cut.py`, `tests/test_verify_rc.py`, `tests/test_vote_draft.py`, `tests/test_vote_tally.py`, `tests/test_promote.py`, `tests/test_announce_draft.py` and `tests/test_prepare.py`, named after each former case; `tests/test_prepare_scripts.py` holds the moved `release-prepare` script tests.
 `tests/test_integration.py` renders each skill from what `release-config load` really prints.

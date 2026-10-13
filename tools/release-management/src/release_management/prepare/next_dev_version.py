@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -19,7 +18,7 @@
 
 Usage::
 
-    next_dev_version.py --version 2.11.0 --config <release-management-config.md> [<file> ...]
+    release-management prepare next-dev-version --version 2.11.0 --config <release-management-config.md> [<file> ...]
 
 ``--config`` is the resolved ``release-management-config.md``; the script
 reads its ``version_manifest_files`` key (table row or ``key: a, b`` line).
@@ -38,16 +37,14 @@ The default convention bumps the minor version and resets the patch:
   Release Manager supplies or confirms the string.
 
 A project with another convention (a patch bump, say) has the RM supply the
-next version in the conversation. Exit 0 on success, 2 on bad input.
+next version in the conversation. Exit 0 on success, 2 on bad input
+(formerly a script beside the skill; now a `release-management prepare` command).
 """
 
 from __future__ import annotations
 
-import argparse
-import json
 import re
-import sys
-from pathlib import Path, PurePosixPath
+from pathlib import PurePosixPath
 from typing import Any
 
 VERSION_RE = re.compile(r"^(\d+)\.(\d+)(?:\.(\d+))?(?:[.-]?post\d+)?$")
@@ -123,28 +120,3 @@ def next_versions(version: str, configured: list[str], files: list[str] | None =
         "not_configured": [f["file"] for f in out_files if not f["configured"]],
         "needs_rm_confirmation": any(f["needs_rm_confirmation"] for f in out_files),
     }
-
-
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--version", required=True, help="the version just released")
-    source = parser.add_mutually_exclusive_group(required=True)
-    source.add_argument("--config", help=f"resolved release-management-config.md carrying {KEY}")
-    source.add_argument("--version-files", help=f"comma-separated {KEY}, instead of --config")
-    parser.add_argument("files", nargs="*", help=f"files to report on; defaults to {KEY}")
-    args = parser.parse_args(argv)
-    try:
-        if args.config:
-            configured = configured_files(Path(args.config).read_text(encoding="utf-8"))
-        else:
-            configured = _split_values(args.version_files)
-        out = next_versions(args.version, configured, args.files)
-    except (OSError, ValueError) as exc:
-        print(json.dumps({"error": str(exc)}))
-        return 2
-    print(json.dumps(out, indent=2))
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())

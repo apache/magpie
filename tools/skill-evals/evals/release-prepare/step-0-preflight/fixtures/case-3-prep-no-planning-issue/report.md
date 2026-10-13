@@ -32,3 +32,22 @@ gh issue list search on apache/airflow: no open issue with label
   (The planning issue was never created; Step 1 was skipped.)
 
 gh pr list access confirmed.
+
+Facts for the verdict: no planning issue found (no `--planning-issue`); `gh pr list` access confirmed (`--gh-access`).
+
+`release-management prepare verdict --preflight <scratch>/prepare-preflight.json --gh-access` output:
+
+```json
+{
+  "verdict": "blocked",
+  "sub_command": "prep",
+  "version": "2.11.0",
+  "blockers": [
+    "No open issue labelled release-planning found for version 2.11.0; run Step 1 first or supply --planning-issue <url>"
+  ],
+  "release_branch_base": "main",
+  "previous_tag": null,
+  "train_covered": true,
+  "read": []
+}
+```

@@ -21,9 +21,9 @@ when_to_use: |
   (default), `prep`, `post`, `automated-signing`.
 argument-hint: "[prep | post] <version> [--review-archive] | automated-signing"
 capability: capability:resolve
-surface_hash: sha256:43e928f52996ee1b
+surface_hash: sha256:9380580d6421d8b4
 license: Apache-2.0
-measured_tokens: 5592
+measured_tokens: 5045
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -178,30 +178,8 @@ Local modifications go in the override file; framework changes go via PR to `apa
 
 ## Prerequisites
 
-- **`<project-config>/release-trains.md` readable** — identifies the release train, release branch, and release manager for `<version>`.
-- **`<project-config>/release-management-config.md` readable** —
-  provides `release_branch_base`, `version_manifest_files`, `category_x_dependencies`, and `release_planning_issue_template`.
-- **`<upstream>` access** — read access to the upstream repo to list merged PRs via `gh pr list` since the previous release tag.
-
-For Step 2 (`prep`):
-- **Planning issue open and labelled `release-planning`** — confirms Step 1 completed.
-  The skill can also accept `--planning-issue <url>`.
-
-For Step 14 (`post`):
-- **Planning issue labelled `announced`** — confirms Steps 10–11 completed. Accepted via `--planning-issue <url>`.
-
-For Step 2's source-archive review (`prep`, Step 2e) — optional:
-- **`<project-config>/release-build.md § Source archive`** — `source_archive_method` (default `git-archive`) and `export_ignore_reviewed`.
-  Absent file or key = the review has not happened yet, which is exactly when the sub-step runs.
-- **A local clone of `<upstream>`** at the release branch tip (the resolved `user.md` clone path) —
-  the review lists what `git archive` would ship from *that* tree.
-
-For Step A (`automated-signing`, 🪶 ASF-specific):
-- **The project's organization offers it.** The organization manifest key `release_process.automated_signing`,
-  resolved `project.md` → organization manifest → framework default (not offered), is set;
-  of the shipped organizations only [`organizations/ASF/organization.md`](../../../../organizations/ASF/organization.md) sets it.
-  The sub-command is not offered otherwise.
-- **`release-build.md § Reproducibility checks`** — `reproducibility_source: on` and `reproducibility_binaries: byte-identical` (or no binaries).
+Config files, upstream access, the planning-issue labels each sub-command needs, the local clone for the 2e review, and the 🪶 ASF-only Step A conditions:
+[`prerequisites.md`](prerequisites.md).
 
 ---
 
@@ -227,7 +205,7 @@ passing the arguments as the RM typed them:
 ```bash
 uv run --project <framework>/tools/release-config release-config preflight \
   --skill prepare [prep|post|automated-signing] [<version>] \
-  [--release-branch <branch>] [--previous-tag <tag>]
+  [--release-branch <branch>] [--previous-tag <tag>] > <scratch>/prepare-preflight.json
 ```
 
 It covers the sub-command, the version format (see *Inputs*), the automated-signing gate, the required config keys and `release-trains.md`,
@@ -235,12 +213,13 @@ and prints `{"ok", "blockers", "warnings", "values"}`.
 Each `blockers` entry is a hard blocker; surface it as written.
 `automated-signing` is 🪶 ASF-specific: when the tool blocks it (the organization does not offer it), do not describe the flow further.
 Surface `warnings` and carry on.
-Copy `sub_command`, `version`, `release_branch_base` and `previous_tag` from `values`;
-fill `previous_tag` yourself when it is detectable at pre-flight.
+The verdict below copies `sub_command`, `version`, `release_branch_base` and `previous_tag` from `values`;
+when `previous_tag` is detectable at pre-flight, pass it as `--previous-tag`.
 
 Then check what the tool cannot see:
 
-1. **Train record exists for `<version>`.** One of `values.release_lines` (the release lines `release-trains.md` lists) covers `<version>`.
+1. **Train record exists for `<version>`.** One of `values.release_lines` (the release lines `release-trains.md` lists) covers `<version>`;
+   the verdict below decides it from the train patterns (`2.x`) and versions those lines name.
 2. **For Step 2 (`prep`):** Planning issue found and labelled `release-planning`.
    Either `--planning-issue <url>` was passed or the skill finds a `release-planning` issue on `<upstream>` matching `<version>` in its title.
 3. **For Step 14 (`post`):** Planning issue found and labelled `announced`.
@@ -248,10 +227,22 @@ Then check what the tool cannot see:
 5. **Drift check** — the generated pre-flight block reports snapshot drift.
 6. **Override consultation** — see *Adopter overrides* above.
 
+Fold the facts into the verdict with the [`release-management`](../../../../tools/release-management/README.md#prepare) tool, passing each flag only when its fact holds:
+
+```bash
+uv run --project <framework>/tools/release-management release-management prepare verdict \
+  --preflight <scratch>/prepare-preflight.json [--planning-issue <url> --planning-label <label> ...] \
+  [--gh-access] [--previous-tag <tag>] [--train-confirmed]
+```
+
+The verdict is fail-closed: without `--gh-access` or (for `prep` / `post`) a labelled `--planning-issue` it blocks.
+It keeps the tool's `blockers` as written and adds one per failed check; surface each as written.
+When no release line names a train or version at all, it blocks until you read `values.release_lines` and pass `--train-confirmed` for the one that is the train record.
+Load each file its `read` list names ([`automated-signing-ineligible.md`](automated-signing-ineligible.md)).
 If any check fails (and is not overridden), stop and surface what is missing
 with the exact config key name that is missing or the exact condition that blocks progress.
 
-Return ONLY valid JSON with this structure:
+Return ONLY valid JSON with this structure (the verdict's fields, without `train_covered` and `read`):
 
 ```json
 {
@@ -373,29 +364,4 @@ The AI-driven part ends with a hand-back artefact containing:
 
 ## References
 
-- [`docs/release-management/process.md`](../../../../docs/release-management/process.md) —
-  Steps 1, 2, and 14 context.
-- [`docs/release-management/spec.md`](../../../../docs/release-management/spec.md) —
-  `release-prepare` per-skill specification.
-- [`docs/release-management/reproducibility.md`](../../../../docs/release-management/reproducibility.md) —
-  the source-archive review (2e) buckets and rationale, and the 🪶
-  ASF-specific automated-signing setup (Step A).
-- [`<project-config>/release-build.md`](../../../magpie-setup/templates/release-build.md) —
-  `§ Source archive` (`source_archive_method`, `export_ignore_reviewed`)
-  and `§ Reproducibility checks`.
-- [`projects/_template/workflows/release-candidate.yml`](../../../magpie-setup/templates/workflows/release-candidate.yml) —
-  the workflow template Step A renders.
-- [`tools/reproducible-archive`](../../../../tools/reproducible-archive/README.md) —
-  `repro-archive build` / `compare` used for the before/after listing.
-- [`<project-config>/release-management-config.md`](../../../magpie-setup/templates/release-management-config.md) —
-  adopter keys this skill reads (`release_branch_base`,
-  `version_manifest_files`, `category_x_dependencies`,
-  `release_planning_issue_template`).
-- [`<project-config>/release-trains.md`](../../../magpie-setup/templates/release-trains.md) —
-  release train identity and RM roster.
-- `release-keys-sync` (proposed) — downstream Step 3.
-- `release-rc-cut` (proposed) — downstream Steps 4–5.
-- [ASF release policy](https://www.apache.org/legal/release-policy.html), canonical.
-- [ASF licensing-howto](https://www.apache.org/legal/resolved.html) —
-  Category-A/B/X dependency rules; Category-X is a hard stop for this
-  skill.
+The process and spec sections, the config templates, the workflow template and the tools this skill uses: [`references.md`](references.md).

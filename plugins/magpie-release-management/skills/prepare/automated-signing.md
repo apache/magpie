@@ -18,42 +18,46 @@ the Apache Security Team approves the workflow before use.
 Background:
 [`docs/release-management/reproducibility.md` § Automated release signing](../../../../docs/release-management/reproducibility.md#automated-release-signing--asf-specific-optional).
 
+`prepare <command>` below stands for
+`uv run --project <framework>/tools/release-management release-management prepare <command>`
+([`tools/release-management`](../../../../tools/release-management/README.md#prepare)); every command prints JSON and runs nothing.
+Save the configuration first: `uv run --project <framework>/tools/release-config release-config load --skill prepare automated-signing > <scratch>/signing-load.json`.
+
 ## A1 — Eligibility gate
 
 All of the following, else stop and list what is missing:
+the organization offers it (`release_process.automated_signing`; Step 0 checked it) and is `ASF`;
+`release-build.md` sets `source_archive_method: git-archive`, `reproducibility_source: on`,
+and `reproducibility_binaries: byte-identical` for every convenience binary (or none);
+the most recent RC's `release-verify-rc` report on its planning issue shows Step 9 `PASS` with every artefact `identical`;
+and `release_vote_backend` or `release_dist_backend` is `atr` (ATR trusted publishing is the workflow's staging target).
+Read the planning issue for that report yourself — without one the build is not *demonstrably* reproducible yet —
+and let the command check the rest, fail-closed:
 
-- `release_process.automated_signing` is set (`project.md` → organization manifest → framework default; Step 0 checked it).
-- `release-build.md` → `source_archive_method: git-archive`, `reproducibility_source: on`,
-  and `reproducibility_binaries: byte-identical` for every convenience binary in `expected_artefacts` (or none).
-- The most recent RC's `release-verify-rc` report on its planning issue shows Step 9 `PASS` with every artefact `identical`.
-  If no such report exists the build is not *demonstrably* reproducible yet: tell the RM to cut and verify one RC with the checks on first.
-- `release_vote_backend: atr` or `release_dist_backend: atr` — ATR trusted publishing is the staging target the workflow template uses.
+```bash
+prepare signing-eligibility --load <scratch>/signing-load.json [--verify-rc-identical]
+```
 
-## A2 — Draft the Infra Jira ticket
-
-Draft (never file) an `INFRA` ticket titled *"CI release signing key for Apache <PROJECT>"* that:
-- requests the key per the policy (4096-bit RSA, signing-only, private half held by infra-root, public block to `KEYS`, encrypted revocation certificate to the project's private repo);
-- names the workflow (`ci_release_workflow`) and the staging target (ATR via `apache/tooling-actions/upload-to-atr`, pinned by commit SHA);
-- **highlights the trusted-hardware validation step** — `release-verify-rc` Step 9 with `--trusted-hardware`,
-  `repro-archive compare --require-identical` for every artefact, recorded on the planning issue, gating `release-promote`;
-- references the background ticket in `release_process.automated_signing.key_request_background`.
-
-## A3 — Draft the Security Team notification
-
-Draft (never send — [spec § Boundary 3](../../../../docs/release-management/spec.md#boundary-3-agent-never-sends-mail-to-dev-users-announce))
-a mail to `release_process.automated_signing.approval_body` (`security@apache.org`) from the RM,
-pointing at the ticket, the workflow PR and the validation step, asking for the approval the policy requires before the workflow is used.
-Plain text, real links, per the repository's email rules.
+Pass `--verify-rc-identical` only when the report is there and says so.
+`eligible: false` → list `missing_conditions` as written, read [`automated-signing-ineligible.md`](automated-signing-ineligible.md), and stop.
+Otherwise draft the Infra ticket and the Security Team mail per [`automated-signing-drafts.md`](automated-signing-drafts.md) (A2–A3).
 
 ## A4 — Propose the workflow PR
 
-From [`projects/_template/workflows/release-candidate.yml`](../../../magpie-setup/templates/workflows/release-candidate.yml),
-rendered with the project's slug, artefact prefix, source format and `build_command`, placed at `ci_release_workflow`.
+Render [`projects/_template/workflows/release-candidate.yml`](../../../magpie-setup/templates/workflows/release-candidate.yml)
+with the project's slug, artefact prefix, source format and `build_command`, placed at `ci_release_workflow`, together with the A5 config diff:
+
+```bash
+prepare signing-render --load <scratch>/signing-load.json --project <project> \
+  --template <framework>/plugins/magpie-setup/templates/workflows/release-candidate.yml [--infra-ticket <INFRA-NNNN>]
+```
+
 The template builds the source archive with the embedded `repro-archive` script
 (copy `tools/reproducible-archive/src/reproducible_archive/__init__.py` to `release/reproducible_archive.py` in the upstream repo),
 builds binaries under `SOURCE_DATE_EPOCH`, builds twice and compares, checksums with sha512 only, and uploads to ATR with OIDC.
-It contains **no key material and no signing step**; the signing mechanism is what Infra agrees on the ticket.
-Pin every action to a commit SHA.
+It contains **no key material and no signing step**; the signing mechanism is what Infra agrees on the ticket
+(the render refuses one that would carry either). Surface each `warnings` entry.
+Pin every action to a commit SHA (`unpinned_actions` lists them).
 Open as a draft PR via `gh pr create --web` after RM confirmation.
 
 <!-- BEGIN MAGPIE BLOCK: pre-pr-adversarial-review — generated from tools/dev/blocks/pre-pr-adversarial-review.md -->
@@ -131,7 +135,7 @@ reviewers reported each, and every entry in `warnings` verbatim.
 
 ## A5 — Propose the config diff
 
-`release-management-config.md § Signing`: `automated_release_signing: requested`, `ci_release_workflow`, `ci_signing_infra_ticket` (once the ticket exists).
+`release-management-config.md § Signing`: the render's `config_diff` — `automated_release_signing: requested`, `ci_release_workflow`, `ci_signing_infra_ticket` (once the ticket exists).
 Tell the RM that `enabled` is set only after Infra has provisioned the key, its public block is in `KEYS` (`release-keys-sync`),
 the Security Team has approved, and the workflow PR is merged.
 From then on `release-rc-cut` emits the tag push instead of local signing, `release-verify-rc` Step 9 is mandatory,

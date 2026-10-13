@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -19,7 +18,7 @@
 
 Usage::
 
-    category_x.py --deny <identifier> [--deny ...] <file> [<file> ...]
+    release-management prepare category-x --deny <identifier> [--deny ...] <file> [<file> ...]
 
 Each ``<file>`` is a local copy of a ``version_manifest_files`` entry or a
 configured dependency-lock file; pass it as ``<repo-path>=<local-copy>`` to
@@ -30,15 +29,13 @@ also matches its bare ``artifact`` part, since Python and other manifests
 name only the artifact.
 
 Prints the Step 2b hard-stop JSON when anything matches, otherwise
-``{"category_x_hit": false, ...}``. Exit 0 on success, 2 on bad input.
+``{"category_x_hit": false, ...}``. Exit 0 on success, 2 on bad input
+(formerly a script beside the skill; now a `release-management prepare` command).
 """
 
 from __future__ import annotations
 
-import argparse
-import json
 import re
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -82,26 +79,3 @@ def scan(deny: list[str], files: list[tuple[str, str]]) -> dict[str, Any]:
             "first_match_lines": lines_hit,
         }
     return {"category_x_hit": False, "category_x_violations": [], "files_scanned": [s for s, _ in files]}
-
-
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--deny", action="append", default=[], help="a category_x_dependencies identifier")
-    parser.add_argument("files", nargs="+", help="<repo-path>=<local-copy> or a local path")
-    args = parser.parse_args(argv)
-    deny = [d.strip() for d in args.deny if d.strip()]
-    files = [tuple(f.split("=", 1)) if "=" in f else (f, f) for f in args.files]
-    try:
-        if not deny:
-            out: dict[str, Any] = {"category_x_hit": False, "category_x_violations": [], "files_scanned": []}
-        else:
-            out = scan(deny, files)
-    except OSError as exc:
-        print(json.dumps({"error": str(exc)}))
-        return 2
-    print(json.dumps(out, indent=2))
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
