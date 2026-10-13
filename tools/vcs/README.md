@@ -133,6 +133,22 @@ documented in [`tools/asf-svn/source-control.md`](../asf-svn/source-control.md#c
 A caller that needs to tell the models apart checks
 `VCSBackend.distributed`.
 
+Supported scope, and what is not:
+
+- **Layout.** Only the conventional `trunk` / `branches/<name>` /
+  `tags/<name>` layout, read from the working copy's URL with the
+  *rightmost* marker winning (`^/branches/projects/foo/trunk` is `foo`'s
+  `trunk`). A checkout of a subdirectory that is itself named `trunk`,
+  `branches` or `tags` is misread, and other repository organisations are
+  not supported: there `branch` reports the repository-relative path and
+  `new-branch` / name-based `switch` refuse (pass a URL or `^/` path to
+  `switch`).
+- **Branch names** are one path segment; nested names (`team/fix`) are refused.
+- **Partial `new-branch`.** The server-side copy and the local switch are
+  two steps. If the switch fails after the copy succeeded, the branch
+  exists on the server and the working copy stays where it was; recover
+  with `switch <name>`, not another `new-branch`.
+
 ### Adding a backend
 
 A VCS bridge (e.g. #603 Jujutsu) implements a concrete `VCSBackend`

@@ -600,12 +600,16 @@ class SubversionBackend(VCSBackend):
         Returns ``(project base URL, line of work, path below the line)`` for a
         URL under ``trunk`` / ``branches/<name>`` / ``tags/<name>`` — e.g.
         ``(".../asf/foo", "branches/fix", "sub")`` — or ``None`` outside that layout.
+        The rightmost marker wins, so a project nested under a directory that is
+        itself named ``branches`` (``^/branches/projects/foo/trunk``) resolves to
+        ``foo``'s ``trunk``.
         """
         info = ET.fromstring(self._svn("info", "--xml"))
         root = info.findtext("entry/repository/root", "")
         rel = info.findtext("entry/relative-url", "").removeprefix("^").strip("/")
         parts = rel.split("/") if rel else []
-        for i, part in enumerate(parts):
+        for i in reversed(range(len(parts))):
+            part = parts[i]
             if part == "trunk":
                 width = 1
             elif part in ("branches", "tags") and i + 1 < len(parts):

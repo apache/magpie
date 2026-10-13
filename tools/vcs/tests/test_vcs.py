@@ -45,7 +45,8 @@ for _var in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR", "GI
 git_required = pytest.mark.skipif(not GitBackend.is_available(), reason="git not installed")
 hg_required = pytest.mark.skipif(not MercurialBackend.is_available(), reason="hg not installed")
 svn_required = pytest.mark.skipif(
-    shutil.which("svn") is None or shutil.which("svnadmin") is None, reason="svn/svnadmin not installed"
+    not SubversionBackend.is_available() or shutil.which("svnadmin") is None,
+    reason="svn 1.9+ / svnadmin not installed",
 )
 
 
@@ -321,6 +322,23 @@ def test_svn_too_old_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
     assert SubversionBackend.is_available() is False
     with pytest.raises(VCSError, match=r"svn 1\.8 is too old.*1\.9\+"):
         SubversionBackend(tmp_path).status()
+
+
+@svn_required
+def test_svn_layout_uses_rightmost_marker(tmp_path: Path) -> None:
+    repos = tmp_path / "nested"
+    subprocess.run(["svnadmin", "create", str(repos)], check=True, capture_output=True)
+    url = repos.as_uri()
+    _svn(
+        tmp_path, "mkdir", "--parents", "-m", "layout",
+        f"{url}/branches/projects/foo/trunk", f"{url}/branches/projects/foo/branches",
+    )  # fmt: skip
+    wc = tmp_path / "nestedwc"
+    _svn(tmp_path, "checkout", f"{url}/branches/projects/foo/trunk", str(wc))
+    backend = SubversionBackend(wc)
+    assert backend.current_branch() == "trunk"
+    backend.create_branch("fix")
+    assert backend._url() == f"{url}/branches/projects/foo/branches/fix"
 
 
 @svn_required
