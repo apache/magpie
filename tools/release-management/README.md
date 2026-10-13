@@ -16,6 +16,9 @@
     - [`promote`](#promote)
     - [`announce-draft`](#announce-draft)
     - [`prepare`](#prepare)
+    - [`archive-sweep`](#archive-sweep)
+    - [`audit-report`](#audit-report)
+    - [`keys-sync`](#keys-sync)
   - [Tests](#tests)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -33,7 +36,9 @@ The deterministic core of the `release-management` skills.
 [`release-config`](../release-config/README.md) resolves the configuration and runs each skill's Step 0;
 this tool takes what `release-config load` printed and renders everything the skill hands the release manager:
 paste-ready command blocks, mail drafts, planning-issue comments;
-for `release-verify-rc` it also classifies the output of each check the voter ran.
+for `release-verify-rc` it also classifies the output of each check the voter ran,
+for `release-archive-sweep` it applies the retention rule, for `release-audit-report` it renders and validates the audit record,
+and for `release-keys-sync` it decides from [`release-verify list-keys`](../release-verify/README.md) output whether the RM's key is already in `KEYS`.
 The agent presents the output and keeps only the judgement; the release manager runs every command on their own machine.
 
 **It runs nothing.**
@@ -169,11 +174,55 @@ Formerly skill-local scripts: `prev-tag`, `category-x` and `next-dev-version` pr
 | `signing-eligibility --load F [--verify-rc-identical]` | A1 (🪶 ASF-only): `eligible` and every `missing_conditions` entry — `release_process.automated_signing` offered (`derived.automated_signing_offered`), `git-archive`, `reproducibility_source: on`, `byte-identical` binaries, the verify-rc report (the flag), an `atr` backend. |
 | `signing-render --load F --template F --project P [--infra-ticket T]` | A4/A5: the workflow template with the slug, artefact prefix, source format and `build_command`, the unpinned actions, and the `release-management-config.md § Signing` diff. Refuses a slug or prefix it cannot write, a `build_command` that runs a signing tool (`gpg`, `signify`, `cosign sign`, `minisign`) or a key-import action, and any rendered key material or signing step. |
 
+### `archive-sweep`
+
+`--preflight` is what `release-config preflight --skill archive-sweep` printed; `--load` what `release-config load --skill archive-sweep` printed.
+
+| Command | Prints |
+|---|---|
+| `verdict --preflight F` | The Step 0 JSON: the preflight blockers as written, `non_asf` and `dist_backend`. |
+| `listing --load F [--upstream U]` | The read-only listing `command` for `release_dist_backend`: `svn list` of the release directory (`release_dist_url_template`, `release` bucket, cut at `<version>`), `gh release list --exclude-drafts`, `aws s3 ls`; for `atr` (ATR's release list) and `self-hosted` (the adopter's command) a `note` and no command. `read` names the backend file. |
+| `trains --load F [--keep N]` | `trains.json` from `release-trains.md`: a release line naming exactly one `N.x` / `N.M.x` train becomes `{"label", "pattern"}`, any other a `loose` train for the agent to place; `keep_decided` is false for a free-text `archive_retention_rule`, whose `keep` is the agent's call. |
+| `retention --listing F --trains F` | Per train the newest `keep` (default 1) stay; earlier versions are `past_retention`, versions on no train `orphans`, pre-releases `prereleases` (never counted, never archived), loose or overlapping matches `unmapped`; `keep` below 1 is a `retention_rule_error` that empties `past_retention`. Formerly `archive-sweep/scripts/retention.py`. |
+| `render --load F --retention F [--upstream U] [--project P] [--command-template T]` | The Step 2 JSON, oldest first: one `svn mv <dist-release> <archive> -m "Archive <project> <ver> per retention policy"` (`svnpubsub`), `gh release delete <ver> --repo <upstream> --yes` plus `deletion_warning` (`github-releases`), `aws s3 mv … --recursive` (`s3`, buckets from both templates), the adopter's template (`self-hosted`), or the instruction to archive in ATR plus `atr_note` (`atr`, no shell command). Refuses a `retention_rule_error`, an incomplete mapping, `self-hosted` without `--command-template` and an unknown backend; orphans and pre-releases are listed in `not_archived`, never in `commands`. |
+
+### `audit-report`
+
+`--preflight` is what `release-config preflight --skill audit-report <version>` printed, `--load` what `release-config load --skill audit-report <version>` printed,
+and `--step1` the Step 1 JSON the RM confirmed (with `redaction_reasons` and `injection_sources` added for Step 2).
+`--schema` is the skill's `audit-record-schema.md`; without it the framework copy is read.
+It never searches a mail archive, reads the planning issue, runs `svn` or opens a PR.
+
+| Command | Prints |
+|---|---|
+| `verdict --preflight F [--planning-issue REF] [--upstream U] [--searched TERM]` | The Step 0 JSON: the preflight blockers as written, plus one when no planning issue was found (naming the search term and `--planning-issue`) or the reference is not a GitHub issue; `planning_issue_url` normalised to `https://github.com/<org>/<repo>/issues/<n>` from a URL, an `<org>/<repo>#<n>` or (with `--upstream`) a `#<n>` reference. |
+| `gather --load F [--rc rcN] [--schema F]` | Step 1's reading plan: `product_name` (`product_name`, else `project_dist_name`); per lifecycle URL the `subject` from `vote_subject_template` / `result_subject_template` / `announce_subject_template`, the search `query` (the subject up to anything unrendered), every list to search (the `[ANNOUNCE]` under `announce_list` and each `announce_cc_lists` entry) with `mail_archive_url_template` rendered for it, and the PonyMail permalink shape; `svn info --show-item last-changed-revision <dist-release-url>` for `svnpubsub` (no recipe for other backends); `required_fields`. |
+| `voters --voters F --roster F` | `[RESULT]` binding voters as roster handles, resolved with `vote-tally`'s binding rules (primary email, else `<id>@apache.org`; a bare Apache ID as written); the roster's GitHub column when it has one, else the Apache ID. A voter the roster does not resolve is in `unresolved` and never cited; none resolved is `MISSING`. |
+| `check --step1 F [--schema F] [--not-ponymail]` | `fields_missing`, `fields_redacted` and `schema_violations` before Step 2, `input_gaps` (a reason or injection source missing), and `problems`: a link that is not a plain `https://` URL, a `lists.apache.org` URL that is not a `/thread/<id>` permalink, an email address or a non-handle among the voters, a non-canonical planning-issue URL. |
+| `record --step1 F [--schema F]` | The Step 2 JSON: `record_markdown` with `_MISSING_` / `_REDACTED — <reason>_` markers and every value escaped, the sentinel lists, `schema_violations`, `input_gaps`; refuses an email voter and a link that is not plain `https://`. Formerly `audit-report/scripts/render_record.py`. |
+| `pr --step1 F --audit-log-path P [--upstream U] [--base B] [--body-file F]` | The Step 3 JSON: `target_file` `<audit_log_path>/<version>.md`, the default title, the body with the missing and redacted (with reasons) paragraphs only when non-empty, `proposed: true`, and `gh_command`, the `gh pr create --web` line with every value quoted. Refuses a non-canonical planning-issue URL. |
+
+### `keys-sync`
+
+`--preflight` is what `release-config preflight --skill keys-sync …` printed, `--load` what `release-config load --skill keys-sync` printed.
+Each `--…-listing` is what [`release-verify list-keys --file <file>`](../release-verify/README.md) printed for the KEYS file or for the key fetched from the keyserver.
+release-verify reads the keys with gpg in a throwaway `GNUPGHOME`; this tool never does.
+
+| Command | Prints |
+|---|---|
+| `verdict --preflight F [--keys-listing F] [--key-listing F]` | The Step 0 JSON. The preflight blockers come through as written. The fingerprint (primary or subkey) not in KEYS → `proceed`. In KEYS, and the keyserver's primary UID is one of that entry's UIDs → `noop`, with `noop_reason` naming the UID. In KEYS under another UID, or the keyserver has no key or UID to compare → `blocked`, the Golden rule 4 hand-off naming both UIDs. A KEYS file with no key → `blocked`. While a listing it needs is missing, `verdict` is `null` and `pending` names the listing. `read` names the outcome file. |
+| `check --key-listing F --fingerprint FP [--today D]` | The Step 1 JSON. Floor: RSA and DSA ≥ 2048 bits; EdDSA and ECDSA on an accepted curve (secp256k1 refused); DSA advisory. A revoked, invalid, disabled or expired key is `blocked`; an expiry within 90 days is an advisory. Formerly `keys-sync/scripts/check_key.py`. |
+| `keys-dir --keys-url U` | `keys_file_url` minus `/KEYS`; `error` for a `dist/dev` URL or one not ending in `/KEYS`. |
+| `render --step 2 --preflight F --load F --check F --key-file F [--backend svnpubsub\|atr\|git\|generic]` | `keys_block_to_append` (`# <uid>` plus the one armoured public block), `svn_command_sequence` and `keyserver_upload_reminder`. The sequence is `svn checkout --depth immediates` / `svn commit` for `dist.apache.org` (`atr_offer` under `release_dist_backend = atr`), a git clone, branch, commit, push and `gh pr create --web` for `github.com`, generic instructions otherwise. The reminder is `https://<keyserver>/upload` plus the Step 1 expiry advisory. Every UID, fingerprint and URL is quoted. |
+
+Refused (exit `2`): a Step 1 that did not proceed; a `dist/dev` KEYS URL; a fetched file holding private-key material or not exactly one public block; a key with no UID.
+
 ## Tests
 
 ```bash
 uv run --project tools/release-management pytest
 ```
 
-The scripted cases of the retired model-graded `release-rc-cut`, `release-verify-rc`, `release-vote-draft`, `release-vote-tally`, `release-promote`, `release-announce-draft` and `release-prepare` suites live in `tests/test_rc_cut.py`, `tests/test_verify_rc.py`, `tests/test_vote_draft.py`, `tests/test_vote_tally.py`, `tests/test_promote.py`, `tests/test_announce_draft.py` and `tests/test_prepare.py`, named after each former case; `tests/test_prepare_scripts.py` holds the moved `release-prepare` script tests.
+The scripted cases of the retired model-graded `release-rc-cut`, `release-verify-rc`, `release-vote-draft`, `release-vote-tally`, `release-promote`, `release-announce-draft`, `release-prepare`, `release-archive-sweep`, `release-audit-report` and `release-keys-sync` suites live in `tests/test_rc_cut.py`, `tests/test_verify_rc.py`, `tests/test_vote_draft.py`, `tests/test_vote_tally.py`, `tests/test_promote.py`, `tests/test_announce_draft.py`, `tests/test_prepare.py`, `tests/test_archive_sweep.py`, `tests/test_audit_report.py` and `tests/test_keys_sync.py`, named after each former case;
+`tests/test_prepare_scripts.py` and `tests/test_audit_record.py` hold the moved `release-prepare` script and `render_record.py` tests.
 `tests/test_integration.py` renders each skill from what `release-config load` really prints.

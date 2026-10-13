@@ -39,6 +39,9 @@ it and reports. The rules are the skill's, implemented once:
   project's own validators are echoed in the recipe, never run.
 - ``version``    — Step 8: version string per manifest, exact match.
 - ``verdict``    — Step 10: FAIL > WARN > PASS roll-up of step results.
+- ``list-keys``  — for ``release-keys-sync``: the fingerprints, UIDs,
+  algorithm, size, curve, dates and validity of every public key in a
+  ``KEYS`` file or a fetched key, read in a throwaway GNUPGHOME.
 - ``all``        — the above in one report.
 
 Read-only throughout: no file outside a temporary GNUPGHOME is written,
@@ -51,6 +54,7 @@ from __future__ import annotations
 import argparse
 import configparser
 import contextlib
+import datetime
 import difflib
 import fnmatch
 import hashlib
@@ -315,6 +319,87 @@ def signatures(directory: Path, patterns: Sequence[str], keys: str, keys_url: st
 
 def cmd_signatures(args: argparse.Namespace) -> dict[str, Any]:
     return signatures(Path(args.dir), _patterns(args), args.keys, args.keys_url, args.extra_key or [])
+
+
+# ---------------------------------------------------------------------------
+# list-keys — the public keys a file holds (release-keys-sync)
+# ---------------------------------------------------------------------------
+
+KEY_ALGORITHMS = {"1": "RSA", "2": "RSA", "3": "RSA", "17": "DSA", "19": "ECDSA", "22": "EdDSA"}
+
+
+def _colon_date(value: str) -> str | None:
+    if not value:
+        return None
+    if "T" in value:  # ISO form some gpg builds print
+        return f"{value[0:4]}-{value[4:6]}-{value[6:8]}"
+    return datetime.datetime.fromtimestamp(int(value), datetime.UTC).date().isoformat()
+
+
+def parse_colons(text: str) -> list[dict[str, Any]]:
+    """Primary keys from ``gpg --with-colons --fixed-list-mode --list-keys`` output.
+
+    Each key: ``fingerprint``, ``validity`` (gpg's field 2), ``algo_id``,
+    ``algorithm``, ``bits``, ``curve``, ``created`` / ``expiry`` (YYYY-MM-DD),
+    ``uids`` (revoked and expired user IDs left out, primary first) and
+    ``subkey_fingerprints``.
+    """
+    keys: list[dict[str, Any]] = []
+    current: dict[str, Any] | None = None
+    want: str | None = None
+    for line in text.splitlines():
+        f = line.split(":") + [""] * 20
+        kind = f[0]
+        if kind == "pub":
+            current = {
+                "fingerprint": None,
+                "validity": f[1],
+                "algo_id": f[3],
+                "algorithm": KEY_ALGORITHMS.get(f[3]),
+                "bits": int(f[2]) if f[2].isdigit() else None,
+                "curve": f[16].lower(),
+                "created": _colon_date(f[5]),
+                "expiry": _colon_date(f[6]),
+                "uids": [],
+                "subkey_fingerprints": [],
+            }
+            keys.append(current)
+            want = "pub"
+        elif kind == "fpr" and current is not None and want is not None:
+            if want == "pub":
+                current["fingerprint"] = f[9].upper()
+            else:
+                current["subkey_fingerprints"].append(f[9].upper())
+            want = None
+        elif kind in ("sub", "ssb"):
+            want = "sub" if current is not None else None
+        elif kind == "uid" and current is not None and f[1] not in ("r", "e"):
+            current["uids"].append(f[9])
+    return keys
+
+
+def list_keys(source: str) -> dict[str, Any]:
+    """The public keys in ``source``, listed in a throwaway GNUPGHOME; nothing else is read or kept."""
+    data = _read_public_keys(source)
+    out: dict[str, Any] = {"step": "list-keys", "file": Path(source).name, "keys": []}
+    if not data.strip():
+        out["detail"] = "file is empty"
+        return out
+    with _gnupghome() as home:
+        src = home / "import.asc"
+        src.write_bytes(data)
+        proc = _gpg(home, "--import", str(src))
+        src.unlink()
+        listing = _gpg(home, "--with-colons", "--fixed-list-mode", "--list-keys")
+    out["keys"] = parse_colons(listing.stdout)
+    if not out["keys"]:
+        lines = [ln for ln in proc.stderr.strip().splitlines() if ln.strip()]
+        out["detail"] = lines[-1] if lines else "no public key found"
+    return out
+
+
+def cmd_list_keys(args: argparse.Namespace) -> dict[str, Any]:
+    return list_keys(args.file)
 
 
 # ---------------------------------------------------------------------------
@@ -789,6 +874,10 @@ def build_parser() -> argparse.ArgumentParser:
     _add_expect(p)
     _add_keys(p)
     p.set_defaults(func=cmd_signatures)
+
+    p = sub.add_parser("list-keys", help="release-keys-sync: the public keys (fingerprints, UIDs, algorithm) a file holds")
+    p.add_argument("--file", required=True, help="a KEYS file or a fetched public key (public keys only; may be empty)")
+    p.set_defaults(func=cmd_list_keys)
 
     p = sub.add_parser("checksums", help="Step 3: digest files vs the artefacts")
     p.add_argument("--dir", required=True, help="local copy of the staging directory")

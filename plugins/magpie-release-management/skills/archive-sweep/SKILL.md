@@ -26,7 +26,7 @@ capability:
   - capability:triage
 surface_hash: sha256:1665af8aae9c2b58
 license: Apache-2.0
-measured_tokens: 4615
+measured_tokens: 4165
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -161,12 +161,8 @@ Local modifications go in the override file; framework changes go via PR to `apa
 
 ## Prerequisites
 
-- **`<project-config>/release-management-config.md` readable** — `archive_retention_rule`, `release_dist_backend`, `release_dist_url_template`,
-  and the archive destination: `archive_url_template`, which defaults to `https://archive.apache.org/dist/<project>/` (from `project_dist_name`) for both ASF backends, `svnpubsub` and `atr`,
-  and is required for any other backend.
-- **`<project-config>/release-trains.md` readable** — the supported release lines and their current latest versions; used to identify orphans.
-- **Distribution listing accessible** — the list of releases currently on `dist/release/<project>/` (for `release_dist_backend = svnpubsub`, or the backend equivalent).
-  For `svnpubsub`, this is an `svn list` call against the distribution URL.
+The retention and backend keys, `release-trains.md`, and a readable distribution listing:
+the full list is in [`prerequisites.md`](prerequisites.md). Step 0 checks the configuration.
 
 ---
 
@@ -180,18 +176,21 @@ Local modifications go in the override file; framework changes go via PR to `apa
 
 ## Step 0 — Pre-flight check
 
-Run the checks with the [`release-config`](../../../../tools/release-config/README.md) tool:
+Steps 0–2 run the [`release-management`](../../../../tools/release-management/README.md) tool, which prints JSON and runs nothing;
+`<rm>` stands for `uv run --project <framework>/tools/release-management release-management archive-sweep`.
+A command that would emit what this skill refuses exits `2` with `{"ok": false, "refused": "<why>"}`: surface `refused` as written and stop.
+
+Run the checks with the [`release-config`](../../../../tools/release-config/README.md) tool, then fold them into the step's JSON:
 
 ```bash
-uv run --project <framework>/tools/release-config release-config preflight --skill archive-sweep
+uv run --project <framework>/tools/release-config release-config preflight --skill archive-sweep > <scratch>/archive-sweep-preflight.json
+<rm> verdict --preflight <scratch>/archive-sweep-preflight.json
 ```
 
-It covers the required config keys, `release-trains.md` (at least one release line),
-the backend and the archive destination (the `archive.apache.org` default for `svnpubsub` and `atr`),
-and prints `{"ok", "blockers", "warnings", "values"}`.
-Each `blockers` entry is a hard blocker; surface it as written.
-Surface `warnings` and carry on.
-Copy `non_asf` and `dist_backend` from `values`.
+The preflight covers the required config keys, `release-trains.md` (at least one release line),
+the backend and the archive destination (the `archive.apache.org` default for `svnpubsub` and `atr`).
+`verdict` copies its `blockers` as written and `non_asf` and `dist_backend` from `values`.
+Surface the preflight `warnings` and carry on.
 
 Then:
 
@@ -218,35 +217,36 @@ Return ONLY valid JSON with this structure:
 
 ## Step 1 — Load dist listing and apply retention rule
 
-1. **Fetch the listing.** Read the list of versioned releases currently on the distribution surface:
-   - `svnpubsub`: `svn list <dist-release-url>` — each directory entry is a version or a version-suffix directory.
-   - `atr`: the project's release list in ATR, which is also the authoritative record of what has already been archived.
-     The distribution area itself is still `dist/release/<project>/`, since ATR's Finish commits there.
-   - `github-releases`: `gh release list --repo <upstream>` — each published (non-draft) release tag is a candidate.
-   - `s3`: `aws s3 ls s3://<bucket>/<project>/` — each key prefix is a candidate.
-   - `self-hosted`: the adopter-supplied listing command from `<project-config>/release-management-config.md`.
+`<rm>` is as in Step 0. Save the configuration once: `uv run --project <framework>/tools/release-config release-config load --skill archive-sweep > <scratch>/archive-sweep-load.json`.
 
-   Save the entries, one per line, to `<listing.txt>`.
+1. **Fetch the listing.** `<rm> listing --load <scratch>/archive-sweep-load.json [--upstream <upstream>]` prints the backend's read-only listing `command`
+   (`svn list`, `gh release list`, `aws s3 ls`) or, for `atr` and `self-hosted`, a `note` naming where the list lives;
+   load the backend file it names in `read`.
+   Read the listing and save the entries, one per line, to `<scratch>/listing.txt`.
 
-2. **Apply the retention rule.** Write the supported trains from `<project-config>/release-trains.md` as JSON —
-   `{"label": "2.x", "pattern": "2.x"}` each, plus `"keep": N` where `archive_retention_rule` keeps more than the latest — and run:
+2. **Write the trains.** `<rm> trains --load <scratch>/archive-sweep-load.json > <scratch>/trains.json` turns each release line of `release-trains.md`
+   naming one `N.x` train into `{"label": "2.x", "pattern": "2.x"}`; any other line is a `loose` train.
+   When `keep_decided` is false, `archive_retention_rule` is free text: decide how many versions it keeps per train and re-run with `--keep N`
+   (or set `"keep"` per train in the file).
+
+3. **Apply the retention rule.**
 
    ```bash
-   python3 <skill-dir>/scripts/retention.py --listing <listing.txt> --trains <trains.json>
+   <rm> retention --listing <scratch>/listing.txt --trains <scratch>/trains.json > <scratch>/retention.json
    ```
 
    Per train it keeps the newest `keep` (default 1) and marks earlier versions past retention;
    releases on no train are `orphans`, never archived.
    A pre-release in the release area is listed in `prereleases`, never counted as a train's latest and never archived; it is a hand-off to the RM.
    `keep` below 1 would archive a train's latest release:
-   the script sets `retention_rule_error` and empties `past_retention`, and no archival command may be emitted.
+   it sets `retention_rule_error` and empties `past_retention`, and no archival command may be emitted.
 
-3. **Place what it could not.** A version in `unmapped` matched a loose pattern or several trains:
-   decide its train, list it in that train's `"versions"`, and re-run until `mapping_complete` is true.
-   A rule `keep` cannot express goes to the RM; nothing may drop the latest-of-each-train floor.
+4. **Read what fired.** `retention_rule_error` → [`outcomes/retention-rule-error.md`](outcomes/retention-rule-error.md);
+   `orphans` or `prereleases` → [`outcomes/orphans.md`](outcomes/orphans.md);
+   `unmapped` (a loose or overlapping train) → [`outcomes/unmapped.md`](outcomes/unmapped.md), then re-run until `mapping_complete` is true.
 
 Surface the classification table to the RM before proceeding to Step 2.
-Copy the lists, `latest_of_each_line`, `handoff_required`, and `handoff_reasons` from the script (already in ascending version order, matching Step 2's command order);
+Copy the lists, `latest_of_each_line`, `handoff_required`, and `handoff_reasons` from `retention` (already in ascending version order, matching Step 2's command order);
 write `retention_rule_summary` yourself.
 
 Return ONLY valid JSON with this structure:
@@ -270,58 +270,19 @@ When `handoff_required` is `true` for a `retention-rule-error`, `past_retention`
 
 ## Step 2 — Emit archive command set
 
-Compose the backend-shaped command set to move each past-retention release from the distribution surface to the archive area.
+Render the backend-shaped command set that moves each past-retention release from the distribution surface to the archive area:
 
-**`svnpubsub` (ASF default).**
-For each past-retention version `<ver>`:
-
-```text
-svn mv \  # release_dist_backend=svnpubsub
-  https://dist.apache.org/repos/dist/release/<project>/<ver> \  # release_dist_backend=svnpubsub
-  https://archive.apache.org/dist/<project>/<ver> \
-  -m "Archive <project> <ver> per retention policy"
+```bash
+uv run --project <framework>/tools/release-management release-management archive-sweep render --load <scratch>/archive-sweep-load.json --retention <scratch>/retention.json \
+  [--upstream <upstream>] [--command-template '<self-hosted archival command>']
 ```
 
-One `svn mv` (for `release_dist_backend = svnpubsub`) per past-retention version, in ascending version order (oldest first).
-Include the commit message inline.
-
-**`atr`.**
-There is no command to emit.
-Archiving happens in ATR, which updates the release catalog and removes the files from `dist/release` in the background —
-so the RM performs it in the ATR UI, not in a shell, and the usual "paste-ready command set" output is replaced by the instruction to archive each past-retention version there.
-
-Two consequences worth stating in the proposal:
-
-- **Do not also run `svn mv` or `svn rm`.** ATR removes the files itself; a manual removal on top races with it.
-- **The prior release may already be handled.** If the project enables *Auto archive prior release* in its ATR settings,
-  the previous release is archived in the same cycle when the new one is announced — so it may not be past-retention by the time this sweep runs.
-  Check ATR's record before proposing anything.
-
-Releases committed to `dist/release` are copied to `archive.apache.org` automatically, so archiving removes the distribution copy rather than moving it.
-See [Promoting to release](https://releases.apache.org/docs/promoting-to-release).
-
-**`github-releases`.**
-For each past-retention version `<ver>`:
-
-```text
-gh release delete <ver> --repo <upstream> --yes
-```
-
-Note: `gh release delete` removes the release page and optionally the tag.
-Include a reminder that GitHub releases have no archive equivalent; deletion is permanent.
-The RM should confirm this is intentional.
-
-**`s3`.**
-For each past-retention version `<ver>`:
-
-```text
-aws s3 mv \
-  s3://<bucket>/<project>/<ver>/ \
-  s3://<archive-bucket>/<project>/<ver>/ \
-  --recursive
-```
-
-**`self-hosted`.** Use the adopter-supplied archival command template from `<project-config>/release-management-config.md`, substituting `<ver>` and the archive destination.
+It emits one command per version in `past_retention`, oldest first, and never one for an orphan or a pre-release (`not_archived` names them);
+it refuses a `retention_rule_error` or a mapping that is not complete.
+Load the files in `read` — the backend's ([`svnpubsub`](backends/svnpubsub.md), [`atr`](backends/atr.md), [`github-releases`](backends/github-releases.md),
+[`s3`](backends/s3.md), [`self-hosted`](backends/self-hosted.md)) and any outcome — and show its notes with the commands
+(`deletion_warning` for `github-releases`, `atr_note` for `atr`, where there is no command to run and the RM archives in ATR, never also with `svn mv` or `svn rm`).
+The skill never runs any of these commands; the RM does, under their own credentials.
 
 Present the command set and ask for the RM's explicit confirmation before recording the proposal.
 
@@ -336,6 +297,7 @@ Return ONLY valid JSON with this structure:
 }
 ```
 
+Copy `archive_count`, `commands`, `backend` and `proposed` from `render`.
 `proposed` is always `true` at the point this JSON is returned — no archival command has been run.
 Execution is the RM's step.
 
@@ -375,16 +337,4 @@ The AI-driven part ends with a hand-back artefact containing:
 
 ## References
 
-- [`docs/release-management/process.md`](../../../../docs/release-management/process.md) —
-  Step 12 context.
-- [`docs/release-management/spec.md`](../../../../docs/release-management/spec.md) —
-  `release-archive-sweep` per-skill specification.
-- [`<project-config>/release-management-config.md`](../../../magpie-setup/templates/release-management-config.md) —
-  adopter keys this skill reads (`archive_retention_rule`,
-  `release_dist_backend`, `release_dist_url_template`).
-- `release-announce-draft` — upstream step (Step 11).
-- `release-audit-report` (proposed) — downstream step (Step 13).
-- [ASF release distribution § archiving](https://infra.apache.org/release-distribution.html) —
-  the retention baseline ("only the latest version of each supported line").
-- [archive.apache.org](https://archive.apache.org/dist/) — the ASF archive
-  destination.
+Config keys, upstream and downstream skills, ASF distribution policy and the tools: [`references.md`](references.md).

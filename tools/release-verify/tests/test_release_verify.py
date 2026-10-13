@@ -637,3 +637,92 @@ def test_gpg_home_path_is_redacted(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     proc = rv._gpg(home, "--list-keys")
     assert str(home) not in proc.stderr
     assert "<gnupghome>/pubring.kbx" in proc.stderr
+
+
+# ---------------------------------------------------------------- list-keys (release-keys-sync)
+
+
+FPR = "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6ABCD"
+
+
+def colons(algo: str = "1", bits: str = "4096", curve: str = "", expires: str = "", validity: str = "-") -> str:
+    pub = ["pub", validity, bits, algo, "KEYID", "1647302400", expires] + [""] * 9 + [curve, "", "0", ""]
+    return "\n".join(
+        [
+            "tru::1:1791072876:0:3:1:5",
+            ":".join(pub),
+            f"fpr:::::::::{FPR}:",
+            "uid:-::::1647302400::HASH::Brendan Ngan <bngan@apache.org>::::::::::0:",
+            "uid:r::::1647302400::HASH::Old Name <old@example.org>::::::::::0:",
+            "sub:-:4096:1:SUBID:1647302400::::::e::::::23:",
+            "fpr:::::::::FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000:",
+        ]
+    )
+
+
+def test_parse_colons_reads_the_primary_key_without_gpg() -> None:
+    (key,) = rv.parse_colons(colons())
+    assert key == {
+        "fingerprint": FPR,
+        "validity": "-",
+        "algo_id": "1",
+        "algorithm": "RSA",
+        "bits": 4096,
+        "curve": "",
+        "created": "2022-03-15",
+        "expiry": None,
+        "uids": ["Brendan Ngan <bngan@apache.org>"],  # the revoked uid is left out
+        "subkey_fingerprints": ["FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000"],
+    }
+
+
+def test_parse_colons_curve_iso_expiry_and_validity() -> None:
+    (key,) = rv.parse_colons(colons("22", "255", "ed25519", "20260715T000000", "r"))
+    assert (key["algorithm"], key["curve"], key["expiry"], key["validity"]) == ("EdDSA", "ed25519", "2026-07-15", "r")
+
+
+def test_list_keys_empty_file_lists_nothing(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    empty = tmp_path / "fetched.asc"
+    empty.write_text("")
+    out = run(capsys, "list-keys", "--file", str(empty))
+    assert out["_rc"] == 0 and out["keys"] == [] and out["file"] == "fetched.asc"
+
+
+def test_list_keys_refuses_private_key_material(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    keys = tmp_path / "KEYS"
+    block = "PGP " + "PRIVATE KEY BLOCK"
+    keys.write_text(f"-----BEGIN {block}-----\nxx\n-----END {block}-----\n")
+    out = run(capsys, "list-keys", "--file", str(keys))
+    assert out["_rc"] == 2 and "private key" in out["error"]
+
+
+@needs_gpg
+def test_list_keys_reads_every_key_in_keys(capsys: pytest.CaptureFixture[str]) -> None:
+    out = run(capsys, "list-keys", "--file", str(GPG_FIXTURES / "KEYS"))
+    assert out["_rc"] == 0 and out["file"] == "KEYS"
+    assert [k["fingerprint"] for k in out["keys"]] == [fingerprints()["rm"]]
+    assert out["keys"][0]["uids"] and out["keys"][0]["algorithm"] == "EdDSA"
+
+
+@needs_gpg
+def test_list_keys_reads_a_fetched_key(capsys: pytest.CaptureFixture[str]) -> None:
+    out = run(capsys, "list-keys", "--file", str(GPG_FIXTURES / "OTHER.pub"))
+    assert [k["fingerprint"] for k in out["keys"]] == [fingerprints()["other"]]
+
+
+@needs_gpg
+def test_list_keys_garbage_file_lists_nothing(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """Formerly keys-sync's GpgTest: a file that holds no key yields no key, not an error."""
+    junk = tmp_path / "junk.asc"
+    junk.write_text("not a key\n")
+    out = run(capsys, "list-keys", "--file", str(junk))
+    assert out["_rc"] == 0 and out["keys"] == [] and out["detail"]
+
+
+@needs_gpg
+def test_list_keys_never_touches_the_user_keyring(tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch) -> None:
+    home = tmp_path / "user-gnupg"
+    home.mkdir()
+    monkeypatch.setenv("GNUPGHOME", str(home))
+    run(capsys, "list-keys", "--file", str(GPG_FIXTURES / "KEYS"))
+    assert list(home.iterdir()) == []

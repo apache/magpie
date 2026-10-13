@@ -20,7 +20,7 @@ argument-hint: "[--fingerprint <fp>] [--keys-url <url>] [--keyserver <host>]"
 capability: capability:resolve
 surface_hash: sha256:61e10c986bb0d3ec
 license: Apache-2.0
-measured_tokens: 4913
+measured_tokens: 4584
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -161,10 +161,8 @@ Local modifications go in the override file; framework changes go via PR to `apa
 
 ## Prerequisites
 
-- **`rm_key_fingerprint` configured** — in `<project-config>/release-management-config.md` (under Signing § `rm_key_fingerprint`) or in `.apache-magpie-overrides/user.md` under `release_manager.gpg_fingerprint`, or passed via `--fingerprint <fp>`.
-- **`keys_file_url` configured** — the URL of the project's KEYS file (e.g. `https://dist.apache.org/repos/dist/release/<project>/KEYS`), or overridden via `--keys-url <url>`.
-- **`keyserver` configured** — defaults to `keys.openpgp.org`; overridable via the `keyserver` key in the config's Signing section or `--keyserver <host>`.
-- **KEYS file and keyserver reachable** — both are needed for the fingerprint presence check and UID comparison.
+The fingerprint, `keys_file_url` and `keyserver` resolve, the KEYS file and the keyserver are reachable, and `gpg` is on `PATH` for `release-verify`:
+the full list is in [`prerequisites.md`](prerequisites.md). Step 0 checks each one.
 
 ---
 
@@ -178,38 +176,45 @@ Local modifications go in the override file; framework changes go via PR to `apa
 
 ---
 
+Every decision below is made by a tool, from files the skill saved to `<scratch>`; the skill presents what it prints and keeps the judgement.
+[`release-verify list-keys --file <file>`](../../../../tools/release-verify/README.md) lists the fingerprints, UIDs, algorithm, size, curve, dates and validity of every public key in a file.
+It reads the file in a throwaway `GNUPGHOME` — never the user's keyring, no agent, no network — and refuses a file holding private-key material.
+[`release-management keys-sync`](../../../../tools/release-management/README.md#keys-sync) classifies that JSON and renders the Step 2 output; it runs nothing.
+`<RV>` and `<RM>` below stand for
+`uv run --project <framework>/tools/release-verify release-verify` and
+`uv run --project <framework>/tools/release-management release-management keys-sync`.
+Any `{"error": …}` or `{"ok": false, "refused": …}` they print is surfaced as written, and the step stops.
+
 ## Step 0 — Pre-flight check
 
 Resolve the inputs with the [`release-config`](../../../../tools/release-config/README.md) tool, passing any overrides the RM gave:
 
 ```bash
 uv run --project <framework>/tools/release-config release-config preflight \
-  --skill keys-sync [--fingerprint <fp>] [--keys-url <url>] [--keyserver <host>]
+  --skill keys-sync [--fingerprint <fp>] [--keys-url <url>] [--keyserver <host>] > <scratch>/keys-preflight.json
 ```
 
 It resolves the fingerprint, `keys_file_url` and `keyserver` from the flags, the config's Signing section and the RM's `user.md`,
 and prints `{"ok", "blockers", "warnings", "values"}`.
-Each `blockers` entry is a hard blocker; surface it as written.
 Surface `warnings` and carry on.
-Copy `fingerprint`, `keys_file_url` and `keyserver` from `values`.
 
 Then:
 
-1. **KEYS file readable.** Fetch the current KEYS file content from `keys_file_url`. If unreachable, stop.
-2. **Fingerprint presence check.** Scan the KEYS file for the configured fingerprint string.
+1. **KEYS file readable.** Fetch the current KEYS file content from `keys_file_url` to `<scratch>/KEYS`. If unreachable, stop.
+2. **Fingerprint presence check.** Run `<RV> list-keys --file <scratch>/KEYS > <scratch>/keys-list.json`, then
+   `<RM> verdict --preflight <scratch>/keys-preflight.json --keys-listing <scratch>/keys-list.json`.
+   When its `pending` names `--key-listing`, the fingerprint is in KEYS:
+   fetch the **public** key for `<fingerprint>` from the keyserver to `<scratch>/fetched-key.asc` (empty when the keyserver has none),
+   run `<RV> list-keys --file <scratch>/fetched-key.asc > <scratch>/key-list.json`, and re-run the verdict with `--key-listing <scratch>/key-list.json`.
    - **Not found** → `verdict: "proceed"`.
-   - **Found** → also query the keyserver for the UID currently associated with that fingerprint:
-     - Same UID as appears in the KEYS key block → `verdict: "noop"`.
-       Populate `noop_reason` naming the UID. No commands will be emitted.
-     - Different UID (key rolled or uid updated) → `verdict: "blocked"`.
-       Populate `blockers` describing the mismatch: both UIDs, and the hand-off of golden rule 4.
-       The RM decides whether to append the updated key block or replace the existing one,
-       then updates `rm_key_fingerprint` if the key itself changed.
-       Present both options; do not pick one for the RM.
+   - **Found, same UID** as the keyserver's → `verdict: "noop"`, `noop_reason` naming the UID; read [`outcomes/noop.md`](outcomes/noop.md).
+   - **Found, different UID** (key rolled or uid updated), or no keyserver UID to compare → `verdict: "blocked"`;
+     read [`outcomes/key-rolled.md`](outcomes/key-rolled.md): present both options; do not pick one for the RM.
+   Each preflight `blockers` entry is a hard blocker the verdict carries as written.
 3. **Drift check** — the generated pre-flight block reports snapshot drift.
 4. **Override consultation** — see *Adopter overrides* above.
 
-Return ONLY valid JSON with this structure:
+Return ONLY valid JSON with this structure (the verdict's fields, without `pending` and `read`):
 
 ```json
 {
@@ -230,19 +235,19 @@ Return ONLY valid JSON with this structure:
 
 ## Step 1 — Fetch and validate key
 
-Fetch the RM's **public** key block for `<fingerprint>` from the keyserver into a file (empty when the keyserver has none) and run:
+Fetch the RM's **public** key block for `<fingerprint>` from the keyserver into `<scratch>/fetched-key.asc`, armoured (empty when the keyserver has none; Step 0 may already have it), and run:
 
 ```bash
-python3 <skill-dir>/scripts/check_key.py --key-file <fetched-key.asc> --fingerprint <fingerprint>
+<RV> list-keys --file <scratch>/fetched-key.asc > <scratch>/key-list.json
+<RM> check --key-listing <scratch>/key-list.json --fingerprint <fingerprint> > <scratch>/keys-check.json
 ```
 
-It reads the key in a throw-away `GNUPGHOME`, never the user's keyring,
-and applies the floor from [ASF release-signing](https://infra.apache.org/release-signing.html):
+It applies the floor from [ASF release-signing](https://infra.apache.org/release-signing.html):
 RSA and DSA at least 2048 bits, EdDSA (Ed25519) and ECDSA (P-256 or stronger) accepted, anything else (secp256k1 included) refused.
-A missing, sub-floor, already-expired, revoked, invalid or disabled key is `blocked`.
+A missing, sub-floor, already-expired, revoked, invalid or disabled key is `blocked`: read [`outcomes/blocked-key.md`](outcomes/blocked-key.md).
 `strength_note` carries the failure reason, the DSA advisory, and a non-blocking advisory for an expiry within 90 days.
 On an `error` (no gpg, bad fingerprint), surface it; never judge the key by hand.
-Return the script's JSON unchanged.
+Return the JSON unchanged.
 
 Return ONLY valid JSON with this structure:
 
@@ -265,54 +270,26 @@ Return ONLY valid JSON with this structure:
 
 ## Step 2 — Draft KEYS block and command sequence
 
-Using the public key block from Step 1, compose:
+Save the configuration with `release-config load --skill keys-sync > <scratch>/keys-load.json`, then render:
 
-1. **The KEYS block to append** — the armoured public key block exactly as it should appear appended to the project's KEYS file,
-   preceded by a comment line identifying the key owner:
+```bash
+<RM> render --step 2 --preflight <scratch>/keys-preflight.json --load <scratch>/keys-load.json \
+  --check <scratch>/keys-check.json --key-file <scratch>/fetched-key.asc
+```
 
-   ```text
-   # <rm-uid>
-   -----BEGIN PGP PUBLIC KEY BLOCK-----
-   ...
-   -----END PGP PUBLIC KEY BLOCK-----
-   ```
+It refuses unless Step 1 proceeded, and prints:
 
-2. **The command sequence** — a paste-ready block the RM executes under their own credentials.
-   For ASF `svnpubsub` (the default when `keys_file_url` is a `dist.apache.org` URL),
-   derive `<svn-keys-dir-url>` with `python3 <skill-dir>/scripts/check_key.py --keys-url <keys_file_url>`,
-   which strips `/KEYS` and returns an `error` for a `dist/dev` URL or one that does not end in `/KEYS`:
+1. **`keys_block_to_append`** — `# <rm-uid>` followed by the armoured public key block exactly as it should appear appended to the project's KEYS file.
+   A fetched file holding private-key material, or not exactly one public key block, is refused.
+2. **`svn_command_sequence`** — the paste-ready block the RM executes under their own credentials, chosen from `keys_file_url` (`backend`; `--backend` overrides):
+   `dist.apache.org` → `svn` ([`backends/svnpubsub.md`](backends/svnpubsub.md); a `dist/dev` URL is refused),
+   with `release_dist_backend = atr` also `atr_offer` ([`backends/atr.md`](backends/atr.md): offer the ATR path first and ask which the project has configured),
+   `github.com` → `git` with a PR, any other URL → generic instructions ([`backends/git.md`](backends/git.md)).
+   `read` names the file to load.
+3. **`keyserver_upload_reminder`** — upload to `https://<keyserver>/upload` (or the keyserver's documented upload endpoint) so that voters and future verifiers can fetch it,
+   restating the Step 1 expiry advisory when there is one.
 
-   ```text
-   # 1. Check out only the KEYS-file directory
-   svn checkout <svn-keys-dir-url> /tmp/<project-dist-name>-keys \  # release_dist_backend=svnpubsub
-     --depth immediates
-
-   # 2. Append the key block below to /tmp/<project-dist-name>-keys/KEYS
-
-   # 3. Commit
-   svn commit /tmp/<project-dist-name>-keys/KEYS \  # release_dist_backend=svnpubsub
-     -m "Add <rm-uid> to KEYS (fingerprint: <fingerprint>)"
-   ```
-
-   **When `release_dist_backend = atr`, offer the ATR path first.**
-   ATR can hold the committee `KEYS` file and manage it for the project once the RM loads their own key into ATR — an opt-in on the committee configuration page.
-   Where that is enabled, the RM adds the key in ATR rather than committing `KEYS` by hand, and the `svn` sequence above is not used.
-   Ask which the project has configured rather than assuming;
-   both remain valid, and a project that has not opted in still commits to SVN exactly as above.
-
-   For non-ASF adopters where `keys_file_url` points to a GitHub repository (URL contains `github.com`),
-   emit equivalent `git` commands (clone the relevant file, append, open a PR).
-   For other non-ASF backends, provide generic instructions tailored to the URL scheme in `keys_file_url`.
-
-   **`KEYS` belongs in `dist/release`, never `dist/dev`.**
-   The file is long-lived project metadata, not a release artefact, and voters and future verifiers fetch it from the released location.
-   `keys_file_url` should always resolve under `dist/release/<project>/KEYS`.
-   If a project's config points at `dist/dev`, treat that as a configuration error and say so rather than emitting a command against it.
-
-3. **Keyserver upload reminder** — if the key was found on the configured keyserver,
-   remind the RM to also upload to `https://<keyserver>/upload` (or the keyserver's documented upload endpoint) so that voters and future verifiers can fetch it.
-   If the key has an expiry advisory from Step 1, restate it here.
-
+Every UID, fingerprint and URL in the commands is quoted: the UID comes from the keyserver.
 Present the KEYS block, command sequence, and reminder to the RM.
 Ask for confirmation before the RM runs the commands.
 
@@ -363,25 +340,10 @@ The AI-driven part ends with a hand-back artefact containing:
 | Pre-flight noop — key already in KEYS | Fingerprint present for same UID | No action needed; proceed to `release-rc-cut` |
 | Pre-flight blocked — key rolled | Fingerprint in KEYS but UID changed on keyserver | RM decides: append the new key block or replace; update `rm_key_fingerprint` in config |
 | Pre-flight blocked — KEYS file unreachable | Network issue or incorrect `keys_file_url` | Correct `keys_file_url`; check network/VPN if accessing `dist.apache.org` |
-| Step 1 blocked — key not on keyserver | RM has not uploaded the public key yet | RM uploads to the keyserver first, then re-runs |
-| Step 1 blocked — key too weak | RSA or DSA below 2048 bits | RM generates a new key meeting the ASF strength floor; update `rm_key_fingerprint` |
-| Step 1 blocked — key expired | The key's expiry date has passed | RM extends the expiry and re-uploads to the keyserver, or generates a new key and updates `rm_key_fingerprint` |
+| Step 1 blocked — key missing, too weak, expired, revoked | See [`outcomes/blocked-key.md`](outcomes/blocked-key.md) | RM fixes the key on the keyserver or generates a new one, updates `rm_key_fingerprint`, re-runs |
 
 ---
 
 ## References
 
-- [`docs/release-management/process.md`](../../../../docs/release-management/process.md) —
-  Step 3 context.
-- [`docs/release-management/spec.md`](../../../../docs/release-management/spec.md) —
-  `release-keys-sync` per-skill specification.
-- [`<project-config>/release-management-config.md`](../../../magpie-setup/templates/release-management-config.md) —
-  adopter keys this skill reads (`keys_file_url`, `keyserver`,
-  `rm_key_fingerprint`).
-- `release-prepare` — upstream step; planning issue should be open.
-- `release-rc-cut` (proposed) — downstream step; KEYS must be updated
-  before RC artefacts are signed.
-- [ASF release-signing](https://infra.apache.org/release-signing.html) —
-  key strength requirements and keyserver policy.
-- [ASF release policy](https://www.apache.org/legal/release-policy.html) —
-  policy governing release artefacts and signing.
+The process and spec pages, the config keys read, the tools and the ASF signing policy: [`references.md`](references.md).

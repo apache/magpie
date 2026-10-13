@@ -23,3 +23,14 @@ release-config preflight output
   }
 }
 ```
+
+`release-management archive-sweep verdict --preflight <scratch>/archive-sweep-preflight.json` output:
+
+```json
+{
+  "verdict": "proceed",
+  "blockers": [],
+  "non_asf": false,
+  "dist_backend": "svnpubsub"
+}
+```

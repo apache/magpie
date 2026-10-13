@@ -137,17 +137,21 @@ code lands.
   `binaries`, `symlinks`, `version`, `verdict`), verifying signatures in a
   throwaway `GNUPGHOME` and refusing a `KEYS` file with private-key material.
   Per-skill sibling scripts (#1512) under `skills/<alias>/scripts/` with
-  stdlib `unittest` suites in `skills/<alias>/tests/`: `archive-sweep`
-  `retention.py`, `audit-report` `render_record.py`, `keys-sync`
-  `check_key.py`; the `skill-script-tests` pre-commit hook
-  (`tools/dev/run-skill-script-tests.sh`) runs them. The `vote-tally`
-  tally (formerly `tally.py`) is `release-management vote-tally tally`
-  in `tools/release-management`, beside the `vote-draft` and `vote-tally`
-  renders; `prepare`'s former `prev_tag.py`, `category_x.py` and
-  `next_dev_version.py` are `release-management prepare prev-tag`,
-  `category-x` and `next-dev-version`, beside its Step 0 verdict, the
-  planning-issue and PR renders, the changelog coverage check, the 2e
-  archive review and the Step A eligibility gate and workflow render.
+  stdlib `unittest` suites have all moved into `tools/release-management`
+  beside each skill's renders: the `vote-tally` tally (formerly `tally.py`)
+  is `release-management vote-tally tally`; `prepare`'s former
+  `prev_tag.py`, `category_x.py` and `next_dev_version.py` are
+  `release-management prepare prev-tag`, `category-x` and
+  `next-dev-version`, beside its Step 0 verdict, the planning-issue and PR
+  renders, the changelog coverage check, the 2e archive review and the
+  Step A eligibility gate and workflow render; `archive-sweep`
+  `retention.py` is `release-management archive-sweep retention` (beside
+  `verdict`, `listing`, `trains` and `render`); `audit-report`
+  `render_record.py` is `release-management audit-report record` (beside
+  `verdict`, `gather`, `voters`, `check` and `pr`); and `keys-sync`
+  `check_key.py` is `release-management keys-sync check` (beside `verdict`
+  and `render`), its gpg listing moved to `release-verify list-keys`, so
+  release-management still runs nothing.
 - Conditional steps load only when they run (#1515): `prepare` splits into
   `plan.md`, `prep.md`, `post.md` and `automated-signing.md`; `rc-cut` into
   `ci-signed.md` and `reproducibility-self-check.md`; `verify-rc` into
@@ -311,8 +315,9 @@ uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/release-an
   schema lives at
   `plugins/magpie-release-management/skills/audit-report/audit-record-schema.md`
   (reached as `skills/release-audit-report/audit-record-schema.md`).
-  The `tools/skill-evals/evals/release-audit-report/` suite validates
-  incomplete records, including the `case-4-all-required-missing` fixture.
+  `tools/release-management/tests/test_audit_report.py` validates
+  incomplete records, including the former `case-4-all-required-missing`
+  eval case.
 - **Magpie's committed override is the unfilled template.** Per-file
   `<project-config>` resolution reads
   `.apache-magpie-overrides/release-management-config.md` in this

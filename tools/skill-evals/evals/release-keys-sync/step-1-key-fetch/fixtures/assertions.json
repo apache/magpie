@@ -1,7 +1,0 @@
-{
-  "has_weak_key_note": {
-    "type": "contains_all",
-    "field": "strength_note",
-    "substrings": ["1024", "2048"]
-  }
-}

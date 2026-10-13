@@ -19,7 +19,8 @@
 
 **Harness:** agnostic
 
-Deterministic, read-only checks of a staged release candidate, one subcommand per mechanical step of the [`release-verify-rc`](../../plugins/magpie-release-management/skills/verify-rc/SKILL.md) skill.
+Deterministic, read-only checks of a staged release candidate, one subcommand per mechanical step of the [`release-verify-rc`](../../plugins/magpie-release-management/skills/verify-rc/SKILL.md) skill,
+plus `list-keys`, which lists the public keys in a `KEYS` file or a fetched key for [`release-keys-sync`](../../plugins/magpie-release-management/skills/keys-sync/SKILL.md).
 Each prints one JSON object; the skill reads it and reports.
 The rules are the skill's, implemented once in code so the model does not re-derive them from prose on every run.
 Judgement stays with the reader: whether a NOTICE / LICENSE diff is material, and whether the project's own source-tree validators passed, come back as status `REVIEW`.
@@ -29,7 +30,7 @@ Guarantees: nothing is written outside a throwaway `GNUPGHOME`; the user's keyri
 ## Prerequisites
 
 - **Runtime:** Python 3.11+ (stdlib only); run via `uv run --project tools/release-verify` or as a plain `python3 <framework>/tools/release-verify/src/release_verify/__init__.py`.
-- **CLIs:** `gpg` (GnuPG 2.2+) on `PATH` for `signatures` and `all`; every other subcommand works on local files alone. No `gpg-agent` is needed — verification uses public keys only.
+- **CLIs:** `gpg` (GnuPG 2.2+) on `PATH` for `signatures`, `all` and `list-keys`; every other subcommand works on local files alone. No `gpg-agent` is needed — verification uses public keys only.
 - **Credentials / auth:** None.
 - **Network:** None — runs fully offline on a local copy of the staging directory, the `KEYS` file and the unpacked source artefact.
 
@@ -50,6 +51,7 @@ $RV binaries   --tree <tree> [--prohibit '<glob>']... [--accept '<glob>']...
 $RV symlinks   --tree <tree> [--validator '<command>']...
 $RV version    --tree <tree> --rc-tag <version>-rcN --manifest <path>[=<regex>]...
 $RV verdict    <step.json>... [--status <step>=PASS|WARN|FAIL|SKIP]...
+$RV list-keys  --file <KEYS or fetched-key.asc>
 $RV all        --dir <staging> --tree <tree> <the options above> [--status <step>=<status>]...
 ```
 
@@ -70,6 +72,7 @@ Every step object carries `step`, `status` and the step's fields as the skill's 
 | `binaries` | `binary-exclusion` | `FAIL` when `prohibited_found` is non-empty | `prohibited_found`, `expected_binaries`, `paste_recipe` |
 | `symlinks` | `source-tree-integrity` | `FAIL` a symlink that dangles or resolves outside the archive · `REVIEW` validators declared (run them) · `PASS` symlinks, all resolve inside · `SKIP` no symlinks, no validators | `dangling_symlinks`, `outside_symlinks`†, `symlinks_present`†, `validator_failures` (always `[]`), `validators_to_run`†, `paste_recipe` |
 | `version` | `version-consistency` | `FAIL` any `extracted` is `null` or differs from the expected version | `expected_version`, `results[]` (`file`, `extracted`, `match`, `detail`†) |
+| `list-keys` | `list-keys` | — | `file` (base name only), `keys[]` (`fingerprint`, `validity`, `algo_id`, `algorithm`, `bits`, `curve`, `created`, `expiry`, `uids`, `subkey_fingerprints`), `detail`† (why no key was listed) |
 | `verdict` | `verdict` | — | `overall` (`FAIL` > `PASS-WITH-WARNINGS` > `PASS`; `null` while a step is unresolved), `step_summary`, `fail_steps`, `warn_steps`, `skip_steps`, `unresolved`, `ignored_overrides`† |
 
 Rules the subcommands apply:
@@ -81,11 +84,13 @@ Rules the subcommands apply:
 - **Notice / licence.** On `FAIL`, `detail` names the file the current RC artefact lacks; the diff counts are `null` because there is nothing to diff, not because a previous release is missing.
 - **Symlinks.** Every symlink must resolve to an existing path inside the unpacked archive. One whose target does not exist is dangling; one that resolves outside the archive (`..` past the root, an absolute path, or a chain through either) is listed in `outside_symlinks` and also `FAIL`s, even when the target exists. `paste_recipe` repeats both checks with `realpath`. Validators are printed in `paste_recipe`, never run.
 - **Version.** `--rc-tag` drops the `-rcN` suffix. Built-in extraction for `setup.cfg` (`[metadata] version`), `pyproject.toml` (`[project]` or `[tool.poetry]`), `*.py` (`__version__ = "…"`; `version="…"` in `setup.py`), `pom.xml` (`<project><version>`), `package.json`, `Cargo.toml`, `*.properties`, `build.gradle(.kts)`, `Chart.yaml`, `VERSION` / `version.txt`. Anything else needs `PATH=REGEX` (first group). Dynamic versions (`attr:`, `dynamic = ["version"]`) are `null`.
+- **List keys.** The file is refused when it holds private-key material, and otherwise imported into a fresh throwaway `GNUPGHOME` (no agent, keyboxd or key retrieval) and listed with `--with-colons --fixed-list-mode`. Each primary key comes with its fingerprint, gpg's validity field, algorithm, size, curve, creation and expiry dates (`YYYY-MM-DD`), its user IDs (revoked and expired ones left out, primary first) and its subkey fingerprints. An empty file, or one gpg finds no key in, lists `keys: []` with `detail` — not an error — so a keyserver 404 saved as an empty file reads as "no key". It judges nothing: [`release-management keys-sync`](../release-management/README.md#keys-sync) applies the strength floor and the KEYS lookup.
 - **Verdict.** A status the tool computed is final; `--status` only fills a step it did not run (`rat-license-headers`, `reproducibility`) or resolves a `REVIEW`. `SKIP` neither passes nor warns, and `skip_steps` lists every skipped step so the report names it.
 
 ## Wiring
 
 - `release-verify-rc` Steps 1–3 and 5–8 run the matching subcommand, and Step 10 runs `verdict` (or the skill runs `all` once). Step 4 (Apache RAT) is build-system specific and Step 9 uses [`reproducible-archive`](../reproducible-archive/README.md); both report their status into `verdict` with `--status`. [`release-management verify-rc args`](../release-management/README.md#verify-rc) writes every invocation from `release-build.md`, and `verify-rc source-tree` resolves a Step 7 `REVIEW`.
+- `release-keys-sync` Steps 0 and 1 run `list-keys` on the `KEYS` file and on the key fetched from the keyserver, and hand the JSON to `release-management keys-sync verdict` / `check`.
 - The workspace pre-commit hooks (`ruff`, `mypy`, `pytest`) pick the project up from the root `pyproject.toml` `[tool.uv.workspace] members` list.
 
 ## Tests

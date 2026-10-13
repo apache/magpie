@@ -71,9 +71,9 @@ Suites are currently implemented for:
 - **mentoring-welcome** — 20 cases across 2 suites (tone-checks, welcome-decision)
 - **pr-management-quick-merge** — 5 cases across 1 suite (approve-protocol); the gates, triviality screen and live buckets are pytest-tested in `tools/pr-management`
 - **release-announce-draft** — 2 cases across 2 suites (step-0-preflight, step-3-site-bump); the Step 0 verdict and Steps 2–3 are rendered and pytest-tested in `tools/release-management`
-- **release-archive-sweep** — 10 cases across 3 suites (step-0-preflight, step-1-load-listing, step-2-emit-commands)
-- **release-audit-report** — 9 cases across 3 suites (step-0-preflight, step-1-gather-record, step-2-assemble-record)
-- **release-keys-sync** — 9 cases across 3 suites (step-0-preflight, step-1-key-fetch, step-2-svn-commands)
+- **release-archive-sweep** — 2 cases across 2 suites (step-0-preflight, step-2-emit-commands); the Step 0 verdict, the listing, trains, retention rule and archive command set are code, pytest-tested in `tools/release-management`
+- **release-audit-report** — 4 cases across 3 suites (step-0-preflight, step-1-gather-record, step-2-assemble-record); the Step 0 verdict, the Step 1 search plan, voter handles and field check, the record and the PR proposal are code, pytest-tested in `tools/release-management`
+- **release-keys-sync** — 2 cases across 2 suites (step-0-preflight, step-2-svn-commands); the KEYS lookup, the strength floor and the Step 2 render are pytest-tested in `tools/release-management` (keys read by `release-verify list-keys`)
 - **release-prepare** — 6 cases across 3 suites (step-0-preflight, step-1-plan, step-2-prep); the Step 0 verdict, the planning issue, the changelog, the prep and post-release PRs and the 2e bucket table are rendered and pytest-tested in `tools/release-management`
 - **release-promote** — 2 cases across 2 suites (step-0-preflight, step-2-emit-commands); the Step 0 verdict and Step 2 are rendered and pytest-tested in `tools/release-management`
 - **release-rc-cut** — 7 cases across 2 suites (step-0-preflight, step-3-staging); Steps 2, 2b and 3 are rendered and pytest-tested in `tools/release-management`

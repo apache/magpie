@@ -474,3 +474,107 @@ def test_archive_review_protects_the_voter_inputs_of_a_real_load(
     for path in voters:
         assert refused[path].startswith("an input to the checks voters run"), path
     assert not set(voters) & {p["path"] for p in out["proposed"]}
+
+
+def test_audit_report_renders_from_a_real_load(tmp_path: Path) -> None:
+    from release_management.audit_report import record
+    from release_management.audit_report import render as audit_report
+
+    _project(tmp_path, {"audit_log_path": "audit/releases", "product_name": "Apache Foo"})
+    roster = (
+        "| Apache ID | Name | Primary email |\n|---|---|---|\n| `alice` | Alice | `alice@example.org` |\n"
+    )
+    (tmp_path / ".apache-magpie-overrides" / "pmc-roster.md").write_text(roster, encoding="utf-8")
+    pre = _run(tmp_path, "preflight", "audit-report", "1.0.0")
+    verdict = audit_report.verdict(pre, planning_issue="apache/foo#7")
+    assert verdict["verdict"] == "proceed", verdict["blockers"]
+    assert verdict["planning_issue_url"] == "https://github.com/apache/foo/issues/7"
+    assert verdict["audit_log_path"] == "audit/releases"
+    loaded = _run(tmp_path, "load", "audit-report", "1.0.0")
+    plan = audit_report.gather(loaded, rc="rc1")
+    assert plan["product_name"] == "Apache Foo"
+    assert plan["promote_revision"]["command"] == (
+        "svn info --show-item last-changed-revision https://dist.apache.org/repos/dist/release/foo/1.0.0/"
+    )
+    assert audit_report.voters(["alice@apache.org"], roster)["binding_voters"] == ["@alice"]
+    step1 = {
+        "version": "1.0.0",
+        "product_name": plan["product_name"],
+        "planning_issue_url": verdict["planning_issue_url"],
+        **dict.fromkeys(record.ORDERED_FIELDS[1:], "MISSING"),
+    }
+    out = audit_report.pr(step1, audit_log_path=verdict["audit_log_path"], upstream="apache/foo")
+    assert out["target_file"] == "audit/releases/1.0.0.md"
+    assert out["pr_title"] == "chore: add release audit record for Apache Foo 1.0.0"
+
+
+def test_archive_sweep_renders_from_a_real_load(tmp_path: Path) -> None:
+    from release_management.archive_sweep import render as archive_sweep
+    from release_management.archive_sweep import retention
+
+    _project(tmp_path, {"archive_retention_rule": "latest_of_each_supported_line"})
+    (tmp_path / ".apache-magpie-overrides" / "release-trains.md").write_text(
+        "# Release trains\n\n## Release branches currently in flight\n\n"
+        "- **`v1-x-stable`** — the 1.x train, supported; latest `1.1.0`.\n"
+        "- **`main`** — the 2.x train, supported; latest `2.0.0`.\n",
+        encoding="utf-8",
+    )
+    pre = _run(tmp_path, "preflight", "archive-sweep")
+    assert archive_sweep.verdict(pre) == {
+        "verdict": "proceed",
+        "blockers": [],
+        "non_asf": False,
+        "dist_backend": "svnpubsub",
+    }
+    loaded = _run(tmp_path, "load", "archive-sweep")
+    sweep = archive_sweep.Sweep.from_load(loaded)
+    assert (
+        archive_sweep.listing(sweep)["command"] == "svn list https://dist.apache.org/repos/dist/release/foo/"
+    )
+    trains = archive_sweep.trains(sweep)["trains"]
+    assert trains == [{"label": "1.x", "pattern": "1.x"}, {"label": "2.x", "pattern": "2.x"}]
+    versions, _ = retention.parse_listing("1.0.0/\n1.1.0/\n2.0.0/\nKEYS\n")
+    out = archive_sweep.step2(sweep, retention.sweep(versions, trains))
+    assert out["archive_count"] == 1
+    assert "https://dist.apache.org/repos/dist/release/foo/1.0.0 \\" in out["commands"]
+    assert "https://archive.apache.org/dist/foo/1.0.0 \\" in out["commands"]
+    assert '-m "Archive foo 1.0.0 per retention policy"' in out["commands"]
+
+
+def test_keys_sync_renders_from_a_real_load(tmp_path: Path) -> None:
+    from release_management.keys_sync import check
+    from release_management.keys_sync import render as keys_sync
+
+    _project(tmp_path)
+    fpr = "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6ABCD"
+    pre = _run(tmp_path, "preflight", "keys-sync", "--fingerprint", fpr)
+    assert pre["ok"] and pre["values"]["keyserver"] == "keys.openpgp.org"
+    absent = {
+        "step": "list-keys",
+        "file": "KEYS",
+        "keys": [{"fingerprint": "C" * 40, "uids": ["Other <o@apache.org>"]}],
+    }
+    assert keys_sync.verdict(pre, absent)["verdict"] == "proceed"
+    key = {
+        "fingerprint": fpr,
+        "validity": "-",
+        "algo_id": "22",
+        "bits": 255,
+        "curve": "ed25519",
+        "created": "2025-01-01",
+        "expiry": None,
+        "uids": ["Foo RM <rm@apache.org>"],
+        "subkey_fingerprints": [],
+    }
+    step1 = check.assess(check.find_key([key], fpr), fpr, check.dt.date(2026, 6, 19))
+    assert step1["verdict"] == "proceed"
+    loaded = _run(tmp_path, "load", "keys-sync")
+    block = "-----BEGIN PGP PUBLIC KEY BLOCK-----\n\nxx\n-----END PGP PUBLIC KEY BLOCK-----"
+    out = keys_sync.step2(pre, loaded, step1, block)
+    assert out["backend"] == "svnpubsub"
+    assert out["keys_block_to_append"].startswith("# Foo RM <rm@apache.org>\n-----BEGIN")
+    assert (
+        "svn checkout https://dist.apache.org/repos/dist/release/foo /tmp/foo-keys --depth immediates"
+        in out["svn_command_sequence"]
+    )
+    assert "https://keys.openpgp.org/upload" in out["keyserver_upload_reminder"]
