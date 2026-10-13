@@ -16,6 +16,7 @@
 # under the License.
 
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -43,6 +44,9 @@ for _var in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR", "GI
 
 git_required = pytest.mark.skipif(not GitBackend.is_available(), reason="git not installed")
 hg_required = pytest.mark.skipif(not MercurialBackend.is_available(), reason="hg not installed")
+svn_required = pytest.mark.skipif(
+    shutil.which("svn") is None or shutil.which("svnadmin") is None, reason="svn/svnadmin not installed"
+)
 
 
 def _git(repo: Path, *args: str) -> None:
@@ -51,6 +55,10 @@ def _git(repo: Path, *args: str) -> None:
 
 def _hg(repo: Path, *args: str) -> None:
     subprocess.run(["hg", *args], cwd=repo, check=True, capture_output=True)
+
+
+def _svn(cwd: Path, *args: str) -> None:
+    subprocess.run(["svn", "--non-interactive", *args], cwd=cwd, check=True, capture_output=True)
 
 
 @pytest.fixture
@@ -78,6 +86,32 @@ def hg_repo(tmp_path: Path) -> Path:
     _hg(repo, "add", "file.txt")
     _hg(repo, "commit", "-m", "initial commit")
     return repo
+
+
+@pytest.fixture
+def svn_wc(tmp_path: Path) -> Path:
+    """A trunk working copy of a local repo with the standard trunk/branches/tags layout.
+
+    History: r1 creates the layout, r2 (by ``alice``) adds file.txt, r3 (by ``bob``)
+    adds other.txt — so ``file.txt`` is ``hello`` at r2 and the WC is at r3.
+    """
+    repos = tmp_path / "svnrepo"
+    subprocess.run(["svnadmin", "create", str(repos)], check=True, capture_output=True)
+    url = repos.as_uri()
+    _svn(
+        tmp_path, "mkdir", "--parents", "-m", "layout",
+        f"{url}/proj/trunk", f"{url}/proj/branches", f"{url}/proj/tags",
+    )  # fmt: skip
+    wc = tmp_path / "wc"
+    _svn(tmp_path, "checkout", f"{url}/proj/trunk", str(wc))
+    (wc / "file.txt").write_text("hello\n")
+    _svn(wc, "add", "file.txt")
+    _svn(wc, "commit", "--username", "alice", "-m", "initial commit")
+    (wc / "other.txt").write_text("other\n")
+    _svn(wc, "add", "other.txt")
+    _svn(wc, "commit", "--username", "bob", "-m", "add other.txt")
+    _svn(wc, "update")
+    return wc
 
 
 # -- detection -------------------------------------------------------------
@@ -207,14 +241,132 @@ def test_git_cat(git_repo: Path) -> None:
     assert backend.cat("HEAD", "file.txt") == "hello\n"
 
 
-# -- unimplemented backends ------------------------------------------------
+# -- svn backend operations ------------------------------------------------
 
 
-def test_unimplemented_raise_with_issue(tmp_path: Path) -> None:
-    svn = SubversionBackend(tmp_path)
-    with pytest.raises(VCSError, match=r"apache/magpie#602"):
-        svn.commit("x")
-    assert svn.distributed is False  # centralized model flagged
+@svn_required
+def test_svn_detect_from_subdir(svn_wc: Path) -> None:
+    sub = svn_wc / "sub"
+    sub.mkdir()
+    backend = detect_backend(sub)
+    assert isinstance(backend, SubversionBackend)
+    assert backend.root == svn_wc
+    assert backend.distributed is False  # centralized model flagged
+
+
+@svn_required
+def test_svn_clean_then_dirty(svn_wc: Path) -> None:
+    backend = SubversionBackend(svn_wc)
+    assert backend.is_clean()
+    (svn_wc / "file.txt").write_text("changed\n")
+    (svn_wc / "untracked.txt").write_text("u\n")
+    status = backend.status()
+    assert "M       file.txt" in status
+    assert "?       untracked.txt" in status
+    assert not backend.is_clean()
+
+
+@svn_required
+def test_svn_branch_switch_and_commit(svn_wc: Path) -> None:
+    backend = SubversionBackend(svn_wc)
+    assert backend.current_branch() == "trunk"
+    backend.create_branch("feature")
+    assert backend.current_branch() == "branches/feature"
+    (svn_wc / "pkg").mkdir()
+    (svn_wc / "pkg" / "new.txt").write_text("new\n")
+    backend.stage(["pkg/new.txt"])  # unversioned parent dir is added too
+    backend.commit("add new.txt")
+    assert backend.is_clean()
+    assert "add new.txt" in backend.log(max_count=1)
+    backend.switch("trunk")
+    assert backend.current_branch() == "trunk"
+    assert not (svn_wc / "pkg").exists()
+    backend.switch("feature")  # a name created by create_branch switches back
+    assert (svn_wc / "pkg" / "new.txt").read_text() == "new\n"
+
+
+@svn_required
+def test_svn_stage_modified_and_deleted(svn_wc: Path) -> None:
+    backend = SubversionBackend(svn_wc)
+    (svn_wc / "file.txt").write_text("changed\n")
+    (svn_wc / "other.txt").unlink()
+    backend.stage(["file.txt", "other.txt"])  # versioned: no-op; gone from disk: scheduled delete
+    assert backend.status().splitlines() == ["M       file.txt", "D       other.txt"]
+    backend.commit("edit file.txt, drop other.txt")
+    assert backend.is_clean()
+    with pytest.raises(VCSError, match="refusing to stage nothing"):
+        backend.stage([])
+
+
+@svn_required
+def test_svn_create_branch_outside_layout_rejected(tmp_path: Path) -> None:
+    repos = tmp_path / "flat"
+    subprocess.run(["svnadmin", "create", str(repos)], check=True, capture_output=True)
+    wc = tmp_path / "flatwc"
+    _svn(tmp_path, "checkout", repos.as_uri(), str(wc))
+    backend = SubversionBackend(wc)
+    assert backend.current_branch() == ""  # repository root, no line-of-work segment
+    with pytest.raises(VCSError, match="trunk/branches/tags"):
+        backend.create_branch("feature")
+
+
+@svn_required
+def test_svn_log_filters(svn_wc: Path) -> None:
+    backend = SubversionBackend(svn_wc)
+    assert backend.log().splitlines() == ["r3 add other.txt", "r2 initial commit", "r1 layout"]
+    assert backend.log(max_count=1).splitlines() == ["r3 add other.txt"]
+    assert backend.log(grep="initial").splitlines() == ["r2 initial commit"]
+    assert backend.log(author="bob").splitlines() == ["r3 add other.txt"]
+    assert backend.log(grep="other", author="alice") == ""
+    assert backend.log(paths=["file.txt"]).splitlines() == ["r2 initial commit"]
+    assert backend.log(paths=["file.txt", "other.txt"]).splitlines() == [
+        "r3 add other.txt",
+        "r2 initial commit",
+    ]
+    # max_count applies after filtering, not to the raw history window
+    assert backend.log(max_count=1, author="alice").splitlines() == ["r2 initial commit"]
+    assert backend.log(since="2000-01-01").splitlines()[0] == "r3 add other.txt"
+
+
+@svn_required
+def test_svn_diff_and_cat(svn_wc: Path) -> None:
+    backend = SubversionBackend(svn_wc)
+    (svn_wc / "file.txt").write_text("changed\n")
+    working = backend.diff()
+    assert "-hello" in working
+    assert "+changed" in working
+    assert "other.txt" not in working
+    assert "+other" in backend.diff(base="2")  # r3 added other.txt after the base
+    assert "file.txt" in backend.diff(paths=["file.txt"])
+    with pytest.raises(VCSError, match="does not support staging area"):
+        backend.diff(cached=True)
+    assert backend.cat("2", "file.txt") == "hello\n"
+
+
+@svn_required
+def test_svn_reset_worktree(svn_wc: Path) -> None:
+    backend = SubversionBackend(svn_wc)
+    _svn(svn_wc, "propset", "svn:ignore", "ignored.txt", ".")
+    _svn(svn_wc, "commit", "-m", "ignore ignored.txt")
+    _svn(svn_wc, "update")
+    (svn_wc / "file.txt").write_text("changed\n")
+    (svn_wc / "untracked.txt").write_text("u\n")
+    (svn_wc / "ignored.txt").write_text("i\n")
+    backend.reset_worktree()
+    assert backend.is_clean()
+    assert (svn_wc / "file.txt").read_text() == "hello\n"
+    assert not (svn_wc / "untracked.txt").exists()
+    assert (svn_wc / "ignored.txt").exists()  # ignored files are preserved, as with git clean -fd
+
+
+@svn_required
+def test_svn_fetch_leaves_wc_and_push_refuses(svn_wc: Path) -> None:
+    backend = SubversionBackend(svn_wc)
+    (svn_wc / "file.txt").write_text("changed\n")
+    backend.fetch()
+    assert (svn_wc / "file.txt").read_text() == "changed\n"
+    with pytest.raises(VCSError, match="already published"):
+        backend.push("origin", "trunk")
 
 
 # -- hg backend operations -------------------------------------------------
@@ -299,10 +451,15 @@ def test_cli_unknown_backend_errors(git_repo: Path, capsys: pytest.CaptureFixtur
     assert "unknown backend" in capsys.readouterr().err
 
 
-def test_cli_unimplemented_backend_errors(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    (tmp_path / ".svn").mkdir()
-    assert main(["-C", str(tmp_path), "status"]) == 2
-    assert "apache/magpie#602" in capsys.readouterr().err
+@svn_required
+def test_cli_svn_detect_and_status(svn_wc: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["-C", str(svn_wc), "detect"]) == 0
+    assert capsys.readouterr().out.strip() == "svn"
+    assert main(["-C", str(svn_wc), "clean"]) == 0
+    (svn_wc / "file.txt").write_text("changed\n")
+    assert main(["-C", str(svn_wc), "clean"]) == 1
+    assert main(["-C", str(svn_wc), "push", "origin", "trunk"]) == 2
+    assert "already published" in capsys.readouterr().err
 
 
 @git_required

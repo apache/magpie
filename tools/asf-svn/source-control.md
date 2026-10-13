@@ -103,16 +103,14 @@ svn checkout \
 ## `magpie-vcs` integration
 
 The abstract `magpie-vcs` CLI ([`tools/vcs/`](../vcs/README.md))
-detects SVN working copies and dispatches to the SVN backend. Until
-the full SVN binding lands in `magpie-vcs` (tracked in
-[apache/magpie#602](https://github.com/apache/magpie/issues/602)),
-`magpie-vcs detect` correctly identifies SVN working copies and raises
-an actionable error naming the tracking issue.
-
-When the `#602` binding is complete, the `magpie-vcs` CLI becomes the
-preferred interface — a skill can run `magpie-vcs diff` or
-`magpie-vcs log` and the tool dispatches to the correct `svn` command
-without the skill knowing which VCS is in use.
+detects SVN working copies and dispatches to its `svn` backend, which
+implements this binding: a skill runs `magpie-vcs diff` or
+`magpie-vcs log` and the tool runs the matching `svn` command without
+the skill knowing which VCS is in use. How each abstract operation maps
+onto the centralized model (no staging area, `fetch` a no-op, `push`
+refused because `commit` already published) is tabulated in the
+[`magpie-vcs` README](../vcs/README.md#subversion-centralized-model).
+Blame has no abstract operation; run `svn blame` directly.
 
 ## When to replace this capability
 

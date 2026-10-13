@@ -10,6 +10,7 @@
   - [Why](#why)
   - [The abstraction](#the-abstraction)
   - [Backends](#backends)
+    - [Subversion (centralized model)](#subversion-centralized-model)
     - [Adding a backend](#adding-a-backend)
   - [How to use](#how-to-use)
 
@@ -49,12 +50,16 @@ VCS the project enables under *Tools enabled → Source control*.
 - **Runtime:** Python 3.11+ run via `uv`; stdlib-only (no runtime
   dependencies). The `dev` group pulls `pytest`, `ruff`, `mypy`.
 - **CLIs:** Depends on the active backend — the tool shells out to the
-  underlying VCS binary: `git`, `hg` or `fossil` for the complete
-  backends. `svn` is detected but its binding is not yet implemented.
-- **Credentials / auth:** None of its own; write operations (`fetch`,
-  `push`) inherit whatever auth the underlying VCS/remote needs.
-- **Network:** Local for read and local-write operations; `fetch` / `push`
-  reach the project's remote (e.g. GitHub) over the network.
+  underlying VCS binary: `git`, `hg`, `fossil` or `svn` (Subversion
+  1.9+, for `cleanup --remove-unversioned`).
+- **Credentials / auth:** None of its own; operations that reach the
+  remote inherit whatever auth the underlying VCS/remote needs. `svn`
+  runs `--non-interactive`, so it uses a cached credential
+  (`~/.subversion/auth/`) and fails rather than prompting.
+- **Network:** For the distributed backends, local for read and
+  local-write operations; `fetch` / `push` reach the project's remote
+  (e.g. GitHub) over the network. For `svn` (centralized), `log`, `cat`,
+  `diff --base`, `new-branch`, `switch` and `commit` reach the server.
 
 ## Configuration
 
@@ -104,20 +109,36 @@ not add its own prompt.
 | `git` | **complete** | GitHub's native VCS; the default binding |
 | `hg` (Mercurial) | **complete** | Mercurial VCS support |
 | `fossil` | **complete** | Fossil SCM; pairs with the [`tools/fossil`](../fossil/) forge bridge |
-| `svn` (Subversion) | extension point | detected; centralized model (`distributed = False`) → [#602](https://github.com/apache/magpie/issues/602) |
+| `svn` (Subversion) | **complete** | centralized model (`distributed = False`); see below |
 
-Detection is real for every backend (so `magpie-vcs detect` reports the
-working copy's VCS correctly); the remaining extension-point backends raise an actionable
-`VCSError` naming their tracking issue until the full binding lands.
+### Subversion (centralized model)
+
+The `svn` backend maps the operations onto SVN's centralized model, as
+documented in [`tools/asf-svn/source-control.md`](../asf-svn/source-control.md#centralized-model-divergences):
+
+| Operation | SVN behaviour |
+|---|---|
+| `branch` | the line of work under the `trunk` / `branches/<name>` / `tags/<name>` layout (e.g. `trunk`); outside that layout, the repository-relative path |
+| `new-branch <name>` | server-side `svn copy` of the current line of work to `branches/<name>`, then `svn switch` onto it |
+| `switch <ref>` | `trunk`, `branches/<n>`, `tags/<n>`, or a bare branch name; a URL or `^/` path is used as-is |
+| `stage <paths…>` | `svn add` for new paths (and unversioned parents), `svn delete` for paths gone from disk; versioned paths are a no-op |
+| `commit -m` | `svn commit` of **every** change in the working copy — SVN has no staging area — written straight to the server |
+| `diff --cached` | error: no staging area |
+| `log` | server history up to `HEAD`, one `r<rev> <subject>` line per revision; `--grep` / `--author` are regexes, `--since` takes an ISO 8601 date |
+| `cat <rev> <path>` | the path as it was at `<rev>` (pegged URL), even if since moved or deleted |
+| `fetch` | no-op: refs live on the server and every history read queries it |
+| `push` | error: `commit` already published the change |
+
+A caller that needs to tell the models apart checks
+`VCSBackend.distributed`.
 
 ### Adding a backend
 
-A VCS bridge (e.g. #602 Subversion) implements the full binding by
-replacing that backend's `_UnimplementedBackend` base with a concrete
-`VCSBackend` subclass — `detect()`, the read operations, the write
-
-operations — and nothing else changes: detection, dispatch, the CLI,
-and every skill that calls `magpie-vcs` pick it up automatically.
+A VCS bridge (e.g. #603 Jujutsu) implements a concrete `VCSBackend`
+subclass — `detect()`, the read operations, the write operations — and
+registers it in `BACKENDS`; nothing else changes: detection, dispatch,
+the CLI, and every skill that calls `magpie-vcs` pick it up
+automatically.
 
 ## How to use
 

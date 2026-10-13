@@ -145,8 +145,9 @@ by swapping the adapter, not the skill.
   active VCS backend, so skills call the abstract operation
   and the backend is detected from the working copy or forced with
   `--backend`/`$MAGPIE_VCS`.
-  `git`, `hg`, and `fossil` are complete backends; `svn` is detected but
-  remains an extension point (#602).
+  `git`, `hg`, `fossil`, and `svn` are complete backends; `svn` maps the
+  operations onto the centralized model — no staging area (`commit` records
+  every working-copy change), `fetch` a no-op, `push` refused (#602).
   A Fossil checkout is detected by its `.fslckout` (or `_FOSSIL_`) marker
   (#1494).
 - `tools/fossil/` (`magpie-fossil`) — stdlib-only Fossil SCM forge bridge,

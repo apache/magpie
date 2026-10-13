@@ -20,9 +20,8 @@
 This module extracts the abstraction documented in
 ``tools/github/source-control.md`` into runnable code: one abstract
 :class:`VCSBackend` interface listing the operations the dev-loop skills
-need, a complete :class:`GitBackend`, a complete :class:`MercurialBackend`, and explicit extension points for the
-non-Git/non-Hg VCS bridges (Subversion #602, Jujutsu #603,
-Fossil #604, Perforce #605).
+need, and complete Git, Mercurial, Fossil, and Subversion backends. Further
+VCS bridges (Jujutsu #603, Perforce #605) plug in as new backends.
 
 A skill calls the abstract operation (``magpie-vcs diff``) instead of a raw
 ``git`` command; the active backend is detected from the working copy (or
@@ -34,11 +33,15 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import subprocess
 import sys
+import xml.etree.ElementTree as ET
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
+from datetime import datetime
 from pathlib import Path
+from urllib.parse import quote
 
 __all__ = [
     "BACKENDS",
@@ -297,75 +300,6 @@ class GitBackend(VCSBackend):
         return _run(["git", "show", f"{rev}:{path}"], self.root)
 
 
-class _UnimplementedBackend(VCSBackend):
-    """Shared base for detected-but-not-yet-implemented non-Git backends.
-
-    The detection logic is real (so ``magpie-vcs detect`` correctly reports
-    the working copy's VCS); every operation raises a clear, actionable
-    :class:`VCSError` pointing at the tracking issue for the full bridge.
-    """
-
-    marker: str = ""
-    issue: str = ""
-
-    @classmethod
-    def detect(cls, start: Path) -> Path | None:
-        for d in (start, *start.parents):
-            if (d / cls.marker).exists():
-                return d
-        return None
-
-    def _unsupported(self, op: str) -> VCSError:
-        return VCSError(
-            f"{self.name}: operation '{op}' is not implemented yet — "
-            f"the {self.name} backend is a tracked extension point ({self.issue}). "
-            f"Implement it by completing this backend in tools/vcs/."
-        )
-
-    def status(self) -> str:
-        raise self._unsupported("status")
-
-    def current_branch(self) -> str:
-        raise self._unsupported("current_branch")
-
-    def diff(self, base: str | None = None, cached: bool = False, paths: Sequence[str] = ()) -> str:
-        raise self._unsupported("diff")
-
-    def log(
-        self,
-        max_count: int | None = None,
-        grep: str | None = None,
-        author: str | None = None,
-        since: str | None = None,
-        paths: Sequence[str] = (),
-    ) -> str:
-        raise self._unsupported("log")
-
-    def create_branch(self, name: str) -> None:
-        raise self._unsupported("create_branch")
-
-    def switch(self, ref: str) -> None:
-        raise self._unsupported("switch")
-
-    def stage(self, paths: Sequence[str]) -> None:
-        raise self._unsupported("stage")
-
-    def commit(self, message: str) -> None:
-        raise self._unsupported("commit")
-
-    def fetch(self, remote: str | None = None, ref: str | None = None) -> None:
-        raise self._unsupported("fetch")
-
-    def push(self, remote: str, ref: str, set_upstream: bool = False) -> None:
-        raise self._unsupported("push")
-
-    def reset_worktree(self) -> None:
-        raise self._unsupported("reset_worktree")
-
-    def cat(self, rev: str, path: str) -> str:
-        raise self._unsupported("cat")
-
-
 class MercurialBackend(VCSBackend):
     """Mercurial (Hg) backend implementation."""
 
@@ -598,13 +532,197 @@ class FossilBackend(VCSBackend):
         return _run(["fossil", "cat", path, "-r", rev], self.root)
 
 
-class SubversionBackend(_UnimplementedBackend):
-    """Apache Subversion (SVN) extension point — see apache/magpie#602."""
+class SubversionBackend(VCSBackend):
+    """Apache Subversion (SVN) binding of the source-control capability.
+
+    SVN is centralized (see ``tools/asf-svn/source-control.md``): ``commit``
+    writes straight to the server, so there is nothing to ``fetch`` or ``push``;
+    there is no staging area, so ``commit`` records every change in the working
+    copy; and a line of work is a server-side directory under the conventional
+    ``trunk`` / ``branches/<name>`` / ``tags/<name>`` layout.
+    """
 
     name = "svn"
     distributed = False
-    marker = ".svn"
-    issue = "apache/magpie#602"
+
+    @classmethod
+    def detect(cls, start: Path) -> Path | None:
+        # SVN 1.7+ keeps a single .svn directory at the working-copy root.
+        for d in (start, *start.parents):
+            if (d / ".svn").exists():
+                return d
+        return None
+
+    @classmethod
+    def is_available(cls) -> bool:
+        try:
+            subprocess.run(["svn", "--version", "--quiet"], capture_output=True, check=True)
+        except (OSError, subprocess.CalledProcessError):
+            return False
+        return True
+
+    def _svn(self, *args: str, capture: bool = True, check: bool = True) -> str:
+        # --non-interactive: never block on an auth or conflict prompt the caller cannot answer.
+        return _run(["svn", "--non-interactive", *args], self.root, capture=capture, check=check)
+
+    def _url(self) -> str:
+        return self._svn("info", "--show-item", "url").strip()
+
+    def _layout(self) -> tuple[str, str, str] | None:
+        """Split the working copy's URL at its line of work.
+
+        Returns ``(project base URL, line of work, path below the line)`` for a
+        URL under ``trunk`` / ``branches/<name>`` / ``tags/<name>`` — e.g.
+        ``(".../asf/foo", "branches/fix", "sub")`` — or ``None`` outside that layout.
+        """
+        info = ET.fromstring(self._svn("info", "--xml"))
+        root = info.findtext("entry/repository/root", "")
+        rel = info.findtext("entry/relative-url", "").removeprefix("^").strip("/")
+        parts = rel.split("/") if rel else []
+        for i, part in enumerate(parts):
+            if part == "trunk":
+                width = 1
+            elif part in ("branches", "tags") and i + 1 < len(parts):
+                width = 2
+            else:
+                continue
+            base = "/".join([root, *parts[:i]])
+            return base, "/".join(parts[i : i + width]), "/".join(parts[i + width :])
+        return None
+
+    def _require_layout(self, op: str) -> tuple[str, str, str]:
+        layout = self._layout()
+        if layout is None:
+            raise VCSError(
+                f"svn {op}: {self._url()} is not under a trunk/branches/tags layout; "
+                f"pass a full URL (or ^/ repository-relative path) instead"
+            )
+        return layout
+
+    def status(self) -> str:
+        return self._svn("status", "--ignore-externals")
+
+    def current_branch(self) -> str:
+        layout = self._layout()
+        if layout is not None:
+            return layout[1]
+        # Outside the conventional layout, the repository-relative path is the line of work.
+        return self._svn("info", "--show-item", "relative-url").strip().removeprefix("^").strip("/")
+
+    def diff(self, base: str | None = None, cached: bool = False, paths: Sequence[str] = ()) -> str:
+        if cached:
+            raise VCSError("svn does not support staging area/cached diff")
+        args = ["diff"]
+        if base:
+            args.extend(["-r", base])
+        return self._svn(*args, "--", *paths)
+
+    def log(
+        self,
+        max_count: int | None = None,
+        grep: str | None = None,
+        author: str | None = None,
+        since: str | None = None,
+        paths: Sequence[str] = (),
+    ) -> str:
+        # History lives on the server: read the line of work up to HEAD. svn log
+        # takes one working-copy target, or a URL plus paths relative to it.
+        targets = [self._url(), *paths] if len(paths) > 1 else list(paths) or ["."]
+        since_dt: datetime | None = None
+        if since:
+            try:
+                since_dt = datetime.fromisoformat(since)
+            except ValueError as exc:
+                raise VCSError(f"svn log --since needs an ISO 8601 date, got {since!r}") from exc
+            if since_dt.tzinfo is None:
+                since_dt = since_dt.astimezone()  # naive dates are local time, as svn's {DATE} is
+            # {DATE} resolves to the last revision *before* the date; the boundary is filtered below.
+            rev_range = f"HEAD:{{{since}}}"
+        else:
+            rev_range = "HEAD:1"
+        filtered = bool(grep or author or since)
+        args = ["log", "--xml", "-r", rev_range]
+        if max_count is not None and not filtered:
+            args.extend(["-l", str(max_count)])
+        try:
+            grep_re = re.compile(grep) if grep else None
+            author_re = re.compile(author) if author else None
+        except re.error as exc:
+            raise VCSError(f"svn log: invalid pattern: {exc}") from exc
+
+        lines: list[str] = []
+        for entry in ET.fromstring(self._svn(*args, "--", *targets)).iter("logentry"):
+            msg = entry.findtext("msg", "")
+            if grep_re and not grep_re.search(msg):
+                continue
+            if author_re and not author_re.search(entry.findtext("author", "")):
+                continue
+            if since_dt and datetime.fromisoformat(entry.findtext("date", "")) < since_dt:
+                continue
+            first_line = msg.splitlines()[0] if msg else ""
+            lines.append(f"r{entry.get('revision')} {first_line}")
+            if max_count is not None and len(lines) >= max_count:
+                break
+        return "".join(f"{line}\n" for line in lines)
+
+    def create_branch(self, name: str) -> None:
+        # A branch is a server-side copy of the current line of work at the
+        # working copy's revision; the working copy then switches onto it,
+        # carrying any local modifications, as `git checkout -b` does.
+        base, line, sub = self._require_layout("new-branch")
+        rev = self._svn("info", "--show-item", "revision").strip()
+        target = f"{base}/branches/{name}"
+        self._svn("copy", f"{base}/{line}@{rev}", target, "-m", f"Create branch {name} from {line}@{rev}")
+        self._svn("switch", "/".join(filter(None, [target, sub])), capture=False)
+
+    def switch(self, ref: str) -> None:
+        # A URL or ^/ path is used as-is; otherwise `trunk`, `branches/<n>` and
+        # `tags/<n>` name a line of work, and a bare name is a branch (the name
+        # create_branch was given).
+        if "://" in ref or ref.startswith("^/"):
+            target = ref
+        else:
+            base, _, sub = self._require_layout("switch")
+            line = ref if ref == "trunk" or ref.startswith(("branches/", "tags/")) else f"branches/{ref}"
+            target = "/".join(filter(None, [base, line, sub]))
+        self._svn("switch", target, capture=False)
+
+    def stage(self, paths: Sequence[str]) -> None:
+        if not paths:
+            raise VCSError("stage: refusing to stage nothing (pass explicit paths)")
+        # `svn add` schedules new paths (and their unversioned parents) and
+        # skips versioned ones; a path gone from disk is scheduled for deletion.
+        missing = [p for p in paths if not (self.root / p).exists()]
+        present = [p for p in paths if p not in missing]
+        if missing:
+            self._svn("delete", "--", *missing, capture=False)
+        if present:
+            self._svn("add", "--force", "--parents", "--", *present, capture=False)
+
+    def commit(self, message: str) -> None:
+        # No staging area: this writes every change in the working copy to the server.
+        self._svn("commit", "-m", message, capture=False)
+
+    def fetch(self, remote: str | None = None, ref: str | None = None) -> None:
+        # Nothing to sync: refs live on the server and every history read
+        # (log, cat, diff --base) queries it directly. `svn update` would
+        # change the working copy, which fetch must not do.
+        return None
+
+    def push(self, remote: str, ref: str, set_upstream: bool = False) -> None:
+        raise VCSError(
+            "svn is centralized: `commit` already published the change to the server; there is nothing to push"
+        )
+
+    def reset_worktree(self) -> None:
+        self._svn("revert", "--recursive", ".", capture=False)
+        # Removes unversioned files but keeps ignored ones, like `git clean -fd`.
+        self._svn("cleanup", "--remove-unversioned", capture=False)
+
+    def cat(self, rev: str, path: str) -> str:
+        # Peg the URL at rev so the path resolves as it was then, even if it
+        # has since moved or been deleted from the working copy.
+        return self._svn("cat", f"{self._url()}/{quote(path)}@{rev}")
 
 
 # Registry, in detection-priority order. New VCS bridges register here.
