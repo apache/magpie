@@ -42,7 +42,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
 __all__ = [
     "BACKENDS",
@@ -633,11 +633,13 @@ class SubversionBackend(VCSBackend):
         return self._svn("status", "--ignore-externals")
 
     def current_branch(self) -> str:
+        # relative-url is URL-encoded; report the name decoded so it round-trips
+        # through switch / new-branch, which quote exactly once.
         layout = self._layout()
         if layout is not None:
-            return layout[1]
+            return unquote(layout[1])
         # Outside the conventional layout, the repository-relative path is the line of work.
-        return self._svn("info", "--show-item", "relative-url").strip().removeprefix("^").strip("/")
+        return unquote(self._svn("info", "--show-item", "relative-url").strip().removeprefix("^").strip("/"))
 
     def diff(self, base: str | None = None, cached: bool = False, paths: Sequence[str] = ()) -> str:
         if cached:

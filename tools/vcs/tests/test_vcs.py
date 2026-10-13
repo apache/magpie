@@ -312,6 +312,11 @@ def test_svn_branch_name_is_url_quoted(svn_wc: Path) -> None:
     backend = SubversionBackend(svn_wc)
     backend.create_branch("fix 1")
     assert backend._url().endswith("/branches/fix%201")
+    assert backend.current_branch() == "branches/fix 1"  # decoded, not branches/fix%201
+    branch = backend.current_branch()
+    backend.switch("trunk")
+    backend.switch(branch)  # branch output round-trips through switch
+    assert backend._url().endswith("/branches/fix%201")
     backend.switch("trunk")
     backend.switch("fix 1")
     assert backend._url().endswith("/branches/fix%201")
