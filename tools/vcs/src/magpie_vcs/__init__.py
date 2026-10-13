@@ -609,15 +609,15 @@ class SubversionBackend(VCSBackend):
         rel = info.findtext("entry/relative-url", "").removeprefix("^").strip("/")
         parts = rel.split("/") if rel else []
         for i in reversed(range(len(parts))):
-            part = parts[i]
-            if part == "trunk":
-                width = 1
-            elif part in ("branches", "tags") and i + 1 < len(parts):
-                width = 2
+            if i > 0 and parts[i - 1] in ("branches", "tags"):
+                # The segment after branches/ or tags/ is a name, even `trunk`.
+                start, width = i - 1, 2
+            elif parts[i] == "trunk":
+                start, width = i, 1
             else:
                 continue
-            base = "/".join([root, *parts[:i]])
-            return base, "/".join(parts[i : i + width]), "/".join(parts[i + width :])
+            base = "/".join([root, *parts[:start]])
+            return base, "/".join(parts[start : start + width]), "/".join(parts[start + width :])
         return None
 
     def _require_layout(self, op: str) -> tuple[str, str, str]:
@@ -716,7 +716,12 @@ class SubversionBackend(VCSBackend):
             target = ref
         else:
             base, _, sub = self._require_layout("switch")
-            line = ref if ref == "trunk" or ref.startswith(("branches/", "tags/")) else f"branches/{ref}"
+            if ref == "trunk" or ref.startswith(("branches/", "tags/")):
+                line = ref
+            elif "/" in ref:
+                raise VCSError(f"svn: invalid branch or ref name {ref!r} (a branch name is one path segment)")
+            else:
+                line = f"branches/{ref}"
             target = "/".join(filter(None, [base, self._relative_ref(line), sub]))
         self._svn("switch", target, capture=False)
 

@@ -342,6 +342,21 @@ def test_svn_layout_uses_rightmost_marker(tmp_path: Path) -> None:
 
 
 @svn_required
+def test_svn_branch_named_trunk_is_a_branch(svn_wc: Path) -> None:
+    backend = SubversionBackend(svn_wc)
+    backend.create_branch("trunk")
+    assert backend.current_branch() == "branches/trunk"
+    backend.create_branch("fix")  # base stays .../proj, not .../proj/branches
+    assert backend._url().endswith("/proj/branches/fix")
+
+
+@svn_required
+def test_svn_switch_rejects_nested_bare_name(svn_wc: Path) -> None:
+    with pytest.raises(VCSError, match="one path segment"):
+        SubversionBackend(svn_wc).switch("team/fix")
+
+
+@svn_required
 def test_svn_create_branch_outside_layout_rejected(tmp_path: Path) -> None:
     repos = tmp_path / "flat"
     subprocess.run(["svnadmin", "create", str(repos)], check=True, capture_output=True)

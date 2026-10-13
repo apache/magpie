@@ -121,7 +121,7 @@ documented in [`tools/asf-svn/source-control.md`](../asf-svn/source-control.md#c
 |---|---|
 | `branch` | the line of work under the `trunk` / `branches/<name>` / `tags/<name>` layout (e.g. `trunk`); outside that layout, the repository-relative path |
 | `new-branch <name>` | server-side `svn copy` of the current line of work to `branches/<name>`, then `svn switch` onto it; `<name>` is one path segment (not empty, `.` or `..`, no `/`) and is URL-quoted |
-| `switch <ref>` | `trunk`, `branches/<n>`, `tags/<n>`, or a bare branch name; a URL or `^/` path is used as-is |
+| `switch <ref>` | `trunk`, `branches/<n>`, `tags/<n>`, or a bare branch name (one segment, so `team/fix` is refused); a URL or `^/` path is used as-is |
 | `stage <paths…>` | `svn add` for new paths (and unversioned parents), `svn delete` for paths gone from disk; versioned paths are a no-op |
 | `commit -m` | `svn commit` of every modified or scheduled (`stage`d) path in the working copy — SVN has no staging area, so unrelated edits go too; unversioned files need `stage` first. Written straight to the server |
 | `diff --cached` | error: no staging area |
@@ -143,7 +143,9 @@ Supported scope, and what is not:
   not supported: there `branch` reports the repository-relative path and
   `new-branch` / name-based `switch` refuse (pass a URL or `^/` path to
   `switch`).
-- **Branch names** are one path segment; nested names (`team/fix`) are refused.
+- **Branch names** are one path segment; nested names (`team/fix`) are
+  refused by `new-branch` and by name-based `switch`. A branch or tag may
+  be named `trunk` (`branches/trunk` is a branch, not the trunk).
 - **Partial `new-branch`.** The server-side copy and the local switch are
   two steps. If the switch fails after the copy succeeded, the branch
   exists on the server and the working copy stays where it was; recover
