@@ -25,7 +25,7 @@ argument-hint: "<version>-rc<N> [--planning-issue <url>]"
 capability: capability:resolve
 surface_hash: sha256:4eec8687fdb07bbc
 license: Apache-2.0
-measured_tokens: 6982
+measured_tokens: 7000
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -196,7 +196,7 @@ Local modifications go in the override file; framework changes go via PR to `apa
 
 | Selector | Resolves to |
 |---|---|
-| `<version>-rc<N>` (positional) | Version string and RC number of the release candidate to promote (a dotted version of two or more numeric parts with no `.postN`, then `-rcN` with N ≥ 1, e.g. `2.11.0-rc1`) |
+| `<version>-rc<N>` (positional) | Version string and RC number of the release candidate to promote (a dotted version of two or more numeric parts with no `.postN` (or a calendar date `YYYY-MM-DD` for a release wave named by date), then `-rcN` with N ≥ 1, e.g. `2.11.0-rc1`) |
 | `--planning-issue <url>` | Explicit planning issue URL (auto-detected from `<upstream>` if omitted) |
 | `--result-vote-url <url>` | Archive URL of the `[RESULT] [VOTE]` thread (used in the `svn mv -m` message for `release_dist_backend = svnpubsub`; auto-read from planning issue if present) |
 
