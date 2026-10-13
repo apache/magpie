@@ -775,9 +775,23 @@ class SubversionBackend(VCSBackend):
         try:
             return self._svn("cat", "-r", rev, "--", f"{path}@")
         except VCSError:
-            # The path is no longer in the working copy (moved or deleted):
-            # resolve it as it was at rev on this line of work instead.
-            return self._svn("cat", f"{self._url()}/{quote(path)}@{rev}")
+            pass
+        # The path is no longer in the working copy. Find the revision on this
+        # line of work that deleted it (or a parent) and read it through the
+        # revision before that, so copy history is still followed back past
+        # the branch point.
+        info = ET.fromstring(self._svn("info", "--xml"))
+        root = info.findtext("entry/repository/root", "")
+        line = unquote(info.findtext("entry/relative-url", "").removeprefix("^")).rstrip("/")
+        target = f"{line}/{path.strip('/')}"
+        for entry in ET.fromstring(self._svn("log", "--xml", "-v", "-r", "HEAD:1", ".")).iter("logentry"):
+            for changed in entry.iter("path"):
+                gone = changed.text or ""
+                if changed.get("action") in ("D", "R") and (target == gone or target.startswith(f"{gone}/")):
+                    peg = int(entry.get("revision", "0")) - 1
+                    return self._svn("cat", "-r", rev, f"{root}{quote(target)}@{peg}")
+        # Never deleted on this line: resolve it as it was at rev.
+        return self._svn("cat", f"{root}{quote(target)}@{rev}")
 
 
 # Registry, in detection-priority order. New VCS bridges register here.

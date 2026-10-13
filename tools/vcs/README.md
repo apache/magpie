@@ -132,7 +132,7 @@ documented in [`tools/asf-svn/source-control.md`](../asf-svn/source-control.md#c
 | `diff --cached` | error: no staging area |
 | `diff --base <rev>` | the working copy against a **revision** (a number, `HEAD`, `BASE`, `COMMITTED`, `PREV` or `{DATE}`); a line-of-work name such as `main` or `trunk` is refused |
 | `log` | server history up to `HEAD`, one `r<rev> <subject>` line per revision; `--grep` / `--author` are regexes, `--since` takes an ISO 8601 date. With `--grep` / `--author` / `--since`, `-n` caps the output only: the path's whole history (back to `--since`, if given) is fetched before filtering, which is slow on a large shared repository such as svn.apache.org |
-| `cat <rev> <path>` | the working-copy path at `<rev>`, following copy history (so a revision from before a branch was created resolves through trunk); a path no longer in the working copy falls back to `<line-of-work-url>/<path>@<rev>` |
+| `cat <rev> <path>` | the working-copy path at `<rev>`, following copy history (so a revision from before a branch was created resolves through trunk). A path no longer in the working copy is read through the revision before the commit that deleted it on this line of work, which reads the line's log (slow on a large repository) |
 | `fetch` | no-op: refs live on the server and every history read queries it |
 | `push` | error: `commit` already published the change |
 

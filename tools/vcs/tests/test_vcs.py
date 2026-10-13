@@ -438,6 +438,7 @@ def test_svn_cat_follows_branch_history(svn_wc: Path) -> None:
     backend.commit("drop file.txt")  # r5: gone from the working copy
     _svn(svn_wc, "update")
     assert backend.cat("4", "file.txt") == "hello\n"  # deleted path still resolves at an older rev
+    assert backend.cat("2", "file.txt") == "hello\n"  # deleted on the branch, pre-branch revision
 
 
 @svn_required
