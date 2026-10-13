@@ -738,11 +738,20 @@ class SubversionBackend(VCSBackend):
         if not paths:
             raise VCSError("stage: refusing to stage nothing (pass explicit paths)")
         # `svn add` schedules new paths (and their unversioned parents) and
-        # skips versioned ones; a path gone from disk is scheduled for deletion.
+        # skips versioned ones; a versioned path gone from disk, given directly
+        # or found under a given directory (`!` in `svn status`), is scheduled
+        # for deletion, as `git add <dir>` stages removals.
         # lexists, not exists: a versioned symlink whose target is missing is
         # still on disk and must not be scheduled for deletion.
         missing = [p for p in paths if not os.path.lexists(self.root / p)]
         present = [p for p in paths if p not in missing]
+        if present:
+            status = ET.fromstring(self._svn("status", "--xml", "--", *present))
+            missing += [
+                entry.get("path", "")
+                for entry in status.iter("entry")
+                if entry.find("wc-status[@item='missing']") is not None
+            ]
         if missing:
             self._svn("delete", "--", *missing, capture=False)
         if present:

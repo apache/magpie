@@ -392,6 +392,24 @@ def test_svn_log_filters(svn_wc: Path) -> None:
 
 
 @svn_required
+@pytest.mark.parametrize("target", ["pkg", "."])
+def test_svn_stage_directory_schedules_nested_deletions(svn_wc: Path, target: str) -> None:
+    (svn_wc / "pkg").mkdir()
+    (svn_wc / "pkg" / "a.txt").write_text("a\n")
+    (svn_wc / "pkg" / "b.txt").write_text("b\n")
+    _svn(svn_wc, "add", "pkg")
+    _svn(svn_wc, "commit", "-m", "add pkg")
+    _svn(svn_wc, "update")
+    (svn_wc / "pkg" / "a.txt").unlink()
+    (svn_wc / "pkg" / "new.txt").write_text("n\n")
+    backend = SubversionBackend(svn_wc)
+    backend.stage([target])
+    assert sorted(backend.status().splitlines()) == ["A       pkg/new.txt", "D       pkg/a.txt"]
+    backend.commit("rework pkg")
+    assert backend.is_clean()
+
+
+@svn_required
 def test_svn_stage_keeps_dangling_versioned_symlink(svn_wc: Path) -> None:
     (svn_wc / "link").symlink_to("nowhere")  # dangling from the start
     _svn(svn_wc, "add", "link")
