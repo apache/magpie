@@ -299,6 +299,31 @@ def test_svn_stage_modified_and_deleted(svn_wc: Path) -> None:
 
 
 @svn_required
+@pytest.mark.parametrize("name", ["", "..", ".", "../escape", "team/fix"])
+def test_svn_create_branch_rejects_bad_names(svn_wc: Path, name: str) -> None:
+    with pytest.raises(VCSError, match="invalid branch or ref name"):
+        SubversionBackend(svn_wc).create_branch(name)
+    assert SubversionBackend(svn_wc).current_branch() == "trunk"
+
+
+@svn_required
+def test_svn_branch_name_is_url_quoted(svn_wc: Path) -> None:
+    backend = SubversionBackend(svn_wc)
+    backend.create_branch("fix 1")
+    assert backend._url().endswith("/branches/fix%201")
+    backend.switch("trunk")
+    backend.switch("fix 1")
+    assert backend._url().endswith("/branches/fix%201")
+
+
+def test_svn_too_old_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(SubversionBackend, "_version", staticmethod(lambda: (1, 8)))
+    assert SubversionBackend.is_available() is False
+    with pytest.raises(VCSError, match=r"svn 1\.8 is too old.*1\.9\+"):
+        SubversionBackend(tmp_path).status()
+
+
+@svn_required
 def test_svn_create_branch_outside_layout_rejected(tmp_path: Path) -> None:
     repos = tmp_path / "flat"
     subprocess.run(["svnadmin", "create", str(repos)], check=True, capture_output=True)

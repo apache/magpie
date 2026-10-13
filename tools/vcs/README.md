@@ -51,7 +51,8 @@ VCS the project enables under *Tools enabled → Source control*.
   dependencies). The `dev` group pulls `pytest`, `ruff`, `mypy`.
 - **CLIs:** Depends on the active backend — the tool shells out to the
   underlying VCS binary: `git`, `hg`, `fossil` or `svn` (Subversion
-  1.9+, for `cleanup --remove-unversioned`).
+  1.9+, for `info --show-item` and `cleanup --remove-unversioned`; an
+  older `svn` is reported as not installed and every operation errors).
 - **Credentials / auth:** None of its own; operations that reach the
   remote inherit whatever auth the underlying VCS/remote needs. `svn`
   runs `--non-interactive`, so it uses a cached credential
@@ -119,10 +120,10 @@ documented in [`tools/asf-svn/source-control.md`](../asf-svn/source-control.md#c
 | Operation | SVN behaviour |
 |---|---|
 | `branch` | the line of work under the `trunk` / `branches/<name>` / `tags/<name>` layout (e.g. `trunk`); outside that layout, the repository-relative path |
-| `new-branch <name>` | server-side `svn copy` of the current line of work to `branches/<name>`, then `svn switch` onto it |
+| `new-branch <name>` | server-side `svn copy` of the current line of work to `branches/<name>`, then `svn switch` onto it; `<name>` is one path segment (not empty, `.` or `..`, no `/`) and is URL-quoted |
 | `switch <ref>` | `trunk`, `branches/<n>`, `tags/<n>`, or a bare branch name; a URL or `^/` path is used as-is |
 | `stage <paths…>` | `svn add` for new paths (and unversioned parents), `svn delete` for paths gone from disk; versioned paths are a no-op |
-| `commit -m` | `svn commit` of **every** change in the working copy — SVN has no staging area — written straight to the server |
+| `commit -m` | `svn commit` of every modified or scheduled (`stage`d) path in the working copy — SVN has no staging area, so unrelated edits go too; unversioned files need `stage` first. Written straight to the server |
 | `diff --cached` | error: no staging area |
 | `log` | server history up to `HEAD`, one `r<rev> <subject>` line per revision; `--grep` / `--author` are regexes, `--since` takes an ISO 8601 date |
 | `cat <rev> <path>` | the path as it was at `<rev>` (pegged URL), even if since moved or deleted |

@@ -32,6 +32,7 @@ whatever VCS the project enables under *Tools enabled -> Source control*.
 from __future__ import annotations
 
 import argparse
+import functools
 import os
 import re
 import subprocess
@@ -553,17 +554,42 @@ class SubversionBackend(VCSBackend):
                 return d
         return None
 
+    #: `svn info --show-item` and `svn cleanup --remove-unversioned` arrived in 1.9.
+    min_version: tuple[int, int] = (1, 9)
+
+    @staticmethod
+    @functools.cache
+    def _version() -> tuple[int, int] | None:
+        try:
+            out = subprocess.run(
+                ["svn", "--version", "--quiet"], capture_output=True, text=True, check=True
+            ).stdout
+        except (OSError, subprocess.CalledProcessError):
+            return None
+        match = re.match(r"(\d+)\.(\d+)", out.strip())
+        return (int(match[1]), int(match[2])) if match else None
+
     @classmethod
     def is_available(cls) -> bool:
-        try:
-            subprocess.run(["svn", "--version", "--quiet"], capture_output=True, check=True)
-        except (OSError, subprocess.CalledProcessError):
-            return False
-        return True
+        version = cls._version()
+        return version is not None and version >= cls.min_version
 
     def _svn(self, *args: str, capture: bool = True, check: bool = True) -> str:
+        version = self._version()
+        if version is not None and version < self.min_version:
+            have = ".".join(map(str, version))
+            need = ".".join(map(str, self.min_version))
+            raise VCSError(f"svn {have} is too old: the svn backend needs Subversion {need}+")
         # --non-interactive: never block on an auth or conflict prompt the caller cannot answer.
         return _run(["svn", "--non-interactive", *args], self.root, capture=capture, check=check)
+
+    @staticmethod
+    def _relative_ref(ref: str) -> str:
+        """Validate a layout-relative ref (``trunk``, ``feature``, ``branches/a/b``) and URL-quote it."""
+        segments = ref.split("/")
+        if any(seg in ("", ".", "..") for seg in segments):
+            raise VCSError(f"svn: invalid branch or ref name {ref!r} (empty, '.' or '..' path segment)")
+        return quote(ref, safe="/")
 
     def _url(self) -> str:
         return self._svn("info", "--show-item", "url").strip()
@@ -671,7 +697,10 @@ class SubversionBackend(VCSBackend):
         # carrying any local modifications, as `git checkout -b` does.
         base, line, sub = self._require_layout("new-branch")
         rev = self._svn("info", "--show-item", "revision").strip()
-        target = f"{base}/branches/{name}"
+        if "/" in name:
+            # The layout reads a line of work as branches/<one segment>.
+            raise VCSError(f"svn: invalid branch or ref name {name!r} (a branch name is one path segment)")
+        target = f"{base}/branches/{self._relative_ref(name)}"
         self._svn("copy", f"{base}/{line}@{rev}", target, "-m", f"Create branch {name} from {line}@{rev}")
         self._svn("switch", "/".join(filter(None, [target, sub])), capture=False)
 
@@ -684,7 +713,7 @@ class SubversionBackend(VCSBackend):
         else:
             base, _, sub = self._require_layout("switch")
             line = ref if ref == "trunk" or ref.startswith(("branches/", "tags/")) else f"branches/{ref}"
-            target = "/".join(filter(None, [base, line, sub]))
+            target = "/".join(filter(None, [base, self._relative_ref(line), sub]))
         self._svn("switch", target, capture=False)
 
     def stage(self, paths: Sequence[str]) -> None:
