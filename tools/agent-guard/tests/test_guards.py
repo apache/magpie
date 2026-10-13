@@ -351,6 +351,40 @@ def test_empty_rebase_denied_past_a_global_flag(monkeypatch):
     assert reason and "0 commits" in reason
 
 
+def test_empty_rebase_denied_plus_refspec(monkeypatch):
+    # `+refspec` is git's other force spelling (git-push(1) documents it as
+    # equivalent to --force for that refspec); without it the guard is
+    # bypassed by `git push origin +branch` and `git push origin +b:d`.
+    monkeypatch.setattr(agent_guard, "_run", fake_run(_push_handler("0")))
+    reason = dispatch("git push origin +mybranch:mybranch")
+    assert reason and "0 commits" in reason
+
+
+def test_empty_rebase_denied_plus_refspec_short(monkeypatch):
+    monkeypatch.setattr(agent_guard, "_run", fake_run(_push_handler("0")))
+    reason = dispatch("git push origin +mybranch")
+    assert reason and "0 commits" in reason
+
+
+def test_plus_refspec_still_guarded_behind_a_global_flag(monkeypatch):
+    monkeypatch.setattr(agent_guard, "_run", fake_run(_push_handler("0")))
+    reason = dispatch("git -C /tmp push origin +mybranch:mybranch")
+    assert reason and "0 commits" in reason
+
+
+def test_plus_refspec_nonempty_push_allowed(monkeypatch):
+    monkeypatch.setattr(agent_guard, "_run", fake_run(_push_handler("3")))
+    assert dispatch("git push origin +mybranch:mybranch") is None
+
+
+def test_plain_refspec_push_not_guarded_as_force(monkeypatch):
+    def boom(args):
+        raise AssertionError("non-force push is not guarded")
+
+    monkeypatch.setattr(agent_guard, "_run", fake_run(boom))
+    assert dispatch("git push origin mybranch:mybranch") is None
+
+
 # --------------------------------------------------------------------------- #
 # bundled example contributed guard (guards.d/no_verify_commit.py)
 # --------------------------------------------------------------------------- #

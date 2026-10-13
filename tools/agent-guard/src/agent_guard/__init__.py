@@ -879,17 +879,21 @@ def guard_empty_rebase(seg: Segment, cwd: str | None) -> str | None:
     idx = git_subcommand_index(seg.argv)
     if idx is None or seg.argv[idx] != "push":
         return None
+    # `+refspec` is git's other force spelling: git-push(1) documents it as
+    # equivalent to `--force` for that refspec, so it must be recognized here
+    # and stripped from the refs the resolution below reads.
+    refspecs = [t for t in seg.argv[idx + 1 :] if not t.startswith("-")]
     forced = any(
         t in ("-f", "--force") or t == "--force-with-lease" or t.startswith("--force-with-lease=")
         for t in seg.argv
-    )
+    ) or any(r.startswith("+") for r in refspecs)
     if not forced:
         return None
     if seg.override("MAGPIE_ALLOW_EMPTY_PUSH"):
         return None
 
     # Resolve the source ref being pushed: last `src[:dst]` positional, else HEAD.
-    positionals = [t for t in seg.argv[idx + 1 :] if not t.startswith("-")]
+    positionals = [t.removeprefix("+") for t in refspecs]
     src = "HEAD"
     if len(positionals) >= 2:
         src = positionals[1].split(":", 1)[0] or "HEAD"
