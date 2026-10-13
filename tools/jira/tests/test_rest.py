@@ -15,7 +15,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
 
-import jira_bridge.rest as rest_mod
+from jira_bridge import rest as rest_mod
 from jira_bridge.rest import JiraRest, JiraRestConfigError, JiraRestError
 
 BASE = "https://issues.example.org/jira"

@@ -363,7 +363,7 @@ def test_thread_is_dated_by_the_candidates_own_comment_and_dropped_outside_the_w
 
 
 def test_rate_limit_is_retried_with_backoff(fake_gh, monkeypatch):
-    import contributor_metrics.fetch as f
+    from contributor_metrics import fetch as f
 
     sleeps = []
     monkeypatch.setattr(f.time, "sleep", lambda s: sleeps.append(s))
@@ -383,7 +383,7 @@ def test_rate_limit_is_retried_with_backoff(fake_gh, monkeypatch):
 
 
 def test_other_gh_errors_are_not_retried(fake_gh, monkeypatch):
-    import contributor_metrics.fetch as f
+    from contributor_metrics import fetch as f
 
     monkeypatch.setattr(f.time, "sleep", lambda s: (_ for _ in ()).throw(AssertionError("should not sleep")))
     monkeypatch.setattr(
