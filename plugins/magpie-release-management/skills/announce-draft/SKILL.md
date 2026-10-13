@@ -18,7 +18,7 @@ argument-hint: "<version> [--planning-issue <url>]"
 capability: capability:resolve
 surface_hash: sha256:edffafcd9d9948ab
 license: Apache-2.0
-measured_tokens: 6809
+measured_tokens: 6827
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -181,7 +181,7 @@ Local modifications go in the override file; framework changes go via PR to `apa
 
 | Selector | Resolves to |
 |---|---|
-| `<version>` (positional) | Release version string to announce (a dotted version of two or more numeric parts, no `.postN`, e.g. `2.11.0`) |
+| `<version>` (positional) | Release version string to announce (a dotted version of two or more numeric parts, no `.postN` (or a calendar date `YYYY-MM-DD` for a release wave named by date), e.g. `2.11.0`) |
 | `--planning-issue <url>` | Explicit planning issue URL (auto-detected if omitted) |
 | `--promote-timestamp <ISO-8601>` | Override promote timestamp (when not in planning issue body) |
 | `--download-page <url>` | Override or supply the canonical Download Page URL |

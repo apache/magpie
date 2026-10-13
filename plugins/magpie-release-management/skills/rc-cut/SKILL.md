@@ -20,7 +20,7 @@ argument-hint: "<version> rc<N>"
 capability: capability:resolve
 surface_hash: sha256:60623e456e72bbf6
 license: Apache-2.0
-measured_tokens: 9962
+measured_tokens: 9980
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -210,7 +210,7 @@ Local modifications go in the override file; framework changes go via PR to `apa
 
 | Selector | Resolves to |
 |---|---|
-| `<version>` (positional, required) | Release version string: a dotted version of two or more numeric parts, no `.postN` (e.g. `2.11.0`) |
+| `<version>` (positional, required) | Release version string: a dotted version of two or more numeric parts, no `.postN` (or a calendar date `YYYY-MM-DD` for a release wave named by date) (e.g. `2.11.0`) |
 | `rc<N>` (positional, required) | RC suffix `rcN` with N ≥ 1 (e.g. `rc1`; `rc0` is rejected) |
 | `--planning-issue <url>` | Explicit planning issue URL (auto-detected if omitted) |
 | `--release-branch <branch>` | Override release branch (default from `release_branch_base` in config) |

@@ -28,7 +28,7 @@ capability:
   - capability:resolve
 surface_hash: sha256:34592bfacb7cf955
 license: Apache-2.0
-measured_tokens: 5799
+measured_tokens: 5817
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -182,7 +182,7 @@ Local modifications go in the override file; framework changes go via PR to `apa
 
 | Selector | Resolves to |
 |---|---|
-| `<version>-rcN` (positional) | RC identifier (a dotted version of two or more numeric parts with no `.postN`, then `-rcN` with N ≥ 1, e.g. `2.11.0-rc2`); must match the planning issue |
+| `<version>-rcN` (positional) | RC identifier (a dotted version of two or more numeric parts with no `.postN` (or a calendar date `YYYY-MM-DD` for a release wave named by date), then `-rcN` with N ≥ 1, e.g. `2.11.0-rc2`); must match the planning issue |
 | `--force-close <reason>` | Proceed even if the window has not elapsed; reason logged in outputs |
 | `--planning-issue <url>` | Explicit planning issue URL (auto-detected if omitted) |
 

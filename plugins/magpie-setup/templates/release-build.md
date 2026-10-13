@@ -145,7 +145,8 @@ How each skill uses the list:
 
 **Versioning.** The source release has one version format in every
 `release-*` skill: a dotted version of two or more numeric parts with
-no `.postN` (`2.11.0`), and an RC suffix `rcN` with N ≥ 1, tagged
+no `.postN` (`2.11.0`) or, for a release wave named by date, a calendar
+date `YYYY-MM-DD` (`2026-10-06`), and an RC suffix `rcN` with N ≥ 1, tagged
 `<version>-rcN`. A convenience artefact may carry its own version
 (`version`, default the release version) — e.g. a Python wheel
 re-released as `2.10.5.post1` against source release `2.10.5` — and

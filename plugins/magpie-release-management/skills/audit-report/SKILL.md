@@ -23,7 +23,7 @@ argument-hint: "<version> [--planning-issue <url>]"
 capability: capability:stats
 surface_hash: sha256:576d71b04f203cd8
 license: Apache-2.0
-measured_tokens: 6657
+measured_tokens: 6675
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -185,7 +185,7 @@ Local modifications go in the override file; framework changes go via PR to `apa
 
 | Selector | Resolves to |
 |---|---|
-| `<version>` (positional) | Release version string to audit (a dotted version of two or more numeric parts, no `.postN`, e.g. `2.11.0`) |
+| `<version>` (positional) | Release version string to audit (a dotted version of two or more numeric parts, no `.postN` (or a calendar date `YYYY-MM-DD` for a release wave named by date), e.g. `2.11.0`) |
 | `--planning-issue <url>` | Explicit planning issue URL (auto-detected if omitted) |
 
 ---
