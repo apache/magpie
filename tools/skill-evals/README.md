@@ -510,6 +510,22 @@ reserve `judge` for properties that cannot be pinned down locally.
 
 For everything in between (decisions wrapped in explanatory prose like `rationale` or `reason`), `--grader-cli` adds a third mode: decision fields stay on exact equality, prose fields go to a cheap judge model that scores "does the candidate support the same conclusion?" See the "Field-aware grading" section above.
 
+## Recording runs
+
+CI never runs a live model, so live runs are recorded by hand
+in a *Run history* table in `evals/<skill>/README.md`.
+
+```text
+| Date | Ref | Model | Runs | Result | Notes |
+```
+
+- Ref is a short SHA on `main`; runs on a branch are not logged.
+- Model is the name the CLI uses, such as `claude-fable-5-1`.
+- One row per batch of identical runs; append, do not replace.
+- Record a failure even if a rerun passed.
+
+Example: [`evals/issue-reassess-stats/README.md`](evals/issue-reassess-stats/README.md#run-history).
+
 ## CI considerations
 
 Print mode supports manual review, while `--cli` runs the configured model and comparator automatically.
