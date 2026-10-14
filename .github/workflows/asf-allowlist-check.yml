@@ -34,4 +34,4 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
-      - uses: apache/infrastructure-actions/allowlist-check@6a1ab42cdbe0eb31cf051a6b702947167fea89fe  # main # zizmor: ignore[ref-version-mismatch] tracks infrastructure-actions main; monorepo has no per-action version tags
+      - uses: apache/infrastructure-actions/allowlist-check@e3e0a2261a9c6d5bdd882802b303f34b1511b6df  # main # zizmor: ignore[ref-version-mismatch] tracks infrastructure-actions main; monorepo has no per-action version tags
