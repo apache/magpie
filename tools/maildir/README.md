@@ -150,6 +150,13 @@ local-archive one from
 [`tools/mail-source/mbox/README.md`](../mail-source/mbox/README.md)
 (archive path + read-only enforcement).
 
+**Thunderbird.** Thunderbird reads a Maildir only for an account whose
+message store is *File per message (maildir)*, chosen when the account
+is set up. It keeps a per-folder index (the `.msf` file) and does not
+always notice a draft another program wrote: if a new draft does not
+show up, right-click the Drafts folder → *Properties* → *Repair Folder*
+to rebuild the index.
+
 ## Cross-references
 
 - Outbound contract: `contract:mail-create` (also implemented by

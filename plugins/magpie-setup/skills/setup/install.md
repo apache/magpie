@@ -959,6 +959,12 @@ detail; install is walked in [Step 9c](#step-9c--comdev-mcp-prerequisites-asf-pr
 - **`gmail-plaintext`** — create plain-text Gmail drafts with no
   tracking redirects (for operators who draft mail from the
   agent). Optional; not ASF-gated.
+- **Maildir** (a drafting backend, not an MCP server) — file
+  plain-text drafts into a local Maildir that Thunderbird, mutt,
+  Evolution or another mail client shows in its Drafts folder.
+  No account, no credential, no network. The alternative to
+  `gmail-plaintext` for operators who do not draft mail in Gmail;
+  walked through in [Step 9e](#step-9e--maildir-draft-backend-optional-thunderbird-and-other-mail-clients).
 
 **Companion skill packages** (third-party, none required —
 [`docs/setup/companion-skills.md`](../../../../docs/setup/companion-skills.md)
@@ -1034,9 +1040,13 @@ exclusive. Pre-selection:
 - *MCP servers* — for an ASF project (detected per
   [Step 9c](#step-9c--comdev-mcp-prerequisites-asf-projects)),
   pre-tick `ponymail` and `apache-projects` and label them
-  **required**; pre-tick `gmail-plaintext` only if the operator
-  selected a mail-drafting family (`security` or
-  `release-management`). For a non-ASF project, pre-tick nothing.
+  **required**. For a non-ASF project, pre-tick neither.
+  When the operator selected a mail-drafting family (`security` or
+  `release-management`), ask which drafting backend they use —
+  `gmail-plaintext` for Gmail, Maildir for Thunderbird or another
+  mail client — and pre-tick `gmail-plaintext` unless they named
+  the other. Never offer the claude.ai Gmail connector for drafting:
+  it rewrites links into tracking redirects.
 - *Companion skills* — pre-tick nothing, ever. List only the
   packages available on the detected agent, each with one line
   saying what it adds to a family the operator selected and,
@@ -1579,6 +1589,21 @@ through it:
    (`ponymail.enabled` / `apache-projects.enabled`) and the
    recommended permission allow-list (the `mcp__apache-projects__*`
    read tools — see [`verify.md`](verify.md) check 8d).
+5. **Tell the operator what to do next**, as a numbered list they can
+   follow once this session ends — not a pointer to this step:
+   1. Run the clone, `npm install` and `claude mcp add` commands above.
+   2. Restart the agent. MCP servers load when a session starts, so the
+      new `mcp__ponymail__*` and `mcp__apache-projects__*` tools do not
+      appear in the session that registered them.
+   3. In the new session, log in to PonyMail once with
+      `mcp__ponymail__login()` and confirm it with
+      `mcp__ponymail__auth_status()`.
+   4. Run `setup verify`: check 8e confirms both servers and the
+      checkout.
+
+   Name the skills that refuse to start until this is done
+   (`security-issue-import` and `security-issue-sync`, which read the
+   list through PonyMail).
 
 Add `mcp__apache-projects__*` to the per-family permission
 allow-list recommendation exactly as the `mcp__ponymail__*` tools
@@ -1628,6 +1653,50 @@ Same hands-off contract as 9c — **surface, do not run**:
    tools — see [`verify.md`](verify.md) check 8d). It only ever creates
    **unsent** drafts the human reviews and sends, so allow-listing it
    avoids a prompt on every draft.
+4. **Tell the operator what to do next**, as a numbered list:
+   1. Run the `claude mcp add gmail-plaintext …` command above.
+   2. Restart the agent, so the `mcp__gmail-plaintext__*` tools load.
+   3. In the new session, call `mcp__gmail-plaintext__check_auth`. If
+      it reports no credential, call `setup_credentials` once (or run
+      the `oauth-draft-setup` CLI) and finish the consent flow in the
+      browser.
+   4. From then on, a skill that drafts mail files it in Gmail's
+      Drafts folder. Nothing is sent: the operator reviews, edits and
+      sends it there.
+
+## Step 9e — Maildir draft backend (optional, Thunderbird and other mail clients)
+
+**Run this step when the operator chose Maildir as their drafting
+backend in Step 5.** The [Maildir backend](../../../../tools/maildir/README.md)
+ships in-repo and needs no MCP server, account or credential: a skill
+calls `maildir-draft-create`, which files a plain-text draft into a
+local Maildir, and the operator's mail client shows it in its Drafts
+folder.
+
+Same hands-off contract as 9c — **surface, do not run**:
+
+1. **Pick the Maildir path with the operator**: the Drafts folder of
+   the mail-client account they send project mail from (for example
+   `~/Mail/<project>/Drafts`), and the `From:` address. Both go in
+   the `mail_create` block of `project.md`
+   ([`tools/maildir/README.md` → Configuration](../../../../tools/maildir/README.md#configuration));
+   `setup config` writes it to the personal layer.
+2. **Point the mail client at it.** Thunderbird reads a Maildir only
+   for an account whose message store is *File per message (maildir)*,
+   chosen when the account is set up. mutt, aerc and Evolution read a
+   Maildir directly.
+3. **Tell the operator what to do next**, as a numbered list:
+   1. Set up, or reuse, the mail-client account that stores its mail
+      at the path above.
+   2. Run any skill that drafts mail. It prints the path of each draft
+      it files.
+   3. Open the Drafts folder, then review, edit and send the draft by
+      hand. Nothing is ever sent for them.
+   4. **A new draft does not show up in Thunderbird?** Thunderbird keeps
+      a per-folder index (the `.msf` file) and does not always notice a
+      message another program wrote. Right-click the Drafts folder →
+      *Properties* → *Repair Folder* rebuilds the index, and the draft
+      appears.
 
 ## Step 10 — Worktree-aware post-checkout hook (FRESH only)
 

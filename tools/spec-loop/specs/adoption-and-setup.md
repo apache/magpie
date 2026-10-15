@@ -658,6 +658,15 @@ committed version with drift detection.
     `.grok/hooks/magpie-agent-guard.json` for a non-marketplace Grok
     runtime, adds no project hook when the `magpie-agent-guard` plugin is
     enabled, and never changes Grok's hook-trust state (#1516).
+35. When a skill in scope reads or drafts mail (`security`,
+    `release-management`), `setup config` proposes its mail backends:
+    PonyMail and `apache-projects` selected by default for an ASF project,
+    and `gmail-plaintext` (default) or the local Maildir backend for
+    drafting, never the claude.ai Gmail connector. It records the choices
+    in the personal layer only, and hands every install over as a numbered
+    *what to do next* list (`install.md` Steps 9c, 9d and 9e), including
+    Thunderbird's *Repair Folder* for a draft that does not show up (eval
+    suite `tools/skill-evals/evals/setup/step-config-mail`).
 
 ## Validation
 

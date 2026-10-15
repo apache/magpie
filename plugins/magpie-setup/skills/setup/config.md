@@ -382,6 +382,47 @@ It is never part of a pre-flight entry's batched question, and this step impleme
 Say that `contributor-calibrate` (`/magpie-contributor-growth:calibrate` on a marketplace install) derives the thresholds from the project's own past nomination decisions, reading the private list behind the privacy-LLM gate and writing numbers only.
 Hand off to it only on the user's explicit yes; never run it unattended.
 
+## Step 3e — Mail backends
+
+Run this when a skill in scope belongs to a family that reads a
+mailing list or drafts mail — `security` or `release-management` —
+and its mail backends are not yet recorded in `project.md`
+(`Mail sources`, `mail_create`). On a run entered from a skill's
+pre-flight, fold these questions into Step 3's one batched question;
+do not ask them separately.
+
+1. **Read side.** For an ASF project — detected as in
+   [`install.md` Step 9c](install.md#step-9c--comdev-mcp-prerequisites-asf-projects) —
+   propose PonyMail as the primary read backend, **selected by
+   default**, with `apache-projects` beside it. Say why in one line:
+   PonyMail reads the ASF list archives, private lists included, with
+   an ASF LDAP login, so no personal Gmail account has to subscribe to
+   the list; Gmail stays the fallback. For a non-ASF project, select
+   nothing by default and list the backends its `Mail sources`
+   section allows.
+2. **Draft side.** Ask which backend the user drafts mail with:
+   - `gmail-plaintext` (the default) — plain-text Gmail drafts created
+     through the Gmail API, links left exactly as written;
+   - Maildir — drafts filed into a local folder that Thunderbird or
+     another mail client shows, with no account or credential.
+
+   Never propose the claude.ai Gmail connector for drafting: it
+   rewrites links into tracking redirects
+   ([`draft-backends.md`](../../../../tools/gmail/draft-backends.md#privacy-warning--the-claudeai-gmail-mcp-rewrites-embedded-urls-into-google-tracking-redirects)).
+3. **Record the choices** in the personal layer's `project.md`. Nothing
+   else is written: registering an MCP server is a user-scope change,
+   outside this sub-action's write boundary (hard rule 1).
+4. **Hand over the install as next steps, not as a pointer.** For each
+   chosen backend that is not yet available — check the session's tool
+   list for `mcp__ponymail__*` and `mcp__gmail-plaintext__*` — print the
+   commands and the numbered *what to do next* list from
+   [`install.md` Step 9c](install.md#step-9c--comdev-mcp-prerequisites-asf-projects),
+   [Step 9d](install.md#step-9d--gmail-plaintext-mcp-optional-gmail-drafters)
+   or [Step 9e](install.md#step-9e--maildir-draft-backend-optional-thunderbird-and-other-mail-clients),
+   and name the skills that stay blocked until it is done. Maildir has
+   nothing to install, so its list is printed whenever it is chosen: the
+   mail-client account is the next step.
+
 ## Step 4 — Recap
 
 Tell the user, in this order:
@@ -410,7 +451,8 @@ Tell the user, in this order:
    when nothing was recorded at all because this project has never
    configured or adopted anything (Step 3b's gate).
 2. **What is still `TODO`**, by file, and which skill will ask for each
-   one.
+   one. A mail backend chosen in Step 3e but not yet installed is listed
+   here too, with its next steps.
 3. **What now works** — the skills whose required set is complete.
 4. **What this did not do** — it wrote nothing committable, changed
    nothing for any teammate, and took no position on what the project

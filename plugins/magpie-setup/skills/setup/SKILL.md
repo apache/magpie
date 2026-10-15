@@ -19,7 +19,7 @@ when_to_use: >-
   contributor and is not an install.
 argument-hint: "[install|config|adopt|unadopt|upgrade|worktree-init|verify|reconcile|override skill-name|uninstall]"
 capability: capability:platform
-surface_hash: sha256:83ee2e2147577e54
+surface_hash: sha256:637c7351ef5e8cb9
 license: Apache-2.0
 measured_tokens: 4601
 ---
