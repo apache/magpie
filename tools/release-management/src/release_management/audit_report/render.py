@@ -349,7 +349,7 @@ def pr(
     *,
     audit_log_path: str,
     upstream: str | None = None,
-    base: str = "main",
+    base: str | None = None,
     body_file: str = DEFAULT_BODY_FILE,
 ) -> dict[str, Any]:
     """Step 3: the audit-log PR title, body and target file, proposed and never opened."""
@@ -386,7 +386,8 @@ def pr(
     target = f"{audit_log_path.rstrip('/')}/{version}.md"
     repo = upstream or "<upstream>"
     body = body_file if body_file == DEFAULT_BODY_FILE else w(body_file)
-    command = f"gh pr create --web --repo {w(repo)} --title {dq(title)} --body-file {body} --base {w(base)}"
+    branch = base or "<default-branch>"
+    command = f"gh pr create --web --repo {w(repo)} --title {dq(title)} --body-file {body} --base {w(branch)}"
     return {
         "audit_log_path": audit_log_path,
         "target_file": target,

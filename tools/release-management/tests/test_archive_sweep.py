@@ -101,6 +101,15 @@ class TestSort:
             "3.0.0.post1",
         ]
 
+    def test_incubating_is_a_release_qualifier_not_a_prerelease(self) -> None:
+        assert not retention.is_prerelease("1.3.0-incubating")
+        assert retention.is_prerelease("1.3.0-rc1-incubating")
+        assert retention.is_prerelease("1.3.0-incubating-rc1")
+        assert sorted(
+            ["1.3.0-incubating", "1.3.0-incubating-rc1", "1.2.0-incubating", "1.10.0-incubating"],
+            key=retention.version_key,
+        ) == ["1.2.0-incubating", "1.3.0-incubating-rc1", "1.3.0-incubating", "1.10.0-incubating"]
+
     def test_listing_drops_slash_and_separates_non_versions(self) -> None:
         assert retention.parse_listing("2.10.0/\nKEYS\n\nproviders/\n") == (["2.10.0"], ["KEYS", "providers"])
 
@@ -169,6 +178,15 @@ class TestPrerelease:
         assert out["prereleases"] == ["2.11.0rc1"]
         assert out["handoff_required"]
         assert any("2.11.0rc1" in r and "pre-release" in r for r in out["handoff_reasons"])
+
+    def test_podling_archives_its_older_incubating_releases(self) -> None:
+        out = retention.sweep(
+            ["1.2.0-incubating", "1.3.0-incubating", "1.4.0-rc1-incubating"],
+            [{"label": "1.x", "pattern": "1.x"}],
+        )
+        assert out["latest_of_each_line"] == {"1.x": "1.3.0-incubating"}
+        assert out["past_retention"] == ["1.2.0-incubating"]
+        assert out["prereleases"] == ["1.4.0-rc1-incubating"]
 
     def test_post_release_still_counts_as_a_release(self) -> None:
         out = retention.sweep(["2.10.5", "2.10.5.post1"], TWO_X)
@@ -417,6 +435,25 @@ def test_step2_orphans_and_prereleases_are_never_archived() -> None:
     assert "outcomes/orphans.md" in out["read"]
 
 
+def test_step2_refuses_a_retention_output_without_mapping_complete() -> None:
+    ret = run("2.10.0\n2.11.0\n", TWO_X)
+    del ret["mapping_complete"]
+    with pytest.raises(render.RenderError, match="mapping_complete is absent"):
+        render.step2(sweep_of(), ret)
+
+
+@pytest.mark.parametrize(
+    ("version", "why"),
+    [("2.11.0", "the latest of its line"), ("1.10.15", "an orphan"), ("2.12.0rc1", "a pre-release")],
+)
+def test_step2_refuses_past_retention_naming_a_kept_version(version: str, why: str) -> None:
+    """A hand-edited (or otherwise inconsistent) retention output never archives what must stay."""
+    ret = run("1.10.15\n2.10.0\n2.11.0\n2.12.0rc1\n", TWO_X)
+    ret["past_retention"] = [*ret["past_retention"], version]
+    with pytest.raises(render.RenderError, match=re.escape(f"{version} ({why})")):
+        render.step2(sweep_of(), ret)
+
+
 def test_step2_nothing_past_retention() -> None:
     out = render.step2(sweep_of(), run("2.11.0\n", TWO_X))
     assert out["archive_count"] == 0 and "Nothing is past retention" in out["commands"]
@@ -461,3 +498,37 @@ def test_cli_refusal_and_bad_input(tmp_path: Path, capsys: pytest.CaptureFixture
     empty.write_text("[]", encoding="utf-8")
     assert main(["archive-sweep", "retention", "--listing", str(ret), "--trains", str(empty)]) == 2
     assert "error" in json.loads(capsys.readouterr().out)
+
+
+def test_cli_free_text_rule_trains_to_retention(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """`keep last two of each line`: retention refuses the undecided trains instead of keeping one."""
+    load = tmp_path / "load.json"
+    load.write_text(json.dumps(loaded(rule="keep last two of each line")), encoding="utf-8")
+    listing = tmp_path / "listing.txt"
+    listing.write_text("2.9.0/\n2.10.0/\n2.11.0/\n", encoding="utf-8")
+    trains = tmp_path / "trains.json"
+
+    assert main(["archive-sweep", "trains", "--load", str(load)]) == 0
+    printed = json.loads(capsys.readouterr().out)
+    assert printed["keep_decided"] is False and "keep" not in printed["trains"][0]
+    trains.write_text(json.dumps(printed), encoding="utf-8")
+    assert main(["archive-sweep", "retention", "--listing", str(listing), "--trains", str(trains)]) == 2
+    out = json.loads(capsys.readouterr().out)
+    assert "keep_decided is false" in out["error"] and "past_retention" not in out
+
+    # The agent decides per train: an explicit keep on every train is accepted.
+    printed["trains"][0]["keep"] = 2
+    trains.write_text(json.dumps(printed), encoding="utf-8")
+    assert main(["archive-sweep", "retention", "--listing", str(listing), "--trains", str(trains)]) == 0
+    assert json.loads(capsys.readouterr().out)["past_retention"] == ["2.9.0"]
+
+    # Or re-runs trains with --keep 2.
+    assert main(["archive-sweep", "trains", "--load", str(load), "--keep", "2"]) == 0
+    trains.write_text(capsys.readouterr().out, encoding="utf-8")
+    assert main(["archive-sweep", "retention", "--listing", str(listing), "--trains", str(trains)]) == 0
+    assert json.loads(capsys.readouterr().out)["past_retention"] == ["2.9.0"]
+
+    # A bare list keeps its current meaning: keep defaults to 1.
+    trains.write_text(json.dumps(TWO_X), encoding="utf-8")
+    assert main(["archive-sweep", "retention", "--listing", str(listing), "--trains", str(trains)]) == 0
+    assert json.loads(capsys.readouterr().out)["past_retention"] == ["2.9.0", "2.10.0"]

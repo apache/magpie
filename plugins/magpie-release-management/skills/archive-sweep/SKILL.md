@@ -26,7 +26,7 @@ capability:
   - capability:triage
 surface_hash: sha256:1665af8aae9c2b58
 license: Apache-2.0
-measured_tokens: 4165
+measured_tokens: 4193
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -227,7 +227,7 @@ Return ONLY valid JSON with this structure:
 2. **Write the trains.** `<rm> trains --load <scratch>/archive-sweep-load.json > <scratch>/trains.json` turns each release line of `release-trains.md`
    naming one `N.x` train into `{"label": "2.x", "pattern": "2.x"}`; any other line is a `loose` train.
    When `keep_decided` is false, `archive_retention_rule` is free text: decide how many versions it keeps per train and re-run with `--keep N`
-   (or set `"keep"` per train in the file).
+   (or set `"keep"` per train in the file); until then `retention` refuses the file.
 
 3. **Apply the retention rule.**
 
@@ -278,7 +278,7 @@ uv run --project <framework>/tools/release-management release-management archive
 ```
 
 It emits one command per version in `past_retention`, oldest first, and never one for an orphan or a pre-release (`not_archived` names them);
-it refuses a `retention_rule_error` or a mapping that is not complete.
+it refuses a `retention_rule_error`, a mapping that is not complete, and a `past_retention` naming a latest-of-line, orphan or pre-release version.
 Load the files in `read` — the backend's ([`svnpubsub`](backends/svnpubsub.md), [`atr`](backends/atr.md), [`github-releases`](backends/github-releases.md),
 [`s3`](backends/s3.md), [`self-hosted`](backends/self-hosted.md)) and any outcome — and show its notes with the commands
 (`deletion_warning` for `github-releases`, `atr_note` for `atr`, where there is no command to run and the RM archives in ATR, never also with `svn mv` or `svn rm`).

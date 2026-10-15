@@ -570,7 +570,9 @@ def test_keys_sync_renders_from_a_real_load(tmp_path: Path) -> None:
     assert step1["verdict"] == "proceed"
     loaded = _run(tmp_path, "load", "keys-sync")
     block = "-----BEGIN PGP PUBLIC KEY BLOCK-----\n\nxx\n-----END PGP PUBLIC KEY BLOCK-----"
-    out = keys_sync.step2(pre, loaded, step1, block)
+    out = keys_sync.step2(
+        pre, loaded, step1, block, {"step": "list-keys", "file": "fetched.asc", "keys": [key]}
+    )
     assert out["backend"] == "svnpubsub"
     assert out["keys_block_to_append"].startswith("# Foo RM <rm@apache.org>\n-----BEGIN")
     assert (

@@ -29,7 +29,7 @@ This is a non-ASF adopter. Commands should use git rather than svn.
 The KEYS file is in the repository at path: KEYS (root of the repo)
 Repository: https://github.com/example-org/example-project
 
-`release-management keys-sync render --step 2 --preflight <scratch>/keys-preflight.json --load <scratch>/keys-load.json --check <scratch>/keys-check.json --key-file <scratch>/fetched-key.asc` output (the Step 1 JSON is the key metadata above; the fetched file holds the block above):
+`release-management keys-sync render --step 2 --preflight <scratch>/keys-preflight.json --load <scratch>/keys-load.json --check <scratch>/keys-check.json --key-file <scratch>/fetched-key.asc --key-listing <scratch>/key-list.json` output (the Step 1 JSON is the key metadata above; the fetched file holds the block above):
 
 ```json
 {

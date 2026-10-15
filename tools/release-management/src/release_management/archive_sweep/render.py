@@ -241,9 +241,28 @@ def step2(sweep: Sweep, retention: dict[str, Any], *, command_template: str | No
             "retention-rule-error: the rule would archive the latest release of a supported train; "
             "no archival command may be emitted"
         )
-    if not retention.get("mapping_complete", True):
-        raise RenderError("unmapped versions remain: place them in a train and re-run the retention rule")
+    if retention.get("mapping_complete") is not True:
+        raise RenderError(
+            "unmapped versions remain (or mapping_complete is absent): place them in a train and "
+            "re-run the retention rule"
+        )
     versions = [str(v) for v in retention.get("past_retention") or []]
+    latest = retention.get("latest_of_each_line") or {}
+    kept = {
+        **{
+            str(v): "the latest of its line"
+            for v in (latest.values() if isinstance(latest, dict) else latest)
+        },
+        **{str(v): "an orphan" for v in retention.get("orphans") or []},
+        **{str(v): "a pre-release" for v in retention.get("prereleases") or []},
+    }
+    clash = [f"{v} ({kept[v]})" for v in versions if v in kept]
+    if clash:
+        raise RenderError(
+            "past_retention names version(s) that must never be archived: "
+            + ", ".join(clash)
+            + "; re-run the retention rule instead of editing its output"
+        )
     backend = sweep.backend
     extra: dict[str, Any] = {}
     lines: list[str] = []

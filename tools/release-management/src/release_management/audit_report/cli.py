@@ -99,7 +99,10 @@ def add_parsers(sub: Any) -> None:
     pr.add_argument("--step1", required=True)
     pr.add_argument("--audit-log-path", required=True, help="Step 0's audit_log_path")
     pr.add_argument("--upstream", help="<upstream> owner/repo, from project.md")
-    pr.add_argument("--base", default="main")
+    pr.add_argument(
+        "--base",
+        help="the PR's base branch: project.md's upstream_default_branch (default: <default-branch>)",
+    )
     pr.add_argument("--body-file", default=render.DEFAULT_BODY_FILE)
 
 

@@ -84,6 +84,11 @@ def add_parsers(sub: Any) -> None:
     render_p.add_argument(
         "--key-file", required=True, help="the public key fetched from the keyserver (armoured)"
     )
+    render_p.add_argument(
+        "--key-listing",
+        required=True,
+        help="`release-verify list-keys --file <fetched.asc>` output, the listing Step 1 checked",
+    )
     render_p.add_argument("--backend", choices=list(render.BACKENDS), help="default: from keys_file_url")
 
 
@@ -104,6 +109,7 @@ def dispatch(args: argparse.Namespace) -> int:
                 _json(args.load),
                 _json(args.check),
                 Path(args.key_file).read_text(encoding="utf-8", errors="replace"),
+                _json(args.key_listing),
                 backend=args.backend,
             )
     except render.RenderError as exc:

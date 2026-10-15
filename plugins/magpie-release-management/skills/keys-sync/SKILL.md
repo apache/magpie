@@ -20,7 +20,7 @@ argument-hint: "[--fingerprint <fp>] [--keys-url <url>] [--keyserver <host>]"
 capability: capability:resolve
 surface_hash: sha256:61e10c986bb0d3ec
 license: Apache-2.0
-measured_tokens: 4584
+measured_tokens: 4630
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -274,13 +274,15 @@ Save the configuration with `release-config load --skill keys-sync > <scratch>/k
 
 ```bash
 <RM> render --step 2 --preflight <scratch>/keys-preflight.json --load <scratch>/keys-load.json \
-  --check <scratch>/keys-check.json --key-file <scratch>/fetched-key.asc
+  --check <scratch>/keys-check.json --key-file <scratch>/fetched-key.asc \
+  --key-listing <scratch>/key-list.json
 ```
 
 It refuses unless Step 1 proceeded, and prints:
 
 1. **`keys_block_to_append`** — `# <rm-uid>` followed by the armoured public key block exactly as it should appear appended to the project's KEYS file.
-   A fetched file holding private-key material, or not exactly one public key block, is refused.
+   A fetched file holding private-key material, or not exactly one public key block, is refused,
+   and so is a `--key-listing` (the Step 1 listing of that file) that holds anything but the one primary key Step 1 checked.
 2. **`svn_command_sequence`** — the paste-ready block the RM executes under their own credentials, chosen from `keys_file_url` (`backend`; `--backend` overrides):
    `dist.apache.org` → `svn` ([`backends/svnpubsub.md`](backends/svnpubsub.md); a `dist/dev` URL is refused),
    with `release_dist_backend = atr` also `atr_offer` ([`backends/atr.md`](backends/atr.md): offer the ATR path first and ask which the project has configured),

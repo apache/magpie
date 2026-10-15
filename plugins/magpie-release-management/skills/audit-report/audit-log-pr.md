@@ -8,8 +8,11 @@ Render the title, body and target file with the [`release-management`](../../../
 
 ```bash
 uv run --project <framework>/tools/release-management release-management audit-report pr \
-  --step1 <scratch>/audit-step1.json --audit-log-path <audit_log_path> --upstream <upstream>
+  --step1 <scratch>/audit-step1.json --audit-log-path <audit_log_path> --upstream <upstream> \
+  --base <default-branch>
 ```
+
+`<default-branch>` is `upstream_default_branch` from `<project-config>/project.md`; without `--base` the command carries the `<default-branch>` placeholder for the RM to fill.
 
 It prints the JSON below plus `gh_command`, the `gh pr create --web` line with every value quoted.
 The title is `chore: add release audit record for <product_name> <version>`.
@@ -93,7 +96,7 @@ reviewers reported each, and every entry in `warnings` verbatim.
 
 Present the PR title, body, and target file path to the RM, and ask for confirmation before opening the PR (Golden rule 2).
 If the RM confirms, write the approved body to a file in the session scratch directory and open the PR via
-`gh pr create --web --repo <upstream> --title "<title>" --body-file <scratch>/audit-report-pr-body.md --base main` (the render's `gh_command`).
+`gh pr create --web --repo <upstream> --title "<title>" --body-file <scratch>/audit-report-pr-body.md --base <default-branch>` (the render's `gh_command`).
 
 Return ONLY valid JSON with this structure:
 

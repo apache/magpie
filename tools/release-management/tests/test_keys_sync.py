@@ -92,6 +92,9 @@ def listing(*keys: dict[str, Any], file: str = "fetched.asc") -> dict[str, Any]:
     return {"step": "list-keys", "file": file, "keys": list(keys)}
 
 
+FETCHED = listing(key())  # `release-verify list-keys` of the fetched key file
+
+
 def assess(k: dict[str, Any], fpr: str = FPR) -> dict[str, Any]:
     return check.assess(check.find_key([k], fpr), fpr, TODAY)
 
@@ -398,6 +401,23 @@ def test_verdict_cannot_compare_without_a_keyserver_uid() -> None:
     assert "returned no user ID" in out["blockers"][0]
 
 
+def test_verdict_normalises_a_0x_prefixed_fingerprint() -> None:
+    """`check` strips 0x and spaces; `verdict` matches the same fingerprint the same way."""
+    pre = preflight()
+    pre["values"]["fingerprint"] = "0x" + FPR.lower()
+    out = render.verdict(pre, listing(key(), file="KEYS"), listing(key()))
+    assert out["verdict"] == "noop" and out["fingerprint"] == FPR
+    assert out["blockers"] == []
+
+
+def test_verdict_blocks_a_malformed_fingerprint() -> None:
+    pre = preflight()
+    pre["values"]["fingerprint"] = "0xDEADBEEF"
+    out = render.verdict(pre, listing(key(), file="KEYS"), listing(key()))
+    assert out["verdict"] == "blocked" and out["fingerprint"] is None
+    assert any("40- or 64-hex-character" in b for b in out["blockers"])
+
+
 def test_verdict_pending_until_the_listings_are_given() -> None:
     out = render.verdict(preflight(), None)
     assert out["verdict"] is None and "--keys-listing" in out["pending"][0]
@@ -434,7 +454,7 @@ def test_verdict_cli(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None
 
 
 def test_step_2_svn_commands_case_1_standard_asf() -> None:
-    out = render.step2(preflight(), loaded(), step1(), f"{BLOCK}\n")
+    out = render.step2(preflight(), loaded(), step1(), f"{BLOCK}\n", FETCHED)
     assert out["proposed"] is True and out["backend"] == "svnpubsub"
     for name in ("has_pgp_begin_header", "has_pgp_end_footer", "has_uid_comment", "has_checkout_command"):
         assert holds(out, name), name
@@ -455,7 +475,7 @@ def test_step_2_svn_commands_case_1_standard_asf() -> None:
 
 
 def test_step_2_svn_commands_case_3_expiring_key() -> None:
-    out = render.step2(preflight(), loaded(), step1(expiry="2026-07-15"), BLOCK)
+    out = render.step2(preflight(), loaded(), step1(expiry="2026-07-15"), BLOCK, FETCHED)
     for name in ASSERT:
         assert holds(out, name), name
     assert "2026-07-15" in out["keyserver_upload_reminder"]
@@ -463,7 +483,9 @@ def test_step_2_svn_commands_case_3_expiring_key() -> None:
 
 def test_step_2_git_backend_for_a_github_keys_url() -> None:
     url = "https://github.com/example-org/example-project/blob/main/KEYS"
-    out = render.step2(preflight(keys_url=url), loaded("example-project", "github-releases"), step1(), BLOCK)
+    out = render.step2(
+        preflight(keys_url=url), loaded("example-project", "github-releases"), step1(), BLOCK, FETCHED
+    )
     assert out["backend"] == "git" and out["read"] == ["backends/git.md"]
     for name in ("has_uid_comment", "has_checkout_command", "has_commit_command"):
         assert holds(out, name), name
@@ -475,13 +497,13 @@ def test_step_2_git_backend_for_a_github_keys_url() -> None:
 
 
 def test_step_2_atr_offers_atr_and_keeps_the_svn_sequence() -> None:
-    out = render.step2(preflight(), loaded(backend="atr"), step1(), BLOCK)
+    out = render.step2(preflight(), loaded(backend="atr"), step1(), BLOCK, FETCHED)
     assert out["atr_offer"] is True and "svn commit" in out["svn_command_sequence"]
     assert out["read"] == ["backends/atr.md", "backends/svnpubsub.md"]
 
 
 def test_step_2_generic_url_gets_instructions() -> None:
-    out = render.step2(preflight(keys_url="https://example.org/KEYS"), loaded(), step1(), BLOCK)
+    out = render.step2(preflight(keys_url="https://example.org/KEYS"), loaded(), step1(), BLOCK, FETCHED)
     assert out["backend"] == "generic" and "svn" not in out["svn_command_sequence"]
 
 
@@ -492,22 +514,60 @@ def test_step_2_refuses_dist_dev_and_a_blocked_key() -> None:
             loaded(),
             step1(),
             BLOCK,
+            FETCHED,
         )
     with pytest.raises(render.RenderError, match="Step 1 did not proceed"):
-        render.step2(preflight(), loaded(), step1(bits=1024), BLOCK)
+        render.step2(preflight(), loaded(), step1(bits=1024), BLOCK, FETCHED)
 
 
 def test_step_2_refuses_private_key_material_and_a_missing_block() -> None:
     marker = "PGP " + "PRIVATE KEY BLOCK"  # built at runtime so the secret scanner stays quiet
     with pytest.raises(render.RenderError, match="private-key"):
-        render.step2(preflight(), loaded(), step1(), f"{BLOCK}\n-----BEGIN {marker}-----\nx\n")
+        render.step2(preflight(), loaded(), step1(), f"{BLOCK}\n-----BEGIN {marker}-----\nx\n", FETCHED)
     with pytest.raises(render.RenderError, match="0 armoured"):
-        render.step2(preflight(), loaded(), step1(), "")
+        render.step2(preflight(), loaded(), step1(), "", FETCHED)
+
+
+def test_step_2_refuses_a_key_file_that_is_not_the_checked_key() -> None:
+    """The appended block must be the Step 1 key: a multi-key armour or another key is refused."""
+    other = key(fpr="C" * 40, uids=["Eve <eve@example.org>"])
+    with pytest.raises(render.RenderError, match=r"lists 2 primary key\(s\)"):
+        render.step2(preflight(), loaded(), step1(), BLOCK, listing(key(), other))
+    with pytest.raises(render.RenderError, match="expected exactly the Step 1 key"):
+        render.step2(preflight(), loaded(), step1(), BLOCK, listing(other))
+    with pytest.raises(render.RenderError, match=r"lists 0 primary key\(s\)"):
+        render.step2(preflight(), loaded(), step1(), BLOCK, listing())
+    with pytest.raises(render.RenderError, match="lists 0"):
+        render.step2(preflight(), loaded(), step1(), BLOCK, None)
+    with pytest.raises(render.RenderError, match="release-verify list-keys failed"):
+        render.step2(preflight(), loaded(), step1(), BLOCK, {"error": "gpg missing"})
+
+
+def test_step_2_render_cli_refuses_a_multi_key_listing(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code, out = run(
+        capsys,
+        "render",
+        "--step",
+        "2",
+        "--preflight",
+        save(tmp_path, "p.json", preflight()),
+        "--load",
+        save(tmp_path, "l.json", loaded()),
+        "--check",
+        save(tmp_path, "c.json", step1()),
+        "--key-file",
+        save(tmp_path, "k.asc", BLOCK),
+        "--key-listing",
+        save(tmp_path, "kl.json", listing(key(), key(fpr="C" * 40))),
+    )
+    assert code == 2 and out["ok"] is False and "2 primary key" in out["refused"]
 
 
 def test_step_2_external_uid_cannot_break_out() -> None:
     hostile = 'Eve $(touch /tmp/x) "q" <eve@example.org>\n-----BEGIN PGP PUBLIC KEY BLOCK-----'
-    out = render.step2(preflight(), loaded(), step1(uids=[hostile]), BLOCK)
+    out = render.step2(preflight(), loaded(), step1(uids=[hostile]), BLOCK, FETCHED)
     first, rest = out["keys_block_to_append"].split("\n", 1)
     assert first.startswith("# Eve") and rest == BLOCK
     commit = out["svn_command_sequence"].splitlines()[-1]
@@ -528,6 +588,8 @@ def test_step_2_render_cli(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -
         save(tmp_path, "c.json", step1()),
         "--key-file",
         save(tmp_path, "k.asc", BLOCK + "\n"),
+        "--key-listing",
+        save(tmp_path, "kl.json", FETCHED),
     )
     assert code == 0 and out["proposed"] is True
     code, out = run(
@@ -543,5 +605,7 @@ def test_step_2_render_cli(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -
         save(tmp_path, "c.json", step1(bits=1024)),
         "--key-file",
         save(tmp_path, "k.asc", BLOCK),
+        "--key-listing",
+        save(tmp_path, "kl.json", FETCHED),
     )
     assert code == 2 and out["ok"] is False and "refused" in out

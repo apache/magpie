@@ -31,7 +31,7 @@ import re
 from typing import Any
 from urllib.parse import urlparse
 
-from release_management.keys_sync.check import InputError, find_key, keys_dir, listed_keys
+from release_management.keys_sync.check import InputError, find_key, keys_dir, listed_keys, normalise_fpr
 from release_management.shell import dq, w
 
 PUBLIC_BLOCK = re.compile(
@@ -73,7 +73,13 @@ def verdict(
     given, `verdict` is null and `pending` names it.
     """
     values = preflight.get("values") or {}
-    fingerprint = str(values.get("fingerprint") or "").upper() or None
+    fingerprint: str | None = None
+    fingerprint_error: str | None = None
+    if values.get("fingerprint"):
+        try:
+            fingerprint = normalise_fpr(str(values["fingerprint"]))
+        except InputError as exc:
+            fingerprint_error = str(exc)
     out: dict[str, Any] = {
         "verdict": None,
         "blockers": [str(b) for b in preflight.get("blockers") or []],
@@ -84,6 +90,8 @@ def verdict(
         "pending": [],
         "read": [],
     }
+    if fingerprint_error:
+        out["blockers"].append(fingerprint_error)
     if out["blockers"]:
         out["verdict"] = "blocked"
         return out
@@ -233,10 +241,16 @@ def step2(
     loaded: dict[str, Any],
     step1: dict[str, Any],
     key_text: str,
+    key_listing: dict[str, Any] | None,
     *,
     backend: str | None = None,
 ) -> dict[str, Any]:
-    """Step 2: the KEYS block, the backend's command sequence and the keyserver reminder."""
+    """Step 2: the KEYS block, the backend's command sequence and the keyserver reminder.
+
+    `key_listing` is what `release-verify list-keys --file <fetched.asc>` printed for
+    `key_text`, the same listing Step 1 checked: it must hold exactly one primary key,
+    the one Step 1 judged, or nothing is emitted.
+    """
     if step1.get("verdict") != "proceed":
         raise RenderError(
             "Step 1 did not proceed (key missing, below the strength floor or otherwise blocked): "
@@ -244,11 +258,23 @@ def step2(
         )
     values = preflight.get("values") or {}
     config = loaded.get("config") or {}
-    fingerprint = str(step1.get("fingerprint") or values.get("fingerprint") or "").upper()
     keys_url = str(values.get("keys_file_url") or config.get("keys_file_url") or "")
     keyserver = str(values.get("keyserver") or config.get("keyserver") or "keys.openpgp.org")
-    if not fingerprint or not keys_url:
+    raw_fpr = str(step1.get("fingerprint") or values.get("fingerprint") or "")
+    if not raw_fpr or not keys_url:
         raise RenderError("the fingerprint or keys_file_url is unresolved: re-run Step 0")
+    try:
+        fingerprint = normalise_fpr(raw_fpr)
+        listed = listed_keys(key_listing, "--key-listing")
+        listed_fprs = [normalise_fpr(str(k.get("fingerprint") or "")) for k in listed]
+    except InputError as exc:
+        raise RenderError(f"{exc}; re-run `release-verify list-keys` on the fetched key file") from exc
+    if listed_fprs != [fingerprint]:
+        raise RenderError(
+            f"the fetched key file lists {len(listed_fprs)} primary key(s) "
+            f"({', '.join(listed_fprs) or 'none'}); expected exactly the Step 1 key {fingerprint}: "
+            "re-fetch only that key, re-list it and re-run Step 1"
+        )
     uid = _one_line(step1.get("uid") or "")
     if not uid:
         raise RenderError(

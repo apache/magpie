@@ -46,6 +46,7 @@ from typing import Any
 
 VERSION_RE = re.compile(r"^v?(\d+(?:\.\d+)*)(.*)$")
 STRICT_PATTERN_RE = re.compile(r"^(\d+(?:\.\d+)*)\.x$")
+INCUBATING_RE = re.compile(r"-incubating(?=$|[.-])", re.IGNORECASE)
 
 
 class InputError(Exception):
@@ -59,7 +60,9 @@ def version_key(version: str) -> tuple[Any, ...]:
     release = [int(p) for p in match.group(1).split(".")]
     while len(release) > 1 and release[-1] == 0:
         release.pop()
-    suffix = match.group(2)
+    # An ASF podling's `-incubating` is a release qualifier, not a pre-release marker:
+    # `1.3.0-incubating` is final, `1.3.0-rc1-incubating` / `1.3.0-incubating-rc1` are not.
+    suffix = INCUBATING_RE.sub("", match.group(2), count=1)
     post = re.fullmatch(r"[.-]?post(\d+)", suffix)
     if not suffix:
         tail: tuple[Any, ...] = (1, 0, "")

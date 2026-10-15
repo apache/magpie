@@ -397,7 +397,9 @@ def test_case_4_all_required_missing() -> None:
 
 
 def test_pr_for_a_complete_record() -> None:
-    out = render.pr(step1_full(), audit_log_path="audit-logs/releases/", upstream="apache/airflow")
+    out = render.pr(
+        step1_full(), audit_log_path="audit-logs/releases/", upstream="apache/airflow", base="main"
+    )
     assert out["target_file"] == "audit-logs/releases/2.11.0.md"
     assert out["pr_title"] == "chore: add release audit record for Apache Airflow 2.11.0"
     assert out["pr_body"] == (
@@ -410,6 +412,15 @@ def test_pr_for_a_complete_record() -> None:
         'gh pr create --web --repo apache/airflow --title "chore: add release audit record for Apache Airflow 2.11.0"'
         " --body-file <scratch>/audit-report-pr-body.md --base main"
     )
+
+
+def test_pr_base_defaults_to_the_default_branch_placeholder() -> None:
+    """No branch name is baked in: without --base the command carries <default-branch>."""
+    out = render.pr(step1_full(), audit_log_path="audit", upstream="apache/airflow")
+    assert out["gh_command"].endswith(" --base <default-branch>")
+    assert " main" not in out["gh_command"]
+    out = render.pr(step1_full(), audit_log_path="audit", upstream="apache/airflow", base="trunk")
+    assert out["gh_command"].endswith(" --base trunk")
 
 
 def test_pr_body_lists_missing_and_redacted_fields_with_reasons() -> None:
@@ -449,6 +460,9 @@ def test_cli_record_and_pr(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -
     assert code == 0 and out["record_markdown"] == FULL_RECORD
     code, out = run(capsys, "pr", "--step1", str(step1), "--audit-log-path", "audit")
     assert code == 0 and out["target_file"] == "audit/2.11.0.md"
+    assert out["gh_command"].endswith(" --base <default-branch>")
+    code, out = run(capsys, "pr", "--step1", str(step1), "--audit-log-path", "audit", "--base", "trunk")
+    assert code == 0 and out["gh_command"].endswith(" --base trunk")
 
 
 def test_cli_record_refuses_an_email_voter(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

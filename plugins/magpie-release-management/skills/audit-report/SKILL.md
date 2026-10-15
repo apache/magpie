@@ -23,7 +23,7 @@ argument-hint: "<version> [--planning-issue <url>]"
 capability: capability:stats
 surface_hash: sha256:ecab5c5c3e52d580
 license: Apache-2.0
-measured_tokens: 5154
+measured_tokens: 5177
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -32,6 +32,7 @@ measured_tokens: 5154
 <!-- Placeholder convention (see ../../AGENTS.md#placeholder-convention-used-in-skill-files):
      <project-config>        → adopter's project-config directory path
      <upstream>              → adopter's public source repo (e.g. apache/airflow)
+     <default-branch>        → <project-config>/project.md upstream_default_branch (e.g. main)
      <project>               → project distribution name (e.g. airflow)
      <product_name>          → human-readable product name (e.g. Apache Airflow)
      <version>               → release version string (e.g. 2.11.0)
