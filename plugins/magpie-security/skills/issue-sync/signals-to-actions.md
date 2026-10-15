@@ -838,6 +838,8 @@ Group them by category:
 
   **Never send.** Always create a draft, preferably attached to the inbound mail thread
   (the preferred `oauth_curl` backend uses `--thread-id` directly and preserves URLs verbatim;
+  the `maildir` backend replies by `In-Reply-To` / `References` on the inbound `Message-ID`, per
+  [*The Maildir backend*](../../../../tools/gmail/draft-backends.md#the-maildir-backend);
   the discouraged `claude_ai_mcp` backend resolves the latest message ID from the inbound `threadId` and passes it as `replyToMessageId` but rewrites embedded URLs —
   see [`draft-backends.md`](../../../../tools/gmail/draft-backends.md#privacy-warning--the-claudeai-gmail-mcp-rewrites-embedded-urls-into-google-tracking-redirects)).
   If Step 1c could not resolve a `threadId`, fall back to a subject-matched draft (thread-attachment parameter omitted, `subject: Re: <root subject>`)

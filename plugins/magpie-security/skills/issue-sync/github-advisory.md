@@ -115,6 +115,9 @@ never send directly (SKILL Golden rule 1), and never use the Gmail MCP, which ma
 block the draft if no address resolves.
 Reply on the originating `<security-list>` thread when the report was relayed there (`--thread-id <id>`);
 otherwise it is a **new** message (omit `--thread-id`) with a self-describing subject.
+When the drafting backend resolves to `maildir`, file it with `maildir-draft-create` per
+[*The Maildir backend*](../../../../tools/gmail/draft-backends.md#the-maildir-backend) instead:
+`--in-reply-to` the originating thread's `Message-ID` for a reply, neither threading flag for a new message.
 The hand-off is never a `<tracker>` comment; the tracker gets at most a one-line rollup note recording that the relay draft was prepared.
 
 ### What the relay says (three parts, terse)
@@ -131,7 +134,7 @@ The hand-off is never a `<tracker>` comment; the tracker gets at most a one-line
 ### Guardrails
 
 - **Propose-then-confirm** the draft (recipient, CC, subject, body); the
-  operator reviews the Gmail draft and sends it.
+  operator reviews the draft (in Gmail, or in their mail client for Maildir) and sends it.
 - **Idempotent** — record a prepared hand-off with a `<tracker>` rollup
   marker (`<!-- <marker-prefix>: ghsa-admin-handoff v1 -->`) naming the GHSA
   id + requested action; do not re-draft the same pending action.

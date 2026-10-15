@@ -203,11 +203,16 @@ Use:
     only when `oauth_curl` credentials are missing **and** the body has no links;
     reply on the Step 1c thread with `subject="Re: <root subject>"` and `replyToMessageId=` its last message, per the call shape in
     [`draft-backends.md` § *How the skills pick a backend*](../../../../tools/gmail/draft-backends.md#how-the-skills-pick-a-backend).
+  - **`maildir`** (when the drafting backend resolves to it) — `maildir-draft-create` per
+    [*The Maildir backend*](../../../../tools/gmail/draft-backends.md#the-maildir-backend),
+    with `--in-reply-to` / `--references` from the thread's `Message-ID`s, the standard `--to` / `--cc`,
+    `--subject "Re: <root subject>"`, and a `--body-file`.
 
   **Before drafting, check for an existing pending draft on the thread** with **both** detection paths
   (`mcp__claude_ai_Gmail__list_drafts` **and** `mcp__claude_ai_Gmail__get_thread` with `messageFormat: MINIMAL`, scanning for a `DRAFT` label) in
   [`draft-backends.md` § *Detecting drafts that already exist on a thread*](../../../../tools/gmail/draft-backends.md#detecting-drafts-that-already-exist-on-a-thread):
   `list_drafts` alone misses thread-attached drafts under pile-up, whatever the backend.
+  On `maildir`, `maildir-draft-find` replaces both Gmail paths.
 
   **Surface which backend and which threading path the draft took** (thread-attached vs subject fallback) in the proposal;
   when subject fallback kicks in, record the backend and reason on the tracker's status comment so a future triager understands why the threading degraded.

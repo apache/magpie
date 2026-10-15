@@ -20,7 +20,7 @@ argument-hint: "[issue-number]"
 capability: capability:resolve
 surface_hash: sha256:43a163bcbdb06f11
 license: Apache-2.0
-measured_tokens: 7548
+measured_tokens: 7163
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -99,7 +99,7 @@ and, for `security@`-imported trackers, drafts a reply to the reporter explainin
 
 It is the counterpart of [`security-cve-allocate`](../cve-allocate/SKILL.md), which applies the *valid → CVE* decision in the same one-pass way.
 
-**Golden rule — never sends email.** Any reply to the reporter is a Gmail draft on the original inbound thread, which the triager reviews and sends.
+**Golden rule — never sends email.** Any reply to the reporter is a draft on the original inbound thread (in Gmail, or in a local Maildir), which the triager reviews and sends.
 The skill never calls `send` on any drafting backend.
 
 **Golden rule — public-facing comment is brief.** The closing comment is short and process-shaped (*"closing as invalid per team consensus in this thread"*).
@@ -172,7 +172,7 @@ Before running, the skill needs:
 - **`gh` CLI authenticated** with collaborator access to `<tracker>` and to the project-board mutations
   (`addProjectV2ItemById`, `updateProjectV2ItemFieldValue`, `archiveProjectV2Item`).
   The skill calls `gh issue view`, `gh issue edit`, `gh issue comment`, `gh issue close`, and `gh api graphql`.
-- **A Gmail drafting backend configured**, only when the tracker is `security@`-imported and a reply is drafted.
+- **A drafting backend configured** (Gmail or Maildir), only when the tracker is `security@`-imported and a reply is drafted.
   Without it the skill still closes the tracker, and surfaces the missing draft as a follow-up the user must do by hand before the close is complete.
 
 See [Prerequisites for running the agent skills](../../../../docs/quick-start/prerequisites.md#prerequisites-for-running-the-agent-skills) for overall setup,

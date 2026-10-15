@@ -9,6 +9,7 @@
   - [Privacy warning — the claude.ai Gmail MCP rewrites embedded URLs into Google tracking redirects](#privacy-warning--the-claudeai-gmail-mcp-rewrites-embedded-urls-into-google-tracking-redirects)
   - [Why `oauth_curl` is the preferred backend](#why-oauth_curl-is-the-preferred-backend)
   - [How the skills pick a backend](#how-the-skills-pick-a-backend)
+  - [The Maildir backend](#the-maildir-backend)
   - [Detecting drafts that already exist on a thread](#detecting-drafts-that-already-exist-on-a-thread)
   - [Limitations that apply to both backends](#limitations-that-apply-to-both-backends)
   - [Known issue — thread-attached drafts may not surface in the global Drafts folder when stacked](#known-issue--thread-attached-drafts-may-not-surface-in-the-global-drafts-folder-when-stacked)
@@ -114,7 +115,19 @@ untracked.
 
 Every skill step that says *"create a Gmail draft via
 `mcp__claude_ai_Gmail__create_draft`"* is shorthand for *"create a draft
-via the project's configured drafting backend"* — which should be
+via the project's configured drafting backend"*.
+
+**First, Gmail or Maildir.** The drafting backend is set per project, and
+each person can override it for themselves. The first value found wins:
+
+1. `tools.mail_create.backend` in the resolved `user.md` — the person's own
+   choice;
+2. `mail_create.backend` in `<project-config>/project.md` — the project's
+   choice;
+3. `gmail`.
+
+On `maildir`, follow [The Maildir backend](#the-maildir-backend) and skip the rest of this
+section. On `gmail`, pick the Gmail backend as below — which should be
 `oauth_curl`.
 
 **Preferred — `oauth_curl`.** Resolution:
@@ -165,7 +178,72 @@ or, only when credentials were missing:
 > `oauth_curl` credentials not found; threaded via
 > `<replyToMessageId / subject-matched fallback>`)*
 
+## The Maildir backend
+
+[`tools/maildir/`](../maildir/README.md) files each draft into a local
+Maildir that the user's mail client (Thunderbird, mutt, Evolution, …) shows
+in its Drafts folder: no Gmail account, no credential, no network. It only
+drafts. The skills still read the inbound thread through the project's mail
+source (PonyMail, Gmail), and a human sends the reply.
+
+**Settings.** Each resolves like the backend: `tools.mail_create.<key>` in
+`user.md` first, then `mail_create.maildir.<key>` in `project.md`.
+
+- `drafts_path` — the Drafts Maildir, for example `~/Mail/<project>/Drafts`;
+- `from_address` — the `From:` of every draft.
+
+A setting that resolves nowhere is a question to the user, never a guess.
+
+**Threading.** A Maildir draft threads by its headers alone:
+
+- `--in-reply-to` — the `Message-ID` of the latest message on the inbound
+  thread. PonyMail returns it from `mcp__ponymail__get_thread` and
+  `mcp__ponymail__get_email`; on Gmail, `oauth-draft-message-id` resolves it
+  ([`operations.md`](operations.md#get-the-root-message-id-of-a-thread)).
+  When only the root is known, use the root `Message-ID` the tracker records
+  in its *Security mailing list thread* field.
+- `--references` — the thread's `Message-ID` chain, root first.
+
+With no `Message-ID` at all, omit both and keep `Re: <root subject>`: the
+recipient's client then threads by subject, as with the Gmail subject
+fallback ([`threading.md`](threading.md)).
+
+**Existing drafts.** Before filing a reply, look for one already waiting:
+
+```bash
+uv run --project <framework>/tools/maildir maildir-draft-find \
+  --maildir <drafts_path> \
+  --message-id <each Message-ID of the thread> \
+  --subject "<root subject>" --to <recipient>
+```
+
+Any result means *"a draft already exists; surface it to the user before
+drafting a new one"*, the same rule as the Gmail check below.
+
+**Create.**
+
+```bash
+uv run --project <framework>/tools/maildir maildir-draft-create \
+  --from <from_address> --to <recipient> --cc <cc> \
+  --subject "Re: <root subject>" --body-file <file> \
+  --maildir <drafts_path> \
+  --in-reply-to <Message-ID> --references "<chain>"
+```
+
+It prints the path of the draft file, which stands in for a Gmail
+`draftId`. The body goes out as written: one `text/plain` part, links
+verbatim.
+
+**Recap line:**
+
+> *Draft filed in `<drafts_path>` (replying to `<Message-ID>`). Open it in
+> your mail client to review and send. Not shown in Thunderbird? Repair the
+> Drafts folder.*
+
 ## Detecting drafts that already exist on a thread
+
+On the Maildir backend this check is `maildir-draft-find`
+([The Maildir backend](#the-maildir-backend)). The two paths below are the Gmail check.
 
 Before drafting a reply on a thread, skills check whether a pending
 draft already exists so they do not silently shadow it (the claude.ai

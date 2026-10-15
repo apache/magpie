@@ -182,7 +182,7 @@ For each confirmed `Report` or forwarder-relayed candidate:
    The protocol is in
    [`tools/privacy-llm/wiring.md`](../../../../tools/privacy-llm/wiring.md#reveal-before-send-protocol),
    and the `tools/gmail/operations.md` *Hard rules that apply to both backends* section requires it before the create-draft call.
-   **The draft must be created on the inbound Gmail thread** via the project's configured drafting backend per
+   **The draft must be created as a reply on the inbound thread** via the project's configured drafting backend per
    [`tools/gmail/draft-backends.md`](../../../../tools/gmail/draft-backends.md#how-the-skills-pick-a-backend).
    The preferred `oauth_curl` backend uses `--thread-id` directly and preserves URLs verbatim.
    The `claude_ai_mcp` backend is discouraged because it rewrites embedded URLs into Google tracking redirects
@@ -191,6 +191,8 @@ For each confirmed `Report` or forwarder-relayed candidate:
    (`messages[-1].id` from the fresh `get_thread` read made for the existing-draft check below — do not fetch the thread a second time)
    and passes it to `mcp__claude_ai_Gmail__create_draft` as `replyToMessageId`.
    Surface in the proposal which backend was used and which path the draft took (thread-attached vs subject fallback).
+   On the `maildir` backend, file it per [*The Maildir backend*](../../../../tools/gmail/draft-backends.md#the-maildir-backend) instead,
+   replying to the inbound report's `Message-ID`.
 
    **Before drafting, check for an existing pending draft** on the inbound thread per
    [`draft-backends.md` § *Detecting drafts that already exist on a thread*](../../../../tools/gmail/draft-backends.md#detecting-drafts-that-already-exist-on-a-thread)
@@ -198,6 +200,7 @@ For each confirmed `Report` or forwarder-relayed candidate:
    `mcp__claude_ai_Gmail__get_thread(threadId=<candidate>,
    messageFormat='MINIMAL')` (scan messages for `DRAFT` labels),
    so thread-attached drafts hidden from the global Drafts folder are not missed.
+   On `maildir`, the check is `maildir-draft-find` with the thread's `Message-ID`s instead.
    If a pending draft already exists, surface it to the user instead of shadowing it with a second draft.
    This is the one thread re-read in Step 7, deliberately fresh rather than reused from Step 2a:
    a draft or a new reporter message can land between the scan and the apply.

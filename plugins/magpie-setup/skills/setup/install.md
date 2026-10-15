@@ -1409,8 +1409,9 @@ setup; the skills skip any block that is missing or marked `TODO`.
   PonyMail MCP in your Claude Code `mcpServers` block. When enabled
   and authenticated, the security skills use PonyMail as the primary
   read backend for mailing-list archive queries; Gmail remains the
-  fallback for just-arrived inbound mail and the only backend for
-  draft composition. **ASF projects:** PonyMail is a mandatory
+  fallback for just-arrived inbound mail. PonyMail is read-only:
+  drafts go to Gmail or Maildir, per `mail_create` below.
+  **ASF projects:** PonyMail is a mandatory
   prerequisite (the manifest declares it `mandatory: yes`), so set
   this to `true` and complete the install in Step 9c — the
   mail-reading skills refuse to run when it is unavailable or
@@ -1429,6 +1430,20 @@ setup; the skills skip any block that is missing or marked `TODO`.
   mandatory prerequisite (the manifest declares
   `project_metadata.mandatory: true`), so set this to `true` and
   complete the install in Step 9c.
+
+### `mail_create`
+
+Only set this to draft differently from the project. It overrides the
+project's `mail_create` in `<project-config>/project.md`, key by key, and
+applies to every project on this machine.
+
+- `backend: TODO` — `gmail` (drafts in Gmail) or `maildir` (drafts in a
+  local Maildir that Thunderbird or another mail client shows; walked
+  through in Step 9e).
+- `drafts_path: TODO` — `maildir` only: the Drafts Maildir, e.g.
+  `~/Mail/<project>/Drafts`. `<project>` resolves to each project's
+  `short_name`.
+- `from_address: TODO` — `maildir` only: the `From:` of your drafts.
 ```
 
 **Where to write the file.** Default to
@@ -1660,7 +1675,12 @@ Same hands-off contract as 9c — **surface, do not run**:
       it reports no credential, call `setup_credentials` once (or run
       the `oauth-draft-setup` CLI) and finish the consent flow in the
       browser.
-   4. From then on, a skill that drafts mail files it in Gmail's
+   4. Keep the claude.ai Gmail connector connected for **reading**:
+      the security skills find the thread and any draft already on it
+      through its `get_thread` and `list_drafts`, which
+      `gmail-plaintext` does not provide. Only its `create_draft` is
+      never used.
+   5. From then on, a skill that drafts mail files it in Gmail's
       Drafts folder. Nothing is sent: the operator reviews, edits and
       sends it there.
 
@@ -1677,10 +1697,11 @@ Same hands-off contract as 9c — **surface, do not run**:
 
 1. **Pick the Maildir path with the operator**: the Drafts folder of
    the mail-client account they send project mail from (for example
-   `~/Mail/<project>/Drafts`), and the `From:` address. Both go in
-   the `mail_create` block of `project.md`
-   ([`tools/maildir/README.md` → Configuration](../../../../tools/maildir/README.md#configuration));
-   `setup config` writes it to the personal layer.
+   `~/Mail/<project>/Drafts`), and the `From:` address. When the
+   whole project drafts to Maildir they go in the `mail_create` block
+   of `project.md`; when only this operator does, in `tools.mail_create`
+   of their own `user.md`, which wins
+   ([`tools/maildir/README.md` → Configuration](../../../../tools/maildir/README.md#configuration)).
 2. **Point the mail client at it.** Thunderbird reads a Maildir only
    for an account whose message store is *File per message (maildir)*,
    chosen when the account is set up. mutt, aerc and Evolution read a

@@ -387,7 +387,8 @@ Hand off to it only on the user's explicit yes; never run it unattended.
 Run this when a skill in scope belongs to a family that reads a
 mailing list or drafts mail — `security` or `release-management` —
 and its mail backends are not yet recorded in `project.md`
-(`Mail sources`, `mail_create`). On a run entered from a skill's
+(`Mail sources`, `mail_create`), or when the user asks to change how
+they read or draft mail. On a run entered from a skill's
 pre-flight, fold these questions into Step 3's one batched question;
 do not ask them separately.
 
@@ -409,12 +410,32 @@ do not ask them separately.
    Never propose the claude.ai Gmail connector for drafting: it
    rewrites links into tracking redirects
    ([`draft-backends.md`](../../../../tools/gmail/draft-backends.md#privacy-warning--the-claudeai-gmail-mcp-rewrites-embedded-urls-into-google-tracking-redirects)).
-3. **Record the choices** in the personal layer's `project.md`. Nothing
-   else is written: registering an MCP server is a user-scope change,
-   outside this sub-action's write boundary (hard rule 1).
+   Its read tools are a different matter: with `gmail-plaintext`, the
+   security skills still find a thread and its existing drafts through
+   the connector's `get_thread` and `list_drafts`, so say it stays
+   connected for reading.
+3. **Record the choices.** The read backends go in the personal layer's
+   `project.md` (*Mail sources*). The drafting backend is per project,
+   with a per-person override:
+   - When the project's committed `project.md` already sets
+     `mail_create.backend`, name it, and ask only whether the user wants a
+     different one for themselves.
+   - When the personal layer holds this project's `project.md` (the
+     project has not adopted Magpie, or the user already shadows the
+     file), write `mail_create` there.
+   - Otherwise — a personal choice on a project whose `project.md` is
+     committed — write it as `tools.mail_create` in the resolved
+     `user.md`, after showing the user the lines to be added. It applies
+     to every project on this machine; say so. This is the one write
+     outside the personal layer this step makes (hard rule 1).
+
+   Registering an MCP server is a user-scope change this sub-action
+   never makes.
 4. **Hand over the install as next steps, not as a pointer.** For each
    chosen backend that is not yet available — check the session's tool
-   list for `mcp__ponymail__*` and `mcp__gmail-plaintext__*` — print the
+   list for `mcp__ponymail__*`, `mcp__apache-projects__*` and
+   `mcp__gmail-plaintext__*`; either comdev server missing means Step 9c
+   is handed over — print the
    commands and the numbered *what to do next* list from
    [`install.md` Step 9c](install.md#step-9c--comdev-mcp-prerequisites-asf-projects),
    [Step 9d](install.md#step-9d--gmail-plaintext-mcp-optional-gmail-drafters)
@@ -429,7 +450,8 @@ Tell the user, in this order:
 
 1. **What was written**, by path, and that all of it is in the personal
    layer and invisible to everyone else. List any Step 3c harness command files
-   separately: those sit in the user's home, outside every repository.
+   and any Step 3e `user.md` lines separately: those sit in the user's home,
+   outside every repository.
    On a plain `config` run with the `magpie-adversarial-review` plugin
    installed and no `adversarial-review.md`, add one line that
    `/magpie-setup:setup config adversarial-review` configures other models as
@@ -483,9 +505,11 @@ will see.
    touches the committed lock — only the personal layer's `reconciled.json`.
    The exceptions are Step 3c's harness command files — written under the
    user's home (never inside a repository), only the ones the user ticked,
-   and never on a run entered from a skill's pre-flight — and Step 3a's
-   `.magpie-tracker.json`, written only into the tracker folder the user
-   named, left uncommitted, and only after the user answered the access question.
+   and never on a run entered from a skill's pre-flight — Step 3e's
+   personal `tools.mail_create` lines in `user.md`, written only after the
+   user saw them; and Step 3a's `.magpie-tracker.json`, written only into
+   the tracker folder the user named, left uncommitted, and only after the
+   user answered the access question.
 2. **Never fabricate a value.** A value you cannot derive is a question
    or a `TODO`, never a plausible-looking guess. A wrong `upstream_repo`
    sends a skill at the wrong repository.

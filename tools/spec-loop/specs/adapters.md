@@ -38,8 +38,10 @@ by swapping the adapter, not the skill.
 
 - `tools/gmail/` — private-mail read/draft (drafts to the outbox; never
   sends).
-- `tools/maildir/` — private-mail drafting to a local Maildir spool; an
-  offline alternative to Gmail when no cloud mail backend is available.
+- `tools/maildir/` — private-mail drafting to a local Maildir spool
+  (`maildir-draft-create`, plus the read-only `maildir-draft-find` for the
+  existing-draft check); an offline alternative to Gmail, selected per
+  project with a per-person override.
 - `tools/ponymail/` — public mailing-list archive search.
 - `tools/mail-archive/` — static mailing-list archive reader for
   projects whose list history is in a local mbox/Maildir export.
@@ -308,6 +310,14 @@ by swapping the adapter, not the skill.
    copies through the same abstract operations; on Subversion `fetch` is a
    no-op, `push` and `diff --cached` are refused, and every `svn` call is
    non-interactive (#1609).
+7. The drafting backend is Gmail or Maildir: the person's
+   `tools.mail_create.backend` in `user.md`, else the project's
+   `mail_create.backend` in `project.md`, else `gmail`. Every security
+   skill that drafts mail honours it through
+   `tools/gmail/draft-backends.md` § *How the skills pick a backend*, and
+   on Maildir threads by `In-Reply-To` / `References` and checks for an
+   existing draft with `maildir-draft-find` (eval suite
+   `tools/skill-evals/evals/security-issue-sync/step-draft-backend`).
 
 ## Validation
 

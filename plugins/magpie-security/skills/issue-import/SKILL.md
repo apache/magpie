@@ -20,7 +20,7 @@ argument-hint: "[import] [last Nd|all] [skip threadId]"
 capability: capability:intake
 surface_hash: sha256:e9c563d494821baf
 license: Apache-2.0
-measured_tokens: 9820
+measured_tokens: 9461
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -175,6 +175,7 @@ Before running, the skill needs:
   (adapters: [`gmail`](../../../../tools/gmail/tool.md), [`ponymail`](../../../../tools/ponymail/tool.md), [`imap`](../../../../tools/mail-source/imap/README.md), [`mbox`](../../../../tools/mail-source/mbox/README.md)).
   Together they must cover `list_recent_threads` + `read_thread` to find reports, and `create_draft` to draft the Step 7 receipt;
   without `create_draft`, Step 7 says *"no draft backend available"* and the user writes the reply by hand.
+  A `maildir` drafting backend ([`draft-backends.md`](../../../../tools/gmail/draft-backends.md#how-the-skills-pick-a-backend)) covers `create_draft` with no Gmail account.
 - **`gh` authenticated** with collaborator access to `<tracker>`.
 
 See

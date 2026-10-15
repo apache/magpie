@@ -15,6 +15,7 @@
   - [Project chat](#project-chat)
   - [Mail sources](#mail-sources)
     - [Backend declaration](#backend-declaration)
+    - [Drafting backend](#drafting-backend)
     - [Per-backend config](#per-backend-config)
   - [Issue-template fields](#issue-template-fields)
   - [Security workflow configuration](#security-workflow-configuration)
@@ -240,6 +241,27 @@ Reference adapter docs:
 [`tools/mail-source/imap/README.md`](../../../tools/mail-source/imap/README.md) (stub),
 [`tools/mail-source/mbox/README.md`](../../../tools/mail-source/mbox/README.md) (read-only offline archive — stub),
 [`tools/mail-source/mailman3/README.md`](../../../tools/mail-source/mailman3/README.md) (read-only public Mailman 3 / Hyperkitty archive).
+
+### Drafting backend
+
+Where the skills file the reply drafts they write.
+The project sets it here; a contributor overrides it for themselves with
+`tools.mail_create` in their own `user.md`.
+
+```yaml
+mail_create:
+  backend: gmail                          # gmail (default) or maildir
+  maildir:                                # only read when backend: maildir
+    drafts_path: ~/Mail/<project>/Drafts
+    from_address: TODO
+```
+
+`gmail` drafts in Gmail
+([`tools/gmail/draft-backends.md`](../../../tools/gmail/draft-backends.md));
+`maildir` files the draft into a local Maildir for Thunderbird or another
+mail client ([`tools/maildir/README.md`](../../../tools/maildir/README.md)).
+Resolution and the per-person override:
+[`draft-backends.md` § *How the skills pick a backend*](../../../tools/gmail/draft-backends.md#how-the-skills-pick-a-backend).
 
 ### Per-backend config
 

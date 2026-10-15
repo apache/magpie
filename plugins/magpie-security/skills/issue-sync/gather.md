@@ -471,7 +471,7 @@ The draft:
 - **Body shape:** one paragraph acknowledging what was changed in response, the CVE-tool URL,
   and one line asking the reviewer to re-review when they have a moment.
   Same backend selection as the reporter-draft path in Step 5d
-  (`oauth_curl` preferred, `claude_ai_mcp` discouraged — it rewrites embedded URLs; see [`draft-backends.md`](../../../../tools/gmail/draft-backends.md#privacy-warning--the-claudeai-gmail-mcp-rewrites-embedded-urls-into-google-tracking-redirects)).
+  (`maildir` when the drafting backend resolves to it, else `oauth_curl` preferred and `claude_ai_mcp` discouraged — it rewrites embedded URLs; see [`draft-backends.md`](../../../../tools/gmail/draft-backends.md#privacy-warning--the-claudeai-gmail-mcp-rewrites-embedded-urls-into-google-tracking-redirects)).
   Always a draft — never sent.
 
 Restrict this draft to comments that mapped cleanly to a body-field update (the mapping table above).

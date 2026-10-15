@@ -9,6 +9,7 @@
   - [The draft-only invariant](#the-draft-only-invariant)
   - [Operations](#operations)
     - [`contract:mail-create` — `maildir-draft-create`](#contractmail-create--maildir-draft-create)
+    - [`maildir-draft-find` — drafts already waiting](#maildir-draft-find--drafts-already-waiting)
     - [`contract:mail-source` — local archive reads](#contractmail-source--local-archive-reads)
   - [Configuration](#configuration)
   - [Cross-references](#cross-references)
@@ -114,6 +115,30 @@ uv run --project tools/maildir maildir-draft-create \
 The verb maps onto the contract's `create(message, mode=draft)`: it always
 produces an editable draft; `mode=send` is the human-approved future seam.
 
+### `maildir-draft-find` — drafts already waiting
+
+Before a skill files a reply, it checks whether a draft for the same thread,
+subject or recipient is already in the Maildir, so it never shadows one the
+human has not sent yet. Read-only: it never creates the Maildir or touches a
+message. Prints a JSON list (`file`, `subject`, `to`, `in_reply_to`, `date`,
+`draft_flag`).
+
+```bash
+uv run --project tools/maildir maildir-draft-find \
+  --maildir ~/Mail/project/Drafts \
+  --message-id "<thread-parent@example.com>" \
+  --subject "your report" --to "reporter@example.com"
+```
+
+| Flag | Meaning |
+|---|---|
+| `--maildir` | Drafts Maildir to search. A missing one yields `[]`. |
+| `--message-id` | A `Message-ID` of the thread, repeatable; matches a draft whose `In-Reply-To` or `References` names it. |
+| `--subject` | Subject substring; `Re:` / `Fwd:` prefixes and case are ignored. |
+| `--to` | Recipient substring, matched against `To` and `Cc`. |
+
+A draft matching any criterion is listed; with none, every draft is.
+
 ### `contract:mail-source` — local archive reads
 
 Read-only ingestion of a local mbox / Maildir / `.eml` archive for the
@@ -131,10 +156,10 @@ instruction.
 
 ## Configuration
 
-An adopter selects the Maildir backend in
-`projects/<project>/project.md`.
+The drafting backend is set per project, in `<project-config>/project.md`,
+and each person can override it in their own `user.md`.
 
-For outbound drafting (`contract:mail-create`):
+For the whole project (`contract:mail-create`):
 
 ```yaml
 # mail_create — outbound composition (draft; never sends)
@@ -144,6 +169,21 @@ mail_create:
     drafts_path: ~/Mail/<project>/Drafts   # Maildir the draft is filed into
     from_address: you@<project>.apache.org  # default From: for composed drafts
 ```
+
+For one person, in `user.md`, whatever the project chose:
+
+```markdown
+### `mail_create`
+
+- `backend: maildir`
+- `drafts_path: ~/Mail/<project>/Drafts`
+- `from_address: you@<project>.apache.org`
+```
+
+The person's value wins, key by key. The skills read the result through
+[`tools/gmail/draft-backends.md` § *How the skills pick a backend*](../gmail/draft-backends.md#how-the-skills-pick-a-backend),
+where the [Maildir recipe](../gmail/draft-backends.md#the-maildir-backend)
+covers threading, the existing-draft check and the recap line.
 
 For inbound reads (`contract:mail-source`), the declaration is the
 local-archive one from

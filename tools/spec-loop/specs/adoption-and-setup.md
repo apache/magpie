@@ -662,8 +662,10 @@ committed version with drift detection.
     `release-management`), `setup config` proposes its mail backends:
     PonyMail and `apache-projects` selected by default for an ASF project,
     and `gmail-plaintext` (default) or the local Maildir backend for
-    drafting, never the claude.ai Gmail connector. It records the choices
-    in the personal layer only, and hands every install over as a numbered
+    drafting, never the claude.ai Gmail connector. The drafting choice is
+    per project (`mail_create` in `project.md`) with a per-person override
+    (`tools.mail_create` in `user.md`, the one write outside the personal
+    layer, made only after the user saw it). It hands every install over as a numbered
     *what to do next* list (`install.md` Steps 9c, 9d and 9e), including
     Thunderbird's *Repair Folder* for a draft that does not show up (eval
     suite `tools/skill-evals/evals/setup/step-config-mail`).
