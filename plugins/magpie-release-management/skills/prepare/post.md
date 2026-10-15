@@ -104,15 +104,17 @@ reviewers reported each, and every entry in `warnings` verbatim.
 **Scope enforcement.** Render the title, the body and the scope; `--files` is every file the diff touches:
 
 ```bash
-prepare post-pr --next <scratch>/next.json --product-name "<Product Name>" \
-  [--next-version <confirmed>] [--files <file> ...] [--confirm-extra <file> ...]
+uv run --project <framework>/tools/release-config release-config load --skill prepare post <version> > <scratch>/prepare-load.json
+prepare post-pr --next <scratch>/next.json --load <scratch>/prepare-load.json --product-name "<Product Name>" \
+  [--next-version <confirmed>] --files <file> [<file> ...] [--confirm-extra <file> ...]
 ```
 
+`--files` is required: the scope check runs on the files the diff actually touches, never on a default set.
 If a proposed file path falls outside `version_manifest_files`, it is a `scope_violations` entry:
 flag it as a scope violation and ask the RM to confirm before including it
 (read [`classifications/scope-violation.md`](classifications/scope-violation.md)).
 The command refuses (exit `2`, `refused`) a file with no next version or files that disagree, until the RM's value is passed as `--next-version`,
-and never confirms `NOTICE` or `LICENSE` into scope.
+and never confirms `NOTICE`, `LICENSE` or the configured `changelog_file` into scope.
 The title is `chore: bump version to <next-dev-version> after <version> release`; the body lists the files and `<version>` → `<next-dev-version>`.
 
 Present the PR title, body, and file scope to the RM.

@@ -133,7 +133,7 @@ def verdict(
     covered: bool | None = True
     if sub != "automated-signing" and version:
         covered = train_coverage(lines, version)
-        if covered is False:
+        if covered is False and not train_confirmed:
             blockers.append(
                 f"release-trains.md has no entry for version {version} or a {_major_train(version)} train"
             )
@@ -336,7 +336,7 @@ def render(
             '  --label "release-planning"',
         ]
     )
-    unfilled = sorted(set(re.findall(r"<[A-Za-z][A-Za-z0-9 _-]*>", body)))
+    unfilled = sorted(set(re.findall(r"<[A-Za-z][A-Za-z0-9 ._-]*>", body)))
     return {
         "issue_title": title,
         "issue_body": body,

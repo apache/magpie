@@ -41,6 +41,8 @@ Do not guess; show, classify, explain, and ask.
 
 3. **Check references before proposing any exclusion**: run the printed `refs_command` (one `git grep -l -F` per proposed entry over tracked files)
    and rerun `archive-review` with `--refs "$TMPDIR/refs.txt"`.
+   `refs_unchecked` lists every proposed path the refs file does not cover (one added later with `--exclude`, say);
+   while it is non-empty, `gitattributes_block` stays empty and `refs_command` checks exactly those paths: run it and rerun with its output.
    A path that a shipped file links to must not be excluded, or `release-verify-rc` Step 7 fails the RC on a dangling reference:
    `refused` names the referrers; offer the alternative (keep it, or repoint the reference).
    `stripped_symlink_targets` is every committed symlink whose target would be stripped,
@@ -52,14 +54,20 @@ Do not guess; show, classify, explain, and ask.
    Walk the RM through each proposed entry; each one is confirmed or dropped individually,
    and the final render takes the RM's answers as `--exclude <path>` (added) and `--keep <path>` (dropped).
    Never exclude `LICENSE`, `NOTICE`, `DISCLAIMER`, a build descriptor, the RAT excludes, or a referenced path, even if asked — say why and keep it
-   (`refused` already holds them).
+   (`refused` already holds them, and any glob pattern: name each path instead).
+   `violations` lists every entry the committed `.gitattributes` already has that strips one of those files (`matches` names them):
+   the review is not clean while one remains.
+   Show each to the RM, remove the line from `.gitattributes` in the prep PR,
+   and record it as `--archive-review proposed` with `--archive-entry "<entry>=removed: <why>"`.
 
 5. **Record the decision.** `.gitattributes` joins the prep PR file set (2f),
    and the prep PR sets `export_ignore_reviewed: <version>` in `release-build.md § Source archive` so the full review does not repeat:
    pass `--archive-review proposed` and one `--archive-entry "<entry>=<reason>"` per confirmed entry to `prep-pr`.
    If the RM confirms an existing `.gitattributes` unchanged, still set the marker (`archive_review: "confirmed-existing"`).
 
-**Drift check (later releases).** Run the `commands` `archive-mode` printed (`git diff --name-only <previous-tag> HEAD` into `$TMPDIR/changed.txt`),
+**Drift check (later releases).** Run the `commands` `archive-mode` printed
+(`git diff --name-only <previous-tag> HEAD` into `$TMPDIR/changed.txt`, plus `tracked.txt` and `symlinks.txt`),
 then `archive-review` with `--changed "$TMPDIR/changed.txt"` and the same inputs.
+A `violations` entry blocks the skip in the drift check too.
 Top-level entries added since the last reviewed tag that fall in an *exclude* bucket are surfaced as candidates with the same confirm-each flow;
 nothing new → `archive_review: "skipped"` with the note *"no new top-level paths since `<previous-tag>`"*.

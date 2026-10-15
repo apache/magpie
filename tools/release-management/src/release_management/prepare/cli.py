@@ -40,11 +40,16 @@ def _json(path: str) -> Any:
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
-def _text(path: str | None) -> str | None:
+def _text(path: str | None, *, missing_ok: bool = False) -> str | None:
+    """The file's text; a path passed on the command line must exist, unless `missing_ok`."""
     if path is None:
         return None
     file = Path(path)
-    return file.read_text(encoding="utf-8", errors="replace") if file.is_file() else None
+    if not file.is_file():
+        if missing_ok and not file.exists():
+            return None
+        raise prep.RenderError(f"{path}: no such file")
+    return file.read_text(encoding="utf-8", errors="replace")
 
 
 def _prs(path: str) -> list[dict[str, Any]]:
@@ -137,7 +142,9 @@ def add_parsers(sub: Any) -> None:
     x.add_argument("files", nargs="+", help="<repo-path>=<local-copy> or a local path")
 
     n = c.add_parser("notice", help="2c: the attribution paragraphs a NOTICE diff removes and adds")
-    n.add_argument("--diff", required=True, help="the NOTICE diff or GitHub compare patch")
+    n.add_argument("--diff", help="a unified NOTICE diff, instead of --old / --new")
+    n.add_argument("--old", help="NOTICE at the previous release tag (omit when it had none)")
+    n.add_argument("--new", help="NOTICE at the release branch base")
 
     cl = c.add_parser("changelog", help="2d: the changelog entry by section, and the ≥ 90%% coverage check")
     cl.add_argument("--prs", required=True)
@@ -187,12 +194,11 @@ def add_parsers(sub: Any) -> None:
     pr.add_argument("--current-version", help="the current dev version, when --versions cannot tell")
     pr.add_argument("--previous-tag")
     pr.add_argument("--notice-summary")
-    pr.add_argument("--notice-changed", action="store_true")
-    pr.add_argument("--license-changed", action="store_true")
+    pr.add_argument("--archive-mode", required=True, help="what `prepare archive-mode` printed")
     pr.add_argument("--archive-review", choices=prep.ARCHIVE_REVIEW, default="skipped")
     pr.add_argument("--archive-entry", action="append", default=[], type=_pair, metavar="ENTRY=REASON")
     pr.add_argument("--release-build", default=prep.DEFAULT_RELEASE_BUILD)
-    pr.add_argument("--files", nargs="*", help="the files the diff touches (default: the expected set)")
+    pr.add_argument("--files", nargs="+", required=True, help="every file the diff touches")
     pr.add_argument("--confirm-extra", action="append", default=[])
 
     nd = c.add_parser("next-dev-version", help="14a: the next development version per configured file")
@@ -205,8 +211,9 @@ def add_parsers(sub: Any) -> None:
     po = c.add_parser("post-pr", help="14b: the post-release bump PR title, body and scope")
     po.add_argument("--next", required=True, help="what `prepare next-dev-version` printed")
     po.add_argument("--product-name", required=True)
+    po.add_argument("--load", required=True, help="release-config load output, for changelog_file")
     po.add_argument("--next-version", help="the RM's confirmed next version")
-    po.add_argument("--files", nargs="*")
+    po.add_argument("--files", nargs="+", required=True, help="every file the diff touches")
     po.add_argument("--confirm-extra", action="append", default=[])
 
     se = c.add_parser("signing-eligibility", help="A1: the automated-signing eligibility gate (ASF only)")
@@ -260,7 +267,7 @@ def dispatch(args: argparse.Namespace) -> int:
         return _legacy(args)
     try:
         out = _run(args)
-    except (plan.RenderError, prep.RenderError, signing.RenderError) as exc:
+    except (plan.RenderError, prep.RenderError, signing.RenderError, OSError) as exc:
         emit({"ok": False, "refused": str(exc)})
         return 2
     emit(out)
@@ -300,7 +307,13 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
     if cmd == "versions":
         return prep.versions(args.target, _files(args.files))
     if cmd == "notice":
-        return prep.notice_changes(Path(args.diff).read_text(encoding="utf-8", errors="replace"))
+        if args.diff:
+            if args.old or args.new:
+                raise prep.RenderError("pass --diff, or --old / --new, not both")
+            return prep.notice_changes(_text(args.diff) or "")
+        if not args.new:
+            raise prep.RenderError("pass --diff, or --new (and --old unless the previous tag had no NOTICE)")
+        return prep.notice_diff(_text(args.old), _text(args.new) or "")
     if cmd == "changelog":
         cats = prep.parse_categories(
             ((_json(args.load) if args.load else {}).get("config") or {}).get("changelog_label_categories")
@@ -319,13 +332,12 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
         build = load.get("build") or {}
         voters = {p for p in [build.get("rat_excludes_path"), build.get("rat_config_path")] if p}
         voters |= {str(v).split()[0] for v in build.get("source_tree_validators") or [] if str(v).strip()}
-        changed = _text(args.changed)
         return archive.review(
             archive.lines(_text(args.tracked)),
-            gitattributes=_text(args.gitattributes),
+            gitattributes=_text(args.gitattributes, missing_ok=True),
             links=archive.parse_symlinks(_text(args.symlinks)),
             refs=archive.parse_refs(_text(args.refs)) if args.refs else None,
-            changed=archive.lines(changed) if args.changed else None,
+            changed=archive.lines(_text(args.changed)) if args.changed else None,
             exclude=args.exclude,
             keep=args.keep,
             reasons=dict(args.reason),
@@ -348,12 +360,11 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
             previous_tag=args.previous_tag,
             changelog_file=(load.get("config") or {}).get("changelog_file"),
             notice_summary=args.notice_summary,
-            notice_changed=args.notice_changed,
-            license_changed=args.license_changed,
+            archive_mode=str(_json(args.archive_mode).get("mode")),
             archive_review=args.archive_review,
             archive_entries=args.archive_entry,
             release_build=args.release_build,
-            files=args.files or None,
+            files=args.files,
             confirmed_extra=args.confirm_extra,
         )
     if cmd == "post-pr":
@@ -361,7 +372,8 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
             _json(args.next),
             product_name=args.product_name,
             next_version=args.next_version,
-            files=args.files or None,
+            changelog_file=(_json(args.load).get("config") or {}).get("changelog_file"),
+            files=args.files,
             confirmed_extra=args.confirm_extra,
         )
     if cmd == "signing-eligibility":

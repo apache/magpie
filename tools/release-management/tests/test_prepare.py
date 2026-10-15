@@ -185,6 +185,15 @@ def test_step_0_unreadable_train_line_needs_the_agent() -> None:
     assert plan.verdict(pf, gh_access=True, train_confirmed=True)["verdict"] == "proceed"
 
 
+def test_step_0_train_confirmed_overrides_an_uncovered_train() -> None:
+    pf = preflight(version="3.0.0", lines=["**`v2-11-test`** — the 2.x train; next release `2.11.0`."])
+    assert plan.verdict(pf, gh_access=True)["verdict"] == "blocked"
+    out = plan.verdict(pf, gh_access=True, train_confirmed=True)
+    assert out["train_covered"] is False
+    assert out["verdict"] == "proceed" and out["blockers"] == []
+    assert plan.verdict(preflight(lines=[]), gh_access=True, train_confirmed=True)["verdict"] == "proceed"
+
+
 @pytest.mark.parametrize(
     ("line", "version", "expected"),
     [
@@ -301,6 +310,14 @@ def test_step_1_custom_template_and_unfilled_placeholders() -> None:
     assert out["unfilled_placeholders"] == ["<owner>"]
 
 
+def test_step_1_unfilled_placeholders_with_dots() -> None:
+    out = plan.render(
+        gh_prs(PRS[:1]), version="2.11.0", product_name="Apache Airflow", previous_tag="2.10.3", base="main"
+    )
+    assert "<from release-trains.md or user.md>" in out["issue_body"]
+    assert "<from release-trains.md or user.md>" in out["unfilled_placeholders"]
+
+
 def test_step_1_title_is_quoted_in_the_create_command() -> None:
     out = plan.render(
         gh_prs(PRS[:1]), version="1.0.0", product_name='Apache "$(x)"', previous_tag=None, base="main"
@@ -361,6 +378,8 @@ def test_step_2_case_1_clean_prep(tmp_path: Path) -> None:
         current_version=found["current_dev_version"],
         log=log,
         previous_tag="2.10.3",
+        files=["setup.cfg", "airflow/__init__.py"],
+        archive_mode="drift",
         archive_review=drift["archive_review"],
     )
     assert contract(out, PREP_KEYS) == {
@@ -511,6 +530,8 @@ def test_prep_pr_refuses_low_coverage_and_bad_archive_state() -> None:
         "product_name": "Apache Foo",
         "manifests": ["pyproject.toml"],
         "previous_tag": None,
+        "files": ["pyproject.toml"],
+        "archive_mode": "drift",
     }
     with pytest.raises(prep.RenderError, match="changelog coverage is 70%"):
         prep.prep_pr(current_version="1.0.0.dev0", log=_log(70), **kw)
@@ -530,6 +551,8 @@ def test_prep_pr_first_release_archive_review_in_scope() -> None:
         current_version="1.0.0.dev0",
         log=_log(),
         previous_tag=None,
+        files=["pyproject.toml", ".gitattributes", "<project-config>/release-build.md"],
+        archive_mode="full",
         archive_review="proposed",
         archive_entries=[("/.gitattributes", "VCS metadata"), (".idea/", "editor / IDE")],
     )
@@ -549,6 +572,7 @@ def test_prep_pr_scope_violation_until_confirmed() -> None:
         "log": _log(),
         "previous_tag": "2.10.3",
         "changelog_file": "RELEASE_NOTES.rst",
+        "archive_mode": "drift",
     }
     files = ["setup.cfg", "RELEASE_NOTES.rst", "NOTICE", "docs/conf.py"]
     out = prep.prep_pr(files=files, **kw)
@@ -624,10 +648,14 @@ def test_archive_review_first_release_buckets_and_entries() -> None:
     assert "git grep -l -F" in first["refs_command"]
     assert first["refs_command"].endswith('done > "$TMPDIR/refs.txt"')
 
-    refs = {
-        ".github/ISSUE_TEMPLATE": ["docs/CONTRIBUTING.md"],
-        ".pre-commit-config.yaml": [".github/workflows/ci.yml"],
-    }
+    refs = archive.parse_refs(
+        "".join(
+            f"{p}\t\n" for p in (".gitattributes", ".github/workflows", ".idea", ".yamllint", ".ruff.toml")
+        )
+        + ".github/ISSUE_TEMPLATE\t\n.github/ISSUE_TEMPLATE\tdocs/CONTRIBUTING.md\n"
+        + ".pre-commit-config.yaml\t\n.pre-commit-config.yaml\t.github/workflows/ci.yml\n"
+    )
+    assert refs[".idea"] == [] and refs[".github/ISSUE_TEMPLATE"] == ["docs/CONTRIBUTING.md"]
     final = archive.review(
         TRACKED,
         refs=refs,
@@ -644,7 +672,7 @@ def test_archive_review_first_release_buckets_and_entries() -> None:
     assert "/.pre-commit-config.yaml" in [p["entry"] for p in final["proposed"]]
     assert "/.ruff.toml" in [p["entry"] for p in final["proposed"]]
     assert "# CI / bot config\n.github/workflows/ export-ignore" in final["gitattributes_block"]
-    assert final["refs_command"] == ""
+    assert final["refs_unchecked"] == [] and final["refs_command"] == ""
     assert '"$TMPDIR/before.tar.gz"' in final["before_after_commands"]
 
 
@@ -653,6 +681,158 @@ def test_archive_review_never_excludes_build_inputs() -> None:
         TRACKED, exclude=["pyproject.toml", "uv.lock", ".rat-excludes"], voter_inputs={".rat-excludes"}
     )
     assert {r["path"] for r in out["refused"]} == {"pyproject.toml", "uv.lock", ".rat-excludes"}
+
+
+def test_archive_review_refuses_globs_over_always_shipped_files() -> None:
+    tracked = [*TRACKED, "dev/rat-check.sh", "dev/notes.md", "LICENSE-binary"]
+    out = archive.review(
+        tracked,
+        exclude=["LICENSE*", "NOTIC?", "*.toml", "LICE[N]SE", "dev"],
+        refs={},
+        manifests={"pyproject.toml"},
+        voter_inputs={".rat-excludes", "dev/rat-check.sh"},
+    )
+    refused = {r["path"]: r for r in out["refused"]}
+    assert set(refused) >= {"LICENSE*", "NOTIC?", "*.toml", "LICE[N]SE", "dev"}
+    assert refused["LICENSE*"]["matches"] == ["LICENSE", "LICENSE-binary"]
+    assert refused["NOTIC?"]["matches"] == ["NOTICE"]
+    assert refused["*.toml"]["matches"] == ["pyproject.toml"]
+    assert refused["dev"] == {
+        "path": "dev",
+        "entry": "dev/",
+        "bucket": archive.SHIP,
+        "rm_choice": True,
+        "reason": "it would strip files that always ship",
+        "matches": ["dev/rat-check.sh"],
+    }
+    # a glob that matches nothing protected still cannot be reference-checked
+    other = archive.review(TRACKED, exclude=["*.yml"], refs={})
+    assert other["refused"][0]["reason"].startswith("a glob pattern")
+    entries = [p["entry"] for p in out["proposed"]]
+    assert not any(e in entries for e in ("/LICENSE*", "/NOTIC?", "/*.toml", "dev/"))
+
+
+def test_archive_review_flags_committed_entries_that_strip_shipped_files() -> None:
+    attrs = "LICENSE export-ignore\n/pyproject.toml export-ignore\n.rat-excludes export-ignore\n.idea/ export-ignore\n"
+    out = archive.review(
+        TRACKED, gitattributes=attrs, refs={}, manifests={"pyproject.toml"}, voter_inputs={".rat-excludes"}
+    )
+    assert out["violations"] == [
+        {"entry": e, "matches": [m], "reason": "the committed .gitattributes strips files that always ship"}
+        for e, m in (
+            ("LICENSE", "LICENSE"),
+            ("/pyproject.toml", "pyproject.toml"),
+            (".rat-excludes", ".rat-excludes"),
+        )
+    ]
+    drift = archive.review(
+        TRACKED, gitattributes=attrs, changed=["src/foo/__init__.py"], previous_tag="1.0.0", refs={}
+    )
+    assert [v["entry"] for v in drift["violations"]] == ["LICENSE", "/pyproject.toml"]
+    assert "archive_review" not in drift  # not a clean skip while a violation stands
+    clean = archive.review(TRACKED, gitattributes=".idea/ export-ignore\n", changed=["src/x.py"], refs={})
+    assert clean["violations"] == [] and clean["archive_review"] == "skipped"
+
+
+def test_archive_review_reference_checks_every_proposed_path() -> None:
+    refs = archive.parse_refs(
+        "".join(
+            f"{p}\t\n" for p in (".gitattributes", ".github/workflows", ".idea", ".pre-commit-config.yaml")
+        )
+    )
+    out = archive.review(TRACKED, refs=refs, exclude=[".yamllint", ".ruff.toml"])
+    assert out["refs_unchecked"] == [".yamllint", ".ruff.toml"]
+    assert out["gitattributes_block"] == ""
+    assert out["refs_command"].startswith('for p in ".yamllint" ".ruff.toml"; do printf')
+    assert ".idea" not in out["refs_command"]
+    refs |= archive.parse_refs(".yamllint\t\n.ruff.toml\t\n")
+    done = archive.review(TRACKED, refs=refs, exclude=[".yamllint", ".ruff.toml"])
+    assert done["refs_unchecked"] == [] and done["refs_command"] == ""
+    assert "/.ruff.toml export-ignore" in done["gitattributes_block"]
+    # a refs file from the old loop (hits only) leaves the unreferenced paths unchecked
+    legacy = archive.review(TRACKED, refs={".idea": ["README.md"]})
+    assert ".gitattributes" in legacy["refs_unchecked"] and legacy["gitattributes_block"] == ""
+
+
+def test_archive_mode_drift_lists_symlinks_too() -> None:
+    drift = archive.mode(_load(export_ignore_reviewed="2.10.0"), previous_tag="2.10.3")
+    assert '"$TMPDIR/tracked.txt"' in drift["commands"]
+    assert '"$TMPDIR/symlinks.txt"' in drift["commands"]
+    assert archive.LIST_SYMLINKS in archive.mode(_load())["commands"]
+
+
+def test_prep_pr_archive_review_must_match_the_mode() -> None:
+    kw: dict[str, Any] = {
+        "version": "1.0.0",
+        "product_name": "Apache Foo",
+        "manifests": ["pyproject.toml"],
+        "current_version": "1.0.0.dev0",
+        "log": _log(),
+        "previous_tag": None,
+        "files": ["pyproject.toml"],
+    }
+    with pytest.raises(prep.RenderError, match="archive-mode said `full`"):
+        prep.prep_pr(archive_mode="full", archive_review="skipped", **kw)
+    with pytest.raises(prep.RenderError, match="archive-mode said `skipped`"):
+        prep.prep_pr(archive_mode="skipped", archive_review="confirmed-existing", **kw)
+    with pytest.raises(prep.RenderError, match="is not one of"):
+        prep.prep_pr(archive_mode="maybe", **kw)
+    assert prep.prep_pr(archive_mode="skipped", **kw)["archive_review"] == "skipped"
+    assert prep.prep_pr(archive_mode="drift", **kw)["archive_review"] == "skipped"
+
+
+def test_cli_missing_input_files_exit_2(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    tracked = tmp_path / "tracked.txt"
+    tracked.write_text("\n".join(TRACKED))
+    base = ["prepare", "archive-review", "--tracked", str(tracked)]
+    # an absent .gitattributes is a first release, not an error
+    assert main([*base, "--gitattributes", str(tmp_path / "none" / ".gitattributes")]) == 0
+    assert json.loads(capsys.readouterr().out)["existing_export_ignore"] == []
+    for flag in ("--refs", "--symlinks", "--changed"):
+        assert main([*base, flag, str(tmp_path / "missing.txt")]) == 2
+        assert "no such file" in json.loads(capsys.readouterr().out)["refused"]
+    assert main(["prepare", "archive-review", "--tracked", str(tmp_path / "nope.txt")]) == 2
+    capsys.readouterr()
+    (tmp_path / "load.json").write_text(json.dumps(_load()))
+    (tmp_path / "log.json").write_text(json.dumps(_log()))
+    (tmp_path / "mode.json").write_text(json.dumps(archive.mode(_load())))
+    prep_args = [
+        "prepare",
+        "prep-pr",
+        "--load",
+        str(tmp_path / "load.json"),
+        "--version",
+        "1.0.0",
+        "--product-name",
+        "Apache Foo",
+        "--changelog",
+        str(tmp_path / "log.json"),
+        "--current-version",
+        "1.0.0.dev0",
+        "--files",
+        "CHANGES.md",
+    ]
+    assert main([*prep_args, "--archive-mode", str(tmp_path / "mode.json")]) == 2
+    assert "archive-mode said `full`" in json.loads(capsys.readouterr().out)["refused"]
+    assert main([*prep_args, "--archive-mode", str(tmp_path / "missing.json")]) == 2
+    assert json.loads(capsys.readouterr().out)["ok"] is False
+
+
+def test_notice_from_both_whole_files(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    old = "Apache Foo\nCopyright 2026\n\nKeep me.\n\nThis product includes Jackson\n(https://example.org/jackson).\n"
+    new = "Apache Foo\nCopyright 2026\n\nKeep me.\n\nThis product includes Bar.\n"
+    out = prep.notice_diff(old, new)
+    assert out["removed_attributions"] == ["This product includes Jackson (https://example.org/jackson)."]
+    assert out["added_attributions"] == ["This product includes Bar."]
+    assert prep.notice_diff(None, "This product includes Bar.\n")["added_attributions"] == [
+        "This product includes Bar."
+    ]
+    (tmp_path / "old").write_text(old)
+    (tmp_path / "new").write_text(new)
+    assert main(["prepare", "notice", "--old", str(tmp_path / "old"), "--new", str(tmp_path / "new")]) == 0
+    assert json.loads(capsys.readouterr().out)["removed_attributions"] == out["removed_attributions"]
+    assert main(["prepare", "notice", "--old", str(tmp_path / "old"), "--new", str(tmp_path / "gone")]) == 2
+    assert "no such file" in json.loads(capsys.readouterr().out)["refused"]
 
 
 def test_archive_review_symlink_chains_and_relays() -> None:
@@ -721,8 +901,11 @@ POST_KEYS = (
 )
 
 
+MANIFESTS = ["setup.cfg", "airflow/__init__.py"]
+
+
 def test_step_14_case_1_standard_post_bump() -> None:
-    out = prep.post_pr(_next(), product_name="Apache Airflow")
+    out = prep.post_pr(_next(), product_name="Apache Airflow", files=MANIFESTS)
     assert contract(out, POST_KEYS) == {
         "pr_title": "chore: bump version to 2.12.0.dev0 after 2.11.0 release",
         "current_version": "2.11.0",
@@ -758,17 +941,62 @@ def test_step_14_never_confirms_notice_or_license() -> None:
         )
 
 
+def test_step_14_never_confirms_the_configured_changelog() -> None:
+    kw: dict[str, Any] = {"product_name": "Apache Airflow", "changelog_file": "./RELEASE_NOTES.rst"}
+    with pytest.raises(prep.RenderError, match=r"RELEASE_NOTES\.rst is never part"):
+        prep.post_pr(
+            _next(), files=[*MANIFESTS, "RELEASE_NOTES.rst"], confirmed_extra=["RELEASE_NOTES.rst"], **kw
+        )
+    ok = prep.post_pr(_next(), files=[*MANIFESTS, "docs/x.md"], confirmed_extra=["docs/x.md"], **kw)
+    assert ok["confirmed_out_of_scope"] == ["docs/x.md"]
+
+
+def test_files_is_required_for_both_prs(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(prep.RenderError, match="--files is every file"):
+        prep.post_pr(_next(), product_name="Apache Airflow", files=[])
+    with pytest.raises(prep.RenderError, match="--files is every file"):
+        prep.prep_pr(
+            version="1.0.0",
+            product_name="Apache Foo",
+            manifests=["pyproject.toml"],
+            current_version="1.0.0.dev0",
+            log=_log(),
+            previous_tag=None,
+            files=[],
+            archive_mode="drift",
+        )
+    (tmp_path / "next.json").write_text(json.dumps(_next()))
+    (tmp_path / "load.json").write_text(json.dumps({"config": {"changelog_file": "CHANGES.md"}}))
+    base = [
+        "prepare",
+        "post-pr",
+        "--next",
+        str(tmp_path / "next.json"),
+        "--load",
+        str(tmp_path / "load.json"),
+    ]
+    with pytest.raises(SystemExit) as exc:
+        main([*base, "--product-name", "Apache Airflow"])
+    assert exc.value.code == 2
+    capsys.readouterr()
+    args = [*base, "--product-name", "Apache Airflow", "--files", *MANIFESTS, "--confirm-extra", "CHANGES.md"]
+    assert main(args) == 2
+    assert "never part of the post-release bump" in json.loads(capsys.readouterr().out)["refused"]
+
+
 def test_step_14_unknown_or_mixed_formats_need_the_rm() -> None:
     cargo = _next("version_manifest_files: Cargo.toml\n")
     with pytest.raises(prep.RenderError, match=r"no next development version for Cargo\.toml"):
-        prep.post_pr(cargo, product_name="Apache Foo")
+        prep.post_pr(cargo, product_name="Apache Foo", files=["Cargo.toml"])
     assert (
-        prep.post_pr(cargo, product_name="Apache Foo", next_version="2.12.0-dev")["next_dev_version"]
+        prep.post_pr(cargo, product_name="Apache Foo", files=["Cargo.toml"], next_version="2.12.0-dev")[
+            "next_dev_version"
+        ]
         == "2.12.0-dev"
     )
     mixed = _next("version_manifest_files: setup.cfg, pom.xml\n")
     with pytest.raises(prep.RenderError, match="different next versions"):
-        prep.post_pr(mixed, product_name="Apache Foo")
+        prep.post_pr(mixed, product_name="Apache Foo", files=["setup.cfg", "pom.xml"])
 
 
 # --------------------------------------------------------------------------- Step A
@@ -812,12 +1040,43 @@ def test_signing_eligible_only_with_every_condition() -> None:
     assert blocked["read"] == ["automated-signing-ineligible.md"]
 
 
-def test_signing_never_outside_asf() -> None:
-    load = _signing_load()
+def test_signing_only_where_the_organization_offers_it() -> None:
+    """The gate reads `automated_signing_offered`, never the organization's name."""
+    load = _signing_load(derived__automated_signing_offered=False)
     load["organization"] = "independent"
     out = signing.eligibility(load, verify_rc_identical=True)
     assert out["eligible"] is False
-    assert out["missing_conditions"][0].startswith("automated release signing is an ASF Infra offering")
+    assert out["missing_conditions"] == [
+        "automated release signing is not offered: release_process.automated_signing is not set "
+        "for this project's organization (independent)"
+    ]
+    asf_unset = signing.eligibility(
+        _signing_load(derived__automated_signing_offered=False), verify_rc_identical=True
+    )
+    assert asf_unset["eligible"] is False
+    for name in ("asf", "Apache"):
+        offered = _signing_load()
+        offered["organization"] = name
+        assert signing.eligibility(offered, verify_rc_identical=True)["eligible"] is True
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "make dist && gpg -ab dist/foo.tar.gz",
+        "gpg --armor --detach-sign dist/foo.tar.gz",
+        "gpg --clearsign SHA512SUMS",
+        "gpg2 --batch --pinentry-mode loopback -s x",
+        "signify -S -s key.sec -m x",
+        "cosign sign-blob x",
+        "cosign  sign ghcr.io/foo",
+        "minisign -Sm x",
+        "uses: crazy-max/ghaction-import-gpg@v6",
+    ],
+)
+def test_signing_render_refuses_a_signing_build_command(command: str) -> None:
+    with pytest.raises(signing.RenderError, match="signing tool or imports a key"):
+        signing.workflow(_signing_load(build__build_command=command), TEMPLATE.read_text(), project="foo")
 
 
 def test_signing_render_workflow_and_config_diff() -> None:

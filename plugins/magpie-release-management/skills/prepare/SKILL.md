@@ -23,7 +23,7 @@ argument-hint: "[prep | post] <version> [--review-archive] | automated-signing"
 capability: capability:resolve
 surface_hash: sha256:9380580d6421d8b4
 license: Apache-2.0
-measured_tokens: 5045
+measured_tokens: 5053
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -237,7 +237,7 @@ uv run --project <framework>/tools/release-management release-management prepare
 
 The verdict is fail-closed: without `--gh-access` or (for `prep` / `post`) a labelled `--planning-issue` it blocks.
 It keeps the tool's `blockers` as written and adds one per failed check; surface each as written.
-When no release line names a train or version at all, it blocks until you read `values.release_lines` and pass `--train-confirmed` for the one that is the train record.
+When no release line names a train or version at all, or the lines name only other trains, it blocks until you read `values.release_lines` and pass `--train-confirmed` for the one that is the train record.
 Load each file its `read` list names ([`automated-signing-ineligible.md`](automated-signing-ineligible.md)).
 If any check fails (and is not overridden), stop and surface what is missing
 with the exact config key name that is missing or the exact condition that blocks progress.

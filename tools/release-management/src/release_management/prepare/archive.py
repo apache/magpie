@@ -113,10 +113,19 @@ TABLE = {
 LOOK_INSIDE = {".github", ".claude", ".agents", ".kiro", ".cursor"}
 DOAP = re.compile(r"^doap_.*\.rdf$")
 
-LISTINGS_FULL = """\
-git archive --format=tar HEAD | tar -tf - | sort > "$TMPDIR/would-ship.txt"
-git ls-files > "$TMPDIR/tracked.txt"
-git ls-files -s | awk -F'\\t' '$1 ~ /^120000 / {print $2}' | while IFS= read -r p; do printf '%s -> %s\\n' "$p" "$(readlink "$p")"; done > "$TMPDIR/symlinks.txt\""""
+LIST_TRACKED = 'git ls-files > "$TMPDIR/tracked.txt"'
+LIST_SYMLINKS = (
+    "git ls-files -s | awk -F'\\t' '$1 ~ /^120000 / {print $2}' | while IFS= read -r p; "
+    'do printf \'%s -> %s\\n\' "$p" "$(readlink "$p")"; done > "$TMPDIR/symlinks.txt"'
+)
+LISTINGS_FULL = "\n".join(
+    [
+        'git archive --format=tar HEAD | tar -tf - | sort > "$TMPDIR/would-ship.txt"',
+        LIST_TRACKED,
+        LIST_SYMLINKS,
+    ]
+)
+GLOB = re.compile(r"[*?\[]")
 
 
 # --------------------------------------------------------------------------- when it runs
@@ -153,7 +162,8 @@ def mode(
     drift = "\n".join(
         [
             f'git diff --name-only {w(previous_tag)} HEAD > "$TMPDIR/changed.txt"',
-            'git ls-files > "$TMPDIR/tracked.txt"',
+            LIST_TRACKED,
+            LIST_SYMLINKS,
         ]
     )
     return {
@@ -210,12 +220,18 @@ def parse_symlinks(text: str | None) -> dict[str, str]:
 
 
 def parse_refs(text: str | None) -> dict[str, list[str]]:
-    """`candidate<TAB>referrer` lines, as the rendered `git grep` loop prints them."""
+    """`candidate<TAB>referrer` lines, as the rendered `git grep` loop prints them.
+
+    The loop also prints `candidate<TAB>` (no referrer) for every candidate it
+    checked, so a checked path with no referrers is still a key of the map.
+    """
     out: dict[str, list[str]] = {}
     for line in lines(text):
         candidate, sep, referrer = line.partition("\t")
         if sep:
-            out.setdefault(candidate.strip(), []).append(referrer.strip())
+            refs = out.setdefault(candidate.strip(), [])
+            if referrer.strip():
+                refs.append(referrer.strip())
     return out
 
 
@@ -266,7 +282,27 @@ def never_excludable(path: str, b: str, *, manifests: set[str]) -> str | None:
         return "an input to the checks voters run (RAT excludes, in-tree validators)"
     if "/" not in name and (name in BUILD_DESCRIPTORS or name in LOCK_FILES or name in manifests):
         return "a build descriptor or lock file"
+    if name in manifests:
+        return "a version manifest file"
     return None
+
+
+def protected_matches(
+    pattern: str, tracked: list[str], *, voter_inputs: set[str], manifests: set[str]
+) -> list[str]:
+    """The tracked paths an `export-ignore` `pattern` would strip that must always ship."""
+    hits = []
+    for path in tracked:
+        if not ignored(path, [pattern]):
+            continue
+        pieces = path.split("/")
+        for i in range(len(pieces)):
+            prefix = "/".join(pieces[: i + 1])
+            b = bucket(prefix, voter_inputs=voter_inputs, manifests=manifests)
+            if never_excludable(prefix, b, manifests=manifests):
+                hits.append(path)
+                break
+    return sorted(hits)
 
 
 def _top_entries(tracked: list[str]) -> list[str]:
@@ -367,6 +403,7 @@ def refs_command(candidates: list[str]) -> str:
     words = " ".join(dq(c.rstrip("/").lstrip("/")) for c in candidates)
     return (
         f"for p in {words}; do "
+        "printf '%s\\t\\n' \"$p\"; "
         'git grep -l -F -- "$p" | awk -v p="$p" \'{print p "\\t" $0}\'; '
         'done > "$TMPDIR/refs.txt"'
     )
@@ -408,6 +445,17 @@ def review(
     voters = {v.strip("/") for v in voter_inputs or set()}
     mans = {m.strip("/") for m in manifests or set()}
     existing = export_ignore_patterns(gitattributes)
+    violations = []
+    for pattern in existing:
+        hits = protected_matches(pattern, tracked, voter_inputs=voters, manifests=mans)
+        if hits:
+            violations.append(
+                {
+                    "entry": pattern,
+                    "matches": hits,
+                    "reason": "the committed .gitattributes strips files that always ship",
+                }
+            )
     entries = classify(tracked, links=links, voter_inputs=voters, manifests=mans)
     for entry in entries:
         entry["already_excluded"] = ignored(entry["path"], existing)
@@ -447,6 +495,11 @@ def review(
     for path, b in by_path.items():
         why_not = never_excludable(path, b, manifests=mans)
         form = entry_form(path, tracked)
+        matches = protected_matches(form, tracked, voter_inputs=voters, manifests=mans)
+        if not why_not and GLOB.search(path):
+            why_not = "a glob pattern: name each path, so it can be checked against what always ships and its references"
+        if not why_not and matches:
+            why_not = "it would strip files that always ship"
         referrers = sorted(
             {r for r in refs_map.get(path, []) if r != ".gitattributes" and not ignored(r, excluded_now)}
         )
@@ -454,7 +507,7 @@ def review(
         if path in rm_added:
             item["rm_choice"] = True
         if why_not:
-            refused.append(item | {"reason": why_not})
+            refused.append(item | {"reason": why_not} | ({"matches": matches} if matches else {}))
             continue
         if referrers:
             refused.append(item | {"reason": "referenced by shipped files", "referrers": referrers})
@@ -469,7 +522,10 @@ def review(
         for link, target in sorted(ship_links.items())
         if ignored(_resolve(link, target), excluded_now)
     ]
-    block = "\n".join(f"# {p['comment']}\n{p['entry']} export-ignore" for p in proposed)
+    refs_unchecked = [p["path"] for p in proposed if refs is None or p["path"] not in refs_map]
+    block = (
+        "" if refs_unchecked else "\n".join(f"# {p['comment']}\n{p['entry']} export-ignore" for p in proposed)
+    )
     needs_rm = [
         e["path"]
         for e in entries
@@ -483,16 +539,18 @@ def review(
         "mode": "drift" if changed is not None else "full",
         "entries": entries,
         "existing_export_ignore": existing,
+        "violations": violations,
         "needs_rm": needs_rm,
         "proposed": proposed,
         "refused": refused,
         "symlink_chains": chains,
         "stripped_symlink_targets": stripped,
         "gitattributes_block": block,
-        "refs_command": "" if refs is not None else refs_command([p["path"] for p in proposed]),
+        "refs_unchecked": refs_unchecked,
+        "refs_command": refs_command(refs_unchecked),
         "before_after_commands": before_after(framework) if proposed else "",
     }
-    if changed is not None and not proposed and not refused and not needs_rm:
+    if changed is not None and not proposed and not refused and not needs_rm and not violations:
         out["archive_review"] = "skipped"
         out["note"] = f"no new top-level paths since `{previous_tag or '<previous-tag>'}`"
     return out

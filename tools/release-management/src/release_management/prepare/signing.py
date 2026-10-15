@@ -34,6 +34,10 @@ FORMAT = re.compile(r"^[a-z0-9][a-z0-9.]*$")
 KEY_MATERIAL = re.compile(
     r"BEGIN PGP|PRIVATE KEY|gpg\s+--(?:batch\s+)?(?:--)?(?:sign|detach-sign|import)", re.IGNORECASE
 )
+#: Any signing tool or key-import action in the release manager's `build_command`.
+SIGNING_IN_BUILD = re.compile(
+    r"\bgpg2?\b|\bsignify\b|\bcosign\s+sign|\bminisign\b|ghaction-import-gpg|import-gpg", re.IGNORECASE
+)
 NOT_REPRODUCIBLE = "no release-verify-rc report with Step 9 PASS and every artefact `identical`: cut and verify one RC with the checks on first"
 ENABLED_AFTER = (
     "Infra has provisioned the key",
@@ -54,10 +58,10 @@ def eligibility(load: dict[str, Any], *, verify_rc_identical: bool = False) -> d
     config = load.get("config") or {}
     organization = load.get("organization") or "independent"
     missing: list[str] = []
-    if organization != "ASF" or not derived.get("automated_signing_offered"):
+    if not derived.get("automated_signing_offered"):
         missing.append(
-            f"automated release signing is an ASF Infra offering; this project's organization is {organization} "
-            "and release_process.automated_signing is not set for it"
+            f"automated release signing is not offered: release_process.automated_signing is not set "
+            f"for this project's organization ({organization})"
         )
     if not build.get("found"):
         missing.append("release-build.md not found in <project-config>")
@@ -121,6 +125,10 @@ def workflow(load: dict[str, Any], template: str, *, project: str) -> dict[str, 
     text = text.replace("<project>", project)
     warnings: list[str] = []
     command = build.get("build_command")
+    if command and SIGNING_IN_BUILD.search(str(command)):
+        raise RenderError(
+            "build_command invokes a signing tool or imports a key; Step A never adds a signing step"
+        )
     if command:
         indented = "\n".join(
             ("          " + line) if line.strip() else "" for line in str(command).splitlines()

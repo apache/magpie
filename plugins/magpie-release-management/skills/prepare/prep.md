@@ -43,12 +43,18 @@ and do not proceed to the diff draft; read [`classifications/category-x-hit.md`]
 
 ## 2c — Draft the NOTICE / LICENSE diff
 
-Read how `NOTICE` changed on `<release-branch-base>` since the previous release tag, save it, and list the attribution paragraphs it removes and adds:
+Save the whole `NOTICE` at the previous release tag and at `<release-branch-base>`, one plain `gh` call each (the Write tool saves what it printed),
+then list the attribution paragraphs the change removes and adds:
 
 ```bash
-gh api repos/<upstream>/compare/<previous-tag>...<release-branch-base> --jq '.files[] | select(.filename == "NOTICE") | .patch'
-prepare notice --diff <scratch>/notice.patch
+gh api -H "Accept: application/vnd.github.raw+json" "repos/<upstream>/contents/NOTICE?ref=<previous-tag>"
+gh api -H "Accept: application/vnd.github.raw+json" "repos/<upstream>/contents/NOTICE?ref=<release-branch-base>"
+prepare notice --old <scratch>/NOTICE.prev --new <scratch>/NOTICE.base
 ```
+
+Do not read it from `gh api …/compare/…`: that response caps the file list at 300 and drops the patch of a large diff, so a removed attribution can go unseen.
+With a local `<upstream>` clone, `git diff <previous-tag>..<release-branch-base> -- NOTICE` saved to a file and passed as `--diff` is equivalent.
+When `NOTICE` did not exist at the previous tag (the first call returns `404`), omit `--old`.
 
 For each entry in `removed_attributions`:
 - If the corresponding dependency still appears in the dependency tree or in vendored code: flag as an unjustified removal (hand-off;
@@ -171,14 +177,16 @@ reviewers reported each, and every entry in `warnings` verbatim.
 ```bash
 prepare prep-pr --load <scratch>/prepare-load.json --version <version> --product-name "<Product Name>" \
   --versions <scratch>/versions.json --changelog <scratch>/changelog.json --previous-tag <tag> \
-  [--notice-summary "<summary>"] [--notice-changed] [--license-changed] \
+  --archive-mode <scratch>/archive-mode.json [--notice-summary "<summary>"] \
   [--archive-review proposed|confirmed-existing|skipped] [--archive-entry "<entry>=<reason>" ...] \
-  [--files <file> ...] [--confirm-extra <file> ...]
+  --files <file> [<file> ...] [--confirm-extra <file> ...]
 ```
 
+`--files` is required: the scope check runs on the files the diff actually touches, never on a default set.
 A file outside the set above is a `scope_violations` entry: surface it and ask the RM to confirm before including it
 (read [`classifications/scope-violation.md`](classifications/scope-violation.md)).
-The command refuses (exit `2`, `refused`) a changelog below 90% coverage and an `archive_review` that does not match the entries given.
+The command refuses (exit `2`, `refused`) a changelog below 90% coverage, an `archive_review` that does not match the entries given,
+and `archive_review: skipped` when `archive-mode` printed `mode: "full"` (or anything but `skipped` when it printed `skipped`).
 The title is `chore: prepare <version> release`; the body carries the version bump, the changelog count, the NOTICE/LICENSE summary
 (*"No changes required."* by default), the source-archive section only when 2e ran, and the RM checklist.
 
