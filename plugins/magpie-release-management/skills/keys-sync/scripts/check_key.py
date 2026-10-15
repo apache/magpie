@@ -28,7 +28,11 @@ fingerprint differs from ``--fingerprint`` means ``key_found: false``.
 Prints the Step 1 JSON: algorithm / size floor (RSA and DSA >= 2048 bits,
 EdDSA and ECDSA on an accepted curve; secp256k1 is refused), the DSA
 advisory, and the advisory for an expiry within 90 days. A key that has
-already expired is a blocker, like a sub-floor key.
+already expired is a blocker, like a sub-floor key. The verdict also
+requires a usable signing-capable key: a primary key without the sign
+capability (certify only) needs a compliant signing subkey, and a signing
+subkey only counts when it independently meets the same floor, validity
+and expiry rules. The compliant signers are listed under ``signers``.
 
 KEYS-directory mode (Step 2)::
 
@@ -78,35 +82,82 @@ def _date(epoch: str) -> str | None:
     return dt.datetime.fromtimestamp(int(epoch), dt.UTC).date().isoformat()
 
 
+def _parse_key_line(f: list[str]) -> dict[str, Any]:
+    return {
+        "validity": f[1],
+        "algo_id": f[3],
+        "bits": int(f[2]) if f[2].isdigit() else None,
+        "created": _date(f[5]),
+        "expiry": _date(f[6]),
+        "curve": f[16].lower(),
+        # gpg colons field 12 (index 11) lists usage capabilities (c=certify,
+        # s=sign, e=encrypt, a=authenticate). Empty only in synthetic listings.
+        "caps": f[11].lower(),
+        "fingerprint": None,
+    }
+
+
 def parse_colons(text: str) -> list[dict[str, Any]]:
     """Primary keys from ``gpg --with-colons --fixed-list-mode`` output."""
     keys: list[dict[str, Any]] = []
     current: dict[str, Any] | None = None
-    want_fpr = False
+    pending: dict[str, Any] | None = None
     for line in text.splitlines():
         f = line.split(":") + [""] * 20
         kind = f[0]
         if kind == "pub":
-            current = {
-                "validity": f[1],
-                "algo_id": f[3],
-                "bits": int(f[2]) if f[2].isdigit() else None,
-                "created": _date(f[5]),
-                "expiry": _date(f[6]),
-                "curve": f[16].lower(),
-                "fingerprint": None,
-                "uids": [],
-            }
+            current = {**_parse_key_line(f), "uids": [], "subs": []}
             keys.append(current)
-            want_fpr = True
-        elif kind == "fpr" and current is not None and want_fpr:
-            current["fingerprint"] = f[9].upper()
-            want_fpr = False
-        elif kind == "sub":
-            want_fpr = False
+            pending = current
+        elif kind == "sub" and current is not None:
+            current["subs"].append(_parse_key_line(f))
+            pending = current["subs"][-1]
+        elif kind == "fpr" and pending is not None:
+            pending["fingerprint"] = f[9].upper()
+            pending = None
         elif kind == "uid" and current is not None and f[1] not in ("r", "e"):
             current["uids"].append(f[9])
     return keys
+
+
+def _meets_strength(key: dict[str, Any]) -> tuple[bool, str | None]:
+    """The existing per-key rules: algorithm/size floor, accepted curves."""
+    algorithm = ALGORITHMS.get(key["algo_id"])
+    if algorithm in ("RSA", "DSA"):
+        bits = key["bits"]
+        if bits is None or bits < FLOOR_BITS:
+            return False, (
+                f"{algorithm or 'Unknown'} {bits}-bit key is below the ASF floor of {FLOOR_BITS} bits; "
+                "generate a new key that meets the floor"
+            )
+        return True, None
+    if algorithm == "EdDSA":
+        if key["curve"] in EDDSA_CURVES:
+            return True, None
+        return False, f"EdDSA curve {key['curve'] or 'unknown'!r} is not an accepted curve"
+    if algorithm == "ECDSA":
+        if key["curve"] in ECDSA_CURVES:
+            return True, None
+        return False, f"ECDSA curve {key['curve'] or 'unknown'!r} is not P-256 or stronger"
+    return False, f"public-key algorithm id {key['algo_id']} is not accepted for release signing"
+
+
+def _usable_for_signing(key: dict[str, Any], today: dt.date) -> bool:
+    if UNUSABLE_VALIDITY.get(key.get("validity", "")):
+        return False
+    if key["expiry"]:
+        return dt.date.fromisoformat(key["expiry"]) >= today
+    return True
+
+
+def _signer_summary(key: dict[str, Any], source: str) -> dict[str, Any]:
+    return {
+        "source": source,
+        "algorithm": ALGORITHMS.get(key["algo_id"]),
+        "bit_length": key["bits"] if key["bits"] is not None else None,
+        "curve": key["curve"] or None,
+        "expiry": key["expiry"],
+    }
 
 
 def assess(key: dict[str, Any] | None, fingerprint: str, today: dt.date) -> dict[str, Any]:
@@ -121,6 +172,7 @@ def assess(key: dict[str, Any] | None, fingerprint: str, today: dt.date) -> dict
         "expiry": None,
         "strength_check": None,
         "strength_note": None,
+        "signers": [],
     }
     if key is None:
         return out
@@ -132,28 +184,12 @@ def assess(key: dict[str, Any] | None, fingerprint: str, today: dt.date) -> dict
         expiry=key["expiry"],
     )
     notes: list[str] = []
-    passed = False
-    if algorithm in ("RSA", "DSA"):
-        bits = key["bits"]
-        out["bit_length"] = bits
-        passed = bits is not None and bits >= FLOOR_BITS
-        if not passed:
-            notes.append(
-                f"{algorithm} {bits}-bit key is below the ASF floor of {FLOOR_BITS} bits; "
-                "generate a new key that meets the floor"
-            )
-        if algorithm == "DSA":
-            notes.append("DSA keys are discouraged by ASF release-signing guidance")
-    elif algorithm == "EdDSA":
-        passed = key["curve"] in EDDSA_CURVES
-        if not passed:
-            notes.append(f"EdDSA curve {key['curve'] or 'unknown'!r} is not an accepted curve")
-    elif algorithm == "ECDSA":
-        passed = key["curve"] in ECDSA_CURVES
-        if not passed:
-            notes.append(f"ECDSA curve {key['curve'] or 'unknown'!r} is not P-256 or stronger")
-    else:
-        notes.append(f"public-key algorithm id {key['algo_id']} is not accepted for release signing")
+    passed, primary_note = _meets_strength(key)
+    if algorithm == "DSA":
+        notes.append("DSA keys are discouraged by ASF release-signing guidance")
+    if primary_note:
+        notes.append(primary_note)
+    out["bit_length"] = key["bits"] if algorithm in ("RSA", "DSA") else None
     # gpg's validity field: a revoked, invalid or disabled key never signs a release,
     # whatever its strength or expiry date says.
     unusable = UNUSABLE_VALIDITY.get(key.get("validity", ""))
@@ -169,6 +205,30 @@ def assess(key: dict[str, Any] | None, fingerprint: str, today: dt.date) -> dict
             notes.append(
                 f"key expires on {key['expiry']}, within {EXPIRY_ADVISORY_DAYS} days; consider extending it"
             )
+
+    # A compliant release needs a usable, strength-compliant SIGNER. The primary key
+    # only qualifies when its capabilities include signing; otherwise (e.g. a
+    # certify-only primary) a signing subkey must carry the verdict.
+    if key["caps"] and "s" not in key["caps"]:
+        notes.append("primary key has no signing capability (certify only)")
+    else:
+        if passed:
+            out["signers"].append(_signer_summary(key, "primary"))
+    for sub in key.get("subs", []):
+        if "s" not in sub["caps"]:
+            continue
+        sub_ok, sub_note = _meets_strength(sub)
+        if sub_note:
+            notes.append(f"signing subkey: {sub_note}")
+        if _usable_for_signing(sub, today) and sub_ok:
+            out["signers"].append(_signer_summary(sub, "subkey"))
+    if not out["signers"]:
+        passed = False
+        notes.append(
+            "no signing-capable key meets the admission rules; "
+            "a release signature from this key group would not be a checked signer"
+        )
+
     out["strength_check"] = "pass" if passed else "fail"
     out["strength_note"] = "; ".join(notes) if notes else None
     out["verdict"] = "proceed" if passed else "blocked"

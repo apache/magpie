@@ -115,6 +115,12 @@ class AssessTest(unittest.TestCase):
         out = check(colons("19", "256", curve="secp256k1"))
         self.assertEqual((out["verdict"], out["strength_check"]), ("blocked", "fail"))
 
+    def test_dsa_1024_reports_floor_and_advisory(self) -> None:
+        out = check(colons("17", "1024"))
+        self.assertEqual(out["verdict"], "blocked")
+        self.assertIn("below the ASF floor", out["strength_note"])
+        self.assertIn("DSA", out["strength_note"])
+
     def test_expiry_far_away_no_note(self) -> None:
         out = check(colons("1", "4096", expires=epoch("2028-01-01")))
         self.assertIsNone(out["strength_note"])
@@ -291,6 +297,84 @@ class ValidityTest(unittest.TestCase):
         for validity in ("-", "u", "f", "q"):
             with self.subTest(validity=validity):
                 self.assertEqual(check(self.listing(validity))["verdict"], "proceed")
+
+
+def signing_listing(
+    primary_caps: str = "c",
+    sub_algo: str = "1",
+    sub_bits: str = "1024",
+    sub_caps: str = "s",
+    sub_expires: str = "",
+) -> str:
+    """The issue #1628 shape: an Ed25519 certify-only primary plus a signing subkey."""
+
+    def key_line(
+        kind: str, algo: str, bits: str, key_id: str, caps: str, curve: str = "", expires: str = ""
+    ) -> str:
+        # Real gpg colons layout, 0-based indexes: type:0 validity:1 bits:2
+        # algo:3 keyid:4 created:5 expiry:6 ... capabilities:11 ... curve:16.
+        fields = [""] * 17
+        fields[0], fields[1], fields[2], fields[3], fields[4] = kind, "-", bits, algo, key_id
+        fields[5], fields[6], fields[11], fields[16] = CREATED, expires, caps, curve
+        return ":".join(fields)
+
+    return "\n".join(
+        [
+            "tru::1:1791072876:0:3:1:5",
+            key_line("pub", "22", "255", "KEYID", primary_caps, curve="ed25519"),
+            f"fpr:::::::::{FPR}:",
+            "uid:-::::1647302400::HASH::Example RM <rm@example.invalid>::::::::::0:",
+            key_line("sub", sub_algo, sub_bits, "SUBID", sub_caps, expires=sub_expires),
+            "fpr:::::::::FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000:",
+        ]
+    )
+
+
+class SignerAdmissionTest(unittest.TestCase):
+    """A verdict needs a usable signing-capable key, not just a strong primary (#1628)."""
+
+    def test_certify_only_primary_with_weak_sign_subkey_blocks(self) -> None:
+        out = check(signing_listing())
+        self.assertEqual((out["verdict"], out["strength_check"]), ("blocked", "fail"))
+        self.assertEqual(out["signers"], [])
+        self.assertIn("no signing-capable key", out["strength_note"])
+        self.assertIn("below the ASF floor", out["strength_note"])
+
+    def test_certify_only_primary_without_any_sign_key_blocks(self) -> None:
+        out = check(signing_listing(sub_caps="e"))
+        self.assertEqual((out["verdict"], out["strength_check"]), ("blocked", "fail"))
+        self.assertIn("primary key has no signing capability", out["strength_note"])
+        self.assertIn("no signing-capable key", out["strength_note"])
+
+    def test_certify_only_primary_with_compliant_sign_subkey_proceeds(self) -> None:
+        out = check(signing_listing(sub_bits="4096"))
+        self.assertEqual(out["verdict"], "proceed")
+        self.assertEqual(
+            [(s["source"], s["algorithm"], s["bit_length"]) for s in out["signers"]],
+            [("subkey", "RSA", 4096)],
+        )
+
+    def test_sign_capable_primary_alone_proceeds(self) -> None:
+        out = check(signing_listing(primary_caps="sc", sub_caps="e"))
+        self.assertEqual(out["verdict"], "proceed")
+        self.assertEqual([s["source"] for s in out["signers"]], ["primary"])
+
+    def test_expired_signing_subkey_does_not_rescue(self) -> None:
+        out = check(signing_listing(sub_bits="4096", sub_expires=epoch("2026-06-01")))
+        self.assertEqual((out["verdict"], out["signers"]), ("blocked", []))
+
+    def test_synthetic_listings_without_caps_keep_legacy_behaviour(self) -> None:
+        # The older fixture has no capability fields; the primary is still
+        # treated as an eligible signer so existing integrations keep working.
+        out = check(colons("1", "4096"))
+        self.assertEqual(out["verdict"], "proceed")
+        self.assertEqual([s["source"] for s in out["signers"]], ["primary"])
+
+    def test_parse_colons_attaches_subkey_fingerprints(self) -> None:
+        keys = check_key.parse_colons(signing_listing())
+        self.assertEqual(keys[0]["fingerprint"], FPR)
+        self.assertEqual(keys[0]["subs"][0]["fingerprint"], "FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000")
+        self.assertEqual(keys[0]["subs"][0]["caps"], "s")
 
 
 if __name__ == "__main__":
