@@ -51,7 +51,7 @@ def _load(args: argparse.Namespace) -> VerifyRc:
     return VerifyRc.from_load(_json(args.load))
 
 
-def _names(args: argparse.Namespace) -> list[str]:
+def _names(args: argparse.Namespace) -> list[str] | None:
     return jvm.staged_names(_json(args.inventory), args.staged_dir)
 
 
@@ -81,9 +81,8 @@ def add_parsers(sub: Any) -> None:
     p.add_argument("--report", help="file holding RAT's report / output")
     p.add_argument("--unpacked-dir")
 
-    p = commands.add_parser(
-        "source-tree", help="Step 7: resolve release-verify symlinks' REVIEW from validator exit codes"
-    )
+    # `--load` is accepted (the skill's `<verify-rc>` prefix passes it to every command) but unused.
+    p = with_load("source-tree", "Step 7: resolve release-verify symlinks' REVIEW from validator exit codes")
     p.add_argument("--symlinks", required=True, help="file holding `release-verify symlinks` JSON")
     p.add_argument(
         "--validator-result",

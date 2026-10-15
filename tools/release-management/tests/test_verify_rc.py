@@ -159,6 +159,17 @@ def test_rat_recipe_uses_the_excludes_file() -> None:
     assert "-x rat-excludes.txt" in out["paste_recipe"]
 
 
+def test_rat_never_passes_without_an_exit_code() -> None:
+    out = checks.rat(vrc(), report="Summary\nUnapproved: 0\n", exit_code=None)
+    assert out["status"] is None and out["classification"] is None
+    assert any("--exit-code" in p for p in out["pending"])
+
+
+def test_rat_report_listing_files_fails_without_an_exit_code() -> None:
+    out = checks.rat(vrc(), report=" !????? src/foo/new.py\n", exit_code=None)
+    assert out["status"] == "FAIL" and out["unapproved_files"] == ["src/foo/new.py"]
+
+
 # --------------------------------------------------------------------------- Step 7
 
 
@@ -376,6 +387,39 @@ def test_jvm_digest_set_wins_over_the_digest_set() -> None:
     )
     assert "--digests sha512,sha1" in out["paste_recipe"]
     assert out["status"] is None and out["pending"]
+
+
+def test_jvm_without_a_listing_is_pending_not_skip() -> None:
+    out = jvm.jvm(vrc(), names=None, tree=None, staged_dir=None, report_text=None)
+    assert out["status"] is None and out["pending"] == [jvm.NAMES_PENDING]
+
+
+def test_staged_names_none_when_nothing_supplied_and_errors_on_bad_input(tmp_path: Path) -> None:
+    assert jvm.staged_names(None, None) is None
+    with pytest.raises(VerifyError, match="--staged-dir"):
+        jvm.staged_names(None, str(tmp_path / "missing"))
+    with pytest.raises(VerifyError, match="--inventory"):
+        jvm.staged_names({"step": "signatures", "found": JVM_NAMES}, None)
+    with pytest.raises(VerifyError, match="--inventory"):
+        jvm.staged_names(["foo-core-1.0.0.jar"], None)
+    (tmp_path / "foo-core-1.0.0.jar").write_text("", encoding="utf-8")
+    assert jvm.staged_names({"step": "inventory", "found": [], "unexpected": []}, str(tmp_path)) == [
+        "foo-core-1.0.0.jar"
+    ]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        json.dumps({"jars": [], "poms": []}),
+        json.dumps({"tool": "maven-artifact-verify"}),
+        json.dumps({"tool": "maven-artifact-verify", "status": "OK"}),
+        json.dumps([]),
+    ],
+)
+def test_jvm_report_without_tool_status_is_refused(tmp_path: Path, text: str) -> None:
+    with pytest.raises(VerifyError, match="maven-artifact-verify"):
+        run_jvm(vrc(), podling_tree(tmp_path), text)
 
 
 def test_jvm_missing_companion_asc_gets_no_gpg_line(tmp_path: Path) -> None:
@@ -644,6 +688,23 @@ def test_pending_until_the_crawl_is_saved() -> None:
     assert out["status"] is None and any("--crawl" in p for p in out["pending"])
 
 
+def test_nexus_without_a_listing_is_pending_not_skip() -> None:
+    skipped, repo = nexus.gate(vrc(nexus_staging_repo="orgapachefoo-1024"), None, None)
+    assert repo is None and skipped is not None
+    assert skipped["status"] is None and skipped["pending"] == [jvm.NAMES_PENDING]
+    assert "curl" not in skipped["paste_recipe"]
+
+
+def test_maven_metadata_at_the_artifact_level_is_not_a_version() -> None:
+    meta = [
+        f"org/apache/foo/foo-core/maven-metadata.xml{extra}" for extra in ("", ".sha1", ".md5", ".asc")
+    ] + ["org/apache/foo/foo-core/1.0.0/maven-metadata.xml"]
+    crawl = "\n".join([crawl_text("1.0.0"), *meta])
+    out = run_nexus(vrc(nexus_staging_repo="orgapachefoo-1024"), crawl_text=crawl)
+    assert out["status"] == "WARN", out["nexus_findings"]
+    assert out["staging_repos"] == [{"id": "orgapachefoo-1024", "state": "unverified", "matches_rc": True}]
+
+
 # --------------------------------------------------------------------------- Step 9
 
 COMMIT = "1890a13d2c4e6f8a0b1c2d3e4f5a6b7c8d9e0f12"
@@ -875,6 +936,28 @@ def test_documented_divergence_known_warns_unknown_fails() -> None:
     assert fail["status"] == "FAIL" and fail["binaries"]["differs"] == ["foo-1.0.0.whl"]
 
 
+@pytest.mark.parametrize(
+    ("pattern", "known"),
+    [
+        ("RECORD", True),
+        ("record", True),
+        ("RECORD: wheel tool version line", True),
+        ("REC", False),
+        ("R", False),
+        ("RECORD: wheel tool version line and METADATA", False),
+        ("METADATA RECORD", False),
+        ("", False),
+    ],
+)
+def test_known_divergence_is_an_exact_key_or_entry_match(pattern: str, known: bool) -> None:
+    entry = {"known_divergences": ["RECORD: wheel tool version line", ": no key", ""]}
+    assert repro._known(entry, pattern) is known
+
+
+def test_known_divergence_empty_key_never_matches() -> None:
+    assert not repro._known({"known_divergences": [":", ""]}, "anything")
+
+
 def test_binary_off_is_stated_as_published_on_trust() -> None:
     v = vrc(convenience=[{"name": "foo-<version>.whl", "reproducibility": "off"}])
     out = run_repro(v, compare=compare("identical"))
@@ -1038,3 +1121,53 @@ def test_cli_bad_input_exits_2(tmp_path: Path, capsys: pytest.CaptureFixture[str
     load.write_text(json.dumps({"metadata": {}}), encoding="utf-8")
     assert main(["verify-rc", "args", "--load", str(load)]) == 2
     assert json.loads(capsys.readouterr().out)["ok"] is False
+
+
+def _documented_commands() -> set[str]:
+    """Every `<verify-rc> <command>` / `release-management verify-rc <command>` the skill documents."""
+    found: set[str] = set()
+    pattern = re.compile(r"(?:<verify-rc>|release-management verify-rc) ([a-z][a-z-]*)")
+    for doc in (SKILL_DIR / "verify-rc").rglob("*.md"):
+        found |= set(pattern.findall(doc.read_text(encoding="utf-8")))
+    return found - {"command"}  # the `<verify-rc>` definition's own `<command>` placeholder
+
+
+def test_cli_source_tree_takes_the_documented_load(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    load = tmp_path / "verify-rc-load.json"
+    load.write_text(json.dumps(loaded()), encoding="utf-8")
+    links = tmp_path / "symlinks.json"
+    links.write_text(json.dumps(symlinks("REVIEW", ["make check-links"])), encoding="utf-8")
+    rc = main(
+        [
+            "verify-rc",
+            "source-tree",
+            "--load",
+            str(load),
+            "--symlinks",
+            str(links),
+            "--validator-result",
+            "0",
+        ]
+    )
+    out = json.loads(capsys.readouterr().out)
+    assert rc == 0 and out["status"] == "PASS"
+
+
+def test_every_documented_command_accepts_load(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    commands = _documented_commands()
+    assert commands == {"args", "rat", "source-tree", "jvm", "nexus", "repro", "report"}
+    load = tmp_path / "verify-rc-load.json"
+    load.write_text(json.dumps(loaded()), encoding="utf-8")
+    links = tmp_path / "symlinks.json"
+    links.write_text(json.dumps(symlinks("PASS", [])), encoding="utf-8")
+    verdict_file = tmp_path / "verdict.json"
+    verdict_file.write_text(json.dumps(verdict()), encoding="utf-8")
+    required = {"source-tree": ["--symlinks", str(links)], "report": ["--verdict", str(verdict_file)]}
+    for command in sorted(commands):
+        try:
+            main(["verify-rc", command, "--load", str(load), *required.get(command, [])])
+        except SystemExit as exc:  # argparse rejected the documented form
+            pytest.fail(f"`verify-rc {command} --load ...` is rejected: exit {exc.code}")
+        capsys.readouterr()

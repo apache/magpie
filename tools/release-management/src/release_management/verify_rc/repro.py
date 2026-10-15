@@ -142,9 +142,19 @@ def _binary_results(values: list[str]) -> dict[str, str]:
 
 
 def _known(entry: dict[str, Any], pattern: str) -> bool:
+    """Whether `pattern` names one of the entry's `known_divergences`.
+
+    Case-folded exact match against the whole entry or its key (the text before
+    the first `:`); an empty pattern or key never matches, so an unlisted
+    divergence cannot be downgraded from FAIL to WARN by a substring.
+    """
+    wanted = pattern.strip().casefold()
+    if not wanted:
+        return False
     for known in entry.get("known_divergences") or []:
-        text = str(known)
-        if pattern and (pattern in text or text.split(":", 1)[0].strip() in pattern):
+        text = str(known).strip().casefold()
+        key = text.split(":", 1)[0].strip()
+        if wanted in {c for c in (text, key) if c}:
             return True
     return False
 

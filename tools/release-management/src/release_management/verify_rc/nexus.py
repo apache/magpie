@@ -31,7 +31,7 @@ import re
 from typing import Any
 
 from release_management.verify_rc.common import VerifyRc
-from release_management.verify_rc.jvm import is_jvm
+from release_management.verify_rc.jvm import NAMES_PENDING, is_jvm
 
 NEXUS = "https://repository.apache.org"
 NETRC = "~/.config/apache-magpie/asf-nexus/netrc"
@@ -139,16 +139,28 @@ def _skip(reason: str, findings: list[str] | None = None) -> dict[str, Any]:
     }
 
 
-def gate(v: VerifyRc, names: list[str], issue_body: str | None) -> tuple[dict[str, Any] | None, str | None]:
-    """A `SKIP` result when a gate fails, else `(None, id)`."""
-    if not is_jvm(names):
-        return _skip("no .jar or .pom in the Step 1 listing (no JVM artefacts)"), None
+def gate(
+    v: VerifyRc, names: list[str] | None, issue_body: str | None
+) -> tuple[dict[str, Any] | None, str | None]:
+    """A `SKIP` result when a gate fails (a pending one when `names` is unknown), else `(None, id)`."""
     if str(v.meta.get("jvm_artefact_checks") or "on") == "off":
         return _skip("release-build.md § JVM artefact checks declares jvm_artefact_checks: off"), None
     if not v.is_asf:
         return _skip(
             f"organization is {v.organization}, not ASF: repository.apache.org is ASF infrastructure"
         ), None
+    if names is None:
+        pending = {
+            "step": "nexus-staging",
+            "status": None,
+            "staging_repos": [],
+            "nexus_findings": [],
+            "paste_recipe": "# Step 6c pending: no Step 1 listing supplied",
+            "pending": [NAMES_PENDING],
+        }
+        return pending, None
+    if not is_jvm(names):
+        return _skip("no .jar or .pom in the Step 1 listing (no JVM artefacts)"), None
     repo, _ = resolve_id(v, issue_body)
     if repo is None:
         return (
@@ -226,6 +238,24 @@ def _profile(text: str) -> list[dict[str, str]]:
     ]
 
 
+def _versions(dirs: dict[str, list[str]]) -> set[str]:
+    """Versions from `<artifactId>/<version>/` folders that hold `<artifactId>-<version>*.jar|.pom`.
+
+    The artifactId level also holds `maven-metadata.xml` (and its checksums):
+    such a folder is not a version folder, so its name is never read as one.
+    """
+    out: set[str] = set()
+    for folder, names in dirs.items():
+        parts = folder.split("/")
+        if len(parts) < 2:
+            continue
+        artifact, ver = parts[-2], parts[-1]
+        stem = f"{artifact}-{ver}"
+        if any(n.startswith(stem) and n.endswith((".jar", ".pom")) for n in names):
+            out.add(ver)
+    return out
+
+
 def _inventory_findings(files: list[str], version: str) -> tuple[list[str], bool, list[str]]:
     """Hard findings over the crawl, whether its coordinates match the RC's version, and the other versions."""
     findings: list[str] = []
@@ -234,7 +264,7 @@ def _inventory_findings(files: list[str], version: str) -> tuple[list[str], bool
     for path in files:
         folder, _, name = path.rpartition("/")
         dirs.setdefault(folder, []).append(name)
-    versions = sorted({folder.rsplit("/", 1)[-1] for folder in dirs if folder})
+    versions = sorted(_versions(dirs))
     other = [ver for ver in versions if ver != version]
     matches = bool(files) and not other
     if not files:

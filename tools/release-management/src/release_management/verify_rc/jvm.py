@@ -22,11 +22,17 @@ import json
 from pathlib import Path
 from typing import Any
 
-from release_management.verify_rc.common import VerifyRc, dq
+from release_management.verify_rc.common import VerifyError, VerifyRc, dq
 
 MAVEN_VERIFY = "uv run --project <framework>/tools/maven-artifact-verify"
 PODLING_MARKERS = ("DISCLAIMER", "DISCLAIMER-WIP")
 _POM_CHECKS = ("check1", "check2")
+_TOOL_STATUSES = ("PASS", "WARN", "FAIL", "SKIP")
+#: The `pending` entry when nothing says what Step 1 staged.
+NAMES_PENDING = (
+    "pass --inventory <inventory.json> (Step 1's saved `release-verify inventory` JSON) "
+    "or --staged-dir <local staging copy>: without a listing the JVM gate cannot be decided"
+)
 
 
 def is_jvm(names: list[str]) -> bool:
@@ -34,13 +40,24 @@ def is_jvm(names: list[str]) -> bool:
     return any(n.endswith((".jar", ".pom")) for n in names)
 
 
-def staged_names(inventory: dict[str, Any] | None, staged_dir: str | None) -> list[str]:
-    """Every staged filename: Step 1's `found` and `unexpected`, plus a local listing when given."""
+def staged_names(inventory: Any, staged_dir: str | None) -> list[str] | None:
+    """Every staged filename: Step 1's `found` and `unexpected`, plus a local listing when given.
+
+    `None` when neither was supplied, so the caller reports it pending rather
+    than a confident `SKIP`; an inventory that is not Step 1's JSON, or a
+    `staged_dir` that is not a directory, is a `VerifyError`.
+    """
+    if inventory is None and not staged_dir:
+        return None
     names: list[str] = []
-    if inventory:
+    if inventory is not None:
+        if not isinstance(inventory, dict) or inventory.get("step") != "inventory":
+            raise VerifyError("--inventory is not the JSON `release-verify inventory` printed")
         names += [str(n) for n in inventory.get("found") or []]
         names += [str(n) for n in inventory.get("unexpected") or []]
-    if staged_dir and Path(staged_dir).is_dir():
+    if staged_dir:
+        if not Path(staged_dir).is_dir():
+            raise VerifyError(f"--staged-dir {staged_dir!r} is not a directory")
         names += sorted(p.name for p in Path(staged_dir).iterdir() if p.is_file())
     return list(dict.fromkeys(names))
 
@@ -170,7 +187,7 @@ def _observations(report: dict[str, Any]) -> list[str]:
 def jvm(
     v: VerifyRc,
     *,
-    names: list[str],
+    names: list[str] | None,
     tree: str | None,
     staged_dir: str | None,
     report_text: str | None,
@@ -191,6 +208,8 @@ def jvm(
             "skip_reason": "release-build.md § JVM artefact checks declares jvm_artefact_checks: off",
             "paste_recipe": "# Step 6b skipped: jvm_artefact_checks: off",
         }
+    if names is None:
+        return base | {"pending": [NAMES_PENDING]}
     if not is_jvm(names):
         return base | {
             "status": "SKIP",
@@ -199,6 +218,10 @@ def jvm(
         }
     staged = staged_dir or "<staged-dir>"
     report = json.loads(report_text) if report_text is not None else None
+    if report is not None and (not isinstance(report, dict) or report.get("status") not in _TOOL_STATUSES):
+        raise VerifyError(
+            "--report is not maven-artifact-verify's JSON report (no PASS / WARN / FAIL / SKIP status)"
+        )
     # The podling signal is read from the unpacked tree; without one, the report's own flag stands.
     is_podling = podling(tree) if tree else bool(report and report.get("podling"))
     if report is None or report_text is None:

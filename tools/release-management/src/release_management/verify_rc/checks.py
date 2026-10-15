@@ -100,7 +100,8 @@ def rat(
             "warning": "release-build.md § Apache RAT configuration is absent: add it; do not proceed to the vote without it",
         }
     files = unapproved_files(report or "")
-    if exit_code is None and report is None:
+    # A report naming unapproved files is a FAIL on its own; nothing PASSes without RAT's exit code.
+    if exit_code is None and not files:
         return out | {
             "pending": ["run the paste_recipe and pass --exit-code (and --report with RAT's output)"]
         }
