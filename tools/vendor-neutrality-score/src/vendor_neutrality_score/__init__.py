@@ -112,6 +112,10 @@ CONTRACT_POLICY: dict[str, tuple[str, str]] = {
         VENDOR_BACKED,
         "Forge / tracker accounts: profile lookup, repository collaborators, team membership",
     ),
+    "contract:security-tracker": (
+        VENDOR_BACKED,
+        "Security tracker for embargoed reports (GitHub / local files / private Jira)",
+    ),
 }
 
 # Which capability *contract* a skill actually invokes, keyed by

@@ -144,6 +144,7 @@ framework substrate:
 | `contract:security-cross-ref` | contract | Vulnerability database / cross-reference alias lookup (OSV.dev / NVD). |
 | `contract:typed-decision` | contract | Provider-agnostic typed decision backend (Choice / Score / Noul). |
 | `contract:people` | contract | Forge / tracker accounts: profile lookup, repository collaborators, team membership (one confirmed write). Distinct from `contract:project-metadata`, which reads an organization's governance rosters. |
+| `contract:security-tracker` | contract | Where the security skills keep embargoed reports: body fields, status rollup, attachments, a confidentiality guard, and a publish step for working-copy backends (GitHub, local files, private Jira). |
 | `substrate:analytics` | substrate | Read-only metrics / dashboards / renderers. |
 | `substrate:sandbox` | substrate | Agent isolation, egress control, settings audit. |
 | `substrate:action-guard` | substrate | Deterministic pre-tool-use command guards. |
@@ -379,6 +380,9 @@ or a contract-free mix of substrates (e.g. `tools/spec-inventory` is
 | [`tools/vcs`](../tools/vcs/) | `contract:source-control` | Backend-dispatching implementation of the source-control (VCS) capability ([`tools/github/source-control.md`](../tools/github/source-control.md)); complete Git, Mercurial (Hg), Fossil, and Subversion (SVN) backends |
 | [`tools/sourcehut`](../tools/sourcehut/) | `contract:tracker` + `contract:source-control` + `contract:mail-archive` | SourceHut (sr.ht) forge bridge: todo.sr.ht, lists.sr.ht, builds.sr.ht, and git/hg repository reads |
 | [`tools/tracker`](../tools/tracker/) | `contract:tracker` | Interface spec for the tracker contract's read-only contributor-activity queries (issues filed, triaged and commented on; issues created; first maintainer reply). Pure interface spec; GitHub and Jira implement it, and the rest of the contract is described by `tools/github/tool.md` |
+| [`tools/security-tracker`](../tools/security-tracker/) | `contract:security-tracker` | Adapter contract for the security tracker the `security-*` skills read and write, selected by `tracker.platform`. Pure interface spec; backends: `tools/github/` (default), `tools/local-tracker/`, `tools/jira-security-tracker/` |
+| [`tools/local-tracker`](../tools/local-tracker/) | `contract:security-tracker` | Security tracker as Markdown files in a private Git or SVN working copy; learns an existing report layout, refuses writes until access is human-confirmed, and commits and pushes on confirmation |
+| [`tools/jira-security-tracker`](../tools/jira-security-tracker/) | `contract:security-tracker` | Security tracker on a Jira project whose issues carry an issue-security level; refuses every write to an issue without one |
 | [`tools/typed-decision`](../tools/typed-decision/) | `contract:typed-decision` | Provider-agnostic typed decision tool contract (Choice / Score / Noul) with TypeSafe Jev API as initial backend |
 
 A tool's capability is the **interface it provides**, not which skills

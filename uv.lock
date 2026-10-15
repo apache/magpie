@@ -32,6 +32,8 @@ members = [
     "magpie-dev",
     "magpie-fossil",
     "magpie-gitlab",
+    "magpie-jira-security-tracker",
+    "magpie-local-tracker",
     "magpie-maildir",
     "magpie-skills",
     "magpie-sourcehut",
@@ -989,6 +991,36 @@ dev = [{ name = "magpie-dev", editable = "tools/dev" }]
 name = "magpie-gitlab"
 version = "0.1.0"
 source = { editable = "tools/gitlab" }
+
+[package.dev-dependencies]
+dev = [
+    { name = "magpie-dev" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [{ name = "magpie-dev", editable = "tools/dev" }]
+
+[[package]]
+name = "magpie-jira-security-tracker"
+version = "0.1.0"
+source = { editable = "tools/jira-security-tracker" }
+
+[package.dev-dependencies]
+dev = [
+    { name = "magpie-dev" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [{ name = "magpie-dev", editable = "tools/dev" }]
+
+[[package]]
+name = "magpie-local-tracker"
+version = "0.1.0"
+source = { editable = "tools/local-tracker" }
 
 [package.dev-dependencies]
 dev = [

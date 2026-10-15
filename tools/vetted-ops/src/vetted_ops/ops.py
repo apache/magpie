@@ -251,6 +251,34 @@ def _label_text(value: str, what: str, forbidden: str) -> str:
     return value
 
 
+_QUERY_MAX = 200
+
+
+def query(value: str) -> str:
+    """
+    A tracker search query: one line of plain words.
+
+    ``gh search issues`` reads qualifiers such as ``repo:`` or ``org:`` out of
+    the query itself, and one of those would re-aim the search at another
+    repository — the one thing a policy-pinned operation must never do. So a
+    colon is refused outright, as are newlines and the empty query; what is
+    left is free text that can only narrow a search of the pinned tracker.
+    """
+    stripped = value.strip()
+    if not stripped or len(stripped) > _QUERY_MAX:
+        raise ParamError(f"query must be 1-{_QUERY_MAX} characters, got {len(stripped)}")
+    if "\n" in value or "\r" in value:
+        raise ParamError("query must be a single line")
+    if ":" in value:
+        raise ParamError(f"query may not contain ':' (search qualifiers would re-target it): {value!r}")
+    # The dispatcher refuses a raw leading dash, but stripping can expose one
+    # (" --repo=x"); refuse it here too, after the strip, so it can never
+    # become a flag.
+    if stripped.startswith("-"):
+        raise ParamError(f"query may not start with '-': {value!r}")
+    return stripped
+
+
 def action(value: str) -> str:
     """
     A status-rollup action label — the right-hand field of an entry's
@@ -453,7 +481,9 @@ class Op:
     build: Callable[..., list[str] | dict[str, object] | Plan]
     #: Execution backend. "gh" returns an argv list; "http-read" returns a request
     #: descriptor dict; "procedure" returns a :class:`~vetted_ops.procedures.Plan`
-    #: the dispatcher executes through the restricted tracker-only runner.
+    #: the dispatcher executes through the restricted tracker-only runner;
+    #: "tracker-cli" exists only on a non-GitHub security tracker, where the
+    #: dispatcher translates it (tracker_backends.py) — on GitHub its builder refuses.
     backend: str = "gh"
     #: True when the operation changes state visible outside the machine.
     writes: bool = False
@@ -464,6 +494,9 @@ class Op:
     enums: dict[str, str] = field(default_factory=dict)
     #: Parameters holding a path to body content.
     body_files: tuple[str, ...] = ()
+    #: Admitted on `vetted-op-tracker` although not a `procedure` — a tracker
+    #: write that must run outside the sandbox (the local tracker's push).
+    tracker_entry: bool = False
 
 
 def _tracker(cfg: dict[str, str]) -> str:
@@ -542,6 +575,30 @@ _register(
             _tracker(cfg),
             "--state",
             state,
+            "--limit",
+            "1000",
+            "--json",
+            "number,title,state,labels,milestone,assignees,updatedAt,closedAt",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="issue-list-label",
+        params=("state", "label"),
+        summary="List tracker issues in a given state that carry one configured label.",
+        enums={"state": "issue_states", "label": "labels"},
+        build=lambda cfg, state, label: [
+            "gh",
+            "issue",
+            "list",
+            "--repo",
+            _tracker(cfg),
+            "--state",
+            state,
+            "--label",
+            label,
             "--limit",
             "1000",
             "--json",
@@ -924,6 +981,97 @@ _register(
             "--reason",
             reason,
         ],
+    )
+)
+
+_register(
+    Op(
+        name="issue-reopen",
+        params=("number",),
+        writes=True,
+        summary="Reopen a tracker issue.",
+        build=lambda cfg, number: ["gh", "issue", "reopen", number, "--repo", _tracker(cfg)],
+    )
+)
+
+_register(
+    Op(
+        name="issue-create",
+        params=("title", "body"),
+        writes=True,
+        summary="Create a tracker issue; title as one validated line, body on stdin.",
+        body_files=("body",),
+        # `gh issue create` has no --title-file, so the title rides in argv as one
+        # validated `-f` value — never a shell word, so its punctuation is inert —
+        # and `-F body=@-` takes the body from stdin. `gh api` also skips the issue
+        # form, so required form fields do not block an import.
+        build=lambda cfg, title, body: [
+            "gh",
+            "api",
+            f"repos/{_tracker(cfg)}/issues",
+            "--method",
+            "POST",
+            "-f",
+            f"title={title}",
+            "-F",
+            "body=@-",
+            "--jq",
+            "{number: .number, url: .html_url}",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="issue-search",
+        params=("query",),
+        summary="Search tracker issues (open and closed) for plain words.",
+        build=lambda cfg, query: [
+            "gh",
+            "search",
+            "issues",
+            "--repo",
+            _tracker(cfg),
+            "--limit",
+            "100",
+            "--json",
+            "number,title,state,labels,updatedAt,url",
+            # End of options: the query is a positional, whatever it looks like.
+            "--",
+            query,
+        ],
+    )
+)
+
+
+def _not_on_github(op: str, reason: str) -> Callable[..., list[str]]:
+    def _build(cfg: dict[str, str], **_params: str) -> list[str]:
+        _tracker(cfg)
+        raise ParamError(f"{op!r} is not applicable on the github tracker: {reason}")
+
+    return _build
+
+
+_register(
+    Op(
+        name="tracker-pending",
+        backend="tracker-cli",
+        params=(),
+        summary="List tracker changes not yet committed (local-files tracker only).",
+        build=_not_on_github("tracker-pending", "its writes are visible as soon as they return"),
+    )
+)
+
+_register(
+    Op(
+        name="tracker-publish",
+        backend="tracker-cli",
+        params=("message",),
+        writes=True,
+        tracker_entry=True,
+        summary="Commit the tracker folder and push (local-files tracker only); message on stdin.",
+        body_files=("message",),
+        build=_not_on_github("tracker-publish", "its writes are visible as soon as they return"),
     )
 )
 

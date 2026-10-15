@@ -61,7 +61,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from . import ops as ops_mod
-from . import procedures
+from . import procedures, tracker_backends
 from .config import Config, ConfigError, describe, load
 
 EXIT_OK = 0
@@ -113,6 +113,8 @@ def _validate_params(
             resolved[name] = ops_mod.team(raw)
         elif name == "title":
             resolved[name] = ops_mod.title(raw)
+        elif name == "query":
+            resolved[name] = ops_mod.query(raw)
         elif name == "ghsa":
             resolved[name] = ops_mod.ghsa(raw)
         elif name in {"item_id", "content_id"}:
@@ -142,7 +144,16 @@ def _validate_params(
 
 def build_argv(
     op: ops_mod.Op, params: dict[str, str], config: Config
-) -> list[str] | dict[str, object] | procedures.Plan:
+) -> list[str] | dict[str, object] | procedures.Plan | tracker_backends.BackendCall:
+    # A non-GitHub security tracker: every tracker operation becomes a call of
+    # that backend's CLI. The gh builder never runs, so nothing can fall back to
+    # a GitHub repository; operations with no counterpart refuse by name.
+    backend = config.tracker_backend
+    if backend is not None and tracker_backends.is_tracker_op(op.name):
+        call = tracker_backends.translate(backend, op.name, params)
+        if call.argv[:2] != ["uv", "run"]:  # pragma: no cover - fixed in tracker_backends
+            raise ops_mod.ParamError(f"operation {op.name!r} produced a malformed backend argv")
+        return call
     result = op.build(config.as_mapping(), **params)
     if op.backend == "gh":
         if not isinstance(result, list) or not all(isinstance(a, str) for a in result):
@@ -157,6 +168,8 @@ def build_argv(
             raise ops_mod.ParamError(f"operation {op.name!r} produced a malformed procedure plan")
         if result.tracker != config.tracker_repo:
             raise ops_mod.ParamError(f"operation {op.name!r} planned against a repo other than the tracker")
+    elif op.backend == "tracker-cli":  # pragma: no cover - its builder always refuses on GitHub
+        raise ops_mod.ParamError(f"operation {op.name!r} needs a non-GitHub security tracker")
     else:
         raise ops_mod.ParamError(f"operation {op.name!r} has unknown backend {op.backend!r}")
     return result
@@ -183,7 +196,13 @@ def _entry_point_admits(op: ops_mod.Op, *, read_only: bool, tracker_only: bool) 
     """Whether an operation exists at all on this entry point."""
     if read_only and op.writes:
         return False
-    return not (tracker_only and op.backend != "procedure")
+    return not (tracker_only and not _tracker_entry(op))
+
+
+def _tracker_entry(op: ops_mod.Op) -> bool:
+    """Whether `vetted-op-tracker` runs this operation: the procedures, plus the
+    few tracker writes declared ``tracker_entry`` (the local tracker's push)."""
+    return op.backend == "procedure" or op.tracker_entry
 
 
 def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only: bool = False) -> int:
@@ -251,7 +270,7 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
         # sandbox, so everything but the tracker procedures — whose runner
         # refuses any gh call outside repos/<tracker>/ — does not exist here,
         # whatever the policy or --caller say.
-        if tracker_only and op.backend != "procedure":
+        if tracker_only and not _tracker_entry(op):
             raise ops_mod.ParamError(
                 f"{op.name!r} is not a tracker procedure, and this is the tracker dispatcher; "
                 f"run it through 'vetted-op' or 'vetted-op-read'"
@@ -271,6 +290,9 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
     except (ops_mod.ParamError, ConfigError) as exc:
         print(f"vetted-op: refused: {exc}", file=sys.stderr)
         return EXIT_POLICY
+
+    if isinstance(command, tracker_backends.BackendCall):
+        return _run_backend(command, body, dry_run=args.dry_run)
 
     if op.backend == "procedure":
         if not isinstance(command, procedures.Plan):
@@ -316,6 +338,29 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
         return _run_http(command, body=body)
     else:  # pragma: no cover
         raise ops_mod.ParamError(f"unknown backend {op.backend!r}")
+
+
+def _run_backend(call: tracker_backends.BackendCall, body: bytes | None, *, dry_run: bool) -> int:
+    """
+    Run a translated tracker operation: no shell, body on stdin.
+
+    The backend's own exit codes follow the security-tracker contract; its
+    refusal (4) — the confidentiality guard, or an amend-latest mismatch — is
+    reported as this dispatcher's refusal, everything else as a failed command.
+    """
+    if dry_run:
+        print(" ".join(call.argv))
+        if body is not None:
+            print(f"(stdin: {len(body)} bytes)")
+        return EXIT_OK
+    completed = subprocess.run(call.argv, check=False, input=body if body is not None else b"")
+    if completed.returncode == EXIT_OK:
+        return EXIT_OK
+    if completed.returncode == 4:
+        print(f"vetted-op: refused: {call.op} was refused by the tracker backend", file=sys.stderr)
+        return EXIT_POLICY
+    print(f"vetted-op: {call.op} failed (backend exit {completed.returncode})", file=sys.stderr)
+    return EXIT_COMMAND
 
 
 def _run_procedure(op: ops_mod.Op, plan: procedures.Plan, body: bytes | None, *, dry_run: bool) -> int:

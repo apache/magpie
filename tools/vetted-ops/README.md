@@ -17,6 +17,7 @@
     - [The other pr-management reads](#the-other-pr-management-reads)
     - [The pr-management-stats reads](#the-pr-management-stats-reads)
   - [Tracker procedures: rollup and body-field writes](#tracker-procedures-rollup-and-body-field-writes)
+  - [Tracker backends](#tracker-backends)
   - [Wiring it into settings](#wiring-it-into-settings)
   - [Tests](#tests)
   - [Referenced by](#referenced-by)
@@ -41,6 +42,7 @@ needs *one* allowlist entry instead of a dozen wildcard `ask` rules.
 The package itself is stdlib-only.
 - **CLIs:** the `gh` CLI on `PATH`, authenticated for the repositories the policy names.
 HTTP operations do not use `gh` or `curl`; they use the `urllib.request` standard library module.
+With a non-GitHub security tracker (`[tracker] platform`), tracker operations run `uv` and that backend's CLI instead of `gh` — see [Tracker backends](#tracker-backends).
 - **Credentials:** whatever `gh` already uses (`~/.config/gh/`).
 This tool reads no credential of its own and stores none.
 - **Network:** `github.com` / `api.github.com` for `gh` operations.
@@ -489,6 +491,68 @@ The parsing and composing code is vendored byte-for-byte from the two tools
 (`rollup_format.py`, `body_field_format.py`), because the dispatcher installs as a
 copy of its own directory and cannot import them; a test fails if a copy drifts
 from its source.
+
+## Tracker backends
+
+The security tracker need not be a GitHub repository.
+The optional `[tracker]` table selects one of the backends of the
+[security-tracker contract](../security-tracker/contract.md); with it, every
+catalogue operation that addresses the tracker runs that backend's CLI instead
+of its `gh` builder, and the skills keep calling the same operations:
+
+```toml
+[tracker]
+platform = "local-files"                                  # github (default) | local-files | jira
+project  = "/abs/path/to/.apache-magpie/tools/local-tracker"
+root     = "/abs/path/to/the/repo/security/reports"       # the tracker folder
+
+# platform = "jira"
+# project             = "/abs/path/to/.apache-magpie/tools/jira-security-tracker"
+# jira_url            = "https://issues.example.org/jira"
+# jira_project        = "FOOSEC"
+# jira_security_level = "Security Team"
+# jira_deployment     = "server"                          # server | cloud
+```
+
+The guarantees above carry over, because the translation lives in reviewed code
+([`tracker_backends.py`](src/vetted_ops/tracker_backends.py)), not in the policy:
+
+- **The program is fixed.** The policy supplies data — the backend's tool
+  directory, which must be the `tools/local-tracker` or
+  `tools/jira-security-tracker` directory the platform names, and its pinned
+  target — never a command. The argv is `uv run --project <dir> <script>`
+  followed by the target and the translated subcommand.
+- **The target is not addressable.** The tracker folder, or the Jira URL,
+  project and security level, come from the policy, exactly as `[repos] tracker`
+  does for `gh`.
+- **Parameters stay parameters.** They are validated as before, placed as single
+  argv elements, and run without a shell. Bodies are still read here and piped on
+  stdin; the backend reads `-`.
+- **No silent fallback.** A tracker operation with no counterpart on the backend
+  — project boards, milestone administration, the collaborator roster,
+  `comment-update`, `rollup-fold` — is refused by name. A test derives the set of
+  tracker operations from the catalogue itself and fails if one is neither
+  translated nor refused.
+- **The backend's guard is a refusal here.** A backend exit `4` — its
+  confidentiality guard, or an `amend-latest` mismatch — is reported as exit `3`.
+
+The full mapping, from the `gh` shape in the skills to the vetted operation to
+the backend subcommand, is in the contract's
+[skill-command table](../security-tracker/contract.md#from-skill-commands-to-vetted-operations).
+Six operations exist for it:
+
+| Operation | Kind | Parameters | Notes |
+|---|---|---|---|
+| `issue-create` | write | `title body` | GitHub: `gh api …/issues -f title=… -F body=@-`. |
+| `issue-reopen` | write | `number` | |
+| `issue-list-label` | read | `state label` | `issue-list` filtered by one configured label. |
+| `issue-search` | read | `query` | Plain words; a `:` is refused, so a `repo:` qualifier cannot re-target the search. |
+| `tracker-pending` | read | — | `local-files` only: uncommitted tracker changes. |
+| `tracker-publish` | write | `message` | `local-files` only: commit the tracker folder and push. Runs on `vetted-op-tracker`, outside the sandbox, because the push needs credentials. |
+
+`tracker-publish` is the one non-procedure operation `vetted-op-tracker` admits.
+On `github` and `jira` both `tracker-*` operations refuse: those writes are
+visible as soon as they return.
 
 ## Wiring it into settings
 

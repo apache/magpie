@@ -121,6 +121,7 @@ for ASF projects) is org-level — inherited from your organization's
 | Capability | Tool | Adapter directory | Config knobs declared here |
 |---|---|---|---|
 | Issue tracking + project board | `github` | [`../../tools/github/`](../../../tools/github/) | `tracker_repo`, `upstream_repo`, `github_project_board_*`, `issue_template_fields` |
+| Security tracker backend | `github` (default), `local-files`, or `jira` — see [Tracker](#tracker) | [`../../tools/security-tracker/`](../../../tools/security-tracker/) (contract), [`tools/local-tracker/`](../../../tools/local-tracker/), [`tools/jira-security-tracker/`](../../../tools/jira-security-tracker/) | `tracker.platform`, `tracker.local.*`, `tracker.jira.*` |
 | Source control (VCS) | `github` (Git) — replaceable with a non-Git VCS | [`../../tools/github/source-control.md`](../../../tools/github/source-control.md) | `upstream_repo`, `default_branch`; for a non-Git VCS declare the sibling tool + its working-copy URL |
 | Inbound email / drafts | `<one or more mail-source backends>` | [`../../tools/mail-source/contract.md`](../../../tools/mail-source/contract.md) (abstract) + per-backend adapter dirs (`tools/gmail/`, `tools/ponymail/`, `tools/mail-source/imap/`, `tools/mail-source/mbox/`, ...) | See [Mail sources](#mail-sources) below — declare each backend's role (primary / preferred-for-`<op>` / fallback / optional) and `mandatory` flag |
 | CVE allocation + record mgmt | *org-level* — inherited from `organizations/<org>/organization.md → cve_authority.tool`; for ASF: `vulnogram` ([`tools/cve-tool-vulnogram/`](../../../tools/cve-tool-vulnogram/)), for independent: `mitre-form` | — | override in [CVE authority](#cve-authority) only if this project differs from its org |
@@ -396,13 +397,34 @@ security_cross_ref:
 
 ### Tracker
 
-The tracker `platform`, `board`, `visibility`, and `skill_url_template`
-are org-level defaults — override them here only if this project differs
+The tracker `board`, `visibility`, and `skill_url_template`
+are org-level defaults (`platform` defaults to `github`) — override them here only if this project differs
 (e.g. a project that runs its security tracker publicly sets
 `visibility: public`). Declare this project's per-tracker vocabulary:
 
 ```yaml
 tracker:
+  # Where security reports live — the security-tracker contract
+  # (tools/security-tracker/contract.md). `github` (default): the private
+  # `tracker_repo`. `local-files`: markdown files in a folder of a private
+  # Git or SVN working copy (tools/local-tracker/). `jira`: a Jira project
+  # whose issues carry an issue-security level (tools/jira-security-tracker/).
+  # `/magpie-setup config` asks and, for local-files, learns the format of
+  # the reports already in the folder.
+  platform: github
+
+  # local-files only.
+  local:
+    root: TODO  # tracker folder, relative to the repository root, e.g. `security/reports`
+
+  # jira only.
+  jira:
+    url: TODO             # e.g. https://issues.example.org/jira
+    project: TODO         # project key, e.g. FOOSEC
+    security_level: TODO  # issue-security level every tracker must carry
+    issue_type: Bug
+    deployment: server    # server | cloud
+
   # Whether the reporter can see the tracker issue once opened.
   reporter_has_access: false
 

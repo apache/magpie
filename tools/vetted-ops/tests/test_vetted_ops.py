@@ -104,6 +104,7 @@ def test_every_op_declares_validators_for_all_its_params() -> None:
         "item_id",
         "content_id",
         "title",
+        "query",
         "vuln_id",
         "package_name",
         "version",
@@ -140,6 +141,7 @@ def test_every_builder_produces_a_gh_argv(policy: config.Config) -> None:
         "item_id": "PVTI_abc",
         "content_id": "I_abc",
         "title": "A tracker title",
+        "query": "path traversal",
         "label": "needs triage",
         "milestone": "1.2.3",
         "state": "open",
@@ -159,6 +161,11 @@ def test_every_builder_produces_a_gh_argv(policy: config.Config) -> None:
     body.write_text("x")
     for op in ops.OPS.values():
         params = {p: (str(body) if p in op.body_files else sample[p]) for p in op.params}
+        if op.backend == "tracker-cli":
+            # Exists only on a non-GitHub tracker; on GitHub the builder refuses.
+            with pytest.raises(ops.ParamError, match="not applicable on the github tracker"):
+                op.build(policy.as_mapping(), **params)
+            continue
         result = op.build(policy.as_mapping(), **params)
 
         if op.backend == "gh":
@@ -902,6 +909,7 @@ def test_tracker_and_upstream_operations_never_cross(policy: config.Config) -> N
         "item_id": "PVTI_abc",
         "content_id": "I_abc",
         "title": "A tracker title",
+        "query": "path traversal",
         "label": "needs triage",
         "milestone": "1.2.3",
         "state": "open",
@@ -986,6 +994,7 @@ def test_no_operation_interpolates_a_traversing_ref(policy: config.Config) -> No
         "item_id": "PVTI_abc",
         "content_id": "I_abc",
         "title": "A tracker title",
+        "query": "path traversal",
         "body": "unused",
     }
     body = policy.workspace / "ref.md"
@@ -1322,6 +1331,7 @@ def test_every_tracker_operation_refuses_rather_than_retargeting(
             "item_id": "PVTI_abc",
             "content_id": "I_abc",
             "title": "A tracker title",
+            "query": "path traversal",
         }
         out = {}
         for name in op.params:

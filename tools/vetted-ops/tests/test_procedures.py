@@ -672,7 +672,8 @@ def test_tracker_dispatcher_lists_only_the_procedures(capsys: pytest.CaptureFixt
     listed = {
         line.split()[1] for line in capsys.readouterr().out.splitlines() if line[:5] in ("write", "read ")
     }
-    assert listed == PROCEDURE_OPS
+    # Plus the one non-procedure tracker write that must run outside the sandbox.
+    assert listed == PROCEDURE_OPS | {"tracker-publish"}
 
 
 def test_tracker_console_script_is_declared() -> None:

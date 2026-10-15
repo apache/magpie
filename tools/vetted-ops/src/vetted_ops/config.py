@@ -32,8 +32,12 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
+from .tracker_backends import BACKEND_SCRIPTS, PLATFORMS, TrackerBackend
+
 #: `owner/name`, conservative on both halves.
 _REPO = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,100}/[A-Za-z0-9][A-Za-z0-9._-]{0,100}$")
+#: A Jira project key.
+_JIRA_KEY = re.compile(r"^[A-Z][A-Z0-9_]{0,30}$")
 
 DEFAULT_RELATIVE_PATH = Path(".apache-magpie-overrides/tools/vetted-ops/config.toml")
 
@@ -60,6 +64,9 @@ class Config:
     endpoints: dict[str, str]
     #: Caller name -> permitted operation names.
     callers: dict[str, frozenset[str]]
+    #: The non-GitHub security tracker, when ``[tracker] platform`` selects one.
+    #: ``None`` means GitHub: tracker operations run their ``gh`` builders.
+    tracker_backend: TrackerBackend | None = None
 
     def as_mapping(self) -> dict[str, object]:
         """The mapping handed to an operation's ``build`` callable."""
@@ -106,6 +113,68 @@ def _optional_repo(raw: dict[str, object], key: str) -> str | None:
     if key not in raw:
         return None
     return _require_repo(raw, key)
+
+
+def _absolute_dir(raw: dict[str, object], key: str) -> str:
+    value = raw.get(key)
+    if not isinstance(value, str) or not value:
+        raise ConfigError(f"[tracker] needs {key!r} (an absolute path)")
+    path = Path(value).expanduser()
+    if not path.is_absolute():
+        raise ConfigError(f"[tracker] {key!r} must be absolute, got {value!r}")
+    return str(path)
+
+
+def _one_line(raw: dict[str, object], key: str) -> str:
+    value = raw.get(key)
+    if not isinstance(value, str) or not value.strip() or "\n" in value or value.startswith("-"):
+        raise ConfigError(f"[tracker] needs {key!r} as one line not starting with '-', got {value!r}")
+    return value.strip()
+
+
+def _tracker_backend(raw: object) -> TrackerBackend | None:
+    """
+    Validate the optional ``[tracker]`` table.
+
+    Only data comes from the policy — the backend's tool directory and its
+    pinned target. The command that runs is fixed in tracker_backends.py, and
+    the tool directory must be the one the platform names, so the policy cannot
+    smuggle in a different program.
+    """
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        raise ConfigError("[tracker] must be a table")
+    platform = raw.get("platform", "github")
+    if platform not in PLATFORMS:
+        raise ConfigError(f"[tracker] platform must be one of {', '.join(PLATFORMS)}, got {platform!r}")
+    if platform == "github":
+        return None
+    project = _absolute_dir(raw, "project")
+    expected_dir, _ = BACKEND_SCRIPTS[platform]
+    if Path(project).name != expected_dir:
+        raise ConfigError(
+            f"[tracker] project for {platform} must be the tools/{expected_dir} directory, got {project!r}"
+        )
+    if platform == "local-files":
+        return TrackerBackend(platform=platform, project=project, root=_absolute_dir(raw, "root"))
+    url = _one_line(raw, "jira_url")
+    if not url.startswith("https://"):
+        raise ConfigError(f"[tracker] jira_url must use https://, got {url!r}")
+    key = _one_line(raw, "jira_project")
+    if not _JIRA_KEY.match(key):
+        raise ConfigError(f"[tracker] jira_project must be a Jira project key, got {key!r}")
+    deployment = raw.get("jira_deployment", "server")
+    if deployment not in ("server", "cloud"):
+        raise ConfigError(f"[tracker] jira_deployment must be server or cloud, got {deployment!r}")
+    return TrackerBackend(
+        platform=platform,
+        project=project,
+        jira_url=url.rstrip("/"),
+        jira_project=key,
+        jira_security_level=_one_line(raw, "jira_security_level"),
+        jira_cloud=deployment == "cloud",
+    )
 
 
 def load(path: Path | None = None, *, cwd: Path | None = None) -> Config:
@@ -165,6 +234,7 @@ def load(path: Path | None = None, *, cwd: Path | None = None) -> Config:
         values=dict(values_raw),
         endpoints=endpoints,
         callers=callers,
+        tracker_backend=_tracker_backend(raw.get("tracker")),
     )
 
 
@@ -178,6 +248,7 @@ def describe(config: Config) -> str:
             "values": {k: (sorted(v) if isinstance(v, dict) else v) for k, v in config.values.items()},
             "endpoints": dict(sorted(config.endpoints.items())),
             "callers": {k: sorted(v) for k, v in sorted(config.callers.items())},
+            "tracker_backend": (dict(vars(config.tracker_backend)) if config.tracker_backend else "github"),
         },
         indent=2,
         sort_keys=True,

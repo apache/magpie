@@ -44,6 +44,29 @@ by swapping the adapter, not the skill.
 - `tools/mail-archive/` — static mailing-list archive reader for
   projects whose list history is in a local mbox/Maildir export.
 - `tools/jira/` — issue-tracker adapter for projects on Jira.
+- `tools/security-tracker/` — Markdown contract spec for
+  `contract:security-tracker`: the operations the `security-*` skills perform
+  on `<tracker>` (view, list, labels, field get/set, create, edit, comment,
+  close/reopen, rollup append/amend-latest, attach, pending, publish, doctor),
+  fixed JSON outputs and exit codes (`3` not found, `4` refused), a
+  confidentiality guard every backend applies before writing, and a publish
+  step for working-copy backends. `tracker.platform` selects the backend:
+  `github` (default, the existing recipes), `local-files`, or `jira`.
+  Skills switch through the shared `tracker-backend` block, which maps each
+  tracker `gh` command to a vetted operation; `tools/vetted-ops/` translates
+  those operations for the backend its `[tracker]` policy names (fixed program,
+  policy-pinned target, bodies on stdin) and refuses by name the ones with no
+  counterpart (boards, milestone administration, roster, `rollup-fold`).
+- `tools/local-tracker/` (`magpie-local-tracker`) — stdlib-only
+  `contract:security-tracker` backend over Markdown files in a Git or SVN
+  working copy. `detect` infers a committed format descriptor
+  (`.magpie-tracker.json`) from existing reports; writes are refused until the
+  descriptor records a human-confirmed `access_restricted: true`; `publish`
+  commits only the tracker root (and pushes on Git).
+- `tools/jira-security-tracker/` (`magpie-jira-tracker`) — stdlib-only
+  `contract:security-tracker` backend over Jira REST v2; `create` always sets
+  the configured issue-security level and every write on an issue without one
+  is refused.
 - `tools/github/` — issues/PRs/labels read + write-back helpers.
   Sub-adapters: `tools/github-body-field/` (reads GitHub issue/PR body
   structured field sets) and `tools/github-rollup/` (`contract:tracker`,

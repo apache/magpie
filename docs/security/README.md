@@ -220,6 +220,11 @@ referenced by URL; Magpie keeps no local copy.
 |---|---|
 | [`security-tracker-stats-dashboard`](../../skills/security-tracker-stats-dashboard/SKILL.md) | Generate a self-contained HTML dashboard of `<tracker>` repo statistics (lifecycle bands, opened-vs-untriaged backlog, mean time to triage / first response / fix). Read-only — never modifies tracker state. |
 
+The tracker itself need not be a GitHub repository.
+`tracker.platform` selects one of three backends of the [security-tracker contract](../../tools/security-tracker/contract.md):
+a private GitHub repository (default), [Markdown files](../../tools/local-tracker/README.md) in a private Git or SVN working copy — learning the format of the reports already there — or a [Jira project](../../tools/jira-security-tracker/README.md) with an issue-security level.
+`/magpie-setup config` asks which; the [design](../designs/2026-10-15-security-tracker-backends.md) explains the choices.
+
 ## Deep documentation
 
 - [**`poc-handling-policy.md`**](poc-handling-policy.md) — what an

@@ -506,6 +506,14 @@ contract:security-cross-ref:
           - any-glob-to-any-file:
               - 'tools/osv/**'
 
+contract:security-tracker:
+  - any:
+      - changed-files:
+          - any-glob-to-any-file:
+              - 'tools/jira-security-tracker/**'
+              - 'tools/local-tracker/**'
+              - 'tools/security-tracker/**'
+
 contract:source-control:
   - any:
       - changed-files:

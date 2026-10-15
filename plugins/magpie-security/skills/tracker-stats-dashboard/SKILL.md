@@ -16,9 +16,9 @@ when_to_use: |
   path is stale (older than ~24 h) and the user is reviewing tracker
   health. Read-only — the skill never modifies any tracker state.
 capability: capability:stats
-surface_hash: sha256:c8643a3c02bf3d73
+surface_hash: sha256:779340f8eb985eeb
 license: Apache-2.0
-measured_tokens: 3874
+measured_tokens: 4232
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -122,6 +122,27 @@ See [`docs/setup/agentic-overrides.md`](../../../../docs/setup/agentic-overrides
 Local modifications go in the override file; framework changes go via PR to `apache/magpie`.
 
 <!-- END MAGPIE BLOCK: adopter-overrides -->
+
+## Tracker backend
+
+<!-- BEGIN MAGPIE BLOCK: tracker-backend — generated from tools/dev/blocks/tracker-backend.md -->
+
+Read `tracker.platform` from `<project-config>/project.md` (default `github`) before the first tracker operation.
+With `github`, every recipe below runs as written.
+With `local-files` or `jira`, never run a `gh` command against `<tracker>`:
+look the command up in the [skill-command → vetted-operation table](../../../../tools/security-tracker/contract.md#from-skill-commands-to-vetted-operations)
+and run that vetted operation instead — `vetted-op-read` for reads, `vetted-op-tracker` for the rollup, body-field and publish operations, `vetted-op` for the other writes.
+Vetted-ops translates it for the configured backend; `<tracker>` issue numbers become the backend's IDs, and the returned `url` is the link.
+Operations on `<upstream>` (PRs, code search) do not change.
+A refusal — the backend's confidentiality guard, or an operation the backend does not have — stops the step: report it, never route around it.
+
+**Publish local tracker changes before ending.** With `local-files`, nothing reaches the team until it is committed.
+If this run wrote to the tracker, run the `tracker-pending` vetted operation as the last step, show the changed files,
+draft a commit message naming the trackers and the action, ending with the project's commit-attribution trailer, and ask.
+Only on the user's confirmation run `tracker-publish` with that message file
+(Git: commit the tracker folder and push; SVN: commit, which publishes).
+
+<!-- END MAGPIE BLOCK: tracker-backend -->
 
 *Renderer* configuration (bucket granularity, milestones, categories, scope labels, triage keywords, …) lives in a separate YAML file at
 `.apache-magpie-overrides/security-tracker-stats.yaml` (path set by `tracker_stats_config:` in
