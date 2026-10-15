@@ -85,3 +85,19 @@ def test_cli_prints_json(tmp_path, capsys):
     out = json.loads(capsys.readouterr().out)
     assert [d["subject"] for d in out] == ["Re: report"]
     assert out[0]["in_reply_to"] == "<parent@example.org>"
+
+
+def test_message_ids_bare_or_bracketed_and_several_per_flag(tmp_path, capsys):
+    drafts = tmp_path / "Drafts"
+    _draft(drafts, subject="Re: a", in_reply_to="<a@example.org>")
+    _draft(drafts, subject="Re: b", in_reply_to="<b@example.org>")
+    assert [d["subject"] for d in find_drafts(drafts, message_ids=["a@example.org"])] == ["Re: a"]
+    assert main(["--maildir", str(drafts), "--message-id", "a@example.org", "<b@example.org>"]) == 0
+    assert sorted(d["subject"] for d in json.loads(capsys.readouterr().out)) == ["Re: a", "Re: b"]
+
+
+def test_tilde_in_maildir_path_is_expanded(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    _draft("~/Mail/Drafts", subject="home draft")
+    assert (tmp_path / "Mail" / "Drafts" / "cur").is_dir()
+    assert [d["subject"] for d in find_drafts("~/Mail/Drafts")] == ["home draft"]

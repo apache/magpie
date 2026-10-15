@@ -132,8 +132,8 @@ uv run --project tools/maildir maildir-draft-find \
 
 | Flag | Meaning |
 |---|---|
-| `--maildir` | Drafts Maildir to search. A missing one yields `[]`. |
-| `--message-id` | A `Message-ID` of the thread, repeatable; matches a draft whose `In-Reply-To` or `References` names it. |
+| `--maildir` | Drafts Maildir to search; `~` is expanded. A missing one yields `[]`. |
+| `--message-id` | `Message-ID`s of the thread, with or without `<>`, several per flag; the flag repeats. Matches a draft whose `In-Reply-To` or `References` names one. |
 | `--subject` | Subject substring; `Re:` / `Fwd:` prefixes and case are ignored. |
 | `--to` | Recipient substring, matched against `To` and `Cc`. |
 

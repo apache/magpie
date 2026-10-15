@@ -47,6 +47,15 @@ def _ids(header: str | None) -> set[str]:
     return set(re.findall(r"<[^<>\s]+>", header or ""))
 
 
+def _wanted_ids(values: list[str]) -> set[str]:
+    """Normalise caller-supplied Message-IDs: bracketed or bare, one or several per value."""
+    wanted: set[str] = set()
+    for value in values:
+        for token in value.split():
+            wanted |= _ids(token) or {f"<{token.strip('<>')}>"}
+    return wanted
+
+
 def find_drafts(
     maildir_path: str | Path,
     *,
@@ -62,11 +71,11 @@ def find_drafts(
     criterion, every message in the Maildir is returned. A Maildir that does
     not exist yields no drafts rather than an error.
     """
-    path = Path(maildir_path)
+    path = Path(maildir_path).expanduser()
     if not (path / "cur").is_dir() and not (path / "new").is_dir():
         return []
 
-    wanted_ids = {mid.strip() for mid in message_ids or [] if mid.strip()}
+    wanted_ids = _wanted_ids(message_ids or [])
     wanted_subject = _normalise_subject(subject) if subject else None
     wanted_to = to.lower() if to else None
     any_criterion = bool(wanted_ids or wanted_subject or wanted_to)
@@ -106,9 +115,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--maildir", required=True, help="Path to the Drafts Maildir to search.")
     parser.add_argument(
         "--message-id",
-        action="append",
+        action="extend",
+        nargs="+",
         default=[],
-        help="A Message-ID of the thread (repeatable). Matches a draft whose In-Reply-To or References names it.",
+        help="Message-IDs of the thread, with or without <>; several per flag, and the flag repeats. "
+        "Matches a draft whose In-Reply-To or References names one.",
     )
     parser.add_argument(
         "--subject", default=None, help="Subject substring (reply prefixes and case ignored)."
