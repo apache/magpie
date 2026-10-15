@@ -102,6 +102,27 @@ procedures' `gh` must verify TLS, and kept on `ask`, never `allow`.
 `vetted-op` itself stays sandboxed: excluding it would run the whole write
 catalogue there.
 
+A read too large to carry through the agent's context goes to a file:
+`vetted-op-read --save NAME` writes a read operation's output to
+`<workspace>/saved/NAME` and prints one JSON line (`saved`, `bytes`), so a
+sweep's pages reach a deterministic tool such as `tools/pr-management`
+without passing through the agent (#1570).
+Writes and procedures refuse it, and `NAME` is a single path component.
+Because `vetted-op-read` runs outside the sandbox and `--config` can name a
+policy the agent wrote, `--save` writes only into a `<workspace>/saved/`
+directory that already exists and holds a regular `.vetted-ops-save` marker;
+it creates neither, so it never reaches a directory the caller could not
+already write.
+The output goes to an exclusively created `0600` temporary file renamed into
+place, opened with `O_NOFOLLOW`, so a planted symlink or hard link is
+replaced rather than written through.
+
+A skill family's operations may live in their own `ops_<family>.py` module
+inside the `vetted_ops` package (`ops_code_review`, `ops_quick_merge`,
+`ops_stack_review`, `ops_stale_sweep` today), registered like the core
+catalogue; only modules shipped in the package load, so the catalogue stays
+closed and adding one is the same reviewed change (#1579).
+
 The dispatcher runs from the installed `magpie-vetted-ops` plugin, which ships
 `tools/vetted-ops` without the workspace root, so the project must resolve
 standalone: it declares no `dev` dependency group, because uv resolves every
@@ -187,6 +208,17 @@ per [`docs/adapters/registry.md`](../../../docs/adapters/registry.md).
    do not load every PR description; `pr-view-with-body` returns the same fields
    plus `body`, against the policy-pinned upstream only, and is granted to
    `security-issue-import-from-pr`, which builds the tracker body from it (#1457).
+   The pr-management skills that now run their rules as code added the reads
+   those rules consume, each meant to be saved with `--save`: the triage
+   sweeps (open / label / author / review-requested) and one PR in a single
+   paginated triage shape, the triage pre-flight, recent main-branch failures,
+   the `action_required` run index, a head's workflow and check runs,
+   commits-behind, a team's roster, and the stats open and closed reads
+   (#1570); and per-family reads for quick-merge, pr-stale-sweep,
+   stack-review and code-review (#1580, #1581, #1582, #1585).
+   Each search string is built by the operation with `repo:<upstream>` from
+   policy first, so its parameter narrows a sweep and cannot re-aim it; this
+   is a fixed shape, unlike the free-text search refused below.
 
    *Repo health, release management, contributor growth and mentoring have
    landed*, completing the pass over the families that touch the forge. They

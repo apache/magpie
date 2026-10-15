@@ -108,8 +108,12 @@ error, and two skills that probe or verify the setup on demand.
   the container gateway (check 12), the eval-harness exclusion
   (check 13, if installed), the adversarial-review exclusion (check 14,
   if the `magpie-adversarial-review` plugin is installed: the
-  `excludedCommands` entry, ⚠ when missing; the plugin-cache `Edit`
-  deny, ✗ when missing; and no `allow` rule, ✗ when one matches, #1371),
+  `excludedCommands` entry on the fixed `~/.claude/magpie/adversarial-review`
+  path, ⚠ when missing and ✗ in the older versioned-glob form; the
+  plugin-cache and `~/.claude/magpie/**` `Edit` denies, ✗ when missing;
+  no `allow` rule, ✗ when one matches, #1371; and 14d, the link resolving
+  into the installed plugin, ⚠ when broken and ✗ when it is a real file
+  or directory or points anywhere else, #1578),
   and the working directories under the read block (check 15: the two
   resolved paths in the worktree's `settings.local.json`, ⚠ when missing
   or glob-only, ⚠ when they sit in committed or synced user-scope
@@ -218,6 +222,10 @@ error, and two skills that probe or verify the setup on demand.
    read-only and both link the catalog anchor on ✗.
 4. The `gh` entry, probe and check agree on the invocation-shape rule
    and cite the upstream issue.
+5. Verify check 14 fails the versioned-glob adversarial-review exclusion,
+   requires the `Edit(~/.claude/magpie/**)` deny, and reports a broken
+   `~/.claude/magpie/adversarial-review` link as ⚠ and a non-symlink or a
+   link outside the installed plugin as ✗ (#1578).
 
 ## Validation
 

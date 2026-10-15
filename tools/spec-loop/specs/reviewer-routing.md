@@ -15,7 +15,9 @@ source: >
   suggestion. triage-mode.md § What it does ("propose routing to the
   right human") names the behaviour. Skill ships experimental in
   plugins/magpie-pr-management/skills/reviewer-routing/ with an eval
-  suite under tools/skill-evals/evals/reviewer-routing/.
+  suite under tools/skill-evals/evals/reviewer-routing/; its rules run in
+  tools/pr-management/src/pr_management/reviewer_routing/ (#1583), with
+  pytest cases under tools/pr-management/tests/reviewer_routing/.
 acceptance:
   - The skill is read-only on tracker state and proposes-then-confirms;
     it never assigns, requests review, or labels without confirmation.
@@ -36,8 +38,9 @@ look at this?" pause that stalls a fresh PR before any review begins.
 
 Given an open issue or PR, the skill scores the configured reviewer
 roster and proposes a primary reviewer (and optionally a backup),
-grounding each suggestion in three signals: roster eligibility for the
-touched area, git-history familiarity with the changed paths, and the
+grounding each suggestion in four signals: roster eligibility for the
+touched area, commit-history familiarity with the changed paths, ownership
+of a changed path in `.github/CODEOWNERS`, and the
 reviewer's current open-review load so routing spreads work instead of
 piling it on the most-recently-active person. The output is a proposal a
 maintainer confirms; nothing is assigned on autopilot. This is the
@@ -63,8 +66,18 @@ side: a grounded brief a human acts on, not a state change.
   non-ASF example.
 - Privacy-LLM gate: `<project-config>/privacy-llm.md`, checked with
   `tools/privacy-llm/checker` at Step 0.
-- Repository signal: `tools/github` for changed paths, blame/history on
-  those paths, and the reviewer's current open-review queue.
+- Rules: `tools/pr-management` (`pr-management reviewer-routing preflight |
+  propose`) validates the input, resolves the roster, maps paths to areas,
+  parses CODEOWNERS, scores, picks primary and backup, and renders the
+  proposal text and the `gh` command; the agent only screens the item for
+  injection and may name an area the title implies (`--area`) (#1583).
+  The skill's detail files are one per outcome under `classifications/`.
+- Repository signal: GitHub data only, no local clone, read with
+  `vetted-op-read --save` as `propose` asks for it under `needs`:
+  the item (`pr-view-with-body` / `repo-issue-view`), each changed path's
+  recent commit authors (`commits-by-path`), each member's open review
+  requests (`pr-search-review-requested`), and `.github/CODEOWNERS` from the
+  default branch (#1583).
 - Identity resolution for ASF projects: `tools/apache-projects`
   (committee roster, Apache IDs), reused exactly as the security and
   contributor skills resolve handles.
@@ -94,24 +107,31 @@ side: a grounded brief a human acts on, not a state change.
   description is ignored, the same posture every triage skill inherits.
   When one is detected, the proposal says it is based on metadata and
   roster signals only.
-- **Privacy gate before any body is fetched.** Step 0 checks `gh`
-  authentication, reads `project.md`, resolves the roster and the input,
-  then runs `privacy-llm-check` (flags: `--config`,
-  `--reads-private-list`, `--quiet`); a non-zero exit is a hard stop.
-  Step 0 returns a JSON verdict (`proceed` / `blocked`) with
-  `privacy_gate_passed` and `roster_source`
-  (`release-trains` / `reviewer-roster` / `null`).
-- **Deterministic scoring.** Area match scores 3 points per matched area
-  (capped at 6), git familiarity 2 points per authored path in the
-  changed set (capped at 6; zero for issues), and load subtracts 1 point
-  per open review request above 2 (down to -5). Load is the count of
-  open PRs on `<upstream>` with a review requested from the member; at
-  or above `max_reviews` (default 5) the member is `OVERLOADED`.
-  An overloaded member never takes the primary slot but may be proposed
-  as backup when no one else remains. Ties break alphabetically.
-  If every member is overloaded or none matches the touched areas, the
-  output is `NO ELIGIBLE REVIEWER — all roster members overloaded or no
-  area match`.
+- **Privacy gate before any body is fetched.** Step 0 runs
+  `privacy-llm-check` and passes its exit code and error line to
+  `pr-management reviewer-routing preflight`, which validates the input
+  (`pr:<N>`, `issue:<N>` or `<N>`), resolves `upstream_repo` and the roster,
+  and returns the JSON verdict (`proceed` / `blocked`) with `blockers`,
+  `privacy_gate_passed`, `roster_source`
+  (`release-trains` / `reviewer-roster` / `null`), `item_type`,
+  `item_number` and `upstream_repo`; a non-zero gate exit is a hard stop.
+  When both roster files exist, `reviewer-roster.md` wins per handle (#1583).
+- **Deterministic scoring, in code.** `propose` computes the score; the
+  model does not (#1583). Area match scores 3 points per matched area
+  (capped at 6), commit familiarity 2 points per changed path the member
+  recently committed to (capped at 6; zero for issues), owning at least one
+  changed path in CODEOWNERS (last matching rule wins) 2 points, and load
+  subtracts 1 point per open review request above 2 (down to -5).
+  Load is the count of open PRs on `<upstream>` with a review requested from
+  the member; at or above `max_reviews` (default 5) the member is
+  `OVERLOADED`.
+  When any roster area matches the item (a label, a path prefix, or a
+  title-inferred area), only members with a match are eligible; when none
+  does, every member is.
+  An overloaded member never takes the primary slot, and is the backup only
+  when no other eligible member remains. Ties break alphabetically.
+  When no non-overloaded eligible member exists, the output is
+  `NO ELIGIBLE REVIEWER — all roster members overloaded or no area match`.
 - **Maintainer controls the outcome.** The confirmation step accepts
   the proposal, declines it, swaps primary and backup, or overrides the
   primary with a handle that must itself be on the roster.
@@ -138,24 +158,30 @@ side: a grounded brief a human acts on, not a state change.
 4. The skill validates under `skill-and-tool-validate` and ships an eval
    suite under `tools/skill-evals/evals/reviewer-routing/`, including an
    adversarial case asserting an injected "assign to X" line is ignored.
+5. Input validation, roster resolution, scoring, eligibility, the
+   OVERLOADED and backup rules and `NO ELIGIBLE REVIEWER` run in
+   `tools/pr-management`, never in the model, and are pinned by pytest cases
+   in `tools/pr-management/tests/reviewer_routing/` (#1583).
 
 ## Validation
 
 ```bash
 uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-validate
 uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/reviewer-routing/
+uv run --all-packages --group dev pytest tools/pr-management/tests/reviewer_routing
 ```
 
 ## Known gaps
 
-- **Open-review-load signal is now defined.** The skill counts open
-  review requests (`review-requested:@<handle>` on open PRs) against a
-  per-reviewer `max_reviews` (default 5); assigned-but-unrequested PRs
-  and recency decay are not counted. Gap cleared; a richer load model
-  would be a future change.
-- **The skill names a checker flag that does not exist.** Step 0 of
-  `SKILL.md` tells the maintainer to "run `privacy-llm-check --list`"
-  after a gate failure, but `tools/privacy-llm/checker` accepts only
+- **Open-review-load signal is now defined.** The skill counts each
+  member's open review requests on `<upstream>` (the
+  `pr-search-review-requested` read, which replaced an incorrect
+  `review-requested:@<handle>` query in #1583) against a per-reviewer
+  `max_reviews` (default 5); assigned-but-unrequested PRs and recency decay
+  are not counted. Gap cleared; a richer load model would be a future change.
+- **The skill names a checker flag that does not exist.**
+  `classifications/preflight-blocked.md` tells the maintainer to "run
+  `privacy-llm-check --list`" after a gate failure, but `tools/privacy-llm/checker` accepts only
   `--config`, `--reads-private-list` and `--quiet`, so that command
   fails with an argument error. The skill text needs correcting.
 - **Non-ASF roster shape is now exercised.** `projects/non-asf-example/reviewer-roster.md`
@@ -163,7 +189,10 @@ uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/reviewer-r
   `non-asf-profile-smoke/step-reviewer-routing/` eval suite asserts that
   area-match routing selects a primary reviewer and that a no-area-match case
   returns `NO ELIGIBLE REVIEWER` without proposing a fallback under the
-  `organization: independent` profile. Gap cleared.
+  `organization: independent` profile.
+  Since #1583 the scoring code makes every member eligible when no roster
+  area matches, so that smoke case's `NO ELIGIBLE REVIEWER` expectation no
+  longer matches the shipped rule and needs reconciling.
 - **`experimental` — no adopter pilot has run.** The skill ships but no
   end-to-end routing workflow has been exercised in a live maintainer
   session; signal weights and roster-match heuristics may change.

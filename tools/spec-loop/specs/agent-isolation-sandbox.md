@@ -144,8 +144,12 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
   (`stdlib`-only). Wired as a `PreToolUse` hook (Claude Code) or a
   `tool.execute.before` plugin (OpenCode), with a `--gemini` adapter for
   Gemini CLI's `BeforeTool` event (wired in the repository's
-  `.gemini/settings.json`; registration for snapshot adopters) and a `--grok`
-  adapter for Grok Build's `PreToolUse` event; inspects every shell command
+  `.gemini/settings.json`; registration for snapshot adopters), a `--grok`
+  adapter for Grok Build's `PreToolUse` event, and a `--copilot` adapter
+  for Copilot CLI's `preToolUse` event (wired in `.github/hooks/magpie.json`,
+  #1560), which also allows one simple read-only command (`gh` reads,
+  `git status/diff/log`, GET-only `gh api`, `vetted-op-read`) so reads never
+  prompt and leaves anything else to Copilot's own permission flow; inspects every shell command
   before it runs and denies the ones that break a hard framework rule,
   independent of model memory. The guard decisions live in a single
   harness-agnostic `dispatch()` core so every wired harness enforces
@@ -196,6 +200,10 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
   synced user-scope settings file; `--no-working-dirs` skips them.
   Install proposes them (Step W), verify check 15 and doctor probe 9
   report them, and update treats their absence as drift.
+  They do not stop the prompt on a vetted-ops command, which spells `~`
+  literally and so cannot be checked against the read block; where
+  vetted-ops is used, install Step V.1 requires the read block off
+  instead (#1640; see [`vetted-command-surface.md`](vetted-command-surface.md)).
   Capability: `substrate:sandbox`.
 - Whole-user git hooks — the install skill's Step P.3 alternative to
   per-project scope: global `core.hooksPath` pointing at
@@ -235,8 +243,8 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
 - Skills: `setup-isolated-setup-install`, `-update`, `-verify`,
   `-doctor`. The update skill establishes the agent-guard wiring before
   diffing anything: with the `magpie-agent-guard` plugin enabled, the
-  plugin registers the hook and resolves the engine under
-  `${CLAUDE_PLUGIN_ROOT}`, so an absent `~/.claude/scripts/agent-guard.py`
+  plugin's `hooks/hooks.json` registers the hook and resolves the engine
+  under `${GROK_PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}` (#1516), so an absent `~/.claude/scripts/agent-guard.py`
   is the expected shape rather than drift, and on either wiring a
   `git commit` carrying a `Co-Authored-By:` trailer must be denied as a
   behavioural canary (#1323). The diagnostic side — the failure catalog in
@@ -351,6 +359,14 @@ The reference model is four layers, layered:
    start inside the sandbox; the rest of `~/.docker` stays denied, and
    `Read(~/.docker/**)` still denies it to the file tools (#1404; see
    [`container-gateway.md`](container-gateway.md)).
+
+   `sandbox.network.allowedDomains` stays deliberately narrow: beyond the
+   service hosts the skills call, it carries only the build-time download
+   hosts prek needs — `*.crates.io` and `static.rust-lang.org` for the
+   `lychee` toolchain, and `registry.npmjs.org`, `nodejs.org` and
+   `releases.astral.sh` for the node and python hook environments
+   (#1565). sandbox-lint's `expected.json` carries all five, and the
+   update skill reports any of them missing as drift.
 3. **Tool permissions** — the host's `permissions.deny` blocks denied
    paths/binaries (`Read(~/.ssh/**)`, `Bash(curl *)`, …).
 4. **Forced confirmation** — `permissions.ask` on `git push` and,
@@ -418,6 +434,10 @@ carrying a sandbox-setup security fix can move a day after release
    and not on a plain GET; no blanket `Bash(gh api *)` sits in `ask`.
 5. The adopter install merges `permissions.allow` with `deny` and `ask`,
    and the update skill diffs it.
+6. The dogfooded `allowedDomains` includes `registry.npmjs.org`,
+   `nodejs.org` and `releases.astral.sh`, so a sandboxed `prek run` builds
+   its node and python hook environments; the update skill reports their
+   absence as drift (#1565).
 
 ## Validation
 

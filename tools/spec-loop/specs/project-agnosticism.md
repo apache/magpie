@@ -203,7 +203,9 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
   skills**: high-confidence `svn mv` or `dist/release/` in
   `release-archive-sweep` (two hits), `release-audit-report`,
   `release-keys-sync`, and `release-promote` (remedy adapter or capability
-  flag, pending the #602 Subversion backend), and a low-confidence bare
+  flag; the #602 Subversion backend has since shipped in `tools/vcs`
+  (#1609), but it covers source control, not the `dist` tree moves these
+  skills emit), and a low-confidence bare
   `PMC` in `dependency-license-audit`, `setup-privacy-llm`, and the new
   `contributor-identity-map`, which sits in the ASF-scoped
   contributor-growth family but declares no `organization: ASF` of its own,

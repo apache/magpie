@@ -8,7 +8,8 @@ kind: feature
 mode: infra
 source: >
   README.md § How adoption works / Adopting the framework / Maintenance.
-  Implemented by the setup family (setup and siblings) and the
+  Implemented by the setup family (setup and siblings), the
+  plugins/magpie-setup/hooks/ drift-check mod, and the
   snapshot + agentic-override model.
 acceptance:
   - The default install a fresh adopter is offered is the marketplace
@@ -283,6 +284,41 @@ committed version with drift detection.
   The check is the shared pre-flight block's `setup_preflight` run (see
   criteria 4 and 24); skills carry no `## Snapshot drift` section of their
   own (removed in #1470).
+- **Session-start drift banner (Claude Code).** The `magpie-setup` plugin
+  ships a Claude Code mod, `plugins/magpie-setup/hooks/drift-check.ts`
+  (registered in `hooks/hooks.json`, #1552), that reads the committed lock
+  at session start, spends no model tokens, and shows a warning above the
+  prompt naming `/magpie-setup upgrade` when it finds drift.
+  On `method: marketplace` it applies floor semantics: drift only when the
+  installed plugin version is below `min_version` (PEP 440, dev segment
+  included).
+  On `git-tag` / `git-branch` it compares the pin's `ref` / `commit` with
+  `.apache-magpie.local.lock`'s `source_ref` / `fetched_commit`; on
+  `svn-zip` it compares `ref` with `source_ref`; a missing, empty or
+  malformed lock of either kind is reported as drift.
+  `method: local` is adopted with no drift (#1614), and a repo with no lock
+  shows nothing.
+  Any error is a silent no-op; the `check-upgrade.sh` command hook stays
+  wired beside it for sessions where mods do not load.
+- **An `svn-zip` lock may carry `sha512:`** (#1596), the released zip's
+  digest `locks.md` documents; `setup_preflight` accepts it only on
+  `method: svn-zip`, rejects it on any other method and reports an empty
+  value as missing. It is not compared against the local lock, and other
+  unknown keys still make the lock malformed.
+- **Grok action guard** (#1516). With Grok as a selected runtime, a
+  marketplace install uses the enabled `magpie-agent-guard` plugin's bundled
+  hook and adds nothing to the repo.
+  A framework checkout or pinned snapshot gets exactly one Magpie-owned
+  project hook, `.grok/hooks/magpie-agent-guard.json`, derived from
+  `plugins/magpie-setup/templates/grok-agent-guard-hook.json` (only the
+  executable path changes, to the snapshot's `agent_guard/__init__.py`).
+  `install`, `upgrade` and `uninstall` touch only that file, surface a diff
+  before replacing or removing a hand-edited copy, leave every other
+  `.grok/hooks/*` file and `.grok/config.toml` alone, and never grant or
+  reset Grok's project-hook trust, which stays the operator's decision.
+  `verify` 8h.1 checks the wiring with `grok inspect --json`, warns on no
+  guard or a duplicate one, and asks the operator for one allowed and one
+  denied shell command as the live check.
 - **Overrides are agent-readable Markdown** under
   `.apache-magpie-overrides/`, consulted at runtime and merged before
   default behaviour ([pairing/correctability is the model]).
@@ -602,6 +638,19 @@ committed version with drift detection.
     `plugins/magpie-setup/templates/<file>` on a marketplace install and
     from `<snapshot-dir>/projects/_template/<file>` on a snapshot install;
     both are the same file (#1410).
+32. In Claude Code, a session started in a repo whose lock has drifted shows
+    the drift banner from the `drift-check.ts` mod with no model call; a
+    marketplace install at or above its floor, a matching snapshot pin, a
+    `method: local` lock and an unadopted repo show none (#1552, #1614).
+    The mod passes `claude plugin validate --strict` and its
+    `claude plugin test` suite.
+33. An `svn-zip` lock carrying `sha512:` parses and yields the same project
+    findings as one without it; `sha512:` on any other method, or with no
+    value, makes the lock malformed (#1596).
+34. Setup installs, upgrades and removes only
+    `.grok/hooks/magpie-agent-guard.json` for a non-marketplace Grok
+    runtime, adds no project hook when the `magpie-agent-guard` plugin is
+    enabled, and never changes Grok's hook-trust state (#1516).
 
 ## Validation
 

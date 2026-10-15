@@ -263,7 +263,15 @@ Adopter config scaffolds live in `plugins/magpie-setup/templates/`
   themselves. Identities count only when confirmed: a chat or social
   profile that merely names the GitHub handle is a possible match, not
   an identity, and a self-linked account counts only when it links back
-  to the GitHub profile. Reasoned criticism is constructive. The
+  to the GitHub profile.
+  Posting addresses the contributor never commits with come from the
+  maintainer: the skill reads `mailing_list` addresses recorded with
+  `confirmed_by` in the personal-layer `contributor-identities.md`, and
+  for anyone still without one proposes possible matches (display-name
+  search, then graded guesses over every sender in the window), every
+  row defaulting to reject; accepted addresses are written to the
+  personal layer only after the maintainer confirms the diff, so later
+  runs ask only about people who still have none (#1589). Reasoned criticism is constructive. The
   community indicator never changes counts, thresholds or the band,
   though any confirmed collected row means an off-GitHub signal is
   present; in `contributor-to-committer` that signal is always
@@ -292,9 +300,18 @@ Adopter config scaffolds live in `plugins/magpie-setup/templates/`
   never truncates it (it stops if a single day exceeds the limit).
   It maps roster ids to GitHub handles through the directory or the
   maintainer, never by guessing, and stops without a roster.
-  It logs every pre-filter drop, ignores evidence-only floors, does not
-  pre-filter the PMC pool, and treats a capped count below its floor as
-  unknown (written `>= N`), never missing.
+  The pre-filter is the only place the floors are used: it drops anyone
+  with nothing landed in the last `screen_recent_activity_months`
+  (default 4, both targets), then keeps a person when merged PRs or
+  reviews reach `screen_prefilter_ratio` of the floor
+  (`screen_prefilter_require: any`, or both with `all`), applying that
+  count check to the PMC pool only when `screen_prefilter_targets` is
+  `both` (#1592).
+  It logs every drop with its counts and the check that dropped it, and
+  ignores evidence-only floors.
+  Everyone who passes is measured and reported with their activity data
+  only: no reference column, no floor comparison, no shortlist, and a
+  capped count is written as a minimum (`>= N`) (#1587).
   The report is committed to `report_repo` only after the maintainer
   confirms, and only when the code host reports the repository private
   (`contract:source-control` → `repository_metadata`),
@@ -361,6 +378,22 @@ Adopter config scaffolds live in `plugins/magpie-setup/templates/`
    (the git-directory home on an unadopted repository) and never offers
    `.apache-magpie-overrides/`
    (`tools/skill-evals/evals/contributor-calibrate/step-6-write-configuration/`).
+7. `contributor-candidate-screen` uses the floors only in its
+   pre-filter, drops anyone with no change landed in the last
+   `screen_recent_activity_months`, honours `screen_prefilter_require`
+   and `screen_prefilter_targets`, and logs every drop with the check
+   that dropped it (#1592;
+   `tools/skill-evals/evals/contributor-candidate-screen/step-2-pre-filter/`).
+8. `contributor-candidate-screen` reports everyone who passes the
+   pre-filter, alphabetically, with no floor comparison, floors-met
+   count or shortlist (#1587;
+   `tools/skill-evals/evals/contributor-candidate-screen/step-3-measure/`,
+   `step-4-write-report/`).
+9. Community signals never attribute a list message to an address the
+   maintainer has not confirmed; proposed posting-address matches
+   default to reject, and accepted ones are recorded only in the
+   personal-layer `contributor-identities.md` after the maintainer
+   confirms the diff (#1589).
 
 ## Validation
 

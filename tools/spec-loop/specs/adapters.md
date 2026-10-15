@@ -148,6 +148,11 @@ by swapping the adapter, not the skill.
   `git`, `hg`, `fossil`, and `svn` are complete backends; `svn` maps the
   operations onto the centralized model — no staging area (`commit` records
   every working-copy change), `fetch` a no-op, `push` refused (#602).
+  The `svn` backend needs Subversion 1.9+ (an older `svn` reports as
+  unavailable) and runs every call `--non-interactive`, so a missing
+  credential fails instead of prompting; on `svn` a change goes public at
+  `commit` and `new-branch` (a server-side copy), so a skill's pre-publish
+  gates belong there rather than at `push` (#1609).
   A Fossil checkout is detected by its `.fslckout` (or `_FOSSIL_`) marker
   (#1494).
 - `tools/fossil/` (`magpie-fossil`) — stdlib-only Fossil SCM forge bridge,
@@ -274,6 +279,10 @@ by swapping the adapter, not the skill.
    privacy/credential handling, operations, and config keys.
 5. Mail-adapter tests prove private fetched content crosses the
    Privacy-LLM/redaction boundary before model-facing skill context.
+6. `magpie-vcs` drives Git, Mercurial, Fossil, and Subversion working
+   copies through the same abstract operations; on Subversion `fetch` is a
+   no-op, `push` and `diff --cached` are refused, and every `svn` call is
+   non-interactive (#1609).
 
 ## Validation
 

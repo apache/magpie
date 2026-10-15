@@ -216,6 +216,17 @@ publication, with a human gate and an audit-log entry at every step.
   on ordinary runs, but on a `fix released` transition, where the record
   still needs `allocated → review-ready`, it raises the same deferral
   blocker in the Step 6 recap as an `expired` session.
+- **CVE selector and push overrides (#1554, #1558).**
+  A `sync CVE-…` selector matches a tracker only when the ID appears in
+  its *CVE tool link* field, so a related or cross-referenced CVE elsewhere
+  in the body does not select it.
+  The bulk pre-flight reviews its batched GraphQL result through a `jq`
+  projection of state, labels and last-comment metadata that never prints
+  the last comment's body.
+  The Step 5b push merges into the live record; `--replace-references`
+  (to drop a reference that must no longer appear) and
+  `--allow-product-change` (only while the record is still `DRAFT`) are
+  used only after the user confirms.
 - **Small always-on footprint (#1447).**
   Each security skill's `description` and `when_to_use`, which load in
   every session, state only its purpose, main trigger phrases and where
@@ -272,6 +283,9 @@ publication, with a human gate and an audit-log entry at every step.
    This resolution never redirects list reads or changes `<security-list>`.
    Draft recipes fail before backend invocation if the resolved CC has not
    been materialized or is blank; valid addresses reach the backend unchanged.
+5. A `sync CVE-…` selector picks only trackers whose *CVE tool link*
+   field carries that ID, and the bulk pre-flight never prints a private
+   comment body (#1554, #1558).
 
 ## Validation
 
