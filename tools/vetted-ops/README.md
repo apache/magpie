@@ -499,8 +499,11 @@ anything still invoked directly:
 "permissions": {
   // Only the READ dispatcher is allowlisted. Allowlisting `vetted-op` itself
   // would grant every write in the catalogue, since --caller is argv.
+  // Both launchers: skills use `uv run --project`, gatherer agents `uvx --from`.
+  // Per machine, add the same two rules with $HOME resolved (see below).
   "allow": [
-    "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-read *)"
+    "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-read *)",
+    "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *)"
   ],
   "ask": [
     "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op *)",
@@ -532,6 +535,7 @@ fails the same way:
   "excludedCommands": [
     "gh *",
     "uv run --project ~/.claude/magpie/vetted-ops vetted-op-read *",
+    "uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *",
     "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *",
     "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *"
   ]
@@ -558,6 +562,12 @@ that position (`--with <any package>`, a second `--from`), and the exclusion
 then runs it outside the sandbox. The fixed path is `Edit`-denied like the
 catalogue it points at, and sits outside every `sandbox.filesystem.allowWrite`
 root.
+
+**The read dispatcher must never prompt.**
+This is an imperative of the secure setup, not a tuning option: bulk skills call `vetted-op-read` from background gatherer agents, which cannot surface a prompt, so every prompt there is a silent denial and the sync returns partial results.
+Beyond the rules above, that takes the same two `allow` rules and the same two `vetted-op-read` exclusions with the resolved absolute `$HOME/.claude/magpie/vetted-ops` base (per machine: user scope or `settings.local.json`), no `ask` rule that matches a `vetted-op-read` command, and `permissions.blockReadsOutsideWorkingDirectories` off in every scope, since the read block cannot check the literal `~` these commands spell.
+The three `Edit` deny rules are required alongside: they are what makes the unprompted read safe.
+The setup skills install, verify and report drift on the whole shape; see [Read-only vetted ops never prompt](../../docs/setup/secure-agent-setup.md#read-only-vetted-ops-never-prompt).
 
 The dispatcher must live where the agent cannot rewrite it — otherwise an agent
 that edits `ops.py` has defeated the whole design. That is why it ships as the

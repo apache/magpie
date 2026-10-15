@@ -1214,11 +1214,15 @@ scratch root is already writable to sandboxed Bash. Rationale:
 
 - For one session, `/add-dir <path>` does the same without a settings
   change.
-- A Bash command that spells the path with a literal `~` can still stop
+- A Bash command that spells the path with a literal `~` still stops
   with `… names '~/.claude/magpie/vetted-ops', which cannot be checked
-  against the read block`, even with the directory listed: the check
-  does not resolve `~` inside a command. That case is not fixed by this
-  entry.
+  against the read block`, even with the directory listed or an `allow`
+  rule matching: the check does not resolve `~` inside a command. Every
+  vetted-ops command is spelled that way, so where the dispatcher is used
+  the only fix is to turn `blockReadsOutsideWorkingDirectories` off. That
+  is required, not optional: a background gatherer agent cannot answer
+  the prompt, so each one is a silent denial. See
+  [Read-only vetted ops never prompt](secure-agent-setup.md#read-only-vetted-ops-never-prompt).
 - The prompt comes before any command runs, so the sandbox-error hint
   hook never sees it. `setup-isolated-setup-doctor` probe 9 and
   `setup-isolated-setup-verify` check 15 detect it instead.

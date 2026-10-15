@@ -55,7 +55,11 @@
 #   /tmp/claude-<uid>        the session scratch root
 # Both are resolved to literal absolute paths: the setting does not
 # match globs such as `/tmp/claude-*`. They are harmless when the read
-# block is off. `--no-working-dirs` skips them.
+# block is off. They do NOT stop the prompt on a vetted-ops command, which
+# spells `~` literally and so cannot be checked against the read block;
+# where vetted-ops is used the read block must be off (see
+# docs/setup/secure-agent-setup.md, "Read-only vetted ops never prompt").
+# `--no-working-dirs` skips them.
 #
 # Scope: writes ONLY to project-local `<repo>/.claude/settings.local.json`,
 # never to user-scope (`~/.claude/settings.json`) and never to the

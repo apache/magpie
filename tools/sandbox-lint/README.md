@@ -137,6 +137,18 @@ uv run --project tools/sandbox-lint sandbox-lint --any-harness /path/to/magpie
    - `permissions.deny` contains the verbatim entries listed in
      [`src/sandbox_lint/__init__.py`](src/sandbox_lint/__init__.py)
      (`REQUIRED_PERMISSIONS_DENY`).
+   - When a `Bash(...)` permission rule or a `sandbox.excludedCommands`
+     entry names a vetted-op dispatcher (the defensive `Edit` deny rules
+     alone do not count), the read dispatcher never prompts:
+     `permissions.allow` carries `vetted-op-read` for both launchers
+     (`uv run --project`, `uvx --from`) on the
+     `~/.claude/magpie/vetted-ops` base, no `permissions.ask` rule
+     matches a `vetted-op-read` command (matched as a pattern, so a
+     broad `Bash(uvx *)` counts),
+     `permissions.blockReadsOutsideWorkingDirectories` is not `true`,
+     and `permissions.deny` carries the three vetted-ops `Edit`
+     tamper-protection rules. See
+     [Read-only vetted ops never prompt](../../docs/setup/secure-agent-setup.md#read-only-vetted-ops-never-prompt).
    - `sandbox.network.allowUnixSockets` contains no entry that names a
      container daemon socket (`docker.sock`, `podman.sock`, or anything
      ending in `-api.sock`, matched case-insensitively) unless it sits in the

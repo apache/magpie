@@ -125,6 +125,18 @@ path would prompt every time, so `sandbox-add-project-root.sh` lists
 `$HOME/.claude/magpie`, resolved, as a working directory in each worktree's
 `settings.local.json` (#1418; see
 [`agent-isolation-sandbox.md`](agent-isolation-sandbox.md)).
+That does not cover the dispatcher commands themselves: they spell `~`
+literally, which the read check cannot resolve, so every call prompts while
+the block is on, whatever the `allow` rules or working directories say.
+Read-only vetted ops must never prompt, because background gatherer agents
+cannot answer a prompt and each one becomes a silent denial. The required
+shape is `vetted-op-read` allowed and excluded for both launchers on both the
+`~` and the resolved absolute `$HOME` base (the absolute forms per machine),
+no `ask` rule matching a `vetted-op-read` command, the read block off in
+every scope, and the three vetted-ops `Edit` deny rules present.
+The install skill applies it (Step V.1), verify checks it (check 16), update
+reports drift as must-fix, and sandbox-lint enforces the `~` half on the
+committed settings. `vetted-op-tracker` and `vetted-op` keep their `ask`.
 
 ## Scoping — what is real and what is aspiration
 

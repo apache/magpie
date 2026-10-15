@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:1f327e069312dad2
 license: Apache-2.0
-measured_tokens: 5455
+measured_tokens: 5981
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -150,6 +150,7 @@ Walk each:
 
    **Check `permissions.additionalDirectories` in each worktree's `settings.local.json`.**
    When `permissions.blockReadsOutsideWorkingDirectories` is on in any scope, the resolved `$HOME/.claude/magpie` and `/tmp/claude-$(id -u)` must be listed as literal absolute paths.
+   Where the vetted-ops dispatcher is used, the read block being on is itself a must-fix ([the vetted-ops split and exclusion](#the-vetted-ops-split-and-exclusion), fourth check), and these entries do not clear it.
    Report a missing path, or one covered only by a glob such as `/tmp/claude-*` (listed as a working directory but never matched), under "prompts you are paying"; the remedy is `sandbox-add-project-root.sh --all-worktrees`, which predates this check on older installs and needs the updated script copy.
    Flag the same paths in a synced user-scope settings file as per-host drift.
    Rules: [`docs/setup/secure-agent-setup.md` → Working directories under the read-outside-working-directories block](../../../../docs/setup/secure-agent-setup.md#working-directories-under-the-read-outside-working-directories-block).
@@ -188,7 +189,7 @@ Walk each:
 
 ### The vetted-ops split and exclusion
 
-If the adopter uses the `vetted-ops` dispatcher (a `.apache-magpie-overrides/tools/vetted-ops/config.toml` exists, or `.claude/settings.json` carries a `vetted-op` rule), check three things.
+If the adopter uses the `vetted-ops` dispatcher (a `.apache-magpie-overrides/tools/vetted-ops/config.toml` exists, or `.claude/settings.json` carries a `vetted-op` rule), check four things.
 
 **First, and most important: has `vetted-op` drifted into `allow`?**
 Only `vetted-op-read` belongs there.
@@ -213,6 +214,22 @@ Rules and `sandbox.excludedCommands` entries spelled `~/.claude/plugins/cache/ap
 The `*` also matches spaces, so it approves, and runs unsandboxed, a command with extra `uv` options spliced in where the version sits.
 Report each one as a must-fix and propose the replacement, which names the fixed path the plugin's `SessionStart` hook maintains: `~/.claude/magpie/vetted-ops`.
 Check the user-scope settings and any agent definition whose `tools:` list carries the rule, not only the project's `.claude/settings.json`.
+
+**Fourth, read-only vetted ops never prompt.**
+This is an imperative of the setup, so every gap is a must-fix, reported beside the first check rather than under "prompts you are paying".
+Resolve `$HOME` and read every scope (user, project, project-local, managed where readable).
+Report as a must-fix:
+
+- a missing `vetted-op-read` allow form: each launcher (`uvx --from`, `uv run --project`) with each base (`~/.claude/magpie/vetted-ops` and the resolved `$HOME/.claude/magpie/vetted-ops`), four rules;
+- an allowed form without its matching `sandbox.excludedCommands` entry (the absolute pair in the same per-machine file as its allow rules), since such a call runs sandboxed and its `gh` fails silently;
+- the absolute pair in the committed project settings rather than user scope or `settings.local.json`;
+- any `permissions.ask` rule that matches a `vetted-op-read` command in any of the four forms, broad rules such as `Bash(uvx *)` included, since an ask rule prompts even when an allow rule matches;
+- `permissions.blockReadsOutsideWorkingDirectories` on in any scope, under which every call prompts because the check cannot resolve the literal `~`;
+- a missing vetted-ops `Edit` deny rule (the second check), since those rules are what make the unprompted read safe.
+
+The reason is the background gatherer agents: they cannot surface a prompt, so each prompt is a silent denial and a bulk sync returns partial results.
+This covers `vetted-op-read` only; `vetted-op-tracker` and `vetted-op` stay as the first check says.
+The remedy is `setup-isolated-setup-install` Step V.1; shape and rationale: [`docs/setup/secure-agent-setup.md` → Read-only vetted ops never prompt](../../../../docs/setup/secure-agent-setup.md#read-only-vetted-ops-never-prompt).
 
 **The adversarial-review exclusion has the same must-fix.**
 A `sandbox.excludedCommands` entry spelled `uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/*/tools/adversarial-review adversarial-review *` is the pre-fixed-path form: once the command is approved, a run with `uv` options spliced in where the version sits goes outside the sandbox.
@@ -259,5 +276,6 @@ If something is out-of-date or has drifted, name the concrete follow-up:
 - comdev MCP checkout behind `origin/main` → run the printed `git pull --ff-only` + `npm install`; no manifest bump or cooldown (these track `main` by design).
   If the checkout is on the wrong branch or installed from a non-`apache/comdev` remote, re-install per [`tools/ponymail/tool.md`](../../../../tools/ponymail/tool.md#keeping-the-checkout-current) / [`tools/apache-projects/tool.md`](../../../../tools/apache-projects/tool.md#keeping-the-checkout-current).
 - User-scope script drift → re-`cp` from the framework checkout, or — if the script lives in `~/.claude-config/` and the user wants the change propagated to other machines — invoke `setup-shared-config-sync` to commit + push.
+- A `vetted-op-read` form that would prompt, or a missing vetted-ops `Edit` deny rule → must-fix; `setup-isolated-setup-install` Step V.1 proposes the edit and the user applies it.
 - Settings.json shape drift → the user merges the new framework block into their tracker's `.claude/settings.json` by hand (the section to copy from is documented in [The framework's own `.claude/settings.json`](../../../../docs/setup/secure-agent-setup.md#the-frameworks-own-claudesettingsjson)).
 - A previously-blocked denial command now succeeds → stop and surface as a regression, not a routine update; the user should investigate before bumping anything.

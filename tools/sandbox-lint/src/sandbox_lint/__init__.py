@@ -33,6 +33,7 @@ via developer override).
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import json
 import os
 import sys
@@ -88,6 +89,33 @@ FORBIDDEN_ALLOW_WRITE = {
     "~/.docker",
     "~/.kube",
 }
+
+# Read-only vetted ops must never prompt: bulk skills call the read
+# dispatcher from background gatherer agents, which cannot surface a prompt,
+# so a prompt there is a silent denial. These invariants apply whenever the
+# settings carry any vetted-op rule. Only the `~` base is required here; the
+# absolute-$HOME forms are per machine and the setup skills add them.
+VETTED_OPS_BASE = "~/.claude/magpie/vetted-ops"
+VETTED_OP_READ_LAUNCHERS = ("uv run --project", "uvx --from")
+REQUIRED_VETTED_OP_READ_ALLOW = tuple(
+    f"Bash({launcher} {VETTED_OPS_BASE} vetted-op-read *)" for launcher in VETTED_OP_READ_LAUNCHERS
+)
+# Sample read commands an ask rule is matched against, for both launchers and
+# both bases (the literal `~` and a resolved absolute home).
+VETTED_OP_READ_SAMPLE_COMMANDS = tuple(
+    f"{launcher} {base} vetted-op-read --caller sandbox-lint pr-view"
+    for launcher in VETTED_OP_READ_LAUNCHERS
+    for base in (VETTED_OPS_BASE, "/home/sandbox-lint/.claude/magpie/vetted-ops")
+)
+# Spellings that name a dispatcher: `vetted-op ` carries its trailing space so
+# the `vetted-ops` path segment alone does not count.
+VETTED_OP_DISPATCHER_NAMES = ("vetted-op-read", "vetted-op-tracker", "vetted-op ")
+# The tamper protection that makes the unprompted read safe to allow.
+REQUIRED_VETTED_OPS_DENY = (
+    "Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
+    "Edit(~/.claude/magpie/**)",
+    "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
+)
 
 # permissions.deny must contain at least these entries verbatim. Each
 # corresponds to an exfiltration vector documented in the threat model.
@@ -302,6 +330,8 @@ def check_invariants(settings: dict[str, Any], project_root: Path | None = None)
                     "name the exact value there and use '*' only at the end"
                 )
         ask = set(perms.get("ask", []) or [])
+        excluded = [e for e in sandbox.get("excludedCommands", []) or [] if isinstance(e, str)]
+        errors.extend(_vetted_op_read_never_prompts(perms, ask, deny, excluded))
         if "Bash(gh *)" in ask:
             errors.append(
                 "permissions.ask: must not contain 'Bash(gh *)' (ask beats allow "
@@ -348,6 +378,67 @@ def check_invariants(settings: dict[str, Any], project_root: Path | None = None)
                 "or <git-common-dir>/apache-magpie/run/<worktree-id>/*.sock when the project has not adopted Magpie) instead"
             )
 
+    return errors
+
+
+def _names_dispatcher(command: str) -> bool:
+    return any(name in f"{command} " for name in VETTED_OP_DISPATCHER_NAMES)
+
+
+def _bash_rule_matches(rule: str, command: str) -> bool:
+    """Whether a `Bash` permission rule matches ``command`` (fnmatch-style)."""
+    if rule == "Bash":
+        return True
+    if not (rule.startswith("Bash(") and rule.endswith(")")):
+        return False
+    pattern = rule[len("Bash(") : -1]
+    if pattern.endswith(":*"):  # legacy prefix form
+        pattern = pattern[:-2] + "*"
+    return fnmatch.fnmatchcase(command, pattern)
+
+
+def _vetted_op_read_never_prompts(
+    perms: dict[str, Any], ask: set[str], deny: set[str], excluded: list[str]
+) -> list[str]:
+    """Violations of the never-prompt shape for the vetted-ops read dispatcher.
+
+    Applies only when a `Bash(...)` permission rule or a
+    ``sandbox.excludedCommands`` entry names a dispatcher. The defensive
+    `Edit(...vetted-ops/**)` deny rules alone do not trigger it.
+    """
+    bash_rules = [
+        r[len("Bash(") : -1]
+        for key in ("allow", "ask", "deny")
+        for r in perms.get(key, []) or []
+        if isinstance(r, str) and r.startswith("Bash(") and r.endswith(")")
+    ]
+    if not any(_names_dispatcher(c) for c in [*bash_rules, *excluded]):
+        return []
+    errors: list[str] = []
+    allow = set(perms.get("allow", []) or [])
+    for required in REQUIRED_VETTED_OP_READ_ALLOW:
+        if required not in allow:
+            errors.append(
+                f"permissions.allow: must contain {required!r} "
+                "(a vetted-op-read call must never prompt; a background gatherer cannot answer it)"
+            )
+    for rule in sorted(ask):
+        if any(_bash_rule_matches(rule, c) for c in VETTED_OP_READ_SAMPLE_COMMANDS):
+            errors.append(
+                f"permissions.ask: must not contain {rule!r} "
+                "(ask beats allow, so every vetted-op-read call would prompt)"
+            )
+    if perms.get("blockReadsOutsideWorkingDirectories") is True:
+        errors.append(
+            "permissions.blockReadsOutsideWorkingDirectories: must not be true where vetted-ops is used "
+            "(the read check cannot resolve the literal '~' the commands spell, so every call prompts)"
+        )
+    for required in REQUIRED_VETTED_OPS_DENY:
+        if required not in deny:
+            errors.append(
+                f"permissions.deny: must contain {required!r} "
+                "(tamper protection for the vetted-ops catalogue, fixed path and policy)"
+            )
     return errors
 
 

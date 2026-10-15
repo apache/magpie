@@ -16,6 +16,7 @@
     - [Raising the claude-code floor](#raising-the-claude-code-floor)
     - [Wiring the check script into a weekly routine](#wiring-the-check-script-into-a-weekly-routine)
   - [The framework's own `.claude/settings.json`](#the-frameworks-own-claudesettingsjson)
+  - [Read-only vetted ops never prompt](#read-only-vetted-ops-never-prompt)
   - [Project-root coverage in the sandbox allowlists](#project-root-coverage-in-the-sandbox-allowlists)
     - [Why project-local, not user-scope and not committed-project](#why-project-local-not-user-scope-and-not-committed-project)
     - [Security rationale — why project-local is safe to write to](#security-rationale--why-project-local-is-safe-to-write-to)
@@ -670,6 +671,10 @@ below, annotated.
       // the version in the plugin-cache path instead: a `*` also matches
       // spaces, so it would approve (and, excluded, run unsandboxed) a command
       // with extra `uv` options spliced in at that position.
+      // These two rules are the committed half of an imperative: no
+      // vetted-op-read call may ever prompt. The absolute-$HOME forms are
+      // per machine and the install skill adds them. See "Read-only vetted
+      // ops never prompt" below.
       "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-read *)",
       "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *)",   // same dispatcher, the form bulk gatherer agents use
       // Read-only MCP tools the security skills call on every sync / import /
@@ -906,6 +911,87 @@ equivalent to add. The "always confirm" half carries over via OpenCode's own
 policy: `sandbox-lint --opencode` requires `permission.bash` to default to
 `ask`/`deny` (never a blanket `allow`), so `gh` write subcommands prompt there
 by default. No `opencode.json` change is needed to match the Claude config.
+
+## Read-only vetted ops never prompt
+
+This is an imperative of the secure setup, not a tuning option.
+No invocation of the vetted-ops read dispatcher, `vetted-op-read`, may ever raise a permission prompt, in any form.
+`setup-isolated-setup-install` applies the shape below (Step V), `setup-isolated-setup-verify` checks it (check 16), and `setup-isolated-setup-update` reports any drift from it as a must-fix.
+
+**Why.**
+Bulk skills fan out into background gatherer agents, and a background agent cannot surface a prompt.
+Every prompt there becomes a silent denial: the gatherer's read fails, and the orchestrator gets a partial report with nothing to show that a read was refused.
+A bulk sync over a few dozen trackers then returns patchy results that cannot be verified after the fact.
+In the foreground the same gap is one prompt per read per tracker, which trains the operator to approve without reading.
+
+**The required shape.**
+It has a shared half and a per-machine half.
+The `~` allow pair, the `~` exclusions and the three deny rules may live in the committed project `.claude/settings.json` (as in the framework's own) or in user scope `~/.claude/settings.json`; sandbox-lint checks the project file whenever it names a dispatcher.
+The absolute-`$HOME` forms, both the allow rules and the matching exclusions, are per machine: they go in user scope, or in each worktree's project-local `.claude/settings.local.json` when the user-scope file is [synced across machines](#syncing-user-scope-config-across-machines) whose home directories differ.
+They never go in a committed file.
+
+1. `permissions.allow` carries `vetted-op-read` in every form the skills and agents spell it: both launchers (`uvx --from` and `uv run --project`), each with both bases (the literal `~/.claude/magpie/vetted-ops` and the resolved absolute `$HOME/.claude/magpie/vetted-ops`).
+   The framework's dogfooded settings carry the two `~` forms only, because the absolute path is per user.
+   `setup-isolated-setup-install` adds the two absolute forms on each machine.
+2. No `permissions.ask` rule, in any scope, matches a `vetted-op-read` command in any of the four forms; a broad rule such as `Bash(uvx *)` counts.
+   Claude Code evaluates deny, then ask, then allow, and a matching ask rule prompts even when an allow rule also matches.
+3. `permissions.blockReadsOutsideWorkingDirectories` is `false` or absent, in every scope.
+   With it on, every call prompts (*"uvx names '~/.claude/magpie/vetted-ops', which cannot be checked against the read block"*): the read check cannot resolve the literal `~` that the commands spell, and the skills and agents spell it that way because the `~` exclusions are written that way.
+   Neither an `allow` rule nor listing the absolute `$HOME/.claude/magpie` in `permissions.additionalDirectories` overrides that check.
+   Turning the setting off does not unsandbox anything: sandboxed Bash still reads only what `sandbox.filesystem` allows, and the agent's `Read` tool keeps its `permissions.deny` rules on credential paths.
+4. `permissions.deny` carries all three tamper-protection rules:
+   - `Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)` — the operation catalogue;
+   - `Edit(~/.claude/magpie/**)` — the fixed path the rules name;
+   - `Edit(.apache-magpie-overrides/tools/vetted-ops/**)` — the policy.
+
+   They are what makes an unprompted read safe to allow: the `allow` rests on the catalogue's shape, so the agent that calls the dispatcher must not be able to edit it.
+   A missing rule is a must-fix.
+5. `sandbox.excludedCommands` keeps the `vetted-op-read` and `vetted-op-tracker` exclusions in both `~` launcher forms, as in [the framework's own settings](#the-frameworks-own-claudesettingsjson).
+   Every allowed `vetted-op-read` form also needs its exclusion, so the two absolute-base allow rules come with two absolute-base `vetted-op-read` exclusions in the same per-machine file.
+   Without them, a call spelled with the absolute path is approved without a prompt but runs inside the sandbox, where its `gh` cannot verify TLS: a silent failure again.
+
+```jsonc
+// shared: committed project .claude/settings.json, or user scope
+"sandbox": {
+  "excludedCommands": [
+    "uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *",
+    "uv run --project ~/.claude/magpie/vetted-ops vetted-op-read *"
+    // ...plus the two vetted-op-tracker entries
+  ]
+},
+"permissions": {
+  "allow": [
+    "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *)",
+    "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-read *)"
+  ],
+  "deny": [
+    "Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
+    "Edit(~/.claude/magpie/**)",
+    "Edit(.apache-magpie-overrides/tools/vetted-ops/**)"
+  ]
+  // and: no ask rule matching vetted-op-read,
+  // no "blockReadsOutsideWorkingDirectories": true in any scope
+}
+
+// per machine ($HOME resolved): user scope, or settings.local.json
+"sandbox": {
+  "excludedCommands": [
+    "uvx --from /home/alice/.claude/magpie/vetted-ops vetted-op-read *",
+    "uv run --project /home/alice/.claude/magpie/vetted-ops vetted-op-read *"
+  ]
+},
+"permissions": {
+  "allow": [
+    "Bash(uvx --from /home/alice/.claude/magpie/vetted-ops vetted-op-read *)",
+    "Bash(uv run --project /home/alice/.claude/magpie/vetted-ops vetted-op-read *)"
+  ]
+}
+```
+
+An agent definition that narrows its tools, such as a read-only gatherer's `tools:` list, names the same `uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *` form; any other spelling is a prompt the agent cannot answer.
+
+The imperative covers the read dispatcher only.
+`vetted-op-tracker` and `vetted-op` write: they keep their `ask` rule and never go in `allow` ([why](#the-frameworks-own-claudesettingsjson)), so a skill runs them from the foreground session, never from a background agent.
 
 ## Project-root coverage in the sandbox allowlists
 
@@ -1292,6 +1378,15 @@ restore the stock `prek`.
 
 ## Working directories under the read-outside-working-directories block
 
+Where the vetted-ops dispatcher is used, this setting **must be off**: with
+it on, every `vetted-op-read` call prompts, and the entries below do not
+help, because the read check cannot resolve the literal `~` the commands
+spell. See [Read-only vetted ops never prompt](#read-only-vetted-ops-never-prompt).
+The rest of this section applies only where the setting is on anyway, for
+instance forced by managed settings; such a machine cannot meet the
+imperative and must not run bulk skills that fan out into background
+gatherer agents.
+
 Claude Code's `permissions.blockReadsOutsideWorkingDirectories` setting,
 when it is on in user or managed settings, makes any read of a path
 outside the session's working directories ask first. That covers the
@@ -1341,8 +1436,9 @@ Three rules for the entries:
 
 For a single session, `/add-dir <path>` does the same without a settings
 change. One case these entries do not cover: a Bash command that spells
-the path with a literal `~` can still prompt, because the read check does
-not resolve `~` inside a command. `setup-isolated-setup-install` runs the
+the path with a literal `~` still prompts, because the read check does
+not resolve `~` inside a command. Every vetted-ops command is spelled that
+way, which is why the read block itself has to be off. `setup-isolated-setup-install` runs the
 helper, `setup-isolated-setup-verify` checks the entries, and
 `setup-isolated-setup-update` reports them when they are missing.
 
@@ -3133,7 +3229,15 @@ Then walk through:
    set (read-only `gh`, the vetted-ops read dispatcher, archive /
    mailbox / roster MCP reads) — without it every read the skills
    make prompts, and a bulk sync prompts hundreds of times. Copy
-   only read-only entries; never add a write rule to `allow`. If a project
+   only read-only entries; never add a write rule to `allow`.
+   Then apply [Read-only vetted ops never prompt](#read-only-vetted-ops-never-prompt):
+   add the two `vetted-op-read` allow rules and the two matching
+   `sandbox.excludedCommands` entries with my resolved absolute
+   `$HOME` base (user scope, or `settings.local.json` if my user
+   settings are synced), confirm no `ask` rule matches a
+   `vetted-op-read` command and `blockReadsOutsideWorkingDirectories` is not on in any
+   scope, and that the three vetted-ops `Edit` deny rules are
+   present. Propose each edit; do not write it on your own. If a project
    settings.json already exists, surface a diff of the merged
    result first and ask me to approve before writing.
 
@@ -3332,6 +3436,7 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
      is dead weight the file permission check never consults;
      report it as cruft to remove, not as a second layer.
    If the repo has no vetted-ops policy at all, report n/a.
+   The read dispatcher's never-prompt shape is check 16.
 10. If a hardware key signs my commits or authenticates my git
     remotes: the touch overlay is wired (`PreToolUse` /
     `PostToolUse` `Bash` →
@@ -3430,6 +3535,20 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
     same paths in the committed project settings, or in a user-scope
     settings file that is synced across machines, are ⚠: they are
     per-host.
+16. **Read-only vetted ops never prompt**, if the repo uses the
+    vetted-ops dispatcher (n/a otherwise). Every item is ✗ when it
+    fails: `permissions.allow` has `vetted-op-read` for both
+    launchers (`uvx --from`, `uv run --project`) with both bases
+    (`~/.claude/magpie/vetted-ops` and my resolved absolute
+    `$HOME/.claude/magpie/vetted-ops`); `sandbox.excludedCommands`
+    has a `vetted-op-read` entry for each of those four forms too;
+    no `permissions.ask` rule in any scope matches a
+    `vetted-op-read` command (broad rules such as `Bash(uvx *)`
+    count);
+    `permissions.blockReadsOutsideWorkingDirectories` is not `true`
+    in any scope (user, project, local, managed); and the three
+    vetted-ops `Edit` deny rules from check 9 are present. See
+    [Read-only vetted ops never prompt](#read-only-vetted-ops-never-prompt).
 ```
 
 Re-run either form after every Claude Code upgrade — the sandbox
@@ -3584,6 +3703,14 @@ anything — I will decide what to apply:
    missing (new vetted-ops read forms, MCP read tools, WebFetch
    hosts) — each one is a prompt I am paying on every run — and
    any entry I have that is not read-only. Do not merge.
+   Separately, report as a must-fix anything that would make a
+   `vetted-op-read` call prompt (a missing allow form, including
+   the absolute-`$HOME` ones; an `ask` rule matching a
+   `vetted-op-read` command; `blockReadsOutsideWorkingDirectories`
+   on in any scope), any allowed form without its matching
+   `sandbox.excludedCommands` entry, and any missing vetted-ops
+   `Edit` deny rule. See
+   [Read-only vetted ops never prompt](#read-only-vetted-ops-never-prompt).
 6. Re-run `cat ~/.aws/credentials`, `echo $AWS_ACCESS_KEY_ID`,
    `curl https://example.com` and confirm each is still denied.
    Note any newly-allowed call as a regression to investigate.

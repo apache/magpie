@@ -98,7 +98,7 @@ error, and two skills that probe or verify the setup on demand.
   which shows what an un-excluded `gh` does on this machine, then
   checks that `"gh *"` is configured.
 - Skill `setup-isolated-setup-verify` — static checks of the installed
-  configuration (numbered 1–15 under a section heading that still reads
+  configuration (numbered 1–16 under a section heading that still reads
   `## The 12 checks`; 13 and 14 optional): settings shape, hook wiring, hook scripts, wrapper,
   pinned versions, status line, denial canaries, project-root grant
   (check 8 — also the dev-tool paths, whose absence is ⚠ not ✗, and in
@@ -113,7 +113,11 @@ error, and two skills that probe or verify the setup on demand.
   and the working directories under the read block (check 15: the two
   resolved paths in the worktree's `settings.local.json`, ⚠ when missing
   or glob-only, ⚠ when they sit in committed or synced user-scope
-  settings instead, #1418). Check 9 also fails a vetted-ops rule that
+  settings instead, #1418), and the never-prompt shape for read-only
+  vetted ops (check 16: every `vetted-op-read` allow form including the
+  absolute-`$HOME` base, each with its exclusion, no ask rule matching a
+  `vetted-op-read` command, the read block off,
+  the three vetted-ops `Edit` denies; each ✗ when it fails). Check 9 also fails a vetted-ops rule that
   spells the versioned plugin-cache path with a `*`, since the rule must
   name `~/.claude/magpie/vetted-ops` (#1406). The conditional checks —
   9, 10, 12, 13, 14 and check 8's whole-user branch — live in
@@ -247,10 +251,11 @@ PYTHONPATH=tools/skill-evals/src python3 -m skill_evals.runner \
   the wrapper's `allowRead` grant statically; the runtime-state entry
   is reached only through the hint hook.
 - The doctor's and verify skill's section headings (`## The 8 probes`,
-  `## The 12 checks`) lag their bodies (nine probes, fifteen checks).
-- A command that spells a working directory with a literal `~` can
-  still prompt under the read block even when the directory is listed;
-  the working-directories entry names that case as open.
+  `## The 12 checks`) lag their bodies (nine probes, sixteen checks).
+- A command that spells a working directory with a literal `~` still
+  prompts under the read block even when the directory is listed. For
+  the vetted-ops commands the setup closes this by requiring the read
+  block off (verify check 16); for any other such command it stays open.
 
 - The invocation-shape rule is measured on macOS / Claude Code 2.1.278
   and will change when anthropics/claude-code#95532 is fixed; the

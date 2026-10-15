@@ -15,9 +15,9 @@ when_to_use: >-
   If it is already installed, use `setup-isolated-setup-verify` to check
   it or `setup-isolated-setup-update` to refresh it.
 capability: capability:platform
-surface_hash: sha256:3f90b1ffdaa6e9ea
+surface_hash: sha256:602903c74d17c7fb
 license: Apache-2.0
-measured_tokens: 5787
+measured_tokens: 6640
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -312,6 +312,55 @@ least-privilege hygiene for a cooperating skill, and it is worth
 having for that, but it stops nothing that chooses to name a
 different caller.
 
+#### Step V.1 — Read-only vetted ops MUST never prompt
+
+This is not optional. No `vetted-op-read` invocation may ever prompt, in
+any form: bulk skills run it from background gatherer agents, which cannot
+surface a prompt, so each prompt is a silent denial and the sync returns
+partial results nobody can verify. Rationale and the full shape:
+[`docs/setup/secure-agent-setup.md` → Read-only vetted ops never prompt](../../../../docs/setup/secure-agent-setup.md#read-only-vetted-ops-never-prompt).
+
+Resolve `$HOME`, read every settings scope (user, project, project-local,
+and managed where readable), and propose the exact edit for each gap. The
+operator applies it; never write a settings file on your own.
+
+1. **Allow every form.** `Bash(<launcher> <base> vetted-op-read *)` MUST be
+   allowed for each launcher in {`uvx --from`, `uv run --project`} and each
+   base in {`~/.claude/magpie/vetted-ops`, `<resolved $HOME>/.claude/magpie/vetted-ops`}:
+   four rules. The `~` pair may live in the committed project
+   `.claude/settings.json` (as in the framework's own) or in user scope.
+   The absolute pair is per machine: propose it for user scope
+   `~/.claude/settings.json`, or for each worktree's
+   `.claude/settings.local.json` when the user-scope file is synced across
+   machines whose home directories differ. Never in the committed file.
+2. **No ask rule.** Propose removing every `permissions.ask` rule, in any
+   scope, that matches a `vetted-op-read` command in any of the four forms —
+   a broad rule such as `Bash(uvx *)` counts. An ask rule prompts even when
+   an allow rule matches.
+3. **Read block off.** If `permissions.blockReadsOutsideWorkingDirectories`
+   is `true` in any scope, propose removing it (or setting it `false`). With
+   it on, every call prompts, because the check cannot resolve the literal
+   `~` the commands spell, and neither an `allow` rule nor an
+   `additionalDirectories` entry overrides it. Say plainly that Bash stays
+   sandboxed and the credential `Read` denies still apply. If managed
+   settings force it on, the imperative cannot be met on this machine:
+   tell the operator, and that bulk skills must not run their gatherer
+   agents there.
+4. **Tamper protection.** The three `Edit` deny rules above MUST be present,
+   in the project settings or in user scope; propose any that is missing.
+   They are what makes the unprompted read safe.
+5. **Exclusions for every allowed form.** `sandbox.excludedCommands` keeps
+   the `vetted-op-read` and `vetted-op-tracker` entries in both `~`
+   launcher forms, and MUST also carry the two absolute-base
+   `vetted-op-read` entries (`<launcher> <resolved $HOME>/.claude/magpie/vetted-ops vetted-op-read *`),
+   in the same per-machine file as the absolute allow pair. Without them
+   a call spelled with the absolute path is approved silently but runs
+   inside the sandbox, where its `gh` cannot verify TLS: a silent failure
+   again.
+
+This covers the read dispatcher only. `vetted-op-tracker` and `vetted-op`
+stay in `ask`, never in `allow`, and `vetted-op` is never excluded.
+
 ### Step R — The adversarial-review exclusion
 
 Only applies when the `magpie-adversarial-review` plugin is installed. If it
@@ -363,6 +412,12 @@ Tell the operator what the exclusion covers and what it does not:
   checkout.
 
 ### Step W — Working directories for the read block
+
+Where the vetted-ops dispatcher is used, Step V.1 already requires
+`permissions.blockReadsOutsideWorkingDirectories` to be off, and these
+entries cannot stand in for that: they do not stop the `vetted-op-read`
+prompt. They remain useful for the agent's own reads of the scratch root
+where the block is on for other reasons.
 
 Nothing extra to write: the `sandbox-add-project-root.sh` run in Step P also
 adds `$HOME/.claude/magpie` and `/tmp/claude-<uid>`, resolved, to

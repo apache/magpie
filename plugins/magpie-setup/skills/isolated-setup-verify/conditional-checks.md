@@ -133,6 +133,10 @@ reading this file; read the section for a check whose condition holds.
    a boundary, correct that, because it is the misreading that
    produces a `vetted-op` `allow` in the first place.
 
+   The 9b rules are also required by check 16, the never-prompt
+   imperative for `vetted-op-read`: they are what makes allowing
+   that dispatcher without a prompt safe.
+
 ## Check 10 — hardware-key touch overlay and the signing key
 
 10. **Hardware-key touch overlay and the signing key.** Only when

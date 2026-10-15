@@ -21,7 +21,7 @@ capability:
   - capability:reassess
 surface_hash: sha256:7d670b572d43bbeb
 license: Apache-2.0
-measured_tokens: 6108
+measured_tokens: 6221
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -322,6 +322,8 @@ bash <skill-dir>/scripts/probe-8-git-hooks.sh
 Tests whether, with `permissions.blockReadsOutsideWorkingDirectories` on, the two directories the skills read on every run are working directories: `$HOME/.claude/magpie` (the fixed path the vetted-ops rules name) and the scratch root `/tmp/claude-<uid>`.
 Without them nothing breaks, but each read there prompts, and a bulk sync multiplies that by its gatherer agents.
 The prompt comes before any command runs, so the [sandbox-error hint hook](../../../../docs/setup/secure-agent-setup.md#sandbox-error-hint-hook) never sees it; this probe is the only in-session pointer.
+Where the vetted-ops dispatcher is used, a ✓ here is not enough: its commands spell `~` literally, which the read block cannot check, so every `vetted-op-read` call prompts while the block is on, and a background gatherer turns each prompt into a silent denial.
+The setup requires the block off there ([Read-only vetted ops never prompt](../../../../docs/setup/secure-agent-setup.md#read-only-vetted-ops-never-prompt)); `setup-isolated-setup-verify` check 16 enforces it.
 
 **Command:**
 

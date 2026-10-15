@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:393e3ecdf80a56a9
 license: Apache-2.0
-measured_tokens: 5098
+measured_tokens: 5774
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -191,6 +191,26 @@ Walk each in order:
     An entry with a glob (`/tmp/claude-*`) is listed as a working directory but never matched; report the path it was meant to cover as missing (⚠) and say plainly that the entry does nothing.
     The same paths in the committed project `.claude/settings.json`, or in a user-scope `~/.claude/settings.json` synced across machines, are ⚠: they are per-host and belong in `settings.local.json`.
     [Why these two directories](../../../../docs/setup/secure-agent-setup.md#working-directories-under-the-read-outside-working-directories-block).
+    Where check 16 applies, the read block being on at all is already ✗ there; these entries do not fix it.
+
+16. **Read-only vetted ops never prompt.** An imperative, not a preference: the read dispatcher MUST NOT prompt in any form, because background gatherer agents cannot surface a prompt and each one becomes a silent denial.
+    Same n/a condition as check 9.
+    Resolve `$HOME`, read every scope (user, project, project-local, managed where readable), and report each sub-check ✓ or ✗; there is no ⚠ here.
+
+    - **16a — every allow form.** `permissions.allow` carries `Bash(<launcher> <base> vetted-op-read *)` for both launchers (`uvx --from`, `uv run --project`) and both bases (`~/.claude/magpie/vetted-ops` and the resolved `$HOME/.claude/magpie/vetted-ops`): four rules.
+      The `~` pair may sit in the project settings or in user scope; the absolute pair must sit in user scope or the worktree's `settings.local.json`, and in the committed project settings it is ✗ (per-host path in a shared file).
+      Name each missing one.
+    - **16b — no ask rule.** No `permissions.ask` entry in any scope matches a `vetted-op-read` command in any of the four forms; broad rules such as `Bash(uvx *)` count, so match each rule as a pattern rather than searching it for the dispatcher name.
+      An ask rule prompts even when an allow rule matches.
+      Name the file that carries it.
+    - **16c — read block off.** `permissions.blockReadsOutsideWorkingDirectories` is `false` or absent in every scope.
+      With it on, every call prompts: the check cannot resolve the literal `~` the commands spell, and neither an `allow` rule nor an `additionalDirectories` entry overrides it.
+    - **16d — tamper protection.** All three vetted-ops `Edit` deny rules from check 9 are present.
+      This is what makes the unprompted read safe, so a missing one fails here as well as in check 9.
+    - **16e — an exclusion for every allowed form.** `sandbox.excludedCommands` carries `<launcher> <base> vetted-op-read *` for the same four forms as 16a, the absolute pair in the same per-machine file as its allow rules.
+      An allowed form without its exclusion is approved without a prompt but runs inside the sandbox, where its `gh` cannot verify TLS: a silent failure, as with a prompt.
+
+    [The required shape and why](../../../../docs/setup/secure-agent-setup.md#read-only-vetted-ops-never-prompt).
 
 ## After the report
 
@@ -213,4 +233,6 @@ If anything is ✗ or ⚠, suggest the matching follow-up skill without invoking
 - ✗ on check 12c (project `env` or `allowUnixSockets` half missing) → `setup-isolated-setup-install` Step L, to propose the missing block as a settings diff for the operator to approve.
 - ✗ on check 12d (a raw daemon socket in `allowUnixSockets`) → the operator removes that entry themselves (settings.json changes are never applied from a skill) and, if they need the daemon reachable, follows Step L instead; then re-run `setup-isolated-setup-verify`.
 - ⚠ on check 15 (a working directory missing, or covered only by a glob) → re-run `~/.claude/scripts/sandbox-add-project-root.sh --all-worktrees`, which writes the resolved paths to each worktree's `settings.local.json` (or re-run `setup-isolated-setup-install` if the helper is not installed); `/add-dir <path>` covers the current session meanwhile.
+- ✗ on check 16 → `setup-isolated-setup-install` Step V.1, which proposes the exact settings edit for each failing sub-check; the operator applies it (never this skill), then re-run `setup-isolated-setup-verify`.
+  Until check 16 passes, do not run a bulk skill that fans out into background gatherer agents: their reads fail silently.
 - For users who maintain the `~/.claude-config/` sync repo, the user-scope script copies live there; uncommitted local edits there → `setup-shared-config-sync`.
