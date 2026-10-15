@@ -385,6 +385,24 @@ def test_step0_pass_with_warnings_proceeds_with_a_warning() -> None:
     assert "PASS-WITH-WARNINGS" in out["warnings"][0]
 
 
+def test_step0_fails_closed_on_an_incomplete_preflight() -> None:
+    def run(pre: dict[str, Any], verdict: str = "none", rc: str | None = None) -> dict[str, Any]:
+        return render.verdict(pre, planning_issue=PLANNING, verify_rc_verdict=verdict, verify_rc_for=rc)
+
+    assert run({})["verdict"] == "blocked"
+    other = preflight("2.11.0-rc1") | {"skill": "vote-tally"}
+    assert run(other, "PASS", "2.11.0-rc1")["verdict"] == "blocked"
+    out = run(preflight("2.11.0-rc1") | {"ok": False}, "PASS", "2.11.0-rc1")
+    assert out["verdict"] == "blocked" and any("ok: true" in b for b in out["blockers"])
+    # No version / rc_number: the verify-rc gate cannot be skipped by omission.
+    anonymous = preflight("2.11.0-rc1")
+    anonymous["values"] |= {"version": None, "rc_number": None}
+    out = run(anonymous)
+    assert out["verdict"] == "blocked" and any("release-verify-rc gate" in b for b in out["blockers"])
+    anonymous["values"]["skip_verify_override"] = True
+    assert run(anonymous)["verdict"] == "proceed"
+
+
 def test_step0_no_planning_issue_blocks() -> None:
     out = render.verdict(
         preflight("2.11.0-rc1"), planning_issue=None, verify_rc_verdict="PASS", verify_rc_for="2.11.0-rc1"
@@ -435,6 +453,31 @@ def test_step2_raw_security_reason_is_flagged_for_rewording() -> None:
     )
     assert out["warnings"] and "reword it neutrally" in out["warnings"][0]
     assert "CVE-2026-12345" in out["warnings"][0]
+
+
+def test_step2_embargo_scan_covers_the_whole_public_body() -> None:
+    # The --skip-verify-check reason is rendered verbatim into the public [VOTE] body.
+    out = render.step2(draft(), skip_verify="CVE-2026-1234 security fix", **urls("2.11.0-rc1"))
+    assert "CVE-2026-1234" in out["body"]
+    assert out["warnings"] and "reword it neutrally" in out["warnings"][0]
+    assert "CVE-2026-1234" in out["warnings"][0] and "security" in out["warnings"][0]
+    canned = "Vote on <version>; it closes a vulnerability.\n"
+    flagged = render.step2(draft(), canned_body=canned, **urls("2.11.0-rc1"))
+    assert any("'vulnerability'" in w for w in flagged["warnings"])
+
+
+def test_step2_canned_body_leftover_placeholder_is_refused() -> None:
+    # <svn_revision> on a non-svnpubsub backend has no value, and <foo> is unknown.
+    for canned, token in (
+        ("Vote on <version> (r<svn_revision>).\n", "<svn_revision>"),
+        ("Hi <foo>\n", "<foo>"),
+    ):
+        with pytest.raises(render.RenderError, match=token):
+            render.step2(draft(), canned_body=canned, **urls("2.11.0-rc1"))
+    signed = render.step2(
+        draft(), canned_body="Vote on <version>.\n\nThanks,\n<RM name>\n", **urls("2.11.0-rc1")
+    )
+    assert "<RM name>" in signed["body"]
 
 
 def test_step2_case_3_skip_verify_logged() -> None:
@@ -583,6 +626,7 @@ def test_step2_unset_verification_doc_links_the_framework_page() -> None:
 
 
 def test_step2_record_parsed_from_the_rc_cut_comment() -> None:
+    digest = "3f2a9c" + "0" * 122  # rc-cut records a full 128-hex sha512 only
     cut = rc_cut.RcCut.from_load(
         {
             "build": {"expected_artefacts": [{"name": "apache_airflow-2.11.0.tar.gz", "kind": "source"}]},
@@ -597,7 +641,9 @@ def test_step2_record_parsed_from_the_rc_cut_comment() -> None:
         project="airflow",
     )
     printed = (
-        "commit 1890a13d2c4e6f8a0b1c2d3e4f5a6b7c8d9e0f12\nSOURCE_DATE_EPOCH 1758326400\nsha512 3f2a9c\n"
+        "commit 1890a13d2c4e6f8a0b1c2d3e4f5a6b7c8d9e0f12\nSOURCE_DATE_EPOCH 1758326400\nsha512 "
+        + digest
+        + "\n"
         "swhid_rev swh:1:rev:1890a13d2c4e6f8a0b1c2d3e4f5a6b7c8d9e0f12;origin=https://github.com/apache/airflow\n"
         "swhid_dir swh:1:dir:3b9f0c2e7a1d4f6b8e0a2c4d6f8a0b2c4e6f8a1b;origin=https://github.com/apache/airflow;"
         "anchor=swh:1:rev:1890a13d2c4e6f8a0b1c2d3e4f5a6b7c8d9e0f12\n"
@@ -609,7 +655,7 @@ def test_step2_record_parsed_from_the_rc_cut_comment() -> None:
         commit="1890a13d2c4e6f8a0b1c2d3e4f5a6b7c8d9e0f12",
         swhid=CASE_1_RECORD.swhid,
         epoch="1758326400",
-        sha512="3f2a9c (apache_airflow-2.11.0.tar.gz)",
+        sha512=f"{digest} (apache_airflow-2.11.0.tar.gz)",
     )
     # Fields rc-cut still shows as "paste from" are absent, never invented.
     empty = render.parse_rc_comment(rc_cut.step4(cut)["comment"])
@@ -641,6 +687,16 @@ def test_step3_case_2_expedited_note() -> None:
         expedited="Critical security fix for CVE-2026-12345; abbreviated window approved by PMC chair.",
     )
     assert flagged["warnings"]
+
+
+def test_step3_embargo_scan_covers_the_whole_comment() -> None:
+    # An RM-edited subject lands in the public planning-issue comment too.
+    out = render.step3(
+        draft(), sent_at="2026-06-11 15:00 UTC", subject="[VOTE] Release 2.11.0 (CVE-2026-1234)"
+    )
+    assert out["warnings"] and "planning-issue comment" in out["warnings"][0]
+    assert "CVE-2026-1234" in out["warnings"][0]
+    assert render.step3(draft(), sent_at="2026-06-11 15:00 UTC")["warnings"] == []
 
 
 def test_step3_deadline_crosses_a_month_and_honours_offsets() -> None:

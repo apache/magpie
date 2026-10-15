@@ -28,6 +28,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from release_management.vote_tally.tally import is_weakening
+
 DEFAULT_RESULT_SUBJECT = "[RESULT] [VOTE] Release <Product Name> <version> from <version>-rcN"
 AMBIGUOUS_NOTE = re.compile(r"\bAMBIGUOUS\b")
 # A bare vote: the value, optionally "(binding)" / "(non-binding)", optional final punctuation.
@@ -52,6 +54,21 @@ def verdict(
     """Step 0: the tool's blockers plus the planning-issue and previous-AMBIGUOUS checks."""
     values = preflight.get("values") or {}
     blockers = [str(b) for b in preflight.get("blockers") or []]
+    # Fail closed: a preflight for another skill, one that did not report ok, or one
+    # without the mechanism and roster can never let the tally proceed.
+    if preflight.get("skill") != "vote-tally":
+        blockers.append(
+            f"the preflight output is for skill {preflight.get('skill')!r}, not 'vote-tally': "
+            "run release-config preflight --skill vote-tally <version>-rcN"
+        )
+    if preflight.get("ok") is not True and not blockers:
+        blockers.append("release-config preflight did not report ok: true; re-run it and fix what it reports")
+    missing = [key for key in ("mechanism", "roster_path") if not values.get(key)]
+    if missing:
+        blockers.append(
+            f"the preflight values carry no {' / '.join(missing)}: set release_approval_mechanism and the roster "
+            "in release-management-config.md and re-run release-config preflight --skill vote-tally"
+        )
     if not planning_issue:
         blockers.append(
             "no planning issue found: pass --planning-issue <url>, or label the open planning issue on <upstream> "
@@ -163,8 +180,20 @@ def result_draft(
         raise RenderError(
             "the tally halted on AMBIGUOUS votes: resolve them on the thread and re-run, or pass --force-close <reason>"
         )
+    weakening = [str(e) for e in tally.get("override_errors") or [] if is_weakening(str(e))]
+    if weakening:
+        raise RenderError(
+            "vote_pass_rule_overrides tries to weaken the pass rule (Golden rule 5, a hard blocker): "
+            + "; ".join(weakening)
+            + " — fix release-management-config.md and re-run the tally"
+        )
     outcome = tally.get("result")
     rule_text = tally.get("pass_rule_applied")
+    if outcome is None and tally.get("mechanism") == "pr-approval":
+        raise RenderError(
+            "pr-approval has no rule without approval_pr_min_approvals: ask the RM to set it and re-run the tally "
+            "with --min-approvals <N>; --result cannot stand in for it"
+        )
     if outcome is None:
         if result not in ("PASSED", "FAILED") or not rule:
             raise RenderError(

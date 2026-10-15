@@ -19,8 +19,8 @@
 The functions are pure: they take the loaded configuration and the facts the
 agent read from the planning issue, and return the step's JSON contract plus
 `text`. Nothing here sends mail, posts a comment or touches the network; the
-reworded `--expedited` reason stays the agent's judgement, and a reason that
-still names a CVE or a security fix comes back as a warning.
+reworded `--expedited` reason stays the agent's judgement, and a public draft
+that still names a CVE or a security fix anywhere comes back as a warning.
 """
 
 from __future__ import annotations
@@ -39,6 +39,10 @@ EMBARGOED = re.compile(r"CVE-\d{4}-\d+|security|vulnerability|vulnerabilities|ex
 FRAMEWORK_REPRO = "https://github.com/apache/magpie/blob/main/docs/release-management/reproducibility.md"
 NO_PROJECT_PAGE = " (the project's own verification page is not configured yet)"
 VERDICTS = ("PASS", "PASS-WITH-WARNINGS", "FAIL", "none")
+# A placeholder a canned body still carries once every known one is substituted.
+# `<RM name>` stays for the RM to sign; URLs (`:`, `/`) and addresses (`@`) never match.
+LEFTOVER = re.compile(r"<[A-Za-z][A-Za-z0-9_ -]*>")
+RM_PLACEHOLDER = "<RM name>"
 
 AGENTIC_PATH = """\
 Agentic path (any agent with the Magpie release skills, read-only):
@@ -225,13 +229,13 @@ class VoteDraft:
         return out
 
 
-def embargo_warnings(reason: str | None) -> list[str]:
-    """A reason that would leak the security framing onto the public `[VOTE]` thread (Golden rule 4)."""
-    hits = sorted({m.group(0) for m in EMBARGOED.finditer(reason or "")})
+def embargo_warnings(text: str | None, *, where: str = "the --expedited reason") -> list[str]:
+    """Public text that would leak the security framing onto the `[VOTE]` thread or the planning issue (Golden rule 4)."""
+    hits = sorted({m.group(0) for m in EMBARGOED.finditer(text or "")})
     if not hits:
         return []
     return [
-        f"the --expedited reason names {', '.join(repr(h) for h in hits)}: the [VOTE] thread and the planning issue "
+        f"{where} names {', '.join(repr(h) for h in hits)}: the [VOTE] thread and the planning issue "
         "are public, so reword it neutrally (e.g. 'Time-sensitive fix release'), keep any approval the RM cited, "
         "tell the RM what was left out, and render again"
     ]
@@ -362,6 +366,13 @@ def step2(
         }.items():
             if value:
                 body = body.replace(key, str(value))
+        leftover = sorted({m.group(0) for m in LEFTOVER.finditer(body)} - {RM_PLACEHOLDER})
+        if leftover:
+            raise RenderError(
+                "canned_body still has a placeholder after rendering: "
+                + ", ".join(leftover)
+                + " — pass the value it needs (never invented), or remove it from the project's canned [VOTE] block"
+            )
         body = body.rstrip("\n")
         if VERIFY_HEADING.lower() not in body.lower():
             canned_missing_verify = True
@@ -417,7 +428,10 @@ def step2(
             project=w(project or draft.config.get("project_dist_name") or "<project>"),
             version=w(draft.version),
         )
-    warnings = embargo_warnings(expedited)
+    warnings = embargo_warnings(
+        f"{subject}\n{body}",
+        where="the public [VOTE] draft (its subject, body, or an --expedited / --skip-verify-check reason in it)",
+    )
     if not draft.meta.get("verification_doc_url"):
         warnings.append(
             "vote_verification_doc_url is unset: the body links the framework's reproducibility.md and says the "
@@ -490,7 +504,7 @@ def step3(
         "comment_body": comment,
         "proposed": True,
         "window_closes_utc": closes.strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "warnings": embargo_warnings(expedited),
+        "warnings": embargo_warnings(comment, where="the public planning-issue comment"),
         "text": comment,
     }
 
@@ -509,6 +523,20 @@ def verdict(
     skip = bool(values.get("skip_verify_override"))
     version, rc = values.get("version"), values.get("rc_number")
     tag = f"{version}-{rc}" if version and rc else None
+    # Fail closed: a preflight for another skill, one that did not report ok, or one
+    # without the RC identity can never let the verify-rc gate (Golden rule 5) be skipped.
+    if preflight.get("skill") != "vote-draft":
+        blockers.append(
+            f"the preflight output is for skill {preflight.get('skill')!r}, not 'vote-draft': "
+            "run release-config preflight --skill vote-draft <version>-rcN"
+        )
+    if preflight.get("ok") is not True and not blockers:
+        blockers.append("release-config preflight did not report ok: true; re-run it and fix what it reports")
+    if tag is None and not skip:
+        blockers.append(
+            "the preflight values carry no version / rc_number, so the release-verify-rc gate cannot be checked: "
+            "run release-config preflight --skill vote-draft <version>-rcN"
+        )
     if not planning_issue:
         blockers.append(
             "no planning issue found: pass --planning-issue <url>, or open one on <upstream> labelled release-planning "

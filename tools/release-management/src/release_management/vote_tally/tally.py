@@ -21,8 +21,8 @@ object per reply with ``from`` (address or handle), optional ``date``, and
 ``value`` (``+1``, ``0``, ``-1``, a fractional ``+0.x`` or ``fractional``,
 or ``AMBIGUOUS``). Reply bodies never reach this module.
 
-Moved unchanged from ``vote-tally/scripts/tally.py``; it now runs as
-``release-management vote-tally tally``.
+Moved from ``vote-tally/scripts/tally.py``, adding the ``pr-approval`` rule
+(``--min-approvals``); it now runs as ``release-management vote-tally tally``.
 
 Binding resolution against the roster (a markdown table with ``Apache ID``
 and ``Primary email`` columns):
@@ -57,10 +57,17 @@ from typing import Any
 BASELINE_MIN_BINDING_PLUS1 = 3
 BASELINE_RULE = "ASF baseline: binding_plus1 >= 3 AND binding_plus1 > binding_minus1"
 FRACTIONAL_RE = re.compile(r"^[+-]?0?\.\d+$")
+# Every override error that is an attempt to weaken the rule ends with this marker.
+WEAKENING = "(configuration error)"
 
 
 class InputError(Exception):
     pass
+
+
+def is_weakening(error: str) -> bool:
+    """Whether an ``override_errors`` entry is an attempt to weaken the pass rule (Golden rule 5)."""
+    return error.endswith(WEAKENING)
 
 
 def _cells(line: str) -> list[str]:
@@ -192,15 +199,13 @@ def apply_overrides(overrides: dict[str, Any]) -> tuple[dict[str, Any], list[str
             elif value < BASELINE_MIN_BINDING_PLUS1:
                 errors.append(
                     f"min_binding_plus1={value} weakens the ASF baseline of "
-                    f"{BASELINE_MIN_BINDING_PLUS1}; ignored (configuration error)"
+                    f"{BASELINE_MIN_BINDING_PLUS1}; ignored {WEAKENING}"
                 )
             else:
                 rule["min_binding_plus1"] = value
         elif key == "binding_plus1_must_exceed_minus1":
             if value is not True:
-                errors.append(
-                    "binding_plus1_must_exceed_minus1 cannot be disabled; ignored (configuration error)"
-                )
+                errors.append(f"binding_plus1_must_exceed_minus1 cannot be disabled; ignored {WEAKENING}")
         elif key == "max_binding_minus1":
             if not isinstance(value, int) or isinstance(value, bool) or value < 0:
                 errors.append(f"max_binding_minus1={value!r} is not a non-negative integer; ignored")
@@ -231,6 +236,12 @@ def tally(
     mechanism: str,
     min_approvals: int | None = None,
 ) -> dict[str, Any]:
+    if min_approvals is not None and (
+        not isinstance(min_approvals, int) or isinstance(min_approvals, bool) or min_approvals < 1
+    ):
+        raise InputError(
+            f"--min-approvals {min_approvals!r} must be a positive integer (approval_pr_min_approvals)"
+        )
     voters: list[dict[str, Any]] = []
     ambiguous: list[dict[str, Any]] = []
     counts = {
