@@ -25,6 +25,7 @@ applies a label: the release manager runs every command (Golden rule 1).
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import urlparse
@@ -42,6 +43,12 @@ Mirror propagation (svnpubsub) / CDN cache (other backends):
   Earliest announce time: <promote_timestamp + 1h> UTC (once the promote commit is confirmed)."""
 
 NOT_VOTE_PASSED = "planning issue does not carry vote-passed label"
+TARGET_STATES = ("empty", "populated")
+TARGET_UNCHECKED = (
+    "target URL check result unknown: list {target} (svn list / gh release view / aws s3 ls) "
+    "and pass --target empty or --target populated"
+)
+RENDERABLE_VERDICTS = ("proceed", "handoff-non-pmc")
 TRUSTED_HARDWARE = (
     "automated release signing requires every artefact to be rebuilt bit-by-bit identical on trusted hardware "
     "before publication ([Infra § Automated release signing](https://infra.apache.org/release-signing.html#automated-release-signing)); "
@@ -66,7 +73,7 @@ def verdict(
     preflight: dict[str, Any],
     *,
     vote_passed: bool,
-    target_populated: bool,
+    target: str | None,
     attestation: bool = False,
     planning_issue_found: bool = True,
     planning_issue: str = "<planning-issue>",
@@ -74,7 +81,9 @@ def verdict(
     """Step 0: the tool's blockers plus the checks it cannot see, folded into one verdict.
 
     Every fact defaults to the blocking side: no `--vote-passed` means the label
-    was not seen, and there is no override for it (Golden rule 3).
+    was not seen, and there is no override for it (Golden rule 3). `target` is
+    the target-listing result, `empty` or `populated`; anything else (the check
+    was skipped or errored) is a blocker, never an empty target (Golden rule 4).
     """
     values = preflight.get("values") or {}
     version, rc = values.get("version"), values.get("rc")
@@ -84,10 +93,12 @@ def verdict(
         blockers.append(f"no planning issue found for {version or '<version>'}: pass --planning-issue <url>")
     elif not vote_passed:
         blockers.append(NOT_VOTE_PASSED)
+    short = _short_target(str(values.get("target_url") or "<target_url>"))
+    target_populated = target == "populated"
     if target_populated:
-        blockers.append(
-            f"target URL {_short_target(str(values.get('target_url') or '<target_url>'))} already contains content"
-        )
+        blockers.append(f"target URL {short} already contains content")
+    elif target != "empty":
+        blockers.append(TARGET_UNCHECKED.format(target=short))
     if values.get("trusted_hardware_attestation_required") and not attestation:
         blockers.append(TRUSTED_HARDWARE.format(tag=tag, planning_issue=planning_issue))
     non_asf = bool(values.get("non_asf"))
@@ -183,25 +194,50 @@ class Promote:
         return out.replace("<rcN>", self.rc).replace("rc<N>", self.rc).replace("<version>", self.version)
 
 
-def s3_bucket(template: str) -> str:
-    """The bucket name in `release_dist_url_template`: `s3://<bucket>/…` or an `*.s3.*amazonaws.com` URL."""
-    parsed = urlparse(template)
+# Path-style endpoints carry the bucket in the path: `s3.amazonaws.com`,
+# `s3.<region>.amazonaws.com` and the legacy `s3-<region>.amazonaws.com`.
+_S3_PATH_STYLE_HOST = re.compile(r"s3(?:[.-][a-z0-9-]+)?\.amazonaws\.com")
+# Virtual-hosted: the bucket is everything before the LAST `.s3.` / `.s3-`.
+_S3_VIRTUAL_HOST = re.compile(r"(.+)\.s3[.-](?:[a-z0-9-]+\.)*amazonaws\.com")
+
+
+def s3_location(url: str) -> tuple[str, str]:
+    """`(bucket, key)` for an `s3://<bucket>/<key>` or an `https://…amazonaws.com/…` URL.
+
+    The key keeps every path segment after the bucket, so a template prefix
+    (`s3://bkt/releases/<version>/`) survives into the command.
+    """
+    parsed = urlparse(url)
     host = (parsed.hostname or "").lower()
-    bucket = ""
+    path = parsed.path.lstrip("/")
+    bucket, key = "", ""
     if parsed.scheme == "s3":
-        bucket = host
-    elif host == "amazonaws.com" or host.endswith(".amazonaws.com"):
-        labels = host.split(".")
-        if labels and labels[0].startswith("s3"):
-            bucket = parsed.path.strip("/").split("/", 1)[0]
-        elif ".s3" in host:
-            bucket = host.split(".s3", 1)[0]
+        bucket, key = host, path
+    elif parsed.scheme in ("http", "https") and host.endswith(".amazonaws.com"):
+        virtual = _S3_VIRTUAL_HOST.fullmatch(host)
+        if _S3_PATH_STYLE_HOST.fullmatch(host):
+            bucket, _, key = path.partition("/")
+        elif virtual:
+            bucket, key = virtual.group(1), path
     if not bucket or "<" in bucket:
         raise RenderError(
-            f"cannot read the S3 bucket name from release_dist_url_template {template!r}: "
-            "expected s3://<bucket-name>/… or https://<bucket-name>.s3.<region>.amazonaws.com/…"
+            f"cannot read the S3 bucket name from release_dist_url_template {url!r}: "
+            "expected s3://<bucket-name>/…, https://<bucket-name>.s3.<region>.amazonaws.com/… "
+            "or https://s3.<region>.amazonaws.com/<bucket-name>/…"
         )
-    return bucket
+    return bucket, key
+
+
+def s3_bucket(template: str) -> str:
+    """The bucket name in `release_dist_url_template`."""
+    return s3_location(template)[0]
+
+
+def s3_uri(url: str) -> str:
+    """The `s3://<bucket>/<key>/` prefix a rendered staging / target URL names."""
+    bucket, key = s3_location(url)
+    prefix = key if not key or key.endswith("/") else key + "/"
+    return f"s3://{bucket}/{prefix}"
 
 
 def _svnpubsub(
@@ -246,7 +282,12 @@ def _svnpubsub(
 
 
 def _github_releases(p: Promote, *, draft_tag: str | None, draft_tag_confirmed: bool) -> str:
-    tag = draft_tag or p.tag
+    if not draft_tag:
+        raise RenderError(
+            "release_dist_backend is github-releases but --draft-tag was not passed: read the tag the draft "
+            f"release carries (`gh release list --repo {p.upstream}`) and rerun with --draft-tag <tag>"
+        )
+    tag = draft_tag
     if tag != p.tag and not draft_tag_confirmed:
         raise RenderError(
             f"the draft release is tagged {tag}, not {p.tag}: ask the RM to confirm the correct tag name, "
@@ -267,17 +308,21 @@ def _github_releases(p: Promote, *, draft_tag: str | None, draft_tag_confirmed: 
 
 
 def _s3(p: Promote) -> str:
-    bucket = s3_bucket(str(p.meta.get("dist_url_template") or ""))
+    staging_url = str(p.meta.get("staging_url") or "")
+    target_url = str(p.meta.get("target_url") or "")
+    if not staging_url or not target_url:
+        raise RenderError("staging_url / target_url did not render: check release_dist_url_template")
+    staging, target = s3_uri(staging_url), s3_uri(target_url)
     return "\n".join(
         [
             "# Promote RC to release prefix",
             "aws s3 mv \\",
-            f"  {w(f's3://{bucket}/{p.tag}/')} \\",
-            f"  {w(f's3://{bucket}/{p.version}/')} \\",
+            f"  {w(staging)} \\",
+            f"  {w(target)} \\",
             "  --recursive",
             "",
             "# Verify the move",
-            f"aws s3 ls {w(f's3://{bucket}/{p.version}/')}",
+            f"aws s3 ls {w(target)}",
         ]
     )
 
@@ -356,6 +401,31 @@ def _convenience(p: Promote) -> tuple[str, list[str], list[str]]:
     return "\n".join(lines), publish_out, held_out
 
 
+def handoff_from_verdict(p: Promote, step0: dict[str, Any], *, handoff: bool | None = None) -> bool:
+    """The hand-off flag Step 2 renders with, read from the Step 0 verdict.
+
+    Only `proceed` and `handoff-non-pmc` render; a `blocked` (or missing) verdict
+    is refused, as is a verdict for another RC. `handoff`, when given, must agree.
+    """
+    outcome = step0.get("verdict")
+    if outcome not in RENDERABLE_VERDICTS:
+        raise RenderError(
+            f"the Step 0 verdict is {outcome!r}, not proceed or handoff-non-pmc: resolve its blockers "
+            "and rerun `promote verdict` before rendering"
+        )
+    seen = (step0.get("version"), step0.get("rc"))
+    if seen != (p.version, p.rc):
+        raise RenderError(
+            f"the Step 0 verdict is for {seen[0]}-{seen[1]}, but the load is for {p.tag}: rerun Step 0 for {p.tag}"
+        )
+    derived = outcome == "handoff-non-pmc"
+    if handoff is not None and handoff != derived:
+        raise RenderError(
+            f"--handoff disagrees with the Step 0 verdict {outcome!r}: drop --handoff, the verdict decides"
+        )
+    return derived
+
+
 def step2(
     p: Promote,
     *,
@@ -379,6 +449,11 @@ def step2(
         block = _s3(p)
     elif p.backend == "self-hosted":
         block = _self_hosted(p)
+    elif p.backend == "atr":
+        raise RenderError(
+            "release-promote does not support release_dist_backend atr yet: "
+            "promote the release with ATR's Finish step on the ATR platform"
+        )
     else:
         raise RenderError(f"unknown release_dist_backend {p.backend!r}")
     handoff_note = _handoff(p, rm=rm, roster_path=roster_path) if handoff else None

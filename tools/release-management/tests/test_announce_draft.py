@@ -46,7 +46,13 @@ SITE_FILES = [
 
 
 def preflight(
-    *, blockers: list[str] | None = None, clear: str | None = None, wait: bool = False, skip: bool = False
+    *,
+    blockers: list[str] | None = None,
+    clear: str | None = None,
+    wait: bool = False,
+    skip: bool = False,
+    non_asf: bool = False,
+    backend: str | None = "announce-list",
 ) -> dict[str, Any]:
     return {
         "ok": not blockers,
@@ -56,11 +62,11 @@ def preflight(
         "values": {
             "version": "2.11.0",
             "skip_promote_wait_override": skip,
-            "non_asf": False,
+            "non_asf": non_asf,
             "promote_clear_after_utc": clear,
             "promote_wait_active": wait,
             "download_page_url": DOWNLOAD,
-            "release_announce_backend": "announce-list",
+            "release_announce_backend": backend,
         },
     }
 
@@ -153,6 +159,20 @@ def test_step0_label_check_also_blocking_nulls_the_clear_time() -> None:
 def test_step0_skip_override_proceeds() -> None:
     out = render.verdict(preflight(wait=True, skip=True), promoted=True)
     assert out["verdict"] == "proceed" and out["skip_promote_wait_override"] is True and out["read"] == []
+
+
+def test_step0_non_asf_with_the_announce_backend_unset_blocks() -> None:
+    """announce-list is the ASF default only; a non-ASF project must name its channel."""
+    out = render.verdict(preflight(non_asf=True, backend=None), promoted=True)
+    assert out["verdict"] == "blocked"
+    assert out["blockers"] == [
+        "release_announce_backend is unset: announce-list is the default for ASF projects only, and this project "
+        "is not one — set release_announce_backend in release-management-config.md to "
+        "github-release-notes / site-post / discord-channel"
+    ]
+    assert render.verdict(preflight(non_asf=True, backend="site-post"), promoted=True)["verdict"] == "proceed"
+    # An ASF project with the key unset keeps the announce-list default.
+    assert render.verdict(preflight(backend=None), promoted=True)["verdict"] == "proceed"
 
 
 def test_step0_no_planning_issue_blocks() -> None:
@@ -277,6 +297,30 @@ def test_step2_canned_body_substitution_keeps_the_reminder() -> None:
     assert "airflow/KEYS" in out["body"]
     assert out["body"].startswith("NOTE: This email must be sent from your @apache.org address.")
     assert out["reminder_prepended"] is True
+
+
+@pytest.mark.parametrize(
+    "phrasing",
+    [
+        "Send this from your @apache.org account.",
+        "Remember: the sender must be an @Apache.org address.",
+        "NOTE: use your @APACHE.ORG mailbox.",
+    ],
+)
+def test_step2_canned_body_with_its_own_reminder_gets_no_second_one(phrasing: str) -> None:
+    canned = f"{phrasing}\n\nTo: <announce_list>\n\n<Product Name> <version> is out.\n"
+    out = render.step2(announce(), download_page=DOWNLOAD, changelog_url=CHANGELOG, canned_body=canned)
+    assert out["reminder_prepended"] is False
+    assert out["body"].startswith(phrasing)
+    assert "NOTE: This email must be sent from your" not in out["body"]
+
+
+def test_step2_canned_body_naming_only_a_full_address_still_gets_the_reminder() -> None:
+    """`announce@apache.org` in `To:` is not a sender reminder."""
+    canned = "To: <announce_list>\n\n<Product Name> <version> is out.\n"
+    out = render.step2(announce(), download_page=DOWNLOAD, changelog_url=CHANGELOG, canned_body=canned)
+    assert out["reminder_prepended"] is True
+    assert out["body"].startswith("NOTE: This email must be sent from your @apache.org address.")
 
 
 def test_step2_missing_facts_are_placeholders_never_invented() -> None:

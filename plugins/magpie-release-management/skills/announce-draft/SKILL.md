@@ -18,7 +18,7 @@ argument-hint: "<version> [--planning-issue <url>]"
 capability: capability:resolve
 surface_hash: sha256:edffafcd9d9948ab
 license: Apache-2.0
-measured_tokens: 4904
+measured_tokens: 4913
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -345,7 +345,7 @@ The AI-driven part ends with a hand-back artefact containing:
 |---|---|---|
 | Pre-flight blocked — not promoted | Planning issue lacks `promoted` label | Complete Step 10 (`release-promote`), or supply `--planning-issue` pointing at a promoted issue |
 | Pre-flight blocked — promote-wait | Promote commit is less than one hour ago | [`outcomes/promote-wait.md`](outcomes/promote-wait.md) |
-| Pre-flight blocked — backend mismatch | An ASF project configured with a non-list backend, or a non-ASF project with `announce-list` | Fix `release_announce_backend` in config, or correct `organization` in `project.md` |
+| Pre-flight blocked — backend mismatch | An ASF project configured with a non-list backend, or a non-ASF project with `announce-list` or with `release_announce_backend` unset | Fix `release_announce_backend` in config, or correct `organization` in `project.md` |
 | Download Page URL missing | Not in planning issue or config | Supply via `--download-page <url>` |
 | Site-bump PR scope violation | A proposed file is not in `site_pr_files` | [`outcomes/scope-violation.md`](outcomes/scope-violation.md) |
 | `site_repo` missing | Config has no `site_repo` key | Add `site_repo` to `release-management-config.md`, or skip the site bump |

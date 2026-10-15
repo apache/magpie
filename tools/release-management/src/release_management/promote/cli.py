@@ -50,7 +50,10 @@ def add_parsers(sub: Any) -> None:
     v.add_argument("--vote-passed", action="store_true", help="the planning issue carries `vote-passed`")
     v.add_argument("--no-planning-issue", action="store_true", help="no planning issue was found")
     v.add_argument(
-        "--target-populated", action="store_true", help="the target listing / `gh release view` found content"
+        "--target",
+        required=True,
+        choices=render.TARGET_STATES,
+        help="what the target listing / `gh release view` found; a check that did not run has no value to pass",
     )
     v.add_argument(
         "--attestation",
@@ -66,7 +69,17 @@ def add_parsers(sub: Any) -> None:
     r.add_argument("--upstream", help="<upstream> owner/repo, from project.md")
     r.add_argument("--project", help="<project> slug, from project.md")
     r.add_argument("--product-name", help="the display name, e.g. 'Apache Airflow'")
-    r.add_argument("--handoff", action="store_true", help="Step 0 verdict was handoff-non-pmc")
+    r.add_argument(
+        "--verdict",
+        required=True,
+        help="file holding `promote verdict`'s output; only proceed / handoff-non-pmc render",
+    )
+    r.add_argument(
+        "--handoff",
+        action="store_true",
+        default=None,
+        help="compatibility: must agree with --verdict, which decides the hand-off",
+    )
     r.add_argument("--rm", help="the RM's GitHub handle or apache_id, for the hand-off note")
     r.add_argument("--roster-path", help="preflight values.roster_path, for the hand-off note")
     r.add_argument("--apache-id", help="the RM's apache_id (svn --username)")
@@ -84,7 +97,7 @@ def dispatch(args: argparse.Namespace) -> int:
             render.verdict(
                 _json(args.preflight),
                 vote_passed=args.vote_passed,
-                target_populated=args.target_populated,
+                target=args.target,
                 attestation=args.attestation,
                 planning_issue_found=not args.no_planning_issue,
                 planning_issue=args.planning_issue,
@@ -97,7 +110,7 @@ def dispatch(args: argparse.Namespace) -> int:
         )
         out = render.step2(
             p,
-            handoff=args.handoff,
+            handoff=render.handoff_from_verdict(p, _json(args.verdict), handoff=args.handoff),
             rm=args.rm,
             roster_path=args.roster_path,
             apache_id=args.apache_id,

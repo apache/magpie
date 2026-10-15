@@ -24,6 +24,7 @@ merges a PR, or touches the network (Golden rules 1 and 2).
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import urlparse
@@ -37,6 +38,10 @@ SITE_SKIP_REASON = (
 )
 DESCRIPTION_PLACEHOLDER = "<one-sentence description>"
 BACKENDS = ("announce-list", "github-release-notes", "site-post", "discord-channel")
+NON_ASF_BACKEND_UNSET = (
+    "release_announce_backend is unset: announce-list is the default for ASF projects only, and this project is "
+    "not one — set release_announce_backend in release-management-config.md to {choices}"
+)
 
 
 class RenderError(ValueError):
@@ -62,6 +67,10 @@ def verdict(
         )
     elif not promoted:
         blockers.append(NOT_PROMOTED)
+    if values.get("non_asf") and not values.get("release_announce_backend"):
+        blockers.append(
+            NON_ASF_BACKEND_UNSET.format(choices=" / ".join(b for b in BACKENDS if b != "announce-list"))
+        )
     clear = values.get("promote_clear_after_utc")
     if len(blockers) != 1:
         clear = None
@@ -141,6 +150,10 @@ def _skip_line(reason: str) -> str:
         f"[SKIP-PROMOTE-WAIT: promote-wait gate overridden; the RM\naccepted this with the reason: {reason}.]"
     )
 
+
+# Any wording of the sender reminder names a bare `@apache.org` (an address,
+# account, sender …); a full address such as `announce@apache.org` is not one.
+SENDER_REMINDER = re.compile(r"(?<![\w.+-])@apache\.org\b", re.IGNORECASE)
 
 REMINDER = (
     "NOTE: This email must be sent from your @apache.org address. The\n"
@@ -290,7 +303,7 @@ def step2(
                 "<users-list>": users_list or "<users-list>",
             },
         ).strip()
-        if backend == "announce-list" and "@apache.org address" not in body:
+        if backend == "announce-list" and not SENDER_REMINDER.search(body):
             body = REMINDER.format(announce_list=announce_list) + "\n\n" + body
             reminder_added = True
             a.warnings.append(

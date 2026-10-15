@@ -335,7 +335,7 @@ def _run(tmp_path: Path, command: str, skill: str, *argv: str) -> dict[str, Any]
 def test_promote_renders_from_a_real_load(tmp_path: Path) -> None:
     _project(tmp_path)
     pre = _run(tmp_path, "preflight", "promote", "1.0.0-rc1", "--rm", "nobody")
-    verdict = promote.verdict(pre, vote_passed=True, target_populated=False)
+    verdict = promote.verdict(pre, vote_passed=True, target="empty")
     # No roster file: the RM is treated as not on the roster, which is a hand-off.
     assert verdict["verdict"] == "handoff-non-pmc" and verdict["dist_backend"] == "svnpubsub"
     loaded = _run(tmp_path, "load", "promote", "1.0.0-rc1")

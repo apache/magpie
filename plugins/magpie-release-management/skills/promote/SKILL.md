@@ -25,7 +25,7 @@ argument-hint: "<version>-rc<N> [--planning-issue <url>]"
 capability: capability:resolve
 surface_hash: sha256:ecfb43e47fa5905e
 license: Apache-2.0
-measured_tokens: 5680
+measured_tokens: 5812
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -230,12 +230,13 @@ Then read what the tool cannot see:
 4. **Drift check** — the generated pre-flight block reports snapshot drift.
 5. **Override consultation** — see *Adopter overrides* above.
 
-Fold the facts into the verdict with the [`release-management`](../../../../tools/release-management/README.md) tool, passing each flag only when its fact holds:
+Fold the facts into the verdict with the [`release-management`](../../../../tools/release-management/README.md) tool, passing each flag only when its fact holds;
+`--target` is required and names what the target check found (`empty` or `populated`) — a check that did not run or errored has no value to pass, so stop and rerun it:
 
 ```bash
 uv run --project <framework>/tools/release-management release-management promote verdict \
-  --preflight <scratch>/promote-preflight.json --planning-issue <url> \
-  [--vote-passed] [--target-populated] [--attestation] [--no-planning-issue]
+  --preflight <scratch>/promote-preflight.json --planning-issue <url> --target empty|populated \
+  [--vote-passed] [--attestation] [--no-planning-issue] > <scratch>/promote-verdict.json
 ```
 
 The verdict is fail-closed: without `--vote-passed` it blocks, and there is no override (Golden rule 3).
@@ -304,12 +305,14 @@ It runs nothing (Golden rule 1):
 
 ```bash
 uv run --project <framework>/tools/release-management release-management promote render \
-  --load <scratch>/promote-load.json --upstream <upstream> --project <project> --product-name "<product-name>" \
+  --load <scratch>/promote-load.json --verdict <scratch>/promote-verdict.json \
+  --upstream <upstream> --project <project> --product-name "<product-name>" \
   [--apache-id <apache_id>] [--result-vote-url <url>] [--rc-commit-sha <sha>] \
-  [--handoff --rm <handle-or-apache-id> --roster-path <values.roster_path>] [--draft-tag <tag> [--draft-tag-confirmed]]
+  [--rm <handle-or-apache-id> --roster-path <values.roster_path>] [--draft-tag <tag> [--draft-tag-confirmed]]
 ```
 
-`--handoff` is set when Step 0's verdict was `handoff-non-pmc`.
+`--verdict` is the Step 0 verdict file: only `proceed` and `handoff-non-pmc` render, and the hand-off note follows from it.
+`--draft-tag` is required for `github-releases`.
 `command_block` is shaped by `dist_backend`; read the matching file for what it holds and which facts it needs:
 [`backends/svnpubsub.md`](backends/svnpubsub.md) (ASF default), [`backends/github-releases.md`](backends/github-releases.md),
 [`backends/s3.md`](backends/s3.md) or [`backends/self-hosted.md`](backends/self-hosted.md).
@@ -319,7 +322,7 @@ Every block ends with the **mirror note** (required for all backends, Golden rul
 mirrors take up to 24 hours, and ASF policy requires waiting at least 1 hour after the promote commit before updating the download page or sending the `[ANNOUNCE]` email.
 Its `promote_timestamp` is left as a placeholder for the RM to fill in once they know the actual commit time.
 
-A render that cannot be emitted as configured — `self-hosted` without its template, an S3 bucket it cannot read, an unconfirmed draft-tag discrepancy, an unknown backend —
+A render that cannot be emitted as configured — a `blocked` or mismatched Step 0 verdict, `self-hosted` without its template, an S3 bucket it cannot read, `github-releases` without `--draft-tag` or with an unconfirmed discrepancy, `atr` (not supported yet; ATR's Finish step promotes), an unknown backend —
 exits `2` with `{"ok": false, "refused": "<why>"}`. Surface `refused` as written and stop; never compose the block by hand.
 Surface `warnings` (facts still missing, left as placeholders in the block) and ask the RM for them rather than inventing values.
 

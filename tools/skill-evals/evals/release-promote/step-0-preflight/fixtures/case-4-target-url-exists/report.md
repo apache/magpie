@@ -43,9 +43,9 @@ release-config preflight output
 }
 ```
 
-Planning-issue facts for the verdict: `vote-passed` present; the target listing found content (`--target-populated`).
+Planning-issue facts for the verdict: `vote-passed` present; the target listing found content (`--target populated`).
 
-`release-management promote verdict --preflight <scratch>/promote-preflight.json --planning-issue https://github.com/apache/airflow/issues/45010 --vote-passed --target-populated` output:
+`release-management promote verdict --preflight <scratch>/promote-preflight.json --planning-issue https://github.com/apache/airflow/issues/45010 --vote-passed --target populated` output:
 
 ```json
 {
