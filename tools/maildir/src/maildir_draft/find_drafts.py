@@ -76,9 +76,11 @@ def find_drafts(
         return []
 
     wanted_ids = _wanted_ids(message_ids or [])
-    wanted_subject = _normalise_subject(subject) if subject else None
+    # A subject that is only reply prefixes normalises to "" and would match every draft.
+    wanted_subject = _normalise_subject(subject or "") or None
     wanted_to = to.lower() if to else None
-    any_criterion = bool(wanted_ids or wanted_subject or wanted_to)
+    # A given subject is a criterion even when it normalises to nothing.
+    any_criterion = bool(wanted_ids or subject or wanted_to)
 
     box = mailbox.Maildir(str(path), create=False)
     found: list[dict[str, Any]] = []

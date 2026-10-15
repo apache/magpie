@@ -101,3 +101,9 @@ def test_tilde_in_maildir_path_is_expanded(tmp_path, monkeypatch):
     _draft("~/Mail/Drafts", subject="home draft")
     assert (tmp_path / "Mail" / "Drafts" / "cur").is_dir()
     assert [d["subject"] for d in find_drafts("~/Mail/Drafts")] == ["home draft"]
+
+
+def test_subject_of_only_reply_prefixes_matches_nothing(tmp_path):
+    drafts = tmp_path / "Drafts"
+    _draft(drafts, subject="anything")
+    assert find_drafts(drafts, subject="Re: ") == []
