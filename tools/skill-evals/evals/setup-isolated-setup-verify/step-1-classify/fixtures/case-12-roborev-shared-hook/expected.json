@@ -1,0 +1,15 @@
+{
+  "snapshot_drift": "none",
+  "checks": [
+    {
+      "n": 1,
+      "status": "✓",
+      "evidence": "sandbox.enabled: true; deny and ask lists present; network and filesystem allowlists configured"
+    },
+    {
+      "n": 17,
+      "status": "✗",
+      "evidence": "roborev on PATH; exclusion, Bash(roborev *) ask, both Edit denies present and no allow (17a/17b/17d/17e ✓); but core.hooksPath is the shared ~/.claude/git-hooks and its post-commit runs roborev, replacing the dispatcher, so every commit in every repository on the host is reviewed (17f ✗); no MCP or agent hook, mcp.enabled false (17g ✓)"
+    }
+  ]
+}

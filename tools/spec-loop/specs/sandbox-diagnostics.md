@@ -98,8 +98,8 @@ error, and two skills that probe or verify the setup on demand.
   which shows what an un-excluded `gh` does on this machine, then
   checks that `"gh *"` is configured.
 - Skill `setup-isolated-setup-verify` — static checks of the installed
-  configuration (numbered 1–16 under a section heading that still reads
-  `## The 12 checks`; 13 and 14 optional): settings shape, hook wiring, hook scripts, wrapper,
+  configuration (numbered 1–17 under a section heading that still reads
+  `## The 12 checks`; 13, 14 and 17 optional): settings shape, hook wiring, hook scripts, wrapper,
   pinned versions, status line, denial canaries, project-root grant
   (check 8 — also the dev-tool paths, whose absence is ⚠ not ✗, and in
   whole-user scope the shared hook directory probed from inside the
@@ -121,10 +121,20 @@ error, and two skills that probe or verify the setup on demand.
   vetted ops (check 16: every `vetted-op-read` allow form including the
   absolute-`$HOME` base, each with its exclusion, no ask rule matching a
   `vetted-op-read` command, the read block off,
-  the three vetted-ops `Edit` denies; each ✗ when it fails). Check 9 also fails a vetted-ops rule that
+  the three vetted-ops `Edit` denies; each ✗ when it fails), and the roborev exclusion (check 17, if
+  `roborev` is on `PATH`: the `roborev *` exclusion, ⚠ when missing; no
+  `allow` for any roborev command, ✗ unless the catch-all `ask` covers it;
+  the `Bash(roborev *)` ask, ✗ when missing; `Edit` denies on
+  `.roborev.toml` and `~/.roborev/**`, ✗ when missing; an `allowWrite`
+  covering `~/.roborev/`, ✗ in every case; step B.2's `unix://` socket and
+  `allowUnixSockets` entry when `~/.roborev/` is opened, ⚠ when
+  incomplete; a roborev `post-commit` hook in a shared
+  whole-user hooks directory, ✗, and an operator-unconfirmed
+  `.roborev.toml` under the hook, ⚠; roborev agent hooks or MCP servers
+  in the harness, ⚠). Check 9 also fails a vetted-ops rule that
   spells the versioned plugin-cache path with a `*`, since the rule must
   name `~/.claude/magpie/vetted-ops` (#1406). The conditional checks —
-  9, 10, 12, 13, 14 and check 8's whole-user branch — live in
+  9, 10, 12, 13, 14, 17 and check 8's whole-user branch — live in
   `conditional-checks.md`; the
   body keeps each one's condition and its **n/a** answer, so a run
   that meets none of the conditions reads none of them (#1334).
@@ -259,7 +269,7 @@ PYTHONPATH=tools/skill-evals/src python3 -m skill_evals.runner \
   the wrapper's `allowRead` grant statically; the runtime-state entry
   is reached only through the hint hook.
 - The doctor's and verify skill's section headings (`## The 8 probes`,
-  `## The 12 checks`) lag their bodies (nine probes, sixteen checks).
+  `## The 12 checks`) lag their bodies (nine probes, seventeen checks).
 - A command that spells a working directory with a literal `~` still
   prompts under the read block even when the directory is listed. For
   the vetted-ops commands the setup closes this by requiring the read

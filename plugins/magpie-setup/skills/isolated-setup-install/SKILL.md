@@ -15,9 +15,9 @@ when_to_use: >-
   If it is already installed, use `setup-isolated-setup-verify` to check
   it or `setup-isolated-setup-update` to refresh it.
 capability: capability:platform
-surface_hash: sha256:602903c74d17c7fb
+surface_hash: sha256:09bcd5e69ccdacd8
 license: Apache-2.0
-measured_tokens: 6642
+measured_tokens: 6692
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -440,11 +440,13 @@ check two things:
 Rationale and the rules in full:
 [`docs/setup/secure-agent-setup.md` → Working directories under the read-outside-working-directories block](../../../../docs/setup/secure-agent-setup.md#working-directories-under-the-read-outside-working-directories-block).
 
-### Steps K, L and M — optional extras
+### Steps K, L, M and B — optional extras
 
 None of these is needed for a working install. Walk the one the operator
-asks for: a hardware security key (K), the container gateway (L), or the
-eval-harness exclusion (M).
+asks for: a hardware security key (K), the container gateway (L), the
+eval-harness exclusion (M), or the exclusion for the third-party
+[roborev](../../../../docs/setup/companion-skills.md#roborev) CLI (B) — offer B
+unprompted when `command -v roborev` finds it.
 
 **Procedures:** [`optional-steps.md`](optional-steps.md).
 

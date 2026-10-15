@@ -1,0 +1,15 @@
+{
+  "snapshot_drift": "none",
+  "checks": [
+    {
+      "n": 1,
+      "status": "✓",
+      "evidence": "sandbox.enabled: true; deny and ask lists present; network and filesystem allowlists configured"
+    },
+    {
+      "n": 17,
+      "status": "⚠",
+      "evidence": "roborev on PATH; exclusion, Bash(roborev *) ask, both Edit denies, no allow (17a/17b/17d/17e ✓); but ~/.claude.json registers a roborev MCP server, which the harness starts outside the sandbox and the Bash prompt (17g ⚠)"
+    }
+  ]
+}

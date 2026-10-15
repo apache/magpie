@@ -115,6 +115,40 @@
           "install": "/plugin install code-review"
         }
       }
+    },
+    {
+      "id": "roborev",
+      "title": "roborev",
+      "vendor": "Kenn Software (community, MIT)",
+      "url": "https://roborev.io",
+      "what": "A local CLI and daemon that reviews every commit in the background with the coding agent you already use, and feeds the findings back for a fix-and-re-review loop before you push.",
+      "why": {
+        "pr-management": "pr-management-code-review reviews other people's PRs; roborev reviews your own branch before it becomes one, so the PRs you open arrive with the mechanical findings already fixed.",
+        "pairing": "self-review is a one-shot read of your local diff; roborev keeps reviewing each commit as you make it and drives the fix and re-review loop until the branch is clean."
+      },
+      "note": "On Claude Code under Magpie's secure agent setup, roborev cannot read ~/.roborev/ and fails on every call; Step B of setup-isolated-setup-install wires the exclusion and the prompt that keep it safe outside the sandbox, and Step B.2 optionally lets its post-commit hook review the agent's own commits. Without Homebrew, see https://roborev.io/docs/installation/ for the other installers.",
+      "harnesses": {
+        "claude-code": {
+          "marketplace": null,
+          "install": "brew install kenn-io/tap/roborev\nroborev skills install"
+        },
+        "codex": {
+          "marketplace": null,
+          "install": "brew install kenn-io/tap/roborev\nroborev skills install"
+        },
+        "copilot": {
+          "marketplace": null,
+          "install": "brew install kenn-io/tap/roborev\nroborev skills install"
+        },
+        "gemini": {
+          "marketplace": null,
+          "install": "brew install kenn-io/tap/roborev\nroborev skills install"
+        },
+        "cursor": {
+          "marketplace": null,
+          "install": "brew install kenn-io/tap/roborev\nroborev skills install"
+        }
+      }
     }
   ]
 }

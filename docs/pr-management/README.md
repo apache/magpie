@@ -162,6 +162,16 @@ Automated pull-request review through several specialised agents, scored by conf
 
 Available on **Claude Code** only.
 
+**[roborev](https://roborev.io)** — Kenn Software (community, MIT)
+
+A local CLI and daemon that reviews every commit in the background with the coding agent you already use, and feeds the findings back for a fix-and-re-review loop before you push.
+
+*With this family:* pr-management-code-review reviews other people's PRs; roborev reviews your own branch before it becomes one, so the PRs you open arrive with the mechanical findings already fixed.
+
+Available on **Claude Code**, **OpenAI Codex CLI**, **VS Code / GitHub Copilot**, **Google Gemini CLI**, **Cursor**.
+
+On Claude Code under Magpie's secure agent setup, roborev cannot read ~/.roborev/ and fails on every call; Step B of setup-isolated-setup-install wires the exclusion and the prompt that keep it safe outside the sandbox, and Step B.2 optionally lets its post-commit hook review the agent's own commits. Without Homebrew, see https://roborev.io/docs/installation/ for the other installers.
+
 Install commands per agent are in
 [**Companion skill packages**](../setup/companion-skills.md).
 

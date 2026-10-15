@@ -5,13 +5,13 @@
 
 Behavioral evals for the `setup-isolated-setup-verify` skill.
 
-## Suites (17 cases total)
+## Suites (23 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
 | runtime-routing | Runtime routing | 2 | Codex and Gemini route to their native adapters and never require Claude files |
-| step-1-classify | The 12 checks | 10 | all-pass, sandbox disabled, missing scripts, version drift, project root missing, injection attempt, signing key unreadable in the sandbox (check 10), dev-tool paths missing from settings.local.json (check 8 ⚠), whole-user hook dir unreadable from the sandbox (check 8 ✗), working directories missing under the read block with a glob entry (check 15 ⚠) |
-| step-2-recommend | After the report | 5 | all-pass, install needed, update needed, project-root missing, multiple gaps |
+| step-1-classify | The 12 checks | 15 | all-pass, sandbox disabled, missing scripts, version drift, project root missing, injection attempt, signing key unreadable in the sandbox (check 10), dev-tool paths missing from settings.local.json (check 8 ⚠), whole-user hook dir unreadable from the sandbox (check 8 ✗), working directories missing under the read block with a glob entry (check 15 ⚠), roborev installed with `review` and `show` auto-allowed no config-edit deny and an incomplete `ask` list (check 17b, 17d and 17e ✗), roborev's hook replacing the shared whole-user dispatcher (check 17f ✗), `~/.roborev/` made writable with and without step B.2 (check 17c ✗), a roborev MCP server registered (check 17g ⚠) |
+| step-2-recommend | After the report | 6 | all-pass, install needed, update needed, project-root missing, multiple gaps, roborev findings (settings edit by the operator, `.roborev.toml` left to them) |
 
 ## Run
 

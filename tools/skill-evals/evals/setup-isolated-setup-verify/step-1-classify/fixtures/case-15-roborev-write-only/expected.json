@@ -1,0 +1,15 @@
+{
+  "snapshot_drift": "none",
+  "checks": [
+    {
+      "n": 1,
+      "status": "✓",
+      "evidence": "sandbox.enabled: true; deny and ask lists present; network and filesystem allowlists configured"
+    },
+    {
+      "n": 17,
+      "status": "✗",
+      "evidence": "roborev on PATH; exclusion, Bash(roborev *) ask, both Edit denies, no allow; step B.2 not taken (no allowRead on ~/.roborev/), but allowWrite covers ~/.roborev/, leaving the Edit(~/.roborev/**) deny as the only guard keeping config.toml, which picks the agent, endpoint and hooks the daemon runs outside the sandbox, from sandboxed writes (17c ✗)"
+    }
+  ]
+}

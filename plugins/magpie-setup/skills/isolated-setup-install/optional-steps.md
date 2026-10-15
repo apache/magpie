@@ -1,11 +1,11 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# Optional steps: K, L and M
+# Optional steps: K, L, M and B
 
 Read the one the walk-through reaches. None of these is required for
 a working install: a hardware security key, the container gateway,
-and the eval-harness exclusion.
+the eval-harness exclusion, and the roborev exclusion.
 
 ## Step K — Hardware security key (optional)
 
@@ -282,3 +282,212 @@ the step:
 
 Full rationale:
 [`tools/skill-evals/README.md` → Running from inside the sandbox](../../../../tools/skill-evals/README.md#running-from-inside-the-sandbox).
+
+## Step B — The roborev exclusion (optional)
+
+Only applies when the [`roborev`](https://roborev.io) CLI is on `PATH`
+(`command -v roborev`). It is a third-party
+[companion](../../../../docs/setup/companion-skills.md#roborev), not part
+of Magpie; if it is not installed, skip this step and say so.
+
+Every `roborev` subcommand talks to a local daemon and reads its own state
+under `~/.roborev/` (`config.toml`, the review database, the daemon's
+runtime sockets), which this sandbox's `denyRead: ["~/"]` blocks.
+Sandboxed, even `roborev review` fails with
+`cannot load daemon client config: stat ~/.roborev/config.toml: operation not permitted`.
+The CLI therefore runs outside the sandbox through one exclusion, and that
+makes it a wider door than it looks. Outside the sandbox, `roborev` can:
+
+- run a full coding agent in its own process (`review --local`, `fix`,
+  `refine`, `run`), with that agent's credentials and no sandbox around it;
+- review any checkout on the machine (`--repo <path>`), including one the
+  sandbox's `denyRead` hides, and send it to a provider the caller picks
+  (`--agent`, `--model`, `--provider`);
+- print stored review prompts, diffs included, for every repository roborev
+  has ever reviewed (`show --prompt`, `list`, `log`, `search`, `cost`
+  `--repo`): the review database is per machine, not per project.
+
+So no `roborev` command runs without a prompt — the same position Step R
+takes for the adversarial-review tool, for the same reason:
+
+```jsonc
+"sandbox": {
+  "excludedCommands": ["roborev *"]
+},
+"permissions": {
+  "ask": [
+    // every subcommand, every flag order, and any subcommand roborev adds
+    // later: even `status` takes the global `--server <host>`, which
+    // connects wherever it points, outside the sandbox
+    "Bash(roborev *)"
+  ],
+  "deny": [
+    // roborev reads its agent, model, endpoint and hooks from these files,
+    // and then runs outside the sandbox; the agent that calls it must not
+    // be able to rewrite them
+    "Edit(**/.roborev.toml)",
+    "Edit(~/.roborev/**)"
+  ]
+}
+```
+
+Put it in the user scope (`~/.claude/settings.json`): the binary and
+`~/.roborev/` are per machine, not per project. **Do not add an `allow`**
+for any subcommand, not even `version` or `status`: a trailing global
+`--server` or `-v` matches a wildcard `allow`, and an exact one saves a
+click on a command nobody needs to run unattended. Because `ask` outranks
+`allow`, the catch-all also overrides an `allow` for `roborev` from any
+other scope, a project `.claude/settings.json` in a cloned repository
+included.
+
+Tell the operator what the exclusion covers and what it does not:
+
+- **Read every prompt before approving it.** The prompt is the only gate:
+  look for `--local`, `--repo` pointing outside the current project,
+  `--agent`/`--provider` naming a provider the operator has not chosen,
+  `--prompt` on `show`, and any `config set` — it writes `.roborev.toml`
+  (default) or `~/.roborev/config.toml` (`--global`), the files that pick
+  the agent, endpoint and hooks the daemon runs; `init` writes repository
+  config and installs the hook, so read it as carefully. Do not add an `allow` for `review` to save the
+  click — that is the same refusal Step R makes for the adversarial-review
+  tool, for the same reason.
+- **The flags are not the whole story.** roborev also reads a per-repo
+  `.roborev.toml`, which can name the review agent, the model, a
+  `model@base_url` endpoint and `[[hooks]]` to run. The `deny` above stops
+  the file-editing tools and, because an `Edit(path)` deny merges into the
+  sandbox's `denyWrite`, sandboxed Bash too. What remains is a committed
+  one arriving with a checkout: a contributor's PR, a cloned repository, a
+  commit made outside the sandbox. The same merge has a cost: a sandboxed
+  `git checkout`, `pull`, `rebase` or `stash` that must rewrite a tracked
+  `.roborev.toml` fails with `operation not permitted`, and has to run in
+  the operator's terminal; in a repository whose `prek` whitespace hooks
+  touch it, add it to the `sandbox_write_denied` anchor (#1309). Before approving a `roborev` prompt,
+  check whether the file exists at all (`test -e .roborev.toml`), then read
+  it and its history: `cat .roborev.toml` and
+  `git log -p --format='%h %an %s%n%b' -- .roborev.toml`, so `Generated-by:`
+  trailers show. The author name proves nothing — the agent commits under
+  the operator's own git identity. Approve only when the operator
+  recognises every agent, model, endpoint and `[[hooks]]` entry in it.
+  `~/.roborev/config.toml` is outside every `allowWrite` root, with or
+  without Step B.2, and the `Edit(~/.roborev/**)` deny puts it in
+  `denyWrite` as well, so sandboxed Bash cannot rewrite it — only an
+  approved `roborev config set --global` can.
+- `fix`, `refine` and `run` hand the working tree to an agent that edits
+  and commits outside this sandbox.
+- **roborev's agent hook and MCP server bypass the prompt.**
+  `roborev agent-hook install` (which `doctor` and `quickstart` suggest)
+  writes harness hooks that run `roborev agent-hook run`, and with `--mcp`
+  registers a `roborev mcp serve` MCP server; `[mcp] enabled` in
+  `config.toml` opens an HTTP endpoint. The harness starts hooks and MCP
+  servers itself, outside the sandbox and outside the Bash `ask` rule, so
+  each runs roborev with no prompt and hands the agent stored reviews from
+  every repository. Do not install either under the secure setup; an
+  operator who wants them accepts that the prompt no longer gates roborev.
+- **A planted `.roborev.toml` also reaches the operator's own commits.**
+  With the post-commit hook installed, a commit made in the operator's
+  terminal queues a review with no prompt at all, and the daemon applies
+  whatever `.roborev.toml` is in the tree. After any agent session in such
+  a repository, check the file before committing from the terminal — the
+  same three commands as above, since a committed one shows a clean
+  status. Do not install the hook (`roborev init`,
+  `install-hook`) in a repository the agent works in unless that check is
+  part of the routine.
+- **Under a whole-user `core.hooksPath`, keep roborev's hook per
+  repository.** With Step P's whole-user scope, `core.hooksPath` points at
+  the shared `~/.claude/git-hooks/`, and roborev follows it: `roborev init`
+  or `install-hook` would target the shared `post-commit` — the dispatcher
+  every repository on the host runs. Refuse that, and never pass `--force`
+  there: replacing the dispatcher breaks every repository's own hooks and
+  queues every commit on the host, private checkouts included, for review.
+  With Step P's dispatcher flavour, put roborev's hook in the repository's
+  own `$(git rev-parse --git-common-dir)/hooks/post-commit` instead, where
+  the dispatcher chains to it. With the simple flavour there is no shared
+  `post-commit` and per-repository hooks never fire, so `roborev init` would
+  quietly create a new host-wide one: refuse it, and either run
+  `roborev review` explicitly or switch Step P to the dispatcher flavour.
+- **The post-commit hook stays sandboxed when the commit is.** The hook `roborev init` or
+  `install-hook` installs runs `roborev post-commit` as a child of
+  `git commit`, and an exclusion matches only the command the agent typed,
+  not its children. A commit the agent makes therefore runs the hook inside
+  the sandbox, where it fails on the `~/.roborev/` read and queues nothing —
+  silently. Commits the operator makes in their own terminal are reviewed
+  as usual; for the agent's, either run `roborev review` (or `--branch`)
+  explicitly, which prompts, or take
+  [Step B.2](#step-b2--let-roborev-run-inside-the-sandbox-optional).
+  A `git commit` retried with the sandbox disabled — the usual fix for a
+  signing failure — runs the hook unsandboxed instead, with no roborev
+  prompt: the operator approves `git commit` and roborev queues a review
+  that applies whatever `.roborev.toml` is in the tree. Before approving
+  such a bypass in a repository with the hook, run the same
+  `.roborev.toml` check as for a terminal commit.
+- Like every exclusion it matches only the single-line form. A pipe,
+  `$(…)`, `&&` or a redirection puts the command back in the sandbox, where
+  it fails on the `~/.roborev/` read.
+
+### Step B.2 — Let roborev run inside the sandbox (optional)
+
+Offer it only after Step B, only on macOS, and only when the operator
+wants the post-commit hook to review the agent's own commits. On Linux the
+sandbox ignores `sandbox.network.allowUnixSockets`, so the hook still cannot
+reach the daemon and the step would expose the review database for nothing;
+there, run `roborev review` explicitly instead. It gives sandboxed
+processes what roborev needs, so a `roborev` child of `git commit` works:
+
+1. Move the daemon from loopback TCP, which the sandbox blocks, to a fixed
+   unix socket. The default `unix://` path sits under the per-machine temp
+   directory, so name one under `~/.roborev/`, written out as an absolute
+   path with `$HOME` expanded — `/Users/alice` below stands for it — because
+   the socket allow-list takes literal paths:
+
+   ```bash
+   roborev config set server_addr 'unix:///Users/alice/.roborev/daemon.sock' --global
+   roborev daemon restart
+   ```
+
+   An explicit `unix://` makes the daemon socket-only; every `roborev`
+   client reads the same `config.toml`, so the CLI follows it.
+2. Add the host-independent half to the user scope
+   (`~/.claude/settings.json`):
+
+   ```jsonc
+   "sandbox": {
+     "filesystem": {
+       "allowRead": ["~/.roborev/"]
+     }
+   }
+   ```
+
+   Read only, never `allowWrite`: the client reads `config.toml` and the
+   daemon's runtime file and sends everything else over the socket, so it
+   needs no write access, and a writable `config.toml` — which picks the
+   agent, endpoint and hooks the daemon runs outside the sandbox — would be
+   one sandboxed command away from running anything there.
+
+   and the socket, which the allow-list takes only as a literal resolved
+   path, to each worktree's project-local `.claude/settings.local.json` —
+   the same per-host file check 15 uses, never a synced or committed one:
+
+   ```jsonc
+   "sandbox": {
+     "network": {
+       "allowUnixSockets": ["/Users/alice/.roborev/daemon.sock"]
+     }
+   }
+   ```
+
+Tell the operator what this costs, plainly:
+
+- **Step B's prompt stops being the gate.** The `Bash(roborev *)` ask
+  matches only a command spelled `roborev …`. Once sandboxed processes can
+  read `~/.roborev/` and reach the socket, `/opt/homebrew/bin/roborev …`,
+  `env roborev …` or `sh -c 'roborev …'` drive the daemon with no prompt —
+  `--repo` reviews of any checkout, any `--agent` or `--provider`,
+  `show --prompt` — and the daemon does that work outside the sandbox.
+- The review database becomes readable by every sandboxed command, so the
+  stored diffs of every repository roborev has reviewed are no longer
+  behind a prompt.
+- Anything that connects to the socket can queue reviews.
+
+Without B.2 the agent's commits are simply not reviewed in the background,
+which fails safe. Take it only when that trade is the right one for this
+machine.

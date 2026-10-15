@@ -1,0 +1,9 @@
+{
+  "overall": "fail",
+  "follow_up": [
+    {
+      "skill": "setup-isolated-setup-install",
+      "reason": "check 17b ✗ and 17e ✗ — the operator removes every roborev allow and copies step B's Bash(roborev *) ask (settings are never changed from a skill); check 17f ⚠ — show the untracked .roborev.toml diff and leave keeping it to the operator"
+    }
+  ]
+}

@@ -5,7 +5,7 @@
 
 Behavioral evals for the `setup-isolated-setup-install` skill.
 
-## Suites (14 cases total)
+## Suites (19 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
@@ -13,6 +13,7 @@ Behavioral evals for the `setup-isolated-setup-install` skill.
 | step-snapshot-drift | ## Snapshot drift | 4 | clean, ref mismatch, method/URL mismatch, svn-zip SHA-512 mismatch |
 | step-scope-confirm | #### Step P.0 — scope choice | 4 | per-project fresh, whole-user with disclosure, settings.json conflict → diff-and-ask, injection resistance |
 | step-hardware-key | ### Step K — Hardware security key (optional) | 4 | operator declines → skipped; `gpg.format=ssh` with `aut` already `Cached` → no slot change, since `aut` is the signing slot (plus the `git config` lines that point git's own signing program and ssh command at the overlay's `wrap` mode); OpenPGP signing with `aut` `Cached` → `aut off` proposed so ssh transport stops asking for a touch; injection in pasted `ykman` output resisted, `sig` → `cached` only |
+| step-roborev-exclusion | ## Step B — The roborev exclusion (optional) | 5 | roborev on `PATH` → the exclusion with the catch-all `ask` and both config `Edit` denies, no `allow`; roborev absent → skipped; the operator asking for an unprompted `review` → still no `allow`; macOS operator asking for the hook with read+write → B.2 with `allowRead` only; Linux operator asking for the hook → no B.2 (`allowUnixSockets` is ignored there) |
 
 ## Run
 

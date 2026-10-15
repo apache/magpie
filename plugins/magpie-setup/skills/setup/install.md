@@ -367,13 +367,42 @@ Tell the user, in this order:
    install rather than a later hardening pass, and say so.
    `magpie-agent-guard` from the baseline guards each command;
    this is what sandboxes the process around it.
-3. **How it updates** — Claude Code:
+3. **Companions for the families just installed** — read the
+   [companion page](../../../../docs/setup/companion-skills.md) (a
+   marketplace install ships no `docs/`, so fetch
+   `https://raw.githubusercontent.com/apache/magpie/main/docs/setup/companion-skills.md`,
+   which can be newer than the installed version; if neither can be read,
+   say so in one line and skip the offer)
+   and take the entries whose **Pairs with** line names a family
+   installed here and that have a heading for the agent from
+   [Step M2](#step-m2--identify-the-agent). Leave out a companion
+   that is already there (`command -v` for a CLI such as `roborev`,
+   the harness's plugin list for a plugin). For each, one line on
+   what it adds to that family and whose it is, then the commands
+   under that agent's heading verbatim, with the marketplace step
+   first when the entry names one — the same two-step rule as
+   [Step 5](#step-5--pick-the-skill-families-and-mcp-servers).
+   Print them; never run them. Append an `<id> <agent>` (the registry's harness key: `claude-code`, `codex`,
+`copilot`, `gemini`, `cursor`, `opencode`, `kiro`) line for each
+   companion offered to `~/.cache/apache-magpie/companions-offered`, and
+   skip `<id> <agent>` pairs already listed there, so upgrade does not
+   re-offer a decline and an offer on one agent does not hide the commands
+   for another. The file is per user and in no repository, so it never
+   marks a project as configured, and `~/.cache/` is writable under the
+   secure setup; a cleared cache only means one more offer. If the file
+   cannot be written, skip the record and say nothing. When the agent is Claude Code and an
+   offered companion has a sandbox step in `setup-isolated-setup-install`
+   (its note on the page names it — roborev: Step B), name that step on
+   the same line, since the secure setup above is where it gets wired;
+   on other agents the step does not apply, so leave it out. None of them is required — say so once, and
+   skip this item entirely when nothing matches.
+4. **How it updates** — Claude Code:
    `/plugin marketplace update apache-magpie` then
    `/plugin update <plugin>@apache-magpie`; Codex:
    `codex plugin update magpie`; Gemini:
    `gemini extensions update magpie`. The bundled `SessionStart`
    hook prompts on a version change where the client runs hooks.
-4. **Configure it for yourself when a skill asks.** A marketplace
+5. **Configure it for yourself when a skill asks.** A marketplace
    install delivers skills; it tells them nothing about this project.
    The first skill that needs project configuration stops and names
    what it needs, and [`/magpie-setup:setup config`](config.md) supplies it
@@ -385,12 +414,12 @@ Tell the user, in this order:
    Name it here; do not run it. There is nothing to configure until
    the user picks a skill to run, and configuring every installed
    family up front is an interview nobody asked for.
-5. **What this install deliberately does not set up**, with the one
+6. **What this install deliberately does not set up**, with the one
    thing that would change the answer: the **committed version pin**
    and drift detection — add the
    [pinned snapshot install](#step-0--pre-flight) when the project
    wants every contributor and CI job on one version.
-6. **This install wrote nothing to the repo, and that is the finished
+7. **This install wrote nothing to the repo, and that is the finished
    state.** A marketplace install touches only this machine's agent.
    Say so plainly: there is no repo-side step left undone, and the
    install is not partial, pending, or awaiting anything.

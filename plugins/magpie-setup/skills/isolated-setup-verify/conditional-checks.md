@@ -1,9 +1,9 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# The conditional checks: 9, 10, 12 and 13
+# The conditional checks: 9, 10, 12, 13, 14 and 17
 
-Four of the checks only apply when the install has the feature they
+Six of the checks, and check 8's whole-user branch, only apply when the install has the feature they
 cover. `SKILL.md` carries the condition and reports **n/a** without
 reading this file; read the section for a check whose condition holds.
 
@@ -358,3 +358,88 @@ reading this file; read the section for a check whose condition holds.
       re-point it. A real file or directory at the path, or a link anywhere
       else, is ✗: the exclusion would run that code outside the sandbox, and
       the hook refuses to replace anything that is not a symlink.
+
+## Check 17 — roborev exclusion, if installed
+
+17. **roborev exclusion, if installed.** Optional (step B of
+    `setup-isolated-setup-install`): report **n/a** when `command -v roborev`
+    finds nothing.
+
+    Seven sub-checks:
+    - **17a — the exclusion.** `sandbox.excludedCommands` contains
+      `roborev *` in the user scope (`~/.claude/settings.json`) or the
+      project scope. Missing is ⚠, not ✗: nothing is exposed, but every
+      sandboxed `roborev` call fails reading `~/.roborev/config.toml`.
+    - **17b — nothing is allowed.** No `permissions.allow` entry in any
+      scope matches a `roborev` command — not a catch-all, not one
+      subcommand, not `version` or `status`. While 17e passes, such an entry
+      is ⚠: the catch-all `ask` outranks it, so every call still prompts,
+      but it is one deleted line away from running unprompted. With 17e
+      failing it is ✗: outside the sandbox `review --local`, `fix`, `refine`
+      and `run` run an agent, `--repo` reaches any checkout, `show --prompt`
+      prints stored diffs from every repository roborev has reviewed, and
+      even `status --server <host>` connects wherever it points — each with
+      no confirmation.
+    - **17c — `~/.roborev/` is never writable, and step B.2 is complete if
+      taken.** In every case, an `allowWrite` entry in any scope covering
+      `~/.roborev/` or an ancestor of it is ✗: it leaves the `Edit(~/.roborev/**)`
+      deny (which merges into `denyWrite`) as the only thing keeping
+      `config.toml` — which picks what the daemon runs outside the sandbox —
+      out of reach of sandboxed commands, one deleted line from writable,
+      and no roborev client needs write access. When an
+      `allowRead` entry in any scope covers `~/.roborev/` or an ancestor of
+      it, the review database is open to the sandbox as in step B.2: confirm `server_addr` in
+      `~/.roborev/config.toml` is a `unix://` path and that the same path is
+      in `sandbox.network.allowUnixSockets`. On Linux, where
+      `allowUnixSockets` is ignored, the `allowRead` is ⚠ on its own: the
+      database is exposed and the socket still cannot be reached. On macOS,
+      a missing socket entry or a TCP `server_addr` is ⚠: the directory is open but sandboxed clients still
+      cannot reach the daemon. Report the B.2 trade-off as a **note** either way — any
+      sandboxed command can then drive roborev without step B's prompt (the
+      `ask` matches only the literal `roborev …` spelling).
+    - **17d — roborev's config is not agent-editable.** `permissions.deny`
+      contains `Edit(**/.roborev.toml)` and `Edit(~/.roborev/**)`, step B.2
+      or not. Missing is ✗: roborev takes its agent, endpoint
+      and hooks from those files and then runs outside the sandbox.
+    - **17e — the prompt is there.** `permissions.ask` in the user or
+      project scope contains `Bash(roborev *)`. Missing is ✗: with no rule at all, auto mode
+      hands a `roborev` command to the classifier instead of prompting.
+    - **17f — no planted `.roborev.toml` under the hook.** Look for a
+      `post-commit` that runs `roborev` both in the repository's own
+      `$(git rev-parse --git-common-dir)/hooks/` and in the directory
+      `git rev-parse --git-path hooks` resolves to. One in a shared,
+      whole-user hooks directory (`core.hooksPath`, e.g.
+      `~/.claude/git-hooks/`) is ✗: it reviews every commit in every
+      repository on the host. When the repository's hook runs it, report whether
+      `.roborev.toml` exists, whether it is tracked (`git ls-files`), its content, and its
+      history with trailers (`git log -p --format='%h %an %s%n%b' --
+      .roborev.toml`). Any such file is ⚠ unless the operator recognises
+      every agent, model, endpoint and `[[hooks]]` entry in it — the author
+      name proves nothing, since the agent commits under the operator's
+      identity, and a committed file shows a clean status, and the operator's
+      next commit queues a review that applies it, with no prompt.
+    - **17g — no roborev hook or MCP server in the harness.** No `hooks`
+      entry in any settings scope, and no MCP server registration, runs
+      `roborev` (`agent-hook run`, `mcp serve`). MCP servers are not kept in
+      `settings.json`: look in `~/.claude.json` (its top-level and
+      per-project `mcpServers`), the project `.mcp.json`, and any managed MCP
+      configuration. Those files carry servers' `env`, `headers`, `args` and
+      `url`, which often hold tokens. Run only these projections and never
+      fall back to reading either file whole. `~/.claude.json` is outside the
+      sandbox's reads, so its command runs outside the sandbox, with that
+      reason stated when proposing it; `.mcp.json` is in the working tree, and
+      a missing one means no project MCP servers:
+
+      ```bash
+      jq '[.mcpServers // {}, (.projects // {} | .[].mcpServers // {})] | .[] | to_entries[] | {name: .key, command: .value.command, roborev: ([.key, .value.command // "", .value.url // ""] + (.value.args // []) | map(tostring | test("roborev|:7373|daemon\\.sock")) | any)}' ~/.claude.json
+      test -e .mcp.json && jq '.mcpServers // {} | to_entries[] | {name: .key, command: .value.command, roborev: ([.key, .value.command // "", .value.url // ""] + (.value.args // []) | map(tostring | test("roborev|:7373|daemon\\.sock")) | any)}' .mcp.json
+      ```
+
+      Also report `roborev config get mcp.enabled --global` (a `roborev`
+      command, so it prompts under step B's `ask`); `true` means roborev serves an
+      HTTP MCP endpoint, and is ⚠ on its own, like a registered roborev
+      server. The projection tests a URL without printing it. If the `~/.claude.json`
+      projection cannot be run, report 17g as unchecked and leave the file
+      for the operator to inspect. A roborev entry is ⚠: the harness starts it
+      outside the sandbox and outside the Bash prompt; report it as the
+      operator's accepted cost only if they say they chose it.

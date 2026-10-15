@@ -1,0 +1,15 @@
+{
+  "snapshot_drift": "none",
+  "checks": [
+    {
+      "n": 1,
+      "status": "✓",
+      "evidence": "sandbox.enabled: true; deny and ask lists present; network and filesystem allowlists configured"
+    },
+    {
+      "n": 17,
+      "status": "✗",
+      "evidence": "roborev on PATH; roborev * is in user-scope excludedCommands (17a ✓) and no allowRead names ~/.roborev/ (17c ✓), but permissions.allow covers roborev version, status, review and show, so an unsandboxed review --local / --repo run, a show --prompt read of stored diffs, or status --server <host> needs no confirmation (17b ✗); no Edit deny for .roborev.toml or ~/.roborev/** (17d ✗); no Bash(roborev *) ask rule (17e ✗)"
+    }
+  ]
+}

@@ -3316,12 +3316,22 @@ Then walk through:
    sandboxed signed commit fails with `cannot exec`. See
    [Hardware security keys](#hardware-security-keys--signing-and-authentication).
 
-8. **Verify.** After everything is in place, walk through the
+8. **(Optional) roborev.** Only if `command -v roborev` finds it
+   (a third-party companion; skip otherwise). Add
+   `"roborev *"` to `sandbox.excludedCommands`, `Bash(roborev *)` to
+   `permissions.ask` with **no** `allow` for any roborev command, and
+   `Edit(**/.roborev.toml)` and `Edit(~/.roborev/**)` to
+   `permissions.deny`, in the user scope, merged as in step 5. Only if I
+   also want the post-commit hook to review your own commits, and only on
+   macOS (Linux ignores `allowUnixSockets`), offer the setup skill's Step B.2 (a fixed `unix://` daemon socket and
+   `~/.roborev/` readable — never writable — from the sandbox), and tell
+   me any sandboxed command can then drive roborev without the prompt.
+9. **Verify.** After everything is in place, walk through the
    Verification checks from the next section of this document
    ("Verification — Via a Claude Code prompt") and report
    ✓ done / ✗ missing / ⚠ partial for each piece.
 
-9. **Offer shared-config sync.** Once the install lands, propose
+10. **Offer shared-config sync.** Once the install lands, propose
    running `setup-shared-config-sync` to commit + push the
    user-scope config this install just wired up to my private
    `~/.claude-config` dotfile repo, so my other machines pick it
@@ -3549,6 +3559,20 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
     in any scope (user, project, local, managed); and the three
     vetted-ops `Edit` deny rules from check 9 are present. See
     [Read-only vetted ops never prompt](#read-only-vetted-ops-never-prompt).
+17. **roborev exclusion**, if `command -v roborev` finds it (n/a
+    otherwise). `sandbox.excludedCommands` contains `"roborev *"` (⚠ when
+    missing), `permissions.ask` contains `Bash(roborev *)` (✗ when
+    missing), no `permissions.allow` entry covers a roborev command (⚠
+    while the `ask` is there, ✗ without it), and `permissions.deny`
+    contains `Edit(**/.roborev.toml)` and `Edit(~/.roborev/**)` (✗ when
+    missing). An `allowWrite` covering `~/.roborev/` is ✗ in every case
+    (it leaves the `Edit` deny as the only guard on `config.toml`). When an `allowRead` entry
+    opens `~/.roborev/` (Step B.2), `server_addr` is a `unix://` path that
+    is also in `sandbox.network.allowUnixSockets` (⚠ when not), and say that any
+    sandboxed command can then drive roborev without the prompt. A
+    roborev `post-commit` in a shared whole-user hooks
+    directory is ✗; an unrecognised `.roborev.toml` under the hook, and a
+    roborev agent hook or MCP server in the harness, are ⚠.
 ```
 
 Re-run either form after every Claude Code upgrade — the sandbox

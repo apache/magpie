@@ -315,6 +315,19 @@ The reference model is four layers, layered:
      deliberately no `allow` rule, so every run keeps its prompt.
      Install Step R wires it; verify check 14 checks the exclusion, the
      deny and the absence of an allow.
+   - `roborev *` (optional, third-party): the
+     [roborev](../../../docs/setup/companion-skills.md#roborev) CLI reads
+     its config, review database and daemon state under `~/.roborev/`.
+     It is not in the reference settings. Install Step B adds it with a
+     catch-all `Bash(roborev *)` ask and no `allow`, since outside the
+     sandbox `review --local` runs an agent, `--repo` reaches any checkout
+     and even `status --server` dials out, and `Edit`-denies
+     `.roborev.toml` and `~/.roborev/**`, which pick the agent, endpoint and
+     hooks the daemon runs. Optional Step B.2 moves the daemon to a fixed
+     unix socket and makes `~/.roborev/` readable (never writable) from the
+     sandbox so the post-commit hook reviews the agent's own commits, at the
+     cost of letting any sandboxed command drive the daemon without the
+     prompt. Verify check 17 covers both.
    - `~/.claude/scripts/magpie-run-evals.sh` (optional), so a suite
      can be graded by `claude -p` from inside the sandbox.
 

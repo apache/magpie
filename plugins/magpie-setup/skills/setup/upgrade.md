@@ -61,7 +61,7 @@ Both paths run the same flow.
    check whether Magpie is **plugin-installed** (the signals in
    [`install.md` Step M1](install.md#step-m1--is-magpie-already-plugin-installed)).
    If it is, the upgrade the user wants is the plugin's — print
-   it and stop:
+   it, give the companion pointer below, and stop:
 
    ```text
    /plugin marketplace update apache-magpie
@@ -71,7 +71,9 @@ Both paths run the same flow.
    (Codex: `codex plugin update magpie`; Gemini:
    `gemini extensions update magpie`.) After the plugin refresh,
    run `setup-isolated-setup-update` for any installed harness profile;
-   plugin updates do not merge workspace configuration.
+   plugin updates do not merge workspace configuration. The companion
+   pointer is the one in [Step 0b](#step-0b--marketplace-method-the-floor-split) — this is the path every no-lock marketplace upgrade
+   takes, so it is where most operators see a new companion.
    The marketplace update
    comes first: `plugin update` compares **version strings**
    against the local marketplace clone, so skipping it reports
@@ -108,6 +110,31 @@ Where there is no such CLI, print the commands instead. When every
 installed plugin is already at the latest available version, that run
 changes nothing — say so plainly instead of claiming an update
 happened.
+
+**Then point at companions, once.** Offer the
+[companion page](../../../../docs/setup/companion-skills.md) entries
+(on a marketplace install, fetch
+`https://raw.githubusercontent.com/apache/magpie/main/docs/setup/companion-skills.md`,
+which can be newer than the installed version; if neither can be read, say
+so in one line and skip the offer)
+whose **Pairs with** line names an installed family, that have a heading
+for this agent, and that are not already on the machine (`command -v`
+for a CLI such as `roborev`, the plugin list for a plugin) — exactly as
+[`install.md` Step M5](install.md#step-m5--recap-and-what-comes-next)
+item 3 does, printed and never run, naming the companion's sandbox step in
+`setup-isolated-setup-install` on the same line when the agent is Claude
+Code and its note names one (roborev: Step B). An upgrade is where a family grows a
+companion the operator has not heard of, so this runs whether or not any
+plugin version moved; when nothing matches, say nothing about it. Offer
+each companion once: append an `<id> <agent>` (the registry's harness key: `claude-code`, `codex`,
+`copilot`, `gemini`, `cursor`, `opencode`, `kiro`) line for each companion offered to
+`~/.cache/apache-magpie/companions-offered`, the same per-user file
+[`install.md` Step M5](install.md#step-m5--recap-and-what-comes-next) writes,
+and skip the `<id> <agent>` pairs already listed, so a decline is not
+repeated on every upgrade. If the file cannot be written, skip the record. It covers
+marketplace upgrades, adopted or not (Step 0 item 2 sends a no-lock one
+here for this paragraph only): a pinned-snapshot adopter skips Step 0b, and
+the companion page is where they find one.
 
 Then split on whether the project has adopted Magpie:
 

@@ -102,6 +102,13 @@ acceptance:
   - A marketplace install that wrote nothing to the repo is a complete
     install; neither the recap nor verify describes the result as incomplete
     or partial.
+  - The install recap and every marketplace upgrade point at the companion
+    packages (`docs/setup/companion-skills.md`) that pair with an installed
+    family, are available on the detected agent and are not already on the
+    machine. The commands are printed, never run; each `<id> <agent>` pair
+    is offered once, recorded in `~/.cache/apache-magpie/companions-offered`
+    outside every repository, so the record never marks a project as
+    configured.
   - The default-set floor is seeded with three plugins and never grows
     automatically — not to match which other families this maintainer
     installed, and never to include a maintainer-only family. It is enlarged

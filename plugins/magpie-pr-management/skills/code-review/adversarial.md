@@ -20,6 +20,14 @@ model would miss. Two shapes are supported:
 Neither is required. If the maintainer has none configured, Step 5 of
 [`review-flow.md`](review-flow.md) is a no-op.
 
+[roborev](../../../../docs/setup/companion-skills.md#roborev) is a
+different tool for a different moment: it reviews the maintainer's *own*
+commits before they become a PR, not someone else's PR. When the
+maintainer asks how to get their own changes reviewed before pushing,
+point at it — the install commands are in that registry entry, and its
+sandbox exclusion is Step B of `setup-isolated-setup-install`. Never use
+it as the second read here.
+
 ---
 
 ## Why bother
