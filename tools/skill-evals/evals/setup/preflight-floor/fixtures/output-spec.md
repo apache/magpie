@@ -15,11 +15,13 @@ Return ONLY valid JSON with this structure:
 }
 ```
 
-`action` reports what the pre-flight does about the state described.
+`action` reports what the pre-flight does about the state described. The
+pre-flight command's printed verdict is in the state: act on it through its
+`rules`, as the block says, rather than re-deriving the check.
 `silent` means it prints nothing and the skill proceeds.
 
 `configure` means the skill's required project configuration did not resolve
-and the pre-flight ran `/magpie-setup config` itself. That one **does not
+and the pre-flight ran `/magpie-setup:setup config` itself. That one **does not
 block**: it writes gitignored files and the skill continues in the same turn,
 unlike a plugin install, which needs a session restart before the new version
 is live. Adoption is never run — at most it is mentioned once, which
@@ -37,7 +39,7 @@ run themselves, empty when it prints none.
 
 `blocks` reports whether the skill stops rather than continuing this turn.
 
-`mention_adopt` reports whether the output names `/magpie-setup adopt`. It is
+`mention_adopt` reports whether the output names `/magpie-setup:setup adopt`; say so in `reason` when it does. It is
 mentioned at most once, as information, and never run.
 
 `reason` is one sentence saying why.
