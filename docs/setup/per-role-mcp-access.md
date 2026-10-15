@@ -55,9 +55,9 @@ directory is untouched. The committed lock is untouched.
 ## Prerequisites
 
 - The framework is adopted in the project repo and your install is up to
-  date (`/magpie-setup verify`).
+  date (`/magpie-setup:setup verify`).
 - You have credentials for the MCP server you want to add.
-- Your `.apache-magpie-local/` directory exists (created by `/magpie-setup
+- Your `.apache-magpie-local/` directory exists (created by `/magpie-setup:setup
   adopt`; see [`install-recipes.md`](../quick-start/other-install-methods.md)) or create it:
 
   ```bash

@@ -114,7 +114,7 @@ after the headline:
 | magpie-utilities |
 | magpie-agent-guard |
 
-`status` does not know what is installed on this machine — that needs `claude plugin list`, which this offline check never runs. Run `/magpie-setup verify` for the floor-vs-installed comparison.
+`status` does not know what is installed on this machine — that needs `claude plugin list`, which this offline check never runs. Run `/magpie-setup:setup verify` for the floor-vs-installed comparison.
 ```
 
 The `url` line is not decoration: it is the marketplace every
@@ -127,7 +127,7 @@ field that decides that.
 **There is no "Installed" column.** What versions are actually
 installed needs `claude plugin list`, and `status` must not be
 dragged online to answer that — the collector never emits it, so the
-renderer never has it to show. That comparison is `/magpie-setup
+renderer never has it to show. That comparison is `/magpie-setup:setup
 verify`'s job, stated plainly rather than faked with a column this
 skill cannot fill honestly.
 
@@ -151,7 +151,7 @@ this before assigning health:
 | `local_lock == null` | ✅ expected — no per-machine fetch | ✅ expected — the plugin manager tracks its own installed state; there is nothing to lock | ⚠️ snapshot not fetched here → `setup upgrade` |
 | `gitignore.targets[].all_unignored` | ✅ expected — symlinks are committed | not applicable — no framework symlinks exist under this method | not the pattern used; ignore |
 | `gitignore.targets[].glob_ignored` + `setup_unignored` | not used | not applicable — no framework symlinks exist under this method | ✅ expected — symlinks gitignored, bootstrap tracked |
-| `drift.checked == false` | ✅ nothing to drift against | ✅ nothing to drift against — see `committed_lock.plugins` / `min_version` instead, via [`/magpie-setup verify`](../setup/verify.md#adoption-floor) | depends on `reason` (see [`collect.md`](collect.md#drift)) |
+| `drift.checked == false` | ✅ nothing to drift against | ✅ nothing to drift against — see `committed_lock.plugins` / `min_version` instead, via [`/magpie-setup:setup verify`](../setup/verify.md#adoption-floor) | depends on `reason` (see [`collect.md`](collect.md#drift)) |
 | `local_overrides.present == false` | ✅ optional personal surface — not required | ✅ same — the personal layer is always optional | ✅ same — the personal layer is always optional |
 | `local_overrides.location == "main-checkout"` | ✅ expected in a linked worktree — reads and writes the main checkout's `.apache-magpie-local/` | same | same |
 | `local_overrides.legacy_in_tree == true` | not applicable — adopted | ⚠️ legacy in-tree `.apache-magpie-local/` in an unadopted repo — the pre-flight proposes moving it to `<git-common-dir>/apache-magpie/` | not applicable — adopted |
@@ -164,4 +164,4 @@ committed symlinks — those absences are correct in both cases. A
 marketplace adopter has **no repo-side install footprint at all** by
 design; the only thing this dashboard can honestly check for one is the
 committed floor (above). Whether the floor is actually met is
-`/magpie-setup verify`'s job, not this one's.
+`/magpie-setup:setup verify`'s job, not this one's.

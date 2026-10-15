@@ -257,7 +257,7 @@ The engine is one shared, harness-agnostic file (`--kiro` only selects the I/O
 adapter). On a repo already wired for Claude Code it lives at
 `.claude/hooks/agent-guard.py`, so the hook reuses it; a **Kiro-only** adopter
 (no `.claude/`) points `MAGPIE_AGENT_GUARD` at wherever the engine is installed.
-Note: `/magpie-setup` currently installs the engine only on the Claude path — a
+Note: `/magpie-setup:setup` currently installs the engine only on the Claude path — a
 general installer that drops it for non-Claude-only adopters is a pending
 follow-up (see [`docs/adapters/add-a-harness.md`](../../docs/adapters/add-a-harness.md)).
 
@@ -441,7 +441,7 @@ bounds any accidental wrapper recursion instead of looping forever).
 
 Locate the engine at `agent_guard/__init__.py` inside the framework snapshot
 (`.apache-magpie/tools/agent-guard/src/agent_guard/__init__.py` in an adopter
-tree) or at the path `/magpie-setup` ships it to (`.claude/hooks/agent-guard.py`
+tree) or at the path `/magpie-setup:setup` ships it to (`.claude/hooks/agent-guard.py`
 for Claude Code setups — the file is the same and works for all three modes).
 
 ## Contributing guards

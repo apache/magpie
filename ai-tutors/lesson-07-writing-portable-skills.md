@@ -766,9 +766,9 @@ element, the axis, and the fixing pattern.
 - Step B: "Ask GPT-4o to read the issue body". Axis: model-neutral (PRINCIPLE 10).
   Fix: Pattern 4, drop the vendor and just state the task ("Read the issue body and
   decide...").
-- Step C: "In Claude Code, press Ctrl+K and type /magpie-issue-triage ... output
+- Step C: "In Claude Code, press Ctrl+K and type /magpie-issue:triage ... output
   in the conversation panel on the right." Axis: model-neutral (harness-specific).
-  Fix: Pattern 5, "Invoke the skill with `/magpie-issue-triage`" and drop the
+  Fix: Pattern 5, "Invoke the skill with `/magpie-issue:triage`" and drop the
   harness interface details.
 Comparison: Steps A and B are fixed by editing the skill body alone (swap a
 placeholder, drop a vendor name). Step C, if the harness command were truly

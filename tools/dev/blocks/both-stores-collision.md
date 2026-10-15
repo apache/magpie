@@ -9,6 +9,6 @@ runs `config` on their machine before the project adopts, a
 maintainer runs `adopt` on a different machine, and `adopt` can only
 migrate the local stamp it can see — so the contributor's local
 entry survives beside the newly committed one. When it happens, the
-local entry wins for every comparison, and `/magpie-setup reconcile`
+local entry wins for every comparison, and `/magpie-setup:setup reconcile`
 names the collision and offers to drop the redundant local entries,
 leaving the committed lock as the single store.

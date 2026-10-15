@@ -77,9 +77,9 @@ The framework has two layers:
    milestone conventions. Lives in the adopter's
    `<project-config>/` directory and is **not** shipped with this
    framework. `<project-config>` resolves **per file, personal first**:
-   the personal layer (never committed, written by `/magpie-setup config`)
+   the personal layer (never committed, written by `/magpie-setup:setup config`)
    if the file is there, else `.apache-magpie-overrides/<file>`
-   (committed, project-wide, written by `/magpie-setup adopt`).
+   (committed, project-wide, written by `/magpie-setup:setup adopt`).
    The personal layer is `<git-common-dir>/apache-magpie/` in a repo
    that has only installed Magpie (inside the git directory: nothing in
    the working tree, no ignore entry, shared by every worktree), and

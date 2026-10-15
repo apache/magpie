@@ -396,7 +396,7 @@ Once `<project-config>/privacy-llm.md` is in place:
 The registry of default-approved entries can change between
 framework versions (e.g. ASF Legal ratifies a list, or a previously-
 default-approved class is narrowed). After running
-`/magpie-setup upgrade`, re-run the verification checks above. If
+`/magpie-setup:setup upgrade`, re-run the verification checks above. If
 an entry that was previously default-approved is now opt-in, the
 gate will surface the gap and the adopter follows the recipe for
 the matching variant above.

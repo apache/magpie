@@ -262,7 +262,7 @@ PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir)/../.apache-ma
 
 This writes the current fingerprint and today's date into the `isolated_setup` block of the personal layer's `reconciled.json`, which resets both pre-flight reasons.
 Do not write the block by hand.
-Skip it when the command cannot find `setup_preflight`, and say that `/magpie-setup config` installs the checker.
+Skip it when the command cannot find `setup_preflight`, and say that `/magpie-setup:setup config` installs the checker.
 
 ## After the report
 

@@ -305,7 +305,7 @@ still their own machine only, and still gitignored.
 
 **`--scope project` is adoption, so do not pass it here.** A
 committed file recommending these plugins to every contributor
-is the thing [`/magpie-setup adopt`](adopt.md) exists to write,
+is the thing [`/magpie-setup:setup adopt`](adopt.md) exists to write,
 and adopt writes more than the plugin list: a version floor
 beside it, staged rather than committed, so the recommendation
 lands through the project's normal review. A user who asks for
@@ -376,7 +376,7 @@ Tell the user, in this order:
 4. **Configure it for yourself when a skill asks.** A marketplace
    install delivers skills; it tells them nothing about this project.
    The first skill that needs project configuration stops and names
-   what it needs, and [`/magpie-setup config`](config.md) supplies it
+   what it needs, and [`/magpie-setup:setup config`](config.md) supplies it
    in the personal layer — on a repo that has never adopted Magpie,
    `<git-common-dir>/apache-magpie/` inside the git directory, so there
    is nothing in the working tree, no `.gitignore` line to negotiate,
@@ -401,7 +401,7 @@ Tell the user, in this order:
    gets it") — an unprompted install recap does not raise it. When they
    do, say once that the project can commit a floor — a minimum version
    and plugin set every contributor picks up on clone — and name
-   [`/magpie-setup adopt`](adopt.md) as the way to do it. Do not write it
+   [`/magpie-setup:setup adopt`](adopt.md) as the way to do it. Do not write it
    here.
 
    One writer of the floor keeps the lock, the derived wiring, and the

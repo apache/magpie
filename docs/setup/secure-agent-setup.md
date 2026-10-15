@@ -1117,7 +1117,7 @@ auditable:
   invocation of the helper happens in a context where the operator
   is already approving setup actions.
 - **`dangerouslyDisableSandbox: true` from agent sessions.**
-  `/magpie-setup install`, `upgrade`, and `worktree-init` invoke the
+  `/magpie-setup:setup install`, `upgrade`, and `worktree-init` invoke the
   helper with explicit sandbox bypass. Every bypass triggers
   [`sandbox-bypass-warn.sh`](../../tools/agent-isolation/sandbox-bypass-warn.sh)'s
   bold-red banner naming the command, the reason, and the file
@@ -1126,7 +1126,7 @@ auditable:
 **4. No vector via commits.**
 `<repo>/.claude/settings.local.json` is gitignored — the adopt
 flow adds the line to `.gitignore`, and
-[`/magpie-setup verify`](../../skills/setup/verify.md)
+[`/magpie-setup:setup verify`](../../skills/setup/verify.md)
 Check 4 surfaces ✗ if it is missing. The helper itself runs
 `git check-ignore` against the target file before writing and
 *refuses* to write when the file is not ignored (defense in depth
@@ -1194,12 +1194,12 @@ The helper is invoked from four points in the framework's lifecycle:
 1. **At install** — `setup-isolated-setup-install` runs the
    helper with `--all-worktrees` against the adopter repo the
    operator is sitting in.
-2. **During installation** — `/magpie-setup install` Step 12 runs the
+2. **During installation** — `/magpie-setup:setup install` Step 12 runs the
    helper with `--all-worktrees` so a fresh adopter repo with
    pre-existing worktrees has every working-tree path covered
    without an extra round-trip through
    `setup-isolated-setup-install`.
-3. **During upgrade** — `/magpie-setup upgrade` Step 6c, after
+3. **During upgrade** — `/magpie-setup:setup upgrade` Step 6c, after
    the per-worktree `worktree-init` chain, runs the helper with
    `--all-worktrees` so any worktree added since adopt has its
    path written into its own settings.local.json.
@@ -1215,7 +1215,7 @@ The helper is invoked from four points in the framework's lifecycle:
    snapshot install only** — the marketplace path writes no hook —
    and whole-user scope installs a global one covering every repo.
    With neither, this point does not fire, and a new worktree needs
-   `/magpie-setup worktree-init` to get its path written.
+   `/magpie-setup:setup worktree-init` to get its path written.
 
 The verification surface:
 
@@ -1223,7 +1223,7 @@ The verification surface:
   Check 8 — live sandboxed read+write probe of the project root,
   plus the static cross-check that the abs path is in the current
   worktree's `.claude/settings.local.json`.
-- [`/magpie-setup verify`](../../skills/setup/verify.md)
+- [`/magpie-setup:setup verify`](../../skills/setup/verify.md)
   Check 8b — static cross-check that the current worktree's
   abs path is in its own `.claude/settings.local.json`.
 
@@ -2795,7 +2795,7 @@ and `<git-common-dir>/apache-magpie/run/<worktree-id>/` when it has not — insi
 `git rev-parse --git-common-dir` prints the common directory (the main checkout's `.git`, also from a linked worktree);
 `<worktree-id>` is `main` for the main working tree and the `<name>` of `.git/worktrees/<name>` for a linked worktree (it must match `[A-Za-z0-9._-]+`), so each worktree has its own gateway and sockets.
 use its absolute path in place of `<project>/.apache-magpie-local` in the block below.
-(`setup-isolated-setup-install` Step L proposes the same block as a settings diff; `/magpie-setup config` does **not** write it, and automating it there is a recorded follow-up.)
+(`setup-isolated-setup-install` Step L proposes the same block as a settings diff; `/magpie-setup:setup config` does **not** write it, and automating it there is a recorded follow-up.)
 
 ```jsonc
 // .claude/settings.local.json (gitignored, per machine)
@@ -3594,7 +3594,7 @@ The personal layer is `<git-common-dir>/apache-magpie/` when Magpie is only inst
 Invoke the skill directly at any time: `/magpie-setup:isolated-setup-update` on a marketplace install, `/magpie-setup-isolated-setup-update` on a pinned snapshot.
 The pre-flight state is recorded when the run finishes, so a manual run also resets the timer.
 
-On a marketplace install, the pre-flight checker in your personal layer sees a new fingerprint once `/magpie-setup upgrade` has refreshed it.
+On a marketplace install, the pre-flight checker in your personal layer sees a new fingerprint once `/magpie-setup:setup upgrade` has refreshed it.
 The upgrade prompt after each plugin update tells you to run that.
 
 ### Direct steps

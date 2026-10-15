@@ -214,7 +214,7 @@ twice — [PRINCIPLES §13](../../PRINCIPLES.md) holds.
 The **same skill** is invoked by a **different name** depending on how you
 installed it. Each skill's frontmatter `name:` is its **plugin directory name**
 (`vote-tally`, `issue-triage`, `setup`); the family plugin adds its namespace
-with a colon, while the portable `/magpie-setup` install puts a `magpie-` prefix
+with a colon, while the portable `/magpie-setup:setup` install puts a `magpie-` prefix
 on the **directory** it installs the skill under.
 
 | Skill (flat `skills/` name) | Portable — `/magpie-setup` snapshot | Marketplace — family plugin |
@@ -300,7 +300,7 @@ Adding the marketplace clones the repo and reads
 **Updating** is `/plugin marketplace update apache-magpie` followed by
 `/plugin update magpie-<family>@apache-magpie` for each family you installed.
 On a version change the `magpie-setup` plugin's bundled `SessionStart` hook
-also prompts you to run `/magpie-setup upgrade`.
+also prompts you to run `/magpie-setup:setup upgrade`.
 
 Adding the marketplace from a tag rather than untagged pins which version the
 install tracks — see [Versioning](#versioning).
@@ -399,7 +399,7 @@ The install reads `gemini-extension.json` and auto-discovers the skills under
 name.
 
 Gemini has no lifecycle hook, so the shipped
-[`GEMINI.md`](../../GEMINI.md) reminds you to run `/magpie-setup upgrade` when
+[`GEMINI.md`](../../GEMINI.md) reminds you to run `/magpie-setup:setup upgrade` when
 the version changes.
 
 ### Cursor
@@ -542,8 +542,8 @@ everyone who trusts the repo:
 ```
 
 > [!TIP]
-> `/magpie-setup` offers to write this block for you at the end of a
-> marketplace install, and `/magpie-setup verify` reports it if it falls
+> `/magpie-setup:setup` offers to write this block for you at the end of a
+> marketplace install, and `/magpie-setup:setup verify` reports it if it falls
 > behind a later release's floor. Both are opt-in: the block is a convenience
 > for teammates, never a prerequisite, and declining leaves a complete,
 > working install.
@@ -593,9 +593,9 @@ automatic while the *changes* stay confirmed.
 |---|---|
 | **Claude Code** | `SessionStart` hook [`plugins/magpie-setup/hooks/check-upgrade.sh`](../../plugins/magpie-setup/hooks/check-upgrade.sh) compares the installed version to a marker in the plugin's persistent data dir and prompts on change. Deterministic. |
 | **Codex CLI** | The same [`plugins/magpie-setup/hooks/check-upgrade.sh`](../../plugins/magpie-setup/hooks/check-upgrade.sh), wired inline via the plugin's `hooks` block — Codex uses the same event schema and the same `SessionStart` event. Codex sets `PLUGIN_ROOT`/`PLUGIN_DATA` (and the `CLAUDE_*` pair for compatibility), which the script reads. See the caveat below. |
-| **VS Code / Copilot, Cursor, Kiro (AP1)** | None. Agent Plugins 1.0 specifies no hook component and VS Code ignores client extension directories, so there is nothing to fire. Re-run `/magpie-setup upgrade` after updating. |
+| **VS Code / Copilot, Cursor, Kiro (AP1)** | None. Agent Plugins 1.0 specifies no hook component and VS Code ignores client extension directories, so there is nothing to fire. Re-run `/magpie-setup:setup upgrade` after updating. |
 | **Gemini CLI** | No lifecycle hook; the extension context file [`GEMINI.md`](../../GEMINI.md) instructs the agent to compare the extension version to a recorded marker and prompt on change (LLM-driven, advisory). |
-| Other agents | Re-run `/magpie-setup upgrade` manually after updating the package. |
+| Other agents | Re-run `/magpie-setup:setup upgrade` manually after updating the package. |
 
 > [!WARNING]
 > **Codex plugin-local hooks may not fire yet.** [openai/codex#16430](https://github.com/openai/codex/issues/16430)
@@ -603,7 +603,7 @@ automatic while the *changes* stay confirmed.
 > plugin docs describe plugin-local hooks. The manifest is written to the
 > documented schema so it starts working when the runtime catches up; until
 > then, treat the Codex upgrade prompt as best-effort and re-run
-> `/magpie-setup upgrade` manually.
+> `/magpie-setup:setup upgrade` manually.
 
 The hook writes its prompt to **stdout**, which is what a `SessionStart` hook
 exiting 0 has added to the session context — stderr on a zero exit reaches only

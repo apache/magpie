@@ -96,7 +96,7 @@ acceptance:
   - A marketplace install never writes the committed default-set block or
     scaffolds `.apache-magpie-overrides/`, and never offers to: those are
     adoption, reached only through `setup adopt`. The install recap names
-    `/magpie-setup adopt` once, and only when the user asks or says something
+    `/magpie-setup:setup adopt` once, and only when the user asks or says something
     that means it.
   - A marketplace install that wrote nothing to the repo is a complete
     install; neither the recap nor verify describes the result as incomplete
@@ -156,32 +156,32 @@ acceptance:
     configured nor adopted anything carries no stamp at all.
   - A skill whose own hash differs from its stamped entry says whether a
     `requires_config` entry stopped resolving or a structural anchor moved,
-    and proposes `/magpie-setup config` or a re-anchor accordingly; the
-    one-time `/magpie-setup reconcile` sweep is offered only when no
+    and proposes `/magpie-setup:setup config` or a re-anchor accordingly; the
+    one-time `/magpie-setup:setup reconcile` sweep is offered only when no
     `reconciled:` block exists in either store, never merely because a
     stamp that does exist fails to name this skill.
   - A declined per-skill finding or a declined whole-project sweep is
     recorded the moment it is shown, not on a decline the always-on
     pre-flight check never waits for, and does not return until the hash
-    (or, for the sweep, the version) moves again. `/magpie-setup
+    (or, for the sweep, the version) moves again. `/magpie-setup:setup
     reconcile`, which does block for a real confirmation, records on
     decline instead.
-  - `/magpie-setup config` never writes a `skills` entry into the committed
+  - `/magpie-setup:setup config` never writes a `skills` entry into the committed
     lock; on an adopted project it records only the per-machine
     `acknowledged.skills` fact, and only for a skill whose missing
-    configuration that run actually wrote. `/magpie-setup adopt` migrates
+    configuration that run actually wrote. `/magpie-setup:setup adopt` migrates
     an existing local stamp's `skills` map into the lock, and
-    `/magpie-setup unadopt` migrates it back before removing the lock.
-    `/magpie-setup upgrade` runs the
+    `/magpie-setup:setup unadopt` migrates it back before removing the lock.
+    `/magpie-setup:setup upgrade` runs the
     `requires_config` check before writing the stamp, so it never stamps a
     false clean.
   - The shared pre-flight block never reads the marketplace clone on any
-    branch; `/magpie-setup verify` is the only surface that compares
+    branch; `/magpie-setup:setup verify` is the only surface that compares
     installed plugin versions against it, dev segment included, and reports
     an unreadable clone as "could not check" rather than "up to date".
   - `setup.verify_interval_days` resolves project → organization →
     framework, defaults to 14, and 0 disables the periodic
-    `/magpie-setup verify` suggestion the shared pre-flight block's last
+    `/magpie-setup:setup verify` suggestion the shared pre-flight block's last
     step makes.
 ---
 
@@ -279,7 +279,7 @@ committed version with drift detection.
   snapshot methods, or is brought up to its floor on `method: marketplace`.
 - **Drift detection** at the top of every framework skill: if the
   gitignored local lock has drifted from the committed pin, the skill
-  proposes `/magpie-setup upgrade`.
+  proposes `/magpie-setup:setup upgrade`.
   The check is the shared pre-flight block's `setup_preflight` run (see
   criteria 4 and 24); skills carry no `## Snapshot drift` section of their
   own (removed in #1470).
@@ -409,10 +409,10 @@ committed version with drift detection.
    snapshot methods, and on `method: marketplace` brings a fresh clone up to
    the recorded floor without capping it there.
 4. Drift between local and committed locks is surfaced with a remedy that
-   fits it: a missing local lock proposes `/magpie-setup`; a differing
-   `ref` or `commit` proposes `/magpie-setup upgrade`; a differing `method`
+   fits it: a missing local lock proposes `/magpie-setup:setup`; a differing
+   `ref` or `commit` proposes `/magpie-setup:setup upgrade`; a differing `method`
    or `url` (the machine fetched the framework another way, or from
-   another source) proposes a full re-install with `/magpie-setup`,
+   another source) proposes a full re-install with `/magpie-setup:setup`,
    because an upgrade cannot fix it. `setup_preflight` compares all four
    keys (`method` and `url` since #1435), and its `step-2` rules section
    carries the three remedies.
@@ -474,8 +474,8 @@ committed version with drift detection.
     cleanup by `reconcile`.
 17. A skill whose current hash differs from its stamped entry names
     whether a `requires_config` entry stopped resolving or a structural
-    anchor moved, and proposes `/magpie-setup config` or a re-anchor
-    accordingly. The one-time `/magpie-setup reconcile` sweep is
+    anchor moved, and proposes `/magpie-setup:setup config` or a re-anchor
+    accordingly. The one-time `/magpie-setup:setup reconcile` sweep is
     proposed only when **no `reconciled:` block exists in either
     store**; a block that exists but does not name this skill is
     silent, because the project does not configure this skill and the
@@ -494,9 +494,9 @@ committed version with drift detection.
     outright is recorded (`acknowledged.sweep`) against the version the
     stamp itself records — the installed plugin version on a
     marketplace install, the framework version otherwise — and does not
-    repeat until that version changes. `/magpie-setup upgrade` records
+    repeat until that version changes. `/magpie-setup:setup upgrade` records
     no decline at all.
-19. `/magpie-setup reconcile` walks every skill an override file names
+19. `/magpie-setup:setup reconcile` walks every skill an override file names
     **or** whose `requires_config:` entries resolve from the project's
     own config directories, resolves anchors and `requires_config`
     entries, reports sandboxed-session `unchecked` skills rather than
@@ -504,20 +504,20 @@ committed version with drift detection.
     entry when both stores name the same skill, and — on confirmation —
     writes the stamp; a project with no adoption or configuration
     evidence at all reports nothing to reconcile and stops.
-20. `/magpie-setup upgrade` reconciles the overrides its walk covers and
+20. `/magpie-setup:setup upgrade` reconciles the overrides its walk covers and
     writes the stamp only for one that passes the target-skill, anchor,
     and `requires_config` checks — an override with an unresolved
     `requires_config` entry is left out rather than stamped clean.
-21. `/magpie-setup config` never writes a `skills` entry into the
+21. `/magpie-setup:setup config` never writes a `skills` entry into the
     committed lock; on an adopted project it writes only
     `acknowledged.skills`, and only for a skill whose missing
-    configuration that run actually wrote. `/magpie-setup adopt` migrates
+    configuration that run actually wrote. `/magpie-setup:setup adopt` migrates
     an existing local stamp's `skills` map into the lock and leaves only
     the three always-local keys (`verified_at`, `verify_suggested_at`,
-    `acknowledged`) behind in the local file; `/magpie-setup unadopt`
+    `acknowledged`) behind in the local file; `/magpie-setup:setup unadopt`
     migrates `version`/`at`/`skills` back into the local file before
     removing the lock, so the stamp is not stranded with it.
-22. `/magpie-setup verify` runs the reconciliation sweep read-only and is
+22. `/magpie-setup:setup verify` runs the reconciliation sweep read-only and is
     the only surface that compares installed plugin versions against the
     marketplace clone — dev segment included — reporting an unreadable
     clone as "could not check", never as "up to date"; the shared
@@ -538,7 +538,7 @@ committed version with drift detection.
     section that finding names, and the skill acts on a finding only
     through those rules — there is no second file to read. The block
     decides nothing else and carries exactly one rule of its own — never
-    run `/magpie-setup adopt` unattended — because that one must bind
+    run `/magpie-setup:setup adopt` unattended — because that one must bind
     whether or not anything else was read. A command that did not run is
     never read as a pass, and is not re-derived by hand.
 25. `tools/setup-preflight` resolves the deterministic half in two scopes:
@@ -554,8 +554,8 @@ committed version with drift detection.
     than a rule-less instruction to act. Criteria 9, 10, 16, 17 and 18
     are enforced by its tests.
 26. The checker is **copied into the personal layer**
-    (`<git-common-dir>/apache-magpie/` unless adopted) by `/magpie-setup config` and refreshed
-    there by `/magpie-setup upgrade`, because Bash can neither read nor
+    (`<git-common-dir>/apache-magpie/` unless adopted) by `/magpie-setup:setup config` and refreshed
+    there by `/magpie-setup:setup upgrade`, because Bash can neither read nor
     execute the plugin cache under the framework's own recommended
     sandbox. The copy's source is the package inside the installed
     `magpie-setup` plugin on a marketplace install, and

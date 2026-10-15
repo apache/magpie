@@ -146,7 +146,7 @@ catalogue to decide from.
 ## Step 2 — Commit the default set
 
 ```text
-/magpie-setup adopt
+/magpie-setup:setup adopt
 ```
 
 It shows you what it intends to write before writing anything, and it stages
@@ -161,7 +161,7 @@ so rather than rewriting a file it cannot read.
 ## Step 3 — Configure the repo's overrides
 
 ```text
-/magpie-setup override <skill-name>
+/magpie-setup:setup override <skill-name>
 ```
 
 Scaffolds `.apache-magpie-overrides/<skill-name>.md` with the sections an
@@ -211,7 +211,7 @@ ceiling or an allowlist:
 ## Un-adopting
 
 ```text
-/magpie-setup unadopt
+/magpie-setup:setup unadopt
 ```
 
 Removes the committed floor lock `.apache-magpie.lock` and the

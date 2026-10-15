@@ -102,7 +102,7 @@ contributor and CI job pinned to one committed version with drift detection.
 1. [Download / pin a release](https://magpie.apache.org/downloads/)
 2. Set up the symlinks and git-ignores — see
    [`docs/setup/install-recipes.md`](docs/quick-start/other-install-methods.md)
-3. Ask your agent to complete the install: `/magpie-setup install`
+3. Ask your agent to complete the install: `/magpie-setup:setup install`
 
 The two are complementary, not exclusive.
 
@@ -152,7 +152,7 @@ if you're on the pinned-snapshot fallback instead).
   framework structure.
 - `/magpie-setup verify` — read-only health check (snapshot
   intact, symlinks live, `.gitignore` correct, etc.).
-- `/magpie-setup override <framework-skill>` — open or
+- `/magpie-setup:setup override <framework-skill>` — open or
   scaffold an override file for a framework skill.
 
 ## Skill families

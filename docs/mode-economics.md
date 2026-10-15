@@ -107,7 +107,7 @@ ordinary `{"verdict": "ok"}` pays for none.
 
 What is left in the block is the part a model is for: run the command,
 stay silent on `ok`, follow the rules a finding carries, and never run
-`/magpie-setup adopt` unattended. What is left in neither is the
+`/magpie-setup:setup adopt` unattended. What is left in neither is the
 arithmetic, which is now tested rather than graded.
 
 Each skill's count lives in its own `SKILL.md`, as a generated

@@ -91,7 +91,7 @@ In order of precedence:
 | `<cwd>/.apache-magpie-local/privacy-llm.md` | Personal layer of a project that **adopted** Magpie (has a committed `.apache-magpie.lock`). Gitignored. |
 | `<git-common-dir>/apache-magpie/privacy-llm.md` | Personal layer of a project that only **installed** Magpie families. Inside the git directory, so it is never committed and needs no ignore entry; shared by every worktree. |
 | `<cwd>/.apache-magpie-local/privacy-llm.md` (unadopted repo) | Legacy in-tree personal layer, still read until the pre-flight's `legacy-local-dir` finding moves it. |
-| `<cwd>/.apache-magpie-overrides/privacy-llm.md` | Committed, project-wide declaration, written by `/magpie-setup adopt`. |
+| `<cwd>/.apache-magpie-overrides/privacy-llm.md` | Committed, project-wide declaration, written by `/magpie-setup:setup adopt`. |
 
 The personal layer wins, so one maintainer can declare a stricter or
 different stack for their own runs without changing the project's.

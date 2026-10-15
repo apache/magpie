@@ -284,7 +284,7 @@ Adopter config scaffolds live in `plugins/magpie-setup/templates/`
   offers `.apache-magpie-overrides/`.
   `contributor-to-committer` warns on a mismatched window and suggests
   recalibrating after a year; `contributor-nomination` flags stale or
-  mismatched calibration; `/magpie-setup config` offers calibration
+  mismatched calibration; `/magpie-setup:setup config` offers calibration
   when thresholds are blank.
 - **Screening reports go only to a verified-private repository.**
   `contributor-candidate-screen` builds its pool from merged PRs,
@@ -310,7 +310,7 @@ Adopter config scaffolds live in `plugins/magpie-setup/templates/`
   sentiment caps and the identity map, committed to the repository,
   become a public checklist contributors can point at to demand
   promotion, and every edit to them a negotiation.
-  `/magpie-setup adopt` therefore leaves `magpie-contributor-growth`
+  `/magpie-setup:setup adopt` therefore leaves `magpie-contributor-growth`
   out of the floor and recommends a personal install; it adds the
   family only when the maintainer insists and explicitly accepts the
   quoted risk, recording the acceptance as a comment above the entry
@@ -353,7 +353,7 @@ Adopter config scaffolds live in `plugins/magpie-setup/templates/`
    submits ICLA forms or changes repository permissions without the
    nominator's direct action.
 4. All family skills pass `skill-and-tool-validate` with no errors.
-5. `/magpie-setup adopt` does not add `magpie-contributor-growth` to the
+5. `/magpie-setup:setup adopt` does not add `magpie-contributor-growth` to the
    floor without an explicit, recorded acceptance of the gaming risk,
    and never writes the family's configuration files to
    `.apache-magpie-overrides/`.

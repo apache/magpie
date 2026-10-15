@@ -19,7 +19,7 @@ capability:
   - capability:platform
 surface_hash: sha256:49a65c36a0dc49ab
 license: Apache-2.0
-measured_tokens: 2218
+measured_tokens: 2220
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -191,7 +191,7 @@ part that is not undone by deleting a directory.
 ## Step 6 — Re-run after an upgrade
 
 What counts as default-approved can narrow between framework
-versions. After `/magpie-setup upgrade`, re-run Step 4: if an
+versions. After `/magpie-setup:setup upgrade`, re-run Step 4: if an
 entry that used to pass is now opt-in, the gate surfaces it and
 the user takes the matching variant's opt-in recipe.
 

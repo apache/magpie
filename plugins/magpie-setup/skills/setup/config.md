@@ -352,7 +352,7 @@ Tell the user, in this order:
    separately: those sit in the user's home, outside every repository.
    On a plain `config` run with the `magpie-adversarial-review` plugin
    installed and no `adversarial-review.md`, add one line that
-   `/magpie-setup config adversarial-review` configures other models as
+   `/magpie-setup:setup config adversarial-review` configures other models as
    reviewers — state it, do not ask.
    When Step 3d's conditions hold and the user did not take the hand-off,
    add one line that `contributor-calibrate` can derive the contributor
@@ -378,7 +378,7 @@ Tell the user, in this order:
    should recommend.
 5. **One line about adoption, as information.** That the project can
    adopt Magpie so every contributor gets this on clone, and that
-   `/magpie-setup adopt` is how. State it; do not ask, do not offer to
+   `/magpie-setup:setup adopt` is how. State it; do not ask, do not offer to
    run it, and do not raise it again on a later invocation. Adoption is
    a decision the maintainers take together, and a prompt at the end of
    a configure run is not where that happens.

@@ -49,7 +49,7 @@ this directory.
 **Note on Auto-sourcing:** Stable fields under Identity and Repositories
 (`upstream_repo`, `upstream_default_branch`, `product_family_url`, labels)
 can be automatically derived from GitHub repository metadata via
-`gh repo view` during `/magpie-setup adopt` or `/magpie-setup upgrade`, for
+`gh repo view` during `/magpie-setup:setup adopt` or `/magpie-setup:setup upgrade`, for
 any adopter. The **Mailing lists** are auto-sourced **only for
 `organization: ASF`** projects (from `.asf.yaml`, with `*.apache.org`
 defaults); a non-ASF `organization` fills them in by hand. Hand-editing is

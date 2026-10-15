@@ -33,7 +33,7 @@ same feature from the *adopter's* side.
 not copy your files. They add your [source
 descriptor](README.md#source-descriptor) to their trust list, commit a
 **pin** (method + URL + ref + a verification anchor), and run
-`/magpie-setup skill-sources`
+`/magpie-setup:setup skill-sources`
 ([`skills/setup/skill-sources.md`](../../skills/setup/skill-sources.md)),
 which fetches a **verified, gitignored snapshot** of your repo and symlinks
 your skills in so they run exactly like in-tree Magpie skills. Your job is
@@ -173,7 +173,7 @@ An adopter adds your descriptor to `<project-config>/skill-sources.md` — by
 and runs:
 
 ```text
-/magpie-setup skill-sources
+/magpie-setup:setup skill-sources
 ```
 
 That fetches + verifies your source into `.apache-magpie-sources/<id>/` and
@@ -189,7 +189,7 @@ installed](README.md#how-a-trusted-skill-is-installed).
 - **Keep the two-tree layout stable** so eval bindings keep resolving after
   a fetch.
 - **Additions to `provides`** reach adopters on their next
-  `/magpie-setup upgrade`, which re-fetches per the committed pin and
+  `/magpie-setup:setup upgrade`, which re-fetches per the committed pin and
   refreshes the symlinks.
 
 ## See also
@@ -197,5 +197,5 @@ installed](README.md#how-a-trusted-skill-is-installed).
 - [`README.md`](README.md) — the feature from the adopter's side (formats, trust model, security model).
 - [`registry.md`](registry.md) — the discovery index of known sources.
 - [`RFC-AI-0006`](../rfcs/RFC-AI-0006.md) — the design, trust, and threat model.
-- [`skills/setup/skill-sources.md`](../../skills/setup/skill-sources.md) — the `/magpie-setup skill-sources` fetch/pin/symlink flow.
+- [`skills/setup/skill-sources.md`](../../skills/setup/skill-sources.md) — the `/magpie-setup:setup skill-sources` fetch/pin/symlink flow.
 - [`docs/extending.md`](../extending.md) — the full extension model (what / where / who).

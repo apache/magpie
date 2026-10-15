@@ -82,14 +82,14 @@ Once you have [added the marketplace](../setup/marketplace-install.md):
 ```
 
 New to Magpie? The [quick start](../quick-start.md) walks the whole path in
-one place — install, the first `/magpie-setup` run, and a recording of it
+one place — install, the first `/magpie-setup:setup` run, and a recording of it
 happening — plus the other agents and the secure-isolation setup to run next.
 
 ### Before the first run
 
 <!-- BEGIN generated: skill-config (tools/dev/check-skill-config.py --fix) -->
 
-![An animated `/magpie-setup config` run for the contributor-growth family: the check failing, the values derived from the repository, one question for the rest, and personal files written](../../assets/quickstart/wizard/contributor-growth.svg)
+![An animated `/magpie-setup:setup config` run for the contributor-growth family: the check failing, the values derived from the repository, one question for the rest, and personal files written](../../assets/quickstart/wizard/contributor-growth.svg)
 
 *Illustrative — the real run derives more and asks better. What is true is
 the shape: it runs itself, it writes only your personal layer, and it
@@ -101,11 +101,12 @@ your personal layer first — `.apache-magpie-local/` (gitignored) in a
 project that adopted Magpie, `<git-common-dir>/apache-magpie/` in one
 that did not — then `.apache-magpie-overrides/` (committed, the project's).
 
-**For yourself:** `/magpie-setup config` scaffolds and fills these locally.
+**For yourself:** `/magpie-setup:setup config` scaffolds and fills these locally
+(`/magpie-setup config` on a [pinned-snapshot install](../setup/marketplace.md#skill-names-differ-by-install-method)).
 Nothing is staged, nothing is committed, and it works on a repository that
 has never adopted Magpie.
 
-**This configuration stays personal.** `/magpie-setup adopt` never
+**This configuration stays personal.** `/magpie-setup:setup adopt` never
 promotes or scaffolds it into `.apache-magpie-overrides/`: committed
 thresholds would tell every contributor how to game them.
 
@@ -136,7 +137,7 @@ says which file is missing.
 
 This family is **personal-recommended and not adoptable by default.**
 Install it for yourself — user scope, or install-only in this repository — on the machine of each maintainer who runs these skills.
-`/magpie-setup adopt` leaves it out of the committed floor unless a maintainer explicitly insists and accepts the risk below, and records that acceptance in `.apache-magpie.lock`.
+`/magpie-setup:setup adopt` leaves it out of the committed floor unless a maintainer explicitly insists and accepts the risk below, and records that acceptance in `.apache-magpie.lock`.
 
 The reason is gaming.
 Committer thresholds, nomination criteria, calibration floors, sentiment caps and the identity map are the project's private judgement about people.

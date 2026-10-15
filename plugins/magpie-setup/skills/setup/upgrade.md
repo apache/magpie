@@ -335,7 +335,7 @@ For each file in `<repo-root>/.apache-magpie-overrides/`:
    (the personal layer's `<file>`, then `.apache-magpie-overrides/<file>`).
    An entry that resolves through neither is a finding — the same
    [`reconcile.md`](reconcile.md#the-sweep) check 3 surfaces — propose
-   `/magpie-setup config <skill>` for it. Unlike check 2, this needs
+   `/magpie-setup:setup config <skill>` for it. Unlike check 2, this needs
    only files already in the repository, so it always completes even in
    a sandboxed session where the plugin cache is unreadable.
 

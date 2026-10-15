@@ -44,12 +44,12 @@ If your project has decided to stop using Magpie,
 or the adoption was experimental and is now over, this
 page walks through the removal. It reverses everything an
 install recipe in [`install-recipes.md`](../quick-start/other-install-methods.md)
-and the subsequent `/magpie-setup` interactive flow put
+and the subsequent `/magpie-setup:setup` interactive flow put
 into your repo.
 
 > **You may not actually want this.** To **change install
 > method or version**, use
-> [`/magpie-setup upgrade`](../../skills/setup/upgrade.md)
+> [`/magpie-setup:setup upgrade`](../../skills/setup/upgrade.md)
 > — it keeps your overrides and re-uses the existing
 > wiring. To **temporarily detach a single skill for
 > debugging**, edit the relevant file under
@@ -61,7 +61,7 @@ If you've already decided and want to act fast — from the
 main checkout of the adopter repo:
 
 ```bash
-/magpie-setup uninstall    # surfaces a plan, asks for confirmation, then removes
+/magpie-setup:setup uninstall    # surfaces a plan, asks for confirmation, then removes
 ```
 
 Read on for prerequisites, what the confirmation prompt
@@ -71,9 +71,9 @@ looks like, how to verify, and how to clean up what
 ## Invocation
 
 ```bash
-/magpie-setup uninstall              # default: preserves .apache-magpie-overrides/
-/magpie-setup uninstall --purge-overrides
-/magpie-setup uninstall dry-run      # print the plan; no writes, no confirmation
+/magpie-setup:setup uninstall              # default: preserves .apache-magpie-overrides/
+/magpie-setup:setup uninstall --purge-overrides
+/magpie-setup:setup uninstall dry-run      # print the plan; no writes, no confirmation
 ```
 
 The flow refuses to run inside `apache/magpie`
@@ -155,7 +155,7 @@ partway through — the canonical per-step plan, including
 failure modes, lives in
 [`.claude/skills/magpie-setup/uninstall.md`](../../skills/setup/uninstall.md).
 That's the procedure the agent steps through when you
-invoke `/magpie-setup uninstall`.
+invoke `/magpie-setup:setup uninstall`.
 
 ## What remains after uninstall — and how to remove it
 
@@ -178,12 +178,12 @@ framework's. Remove with:
 git rm -r .apache-magpie-overrides/
 ```
 
-Or use `/magpie-setup uninstall --purge-overrides` to do
+Or use `/magpie-setup:setup uninstall --purge-overrides` to do
 this in one step.
 
 ### Your personal configuration
 
-What `/magpie-setup config` wrote for you is preserved too:
+What `/magpie-setup:setup config` wrote for you is preserved too:
 it is yours, and a later reinstall picks it up.
 Where it lives depends on whether the project adopted Magpie.
 
@@ -275,7 +275,7 @@ also retiring Magpie from this machine entirely:
 ## Setting the framework back up later
 
 Because uninstalling deletes the `setup` skill
-itself, future `/magpie-setup` invocations resolve to
+itself, future `/magpie-setup:setup` invocations resolve to
 nothing. To set the framework back up, re-run an install recipe in
 [`install-recipes.md`](../quick-start/other-install-methods.md) — the same path
 a first-time adopter takes.

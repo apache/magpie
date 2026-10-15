@@ -37,7 +37,7 @@
   <g font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="17" xml:space="preserve">
     <text x="26" y="80" fill="#8abeb7" opacity="0">&gt; /plugin marketplace add apache/magpie<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0000;0.0010;1" dur="9.8s" repeatCount="indefinite"/></text>
     <text x="26" y="104" fill="#7f9f7f" opacity="0">  ✓ apache-magpie added - 12 plugins<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0388;0.0398;1" dur="9.8s" repeatCount="indefinite"/></text>
-    <text x="26" y="152" fill="#8abeb7" opacity="0">&gt; /magpie-setup<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0776;0.0786;1" dur="9.8s" repeatCount="indefinite"/></text>
+    <text x="26" y="152" fill="#8abeb7" opacity="0">&gt; /magpie-setup:setup<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0776;0.0786;1" dur="9.8s" repeatCount="indefinite"/></text>
     <text x="26" y="176" fill="#7f9f7f" opacity="0">  ✓ detected example-org/example-app - configuration written<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1163;0.1173;1" dur="9.8s" repeatCount="indefinite"/></text>
     <text x="26" y="224" fill="#8abeb7" opacity="0">&gt; /magpie-setup:isolated-setup-install<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1551;0.1561;1" dur="9.8s" repeatCount="indefinite"/></text>
     <text x="26" y="248" fill="#7f9f7f" opacity="0">  ✓ sandbox, clean env, guard hook - 3 settings changes, 1 sudo<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1939;0.1949;1" dur="9.8s" repeatCount="indefinite"/></text>

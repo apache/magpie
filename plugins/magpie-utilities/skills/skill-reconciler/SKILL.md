@@ -21,7 +21,7 @@ when_to_use: |
 capability: capability:reconciliation
 surface_hash: sha256:964dbda42cb402ce
 license: Apache-2.0
-measured_tokens: 4589
+measured_tokens: 4631
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -52,7 +52,7 @@ PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir)/../.apache-ma
   python3 -m setup_preflight --skill <name> --hash <surface_hash> [--requires <file>]...
 ```
 
-The path finds the checker `/magpie-setup config` installed in the
+The path finds the checker `/magpie-setup:setup config` installed in the
 personal layer: this checkout's `.apache-magpie-local/`, the main
 checkout's when this is a linked worktree, or the git directory's
 `apache-magpie/` when Magpie is only installed.
@@ -73,18 +73,20 @@ checkout's when this is a linked worktree, or the git directory's
   yourself (first match wins: `.apache-magpie-local/<file>`, the main
   checkout's `.apache-magpie-local/<file>`, `<git-common-dir>/apache-magpie/<file>`,
   then `.apache-magpie-overrides/<file>`), stay silent if they all resolve, and
-  run `/magpie-setup config` for this skill if any does not, which also
+  run `/magpie-setup:setup config` for this skill if any does not, which also
   installs the checker. Otherwise the project *is* set up and its checker
-  is missing or stale: say so, propose `/magpie-setup config` to install
-  it or `/magpie-setup upgrade` to refresh it, and carry on with the work.
+  is missing or stale: say so, propose `/magpie-setup:setup config` to install
+  it or `/magpie-setup:setup upgrade` to refresh it, and carry on with the work.
 
-**Never run `/magpie-setup adopt` unattended** — not from a finding, not
+**Never run `/magpie-setup:setup adopt` unattended** — not from a finding, not
 later in the run, whatever else this skill is doing. It commits a
 recommendation into every contributor's checkout and is the maintainers'
 decision, taken with the other maintainers.
 
 Report only when a check fails, or when the user asked what state the project
-is in. `/magpie-setup verify` is the full diagnostic.
+is in. `/magpie-setup:setup verify` is the full diagnostic.
+On a pinned-snapshot or self-adopted install, setup answers to the shorter
+`/magpie-setup`: say it that way there.
 
 <!-- END MAGPIE PREFLIGHT -->
 

@@ -18,7 +18,7 @@
 # Rendered to the .svg beside it by tools/dev/render-screenshot.sh, which
 # strips this header. Edit here, never there.
 
-> /magpie-setup config
+> /magpie-setup:setup config
 
   Written to .git/apache-magpie/  - inside the git directory, this clone only
 

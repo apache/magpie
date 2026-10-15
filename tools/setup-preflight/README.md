@@ -59,9 +59,9 @@ the framework itself recommends, `~/.claude/plugins/cache/` is
 read-denied, so a script shipped in the plugin can be read by the agent's
 file tool but never *executed* by a shell — and a sandboxed marketplace
 install is exactly the environment the reconciliation check was written
-for. So `/magpie-setup config` copies this module into the personal
+for. So `/magpie-setup:setup config` copies this module into the personal
 layer, beside the configuration it already writes, and
-`/magpie-setup upgrade` refreshes that copy against the framework version
+`/magpie-setup:setup upgrade` refreshes that copy against the framework version
 now installed. The personal layer is `<git-common-dir>/apache-magpie/`
 when the project has only installed Magpie, and the gitignored
 `.apache-magpie-local/` when it has adopted it (in a linked worktree with
@@ -140,7 +140,7 @@ otherwise read from the generated `isolated_fingerprint.py`, which the
 `python3 -m setup_preflight.isolated record-update | record-reminder`
 writes the stamp.
 
-**`end-of-run`** is the periodic `/magpie-setup verify` suggestion, which
+**`end-of-run`** is the periodic `/magpie-setup:setup verify` suggestion, which
 is settled when the run finishes rather than before it starts.
 
 ## Two rules that are the reason this is code

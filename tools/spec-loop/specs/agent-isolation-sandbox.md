@@ -173,7 +173,7 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
 - `tools/permission-audit/` — audits and atomically edits Claude Code's
   `permissions.allow[]` entries in `.claude/settings.json` and
   `.claude/settings.local.json`. Backs the `--apply-permission-audit`
-  flag of `/magpie-setup verify` (check 8d). Also handles OpenCode
+  flag of `/magpie-setup:setup verify` (check 8d). Also handles OpenCode
   `permission` config via `audit-opencode`. Capability: `substrate:sandbox`.
 - `tools/agent-isolation/sandbox-add-project-root.sh` — writes the
   worktree's absolute path, and the absolute dev-tool paths `prek` and

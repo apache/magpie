@@ -192,7 +192,7 @@ def render(family: str, skills: dict[str, tuple[list[str], set[str]]], desc: dic
 
     if required:
         lines += [
-            f"![An animated `/magpie-setup config` run for the {family} family: the check "
+            f"![An animated `/magpie-setup:setup config` run for the {family} family: the check "
             f"failing, the values derived from the repository, one question for the rest, "
             f"and personal files written]"
             f"(../../assets/quickstart/wizard/{family}.svg)",
@@ -207,21 +207,22 @@ def render(family: str, skills: dict[str, tuple[list[str], set[str]]], desc: dic
             "project that adopted Magpie, `<git-common-dir>/apache-magpie/` in one",
             "that did not — then `.apache-magpie-overrides/` (committed, the project's).",
             "",
-            "**For yourself:** `/magpie-setup config` scaffolds and fills these locally.",
+            "**For yourself:** `/magpie-setup:setup config` scaffolds and fills these locally",
+            "(`/magpie-setup config` on a [pinned-snapshot install](../setup/marketplace.md#skill-names-differ-by-install-method)).",
             "Nothing is staged, nothing is committed, and it works on a repository that",
             "has never adopted Magpie.",
             "",
         ]
         if family in PERSONAL_ONLY_FAMILIES:
             lines += [
-                "**This configuration stays personal.** `/magpie-setup adopt` never",
+                "**This configuration stays personal.** `/magpie-setup:setup adopt` never",
                 "promotes or scaffolds it into `.apache-magpie-overrides/`: committed",
                 "thresholds would tell every contributor how to game them.",
                 "",
             ]
         else:
             lines += [
-                "**For the project:** [`/magpie-setup adopt`](../setup/team-adoption.md)",
+                "**For the project:** [`/magpie-setup:setup adopt`](../setup/team-adoption.md)",
                 "commits them for every contributor, either scaffolded directly or promoted",
                 "from what you configured locally.",
                 "",

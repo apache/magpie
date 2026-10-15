@@ -25,8 +25,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 726 952"
      width="726" height="952" role="img"
      data-magpie-generated="render-wizard"
-     aria-label="An animated /magpie-setup config run for the security family: the check failing, values derived from the repository, one question, and personal files written">
-  <title>/magpie-setup config — security</title>
+     aria-label="An animated /magpie-setup:setup config run for the security family: the check failing, values derived from the repository, one question, and personal files written">
+  <title>/magpie-setup:setup config — security</title>
   <desc>Illustrative animation of a configuration run for the security family. Derived from the skills' declared required configuration.</desc>
   <rect width="726" height="952" rx="10" fill="#1d1f21"/>
   <rect x="0" y="0" width="726" height="34" rx="10" fill="#2b2e31"/>
@@ -64,7 +64,7 @@
     <text x="26" y="824" fill="#7f9f7f" opacity="0">  Written to .git/apache-magpie/  — nothing in the working<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.7265;0.7275;1" dur="13.6s" repeatCount="indefinite"/></text>
     <text x="26" y="848" fill="#7f9f7f" opacity="0">  tree, nothing staged, no teammate affected.<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.7544;0.7554;1" dur="13.6s" repeatCount="indefinite"/></text>
     <text x="26" y="896" fill="#8a8f94" opacity="0">  The project can also adopt Magpie, so contributors get this<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.7824;0.7834;1" dur="13.6s" repeatCount="indefinite"/></text>
-    <text x="26" y="920" fill="#8a8f94" opacity="0">  on clone: /magpie-setup adopt<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.8103;0.8113;1" dur="13.6s" repeatCount="indefinite"/></text>
+    <text x="26" y="920" fill="#8a8f94" opacity="0">  on clone: /magpie-setup:setup adopt<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.8103;0.8113;1" dur="13.6s" repeatCount="indefinite"/></text>
     <rect x="26" y="907" width="10" height="17" fill="#c5c8c6"><animate attributeName="opacity" values="1;1;0;0;1" dur="1.2s" repeatCount="indefinite"/></rect>
   </g>
 </svg>

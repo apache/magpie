@@ -92,7 +92,7 @@ The recipe has three steps:
 - **Claude Code** installed and working (see
   [`docs/prerequisites.md`](../quick-start/prerequisites.md)).
 - **Secure agent setup** installed — run
-  [`/magpie-setup-isolated-setup-install`](../../skills/setup-isolated-setup-install/SKILL.md)
+  [`/magpie-setup:isolated-setup-install`](../../skills/setup-isolated-setup-install/SKILL.md)
   with **whole-user (global) scope** once. This sets up the sandbox
   allowlist for every repo on your host, not just adopted ones.  If you
   have already done this for another Magpie-adopted project on this machine,
@@ -196,7 +196,7 @@ framework (so new `magpie-*` names appear) or when old ones are removed
 
 ## Step 2 — Create your personal config directory
 
-The easy way is `/magpie-setup config` in the target repo: it creates the
+The easy way is `/magpie-setup:setup config` in the target repo: it creates the
 directory, scaffolds the configuration your skills need, and writes nothing
 anyone else will see.
 
@@ -298,11 +298,11 @@ those degrade gracefully when run this way: they work from the data available
 to you, and cannot read teammate configuration they cannot reach.
 
 If a skill instead stops with something like "no `<project-config>/` found"
-and proposes `/magpie-setup config`, that is its pre-flight: a configuration
+and proposes `/magpie-setup:setup config`, that is its pre-flight: a configuration
 file it needs resolves in neither your personal layer nor a committed
 `.apache-magpie-overrides/`, and it stops rather than guess at every
 unresolved placeholder in its body.
-Running `/magpie-setup config` fills your personal layer and satisfies it,
+Running `/magpie-setup:setup config` fills your personal layer and satisfies it,
 without committing anything. If a skill still stops after that,
 [report it](../../skills/report-framework-issue/SKILL.md) so the skill is
 fixed to degrade gracefully instead.

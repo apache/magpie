@@ -12,7 +12,7 @@ model would miss. Two shapes are supported:
   [`adversarial-review`](../../../../tools/adversarial-review/README.md)
   tool (the `magpie-adversarial-review` plugin). The maintainer names
   them with `with-reviewers:` or configures them once with
-  `/magpie-setup config adversarial-review`.
+  `/magpie-setup:setup config adversarial-review`.
 - **A slash command, typed by the maintainer** — any reviewer the
   harness exposes as one. The maintainer names it with
   `with-reviewer:` or a "Review preferences" entry.
@@ -39,7 +39,7 @@ is the right gate for code that ships.
 The full resolution order is [`prerequisites.md` §2](prerequisites.md#2-resolve-adversarial-reviewer-configuration-degrades).
 
 **Model CLIs** — pass them as `with-reviewers:codex,copilot`, or
-configure them once with `/magpie-setup config adversarial-review`
+configure them once with `/magpie-setup:setup config adversarial-review`
 (an `adversarial-review.md` whose `mode` is not `off` applies here).
 
 **A slash command** — pass it as the `with-reviewer:` selector:

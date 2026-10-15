@@ -60,7 +60,7 @@ rule, carry both kinds of adopter-side content:
 The two directories:
 
 1. **The personal layer** — yours, never committed and never pushed.
-   Written by [`/magpie-setup config`](../../skills/setup/config.md).
+   Written by [`/magpie-setup:setup config`](../../skills/setup/config.md).
    This is where an individual configures Magpie for themselves, and it
    **works on a repo that has not adopted Magpie** — which is the
    point of it. Nothing here asks the project for permission, and
@@ -78,7 +78,7 @@ The two directories:
      gitignored by the line `adopt` adds to `.gitignore`.
 
 2. **`.apache-magpie-overrides/`** — committed, project-wide.
-   Written by [`/magpie-setup adopt`](../../skills/setup/adopt.md),
+   Written by [`/magpie-setup:setup adopt`](../../skills/setup/adopt.md),
    either scaffolded directly or promoted from (1). Every contributor
    who clones the repo gets these.
 
@@ -140,9 +140,9 @@ identity map stay in the personal layer even in an adopted project;
 see [Why the configuration is personal](../contributor-growth/README.md#why-the-configuration-is-personal).
 
 The consequence worth knowing: **once the project commits a file you
-also hold locally, yours keeps winning.** `/magpie-setup verify`
+also hold locally, yours keeps winning.** `/magpie-setup:setup verify`
 reports every local file that shadows a committed one, and
-`/magpie-setup adopt` offers to drop the redundant ones as it
+`/magpie-setup:setup adopt` offers to drop the redundant ones as it
 promotes. That is the cost of the rule being the same for
 configuration as for overrides, and it is reported rather than
 silent.
@@ -151,10 +151,10 @@ silent.
 
 A project that has only installed Magpie needs no ignore entry:
 its personal layer is inside the git directory, which git never tracks.
-`/magpie-setup config` writes nothing to `.gitignore` or
+`/magpie-setup:setup config` writes nothing to `.gitignore` or
 `.git/info/exclude`.
 
-`/magpie-setup adopt` adds `/.apache-magpie-local/` to the adopter
+`/magpie-setup:setup adopt` adds `/.apache-magpie-local/` to the adopter
 repo's `.gitignore`: adopting is already a committed change, and the
 adopted personal layer sits in the working tree.
 
@@ -230,7 +230,7 @@ maintainer (or a future agent on a later run):
 2. **Should this be upstreamed?** If the override is widely
    useful, it belongs in the framework. The override file
    says so explicitly, and the next person running the
-   `/magpie-setup override <skill>` flow takes the cue and
+   `/magpie-setup:setup override <skill>` flow takes the cue and
    opens a PR against `apache/magpie`.
 
 ### Where override files come from
@@ -345,7 +345,7 @@ A framework agent NEVER:
 - Modifies the snapshot under
   `<adopter-repo>/.apache-magpie/`. The snapshot is a build
   artefact — every modification gets blown away on the next
-  `/magpie-setup upgrade`. Local mods go into
+  `/magpie-setup:setup upgrade`. Local mods go into
   the personal layer (`<git-common-dir>/apache-magpie/` or
   `.apache-magpie-local/`) or `.apache-magpie-overrides/` (shared).
 - Commits or pushes personal-layer content. The
@@ -393,7 +393,7 @@ regardless of install method, and a mismatch on either input it
 covers — a `requires_config` change or a moved anchor — surfaces the
 matching ⚠ inline, on that skill's own run, at no extra cost. A
 project with no stamp yet, or whose overrides and configuration need
-a full pass, gets it from `/magpie-setup reconcile`, the on-demand
+a full pass, gets it from `/magpie-setup:setup reconcile`, the on-demand
 sweep available to any adopted or configured project regardless of
 method. Snapshot adopters (`git-branch`, `git-tag`, `svn-zip`)
 additionally reach the walk above through `/magpie-setup upgrade`,
@@ -413,7 +413,7 @@ adopters), the right move is **a PR against the framework**:
 1. Read the latest `apache/magpie` `main`.
 2. Implement the change in the framework skill's source.
 3. Open the PR.
-4. Once merged, the next `/magpie-setup upgrade` in the
+4. Once merged, the next `/magpie-setup:setup upgrade` in the
    adopter pulls the framework change.
 5. The adopter's now-redundant override gets deleted.
 
@@ -462,7 +462,7 @@ this by:
 2. Recapping override application *after* skill execution
    for audit.
 3. Keeping override files small and specific (the
-   `/magpie-setup override` flow encourages one focused
+   `/magpie-setup:setup override` flow encourages one focused
    override per file, not a sprawling rewrite).
 
 ## Cross-references

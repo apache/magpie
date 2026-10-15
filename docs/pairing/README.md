@@ -63,7 +63,7 @@ Once you have [added the marketplace](../setup/marketplace-install.md):
 ```
 
 New to Magpie? The [quick start](../quick-start.md) walks the whole path in
-one place — install, the first `/magpie-setup` run, and a recording of it
+one place — install, the first `/magpie-setup:setup` run, and a recording of it
 happening — plus the other agents and the secure-isolation setup to run next.
 
 ### Before the first run

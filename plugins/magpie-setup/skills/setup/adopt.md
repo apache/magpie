@@ -570,7 +570,7 @@ Tell the user, in this order:
   `<git-common-dir>/apache-magpie/`; offer that move here, with
   confirmation. If the copy cannot
   be made, say plainly that the stamp went with the lock and that
-  `/magpie-setup reconcile` re-establishes one.
+  `/magpie-setup:setup reconcile` re-establishes one.
 
 **Leave every install alone** — the user's own, and everyone else's.
 Un-adopting is the repo withdrawing a recommendation; it uninstalls

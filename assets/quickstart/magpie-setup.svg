@@ -25,9 +25,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 726 1024"
      width="726" height="1024" role="img"
      data-magpie-generated="render-wizard"
-     aria-label="An animated first run of /magpie-setup: the agent detected, the skill families picked, the install commands emitted, then the secure-agent setup applying the sandbox, the clean-environment wrapper, the hooks and the status line">
-  <title>/magpie-setup — the first run</title>
-  <desc>Illustrative animation of a first /magpie-setup run and the secure-agent setup that follows it. Not a recording.</desc>
+     aria-label="An animated first run of /magpie-setup:setup: the agent detected, the skill families picked, the install commands emitted, then the secure-agent setup applying the sandbox, the clean-environment wrapper, the hooks and the status line">
+  <title>/magpie-setup:setup — the first run</title>
+  <desc>Illustrative animation of a first /magpie-setup:setup run and the secure-agent setup that follows it. Not a recording.</desc>
   <rect width="726" height="1024" rx="10" fill="#1d1f21"/>
   <rect x="0" y="0" width="726" height="34" rx="10" fill="#2b2e31"/>
   <rect x="0" y="24" width="726" height="10" fill="#2b2e31"/>
@@ -35,7 +35,7 @@
   <circle cx="44" cy="17" r="6" fill="#3f4448"/>
   <circle cx="66" cy="17" r="6" fill="#3f4448"/>
   <g font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="17" xml:space="preserve">
-    <text x="26" y="80" fill="#8abeb7" opacity="0">&gt; /magpie-setup<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0000;0.0010;1" dur="13.2s" repeatCount="indefinite"/></text>
+    <text x="26" y="80" fill="#8abeb7" opacity="0">&gt; /magpie-setup:setup<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0000;0.0010;1" dur="13.2s" repeatCount="indefinite"/></text>
     <text x="26" y="128" fill="#8a8f94" opacity="0">  Agent      Claude Code<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0287;0.0297;1" dur="13.2s" repeatCount="indefinite"/></text>
     <text x="26" y="152" fill="#8a8f94" opacity="0">  Installed  nothing yet<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0575;0.0585;1" dur="13.2s" repeatCount="indefinite"/></text>
     <text x="26" y="176" fill="#8a8f94" opacity="0">  Repo       github.com/acme/toolkit, not adopted<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0862;0.0872;1" dur="13.2s" repeatCount="indefinite"/></text>

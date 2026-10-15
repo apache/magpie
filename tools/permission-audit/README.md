@@ -16,7 +16,7 @@
     - [`list-known`](#list-known)
   - [Canonical lists](#canonical-lists)
   - [Tests](#tests)
-  - [How `/magpie-setup verify` uses this](#how-magpie-setup-verify-uses-this)
+  - [How `/magpie-setup:setup verify` uses this](#how-magpie-setupsetup-verify-uses-this)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -33,7 +33,7 @@ Audit + atomically edit Claude Code's `permissions.allow[]` entries
 in `<repo>/.claude/settings.json` and `<repo>/.claude/settings.local.json`.
 
 Backs the `--apply-permission-audit` flag of
-[`/magpie-setup verify`](../../skills/setup/verify.md#8d-permission-allow-list-hygiene)
+[`/magpie-setup:setup verify`](../../skills/setup/verify.md#8d-permission-allow-list-hygiene)
 (check 8d), and is also directly usable as a CLI.
 
 **OpenCode.** The same over-permissioning check applies to the other
@@ -261,7 +261,7 @@ Covers: classification, family-scoping, JSON-pointer numbering on
 duplicates, atomic add/remove, no-op rewrite skip, malformed
 JSON detection.
 
-## How `/magpie-setup verify` uses this
+## How `/magpie-setup:setup verify` uses this
 
 The verify check 8d narrative describes the human-facing report;
 this tool is the engine behind it. The skill calls
