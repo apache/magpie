@@ -1,0 +1,17 @@
+{
+  "lock": null,
+  "plugins": [
+    [
+      "magpie-setup",
+      "0.4.0"
+    ],
+    [
+      "magpie-issue",
+      "0.4.0"
+    ]
+  ],
+  "requires": [
+    "issue-tracker-config.md",
+    "project.md"
+  ]
+}

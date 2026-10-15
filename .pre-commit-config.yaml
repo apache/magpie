@@ -551,6 +551,18 @@ repos:
         entry: python3 tools/dev/render-wizard.py
         files: ^(skills/[^/]+/SKILL\.md|plugins/magpie-[^/]+/skills/.*/SKILL\.md|plugins/magpie-setup/templates/.*|tools/dev/(render-wizard|check-skill-config)\.py)$
         pass_filenames: false
+      # The pre-flight eval cases carry the checker's own verdict for each
+      # case's state, rendered by running `setup_preflight` against it. A
+      # hand-written verdict is what let the suite drift from the checker
+      # unnoticed, so any change to the checker, its rules sections, or the
+      # cases re-renders them; a case whose verdict moved needs its
+      # `expected.json` re-checked by a person.
+      - id: render-preflight-fixtures
+        name: render-preflight-fixtures (pre-flight eval cases vs the real checker)
+        language: system
+        entry: python3 tools/dev/render-preflight-fixtures.py
+        files: ^(plugins/magpie-setup/skills/setup/setup_preflight/.*|tools/skill-evals/evals/setup/preflight-floor/fixtures/.*|tools/dev/render-preflight-fixtures\.py)$
+        pass_filenames: false
   # something else.
   - repo: local
     hooks:

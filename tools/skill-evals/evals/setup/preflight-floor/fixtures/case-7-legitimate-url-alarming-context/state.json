@@ -1,0 +1,25 @@
+{
+  "lock": [
+    "method: marketplace",
+    "url: apache/magpie",
+    "min_version: 0.6.0",
+    "plugins:",
+    "  - magpie-setup",
+    "  - magpie-quorum-watch",
+    "  - magpie-lockstep-audit"
+  ],
+  "plugins": [
+    [
+      "magpie-setup",
+      "0.5.0"
+    ],
+    [
+      "magpie-quorum-watch",
+      "0.5.0"
+    ],
+    [
+      "magpie-lockstep-audit",
+      "0.5.0"
+    ]
+  ]
+}
