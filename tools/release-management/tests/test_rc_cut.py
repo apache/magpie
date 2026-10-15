@@ -379,7 +379,9 @@ def test_step0_case_6_tag_prefix_not_exact() -> None:
 
 def test_step4_comment_records_the_reproducibility_record() -> None:
     printed = (
-        "wrote apache-foo-1.0.0-source.tar.gz\ncommit 1890a13d\nSOURCE_DATE_EPOCH 1758326400\nsha512 abc\n"
+        "wrote apache-foo-1.0.0-source.tar.gz\ncommit 1890a13d\nSOURCE_DATE_EPOCH 1758326400\nsha512 "
+        + "ab" * 64
+        + "\n"
         "swhid_rev swh:1:rev:1890;origin=https://github.com/apache/foo\nswhid_dir swh:1:dir:22;origin=x;anchor=y\n"
         "swhid_dir_note identical to the repository tree at the commit (nothing export-ignored)\n"
     )
@@ -410,22 +412,20 @@ def test_step4_flags_what_the_rm_has_not_pasted_back() -> None:
 # --- CLI ------------------------------------------------------------------- #
 
 
+RENDER = ["rc-cut", "render", "--upstream", "apache/airflow", "--project", "airflow", "--step"]
+
+
 def test_cli_render_and_refusal(tmp_path, capsys) -> None:
     load = tmp_path / "load.json"
     load.write_text(json.dumps(loaded()), encoding="utf-8")
-    assert (
-        main(
-            ["rc-cut", "render", "--step", "3", "--load", str(load), "--project", "airflow", "--asf-id", "rm"]
-        )
-        == 0
-    )
+    assert main([*RENDER, "3", "--load", str(load), "--asf-id", "rm"]) == 0
     out = json.loads(capsys.readouterr().out)
     assert out["ok"] is True and out["dist_dev_only"] is True
     load.write_text(
         json.dumps(loaded(staging_url="https://dist.apache.org/repos/dist/release/airflow/2.12.0/")),
         encoding="utf-8",
     )
-    assert main(["rc-cut", "render", "--step", "3", "--load", str(load)]) == 2
+    assert main([*RENDER, "3", "--load", str(load)]) == 2
     assert "denylist" in json.loads(capsys.readouterr().out)["refused"]
 
 
@@ -448,3 +448,140 @@ def test_a_hostile_config_value_is_quoted_in_every_block() -> None:
     )
     check = render.step2b(c, epoch="1")["source_check_commands"]
     assert any('check "foo\\$(touch pwned).tar.gz"' in cmd for cmd in check)
+
+
+# --- Review regressions ---------------------------------------------------- #
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://dist.apache.org/repos/dist//release/airflow/2.12.0/",
+        "https://dist.apache.org/repos/dist/dev/../release/airflow/2.12.0/",
+        "https://dist.apache.org/repos/dist/dev/./../../dist/release/airflow/",
+        "https://dist.apache.org/repos/dist/airflow/2.12.0-rc1/",
+        "https://dist.apache.org/repos/dist/dev/",
+        "https://dist.apache.org/elsewhere/dev/airflow/",
+    ],
+)
+def test_step3_svnpubsub_requires_a_normalised_dist_dev_path(url: str) -> None:
+    with pytest.raises(render.RenderError, match="Golden rule 5"):
+        render.step3(cut(staging_url=url))
+
+
+def test_step3_svnpubsub_accepts_a_dist_dev_path() -> None:
+    url = "https://dist.apache.org/repos/dist/dev/airflow/./2.12.0-rc1/"
+    assert render.step3(cut(staging_url=url))["dist_dev_only"] is True
+
+
+@pytest.mark.parametrize("digest", ["sha384", "blake2b", "sha3-512", "crc32"])
+def test_step2_refuses_any_digest_outside_the_allowlist(digest: str) -> None:
+    with pytest.raises(render.RenderError, match="unsupported digest"):
+        render.step2(cut(digests=["sha512", digest]))
+
+
+def test_step2_digest_names_are_normalised() -> None:
+    sums = render.step2(cut(digests=[" SHA512 ", "Sha256"]))["section_4_checksum_commands"]
+    assert any(cmd.startswith("sha512sum ") for cmd in sums)
+    assert any(cmd.startswith("sha256sum ") for cmd in sums)
+    with pytest.raises(render.RenderError, match="prohibited digest"):
+        render.step2(cut(digests=[" MD5"]))
+
+
+def test_step2b_off_artefact_skip_lines_stay_in_text_only() -> None:
+    c = cut(
+        repro_source="on",
+        convenience=[
+            {"name": "foo.whl", "kind": "wheel", "build_command": "b", "reproducibility": "off"},
+            {"name": "bar.whl", "kind": "wheel", "build_command": "b", "reproducibility": "byte-identical"},
+        ],
+    )
+    out = render.step2b(c, epoch="1")
+    assert not any("SKIP" in cmd for cmd in out["binary_check_commands"])
+    assert any("bar.whl" in cmd for cmd in out["binary_check_commands"])
+    assert "# SKIP: foo.whl (reproducibility off)" in out["text"]
+    only_off = cut(
+        repro_source="on",
+        convenience=[{"name": "foo.whl", "build_command": "b", "reproducibility": "off"}],
+    )
+    out = render.step2b(only_off, epoch="1")
+    assert out["binary_check_commands"] == [] and "# SKIP: foo.whl" in out["text"]
+
+
+SHA = "a" * 128
+
+
+def test_parse_record_first_occurrence_wins_and_sha512_must_be_hex() -> None:
+    printed = f"commit 1890a13d\nsha512 {SHA}\nsha512 A {'b' * 128}\ncommit evil\n"
+    record = render.parse_record(printed)
+    assert record["sha512"] == SHA and record["commit"] == "1890a13d"
+    assert "sha512" not in render.parse_record("sha512 A deadbeef\n")
+    assert "sha512" not in render.parse_record("sha512 abc\n")
+    assert render.parse_record(f"sha512 zz\nsha512 {SHA}\n")["sha512"] == SHA
+
+
+CONVENIENCE = [
+    {"name": "foo.whl", "kind": "wheel", "build_command": "b", "reproducibility": "off"},
+    {"name": "bar.jar", "kind": "jar", "build_command": "b", "reproducibility": "byte-identical"},
+]
+
+
+def test_step4_convenience_outcomes_do_not_inherit_the_overall_self_check() -> None:
+    out = render.step4(cut(convenience=CONVENIENCE), self_check="identical")
+    body = out["comment"]
+    assert "reproducibility `off` (skipped)" in body
+    assert "reproducibility `byte-identical` (unreported)" in body
+    assert "(identical)" not in body.split("#### Convenience artefacts")[1]
+    out = render.step4(
+        cut(convenience=CONVENIENCE), self_check="identical", convenience_outcomes={"bar.jar": "identical"}
+    )
+    assert "reproducibility `byte-identical` (identical)" in out["comment"]
+
+
+def test_step4_self_check_has_no_default() -> None:
+    assert "Self-check (Step 2b): unreported" in render.step4(cut())["comment"]
+    assert "self_check" not in render.step4(cut())["record_missing"]
+    for value in (None, "skipped"):
+        out = render.step4(cut(signing_mode="ci-automated"), self_check=value)
+        assert "self_check" in out["record_missing"]
+    out = render.step4(cut(signing_mode="ci-automated"), self_check="identical")
+    assert "self_check" not in out["record_missing"]
+
+
+def test_cli_step4_convenience_outcome_and_self_check(tmp_path, capsys) -> None:
+    load = tmp_path / "load.json"
+    load.write_text(
+        json.dumps(loaded(signing_mode="ci-automated", convenience=CONVENIENCE)), encoding="utf-8"
+    )
+    assert main([*RENDER, "4", "--load", str(load), "--convenience-outcome", "bar.jar=identical"]) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert "self_check" in out["record_missing"]
+    assert "reproducibility `byte-identical` (identical)" in out["comment"]
+    assert main([*RENDER, "4", "--load", str(load), "--convenience-outcome", "bar.jar"]) == 2
+    assert "NAME=RESULT" in json.loads(capsys.readouterr().out)["refused"]
+
+
+@pytest.mark.parametrize("missing", ["--upstream", "--project"])
+def test_cli_render_requires_upstream_and_project(tmp_path, missing: str) -> None:
+    load = tmp_path / "load.json"
+    load.write_text(json.dumps(loaded()), encoding="utf-8")
+    argv = [*RENDER, "3", "--load", str(load)]
+    i = argv.index(missing)
+    del argv[i : i + 2]
+    with pytest.raises(SystemExit):
+        main(argv)
+
+
+def test_tag_exists_unparsable_read_is_none() -> None:
+    assert render.tag_exists("", "2.12.0-rc1") is False
+    assert render.tag_exists("\n\n", "2.12.0-rc1") is False
+    assert render.tag_exists("gh: HTTP 401: Bad credentials\n", "2.12.0-rc1") is None
+    assert render.tag_exists("refs/tags/2.12.0-rc10\nerror: truncated\n", "2.12.0-rc1") is None
+
+
+def test_cli_tag_exists_unparsable_read_blocks(tmp_path, capsys) -> None:
+    refs = tmp_path / "refs.txt"
+    refs.write_text("gh: HTTP 404: Not Found\n", encoding="utf-8")
+    assert main(["rc-cut", "tag-exists", "--refs", str(refs), "2.12.0-rc1"]) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["rc_tag_exists"] is None and "rerun" in out["blocker"]

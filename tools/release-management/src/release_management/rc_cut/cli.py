@@ -55,8 +55,8 @@ def add_parsers(sub: Any) -> None:
     render_p.add_argument(
         "--load", required=True, help="file holding `release-config load --skill rc-cut …` output"
     )
-    render_p.add_argument("--upstream", help="<upstream> owner/repo, from project.md")
-    render_p.add_argument("--project", help="<project> slug, from project.md")
+    render_p.add_argument("--upstream", required=True, help="<upstream> owner/repo, from project.md")
+    render_p.add_argument("--project", required=True, help="<project> slug, from project.md")
     render_p.add_argument("--asf-id", default="<asf-id>", help="the RM's ASF id (svnpubsub staging)")
     render_p.add_argument(
         "--skip-repro-check", action="store_true", help="Step 2b: the RM passed --skip-repro-check"
@@ -66,7 +66,15 @@ def add_parsers(sub: Any) -> None:
     )
     render_p.add_argument("--record", help="Step 4: file holding what `repro-archive build` printed")
     render_p.add_argument(
-        "--self-check", default="skipped", help="Step 4: the Step 2b outcome the RM reported"
+        "--self-check",
+        help="Step 4: the Step 2b outcome the RM reported (missing or `skipped` is a record gap under ci-automated)",
+    )
+    render_p.add_argument(
+        "--convenience-outcome",
+        action="append",
+        default=[],
+        metavar="NAME=RESULT",
+        help="Step 4: one convenience artefact's Step 2b outcome (repeatable)",
     )
     render_p.add_argument("--run-url", help="Step 4 (ci-automated): the workflow run URL")
     render_p.add_argument(
@@ -78,10 +86,23 @@ def add_parsers(sub: Any) -> None:
     )
 
 
+def _outcomes(pairs: list[str]) -> dict[str, str]:
+    outcomes: dict[str, str] = {}
+    for pair in pairs:
+        name, sep, result = pair.partition("=")
+        if not sep or not name.strip() or not result.strip():
+            raise render.RenderError(f"--convenience-outcome {pair!r} is not NAME=RESULT")
+        outcomes[name.strip()] = result.strip()
+    return outcomes
+
+
 def dispatch(args: argparse.Namespace) -> int:
     if args.command == "tag-exists":
         exists = render.tag_exists(Path(args.refs).read_text(encoding="utf-8"), args.tag)
-        emit({"tag": args.tag, "rc_tag_exists": exists})
+        out: dict[str, Any] = {"tag": args.tag, "rc_tag_exists": exists}
+        if exists is None:
+            out["blocker"] = "the tags read printed something other than refs/tags/ lines: rerun it"
+        emit(out)
         return 0
     try:
         cut = _cut(args)
@@ -103,6 +124,7 @@ def dispatch(args: argparse.Namespace) -> int:
                 self_check=args.self_check,
                 run_url=args.run_url,
                 allow_unreviewed_archive=args.allow_unreviewed_archive,
+                convenience_outcomes=_outcomes(args.convenience_outcome),
             )
     except render.RenderError as exc:
         emit({"ok": False, "refused": str(exc)})

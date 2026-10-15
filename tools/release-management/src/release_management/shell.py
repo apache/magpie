@@ -19,7 +19,8 @@
 The release manager pastes these blocks into a shell, so a configured value
 (an archive prefix, an artefact name, a subject line) must never be able to
 expand there: `dq` keeps the recipes' familiar double quotes but escapes
-everything a shell would interpret inside them.
+everything a shell would interpret inside them (or single-quotes a value
+holding `!`, which double quotes cannot protect from history expansion).
 """
 
 from __future__ import annotations
@@ -32,8 +33,14 @@ _PLACEHOLDER = re.compile(r"<[A-Za-z0-9_ -]+>")
 
 
 def dq(value: object) -> str:
-    """`value` as one double-quoted shell word: `\\`, `"`, `$` and backquote escaped."""
+    """`value` as one double-quoted shell word: `\\`, `"`, `$` and backquote escaped.
+
+    A `!` cannot be escaped inside double quotes (interactive bash and zsh run
+    history expansion on it), so a value containing one is single-quoted instead.
+    """
     text = str(value)
+    if "!" in text:
+        return shlex.quote(text)
     for char in ("\\", '"', "$", "`"):
         text = text.replace(char, "\\" + char)
     return f'"{text}"'

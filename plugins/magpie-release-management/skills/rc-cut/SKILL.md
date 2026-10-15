@@ -20,7 +20,7 @@ argument-hint: "<version> rc<N>"
 capability: capability:resolve
 surface_hash: sha256:60623e456e72bbf6
 license: Apache-2.0
-measured_tokens: 6521
+measured_tokens: 6635
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -246,6 +246,7 @@ Then check what the tool cannot see:
    `uv run --project <framework>/tools/release-management release-management rc-cut tag-exists --refs <scratch>/rc-tags.txt <version>-<rcN>`.
    The read lists every tag starting with the prefix (`rc1` also lists `rc10`); the command matches exactly.
    If `rc_tag_exists` is `true`, block and report it.
+   If it is `null`, the saved read holds something other than `refs/tags/` lines (an error, a truncated save): block and rerun the read.
 4. **Drift check** — the generated pre-flight block reports snapshot drift.
 5. **Override consultation** — see *Adopter overrides* above.
 
@@ -257,7 +258,7 @@ Return ONLY valid JSON with this structure:
 {
   "verdict": "proceed" | "blocked",
   "blockers": ["<string describing each hard blocker>"],
-  "rc_tag_exists": true | false,
+  "rc_tag_exists": true | false | null,
   "prep_pr_merged": true | false,
   "archive_reviewed": true | false
 }
@@ -392,12 +393,14 @@ Once the RM has run the commands, save what `repro-archive build` printed to `<s
 
 ```bash
 <render> --step 4 --record <scratch>/rc-record.txt --self-check "<Step 2b outcome, or skipped>" \
+  [--convenience-outcome "<artefact>=<its Step 2b outcome>" …] \
   [--run-url <workflow run URL>] [--allow-unreviewed-archive "<why>"]
 ```
 
 `comment` is the planning-issue comment downstream skills read (`release-verify-rc` Step 9 rebuilds from its commit and epoch, `release-vote-draft` quotes it):
 the RC id, tag and staging URLs, the artefact list, the reproducibility record, the convenience artefacts, the unreviewed-archive line when the override was used, and the `rc-staging` label.
-`record_missing` names record fields the RM has not pasted back; ask for them rather than inventing values.
+A convenience artefact without `--convenience-outcome` is recorded `skipped` when its reproducibility is `off`, else `unreported`.
+`record_missing` names record fields the RM has not pasted back (and `self_check` under `ci-automated` when the outcome is missing or `skipped`); ask for them rather than inventing values.
 
 Present `comment` to the RM and ask for confirmation before posting (Golden rule 4).
 If the RM confirms, write it to `<scratch>/rc-cut-comment.md` and post it with

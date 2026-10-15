@@ -25,7 +25,17 @@ import pytest
 
 from release_management.shell import dq, w
 
-HOSTILE = ["$(touch pwned)", "`touch pwned`", 'a" ; touch pwned ; "', "a'b", "x\\$HOME", "a b"]
+HOSTILE = [
+    "$(touch pwned)",
+    "`touch pwned`",
+    'a" ; touch pwned ; "',
+    "a'b",
+    "x\\$HOME",
+    "a b",
+    "hi!",
+    "!!",
+    "a!$HOME",
+]
 
 
 @pytest.mark.parametrize("value", HOSTILE)
@@ -51,3 +61,9 @@ def test_w_leaves_ordinary_words_and_placeholders_alone() -> None:
 def test_dq_keeps_the_recipes_double_quotes() -> None:
     assert dq("apache-foo-1.0.0") == '"apache-foo-1.0.0"'
     assert dq("$HOME") == '"\\$HOME"'
+
+
+def test_dq_single_quotes_a_value_with_a_bang() -> None:
+    assert dq("hi!") == "'hi!'"
+    assert dq("it's!") == shlex.quote("it's!")
+    assert dq("Release 1.0.0 RC1") == '"Release 1.0.0 RC1"'

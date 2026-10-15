@@ -24,13 +24,18 @@ Nothing here runs a command, reads a key or touches the network.
 
 from __future__ import annotations
 
+import posixpath
 import re
 from dataclasses import dataclass, field
 from typing import Any
+from urllib.parse import urlsplit
 
 from release_management.shell import dq, w
 
 PROHIBITED_DIGESTS = frozenset({"md5", "sha1"})
+ALLOWED_DIGESTS = frozenset({"sha512", "sha256"})
+DIST_DEV_PREFIX = "/repos/dist/dev/"
+SHA512_HEX = re.compile(r"[0-9a-fA-F]{128}")
 DIGEST_TOOLS = {"sha512": "sha512sum", "sha256": "sha256sum"}
 STOP_ON = ["differs", "DIFFERS"]
 REPRO = "uv run --project <framework>/tools/reproducible-archive repro-archive"
@@ -97,11 +102,17 @@ class RcCut:
 
     @property
     def digests(self) -> list[str]:
-        digests = [str(d).lower() for d in self.meta.get("digest_set") or ["sha512"]]
+        digests = [str(d).strip().lower() for d in self.meta.get("digest_set") or ["sha512"]]
         bad = sorted(set(digests) & PROHIBITED_DIGESTS)
         if bad:
             raise RenderError(
                 f"digest_set lists prohibited digest(s) {', '.join(bad)}: MD5 and SHA-1 are never emitted (Golden rule 3)"
+            )
+        unknown = sorted(set(digests) - ALLOWED_DIGESTS)
+        if unknown:
+            raise RenderError(
+                f"digest_set lists unsupported digest(s) {', '.join(repr(d) for d in unknown)}: "
+                f"only {' and '.join(sorted(ALLOWED_DIGESTS, reverse=True))} are emitted"
             )
         return digests
 
@@ -135,13 +146,19 @@ class RcCut:
         return out
 
 
-def tag_exists(refs: str, tag: str) -> bool:
+def tag_exists(refs: str, tag: str) -> bool | None:
     """Whether `refs/tags/<tag>` is among the refs the `tags` read printed.
 
     The read lists every tag starting with the prefix, so `rc1` also lists
-    `rc10`: only an exact line counts.
+    `rc10`: only an exact line counts. An empty read means no tag has the
+    prefix (the read prints nothing then). A read with any line that is not a
+    `refs/tags/` ref (an error message, a truncated save) cannot be trusted
+    either way: it returns `None`, which the skill treats as a blocker.
     """
-    return any(line.strip() == f"refs/tags/{tag}" for line in refs.splitlines())
+    lines = [line.strip() for line in refs.splitlines() if line.strip()]
+    if any(not line.startswith("refs/tags/") for line in lines):
+        return None
+    return f"refs/tags/{tag}" in lines
 
 
 def _source_block(cut: RcCut) -> list[str]:
@@ -287,11 +304,12 @@ def step2b(cut: RcCut, *, skip: bool = False, epoch: str = "<SOURCE_DATE_EPOCH>"
             f"{REPRO} compare --require-identical {dq(src)} {dq('rebuild/' + src)}",
         ]
     binary_cmds: list[str] = []
+    skipped_names: list[str] = []
     for entry in cut.convenience():
         mode = str(entry.get("reproducibility") or binaries)
         name = entry["name"]
         if mode == "off":
-            binary_cmds.append(f"# SKIP: {name} (reproducibility off)")
+            skipped_names.append(name)
             continue
         binary_cmds += [
             f"export SOURCE_DATE_EPOCH={dq(epoch)}",
@@ -314,8 +332,9 @@ def step2b(cut: RcCut, *, skip: bool = False, epoch: str = "<SOURCE_DATE_EPOCH>"
             "# Source: lint, rebuild from the tag, require byte-identical output\n"
             + "\n".join(result["source_check_commands"])
         )
-    if binary_cmds:
-        blocks.append("# Convenience artefacts\n" + "\n".join(binary_cmds))
+    skip_lines = [f"# SKIP: {name} (reproducibility off)" for name in skipped_names]
+    if binary_cmds or skip_lines:
+        blocks.append("# Convenience artefacts\n" + "\n".join([*skip_lines, *binary_cmds]))
     result["text"] = (
         "\n\n".join(blocks)
         + "\n\n# Any differs / DIFFERS stops the cut: fix the build before signing anything."
@@ -365,9 +384,20 @@ def step2c(cut: RcCut, *, organization: str = "ASF") -> dict[str, Any]:
 
 
 def _assert_dev_only(url: str) -> None:
-    if re.search(r"/dist/release(/|$)", url):
+    """svnpubsub staging may only import under `/repos/dist/dev/` (Golden rule 5).
+
+    The path is normalised first (`//` collapsed, `.` and `..` resolved), so
+    `dist//release/` or `dist/dev/../release/` cannot slip past.
+    """
+    path = urlsplit(url).path
+    normalised = posixpath.normpath(re.sub(r"/+", "/", path or "/"))
+    if re.search(r"/dist/release(/|$)", normalised):
         raise RenderError(
             f"refusing to stage to {url}: dist/release/ is on the promotion-path denylist (Golden rule 5)"
+        )
+    if not (normalised + "/").startswith(DIST_DEV_PREFIX) or normalised + "/" == DIST_DEV_PREFIX:
+        raise RenderError(
+            f"refusing to stage to {url}: svnpubsub staging may only import under {DIST_DEV_PREFIX} (Golden rule 5)"
         )
 
 
@@ -465,8 +495,12 @@ def parse_record(printed: str) -> dict[str, str]:
     record: dict[str, str] = {}
     for line in printed.splitlines():
         key, _, value = line.strip().partition(" ")
-        if key in RECORD_KEYS and value:
-            record[key] = value.strip()
+        value = value.strip()
+        if key not in RECORD_KEYS or not value or key in record:
+            continue  # the first occurrence wins: a later pasted line cannot overwrite it
+        if key == "sha512" and not SHA512_HEX.fullmatch(value):
+            continue
+        record[key] = value
     return record
 
 
@@ -474,7 +508,7 @@ def step4(
     cut: RcCut,
     *,
     record: dict[str, str] | None = None,
-    self_check: str = "skipped",
+    self_check: str | None = None,
     run_url: str | None = None,
     allow_unreviewed_archive: str | None = None,
     convenience_outcomes: dict[str, str] | None = None,
@@ -482,6 +516,12 @@ def step4(
     """Step 4: the planning-issue comment that records the RC for downstream skills."""
     record = record or {}
     outcomes = convenience_outcomes or {}
+    reported = self_check or "unreported"
+
+    def outcome(entry: dict[str, Any], mode: str) -> str:
+        if entry["name"] in outcomes:
+            return outcomes[entry["name"]]
+        return "skipped" if mode == "off" else "unreported"
 
     def rec(key: str) -> str:
         return f"`{record[key]}`" if record.get(key) else "_(paste from `repro-archive build`)_"
@@ -502,7 +542,7 @@ def step4(
         f"- swhid_dir: {rec('swhid_dir')}",
         f"- Content vs repository tree: {record.get('swhid_dir_note') or '_(paste from `repro-archive build`)_'}",
         f"- Archive: `{cut.meta.get('source_archive_format') or 'tar.gz'}`, prefix `{cut.meta.get('source_archive_prefix') or ''}`",
-        f"- Self-check (Step 2b): {self_check}",
+        f"- Self-check (Step 2b): {reported}",
     ]
     if cut.ci_automated:
         lines.append(f"- CI run: {run_url or '_(paste the workflow run URL)_'}")
@@ -510,10 +550,10 @@ def step4(
     if entries:
         lines += ["", "#### Convenience artefacts", ""]
         for entry in entries:
+            mode = str(entry.get("reproducibility") or cut.meta.get("reproducibility_binaries") or "off")
             lines.append(
                 f"- `{entry['name']}` ({entry.get('kind') or 'artefact'}) — staged {entry.get('staging') or 'dist-dev'}, "
-                f"reproducibility `{entry.get('reproducibility') or cut.meta.get('reproducibility_binaries') or 'off'}` "
-                f"({outcomes.get(entry['name'], self_check)}), "
+                f"reproducibility `{mode}` ({outcome(entry, mode)}), "
                 f"{'in' if entry.get('vote_included') else 'not in'} the vote, built from {rec('swhid_dir')}"
             )
     if allow_unreviewed_archive is not None:
@@ -524,6 +564,8 @@ def step4(
         ]
     lines += ["", "Proposed next label: `rc-staging`"]
     missing = [k for k in ("commit", "SOURCE_DATE_EPOCH", "sha512", "swhid_dir") if not record.get(k)]
+    if cut.ci_automated and self_check in (None, "", "skipped"):
+        missing.append("self_check")  # Step 2b is mandatory under ci-automated
     return {
         "proposed_comment_summary": f"Records RC {cut.tag}: tag, staging URL, {len(cut.artefacts)} artefact(s) and the reproducibility record.",
         "includes_rc_tag": True,

@@ -16,7 +16,7 @@ The render decides whether the check runs:
 skipped when `reproducibility_source` and `reproducibility_binaries` are both `off`, or on `--skip-repro-check` under `rm-key`;
 mandatory, with the flag ignored, under `ci-automated`.
 When it runs, `source_check_commands` lint the artefact against the reproducible-builds.org checklist, rebuild it from the same tag into `rebuild/` and require byte-identical output;
-`binary_check_commands` rebuild each convenience artefact by its `reproducibility` mode (`byte-identical` compares bytes, `documented-divergence` runs its `verification_command`, `off` prints `SKIP`).
+`binary_check_commands` rebuild each convenience artefact by its `reproducibility` mode (`byte-identical` compares bytes, `documented-divergence` runs its `verification_command`); an `off` artefact gets no command, only a `SKIP` line in `text`.
 
 Present `text`; the RM runs it and reports the outcome.
 On any `differs` / `DIFFERS`, read [`classifications/self-check-failed.md`](classifications/self-check-failed.md): it stops the cut before anything is signed.
