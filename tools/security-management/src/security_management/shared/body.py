@@ -33,9 +33,10 @@ deterministically first:
   line inside a block) the two readers would disagree about what is code,
   so `sanitise` returns `ok: False` with an `indicator` and the caller
   refuses to render. Unbalanced `<details>` / `<!--` fail the same way.
-- **No raw HTML blocks.** A line whose first non-space character is `<` then
-  a letter, `/`, `!` or `?` would open an HTML block, which GitHub renders
-  through fences; its `<` becomes `&lt;` everywhere, fenced lines included.
+- **No raw HTML.** Every `<` followed by a letter, `/`, `!` or `?` becomes
+  `&lt;`, anywhere and fenced lines included: an HTML block (even behind a
+  list marker or a `>`) renders through fences, and an inline tag can load or
+  hide content.
 - **Demote headings.** A `#`, `##` or `###` heading outside a fence becomes
   `####`, so a reporter's `### Severity` can never pose as a form section.
   Inside a fence, a heading line of any level is escaped (`\\### Severity`):
@@ -105,8 +106,9 @@ _ACTIVE_HTML = re.compile(
 # Characters other than \n that str.splitlines (and so github-body-field) treats as line breaks.
 _OTHER_LINE_BREAKS = re.compile("[\x0b\x0c\x1c\x1d\x1e\x85\u2028\u2029]")
 _ENTITY = {"`": "&#96;", "~": "&#126;"}
-# A raw HTML block start: first non-space character `<` then a letter, `/`, `!` or `?`.
-_HTML_BLOCK = re.compile(r"^(\s*)<(?=[A-Za-z/!?])")
+# Any HTML opener: `<` then a letter, `/`, `!` or `?` — a tag, a closing tag, a
+# comment, a declaration or a processing instruction, at a line start or not.
+_HTML_OPENER = re.compile(r"<(?=[A-Za-z/!?])")
 # A heading line, at any level: inside a fence it is escaped so no reader takes it for a field.
 _ANY_HEADING = re.compile(r"^(\s*)(?=#{1,6}(?:[ \t]|$))")
 
@@ -185,13 +187,16 @@ def defuse(line: str) -> str:
     return _defuse_text(line)
 
 
-def escape_html_block(line: str) -> str:
-    """`line` with the `<` that would start a raw HTML block as `&lt;`.
+def escape_html(line: str) -> str:
+    """`line` with every HTML opener's `<` as `&lt;`.
 
     An HTML block swallows what follows it up to a blank line, fence lines
-    included, so GitHub and this sanitiser would disagree about what is code.
+    included, so GitHub and this sanitiser would disagree about what is code;
+    behind a list marker or a `>` it still opens one. Escaping every opener,
+    not only one at a line start, closes the whole class without parsing
+    container prefixes, and `&lt;` is harmless in code.
     """
-    return _HTML_BLOCK.sub(lambda m: m.group(1) + "&lt;", line, count=1)
+    return _HTML_OPENER.sub("&lt;", line)
 
 
 def escape_heading(line: str) -> str:
@@ -236,7 +241,7 @@ def sanitise(body: str) -> dict[str, Any]:
     indicator = check(text)
     if indicator is not None:
         return {"ok": False, "indicator": indicator, "text": body}
-    original = [escape_html_block(line) for line in text.split("\n")]
+    original = [escape_html(line) for line in text.split("\n")]
     first = fence_mask(original)
     assert first is not None  # check() passed
     lines = _drop_empty_fence_pairs(original, first)
@@ -257,7 +262,7 @@ def _short_line(line: str) -> str:
     if is_fence(line):
         stripped = line.lstrip()
         line = line[: len(line) - len(stripped)] + _ENTITY[stripped[0]] + stripped[1:]
-    return defuse(demote(escape_html_block(line)))
+    return defuse(demote(escape_html(line)))
 
 
 def short_field(value: str) -> str:

@@ -183,8 +183,8 @@ def test_an_empty_pair_is_dropped_only_as_a_whole_pair() -> None:
         ("<svg onload=x>", "&lt;svg onload=x>"),
         ("<details><summary>s</summary></details>", "&lt;details>&lt;summary>s&lt;/summary>&lt;/details>"),
         ("<iframe src=u></iframe> <video src=u>", "&lt;iframe src=u>&lt;/iframe> &lt;video src=u>"),
-        ("x <b>kept</b> a < b", "x <b>kept</b> a < b"),
-        ("<b>block</b>", "&lt;b>block</b>"),
+        ("x <b>tag</b> a < b", "x &lt;b>tag&lt;/b> a < b"),
+        ("<b>block</b>", "&lt;b>block&lt;/b>"),
     ],
 )
 def test_images_and_active_html_are_defused(raw: str, expected: str) -> None:
@@ -288,6 +288,25 @@ def test_html_blocks_cannot_hide_an_image_behind_a_fence(report: str) -> None:
 
 
 def test_html_block_starts_in_short_fields_are_escaped() -> None:
-    assert body.short_field("<div onclick=x>Alice</div>") == "&lt;div onclick=x>Alice</div>"
+    assert body.short_field("<div onclick=x>Alice</div>") == "&lt;div onclick=x>Alice&lt;/div>"
     assert body.short_field("<?php x ?>") == "&lt;?php x ?>"
     assert body.short_field("a < b") == "a < b"
+
+
+@pytest.mark.parametrize(
+    "report",
+    [
+        "- <div>\n  ```\n  </div>\n![x](u)\n```",
+        "> <div>\n```\n</div>\n![x](u)\n```",
+        "1. <details>\n```\n</details>\n![x](u)\n```",
+        "* <!--\n```\n-->\n![x](u)\n```",
+    ],
+)
+def test_html_openers_behind_container_prefixes_are_escaped(report: str) -> None:
+    out = body.sanitise(report)
+    assert "<" not in out["text"].replace("&lt;", "")
+
+
+def test_an_inline_tag_is_escaped() -> None:
+    assert body.sanitise("a <img src=x> b")["text"] == "a &lt;img src=x> b"
+    assert body.short_field("a <img src=x> b") == "a &lt;img src=x> b"
