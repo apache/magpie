@@ -25,7 +25,7 @@ Suites are currently implemented for:
 - **security-issue-fix** — 50 cases across 15 steps (2, 3, 5a–5g, 6, 7, 11, and the flow choice plus Subversion steps 8 and 9)
 - **security-issue-invalidate** — 24 cases across 9 steps (2, 3, 4, 5a, 5b, 5d, 5e, 5f, 7)
 - **security-issue-import-from-md** — 11 cases across 4 steps (1, 2, 4, 6)
-- **security-issue-import-from-pr** — 13 cases across 4 steps (2, 3, 6, 8)
+- **security-issue-import-from-pr** — 8 cases across 3 steps (3, 6, 8); Step 2 is decided and pytest-tested in `tools/security-management`
 - **issue-triage** — 22 cases across 5 steps (step-1-resolve-selector, step-3-classify, step-4-compose-comment, step-5-confirm, step-7-recap)
 - **issue-reproducer** — 27 cases across 7 steps (step-1-inventory, step-2-pick-candidate, step-3-classify-shape, step-5.5-confirm, step-7-verify, step-8-baselines, step-10-compose-verdict)
 - **issue-fix-workflow** — 20 cases across 7 steps (step-2-locate-area, step-6-scope-check, step-7-compose-commit, step-8-handback)
