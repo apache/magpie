@@ -423,3 +423,54 @@ def test_prepare_decides_from_a_real_preflight_and_load(tmp_path: Path) -> None:
     assert prepare_signing.eligibility(signing_load)["missing_conditions"] == [
         prepare_signing.NOT_REPRODUCIBLE
     ]
+
+
+def test_archive_review_protects_the_voter_inputs_of_a_real_load(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """`prepare archive-review --load` reads the RAT paths and validators `release-config load` prints."""
+    import json
+
+    from release_management.cli import main
+
+    config = tmp_path / ".apache-magpie-overrides"
+    config.mkdir()
+    (config / "release-management-config.md").write_text(_rmc(RMC), encoding="utf-8")
+    build = (
+        BUILD
+        + "\n## Apache RAT configuration\n\n- **RAT plugin config:** `dev/rat.yml`.\n"
+        + "- **RAT excludes file:** `dev/rat-excludes.txt`.\n"
+        + "\n## Source-tree validators\n\n```yaml\nsource_tree_validators:\n"
+        + '  - "dev/check-tree.sh --strict"\n```\n'
+    )
+    (config / "release-build.md").write_text(build, encoding="utf-8")
+    (config / "project.md").write_text(
+        "# Project\n\n| Key | Value |\n|---|---|\n| `organization` | `ASF` |\n", encoding="utf-8"
+    )
+    loaded = release_config_cli.run(
+        ["load", "--project-root", str(tmp_path), "--user-config", str(tmp_path / "absent.md")]
+    )
+    assert loaded["build"]["rat_excludes_path"] == "dev/rat-excludes.txt"
+    assert loaded["build"]["rat_config_path"] == "dev/rat.yml"
+    assert loaded["build"]["source_tree_validators"] == ["dev/check-tree.sh --strict"]
+    (tmp_path / "load.json").write_text(json.dumps(loaded), encoding="utf-8")
+    tracked = [
+        "LICENSE",
+        "NOTICE",
+        "dev/rat-excludes.txt",
+        "dev/rat.yml",
+        "dev/check-tree.sh",
+        "dev/notes.md",
+    ]
+    (tmp_path / "tracked.txt").write_text("\n".join(tracked) + "\n", encoding="utf-8")
+    voters = ("dev/rat-excludes.txt", "dev/rat.yml", "dev/check-tree.sh")
+    argv = ["prepare", "archive-review", "--load", str(tmp_path / "load.json")]
+    argv += ["--tracked", str(tmp_path / "tracked.txt")]
+    for path in voters:
+        argv += ["--exclude", path]
+    assert main(argv) == 0
+    out = json.loads(capsys.readouterr().out)
+    refused = {r["path"]: r["reason"] for r in out["refused"]}
+    for path in voters:
+        assert refused[path].startswith("an input to the checks voters run"), path
+    assert not set(voters) & {p["path"] for p in out["proposed"]}

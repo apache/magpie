@@ -101,6 +101,9 @@ class BuildConfig:
             "reproducibility_source": self.reproducibility_source,
             "reproducibility_binaries": self.reproducibility_binaries,
             "convenience_artefacts": self.convenience_artefacts,
+            "rat_config_path": self.rat_config_path,
+            "rat_excludes_path": self.rat_excludes_path,
+            "source_tree_validators": self.source_tree_validators,
         }
 
 

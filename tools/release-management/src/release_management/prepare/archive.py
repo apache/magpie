@@ -224,13 +224,15 @@ def parse_refs(text: str | None) -> dict[str, list[str]]:
 
     The loop also prints `candidate<TAB>` (no referrer) for every candidate it
     checked, so a checked path with no referrers is still a key of the map.
+    Later rounds append to the same file, so a candidate scanned twice keeps
+    each referrer once.
     """
     out: dict[str, list[str]] = {}
     for line in lines(text):
         candidate, sep, referrer = line.partition("\t")
         if sep:
             refs = out.setdefault(candidate.strip(), [])
-            if referrer.strip():
+            if referrer.strip() and referrer.strip() not in refs:
                 refs.append(referrer.strip())
     return out
 
@@ -396,16 +398,21 @@ def _candidates(entries: list[dict[str, Any]], links: dict[str, str]) -> list[di
     return out
 
 
-def refs_command(candidates: list[str]) -> str:
-    """One `git grep -l -F` per candidate, each hit prefixed with the candidate and a tab."""
+def refs_command(candidates: list[str], *, append: bool = False) -> str:
+    """One `git grep -l -F` per candidate, each hit prefixed with the candidate and a tab.
+
+    `append` adds to the refs file of an earlier round instead of replacing it,
+    so the paths that round checked stay checked.
+    """
     if not candidates:
         return ""
     words = " ".join(dq(c.rstrip("/").lstrip("/")) for c in candidates)
+    redirect = ">>" if append else ">"
     return (
         f"for p in {words}; do "
         "printf '%s\\t\\n' \"$p\"; "
         'git grep -l -F -- "$p" | awk -v p="$p" \'{print p "\\t" $0}\'; '
-        'done > "$TMPDIR/refs.txt"'
+        f'done {redirect} "$TMPDIR/refs.txt"'
     )
 
 
@@ -489,28 +496,47 @@ def review(
             by_path[path] = bucket(path, voter_inputs=voters, manifests=mans)
             rm_added.add(path)
 
-    excluded_now = [*existing, *(entry_form(p, tracked) for p in by_path)]
     refs_map = refs or {}
-    proposed, refused = [], []
+    hard: dict[str, dict[str, Any]] = {}
     for path, b in by_path.items():
         why_not = never_excludable(path, b, manifests=mans)
-        form = entry_form(path, tracked)
-        matches = protected_matches(form, tracked, voter_inputs=voters, manifests=mans)
+        matches = protected_matches(entry_form(path, tracked), tracked, voter_inputs=voters, manifests=mans)
         if not why_not and GLOB.search(path):
             why_not = "a glob pattern: name each path, so it can be checked against what always ships and its references"
         if not why_not and matches:
             why_not = "it would strip files that always ship"
-        referrers = sorted(
-            {r for r in refs_map.get(path, []) if r != ".gitattributes" and not ignored(r, excluded_now)}
+        if why_not:
+            hard[path] = {"reason": why_not} | ({"matches": matches} if matches else {})
+
+    # A referrer only stops shipping if its own exclusion stands: start from every
+    # path not refused outright, drop each one a shipped file references, and repeat
+    # until nothing more drops (a refused path is retained, so what it references ships too).
+    excludable = [p for p in by_path if p not in hard]
+
+    def _referrers(path: str, excluded: list[str]) -> list[str]:
+        return sorted(
+            {r for r in refs_map.get(path, []) if r != ".gitattributes" and not ignored(r, excluded)}
         )
-        item: dict[str, Any] = {"path": path, "entry": form, "bucket": b}
+
+    while True:
+        excluded_now = [*existing, *(entry_form(p, tracked) for p in excludable)]
+        still = [p for p in excludable if not _referrers(p, excluded_now)]
+        if still == excludable:
+            break
+        excludable = still
+
+    proposed, refused = [], []
+    for path, b in by_path.items():
+        item: dict[str, Any] = {"path": path, "entry": entry_form(path, tracked), "bucket": b}
         if path in rm_added:
             item["rm_choice"] = True
-        if why_not:
-            refused.append(item | {"reason": why_not} | ({"matches": matches} if matches else {}))
+        if path in hard:
+            refused.append(item | hard[path])
             continue
-        if referrers:
-            refused.append(item | {"reason": "referenced by shipped files", "referrers": referrers})
+        if path not in excludable:
+            refused.append(
+                item | {"reason": "referenced by shipped files", "referrers": _referrers(path, excluded_now)}
+            )
             continue
         item["comment"] = (reasons or {}).get(path) or b.removeprefix("exclude: ")
         proposed.append(item)
@@ -547,7 +573,7 @@ def review(
         "stripped_symlink_targets": stripped,
         "gitattributes_block": block,
         "refs_unchecked": refs_unchecked,
-        "refs_command": refs_command(refs_unchecked),
+        "refs_command": refs_command(refs_unchecked, append=refs is not None),
         "before_after_commands": before_after(framework) if proposed else "",
     }
     if changed is not None and not proposed and not refused and not needs_rm and not violations:

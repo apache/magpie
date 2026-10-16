@@ -433,3 +433,13 @@ def test_binary_exclude_acceptance_is_scoped_to_its_own_bullet():
 def test_binary_exclude_acceptance_on_a_wrapped_bullet_line_still_counts():
     body = "- `third-party/lib.so` — ships with a documented source counterpart;\n  known-accepted exception.\n- `assets/*.min.js` — prohibited glob"
     assert _binary_section(body) == (["assets/*.min.js"], ["third-party/lib.so"])
+
+
+def test_load_build_carries_the_voter_inputs(project, load):
+    """`load`'s `build` carries the RAT paths and validators, which `release-management prepare archive-review` protects."""
+    build = load(project(build=BUILD_VERIFY), None)["build"]
+    assert build["rat_config_path"] == "pom.xml § rat-maven-plugin"
+    assert build["rat_excludes_path"] == "rat-excludes.txt"
+    assert build["source_tree_validators"] == ["uv run --project tools/symlink-lint symlink-lint .", "make check-links"]
+    default = load(project(), None)["build"]
+    assert default["rat_excludes_path"] == ".rat-excludes" and default["source_tree_validators"] == []

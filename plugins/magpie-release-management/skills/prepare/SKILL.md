@@ -23,7 +23,7 @@ argument-hint: "[prep | post] <version> [--review-archive] | automated-signing"
 capability: capability:resolve
 surface_hash: sha256:9380580d6421d8b4
 license: Apache-2.0
-measured_tokens: 5053
+measured_tokens: 5095
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

@@ -42,9 +42,10 @@ Do not guess; show, classify, explain, and ask.
 3. **Check references before proposing any exclusion**: run the printed `refs_command` (one `git grep -l -F` per proposed entry over tracked files)
    and rerun `archive-review` with `--refs "$TMPDIR/refs.txt"`.
    `refs_unchecked` lists every proposed path the refs file does not cover (one added later with `--exclude`, say);
-   while it is non-empty, `gitattributes_block` stays empty and `refs_command` checks exactly those paths: run it and rerun with its output.
+   while it is non-empty, `gitattributes_block` stays empty and `refs_command` checks exactly those paths, appending to the same refs file: run it and rerun with that file.
    A path that a shipped file links to must not be excluded, or `release-verify-rc` Step 7 fails the RC on a dangling reference:
    `refused` names the referrers; offer the alternative (keep it, or repoint the reference).
+   A reference from a file that is itself excluded does not count, unless that file's own exclusion is refused.
    `stripped_symlink_targets` is every committed symlink whose target would be stripped,
    and `symlink_chains` every shipped symlink that points at another symlink (safe extractors reject chains); flag each.
 
