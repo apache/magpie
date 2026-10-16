@@ -45,7 +45,7 @@ release-config preflight output
 
 Planning-issue facts for the verdict: `vote-passed` present; the target listing found content (`--target populated`).
 
-`release-management promote verdict --preflight <scratch>/promote-preflight.json --planning-issue https://github.com/apache/airflow/issues/45010 --vote-passed --target populated` output:
+`release-management promote verdict --preflight <scratch>/promote-preflight.json --planning-issue https://github.com/apache/airflow/issues/45010 --vote-passed --target populated --upstream apache/airflow --project airflow` output:
 
 ```json
 {
@@ -60,6 +60,13 @@ Planning-issue facts for the verdict: `vote-passed` present; the target listing 
   "dist_backend": "svnpubsub",
   "read": [
     "blockers/target-exists.md"
-  ]
+  ],
+  "scope": {
+    "project": "airflow",
+    "upstream": "apache/airflow",
+    "dist_backend": "svnpubsub",
+    "staging_url": "https://dist.apache.org/repos/dist/dev/airflow/2.11.0-rc1/",
+    "target_url": "https://dist.apache.org/repos/dist/release/airflow/2.11.0/"
+  }
 }
 ```

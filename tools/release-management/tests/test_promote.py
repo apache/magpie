@@ -80,10 +80,14 @@ def loaded(
     remote: str | None = "origin",
     publish: list[dict[str, Any]] | None = None,
     held: list[dict[str, Any]] | None = None,
+    declared: list[dict[str, Any]] | None = None,
+    digest_set: list[str] | None = None,
 ) -> dict[str, Any]:
     staging = staging_url or template.replace("<bucket>", "dev").replace("<version>", f"{version}-{rc}")
     target = target_url or template.replace("<bucket>", "release").replace("<version>", version)
     return {
+        # `release-config load` prints the parsed release-build.md under `build`.
+        "build": {"digest_set": digest_set or []},
         "metadata": {
             "version": version,
             "rc": rc,
@@ -94,15 +98,18 @@ def loaded(
             "promote_command_template": command_template,
             "rm_gpg_fingerprint": fingerprint,
             "git_upstream_remote": remote,
-            "convenience_artefacts": [],
+            "convenience_artefacts": declared or [],
             "convenience": {"publish": publish or [], "held": held or []},
-        }
+        },
     }
 
 
 def promote(upstream: str = "apache/airflow", project: str = "airflow", **kw: Any) -> render.Promote:
     product = kw.pop("product", "Apache Airflow")
     return render.Promote.from_load(loaded(**kw), upstream=upstream, project=project, product_name=product)
+
+
+AIRFLOW: dict[str, Any] = {"upstream": "apache/airflow", "project": "airflow"}
 
 
 def matches(pattern: str, text: str, flags: int = re.I) -> bool:
@@ -114,7 +121,7 @@ def matches(pattern: str, text: str, flags: int = re.I) -> bool:
 
 def test_step0_case_1_clean_pass() -> None:
     out = render.verdict(preflight(), vote_passed=True, target="empty")
-    assert {k: out[k] for k in out if k != "read"} == {
+    assert {k: out[k] for k in out if k not in ("read", "scope")} == {
         "verdict": "proceed",
         "blockers": [],
         "rm_is_pmc": True,
@@ -249,6 +256,8 @@ def test_step2_case_2_github_releases() -> None:
     assert_common(out)
     assert matches(r"gh\s+release\s+edit", block)  # has_gh_release_edit_command
     assert matches(r"--draft[ =]false", block)  # has_draft_false_flag
+    # rc-cut drafts the release with --prerelease; publishing must clear it.
+    assert "  --draft=false \\\n  --prerelease=false \\\n  --tag 1.5.0" in block
     assert not matches(r"svn\s+mv", block)  # has_no_svn_mv_command
     assert "gh release edit 1.5.0-rc2 \\\n  --repo example-org/example-project" in block
     assert "--tag 1.5.0" in block and "gh release view 1.5.0 --repo example-org/example-project" in block
@@ -371,6 +380,11 @@ def test_step2_case_5_convenience_artefacts() -> None:
                 },
             ],
             held=[{"name": "registry.example.org/apache/foo:4.1.0", "reason": "differs"}],
+            declared=[
+                {"name": "apache-foo-<version>-bin.tar.gz", "publish_channel": "dist-release"},
+                {"name": "apache_foo-<version>-py3-none-any.whl", "publish_channel": "pypi"},
+                {"name": "registry.example.org/apache/foo:<version>", "publish_channel": "docker"},
+            ],
         ),
         upstream="apache/foo",
         project="foo",
@@ -405,6 +419,186 @@ def test_step2_case_5_convenience_artefacts() -> None:
     assert "git push apache refs/tags/4.1.0" in block
     # The convenience section comes after the source promotion and the final tag, before the mirror note.
     assert block.index("tag -v 4.1.0") < block.index("twine upload") < block.index("Mirror propagation")
+
+
+# --- held artefacts staged with the source are left out of the promotion ---- #
+
+HELD_BIN = "apache-foo-4.1.0-bin.tar.gz"
+DECLARED_BIN = [{"name": "apache-foo-<version>-bin.tar.gz", "publish_channel": "dist-release"}]
+
+
+def held_promote(backend: str, template: str, **kw: Any) -> render.Promote:
+    return render.Promote.from_load(
+        loaded(
+            version="4.1.0",
+            rc="rc2",
+            backend=backend,
+            template=template,
+            held=[{"name": HELD_BIN, "reason": "differs"}],
+            declared=kw.pop("declared", DECLARED_BIN),
+            **kw,
+        ),
+        upstream="apache/foo",
+        project="foo",
+        product_name="Apache Foo",
+    )
+
+
+def test_step2_svnpubsub_removes_held_staged_artefacts_before_the_move() -> None:
+    p = held_promote("svnpubsub", "https://dist.apache.org/repos/dist/<bucket>/foo/<version>/")
+    out = render.step2(p, apache_id="jdoe", result_vote_url="u", rc_commit_sha=SHA)
+    block = out["command_block"]
+    dev = "https://dist.apache.org/repos/dist/dev/foo/4.1.0-rc2/"
+    removal = (
+        "svn rm \\\n"
+        f"  {dev}{HELD_BIN} \\\n"
+        f"  {dev}{HELD_BIN}.asc \\\n"
+        f"  {dev}{HELD_BIN}.sha512 \\\n"
+        "  --username jdoe \\\n"
+        '  -m "Withholding unreproduced convenience artefacts from Apache Foo 4.1.0 (rc2)" &&\n'
+    )
+    assert removal in block
+    # The removal runs first, and the && means a failed removal stops the svn mv.
+    assert block.index("\nsvn rm \\") < block.index("\nsvn mv \\") < block.index("\nsvn list ")
+    # Nothing, not even a comment, sits between the && and the svn mv it guards.
+    assert '(rc2)" &&\nsvn mv \\\n' in block
+    assert (
+        "# Step 2 of 4 — move RC to release (release_dist_backend=svnpubsub), chained after Step 1" in block
+    )
+    assert "# Step 4 of 4 — cut and push the FINAL release tag" in block
+    assert out["convenience_held"] == [f"{HELD_BIN}: differs"]
+    assert "The svn rm above removes it, with its .asc and .sha512, from the RC directory" in block
+    assert not re.search(r"\\[ \t]+#", block)
+
+
+def test_step2_s3_excludes_held_staged_artefacts_from_the_move() -> None:
+    block = render.step2(held_promote("s3", "s3://bkt/<version>/"))["command_block"]
+    excludes = "".join(f"  --exclude {HELD_BIN}{s} \\\n" for s in ("", ".asc", ".sha512"))
+    assert f"aws s3 mv \\\n  s3://bkt/4.1.0-rc2/ \\\n  s3://bkt/4.1.0/ \\\n{excludes}  --recursive" in block
+    assert "The --exclude flags above leave it, with its .asc and .sha512, out of the aws s3 mv." in block
+
+
+def test_step2_github_releases_deletes_held_assets_before_publishing() -> None:
+    p = held_promote("github-releases", "https://github.com/apache/foo/releases/tag/<version>")
+    block = render.step2(p, draft_tag="4.1.0-rc2")["command_block"]
+    # The signature and checksum assets go with it, each chained to the publish.
+    delete = "".join(
+        f"gh release delete-asset 4.1.0-rc2 {HELD_BIN}{s} --repo apache/foo --yes &&\n"
+        for s in ("", ".asc", ".sha512")
+    )
+    assert f"{delete}gh release edit 4.1.0-rc2 \\" in block
+    assert block.index("delete-asset") < block.index("--draft=false")
+    assert (
+        "The delete-asset above removes it, with its .asc and .sha512, from the draft release before it is published."
+        in block
+    )
+
+
+@pytest.mark.parametrize(
+    ("digest_set", "suffixes", "text"),
+    [
+        (["sha512", "sha256"], ("", ".asc", ".sha512", ".sha256"), ".asc, .sha512 and .sha256"),
+        (["sha256"], ("", ".asc", ".sha256"), ".asc and .sha256"),
+        ([" SHA256 ", "sha512"], ("", ".asc", ".sha256", ".sha512"), ".asc, .sha256 and .sha512"),
+        (None, ("", ".asc", ".sha512"), ".asc and .sha512"),
+    ],
+)
+def test_step2_held_sidecars_follow_the_digest_set(
+    digest_set: list[str] | None, suffixes: tuple[str, ...], text: str
+) -> None:
+    """rc-cut stages one `.<digest>` file per digest_set entry; every one is withheld with the artefact."""
+    names = [f"{HELD_BIN}{s}" for s in suffixes]
+    dev = "https://dist.apache.org/repos/dist/dev/foo/4.1.0-rc2/"
+
+    svn = held_promote(
+        "svnpubsub", "https://dist.apache.org/repos/dist/<bucket>/foo/<version>/", digest_set=digest_set
+    )
+    block = render.step2(svn, apache_id="jdoe", result_vote_url="u", rc_commit_sha=SHA)["command_block"]
+    assert "svn rm \\\n" + "".join(f"  {dev}{n} \\\n" for n in names) + "  --username jdoe \\\n" in block
+    assert f"# remove each, with its {text}, from the RC directory" in block
+    assert f"The svn rm above removes it, with its {text}, from the RC directory" in block
+
+    s3 = held_promote("s3", "s3://bkt/<version>/", digest_set=digest_set)
+    block = render.step2(s3)["command_block"]
+    excludes = "".join(f"  --exclude {n} \\\n" for n in names)
+    assert f"  s3://bkt/4.1.0/ \\\n{excludes}  --recursive" in block
+    assert f"The --exclude flags above leave it, with its {text}, out of the aws s3 mv." in block
+
+    gh = held_promote(
+        "github-releases", "https://github.com/apache/foo/releases/tag/<version>", digest_set=digest_set
+    )
+    block = render.step2(gh, draft_tag="4.1.0-rc2")["command_block"]
+    deletes = "".join(f"gh release delete-asset 4.1.0-rc2 {n} --repo apache/foo --yes &&\n" for n in names)
+    assert f"{deletes}gh release edit 4.1.0-rc2 \\" in block
+    assert f"The delete-asset above removes it, with its {text}, from the draft release" in block
+
+
+def test_step2_held_sidecars_refuse_a_digest_rc_cut_never_stages() -> None:
+    p = held_promote("s3", "s3://bkt/<version>/", digest_set=["sha512", "md5"])
+    with pytest.raises(render.RenderError, match=r"unsupported digest\(s\) 'md5'"):
+        render.step2(p)
+    # Without a held staged artefact the digest set is not needed, so it does not refuse.
+    clean = render.Promote.from_load(
+        loaded(backend="s3", template="s3://bkt/<version>/", digest_set=["md5"]),
+        upstream="o/r",
+        product_name="X",
+    )
+    assert "--exclude" not in render.step2(clean)["command_block"]
+
+
+def test_step2_self_hosted_refuses_held_staged_artefacts() -> None:
+    """The project template cannot be told to leave a file out, so the render refuses instead of claiming it did."""
+    p = held_promote(
+        "self-hosted", "https://downloads.example.org/<version>/", command_template="./publish.sh <version>"
+    )
+    with pytest.raises(
+        render.RenderError, match=r"staged with the source \(apache-foo-4\.1\.0-bin\.tar\.gz\)"
+    ):
+        render.step2(p)
+
+
+def test_step2_held_artefact_on_its_own_channel_is_not_removed_from_the_source() -> None:
+    p = held_promote(
+        "svnpubsub",
+        "https://dist.apache.org/repos/dist/<bucket>/foo/<version>/",
+        declared=[{"name": "apache-foo-<version>-bin.tar.gz", "publish_channel": "pypi"}],
+    )
+    block = render.step2(p, apache_id="jdoe", result_vote_url="u", rc_commit_sha=SHA)["command_block"]
+    assert "svn rm" not in block and "# Step 1 of 3 — move RC to release" in block
+    assert "approved. No publish command for it is emitted." in block
+
+
+def test_step2_held_artefact_with_unknown_channel_is_treated_as_staged() -> None:
+    """A held name no declared entry matches is assumed to sit with the source (fail-closed)."""
+    p = held_promote("s3", "s3://bkt/<version>/", declared=[])
+    assert f"--exclude {HELD_BIN} \\" in render.step2(p)["command_block"]
+
+
+def test_step2_held_artefact_with_its_own_version_is_matched() -> None:
+    p = render.Promote.from_load(
+        loaded(
+            version="4.1.0",
+            rc="rc2",
+            backend="s3",
+            template="s3://bkt/<version>/",
+            held=[{"name": "foo-chart-1.2.0.tgz", "reason": "not checked"}],
+            declared=[{"name": "foo-chart-<version>.tgz", "version": "1.2.0", "publish_channel": "helm"}],
+        ),
+        upstream="apache/foo",
+        product_name="Apache Foo",
+    )
+    assert "--exclude" not in render.step2(p)["command_block"]
+
+
+@pytest.mark.parametrize("name", ["sub/dir.tar.gz", "apache-foo-*.tar.gz", "two words.tar.gz", ".."])
+def test_step2_held_staged_name_that_cannot_be_excluded_safely_is_refused(name: str) -> None:
+    p = render.Promote.from_load(
+        loaded(backend="s3", template="s3://bkt/<version>/", held=[{"name": name, "reason": "differs"}]),
+        upstream="o/r",
+        product_name="X",
+    )
+    with pytest.raises(render.RenderError, match="cannot leave it out safely"):
+        render.step2(p)
 
 
 def test_step2_source_only_has_no_convenience_section() -> None:
@@ -482,22 +676,66 @@ def test_step0_target_check_not_run_blocks() -> None:
 
 def test_render_gate_refuses_a_blocked_or_foreign_verdict() -> None:
     p = promote()
-    blocked = render.verdict(preflight(), vote_passed=False, target="empty")
+    blocked = render.verdict(preflight(), vote_passed=False, target="empty", **AIRFLOW)
     with pytest.raises(render.RenderError, match="verdict is 'blocked'"):
         render.handoff_from_verdict(p, blocked)
     with pytest.raises(render.RenderError, match="verdict is None"):
         render.handoff_from_verdict(p, {})
-    other = render.verdict(preflight(rc="rc2"), vote_passed=True, target="empty")
+    other = render.verdict(preflight(rc="rc2"), vote_passed=True, target="empty", **AIRFLOW)
     with pytest.raises(
         render.RenderError, match=r"verdict is for 2\.11\.0-rc2, but the load is for 2\.11\.0-rc1"
     ):
         render.handoff_from_verdict(p, other)
 
 
+def test_verdict_records_which_release_it_is_for() -> None:
+    out = render.verdict(preflight(), vote_passed=True, target="empty", **AIRFLOW)
+    assert out["scope"] == {
+        "project": "airflow",
+        "upstream": "apache/airflow",
+        "dist_backend": "svnpubsub",
+        "staging_url": "https://dist.apache.org/repos/dist/dev/airflow/2.11.0-rc1/",
+        "target_url": "https://dist.apache.org/repos/dist/release/airflow/2.11.0/",
+    }
+
+
+def test_render_gate_refuses_a_verdict_for_another_project_at_the_same_version() -> None:
+    """Same version and RC is not enough: project, upstream, backend and URLs must match the load."""
+    p = promote()
+    foreign = preflight()
+    foreign["values"]["staging_url"] = "https://dist.apache.org/repos/dist/dev/otherproj/2.11.0-rc1/"
+    foreign["values"]["target_url"] = "https://dist.apache.org/repos/dist/release/otherproj/2.11.0/"
+    cross = render.verdict(
+        foreign, vote_passed=True, target="empty", upstream="apache/otherproj", project="otherproj"
+    )
+    with pytest.raises(
+        render.RenderError, match=r"verdict is for project 'otherproj', but the load is for 'airflow'"
+    ):
+        render.handoff_from_verdict(p, cross)
+    # Each field on its own is enough to refuse.
+    same = render.verdict(preflight(), vote_passed=True, target="empty", **AIRFLOW)
+    for key, value in (
+        ("upstream", "apache/other"),
+        ("dist_backend", "s3"),
+        ("staging_url", "https://dist.apache.org/repos/dist/dev/other/2.11.0-rc1/"),
+        ("target_url", "https://dist.apache.org/repos/dist/release/other/2.11.0/"),
+    ):
+        changed = same | {"scope": same["scope"] | {key: value}}
+        with pytest.raises(render.RenderError, match=f"verdict is for {key} "):
+            render.handoff_from_verdict(p, changed)
+    # A verdict that does not record its release at all is refused, not trusted.
+    with pytest.raises(render.RenderError, match="does not record which release"):
+        render.handoff_from_verdict(p, {k: v for k, v in same.items() if k != "scope"})
+    # A verdict made without --upstream / --project does not match a render that names them.
+    with pytest.raises(render.RenderError, match="verdict is for project '<project>'"):
+        render.handoff_from_verdict(p, render.verdict(preflight(), vote_passed=True, target="empty"))
+    assert render.handoff_from_verdict(p, same) is False
+
+
 def test_render_gate_derives_the_handoff_from_the_verdict() -> None:
     p = promote()
-    proceed = render.verdict(preflight(), vote_passed=True, target="empty")
-    handoff = render.verdict(preflight(rm_is_pmc=False), vote_passed=True, target="empty")
+    proceed = render.verdict(preflight(), vote_passed=True, target="empty", **AIRFLOW)
+    handoff = render.verdict(preflight(rm_is_pmc=False), vote_passed=True, target="empty", **AIRFLOW)
     assert render.handoff_from_verdict(p, proceed) is False
     assert render.handoff_from_verdict(p, handoff) is True
     assert render.handoff_from_verdict(p, handoff, handoff=True) is True
@@ -515,13 +753,16 @@ def test_apache_name_is_not_doubled() -> None:
 def test_cli_verdict_render_and_refusal(tmp_path, capsys) -> None:
     pre = tmp_path / "pre.json"
     pre.write_text(json.dumps(preflight()), encoding="utf-8")
-    assert main(["promote", "verdict", "--preflight", str(pre), "--vote-passed", "--target", "empty"]) == 0
-    assert json.loads(capsys.readouterr().out)["verdict"] == "proceed"
-    assert main(["promote", "verdict", "--preflight", str(pre), "--target", "empty"]) == 0
+    scope = ["--upstream", "apache/airflow", "--project", "airflow"]
+    base = ["promote", "verdict", "--preflight", str(pre), *scope]
+    assert main([*base, "--vote-passed", "--target", "empty"]) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["verdict"] == "proceed" and out["scope"]["project"] == "airflow"
+    assert main([*base, "--target", "empty"]) == 0
     assert json.loads(capsys.readouterr().out)["verdict"] == "blocked"
     verdict = tmp_path / "verdict.json"
     verdict.write_text(
-        json.dumps(render.verdict(preflight(rm_is_pmc=False), vote_passed=True, target="empty")),
+        json.dumps(render.verdict(preflight(rm_is_pmc=False), vote_passed=True, target="empty", **AIRFLOW)),
         encoding="utf-8",
     )
     load = tmp_path / "load.json"
@@ -533,6 +774,8 @@ def test_cli_verdict_render_and_refusal(tmp_path, capsys) -> None:
         str(load),
         "--verdict",
         str(verdict),
+        "--upstream",
+        "apache/airflow",
         "--project",
         "airflow",
         "--product-name",
@@ -546,7 +789,15 @@ def test_cli_verdict_render_and_refusal(tmp_path, capsys) -> None:
     assert json.loads(capsys.readouterr().out)["rm_is_pmc"] is False
     load.write_text(json.dumps(loaded(backend="self-hosted")), encoding="utf-8")
     assert main(argv) == 2
-    assert "release_publish_command_template" in json.loads(capsys.readouterr().out)["refused"]
+    # The verdict was reached for svnpubsub; a load for another backend is refused before rendering.
+    assert "verdict is for dist_backend 'svnpubsub'" in json.loads(capsys.readouterr().out)["refused"]
+    # A render for another project than the verdict's is refused.
+    load.write_text(json.dumps(loaded()), encoding="utf-8")
+    other = [a if a != "airflow" else "otherproj" for a in argv]
+    assert main(other) == 2
+    assert "verdict is for project 'airflow'" in json.loads(capsys.readouterr().out)["refused"]
+    with pytest.raises(SystemExit):
+        main(["promote", "verdict", "--preflight", str(pre), "--vote-passed", "--target", "empty"])
 
 
 def test_cli_render_refuses_without_a_renderable_verdict(tmp_path, capsys) -> None:
@@ -554,27 +805,43 @@ def test_cli_render_refuses_without_a_renderable_verdict(tmp_path, capsys) -> No
     load.write_text(json.dumps(loaded()), encoding="utf-8")
     verdict = tmp_path / "verdict.json"
     verdict.write_text(
-        json.dumps(render.verdict(preflight(), vote_passed=False, target="empty")), encoding="utf-8"
+        json.dumps(render.verdict(preflight(), vote_passed=False, target="empty", **AIRFLOW)),
+        encoding="utf-8",
     )
-    argv = ["promote", "render", "--load", str(load), "--verdict", str(verdict)]
+    scope = ["--upstream", "apache/airflow", "--project", "airflow"]
+    argv = ["promote", "render", "--load", str(load), "--verdict", str(verdict), *scope]
     assert main(argv) == 2
     assert "verdict is 'blocked'" in json.loads(capsys.readouterr().out)["refused"]
     verdict.write_text(
-        json.dumps(render.verdict(preflight(), vote_passed=True, target="empty")), encoding="utf-8"
+        json.dumps(render.verdict(preflight(), vote_passed=True, target="empty", **AIRFLOW)), encoding="utf-8"
     )
     assert main([*argv, "--handoff"]) == 2
     assert "--handoff disagrees" in json.loads(capsys.readouterr().out)["refused"]
     with pytest.raises(SystemExit):
-        main(["promote", "render", "--load", str(load)])  # --verdict is required
+        main(["promote", "render", "--load", str(load), *scope])  # --verdict is required
+    with pytest.raises(SystemExit):
+        main(
+            ["promote", "render", "--load", str(load), "--verdict", str(verdict)]
+        )  # so are --upstream / --project
 
 
 def test_cli_verdict_requires_the_target_result(tmp_path) -> None:
     pre = tmp_path / "pre.json"
     pre.write_text(json.dumps(preflight()), encoding="utf-8")
+    base = [
+        "promote",
+        "verdict",
+        "--preflight",
+        str(pre),
+        "--upstream",
+        "apache/airflow",
+        "--project",
+        "airflow",
+    ]
     with pytest.raises(SystemExit):
-        main(["promote", "verdict", "--preflight", str(pre), "--vote-passed"])
+        main([*base, "--vote-passed"])
     with pytest.raises(SystemExit):
-        main(["promote", "verdict", "--preflight", str(pre), "--vote-passed", "--target", "skipped"])
+        main([*base, "--vote-passed", "--target", "skipped"])
 
 
 def test_planning_issue_values_cannot_expand_in_the_pasted_block() -> None:

@@ -33,6 +33,8 @@ from urllib.parse import urlparse
 from release_management.shell import dq, w
 
 PROPOSED_LABEL = "promoted"
+# The digests rc-cut stages one `.<digest>` file for (rc_cut.render.ALLOWED_DIGESTS).
+ALLOWED_DIGESTS = frozenset({"sha512", "sha256"})
 DEFAULT_ROSTER = "<project-config>/pmc-roster.md"
 
 MIRROR_NOTE = """\
@@ -77,6 +79,8 @@ def verdict(
     attestation: bool = False,
     planning_issue_found: bool = True,
     planning_issue: str = "<planning-issue>",
+    upstream: str | None = None,
+    project: str | None = None,
 ) -> dict[str, Any]:
     """Step 0: the tool's blockers plus the checks it cannot see, folded into one verdict.
 
@@ -84,6 +88,8 @@ def verdict(
     was not seen, and there is no override for it (Golden rule 3). `target` is
     the target-listing result, `empty` or `populated`; anything else (the check
     was skipped or errored) is a blocker, never an empty target (Golden rule 4).
+    `scope` records which release the verdict is for, so the render can refuse
+    a verdict reached for another project, backend or staging / target URL.
     """
     values = preflight.get("values") or {}
     version, rc = values.get("version"), values.get("rc")
@@ -125,6 +131,13 @@ def verdict(
         "rc": rc,
         "dist_backend": values.get("dist_backend"),
         "read": read,
+        "scope": {
+            "project": project or "<project>",
+            "upstream": upstream or "<upstream>",
+            "dist_backend": values.get("dist_backend"),
+            "staging_url": values.get("staging_url"),
+            "target_url": values.get("target_url"),
+        },
     }
 
 
@@ -147,6 +160,7 @@ class Promote:
     project: str = "<project>"
     product_name: str = "<product-name>"
     warnings: list[str] = field(default_factory=list)
+    build: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def from_load(
@@ -170,7 +184,31 @@ class Promote:
             upstream=upstream or "<upstream>",
             project=project or "<project>",
             product_name=product_name or "<product-name>",
+            build=loaded.get("build") or {},
         )
+
+    @property
+    def sidecars(self) -> tuple[str, ...]:
+        """The signature and per-digest checksum files rc-cut staged next to each artefact.
+
+        `.asc`, then one `.<digest>` per `digest_set` entry (default `sha512`),
+        normalised as rc-cut normalises it; only sha512 and sha256 are accepted.
+        """
+        raw = self.build.get("digest_set") or self.meta.get("digest_set") or ["sha512"]
+        digests = [str(d).strip().lower() for d in raw]
+        unknown = sorted(set(digests) - ALLOWED_DIGESTS)
+        if unknown:
+            raise RenderError(
+                f"digest_set lists unsupported digest(s) {', '.join(repr(d) for d in unknown)}: "
+                "only sha512 and sha256 are staged, so the held artefacts' checksum files cannot be named"
+            )
+        return (".asc", *(f".{d}" for d in dict.fromkeys(digests)))
+
+    @property
+    def sidecar_text(self) -> str:
+        """`.asc and .sha512`, `.asc, .sha512 and .sha256`, … for the comments and HOLD notes."""
+        *head, last = self.sidecars
+        return f"{', '.join(head)} and {last}"
 
     @property
     def tag(self) -> str:
@@ -240,8 +278,55 @@ def s3_uri(url: str) -> str:
     return f"s3://{bucket}/{prefix}"
 
 
+# A held name spliced into an svn URL, an `aws s3 --exclude` pattern or a release-asset
+# name must be one plain file name: no path separator, wildcard or whitespace.
+_PLAIN_FILE_NAME = re.compile(r"[A-Za-z0-9_.+:@%=,~-]+")
+
+
+def _own_name(entry: dict[str, Any], version: str) -> str:
+    """A declared artefact's name rendered with its own version, as `release-config load` renders it."""
+    raw = entry.get("version")
+    own = version if raw in (None, "") else str(raw).strip().replace("<version>", version)
+    return str(entry.get("name")).replace("<version>", own)
+
+
+def _held_channel(p: Promote, entry: dict[str, Any]) -> str:
+    """Where a held artefact would have published; unknown → `dist-release` (staged with the source)."""
+    if entry.get("publish_channel"):
+        return str(entry["publish_channel"])
+    name = str(entry.get("name"))
+    for declared in p.meta.get("convenience_artefacts") or []:
+        if isinstance(declared, dict) and _own_name(declared, p.version) == name:
+            return str(declared.get("publish_channel") or "dist-release")
+    return "dist-release"
+
+
+def staged_held(p: Promote) -> list[str]:
+    """The held artefacts staged alongside the source, which the promotion itself must leave out."""
+    held = [e for e in (p.meta.get("convenience") or {}).get("held") or [] if isinstance(e, dict)]
+    names = [str(e.get("name")) for e in held if _held_channel(p, e) == "dist-release"]
+    for name in names:
+        if not _PLAIN_FILE_NAME.fullmatch(name) or name in (".", ".."):
+            raise RenderError(
+                f"held convenience artefact {name!r} is staged with the source but is not a plain file name, "
+                "so the promotion cannot leave it out safely: remove it from the staging location by hand, "
+                "re-run `release-verify-rc`, then re-run this skill"
+            )
+    return names
+
+
+def _with_sidecars(p: Promote, names: list[str]) -> list[str]:
+    """Each held artefact followed by its signature and checksum files, which are withheld with it."""
+    return [f"{name}{suffix}" for name in names for suffix in ("", *p.sidecars)]
+
+
 def _svnpubsub(
-    p: Promote, *, apache_id: str | None, result_vote_url: str | None, rc_commit_sha: str | None
+    p: Promote,
+    *,
+    apache_id: str | None,
+    result_vote_url: str | None,
+    rc_commit_sha: str | None,
+    withheld: list[str],
 ) -> str:
     staging = str(p.meta.get("staging_url") or "")
     target = str(p.meta.get("target_url") or "")
@@ -255,19 +340,38 @@ def _svnpubsub(
         p.meta.get("rm_gpg_fingerprint"), "<rm_gpg_fingerprint>", "release_manager.gpg_fingerprint (user.md)"
     )
     remote = str(p.meta.get("git_upstream_remote") or "origin")
+    total = 4 if withheld else 3
+    n = total - 3
+    move = f"# Step {n + 1} of {total} — move RC to release (release_dist_backend=svnpubsub)"
+    first = [move]
+    if withheld:
+        base = staging if staging.endswith("/") else staging + "/"
+        message = f"Withholding unreproduced convenience artefacts from {product} {p.version} ({p.rc})"
+        # No comment line between `&&` and `svn mv`: a shell that does not take
+        # interactive comments would end the chain there and run the move anyway.
+        first = [
+            f"# Step 1 of {total} — withhold the held convenience artefacts (see the HOLD notes below):",
+            f"# remove each, with its {p.sidecar_text}, from the RC directory so the svn mv",
+            "# does not promote it. If any is missing, svn rm fails and the && stops the move.",
+            f"{move}, chained after Step 1",
+            "svn rm \\",
+            *[f"  {w(base + name)} \\" for name in _with_sidecars(p, withheld)],
+            f"  --username {w(user)} \\",
+            f"  -m {dq(message)} &&",
+        ]
     return "\n".join(
         [
-            "# Step 1 of 3 — move RC to release (release_dist_backend=svnpubsub)",
+            *first,
             "svn mv \\",
             f"  {w(staging)} \\",
             f"  {w(target)} \\",
             f"  --username {w(user)} \\",
             f"  -m {dq(f'Promoting {product} {p.version} (from {p.rc}). [RESULT]: {vote}')}",
             "",
-            "# Step 2 of 3 — verify the move landed (release_dist_backend=svnpubsub)",
+            f"# Step {n + 2} of {total} — verify the move landed (release_dist_backend=svnpubsub)",
             f"svn list {w(target)}",
             "",
-            "# Step 3 of 3 — cut and push the FINAL release tag on the SAME commit the",
+            f"# Step {n + 3} of {total} — cut and push the FINAL release tag on the SAME commit the",
             "# approved RC was built from (no rebuild). Downstream links (changelog,",
             f"# [ANNOUNCE], site) must reference this final {p.version} tag, never {p.tag}.",
             "# git signs tags via gpg.format=ssh globally, so override to openpgp to use the",
@@ -281,7 +385,9 @@ def _svnpubsub(
     )
 
 
-def _github_releases(p: Promote, *, draft_tag: str | None, draft_tag_confirmed: bool) -> str:
+def _github_releases(
+    p: Promote, *, draft_tag: str | None, draft_tag_confirmed: bool, withheld: list[str]
+) -> str:
     if not draft_tag:
         raise RenderError(
             "release_dist_backend is github-releases but --draft-tag was not passed: read the tag the draft "
@@ -293,12 +399,25 @@ def _github_releases(p: Promote, *, draft_tag: str | None, draft_tag_confirmed: 
             f"the draft release is tagged {tag}, not {p.tag}: ask the RM to confirm the correct tag name, "
             "then rerun with --draft-tag <tag> --draft-tag-confirmed"
         )
+    first: list[str] = []
+    if withheld:
+        first = [
+            "# Withhold the held convenience artefacts (see the HOLD notes below): delete each,",
+            f"# with its {p.sidecar_text}, from the draft release before publishing it.",
+            "# If one is missing, delete-asset fails and the && stops the publish.",
+            *[
+                f"gh release delete-asset {w(tag)} {w(name)} --repo {w(p.upstream)} --yes &&"
+                for name in _with_sidecars(p, withheld)
+            ],
+        ]
     return "\n".join(
         [
-            f"# Publish the draft GitHub Release for {p.version}",
+            f"# Publish the draft GitHub Release for {p.version} as a full release (rc-cut drafted it as a prerelease)",
+            *first,
             f"gh release edit {w(tag)} \\",
             f"  --repo {w(p.upstream)} \\",
             "  --draft=false \\",
+            "  --prerelease=false \\",
             f"  --tag {w(p.version)}",
             "",
             "# Verify the release is published",
@@ -307,18 +426,26 @@ def _github_releases(p: Promote, *, draft_tag: str | None, draft_tag_confirmed: 
     )
 
 
-def _s3(p: Promote) -> str:
+def _s3(p: Promote, *, withheld: list[str]) -> str:
     staging_url = str(p.meta.get("staging_url") or "")
     target_url = str(p.meta.get("target_url") or "")
     if not staging_url or not target_url:
         raise RenderError("staging_url / target_url did not render: check release_dist_url_template")
     staging, target = s3_uri(staging_url), s3_uri(target_url)
+    note = []
+    if withheld:
+        note = [
+            "# The --exclude flags leave the held convenience artefacts (see the HOLD notes below),",
+            f"# with their {p.sidecar_text}, in the RC prefix.",
+        ]
     return "\n".join(
         [
             "# Promote RC to release prefix",
+            *note,
             "aws s3 mv \\",
             f"  {w(staging)} \\",
             f"  {w(target)} \\",
+            *[f"  --exclude {w(name)} \\" for name in _with_sidecars(p, withheld)],
             "  --recursive",
             "",
             "# Verify the move",
@@ -327,10 +454,16 @@ def _s3(p: Promote) -> str:
     )
 
 
-def _self_hosted(p: Promote) -> str:
+def _self_hosted(p: Promote, *, withheld: list[str]) -> str:
     template = p.meta.get("promote_command_template")
     if not template:
         raise RenderError("release_dist_backend is self-hosted but release_publish_command_template is unset")
+    if withheld:
+        raise RenderError(
+            f"held convenience artefacts are staged with the source ({', '.join(withheld)}), and "
+            "release_publish_command_template cannot be told to leave them out: remove them from the staging "
+            "location by hand, or fix the build and re-run `release-verify-rc`, then re-run this skill"
+        )
     return p.render(str(template))
 
 
@@ -353,19 +486,28 @@ def _handoff(p: Promote, *, rm: str | None, roster_path: str | None) -> str:
     return "\n".join([*lines, "", "The command set a PMC member would run:"])
 
 
-def hold_note(name: str, tag: str, reason: str) -> str:
+WITHHELD_HOW = {
+    "svnpubsub": "The svn rm above removes it, with its {sidecars}, from the RC directory before the svn mv.",
+    "s3": "The --exclude flags above leave it, with its {sidecars}, out of the aws s3 mv.",
+    "github-releases": "The delete-asset above removes it, with its {sidecars}, from the draft release before it is published.",
+}
+NOT_EMITTED = "No publish command for it is emitted."
+
+
+def hold_note(name: str, tag: str, reason: str, how: str = NOT_EMITTED) -> str:
     return "\n".join(
         [
             f"HOLD: {name} — not published. release-verify-rc Step 9 did not",
             f"reproduce it from {tag} ({reason}). A binary that",
             "cannot be rebuilt from the voted source is not known to be what the vote",
-            "approved. Fix the build or document the divergence in release-build.md,",
+            f"approved. {how}",
+            "Fix the build or document the divergence in release-build.md,",
             f"re-run `release-verify-rc {tag}`, then re-run this skill.",
         ]
     )
 
 
-def _convenience(p: Promote) -> tuple[str, list[str], list[str]]:
+def _convenience(p: Promote, withheld: list[str]) -> tuple[str, list[str], list[str]]:
     split = p.meta.get("convenience") or {}
     publish = [e for e in split.get("publish") or [] if isinstance(e, dict)]
     held = [e for e in split.get("held") or [] if isinstance(e, dict)]
@@ -396,7 +538,8 @@ def _convenience(p: Promote) -> tuple[str, list[str], list[str]]:
     held_out: list[str] = []
     for entry in held:
         name, reason = str(entry.get("name")), str(entry.get("reason") or "not checked")
-        lines += ["", hold_note(name, p.tag, reason)]
+        how = WITHHELD_HOW[p.backend].format(sidecars=p.sidecar_text) if name in withheld else NOT_EMITTED
+        lines += ["", hold_note(name, p.tag, reason, how)]
         held_out.append(f"{name}: {reason}")
     return "\n".join(lines), publish_out, held_out
 
@@ -405,7 +548,8 @@ def handoff_from_verdict(p: Promote, step0: dict[str, Any], *, handoff: bool | N
     """The hand-off flag Step 2 renders with, read from the Step 0 verdict.
 
     Only `proceed` and `handoff-non-pmc` render; a `blocked` (or missing) verdict
-    is refused, as is a verdict for another RC. `handoff`, when given, must agree.
+    is refused, as is a verdict for another RC, project, upstream, backend or
+    staging / target URL. `handoff`, when given, must agree.
     """
     outcome = step0.get("verdict")
     if outcome not in RENDERABLE_VERDICTS:
@@ -418,6 +562,25 @@ def handoff_from_verdict(p: Promote, step0: dict[str, Any], *, handoff: bool | N
         raise RenderError(
             f"the Step 0 verdict is for {seen[0]}-{seen[1]}, but the load is for {p.tag}: rerun Step 0 for {p.tag}"
         )
+    scope = step0.get("scope")
+    if not isinstance(scope, dict):
+        raise RenderError(
+            "the Step 0 verdict does not record which release it is for (no `scope`): "
+            f"rerun `promote verdict` for {p.tag} with --upstream and --project"
+        )
+    expected = {
+        "project": p.project,
+        "upstream": p.upstream,
+        "dist_backend": p.backend,
+        "staging_url": p.meta.get("staging_url"),
+        "target_url": p.meta.get("target_url"),
+    }
+    for key, want in expected.items():
+        if scope.get(key) != want:
+            raise RenderError(
+                f"the Step 0 verdict is for {key} {scope.get(key)!r}, but the load is for {want!r}: "
+                f"rerun Step 0 for this release"
+            )
     derived = outcome == "handoff-non-pmc"
     if handoff is not None and handoff != derived:
         raise RenderError(
@@ -438,17 +601,28 @@ def step2(
     draft_tag: str | None = None,
     draft_tag_confirmed: bool = False,
 ) -> dict[str, Any]:
-    """Step 2: the backend-shaped command set, the convenience artefacts and the mirror note."""
+    """Step 2: the backend-shaped command set, the convenience artefacts and the mirror note.
+
+    A held artefact staged alongside the source (`staged_held`) is left out of
+    the promotion itself, before it runs; a backend that cannot leave it out refuses.
+    """
+    withheld = staged_held(p)
     if p.backend == "svnpubsub":
         block = _svnpubsub(
-            p, apache_id=apache_id, result_vote_url=result_vote_url, rc_commit_sha=rc_commit_sha
+            p,
+            apache_id=apache_id,
+            result_vote_url=result_vote_url,
+            rc_commit_sha=rc_commit_sha,
+            withheld=withheld,
         )
     elif p.backend == "github-releases":
-        block = _github_releases(p, draft_tag=draft_tag, draft_tag_confirmed=draft_tag_confirmed)
+        block = _github_releases(
+            p, draft_tag=draft_tag, draft_tag_confirmed=draft_tag_confirmed, withheld=withheld
+        )
     elif p.backend == "s3":
-        block = _s3(p)
+        block = _s3(p, withheld=withheld)
     elif p.backend == "self-hosted":
-        block = _self_hosted(p)
+        block = _self_hosted(p, withheld=withheld)
     elif p.backend == "atr":
         raise RenderError(
             "release-promote does not support release_dist_backend atr yet: "
@@ -457,7 +631,7 @@ def step2(
     else:
         raise RenderError(f"unknown release_dist_backend {p.backend!r}")
     handoff_note = _handoff(p, rm=rm, roster_path=roster_path) if handoff else None
-    convenience, publish, held = _convenience(p)
+    convenience, publish, held = _convenience(p, withheld)
     sections = [s for s in (handoff_note, block, convenience, MIRROR_NOTE) if s]
     return {
         "staging_url": p.meta.get("staging_url"),

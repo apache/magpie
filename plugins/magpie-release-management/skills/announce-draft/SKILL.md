@@ -18,7 +18,7 @@ argument-hint: "<version> [--planning-issue <url>]"
 capability: capability:resolve
 surface_hash: sha256:edffafcd9d9948ab
 license: Apache-2.0
-measured_tokens: 4913
+measured_tokens: 4955
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

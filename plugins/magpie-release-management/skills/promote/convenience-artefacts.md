@@ -21,5 +21,15 @@ Step 1's `metadata.convenience` applies the rule from the `--verify-binary` resu
 Each `held` entry (`differs`, or `not checked` when no verify-rc run covered it) gets a **HOLD** note in place of its publish command,
 and appears in `convenience_held`; no publish command for it appears anywhere.
 
+**A held artefact staged alongside the source is left out of the promotion itself, before it runs.**
+An artefact with `publish_channel: dist-release` (or a held name no declared entry matches) sits in the staging location and would move with the source,
+so the render withholds it, with its `.asc` and one `.<digest>` file per `digest_set` entry (default `sha512`, as `release-rc-cut` staged them), ahead of the promotion command:
+`svnpubsub` chains an `svn rm` of those files in the RC directory to the `svn mv` with `&&`;
+`s3` adds an `--exclude` per file to the `aws s3 mv`;
+`github-releases` chains a `gh release delete-asset` per held asset and per signature / checksum asset to the publishing `gh release edit` with `&&`.
+`self-hosted` cannot tell the project's template to leave a file out, so the render refuses instead;
+so does any backend when a held name is not one plain file name, or when `digest_set` lists a digest other than `sha512` / `sha256`.
+The HOLD note names the command that withheld it.
+
 The source promotion is not held back by a convenience artefact;
 the source is the release, the artefact is a courtesy, and a courtesy that cannot be verified is withheld, not shipped.

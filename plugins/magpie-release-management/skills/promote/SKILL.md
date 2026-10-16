@@ -25,7 +25,7 @@ argument-hint: "<version>-rc<N> [--planning-issue <url>]"
 capability: capability:resolve
 surface_hash: sha256:ecfb43e47fa5905e
 license: Apache-2.0
-measured_tokens: 5812
+measured_tokens: 5951
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -236,8 +236,12 @@ Fold the facts into the verdict with the [`release-management`](../../../../tool
 ```bash
 uv run --project <framework>/tools/release-management release-management promote verdict \
   --preflight <scratch>/promote-preflight.json --planning-issue <url> --target empty|populated \
+  --upstream <upstream> --project <project> \
   [--vote-passed] [--attestation] [--no-planning-issue] > <scratch>/promote-verdict.json
 ```
+
+Its `scope` records the release the verdict is for (`project`, `upstream`, `dist_backend`, `staging_url`, `target_url`);
+Step 2 refuses a verdict whose `scope`, version or RC differs from the load it renders.
 
 The verdict is fail-closed: without `--vote-passed` it blocks, and there is no override (Golden rule 3).
 It keeps the tool's `blockers` as written and adds one per failed check; surface each as written.
@@ -246,7 +250,7 @@ Load each file its `read` list names: [`blockers/target-exists.md`](blockers/tar
 [`blockers/trusted-hardware.md`](blockers/trusted-hardware.md), [`outcomes/handoff-non-pmc.md`](outcomes/handoff-non-pmc.md).
 If any check fails (except the PMC gate, which downgrades to hand-off), stop and surface what is missing.
 
-Return ONLY valid JSON with this structure (the verdict's fields, without `read`):
+Return ONLY valid JSON with this structure (the verdict's fields, without `read` and `scope`):
 
 ```json
 {
@@ -312,6 +316,7 @@ uv run --project <framework>/tools/release-management release-management promote
 ```
 
 `--verdict` is the Step 0 verdict file: only `proceed` and `handoff-non-pmc` render, and the hand-off note follows from it.
+Pass the same `--upstream` and `--project` as Step 0.
 `--draft-tag` is required for `github-releases`.
 `command_block` is shaped by `dist_backend`; read the matching file for what it holds and which facts it needs:
 [`backends/svnpubsub.md`](backends/svnpubsub.md) (ASF default), [`backends/github-releases.md`](backends/github-releases.md),
@@ -322,7 +327,7 @@ Every block ends with the **mirror note** (required for all backends, Golden rul
 mirrors take up to 24 hours, and ASF policy requires waiting at least 1 hour after the promote commit before updating the download page or sending the `[ANNOUNCE]` email.
 Its `promote_timestamp` is left as a placeholder for the RM to fill in once they know the actual commit time.
 
-A render that cannot be emitted as configured — a `blocked` or mismatched Step 0 verdict, `self-hosted` without its template, an S3 bucket it cannot read, `github-releases` without `--draft-tag` or with an unconfirmed discrepancy, `atr` (not supported yet; ATR's Finish step promotes), an unknown backend —
+A render that cannot be emitted as configured — a `blocked` or mismatched Step 0 verdict, `self-hosted` without its template or with a held artefact staged alongside the source, an S3 bucket it cannot read, `github-releases` without `--draft-tag` or with an unconfirmed discrepancy, `atr` (not supported yet; ATR's Finish step promotes), an unknown backend —
 exits `2` with `{"ok": false, "refused": "<why>"}`. Surface `refused` as written and stop; never compose the block by hand.
 Surface `warnings` (facts still missing, left as placeholders in the block) and ask the RM for them rather than inventing values.
 

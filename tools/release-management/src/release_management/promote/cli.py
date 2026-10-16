@@ -63,11 +63,17 @@ def add_parsers(sub: Any) -> None:
     v.add_argument(
         "--planning-issue", default="<planning-issue>", help="planning-issue URL, for the blocker text"
     )
+    v.add_argument(
+        "--upstream", required=True, help="<upstream> owner/repo, from project.md; render must match it"
+    )
+    v.add_argument("--project", required=True, help="<project> slug, from project.md; render must match it")
 
     r = commands.add_parser("render", help="Step 2: the backend-shaped promotion command set")
     r.add_argument("--load", required=True, help="file holding `release-config load --skill promote …`")
-    r.add_argument("--upstream", help="<upstream> owner/repo, from project.md")
-    r.add_argument("--project", help="<project> slug, from project.md")
+    r.add_argument(
+        "--upstream", required=True, help="<upstream> owner/repo, from project.md (as passed to verdict)"
+    )
+    r.add_argument("--project", required=True, help="<project> slug, from project.md (as passed to verdict)")
     r.add_argument("--product-name", help="the display name, e.g. 'Apache Airflow'")
     r.add_argument(
         "--verdict",
@@ -101,6 +107,8 @@ def dispatch(args: argparse.Namespace) -> int:
                 attestation=args.attestation,
                 planning_issue_found=not args.no_planning_issue,
                 planning_issue=args.planning_issue,
+                upstream=args.upstream,
+                project=args.project,
             )
         )
         return 0

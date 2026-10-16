@@ -12,6 +12,10 @@ The render's `command_block` holds three steps:
    signed with the RM's release key (`git -c gpg.format=openpgp tag -s -u <rm_gpg_fingerprint>`), pushed to `git_upstream_remote`, then verified with `tag -v`.
    Downstream links (changelog, `[ANNOUNCE]`, site) reference this final tag, never `<version>-rc<N>`.
 
+When a held convenience artefact is staged in the RC directory, a step comes first:
+an `svn rm` of it, its `.asc` and its `.<digest>` files (one per `digest_set` entry) in `dist/dev/`, chained to the `svn mv` with `&&` so a failed removal stops the move
+(see [`../convenience-artefacts.md`](../convenience-artefacts.md)).
+
 Pass the facts Step 1 read: `--apache-id`, `--result-vote-url` and `--rc-commit-sha` (`git rev-list -n1 <version>-rc<N>`).
 A fact still missing comes back as a placeholder in the block and a `warnings` entry; ask the RM for it rather than guessing.
 

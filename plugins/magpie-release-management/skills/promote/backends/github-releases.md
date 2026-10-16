@@ -3,8 +3,11 @@
 
 # Promotion backend — `github-releases`
 
-The render's `command_block` publishes the draft GitHub Release (`gh release edit <draft-tag> --repo <upstream> --draft=false --tag <version>`)
+The render's `command_block` publishes the draft GitHub Release (`gh release edit <draft-tag> --repo <upstream> --draft=false --prerelease=false --tag <version>`)
 and verifies it (`gh release view <version>`).
+`release-rc-cut` creates the draft with `--prerelease`, so `--prerelease=false` is what makes the published release a full release rather than a prerelease.
+A held convenience artefact attached to the draft is deleted first, with its `.asc` and its `.<digest>` assets (`gh release delete-asset <draft-tag> <name> --repo <upstream> --yes &&` each), so the publish never ships it;
+see [`../convenience-artefacts.md`](../convenience-artefacts.md).
 If the draft release was tagged `<version>-rc<N>`, the `--tag` flag re-tags it as `<version>` at publish time.
 
 **Tag discrepancy.** Pass the tag the draft release actually carries as `--draft-tag <tag>`;
