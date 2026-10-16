@@ -85,6 +85,12 @@ publication, with a human gate and an audit-log entry at every step.
   renders the body (each section sanitised, the Recommended-fix
   `<details>`), rollup entry, proposal table and recap; duplicate
   judgement and the credit decision stay with the model.
+  For `security-issue-import-via-forwarder` it runs the Step 0 checks,
+  detects the adapter (first enabled match wins, collaborator warning),
+  classifies a credit's kind under the bot/AI policy and routes the draft
+  (first contact handle, question mode, negative-space suppression in
+  sync); credit-line extraction and naming the milestone stay with the
+  model, and it never redacts again.
 - Shared recipes instead of per-skill copies (#1437): the safe-create
   recipe for a tracker with an attacker-controlled title is
   `tools/github/operations.md` § *Create* (Write-tool title file,
