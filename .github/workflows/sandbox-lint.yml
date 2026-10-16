@@ -30,6 +30,9 @@ on:  # yamllint disable-line rule:truthy
   pull_request:
     paths:
       - "tools/agent-isolation/claude-settings.template.json"
+      # Not tracked any more (#1639), so a change here means someone
+      # committed it again; the job must run to refuse that.
+      - ".claude/settings.json"
       - ".gemini/**"
       - "tools/sandbox-lint/**"
       - ".github/workflows/sandbox-lint.yml"
@@ -37,6 +40,9 @@ on:  # yamllint disable-line rule:truthy
     branches: [main]
     paths:
       - "tools/agent-isolation/claude-settings.template.json"
+      # Not tracked any more (#1639), so a change here means someone
+      # committed it again; the job must run to refuse that.
+      - ".claude/settings.json"
       - ".gemini/**"
       - "tools/sandbox-lint/**"
       - ".github/workflows/sandbox-lint.yml"
@@ -83,6 +89,16 @@ jobs:
       # repo root, which is what the linter expects so
       # `tools/agent-isolation/claude-settings.template.json` and `tools/sandbox-lint/expected.json`
       # resolve relative to cwd.
+      # A committed `.claude/settings.json` is loaded by Claude Code for
+      # everyone who checks the repository out, and it is no longer what
+      # CI lints: the baseline lives in the template. Refuse it outright,
+      # so it cannot weaken the sandbox around the linted template.
+      - name: Refuse a committed .claude/settings.json
+        run: |
+          if git ls-files --error-unmatch .claude/settings.json >/dev/null 2>&1; then
+            echo "::error file=.claude/settings.json::.claude/settings.json is each contributor's own copy and must not be committed (#1639). Change tools/agent-isolation/claude-settings.template.json and tools/sandbox-lint/expected.json instead, and remove the file with 'git rm --cached .claude/settings.json'."
+            exit 1
+          fi
       - name: Run sandbox-lint
         run: uv run sandbox-lint
       - name: Check Gemini sandbox and policy profile

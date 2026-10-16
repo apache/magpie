@@ -125,8 +125,8 @@ github:
       # would block the PR). Excluded for that reason:
       # `asf-allowlist-check` (paths: `.github/**`) and
       # `lint the agent settings template against baseline` from
-      # sandbox-lint (paths: `tools/agent-isolation/claude-settings.template.json` +
-      # `tools/sandbox-lint/**`).
+      # sandbox-lint (paths: `tools/agent-isolation/claude-settings.template.json`,
+      # `.claude/settings.json` + `tools/sandbox-lint/**`).
       #
       # CodeQL (`Analyze (python)`, `Analyze (actions)`) is NOT
       # required. The framework repo is docs- and skills-heavy with
