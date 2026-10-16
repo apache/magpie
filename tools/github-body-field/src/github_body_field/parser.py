@@ -503,6 +503,24 @@ def normalise(
     return NormaliseResult(text=text, changes=changes, needs_decision=needs_decision)
 
 
+_EOLS = ("\r\n", "\r", "\n")
+_ANY_EOL = re.compile(r"\r\n|\r|\n")
+
+
+def _is_blank_eol(line: str) -> bool:
+    """Whether ``line`` is an empty line: nothing but its ending (LF, CRLF or CR)."""
+    return line in _EOLS
+
+
+def _eol_of(body: str, line: str) -> str:
+    """The line ending ``line`` uses, else the body's first one, else LF."""
+    ending = line[len(_content(line)) :]
+    if ending:
+        return ending
+    first = _ANY_EOL.search(body)
+    return first.group(0) if first else "\n"
+
+
 def _strip_spacer_blanks(body_lines: list[str]) -> tuple[bool, list[str], bool]:
     """Strip up to one leading and one trailing blank-line spacer.
 
@@ -510,10 +528,10 @@ def _strip_spacer_blanks(body_lines: list[str]) -> tuple[bool, list[str], bool]:
     caller can later re-emit with the same convention.
     """
     lines = list(body_lines)
-    had_leading = bool(lines) and lines[0] == "\n"
+    had_leading = bool(lines) and _is_blank_eol(lines[0])
     if had_leading:
         lines = lines[1:]
-    had_trailing = bool(lines) and lines[-1] == "\n" and len(lines) > 1
+    had_trailing = bool(lines) and _is_blank_eol(lines[-1]) and len(lines) > 1
     # The `len(lines) > 1` guard is so a field whose *only* line
     # is a blank one (i.e. an empty value with one spacer) doesn't
     # get the same line both stripped and counted as "trailing".
@@ -606,19 +624,22 @@ def replace_field(body: str, field: str, new_value: str) -> str:
     #   - the empty-value case (caller passed "") produces an
     #     entirely empty content payload so the heading sits
     #     directly against the spacer / next heading.
-    normalised = new_value
-    while normalised.endswith("\n\n"):
-        normalised = normalised[:-1]
-    if normalised and not normalised.endswith("\n"):
-        normalised += "\n"
+    # Written in the body's own line-ending convention (the heading line's),
+    # so a CRLF body stays CRLF and an unchanged value is byte-identical.
+    eol = _eol_of(body, target.heading_line)
+    normalised = _ANY_EOL.sub(eol, new_value)
+    while normalised.endswith(eol * 2):
+        normalised = normalised[: -len(eol)]
+    if normalised and not normalised.endswith(eol):
+        normalised += eol
 
     rebuilt_body_lines: list[str] = []
     if normalised:
         if had_leading:
-            rebuilt_body_lines.append("\n")
-        rebuilt_body_lines.extend(normalised.splitlines(keepends=True))
+            rebuilt_body_lines.append(eol)
+        rebuilt_body_lines.extend(split_lines(normalised))
         if had_trailing and not is_last_section:
-            rebuilt_body_lines.append("\n")
+            rebuilt_body_lines.append(eol)
     else:
         # Empty value: collapse to a single blank-line spacer so the
         # next heading isn't glued to the current one. Don't stack
@@ -627,7 +648,7 @@ def replace_field(body: str, field: str, new_value: str) -> str:
         # UI). For the last section, emit nothing — the bare heading
         # line is sufficient.
         if not is_last_section and (had_leading or had_trailing):
-            rebuilt_body_lines.append("\n")
+            rebuilt_body_lines.append(eol)
 
     out: list[str] = list(preamble)
     for index, s in enumerate(sections):
@@ -668,6 +689,16 @@ def _refuse_unsafe_rewrite(
             )
     _, before = _parse(old_body)
     _, after = _parse(new_body)
+    # The rewritten body must read the same to every reader: run the full
+    # strict-vs-lenient and nested-heading check over it, with every field
+    # of the old body as a known name.
+    known = [s.name for s in before if s.name]
+    disputes = [d for d in normalise(new_body, known).needs_decision if d["kind"] == "container-heading"]
+    if disputes:
+        raise AmbiguousFieldError(
+            f"field {field_name!r}: after the rewrite, markdown readers would disagree on the body's fields "
+            f"({', '.join(sorted({str(d['field']) for d in disputes}))}); refusing to rewrite it"
+        )
     if [s.name for s in before] != [s.name for s in after] or any(
         (b.heading_line, b.body_lines) != (a.heading_line, a.body_lines)
         for b, a in zip(before, after, strict=True)
