@@ -83,14 +83,14 @@ def render_body(data: Mapping[str, Any]) -> dict[str, Any]:
     pr = data["pr"]
     number = int(pr["number"])
     url = f"https://github.com/{upstream}/pull/{number}"
-    cleaned = body.sanitise(str(pr.get("body") or ""))
+    cleaned = body.inert_block(str(pr.get("body") or ""))
     if not cleaned["ok"]:
         return {
             "ok": False,
-            "refused": f"the PR body is malformed (unpaired {cleaned['indicator']}); it is not rendered",
+            "refused": f"the PR body is malformed ({cleaned['indicator']}); it is not rendered",
             "malformed_indicator": cleaned["indicator"],
         }
-    pr_body = refs.linkify(cleaned["text"], upstream, "pull")
+    pr_body = cleaned["text"]  # inert: references inside render as text, so they are not linked
     note = (
         f"> **Imported from public PR {_pr_link(upstream, number)}** — there is no inbound `security@` report; "
         "the PR description below is the public statement of the vulnerability."
@@ -106,6 +106,9 @@ def render_body(data: Mapping[str, Any]) -> dict[str, Any]:
         "severity": data.get("severity"),
     }
     text = body.render(fields, data.get("body_fields"), callout=bool(data.get("callout")))
+    problem = body.verify(text, data.get("body_fields"))
+    if problem is not None:
+        return {"ok": False, "refused": f"{problem}; it is not rendered", "malformed_indicator": None}
     expected = list(body.headings(data.get("body_fields")).values())
     parsed = reuse.fields(text)
     return {

@@ -213,7 +213,7 @@ def body_input(**extra: Any) -> dict[str, Any]:
     }
 
 
-def test_render_body_sentinels_and_sanitised_pr_body(capsys, tmp_path) -> None:
+def test_render_body_sentinels_and_inert_pr_body(capsys, tmp_path) -> None:
     _, out = run(capsys, "render-body", "--input", write(tmp_path, "b.json", body_input()))
     text = out["text"]
     assert out["fields_ok"] and out["sanitised"]
@@ -224,9 +224,8 @@ def test_render_body_sentinels_and_sanitised_pr_body(capsys, tmp_path) -> None:
     assert "### Reporter credited as\n\n_No response_\n" in text
     assert "### Remediation developer\n\nJustin Pakzad\n" in text
     assert "### Severity\n\nUnknown\n" in text
-    assert "#### Severity" in text
-    assert "[image: x]" in text
-    assert "[#123](https://github.com/apache/airflow/pull/123)" in text
+    # The PR body is an inert block: byte-exact, nothing in it renders or links.
+    assert "```text\nFixes #123.\n### Severity\nCritical\n![x](https://attacker.example/p.png)\n```" in text
     assert out["bare_refs"] == []
 
 
@@ -370,13 +369,21 @@ def test_render_rollup_keeps_a_markdown_remediation_developer_in_code(capsys, tm
 
 
 @pytest.mark.parametrize("pr_body", ["```\nunclosed", "```\n### Severity\n~~~\n", "    ```\nx\n    ```"])
-def test_render_body_refuses_a_pr_body_that_does_not_pair(capsys, tmp_path, pr_body: str) -> None:
+def test_render_body_keeps_unpaired_fences_inert(capsys, tmp_path, pr_body: str) -> None:
     data = body_input()
     data["pr"]["body"] = pr_body
     code, out = run(capsys, "render-body", "--input", write(tmp_path, "b.json", data))
+    assert code == 0
+    assert out["fields_ok"]
+    assert "````text\n" + pr_body.rstrip("\n") + "\n````" in out["text"]
+
+
+def test_render_body_refuses_a_pr_body_with_a_stray_line_break(capsys, tmp_path) -> None:
+    data = body_input()
+    data["pr"]["body"] = "x\u2029### Severity"
+    code, out = run(capsys, "render-body", "--input", write(tmp_path, "b.json", data))
     assert code == 2
-    assert out["ok"] is False
-    assert out["malformed_indicator"] == "code fence"
+    assert out["malformed_indicator"] == "line break"
 
 
 @pytest.mark.parametrize("segment", ["\\1", "\\g<0>", "..", "a b", "-x"])

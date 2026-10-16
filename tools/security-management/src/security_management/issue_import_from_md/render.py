@@ -16,8 +16,8 @@
 # under the License.
 """Steps 3, 4 and 6 of the findings-file import: body, rollup, proposal table, recap.
 
-Every finding section is sanitised on its own (`shared.body.sanitise`); a
-section that does not pair its fences refuses the whole render. What stays
+Every finding section becomes its own inert block (`shared.body.inert_block`),
+and the rendered body must pass `shared.body.verify` or the render is refused. What stays
 the model's: the duplicate judgement, the credit decision under the bot/AI
 policy, and the confirmation reply.
 """
@@ -44,9 +44,9 @@ def _clean(name: str, text: object) -> str:
     raw = "" if text is None else str(text).strip("\n")
     if not raw.strip():
         return body.NO_RESPONSE
-    out = body.sanitise(raw)
+    out = body.inert_block(raw)
     if not out["ok"]:
-        raise Refused(f"section {name!r} is malformed (unpaired {out['indicator']}); it is not rendered")
+        raise Refused(f"section {name!r} is malformed ({out['indicator']}); it is not rendered")
     return str(out["text"])
 
 
@@ -93,6 +93,9 @@ def render_body(data: Mapping[str, Any]) -> dict[str, Any]:
             "\n<details><summary>Recommended fix (per the source markdown)</summary>\n\n"
             f"{fix_text}\n</details>\n"
         )
+    problem = body.verify(text, data.get("body_fields"))
+    if problem is not None:
+        return {"ok": False, "refused": f"{problem}; it is not rendered"}
     expected = list(body.headings(data.get("body_fields")).values())
     parsed = reuse.fields(text)
     credit = one_line(data.get("reporter_credit"))

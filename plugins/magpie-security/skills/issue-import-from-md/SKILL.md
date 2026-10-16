@@ -27,7 +27,7 @@ argument-hint: "[path-to-markdown-file]"
 capability: capability:intake
 surface_hash: sha256:e2437e84cdf98aa5
 license: Apache-2.0
-measured_tokens: 5810
+measured_tokens: 5816
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -275,7 +275,7 @@ title normalisation runs later, in `security-cve-allocate`.
 
 Write `basename`, `k`, `n`, `upstream`, `security_list`, `finding` (the parsed record), `body_fields` (`tracker.body_fields` from [`<project-config>/project.md`](../../../../<project-config>/project.md#issue-template-fields)), `callout` and any `reporter_credit`
 to `<scratch>/import-md-<basename>-<index>-body.json` and run `<sm> render-body --input <that file>`.
-It maps the sections to the template fields ([the mapping](outcomes/body-fields.md)), each section sanitised, and appends the *"Recommended fix (per the source markdown)"* `<details>` block.
+It maps the sections to the template fields ([the mapping](outcomes/body-fields.md)), each section an inert fenced block shown as plain text, and appends the *"Recommended fix (per the source markdown)"* `<details>` block.
 *Reporter credited as* stays `_No response_` unless you pass one: when the finding has a `credited_handle`, apply the [bot/AI credit policy](../../../../tools/cve-tool-vulnogram/bot-credits-policy.md)
 and, when it fires, pass the handle and surface *"credited as tool: `<handle>` (matches bot policy — `<rule>`)"*; `reporter_credit_is_bot` confirms the match.
 Exit `2` (a section whose fences do not pair) stops that finding: show the user. `fields_ok` must be true.

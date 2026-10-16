@@ -31,6 +31,8 @@ from __future__ import annotations
 
 import re
 
+from github_body_field.parser import fence_roles
+
 # Ported from tools/pr-management (pr_management/triage/render.py `_BARE_REF`):
 # a `#NNN` not already inside a link, a path, an anchor, an entity or a code span.
 # Keep the two in step.
@@ -53,16 +55,14 @@ _URL_SAFE = re.compile(r"(?:https?://|/|\.\.?/|[A-Za-z0-9_-]+/)[^\s()<>\[\]]*")
 def _segments(text: str) -> list[tuple[bool, str]]:
     """`(linkable, piece)` pairs covering `text`, line structure preserved."""
     out: list[tuple[bool, str]] = []
-    inside_fence = False
-    for index, line in enumerate(text.split("\n")):
+    lines = text.split("\n")
+    # Fences pair the CommonMark way (github-body-field), so a ```` block holding ``` stays code.
+    roles = fence_roles(lines)
+    for index, (line, role) in enumerate(zip(lines, roles, strict=True)):
         if index:
             out.append((False, "\n"))
         stripped = line.lstrip()
-        if stripped.startswith(("```", "~~~")):
-            inside_fence = not inside_fence
-            out.append((False, line))
-            continue
-        if inside_fence or stripped.startswith("<!--"):
+        if role != "text" or stripped.startswith("<!--"):
             out.append((False, line))
             continue
         last = 0

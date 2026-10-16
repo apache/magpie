@@ -234,7 +234,7 @@ def test_render_body_maps_the_sections(capsys, tmp_path) -> None:
     assert code == 0, out
     text = out["text"]
     assert out["fields_ok"]
-    assert "**Details:**\n\nUses `---` in prose." in text
+    assert "**Details:**\n\n````text\nUses `---` in prose." in text
     assert (
         "### Affected versions\n\n`apache/airflow` @ `main` — versions to be confirmed during triage." in text
     )
@@ -244,7 +244,7 @@ def test_render_body_maps_the_sections(capsys, tmp_path) -> None:
     assert "### Severity\n\nLOW\n" in text
     assert "### Reporter credited as\n\n_No response_\n" in text
     assert text.endswith(
-        "<details><summary>Recommended fix (per the source markdown)</summary>\n\nFix it.\n</details>\n"
+        "<details><summary>Recommended fix (per the source markdown)</summary>\n\n```text\nFix it.\n```\n</details>\n"
     )
 
 
@@ -260,16 +260,22 @@ def test_render_body_section_defaults_and_bot_credit(capsys, tmp_path) -> None:
     assert out["reporter_credit_is_bot"] is True
 
 
-def test_render_body_refuses_an_unpaired_section_and_defuses_the_rest(capsys, tmp_path) -> None:
+def test_render_body_keeps_every_section_inert(capsys, tmp_path) -> None:
     f = finding(capsys, tmp_path)
     f["recommended_fix"] = "<details>x</details>\n<img src=https://a.example/p> ![x](https://a.example/p)"
-    f["impact"] = "N-a3f9d2 told E-b8c247.\n### Severity\nCRITICAL"
+    f["impact"] = "N-a3f9d2 told E-b8c247.\n### Severity\nCRITICAL\n```\nunclosed"
     data = {"basename": "m.md", "k": 1, "n": 1, "upstream": UPSTREAM, "finding": f}
-    _, out = run(capsys, "render-body", "--input", write(tmp_path, "b.json", data))
+    code, out = run(capsys, "render-body", "--input", write(tmp_path, "b.json", data))
+    assert code == 0
     assert out["fields_ok"]
-    assert "N-a3f9d2 told E-b8c247.\n#### Severity" in out["text"]
-    assert "&lt;details>x&lt;/details>\n&lt;img src=https://a.example/p> [image: x]" in out["text"]
-    f["impact"] = "```\nunclosed"
+    assert body.verify(out["text"]) is None
+    # Byte-exact inside a fence one longer than the longest backtick run.
+    assert "````text\nN-a3f9d2 told E-b8c247.\n### Severity\nCRITICAL\n```\nunclosed\n````" in out["text"]
+    assert (
+        "```text\n<details>x</details>\n<img src=https://a.example/p> ![x](https://a.example/p)\n```"
+        in out["text"]
+    )
+    f["impact"] = "line\u2028break"
     code, out = run(capsys, "render-body", "--input", write(tmp_path, "b.json", data))
     assert code == 2
     assert "Impact" in out["refused"]
