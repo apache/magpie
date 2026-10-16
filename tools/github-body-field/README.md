@@ -111,7 +111,7 @@ legacy tracker already has populated.
 Report the canonical form of a body — the shape every field reader agrees on — without pushing anything.
 The JSON on stdout carries `changes` (`{line, kind}` per rewrite, input line numbers), `needs_decision` (`{field, kind: "duplicate", lines}` per field the tool will not choose for you) and `changed`; it never carries body text.
 
-- `--fields-json <path>`: a JSON array of the template's field names; a heading equal to one once case-folded and whitespace-collapsed takes its spelling.
+- `--fields-json <path>`: a JSON array of the template's field names; a heading equal to one once its whitespace is collapsed (case must match, as before) takes its spelling.
 - `--keep "<field>=<line>"` (repeatable): resolve a duplicate by keeping the copy whose heading is on that line — a decision a human made.
 - `--output <path>`: write the normalised body to a local file, for a confirmed whole-body rewrite (`gh issue edit <N> --body-file <path>`).
 
