@@ -12,7 +12,7 @@ Steps 0 (pre-flight), 1a–1c and 1e (data gathering), 1g (cve.org API check), 4
 |------|------|-------|-------|
 | 1f | Process step identification | 7 | Decision table covering steps 1-2 through 14 |
 | 2a | Observed state | 3 | Step 11 (PR merged), step 6 (CVE needed), step 2 (stale) |
-| 2b | Proposed changes | 10 | Label swap, milestone create, providers wave, disclosure overdue, distributor pre-announce, reporter unresponsive + replied, security-pages reminder |
+| 2b | Proposed changes | 12 | Label swap, milestone create, providers wave, disclosure overdue, distributor pre-announce, reporter unresponsive + replied, security-pages reminder, advisory-records update (proposed once published, held while cve.org is not) |
 | 2c | Next-step recommendation | 4 | Steps 3, 6, 11, 13 |
 | Guardrails | Guardrail violation detection | 3 | CVSS propagation, ASF project naming, clean pass |
 | 3 | Confirm with user | 3 | apply-all, selective, cancel |
@@ -36,6 +36,7 @@ Steps 0 (pre-flight), 1a–1c and 1e (data gathering), 1g (cve.org API check), 4
 - **No-action parking**: Step-11 produces `has_concrete_action: false` (2c case-3).
 - **Security-pages reminder fires only post-advisory, once**: on a closed-`announced` tracker with *Public advisory URL* populated, the hand-off comment's checklist item still unticked and no reminder marker posted, the reminder status comment is proposed with `security_pages_reminder_proposed: true`; a ticked checklist item or an already-posted reminder proposes nothing (2b cases 8-10).
 - **Hand-offs run delegates inside the wrapper**: a delegated next skill is named with its delegate and invoked through the Magpie skill, never by running the project skill directly (hand-off delegate cases 1-4).
+- **Advisory records only after publication**: with `advisory_records` configured, a closed-`announced` tracker whose CVE cve.org reports `PUBLISHED` gets one `advisory_records` item carrying the planner's change and commands (`advisory_records_proposed: true`) and no security-pages reminder; while cve.org does not report it `PUBLISHED`, nothing is proposed (2b cases 11-12).
 - **Golden rule 2 — no bare issue numbers**: `has_bare_issue_numbers` must always be false.
 - **CVE-affecting trackers walked individually**: in bulk mode, any tracker whose `proposed_body_field_updates` names a CVE-publication field (Title, Short public summary for publish, CWE, Severity, Affected versions, Reporter credited as, Remediation developer, PR with the fix, Public advisory URL) must end up in `cve_affecting` and the `walk_order` is ascending by tracker number (bulk-orchestration cases 2 + 3).
 - **Non-CVE-affecting trackers bundled**: trackers whose proposals are limited to label flips, milestone touches, assignee swaps, project-board moves, status-rollup entries, reporter Gmail drafts, or RM hand-off comments end up in `non_cve_affecting` (bulk-orchestration case 1 + the two label-only trackers in case 2).

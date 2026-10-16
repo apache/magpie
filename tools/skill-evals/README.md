@@ -21,7 +21,7 @@ Suites are currently implemented for:
 - **security-issue-triage** — 33 cases across 9 steps
 - **security-issue-deduplicate** — 18 cases across 6 steps (steps 1, 2, 3, 4, 5, 6)
 - **security-cve-allocate** — 22 cases across 6 steps (steps 1, 2, 3, 4, 5, 7)
-- **security-issue-sync**: 84 cases across 15 steps (1d, 1f, 2a, 2b, 2c, 3, 5b, 6, bulk-orchestration, bulk-selectors, draft-backend, ghsa-access-tier, guardrails, handoff-delegate, security-cc)
+- **security-issue-sync**: 86 cases across 15 steps (1d, 1f, 2a, 2b, 2c, 3, 5b, 6, bulk-orchestration, bulk-selectors, draft-backend, ghsa-access-tier, guardrails, handoff-delegate, security-cc)
 - **security-issue-fix** — 50 cases across 15 steps (2, 3, 5a–5g, 6, 7, 11, and the flow choice plus Subversion steps 8 and 9)
 - **security-issue-invalidate** — 24 cases across 9 steps (2, 3, 4, 5a, 5b, 5d, 5e, 5f, 7)
 - **security-issue-import-from-md** — 11 cases across 4 steps (1, 2, 4, 6)

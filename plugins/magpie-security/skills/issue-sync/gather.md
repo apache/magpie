@@ -583,6 +583,35 @@ an unticked box in the hand-off comment is the pending state, not the satisfied 
 Step 2b turns a pending flag into the *Security-pages reminder comment* proposal ([`signals-to-actions.md`](signals-to-actions.md)).
 The scan reads the body and comments the 1a fetch already returned — no extra API call.
 
+**Advisory records.** When [`<project-config>/project.md`](../../../../<project-config>/project.md#advisory-records) declares an `advisory_records` block,
+sync also records the CVE in the project's own security records — a site repository over Git or Subversion
+([`docs/security/advisory-records.md`](../../../../docs/security/advisory-records.md)).
+Without the block, record *"advisory records: not configured — skipped"* in the observed state and do nothing else.
+With it, `security_pages_reminder_pending` is always `false`: sync proposes the edit itself instead of reminding the release manager.
+For each closed-`announced` tracker:
+
+1. Skip when a comment carrying `<!-- apache-magpie: advisory-records v1 -->` exists: record *"advisory records: done on <date>"*.
+2. Skip unless the cve.org check above returned `PUBLISHED`: record *"advisory records: waiting for cve.org"*.
+   The tool refuses before publication too; never work around it.
+3. Write the record to the session scratch directory:
+   `uv run --project <framework>/tools/cve-tool-vulnogram/generate-cve-json generate-cve-json <N> --output <scratch>/<CVE-ID>.json`.
+4. Run the planner as a plain command, without `--apply`.
+   Each `advisory_records` key maps to the flag of the same name (`layout`, `vcs`, `repository`, `branch`, `remote`, `commit_message`,
+   and the layout's `path`, `indent` → `--json-indent`, `keep_cna_private`, `format`, `release_line_parts`, `section_name`, `section_template`, `entry_template`, `fix_commit_template`, `section_parent`);
+   the working copy is `user.md → environment.advisory_records_clone`, else `advisory_records.working_copy`:
+   ```bash
+   uv run --project <framework>/tools/cve-tool-vulnogram/generate-cve-json advisory-records --layout <layout> --working-copy <path> --path '<path template>' --record <scratch>/<CVE-ID>.json --cve-org-state PUBLISHED --date-published <datePublished> [--reported-date <date>] [layout flags]
+   ```
+   For `release-page`, pass `--reported-date` (the date of the first message on the *Security mailing list thread*).
+   When the output names a missing input (`--release-date` for a new release section, `--fix-commit`, `--affects`), find it on the tracker,
+   in [`release-trains.md`](../../../../<project-config>/release-trains.md) or in the release's announcement, and run it again; ask the user when none of them has it.
+5. Read the exit code:
+   `0` with `proposed` → `advisory_records_pending: true`, keeping the tool's diff and numbered commands for Step 2b;
+   `0` with `unchanged` → *"advisory records: already recorded"*;
+   `4` → `advisory_records_pending: true` with the single `checkout` command;
+   `3` → *"advisory records: refused — <reason>"*, surfaced as a blocker when the page cannot be parsed or already holds the CVE under another release;
+   `2` → a configuration error to show the user.
+
 **When the tracker has no CVE ID.** Closed trackers without a `CVE-YYYY-NNNNN` in the *CVE tool link* body field
 are closing dispositions (`invalid` / `duplicate` / `wontfix`):
 skip the cve.org check entirely and drop the tracker from the closed-bucket sweep.

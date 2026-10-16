@@ -684,9 +684,32 @@ Group them by category:
   After a PATCH, note which variant the body now carries
   (*"flipped to OAuth-pushed variant after this sync's auto-push succeeded"* or vice-versa).
 
+- **Advisory-records update** — records the published CVE in the project's own security records
+  (the site repository its security pages are built from), when the project configures
+  [`advisory_records`](../../../../<project-config>/project.md#advisory-records)
+  ([`docs/security/advisory-records.md`](../../../../docs/security/advisory-records.md)).
+  It replaces the security-pages reminder for those projects: sync makes the edit instead of asking the release manager for it.
+
+  **Trigger.** Step 1g recorded `advisory_records_pending: true` for a closed-`announced` tracker:
+  cve.org reports the CVE `PUBLISHED`, no comment carries the `advisory-records v1` marker,
+  and the `advisory-records` planner returned a change (or, with no working copy yet, a `checkout` command).
+  Before publication there is no proposal — the planner refuses, and the observed state says *"waiting for cve.org"*.
+  Without `advisory_records` there is no proposal either; the observed state says *"not configured — skipped"*.
+
+  **Proposed action.** One numbered item showing the planner's file change (the diff it printed) and its numbered
+  [`magpie-vcs`](../../../../tools/vcs/README.md) commands, verbatim and in order:
+  the clean check, the branch check (Git), `update`, the planner re-run with `--apply`, `stage`, `diff`, `commit`, and `push` (Git).
+  On Subversion, say that the `commit` publishes the change.
+  With no working copy, the item is the single `checkout` command; the change is proposed on the next sync.
+
+  **Guard.** Never run a command the user has not confirmed, never edit the page or the JSON file by hand,
+  and never push to another branch or remote than the configured ones.
+  The planner is idempotent: an already-recorded CVE yields `unchanged` and no proposal.
+
 - **Security-pages reminder comment** — the ASF security-committers policy's post-announcement step *"The project team updates the
   project's security pages"* is a website edit, which sync cannot perform or gate the close-out on
   (the close-out fires on the archive-URL signal).
+  Projects that configure `advisory_records` never get this reminder: the *Advisory-records update* above makes the edit.
   Sync carries the checklist item that records it: both hand-off comment variants embed a
   `- [ ] <!-- apache-magpie: security-pages-checklist v1 --> Project
   security pages updated with CVE_ID` box, and ticking it records the completion marker on the tracker.

@@ -12,7 +12,7 @@ The observed state (current tracker) vs. gathered state (PR, milestone, assignee
   "items": [
     {
       "number": 1,
-      "category": "labels" | "milestone" | "assignee" | "body_field" | "status_comment" | "reporter_unresponsive",
+      "category": "labels" | "milestone" | "assignee" | "body_field" | "status_comment" | "reporter_unresponsive" | "advisory_records",
       "action": "<string>",
       "reason": "<string>"
     }
@@ -41,3 +41,4 @@ Field rules:
 - `distributor_notify_proposed`: `true` when `items` contains a distributor pre-announcement draft proposal. Optional field — omit (or set `false`) when `pre_announce_distributors` is `false` or the fix is not yet in a pending release.
 - `reporter_unresponsive_proposed`: `true` when `items` contains a `reporter_unresponsive` item. Optional field — omit (or set `false`) when the reporter thread is not stale.
 - `security_pages_reminder_proposed`: `true` when `items` contains the security-pages reminder status comment. Optional field — omit (or set `false`) unless the gathered state reports `security_pages_reminder_pending: true` — in particular when a ticked `- [x]` security-pages checklist item exists anywhere on the tracker, or when a comment carrying the `security-pages-reminder v1` marker has already been posted (the reminder fires at most once per tracker).
+- `advisory_records_proposed`: `true` when `items` contains an `advisory_records` item — the advisory-records update that records the published CVE in the project's own security records (the planner's file change plus its version-control commands). Propose it only when the gathered state reports `advisory_records_pending: true`; omit (or set `false`) when the project does not configure `advisory_records`, when cve.org does not report the CVE `PUBLISHED` yet, or when the CVE is already recorded.

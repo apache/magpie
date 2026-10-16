@@ -172,6 +172,15 @@ class VCSBackend(ABC):
         """Sync refs from the forge without changing the working copy."""
 
     @abstractmethod
+    def update(self) -> None:
+        """Bring the working copy up to date with its upstream, never by merging."""
+
+    @classmethod
+    def checkout(cls, url: str, dest: Path) -> None:
+        """Create a new working copy of ``url`` at ``dest`` (which must not exist)."""
+        raise VCSError(f"{cls.name}: checkout is not supported on this backend")
+
+    @abstractmethod
     def push(self, remote: str, ref: str, set_upstream: bool = False) -> None:
         """Publish a ref to the forge."""
 
@@ -215,6 +224,14 @@ def _run(
         detail = (proc.stderr or proc.stdout or "").strip() if capture else ""
         raise VCSError(f"`{' '.join(args)}` failed (rc={proc.returncode}): {detail}")
     return proc.stdout if capture else ""
+
+
+def _require_new_dest(dest: Path) -> None:
+    """Refuse a checkout onto an existing path, or under a missing parent."""
+    if dest.exists():
+        raise VCSError(f"checkout: {dest} already exists")
+    if not dest.parent.is_dir():
+        raise VCSError(f"checkout: parent directory {dest.parent} does not exist")
 
 
 class GitBackend(VCSBackend):
@@ -296,6 +313,15 @@ class GitBackend(VCSBackend):
         if ref:
             args.append(ref)
         _run(args, self.root, capture=False)
+
+    def update(self) -> None:
+        # Fast-forward only: a diverged local branch is an error, never a merge.
+        _run(["git", "pull", "--ff-only"], self.root, capture=False)
+
+    @classmethod
+    def checkout(cls, url: str, dest: Path) -> None:
+        _require_new_dest(dest)
+        _run(["git", "clone", "--", url, str(dest)], dest.parent, capture=False)
 
     def push(self, remote: str, ref: str, set_upstream: bool = False) -> None:
         args = ["git", "push"]
@@ -399,6 +425,15 @@ class MercurialBackend(VCSBackend):
         if remote:
             args.append(remote)
         _run(args, self.root, capture=False)
+
+    def update(self) -> None:
+        # `pull -u` updates only when it can do so without a merge.
+        _run(["hg", "pull", "-u"], self.root, capture=False)
+
+    @classmethod
+    def checkout(cls, url: str, dest: Path) -> None:
+        _require_new_dest(dest)
+        _run(["hg", "clone", "--", url, str(dest)], dest.parent, capture=False)
 
     def push(self, remote: str, ref: str, set_upstream: bool = False) -> None:
         args = ["hg", "push", "-B", ref, remote]
@@ -532,6 +567,10 @@ class FossilBackend(VCSBackend):
         if remote:
             args.append(remote)
         _run(args, self.root, capture=False)
+
+    def update(self) -> None:
+        # With autosync (fossil's default) `update` pulls before it updates.
+        _run(["fossil", "update"], self.root, capture=False)
 
     def push(self, remote: str, ref: str, set_upstream: bool = False) -> None:
         args = ["fossil", "push"]
@@ -806,6 +845,15 @@ class SubversionBackend(VCSBackend):
         # (log, cat, diff --base) queries it directly. `svn update` would
         # change the working copy, which fetch must not do.
         return None
+
+    def update(self) -> None:
+        # A commit from an out-of-date working copy fails, so callers update first.
+        self._svn("update", capture=False)
+
+    @classmethod
+    def checkout(cls, url: str, dest: Path) -> None:
+        _require_new_dest(dest)
+        _run(["svn", "--non-interactive", "checkout", "--", url, str(dest)], dest.parent, capture=False)
 
     def push(self, remote: str, ref: str, set_upstream: bool = False) -> None:
         raise VCSError(
@@ -1130,6 +1178,12 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("remote", nargs="?")
     p.add_argument("ref", nargs="?")
 
+    sub.add_parser("update", help="bring the working copy up to date (never merges)")
+
+    p = sub.add_parser("checkout", help="create a new working copy (needs --backend)")
+    p.add_argument("url")
+    p.add_argument("dest")
+
     p = sub.add_parser("push", help="publish a ref to the forge")
     p.add_argument("-u", "--set-upstream", action="store_true")
     p.add_argument("remote")
@@ -1219,6 +1273,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(json.dumps(flow, indent=2))
             return 0
 
+        if ns.op == "checkout":
+            # There is no working copy to detect yet, so the backend is named.
+            forced = ns.backend or os.environ.get(BACKEND_ENV) or ""
+            checkout_cls = _BACKENDS_BY_NAME.get(forced)
+            if checkout_cls is None:
+                known = ", ".join(sorted(_BACKENDS_BY_NAME))
+                raise VCSError(f"checkout needs --backend (or ${BACKEND_ENV}) naming one of: {known}")
+            checkout_cls.checkout(ns.url, (start / ns.dest).resolve())
+            return 0
+
         backend = get_backend(start, ns.backend)
 
         if ns.op == "detect":
@@ -1290,6 +1354,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0 if proposal["ready"] else 1
         elif ns.op == "fetch":
             backend.fetch(ns.remote, ns.ref)
+        elif ns.op == "update":
+            backend.update()
         elif ns.op == "push":
             backend.push(ns.remote, ns.ref, set_upstream=ns.set_upstream)
         elif ns.op == "reset-worktree":

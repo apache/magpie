@@ -1,0 +1,17 @@
+{
+  "items": [
+    {
+      "number": 1,
+      "category": "advisory_records",
+      "action": "Record CVE-2026-00001 in the project's security records: show the planner's change to xdocs/security-9.xml (a new section 'Fixed in My Project 9.0.99' dated 2026-03-30, placed before the 9.0.98 section, holding the entry) and, on confirmation, run its magpie-vcs commands in order — clean check, update, the --apply re-run, stage, diff, commit (on Subversion the commit publishes the change) — then post the advisory-records v1 status comment with the ticked security-pages checklist item.",
+      "reason": "advisory_records_pending is true: cve.org reports CVE-2026-00001 PUBLISHED, the project configures advisory_records, no advisory-records marker comment exists, and the planner returned a change."
+    }
+  ],
+  "labels_to_add": [],
+  "labels_to_remove": [],
+  "milestone_create_needed": false,
+  "assignee_proposed": null,
+  "has_bare_issue_numbers": false,
+  "security_pages_reminder_proposed": false,
+  "advisory_records_proposed": true
+}

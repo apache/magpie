@@ -29,6 +29,7 @@
     - [Project metadata](#project-metadata)
     - [Security cross-reference](#security-cross-reference)
     - [Tracker](#tracker)
+    - [Advisory records](#advisory-records)
     - [Scope detection](#scope-detection)
     - [Release process](#release-process)
     - [Roster](#roster)
@@ -93,7 +94,7 @@ produces.
 | `upstream_contributing_docs_url` | TODO | |
 | `upstream_genai_disclosure_anchor` | TODO: URL + anchor for the project's Gen-AI disclosure guideline | |
 | `upstream_security_policy_url` | TODO: `https://github.com/<upstream>/security/policy` | |
-| `security_pages_url` | TODO: e.g. `https://foo.apache.org/security` | Public security pages on the project website — updated by the release manager after each advisory (ASF security-committers policy step); read by `security-issue-sync` for the security-pages checklist reminder. Leave unset if the project has no security pages — the skill then uses the plain phrase without a link |
+| `security_pages_url` | TODO: e.g. `https://foo.apache.org/security` | Public security pages on the project website — updated by the release manager after each advisory (ASF security-committers policy step); read by `security-issue-sync` for the security-pages checklist reminder. Leave unset if the project has no security pages — the skill then uses the plain phrase without a link. To have sync propose the edit itself, also configure [Advisory records](#advisory-records) |
 
 ## Mailing lists
 
@@ -528,6 +529,54 @@ single `<!-- rejection-backfill v1 count: N -->` comment. The
 `security-tracker-stats-dashboard` renderer parses these and excludes the
 ledger issue from all tracker classification. Closes handled by
 `security-issue-invalidate` are **not** ledger entries.
+
+### Advisory records
+
+Optional, per-project — where the project records each published CVE in its own published security records
+(the site repository its security pages are built from),
+so that `security-issue-sync` can propose the change once cve.org shows the CVE published.
+Leave the block out and the step is skipped with a one-line note; the security-pages checklist reminder stays as it is.
+The deterministic part is `advisory-records` in
+[`tools/cve-tool-vulnogram/generate-cve-json/`](../../../tools/cve-tool-vulnogram/generate-cve-json/README.md#record-a-published-cve-in-the-projects-security-records--advisory-records);
+the step is described in [`docs/security/advisory-records.md`](../../../docs/security/advisory-records.md).
+
+```yaml
+advisory_records:
+  # git | svn. Default: the project's source-control backend (Tools enabled → Source control).
+  vcs: git
+  # Repository URL, used only to propose the first checkout.
+  repository: https://github.com/<org>/<project>-site.git
+  # Local working copy. A per-user path: `user.md → environment.advisory_records_clone` wins over this.
+  working_copy: ~/code/<project>-site
+  # Git only: the branch and remote the commit is pushed to.
+  branch: main
+  remote: origin
+  # One line; placeholder {cve_id}.
+  commit_message: "Add {cve_id} to the security pages"
+
+  # cve-json-file — one CVE 5.x JSON file per CVE, the record generate-cve-json emits
+  #                 (e.g. Apache HTTP Server keeps these under content/security/json/).
+  # release-page  — an entry in a per-release-line page, one section per fixed release, newest first
+  #                 (e.g. Apache Tomcat's xdocs/security-<line>.xml).
+  layout: cve-json-file
+
+  cve_json_file:
+    path: content/security/json/{cve_id}.json   # placeholders {cve_id}, {year}
+    indent: 4
+    keep_cna_private: false                     # drop the CNA tool's internal workflow block
+
+  release_page:
+    format: xml                                 # xml | markdown
+    path: xdocs/security-{line}.xml             # placeholder {line}
+    release_line_parts: 1                       # version components that name a line: 1 → "9" for 9.0.99
+    section_name: "Fixed in {product} {version}"
+    # Template files, relative to <project-config>; omit to use the shipped examples
+    # (tools/cve-tool-vulnogram/generate-cve-json/src/generate_cve_json/advisory_templates/).
+    # section_template: advisory-records/section.xml
+    # entry_template: advisory-records/entry.xml
+    # fix_commit_template: '<hashlink hash="{hash}"/>'
+    # section_parent: body                      # xml: where the first release section goes
+```
 
 ### Scope detection
 

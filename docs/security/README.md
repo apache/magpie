@@ -261,6 +261,10 @@ a private GitHub repository (default), [Markdown files](../../tools/local-tracke
   how the team operates and how a new member lands: the triager
   rotation that runs the skills and delegates, tracker access, mail
   list subscription, expected reading, first triage shadow.
+- [**`advisory-records.md`**](advisory-records.md) — recording a
+  published CVE in the project's own security records (a CVE JSON
+  file or a per-release-line page in its site repository, over Git
+  or Subversion), proposed by sync once cve.org shows it published.
 - [**`threat-model.md`**](threat-model.md) — release-blocking
   threat model for the security skill family: trust boundaries,
   adversary personas, STRIDE matrix per skill, mitigation cross-
