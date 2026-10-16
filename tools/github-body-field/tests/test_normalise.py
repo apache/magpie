@@ -77,13 +77,27 @@ def test_closing_hashes_without_a_space_are_part_of_the_name() -> None:
     assert list_fields("### C# #\n") == ["C#"]
 
 
-def test_known_fields_canonicalise_case_and_spacing() -> None:
-    body = "### short  public SUMMARY for publish\n\ntext\n\n### severity\n\nLow\n"
+def test_known_fields_canonicalise_spacing_but_keep_case() -> None:
+    body = "### Short  public summary\tfor publish\n\ntext\n\n###  Affected versions\n\n< 2\n"
     result = normalise(body, KNOWN)
-    assert list_fields(result.text) == ["Short public summary for publish", "Severity"]
-    assert kinds(result) == [(1, "heading_name"), (5, "heading_name")]
-    # Without the known names the spelling is left as written.
-    assert normalise(body).text == body
+    assert list_fields(result.text) == ["Short public summary for publish", "Affected versions"]
+    assert kinds(result) == [(1, "heading_name"), (5, "heading")]
+    # Without the known names the inner spacing is left as written.
+    assert list_fields(normalise(body).text)[0] == "Short  public summary\tfor publish"
+
+
+def test_a_differently_cased_heading_is_content_not_the_field() -> None:
+    # A reporter's own "### Affected Versions" (capital V) in the description, as main read it.
+    body = (
+        "### The issue description\n\n### Affected Versions\n\nall of them\n\n"
+        "### Affected versions\n\n< 2.0\n"
+    )
+    result = normalise(body, KNOWN)
+    assert result.needs_decision == []
+    assert result.text == body
+    assert extract_field(body, "Affected versions") == "< 2.0\n"
+    nested = "### A\n\n> ### severity\n\n### Severity\n\nLow\n"
+    assert normalise(nested, KNOWN).needs_decision == []
 
 
 def test_crlf_and_lone_cr_become_lf() -> None:
@@ -189,7 +203,7 @@ def test_a_decision_resolves_a_duplicate() -> None:
 
 
 def test_duplicates_spelled_differently_are_found_once_canonical() -> None:
-    body = "###  Severity\n\nLow\n\n### severity\n\nLow\n"
+    body = "###  Severity\n\nLow\n\n###\tSeverity ##\n\nLow\n"
     result = normalise(body, KNOWN)
     assert result.text == "### Severity\n\nLow\n"
 
@@ -245,7 +259,7 @@ def test_replace_field_finds_a_lenient_heading_and_keeps_it() -> None:
 
 def test_cli_normalise_reports_and_writes_locally(tmp_path, capsys: pytest.CaptureFixture[str]) -> None:
     src = tmp_path / "body.md"
-    src.write_text("###  severity\n\nLow\n\n### Severity\n\nHigh\n", encoding="utf-8")
+    src.write_text("###  Severity\n\nLow\n\n### Severity\n\nHigh\n", encoding="utf-8")
     fields = tmp_path / "fields.json"
     fields.write_text(json.dumps(KNOWN), encoding="utf-8")
     out = tmp_path / "out.md"
@@ -293,7 +307,7 @@ def test_cli_normalise_needs_exactly_one_source(tmp_path, capsys: pytest.Capture
         ("Paragraph text\n- ### Severity\n", "Severity"),  # a bullet under paragraph text
         ("Paragraph text\n2. ### CWE\n", "CWE"),  # an ordered marker other than 1 interrupting a paragraph
         ("Paragraph text\n###  Severity\n", "Severity"),  # lenient form not after a blank line
-        ("* ### severity ##\n", "Severity"),
+        ("* ### Severity ##\n", "Severity"),
     ],
 )
 def test_a_nested_known_field_heading_needs_a_decision(inner: str, field: str) -> None:

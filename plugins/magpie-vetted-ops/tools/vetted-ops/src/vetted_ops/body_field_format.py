@@ -255,8 +255,13 @@ def list_fields(body: str) -> list[str]:
 
 
 def fold_name(name: str) -> str:
-    """``name`` case-folded with its whitespace collapsed: how field names compare."""
+    """``name`` case-folded with its whitespace collapsed: how case-insensitive readers compare field names (the inert-block escapes)."""
     return " ".join(name.split()).casefold()
+
+
+def collapse_name(name: str) -> str:
+    """``name`` with its whitespace collapsed, case kept: how a heading matches a known field."""
+    return " ".join(name.split())
 
 
 @dataclass(frozen=True)
@@ -313,12 +318,12 @@ def _canonical_lines(
             name = names[index]
             if name is None:
                 nested = loose_heading_name(content)
-                if nested and fold_name(nested) in canonical:
-                    disputed.setdefault(canonical[fold_name(nested)], []).append(index + 1)
+                if nested and collapse_name(nested) in canonical:
+                    disputed.setdefault(canonical[collapse_name(nested)], []).append(index + 1)
                 continue
             if not name:
                 continue
-            spelled = canonical.get(fold_name(name), name)
+            spelled = canonical.get(collapse_name(name), name)
             wanted = f"### {spelled}"
             if wanted != content:
                 out[index] = wanted + ending
@@ -379,7 +384,7 @@ def normalise(
       recorded once, at the first such line);
     - a level-3 heading outside a fence becomes ``### Name`` (kind
       ``heading``); with ``known_fields``, a name equal to a known field
-      once case-folded and whitespace-collapsed takes the known spelling
+      once whitespace-collapsed (case kept, as main matched) takes the known spelling
       (kind ``heading_name``);
     - a heading-shaped line inside a fence gets a ``\\`` before its first
       ``#``, so no reader takes it for a field (kind ``heading_in_fence``);
@@ -403,7 +408,7 @@ def normalise(
     changes nothing.
     """
     changes: list[dict[str, object]] = []
-    canonical = {fold_name(name): name for name in (known_fields or [])}
+    canonical = {collapse_name(name): name for name in (known_fields or [])}
 
     lines: list[str] = []
     first_cr: int | None = None
