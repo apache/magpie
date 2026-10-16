@@ -15,9 +15,9 @@ when_to_use: >-
   If it is already installed, use `setup-isolated-setup-verify` to check
   it or `setup-isolated-setup-update` to refresh it.
 capability: capability:platform
-surface_hash: sha256:8a931772d33ac93f
+surface_hash: sha256:fe5f2a0f66586cb2
 license: Apache-2.0
-measured_tokens: 6894
+measured_tokens: 6821
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -152,9 +152,9 @@ Before walking any install step, confirm with the user:
    distro shortcut.
 2. **Framework checkout path.** The path to the user's local
    `magpie` clone. Required to read
-   `tools/agent-isolation/pinned-versions.toml`, the settings
-   template `tools/agent-isolation/claude-settings.template.json`,
-   and the `tools/agent-isolation/*.sh` scripts. If the user does not
+   `tools/agent-isolation/pinned-versions.toml`,
+   `.claude/settings.json`, and the
+   `tools/agent-isolation/*.sh` scripts. If the user does not
    have a clone, walk them through `git clone` first.
 3. **Fresh install or re-install.** For a re-install on a partial
    existing state, the skill must enumerate the existing wiring
@@ -199,26 +199,6 @@ version (`command claude --version`, which skips an
 **hard-fail** — stop the install, tell the operator to upgrade to
 `@latest`, and have them re-run. The secure setup must not be stood up
 on a below-floor runtime.
-
-### Step T — The framework checkout's own agent settings
-
-Only when the project being set up **is the Magpie framework checkout**
-(it carries `tools/agent-isolation/claude-settings.template.json` and
-`skills/setup/`). That repository does not commit `.claude/settings.json`;
-each contributor puts the template in place
-([CONTRIBUTING.md → Agent settings](../../../../CONTRIBUTING.md#agent-settings)).
-
-- **No `.claude/settings.json`** — propose copying the template there, and
-  copy it on the user's yes.
-- **One already exists** — show the difference from the template and
-  propose merging the template's blocks in; never overwrite it. Personal
-  additions belong in `.claude/settings.local.json`.
-
-`.claude/settings.json` is the agent's own configuration and the sandbox
-write-denies it, so the copy or merge is the user's to run (or to approve
-outside the sandbox); say so rather than retrying. In any other project
-this step does not apply: an adopted project commits its own
-`.claude/settings.json` floor.
 
 ### Step P — Project-root coverage in the sandbox allowlists
 
@@ -457,6 +437,19 @@ check two things:
 
 Rationale and the rules in full:
 [`docs/setup/secure-agent-setup.md` → Working directories under the read-outside-working-directories block](../../../../docs/setup/secure-agent-setup.md#working-directories-under-the-read-outside-working-directories-block).
+
+### Step T — Local agent settings
+
+The committed `.claude/settings.json` is only the shared floor; the rest
+of a working setup is personal and goes in `.claude/settings.local.json`.
+Build and hand over that file exactly as
+[`setup upgrade` → Reconcile the local agent settings](../setup/upgrade.md#reconcile-the-local-agent-settings)
+does: the MCP tools for families installed here but not adopted by the
+project and, **only when this project is the Magpie framework checkout**,
+its template (`tools/agent-isolation/claude-settings.local.template.json`).
+Never stage that template into another project: it would widen that
+project's sandbox beyond what its maintainers configured. An agent
+cannot write that file, so stage it and give the user the copy command.
 
 ### Steps K, L, M and B — optional extras
 

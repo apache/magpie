@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "sandbox": {
+    "excludedCommands": [
+      "gh *",
+      "uvx --from ~/.claude/magpie/adversarial-review adversarial-review *",
+      "~/.claude/scripts/magpie-run-evals.sh *"
+    ],
+    "filesystem": {
+      "allowRead": [
+        "~/.config/gh/",
+        "~/.docker/bin/",
+        "~/.docker/cli-plugins/",
+        "~/.gnupg/",
+        "/run/user/*/gnupg/"
+      ]
+    },
+    "network": {
+      "allowedDomains": [
+        "api.bitbucket.org",
+        "lists.apache.org",
+        "dist.apache.org",
+        "repository.apache.org",
+        "downloads.apache.org",
+        "archive.apache.org",
+        "cveprocess.apache.org",
+        "cve.org",
+        "www.cve.org",
+        "cveawg.mitre.org",
+        "api.osv.dev",
+        "*.crates.io",
+        "static.rust-lang.org",
+        "registry.npmjs.org",
+        "nodejs.org"
+      ],
+      "enableWeakerNetworkIsolation": true
+    }
+  },
+  "permissions": {
+    "allow": [
+      "Bash(gh api graphql *)",
+      "Bash(gh pr view *)",
+      "Bash(gh pr list *)",
+      "Bash(gh pr diff *)",
+      "Bash(gh pr checks *)",
+      "Bash(gh issue view *)",
+      "Bash(gh issue list *)",
+      "Bash(gh repo view *)",
+      "Bash(gh repo list *)",
+      "Bash(gh run view *)",
+      "Bash(gh run list *)",
+      "Bash(gh run watch *)",
+      "Bash(gh workflow view *)",
+      "Bash(gh workflow list *)",
+      "Bash(gh release view *)",
+      "Bash(gh release list *)",
+      "Bash(gh label list *)",
+      "Bash(gh cache list *)",
+      "Bash(gh search *)",
+      "Bash(gh browse *)",
+      "Bash(gh auth status*)",
+      "Bash(zizmor *)",
+      "WebFetch(domain:cveawg.mitre.org)",
+      "WebFetch(domain:pypi.org)",
+      "WebFetch(domain:lists.apache.org)"
+    ]
+  }
+}

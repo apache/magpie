@@ -123,7 +123,9 @@ acceptance:
     `.apache-magpie.lock`. Its configuration files are never promoted or
     scaffolded into `.apache-magpie-overrides/`, adopted or not.
   - Writing the committed default-set block touches only
-    `extraKnownMarketplaces` and `enabledPlugins` in
+    `extraKnownMarketplaces`, `enabledPlugins` and the derived `mcp__…`
+    entries of `permissions.allow` (the MCP tools the adopted families
+    call, from `skills/setup/family-mcp-allows.json`) in
     `.claude/settings.json`, preserves every other top-level key and an
     existing `apache-magpie` marketplace definition, adds only the floor
     members missing from an existing `enabledPlugins` and removes nothing,
@@ -389,6 +391,13 @@ committed version with drift detection.
 - **The lock is harness-neutral; the wiring is not.** The lock is
   written on every client. `.claude/settings.json` is derived from it
   and written only where the harness can express it.
+- **Committed floor, local rest.** The committed `.claude/settings.json`
+  holds only what every contributor shares; personal settings, and the MCP
+  tools of families installed on one machine but not adopted, live in
+  `.claude/settings.local.json`. `setup upgrade` reconciles that file (the
+  framework checkout's template plus the registry) and hands the write to
+  the user, adding missing entries and removing dropped ones only on
+  confirmation.
 - **Every skill's pre-flight brings the machine up to the floor** and
   then stops for a restart, and does so without asking only when the
   lock's `url` is `apache/magpie`.
@@ -634,9 +643,8 @@ committed version with drift detection.
     `"isolated_setup": {"enabled": false}`. It proposes
     `setup-isolated-setup-update` once per change of the fingerprint of the
     files an install copies (`tools/agent-isolation/`,
-    `tools/agent-guard/src/`, `tools/container-gateway/src/` — the dogfooded
-    settings template `tools/agent-isolation/claude-settings.template.json` included;
-    documentation excluded), and otherwise every
+    `tools/agent-guard/src/`, `tools/container-gateway/src/`, the dogfooded
+    `.claude/settings.json`; documentation excluded), and otherwise every
     `isolated_setup_update_interval_days` (the personal layer's
     `project.md` → `.apache-magpie-overrides/project.md`,
     default 7, `0` disables the timer but not the change report). The

@@ -26,12 +26,8 @@
 
 **Harness:** Claude Code, Codex, Cursor, Gemini CLI, OpenCode, Kiro, Grok
 
-Lints agent settings against the shipped baseline at
-`tools/sandbox-lint/expected.json` — by default, in this repository, the
-settings template `tools/agent-isolation/claude-settings.template.json`
-(the repository does not commit `.claude/settings.json`; contributors copy
-the template there), and in a project, its `.claude/settings.json`
-passed with `--settings` — and against the security
+Lints `.claude/settings.json` against the shipped baseline at
+`tools/sandbox-lint/expected.json`, and against the security
 invariants documented in `docs/security/threat-model.md`
 (mitigation **M.29**). The threat-model document lands in a
 companion PR; the lint stands on its own and runs immediately on
@@ -247,8 +243,8 @@ The lint runs in two places:
 
 - The
   [`sandbox-lint`](../../.github/workflows/sandbox-lint.yml)
-  GitHub Actions workflow, on every PR that touches the settings
-  template, the baseline, or the lint code itself.
+  GitHub Actions workflow, on every PR that touches
+  `.claude/settings.json`, the baseline, or the lint code itself.
 - The repository's `prek` config
   ([`.pre-commit-config.yaml`](../../.pre-commit-config.yaml)) runs
   `pytest`, `ruff check`, `ruff format --check`, and `mypy` against
@@ -256,8 +252,16 @@ The lint runs in two places:
 
 ## Updating the baseline
 
-Any legitimate edit to the settings template
-(`tools/agent-isolation/claude-settings.template.json`) must be paired with
+Where the project ships a local settings template
+(`tools/agent-isolation/claude-settings.local.template.json`, found under the
+project root of the `--settings` file, or passed with `--local-template`), the
+lint merges it over `.claude/settings.json` the way Claude Code layers
+`.claude/settings.local.json`, compares the merge with the baseline, and
+enforces the split: every `deny` and `ask` stays in the committed file, its only
+`allow` entries are derived MCP tools and the `vetted-op-read` pair, and the
+template neither adds MCP allows nor overrides a value the committed file sets.
+
+Any legitimate edit to `.claude/settings.json` or the template must be paired with
 the same edit to `tools/sandbox-lint/expected.json` in the same PR.
 This is the explicit acknowledgement that mitigation M.29 requires:
 two files, two edits, one review surface. The lint refuses to pass

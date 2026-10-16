@@ -11,9 +11,7 @@ source: >
   environment wrapper", "Layered sandbox by default", "Pinned, reviewed,
   signed dependencies"). Implemented in tools/agent-isolation/,
   tools/agent-guard/, tools/permission-audit/, tools/egress-gateway/,
-  the setup-isolated-setup-* skills, and tools/agent-isolation/claude-settings.template.json
-  (the framework's agent settings, not committed as .claude/settings.json;
-  contributors copy the template there).
+  the setup-isolated-setup-* skills, and .claude/settings.json.
 acceptance:
   - The reference setup uses an OS-level sandbox with default-deny
     filesystem reads and network egress; runtime-specific exceptions
@@ -233,14 +231,15 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
   socket is opened. Defence-in-depth per RFC-AI-0003: even a
   prompt-injection reaching for an arbitrary endpoint is blocked at the
   network layer. Capability: `substrate:sandbox`.
-- `tools/agent-isolation/claude-settings.template.json` (each contributor's
-  `.claude/settings.json`) — the `sandbox` block (filesystem
-  allow/deny, network `allowedDomains`, `excludedCommands`) and
-  `permissions` (`deny` / `ask`).
-  `.claude/settings.json` itself is gitignored, and the `sandbox-lint`
-  workflow also runs when that path changes and fails while it is tracked,
-  so a force-added copy that Claude Code would load for every checkout is
-  refused before merge (#1675).
+- `.claude/settings.json` — the committed floor: the `sandbox` block
+  (filesystem allow/deny, the core network `allowedDomains`, the vetted-ops
+  `excludedCommands`) and `permissions` (every `deny` / `ask`, the
+  `vetted-op-read` pair and the adopted families' MCP tools).
+- `tools/agent-isolation/claude-settings.local.template.json` — the rest of
+  the framework checkout's settings (the `gh` read allows, the remaining
+  exclusions, family-specific domains, personal tool paths), reconciled into
+  each contributor's `.claude/settings.local.json`. `sandbox-lint` lints the
+  two merged and keeps every `deny` / `ask` in the floor.
 - `.gemini/settings.json` and `.gemini/policies/magpie.toml` — Magpie's Gemini profile: tool-sandboxing and an explicitly loaded User-tier approval policy.
   Scoped shell reads are allowed; other shell calls, native edits, and MCP calls ask; listed commands and credential paths deny.
   Credential-path denies name the canonical `grep_search`; the native probe verifies its `search_file_content` alias, canonical policy names, and search/multi-file/web/resource argument schemas against the loaded runtime.
@@ -470,7 +469,7 @@ uv run --project tools/agent-isolation --group dev pytest
 uv run --directory tools/agent-guard --group dev pytest
 uv run --project tools/permission-audit --group dev pytest
 uv run --project tools/egress-gateway --group dev pytest
-python3 -c "import json,sys; s=json.load(open('tools/agent-isolation/claude-settings.template.json')); \
+python3 -c "import json,sys; s=json.load(open('.claude/settings.json')); \
   ask=s['permissions']['ask']; \
   sys.exit(0 if any(a.startswith('Bash(git push') for a in ask) \
     and 'Bash(gh pr merge *)' in ask and 'Bash(gh *)' not in ask \

@@ -18,8 +18,7 @@
 """Lint the agent-host sandbox configuration.
 
 Implements mitigation M.29 from
-docs/security/threat-model.md: every change to the agent settings baseline
-(in this repository, tools/agent-isolation/claude-settings.template.json; in a project, .claude/settings.json)
+docs/security/threat-model.md: every change to .claude/settings.json
 must be acknowledged by an equivalent change to
 tools/sandbox-lint/expected.json (the shipped baseline), and the
 resulting configuration must satisfy the security invariants encoded
@@ -48,13 +47,38 @@ from sandbox_lint.layers import GIT_HOME_NAME, LOCAL_DIR, RUN_DIR_NAME, run_dir_
 # Defaults
 # ---------------------------------------------------------------------------
 
-DEFAULT_SETTINGS = Path("tools/agent-isolation/claude-settings.template.json")
+DEFAULT_SETTINGS = Path(".claude/settings.json")
 DEFAULT_EXPECTED = Path("tools/sandbox-lint/expected.json")
-#: A contributor's own copy of the template (not committed, #1639). When the
-#: default template is linted and this file exists, it is checked against the
-#: security invariants too: it may carry personal additions, but it may not
-#: weaken the controls.
-LOCAL_LIVE_SETTINGS = Path(".claude/settings.json")
+# The framework checkout splits its agent settings: the committed
+# `.claude/settings.json` is the floor every contributor shares, and this
+# template carries the rest, reconciled into each contributor's
+# `.claude/settings.local.json`. Claude Code merges the two, so the baseline is
+# compared against the merge. Projects without the template lint the file alone.
+DEFAULT_LOCAL_TEMPLATE = Path("tools/agent-isolation/claude-settings.local.template.json")
+# Which MCP tools each family calls. In the framework checkout every family is
+# in use, so the floor's MCP allows must be exactly what this derives.
+FAMILY_MCP_REGISTRY = Path("plugins/magpie-setup/skills/setup/family-mcp-allows.json")
+# The layer actually in force on this machine. It may add personal entries
+# (and MCP allows for families not adopted), but layered over the floor it must
+# still pass every invariant and may not override a value the floor sets.
+LOCAL_LIVE_SETTINGS = Path(".claude/settings.local.json")
+
+
+def registry_errors(floor: dict[str, Any], registry: dict[str, Any]) -> list[str]:
+    """The floor's MCP allows against the registry for every family."""
+    derived = {
+        f"mcp__{server}__{tool}"
+        for server, entry in (registry.get("servers") or {}).items()
+        for tool in entry.get("tools", [])
+    }
+    present = {
+        a for a in (floor.get("permissions", {}) or {}).get("allow", []) or [] if str(a).startswith("mcp__")
+    }
+    return [
+        f"floor permissions.allow: missing {a!r} (in {FAMILY_MCP_REGISTRY})"
+        for a in sorted(derived - present)
+    ] + [f"floor permissions.allow: {a!r} is not in {FAMILY_MCP_REGISTRY}" for a in sorted(present - derived)]
+
 
 # ---------------------------------------------------------------------------
 # Security invariants
@@ -188,6 +212,7 @@ SET_LIST_KEYS = {
     "allowWrite",
     "allowedDomains",
     "excludedCommands",
+    "allow",
     "deny",
     "ask",
 }
@@ -225,6 +250,91 @@ def deep_diff(actual: Any, expected: Any, path: str = "$") -> list[str]:
     elif actual != expected:
         diffs.append(f"{path}: settings={actual!r} expected={expected!r}")
     return diffs
+
+
+# ---------------------------------------------------------------------------
+# Floor + local template
+# ---------------------------------------------------------------------------
+
+
+def merge_layers(floor: dict[str, Any], local: dict[str, Any]) -> dict[str, Any]:
+    """Merge settings the way Claude Code layers the local file over the project one.
+
+    Lists concatenate (de-duplicated, floor first); objects merge recursively.
+    A scalar both layers set is left to ``split_errors`` to report, so the
+    floor's value is kept here.
+    """
+    merged: dict[str, Any] = dict(floor)
+    for key, value in local.items():
+        base = merged.get(key)
+        if isinstance(base, dict) and isinstance(value, dict):
+            merged[key] = merge_layers(base, value)
+        elif isinstance(base, list) and isinstance(value, list):
+            combined = list(base)
+            combined.extend(item for item in value if item not in combined)
+            merged[key] = combined
+        elif key not in merged:
+            merged[key] = value
+    return merged
+
+
+def split_errors(floor: dict[str, Any], local: dict[str, Any]) -> list[str]:
+    """Rules that keep the floor/local split meaningful.
+
+    - The floor holds every ``deny`` and ``ask``: a local rule can only add, and
+      nobody's local file can weaken a protective rule.
+    - The floor's only ``allow`` entries are MCP tools, derived from the
+      families the project adopted (``setup`` writes them), and the
+      ``vetted-op-read`` pair a vetted-ops project must never be prompted for;
+      every other allow is a local convenience.
+    - The local template carries no MCP allows (they come from the family
+      registry for families installed on one machine) and no scalar the floor
+      sets: a local scalar overrides the committed one, so a local
+      ``sandbox.enabled: false`` would switch the sandbox off.
+    """
+    errors: list[str] = []
+    perms_floor = floor.get("permissions", {}) or {}
+    perms_local = local.get("permissions", {}) or {}
+    for rule in perms_floor.get("allow", []) or []:
+        if not (
+            isinstance(rule, str) and (rule.startswith("mcp__") or rule in REQUIRED_VETTED_OP_READ_ALLOW)
+        ):
+            errors.append(
+                f"floor permissions.allow: {rule!r} is neither a derived MCP tool nor the vetted-op-read "
+                "pair; move it to the local template"
+            )
+    for key in ("deny", "ask"):
+        for rule in perms_local.get(key, []) or []:
+            errors.append(f"local template permissions.{key}: {rule!r} belongs in the floor")
+    for rule in perms_local.get("allow", []) or []:
+        if isinstance(rule, str) and rule.startswith("mcp__"):
+            errors.append(
+                f"local template permissions.allow: {rule!r} is an MCP tool; "
+                "MCP allows are derived from the family registry"
+            )
+    errors.extend(override_errors(floor, local, label="local template"))
+    return errors
+
+
+def override_errors(
+    floor: dict[str, Any], local: dict[str, Any], *, label: str, path: str = "$"
+) -> list[str]:
+    """Scalars the local layer sets differently from the floor.
+
+    Claude Code lets a local scalar replace the committed one, so a different
+    value is an override of a control (``sandbox.enabled: false`` switches the
+    sandbox off); an equal one, as ``/sandbox`` may write, is harmless.
+    """
+    errors: list[str] = []
+    for key, value in local.items():
+        if key not in floor or key == "$schema":
+            continue
+        base = floor[key]
+        if isinstance(base, dict) and isinstance(value, dict):
+            errors.extend(override_errors(base, value, label=label, path=f"{path}.{key}"))
+        elif not (isinstance(base, list) and isinstance(value, list)) and value != base:
+            errors.append(f"{label} {path}.{key}: overrides a value the floor sets")
+    return errors
 
 
 # ---------------------------------------------------------------------------
@@ -600,26 +710,18 @@ def _infer_project_root(settings_path: Path) -> Path | None:
     (e.g. an ad-hoc fixture in a test) yields ``None``, and
     ``check_invariants`` falls back to its documented unanchored-suffix
     residual for that call.
-
-    This repository's own template (``DEFAULT_SETTINGS``, #1639) is the
-    other recognised shape: the project root is the prefix before it, so
-    linting the template keeps the anchored check rather than falling back.
     """
     resolved = settings_path.resolve()
-    if resolved.parent.name == ".claude":
-        return resolved.parent.parent
-    template_parts = DEFAULT_SETTINGS.parts
-    if resolved.parts[-len(template_parts) :] == template_parts:
-        return Path(*resolved.parts[: -len(template_parts)])
-    return None
+    if resolved.parent.name != ".claude":
+        return None
+    return resolved.parent.parent
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="sandbox-lint",
         description=(
-            "Lint the agent settings (by default this repository's template, plus the "
-            "security invariants of a local .claude/settings.json) against the shipped baseline and the "
+            "Lint .claude/settings.json against the shipped baseline and the "
             "security invariants from docs/security/threat-model.md (M.29); "
             "or lint an OpenCode opencode.json permission policy (--opencode); "
             "or lint a project Codex profile (--codex); "
@@ -633,6 +735,16 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         default=DEFAULT_SETTINGS,
         help=f"Path to the live settings file (default: {DEFAULT_SETTINGS})",
+    )
+    parser.add_argument(
+        "--local-template",
+        type=Path,
+        default=None,
+        help=(
+            "Local settings template merged over --settings before the baseline "
+            f"diff (default: <project>/{DEFAULT_LOCAL_TEMPLATE} when --settings is "
+            "<project>/.claude/settings.json and the template exists)"
+        ),
     )
     parser.add_argument(
         "--expected",
@@ -720,8 +832,43 @@ def main(argv: list[str] | None = None) -> int:
         explicit_root = None if args.any_harness is True else Path(args.any_harness)
         return _lint_any_harness(explicit_root)
 
-    settings = _load_json(args.settings)
+    floor = _load_json(args.settings)
     expected = _load_json(args.expected)
+    # The template belongs to the project whose settings are linted, never to
+    # the current directory: a settings file outside `<root>/.claude/` gets none.
+    template_path = args.local_template
+    settings_root = _infer_project_root(args.settings)
+    if (
+        template_path is None
+        and settings_root is not None
+        and (settings_root / DEFAULT_LOCAL_TEMPLATE).is_file()
+    ):
+        template_path = settings_root / DEFAULT_LOCAL_TEMPLATE
+    split: list[str] = []
+    local_errors: list[str] = []
+    if settings_root is not None and (settings_root / LOCAL_LIVE_SETTINGS).is_file():
+        live_local = _load_json(settings_root / LOCAL_LIVE_SETTINGS)
+        local_errors = override_errors(floor, live_local, label=str(LOCAL_LIVE_SETTINGS))
+        local_errors += check_invariants(merge_layers(floor, live_local), project_root=settings_root)
+    if settings_root is not None and (settings_root / FAMILY_MCP_REGISTRY).is_file():
+        split.extend(registry_errors(floor, _load_json(settings_root / FAMILY_MCP_REGISTRY)))
+    elif (
+        template_path is not None
+        and settings_root is not None
+        and template_path == settings_root / DEFAULT_LOCAL_TEMPLATE
+    ):
+        # The framework checkout always carries both; a missing registry must
+        # not silently skip the check of the committed MCP allows.
+        split.append(f"{FAMILY_MCP_REGISTRY} is missing beside {DEFAULT_LOCAL_TEMPLATE}")
+    if template_path is not None:
+        template = _load_json(template_path)
+        split.extend(split_errors(floor, template))
+        # Someone with no local file runs on the floor alone, so every
+        # protective setting, not only deny/ask rules, must stay in it.
+        split.extend(f"floor alone: {e}" for e in check_invariants(floor, project_root=settings_root))
+        settings = merge_layers(floor, template)
+    else:
+        settings = floor
 
     project_root = _infer_project_root(args.settings)
     invariant_errors = check_invariants(settings, project_root=project_root)
@@ -730,26 +877,29 @@ def main(argv: list[str] | None = None) -> int:
     # files in lockstep, the baseline must still pass on its own.
     baseline_invariant_errors = check_invariants(expected, project_root=project_root)
 
-    # The template is what everyone inherits; the copy actually in force on this
-    # machine is .claude/settings.json. Without an explicit --settings, check that
-    # copy's invariants as well (no baseline diff: it may hold personal additions).
-    local_errors: list[str] = []
-    if args.settings == DEFAULT_SETTINGS and LOCAL_LIVE_SETTINGS.is_file():
-        local_errors = check_invariants(
-            _load_json(LOCAL_LIVE_SETTINGS), project_root=_infer_project_root(LOCAL_LIVE_SETTINGS)
-        )
-
-    if not invariant_errors and not diff_errors and not baseline_invariant_errors and not local_errors:
-        print(f"sandbox-lint: OK ({args.settings} matches {args.expected})")
-        return 0
-
     if local_errors:
         print(
-            f"sandbox-lint: invariant violations in your local {LOCAL_LIVE_SETTINGS} "
-            "(the copy in force here weakens a control the template keeps):",
+            f"sandbox-lint: your local {LOCAL_LIVE_SETTINGS} weakens a control the committed floor keeps:",
             file=sys.stderr,
         )
         for e in local_errors:
+            print(f"  - {e}", file=sys.stderr)
+
+    if (
+        not invariant_errors
+        and not diff_errors
+        and not baseline_invariant_errors
+        and not split
+        and not local_errors
+    ):
+        layered = f" + {template_path}" if template_path is not None else ""
+        print(f"sandbox-lint: OK ({args.settings}{layered} matches {args.expected})")
+        return 0
+
+    if split:
+        layers = f"{args.settings} / {template_path}" if template_path is not None else str(args.settings)
+        print(f"sandbox-lint: {layers} split violations:", file=sys.stderr)
+        for e in split:
             print(f"  - {e}", file=sys.stderr)
 
     if invariant_errors:

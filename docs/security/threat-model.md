@@ -86,7 +86,7 @@ In scope for this document:
 - the fifteen skills in the [security workflow skill family](README.md#skills);
 - the privacy-LLM tooling (redactor + checker) those skills invoke
   on inbound content;
-- the agent host's sandbox configuration in [`tools/agent-isolation/claude-settings.template.json`](../../tools/agent-isolation/claude-settings.template.json)
+- the agent host's sandbox configuration in [`.claude/settings.json`](../../.claude/settings.json)
   and the [secure-agent-internals
   guide](../setup/secure-agent-internals.md);
 - the credential surfaces a skill may touch — `gh` tokens, CNA-tool
@@ -370,8 +370,8 @@ who misconfigures the agent in a way that broadens its authority
 beyond what the threat model assumes.
 
 - **Capabilities** — full tracker access; ability to relax the
-  sandbox (each maintainer's `.claude/settings.json` is a local copy of
-  `tools/agent-isolation/claude-settings.template.json` and can be edited); ability to override the redactor.
+  sandbox (`.claude/settings.json` is in the repository and can be
+  edited locally); ability to override the redactor.
 - **Goal** — none; the persona is non-malicious. The threat is
   accidental disclosure or accidental relaxation of a control.
 - **Surface** — every skill, but the framework's defence is the
@@ -547,8 +547,7 @@ agent run reads the credentials.
 
 - **Mitigation** — M.29 *(planned, not yet shipped — see [residual
   risk #4](#residual-risk-and-accepted-gaps))*. When implemented,
-  the framework's CI will lint the shipped settings template
-  (`tools/agent-isolation/claude-settings.template.json`)
+  the framework's CI will lint the shipped `.claude/settings.json`
   against an allowlist of changes on every PR that touches the file.
   The local-override case is unavoidable if the maintainer edits the
   file outside a PR — accepted residual.
@@ -588,7 +587,7 @@ describes it.
 | M.11 | Label transitions in `security-issue-sync` are computed from observed external state (PR merge, release tag), not from tracker comment content. | [`security-issue-sync/SKILL.md`](../../skills/security-issue-sync/SKILL.md). |
 | M.12 | Public PR ↔ tracker cross-reference is one-way until Step 14. Tracker → PR link is added at PR-open time; PR → tracker link is added only after the public advisory URL is captured. | [`process.md` Steps 10 and 14](process.md). |
 | M.13 | Public PRs reference CVE IDs, never tracker IDs. | [`security-issue-fix/SKILL.md`](../../skills/security-issue-fix/SKILL.md) and [`security-issue-deduplicate/SKILL.md`](../../skills/security-issue-deduplicate/SKILL.md). |
-| M.14 | Network egress allowlist enforced by the runtime. | [`tools/agent-isolation/claude-settings.template.json` `sandbox.network.allowedDomains`](../../tools/agent-isolation/claude-settings.template.json). |
+| M.14 | Network egress allowlist enforced by the runtime. | `sandbox.network.allowedDomains`: the core hosts in [`.claude/settings.json`](../../.claude/settings.json), family-specific ones in the local template [`tools/agent-isolation/claude-settings.local.template.json`](../../tools/agent-isolation/claude-settings.local.template.json). |
 | M.15 | Per-skill credential scope budget. The `gh` token granted to the agent is scoped to the minimum repos required by the skill family. | Per-adopter token configuration; documented in [`docs/setup/secure-agent-internals.md`](../setup/secure-agent-internals.md). |
 | M.16 | CVE allocation uses a sanitised title produced by the configured `<cve-tool>` adapter's title-normalisation (named example: [`tools/cve-tool-vulnogram/`](../../tools/cve-tool-vulnogram/) for `airflow-s`). | [`projects/_template/title-normalization.md`](../../plugins/magpie-setup/templates/title-normalization.md). |
 | M.17 | TLS validation against the system trust store on every egress. | Default `requests`/`httpx` behaviour; pinning is *not* used — the assumption is that the system trust store is trustworthy. |
@@ -603,7 +602,7 @@ describes it.
 | M.26 | The agent will not draft the CVE-record submission until the public advisory URL is present in the tracker. | [`security-issue-sync/SKILL.md`](../../skills/security-issue-sync/SKILL.md). |
 | M.27 | The CVE record is submitted to the configured `<cve-tool>` by the release manager, who walks it through the generic `cve_authority.states` sequence (`allocated` → `review-ready` → `publish-ready` → `public`); only `public` pushes to `cve.org`. The release manager (a human) is the readback gate at every transition. The agent runs a separate post-close `cve.org` publication-check sweep on closed-and-`announced` trackers within the last 90 days and surfaces any mismatch (record missing, state regressed, content tampered) for human review. (Named example for `airflow-s`: Vulnogram's `DRAFT` → `REVIEW` → `READY` → `PUBLIC`.) | [`tools/cve-tool-vulnogram/record.md`](../../tools/cve-tool-vulnogram/record.md); [`security-issue-sync/SKILL.md`](../../skills/security-issue-sync/SKILL.md) (`sync closed announced` mode). |
 | M.28 | Step-16 credit corrections are appended as new tracker comments; they never edit the closed tracker body. | [`process.md` Step 16](process.md). |
-| M.29 | CI lints the settings template (`tools/agent-isolation/claude-settings.template.json`) on every PR that touches it, comparing against the shipped baseline. | **Planned, not yet shipped** — see [residual risk #4](#residual-risk-and-accepted-gaps). |
+| M.29 | CI lints `.claude/settings.json`, layered with the local template, on every PR that touches either, comparing the merge against the shipped baseline and checking that every `deny`/`ask` stays in the committed file. | **Planned, not yet shipped** — see [residual risk #4](#residual-risk-and-accepted-gaps). |
 | M.30 | `security-model-update` scrubs its corpus before the proposal is *displayed*, not before it is sent: reporter identity, tracker contents, unpublished CVE IDs, and any detail of an unfixed or embargoed issue are removed from every candidate entry. An entry that cannot be written without describing a live vulnerability is deferred. | [`security-model-update/SKILL.md`](../../skills/security-model-update/SKILL.md). |
 | M.31 | Tracker URLs and `#NNN` identifiers are public-safe; tracker contents are not. Model diffs are held to the same bar as public upstream PR descriptions. | [`AGENTS.md`](../../AGENTS.md); [`docs/confidentiality.md`](../confidentiality.md). |
 | M.32 | A known-non-finding entry must cite a discharging claim that already exists in the model and whose component set covers the entry. Process statements, third-party assertions, and report-quality conditions (*no reproducer*, *reachability not demonstrated*) are forbidden as justification or as match conditions. | [`security-model-update/SKILL.md`](../../skills/security-model-update/SKILL.md). |
@@ -704,7 +703,7 @@ below are the framework's commitment.
   STRIDE row to the matching skill family in [STRIDE matrix per
   skill family](#stride-matrix-per-skill-family). An Agentic Drafting skill
   without a row does not pass review.
-- **On every change to the settings template (`tools/agent-isolation/claude-settings.template.json`)** — the proposing
+- **On every change to `.claude/settings.json`** — the proposing
   PR must update the [Trust boundaries](#trust-boundaries) and
   [Mitigation cross-reference](#mitigation-cross-reference) sections
   to reflect the new sandbox posture.

@@ -86,7 +86,9 @@ Both paths run the same flow.
    fetch, no `<local-lock>`, and nothing to drift; `git pull`
    is its upgrade. Run only
    [Refresh the pre-flight checker](#refresh-the-pre-flight-checker),
-   copying from the in-repo `tools/setup-preflight` package, and stop.
+   copying from the in-repo `tools/setup-preflight` package, and
+   [Reconcile the local agent settings](#reconcile-the-local-agent-settings),
+   then stop.
 3. Read `<local-lock>`. If missing (gitignored, fresh
    clone), the local install hasn't been initialised yet —
    route as a recover-snapshot install per the committed
@@ -135,6 +137,8 @@ repeated on every upgrade. If the file cannot be written, skip the record. It co
 marketplace upgrades, adopted or not (Step 0 item 2 sends a no-lock one
 here for this paragraph only): a pinned-snapshot adopter skips Step 0b, and
 the companion page is where they find one.
+
+Then [reconcile the local agent settings](#reconcile-the-local-agent-settings).
 
 Then split on whether the project has adopted Magpie:
 
@@ -435,6 +439,46 @@ confirm and nothing to stamp. (A project with configuration but no
 overrides may still have unreconciled skills; that gap is
 `reconcile.md`'s to close, not this walk's — it has no overrides to
 iterate over in the first place.)
+
+### Reconcile the local agent settings
+
+The committed `.claude/settings.json` holds only what every contributor
+must share (the sandbox, every `deny` and `ask` rule, the plugin wiring,
+and the MCP tools of the adopted families). Everything else is personal
+and lives in the gitignored `.claude/settings.local.json`, which Claude
+Code layers on top. An upgrade can move what belongs there, so bring it
+up to date:
+
+1. **Build the proposed local entries** from two sources:
+   - in the framework checkout, the template
+     `tools/agent-isolation/claude-settings.local.template.json` (the
+     `gh` read allows, the remaining sandbox exclusions, network domains
+     and tool paths);
+   - in any project, the MCP tools from
+     [`family-mcp-allows.json`](family-mcp-allows.json) for each family
+     installed on this machine **but not** in the lock's `plugins`
+     (an adopted family's tools are already committed).
+2. **Compare with `.claude/settings.local.json`.** Drop any proposed
+   entry the committed `.claude/settings.json` already contains (in the
+   framework checkout that is every family's MCP tools), then add every
+   remaining one the local file lacks. Once the user confirms the copy,
+   record the template and registry entries you applied under
+   `local_settings`, keyed by this worktree's root
+   (`git rev-parse --show-toplevel`), in the personal layer's
+   `reconciled.json`; an entry recorded there that
+   the current template and registry no longer propose was dropped
+   upstream, so ask before removing it. An entry that was never recorded
+   is the user's own: never touch it.
+3. **Never add a `deny` or `ask` rule, and never set a value the
+   committed file sets.** Protective rules belong in the committed floor,
+   and a local scalar overrides the committed one (a local
+   `sandbox.enabled: false` would switch the sandbox off).
+4. **Hand the write to the user.** Claude Code does not let an agent
+   write its own settings files, sandbox or not. Write the merged result
+   to the scratch directory, show the diff, give one copy command for the
+   user to run, and confirm the file afterwards.
+
+Skip it, and say nothing, when there is nothing to add or remove.
 
 ## Step 6 — Refresh framework-skill symlinks
 

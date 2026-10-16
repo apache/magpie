@@ -560,7 +560,9 @@ to a home-dir path and update the tool to read from there.
   and `--body-file` (including the Gen-AI disclosure block) so they only need to review, not edit.
 - **Open a GitHub page for the human with `gh browse`, never `open <url>`.** The sandbox blocks
   macOS `open` (Launch Services and Apple Events: error `-10822`), while `gh` runs outside it
-  (`sandbox.excludedCommands`) and `gh browse` is in `permissions.allow`, so it opens the page with no
+  (`sandbox.excludedCommands`) and `gh browse` is in `permissions.allow` — both from your reconciled
+  `.claude/settings.local.json`, not the committed file (see
+  [CONTRIBUTING.md → Agent settings](CONTRIBUTING.md#agent-settings)) — so it opens the page with no
   prompt. Use `gh browse <PR-or-issue-number> -R <repo>`, `gh browse <path> -R <repo>` for a file, and
   `gh browse <commit-SHA> -R <repo>` for a commit. Run it as a bare command: a pipe, `$(…)` or a
   redirection puts `gh` back in the sandbox, where it fails. For a page `gh browse` cannot address,

@@ -14,10 +14,6 @@ logs
 .claude/worktrees/
 .worktrees/
 .claude/settings.local.json
-# This repository's own agent settings are each contributor's, not the
-# project's: the baseline ships as tools/agent-isolation/claude-settings.template.json
-# and CONTRIBUTING.md says how to put it in place (#1639).
-/.claude/settings.json
 # Skill source lives in skills/. The framework self-adopts by committing
 # magpie-<skill> symlinks (see skills/setup/adopt.md → "Local
 # self-adoption"). .agents/skills/ is the ONE canonical home: its

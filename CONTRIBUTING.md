@@ -551,24 +551,6 @@ prek install
 
 The hooks are described in detail under [Running the dev loop](#running-the-dev-loop).
 
-### Agent settings
-
-The repository does not commit `.claude/settings.json`: the maintainers' sandbox and
-permission baseline (plus the self-adoption plugin wiring) ships as a template,
-[`tools/agent-isolation/claude-settings.template.json`](tools/agent-isolation/claude-settings.template.json),
-and each contributor puts it in place as their own:
-
-```bash
-cp tools/agent-isolation/claude-settings.template.json .claude/settings.json
-```
-
-If you already have a `.claude/settings.json` here, merge the template's blocks into it rather than overwrite it.
-Keep personal additions in `.claude/settings.local.json`, so the next template update stays a plain copy.
-`.claude/settings.json` is gitignored, so your copy never shows up as a change and can differ from the baseline.
-[`setup-isolated-setup-install`](skills/setup-isolated-setup-install/SKILL.md) offers the same copy or merge,
-and [`setup-isolated-setup-verify`](skills/setup-isolated-setup-verify/SKILL.md) reports it when it is missing.
-The template itself is what CI lints against the baseline (`sandbox-lint`), so a change to the baseline is a change to the template.
-
 **Do not install Magpie from a marketplace to work on it.** This repo
 **self-adopts**: the committed `magpie-<skill>` symlinks point at the live
 `skills/` source, so a fresh clone already runs the skills you are editing.
@@ -592,6 +574,29 @@ skill to install the bubblewrap sandbox and pinned tools, then
 [`setup-isolated-setup-verify`](skills/setup-isolated-setup-verify/SKILL.md)
 to confirm the install. The install tutorial lives at
 [`docs/setup/install-recipes.md`](docs/quick-start/other-install-methods.md).
+
+### Agent settings
+
+The committed [`.claude/settings.json`](.claude/settings.json) is the floor every
+contributor shares: the sandbox, every `deny` and `ask` rule, the plugin wiring, the
+vetted-ops read path, and the MCP tools of the families this repository uses.
+Everything else (the `gh` read allows, the remaining sandbox exclusions, extra network
+domains, and paths for your own tools such as GnuPG or Docker) ships as
+[`tools/agent-isolation/claude-settings.local.template.json`](tools/agent-isolation/claude-settings.local.template.json)
+and belongs in your gitignored `.claude/settings.local.json`, which Claude Code layers on
+top. [`setup-isolated-setup-install`](skills/setup-isolated-setup-install/SKILL.md) puts it
+in place, and `setup upgrade` reconciles it whenever the template changes; both hand you
+the copy, since an agent cannot write its own settings. The local file is per
+worktree; `setup worktree-init` reconciles each new one. Keep your own additions in the
+same file: reconciliation only adds what the template gained and asks before removing
+what it dropped. CI lints the two layered together against the baseline (`sandbox-lint`).
+
+If you set this repository up while `.claude/settings.json` was untracked (#1671), your
+copy may hold personal entries: before pulling, diff it against the committed floor and
+move anything personal into `.claude/settings.local.json`. Git will not overwrite an
+untracked file, so then move the old one aside in your own terminal
+(`mv .claude/settings.json .claude/settings.json.bak`; the agent sandbox cannot touch it)
+and pull.
 
 ### Lightening the agent context
 

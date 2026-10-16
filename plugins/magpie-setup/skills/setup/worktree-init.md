@@ -285,6 +285,18 @@ are live wherever the framework is.
 Surface one recap row for Step 2: `✓ agent-guard runs from the
 install, nothing seeded per worktree`.
 
+## Step 1e — The worktree's own local agent settings
+
+`.claude/settings.local.json` is per worktree, and the committed
+`.claude/settings.json` holds only the shared floor; without the local file
+`gh` loses its sandbox exclusion and every read-only allow prompts. Run
+[`setup upgrade` → Reconcile the local agent settings](upgrade.md#reconcile-the-local-agent-settings)
+for this worktree: the template and registry entries only. Do not copy the
+main checkout's `.claude/settings.local.json`: it holds that checkout's own
+absolute paths (Step 1c writes this worktree's), and copying them would let
+this worktree's sandbox write to the main checkout. As there, stage the
+result and hand the user the copy command.
+
 ## Step 2 — Recap
 
 Print a short summary:
@@ -298,6 +310,8 @@ Print a short summary:
   pair, any present holdout), split into *opt-in* and
   *always-on*, with per-skill ✓ / + / ↻ counts.
 - The sandbox-allowlist recap row from Step 1c.
+- The local-settings recap row from Step 1e: staged with the copy
+  command given, or nothing to add.
 - The agent-guard recap row from Step 1d (always ✓ — the guard
   runs from the install, not from a per-worktree copy).
 - A reminder: `upgrade` from the main, not from the worktree.

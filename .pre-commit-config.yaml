@@ -110,24 +110,23 @@ repos:
       # The next three hooks are *fixers*: they open every matched file
       # in read-write mode (to normalise it in place) before checking
       # whether a fix is even needed. The secure-agent sandbox
-      # write-denies tracked path sets — the self-adoption skill relays
-      # (`.claude/skills/*` symlinks), the agent-settings template that
-      # contributors copy to `.claude/settings.json`
-      # (`tools/agent-isolation/claude-settings.template.json`: it is the
-      # baseline everyone inherits, so an agent may not edit it), and the
-      # plugin hook scripts
+      # write-denies tracked path sets — the agent's own config
+      # (`.claude/settings.json` and the local settings template it is
+      # layered with, `tools/agent-isolation/claude-settings.local.template.json`,
+      # and the family MCP registry it derives allows from,
+      # `plugins/magpie-setup/skills/setup/family-mcp-allows.json`),
+      # the self-adoption skill relays
+      # (`.claude/skills/*` symlinks), and the plugin hook scripts
       # (`plugins/magpie-setup/hooks/`) — because agents must never
-      # modify them. (The agent's own `.claude/settings.json` is
-      # write-denied too, but it is not tracked: the baseline ships as
-      # `tools/agent-isolation/claude-settings.template.json`, #1639.) A hook script
+      # modify them. A hook script
       # runs automatically on a harness event, so an agent that could
       # rewrite one could arrange to run arbitrary code on the next
       # session start; the deny is the point, not an oversight. So on
       # `prek run --all-files` (which `agent-pre-commit.sh` and the CI
       # mirror both run) the read-write `open()` on those paths is denied
       # and the whole run aborts, even though the files need no fix.
-      # Exclude them: the template is gated by the sandbox-lint
-      # baseline, the skill symlinks are validated by
+      # Exclude them: `.claude/settings.json` and the template are gated
+      # by the sandbox-lint baseline, the skill symlinks are validated by
       # `symlink-lint`, the upgrade hook script is checked for
       # existence and correct wiring by `check-family-plugins.py`, and
       # the vetted-ops policy is parsed by `vetted_ops.config` on every
@@ -141,7 +140,7 @@ repos:
       # every one of these three hooks aborts the run without it.
       - id: end-of-file-fixer
         name: Make sure that there is an empty line at the end
-        exclude: &sandbox_write_denied ^(\.claude/skills/|tools/agent-isolation/claude-settings\.template\.json|plugins/magpie-setup/hooks/|\.apache-magpie-overrides/tools/vetted-ops/)
+        exclude: &sandbox_write_denied ^(\.claude/(settings\.json|skills/)|tools/agent-isolation/claude-settings\.local\.template\.json|plugins/magpie-setup/skills/setup/family-mcp-allows\.json|plugins/magpie-setup/hooks/|\.apache-magpie-overrides/tools/vetted-ops/)
       # `--fix=lf`, not the default `auto`: `auto` only fails a file
       # that mixes the two styles, so a file converted wholesale to
       # CRLF (an editor on Windows, `core.autocrlf=true`) passes and

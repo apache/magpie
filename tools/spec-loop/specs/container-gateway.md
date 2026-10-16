@@ -11,7 +11,7 @@ source: >
   sandbox by default"); RFC-AI-0004 Principle 2 (secure sandbox by
   default) and RFC-AI-0003 § 4.4 (egress-allowlist gateway).
   Implemented in tools/container-gateway/, a SessionStart/SessionEnd
-  hook in tools/agent-isolation/, the reference tools/agent-isolation/claude-settings.template.json,
+  hook in tools/agent-isolation/, the reference .claude/settings.json,
   tools/sandbox-lint/expected.json, the setup-isolated-setup-doctor /
   -verify / -install skills, docs/setup/secure-agent-setup.md and
   docs/setup/sandbox-troubleshooting.md.
@@ -93,7 +93,7 @@ CLIs speak. Three properties fall out of the policy:
   `~/.claude/scripts/` by `setup-isolated-setup-install` like the other
   hook scripts. Other harnesses start the gateway by hand or from their
   wrapper; the hook is a convenience, not the mechanism.
-- `tools/agent-isolation/claude-settings.template.json` (reference, and the copy in
+- `.claude/settings.json` (reference, and the copy in
   `docs/setup/secure-agent-setup.md`): `env.CONTAINER_HOST`,
   `env.DOCKER_HOST`, `sandbox.network.allowUnixSockets` entries for the
   two gateway sockets. `tools/sandbox-lint/expected.json` mirrors them.

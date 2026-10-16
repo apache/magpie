@@ -3,13 +3,10 @@
   "sandbox": {
     "enabled": true,
     "excludedCommands": [
-      "gh *",
       "uv run --project ~/.claude/magpie/vetted-ops vetted-op-read *",
       "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *",
       "uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *",
-      "uvx --from ~/.claude/magpie/adversarial-review adversarial-review *",
-      "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *",
-      "~/.claude/scripts/magpie-run-evals.sh *"
+      "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *"
     ],
     "filesystem": {
       "denyRead": [
@@ -19,14 +16,9 @@
         ".",
         "~/.gitconfig",
         "~/.config/git/",
-        "~/.config/gh/",
         "~/.cache/",
         "~/.local/share/uv/",
-        "~/.local/bin/",
-        "~/.docker/bin/",
-        "~/.docker/cli-plugins/",
-        "~/.gnupg/",
-        "/run/user/*/gnupg/"
+        "~/.local/bin/"
       ],
       "allowWrite": [
         "~/.cache/",
@@ -37,30 +29,14 @@
       "allowedDomains": [
         "github.com",
         "api.github.com",
-        "api.bitbucket.org",
         "raw.githubusercontent.com",
         "objects.githubusercontent.com",
         "codeload.github.com",
         "uploads.github.com",
         "pypi.org",
         "files.pythonhosted.org",
-        "lists.apache.org",
-        "dist.apache.org",
-        "repository.apache.org",
-        "downloads.apache.org",
-        "archive.apache.org",
-        "cveprocess.apache.org",
-        "cve.org",
-        "www.cve.org",
-        "cveawg.mitre.org",
-        "api.osv.dev",
-        "*.crates.io",
-        "static.rust-lang.org",
-        "registry.npmjs.org",
-        "nodejs.org",
         "releases.astral.sh"
-      ],
-      "enableWeakerNetworkIsolation": true
+      ]
     },
     "credentials": {
       "envVars": [
@@ -79,27 +55,8 @@
   },
   "permissions": {
     "allow": [
-      "Bash(gh api graphql *)",
-      "Bash(gh pr view *)",
-      "Bash(gh pr list *)",
-      "Bash(gh pr diff *)",
-      "Bash(gh pr checks *)",
-      "Bash(gh issue view *)",
-      "Bash(gh issue list *)",
-      "Bash(gh repo view *)",
-      "Bash(gh repo list *)",
-      "Bash(gh run view *)",
-      "Bash(gh run list *)",
-      "Bash(gh run watch *)",
-      "Bash(gh workflow view *)",
-      "Bash(gh workflow list *)",
-      "Bash(gh release view *)",
-      "Bash(gh release list *)",
-      "Bash(gh label list *)",
-      "Bash(gh cache list *)",
-      "Bash(gh search *)",
-      "Bash(gh browse *)",
-      "Bash(gh auth status*)",
+      "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-read *)",
+      "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *)",
       "mcp__claude_ai_Gmail__get_thread",
       "mcp__claude_ai_Gmail__search_threads",
       "mcp__gmail-plaintext__create_draft",
@@ -113,9 +70,6 @@
       "mcp__apache-projects__get_group_members",
       "mcp__apache-projects__get_person",
       "mcp__apache-projects__search_people",
-      "Bash(zizmor *)",
-      "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-read *)",
-      "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *)",
       "mcp__ponymail__get_source",
       "mcp__ponymail__list_lists",
       "mcp__claude_ai_Gmail__get_message",
@@ -125,10 +79,7 @@
       "mcp__apache-projects__get_releases",
       "mcp__apache-projects__get_repositories",
       "mcp__apache-projects__list_committees",
-      "mcp__apache-projects__search_projects",
-      "WebFetch(domain:cveawg.mitre.org)",
-      "WebFetch(domain:pypi.org)",
-      "WebFetch(domain:lists.apache.org)"
+      "mcp__apache-projects__search_projects"
     ],
     "deny": [
       "Read(~/.aws/**)",
@@ -144,8 +95,9 @@
       "Read(//**/.env.local)",
       "Read(//**/.env.*.local)",
       "Edit(.claude/settings.json)",
-      "Edit(tools/agent-isolation/claude-settings.template.json)",
       "Edit(.claude/settings.local.json)",
+      "Edit(tools/agent-isolation/claude-settings.local.template.json)",
+      "Edit(plugins/magpie-setup/skills/setup/family-mcp-allows.json)",
       "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
       "Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
       "Edit(~/.claude/magpie/**)",

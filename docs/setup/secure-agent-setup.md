@@ -464,12 +464,14 @@ actually lands the bump.
 
 ## The framework's own `.claude/settings.json`
 
-The framework dogfoods the secure config. It ships as the template
-[`tools/agent-isolation/claude-settings.template.json`](../../tools/agent-isolation/claude-settings.template.json);
-the repository does not commit `.claude/settings.json`, and each contributor
-puts the template in place as their own (see
-[CONTRIBUTING.md → Agent settings](../../CONTRIBUTING.md#agent-settings)).
-The full block is below, annotated.
+The framework dogfoods the secure config in two layers: the committed
+floor [`.claude/settings.json`](../../.claude/settings.json) (the sandbox,
+every `deny` and `ask` rule, the plugin wiring, the vetted-ops read path and
+the adopted families' MCP tools) and the local template
+[`tools/agent-isolation/claude-settings.local.template.json`](../../tools/agent-isolation/claude-settings.local.template.json),
+which each contributor reconciles into `.claude/settings.local.json`
+([CONTRIBUTING.md → Agent settings](../../CONTRIBUTING.md#agent-settings)).
+The full block below is the two merged, annotated.
 
 ```jsonc
 {
@@ -1593,7 +1595,7 @@ about to approve.
 ### Why install it user-scope, not project-scope
 
 Unlike the framework's
-[`tools/agent-isolation/claude-settings.template.json`](../../tools/agent-isolation/claude-settings.template.json) (which is
+[`.claude/settings.json`](../../.claude/settings.json) (which is
 repo-scoped — only sessions started inside the tracker repo see
 it), this hook is most useful in
 **`~/.claude/settings.json`** — the user-scope config that applies
@@ -2075,7 +2077,7 @@ echo '{"model":{"display_name":"Sonnet 4.6"},"workspace":{"current_dir":"'"$PWD"
 ```
 
 Expected output, *inside* this repo (its
-[`tools/agent-isolation/claude-settings.template.json`](../../tools/agent-isolation/claude-settings.template.json) sets
+[`.claude/settings.json`](../../.claude/settings.json) sets
 `sandbox.enabled: true`, and assuming `.claude/settings.local.json`
 either does not exist or does not override the key): a line opening
 with `[sandbox]` in green, then `magpie`, the current branch, the PR
@@ -3132,10 +3134,17 @@ sub-section that follows.
 
 1. Install the pinned tools per [Install commands](#install-commands)
    above.
-2. Copy
-   [`tools/agent-isolation/claude-settings.template.json`](../../tools/agent-isolation/claude-settings.template.json) from the framework
-   snapshot at `<your-tracker>/.apache-magpie/.claude/settings.json`
-   into `<your-tracker>/.claude/settings.json`. Adjust:
+2. Build `<your-tracker>/.claude/settings.json` from the framework's two
+   layers, the committed floor
+   [`.claude/settings.json`](../../.claude/settings.json) and the local
+   template
+   [`tools/agent-isolation/claude-settings.local.template.json`](../../tools/agent-isolation/claude-settings.local.template.json)
+   (the annotated block below is the two merged). The floor alone lacks the
+   `gh *` exclusion, the `gh` read allows and the family hosts, so a project
+   that copies only it gets a sandboxed `gh` and no egress for the security
+   and release skills. Drop the framework-only `Edit(...)` denies for
+   `tools/agent-isolation/` and `plugins/magpie-setup/` paths your project
+   does not have. Adjust:
    - The `sandbox.network.allowedDomains` list — drop the framework
      domains you don't actually use, add any project-specific hosts.
    - The `sandbox.filesystem.allowRead` list — same: drop the

@@ -151,6 +151,8 @@ The wrapper does not print values, and rejects invalid variable names before lau
 
 - [`../../docs/setup/secure-agent-setup.md`](../../docs/setup/secure-agent-setup.md) —
   the user-facing setup document. Read that first.
-- [`claude-settings.template.json`](claude-settings.template.json) — the
-  framework's own dogfooded secure config. Adopters scaffold their
+- [`../../.claude/settings.json`](../../.claude/settings.json) and
+  [`claude-settings.local.template.json`](claude-settings.local.template.json) — the
+  framework's own dogfooded secure config: the committed floor, and the local
+  template each contributor reconciles into `.claude/settings.local.json`. Adopters scaffold their
   own version from the example block in `docs/setup/secure-agent-setup.md`.

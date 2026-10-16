@@ -378,10 +378,13 @@ If `.claude/settings.json` commits the block described in
   plugin.
 - Delete the `apache-magpie` entry from `extraKnownMarketplaces`. Keep any
   other marketplace entry untouched.
+- Delete the `mcp__…` entries of `permissions.allow` that
+  [`family-mcp-allows.json`](family-mcp-allows.json) derives for the lock's
+  families (read them before the lock goes). Keep every other allow.
 - If removing its members leaves `enabledPlugins` or
   `extraKnownMarketplaces` empty, remove that now-empty key too.
-- **Never delete `.claude/settings.json` itself, and never touch any
-  top-level key other than these two.** The settings file belongs to the
+- **Never delete `.claude/settings.json` itself, and never touch anything
+  else: no other top-level key, no other allow entry.** The settings file belongs to the
   project, not to Magpie.
 
 This mirrors the existing rule that `.apache-magpie-overrides/` is preserved

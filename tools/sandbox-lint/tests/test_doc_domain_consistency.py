@@ -30,8 +30,11 @@ import json
 import re
 from pathlib import Path
 
+from sandbox_lint import merge_layers
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
-SETTINGS = REPO_ROOT / "tools/agent-isolation/claude-settings.template.json"
+SETTINGS = REPO_ROOT / ".claude" / "settings.json"
+LOCAL_TEMPLATE = REPO_ROOT / "tools" / "agent-isolation" / "claude-settings.local.template.json"
 SKILL = REPO_ROOT / "plugins" / "magpie-setup" / "skills" / "isolated-setup-update" / "SKILL.md"
 
 # The two prose anchors the assertions parse. Rewording the bullet is fine;
@@ -45,7 +48,8 @@ def _backticked(blob: str) -> set[str]:
 
 
 def _settings_domains() -> set[str]:
-    settings = json.loads(SETTINGS.read_text())
+    # The dogfooded default is the committed floor plus the local template.
+    settings = merge_layers(json.loads(SETTINGS.read_text()), json.loads(LOCAL_TEMPLATE.read_text()))
     return set(settings["sandbox"]["network"]["allowedDomains"])
 
 

@@ -155,10 +155,16 @@ project's normal review process, like any other committed file.
 ## Step 3 — Write the derived wiring
 
 `.claude/settings.json` is **derived from the lock in Step 2**, not
-authored here: `extraKnownMarketplaces` names `url`, and
-`enabledPlugins` contains `plugins`, each as `<plugin>@apache-magpie`.
-The lock is the source of truth; this file is how Claude Code acts on
-it.
+authored here: `extraKnownMarketplaces` names `url`,
+`enabledPlugins` contains `plugins`, each as `<plugin>@apache-magpie`,
+and `permissions.allow` gains the MCP tools those families' skills call,
+from [`family-mcp-allows.json`](family-mcp-allows.json): each server
+whose `families` names a family in `plugins` (`magpie-<family>`)
+contributes `mcp__<server>__<tool>` for each of its `tools`. Every
+contributor runs the adopted families, so their read-only MCP tools are
+shared; an MCP tool for a family only one person installed belongs in
+that person's `.claude/settings.local.json` instead. The lock is the
+source of truth; this file is how Claude Code acts on it.
 
 **On Claude Code, let the client write it.** `--scope project` is the
 scope whose store *is* this file, so the install commands do the whole
@@ -169,7 +175,7 @@ claude plugin marketplace add apache/magpie --scope project
 claude plugin install <plugin>@apache-magpie --scope project
 ```
 
-— the second once per plugin in the floor. That is why
+— the second once per plugin in the floor. Those commands write only `extraKnownMarketplaces` and `enabledPlugins`; add the derived MCP allows from `family-mcp-allows.json` afterwards, under the merge rules below. That is why
 [`install.md`](install.md#step-m4--install-what-the-user-picked)
 refuses the flag and sends people here: run alone it hands a project
 the plugin list with no floor beside it, and no `.apache-magpie.lock`
@@ -203,9 +209,10 @@ process, like any other committed file.
 carries `sandbox` and `permissions` blocks; an adopter's will carry
 whatever they put there.
 
-- **Touch only two keys** — `extraKnownMarketplaces` and
-  `enabledPlugins`. Every other top-level key is preserved exactly as
-  it was.
+- **Touch only three things** — `extraKnownMarketplaces`,
+  `enabledPlugins`, and the derived `mcp__…` entries in
+  `permissions.allow`. Every other key, and every other allow entry, is
+  preserved exactly as it was.
 - **Leave an existing `apache-magpie` marketplace definition alone.**
   An adopter pinning `apache/magpie@0.2.0` has made a deliberate
   choice; do not rewrite it to track `main`.
@@ -217,9 +224,16 @@ whatever they put there.
   `magpie-utilities@apache-magpie`, `magpie-agent-guard@apache-magpie`
   — a project whose maintainers enlarged it in Step 1 has more, and
   the lock is what you read, never a fixed count.
-- **If the file does not exist**, create it with exactly those two
-  keys: `extraKnownMarketplaces` defining `apache-magpie`, and
-  `enabledPlugins` containing the floor.
+- **Add whichever derived MCP allows are missing.** On `upgrade`, also
+  propose removing each `mcp__…` allow for a server the registry lists
+  that the current lock and registry no longer derive (a family dropped,
+  or a tool pulled from the registry, perhaps because it turned out to
+  write); the maintainers confirm it in review. An allow for a server the
+  registry does not list was added by hand: leave it.
+- **If the file does not exist**, create it with exactly those keys:
+  `extraKnownMarketplaces` defining `apache-magpie`, `enabledPlugins`
+  containing the floor, and `permissions.allow` with the derived MCP
+  tools (omitted when there are none).
 - **If the file exists but does not parse as JSON, stop and say so.**
   Do not rewrite a file you cannot read; a malformed settings file is
   the user's to fix. Nothing was written — stop without staging.
@@ -584,7 +598,9 @@ Tell the user, in this order:
   a maintainer enlarged carries more than the seeded
   `magpie-setup@apache-magpie`, `magpie-utilities@apache-magpie`,
   `magpie-agent-guard@apache-magpie`, and leaving one behind would
-  commit a plugin entry whose marketplace definition you just removed.
+  commit a plugin entry whose marketplace definition you just removed;
+  and the `mcp__…` allows the registry derives for those families, which
+  the project no longer recommends. Keep every other allow.
   **Leave every other key and every other plugin exactly as they are.**
   If that empties a key, remove the empty key rather than leaving `{}`.
 - preserve `.apache-magpie-overrides/` unless `--purge-overrides` is
