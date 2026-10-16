@@ -413,3 +413,17 @@ def test_nested_heading_detection_is_linear() -> None:
     list_fields(body)
     assert time.perf_counter() - start < 1.0
     assert result.needs_decision == []
+
+
+@pytest.mark.parametrize("count", [65, 10_000])
+def test_any_number_of_markers_still_needs_a_decision(count: int) -> None:
+    for prefix in (">" * count, "> " * count, "- 1. " * count):
+        body = f"### A\n\n{prefix}### Severity\n\n### Severity\n\nLow\n"
+        result = normalise(body, KNOWN)
+        assert result.needs_decision == [{"field": "Severity", "kind": "container-heading", "lines": [3]}]
+        with pytest.raises(AmbiguousFieldError):
+            extract_field(body, "Severity")
+
+
+def test_ten_digit_ordered_markers_are_not_markers() -> None:
+    assert normalise("### A\n\n1234567890. ### Severity\n", KNOWN).needs_decision == []
