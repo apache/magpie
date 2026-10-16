@@ -84,10 +84,6 @@ _CLOSING = re.compile(r"(?:^|[ \t]+)#+$")
 _ANY_HEADING = re.compile(r"^([ \t]*)(?=#{1,6}(?:[ \t]|$))")
 # The strict field heading: `### ` at column 0 and a name.
 _STRICT_H3 = re.compile(r"^### \S")
-# One list marker at the start of a (whitespace-stripped) line: a bullet or an ordered marker, then space/tab.
-_LIST_MARKER = re.compile(r"(?:[-*+]|\d{1,9}[.)])[ \t]")
-# How many block-quote / list markers `loose_heading_name` strips before giving up.
-_MAX_MARKERS = 64
 
 
 def split_lines(body: str) -> list[str]:
@@ -181,22 +177,31 @@ def field_names(lines: list[str], roles: list[str] | None = None) -> list[str | 
 def loose_heading_name(line: str) -> str | None:
     """The name of a level-3 heading behind block-quote / list markers or indent, else None.
 
-    Strips leading whitespace, then one marker at a time (``>``, a bullet or
-    an ordered marker followed by a space or tab) with the whitespace after
-    it, at most ``_MAX_MARKERS`` times; linear in the line length.
+    Skips whitespace and markers (``>``, a bullet or an ordered marker of one
+    to nine digits followed by a space or tab) with one index that only moves
+    forward, however many markers there are: O(len(line)), no cap.
     """
-    rest = _content(line)
-    if "###" not in rest:
+    content = _content(line)
+    if "###" not in content:
         return None
-    rest = rest.lstrip(" \t")
-    for _ in range(_MAX_MARKERS):
-        if rest.startswith(">"):
-            rest = rest[1:].lstrip(" \t")
+    i, n = 0, len(content)
+    while True:
+        while i < n and content[i] in " \t":
+            i += 1
+        if i < n and content[i] == ">":
+            i += 1
             continue
-        marker = _LIST_MARKER.match(rest)
-        if marker is None:
-            break
-        rest = rest[marker.end() :].lstrip(" \t")
+        if i + 1 < n and content[i] in "-*+" and content[i + 1] in " \t":
+            i += 2
+            continue
+        j = i
+        while j < n and j - i < 9 and content[j].isascii() and content[j].isdigit():
+            j += 1
+        if i < j < n - 1 and content[j] in ".)" and content[j + 1] in " \t":
+            i = j + 2
+            continue
+        break
+    rest = content[i:]
     if not rest.startswith("###") or rest[3:4] not in ("", " ", "\t"):
         return None
     text = rest[3:].strip(" \t")
