@@ -157,6 +157,6 @@ path; this tool intentionally does not invent headings.
 | Exit | Meaning |
 |---|---|
 | 0 | Success (or `set` was a no-op because new value matched current). |
-| 2 | CLI argument error (e.g. both `--value` and `--value-file` given). |
+| 2 | CLI argument error (e.g. both `--value` and `--value-file` given), or `get` / `set` refused an ambiguous field (`AmbiguousFieldError`): the strict cross-check finds a different field set, or a heading naming the field sits behind `>`, a list marker or an indent. Every read and write runs this check itself; the body is untouched. |
 | 3 | Field heading not found, or matched more than once (`DuplicateFieldError`, a `FieldNotFoundError`). The body is untouched. |
 | other | `gh` returned non-zero; the underlying `gh` stderr is forwarded. |

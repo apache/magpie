@@ -24,6 +24,7 @@ import pytest
 
 from github_body_field import cli
 from github_body_field.parser import (
+    AmbiguousFieldError,
     DuplicateFieldError,
     FieldNotFoundError,
     extract_field,
@@ -301,7 +302,11 @@ def test_a_nested_known_field_heading_needs_a_decision(inner: str, field: str) -
     lines = [n for n in lines if not body.split("\n")[n - 1].startswith(f"### {field}")]
     # Never the field: the column-0 heading still is.
     assert list_fields(body) == ["The issue description", "Severity", "CWE"]
-    assert extract_field(body, "Severity") == "Low\n"
+    # The read layer refuses the disputed field and still reads the others.
+    with pytest.raises(AmbiguousFieldError):
+        extract_field(body, field)
+    other = "CWE" if field == "Severity" else "Severity"
+    assert extract_field(body, other) == ("x\n" if other == "CWE" else "Low\n")
     result = normalise(body, KNOWN)
     assert result.text == body  # never rewritten
     assert result.needs_decision == [{"field": field, "kind": "container-heading", "lines": lines}]
@@ -346,3 +351,65 @@ def test_readers_that_disagree_need_a_decision() -> None:
     body = "### A\n\n  ```\ncode\n```\n\n### Severity\n\nLow\n"
     result = normalise(body)
     assert result.needs_decision == [{"field": "Severity", "kind": "container-heading", "lines": [7]}]
+
+
+# ---------------------------------------------------------------------------
+# The read/write layer fails closed on its own
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "### A\n\n> ### Severity\nHigh\n\n### Severity\n\nLow\n",  # a nested copy of the field
+        "### A\n\n- item\n   ### Severity\n   High\n",  # only a nested copy: not "not found"
+        "### A\n\n- item\n   ```\n\n### Severity\n\nLow\n",  # the strict reader sees another field set
+    ],
+)
+def test_extract_and_replace_refuse_an_ambiguous_field(body: str) -> None:
+    with pytest.raises(AmbiguousFieldError, match="refusing to guess"):
+        extract_field(body, "Severity")
+    with pytest.raises(AmbiguousFieldError):
+        replace_field(body, "Severity", "Medium")
+    assert issubclass(AmbiguousFieldError, FieldNotFoundError)
+
+
+def test_an_unrelated_nested_heading_does_not_block_another_field() -> None:
+    body = "### A\n\n> ### Notes\n\n### Severity\n\nLow\n"
+    assert extract_field(body, "Severity") == "Low\n"
+    assert extract_field(body.replace("Notes", "Severity"), "A") == "> ### Severity\n"
+
+
+def test_cli_get_and_set_exit_2_on_an_ambiguous_field(monkeypatch, capsys) -> None:
+    import subprocess
+
+    body = "### A\n\n> ### Severity\nHigh\n\n### Severity\n\nLow\n"
+
+    class Result:
+        returncode = 0
+        stdout = body + "\n"
+        stderr = ""
+
+    calls: list[list[str]] = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(cmd)
+        return Result()
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    assert cli.main(["get", "1", "--field", "Severity"]) == 2
+    assert cli.main(["set", "1", "--field", "Severity", "--value", "Medium"]) == 2
+    assert not any("edit" in c for c in calls)  # nothing was written
+    assert "refusing to guess" in capsys.readouterr().err
+
+
+def test_nested_heading_detection_is_linear() -> None:
+    import time
+
+    line = "> - 1. " * 15_000 + "x"  # about 100k characters, no heading at the end
+    body = f"### A\n\n{line}\n\n{line} ###\n"
+    start = time.perf_counter()
+    result = normalise(body, KNOWN)
+    list_fields(body)
+    assert time.perf_counter() - start < 1.0
+    assert result.needs_decision == []

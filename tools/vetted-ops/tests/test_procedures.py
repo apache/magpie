@@ -458,6 +458,20 @@ def test_body_field_set_refuses_an_absent_or_duplicated_field(body: str) -> None
     assert fake.writes == []
 
 
+@pytest.mark.parametrize(
+    "nested",
+    ["> ### Severity\nCritical\n", "- step\n   ### Severity\n   Critical\n", "1. x\n\n   ### Severity\n"],
+)
+def test_body_field_get_and_set_refuse_an_ambiguous_field(nested: str) -> None:
+    body = f"### The issue description\n\n{nested}\n" + ISSUE_BODY
+    fake = FakeGh(body=body)
+    with pytest.raises(procedures.ProcedureRefused, match="refusing to guess"):
+        procedures.body_field_get(runner(fake, writes=False), number="7", field="Severity")
+    with pytest.raises(procedures.ProcedureRefused, match="refusing to guess"):
+        procedures.body_field_set(runner(fake), number="7", field="Severity", text="Low")
+    assert fake.writes == []
+
+
 def test_body_field_get_prints_only_the_value(capsys: pytest.CaptureFixture[str]) -> None:
     fake = FakeGh(body=ISSUE_BODY)
     procedures.body_field_get(runner(fake, writes=False), number="7", field="Severity")
