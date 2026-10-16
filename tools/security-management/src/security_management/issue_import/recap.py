@@ -40,17 +40,33 @@ NEXT_STEP = (
 _FULL_REF = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9._-]+#\d+$")
 
 
-def _tracker_ref(tracker: str, existing: object) -> str:
+def _tracker_ref(tracker: str, existing: object, platform: str = "github") -> str:
     text = one_line(existing)
     if _FULL_REF.fullmatch(text):
         return text
     number = text.lstrip("#")
-    if not number.isdigit():
-        raise ValueError(f"already-tracked reference {text!r} is neither owner/repo#NNN nor a number")
-    return f"{tracker}#{number}"
+    if platform == "github" and number.isdigit():
+        return f"{tracker}#{number}"
+    return refs.tracker_link(tracker, text, None, platform)
 
 
-def _reason(tracker: str, entry: Mapping[str, Any]) -> str:
+def _created(tracker: str, entry: Mapping[str, Any], platform: str) -> dict[str, Any]:
+    """`{number, url}` on GitHub, `{id, url}` on a backend that names its issues itself."""
+    if platform == "github" and entry.get("number") is not None:
+        number = int(entry["number"])
+        return {
+            "number": number,
+            "url": str(entry.get("url") or f"https://github.com/{tracker}/issues/{number}"),
+        }
+    ident = one_line(entry.get("id") or entry.get("number"))
+    return {"id": ident, "url": one_line(entry.get("url")) or None}
+
+
+def _created_link(tracker: str, issue: Mapping[str, Any], platform: str) -> str:
+    return refs.tracker_link(tracker, issue.get("number", issue.get("id")), issue.get("url"), platform)
+
+
+def _reason(tracker: str, entry: Mapping[str, Any], platform: str = "github") -> str:
     kind = entry.get("kind")
     if kind == "user":
         return "user skipped"
@@ -59,7 +75,7 @@ def _reason(tracker: str, entry: Mapping[str, Any]) -> str:
     if kind == "public-fix":
         return f"rejected with the fix-already-public reply: {', '.join(entry.get('pr_urls') or [])}"
     if kind == "tracked":
-        return f"already tracked as {_tracker_ref(tracker, entry['existing'])}"
+        return f"already tracked as {_tracker_ref(tracker, entry['existing'], platform)}"
     if kind == "answered":
         return f"already answered on-thread: {one_line(entry.get('note'))}"
     if kind == "other":
@@ -69,10 +85,8 @@ def _reason(tracker: str, entry: Mapping[str, Any]) -> str:
 
 def render(state: Mapping[str, Any]) -> dict[str, Any]:
     tracker = str(state["tracker"])
-    issues = [
-        {"number": int(i["number"]), "url": f"https://github.com/{tracker}/issues/{int(i['number'])}"}
-        for i in state.get("created") or []
-    ]
+    platform = str(state.get("platform") or "github")
+    issues = [_created(tracker, i, platform) for i in state.get("created") or []]
     seen: set[str] = set()
     drafts: list[dict[str, Any]] = []
     for draft in state.get("drafts") or []:
@@ -82,7 +96,8 @@ def render(state: Mapping[str, Any]) -> dict[str, Any]:
         seen.add(draft_id)
         drafts.append({"draft_id": draft_id, "candidate": int(draft["candidate"])})
     skipped = [
-        {"candidate": int(s["candidate"]), "reason": _reason(tracker, s)} for s in state.get("skipped") or []
+        {"candidate": int(s["candidate"]), "reason": _reason(tracker, s, platform)}
+        for s in state.get("skipped") or []
     ]
     prefiltered = list(state.get("prefiltered") or [])
     bookkeeping = int(state.get("bookkeeping_dropped") or 0) + sum(
@@ -90,7 +105,7 @@ def render(state: Mapping[str, Any]) -> dict[str, Any]:
     )
     notes = [one_line(n) for n in state.get("notes") or [] if one_line(n)]
     lines = ["**Created**", ""]
-    lines += [f"- [{tracker}#{i['number']}]({i['url']})" for i in issues] or ["- none"]
+    lines += [f"- {_created_link(tracker, i, platform)}" for i in issues] or ["- none"]
     lines += ["", "**Drafts waiting for your review**", ""]
     lines += [f"- `{d['draft_id']}` (candidate {d['candidate']})" for d in drafts] or ["- none"]
     lines += ["", "**Not imported**", ""]
@@ -112,5 +127,7 @@ def render(state: Mapping[str, Any]) -> dict[str, Any]:
         "skipped": skipped,
         "cve_tool_bookkeeping_dropped": bookkeeping,
         "next_step_reminder": True,
-        "text": refs.linkify("\n".join(lines) + "\n", tracker),
+        "text": refs.linkify("\n".join(lines) + "\n", tracker)
+        if platform == "github"
+        else "\n".join(lines) + "\n",
     }

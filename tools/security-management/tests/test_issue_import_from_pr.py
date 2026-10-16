@@ -407,3 +407,70 @@ def test_a_sub_package_with_a_trailing_newline_is_unmatched(capsys, tmp_path) ->
 def test_parse_ref_refuses_text_after_a_newline(capsys) -> None:
     code, _ = run(capsys, "parse-ref", "--ref", "https://github.com/x/y/pull/1\nevil", "--upstream", "x/y")
     assert code == 2
+
+
+def test_overlapping_scope_regexes_block(capsys, tmp_path) -> None:
+    config = {"labels": {"core": {"path_prefix": "^src/"}, "plugins": {"path_prefix": "^src/plugins/"}}}
+    files = write(tmp_path, "f.json", ["src/plugins/a.py"])
+    _, out = run(capsys, "scope", "--files", files, "--scope-config", write(tmp_path, "s.json", config))
+    assert (out["scope"], out["stop"], out["detection"]) == ("mixed_scope_blocker", True, "mixed")
+    assert out["overlapping"] == {"src/plugins/a.py": ["core", "plugins"]}
+
+
+def test_disabled_detection_without_a_default_applies_no_scope_label(capsys, tmp_path) -> None:
+    files = write(tmp_path, "f.json", ["x.py"])
+    _, out = run(
+        capsys, "scope", "--files", files, "--scope-config", write(tmp_path, "s.json", {"enabled": False})
+    )
+    assert (out["scope"], out["detection"], out["stop"]) == (None, "disabled", False)
+    _, out = run(capsys, "labels", "--input", write(tmp_path, "l.json", {"scope": None, "state": "OPEN"}))
+    assert out["labels"] == ["pr created", "security issue"]
+    _, out = run(
+        capsys,
+        "scope",
+        "--files",
+        write(tmp_path, "f.json", ["docs/x"]),
+        "--scope-config",
+        write(tmp_path, "s.json", SCOPES),
+    )
+    assert (out["scope"], out["detection"]) == (None, "unresolved")
+
+
+def test_render_rollup_carries_confirmed_overrides(capsys, tmp_path) -> None:
+    data = {
+        "upstream": UPSTREAM,
+        "pr_number": 1,
+        "scope": "providers",
+        "state": "OPEN",
+        "date": "2026-10-16",
+        "author_login": "x",
+        "remediation_developer": "X",
+        "severity": "Important",
+        "reporter_credit": "Jordan Lee ![p](https://a.example/p)",
+    }
+    _, out = run(capsys, "render-rollup", "--input", write(tmp_path, "r.json", data))
+    assert "Severity=`Important`" in out["text"]
+    assert (
+        "*Reporter credited as* set to `Jordan Lee ![p](https://a.example/p)` at confirmation" in out["text"]
+    )
+    assert "intentionally left blank" not in out["text"]
+
+
+def test_dup_query_and_recap_on_a_jira_tracker(capsys, tmp_path) -> None:
+    hits = write(
+        tmp_path, "h.json", [{"id": "FOOSEC-4", "url": "https://j.example/browse/FOOSEC-4", "state": "Open"}]
+    )
+    _, out = run(
+        capsys, "dup-query", "--pr", "5", "--tracker", "FOOSEC", "--hits", hits, "--platform", "jira"
+    )
+    assert out["hits"][0]["link"] == "[FOOSEC-4](https://j.example/browse/FOOSEC-4)"
+    data = {
+        "tracker": "FOOSEC",
+        "platform": "jira",
+        "id": "FOOSEC-5",
+        "url": "https://j.example/browse/FOOSEC-5",
+        "pr_url": "u",
+    }
+    _, out = run(capsys, "render-recap", "--input", write(tmp_path, "r.json", data))
+    assert "[FOOSEC-5](https://j.example/browse/FOOSEC-5)" in out["text"]
+    assert "github.com/FOOSEC" not in out["text"]

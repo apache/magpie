@@ -59,6 +59,9 @@ def add_parsers(sub: Any) -> None:
         "Step 2: OR'd threadId batches of at most 6",
         ("--thread-ids", "JSON list of threadIds"),
     )
+    commands.choices["dedup-queries"].add_argument(
+        "--tracker", help="<tracker>: also print each search command"
+    )
     command(
         "dedup-attribute",
         "Step 2: attribute search hits to threadIds; flags a truncated (100-hit) batch",
@@ -129,11 +132,15 @@ def dispatch(args: argparse.Namespace) -> int:
     if command == "prefilter":
         emit(prefilter.classify(read_object(args.threads)))
         return 0
-    if command == "dedup-queries":
-        emit(dedup.queries(read_json(args.thread_ids)))
-        return 0
-    if command == "dedup-attribute":
-        emit(dedup.attribute(read_json(args.thread_ids), read_json(args.hits)))
+    if command in ("dedup-queries", "dedup-attribute"):
+        result = (
+            dedup.queries(read_json(args.thread_ids), args.tracker)
+            if command == "dedup-queries"
+            else dedup.attribute(read_json(args.thread_ids), read_json(args.hits))
+        )
+        if not result["ok"]:
+            return refuse(result["refused"], rejected_ids=result["rejected_ids"])
+        emit(result)
         return 0
     if command == "relay-prescreen":
         emit(relay.prescreen(read_object(args.message), read_object(args.forwarders)))

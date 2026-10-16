@@ -68,6 +68,7 @@ def add_parsers(sub: Any) -> None:
     dup.add_argument("--pr", required=True, type=_positive, help="the integer pr.number from Step 1")
     dup.add_argument("--tracker", required=True, help="<tracker>")
     dup.add_argument("--hits", help="the search's JSON output; omit to print the command only")
+    dup.add_argument("--platform", default="github", help="tracker.platform: github, jira or local-files")
 
 
 def dispatch(args: argparse.Namespace) -> int:
@@ -82,7 +83,11 @@ def dispatch(args: argparse.Namespace) -> int:
         emit(scope.detect(read_json(args.files), read_object(args.scope_config)))
         return 0
     if command == "dup-query":
-        emit(render.dup_query(args.pr, args.tracker, read_json(args.hits) if args.hits else None))
+        emit(
+            render.dup_query(
+                args.pr, args.tracker, read_json(args.hits) if args.hits else None, args.platform
+            )
+        )
         return 0
     data = read_object(args.input)
     if command == "milestone-check":
@@ -95,7 +100,7 @@ def dispatch(args: argparse.Namespace) -> int:
             return refuse(rendered["refused"], malformed_indicator=rendered["malformed_indicator"])
         emit(rendered)
     elif command == "labels":
-        emit(render.labels(str(data["scope"]), str(data["state"]), data.get("labels")))
+        emit(render.labels(data.get("scope") or None, str(data["state"]), data.get("labels")))
     elif command == "render-rollup":
         result = render.rollup(data)
         if not result["ok"]:

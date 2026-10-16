@@ -21,9 +21,15 @@
 - `detect` strips test files (any path with a `tests/` segment), maps each
   remaining file to the scope label whose `path_prefix` regex matches it
   (`scope_detection.labels` in project.md), and stops on a PR whose
-  production files span more than one scope. Several sub-packages of one
+  production files span more than one scope. Every scope is tried on every
+  file: a file two scopes' regexes both match is ambiguous (the config has
+  no precedence), so it blocks like a mixed PR. Several sub-packages of one
   scope are not mixed: they are listed in `sub_packages`, one *Affected
   versions* line each.
+- `detection` says which case it is: `matched`, `mixed`, `unresolved` (no
+  scope matched: ask the user), or `disabled` (`scope_detection.enabled:
+  false`: `scope` is the configured `default_label`, or null when the
+  project has none, and no scope label is applied).
 """
 
 from __future__ import annotations
@@ -103,9 +109,12 @@ def detect(files: object, config: Mapping[str, Any]) -> dict[str, Any]:
         "test_files_stripped": stripped,
         "unmatched": [],
         "matched": {},
+        "overlapping": {},
+        "detection": "unresolved",
     }
     if config.get("enabled") is False:
-        result["scope"] = config.get("default_label")
+        result["scope"] = config.get("default_label") or None
+        result["detection"] = "disabled"
         result["affected_providers"] = []
         return result
     labels = config.get("labels") or {}
@@ -115,12 +124,16 @@ def detect(files: object, config: Mapping[str, Any]) -> dict[str, Any]:
     matched: dict[str, list[str]] = {}
     subs: list[str] = []
     for path in counted:
-        hit = next(((label, rx.search(path)) for label, rx in compiled.items() if rx.search(path)), None)
-        if hit is None:
+        hits = [(label, m) for label, rx in compiled.items() if (m := rx.search(path))]
+        if not hits:
             result["unmatched"].append(path)
             continue
-        label, match = hit
-        assert match is not None
+        if len(hits) > 1:
+            result["overlapping"][path] = [label for label, _ in hits]
+            for label, _ in hits:
+                matched.setdefault(label, []).append(path)
+            continue
+        label, match = hits[0]
         sub = _sub_package(match, path, str(labels[label].get("packageName") or ""))
         if sub is not None and (not _SUB_PACKAGE.fullmatch(sub) or ".." in sub):
             result["unmatched"].append(path)
@@ -129,9 +142,10 @@ def detect(files: object, config: Mapping[str, Any]) -> dict[str, Any]:
         if sub and sub not in subs:
             subs.append(sub)
     result["matched"] = matched
-    if len(matched) > 1:
-        result.update(scope=MIXED, stop=True, mixed_scopes=list(matched))
+    if len(matched) > 1 or result["overlapping"]:
+        result.update(scope=MIXED, stop=True, mixed_scopes=list(matched), detection="mixed")
     elif matched:
+        result["detection"] = "matched"
         scope = next(iter(matched))
         template = str(labels[scope].get("packageName") or "")
         result["scope"] = scope

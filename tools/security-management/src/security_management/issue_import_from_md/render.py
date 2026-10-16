@@ -145,17 +145,15 @@ def _cell(value: object, width: int | None = None) -> str:
     return text
 
 
-def _issue_link(tracker: str, ref: object) -> str:
-    text = one_line(ref)
-    match = re.fullmatch(r"(?:([A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9._-]+))?#?(\d+)", text)
-    if not match:
-        raise ValueError(f"duplicate reference {text!r} is neither owner/repo#NNN nor a number")
-    repo = match.group(1) or tracker
-    return f"[{repo}#{match.group(2)}](https://github.com/{repo}/issues/{match.group(2)})"
+def _issue_link(tracker: str, ref: object, platform: str = "github") -> str:
+    if isinstance(ref, Mapping):
+        return refs.tracker_link(tracker, ref.get("number", ref.get("id")), ref.get("url"), platform)
+    return refs.tracker_link(tracker, ref, None, platform)
 
 
 def proposal(data: Mapping[str, Any]) -> dict[str, Any]:
     tracker = str(data["tracker"])
+    platform = str(data.get("platform") or "github")
     findings: Sequence[Mapping[str, Any]] = data.get("findings") or []
     n = len(findings)
     lines = [
@@ -166,7 +164,7 @@ def proposal(data: Mapping[str, Any]) -> dict[str, Any]:
     ]
     for f in findings:
         dups = f.get("duplicates") or []
-        dup = ", ".join(_issue_link(tracker, d) for d in dups) or "(none)"
+        dup = ", ".join(_issue_link(tracker, d, platform) for d in dups) or "(none)"
         lines.append(
             f"| {int(f['index'])} | {_cell(f.get('severity'))} | {_cell(f.get('category'))} "
             f"| {_cell(f.get('title'), TITLE_WIDTH)} | {dup} |"
@@ -186,11 +184,11 @@ def proposal(data: Mapping[str, Any]) -> dict[str, Any]:
 
 def recap(data: Mapping[str, Any]) -> dict[str, Any]:
     tracker = str(data["tracker"])
+    platform = str(data.get("platform") or "github")
     lines = [f"Imported from {code(data['basename'])}: {int(data['total_findings'])} findings parsed.", ""]
     lines += ["**Created**", ""]
     lines += [
-        f"- [{tracker}#{int(c['number'])}](https://github.com/{tracker}/issues/{int(c['number'])}) — "
-        f"finding {int(c['index'])}: {_cell(c.get('title'))}"
+        f"- {_issue_link(tracker, c, platform)} — finding {int(c['index'])}: {_cell(c.get('title'))}"
         for c in data.get("created") or []
     ] or ["- none"]
     skipped = data.get("skipped") or []
@@ -211,5 +209,7 @@ def recap(data: Mapping[str, Any]) -> dict[str, Any]:
         "> Next: triage each new tracker per Step 3 of the handling process. "
         f"Run [`security-issue-sync`]({SYNC}) on each once the validity discussion progresses.",
     ]
-    text = refs.linkify("\n".join(lines) + "\n", tracker)
-    return {"text": text, "bare_refs": refs.bare_refs(text)}
+    text = "\n".join(lines) + "\n"
+    if platform == "github":
+        text = refs.linkify(text, tracker)
+    return {"text": text, "bare_refs": refs.bare_refs(text) if platform == "github" else []}

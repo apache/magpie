@@ -20,7 +20,7 @@ Report-derived keywords are attacker-controlled. The agent writes them to a
 file with its Write tool (no shell tokenisation), and this module keeps only
 an allowlist of characters — the equivalent of `tr -cd 'A-Za-z0-9._ -'`, or
 `tr -cd 'A-Za-z0-9._+-'` for an email local-part. On top of `tr` it collapses
-runs of spaces and drops leading `-`, so the cleaned string can never be read
+runs of spaces and drops the whole leading run of spaces and `-` (`-- --help` is `help`), so the cleaned string can never be read
 as a `gh` flag. It reads only from a file: the raw keyword never travels in argv.
 """
 
@@ -38,9 +38,10 @@ ALLOWLISTS: dict[str, re.Pattern[str]] = {
 def clean(raw: str, kind: str = "keywords") -> str:
     if kind not in ALLOWLISTS:
         raise ValueError(f"unknown keyword kind {kind!r}")
-    text = ALLOWLISTS[kind].sub("", raw)
-    text = re.sub(r" +", " ", text).strip()
-    return text.lstrip("-").strip()
+    text = re.sub(r" +", " ", ALLOWLISTS[kind].sub("", raw))
+    text = text.lstrip(" -").rstrip(" ")
+    assert not text.startswith("-")
+    return text
 
 
 def clean_file(path: str | Path, kind: str = "keywords") -> str:

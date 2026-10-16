@@ -70,9 +70,9 @@ Every command prints one JSON object; rendered text is in its `text` field.
 |---|---|
 | `body` | `sanitise`: line breaks normalised (other `splitlines` breaks refused), raw HTML block starts escaped, the fail-closed well-formedness check (fences paired the CommonMark way, every fence-like line an opener or closer; `<details>`, `<!--`), heading demotion outside fences and heading lines escaped inside them, empty fence pairs dropped, every `![` and active HTML tag (`img`, `svg`, `details`, `<!--`, …) defused outside fences. `short_field`: the same for a short field, fence lines escaped. `render`: one `### <heading>` per field role, headings from `tracker.body_fields`, empty fields `_No response_`, `Severity` `Unknown`, the injection callout only when the model sets it. |
 | `rollup` | Entry bodies at column 0, one-line values, the action label refused when it holds `<`, `>` or `·`, and handed back shell-quoted. |
-| `refs` | `bare_refs` / `linkify` for `#NNN` and `owner/repo#NNN` outside code, ported from `pr-management`'s `_BARE_REF`. |
+| `refs` | `bare_refs` / `linkify` for `#NNN` and `owner/repo#NNN` outside code spans (any backtick run), fences, links, autolinks and URLs, ported from `pr-management`'s `_BARE_REF`; `tracker_link` for a GitHub, Jira or local-files reference. |
 | `titles` | `strip_mail_prefixes`, `strip_pr_title`, `md_title`. |
-| `grammar` | `parse_reply`: the confirmation grammar; anything unplaceable goes to `ambiguous_tokens` for the agent to ask back. |
+| `grammar` | `parse_reply`: the confirmation grammar; anything unplaceable goes to `ambiguous_tokens` for the agent to ask back, conflicting dispositions hold their candidate out of every list, unscoped free text holds everything, and a negation confirms nothing. |
 | `keyword` | The `tr -cd` allowlist for search keywords, read from a file, never starting with `-`. |
 | `shell` | `dq` / `w`, a copy of `release-management`'s. |
 
@@ -84,8 +84,8 @@ Every command prints one JSON object; rendered text is in its `text` field.
 |---|---|
 | `governance --config <security-intake-config.md>` | `reporter_acknowledgement_model`, `window_days`, `config_file_found`; `manual` / `90` when the file or the `disclosure_governance` block is absent, a `warnings` entry for a value outside the vocabulary. |
 | `prefilter --threads F` | Per thread: `decision` (`keep` / `drop`), `rule` (1 GHSA relay, 2 CVE-tool bookkeeping, 3 anything else), `class`, `pretag`; `dropped` and `counts`. Every message must match rule 2 to drop; a missing subject or sender keeps; `named_thread_id` is never dropped. |
-| `dedup-queries --thread-ids F` | `batches` of at most six ids, OR'd into `query`; `rejected_ids` that are not plain ids. |
-| `dedup-attribute --thread-ids F --hits F` | `tracked` (id → hits), `untracked`; at 100 hits `truncated`, no `untracked`, and `rerun` batches. |
+| `dedup-queries --thread-ids F [--tracker T]` | `batches` of at most six ids, each a quoted phrase OR'd into `query`, and the shell-quoted `command`; ids are Gmail / PonyMail ids, maildir names or root `Message-ID`s, and any other id exits `2` with `rejected_ids`. |
+| `dedup-attribute --thread-ids F --hits F` | `tracked` (id → hits), `untracked`; at 100 hits `truncated`, no `untracked`, and `rerun` batches; exit `2` with `rejected_ids` as above. |
 | `relay-prescreen --message F --forwarders F` | `invoke_subskill`: false only when no enabled adapter's `sender_pattern` / `preamble_match` (first 400 characters) matches; an unresolved or invalid pattern invokes. |
 | `keyword --file F [--kind keywords\|email-local]` | `cleaned`, `empty`. |
 | `title --input F` | `title`: the subject without its mail prefixes. |
@@ -95,7 +95,7 @@ Every command prints one JSON object; rendered text is in its `text` field.
 | `render-ledger --input F` | The `<!-- rejection v1 -->` record; values on one line, `archive` `unresolved (archive lag)` when not given. |
 | `render-fix-public-reply --input F` | The thank-without-credit reply, `merged on` / `opened on` per PR, one PR or a list. |
 | `ack-decision --input F` | `draft_created`, `draft_auto_ack_tagged`, `suppressed_reason`, `rollup_note`, `rollup_receipt`, `proposal_note`, `route`, `window_days` — the Step 7 item 4 matrix. |
-| `render-recap --state F` | `issues_created`, `drafts_waiting` (a shared draft once), `skipped` (full `owner/repo#NNN`), `cve_tool_bookkeeping_dropped` (pre-filtered included), `text`. |
+| `render-recap --state F` | `issues_created` (`{number, url}` on GitHub, `{id, url}` on Jira and local-files, per `platform`), `drafts_waiting` (a shared draft once), `skipped` (full `owner/repo#NNN`), `cve_tool_bookkeeping_dropped` (pre-filtered included), `text`. |
 | `parse-reply --input F` | `action`, `import_items`, `skip_items`, `reject_with_canned`, `reject_with_public_fix`, `edits`, `overrides`, `keep`, `non_import_confirmed`, `ambiguous_tokens`, `ambiguous_items`. |
 
 ### `issue-import-from-pr`
@@ -103,7 +103,7 @@ Every command prints one JSON object; rendered text is in its `text` field.
 | Command | Prints |
 |---|---|
 | `parse-ref --ref R --upstream U` | `number` from `N`, `owner/repo#N` or the PR URL (trailing path ignored); exit `2` for another repository or free text. |
-| `scope --files F --scope-config F` | `scope` (or `mixed_scope_blocker`), `stop`, `mixed_scopes`, `sub_packages` (also as `affected_providers`), `packages`, `files_counted`, `test_files_stripped` (any `tests/` segment), `unmatched`, `matched`. |
+| `scope --files F --scope-config F` | `scope` (or `mixed_scope_blocker`), `stop`, `detection` (`matched`, `mixed`, `unresolved`, `disabled`), `overlapping`, `mixed_scopes`, `sub_packages` (also as `affected_providers`), `packages`, `files_counted`, `test_files_stripped` (any `tests/` segment), `unmatched`, `matched`. |
 | `milestone-check --input F` | `exists` (exact match only), `near_matches`, `blocker`. |
 | `title --input F` | `title` without conventional-commit prefix, skip-ci markers and trailing `(#N)`; `too_short` under 25 characters. |
 | `render-body --input F` | The body `text`: imported-from note over the sanitised, linked PR body, the mailing-thread sentinel, *PR with the fix*, *Remediation developer* (`_No response_` for a bot, `remediation_developer_is_bot`); `sanitised_fields`, `fields_ok`, `bare_refs`; exit `2` with `malformed_indicator` for a PR body that does not pair. |
