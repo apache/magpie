@@ -66,6 +66,12 @@ class DuplicateFieldError(FieldNotFoundError):
     """Raised when the requested field heading appears more than once outside fences."""
 
 
+class AmbiguousFieldError(FieldNotFoundError):
+    """Raised when readers would disagree on the body's fields: the strict
+    cross-check finds a different field set, or a heading-shaped line naming
+    the requested field sits where it may or may not be the field."""
+
+
 # A CommonMark line: content plus its ending (`\n`, `\r\n` or `\r`), or a last unterminated line.
 _LINE = re.compile(r"[^\r\n]*(?:\r\n|\r|\n)|[^\r\n]+\Z")
 # A fence line: up to three spaces, a run of 3+ backticks or tildes, the rest (info string or nothing).
@@ -78,10 +84,10 @@ _CLOSING = re.compile(r"(?:^|[ \t]+)#+$")
 _ANY_HEADING = re.compile(r"^([ \t]*)(?=#{1,6}(?:[ \t]|$))")
 # The strict field heading: `### ` at column 0 and a name.
 _STRICT_H3 = re.compile(r"^### \S")
-# A level-3 heading behind any run of block-quote or list markers and whitespace.
-_NESTED_H3 = re.compile(
-    r"^(?:[ \t]*(?:>[ \t]?|[-*+][ \t]+|\d{1,9}[.)][ \t]+))*[ \t]*###(?:[ \t]+(.*?))?[ \t]*$"
-)
+# One list marker at the start of a (whitespace-stripped) line: a bullet or an ordered marker, then space/tab.
+_LIST_MARKER = re.compile(r"(?:[-*+]|\d{1,9}[.)])[ \t]")
+# How many block-quote / list markers `_nested_heading_name` strips before giving up.
+_MAX_MARKERS = 64
 
 
 def split_lines(body: str) -> list[str]:
@@ -173,11 +179,27 @@ def field_names(lines: list[str], roles: list[str] | None = None) -> list[str | 
 
 
 def _nested_heading_name(line: str) -> str | None:
-    """The name of a level-3 heading behind block-quote / list markers or indent, else None."""
-    match = _NESTED_H3.match(_content(line))
-    if match is None:
+    """The name of a level-3 heading behind block-quote / list markers or indent, else None.
+
+    Strips leading whitespace, then one marker at a time (``>``, a bullet or
+    an ordered marker followed by a space or tab) with the whitespace after
+    it, at most ``_MAX_MARKERS`` times; linear in the line length.
+    """
+    rest = _content(line)
+    if "###" not in rest:
         return None
-    text = (match.group(1) or "").strip(" \t")
+    rest = rest.lstrip(" \t")
+    for _ in range(_MAX_MARKERS):
+        if rest.startswith(">"):
+            rest = rest[1:].lstrip(" \t")
+            continue
+        marker = _LIST_MARKER.match(rest)
+        if marker is None:
+            break
+        rest = rest[marker.end() :].lstrip(" \t")
+    if not rest.startswith("###") or rest[3:4] not in ("", " ", "\t"):
+        return None
+    text = rest[3:].strip(" \t")
     return _CLOSING.sub("", text).strip(" \t")
 
 
@@ -454,6 +476,25 @@ def _strip_spacer_blanks(body_lines: list[str]) -> tuple[bool, list[str], bool]:
     return had_leading, lines, had_trailing
 
 
+def _refuse_ambiguous(body: str, field_name: str) -> None:
+    """Raise :class:`AmbiguousFieldError` when readers could disagree on ``field_name``.
+
+    Run by every read and write, so no caller can skip it: the strict
+    cross-check must find the same field set, and no heading-shaped line
+    naming ``field_name`` may sit where it may or may not be the field.
+    """
+    disputes = [d for d in normalise(body, [field_name]).needs_decision if d["kind"] == "container-heading"]
+    if disputes:
+        where = "; ".join(
+            f"{d['field']!r} at line(s) {', '.join(str(n) for n in d['lines'])}"  # type: ignore[attr-defined]
+            for d in disputes
+        )
+        raise AmbiguousFieldError(
+            f"field {field_name!r}: markdown readers could disagree on this body's fields ({where}); "
+            "refusing to guess"
+        )
+
+
 def _matching(sections: list[_Section], field_name: str) -> list[int]:
     indices = [i for i, s in enumerate(sections) if s.name == field_name]
     if not indices:
@@ -472,8 +513,10 @@ def extract_field(body: str, field: str) -> str:
     blank lines are preserved.
 
     Raises :class:`FieldNotFoundError` if the heading does not exist,
-    :class:`DuplicateFieldError` (a subclass) if it appears more than once.
+    :class:`DuplicateFieldError` (a subclass) if it appears more than once,
+    :class:`AmbiguousFieldError` (a subclass) if readers could disagree on it.
     """
+    _refuse_ambiguous(body, field)
     _, sections = _parse(body)
     index = _matching(sections, field)[0]
     _, stripped, _ = _strip_spacer_blanks(sections[index].body_lines)
@@ -498,8 +541,10 @@ def replace_field(body: str, field: str, new_value: str) -> str:
     value they pass.
 
     Raises :class:`FieldNotFoundError` if the heading does not exist,
-    :class:`DuplicateFieldError` (a subclass) if it appears more than once.
+    :class:`DuplicateFieldError` (a subclass) if it appears more than once,
+    :class:`AmbiguousFieldError` (a subclass) if readers could disagree on it.
     """
+    _refuse_ambiguous(body, field)
     preamble, sections = _parse(body)
     target_idx = _matching(sections, field)[0]
     target = sections[target_idx]

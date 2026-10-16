@@ -16,6 +16,7 @@
 # under the License.
 from github_body_field.cli import main
 from github_body_field.parser import (
+    AmbiguousFieldError,
     DuplicateFieldError,
     FieldNotFoundError,
     NormaliseResult,
@@ -27,6 +28,7 @@ from github_body_field.parser import (
 )
 
 __all__ = [
+    "AmbiguousFieldError",
     "DuplicateFieldError",
     "FieldNotFoundError",
     "NormaliseResult",

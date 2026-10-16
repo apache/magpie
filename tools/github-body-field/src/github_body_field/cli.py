@@ -32,6 +32,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from github_body_field.parser import (
+    AmbiguousFieldError,
     FieldNotFoundError,
     extract_field,
     list_fields,
@@ -87,6 +88,9 @@ def _cmd_get(args: argparse.Namespace) -> int:
     body = _gh_get_body(args.issue, args.repo)
     try:
         value = extract_field(body, args.field)
+    except AmbiguousFieldError as exc:
+        sys.stderr.write(f"{exc}\n")
+        return 2
     except FieldNotFoundError as exc:
         sys.stderr.write(f"{exc}\n")
         return 3
@@ -113,6 +117,9 @@ def _cmd_set(args: argparse.Namespace) -> int:
     body = _gh_get_body(args.issue, args.repo)
     try:
         new_body = replace_field(body, args.field, new_value)
+    except AmbiguousFieldError as exc:
+        sys.stderr.write(f"{exc}\n")
+        return 2
     except FieldNotFoundError as exc:
         sys.stderr.write(f"{exc}\n")
         return 3
