@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:1f327e069312dad2
 license: Apache-2.0
-measured_tokens: 5983
+measured_tokens: 5981
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -220,10 +220,10 @@ This is an imperative of the setup, so every gap is a must-fix, reported beside 
 Resolve `$HOME` and read every scope (user, project, project-local, managed where readable).
 Report as a must-fix:
 
-- a missing `vetted-op-read` allow form: each launcher (`uvx --from`, `uv run --project`) with each base (`~/.claude/magpie/vetted-ops` and the resolved `$HOME/.claude/magpie/vetted-ops`), four rules;
-- an allowed form without its matching `sandbox.excludedCommands` entry (the absolute pair in the same per-machine file as its allow rules), since such a call runs sandboxed and its `gh` fails silently;
-- the absolute pair in the committed project settings rather than user scope or `settings.local.json`;
-- any `permissions.ask` rule that matches a `vetted-op-read` command in any of the four forms, broad rules such as `Bash(uvx *)` included, since an ask rule prompts even when an allow rule matches;
+- a missing `vetted-op-read` allow rule: each launcher (`uvx --from`, `uv run --project`) with the literal `~/.claude/magpie/vetted-ops` base, two rules;
+- an allowed form without its matching `sandbox.excludedCommands` entry, since such a call runs sandboxed and its `gh` fails silently;
+- a leftover allow rule or exclusion spelled with the resolved `$HOME/.claude/magpie/vetted-ops` base, which the agent-guard `vetted-ops-spelling` guard now refuses anyway (propose removing it);
+- any `permissions.ask` rule that matches a `vetted-op-read` command in either launcher form, broad rules such as `Bash(uvx *)` included, since an ask rule prompts even when an allow rule matches;
 - `permissions.blockReadsOutsideWorkingDirectories` on in any scope, under which every call prompts because the check cannot resolve the literal `~`;
 - a missing vetted-ops `Edit` deny rule (the second check), since those rules are what make the unprompted read safe.
 

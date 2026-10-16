@@ -211,7 +211,7 @@ before the PR is created, through one shared block.
   command without opening a PR.
 - **Standalone resolution.** Like `tools/vetted-ops`, the project declares no
   workspace `dev` group, because it runs as
-  `uvx --from <plugin>/tools/adversarial-review adversarial-review …`, where
+  `uvx --from ~/.claude/magpie/adversarial-review adversarial-review …`, where
   the workspace root does not exist.
 
 ## Out of scope

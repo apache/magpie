@@ -928,15 +928,13 @@ A bulk sync over a few dozen trackers then returns patchy results that cannot be
 In the foreground the same gap is one prompt per read per tracker, which trains the operator to approve without reading.
 
 **The required shape.**
-It has a shared half and a per-machine half.
-The `~` allow pair, the `~` exclusions and the three deny rules may live in the committed project `.claude/settings.json` (as in the framework's own) or in user scope `~/.claude/settings.json`; sandbox-lint checks the project file whenever it names a dispatcher.
-The absolute-`$HOME` forms, both the allow rules and the matching exclusions, are per machine: they go in user scope, or in each worktree's project-local `.claude/settings.local.json` when the user-scope file is [synced across machines](#syncing-user-scope-config-across-machines) whose home directories differ.
-They never go in a committed file.
+The allow pair, the exclusions and the three deny rules may live in the committed project `.claude/settings.json` (as in the framework's own) or in user scope `~/.claude/settings.json`; sandbox-lint checks the project file whenever it names a dispatcher.
+Every rule spells the base as the literal `~/.claude/magpie/vetted-ops`, the only spelling the skills and agents use.
+An expanded spelling (`/home/<you>/…`, `$HOME/…`) or a checkout path (`tools/vetted-ops`) is refused by the agent-guard [`vetted-ops-spelling`](../../tools/agent-guard/README.md#guards) guard, which names the `~` command to run instead, so no per-machine absolute rule is needed.
+Codex is the exception that proves the rule: its execpolicy cannot match `~`, so its own hook rewrites a lone read to the absolute path on the fly (see [Codex native rules](../../tools/vetted-ops/README.md#codex-native-rules)).
 
-1. `permissions.allow` carries `vetted-op-read` in every form the skills and agents spell it: both launchers (`uvx --from` and `uv run --project`), each with both bases (the literal `~/.claude/magpie/vetted-ops` and the resolved absolute `$HOME/.claude/magpie/vetted-ops`).
-   The framework's dogfooded settings carry the two `~` forms only, because the absolute path is per user.
-   `setup-isolated-setup-install` adds the two absolute forms on each machine.
-2. No `permissions.ask` rule, in any scope, matches a `vetted-op-read` command in any of the four forms; a broad rule such as `Bash(uvx *)` counts.
+1. `permissions.allow` carries `vetted-op-read` for both launchers (`uvx --from` and `uv run --project`) with the literal `~/.claude/magpie/vetted-ops` base.
+2. No `permissions.ask` rule, in any scope, matches a `vetted-op-read` command in either launcher form; a broad rule such as `Bash(uvx *)` counts.
    Claude Code evaluates deny, then ask, then allow, and a matching ask rule prompts even when an allow rule also matches.
 3. `permissions.blockReadsOutsideWorkingDirectories` is `false` or absent, in every scope.
    With it on, every call prompts (*"uvx names '~/.claude/magpie/vetted-ops', which cannot be checked against the read block"*): the read check cannot resolve the literal `~` that the commands spell, and the skills and agents spell it that way because the `~` exclusions are written that way.
@@ -950,11 +948,11 @@ They never go in a committed file.
    They are what makes an unprompted read safe to allow: the `allow` rests on the catalogue's shape, so the agent that calls the dispatcher must not be able to edit it.
    A missing rule is a must-fix.
 5. `sandbox.excludedCommands` keeps the `vetted-op-read` and `vetted-op-tracker` exclusions in both `~` launcher forms, as in [the framework's own settings](#the-frameworks-own-claudesettingsjson).
-   Every allowed `vetted-op-read` form also needs its exclusion, so the two absolute-base allow rules come with two absolute-base `vetted-op-read` exclusions in the same per-machine file.
-   Without them, a call spelled with the absolute path is approved without a prompt but runs inside the sandbox, where its `gh` cannot verify TLS: a silent failure again.
+   Without them, an allowed call runs inside the sandbox, where its `gh` cannot verify TLS: a silent failure again.
+6. The agent-guard plugin is installed, so the `vetted-ops-spelling` guard turns an expanded spelling into a refusal instead of a sandboxed call that fails silently.
 
 ```jsonc
-// shared: committed project .claude/settings.json, or user scope
+// committed project .claude/settings.json, or user scope
 "sandbox": {
   "excludedCommands": [
     "uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *",
@@ -974,20 +972,6 @@ They never go in a committed file.
   ]
   // and: no ask rule matching vetted-op-read,
   // no "blockReadsOutsideWorkingDirectories": true in any scope
-}
-
-// per machine ($HOME resolved): user scope, or settings.local.json
-"sandbox": {
-  "excludedCommands": [
-    "uvx --from /home/alice/.claude/magpie/vetted-ops vetted-op-read *",
-    "uv run --project /home/alice/.claude/magpie/vetted-ops vetted-op-read *"
-  ]
-},
-"permissions": {
-  "allow": [
-    "Bash(uvx --from /home/alice/.claude/magpie/vetted-ops vetted-op-read *)",
-    "Bash(uv run --project /home/alice/.claude/magpie/vetted-ops vetted-op-read *)"
-  ]
 }
 ```
 
@@ -3234,10 +3218,10 @@ Then walk through:
    make prompts, and a bulk sync prompts hundreds of times. Copy
    only read-only entries; never add a write rule to `allow`.
    Then apply [Read-only vetted ops never prompt](#read-only-vetted-ops-never-prompt):
-   add the two `vetted-op-read` allow rules and the two matching
-   `sandbox.excludedCommands` entries with my resolved absolute
-   `$HOME` base (user scope, or `settings.local.json` if my user
-   settings are synced), confirm no `ask` rule matches a
+   confirm the two `vetted-op-read` allow rules and the matching
+   `sandbox.excludedCommands` entries use the literal
+   `~/.claude/magpie/vetted-ops` base (propose removing any copy
+   spelled with my resolved `$HOME`), confirm no `ask` rule matches a
    `vetted-op-read` command and `blockReadsOutsideWorkingDirectories` is not on in any
    scope, and that the three vetted-ops `Edit` deny rules are
    present. Propose each edit; do not write it on your own. If a project
@@ -3551,10 +3535,9 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
 16. **Read-only vetted ops never prompt**, if the repo uses the
     vetted-ops dispatcher (n/a otherwise). Every item is ✗ when it
     fails: `permissions.allow` has `vetted-op-read` for both
-    launchers (`uvx --from`, `uv run --project`) with both bases
-    (`~/.claude/magpie/vetted-ops` and my resolved absolute
-    `$HOME/.claude/magpie/vetted-ops`); `sandbox.excludedCommands`
-    has a `vetted-op-read` entry for each of those four forms too;
+    launchers (`uvx --from`, `uv run --project`) with the literal
+    `~/.claude/magpie/vetted-ops` base; `sandbox.excludedCommands`
+    has a `vetted-op-read` entry for each of those two forms too;
     no `permissions.ask` rule in any scope matches a
     `vetted-op-read` command (broad rules such as `Bash(uvx *)`
     count);

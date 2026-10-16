@@ -71,7 +71,7 @@ so every wired harness enforces an identical rule set from one source of truth:
 It is **stdlib-only** and is invoked directly as
 `python3 <path>/agent_guard/__init__.py` (never via `uv run`) so it returns in a
 few milliseconds for any command that is not a guarded `gh` / `git commit` /
-`git push`.
+`git push` or a `uv` / `uvx` dispatcher launch.
 
 ## Prerequisites
 
@@ -111,13 +111,14 @@ within its rights, and a guard has nothing to say about a command reading
 
 ## Guards
 
-**Bundled** (shipped with the engine — universal `git` hygiene, on for every
-project):
+**Bundled** (shipped with the engine — universal `git` hygiene and the
+dispatcher spelling, on for every project):
 
 | Guard | Blocks | Rule it enforces |
 |---|---|---|
 | `commit-trailer` | `git commit` whose message contains `Co-Authored-By:`, unless the repository's [commit-attribution convention](../../docs/setup/commit-attribution.md) is `co-authored-by` | AGENTS.md: agents use the project's attribution trailer (default `Generated-by:`), not co-authorship |
 | `empty-rebase` | `git push --force[-with-lease]` of a branch with 0 commits over its base | an empty push to a PR head auto-closes it + revokes write |
+| `vetted-ops-spelling` | `uv run --project` / `uvx --from` launching `vetted-op`, `vetted-op-read`, `vetted-op-tracker` or `adversarial-review` from anything but the literal `~/.claude/magpie/<tool>` — an expanded home path, `$HOME/…`, or a checkout path such as `tools/vetted-ops` | AGENTS.md golden rule: the sandbox exclusions and permission rules name only the `~` spelling. Under Codex, the absolute stable path its own [rewrite hook](../vetted-ops/hooks/codex-expand-stable-path.py) produces is let through |
 
 **Skill-owned** (each lives in its skill's `guards/` dir, discovered the same
 way — see [Contributing guards](#contributing-guards)):
@@ -142,6 +143,7 @@ MAGPIE_ALLOW_COAUTHOR=1     git commit -m "…"            # not for AI co-autho
 MAGPIE_ALLOW_MARK_READY=1   gh pr edit 123 --add-label "ready for maintainer review"
 MAGPIE_ALLOW_SECURITY_LANG=1 gh pr create --title "…"    # disclosure already public
 MAGPIE_ALLOW_EMPTY_PUSH=1   git push --force …
+MAGPIE_ALLOW_VETTED_PATH=1  uv run --project tools/vetted-ops vetted-op-read …  # developing the dispatcher
 MAGPIE_GUARD_OFF=1          <any command>                # disable all guards once
 ```
 

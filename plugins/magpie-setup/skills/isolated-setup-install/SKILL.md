@@ -17,7 +17,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:8a931772d33ac93f
 license: Apache-2.0
-measured_tokens: 6934
+measured_tokens: 6894
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -344,17 +344,16 @@ Resolve `$HOME`, read every settings scope (user, project, project-local,
 and managed where readable), and propose the exact edit for each gap. The
 operator applies it; never write a settings file on your own.
 
-1. **Allow every form.** `Bash(<launcher> <base> vetted-op-read *)` MUST be
-   allowed for each launcher in {`uvx --from`, `uv run --project`} and each
-   base in {`~/.claude/magpie/vetted-ops`, `<resolved $HOME>/.claude/magpie/vetted-ops`}:
-   four rules. The `~` pair may live in the committed project
-   `.claude/settings.json` (as in the framework's own) or in user scope.
-   The absolute pair is per machine: propose it for user scope
-   `~/.claude/settings.json`, or for each worktree's
-   `.claude/settings.local.json` when the user-scope file is synced across
-   machines whose home directories differ. Never in the committed file.
+1. **Allow both launchers.** `Bash(<launcher> ~/.claude/magpie/vetted-ops vetted-op-read *)`
+   MUST be allowed for each launcher in {`uvx --from`, `uv run --project`}:
+   two rules, in the committed project `.claude/settings.json` (as in the
+   framework's own) or in user scope. The literal `~` is the only spelling:
+   the agent-guard `vetted-ops-spelling` guard refuses an expanded home path,
+   so no absolute-path rule is needed. If an earlier run left
+   `<resolved $HOME>/.claude/magpie/vetted-ops` allow rules or exclusions,
+   propose removing them.
 2. **No ask rule.** Propose removing every `permissions.ask` rule, in any
-   scope, that matches a `vetted-op-read` command in any of the four forms —
+   scope, that matches a `vetted-op-read` command in either launcher form —
    a broad rule such as `Bash(uvx *)` counts. An ask rule prompts even when
    an allow rule matches.
 3. **Read block off.** If `permissions.blockReadsOutsideWorkingDirectories`
@@ -369,14 +368,13 @@ operator applies it; never write a settings file on your own.
 4. **Tamper protection.** The three `Edit` deny rules above MUST be present,
    in the project settings or in user scope; propose any that is missing.
    They are what makes the unprompted read safe.
-5. **Exclusions for every allowed form.** `sandbox.excludedCommands` keeps
+5. **Exclusions for both launchers.** `sandbox.excludedCommands` keeps
    the `vetted-op-read` and `vetted-op-tracker` entries in both `~`
-   launcher forms, and MUST also carry the two absolute-base
-   `vetted-op-read` entries (`<launcher> <resolved $HOME>/.claude/magpie/vetted-ops vetted-op-read *`),
-   in the same per-machine file as the absolute allow pair. Without them
-   a call spelled with the absolute path is approved silently but runs
-   inside the sandbox, where its `gh` cannot verify TLS: a silent failure
-   again.
+   launcher forms. Without them an allowed call runs inside the sandbox,
+   where its `gh` cannot verify TLS: a silent failure again.
+6. **The spelling guard.** The agent-guard plugin MUST be installed, so its
+   `vetted-ops-spelling` guard turns an expanded spelling into a refusal that
+   names the `~` command, instead of a sandboxed call that fails silently.
 
 This covers the read dispatcher only. `vetted-op-tracker` and `vetted-op`
 stay in `ask`, never in `allow`, and `vetted-op` is never excluded.

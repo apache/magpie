@@ -99,15 +99,16 @@ FORBIDDEN_ALLOW_WRITE = {
 # Read-only vetted ops must never prompt: bulk skills call the read
 # dispatcher from background gatherer agents, which cannot surface a prompt,
 # so a prompt there is a silent denial. These invariants apply whenever the
-# settings carry any vetted-op rule. Only the `~` base is required here; the
-# absolute-$HOME forms are per machine and the setup skills add them.
+# settings carry any vetted-op rule. The `~` base is the only spelling the
+# skills use, and the agent-guard `vetted-ops-spelling` guard refuses others.
 VETTED_OPS_BASE = "~/.claude/magpie/vetted-ops"
 VETTED_OP_READ_LAUNCHERS = ("uv run --project", "uvx --from")
 REQUIRED_VETTED_OP_READ_ALLOW = tuple(
     f"Bash({launcher} {VETTED_OPS_BASE} vetted-op-read *)" for launcher in VETTED_OP_READ_LAUNCHERS
 )
 # Sample read commands an ask rule is matched against, for both launchers and
-# both bases (the literal `~` and a resolved absolute home).
+# both bases: the literal `~`, and a resolved absolute home, which an agent
+# without the spelling guard may still produce.
 VETTED_OP_READ_SAMPLE_COMMANDS = tuple(
     f"{launcher} {base} vetted-op-read --caller sandbox-lint pr-view"
     for launcher in VETTED_OP_READ_LAUNCHERS

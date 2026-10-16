@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:ce33cb9437d44992
 license: Apache-2.0
-measured_tokens: 6235
+measured_tokens: 6217
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -198,17 +198,17 @@ Walk each in order:
     Same n/a condition as check 9.
     Resolve `$HOME`, read every scope (user, project, project-local, managed where readable), and report each sub-check ✓ or ✗; there is no ⚠ here.
 
-    - **16a — every allow form.** `permissions.allow` carries `Bash(<launcher> <base> vetted-op-read *)` for both launchers (`uvx --from`, `uv run --project`) and both bases (`~/.claude/magpie/vetted-ops` and the resolved `$HOME/.claude/magpie/vetted-ops`): four rules.
-      The `~` pair may sit in the project settings or in user scope; the absolute pair must sit in user scope or the worktree's `settings.local.json`, and in the committed project settings it is ✗ (per-host path in a shared file).
+    - **16a — both allow rules.** `permissions.allow` carries `Bash(<launcher> ~/.claude/magpie/vetted-ops vetted-op-read *)` for both launchers (`uvx --from`, `uv run --project`): two rules, in the project settings or in user scope.
       Name each missing one.
-    - **16b — no ask rule.** No `permissions.ask` entry in any scope matches a `vetted-op-read` command in any of the four forms; broad rules such as `Bash(uvx *)` count, so match each rule as a pattern rather than searching it for the dispatcher name.
+      A leftover rule spelled with the resolved `$HOME/.claude/magpie/vetted-ops` base is ✗ in the committed project settings (per-host path in a shared file) and otherwise only worth removing: the agent-guard `vetted-ops-spelling` guard refuses that spelling.
+    - **16b — no ask rule.** No `permissions.ask` entry in any scope matches a `vetted-op-read` command in either launcher form; broad rules such as `Bash(uvx *)` count, so match each rule as a pattern rather than searching it for the dispatcher name.
       An ask rule prompts even when an allow rule matches.
       Name the file that carries it.
     - **16c — read block off.** `permissions.blockReadsOutsideWorkingDirectories` is `false` or absent in every scope.
       With it on, every call prompts: the check cannot resolve the literal `~` the commands spell, and neither an `allow` rule nor an `additionalDirectories` entry overrides it.
     - **16d — tamper protection.** All three vetted-ops `Edit` deny rules from check 9 are present.
       This is what makes the unprompted read safe, so a missing one fails here as well as in check 9.
-    - **16e — an exclusion for every allowed form.** `sandbox.excludedCommands` carries `<launcher> <base> vetted-op-read *` for the same four forms as 16a, the absolute pair in the same per-machine file as its allow rules.
+    - **16e — an exclusion for every allowed form.** `sandbox.excludedCommands` carries `<launcher> ~/.claude/magpie/vetted-ops vetted-op-read *` for both launchers of 16a.
       An allowed form without its exclusion is approved without a prompt but runs inside the sandbox, where its `gh` cannot verify TLS: a silent failure, as with a prompt.
 
     [The required shape and why](../../../../docs/setup/secure-agent-setup.md#read-only-vetted-ops-never-prompt).

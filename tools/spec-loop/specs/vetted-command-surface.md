@@ -151,13 +151,18 @@ literally, which the read check cannot resolve, so every call prompts while
 the block is on, whatever the `allow` rules or working directories say.
 Read-only vetted ops must never prompt, because background gatherer agents
 cannot answer a prompt and each one becomes a silent denial. The required
-shape is `vetted-op-read` allowed and excluded for both launchers on both the
-`~` and the resolved absolute `$HOME` base (the absolute forms per machine),
-no `ask` rule matching a `vetted-op-read` command, the read block off in
-every scope, and the three vetted-ops `Edit` deny rules present.
+shape is `vetted-op-read` allowed and excluded for both launchers on the
+literal `~` base only, no `ask` rule matching a `vetted-op-read` command, the
+read block off in every scope, and the three vetted-ops `Edit` deny rules present.
 The install skill applies it (Step V.1), verify checks it (check 16), update
-reports drift as must-fix, and sandbox-lint enforces the `~` half on the
-committed settings. `vetted-op-tracker` and `vetted-op` keep their `ask`.
+reports drift as must-fix, and sandbox-lint enforces it on the committed
+settings. `vetted-op-tracker` and `vetted-op` keep their `ask`.
+Every call spells the base `~/.claude/magpie/<tool>` (AGENTS.md golden rule):
+the agent-guard `vetted-ops-spelling` guard refuses an expanded home path,
+`$HOME/…` or a relative checkout path for `vetted-op`, `vetted-op-read`,
+`vetted-op-tracker` and `adversarial-review`, and names the `~` command.
+Under Codex it lets through the absolute stable path that Codex's own hook
+substitutes for `~` on a lone read, since Codex execpolicy cannot match `~`.
 
 ## Scoping — what is real and what is aspiration
 

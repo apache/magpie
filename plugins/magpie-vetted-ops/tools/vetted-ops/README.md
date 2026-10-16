@@ -632,8 +632,9 @@ root.
 
 **The read dispatcher must never prompt.**
 This is an imperative of the secure setup, not a tuning option: bulk skills call `vetted-op-read` from background gatherer agents, which cannot surface a prompt, so every prompt there is a silent denial and the sync returns partial results.
-Beyond the rules above, that takes the same two `allow` rules and the same two `vetted-op-read` exclusions with the resolved absolute `$HOME/.claude/magpie/vetted-ops` base (per machine: user scope or `settings.local.json`), no `ask` rule that matches a `vetted-op-read` command, and `permissions.blockReadsOutsideWorkingDirectories` off in every scope, since the read block cannot check the literal `~` these commands spell.
+Beyond the rules above, that takes no `ask` rule that matches a `vetted-op-read` command, and `permissions.blockReadsOutsideWorkingDirectories` off in every scope, since the read block cannot check the literal `~` these commands spell.
 The three `Edit` deny rules are required alongside: they are what makes the unprompted read safe.
+Every rule spells the base as the literal `~/.claude/magpie/vetted-ops`, and so must every call: the agent-guard [`vetted-ops-spelling`](https://github.com/apache/magpie/blob/main/tools/agent-guard/README.md#guards) guard refuses an expanded home path or a checkout path and names the `~` command instead.
 The setup skills install, verify and report drift on the whole shape; see [Read-only vetted ops never prompt](https://github.com/apache/magpie/blob/main/docs/setup/secure-agent-setup.md#read-only-vetted-ops-never-prompt).
 
 The dispatcher must live where the agent cannot rewrite it — otherwise an agent
