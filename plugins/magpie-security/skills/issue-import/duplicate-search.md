@@ -51,18 +51,18 @@ Step 3 (root message and the last-5-messages converged-disposition check) and St
 
    Then:
    ```bash
-   tr -cd 'A-Za-z0-9._ -' < <scratch>/kw-<threadId>.txt > <scratch>/kw-<threadId>.clean.txt
+   uv run --project <framework>/tools/security-management security-management issue-import keyword --file <scratch>/kw-<threadId>.txt
    ```
 
-   Read `<scratch>/kw-<threadId>.clean.txt`, then search with its content single-quoted:
+   Search with its `cleaned` value single-quoted (an `empty` result means no keyword search):
 
    ```bash
    gh search issues '<cleaned keywords>' --repo <tracker> \
      --state open --match title,body
    ```
 
-   The Write tool puts the raw bytes on disk without shell tokenisation, and `tr -cd` leaves only letters, digits, `.`, `_`, space and `-`,
-   so the cleaned string is safe inside single quotes.
+   The Write tool puts the raw bytes on disk without shell tokenisation, and the tool leaves only letters, digits, `.`, `_`, space and `-`
+   (the `tr -cd 'A-Za-z0-9._ -'` allowlist), never a leading `-`, so the cleaned string is safe inside single quotes.
    Run the two commands separately and keep the `gh` call plain: a `gh` inside `$(…)`, a pipe, or a command that also sets a variable stays sandboxed under the secure setup and fails.
    Never paste the raw keywords, and never `printf '%s' "<raw keywords>"`: the double-quoted argument expands `$(...)` before `printf` runs.
 
@@ -121,7 +121,7 @@ Step 3 (root message and the last-5-messages converged-disposition check) and St
    ```
 
    (Use only the local-part of the address — everything before `@` — to catch minor address variations.
-   It is attacker-controlled: write it to a temp file and strip with `tr -cd 'A-Za-z0-9._+-'` before using it in the shell argument.)
+   It is attacker-controlled: write it to a temp file and clean it with the same `keyword` command, `--kind email-local` (`A-Za-z0-9._+-`), before using it in the shell argument.)
 
    A reporter-identity hit where the existing tracker describes a plausibly related issue (same component or bug class)
    → **MEDIUM** semantic match, even if the axis overlap is only one.
