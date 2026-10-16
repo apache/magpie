@@ -460,7 +460,7 @@ def test_packaged_readme_links_stay_portable(tmp_path, monkeypatch):
     text = mod.packaged_file_bytes(src, copies).decode()
     assert "](src/file.py)" in text
     assert '](https://github.com/apache/magpie/blob/main/docs/file.md#anchor "title")' in text
-    assert "https://example.com" in text
+    assert "[web](https://example.com)" in text
     assert "](#part)" in text
     assert "](../../../outside.md)" in text
     assert "](../../unchanged.md)" in text

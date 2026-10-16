@@ -70,6 +70,14 @@ jobs:
           # warrants `security-extended`; the default
           # `security-and-quality` suite is sufficient for both.
           queries: security-and-quality
+          # `plugins/*/tools/` holds generated copies of `tools/*` packaged into
+          # the plugins (the `copies` maps in tools/dev/check-family-plugins.py,
+          # which also verifies them byte-for-byte). The sources are scanned;
+          # scanning the copies only re-raises every source alert at a second
+          # path, including ones already triaged there.
+          config: |
+            paths-ignore:
+              - plugins/*/tools/**
 
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2  # v4.38.2
