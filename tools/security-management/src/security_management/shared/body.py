@@ -33,9 +33,13 @@ deterministically first:
   line inside a block) the two readers would disagree about what is code,
   so `sanitise` returns `ok: False` with an `indicator` and the caller
   refuses to render. Unbalanced `<details>` / `<!--` fail the same way.
+- **No raw HTML blocks.** A line whose first non-space character is `<` then
+  a letter, `/`, `!` or `?` would open an HTML block, which GitHub renders
+  through fences; its `<` becomes `&lt;` everywhere, fenced lines included.
 - **Demote headings.** A `#`, `##` or `###` heading outside a fence becomes
   `####`, so a reporter's `### Severity` can never pose as a form section.
-  Lines inside a fence are code and stay untouched.
+  Inside a fence, a heading line of any level is escaped (`\\### Severity`):
+  it still reads as code, and no field parser, fence-aware or not, can match it.
 - **Drop empty fence pairs.** A bare fence opener followed only by blank lines
   and a bare closer renders an empty code block; it is removed. A fence that
   wraps content is never touched.
@@ -101,6 +105,10 @@ _ACTIVE_HTML = re.compile(
 # Characters other than \n that str.splitlines (and so github-body-field) treats as line breaks.
 _OTHER_LINE_BREAKS = re.compile("[\x0b\x0c\x1c\x1d\x1e\x85\u2028\u2029]")
 _ENTITY = {"`": "&#96;", "~": "&#126;"}
+# A raw HTML block start: first non-space character `<` then a letter, `/`, `!` or `?`.
+_HTML_BLOCK = re.compile(r"^(\s*)<(?=[A-Za-z/!?])")
+# A heading line, at any level: inside a fence it is escaped so no reader takes it for a field.
+_ANY_HEADING = re.compile(r"^(\s*)(?=#{1,6}(?:[ \t]|$))")
 
 
 def is_fence(line: str) -> bool:
@@ -177,6 +185,20 @@ def defuse(line: str) -> str:
     return _defuse_text(line)
 
 
+def escape_html_block(line: str) -> str:
+    """`line` with the `<` that would start a raw HTML block as `&lt;`.
+
+    An HTML block swallows what follows it up to a blank line, fence lines
+    included, so GitHub and this sanitiser would disagree about what is code.
+    """
+    return _HTML_BLOCK.sub(lambda m: m.group(1) + "&lt;", line, count=1)
+
+
+def escape_heading(line: str) -> str:
+    """`line` with a leading `#` heading marker escaped (`\\### x`), for lines inside a fence."""
+    return _ANY_HEADING.sub(lambda m: m.group(1) + "\\", line, count=1)
+
+
 def demote(line: str) -> str:
     """`line` with a `#` to `###` heading marker raised to `####`."""
     return _HEADING.sub(lambda m: m.group(1) + "####", line, count=1)
@@ -214,7 +236,7 @@ def sanitise(body: str) -> dict[str, Any]:
     indicator = check(text)
     if indicator is not None:
         return {"ok": False, "indicator": indicator, "text": body}
-    original = text.split("\n")
+    original = [escape_html_block(line) for line in text.split("\n")]
     first = fence_mask(original)
     assert first is not None  # check() passed
     lines = _drop_empty_fence_pairs(original, first)
@@ -227,7 +249,7 @@ def sanitise(body: str) -> dict[str, Any]:
             in_fence = not in_fence
             out.append(line)
             continue
-        out.append(line if in_fence else defuse(demote(line)))
+        out.append(escape_heading(line) if in_fence else defuse(demote(line)))
     return {"ok": True, "indicator": None, "text": "\n".join(out)}
 
 
@@ -235,7 +257,7 @@ def _short_line(line: str) -> str:
     if is_fence(line):
         stripped = line.lstrip()
         line = line[: len(line) - len(stripped)] + _ENTITY[stripped[0]] + stripped[1:]
-    return defuse(demote(line))
+    return defuse(demote(escape_html_block(line)))
 
 
 def short_field(value: str) -> str:
