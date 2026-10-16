@@ -66,8 +66,9 @@ publication, with a human gate and an audit-log entry at every step.
   disclosure-governance defaults, the Step 1 pre-filter, the Step 2
   `threadId` batches and their attribution, the Step 3 forwarder
   pre-screen, the Step 6 reply grammar and the Step 7 receipt-draft
-  matrix, and renders the sanitised tracker body (`_No response_` for
-  empty fields, headings from `tracker.body_fields`), the rollup entry,
+  matrix, and renders the tracker body (the report as an inert fenced
+  block, `_No response_` for empty fields, headings from
+  `tracker.body_fields`), the rollup entry,
   the rejections-ledger record, the fix-already-public reply and the
   Step 8 recap. Classification, field extraction, PII identification,
   fuzzy duplicates and canned-response choice stay with the model;
@@ -82,7 +83,7 @@ publication, with a human gate and an audit-log entry at every step.
   For `security-issue-import-from-md` it parses the findings file
   (`not-a-findings-file` on another shape, `UNKNOWN` severity and
   `<upstream>` fallback with warnings), cleans the search keyword, and
-  renders the body (each section sanitised, the Recommended-fix
+  renders the body (each section an inert block, the Recommended-fix
   `<details>`), rollup entry, proposal table and recap; duplicate
   judgement and the credit decision stay with the model.
   For `security-issue-import-via-forwarder` it runs the Step 0 checks,
@@ -137,6 +138,37 @@ publication, with a human gate and an audit-log entry at every step.
   `#NNN` are public-safe identifiers; tracker *contents* are private;
   the security framing of a public PR is embargoed until the advisory
   ships.
+- **Report text is inert in the tracker (#1672).** The importers put
+  reporter-derived long text (the mail body, the PR description, each
+  findings-file section) into the body as one fenced block with info
+  string `text`, its fence one backtick longer than the longest backtick
+  run in the text. Nothing in it renders — no image, HTML, heading, link
+  or mention — and its content is byte-exact except two escapes for
+  readers that ignore fences: a line that would name a template field as
+  a `###` heading, and a line starting with `<!--` (a machine marker),
+  each get a leading `\` and are listed in `escaped_lines`. Short fields
+  stay one-line escaped values. The rendered body must pass
+  github-body-field's normaliser (exactly the template fields once each,
+  nothing to decide) or the render is refused. Reporter formatting
+  therefore shows as plain text.
+- **Field reads and writes fail closed (#1672).** Every body-field reader
+  in the tree — github-body-field and its vetted-ops copy,
+  generate-cve-json, the local-files tracker, the Jira bridge's Markdown
+  path — pairs code fences the CommonMark way. A field heading is
+  `### <name>` at column 0, or a spacing variant after a blank line or a
+  heading; any other heading-shaped line naming a known field is a
+  `container-heading` decision, never taken and never ignored.
+  `extract_field` / `body-field-get` refuse an ambiguous field and
+  `replace_field` / `body-field-set` refuse a rewrite whose span holds a
+  heading-shaped line or that would change another field.
+- **CVE fields come from the team or a confirmed proposal (#1672).** When
+  `generate-cve-json --report-json` lists missing or ambiguous fields,
+  sync, cve-allocate and deduplicate follow
+  `issue-sync/outcomes/cve-json-fallback.md`: the session's own model
+  proposes values (never *Severity*, never the CVE link), the user
+  confirms each, and the rollup records them as AI-proposed; a duplicate
+  is resolved by the user's choice through `body-field normalise --keep`
+  and a confirmed whole-body rewrite.
 - **Reporter PII redacted in-context; reporter *credit* preserved** in
   the CVE `credits[]` only after the reporter confirms on the thread.
 - **Audit log** of every applied change (redacted identifiers only).
@@ -351,6 +383,9 @@ publication, with a human gate and an audit-log entry at every step.
 5. A `sync CVE-…` selector picks only trackers whose *CVE tool link*
    field carries that ID, and the bulk pre-flight never prints a private
    comment body (#1554, #1558).
+6. An imported report renders as one inert block, and every body-field
+   reader in the tree finds exactly the template fields once each in the
+   result, whatever fences or fake `###` lines the report holds (#1672).
 
 ## Validation
 

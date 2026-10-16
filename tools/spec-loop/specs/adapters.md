@@ -73,7 +73,10 @@ by swapping the adapter, not the skill.
   confirmed host and refuses any write when the token was withheld.
 - `tools/github/` — issues/PRs/labels read + write-back helpers.
   Sub-adapters: `tools/github-body-field/` (reads GitHub issue/PR body
-  structured field sets) and `tools/github-rollup/` (`contract:tracker`,
+  structured field sets with CommonMark fence pairing; `normalise`
+  returns the canonical body, its changes and the duplicate /
+  container-heading decisions it will not make, and reads and writes
+  refuse an ambiguous field, #1672) and `tools/github-rollup/` (`contract:tracker`,
   stdlib-only), which maintains the single status-rollup comment on a
   tracker issue in a subprocess so the growing rollup body never enters
   agent context.
