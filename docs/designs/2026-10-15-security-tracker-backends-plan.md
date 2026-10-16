@@ -25,7 +25,7 @@ Per the [designs convention](README.md), this plan is folded into the design and
 | 4 | Local backend: store operations, access guard, folder-per-state moves | `store.py` | Done |
 | 5 | Local backend: Git and SVN `pending` / `publish` scoped to the tracker root | `vcs.py` | Done |
 | 6 | Local backend: CLI, README, tests (incl. real Git and SVN publish) | `cli.py`, `README.md`, `tests/` | Done |
-| 7 | Jira backend: REST client, wiki-markup fields, rollup comment, security-level guard, tests | `tools/jira-security-tracker/` | Done |
+| 7 | Jira backend: REST client, wiki-markup fields, rollup comment, security-level guard, tests | `tools/jira/` | Done |
 | 8 | Skill wiring: shared `tracker-backend` block in the 12 tracker-touching security skills | `tools/dev/blocks/tracker-backend.md`, `plugins/magpie-security/skills/*/SKILL.md` | Done |
 | 9 | Config: `tracker.platform`, `tracker.local.*`, `tracker.jira.*`; framework baseline `platform: github` | `plugins/magpie-setup/templates/project.md`, `organizations/independent/organization.md` | Done |
 | 10 | Setup: Step 3a — choose backend, detect format, confirm access, write descriptor | `plugins/magpie-setup/skills/setup/config.md` | Done |
@@ -41,7 +41,7 @@ Per the [designs convention](README.md), this plan is folded into the design and
 ## Verification
 
 - `uv run --project tools/local-tracker --group dev pytest tools/local-tracker/tests`
-- `uv run --project tools/jira-security-tracker --group dev pytest tools/jira-security-tracker/tests`
+- `uv run --project tools/jira --group dev pytest tools/jira/tests`
 - `uv run --project tools/vetted-ops --group dev pytest tools/vetted-ops/tests`
 - `python3 tools/dev/check-shared-blocks.py`
 - `prek run --all-files`

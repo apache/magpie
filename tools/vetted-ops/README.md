@@ -507,7 +507,7 @@ project  = "/abs/path/to/.apache-magpie/tools/local-tracker"
 root     = "/abs/path/to/the/repo/security/reports"       # the tracker folder
 
 # platform = "jira"
-# project             = "/abs/path/to/.apache-magpie/tools/jira-security-tracker"
+# project             = "/abs/path/to/.apache-magpie/tools/jira"
 # jira_url            = "https://issues.example.org/jira"
 # jira_project        = "FOOSEC"
 # jira_security_level = "Security Team"
@@ -519,7 +519,7 @@ The guarantees above carry over, because the translation lives in reviewed code
 
 - **The program is fixed.** The policy supplies data — the backend's tool
   directory, which must be the `tools/local-tracker` or
-  `tools/jira-security-tracker` directory the platform names, and its pinned
+  `tools/jira` directory the platform names, and its pinned
   target — never a command. The argv is `uv run --project <dir> <script>`
   followed by the target and the translated subcommand.
 - **The target is not addressable.** The tracker folder, or the Jira URL,

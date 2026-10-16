@@ -31,7 +31,7 @@ See [`contract.md`](contract.md) for the operations, outputs, exit codes and bac
 |---|---|
 | `github` (default) | Private GitHub repository — [`tools/github/`](../github/operations.md), unchanged |
 | `local-files` | Markdown files in a private Git or SVN working copy — [`tools/local-tracker/`](../local-tracker/README.md) |
-| `jira` | Jira project with an issue-security level — [`tools/jira-security-tracker/`](../jira-security-tracker/README.md) |
+| `jira` | Jira project with an issue-security level — [`tools/jira/`](../jira/README.md) |
 
 ## Prerequisites
 

@@ -14,7 +14,6 @@ from email.message import Message
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
-
 from jira_bridge import rest as rest_mod
 from jira_bridge.rest import JiraRest, JiraRestConfigError, JiraRestError
 
@@ -213,3 +212,93 @@ def test_a_redirect_never_forwards_the_token():
     finally:
         origin.shutdown()
         target.shutdown()
+
+
+# -- send(): the write path the security tracker uses ----------------------------
+
+
+class _Resp(io.BytesIO):
+    status = 200
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+def _capture():
+    seen: list[urllib.request.Request] = []
+
+    def opener(req):
+        seen.append(req)
+        return _Resp(b'{"key": "FOOSEC-1"}')
+
+    return opener, seen
+
+
+def test_send_writes_with_a_token_confirmed_for_the_host():
+    opener, seen = _capture()
+    rest = JiraRest(
+        BASE,
+        token="pat",
+        token_host="issues.example.org",
+        auth_scheme="Bearer",
+        opener=opener,
+    )
+    status, body = rest.send(
+        "POST",
+        "/rest/api/2/issue",
+        body=b"{}",
+        headers={"Content-Type": "application/json"},
+    )
+    assert (status, json.loads(body)) == (200, {"key": "FOOSEC-1"})
+    assert seen[0].get_method() == "POST"
+    assert seen[0].get_header("Authorization") == "Bearer pat"
+
+
+@pytest.mark.parametrize("host", ["", "evil.example.org"])
+def test_send_refuses_a_write_when_the_token_was_withheld(host):
+    opener, seen = _capture()
+    rest = JiraRest(BASE, token="pat", token_host=host, opener=opener)
+    with pytest.raises(JiraRestError, match="writes need a Jira token confirmed"):
+        rest.send("PUT", "/rest/api/2/issue/FOOSEC-1", body=b"{}")
+    assert seen == []
+    # Reads still go out, anonymously.
+    rest.send("GET", "/rest/api/2/issue/FOOSEC-1")
+    assert seen[0].get_header("Authorization") is None
+
+
+def test_send_returns_http_errors_and_sends_a_write_once():
+    calls = {"n": 0}
+
+    def failing(req):
+        calls["n"] += 1
+        raise urllib.error.HTTPError(
+            BASE, 503, "unavailable", Message(), io.BytesIO(b'{"errorMessages": ["x"]}')
+        )
+
+    rest = JiraRest(
+        BASE,
+        token="pat",
+        token_host="issues.example.org",
+        opener=failing,
+        sleep=lambda s: None,
+    )
+    status, body = rest.send("POST", "/rest/api/2/issue", body=b"{}")
+    assert status == 503 and calls["n"] == 1
+    assert b"errorMessages" in body
+
+
+def test_basic_with_user_encodes_a_raw_token():
+    opener, seen = _capture()
+    rest = JiraRest(
+        BASE, token="raw", token_host="issues.example.org", user="bob", opener=opener
+    )
+    rest.send("GET", "/rest/api/2/myself")
+    import base64
+
+    assert (
+        seen[0].get_header("Authorization")
+        == "Basic " + base64.b64encode(b"bob:raw").decode()
+    )

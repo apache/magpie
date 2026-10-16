@@ -21,6 +21,7 @@
     - [`field <KEY> <field-name> --value <value>` / `--value-json <json>`](#field-key-field-name---value-value----value-json-json)
     - [`attach <KEY> <file>`](#attach-key-file)
   - [People and contributor-activity reads](#people-and-contributor-activity-reads)
+  - [Security tracker (`magpie-jira-tracker`)](#security-tracker-magpie-jira-tracker)
   - [Configuration](#configuration)
   - [Output contract](#output-contract)
   - [Write-path discipline](#write-path-discipline)
@@ -34,7 +35,7 @@
 
 # JIRA bridge
 
-**Capability:** contract:tracker + contract:people
+**Capability:** contract:tracker + contract:people + contract:security-tracker
 
 **Kind:** implementation
 
@@ -46,7 +47,8 @@ tracker bridge; adopters using GitHub Issues or other trackers
 contribute a parallel `tools/<tracker>/` directory.
 
 The bridge provides both **read** and **write** subcommands.
-The read-only contributor-activity queries of `contract:tracker` run in Python, in the `jira` backend of [`tools/contributor-metrics`](../contributor-metrics/README.md#backends), through this package's read-only REST client, `jira_bridge.rest`; the profile lookup of `contract:people` is a single REST read. See [People and contributor-activity reads](#people-and-contributor-activity-reads).
+The read-only contributor-activity queries of `contract:tracker` run in Python, in the `jira` backend of [`tools/contributor-metrics`](../contributor-metrics/README.md#backends), through this package's REST client, `jira_bridge.rest`; the profile lookup of `contract:people` is a single REST read. See [People and contributor-activity reads](#people-and-contributor-activity-reads).
+The same package ships `magpie-jira-tracker`, the private-Jira backend of the [security-tracker contract](../security-tracker/contract.md), whose reads and writes go through that client too — see [Security tracker](#security-tracker-magpie-jira-tracker).
 Write operations require `JIRA_API_TOKEN` and follow the same
 write-path discipline as the GitHub bridge: every mutation is
 gated on explicit user confirmation in the calling skill — the
@@ -54,7 +56,7 @@ bridge only executes confirmed actions.
 
 ## Prerequisites
 
-- **Runtime:** Groovy 4.x+ on `PATH` (`groovy tools/jira/bridge.groovy …`); `@Grab` pulls the HTTP-client dependencies on first run, no separate install step. Python 3.11+ via `uv` is needed only for the pytest test harness.
+- **Runtime:** Groovy 4.x+ on `PATH` (`groovy tools/jira/bridge.groovy …`); `@Grab` pulls the HTTP-client dependencies on first run, no separate install step. Python 3.11+ via `uv` (standard library only) for `jira_bridge.rest`, `magpie-jira-tracker` and the pytest harness.
 - **CLIs:** `groovy` (4.x — the `@Grab` coordinate uses the `org.apache.groovy` group ID); `uv` only to run the tests.
 - **Credentials / auth:** `ISSUE_TRACKER_URL` (required) and `ISSUE_TRACKER_PROJECT` exported by the caller; write subcommands require `JIRA_API_TOKEN` (`JIRA_AUTH_SCHEME` = `Basic` default, or `Bearer` for ASF PATs). Anonymous-read trackers need no auth for read subcommands.
 - **Network:** the configured `<issue-tracker>` JIRA host (e.g. `issues.apache.org/jira`); `@Grab` reaches Maven Central on first run to resolve dependencies.
@@ -67,7 +69,8 @@ tools/jira/
 ├── README.md          (this file)
 ├── bridge.groovy      (Groovy reference implementation)
 ├── pyproject.toml     (Python test harness config)
-├── src/jira_bridge/   (read-only Python REST client, rest.py; test harness package)
+├── src/jira_bridge/   (Python REST client, rest.py; the security tracker,
+│                       security_tracker.py + tracker_client.py + markup.py)
 └── tests/             (pytest test suite)
 ```
 
@@ -267,6 +270,54 @@ The per-person streams are implemented by the `jira` backend of [`tools/contribu
 Jira has no pull requests: authored changes and reviews come from the project's code host through `contract:change-request`.
 Comment bodies are read inside the backend to find pushback candidates and never leave it.
 
+## Security tracker (`magpie-jira-tracker`)
+
+The `jira` backend of the [security-tracker contract](../security-tracker/contract.md): a project's security trackers in a **private Jira project** whose issues carry an issue-security level.
+It exposes the same subcommands and JSON as the [`local-files` backend](../local-tracker/README.md), and skills reach it through vetted operations, never directly
+([mapping](../security-tracker/contract.md#from-skill-commands-to-vetted-operations)).
+
+```bash
+uv run --project <framework>/tools/jira magpie-jira-tracker --url <url> --project <KEY> --security-level <level> <op> [args…]
+```
+
+**Why the level is mandatory.** Jira projects are often browsable by any logged-in user; the issue-security level is what makes a tracker private.
+`create` always sets the configured level and refuses to run without one.
+Before every write on an existing issue (`edit`, `field-set`, `comment`, `close`, `reopen`, `rollup-*`, `attach`) the backend reads the issue's `security` field and refuses with exit `4` when it is empty, before sending any content.
+It never sets a level on an existing issue itself: an issue without one may already have been exposed, and a human decides what to do.
+
+**Credentials are `jira_bridge.rest`'s.** Every request goes through `JiraRest.send`, so the token comes from `JIRA_API_TOKEN` or the token file
+`~/.config/apache-magpie/jira-token`, is bound to a host the user confirmed (`JIRA_API_HOST` or a `host=` line), is sent only to that host over https,
+follows no redirect, and is never printed.
+When the token is withheld — no confirmed host, or a different one — every write is refused (exit `4`) rather than sent anonymously; reads go out anonymously.
+`JIRA_AUTH_SCHEME` (`Basic` default, `Bearer` for Data Center PATs) and `JIRA_USER` (pairs a raw token for `Basic`) work as for the bridge.
+
+| Flag | Environment | `project.md` key | Meaning |
+|---|---|---|---|
+| `--url` | `ISSUE_TRACKER_URL` | `tracker.jira.url` | Jira base URL. |
+| `--project` | `SECURITY_TRACKER_PROJECT` | `tracker.jira.project` | Key of the private project. Deliberately separate from `ISSUE_TRACKER_PROJECT`, which names the public tracker; an ID from another project is a usage error. |
+| `--security-level` | `SECURITY_TRACKER_SECURITY_LEVEL` | `tracker.jira.security_level` | The level `create` sets. Required for `create`. |
+| `--issue-type` | `SECURITY_TRACKER_ISSUE_TYPE` | `tracker.jira.issue_type` | Default `Bug`. |
+| `--jira-cloud` | `JIRA_DEPLOYMENT=cloud` | `tracker.jira.deployment` | Cloud search endpoint (`/search/jql`) and account-ID assignees. |
+
+Under vetted-ops the URL, project and level are pinned by the policy's `[tracker]` table, not by the caller.
+
+| Operation | Jira mapping |
+|---|---|
+| IDs | `FOOSEC-12`, or a bare `12` expanded with the project key. |
+| `view` | `closed` when resolved or the status category is *Done*; `milestone` is the first fix version; adds `security_level` and `warnings` (one when the issue has no level). |
+| `list` | JQL `project = KEY`, resolution filter, one `labels = "L"` per label, `text ~ "…"` for `--search`, newest first. |
+| `labels` | Distinct labels across the project (at most 5000 issues scanned). |
+| `create` / `edit` | `summary`, `description`, `labels`, `issuetype`, `security`; labels via `update.labels`, milestone via `fixVersions`, one assignee. |
+| `comment` | `--author` is echoed but Jira records the authenticated user. |
+| `close` / `reopen` | A transition into (or out of) the *Done* category; `close` sets `Fixed` or `Won't Fix` and retries without a resolution when the screen rejects one. |
+| `attach` | Multipart upload; `--name` reduced to a base name. |
+| `pending` / `publish` | No-ops: Jira writes are immediate. |
+| `doctor` | URL, project, confirmed token, configured level, `/myself`, project reachability, and whether the level exists (403/404 on the listing reports *unverified*). |
+
+**Storage.** Body fields are `h3. <Heading>` wiki-markup sections of the description (markdown `###` sections are read too); headings inside `{code}`, `{noformat}` and fences are ignored.
+The status rollup is one comment opening with the invisible anchor `{anchor:magpie-status-rollup-v1}`, entries `*YYYY-MM-DD · @user · Action*` separated by `----`, oldest first;
+`rollup-amend-latest` exits `4` when the latest action differs. Neither rollup command prints the rollup text.
+
 ## Configuration
 
 The bridge reads its configuration from the environment:
@@ -325,9 +376,11 @@ confirmation, then call the bridge to execute.
 
 ## Testing
 
-The test suite uses a mock HTTP server and requires `groovy` on
-`PATH`. Tests are skipped automatically when Groovy is not
-available.
+The Groovy bridge tests use a mock HTTP server and require `groovy` on
+`PATH`; they are skipped automatically when Groovy is not
+available. The Python tests (`test_rest.py`, `test_security_tracker.py`,
+`test_markup.py`) need no network: `JiraRest` takes a fake opener, and the
+security tracker a fake transport.
 
 ```bash
 cd tools/jira

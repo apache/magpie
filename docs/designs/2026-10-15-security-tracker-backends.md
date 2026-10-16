@@ -117,11 +117,13 @@ The rollup keeps the GitHub entry shape, so the skills' rollup rules and action 
 
 ## Private Jira
 
-[`tools/jira-security-tracker/`](../../tools/jira-security-tracker/README.md), stdlib Python over REST v2 (Server, Data Center and Cloud).
+`magpie-jira-tracker` in [`tools/jira/`](../../tools/jira/README.md#security-tracker-magpie-jira-tracker) (`jira_bridge.security_tracker`), stdlib Python over REST v2 (Server, Data Center and Cloud).
 Body fields are `h3.` wiki-markup sections in the description; the rollup is one comment carrying an invisible anchor marker.
-It is a new tool rather than more subcommands on the Groovy [`tools/jira/`](../../tools/jira/README.md) bridge,
-because the guard has to run before every write, and because the Python tool can be tested without a Groovy toolchain.
-The Groovy bridge stays the general `contract:tracker` adapter for the `issue-*` skills.
+It lives in the same package as `jira_bridge.rest`, the read client the contributor-growth skills already use, and every request goes through it:
+the token stays bound to a host the user confirmed, is sent only to that host, follows no redirect,
+and `send()` refuses any write when the token was withheld, so a security-tracker write can never go out anonymously or to a re-pointed URL.
+It is Python rather than more subcommands on the Groovy bridge because the security-level guard has to run before every write and must be testable without a Groovy toolchain;
+the Groovy bridge stays the general `contract:tracker` write path for the `issue-*` skills.
 
 ## Setup
 
@@ -135,6 +137,11 @@ For both non-GitHub backends the step also shows the vetted-ops `[tracker]` tabl
 
 - **Extend `contract:tracker` instead of adding a contract.**
   Rejected: the guard and the publish step would then bind every general issue-tracker adapter, and the forge bridges (GitLab, Forgejo, SourceHut) would all become "partial" against requirements that only the security workflow has.
+- **A separate Jira tool for the security tracker.**
+  The first cut shipped `tools/jira-security-tracker/` with its own HTTP client.
+  Rejected once `jira_bridge.rest` landed upstream: two clients meant two credential rules,
+  and only the shared one binds the token to a confirmed host and refuses redirects.
+  Merging put the security tracker behind those rules and left one Jira tool.
 - **A GitHub backend inside the shared CLI.**
   Rejected: it would duplicate `vetted-ops`, which exists precisely so `gh` can run outside the sandbox under a vetted command surface.
 - **Skills call the backend CLIs directly.**

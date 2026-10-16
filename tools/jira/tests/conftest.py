@@ -12,9 +12,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import pytest
-
-from magpie_jira_tracker.cli import main
-from magpie_jira_tracker.client import Response
+from jira_bridge.security_tracker import main
+from jira_bridge.tracker_client import Response
 
 BASE = "https://jira.example.org"
 
@@ -52,7 +51,9 @@ class FakeJira:
         self.routes.setdefault((method, path), []).extend(responses)
         return self
 
-    def __call__(self, method: str, url: str, headers: Mapping[str, str], body: bytes | None) -> Response:
+    def __call__(
+        self, method: str, url: str, headers: Mapping[str, str], body: bytes | None
+    ) -> Response:
         call = Call(method, url, dict(headers), body)
         self.calls.append(call)
         queue = self.routes.get((method, call.path))
@@ -76,7 +77,9 @@ ENV = {
 }
 
 
-def issue(key: str = "FOOSEC-12", *, secure: bool = True, **fields: Any) -> dict[str, Any]:
+def issue(
+    key: str = "FOOSEC-12", *, secure: bool = True, **fields: Any
+) -> dict[str, Any]:
     base: dict[str, Any] = {
         "summary": "Path traversal",
         "status": {"name": "Open", "statusCategory": {"key": "new"}},

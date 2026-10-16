@@ -63,10 +63,12 @@ by swapping the adapter, not the skill.
   (`.magpie-tracker.json`) from existing reports; writes are refused until the
   descriptor records a human-confirmed `access_restricted: true`; `publish`
   commits only the tracker root (and pushes on Git).
-- `tools/jira-security-tracker/` (`magpie-jira-tracker`) — stdlib-only
-  `contract:security-tracker` backend over Jira REST v2; `create` always sets
-  the configured issue-security level and every write on an issue without one
-  is refused.
+- `tools/jira/` also ships `magpie-jira-tracker` (`jira_bridge.security_tracker`),
+  the stdlib-only `contract:security-tracker` backend over Jira REST v2;
+  `create` always sets the configured issue-security level and every write on
+  an issue without one is refused. Every request goes through
+  `jira_bridge.rest.JiraRest`, whose `send()` keeps the token bound to a
+  confirmed host and refuses any write when the token was withheld.
 - `tools/github/` — issues/PRs/labels read + write-back helpers.
   Sub-adapters: `tools/github-body-field/` (reads GitHub issue/PR body
   structured field sets) and `tools/github-rollup/` (`contract:tracker`,

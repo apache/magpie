@@ -22,12 +22,17 @@ build-backend = "hatchling.build"
 [project]
 name = "jira-bridge"
 version = "0.1.0"
-description = "JIRA REST bridge: test harness for bridge.groovy and a read-only Python REST client."
+description = "JIRA REST bridge: test harness for bridge.groovy, a stdlib Python REST client, and the private-Jira security tracker."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
-# Write logic lives in bridge.groovy; the package ships a stdlib-only read client (jira_bridge.rest).
+# General-tracker writes live in bridge.groovy. The package ships a stdlib-only REST
+# client (jira_bridge.rest) and, on top of it, the security-tracker backend
+# (jira_bridge.security_tracker), whose writes go through the same client.
 dependencies = []
+
+[project.scripts]
+magpie-jira-tracker = "jira_bridge.security_tracker:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/jira_bridge"]

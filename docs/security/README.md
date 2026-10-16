@@ -222,7 +222,7 @@ referenced by URL; Magpie keeps no local copy.
 
 The tracker itself need not be a GitHub repository.
 `tracker.platform` selects one of three backends of the [security-tracker contract](../../tools/security-tracker/contract.md):
-a private GitHub repository (default), [Markdown files](../../tools/local-tracker/README.md) in a private Git or SVN working copy — learning the format of the reports already there — or a [Jira project](../../tools/jira-security-tracker/README.md) with an issue-security level.
+a private GitHub repository (default), [Markdown files](../../tools/local-tracker/README.md) in a private Git or SVN working copy — learning the format of the reports already there — or a [Jira project](../../tools/jira/README.md) with an issue-security level.
 `/magpie-setup config` asks which; the [design](../designs/2026-10-15-security-tracker-backends.md) explains the choices.
 
 ## Deep documentation

@@ -1,20 +1,25 @@
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
 
-"""A small Jira REST v2 client with an injectable transport."""
+"""Jira REST v2 operations for the security tracker, over the shared `JiraRest` client.
+
+Every request goes through `jira_bridge.rest.JiraRest.send`, so the security tracker
+inherits its rules unchanged: https only, the token bound to a host the user confirmed
+(`JIRA_API_HOST` or the token file), `Authorization` only to that host, redirects
+refused, and writes refused outright when the token was withheld.  Tests replace the
+network with a `Transport`; production never takes that path.
+"""
 
 from __future__ import annotations
 
-import base64
-import binascii
 import json
 import secrets
-import urllib.error
 import urllib.parse
-import urllib.request
 from collections.abc import Callable, Iterator, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, NamedTuple
+
+from jira_bridge.rest import JiraRest, JiraRestError
 
 EXIT_USAGE = 2
 EXIT_NOT_FOUND = 3
@@ -55,46 +60,8 @@ class Response(NamedTuple):
     body: bytes
 
 
-# (method, url, headers, body) -> Response
+# (method, url, headers, body) -> Response.  Tests only; production uses JiraRest.send.
 Transport = Callable[[str, str, Mapping[str, str], bytes | None], Response]
-
-
-def urllib_transport(method: str, url: str, headers: Mapping[str, str], body: bytes | None) -> Response:
-    """The default transport: one urllib request, HTTP errors returned, not raised."""
-    request = urllib.request.Request(url, data=body, method=method, headers=dict(headers))
-    try:
-        with urllib.request.urlopen(request, timeout=60) as resp:
-            return Response(resp.status, resp.read())
-    except urllib.error.HTTPError as exc:
-        return Response(exc.code, exc.read() or b"")
-    except (urllib.error.URLError, TimeoutError, OSError) as exc:
-        raise BackendError(f"cannot reach {urllib.parse.urlsplit(url).netloc}: {exc}") from exc
-
-
-def authorization_header(token: str, scheme: str, user: str) -> str | None:
-    """Build the Authorization header the way the Groovy Jira bridge does.
-
-    ``Bearer`` sends the token as-is.  ``Basic`` sends the token as-is when it
-    already is a base64 ``user:secret`` string (the bridge's convention); when
-    ``JIRA_USER`` is set and the token is a raw secret, it encodes
-    ``user:token`` itself.
-    """
-    if not token:
-        return None
-    if scheme.lower() == "bearer":
-        return f"Bearer {token}"
-    if user and not _is_basic_encoded(token):
-        encoded = base64.b64encode(f"{user}:{token}".encode()).decode("ascii")
-        return f"Basic {encoded}"
-    return f"{scheme} {token}"
-
-
-def _is_basic_encoded(token: str) -> bool:
-    try:
-        decoded = base64.b64decode(token, validate=True).decode("utf-8")
-    except (binascii.Error, UnicodeDecodeError, ValueError):
-        return False
-    return ":" in decoded
 
 
 def _error_text(body: bytes) -> str:
@@ -117,25 +84,54 @@ class JiraClient:
 
     base_url: str
     project: str
-    token: str = ""
-    auth_scheme: str = "Basic"
-    user: str = ""
     cloud: bool = False
-    transport: Transport = field(default=urllib_transport)
+    #: The shared client every production request goes through.
+    rest: JiraRest | None = None
+    #: Tests only: a fake network in place of `rest`.
+    transport: Transport | None = None
 
     def __post_init__(self) -> None:
         self.base_url = self.base_url.rstrip("/")
+        if self.rest is None and self.transport is None:
+            raise ValueError("JiraClient needs a JiraRest (or, in tests, a transport)")
 
     # -- plumbing ------------------------------------------------------
 
-    def _headers(self, extra: Mapping[str, str] | None = None) -> dict[str, str]:
-        headers = {"Accept": "application/json"}
-        auth = authorization_header(self.token, self.auth_scheme, self.user)
-        if auth:
-            headers["Authorization"] = auth
-        if extra:
-            headers.update(extra)
-        return headers
+    def _send(
+        self,
+        method: str,
+        path: str,
+        params: Mapping[str, str | int] | None,
+        body: bytes | None,
+        headers: Mapping[str, str] | None,
+    ) -> Response:
+        if self.transport is not None:
+            url = self.base_url + path
+            if params:
+                url += "?" + urllib.parse.urlencode(
+                    {k: str(v) for k, v in params.items()}
+                )
+            return self.transport(
+                method, url, {"Accept": "application/json", **(headers or {})}, body
+            )
+        assert self.rest is not None
+        try:
+            status, data = self.rest.send(
+                method,
+                path,
+                params={k: str(v) for k, v in params.items()} if params else None,
+                body=body,
+                headers=dict(headers or {}),
+            )
+        except JiraRestError as exc:
+            message = str(exc)
+            if (
+                message.startswith("refusing ")
+                and "writes need a Jira token" in message
+            ):
+                raise RefusedError(message) from exc
+            raise BackendError(message) from exc
+        return Response(status, data)
 
     def raw(
         self,
@@ -146,22 +142,24 @@ class JiraClient:
         body: bytes | None = None,
         headers: Mapping[str, str] | None = None,
     ) -> Any:
-        url = self.base_url + path
-        if params:
-            url += "?" + urllib.parse.urlencode({k: str(v) for k, v in params.items()})
-        resp = self.transport(method, url, self._headers(headers), body)
+        resp = self._send(method, path, params, body, headers)
         if resp.status == 404:
             raise NotFoundError(f"not found: {method} {path}")
         if resp.status >= 400:
             detail = _error_text(resp.body)
             suffix = f": {detail}" if detail else ""
-            raise BackendError(f"Jira returned HTTP {resp.status} for {method} {path}{suffix}", resp.status)
+            raise BackendError(
+                f"Jira returned HTTP {resp.status} for {method} {path}{suffix}",
+                resp.status,
+            )
         if not resp.body.strip():
             return None
         try:
             return json.loads(resp.body)
         except ValueError as exc:
-            raise BackendError(f"Jira returned a non-JSON response for {method} {path}") from exc
+            raise BackendError(
+                f"Jira returned a non-JSON response for {method} {path}"
+            ) from exc
 
     def call(
         self,
@@ -181,7 +179,9 @@ class JiraClient:
         return f"{self.base_url}/browse/{key}"
 
     def comment_url(self, key: str, comment_id: str) -> str:
-        return f"{self.browse_url(key)}?focusedCommentId={comment_id}#comment-{comment_id}"
+        return (
+            f"{self.browse_url(key)}?focusedCommentId={comment_id}#comment-{comment_id}"
+        )
 
     # -- operations ----------------------------------------------------
 
@@ -202,7 +202,11 @@ class JiraClient:
         start_at = 0
         token: str | None = None
         while returned < limit:
-            params: dict[str, str | int] = {"jql": jql, "fields": fields, "maxResults": page}
+            params: dict[str, str | int] = {
+                "jql": jql,
+                "fields": fields,
+                "maxResults": page,
+            }
             if self.cloud:
                 if token:
                     params["nextPageToken"] = token
@@ -264,4 +268,6 @@ class JiraClient:
             "Content-Type": f"multipart/form-data; boundary={boundary}",
             "X-Atlassian-Token": "no-check",
         }
-        return self.raw("POST", f"/rest/api/2/issue/{key}/attachments", body=body, headers=headers)
+        return self.raw(
+            "POST", f"/rest/api/2/issue/{key}/attachments", body=body, headers=headers
+        )

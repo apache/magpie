@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from magpie_jira_tracker import markup
+from jira_bridge import markup
 
 BODY = """Intro text.
 
@@ -26,7 +26,10 @@ def test_get_field_case_insensitive() -> None:
 
 
 def test_get_field_section_ends_at_level_three_or_higher_only() -> None:
-    assert markup.get_field(BODY, "Severity") == "_No response_\n\nh4. Sub heading stays inside\ndetail"
+    assert (
+        markup.get_field(BODY, "Severity")
+        == "_No response_\n\nh4. Sub heading stays inside\ndetail"
+    )
 
 
 def test_get_field_missing_is_none() -> None:
@@ -77,11 +80,15 @@ def test_set_field_on_empty_body() -> None:
 
 def test_rollup_round_trip() -> None:
     entries = [
-        markup.RollupEntry("2026-10-01", "alice", "Import", "Imported from thread.\n\n----\nkept rule"),
+        markup.RollupEntry(
+            "2026-10-01", "alice", "Import", "Imported from thread.\n\n----\nkept rule"
+        ),
         markup.RollupEntry("2026-10-02", "Bob Smith", "Sync", "Synced."),
     ]
     text = markup.render_rollup(entries)
-    assert text.startswith(markup.ROLLUP_MARKER + "\n*2026-10-01 · @alice · Import*\n\n")
+    assert text.startswith(
+        markup.ROLLUP_MARKER + "\n*2026-10-01 · @alice · Import*\n\n"
+    )
     assert markup.is_rollup(text)
     assert markup.parse_rollup(text) == entries
 

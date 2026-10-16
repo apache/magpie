@@ -151,7 +151,9 @@ def parse_rollup(text: str) -> list[RollupEntry]:
             continue
         match = _SUMMARY_RE.match(line)
         if match:
-            entries.append(RollupEntry(match.group(1), match.group(2), match.group(3), ""))
+            entries.append(
+                RollupEntry(match.group(1), match.group(2), match.group(3), "")
+            )
             body_lines.append([])
         elif entries:
             body_lines[-1].append(line)
@@ -166,5 +168,8 @@ def parse_rollup(text: str) -> list[RollupEntry]:
 
 def render_rollup(entries: list[RollupEntry]) -> str:
     """Render rollup entries into the comment body."""
-    blocks = [f"*{e.date} · @{e.user} · {e.action}*\n\n{e.body.strip(chr(10))}" for e in entries]
+    blocks = [
+        f"*{e.date} · @{e.user} · {e.action}*\n\n{e.body.strip(chr(10))}"
+        for e in entries
+    ]
     return ROLLUP_MARKER + "\n" + "\n\n----\n\n".join(blocks) + "\n"

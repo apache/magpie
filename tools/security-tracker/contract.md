@@ -38,7 +38,7 @@ contract — they stay on the project's forge.
 |---|---|---|
 | `github` (default) | Private GitHub repository | Its `gh` builder, per [`tools/github/operations.md`](../github/operations.md). Nothing changes for an existing adopter. |
 | `local-files` | Markdown files in a folder of a private Git or SVN working copy | `magpie-local-tracker` — [`tools/local-tracker/`](../local-tracker/README.md) |
-| `jira` | A Jira project whose issues carry an issue-security level | `magpie-jira-tracker` — [`tools/jira-security-tracker/`](../jira-security-tracker/README.md) |
+| `jira` | A Jira project whose issues carry an issue-security level | `magpie-jira-tracker` — [`tools/jira/`](../jira/README.md) |
 
 The two non-GitHub backends expose **the same subcommand surface and the same
 JSON output**, defined [below](#operations).

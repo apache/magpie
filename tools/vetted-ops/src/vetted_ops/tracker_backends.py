@@ -53,7 +53,7 @@ PLATFORMS = ("github", "local-files", "jira")
 #: platform -> (tool directory name, console script).
 BACKEND_SCRIPTS = {
     "local-files": ("local-tracker", "magpie-local-tracker"),
-    "jira": ("jira-security-tracker", "magpie-jira-tracker"),
+    "jira": ("jira", "magpie-jira-tracker"),
 }
 
 

@@ -121,7 +121,7 @@ for ASF projects) is org-level — inherited from your organization's
 | Capability | Tool | Adapter directory | Config knobs declared here |
 |---|---|---|---|
 | Issue tracking + project board | `github` | [`../../tools/github/`](../../../tools/github/) | `tracker_repo`, `upstream_repo`, `github_project_board_*`, `issue_template_fields` |
-| Security tracker backend | `github` (default), `local-files`, or `jira` — see [Tracker](#tracker) | [`../../tools/security-tracker/`](../../../tools/security-tracker/) (contract), [`tools/local-tracker/`](../../../tools/local-tracker/), [`tools/jira-security-tracker/`](../../../tools/jira-security-tracker/) | `tracker.platform`, `tracker.local.*`, `tracker.jira.*` |
+| Security tracker backend | `github` (default), `local-files`, or `jira` — see [Tracker](#tracker) | [`../../tools/security-tracker/`](../../../tools/security-tracker/) (contract), [`tools/local-tracker/`](../../../tools/local-tracker/), [`tools/jira/`](../../../tools/jira/) | `tracker.platform`, `tracker.local.*`, `tracker.jira.*` |
 | Source control (VCS) | `github` (Git) — replaceable with a non-Git VCS | [`../../tools/github/source-control.md`](../../../tools/github/source-control.md) | `upstream_repo`, `default_branch`; for a non-Git VCS declare the sibling tool + its working-copy URL |
 | Inbound email / drafts | `<one or more mail-source backends>` | [`../../tools/mail-source/contract.md`](../../../tools/mail-source/contract.md) (abstract) + per-backend adapter dirs (`tools/gmail/`, `tools/ponymail/`, `tools/mail-source/imap/`, `tools/mail-source/mbox/`, ...) | See [Mail sources](#mail-sources) below — declare each backend's role (primary / preferred-for-`<op>` / fallback / optional) and `mandatory` flag |
 | CVE allocation + record mgmt | *org-level* — inherited from `organizations/<org>/organization.md → cve_authority.tool`; for ASF: `vulnogram` ([`tools/cve-tool-vulnogram/`](../../../tools/cve-tool-vulnogram/)), for independent: `mitre-form` | — | override in [CVE authority](#cve-authority) only if this project differs from its org |
@@ -408,7 +408,7 @@ tracker:
   # (tools/security-tracker/contract.md). `github` (default): the private
   # `tracker_repo`. `local-files`: markdown files in a folder of a private
   # Git or SVN working copy (tools/local-tracker/). `jira`: a Jira project
-  # whose issues carry an issue-security level (tools/jira-security-tracker/).
+  # whose issues carry an issue-security level (tools/jira/).
   # `/magpie-setup config` asks and, for local-files, learns the format of
   # the reports already in the folder.
   platform: github

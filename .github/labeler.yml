@@ -510,7 +510,7 @@ contract:security-tracker:
   - any:
       - changed-files:
           - any-glob-to-any-file:
-              - 'tools/jira-security-tracker/**'
+              - 'tools/jira/**'
               - 'tools/local-tracker/**'
               - 'tools/security-tracker/**'
 

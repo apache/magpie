@@ -9,11 +9,12 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from jira_bridge import markup
+from jira_bridge.rest import authorization_header
+from jira_bridge.security_tracker import expand_id, jql_quote
+from jira_bridge.tracker_client import UsageError
 
-from conftest import BASE, ENV, Call, FakeJira, Result, issue
-from magpie_jira_tracker import markup
-from magpie_jira_tracker.cli import expand_id, jql_quote
-from magpie_jira_tracker.client import UsageError, authorization_header
+from .conftest import BASE, ENV, Call, FakeJira, Result, issue
 
 Run = Callable[..., Result]
 ISSUE = "/rest/api/2/issue/FOOSEC-12"
@@ -51,14 +52,17 @@ def test_authorization_header() -> None:
     assert authorization_header("pat", "Bearer", "bob") == "Bearer pat"
     encoded = base64.b64encode(b"bob:secret").decode()
     assert authorization_header(encoded, "Basic", "bob") == f"Basic {encoded}"
-    assert authorization_header("raw", "Basic", "bob") == "Basic " + base64.b64encode(b"bob:raw").decode()
-    assert authorization_header("", "Basic", "bob") is None
+    assert (
+        authorization_header("raw", "Basic", "bob")
+        == "Basic " + base64.b64encode(b"bob:raw").decode()
+    )
 
 
-def test_bearer_header_sent(run: Run, fake: FakeJira) -> None:
+def test_the_test_transport_never_carries_credentials(run: Run, fake: FakeJira) -> None:
+    """Auth is JiraRest's job alone (see test_rest.py); the client adds none of its own."""
     fake.on("GET", ISSUE, (200, issue()))
     run("view", "12")
-    assert fake.calls[0].headers["Authorization"] == "Bearer secret-token"
+    assert "Authorization" not in fake.calls[0].headers
 
 
 # -- view / list / labels ----------------------------------------------------
@@ -103,10 +107,20 @@ def test_view_shape(run: Run, fake: FakeJira) -> None:
     [
         ({"resolution": {"name": "Fixed"}}, "closed"),
         ({"status": {"name": "Closed", "statusCategory": {"key": "done"}}}, "closed"),
-        ({"status": {"name": "In Progress", "statusCategory": {"key": "indeterminate"}}}, "open"),
+        (
+            {
+                "status": {
+                    "name": "In Progress",
+                    "statusCategory": {"key": "indeterminate"},
+                }
+            },
+            "open",
+        ),
     ],
 )
-def test_view_state_mapping(run: Run, fake: FakeJira, fields: dict[str, Any], state: str) -> None:
+def test_view_state_mapping(
+    run: Run, fake: FakeJira, fields: dict[str, Any], state: str
+) -> None:
     fake.on("GET", ISSUE, (200, issue(**fields)))
     assert run("view", "12").json()["state"] == state
 
@@ -125,11 +139,18 @@ def test_view_with_comments(run: Run, fake: FakeJira) -> None:
         f"{ISSUE}/comment",
         (
             200,
-            {"comments": [{"id": "5", "author": {"name": "bob"}, "created": "x", "body": "hi"}], "total": 1},
+            {
+                "comments": [
+                    {"id": "5", "author": {"name": "bob"}, "created": "x", "body": "hi"}
+                ],
+                "total": 1,
+            },
         ),
     )
     data = run("view", "12", "--comments").json()
-    assert data["comments"] == [{"id": "5", "author": "bob", "created": "x", "body": "hi"}]
+    assert data["comments"] == [
+        {"id": "5", "author": "bob", "created": "x", "body": "hi"}
+    ]
 
 
 def test_view_not_found(run: Run, fake: FakeJira) -> None:
@@ -146,10 +167,21 @@ def test_list_jql(run: Run, fake: FakeJira) -> None:
     fake.on(
         "GET",
         "/rest/api/2/search",
-        (200, {"issues": [issue("FOOSEC-3", resolution={"name": "Fixed"})], "total": 1}),
+        (
+            200,
+            {"issues": [issue("FOOSEC-3", resolution={"name": "Fixed"})], "total": 1},
+        ),
     )
     result = run(
-        "list", "--state", "closed", "--label", "cve allocated", "--label", "x", "--search", 'say "hi"\\'
+        "list",
+        "--state",
+        "closed",
+        "--label",
+        "cve allocated",
+        "--label",
+        "x",
+        "--search",
+        'say "hi"\\',
     )
     assert result.code == 0
     query = fake.calls[0].query
@@ -171,16 +203,23 @@ def test_list_jql(run: Run, fake: FakeJira) -> None:
 
 def test_list_defaults_open_and_limit(run: Run, fake: FakeJira) -> None:
     fake.on(
-        "GET", "/rest/api/2/search", (200, {"issues": [issue(f"FOOSEC-{n}") for n in range(5)], "total": 50})
+        "GET",
+        "/rest/api/2/search",
+        (200, {"issues": [issue(f"FOOSEC-{n}") for n in range(5)], "total": 50}),
     )
     result = run("list", "--limit", "3")
     assert len(result.json()) == 3
-    assert fake.calls[0].query["jql"] == 'project = "FOOSEC" AND resolution is EMPTY ORDER BY updated DESC'
+    assert (
+        fake.calls[0].query["jql"]
+        == 'project = "FOOSEC" AND resolution is EMPTY ORDER BY updated DESC'
+    )
     assert fake.calls[0].query["maxResults"] == "3"
 
 
 def test_list_all_states_on_cloud_uses_search_jql(run: Run, fake: FakeJira) -> None:
-    fake.on("GET", "/rest/api/2/search/jql", (200, {"issues": [issue()], "isLast": True}))
+    fake.on(
+        "GET", "/rest/api/2/search/jql", (200, {"issues": [issue()], "isLast": True})
+    )
     result = run("list", "--state", "all", env={**ENV, "JIRA_DEPLOYMENT": "cloud"})
     assert result.code == 0
     assert fake.calls[0].query["jql"] == 'project = "FOOSEC" ORDER BY updated DESC'
@@ -207,7 +246,11 @@ def test_labels_paginates(run: Run, fake: FakeJira) -> None:
 
 def test_field_get(run: Run, fake: FakeJira) -> None:
     fake.on("GET", ISSUE, (200, issue(description="h3. CWE\nCWE-22\n")))
-    assert run("field-get", "12", "cwe").json() == {"id": "FOOSEC-12", "heading": "cwe", "value": "CWE-22"}
+    assert run("field-get", "12", "cwe").json() == {
+        "id": "FOOSEC-12",
+        "heading": "cwe",
+        "value": "CWE-22",
+    }
 
 
 def test_field_get_markdown_and_missing(run: Run, fake: FakeJira) -> None:
@@ -219,26 +262,38 @@ def test_field_get_markdown_and_missing(run: Run, fake: FakeJira) -> None:
 
 
 def test_field_set_existing(run: Run, fake: FakeJira, tmp_path: Path) -> None:
-    fake.on("GET", ISSUE, (200, issue(description="h3. CWE\nold\n\nh3. Severity\nLow\n")))
+    fake.on(
+        "GET", ISSUE, (200, issue(description="h3. CWE\nold\n\nh3. Severity\nLow\n"))
+    )
     fake.on("PUT", ISSUE, (204, None))
-    result = run("field-set", "12", "cwe", "--value-file", write(tmp_path, "v", "CWE-22\n"))
+    result = run(
+        "field-set", "12", "cwe", "--value-file", write(tmp_path, "v", "CWE-22\n")
+    )
     assert result.json() == {"id": "FOOSEC-12", "heading": "cwe", "created": False}
     put = fake.writes()[0]
-    assert put.json() == {"fields": {"description": "h3. CWE\nCWE-22\n\nh3. Severity\nLow\n"}}
+    assert put.json() == {
+        "fields": {"description": "h3. CWE\nCWE-22\n\nh3. Severity\nLow\n"}
+    }
 
 
 def test_field_set_appends_missing(run: Run, fake: FakeJira, tmp_path: Path) -> None:
     fake.on("GET", ISSUE, (200, issue(description="Intro")))
     fake.on("PUT", ISSUE, (204, None))
-    result = run("field-set", "12", "CWE", "--value-file", write(tmp_path, "v", "CWE-22"))
+    result = run(
+        "field-set", "12", "CWE", "--value-file", write(tmp_path, "v", "CWE-22")
+    )
     assert result.json()["created"] is True
-    assert fake.writes()[0].json()["fields"]["description"] == "Intro\n\nh3. CWE\nCWE-22\n"
+    assert (
+        fake.writes()[0].json()["fields"]["description"] == "Intro\n\nh3. CWE\nCWE-22\n"
+    )
 
 
 # -- create ------------------------------------------------------------------
 
 
-def test_create_refuses_without_security_level(run: Run, fake: FakeJira, tmp_path: Path) -> None:
+def test_create_refuses_without_security_level(
+    run: Run, fake: FakeJira, tmp_path: Path
+) -> None:
     env = {k: v for k, v in ENV.items() if k != "SECURITY_TRACKER_SECURITY_LEVEL"}
     title = write(tmp_path, "t", "Title")
     body = write(tmp_path, "b", "Body")
@@ -276,7 +331,9 @@ def test_create_sets_security_level(run: Run, fake: FakeJira, tmp_path: Path) ->
     }
 
 
-def test_create_flag_overrides_env_level(run: Run, fake: FakeJira, tmp_path: Path) -> None:
+def test_create_flag_overrides_env_level(
+    run: Run, fake: FakeJira, tmp_path: Path
+) -> None:
     fake.on("POST", "/rest/api/2/issue", (201, {"key": "FOOSEC-14"}))
     title = write(tmp_path, "t", "T")
     body = write(tmp_path, "b", "B")
@@ -296,17 +353,28 @@ def _write_invocations(tmp_path: Path) -> list[list[str]]:
         ["comment", "12", "--body-file", f],
         ["close", "12"],
         ["reopen", "12"],
-        ["rollup-append", "12", "--action", "Sync", "--entry-body-file", f, "--user", "bob"],
+        [
+            "rollup-append",
+            "12",
+            "--action",
+            "Sync",
+            "--entry-body-file",
+            f,
+            "--user",
+            "bob",
+        ],
         ["rollup-amend-latest", "12", "--action", "Sync", "--entry-body-file", f],
         ["attach", "12", attachment],
     ]
 
 
 def test_guard_refuses_every_write_on_unrestricted_issue(tmp_path: Path) -> None:
-    from magpie_jira_tracker.cli import main
+    from jira_bridge.security_tracker import main
 
     for argv in _write_invocations(tmp_path):
-        fake = FakeJira().on("GET", ISSUE, (200, issue(secure=False, resolution={"name": "Fixed"})))
+        fake = FakeJira().on(
+            "GET", ISSUE, (200, issue(secure=False, resolution={"name": "Fixed"}))
+        )
         assert main(argv, transport=fake, env=ENV) == 4, argv
         assert fake.writes() == [], argv
         assert all(c.path == ISSUE for c in fake.calls), argv
@@ -314,7 +382,9 @@ def test_guard_refuses_every_write_on_unrestricted_issue(tmp_path: Path) -> None
 
 def test_guard_message(run: Run, fake: FakeJira, tmp_path: Path) -> None:
     fake.on("GET", ISSUE, (200, issue(secure=False)))
-    result = run("comment", "12", "--body-file", write(tmp_path, "f", "SECRET-POC-DETAILS"))
+    result = run(
+        "comment", "12", "--body-file", write(tmp_path, "f", "SECRET-POC-DETAILS")
+    )
     assert result.code == 4
     assert "not access-restricted" in result.err
     assert "SECRET-POC-DETAILS" not in result.err
@@ -355,7 +425,9 @@ def test_edit_cloud_assignee_and_clear(run: Run, fake: FakeJira) -> None:
     fake.on("GET", ISSUE, (200, issue()))
     fake.on("PUT", ISSUE, (204, None))
     run("edit", "12", "--add-assignee", "5b10ac8d", "--clear-milestone", "--jira-cloud")
-    assert fake.writes()[0].json() == {"fields": {"fixVersions": [], "assignee": {"accountId": "5b10ac8d"}}}
+    assert fake.writes()[0].json() == {
+        "fields": {"fixVersions": [], "assignee": {"accountId": "5b10ac8d"}}
+    }
 
 
 def test_edit_remove_assignee(run: Run, fake: FakeJira) -> None:
@@ -374,7 +446,9 @@ def test_edit_nothing_is_usage_error(run: Run, fake: FakeJira) -> None:
 def test_comment(run: Run, fake: FakeJira, tmp_path: Path) -> None:
     fake.on("GET", ISSUE, (200, issue()))
     fake.on("POST", f"{ISSUE}/comment", (201, {"id": "777"}))
-    result = run("comment", "12", "--body-file", write(tmp_path, "c", "Hello"), "--author", "bob")
+    result = run(
+        "comment", "12", "--body-file", write(tmp_path, "c", "Hello"), "--author", "bob"
+    )
     assert result.json() == {
         "id": "FOOSEC-12",
         "comment_id": "777",
@@ -389,7 +463,11 @@ def test_comment(run: Run, fake: FakeJira, tmp_path: Path) -> None:
 
 TRANSITIONS = {
     "transitions": [
-        {"id": "11", "name": "Start", "to": {"statusCategory": {"key": "indeterminate"}}},
+        {
+            "id": "11",
+            "name": "Start",
+            "to": {"statusCategory": {"key": "indeterminate"}},
+        },
         {
             "id": "21",
             "name": "Resolve",
@@ -415,7 +493,12 @@ def test_close_picks_done_transition_with_resolution(run: Run, fake: FakeJira) -
 def test_close_retries_without_resolution_on_400(run: Run, fake: FakeJira) -> None:
     fake.on("GET", ISSUE, (200, issue()))
     fake.on("GET", f"{ISSUE}/transitions", (200, TRANSITIONS))
-    fake.on("POST", f"{ISSUE}/transitions", (400, {"errors": {"resolution": "not on screen"}}), (204, None))
+    fake.on(
+        "POST",
+        f"{ISSUE}/transitions",
+        (400, {"errors": {"resolution": "not on screen"}}),
+        (204, None),
+    )
     assert run("close", "12").code == 0
     posts = fake.writes()
     assert posts[0].json()["fields"] == {"resolution": {"name": "Fixed"}}
@@ -441,8 +524,16 @@ def test_reopen_prefers_reopen_transition(run: Run, fake: FakeJira) -> None:
     fake.on("GET", ISSUE, (200, issue(resolution={"name": "Fixed"})))
     transitions = {
         "transitions": [
-            {"id": "5", "name": "Back to dev", "to": {"statusCategory": {"key": "indeterminate"}}},
-            {"id": "3", "name": "Reopen Issue", "to": {"statusCategory": {"key": "new"}}},
+            {
+                "id": "5",
+                "name": "Back to dev",
+                "to": {"statusCategory": {"key": "indeterminate"}},
+            },
+            {
+                "id": "3",
+                "name": "Reopen Issue",
+                "to": {"statusCategory": {"key": "new"}},
+            },
             {"id": "9", "name": "Close", "to": {"statusCategory": {"key": "done"}}},
         ]
     }
@@ -457,7 +548,11 @@ def test_reopen_prefers_reopen_transition(run: Run, fake: FakeJira) -> None:
 
 def test_rollup_append_creates(run: Run, fake: FakeJira, tmp_path: Path) -> None:
     fake.on("GET", ISSUE, (200, issue()))
-    fake.on("GET", f"{ISSUE}/comment", (200, {"comments": [{"id": "1", "body": "human"}], "total": 1}))
+    fake.on(
+        "GET",
+        f"{ISSUE}/comment",
+        (200, {"comments": [{"id": "1", "body": "human"}], "total": 1}),
+    )
     fake.on("GET", "/rest/api/2/myself", (200, {"name": "bob", "displayName": "Bob"}))
     fake.on("POST", f"{ISSUE}/comment", (201, {"id": "50"}))
     body = write(tmp_path, "e", "Imported the report.\n")
@@ -481,10 +576,18 @@ def test_rollup_append_creates(run: Run, fake: FakeJira, tmp_path: Path) -> None
     }
 
 
-def test_rollup_append_extends_existing(run: Run, fake: FakeJira, tmp_path: Path) -> None:
-    existing = markup.render_rollup([markup.RollupEntry("2026-10-01", "alice", "Import", "first")])
+def test_rollup_append_extends_existing(
+    run: Run, fake: FakeJira, tmp_path: Path
+) -> None:
+    existing = markup.render_rollup(
+        [markup.RollupEntry("2026-10-01", "alice", "Import", "first")]
+    )
     fake.on("GET", ISSUE, (200, issue()))
-    fake.on("GET", f"{ISSUE}/comment", (200, {"comments": [{"id": "40", "body": existing}], "total": 1}))
+    fake.on(
+        "GET",
+        f"{ISSUE}/comment",
+        (200, {"comments": [{"id": "40", "body": existing}], "total": 1}),
+    )
     fake.on("PUT", f"{ISSUE}/comment/40", (200, {"id": "40"}))
     body = write(tmp_path, "e", "second")
     result = run(
@@ -516,14 +619,23 @@ def _rollup_fixture(fake: FakeJira) -> None:
         ]
     )
     fake.on("GET", ISSUE, (200, issue()))
-    fake.on("GET", f"{ISSUE}/comment", (200, {"comments": [{"id": "40", "body": existing}], "total": 1}))
+    fake.on(
+        "GET",
+        f"{ISSUE}/comment",
+        (200, {"comments": [{"id": "40", "body": existing}], "total": 1}),
+    )
     fake.on("PUT", f"{ISSUE}/comment/40", (200, {"id": "40"}))
 
 
 def test_rollup_amend_latest(run: Run, fake: FakeJira, tmp_path: Path) -> None:
     _rollup_fixture(fake)
     result = run(
-        "rollup-amend-latest", "12", "--action", "Sync", "--entry-body-file", write(tmp_path, "e", "new sync")
+        "rollup-amend-latest",
+        "12",
+        "--action",
+        "Sync",
+        "--entry-body-file",
+        write(tmp_path, "e", "new sync"),
     )
     assert result.code == 0
     entries = markup.parse_rollup(fake.writes()[0].json()["body"])
@@ -534,34 +646,63 @@ def test_rollup_amend_latest(run: Run, fake: FakeJira, tmp_path: Path) -> None:
 def test_rollup_amend_latest_mismatch(run: Run, fake: FakeJira, tmp_path: Path) -> None:
     _rollup_fixture(fake)
     result = run(
-        "rollup-amend-latest", "12", "--action", "Import", "--entry-body-file", write(tmp_path, "e", "x")
+        "rollup-amend-latest",
+        "12",
+        "--action",
+        "Import",
+        "--entry-body-file",
+        write(tmp_path, "e", "x"),
     )
     assert result.code == 4
     assert fake.writes() == []
 
 
-def test_rollup_amend_latest_without_rollup(run: Run, fake: FakeJira, tmp_path: Path) -> None:
+def test_rollup_amend_latest_without_rollup(
+    run: Run, fake: FakeJira, tmp_path: Path
+) -> None:
     fake.on("GET", ISSUE, (200, issue()))
     fake.on("GET", f"{ISSUE}/comment", (200, {"comments": [], "total": 0}))
     result = run(
-        "rollup-amend-latest", "12", "--action", "Sync", "--entry-body-file", write(tmp_path, "e", "x")
+        "rollup-amend-latest",
+        "12",
+        "--action",
+        "Sync",
+        "--entry-body-file",
+        write(tmp_path, "e", "x"),
     )
     assert result.code == 3
 
 
 def test_rollup_comments_paginate(run: Run, fake: FakeJira, tmp_path: Path) -> None:
-    existing = markup.render_rollup([markup.RollupEntry("2026-10-01", "alice", "Import", "first")])
+    existing = markup.render_rollup(
+        [markup.RollupEntry("2026-10-01", "alice", "Import", "first")]
+    )
 
     def page(call: Call) -> tuple[int, Any]:
         if call.query["startAt"] == "0":
-            return 200, {"comments": [{"id": str(n), "body": "c"} for n in range(100)], "total": 101}
+            return 200, {
+                "comments": [{"id": str(n), "body": "c"} for n in range(100)],
+                "total": 101,
+            }
         return 200, {"comments": [{"id": "900", "body": existing}], "total": 101}
 
     fake.on("GET", ISSUE, (200, issue()))
     fake.on("GET", f"{ISSUE}/comment", page)
     fake.on("PUT", f"{ISSUE}/comment/900", (200, {"id": "900"}))
     body = write(tmp_path, "e", "x")
-    assert run("rollup-append", "12", "--action", "Sync", "--entry-body-file", body, "--user", "u").code == 0
+    assert (
+        run(
+            "rollup-append",
+            "12",
+            "--action",
+            "Sync",
+            "--entry-body-file",
+            body,
+            "--user",
+            "u",
+        ).code
+        == 0
+    )
     assert fake.writes()[0].path == f"{ISSUE}/comment/900"
 
 
@@ -573,7 +714,15 @@ def test_attach_multipart(run: Run, fake: FakeJira, tmp_path: Path) -> None:
     fake.on(
         "POST",
         f"{ISSUE}/attachments",
-        (200, [{"filename": "cve.json", "content": f"{BASE}/secure/attachment/1/cve.json"}]),
+        (
+            200,
+            [
+                {
+                    "filename": "cve.json",
+                    "content": f"{BASE}/secure/attachment/1/cve.json",
+                }
+            ],
+        ),
     )
     src = write(tmp_path, "local.json", '{"a": 1}')
     result = run("attach", "12", src, "--name", "../../cve.json")
@@ -591,7 +740,11 @@ def test_attach_multipart(run: Run, fake: FakeJira, tmp_path: Path) -> None:
 
 
 def test_pending_and_publish(run: Run, fake: FakeJira) -> None:
-    assert run("pending").json() == {"backend": "jira", "changes": [], "needs_publish": False}
+    assert run("pending").json() == {
+        "backend": "jira",
+        "changes": [],
+        "needs_publish": False,
+    }
     assert run("publish", "--push", "--trailer", "X: y").json() == {
         "committed": False,
         "pushed": False,
@@ -603,15 +756,22 @@ def test_pending_and_publish(run: Run, fake: FakeJira) -> None:
 
 def test_doctor_ok(run: Run, fake: FakeJira) -> None:
     fake.on("GET", "/rest/api/2/myself", (200, {"name": "bob"}))
-    fake.on("GET", "/rest/api/2/project/FOOSEC", (200, {"key": "FOOSEC", "name": "Foo Security"}))
-    fake.on("GET", "/rest/api/2/project/FOOSEC/securitylevel", (200, {"levels": [{"name": "Security Team"}]}))
+    fake.on(
+        "GET",
+        "/rest/api/2/project/FOOSEC",
+        (200, {"key": "FOOSEC", "name": "Foo Security"}),
+    )
+    fake.on(
+        "GET",
+        "/rest/api/2/project/FOOSEC/securitylevel",
+        (200, {"levels": [{"name": "Security Team"}]}),
+    )
     data = run("doctor").json()
     assert data["backend"] == "jira"
     assert data["ok"] is True
     assert [c["name"] for c in data["checks"]] == [
         "url",
         "project",
-        "token",
         "security_level",
         "auth",
         "project_reachable",
@@ -622,7 +782,11 @@ def test_doctor_ok(run: Run, fake: FakeJira) -> None:
 def test_doctor_unverified_level_and_missing_config(run: Run, fake: FakeJira) -> None:
     fake.on("GET", "/rest/api/2/myself", (200, {"displayName": "Bob"}))
     fake.on("GET", "/rest/api/2/project/FOOSEC", (200, {"name": "Foo Security"}))
-    fake.on("GET", "/rest/api/2/project/FOOSEC/securitylevel", (403, {"errorMessages": ["no"]}))
+    fake.on(
+        "GET",
+        "/rest/api/2/project/FOOSEC/securitylevel",
+        (403, {"errorMessages": ["no"]}),
+    )
     data = run("doctor").json()
     assert data["ok"] is True
     level = next(c for c in data["checks"] if c["name"] == "security_level_exists")
@@ -631,13 +795,17 @@ def test_doctor_unverified_level_and_missing_config(run: Run, fake: FakeJira) ->
     missing = run("doctor", env={"SECURITY_TRACKER_PROJECT": "FOOSEC"}).json()
     assert missing["ok"] is False
     failing = {c["name"] for c in missing["checks"] if not c["ok"]}
-    assert failing == {"url", "token", "security_level"}
+    assert failing == {"url", "security_level"}
 
 
 def test_doctor_level_missing_fails(run: Run, fake: FakeJira) -> None:
     fake.on("GET", "/rest/api/2/myself", (200, {"name": "bob"}))
     fake.on("GET", "/rest/api/2/project/FOOSEC", (200, {"name": "Foo Security"}))
-    fake.on("GET", "/rest/api/2/project/FOOSEC/securitylevel", (200, {"levels": [{"name": "Public-ish"}]}))
+    fake.on(
+        "GET",
+        "/rest/api/2/project/FOOSEC/securitylevel",
+        (200, {"levels": [{"name": "Public-ish"}]}),
+    )
     assert run("doctor").json()["ok"] is False
 
 

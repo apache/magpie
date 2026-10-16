@@ -6,6 +6,10 @@
 See ``tools/security-tracker/contract.md`` for the operations, their JSON
 output and the exit codes.  Every write on an existing issue first checks that
 the issue carries an issue-security level and refuses (exit 4) otherwise.
+
+Every request goes through `jira_bridge.rest.JiraRest`, so credentials follow its
+rules: `JIRA_API_TOKEN` or the token file, bound to a host the user confirmed
+(`JIRA_API_HOST` or a `host=` line), never sent elsewhere, and no write without it.
 """
 
 from __future__ import annotations
@@ -21,8 +25,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from magpie_jira_tracker import markup
-from magpie_jira_tracker.client import (
+from jira_bridge import markup
+from jira_bridge.rest import JiraRest, JiraRestConfigError
+from jira_bridge.tracker_client import (
     BackendError,
     JiraClient,
     NotFoundError,
@@ -30,13 +35,10 @@ from magpie_jira_tracker.client import (
     TrackerError,
     Transport,
     UsageError,
-    urllib_transport,
 )
 
 _KEY_RE = re.compile(r"^[A-Z][A-Z0-9_]*-\d+$")
-_VIEW_FIELDS = (
-    "summary,status,resolution,labels,assignee,fixVersions,reporter,created,updated,description,security"
-)
+_VIEW_FIELDS = "summary,status,resolution,labels,assignee,fixVersions,reporter,created,updated,description,security"
 _LIST_FIELDS = "summary,status,resolution,labels,updated"
 _LABEL_SCAN_CAP = 5000
 _RESOLUTIONS = {"completed": "Fixed", "not-planned": "Won't Fix"}
@@ -46,9 +48,6 @@ _RESOLUTIONS = {"completed": "Fixed", "not-planned": "Won't Fix"}
 class Config:
     url: str
     project: str
-    token: str
-    auth_scheme: str
-    user: str
     security_level: str
     issue_type: str
     cloud: bool
@@ -80,12 +79,16 @@ def expand_id(raw: str, project: str) -> str:
     value = raw.strip().upper()
     if value.isdigit():
         if not project:
-            raise UsageError(f"bare id {raw!r} needs a project key (--project / SECURITY_TRACKER_PROJECT)")
+            raise UsageError(
+                f"bare id {raw!r} needs a project key (--project / SECURITY_TRACKER_PROJECT)"
+            )
         value = f"{project}-{int(value)}"
     if not _KEY_RE.match(value):
         raise UsageError(f"invalid issue id {raw!r}: expected KEY-123 or a bare number")
     if project and value.rsplit("-", 1)[0] != project:
-        raise UsageError(f"issue {value} is not in the configured security project {project}")
+        raise UsageError(
+            f"issue {value} is not in the configured security project {project}"
+        )
     return value
 
 
@@ -131,7 +134,9 @@ def _single_line(value: str, what: str) -> str:
 # -- the guard ---------------------------------------------------------------
 
 
-def guarded_issue(client: JiraClient, key: str, extra_fields: str = "") -> dict[str, Any]:
+def guarded_issue(
+    client: JiraClient, key: str, extra_fields: str = ""
+) -> dict[str, Any]:
     """Fetch ``key`` and refuse unless it carries an issue-security level."""
     fields = "security" + ("," + extra_fields if extra_fields else "")
     issue = client.issue(key, fields)
@@ -154,7 +159,9 @@ def op_view(client: JiraClient, cfg: Config, args: argparse.Namespace) -> Any:
     level = _security_name(fields)
     warnings = []
     if level is None:
-        warnings.append(f"{key} has no issue-security level: it is not access-restricted; writes are refused")
+        warnings.append(
+            f"{key} has no issue-security level: it is not access-restricted; writes are refused"
+        )
     assignee = _person(fields.get("assignee"))
     versions = fields.get("fixVersions") or []
     result: dict[str, Any] = {
@@ -232,14 +239,18 @@ def op_field_set(client: JiraClient, cfg: Config, args: argparse.Namespace) -> A
     issue = guarded_issue(client, key, "description")
     body = (issue.get("fields") or {}).get("description") or ""
     new_body, created = markup.set_field(body, heading, value)
-    client.call("PUT", f"/rest/api/2/issue/{key}", payload={"fields": {"description": new_body}})
+    client.call(
+        "PUT", f"/rest/api/2/issue/{key}", payload={"fields": {"description": new_body}}
+    )
     return {"id": key, "heading": heading, "created": created}
 
 
 def _check_labels(labels: Sequence[str]) -> list[str]:
     for label in labels:
         if not label or any(ch.isspace() for ch in label):
-            raise UsageError(f"invalid Jira label {label!r}: labels cannot be empty or contain whitespace")
+            raise UsageError(
+                f"invalid Jira label {label!r}: labels cannot be empty or contain whitespace"
+            )
     return list(labels)
 
 
@@ -295,7 +306,9 @@ def op_edit(client: JiraClient, cfg: Config, args: argparse.Namespace) -> Any:
         raise UsageError("--milestone and --clear-milestone are mutually exclusive")
     adds = args.add_assignee or []
     if len(adds) > 1:
-        raise UsageError("a Jira issue has a single assignee: pass --add-assignee at most once")
+        raise UsageError(
+            "a Jira issue has a single assignee: pass --add-assignee at most once"
+        )
     fields: dict[str, Any] = {}
     update: dict[str, Any] = {}
     label_ops = [{"add": lb} for lb in _check_labels(args.add_label or [])]
@@ -334,9 +347,15 @@ def op_comment(client: JiraClient, cfg: Config, args: argparse.Namespace) -> Any
     key = expand_id(args.id, cfg.project)
     body = _read_text(args.body_file, "body")
     guarded_issue(client, key)
-    data = client.call("POST", f"/rest/api/2/issue/{key}/comment", payload={"body": body})
+    data = client.call(
+        "POST", f"/rest/api/2/issue/{key}/comment", payload={"body": body}
+    )
     comment_id = str((data or {}).get("id") or "")
-    result: dict[str, Any] = {"id": key, "comment_id": comment_id, "url": client.comment_url(key, comment_id)}
+    result: dict[str, Any] = {
+        "id": key,
+        "comment_id": comment_id,
+        "url": client.comment_url(key, comment_id),
+    }
     if args.author:
         # Jira records the authenticated user as the author; --author is informational only.
         result["author"] = args.author
@@ -345,7 +364,11 @@ def op_comment(client: JiraClient, cfg: Config, args: argparse.Namespace) -> Any
 
 
 def _transitions(client: JiraClient, key: str) -> list[dict[str, Any]]:
-    data = client.call("GET", f"/rest/api/2/issue/{key}/transitions", params={"expand": "transitions.fields"})
+    data = client.call(
+        "GET",
+        f"/rest/api/2/issue/{key}/transitions",
+        params={"expand": "transitions.fields"},
+    )
     return list((data or {}).get("transitions") or [])
 
 
@@ -360,14 +383,19 @@ def op_close(client: JiraClient, cfg: Config, args: argparse.Namespace) -> Any:
         return {"id": key, "state": "closed"}
     done = [t for t in _transitions(client, key) if _target_category(t) == "done"]
     if not done:
-        raise BackendError(f"no transition to a done status is available on {key} for this user")
+        raise BackendError(
+            f"no transition to a done status is available on {key} for this user"
+        )
     transition = done[0]
     path = f"/rest/api/2/issue/{key}/transitions"
     screen = transition.get("fields")
     with_resolution = not isinstance(screen, dict) or "resolution" in screen
     base: dict[str, Any] = {"transition": {"id": str(transition.get("id"))}}
     if with_resolution:
-        payload = {**base, "fields": {"resolution": {"name": _RESOLUTIONS[args.reason]}}}
+        payload = {
+            **base,
+            "fields": {"resolution": {"name": _RESOLUTIONS[args.reason]}},
+        }
         try:
             client.call("POST", path, payload=payload)
             return {"id": key, "state": "closed"}
@@ -383,9 +411,15 @@ def op_reopen(client: JiraClient, cfg: Config, args: argparse.Namespace) -> Any:
     issue = guarded_issue(client, key, "status,resolution")
     if _state(issue.get("fields") or {}) == "open":
         return {"id": key, "state": "open"}
-    candidates = [t for t in _transitions(client, key) if _target_category(t) not in (None, "done")]
+    candidates = [
+        t
+        for t in _transitions(client, key)
+        if _target_category(t) not in (None, "done")
+    ]
     if not candidates:
-        raise BackendError(f"no transition to an open status is available on {key} for this user")
+        raise BackendError(
+            f"no transition to an open status is available on {key} for this user"
+        )
     named = [t for t in candidates if "reopen" in str(t.get("name", "")).lower()]
     transition = (named or candidates)[0]
     client.call(
@@ -424,7 +458,9 @@ def op_rollup_append(client: JiraClient, cfg: Config, args: argparse.Namespace) 
     entry = markup.RollupEntry(date, user, action, entry_body)
     if existing is None:
         data = client.call(
-            "POST", f"/rest/api/2/issue/{key}/comment", payload={"body": markup.render_rollup([entry])}
+            "POST",
+            f"/rest/api/2/issue/{key}/comment",
+            payload={"body": markup.render_rollup([entry])},
         )
         comment_id = str((data or {}).get("id") or "")
     else:
@@ -438,7 +474,9 @@ def op_rollup_append(client: JiraClient, cfg: Config, args: argparse.Namespace) 
     return {"id": key, "url": client.comment_url(key, comment_id)}
 
 
-def op_rollup_amend_latest(client: JiraClient, cfg: Config, args: argparse.Namespace) -> Any:
+def op_rollup_amend_latest(
+    client: JiraClient, cfg: Config, args: argparse.Namespace
+) -> Any:
     key = expand_id(args.id, cfg.project)
     action = _single_line(args.action, "--action")
     entry_body = _read_text(args.entry_body_file, "entry body")
@@ -474,7 +512,9 @@ def op_attach(client: JiraClient, cfg: Config, args: argparse.Namespace) -> Any:
     guarded_issue(client, key)
     data = client.attach(key, name, content)
     first = data[0] if isinstance(data, list) and data else {}
-    url = (first.get("content") if isinstance(first, dict) else None) or client.browse_url(key)
+    url = (
+        first.get("content") if isinstance(first, dict) else None
+    ) or client.browse_url(key)
     return {
         "id": key,
         "name": (first.get("filename") if isinstance(first, dict) else None) or name,
@@ -487,7 +527,12 @@ def op_pending(client: JiraClient | None, cfg: Config, args: argparse.Namespace)
 
 
 def op_publish(client: JiraClient | None, cfg: Config, args: argparse.Namespace) -> Any:
-    return {"committed": False, "pushed": False, "revision": None, "note": "jira writes are immediate"}
+    return {
+        "committed": False,
+        "pushed": False,
+        "revision": None,
+        "note": "jira writes are immediate",
+    }
 
 
 def op_doctor(client: JiraClient | None, cfg: Config, args: argparse.Namespace) -> Any:
@@ -497,27 +542,45 @@ def op_doctor(client: JiraClient | None, cfg: Config, args: argparse.Namespace) 
         checks.append({"name": name, "ok": ok, "detail": detail})
 
     check("url", bool(cfg.url), cfg.url or "ISSUE_TRACKER_URL / --url not set")
-    check("project", bool(cfg.project), cfg.project or "SECURITY_TRACKER_PROJECT / --project not set")
     check(
-        "token",
-        bool(cfg.token),
-        f"JIRA_API_TOKEN set ({cfg.auth_scheme})" if cfg.token else "JIRA_API_TOKEN not set",
+        "project",
+        bool(cfg.project),
+        cfg.project or "SECURITY_TRACKER_PROJECT / --project not set",
     )
+    rest = client.rest if client is not None else None
+    if rest is not None:
+        check(
+            "token",
+            rest.authenticated,
+            f"token confirmed for {rest.host} ({rest.auth_scheme})"
+            if rest.authenticated
+            else rest.auth_note
+            or "no JIRA_API_TOKEN or token file; writes are refused",
+        )
     check(
         "security_level",
         bool(cfg.security_level),
-        cfg.security_level or "SECURITY_TRACKER_SECURITY_LEVEL / --security-level not set; create is refused",
+        cfg.security_level
+        or "SECURITY_TRACKER_SECURITY_LEVEL / --security-level not set; create is refused",
     )
     if client is not None and cfg.url:
         try:
             me = client.myself()
-            check("auth", True, f"authenticated as {me.get('name') or me.get('displayName') or 'unknown'}")
+            check(
+                "auth",
+                True,
+                f"authenticated as {me.get('name') or me.get('displayName') or 'unknown'}",
+            )
         except TrackerError as exc:
             check("auth", False, str(exc))
         if cfg.project:
             try:
                 project = client.call("GET", f"/rest/api/2/project/{cfg.project}")
-                check("project_reachable", True, str((project or {}).get("name") or cfg.project))
+                check(
+                    "project_reachable",
+                    True,
+                    str((project or {}).get("name") or cfg.project),
+                )
             except TrackerError as exc:
                 check("project_reachable", False, str(exc))
             if cfg.security_level:
@@ -538,8 +601,16 @@ def _security_level_check(client: JiraClient, cfg: Config) -> tuple[str, bool, s
         return name, False, str(exc)
     levels = [str(level.get("name")) for level in (data or {}).get("levels") or []]
     if cfg.security_level in levels:
-        return name, True, f"{cfg.security_level!r} is a security level of {cfg.project}"
-    return name, False, f"{cfg.security_level!r} not among the levels visible to this user: {levels}"
+        return (
+            name,
+            True,
+            f"{cfg.security_level!r} is a security level of {cfg.project}",
+        )
+    return (
+        name,
+        False,
+        f"{cfg.security_level!r} not among the levels visible to this user: {levels}",
+    )
 
 
 # -- parser ------------------------------------------------------------------
@@ -549,8 +620,12 @@ _OFFLINE = {"pending", "publish", "doctor"}
 
 
 def _common(parser: argparse.ArgumentParser, default: Any) -> None:
-    parser.add_argument("--url", default=default, help="Jira base URL (ISSUE_TRACKER_URL).")
-    parser.add_argument("--project", default=default, help="Project key (SECURITY_TRACKER_PROJECT).")
+    parser.add_argument(
+        "--url", default=default, help="Jira base URL (ISSUE_TRACKER_URL)."
+    )
+    parser.add_argument(
+        "--project", default=default, help="Project key (SECURITY_TRACKER_PROJECT)."
+    )
     parser.add_argument(
         "--security-level",
         default=default,
@@ -607,7 +682,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = add("create", op_create, "Create a tracker with the configured security level.")
     p.add_argument("--title-file")
-    p.add_argument("--title", help="title as one argv value (callers that never use a shell)")
+    p.add_argument(
+        "--title", help="title as one argv value (callers that never use a shell)"
+    )
     p.add_argument("--body-file", required=True)
     p.add_argument("--label", action="append")
 
@@ -620,7 +697,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--milestone")
     p.add_argument("--clear-milestone", action="store_true")
     p.add_argument("--title-file")
-    p.add_argument("--title", help="title as one argv value (callers that never use a shell)")
+    p.add_argument(
+        "--title", help="title as one argv value (callers that never use a shell)"
+    )
     p.add_argument("--body-file")
 
     p = add("comment", op_comment, "Add a comment.")
@@ -642,7 +721,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--user")
     p.add_argument("--now")
 
-    p = add("rollup-amend-latest", op_rollup_amend_latest, "Replace the latest rollup entry's body.")
+    p = add(
+        "rollup-amend-latest",
+        op_rollup_amend_latest,
+        "Replace the latest rollup entry's body.",
+    )
     p.add_argument("id")
     p.add_argument("--action", required=True)
     p.add_argument("--entry-body-file", required=True)
@@ -667,12 +750,16 @@ def resolve_config(args: argparse.Namespace, env: Mapping[str, str]) -> Config:
     deployment = env.get("JIRA_DEPLOYMENT", "").strip().lower()
     return Config(
         url=(args.url or env.get("ISSUE_TRACKER_URL", "")).strip().rstrip("/"),
-        project=(args.project or env.get("SECURITY_TRACKER_PROJECT", "")).strip().upper(),
-        token=env.get("JIRA_API_TOKEN", "").strip(),
-        auth_scheme=env.get("JIRA_AUTH_SCHEME", "").strip() or "Basic",
-        user=env.get("JIRA_USER", "").strip(),
-        security_level=(args.security_level or env.get("SECURITY_TRACKER_SECURITY_LEVEL", "")).strip(),
-        issue_type=(args.issue_type or env.get("SECURITY_TRACKER_ISSUE_TYPE", "")).strip() or "Bug",
+        project=(args.project or env.get("SECURITY_TRACKER_PROJECT", ""))
+        .strip()
+        .upper(),
+        security_level=(
+            args.security_level or env.get("SECURITY_TRACKER_SECURITY_LEVEL", "")
+        ).strip(),
+        issue_type=(
+            args.issue_type or env.get("SECURITY_TRACKER_ISSUE_TYPE", "")
+        ).strip()
+        or "Bug",
         cloud=bool(args.jira_cloud) or deployment == "cloud",
     )
 
@@ -692,19 +779,27 @@ def main(
     try:
         client: JiraClient | None = None
         if cfg.url:
+            rest = None
+            if transport is None:
+                try:
+                    rest = JiraRest(cfg.url)
+                except JiraRestConfigError as exc:
+                    raise UsageError(str(exc)) from exc
             client = JiraClient(
                 base_url=cfg.url,
                 project=cfg.project,
-                token=cfg.token,
-                auth_scheme=cfg.auth_scheme,
-                user=cfg.user,
                 cloud=cfg.cloud,
-                transport=transport or urllib_transport,
+                rest=rest,
+                transport=transport,
             )
         elif args.op not in _OFFLINE:
-            raise UsageError("Jira URL not configured: set ISSUE_TRACKER_URL or pass --url")
+            raise UsageError(
+                "Jira URL not configured: set ISSUE_TRACKER_URL or pass --url"
+            )
         if args.op not in _OFFLINE and not cfg.project:
-            raise UsageError("project key not configured: set SECURITY_TRACKER_PROJECT or pass --project")
+            raise UsageError(
+                "project key not configured: set SECURITY_TRACKER_PROJECT or pass --project"
+            )
         _emit(args.func(client, cfg, args))
         return 0
     except TrackerError as exc:

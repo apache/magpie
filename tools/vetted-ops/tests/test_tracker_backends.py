@@ -88,7 +88,7 @@ def local_policy(tmp_path: Path) -> Path:
 
 @pytest.fixture()
 def jira_policy(tmp_path: Path) -> Path:
-    return _write_policy(tmp_path, JIRA, project=str(REPO_TOOLS / "jira-security-tracker"))
+    return _write_policy(tmp_path, JIRA, project=str(REPO_TOOLS / "jira"))
 
 
 def _body(policy: Path, text: str = "hello\n") -> str:
@@ -163,9 +163,9 @@ def test_every_operation_that_addresses_the_tracker_is_mapped(tmp_path: Path) ->
         (LOCAL, {"project": "tools/local-tracker", "root": "/r"}, "must be absolute"),
         (LOCAL, {"project": "/usr/bin", "root": "/r"}, "tools/local-tracker directory"),
         (LOCAL, {"project": "/x/local-tracker", "root": "reports"}, "must be absolute"),
-        (JIRA.replace("https://", "http://"), {"project": "/x/jira-security-tracker"}, "https://"),
-        (JIRA.replace('"FOOSEC"', '"foo sec"'), {"project": "/x/jira-security-tracker"}, "project key"),
-        (JIRA.replace('"Security Team"', '"-x"'), {"project": "/x/jira-security-tracker"}, "one line"),
+        (JIRA.replace("https://", "http://"), {"project": "/x/jira"}, "https://"),
+        (JIRA.replace('"FOOSEC"', '"foo sec"'), {"project": "/x/jira"}, "project key"),
+        (JIRA.replace('"Security Team"', '"-x"'), {"project": "/x/jira"}, "one line"),
     ],
 )
 def test_bad_tracker_policy_is_refused(
