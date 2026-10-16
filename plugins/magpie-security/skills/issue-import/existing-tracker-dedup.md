@@ -13,19 +13,17 @@ Write the ids as a JSON list to `<scratch>/thread-ids.json` and let the tool bat
 (`<sm>` is `uv run --project <framework>/tools/security-management security-management issue-import`):
 
 ```bash
-<sm> dedup-queries --thread-ids <scratch>/thread-ids.json
+<sm> dedup-queries --thread-ids <scratch>/thread-ids.json --tracker <tracker>
 ```
 
-Run each printed `query` as a plain command, saving its output to `<scratch>/dedup-hits-<n>.json`:
-
-```bash
-gh search issues "<query>" \
-  --repo <tracker> --match body --limit 100 \
-  --json number,title,state,url,body
-```
+It accepts the identifiers the mail-source backends emit — a Gmail or PonyMail id, a maildir file name, a root `Message-ID` such as `<report@example.org>` —
+and quotes each as a search phrase.
+**Exit `2` lists `rejected_ids`** it cannot search safely: stop and show them to the user; never search without them, or a tracked report re-imports.
+Run each batch's printed `command` (`gh search issues '<query>' --repo <tracker> --match body --limit 100 --json number,title,state,url,body`) as a plain command,
+saving its output to `<scratch>/dedup-hits-<n>.json`.
 
 Then attribute the hits with `<sm> dedup-attribute --thread-ids <scratch>/batch-<n>.json --hits <scratch>/dedup-hits-<n>.json`
-(the batch's `ids`; a hit can match more than one candidate).
+(the batch's `ids`; a hit can match more than one candidate; the same exit `2` applies).
 A batch that returns exactly 100 hits may be truncated: the tool reports `truncated`, no `untracked` ids, and `rerun` batches —
 run those rather than treating the unmatched `threadId`s as untracked.
 

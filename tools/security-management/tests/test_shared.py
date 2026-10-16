@@ -139,3 +139,33 @@ def test_rollup_receipt_line_per_disposition(receipt: dict[str, object], expecte
 
 def test_rollup_code_span_survives_a_backquote() -> None:
     assert rollup.code("a`b") == "`a'b`"
+
+
+def test_keyword_strips_the_whole_leading_run_of_spaces_and_dashes() -> None:
+    assert keyword.clean("-- --help") == "help"
+    assert keyword.clean(" - -  -x y") == "x y"
+    assert keyword.clean("---") == ""
+
+
+def test_linkify_leaves_matching_backtick_runs_links_and_urls_alone() -> None:
+    text = "``a `#12` b`` and [details about #12 here](https://x.example) and <https://x.example/#12> https://x.example/a#12 #13"
+    out = refs.linkify(text, "o/r")
+    assert out.startswith(
+        "``a `#12` b`` and [details about #12 here](https://x.example) and <https://x.example/#12> https://x.example/a#12 "
+    )
+    assert out.endswith("[#13](https://github.com/o/r/issues/13)")
+    assert refs.bare_refs(text) == ["#13"]
+
+
+def test_tracker_link_per_backend() -> None:
+    assert refs.tracker_link("o/r", 12) == "[o/r#12](https://github.com/o/r/issues/12)"
+    assert refs.tracker_link("o/r", "a/b#3") == "[a/b#3](https://github.com/a/b/issues/3)"
+    assert (
+        refs.tracker_link("o/r", "FOOSEC-12", "https://j.example/browse/FOOSEC-12", "jira")
+        == "[FOOSEC-12](https://j.example/browse/FOOSEC-12)"
+    )
+    assert refs.tracker_link("o/r", "SEC-0012", None, "local-files") == "SEC-0012"
+    with pytest.raises(ValueError):
+        refs.tracker_link("o/r", "SEC-1", "javascript:alert(1) x", "local-files")
+    with pytest.raises(ValueError):
+        refs.tracker_link("o/r", "[x](y)", None, "jira")

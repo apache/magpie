@@ -25,6 +25,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from security_management.shared import body
 from security_management.shared.rollup import one_line
 from security_management.shared.titles import strip_mail_prefixes
 
@@ -36,7 +37,9 @@ LEDGER_KEYS = ("date", "reporter", "title", "canned", "thread", "archive", "summ
 def _ledger_value(value: object) -> str:
     # One line per key, and no comment opener: a reporter-derived value can
     # neither add a key nor forge a second `<!-- rejection v1 -->` record.
-    return one_line(value).replace("<!--", "&lt;!--").replace("-->", "--&gt;")
+    # It is sanitised like a body field, so an image or tag in a rejected
+    # subject or a reporter name is not rendered in the ledger comment.
+    return body.short_field(one_line(value)).replace("-->", "--&gt;")
 
 
 def ledger(data: Mapping[str, Any]) -> dict[str, Any]:

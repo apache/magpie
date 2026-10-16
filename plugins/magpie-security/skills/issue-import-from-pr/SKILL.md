@@ -20,7 +20,7 @@ argument-hint: "[pr-number] [repo:owner/name]"
 capability: capability:intake
 surface_hash: sha256:c746e4aecc3cf315
 license: Apache-2.0
-measured_tokens: 7174
+measured_tokens: 7257
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -227,7 +227,9 @@ This is the per-scope split rule in [`scope-labels.md`](../../../../<project-con
 
 **Multiple sub-packages within one scope.** Not mixed: one tracker, with `sub_packages` and `packages` listing each,
 and the *Affected versions* field carries **one line per sub-package**; propose each in Step 5.
-Paths no label matched are in `unmatched`; with `scope: null`, ask the user.
+A file two scopes' regexes both match is in `overlapping` and blocks too (no precedence exists).
+Paths no label matched are in `unmatched`; `detection: unresolved` (no scope matched) asks the user.
+`detection: disabled` is not unresolved: `scope` is the default label, or null when the project has none, and Step 5c applies no scope label.
 
 ---
 
@@ -326,7 +328,8 @@ Target column: `Assessed` (scope label applied, no CVE yet); skip when `tracker.
 ### 5e — Status-rollup comment
 
 The first entry on the tracker's status rollup ([`tools/github/status-rollup.md`](../../../../tools/github/status-rollup.md)).
-Write `upstream`, `pr_number`, `scope`, `state`, `date`, `author_login`, `remediation_developer` (with `remediation_developer_is_bot`), `affected_versions` and `security_list`
+Write `upstream`, `pr_number`, `scope`, `state`, `date`, `author_login`, `remediation_developer` (with `remediation_developer_is_bot`), `affected_versions`, `security_list`
+and the confirmed Step 6 `severity` / `reporter_credit` overrides, if any,
 to `<scratch>/rollup-<N>.json` and run `<sm> render-rollup --input <scratch>/rollup-<N>.json`.
 It prints the action `label` (`Import from PR (<scope>, <upstream>#<N>)`, refused when it would hold `<`, `>` or `·`) and the entry `text`, every line at column 0;
 Step 7e's tool writes the `<details>` envelope and creates the rollup with its marker line.

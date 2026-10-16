@@ -121,11 +121,11 @@ def render_body(data: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def labels(scope: str, state: str, configured: Mapping[str, Any] | None) -> dict[str, Any]:
-    """Scope, PR-state and security-marker labels; never `needs_triage`."""
+def labels(scope: str | None, state: str, configured: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Scope (when there is one), PR-state and security-marker labels; never `needs_triage`."""
     names = {**DEFAULT_LABELS, **{k: str(v) for k, v in (configured or {}).items()}}
     state = state.upper()
-    out = [scope]
+    out = [str(scope)] if scope else []
     warnings: list[str] = []
     if state == "OPEN":
         out.append(names["pr_open"])
@@ -142,7 +142,7 @@ def labels(scope: str, state: str, configured: Mapping[str, Any] | None) -> dict
 def rollup(data: Mapping[str, Any]) -> dict[str, Any]:
     upstream = str(data["upstream"])
     number = int(data["pr_number"])
-    scope = one_line(data["scope"])
+    scope = one_line(data.get("scope")) or "no scope"
     label = f"Import from PR ({scope}, {upstream}#{number})"
     error = label_error(label)
     if error:
@@ -165,11 +165,18 @@ def rollup(data: Mapping[str, Any]) -> dict[str, Any]:
         "",
         f"Provenance: public PR {url}, author {code('@' + one_line(data['author_login']))}.",
         f"Extracted fields: scope={code(scope)}, *PR with the fix*={url}, *Remediation developer*={developer}, "
-        f"*Affected versions*={code(data.get('affected_versions') or '_No response_')}, Severity=`Unknown`.",
+        f"*Affected versions*={code(data.get('affected_versions') or '_No response_')}, "
+        f"Severity={code(data.get('severity') or 'Unknown')}.",
         "",
-        "*Reporter credited as* intentionally left blank — public-PR imports do not credit the PR author as the "
-        "CVE reporter (no responsible disclosure). See the "
-        f"[Reporter credit policy]({CREDIT_POLICY}) for the rationale.",
+        (
+            f"*Reporter credited as* set to {code(credit)} at confirmation — an override of the default blank, "
+            "for a project-specific reason; public-PR imports do not credit the PR author as the CVE reporter. "
+            f"See the [Reporter credit policy]({CREDIT_POLICY})."
+            if (credit := one_line(data.get("reporter_credit")))
+            else "*Reporter credited as* intentionally left blank — public-PR imports do not credit the PR author "
+            "as the CVE reporter (no responsible disclosure). See the "
+            f"[Reporter credit policy]({CREDIT_POLICY}) for the rationale."
+        ),
     ]
     return {
         "ok": True,
@@ -179,7 +186,9 @@ def rollup(data: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def dup_query(number: int, tracker: str, hits: Sequence[Mapping[str, Any]] | None = None) -> dict[str, Any]:
+def dup_query(
+    number: int, tracker: str, hits: Sequence[Mapping[str, Any]] | None = None, platform: str = "github"
+) -> dict[str, Any]:
     query = f'in:body "pull/{number}" OR {number}'
     out: dict[str, Any] = {
         "query": query,
@@ -189,9 +198,9 @@ def dup_query(number: int, tracker: str, hits: Sequence[Mapping[str, Any]] | Non
         return out
     found = [
         {
-            "number": int(h["number"]),
+            "id": one_line(h.get("number", h.get("id"))),
             "state": str(h.get("state") or ""),
-            "link": f"[{tracker}#{int(h['number'])}](https://github.com/{tracker}/issues/{int(h['number'])})",
+            "link": refs.tracker_link(tracker, h.get("number", h.get("id")), h.get("url"), platform),
         }
         for h in hits
     ]
@@ -210,20 +219,20 @@ def dup_query(number: int, tracker: str, hits: Sequence[Mapping[str, Any]] | Non
 
 def recap(data: Mapping[str, Any]) -> dict[str, Any]:
     tracker = str(data["tracker"])
-    number = int(data["number"])
-    issue = f"https://github.com/{tracker}/issues/{number}"
+    platform = str(data.get("platform") or "github")
+    link = refs.tracker_link(tracker, data.get("number", data.get("id")), data.get("url"), platform)
     milestone = one_line(data.get("milestone")) or "none set"
     labels_ = ", ".join(code(label) for label in data.get("labels") or []) or "none"
     rollup_url = one_line(data.get("rollup_url"))
     lines = [
-        f"- Tracker: [{tracker}#{number}]({issue})",
+        f"- Tracker: {link}",
         f"- Imported from: {one_line(data['pr_url'])}",
         f"- Board column: `{one_line(data.get('column') or 'Assessed')}`",
         f"- Labels: {labels_}",
         f"- Milestone: {milestone}",
         f"- Status rollup: [{rollup_url}]({rollup_url})" if rollup_url else "- Status rollup: not posted",
         "",
-        f"> Next: allocate the CVE for this tracker. Run `security-cve-allocate` on [{tracker}#{number}]({issue}).",
+        f"> Next: allocate the CVE for this tracker. Run `security-cve-allocate` on {link}.",
     ]
     text = "\n".join(lines) + "\n"
     return {"text": text, "bare_refs": refs.bare_refs(text)}

@@ -23,6 +23,8 @@ expected plan.
 
 from __future__ import annotations
 
+import pytest
+
 from security_management.shared.grammar import parse_reply
 
 THREE = [{"n": 1, "importable": True}, {"n": 2, "importable": True}, {"n": 3, "importable": True}]
@@ -121,11 +123,47 @@ def test_free_text_is_ambiguous_and_holds_back_only_the_item_it_names() -> None:
     assert plan["import_items"] == [1, 2]
 
 
-def test_unknown_item_and_conflicting_deviations_are_ambiguous() -> None:
-    plan = parse_reply("skip 9; skip 1; 1:reject-with-canned X", THREE)
+def test_an_unknown_item_holds_every_action() -> None:
+    plan = parse_reply("skip 9; skip 1", THREE)
     assert plan["action"] == "ambiguous"
-    assert plan["ambiguous_tokens"] == ["skip 9", "1:reject-with-canned X"]
-    assert plan["skip_items"] == [1]
+    assert plan["ambiguous_tokens"] == ["skip 9"]
+    assert plan["skip_items"] == []
+    assert plan["import_items"] == []
+
+
+def test_conflicting_dispositions_leave_every_actionable_list() -> None:
+    plan = parse_reply("1:reject-with-canned A; skip 1", THREE)
+    assert plan["action"] == "ambiguous"
+    assert plan["ambiguous_items"] == [1]
+    assert plan["skip_items"] == []
+    assert plan["reject_with_canned"] == []
+    assert plan["import_items"] == [2, 3]
+    plan = parse_reply("1:reject-with-canned A; 1:reject-with-canned B", THREE)
+    assert (plan["reject_with_canned"], plan["ambiguous_items"]) == ([], [1])
+    plan = parse_reply("2:title X; 2:title Y", THREE)
+    assert (plan["overrides"], plan["ambiguous_items"], plan["import_items"]) == ([], [2], [1, 3])
+
+
+def test_identical_duplicates_are_one_action() -> None:
+    plan = parse_reply("1:reject-with-canned A; 1:reject-with-canned A; skip 2, 2", THREE)
+    assert plan["action"] == "import"
+    assert plan["reject_with_canned"] == [{"item": 1, "canned_name": "A"}]
+    assert plan["skip_items"] == [2]
+
+
+@pytest.mark.parametrize(
+    "reply", ["do not proceed", "don't go", "no", "yes, but wait", "go?? not yet", "stop"]
+)
+def test_a_negated_or_partial_go_confirms_nothing(reply: str) -> None:
+    plan = parse_reply(reply, THREE)
+    assert plan["non_import_confirmed"] == []
+    assert plan["import_items"] == [] or plan["action"] == "cancel"
+
+
+def test_unscoped_free_text_holds_everything() -> None:
+    plan = parse_reply("skip 1; hmm, let me think about this", THREE)
+    assert plan["action"] == "ambiguous"
+    assert (plan["import_items"], plan["skip_items"], plan["non_import_confirmed"]) == ([], [], [])
 
 
 def test_a_canned_name_may_hold_skip_and_keep() -> None:

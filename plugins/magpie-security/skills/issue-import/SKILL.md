@@ -20,7 +20,7 @@ argument-hint: "[import] [last Nd|all] [skip threadId]"
 capability: capability:intake
 surface_hash: sha256:e9c563d494821baf
 license: Apache-2.0
-measured_tokens: 7799
+measured_tokens: 7867
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -364,6 +364,7 @@ plus **apply every confirmed non-import action** (`non_import_confirmed`);
 `action: cancel` (`cancel` / `none` / *"hold off"*) halts everything — no trackers, no drafts.
 On `action: ambiguous`, ask back only about `ambiguous_tokens` and `ambiguous_items`
 — do **not** stall the rest of the import waiting for a per-candidate green light.
+The lists already leave out every candidate in doubt (conflicting dispositions included), and are all empty when the doubt names no candidate (*"do not proceed"*, a skip of an unknown number): then nothing runs until the user clarifies.
 Each `keep` thread the Step 1 pre-filter dropped runs Steps 2 to 5; re-present it before applying anything for it.
 
 ---
@@ -375,7 +376,7 @@ Full procedure: [`apply.md`](apply.md).
 ## Step 8 — Recap
 
 Write what Step 7 recorded to `<scratch>/recap.json` and present the `text` of `<sm> render-recap --state <scratch>/recap.json`:
-`created` (`number`, `candidate`), `drafts` (`draft_id`, `candidate` — a consolidated receipt under each candidate it covers, listed once),
+`platform` (`tracker.platform`), `created` (`number`, or the backend's `id` and `url`; `candidate`), `drafts` (`draft_id`, `candidate` — a consolidated receipt under each candidate it covers, listed once),
 `skipped` (`candidate`, `kind`: `user`, `canned` with `canned_name`, `public-fix`, `tracked` with the `existing` tracker as supplied, `answered`),
 `prefiltered` (the Step 1 `dropped` list), `bookkeeping_dropped` (Step 3's count) and `notes` (suppressed receipts, a missing ledger issue).
 The recap links every issue, lists **every** candidate not imported with its reason

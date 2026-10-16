@@ -239,13 +239,57 @@ def test_prefilter_rules(capsys, tmp_path) -> None:
     assert [t["thread_id"] for t in out["dropped"]] == ["t-bookkeeping"]
 
 
-def test_dedup_queries_batch_by_six_and_refuse_odd_ids(capsys, tmp_path) -> None:
-    ids = [f"19d2f40286{i:06x}" for i in range(8)] + ["$(rm -rf x)"]
-    code, out = run(capsys, "dedup-queries", "--thread-ids", write(tmp_path, "ids.json", ids))
+def test_dedup_queries_batch_by_six(capsys, tmp_path) -> None:
+    ids = [f"19d2f40286{i:06x}" for i in range(8)]
+    code, out = run(
+        capsys, "dedup-queries", "--thread-ids", write(tmp_path, "ids.json", ids), "--tracker", TRACKER
+    )
     assert code == 0
     assert [len(b["ids"]) for b in out["batches"]] == [6, 2]
     assert out["batches"][0]["query"].count(" OR ") == 5
-    assert out["rejected_ids"] == ["$(rm -rf x)"]
+    assert out["batches"][1]["query"] == '"19d2f40286000006" OR "19d2f40286000007"'
+    assert out["batches"][1]["command"].startswith(
+        'gh search issues \'"19d2f40286000006" OR "19d2f40286000007"\' --repo example-s/example-s'
+    )
+
+
+@pytest.mark.parametrize(
+    "thread_id",
+    ["19d2f402867e957e", "<report@example.org>", "<CAF+x=1@mail.gmail.com>", "1700000000.M1P2.host,U=12:2,S"],
+)
+def test_dedup_accepts_every_backend_identifier(capsys, tmp_path, thread_id: str) -> None:
+    code, out = run(
+        capsys,
+        "dedup-queries",
+        "--thread-ids",
+        write(tmp_path, "ids.json", [thread_id]),
+        "--tracker",
+        TRACKER,
+    )
+    assert code == 0
+    assert out["batches"][0]["query"] == f'"{thread_id}"'
+    command = out["batches"][0]["command"]
+    assert "$(" not in command
+    hits = [{"number": 7, "body": f"Root Message-ID: `{thread_id}`"}]
+    code, out = run(
+        capsys,
+        "dedup-attribute",
+        "--thread-ids",
+        write(tmp_path, "i.json", [thread_id]),
+        "--hits",
+        write(tmp_path, "h.json", hits),
+    )
+    assert list(out["tracked"]) == [thread_id]
+
+
+@pytest.mark.parametrize("bad", ["$(rm -rf x)", "<a b@c>", "-flag-thread", '<x"@y>', "short"])
+def test_dedup_refuses_an_identifier_no_backend_emits(capsys, tmp_path, bad: str) -> None:
+    ids = write(tmp_path, "ids.json", ["19d2f402867e957e", bad])
+    code, out = run(capsys, "dedup-queries", "--thread-ids", ids)
+    assert code == 2
+    assert out["rejected_ids"] == [bad]
+    code, out = run(capsys, "dedup-attribute", "--thread-ids", ids, "--hits", write(tmp_path, "h.json", []))
+    assert code == 2
 
 
 def test_dedup_attribute_and_truncation(capsys, tmp_path) -> None:
@@ -554,3 +598,66 @@ def test_a_missing_input_file_is_a_refusal(capsys, tmp_path) -> None:
     code, out = run(capsys, "render-body", "--input", str(tmp_path / "nope.json"))
     assert code == 2
     assert out["ok"] is False
+
+
+def test_render_ledger_defuses_markdown_in_reporter_derived_values(capsys, tmp_path) -> None:
+    data = {
+        "date": "2026-10-16",
+        "reporter": "![x](https://attacker.example/r.png) <img src=y>",
+        "title": "Re: ![pixel](https://attacker.example/p.png) DoS",
+        "canned": "dos-authenticated",
+        "thread": "19d2f402867e957e",
+        "summary": "s",
+    }
+    _, out = run(capsys, "render-ledger", "--input", write(tmp_path, "l.json", data))
+    assert out["text"].startswith("<!-- rejection v1 -->\ndate: 2026-10-16\n")
+    assert "reporter: [image: x](https://attacker.example/r.png) &lt;img src=y>\n" in out["text"]
+    assert "title: [image: pixel](https://attacker.example/p.png) DoS\n" in out["text"]
+    assert "![" not in out["text"]
+
+
+@pytest.mark.parametrize(
+    ("platform", "created", "link"),
+    [
+        (
+            "github",
+            {"number": 251, "candidate": 1},
+            "[example-s/example-s#251](https://github.com/example-s/example-s/issues/251)",
+        ),
+        (
+            "jira",
+            {"id": "FOOSEC-12", "url": "https://issues.example.org/browse/FOOSEC-12", "candidate": 1},
+            "[FOOSEC-12](https://issues.example.org/browse/FOOSEC-12)",
+        ),
+        (
+            "local-files",
+            {"id": "SEC-0012", "url": "security/reports/SEC-0012.md", "candidate": 1},
+            "[SEC-0012](security/reports/SEC-0012.md)",
+        ),
+        ("local-files", {"id": "SEC-0013", "candidate": 1}, "- SEC-0013"),
+    ],
+)
+def test_recap_links_on_every_tracker_backend(capsys, tmp_path, platform, created, link) -> None:
+    out = recap(
+        capsys,
+        tmp_path,
+        {
+            "platform": platform,
+            "created": [created],
+            "skipped": [
+                {"candidate": 2, "kind": "tracked", "existing": "FOOSEC-9" if platform == "jira" else "198"}
+            ],
+        },
+    )
+    assert link in out["text"]
+    if platform == "github":
+        assert out["issues_created"] == [
+            {"number": 251, "url": "https://github.com/example-s/example-s/issues/251"}
+        ]
+        assert (
+            "already tracked as example-s/example-s#198" in out["text"]
+            or "already tracked as [example-s/example-s#198]" in out["text"]
+        )
+    else:
+        assert "github.com" not in out["text"]
+        assert out["issues_created"][0]["id"] == created["id"]
