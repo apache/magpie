@@ -35,6 +35,7 @@ from github_body_field.parser import (
     FieldNotFoundError,
     extract_field,
     list_fields,
+    normalise,
     replace_field,
 )
 
@@ -138,6 +139,45 @@ def _cmd_set(args: argparse.Namespace) -> int:
     return 0
 
 
+def _read_known_fields(path: str | None) -> list[str] | None:
+    if path is None:
+        return None
+    names = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(names, list) or not all(isinstance(n, str) for n in names):
+        sys.stderr.write("error: --fields-json must hold a JSON array of field names\n")
+        raise SystemExit(2)
+    return names
+
+
+def _read_keep(items: Sequence[str]) -> dict[str, int]:
+    keep: dict[str, int] = {}
+    for item in items:
+        name, _, line = item.rpartition("=")
+        if not name or not line.isdigit():
+            sys.stderr.write(f"error: --keep expects FIELD=LINE, got {item!r}\n")
+            raise SystemExit(2)
+        keep[name] = int(line)
+    return keep
+
+
+def _cmd_normalise(args: argparse.Namespace) -> int:
+    if (args.issue is None) == (args.body_file is None):
+        sys.stderr.write("error: pass exactly one of <issue> or --body-file\n")
+        return 2
+    if args.body_file is not None:
+        body = Path(args.body_file).read_text(encoding="utf-8")
+    else:
+        body = _gh_get_body(args.issue, args.repo)
+    result = normalise(body, _read_known_fields(args.fields_json), _read_keep(args.keep))
+    report: dict[str, object] = {**result.as_dict(), "changed": result.text != body}
+    if args.output is not None:
+        Path(args.output).write_text(result.text, encoding="utf-8")
+        report["output"] = args.output
+    sys.stdout.write(json.dumps(report, indent=2))
+    sys.stdout.write("\n")
+    return 0
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="body-field",
@@ -177,6 +217,23 @@ def _build_parser() -> argparse.ArgumentParser:
     p_list.add_argument("issue", help="issue number")
     p_list.add_argument("--json", action="store_true", help="emit a JSON array instead of one name per line")
     p_list.set_defaults(func=_cmd_list)
+
+    p_norm = sub.add_parser(
+        "normalise",
+        help="report (and optionally write locally) the canonical form of a body; never pushes",
+    )
+    p_norm.add_argument("issue", nargs="?", help="issue number (or pass --body-file)")
+    p_norm.add_argument("--body-file", help="read the body from this local file instead of the issue")
+    p_norm.add_argument("--fields-json", help="path to a JSON array of the template's field names")
+    p_norm.add_argument(
+        "--keep",
+        action="append",
+        default=[],
+        metavar="FIELD=LINE",
+        help="resolve a duplicate field by keeping the copy whose heading is on LINE (repeatable)",
+    )
+    p_norm.add_argument("--output", help="write the normalised body to this local file")
+    p_norm.set_defaults(func=_cmd_normalise)
 
     return parser
 

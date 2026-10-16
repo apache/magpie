@@ -13,6 +13,7 @@
     - [`get <issue> --field "<name>"`](#get-issue---field-name)
     - [`set <issue> --field "<name>" --value "<v>" | --value-file <path>`](#set-issue---field-name---value-v----value-file-path)
     - [`list <issue>`](#list-issue)
+    - [`normalise [<issue> | --body-file <path>]`](#normalise-issue----body-file-path)
   - [Body format assumptions](#body-format-assumptions)
   - [Failure modes](#failure-modes)
 
@@ -105,14 +106,34 @@ document order. With `--json`, emit a JSON array instead — useful
 when an orchestrator wants to programmatically check what fields a
 legacy tracker already has populated.
 
+### `normalise [<issue> | --body-file <path>]`
+
+Report the canonical form of a body — the shape every field reader agrees on — without pushing anything.
+The JSON on stdout carries `changes` (`{line, kind}` per rewrite, input line numbers), `needs_decision` (`{field, kind: "duplicate", lines}` per field the tool will not choose for you) and `changed`; it never carries body text.
+
+- `--fields-json <path>`: a JSON array of the template's field names; a heading equal to one once case-folded and whitespace-collapsed takes its spelling.
+- `--keep "<field>=<line>"` (repeatable): resolve a duplicate by keeping the copy whose heading is on that line — a decision a human made.
+- `--output <path>`: write the normalised body to a local file, for a confirmed whole-body rewrite (`gh issue edit <N> --body-file <path>`).
+
+What it rewrites: `\r\n` and `\r` to `\n` (`line_endings`);
+a level-3 heading to `### Name` (`heading`, `heading_name`);
+a heading-shaped line inside a fence to `\###` (`heading_in_fence`);
+a fence left open at the end to a closed one (`unclosed_fence`);
+a repeated field whose copies hold the same value to its first copy (`duplicate_dropped`, or `duplicate_resolved` with `--keep`).
+Copies with different values stay as they are and land in `needs_decision`.
+The same function is importable as `github_body_field.normalise(body, known_fields, keep)`; `generate-cve-json` calls it in memory before every read.
+
 ## Body format assumptions
 
-The parser is a small state machine that:
+The parser follows CommonMark where it matters for finding fields:
 
-- treats only top-level `^### <Name>$` lines as field headings;
-- tracks fenced code blocks (`` ``` `` and `~~~`) so a literal
-  `### foo` inside a shell snippet never false-matches as a
-  heading;
+- lines end at `\n`, `\r\n` or `\r` — not at the other characters `str.splitlines` breaks on;
+- a field heading is a level-3 ATX heading outside any fence: up to three spaces of indent, `###`, spaces or tabs, the name, an optional closing run of `#`;
+  level-2 and level-4 headings are content;
+- fenced code blocks pair the CommonMark way: the closer uses the opener's character (`` ` `` or `~`), is at least as long, and has nothing but whitespace after the run;
+  an unclosed fence runs to the end of the body.
+  So a four-backtick block holding a three-backtick line keeps its content,
+  and a literal `### foo` inside a shell snippet never false-matches as a heading;
 - preserves the original body byte-exact when no change is needed
   (idempotent rewrite — a `set` of the same value triggers no
   API write).
@@ -129,5 +150,5 @@ path; this tool intentionally does not invent headings.
 |---|---|
 | 0 | Success (or `set` was a no-op because new value matched current). |
 | 2 | CLI argument error (e.g. both `--value` and `--value-file` given). |
-| 3 | Field heading not found, or matched more than once. The body is untouched. |
+| 3 | Field heading not found, or matched more than once (`DuplicateFieldError`, a `FieldNotFoundError`). The body is untouched. |
 | other | `gh` returned non-zero; the underlying `gh` stderr is forwarded. |

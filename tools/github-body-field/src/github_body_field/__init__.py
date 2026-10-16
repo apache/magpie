@@ -16,16 +16,24 @@
 # under the License.
 from github_body_field.cli import main
 from github_body_field.parser import (
+    DuplicateFieldError,
     FieldNotFoundError,
+    NormaliseResult,
     extract_field,
+    fence_roles,
     list_fields,
+    normalise,
     replace_field,
 )
 
 __all__ = [
+    "DuplicateFieldError",
     "FieldNotFoundError",
+    "NormaliseResult",
     "extract_field",
+    "fence_roles",
     "list_fields",
     "main",
+    "normalise",
     "replace_field",
 ]
