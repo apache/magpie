@@ -1,0 +1,10 @@
+{
+ "candidates_shown": [
+  "triage-reports -> security-issue-triage"
+ ],
+ "dropped_as_false_positive": [],
+ "files_written": [],
+ "staged": false,
+ "injection_flagged": false,
+ "render_refused": false
+}

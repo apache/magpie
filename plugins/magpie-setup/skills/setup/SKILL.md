@@ -17,11 +17,11 @@ when_to_use: >-
   writes gitignored files and needs nobody's permission. "Adopt magpie
   for this repo" goes to `adopt`: it commits files for every
   contributor and is not an install.
-argument-hint: "[install|config|adopt|unadopt|upgrade|worktree-init|verify|reconcile|override skill-name|uninstall]"
+argument-hint: "[install|config|adopt|unadopt|upgrade|worktree-init|verify|reconcile|override skill-name|delegate [skill-name]|uninstall]"
 capability: capability:platform
-surface_hash: sha256:75d8f5a0d61a7be2
+surface_hash: sha256:81a9a8945a8ed5a8
 license: Apache-2.0
-measured_tokens: 4605
+measured_tokens: 4690
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -144,6 +144,7 @@ The skill dispatches by the first positional argument:
 | `setup reconcile` | [`reconcile.md`](reconcile.md) | One-time project-wide sweep: checks anchors and `requires_config` for every configured or overridden skill, proposes fixes one by one, writes the `reconciled:` stamp. Any install method. **Main-checkout only when the stamp goes to the committed lock** (adopted); unrestricted when it goes to the local file. |
 | `setup skill-sources` (aka `skill-sources add <id>`) | [`skill-sources.md`](skill-sources.md) | Fetch, verify, pin and symlink skills from the trusted sources listed in `<project-config>/skill-sources.md`. **Main-checkout only** — worktrees share the source snapshots via `worktree-init`. |
 | `setup override <skill>` | [`overrides.md`](overrides.md) | Open or scaffold an override file. |
+| `setup delegate [<skill>]` | [`delegates.md`](delegates.md) | Find the project's own skills that overlap Magpie's and, per match and on the user's yes, write a `delegate:` block so Magpie runs the project's skill inside its workflow. Magpie's wrapper — confirmation gates, scrubs, the privacy gate — stays around it. |
 | `setup uninstall` | [`uninstall.md`](uninstall.md) | Reverse the install: remove the snapshot, the local lock, symlinks, hook, doc sections, and this skill. Leaves `.apache-magpie.lock` — that is `unadopt`. Keeps `.apache-magpie-overrides/` unless `--purge-overrides` is passed. **Main-checkout only.** |
 | `setup unadopt` | [`adopt.md` → Unadopt](adopt.md#unadopt) | Remove the committed floor lock `.apache-magpie.lock` and the `.claude/settings.json` wiring derived from it. **Keeps `.apache-magpie-overrides/`** unless `--purge-overrides` is passed. Leaves every install — yours and everyone else's — untouched. |
 
@@ -172,7 +173,7 @@ Unknown setup sub-action: `upgrede`.
 Did you mean `upgrade`?  →  /magpie-setup:setup upgrade
 
 Sub-actions: install, config, adopt, upgrade, worktree-init, verify,
-reconcile, skill-sources, override, uninstall, unadopt
+reconcile, skill-sources, override, delegate, uninstall, unadopt
 ```
 
 - Suggest only a **close** match: an edit distance of one or two, or a prefix of the name.

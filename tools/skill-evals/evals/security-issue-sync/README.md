@@ -23,6 +23,7 @@ Steps 0 (pre-flight), 1a–1c and 1e (data gathering), 1g (cve.org API check), 4
 | Bulk selectors | Selector resolution and pre-flight skips | 8 | Injection-shaped CVE token rejected, CVE list expansion, `sync all` skip rules, named trackers and CVE selectors never skipped, reporter reply under 24h is `dispatch-urgent`, `force-sync`, review-ready push exemption |
 | Draft backend | Gmail or Maildir, per project with a per-person override (`tools/gmail/draft-backends.md`) | 5 | Project Maildir, a person overriding back to Gmail, a person overriding to Maildir, nothing set (Gmail `oauth_curl`), and a project on Gmail with no OAuth credential (the `claude_ai_mcp` fallback) |
 | GHSA access tier | Repository security advisory writes by access tier | 5 | Collaborator direct field edit, 403 admin hand-off relay draft, admin direct write, reporter reply by browser paste, non-collaborator relay fallback |
+| Hand-off delegate | Next-step hand-off honouring a project delegate (pre-flight `step-13`) | 4 | Triage delegated (`replace`) named and invoked through `security-issue-triage`, CVE allocation delegated (`after`), a delegate for an unrelated skill (not named), and `--no-overrides` (ignored) |
 
 ## Hard rules exercised
 
@@ -34,6 +35,7 @@ Steps 0 (pre-flight), 1a–1c and 1e (data gathering), 1g (cve.org API check), 4
 - **CVE allocate skill explicitly named and linked**: Step-6 next-step must name and link `security-cve-allocate` (2c case-2).
 - **No-action parking**: Step-11 produces `has_concrete_action: false` (2c case-3).
 - **Security-pages reminder fires only post-advisory, once**: on a closed-`announced` tracker with *Public advisory URL* populated, the hand-off comment's checklist item still unticked and no reminder marker posted, the reminder status comment is proposed with `security_pages_reminder_proposed: true`; a ticked checklist item or an already-posted reminder proposes nothing (2b cases 8-10).
+- **Hand-offs run delegates inside the wrapper**: a delegated next skill is named with its delegate and invoked through the Magpie skill, never by running the project skill directly (hand-off delegate cases 1-4).
 - **Golden rule 2 — no bare issue numbers**: `has_bare_issue_numbers` must always be false.
 - **CVE-affecting trackers walked individually**: in bulk mode, any tracker whose `proposed_body_field_updates` names a CVE-publication field (Title, Short public summary for publish, CWE, Severity, Affected versions, Reporter credited as, Remediation developer, PR with the fix, Public advisory URL) must end up in `cve_affecting` and the `walk_order` is ascending by tracker number (bulk-orchestration cases 2 + 3).
 - **Non-CVE-affecting trackers bundled**: trackers whose proposals are limited to label flips, milestone touches, assignee swaps, project-board moves, status-rollup entries, reporter Gmail drafts, or RM hand-off comments end up in `non_cve_affecting` (bulk-orchestration case 1 + the two label-only trackers in case 2).

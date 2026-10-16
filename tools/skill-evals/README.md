@@ -11,7 +11,7 @@ Behavioral eval harness for Apache Magpie skills. Each eval suite tests a skill 
 
 Suites are currently implemented for:
 
-- **setup** — 114 cases across 27 steps (step-verify-drift, step-overrides-surface, step-override-bypass, step-m3-baseline-pick, step-m4-install-gates, step-m5-no-repo-offer, step-m5-companion-offer, step-upgrade-companion-offer, step-adopt-settings-merge, verify-default-set, uninstall-default-set, lock-marketplace-parse, adopt-write-floor, setup-prefill-from-floor, preflight-floor, upgrade-adoption-split, verify-floor, adopt-review-process, adopt-security-list, step-reconcile, step-verify, step-config-stamp, step-config-adversarial, step-config-mail, step-adopt-stamp, step-upgrade-stamp)
+- **setup** — 119 cases across 28 steps (step-verify-drift, step-overrides-surface, step-override-bypass, step-m3-baseline-pick, step-m4-install-gates, step-m5-no-repo-offer, step-m5-companion-offer, step-upgrade-companion-offer, step-adopt-settings-merge, verify-default-set, uninstall-default-set, lock-marketplace-parse, adopt-write-floor, setup-prefill-from-floor, preflight-floor, upgrade-adoption-split, verify-floor, adopt-review-process, adopt-security-list, step-reconcile, step-verify, step-config-stamp, step-config-adversarial, step-config-mail, step-adopt-stamp, step-upgrade-stamp, step-delegate-propose)
 - **setup-isolated-setup-install** — 19 cases across 5 steps (runtime-routing, step-snapshot-drift, step-scope-confirm, step-hardware-key, step-roborev-exclusion)
 - **setup-privacy-llm** — 6 cases across 2 steps (step-1-resolve, step-4-gate)
 - **setup-shared-config-sync** — 12 cases across 2 steps (step-3-decide-action, step-5-draft-commit)
@@ -21,7 +21,7 @@ Suites are currently implemented for:
 - **security-issue-triage** — 33 cases across 9 steps
 - **security-issue-deduplicate** — 18 cases across 6 steps (steps 1, 2, 3, 4, 5, 6)
 - **security-cve-allocate** — 22 cases across 6 steps (steps 1, 2, 3, 4, 5, 7)
-- **security-issue-sync**: 80 cases across 14 steps (1d, 1f, 2a, 2b, 2c, 3, 5b, 6, bulk-orchestration, bulk-selectors, draft-backend, ghsa-access-tier, guardrails, security-cc)
+- **security-issue-sync**: 84 cases across 15 steps (1d, 1f, 2a, 2b, 2c, 3, 5b, 6, bulk-orchestration, bulk-selectors, draft-backend, ghsa-access-tier, guardrails, handoff-delegate, security-cc)
 - **security-issue-fix** — 39 cases across 12 steps (2, 4a, 4b, 4c, 4d, 4e, 4f, 4g, 5, 7, 10)
 - **security-issue-invalidate** — 24 cases across 9 steps (2, 3, 4, 5a, 5b, 5d, 5e, 5f, 7)
 - **security-issue-import-from-md** — 11 cases across 4 steps (1, 2, 4, 6)

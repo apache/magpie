@@ -522,6 +522,12 @@ with) → leave the `reconciled:` block exactly as it was. A re-adoption
 run that changes only the floor, with no configuration change and no
 local stamp to migrate, stamps nothing new.
 
+### 4e — Delegate to the project's own skills
+
+Same scope as [4c](#4c--review-the-projects-existing-process): only the families new to the floor, and nothing when none was added.
+When the repository has skills of its own (a `SKILL.md` under `.claude/skills/`, `.agents/skills/` or `.github/skills/` outside the `magpie-*` links), run [`delegates.md`](delegates.md) against the new families' skills with `.apache-magpie-overrides/` as the surface.
+A delegate written here is the project's: every contributor's Magpie runs the project skill in that workflow, so each one is a maintainer decision, put one at a time.
+
 ## Step 5 — Recap
 
 Tell the user, in this order:
@@ -541,6 +547,8 @@ Tell the user, in this order:
    weakening a gate, with the baseline it would have crossed. If the
    step was out of scope — no families added — say that instead, in
    one line.
+1d. **What delegation wrote** (4e) — each delegate, its Magpie skill
+   and mode, and the matches kept on Magpie's own skill.
 2. **What the floor means** — a minimum, not a pin. Contributors on a
    newer Magpie are fine and will be told nothing; contributors behind
    it are brought up to it by the pre-flight in any skill they run.

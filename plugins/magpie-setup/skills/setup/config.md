@@ -444,6 +444,12 @@ do not ask them separately.
    nothing to install, so its list is printed whenever it is chosen: the
    mail-client account is the next step.
 
+## Step 3f — The project's own skills (optional)
+
+Run this only on a plain `config` run, never on one entered from a skill's pre-flight, and only when the repository has skills of its own — a `SKILL.md` under `.claude/skills/`, `.agents/skills/` or `.github/skills/` in a directory not named `magpie-*`.
+Ask once whether to compare them with Magpie's; on a yes, run [`delegates.md`](delegates.md) with the personal layer as the surface.
+What it writes is yours alone, like everything else here; delegating for the whole project is `adopt`'s.
+
 ## Step 4 — Recap
 
 Tell the user, in this order:
@@ -459,6 +465,7 @@ Tell the user, in this order:
    When Step 3d's conditions hold and the user did not take the hand-off,
    add one line that `contributor-calibrate` can derive the contributor
    thresholds from past nominations — state it, do not ask.
+   List any delegate Step 3f wrote, with its Magpie skill and mode.
 1b. **What the reconciliation stamp recorded** (Step 3b), all of it in
    the personal layer's `reconciled.json` — on an
    unadopted project, the skill(s) whose `skills` entry was just

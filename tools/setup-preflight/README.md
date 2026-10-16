@@ -12,6 +12,8 @@
   - [Output](#output)
     - [The scopes](#the-scopes)
   - [Two rules that are the reason this is code](#two-rules-that-are-the-reason-this-is-code)
+  - [Delegation](#delegation)
+    - [Discovery](#discovery)
   - [Tests](#tests)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -157,6 +159,53 @@ the denied case.
 `.devN` segment. `0.2.0.dev202609110041` is below `0.2.0`, and `0.10.0`
 is above `0.9.0` — the two orderings a string comparison gets wrong in
 opposite directions.
+
+## Delegation
+
+`delegation.py` resolves which skill does a Magpie skill's work when the
+project [delegates it to its own skill](../../docs/setup/agentic-overrides.md#delegate-to-the-projects-own-skill):
+it reads the `delegate:` frontmatter block from `<override-name>.md` along
+the override chain, the first layer that declares one winning, and
+validates it strictly — an unknown key, a malformed line, a missing or
+out-of-repository project skill, a Magpie skill named as the delegate, or a
+merge that would `skip:` a pre-flight, golden-rule, confirmation, scrub or
+privacy step is **refused whole**, and the framework default runs.
+
+The pre-flight runs it on every invocation, uncached (it reads a handful of
+small files), and adds **`skill`**-scope findings, all naming `step-13`:
+
+- `delegated` — the invoked skill is delegated; `facts` is the resolution;
+- `delegate-refused` — its delegate was declared and refused, with `reason`;
+- `handoff-delegates` — the other delegated skills it may hand off to.
+
+None appear when nothing is delegated, so the ordinary verdict stays `ok`.
+The pre-flight passes a frontmatter `name:`; override files carry the
+`skills/<name>` entry's name. `skill_names.py` maps one to the other and is
+generated: `python3 -m setup_preflight.delegation write-names` rewrites it,
+and a test fails when it is stale.
+
+```bash
+python3 -m setup_preflight.delegation resolve security-issue-triage
+python3 -m setup_preflight.delegation list
+python3 -m setup_preflight.delegation render --skill security-issue-triage \
+    --delegate triage-reports --mode merge --step "magpie:Step 1 — Gather" --step "project:Reproduce"
+```
+
+### Discovery
+
+`discovery.py` is the deterministic half of
+[`setup delegate`](../../plugins/magpie-setup/skills/setup/delegates.md):
+it lists the project's own skills (`.claude/skills/`, `.agents/skills/`,
+`.github/skills/`, never `magpie-*` links or anything resolving outside the
+repository), scores each against Magpie's skills by set overlap of names,
+`description` + `when_to_use`, and step headings, and drafts a merged step
+list from the two skills' headings. It writes nothing, and project skill
+text is only tokenised and quoted.
+
+```bash
+python3 -m setup_preflight.discovery --project-root . --magpie-skills .apache-magpie/skills
+python3 -m setup_preflight.discovery --project-root . --magpie-catalogue <file.json>
+```
 
 ## Tests
 

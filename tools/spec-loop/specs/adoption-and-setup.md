@@ -349,6 +349,20 @@ committed version with drift detection.
   project's personal layer is inside the git directory and needs none. This is the surface that makes hybrid
   setups work: one person can run Magpie against a shared or non-adopting
   repo without committing anything or requiring teammates to opt in.
+- **Delegation to project skills.** An override file may carry a
+  `delegate:` frontmatter block naming one of the project's own skills and a
+  mode (`replace`, `merge` with a confirmed step list, `before`, `after`).
+  `setup_preflight.delegation` resolves it along the same chain (first
+  declaring layer wins, `delegate: off` opts a person out) and refuses a
+  malformed block, a missing or out-of-repo skill, a Magpie skill as
+  delegate, or a merge that skips a baseline step. The pre-flight reports
+  `delegated`, `delegate-refused` and `handoff-delegates` (rules `step-13`):
+  the Magpie skill stays the entry point and keeps confirmation gates,
+  scrubs, external-content-as-data and the privacy-LLM gate around the
+  delegate, and hand-offs name the delegate but invoke the Magpie skill.
+  `setup delegate` (optional from `config` and `adopt`) scores project skills
+  against Magpie's deterministically and writes a block only on a yes;
+  `setup-override-upstream` never upstreams a delegate block.
 - **One-shot default run.** A per-invocation switch runs a skill against
   framework defaults for that session only, ignoring both
   the personal layer and `.apache-magpie-overrides/`, without editing or
@@ -669,6 +683,16 @@ committed version with drift detection.
     *what to do next* list (`install.md` Steps 9c, 9d and 9e), including
     Thunderbird's *Repair Folder* for a draft that does not show up (eval
     suite `tools/skill-evals/evals/setup/step-config-mail`).
+36. A `delegate:` block in a skill's override file routes that skill's work
+    to a project skill: `setup_preflight.delegation` resolves it (no override,
+    the four modes, personal over committed, malformed and baseline-skipping
+    blocks refused whole — `tools/setup-preflight/tests/test_delegation.py`),
+    the pre-flight's `step-13` rules keep the wrapper around the delegate,
+    hand-offs name it and invoke the Magpie skill (eval suite
+    `tools/skill-evals/evals/security-issue-sync/step-handoff-delegate`), and
+    `setup delegate` proposes matches from a deterministic score and writes
+    only on a yes (`test_discovery.py`, eval suite
+    `tools/skill-evals/evals/setup/step-delegate-propose`).
 
 ## Validation
 
