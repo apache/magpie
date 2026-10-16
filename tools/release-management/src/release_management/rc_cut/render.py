@@ -27,6 +27,7 @@ from __future__ import annotations
 import posixpath
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -38,8 +39,20 @@ DIST_DEV_PREFIX = "/repos/dist/dev/"
 SHA512_HEX = re.compile(r"[0-9a-fA-F]{128}")
 DIGEST_TOOLS = {"sha512": "sha512sum", "sha256": "sha256sum"}
 STOP_ON = ["differs", "DIFFERS"]
-REPRO = "uv run --project <framework>/tools/reproducible-archive repro-archive"
-EPOCH_FROM_TOOL = f'export SOURCE_DATE_EPOCH="$({REPRO} epoch --ref {{tag}})"'
+REPRO_TOOL = "tools/reproducible-archive"
+REBUILD_SRC = "rebuild/src"
+
+
+def default_framework() -> str | None:
+    """The framework root this tool runs from, when it carries `tools/reproducible-archive`.
+
+    `uv run --project <framework>/tools/release-management` installs the
+    package editable, so the module sits at
+    `<framework>/tools/release-management/src/release_management/rc_cut/`.
+    A copy installed anywhere else has no framework next to it: `None`.
+    """
+    root = Path(__file__).resolve().parents[5]
+    return str(root) if (root / REPRO_TOOL / "pyproject.toml").is_file() else None
 
 
 class RenderError(ValueError):
@@ -57,10 +70,16 @@ class RcCut:
     build: dict[str, Any] = field(default_factory=dict)
     upstream: str = "<upstream>"
     project: str = "<project>"
+    framework: str | None = None
 
     @classmethod
     def from_load(
-        cls, loaded: dict[str, Any], *, upstream: str | None = None, project: str | None = None
+        cls,
+        loaded: dict[str, Any],
+        *,
+        upstream: str | None = None,
+        project: str | None = None,
+        framework: str | None = None,
     ) -> RcCut:
         meta = loaded.get("metadata") or {}
         version, rc = meta.get("version"), meta.get("rc_number")
@@ -76,7 +95,21 @@ class RcCut:
             build=loaded.get("build") or {},
             upstream=upstream or "<upstream>",
             project=project or "<project>",
+            framework=framework or default_framework(),
         )
+
+    @property
+    def repro(self) -> str:
+        """The `repro-archive` invocation, with the framework path quoted (never a bare `<framework>`)."""
+        if not self.framework:
+            raise RenderError(
+                "the framework root is unknown (this tool is not running from a framework checkout): "
+                "pass --framework <path to the framework root>"
+            )
+        return f"uv run --project {dq(self.framework.rstrip('/') + '/' + REPRO_TOOL)} repro-archive"
+
+    def epoch_from_tool(self) -> str:
+        return f'export SOURCE_DATE_EPOCH="$({self.repro} epoch --ref {dq(self.tag)})"'
 
     @property
     def tag(self) -> str:
@@ -135,15 +168,25 @@ class RcCut:
             .replace("<upstream>", self.upstream)
         )
 
+    def own_version(self, entry: dict[str, Any]) -> str:
+        """A convenience artefact's own `version` (`<version>` rendered), default the release version."""
+        return self.render(entry.get("version") or self.version)
+
+    def render_entry(self, entry: dict[str, Any], text: Any) -> str:
+        """`render`, with `<version>` standing for the entry's own version rather than the source one."""
+        return self.render(str(text).replace("<version>", self.own_version(entry)))
+
     def convenience(self) -> list[dict[str, Any]]:
         out = []
         for entry in self.meta.get("convenience_artefacts") or []:
             if not isinstance(entry, dict):
                 continue
-            own = str(entry.get("version") or self.version)
-            name = str(entry.get("name", "")).replace("<version>", own)
-            out.append(entry | {"name": self.render(name)})
+            out.append(entry | {"name": self.render_entry(entry, entry.get("name", ""))})
         return out
+
+    def entry_mode(self, entry: dict[str, Any]) -> str:
+        """An entry's reproducibility mode: its own, else `reproducibility_binaries`, else `off`."""
+        return str(entry.get("reproducibility") or self.meta.get("reproducibility_binaries") or "off")
 
 
 def tag_exists(refs: str, tag: str) -> bool | None:
@@ -178,7 +221,7 @@ def _source_block(cut: RcCut) -> list[str]:
             str(build_command),
         ]
     lines += [
-        f"{REPRO} build \\",
+        f"{cut.repro} build \\",
         f"  --ref {dq(cut.tag)} --format {w(cut.meta.get('source_archive_format') or 'tar.gz')} \\",
         f"  --prefix {dq(cut.meta.get('source_archive_prefix') or '')} \\",
         f"  --origin {dq('https://github.com/' + cut.upstream)} \\",
@@ -191,7 +234,7 @@ def _source_block(cut: RcCut) -> list[str]:
         lines += [
             "",
             "# Convenience binaries (build_command):",
-            EPOCH_FROM_TOOL.format(tag=dq(cut.tag)),
+            cut.epoch_from_tool(),
             str(build_command),
         ]
     return lines
@@ -205,8 +248,8 @@ def _convenience_blocks(cut: RcCut) -> list[str]:
     for entry in entries:
         lines += [
             f"# Convenience artefact: {entry['name']} ({entry.get('kind') or 'artefact'}) — built from the tagged source",
-            EPOCH_FROM_TOOL.format(tag=dq(cut.tag)),
-            cut.render(entry.get("build_command") or "<build_command>"),
+            cut.epoch_from_tool(),
+            cut.render_entry(entry, entry.get("build_command") or "<build_command>"),
             "",
         ]
     return lines[:-1]
@@ -268,18 +311,30 @@ def step2(cut: RcCut) -> dict[str, Any]:
 
 
 def step2b(cut: RcCut, *, skip: bool = False, epoch: str = "<SOURCE_DATE_EPOCH>") -> dict[str, Any]:
-    """Step 2b: the optional reproducibility self-check (mandatory under ci-automated)."""
+    """Step 2b: the optional reproducibility self-check (mandatory under ci-automated).
+
+    Every rebuild that runs a build command runs it in a fresh checkout of the
+    RC tag at `rebuild/src` (a detached `git worktree`), never in an empty
+    directory. The commands assume what Step 2 assumes: a build command writes
+    each artefact it builds into the directory it runs in, under the name
+    `expected_artefacts` / the entry's `name` give it, so the staged copy is
+    `<name>` and the rebuilt one `rebuild/src/<name>`.
+    """
     source_on = cut.meta.get("reproducibility_source") == "on"
     binaries = str(cut.meta.get("reproducibility_binaries") or "off")
     mandatory = cut.ci_automated
-    skipped = (not source_on and binaries == "off") or (skip and not mandatory)
+    entries = cut.convenience()
+    any_binary = any(cut.entry_mode(entry) != "off" for entry in entries)
+    skipped = (not source_on and not any_binary) or (skip and not mandatory)
     result: dict[str, Any] = {
         "source_check_enabled": source_on and not skipped,
         "binary_check_mode": "off" if skipped else binaries,
         "mandatory": mandatory,
         "skipped": skipped,
+        "rebuild_tree_commands": [],
         "source_check_commands": [],
         "binary_check_commands": [],
+        "cleanup_commands": [],
         "stop_on": STOP_ON,
         "proposed": True,
     }
@@ -289,44 +344,62 @@ def step2b(cut: RcCut, *, skip: bool = False, epoch: str = "<SOURCE_DATE_EPOCH>"
     src = cut.source_artefact
     fmt = cut.meta.get("source_archive_format") or "tar.gz"
     prefix = cut.meta.get("source_archive_prefix") or ""
+    custom = cut.meta.get("source_archive_method") == "custom"
+    tree = w(REBUILD_SRC)
+    if (source_on and custom) or any_binary:
+        result["rebuild_tree_commands"] = [
+            "mkdir -p rebuild",
+            f"git worktree add --detach {tree} {dq(cut.tag)}",
+        ]
+        result["cleanup_commands"] = [f"git worktree remove --force {tree}"]
     if source_on:
-        rebuild = (
-            ["mkdir -p rebuild", f"( cd rebuild && {cut.meta.get('build_command') or '<build_command>'} )"]
-            if cut.meta.get("source_archive_method") == "custom"
-            else [
-                "mkdir -p rebuild",
-                f"{REPRO} build --ref {dq(cut.tag)} --format {w(fmt)} --prefix {dq(prefix)} -o {dq('rebuild/' + src)}",
+        if custom:
+            rebuilt = f"{REBUILD_SRC}/{src}"
+            rebuild = [
+                f"export SOURCE_DATE_EPOCH={dq(epoch)}",
+                f"( cd {tree} && {cut.meta.get('build_command') or '<build_command>'} )",
             ]
-        )
+        else:
+            rebuilt = f"rebuild/{src}"
+            rebuild = [
+                "mkdir -p rebuild",
+                f"{cut.repro} build --ref {dq(cut.tag)} --format {w(fmt)} --prefix {dq(prefix)} -o {dq(rebuilt)}",
+            ]
         result["source_check_commands"] = [
-            f"{REPRO} check {dq(src)} --epoch {dq(epoch)}",
+            f"{cut.repro} check {dq(src)} --epoch {dq(epoch)}",
             *rebuild,
-            f"{REPRO} compare --require-identical {dq(src)} {dq('rebuild/' + src)}",
+            f"{cut.repro} compare --require-identical {dq(src)} {dq(rebuilt)}",
         ]
     binary_cmds: list[str] = []
     skipped_names: list[str] = []
-    for entry in cut.convenience():
-        mode = str(entry.get("reproducibility") or binaries)
+    for entry in entries:
+        mode = cut.entry_mode(entry)
         name = entry["name"]
         if mode == "off":
             skipped_names.append(name)
             continue
+        rebuilt = f"{REBUILD_SRC}/{name}"
         binary_cmds += [
             f"export SOURCE_DATE_EPOCH={dq(epoch)}",
-            f"( cd rebuild && {cut.render(entry.get('build_command') or '<build_command>')} )",
+            f"( cd {tree} && {cut.render_entry(entry, entry.get('build_command') or '<build_command>')} )",
         ]
         if mode == "documented-divergence":
             binary_cmds.append(
-                cut.render(
-                    entry.get("verification_command") or f"diffoscope {w(name)} {w('rebuild/' + name)}"
-                )
+                cut.render_entry(entry, entry["verification_command"])
+                if entry.get("verification_command")
+                else f"diffoscope {dq(name)} {dq(rebuilt)}"
             )
         else:
             binary_cmds.append(
-                f"cmp {dq(name)} {dq('rebuild/' + name)} && echo {dq('identical: ' + name)} || echo {dq('DIFFERS: ' + name)}"
+                f"cmp {dq(name)} {dq(rebuilt)} && echo {dq('identical: ' + name)} || echo {dq('DIFFERS: ' + name)}"
             )
     result["binary_check_commands"] = binary_cmds
     blocks = []
+    if result["rebuild_tree_commands"]:
+        blocks.append(
+            f"# A fresh checkout of the RC tag {cut.tag}: every build command below runs there\n"
+            + "\n".join(result["rebuild_tree_commands"])
+        )
     if result["source_check_commands"]:
         blocks.append(
             "# Source: lint, rebuild from the tag, require byte-identical output\n"
@@ -335,6 +408,11 @@ def step2b(cut: RcCut, *, skip: bool = False, epoch: str = "<SOURCE_DATE_EPOCH>"
     skip_lines = [f"# SKIP: {name} (reproducibility off)" for name in skipped_names]
     if binary_cmds or skip_lines:
         blocks.append("# Convenience artefacts\n" + "\n".join([*skip_lines, *binary_cmds]))
+    if result["cleanup_commands"]:
+        blocks.append(
+            "# Once the outcome is recorded, drop the rebuild checkout\n"
+            + "\n".join(result["cleanup_commands"])
+        )
     result["text"] = (
         "\n\n".join(blocks)
         + "\n\n# Any differs / DIFFERS stops the cut: fix the build before signing anything."
@@ -346,11 +424,16 @@ def step2c(cut: RcCut, *, organization: str = "ASF") -> dict[str, Any]:
     """Step 2c: the CI-signed flow (only for signing_mode ci-automated)."""
     if not cut.ci_automated:
         raise RenderError("Step 2c applies only when signing_mode is ci-automated")
-    workflow = str(cut.config.get("ci_release_workflow") or "<ci_release_workflow>")
+    workflow = str(cut.config.get("ci_release_workflow") or "")
+    if not workflow:
+        raise RenderError(
+            "signing_mode is ci-automated but ci_release_workflow is unset: name the release workflow in "
+            "release-build.md; no trigger command is emitted without it"
+        )
     trigger = [
         f"git push {w(cut.remote)} {w(cut.tag)}",
         f"gh run list --repo {w(cut.upstream)} --workflow {w(workflow)} --branch {w(cut.tag)}",
-        f"gh run watch --repo {w(cut.upstream)} <run-id>",
+        f"gh run watch --repo {w(cut.upstream)} {dq('<run-id>')}",  # quoted: a bare <run-id> is a redirect
         f"atr check status {w(cut.project)} {w(cut.version)} --verbose",
     ]
     text = "\n".join(
@@ -401,7 +484,25 @@ def _assert_dev_only(url: str) -> None:
         )
 
 
-def step3(cut: RcCut, *, asf_id: str = "<asf-id>", local_dir: str = "<local-artefact-dir>") -> dict[str, Any]:
+def _atr_uploads(cut: RcCut) -> list[str]:
+    """One `atr upload PROJECT VERSION PATH FILEPATH` per artefact, signature and checksum."""
+    return [
+        f"atr upload {w(cut.project)} {w(cut.version)} {w(name)} {w(name)}"
+        for a in cut.artefacts
+        for name in (a, f"{a}.asc", *(f"{a}.{d}" for d in cut.digests))
+    ]
+
+
+def _atr_checks(cut: RcCut) -> list[str]:
+    return [
+        f"atr check status   {w(cut.project)} {w(cut.version)} --verbose   # confirm checks pass",
+        f"atr check concerns {w(cut.project)} {w(cut.version)}             # list any concern-group keys to ack at vote time",
+    ]
+
+
+def step3(
+    cut: RcCut, *, asf_id: str | None = None, local_dir: str = "<local-artefact-dir>"
+) -> dict[str, Any]:
     """Step 3: backend-shaped staging commands, plus ATR upload and registry staging."""
     if cut.ci_automated:
         raise RenderError(
@@ -414,8 +515,12 @@ def step3(cut: RcCut, *, asf_id: str = "<asf-id>", local_dir: str = "<local-arte
         if not url:
             raise RenderError("staging_url is unset: release_dist_url_template did not render")
         _assert_dev_only(url)
+        if not asf_id or not asf_id.strip() or asf_id.startswith("<"):
+            raise RenderError(
+                "release_dist_backend is svnpubsub but no ASF id was given: pass --asf-id <the RM's ASF id>"
+            )
         staging = [
-            f"svn import {w(local_dir)}/ \\\n  {w(url.rstrip('/') + '/')} \\\n  --username {w(asf_id)} \\\n"
+            f"svn import {dq(local_dir.rstrip('/') + '/')} \\\n  {w(url.rstrip('/') + '/')} \\\n  --username {w(asf_id)} \\\n"
             f"  -m {dq(f'Release {cut.project} {cut.version} {cut.rc}')}"
         ]
     elif backend == "github-releases":
@@ -429,7 +534,9 @@ def step3(cut: RcCut, *, asf_id: str = "<asf-id>", local_dir: str = "<local-arte
     elif backend == "s3":
         if not url:
             raise RenderError("staging_url is unset: release_dist_url_template did not render")
-        staging = [f"aws s3 cp --recursive {w(local_dir)}/ \\\n  {w(url.rstrip('/') + '/')}"]
+        staging = [
+            f"aws s3 cp --recursive {dq(local_dir.rstrip('/') + '/')} \\\n  {w(url.rstrip('/') + '/')}"
+        ]
     elif backend == "self-hosted":
         template = cut.config.get("release_publish_command_template")
         if not template:
@@ -437,28 +544,33 @@ def step3(cut: RcCut, *, asf_id: str = "<asf-id>", local_dir: str = "<local-arte
                 "release_dist_backend is self-hosted but release_publish_command_template is unset"
             )
         staging = [cut.render(template)]
+    elif backend == "atr":
+        # The full ATR flow: Compose is the staging, and ATR is the only staging location.
+        staging = [
+            f"atr release start {w(cut.project)} {w(cut.version)}",
+            *_atr_uploads(cut),
+            *_atr_checks(cut),
+        ]
     else:
         raise RenderError(f"unknown release_dist_backend {backend!r}")
     atr: list[str] = []
     vote_backend = str(cut.meta.get("vote_backend") or "manual")
-    if vote_backend == "atr":
-        for a in cut.artefacts:
-            atr += [
-                f"atr upload {w(cut.project)} {w(cut.version)} {w(name)} {w(name)}"
-                for name in (a, f"{a}.asc", *(f"{a}.{d}" for d in cut.digests))
-            ]
-        atr += [
-            f"atr check status   {w(cut.project)} {w(cut.version)} --verbose   # confirm checks pass",
-            f"atr check concerns {w(cut.project)} {w(cut.version)}             # list any concern-group keys to ack at vote time",
-        ]
+    if vote_backend == "atr" and backend != "atr":
+        atr = [*_atr_uploads(cut), *_atr_checks(cut)]
     registry = []
     travelling = []
     for entry in cut.convenience():
         if entry.get("staging") == "registry-staging":
-            registry.append(cut.render(entry.get("stage_command") or "<stage_command>"))
+            registry.append(cut.render_entry(entry, entry.get("stage_command") or "<stage_command>"))
         else:
             travelling.append(entry["name"])
-    blocks = [f"# Stage to {backend}\n" + "\n".join(staging)]
+    heading = (
+        "# Compose in ATR: start the release, upload the signed + checksummed artefacts, confirm the checks.\n"
+        "# Verb/flag names may shift between ATR releases; confirm with `atr <cmd> --help`. ATR Finish/publish is not part of staging."
+        if backend == "atr"
+        else f"# Stage to {backend}"
+    )
+    blocks = [heading + "\n" + "\n".join(staging)]
     if atr:
         blocks.append(
             "# Upload the SAME signed + checksummed artefacts to ATR (Compose) so it runs its checks and can drive the [VOTE].\n"
@@ -550,7 +662,7 @@ def step4(
     if entries:
         lines += ["", "#### Convenience artefacts", ""]
         for entry in entries:
-            mode = str(entry.get("reproducibility") or cut.meta.get("reproducibility_binaries") or "off")
+            mode = cut.entry_mode(entry)
             lines.append(
                 f"- `{entry['name']}` ({entry.get('kind') or 'artefact'}) — staged {entry.get('staging') or 'dist-dev'}, "
                 f"reproducibility `{mode}` ({outcome(entry, mode)}), "

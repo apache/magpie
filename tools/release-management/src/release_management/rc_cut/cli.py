@@ -35,7 +35,9 @@ FAMILY = "rc-cut"
 
 def _cut(args: argparse.Namespace) -> render.RcCut:
     loaded = json.loads(Path(args.load).read_text(encoding="utf-8"))
-    return render.RcCut.from_load(loaded, upstream=args.upstream, project=args.project)
+    return render.RcCut.from_load(
+        loaded, upstream=args.upstream, project=args.project, framework=args.framework
+    )
 
 
 def add_parsers(sub: Any) -> None:
@@ -57,7 +59,13 @@ def add_parsers(sub: Any) -> None:
     )
     render_p.add_argument("--upstream", required=True, help="<upstream> owner/repo, from project.md")
     render_p.add_argument("--project", required=True, help="<project> slug, from project.md")
-    render_p.add_argument("--asf-id", default="<asf-id>", help="the RM's ASF id (svnpubsub staging)")
+    render_p.add_argument(
+        "--framework",
+        help="the framework root (default: the one this tool runs from); quoted into every repro-archive command",
+    )
+    render_p.add_argument(
+        "--asf-id", help="the RM's ASF id; required by Step 3 when release_dist_backend is svnpubsub"
+    )
     render_p.add_argument(
         "--skip-repro-check", action="store_true", help="Step 2b: the RM passed --skip-repro-check"
     )

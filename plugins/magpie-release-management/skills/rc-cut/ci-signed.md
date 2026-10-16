@@ -18,7 +18,8 @@ Instead of Sections 3–4 and Step 3, run
 
 ```bash
 uv run --project <framework>/tools/release-management release-management rc-cut render \
-  --step 2c --load <scratch>/rc-cut-load.json --upstream <upstream> --project <project>
+  --step 2c --load <scratch>/rc-cut-load.json --upstream <upstream> --project <project> \
+  --framework <framework>
 ```
 
 and present `text`: push the signed tag (it triggers `ci_release_workflow`), watch the run, confirm the staged candidate in ATR, and record the run URL and `SOURCE_DATE_EPOCH` for Step 4.

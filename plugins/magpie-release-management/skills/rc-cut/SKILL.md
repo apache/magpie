@@ -20,7 +20,7 @@ argument-hint: "<version> rc<N>"
 capability: capability:resolve
 surface_hash: sha256:60623e456e72bbf6
 license: Apache-2.0
-measured_tokens: 6635
+measured_tokens: 6812
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -296,7 +296,7 @@ Return ONLY valid JSON with this structure:
   "build_command": "<string>",
   "expected_artefacts": ["<artefact filename pattern>"],
   "digest_set": ["sha512"] | ["sha512", "sha256"],
-  "backend": "svnpubsub" | "github-releases" | "s3" | "self-hosted",
+  "backend": "svnpubsub" | "atr" | "github-releases" | "s3" | "self-hosted",
   "vote_backend": "manual" | "atr",
   "staging_url": "<URL>",
   "signing_key_fingerprint": "<fingerprint or empty string>",
@@ -319,8 +319,13 @@ Every render prints the step's JSON contract plus `text`, the block to show the 
 
 ```bash
 uv run --project <framework>/tools/release-management release-management rc-cut render \
-  --step S --load <scratch>/rc-cut-load.json --upstream <upstream> --project <project>
+  --step S --load <scratch>/rc-cut-load.json --upstream <upstream> --project <project> \
+  --framework <framework>
 ```
+
+Substitute every `<…>` with its real value before running it.
+`--framework` is the framework root; the render quotes it into every `repro-archive` command it emits
+(it defaults to the checkout the tool runs from, and the render refuses when neither is known).
 
 A render that would emit what this skill refuses — an MD5 or SHA-1 digest (Golden rule 3), a `dist/release/` staging target (Golden rule 5), an unconfigured backend —
 exits `2` with `{"ok": false, "refused": "<why>"}`. Surface `refused` as written and stop; see [`classifications/refused.md`](classifications/refused.md).
@@ -358,9 +363,10 @@ Read [`ci-signed.md`](ci-signed.md) for this step; it is loaded only for `signin
 ## Step 3 — Emit staging commands
 
 Skipped when `signing_mode` is `ci-automated` (CI stages; Step 2c recorded the run).
-Otherwise run `<render> --step 3 --asf-id <asf-id>`.
-It renders the staging sequence for `release_dist_backend` — `svn import` to `dist/dev/` (`svnpubsub`), a draft pre-release (`github-releases`), `aws s3 cp` (`s3`), or `release_publish_command_template` (`self-hosted`) —
-then, when `release_vote_backend = atr`, the ATR upload block (read [`classifications/stage-atr.md`](classifications/stage-atr.md)),
+Otherwise run `<render> --step 3 --asf-id <asf-id>`, with the RM's ASF id from `user.md` (or asked for):
+under `svnpubsub` the render refuses without it, rather than emit `--username` with nothing usable after it.
+It renders the staging sequence for `release_dist_backend` — `svn import` to `dist/dev/` (`svnpubsub`), the ATR Compose upload (`atr`), a draft pre-release (`github-releases`), `aws s3 cp` (`s3`), or `release_publish_command_template` (`self-hosted`) —
+then, when `release_vote_backend = atr` under another dist backend, the ATR upload block (read [`classifications/stage-atr.md`](classifications/stage-atr.md) for either ATR case),
 and each `registry-staging` convenience artefact's `stage_command`.
 Nothing here publishes to an artefact's final `publish_channel`: that is `release-promote`'s step, after the vote.
 
@@ -373,7 +379,7 @@ Return ONLY valid JSON with this structure (the render's fields):
 
 ```json
 {
-  "backend": "svnpubsub" | "github-releases" | "s3" | "self-hosted",
+  "backend": "svnpubsub" | "atr" | "github-releases" | "s3" | "self-hosted",
   "vote_backend": "manual" | "atr",
   "staging_commands": ["<command 1>", "<command 2>"],
   "atr_upload_commands": ["<atr upload …>", "..."],

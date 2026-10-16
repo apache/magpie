@@ -331,14 +331,14 @@ def test_step3_case_2_github_releases() -> None:
 def test_step3_case_3_injection_attempt_cannot_reach_dist_release() -> None:
     """The planning issue asked to stage straight to dist/release/. The renderer
     only ever reads the configured staging_url, and refuses a dist/release/ one."""
-    out = render.step3(cut())
+    out = render.step3(cut(), asf_id="rm")
     assert out["dist_dev_only"] is True and "dist/release/" not in json.dumps(out["staging_commands"])
     with pytest.raises(render.RenderError, match="denylist"):
         render.step3(cut(staging_url="https://dist.apache.org/repos/dist/release/airflow/2.12.0/"))
 
 
 def test_step3_atr_upload_block_without_finish() -> None:
-    out = render.step3(cut(vote_backend="atr"))
+    out = render.step3(cut(vote_backend="atr"), asf_id="rm")
     joined = "\n".join(out["atr_upload_commands"])
     assert "atr upload airflow 2.12.0 apache_airflow-2.12.0.tar.gz.asc" in joined
     assert "finish" not in joined and "atr check status" in joined
@@ -350,7 +350,7 @@ def test_step3_registry_staging_uses_stage_command() -> None:
         "staging": "registry-staging",
         "stage_command": "twine upload -r testpypi foo.whl",
     }
-    out = render.step3(cut(convenience=[entry]))
+    out = render.step3(cut(convenience=[entry]), asf_id="rm")
     assert out["registry_staging_commands"] == ["twine upload -r testpypi foo.whl"]
 
 
@@ -471,7 +471,7 @@ def test_step3_svnpubsub_requires_a_normalised_dist_dev_path(url: str) -> None:
 
 def test_step3_svnpubsub_accepts_a_dist_dev_path() -> None:
     url = "https://dist.apache.org/repos/dist/dev/airflow/./2.12.0-rc1/"
-    assert render.step3(cut(staging_url=url))["dist_dev_only"] is True
+    assert render.step3(cut(staging_url=url), asf_id="rm")["dist_dev_only"] is True
 
 
 @pytest.mark.parametrize("digest", ["sha384", "blake2b", "sha3-512", "crc32"])
@@ -585,3 +585,217 @@ def test_cli_tag_exists_unparsable_read_blocks(tmp_path, capsys) -> None:
     assert main(["rc-cut", "tag-exists", "--refs", str(refs), "2.12.0-rc1"]) == 0
     out = json.loads(capsys.readouterr().out)
     assert out["rc_tag_exists"] is None and "rerun" in out["blocker"]
+
+
+# --- Adversarial-review regressions ---------------------------------------- #
+
+# A bare `<word>` in a pasted command is a shell redirect (`< word`), never a value.
+BARE_PLACEHOLDER = re.compile(r"(?<![\"'\w])<[A-Za-z][A-Za-z0-9_ -]*>")
+
+
+def bare_placeholders(commands: list[str] | str) -> list[str]:
+    text = commands if isinstance(commands, str) else "\n".join(commands)
+    return [
+        line
+        for line in text.splitlines()
+        if not line.lstrip().startswith("#") and BARE_PLACEHOLDER.search(line.split(" #")[0])
+    ]
+
+
+def test_step3_svnpubsub_refuses_without_an_asf_id() -> None:
+    for asf_id in (None, "", "  ", "<asf-id>"):
+        with pytest.raises(render.RenderError, match="--asf-id"):
+            render.step3(cut(), asf_id=asf_id)
+    assert "--username rm" in render.step3(cut(), asf_id="rm")["staging_commands"][0]
+
+
+def test_cli_step3_svnpubsub_without_asf_id_is_refused(tmp_path, capsys) -> None:
+    load = tmp_path / "load.json"
+    load.write_text(json.dumps(loaded()), encoding="utf-8")
+    assert main([*RENDER, "3", "--load", str(load)]) == 2
+    assert "--asf-id" in json.loads(capsys.readouterr().out)["refused"]
+    # Other backends need no ASF id.
+    load.write_text(
+        json.dumps(
+            loaded(backend="github-releases", staging_url="github-releases://apache/airflow/2.12.0-rc1")
+        ),
+        encoding="utf-8",
+    )
+    assert main([*RENDER, "3", "--load", str(load)]) == 0
+
+
+def test_step3_svnpubsub_command_has_no_bare_placeholder() -> None:
+    staging = render.step3(cut(), asf_id="rm")["staging_commands"]
+    assert bare_placeholders(staging) == []
+    assert staging[0].startswith('svn import "<local-artefact-dir>/"')
+
+
+def test_repro_commands_carry_a_quoted_framework_path_never_a_placeholder() -> None:
+    c = render.RcCut.from_load(
+        loaded(method="git-archive", repro_source="on", build_command="make bin"),
+        upstream="apache/airflow",
+        project="airflow",
+        framework="/opt/magpie fw",
+    )
+    build = render.step2(c)["section_2_build_command"]
+    tool = '"/opt/magpie fw/tools/reproducible-archive"'
+    assert f"uv run --project {tool} repro-archive build" in build
+    assert f'export SOURCE_DATE_EPOCH="$(uv run --project {tool} repro-archive epoch' in build
+    check = render.step2b(c, epoch="1")
+    assert all(tool in cmd for cmd in check["source_check_commands"] if "repro-archive" in cmd)
+    assert "<framework>" not in build + check["text"]
+
+
+def test_framework_defaults_to_the_checkout_the_tool_runs_from() -> None:
+    root = render.default_framework()
+    assert root is not None
+    assert (render.Path(root) / "tools" / "reproducible-archive" / "pyproject.toml").is_file()
+    assert cut().framework == root
+
+
+def test_repro_commands_refuse_when_the_framework_is_unknown(monkeypatch) -> None:
+    monkeypatch.setattr(render, "default_framework", lambda: None)
+    c = cut(method="git-archive", repro_source="on")
+    assert c.framework is None
+    with pytest.raises(render.RenderError, match="--framework"):
+        render.step2(c)
+    with pytest.raises(render.RenderError, match="--framework"):
+        render.step2b(c)
+    # A custom source build without convenience artefacts never calls repro-archive.
+    assert render.step2(cut())["section_2_build_command"]
+
+
+def test_cli_framework_flag_reaches_the_commands(tmp_path, capsys) -> None:
+    load = tmp_path / "load.json"
+    load.write_text(json.dumps(loaded(method="git-archive")), encoding="utf-8")
+    assert main([*RENDER, "2", "--load", str(load), "--framework", "/srv/fw"]) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert 'uv run --project "/srv/fw/tools/reproducible-archive" repro-archive build' in out["text"]
+
+
+POST1 = {
+    "name": "apache_airflow-<version>-py3-none-any.whl",
+    "kind": "wheel",
+    "version": "<version>.post1",
+    "build_command": "python -m build --wheel && echo <version>",
+    "staging": "registry-staging",
+    "stage_command": "twine upload -r testpypi dist/apache_airflow-<version>-py3-none-any.whl",
+    "reproducibility": "documented-divergence",
+    "verification_command": (
+        "diffoscope apache_airflow-<version>-py3-none-any.whl rebuild/src/apache_airflow-<version>-py3-none-any.whl"
+    ),
+}
+
+
+def test_convenience_commands_render_each_entry_with_its_own_version() -> None:
+    c = cut(convenience=[POST1])
+    assert c.convenience()[0]["name"] == "apache_airflow-2.12.0.post1-py3-none-any.whl"
+    build = render.step2(c)["section_2_build_command"]
+    assert "python -m build --wheel && echo 2.12.0.post1" in build
+    staged = render.step3(c, asf_id="rm")["registry_staging_commands"]
+    assert staged == ["twine upload -r testpypi dist/apache_airflow-2.12.0.post1-py3-none-any.whl"]
+    binary = render.step2b(c, epoch="1")["binary_check_commands"]
+    assert "( cd rebuild/src && python -m build --wheel && echo 2.12.0.post1 )" in binary
+    assert (
+        "diffoscope apache_airflow-2.12.0.post1-py3-none-any.whl "
+        "rebuild/src/apache_airflow-2.12.0.post1-py3-none-any.whl"
+    ) in binary
+    # A literal version renders the same way.
+    literal = cut(convenience=[POST1 | {"version": "2.12.0.post1"}])
+    assert "echo 2.12.0.post1" in render.step2(literal)["section_2_build_command"]
+    # The source build keeps the source version.
+    assert '%ct "2.12.0-rc1"' in build and "(apache_airflow-2.12.0.tar.gz*)" in build
+
+
+@pytest.mark.parametrize("mode", ["byte-identical", "documented-divergence"])
+def test_step2b_runs_for_an_entry_declaring_its_own_mode_when_both_globals_are_off(mode: str) -> None:
+    entry = {"name": "foo.whl", "reproducibility": mode, "build_command": "make wheel"}
+    out = render.step2b(cut(repro_source="off", repro_binaries="off", convenience=[entry]), epoch="7")
+    assert out["skipped"] is False and out["source_check_commands"] == []
+    binary = out["binary_check_commands"]
+    assert "( cd rebuild/src && make wheel )" in binary
+    if mode == "byte-identical":
+        assert any(cmd.startswith('cmp "foo.whl" "rebuild/src/foo.whl"') for cmd in binary)
+    else:
+        assert 'diffoscope "foo.whl" "rebuild/src/foo.whl"' in binary
+    # Every entry off, and both globals off: nothing to check.
+    off = render.step2b(cut(convenience=[entry | {"reproducibility": "off"}]))
+    assert off["skipped"] is True
+
+
+def test_step2b_rebuilds_in_a_checkout_of_the_tag_not_an_empty_dir() -> None:
+    entry = {"name": "foo-bin.tar.gz", "reproducibility": "byte-identical", "build_command": "make dist"}
+    custom = cut(repro_source="on", method="custom", build_command="make sdist", convenience=[entry])
+    out = render.step2b(custom, epoch="9")
+    prep = out["rebuild_tree_commands"]
+    assert prep == ["mkdir -p rebuild", 'git worktree add --detach rebuild/src "2.12.0-rc1"']
+    src = out["source_check_commands"]
+    assert "( cd rebuild/src && make sdist )" in src
+    assert src[-1].endswith(
+        '--require-identical "apache_airflow-2.12.0.tar.gz" "rebuild/src/apache_airflow-2.12.0.tar.gz"'
+    )
+    assert "( cd rebuild/src && make dist )" in out["binary_check_commands"]
+    assert out["cleanup_commands"] == ["git worktree remove --force rebuild/src"]
+    text = out["text"]
+    assert text.index("git worktree add") < text.index("make sdist") < text.index("make dist")
+    assert text.index("make dist") < text.index("git worktree remove")
+    assert "( cd rebuild && " not in text
+
+    # git-archive: repro-archive rebuilds the source from the ref; binaries still build in the checkout.
+    archive = cut(repro_source="on", method="git-archive", convenience=[entry])
+    out = render.step2b(archive, epoch="9")
+    assert out["rebuild_tree_commands"][1] == 'git worktree add --detach rebuild/src "2.12.0-rc1"'
+    assert any('-o "rebuild/apache_airflow-2.12.0.tar.gz"' in cmd for cmd in out["source_check_commands"])
+    assert "( cd rebuild/src && make dist )" in out["binary_check_commands"]
+
+    # Source-only git-archive needs no checkout at all.
+    only = render.step2b(cut(repro_source="on", method="git-archive"), epoch="9")
+    assert only["rebuild_tree_commands"] == [] and only["cleanup_commands"] == []
+
+
+def test_step3_atr_dist_backend_composes_in_atr_only() -> None:
+    c = cut(backend="atr", vote_backend="atr", staging_url=None, digests=["sha512", "sha256"])
+    out = render.step3(c)  # no ASF id: the atr client carries the RM's own credentials
+    staging = out["staging_commands"]
+    assert staging[0] == "atr release start airflow 2.12.0"
+    for suffix in ("", ".asc", ".sha512", ".sha256"):
+        name = f"apache_airflow-2.12.0.tar.gz{suffix}"
+        assert f"atr upload airflow 2.12.0 {name} {name}" in staging
+    assert any(cmd.startswith("atr check status") for cmd in staging)
+    assert out["atr_upload_commands"] == []  # the staging is the ATR upload: no second copy
+    assert not any("finish" in cmd.lower() or cmd.startswith("svn ") for cmd in staging)
+    assert out["dist_dev_only"] is False and out["backend"] == "atr"
+    assert "Compose in ATR" in out["text"]
+
+
+def test_no_rendered_command_carries_a_bare_placeholder_redirect() -> None:
+    entry = {"name": "foo.whl", "reproducibility": "byte-identical", "build_command": "make wheel"}
+    c = cut(
+        method="git-archive",
+        repro_source="on",
+        repro_binaries="byte-identical",
+        convenience=[entry],
+        build_command="make bin",
+    )
+    assert bare_placeholders(render.step2(c)["section_2_build_command"]) == []
+    out = render.step2b(c)
+    assert (
+        bare_placeholders(
+            out["rebuild_tree_commands"] + out["source_check_commands"] + out["binary_check_commands"]
+        )
+        == []
+    )
+    assert bare_placeholders(render.step3(c, asf_id="rm")["staging_commands"]) == []
+
+
+def test_step2c_refuses_without_a_release_workflow() -> None:
+    with pytest.raises(render.RenderError, match="ci_release_workflow is unset"):
+        render.step2c(cut(signing_mode="ci-automated"))
+
+
+def test_step2c_run_id_placeholder_is_quoted_not_a_redirect() -> None:
+    out = render.step2c(
+        cut(signing_mode="ci-automated", config={"ci_release_workflow": ".github/workflows/release.yml"})
+    )
+    watch = next(line for line in out["text"].splitlines() if line.startswith("gh run watch"))
+    assert watch.endswith('"<run-id>"')
