@@ -121,6 +121,13 @@ code lands.
   `values`) and the Step 1 config metadata (`release-config load`), with
   shared rules (version / RC format, approver roster, ASF identity,
   automated-signing offer, archive destination) implemented once.
+  `tools/release-management` renders rc-cut's tag, build, sign, checksum,
+  staging and reproducibility blocks from that loaded configuration without
+  executing them. Rebuild commands preserve shell comments and heredocs,
+  and stop before running any build command if the checkout is unavailable.
+  Top-level build commands resolve release placeholders; custom builds emit
+  their reproducibility record. Per-entry modes describe the checks actually
+  run, and a failed outcome cannot propose a staging label.
   A source version is a dotted version of two or more numeric parts with
   no `.postN` (`2.11.0`) or, for a release wave named by date, a calendar
   date `YYYY-MM-DD` (`2026-10-06`, tagged `2026-10-06-rc1`); an impossible

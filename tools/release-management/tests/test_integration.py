@@ -18,6 +18,10 @@
 
 from __future__ import annotations
 
+import hashlib
+import shlex
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -123,3 +127,69 @@ def test_rc_cut_renders_from_a_real_load(tmp_path: Path) -> None:
     assert "https://dist.apache.org/repos/dist/dev/foo/1.0.0-rc1/" in step3["staging_commands"][0]
     assert step3["dist_dev_only"] is True
     assert render.step2b(cut)["source_check_enabled"] is True
+
+
+@pytest.mark.parametrize("build_ok", [True, False])
+def test_custom_build_emits_a_complete_real_reproducibility_record(
+    tmp_path: Path, monkeypatch, build_ok: bool
+) -> None:
+    def git(*args: str) -> str:
+        result = subprocess.run(
+            [
+                "git",
+                "-c",
+                "core.hooksPath=/dev/null",
+                "-c",
+                "commit.gpgsign=false",
+                "-c",
+                "user.name=Test",
+                "-c",
+                "user.email=test@example.invalid",
+                *args,
+            ],
+            cwd=tmp_path,
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+        return result.stdout.strip()
+
+    git("init")
+    (tmp_path / "source.txt").write_text("source\n")
+    git("add", "source.txt")
+    git("commit", "-m", "fixture")
+    git("-c", "tag.gpgsign=false", "tag", "1.0.0-rc1")
+    if not build_ok:
+        # A valid archive from a previous attempt must not get a new record.
+        git("archive", "--format=tar.gz", "--prefix=foo/", "1.0.0-rc1", "-o", "source.tar.gz")
+    root = Path(__file__).resolve().parents[3]
+    script = root / "tools/reproducible-archive/src/reproducible_archive/__init__.py"
+    invocation = f"{shlex.quote(sys.executable)} {shlex.quote(str(script))}"
+    monkeypatch.setattr(render.RcCut, "repro", property(lambda self: invocation))
+    cut = render.RcCut(
+        version="1.0.0",
+        rc="rc1",
+        upstream="apache/foo",
+        project="foo",
+        meta={
+            "source_archive_method": "custom",
+            "build_command": "git archive --format=tar.gz --prefix=foo/ <version>-<rcN> -o source.tar.gz"
+            if build_ok
+            else "false",
+            "expected_artefacts": ["source.tar.gz"],
+        },
+    )
+    commands = render.step2(cut)["section_2_build_command"]
+    result = subprocess.run(["sh", "-c", commands], cwd=tmp_path, text=True, capture_output=True)
+    record = render.parse_record(result.stdout)
+    if not build_ok:
+        assert result.returncode != 0
+        assert record == {}
+        return
+    assert result.returncode == 0, result.stderr
+    assert record["commit"] == git("rev-parse", "HEAD")
+    assert record["SOURCE_DATE_EPOCH"] == git("log", "-1", "--format=%ct")
+    assert record["sha512"] == hashlib.sha512((tmp_path / "source.tar.gz").read_bytes()).hexdigest()
+    assert record["swhid_dir"].startswith("swh:1:dir:")
+    assert record["swhid_dir_note"] == "identical to the repository tree"
+    assert render.step4(cut, record=record)["record_missing"] == []

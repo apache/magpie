@@ -215,11 +215,17 @@ def _source_block(cut: RcCut) -> list[str]:
     if method == "custom":
         if not build_command:
             raise RenderError("source_archive_method is custom but build_command is unset")
-        return [
-            *lines,
+        build_and_record = [
             f'export SOURCE_DATE_EPOCH="$(git log -1 --format=%ct {dq(cut.tag)})"',
-            str(build_command),
+            cut.render(build_command),
+            "# Record the custom archive for Step 4:",
+            f"printf 'commit %s\\n' \"$(git rev-parse {dq(cut.tag + '^{commit}')})\"",
+            "printf 'SOURCE_DATE_EPOCH %s\\n' \"$SOURCE_DATE_EPOCH\"",
+            f"printf 'sha512 %s\\n' \"$(sha512sum {dq(cut.source_artefact)} | cut -d ' ' -f 1)\"",
+            f"{cut.repro} swhid {dq(cut.source_artefact)} --ref {dq(cut.tag)} "
+            f"--origin {dq('https://github.com/' + cut.upstream)}",
         ]
+        return [*lines, "(\nset -e\n" + "\n".join(build_and_record) + "\n)"]
     lines += [
         f"{cut.repro} build \\",
         f"  --ref {dq(cut.tag)} --format {w(cut.meta.get('source_archive_format') or 'tar.gz')} \\",
@@ -235,7 +241,7 @@ def _source_block(cut: RcCut) -> list[str]:
             "",
             "# Convenience binaries (build_command):",
             cut.epoch_from_tool(),
-            str(build_command),
+            cut.render(build_command),
         ]
     return lines
 
@@ -310,6 +316,11 @@ def step2(cut: RcCut) -> dict[str, Any]:
     }
 
 
+def _rebuild_command(command: str) -> str:
+    """Preserve shell comments and heredocs, and stop if the checkout is absent."""
+    return f"(\ncd {w(REBUILD_SRC)} || exit\n{command}\n)"
+
+
 def step2b(cut: RcCut, *, skip: bool = False, epoch: str = "<SOURCE_DATE_EPOCH>") -> dict[str, Any]:
     """Step 2b: the optional reproducibility self-check (mandatory under ci-automated).
 
@@ -321,14 +332,17 @@ def step2b(cut: RcCut, *, skip: bool = False, epoch: str = "<SOURCE_DATE_EPOCH>"
     `<name>` and the rebuilt one `rebuild/src/<name>`.
     """
     source_on = cut.meta.get("reproducibility_source") == "on"
-    binaries = str(cut.meta.get("reproducibility_binaries") or "off")
     mandatory = cut.ci_automated
     entries = cut.convenience()
     any_binary = any(cut.entry_mode(entry) != "off" for entry in entries)
     skipped = (not source_on and not any_binary) or (skip and not mandatory)
+    entry_modes = {entry["name"]: "off" if skipped else cut.entry_mode(entry) for entry in entries}
+    active_modes = set(entry_modes.values()) - {"off"}
+    binary_mode = next(iter(active_modes)) if len(active_modes) == 1 else "mixed" if active_modes else "off"
     result: dict[str, Any] = {
         "source_check_enabled": source_on and not skipped,
-        "binary_check_mode": "off" if skipped else binaries,
+        "binary_check_mode": binary_mode,
+        "binary_check_modes": entry_modes,
         "mandatory": mandatory,
         "skipped": skipped,
         "rebuild_tree_commands": [],
@@ -357,7 +371,7 @@ def step2b(cut: RcCut, *, skip: bool = False, epoch: str = "<SOURCE_DATE_EPOCH>"
             rebuilt = f"{REBUILD_SRC}/{src}"
             rebuild = [
                 f"export SOURCE_DATE_EPOCH={dq(epoch)}",
-                f"( cd {tree} && {cut.meta.get('build_command') or '<build_command>'} )",
+                _rebuild_command(cut.render(cut.meta.get("build_command") or "<build_command>")),
             ]
         else:
             rebuilt = f"rebuild/{src}"
@@ -381,7 +395,7 @@ def step2b(cut: RcCut, *, skip: bool = False, epoch: str = "<SOURCE_DATE_EPOCH>"
         rebuilt = f"{REBUILD_SRC}/{name}"
         binary_cmds += [
             f"export SOURCE_DATE_EPOCH={dq(epoch)}",
-            f"( cd {tree} && {cut.render_entry(entry, entry.get('build_command') or '<build_command>')} )",
+            _rebuild_command(cut.render_entry(entry, entry.get("build_command") or "<build_command>")),
         ]
         if mode == "documented-divergence":
             binary_cmds.append(
@@ -599,7 +613,16 @@ def step3(
     }
 
 
-RECORD_KEYS = ("commit", "SOURCE_DATE_EPOCH", "sha512", "swhid_rev", "swhid_dir", "swhid_dir_note", "origin")
+RECORD_KEYS = (
+    "commit",
+    "SOURCE_DATE_EPOCH",
+    "sha512",
+    "swhid_rev",
+    "swhid_dir",
+    "swhid_repo_dir",
+    "swhid_dir_note",
+    "origin",
+)
 
 
 def parse_record(printed: str) -> dict[str, str]:
@@ -613,6 +636,11 @@ def parse_record(printed: str) -> dict[str, str]:
         if key == "sha512" and not SHA512_HEX.fullmatch(value):
             continue
         record[key] = value
+    if "swhid_dir_note" not in record and record.get("swhid_dir") and record.get("swhid_repo_dir"):
+        same_tree = record["swhid_dir"].split(";", 1)[0] == record["swhid_repo_dir"].split(";", 1)[0]
+        record["swhid_dir_note"] = (
+            "identical to the repository tree" if same_tree else "differs from the repository tree"
+        )
     return record
 
 
@@ -629,6 +657,21 @@ def step4(
     record = record or {}
     outcomes = convenience_outcomes or {}
     reported = self_check or "unreported"
+    strict = cut.ci_automated or cut.meta.get("source_archive_method") != "custom"
+    modes = {entry["name"]: cut.entry_mode(entry) for entry in cut.convenience()}
+    for name, status in [("self-check", reported), *outcomes.items()]:
+        byte_identical = (
+            strict if name == "self-check" else cut.ci_automated or modes.get(name) == "byte-identical"
+        )
+        if re.search(r"\bdiffers\b", status, re.IGNORECASE) or (
+            byte_identical and re.search(r"\bcontent-identical\b", status, re.IGNORECASE)
+        ):
+            raise RenderError(f"{name} failed reproducibility ({status}): stop the cut before staging")
+    record_source = (
+        "Step 2 custom-build record commands"
+        if cut.meta.get("source_archive_method") == "custom"
+        else "`repro-archive build`"
+    )
 
     def outcome(entry: dict[str, Any], mode: str) -> str:
         if entry["name"] in outcomes:
@@ -636,7 +679,7 @@ def step4(
         return "skipped" if mode == "off" else "unreported"
 
     def rec(key: str) -> str:
-        return f"`{record[key]}`" if record.get(key) else "_(paste from `repro-archive build`)_"
+        return f"`{record[key]}`" if record.get(key) else f"_(paste from {record_source})_"
 
     lines = [
         f"### Release candidate `{cut.tag}`",
@@ -652,7 +695,7 @@ def step4(
         f"- sha512: {rec('sha512')}",
         f"- swhid_rev: {rec('swhid_rev')}",
         f"- swhid_dir: {rec('swhid_dir')}",
-        f"- Content vs repository tree: {record.get('swhid_dir_note') or '_(paste from `repro-archive build`)_'}",
+        f"- Content vs repository tree: {record.get('swhid_dir_note') or f'_(paste from {record_source})_'}",
         f"- Archive: `{cut.meta.get('source_archive_format') or 'tar.gz'}`, prefix `{cut.meta.get('source_archive_prefix') or ''}`",
         f"- Self-check (Step 2b): {reported}",
     ]

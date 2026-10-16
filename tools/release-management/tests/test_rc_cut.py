@@ -25,6 +25,8 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -661,8 +663,9 @@ def test_repro_commands_refuse_when_the_framework_is_unknown(monkeypatch) -> Non
         render.step2(c)
     with pytest.raises(render.RenderError, match="--framework"):
         render.step2b(c)
-    # A custom source build without convenience artefacts never calls repro-archive.
-    assert render.step2(cut())["section_2_build_command"]
+    # Custom archives also use repro-archive to record the shipped content's SWHID.
+    with pytest.raises(render.RenderError, match="--framework"):
+        render.step2(cut())
 
 
 def test_cli_framework_flag_reaches_the_commands(tmp_path, capsys) -> None:
@@ -695,7 +698,7 @@ def test_convenience_commands_render_each_entry_with_its_own_version() -> None:
     staged = render.step3(c, asf_id="rm")["registry_staging_commands"]
     assert staged == ["twine upload -r testpypi dist/apache_airflow-2.12.0.post1-py3-none-any.whl"]
     binary = render.step2b(c, epoch="1")["binary_check_commands"]
-    assert "( cd rebuild/src && python -m build --wheel && echo 2.12.0.post1 )" in binary
+    assert "(\ncd rebuild/src || exit\npython -m build --wheel && echo 2.12.0.post1\n)" in binary
     assert (
         "diffoscope apache_airflow-2.12.0.post1-py3-none-any.whl "
         "rebuild/src/apache_airflow-2.12.0.post1-py3-none-any.whl"
@@ -713,7 +716,7 @@ def test_step2b_runs_for_an_entry_declaring_its_own_mode_when_both_globals_are_o
     out = render.step2b(cut(repro_source="off", repro_binaries="off", convenience=[entry]), epoch="7")
     assert out["skipped"] is False and out["source_check_commands"] == []
     binary = out["binary_check_commands"]
-    assert "( cd rebuild/src && make wheel )" in binary
+    assert "(\ncd rebuild/src || exit\nmake wheel\n)" in binary
     if mode == "byte-identical":
         assert any(cmd.startswith('cmp "foo.whl" "rebuild/src/foo.whl"') for cmd in binary)
     else:
@@ -730,11 +733,11 @@ def test_step2b_rebuilds_in_a_checkout_of_the_tag_not_an_empty_dir() -> None:
     prep = out["rebuild_tree_commands"]
     assert prep == ["mkdir -p rebuild", 'git worktree add --detach rebuild/src "2.12.0-rc1"']
     src = out["source_check_commands"]
-    assert "( cd rebuild/src && make sdist )" in src
+    assert "(\ncd rebuild/src || exit\nmake sdist\n)" in src
     assert src[-1].endswith(
         '--require-identical "apache_airflow-2.12.0.tar.gz" "rebuild/src/apache_airflow-2.12.0.tar.gz"'
     )
-    assert "( cd rebuild/src && make dist )" in out["binary_check_commands"]
+    assert "(\ncd rebuild/src || exit\nmake dist\n)" in out["binary_check_commands"]
     assert out["cleanup_commands"] == ["git worktree remove --force rebuild/src"]
     text = out["text"]
     assert text.index("git worktree add") < text.index("make sdist") < text.index("make dist")
@@ -746,7 +749,7 @@ def test_step2b_rebuilds_in_a_checkout_of_the_tag_not_an_empty_dir() -> None:
     out = render.step2b(archive, epoch="9")
     assert out["rebuild_tree_commands"][1] == 'git worktree add --detach rebuild/src "2.12.0-rc1"'
     assert any('-o "rebuild/apache_airflow-2.12.0.tar.gz"' in cmd for cmd in out["source_check_commands"])
-    assert "( cd rebuild/src && make dist )" in out["binary_check_commands"]
+    assert "(\ncd rebuild/src || exit\nmake dist\n)" in out["binary_check_commands"]
 
     # Source-only git-archive needs no checkout at all.
     only = render.step2b(cut(repro_source="on", method="git-archive"), epoch="9")
@@ -799,3 +802,99 @@ def test_step2c_run_id_placeholder_is_quoted_not_a_redirect() -> None:
     )
     watch = next(line for line in out["text"].splitlines() if line.startswith("gh run watch"))
     assert watch.endswith('"<run-id>"')
+
+
+@pytest.mark.parametrize("kind", ["source", "convenience"])
+@pytest.mark.parametrize(
+    "command",
+    [
+        "printf 'rebuilt\\n' > result.txt # archive build",
+        "cat > result.txt <<'EOF'\nrebuilt\nEOF",
+    ],
+)
+def test_rebuild_preserves_shell_comments_and_heredocs(tmp_path: Path, kind: str, command: str) -> None:
+    entry = {"name": "result.txt", "reproducibility": "byte-identical", "build_command": command}
+    c = cut(
+        method="custom",
+        repro_source="on" if kind == "source" else "off",
+        build_command=command,
+        convenience=[entry] if kind == "convenience" else [],
+    )
+    result = render.step2b(c, epoch="1")
+    commands = result["source_check_commands" if kind == "source" else "binary_check_commands"]
+    build = next(cmd for cmd in commands if cmd.startswith("(\n"))
+    checkout = tmp_path / "rebuild/src"
+    checkout.mkdir(parents=True)
+    completed = subprocess.run(["sh", "-c", build], cwd=tmp_path, text=True, capture_output=True)
+    assert completed.returncode == 0, completed.stderr
+    assert (checkout / "result.txt").read_text() == "rebuilt\n"
+    assert not (tmp_path / "result.txt").exists()
+
+
+def test_rebuild_stops_before_any_command_when_checkout_is_absent(tmp_path: Path) -> None:
+    c = cut(
+        method="custom",
+        repro_source="on",
+        build_command="printf wrong > first.txt\nprintf wrong > second.txt",
+    )
+    commands = render.step2b(c, epoch="1")["source_check_commands"]
+    build = next(cmd for cmd in commands if cmd.startswith("(\n"))
+    completed = subprocess.run(["sh", "-c", build], cwd=tmp_path, text=True, capture_output=True)
+    assert completed.returncode != 0
+    assert not (tmp_path / "first.txt").exists()
+    assert not (tmp_path / "second.txt").exists()
+
+
+@pytest.mark.parametrize("method", ["custom", "git-archive"])
+def test_top_level_build_command_resolves_release_placeholders(method: str) -> None:
+    command = "printf '%s' <version>-<rcN>"
+    c = cut(method=method, build_command=command, repro_source="on")
+    assert command not in render.step2(c)["section_2_build_command"]
+    assert "printf '%s' 2.12.0-rc1" in render.step2(c)["section_2_build_command"]
+    if method == "custom":
+        assert "printf '%s' 2.12.0-rc1" in "\n".join(render.step2b(c)["source_check_commands"])
+
+
+@pytest.mark.parametrize("status", ["differs", "DIFFERS", "verdict content-identical"])
+def test_failed_self_check_cannot_propose_rc_staging(status: str) -> None:
+    with pytest.raises(render.RenderError, match="failed reproducibility"):
+        render.step4(cut(method="git-archive"), self_check=status)
+
+
+def test_failed_convenience_check_cannot_propose_rc_staging() -> None:
+    with pytest.raises(render.RenderError, match=r"foo\.whl failed reproducibility"):
+        render.step4(cut(), self_check="identical", convenience_outcomes={"foo.whl": "DIFFERS"})
+
+
+def test_content_identical_custom_archive_remains_a_warning_under_rm_key() -> None:
+    c = cut(method="custom")
+    assert render.step4(c, self_check="content-identical")["proposed_label"] == "rc-staging"
+    c.meta["signing_mode"] = "ci-automated"
+    with pytest.raises(render.RenderError, match="failed reproducibility"):
+        render.step4(c, self_check="content-identical")
+
+
+def test_binary_modes_reflect_entry_overrides_and_skipped_checks() -> None:
+    entries = [
+        {"name": "a.whl", "reproducibility": "byte-identical", "build_command": "make a"},
+        {"name": "b.whl", "reproducibility": "documented-divergence", "build_command": "make b"},
+    ]
+    c = cut(repro_binaries="off", convenience=entries[:1])
+    assert render.step2b(c)["binary_check_mode"] == "byte-identical"
+    c = cut(repro_binaries="off", convenience=entries)
+    result = render.step2b(c)
+    assert result["binary_check_mode"] == "mixed"
+    assert result["binary_check_modes"] == {"a.whl": "byte-identical", "b.whl": "documented-divergence"}
+    skipped = render.step2b(c, skip=True)
+    assert skipped["binary_check_mode"] == "off"
+    assert skipped["binary_check_modes"] == {"a.whl": "off", "b.whl": "off"}
+
+
+def test_documented_divergence_accepts_content_identical_but_byte_identity_does_not() -> None:
+    entry = {"name": "foo.whl", "reproducibility": "documented-divergence"}
+    c = cut(method="git-archive", convenience=[entry])
+    result = render.step4(c, convenience_outcomes={"foo.whl": "content-identical"})
+    assert result["proposed_label"] == "rc-staging"
+    c.meta["convenience_artefacts"] = [entry | {"reproducibility": "byte-identical"}]
+    with pytest.raises(render.RenderError, match="failed reproducibility"):
+        render.step4(c, convenience_outcomes={"foo.whl": "content-identical"})

@@ -21,8 +21,11 @@ When it runs, every build command runs in a fresh checkout of the RC tag, never 
 `source_check_commands` lint the artefact against the reproducible-builds.org checklist, rebuild it from the same tag and require byte-identical output:
 under `git-archive`, `repro-archive build` reads the tag itself and writes `rebuild/<artefact>`;
 under `custom`, `build_command` runs in `rebuild/src`.
+Build blocks preserve inline comments and heredocs, and stop if the rebuild checkout cannot be entered.
 `binary_check_commands` run each convenience artefact's `build_command` in `rebuild/src`, with `<version>` rendered as that artefact's own `version`, and compare by its `reproducibility` mode
 (`byte-identical` compares bytes, `documented-divergence` runs its `verification_command`, by default `diffoscope`); an `off` artefact gets no command, only a `SKIP` line in `text`.
+
+`binary_check_modes` reports each artefact's effective mode; `binary_check_mode` reports the active mode, `mixed` when active modes differ, or `off` when no binary check runs.
 
 The comparisons assume what Step 2 assumes: a build command writes each artefact into the directory it runs in, under the name `expected_artefacts` or the entry's `name` gives it.
 The staged copy is then `<artefact>` at the checkout root and the rebuilt one `rebuild/src/<artefact>`.
@@ -36,7 +39,8 @@ Return ONLY valid JSON with this structure (the render's fields):
 ```json
 {
   "source_check_enabled": true | false,
-  "binary_check_mode": "off" | "byte-identical" | "documented-divergence",
+  "binary_check_mode": "off" | "byte-identical" | "documented-divergence" | "mixed",
+  "binary_check_modes": {"<artefact>": "off" | "byte-identical" | "documented-divergence"},
   "mandatory": true | false,
   "rebuild_tree_commands": ["mkdir -p rebuild", "<worktree add of the RC tag at rebuild/src>"],
   "source_check_commands": ["<repro-archive check …>", "<rebuild from the tag>", "<repro-archive compare --require-identical …>"],

@@ -20,7 +20,7 @@ argument-hint: "<version> rc<N>"
 capability: capability:resolve
 surface_hash: sha256:60623e456e72bbf6
 license: Apache-2.0
-measured_tokens: 6812
+measured_tokens: 6883
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -335,6 +335,7 @@ exits `2` with `{"ok": false, "refused": "<why>"}`. Surface `refused` as written
 Run `<render> --step 2`.
 Its four sections are the signed tag and push to `git_upstream_remote`;
 the source build — `repro-archive build` at the tag under `git-archive` (Golden rule 6), the verbatim `build_command` under `custom`, both with `SOURCE_DATE_EPOCH` exported —
+custom builds also print commit, epoch, checksum and archive-content identifiers for Step 4;
 followed by one block per convenience artefact (or *"no convenience artefacts declared"*);
 one `gpg --detach-sign --armor` per artefact (Golden rule 2);
 and one checksum per artefact and digest.
@@ -395,7 +396,7 @@ Return ONLY valid JSON with this structure (the render's fields):
 
 ## Step 4 — Propose planning-issue comment
 
-Once the RM has run the commands, save what `repro-archive build` printed to `<scratch>/rc-record.txt` and run
+Once the RM has run the commands, save the record lines from Step 2 (`repro-archive build` or the custom-build record commands) to `<scratch>/rc-record.txt` and run
 
 ```bash
 <render> --step 4 --record <scratch>/rc-record.txt --self-check "<Step 2b outcome, or skipped>" \
@@ -406,6 +407,7 @@ Once the RM has run the commands, save what `repro-archive build` printed to `<s
 `comment` is the planning-issue comment downstream skills read (`release-verify-rc` Step 9 rebuilds from its commit and epoch, `release-vote-draft` quotes it):
 the RC id, tag and staging URLs, the artefact list, the reproducibility record, the convenience artefacts, the unreviewed-archive line when the override was used, and the `rc-staging` label.
 A convenience artefact without `--convenience-outcome` is recorded `skipped` when its reproducibility is `off`, else `unreported`.
+A failed reproducibility outcome is refused before a staging label is proposed; `content-identical` remains a warning for an RM-key custom source archive or a documented-divergence convenience artefact.
 `record_missing` names record fields the RM has not pasted back (and `self_check` under `ci-automated` when the outcome is missing or `skipped`); ask for them rather than inventing values.
 
 Present `comment` to the RM and ask for confirmation before posting (Golden rule 4).
