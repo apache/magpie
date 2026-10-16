@@ -756,6 +756,39 @@ def test_vetted_ops_spelling_reads_options_before_run(command, denied):
     assert (agent_guard.dispatch(command) is not None) is denied
 
 
+def test_vetted_ops_spelling_reads_a_commented_codex_registration(monkeypatch, tmp_path):
+    pytest.importorskip("pwd")
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path))
+    _register_codex_hook(tmp_path, "/srv/account/.claude/magpie/vetted-ops")
+    config = tmp_path / "config.toml"
+    # Valid TOML a person might add by hand: an inline comment after the value.
+    config.write_text(config.read_text().replace("\ntimeout", "  # reviewed\ntimeout"))
+    command = "uv run --project /srv/account/.claude/magpie/vetted-ops vetted-op-read pr-view 1"
+    assert agent_guard.dispatch(command, harness="codex") is None
+
+
+def test_vetted_ops_spelling_finds_the_checkout_from_any_cwd(monkeypatch, tmp_path):
+    repo = tmp_path / "repo"
+    (repo / "tools" / "vetted-ops").mkdir(parents=True)
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+
+    def stub(args, cwd=None):
+        # git answers only inside the repository, as it does for real.
+        if args == ["git", "rev-parse", "--show-toplevel"] and cwd and str(cwd).startswith(str(repo)):
+            return str(repo)
+        return None
+
+    monkeypatch.setattr(agent_guard, "_run", stub)
+    command = f"uv --directory {repo} run --project {repo}/tools/vetted-ops vetted-op-read pr-view 1"
+    reason = agent_guard.dispatch(command, cwd=str(elsewhere))
+    assert reason and "agent-guard[vetted-ops-spelling]" in reason
+    # An installed plugin cache is exempt even inside a version-controlled tree.
+    cache = repo / ".claude" / "plugins" / "cache" / "x" / "1.0" / "tools" / "adversarial-review"
+    cache.mkdir(parents=True)
+    assert agent_guard.dispatch(f"uvx --from {cache} adversarial-review detect", cwd=str(elsewhere)) is None
+
+
 def test_vetted_ops_spelling_refuses_an_absolute_checkout_path(monkeypatch, tmp_path):
     repo = tmp_path / "repo"
     (repo / "tools" / "vetted-ops").mkdir(parents=True)

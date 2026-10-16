@@ -998,15 +998,30 @@ def _vetted_launch(argv: list[str]) -> tuple[str, str, str] | None:
     return option, base, rest[i]
 
 
+def _within(path: str, root: str) -> bool:
+    root = os.path.realpath(root)
+    return path == root or path.startswith(root.rstrip(os.sep) + os.sep)
+
+
 def _inside_checkout(base: str, cwd: str | None) -> bool:
-    """True when the absolute ``base`` lies in the working tree the command
-    runs from: a dispatcher there is code the agent can edit."""
-    top = _run(["git", "rev-parse", "--show-toplevel"], cwd=cwd)
-    if not top:
-        return False
-    root = os.path.realpath(top)
+    """True when the absolute ``base`` lies in a git working tree: the one the
+    command runs from, or the one ``base`` itself sits in, whatever the cwd.
+    A dispatcher there is code the agent can edit. An installed plugin cache
+    is exempt, even when it sits in a tree such as a version-controlled home."""
     target = os.path.realpath(base)
-    return target == root or target.startswith(root.rstrip(os.sep) + os.sep)
+    if "/.claude/plugins/cache/" in target + "/":
+        return False
+    top = _run(["git", "rev-parse", "--show-toplevel"], cwd=cwd)
+    if top and _within(target, top):
+        return True
+    probe = target
+    while probe and not os.path.isdir(probe):
+        parent = os.path.dirname(probe)
+        if parent == probe:
+            return False
+        probe = parent
+    top = _run(["git", "rev-parse", "--show-toplevel"], cwd=probe)
+    return top is not None and _within(target, top)
 
 
 _CODEX_HOOK_SCRIPT = "codex-expand-stable-path.py"
@@ -1031,22 +1046,38 @@ def _codex_stable_roots() -> set[str]:
     roots = {f"{home.rstrip('/')}/{VETTED_STABLE_BASE[2:]}vetted-ops"}
     config = Path(os.environ.get("CODEX_HOME") or f"{home}/.codex") / "config.toml"
     try:
-        text = config.read_text(encoding="utf-8")
-    except OSError:
+        import tomllib  # 3.11+, the engine's floor.
+
+        data = tomllib.loads(config.read_text(encoding="utf-8"))
+    except (ImportError, OSError, ValueError):
         return roots
-    for line in text.splitlines():
-        name, sep, value = line.partition("=")
-        if not sep or name.strip() != "command" or _CODEX_HOOK_SCRIPT not in value:
+    for command in _toml_commands(data):
+        if _CODEX_HOOK_SCRIPT not in command:
             continue
         try:
-            argv = shlex.split(json.loads(value.strip()))
-        except (ValueError, TypeError):
+            argv = shlex.split(command)
+        except ValueError:
             continue
         if "--stable-path" in argv[:-1]:
             root = argv[argv.index("--stable-path") + 1].rstrip("/")
             if os.path.isabs(root):
                 roots.add(root)
     return roots
+
+
+def _toml_commands(node: object) -> list[str]:
+    """Every string ``command`` value anywhere in parsed TOML."""
+    found: list[str] = []
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key == "command" and isinstance(value, str):
+                found.append(value)
+            else:
+                found += _toml_commands(value)
+    elif isinstance(node, list):
+        for item in node:
+            found += _toml_commands(item)
+    return found
 
 
 def guard_vetted_ops_spelling(seg: Segment, cwd: str | None = None, harness: str | None = None) -> str | None:
