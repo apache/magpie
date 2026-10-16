@@ -634,6 +634,11 @@ def test_git_subcommand_index_consumes_flag_values(argv, expected_index):
 # vetted-ops-spelling — dispatchers launched only from the literal ~ path
 # --------------------------------------------------------------------------- #
 
+# A harness's own installed plugin directory (another harness's rules decide it).
+PLUGIN_CACHE_REVIEW = (
+    "~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/0.9.0/tools/adversarial-review"
+)
+
 
 @pytest.mark.parametrize(
     "command",
@@ -649,8 +654,7 @@ def test_git_subcommand_index_consumes_flag_values(argv, expected_index):
         "uv run --project tools/vetted-ops pytest -k vetted-op-read",
         "uv run --directory tools/vetted-ops --group dev pytest",
         # Another harness's own installed plugin directory is its rules' business.
-        "uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/0.9.0/tools/adversarial-review"
-        " adversarial-review detect",
+        f"uvx --from {PLUGIN_CACHE_REVIEW} adversarial-review detect",
         "uvx --from /opt/harness/plugins/magpie/tools/adversarial-review adversarial-review detect",
         "uvx ruff check .",
         "uv sync",
@@ -707,7 +711,6 @@ def test_vetted_ops_spelling_codex_keeps_its_absolute_rewrite(monkeypatch, tmp_p
 
 def _register_codex_hook(codex_home, root):
     """Write the hook registration `vetted-ops-codex-rules --hook --tool-root <root>` renders."""
-    import json
     import shlex
 
     command = f"python3 {shlex.quote(root + '/hooks/codex-expand-stable-path.py')} --stable-path {shlex.quote(root)}"
@@ -789,6 +792,26 @@ def test_vetted_ops_spelling_finds_the_checkout_from_any_cwd(monkeypatch, tmp_pa
     monkeypatch.setattr(agent_guard, "_account_home", lambda: str(tmp_path / "home"))
     reason = agent_guard.dispatch(f"uvx --from {lookalike} adversarial-review detect", cwd=str(repo))
     assert reason and "agent-guard[vetted-ops-spelling]" in reason
+
+
+def test_vetted_ops_spelling_codex_matches_a_symlinked_home_as_spelled(monkeypatch, tmp_path):
+    import os
+
+    pwd = pytest.importorskip("pwd")
+    real = tmp_path / "real-home"
+    real.mkdir()
+    linked = tmp_path / "home"
+    linked.symlink_to(real)
+    entry = pwd.getpwuid(os.getuid())
+
+    class Entry:
+        pw_dir = str(linked)
+
+    monkeypatch.setattr(pwd, "getpwuid", lambda uid: Entry if uid == os.getuid() else entry)
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "codex"))  # no registration: the default root
+    # The rewrite hook keeps the database spelling of the home, symlink and all.
+    command = f"uv run --project {linked}/.claude/magpie/vetted-ops vetted-op-read pr-view 1"
+    assert agent_guard.dispatch(command, harness="codex") is None
 
 
 def test_vetted_ops_spelling_exempts_the_accounts_own_plugin_cache(monkeypatch, tmp_path):

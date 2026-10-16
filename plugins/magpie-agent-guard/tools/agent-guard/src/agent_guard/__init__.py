@@ -1000,11 +1000,13 @@ def _vetted_launch(argv: list[str]) -> tuple[str, str, str] | None:
 
 def _account_home() -> str | None:
     """The account's home from the password database, never from ``HOME``,
-    which an earlier command can reassign. None where there is none (Windows)."""
+    which an earlier command can reassign. None where there is none (Windows).
+    Spelled as the database spells it, unresolved: Codex's rewrite hook writes
+    that spelling, and ``_within`` resolves the roots it compares itself."""
     try:
         import pwd  # POSIX only; the engine also runs on Windows.
 
-        return os.path.realpath(pwd.getpwuid(os.getuid()).pw_dir)
+        return pwd.getpwuid(os.getuid()).pw_dir
     except (ImportError, KeyError, OSError):
         return None
 
