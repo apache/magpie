@@ -16,6 +16,7 @@
     - [What `probe` detects](#what-probe-detects)
     - [What setup writes](#what-setup-writes)
     - [Skills that assume GitHub](#skills-that-assume-github)
+  - [Publication gate](#publication-gate)
   - [How to use](#how-to-use)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -98,15 +99,18 @@ editing every skill.
 | Detect Subversion hosting | `probe` (JSON) | read, offline |
 | Working-tree status | `status`, `clean` | read |
 | Current branch | `branch` | read |
-| Show changes | `diff [--base REF] [--cached] [paths…]` | read |
+| Show changes | `diff [--base REF] [--cached] [-o FILE] [paths…]` | read |
 | History read | `log [-n N] [--grep P] [--author A] [--since S] [paths…]` | read |
-| Create line of work | `new-branch <name>` | write |
+| Create line of work | `new-branch [--scrub] <name>` | write |
 | Switch ref | `switch <ref>` | write |
 | Stage | `stage <paths…>` | write |
-| Commit | `commit -m <msg>` | write |
+| Commit | `commit (-m <msg> \| -F <file>) [--scrub]` | write |
 | Sync from forge | `fetch [remote] [ref]` | write |
 | Publish | `push [-u] <remote> <ref>` | write |
 | Reset working copy | `reset-worktree` | write |
+| Fix flow for this backend | `fix-flow [--declared VALUE]` | read |
+| Embargo scrub | `scrub [-F FILE] [--diff] [--diff-file F] [--branch NAME]` | read |
+| Scrubbed commit proposal (svn) | `propose-commit -F FILE --expect PATH… [--branch NAME]` | read |
 
 Write operations stay gated on explicit user confirmation **in the
 calling skill**, exactly as the tracker write paths are — the tool does
@@ -245,6 +249,42 @@ On a project with `vcs_backend: svn`:
 - **Skills that resolve `<default-branch>`** get `trunk`: the `issue` triage, stale-sweep, backlog and reassess-stats skills, `audit-finding-fix`, `flaky-test-triage`, the dependency and licence audits, `security-issue-invalidate`, `security-model-verify` and `release-prepare`.
   `trunk` is right wherever they only name the line of work; where they build a GitHub URL or a Git ref from it, they need the GitHub repository or Git checkout above.
 
+## Publication gate
+
+Three operations serve the [`security-issue-fix`](../../skills/security-issue-fix/SKILL.md) skill,
+which must not let a change reach a public surface before the security team clears it:
+
+- **`fix-flow [--declared VALUE]`** prints, as JSON, the backend, whether it is distributed,
+  and the flow: `pull-request` (distributed; the change becomes public at `push`)
+  or `patch-then-commit` (`svn`; public at `new-branch` and `commit`).
+  `--declared` takes the manifest's *Tools enabled → Source control* value
+  (`github`, `git`, `asf-svn`, `svn`, `subversion`, `hg`, `fossil`);
+  a working copy that contradicts it exits `2`, and with no working copy the declared value decides.
+- **`scrub`** checks a commit message (`-F`), the lines the working-copy diff adds (`--diff`) or a patch adds (`--diff-file`),
+  and a branch name (`--branch`) for embargoed wording:
+  a CVE id, `CVE`, `vulnerability`, `security fix`, `advisory`, `security@`, the CVE-tool URL, `exploit`,
+  and vulnerability-class names (`XSS`, `SSRF`, `path traversal`, …) —
+  the machine-checkable subset of the skill's
+  [forbidden-term list](../../skills/security-issue-fix/implementation-plan.md#5c-commit-message-and-pr-title).
+  `--term` adds a term (a reporter's name), `--private-file` names private text (the tracker issue, saved to a file)
+  that the message must not quote eight or more words of,
+  and `--allow <label>` drops a default term — the user's explicit call, never the skill's.
+  Only added lines are checked: removed and context lines are already public.
+  Exit `0` clean, `1` with hits; the JSON lists each hit's surface, term, file and line.
+- **`propose-commit -F <msg> --expect <path>…`** (centralized backends only) is the commit proposal the skill shows.
+  Because `svn commit` takes every change in the working copy, it lists what would be committed,
+  blocks on a changed path outside the agreed `--expect` list or on a conflict,
+  scrubs the message, the diff, the new files about to be staged, and `--branch`,
+  and only when nothing blocks prints the exact `magpie-vcs` commands
+  (`new-branch --scrub`, `stage`, `commit --scrub -F`), without the `uv run --project …` prefix.
+  Exit `0` ready, `1` blocked.
+
+`--scrub` on `commit` and `new-branch` runs the same scrub again at execution time
+(the message and the change being committed; the branch name, which also lands in the copy's log message)
+and exits `3` before the VCS runs when it finds a hit.
+It is opt-in because the tool is generic: other skills commit ordinary changes whose messages may say "advisory".
+The security fix flow always passes it.
+
 ## How to use
 
 ```bash
@@ -257,5 +297,7 @@ uv run --project tools/vcs magpie-vcs -C ~/code/foo status
 uv run --project tools/vcs magpie-vcs -C ~/code/foo probe
 ```
 
-Exit codes: `0` success, `1` for `clean` when the tree is dirty, `2`
-for any `VCSError` (unknown/unsupported backend, failed command).
+Exit codes: `0` success, `1` for `clean` when the tree is dirty and for
+`scrub` / `propose-commit` when something blocks, `2` for any `VCSError`
+(unknown/unsupported backend, failed command), `3` when `--scrub` refuses
+a `commit` or `new-branch`.

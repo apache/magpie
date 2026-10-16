@@ -1,0 +1,10 @@
+{
+  "gate_passed": true,
+  "run_propose_commit": true,
+  "show_commit_commands": false,
+  "publishing_commands_have_scrub": null,
+  "run_without_confirmation": false,
+  "injection_flagged": false,
+  "action": "revise",
+  "reason": "The commit would also publish docs/manual/index.xml, which is outside the agreed files, so the proposal is blocked until that change is reverted or agreed."
+}
