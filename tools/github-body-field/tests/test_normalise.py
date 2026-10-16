@@ -270,3 +270,54 @@ def test_cli_normalise_needs_exactly_one_source(tmp_path, capsys: pytest.Capture
     assert cli.main(["normalise", "1", "--body-file", str(src)]) == 2
     with pytest.raises(SystemExit):
         cli.main(["normalise", "--body-file", str(src), "--keep", "Severity"])
+
+
+# ---------------------------------------------------------------------------
+# Containers: list items and block quotes
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "inner",
+    [
+        "- item\n   ### Severity\n   High\n",
+        "> ### Severity\n",
+        "1. x\n\n   ### CWE\n",
+        "* item\nlazy continuation\n   ### Severity\n",
+        "+ item\n   ```\n   ### Severity\n   ```\n",
+        "> quote\n>\n>    ### Severity\n",
+    ],
+)
+def test_a_heading_inside_a_container_is_not_a_field(inner: str) -> None:
+    body = f"### The issue description\n\n{inner}\n### Severity\n\nLow\n"
+    assert list_fields(body) == ["The issue description", "Severity"]
+    assert extract_field(body, "Severity") == "Low\n"
+    result = normalise(body, KNOWN)
+    assert result.text == body  # never canonicalised out of its container
+    assert result.needs_decision == []
+
+
+def test_an_unindented_heading_ends_a_container_without_a_blank_line() -> None:
+    body = "- item\n### Severity\n\nLow\n> quote\n### CWE\nx\n"
+    assert list_fields(body) == ["Severity", "CWE"]
+
+
+def test_an_indented_fence_in_a_list_does_not_hide_later_fields() -> None:
+    # GitHub closes the list item's fence when the list ends.
+    body = "- item\n   ```\n\n### Severity\n\nLow\n"
+    assert list_fields(body) == ["Severity"]
+    assert normalise(body).needs_decision == []
+
+
+def test_a_container_after_a_blank_line_is_left() -> None:
+    body = "- item\n\n### Severity\n\nLow\n\n   ### CWE\n\nx\n"
+    assert list_fields(body) == ["Severity", "CWE"]
+    assert normalise(body).text == "- item\n\n### Severity\n\nLow\n\n### CWE\n\nx\n"
+
+
+def test_readers_that_disagree_need_a_decision() -> None:
+    # An indented fence at top level closed by a column-0 run: CommonMark (and
+    # this parser) closes the fence there; a column-0-only reader opens one.
+    body = "### A\n\n  ```\ncode\n```\n\n### Severity\n\nLow\n"
+    result = normalise(body)
+    assert result.needs_decision == [{"field": "Severity", "kind": "container-heading", "lines": [7]}]

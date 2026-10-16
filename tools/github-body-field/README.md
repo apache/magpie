@@ -121,6 +121,9 @@ a heading-shaped line inside a fence to `\###` (`heading_in_fence`);
 a fence left open at the end to a closed one (`unclosed_fence`);
 a repeated field whose copies hold the same value to its first copy (`duplicate_dropped`, or `duplicate_resolved` with `--keep`).
 Copies with different values stay as they are and land in `needs_decision`.
+A heading inside a list item or block quote is content and is never rewritten.
+After normalising, a strict reader (a `### ` line at column 0, fences opened only at column 0) cross-checks the result;
+where it and the parser disagree about a field heading, `{field, kind: "container-heading", lines}` lands in `needs_decision` instead of either reading winning.
 The same function is importable as `github_body_field.normalise(body, known_fields, keep)`; `generate-cve-json` calls it in memory before every read.
 
 ## Body format assumptions
@@ -130,6 +133,9 @@ The parser follows CommonMark where it matters for finding fields:
 - lines end at `\n`, `\r\n` or `\r` — not at the other characters `str.splitlines` breaks on;
 - a field heading is a level-3 ATX heading outside any fence: up to three spaces of indent, `###`, spaces or tabs, the name, an optional closing run of `#`;
   level-2 and level-4 headings are content;
+- a block quote or list item (`>`, `-`/`*`/`+`, `1.`/`1)`) is a container: its indented lines and lazy continuation lines are content,
+  so an indented `### x` or fence there, which GitHub renders inside the list or quote, is neither a field nor a fence;
+  an unindented line after a blank line, or an unindented heading or fence, ends it;
 - fenced code blocks pair the CommonMark way: the closer uses the opener's character (`` ` `` or `~`), is at least as long, and has nothing but whitespace after the run;
   an unclosed fence runs to the end of the body.
   So a four-backtick block holding a three-backtick line keeps its content,
