@@ -68,7 +68,7 @@ Every command prints one JSON object; rendered text is in its `text` field.
 
 | Module | Rule |
 |---|---|
-| `body` | `sanitise`: the fail-closed well-formedness check (fences paired the CommonMark way, every fence-like line an opener or closer; `<details>`, `<!--`), heading demotion outside fences, empty fence pairs dropped, every `![` and active HTML tag (`img`, `svg`, `details`, `<!--`, …) defused outside code. `short_field`: the same for a short field, fence lines escaped. `render`: one `### <heading>` per field role, headings from `tracker.body_fields`, empty fields `_No response_`, `Severity` `Unknown`, the injection callout only when the model sets it. |
+| `body` | `sanitise`: line breaks normalised (other `splitlines` breaks refused), raw HTML block starts escaped, the fail-closed well-formedness check (fences paired the CommonMark way, every fence-like line an opener or closer; `<details>`, `<!--`), heading demotion outside fences and heading lines escaped inside them, empty fence pairs dropped, every `![` and active HTML tag (`img`, `svg`, `details`, `<!--`, …) defused outside fences. `short_field`: the same for a short field, fence lines escaped. `render`: one `### <heading>` per field role, headings from `tracker.body_fields`, empty fields `_No response_`, `Severity` `Unknown`, the injection callout only when the model sets it. |
 | `rollup` | Entry bodies at column 0, one-line values, the action label refused when it holds `<`, `>` or `·`, and handed back shell-quoted. |
 | `refs` | `bare_refs` / `linkify` for `#NNN` and `owner/repo#NNN` outside code, ported from `pr-management`'s `_BARE_REF`. |
 | `titles` | `strip_mail_prefixes`, `strip_pr_title`, `md_title`. |

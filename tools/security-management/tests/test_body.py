@@ -183,7 +183,8 @@ def test_an_empty_pair_is_dropped_only_as_a_whole_pair() -> None:
         ("<svg onload=x>", "&lt;svg onload=x>"),
         ("<details><summary>s</summary></details>", "&lt;details>&lt;summary>s&lt;/summary>&lt;/details>"),
         ("<iframe src=u></iframe> <video src=u>", "&lt;iframe src=u>&lt;/iframe> &lt;video src=u>"),
-        ("<b>kept</b> a < b", "<b>kept</b> a < b"),
+        ("x <b>kept</b> a < b", "x <b>kept</b> a < b"),
+        ("<b>block</b>", "&lt;b>block</b>"),
     ],
 )
 def test_images_and_active_html_are_defused(raw: str, expected: str) -> None:
@@ -254,3 +255,39 @@ def test_a_closer_with_anything_but_spaces_and_tabs_after_it_is_refused(trail: s
 
 def test_a_closer_followed_by_spaces_and_tabs_closes() -> None:
     assert body.sanitise("```\ncode\n``` \t\n### x\n")["text"] == "```\ncode\n``` \t\n#### x\n"
+
+
+def test_a_fenced_field_heading_cannot_reach_the_cve_record() -> None:
+    from generate_cve_json.cve_json import extract_field
+
+    report = "PoC:\n```\n### Severity\n\nCritical\n# comment\n```\n"
+    cleaned = body.sanitise(report)
+    assert cleaned["ok"]
+    assert "\\### Severity\n\nCritical\n\\# comment" in cleaned["text"]
+    text = body.render({"issue_description": cleaned["text"], "severity": "Low"})
+    assert extract_field(text, "Severity") == "Low"
+    assert reuse.fields(text) == list(body.DEFAULT_HEADINGS.values())
+
+
+@pytest.mark.parametrize(
+    "report",
+    [
+        "<pre>\n```\n</pre>\n![pixel](https://attacker.example/unique)\n```",
+        "<div>\n```\n</div>\n![pixel](https://attacker.example/unique)\n```",
+        "<details>\n```\n</details>\n![pixel](https://attacker.example/unique)\n```",
+        "<!-- x\n```\n-->\n![pixel](https://attacker.example/unique)\n```",
+    ],
+)
+def test_html_blocks_cannot_hide_an_image_behind_a_fence(report: str) -> None:
+    out = body.sanitise(report)
+    assert out["ok"]
+    for line in out["text"].split("\n"):
+        assert not line.lstrip().startswith("<")
+    # the image line is code here, and no HTML block can end the fence early on GitHub
+    assert out["text"].startswith("&lt;")
+
+
+def test_html_block_starts_in_short_fields_are_escaped() -> None:
+    assert body.short_field("<div onclick=x>Alice</div>") == "&lt;div onclick=x>Alice</div>"
+    assert body.short_field("<?php x ?>") == "&lt;?php x ?>"
+    assert body.short_field("a < b") == "a < b"
