@@ -696,7 +696,7 @@ class SignerAdmissionTest(unittest.TestCase):
     def test_admitted_signing_subkey_near_expiry_keeps_the_expiry_advisory(self) -> None:
         soon_date = TODAY + dt.timedelta(days=30)
         soon = soon_date.isoformat()
-        noon = dt.datetime.combine(soon_date, dt.time(12), tzinfo=dt.timezone.utc)
+        noon = dt.datetime.combine(soon_date, dt.time(12), tzinfo=dt.UTC)
         epoch = str(int(noon.timestamp()))
         out = check(signing_listing(sub_bits="4096", sub_expires=epoch))
         self.assertEqual(out["verdict"], "proceed")
