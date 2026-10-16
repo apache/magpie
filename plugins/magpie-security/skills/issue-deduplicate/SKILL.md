@@ -375,7 +375,7 @@ After confirmation, apply **sequentially** (never in parallel):
    all versions; `not planned` combined with the `duplicate` label
    carries the same signal)
 6. `uv run --project <framework>/tools/<cve-tool>/generate-cve-json generate-cve-json <keep> --attach --report-json <scratch>/cve-report-<keep>.json`
-   — a report with missing or ambiguous fields (a merge can leave a field twice) goes through the [CVE JSON fallback](../issue-sync/outcomes/cve-json-fallback.md);
+   — a report with any non-empty array (a merge can leave a field twice) goes through the [CVE JSON fallback](../issue-sync/outcomes/cve-json-fallback.md);
    remediation-developer credits come from the *Remediation developer* body field
    (populated by `security-issue-sync` from the linked PR's author); no CLI flag needed.
    The regen output is the kept tracker's canonical JSON record.
