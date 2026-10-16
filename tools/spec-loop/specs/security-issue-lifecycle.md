@@ -79,6 +79,12 @@ publication, with a human gate and an audit-log entry at every step.
   at 30 hits), and renders the title, body (sentinels, bot author left
   `_No response_`), labels, rollup entry and recap; the milestone
   choice, title paraphrase and *Affected versions* stay with the model.
+  For `security-issue-import-from-md` it parses the findings file
+  (`not-a-findings-file` on another shape, `UNKNOWN` severity and
+  `<upstream>` fallback with warnings), cleans the search keyword, and
+  renders the body (each section sanitised, the Recommended-fix
+  `<details>`), rollup entry, proposal table and recap; duplicate
+  judgement and the credit decision stay with the model.
 - Shared recipes instead of per-skill copies (#1437): the safe-create
   recipe for a tracker with an attacker-controlled title is
   `tools/github/operations.md` § *Create* (Write-tool title file,
