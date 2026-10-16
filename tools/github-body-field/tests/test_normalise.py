@@ -273,46 +273,71 @@ def test_cli_normalise_needs_exactly_one_source(tmp_path, capsys: pytest.Capture
 
 
 # ---------------------------------------------------------------------------
-# Containers: list items and block quotes
+# Lists and block quotes: never modelled, fail closed
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize(
-    "inner",
+    ("inner", "field"),
     [
-        "- item\n   ### Severity\n   High\n",
-        "> ### Severity\n",
-        "1. x\n\n   ### CWE\n",
-        "* item\nlazy continuation\n   ### Severity\n",
-        "+ item\n   ```\n   ### Severity\n   ```\n",
-        "> quote\n>\n>    ### Severity\n",
+        ("- item\n   ### Severity\n   High\n", "Severity"),
+        ("> ### Severity\n", "Severity"),
+        (">> ### CWE\n", "CWE"),
+        ("> > ### CWE\n", "CWE"),
+        ("1. x\n\n   ### CWE\n", "CWE"),
+        ("- item\n  ### Severity\n", "Severity"),  # continuation indented less than the content offset
+        ("10. item\n  ### Severity\n", "Severity"),
+        ("Some text\n---\n   ### Severity\n", "Severity"),  # after a thematic break / setext line
+        ("Some text\n***\n- ### Severity\n", "Severity"),
+        ("Paragraph text\n- ### Severity\n", "Severity"),  # a bullet under paragraph text
+        ("Paragraph text\n2. ### CWE\n", "CWE"),  # an ordered marker other than 1 interrupting a paragraph
+        ("Paragraph text\n###  Severity\n", "Severity"),  # lenient form not after a blank line
+        ("* ### severity ##\n", "Severity"),
     ],
 )
-def test_a_heading_inside_a_container_is_not_a_field(inner: str) -> None:
-    body = f"### The issue description\n\n{inner}\n### Severity\n\nLow\n"
-    assert list_fields(body) == ["The issue description", "Severity"]
+def test_a_nested_known_field_heading_needs_a_decision(inner: str, field: str) -> None:
+    body = f"### The issue description\n\nIntro\n{inner}\n### Severity\n\nLow\n\n### CWE\n\nx\n"
+    lines = [n for n, line in enumerate(body.split("\n"), 1) if n > 3 and field.casefold() in line.casefold()]
+    lines = [n for n in lines if not body.split("\n")[n - 1].startswith(f"### {field}")]
+    # Never the field: the column-0 heading still is.
+    assert list_fields(body) == ["The issue description", "Severity", "CWE"]
     assert extract_field(body, "Severity") == "Low\n"
     result = normalise(body, KNOWN)
-    assert result.text == body  # never canonicalised out of its container
+    assert result.text == body  # never rewritten
+    assert result.needs_decision == [{"field": field, "kind": "container-heading", "lines": lines}]
+
+
+def test_a_nested_unknown_heading_stays_content() -> None:
+    body = "### A\n\n- item\n   ### Steps to reproduce\n> ### Notes\n"
+    result = normalise(body, KNOWN)
     assert result.needs_decision == []
+    assert list_fields(body) == ["A"]
 
 
-def test_an_unindented_heading_ends_a_container_without_a_blank_line() -> None:
+def test_without_known_fields_nothing_is_flagged() -> None:
+    assert normalise("### A\n\n> ### Severity\n").needs_decision == []
+
+
+def test_column_0_headings_are_fields_whatever_precedes_them() -> None:
     body = "- item\n### Severity\n\nLow\n> quote\n### CWE\nx\n"
     assert list_fields(body) == ["Severity", "CWE"]
+    assert normalise(body, KNOWN).needs_decision == []
 
 
-def test_an_indented_fence_in_a_list_does_not_hide_later_fields() -> None:
-    # GitHub closes the list item's fence when the list ends.
+def test_lenient_headings_after_a_blank_line_or_a_heading_are_fields() -> None:
+    body = "###  Severity\n   ### CWE\n\nx\n\n###\tAffected versions #\n\ny\n"
+    assert list_fields(body) == ["Severity", "CWE", "Affected versions"]
+    result = normalise(body, KNOWN)
+    assert result.needs_decision == []
+    assert list_fields(result.text) == ["Severity", "CWE", "Affected versions"]
+
+
+def test_an_indented_fence_in_a_list_does_not_hide_a_field_silently() -> None:
+    # GitHub closes the list item's fence when the list ends; this parser does not model
+    # lists, so it sees an unclosed fence. The strict cross-check catches the disagreement.
     body = "- item\n   ```\n\n### Severity\n\nLow\n"
-    assert list_fields(body) == ["Severity"]
-    assert normalise(body).needs_decision == []
-
-
-def test_a_container_after_a_blank_line_is_left() -> None:
-    body = "- item\n\n### Severity\n\nLow\n\n   ### CWE\n\nx\n"
-    assert list_fields(body) == ["Severity", "CWE"]
-    assert normalise(body).text == "- item\n\n### Severity\n\nLow\n\n### CWE\n\nx\n"
+    result = normalise(body, KNOWN)
+    assert result.needs_decision == [{"field": "Severity", "kind": "container-heading", "lines": [4]}]
 
 
 def test_readers_that_disagree_need_a_decision() -> None:

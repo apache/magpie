@@ -33,14 +33,15 @@ The parser follows CommonMark where it matters for finding fields:
   the end of the body. So a four-backtick block holding a three-backtick
   line keeps its content, and a ``### foo`` line inside a shell snippet
   never false-matches as a heading;
-- a field heading is a level-3 ATX heading outside any fence: up to
-  three spaces of indent, ``###``, one or more spaces or tabs, the name,
-  and an optional closing run of ``#``; level-2 (``## ``) and level-4
-  (``#### ``) headings are content;
-- a block quote or list item is a container: its indented lines (and
-  lazy continuation lines) are content, so an indented ``### x`` or fence
-  there, which GitHub renders inside the list or quote, is neither a
-  field nor a fence;
+- a field heading is, outside any fence, a ``### <name>`` line at
+  column 0, or the lenient form (up to three spaces of indent, one or
+  more spaces or tabs after ``###``, an optional closing run of ``#``)
+  when the previous line is blank, is itself a field heading, or there
+  is none; level-2 (``## ``) and level-4 (``#### ``) headings are
+  content. Lists and block quotes are deliberately not modelled: a
+  heading-shaped line in any other position is never a field, and
+  :func:`normalise` reports one naming a known field as a decision
+  (fail closed) rather than guessing what a renderer makes of it;
 - the original body is preserved exactly when no change is needed
   (idempotent rewrite).
 
@@ -75,10 +76,12 @@ _H3 = re.compile(r"^ {0,3}###(?:[ \t]+(.*?))?[ \t]*$")
 _CLOSING = re.compile(r"(?:^|[ \t]+)#+$")
 # Any heading-shaped line (any level, any indent), escaped when it sits inside a fence.
 _ANY_HEADING = re.compile(r"^([ \t]*)(?=#{1,6}(?:[ \t]|$))")
-# An ATX heading of any level, as CommonMark reads one (up to three spaces of indent).
-_ANY_ATX = re.compile(r"^ {0,3}#{1,6}(?:[ \t]|$)")
-# The start of a container block: a block quote, a bullet list item or an ordered list item.
-_CONTAINER_START = re.compile(r"^ {0,3}(?:>|[-*+](?:[ \t]|$)|\d{1,9}[.)](?:[ \t]|$))")
+# The strict field heading: `### ` at column 0 and a name.
+_STRICT_H3 = re.compile(r"^### \S")
+# A level-3 heading behind any run of block-quote or list markers and whitespace.
+_NESTED_H3 = re.compile(
+    r"^(?:[ \t]*(?:>[ \t]?|[-*+][ \t]+|\d{1,9}[.)][ \t]+))*[ \t]*###(?:[ \t]+(.*?))?[ \t]*$"
+)
 
 
 def split_lines(body: str) -> list[str]:
@@ -96,49 +99,25 @@ def _opens_fence(match: re.Match[str] | None) -> bool:
 
 
 def fence_roles(lines: Iterable[str]) -> list[str]:
-    """Each line's role: ``"open"``, ``"close"``, ``"code"`` (inside a fence),
-    ``"container"`` (part of a list item or block quote) or ``"text"``.
+    """Each line's role: ``"open"``, ``"close"``, ``"code"`` (inside a fence) or ``"text"``.
 
     Fences pair the CommonMark way: the closer uses the opener's character,
     is at least as long, and carries nothing but spaces or tabs after the
     run. A backtick opener whose info string holds a backtick is not a
     fence. An unclosed fence runs to the end of ``lines``.
-
-    A line starting (after up to three spaces) with ``>``, a bullet
-    (``-``/``*``/``+``) or an ordered marker (``1.``/``1)``) opens a
-    container. Its indented lines, and unindented lazy continuation
-    lines, belong to it: GitHub renders an indented ``### x`` or fence
-    there inside the list or quote, so neither is a field nor a fence
-    here. The container ends at an unindented line that follows a blank
-    line, or that is an ATX heading or a fence (neither can continue a
-    paragraph lazily).
     """
     roles: list[str] = []
     opened: tuple[str, int] | None = None
-    in_container = False
-    prev_blank = True
     for raw in lines:
-        line = _content(raw)
-        match = _FENCE.match(line)
-        blank = not line.strip(" \t")
+        match = _FENCE.match(_content(raw))
         if opened is None:
-            if in_container and not blank and not _CONTAINER_START.match(line):
-                indented = line[:1] in (" ", "\t")
-                if not indented and (prev_blank or _ANY_ATX.match(line) or match):
-                    in_container = False
-            if not in_container and _CONTAINER_START.match(line):
-                in_container = True
-            if in_container:
-                roles.append("container")
-            elif _opens_fence(match):
+            if _opens_fence(match):
                 assert match is not None
                 opened = (match.group(2)[0], len(match.group(2)))
                 roles.append("open")
             else:
                 roles.append("text")
-            prev_blank = blank
             continue
-        prev_blank = blank
         if (
             match
             and match.group(2)[0] == opened[0]
@@ -159,6 +138,43 @@ def heading_name(line: str) -> str | None:
     a bare ``###`` is a heading with an empty name.
     """
     match = _H3.match(_content(line))
+    if match is None:
+        return None
+    text = (match.group(1) or "").strip(" \t")
+    return _CLOSING.sub("", text).strip(" \t")
+
+
+def field_names(lines: list[str], roles: list[str] | None = None) -> list[str | None]:
+    """Per line, the field name it opens, or None.
+
+    Outside fences, a ``### <name>`` line at column 0 always opens a field.
+    A lenient level-3 heading at column 0 (extra spaces or tabs after
+    ``###``, a closing run of ``#``) does when the previous line is blank,
+    is a field heading, or there is none; an indented one only right after
+    a field heading or as the first line, since after a blank line an
+    indent can place it inside a list item. Every other heading-shaped line
+    is content.
+    """
+    roles = roles if roles is not None else fence_roles(lines)
+    names: list[str | None] = []
+    after_heading = True  # the start of the body counts as "after a heading"
+    after_blank = True
+    for line, role in zip(lines, roles, strict=True):
+        content = _content(line)
+        name: str | None = None
+        if role == "text":
+            indented = content[:1] in (" ", "\t")
+            if _STRICT_H3.match(content) or after_heading or (after_blank and not indented):
+                name = heading_name(content)
+        names.append(name)
+        after_heading = name is not None
+        after_blank = not content.strip(" \t")
+    return names
+
+
+def _nested_heading_name(line: str) -> str | None:
+    """The name of a level-3 heading behind block-quote / list markers or indent, else None."""
+    match = _NESTED_H3.match(_content(line))
     if match is None:
         return None
     text = (match.group(1) or "").strip(" \t")
@@ -187,8 +203,7 @@ def _parse(body: str) -> tuple[list[str], list[_Section]]:
     sections: list[_Section] = []
     current: _Section | None = None
 
-    for number, (line, role) in enumerate(zip(lines, fence_roles(lines), strict=True), 1):
-        name = heading_name(line) if role == "text" else None
+    for number, (line, name) in enumerate(zip(lines, field_names(lines), strict=True), 1):
         if name is not None:
             if current is not None:
                 sections.append(current)
@@ -237,12 +252,24 @@ class NormaliseResult:
 
 
 def _canonical_lines(
-    lines: list[str], canonical: Mapping[str, str], changes: list[dict[str, object]]
+    lines: list[str],
+    canonical: Mapping[str, str],
+    changes: list[dict[str, object]],
+    disputed: dict[str, list[int]],
+    plain: list[str],
 ) -> list[str]:
-    """Headings canonicalised, headings inside fences escaped, an unclosed fence closed."""
+    """Headings canonicalised, headings inside fences escaped, an unclosed fence closed.
+
+    A heading-shaped line outside fences that is not a field heading (behind
+    a block-quote or list marker, indented, or not after a blank line) but
+    names a known field goes to ``disputed``: whether it is the field depends
+    on how a renderer nests it, so it is a decision, not a guess.
+    """
     out = list(lines)
     open_index: int | None = None
-    for index, (line, role) in enumerate(zip(out, fence_roles(out), strict=True)):
+    roles = fence_roles(out)
+    names = field_names(out, roles)
+    for index, (line, role) in enumerate(zip(out, roles, strict=True)):
         content = _content(line)
         ending = line[len(content) :]
         if role == "open":
@@ -255,7 +282,12 @@ def _canonical_lines(
                 out[index] = escaped + ending
                 changes.append({"line": index + 1, "kind": "heading_in_fence"})
         elif role == "text":
-            name = heading_name(content)
+            name = names[index]
+            if name is None:
+                nested = _nested_heading_name(content)
+                if nested and _fold(nested) in canonical:
+                    disputed.setdefault(canonical[_fold(nested)], []).append(index + 1)
+                continue
             if not name:
                 continue
             spelled = canonical.get(_fold(name), name)
@@ -263,6 +295,12 @@ def _canonical_lines(
             if wanted != content:
                 out[index] = wanted + ending
                 changes.append({"line": index + 1, "kind": "heading" if spelled == name else "heading_name"})
+    # The strict cross-check reads the headings as canonicalised but the fences
+    # unescaped and unclosed, so it still sees what a column-0 reader would.
+    plain.extend(out)
+    for index, role in enumerate(roles):
+        if role == "code":
+            plain[index] = lines[index]
     if open_index is not None:
         opener = _FENCE.match(_content(out[open_index]))
         assert opener is not None  # an "open" role always matched
@@ -277,11 +315,9 @@ def _strict_fields(text: str) -> list[tuple[int, str]]:
     """``(line, name)`` of every field a strict reader finds in ``text``.
 
     A second, deliberately simpler reading used to cross-check the lenient
-    parser on a normalised body: a field is a ``### `` line at column 0
-    outside a fence, and a fence opens only at column 0. Container lines
-    (block quotes, list items and their indented continuations) never
-    start with ``### `` at column 0, so they are never fields here either.
-    Where the two readings disagree, a reader of the body could disagree too.
+    parser on a normalised body: a field is a ``### <name>`` line at column
+    0 outside a fence, and a fence opens only at column 0. Where the two
+    readings disagree, a reader of the body could disagree too.
     """
     found: list[tuple[int, str]] = []
     opened: tuple[str, int] | None = None
@@ -299,8 +335,8 @@ def _strict_fields(text: str) -> list[tuple[int, str]]:
             continue
         if match and not match.group(1) and _opens_fence(match):
             opened = (match.group(2)[0], len(match.group(2)))
-        elif line.startswith("### ") and line[4:].strip(" \t"):
-            found.append((number, line[4:].strip(" \t")))
+        elif _STRICT_H3.match(line):
+            found.append((number, heading_name(line) or ""))
     return found
 
 
@@ -328,11 +364,12 @@ def normalise(
       ``needs_decision`` — unless ``keep`` maps the field to the heading
       line of the copy to keep (a decision made elsewhere), which is then
       kept and the others dropped (kind ``duplicate_resolved``);
-    - a heading inside a list item or block quote is content, never a field
-      and never rewritten; and when the strict cross-check
-      (:func:`_strict_fields`) and this parser still disagree about where a
-      field heading is, ``{"field", "kind": "container-heading", "lines"}``
-      goes to ``needs_decision`` instead of either reading winning.
+    - a heading-shaped line that is not a field heading (behind ``>`` or a
+      list marker, indented, or not after a blank line) is never rewritten;
+      when its name is a known field, and wherever the strict cross-check
+      (:func:`_strict_fields`) and this parser disagree about a field
+      heading, ``{"field", "kind": "container-heading", "lines"}`` goes to
+      ``needs_decision`` instead of any reading winning.
 
     Line numbers are the input body's. Normalising a normalised body
     changes nothing.
@@ -351,17 +388,18 @@ def normalise(
     if first_cr is not None:
         changes.append({"line": first_cr, "kind": "line_endings"})
 
-    text = "".join(_canonical_lines(lines, canonical, changes)) if lines else ""
+    disputed: dict[str, list[int]] = {}
+    plain: list[str] = []
+    text = "".join(_canonical_lines(lines, canonical, changes, disputed, plain)) if lines else ""
 
     preamble, sections = _parse(text)
-    needs_decision: list[dict[str, object]] = []
     lenient = {(s.line_no, s.name) for s in sections if s.name}
-    disputed: dict[str, list[int]] = {}
-    for line_no, name in sorted(lenient ^ set(_strict_fields(text))):
+    for line_no, name in sorted(lenient ^ {f for f in _strict_fields("".join(plain)) if f[1]}):
         disputed.setdefault(name, []).append(line_no)
-    needs_decision.extend(
-        {"field": name, "kind": "container-heading", "lines": line_nos} for name, line_nos in disputed.items()
-    )
+    needs_decision: list[dict[str, object]] = [
+        {"field": name, "kind": "container-heading", "lines": sorted(set(line_nos))}
+        for name, line_nos in disputed.items()
+    ]
     copies_of: dict[str, list[_Section]] = {}
     for section in sections:
         if section.name:

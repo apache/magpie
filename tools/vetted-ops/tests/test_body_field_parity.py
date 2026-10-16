@@ -51,6 +51,10 @@ FIXTURES = [
     "### A\n\n  ```\ncode\n```\n\n### Severity\n\nLow\n",
     "### Severity\n\nLow\n\n### Severity\n\nHigh\n",
     "### Severity\n\nLow\n\n### Severity\n\nLow\n",
+    "### A\n\n- item\n  ### Severity\n\n### B\n",
+    "### A\n\n>> ### CWE\n\n### B\n",
+    "### A\n\ntext\n---\n   ### Severity\n",
+    "### A\n\nParagraph\n- ### Severity\n2. ### CWE\n###  Severity\n",
 ]
 
 
