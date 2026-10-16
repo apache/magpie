@@ -106,6 +106,8 @@ editing every skill.
 | Stage | `stage <paths…>` | write |
 | Commit | `commit (-m <msg> \| -F <file>) [--scrub]` | write |
 | Sync from forge | `fetch [remote] [ref]` | write |
+| Update the working copy (never merges) | `update` | write |
+| First checkout | `--backend <name> checkout <url> <dest>` | write |
 | Publish | `push [-u] <remote> <ref>` | write |
 | Reset working copy | `reset-worktree` | write |
 | Fix flow for this backend | `fix-flow [--declared VALUE]` | read |
@@ -147,6 +149,8 @@ documented in [`tools/asf-svn/source-control.md`](../asf-svn/source-control.md#c
 | `log` | server history up to `HEAD`, one `r<rev> <subject>` line per revision; `--grep` / `--author` are regexes, `--since` takes an ISO 8601 date. With `--grep` / `--author` / `--since`, `-n` caps the output only: the path's whole history (back to `--since`, if given) is fetched before filtering, which is slow on a large shared repository such as svn.apache.org |
 | `cat <rev> <path>` | the working-copy path at `<rev>`, following copy history (so a revision from before a branch was created resolves through trunk). A path no longer in the working copy is read through the revision before the commit that deleted it on this line of work, which reads the line's log (slow on a large repository) |
 | `fetch` | no-op: refs live on the server and every history read queries it |
+| `update` | `svn update`; a commit from an out-of-date working copy fails, so run it before editing (Git: `pull --ff-only`, hg: `pull -u`, fossil: `update`) |
+| `checkout <url> <dest>` | `svn checkout` (Git and hg: `clone`; not supported on fossil). There is no working copy to detect yet, so it needs `--backend` |
 | `push` | error: `commit` already published the change |
 
 A caller using the Python API tells the models apart with

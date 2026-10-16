@@ -277,6 +277,19 @@ publication, with a human gate and an audit-log entry at every step.
   A re-rendered hand-off comment keeps the release manager's tick, and a
   ticked box keeps later runs quiet. The reminder links the project's
   pages through the optional `security_pages_url` manifest key (#1355).
+- **With `advisory_records` configured, sync proposes the security-pages edit.**
+  The optional `advisory_records` manifest block names the site repository
+  (Git or Subversion), its working copy and a layout: one CVE 5.x JSON file
+  per CVE, or an entry in a per-release-line page whose path, section name
+  and entry come from adopter templates. In the Step 1g closed-tracker pass,
+  once cve.org reports the CVE `PUBLISHED`, the deterministic
+  `advisory-records` planner (in `generate-cve-json`) computes the change and
+  the `magpie-vcs` commands; sync proposes them as one item and runs them only
+  on confirmation, then posts an `advisory-records` marker comment with the
+  ticked checklist item. The planner refuses before publication, is
+  idempotent, escapes tracker text, and refuses a page it cannot parse. The
+  reminder never fires for such a project. `magpie-vcs` gains `update` and
+  `checkout` for it.
 
 ## Out of scope
 

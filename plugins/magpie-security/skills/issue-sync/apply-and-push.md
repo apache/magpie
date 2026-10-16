@@ -145,6 +145,15 @@ Use:
   Idempotency keys on the marker `<!-- apache-magpie: release-manager-wrap-up v1 -->`:
   if it is already on the tracker, skip the post entirely.
   Apply the same bare-name → `@handle` scrub before posting.
+- **Advisory-records update:** run the confirmed commands from the 2b item one at a time, in order, each as a plain command,
+  and stop at the first that fails —
+  the clean check exits `1` when the working copy has unrelated changes, and a branch other than the configured one is a stop too.
+  The `--apply` re-run recomputes the change on the updated working copy; if its file list differs from the confirmed one, stop and show the new diff.
+  After the `commit` (and on Git the `push`) succeeds, post a status comment from a temp file:
+  line 1 is the marker `<!-- apache-magpie: advisory-records v1 -->`, then one sentence naming the file(s) and the commit,
+  then the ticked item `- [x] <!-- apache-magpie: security-pages-checklist v1 --> Project security pages updated with CVE_ID`,
+  which records the security-pages step as done.
+  A failed command posts nothing; report it in the recap with the command's output.
 - **Vulnogram state transition (`REVIEW → PUBLIC`):** invoke the
   [`vulnogram-api-record-publish`](../../../../tools/cve-tool-vulnogram/oauth-api/README.md)
   CLI to flip the record's `CNA_private.state` over the OAuth API.

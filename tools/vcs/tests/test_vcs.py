@@ -485,6 +485,22 @@ def test_svn_fetch_leaves_wc_and_push_refuses(svn_wc: Path) -> None:
         backend.push("origin", "trunk")
 
 
+@svn_required
+def test_svn_checkout_and_update(svn_wc: Path, tmp_path: Path) -> None:
+    url = subprocess.run(
+        ["svn", "info", "--show-item", "url"], cwd=svn_wc, check=True, capture_output=True, text=True
+    ).stdout.strip()
+    second = tmp_path / "second"
+    assert main(["--backend", "svn", "-C", str(tmp_path), "checkout", url, "second"]) == 0
+    assert (second / "file.txt").read_text() == "hello\n"
+    (svn_wc / "file.txt").write_text("from the first copy\n")
+    _svn(svn_wc, "commit", "-m", "change file.txt")
+    assert main(["-C", str(second), "update"]) == 0
+    assert (second / "file.txt").read_text() == "from the first copy\n"
+    with pytest.raises(VCSError, match="already exists"):
+        SubversionBackend.checkout(url, second)
+
+
 # -- hg backend operations -------------------------------------------------
 
 
@@ -576,6 +592,27 @@ def test_cli_svn_detect_and_status(svn_wc: Path, capsys: pytest.CaptureFixture[s
     assert main(["-C", str(svn_wc), "clean"]) == 1
     assert main(["-C", str(svn_wc), "push", "origin", "trunk"]) == 2
     assert "already published" in capsys.readouterr().err
+
+
+@git_required
+def test_git_checkout_and_update(git_repo: Path, tmp_path: Path) -> None:
+    clone = tmp_path / "clone"
+    assert main(["--backend", "git", "-C", str(tmp_path), "checkout", str(git_repo), "clone"]) == 0
+    assert (clone / "file.txt").read_text() == "hello\n"
+    (git_repo / "file.txt").write_text("upstream change\n")
+    _git(git_repo, "commit", "-q", "-am", "upstream change")
+    assert main(["-C", str(clone), "update"]) == 0
+    assert (clone / "file.txt").read_text() == "upstream change\n"
+
+
+def test_cli_checkout_needs_backend(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["-C", str(tmp_path), "checkout", "https://example.org/repo", "dest"]) == 2
+    assert "checkout needs --backend" in capsys.readouterr().err
+
+
+def test_fossil_checkout_unsupported(tmp_path: Path) -> None:
+    with pytest.raises(VCSError, match="not supported"):
+        FossilBackend.checkout("https://example.org/repo", tmp_path / "dest")
 
 
 @git_required
