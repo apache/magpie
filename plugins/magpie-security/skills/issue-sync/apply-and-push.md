@@ -269,7 +269,7 @@ uv run --project <framework>/tools/cve-tool-vulnogram/generate-cve-json generate
 ```
 
 That alone is enough: the script reads every template field from the issue body, emits the full CVE 5.x record, and patches (or appends to) the tracking issue body in place.
-When the report lists `missing_required` or `needs_decision` (exit 2), follow [`outcomes/cve-json-fallback.md`](outcomes/cve-json-fallback.md).
+When any of the report's `normalisation_changes`, `missing_required` or `needs_decision` is non-empty (`needs_decision` exits 2), follow [`outcomes/cve-json-fallback.md`](outcomes/cve-json-fallback.md).
 
 ### Remediation-developer credit comes from the body field
 
