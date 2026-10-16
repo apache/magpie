@@ -21,6 +21,7 @@ exit 0 whenever a verdict was reached, non-zero only when it could not be."""
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -138,3 +139,88 @@ def test_a_missing_harness_cli_is_unknown(monkeypatch: pytest.MonkeyPatch) -> No
 
     monkeypatch.setattr("setup_preflight.cli.subprocess.run", explode)
     assert read_installed(None) is None
+
+
+# --- read_installed: every harness answers with its own listing ----------------------
+
+
+def test_a_missing_claude_binary_falls_through_to_codex(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A missing `claude` binary on another harness is not unknown: that
+    harness answers with its own listing (issue #1641)."""
+    seen: list[list[str]] = []
+
+    def run(argv: list[str], **_kwargs: object) -> subprocess.CompletedProcess:
+        seen.append(list(argv))
+        if argv[0] == "claude":
+            raise FileNotFoundError("claude")
+        completed = subprocess.CompletedProcess[str](argv, 0)
+        completed.stdout = '[{"name": "magpie-setup", "version": "0.3.1"}]'
+        return completed
+
+    monkeypatch.setattr("setup_preflight.cli.subprocess.run", run)
+    assert read_installed(None) == {"magpie-setup": "0.3.1"}
+    assert seen == [["claude", "plugin", "list", "--json"], ["codex", "plugin", "list"]]
+
+
+def test_no_harness_cli_at_all_is_unknown(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A machine where none of the listing commands exist stays unknown."""
+
+    def explode(*_args: object, **_kwargs: object) -> subprocess.CompletedProcess:
+        raise FileNotFoundError("no harness here")
+
+    monkeypatch.setattr("setup_preflight.cli.subprocess.run", explode)
+    assert read_installed(None) is None
+
+
+def test_a_found_harness_that_fails_is_unknown_not_a_fallthrough(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The first binary that exists answers for the machine: a listing it
+    cannot produce stays unknown rather than borrowing another harness's."""
+
+    def run(argv: list[str], **_kwargs: object) -> subprocess.CompletedProcess:
+        if argv[0] == "claude":
+            raise FileNotFoundError("claude")
+        completed = subprocess.CompletedProcess[str](argv, 1)
+        completed.stdout = ""
+        return completed
+
+    monkeypatch.setattr("setup_preflight.cli.subprocess.run", run)
+    assert read_installed(None) is None
+
+
+def test_an_unparsable_listing_from_the_found_harness_is_unknown(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A found harness whose listing is not the shared JSON shape reads as
+    unknown — the checker proposes nothing it cannot read."""
+
+    def run(argv: list[str], **_kwargs: object) -> subprocess.CompletedProcess:
+        if argv[0] == "claude":
+            raise FileNotFoundError("claude")
+        completed = subprocess.CompletedProcess[str](argv, 0)
+        completed.stdout = "magpie-setup 0.3.1 (marketplace)"
+        return completed
+
+    monkeypatch.setattr("setup_preflight.cli.subprocess.run", run)
+    assert read_installed(None) is None
+
+
+def test_a_present_claude_listing_is_not_second_guessed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A readable Claude Code listing ends the probe: later harnesses are
+    never asked, so the established behaviour is unchanged."""
+    seen: list[list[str]] = []
+
+    def run(argv: list[str], **_kwargs: object) -> subprocess.CompletedProcess:
+        seen.append(list(argv))
+        completed = subprocess.CompletedProcess[str](argv, 0)
+        completed.stdout = '[{"name": "magpie-setup", "version": "0.2.0"}]'
+        return completed
+
+    monkeypatch.setattr("setup_preflight.cli.subprocess.run", run)
+    assert read_installed(None) == {"magpie-setup": "0.2.0"}
+    assert seen == [["claude", "plugin", "list", "--json"]]

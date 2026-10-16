@@ -50,50 +50,77 @@ from .core import (
 from .delegation import findings as delegation_findings
 from .lockfile import MalformedLock
 
+#: Each harness's own plugin-listing command, in probe order.  The floor
+#: must be readable on every harness, not only Claude Code: a missing
+#: `claude` binary on Codex or Gemini CLI is that harness answering with
+#: its own listing (`install.md` Step M5), never *unknown*.  The first
+#: binary that exists decides the answer; a listing it cannot read is
+#: unknown, and a machine running none of them stays unknown too.
+HARNESS_LISTINGS: tuple[tuple[str, list[str]], ...] = (
+    ("claude-code", ["claude", "plugin", "list", "--json"]),
+    ("codex", ["codex", "plugin", "list"]),
+    ("gemini", ["gemini", "extensions", "list"]),
+)
+
+
+def _parse_listing(text: str) -> dict[str, str] | None:
+    """One harness listing, parsed into the shared `{name: version}` map.
+
+    Shared by every harness's listing command: `None` for unknown (the
+    output did not parse, or an empty parsed listing leaves the sandbox
+    read-denial ambiguity standing), never an empty map.
+    """
+    try:
+        listing = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(listing, list):
+        return None
+    out: dict[str, str] = {}
+    for item in listing:
+        if not isinstance(item, dict):
+            return None
+        version = item.get("version")
+        if isinstance(item.get("name"), str) and isinstance(version, str):
+            out[item["name"]] = version
+    # A listing that parses but is empty leaves the sandbox read-denial
+    # ambiguity standing, so we report unknown rather than an empty map.
+    return out or None
+
 
 def read_installed(explicit: str | None) -> dict[str, str] | None:
     """The installed plugin map, or `None` for *unknown* — never `{}` for it.
 
     `--plugin-list` lets the caller supply what it already read; otherwise
-    the harness CLI is asked directly.  Every failure mode collapses to
-    `None`: the command missing, a non-zero exit, unparsable output, or a
-    sandbox that denies the plugin cache.  The one case that is *not*
-    unknown is a listing that parsed and was genuinely empty, which only a
-    harness with no plugins installed produces.
+    each harness's own listing command is probed in order and the first
+    binary that exists answers for the machine.  Every failure mode
+    collapses to `None`: the command missing, a non-zero exit, unparsable
+    output, or a sandbox that denies the plugin cache.  The one case that
+    is *not* unknown is a listing that parsed and was genuinely empty,
+    which only a harness with no plugins installed produces.
     """
     if explicit is not None:
         text = sys.stdin.read() if explicit == "-" else Path(explicit).read_text(encoding="utf-8")
-    else:
+        return _parse_listing(text)
+    for _harness, argv in HARNESS_LISTINGS:
         try:
             completed = subprocess.run(
-                ["claude", "plugin", "list", "--json"],
+                argv,
+                check=False,
                 capture_output=True,
                 text=True,
                 timeout=20,
-                check=False,
             )
         except (OSError, subprocess.SubprocessError):
-            return None
+            # The binary is not on PATH: this is not the running harness,
+            # so the next harness's own command decides.
+            continue
         if completed.returncode != 0:
             return None
-        text = completed.stdout
-    try:
-        parsed = json.loads(text)
-    except json.JSONDecodeError:
-        return None
-    if not isinstance(parsed, list):
-        return None
-    installed: dict[str, str] = {}
-    for entry in parsed:
-        if not isinstance(entry, dict):
-            return None
-        name, version = entry.get("name"), entry.get("version")
-        if isinstance(name, str) and isinstance(version, str):
-            installed[name] = version
-    # An empty *parsed* list inside a sandbox is the read-denied case, and
-    # is indistinguishable from a genuinely plugin-free harness. Unknown is
-    # the safe reading of the ambiguity: it proposes nothing.
-    return installed or None
+        return _parse_listing(completed.stdout)
+    # No harness CLI exists on this machine: nothing was ever installed
+    # with one, and unknown stays the safe reading.
+    return None
 
 
 def _delegation(root: Path, skill: str) -> list[Finding]:
