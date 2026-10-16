@@ -14,47 +14,33 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-"""The tracker issue body: sanitise the untrusted report, render the field sections.
+"""The tracker issue body: the untrusted report as an inert block, the field sections.
 
-The root email body is untrusted external content. It is inlined into the
-issue as readable markdown, not wrapped in a fence, so it is sanitised
-deterministically first:
+The report text (an email body, a PR description, a findings-file section)
+is untrusted external content. It goes into the issue as an **inert fenced
+block** (`inert_block`), not as markdown:
 
 - **One set of lines.** `\r\n` and `\r` become `\n`; any other character
-  `str.splitlines` breaks on (`\x0c`, U+2028, …) fails closed.
-- **Well-formedness, failing closed.** Two readers see the body: GitHub's
-  CommonMark renderer and github-body-field, which toggles "inside a fence"
-  on *every* line whose first non-whitespace is three backticks or tildes.
-  Fences are paired the CommonMark way — at most three spaces of indent, an
-  opening run of one character, closed only by a bare run of the same
-  character at least as long — and **every** fence-like line must be one of
-  those openers or closers. Otherwise (an unclosed fence, ``` "closed" by
-  `~~~`, ```` "closed" by ```, a four-space-indented fence, a fence-like
-  line inside a block) the two readers would disagree about what is code,
-  so `sanitise` returns `ok: False` with an `indicator` and the caller
-  refuses to render. Unbalanced `<details>` / `<!--` fail the same way.
-- **No raw HTML.** Every `<` followed by a letter, `/`, `!` or `?` becomes
-  `&lt;`, anywhere and fenced lines included: an HTML block (even behind a
-  list marker or a `>`) renders through fences, and an inline tag can load or
-  hide content.
-- **Demote headings.** A `#`, `##` or `###` heading outside a fence becomes
-  `####`, so a reporter's `### Severity` can never pose as a form section.
-  Inside a fence, a heading line of any level is escaped (`\\### Severity`):
-  it still reads as code, and no field parser, fence-aware or not, can match it.
-- **Drop empty fence pairs.** A bare fence opener followed only by blank lines
-  and a bare closer renders an empty code block; it is removed. A fence that
-  wraps content is never touched.
-- **Defuse images and active HTML.** Every `![` becomes `[image: ` (inline,
-  full, collapsed and shortcut reference images alike), and the `<` of an
-  `img` / `picture` / `source` / `video` / `audio` / `svg` / `image` /
-  `iframe` / `object` / `embed` / `details` / `summary` tag or an `<!--`
-  becomes `&lt;`, outside fences (inline code spans included), so opening the issue fetches
-  no reporter-controlled URL and nothing hides part of the body.
+  `str.splitlines` breaks on (`\x0c`, U+2028, …) fails closed, so every
+  reader splits the text into the same lines.
+- **A fence nothing inside can close.** The fence is one backtick longer
+  than the longest backtick run in the text (at least three), with the
+  info string `text`. A CommonMark closer must be at least as long as the
+  opener, so no line of the text ends the block; tildes are plain text
+  inside a backtick fence.
+- **Byte-exact content.** Inside a fenced block nothing renders: no image
+  loads, no HTML block or comment opens, no heading becomes a section, no
+  link or mention resolves. So nothing inside is escaped, and the
+  reporter's formatting shows as plain text.
 
-Short fields (a credit, a version string) are reporter-derived too:
-`short_field` demotes headings, defuses images and HTML and escapes the first
-character of a fence-like line, so no field can open a code block or a
-section. `sanitised_fields` names the roles that needed it.
+Short fields (a credit, a version string) are reporter-derived too, but one
+line each: `short_field` demotes headings, defuses images and HTML and
+escapes the first character of a fence-like line, so no field can open a
+code block or a section. `sanitised_fields` names the roles that needed it.
+
+`verify` is the last check before a body is returned: github-body-field's
+normaliser must find exactly the template fields, once each, with nothing
+to decide and nothing to rewrite but headings inside fences.
 
 The prompt-injection callout is the model's call (`callout`); this module
 never decides whether a body is an injection attempt.
@@ -65,6 +51,9 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 from typing import Any
+
+from github_body_field.parser import list_fields
+from github_body_field.parser import normalise as normalise_fields
 
 # Role -> default `###` heading, in body order. The headings are the ones the
 # issue template writes (tools/github/issue-template.md); a project overrides
@@ -93,58 +82,28 @@ INJECTION_CALLOUT = (
     '> AGENTS.md § "Prompt-injection handling".'
 )
 
-# github-body-field's fence test (tools/github-body-field parser `_is_fence`).
+# A fence-like line, as loosely as any reader takes one: first non-whitespace is ``` or ~~~.
 _FENCE = re.compile(r"^\s*(```|~~~)")
-# A CommonMark fence line: up to three spaces, a run of 3+ of one character, the rest.
-_STRICT_FENCE = re.compile(r"^( {0,3})(`{3,}|~{3,})(.*)$")
-_BARE_FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})[ \t]*$")
 _HEADING = re.compile(r"^(\s*)(#{1,3})(?=[ \t]|$)")
 _ACTIVE_HTML = re.compile(
     r"<(?=!--|/?(?:img|picture|source|video|audio|svg|image|iframe|object|embed|details|summary)\b)",
     re.IGNORECASE,
 )
-# Characters other than \n that str.splitlines (and so github-body-field) treats as line breaks.
+# Characters other than \n that str.splitlines treats as line breaks.
 _OTHER_LINE_BREAKS = re.compile("[\x0b\x0c\x1c\x1d\x1e\x85\u2028\u2029]")
 _ENTITY = {"`": "&#96;", "~": "&#126;"}
 # Any HTML opener: `<` then a letter, `/`, `!` or `?` — a tag, a closing tag, a
 # comment, a declaration or a processing instruction, at a line start or not.
 _HTML_OPENER = re.compile(r"<(?=[A-Za-z/!?])")
-# A heading line, at any level: inside a fence it is escaped so no reader takes it for a field.
-_ANY_HEADING = re.compile(r"^(\s*)(?=#{1,6}(?:[ \t]|$))")
+_BACKTICKS = re.compile(r"`+")
+# The only rewrite `verify` accepts: github-body-field escaping a heading-shaped
+# line inside a fence, which only a reader that ignores fences could misread.
+_HARMLESS_CHANGES = {"heading_in_fence"}
 
 
 def is_fence(line: str) -> bool:
-    """github-body-field's fence test: first non-whitespace is ``` or ~~~."""
+    """Whether `line` looks like a fence to the loosest reader: first non-whitespace is ``` or ~~~."""
     return bool(_FENCE.match(line))
-
-
-def fence_mask(lines: list[str]) -> list[bool] | None:
-    """Which lines are fence delimiters, or None when the fences do not pair strictly.
-
-    Every line `is_fence` matches must be a CommonMark opener (outside a block)
-    or the closer of the open block; then github-body-field's toggling and
-    CommonMark agree on what is code.
-    """
-    mask: list[bool] = []
-    opened: tuple[str, int] | None = None
-    for line in lines:
-        if not is_fence(line):
-            mask.append(False)
-            continue
-        match = _STRICT_FENCE.match(line)
-        if match is None:
-            return None
-        run, rest = match.group(2), match.group(3)
-        if opened is None:
-            if run[0] == "`" and "`" in rest:
-                return None  # not a fence in CommonMark, a toggle for the parser
-            opened = (run[0], len(run))
-        elif run[0] == opened[0] and len(run) >= opened[1] and re.fullmatch(r"[ \t]*", rest):
-            opened = None
-        else:
-            return None
-        mask.append(True)
-    return None if opened is not None else mask
 
 
 def normalise(text: str) -> str:
@@ -161,16 +120,29 @@ def normalise(text: str) -> str:
     return text
 
 
-def check(body: str) -> str | None:
-    """The first unpaired-block indicator in `body` (already `normalise`d), or None when it is well-formed."""
-    if fence_mask(body.split("\n")) is None:
-        return "code fence"
-    lowered = body.lower()
-    if lowered.count("<details") != lowered.count("</details>"):
-        return "<details>"
-    if body.count("<!--") != body.count("-->"):
-        return "<!--"
-    return None
+def fence_for(text: str) -> str:
+    """The backtick fence no line of `text` can close: one longer than its longest run, at least three."""
+    longest = max((len(run) for run in _BACKTICKS.findall(text)), default=0)
+    return "`" * max(3, longest + 1)
+
+
+def inert_block(text: str) -> dict[str, Any]:
+    """`{ok, indicator, text}`: `text` as an inert ```` ```text ```` block, or `ok: False` and why.
+
+    The content is byte-exact after line-ending normalisation; an empty or
+    blank `text` gives an empty result. A caller must not render the text
+    of an `ok: False` result.
+    """
+    try:
+        content = normalise(text)
+    except ValueError:
+        return {"ok": False, "indicator": "line break", "text": text}
+    if not content.strip():
+        return {"ok": True, "indicator": None, "text": ""}
+    if not content.endswith("\n"):
+        content += "\n"
+    fence = fence_for(content)
+    return {"ok": True, "indicator": None, "text": f"{fence}text\n{content}{fence}"}
 
 
 def _defuse_text(text: str) -> str:
@@ -178,84 +150,18 @@ def _defuse_text(text: str) -> str:
 
 
 def defuse(line: str) -> str:
-    """`line` with every image and active HTML tag defused, inside inline code spans too.
-
-    Code spans are not exempt: telling one apart (escaped backticks, spans across
-    lines) takes a CommonMark inline parser, and an escaped `<` or `[image: ` in
-    code is harmless.
-    """
+    """`line` with every image and active HTML tag defused, inside inline code spans too."""
     return _defuse_text(line)
 
 
 def escape_html(line: str) -> str:
-    """`line` with every HTML opener's `<` as `&lt;`.
-
-    An HTML block swallows what follows it up to a blank line, fence lines
-    included, so GitHub and this sanitiser would disagree about what is code;
-    behind a list marker or a `>` it still opens one. Escaping every opener,
-    not only one at a line start, closes the whole class without parsing
-    container prefixes, and `&lt;` is harmless in code.
-    """
+    """`line` with every HTML opener's `<` as `&lt;`, so no HTML block or tag opens."""
     return _HTML_OPENER.sub("&lt;", line)
-
-
-def escape_heading(line: str) -> str:
-    """`line` with a leading `#` heading marker escaped (`\\### x`), for lines inside a fence."""
-    return _ANY_HEADING.sub(lambda m: m.group(1) + "\\", line, count=1)
 
 
 def demote(line: str) -> str:
     """`line` with a `#` to `###` heading marker raised to `####`."""
     return _HEADING.sub(lambda m: m.group(1) + "####", line, count=1)
-
-
-def _drop_empty_fence_pairs(lines: list[str], mask: list[bool]) -> list[str]:
-    """`lines` without bare opener + blank lines + bare closer; only whole pairs go."""
-    out: list[str] = []
-    i = 0
-    in_fence = False
-    while i < len(lines):
-        if mask[i]:
-            if not in_fence and _BARE_FENCE.match(lines[i]):
-                j = i + 1
-                while j < len(lines) and not lines[j].strip():
-                    j += 1
-                if j < len(lines) and mask[j] and _BARE_FENCE.match(lines[j]):
-                    i = j + 1
-                    continue
-            in_fence = not in_fence
-        out.append(lines[i])
-        i += 1
-    return out
-
-
-def sanitise(body: str) -> dict[str, Any]:
-    """`{ok, indicator, text}`: the sanitised body, or `ok: False`, why, and the body untouched.
-
-    A caller must not render the text of an `ok: False` result.
-    """
-    try:
-        text = normalise(body)
-    except ValueError:
-        return {"ok": False, "indicator": "line break", "text": body}
-    indicator = check(text)
-    if indicator is not None:
-        return {"ok": False, "indicator": indicator, "text": body}
-    original = [escape_html(line) for line in text.split("\n")]
-    first = fence_mask(original)
-    assert first is not None  # check() passed
-    lines = _drop_empty_fence_pairs(original, first)
-    mask = fence_mask(lines)
-    assert mask is not None  # dropping whole pairs keeps the pairing
-    out: list[str] = []
-    in_fence = False
-    for line, delimiter in zip(lines, mask, strict=True):
-        if delimiter:
-            in_fence = not in_fence
-            out.append(line)
-            continue
-        out.append(escape_heading(line) if in_fence else defuse(demote(line)))
-    return {"ok": True, "indicator": None, "text": "\n".join(out)}
 
 
 def _short_line(line: str) -> str:
@@ -314,7 +220,8 @@ def render(
 ) -> str:
     """The tracker body: one `### <heading>` section per role, `_No response_` where empty.
 
-    `fields["issue_description"]` must already be the text of an `ok` `sanitise` result.
+    `fields["issue_description"]` is placed as given: the caller builds it from
+    `inert_block` results and its own fixed text.
     """
     unknown = sorted(set(fields) - set(DEFAULT_HEADINGS))
     if unknown:
@@ -327,3 +234,23 @@ def render(
             value = f"{INJECTION_CALLOUT}\n\n{value}"
         sections.append(f"### {heading}\n\n{value}")
     return "\n\n".join(sections) + "\n"
+
+
+def verify(text: str, body_fields: Mapping[str, str] | None = None) -> str | None:
+    """Why the rendered body `text` must not be returned, or None when it is safe.
+
+    github-body-field's normaliser must find nothing to decide, nothing to
+    rewrite but headings inside fences, and exactly the template fields,
+    once each and in order.
+    """
+    expected = list(headings(body_fields).values())
+    result = normalise_fields(text, expected)
+    if result.needs_decision:
+        kinds = sorted({str(d["kind"]) for d in result.needs_decision})
+        return f"the rendered body has an ambiguous field ({', '.join(kinds)})"
+    rewrites = sorted({str(c["kind"]) for c in result.changes} - _HARMLESS_CHANGES)
+    if rewrites:
+        return f"the rendered body is not canonical ({', '.join(rewrites)})"
+    if list_fields(text) != expected:
+        return "the rendered body does not parse to exactly the template fields, once each"
+    return None

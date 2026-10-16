@@ -35,7 +35,7 @@ Each skill family is a subcommand: [`security-issue-import`](../../plugins/magpi
 [`security-issue-import-via-forwarder`](../../plugins/magpie-security/skills/issue-import-via-forwarder/SKILL.md) (`issue-import-via-forwarder`)
 and [`security-issue-import-from-scan`](../../plugins/magpie-security/skills/issue-import-from-scan/SKILL.md) (`issue-import-from-scan`).
 The tool takes what the agent saved — search results, the redacted report text, the confirmed plan — and decides or renders everything rule-shaped:
-the Step 1 pre-filter, the batched `threadId` dedup, the forwarder pre-screen, the tracker body and its sanitiser, the rollup entry, the rejections-ledger record,
+the Step 1 pre-filter, the batched `threadId` dedup, the forwarder pre-screen, the tracker body and its inert report block, the rollup entry, the rejections-ledger record,
 the fix-already-public reply, the receipt-draft matrix, the confirmation-reply grammar and the recap.
 The agent keeps the judgement: classification, field extraction, third-party PII identification, fuzzy duplicates, prior rejections, canned-response choice and injection flagging.
 
@@ -72,7 +72,7 @@ Every command prints one JSON object; rendered text is in its `text` field.
 
 | Module | Rule |
 |---|---|
-| `body` | `sanitise`: line breaks normalised (other `splitlines` breaks refused), every HTML opener (`<` then a letter, `/`, `!` or `?`) escaped anywhere, the fail-closed well-formedness check (fences paired the CommonMark way, every fence-like line an opener or closer; `<details>`, `<!--`), heading demotion outside fences and heading lines escaped inside them, empty fence pairs dropped, every `![` and active HTML tag (`img`, `svg`, `details`, `<!--`, …) defused outside fences. `short_field`: the same for a short field, fence lines escaped. `render`: one `### <heading>` per field role, headings from `tracker.body_fields`, empty fields `_No response_`, `Severity` `Unknown`, the injection callout only when the model sets it. |
+| `body` | `inert_block`: the report text, line breaks normalised (other `splitlines` breaks refused), byte-exact inside a fence with info string `text` one backtick longer than its longest backtick run (at least three), so nothing in it renders and no line of it can close the block. `short_field`: a short field with headings demoted, every HTML opener escaped, images and active HTML defused, fence lines escaped. `verify`: the rendered body through github-body-field's `normalise` — exactly the template fields once each, nothing to decide, no rewrite but headings inside fences. `render`: one `### <heading>` per field role, headings from `tracker.body_fields`, empty fields `_No response_`, `Severity` `Unknown`, the injection callout only when the model sets it. |
 | `rollup` | Entry bodies at column 0, one-line values, the action label refused when it holds `<`, `>` or `·`, and handed back shell-quoted. |
 | `refs` | `bare_refs` / `linkify` for `#NNN` and `owner/repo#NNN` outside code spans (any backtick run), fences, links, autolinks and URLs, ported from `pr-management`'s `_BARE_REF`; `tracker_link` for a GitHub, Jira or local-files reference. |
 | `titles` | `strip_mail_prefixes`, `strip_pr_title`, `md_title`. |
@@ -94,7 +94,7 @@ Every command prints one JSON object; rendered text is in its `text` field.
 | `keyword --file F [--kind keywords\|email-local]` | `cleaned`, `empty`. |
 | `title --input F` | `title`: the subject without its mail prefixes. |
 | `linkify --input F` | `text` with every bare reference linked into `repo`, and the `bare_refs` found. |
-| `render-body --input F` | The body `text`, `sanitised_fields`, `fields` as github-body-field parses them, `fields_ok`, `extra_fields`, `reporter_credit_is_bot`, `bare_refs`; exit `2` with `malformed_indicator` for a malformed body. |
+| `render-body --input F` | The body `text`, `sanitised_fields`, `fields` as github-body-field parses them, `fields_ok`, `extra_fields`, `reporter_credit_is_bot`, `bare_refs`; exit `2` with `malformed_indicator` for a stray line break, or when `verify` refuses the rendered body. |
 | `render-rollup --input F` | `label`, `label_shell`, `text`: the import entry, with the receipt line for a draft, a bundle, a converged disposition or a suppression, and the malformed-body note. |
 | `render-ledger --input F` | The `<!-- rejection v1 -->` record; values on one line, `archive` `unresolved (archive lag)` when not given. |
 | `render-fix-public-reply --input F` | The thank-without-credit reply, `merged on` / `opened on` per PR, one PR or a list. |
@@ -110,7 +110,7 @@ Every command prints one JSON object; rendered text is in its `text` field.
 | `scope --files F --scope-config F` | `scope` (or `mixed_scope_blocker`), `stop`, `detection` (`matched`, `mixed`, `unresolved`, `disabled`), `overlapping`, `mixed_scopes`, `sub_packages` (also as `affected_providers`), `packages`, `files_counted`, `test_files_stripped` (any `tests/` segment), `unmatched`, `matched`. |
 | `milestone-check --input F` | `exists` (exact match only), `near_matches`, `blocker`. |
 | `title --input F` | `title` without conventional-commit prefix, skip-ci markers and trailing `(#N)`; `too_short` under 25 characters. |
-| `render-body --input F` | The body `text`: imported-from note over the sanitised, linked PR body, the mailing-thread sentinel, *PR with the fix*, *Remediation developer* (`_No response_` for a bot, `remediation_developer_is_bot`); `sanitised_fields`, `fields_ok`, `bare_refs`; exit `2` with `malformed_indicator` for a PR body that does not pair. |
+| `render-body --input F` | The body `text`: imported-from note over the PR body as an inert block (its references stay unlinked text), the mailing-thread sentinel, *PR with the fix*, *Remediation developer* (`_No response_` for a bot, `remediation_developer_is_bot`); `sanitised_fields`, `fields_ok`, `bare_refs`; exit `2` with `malformed_indicator` for a PR body that does not pair. |
 | `labels --input F` | `labels`: scope, `pr_open` / `pr_merged`, `security_marker` from `tracker.labels`; never `needs_triage`; `warnings` for a closed PR. |
 | `render-rollup --input F` | `label`, `label_shell`, `text`: the first rollup entry, column 0. |
 | `dup-query --pr N --tracker T [--hits F]` | The search `query` and `command`; with `--hits`, `hits` with links, `duplicate`, `truncated` at 30 and its `warning`. |
@@ -122,7 +122,7 @@ Every command prints one JSON object; rendered text is in its `text` field.
 |---|---|
 | `parse <file> --upstream U` | `findings[]` (`index`, `title`, `tracker_title`, `severity`, `category`, `repository`, `branch`, `date_created`, the section payloads, `has_*`, `warnings`), `warnings`, `total_findings`; exit `2` with `not-a-findings-file` without a `# ` heading, a `**Severity:**` line or a pair. |
 | `keyword --file F [--tracker T]` | `cleaned`, `empty` and the single-quoted `search_command`. |
-| `render-body --input F` | The body `text`: each section sanitised (exit `2` on one that does not pair), the field mapping, the Recommended-fix `<details>`; `sanitised_fields`, `fields_ok`, `reporter_credit_is_bot`, `bare_refs`. |
+| `render-body --input F` | The body `text`: each section an inert block (exit `2` on a stray line break or a body `verify` refuses), the field mapping, the Recommended-fix `<details>`; `sanitised_fields`, `fields_ok`, `reporter_credit_is_bot`, `bare_refs`. |
 | `render-rollup --input F --k K --n N` | `label`, `label_shell`, `text`. |
 | `render-proposal --input F` | The proposal table, default disposition and reply forms, duplicates linked. |
 | `render-recap --input F` | The recap `text` and hand-off. |

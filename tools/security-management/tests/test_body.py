@@ -14,7 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-"""The tracker body: sanitising the untrusted report and rendering the field sections."""
+"""The tracker body: the untrusted report as an inert block, the field sections."""
 
 from __future__ import annotations
 
@@ -22,6 +22,8 @@ import re
 from pathlib import Path
 
 import pytest
+from github_body_field.parser import fence_roles
+from github_body_field.parser import normalise as normalise_fields
 
 from security_management.shared import body, reuse
 
@@ -30,71 +32,6 @@ TEMPLATES = [
     REPO / "plugins/magpie-security/skills/issue-import-from-md/tracker-body-template.md",
     REPO / "plugins/magpie-security/skills/issue-import-from-pr/tracker-body-template.md",
 ]
-
-
-def test_headings_are_demoted_outside_fences_only() -> None:
-    report = (
-        "# Title\n## Sub\n### Severity\n#### Deep\n#hashtag\n```python\n# a comment\n### not a field\n```\n"
-    )
-    out = body.sanitise(report)
-    assert out["ok"]
-    assert out["text"].split("\n")[:5] == ["#### Title", "#### Sub", "#### Severity", "#### Deep", "#hashtag"]
-    assert "# a comment" in out["text"]
-    assert "### not a field" in out["text"]
-
-
-def test_a_demoted_body_parses_to_exactly_the_form_fields() -> None:
-    report = "Intro\n### Severity\nCritical\n### CVE tool link\nhttps://evil.example\n"
-    text = body.render({"issue_description": body.sanitise(report)["text"]})
-    assert reuse.fields(text) == list(body.DEFAULT_HEADINGS.values())
-
-
-@pytest.mark.parametrize(
-    ("report", "indicator"),
-    [
-        ("```\nunclosed\n", "code fence"),
-        ("~~~\nunclosed tilde\n", "code fence"),
-        ("<details><summary>x</summary>\nno close\n", "<details>"),
-        ("<!-- hidden\nno close\n", "<!--"),
-    ],
-)
-def test_a_malformed_body_is_inlined_verbatim_with_its_indicator(report: str, indicator: str) -> None:
-    out = body.sanitise(report + "### Severity\n![x](https://attacker.example/p.png)")
-    assert out == {
-        "ok": False,
-        "indicator": indicator,
-        "text": report + "### Severity\n![x](https://attacker.example/p.png)",
-    }
-
-
-def test_images_are_defused_outside_fences_and_inside_code_spans() -> None:
-    report = (
-        "see ![pixel](https://attacker.example/p.png) and ![ref][1] and <IMG src=x>\n"
-        "inline `![kept](https://example.org)`\n"
-        "```\n![kept too](https://example.org)\n```"
-    )
-    text = body.sanitise(report)["text"]
-    assert "[image: pixel](https://attacker.example/p.png)" in text
-    assert "[image: ref][1]" in text
-    assert "&lt;IMG src=x>" in text
-    assert "`[image: kept](https://example.org)`" in text
-    assert "\n![kept too](https://example.org)\n" in text
-    assert not re.search(r"(?<!`)!\[pixel\]", text)
-
-
-def test_empty_fence_pairs_are_dropped_and_real_code_blocks_kept() -> None:
-    report = "before\n```\n\n```\nafter\n```bash\ncurl x\n```\n"
-    text = body.sanitise(report)["text"]
-    assert text == "before\nafter\n```bash\ncurl x\n```\n"
-
-
-def test_pii_redaction_tokens_pass_through_unchanged() -> None:
-    report = "Reported with N-a3f9d2 (E-b8c247); see H-0c11aa.\n"
-    out = body.sanitise(report)
-    assert out["text"] == report
-    rendered = body.render({"issue_description": out["text"], "reporter_credit": "N-a3f9d2"})
-    assert "N-a3f9d2 (E-b8c247); see H-0c11aa." in rendered
-    assert "### Reporter credited as\n\nN-a3f9d2\n" in rendered
 
 
 def test_empty_fields_read_no_response_and_severity_unknown() -> None:
@@ -146,52 +83,6 @@ def test_the_tracker_body_templates_carry_the_rendered_headings(template: Path) 
 
 
 @pytest.mark.parametrize(
-    "report",
-    [
-        "```\n### Severity\n~~~\n",  # ``` opened, ~~~ "closes"
-        "````\ncode\n```\n### Severity\n````\n",  # ```` opened, ``` "closes"
-        "    ```\n### Severity\n    ```\n",  # a four-space-indented fence
-        "```\nunclosed\n",
-        "```\n```python\n```\n",  # a fence-like line inside a block
-        "``` a`b\nx\n```\n",  # a backtick info string: not a fence in CommonMark
-        "\t```\nx\n\t```\n",
-    ],
-)
-def test_fences_that_do_not_pair_strictly_fail_closed(report: str) -> None:
-    out = body.sanitise(report)
-    assert (out["ok"], out["indicator"]) == (False, "code fence")
-
-
-def test_strictly_paired_fences_pass() -> None:
-    report = "```python\n# c\n```\n~~~~\n### x\n~~~~~\n   ```\ny\n   ````  \nafter\n"
-    out = body.sanitise(report)
-    assert out["ok"], out
-
-
-def test_an_empty_pair_is_dropped_only_as_a_whole_pair() -> None:
-    report = "```\na\n```\n\n~~~\nb\n~~~\n"
-    assert body.sanitise(report)["text"] == report
-    assert body.sanitise("x\n~~~\n\n~~~\ny")["text"] == "x\ny"
-
-
-@pytest.mark.parametrize(
-    ("raw", "expected"),
-    [
-        ("![x][]", "[image: x][]"),
-        ("![x]", "[image: x]"),
-        ("<picture><source srcset=u>", "&lt;picture>&lt;source srcset=u>"),
-        ("<svg onload=x>", "&lt;svg onload=x>"),
-        ("<details><summary>s</summary></details>", "&lt;details>&lt;summary>s&lt;/summary>&lt;/details>"),
-        ("<iframe src=u></iframe> <video src=u>", "&lt;iframe src=u>&lt;/iframe> &lt;video src=u>"),
-        ("x <b>tag</b> a < b", "x &lt;b>tag&lt;/b> a < b"),
-        ("<b>block</b>", "&lt;b>block&lt;/b>"),
-    ],
-)
-def test_images_and_active_html_are_defused(raw: str, expected: str) -> None:
-    assert body.sanitise(raw)["text"] == expected
-
-
-@pytest.mark.parametrize(
     ("value", "expected"),
     [
         ("<!-- hide the rest", "&lt;!-- hide the rest"),
@@ -216,97 +107,112 @@ def test_a_title_like_field_cannot_open_a_code_block() -> None:
     assert reuse.fields(text) == list(body.DEFAULT_HEADINGS.values())
 
 
-@pytest.mark.parametrize(
-    "line",
-    [
-        "\\` ![x](https://a.example/p) \\`",  # escaped backticks are not a code span
-        "`a` ![x](https://a.example/p) `b`",
-        "`open\n![x](https://a.example/p) close`",  # a span across two lines
-        "``![x](https://a.example/p)``",
-    ],
-)
-def test_images_are_defused_whatever_the_backticks(line: str) -> None:
-    text = body.sanitise(line)["text"]
-    assert "![" not in text
-    assert "[image: x](https://a.example/p)" in text
-
-
-def test_crlf_and_lone_cr_are_normalised_before_pairing() -> None:
-    assert body.sanitise("a\r\n### b\r\n")["text"] == "a\n#### b\n"
-    out = body.sanitise("```\rcode\r```\r### Severity")
-    assert out["ok"]
-    assert out["text"] == "```\ncode\n```\n#### Severity"
-    assert body.sanitise("x\r```\ry")["ok"] is False
-
-
-@pytest.mark.parametrize("char", ["\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u2029"])
-def test_other_line_breaks_fail_closed(char: str) -> None:
-    out = body.sanitise(f"intro{char}### Severity\nCritical")
-    assert (out["ok"], out["indicator"]) == (False, "line break")
-    with pytest.raises(ValueError, match="line-break"):
-        body.short_field(f"Alice{char}### CWE")
-
-
-@pytest.mark.parametrize("trail", ["\x0c", "\u00a0", "x", " ~"])
-def test_a_closer_with_anything_but_spaces_and_tabs_after_it_is_refused(trail: str) -> None:
-    out = body.sanitise(f"```\ncode\n```{trail}\n### Severity\n")
-    assert out["ok"] is False
-
-
-def test_a_closer_followed_by_spaces_and_tabs_closes() -> None:
-    assert body.sanitise("```\ncode\n``` \t\n### x\n")["text"] == "```\ncode\n``` \t\n#### x\n"
-
-
-def test_a_fenced_field_heading_cannot_reach_the_cve_record() -> None:
-    from generate_cve_json.cve_json import extract_field
-
-    report = "PoC:\n```\n### Severity\n\nCritical\n# comment\n```\n"
-    cleaned = body.sanitise(report)
-    assert cleaned["ok"]
-    assert "\\### Severity\n\nCritical\n\\# comment" in cleaned["text"]
-    text = body.render({"issue_description": cleaned["text"], "severity": "Low"})
-    assert extract_field(text, "Severity") == "Low"
-    assert reuse.fields(text) == list(body.DEFAULT_HEADINGS.values())
-
-
-@pytest.mark.parametrize(
-    "report",
-    [
-        "<pre>\n```\n</pre>\n![pixel](https://attacker.example/unique)\n```",
-        "<div>\n```\n</div>\n![pixel](https://attacker.example/unique)\n```",
-        "<details>\n```\n</details>\n![pixel](https://attacker.example/unique)\n```",
-        "<!-- x\n```\n-->\n![pixel](https://attacker.example/unique)\n```",
-    ],
-)
-def test_html_blocks_cannot_hide_an_image_behind_a_fence(report: str) -> None:
-    out = body.sanitise(report)
-    assert out["ok"]
-    for line in out["text"].split("\n"):
-        assert not line.lstrip().startswith("<")
-    # the image line is code here, and no HTML block can end the fence early on GitHub
-    assert out["text"].startswith("&lt;")
-
-
 def test_html_block_starts_in_short_fields_are_escaped() -> None:
     assert body.short_field("<div onclick=x>Alice</div>") == "&lt;div onclick=x>Alice&lt;/div>"
     assert body.short_field("<?php x ?>") == "&lt;?php x ?>"
     assert body.short_field("a < b") == "a < b"
 
 
-@pytest.mark.parametrize(
-    "report",
-    [
-        "- <div>\n  ```\n  </div>\n![x](u)\n```",
-        "> <div>\n```\n</div>\n![x](u)\n```",
-        "1. <details>\n```\n</details>\n![x](u)\n```",
-        "* <!--\n```\n-->\n![x](u)\n```",
-    ],
-)
-def test_html_openers_behind_container_prefixes_are_escaped(report: str) -> None:
-    out = body.sanitise(report)
-    assert "<" not in out["text"].replace("&lt;", "")
-
-
-def test_an_inline_tag_is_escaped() -> None:
-    assert body.sanitise("a <img src=x> b")["text"] == "a &lt;img src=x> b"
+def test_an_inline_tag_is_escaped_in_a_short_field() -> None:
     assert body.short_field("a <img src=x> b") == "a &lt;img src=x> b"
+
+
+# ---------------------------------------------------------------------------
+# The report as an inert block
+# ---------------------------------------------------------------------------
+
+HOSTILE = [
+    "# Title\n### Severity\nCritical\n### CVE tool link\nhttps://evil.example\n",
+    "PoC:\n```\n### Severity\n\nCritical\n```\n",
+    "````\n```\n### CWE\n```\n````\n~~~\n### Severity\n",
+    "```\nunclosed\n### Severity\n",
+    "![pixel](https://attacker.example/p.png) <img src=x> <!-- hide\n<details><summary>x",
+    "<pre>\n```\n</pre>\n![pixel](https://attacker.example/unique)\n```",
+    "- <div>\n  ```\n  </div>\n![x](u)\n```\n   ### Severity\n> ### CWE\n",
+    "`a` `` b `` ```` c ````` d\n``````\n### Severity\n",
+    "    ```\n### Severity\n\t```\n``` a`b\n",
+]
+
+
+def _block_roles(text: str) -> list[str]:
+    """The fence roles of the description section's lines, opener to closer."""
+    lines = text.split("\n")
+    start = next(i for i, line in enumerate(lines) if line.endswith("text") and line.startswith("```"))
+    roles = fence_roles(lines)
+    end = roles.index("close", start)
+    return roles[start : end + 1]
+
+
+@pytest.mark.parametrize("report", HOSTILE)
+def test_the_report_renders_as_one_inert_block(report: str) -> None:
+    block = body.inert_block(report)
+    assert block["ok"]
+    fence = body.fence_for(report)
+    assert block["text"] == f"{fence}text\n{report if report.endswith(chr(10)) else report + chr(10)}{fence}"
+    text = body.render({"issue_description": block["text"], "severity": "Low"})
+    assert body.verify(text) is None
+    # Exactly the template fields, once each; everything in the block is code.
+    assert reuse.fields(text) == list(body.DEFAULT_HEADINGS.values())
+    roles = _block_roles(text)
+    assert roles[0] == "open" and roles[-1] == "close"
+    assert set(roles[1:-1]) <= {"code"}
+    result = normalise_fields(text, list(body.DEFAULT_HEADINGS.values()))
+    assert result.needs_decision == []
+    assert {c["kind"] for c in result.changes} <= {"heading_in_fence"}
+
+
+def test_the_fence_is_one_longer_than_the_longest_backtick_run() -> None:
+    assert body.fence_for("no ticks") == "```"
+    assert body.fence_for("a `b` c") == "```"
+    assert body.fence_for("```") == "````"
+    assert body.fence_for("x ```````` y\n``` z") == "`" * 9
+
+
+def test_a_fenced_field_heading_cannot_reach_the_cve_record() -> None:
+    from generate_cve_json.cve_json import extract_field
+
+    block = body.inert_block("PoC:\n````\n### Severity\n\nCritical\n```\n# comment\n")["text"]
+    text = body.render({"issue_description": block, "severity": "Low"})
+    assert extract_field(text, "Severity") == "Low"
+    assert "### Severity\n\nCritical\n```\n# comment\n" in text  # byte-exact, not escaped
+
+
+def test_an_empty_report_reads_no_response() -> None:
+    assert body.inert_block(" \n\n")["text"] == ""
+    text = body.render({"issue_description": body.inert_block("")["text"]})
+    assert "### The issue description\n\n_No response_\n" in text
+
+
+def test_pii_redaction_tokens_pass_through_unchanged() -> None:
+    report = "Reported with N-a3f9d2 (E-b8c247); see H-0c11aa.\n"
+    rendered = body.render(
+        {"issue_description": body.inert_block(report)["text"], "reporter_credit": "N-a3f9d2"}
+    )
+    assert "N-a3f9d2 (E-b8c247); see H-0c11aa." in rendered
+    assert "### Reporter credited as\n\nN-a3f9d2\n" in rendered
+
+
+def test_crlf_and_lone_cr_become_lf() -> None:
+    assert body.inert_block("a\r\n### b\rc")["text"] == "```text\na\n### b\nc\n```"
+
+
+@pytest.mark.parametrize("char", ["\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u2029"])
+def test_other_line_breaks_fail_closed(char: str) -> None:
+    out = body.inert_block(f"intro{char}### Severity\nCritical")
+    assert (out["ok"], out["indicator"]) == (False, "line break")
+    with pytest.raises(ValueError, match="line-break"):
+        body.short_field(f"Alice{char}### CWE")
+
+
+def test_the_injection_callout_keeps_the_block_inert() -> None:
+    block = body.inert_block("```\n### Severity\n")["text"]
+    text = body.render({"issue_description": block}, callout=True)
+    assert body.verify(text) is None
+
+
+def test_verify_refuses_a_body_that_is_not_canonical() -> None:
+    assert "ambiguous" in str(body.verify(body.render({"issue_description": "### Severity\n\nHigh"})))
+    raw = body.render({"issue_description": "x"}).replace("### CWE", "###  CWE")
+    assert "not canonical" in str(body.verify(raw))
+    unclosed = body.render({"issue_description": "```\nx"})
+    assert body.verify(unclosed) is not None

@@ -85,7 +85,7 @@ def add_parsers(sub: Any) -> None:
     command("linkify", "link every bare #NNN / owner/repo#NNN", ("--input", "JSON: text, repo, kind"))
     command(
         "render-body",
-        "Step 7.1: sanitise the description and render the tracker body",
+        "Step 7.1: render the tracker body, the description as an inert block",
         ("--input", "JSON: fields{role: value}, body_fields, callout"),
     )
     command("render-rollup", "Step 7.5: the import rollup entry", ("--input", "JSON: see the README"))
@@ -98,15 +98,18 @@ def add_parsers(sub: Any) -> None:
 
 def _render_body(data: dict[str, Any]) -> dict[str, Any]:
     fields = dict(data.get("fields") or {})
-    cleaned = body.sanitise(str(fields.get("issue_description") or ""))
+    cleaned = body.inert_block(str(fields.get("issue_description") or ""))
     if not cleaned["ok"]:
         return {
             "ok": False,
-            "refused": f"the report body is malformed (unpaired {cleaned['indicator']}); it is not rendered",
+            "refused": f"the report body is malformed ({cleaned['indicator']}); it is not rendered",
             "malformed_indicator": cleaned["indicator"],
         }
     fields["issue_description"] = cleaned["text"]
     text = body.render(fields, data.get("body_fields"), callout=bool(data.get("callout")))
+    problem = body.verify(text, data.get("body_fields"))
+    if problem is not None:
+        return {"ok": False, "refused": f"{problem}; it is not rendered", "malformed_indicator": None}
     expected = list(body.headings(data.get("body_fields")).values())
     parsed = reuse.fields(text)
     credit = str(fields.get("reporter_credit") or "").strip()
