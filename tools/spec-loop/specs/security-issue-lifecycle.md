@@ -72,6 +72,13 @@ publication, with a human gate and an audit-log entry at every step.
   Step 8 recap. Classification, field extraction, PII identification,
   fuzzy duplicates and canned-response choice stay with the model;
   report text reaches the tool only in files the Write tool created.
+  For `security-issue-import-from-pr` it parses the PR reference
+  (refusing other repositories), detects the scope from the changed
+  files (tests stripped, mixed-scope stop, sub-packages of one scope),
+  checks the milestone by exact match, builds the duplicate query (warning
+  at 30 hits), and renders the title, body (sentinels, bot author left
+  `_No response_`), labels, rollup entry and recap; the milestone
+  choice, title paraphrase and *Affected versions* stay with the model.
 - Shared recipes instead of per-skill copies (#1437): the safe-create
   recipe for a tracker with an attacker-controlled title is
   `tools/github/operations.md` § *Create* (Write-tool title file,

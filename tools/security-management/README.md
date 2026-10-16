@@ -11,6 +11,7 @@
   - [Shared rules](#shared-rules)
   - [Commands](#commands)
     - [`issue-import`](#issue-import)
+    - [`issue-import-from-pr`](#issue-import-from-pr)
   - [Tests](#tests)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -25,7 +26,8 @@
 **Harness:** agnostic
 
 The deterministic core of the `security-*` skills.
-Each skill family is a subcommand; this layer ships [`security-issue-import`](../../plugins/magpie-security/skills/issue-import/SKILL.md).
+Each skill family is a subcommand: [`security-issue-import`](../../plugins/magpie-security/skills/issue-import/SKILL.md) (`issue-import`)
+and [`security-issue-import-from-pr`](../../plugins/magpie-security/skills/issue-import-from-pr/SKILL.md) (`issue-import-from-pr`).
 The tool takes what the agent saved — search results, the redacted report text, the confirmed plan — and decides or renders everything rule-shaped:
 the Step 1 pre-filter, the batched `threadId` dedup, the forwarder pre-screen, the tracker body and its sanitiser, the rollup entry, the rejections-ledger record,
 the fix-already-public reply, the receipt-draft matrix, the confirmation-reply grammar and the recap.
@@ -94,6 +96,20 @@ Every command prints one JSON object; rendered text is in its `text` field.
 | `render-recap --state F` | `issues_created`, `drafts_waiting` (a shared draft once), `skipped` (full `owner/repo#NNN`), `cve_tool_bookkeeping_dropped` (pre-filtered included), `text`. |
 | `parse-reply --input F` | `action`, `import_items`, `skip_items`, `reject_with_canned`, `reject_with_public_fix`, `edits`, `overrides`, `keep`, `non_import_confirmed`, `ambiguous_tokens`, `ambiguous_items`. |
 
+### `issue-import-from-pr`
+
+| Command | Prints |
+|---|---|
+| `parse-ref --ref R --upstream U` | `number` from `N`, `owner/repo#N` or the PR URL (trailing path ignored); exit `2` for another repository or free text. |
+| `scope --files F --scope-config F` | `scope` (or `mixed_scope_blocker`), `stop`, `mixed_scopes`, `sub_packages` (also as `affected_providers`), `packages`, `files_counted`, `test_files_stripped` (any `tests/` segment), `unmatched`, `matched`. |
+| `milestone-check --input F` | `exists` (exact match only), `near_matches`, `blocker`. |
+| `title --input F` | `title` without conventional-commit prefix, skip-ci markers and trailing `(#N)`; `too_short` under 25 characters. |
+| `render-body --input F` | The body `text`: imported-from note over the sanitised, linked PR body, the mailing-thread sentinel, *PR with the fix*, *Remediation developer* (`_No response_` for a bot, `remediation_developer_is_bot`); `fields_ok`, `bare_refs`. |
+| `labels --input F` | `labels`: scope, `pr_open` / `pr_merged`, `security_marker` from `tracker.labels`; never `needs_triage`; `warnings` for a closed PR. |
+| `render-rollup --input F` | `label`, `label_shell`, `text`: the first rollup entry, column 0. |
+| `dup-query --pr N --tracker T [--hits F]` | The search `query` and `command`; with `--hits`, `hits` with links, `duplicate`, `truncated` at 30 and its `warning`. |
+| `render-recap --input F` | The recap `text` and hand-off, `bare_refs`. |
+
 ## Tests
 
 ```bash
@@ -102,4 +118,5 @@ uv run --directory tools/security-management pytest -q
 
 The cases of the retired model-graded `security-issue-import` suites `step-0-preflight`, `step-6-confirm` and `step-7-apply`
 are pytest cases named after each former case, in `tests/test_issue_import.py` and `tests/test_grammar.py`.
+The cases of `security-issue-import-from-pr/step-2-scope-detection` are in `tests/test_issue_import_from_pr.py`.
 `tests/test_body.py` checks that the `tracker-body-template.md` files of the sibling import skills carry exactly the rendered headings.
