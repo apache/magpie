@@ -143,6 +143,20 @@ def test_the_finding_rides_the_verdict_with_its_rules(project: Path, capsys, ver
     assert payload["rules"]["welcome"].startswith("## welcome")
 
 
+@pytest.mark.parametrize("failure", ["guide", "framework_stamp"])
+def test_an_unreadable_optional_guide_keeps_setup_findings(
+    project: Path, capsys, monkeypatch, failure: str
+) -> None:
+    def unreadable(*args):
+        raise PermissionError("the optional guide is unreadable")
+
+    monkeypatch.setattr(welcome, failure, unreadable)
+    run(project, "--requires", "project.md")
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["verdict"] == "action"
+    assert [f["code"] for f in payload["findings"]] == ["config-missing"]
+
+
 def test_no_welcome_leaves_it_out(project: Path, capsys, version) -> None:
     run(project, "--no-welcome")
     assert json.loads(capsys.readouterr().out) == {"verdict": "ok"}
@@ -250,6 +264,13 @@ def test_recording_outside_a_git_repo_refuses(tmp_path: Path, capsys, version) -
         ["record", "--family", "security", "--choice", "seen", "--project-root", str(tmp_path)]
     )
     assert code == 2
+
+
+@pytest.mark.parametrize("family", ["../sections/welcome", "_footer", "/tmp/other-guide"])
+def test_guide_names_cannot_select_other_markdown_files(family: str, capsys) -> None:
+    assert welcome.guide(family) is None
+    assert welcome.main(["show", "--family", family]) == 2
+    assert capsys.readouterr().out == ""
 
 
 def test_an_unknown_family_is_refused(capsys) -> None:

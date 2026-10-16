@@ -134,9 +134,9 @@ def guide(family: str) -> str | None:
     the general guide never names one that does not exist, and the footer
     marker becomes the shared footer filled in for this guide.
     """
-    path = GUIDES_DIR / f"{family}.md"
-    if family.startswith("_") or not path.is_file():
+    if family not in guides():
         return None
+    path = GUIDES_DIR / f"{family}.md"
     text = _read(path).replace(_FAMILY_LIST_MARKER, _family_list())
     return text.replace(_FOOTER_MARKER, _footer(family))
 

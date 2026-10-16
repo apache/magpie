@@ -102,6 +102,7 @@ FRONTMATTER_TO_OVERRIDE: dict[str, str] = {
     "vote-draft": "release-vote-draft",
     "vote-tally": "release-vote-tally",
     "welcome": "mentoring-welcome",
+    "welcome-guide": "setup-welcome-guide",
     "workflow-security-audit": "workflow-security-audit",
     "write-skill": "write-skill",
 }

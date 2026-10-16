@@ -39,6 +39,11 @@ that change what is installed do. It is empty whenever the pre-flight changes
 nothing: when it passes silently, when it only prints commands for the user to
 run, and when it declines to act and asks first.
 
+`print-command` also covers proposing `/magpie-setup:setup reconcile` for a
+`sweep-never-run` finding: it shows a proposal and continues, without running
+the sweep. `ask-first` means the pre-flight stops for a decision about an
+untrusted marketplace, rather than merely proposing reconciliation.
+
 `commands_shown` is the list of commands the pre-flight prints for the user to
 run themselves, empty when it prints none.
 

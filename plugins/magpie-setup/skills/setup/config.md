@@ -166,7 +166,7 @@ makes every skill fall back to *step-0* of its `preflight-detail.md`:
 
 ```bash
 PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir)/../.apache-magpie-local:$(git rev-parse --git-common-dir)/apache-magpie" \
-  python3 -m setup_preflight --skill magpie-setup
+  python3 -m setup_preflight --skill magpie-setup --no-welcome
 ```
 
 ## Step 3 — Scaffold and fill

@@ -603,15 +603,15 @@ generated block below.
 | `contract:people` | ✅ | vendor-backed | Atlassian, GitHub | 2 backend vendors: Atlassian, GitHub |
 | `contract:security-tracker` | ✅ | vendor-backed | Atlassian, agnostic | 2 backend vendors: Atlassian, agnostic |
 
-**Per-skill assessment: 79/79 skills carry no vendor lock-in.** A skill is *capability-pure* when it names no backend at all, *portable* when every backend it names has an alternative (its contract is green), and *vendor-coupled* only when it reaches for a backend that is the sole implementation of a capability.
+**Per-skill assessment: 80/80 skills carry no vendor lock-in.** A skill is *capability-pure* when it names no backend at all, *portable* when every backend it names has an alternative (its contract is green), and *vendor-coupled* only when it reaches for a backend that is the sole implementation of a capability.
 
 | Skill neutrality | Count |
 |---|---|
-| capability-pure (names no backend) | 25 |
+| capability-pure (names no backend) | 26 |
 | portable (named backends are swappable) | 54 |
 | vendor-coupled (sole-backend dependency) | 0 |
 
-Organization scope (declared, orthogonal to vendor): ASF = 16, agnostic = 63.
+Organization scope (declared, orthogonal to vendor): ASF = 16, agnostic = 64.
 
 **LLM / agent-integration neutrality**
 

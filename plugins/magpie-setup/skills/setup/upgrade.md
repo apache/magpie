@@ -426,7 +426,7 @@ reporting the upgrade complete:
 
 ```bash
 PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir)/../.apache-magpie-local:$(git rev-parse --git-common-dir)/apache-magpie" \
-  python3 -m setup_preflight --skill magpie-setup
+  python3 -m setup_preflight --skill magpie-setup --no-welcome
 ```
 
 Skip this write entirely when `.apache-magpie-overrides/` is empty or

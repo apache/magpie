@@ -370,7 +370,11 @@ def welcome_findings(root: Path, skill: str) -> list[Finding]:
     """The skill's family guide, when it ships one and the user has not set it aside."""
     from . import welcome
 
-    due = welcome.welcome_facts(root, skill)
+    try:
+        due = welcome.welcome_facts(root, skill)
+    except OSError:
+        # An optional guide must not hide the actual setup findings.
+        return []
     if due is None:
         return []
     section, facts = due

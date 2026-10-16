@@ -714,6 +714,9 @@ committed version with drift detection.
     `welcome enable` (the `setup-welcome-guide` skill). The guide never
     blocks the requested work, is skipped where there is no personal layer,
     and a layer holding only that record does not count as configured.
+    Checker verification during `config` and `upgrade` uses `--no-welcome`;
+    unreadable optional guides do not suppress actual setup findings, and
+    guide names cannot select Markdown files outside the shipped guides.
 
 ## Validation
 
