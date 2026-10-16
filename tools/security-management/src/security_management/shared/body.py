@@ -20,6 +20,8 @@ The root email body is untrusted external content. It is inlined into the
 issue as readable markdown, not wrapped in a fence, so it is sanitised
 deterministically first:
 
+- **One set of lines.** `\r\n` and `\r` become `\n`; any other character
+  `str.splitlines` breaks on (`\x0c`, U+2028, …) fails closed.
 - **Well-formedness, failing closed.** Two readers see the body: GitHub's
   CommonMark renderer and github-body-field, which toggles "inside a fence"
   on *every* line whose first non-whitespace is three backticks or tildes.
@@ -41,7 +43,7 @@ deterministically first:
   full, collapsed and shortcut reference images alike), and the `<` of an
   `img` / `picture` / `source` / `video` / `audio` / `svg` / `image` /
   `iframe` / `object` / `embed` / `details` / `summary` tag or an `<!--`
-  becomes `&lt;`, outside fences and inline code, so opening the issue fetches
+  becomes `&lt;`, outside fences (inline code spans included), so opening the issue fetches
   no reporter-controlled URL and nothing hides part of the body.
 
 Short fields (a credit, a version string) are reporter-derived too:
@@ -96,7 +98,8 @@ _ACTIVE_HTML = re.compile(
     r"<(?=!--|/?(?:img|picture|source|video|audio|svg|image|iframe|object|embed|details|summary)\b)",
     re.IGNORECASE,
 )
-_CODE_SPAN = re.compile(r"(`+)(?:(?!\1).)+?\1")
+# Characters other than \n that str.splitlines (and so github-body-field) treats as line breaks.
+_OTHER_LINE_BREAKS = re.compile("[\x0b\x0c\x1c\x1d\x1e\x85\u2028\u2029]")
 _ENTITY = {"`": "&#96;", "~": "&#126;"}
 
 
@@ -126,7 +129,7 @@ def fence_mask(lines: list[str]) -> list[bool] | None:
             if run[0] == "`" and "`" in rest:
                 return None  # not a fence in CommonMark, a toggle for the parser
             opened = (run[0], len(run))
-        elif run[0] == opened[0] and len(run) >= opened[1] and not rest.strip():
+        elif run[0] == opened[0] and len(run) >= opened[1] and re.fullmatch(r"[ \t]*", rest):
             opened = None
         else:
             return None
@@ -134,8 +137,22 @@ def fence_mask(lines: list[str]) -> list[bool] | None:
     return None if opened is not None else mask
 
 
+def normalise(text: str) -> str:
+    """`text` with `\r\n` and `\r` as `\n`; refuses any other line-break character.
+
+    Every reader must split the text into the same lines: a `\x0c` or `\u2028`
+    is a line break to `str.splitlines` but not to CommonMark.
+    """
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    if _OTHER_LINE_BREAKS.search(text):
+        raise ValueError(
+            "text holds a line-break character other than \\n (\\x0b, \\x0c, \\x1c-\\x1e, \\x85, U+2028, U+2029)"
+        )
+    return text
+
+
 def check(body: str) -> str | None:
-    """The first unpaired-block indicator in `body`, or None when it is well-formed."""
+    """The first unpaired-block indicator in `body` (already `normalise`d), or None when it is well-formed."""
     if fence_mask(body.split("\n")) is None:
         return "code fence"
     lowered = body.lower()
@@ -151,15 +168,13 @@ def _defuse_text(text: str) -> str:
 
 
 def defuse(line: str) -> str:
-    """`line` with images and active HTML defused outside inline code spans."""
-    out: list[str] = []
-    last = 0
-    for match in _CODE_SPAN.finditer(line):
-        out.append(_defuse_text(line[last : match.start()]))
-        out.append(match.group(0))
-        last = match.end()
-    out.append(_defuse_text(line[last:]))
-    return "".join(out)
+    """`line` with every image and active HTML tag defused, inside inline code spans too.
+
+    Code spans are not exempt: telling one apart (escaped backticks, spans across
+    lines) takes a CommonMark inline parser, and an escaped `<` or `[image: ` in
+    code is harmless.
+    """
+    return _defuse_text(line)
 
 
 def demote(line: str) -> str:
@@ -192,10 +207,14 @@ def sanitise(body: str) -> dict[str, Any]:
 
     A caller must not render the text of an `ok: False` result.
     """
-    indicator = check(body)
+    try:
+        text = normalise(body)
+    except ValueError:
+        return {"ok": False, "indicator": "line break", "text": body}
+    indicator = check(text)
     if indicator is not None:
         return {"ok": False, "indicator": indicator, "text": body}
-    original = body.split("\n")
+    original = text.split("\n")
     first = fence_mask(original)
     assert first is not None  # check() passed
     lines = _drop_empty_fence_pairs(original, first)
@@ -221,7 +240,7 @@ def _short_line(line: str) -> str:
 
 def short_field(value: str) -> str:
     """A short reporter-derived field that can open no section, code block, image or tag."""
-    return "\n".join(_short_line(line) for line in value.split("\n"))
+    return "\n".join(_short_line(line) for line in normalise(value).split("\n"))
 
 
 def headings(body_fields: Mapping[str, str] | None = None) -> dict[str, str]:

@@ -394,3 +394,16 @@ def test_scope_substitution_is_literal(capsys, tmp_path) -> None:
     files = write(tmp_path, "f.json", ["p/g.0/x.py"])
     _, out = run(capsys, "scope", "--files", files, "--scope-config", write(tmp_path, "s.json", config))
     assert out["packages"] == ["pkg-g.0"]
+
+
+def test_a_sub_package_with_a_trailing_newline_is_unmatched(capsys, tmp_path) -> None:
+    paths = ["providers/pkg\n/x.py", "providers/amazon/y.py"]
+    files = write(tmp_path, "f.json", paths)
+    _, out = run(capsys, "scope", "--files", files, "--scope-config", write(tmp_path, "s.json", SCOPES))
+    assert out["sub_packages"] == ["amazon"]
+    assert out["unmatched"] == [paths[0]]
+
+
+def test_parse_ref_refuses_text_after_a_newline(capsys) -> None:
+    code, _ = run(capsys, "parse-ref", "--ref", "https://github.com/x/y/pull/1\nevil", "--upstream", "x/y")
+    assert code == 2

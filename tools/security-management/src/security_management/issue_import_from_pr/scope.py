@@ -48,9 +48,9 @@ def parse_ref(ref: str, upstream: str) -> dict[str, Any]:
     number: str | None = None
     if text.isdigit():
         number = text
-    elif match := _URL.match(text):
+    elif match := _URL.fullmatch(text):
         repo, number = match.group(1), match.group(2)
-    elif match := _SHORT.match(text):
+    elif match := _SHORT.fullmatch(text):
         repo, number = match.group(1) or upstream, match.group(2)
     if number is None or int(number) <= 0:
         return {"ok": False, "refused": f"not a PR reference: {text!r}"}
@@ -122,7 +122,7 @@ def detect(files: object, config: Mapping[str, Any]) -> dict[str, Any]:
         label, match = hit
         assert match is not None
         sub = _sub_package(match, path, str(labels[label].get("packageName") or ""))
-        if sub is not None and (not _SUB_PACKAGE.match(sub) or ".." in sub):
+        if sub is not None and (not _SUB_PACKAGE.fullmatch(sub) or ".." in sub):
             result["unmatched"].append(path)
             continue
         matched.setdefault(label, []).append(path)

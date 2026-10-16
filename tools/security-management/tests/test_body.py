@@ -67,7 +67,7 @@ def test_a_malformed_body_is_inlined_verbatim_with_its_indicator(report: str, in
     }
 
 
-def test_images_are_defused_outside_code_only() -> None:
+def test_images_are_defused_outside_fences_and_inside_code_spans() -> None:
     report = (
         "see ![pixel](https://attacker.example/p.png) and ![ref][1] and <IMG src=x>\n"
         "inline `![kept](https://example.org)`\n"
@@ -77,7 +77,7 @@ def test_images_are_defused_outside_code_only() -> None:
     assert "[image: pixel](https://attacker.example/p.png)" in text
     assert "[image: ref][1]" in text
     assert "&lt;IMG src=x>" in text
-    assert "`![kept](https://example.org)`" in text
+    assert "`[image: kept](https://example.org)`" in text
     assert "\n![kept too](https://example.org)\n" in text
     assert not re.search(r"(?<!`)!\[pixel\]", text)
 
@@ -213,3 +213,44 @@ def test_a_title_like_field_cannot_open_a_code_block() -> None:
     text = body.render({"issue_description": "r", "reporter_credit": "```", "cwe": "### Severity"})
     assert not any(body.is_fence(line) for line in text.split("\n"))
     assert reuse.fields(text) == list(body.DEFAULT_HEADINGS.values())
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "\\` ![x](https://a.example/p) \\`",  # escaped backticks are not a code span
+        "`a` ![x](https://a.example/p) `b`",
+        "`open\n![x](https://a.example/p) close`",  # a span across two lines
+        "``![x](https://a.example/p)``",
+    ],
+)
+def test_images_are_defused_whatever_the_backticks(line: str) -> None:
+    text = body.sanitise(line)["text"]
+    assert "![" not in text
+    assert "[image: x](https://a.example/p)" in text
+
+
+def test_crlf_and_lone_cr_are_normalised_before_pairing() -> None:
+    assert body.sanitise("a\r\n### b\r\n")["text"] == "a\n#### b\n"
+    out = body.sanitise("```\rcode\r```\r### Severity")
+    assert out["ok"]
+    assert out["text"] == "```\ncode\n```\n#### Severity"
+    assert body.sanitise("x\r```\ry")["ok"] is False
+
+
+@pytest.mark.parametrize("char", ["\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u2029"])
+def test_other_line_breaks_fail_closed(char: str) -> None:
+    out = body.sanitise(f"intro{char}### Severity\nCritical")
+    assert (out["ok"], out["indicator"]) == (False, "line break")
+    with pytest.raises(ValueError, match="line-break"):
+        body.short_field(f"Alice{char}### CWE")
+
+
+@pytest.mark.parametrize("trail", ["\x0c", "\u00a0", "x", " ~"])
+def test_a_closer_with_anything_but_spaces_and_tabs_after_it_is_refused(trail: str) -> None:
+    out = body.sanitise(f"```\ncode\n```{trail}\n### Severity\n")
+    assert out["ok"] is False
+
+
+def test_a_closer_followed_by_spaces_and_tabs_closes() -> None:
+    assert body.sanitise("```\ncode\n``` \t\n### x\n")["text"] == "```\ncode\n``` \t\n#### x\n"

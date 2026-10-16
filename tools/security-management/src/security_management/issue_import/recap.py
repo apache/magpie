@@ -42,7 +42,7 @@ _FULL_REF = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9._-]+#\d+$")
 
 def _tracker_ref(tracker: str, existing: object) -> str:
     text = one_line(existing)
-    if _FULL_REF.match(text):
+    if _FULL_REF.fullmatch(text):
         return text
     number = text.lstrip("#")
     if not number.isdigit():
