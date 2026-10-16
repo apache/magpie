@@ -998,6 +998,17 @@ def _vetted_launch(argv: list[str]) -> tuple[str, str, str] | None:
     return option, base, rest[i]
 
 
+def _account_home() -> str | None:
+    """The account's home from the password database, never from ``HOME``,
+    which an earlier command can reassign. None where there is none (Windows)."""
+    try:
+        import pwd  # POSIX only; the engine also runs on Windows.
+
+        return os.path.realpath(pwd.getpwuid(os.getuid()).pw_dir)
+    except (ImportError, KeyError, OSError):
+        return None
+
+
 def _within(path: str, root: str) -> bool:
     root = os.path.realpath(root)
     return path == root or path.startswith(root.rstrip(os.sep) + os.sep)
@@ -1006,10 +1017,12 @@ def _within(path: str, root: str) -> bool:
 def _inside_checkout(base: str, cwd: str | None) -> bool:
     """True when the absolute ``base`` lies in a git working tree: the one the
     command runs from, or the one ``base`` itself sits in, whatever the cwd.
-    A dispatcher there is code the agent can edit. An installed plugin cache
-    is exempt, even when it sits in a tree such as a version-controlled home."""
+    A dispatcher there is code the agent can edit. The account's own plugin
+    cache is exempt, even when the home directory is version-controlled; a
+    directory merely named like one elsewhere is not."""
     target = os.path.realpath(base)
-    if "/.claude/plugins/cache/" in target + "/":
+    home = _account_home()
+    if home and _within(target, os.path.join(home, ".claude", "plugins", "cache")):
         return False
     top = _run(["git", "rev-parse", "--show-toplevel"], cwd=cwd)
     if top and _within(target, top):
@@ -1032,16 +1045,11 @@ def _codex_stable_roots() -> set[str]:
 
     The hook rewrites to the root it was registered with: `--stable-path` in
     the Codex configuration (`vetted-ops-codex-rules --hook --tool-root …`),
-    else the account's home from the password database. Only those exact
-    roots are let through; a path the agent could build itself is not. Home
-    comes from the password database, never from `HOME`, which an earlier
-    command can reassign.
+    else the account's home. Only those exact roots are let through; a path
+    the agent could build itself is not.
     """
-    try:
-        import pwd  # POSIX only; Codex runs there, the engine also runs on Windows.
-
-        home = pwd.getpwuid(os.getuid()).pw_dir
-    except (ImportError, KeyError, OSError):
+    home = _account_home()
+    if home is None:
         return set()
     roots = {f"{home.rstrip('/')}/{VETTED_STABLE_BASE[2:]}vetted-ops"}
     config = Path(os.environ.get("CODEX_HOME") or f"{home}/.codex") / "config.toml"

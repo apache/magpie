@@ -783,10 +783,22 @@ def test_vetted_ops_spelling_finds_the_checkout_from_any_cwd(monkeypatch, tmp_pa
     command = f"uv --directory {repo} run --project {repo}/tools/vetted-ops vetted-op-read pr-view 1"
     reason = agent_guard.dispatch(command, cwd=str(elsewhere))
     assert reason and "agent-guard[vetted-ops-spelling]" in reason
-    # An installed plugin cache is exempt even inside a version-controlled tree.
-    cache = repo / ".claude" / "plugins" / "cache" / "x" / "1.0" / "tools" / "adversarial-review"
+    # A directory merely named like a plugin cache inside a checkout is not one.
+    lookalike = repo / ".claude" / "plugins" / "cache" / "x" / "1.0" / "tools" / "adversarial-review"
+    lookalike.mkdir(parents=True)
+    monkeypatch.setattr(agent_guard, "_account_home", lambda: str(tmp_path / "home"))
+    reason = agent_guard.dispatch(f"uvx --from {lookalike} adversarial-review detect", cwd=str(repo))
+    assert reason and "agent-guard[vetted-ops-spelling]" in reason
+
+
+def test_vetted_ops_spelling_exempts_the_accounts_own_plugin_cache(monkeypatch, tmp_path):
+    # A version-controlled home: the real plugin cache sits inside a git tree.
+    home = tmp_path / "home"
+    cache = home / ".claude" / "plugins" / "cache" / "apache-magpie" / "1.0" / "tools" / "adversarial-review"
     cache.mkdir(parents=True)
-    assert agent_guard.dispatch(f"uvx --from {cache} adversarial-review detect", cwd=str(elsewhere)) is None
+    monkeypatch.setattr(agent_guard, "_account_home", lambda: str(home))
+    monkeypatch.setattr(agent_guard, "_run", lambda args, cwd=None: str(home))
+    assert agent_guard.dispatch(f"uvx --from {cache} adversarial-review detect", cwd=str(home)) is None
 
 
 def test_vetted_ops_spelling_refuses_an_absolute_checkout_path(monkeypatch, tmp_path):
