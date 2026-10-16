@@ -399,13 +399,13 @@ authoritative agent harness matrix. The current state per harness:
 | GitHub Copilot CLI + Coding Agent | Standalone CLI and server-side Coding Agent; Draft PR boundary and clean-env isolation — see the [harness guide](docs/adapters/copilot.md) | [#318](https://github.com/apache/magpie/issues/318) |
 | Goose (Block) | Open-source agent CLI; reads `.agents/skills/` natively, developer tool execution, and recipe workflows — see the [harness guide](docs/adapters/goose.md) | [#319](https://github.com/apache/magpie/issues/319) |
 | Amazon Q Developer CLI | Not yet ported | [#320](https://github.com/apache/magpie/issues/320) |
-| JetBrains Junie | Not yet ported | [#321](https://github.com/apache/magpie/issues/321) |
+| JetBrains Junie (CLI + IDE plugin) | Reads `.agents/skills/` and `AGENTS.md` natively; `PreToolUse` action guard (hooks are Early Access) — see the [harness guide](docs/adapters/junie.md) | [#321](https://github.com/apache/magpie/issues/321) |
 | OpenHands | Not yet ported | [#322](https://github.com/apache/magpie/issues/322) |
 
 The table lists **harnesses** — the agent that reads the skills — not the
 editors they run in. A JetBrains IDE, for instance, hosts an agent rather than
-being one: `JetBrains Junie` above is JetBrains' *own* agent and is genuinely
-not ported, but running Claude Code inside IntelliJ IDEA or PyCharm is the
+being one: `JetBrains Junie` above is JetBrains' *own* agent, ported separately from
+running Claude Code inside IntelliJ IDEA or PyCharm is the
 fully-supported Claude Code row, with nothing extra to install. See
 [the JetBrains section of `marketplace.md`](docs/setup/marketplace.md#jetbrains-ides-intellij-idea-pycharm-goland-).
 

@@ -35,6 +35,8 @@ pre-tool hook to/from the core, so every wired harness enforces one rule set:
 * :func:`grok_main` — Grok Build ``PreToolUse`` adapter (``--grok`` or
   automatic no-argument payload-shape detection): reads the documented
   camelCase event and emits Grok's JSON allow/deny decision.
+* :func:`junie_main` — Junie CLI ``PreToolUse`` hook (``--junie``): reads the
+  snake_case event and blocks with a ``decision`` JSON and exit 2.
 * :func:`check_main` — Harness-neutral check-only entry point (``--check``):
   takes the command as remaining CLI args, exits ``DENY_EXIT`` with the reason
   on stdout on a deny, ``ALLOW_EXIT`` silently on allow, ``USAGE_EXIT`` when no
@@ -1633,6 +1635,45 @@ def grok_main() -> int:
     return _grok_event(event)
 
 
+def _junie_event(event: object) -> int:
+    """Handle one parsed Junie CLI ``PreToolUse`` event."""
+    if not isinstance(event, dict) or event.get("tool_name") != "Bash":
+        return ALLOW_EXIT
+    tool_input = event.get("tool_input")
+    if not isinstance(tool_input, dict):
+        return ALLOW_EXIT
+    command = tool_input.get("command")
+    if not isinstance(command, str):
+        return ALLOW_EXIT
+
+    cwd = event.get("cwd")
+    reason = dispatch(command, cwd if isinstance(cwd, str) else None)
+    if reason:
+        json.dump({"decision": "deny", "reason": reason}, sys.stdout)
+        sys.stdout.write("\n")
+        sys.stderr.write(reason + "\n")
+        return DENY_EXIT
+
+    return ALLOW_EXIT
+
+
+def junie_main() -> int:
+    """Translate Junie CLI ``PreToolUse`` input to the shared guard core.
+
+    Junie sends snake_case ``tool_name`` / ``tool_input`` like Claude Code but
+    does not honour Claude's ``hookSpecificOutput`` deny: it reads a top-level
+    ``decision`` and blocks unconditionally on exit code 2. The adapter emits
+    both, so the block holds whichever the runtime checks first. It is selected
+    explicitly with ``--junie`` because the no-argument shape sniff would route
+    this payload to the Claude adapter and fail open.
+    """
+    try:
+        event = json.load(sys.stdin)
+    except (json.JSONDecodeError, ValueError):
+        return ALLOW_EXIT
+    return _junie_event(event)
+
+
 def check_main(argv: list[str]) -> int:
     """Harness-neutral check-only entry point (``--check``).
 
@@ -1758,6 +1799,7 @@ def cli(argv: list[str] | None = None) -> int:
     ``--copilot`` → the Copilot CLI adapter (:func:`copilot_main`).
     ``--codex`` → the Codex native hook adapter (:func:`codex_main`).
     ``--grok`` → the Grok Build adapter (:func:`grok_main`).
+    ``--junie`` → the Junie CLI adapter (:func:`junie_main`).
     ``--check <cmd…>`` → harness-neutral check-only (:func:`check_main`).
     ``--exec <cmd…>`` → harness-neutral check-then-exec (:func:`exec_main`).
 
@@ -1778,6 +1820,8 @@ def cli(argv: list[str] | None = None) -> int:
         return copilot_main()
     if args and args[0] == "--grok":
         return grok_main()
+    if args and args[0] == "--junie":
+        return junie_main()
     if not args:
         try:
             event = json.load(sys.stdin)

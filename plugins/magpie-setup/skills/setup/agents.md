@@ -22,7 +22,7 @@ go"*, never as *"what files contain"*.
 
 | Target id | Project skills dir | Kind | Reads it |
 |---|---|---|---|
-| `universal` | `.agents/skills/` | universal **(canonical)** | Codex, Cursor, Gemini CLI, GitHub Copilot, Goose, OpenCode, Cline, Zed, Warp, Amp, and the rest of the cluster that converged on the shared path |
+| `universal` | `.agents/skills/` | universal **(canonical)** | Codex, Cursor, Gemini CLI, GitHub Copilot, Goose, Junie, OpenCode, Cline, Zed, Warp, Amp, and the rest of the cluster that converged on the shared path |
 | `claude-code` | `.claude/skills/` | native (relay) | Claude Code |
 | `github` | `.github/skills/` | native (relay) | GitHub's skill loader |
 | `windsurf` | `.windsurf/skills/` | native (relay) | Windsurf |

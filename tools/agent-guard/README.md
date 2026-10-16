@@ -18,6 +18,7 @@
     - [Gemini CLI](#gemini-cli)
     - [Copilot CLI](#copilot-cli)
     - [Grok](#grok)
+    - [Junie CLI](#junie-cli)
     - [Harness-neutral path (any runtime)](#harness-neutral-path-any-runtime)
   - [Contributing guards](#contributing-guards)
   - [Tests](#tests)
@@ -31,7 +32,7 @@
 
 **Capability:** substrate:action-guard
 
-**Harness:** Claude Code, Codex, OpenCode, Kiro, Gemini CLI, Copilot, Grok
+**Harness:** Claude Code, Codex, OpenCode, Kiro, Gemini CLI, Copilot, Grok, Junie
 
 A deterministic pre-execution guard dispatcher. It inspects every shell command
 **before it runs** and **denies** the ones that would break a hard framework
@@ -60,6 +61,9 @@ so every wired harness enforces an identical rule set from one source of truth:
   Source/snapshot project hooks use `--grok`; marketplace plugin hooks are
   selected automatically from Grok's incoming hook payload shape.
   See [Grok](#grok).
+- **Junie CLI** — a `PreToolUse` hook (Early Access) on the `Bash` matcher,
+  using `--junie` (exit `2` plus a `decision` JSON and a stderr reason).
+  See [Junie CLI](#junie-cli).
 - **Any other runtime** — the `--check` and `--exec` CLI modes let any
   harness or shell wrapper enforce guard rules without a harness-specific hook
   adapter. See [Harness-neutral path (any runtime)](#harness-neutral-path-any-runtime).
@@ -408,6 +412,17 @@ known live denial so wiring, packaging, and runtime policy are exercised
 together.
 
 See the [Grok adapter contract](../../docs/adapters/grok.md).
+
+### Junie CLI
+
+Junie's `PreToolUse` payload is Claude-shaped (`tool_name`, `tool_input.command`),
+so the no-argument dispatcher would route it to the Claude adapter,
+whose `hookSpecificOutput` deny Junie ignores and exit 0 would let the command run.
+Junie hooks must therefore invoke `--junie` explicitly.
+The adapter blocks with exit `2`, the one signal Junie honours regardless of output,
+and also prints a `decision` JSON and the reason on stderr.
+Other non-zero exits only warn in Junie, so the adapter never uses them.
+See [the Junie adapter](../../docs/adapters/junie.md).
 
 ### Harness-neutral path (any runtime)
 

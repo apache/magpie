@@ -473,11 +473,9 @@ elsewhere is a separate project and installs separately.
 > [!NOTE]
 > This is about running *Claude Code* (or another agent with a JetBrains
 > plugin) inside a JetBrains IDE. **JetBrains' own agent, Junie, is a separate
-> harness port** — tracked as
-> [#321](https://github.com/apache/magpie/issues/321) and listed *Not yet
-> ported* in [`CONTRIBUTING.md`](../../CONTRIBUTING.md) and
-> [`vendor-neutrality.md`](../vendor-neutrality.md). Junie does not read
-> Magpie's skills today.
+> harness** — see the [Junie guide](../adapters/junie.md)
+> ([#321](https://github.com/apache/magpie/issues/321)). It reads the
+> canonical `.agents/skills/` path, so no marketplace plugin is involved.
 
 ### Not supported
 

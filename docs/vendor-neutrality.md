@@ -348,7 +348,6 @@ Draft PR review gating; see the
 The remaining extension points are
 already open, labelled `good first issue`:
 [Amazon Q](https://github.com/apache/magpie/issues/320),
-[JetBrains Junie](https://github.com/apache/magpie/issues/321),
 [OpenHands](https://github.com/apache/magpie/issues/322).
 The step-by-step wiring recipe for any new runtime is
 [`docs/adapters/add-a-harness.md`](adapters/add-a-harness.md).
@@ -620,7 +619,7 @@ Organization scope (declared, orthogonal to vendor): ASF = 16, agnostic = 64.
 | Substrate tool | Substrate | Harness support | Verdict |
 |---|---|---|---|
 | `adversarial-review` | review | any | ✅ agnostic |
-| `agent-guard` | action-guard | Claude Code, Codex, Copilot, Gemini CLI, Grok, Kiro, OpenCode | ✅ portable |
+| `agent-guard` | action-guard | Claude Code, Codex, Copilot, Gemini CLI, Grok, Junie, Kiro, OpenCode | ✅ portable |
 | `agent-isolation` | sandbox | any | ✅ agnostic |
 | `container-gateway` | sandbox | any | ✅ agnostic |
 | `contributor-metrics` | analytics | any | ✅ agnostic |
@@ -660,6 +659,7 @@ Harness → substrate tools it supports:
 - **Cursor** (2): `sandbox-lint`, `spec-loop`
 - **Gemini CLI** (3): `agent-guard`, `sandbox-lint`, `spec-loop`
 - **Grok** (3): `agent-guard`, `sandbox-lint`, `spec-loop`
+- **Junie** (1): `agent-guard`
 - **Kiro** (3): `agent-guard`, `sandbox-lint`, `spec-loop`
 - **OpenCode** (3): `agent-guard`, `sandbox-lint`, `spec-loop`
 - **any harness** (29): `adversarial-review`, `agent-isolation`, `container-gateway`, `contributor-metrics`, `dashboard-generator`, `dev`, `egress-gateway`, `maven-artifact-verify`, `permission-audit`, `pilot-report-validator`, `pr-management`, `preflight-audit`, `privacy-llm`, `probe-templates`, `release-config`, `release-verify`, `reproducible-archive`, `security-tracker-stats-dashboard`, `setup-preflight`, `skill-and-tool-validator`, `skill-evals`, `skill-reconciler-diff`, `skill-token-count`, `spec-inventory`, `spec-status-index`, `spec-validator`, `symlink-lint`, `vendor-neutrality-score`, `vetted-ops`
