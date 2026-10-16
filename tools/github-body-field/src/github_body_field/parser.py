@@ -86,7 +86,7 @@ _ANY_HEADING = re.compile(r"^([ \t]*)(?=#{1,6}(?:[ \t]|$))")
 _STRICT_H3 = re.compile(r"^### \S")
 # One list marker at the start of a (whitespace-stripped) line: a bullet or an ordered marker, then space/tab.
 _LIST_MARKER = re.compile(r"(?:[-*+]|\d{1,9}[.)])[ \t]")
-# How many block-quote / list markers `_nested_heading_name` strips before giving up.
+# How many block-quote / list markers `loose_heading_name` strips before giving up.
 _MAX_MARKERS = 64
 
 
@@ -178,7 +178,7 @@ def field_names(lines: list[str], roles: list[str] | None = None) -> list[str | 
     return names
 
 
-def _nested_heading_name(line: str) -> str | None:
+def loose_heading_name(line: str) -> str | None:
     """The name of a level-3 heading behind block-quote / list markers or indent, else None.
 
     Strips leading whitespace, then one marker at a time (``>``, a bullet or
@@ -249,7 +249,8 @@ def list_fields(body: str) -> list[str]:
     return [s.name for s in sections]
 
 
-def _fold(name: str) -> str:
+def fold_name(name: str) -> str:
+    """``name`` case-folded with its whitespace collapsed: how field names compare."""
     return " ".join(name.split()).casefold()
 
 
@@ -306,13 +307,13 @@ def _canonical_lines(
         elif role == "text":
             name = names[index]
             if name is None:
-                nested = _nested_heading_name(content)
-                if nested and _fold(nested) in canonical:
-                    disputed.setdefault(canonical[_fold(nested)], []).append(index + 1)
+                nested = loose_heading_name(content)
+                if nested and fold_name(nested) in canonical:
+                    disputed.setdefault(canonical[fold_name(nested)], []).append(index + 1)
                 continue
             if not name:
                 continue
-            spelled = canonical.get(_fold(name), name)
+            spelled = canonical.get(fold_name(name), name)
             wanted = f"### {spelled}"
             if wanted != content:
                 out[index] = wanted + ending
@@ -397,7 +398,7 @@ def normalise(
     changes nothing.
     """
     changes: list[dict[str, object]] = []
-    canonical = {_fold(name): name for name in (known_fields or [])}
+    canonical = {fold_name(name): name for name in (known_fields or [])}
 
     lines: list[str] = []
     first_cr: int | None = None

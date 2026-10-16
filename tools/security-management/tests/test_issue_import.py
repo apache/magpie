@@ -399,7 +399,8 @@ def test_render_body_reports_sanitising_fields_and_bot_credit(capsys, tmp_path) 
     assert out["fields"][3] == "Mailing list thread URL"
     assert out["reporter_credit_is_bot"] is True
     assert out["bare_refs"] == []  # inside the inert block a reference renders as text
-    assert "```text\n### Severity\nCritical ![p](https://attacker.example/p) see #12\n```" in out["text"]
+    assert "```text\n\\### Severity\nCritical ![p](https://attacker.example/p) see #12\n```" in out["text"]
+    assert out["escaped_lines"] == [1]
 
 
 def test_render_body_keeps_an_unclosed_fence_inert(capsys, tmp_path) -> None:
@@ -407,7 +408,7 @@ def test_render_body_keeps_an_unclosed_fence_inert(capsys, tmp_path) -> None:
     code, out = run(capsys, "render-body", "--input", write(tmp_path, "b.json", data))
     assert code == 0
     assert out["fields_ok"]
-    assert "````text\n```\n### Severity\nCritical\n````" in out["text"]
+    assert "````text\n```\n\\### Severity\nCritical\n````" in out["text"]
 
 
 def test_render_body_refuses_a_body_with_a_stray_line_break(capsys, tmp_path) -> None:

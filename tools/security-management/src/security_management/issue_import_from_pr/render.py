@@ -83,7 +83,7 @@ def render_body(data: Mapping[str, Any]) -> dict[str, Any]:
     pr = data["pr"]
     number = int(pr["number"])
     url = f"https://github.com/{upstream}/pull/{number}"
-    cleaned = body.inert_block(str(pr.get("body") or ""))
+    cleaned = body.inert_block(str(pr.get("body") or ""), body.headings(data.get("body_fields")).values())
     if not cleaned["ok"]:
         return {
             "ok": False,
@@ -116,6 +116,7 @@ def render_body(data: Mapping[str, Any]) -> dict[str, Any]:
         "text": text,
         "sanitised": True,
         "sanitised_fields": body.sanitised_fields(fields),
+        "escaped_lines": cleaned["escaped_lines"],
         "fields": parsed,
         "fields_ok": parsed == expected,
         "remediation_developer": developer,

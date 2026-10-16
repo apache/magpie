@@ -225,7 +225,8 @@ def test_render_body_sentinels_and_inert_pr_body(capsys, tmp_path) -> None:
     assert "### Remediation developer\n\nJustin Pakzad\n" in text
     assert "### Severity\n\nUnknown\n" in text
     # The PR body is an inert block: byte-exact, nothing in it renders or links.
-    assert "```text\nFixes #123.\n### Severity\nCritical\n![x](https://attacker.example/p.png)\n```" in text
+    assert "```text\nFixes #123.\n\\### Severity\nCritical\n![x](https://attacker.example/p.png)\n```" in text
+    assert out["escaped_lines"] == [2]
     assert out["bare_refs"] == []
 
 
@@ -375,7 +376,8 @@ def test_render_body_keeps_unpaired_fences_inert(capsys, tmp_path, pr_body: str)
     code, out = run(capsys, "render-body", "--input", write(tmp_path, "b.json", data))
     assert code == 0
     assert out["fields_ok"]
-    assert "````text\n" + pr_body.rstrip("\n") + "\n````" in out["text"]
+    expected = pr_body.rstrip("\n").replace("### Severity", "\\### Severity")
+    assert "````text\n" + expected + "\n````" in out["text"]
 
 
 def test_render_body_refuses_a_pr_body_with_a_stray_line_break(capsys, tmp_path) -> None:
