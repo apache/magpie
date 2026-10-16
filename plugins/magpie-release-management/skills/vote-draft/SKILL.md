@@ -25,7 +25,7 @@ argument-hint: "<version>-rcN [--skip-verify-check <reason>]"
 capability: capability:resolve
 surface_hash: sha256:6d70a52ead840ca2
 license: Apache-2.0
-measured_tokens: 5665
+measured_tokens: 5707
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

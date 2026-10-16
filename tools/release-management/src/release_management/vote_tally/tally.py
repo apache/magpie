@@ -43,7 +43,11 @@ Pass rule (``dev-list-vote``): ``binding_plus1 >= 3`` and
 a weakening or unknown key is rejected and reported, never applied.
 
 ``pr-approval`` with ``--min-approvals N`` (``approval_pr_min_approvals``):
-``binding_plus1 >= N``, a binding approval being a roster member's. The
+``binding_plus1 >= N``, a binding approval being a roster member's.
+:func:`pr_review_votes` turns the PR's gh ``reviews`` JSON into those votes:
+each reviewer's latest review decides (``APPROVED`` +1, ``CHANGES_REQUESTED``
+-1, ``DISMISSED`` no vote). A -1 is reported in ``binding_minus1`` but the
+rule counts approvals only, so its effect is that the reviewer's +1 is gone. The
 ``github-discussion`` and ``maintainer-roster`` rules are not specified, so
 their ``result`` stays null and the agent applies the configured rule.
 """
@@ -226,6 +230,72 @@ def describe_rule(rule: dict[str, Any]) -> str:
     if rule["max_binding_minus1"] is not None:
         text += f" AND binding_minus1 <= {rule['max_binding_minus1']}"
     return text
+
+
+REVIEW_VALUES = {"APPROVED": "+1", "CHANGES_REQUESTED": "-1"}
+# States that are not a decision: a comment, or a review not yet submitted.
+REVIEW_IGNORED = frozenset({"COMMENTED", "PENDING"})
+
+
+def pr_review_votes(
+    reviews: Any, login_map: dict[str, str] | None = None
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Turn the gh ``reviews`` JSON of the release PR into votes, one per reviewer.
+
+    ``reviews`` is what ``gh pr list --json number,reviews`` printed (a list of
+    PRs, the first one used), one PR object, or a bare list of reviews. Each
+    reviewer's latest decision (by ``submittedAt``; ``COMMENTED`` and ``PENDING``
+    are not decisions) is their vote: ``APPROVED`` is ``+1``, ``CHANGES_REQUESTED``
+    is ``-1``, and ``DISMISSED`` withdraws the reviewer's vote, so they cast none.
+    An approval followed by a change request therefore counts as ``-1``, never
+    ``+1``. ``login_map`` maps a GitHub login (case-insensitive) to the roster
+    ``Primary email``; an unmapped login is passed on as-is and stays non-binding.
+
+    Returns ``(votes, reviewers)``: the votes for :func:`tally`, in the order the
+    deciding reviews were submitted, and one entry per reviewer saying what
+    decided their vote.
+    """
+    if isinstance(reviews, list) and reviews and isinstance(reviews[0], dict) and "reviews" in reviews[0]:
+        reviews = reviews[0]
+    if isinstance(reviews, dict):
+        reviews = reviews.get("reviews")
+    if reviews == []:
+        return [], []
+    if not isinstance(reviews, list):
+        raise InputError(
+            "--pr-reviews must hold gh's `reviews` JSON (a PR list, a PR object or a review list)"
+        )
+    mapping = {str(k).strip().lower(): str(v).strip() for k, v in (login_map or {}).items()}
+    latest: dict[str, tuple[str, int, dict[str, Any]]] = {}
+    for index, review in enumerate(reviews):
+        if not isinstance(review, dict):
+            raise InputError(f"review #{index} is not an object")
+        state = str(review.get("state") or "").upper()
+        submitted = review.get("submittedAt")
+        login = str((review.get("author") or {}).get("login") or "").strip()
+        if not login:
+            raise InputError(f"review #{index} has no author.login")
+        if state in REVIEW_IGNORED or not submitted:
+            continue
+        if state not in REVIEW_VALUES and state != "DISMISSED":
+            raise InputError(f"review #{index} has unrecognised state {state!r}")
+        key = login.lower()
+        candidate = (str(submitted), index, review)
+        if key not in latest or candidate[:2] >= latest[key][:2]:
+            latest[key] = candidate
+    votes: list[dict[str, Any]] = []
+    reviewers: list[dict[str, Any]] = []
+    for key, (submitted, _, review) in sorted(latest.items(), key=lambda item: item[1][:2]):
+        state = str(review["state"]).upper()
+        login = str(review["author"]["login"]).strip()
+        value = REVIEW_VALUES.get(state)
+        sender = mapping.get(key, login)
+        reviewers.append(
+            {"login": login, "from": sender, "mapped": key in mapping, "latest_state": state, "value": value}
+        )
+        if value is not None:
+            votes.append({"from": sender, "date": submitted, "value": value})
+    return votes, reviewers
 
 
 def tally(

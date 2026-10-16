@@ -13,8 +13,19 @@ gh pr list --repo <upstream> \
   --limit 1
 ```
 
-Each `APPROVED` review is a `+1` from its author.
-A bare GitHub login never matches the roster, so map each login to its roster `Primary email` with the mapping the RM provides before tallying; an unmapped login is non-binding.
+Save that output and hand it to the tally as it is; never count the reviews yourself:
+
+```bash
+uv run --project <framework>/tools/release-management release-management vote-tally tally \
+  --pr-reviews <scratch>/pr-reviews.json --login-map <scratch>/login-map.json \
+  --roster <scratch>/roster.md --mechanism pr-approval --min-approvals <approval_pr_min_approvals>
+```
+
+Each reviewer's **latest** review (by `submittedAt`) is their vote; `COMMENTED` and pending reviews are not decisions and are skipped.
+`APPROVED` is `+1`, `CHANGES_REQUESTED` is `-1`, and `DISMISSED` withdraws the vote, so an approval followed by a change request or a dismissal is never a `+1`.
+The rule counts approvals only: a `-1` is reported in `binding_minus1` and in the `[RESULT]`, and its effect on the result is that the reviewer's `+1` is gone.
+`pr_reviewers` in the output lists what decided each reviewer's vote.
+A bare GitHub login never matches the roster, so `--login-map` (a JSON object, login to roster `Primary email`, from the mapping the RM provides) maps each one before tallying; an unmapped login is non-binding.
 
 **The pass rule is code:** pass `approval_pr_min_approvals` to the tally as `--min-approvals <N>`.
 `result` is `PASSED` when the binding approvals reach `N`, and `pass_rule_applied` names the rule.

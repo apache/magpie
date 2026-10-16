@@ -857,3 +857,109 @@ def test_cli_render_from_files(tmp_path, capsys):
     )
     assert code == 2
     assert json.loads(capsys.readouterr().out)["ok"] is False
+
+
+# --- pr-approval: each reviewer's latest review decides ---------------------------
+
+
+def review(login: str, state: str, at: str | None) -> dict:
+    return {"author": {"login": login}, "state": state, "submittedAt": at, "body": "ignored text"}
+
+
+LOGINS = {
+    "alice-gh": "alice@apache.org",
+    "Bob-GH": "bob.martinez@apache.org",
+    "carol-gh": "carol@example.com",
+}
+
+
+def test_pr_reviews_approve_then_request_changes_is_minus_one():
+    reviews = [
+        review("alice-gh", "APPROVED", "2026-06-11T09:00:00Z"),
+        review("alice-gh", "CHANGES_REQUESTED", "2026-06-12T09:00:00Z"),
+        review("bob-gh", "APPROVED", "2026-06-11T10:00:00Z"),
+    ]
+    votes, reviewers = tally.pr_review_votes([{"number": 7, "reviews": reviews}], LOGINS)
+    assert votes == [
+        {"from": "bob.martinez@apache.org", "date": "2026-06-11T10:00:00Z", "value": "+1"},
+        {"from": "alice@apache.org", "date": "2026-06-12T09:00:00Z", "value": "-1"},
+    ]
+    assert [r["latest_state"] for r in reviewers] == ["APPROVED", "CHANGES_REQUESTED"]
+    out = tally.tally(votes, tally.parse_roster(ROSTER), {}, False, "pr-approval", 2)
+    assert (out["binding_plus1"], out["binding_minus1"], out["result"]) == (1, 1, "FAILED")
+
+
+def test_pr_reviews_comment_is_not_a_decision_and_dismissal_withdraws():
+    reviews = [
+        review("alice-gh", "APPROVED", "2026-06-11T09:00:00Z"),
+        review("alice-gh", "COMMENTED", "2026-06-12T09:00:00Z"),
+        review("carol-gh", "APPROVED", "2026-06-11T09:00:00Z"),
+        review("carol-gh", "DISMISSED", "2026-06-11T12:00:00Z"),
+        review("bob-gh", "CHANGES_REQUESTED", "2026-06-11T08:00:00Z"),
+        review("bob-gh", "APPROVED", "2026-06-11T11:00:00Z"),
+        review("dave-gh", "PENDING", None),
+    ]
+    votes, reviewers = tally.pr_review_votes({"reviews": reviews}, LOGINS)
+    assert [(v["from"], v["value"]) for v in votes] == [
+        ("alice@apache.org", "+1"),
+        ("bob.martinez@apache.org", "+1"),
+    ]
+    assert {r["login"]: r["value"] for r in reviewers} == {"alice-gh": "+1", "bob-gh": "+1", "carol-gh": None}
+
+
+def test_pr_reviews_latest_is_by_submitted_at_not_list_order():
+    reviews = [
+        review("alice-gh", "CHANGES_REQUESTED", "2026-06-12T09:00:00Z"),
+        review("alice-gh", "APPROVED", "2026-06-11T09:00:00Z"),
+    ]
+    votes, _ = tally.pr_review_votes(reviews, LOGINS)
+    assert [v["value"] for v in votes] == ["-1"]
+
+
+def test_pr_reviews_unmapped_login_is_non_binding():
+    votes, reviewers = tally.pr_review_votes([review("frank-gh", "APPROVED", "2026-06-11T09:00:00Z")])
+    assert votes == [{"from": "frank-gh", "date": "2026-06-11T09:00:00Z", "value": "+1"}]
+    assert reviewers[0]["mapped"] is False
+    out = tally.tally(votes, tally.parse_roster(ROSTER), {}, False, "pr-approval", 1)
+    assert (out["binding_plus1"], out["nonbinding_plus1"], out["result"]) == (0, 1, "FAILED")
+
+
+def test_pr_reviews_rejects_malformed_input():
+    with pytest.raises(tally.InputError, match="unrecognised state"):
+        tally.pr_review_votes([review("a", "LGTM", "2026-06-11T09:00:00Z")])
+    with pytest.raises(tally.InputError, match="has no author"):
+        tally.pr_review_votes([{"state": "APPROVED", "submittedAt": "2026-06-11T09:00:00Z"}])
+    with pytest.raises(tally.InputError, match="reviews"):
+        tally.pr_review_votes("nope")
+
+
+def test_cli_tally_from_pr_reviews(tmp_path, capsys):
+    reviews = [
+        {
+            "number": 7,
+            "reviews": [
+                review("alice-gh", "APPROVED", "2026-06-11T09:00:00Z"),
+                review("alice-gh", "CHANGES_REQUESTED", "2026-06-12T09:00:00Z"),
+                review("bob-gh", "APPROVED", "2026-06-11T10:00:00Z"),
+                review("carol-gh", "APPROVED", "2026-06-11T11:00:00Z"),
+            ],
+        }
+    ]
+    (tmp_path / "reviews.json").write_text(json.dumps(reviews), encoding="utf-8")
+    (tmp_path / "map.json").write_text(json.dumps(LOGINS), encoding="utf-8")
+    (tmp_path / "roster.md").write_text(ROSTER, encoding="utf-8")
+    base = ["vote-tally", "tally", "--roster", str(tmp_path / "roster.md"), "--mechanism", "pr-approval"]
+    reviews_arg = ["--pr-reviews", str(tmp_path / "reviews.json")]
+    code = main([*base, *reviews_arg, "--login-map", str(tmp_path / "map.json"), "--min-approvals", "2"])
+    out = json.loads(capsys.readouterr().out)
+    assert code == 0
+    assert (out["binding_plus1"], out["binding_minus1"], out["result"]) == (2, 1, "PASSED")
+    assert [r["login"] for r in out["pr_reviewers"]] == ["bob-gh", "carol-gh", "alice-gh"]
+    # Without the login map no login matches the roster.
+    code = main([*base, *reviews_arg, "--min-approvals", "3"])
+    assert code == 0
+    assert json.loads(capsys.readouterr().out)["binding_plus1"] == 0
+    (tmp_path / "votes.json").write_text("[]", encoding="utf-8")
+    code = main([*base, "--votes", str(tmp_path / "votes.json"), "--login-map", str(tmp_path / "map.json")])
+    assert code == 2
+    assert "--pr-reviews" in json.loads(capsys.readouterr().out)["error"]

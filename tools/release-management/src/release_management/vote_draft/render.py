@@ -109,6 +109,7 @@ class Record:
 
 
 _PASTE = "_(paste from"
+SOURCE_NAME = re.compile(r"(?:^|[-_.])(?:source|src)(?:[-_.]|$)", re.IGNORECASE)
 
 
 def _tick(value: str) -> str | None:
@@ -116,6 +117,31 @@ def _tick(value: str) -> str | None:
     if not value or value.startswith(_PASTE):
         return None
     return value.strip("`").strip() or None
+
+
+def _source_artefact(text: str, artefacts: list[str]) -> str | None:
+    """The source artefact the record's sha512 belongs to, or None when the comment cannot tell.
+
+    The `**Artefacts:**` list may name convenience artefacts first, so the first entry is
+    never assumed. Of the entries not listed under *Convenience artefacts*, the one whose
+    name says `source` / `src` is it; failing that, the one ending in the comment's
+    `- Archive:` format. Anything but exactly one match leaves the digest unlabelled
+    rather than labelled wrongly.
+    """
+    archive = re.search(r"^- Archive:\s*`([^`]+)`", text, re.MULTILINE)
+    fmt = (archive.group(1).strip() if archive else "") or "tar.gz"
+    convenience: set[str] = set()
+    section = re.split(r"^#### Convenience artefacts\s*$", text, maxsplit=1, flags=re.MULTILINE)
+    if len(section) == 2:
+        convenience = set(re.findall(r"^- `([^`]+)` \(", section[1], re.MULTILINE))
+    others = [a for a in artefacts if a not in convenience]
+    # A name that says it is the source one wins: a custom build may name its archive in
+    # another format than a binary tarball that is not declared as a convenience artefact.
+    named = [a for a in others if SOURCE_NAME.search(a)]
+    if len(named) == 1:
+        return named[0]
+    candidates = [a for a in others if a.endswith("." + fmt.lstrip("."))]
+    return candidates[0] if len(candidates) == 1 else None
 
 
 def parse_rc_comment(text: str) -> Record:
@@ -145,9 +171,9 @@ def parse_rc_comment(text: str) -> Record:
     if swhid and ";origin=" not in swhid and found.get("repository"):
         swhid = f"{swhid};origin={found['repository']}" + (f";anchor={rev}" if rev else "")
     sha512 = found.get("sha512")
-    artefacts = re.findall(r"`([^`]+)`", found.get("artefacts") or "")
-    if sha512 and artefacts:
-        sha512 = f"{sha512} ({artefacts[0]})"
+    source = _source_artefact(text, re.findall(r"`([^`]+)`", found.get("artefacts") or ""))
+    if sha512 and source:
+        sha512 = f"{sha512} ({source})"
     return Record(
         repository=found.get("repository") if found.get("commit") else None,
         commit=found.get("commit"),
@@ -268,6 +294,33 @@ def verify_section(
     return "\n\n".join(sections)
 
 
+def canned_verify_missing(
+    draft: VoteDraft, body: str, record: Record, *, atr_candidate_url: str | None
+) -> list[str]:
+    """The mandatory *How to verify* items a canned body that has its own section leaves out.
+
+    The generated section is not added to such a body, so these are only warned about:
+    the reproducibility record (this RC's SWHID when the planning issue recorded one,
+    else at least a SWHID line), the ATR candidate page under `vote_backend = atr`, and
+    the trusted-hardware reminder under `signing_mode = ci-automated`.
+    """
+    lowered = body.lower()
+    gaps = []
+    if record.swhid:
+        if record.swhid not in body:
+            gaps.append(f"the reproducibility record: this RC's SWHID ({record.swhid}) is not in it")
+    elif "swhid" not in lowered:
+        gaps.append("the reproducibility record: it has no SWHID line")
+    if draft.vote_backend == "atr" and atr_candidate_url and atr_candidate_url not in body:
+        gaps.append(f"the ATR candidate page ({atr_candidate_url}), required when vote_backend = atr")
+    if draft.meta.get("signing_mode") == "ci-automated" and "--trusted-hardware" not in body:
+        gaps.append(
+            "the trusted-hardware reminder (a committer's byte-identical rebuild with --trusted-hardware), "
+            "required when signing_mode = ci-automated"
+        )
+    return gaps
+
+
 def _missing(
     draft: VoteDraft,
     *,
@@ -352,6 +405,7 @@ def step2(
             )
         )
     canned_missing_verify = False
+    canned_verify_gaps: list[str] | None = None
     if canned_body:
         body = draft.render(canned_body)
         for key, value in {
@@ -362,6 +416,9 @@ def step2(
             "<changelog_url>": changelog_url,
             "<keys_url>": draft.meta.get("keys_url"),
             "<vote_window_hours>": str(hours),
+            "<swhid>": record.swhid,
+            "<atr_candidate_url>": atr_candidate_url,
+            "<planning_issue>": planning_issue,
             "<RM name>": rm_name,
         }.items():
             if value:
@@ -377,6 +434,10 @@ def step2(
         if VERIFY_HEADING.lower() not in body.lower():
             canned_missing_verify = True
             body += "\n\n" + verify
+        else:
+            canned_verify_gaps = canned_verify_missing(
+                draft, body, record, atr_candidate_url=atr_candidate_url
+            )
         if notices:
             body += "\n\n" + "\n\n".join(notices)
     else:
@@ -441,6 +502,16 @@ def step2(
         warnings.append(
             f"canned_body has no '{VERIFY_HEADING}' section: it was appended; the project's canned [VOTE] block should gain it"
         )
+    if canned_verify_gaps is not None:
+        warnings.append(
+            f"canned_body carries its own '{VERIFY_HEADING}' section, so the generated one was not added: "
+            "the canned section must itself carry the reproducibility record (the SWHID line), the agentic "
+            "verification command, the manual verification page, the ATR candidate page under vote_backend = atr, "
+            "and the trusted-hardware reminder under signing_mode = ci-automated"
+        )
+        warnings += [
+            f"canned_body's '{VERIFY_HEADING}' section is missing {gap}" for gap in canned_verify_gaps
+        ]
     text = f"Subject: {subject}\n\n{body}" + (f"\n\n{atr}" if atr else "")
     return {
         "subject": subject,
@@ -451,6 +522,7 @@ def step2(
         "expedited": bool(expedited),
         "skip_verify_logged": bool(skip_verify),
         "verify_section_appended": canned_missing_verify,
+        "canned_verify_missing": canned_verify_gaps or [],
         "warnings": warnings,
         "text": text,
     }

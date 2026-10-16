@@ -28,7 +28,7 @@ capability:
   - capability:resolve
 surface_hash: sha256:34592bfacb7cf955
 license: Apache-2.0
-measured_tokens: 5470
+measured_tokens: 5512
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

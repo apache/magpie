@@ -64,7 +64,15 @@ def add_parsers(sub: Any) -> None:
     pre.add_argument("--replies", required=True, help="JSON list of {from, date, raw_vote_line}")
 
     count = commands.add_parser("tally", help="Step 2: binding resolution, one person one vote, pass rule")
-    count.add_argument("--votes", required=True, help="JSON file: list of classified votes")
+    source = count.add_mutually_exclusive_group(required=True)
+    source.add_argument("--votes", help="JSON file: list of classified votes")
+    source.add_argument(
+        "--pr-reviews",
+        help="pr-approval: file holding `gh pr list --json number,reviews`; each reviewer's latest review is their vote",
+    )
+    count.add_argument(
+        "--login-map", help="with --pr-reviews: JSON file mapping GitHub login to roster Primary email"
+    )
     count.add_argument("--roster", required=True, help="approver roster markdown file")
     count.add_argument(
         "--overrides",
@@ -88,9 +96,18 @@ def add_parsers(sub: Any) -> None:
 
 def _tally(args: argparse.Namespace) -> int:
     try:
-        votes = _json(args.votes)
-        if not isinstance(votes, list):
-            raise tally.InputError("--votes must hold a JSON list")
+        reviewers = None
+        if args.pr_reviews:
+            login_map = _json(args.login_map) if args.login_map else {}
+            if not isinstance(login_map, dict):
+                raise tally.InputError("--login-map must hold a JSON object of login -> Primary email")
+            votes, reviewers = tally.pr_review_votes(_json(args.pr_reviews), login_map)
+        else:
+            if args.login_map:
+                raise tally.InputError("--login-map only applies with --pr-reviews")
+            votes = _json(args.votes)
+            if not isinstance(votes, list):
+                raise tally.InputError("--votes must hold a JSON list")
         overrides = json.loads(args.overrides)
         if not isinstance(overrides, dict):
             raise tally.InputError("--overrides must be a JSON object")
@@ -98,6 +115,8 @@ def _tally(args: argparse.Namespace) -> int:
         if not roster:
             raise tally.InputError("roster has no rows with an Apache ID / Primary email header")
         out = tally.tally(votes, roster, overrides, args.force_close, args.mechanism, args.min_approvals)
+        if reviewers is not None:
+            out["pr_reviewers"] = reviewers
     except (tally.InputError, OSError, json.JSONDecodeError) as exc:
         emit({"error": str(exc)})
         return 2

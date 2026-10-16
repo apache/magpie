@@ -740,3 +740,108 @@ def test_cli_render_verdict_and_refusal(tmp_path, capsys) -> None:
     )
     assert code == 0
     assert json.loads(capsys.readouterr().out)["verdict"] == "proceed"
+
+
+# --- adversarial-review regressions ---------------------------------------------
+
+
+def _rc_comment(
+    artefacts: list[tuple[str, str]], *, convenience: list[dict[str, Any]] | None = None, fmt: str = "tar.gz"
+) -> str:
+    digest = "ab" * 64
+    cut = rc_cut.RcCut.from_load(
+        {
+            "build": {"expected_artefacts": [{"name": n, "kind": k} for n, k in artefacts]},
+            "metadata": {
+                "version": "2.11.0",
+                "rc_number": "rc1",
+                "expected_artefacts": [n for n, _ in artefacts],
+                "source_archive_format": fmt,
+                "convenience_artefacts": convenience or [],
+            },
+        },
+        upstream="apache/airflow",
+        project="airflow",
+    )
+    printed = f"commit {'1' * 40}\nSOURCE_DATE_EPOCH 1758326400\nsha512 {digest}\n"
+    return rc_cut.step4(cut, record=rc_cut.parse_record(printed))["comment"]
+
+
+def test_rc_comment_sha512_labels_the_source_artefact_not_the_first_listed() -> None:
+    comment = _rc_comment(
+        [
+            ("apache_airflow-2.11.0-py3-none-any.whl", "convenience"),
+            ("apache_airflow-2.11.0.tar.gz", "source"),
+        ],
+        convenience=[{"name": "apache_airflow-<version>-py3-none-any.whl", "kind": "wheel"}],
+    )
+    assert render.parse_rc_comment(comment).sha512 == f"{'ab' * 64} (apache_airflow-2.11.0.tar.gz)"
+
+
+def test_rc_comment_sha512_skips_a_convenience_artefact_in_the_source_format() -> None:
+    comment = _rc_comment(
+        [("apache-foo-2.11.0-bin.tar.gz", "convenience"), ("apache-foo-2.11.0-src.tar.gz", "source")],
+        convenience=[{"name": "apache-foo-<version>-bin.tar.gz", "kind": "binary"}],
+    )
+    assert render.parse_rc_comment(comment).sha512 == f"{'ab' * 64} (apache-foo-2.11.0-src.tar.gz)"
+
+
+def test_rc_comment_sha512_custom_format_found_by_its_source_name() -> None:
+    comment = _rc_comment(
+        [("apache-foo-2.11.0-bin.tar.gz", "convenience"), ("apache-foo-2.11.0-source-release.zip", "source")]
+    )
+    assert render.parse_rc_comment(comment).sha512 == f"{'ab' * 64} (apache-foo-2.11.0-source-release.zip)"
+
+
+def test_rc_comment_sha512_is_left_unlabelled_when_the_source_is_unclear() -> None:
+    comment = _rc_comment(
+        [("apache-foo-2.11.0-bin.tar.gz", "convenience"), ("apache-foo-2.11.0.tar.gz", "source")]
+    )
+    assert render.parse_rc_comment(comment).sha512 == "ab" * 64
+
+
+def _canned_warnings(out: dict[str, Any]) -> list[str]:
+    return [w for w in out["warnings"] if "canned_body" in w]
+
+
+def test_canned_verify_section_kept_but_warned_about() -> None:
+    canned = "Vote on <version>.\n\nHow to verify this candidate before voting\n  SWHID: <swhid>\n"
+    out = render.step2(draft(), canned_body=canned, record=CASE_1_RECORD, **urls("2.11.0-rc1"))
+    assert out["verify_section_appended"] is False
+    assert CASE_1_RECORD.swhid and CASE_1_RECORD.swhid in out["body"]
+    assert out["canned_verify_missing"] == []
+    (warning,) = _canned_warnings(out)
+    assert "the generated one was not added" in warning and "reproducibility record" in warning
+
+
+def test_canned_verify_section_missing_the_record_is_flagged() -> None:
+    canned = "Vote on <version>.\n\nHow to verify this candidate before voting\n... project text ...\n"
+    out = render.step2(draft(), canned_body=canned, record=CASE_1_RECORD, **urls("2.11.0-rc1"))
+    assert len(out["canned_verify_missing"]) == 1
+    assert str(CASE_1_RECORD.swhid) in out["canned_verify_missing"][0]
+    bare = render.step2(draft(), canned_body=canned, **urls("2.11.0-rc1"))
+    assert bare["canned_verify_missing"] == ["the reproducibility record: it has no SWHID line"]
+    assert len(_canned_warnings(bare)) == 2
+
+
+def test_canned_verify_section_checks_atr_and_trusted_hardware() -> None:
+    atr = "https://release-test.apache.org/c/airflow/2.11.0"
+    d = draft(vote_backend="atr", backend="svnpubsub", signing_mode="ci-automated")
+    canned = "Vote.\n\nHow to verify this candidate before voting\nSWHID: see the issue\n"
+    out = render.step2(d, canned_body=canned, svn_revision="1", atr_candidate_url=atr, **urls("2.11.0-rc1"))
+    missing = out["canned_verify_missing"]
+    assert len(missing) == 2
+    assert atr in missing[0] and "vote_backend = atr" in missing[0]
+    assert "--trusted-hardware" in missing[1] and "ci-automated" in missing[1]
+    assert len(_canned_warnings(out)) == 3
+    full = canned + "ATR: <atr_candidate_url>\nRebuild with --trusted-hardware --post-to <planning_issue>.\n"
+    ok = render.step2(
+        d,
+        canned_body=full,
+        svn_revision="1",
+        atr_candidate_url=atr,
+        planning_issue=PLANNING,
+        **urls("2.11.0-rc1"),
+    )
+    assert ok["canned_verify_missing"] == []
+    assert f"--post-to {PLANNING}" in ok["body"]
