@@ -20,7 +20,7 @@ argument-hint: "[issue-number]"
 capability: capability:resolve
 surface_hash: sha256:43a163bcbdb06f11
 license: Apache-2.0
-measured_tokens: 7563
+measured_tokens: 7582
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -296,9 +296,10 @@ the close. Read the *Security mailing list thread* body field:
 For `security@`-imported trackers, locate the Gmail `threadId`:
 
 1. Read the rollup comment on the tracker (the first
-   `<details>` block with the `<tracker> status rollup v1`
-   marker). Look for `threadId` references in the *Provenance:*
-   line of the import entry.
+   `<details>` block with the `apache-magpie: status-rollup v1`
+   marker, or the legacy `<tracker> status rollup v1` one). Look
+   for `threadId` references in the *Provenance:* line of the import
+   entry.
 2. If the rollup is missing or thin, fall back to a Gmail subject
    search: `mcp__claude_ai_Gmail__search_threads` with the
    tracker title (or a distinctive phrase from the body). One

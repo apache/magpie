@@ -50,8 +50,14 @@ class FakeGh:
     """Records every `gh` call and returns canned output for each
     pattern. Tests assert on the recorded calls."""
 
-    def __init__(self, has_rollup: bool = True, rollup_body: str = ROLLUP_BODY) -> None:
+    def __init__(
+        self,
+        has_rollup: bool = True,
+        rollup_body: str = ROLLUP_BODY,
+        earlier_comments: list[dict] | None = None,
+    ) -> None:
         self.calls: list[tuple[list[str], str | None]] = []
+        self.earlier_comments = earlier_comments or []
         self.has_rollup = has_rollup
         self.rollup_body = rollup_body
         self.deleted: list[str] = []
@@ -74,7 +80,7 @@ class FakeGh:
         joined = " ".join(cmd)
 
         if "issue view" in joined and "--json comments" in joined:
-            comments = []
+            comments = list(self.earlier_comments)
             if self.has_rollup:
                 comments.append(
                     {
@@ -265,7 +271,7 @@ def test_append_creates_new_rollup_when_none_exists(
     assert rc == 0
     body = fake_gh_no_rollup.posted_body
     assert body is not None
-    assert body.startswith("<!-- r status rollup v1 — all bot-authored status updates fold")
+    assert body.startswith("<!-- apache-magpie: status-rollup v1 -->\n<details><summary>")
     assert "· @potiuk · Import" in body
     assert "Imported from security@" in body
     err = capsys.readouterr().err
@@ -373,11 +379,34 @@ def test_latest_exits_3_when_no_rollup(fake_gh_no_rollup: FakeGh, capsys: pytest
 # ---------------------------------------------------------------------------
 
 
-def test_new_rollup_marker_names_the_tracker_repository(fake_gh_no_rollup: FakeGh) -> None:
+def test_new_rollup_uses_the_canonical_marker_whatever_the_tracker(fake_gh_no_rollup: FakeGh) -> None:
     rc = cli.main(["--repo", "acme/acme-security", "append", "7", "--action", "Import", "--entry-body", "x"])
     assert rc == 0
     assert fake_gh_no_rollup.posted_body is not None
-    assert fake_gh_no_rollup.posted_body.startswith("<!-- acme-security status rollup v1 ")
+    assert fake_gh_no_rollup.posted_body.startswith("<!-- apache-magpie: status-rollup v1 -->\n")
+
+
+def test_a_canonical_marker_rollup_is_found(monkeypatch: pytest.MonkeyPatch) -> None:
+    canonical = ROLLUP_BODY.replace(MARKER_LINE, "<!-- apache-magpie: status-rollup v1 -->")
+    f = FakeGh(rollup_body=canonical)
+    monkeypatch.setattr(subprocess, "run", f)
+    rc = cli.main(["--repo", "o/r", "append", "1", "--action", "Sync", "--entry-body", "x"])
+    assert rc == 0
+    assert f.posted_body is None
+    assert f.patched_body is not None and f.patched_body.startswith(canonical)
+
+
+def test_the_canonical_rollup_wins_over_an_earlier_legacy_one(monkeypatch: pytest.MonkeyPatch) -> None:
+    canonical = ROLLUP_BODY.replace(MARKER_LINE, "<!-- apache-magpie: status-rollup v1 -->")
+    legacy = {"id": "IC_LEGACY", "body": ROLLUP_BODY, "url": "https://github.com/o/r/issues/1#issuecomment-9"}
+    f = FakeGh(rollup_body=canonical, earlier_comments=[legacy])
+    monkeypatch.setattr(subprocess, "run", f)
+    rc = cli.main(["--repo", "o/r", "append", "1", "--action", "Sync", "--entry-body", "x"])
+    assert rc == 0
+    joined = [" ".join(c) for c, _ in f.calls]
+    assert any("PATCH repos/o/r/issues/comments/1" in j for j in joined)
+    assert not any("issues/comments/9" in j for j in joined)
+    assert f.patched_body is not None and f.patched_body.startswith(canonical)
 
 
 def test_a_rollup_written_for_another_tracker_is_still_found(monkeypatch: pytest.MonkeyPatch) -> None:

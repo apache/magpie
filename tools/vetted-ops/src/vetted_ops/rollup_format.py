@@ -27,28 +27,67 @@ backticks, trailing whitespace) without mocking subprocess.
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 
-# First line of any rollup comment: `<!-- <name> status rollup v<N> ...`.
-# `<name>` is the tracker repository's name (for example `airflow-s` for
-# `airflow-s/airflow-s`). Detection accepts any name so a rollup is found
-# whatever repository wrote it, and any version so a future `v2` bump
-# stays findable.
-ROLLUP_MARKER_RE = re.compile(r"^<!-- \S+ status rollup v\d+")
+# First line the tools write when they create a rollup: the
+# framework-wide `<!-- apache-magpie: <kind> v<N> -->` skill-comment
+# marker, with `status-rollup` as the kind.
+ROLLUP_MARKER = "<!-- apache-magpie: status-rollup v1 -->"
+
+# The canonical marker, any version so a future `v2` bump stays findable.
+CANONICAL_MARKER_RE = re.compile(r"^<!-- apache-magpie: status-rollup v\d+\b")
+
+# The legacy marker earlier versions wrote,
+# `<!-- <name> status rollup v<N> — … -->`, where `<name>` is the tracker
+# repository's name (for example `airflow-s`). Still recognised so a
+# tracker whose rollup predates the canonical marker keeps working.
+LEGACY_MARKER_RE = re.compile(r"^<!-- \S+ status rollup v\d+")
+
+# Either marker — what "is this comment a rollup" detection matches.
+ROLLUP_MARKER_RE = re.compile(r"^<!-- (?:apache-magpie: status-rollup|\S+ status rollup) v\d+")
 
 # Kept for callers that imported it; detection no longer depends on it.
 ROLLUP_MARKER_PREFIX = "<!-- airflow-s status rollup v"
 
 
 def is_rollup_body(body: str) -> bool:
-    """True when ``body`` starts with a status-rollup marker line."""
+    """True when ``body`` starts with a status-rollup marker line,
+    canonical or legacy."""
     return bool(ROLLUP_MARKER_RE.match(body))
 
 
-def marker_line(tracker_name: str) -> str:
-    """The first-line marker the tool writes when creating a rollup for
-    the tracker repository named ``tracker_name`` (the part after `/`)."""
-    return f"<!-- {tracker_name} status rollup v1 — all bot-authored status updates fold into this single comment. -->"
+def is_canonical_rollup_body(body: str) -> bool:
+    """True when ``body`` starts with the canonical
+    `<!-- apache-magpie: status-rollup v<N> -->` marker."""
+    return bool(CANONICAL_MARKER_RE.match(body))
+
+
+def find_rollup_index(bodies: Sequence[str]) -> int | None:
+    """Index of the rollup among the comment ``bodies``, or ``None``.
+
+    The first comment with the canonical marker wins; failing that, the
+    first with a legacy marker. Preferring the canonical one means a
+    tracker that carries both (a legacy-marker comment written next to
+    the skills' rollup) keeps growing the rollup the skills read.
+    """
+    legacy: int | None = None
+    for i, body in enumerate(bodies):
+        if is_canonical_rollup_body(body):
+            return i
+        if legacy is None and is_rollup_body(body):
+            legacy = i
+    return legacy
+
+
+def marker_line(tracker_name: str = "") -> str:
+    """The first-line marker the tool writes when creating a rollup.
+
+    ``tracker_name`` is accepted so existing callers keep working; the
+    canonical marker no longer names the tracker, so it is ignored.
+    """
+    del tracker_name
+    return ROLLUP_MARKER
 
 
 # Between consecutive `<details>` entries we always write exactly one
@@ -161,9 +200,11 @@ def build_entry(*, date: str, user: str, action: str, body: str) -> str:
     return f"<details><summary>{summary}</summary>\n\n{body_stripped}\n\n{_CLOSE_TAG}"
 
 
-def build_new_rollup_body(entry: str, tracker_name: str) -> str:
+def build_new_rollup_body(entry: str, tracker_name: str = "") -> str:
     """Compose a brand-new rollup comment body wrapping the first
     entry. Use when no rollup comment exists yet on the tracker.
+    The body always starts with the canonical marker; ``tracker_name``
+    is accepted for existing callers and ignored.
     """
     return f"{marker_line(tracker_name)}\n{entry}"
 

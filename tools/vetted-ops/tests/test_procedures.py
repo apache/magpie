@@ -27,7 +27,10 @@ import pytest
 from vetted_ops import body_field_format, cli, config, ops, procedures, rollup_format
 
 TRACKER = "acme/tracker"
-MARKER = rollup_format.marker_line("tracker")
+MARKER = rollup_format.ROLLUP_MARKER
+LEGACY_MARKER = (
+    "<!-- airflow-s status rollup v1 — all bot-authored status updates fold into this single comment. -->"
+)
 
 CONFIG_TOML = """
 workspace = '{workspace}'
@@ -112,12 +115,12 @@ def rollup_comment(body: str, rest_id: str = "555") -> dict[str, object]:
     }
 
 
-def existing_rollup(*actions: str) -> str:
+def existing_rollup(*actions: str, marker: str = MARKER) -> str:
     entries = [
         rollup_format.build_entry(date="2026-01-0" + str(i + 1), user="bob", action=a, body=f"entry {i}")
         for i, a in enumerate(actions)
     ]
-    body = f"{MARKER}\n{entries[0]}"
+    body = f"{marker}\n{entries[0]}"
     for e in entries[1:]:
         body = rollup_format.rebuild_with_appended_entry(body, e)
     return body
@@ -197,7 +200,7 @@ def test_append_creates_the_rollup_when_absent() -> None:
     assert argv == ["gh", "issue", "comment", "7", "--repo", TRACKER, "--body-file", "-"]
     assert stdin is not None
     assert stdin.decode() == (
-        "<!-- tracker status rollup v1 — all bot-authored status updates fold into this single comment. -->\n"
+        "<!-- apache-magpie: status-rollup v1 -->\n"
         "<details><summary>2026-09-28 · @alice · Sync</summary>\n\nhello\n\n</details>"
     )
 
@@ -233,12 +236,96 @@ def test_amend_prints_the_rollup_url(capsys: pytest.CaptureFixture[str]) -> None
     assert capsys.readouterr().out == "https://github.com/acme/tracker/issues/7#issuecomment-555\n"
 
 
-def test_append_finds_a_rollup_written_for_another_tracker_name() -> None:
-    old = existing_rollup("Import").replace("tracker status rollup", "airflow-s status rollup")
+def test_append_finds_a_legacy_marker_rollup() -> None:
+    old = existing_rollup("Import", marker=LEGACY_MARKER)
+    fake = FakeGh(comments=[rollup_comment(old)])
+    procedures.rollup_append(runner(fake), number="7", action="Sync", text="new", date="2026-09-28")
+    [(argv, stdin)] = fake.writes
+    assert argv == ["gh", "api", f"repos/{TRACKER}/issues/comments/555", "-X", "PATCH", "-F", "body=@-"]
+    assert stdin is not None
+    # The legacy rollup keeps its own marker line; only a new rollup gets the canonical one.
+    assert stdin.decode().startswith(f"{LEGACY_MARKER}\n")
+
+
+def test_append_finds_a_legacy_rollup_written_for_another_tracker_name() -> None:
+    old = existing_rollup("Import", marker=LEGACY_MARKER.replace("airflow-s", "acme-security"))
     fake = FakeGh(comments=[rollup_comment(old)])
     procedures.rollup_append(runner(fake), number="7", action="Sync", text="new", date="2026-09-28")
     [(argv, _)] = fake.writes
     assert "-X" in argv and argv[argv.index("-X") + 1] == "PATCH"
+
+
+def test_append_prefers_the_canonical_rollup_over_an_earlier_legacy_one() -> None:
+    legacy = existing_rollup("Import", marker=LEGACY_MARKER)
+    canonical = existing_rollup("Import", "Sync")
+    fake = FakeGh(comments=[rollup_comment(legacy, rest_id="111"), rollup_comment(canonical, rest_id="222")])
+    procedures.rollup_append(runner(fake), number="7", action="Sync", text="new", date="2026-09-28")
+    [(argv, stdin)] = fake.writes
+    assert argv[2] == f"repos/{TRACKER}/issues/comments/222"
+    assert stdin is not None
+    assert stdin.decode().startswith(f"{MARKER}\n")
+    assert [e.action for e in rollup_format.iter_entries(stdin.decode())] == ["Import", "Sync", "Sync"]
+
+
+def test_append_never_creates_a_second_rollup_beside_a_canonical_one() -> None:
+    fake = FakeGh(comments=[{"body": "hi", "url": "x"}, rollup_comment(existing_rollup("Import"))])
+    procedures.rollup_append(runner(fake), number="7", action="Sync", text="new", date="2026-09-28")
+    [(argv, _)] = fake.writes
+    assert argv[:3] == ["gh", "api", f"repos/{TRACKER}/issues/comments/555"]
+
+
+def test_amend_prefers_the_canonical_rollup_over_an_earlier_legacy_one() -> None:
+    legacy = existing_rollup("Sync", marker=LEGACY_MARKER)
+    canonical = existing_rollup("Import", "Sync")
+    fake = FakeGh(comments=[rollup_comment(legacy, rest_id="111"), rollup_comment(canonical, rest_id="222")])
+    procedures.rollup_amend_latest(runner(fake), number="7", action="Sync", text="rewritten")
+    [(argv, stdin)] = fake.writes
+    assert argv[2] == f"repos/{TRACKER}/issues/comments/222"
+    assert stdin is not None
+    assert [e.body for e in rollup_format.iter_entries(stdin.decode())] == ["entry 0", "rewritten"]
+
+
+# --- rollup_format: markers ---------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("body", "canonical", "rollup"),
+    [
+        ("<!-- apache-magpie: status-rollup v1 -->\n<details>", True, True),
+        ("<!-- apache-magpie: status-rollup v2 -->", True, True),
+        (f"{LEGACY_MARKER}\n<details>", False, True),
+        ("<!-- acme-security status rollup v1 — x -->", False, True),
+        ("<!-- apache-magpie: release-manager-handoff v1 -->", False, False),
+        ("<!-- apache-magpie: status-rollup-x v1 -->", False, False),
+        ("a reply quoting <!-- apache-magpie: status-rollup v1 -->", False, False),
+        ("", False, False),
+    ],
+)
+def test_marker_detection(body: str, canonical: bool, rollup: bool) -> None:
+    assert rollup_format.is_canonical_rollup_body(body) is canonical
+    assert rollup_format.is_rollup_body(body) is rollup
+
+
+def test_find_rollup_index_prefers_canonical_then_first_legacy() -> None:
+    canonical = existing_rollup("Import")
+    legacy = existing_rollup("Import", marker=LEGACY_MARKER)
+    assert rollup_format.find_rollup_index(["hi", legacy, canonical]) == 2
+    assert rollup_format.find_rollup_index(["hi", legacy, legacy]) == 1
+    assert rollup_format.find_rollup_index(["hi", "there"]) is None
+    assert rollup_format.find_rollup_index([]) is None
+
+
+def test_new_rollup_body_starts_with_the_canonical_marker_whatever_the_tracker() -> None:
+    entry = rollup_format.build_entry(date="2026-09-28", user="alice", action="Sync", body="x")
+    for name in ("", "airflow-s", "acme-security"):
+        body = rollup_format.build_new_rollup_body(entry, name)
+        assert body == f"<!-- apache-magpie: status-rollup v1 -->\n{entry}"
+        assert rollup_format.is_canonical_rollup_body(body)
+
+
+def test_iter_entries_skips_the_canonical_marker_line() -> None:
+    entries = rollup_format.iter_entries(existing_rollup("Import", "Sync"))
+    assert [(e.action, e.body) for e in entries] == [("Import", "entry 0"), ("Sync", "entry 1")]
 
 
 def test_dry_run_makes_no_writes_and_never_echoes_the_body(capsys: pytest.CaptureFixture[str]) -> None:
@@ -323,6 +410,13 @@ def test_fold_does_not_delete_when_the_append_fails() -> None:
 def test_fold_refuses_the_rollup_itself() -> None:
     fake = FakeGh(legacy=legacy_comment(body=existing_rollup("Import")))
     with pytest.raises(procedures.ProcedureRefused, match="rollup itself"):
+        procedures.rollup_fold(runner(fake), number="7", comment_id="555", action="x")
+    assert fake.writes == []
+
+
+def test_fold_refuses_a_legacy_marker_rollup() -> None:
+    fake = FakeGh(legacy=legacy_comment(body=existing_rollup("Import", marker=LEGACY_MARKER)))
+    with pytest.raises(procedures.ProcedureRefused, match="is the rollup itself"):
         procedures.rollup_fold(runner(fake), number="7", comment_id="555", action="x")
     assert fake.writes == []
 

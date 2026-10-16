@@ -474,8 +474,10 @@ prompts. `vetted-op` can run the same operations, but only inside the sandbox.
   `<`, `>` or `·` (the summary-line separator); `field` is a heading name of
   1-80 characters with no leading `-` and no `#`.
 - `rollup-append` attributes the entry to the authenticated `gh` login and today's
-  UTC date, and creates the rollup (marker line for the tracker's name) when the
-  issue has none. It finds a rollup written under any tracker name.
+  UTC date, and creates the rollup (marker line `<!-- apache-magpie: status-rollup v1 -->`)
+  when the issue has none. It finds the rollup by that marker first, then by the
+  legacy `<!-- <name> status rollup v<N>` marker, so a tracker carrying both keeps
+  growing the canonical one.
 - `rollup-amend-latest` refuses unless the latest entry's action equals `action`,
   so a concurrent entry by someone else is never overwritten.
 - `rollup-fold` keeps the legacy comment's date and author, left-trims its lines,

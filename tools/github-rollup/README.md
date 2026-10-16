@@ -96,9 +96,10 @@ Optional flags:
 - `--dry-run` — print the decision (create vs append) without
   writing.
 
-A new rollup's marker line names the tracker repository
-(`<!-- <repo-name> status rollup v1 — … -->`); an existing rollup is
-found by any `<!-- <name> status rollup v<N>` marker.
+A new rollup's marker line is `<!-- apache-magpie: status-rollup v1 -->`.
+An existing rollup is found by that marker first, then by the legacy
+`<!-- <name> status rollup v<N>` marker, so a tracker with both keeps
+growing the canonical one.
 
 ### `amend-latest <issue> --action "<label>" ...`
 
