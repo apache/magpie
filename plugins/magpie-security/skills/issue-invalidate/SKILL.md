@@ -20,7 +20,7 @@ argument-hint: "[issue-number]"
 capability: capability:resolve
 surface_hash: sha256:43a163bcbdb06f11
 license: Apache-2.0
-measured_tokens: 7163
+measured_tokens: 7563
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
