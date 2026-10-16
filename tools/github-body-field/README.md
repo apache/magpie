@@ -117,13 +117,14 @@ The JSON on stdout carries `changes` (`{line, kind}` per rewrite, input line num
 
 What it rewrites: `\r\n` and `\r` to `\n` (`line_endings`);
 a level-3 heading to `### Name` (`heading`, `heading_name`);
-a heading-shaped line inside a fence to `\###` (`heading_in_fence`);
+(lines inside a fence are never rewritten, so fenced payloads round-trip byte-exact);
 a fence left open at the end to a closed one (`unclosed_fence`);
 a repeated field whose copies hold the same value to its first copy (`duplicate_dropped`, or `duplicate_resolved` with `--keep`).
 Copies with different values stay as they are and land in `needs_decision`.
 A heading-shaped line that is not a field heading is never rewritten;
 when it names a known field (after stripping `>` and list markers), `{field, kind: "container-heading", lines}` lands in `needs_decision`, never taken as the field and never ignored.
-After normalising, a strict reader (`### <name>` at column 0, fences opened only at column 0, fence content unescaped) cross-checks the result,
+After normalising, a strict reader (column-0 headings under the same spacing rules, fences opened only at column 0) cross-checks the result,
+a heading-shaped line naming a known field where the two fence views disagree is a decision too,
 and a field heading the two disagree on lands there too, instead of either reading winning.
 The same function is importable as `github_body_field.normalise(body, known_fields, keep)`; `generate-cve-json` calls it in memory before every read.
 
@@ -157,6 +158,6 @@ path; this tool intentionally does not invent headings.
 | Exit | Meaning |
 |---|---|
 | 0 | Success (or `set` was a no-op because new value matched current). |
-| 2 | CLI argument error (e.g. both `--value` and `--value-file` given), or `get` / `set` refused an ambiguous field (`AmbiguousFieldError`): the strict cross-check finds a different field set, or a heading naming the field sits behind `>`, a list marker or an indent. Every read and write runs this check itself; the body is untouched. |
+| 2 | CLI argument error (e.g. both `--value` and `--value-file` given), or `get` / `set` refused an ambiguous field (`AmbiguousFieldError`): the strict cross-check finds a different field set, or a heading naming the field sits behind `>`, a list marker or an indent. Every read and write runs this check itself; `set` also refuses when the replaced value, old or new, holds a heading-shaped line outside fences, or when the rewrite would change any other field. The body is untouched. |
 | 3 | Field heading not found, or matched more than once (`DuplicateFieldError`, a `FieldNotFoundError`). The body is untouched. |
 | other | `gh` returned non-zero; the underlying `gh` stderr is forwarded. |

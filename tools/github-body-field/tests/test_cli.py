@@ -18,6 +18,7 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -65,8 +66,8 @@ class FakeGh:
         self.calls.append((cmd, input))
         # Distinguish read vs write by argv shape.
         if "view" in cmd:
-            # gh appends a trailing newline to --jq .body output; replicate.
-            return FakeResult(returncode=0, stdout=self.body + "\n")
+            # The body comes back as JSON (`--json body`), CRs escaped.
+            return FakeResult(returncode=0, stdout=json.dumps({"body": self.body}) + "\n")
         if "edit" in cmd:
             # Capture the new body so the test can assert on it.
             assert input is not None, "edit must pipe a body via stdin"

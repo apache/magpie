@@ -472,6 +472,14 @@ def test_body_field_get_and_set_refuse_an_ambiguous_field(nested: str) -> None:
     assert fake.writes == []
 
 
+def test_body_field_set_refuses_to_replace_a_span_hiding_another_field() -> None:
+    body = "### The issue description\n\nreport\n\n   ### Severity\n\nHigh\n"
+    fake = FakeGh(body=body)
+    with pytest.raises(procedures.ProcedureRefused, match="heading-shaped"):
+        procedures.body_field_set(runner(fake), number="7", field="The issue description", text="new")
+    assert fake.writes == []
+
+
 def test_body_field_get_prints_only_the_value(capsys: pytest.CaptureFixture[str]) -> None:
     fake = FakeGh(body=ISSUE_BODY)
     procedures.body_field_get(runner(fake, writes=False), number="7", field="Severity")

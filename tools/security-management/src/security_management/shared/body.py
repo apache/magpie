@@ -42,7 +42,7 @@ code block or a section. `sanitised_fields` names the roles that needed it.
 
 `verify` is the last check before a body is returned: github-body-field's
 normaliser must find exactly the template fields, once each, with nothing
-to decide and nothing to rewrite but headings inside fences.
+to decide and nothing to rewrite.
 
 The prompt-injection callout is the model's call (`callout`); this module
 never decides whether a body is an injection attempt.
@@ -98,9 +98,9 @@ _ENTITY = {"`": "&#96;", "~": "&#126;"}
 # comment, a declaration or a processing instruction, at a line start or not.
 _HTML_OPENER = re.compile(r"<(?=[A-Za-z/!?])")
 _BACKTICKS = re.compile(r"`+")
-# The only rewrite `verify` accepts: github-body-field escaping a heading-shaped
-# line inside a fence, which only a reader that ignores fences could misread.
-_HARMLESS_CHANGES = {"heading_in_fence"}
+# The rewrites `verify` accepts from github-body-field's normaliser: none. A
+# rendered body must already be canonical (fenced lines are never rewritten).
+_HARMLESS_CHANGES: set[str] = set()
 
 
 def is_fence(line: str) -> bool:
@@ -261,7 +261,7 @@ def verify(text: str, body_fields: Mapping[str, str] | None = None) -> str | Non
     """Why the rendered body `text` must not be returned, or None when it is safe.
 
     github-body-field's normaliser must find nothing to decide, nothing to
-    rewrite but headings inside fences, and exactly the template fields,
+    rewrite, and exactly the template fields,
     once each and in order.
     """
     expected = list(headings(body_fields).values())

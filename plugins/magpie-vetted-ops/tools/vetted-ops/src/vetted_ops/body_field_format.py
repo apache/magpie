@@ -76,12 +76,6 @@ class AmbiguousFieldError(FieldNotFoundError):
 _LINE = re.compile(r"[^\r\n]*(?:\r\n|\r|\n)|[^\r\n]+\Z")
 # A fence line: up to three spaces, a run of 3+ backticks or tildes, the rest (info string or nothing).
 _FENCE = re.compile(r"^( {0,3})(`{3,}|~{3,})(.*)$")
-# A level-3 ATX heading: up to three spaces, `###`, then whitespace and content, or nothing at all.
-_H3 = re.compile(r"^ {0,3}###(?:[ \t]+(.*?))?[ \t]*$")
-# An optional closing sequence: a run of `#` preceded by whitespace (or standing alone).
-_CLOSING = re.compile(r"(?:^|[ \t]+)#+$")
-# Any heading-shaped line (any level, any indent), escaped when it sits inside a fence.
-_ANY_HEADING = re.compile(r"^([ \t]*)(?=#{1,6}(?:[ \t]|$))")
 # The strict field heading: `### ` at column 0 and a name.
 _STRICT_H3 = re.compile(r"^### \S")
 
@@ -133,17 +127,39 @@ def fence_roles(lines: Iterable[str]) -> list[str]:
     return roles
 
 
+def _strip_closing(text: str) -> str:
+    """``text`` (already stripped) without a closing run of ``#``: one that stands
+    alone or follows a space or tab. Index scans only, linear in the length."""
+    end = len(text)
+    while end > 0 and text[end - 1] == "#":
+        end -= 1
+    if end == len(text):
+        return text
+    if end == 0:
+        return ""
+    if text[end - 1] in " \t":
+        return text[:end].rstrip(" \t")
+    return text
+
+
 def heading_name(line: str) -> str | None:
     """The field name of a level-3 ATX heading line, or None when ``line`` is not one.
 
-    Surrounding spaces and tabs and a closing run of ``#`` are dropped;
-    a bare ``###`` is a heading with an empty name.
+    Up to three spaces of indent, ``###``, then a space or tab (or nothing).
+    Surrounding spaces and tabs and a closing run of ``#`` are dropped; a bare
+    ``###`` is a heading with an empty name. Index scans only: linear in the
+    line length whatever its whitespace.
     """
-    match = _H3.match(_content(line))
-    if match is None:
+    content = _content(line)
+    start = 0
+    while start < 3 and content[start : start + 1] == " ":
+        start += 1
+    if not content.startswith("###", start):
         return None
-    text = (match.group(1) or "").strip(" \t")
-    return _CLOSING.sub("", text).strip(" \t")
+    rest = content[start + 3 :]
+    if rest[:1] not in ("", " ", "\t"):
+        return None
+    return _strip_closing(rest.strip(" \t"))
 
 
 def field_names(lines: list[str], roles: list[str] | None = None) -> list[str | None]:
@@ -158,15 +174,23 @@ def field_names(lines: list[str], roles: list[str] | None = None) -> list[str | 
     is content.
     """
     roles = roles if roles is not None else fence_roles(lines)
+    return _field_names(lines, [role == "text" for role in roles], allow_indent=True)
+
+
+def _field_names(lines: list[str], outside: list[bool], *, allow_indent: bool) -> list[str | None]:
+    """:func:`field_names` over a given fence view; without ``allow_indent`` only
+    column-0 headings count (the strict reader)."""
     names: list[str | None] = []
     after_heading = True  # the start of the body counts as "after a heading"
     after_blank = True
-    for line, role in zip(lines, roles, strict=True):
+    for line, is_text in zip(lines, outside, strict=True):
         content = _content(line)
         name: str | None = None
-        if role == "text":
+        if is_text:
             indented = content[:1] in (" ", "\t")
-            if _STRICT_H3.match(content) or after_heading or (after_blank and not indented):
+            if indented and not allow_indent:
+                pass
+            elif _STRICT_H3.match(content) or after_heading or (after_blank and not indented):
                 name = heading_name(content)
         names.append(name)
         after_heading = name is not None
@@ -204,8 +228,7 @@ def loose_heading_name(line: str) -> str | None:
     rest = content[i:]
     if not rest.startswith("###") or rest[3:4] not in ("", " ", "\t"):
         return None
-    text = rest[3:].strip(" \t")
-    return _CLOSING.sub("", text).strip(" \t")
+    return _strip_closing(rest[3:].strip(" \t"))
 
 
 @dataclass(frozen=True)
@@ -291,7 +314,7 @@ def _canonical_lines(
     disputed: dict[str, list[int]],
     plain: list[str],
 ) -> list[str]:
-    """Headings canonicalised, headings inside fences escaped, an unclosed fence closed.
+    """Headings canonicalised and an unclosed fence closed; fenced lines stay byte-exact.
 
     A heading-shaped line outside fences that is not a field heading (behind
     a block-quote or list marker, indented, or not after a blank line) but
@@ -309,11 +332,6 @@ def _canonical_lines(
             open_index = index
         elif role == "close":
             open_index = None
-        elif role == "code":
-            escaped = _ANY_HEADING.sub(lambda m: m.group(1) + "\\", content, count=1)
-            if escaped != content:
-                out[index] = escaped + ending
-                changes.append({"line": index + 1, "kind": "heading_in_fence"})
         elif role == "text":
             name = names[index]
             if name is None:
@@ -328,12 +346,9 @@ def _canonical_lines(
             if wanted != content:
                 out[index] = wanted + ending
                 changes.append({"line": index + 1, "kind": "heading" if spelled == name else "heading_name"})
-    # The strict cross-check reads the headings as canonicalised but the fences
-    # unescaped and unclosed, so it still sees what a column-0 reader would.
+    # The strict cross-check reads the headings as canonicalised and the fence
+    # left unclosed, so it still sees what a column-0 reader would.
     plain.extend(out)
-    for index, role in enumerate(roles):
-        if role == "code":
-            plain[index] = lines[index]
     if open_index is not None:
         opener = _FENCE.match(_content(out[open_index]))
         assert opener is not None  # an "open" role always matched
@@ -348,16 +363,26 @@ def _strict_fields(text: str) -> list[tuple[int, str]]:
     """``(line, name)`` of every field a strict reader finds in ``text``.
 
     A second, deliberately simpler reading used to cross-check the lenient
-    parser on a normalised body: a field is a ``### <name>`` line at column
-    0 outside a fence, and a fence opens only at column 0. Where the two
-    readings disagree, a reader of the body could disagree too.
+    parser on a normalised body: a fence opens only at column 0, and a field
+    heading is a column-0 heading under the same rules as the lenient
+    reader's (``### <name>``, or a spacing / tab / closing-``#`` variant
+    after a blank line or a heading). Where the two readings disagree, a
+    reader of the body could disagree too.
     """
-    found: list[tuple[int, str]] = []
+    lines = split_lines(text)
+    names = _field_names(lines, _strict_outside(lines), allow_indent=False)
+    return [(number, name) for number, name in enumerate(names, 1) if name is not None]
+
+
+def _strict_outside(lines: list[str]) -> list[bool]:
+    """Per line, whether it is outside a fence when fences open only at column 0."""
+    outside: list[bool] = []
     opened: tuple[str, int] | None = None
-    for number, raw in enumerate(split_lines(text), 1):
+    for raw in lines:
         line = _content(raw)
         match = _FENCE.match(line)
         if opened is not None:
+            outside.append(False)
             if (
                 match
                 and match.group(2)[0] == opened[0]
@@ -368,9 +393,10 @@ def _strict_fields(text: str) -> list[tuple[int, str]]:
             continue
         if match and not match.group(1) and _opens_fence(match):
             opened = (match.group(2)[0], len(match.group(2)))
-        elif _STRICT_H3.match(line):
-            found.append((number, heading_name(line) or ""))
-    return found
+            outside.append(False)
+        else:
+            outside.append(True)
+    return outside
 
 
 def normalise(
@@ -386,8 +412,8 @@ def normalise(
       ``heading``); with ``known_fields``, a name equal to a known field
       once whitespace-collapsed (case kept, as main matched) takes the known spelling
       (kind ``heading_name``);
-    - a heading-shaped line inside a fence gets a ``\\`` before its first
-      ``#``, so no reader takes it for a field (kind ``heading_in_fence``);
+    - lines inside a fence are never rewritten (a fence only decides what
+      counts as a heading), so fenced payloads round-trip byte-exact;
     - a fence still open at the end of the body is closed (kind
       ``unclosed_fence``, at the opener's line);
     - a field heading repeated outside fences: when every copy holds the
@@ -429,6 +455,15 @@ def normalise(
     lenient = {(s.line_no, s.name) for s in sections if s.name}
     for line_no, name in sorted(lenient ^ {f for f in _strict_fields("".join(plain)) if f[1]}):
         disputed.setdefault(name, []).append(line_no)
+    # Where the two fence views disagree, a heading-shaped line naming a known
+    # field is a decision too, wherever it sits.
+    if canonical:
+        plain_lines = split_lines("".join(plain))
+        lenient_outside = [role == "text" for role in fence_roles(plain_lines)]
+        for index, (a, b) in enumerate(zip(lenient_outside, _strict_outside(plain_lines), strict=True)):
+            hidden = loose_heading_name(plain_lines[index]) if a != b else None
+            if hidden and collapse_name(hidden) in canonical:
+                disputed.setdefault(canonical[collapse_name(hidden)], []).append(index + 1)
     needs_decision: list[dict[str, object]] = [
         {"field": name, "kind": "container-heading", "lines": sorted(set(line_nos))}
         for name, line_nos in disputed.items()
@@ -598,4 +633,46 @@ def replace_field(body: str, field: str, new_value: str) -> str:
     for index, s in enumerate(sections):
         out.append(s.heading_line)
         out.extend(rebuilt_body_lines if index == target_idx else s.body_lines)
-    return "".join(out)
+    new_body = "".join(out)
+    _refuse_unsafe_rewrite(body, new_body, field, target.body_lines, rebuilt_body_lines)
+    return new_body
+
+
+def _heading_shaped_lines(span: list[str]) -> list[int]:
+    """1-based offsets in ``span`` of lines outside fences shaped like a level-3
+    heading (behind any indent, ``>`` or list marker), whatever the name."""
+    roles = fence_roles(span)
+    return [
+        i
+        for i, (line, role) in enumerate(zip(span, roles, strict=True), 1)
+        if role == "text" and loose_heading_name(line)
+    ]
+
+
+def _refuse_unsafe_rewrite(
+    old_body: str, new_body: str, field_name: str, old_span: list[str], new_span: list[str]
+) -> None:
+    """Raise :class:`AmbiguousFieldError` unless rewriting ``field_name`` leaves
+    every other field exactly as it was.
+
+    The replaced span, before and after, must hold no heading-shaped line
+    outside fences: whether such a line is a field depends on the reader, so
+    replacing the span could delete one or create one. And the rewritten body
+    must parse to the same fields, every other one byte-identical.
+    """
+    for label, span in (("current", old_span), ("new", new_span)):
+        if _heading_shaped_lines(span):
+            raise AmbiguousFieldError(
+                f"field {field_name!r}: its {label} value holds a heading-shaped line that a reader "
+                "could take for another field; refusing to rewrite it"
+            )
+    _, before = _parse(old_body)
+    _, after = _parse(new_body)
+    if [s.name for s in before] != [s.name for s in after] or any(
+        (b.heading_line, b.body_lines) != (a.heading_line, a.body_lines)
+        for b, a in zip(before, after, strict=True)
+        if b.name != field_name
+    ):
+        raise AmbiguousFieldError(
+            f"field {field_name!r}: the rewrite would change another field; refusing to rewrite it"
+        )

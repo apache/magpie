@@ -169,7 +169,7 @@ def test_the_report_renders_as_one_inert_block(report: str) -> None:
     assert set(roles[1:-1]) <= {"code"}
     result = normalise_fields(text, list(body.DEFAULT_HEADINGS.values()))
     assert result.needs_decision == []
-    assert {c["kind"] for c in result.changes} <= {"heading_in_fence"}
+    assert result.changes == []
 
 
 def test_the_fence_is_one_longer_than_the_longest_backtick_run() -> None:
@@ -250,3 +250,16 @@ def test_no_machine_marker_travels_in_report_text(report: str) -> None:
         assert not line.lstrip(" \t").startswith("<!--"), line
     assert "&lt;!-- generate-cve-json" in text  # the short field is escaped too
     assert body.verify(text) is None
+
+
+def test_inert_block_is_linear_in_long_whitespace_runs() -> None:
+    import time
+
+    spaces = " " * 100_000
+    report = f"###{spaces}Severity{spaces}#\n> -{spaces}### CWE{spaces}\n{spaces}<!--{spaces}\n"
+    start = time.perf_counter()
+    block = body.inert_block(report)
+    text = body.render({"issue_description": block["text"]})
+    assert body.verify(text) is None
+    assert time.perf_counter() - start < 1.0
+    assert block["escaped_lines"] == [1, 2, 3]
