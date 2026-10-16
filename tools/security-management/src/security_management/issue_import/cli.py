@@ -96,6 +96,12 @@ def add_parsers(sub: Any) -> None:
 def _render_body(data: dict[str, Any]) -> dict[str, Any]:
     fields = dict(data.get("fields") or {})
     cleaned = body.sanitise(str(fields.get("issue_description") or ""))
+    if not cleaned["ok"]:
+        return {
+            "ok": False,
+            "refused": f"the report body is malformed (unpaired {cleaned['indicator']}); it is not rendered",
+            "malformed_indicator": cleaned["indicator"],
+        }
     fields["issue_description"] = cleaned["text"]
     text = body.render(fields, data.get("body_fields"), callout=bool(data.get("callout")))
     expected = list(body.headings(data.get("body_fields")).values())
@@ -104,8 +110,9 @@ def _render_body(data: dict[str, Any]) -> dict[str, Any]:
     return {
         "ok": True,
         "text": text,
-        "sanitised": cleaned["ok"],
-        "malformed_indicator": cleaned["indicator"],
+        "sanitised": True,
+        "sanitised_fields": body.sanitised_fields(fields),
+        "malformed_indicator": None,
         "fields": parsed,
         "fields_ok": parsed == expected,
         "extra_fields": [f for f in parsed if f not in expected],
@@ -153,7 +160,10 @@ def dispatch(args: argparse.Namespace) -> int:
         )
         return 0
     if command == "render-body":
-        emit(_render_body(data))
+        rendered = _render_body(data)
+        if not rendered["ok"]:
+            return refuse(str(rendered["refused"]), malformed_indicator=rendered["malformed_indicator"])
+        emit(rendered)
         return 0
     if command == "ack-decision":
         emit(ack.decide(data))

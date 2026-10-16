@@ -76,7 +76,7 @@ def test_images_are_defused_outside_code_only() -> None:
     text = body.sanitise(report)["text"]
     assert "[image: pixel](https://attacker.example/p.png)" in text
     assert "[image: ref][1]" in text
-    assert "&lt;img src=x>" in text
+    assert "&lt;IMG src=x>" in text
     assert "`![kept](https://example.org)`" in text
     assert "\n![kept too](https://example.org)\n" in text
     assert not re.search(r"(?<!`)!\[pixel\]", text)
@@ -143,3 +143,73 @@ def test_the_tracker_body_templates_carry_the_rendered_headings(template: Path) 
     rendered = reuse.fields(body.render({"issue_description": "r"}))
     assert headings == rendered
     assert len(headings) == 11
+
+
+@pytest.mark.parametrize(
+    "report",
+    [
+        "```\n### Severity\n~~~\n",  # ``` opened, ~~~ "closes"
+        "````\ncode\n```\n### Severity\n````\n",  # ```` opened, ``` "closes"
+        "    ```\n### Severity\n    ```\n",  # a four-space-indented fence
+        "```\nunclosed\n",
+        "```\n```python\n```\n",  # a fence-like line inside a block
+        "``` a`b\nx\n```\n",  # a backtick info string: not a fence in CommonMark
+        "\t```\nx\n\t```\n",
+    ],
+)
+def test_fences_that_do_not_pair_strictly_fail_closed(report: str) -> None:
+    out = body.sanitise(report)
+    assert (out["ok"], out["indicator"]) == (False, "code fence")
+
+
+def test_strictly_paired_fences_pass() -> None:
+    report = "```python\n# c\n```\n~~~~\n### x\n~~~~~\n   ```\ny\n   ````  \nafter\n"
+    out = body.sanitise(report)
+    assert out["ok"], out
+
+
+def test_an_empty_pair_is_dropped_only_as_a_whole_pair() -> None:
+    report = "```\na\n```\n\n~~~\nb\n~~~\n"
+    assert body.sanitise(report)["text"] == report
+    assert body.sanitise("x\n~~~\n\n~~~\ny")["text"] == "x\ny"
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("![x][]", "[image: x][]"),
+        ("![x]", "[image: x]"),
+        ("<picture><source srcset=u>", "&lt;picture>&lt;source srcset=u>"),
+        ("<svg onload=x>", "&lt;svg onload=x>"),
+        ("<details><summary>s</summary></details>", "&lt;details>&lt;summary>s&lt;/summary>&lt;/details>"),
+        ("<iframe src=u></iframe> <video src=u>", "&lt;iframe src=u>&lt;/iframe> &lt;video src=u>"),
+        ("<b>kept</b> a < b", "<b>kept</b> a < b"),
+    ],
+)
+def test_images_and_active_html_are_defused(raw: str, expected: str) -> None:
+    assert body.sanitise(raw)["text"] == expected
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("<!-- hide the rest", "&lt;!-- hide the rest"),
+        ("![p](https://a.example/p.png)", "[image: p](https://a.example/p.png)"),
+        ("```\n### CWE", "&#96;``\n#### CWE"),
+        ("~~~", "&#126;~~"),
+        ("<details>", "&lt;details>"),
+        ("N-a3f9d2 (E-b8c247)", "N-a3f9d2 (E-b8c247)"),
+    ],
+)
+def test_short_fields_are_sanitised(value: str, expected: str) -> None:
+    assert body.short_field(value) == expected
+    text = body.render({"issue_description": "r", "reporter_credit": value, "affected_versions": value})
+    assert reuse.fields(text) == list(body.DEFAULT_HEADINGS.values())
+    changed = body.sanitised_fields({"reporter_credit": value})
+    assert changed == ([] if value == expected else ["reporter_credit"])
+
+
+def test_a_title_like_field_cannot_open_a_code_block() -> None:
+    text = body.render({"issue_description": "r", "reporter_credit": "```", "cwe": "### Severity"})
+    assert not any(body.is_fence(line) for line in text.split("\n"))
+    assert reuse.fields(text) == list(body.DEFAULT_HEADINGS.values())

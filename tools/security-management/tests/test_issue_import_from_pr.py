@@ -295,7 +295,7 @@ def test_render_rollup_entry(capsys, tmp_path) -> None:
     assert out["label"] == "Import from PR (providers, apache/airflow#65703)"
     assert out["text"].startswith("**Imported from public PR [apache/airflow#65703](")
     assert all(not line.startswith(" ") for line in out["text"].split("\n"))
-    assert "*Remediation developer*=Justin Pakzad" in out["text"]
+    assert "*Remediation developer*=`Justin Pakzad`" in out["text"]
     data["remediation_developer_is_bot"] = True
     _, out = run(capsys, "render-rollup", "--input", write(tmp_path, "r.json", data))
     assert "bot/AI credit policy" in out["text"]
@@ -337,3 +337,60 @@ def test_recap_matches_the_step_8_scenario(capsys, tmp_path) -> None:
     assert "#issuecomment-8001" in text
     assert "security-cve-allocate" in text
     assert out["bare_refs"] == []
+
+
+def test_render_body_sanitises_a_markdown_remediation_developer(capsys, tmp_path) -> None:
+    data = body_input()
+    data["pr"]["author"] = {
+        "login": "x",
+        "name": "### CWE\n![p](https://a.example/p.png) <svg onload=x>\n```",
+    }
+    code, out = run(capsys, "render-body", "--input", write(tmp_path, "b.json", data))
+    assert code == 0
+    assert out["fields_ok"]
+    assert "remediation_developer" in out["sanitised_fields"]
+    assert (
+        "### Remediation developer\n\n#### CWE [image: p](https://a.example/p.png) &lt;svg onload=x> ```\n"
+        in out["text"]
+    )
+
+
+def test_render_rollup_keeps_a_markdown_remediation_developer_in_code(capsys, tmp_path) -> None:
+    data = {
+        "upstream": UPSTREAM,
+        "pr_number": 1,
+        "scope": "providers",
+        "state": "OPEN",
+        "date": "2026-10-16",
+        "author_login": "x",
+        "remediation_developer": "[click](https://evil.example) `x`",
+    }
+    _, out = run(capsys, "render-rollup", "--input", write(tmp_path, "r.json", data))
+    assert "*Remediation developer*=`[click](https://evil.example) 'x'`" in out["text"]
+
+
+@pytest.mark.parametrize("pr_body", ["```\nunclosed", "```\n### Severity\n~~~\n", "    ```\nx\n    ```"])
+def test_render_body_refuses_a_pr_body_that_does_not_pair(capsys, tmp_path, pr_body: str) -> None:
+    data = body_input()
+    data["pr"]["body"] = pr_body
+    code, out = run(capsys, "render-body", "--input", write(tmp_path, "b.json", data))
+    assert code == 2
+    assert out["ok"] is False
+    assert out["malformed_indicator"] == "code fence"
+
+
+@pytest.mark.parametrize("segment", ["\\1", "\\g<0>", "..", "a b", "-x"])
+def test_scope_never_substitutes_an_unsafe_sub_package(capsys, tmp_path, segment: str) -> None:
+    paths = [f"providers/{segment}/x.py", "providers/amazon/y.py"]
+    files = write(tmp_path, "f.json", paths)
+    _, out = run(capsys, "scope", "--files", files, "--scope-config", write(tmp_path, "s.json", SCOPES))
+    assert out["sub_packages"] == ["amazon"]
+    assert out["packages"] == ["apache-airflow-providers-amazon"]
+    assert out["unmatched"] == [paths[0]]
+
+
+def test_scope_substitution_is_literal(capsys, tmp_path) -> None:
+    config = {"labels": {"p": {"packageName": "pkg-<name>", "path_prefix": r"^p/([^/]+)/"}}}
+    files = write(tmp_path, "f.json", ["p/g.0/x.py"])
+    _, out = run(capsys, "scope", "--files", files, "--scope-config", write(tmp_path, "s.json", config))
+    assert out["packages"] == ["pkg-g.0"]

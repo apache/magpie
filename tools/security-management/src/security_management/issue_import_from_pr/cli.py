@@ -90,7 +90,10 @@ def dispatch(args: argparse.Namespace) -> int:
     elif command == "title":
         emit(render.title(str(data["title"])))
     elif command == "render-body":
-        emit(render.render_body(data))
+        rendered = render.render_body(data)
+        if not rendered["ok"]:
+            return refuse(rendered["refused"], malformed_indicator=rendered["malformed_indicator"])
+        emit(rendered)
     elif command == "labels":
         emit(render.labels(str(data["scope"]), str(data["state"]), data.get("labels")))
     elif command == "render-rollup":

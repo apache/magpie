@@ -358,11 +358,21 @@ def test_render_body_reports_sanitising_fields_and_bot_credit(capsys, tmp_path) 
     assert "#### Severity" in out["text"]
 
 
-def test_render_body_flags_a_malformed_body(capsys, tmp_path) -> None:
+def test_render_body_refuses_a_malformed_body(capsys, tmp_path) -> None:
     data = {"fields": {"issue_description": "```\n### Severity\nCritical"}}
-    _, out = run(capsys, "render-body", "--input", write(tmp_path, "b.json", data))
-    assert not out["sanitised"]
+    code, out = run(capsys, "render-body", "--input", write(tmp_path, "b.json", data))
+    assert code == 2
+    assert out["ok"] is False
     assert out["malformed_indicator"] == "code fence"
+    assert "text" not in out
+
+
+def test_render_body_reports_the_short_fields_it_sanitised(capsys, tmp_path) -> None:
+    data = {"fields": {"issue_description": "r", "reporter_credit": "![x](https://a.example/p) <!-- x"}}
+    code, out = run(capsys, "render-body", "--input", write(tmp_path, "b.json", data))
+    assert code == 0
+    assert out["sanitised_fields"] == ["reporter_credit"]
+    assert "[image: x](https://a.example/p) &lt;!-- x" in out["text"]
 
 
 def test_render_rollup_refuses_an_unsafe_label(capsys, tmp_path) -> None:
