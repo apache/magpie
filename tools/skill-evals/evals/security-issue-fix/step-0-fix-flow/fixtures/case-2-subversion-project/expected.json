@@ -1,0 +1,6 @@
+{
+  "flow": "patch-then-commit",
+  "follow_subversion_flow": true,
+  "open_pr": false,
+  "reason": "Subversion takes the patch-then-commit flow: a private patch first, a commit only once the team clears it, and no PR."
+}

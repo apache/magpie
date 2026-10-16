@@ -44,7 +44,10 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 from urllib.parse import quote, unquote, urlsplit
+
+from magpie_vcs import publication
 
 __all__ = [
     "BACKENDS",
@@ -179,6 +182,14 @@ class VCSBackend(ABC):
     @abstractmethod
     def cat(self, rev: str, path: str) -> str:
         """Return the contents of *path* at revision *rev*."""
+
+    def changed_paths(self) -> list[tuple[str, str]]:
+        """``(item, path)`` per changed path, ``item`` in svn's ``wc-status`` vocabulary.
+
+        Only the centralized backend needs it (its commit takes every change,
+        so a proposal must list them); the others raise.
+        """
+        raise VCSError(f"{self.name}: changed-paths listing is only implemented for svn")
 
 
 def _run(
@@ -773,6 +784,23 @@ class SubversionBackend(VCSBackend):
         # No staging area: this writes every change in the working copy to the server.
         self._svn("commit", "-m", message, capture=False)
 
+    def changed_paths(self) -> list[tuple[str, str]]:
+        status = ET.fromstring(self._svn("status", "--xml", "--ignore-externals"))
+        out: list[tuple[str, str]] = []
+        for entry in status.iter("entry"):
+            wc = entry.find("wc-status")
+            if wc is None:
+                continue
+            item = wc.get("item", "")
+            if item in ("normal", "external", "ignored", "none") and wc.get("props") == "modified":
+                item = "modified"  # a property-only change is still committed
+            if item in ("normal", "external", "ignored", "none"):
+                continue
+            path = Path(entry.get("path", ""))
+            rel = path.relative_to(self.root) if path.is_absolute() else path
+            out.append((item, rel.as_posix()))
+        return out
+
     def fetch(self, remote: str | None = None, ref: str | None = None) -> None:
         # Nothing to sync: refs live on the server and every history read
         # (log, cat, diff --base) queries it directly. `svn update` would
@@ -1052,6 +1080,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("diff", help="show changes")
     p.add_argument("--base", help="diff against this ref")
     p.add_argument("--cached", action="store_true", help="diff the staged change")
+    p.add_argument("-o", "--output", help="write the diff to this file (a patch) instead of stdout")
     p.add_argument("paths", nargs="*")
 
     p = sub.add_parser("log", help="history read")
@@ -1062,6 +1091,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("paths", nargs="*")
 
     p = sub.add_parser("new-branch", help="create + switch to a branch")
+    _add_scrub_args(p, gate=True)
     p.add_argument("name")
 
     p = sub.add_parser("switch", help="switch to an existing ref")
@@ -1071,7 +1101,30 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("paths", nargs="+")
 
     p = sub.add_parser("commit", help="record the staged change")
-    p.add_argument("-m", "--message", required=True)
+    msg = p.add_mutually_exclusive_group(required=True)
+    msg.add_argument("-m", "--message")
+    msg.add_argument("-F", "--message-file", help="read the message from this file")
+    _add_scrub_args(p, gate=True)
+
+    p = sub.add_parser("fix-flow", help="print (JSON) the security fix flow for this working copy")
+    p.add_argument("--declared", help="the manifest's Tools enabled -> Source control value")
+
+    p = sub.add_parser("scrub", help="embargo scrub of a message, the working-copy diff and a branch name")
+    p.add_argument("-F", "--message-file", help="the commit message to scrub")
+    p.add_argument("--diff", action="store_true", help="scrub the lines the working-copy diff adds")
+    p.add_argument("--diff-file", help="scrub the lines this patch file adds")
+    p.add_argument("--branch", help="a branch name to scrub")
+    _add_scrub_args(p, gate=False)
+
+    p = sub.add_parser(
+        "propose-commit", help="print (JSON) the scrubbed commit proposal (centralized backends)"
+    )
+    p.add_argument("-F", "--message-file", required=True, help="the agreed commit message")
+    p.add_argument("--branch", help="also propose new-branch <name> before the commit")
+    p.add_argument(
+        "--expect", action="append", required=True, help="an agreed path (file or directory); repeatable"
+    )
+    _add_scrub_args(p, gate=False)
 
     p = sub.add_parser("fetch", help="sync refs from the forge")
     p.add_argument("remote", nargs="?")
@@ -1091,6 +1144,52 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _add_scrub_args(p: argparse.ArgumentParser, *, gate: bool) -> None:
+    if gate:
+        p.add_argument(
+            "--scrub",
+            action="store_true",
+            help="refuse (exit 3) before running the VCS when the publication scrub finds a hit",
+        )
+    p.add_argument("--term", action="append", default=[], help="an extra forbidden term; repeatable")
+    p.add_argument(
+        "--allow", action="append", default=[], help="drop a default term by its label (the user's call)"
+    )
+    p.add_argument(
+        "--private-file",
+        action="append",
+        default=[],
+        help="private text (e.g. the tracker issue) the message must not quote; repeatable",
+    )
+
+
+def _read(path: str) -> str:
+    try:
+        return Path(path).read_text()
+    except OSError as exc:
+        raise VCSError(f"cannot read {path}: {exc.strerror}") from exc
+
+
+def _scrub_kwargs(ns: argparse.Namespace) -> dict[str, Any]:
+    return {
+        "extra_terms": ns.term,
+        "allow": ns.allow,
+        "private_texts": [_read(f) for f in ns.private_file],
+    }
+
+
+def _gate(ns: argparse.Namespace, **surfaces: Any) -> int | None:
+    """Run the publication scrub for a gated write; return 3 (and say why) on a hit."""
+    if not getattr(ns, "scrub", False):
+        return None
+    result = publication.scrub(**surfaces, **_scrub_kwargs(ns))
+    if result["clean"]:
+        return None
+    print(f"magpie-vcs: {ns.op} refused by the publication scrub:", file=sys.stderr)
+    print(json.dumps(result["hits"], indent=2), file=sys.stderr)
+    return 3
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """CLI entry point. Returns a process exit code."""
     parser = _build_parser()
@@ -1107,6 +1206,19 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(json.dumps(probe(start), indent=2))
             return 0
 
+        if ns.op == "fix-flow":
+            try:
+                found: VCSBackend | None = get_backend(start, ns.backend)
+            except VCSError:
+                if not ns.declared:
+                    raise
+                found = None
+            flow = publication.fix_flow(
+                found.name if found else None, found.distributed if found else None, ns.declared
+            )
+            print(json.dumps(flow, indent=2))
+            return 0
+
         backend = get_backend(start, ns.backend)
 
         if ns.op == "detect":
@@ -1120,7 +1232,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         elif ns.op == "branch":
             print(backend.current_branch())
         elif ns.op == "diff":
-            sys.stdout.write(backend.diff(base=ns.base, cached=ns.cached, paths=ns.paths))
+            patch = backend.diff(base=ns.base, cached=ns.cached, paths=ns.paths)
+            if ns.output:
+                Path(ns.output).write_text(patch)
+            else:
+                sys.stdout.write(patch)
         elif ns.op == "log":
             sys.stdout.write(
                 backend.log(
@@ -1132,13 +1248,46 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
             )
         elif ns.op == "new-branch":
+            refused = _gate(ns, branch=ns.name)
+            if refused:
+                return refused
             backend.create_branch(ns.name)
         elif ns.op == "switch":
             backend.switch(ns.ref)
         elif ns.op == "stage":
             backend.stage(ns.paths)
         elif ns.op == "commit":
-            backend.commit(ns.message)
+            message = ns.message if ns.message is not None else _read(ns.message_file)
+            if ns.scrub:
+                # What the commit publishes: staged changes on a distributed
+                # backend, every change in the working copy on svn.
+                diff = backend.diff(cached=True) if backend.distributed else backend.diff()
+                refused = _gate(ns, message=message, diff=diff)
+                if refused:
+                    return refused
+            backend.commit(message)
+        elif ns.op == "scrub":
+            result = publication.scrub(
+                message=_read(ns.message_file) if ns.message_file else None,
+                diff=(backend.diff() if ns.diff else "") + (_read(ns.diff_file) if ns.diff_file else ""),
+                branch=ns.branch,
+                **_scrub_kwargs(ns),
+            )
+            print(json.dumps(result, indent=2))
+            return 0 if result["clean"] else 1
+        elif ns.op == "propose-commit":
+            proposal = publication.commit_proposal(
+                backend,
+                message=_read(ns.message_file),
+                message_file=str(Path(ns.message_file).resolve()),
+                branch=ns.branch,
+                expect=ns.expect,
+                extra_terms=ns.term,
+                allow=ns.allow,
+                private_files=[str(Path(f).resolve()) for f in ns.private_file],
+            )
+            print(json.dumps(proposal, indent=2))
+            return 0 if proposal["ready"] else 1
         elif ns.op == "fetch":
             backend.fetch(ns.remote, ns.ref)
         elif ns.op == "push":
@@ -1149,7 +1298,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             sys.stdout.write(backend.cat(ns.rev, ns.path))
         else:  # pragma: no cover - argparse enforces the choices
             parser.error(f"unknown operation {ns.op!r}")
-    except VCSError as exc:
+    except (VCSError, publication.PublicationError) as exc:
         print(f"magpie-vcs: {exc}", file=sys.stderr)
         return 2
     return 0

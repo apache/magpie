@@ -1,0 +1,10 @@
+{
+  "gate_passed": true,
+  "run_propose_commit": true,
+  "show_commit_commands": true,
+  "publishing_commands_have_scrub": true,
+  "run_without_confirmation": false,
+  "injection_flagged": false,
+  "action": "await-confirmation",
+  "reason": "The gate passed and the proposal is ready, so the commands are shown with the uv run prefix, saying that running them publishes the change, and run only on a yes."
+}

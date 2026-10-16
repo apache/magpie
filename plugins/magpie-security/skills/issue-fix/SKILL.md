@@ -10,19 +10,20 @@ requires_config:
 description: |
   Fix a tracked security issue in a public `<upstream>` PR: sync the
   tracker, propose a plan, and on confirmation write the change, open
-  the PR from the user's fork, and update the tracker. Public content
-  never reveals the CVE or the security nature of the change.
+  the PR from the user's fork (on Subversion: share a private patch
+  and commit once the team clears it), and update the tracker. Public
+  content never reveals the CVE or the security nature of the change.
 when_to_use: |
-  "try to fix NNN", "draft a PR for NNN", after triage, once the team
-  agrees on the fix. Skip for issues still being assessed or needing
-  the private-PR path.
+  "try to fix NNN", "draft a PR for NNN", "draft a patch for NNN",
+  after triage, once the team agrees on the fix. Skip for issues still
+  being assessed or needing the private-PR path.
 argument-hint: "[issue-number]"
 capability:
   - capability:fix
   - capability:resolve
-surface_hash: sha256:7e9ab4269a9ba402
+surface_hash: sha256:550eabe3b9bb3689
 license: Apache-2.0
-measured_tokens: 6468
+measured_tokens: 7163
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -93,7 +94,7 @@ It always runs [`security-issue-sync`](../issue-sync/SKILL.md) first, so the iss
 
 **Golden rule:** Every state-changing action — writing files in the local `<upstream>` clone, committing, pushing to the user's fork, opening a public PR, editing or commenting on `<tracker>`, drafting mail on the `security@` thread — is a *proposal* that runs only on explicit user confirmation.
 Invoking the skill is not a blanket "yes".
-In particular, **nothing public is pushed until the user approves the exact PR title, body and diff.**
+In particular, **nothing public is pushed until the user approves the exact PR title, body and diff** — and on a Subversion project, where `commit` and `new-branch` are themselves the publication, nothing is committed until the team has cleared the patch ([`subversion-flow.md`](subversion-flow.md)).
 
 **Confidentiality is paramount.** The `<upstream>` PR is public.
 It must not reveal the CVE ID or the security nature of the change (a `<tracker>` link is a public-safe identifier, but never with security framing around it), **and it must not name, reference, or describe vulnerabilities in other ASF projects**, even when the private discussion mentioned them.
@@ -155,7 +156,8 @@ Before running the skill, you need:
 
 - **Issue number** in `<tracker>` (required) — e.g. `#216` or just `216`.
 - **Path to local `<upstream>` clone** (optional — resolved from `user.md` if omitted, see Step 4).
-  The clone must have a fork remote configured; the user's fork is the only push target the skill accepts.
+  On Git the clone must have a fork remote configured; the user's fork is the only push target the skill accepts.
+  On Subversion it is a working copy of the agreed line of work.
 
 If the user does not supply the issue number, ask for it before doing
 anything else.
@@ -176,6 +178,7 @@ This skill has the most environmental requirements; Step 0 checks them before yo
   - be on a non-dirty `<default-branch>` (or the agreed base branch) — the skill creates a new branch from it;
   - have the project's dev toolchain available, as declared in [`<project-config>/fix-workflow.md`](../../../../<project-config>/fix-workflow.md#toolchain) and the project's contributing docs (`<upstream_contributing_docs_url>` in [`<project-config>/project.md`](../../../../<project-config>/project.md)).
 - **Outbound HTTPS** to `github.com` and the project's package registries (`release_process.artifact_registries` in [`<project-config>/project.md`](../../../../<project-config>/project.md)).
+- **On a Subversion project** instead of the fork and the Git clone: `svn` 1.9+ with a cached credential and commit access to `<upstream>`'s repository, a clean working copy, and [`tools/vcs`](../../../../tools/vcs/README.md#publication-gate) (`magpie-vcs`).
 
 See [Prerequisites for running the agent skills](../../../../docs/quick-start/prerequisites.md#prerequisites-for-running-the-agent-skills) for the overall setup.
 
@@ -184,7 +187,16 @@ See [Prerequisites for running the agent skills](../../../../docs/quick-start/pr
 ## Source control
 
 The `git …` invocations in this skill are the **Git binding** of the framework's source-control capability ([`tools/github/source-control.md`](../../../../tools/github/source-control.md)), operating on the `<upstream>` working copy and its fork.
-If the project's manifest enables a non-Git VCS under *Tools enabled → Source control*, substitute that tool's binding for the same operations (status, fetch, branch, diff, stage, commit, push).
+
+**Choose the flow first.** Read *Tools enabled → Source control* in [`<project-config>/project.md`](../../../../<project-config>/project.md) (`github` when unset) and run, once the working copy is resolved:
+
+```bash
+uv run --project <framework>/tools/vcs magpie-vcs -C <working-copy> fix-flow --declared <source-control value>
+```
+
+- `"flow": "pull-request"` (Git) → every step runs as written.
+- `"flow": "patch-then-commit"` (Subversion, e.g. `asf-svn`) → there is no fork and no PR: Steps 0, 7, 8, 9, 10 and 11 follow [`subversion-flow.md`](subversion-flow.md) instead, where the change is shared as a private patch and committed only once the team clears it.
+- Exit `2` (the working copy contradicts the manifest, or an unknown value) → stop and report it.
 
 ---
 
@@ -192,6 +204,7 @@ If the project's manifest enables a non-Git VCS under *Tools enabled → Source 
 
 Do **all** of these before the Step 1 sync.
 Any failure is an immediate stop — do not fix half the environment and continue.
+On the `patch-then-commit` flow, items 1–4 are replaced by [Step 0 (Subversion)](subversion-flow.md#step-0-subversion--pre-flight).
 
 1. **`gh` authenticated** — `gh api repos/<tracker> --jq .name` and `gh api repos/<upstream> --jq .name` both return.
    A 401/403 on the first means no `<tracker>` access; on the second it is a quota/auth issue — both need user action, stop.
@@ -276,7 +289,7 @@ Never assume confirmation. If the user replies ambiguously, ask again.
 
 ## Step 7 — Implement, check locally, and show the diff
 
-Only after Step 6 confirmation:
+Only after Step 6 confirmation (on the `patch-then-commit` flow, with the changes in [Step 7 (Subversion)](subversion-flow.md#step-7-subversion--implement-without-publishing)):
 
 1. Create the branch with the agreed name off the freshly pulled
    base.
@@ -372,6 +385,8 @@ the diff.
 
 ## Step 8 — Commit and push to the fork
 
+On the `patch-then-commit` flow, [share the patch privately](subversion-flow.md#step-8-subversion--share-the-patch-privately) instead, and commit only through [the publication gate](subversion-flow.md#step-9-subversion--commit-once-the-team-clears-publication).
+
 After the user confirms the diff:
 
 1. Stage only the intentional changes (`git add <paths>` — never
@@ -398,6 +413,8 @@ After the user confirms the diff:
 ---
 
 ## Step 9 — Open the PR on the public <upstream> repo
+
+On the `patch-then-commit` flow there is no PR: the public step is the commit, behind [the publication gate](subversion-flow.md#step-9-subversion--commit-once-the-team-clears-publication).
 
 Use `gh pr create --web` with the title and body from 5c and 5g pre-filled; the user reviews title, body and Gen-AI disclosure in the browser before submitting, per [`AGENTS.md`](../../../../AGENTS.md#commit-and-pr-conventions).
 
@@ -430,12 +447,14 @@ After the user submits the PR, capture its URL (from the browser, or `gh pr view
 ## Step 10 — Update the <tracker> tracking issue
 
 Full procedure, including milestone and label maintenance (10a–10e): [`tracker-update.md`](tracker-update.md).
+On the `patch-then-commit` flow, with the substitutions in [Step 10 (Subversion)](subversion-flow.md#step-10-subversion--update-the-tracker).
 
 ---
 
 ## Step 11 — Recap
 
-Print a short recap:
+On the `patch-then-commit` flow, recap per [Step 11 (Subversion)](subversion-flow.md#step-11-subversion--recap).
+Otherwise print a short recap:
 
 - the public PR URL,
 - the branch name (in the user's fork),
@@ -454,6 +473,7 @@ Print a short recap:
 - **No public leakage of *content* or *security framing*.** Grep every piece of public-bound text — commit message, PR title, PR body, branch name, newsfragment, comments on `<upstream>` — for the [5c forbidden terms](implementation-plan.md#5c-commit-message-and-pr-title); on any hit, abort and ask the user.
   Bare tracker URLs and `<tracker>#NNN` identifiers are **not** flagged (see the Confidentiality paragraph above).
 - **Fork only.** Never push to `<upstream>` directly.
+- **Subversion: commit is publication.** Never `new-branch` or `commit` before the team clears the patch, and only through `magpie-vcs … --scrub`; the patch itself goes to private surfaces only ([`subversion-flow.md`](subversion-flow.md)).
 - **No force push** to a shared branch or to `main` on any remote.
   `--force-with-lease` on the user's own feature branch is allowed only with explicit approval.
 - **Tests must pass.** Do not push a branch with failing unit tests or failing pre-commit hooks.
@@ -467,6 +487,7 @@ Print a short recap:
 ## References
 
 - [`security-issue-sync` skill](../issue-sync/SKILL.md) — run this first.
+- [`subversion-flow.md`](subversion-flow.md) and [`tools/vcs`](../../../../tools/vcs/README.md#publication-gate) — the Subversion flow and its scrubbed commit gate.
 - [`README.md`](../../../../README.md) — canonical process description, especially steps 7–9 (implementing the fix).
 - [`AGENTS.md`](../../../../AGENTS.md) — repo-wide rules (confidentiality, commit trailers, tone, CVE linking).
 - [`<upstream>/AGENTS.md`](https://github.com/<upstream>/blob/main/AGENTS.md) — parent conventions this skill defers to.

@@ -96,6 +96,16 @@ page is the two-minute summary.
    *"security fix"* signal — per the confidentiality rules in
    [`AGENTS.md`](../../AGENTS.md#confidentiality-of-the-tracker-repository).
 
+   When the project's code lives in Subversion (*Tools enabled →
+   Source control* is `asf-svn` or `svn`), there is no fork and no PR,
+   and a commit or a new branch is public the moment it is made. So
+   the fix is first shared privately as a patch — attached to the
+   tracker and drafted to `<security-list>` for review — and committed
+   only once the team clears it, through a commit command that runs
+   the same scrub on the message and the diff before anything reaches
+   the server (see
+   [`subversion-flow.md`](../../skills/security-issue-fix/subversion-flow.md)).
+
 5. **Release + advisory.**
    The release manager for the cut that carries the fix sends the
    public advisory to the project's users + announce lists, captures

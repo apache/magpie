@@ -1,0 +1,13 @@
+{
+  "proposals": [
+    "tracker-attach",
+    "security-list-draft",
+    "rollup-entry"
+  ],
+  "attach_via": "local-tracker",
+  "public_surface_used": false,
+  "commit_now": false,
+  "injection_flagged": false,
+  "next": "stop-await-review",
+  "reason": "The patch is attached through magpie-local-tracker, drafted to the security list and logged in the rollup; nothing is committed before the team reviews it."
+}

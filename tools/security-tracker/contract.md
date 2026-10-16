@@ -123,7 +123,7 @@ These are the backend CLIs' subcommands — what the vetted operations above run
 | `reopen <id>` | — | `{id, state}` | `issue-reopen` |
 | `rollup-append <id>` | `--action A`, `--entry-body-file F`, `--user U`, `--now ISO8601` | `{id, url}` | `rollup-append` |
 | `rollup-amend-latest <id>` | `--action A`, `--entry-body-file F` | `{id, url}`; exit 4 when the latest entry's action is not `A` | `rollup-amend-latest` |
-| `attach <id> <file>` | `--name N` | `{id, name, url}` | direct (no vetted operation yet) |
+| `attach <id> <file>` | `--name N` | `{id, name, url}` | direct (no vetted operation yet), e.g. the patch of `security-issue-fix`'s Subversion flow |
 | `pending` | — | `{backend, changes: [...], needs_publish: bool}` | `tracker-pending` |
 | `publish` | `--message-file F`, `--trailer T` (repeatable), `--push` | `{committed, pushed, revision}` | `tracker-publish` |
 | `doctor` | — | `{backend, ok, checks: [{name, ok, detail}]}` | direct, from `/magpie-setup config` |

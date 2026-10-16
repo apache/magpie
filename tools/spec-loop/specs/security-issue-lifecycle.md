@@ -124,6 +124,19 @@ publication, with a human gate and an audit-log entry at every step.
   `gh pr create` / `gh pr edit`, not a replacement: it covers a subset of
   the list and never sees the commit message, branch name, or
   newsfragment (#1444).
+- **Subversion projects fix through a private patch, then a gated
+  commit.** `security-issue-fix` picks its flow with
+  `magpie-vcs fix-flow --declared <Tools enabled → Source control>`:
+  Git keeps the PR flow; `svn` (`asf-svn`) takes the
+  `patch-then-commit` flow in `issue-fix/subversion-flow.md`, because
+  there `commit` and `new-branch` are the publication.
+  The patch is attached to the tracker (or posted as a private comment
+  on a GitHub tracker) and drafted to `<security-list>`; only after the
+  user confirms the team cleared it does `magpie-vcs propose-commit`
+  scrub the message, the diff, new files and the branch name, refuse
+  paths outside the agreed file list, and print the commands, and
+  `commit --scrub` / `new-branch --scrub` repeat the scrub before the
+  VCS runs (exit `3` on a hit).
 - **Adversarial review before a PR, on public content only.**
   `security-issue-fix`, `security-issue-import-from-pr` (over the patch it
   verifies) and `security-issue-import-from-scan` carry the shared
