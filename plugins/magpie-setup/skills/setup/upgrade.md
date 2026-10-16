@@ -606,6 +606,10 @@ rather than pulls in via symlink. Examples:
   Codex settings; surface conflicts and hand edits rather than
   overwriting them. Run `sandbox-lint --codex .codex` after the merge
   and never modify Codex project trust.
+  Include native guard-hook registration and the [vetted-operation rules](../../../../docs/adapters/codex.md#vetted-operations) in the drift comparison.
+  Preserve installed stable paths and user rule files; do not hardcode a new plugin version into native prefixes.
+  Changed hook definitions need operator review in `/hooks`; never reset or grant hook trust automatically.
+  When the guard is plugin-owned, omit a duplicate project registration and run lint with `--guard-from-plugin`, then inspect plugin registration and trust separately.
 - An installed Gemini workspace profile and guard registration:
   follow [the Gemini update lifecycle](../../../../docs/adapters/gemini.md#update) to report drift, then use its install merge for approved repairs.
   Preserve unrelated configuration and hand edits, and verify after restarting the runtime.

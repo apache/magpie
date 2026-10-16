@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -30,6 +31,19 @@ SAFE_CONFIG = {
     "sandbox_mode": "workspace-write",
     "approval_policy": "on-request",
     "sandbox_workspace_write": {"network_access": False},
+    "hooks": {
+        "PreToolUse": [
+            {
+                "matcher": "^Bash$",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "python3 tools/agent-guard/src/agent_guard/__init__.py --codex",
+                    }
+                ],
+            }
+        ]
+    },
 }
 SAFE_RULES = """
 prefix_rule(pattern = ["git", "push"], decision = "prompt")
@@ -182,3 +196,134 @@ def test_parenthesis_in_justification_does_not_truncate_blocks() -> None:
         'prefix_rule(pattern = ["git", "push"], justification = "remote (see docs) mutation", decision = "prompt")',
     )
     assert check_codex_invariants(SAFE_CONFIG, rules) == []
+
+
+@pytest.mark.parametrize("hooks", [{}, {"PreToolUse": [{"matcher": "Read", "hooks": []}]}])
+def test_native_guard_is_required(hooks: dict[str, Any]) -> None:
+    config = {**SAFE_CONFIG, "hooks": hooks}
+    assert any("PreToolUse" in e for e in check_codex_invariants(config, SAFE_RULES))
+
+
+@pytest.mark.parametrize("feature", ["hooks", "codex_hooks"])
+def test_disabled_hooks_are_flagged(feature: str) -> None:
+    config = {**SAFE_CONFIG, "features": {feature: False}}
+    assert any(f"features.{feature}" in e for e in check_codex_invariants(config, SAFE_RULES))
+
+
+def test_background_hook_cannot_enforce_a_denial() -> None:
+    config = {
+        **SAFE_CONFIG,
+        "hooks": {
+            "PreToolUse": [
+                {
+                    "matcher": "Bash",
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": "python3 agent_guard/__init__.py --codex",
+                            "async": True,
+                        }
+                    ],
+                }
+            ]
+        },
+    }
+    assert any("synchronous" in e for e in check_codex_invariants(config, SAFE_RULES))
+
+
+@pytest.mark.parametrize(
+    "hooks",
+    [
+        {"PreToolUse": None},
+        {"PreToolUse": [{"matcher": "Bash", "hooks": None}]},
+        {"PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": None}]}]},
+    ],
+)
+def test_malformed_hook_registration_reports_violation(hooks: dict[str, Any]) -> None:
+    assert any("PreToolUse" in e for e in check_codex_invariants({**SAFE_CONFIG, "hooks": hooks}, SAFE_RULES))
+
+
+def test_missing_registered_engine_is_a_failure(tmp_path: Path) -> None:
+    config = {
+        **SAFE_CONFIG,
+        "hooks": {
+            "PreToolUse": [
+                {
+                    "matcher": "Bash",
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": 'python3 "$(git rev-parse --show-toplevel)/tools/agent-guard/src/agent_guard/__init__.py" --codex',
+                        }
+                    ],
+                }
+            ]
+        },
+    }
+    errors = check_codex_invariants(config, SAFE_RULES, repo_root=tmp_path)
+    assert any("engine is missing" in e for e in errors)
+
+
+def test_snapshot_engine_is_found(tmp_path: Path) -> None:
+    import tomllib
+
+    root = Path(__file__).resolve().parents[3]
+    config = tomllib.loads((root / ".codex/config.toml").read_text())
+    engine = tmp_path / ".apache-magpie/tools/agent-guard/src/agent_guard/__init__.py"
+    engine.parent.mkdir(parents=True)
+    engine.write_text("# snapshot engine\n")
+    assert check_codex_invariants(config, SAFE_RULES, repo_root=tmp_path) == []
+
+
+def test_plugin_mode_avoids_duplicate_registration(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    profile = tmp_path / ".codex"
+    (profile / "rules").mkdir(parents=True)
+    (profile / "rules/magpie.rules").write_text(SAFE_RULES)
+    (profile / "config.toml").write_text(
+        'sandbox_mode = "workspace-write"\napproval_policy = "on-request"\n'
+        "[sandbox_workspace_write]\nnetwork_access = false\n"
+    )
+    assert main(["--codex", str(profile), "--guard-from-plugin"]) == 0
+    assert "plugin guard not inspected" in capsys.readouterr().out
+    assert main(["--codex", str(profile)]) == 1
+
+
+def test_plugin_mode_rejects_duplicate_project_guard() -> None:
+    errors = check_codex_invariants(SAFE_CONFIG, SAFE_RULES, guard_from_plugin=True)
+    assert any("remove the duplicate project agent-guard hook" in e for e in errors)
+
+
+@pytest.mark.parametrize("feature", ["hooks", "codex_hooks", "plugin_hooks"])
+def test_plugin_mode_does_not_allow_disabled_hooks(feature: str) -> None:
+    config = {**SAFE_CONFIG, "features": {feature: False}}
+    assert any(
+        f"features.{feature}" in e for e in check_codex_invariants(config, SAFE_RULES, guard_from_plugin=True)
+    )
+
+
+def test_disabled_plugin_hooks_do_not_disable_project_guard() -> None:
+    config = {**SAFE_CONFIG, "features": {"plugin_hooks": False}}
+    assert check_codex_invariants(config, SAFE_RULES) == []
+
+
+def test_absolute_user_scope_engine_is_accepted(tmp_path: Path) -> None:
+    engine = tmp_path / "installed guard/agent_guard/__init__.py"
+    engine.parent.mkdir(parents=True)
+    engine.write_text("# installed engine\n")
+    config = {
+        **SAFE_CONFIG,
+        "hooks": {
+            "PreToolUse": [
+                {"matcher": "Bash", "hooks": [{"type": "command", "command": f'python3 "{engine}" --codex'}]}
+            ]
+        },
+    }
+    assert check_codex_invariants(config, SAFE_RULES, repo_root=tmp_path) == []
+
+
+def test_unrecognized_path_does_not_claim_engine_is_missing(tmp_path: Path) -> None:
+    errors = check_codex_invariants(SAFE_CONFIG, SAFE_RULES, repo_root=tmp_path)
+    assert any("unrecognized" in e for e in errors)
+    assert not any("engine is missing" in e for e in errors)

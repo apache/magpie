@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:ce33cb9437d44992
 license: Apache-2.0
-measured_tokens: 6148
+measured_tokens: 6141
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -32,7 +32,7 @@ Use the operator's explicitly requested runtime when supplied; otherwise use the
 An installed executable or configuration directory alone does not select a runtime.
 For the routing below, treat that selection as the active harness.
 
-When the active harness is Codex, run the verification contract in [docs/adapters/codex.md](../../../../docs/adapters/codex.md#verify): static profile lint, native rule classification, project trust, `/skills` visibility, and bridge preflights.
+When the active harness is Codex, follow the full verification contract in [docs/adapters/codex.md](../../../../docs/adapters/codex.md#verify), including its hook-trust, vetted-operation and isolation-gap checks.
 Report every Codex check and then stop.
 Do not interpret the Claude settings checks below as Codex requirements.
 

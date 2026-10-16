@@ -12,6 +12,7 @@
   - [Per-command overrides](#per-command-overrides)
   - [Wiring](#wiring)
     - [Snapshot adopters (`/magpie-setup`)](#snapshot-adopters-magpie-setup)
+    - [Codex](#codex)
     - [OpenCode](#opencode)
     - [Kiro CLI](#kiro-cli)
     - [Gemini CLI](#gemini-cli)
@@ -30,7 +31,7 @@
 
 **Capability:** substrate:action-guard
 
-**Harness:** Claude Code, OpenCode, Kiro, Gemini CLI, Copilot, Grok
+**Harness:** Claude Code, Codex, OpenCode, Kiro, Gemini CLI, Copilot, Grok
 
 A deterministic pre-execution guard dispatcher. It inspects every shell command
 **before it runs** and **denies** the ones that would break a hard framework
@@ -202,6 +203,20 @@ The user-scope secure setup installs the engine once at
 `~/.claude/scripts/agent-guard.py` and wires it from `~/.claude/settings.json`;
 that path is worktree- and repository-independent by construction. See
 [`setup-isolated-setup-install`](../../skills/setup-isolated-setup-install/SKILL.md).
+
+### Codex
+
+Codex supports native synchronous `PreToolUse` hooks with the canonical `Bash` event and `tool_input.command`.
+Register `python3 <engine-path>/__init__.py --codex` in `.codex/config.toml`, resolving the engine from the git root for source or snapshot installs.
+The marketplace plugin’s existing Claude-compatible hook also works in Codex without a second registration.
+The explicit adapter emits a native JSON deny on guard hits and no output on ordinary calls, leaving Codex approvals in charge.
+See the [Codex adapter](../../docs/adapters/codex.md#deterministic-guard-rules) for wiring, trust review, and verification.
+
+Prefer the installed plugin or user-scope engine outside writable roots for routine adopter sessions.
+A project source or snapshot engine can be edited by the agent without changing the trusted hook definition; report that limitation during verification.
+Use `/hooks` to trust the current definition after install or changes.
+Project trust alone does not activate an untrusted hook.
+Hook errors and timeouts are non-blocking in Codex, and interactive `write_stdin` input is not rechecked.
 
 ### OpenCode
 

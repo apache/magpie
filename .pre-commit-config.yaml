@@ -338,7 +338,7 @@ repos:
         name: check-family-plugins (marketplace plugins vs frontmatter)
         language: system
         entry: python3 tools/dev/check-family-plugins.py --fix
-        files: ^(skills/.*/SKILL\.md|plugins/.*|\.claude-plugin/(marketplace|plugin)\.json|\.codex-plugin/plugin\.json|\.agents/plugins/marketplace\.json|(plugin|marketplace)\.json|gemini-extension\.json|apm\.yml|pyproject\.toml)$
+        files: ^(tools/(agent-guard/src/.*|vetted-ops/(src/.*|hooks/.*|pyproject\.toml|README\.md))|tools/dev/check-family-plugins\.py|\.pre-commit-config\.yaml|skills/.*/SKILL\.md|plugins/.*|\.claude-plugin/(marketplace|plugin)\.json|\.codex-plugin/plugin\.json|\.agents/plugins/marketplace\.json|(plugin|marketplace)\.json|gemini-extension\.json|apm\.yml|pyproject\.toml)$
         pass_filenames: false
   # Claude Code mods — `claude plugin validate --strict` and `claude plugin
   # test` on every plugin whose `hooks/hooks.json` declares `modules`

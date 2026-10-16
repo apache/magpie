@@ -1942,6 +1942,15 @@ Four passes, in this order:
    - Do not edit Codex project trust. Tell the operator to make the
      trust decision in Codex.
 
+   Follow the [Codex guard and vetted-operation install contract](../../../../docs/adapters/codex.md#install) as well.
+   Merge the native `PreToolUse` registration, resolving the engine from the snapshot in adopters and directly from the framework in local self-adoption.
+   Ask the operator to review the definition in `/hooks`; do not grant hook trust on their behalf.
+   For marketplace installs use the `magpie-agent-guard` and optional `magpie-vetted-ops` plugins instead of adding a duplicate project hook.
+   Vetted-operation native rules are rendered per machine from the installed stable path and reviewed before installation in user scope.
+
+   For a marketplace-owned guard, omit the project hook and use `sandbox-lint --codex <repo-root>/.codex --guard-from-plugin`; verify plugin registration and trust separately in `/hooks`.
+   For a source or snapshot-owned guard, the stock command chooses the existing engine path and lint must confirm that file exists.
+
    Validate the merged result with `sandbox-lint --codex
    <repo-root>/.codex`. Both files are committed adopter
    configuration — nothing under `.codex/` is generated or

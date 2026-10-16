@@ -20,6 +20,8 @@
 from __future__ import annotations
 
 import re
+import shlex
+from pathlib import Path
 from typing import Any, NamedTuple
 
 # Pattern lists nest exactly one level: ["gh", "auth", ["token", "refresh"]].
@@ -89,7 +91,9 @@ def _parse_rules(rules_text: str) -> list[_Rule]:
     return rules
 
 
-def check_codex_invariants(config: dict[str, Any], rules_text: str) -> list[str]:
+def check_codex_invariants(
+    config: dict[str, Any], rules_text: str, *, guard_from_plugin: bool = False, repo_root: Path | None = None
+) -> list[str]:
     """Return invariant violations; empty means the Codex profile is safe."""
     errors: list[str] = []
 
@@ -104,6 +108,82 @@ def check_codex_invariants(config: dict[str, Any], rules_text: str) -> list[str]
             "config.toml: sandbox_workspace_write.network_access must be false "
             "so network bridges cross the native approval boundary"
         )
+
+    features = config.get("features", {})
+    if isinstance(features, dict):
+        hook_features = (
+            ("hooks", "codex_hooks", "plugin_hooks") if guard_from_plugin else ("hooks", "codex_hooks")
+        )
+        for feature in hook_features:
+            if features.get(feature) is False:
+                errors.append(f"config.toml: features.{feature} must not disable the native guard")
+    hooks = config.get("hooks", {})
+    groups = hooks.get("PreToolUse", []) if isinstance(hooks, dict) else []
+    if not isinstance(groups, list):
+        groups = []
+    guarded = any(
+        isinstance(group, dict)
+        and group.get("matcher") in ("Bash", "^Bash$", "*", "")
+        and isinstance(group.get("hooks"), list)
+        and any(
+            isinstance(handler, dict)
+            and handler.get("type") == "command"
+            and isinstance(handler.get("command"), str)
+            and "agent_guard/__init__.py" in handler["command"]
+            and "--codex" in handler["command"]
+            and not handler.get("async", False)
+            for handler in group.get("hooks", [])
+        )
+        for group in groups
+    )
+    if guarded and guard_from_plugin:
+        errors.append(
+            "config.toml: remove the duplicate project agent-guard hook when using --guard-from-plugin"
+        )
+    if not guarded and not guard_from_plugin:
+        errors.append("config.toml: register a synchronous Bash PreToolUse agent-guard --codex hook")
+    if guarded and not guard_from_plugin and repo_root is not None:
+        engine = "tools/agent-guard/src/agent_guard/__init__.py"
+        # Recognize the reviewed git-root forms without executing hook text.
+        commands = [
+            handler["command"]
+            for group in groups
+            if isinstance(group, dict)
+            and group.get("matcher") in ("Bash", "^Bash$", "*", "")
+            and isinstance(group.get("hooks"), list)
+            for handler in group["hooks"]
+            if isinstance(handler, dict)
+            and handler.get("type") == "command"
+            and isinstance(handler.get("command"), str)
+            and "--codex" in handler["command"]
+            and not handler.get("async", False)
+        ]
+        roots = ("$root/", "$(git rev-parse --show-toplevel)/")
+        candidates = [
+            repo_root / relative
+            for relative in (engine, ".apache-magpie/" + engine)
+            if any(root + relative in command for root in roots for command in commands)
+        ]
+        for command in commands:
+            try:
+                words = shlex.split(command)
+            except ValueError:
+                continue
+            candidates.extend(
+                Path(word)
+                for word in words
+                if Path(word).is_absolute() and word.endswith("/agent_guard/__init__.py")
+            )
+        if not candidates:
+            errors.append(
+                "config.toml: unrecognized agent-guard engine path; "
+                "use a reviewed git-root form or an absolute engine path and verify manually"
+            )
+        elif not any(path.is_file() for path in candidates):
+            errors.append(
+                "config.toml: registered agent-guard engine is missing; "
+                "use the framework tools/ or adopter .apache-magpie/tools/ path"
+            )
 
     rules = _parse_rules(rules_text)
     if not rules:

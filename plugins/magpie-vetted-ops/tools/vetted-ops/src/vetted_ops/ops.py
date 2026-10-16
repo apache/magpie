@@ -1,0 +1,2568 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+"""
+The fixed operation catalogue.
+
+Every operation is a *closed* shape: a name, a list of typed parameters, and a
+builder that returns an **argv list**. No operation accepts pass-through
+arguments, and no builder ever produces a shell string — the argv list is handed
+to ``subprocess.run`` without a shell, so no amount of hostile content in a
+parameter can become a command.
+
+Adding an operation here is the only way to widen the surface, and doing so is a
+reviewed code change rather than a runtime decision.
+"""
+
+from __future__ import annotations
+
+import contextlib
+import json
+import os
+import re
+import stat as stat_mod
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass, field
+from pathlib import Path
+
+from . import procedures
+from .procedures import Plan
+
+# --------------------------------------------------------------------------
+# Parameter types
+# --------------------------------------------------------------------------
+
+#: Issue / PR / comment numbers. Bounded length so a parameter cannot smuggle a
+#: long payload even in a numeric-looking field.
+_NUMBER = re.compile(r"^[0-9]{1,10}$")
+
+#: A git ref or tag name. Deliberately narrow: no whitespace, no shell
+#: metacharacters, no leading dash.
+_REF = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,200}$")
+
+#: A repo-relative path used for content probes. No absolute paths, no `..`.
+_REPO_PATH = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,300}$")
+
+#: A GitHub login.
+_LOGIN = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$")
+
+#: A GitHub team *slug*, without its organisation. The org half is never a
+#: parameter — it is read from the policy-pinned upstream repo — so a team
+#: search cannot be aimed at another organisation.
+_TEAM = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,99})$")
+
+#: A GHSA identifier.
+_GHSA = re.compile(r"^GHSA-[0-9a-z]{4}-[0-9a-z]{4}-[0-9a-z]{4}$")
+
+#: A ProjectV2 node id, as returned by the GraphQL API.
+_NODE_ID = re.compile(r"^[A-Za-z0-9_-]{1,120}$")
+
+#: A named GraphQL query. Narrow by construction: the name is only ever used to
+#: look up a file that ships *inside this package*, so it can address nothing
+#: else even before the containment check below.
+_QUERY_NAME = re.compile(r"^[a-z][a-z0-9-]{0,60}$")
+
+#: An OSV vulnerability ID or similar identifier (CVE, GHSA, etc).
+_VULN_ID = re.compile(r"^[A-Za-z0-9][-A-Za-z0-9:]{2,60}$")
+
+#: An ecosystem package name. Supports scoped npm packages (@scope/name).
+_PACKAGE_NAME = re.compile(r"^[A-Za-z0-9@][A-Za-z0-9._@/:-]{0,200}$")
+
+#: A package version string.
+_VERSION = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+~-]{0,100}$")
+
+#: A full or short git commit hash.
+_COMMIT_HASH = re.compile(r"^[0-9a-f]{7,64}$")
+
+#: A strict CVE identifier.
+_CVE_ID = re.compile(r"^CVE-[0-9]{4}-[0-9]{4,}$")
+
+#: Where the allowlisted GraphQL documents live. Shipping them as files inside
+#: the package — rather than accepting query text as a parameter — is what keeps
+#: the GraphQL surface closed: a caller selects a query, it never supplies one.
+QUERIES_DIR = Path(__file__).parent / "queries"
+
+
+class ParamError(ValueError):
+    """Raised when a parameter fails validation."""
+
+
+def _check(pattern: re.Pattern[str], value: str, what: str) -> str:
+    if not pattern.match(value):
+        raise ParamError(f"invalid {what}: {value!r}")
+    return value
+
+
+def number(value: str) -> str:
+    return _check(_NUMBER, value, "number")
+
+
+def ref(value: str) -> str:
+    # Refs are interpolated into API paths (`compare`, `repo-file`, `tags`,
+    # `repo-tree`), so a ref containing `..` could walk out of the
+    # policy-pinned repository once a client normalises the URL — defeating
+    # "the repo is not addressable". Git itself forbids `..` in ref names, so
+    # refusing it here costs nothing legitimate.
+    if ".." in value:
+        raise ParamError(f"path traversal in git ref: {value!r}")
+    return _check(_REF, value, "git ref")
+
+
+def repo_path(value: str) -> str:
+    if ".." in value:
+        raise ParamError(f"path traversal in repo path: {value!r}")
+    return _check(_REPO_PATH, value, "repo path")
+
+
+def login(value: str) -> str:
+    return _check(_LOGIN, value, "login")
+
+
+def team(value: str) -> str:
+    """
+    Validate a team *slug*. Only the slug: the organisation is supplied by the
+    builder from the pinned upstream repo, so ``--team-review-requested`` can
+    never be pointed at a team outside it.
+    """
+    if "/" in value:
+        raise ParamError(f"team must be a slug without its organisation (that comes from policy): {value!r}")
+    return _check(_TEAM, value, "team slug")
+
+
+def title(value: str) -> str:
+    """
+    Validate an issue title: one non-empty line, within GitHub's 256-character
+    cap.
+
+    Titles are free text — a reviewer may legitimately ask for quotes, colons
+    or backticks — so this deliberately does not pattern-match the content. It
+    rides in argv and never reaches a shell, so punctuation is inert. What it
+    does refuse is the shape that is never a title: embedded newlines, which
+    would silently turn the tail into an invisible second line, and the empty
+    string, which would blank the title rather than change it.
+    """
+    stripped = value.strip()
+    if not stripped:
+        raise ParamError("title may not be empty or whitespace-only")
+    if "\n" in value or "\r" in value:
+        raise ParamError(f"title must be a single line, with no newline: {value!r}")
+    if len(stripped) > 256:
+        raise ParamError(f"title is {len(stripped)} characters; GitHub caps a title at 256")
+    return stripped
+
+
+def ghsa(value: str) -> str:
+    return _check(_GHSA, value, "GHSA id")
+
+
+def node_id(value: str) -> str:
+    return _check(_NODE_ID, value, "node id")
+
+
+def query_name(value: str) -> str:
+    """
+    Resolve a named GraphQL query to the document shipped with this package.
+
+    ``gh api graphql`` normally takes the query as text, which is precisely the
+    unbounded surface this catalogue exists to remove. Instead the caller names
+    one of the documents in :data:`QUERIES_DIR` and the dispatcher supplies the
+    text. Adding a query is a reviewed change to this package, exactly like
+    adding an operation.
+    """
+    _check(_QUERY_NAME, value, "query name")
+    path = (QUERIES_DIR / f"{value}.graphql").resolve()
+    # Belt and braces: the name pattern already forbids separators and dots, so
+    # this cannot trigger — but the containment check is cheap and the cost of
+    # being wrong here is reading an arbitrary file.
+    if QUERIES_DIR.resolve() not in path.parents:
+        raise ParamError(f"query {value!r} resolves outside the query directory")
+    if not path.is_file():
+        known = ", ".join(sorted(q.stem for q in QUERIES_DIR.glob("*.graphql"))) or "(none)"
+        raise ParamError(f"unknown query: {value!r}; available: {known}")
+    return str(path)
+
+
+def vuln_id(value: str) -> str:
+    return _check(_VULN_ID, value, "vuln id")
+
+
+def package_name(value: str) -> str:
+    if ".." in value:
+        raise ParamError(f"path traversal in package name: {value!r}")
+    return _check(_PACKAGE_NAME, value, "package name")
+
+
+def version(value: str) -> str:
+    if ".." in value:
+        raise ParamError(f"path traversal in version: {value!r}")
+    return _check(_VERSION, value, "version")
+
+
+def commit_hash(value: str) -> str:
+    return _check(_COMMIT_HASH, value, "commit hash")
+
+
+def cve_id(value: str) -> str:
+    return _check(_CVE_ID, value, "CVE id")
+
+
+#: A calendar date, strictly YYYY-MM-DD: it is written into a search string.
+_DATE = re.compile(r"^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$")
+
+#: A GraphQL connection cursor (opaque base64), or `start` for the first page.
+_CURSOR = re.compile(r"^(start|[A-Za-z0-9+/]{1,400}={0,2})$")
+
+
+def date(value: str) -> str:
+    return _check(_DATE, value, "date (YYYY-MM-DD)")
+
+
+def cursor(value: str) -> str:
+    return _check(_CURSOR, value, "connection cursor")
+
+
+def _label_text(value: str, what: str, forbidden: str) -> str:
+    """One printable line of 1-80 characters, with no surrounding whitespace."""
+    if not value or len(value) > 80:
+        raise ParamError(f"{what} must be 1-80 characters: {value!r}")
+    if not value.isprintable():
+        raise ParamError(f"{what} must be a single printable line: {value!r}")
+    if value != value.strip():
+        raise ParamError(f"{what} may not start or end with whitespace: {value!r}")
+    if value.startswith("-"):
+        raise ParamError(f"{what} may not start with '-': {value!r}")
+    bad = sorted({c for c in value if c in forbidden})
+    if bad:
+        raise ParamError(f"{what} may not contain {''.join(bad)!r}: {value!r}")
+    return value
+
+
+_QUERY_MAX = 200
+
+
+def query(value: str) -> str:
+    """
+    A tracker search query: one line of plain words.
+
+    ``gh search issues`` reads qualifiers such as ``repo:`` or ``org:`` out of
+    the query itself, and one of those would re-aim the search at another
+    repository — the one thing a policy-pinned operation must never do. So a
+    colon is refused outright, as are newlines and the empty query; what is
+    left is free text that can only narrow a search of the pinned tracker.
+    """
+    stripped = value.strip()
+    if not stripped or len(stripped) > _QUERY_MAX:
+        raise ParamError(f"query must be 1-{_QUERY_MAX} characters, got {len(stripped)}")
+    if "\n" in value or "\r" in value:
+        raise ParamError("query must be a single line")
+    if ":" in value:
+        raise ParamError(f"query may not contain ':' (search qualifiers would re-target it): {value!r}")
+    # The dispatcher refuses a raw leading dash, but stripping can expose one
+    # (" --repo=x"); refuse it here too, after the strip, so it can never
+    # become a flag.
+    if stripped.startswith("-"):
+        raise ParamError(f"query may not start with '-': {value!r}")
+    return stripped
+
+
+def action(value: str) -> str:
+    """
+    A status-rollup action label — the right-hand field of an entry's
+    ``<summary>`` line. ``<`` / ``>`` would let it close the ``<summary>`` or
+    ``<details>`` tag it sits in, and ``·`` is the field separator the parser
+    splits on, so an action containing one could never be matched again.
+    """
+    return _label_text(value, "action", "<>\u00b7")
+
+
+def field_name(value: str) -> str:
+    """
+    A ``### <Field>`` heading name. ``#`` is refused so the name cannot be read
+    as a heading of another level.
+    """
+    return _label_text(value, "field", "#")
+
+
+def checked_workspace(workspace: Path) -> Path:
+    """
+    The resolved workspace, refused unless it is a directory owned by this user
+    and closed to group and world.
+
+    Body files are read from it and saved reads are written to it, so a
+    directory anyone can write is one anyone can pre-seed: with a body that
+    gets published, or with a "saved" page that a later classification trusts.
+    """
+    root = workspace.expanduser().resolve()
+    try:
+        root_st = os.stat(root)
+    except OSError as exc:
+        raise ParamError(f"workspace {str(root)!r} is unusable: {exc}") from None
+    if not os.path.isdir(root):
+        raise ParamError(f"workspace {str(root)!r} is not a directory")
+    if root_st.st_uid != os.getuid():
+        raise ParamError(
+            f"workspace {str(root)!r} is owned by uid {root_st.st_uid}, not by you "
+            f"(uid {os.getuid()}) — refusing to publish a body from it"
+        )
+    if root_st.st_mode & 0o022:
+        raise ParamError(
+            f"workspace {str(root)!r} is group- or world-writable (mode "
+            f"{root_st.st_mode & 0o777:04o}) — anyone who can write it can choose "
+            f"what gets posted; chmod 700 it"
+        )
+    return root
+
+
+#: Where `--save` writes, under the workspace. One directory, created 0700.
+SAVED_DIR = "saved"
+
+#: A saved-output file name: one path component, no leading dot.
+_SAVE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$")
+
+
+#: The marker that makes a `saved/` directory a `--save` target. See `save_output`.
+SAVE_MARKER = ".vetted-ops-save"
+
+
+def save_output(name: str, data: bytes, *, workspace: Path) -> Path:
+    """
+    Write a read operation's output to ``<workspace>/saved/<name>``.
+
+    A sweep's pages run to hundreds of kilobytes. Printing them puts every
+    byte into the caller's context, so ``--save`` writes them where a
+    deterministic tool can read them and prints one line instead.
+
+    **This runs outside the sandbox, so it must not let the sandbox grow.** The
+    workspace comes from the policy, and ``--config`` can name a policy the
+    agent wrote, so the workspace alone proves nothing about who may write
+    there. Two rules keep ``--save`` from writing anywhere the caller could not
+    already write:
+
+    * The ``saved/`` directory must already exist and hold a regular file
+      named :data:`SAVE_MARKER`. Nothing here creates either. Whoever made
+      them — the user, or a sandboxed agent inside its own writable roots —
+      could already write to that directory, so a write there grants nothing
+      new; a policy aimed at any other directory is refused.
+    * The output goes to an exclusively created temporary file that is then
+      renamed over ``<name>``. A rename replaces the directory entry, so a
+      symlink or a hard link planted under that name is replaced, never
+      written through.
+
+    The name is one path component, and every path is resolved with
+    ``O_NOFOLLOW`` relative to a descriptor for the checked workspace.
+    """
+    _check(_SAVE_NAME, name, "save name")
+    root = checked_workspace(workspace)
+    root_fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        try:
+            dir_fd = os.open(SAVED_DIR, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=root_fd)
+        except OSError as exc:
+            raise ParamError(
+                f"{SAVED_DIR!r} under the workspace {str(root)!r} is unusable ({exc.strerror}); create it, "
+                f"with an empty {SAVE_MARKER} file inside, to allow --save there"
+            ) from None
+    finally:
+        os.close(root_fd)
+    try:
+        st = os.fstat(dir_fd)
+        if st.st_uid != os.getuid() or st.st_mode & 0o022:
+            raise ParamError(f"{SAVED_DIR!r} under the workspace must be yours and closed to group and world")
+        try:
+            marker = os.stat(SAVE_MARKER, dir_fd=dir_fd, follow_symlinks=False)
+        except OSError:
+            raise ParamError(
+                f"{SAVED_DIR!r} under the workspace {str(root)!r} holds no {SAVE_MARKER} file — --save writes "
+                f"only into a directory marked for it"
+            ) from None
+        if not stat_mod.S_ISREG(marker.st_mode) or marker.st_uid != os.getuid():
+            raise ParamError(f"{SAVE_MARKER} must be a regular file you own")
+        temp = f".{name}.{os.getpid()}.tmp"
+        try:
+            fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=dir_fd)
+        except OSError as exc:
+            raise ParamError(f"cannot write saved output {name!r} ({exc.strerror})") from None
+        try:
+            with os.fdopen(fd, "wb", closefd=True) as handle:
+                handle.write(data)
+            os.rename(temp, name, src_dir_fd=dir_fd, dst_dir_fd=dir_fd)
+        except BaseException:
+            with contextlib.suppress(OSError):
+                os.unlink(temp, dir_fd=dir_fd)
+            raise
+    finally:
+        os.close(dir_fd)
+    return root / SAVED_DIR / name
+
+
+def read_body(value: str, *, workspace: Path) -> bytes:
+    """
+    Validate and read body text, returning its **content**.
+
+    Content is never interpolated into a command, so a body may contain
+    anything at all — backticks, ``$(…)``, newlines. Two things are constrained:
+    *which* file may be read, and *when*.
+
+    The "when" is the part that is easy to get wrong. Returning a path for ``gh``
+    to open later leaves a window between validation and use: the file that was
+    checked and the file that gets published need not be the same one. So this
+    reads the content itself, from a descriptor it opened, and the caller pipes
+    those bytes to ``gh`` on stdin. There is exactly one open, and it is ours.
+
+    ``O_NOFOLLOW`` refuses a symlink as the final component, and the realpath
+    check refuses one anywhere above it, so no body can resolve out of the
+    workspace. The workspace itself must be owned by this user and closed to
+    group and world: a directory anyone can write is a directory anyone can
+    pre-seed, and these bodies become public comments.
+    """
+    root = checked_workspace(workspace)
+
+    candidate = Path(value).expanduser()
+    resolved = Path(os.path.realpath(candidate))
+    if root not in resolved.parents:
+        raise ParamError(f"body file must live under the workspace {str(root)!r}: {value!r}")
+
+    try:
+        fd = os.open(candidate, os.O_RDONLY | os.O_NOFOLLOW)
+    except FileNotFoundError:
+        raise ParamError(f"body file does not exist: {value!r}") from None
+    except OSError as exc:
+        raise ParamError(f"body file cannot be read ({exc.strerror}): {value!r}") from None
+    try:
+        st = os.fstat(fd)
+        if not stat_mod.S_ISREG(st.st_mode):
+            raise ParamError(f"body file is not a regular file: {value!r}")
+        with os.fdopen(fd, "rb", closefd=True) as handle:
+            return handle.read()
+    except ParamError:
+        os.close(fd)
+        raise
+
+
+def enum(allowed: Sequence[str]) -> Callable[[str], str]:
+    """Build a validator accepting only one of ``allowed``."""
+    permitted = tuple(allowed)
+
+    def _validate(value: str) -> str:
+        if value not in permitted:
+            raise ParamError(f"value {value!r} is not one of the configured values: {list(permitted)}")
+        return value
+
+    return _validate
+
+
+# --------------------------------------------------------------------------
+# Operation catalogue
+# --------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Op:
+    """One fixed operation."""
+
+    name: str
+    #: Parameter names, in positional order.
+    params: tuple[str, ...]
+    #: Builds the argv or request descriptor. Receives resolved config plus validated parameters.
+    build: Callable[..., list[str] | dict[str, object] | Plan]
+    #: Execution backend. "gh" returns an argv list; "http-read" returns a request
+    #: descriptor dict; "procedure" returns a :class:`~vetted_ops.procedures.Plan`
+    #: the dispatcher executes through the restricted tracker-only runner;
+    #: "tracker-cli" exists only on a non-GitHub security tracker, where the
+    #: dispatcher translates it (tracker_backends.py) — on GitHub its builder refuses.
+    backend: str = "gh"
+    #: True when the operation changes state visible outside the machine.
+    writes: bool = False
+    #: Human-readable one-liner for `list-ops`.
+    summary: str = ""
+    #: Parameters that must be one of a configured enum, mapped to the config key
+    #: holding the permitted values (e.g. "labels", "milestones").
+    enums: dict[str, str] = field(default_factory=dict)
+    #: Parameters holding a path to body content.
+    body_files: tuple[str, ...] = ()
+    #: Admitted on `vetted-op-tracker` although not a `procedure` — a tracker
+    #: write that must run outside the sandbox (the local tracker's push).
+    tracker_entry: bool = False
+
+
+def _tracker(cfg: dict[str, str]) -> str:
+    """
+    The tracker repo, or a refusal.
+
+    `tracker` is optional in the policy — see `Config.tracker_repo`. Everything
+    that reaches here addresses the tracker, so an unset value fails closed: the
+    operation is refused by name, at build time, before any argv exists. The
+    alternative failure mode is the dangerous one, since a tracker operation
+    silently retargeted at the *upstream* repo would publish embargoed content
+    to a public one.
+    """
+    repo = cfg.get("tracker_repo")
+    if not repo:
+        raise ParamError(
+            "this operation addresses the tracker, which the policy does not configure. "
+            "Declare `tracker` under [repos] to enable it; upstream-only operations are "
+            "unaffected."
+        )
+    return repo
+
+
+def _upstream(cfg: dict[str, str]) -> str:
+    return cfg["upstream_repo"]
+
+
+def _owner_name(repo: str) -> tuple[str, str]:
+    """Split ``owner/name``. The value comes from policy, validated on load."""
+    owner, _, name = repo.partition("/")
+    return owner, name
+
+
+# ---- reads ----------------------------------------------------------------
+
+OPS: dict[str, Op] = {}
+
+
+def _register(op: Op) -> None:
+    if op.backend == "http-read" and op.writes:
+        raise ValueError(
+            f"operation {op.name!r} has backend='http-read' but writes=True; HTTP operations must be read-only"
+        )
+    OPS[op.name] = op
+
+
+_register(
+    Op(
+        name="issue-view",
+        params=("number",),
+        summary="Read one tracker issue as JSON.",
+        build=lambda cfg, number: [
+            "gh",
+            "issue",
+            "view",
+            number,
+            "--repo",
+            _tracker(cfg),
+            "--json",
+            "number,title,state,body,labels,milestone,assignees,author,url,createdAt,closedAt",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="issue-list",
+        params=("state",),
+        summary="List tracker issues in a given state.",
+        enums={"state": "issue_states"},
+        build=lambda cfg, state: [
+            "gh",
+            "issue",
+            "list",
+            "--repo",
+            _tracker(cfg),
+            "--state",
+            state,
+            "--limit",
+            "1000",
+            "--json",
+            "number,title,state,labels,milestone,assignees,updatedAt,closedAt",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="issue-list-label",
+        params=("state", "label"),
+        summary="List tracker issues in a given state that carry one configured label.",
+        enums={"state": "issue_states", "label": "labels"},
+        build=lambda cfg, state, label: [
+            "gh",
+            "issue",
+            "list",
+            "--repo",
+            _tracker(cfg),
+            "--state",
+            state,
+            "--label",
+            label,
+            "--limit",
+            "1000",
+            "--json",
+            "number,title,state,labels,milestone,assignees,updatedAt,closedAt",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="issue-comments",
+        params=("number",),
+        summary="Read every comment on one tracker issue.",
+        build=lambda cfg, number: [
+            "gh",
+            "api",
+            f"repos/{_tracker(cfg)}/issues/{number}/comments",
+            "--paginate",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="label-list",
+        params=(),
+        summary="List the tracker's labels.",
+        build=lambda cfg: [
+            "gh",
+            "label",
+            "list",
+            "--repo",
+            _tracker(cfg),
+            "--limit",
+            "200",
+            "--json",
+            "name",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="milestone-list",
+        params=(),
+        summary="List the tracker's milestones.",
+        build=lambda cfg: ["gh", "api", f"repos/{_tracker(cfg)}/milestones", "--paginate"],
+    )
+)
+
+_register(
+    Op(
+        name="collaborators",
+        params=(),
+        summary="List tracker collaborators (the security-team roster).",
+        build=lambda cfg: [
+            "gh",
+            "api",
+            f"repos/{_tracker(cfg)}/collaborators",
+            "--paginate",
+            "--jq",
+            ".[].login",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="pr-view",
+        params=("number",),
+        summary="Read one upstream PR as JSON.",
+        build=lambda cfg, number: [
+            "gh",
+            "pr",
+            "view",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--json",
+            "number,title,state,isDraft,mergedAt,mergeCommit,baseRefName,headRefName,"
+            "author,url,files,labels,milestone,reviewDecision,mergeable,mergeStateStatus",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="pr-view-with-body",
+        params=("number",),
+        summary="Read one upstream PR as JSON, including its description.",
+        build=lambda cfg, number: [
+            "gh",
+            "pr",
+            "view",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--json",
+            "number,title,body,state,isDraft,mergedAt,mergeCommit,baseRefName,headRefName,"
+            "author,url,files,labels,milestone",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="pr-checks",
+        params=("number",),
+        summary="Read the CI rollup for one upstream PR.",
+        build=lambda cfg, number: [
+            "gh",
+            "pr",
+            "view",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--json",
+            "statusCheckRollup",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="repo-file",
+        params=("path", "ref"),
+        summary="Fetch one upstream file at a ref (the content probe).",
+        build=lambda cfg, path, ref: [
+            "gh",
+            "api",
+            f"repos/{_upstream(cfg)}/contents/{path}",
+            # `gh api` switches to POST as soon as any -f/-F field is present,
+            # so a read that passes one must say GET explicitly or the request
+            # is sent to a route that does not exist and comes back 404.
+            "-X",
+            "GET",
+            "-f",
+            f"ref={ref}",
+            "--jq",
+            ".content",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="compare",
+        params=("base", "head"),
+        summary="Compare two upstream refs (ancestry check).",
+        build=lambda cfg, base, head: [
+            "gh",
+            "api",
+            f"repos/{_upstream(cfg)}/compare/{base}...{head}",
+            "--jq",
+            ".status",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="tags",
+        params=("prefix",),
+        summary="List upstream tags under a prefix (release detection).",
+        build=lambda cfg, prefix: [
+            "gh",
+            "api",
+            f"repos/{_upstream(cfg)}/git/matching-refs/tags/{prefix}",
+            "--jq",
+            ".[].ref",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="advisory-view",
+        params=("ghsa",),
+        summary="Read one upstream GitHub Security Advisory.",
+        build=lambda cfg, ghsa: [
+            "gh",
+            "api",
+            f"repos/{_upstream(cfg)}/security-advisories/{ghsa}",
+        ],
+    )
+)
+
+# ---- writes ---------------------------------------------------------------
+
+_register(
+    Op(
+        name="issue-add-label",
+        params=("number", "label"),
+        writes=True,
+        summary="Add one configured label to a tracker issue.",
+        enums={"label": "labels"},
+        build=lambda cfg, number, label: [
+            "gh",
+            "issue",
+            "edit",
+            number,
+            "--repo",
+            _tracker(cfg),
+            "--add-label",
+            label,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="issue-remove-label",
+        params=("number", "label"),
+        writes=True,
+        summary="Remove one configured label from a tracker issue.",
+        enums={"label": "labels"},
+        build=lambda cfg, number, label: [
+            "gh",
+            "issue",
+            "edit",
+            number,
+            "--repo",
+            _tracker(cfg),
+            "--remove-label",
+            label,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="issue-set-milestone",
+        params=("number", "milestone"),
+        writes=True,
+        summary="Assign a configured milestone to a tracker issue.",
+        enums={"milestone": "milestones"},
+        build=lambda cfg, number, milestone: [
+            "gh",
+            "issue",
+            "edit",
+            number,
+            "--repo",
+            _tracker(cfg),
+            "--milestone",
+            milestone,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="issue-add-assignee",
+        params=("number", "login"),
+        writes=True,
+        summary="Assign a tracker issue to a roster member.",
+        enums={"login": "assignees"},
+        build=lambda cfg, number, login: [
+            "gh",
+            "issue",
+            "edit",
+            number,
+            "--repo",
+            _tracker(cfg),
+            "--add-assignee",
+            login,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="issue-remove-assignee",
+        params=("number", "login"),
+        writes=True,
+        summary="Unassign a roster member from a tracker issue.",
+        enums={"login": "assignees"},
+        build=lambda cfg, number, login: [
+            "gh",
+            "issue",
+            "edit",
+            number,
+            "--repo",
+            _tracker(cfg),
+            "--remove-assignee",
+            login,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="issue-comment",
+        params=("number", "body"),
+        writes=True,
+        summary="Post a comment on a tracker issue from a body file.",
+        body_files=("body",),
+        build=lambda cfg, number, body: [
+            "gh",
+            "issue",
+            "comment",
+            number,
+            "--repo",
+            _tracker(cfg),
+            "--body-file",
+            body,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="issue-edit-body",
+        params=("number", "body"),
+        writes=True,
+        summary="Replace a tracker issue's body from a body file.",
+        body_files=("body",),
+        build=lambda cfg, number, body: [
+            "gh",
+            "issue",
+            "edit",
+            number,
+            "--repo",
+            _tracker(cfg),
+            "--body-file",
+            body,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="issue-edit-title",
+        params=("number", "title"),
+        writes=True,
+        summary="Replace a tracker issue's title.",
+        build=lambda cfg, number, title: [
+            "gh",
+            "issue",
+            "edit",
+            number,
+            "--repo",
+            _tracker(cfg),
+            "--title",
+            title,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="milestone-create",
+        params=("milestone",),
+        writes=True,
+        summary="Create a configured milestone on the tracker.",
+        enums={"milestone": "milestones"},
+        build=lambda cfg, milestone: [
+            "gh",
+            "api",
+            f"repos/{_tracker(cfg)}/milestones",
+            "-f",
+            f"title={milestone}",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="issue-close",
+        params=("number", "reason"),
+        writes=True,
+        summary="Close a tracker issue with a configured reason.",
+        enums={"reason": "close_reasons"},
+        build=lambda cfg, number, reason: [
+            "gh",
+            "issue",
+            "close",
+            number,
+            "--repo",
+            _tracker(cfg),
+            "--reason",
+            reason,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="issue-reopen",
+        params=("number",),
+        writes=True,
+        summary="Reopen a tracker issue.",
+        build=lambda cfg, number: ["gh", "issue", "reopen", number, "--repo", _tracker(cfg)],
+    )
+)
+
+_register(
+    Op(
+        name="issue-create",
+        params=("title", "body"),
+        writes=True,
+        summary="Create a tracker issue; title as one validated line, body on stdin.",
+        body_files=("body",),
+        # `gh issue create` has no --title-file, so the title rides in argv as one
+        # validated `-f` value — never a shell word, so its punctuation is inert —
+        # and `-F body=@-` takes the body from stdin. `gh api` also skips the issue
+        # form, so required form fields do not block an import.
+        build=lambda cfg, title, body: [
+            "gh",
+            "api",
+            f"repos/{_tracker(cfg)}/issues",
+            "--method",
+            "POST",
+            "-f",
+            f"title={title}",
+            "-F",
+            "body=@-",
+            "--jq",
+            "{number: .number, url: .html_url}",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="issue-search",
+        params=("query",),
+        summary="Search tracker issues (open and closed) for plain words.",
+        build=lambda cfg, query: [
+            "gh",
+            "search",
+            "issues",
+            "--repo",
+            _tracker(cfg),
+            "--limit",
+            "100",
+            "--json",
+            "number,title,state,labels,updatedAt,url",
+            # End of options: the query is a positional, whatever it looks like.
+            "--",
+            query,
+        ],
+    )
+)
+
+
+def _not_on_github(op: str, reason: str) -> Callable[..., list[str]]:
+    def _build(cfg: dict[str, str], **_params: str) -> list[str]:
+        _tracker(cfg)
+        raise ParamError(f"{op!r} is not applicable on the github tracker: {reason}")
+
+    return _build
+
+
+_register(
+    Op(
+        name="tracker-pending",
+        backend="tracker-cli",
+        params=(),
+        summary="List tracker changes not yet committed (local-files tracker only).",
+        build=_not_on_github("tracker-pending", "its writes are visible as soon as they return"),
+    )
+)
+
+_register(
+    Op(
+        name="tracker-publish",
+        backend="tracker-cli",
+        params=("message",),
+        writes=True,
+        tracker_entry=True,
+        summary="Commit the tracker folder and push (local-files tracker only); message on stdin.",
+        body_files=("message",),
+        build=_not_on_github("tracker-publish", "its writes are visible as soon as they return"),
+    )
+)
+
+_register(
+    Op(
+        name="comment-update",
+        params=("comment_id", "body"),
+        writes=True,
+        summary="Rewrite one existing tracker comment (the rollup upsert).",
+        body_files=("body",),
+        build=lambda cfg, comment_id, body: [
+            "gh",
+            "api",
+            "-X",
+            "PATCH",
+            f"repos/{_tracker(cfg)}/issues/comments/{comment_id}",
+            "-F",
+            f"body=@{body}",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="board-add-item",
+        params=("content_id",),
+        writes=True,
+        summary="Add an issue or PR to the project board, returning its item id.",
+        build=lambda cfg, content_id: [
+            "gh",
+            "api",
+            "graphql",
+            "-F",
+            f"project={cfg['board_project_id']}",
+            "-F",
+            f"content={content_id}",
+            "-f",
+            "query=mutation($project:ID!,$content:ID!)"
+            "{addProjectV2ItemById(input:{projectId:$project,contentId:$content})"
+            "{item{id}}}",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="board-archive-item",
+        params=("item_id",),
+        writes=True,
+        summary="Archive a project-board item, removing it from the board view.",
+        build=lambda cfg, item_id: [
+            "gh",
+            "api",
+            "graphql",
+            "-F",
+            f"project={cfg['board_project_id']}",
+            "-F",
+            f"item={item_id}",
+            "-f",
+            "query=mutation($project:ID!,$item:ID!)"
+            "{archiveProjectV2Item(input:{projectId:$project,itemId:$item})"
+            "{item{id}}}",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="milestone-close",
+        params=("number",),
+        writes=True,
+        summary="Close a tracker milestone by number.",
+        build=lambda cfg, number: [
+            "gh",
+            "api",
+            f"repos/{_tracker(cfg)}/milestones/{number}",
+            "-X",
+            "PATCH",
+            "-f",
+            "state=closed",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="board-set-status",
+        params=("item_id", "column"),
+        writes=True,
+        summary="Move a project-board item to a configured column.",
+        enums={"column": "board_columns"},
+        build=lambda cfg, item_id, column: [
+            "gh",
+            "api",
+            "graphql",
+            "-F",
+            f"project={cfg['board_project_id']}",
+            "-F",
+            f"item={item_id}",
+            "-F",
+            f"field={cfg['board_status_field_id']}",
+            "-F",
+            f"option={cfg['board_columns'][column]}",
+            "-f",
+            "query=mutation($project:ID!,$item:ID!,$field:ID!,$option:String!)"
+            "{updateProjectV2ItemFieldValue(input:{projectId:$project,itemId:$item,"
+            "fieldId:$field,value:{singleSelectOptionId:$option}}){projectV2Item{id}}}",
+        ],
+    )
+)
+
+
+# ---- pull-request family ---------------------------------------------------
+#
+# The catalogue above is issue-shaped because the security lifecycle is where
+# the sweep volume first showed up. PR management makes the same shape of many
+# small forge writes, so it gets the same treatment.
+#
+# One operation is deliberately absent: there is no `pr-merge`. Merging is the
+# framework's deliberately-deferred Agentic Autonomous mode — `quick-merge`
+# prints a merge command for the maintainer to run rather than merging itself —
+# and adding a vetted merge op would quietly hand the agent the one capability
+# the surrounding design withholds. Widening the catalogue must not widen the
+# posture.
+
+_register(
+    Op(
+        name="pr-list",
+        params=("state",),
+        summary="List upstream PRs in a given state.",
+        enums={"state": "pr_states"},
+        build=lambda cfg, state: [
+            "gh",
+            "pr",
+            "list",
+            "--repo",
+            _upstream(cfg),
+            "--state",
+            state,
+            "--limit",
+            "1000",
+            "--json",
+            "number,title,state,isDraft,author,labels,milestone,updatedAt,"
+            "createdAt,reviewDecision,mergeable,headRefName,baseRefName",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="pr-diff",
+        params=("number",),
+        summary="Read one upstream PR's diff.",
+        build=lambda cfg, number: ["gh", "pr", "diff", number, "--repo", _upstream(cfg)],
+    )
+)
+
+_register(
+    Op(
+        name="pr-comments",
+        params=("number",),
+        summary="Read every issue-level comment on one upstream PR.",
+        build=lambda cfg, number: [
+            "gh",
+            "api",
+            f"repos/{_upstream(cfg)}/issues/{number}/comments",
+            "--paginate",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="pr-reviews",
+        params=("number",),
+        summary="Read the submitted reviews on one upstream PR.",
+        build=lambda cfg, number: [
+            "gh",
+            "api",
+            f"repos/{_upstream(cfg)}/pulls/{number}/reviews",
+            "--paginate",
+        ],
+    )
+)
+
+# ---- code-review reads -----------------------------------------------------
+#
+# What `pr-management-code-review` needs before it can draft anything. Every
+# operation here is a read; the three review *submissions* it ends with
+# (`pr-review-approve` / `-request-changes` / `-comment`) are writes and stay
+# behind `vetted-op`'s confirmation, below.
+#
+# The searches are the interesting case. Free-text `gh search prs` stays out of
+# the catalogue for the reason given at the foot of this file — a query with no
+# fixed shape is the surface this dispatcher exists to remove. These three are
+# not that: the qualifier is baked into the builder, the repository comes from
+# policy, and the only parameter is a login or a team slug. A caller chooses
+# *whose* queue to read, never *what* to ask.
+
+_register(
+    Op(
+        name="viewer",
+        params=(),
+        summary="Read the authenticated login (whose review queue to resolve).",
+        build=lambda cfg: ["gh", "api", "user", "--jq", ".login"],
+    )
+)
+
+_register(
+    Op(
+        name="upstream-permission",
+        params=("login",),
+        summary="Read one user's permission level on the upstream repo.",
+        build=lambda cfg, login: [
+            "gh",
+            "api",
+            f"repos/{_upstream(cfg)}/collaborators/{login}/permission",
+            "--jq",
+            ".permission",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="pr-review-context",
+        params=("number",),
+        summary="Read everything the review pass needs about one upstream PR, as JSON.",
+        build=lambda cfg, number: [
+            "gh",
+            "pr",
+            "view",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--json",
+            "number,title,url,state,isDraft,body,author,createdAt,updatedAt,"
+            "baseRefName,headRefName,headRefOid,labels,milestone,files,commits,"
+            "additions,deletions,changedFiles,reviewDecision,reviewRequests,"
+            "reviews,comments,mergeable,mergeStateStatus,statusCheckRollup",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="pr-files",
+        params=("number",),
+        summary="List the paths one upstream PR touches (the touching-mine intersection).",
+        build=lambda cfg, number: [
+            "gh",
+            "pr",
+            "view",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--json",
+            "files",
+            "--jq",
+            ".files[].path",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="pr-list-label",
+        params=("label",),
+        summary="List open upstream PRs carrying one configured label (the `ready` queue).",
+        enums={"label": "upstream_labels"},
+        build=lambda cfg, label: [
+            "gh",
+            "pr",
+            "list",
+            "--repo",
+            _upstream(cfg),
+            "--state",
+            "open",
+            "--label",
+            label,
+            "--limit",
+            "100",
+            "--json",
+            "number,title,state,isDraft,author,labels,updatedAt,createdAt,"
+            "reviewDecision,reviewRequests,baseRefName",
+        ],
+    )
+)
+
+#: Search qualifier -> the summary for the operation built around it. The
+#: qualifier is fixed per operation; only its value is a parameter.
+_PR_SEARCHES: dict[str, tuple[str, str]] = {
+    "review-requested": (
+        "pr-search-review-requested",
+        "Open upstream PRs with a review requested from one user.",
+    ),
+    "mentions": (
+        "pr-search-mentions",
+        "Open upstream PRs mentioning one user.",
+    ),
+    "reviewed-by": (
+        "pr-search-reviewed-by",
+        "Open upstream PRs one user has already reviewed.",
+    ),
+}
+
+_SEARCH_FIELDS = "number,title,author,authorAssociation,labels,url,updatedAt,createdAt,isDraft,state"
+
+
+def _pr_search_builder(qualifier: str) -> Callable[..., list[str]]:
+    def build(cfg: dict[str, str], login: str) -> list[str]:
+        return [
+            "gh",
+            "search",
+            "prs",
+            "--repo",
+            _upstream(cfg),
+            "--state",
+            "open",
+            f"--{qualifier}",
+            login,
+            "--sort",
+            "updated",
+            "--order",
+            "desc",
+            "--limit",
+            "50",
+            "--json",
+            _SEARCH_FIELDS,
+        ]
+
+    return build
+
+
+for _qualifier, (_op_name, _summary) in _PR_SEARCHES.items():
+    _register(
+        Op(
+            name=_op_name,
+            params=("login",),
+            summary=_summary,
+            build=_pr_search_builder(_qualifier),
+        )
+    )
+
+_register(
+    Op(
+        name="pr-search-team-review-requested",
+        params=("team",),
+        summary="Open upstream PRs with a review requested from one team in the upstream org.",
+        build=lambda cfg, team: [
+            "gh",
+            "search",
+            "prs",
+            "--repo",
+            _upstream(cfg),
+            "--state",
+            "open",
+            # `gh search prs` has no --team-review-requested; --review-requested
+            # accepts a user *or* an "<org>/<team>" slug.
+            "--review-requested",
+            f"{_owner_name(_upstream(cfg))[0]}/{team}",
+            "--sort",
+            "updated",
+            "--order",
+            "desc",
+            "--limit",
+            "50",
+            "--json",
+            _SEARCH_FIELDS,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="commits-by-path",
+        params=("path",),
+        summary="Read the recent commit authors for one upstream path (reviewer suggestions).",
+        build=lambda cfg, path: [
+            "gh",
+            "api",
+            f"repos/{_upstream(cfg)}/commits",
+            "-X",
+            "GET",
+            "-F",
+            f"path={path}",
+            "-F",
+            "per_page=30",
+            "--jq",
+            ".[].author.login",
+        ],
+    )
+)
+
+
+_register(
+    Op(
+        name="pr-comment",
+        params=("number", "body"),
+        writes=True,
+        summary="Post a comment on an upstream PR from a body file.",
+        body_files=("body",),
+        build=lambda cfg, number, body: [
+            "gh",
+            "pr",
+            "comment",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--body-file",
+            body,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="pr-add-label",
+        params=("number", "label"),
+        writes=True,
+        summary="Add a configured label to an upstream PR.",
+        enums={"label": "upstream_labels"},
+        build=lambda cfg, number, label: [
+            "gh",
+            "pr",
+            "edit",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--add-label",
+            label,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="pr-remove-label",
+        params=("number", "label"),
+        writes=True,
+        summary="Remove a configured label from an upstream PR.",
+        enums={"label": "upstream_labels"},
+        build=lambda cfg, number, label: [
+            "gh",
+            "pr",
+            "edit",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--remove-label",
+            label,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="pr-set-milestone",
+        params=("number", "milestone"),
+        writes=True,
+        summary="Set a configured milestone on an upstream PR.",
+        enums={"milestone": "milestones"},
+        build=lambda cfg, number, milestone: [
+            "gh",
+            "pr",
+            "edit",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--milestone",
+            milestone,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="pr-add-assignee",
+        params=("number", "login"),
+        writes=True,
+        summary="Assign a configured user to an upstream PR.",
+        enums={"login": "assignees"},
+        build=lambda cfg, number, login: [
+            "gh",
+            "pr",
+            "edit",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--add-assignee",
+            login,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="pr-request-reviewer",
+        params=("number", "login"),
+        writes=True,
+        summary="Request a review from a configured user on an upstream PR.",
+        enums={"login": "assignees"},
+        build=lambda cfg, number, login: [
+            "gh",
+            "pr",
+            "edit",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--add-reviewer",
+            login,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="pr-review-approve",
+        params=("number", "body"),
+        writes=True,
+        summary="Submit an approving review on an upstream PR from a body file.",
+        body_files=("body",),
+        build=lambda cfg, number, body: [
+            "gh",
+            "pr",
+            "review",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--approve",
+            "--body-file",
+            body,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="pr-review-request-changes",
+        params=("number", "body"),
+        writes=True,
+        summary="Submit a request-changes review on an upstream PR from a body file.",
+        body_files=("body",),
+        build=lambda cfg, number, body: [
+            "gh",
+            "pr",
+            "review",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--request-changes",
+            "--body-file",
+            body,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="pr-review-comment",
+        params=("number", "body"),
+        writes=True,
+        summary="Submit a non-blocking review comment on an upstream PR from a body file.",
+        body_files=("body",),
+        build=lambda cfg, number, body: [
+            "gh",
+            "pr",
+            "review",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--comment",
+            "--body-file",
+            body,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="pr-ready",
+        params=("number",),
+        writes=True,
+        summary="Mark an upstream PR ready for review.",
+        build=lambda cfg, number: ["gh", "pr", "ready", number, "--repo", _upstream(cfg)],
+    )
+)
+
+_register(
+    Op(
+        name="pr-draft",
+        params=("number",),
+        writes=True,
+        summary="Convert an upstream PR back to draft (triage's 'not ready' disposition).",
+        build=lambda cfg, number: [
+            "gh",
+            "pr",
+            "ready",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--undo",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="pr-close",
+        params=("number",),
+        writes=True,
+        summary="Close an upstream PR without merging.",
+        build=lambda cfg, number: ["gh", "pr", "close", number, "--repo", _upstream(cfg)],
+    )
+)
+
+_register(
+    Op(
+        name="pr-update-branch",
+        params=("number",),
+        writes=True,
+        summary="Update an upstream PR's branch from its base.",
+        build=lambda cfg, number: [
+            "gh",
+            "pr",
+            "update-branch",
+            number,
+            "--repo",
+            _upstream(cfg),
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="run-rerun-failed",
+        params=("run_id",),
+        writes=True,
+        summary="Re-run the failed jobs of one upstream workflow run.",
+        build=lambda cfg, run_id: [
+            "gh",
+            "run",
+            "rerun",
+            run_id,
+            "--repo",
+            _upstream(cfg),
+            "--failed",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="workflow-approve",
+        params=("run_id",),
+        writes=True,
+        summary="Approve a pending first-time-contributor workflow run.",
+        build=lambda cfg, run_id: [
+            "gh",
+            "api",
+            "-X",
+            "POST",
+            f"repos/{_upstream(cfg)}/actions/runs/{run_id}/approve",
+        ],
+    )
+)
+
+
+# ---- upstream-issue family -------------------------------------------------
+#
+# The `issue-*` operations above address the *tracker* — the private repository
+# the security lifecycle runs in. The issue family works on the project's own
+# public issues, which is a different repository and therefore a different set
+# of operations: `repo-` here means upstream, matching `repo-file`.
+#
+# Two shapes the family uses are deliberately absent:
+#
+#   * `gh search issues` — the search query is free text with no fixed shape, so
+#     wrapping it would re-introduce the unbounded surface the catalogue exists
+#     to remove.
+#   * `gh issue create` / `gh pr create` — `gh` has `--body-file` but no
+#     `--title-file`, so a title could only arrive as a free-text parameter.
+#     Creation is also a genuinely novel action, which the spec's non-goals
+#     already say keeps its confirmation.
+#
+# Both keep their `ask` rule. The catalogue covers the sweep, not everything.
+
+_register(
+    Op(
+        name="repo-issue-view",
+        params=("number",),
+        summary="Read one upstream issue as JSON.",
+        build=lambda cfg, number: [
+            "gh",
+            "issue",
+            "view",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--json",
+            "number,title,state,body,labels,milestone,assignees,author,url,"
+            "createdAt,updatedAt,closedAt,comments",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="repo-issue-list",
+        params=("state",),
+        summary="List upstream issues in a given state.",
+        enums={"state": "issue_states"},
+        build=lambda cfg, state: [
+            "gh",
+            "issue",
+            "list",
+            "--repo",
+            _upstream(cfg),
+            "--state",
+            state,
+            "--limit",
+            "1000",
+            "--json",
+            "number,title,state,labels,milestone,assignees,author,createdAt,updatedAt,closedAt",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="repo-issue-comments",
+        params=("number",),
+        summary="Read every comment on one upstream issue.",
+        build=lambda cfg, number: [
+            "gh",
+            "api",
+            f"repos/{_upstream(cfg)}/issues/{number}/comments",
+            "--paginate",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="repo-issue-comment",
+        params=("number", "body"),
+        writes=True,
+        summary="Post a comment on an upstream issue from a body file.",
+        body_files=("body",),
+        build=lambda cfg, number, body: [
+            "gh",
+            "issue",
+            "comment",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--body-file",
+            body,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="repo-issue-add-label",
+        params=("number", "label"),
+        writes=True,
+        summary="Add a configured label to an upstream issue.",
+        enums={"label": "upstream_labels"},
+        build=lambda cfg, number, label: [
+            "gh",
+            "issue",
+            "edit",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--add-label",
+            label,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="repo-issue-remove-label",
+        params=("number", "label"),
+        writes=True,
+        summary="Remove a configured label from an upstream issue.",
+        enums={"label": "upstream_labels"},
+        build=lambda cfg, number, label: [
+            "gh",
+            "issue",
+            "edit",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--remove-label",
+            label,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="repo-issue-set-milestone",
+        params=("number", "milestone"),
+        writes=True,
+        summary="Set a configured milestone on an upstream issue.",
+        enums={"milestone": "milestones"},
+        build=lambda cfg, number, milestone: [
+            "gh",
+            "issue",
+            "edit",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--milestone",
+            milestone,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="repo-issue-add-assignee",
+        params=("number", "login"),
+        writes=True,
+        summary="Assign a configured user to an upstream issue.",
+        enums={"login": "assignees"},
+        build=lambda cfg, number, login: [
+            "gh",
+            "issue",
+            "edit",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--add-assignee",
+            login,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="repo-issue-close",
+        params=("number", "reason"),
+        writes=True,
+        summary="Close an upstream issue with a configured reason.",
+        enums={"reason": "close_reasons"},
+        build=lambda cfg, number, reason: [
+            "gh",
+            "issue",
+            "close",
+            number,
+            "--repo",
+            _upstream(cfg),
+            "--reason",
+            reason,
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="repo-issue-reopen",
+        params=("number",),
+        writes=True,
+        summary="Reopen an upstream issue (the stale-sweep reversal).",
+        build=lambda cfg, number: [
+            "gh",
+            "issue",
+            "reopen",
+            number,
+            "--repo",
+            _upstream(cfg),
+        ],
+    )
+)
+
+
+# ---- repo health, releases, and people -------------------------------------
+#
+# The remaining families are overwhelmingly *read* surfaces: a licence audit
+# walks the tree, a release check reads what is published, a contributor
+# assessment reads a public profile. They need few operations, and mentoring
+# needs none at all — it works on upstream issues and PRs, which the two
+# families above already cover.
+#
+# What is deliberately absent here is larger than what is present:
+#
+#   * `gh release create` / `upload` / `edit` / `delete` — publishing and
+#     deleting releases. Releases are vote-gated and maintainer-driven in this
+#     framework; a vetted delete would hand the agent an irreversible action the
+#     surrounding process deliberately keeps in human hands. Same reasoning as
+#     the absent `pr-merge`.
+#   * *Free-text* `gh search issues` / `prs`, and the GraphQL `search(...)`
+#     connection that contributor-growth leans on — a query with no fixed shape
+#     is exactly the surface this dispatcher exists to remove. The four
+#     `pr-search-*` operations above are not an exception to that: each one
+#     hard-codes its qualifier in the builder and takes a single validated
+#     login or team slug, so a caller picks *whose* queue to read and never
+#     what to ask.
+#   * `gh run download` — writes artifacts to local disk rather than to the
+#     forge. That is a different risk class (filesystem paths, archive
+#     extraction) and does not belong behind a forge dispatcher.
+#   * `gh repo clone` / `fork` / `create` — novel actions, which the spec's
+#     non-goals already say keep their confirmation.
+
+_register(
+    Op(
+        name="repo-view",
+        params=(),
+        summary="Read upstream repository metadata.",
+        build=lambda cfg: [
+            "gh",
+            "repo",
+            "view",
+            _upstream(cfg),
+            "--json",
+            "name,owner,description,defaultBranchRef,licenseInfo,isArchived,"
+            "visibility,pushedAt,repositoryTopics",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="repo-tree",
+        params=("ref",),
+        summary="List every upstream path at a ref (the licence/compliance walk).",
+        build=lambda cfg, ref: [
+            "gh",
+            "api",
+            f"repos/{_upstream(cfg)}/git/trees/{ref}",
+            # See the note on `repo-file`: fields without an explicit -X make
+            # `gh api` POST.
+            "-X",
+            "GET",
+            "-f",
+            "recursive=1",
+            "--jq",
+            # A recursive tree over a large repository comes back with
+            # `truncated: true` and a partial `tree`. Projecting straight to
+            # paths drops that flag, so a caller cannot tell a complete listing
+            # from a partial one and reads the gap as "those paths do not
+            # exist". Fail loudly instead of answering with half a tree.
+            (
+                'if .truncated then error("repo-tree: the GitHub API truncated '
+                "this tree; the listing is incomplete. Walk the tree level by "
+                'level instead of relying on recursive=1.") else .tree[].path end'
+            ),
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="run-list",
+        params=(),
+        summary="List recent upstream workflow runs.",
+        build=lambda cfg: [
+            "gh",
+            "run",
+            "list",
+            "--repo",
+            _upstream(cfg),
+            "--limit",
+            "100",
+            "--json",
+            "databaseId,workflowName,headBranch,event,status,conclusion,createdAt",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="run-view",
+        params=("run_id",),
+        summary="Read one upstream workflow run, with its jobs.",
+        build=lambda cfg, run_id: [
+            "gh",
+            "run",
+            "view",
+            run_id,
+            "--repo",
+            _upstream(cfg),
+            "--json",
+            "databaseId,workflowName,headSha,status,conclusion,createdAt,jobs",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="release-list",
+        params=(),
+        summary="List upstream releases.",
+        build=lambda cfg: [
+            "gh",
+            "release",
+            "list",
+            "--repo",
+            _upstream(cfg),
+            "--limit",
+            "100",
+            "--json",
+            "tagName,name,isDraft,isPrerelease,publishedAt",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="release-view",
+        params=("ref",),
+        summary="Read one upstream release by tag.",
+        build=lambda cfg, ref: [
+            "gh",
+            "release",
+            "view",
+            ref,
+            "--repo",
+            _upstream(cfg),
+            "--json",
+            "tagName,name,body,isDraft,isPrerelease,publishedAt,assets",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="user-profile",
+        params=("login",),
+        summary="Read one public GitHub profile (contributor assessment).",
+        build=lambda cfg, login: ["gh", "api", f"users/{login}"],
+    )
+)
+
+
+# ---- allowlisted GraphQL ---------------------------------------------------
+#
+# `gh api graphql` is the widest surface `gh` offers, and the two calls the PR
+# skills actually make are narrow and repeated. Rather than exposing a generic
+# escape hatch, each document in QUERIES_DIR is registered as its own operation
+# taking only the variables it needs. The query text is never a parameter, and
+# owner/name come from policy, so a named query cannot be re-aimed.
+
+#: Query name -> the parameters it accepts, beyond the policy-supplied owner/repo.
+GRAPHQL_QUERIES: dict[str, tuple[str, ...]] = {
+    "pr-liveness": ("number",),
+    "pr-review-threads": ("number",),
+    "pr-triage-one": ("number",),
+    "main-recent-failures": (),
+    "pr-triage-preflight": (),
+}
+
+#: Documents whose single top-level connection is paginated with `--paginate --slurp`.
+PAGINATED_QUERIES: frozenset[str] = frozenset({"pr-triage-preflight"})
+
+#: Documents registered by their own builders below rather than through
+#: GRAPHQL_QUERIES, because they take no policy owner/repo variables.
+SEARCH_DOCUMENTS: frozenset[str] = frozenset(
+    {"pr-triage-search", "pr-stats-open", "pr-stats-closed-page", "pr-stats-closed-search"}
+)
+
+
+def _graphql_builder(query: str) -> Callable[..., list[str]]:
+    def build(cfg: dict[str, str], **params: str) -> list[str]:
+        owner, name = _owner_name(_upstream(cfg))
+        argv = [
+            "gh",
+            "api",
+            "graphql",
+            "-F",
+            f"owner={owner}",
+            "-F",
+            f"repo={name}",
+            "-F",
+            f"query=@{query_name(query)}",
+        ]
+        for key, value in params.items():
+            argv += ["-F", f"{key}={value}"]
+        if query in PAGINATED_QUERIES:
+            argv[3:3] = ["--paginate", "--slurp"]
+        return argv
+
+    return build
+
+
+for _query, _params in GRAPHQL_QUERIES.items():
+    _register(
+        Op(
+            name=f"gql-{_query}",
+            params=_params,
+            summary=f"Run the allowlisted GraphQL query {_query!r} against the upstream repo.",
+            build=_graphql_builder(_query),
+        )
+    )
+
+
+# ---- pr-management-triage fetch --------------------------------------------
+#
+# The triage sweep reads every open PR, and the pages are large: they go to a
+# file through `--save`, never into the caller's context. Each selector is its
+# own operation. The search string is assembled here, `repo:` from policy
+# first, so a parameter can narrow the sweep but never re-aim it.
+
+#: Selector -> (operation name, summary, search qualifier or None).
+_TRIAGE_SEARCHES: dict[str, tuple[str, str, str | None]] = {
+    "": ("gql-pr-triage-open", "Every open upstream PR, in triage shape (all pages).", None),
+    "label": (
+        "gql-pr-triage-label",
+        "Open upstream PRs carrying one configured label, in triage shape (all pages).",
+        "label",
+    ),
+    "login": (
+        "gql-pr-triage-author",
+        "Open upstream PRs by one author, in triage shape (all pages).",
+        "author",
+    ),
+}
+
+
+def _triage_search_builder(qualifier: str | None) -> Callable[..., list[str]]:
+    def build(cfg: dict[str, str], **params: str) -> list[str]:
+        search = f"repo:{_upstream(cfg)} is:pr is:open sort:updated-asc"
+        if qualifier is not None:
+            (value,) = params.values()
+            # A label may contain spaces; quote it. The value is a policy
+            # enum or a validated login, so it carries no quote of its own.
+            search += f' {qualifier}:"{value}"' if qualifier == "label" else f" {qualifier}:{value}"
+        return [
+            "gh",
+            "api",
+            "graphql",
+            "--paginate",
+            "--slurp",
+            "-f",
+            f"searchQuery={search}",
+            "-F",
+            f"query=@{query_name('pr-triage-search')}",
+        ]
+
+    return build
+
+
+for _param, (_op_name, _summary, _triage_qualifier) in _TRIAGE_SEARCHES.items():
+    _register(
+        Op(
+            name=_op_name,
+            params=(_param,) if _param else (),
+            summary=_summary,
+            enums={"label": "upstream_labels"} if _param == "label" else {},
+            build=_triage_search_builder(_triage_qualifier),
+        )
+    )
+
+_register(
+    Op(
+        name="gql-pr-triage-review-requested",
+        params=("login",),
+        summary="Open upstream PRs with a review requested from one user, in triage shape (all pages).",
+        build=lambda cfg, login: _triage_search_builder("review-requested")(cfg, login=login),
+    )
+)
+
+_register(
+    Op(
+        name="runs-action-required",
+        params=(),
+        summary="Every upstream workflow run awaiting approval (all pages).",
+        build=lambda cfg: [
+            "gh",
+            "api",
+            f"repos/{_upstream(cfg)}/actions/runs?status=action_required&per_page=100",
+            "--paginate",
+            "--slurp",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="runs-at-head",
+        params=("commit_hash",),
+        summary="Every workflow run on one upstream head commit (all pages): the pre-mutation guards' read.",
+        build=lambda cfg, commit_hash: [
+            "gh",
+            "api",
+            f"repos/{_upstream(cfg)}/actions/runs?head_sha={commit_hash}&per_page=100",
+            "--paginate",
+            "--slurp",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="check-runs",
+        params=("commit_hash",),
+        summary="Every check run on one upstream commit (all pages).",
+        build=lambda cfg, commit_hash: [
+            "gh",
+            "api",
+            f"repos/{_upstream(cfg)}/commits/{commit_hash}/check-runs?per_page=100",
+            "--paginate",
+            "--slurp",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="compare-behind",
+        params=("base", "head"),
+        summary="How many commits one upstream ref is behind another.",
+        build=lambda cfg, base, head: [
+            "gh",
+            "api",
+            f"repos/{_upstream(cfg)}/compare/{base}...{head}",
+            "--jq",
+            "{base: .base_commit.sha, behind_by: .behind_by, ahead_by: .ahead_by}",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="team-members",
+        params=("team",),
+        summary="The logins in one team of the upstream organisation (all pages).",
+        build=lambda cfg, team: [
+            "gh",
+            "api",
+            f"orgs/{_owner_name(_upstream(cfg))[0]}/teams/{team}/members?per_page=100",
+            "--paginate",
+            "--jq",
+            ".[].login",
+        ],
+    )
+)
+
+# ---- pr-management-stats fetch ----------------------------------------------
+#
+# The dashboard's reads, saved with `--save` like the triage sweep. The open
+# sweep and the `fast-closed` search build `repo:<upstream>` from policy into
+# the search string; the default closed path pages the repository's own
+# pull-request connection one page per call, because only the caller (the
+# `pr-management stats build` loop) knows when a page predates the cutoff.
+
+
+def _stats_search(document: str, search: str) -> list[str]:
+    return [
+        "gh",
+        "api",
+        "graphql",
+        "--paginate",
+        "--slurp",
+        "-f",
+        f"searchQuery={search}",
+        "-F",
+        f"query=@{query_name(document)}",
+    ]
+
+
+_register(
+    Op(
+        name="gql-pr-stats-open",
+        params=(),
+        summary="Every open upstream PR in the pr-management-stats shape (all pages).",
+        build=lambda cfg: _stats_search(
+            "pr-stats-open", f"repo:{_upstream(cfg)} is:pr is:open sort:created-asc"
+        ),
+    )
+)
+
+_register(
+    Op(
+        name="gql-pr-stats-closed-search",
+        params=("date",),
+        summary="Closed/merged upstream PRs since a date, via the search index (all pages; fast-closed).",
+        build=lambda cfg, date: _stats_search(
+            "pr-stats-closed-search",
+            f"repo:{_upstream(cfg)} is:pr -is:open closed:>={date} sort:updated-desc",
+        ),
+    )
+)
+
+
+def _stats_closed_page(cfg: dict[str, str], cursor: str) -> list[str]:
+    owner, name = _owner_name(_upstream(cfg))
+    argv = [
+        "gh",
+        "api",
+        "graphql",
+        "-F",
+        f"owner={owner}",
+        "-F",
+        f"repo={name}",
+        "-F",
+        f"query=@{query_name('pr-stats-closed-page')}",
+    ]
+    if cursor != "start":
+        argv += ["-f", f"cursor={cursor}"]
+    return argv
+
+
+_register(
+    Op(
+        name="gql-pr-stats-closed-page",
+        params=("cursor",),
+        summary="One page of closed/merged upstream PRs, newest update first (`start` for the first).",
+        build=_stats_closed_page,
+    )
+)
+
+# ---- http reads -----------------------------------------------------------
+
+_register(
+    Op(
+        name="osv-get-vuln",
+        params=("vuln_id",),
+        backend="http-read",
+        summary="Read one vulnerability record from OSV by ID.",
+        build=lambda cfg, vuln_id: {
+            "url": f"{cfg['osv_api']}/vulns/{vuln_id}",
+            "method": "GET",
+        },
+    )
+)
+
+_register(
+    Op(
+        name="osv-query-package",
+        params=("package_name", "ecosystem", "version"),
+        backend="http-read",
+        summary="Query OSV for vulnerabilities affecting a package version.",
+        enums={"ecosystem": "ecosystems"},
+        build=lambda cfg, package_name, ecosystem, version: {
+            "url": f"{cfg['osv_api']}/query",
+            "method": "POST",
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps(
+                {"package": {"name": package_name, "ecosystem": ecosystem}, "version": version}
+            ),
+        },
+    )
+)
+
+_register(
+    Op(
+        name="osv-query-commit",
+        params=("commit_hash",),
+        backend="http-read",
+        summary="Query OSV for vulnerabilities affecting a commit hash.",
+        build=lambda cfg, commit_hash: {
+            "url": f"{cfg['osv_api']}/query",
+            "method": "POST",
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps({"commit": commit_hash}),
+        },
+    )
+)
+
+_register(
+    Op(
+        name="osv-query-batch",
+        params=("body",),
+        backend="http-read",
+        summary="Batch query OSV for vulnerabilities affecting multiple packages or commits.",
+        body_files=("body",),
+        build=lambda cfg, body: {
+            "url": f"{cfg['osv_api']}/querybatch",
+            "method": "POST",
+            "headers": {"Content-Type": "application/json"},
+        },
+    )
+)
+
+_register(
+    Op(
+        name="cve-check-published",
+        params=("cve_id",),
+        backend="http-read",
+        summary="Fetch CVE publication state and record from CVE.org services API.",
+        build=lambda cfg, cve_id: {
+            "url": f"{cfg['cve_services_api']}/cve/{cve_id}",
+            "method": "GET",
+        },
+    )
+)
+
+# ---- procedures: read-modify-write on the tracker -------------------------
+#
+# These cannot be a single argv: the write depends on what a read returned (the
+# rollup comment to append to, the issue body whose field to replace). The
+# builder binds the validated parameters to a fixed procedure in procedures.py;
+# the dispatcher runs it through a Runner that permits only `gh` calls on the
+# policy-pinned tracker. The rollup and the issue body stay in this process —
+# only a one-line summary reaches the caller.
+
+
+def _plan(op: str, run: Callable[..., int]) -> Callable[..., Plan]:
+    def _build(cfg: dict[str, str], **params: str) -> Plan:
+        # Bodies arrive through Plan.execute, not as a parameter.
+        bound = {k: v for k, v in params.items() if k not in {"body", "value"}}
+        return Plan(op=op, tracker=_tracker(cfg), run=run, params=bound)
+
+    return _build
+
+
+_register(
+    Op(
+        name="rollup-append",
+        params=("number", "action", "body"),
+        backend="procedure",
+        writes=True,
+        summary="Append an entry to a tracker issue's status rollup, creating the rollup if absent.",
+        body_files=("body",),
+        build=_plan("rollup-append", procedures.rollup_append),
+    )
+)
+
+_register(
+    Op(
+        name="rollup-amend-latest",
+        params=("number", "action", "body"),
+        backend="procedure",
+        writes=True,
+        summary="Replace the latest rollup entry's body; refused unless its action matches.",
+        body_files=("body",),
+        build=_plan("rollup-amend-latest", procedures.rollup_amend_latest),
+    )
+)
+
+_register(
+    Op(
+        name="rollup-fold",
+        params=("number", "comment_id", "action"),
+        backend="procedure",
+        writes=True,
+        summary="Fold a legacy tracker comment into the rollup, then delete it.",
+        build=_plan("rollup-fold", procedures.rollup_fold),
+    )
+)
+
+_register(
+    Op(
+        name="body-field-set",
+        params=("number", "field", "value"),
+        backend="procedure",
+        writes=True,
+        summary="Replace one ### field's value in a tracker issue body; no write when unchanged.",
+        body_files=("value",),
+        build=_plan("body-field-set", procedures.body_field_set),
+    )
+)
+
+_register(
+    Op(
+        name="body-field-get",
+        params=("number", "field"),
+        backend="procedure",
+        summary="Print one ### field's value from a tracker issue body.",
+        build=_plan("body-field-get", procedures.body_field_get),
+    )
+)
+
+
+# ---- per-skill catalogue extensions ----------------------------------------
+#
+# A skill family's operations may live in their own `ops_<family>.py` module in
+# this package, which registers through `_register` like everything above. The
+# catalogue stays closed: only modules shipped inside the package are loaded,
+# so adding one is the same reviewed change as adding an operation here.
+
+
+def _load_extensions() -> None:
+    import importlib
+    import pkgutil
+
+    for info in pkgutil.iter_modules([str(Path(__file__).parent)]):
+        if info.name.startswith("ops_"):
+            importlib.import_module(f"{__package__}.{info.name}")
+
+
+_load_extensions()
+
+
+def resolve(name: str) -> Op:
+    try:
+        return OPS[name]
+    except KeyError:
+        raise ParamError(f"unknown operation: {name!r}") from None

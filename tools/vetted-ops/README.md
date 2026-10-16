@@ -19,6 +19,7 @@
   - [Tracker procedures: rollup and body-field writes](#tracker-procedures-rollup-and-body-field-writes)
   - [Tracker backends](#tracker-backends)
   - [Wiring it into settings](#wiring-it-into-settings)
+    - [Codex native rules](#codex-native-rules)
   - [Tests](#tests)
   - [Referenced by](#referenced-by)
 
@@ -653,6 +654,19 @@ is **not** covered by an `Edit`/`Write` deny. If that gap matters, keep the
 policy outside the writable root and point `--config` at it. Vendoring the
 dispatcher itself into a repo the agent edits reduces it to the same single
 layer.
+
+### Codex native rules
+
+Codex loads the plugin’s Claude-compatible `SessionStart` hook after hook trust review.
+The shared stable path remains `~/.claude/magpie/vetted-ops`; no Claude runtime is needed.
+Run `vetted-ops-codex-rules` from the installed tool to print six native prefix rules, then review and install the output under `~/.codex/rules/magpie-vetted-ops.rules`.
+The renderer only prints; it never edits user policy.
+Both supported launchers allow only `vetted-op-read` and prompt `vetted-op` and `vetted-op-tracker`.
+Paths are absolute, with no version glob or general `uv` allow rule.
+
+These native rules provide Codex’s approval path for networked reads; they do not create a sandbox exclusion or a file-write deny.
+Keep the dispatcher outside writable roots and verify authentication through a permitted read.
+The [Codex adapter](../../docs/adapters/codex.md#vetted-operations) specifies install, verification, and remaining differences from Claude’s tamper protection.
 
 ## Tests
 

@@ -1,0 +1,686 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
+
+- [vetted-ops](#vetted-ops)
+  - [Prerequisites](#prerequisites)
+  - [Why](#why)
+  - [What it actually guarantees](#what-it-actually-guarantees)
+    - [The boundary is the entry point, not `--caller`](#the-boundary-is-the-entry-point-not---caller)
+  - [Configuration](#configuration)
+  - [CLI](#cli)
+    - [Saving a read instead of printing it](#saving-a-read-instead-of-printing-it)
+    - [The pr-management-triage reads](#the-pr-management-triage-reads)
+    - [The other pr-management reads](#the-other-pr-management-reads)
+    - [The pr-management-stats reads](#the-pr-management-stats-reads)
+  - [Tracker procedures: rollup and body-field writes](#tracker-procedures-rollup-and-body-field-writes)
+  - [Tracker backends](#tracker-backends)
+  - [Wiring it into settings](#wiring-it-into-settings)
+    - [Codex native rules](#codex-native-rules)
+  - [Tests](#tests)
+  - [Referenced by](#referenced-by)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
+# vetted-ops
+
+**Capability:** substrate:sandbox
+
+**Harness:** agnostic
+
+A dispatcher for **fixed, policy-scoped forge operations**, so an agent session
+needs *one* allowlist entry instead of a dozen wildcard `ask` rules.
+
+## Prerequisites
+
+- **Runtime:** Python 3.11+ via `uv`.
+The package itself is stdlib-only.
+- **CLIs:** the `gh` CLI on `PATH`, authenticated for the repositories the policy names.
+HTTP operations do not use `gh` or `curl`; they use the `urllib.request` standard library module.
+With a non-GitHub security tracker (`[tracker] platform`), tracker operations run `uv` and that backend's CLI instead of `gh` — see [Tracker backends](#tracker-backends).
+- **Credentials:** whatever `gh` already uses (`~/.config/gh/`).
+This tool reads no credential of its own and stores none.
+- **Network:** `github.com` / `api.github.com` for `gh` operations.
+HTTP operations connect to the domains configured in the `[endpoints]` table (e.g., `api.osv.dev`, `cveawg.mitre.org`).
+- **Configuration:** a policy TOML (see *Configuration*).
+Without one, every operation refuses.
+
+## Why
+
+[RFC-AI-0002 Layer 3](https://github.com/apache/magpie/blob/main/docs/rfcs/RFC-AI-0002.md) forces confirmation on every
+outward-visible action:
+
+```json
+"ask": [ "Bash(gh issue edit *)", "Bash(gh issue comment *)",
+         "Bash(gh issue close *)", "Bash(gh api * -X *)", … ]
+```
+
+The wildcard is doing the work, and it is also the cost. `gh issue edit *` covers
+an unbounded argument surface — `--add-label`, `--body`, `--repo <somewhere
+else>` — so a human has to read every invocation to know what it does. On a
+sweep that touches thirty trackers, that is a hundred prompts, and the hundredth
+gets the same attention as the first. Prompt fatigue is itself a security
+problem.
+
+This tool removes the wildcard rather than the confirmation. Each operation is a
+**closed shape**: a name, typed parameters, and a builder that returns an argv
+list. The repository comes from policy, not the command line. Labels, milestones,
+assignees, board columns and close reasons must be values the policy declares.
+Because the effect set is bounded by construction, the dispatcher can be
+`allow`ed once instead of `ask`ed every time.
+
+## What it actually guarantees
+
+Being precise, because a security tool that overstates itself is worse than none:
+
+- **A parameter can never become a command.** Builders return `list[str]`, executed
+  with `subprocess.run(..., shell=False)`. There is no string interpolation
+  anywhere in the path, so `1; rm -rf /` is simply an invalid issue number.
+- **A parameter can never become a flag.** Any parameter starting with `-` is
+  refused before validation, which closes flag-injection into `gh`.
+- **The repo is not addressable.** No operation takes a repository parameter; it
+  is read from policy. An operation cannot be pointed at another repository, and
+  parameters that reach an API *path* — repo paths and git refs — refuse `..`,
+  so none of them can walk out of the pinned repository either.
+- **Body content is free; body *location* and *timing* are not.** Comment bodies
+  may contain anything — backticks, `$(…)`, newlines — because content is never
+  interpolated into a command. What is constrained is which file may be read and
+  when. The file must resolve inside the configured workspace, that workspace
+  must be owned by you and closed to group and world, and a symlink is refused
+  (`O_NOFOLLOW`, plus a realpath check for the parents). The dispatcher then
+  **reads the bytes itself and pipes them to `gh` on stdin**, so there is exactly
+  one open. Handing `gh` a path would leave a window between the check and the
+  send in which the file could be swapped; the bytes that were validated are the
+  bytes that get published.
+- **Writes cannot be reached through the read entry point.** `vetted-op-read`
+  refuses any operation with `writes=True` *before* it consults the policy or
+  looks at `--caller`, so the refusal cannot be argued out of it by argv. This
+  is the one property that makes an unattended `allow` defensible — see below.
+- **GraphQL is named, not written.** `gh api graphql` normally takes a query as a
+  string — the widest surface `gh` offers. Here a caller names one of the
+  documents shipped in [`queries/`](src/vetted_ops/queries), the dispatcher
+  supplies the text, and `owner`/`name` come from policy. A caller can choose
+  among the allowlisted queries; it cannot write one, and cannot re-aim one at
+  another repository.
+- **A parameter can never become a URL path traversal.**
+For HTTP operations, URLs are built from closed templates and injected parameters are strictly validated to refuse `..` and shell characters.
+- **HTTP operations are read-only by construction.**
+The backend `"http-read"` implies `writes=False`, enforced by the dispatcher.
+- **No `curl` or `wget` is involved.**
+The `urllib.request` implementation automatically obeys `HTTP_PROXY` and `HTTPS_PROXY` environment variables (egress gateway).
+- **HTTP responses are streamed to stdout**, or, with `--save`, written to one
+file in a `saved/` directory you marked for it, and nowhere else (see
+[Saving a read instead of printing it](#saving-a-read-instead-of-printing-it)).
+- **Read-modify-write procedures stay on the tracker.**
+The `procedure` backend (see [Tracker procedures](#tracker-procedures-rollup-and-body-field-writes)) runs a fixed sequence of `gh` calls, and every call passes a runner check first: `gh` only, no shell, `gh issue view|comment|edit` only with `--repo <tracker>`, `gh api` only under `repos/<tracker>/`, no `-F key=@<file>` or `--body-file <path>` (bodies travel on stdin), and no write at all from an operation declared read-only.
+- **The catalogue is closed.**
+Widening the surface means editing [`ops.py`](src/vetted_ops/ops.py) — a reviewed code change, not a runtime decision.
+
+### The boundary is the entry point, not `--caller`
+
+**Per-caller scoping is least-privilege, not a security boundary.** The policy
+declares which operations each caller may run, and `--caller` is required. But
+within one agent session the agent is a single principal that chooses what to
+pass as `--caller`. This protects against *the wrong skill reaching for the wrong
+operation* — a real and common failure, especially under prompt injection, where
+a hostile issue body talks a read-only triage pass into closing something. It
+does **not** stop a determined agent, and a permission rule must never be
+written as though it does. Concretely: allowlisting `vetted-op *` on the strength
+of a read-only caller name grants **every** operation in the catalogue, because
+the next invocation can name a different caller.
+
+What *can* be bound is the **entry point**, because a permission rule keys on the
+command and argv cannot change which binary is running. Hence two console
+scripts over one catalogue:
+
+| Entry point | Can write? | Intended permission |
+|---|---|---|
+| `vetted-op-read` | never — refused before policy is consulted | `allow` |
+| `vetted-op-tracker` | only the [tracker procedures](#tracker-procedures-rollup-and-body-field-writes) — everything else refused before policy is consulted | `ask`, and excluded from the sandbox |
+| `vetted-op` | yes, subject to policy | `ask` (or unlisted) |
+
+That split is what lets the read path lose its prompts without the write path
+losing its gate, and it is why `--caller` repeated twice is an error rather than
+a last-wins convenience: argparse keeps the last occurrence, so repetition would
+let a command match a rule written against a read-only prefix while resolving to
+a privileged caller.
+
+For writes, the confirmation the harness puts in front of `vetted-op` is still
+doing the work. A finer boundary — per-skill scope bound by the runtime — needs
+something no portable mechanism offers yet: plugin manifests cannot declare
+permissions, and `permissionMode` is unsupported for plugin-shipped agents. The
+closest primitive is a subagent with a restricted `tools` list, which is **Claude
+Code-specific**. See
+[`tools/spec-loop/specs/vetted-command-surface.md`](https://github.com/apache/magpie/blob/main/tools/spec-loop/specs/vetted-command-surface.md)
+for that trajectory.
+
+**The policy file is only as protected as the filesystem makes it.** Rewriting
+the policy cannot reach a write through `vetted-op-read` — that refusal ignores
+the config entirely — but it can widen which repository the *reads* point at. If
+the policy lives somewhere the agent's shell can write, treat its contents as
+advisory rather than enforced.
+
+**This is not a substitute for the sandbox.** It reduces prompt volume at Layer 3.
+Layers 0–2 are unchanged and still carry the load.
+
+## Configuration
+
+> **Upgrade Note:** Existing adopters upgrading to use `osv-query-package` must add `ecosystems = ["PyPI", "Maven", "npm", ...]` to the `[values]` table in their policy TOML; without it, `vetted-op-read` refuses package queries during parameter validation.
+
+Adopter-owned, at
+`.apache-magpie-overrides/tools/vetted-ops/config.toml` by default:
+
+```toml
+# Body files must resolve inside this directory.
+workspace = "/tmp/agent-scratch"
+
+[endpoints]
+osv_api = "https://api.osv.dev/v1"
+cve_services_api = "https://cveawg.mitre.org/api"
+
+[repos]
+tracker  = "acme/tracker"   # optional — see below
+upstream = "acme/product"
+
+[values]
+labels        = ["needs triage", "cve allocated", "pr merged"]
+upstream_labels = ["ready for maintainer review", "area:scheduler"]  # issues *and* PRs
+milestones    = ["1.2.3", "1.3.0"]
+assignees     = ["alice", "bob"]
+issue_states  = ["open", "closed", "all"]
+pr_states     = ["open", "closed", "merged", "all"]
+close_reasons = ["completed", "not planned"]
+ecosystems    = ["PyPI", "Maven", "npm", "Go"]
+
+board_project_id      = "PVT_kwDO…"   # ProjectV2 node id
+board_status_field_id = "PVTSSF_…"    # its Status field id
+
+[values.board_columns]           # column name -> single-select option id
+"Assessed"      = "aee65beb"
+"CVE allocated" = "aae2beb3"
+
+[callers]                        # caller -> operations it may run
+"security-issue-sync"   = ["issue-view", "issue-comments", "issue-add-label",
+                           "issue-set-milestone", "issue-comment", "comment-update",
+                           "rollup-append", "rollup-amend-latest", "rollup-fold",
+                           "body-field-get", "body-field-set",
+                           "cve-check-published"]
+"security-cve-allocate" = ["issue-view", "issue-add-label", "comment-update",
+                           "rollup-append", "rollup-fold",
+                           "body-field-get", "body-field-set"]
+"security-issue-fix"    = ["rollup-append", "rollup-fold",
+                           "body-field-get", "body-field-set"]
+"security-issue-import" = ["rollup-append"]
+"security-issue-import-from-md" = ["rollup-append"]
+"security-issue-import-from-pr" = ["pr-view-with-body", "rollup-append"]
+"security-issue-invalidate" = ["rollup-append", "rollup-amend-latest"]
+"security-issue-triage" = ["issue-view", "issue-comments",
+                           "osv-get-vuln", "osv-query-package"]
+"security-issue-deduplicate" = ["osv-get-vuln", "rollup-append", "rollup-fold"]
+"dependency-audit"      = ["osv-query-package", "osv-query-commit", "osv-query-batch"]
+"pr-management-triage"  = ["pr-list", "pr-view", "pr-checks", "gql-pr-liveness",
+                           "gql-pr-triage-open", "gql-pr-triage-label", "gql-pr-triage-author",
+                           "gql-pr-triage-review-requested", "gql-pr-triage-one", "gql-pr-triage-preflight",
+                           "gql-main-recent-failures", "runs-action-required", "runs-at-head", "check-runs",
+                           "compare-behind", "team-members", "upstream-permission", "viewer",
+                           "pr-view-with-body",
+                           "pr-add-label", "pr-remove-label", "pr-draft", "pr-ready",
+                           "pr-comment", "pr-update-branch", "run-rerun-failed",
+                           "workflow-approve"]
+"pr-management-code-review" = ["viewer", "upstream-permission", "pr-review-context",
+                               "pr-files", "pr-diff", "pr-comments", "pr-reviews",
+                               "pr-checks", "pr-list", "pr-list-label",
+                               "pr-search-review-requested", "pr-search-mentions",
+                               "pr-search-reviewed-by", "pr-search-team-review-requested",
+                               "commits-by-path", "repo-file", "label-list",
+                               "gql-pr-review-threads", "team-members", "gql-pr-liveness", "gql-cr-open", "gql-cr-pr", "gql-cr-pr-stack", "cr-codeowners-github", "cr-codeowners-root", "cr-codeowners-docs", "cr-pr-template", "cr-viewer-commits", "cr-commit-files", "cr-path-commits", "cr-commit-pulls",
+                               "pr-review-approve",
+                               "pr-review-request-changes", "pr-review-comment"]
+"pr-management-stats"   = ["viewer", "gql-pr-stats-open", "gql-pr-stats-closed-page",
+                           "gql-pr-stats-closed-search", "team-members"]
+"pr-management-quick-merge" = ["viewer",
+                               "gql-pr-triage-preflight",
+                               "gql-pr-express-ready",
+                               "gql-pr-express-one",
+                               "pr-live-state",
+                               "gql-pr-review-decision",
+                               "runs-action-required",
+                               "pr-diff"]
+"pr-stale-sweep" = ["gql-pr-stale-open",
+                    "gql-pr-stale-label",
+                    "gql-pr-stale-one",
+                    "team-members",
+                    "upstream-permission"]
+"pr-management-stack-review" = ["viewer",
+                                "upstream-permission",
+                                "gql-stack-of-pr",
+                                "gql-stack-scan",
+                                "gql-pr-by-head",
+                                "pr-checks",
+                                "pr-comments"]
+"pr-management-mentor" = ["viewer",
+                          "repo-issue-view",
+                          "pr-view-with-body",
+                          "pr-comments",
+                          "team-members",
+                          "upstream-permission"]
+"reviewer-routing" = ["pr-view-with-body",
+                      "repo-issue-view",
+                      "commits-by-path",
+                      "pr-search-review-requested",
+                      "repo-file"]
+"issue-triage"          = ["repo-issue-view", "repo-issue-comments", "repo-issue-list",
+                           "repo-issue-add-label", "repo-issue-remove-label",
+                           "repo-issue-comment"]
+"issue-stale-sweep"     = ["repo-issue-list", "repo-issue-view", "repo-issue-comment",
+                           "repo-issue-close", "repo-issue-reopen"]
+"issue-backlog-stats"   = ["repo-issue-list"]
+"license-compliance-audit" = ["repo-view", "repo-tree", "repo-file"]
+"flaky-test-triage"     = ["run-list", "run-view", "pr-view"]
+"release-verify-rc"     = ["release-list", "release-view", "tags", "repo-file"]
+"release-rc-cut"        = ["tags", "repo-issue-comment"]
+"contributor-nomination" = ["user-profile", "pr-list", "repo-issue-list"]
+"mentoring-welcome"     = ["repo-issue-view", "repo-issue-comment", "pr-view"]
+```
+
+`mentoring-welcome` needs no operation of its own: it works on upstream issues
+and PRs, which the issue and PR families already cover. A family earns new
+operations only when it has a shape the catalogue lacks.
+
+Grant the narrowest set that lets a skill finish its job: `pr-management-stats`
+is a read-only dashboard, so it gets no write operation at all, and a
+prompt-injection payload in a PR title cannot talk it into one.
+
+The policy *contents* are never supplied on the command line: no flag adds a
+repo, a caller, or an operation. What `--config` selects is *which policy file*
+applies, so a caller's reach is bounded by the policy files that already exist
+on disk and by who may write them — not by the absence of a flag. The `deny`
+rules and the file's location are what close that surface; see
+[Wiring it into settings](#wiring-it-into-settings), which points `--config` at
+a policy outside the sandbox-writable root on purpose.
+
+When a repo holds more than one policy, bind the flag in the permission rule so
+the grant names the policy it was reasoned about:
+
+```jsonc
+"allow": [
+  "Bash(… vetted-op-read --config .apache-magpie-overrides/tools/vetted-ops/config.toml *)"
+]
+```
+
+`upstream` is required; **`tracker` is optional**. A project whose skills only
+touch public work has no tracker to name, and requiring one would fail every
+operation at load time over a value most of them never read — including
+upstream-only reads like `viewer` and `pr-diff`. Omit it and those keep working;
+an operation that addresses the tracker refuses by name instead:
+
+```text
+vetted-op: refused: this operation addresses the tracker, which the policy
+does not configure. Declare `tracker` under [repos] to enable it;
+upstream-only operations are unaffected.
+```
+
+The refusal happens in the builder, before any argv exists, so a tracker
+operation can never fall back to `upstream` — which is the outcome that would
+matter, since it would publish embargoed content to a public repository.
+*Absent* is allowed; *present but malformed* is still a load error, because a
+typo'd repo points operations somewhere unintended.
+
+## CLI
+
+```bash
+vetted-op list-ops                          # the catalogue
+vetted-op policy                            # resolved policy, as JSON
+vetted-op --caller <name> <operation> [param …]
+vetted-op --caller <name> <operation> [param …] --dry-run   # print argv, run nothing
+```
+
+Exit codes: `0` ok, `2` usage, `3` refused by policy or validation, `4` the
+underlying command failed.
+
+### Saving a read instead of printing it
+
+```bash
+vetted-op-read --caller pr-management-triage --save triage-pages.json gql-pr-triage-open
+# {"saved": "/tmp/agent-scratch/saved/triage-pages.json", "bytes": 482113}
+```
+
+`--save NAME` writes a **read** operation's output to `<workspace>/saved/NAME`
+and prints one JSON line instead of the output itself. It exists for reads too
+large to carry through the caller's context — a full triage sweep is hundreds of
+kilobytes — which a deterministic tool then reads from the file.
+
+- Only reads: a write, or a procedure, with `--save` is refused.
+- `NAME` is one path component (`[A-Za-z0-9][A-Za-z0-9._-]*`, at most 100
+  characters).
+- **`--save` never widens what the caller can write.** `vetted-op-read` runs
+  outside the sandbox and `--config` can name any policy file, including one
+  the agent wrote, so the policy's `workspace` proves nothing about who may
+  write there. `--save` therefore writes only into a `<workspace>/saved/`
+  directory that **already exists and holds a regular `.vetted-ops-save`
+  file** — it creates neither. Whoever made them, you or a sandboxed agent
+  inside its own writable roots, could already write there. Create them once:
+
+  ```bash
+  mkdir -m 700 <workspace>/saved && touch <workspace>/saved/.vetted-ops-save
+  ```
+
+- The workspace passes the same ownership and mode checks as for body files;
+  `saved/` must be yours and closed to group and world. The output goes to an
+  exclusively created temporary file, written `0600`, then renamed over `NAME`,
+  so a symlink or hard link planted under that name is replaced, never written
+  through. Every path is opened with `O_NOFOLLOW` relative to the checked
+  workspace.
+- An HTTP read saved this way still never touches any other path.
+
+### The pr-management-triage reads
+
+| Operation | Parameters | Returns |
+|---|---|---|
+| `gql-pr-triage-open` | — | every open PR, every page (`--paginate --slurp`), in the triage shape of [`queries/pr-triage-search.graphql`](src/vetted_ops/queries/pr-triage-search.graphql) |
+| `gql-pr-triage-label` | `label` (policy `upstream_labels`) | the same, narrowed to one label |
+| `gql-pr-triage-author` | `login` | the same, narrowed to one author |
+| `gql-pr-triage-review-requested` | `login` | the same, narrowed to a requested reviewer |
+| `gql-pr-triage-one` | `number` | one PR in the same shape |
+| `gql-pr-triage-preflight` | — | the viewer's login and permission on the upstream repo, and every label name (all pages) |
+| `gql-main-recent-failures` | — | the check contexts of the ten most recently merged PRs |
+| `runs-action-required` | — | every run awaiting approval, every page |
+| `check-runs` | `commit_hash` | every check run on one commit, every page |
+| `runs-at-head` | `commit_hash` | every workflow run on one head commit, every page — the pre-mutation guards' read |
+| `compare-behind` | `base head` | `{base, behind_by, ahead_by}` |
+| `team-members` | `team` (slug; org from policy) | one login per line |
+
+The search string is built by the operation, `repo:<upstream>` first, so the
+selector parameter narrows a sweep and cannot re-aim it.
+
+### The other pr-management reads
+
+| Operation | Parameters | Returns | Skill |
+|---|---|---|---|
+| `gql-pr-express-ready` | `label` (policy `upstream_labels`) | the open PRs carrying that label in the triage shape plus each PR's changed files, every page | quick-merge |
+| `gql-pr-express-one` | `number` | one PR in the same shape | quick-merge |
+| `gql-pr-review-decision` | `number` | review decision, approvals so far, and the base branch's required approving-review count | quick-merge |
+| `pr-live-state` | `number` | live `{number, head_sha, mergeable, mergeable_state}` (REST computes mergeability on demand) | quick-merge |
+| `gql-pr-stale-open` | — | every open, non-draft PR in the pr-stale-sweep shape (raw comment bodies), all pages | pr-stale-sweep |
+| `gql-pr-stale-label` | `label` (policy `upstream_labels`) | the same, narrowed to one label | pr-stale-sweep |
+| `gql-pr-stale-one` | `number` | one PR in the same shape | pr-stale-sweep |
+| `gql-stack-of-pr` | `number` | the stack a member PR belongs to, every entry | stack-review |
+| `gql-stack-scan` | — | every open PR's stack number, all pages | stack-review |
+| `gql-pr-by-head` | `head` | open PRs whose head is one branch (the trunk walk) | stack-review |
+| `gql-cr-open` | — | every open PR in the code-review queue shape, all pages | code-review |
+| `gql-cr-pr` | `number` | one PR's review context: headline, files, threads, reviews, checks | code-review |
+| `gql-cr-pr-stack` | `number` | the stack a PR belongs to, for stacked-layer reviews | code-review |
+| `cr-codeowners-github` | — | `.github/CODEOWNERS` from the default branch | code-review |
+| `cr-codeowners-root` | — | `CODEOWNERS` at the repository root | code-review |
+| `cr-codeowners-docs` | — | `docs/CODEOWNERS` | code-review |
+| `cr-pr-template` | — | the repository's pull-request template | code-review |
+| `cr-viewer-commits` | `login date ref` | the viewer's commits on the base branch since a date | code-review |
+| `cr-commit-files` | `commit_hash` | the files a commit touched | code-review |
+| `cr-path-commits` | `path` | the commits that touched a path | code-review |
+| `cr-commit-pulls` | `commit_hash` | the merged PRs a commit belongs to | code-review |
+
+### The pr-management-stats reads
+
+| Operation | Parameters | Returns |
+|---|---|---|
+| `gql-pr-stats-open` | — | every open PR, every page, in the dashboard shape of [`queries/pr-stats-open.graphql`](src/vetted_ops/queries/pr-stats-open.graphql) |
+| `gql-pr-stats-closed-page` | `cursor` (opaque base64, or `start`) | one page (50) of closed and merged PRs, newest update first — the default closed path, outside the search index; `pr-management stats build` names the next cursor until a page predates the cutoff |
+| `gql-pr-stats-closed-search` | `date` (strict `YYYY-MM-DD`) | closed and merged PRs since the date through the search index, every page — the `fast-closed` opt-in, capped at 1000 |
+
+The open sweep carries each PR's changed files (for the CODEOWNERS panel); the committers roster comes from `team-members`.
+
+## Tracker procedures: rollup and body-field writes
+
+The status rollup and the `### Field` sections of a tracker issue body are
+read-modify-write updates: the write depends on what a read returned. The
+[`github-rollup`](https://github.com/apache/magpie/blob/main/tools/github-rollup/README.md) and
+[`github-body-field`](https://github.com/apache/magpie/blob/main/tools/github-body-field/README.md) tools do them without
+bringing the rollup or the body into agent context, but they call `gh` from a
+`uv run` subprocess, which under the secure setup stays sandboxed and fails.
+These operations are the same procedures as reviewed catalogue entries:
+
+| Operation | Kind | Parameters | Same as |
+|---|---|---|---|
+| `rollup-append` | write | `number action body` | `github-rollup append` |
+| `rollup-amend-latest` | write | `number action body` | `github-rollup amend-latest` |
+| `rollup-fold` | write | `number comment_id action` | `github-rollup fold` |
+| `body-field-set` | write | `number field value` | `github-body-field set` |
+| `body-field-get` | read | `number field` | `github-body-field get` |
+
+```bash
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-sync rollup-append 212 "Sync" <scratch>/entry.md
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-sync rollup-amend-latest 212 "Sync" <scratch>/entry.md
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-sync rollup-fold 212 2890012345 "Legacy status"
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-cve-allocate body-field-set 212 "CVE tool link" <scratch>/value.md
+uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-sync body-field-get 212 "Severity"
+```
+
+Skills run the four writes through **`vetted-op-tracker`**, a third entry point
+that refuses every operation except these procedures before it reads the policy,
+the same way `vetted-op-read` refuses writes. That is what lets it be excluded
+from the sandbox — the writes need a `gh` that can verify TLS — while `vetted-op`
+is not: its catalogue is closed to tracker-only procedures whose runner refuses
+any `gh` call outside `repos/<tracker>/`. It stays in `ask`, so every write still
+prompts. `vetted-op` can run the same operations, but only inside the sandbox.
+
+- `body` and `value` are body files, read from the workspace like any other body.
+- `action` is one printable line of 1-80 characters, with no leading `-` and no
+  `<`, `>` or `·` (the summary-line separator); `field` is a heading name of
+  1-80 characters with no leading `-` and no `#`.
+- `rollup-append` attributes the entry to the authenticated `gh` login and today's
+  UTC date, and creates the rollup (marker line for the tracker's name) when the
+  issue has none. It finds a rollup written under any tracker name.
+- `rollup-amend-latest` refuses unless the latest entry's action equals `action`,
+  so a concurrent entry by someone else is never overwritten.
+- `rollup-fold` keeps the legacy comment's date and author, left-trims its lines,
+  refuses the rollup itself and a comment belonging to another issue, and deletes
+  the legacy comment only after the append succeeded.
+- `body-field-set` refuses when the field is absent or appears more than once, and
+  writes nothing when the value is unchanged.
+- Only a one-line summary reaches stderr. On stdout, `body-field-get` prints the one value, and `rollup-append` / `rollup-amend-latest` print the rollup comment's URL (`…#issuecomment-<id>`) so a caller can link to it without reading the rollup.
+  Refusals exit `3`, a failed `gh` call exits `4`.
+- `--dry-run` runs the reads (the plan depends on them) and prints each write
+  instead of running it, with any body reported by size, never by content.
+
+The parsing and composing code is vendored byte-for-byte from the two tools
+(`rollup_format.py`, `body_field_format.py`), because the dispatcher installs as a
+copy of its own directory and cannot import them; a test fails if a copy drifts
+from its source.
+
+## Tracker backends
+
+The security tracker need not be a GitHub repository.
+The optional `[tracker]` table selects one of the backends of the
+[security-tracker contract](https://github.com/apache/magpie/blob/main/tools/security-tracker/contract.md); with it, every
+catalogue operation that addresses the tracker runs that backend's CLI instead
+of its `gh` builder, and the skills keep calling the same operations:
+
+```toml
+[tracker]
+platform = "local-files"                                  # github (default) | local-files | jira
+project  = "/abs/path/to/.apache-magpie/tools/local-tracker"
+root     = "/abs/path/to/the/repo/security/reports"       # the tracker folder
+
+# platform = "jira"
+# project             = "/abs/path/to/.apache-magpie/tools/jira"
+# jira_url            = "https://issues.example.org/jira"
+# jira_project        = "FOOSEC"
+# jira_security_level = "Security Team"
+# jira_deployment     = "server"                          # server | cloud
+```
+
+The guarantees above carry over, because the translation lives in reviewed code
+([`tracker_backends.py`](src/vetted_ops/tracker_backends.py)), not in the policy:
+
+- **The program is fixed.** The policy supplies data — the backend's tool
+  directory, which must be the `tools/local-tracker` or
+  `tools/jira` directory the platform names, and its pinned
+  target — never a command. The argv is `uv run --project <dir> <script>`
+  followed by the target and the translated subcommand.
+- **The target is not addressable.** The tracker folder, or the Jira URL,
+  project and security level, come from the policy, exactly as `[repos] tracker`
+  does for `gh`.
+- **Parameters stay parameters.** They are validated as before, placed as single
+  argv elements, and run without a shell. Bodies are still read here and piped on
+  stdin; the backend reads `-`.
+- **No silent fallback.** A tracker operation with no counterpart on the backend
+  — project boards, milestone administration, the collaborator roster,
+  `comment-update`, `rollup-fold` — is refused by name. A test derives the set of
+  tracker operations from the catalogue itself and fails if one is neither
+  translated nor refused.
+- **The backend's guard is a refusal here.** A backend exit `4` — its
+  confidentiality guard, or an `amend-latest` mismatch — is reported as exit `3`.
+
+The full mapping, from the `gh` shape in the skills to the vetted operation to
+the backend subcommand, is in the contract's
+[skill-command table](https://github.com/apache/magpie/blob/main/tools/security-tracker/contract.md#from-skill-commands-to-vetted-operations).
+Six operations exist for it:
+
+| Operation | Kind | Parameters | Notes |
+|---|---|---|---|
+| `issue-create` | write | `title body` | GitHub: `gh api …/issues -f title=… -F body=@-`. |
+| `issue-reopen` | write | `number` | |
+| `issue-list-label` | read | `state label` | `issue-list` filtered by one configured label. |
+| `issue-search` | read | `query` | Plain words; a `:` is refused, so a `repo:` qualifier cannot re-target the search. |
+| `tracker-pending` | read | — | `local-files` only: uncommitted tracker changes. |
+| `tracker-publish` | write | `message` | `local-files` only: commit the tracker folder and push. Runs on `vetted-op-tracker`, outside the sandbox, because the push needs credentials. |
+
+`tracker-publish` is the one non-procedure operation `vetted-op-tracker` admits.
+On `github` and `jira` both `tracker-*` operations refuse: those writes are
+visible as soon as they return.
+
+## Wiring it into settings
+
+Replace the wildcard `ask` rules with one `allow` entry, and keep an `ask` on
+anything still invoked directly:
+
+```jsonc
+"permissions": {
+  // Only the READ dispatcher is allowlisted. Allowlisting `vetted-op` itself
+  // would grant every write in the catalogue, since --caller is argv.
+  // Both launchers: skills use `uv run --project`, gatherer agents `uvx --from`.
+  // Per machine, add the same two rules with $HOME resolved (see below).
+  "allow": [
+    "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-read *)",
+    "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *)"
+  ],
+  "ask": [
+    "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op *)",
+    // The tracker procedures. Excluded from the sandbox below, so never `allow`.
+    "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *)",
+    "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *)"
+  ],
+  "deny": [
+    // `Edit(path)` is the path rule for every file-writing tool — Write and
+    // NotebookEdit included. A `Write(path)` rule is NOT matched by the file
+    // permission check, so adding one buys nothing and reads as coverage the
+    // deny list does not have.
+    "Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
+    "Edit(~/.claude/magpie/**)",
+    "Edit(.apache-magpie-overrides/tools/vetted-ops/**)"
+  ]
+}
+```
+
+The read dispatcher also needs a `sandbox.excludedCommands` entry, or the
+`allow` rule above buys nothing. The framework already excludes bare `gh *`
+because a sandboxed `gh` cannot verify TLS — on macOS it fails with
+`x509: OSStatus -26276`. A `gh` spawned *inside* `uv run … vetted-op-read` is
+not a bare `gh` invocation, so it stays sandboxed and every read operation
+fails the same way:
+
+```jsonc
+"sandbox": {
+  "excludedCommands": [
+    "gh *",
+    "uv run --project ~/.claude/magpie/vetted-ops vetted-op-read *",
+    "uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *",
+    "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *",
+    "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *"
+  ]
+}
+```
+
+`vetted-op-read` is excluded, never `vetted-op` — the same reasoning as the
+`allow` rule. The read dispatcher refuses writes before it consults the policy
+at all, so running it outside the sandbox exposes only the fixed read
+operations; excluding the write dispatcher would run the whole catalogue there.
+`vetted-op-tracker` is the one write-capable exception, and it follows the same
+reasoning: it refuses everything but the tracker procedures before consulting the
+policy, and their runner refuses any `gh` call outside `repos/<tracker>/`, so the
+exclusion exposes those procedures and nothing else. The tracker itself comes from
+the policy, which is why the entry point keeps its `ask`.
+
+Every rule names the fixed path `~/.claude/magpie/vetted-ops`, not the
+versioned plugin-cache directory. The plugin's `SessionStart` hook
+([`hooks/link-stable-path.sh`](hooks/link-stable-path.sh)) points that path at
+the installed version each session, so an upgrade changes no rule. Do not glob
+the version instead (`…/magpie-vetted-ops/*/tools/vetted-ops …`): a `*` also
+matches spaces, so it approves a command with extra `uv` options spliced in at
+that position (`--with <any package>`, a second `--from`), and the exclusion
+then runs it outside the sandbox. The fixed path is `Edit`-denied like the
+catalogue it points at, and sits outside every `sandbox.filesystem.allowWrite`
+root.
+
+**The read dispatcher must never prompt.**
+This is an imperative of the secure setup, not a tuning option: bulk skills call `vetted-op-read` from background gatherer agents, which cannot surface a prompt, so every prompt there is a silent denial and the sync returns partial results.
+Beyond the rules above, that takes the same two `allow` rules and the same two `vetted-op-read` exclusions with the resolved absolute `$HOME/.claude/magpie/vetted-ops` base (per machine: user scope or `settings.local.json`), no `ask` rule that matches a `vetted-op-read` command, and `permissions.blockReadsOutsideWorkingDirectories` off in every scope, since the read block cannot check the literal `~` these commands spell.
+The three `Edit` deny rules are required alongside: they are what makes the unprompted read safe.
+The setup skills install, verify and report drift on the whole shape; see [Read-only vetted ops never prompt](https://github.com/apache/magpie/blob/main/docs/setup/secure-agent-setup.md#read-only-vetted-ops-never-prompt).
+
+The dispatcher must live where the agent cannot rewrite it — otherwise an agent
+that edits `ops.py` has defeated the whole design. That is why it ships as the
+`magpie-vetted-ops` **substrate plugin**: the installed plugin tree is not a path
+the agent edits, and it sits outside every `sandbox.filesystem.allowWrite` root,
+so sandboxed Bash cannot write there either.
+
+The `deny` rules above are the other half, and the `allow` is not defensible
+without them. Two surfaces define what the dispatcher may do — the operation
+catalogue and the **policy**, which names the caller→operation grants. An agent
+able to edit either one can grant itself the write access the wildcard `ask`
+rules were removed for; adding an op to the catalogue and adding itself to a
+caller list reach the same place.
+
+Be clear about the asymmetry: the catalogue is protected twice (deny rules plus
+the sandbox), the policy only once. The policy lives inside the adopter repo,
+which is sandbox-writable by design, so a Bash-level write (`sed -i`, a heredoc)
+is **not** covered by an `Edit`/`Write` deny. If that gap matters, keep the
+policy outside the writable root and point `--config` at it. Vendoring the
+dispatcher itself into a repo the agent edits reduces it to the same single
+layer.
+
+### Codex native rules
+
+Codex loads the plugin’s Claude-compatible `SessionStart` hook after hook trust review.
+The shared stable path remains `~/.claude/magpie/vetted-ops`; no Claude runtime is needed.
+Run `vetted-ops-codex-rules` from the installed tool to print six native prefix rules, then review and install the output under `~/.codex/rules/magpie-vetted-ops.rules`.
+The renderer only prints; it never edits user policy.
+Both supported launchers allow only `vetted-op-read` and prompt `vetted-op` and `vetted-op-tracker`.
+Paths are absolute, with no version glob or general `uv` allow rule.
+
+These native rules provide Codex’s approval path for networked reads; they do not create a sandbox exclusion or a file-write deny.
+Keep the dispatcher outside writable roots and verify authentication through a permitted read.
+The [Codex adapter](https://github.com/apache/magpie/blob/main/docs/adapters/codex.md#vetted-operations) specifies install, verification, and remaining differences from Claude’s tamper protection.
+
+## Tests
+
+```bash
+uv run --project . python -m pytest
+```
+
+The suite asserts the properties above rather than the plumbing: hostile
+parameters are refused, every builder produces a `gh` argv, the repo cannot be
+influenced by a parameter, body files outside the workspace are rejected while
+hostile body *content* passes through untouched, and a caller cannot run an
+operation outside its manifest.
+
+## Referenced by
+
+- [RFC-AI-0002](https://github.com/apache/magpie/blob/main/docs/rfcs/RFC-AI-0002.md) — the layered agent-isolation posture.
+- [`tools/spec-loop/specs/vetted-command-surface.md`](https://github.com/apache/magpie/blob/main/tools/spec-loop/specs/vetted-command-surface.md)

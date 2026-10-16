@@ -265,6 +265,24 @@ per [`docs/adapters/registry.md`](../../../docs/adapters/registry.md).
    [`tools/permission-audit`](../../permission-audit/README.md) is the natural
    place to detect and offer to remove them.
 
+## Codex native integration
+
+The Codex marketplace advertises the self-contained vetted-ops substrate plugin.
+Its packaged runtime and policy remain separate: fixed code lives outside
+workspace-writable roots, while the adopter supplies the existing policy.
+The shared SessionStart stable-path hook requires Codex hook-definition trust.
+
+`vetted-ops-codex-rules` only prints native rules for review and installation in
+user scope, with absolute stable paths rather than version globs.
+Both uv launchers allow `vetted-op-read` and prompt `vetted-op` and
+`vetted-op-tracker`; there is no general uv allowance or automatic policy edit.
+Codex escalation and native rules replace Claude's sandbox exclusions.
+
+Source changes to runtime code, hooks, metadata or README trigger the packaging
+consistency hook in diff-scoped PR CI as well as whole-tree runs.
+Packaged README links to shipped files stay local; links to framework files
+outside the installed package point to their public source.
+
 ## Non-goals
 
 - **Replacing the sandbox.** This operates at Layer 3 only. Layers 0–2 are

@@ -25,6 +25,8 @@ pre-tool hook to/from the core, so every wired harness enforces one rule set:
 
 * :func:`main` — Claude Code ``PreToolUse`` hook (reads the event on stdin,
   emits a deny decision as JSON). The default, no-argument invocation.
+* :func:`codex_main` — Codex native ``PreToolUse`` hook (``--codex``):
+  consumes canonical ``Bash`` events and emits a native JSON denial.
 * :func:`opencode_main` — OpenCode ``tool.execute.before`` plugin adapter
   (``--opencode``): reads ``{"command", "cwd"}`` on stdin, signals deny via a
   non-zero exit so the plugin can throw and abort the tool call.
@@ -1353,6 +1355,26 @@ def main() -> int:
     return _claude_event(event)
 
 
+def codex_main() -> int:
+    """Codex's native Bash hook shares Claude's event and denial schema.
+
+    Unified exec is reported as Bash with tool_input.command by Codex.
+    Never emit an allow decision: ordinary commands still need the native
+    sandbox and exec-policy approval checks. Malformed input follows the
+    shared fail-open contract; this hook is not a sandbox replacement.
+    """
+    try:
+        event = json.load(sys.stdin)
+    except (json.JSONDecodeError, ValueError):
+        return ALLOW_EXIT
+    if not isinstance(event, dict) or event.get("hook_event_name") != "PreToolUse":
+        return ALLOW_EXIT
+    tool_input = event.get("tool_input")
+    if not isinstance(tool_input, dict) or not isinstance(tool_input.get("command"), str):
+        return ALLOW_EXIT
+    return _claude_event(event)
+
+
 # Exit codes for the harness-neutral entry point (``--opencode`` and any future
 # harness whose hook blocks on a non-zero child exit): 0 = allow, DENY = block.
 ALLOW_EXIT = 0
@@ -1734,6 +1756,7 @@ def cli(argv: list[str] | None = None) -> int:
     ``--kiro`` → the Kiro CLI adapter (:func:`kiro_main`).
     ``--gemini`` → the Gemini CLI adapter (:func:`gemini_main`).
     ``--copilot`` → the Copilot CLI adapter (:func:`copilot_main`).
+    ``--codex`` → the Codex native hook adapter (:func:`codex_main`).
     ``--grok`` → the Grok Build adapter (:func:`grok_main`).
     ``--check <cmd…>`` → harness-neutral check-only (:func:`check_main`).
     ``--exec <cmd…>`` → harness-neutral check-then-exec (:func:`exec_main`).
@@ -1743,6 +1766,8 @@ def cli(argv: list[str] | None = None) -> int:
     own hook at it.
     """
     args = sys.argv[1:] if argv is None else argv
+    if args and args[0] == "--codex":
+        return codex_main()
     if args and args[0] == "--opencode":
         return opencode_main()
     if args and args[0] == "--kiro":

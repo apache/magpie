@@ -1,0 +1,9 @@
+{
+  "guard_status": "untrusted",
+  "vetted_rules": "not-enabled",
+  "full_claude_parity": false,
+  "next_steps": [
+    "review-hook",
+    "report-read-isolation-gap"
+  ]
+}

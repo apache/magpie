@@ -1,0 +1,45 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+# Closed and merged upstream PRs since a cutoff date, through the search
+# index: the `fast-closed` opt-in of pr-management-stats. The index lags and
+# caps results at 1000, so the dashboard marks the series it feeds as
+# approximate. `--paginate --slurp`; pageInfo is the only one in the document.
+#
+# The builder writes `repo:<upstream>` from policy and the validated date
+# into $searchQuery itself, so this query cannot be pointed at another
+# repository.
+query($searchQuery: String!, $endCursor: String) {
+  search(query: $searchQuery, type: ISSUE, first: 50, after: $endCursor) {
+    pageInfo { hasNextPage endCursor }
+    issueCount
+    nodes {
+      ... on PullRequest {
+        number title url isDraft createdAt closedAt mergedAt merged state updatedAt body
+        author { login __typename } authorAssociation
+        baseRefName
+        labels(first: 30) { nodes { name } }
+        comments(last: 25) {
+          nodes { author { login __typename } authorAssociation createdAt body }
+        }
+        timelineItems(itemTypes: [CLOSED_EVENT], last: 1) {
+          nodes { ... on ClosedEvent { actor { login } } }
+        }
+      }
+    }
+  }
+}

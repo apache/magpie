@@ -501,7 +501,7 @@ def _lint_kiro(config_path: Path) -> int:
     return 1
 
 
-def _lint_codex(config_dir: Path) -> int:
+def _lint_codex(config_dir: Path, *, guard_from_plugin: bool = False) -> int:
     """Lint a project-scoped Codex sandbox + exec-policy profile."""
     from sandbox_lint.codex import check_codex_invariants
 
@@ -512,9 +512,13 @@ def _lint_codex(config_dir: Path) -> int:
     except FileNotFoundError:
         raise SystemExit(f"sandbox-lint: file not found: {rules_path}") from None
 
-    errors = check_codex_invariants(config, rules_text)
+    errors = check_codex_invariants(
+        config, rules_text, guard_from_plugin=guard_from_plugin, repo_root=config_dir.resolve().parent
+    )
     if not errors:
         print(f"sandbox-lint: OK ({config_dir} satisfies the Codex security invariants)")
+        if guard_from_plugin:
+            print("sandbox-lint: plugin guard not inspected; verify its registration and trust in /hooks")
         return 0
     print(f"sandbox-lint: Codex profile violations in {config_dir}:", file=sys.stderr)
     for e in errors:
@@ -674,12 +678,19 @@ def main(argv: list[str] | None = None) -> int:
             "default: auto-detected by walking up from the current directory."
         ),
     )
+    parser.add_argument(
+        "--guard-from-plugin",
+        action="store_true",
+        help="Codex only: verify plugin guard registration/trust separately, without requiring a duplicate project hook.",
+    )
     args = parser.parse_args(argv)
+    if args.guard_from_plugin and args.codex is None:
+        parser.error("--guard-from-plugin requires --codex")
 
     if args.gemini is not None:
         return _lint_gemini(args.gemini)
     if args.codex is not None:
-        return _lint_codex(args.codex)
+        return _lint_codex(args.codex, guard_from_plugin=args.guard_from_plugin)
     if args.kiro is not None:
         return _lint_kiro(args.kiro)
     if args.opencode is not None:

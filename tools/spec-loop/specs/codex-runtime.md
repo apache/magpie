@@ -18,6 +18,10 @@ acceptance:
     sandbox and approval boundary.
   - Project policy uses workspace-write, network-off, on-request
     approvals, and tested exec-policy rules.
+  - Native PreToolUse guards deny framework violations while ordinary calls
+    remain subject to Codex approvals; hook trust is reviewed separately.
+  - Fixed installed vetted-op-read prefixes allow reads; both write entry
+    points prompt, with per-machine native rules rendered for review.
   - Adopt, upgrade, verify, and unadopt account for the committed Codex
     policy.
   - setup-isolated install, verify, update, and doctor route to explicit
@@ -39,6 +43,10 @@ tool adapters, and uses its own sandbox, rules, and approvals.
 - .codex/rules/magpie.rules - allow, prompt, and forbidden command policy.
 - tools/sandbox-lint/ - static Codex profile validator (--codex).
 - tools/agent-isolation/ - clean-env agent-iso codex launcher.
+- tools/agent-guard/ - native --codex PreToolUse adapter.
+- tools/vetted-ops/ - native per-machine prefix-rule renderer.
+- plugins/magpie-agent-guard/ and plugins/magpie-vetted-ops/ - self-contained
+  installed runtimes advertised by the Codex marketplace catalogue.
 - docs/adapters/codex.md - operator contract and lifecycle.
 - plugins/magpie-setup/skills/setup/ and
   plugins/magpie-setup/skills/isolated-setup-*/ (linked from skills/setup and
@@ -72,14 +80,28 @@ tool adapters, and uses its own sandbox, rules, and approvals.
    tells the agent to ask for an unsandboxed run, because the reviewer CLIs
    need network and their own credentials.
 
+10. The native Bash PreToolUse adapter uses Codex's canonical event and JSON
+    deny schema, including unified exec. Ordinary commands never receive an
+    implicit hook approval. Source and snapshot project registrations resolve
+    the engine from the git root; plugin-owned or user-scope engines outside
+    writable roots are preferred for routine adopters.
+11. Project trust and /hooks definition trust are independent operator decisions.
+    Hook errors can fail open, interactive write_stdin input is not rechecked,
+    and editing a workspace-owned engine does not renew definition trust.
+12. Static lint checks the project engine's existence, accepts absolute
+    user-scope paths, and offers --guard-from-plugin for separately verified
+    plugin registration and trust without a duplicate project hook.
+13. Vetted reads use exact installed paths for both uv launchers. Writes keep
+    native prompt decisions; generated rules never allowlist a general uv
+    command or a mutable checkout. Code and policy tamper limitations and the
+    remaining differences from Claude are reported explicitly.
+
 ## Out of scope
 
 - Translating SKILL.md workflows into generated AGENTS.md files.
 - Copying user credentials or user-scoped MCP configuration into a project.
-- Replacing Codex's native approval system with agent-guard decisions. The
-  deterministic agent-guard denials stay reachable through the
-  harness-neutral --check / --exec modes; a native Codex hook adapter is
-  future work.
+- Replacing Codex's native approval system with agent-guard decisions.
+  Harness-neutral --check / --exec modes remain available alongside native hooks.
 - Claiming stable support before a minimum version and adopter pilot exist.
 
 ## Acceptance criteria
@@ -94,6 +116,12 @@ tool adapters, and uses its own sandbox, rules, and approvals.
 6. The sandbox-lint test suite covers the Codex profile invariants.
 7. Documentation states platform limitations without claiming untested
    parity.
+8. Source and snapshot native hooks deny synthetic forbidden commands; the
+   validator rejects missing engines and disabled hooks, while plugin mode
+   explicitly leaves plugin trust uninspected.
+9. The native rule evaluator classifies both vetted read prefixes as allow
+   and the four write prefixes as prompt; extra launcher flags do not match.
+10. Source-only edits trigger plugin-copy regeneration in commit and PR checks.
 
 ## Validation
 
@@ -114,8 +142,10 @@ codex execpolicy check --pretty \
 - The adapter remains experimental until the minimum Codex version is pinned
   and an end-to-end adopter pilot runs all acceptance checks.
 - Codex exec-policy is an evolving interface.
-- The deterministic agent-guard denials are not wired as a native Codex
-  hook adapter.
+- Static registration does not prove live hook trust. Workspace-owned engines
+  remain mutable, and the profile supplies no home-directory read denylist.
+- The container-gateway hook and optional eval/adversarial-review prefixes do
+  not have native Codex wiring in this profile.
 - The POSIX clean-environment wrapper needs WSL on Windows.
 - User-scoped MCP registration and tool authentication remain outside
   repository policy.

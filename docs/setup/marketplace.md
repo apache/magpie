@@ -597,13 +597,12 @@ automatic while the *changes* stay confirmed.
 | **Gemini CLI** | No lifecycle hook; the extension context file [`GEMINI.md`](../../GEMINI.md) instructs the agent to compare the extension version to a recorded marker and prompt on change (LLM-driven, advisory). |
 | Other agents | Re-run `/magpie-setup:setup upgrade` manually after updating the package. |
 
-> [!WARNING]
-> **Codex plugin-local hooks may not fire yet.** [openai/codex#16430](https://github.com/openai/codex/issues/16430)
-> reports that the runtime executes only the global `hooks.json` even though the
-> plugin docs describe plugin-local hooks. The manifest is written to the
-> documented schema so it starts working when the runtime catches up; until
-> then, treat the Codex upgrade prompt as best-effort and re-run
-> `/magpie-setup:setup upgrade` manually.
+> [!IMPORTANT]
+> **Codex hooks require a separate trust decision.** Current Codex supports plugin-local hooks, but skips non-managed definitions until the operator reviews them in `/hooks`.
+> Project trust or plugin installation alone does not activate them.
+> Review the upgrade hook and the guard and vetted-ops hooks after installation or a definition change; then verify they actually run.
+> Older versions affected by [openai/codex#16430](https://github.com/openai/codex/issues/16430) still need manual upgrade checks.
+> See [the native hook contract](../adapters/codex.md#deterministic-guard-rules) and [OpenAI’s hook documentation](https://learn.chatgpt.com/docs/hooks).
 
 The hook writes its prompt to **stdout**, which is what a `SessionStart` hook
 exiting 0 has added to the session context — stderr on a zero exit reaches only
@@ -732,7 +731,7 @@ documentation**; what varies is whether it has also been exercised against a
 |---|---|---|
 | root `plugin.json` | [Agent Plugins 1.0.0 spec](https://github.com/agentplugins/agent-plugins-spec/blob/main/spec/1.0.0.md) + [`plugin.schema.json`](https://agent-plugins.org/schemas/1.0.0/plugin.schema.json) | Conforms to the published closed schema; enforced by `check-family-plugins.py`. Also the manifest Codex resolves first for the repo root — see [Which manifest Codex reads](#which-manifest-codex-reads) |
 | `.claude-plugin/*` | Claude Code plugins reference | Verified live — `claude plugin validate . --strict` passes with 0 warnings; a family plugin installs and loads from a local marketplace replica |
-| `.codex-plugin/plugin.json`, `.agents/plugins/marketplace.json` | The `codex` binary's own source and enums — Codex no longer publishes a plugins page under `docs/`, so the manifest-resolution order is read from [`plugin_namespace.rs`][codex-resolve] and [`protocol.rs`][codex-paths] | **Verified live** — `codex plugin marketplace add` + `plugin list` against codex 0.154.0. The first live run is what caught the invented `policy` values the documentation check could not; the enums are now enforced by `check-family-plugins.py`. Note `.codex-plugin/plugin.json` is an **overlay** on the root manifest, not the manifest itself. See the plugin-local hooks caveat above |
+| `.codex-plugin/plugin.json`, `.agents/plugins/marketplace.json` | The `codex` binary's own source and enums — native hook behavior is documented in [OpenAI’s hook reference](https://learn.chatgpt.com/docs/hooks); manifest-resolution order was checked against [`plugin_namespace.rs`][codex-resolve] and [`protocol.rs`][codex-paths] | **Verified live** — `codex plugin marketplace add` + `plugin list` against codex 0.154.0. The first live run is what caught the invented `policy` values the documentation check could not; the enums are now enforced by `check-family-plugins.py`. Note `.codex-plugin/plugin.json` is an **overlay** on the root manifest, not the manifest itself. See the hook-trust note above |
 | root `marketplace.json` | Copilot / VS Code plugin marketplace docs | Legacy-format catalog, explicitly still supported alongside AP1. Not yet live-installed |
 | `gemini-extension.json` | Gemini CLI extensions docs | Follows the published schema. Google has joined the AP1 TSC but has published no migration for this file — keep both |
 | `apm.yml` | `microsoft/apm` schema **v0.1** | Pre-1.0 and the most likely to churn; re-check before publish |

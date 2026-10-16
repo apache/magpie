@@ -13,6 +13,7 @@
   - [CI wiring](#ci-wiring)
   - [Updating the baseline](#updating-the-baseline)
   - [Residual risk](#residual-risk)
+    - [Codex guard ownership](#codex-guard-ownership)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -282,3 +283,10 @@ falls back to an unanchored suffix match on the parent directory string,
 under which a decoy path such as `/tmp/evil/.apache-magpie-local/run/podman.sock`
 or `/tmp/evil/apache-magpie/run/main/podman.sock` is indistinguishable from a legitimate project-scoped socket, since both
 end in the same suffix.
+
+### Codex guard ownership
+
+`sandbox-lint --codex .codex` requires a synchronous project `PreToolUse` guard and checks that the referenced engine exists in the framework or `.apache-magpie/` snapshot.
+For a guard owned by the installed `magpie-agent-guard` plugin, use `--guard-from-plugin` with `--codex` and omit the duplicate project hook.
+That mode checks sandbox and native rule invariants but reports plugin registration and trust as uninspected; verify both in Codex’s `/hooks` browser.
+It still rejects a profile that explicitly disables hooks.

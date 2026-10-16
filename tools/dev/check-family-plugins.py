@@ -143,6 +143,7 @@ AP1_AUTHOR_FIELDS = frozenset({"name", "email", "url"})
 # Reversing the direction fixed it without vendoring anything (PRINCIPLES §13):
 # the flat `skills/<name>` tree is now the mirror, pointing inward.
 # The all-in-one plugin is gone; installing everything was never the advice.
+CODEX_SUBSTRATES = frozenset({"magpie-agent-guard", "magpie-vetted-ops"})
 CODEX_CATALOG = Path(".agents/plugins/marketplace.json")  # Codex CLI repo marketplace
 CLIENT_CATALOGS = (
     CODEX_CATALOG,
@@ -283,22 +284,31 @@ SUBSTRATE_PLUGINS: dict[str, dict] = {
             "`ask` rules. Runs from the installed plugin, which is what keeps the operation "
             "catalogue out of reach of the agent that calls it."
         ),
-        "links": {"tools/vetted-ops": "vetted-ops"},
+        "links": {},
+        "copies": {
+            "tools/vetted-ops/src/vetted_ops": "tools/vetted-ops/src/vetted_ops",
+            "tools/vetted-ops/hooks": "tools/vetted-ops/hooks",
+            "tools/vetted-ops/pyproject.toml": "tools/vetted-ops/pyproject.toml",
+            "tools/vetted-ops/README.md": "tools/vetted-ops/README.md",
+        },
         # The entry point skills invoke, and the hook that keeps the fixed path
         # permission rules name (~/.claude/magpie/vetted-ops) on this version.
         "must_resolve": (VETTED_OPS_ENTRY, VETTED_OPS_LINK_HOOK),
-        "hooks": {
-            "SessionStart": [
-                {
-                    "hooks": [
-                        {
-                            "type": "command",
-                            "command": f'bash "${{CLAUDE_PLUGIN_ROOT}}/{VETTED_OPS_LINK_HOOK}"',
-                            "timeout": 10,
-                        }
-                    ],
-                }
-            ]
+        "hook_config": {
+            "description": "Apache Magpie vetted operations",
+            "hooks": {
+                "SessionStart": [
+                    {
+                        "hooks": [
+                            {
+                                "type": "command",
+                                "command": f'bash "${{CLAUDE_PLUGIN_ROOT}}/{VETTED_OPS_LINK_HOOK}"',
+                                "timeout": 10,
+                            }
+                        ],
+                    }
+                ]
+            },
         },
     },
     "magpie-adversarial-review": {
@@ -402,6 +412,49 @@ def check_setup_templates() -> list[str]:
     return errors
 
 
+def packaged_file_bytes(src: Path, copies: dict[str, str]) -> bytes:
+    """Keep shipped links local and point framework links at their public source."""
+    if src.suffix != ".md":
+        return src.read_bytes()
+
+    def rebase(match: re.Match[str]) -> str:
+        target, title = match.group(1), match.group(2) or ""
+        if ":" in target or target.startswith(("#", "/", "<")):
+            return match.group(0)
+        path, sep, fragment = target.partition("#")
+        resolved = (src.parent / path).resolve()
+        for src_rel in copies.values():
+            source = Path(src_rel).resolve()
+            if resolved == source or (source.is_dir() and resolved.is_relative_to(source)):
+                # Every copied tree preserves its layout beneath the tool root.
+                # Current runtime README links are relative to that same root.
+                return match.group(0)
+        try:
+            relative = resolved.relative_to(Path.cwd().resolve()).as_posix()
+        except ValueError:
+            # An outside-repository link has no public framework equivalent.
+            # Preserve it for the link checker to report against the source.
+            return match.group(0)
+        return f"](https://github.com/apache/magpie/blob/main/{relative}{sep}{fragment}{title})"
+
+    output: list[str] = []
+    fence: tuple[str, int] | None = None
+    for line in src.read_text(encoding="utf-8").splitlines(keepends=True):
+        marker = re.match(r"^ {0,3}(`{3,}|~{3,})", line)
+        if marker:
+            token = marker.group(1)
+            if fence is None:
+                fence = (token[0], len(token))
+            elif token[0] == fence[0] and len(token) >= fence[1]:
+                fence = None
+            output.append(line)
+        elif fence is not None:
+            output.append(line)
+        else:
+            output.append(re.sub(r"\]\(([^)\s]+)(\s+\"[^\"]*\"|\s+'[^']*')?\)", rebase, line))
+    return "".join(output).encode()
+
+
 def check_substrate(name: str, shared: dict) -> list[str]:
     """A substrate plugin's manifest, hook wiring, and tool symlinks.
 
@@ -462,6 +515,10 @@ def check_substrate(name: str, shared: dict) -> list[str]:
     for dest_rel, src_rel in spec.get("copies", {}).items():
         dest = pdir / dest_rel
         src = Path(src_rel)
+        if src.is_file():
+            if not dest.is_file() or dest.read_bytes() != packaged_file_bytes(src, spec.get("copies", {})):
+                errors.append(f"{name}: copied runtime file {dest} is out of sync (regenerate with --fix)")
+            continue
         if not dest.is_dir():
             errors.append(f"{name}: {dest} is missing copied runtime tree")
         elif not src.is_dir():
@@ -535,6 +592,9 @@ def write_substrate(name: str, shared: dict) -> None:
             else:
                 shutil.rmtree(dest)
         dest.parent.mkdir(parents=True, exist_ok=True)
+        if src.is_file():
+            dest.write_bytes(packaged_file_bytes(src, spec.get("copies", {})))
+            continue
         shutil.copytree(
             src,
             dest,
@@ -703,6 +763,8 @@ def check_client_catalogs() -> list[str]:
             for d in PLUGINS.glob("magpie-*")
             if d.is_dir() and d.name not in SUBSTRATE_PLUGINS and (d / "skills").is_dir()
         }
+        if path == CODEX_CATALOG:
+            on_disk |= CODEX_SUBSTRATES
         for fam in sorted(on_disk - listed):
             errors.append(f"{path}: missing family plugin entry '{fam}'")
         for extra in sorted(listed - on_disk - {"magpie"}):
@@ -1160,6 +1222,25 @@ def fix(fam: dict[str, set[str]]) -> int:
         )
     market["plugins"] = keep
     MARKETPLACE.write_text(json.dumps(market, indent=2) + "\n", encoding="utf-8")
+    # Codex supports the same native plugin hooks, but only self-contained
+    # substrate packages can be advertised: outward symlinks are not installed.
+    if CODEX_CATALOG.is_file():
+        catalog, catalog_error = load_json(CODEX_CATALOG)
+        if catalog_error:
+            print(catalog_error, file=sys.stderr)
+            return 1
+        entries = [e for e in catalog["plugins"] if e.get("name") not in CODEX_SUBSTRATES]
+        entries += [
+            {
+                "name": name,
+                "source": {"source": "local", "path": f"./plugins/{name}"},
+                "category": "maintenance",
+                "policy": {"installation": "AVAILABLE"},
+            }
+            for name in sorted(CODEX_SUBSTRATES)
+        ]
+        catalog["plugins"] = sorted(entries, key=lambda e: e["name"])
+        CODEX_CATALOG.write_text(json.dumps(catalog, indent=2) + "\n", encoding="utf-8")
     print("Regenerated per-family plugins + marketplace entries from frontmatter.")
     return 0
 

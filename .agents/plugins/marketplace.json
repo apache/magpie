@@ -5,6 +5,17 @@
   },
   "plugins": [
     {
+      "name": "magpie-agent-guard",
+      "source": {
+        "source": "local",
+        "path": "./plugins/magpie-agent-guard"
+      },
+      "category": "maintenance",
+      "policy": {
+        "installation": "AVAILABLE"
+      }
+    },
+    {
       "name": "magpie-contributor-growth",
       "source": {
         "source": "local",
@@ -108,6 +119,17 @@
       "source": {
         "source": "local",
         "path": "./plugins/magpie-utilities"
+      },
+      "category": "maintenance",
+      "policy": {
+        "installation": "AVAILABLE"
+      }
+    },
+    {
+      "name": "magpie-vetted-ops",
+      "source": {
+        "source": "local",
+        "path": "./plugins/magpie-vetted-ops"
       },
       "category": "maintenance",
       "policy": {

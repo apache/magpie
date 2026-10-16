@@ -620,7 +620,7 @@ Organization scope (declared, orthogonal to vendor): ASF = 16, agnostic = 63.
 | Substrate tool | Substrate | Harness support | Verdict |
 |---|---|---|---|
 | `adversarial-review` | review | any | ✅ agnostic |
-| `agent-guard` | action-guard | Claude Code, Copilot, Gemini CLI, Grok, Kiro, OpenCode | ✅ portable |
+| `agent-guard` | action-guard | Claude Code, Codex, Copilot, Gemini CLI, Grok, Kiro, OpenCode | ✅ portable |
 | `agent-isolation` | sandbox | any | ✅ agnostic |
 | `container-gateway` | sandbox | any | ✅ agnostic |
 | `contributor-metrics` | analytics | any | ✅ agnostic |
@@ -655,7 +655,7 @@ Organization scope (declared, orthogonal to vendor): ASF = 16, agnostic = 63.
 Harness → substrate tools it supports:
 
 - **Claude Code** (3): `agent-guard`, `sandbox-lint`, `spec-loop`
-- **Codex** (2): `sandbox-lint`, `spec-loop`
+- **Codex** (3): `agent-guard`, `sandbox-lint`, `spec-loop`
 - **Copilot** (1): `agent-guard`
 - **Cursor** (2): `sandbox-lint`, `spec-loop`
 - **Gemini CLI** (3): `agent-guard`, `sandbox-lint`, `spec-loop`
