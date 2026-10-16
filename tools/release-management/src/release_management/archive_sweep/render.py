@@ -27,10 +27,10 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from typing import Any
-from urllib.parse import urlparse
 
 from release_management.archive_sweep.retention import version_key
-from release_management.promote.render import s3_bucket
+from release_management.promote.render import RenderError as PromoteRenderError
+from release_management.promote.render import s3_location
 from release_management.shell import dq, w
 
 BACKENDS = ("svnpubsub", "atr", "github-releases", "s3", "self-hosted")
@@ -90,16 +90,43 @@ class Sweep:
             raise RenderError("release_dist_url_template is unset")
         return str(template).replace("<bucket>", "release").replace("<project>", self.project)
 
+    def _release_template(self) -> str:
+        """The template with the RC segment removed; it must name `<version>`."""
+        template = RC_MARKER.sub("", self.template)
+        if "<version>" not in template:
+            raise RenderError(f"release_dist_url_template {self.template!r} has no <version> segment")
+        return template
+
     def release_url(self, version: str) -> str:
         """The released version's location: the template, `release` bucket, no RC segment."""
-        return RC_MARKER.sub("", self.template).replace("<version>", version).rstrip("/")
+        return self._release_template().replace("<version>", version).rstrip("/")
 
     def release_dir(self) -> str:
-        """The directory holding every released version: the template cut at `<version>`."""
-        template = self.template
-        if "<version>" not in template:
-            raise RenderError(f"release_dist_url_template {template!r} has no <version> segment")
-        return template.split("<version>", 1)[0].rstrip("/") + "/"
+        """The directory holding every released version: the template cut before the `<version>` segment.
+
+        The whole path segment holding `<version>` goes, literal text around it included:
+        `…/foo/v<version>/` lists `…/foo/`, whose entries are named `v<version>`.
+        """
+        head = self._release_template().split("<version>", 1)[0]
+        return head[: head.rfind("/") + 1]
+
+    @property
+    def entry_affix(self) -> tuple[str, str]:
+        """The literal text around `<version>` in its path segment: `v<version>` → (`v`, ``).
+
+        A listing entry is that prefix, the version and that suffix; `retention`
+        strips them before reading versions, and URLs and tags add them back.
+        """
+        template = self._release_template()
+        head, tail = template.split("<version>", 1)
+        prefix = head[head.rfind("/") + 1 :]
+        suffix = tail.split("/", 1)[0]
+        return prefix, suffix
+
+    def entry(self, version: str) -> str:
+        """The listing entry (directory name, release tag) a version is published under."""
+        prefix, suffix = self.entry_affix
+        return f"{prefix}{version}{suffix}"
 
     @property
     def archive_base(self) -> str:
@@ -116,19 +143,22 @@ class Sweep:
         base = self.archive_base
         if "<version>" in base:
             return base.replace("<version>", version).rstrip("/")
-        return base.rstrip("/") + "/" + version
+        # The archive mirrors the release directory: the entry keeps its name.
+        return base.rstrip("/") + "/" + self.entry(version)
 
 
 def _s3(url: str) -> str:
-    """`url` as an `s3://bucket/path` URL: as written, or read from an amazonaws.com URL."""
-    if url.startswith("s3://"):
-        return url
-    parsed = urlparse(url)
-    bucket = s3_bucket(url)
-    path = parsed.path
-    if parsed.netloc.startswith("s3"):  # path-style: /<bucket>/<key>
-        path = path.split("/", 2)[2] if path.count("/") >= 2 else ""
-    return f"s3://{bucket}/{path.lstrip('/')}"
+    """`url` as an `s3://bucket/key` URL, read the way release-promote reads it.
+
+    A path-style host (`s3.<region>.amazonaws.com`) carries the bucket in the
+    path; a virtual-hosted one (`<bucket>.s3.<region>.amazonaws.com`, even a
+    bucket named `s3-…`) carries it in the host and keeps the whole path as key.
+    """
+    try:
+        bucket, key = s3_location(url)
+    except PromoteRenderError as exc:
+        raise RenderError(str(exc)) from exc
+    return f"s3://{bucket}/{key}"
 
 
 def _fence(lines: list[str]) -> str:
@@ -222,13 +252,28 @@ def trains(sweep: Sweep, *, keep: int | None = None) -> dict[str, Any]:
             + ", ".join(repr(label) for label in loose)
             + ': list each one\'s versions under "versions" after the first retention run'
         )
+    prefix, suffix = _affix_or_none(sweep)
+    if prefix or suffix:
+        notes.append(
+            f"listing entries are named {prefix}<version>{suffix} (release_dist_url_template): "
+            "`retention` reads the version between them"
+        )
     return {
         "trains": out,
         "loose": loose,
         "retention_rule": rule,
         "keep_decided": keep_decided,
+        "entry_prefix": prefix,
+        "entry_suffix": suffix,
         "notes": notes,
     }
+
+
+def _affix_or_none(sweep: Sweep) -> tuple[str, str]:
+    try:
+        return sweep.entry_affix
+    except RenderError:  # no usable template: Step 2 refuses it on its own
+        return "", ""
 
 
 # --------------------------------------------------------------------------- Step 2
@@ -264,6 +309,15 @@ def step2(sweep: Sweep, retention: dict[str, Any], *, command_template: str | No
             + "; re-run the retention rule instead of editing its output"
         )
     backend = sweep.backend
+    if versions and backend != "self-hosted":
+        expected = sweep.entry_affix
+        recorded = (str(retention.get("entry_prefix") or ""), str(retention.get("entry_suffix") or ""))
+        if recorded != expected:
+            raise RenderError(
+                f"release_dist_url_template names each entry {expected[0]}<version>{expected[1]}, but the "
+                f"retention output read entries as {recorded[0]}<version>{recorded[1]}: re-run `archive-sweep trains` "
+                "and `archive-sweep retention` with that trains file"
+            )
     extra: dict[str, Any] = {}
     lines: list[str] = []
     if not versions:
@@ -284,7 +338,9 @@ def step2(sweep: Sweep, retention: dict[str, Any], *, command_template: str | No
         lines.append("# No svn mv / svn rm: ATR removes the files from dist/release itself.")
         extra["atr_note"] = ATR_NOTE
     elif backend == "github-releases":
-        lines = [f"gh release delete {w(ver)} --repo {w(sweep.upstream)} --yes" for ver in versions]
+        lines = [
+            f"gh release delete {w(sweep.entry(ver))} --repo {w(sweep.upstream)} --yes" for ver in versions
+        ]
         extra["deletion_warning"] = GITHUB_DELETION_WARNING
         if sweep.upstream == "<upstream>":
             sweep.warnings.append("--upstream was not given: the commands carry <upstream>")

@@ -74,7 +74,9 @@ def _retention(args: argparse.Namespace) -> int:
         text = sys.stdin.read() if args.listing == "-" else Path(args.listing).read_text(encoding="utf-8")
         trains = _json(args.trains)
         undecided = isinstance(trains, dict) and trains.get("keep_decided") is False
+        prefix = suffix = ""
         if isinstance(trains, dict):
+            prefix, suffix = str(trains.get("entry_prefix") or ""), str(trains.get("entry_suffix") or "")
             trains = trains.get("trains")
         if not isinstance(trains, list) or not trains:
             raise retention.InputError("--trains must hold a non-empty JSON list")
@@ -84,9 +86,10 @@ def _retention(args: argparse.Namespace) -> int:
                 "--trains says keep_decided is false (archive_retention_rule is free text): re-run "
                 "`archive-sweep trains` with --keep N, or give every train an explicit 'keep'"
             )
-        versions, other = retention.parse_listing(text)
+        versions, other = retention.parse_listing(text, prefix, suffix)
         out = retention.sweep(versions, trains)
         out["non_version_entries"] = other
+        out["entry_prefix"], out["entry_suffix"] = prefix, suffix
     except (retention.InputError, OSError, json.JSONDecodeError) as exc:
         emit({"error": str(exc)})
         return 2

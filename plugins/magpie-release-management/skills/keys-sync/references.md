@@ -8,7 +8,7 @@
 - [`docs/release-management/spec.md`](../../../../docs/release-management/spec.md) —
   `release-keys-sync` per-skill specification.
 - [`<project-config>/release-management-config.md`](../../../magpie-setup/templates/release-management-config.md) —
-  adopter keys this skill reads (`keys_file_url`, `keyserver`,
+  adopter keys this skill reads (`keys_file_url`, `keys_file_branch`, `keyserver`,
   `rm_key_fingerprint`).
 - [`tools/release-verify`](../../../../tools/release-verify/README.md) —
   `release-verify list-keys`, the fingerprints and UIDs of the KEYS file and of the fetched key.

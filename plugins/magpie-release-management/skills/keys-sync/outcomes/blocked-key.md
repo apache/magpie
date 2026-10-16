@@ -12,3 +12,4 @@ Surface the reason from the JSON; never judge the key by hand.
 | below the ASF floor (RSA or DSA under 2048 bits), or an unaccepted algorithm or curve (secp256k1 included) | The RM generates a new key meeting the floor and updates `rm_key_fingerprint` |
 | expired | The RM extends the expiry and re-uploads to the keyserver, or generates a new key and updates `rm_key_fingerprint` |
 | revoked, invalid or disabled | The key never signs a release: the RM replaces it and updates `rm_key_fingerprint` |
+| primary key has no signing capability, or no signing-capable key meets the admission rules (`signers` empty) | The RM adds a signing subkey that meets the floor (or fixes the weak, expired or revoked one), re-uploads the key, then re-runs |

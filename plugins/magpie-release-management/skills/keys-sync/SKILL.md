@@ -20,7 +20,7 @@ argument-hint: "[--fingerprint <fp>] [--keys-url <url>] [--keyserver <host>]"
 capability: capability:resolve
 surface_hash: sha256:61e10c986bb0d3ec
 license: Apache-2.0
-measured_tokens: 4630
+measured_tokens: 4825
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -126,11 +126,11 @@ The KEYS diff and `svn commit` (or backend-equivalent; see `release_dist_backend
 The skill never commits or writes to any repository.
 
 **Golden rule 3 — no-op gracefully when already present.**
-When the configured fingerprint already appears in KEYS for the same UID, the skill reports "key already present" and stops without emitting any commands.
+When the configured fingerprint already appears in KEYS for a UID the keyserver still reports, the skill reports "key already present" and stops without emitting any commands.
 The RM proceeds directly to `release-rc-cut`.
 
 **Golden rule 4 — key-rolled hand-off.**
-When the configured fingerprint appears in KEYS for a *different* UID than the keyserver currently reports,
+When the configured fingerprint appears in KEYS for none of the UIDs the keyserver currently reports,
 the skill stops and hands off to the RM to resolve the discrepancy before any commands are emitted.
 
 **Golden rule 5 — strength floor enforced.**
@@ -207,7 +207,7 @@ Then:
    fetch the **public** key for `<fingerprint>` from the keyserver to `<scratch>/fetched-key.asc` (empty when the keyserver has none),
    run `<RV> list-keys --file <scratch>/fetched-key.asc > <scratch>/key-list.json`, and re-run the verdict with `--key-listing <scratch>/key-list.json`.
    - **Not found** → `verdict: "proceed"`.
-   - **Found, same UID** as the keyserver's → `verdict: "noop"`, `noop_reason` naming the UID; read [`outcomes/noop.md`](outcomes/noop.md).
+   - **Found, sharing a UID** with the keyserver's (compared as sets, in any order) → `verdict: "noop"`, `noop_reason` naming the UID; read [`outcomes/noop.md`](outcomes/noop.md).
    - **Found, different UID** (key rolled or uid updated), or no keyserver UID to compare → `verdict: "blocked"`;
      read [`outcomes/key-rolled.md`](outcomes/key-rolled.md): present both options; do not pick one for the RM.
    Each preflight `blockers` entry is a hard blocker the verdict carries as written.
@@ -244,9 +244,10 @@ Fetch the RM's **public** key block for `<fingerprint>` from the keyserver into 
 
 It applies the floor from [ASF release-signing](https://infra.apache.org/release-signing.html):
 RSA and DSA at least 2048 bits, EdDSA (Ed25519) and ECDSA (P-256 or stronger) accepted, anything else (secp256k1 included) refused.
-A missing, sub-floor, already-expired, revoked, invalid or disabled key is `blocked`: read [`outcomes/blocked-key.md`](outcomes/blocked-key.md).
+The key also needs a usable signing-capable key: a certify-only primary needs a signing subkey that meets the same rules, and `signers` lists the compliant ones.
+A missing, sub-floor, already-expired, revoked, invalid or disabled key, or one with no compliant signer, is `blocked`: read [`outcomes/blocked-key.md`](outcomes/blocked-key.md).
 `strength_note` carries the failure reason, the DSA advisory, and a non-blocking advisory for an expiry within 90 days.
-On an `error` (no gpg, bad fingerprint), surface it; never judge the key by hand.
+On an `error` (no gpg, a gpg failure or malformed key block reported by `list-keys`, bad fingerprint), surface it; it is never a missing key, and never judge the key by hand.
 Return the JSON unchanged.
 
 Return ONLY valid JSON with this structure:
@@ -262,7 +263,8 @@ Return ONLY valid JSON with this structure:
   "created": "YYYY-MM-DD" | null,
   "expiry": "YYYY-MM-DD" | null,
   "strength_check": "pass" | "fail" | null,
-  "strength_note": "<string or null>"
+  "strength_note": "<string or null>",
+  "signers": [{"source": "primary" | "subkey", "algorithm": "<string>", "bit_length": <integer or null>, "curve": "<string or null>", "expiry": "YYYY-MM-DD" | null}]
 }
 ```
 
@@ -286,7 +288,7 @@ It refuses unless Step 1 proceeded, and prints:
 2. **`svn_command_sequence`** — the paste-ready block the RM executes under their own credentials, chosen from `keys_file_url` (`backend`; `--backend` overrides):
    `dist.apache.org` → `svn` ([`backends/svnpubsub.md`](backends/svnpubsub.md); a `dist/dev` URL is refused),
    with `release_dist_backend = atr` also `atr_offer` ([`backends/atr.md`](backends/atr.md): offer the ATR path first and ask which the project has configured),
-   `github.com` → `git` with a PR, any other URL → generic instructions ([`backends/git.md`](backends/git.md)).
+   `github.com` → `git` with a PR (branch and KEYS path, possibly in a sub-directory, read from the URL and `keys_file_branch`), any other URL → generic instructions ([`backends/git.md`](backends/git.md)).
    `read` names the file to load.
 3. **`keyserver_upload_reminder`** — upload to `https://<keyserver>/upload` (or the keyserver's documented upload endpoint) so that voters and future verifiers can fetch it,
    restating the Step 1 expiry advisory when there is one.

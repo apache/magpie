@@ -221,6 +221,114 @@ class TestAssess:
         assert check.find_key([key()], "FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000") is None
 
 
+SUB_FPR = "FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000"
+
+
+def signing_key(
+    primary_caps: str = "cSC",
+    sub_algo: str = "1",
+    sub_bits: int | None = 1024,
+    sub_caps: str = "s",
+    sub_expiry: str | None = None,
+) -> dict[str, Any]:
+    """The issue #1628 shape: an Ed25519 certify-only primary plus one subkey, as list-keys prints it."""
+    primary = key("22", 255, "ed25519")
+    primary["caps"] = primary_caps
+    primary["subkeys"] = [
+        {
+            "fingerprint": SUB_FPR,
+            "validity": "-",
+            "algo_id": sub_algo,
+            "algorithm": check.ALGORITHMS.get(sub_algo),
+            "bits": sub_bits,
+            "curve": "",
+            "created": "2022-03-15",
+            "expiry": sub_expiry,
+            "caps": sub_caps,
+        }
+    ]
+    return primary
+
+
+class TestSignerAdmission:
+    """Ported from #1635: the verdict needs a usable signing-capable key, not just a strong primary."""
+
+    def test_certify_only_primary_with_weak_sign_subkey_blocks(self) -> None:
+        out = assess(signing_key(primary_caps="c"))
+        assert (out["verdict"], out["strength_check"], out["signers"]) == ("blocked", "fail", [])
+        assert "no signing-capable key" in out["strength_note"]
+        assert "below the ASF floor" in out["strength_note"]
+
+    def test_aggregate_uppercase_sign_capability_does_not_make_primary_a_signer(self) -> None:
+        out = assess(signing_key(primary_caps="cSC"))
+        assert (out["verdict"], out["strength_check"], out["signers"]) == ("blocked", "fail", [])
+        assert "primary key has no signing capability" in out["strength_note"]
+
+    def test_admitted_dsa_signing_subkey_keeps_the_dsa_advisory(self) -> None:
+        out = assess(signing_key(sub_algo="17", sub_bits=2048))
+        assert out["verdict"] == "proceed" and "DSA keys are discouraged" in out["strength_note"]
+
+    def test_admitted_signing_subkey_near_expiry_keeps_the_expiry_advisory(self) -> None:
+        soon = (TODAY + dt.timedelta(days=30)).isoformat()
+        out = assess(signing_key(sub_bits=4096, sub_expiry=soon))
+        assert out["verdict"] == "proceed" and f"signing subkey expires on {soon}" in out["strength_note"]
+
+    def test_certify_only_primary_without_any_sign_key_blocks(self) -> None:
+        out = assess(signing_key(sub_caps="e"))
+        assert (out["verdict"], out["strength_check"]) == ("blocked", "fail")
+        assert "primary key has no signing capability" in out["strength_note"]
+        assert "no signing-capable key" in out["strength_note"]
+
+    def test_certify_only_primary_with_compliant_sign_subkey_proceeds(self) -> None:
+        out = assess(signing_key(sub_bits=4096))
+        assert out["verdict"] == "proceed"
+        assert [(s["source"], s["algorithm"], s["bit_length"]) for s in out["signers"]] == [
+            ("subkey", "RSA", 4096)
+        ]
+
+    def test_sign_capable_primary_alone_proceeds(self) -> None:
+        out = assess(signing_key(primary_caps="scSC", sub_caps="e"))
+        assert out["verdict"] == "proceed" and [s["source"] for s in out["signers"]] == ["primary"]
+
+    def test_expired_signing_subkey_does_not_rescue(self) -> None:
+        out = assess(signing_key(sub_bits=4096, sub_expiry="2026-06-01"))
+        assert (out["verdict"], out["signers"]) == ("blocked", [])
+
+    def test_revoked_signing_subkey_does_not_rescue(self) -> None:
+        k = signing_key(sub_bits=4096)
+        k["subkeys"][0]["validity"] = "r"
+        assert assess(k)["verdict"] == "blocked"
+
+    def test_compliant_subkey_does_not_rescue_a_weak_primary(self) -> None:
+        k = signing_key(sub_bits=4096)
+        k.update(algo_id="1", bits=1024, curve="")
+        out = assess(k)
+        assert out["verdict"] == "blocked" and "below the ASF floor" in out["strength_note"]
+
+    def test_listings_without_caps_keep_the_primary_as_signer(self) -> None:
+        out = assess(key())
+        assert out["verdict"] == "proceed" and [s["source"] for s in out["signers"]] == ["primary"]
+
+    def test_dsa_1024_reports_floor_and_advisory(self) -> None:
+        out = assess(key("17", 1024))
+        assert out["verdict"] == "blocked"
+        assert "below the ASF floor" in out["strength_note"] and "DSA" in out["strength_note"]
+
+    def test_check_cli_blocks_a_certify_only_key(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        f = save(tmp_path, "l.json", listing(signing_key()))
+        code, out = run(capsys, "check", "--fingerprint", FPR, "--key-listing", f, "--today", "2026-06-19")
+        assert code == 0 and out["verdict"] == "blocked" and out["signers"] == []
+        f = save(tmp_path, "l.json", listing(signing_key(sub_bits=4096)))
+        code, out = run(capsys, "check", "--fingerprint", FPR, "--key-listing", f, "--today", "2026-06-19")
+        assert code == 0 and out["verdict"] == "proceed"
+
+    def test_step_2_refuses_a_key_blocked_for_want_of_a_signer(self) -> None:
+        with pytest.raises(render.RenderError, match="Step 1 did not proceed"):
+            render.step2(preflight(), loaded(), assess(signing_key()), BLOCK, listing(signing_key()))
+
+
 class TestValidity:
     """gpg's validity field: revoked, invalid and disabled keys never pass."""
 
@@ -297,6 +405,19 @@ class TestCheckCli:
         code, out = run(capsys, "check", "--fingerprint", FPR, "--key-listing", f)
         assert code == 2 and "gpg not found" in out["error"]
 
+    def test_cli_surfaces_a_gpg_import_failure_not_a_missing_key(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """Ported from #1634: release-verify reports a failed import as an error; it is never key_found false."""
+        failed = {"error": "gpg --import failed (exit 2): gpg: invalid armor header"}
+        f = save(tmp_path, "l.json", failed)
+        code, out = run(capsys, "check", "--fingerprint", FPR, "--key-listing", f)
+        assert code == 2 and set(out) == {"error"} and "gpg --import failed (exit 2)" in out["error"]
+        code, out = run(
+            capsys, "verdict", "--preflight", save(tmp_path, "p.json", preflight()), "--keys-listing", f
+        )
+        assert code == 2 and "gpg --import failed" in out["error"]
+
 
 # --------------------------------------------------------------------------- former step-1-key-fetch cases
 
@@ -313,6 +434,9 @@ def test_step_1_key_fetch_case_1_rsa_4096_pass() -> None:
         "expiry": None,
         "strength_check": "pass",
         "strength_note": None,
+        "signers": [
+            {"source": "primary", "algorithm": "RSA", "bit_length": 4096, "curve": None, "expiry": None}
+        ],
     }
 
 
@@ -332,6 +456,7 @@ def test_step_1_key_fetch_case_2_not_on_keyserver(tmp_path: Path, capsys: pytest
         "expiry": None,
         "strength_check": None,
         "strength_note": None,
+        "signers": [],
     }
 
 
@@ -609,3 +734,144 @@ def test_step_2_render_cli(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -
         save(tmp_path, "kl.json", FETCHED),
     )
     assert code == 2 and out["ok"] is False and "refused" in out
+
+
+# --------------------------------------------------------------------------- ported from test_check_key.py
+
+STEP_1_FIELDS = {
+    "verdict",
+    "key_found",
+    "fingerprint",
+    "uid",
+    "algorithm",
+    "bit_length",
+    "created",
+    "expiry",
+    "strength_check",
+    "strength_note",
+    "signers",
+}
+
+
+@pytest.mark.parametrize(("listed", "found"), [(FPR, True), ("B" * 40, False)])
+def test_check_cli_completed_assessments_keep_the_field_contract(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], listed: str, found: bool
+) -> None:
+    """A listing holding another key's fingerprint is `key_found: false`, exit 0, same fields."""
+    f = save(tmp_path, "l.json", listing(key(fpr=listed)))
+    code, out = run(capsys, "check", "--fingerprint", FPR, "--key-listing", f, "--today", "2026-06-19")
+    assert (code, out["key_found"], set(out)) == (0, found, STEP_1_FIELDS)
+
+
+def test_check_cli_needs_a_fingerprint(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    f = save(tmp_path, "l.json", listing(key()))
+    with pytest.raises(SystemExit) as exc:
+        main(["keys-sync", "check", "--key-listing", f])
+    assert exc.value.code == 2 and "--fingerprint" in capsys.readouterr().err
+
+
+def test_verdict_compares_uid_sets_not_the_keyserver_order() -> None:
+    """The keyserver may list a UID KEYS lacks first; a UID both share keeps the verdict `noop`."""
+    added = "Brendan Ngan <brendan@example.org>"
+    out = render.verdict(preflight(), listing(key(), file="KEYS"), listing(key(uids=[added, UID])))
+    assert out["verdict"] == "noop" and out["blockers"] == []
+    assert out["noop_reason"] == f"fingerprint {FPR} already present in KEYS for uid: {UID}"
+
+
+def test_verdict_blocks_when_no_keyserver_uid_is_in_keys() -> None:
+    old = "Brendan Ngan <bngan@oldcompany.example.com>"
+    served = ["Brendan Ngan <one@example.org>", "Brendan Ngan <two@example.org>"]
+    out = render.verdict(preflight(), listing(key(uids=[old]), file="KEYS"), listing(key(uids=served)))
+    assert out["verdict"] == "blocked" and out["read"] == ["outcomes/key-rolled.md"]
+    assert f"the keyserver reports uids {served!r}" in out["blockers"][0]
+
+
+# --------------------------------------------------------------------------- git backend: branch and KEYS path
+
+
+def git_step2(url: str, keys_branch: str | None = None, *, in_config: bool = False) -> dict[str, Any]:
+    pre = preflight(keys_url=url)
+    load = loaded("r", "github-releases")
+    if keys_branch is not None:
+        (load["config"] if in_config else pre["values"])["keys_file_branch"] = keys_branch
+    return render.step2(pre, load, step1(), BLOCK, FETCHED)
+
+
+@pytest.mark.parametrize(
+    ("url", "branch", "path", "warned"),
+    [
+        ("https://github.com/o/r/blob/main/KEYS", "main", "KEYS", False),
+        ("https://github.com/o/r/blob/main/dist/KEYS", "main", "dist/KEYS", True),
+        ("https://github.com/o/r.git/raw/main/release/keys/KEYS", "main", "release/keys/KEYS", True),
+        ("https://raw.githubusercontent.com/o/r/main/KEYS", "main", "KEYS", False),
+        ("https://raw.githubusercontent.com/o/r/main/dist/KEYS", "main", "dist/KEYS", True),
+        ("https://raw.githubusercontent.com/o/r/refs/heads/main/dist/KEYS", "main", "dist/KEYS", True),
+        ("https://github.com/o/r", "main", "KEYS", False),
+    ],
+)
+def test_step_2_git_branch_is_the_first_segment_and_keys_may_sit_in_a_subdir(
+    url: str, branch: str, path: str, warned: bool
+) -> None:
+    out = git_step2(url)
+    commands = out["svn_command_sequence"]
+    assert f"git checkout -b keys-sync-{FPR[-16:].lower()} origin/{branch}\n" in commands
+    assert f"# 2. Append the key block below to {path}\n" in commands
+    assert f"git add {path}\n" in commands and f"--base {branch} " in commands
+    assert "git clone https://github.com/o/r.git " in commands
+    warnings = [w for w in out["warnings"] if "keys_file_branch" in w]
+    assert bool(warnings) is warned
+    if warned:
+        assert f"read as branch {branch!r} and file {path!r}" in warnings[0]
+
+
+@pytest.mark.parametrize("in_config", [False, True])
+def test_step_2_keys_file_branch_names_a_branch_holding_a_slash(in_config: bool) -> None:
+    out = git_step2("https://github.com/o/r/blob/release/1.x/dist/KEYS", "release/1.x", in_config=in_config)
+    commands = out["svn_command_sequence"]
+    assert "origin/release/1.x\n" in commands and "--base release/1.x " in commands
+    assert "git add dist/KEYS\n" in commands
+    assert not [w for w in out["warnings"] if "keys_file_branch" in w]
+
+
+def test_step_2_keys_file_branch_quotes_a_hostile_branch() -> None:
+    commands = git_step2("https://github.com/o/r/blob/a$(id)/KEYS", "a$(id)")["svn_command_sequence"]
+    assert " 'origin/a$(id)'\n" in commands and "--base 'a$(id)' " in commands
+
+
+@pytest.mark.parametrize(
+    "url",
+    ["https://github.com/o/r/blob/release/2.x/dist/KEYS", "https://github.com/o/r/blob/release/1.x/KEYS2"],
+)
+def test_step_2_keys_file_branch_mismatch_is_refused(url: str) -> None:
+    with pytest.raises(render.RenderError) as exc:
+        git_step2(url, "release/1.x/KEYS2" if url.endswith("KEYS2") else "release/1.x")
+    message = str(exc.value)
+    assert ("does not match" in message or "called KEYS" in message) and url in message
+
+
+def test_step_2_keys_file_branch_naming_the_whole_path_is_refused() -> None:
+    with pytest.raises(render.RenderError, match=r"keys_file_branch 'main/KEYS' does not match"):
+        git_step2("https://github.com/o/r/blob/main/KEYS", "main/KEYS")
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://github.com/o/r/blob/main/KEYS.txt",
+        "https://github.com/o/r/blob/main/docs/keys",
+        "https://raw.githubusercontent.com/o/r/main/dist/KEYS.asc",
+    ],
+)
+def test_step_2_git_refuses_a_file_not_named_keys(url: str) -> None:
+    with pytest.raises(render.RenderError, match="does not name a file called KEYS"):
+        git_step2(url)
+
+
+@pytest.mark.parametrize(
+    "url", ["https://github.com/o/r/tree/main", "https://raw.githubusercontent.com/o/r/KEYS"]
+)
+def test_step_2_git_refuses_a_url_without_branch_and_keys(url: str) -> None:
+    with pytest.raises(
+        render.RenderError, match=re.escape("expected https://github.com/<owner>/<repo>/blob/<branch>")
+    ):
+        git_step2(url)

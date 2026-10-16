@@ -23,7 +23,7 @@ argument-hint: "<version> [--planning-issue <url>]"
 capability: capability:stats
 surface_hash: sha256:ecab5c5c3e52d580
 license: Apache-2.0
-measured_tokens: 5177
+measured_tokens: 5219
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0

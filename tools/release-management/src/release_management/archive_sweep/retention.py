@@ -35,7 +35,7 @@ supported train: that is a ``retention-rule-error`` — ``past_retention`` is
 emptied and nothing may be archived. Versions mapped to no train are orphans
 and are never archived. All lists are in ascending version order.
 
-Moved unchanged from ``archive-sweep/scripts/retention.py``; it now runs as
+Moved from ``archive-sweep/scripts/retention.py``; it now runs as
 ``release-management archive-sweep retention``.
 """
 
@@ -84,14 +84,28 @@ def release_parts(version: str) -> list[int]:
     return [int(p) for p in match.group(1).split(".")]
 
 
-def parse_listing(text: str) -> tuple[list[str], list[str]]:
+def parse_listing(text: str, prefix: str = "", suffix: str = "") -> tuple[list[str], list[str]]:
+    """The versions in a listing, and every other entry.
+
+    `prefix` / `suffix` are the literal text around `<version>` in the entry
+    name (`v<version>`): an entry carrying both yields the version between
+    them, an entry without them is not a version entry.
+    """
     versions: list[str] = []
     other: list[str] = []
     for raw in text.splitlines():
         entry = raw.strip().rstrip("/")
         if not entry:
             continue
-        (versions if VERSION_RE.match(entry) else other).append(entry)
+        inner = entry
+        if len(entry) > len(prefix) + len(suffix) and entry.startswith(prefix) and entry.endswith(suffix):
+            inner = entry[len(prefix) : len(entry) - len(suffix)]
+        elif prefix or suffix:
+            inner = ""
+        if inner and VERSION_RE.match(inner):
+            versions.append(inner)
+        else:
+            other.append(entry)
     return versions, other
 
 

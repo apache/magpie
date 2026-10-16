@@ -26,7 +26,7 @@ capability:
   - capability:triage
 surface_hash: sha256:1665af8aae9c2b58
 license: Apache-2.0
-measured_tokens: 4193
+measured_tokens: 4280
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -228,6 +228,7 @@ Return ONLY valid JSON with this structure:
    naming one `N.x` train into `{"label": "2.x", "pattern": "2.x"}`; any other line is a `loose` train.
    When `keep_decided` is false, `archive_retention_rule` is free text: decide how many versions it keeps per train and re-run with `--keep N`
    (or set `"keep"` per train in the file); until then `retention` refuses the file.
+   The file also carries `entry_prefix` / `entry_suffix`, the literal text around `<version>` in the template (`v<version>`), so pass `retention` this file, not a hand-written list.
 
 3. **Apply the retention rule.**
 

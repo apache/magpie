@@ -606,7 +606,7 @@ generated block below.
 
 | Skill neutrality | Count |
 |---|---|
-| capability-pure (names no backend) | 29 |
+| capability-pure (names no backend) | 30 |
 | portable (named backends are swappable) | 50 |
 | vendor-coupled (sole-backend dependency) | 0 |
 

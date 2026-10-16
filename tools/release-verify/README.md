@@ -72,7 +72,7 @@ Every step object carries `step`, `status` and the step's fields as the skill's 
 | `binaries` | `binary-exclusion` | `FAIL` when `prohibited_found` is non-empty | `prohibited_found`, `expected_binaries`, `paste_recipe` |
 | `symlinks` | `source-tree-integrity` | `FAIL` a symlink that dangles or resolves outside the archive · `REVIEW` validators declared (run them) · `PASS` symlinks, all resolve inside · `SKIP` no symlinks, no validators | `dangling_symlinks`, `outside_symlinks`†, `symlinks_present`†, `validator_failures` (always `[]`), `validators_to_run`†, `paste_recipe` |
 | `version` | `version-consistency` | `FAIL` any `extracted` is `null` or differs from the expected version | `expected_version`, `results[]` (`file`, `extracted`, `match`, `detail`†) |
-| `list-keys` | `list-keys` | — | `file` (base name only), `keys[]` (`fingerprint`, `validity`, `algo_id`, `algorithm`, `bits`, `curve`, `created`, `expiry`, `uids`, `subkey_fingerprints`), `detail`† (why no key was listed) |
+| `list-keys` | `list-keys` | — | `file` (base name only), `keys[]` (`fingerprint`, `validity`, `algo_id`, `algorithm`, `bits`, `curve`, `created`, `expiry`, `caps`, `uids`, `subkey_fingerprints`, `subkeys[]` with each subkey's own `fingerprint`, `validity`, `algo_id`, `algorithm`, `bits`, `curve`, `created`, `expiry`, `caps`), `detail`† (why no key was listed). A file that is not a regular file, a failed gpg run and a public-key block that does not import are an `error`; only an import that found no key data is an empty `keys` |
 | `verdict` | `verdict` | — | `overall` (`FAIL` > `PASS-WITH-WARNINGS` > `PASS`; `null` while a step is unresolved), `step_summary`, `fail_steps`, `warn_steps`, `skip_steps`, `unresolved`, `ignored_overrides`† |
 
 Rules the subcommands apply:

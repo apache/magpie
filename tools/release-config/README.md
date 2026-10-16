@@ -117,7 +117,7 @@ Rules more than one skill applies have one implementation, so every skill gives 
 | `verify-rc` | source `<version>-rcN`; `keys_file_url`, `release_dist_url_template`, `version_manifest_files` present; the four `release-build.md` sections exist; the staging URL renders well-formed; reports `keyserver`; convenience-artefact versions |
 | `archive-sweep` | `archive_retention_rule`, `release_dist_backend`, `release_dist_url_template` present; `release-trains.md` lists a release line; backend is a known one; archive destination derivable |
 | `audit-report` | source `<version>`; `audit_log_path` present; the approver roster has a row |
-| `keys-sync` | fingerprint from `--fingerprint`, then `rm_key_fingerprint`, then `user.md`; `keys_file_url` from `--keys-url` or config; `keyserver` from `--keyserver` or config |
+| `keys-sync` | fingerprint from `--fingerprint`, then `rm_key_fingerprint`, then `user.md`; `keys_file_url` from `--keys-url` or config; the optional `keys_file_branch` from config (null when unset or a placeholder); `keyserver` from `--keyserver` or config |
 | `prepare` | sub-command parsed; `automated-signing` only where the organization offers it; source `<version>`; `release_branch_base`, `version_manifest_files` present; `release-trains.md` readable |
 
 ## Wiring

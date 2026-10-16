@@ -22,7 +22,12 @@ GNUPGHOME and this module reads that JSON, so release-management still runs
 nothing. ``assess`` is unchanged: RSA and DSA >= 2048 bits, EdDSA and ECDSA
 on an accepted curve (secp256k1 refused), the DSA advisory, a revoked,
 invalid or disabled key blocked, an expired key blocked, and an advisory for
-an expiry within 90 days. ``keys_dir`` strips ``/KEYS`` from
+an expiry within 90 days. The verdict also needs a usable signing-capable
+key: a primary key without the sign capability (certify only) needs a
+compliant signing subkey, and a signing subkey only counts when it meets the
+same floor, validity and expiry rules on its own; the compliant ones are
+listed under ``signers``. A listing without capabilities (``caps``) keeps the
+primary key as the signer. ``keys_dir`` strips ``/KEYS`` from
 ``keys_file_url`` and rejects a ``dist/dev`` URL or one not ending in ``/KEYS``.
 """
 
@@ -47,6 +52,47 @@ class InputError(Exception):
     pass
 
 
+def _meets_strength(key: dict[str, Any]) -> tuple[bool, str | None]:
+    """The per-key rules: the algorithm / size floor and the accepted curves."""
+    algorithm = ALGORITHMS.get(str(key.get("algo_id")))
+    if algorithm in ("RSA", "DSA"):
+        bits = key.get("bits")
+        if bits is None or bits < FLOOR_BITS:
+            return False, (
+                f"{algorithm} {bits}-bit key is below the ASF floor of {FLOOR_BITS} bits; "
+                "generate a new key that meets the floor"
+            )
+        return True, None
+    curve = key.get("curve") or ""
+    if algorithm == "EdDSA":
+        if curve in EDDSA_CURVES:
+            return True, None
+        return False, f"EdDSA curve {curve or 'unknown'!r} is not an accepted curve"
+    if algorithm == "ECDSA":
+        if curve in ECDSA_CURVES:
+            return True, None
+        return False, f"ECDSA curve {curve or 'unknown'!r} is not P-256 or stronger"
+    return False, f"public-key algorithm id {key.get('algo_id')} is not accepted for release signing"
+
+
+def _usable_for_signing(key: dict[str, Any], today: dt.date) -> bool:
+    if UNUSABLE_VALIDITY.get(key.get("validity") or ""):
+        return False
+    if key.get("expiry"):
+        return dt.date.fromisoformat(key["expiry"]) >= today
+    return True
+
+
+def _signer_summary(key: dict[str, Any], source: str) -> dict[str, Any]:
+    return {
+        "source": source,
+        "algorithm": ALGORITHMS.get(str(key.get("algo_id"))),
+        "bit_length": key.get("bits"),
+        "curve": key.get("curve") or None,
+        "expiry": key.get("expiry"),
+    }
+
+
 def assess(key: dict[str, Any] | None, fingerprint: str, today: dt.date) -> dict[str, Any]:
     out: dict[str, Any] = {
         "verdict": "blocked",
@@ -59,6 +105,7 @@ def assess(key: dict[str, Any] | None, fingerprint: str, today: dt.date) -> dict
         "expiry": None,
         "strength_check": None,
         "strength_note": None,
+        "signers": [],
     }
     if key is None:
         return out
@@ -70,28 +117,13 @@ def assess(key: dict[str, Any] | None, fingerprint: str, today: dt.date) -> dict
         expiry=key["expiry"],
     )
     notes: list[str] = []
-    passed = False
+    passed, primary_note = _meets_strength(key)
     if algorithm in ("RSA", "DSA"):
-        bits = key["bits"]
-        out["bit_length"] = bits
-        passed = bits is not None and bits >= FLOOR_BITS
-        if not passed:
-            notes.append(
-                f"{algorithm} {bits}-bit key is below the ASF floor of {FLOOR_BITS} bits; "
-                "generate a new key that meets the floor"
-            )
-        if algorithm == "DSA":
-            notes.append("DSA keys are discouraged by ASF release-signing guidance")
-    elif algorithm == "EdDSA":
-        passed = key["curve"] in EDDSA_CURVES
-        if not passed:
-            notes.append(f"EdDSA curve {key['curve'] or 'unknown'!r} is not an accepted curve")
-    elif algorithm == "ECDSA":
-        passed = key["curve"] in ECDSA_CURVES
-        if not passed:
-            notes.append(f"ECDSA curve {key['curve'] or 'unknown'!r} is not P-256 or stronger")
-    else:
-        notes.append(f"public-key algorithm id {key['algo_id']} is not accepted for release signing")
+        out["bit_length"] = key["bits"]
+    if algorithm == "DSA":
+        notes.append("DSA keys are discouraged by ASF release-signing guidance")
+    if primary_note:
+        notes.append(primary_note)
     # gpg's validity field: a revoked, invalid or disabled key never signs a release,
     # whatever its strength or expiry date says.
     unusable = UNUSABLE_VALIDITY.get(key.get("validity", ""))
@@ -107,6 +139,39 @@ def assess(key: dict[str, Any] | None, fingerprint: str, today: dt.date) -> dict
             notes.append(
                 f"key expires on {key['expiry']}, within {EXPIRY_ADVISORY_DAYS} days; consider extending it"
             )
+    # A release needs a usable, strength-compliant SIGNER. gpg's capability field
+    # (`caps`): lowercase letters are the key's own usage, uppercase the whole key's,
+    # so a certify-only primary reads e.g. `cSC` and must not count as a signer.
+    # A listing without `caps` keeps the primary as the signer.
+    caps = str(key.get("caps") or "")
+    if caps and "s" not in caps:
+        notes.append("primary key has no signing capability (certify only)")
+    elif passed:
+        out["signers"].append(_signer_summary(key, "primary"))
+    for sub in key.get("subkeys") or []:
+        if not isinstance(sub, dict) or "s" not in str(sub.get("caps") or ""):
+            continue
+        sub_ok, sub_note = _meets_strength(sub)
+        if sub_note:
+            notes.append(f"signing subkey: {sub_note}")
+        if not (sub_ok and _usable_for_signing(sub, today)):
+            continue
+        out["signers"].append(_signer_summary(sub, "subkey"))
+        if ALGORITHMS.get(str(sub.get("algo_id"))) == "DSA":
+            notes.append("signing subkey: DSA keys are discouraged by ASF release-signing guidance")
+        if sub.get("expiry"):
+            sub_days = (dt.date.fromisoformat(sub["expiry"]) - today).days
+            if sub_days <= EXPIRY_ADVISORY_DAYS:
+                notes.append(
+                    f"signing subkey expires on {sub['expiry']}, within {EXPIRY_ADVISORY_DAYS} days; "
+                    "consider extending it"
+                )
+    if not out["signers"]:
+        passed = False
+        notes.append(
+            "no signing-capable key meets the admission rules; "
+            "a release signature from this key group would not be a checked signer"
+        )
     out["strength_check"] = "pass" if passed else "fail"
     out["strength_note"] = "; ".join(notes) if notes else None
     out["verdict"] = "proceed" if passed else "blocked"

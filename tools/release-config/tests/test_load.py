@@ -298,6 +298,7 @@ def test_framework_templates_parse():
     rmc = md.table_values((TEMPLATES / "release-management-config.md").read_text(encoding="utf-8"))
     assert rmc["release_dist_backend"] == "svnpubsub"
     assert rmc["rm_key_fingerprint"] is None
+    assert rmc["keys_file_branch"] is None  # optional, unset in the template
     assert rmc["version_manifest_files"] == ["setup.cfg", "foo/__init__.py"]
     assert "github-discussion" not in rmc  # the mechanism table is not a key table
     roster = md.parse_roster(TEMPLATES / "pmc-roster.md")

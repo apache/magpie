@@ -555,7 +555,14 @@ def check_keys_sync(cfg: Loaded, args: argparse.Namespace, result: Result) -> No
     if not keys_url:
         result.block("keys_file_url not resolvable: set it in release-management-config.md § Signing or pass --keys-url")
     keyserver = args.keyserver or cfg.get("keyserver")
-    result.values.update({"fingerprint": fingerprint, "fingerprint_source": source, "keys_file_url": keys_url, "keyserver": keyserver})
+    # Only for a KEYS file in a git repository whose branch holds "/" (release/1.x):
+    # the URL alone cannot say where such a branch ends.
+    keys_branch = cfg.raw.get("keys_file_branch")
+    if not isinstance(keys_branch, str) or not keys_branch.strip() or md.is_placeholder(keys_branch):
+        keys_branch = None
+    result.values.update(
+        {"fingerprint": fingerprint, "fingerprint_source": source, "keys_file_url": keys_url, "keys_file_branch": keys_branch, "keyserver": keyserver}
+    )
 
 
 def check_prepare(cfg: Loaded, args: argparse.Namespace, result: Result) -> None:

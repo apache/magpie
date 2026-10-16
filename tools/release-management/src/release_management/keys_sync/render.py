@@ -66,8 +66,11 @@ def verdict(
 ) -> dict[str, Any]:
     """Step 0: the preflight blockers, then whether the fingerprint is in KEYS and under which UID.
 
-    Not in KEYS → `proceed`. In KEYS and the keyserver's primary UID is one of
-    that key's UIDs → `noop`. In KEYS under another UID → `blocked`, the
+    Not in KEYS → `proceed`. In KEYS and any UID the keyserver reports is one
+    of that key's UIDs in KEYS → `noop` (Golden rule 3: the fingerprint is
+    there for a UID the keyserver still reports). UIDs are compared as sets,
+    never by position: keyservers strip unverified UIDs and order the rest
+    as they like. In KEYS under none of the keyserver's UIDs → `blocked`, the
     Golden rule 4 hand-off. In KEYS but the keyserver has no key or no UID for
     it → `blocked`: the UIDs cannot be compared. Until an input it needs is
     given, `verdict` is null and `pending` names it.
@@ -131,14 +134,16 @@ def verdict(
             "the RM uploads the public key (and verifies its email address there), then re-runs"
         )
         return out
-    if served_uids[0] in keys_uids:
+    shared = [u for u in served_uids if u in keys_uids]
+    if shared:
         out["verdict"] = "noop"
-        out["noop_reason"] = f"fingerprint {fingerprint} already present in KEYS for uid: {served_uids[0]}"
+        out["noop_reason"] = f"fingerprint {fingerprint} already present in KEYS for uid: {shared[0]}"
         out["read"] = ["outcomes/noop.md"]
         return out
+    reported = "uid " + repr(served_uids[0]) if len(served_uids) == 1 else f"uids {served_uids!r}"
     out["blockers"].append(
-        f"fingerprint {fingerprint} is already in KEYS for uid {keys_uid!r} but the keyserver reports uid "
-        f"{served_uids[0]!r}; the RM must decide whether to append the updated key block or replace the "
+        f"fingerprint {fingerprint} is already in KEYS for uid {keys_uid!r} but the keyserver reports "
+        f"{reported}; the RM must decide whether to append the updated key block or replace the "
         "existing one, then update rm_key_fingerprint if the key itself changed"
     )
     return out
@@ -170,17 +175,60 @@ def public_block(text: str) -> str:
     return str(blocks[0]).replace("\r\n", "\n")
 
 
-def _github(keys_url: str) -> tuple[str, str, str, str] | None:
-    """`https://github.com/<owner>/<repo>/blob/<branch>/<path>` → (owner, repo, branch, path)."""
+def _github(keys_url: str, keys_branch: str | None = None) -> tuple[str, str, str, str, str | None]:
+    """`https://github.com/<owner>/<repo>/blob/<branch>/<path>/KEYS` → (owner, repo, branch, path, warning).
+
+    `blob/`, `raw/` and `raw.githubusercontent.com/<owner>/<repo>/[refs/heads/]…`
+    are read alike. The branch is the first segment after them and the path the
+    rest, so KEYS may sit in a sub-directory (`dist/KEYS`). A branch holding `/`
+    (`release/1.x`) cannot be told from the URL: `keys_file_branch` names it, and
+    the URL must then start with it. Without `keys_file_branch` and with a path in
+    a sub-directory, the reading is stated as a warning. The file must be named
+    `KEYS`; anything else is refused.
+    """
     parsed = urlparse(keys_url)
     parts = [p for p in parsed.path.split("/") if p]
-    if (parsed.hostname or "").lower() == "raw.githubusercontent.com" and len(parts) >= 4:
-        return parts[0], parts[1], parts[2], "/".join(parts[3:])
-    if len(parts) >= 5 and parts[2] in ("blob", "raw"):
-        return parts[0], parts[1].removesuffix(".git"), parts[3], "/".join(parts[4:])
-    if len(parts) == 2:
-        return parts[0], parts[1].removesuffix(".git"), "main", "KEYS"
-    return None
+    host = (parsed.hostname or "").lower()
+    shape = "https://github.com/<owner>/<repo>/blob/<branch>/[<dir>/]KEYS"
+    if host in ("github.com", "www.github.com") and len(parts) == 2 and not keys_branch:
+        return parts[0], parts[1].removesuffix(".git"), "main", "KEYS", None
+    rest: list[str] | None = None
+    if host == "raw.githubusercontent.com" and len(parts) >= 3:
+        rest = parts[2:]
+        if rest[:2] == ["refs", "heads"]:
+            rest = rest[2:]
+    elif len(parts) >= 4 and parts[2] in ("blob", "raw"):
+        rest = parts[3:]
+    if rest is None:
+        raise RenderError(
+            f"cannot read the repository, branch and KEYS path from keys_file_url {keys_url!r}: expected {shape}"
+        )
+    if not rest or rest[-1] != "KEYS":
+        raise RenderError(
+            f"keys_file_url {keys_url!r} does not name a file called KEYS (last segment "
+            f"{(rest or [''])[-1]!r}): expected {shape}"
+        )
+    owner, repo = parts[0], parts[1].removesuffix(".git")
+    warning = None
+    if keys_branch:
+        want = [b for b in keys_branch.strip().split("/") if b]
+        if rest[: len(want)] != want or len(rest) == len(want):
+            raise RenderError(
+                f"keys_file_branch {keys_branch!r} does not match keys_file_url {keys_url!r}: the URL's segments "
+                f"after blob/ ({'/'.join(rest[:-1]) or '<none>'} before KEYS) must start with the branch; "
+                "fix one of them"
+            )
+        branch, path = "/".join(want), "/".join(rest[len(want) :])
+    else:
+        if len(rest) < 2:
+            raise RenderError(f"keys_file_url {keys_url!r} names no branch before KEYS: expected {shape}")
+        branch, path = rest[0], "/".join(rest[1:])
+        if len(rest) > 2:
+            warning = (
+                f"keys_file_url is read as branch {branch!r} and file {path!r}; if the branch itself contains "
+                "'/' (e.g. release/1.x), set keys_file_branch in release-management-config.md"
+            )
+    return owner, repo, branch, path, warning
 
 
 def _svn(keys_url: str, workdir: str, message: str) -> tuple[str, str]:
@@ -201,11 +249,18 @@ def _svn(keys_url: str, workdir: str, message: str) -> tuple[str, str]:
     return "\n".join(lines), directory
 
 
-def _git(keys_url: str, workdir: str, message: str, title: str, fingerprint: str) -> str:
-    parsed = _github(keys_url)
-    if parsed is None:
-        raise RenderError(f"cannot read the repository and KEYS path from keys_file_url {keys_url!r}")
-    owner, repo, branch, path = parsed
+def _git(
+    keys_url: str,
+    workdir: str,
+    message: str,
+    title: str,
+    fingerprint: str,
+    warnings: list[str],
+    keys_branch: str | None = None,
+) -> str:
+    owner, repo, branch, path, warning = _github(keys_url, keys_branch)
+    if warning:
+        warnings.append(warning)
     work_branch = f"keys-sync-{fingerprint[-16:].lower()}"
     lines = [
         "# 1. Clone the repository holding KEYS (push to your fork instead if you lack write access)",
@@ -295,7 +350,16 @@ def step2(
     if chosen in ("svnpubsub", "atr"):
         commands, svn_dir = _svn(keys_url, workdir, message)
     elif chosen == "git":
-        commands = _git(keys_url, workdir, message, f"Add {uid} to KEYS", fingerprint)
+        keys_branch = values.get("keys_file_branch") or config.get("keys_file_branch")
+        commands = _git(
+            keys_url,
+            workdir,
+            message,
+            f"Add {uid} to KEYS",
+            fingerprint,
+            warnings,
+            str(keys_branch or "") or None,
+        )
     else:
         commands = _generic(keys_url, message)
     block = f"# {uid}\n{public_block(key_text)}"

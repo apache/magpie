@@ -3,7 +3,7 @@
 
 # Step 0 outcome — key rolled (`blocked`)
 
-The configured fingerprint is in KEYS, but the keyserver reports a different primary UID for it (key rolled, or a new primary UID),
+The configured fingerprint is in KEYS, but none of the UIDs the keyserver reports for it is one of that entry's UIDs (key rolled, or every UID changed),
 or the keyserver returned no key or no UID, so the two cannot be compared.
 This is the Golden rule 4 hand-off: stop before any command is emitted and surface `blockers` as written, with both UIDs.
 

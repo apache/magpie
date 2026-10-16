@@ -532,3 +532,129 @@ def test_cli_free_text_rule_trains_to_retention(tmp_path: Path, capsys: pytest.C
     trains.write_text(json.dumps(TWO_X), encoding="utf-8")
     assert main(["archive-sweep", "retention", "--listing", str(listing), "--trains", str(trains)]) == 0
     assert json.loads(capsys.readouterr().out)["past_retention"] == ["2.9.0", "2.10.0"]
+
+
+# --------------------------------------------------------------------------- S3 locations (shared with release-promote)
+
+
+@pytest.mark.parametrize(
+    ("template", "listed", "moved"),
+    [
+        # A virtual-hosted bucket whose own name starts with `s3`: the key keeps `foo`.
+        (
+            "https://s3-releases.s3.eu-west-1.amazonaws.com/foo/<version>/",
+            "s3://s3-releases/foo/",
+            "s3://s3-releases/foo/1.0.0/",
+        ),
+        (
+            "https://s3.eu-west-1.amazonaws.com/releases/foo/<version>/",
+            "s3://releases/foo/",
+            "s3://releases/foo/1.0.0/",
+        ),
+        (
+            "https://s3-eu-west-1.amazonaws.com/releases/foo/<version>/",
+            "s3://releases/foo/",
+            "s3://releases/foo/1.0.0/",
+        ),
+        ("s3://s3-releases/foo/<version>/", "s3://s3-releases/foo/", "s3://s3-releases/foo/1.0.0/"),
+    ],
+)
+def test_s3_bucket_and_key_follow_release_promote(template: str, listed: str, moved: str) -> None:
+    sweep = sweep_of(backend="s3", template=template, archive="s3://archive/foo/")
+    assert render.listing(sweep)["command"] == f"aws s3 ls {listed}"
+    out = render.step2(sweep, run("1.0.0\n1.1.0\n", [{"label": "1.x", "pattern": "1.x"}]))
+    assert f"  {moved} \\\n  s3://archive/foo/1.0.0/ \\\n  --recursive" in out["commands"]
+
+
+def test_s3_unreadable_bucket_is_refused_by_archive_sweep() -> None:
+    sweep = sweep_of(backend="s3", template="https://example.org/foo/<version>/", archive="s3://archive/foo/")
+    with pytest.raises(render.RenderError, match="cannot read the S3 bucket"):
+        render.listing(sweep)
+
+
+# --------------------------------------------------------------------------- literal text around <version>
+
+V_TEMPLATE = "https://dist.apache.org/repos/dist/<bucket>/foo/v<version>/"
+ONE_X = [{"label": "1.x", "pattern": "1.x"}]
+
+
+def test_release_dir_cuts_at_the_segment_holding_version() -> None:
+    sweep = sweep_of(template=V_TEMPLATE, project="foo", archive=None)
+    assert sweep.release_dir() == "https://dist.apache.org/repos/dist/release/foo/"
+    assert sweep.entry_affix == ("v", "")
+    assert render.listing(sweep)["command"] == "svn list https://dist.apache.org/repos/dist/release/foo/"
+    rc = sweep_of(
+        template="https://dist.apache.org/repos/dist/<bucket>/foo/foo-<version>-<rcN>/", project="foo"
+    )
+    assert (rc.release_dir(), rc.entry_affix) == (
+        "https://dist.apache.org/repos/dist/release/foo/",
+        ("foo-", ""),
+    )
+
+
+def test_prefixed_entries_map_to_versions_and_back(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    load = loaded(template=V_TEMPLATE, project="foo", archive=None, lines=["the 1.x train"])
+    trains_file = tmp_path / "trains.json"
+    load_file = tmp_path / "load.json"
+    load_file.write_text(json.dumps(load), encoding="utf-8")
+    assert main(["archive-sweep", "trains", "--load", str(load_file)]) == 0
+    trains = json.loads(capsys.readouterr().out)
+    assert (trains["entry_prefix"], trains["entry_suffix"]) == ("v", "")
+    trains_file.write_text(json.dumps(trains), encoding="utf-8")
+    listing_file = tmp_path / "listing.txt"
+    listing_file.write_text("v1.0.0/\nv1.1.0/\nKEYS\n1.2.0/\n", encoding="utf-8")
+    assert (
+        main(["archive-sweep", "retention", "--listing", str(listing_file), "--trains", str(trains_file)])
+        == 0
+    )
+    out = json.loads(capsys.readouterr().out)
+    assert out["releases_found"] == ["1.0.0", "1.1.0"] and out["past_retention"] == ["1.0.0"]
+    assert out["non_version_entries"] == ["KEYS", "1.2.0"]
+    commands = render.step2(render.Sweep.from_load(load), out)["commands"]
+    assert "  https://dist.apache.org/repos/dist/release/foo/v1.0.0 \\\n" in commands
+    assert "  https://archive.apache.org/dist/foo/v1.0.0 \\\n" in commands
+    assert "vv1.0.0" not in commands
+
+
+def test_prefixed_template_refuses_a_retention_run_without_the_prefix() -> None:
+    sweep = sweep_of(template=V_TEMPLATE, project="foo", archive=None)
+    with pytest.raises(render.RenderError, match="re-run `archive-sweep trains`"):
+        render.step2(sweep, run("v1.0.0\nv1.1.0\n", ONE_X))
+
+
+def test_github_release_tags_keep_their_prefix() -> None:
+    sweep = sweep_of(
+        backend="github-releases",
+        template="https://github.com/o/foo/releases/tag/v<version>",
+        archive=None,
+        upstream="o/foo",
+    )
+    versions, _ = retention.parse_listing("v1.0.0\nv1.1.0\n", "v", "")
+    out = retention.sweep(versions, ONE_X) | {"entry_prefix": "v", "entry_suffix": ""}
+    assert render.step2(sweep, out)["commands"] == "```text\ngh release delete v1.0.0 --repo o/foo --yes\n```"
+
+
+def test_listing_suffix_is_stripped_and_restored() -> None:
+    assert retention.parse_listing("foo-1.0.0-bin\nfoo-1.1.0-bin\nfoo-1.1.0\n", "foo-", "-bin") == (
+        ["1.0.0", "1.1.0"],
+        ["foo-1.1.0"],
+    )
+    sweep = sweep_of(
+        template="https://dist.apache.org/repos/dist/<bucket>/foo/foo-<version>-bin/",
+        project="foo",
+        archive=None,
+    )
+    assert sweep.entry("1.0.0") == "foo-1.0.0-bin"
+    assert sweep.archive_url("1.0.0") == "https://archive.apache.org/dist/foo/foo-1.0.0-bin"
+    assert sweep.release_url("1.0.0") == "https://dist.apache.org/repos/dist/release/foo/foo-1.0.0-bin"
+
+
+def test_bare_version_template_keeps_its_old_shape() -> None:
+    sweep = sweep_of()
+    assert (sweep.release_dir(), sweep.entry_affix) == (
+        "https://dist.apache.org/repos/dist/release/airflow/",
+        ("", ""),
+    )
+    assert render.trains(sweep)["entry_prefix"] == ""
