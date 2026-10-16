@@ -273,7 +273,12 @@ workspace-writable roots, while the adopter supplies the existing policy.
 The shared SessionStart stable-path hook requires Codex hook-definition trust.
 
 `vetted-ops-codex-rules` only prints native rules for review and installation in
-user scope, with absolute stable paths rather than version globs.
+user scope, with absolute stable paths rather than version globs, never `~`
+(execpolicy rejects `~` words, and a `~` rule would follow a reassignable `HOME`
+or a relative `~` directory). `--hook` prints a Codex-only PreToolUse hook that
+rewrites a command that is exactly one `vetted-op-read` call in the `~` spelling
+to the absolute path fixed at render time, before the rules evaluate it; writes
+and compound commands are never rewritten, so it grants nothing itself.
 Both uv launchers allow `vetted-op-read` and prompt `vetted-op` and
 `vetted-op-tracker`; there is no general uv allowance or automatic policy edit.
 Codex escalation and native rules replace Claude's sandbox exclusions.

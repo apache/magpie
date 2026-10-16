@@ -193,7 +193,19 @@ Review the output and install it as `~/.codex/rules/magpie-vetted-ops.rules`.
 This is per-machine user configuration; never commit the expanded home path into a project.
 The renderer writes nothing itself and accepts `--tool-root` for a different trusted installed location.
 It deliberately preserves a stable symlink path instead of resolving a versioned plugin-cache target.
-Native exec-policy matches argv after shell expansion, so a literal `~` in the rules would miss the executed absolute path.
+The rules name only the absolute path, never `~`. Codex's plain-command parser rejects any word containing `~`, so a skill's `uv run --project ~/.claude/magpie/vetted-ops …` matches no rule as written; and a `~` rule would be unsafe, because the shell resolves `~` from `HOME`, which an earlier command can reassign, and `uv` treats a literal `~` as a relative directory the agent can create.
+
+To keep the `~` spelling skills use from prompting on every read, install the Codex-only rewrite hook the same tool prints:
+
+~~~bash
+uv run --project ~/.claude/magpie/vetted-ops vetted-ops-codex-rules --hook
+~~~
+
+Review the output, add it to your user `~/.codex/config.toml`, and trust it in `/hooks`.
+Before the rules run, the hook rewrites a command only when the whole command is one read call in that spelling — `uv run --project ~/.claude/magpie/vetted-ops vetted-op-read …` or the `uvx --from` form, with plain or simply quoted arguments — replacing the path with the absolute stable path fixed at render time from `--tool-root`, the same path the rules name.
+Anything chained, redirected, substituted or spanning lines is left alone, and so are `vetted-op` and `vetted-op-tracker`, which must always prompt.
+It grants nothing: the rewritten command is checked by the rules above like any other, and even if a hook's `allow` were read as an approval, it could only approve that lone read, which the rules already allow.
+Never register this hook for Claude Code: Codex needs `permissionDecision: "allow"` to carry the rewrite, while Claude Code reads that field as a permission grant. As a backstop the hook stays silent unless the event carries the `turn_id` and `model` fields only Codex sends.
 
 Both `uv run --project <installed-path> vetted-op-read` and `uvx --from <installed-path> vetted-op-read` are `allow`.
 Both launchers with `vetted-op` or `vetted-op-tracker` are `prompt`.

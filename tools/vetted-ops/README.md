@@ -661,7 +661,8 @@ layer.
 
 Codex loads the plugin’s Claude-compatible `SessionStart` hook after hook trust review.
 The shared stable path remains `~/.claude/magpie/vetted-ops`; no Claude runtime is needed.
-Run `vetted-ops-codex-rules` from the installed tool to print six native prefix rules, then review and install the output under `~/.codex/rules/magpie-vetted-ops.rules`.
+Run `vetted-ops-codex-rules` from the installed tool to print six native prefix rules (absolute path only, never `~`), then review and install the output under `~/.codex/rules/magpie-vetted-ops.rules`.
+Run `vetted-ops-codex-rules --hook` to print the Codex-only PreToolUse hook that rewrites a lone `vetted-op-read` call in the `~` spelling skills use to that path before the rules see it (writes and compound commands are never rewritten); review it and add it to `~/.codex/config.toml` — never to Claude Code, which reads its `allow` as a permission grant.
 The renderer only prints; it never edits user policy.
 Both supported launchers allow only `vetted-op-read` and prompt `vetted-op` and `vetted-op-tracker`.
 Paths are absolute, with no version glob or general `uv` allow rule.
