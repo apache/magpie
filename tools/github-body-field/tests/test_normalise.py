@@ -153,20 +153,81 @@ def test_unclosed_fence_hides_the_rest_and_is_closed_by_normalise() -> None:
     body = "### A\n\n````py\ncode\n### B\n"
     assert list_fields(body) == ["A"]
     result = normalise(body)
-    assert result.text == "### A\n\n````py\ncode\n\\### B\n````\n"
-    assert kinds(result) == [(3, "unclosed_fence"), (5, "heading_in_fence")]
+    assert result.text == "### A\n\n````py\ncode\n### B\n````\n"
+    assert kinds(result) == [(3, "unclosed_fence")]
 
 
 def test_unclosed_fence_without_a_final_newline() -> None:
     assert normalise("```\ncode").text == "```\ncode\n```\n"
 
 
-def test_heading_inside_a_fence_is_escaped() -> None:
+def test_fenced_lines_stay_byte_exact() -> None:
     body = "### A\n\n```\n# one\n  ### Severity\n#### four\n#hashtag\n```\n"
     result = normalise(body)
-    assert result.text == "### A\n\n```\n\\# one\n  \\### Severity\n\\#### four\n#hashtag\n```\n"
-    assert kinds(result) == [(4, "heading_in_fence"), (5, "heading_in_fence"), (6, "heading_in_fence")]
+    assert result.text == body
+    assert result.changes == []
     assert list_fields(result.text) == ["A"]
+
+
+def test_fenced_payloads_round_trip_through_extract_and_duplicate_resolution() -> None:
+    payload = "```py\n# comment\n### Severity\n\\escaped\n```\n"
+    body = f"### Short public summary for publish\n\n{payload}\n### Severity\n\nLow\n\n### Severity\n\nHigh\n"
+    result = normalise(body, KNOWN, keep={"Severity": 9})
+    assert result.needs_decision == []
+    assert extract_field(result.text, "Short public summary for publish") == payload
+    assert extract_field(result.text, "Severity") == "Low\n"
+
+
+def test_replace_refuses_a_span_holding_a_heading_shaped_line() -> None:
+    body = "### The issue description\n\nreport\n\n   ### Severity\n\nHigh\n"
+    with pytest.raises(AmbiguousFieldError, match="heading-shaped"):
+        replace_field(body, "The issue description", "new report")
+    # A fenced one is code for every reader and does not block the rewrite.
+    fenced = "### The issue description\n\n```\n### Severity\n```\n\n### CWE\n\nx\n"
+    assert replace_field(fenced, "The issue description", "new").startswith(
+        "### The issue description\n\nnew\n"
+    )
+
+
+def test_replace_refuses_a_new_value_that_would_add_a_field() -> None:
+    body = "### A\n\nx\n\n### B\n\ny\n"
+    for value in ("z\n\n### Severity\n\nHigh", "> ### B\n"):
+        with pytest.raises(AmbiguousFieldError):
+            replace_field(body, "A", value)
+
+
+def test_spacing_variant_after_an_indented_list_fence_needs_a_decision() -> None:
+    complete = "### Severity\n\nLow\n\n### CWE\n\nx\n\n"
+    body = complete + "- item\n   ```\n\n###  Severity\n\nHigh\n"
+    decisions = normalise(body, KNOWN).needs_decision
+    assert any(d["field"] == "Severity" and d["kind"] == "container-heading" for d in decisions)
+
+
+def test_long_whitespace_runs_parse_in_linear_time() -> None:
+    import time
+
+    spaces = " " * 100_000
+    body = f"### A{spaces}x\n\n###{spaces}Severity{spaces}#{spaces}\n\nLow\n\n> -{spaces}### CWE{spaces}x\n"
+    start = time.perf_counter()
+    normalise(body, KNOWN)
+    list_fields(body)
+    assert time.perf_counter() - start < 1.0
+
+
+def test_cli_keeps_crlf_bytes_from_a_body_file(tmp_path, capsys: pytest.CaptureFixture[str]) -> None:
+    src = tmp_path / "b.md"
+    src.write_bytes(b"### A\r\n\r\nx\r\n")
+    out = tmp_path / "o.md"
+    assert cli.main(["normalise", "--body-file", str(src), "--output", str(out)]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["changed"] is True
+    assert report["changes"] == [{"line": 1, "kind": "line_endings"}]
+    assert out.read_bytes() == b"### A\n\nx\n"
+    same = tmp_path / "s.md"
+    same.write_bytes(b"### A\n\nx\n")
+    assert cli.main(["normalise", "--body-file", str(same), "--output", str(out)]) == 0
+    assert json.loads(capsys.readouterr().out)["changed"] is False
+    assert out.read_bytes() == same.read_bytes()
 
 
 # ---------------------------------------------------------------------------
@@ -401,7 +462,7 @@ def test_cli_get_and_set_exit_2_on_an_ambiguous_field(monkeypatch, capsys) -> No
 
     class Result:
         returncode = 0
-        stdout = body + "\n"
+        stdout = json.dumps({"body": body})
         stderr = ""
 
     calls: list[list[str]] = []

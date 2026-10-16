@@ -57,6 +57,8 @@ FIXTURES = [
     "### A\n\nParagraph\n- ### Severity\n2. ### CWE\n###  Severity\n",
     "### A\n\n" + ">" * 65 + "### Severity\n",
     "### A\n\n" + "- 1. " * 10_000 + "### Severity\n",
+    "### Severity\n\nLow\n\n- item\n   ```\n\n###  Severity\n\nHigh\n",
+    "### A" + " " * 20_000 + "x\n",
 ]
 
 

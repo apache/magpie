@@ -42,20 +42,21 @@ from github_body_field.parser import (
 
 
 def _gh_get_body(issue: str, repo: str | None) -> str:
-    cmd = ["gh", "issue", "view", issue, "--json", "body", "--jq", ".body"]
+    # The body travels as JSON: a CR is escaped there, so text-mode newline
+    # translation cannot turn CRLF into LF before the parser sees it.
+    cmd = ["gh", "issue", "view", issue, "--json", "body"]
     if repo:
         cmd.extend(["--repo", repo])
     result = subprocess.run(cmd, capture_output=True, text=True, check=False)
     if result.returncode != 0:
         sys.stderr.write(result.stderr)
         raise SystemExit(result.returncode or 1)
-    # `gh --jq .body` returns the body with a trailing newline appended
-    # by gh's JSON-to-text serialiser; strip exactly one to keep the
-    # round-trip byte-exact.
-    body = result.stdout
-    if body.endswith("\n"):
-        body = body[:-1]
-    return body
+    return str(json.loads(result.stdout).get("body") or "")
+
+
+def _read_exact(path: str) -> str:
+    """A local file's text with its line endings exactly as stored."""
+    return Path(path).read_bytes().decode("utf-8")
 
 
 def _gh_set_body(issue: str, repo: str | None, body: str) -> None:
@@ -79,7 +80,7 @@ def _read_value(args: argparse.Namespace) -> str:
     if args.value_file is not None:
         if args.value_file == "-":
             return sys.stdin.read()
-        return Path(args.value_file).read_text(encoding="utf-8")
+        return _read_exact(args.value_file)
     sys.stderr.write("error: one of --value / --value-file is required\n")
     raise SystemExit(2)
 
@@ -171,14 +172,11 @@ def _cmd_normalise(args: argparse.Namespace) -> int:
     if (args.issue is None) == (args.body_file is None):
         sys.stderr.write("error: pass exactly one of <issue> or --body-file\n")
         return 2
-    if args.body_file is not None:
-        body = Path(args.body_file).read_text(encoding="utf-8")
-    else:
-        body = _gh_get_body(args.issue, args.repo)
+    body = _read_exact(args.body_file) if args.body_file is not None else _gh_get_body(args.issue, args.repo)
     result = normalise(body, _read_known_fields(args.fields_json), _read_keep(args.keep))
     report: dict[str, object] = {**result.as_dict(), "changed": result.text != body}
     if args.output is not None:
-        Path(args.output).write_text(result.text, encoding="utf-8")
+        Path(args.output).write_bytes(result.text.encode("utf-8"))
         report["output"] = args.output
     sys.stdout.write(json.dumps(report, indent=2))
     sys.stdout.write("\n")
