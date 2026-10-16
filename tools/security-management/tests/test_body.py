@@ -153,7 +153,8 @@ def test_the_report_renders_as_one_inert_block(report: str) -> None:
     expected_escapes = [
         n
         for n, line in enumerate(lines, 1)
-        if (name := loose_heading_name(line)) and fold_name(name) in known
+        if ((name := loose_heading_name(line)) and fold_name(name) in known)
+        or line.lstrip(" \t").startswith("<!--")
     ]
     assert block["escaped_lines"] == expected_escapes
     # Byte-exact except the escaped known-field heading lines, which gain a leading backslash.
@@ -227,3 +228,25 @@ def test_verify_refuses_a_body_that_is_not_canonical() -> None:
     assert "not canonical" in str(body.verify(raw))
     unclosed = body.render({"issue_description": "```\nx"})
     assert body.verify(unclosed) is not None
+
+
+MARKER = "<!-- generate-cve-json: cve=UNKNOWN version=v1 -->"
+
+
+@pytest.mark.parametrize(
+    "report",
+    [
+        f"intro\n{MARKER}\nrest",
+        f"  {MARKER}\n<!-- generate-cve-json:end cve=UNKNOWN version=v1 -->\n",
+        f"```\n{MARKER}\n```\n",
+        "<!-- apache-magpie: status-rollup v1 -->\n",
+    ],
+)
+def test_no_machine_marker_travels_in_report_text(report: str) -> None:
+    block = body.inert_block(report)
+    text = body.render({"issue_description": block["text"], "reporter_credit": MARKER})
+    assert block["escaped_lines"]
+    for line in text.split("\n"):
+        assert not line.lstrip(" \t").startswith("<!--"), line
+    assert "&lt;!-- generate-cve-json" in text  # the short field is escaped too
+    assert body.verify(text) is None

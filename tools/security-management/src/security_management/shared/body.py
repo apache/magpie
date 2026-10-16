@@ -135,7 +135,9 @@ def inert_block(text: str, known_fields: Iterable[str] | None = None) -> dict[st
     exception, as defence in depth for readers that ignore fences: a line
     that would be a heading naming one of `known_fields` if the fence were
     ignored (after leading whitespace, `>` and list markers: `###`, a space
-    or tab, the name) gets a leading `\\`. `escaped_lines` lists them,
+    or tab, the name) gets a leading `\\`, and so does a line starting, after
+    whitespace, with `<!--`: machine markers (the CVE-JSON attachment, the
+    rollup) never travel in report text. `escaped_lines` lists them,
     1-based within `text`. An empty or blank `text` gives an empty result.
     A caller must not render the text of an `ok: False` result.
     """
@@ -152,7 +154,9 @@ def inert_block(text: str, known_fields: Iterable[str] | None = None) -> dict[st
     escaped: list[int] = []
     for index, line in enumerate(lines):
         name = loose_heading_name(line)
-        if name and fold_name(name) in known:
+        # A machine marker (`<!-- generate-cve-json: … -->`, a rollup or ledger
+        # marker) is never carried in report text, even inside the block.
+        if (name and fold_name(name) in known) or line.lstrip(" \t").startswith("<!--"):
             lines[index] = "\\" + line
             escaped.append(index + 1)
     content = "\n".join(lines)
