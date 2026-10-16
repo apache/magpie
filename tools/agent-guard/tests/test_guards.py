@@ -691,14 +691,82 @@ def test_vetted_ops_spelling_override():
     assert agent_guard.dispatch(command) is None
 
 
-def test_vetted_ops_spelling_codex_keeps_its_absolute_rewrite():
+def test_vetted_ops_spelling_codex_keeps_its_absolute_rewrite(monkeypatch, tmp_path):
     import os
 
     pwd = pytest.importorskip("pwd")
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path))  # no registration: the default root
     home = pwd.getpwuid(os.getuid()).pw_dir
     command = f"uv run --project {home}/.claude/magpie/vetted-ops vetted-op-read pr-view 1"
     assert agent_guard.dispatch(command, harness="codex") is None
     assert agent_guard.dispatch(command) is not None
-    # Only the password-database home: any other absolute path is still denied.
+    # Any other `.claude/magpie` root is one the agent could have built: refused.
     other = "uv run --project /elsewhere/.claude/magpie/vetted-ops vetted-op-read pr-view 1"
     assert agent_guard.dispatch(other, harness="codex") is not None
+
+
+def _register_codex_hook(codex_home, root):
+    """Write the hook registration `vetted-ops-codex-rules --hook --tool-root <root>` renders."""
+    import json
+    import shlex
+
+    command = f"python3 {shlex.quote(root + '/hooks/codex-expand-stable-path.py')} --stable-path {shlex.quote(root)}"
+    (codex_home / "config.toml").write_text(
+        '[[hooks.PreToolUse]]\nmatcher = "^Bash$"\n\n[[hooks.PreToolUse.hooks]]\n'
+        f'type = "command"\ncommand = {json.dumps(command)}\ntimeout = 10\n'
+    )
+
+
+@pytest.mark.parametrize(
+    "command, allowed",
+    [
+        # The trusted `--tool-root` the rewrite hook was registered with.
+        ("uv run --project /srv/account/.claude/magpie/vetted-ops vetted-op-read pr-view 1", True),
+        ("uvx --from /srv/account/.claude/magpie/vetted-ops/ vetted-op-read pr-view 1", True),
+        # The hook rewrites reads only, so a write in that spelling is the agent's.
+        ("uv run --project /srv/account/.claude/magpie/vetted-ops vetted-op-tracker status", False),
+        # Not the registered root, or a path game around it.
+        ("uv run --project /srv/other/.claude/magpie/vetted-ops vetted-op-read x", False),
+        ("uv run --project /srv/account/.claude/magpie/vetted-ops/../../../tmp/x vetted-op-read x", False),
+        ("uv run --project tools/vetted-ops vetted-op-read x", False),
+    ],
+)
+def test_vetted_ops_spelling_codex_accepts_only_its_registered_root(monkeypatch, tmp_path, command, allowed):
+    pytest.importorskip("pwd")
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path))
+    _register_codex_hook(tmp_path, "/srv/account/.claude/magpie/vetted-ops")
+    assert (agent_guard.dispatch(command, harness="codex") is None) is allowed
+    # Outside Codex the `~` spelling is the only one.
+    assert agent_guard.dispatch(command) is not None
+
+
+@pytest.mark.parametrize(
+    "command, denied",
+    [
+        ("uv --project tools/vetted-ops run vetted-op-read pr-view 1", True),
+        ("uv --directory /tmp --project tools/vetted-ops run vetted-op-tracker status", True),
+        ("uv --project=/home/alice/.claude/magpie/vetted-ops run vetted-op-read x", True),
+        ("uv --project ~/.claude/magpie/vetted-ops run vetted-op-read pr-view 1", False),
+        ("uv --directory /tmp run --project ~/.claude/magpie/vetted-ops vetted-op-read x", False),
+        # Another subcommand is not a launch.
+        ("uv --project tools/vetted-ops sync", False),
+    ],
+)
+def test_vetted_ops_spelling_reads_options_before_run(command, denied):
+    assert (agent_guard.dispatch(command) is not None) is denied
+
+
+def test_vetted_ops_spelling_refuses_an_absolute_checkout_path(monkeypatch, tmp_path):
+    repo = tmp_path / "repo"
+    (repo / "tools" / "vetted-ops").mkdir(parents=True)
+    monkeypatch.setattr(
+        agent_guard,
+        "_run",
+        fake_run(lambda args: str(repo) if args[:3] == ["git", "rev-parse", "--show-toplevel"] else None),
+    )
+    inside = f"uv run --project {repo}/tools/vetted-ops vetted-op-read pr-view 1"
+    reason = agent_guard.dispatch(inside, cwd=str(repo))
+    assert reason and "agent-guard[vetted-ops-spelling]" in reason
+    # A harness's own plugin directory outside the working tree is left alone.
+    outside = "uvx --from /opt/harness/plugins/magpie/tools/adversarial-review adversarial-review detect"
+    assert agent_guard.dispatch(outside, cwd=str(repo)) is None

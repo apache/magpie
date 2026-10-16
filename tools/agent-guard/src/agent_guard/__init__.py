@@ -964,12 +964,10 @@ def _vetted_launch(argv: list[str]) -> tuple[str, str, str] | None:
     launch of a vetted dispatcher, or None for any other command."""
     if not argv or argv[0] not in ("uv", "uvx"):
         return None
-    if argv[0] == "uv":
-        if len(argv) < 2 or argv[1] != "run":
-            return None
-        option, rest = "--project", argv[2:]
-    else:
-        option, rest = "--from", argv[1:]
+    # `uv` takes its options on either side of `run` (`uv --project X run …`
+    # is the same launch as `uv run --project X …`); `uvx` has no subcommand.
+    option, rest = ("--project", argv[1:]) if argv[0] == "uv" else ("--from", argv[1:])
+    needs_run = argv[0] == "uv"
     base: str | None = None
     i = 0
     while i < len(rest):
@@ -988,42 +986,96 @@ def _vetted_launch(argv: list[str]) -> tuple[str, str, str] | None:
         if tok.startswith("-"):
             i += 1
             continue
+        if needs_run:
+            if tok != "run":
+                return None  # another uv subcommand
+            needs_run = False
+            i += 1
+            continue
         break
-    if base is None or i >= len(rest) or rest[i] not in VETTED_ENTRY_POINTS:
+    if needs_run or base is None or i >= len(rest) or rest[i] not in VETTED_ENTRY_POINTS:
         return None
     return option, base, rest[i]
 
 
-def guard_vetted_ops_spelling(seg: Segment, harness: str | None = None) -> str | None:
+def _inside_checkout(base: str, cwd: str | None) -> bool:
+    """True when the absolute ``base`` lies in the working tree the command
+    runs from: a dispatcher there is code the agent can edit."""
+    top = _run(["git", "rev-parse", "--show-toplevel"], cwd=cwd)
+    if not top:
+        return False
+    root = os.path.realpath(top)
+    target = os.path.realpath(base)
+    return target == root or target.startswith(root.rstrip(os.sep) + os.sep)
+
+
+_CODEX_HOOK_SCRIPT = "codex-expand-stable-path.py"
+
+
+def _codex_stable_roots() -> set[str]:
+    """The absolute vetted-ops roots Codex's rewrite hook may substitute for `~`.
+
+    The hook rewrites to the root it was registered with: `--stable-path` in
+    the Codex configuration (`vetted-ops-codex-rules --hook --tool-root …`),
+    else the account's home from the password database. Only those exact
+    roots are let through; a path the agent could build itself is not. Home
+    comes from the password database, never from `HOME`, which an earlier
+    command can reassign.
+    """
+    try:
+        import pwd  # POSIX only; Codex runs there, the engine also runs on Windows.
+
+        home = pwd.getpwuid(os.getuid()).pw_dir
+    except (ImportError, KeyError, OSError):
+        return set()
+    roots = {f"{home.rstrip('/')}/{VETTED_STABLE_BASE[2:]}vetted-ops"}
+    config = Path(os.environ.get("CODEX_HOME") or f"{home}/.codex") / "config.toml"
+    try:
+        text = config.read_text(encoding="utf-8")
+    except OSError:
+        return roots
+    for line in text.splitlines():
+        name, sep, value = line.partition("=")
+        if not sep or name.strip() != "command" or _CODEX_HOOK_SCRIPT not in value:
+            continue
+        try:
+            argv = shlex.split(json.loads(value.strip()))
+        except (ValueError, TypeError):
+            continue
+        if "--stable-path" in argv[:-1]:
+            root = argv[argv.index("--stable-path") + 1].rstrip("/")
+            if os.path.isabs(root):
+                roots.add(root)
+    return roots
+
+
+def guard_vetted_ops_spelling(seg: Segment, cwd: str | None = None, harness: str | None = None) -> str | None:
     launch = _vetted_launch(seg.argv)
     if launch is None:
         return None
     option, base, entry = launch
-    stable = VETTED_STABLE_BASE + VETTED_ENTRY_POINTS[entry]
+    tool = VETTED_ENTRY_POINTS[entry]
+    stable = VETTED_STABLE_BASE + tool
     base = base.rstrip("/")
     if base == stable:
         return None
+    if harness == "codex" and entry == "vetted-op-read" and base in _codex_stable_roots():
+        # Codex's execpolicy cannot match `~`, so its own hook rewrites a lone
+        # read to the absolute root it was registered with
+        # (tools/vetted-ops/hooks/codex-expand-stable-path.py). Only reads are
+        # rewritten, and only to that exact root.
+        return None
     # What is refused: the stable path spelled any other way (expanded home,
-    # `$HOME`, the wrong dispatcher's link), and a relative path, which is a
-    # checkout the agent can edit. Another absolute or `~` path is a harness's
-    # own installed plugin directory (docs: tools/adversarial-review/README.md)
-    # and is left to that harness's rules.
+    # `$HOME`, the wrong dispatcher's link), a relative path, and an absolute
+    # path inside the working tree: both are a checkout the agent can edit.
+    # Another absolute or `~` path is a harness's own installed plugin
+    # directory (docs: tools/adversarial-review/README.md) and is left to that
+    # harness's rules.
     stable_elsewhere = "/.claude/magpie/" in base or base.startswith(VETTED_STABLE_BASE)
     relative = not base.startswith(("/", "~"))
-    if not (stable_elsewhere or relative or base.startswith("$")):
+    checkout = base.startswith("/") and not stable_elsewhere and _inside_checkout(base, cwd)
+    if not (stable_elsewhere or relative or checkout or base.startswith("$")):
         return None
-    if harness == "codex":
-        # Codex's execpolicy cannot match `~`, so its own hook rewrites a lone
-        # read to the absolute stable path from the password database
-        # (tools/vetted-ops/hooks/codex-expand-stable-path.py); let that through.
-        try:
-            import pwd  # POSIX only; Codex runs there, the engine also runs on Windows.
-
-            home = pwd.getpwuid(os.getuid()).pw_dir
-        except (ImportError, KeyError, OSError):
-            home = None
-        if home and base == f"{home.rstrip('/')}/{stable[2:]}":
-            return None
     if seg.override("MAGPIE_ALLOW_VETTED_PATH"):
         return None
     return (
@@ -1412,7 +1464,7 @@ def dispatch(command: str, cwd: str | None = None, harness: str | None = None) -
         if seg.argv and seg.argv[0] in ("uv", "uvx"):
             # Checked here rather than as a guarded head: a vetted launch is the
             # only `uv` rule, and contributed guards stay on `gh` / `git`.
-            reason = guard_vetted_ops_spelling(seg, harness)
+            reason = guard_vetted_ops_spelling(seg, cwd, harness)
             if reason:
                 return reason
             continue

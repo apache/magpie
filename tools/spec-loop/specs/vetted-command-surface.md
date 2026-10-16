@@ -161,8 +161,12 @@ Every call spells the base `~/.claude/magpie/<tool>` (AGENTS.md golden rule):
 the agent-guard `vetted-ops-spelling` guard refuses an expanded home path,
 `$HOME/…` or a relative checkout path for `vetted-op`, `vetted-op-read`,
 `vetted-op-tracker` and `adversarial-review`, and names the `~` command.
-Under Codex it lets through the absolute stable path that Codex's own hook
-substitutes for `~` on a lone read, since Codex execpolicy cannot match `~`.
+It also refuses an absolute path inside the working tree, and reads `uv`'s
+options on either side of `run`. Under Codex it lets a `vetted-op-read`
+through from the exact root Codex's own hook substitutes for `~` (the
+registered `--stable-path`, else the account's home from the password
+database), since Codex execpolicy cannot match `~`; any other root is one the
+agent could have built and stays refused.
 
 ## Scoping — what is real and what is aspiration
 
