@@ -82,7 +82,7 @@ Suites are currently implemented for:
 - **release-vote-tally** — 3 cases across 3 suites (step-0-preflight, step-2-classify, step-3-tally); the verdict, the tally and the `[RESULT] [VOTE]` body are code, pytest-tested in `tools/release-management`
 - **reviewer-routing** — 1 case across 1 suite (step-score-and-propose); pre-flight and scoring are pytest-tested in `tools/pr-management`
 - **security-issue-import-from-scan** — 4 cases across 1 suite (step-c-bucket)
-- **security-issue-import-via-forwarder** — 18 cases across 4 suites (step-0-preflight, step-1-detect-adapter, step-2-extract-credit, step-3-route-drafts)
+- **security-issue-import-via-forwarder** — 6 cases across 2 suites (step-1-detect-adapter, step-2-extract-credit); Steps 0 and 3 and the scripted Step 1 cases are pytest-tested in `tools/security-management`
 - **security-tracker-stats-dashboard** — 11 cases across 3 suites (step-1-resolve-config, step-2-cache-freshness, step-3-hard-rules)
 - **setup-override-upstream** — 15 cases across 4 suites (step-0-preflight, step-1-pick-override, step-3-decide-upstreamable, step-6-pr-confirm)
 - **setup-upstream-fix** — 12 cases across 3 suites (step-2-classify, step-3-dedup, step-5-adversarial-review)

@@ -13,6 +13,7 @@
     - [`issue-import`](#issue-import)
     - [`issue-import-from-pr`](#issue-import-from-pr)
     - [`issue-import-from-md`](#issue-import-from-md)
+    - [`issue-import-via-forwarder`](#issue-import-via-forwarder)
   - [Tests](#tests)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -29,7 +30,8 @@
 The deterministic core of the `security-*` skills.
 Each skill family is a subcommand: [`security-issue-import`](../../plugins/magpie-security/skills/issue-import/SKILL.md) (`issue-import`),
 [`security-issue-import-from-pr`](../../plugins/magpie-security/skills/issue-import-from-pr/SKILL.md) (`issue-import-from-pr`)
-and [`security-issue-import-from-md`](../../plugins/magpie-security/skills/issue-import-from-md/SKILL.md) (`issue-import-from-md`).
+[`security-issue-import-from-md`](../../plugins/magpie-security/skills/issue-import-from-md/SKILL.md) (`issue-import-from-md`)
+and [`security-issue-import-via-forwarder`](../../plugins/magpie-security/skills/issue-import-via-forwarder/SKILL.md) (`issue-import-via-forwarder`).
 The tool takes what the agent saved — search results, the redacted report text, the confirmed plan — and decides or renders everything rule-shaped:
 the Step 1 pre-filter, the batched `threadId` dedup, the forwarder pre-screen, the tracker body and its sanitiser, the rollup entry, the rejections-ledger record,
 the fix-already-public reply, the receipt-draft matrix, the confirmation-reply grammar and the recap.
@@ -123,6 +125,16 @@ Every command prints one JSON object; rendered text is in its `text` field.
 | `render-proposal --input F` | The proposal table, default disposition and reply forms, duplicates linked. |
 | `render-recap --input F` | The recap `text` and hand-off. |
 
+### `issue-import-via-forwarder`
+
+| Command | Prints |
+|---|---|
+| `preflight --forwarders F --message F --framework D` | `outcome` (`proceed`, `no-forwarder-config`, `abort` with exit `2`), `preflight_passed`, `error`, `note`; installed means a `tools/forwarder-relay/<name>/` directory or a `shipping` README row whose doc exists. |
+| `detect --message F --forwarders F [--collaborators F]` | The first enabled adapter whose sender pattern or preamble regex (first 400 characters) matches: `match`, `sub_skill_applied`, `preamble_snippet`, `sender_matched`, `collaborator_warning`, `adapters`; exit `2` on an unresolved pattern. |
+| `credit-kind --input F` | `kind` (`tool` under the bot/AI policy, else the adapter's `kind_hints`, else `human`), `is_bot`, `credit_unknown`. |
+| `first-name --input F` | `first_name` of a handle or display name; `null` (generic salutation) for an address. |
+| `route --mode M [--milestone K] --adapter F` | `to_recipients` (first handle) and `fallback_recipients`, `addressing_block_emitted`, `question_mode`, `negative_space_suppressed` (a do-not-relay milestone in sync mode). |
+
 ## Tests
 
 ```bash
@@ -132,5 +144,6 @@ uv run --directory tools/security-management pytest -q
 The cases of the retired model-graded `security-issue-import` suites `step-0-preflight`, `step-6-confirm` and `step-7-apply`
 are pytest cases named after each former case, in `tests/test_issue_import.py` and `tests/test_grammar.py`.
 The cases of `security-issue-import-from-pr/step-2-scope-detection` are in `tests/test_issue_import_from_pr.py`,
-and those of `security-issue-import-from-md/step-1-parse-findings` (cases 1–3) and `step-2-duplicate-guard` (case 1) in `tests/test_issue_import_from_md.py`.
+those of `security-issue-import-from-md/step-1-parse-findings` (cases 1–3) and `step-2-duplicate-guard` (case 1) in `tests/test_issue_import_from_md.py`,
+and those of `security-issue-import-via-forwarder/step-0-preflight`, `step-1-detect-adapter` (cases 1, 2, 3, 6) and `step-3-route-drafts` in `tests/test_issue_import_via_forwarder.py`.
 `tests/test_body.py` checks that the `tracker-body-template.md` files of the sibling import skills carry exactly the rendered headings.
