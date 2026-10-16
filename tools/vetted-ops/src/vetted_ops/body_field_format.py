@@ -14,7 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-"""Parse and rewrite the ``### Field`` sections of a GitHub issue body.
+"""Parse, normalise and rewrite the ``### Field`` sections of a GitHub issue body.
 
 The tracker issue body is a sequence of `### <FieldName>` headings,
 each followed by the field's value. This module exposes a pure
@@ -22,42 +22,110 @@ parser/replacer so the CLI can run without ever bringing the body
 into the agent's context, and so the (numerous) tricky edge cases
 can be unit-tested in isolation.
 
-The parser is a small state machine that:
+The parser follows CommonMark where it matters for finding fields:
 
-- tracks whether the current line is inside a fenced code block
-  (``` ``` ``` or ``` ~~~ ```) so that a literal ``### foo`` line
-  inside a shell snippet never false-matches as a heading;
-- considers only level-3 ATX headings (``^### <name>$``);
-  level-2 (``## ``) and level-4 (``#### ``) headings are passed
-  through as content;
-- preserves the original body exactly when no changes are needed
+- lines end at ``\\n``, ``\\r\\n`` or ``\\r`` (CommonMark's line endings,
+  not every character ``str.splitlines`` breaks on);
+- fenced code blocks pair the CommonMark way (§4.5): an opener is a run
+  of three or more backticks or tildes indented at most three spaces,
+  and only a run of the *same* character, at least as long, followed by
+  nothing but spaces or tabs, closes it; a fence never closed runs to
+  the end of the body. So a four-backtick block holding a three-backtick
+  line keeps its content, and a ``### foo`` line inside a shell snippet
+  never false-matches as a heading;
+- a field heading is a level-3 ATX heading outside any fence: up to
+  three spaces of indent, ``###``, one or more spaces or tabs, the name,
+  and an optional closing run of ``#``; level-2 (``## ``) and level-4
+  (``#### ``) headings are content;
+- the original body is preserved exactly when no change is needed
   (idempotent rewrite).
+
+:func:`normalise` rewrites a body into the canonical shape every reader
+agrees on (LF line endings, ``### Name`` headings, closed fences, no
+heading-shaped line inside a fence, no repeated field) and reports what
+it changed and what it would not decide on its own.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import re
+from collections.abc import Iterable, Mapping
+from dataclasses import dataclass, field
 
 
 class FieldNotFoundError(LookupError):
     """Raised when the requested field heading is absent from the body."""
 
 
-# A fence-line opens / closes a fenced code block when it starts with
-# three or more backticks or three or more tildes, optionally followed
-# by an info string. Per CommonMark §4.5 the opening and closing fences
-# must use the same character; the info string may only follow the
-# opener. We don't enforce matching-character-count strictly because
-# GitHub's tracker body editor is lenient and we want to err on the
-# side of "treat anything ``` ``` ```-ish as a fence" so headings
-# embedded in code samples never get mis-parsed as field markers.
-_BACKTICK_FENCE = "```"
-_TILDE_FENCE = "~~~"
+class DuplicateFieldError(FieldNotFoundError):
+    """Raised when the requested field heading appears more than once outside fences."""
 
-# Heading marker for a field. GitHub trims trailing whitespace on
-# rendered headings; we strip it on the parsed name too so a stray
-# space after the field name doesn't break the lookup.
-_HEADING_PREFIX = "### "
+
+# A CommonMark line: content plus its ending (`\n`, `\r\n` or `\r`), or a last unterminated line.
+_LINE = re.compile(r"[^\r\n]*(?:\r\n|\r|\n)|[^\r\n]+\Z")
+# A fence line: up to three spaces, a run of 3+ backticks or tildes, the rest (info string or nothing).
+_FENCE = re.compile(r"^( {0,3})(`{3,}|~{3,})(.*)$")
+# A level-3 ATX heading: up to three spaces, `###`, then whitespace and content, or nothing at all.
+_H3 = re.compile(r"^ {0,3}###(?:[ \t]+(.*?))?[ \t]*$")
+# An optional closing sequence: a run of `#` preceded by whitespace (or standing alone).
+_CLOSING = re.compile(r"(?:^|[ \t]+)#+$")
+# Any heading-shaped line (any level, any indent), escaped when it sits inside a fence.
+_ANY_HEADING = re.compile(r"^([ \t]*)(?=#{1,6}(?:[ \t]|$))")
+
+
+def split_lines(body: str) -> list[str]:
+    """``body`` split into lines with their endings kept, at CommonMark line endings only."""
+    return _LINE.findall(body)
+
+
+def _content(line: str) -> str:
+    """``line`` without its line ending."""
+    return line.rstrip("\r\n")
+
+
+def fence_roles(lines: Iterable[str]) -> list[str]:
+    """Each line's role: ``"open"``, ``"close"``, ``"code"`` (inside a fence) or ``"text"``.
+
+    Fences pair the CommonMark way: the closer uses the opener's character,
+    is at least as long, and carries nothing but spaces or tabs after the
+    run. A backtick opener whose info string holds a backtick is not a
+    fence. An unclosed fence runs to the end of ``lines``.
+    """
+    roles: list[str] = []
+    opened: tuple[str, int] | None = None
+    for raw in lines:
+        match = _FENCE.match(_content(raw))
+        if opened is None:
+            if match and not (match.group(2)[0] == "`" and "`" in match.group(3)):
+                opened = (match.group(2)[0], len(match.group(2)))
+                roles.append("open")
+            else:
+                roles.append("text")
+            continue
+        if (
+            match
+            and match.group(2)[0] == opened[0]
+            and len(match.group(2)) >= opened[1]
+            and not match.group(3).strip(" \t")
+        ):
+            opened = None
+            roles.append("close")
+        else:
+            roles.append("code")
+    return roles
+
+
+def heading_name(line: str) -> str | None:
+    """The field name of a level-3 ATX heading line, or None when ``line`` is not one.
+
+    Surrounding spaces and tabs and a closing run of ``#`` are dropped;
+    a bare ``###`` is a heading with an empty name.
+    """
+    match = _H3.match(_content(line))
+    if match is None:
+        return None
+    text = (match.group(1) or "").strip(" \t")
+    return _CLOSING.sub("", text).strip(" \t")
 
 
 @dataclass(frozen=True)
@@ -67,11 +135,7 @@ class _Section:
     name: str
     heading_line: str  # the original "### Name" line as it appeared
     body_lines: list[str]  # everything between this heading and the next
-
-
-def _is_fence(line: str) -> bool:
-    stripped = line.lstrip()
-    return stripped.startswith(_BACKTICK_FENCE) or stripped.startswith(_TILDE_FENCE)
+    line_no: int = 0  # 1-based line number of the heading
 
 
 def _parse(body: str) -> tuple[list[str], list[_Section]]:
@@ -81,27 +145,18 @@ def _parse(body: str) -> tuple[list[str], list[_Section]]:
     The preamble is returned as a list of raw lines so the round-trip
     is byte-exact when no field is replaced.
     """
-    lines = body.splitlines(keepends=True)
+    lines = split_lines(body)
     preamble: list[str] = []
     sections: list[_Section] = []
     current: _Section | None = None
-    in_fence = False
 
-    for line in lines:
-        if _is_fence(line):
-            in_fence = not in_fence
-            (current.body_lines if current is not None else preamble).append(line)
-            continue
-
-        # Only top-level (outside any fence) `### ` openers count.
-        if not in_fence and line.startswith(_HEADING_PREFIX):
-            # Stash whatever section we were building.
+    for number, (line, role) in enumerate(zip(lines, fence_roles(lines), strict=True), 1):
+        name = heading_name(line) if role == "text" else None
+        if name is not None:
             if current is not None:
                 sections.append(current)
-            name = line[len(_HEADING_PREFIX) :].rstrip("\r\n").rstrip()
-            current = _Section(name=name, heading_line=line, body_lines=[])
+            current = _Section(name=name, heading_line=line, body_lines=[], line_no=number)
             continue
-
         (current.body_lines if current is not None else preamble).append(line)
 
     if current is not None:
@@ -118,6 +173,148 @@ def list_fields(body: str) -> list[str]:
     """
     _, sections = _parse(body)
     return [s.name for s in sections]
+
+
+def _fold(name: str) -> str:
+    return " ".join(name.split()).casefold()
+
+
+@dataclass(frozen=True)
+class NormaliseResult:
+    """What :func:`normalise` produced.
+
+    ``changes`` holds one ``{"line", "kind"}`` record per rewrite (1-based
+    line numbers of the input body); ``needs_decision`` holds one
+    ``{"field", "kind", "lines"}`` record per ambiguity left in ``text``.
+    """
+
+    text: str
+    changes: list[dict[str, object]] = field(default_factory=list)
+    needs_decision: list[dict[str, object]] = field(default_factory=list)
+
+    def as_dict(self, *, include_text: bool = False) -> dict[str, object]:
+        out: dict[str, object] = {"changes": self.changes, "needs_decision": self.needs_decision}
+        if include_text:
+            out["text"] = self.text
+        return out
+
+
+def _canonical_lines(
+    lines: list[str], canonical: Mapping[str, str], changes: list[dict[str, object]]
+) -> list[str]:
+    """Headings canonicalised, headings inside fences escaped, an unclosed fence closed."""
+    out = list(lines)
+    open_index: int | None = None
+    for index, (line, role) in enumerate(zip(out, fence_roles(out), strict=True)):
+        content = _content(line)
+        ending = line[len(content) :]
+        if role == "open":
+            open_index = index
+        elif role == "close":
+            open_index = None
+        elif role == "code":
+            escaped = _ANY_HEADING.sub(lambda m: m.group(1) + "\\", content, count=1)
+            if escaped != content:
+                out[index] = escaped + ending
+                changes.append({"line": index + 1, "kind": "heading_in_fence"})
+        else:
+            name = heading_name(content)
+            if not name:
+                continue
+            spelled = canonical.get(_fold(name), name)
+            wanted = f"### {spelled}"
+            if wanted != content:
+                out[index] = wanted + ending
+                changes.append({"line": index + 1, "kind": "heading" if spelled == name else "heading_name"})
+    if open_index is not None:
+        opener = _FENCE.match(_content(out[open_index]))
+        assert opener is not None  # an "open" role always matched
+        if not out[-1].endswith("\n"):
+            out[-1] += "\n"
+        out.append(opener.group(2) + "\n")
+        changes.append({"line": open_index + 1, "kind": "unclosed_fence"})
+    return out
+
+
+def normalise(
+    body: str,
+    known_fields: Iterable[str] | None = None,
+    keep: Mapping[str, int] | None = None,
+) -> NormaliseResult:
+    """``body`` in the canonical shape every field reader agrees on.
+
+    - ``\\r\\n`` and a lone ``\\r`` become ``\\n`` (kind ``line_endings``,
+      recorded once, at the first such line);
+    - a level-3 heading outside a fence becomes ``### Name`` (kind
+      ``heading``); with ``known_fields``, a name equal to a known field
+      once case-folded and whitespace-collapsed takes the known spelling
+      (kind ``heading_name``);
+    - a heading-shaped line inside a fence gets a ``\\`` before its first
+      ``#``, so no reader takes it for a field (kind ``heading_in_fence``);
+    - a fence still open at the end of the body is closed (kind
+      ``unclosed_fence``, at the opener's line);
+    - a field heading repeated outside fences: when every copy holds the
+      same value (after stripping), the later copies are dropped (kind
+      ``duplicate_dropped``, at each dropped heading); otherwise every copy
+      stays and ``{"field", "kind": "duplicate", "lines"}`` goes to
+      ``needs_decision`` — unless ``keep`` maps the field to the heading
+      line of the copy to keep (a decision made elsewhere), which is then
+      kept and the others dropped (kind ``duplicate_resolved``).
+
+    Line numbers are the input body's. Normalising a normalised body
+    changes nothing.
+    """
+    changes: list[dict[str, object]] = []
+    canonical = {_fold(name): name for name in (known_fields or [])}
+
+    lines: list[str] = []
+    first_cr: int | None = None
+    for number, raw in enumerate(split_lines(body), 1):
+        content = _content(raw)
+        if raw[len(content) :] not in ("", "\n"):
+            first_cr = first_cr or number
+            raw = content + "\n"
+        lines.append(raw)
+    if first_cr is not None:
+        changes.append({"line": first_cr, "kind": "line_endings"})
+
+    text = "".join(_canonical_lines(lines, canonical, changes)) if lines else ""
+
+    preamble, sections = _parse(text)
+    copies_of: dict[str, list[_Section]] = {}
+    for section in sections:
+        if section.name:
+            copies_of.setdefault(section.name, []).append(section)
+    drop: set[int] = set()
+    needs_decision: list[dict[str, object]] = []
+    for name, copies in copies_of.items():
+        if len(copies) < 2:
+            continue
+        line_nos = [s.line_no for s in copies]
+        if len({"".join(s.body_lines).strip() for s in copies}) == 1:
+            dropped = line_nos[1:]
+            kind = "duplicate_dropped"
+        elif keep is not None and keep.get(name) in line_nos:
+            dropped = [n for n in line_nos if n != keep[name]]
+            kind = "duplicate_resolved"
+        else:
+            needs_decision.append({"field": name, "kind": "duplicate", "lines": line_nos})
+            continue
+        drop.update(dropped)
+        changes.extend({"line": n, "kind": kind} for n in dropped)
+    if drop:
+        rebuilt = list(preamble)
+        for section in sections:
+            if section.line_no not in drop:
+                rebuilt.append(section.heading_line)
+                rebuilt.extend(section.body_lines)
+        trailing_blank = text.endswith("\n\n")
+        text = "".join(rebuilt)
+        if not trailing_blank and text.endswith("\n\n"):
+            # The dropped copy was last: its predecessor's spacer is now the body's end.
+            text = text.rstrip("\n") + "\n"
+    changes.sort(key=lambda c: (int(str(c["line"])), str(c["kind"])))
+    return NormaliseResult(text=text, changes=changes, needs_decision=needs_decision)
 
 
 def _strip_spacer_blanks(body_lines: list[str]) -> tuple[bool, list[str], bool]:
@@ -139,6 +336,15 @@ def _strip_spacer_blanks(body_lines: list[str]) -> tuple[bool, list[str], bool]:
     return had_leading, lines, had_trailing
 
 
+def _matching(sections: list[_Section], field_name: str) -> list[int]:
+    indices = [i for i, s in enumerate(sections) if s.name == field_name]
+    if not indices:
+        raise FieldNotFoundError(f"field not found: {field_name!r}")
+    if len(indices) > 1:
+        raise DuplicateFieldError(f"field {field_name!r} appears {len(indices)} times; refusing to guess")
+    return indices
+
+
 def extract_field(body: str, field: str) -> str:
     """Return the raw text value of ``### <field>``.
 
@@ -147,16 +353,12 @@ def extract_field(body: str, field: str) -> str:
     so callers get the value as a user would copy-paste it. Internal
     blank lines are preserved.
 
-    Raises :class:`FieldNotFoundError` if the heading does not exist
-    or appears more than once.
+    Raises :class:`FieldNotFoundError` if the heading does not exist,
+    :class:`DuplicateFieldError` (a subclass) if it appears more than once.
     """
     _, sections = _parse(body)
-    matches = [s for s in sections if s.name == field]
-    if not matches:
-        raise FieldNotFoundError(f"field not found: {field!r}")
-    if len(matches) > 1:
-        raise FieldNotFoundError(f"field {field!r} appears {len(matches)} times; refusing to guess")
-    _, stripped, _ = _strip_spacer_blanks(matches[0].body_lines)
+    index = _matching(sections, field)[0]
+    _, stripped, _ = _strip_spacer_blanks(sections[index].body_lines)
     return "".join(stripped)
 
 
@@ -177,17 +379,11 @@ def replace_field(body: str, field: str, new_value: str) -> str:
     callers that want a trailing newline should include one in the
     value they pass.
 
-    Raises :class:`FieldNotFoundError` if the heading does not exist
-    or appears more than once.
+    Raises :class:`FieldNotFoundError` if the heading does not exist,
+    :class:`DuplicateFieldError` (a subclass) if it appears more than once.
     """
     preamble, sections = _parse(body)
-    indices = [i for i, s in enumerate(sections) if s.name == field]
-    if not indices:
-        raise FieldNotFoundError(f"field not found: {field!r}")
-    if len(indices) > 1:
-        raise FieldNotFoundError(f"field {field!r} appears {len(indices)} times; refusing to guess")
-
-    target_idx = indices[0]
+    target_idx = _matching(sections, field)[0]
     target = sections[target_idx]
     had_leading, _, had_trailing = _strip_spacer_blanks(target.body_lines)
     is_last_section = target_idx == len(sections) - 1
@@ -224,17 +420,8 @@ def replace_field(body: str, field: str, new_value: str) -> str:
         if not is_last_section and (had_leading or had_trailing):
             rebuilt_body_lines.append("\n")
 
-    rebuilt_sections = [
-        _Section(name=s.name, heading_line=s.heading_line, body_lines=s.body_lines) for s in sections
-    ]
-    rebuilt_sections[target_idx] = _Section(
-        name=target.name,
-        heading_line=target.heading_line,
-        body_lines=rebuilt_body_lines,
-    )
-
     out: list[str] = list(preamble)
-    for s in rebuilt_sections:
+    for index, s in enumerate(sections):
         out.append(s.heading_line)
-        out.extend(s.body_lines)
+        out.extend(rebuilt_body_lines if index == target_idx else s.body_lines)
     return "".join(out)
