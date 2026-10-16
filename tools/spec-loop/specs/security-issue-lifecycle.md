@@ -91,6 +91,11 @@ publication, with a human gate and an audit-log entry at every step.
   (first contact handle, question mode, negative-space suppression in
   sync); credit-line extraction and naming the milestone stay with the
   model, and it never redacts again.
+  For `security-issue-import-from-scan` it enforces that only the
+  import-as-tracker bucket creates a tracker, renders the per-scan and
+  cross-scan triage report, parses the operator's decision and lists the
+  scrub hits of a public report without rewriting it; bucketing and its
+  grounding stay with the model.
 - Shared recipes instead of per-skill copies (#1437): the safe-create
   recipe for a tracker with an attacker-controlled title is
   `tools/github/operations.md` § *Create* (Write-tool title file,
