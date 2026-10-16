@@ -402,3 +402,34 @@ def test_verify_rc_template_sections_parse_empty():
     assert build.binary_prohibit == [] and build.binary_accept == []
     assert build.source_tree_validators == []
     assert build.optional_artefacts == []
+
+
+def _binary_section(body: str):
+    build = load_build(f"## Binary-exclude list\n\n{body}\n")
+    return build.binary_prohibit, build.binary_accept
+
+
+@pytest.mark.parametrize(
+    "wording",
+    [
+        "prohibited; no exceptions accepted",
+        "prohibited, not an accepted exception",
+        "never accepted",
+        "accepted: no",
+        "exception: none",
+        "non-accepted vendored blob",
+        "without exception",
+    ],
+)
+def test_binary_exclude_negated_acceptance_stays_prohibited(wording):
+    assert _binary_section(f"- `vendor/blob.so` — {wording}.") == (["vendor/blob.so"], [])
+
+
+def test_binary_exclude_acceptance_is_scoped_to_its_own_bullet():
+    body = "- `vendor/blob.so` — additional prohibited glob\n- accepted exceptions are listed below:\n- `third-party/lib.so` — known-accepted exception"
+    assert _binary_section(body) == (["vendor/blob.so"], ["third-party/lib.so"])
+
+
+def test_binary_exclude_acceptance_on_a_wrapped_bullet_line_still_counts():
+    body = "- `third-party/lib.so` — ships with a documented source counterpart;\n  known-accepted exception.\n- `assets/*.min.js` — prohibited glob"
+    assert _binary_section(body) == (["assets/*.min.js"], ["third-party/lib.so"])

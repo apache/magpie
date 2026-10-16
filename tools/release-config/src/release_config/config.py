@@ -147,19 +147,44 @@ def _optional_artefacts(block: str | None) -> list[str]:
     return out
 
 
+#: A new list item: the bullet (or number) that opens a line of the block.
+_NEW_ITEM = re.compile(r"\n(?:[-*+]|\d+[.)])\s")
+_ACCEPT_MARKER = re.compile(r"\b(?:accept(?:ed|able)?|exceptions?)\b", re.IGNORECASE)
+#: A negation earlier in the same clause (`no exceptions accepted`, `not an accepted exception`).
+_NEGATED_BEFORE = re.compile(r"\b(?:no|non|not|never|without|none|nor|neither)\b[^,;:()\u2013\u2014.!?]*$", re.IGNORECASE)
+#: A negative answer right after the marker (`accepted: no`, `exception: none`).
+_NEGATED_AFTER = re.compile(r"^\s*[:=]?\s*(?:no|none|not|never|false)\b", re.IGNORECASE)
+
+
+def _accepted(after: str) -> bool:
+    """Whether the words after a token, up to the end of its own list item, affirm an exception.
+
+    Fails closed: a marker any negation governs (`prohibited; no exceptions
+    accepted`) is not an authorization, and the scope never runs into the
+    next bullet, so a neighbour's wording cannot accept this entry.
+    """
+    scope = _NEW_ITEM.split(after, maxsplit=1)[0]
+    for marker in _ACCEPT_MARKER.finditer(scope):
+        if _NEGATED_BEFORE.search(scope[: marker.start()]) or _NEGATED_AFTER.match(scope[marker.end() :]):
+            continue
+        return True
+    return False
+
+
 def _binary_exclude(block: str | None) -> tuple[list[str], list[str]]:
     """§ Binary-exclude list → (extra prohibited globs, known-accepted exceptions).
 
-    A backticked path or glob is an exception when the words after it say
-    `accepted` / `exception`, else an extra prohibited glob. Baseline entries
-    named in prose are already scanned and are not repeated.
+    A backticked path or glob is an exception only when the words after it, in
+    its own list item, affirm `accepted` / `exception` with no negation; else
+    it is an extra prohibited glob. Baseline entries named in prose are
+    already scanned and are not repeated. `block` keeps its line breaks.
     """
     prohibit: list[str] = []
     accept: list[str] = []
     for _, token, after in _tokens_with_tails(block):
-        if " " in token or token in BINARY_BASELINE or not re.search(r"[./*]", token):
+        if re.search(r"\s", token) or token in BINARY_BASELINE or not re.search(r"[./*]", token):
             continue
-        target = accept if re.search(r"\baccept|\bexception", after, re.IGNORECASE) else prohibit
+        target = accept if _accepted(after) else prohibit
         if token not in target:
             target.append(token)
     return prohibit, accept
@@ -248,7 +273,7 @@ def load_build(text: str | None) -> BuildConfig:
 
     if not build.table.get("expected_artefacts"):
         build.optional_artefacts = _optional_artefacts(md.first_text_block(sections["expected_artefacts"]))
-    build.binary_prohibit, build.binary_accept = _binary_exclude(md.first_text_block(sections["binary_exclude"]))
+    build.binary_prohibit, build.binary_accept = _binary_exclude(md.first_text_block(sections["binary_exclude"], sep="\n"))
     build.rat_config_path, build.rat_excludes_path = _rat_paths(md.first_text_block(sections["rat_configuration"]))
     build.source_tree_validators = _validators(build.table, sections["source_tree_validators"])
 

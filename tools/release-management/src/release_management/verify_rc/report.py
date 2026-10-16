@@ -32,6 +32,21 @@ ATTESTATION_TITLE = "Reproducibility validated on trusted hardware"
 INFRA_SIGNING = "https://infra.apache.org/release-signing.html#automated-release-signing"
 
 
+def _hit_names(v: VerifyRc, hits: list[str]) -> list[str]:
+    """Artefact names behind Step 9's `known_divergences_hit` (`"<name>: <pattern>"`).
+
+    Matched against the declared names rather than split at a colon: a
+    container image's name carries its own `:<tag>`, and the pattern can carry
+    `: ` too, so no single split point recovers the name.
+    """
+    names = sorted((e["name"] for e in v.convenience()), key=len, reverse=True)
+    out = []
+    for hit in hits:
+        name = next((n for n in names if hit == n or hit.startswith(f"{n}: ")), None)
+        out.append(name if name is not None else hit.split(": ", 1)[0])
+    return out
+
+
 def attestation(
     v: VerifyRc, repro: dict[str, Any] | None, *, trusted_hardware: bool
 ) -> tuple[bool, str | None]:
@@ -48,7 +63,7 @@ def attestation(
     binaries = repro.get("binaries") or {}
     others = [
         *(binaries.get("differs") or []),
-        *(b.split(":", 1)[0] for b in binaries.get("known_divergences_hit") or []),
+        *_hit_names(v, binaries.get("known_divergences_hit") or []),
     ]
     if others:
         return False, f"not every artefact is identical ({', '.join(others)})"
@@ -93,7 +108,7 @@ def _binary_lines(v: VerifyRc, repro: dict[str, Any] | None) -> list[str]:
     binaries = repro.get("binaries") or {}
     identical = set(binaries.get("identical") or [])
     differs = set(binaries.get("differs") or [])
-    warned = {b.split(":", 1)[0] for b in binaries.get("known_divergences_hit") or []}
+    warned = set(_hit_names(v, binaries.get("known_divergences_hit") or []))
     lines = []
     for entry in v.convenience():
         name = entry["name"]

@@ -91,6 +91,9 @@ def recipe(v: VerifyRc, *, clone: str, remote: str, staged_dir: str, mandatory: 
             f'git -C {clone} checkout "{tag}"',
             'export SOURCE_DATE_EPOCH="<recorded SOURCE_DATE_EPOCH>"',
             f"( cd {clone} && {v.meta.get('build_command') or '<build_command>'} )",
+            "# <build-output>: the directory build_command writes the source artefact to, inside the clone",
+            "mkdir -p rebuilt",
+            f'cp "{clone}/<build-output>/{source}" "rebuilt/{source}"',
         ]
     else:
         lines += [
@@ -282,6 +285,13 @@ def reproducibility(
             pending.append("--recorded-commit: the commit release-rc-cut recorded on the planning issue")
         elif tag_commit is None:
             pending.append('--tag-commit: what git rev-parse "<rc-tag>^{commit}" printed')
+        # The check report and the recorded epoch are evidence in their own
+        # right (the rules check runs against the epoch; the rebuild uses it):
+        # an identical comparison alone never makes the step PASS.
+        if epoch is None:
+            pending.append("--epoch: the SOURCE_DATE_EPOCH release-rc-cut recorded on the planning issue")
+        if not check:
+            pending.append("--check: what repro-archive check --json printed")
         recorded = [s for s in (swhid_core(recorded_swhid), swhid_core(atr_swhid)) if s]
         if recorded and computed:
             source["swhid_matches"] = all(r == computed for r in recorded)
@@ -291,8 +301,6 @@ def reproducibility(
             source["swhid_matches"] = check_swhid_passed
             if not check_swhid_passed:
                 fails.append(f"content {computed} is not the SWHID repro-archive check was given")
-        elif recorded and check is None and compare is None:
-            pending.append("--check: what repro-archive check --json printed")
         elif computed and not recorded:
             notes.append(
                 f"the planning issue records no SWHID: the staged archive's content is {computed} — the RM can add it"

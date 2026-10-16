@@ -705,10 +705,31 @@ def test_maven_metadata_at_the_artifact_level_is_not_a_version() -> None:
     assert out["staging_repos"] == [{"id": "orgapachefoo-1024", "state": "unverified", "matches_rc": True}]
 
 
+def test_metadata_only_inventory_never_matches_or_passes() -> None:
+    """maven-metadata.xml alone names no version: no jar/pom for the RC's version is a FAIL."""
+    crawl = "\n".join(
+        f"org/apache/foo/foo-core/maven-metadata.xml{extra}" for extra in ("", ".sha1", ".md5", ".asc")
+    )
+    state = json.dumps({"data": {"state": "closed", "transitioning": False}})
+    out = run_nexus(
+        vrc(nexus_staging_repo="orgapachefoo-1024"),
+        rm_credentials=True,
+        state_text=state,
+        profile_text="",
+        crawl_text=crawl,
+    )
+    assert out["status"] == "FAIL"
+    assert out["staging_repos"] == [{"id": "orgapachefoo-1024", "state": "closed", "matches_rc": False}]
+    assert any("no .jar or .pom" in f and "1.0.0" in f for f in out["nexus_findings"])
+
+
 # --------------------------------------------------------------------------- Step 9
 
 COMMIT = "1890a13d2c4e6f8a0b1c2d3e4f5a6b7c8d9e0f12"
 SWHID = "swh:1:dir:3b9f0c2e7a1d4f6b8e0a2c4d6f8a0b2c4e6f8a1b"
+
+
+CHECK_OK = [{"name": "modification-times", "status": "PASS", "detail": ""}]
 
 
 def compare(verdict: str, **extra: Any) -> dict[str, Any]:
@@ -724,7 +745,7 @@ def run_repro(v: VerifyRc, **kw: Any) -> dict[str, Any]:
         "recorded_swhid": None,
         "atr_swhid": None,
         "epoch": 1758326400,
-        "check": None,
+        "check": CHECK_OK,
         "compare": None,
         "binary_results": [],
     } | kw
@@ -964,6 +985,37 @@ def test_binary_off_is_stated_as_published_on_trust() -> None:
     assert out["status"] == "PASS" and any("published on trust" in n for n in out["notes"])
 
 
+@pytest.mark.parametrize(
+    ("kw", "missing"),
+    [
+        ({"check": None}, "--check"),
+        ({"check": []}, "--check"),
+        ({"epoch": None}, "--epoch"),
+        ({"check": None, "epoch": None}, "--epoch"),
+    ],
+)
+def test_identical_compare_alone_never_passes(kw: dict[str, Any], missing: str) -> None:
+    """Without the check report or the recorded epoch the step is pending, so it
+    can never PASS and authorize the trusted-hardware attestation."""
+    v = vrc(signing_mode="ci-automated")
+    out = run_repro(v, trusted_hardware=True, compare=compare("identical"), **kw)
+    assert out["status"] is None and any(p.startswith(missing) for p in out["pending"])
+    assert report.attestation(v, out, trusted_hardware=True)[0] is False
+
+
+def test_custom_source_rebuild_lands_where_compare_reads_it() -> None:
+    v = vrc(source_archive_method="custom", build_command="mvn -Papache-release package")
+    out = run_repro(v, clone="/src/foo", compare=compare("identical"))
+    lines = out["paste_recipe"].splitlines()
+    source = v.source_artefact
+    build = lines.index("( cd /src/foo && mvn -Papache-release package )")
+    copy = lines.index(f'cp "/src/foo/<build-output>/{source}" "rebuilt/{source}"')
+    cmp_line = next(
+        i for i, line in enumerate(lines) if "compare --json" in line and f"rebuilt/{source}" in line
+    )
+    assert build < copy < cmp_line and "mkdir -p rebuilt" in lines[build:copy]
+
+
 def test_pending_until_every_result_is_in() -> None:
     v = vrc(convenience=[{"name": "foo-<version>.whl", "reproducibility": "byte-identical"}])
     out = run_repro(v, compare=compare("identical"))
@@ -1051,6 +1103,26 @@ def test_attestation_fails_closed_on_an_artefact_never_shown_identical() -> None
     shown = step9()
     shown["binaries"]["identical"] = ["foo-1.0.0.whl"]
     assert run_report(v, repro=shown)["reproducibility_attestation"] is True
+
+
+def test_container_image_divergence_keeps_its_tag_in_the_report() -> None:
+    image = {
+        "name": "registry.example.org/foo:<version>",
+        "reproducibility": "documented-divergence",
+        "known_divergences": ["timestamps: layer mtimes"],
+    }
+    v = vrc(signing_mode="ci-automated", convenience=[image])
+    step = run_repro(
+        v, compare=compare("identical"), binary_results=["registry.example.org/foo:1.0.0=known:timestamps"]
+    )
+    assert step["binaries"]["known_divergences_hit"] == ["registry.example.org/foo:1.0.0: timestamps"]
+    out = run_report(v, repro=step)
+    assert "- `registry.example.org/foo:1.0.0`: warn" in out["text"]
+    assert "not checked" not in out["text"]
+    assert out["attestation_withheld_because"] == "Step 9 is WARN, not PASS"
+    passed = step | {"status": "PASS"}
+    why = report.attestation(v, passed, trusted_hardware=True)[1]
+    assert why == "not every artefact is identical (registry.example.org/foo:1.0.0)"
 
 
 def test_rm_key_mode_never_attests() -> None:

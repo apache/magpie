@@ -25,7 +25,8 @@ requires before publication, and the bar is byte-identical.
 
 Its `paste_recipe` resolves every placeholder but the recorded values:
 the tag check (`git rev-parse "<rc-tag>^{commit}"`, `git tag -v`), `repro-archive check --json` against the recorded epoch and `swh:1:dir:`,
-the rebuild (`repro-archive build` at the tag with the recorded epoch, prefix and format, or the adopter's `build_command` under `source_archive_method: custom`),
+the rebuild (`repro-archive build` at the tag with the recorded epoch, prefix and format, or the adopter's `build_command` under `source_archive_method: custom`,
+run inside the clone and copied from `<build-output>` — the directory the build writes the source artefact to, which the voter fills in — to `rebuilt/` so the comparison reads it),
 `repro-archive compare --json` (`--require-identical` under automated signing),
 and one rebuild-and-compare per convenience artefact by its own `reproducibility` mode
 (`release-build.md § Convenience artefacts`, project-specific: a registry-staged image is pulled by digest — say which digest was pulled).

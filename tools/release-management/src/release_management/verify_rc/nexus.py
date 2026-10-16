@@ -266,9 +266,17 @@ def _inventory_findings(files: list[str], version: str) -> tuple[list[str], bool
         dirs.setdefault(folder, []).append(name)
     versions = sorted(_versions(dirs))
     other = [ver for ver in versions if ver != version]
-    matches = bool(files) and not other
+    # Match only on positive evidence: at least one jar/pom version folder for
+    # the RC's own version. A crawl of nothing but maven-metadata.xml (and its
+    # checksums) carries no coordinates at all, so it never matches.
+    matches = version in versions and not other
     if not files:
         findings.append(f"the staging repository holds no artefacts — nothing for release version {version}")
+    elif not versions:
+        findings.append(
+            "the staging repository holds no .jar or .pom under an <artifactId>/<version>/ folder "
+            f"(maven-metadata.xml alone names no coordinates) — nothing for release version {version}"
+        )
     for path in files:
         if path.endswith((".jar", ".pom")) and f"{path}.asc" not in present:
             name = path.rsplit("/", 1)[-1]

@@ -67,6 +67,7 @@ pass `--not-probed` instead when the sandbox refused the probe.
 The command's JSON is this step's: `FAIL` on any hard finding —
 not reachable at the id given for this RC (`404`), `open` (still mutable; never conflated with not-reachable),
 the snapshots repository targeted, coordinates or version other than the RC's plain release version (the `-rcN` suffix lives in the dist path and tag),
+no `.jar` / `.pom` for the RC's version at all (an inventory of only `maven-metadata.xml` names no coordinates and never matches),
 a `.jar` / `.pom` with no sibling `.asc`, or a main jar's incomplete companion set (`packaging=pom` modules exempt; other classifiers neither expected nor flagged);
 `WARN` when only `STATE-UNVERIFIED` or stale-sibling findings remain; `PASS` otherwise.
 `staging_repos` lists every staging repository surfaced, ordered by id — never silently pick one when there are several;
