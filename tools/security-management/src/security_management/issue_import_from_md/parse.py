@@ -86,7 +86,7 @@ def _finding(index: int, narrative: str, meta_block: str, upstream: str) -> dict
         warnings.append(f"Severity '{raw}' is not one of HIGH, MEDIUM, LOW, UNKNOWN — recorded as UNKNOWN.")
         severity = "UNKNOWN"
     repository = meta.get("repository", "").strip()
-    if not _REPO.match(repository):
+    if not _REPO.fullmatch(repository):
         what = f"'{repository}' is not owner/repo" if repository else "missing"
         warnings.append(f"Repository {what} — fell back to {upstream}.")
         repository = upstream
