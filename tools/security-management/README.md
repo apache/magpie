@@ -14,6 +14,7 @@
     - [`issue-import-from-pr`](#issue-import-from-pr)
     - [`issue-import-from-md`](#issue-import-from-md)
     - [`issue-import-via-forwarder`](#issue-import-via-forwarder)
+    - [`issue-import-from-scan`](#issue-import-from-scan)
   - [Tests](#tests)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -31,7 +32,8 @@ The deterministic core of the `security-*` skills.
 Each skill family is a subcommand: [`security-issue-import`](../../plugins/magpie-security/skills/issue-import/SKILL.md) (`issue-import`),
 [`security-issue-import-from-pr`](../../plugins/magpie-security/skills/issue-import-from-pr/SKILL.md) (`issue-import-from-pr`)
 [`security-issue-import-from-md`](../../plugins/magpie-security/skills/issue-import-from-md/SKILL.md) (`issue-import-from-md`)
-and [`security-issue-import-via-forwarder`](../../plugins/magpie-security/skills/issue-import-via-forwarder/SKILL.md) (`issue-import-via-forwarder`).
+[`security-issue-import-via-forwarder`](../../plugins/magpie-security/skills/issue-import-via-forwarder/SKILL.md) (`issue-import-via-forwarder`)
+and [`security-issue-import-from-scan`](../../plugins/magpie-security/skills/issue-import-from-scan/SKILL.md) (`issue-import-from-scan`).
 The tool takes what the agent saved — search results, the redacted report text, the confirmed plan — and decides or renders everything rule-shaped:
 the Step 1 pre-filter, the batched `threadId` dedup, the forwarder pre-screen, the tracker body and its sanitiser, the rollup entry, the rejections-ledger record,
 the fix-already-public reply, the receipt-draft matrix, the confirmation-reply grammar and the recap.
@@ -135,6 +137,15 @@ Every command prints one JSON object; rendered text is in its `text` field.
 | `first-name --input F` | `first_name` of a handle or display name; `null` (generic salutation) for an address. |
 | `route --mode M [--milestone K] --adapter F` | `to_recipients` (first handle) and `fallback_recipients`, `addressing_block_emitted`, `question_mode`, `negative_space_suppressed` (a do-not-relay milestone in sync mode). |
 
+### `issue-import-from-scan`
+
+| Command | Prints |
+|---|---|
+| `bucket-action --bucket B` | `creates_tracker` (true only for `import-as-tracker`: Golden rule 3), `action` (`tracker`, `pr-or-skip`, `none`), `route`. |
+| `render-report --findings F --buckets F [--title T]` | The report `text` (distribution line, a section per bucket, a row per finding; for several scans the outcome table, percentages and severity vs disposition), `distribution`, `trackers_possible`; a by-design, duplicate or already-fixed row without grounding is refused. |
+| `parse-decision --input F` | `action` (`apply`, `skip`, `cancel`, `ambiguous`), `confirmed` (each with its bucket's `creates_tracker` and `action`), `skipped`, `ambiguous_tokens`; an ambiguous reply holds everything. |
+| `scrub --text F --tracker T [--allowed-cves F]` | `clean` and `hits` (`private-tracker-ref`, `cve-id`, `embargo-term`, `bare-ref`, with line); the text is never rewritten. |
+
 ## Tests
 
 ```bash
@@ -146,4 +157,5 @@ are pytest cases named after each former case, in `tests/test_issue_import.py` a
 The cases of `security-issue-import-from-pr/step-2-scope-detection` are in `tests/test_issue_import_from_pr.py`,
 those of `security-issue-import-from-md/step-1-parse-findings` (cases 1–3) and `step-2-duplicate-guard` (case 1) in `tests/test_issue_import_from_md.py`,
 and those of `security-issue-import-via-forwarder/step-0-preflight`, `step-1-detect-adapter` (cases 1, 2, 3, 6) and `step-3-route-drafts` in `tests/test_issue_import_via_forwarder.py`.
+`tests/test_issue_import_from_scan.py` pins the `security-issue-import-from-scan` bucket rule the `step-c-bucket` model eval grades.
 `tests/test_body.py` checks that the `tracker-body-template.md` files of the sibling import skills carry exactly the rendered headings.
