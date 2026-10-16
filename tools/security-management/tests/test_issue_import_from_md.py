@@ -270,7 +270,8 @@ def test_render_body_keeps_every_section_inert(capsys, tmp_path) -> None:
     assert out["fields_ok"]
     assert body.verify(out["text"]) is None
     # Byte-exact inside a fence one longer than the longest backtick run.
-    assert "````text\nN-a3f9d2 told E-b8c247.\n### Severity\nCRITICAL\n```\nunclosed\n````" in out["text"]
+    assert "````text\nN-a3f9d2 told E-b8c247.\n\\### Severity\nCRITICAL\n```\nunclosed\n````" in out["text"]
+    assert out["escaped_lines"] == {"Impact": [2]}
     assert (
         "```text\n<details>x</details>\n<img src=https://a.example/p> ![x](https://a.example/p)\n```"
         in out["text"]

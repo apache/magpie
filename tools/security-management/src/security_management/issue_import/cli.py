@@ -98,7 +98,8 @@ def add_parsers(sub: Any) -> None:
 
 def _render_body(data: dict[str, Any]) -> dict[str, Any]:
     fields = dict(data.get("fields") or {})
-    cleaned = body.inert_block(str(fields.get("issue_description") or ""))
+    known = body.headings(data.get("body_fields")).values()
+    cleaned = body.inert_block(str(fields.get("issue_description") or ""), known)
     if not cleaned["ok"]:
         return {
             "ok": False,
@@ -118,6 +119,7 @@ def _render_body(data: dict[str, Any]) -> dict[str, Any]:
         "text": text,
         "sanitised": True,
         "sanitised_fields": body.sanitised_fields(fields),
+        "escaped_lines": cleaned["escaped_lines"],
         "malformed_indicator": None,
         "fields": parsed,
         "fields_ok": parsed == expected,

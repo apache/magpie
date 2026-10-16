@@ -40,13 +40,15 @@ class Refused(ValueError):
     """A render the skill must not emit."""
 
 
-def _clean(name: str, text: object) -> str:
+def _clean(name: str, text: object, known: Sequence[str], escaped: dict[str, list[int]]) -> str:
     raw = "" if text is None else str(text).strip("\n")
     if not raw.strip():
         return body.NO_RESPONSE
-    out = body.inert_block(raw)
+    out = body.inert_block(raw, known)
     if not out["ok"]:
         raise Refused(f"section {name!r} is malformed ({out['indicator']}); it is not rendered")
+    if out["escaped_lines"]:
+        escaped[name] = list(out["escaped_lines"])
     return str(out["text"])
 
 
@@ -62,12 +64,14 @@ def render_body(data: Mapping[str, Any]) -> dict[str, Any]:
     k, n = int(data["k"]), int(data["n"])
     upstream = str(data["upstream"])
     security_list = one_line(data.get("security_list") or "security@")
+    known = list(body.headings(data.get("body_fields")).values())
+    escaped: dict[str, list[int]] = {}
     try:
-        details = _clean("Details", finding.get("details"))
-        impact = _clean("Impact", finding.get("impact"))
-        repro = _clean("Reproduction steps", finding.get("repro_steps"))
+        details = _clean("Details", finding.get("details"), known, escaped)
+        impact = _clean("Impact", finding.get("impact"), known, escaped)
+        repro = _clean("Reproduction steps", finding.get("repro_steps"), known, escaped)
         fix = finding.get("recommended_fix")
-        fix_text = _clean("Recommended fix", fix) if one_line(fix) else None
+        fix_text = _clean("Recommended fix", fix, known, escaped) if one_line(fix) else None
     except Refused as exc:
         return {"ok": False, "refused": str(exc)}
     note = (
@@ -103,6 +107,7 @@ def render_body(data: Mapping[str, Any]) -> dict[str, Any]:
         "ok": True,
         "text": text,
         "sanitised_fields": body.sanitised_fields(fields),
+        "escaped_lines": escaped,
         "fields": parsed,
         "fields_ok": parsed == expected,
         "reporter_credit_is_bot": reuse.is_bot_credit(credit) if credit else False,

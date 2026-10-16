@@ -9,6 +9,8 @@ import urllib.parse
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from github_body_field.parser import fence_roles
+
 _HEADING_RE = re.compile(r"^(?P<hashes>#{1,6})\s+(?P<text>.+?)\s*#*\s*$")
 
 
@@ -38,10 +40,11 @@ def _fence_step(open_fence: str, line: str) -> tuple[str, bool]:
 def _headings(lines: list[str]) -> list[tuple[int, int, str]]:
     """(line index, level, text) for every ATX heading outside code fences."""
     out: list[tuple[int, int, str]] = []
-    fence = ""
-    for idx, line in enumerate(lines):
-        fence, is_fence = _fence_step(fence, line)
-        if is_fence or fence:
+    # Fences pair the CommonMark way, through the parser every body-field reader
+    # shares: a ```` block holding ``` stays code, and ~~~ never closes ```.
+    roles = fence_roles(lines)
+    for idx, (line, role) in enumerate(zip(lines, roles, strict=True)):
+        if role != "text":
             continue
         m = _HEADING_RE.match(line)
         if m:

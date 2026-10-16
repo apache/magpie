@@ -26,8 +26,7 @@ _SUMMARY_RE = re.compile(r"^\*(\d{4}-\d{2}-\d{2}) · @(.+?) · (.+)\*\s*$")
 _WIKI_HEADING_RE = re.compile(r"^\s*h([1-6])\.\s+(.*?)\s*$")
 _MD_HEADING_RE = re.compile(r"^\s{0,3}(#{1,6})\s+(.*?)(?:\s+#+)?\s*$")
 _WIKI_BLOCK_RE = re.compile(r"\{(code|noformat)(?::[^}]*)?\}")
-_FENCE_RE = re.compile(r"^\s{0,3}(`{3,}|~{3,})")
-_FENCE_CLOSE_RE = re.compile(r"^\s{0,3}(`{3,}|~{3,})\s*$")
+_FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
 
 
 @dataclass(frozen=True)
@@ -48,17 +47,20 @@ def find_headings(lines: list[str]) -> list[Heading]:
     """Return every heading outside code blocks, in document order."""
     headings: list[Heading] = []
     in_wiki_block: str | None = None
-    # Open Markdown fence as (character, length); per CommonMark only a
-    # fence of the same character, at least as long, with nothing but
-    # whitespace after it, closes it.
-    fence: tuple[str, int] | None = None
+    # Markdown fences pair the CommonMark way, as github-body-field pairs them:
+    # only a run of the opener's character, at least as long, with nothing but
+    # whitespace after it, closes; so a ```` block holding ``` stays code.
+    in_fence: tuple[str, int] | None = None
     for index, line in enumerate(lines):
-        if fence is not None:
-            close = _FENCE_CLOSE_RE.match(line)
-            if close:
-                run = close.group(1)
-                if run[0] == fence[0] and len(run) >= fence[1]:
-                    fence = None
+        if in_fence is not None:
+            closer = _FENCE_RE.match(line)
+            if (
+                closer
+                and closer.group(1)[0] == in_fence[0]
+                and len(closer.group(1)) >= in_fence[1]
+                and not closer.group(2).strip(" \t")
+            ):
+                in_fence = None
             continue
         if in_wiki_block is not None:
             # A {code} / {noformat} block closes on the bare macro name.
@@ -66,8 +68,8 @@ def find_headings(lines: list[str]) -> list[Heading]:
                 in_wiki_block = None
             continue
         opener = _FENCE_RE.match(line)
-        if opener:
-            fence = (opener.group(1)[0], len(opener.group(1)))
+        if opener and not (opener.group(1)[0] == "`" and "`" in opener.group(2)):
+            in_fence = (opener.group(1)[0], len(opener.group(1)))
             continue
         macros = _WIKI_BLOCK_RE.findall(line)
         if len(macros) % 2 == 1:

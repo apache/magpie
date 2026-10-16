@@ -22,7 +22,7 @@ import re
 from pathlib import Path
 
 import pytest
-from github_body_field.parser import fence_roles
+from github_body_field.parser import fence_roles, fold_name, loose_heading_name
 from github_body_field.parser import normalise as normalise_fields
 
 from security_management.shared import body, reuse
@@ -148,7 +148,17 @@ def test_the_report_renders_as_one_inert_block(report: str) -> None:
     block = body.inert_block(report)
     assert block["ok"]
     fence = body.fence_for(report)
-    assert block["text"] == f"{fence}text\n{report if report.endswith(chr(10)) else report + chr(10)}{fence}"
+    known = {fold_name(n) for n in body.DEFAULT_HEADINGS.values()}
+    lines = report.rstrip("\n").split("\n")
+    expected_escapes = [
+        n
+        for n, line in enumerate(lines, 1)
+        if (name := loose_heading_name(line)) and fold_name(name) in known
+    ]
+    assert block["escaped_lines"] == expected_escapes
+    # Byte-exact except the escaped known-field heading lines, which gain a leading backslash.
+    content = [("\\" + line if n in expected_escapes else line) for n, line in enumerate(lines, 1)]
+    assert block["text"] == f"{fence}text\n" + "\n".join(content) + f"\n{fence}"
     text = body.render({"issue_description": block["text"], "severity": "Low"})
     assert body.verify(text) is None
     # Exactly the template fields, once each; everything in the block is code.
@@ -174,7 +184,8 @@ def test_a_fenced_field_heading_cannot_reach_the_cve_record() -> None:
     block = body.inert_block("PoC:\n````\n### Severity\n\nCritical\n```\n# comment\n")["text"]
     text = body.render({"issue_description": block, "severity": "Low"})
     assert extract_field(text, "Severity") == "Low"
-    assert "### Severity\n\nCritical\n```\n# comment\n" in text  # byte-exact, not escaped
+    # The known-field heading gains a backslash; every other line stays byte-exact.
+    assert "\\### Severity\n\nCritical\n```\n# comment\n" in text
 
 
 def test_an_empty_report_reads_no_response() -> None:
