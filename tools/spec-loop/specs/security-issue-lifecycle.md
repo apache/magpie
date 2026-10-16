@@ -59,6 +59,19 @@ publication, with a human gate and an audit-log entry at every step.
   each (#1499).
   Moved headings keep a one-line pointer in `SKILL.md` so anchors still
   resolve, and eval `step-config.json` files point at the sibling.
+- `tools/security-management` (stdlib, runs nothing) holds the
+  deterministic rules of the security skills, one CLI family per skill
+  over a shared library (`body`, `rollup`, `refs`, `titles`, `grammar`,
+  `keyword`). For `security-issue-import` it decides the Step 0
+  disclosure-governance defaults, the Step 1 pre-filter, the Step 2
+  `threadId` batches and their attribution, the Step 3 forwarder
+  pre-screen, the Step 6 reply grammar and the Step 7 receipt-draft
+  matrix, and renders the sanitised tracker body (`_No response_` for
+  empty fields, headings from `tracker.body_fields`), the rollup entry,
+  the rejections-ledger record, the fix-already-public reply and the
+  Step 8 recap. Classification, field extraction, PII identification,
+  fuzzy duplicates and canned-response choice stay with the model;
+  report text reaches the tool only in files the Write tool created.
 - Shared recipes instead of per-skill copies (#1437): the safe-create
   recipe for a tracker with an attacker-controlled title is
   `tools/github/operations.md` § *Create* (Write-tool title file,

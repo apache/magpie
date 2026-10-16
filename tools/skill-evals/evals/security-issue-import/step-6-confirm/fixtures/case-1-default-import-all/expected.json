@@ -1,8 +1,0 @@
-{
-  "action": "import",
-  "import_items": [1, 2],
-  "skip_items": [],
-  "reject_with_canned": [],
-  "edits": [],
-  "ambiguous_tokens": []
-}

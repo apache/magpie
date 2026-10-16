@@ -112,16 +112,24 @@ Apply them here, to the union of the candidate-listing, GHSA and PonyMail-paired
 This is a pre-flight no-op classifier in the sense of `security-issue-sync`'s [bulk-mode Step 1b](../issue-sync/bulk-mode.md): deterministic, conservative, and never silent.
 
 **Inputs.** Only the subject and `From:` address the search result carries for each message of the thread, plus `<tracker>`, `<upstream>` and `<security-list>` from [`<project-config>/project.md`](../../../../<project-config>/project.md).
-Drop a thread only when **every** message the result lists for it matches the **same** rule; a result that carries no subject or no sender keeps the thread.
 Never read a body to decide.
 
-**Rules**, applied in order; the first match wins:
+**Run it.** Write `<scratch>/threads.json` with the Write tool —
+`upstream`, `security_list`, `cve_tool_senders` (security-team members who post CVE-tool notifications, if any), `named_thread_id` under `import thread:<id>`,
+and `threads[]`, each `{thread_id, messages: [{subject, from}]}` — then:
 
-| # | Rule | Decision |
-|---|---|---|
-| 1 | Subject carries a `GHSA-` token, sender is `notifications@github.com`, and the subject begins with `[<upstream>]` | **Keep**, pre-tagged as a GHSA relay. It is a `Report` candidate whose body is needed. |
-| 2 | Sender satisfies the sender condition of the Step 3 [`cve-tool-bookkeeping` row](SKILL.md#step-3--classify-each-candidate), **and** the whole subject matches one of that row's subject patterns, with `CVE-YYYY-NNNNN` read as `CVE-\d{4}-\d{4,7}` and no `Re:` / `Fwd:` / other prefix | **Pre-filter** as `cve-tool-bookkeeping`. The row's other trigger — a state-change line in the body — needs the body, so it stays at Step 3. |
-| 3 | Anything else | **Keep** — Steps 2 to 3 decide. |
+```bash
+uv run --project <framework>/tools/security-management security-management issue-import prefilter --threads <scratch>/threads.json
+```
+
+It applies the rules in order, the first match winning, and prints each thread's `decision`, `rule` and `class`:
+rule 1 keeps a `[<upstream>] … (GHSA-…)` notification from `notifications@github.com`, pre-tagged `ghsa-relay` (a `Report` candidate whose body is needed);
+rule 2 pre-filters as `cve-tool-bookkeeping` a thread whose every message comes from `<security-list>` with a whole subject in the Step 3 [`cve-tool-bookkeeping` row](SKILL.md#step-3--classify-each-candidate)'s shapes
+(`CVE-\d{4}-\d{4,7}`, no `Re:` / `Fwd:` / other prefix);
+rule 3 keeps everything else for Steps 2 to 3.
+A message with no subject or no sender keeps its thread.
+The row's other trigger — a state-change line in the body — needs the body, so it stays at Step 3.
+Carry `dropped` into the Step 5 count and the Step 8 recap state.
 
 Tracker-mirror chatter is left to Step 2 and Step 2-bis, as before.
 Every other class (`automated-scanner`, `consolidated-multi-issue`, `media-request`, `spam`, `cross-thread-followup`, `fix-already-public`, forwarder relays, and the body-line variant of `cve-tool-bookkeeping`) needs the body and is **never** pre-filtered.
