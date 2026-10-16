@@ -183,6 +183,12 @@ by swapping the adapter, not the skill.
   credential fails instead of prompting; on `svn` a change goes public at
   `commit` and `new-branch` (a server-side copy), so a skill's pre-publish
   gates belong there rather than at `push` (#1609).
+  `magpie-vcs probe` reports, read-only and offline, whether a checkout is
+  Subversion-hosted — an svn working copy, a git-svn clone, or a git-svn
+  mirror (HEAD carries a `git-svn-id` trailer) — with its URL, repository
+  root and `trunk`/`branches`/`tags` layout; `setup config` and `adopt`
+  propose the resulting `vcs_backend: svn`, `svn_url`, `svn_repository_root`
+  and `upstream_default_branch: trunk` for the user to confirm (#1638).
   A Fossil checkout is detected by its `.fslckout` (or `_FOSSIL_`) marker
   (#1494).
 - `tools/fossil/` (`magpie-fossil`) — stdlib-only Fossil SCM forge bridge,

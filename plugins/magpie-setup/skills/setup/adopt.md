@@ -306,6 +306,12 @@ auto-detect-before-asking discipline `config` uses.
 A maintainer who knows they are adopting can arrive here directly,
 without having run `config` first; this step is what makes that work.
 
+**Propose the source-control backend** exactly as
+[`config` Step 3g](config.md#step-3g--source-control-backend) does, when `vcs_backend` is still unset:
+probe the checkout with `magpie-vcs probe`, keep a Git project as it is, and on a Subversion-hosted one propose `vcs_backend: svn`, `svn_url`, `svn_repository_root` and `upstream_default_branch: trunk` for the maintainer to confirm.
+A promoted `project.md` that already declares `vcs_backend` is not asked again.
+Write the confirmed values to `.apache-magpie-overrides/project.md`; they reach every contributor.
+
 **Ask the commit-attribution convention explicitly**, even when
 `commit-attribution.toml` would otherwise be scaffolded unasked: it is
 project policy, and unlike other configuration the project's value

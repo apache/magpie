@@ -10,6 +10,7 @@
   - [Repositories](#repositories)
   - [Mailing lists](#mailing-lists)
   - [Tools enabled](#tools-enabled)
+    - [Source control](#source-control)
   - [CVE tooling](#cve-tooling)
   - [GitHub project board](#github-project-board)
   - [Project chat](#project-chat)
@@ -87,7 +88,7 @@ produces.
 | `tracker_project_board_url` | TODO: URL of the GitHub Project V2 board, if any | Security board |
 | `upstream_repo` | TODO: e.g. `apache/foo` (auto-sourced from repo name/git remote) | Public codebase where fixes land |
 | `upstream_repo_url` | TODO | |
-| `upstream_default_branch` | TODO: e.g. `master` or `main` (auto-sourced from repo metadata default branch) | Upstream's default branch — what `<default-branch>` resolves to. Distinct from `tracker_default_branch` |
+| `upstream_default_branch` | TODO: e.g. `master` or `main` (auto-sourced from repo metadata default branch); `trunk` for Subversion | Upstream's default branch — what `<default-branch>` resolves to. Distinct from `tracker_default_branch` |
 | `upstream_agents_md_url` | TODO: `https://github.com/<upstream>/blob/main/AGENTS.md` | Conventions this repo mirrors |
 | `upstream_contributing_docs_url` | TODO | |
 | `upstream_genai_disclosure_anchor` | TODO: URL + anchor for the project's Gen-AI disclosure guideline | |
@@ -123,7 +124,7 @@ for ASF projects) is org-level — inherited from your organization's
 |---|---|---|---|
 | Issue tracking + project board | `github` | [`../../tools/github/`](../../../tools/github/) | `tracker_repo`, `upstream_repo`, `github_project_board_*`, `issue_template_fields` |
 | Security tracker backend | `github` (default), `local-files`, or `jira` — see [Tracker](#tracker) | [`../../tools/security-tracker/`](../../../tools/security-tracker/) (contract), [`tools/local-tracker/`](../../../tools/local-tracker/), [`tools/jira/`](../../../tools/jira/) | `tracker.platform`, `tracker.local.*`, `tracker.jira.*` |
-| Source control (VCS) | `github` (Git) — replaceable with a non-Git VCS | [`../../tools/github/source-control.md`](../../../tools/github/source-control.md) | `upstream_repo`, `default_branch`; for a non-Git VCS declare the sibling tool + its working-copy URL |
+| Source control (VCS) | `github` (Git, default), or `svn` (Subversion) — see [Source control](#source-control) | [`../../tools/github/source-control.md`](../../../tools/github/source-control.md), [`tools/asf-svn/source-control.md`](../../../tools/asf-svn/source-control.md), [`tools/vcs/`](../../../tools/vcs/) | `vcs_backend`, `upstream_repo`, `upstream_default_branch`; for `svn` also `svn_url`, `svn_repository_root` |
 | Inbound email / drafts | `<one or more mail-source backends>` | [`../../tools/mail-source/contract.md`](../../../tools/mail-source/contract.md) (abstract) + per-backend adapter dirs (`tools/gmail/`, `tools/ponymail/`, `tools/mail-source/imap/`, `tools/mail-source/mbox/`, ...) | See [Mail sources](#mail-sources) below — declare each backend's role (primary / preferred-for-`<op>` / fallback / optional) and `mandatory` flag |
 | CVE allocation + record mgmt | *org-level* — inherited from `organizations/<org>/organization.md → cve_authority.tool`; for ASF: `vulnogram` ([`tools/cve-tool-vulnogram/`](../../../tools/cve-tool-vulnogram/)), for independent: `mitre-form` | — | override in [CVE authority](#cve-authority) only if this project differs from its org |
 | Security cross-ref | `osv` | [`../../tools/osv/`](../../../tools/osv/) | `security_cross_ref.tool`, `security_cross_ref.ecosystem` |
@@ -135,6 +136,29 @@ To replace a tool (e.g. swap GitHub issues for JIRA), declare an
 alternate tool in the table above, add a `tools/<name>/` adapter
 directory, and make sure the values the generic skills need are still
 reachable from this manifest.
+
+### Source control
+
+Which VCS the project's code lives in.
+A skill that runs [`magpie-vcs`](../../../tools/vcs/README.md) passes `vcs_backend` as `--backend`, so a checkout of the wrong kind fails loudly instead of silently using another backend.
+`/magpie-setup config` and `adopt` detect a Subversion-hosted project with `magpie-vcs probe` and propose these values; a Git project gets `git`.
+
+```yaml
+vcs_backend: TODO         # git | svn | hg | fossil; unset means git
+
+# Subversion only (vcs_backend: svn).
+svn_url: TODO             # project base URL, above trunk/branches/tags, e.g. https://svn.apache.org/repos/asf/foo
+svn_repository_root: TODO # repository root, e.g. https://svn.apache.org/repos/asf
+```
+
+With `vcs_backend: svn`:
+
+- `upstream_default_branch` is `trunk`, the line of work `magpie-vcs branch` reports.
+- The `svn` backend supports only the `trunk` / `branches/<name>` / `tags/<name>` layout below `svn_url`.
+  For a repository organised any other way, leave `upstream_default_branch` `TODO`: `branch` then reports the repository-relative path, and `new-branch` and name-based `switch` refuse.
+- `upstream_repo` names a GitHub repository only when the project really has one, such as a mirror it takes pull requests on.
+  Otherwise leave it `TODO`: the skills that act on GitHub pull requests and issues do not apply
+  (see [`tools/vcs/` → Subversion-hosted projects](../../../tools/vcs/README.md#subversion-hosted-projects)).
 
 ## CVE tooling
 
