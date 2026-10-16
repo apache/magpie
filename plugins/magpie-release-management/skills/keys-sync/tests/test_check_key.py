@@ -340,6 +340,27 @@ class SignerAdmissionTest(unittest.TestCase):
         self.assertIn("no signing-capable key", out["strength_note"])
         self.assertIn("below the ASF floor", out["strength_note"])
 
+    def test_aggregate_uppercase_sign_capability_does_not_make_primary_a_signer(self) -> None:
+        # gpg reports "cSC" for a certify-only primary whose subkey signs.
+        out = check(signing_listing(primary_caps="cSC"))
+        self.assertEqual((out["verdict"], out["strength_check"]), ("blocked", "fail"))
+        self.assertEqual(out["signers"], [])
+        self.assertIn("primary key has no signing capability", out["strength_note"])
+
+    def test_admitted_dsa_signing_subkey_keeps_the_dsa_advisory(self) -> None:
+        out = check(signing_listing(sub_algo="17", sub_bits="2048"))
+        self.assertEqual(out["verdict"], "proceed")
+        self.assertIn("DSA keys are discouraged", out["strength_note"])
+
+    def test_admitted_signing_subkey_near_expiry_keeps_the_expiry_advisory(self) -> None:
+        soon_date = TODAY + dt.timedelta(days=30)
+        soon = soon_date.isoformat()
+        noon = dt.datetime.combine(soon_date, dt.time(12), tzinfo=dt.timezone.utc)
+        epoch = str(int(noon.timestamp()))
+        out = check(signing_listing(sub_bits="4096", sub_expires=epoch))
+        self.assertEqual(out["verdict"], "proceed")
+        self.assertIn(f"signing subkey expires on {soon}", out["strength_note"])
+
     def test_certify_only_primary_without_any_sign_key_blocks(self) -> None:
         out = check(signing_listing(sub_caps="e"))
         self.assertEqual((out["verdict"], out["strength_check"]), ("blocked", "fail"))

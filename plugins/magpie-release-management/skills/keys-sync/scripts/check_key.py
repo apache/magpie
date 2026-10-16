@@ -92,7 +92,8 @@ def _parse_key_line(f: list[str]) -> dict[str, Any]:
         "curve": f[16].lower(),
         # gpg colons field 12 (index 11) lists usage capabilities (c=certify,
         # s=sign, e=encrypt, a=authenticate). Empty only in synthetic listings.
-        "caps": f[11].lower(),
+        # Case matters: lowercase = this key's own capability, uppercase = aggregate for the whole key.
+        "caps": f[11],
         "fingerprint": None,
     }
 
@@ -222,6 +223,15 @@ def assess(key: dict[str, Any] | None, fingerprint: str, today: dt.date) -> dict
             notes.append(f"signing subkey: {sub_note}")
         if _usable_for_signing(sub, today) and sub_ok:
             out["signers"].append(_signer_summary(sub, "subkey"))
+            if ALGORITHMS.get(sub["algo_id"]) == "DSA":
+                notes.append("signing subkey: DSA keys are discouraged by ASF release-signing guidance")
+            if sub["expiry"]:
+                sub_days = (dt.date.fromisoformat(sub["expiry"]) - today).days
+                if sub_days <= EXPIRY_ADVISORY_DAYS:
+                    notes.append(
+                        f"signing subkey expires on {sub['expiry']}, within {EXPIRY_ADVISORY_DAYS} days; "
+                        "consider extending it"
+                    )
     if not out["signers"]:
         passed = False
         notes.append(
