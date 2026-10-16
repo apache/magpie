@@ -12,6 +12,7 @@
   - [Commands](#commands)
     - [`issue-import`](#issue-import)
     - [`issue-import-from-pr`](#issue-import-from-pr)
+    - [`issue-import-from-md`](#issue-import-from-md)
   - [Tests](#tests)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -26,8 +27,9 @@
 **Harness:** agnostic
 
 The deterministic core of the `security-*` skills.
-Each skill family is a subcommand: [`security-issue-import`](../../plugins/magpie-security/skills/issue-import/SKILL.md) (`issue-import`)
-and [`security-issue-import-from-pr`](../../plugins/magpie-security/skills/issue-import-from-pr/SKILL.md) (`issue-import-from-pr`).
+Each skill family is a subcommand: [`security-issue-import`](../../plugins/magpie-security/skills/issue-import/SKILL.md) (`issue-import`),
+[`security-issue-import-from-pr`](../../plugins/magpie-security/skills/issue-import-from-pr/SKILL.md) (`issue-import-from-pr`)
+and [`security-issue-import-from-md`](../../plugins/magpie-security/skills/issue-import-from-md/SKILL.md) (`issue-import-from-md`).
 The tool takes what the agent saved — search results, the redacted report text, the confirmed plan — and decides or renders everything rule-shaped:
 the Step 1 pre-filter, the batched `threadId` dedup, the forwarder pre-screen, the tracker body and its sanitiser, the rollup entry, the rejections-ledger record,
 the fix-already-public reply, the receipt-draft matrix, the confirmation-reply grammar and the recap.
@@ -110,6 +112,17 @@ Every command prints one JSON object; rendered text is in its `text` field.
 | `dup-query --pr N --tracker T [--hits F]` | The search `query` and `command`; with `--hits`, `hits` with links, `duplicate`, `truncated` at 30 and its `warning`. |
 | `render-recap --input F` | The recap `text` and hand-off, `bare_refs`. |
 
+### `issue-import-from-md`
+
+| Command | Prints |
+|---|---|
+| `parse <file> --upstream U` | `findings[]` (`index`, `title`, `tracker_title`, `severity`, `category`, `repository`, `branch`, `date_created`, the section payloads, `has_*`, `warnings`), `warnings`, `total_findings`; exit `2` with `not-a-findings-file` without a `# ` heading, a `**Severity:**` line or a pair. |
+| `keyword --file F [--tracker T]` | `cleaned`, `empty` and the single-quoted `search_command`. |
+| `render-body --input F` | The body `text`: each section sanitised (exit `2` on one that does not pair), the field mapping, the Recommended-fix `<details>`; `sanitised_fields`, `fields_ok`, `reporter_credit_is_bot`, `bare_refs`. |
+| `render-rollup --input F --k K --n N` | `label`, `label_shell`, `text`. |
+| `render-proposal --input F` | The proposal table, default disposition and reply forms, duplicates linked. |
+| `render-recap --input F` | The recap `text` and hand-off. |
+
 ## Tests
 
 ```bash
@@ -118,5 +131,6 @@ uv run --directory tools/security-management pytest -q
 
 The cases of the retired model-graded `security-issue-import` suites `step-0-preflight`, `step-6-confirm` and `step-7-apply`
 are pytest cases named after each former case, in `tests/test_issue_import.py` and `tests/test_grammar.py`.
-The cases of `security-issue-import-from-pr/step-2-scope-detection` are in `tests/test_issue_import_from_pr.py`.
+The cases of `security-issue-import-from-pr/step-2-scope-detection` are in `tests/test_issue_import_from_pr.py`,
+and those of `security-issue-import-from-md/step-1-parse-findings` (cases 1–3) and `step-2-duplicate-guard` (case 1) in `tests/test_issue_import_from_md.py`.
 `tests/test_body.py` checks that the `tracker-body-template.md` files of the sibling import skills carry exactly the rendered headings.
