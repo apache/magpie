@@ -45,6 +45,7 @@ from .core import (
     isolated_setup_findings,
     skill_findings,
     verify_findings,
+    welcome_findings,
 )
 from .delegation import findings as delegation_findings
 from .lockfile import MalformedLock
@@ -142,6 +143,11 @@ def build_parser() -> argparse.ArgumentParser:
         "`isolated_setup_update_interval_days` config key, else 7); 0 disables the timer",
     )
     parser.add_argument(
+        "--no-welcome",
+        action="store_true",
+        help="omit the skill family's first-run welcome guide",
+    )
+    parser.add_argument(
         "--no-rules",
         action="store_true",
         help="omit each finding's rules text (the verdict alone)",
@@ -167,6 +173,7 @@ def main(argv: list[str] | None = None) -> int:
         else:
             project, cached = cached_project_findings(root, installed)
         findings = [
+            *([] if args.no_welcome else welcome_findings(root, args.skill)),
             *project,
             *skill_findings(root, args.skill, args.surface_hash, args.requires),
             *_delegation(root, args.skill),

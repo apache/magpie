@@ -7,7 +7,7 @@ Return ONLY valid JSON with this structure:
 
 ```json
 {
-  "action": "silent" | "install" | "update" | "print-command" | "ask-first" | "configure",
+  "action": "silent" | "install" | "update" | "print-command" | "ask-first" | "configure" | "welcome",
   "commands": [...],
   "commands_shown": [...],
   "blocks": true | false,
@@ -26,6 +26,11 @@ block**: it writes gitignored files and the skill continues in the same turn,
 unlike a plugin install, which needs a session restart before the new version
 is live. Adoption is never run — at most it is mentioned once, which
 `mention_adopt` reports.
+
+`welcome` means the only thing the pre-flight did was show a first-run welcome
+guide (the general one or the skill family's), offer its three choices and record the answer before
+carrying on. That one **does not block** either, and recording the answer is
+not an install command.
 
 `commands` is the list of install/update commands the pre-flight actually
 **runs**, in the order it runs them. Reading installed state — `claude plugin

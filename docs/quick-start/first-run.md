@@ -58,6 +58,13 @@ changes nothing any teammate can see.
 What it will **not** do is proceed on a guess. It did not label anything, post
 anything, or fall back to a default committer team.
 
+Your first Magpie skill also opens with a one-minute
+[welcome guide](../../plugins/magpie-setup/skills/setup/setup_preflight/guides/general.md),
+and a family can bring its own for the next run in that family — the security family does.
+A guide shows before the work starts, never instead of it,
+and ends with a choice to see it again, dismiss it until the next upgrade, or hide it for good.
+`/magpie-setup:welcome-guide [<family>]` shows any of them again.
+
 ## 2. It configures, deriving what it can
 
 ![What config derived from the repository itself, and the single prompt covering the values it could not](../../assets/quickstart/walkthrough/2-config-wizard.svg)

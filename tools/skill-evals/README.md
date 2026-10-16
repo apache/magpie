@@ -11,7 +11,7 @@ Behavioral eval harness for Apache Magpie skills. Each eval suite tests a skill 
 
 Suites are currently implemented for:
 
-- **setup** — 119 cases across 28 steps (step-verify-drift, step-overrides-surface, step-override-bypass, step-m3-baseline-pick, step-m4-install-gates, step-m5-no-repo-offer, step-m5-companion-offer, step-upgrade-companion-offer, step-adopt-settings-merge, verify-default-set, uninstall-default-set, lock-marketplace-parse, adopt-write-floor, setup-prefill-from-floor, preflight-floor, upgrade-adoption-split, verify-floor, adopt-review-process, adopt-security-list, step-reconcile, step-verify, step-config-stamp, step-config-adversarial, step-config-mail, step-adopt-stamp, step-upgrade-stamp, step-delegate-propose)
+- **setup** — 120 cases across 28 steps (step-verify-drift, step-overrides-surface, step-override-bypass, step-m3-baseline-pick, step-m4-install-gates, step-m5-no-repo-offer, step-m5-companion-offer, step-upgrade-companion-offer, step-adopt-settings-merge, verify-default-set, uninstall-default-set, lock-marketplace-parse, adopt-write-floor, setup-prefill-from-floor, preflight-floor, upgrade-adoption-split, verify-floor, adopt-review-process, adopt-security-list, step-reconcile, step-verify, step-config-stamp, step-config-adversarial, step-config-mail, step-adopt-stamp, step-upgrade-stamp, step-delegate-propose)
 - **setup-isolated-setup-install** — 19 cases across 5 steps (runtime-routing, step-snapshot-drift, step-scope-confirm, step-hardware-key, step-roborev-exclusion)
 - **setup-privacy-llm** — 6 cases across 2 steps (step-1-resolve, step-4-gate)
 - **setup-shared-config-sync** — 12 cases across 2 steps (step-3-decide-action, step-5-draft-commit)
@@ -44,6 +44,7 @@ Suites are currently implemented for:
 - **contributor-identity-map** — 6 cases across 1 step (step-2-grade-confirm)
 - **ci-runner-audit** — 6 cases across 2 steps (step-scope-selection, step-reporting)
 - **setup-status** — 18 cases across 5 steps (step-0-preflight, step-1-command, step-2-present, step-3-adjust-decision)
+- **setup-welcome-guide** — 3 cases across 1 step (step-1-show)
 - **non-asf-profile-smoke** — 15 cases across 6 steps (step-1-fetch-pool, step-3-classify); drives `issue-stale-sweep` through the `projects/non-asf-example/` fixture to verify non-ASF config resolves without skill-body edits
 - **contributor-sentiment** — 10 cases across 3 steps (step-0-resolve-inputs, step-2-score-signals, step-3-generate-report)
 - **onboarding-concierge** — 10 cases across 2 steps (question-classify, answer-draft)

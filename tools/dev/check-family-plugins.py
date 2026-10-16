@@ -26,6 +26,9 @@ Checks that every plugin is properly defined:
   root manifest's shared metadata (version, author, homepage, repository,
   license), and whose `skills/` directory contains exactly that family's skills
   as single-hop symlinks into the shared `skills/<skill>` tree;
+- the skill → family map generated into the pre-flight checker
+  (`setup_preflight/families.py`, which decides whether a family's first-run
+  welcome guide applies) matches the frontmatter and the `skills/` mirror;
 - every *substrate* plugin (`SUBSTRATE_PLUGINS` — a framework tool published as
   its own plugin rather than a family of skills) has a well-formed manifest that
   inherits the same shared metadata, declares the exact hook wiring the framework
@@ -46,6 +49,7 @@ import argparse
 import json
 import re
 import shutil
+import subprocess
 import sys
 import tomllib
 from pathlib import Path
@@ -894,6 +898,28 @@ def check_setup_preflight_package() -> list[str]:
     return errors
 
 
+def welcome_families(action: str) -> list[str]:
+    """Run `setup_preflight.welcome` `check-constant` or `write-constant` here.
+
+    The family map is a pure function of the frontmatter, so it is checked and
+    regenerated with the rest of this script's frontmatter-derived output.
+    A tree without the checker package (a test fixture) has nothing to check.
+    """
+    if not (SETUP_PREFLIGHT_PACKAGE / "welcome.py").is_file():
+        return []
+    result = subprocess.run(
+        [sys.executable, "-m", "setup_preflight.welcome", action],
+        capture_output=True,
+        text=True,
+        env={"PYTHONPATH": str(SETUP_PREFLIGHT_PACKAGE.parent), "PYTHONDONTWRITEBYTECODE": "1"},
+        check=False,
+    )
+    if result.returncode == 0 or (action == "write-constant" and result.returncode == 1):
+        return []
+    detail = (result.stderr or result.stdout).strip()
+    return [f"{SETUP_PREFLIGHT_PACKAGE}/families.py: {detail} (regenerate with --fix)"]
+
+
 def check(fam: dict[str, set[str]]) -> list[str]:
     errors: list[str] = []
 
@@ -952,6 +978,7 @@ def check(fam: dict[str, set[str]]) -> list[str]:
         if setup_data is not None and "check-upgrade.sh" not in json.dumps(setup_data.get("hooks", {})):
             errors.append(f"{setup_manifest}: SessionStart hook does not reference check-upgrade.sh")
     errors += check_setup_preflight_package()
+    errors += welcome_families("check-constant")
 
     errors += check_setup_templates()
 
@@ -1241,6 +1268,10 @@ def fix(fam: dict[str, set[str]]) -> int:
         ]
         catalog["plugins"] = sorted(entries, key=lambda e: e["name"])
         CODEX_CATALOG.write_text(json.dumps(catalog, indent=2) + "\n", encoding="utf-8")
+    if welcome_errs := welcome_families("write-constant"):
+        for e in welcome_errs:
+            print(f"  - {e}", file=sys.stderr)
+        return 1
     print("Regenerated per-family plugins + marketplace entries from frontmatter.")
     return 0
 

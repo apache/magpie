@@ -31,6 +31,9 @@ verdict is rendered, never written:
   on `PATH`).
 * `requires` — `requires_config:` entries passed as `--requires`.
 * `skill`, `hash` — the invoking skill's `name:` and `surface_hash:`.
+* `welcome` — `true` to include the skill family's first-run welcome guide.
+  Left out otherwise (`--no-welcome`), so a floor case is about the floor
+  and not about which family its skill happens to belong to.
 
 Usage:
 
@@ -102,6 +105,8 @@ def run_checker(state: dict[str, object], repo_root: Path, scratch: Path) -> str
         raise ValueError("`requires` must be a list")
     for entry in requires:
         args += ["--requires", str(entry)]
+    if state.get("welcome") is not True:
+        args.append("--no-welcome")
 
     env = _env(scratch)
     env["PYTHONPATH"] = str(repo_root / CHECKER)

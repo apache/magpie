@@ -298,6 +298,7 @@ Capabilities for every skill currently in
 | `setup-isolated-setup-update` | `capability:platform` |
 | `setup-isolated-setup-doctor` | `capability:platform` + `capability:reassess` *(re-checks an installed sandbox against current spec — the phase is reassess on subject setup)* |
 | `setup-override-upstream` | `capability:platform` |
+| `setup-welcome-guide` | `capability:platform` *(shows the framework's own welcome guides and turns a dismissed one back on)* |
 | `setup-upstream-fix` | `capability:platform` |
 | `report-framework-issue` | `capability:platform` *(files a redacted bug / change-proposal issue against the framework repo when a skill or tool misbehaves; the mandatory public-disclosure scrub keeps private tracker / CVE / cross-project content out of the public issue; never files without confirmation)* |
 | `security-model-prepare` | `capability:authoring` *(produces the project's first security model in draft-first mode and lands it, plus its discoverability chain, as one reviewable PR per repository)* |

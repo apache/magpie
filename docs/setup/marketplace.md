@@ -53,7 +53,7 @@ Magpie**. The [pinned snapshot install](../quick-start/other-install-methods.md)
 for the cases it does not cover.
 
 > [!IMPORTANT]
-> A marketplace install drops the 79 skills into your agent and is complete
+> A marketplace install drops the 80 skills into your agent and is complete
 > for day-to-day use. What it does **not** set up on its own is the
 > repo-side machinery — the committed pin, the gitignored snapshot, drift
 > detection, agentic overrides — or the secure-agent setup, which you run
@@ -158,7 +158,7 @@ can say so, because it is the floor everything else is managed from.
 | Family plugin | Skills | ~Always-on tokens |
 |---|---|---|
 | `magpie-security` | 15 | ~1.1k |
-| `magpie-setup` | 10 | ~0.7k |
+| `magpie-setup` | 11 | ~0.8k |
 | `magpie-release-management` | 10 | ~0.8k |
 | `magpie-pr-management` | 9 | ~1.0k |
 | `magpie-issue` | 8 | ~0.7k |
@@ -656,6 +656,22 @@ If you use the [secure agent setup](secure-agent-setup.md) on this machine, the 
 The same suggestion also comes back weekly by default, and the interval can be changed.
 Run the skill directly at any time to check now.
 Details: [Automatic reminders from the pre-flight](secure-agent-setup.md#automatic-reminders-from-the-pre-flight).
+
+**The first skills you run show a welcome guide.**
+The same pre-flight carries short first-run guides:
+a [general one](../../plugins/magpie-setup/skills/setup/setup_preflight/guides/general.md) on the first Magpie skill you run —
+getting started, staying current, asking in plain language, making Magpie yours —
+and a family's own on the next run of a skill in that family
+(today the [security family's](../../plugins/magpie-setup/skills/setup/setup_preflight/guides/security.md)).
+At most one guide shows per run, and each ends with three choices.
+**Continue** shows it again next time (three times at most),
+**Dismiss** hides it until the next Magpie upgrade,
+and **Don't show again** hides it until you ask for it back —
+say *"show the security welcome again"*.
+Any guide is one command away: `/magpie-setup:welcome-guide [<family>]`
+(`/magpie-setup-welcome-guide` on a pinned snapshot).
+The choice is kept in `reconciled.json` in your personal layer.
+Mechanics: [`welcome-guide`](../../plugins/magpie-setup/skills/welcome-guide/SKILL.md).
 
 ## Versioning
 

@@ -235,6 +235,11 @@ committed version with drift detection.
   Yubikey reachability, localhost port binding, filesystem restrictions),
   `setup-override-upstream` (promote a stabilised override into a
   framework PR), `setup-shared-config-sync`.
+- Skill: `setup-welcome-guide` (`/magpie-setup:welcome-guide [<family>]`) —
+  shows a welcome guide from `setup_preflight/guides/` verbatim through
+  `python3 -m setup_preflight.welcome show`, lists the guides that ship for
+  an unknown name, and runs `welcome enable` only when asked to bring a
+  guide back. The `setup welcome` sub-action is an alias for it.
 - Skill: `setup-status` — renders a Markdown adoption dashboard: install
   method and pin, drift between local and committed locks, which skills
   are wired in the current repo.
@@ -693,6 +698,22 @@ committed version with drift detection.
     `setup delegate` proposes matches from a deterministic score and writes
     only on a yes (`test_discovery.py`, eval suite
     `tools/skill-evals/evals/setup/step-delegate-propose`).
+37. `tools/setup-preflight` has a **family** scope: a `welcome` finding
+    (rules section `welcome`, guide in `facts.guide`, its name in
+    `facts.family`). `setup_preflight/guides/general.md` is due on the first
+    run of any Magpie skill, and `guides/<family>.md` — today only
+    `security` — on the first run of a skill in that family. At most one
+    guide per run: a first showing beats a repeat, and between equals the
+    general guide goes first, so a family guide first appears on the run
+    after the general one. The skill's family is looked up in `families.py`, generated
+    from frontmatter and kept current by `check-family-plugins`. The answer
+    is recorded under `welcome.<guide>` in the personal layer's
+    `reconciled.json` by `python3 -m setup_preflight.welcome record`, never
+    by hand: `seen` shows again up to three recorded showings, `dismiss`
+    until the framework version changes, `never` until
+    `welcome enable` (the `setup-welcome-guide` skill). The guide never
+    blocks the requested work, is skipped where there is no personal layer,
+    and a layer holding only that record does not count as configured.
 
 ## Validation
 

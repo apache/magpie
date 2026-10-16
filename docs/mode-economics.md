@@ -105,6 +105,13 @@ The rules are 2,057 tokens across eight sections, held once in the tool. A
 run that needs one pays for one — typically 120 to 580 tokens — and the
 ordinary `{"verdict": "ok"}` pays for none.
 
+The first-run welcome guides ride the same verdict:
+a `welcome` finding carrying one guide and the `welcome` rules, roughly 1,300 tokens.
+At most one guide per run, each paid on at most three runs per user (fewer once dismissed) —
+the general guide on any skill, a family's on that family's skills —
+and again only on the first run after an upgrade lifts a dismissal.
+`--no-welcome` leaves it out.
+
 What is left in the block is the part a model is for: run the command,
 stay silent on `ok`, follow the rules a finding carries, and never run
 `/magpie-setup:setup adopt` unattended. What is left in neither is the

@@ -5,7 +5,7 @@
 
 Behavioral evals for the `setup` skill.
 
-## Suites (119 cases total)
+## Suites (120 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
@@ -25,7 +25,7 @@ Behavioral evals for the `setup` skill.
 | adopt-review-process | adopt.md § Step 4c | 5 | a fresh adopt finding two deviations in the confirmed documents where one is accepted and one rejected, and a release policy left alone because that family is not in the floor; a re-adoption reviewing only the one family the floor diff added; a re-adoption that adds no family, where edited process documents are still not re-read; a sentence that would weaken a merge confirmation gate, dropped and named while a label deviation beside it is written; and a repo whose only candidate document the maintainer un-ticks, skipping the step |
 | adopt-security-list | adopt.md § Step 4b | 4 | an ASF project whose dedicated security list is in its docs and on the ASF page (recommend `security@`); an ASF project with no dedicated list (no recommendation, `private@` only as a flagged fallback); a non-ASF project, which is not asked; and conflicting evidence between `SECURITY.md` and the ASF page (no recommendation, flagged fallback) |
 | setup-prefill-from-floor | install.md § Step M0b | 4 | adopted (propose the floor), unadopted (framework defaults), a foreign marketplace called out, and a snapshot lock falling through |
-| preflight-floor | preflight-block.md § Pre-flight | 8 | at floor (silent), below floor (update), plugin missing (install), foreign marketplace (ask first, run nothing), no `claude` CLI (print), unadopted (propose setup), `apache/magpie` in an alarming context (update anyway, unasked), unreadable `claude plugin list --json` (silent, treated as unknown not absent) |
+| preflight-floor | preflight-block.md § Pre-flight | 9 | at floor (silent), below floor (update), plugin missing (install), foreign marketplace (ask first, run nothing), no `claude` CLI (print), unadopted (propose setup), `apache/magpie` in an alarming context (update anyway, unasked), unreadable `claude plugin list --json` (silent, treated as unknown not absent), first Magpie run (show the general welcome guide, record it, carry on) |
 | upgrade-adoption-split | upgrade.md § Step 0b | 4 | not adopted (nothing staged), adopted (floor raised and staged), already ahead (floor unchanged), snapshot method (falls through) |
 | verify-floor | verify.md § Adoption floor | 4 | no lock (not a fault), ahead of floor with extra plugins (not a fault), a shortfall (a fault), a floor plugin the marketplace no longer ships (a fault, not installed around) |
 | step-reconcile | reconcile.md § The sweep | 3 | a clean sweep on a pinned-snapshot install (anchor present, config resolved — stamp written, nothing proposed), a renamed step heading stranding an override's anchor (one re-anchor proposal named), a marketplace install whose plugin cache is sandbox-denied (anchor resolution left `unchecked`, config resolution still completes) |

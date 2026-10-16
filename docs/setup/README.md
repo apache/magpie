@@ -51,7 +51,7 @@ framework safe to use.
 
 ## Install & first runs
 
-Install just this family — one plugin, 10 skills. Sandbox, clean environment, and the framework's own install/upgrade.
+Install just this family — one plugin, 11 skills. Sandbox, clean environment, and the framework's own install/upgrade.
 
 Once you have [added the marketplace](../setup/marketplace-install.md):
 
@@ -156,6 +156,7 @@ for the complete rule.
 | [`setup-status`](../../skills/setup-status/SKILL.md) | Render a Markdown adoption dashboard (install pin, drift, wired agent targets, installed skill families, symlink health) and adjust the wiring in place. |
 | [`setup-shared-config-sync`](../../skills/setup-shared-config-sync/SKILL.md) | Commit + push the user's shared Claude config to its sync repo. |
 | [`setup-override-upstream`](../../skills/setup-override-upstream/SKILL.md) | Promote a local `.apache-magpie-overrides/<skill>.md` file into a PR against `apache/magpie`; prompts to remove the override once merged and upgraded. |
+| [`setup-welcome-guide`](../../skills/setup-welcome-guide/SKILL.md) | Show a Magpie welcome guide on demand — the general one, or a family's such as `security` — and turn a dismissed one back on. |
 | [`setup-upstream-fix`](../../skills/setup-upstream-fix/SKILL.md) | Turn a framework bug or quirk hit mid-session into a fix PR against `apache/magpie`, after checking for an existing issue or PR that already covers it. |
 
 ## Deep documentation

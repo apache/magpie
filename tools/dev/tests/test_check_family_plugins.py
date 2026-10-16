@@ -294,6 +294,38 @@ def test_a_preflight_package_linked_out_of_the_plugin_is_reported(tmp_path, monk
     assert any("expected a symlink" in e for e in errors)
 
 
+def _welcome_tree(root: Path) -> None:
+    """A copy of the real checker beside one plugin skill, whose map is stale."""
+    import shutil
+
+    shutil.copytree(
+        REPO_ROOT / mod.SETUP_PREFLIGHT_PACKAGE,
+        root / mod.SETUP_PREFLIGHT_PACKAGE,
+        ignore=shutil.ignore_patterns("__pycache__"),
+    )
+    skill = root / "plugins" / "magpie-security" / "skills" / "issue-sync"
+    skill.mkdir(parents=True)
+    (skill / "SKILL.md").write_text("---\nname: issue-sync\nfamily: security\n---\n", encoding="utf-8")
+
+
+def test_the_real_welcome_family_map_is_in_sync(monkeypatch):
+    monkeypatch.chdir(REPO_ROOT)
+    assert mod.welcome_families("check-constant") == []
+
+
+def test_a_stale_welcome_family_map_is_reported_and_fixed(tmp_path, monkeypatch):
+    _welcome_tree(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    assert any("families.py" in e for e in mod.welcome_families("check-constant"))
+    assert mod.welcome_families("write-constant") == []
+    assert mod.welcome_families("check-constant") == []
+
+
+def test_a_tree_without_the_checker_has_no_family_map_to_check(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    assert mod.welcome_families("check-constant") == []
+
+
 # ---------------------------------------------------------------------------
 # Plugin skill aliases — the family prefix comes off the symlink, not the source
 # ---------------------------------------------------------------------------
