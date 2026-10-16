@@ -11,7 +11,9 @@ source: >
   environment wrapper", "Layered sandbox by default", "Pinned, reviewed,
   signed dependencies"). Implemented in tools/agent-isolation/,
   tools/agent-guard/, tools/permission-audit/, tools/egress-gateway/,
-  the setup-isolated-setup-* skills, and .claude/settings.json.
+  the setup-isolated-setup-* skills, and tools/agent-isolation/claude-settings.template.json
+  (the framework's agent settings, not committed as .claude/settings.json;
+  contributors copy the template there).
 acceptance:
   - The reference setup uses an OS-level sandbox with default-deny
     filesystem reads and network egress; runtime-specific exceptions
@@ -227,7 +229,8 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
   socket is opened. Defence-in-depth per RFC-AI-0003: even a
   prompt-injection reaching for an arbitrary endpoint is blocked at the
   network layer. Capability: `substrate:sandbox`.
-- `.claude/settings.json` — the `sandbox` block (filesystem
+- `tools/agent-isolation/claude-settings.template.json` (each contributor's
+  `.claude/settings.json`) — the `sandbox` block (filesystem
   allow/deny, network `allowedDomains`, `excludedCommands`) and
   `permissions` (`deny` / `ask`).
 - `.gemini/settings.json` and `.gemini/policies/magpie.toml` — Magpie's Gemini profile: tool-sandboxing and an explicitly loaded User-tier approval policy.
@@ -459,7 +462,7 @@ uv run --project tools/agent-isolation --group dev pytest
 uv run --directory tools/agent-guard --group dev pytest
 uv run --project tools/permission-audit --group dev pytest
 uv run --project tools/egress-gateway --group dev pytest
-python3 -c "import json,sys; s=json.load(open('.claude/settings.json')); \
+python3 -c "import json,sys; s=json.load(open('tools/agent-isolation/claude-settings.template.json')); \
   ask=s['permissions']['ask']; \
   sys.exit(0 if any(a.startswith('Bash(git push') for a in ask) \
     and 'Bash(gh pr merge *)' in ask and 'Bash(gh *)' not in ask \

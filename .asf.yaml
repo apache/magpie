@@ -124,8 +124,8 @@ github:
       # semantics, so a path-filtered job that doesn't post a status
       # would block the PR). Excluded for that reason:
       # `asf-allowlist-check` (paths: `.github/**`) and
-      # `lint .claude/settings.json against baseline` from
-      # sandbox-lint (paths: `.claude/settings.json` +
+      # `lint the agent settings template against baseline` from
+      # sandbox-lint (paths: `tools/agent-isolation/claude-settings.template.json` +
       # `tools/sandbox-lint/**`).
       #
       # CodeQL (`Analyze (python)`, `Analyze (actions)`) is NOT

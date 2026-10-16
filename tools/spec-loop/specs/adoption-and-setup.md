@@ -634,8 +634,9 @@ committed version with drift detection.
     `"isolated_setup": {"enabled": false}`. It proposes
     `setup-isolated-setup-update` once per change of the fingerprint of the
     files an install copies (`tools/agent-isolation/`,
-    `tools/agent-guard/src/`, `tools/container-gateway/src/`, the dogfooded
-    `.claude/settings.json`; documentation excluded), and otherwise every
+    `tools/agent-guard/src/`, `tools/container-gateway/src/` — the dogfooded
+    settings template `tools/agent-isolation/claude-settings.template.json` included;
+    documentation excluded), and otherwise every
     `isolated_setup_update_interval_days` (the personal layer's
     `project.md` → `.apache-magpie-overrides/project.md`,
     default 7, `0` disables the timer but not the change report). The

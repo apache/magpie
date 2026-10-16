@@ -32,7 +32,9 @@ from sandbox_lint import (
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-LIVE_SETTINGS = REPO_ROOT / ".claude" / "settings.json"
+# The framework ships its agent settings as a template; contributors copy it to
+# .claude/settings.json, which is not committed (#1639).
+LIVE_SETTINGS = REPO_ROOT / "tools" / "agent-isolation" / "claude-settings.template.json"
 BASELINE = REPO_ROOT / "tools" / "sandbox-lint" / "expected.json"
 
 
@@ -831,3 +833,39 @@ def test_cli_rejects_a_decoy_daemon_socket_using_the_inferred_project_root(
     _write_json(expected_path, baseline)
     rc = main(["--settings", str(settings_path), "--expected", str(expected_path)])
     assert rc == 1
+
+
+def test_default_run_checks_the_local_copy_invariants(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The template is linted against the baseline; a local .claude/settings.json
+    (each contributor's copy, #1639) may add things but may not weaken a control."""
+    import json as _json
+
+    from sandbox_lint import DEFAULT_EXPECTED, DEFAULT_SETTINGS, main
+
+    for rel in (DEFAULT_SETTINGS, DEFAULT_EXPECTED):
+        target = tmp_path / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text((REPO_ROOT / rel).read_text())
+    monkeypatch.chdir(tmp_path)
+    assert main([]) == 0  # no local copy: template only
+
+    local = _json.loads((REPO_ROOT / DEFAULT_SETTINGS).read_text())
+    (tmp_path / ".claude").mkdir()
+    (tmp_path / ".claude" / "settings.json").write_text(_json.dumps(local))
+    assert main([]) == 0  # an unmodified copy passes
+
+    local["sandbox"]["enabled"] = False
+    (tmp_path / ".claude" / "settings.json").write_text(_json.dumps(local))
+    assert main([]) == 1  # a weakened copy fails
+
+
+def test_template_path_anchors_the_project_root(tmp_path: Path) -> None:
+    """Linting the template must keep the anchored socket check (#1639): the
+    template is not under .claude/, so the root is the prefix before it."""
+    from sandbox_lint import DEFAULT_SETTINGS, _infer_project_root
+
+    assert _infer_project_root(tmp_path / DEFAULT_SETTINGS) == tmp_path.resolve()
+    assert _infer_project_root(tmp_path / ".claude" / "settings.json") == tmp_path.resolve()
+    assert _infer_project_root(tmp_path / "fixture.json") is None

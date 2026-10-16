@@ -84,7 +84,7 @@ It does **not** defend against:
 | **3. Forced confirmation** | Claude Code's `permissions.ask` | Visible-to-others writes (`git push`, `gh pr create`, …) without an explicit yes. |
 
 Layers 1, 2, and 3 are configured by the same
-[`.claude/settings.json`](../../.claude/settings.json) the framework
+[`tools/agent-isolation/claude-settings.template.json`](../../tools/agent-isolation/claude-settings.template.json) the framework
 dogfoods. Adopters copy the same shape into their own tracker repo
 (see
 [Adopter setup](secure-agent-setup.md#adopter-setup)
@@ -111,7 +111,7 @@ a Bash subprocess (an MCP server's child process, a `gh` CLI call,
 a `python` snippet the model decided to run) from reading a denied
 path. `permissions.deny` stops the agent's Read tool from reading
 the same path. A secure setup needs both: the framework's
-[`.claude/settings.json`](../../.claude/settings.json) deny-lists
+[`tools/agent-isolation/claude-settings.template.json`](../../tools/agent-isolation/claude-settings.template.json) deny-lists
 `Read(~/.config/gh/**)` *and* allow-reads `~/.config/gh/` in the
 sandbox, so `gh` can see its token but the agent can never read
 the file.

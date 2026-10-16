@@ -15,9 +15,9 @@ when_to_use: >-
   If it is already installed, use `setup-isolated-setup-verify` to check
   it or `setup-isolated-setup-update` to refresh it.
 capability: capability:platform
-surface_hash: sha256:09bcd5e69ccdacd8
+surface_hash: sha256:8a931772d33ac93f
 license: Apache-2.0
-measured_tokens: 6692
+measured_tokens: 6934
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -152,9 +152,9 @@ Before walking any install step, confirm with the user:
    distro shortcut.
 2. **Framework checkout path.** The path to the user's local
    `magpie` clone. Required to read
-   `tools/agent-isolation/pinned-versions.toml`,
-   `.claude/settings.json`, and the
-   `tools/agent-isolation/*.sh` scripts. If the user does not
+   `tools/agent-isolation/pinned-versions.toml`, the settings
+   template `tools/agent-isolation/claude-settings.template.json`,
+   and the `tools/agent-isolation/*.sh` scripts. If the user does not
    have a clone, walk them through `git clone` first.
 3. **Fresh install or re-install.** For a re-install on a partial
    existing state, the skill must enumerate the existing wiring
@@ -199,6 +199,26 @@ version (`command claude --version`, which skips an
 **hard-fail** — stop the install, tell the operator to upgrade to
 `@latest`, and have them re-run. The secure setup must not be stood up
 on a below-floor runtime.
+
+### Step T — The framework checkout's own agent settings
+
+Only when the project being set up **is the Magpie framework checkout**
+(it carries `tools/agent-isolation/claude-settings.template.json` and
+`skills/setup/`). That repository does not commit `.claude/settings.json`;
+each contributor puts the template in place
+([CONTRIBUTING.md → Agent settings](../../../../CONTRIBUTING.md#agent-settings)).
+
+- **No `.claude/settings.json`** — propose copying the template there, and
+  copy it on the user's yes.
+- **One already exists** — show the difference from the template and
+  propose merging the template's blocks in; never overwrite it. Personal
+  additions belong in `.claude/settings.local.json`.
+
+`.claude/settings.json` is the agent's own configuration and the sandbox
+write-denies it, so the copy or merge is the user's to run (or to approve
+outside the sandbox); say so rather than retrying. In any other project
+this step does not apply: an adopted project commits its own
+`.claude/settings.json` floor.
 
 ### Step P — Project-root coverage in the sandbox allowlists
 

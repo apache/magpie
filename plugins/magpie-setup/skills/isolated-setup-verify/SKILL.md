@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:ce33cb9437d44992
 license: Apache-2.0
-measured_tokens: 6141
+measured_tokens: 6235
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -92,6 +92,7 @@ The canonical list lives in
 Walk each in order:
 
 1. Project `.claude/settings.json` shape: `sandbox.enabled: true`, `permissions.deny`, `permissions.ask`, `sandbox.network.allowedDomains`, and the `sandbox.filesystem` allowlist (`allowRead`/`allowWrite`).
+   In the Magpie framework checkout (it carries `tools/agent-isolation/claude-settings.template.json`) the file is not committed: a missing one is ✗, with the remedy to put the template in place ([CONTRIBUTING.md → Agent settings](../../../../CONTRIBUTING.md#agent-settings), or step T of `setup-isolated-setup-install`); one that lacks a block the template has is ⚠, naming the block.
 2. User-scope `~/.claude/settings.json` wiring: `PreToolUse` `Bash` matcher → `sandbox-bypass-warn.sh`, `PostToolUse` `Bash` matcher → `sandbox-error-hint.sh`, `statusLine` → `sandbox-status-line.sh` (or a custom statusline script that embeds the framework's prefix logic, the doc-allowed variant; report ⚠).
    A missing `PostToolUse` entry for `sandbox-error-hint.sh` reports ⚠ (not ✗).
    The hook is a discoverability aid for the failure modes in [`docs/setup/sandbox-troubleshooting.md`](../../../../docs/setup/sandbox-troubleshooting.md); without it nothing breaks, but those failures show the raw error without the `[sandbox-hint]` annotation.

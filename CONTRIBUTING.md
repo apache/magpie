@@ -20,6 +20,7 @@
     - [Groovy](#groovy)
     - [Shell scripts](#shell-scripts)
   - [Getting set up](#getting-set-up)
+    - [Agent settings](#agent-settings)
     - [Lightening the agent context](#lightening-the-agent-context)
   - [Making changes](#making-changes)
   - [Authoring with an agent](#authoring-with-an-agent)
@@ -549,6 +550,24 @@ prek install
 ```
 
 The hooks are described in detail under [Running the dev loop](#running-the-dev-loop).
+
+### Agent settings
+
+The repository does not commit `.claude/settings.json`: the maintainers' sandbox and
+permission baseline (plus the self-adoption plugin wiring) ships as a template,
+[`tools/agent-isolation/claude-settings.template.json`](tools/agent-isolation/claude-settings.template.json),
+and each contributor puts it in place as their own:
+
+```bash
+cp tools/agent-isolation/claude-settings.template.json .claude/settings.json
+```
+
+If you already have a `.claude/settings.json` here, merge the template's blocks into it rather than overwrite it.
+Keep personal additions in `.claude/settings.local.json`, so the next template update stays a plain copy.
+`.claude/settings.json` is gitignored, so your copy never shows up as a change and can differ from the baseline.
+[`setup-isolated-setup-install`](skills/setup-isolated-setup-install/SKILL.md) offers the same copy or merge,
+and [`setup-isolated-setup-verify`](skills/setup-isolated-setup-verify/SKILL.md) reports it when it is missing.
+The template itself is what CI lints against the baseline (`sandbox-lint`), so a change to the baseline is a change to the template.
 
 **Do not install Magpie from a marketplace to work on it.** This repo
 **self-adopts**: the committed `magpie-<skill>` symlinks point at the live

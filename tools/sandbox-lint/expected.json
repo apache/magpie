@@ -147,6 +147,7 @@
       "Read(//**/.env.local)",
       "Read(//**/.env.*.local)",
       "Edit(.claude/settings.json)",
+      "Edit(tools/agent-isolation/claude-settings.template.json)",
       "Edit(.claude/settings.local.json)",
       "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
       "Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",

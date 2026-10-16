@@ -31,7 +31,7 @@ import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-SETTINGS = REPO_ROOT / ".claude" / "settings.json"
+SETTINGS = REPO_ROOT / "tools/agent-isolation/claude-settings.template.json"
 SKILL = REPO_ROOT / "plugins" / "magpie-setup" / "skills" / "isolated-setup-update" / "SKILL.md"
 
 # The two prose anchors the assertions parse. Rewording the bullet is fine;

@@ -464,9 +464,12 @@ actually lands the bump.
 
 ## The framework's own `.claude/settings.json`
 
-The framework dogfoods the secure config in
-[`.claude/settings.json`](../../.claude/settings.json). The full block is
-below, annotated.
+The framework dogfoods the secure config. It ships as the template
+[`tools/agent-isolation/claude-settings.template.json`](../../tools/agent-isolation/claude-settings.template.json);
+the repository does not commit `.claude/settings.json`, and each contributor
+puts the template in place as their own (see
+[CONTRIBUTING.md → Agent settings](../../CONTRIBUTING.md#agent-settings)).
+The full block is below, annotated.
 
 ```jsonc
 {
@@ -1594,7 +1597,7 @@ about to approve.
 ### Why install it user-scope, not project-scope
 
 Unlike the framework's
-[`.claude/settings.json`](../../.claude/settings.json) (which is
+[`tools/agent-isolation/claude-settings.template.json`](../../tools/agent-isolation/claude-settings.template.json) (which is
 repo-scoped — only sessions started inside the tracker repo see
 it), this hook is most useful in
 **`~/.claude/settings.json`** — the user-scope config that applies
@@ -2076,7 +2079,7 @@ echo '{"model":{"display_name":"Sonnet 4.6"},"workspace":{"current_dir":"'"$PWD"
 ```
 
 Expected output, *inside* this repo (its
-[`.claude/settings.json`](../../.claude/settings.json) sets
+[`tools/agent-isolation/claude-settings.template.json`](../../tools/agent-isolation/claude-settings.template.json) sets
 `sandbox.enabled: true`, and assuming `.claude/settings.local.json`
 either does not exist or does not override the key): a line opening
 with `[sandbox]` in green, then `magpie`, the current branch, the PR
@@ -3134,7 +3137,7 @@ sub-section that follows.
 1. Install the pinned tools per [Install commands](#install-commands)
    above.
 2. Copy
-   [`.claude/settings.json`](../../.claude/settings.json) from the framework
+   [`tools/agent-isolation/claude-settings.template.json`](../../tools/agent-isolation/claude-settings.template.json) from the framework
    snapshot at `<your-tracker>/.apache-magpie/.claude/settings.json`
    into `<your-tracker>/.claude/settings.json`. Adjust:
    - The `sandbox.network.allowedDomains` list — drop the framework

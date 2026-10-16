@@ -17,7 +17,9 @@
 #
 # Implements mitigation M.29 from
 # `docs/security/threat-model.md`: every change to the agent-host
-# sandbox configuration in `.claude/settings.json` must be paired with
+# sandbox configuration — in this repository the template at
+# `tools/agent-isolation/claude-settings.template.json`, which contributors copy to
+# `.claude/settings.json` (not committed, #1639) — must be paired with
 # a matching update to the canonical baseline at
 # `tools/sandbox-lint/expected.json`, and the resulting configuration
 # must satisfy the security invariants encoded in the linter.
@@ -27,14 +29,14 @@ name: sandbox-lint
 on:  # yamllint disable-line rule:truthy
   pull_request:
     paths:
-      - ".claude/settings.json"
+      - "tools/agent-isolation/claude-settings.template.json"
       - ".gemini/**"
       - "tools/sandbox-lint/**"
       - ".github/workflows/sandbox-lint.yml"
   push:
     branches: [main]
     paths:
-      - ".claude/settings.json"
+      - "tools/agent-isolation/claude-settings.template.json"
       - ".gemini/**"
       - "tools/sandbox-lint/**"
       - ".github/workflows/sandbox-lint.yml"
@@ -47,7 +49,7 @@ concurrency:
 
 jobs:
   sandbox-lint:
-    name: lint .claude/settings.json against baseline
+    name: lint the agent settings template against baseline
     runs-on: ubuntu-slim
     permissions:
       contents: read
@@ -79,7 +81,7 @@ jobs:
       # `sandbox-lint` is the workspace member's CLI entry point;
       # after sync it is available directly via `uv run` from the
       # repo root, which is what the linter expects so
-      # `.claude/settings.json` and `tools/sandbox-lint/expected.json`
+      # `tools/agent-isolation/claude-settings.template.json` and `tools/sandbox-lint/expected.json`
       # resolve relative to cwd.
       - name: Run sandbox-lint
         run: uv run sandbox-lint

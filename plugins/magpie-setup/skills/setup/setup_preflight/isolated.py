@@ -19,7 +19,8 @@
 
 The secure setup is installed per machine, from framework files: the
 sandbox wrapper and helper scripts, the agent-guard engine, the container
-gateway, and the dogfooded `.claude/settings.json`.  When a framework
+gateway, and the settings baseline (`tools/agent-isolation/claude-settings.template.json`, inside
+`tools/agent-isolation`).  When a framework
 upgrade changes any of those, the user's installed copy can be behind
 without anything saying so.  `setup-isolated-setup-update` is the skill
 that finds that drift, so the pre-flight proposes it:
@@ -69,7 +70,6 @@ from .layers import config_layers, personal_dir, personal_layers
 #: paragraph changes nothing on the user's machine and must not send them
 #: to re-run the update.
 SOURCES: tuple[str, ...] = (
-    ".claude/settings.json",
     "tools/agent-guard/src",
     "tools/agent-isolation",
     "tools/container-gateway/src",

@@ -18,7 +18,8 @@
 """Lint the agent-host sandbox configuration.
 
 Implements mitigation M.29 from
-docs/security/threat-model.md: every change to .claude/settings.json
+docs/security/threat-model.md: every change to the agent settings baseline
+(in this repository, tools/agent-isolation/claude-settings.template.json; in a project, .claude/settings.json)
 must be acknowledged by an equivalent change to
 tools/sandbox-lint/expected.json (the shipped baseline), and the
 resulting configuration must satisfy the security invariants encoded
@@ -47,8 +48,13 @@ from sandbox_lint.layers import GIT_HOME_NAME, LOCAL_DIR, RUN_DIR_NAME, run_dir_
 # Defaults
 # ---------------------------------------------------------------------------
 
-DEFAULT_SETTINGS = Path(".claude/settings.json")
+DEFAULT_SETTINGS = Path("tools/agent-isolation/claude-settings.template.json")
 DEFAULT_EXPECTED = Path("tools/sandbox-lint/expected.json")
+#: A contributor's own copy of the template (not committed, #1639). When the
+#: default template is linted and this file exists, it is checked against the
+#: security invariants too: it may carry personal additions, but it may not
+#: weaken the controls.
+LOCAL_LIVE_SETTINGS = Path(".claude/settings.json")
 
 # ---------------------------------------------------------------------------
 # Security invariants
@@ -589,18 +595,26 @@ def _infer_project_root(settings_path: Path) -> Path | None:
     (e.g. an ad-hoc fixture in a test) yields ``None``, and
     ``check_invariants`` falls back to its documented unanchored-suffix
     residual for that call.
+
+    This repository's own template (``DEFAULT_SETTINGS``, #1639) is the
+    other recognised shape: the project root is the prefix before it, so
+    linting the template keeps the anchored check rather than falling back.
     """
     resolved = settings_path.resolve()
-    if resolved.parent.name != ".claude":
-        return None
-    return resolved.parent.parent
+    if resolved.parent.name == ".claude":
+        return resolved.parent.parent
+    template_parts = DEFAULT_SETTINGS.parts
+    if resolved.parts[-len(template_parts) :] == template_parts:
+        return Path(*resolved.parts[: -len(template_parts)])
+    return None
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="sandbox-lint",
         description=(
-            "Lint .claude/settings.json against the shipped baseline and the "
+            "Lint the agent settings (by default this repository's template, plus the "
+            "security invariants of a local .claude/settings.json) against the shipped baseline and the "
             "security invariants from docs/security/threat-model.md (M.29); "
             "or lint an OpenCode opencode.json permission policy (--opencode); "
             "or lint a project Codex profile (--codex); "
@@ -711,9 +725,27 @@ def main(argv: list[str] | None = None) -> int:
     # files in lockstep, the baseline must still pass on its own.
     baseline_invariant_errors = check_invariants(expected, project_root=project_root)
 
-    if not invariant_errors and not diff_errors and not baseline_invariant_errors:
+    # The template is what everyone inherits; the copy actually in force on this
+    # machine is .claude/settings.json. Without an explicit --settings, check that
+    # copy's invariants as well (no baseline diff: it may hold personal additions).
+    local_errors: list[str] = []
+    if args.settings == DEFAULT_SETTINGS and LOCAL_LIVE_SETTINGS.is_file():
+        local_errors = check_invariants(
+            _load_json(LOCAL_LIVE_SETTINGS), project_root=_infer_project_root(LOCAL_LIVE_SETTINGS)
+        )
+
+    if not invariant_errors and not diff_errors and not baseline_invariant_errors and not local_errors:
         print(f"sandbox-lint: OK ({args.settings} matches {args.expected})")
         return 0
+
+    if local_errors:
+        print(
+            f"sandbox-lint: invariant violations in your local {LOCAL_LIVE_SETTINGS} "
+            "(the copy in force here weakens a control the template keeps):",
+            file=sys.stderr,
+        )
+        for e in local_errors:
+            print(f"  - {e}", file=sys.stderr)
 
     if invariant_errors:
         print(f"sandbox-lint: invariant violations in {args.settings}:", file=sys.stderr)
