@@ -45,17 +45,18 @@ contract and must not be advertised as complete/selectable backends.
 
 Repository metadata reads are currently bridge context for Bitbucket
 pull-request workflows, not a complete `contract:source-control`
-backend. `contract:tracker` remains partial: native Bitbucket Cloud
-issue operations are unavailable after Atlassian's 2026-08-20 removal,
-and Data Center native issue operations are also unsupported.
+backend. No `contract:tracker` operations are currently implemented:
+native Bitbucket Cloud issue operations are unavailable after Atlassian's
+2026-08-20 removal, and Data Center native issue operations are also
+unsupported; use the Jira bridge (`tools/jira`).
 #606 remains open for linked Jira tracker coverage and the remaining
 Bitbucket workflow gaps, including broader repository permissions and
 fuller Pipelines run/log/retry coverage.
 
 ## Partial coverage roadmap
 
-The Bitbucket bridge currently provides partial coverage for repository,
-tracker, and pull-request context, plus narrowly scoped Bitbucket Cloud
+The Bitbucket bridge currently provides partial coverage for repository
+and pull-request context (the native issue commands are fail-closed stubs), plus narrowly scoped Bitbucket Cloud
 write operations. It intentionally does not claim full Bitbucket backend parity.
 
 Implemented commands and compatibility stubs:
@@ -256,7 +257,7 @@ injected by the caller as `BITBUCKET_TOKEN` / `BITBUCKET_CLOUD_USER`.
 | Variable | Required for | Description |
 |---|---|---|
 | `BITBUCKET_KIND` | all commands | `cloud` or `datacenter`. Defaults to `cloud`. |
-| `BITBUCKET_TOKEN` | authenticated API calls | API token or personal access token accepted by the selected backend. Read-only PR/repository commands should use minimum read scopes. Cloud issue-comment writes require credentials permitted to write issue comments. Cloud pull-request comment, approve/unapprove, request-changes/remove-request-changes, decline, and merge writes require credentials permitted to write pull requests. `repo restrictions` needs elevated repository-admin scope on Bitbucket Cloud and may require `REPO_ADMIN` on Data Center. |
+| `BITBUCKET_TOKEN` | authenticated API calls | API token or personal access token accepted by the selected backend. Read-only PR/repository commands should use minimum read scopes. Cloud pull-request comment, approve/unapprove, request-changes/remove-request-changes, decline, and merge writes require credentials permitted to write pull requests. `repo restrictions` needs elevated repository-admin scope on Bitbucket Cloud and may require `REPO_ADMIN` on Data Center. |
 | `BITBUCKET_AUTH_SCHEME` | all commands | Authentication scheme. Defaults to `Basic` for Cloud and `Bearer` for Data Center. |
 | `BITBUCKET_CLOUD_USER` | Cloud Basic auth | Atlassian account email/user used with `BITBUCKET_TOKEN`. |
 | `BITBUCKET_WORKSPACE` | Cloud | Bitbucket Cloud workspace slug. |
@@ -283,17 +284,17 @@ to know which backend answered.
 
 ## Write-path discipline
 
-The bridge can execute the narrowly scoped Bitbucket Cloud issue-comment
-mutation, but it does **not** decide whether to mutate. Every write operation
+The bridge can execute narrowly scoped Bitbucket Cloud pull-request
+mutations, but it does **not** decide whether to mutate. Every write operation
 must be gated on **explicit user confirmation in the calling skill**; the bridge
 only executes an already-confirmed action.
 
 Comment bodies are read from `--body-file` to avoid shell-quoting issues.
 Missing or empty body files fail before any outbound write request is made.
 
-The bridge currently supports these narrow Cloud mutations:
+The bridge currently supports these narrow Cloud mutations (native Cloud
+issue writes were removed upstream and fail closed):
 
-- issue comment creation
 - top-level pull-request comment creation
 - pull-request approval and approval withdrawal
 - pull-request change-request creation and removal

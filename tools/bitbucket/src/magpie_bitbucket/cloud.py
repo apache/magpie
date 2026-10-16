@@ -104,11 +104,11 @@ def get_repository_restrictions(config: BitbucketConfig) -> dict[str, Any]:
 
 _NATIVE_ISSUE_TRACKER_REMOVED = (
     "Bitbucket Cloud native issue tracker API was removed by Atlassian "
-    "on 2026-08-20; use linked Jira coverage instead."
+    "on 2026-08-20; use the Jira bridge (tools/jira) instead."
 )
 
 
-def _removed_native_issue_tracker() -> BitbucketError:
+def removed_native_issue_tracker() -> BitbucketError:
     """Return the fail-closed error for removed native Cloud issue APIs."""
     return BitbucketError(_NATIVE_ISSUE_TRACKER_REMOVED)
 
@@ -116,13 +116,13 @@ def _removed_native_issue_tracker() -> BitbucketError:
 def list_open_issues(config: BitbucketConfig) -> dict[str, Any]:
     """Fail closed because Bitbucket Cloud removed its native issue tracker."""
     _ = config
-    raise _removed_native_issue_tracker()
+    raise removed_native_issue_tracker()
 
 
 def get_issue(config: BitbucketConfig, issue_id: str) -> dict[str, Any]:
     """Fail closed because Bitbucket Cloud removed its native issue tracker."""
     _ = (config, issue_id)
-    raise _removed_native_issue_tracker()
+    raise removed_native_issue_tracker()
 
 
 def create_issue_comment(
@@ -132,19 +132,19 @@ def create_issue_comment(
 ) -> dict[str, Any]:
     """Fail closed because Bitbucket Cloud removed its native issue tracker."""
     _ = (config, issue_id, body)
-    raise _removed_native_issue_tracker()
+    raise removed_native_issue_tracker()
 
 
 def get_issue_comments(config: BitbucketConfig, issue_id: str) -> dict[str, Any]:
     """Fail closed because Bitbucket Cloud removed its native issue tracker."""
     _ = (config, issue_id)
-    raise _removed_native_issue_tracker()
+    raise removed_native_issue_tracker()
 
 
 def get_issue_attachments(config: BitbucketConfig, issue_id: str) -> dict[str, Any]:
     """Fail closed because Bitbucket Cloud removed its native issue tracker."""
     _ = (config, issue_id)
-    raise _removed_native_issue_tracker()
+    raise removed_native_issue_tracker()
 
 
 def list_open_pull_requests(config: BitbucketConfig) -> dict[str, Any]:
