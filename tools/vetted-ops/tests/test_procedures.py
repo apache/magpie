@@ -480,6 +480,13 @@ def test_body_field_set_refuses_to_replace_a_span_hiding_another_field() -> None
     assert fake.writes == []
 
 
+def test_body_field_set_refuses_a_value_that_splits_the_readers() -> None:
+    fake = FakeGh(body="### A\n\nx\n\n### B\n\ny\n")
+    with pytest.raises(procedures.ProcedureRefused, match="disagree"):
+        procedures.body_field_set(runner(fake), number="7", field="A", text="  ```\ncode\n```")
+    assert fake.writes == []
+
+
 def test_body_field_get_prints_only_the_value(capsys: pytest.CaptureFixture[str]) -> None:
     fake = FakeGh(body=ISSUE_BODY)
     procedures.body_field_get(runner(fake, writes=False), number="7", field="Severity")

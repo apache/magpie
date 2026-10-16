@@ -502,3 +502,49 @@ def test_any_number_of_markers_still_needs_a_decision(count: int) -> None:
 
 def test_ten_digit_ordered_markers_are_not_markers() -> None:
     assert normalise("### A\n\n1234567890. ### Severity\n", KNOWN).needs_decision == []
+
+
+def test_replace_refuses_a_value_that_splits_the_readers() -> None:
+    # Lenient pairing closes the indented fence at the column-0 run; a column-0
+    # reader opens a fence there instead and loses B.
+    body = "### A\n\nx\n\n### B\n\ny\n"
+    with pytest.raises(AmbiguousFieldError, match="disagree"):
+        replace_field(body, "A", "  ```\ncode\n```")
+
+
+def test_crlf_bodies_keep_their_spacers_and_line_endings() -> None:
+    body = "### A\r\n\r\nx\r\n\r\n### B\r\n\r\ny\r\n"
+    assert extract_field(body, "A") == "x\r\n"
+    assert replace_field(body, "A", extract_field(body, "A")) == body
+    assert replace_field(body, "A", "x") == body
+    new = replace_field(body, "A", "one\ntwo\n")
+    assert new == "### A\r\n\r\none\r\ntwo\r\n\r\n### B\r\n\r\ny\r\n"
+    lone_cr = "### A\r\rx\r\r### B\r\ry\r"
+    assert replace_field(lone_cr, "A", "x") == lone_cr
+
+
+def test_cli_get_and_set_on_a_remote_crlf_body(monkeypatch, capsys) -> None:
+    import subprocess
+
+    body = "### A\r\n\r\nx\r\n\r\n### B\r\n\r\ny\r\n"
+    writes: list[str] = []
+
+    class Result:
+        def __init__(self, stdout: str = "") -> None:
+            self.returncode = 0
+            self.stdout = stdout
+            self.stderr = ""
+
+    def fake_run(cmd, input=None, **kwargs):
+        if "edit" in cmd:
+            writes.append(input)
+            return Result()
+        return Result(json.dumps({"body": body}))
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    assert cli.main(["get", "1", "--field", "A"]) == 0
+    assert capsys.readouterr().out == "x\r\n"
+    assert cli.main(["set", "1", "--field", "A", "--value", "x"]) == 0
+    assert writes == []  # unchanged: byte-identical, nothing written
+    assert cli.main(["set", "1", "--field", "A", "--value", "z"]) == 0
+    assert writes == [body.replace("\r\nx\r\n", "\r\nz\r\n")]
