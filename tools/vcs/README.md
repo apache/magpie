@@ -12,6 +12,10 @@
   - [Backends](#backends)
     - [Subversion (centralized model)](#subversion-centralized-model)
     - [Adding a backend](#adding-a-backend)
+  - [Subversion-hosted projects](#subversion-hosted-projects)
+    - [What `probe` detects](#what-probe-detects)
+    - [What setup writes](#what-setup-writes)
+    - [Skills that assume GitHub](#skills-that-assume-github)
   - [How to use](#how-to-use)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -67,8 +71,12 @@ VCS the project enables under *Tools enabled → Source control*.
 The active backend is detected from the working copy or forced with
 `--backend` / `$MAGPIE_VCS`. Skills get the checkout path from
 `<project-config>/user.md` (or the resolved user config) and the expected
-source-control backend from `<project-config>/project.md` *Tools enabled*
-entries. Backend-specific adopter knobs belong in the relevant
+source-control backend from `vcs_backend` in `<project-config>/project.md`
+([*Tools enabled → Source control*](../../plugins/magpie-setup/templates/project.md#source-control)),
+which they pass as `--backend` so a checkout of the wrong kind fails loudly.
+`setup` writes `vcs_backend` and the Subversion URLs from
+[`probe`](#subversion-hosted-projects); nobody has to know about `--backend` or `$MAGPIE_VCS`.
+Backend-specific adopter knobs belong in the relevant
 `*-config.md` file rather than in this tool.
 
 ## Why
@@ -87,6 +95,7 @@ editing every skill.
 | Operation | CLI | Read/Write |
 |---|---|---|
 | Detect backend | `detect`, `backends`, `root` | read |
+| Detect Subversion hosting | `probe` (JSON) | read, offline |
 | Working-tree status | `status`, `clean` | read |
 | Current branch | `branch` | read |
 | Show changes | `diff [--base REF] [--cached] [paths…]` | read |
@@ -166,6 +175,76 @@ registers it in `BACKENDS`; nothing else changes: detection, dispatch,
 the CLI, and every skill that calls `magpie-vcs` pick it up
 automatically.
 
+## Subversion-hosted projects
+
+`magpie-vcs -C <checkout> probe` prints one JSON object saying whether the project is hosted in Subversion, and where.
+[`setup config` and `setup adopt`](../../plugins/magpie-setup/skills/setup/config.md#step-3--scaffold-and-fill) run it and propose its `proposal` for `project.md`.
+It is read-only and offline: it reads working-copy metadata and never runs a command that reaches a server.
+
+```json
+{
+  "kind": "svn-working-copy",
+  "svn_hosted": true,
+  "svn": {"url": "https://svn.apache.org/repos/asf/foo/trunk", "repository_root": "https://svn.apache.org/repos/asf",
+          "project_url": "https://svn.apache.org/repos/asf/foo", "line_of_work": "trunk",
+          "layout": "trunk/branches/tags", "uuid": "…", "source": "svn info"},
+  "proposal": {"vcs_backend": "svn", "svn_url": "https://svn.apache.org/repos/asf/foo",
+               "svn_repository_root": "https://svn.apache.org/repos/asf", "upstream_default_branch": "trunk"},
+  "notes": []
+}
+```
+
+It also carries `path`, `backend` and `root`, as `detect` and `root` would print them.
+
+### What `probe` detects
+
+| `kind` | Evidence | Repository root |
+|---|---|---|
+| `svn-working-copy` | a `.svn/` directory at or above the path; read with `svn info --xml`, or from `.svn/wc.db` when `svn` 1.9+ is missing or fails | yes |
+| `git-svn-clone` | `svn-remote.<name>.url` in the git config; the line of work is that URL plus the `fetch` path | from `.git/svn/.metadata` once git-svn has fetched, else `null` |
+| `git-svn-mirror` | no `svn-remote`, but HEAD's message carries a `git-svn-id: <url>@<rev> <uuid>` trailer, as on a mirror built with git-svn | `null`: not knowable offline |
+| `git`, `hg`, `fossil` | anything else that backend detects | — |
+| `none` | no working copy | — |
+
+`layout` is `trunk/branches/tags` when the URL contains one of those markers (the rightmost wins, as in the [`svn` backend](#subversion-centralized-model)), and `other` otherwise.
+For `other`, `svn_url` is the checkout's own URL, `upstream_default_branch` is `null`, and a note says the backend's `new-branch` and name-based `switch` refuse there.
+
+Not detected:
+
+- **A mirror with no git-svn trailer**, such as one built by another converter, or a GitHub repository whose description or README says it mirrors Subversion.
+  Both need the network or a guess; `probe` reports plain `git`, and the user says otherwise.
+- **A project that moved from Subversion to Git.** Its old commits carry `git-svn-id`, but HEAD does not, so it is reported as `git`, which is right.
+- **Local git-svn commits** are not a problem: the `svn-remote` config is read before HEAD.
+
+A Git checkout inside an svn working copy is reported as `git`, with a note naming the working copy.
+
+### What setup writes
+
+On a Subversion-hosted project, setup proposes these `project.md` keys, and writes them only when the user confirms:
+
+| Key | Value |
+|---|---|
+| `vcs_backend` | `svn` |
+| `svn_url` | the project base URL, above `trunk` / `branches` / `tags` |
+| `svn_repository_root` | the repository root, when `probe` knows it |
+| `upstream_default_branch` | `trunk`, for the conventional layout only |
+
+A `git-svn-clone` or `git-svn-mirror` checkout is Git: `magpie-vcs` drives it with the `git` backend, which cannot commit to Subversion.
+With `vcs_backend: svn`, a skill passing `--backend svn` then fails on it until the user makes an `svn checkout` of the project; setup says so, and never runs the checkout itself.
+A Git project's values are unchanged.
+
+### Skills that assume GitHub
+
+`upstream_repo` and `upstream_default_branch` are GitHub-shaped.
+On a project with `vcs_backend: svn`:
+
+- **Forge skills** read `upstream_repo` as a GitHub slug for pull requests, issues, Actions or the API: the `pr-management` family, `contributor-growth`, `reviewer-routing`, `pre-first-pr-check`, `ci-runner-audit` and `workflow-security-audit`.
+  They apply only when the project really has a GitHub repository; with `upstream_repo` left `TODO`, they name the missing value when they need it instead of guessing one.
+- **Dev-loop skills** run `git` inline in the upstream checkout: `security-issue-fix`, `issue-fix-workflow`, `issue-reproducer`, `issue-reassess`, `pairing-self-review`, `pairing-multi-agent-review`, `pr-management-code-review` and `pr-management-stack-review`.
+  They work against an SVN working copy only once they call `magpie-vcs`; until then they need a Git checkout.
+- **Skills that resolve `<default-branch>`** get `trunk`: the `issue` triage, stale-sweep, backlog and reassess-stats skills, `audit-finding-fix`, `flaky-test-triage`, the dependency and licence audits, `security-issue-invalidate`, `security-model-verify` and `release-prepare`.
+  `trunk` is right wherever they only name the line of work; where they build a GitHub URL or a Git ref from it, they need the GitHub repository or Git checkout above.
+
 ## How to use
 
 ```bash
@@ -175,6 +254,7 @@ uv run --project tools/vcs --group dev pytest
 # in a skill / shell, against an upstream checkout
 uv run --project tools/vcs magpie-vcs -C ~/code/foo detect
 uv run --project tools/vcs magpie-vcs -C ~/code/foo status
+uv run --project tools/vcs magpie-vcs -C ~/code/foo probe
 ```
 
 Exit codes: `0` success, `1` for `clean` when the tree is dirty, `2`

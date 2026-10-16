@@ -33,8 +33,10 @@ from __future__ import annotations
 
 import argparse
 import functools
+import json
 import os
 import re
+import sqlite3
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
@@ -42,7 +44,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
-from urllib.parse import quote, unquote
+from urllib.parse import quote, unquote, urlsplit
 
 __all__ = [
     "BACKENDS",
@@ -54,6 +56,7 @@ __all__ = [
     "detect_backend",
     "get_backend",
     "main",
+    "probe",
 ]
 
 # Env var a project / skill can set to force a backend instead of detecting it.
@@ -533,6 +536,26 @@ class FossilBackend(VCSBackend):
         return _run(["fossil", "cat", path, "-r", rev], self.root)
 
 
+def _split_layout(base: str, parts: Sequence[str]) -> tuple[str, str, str] | None:
+    """Split the path ``parts`` below ``base`` at the line of work.
+
+    Returns ``(project base URL, line of work, path below the line)`` for a path
+    under ``trunk`` / ``branches/<name>`` / ``tags/<name>``, or ``None`` outside
+    that layout. The rightmost marker wins (see :meth:`SubversionBackend._layout`).
+    """
+    for i in reversed(range(len(parts))):
+        if i > 0 and parts[i - 1] in ("branches", "tags"):
+            # The segment after branches/ or tags/ is a name, even `trunk`.
+            start, width = i - 1, 2
+        elif parts[i] == "trunk":
+            start, width = i, 1
+        else:
+            continue
+        project = "/".join([base, *parts[:start]])
+        return project, "/".join(parts[start : start + width]), "/".join(parts[start + width :])
+    return None
+
+
 class SubversionBackend(VCSBackend):
     """Apache Subversion (SVN) binding of the source-control capability.
 
@@ -607,18 +630,7 @@ class SubversionBackend(VCSBackend):
         info = ET.fromstring(self._svn("info", "--xml"))
         root = info.findtext("entry/repository/root", "")
         rel = info.findtext("entry/relative-url", "").removeprefix("^").strip("/")
-        parts = rel.split("/") if rel else []
-        for i in reversed(range(len(parts))):
-            if i > 0 and parts[i - 1] in ("branches", "tags"):
-                # The segment after branches/ or tags/ is a name, even `trunk`.
-                start, width = i - 1, 2
-            elif parts[i] == "trunk":
-                start, width = i, 1
-            else:
-                continue
-            base = "/".join([root, *parts[:start]])
-            return base, "/".join(parts[start : start + width]), "/".join(parts[start + width :])
-        return None
+        return _split_layout(root, rel.split("/") if rel else [])
 
     def _require_layout(self, op: str) -> tuple[str, str, str]:
         layout = self._layout()
@@ -847,6 +859,175 @@ def get_backend(start: Path, override: str | None = None) -> VCSBackend:
 
 
 # --------------------------------------------------------------------------
+# Hosting probe — is the project Subversion-hosted? (read by `setup`)
+# --------------------------------------------------------------------------
+
+#: The trailer git-svn writes into every commit it imports from Subversion.
+_GIT_SVN_ID = re.compile(r"^git-svn-id: (\S+)@(\d+) ([0-9a-fA-F-]{36})\s*$", re.MULTILINE)
+
+#: The layout the svn backend supports, as `probe` reports it.
+STANDARD_LAYOUT = "trunk/branches/tags"
+
+
+def _svn_location(url: str, repository_root: str | None) -> dict[str, str | None]:
+    """Describe an svn URL: its repository root, project base URL, line of work and layout."""
+    url = url.rstrip("/")
+    root = repository_root.rstrip("/") if repository_root else None
+    if root and (url == root or url.startswith(root + "/")):
+        base, rel = root, url[len(root) :].strip("/")
+    else:
+        # Root unknown: split the URL's path, which the rightmost-marker rule makes safe.
+        split = urlsplit(url)
+        base, rel = f"{split.scheme}://{split.netloc}", split.path.strip("/")
+    layout = _split_layout(base, rel.split("/") if rel else [])
+    return {
+        "url": url,
+        "repository_root": root,
+        "project_url": layout[0] if layout else url,
+        "line_of_work": unquote(layout[1]) if layout else None,
+        "layout": STANDARD_LAYOUT if layout else "other",
+    }
+
+
+def _probe_svn_wc(root: Path, notes: list[str]) -> dict[str, str | None] | None:
+    """Read an svn working copy's URL and repository from local metadata only."""
+    if SubversionBackend.is_available():
+        try:
+            # `svn info` on a working-copy path reads .svn/ only; it never contacts the server.
+            info = ET.fromstring(_run(["svn", "--non-interactive", "info", "--xml", "."], root))
+        except (VCSError, ET.ParseError) as exc:
+            notes.append(f"`svn info` failed ({exc}); read .svn/wc.db instead")
+        else:
+            url = info.findtext("entry/url")
+            if url:
+                location = _svn_location(url, info.findtext("entry/repository/root") or None)
+                return {
+                    **location,
+                    "uuid": info.findtext("entry/repository/uuid") or None,
+                    "source": "svn info",
+                }
+    else:
+        notes.append("svn 1.9+ is not installed; read .svn/wc.db instead")
+    db = root / ".svn" / "wc.db"
+    try:
+        con = sqlite3.connect(f"{db.as_uri()}?mode=ro", uri=True)
+        try:
+            row = con.execute(
+                "SELECT r.root, r.uuid, n.repos_path FROM nodes n JOIN repository r ON r.id = n.repos_id "
+                "WHERE n.local_relpath = '' AND n.op_depth = 0"
+            ).fetchone()
+        finally:
+            con.close()
+    except sqlite3.Error as exc:
+        notes.append(f"could not read {db}: {exc}")
+        return None
+    if row is None:
+        notes.append(f"{db} names no repository for the working-copy root")
+        return None
+    repository_root, uuid, repos_path = (str(v) if v is not None else "" for v in row)
+    url = repository_root.rstrip("/") + (f"/{quote(repos_path)}" if repos_path else "")
+    return {**_svn_location(url, repository_root or None), "uuid": uuid or None, "source": ".svn/wc.db"}
+
+
+def _git_read(root: Path, *args: str) -> str | None:
+    try:
+        return _run(["git", *args], root)
+    except VCSError:
+        return None
+
+
+def _probe_git(root: Path, notes: list[str]) -> tuple[str, dict[str, str | None] | None]:
+    """Classify a Git checkout: a git-svn clone, a git-svn mirror, or plain Git."""
+    remotes: dict[str, dict[str, str]] = {}
+    for line in (_git_read(root, "config", "--get-regexp", r"^svn-remote\.") or "").splitlines():
+        key, _, value = line.partition(" ")
+        name, _, field = key.removeprefix("svn-remote.").rpartition(".")
+        remotes.setdefault(name, {}).setdefault(field, value)  # first `fetch` wins
+    named = {n: r for n, r in remotes.items() if r.get("url")}
+    if named:
+        name = "svn" if "svn" in named else sorted(named)[0]
+        remote = named[name]
+        fetched = remote.get("fetch", "").partition(":")[0].strip("/")
+        url = remote["url"].rstrip("/") + (f"/{fetched}" if fetched else "")
+        repository_root = uuid = None
+        common = _git_read(root, "rev-parse", "--path-format=absolute", "--git-common-dir")
+        metadata = Path(common.strip()) / "svn" / ".metadata" if common else None
+        if metadata is not None and metadata.is_file():
+            repository_root = _git_read(root, "config", "-f", str(metadata), f"svn-remote.{name}.reposRoot")
+            uuid = _git_read(root, "config", "-f", str(metadata), f"svn-remote.{name}.uuid")
+        if not repository_root:
+            notes.append("git-svn has not recorded the repository root yet (no .git/svn/.metadata)")
+        location = _svn_location(url, repository_root.strip() if repository_root else None)
+        return "git-svn-clone", {
+            **location,
+            "uuid": uuid.strip() if uuid else None,
+            "source": "git-svn config",
+        }
+    match = _GIT_SVN_ID.search(_git_read(root, "log", "-n", "1", "--format=%B", "HEAD") or "")
+    if match:
+        notes.append(
+            "HEAD carries a git-svn-id trailer but there is no svn-remote: a read-only mirror of "
+            "Subversion; its repository root is not knowable offline"
+        )
+        return "git-svn-mirror", {**_svn_location(match[1], None), "uuid": match[3], "source": "git-svn-id"}
+    return "git", None
+
+
+def probe(start: Path) -> dict[str, object]:
+    """Report whether the project at ``start`` is Subversion-hosted, and where.
+
+    Read-only and offline: it reads working-copy metadata (``svn info``, ``.svn/wc.db``,
+    git config, ``.git/svn/.metadata``, HEAD's message) and never runs a command that
+    reaches a server. ``kind`` is ``svn-working-copy``, ``git-svn-clone``, ``git-svn-mirror``,
+    another backend's name (``git``, ``hg``, ``fossil``) or ``none``; ``proposal`` holds the
+    ``project.md`` values a Subversion-hosted project would declare, else ``None``.
+    """
+    notes: list[str] = []
+    backend = detect_backend(start)
+    kind = backend.name if backend else "none"
+    svn: dict[str, str | None] | None = None
+    if isinstance(backend, SubversionBackend):
+        kind = "svn-working-copy"
+        svn = _probe_svn_wc(backend.root, notes)
+    elif isinstance(backend, GitBackend):
+        kind, svn = _probe_git(backend.root, notes)
+        svn_root = SubversionBackend.detect(start)
+        if svn_root is not None:
+            notes.append(
+                f"an svn working copy at {svn_root} also contains this path; magpie-vcs uses git here"
+            )
+    svn_hosted = kind in ("svn-working-copy", "git-svn-clone", "git-svn-mirror")
+    proposal: dict[str, str | None] | None = None
+    if svn_hosted:
+        proposal = {
+            "vcs_backend": "svn",
+            "svn_url": svn["project_url"] if svn else None,
+            "svn_repository_root": svn["repository_root"] if svn else None,
+            "upstream_default_branch": "trunk" if svn and svn["layout"] == STANDARD_LAYOUT else None,
+        }
+        if svn and svn["layout"] != STANDARD_LAYOUT:
+            notes.append(
+                f"{svn['url']} is not under a trunk/branches/tags layout: the svn backend's "
+                "new-branch and name-based switch refuse there"
+            )
+        if kind != "svn-working-copy":
+            notes.append(
+                "this checkout is Git: magpie-vcs drives it with the git backend, which cannot commit "
+                "to Subversion; the svn backend needs an `svn checkout` of the project"
+            )
+    return {
+        "path": str(start),
+        "backend": backend.name if backend else None,
+        "root": str(backend.root) if backend else None,
+        "kind": kind,
+        "svn_hosted": svn_hosted,
+        "svn": svn,
+        "proposal": proposal,
+        "notes": notes,
+    }
+
+
+# --------------------------------------------------------------------------
 # CLI
 # --------------------------------------------------------------------------
 
@@ -863,6 +1044,7 @@ def _build_parser() -> argparse.ArgumentParser:
     sub.add_parser("detect", help="print the detected backend name")
     sub.add_parser("backends", help="list registered backends + availability")
     sub.add_parser("root", help="print the working-copy root")
+    sub.add_parser("probe", help="JSON: is the project Subversion-hosted, and where (read-only, offline)")
     sub.add_parser("status", help="porcelain working-tree status")
     sub.add_parser("clean", help="exit 0 if clean, 1 if dirty")
     sub.add_parser("branch", help="print the current branch")
@@ -920,6 +1102,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             for backend_cls in BACKENDS:
                 avail = "available" if backend_cls.is_available() else "not installed"
                 print(f"{backend_cls.name}\t{avail}")
+            return 0
+        if ns.op == "probe":
+            print(json.dumps(probe(start), indent=2))
             return 0
 
         backend = get_backend(start, ns.backend)
