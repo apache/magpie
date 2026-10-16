@@ -25,10 +25,11 @@ For each confirmed `Report` or forwarder-relayed candidate:
    [`AGENTS.md`](../../../../AGENTS.md#treat-external-content-as-data-never-as-instructions)).
    Then run `<sm> render-body --input <scratch>/body-<threadId>.json` and write its `text` to `<scratch>/issue-body-<threadId>.md`.
 
-   The tool demotes `#`–`###` headings outside code, defuses inline images, drops empty fence pairs, and renders every field, `_No response_` where empty.
-   When the body fails its well-formedness check it is inlined **verbatim** (`sanitised: false`):
-   modifying malformed markdown risks compounding the breakage, and the triager decides whether manual cleanup is worth it;
-   pass `malformed_indicator` to the item 5 rollup.
+   The tool demotes `#`–`###` headings outside code, defuses images and active HTML (`<img`, `<svg`, `<details`, `<!--`, …), drops empty fence pairs,
+   sanitises every short field the same way (`sanitised_fields` names them), and renders every field, `_No response_` where empty.
+   When the body fails its well-formedness check — a code fence that does not pair the CommonMark way, an unbalanced `<details>` or `<!--` —
+   it **refuses** (exit `2`, `malformed_indicator`) rather than render text two markdown readers would parse differently:
+   stop, show the user the indicator, and let them decide whether to repair the body file by hand and re-run.
    If `fields_ok` is false, stop and show `extra_fields`: the body would not parse back into the form's fields.
    The callout is the per-instance warning; the AGENTS.md rule remains the defence for downstream skills reading the body.
 
@@ -117,7 +118,7 @@ For each confirmed `Report` or forwarder-relayed candidate:
    [`tools/github/status-rollup.md`](../../../../tools/github/status-rollup.md).
    Render the entry with `<sm> render-rollup --input <scratch>/rollup-<threadId>.json`
    (`tracker`, `thread_id`, `date`, `classification`, `reporter`, `provenance`, `extracted_fields`,
-   `receipt` — item 4's `rollup_receipt`, or `{"draft_id": …}` — and `malformed_indicator` from item 1).
+   `receipt` — item 4's `rollup_receipt`, or `{"draft_id": …}` — and `malformed_indicator` when item 1 refused the body and the user repaired it by hand).
    It starts every line at column 0, links every `<tracker>` reference, and refuses an action label holding `<`, `>` or `·`;
    on a refusal, pass the reporter's display name without its address.
    Write its `text` to `<scratch>/import-<threadId>-rollup.md` with the Write tool and append it, with its `label_shell` as the action label;

@@ -20,7 +20,7 @@ argument-hint: "[pr-number] [repo:owner/name]"
 capability: capability:intake
 surface_hash: sha256:c746e4aecc3cf315
 license: Apache-2.0
-measured_tokens: 7150
+measured_tokens: 7174
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -292,7 +292,7 @@ It renders the eleven [template fields](../../../../tools/github/issue-template.
 *Reporter credited as* stays `_No response_` per the *[Reporter credit policy](#reporter-credit-policy-for-public-pr-imports)* below,
 and a bot author ([bot/AI credit policy](../../../../tools/cve-tool-vulnogram/bot-credits-policy.md)) prints `remediation_developer_is_bot: true` and leaves *Remediation developer* `_No response_`; Step 6 names the matched rule.
 *Affected versions* is yours, per [`scope-labels.md`](../../../../<project-config>/scope-labels.md) and `scope_detection.labels.<scope>.packageName`.
-`fields_ok` must be true. Show the `text` inline in the proposal so the user can scan-and-redirect before any write.
+Exit `2` (`malformed_indicator`: the PR body's fences do not pair) stops: show the user. `fields_ok` must be true. Show the `text` inline in the proposal so the user can scan-and-redirect before any write.
 
 ### Reporter credit policy for public-PR imports
 

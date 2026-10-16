@@ -35,6 +35,8 @@ from typing import Any
 MIXED = "mixed_scope_blocker"
 _TEST = re.compile(r"(?:^|/)tests/")
 _SUBSTITUTION = re.compile(r"<[^<>]+>")
+# A sub-package name substituted into `packageName`: a plain identifier, never a path or a template.
+_SUB_PACKAGE = re.compile(r"^[a-z0-9][a-z0-9._-]*$", re.IGNORECASE)
 _URL = re.compile(r"^https?://github\.com/([^/\s]+/[^/\s#?]+)/pull/(\d+)(?:[/?#].*)?$", re.IGNORECASE)
 _SHORT = re.compile(r"^([A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9._-]+)?#(\d+)$")
 
@@ -77,6 +79,15 @@ def _sub_package(match: re.Match[str], path: str, package_name: str) -> str | No
     return segment or None
 
 
+def _substitute(template: str, name: str) -> str:
+    """`template` with its first `<…>` replaced by `name`, literally (no backreferences)."""
+
+    def literal(_match: re.Match[str]) -> str:
+        return name
+
+    return _SUBSTITUTION.sub(literal, template, count=1)
+
+
 def detect(files: object, config: Mapping[str, Any]) -> dict[str, Any]:
     """The Step 2 result: `scope`, `stop`, `mixed_scopes`, `sub_packages` / `affected_providers`, the file lists."""
     paths = _paths(files)
@@ -110,8 +121,11 @@ def detect(files: object, config: Mapping[str, Any]) -> dict[str, Any]:
             continue
         label, match = hit
         assert match is not None
-        matched.setdefault(label, []).append(path)
         sub = _sub_package(match, path, str(labels[label].get("packageName") or ""))
+        if sub is not None and (not _SUB_PACKAGE.match(sub) or ".." in sub):
+            result["unmatched"].append(path)
+            continue
+        matched.setdefault(label, []).append(path)
         if sub and sub not in subs:
             subs.append(sub)
     result["matched"] = matched
@@ -123,11 +137,7 @@ def detect(files: object, config: Mapping[str, Any]) -> dict[str, Any]:
         result["scope"] = scope
         result["sub_packages"] = subs
         result["packages"] = (
-            [_SUBSTITUTION.sub(s, template, count=1) for s in subs]
-            if subs
-            else [template]
-            if template
-            else []
+            [_substitute(template, s) for s in subs] if subs else [template] if template else []
         )
     result["affected_providers"] = result["sub_packages"]
     return result

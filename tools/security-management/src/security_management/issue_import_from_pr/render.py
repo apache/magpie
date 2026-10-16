@@ -84,7 +84,13 @@ def render_body(data: Mapping[str, Any]) -> dict[str, Any]:
     number = int(pr["number"])
     url = f"https://github.com/{upstream}/pull/{number}"
     cleaned = body.sanitise(str(pr.get("body") or ""))
-    pr_body = refs.linkify(cleaned["text"], upstream, "pull") if cleaned["ok"] else cleaned["text"]
+    if not cleaned["ok"]:
+        return {
+            "ok": False,
+            "refused": f"the PR body is malformed (unpaired {cleaned['indicator']}); it is not rendered",
+            "malformed_indicator": cleaned["indicator"],
+        }
+    pr_body = refs.linkify(cleaned["text"], upstream, "pull")
     note = (
         f"> **Imported from public PR {_pr_link(upstream, number)}** — there is no inbound `security@` report; "
         "the PR description below is the public statement of the vulnerability."
@@ -105,8 +111,8 @@ def render_body(data: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "ok": True,
         "text": text,
-        "sanitised": cleaned["ok"],
-        "malformed_indicator": cleaned["indicator"],
+        "sanitised": True,
+        "sanitised_fields": body.sanitised_fields(fields),
         "fields": parsed,
         "fields_ok": parsed == expected,
         "remediation_developer": developer,
@@ -145,6 +151,8 @@ def rollup(data: Mapping[str, Any]) -> dict[str, Any]:
     developer = one_line(data.get("remediation_developer"))
     if data.get("remediation_developer_is_bot") or not developer or developer == body.NO_RESPONSE:
         developer = f"`_No response_` (the PR author matches the [bot/AI credit policy]({BOT_POLICY}))"
+    else:
+        developer = code(developer)
     lines = [
         f"**Imported from public PR {_pr_link(upstream, number)} on {one_line(data['date'])}** "
         f"(scope: {code(scope)}, PR state: {code(data['state'])}).",
