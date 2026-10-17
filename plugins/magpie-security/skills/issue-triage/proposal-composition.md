@@ -49,6 +49,11 @@ mechanically:
    subsection of `release-trains.md`; honour those when present
    but do not require them.
 
+**`<sm> mentions` applies the priorities and the cap.**
+Write the candidates the searches found, most relevant first — `pr_authors` (rule 1), `reviewers` (rule 2), `topic_owners` (the override below), `scope_default` (rule 3) — with `roster`, `viewer` and the code `pointer`.
+It picks at most one handle each from rules 1 and 2, adds topic owners up to the cap, falls back to one scope-default handle only when 1 and 2 found nobody (with the `fallback_note` to surface), and lists what it `dropped` and why.
+Which PR or reviewer is the relevant one stays your read of the search results.
+
 **Cache the routing decision per code area** within the run —
 if 5 trackers all touch the same code area, the @-mention set is
 identical for all 5 (computed once, re-used).

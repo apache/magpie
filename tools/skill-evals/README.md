@@ -18,7 +18,7 @@ Suites are currently implemented for:
 - **pairing-multi-agent-review** — 15 cases across 6 steps (step-1-collect-diff, step-2a-correctness-pass, step-2b-security-pass, step-2c-conventions-pass, step-3-merge-findings, step-4-compose-report)
 - **pairing-self-review** — 20 cases across 2 steps (step-2-classify-findings, step-3-compose-report)
 - **security-issue-import** — 36 cases across 8 steps; Steps 0, 6 and 7 are decided and pytest-tested in `tools/security-management`
-- **security-issue-triage** — 33 cases across 9 steps
+- **security-issue-triage** — 19 cases across 6 steps (2, 2.5, 2.6, 3, 4, 6); Steps 1, 5 and 7 and the Step 6 bare-name scrub are decided and pytest-tested in `tools/security-management`
 - **security-issue-deduplicate** — 18 cases across 6 steps (steps 1, 2, 3, 4, 5, 6)
 - **security-cve-allocate** — 22 cases across 6 steps (steps 1, 2, 3, 4, 5, 7)
 - **security-issue-sync**: 86 cases across 15 steps (1d, 1f, 2a, 2b, 2c, 3, 5b, 6, bulk-orchestration, bulk-selectors, draft-backend, ghsa-access-tier, guardrails, handoff-delegate, security-cc)

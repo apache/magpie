@@ -12,7 +12,8 @@ the remaining items are per-tracker. Each tracker gets:
 
 1. **Issue body + last 10 comments** — one aliased GraphQL query per chunk of up to 20 trackers from the Step 1 list
    (a list of 20 or fewer is one round-trip; larger lists take ⌈N/20⌉, which keeps each response well inside GitHub's GraphQL timeout).
-   Write the query with the Write tool to a scratch file — it holds only issue numbers and the `<tracker>` owner/name — and run it as a plain `gh api graphql -F query=@<file>`:
+   `<sm> queue` prints each chunk's query, file and command:
+   write the query with the Write tool to that scratch file — it holds only issue numbers and the `<tracker>` owner/name — and run it as a plain `gh api graphql -F query=@<file>`:
 
    ```graphql
    query {
@@ -161,6 +162,12 @@ Skip a tracker only when **all** of these hold; if any one fails, or cannot be e
 | 4 | No later reporter mail | When the *Security mailing list thread* body field resolves to a Gmail `threadId`: the thread's newest message (one `mcp__claude_ai_Gmail__get_thread(threadId, messageFormat='MINIMAL')`, the same read item 4 makes) is dated at or before that comment's `createdAt`. A newer message, an unreachable Gmail, or an unparsable date keeps the tracker. When the field resolves to no Gmail `threadId`, item 4 reads no mail either, and this signal holds. |
 
 Record a skipped tracker as `skip-awaiting-reaction` with the proposal's `createdAt` and the proposed class read from its `**Proposed disposition: <CLASS>.**` line.
+
+**`<sm> preflight` applies the rule.** Write the chunk's GraphQL output as `responses` (or its issue nodes as `trackers`), with `roster` (the Step 0 handles), `body_fields` and the `retriage` / `no_preflight` / `explicit` flags.
+It reads the *Security mailing list thread* field through github-body-field, so a field it cannot decide on keeps the tracker.
+A tracker passing rules 1–3 with a Gmail thread comes back in `mail_checks` with its `thread_id`:
+make that one MINIMAL read and run the command again with `mail: {"<N>": {"newest": <date>}}` (or `{"error": true}` when Gmail is unreachable).
+It prints `kept`, `skipped` (number, proposal date, proposed class, rule), `explicit_notes` (Step 5's *"already carries an unanswered proposal"* line), `missing_numbers` (aliases that came back `null`) and `all_skipped`.
 Items 2–6, Steps 2.5 / 2.6 / 3 / 4, and the bulk-mode subagent are all skipped for it.
 
 **Hard rules.**

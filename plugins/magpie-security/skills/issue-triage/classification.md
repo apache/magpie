@@ -155,7 +155,7 @@ once the team confirms. Draft template:
 > you still see the issue, please reply on this thread with
 > the failing reproduction and we will reopen the discussion.
 
-Fill in `<NNN>`, `<author>`, and the merge date from the Step 2
+`<sm> render-proposal` renders this draft from the candidate PRs (`upstream`, `prs`); fill in `<NNN>`, `<author>`, and the merge date from the Step 2
 detection. If the PR is open (not yet merged), substitute
 *"open since YYYY-MM-DD"* for *"merged YYYY-MM-DD"*. If multiple
 candidate PRs were surfaced, the draft lists each (the team
