@@ -56,7 +56,7 @@ bridge only executes confirmed actions.
 
 ## Prerequisites
 
-- **Runtime:** Groovy 4.x+ on `PATH` (`groovy tools/jira/bridge.groovy …`); `@Grab` pulls the HTTP-client dependencies on first run, no separate install step. Python 3.11+ via `uv` (standard library only) for `jira_bridge.rest`, `magpie-jira-tracker` and the pytest harness.
+- **Runtime:** Groovy 4.x+ on `PATH` (`groovy tools/jira/bridge.groovy …`); `@Grab` pulls the HTTP-client dependencies on first run, no separate install step. Python 3.11+ via `uv` (standard library only; body fields go through a vendored copy of `github-body-field`'s parser) for `jira_bridge.rest`, `magpie-jira-tracker` and the pytest harness.
 - **CLIs:** `groovy` (4.x — the `@Grab` coordinate uses the `org.apache.groovy` group ID); `uv` only to run the tests.
 - **Credentials / auth:** `ISSUE_TRACKER_URL` (required) and `ISSUE_TRACKER_PROJECT` exported by the caller; write subcommands require `JIRA_API_TOKEN` (`JIRA_AUTH_SCHEME` = `Basic` default, or `Bearer` for ASF PATs). Anonymous-read trackers need no auth for read subcommands.
 - **Network:** the configured `<issue-tracker>` JIRA host (e.g. `issues.apache.org/jira`); `@Grab` reaches Maven Central on first run to resolve dependencies.
@@ -312,11 +312,14 @@ Under vetted-ops the URL, project and level are pinned by the policy's `[tracker
 | `comment` | `--author` is echoed but Jira records the authenticated user. |
 | `close` / `reopen` | A transition into (or out of) the *Done* category; `close` sets `Fixed` or `Won't Fix` and retries without a resolution when the screen rejects one. |
 | `attach` | Multipart upload; `--name` reduced to a base name. |
-| `body` | The description with `h1.`–`h6.` headings as markdown `#`–`######`, raw (not JSON), for `generate-cve-json --stdin`. |
+| `body` | The description with its field headings as `### <Heading>` and `h4.`–`h6.` as `####`–`######`, raw (not JSON), for `generate-cve-json --stdin`: the same fields `field-get` reads. |
 | `pending` / `publish` | No-ops: Jira writes are immediate. |
 | `doctor` | URL, project, confirmed token, configured level, `/myself`, project reachability, and whether the level exists (403/404 on the listing reports *unverified*). |
 
-**Storage.** Body fields are `h3. <Heading>` wiki-markup sections of the description (markdown `###` sections are read too); headings inside `{code}`, `{noformat}` and fences are ignored.
+**Storage.** Body fields are `h3. <Heading>` wiki-markup sections of the description (markdown `###` sections are read too), read and written through a byte-identical copy of [`github-body-field`](https://github.com/apache/magpie/blob/main/tools/github-body-field/README.md)'s parser (`body_field_format.py`, kept exact by a test), so they follow the [body-field contract](https://github.com/apache/magpie/blob/main/tools/github/issue-template.md):
+every column-0 `###` line ends a field, code block or not, a heading inside a closed code block is never a field, and a `{code}` / `{noformat}` macro opened mid-line before field headings is refused as ambiguous.
+A wiki heading of level 1 to 3 outside closed blocks reads as `### <Heading>`; closed blocks are CommonMark fence pairs and `{code}` / `{code:…}` / `{noformat}` blocks opened at the start of a line and closed on the bare macro, and a block left open marks nothing.
+`create` and `edit` escape every `###` line inside a closed block with a leading `\`, so quoted text never becomes a field copy. Names match with case and inner whitespace ignored; `field-get` and `field-set` exit `4` on a duplicate or disputed field, and `field-set` on a value that would add, hide or move a field heading.
 The status rollup is one comment opening with the invisible anchor `{anchor:magpie-status-rollup-v1}`, entries `*YYYY-MM-DD · @user · Action*` separated by `----`, oldest first;
 `rollup-amend-latest` exits `4` when the latest action differs. Neither rollup command prints the rollup text.
 

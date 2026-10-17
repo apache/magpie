@@ -2,7 +2,7 @@
   "has_allowlist_sanitiser": {
     "type": "regex",
     "field": "bash_command",
-    "pattern": "tr\\s+-cd\\s+'A-Za-z0-9._ -'"
+    "pattern": "security-management\\s+issue-import-from-md\\s+keyword\\s+--file\\s+\\S*-kw\\.txt"
   },
   "has_keyword_from_file": {
     "type": "contains",

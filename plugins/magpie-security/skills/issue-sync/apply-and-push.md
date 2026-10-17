@@ -265,10 +265,11 @@ In every other case — including already-published CVEs — regenerate.
 The minimum command, from the `<tracker>` clone root:
 
 ```bash
-uv run --project <framework>/tools/cve-tool-vulnogram/generate-cve-json generate-cve-json <N> --attach
+uv run --project <framework>/tools/cve-tool-vulnogram/generate-cve-json generate-cve-json <N> --attach --report-json <scratch>/cve-report-<N>.json
 ```
 
 That alone is enough: the script reads every template field from the issue body, emits the full CVE 5.x record, and patches (or appends to) the tracking issue body in place.
+When any of the report's `normalisation_changes`, `missing_required` or `needs_decision` is non-empty (`needs_decision` exits 2), follow [`outcomes/cve-json-fallback.md`](outcomes/cve-json-fallback.md).
 
 ### Remediation-developer credit comes from the body field
 

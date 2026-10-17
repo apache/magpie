@@ -112,6 +112,8 @@ magpie-dev = { workspace = true }
 checker = { workspace = true }
 jira-bridge = { workspace = true }
 release-config = { workspace = true }
+github-body-field = { workspace = true }
+generate-cve-json = { workspace = true }
 
 
 [tool.uv.workspace]
@@ -144,6 +146,7 @@ members = [
   "tools/release-verify",
   "tools/reproducible-archive",
   "tools/sandbox-lint",
+  "tools/security-management",
   "tools/security-tracker-stats-dashboard",
   "tools/setup-preflight",
   "tools/skill-and-tool-validator",

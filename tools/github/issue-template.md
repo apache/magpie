@@ -43,12 +43,15 @@ renamed, or removed:
    the concrete field name each skill role maps to. Renaming the
    field in the YAML requires updating this mapping.
 3. **The skills that write fresh issue bodies** — `security-issue-import`
-   emits a heredoc body with the full field set; when the schema
-   changes, the heredoc must change in lock-step.
+   renders the full field set with
+   [`security-management issue-import render-body`](../security-management/README.md)
+   (`DEFAULT_HEADINGS` in `security_management/shared/body.py`, each overridable through
+   `tracker.body_fields`); when the schema changes, that list must change in lock-step,
+   and so must the sibling import skills' `tracker-body-template.md` files (a test pins them to it).
 
 No skill parses the YAML at runtime. The field list is hand-
-maintained in the project manifest and in the `security-issue-import`
-heredoc, and the three surfaces are kept aligned by convention.
+maintained in the project manifest and in `security-management`,
+and the three surfaces are kept aligned by convention.
 
 ## Field roles the skills use
 

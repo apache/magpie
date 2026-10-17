@@ -99,8 +99,9 @@ The per-candidate budget is ≤ 2 archive searches (whichever backend) for the p
    ```
 
    Cross-reference the hits' `threadId`s against existing trackers in one batched query, as in Step 2 —
-   `gh search issues "<threadId-1> OR … OR <threadId-6>" --repo <tracker> --match body --limit 100 --json number,body`
-   (≤ 6 IDs per query), attributing each hit to the `threadId` its body contains
+   the `dedup-queries` batches (≤ 6 IDs per query) run as
+   `gh search issues "<query>" --repo <tracker> --match body --limit 100 --json number,body`,
+   with `dedup-attribute` attributing each hit to the `threadId` its body contains
    (the *Security mailing list thread* field or the rollup's threadId backfill note).
    The hits with **no** corresponding tracker are the "rejected without tracker" precedents.
 
@@ -216,29 +217,13 @@ Present all candidates as a single numbered proposal grouped by class:
 
 ### fix-already-public reply shape
 
-For each `fix-already-public` candidate, propose this draft (fill
-in the placeholders from the Step 2c match):
-
-> Thank you for taking the time to report this through
-> `<security-list>`. We noticed that
-> [`<upstream>#<NNN>`](https://github.com/<upstream>/pull/NNN)
-> ([`<author>`](https://github.com/<author>), <merged/opened> on
-> YYYY-MM-DD) already appears to address what you described.
->
-> Per our policy, we do not add a finder when the fix to the
-> reported issue is already public at the time of report — but
-> we very much appreciate your effort in writing to us, and the
-> care you took to send it via the private channel.
->
-> Could you check whether
-> [`<upstream>#<NNN>`](https://github.com/<upstream>/pull/NNN)
-> fixes the behaviour you observed? If it does, no further action
-> is needed on your side. **If after testing with this PR you
-> still see the issue, please reply on this thread with the
-> failing reproduction** and we will reopen the assessment as a
-> regular report.
-
-Substitute *"opened on"* when the PR is not yet merged.
+For each `fix-already-public` candidate, propose the draft
+`security-management issue-import render-fix-public-reply` prints
+([`tools/security-management`](../../../../tools/security-management/README.md)):
+write `upstream`, `security_list` and the Step 2c match's `prs[]` (`number`, `author`, `state`, `date`) to a file with the Write tool and pass it as `--input`.
+The reply thanks the reporter for using `<security-list>`, links each PR with its author and *"merged on"* / *"opened on"* date,
+says that per policy no finder is added when the fix was already public at the time of report,
+and asks the reporter to verify the PR and reply on the thread with a failing reproduction if they still see the issue.
 If Step 2c surfaced multiple candidate PRs and the user has not narrowed to one,
 list each PR on its own line and ask the user to pick (or keep all if each covers a different aspect of the report).
 
@@ -363,6 +348,9 @@ to import; the user only types back to *deviate* from that default):
 - `NN:edit <freeform>` — fold a freeform note (extra context, a
   different title, a smaller body excerpt) into the import; tracker
   is still created with the edits applied.
+- `NN:title <text>`, `NN:reporter <text>`, `NN:severity <text>` — override one proposed field;
+  the tracker is still created. A severity override is the team's own score, never the reporter's.
+- `keep <threadId>` — send a thread the Step 1 pre-filter dropped back through Steps 2 to 5.
 - `none` / `cancel` — bail entirely; no trackers, no drafts.
 
 **There is deliberately no "create the tracker so the team can close

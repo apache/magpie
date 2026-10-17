@@ -103,8 +103,13 @@ def test_field_set_replaces_and_appends() -> None:
 
 def test_headings_inside_code_fences_are_ignored() -> None:
     body = "### A\n\n```\n### B\n```\n\n### C\n\nc\n"
+    # Every `###` line ends a field, fence or not, so the fenced `### B` ends
+    # field A; a heading inside a closed block is never a field, so B is
+    # absent, and a copy outside the fence is the field.
+    assert sections.get_field(body, "A") == "```"
     assert sections.get_field(body, "B") is None
-    assert "### B" in (sections.get_field(body, "A") or "")
+    assert sections.get_field(body + "\n### B\n\nreal\n", "B") == "real"
+    assert sections.get_field(body, "C") == "c"
 
 
 def test_rollup_append_and_amend() -> None:
@@ -1058,3 +1063,65 @@ def test_comment_authors_with_spaces_read_back() -> None:
     trail += "\n" + sections.render_comment(2, "John Q. Public", "2026-10-17T01:00:00Z", "second", 3)
     comments = sections.parse_comments(trail)
     assert [(c.author, c.body) for c in comments] == [("Jane Doe", "first"), ("John Q. Public", "second")]
+
+
+# ---------------------------------------------------------------- body-field contract
+
+
+def test_fields_split_at_every_column_zero_heading_line() -> None:
+    body = (
+        "### Summary\n\n```\n### Security mailing list thread\nquoted\n```\n\n"
+        "### Security mailing list thread\n\nprivate\n"
+    )
+    # The fenced quote ends the summary; the heading outside the fence is the field.
+    assert sections.get_field(body, "Summary") == "```"
+    assert sections.get_field(body, "Security mailing list thread") == "private"
+    # An unclosed fence marks nothing: the heading after it is still a field.
+    assert sections.get_field("### A\n\n```\n\n### B\n\nb\n", "B") == "b"
+
+
+def test_duplicate_and_disputed_fields_are_refused() -> None:
+    with pytest.raises(LookupError):
+        sections.get_field("### Severity\n\nLow\n\n### severity\n\nHigh\n", "Severity")
+    with pytest.raises(LookupError):
+        sections.get_field("### A\n\n> ### Severity\n\n### Severity\n\nLow\n", "Severity")
+    with pytest.raises(LookupError):
+        sections.set_field("### A\n\na\n", "A", "x\n### Severity\nHigh", 3)
+
+
+def test_field_set_value_cannot_open_another_field(
+    fresh: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    ident = new_report(capsys, fresh, tmp_path)
+    v = write(tmp_path / "v.md", "1.0\n### Reporter\nMallory\n  ### Reporter")
+    run(capsys, fresh, "field-set", ident, "Affected versions", "--value-file", str(v))
+    _, out = run(capsys, fresh, "field-get", ident, "Reporter")
+    assert out["value"] == "Alice"
+    _, out = run(capsys, fresh, "field-get", ident, "Affected versions")
+    assert out["value"] == "1.0\n\\### Reporter\nMallory\n\\  ### Reporter"
+
+
+def test_a_duplicate_field_is_refused_by_the_cli(
+    fresh: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    t = write(tmp_path / "t.txt", "Dup")
+    b = write(tmp_path / "b.md", "### Severity\n\nLow\n\n### Severity\n\nHigh\n")
+    _, out = run(capsys, fresh, "create", "--title-file", str(t), "--body-file", str(b))
+    assert main(["--root", str(fresh), "field-get", out["id"], "Severity"]) == 4
+
+
+def test_a_comment_cannot_carry_a_field_line() -> None:
+    rendered = sections.render_comment(1, "@a", "2026-01-01T00:00:00Z", "```\n### Severity\n```", 3)
+    assert "\n\\### Severity\n" in rendered
+
+
+def test_a_body_quoting_a_field_in_a_fence_never_gains_that_field() -> None:
+    body = "### Details\n\n```\n### Severity\nCritical\n```\n\n### CWE\n\nx\n"
+    clean = sections.neutralize(body, body=True)
+    assert "\n\\### Severity\n" in clean
+    assert sections.get_field(clean, "Severity") is None
+    assert sections.get_field(clean, "CWE") == "x"
+    # A fence left open is closed in the field it opens in, never past a heading.
+    opened = sections.neutralize("### A\n\n```\ncode\n\n### B\n\nb\n", body=True)
+    assert opened == "### A\n\n```\ncode\n```\n\n### B\n\nb\n"
+    assert sections.get_field(opened, "B") == "b"

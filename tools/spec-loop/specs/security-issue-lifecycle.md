@@ -59,6 +59,44 @@ publication, with a human gate and an audit-log entry at every step.
   each (#1499).
   Moved headings keep a one-line pointer in `SKILL.md` so anchors still
   resolve, and eval `step-config.json` files point at the sibling.
+- `tools/security-management` (stdlib, runs nothing) holds the
+  deterministic rules of the security skills, one CLI family per skill
+  over a shared library (`body`, `rollup`, `refs`, `titles`, `grammar`,
+  `keyword`). For `security-issue-import` it decides the Step 0
+  disclosure-governance defaults, the Step 1 pre-filter, the Step 2
+  `threadId` batches and their attribution, the Step 3 forwarder
+  pre-screen, the Step 6 reply grammar and the Step 7 receipt-draft
+  matrix, and renders the tracker body (the report as an inert fenced
+  block, `_No response_` for empty fields, headings from
+  `tracker.body_fields`), the rollup entry,
+  the rejections-ledger record, the fix-already-public reply and the
+  Step 8 recap. Classification, field extraction, PII identification,
+  fuzzy duplicates and canned-response choice stay with the model;
+  report text reaches the tool only in files the Write tool created.
+  For `security-issue-import-from-pr` it parses the PR reference
+  (refusing other repositories), detects the scope from the changed
+  files (tests stripped, mixed-scope stop, sub-packages of one scope),
+  checks the milestone by exact match, builds the duplicate query (warning
+  at 30 hits), and renders the title, body (sentinels, bot author left
+  `_No response_`), labels, rollup entry and recap; the milestone
+  choice, title paraphrase and *Affected versions* stay with the model.
+  For `security-issue-import-from-md` it parses the findings file
+  (`not-a-findings-file` on another shape, `UNKNOWN` severity and
+  `<upstream>` fallback with warnings), cleans the search keyword, and
+  renders the body (each section an inert block, the Recommended-fix
+  `<details>`), rollup entry, proposal table and recap; duplicate
+  judgement and the credit decision stay with the model.
+  For `security-issue-import-via-forwarder` it runs the Step 0 checks,
+  detects the adapter (first enabled match wins, collaborator warning),
+  classifies a credit's kind under the bot/AI policy and routes the draft
+  (first contact handle, question mode, negative-space suppression in
+  sync); credit-line extraction and naming the milestone stay with the
+  model, and it never redacts again.
+  For `security-issue-import-from-scan` it enforces that only the
+  import-as-tracker bucket creates a tracker, renders the per-scan and
+  cross-scan triage report, parses the operator's decision and lists the
+  scrub hits of a public report without rewriting it; bucketing and its
+  grounding stay with the model.
 - Shared recipes instead of per-skill copies (#1437): the safe-create
   recipe for a tracker with an attacker-controlled title is
   `tools/github/operations.md` § *Create* (Write-tool title file,
@@ -100,6 +138,49 @@ publication, with a human gate and an audit-log entry at every step.
   `#NNN` are public-safe identifiers; tracker *contents* are private;
   the security framing of a public PR is embargoed until the advisory
   ships.
+- **Report text is inert in the tracker (#1672).** The importers put
+  reporter-derived long text (the mail body, the PR description, each
+  findings-file section) into the body as one fenced block with info
+  string `text`, its fence one backtick longer than the longest backtick
+  run in the text. Nothing in it renders — no image, HTML, heading, link
+  or mention — and its content is byte-exact except two escapes: a line
+  that would end a field (`###` then a space, a tab or nothing, at column
+  0 or behind `>`, list markers or indent, whatever the name), and a line
+  starting with `<!--` (a machine marker), each get a leading `\` and are
+  listed in `escaped_lines`. Short fields
+  stay one-line escaped values. The rendered body must pass
+  github-body-field's normaliser (exactly the template fields once each,
+  nothing to decide) or the render is refused. Reporter formatting
+  therefore shows as plain text.
+- **Field reads and writes fail closed (#1672).** github-body-field is the
+  one implementation of the body-field contract, for reading and writing;
+  generate-cve-json and vetted-ops (a byte-identical copy) read through
+  it. Every `###` line at column 0 (then a space, a tab or nothing) ends a
+  field, code block or not, so no fence or macro can merge two fields;
+  closed code blocks (CommonMark fence pairs, Jira `{code}` /
+  `{noformat}` blocks) only choose which `### <name>` is the field — the
+  one outside every closed block; a field quoted only inside closed blocks
+  is absent — and a block left open marks nothing. A Jira macro opened
+  mid-line before field headings is a `macro-ambiguous` decision. Two copies outside closed blocks with different
+  values are a `duplicate` decision; a heading-shaped line that ends no
+  field but names a known field is a `container-heading` decision, never
+  taken and never ignored. `extract_field` / `body-field-get` refuse an
+  ambiguous field and `replace_field` / `body-field-set` refuse a value
+  holding a line that would end the field, a span holding a
+  heading-shaped line, and a rewrite that would change another field. The
+  local-files tracker and the Jira bridge read and write fields through
+  byte-identical copies of the parser (the Jira bridge after reading wiki
+  `h1.`–`h3.` headings outside closed blocks as `### <Heading>`), matching
+  names case-insensitively; a test runs every implementation over the same
+  bodies and requires the same reads and writes.
+- **CVE fields come from the team or a confirmed proposal (#1672).** When
+  `generate-cve-json --report-json` lists missing or ambiguous fields,
+  sync, cve-allocate and deduplicate follow
+  `issue-sync/outcomes/cve-json-fallback.md`: the session's own model
+  proposes values (never *Severity*, never the CVE link), the user
+  confirms each, and the rollup records them as AI-proposed; a duplicate
+  is resolved by the user's choice through `body-field normalise --keep`
+  and a confirmed whole-body rewrite.
 - **Reporter PII redacted in-context; reporter *credit* preserved** in
   the CVE `credits[]` only after the reporter confirms on the thread.
 - **Audit log** of every applied change (redacted identifiers only).
@@ -314,6 +395,9 @@ publication, with a human gate and an audit-log entry at every step.
 5. A `sync CVE-…` selector picks only trackers whose *CVE tool link*
    field carries that ID, and the bulk pre-flight never prints a private
    comment body (#1554, #1558).
+6. An imported report renders as one inert block, and every body-field
+   reader in the tree finds exactly the template fields once each in the
+   result, whatever fences or fake `###` lines the report holds (#1672).
 
 ## Validation
 

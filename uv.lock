@@ -49,6 +49,7 @@ members = [
     "release-verify",
     "reproducible-archive",
     "sandbox-lint",
+    "security-management",
     "security-tracker-stats-dashboard",
     "setup-preflight",
     "skill-and-tool-validator",
@@ -634,6 +635,9 @@ dev = [{ name = "magpie-dev", editable = "tools/dev" }]
 name = "generate-cve-json"
 version = "0.1.0"
 source = { editable = "tools/cve-tool-vulnogram/generate-cve-json" }
+dependencies = [
+    { name = "github-body-field" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -641,6 +645,7 @@ dev = [
 ]
 
 [package.metadata]
+requires-dist = [{ name = "github-body-field", editable = "tools/github-body-field" }]
 
 [package.metadata.requires-dev]
 dev = [{ name = "magpie-dev", editable = "tools/dev" }]
@@ -1962,6 +1967,29 @@ dev = [
 ]
 
 [package.metadata]
+
+[package.metadata.requires-dev]
+dev = [{ name = "magpie-dev", editable = "tools/dev" }]
+
+[[package]]
+name = "security-management"
+version = "0.1.0"
+source = { editable = "tools/security-management" }
+dependencies = [
+    { name = "generate-cve-json" },
+    { name = "github-body-field" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "magpie-dev" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "generate-cve-json", editable = "tools/cve-tool-vulnogram/generate-cve-json" },
+    { name = "github-body-field", editable = "tools/github-body-field" },
+]
 
 [package.metadata.requires-dev]
 dev = [{ name = "magpie-dev", editable = "tools/dev" }]

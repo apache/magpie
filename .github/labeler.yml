@@ -564,6 +564,7 @@ substrate:analytics:
               - 'tools/dashboard-generator/**'
               - 'tools/pr-management/**'
               - 'tools/preflight-audit/**'
+              - 'tools/security-management/**'
               - 'tools/security-tracker-stats-dashboard/**'
               - 'tools/skill-token-count/**'
               - 'tools/spec-inventory/**'

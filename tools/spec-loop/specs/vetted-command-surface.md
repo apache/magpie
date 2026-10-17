@@ -89,6 +89,10 @@ Skills write with `vetted-op-tracker --caller <skill> rollup-append|rollup-amend
 and read a field with `vetted-op-read --caller <skill> body-field-get …`;
 the `github-rollup` and `github-body-field` uv CLIs remain for use outside the
 sandbox (#1448).
+`body-field-get` and `body-field-set` use the vendored copy of
+github-body-field's parser (kept byte-identical, with a parity test), so
+they refuse a field readers could disagree on, and `body-field-set`
+refuses a rewrite that would change any other field (#1672).
 On stdout, `body-field-get` prints the one value and `rollup-append` /
 `rollup-amend-latest` print the rollup comment's URL (`…#issuecomment-<id>`),
 so a caller can link to the entry without reading the rollup (#1451).

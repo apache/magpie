@@ -17,15 +17,15 @@ Suites are currently implemented for:
 - **setup-shared-config-sync** — 12 cases across 2 steps (step-3-decide-action, step-5-draft-commit)
 - **pairing-multi-agent-review** — 15 cases across 6 steps (step-1-collect-diff, step-2a-correctness-pass, step-2b-security-pass, step-2c-conventions-pass, step-3-merge-findings, step-4-compose-report)
 - **pairing-self-review** — 20 cases across 2 steps (step-2-classify-findings, step-3-compose-report)
-- **security-issue-import** — 45 cases across 11 steps
+- **security-issue-import** — 36 cases across 8 steps; Steps 0, 6 and 7 are decided and pytest-tested in `tools/security-management`
 - **security-issue-triage** — 33 cases across 9 steps
 - **security-issue-deduplicate** — 18 cases across 6 steps (steps 1, 2, 3, 4, 5, 6)
 - **security-cve-allocate** — 22 cases across 6 steps (steps 1, 2, 3, 4, 5, 7)
 - **security-issue-sync**: 86 cases across 15 steps (1d, 1f, 2a, 2b, 2c, 3, 5b, 6, bulk-orchestration, bulk-selectors, draft-backend, ghsa-access-tier, guardrails, handoff-delegate, security-cc)
 - **security-issue-fix** — 50 cases across 15 steps (2, 3, 5a–5g, 6, 7, 11, and the flow choice plus Subversion steps 8 and 9)
 - **security-issue-invalidate** — 24 cases across 9 steps (2, 3, 4, 5a, 5b, 5d, 5e, 5f, 7)
-- **security-issue-import-from-md** — 11 cases across 4 steps (1, 2, 4, 6)
-- **security-issue-import-from-pr** — 13 cases across 4 steps (2, 3, 6, 8)
+- **security-issue-import-from-md** — 7 cases across 4 steps (1, 2, 4, 6); the Step 1 parser and Step 2 keyword clean are pytest-tested in `tools/security-management`
+- **security-issue-import-from-pr** — 8 cases across 3 steps (3, 6, 8); Step 2 is decided and pytest-tested in `tools/security-management`
 - **issue-triage** — 22 cases across 5 steps (step-1-resolve-selector, step-3-classify, step-4-compose-comment, step-5-confirm, step-7-recap)
 - **issue-reproducer** — 27 cases across 7 steps (step-1-inventory, step-2-pick-candidate, step-3-classify-shape, step-5.5-confirm, step-7-verify, step-8-baselines, step-10-compose-verdict)
 - **issue-fix-workflow** — 20 cases across 7 steps (step-2-locate-area, step-6-scope-check, step-7-compose-commit, step-8-handback)
@@ -82,7 +82,7 @@ Suites are currently implemented for:
 - **release-vote-tally** — 3 cases across 3 suites (step-0-preflight, step-2-classify, step-3-tally); the verdict, the tally and the `[RESULT] [VOTE]` body are code, pytest-tested in `tools/release-management`
 - **reviewer-routing** — 1 case across 1 suite (step-score-and-propose); pre-flight and scoring are pytest-tested in `tools/pr-management`
 - **security-issue-import-from-scan** — 4 cases across 1 suite (step-c-bucket)
-- **security-issue-import-via-forwarder** — 18 cases across 4 suites (step-0-preflight, step-1-detect-adapter, step-2-extract-credit, step-3-route-drafts)
+- **security-issue-import-via-forwarder** — 6 cases across 2 suites (step-1-detect-adapter, step-2-extract-credit); Steps 0 and 3 and the scripted Step 1 cases are pytest-tested in `tools/security-management`
 - **security-tracker-stats-dashboard** — 11 cases across 3 suites (step-1-resolve-config, step-2-cache-freshness, step-3-hard-rules)
 - **setup-override-upstream** — 15 cases across 4 suites (step-0-preflight, step-1-pick-override, step-3-decide-upstreamable, step-6-pr-confirm)
 - **setup-upstream-fix** — 12 cases across 3 suites (step-2-classify, step-3-dedup, step-5-adversarial-review)

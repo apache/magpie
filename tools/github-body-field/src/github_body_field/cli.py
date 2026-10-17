@@ -32,28 +32,31 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from github_body_field.parser import (
+    AmbiguousFieldError,
     FieldNotFoundError,
     extract_field,
     list_fields,
+    normalise,
     replace_field,
 )
 
 
 def _gh_get_body(issue: str, repo: str | None) -> str:
-    cmd = ["gh", "issue", "view", issue, "--json", "body", "--jq", ".body"]
+    # The body travels as JSON: a CR is escaped there, so text-mode newline
+    # translation cannot turn CRLF into LF before the parser sees it.
+    cmd = ["gh", "issue", "view", issue, "--json", "body"]
     if repo:
         cmd.extend(["--repo", repo])
     result = subprocess.run(cmd, capture_output=True, text=True, check=False)
     if result.returncode != 0:
         sys.stderr.write(result.stderr)
         raise SystemExit(result.returncode or 1)
-    # `gh --jq .body` returns the body with a trailing newline appended
-    # by gh's JSON-to-text serialiser; strip exactly one to keep the
-    # round-trip byte-exact.
-    body = result.stdout
-    if body.endswith("\n"):
-        body = body[:-1]
-    return body
+    return str(json.loads(result.stdout).get("body") or "")
+
+
+def _read_exact(path: str) -> str:
+    """A local file's text with its line endings exactly as stored."""
+    return Path(path).read_bytes().decode("utf-8")
 
 
 def _gh_set_body(issue: str, repo: str | None, body: str) -> None:
@@ -77,7 +80,7 @@ def _read_value(args: argparse.Namespace) -> str:
     if args.value_file is not None:
         if args.value_file == "-":
             return sys.stdin.read()
-        return Path(args.value_file).read_text(encoding="utf-8")
+        return _read_exact(args.value_file)
     sys.stderr.write("error: one of --value / --value-file is required\n")
     raise SystemExit(2)
 
@@ -86,6 +89,9 @@ def _cmd_get(args: argparse.Namespace) -> int:
     body = _gh_get_body(args.issue, args.repo)
     try:
         value = extract_field(body, args.field)
+    except AmbiguousFieldError as exc:
+        sys.stderr.write(f"{exc}\n")
+        return 2
     except FieldNotFoundError as exc:
         sys.stderr.write(f"{exc}\n")
         return 3
@@ -112,6 +118,9 @@ def _cmd_set(args: argparse.Namespace) -> int:
     body = _gh_get_body(args.issue, args.repo)
     try:
         new_body = replace_field(body, args.field, new_value)
+    except AmbiguousFieldError as exc:
+        sys.stderr.write(f"{exc}\n")
+        return 2
     except FieldNotFoundError as exc:
         sys.stderr.write(f"{exc}\n")
         return 3
@@ -135,6 +144,42 @@ def _cmd_set(args: argparse.Namespace) -> int:
         return 0
 
     _gh_set_body(args.issue, args.repo, new_body)
+    return 0
+
+
+def _read_known_fields(path: str | None) -> list[str] | None:
+    if path is None:
+        return None
+    names = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(names, list) or not all(isinstance(n, str) for n in names):
+        sys.stderr.write("error: --fields-json must hold a JSON array of field names\n")
+        raise SystemExit(2)
+    return names
+
+
+def _read_keep(items: Sequence[str]) -> dict[str, int]:
+    keep: dict[str, int] = {}
+    for item in items:
+        name, _, line = item.rpartition("=")
+        if not name or not line.isdigit():
+            sys.stderr.write(f"error: --keep expects FIELD=LINE, got {item!r}\n")
+            raise SystemExit(2)
+        keep[name] = int(line)
+    return keep
+
+
+def _cmd_normalise(args: argparse.Namespace) -> int:
+    if (args.issue is None) == (args.body_file is None):
+        sys.stderr.write("error: pass exactly one of <issue> or --body-file\n")
+        return 2
+    body = _read_exact(args.body_file) if args.body_file is not None else _gh_get_body(args.issue, args.repo)
+    result = normalise(body, _read_known_fields(args.fields_json), _read_keep(args.keep))
+    report: dict[str, object] = {**result.as_dict(), "changed": result.text != body}
+    if args.output is not None:
+        Path(args.output).write_bytes(result.text.encode("utf-8"))
+        report["output"] = args.output
+    sys.stdout.write(json.dumps(report, indent=2))
+    sys.stdout.write("\n")
     return 0
 
 
@@ -177,6 +222,23 @@ def _build_parser() -> argparse.ArgumentParser:
     p_list.add_argument("issue", help="issue number")
     p_list.add_argument("--json", action="store_true", help="emit a JSON array instead of one name per line")
     p_list.set_defaults(func=_cmd_list)
+
+    p_norm = sub.add_parser(
+        "normalise",
+        help="report (and optionally write locally) the canonical form of a body; never pushes",
+    )
+    p_norm.add_argument("issue", nargs="?", help="issue number (or pass --body-file)")
+    p_norm.add_argument("--body-file", help="read the body from this local file instead of the issue")
+    p_norm.add_argument("--fields-json", help="path to a JSON array of the template's field names")
+    p_norm.add_argument(
+        "--keep",
+        action="append",
+        default=[],
+        metavar="FIELD=LINE",
+        help="resolve a duplicate field by keeping the copy whose heading is on LINE (repeatable)",
+    )
+    p_norm.add_argument("--output", help="write the normalised body to this local file")
+    p_norm.set_defaults(func=_cmd_normalise)
 
     return parser
 

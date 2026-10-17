@@ -16,6 +16,7 @@ from pathlib import Path
 
 from . import metadata as md
 from . import sections
+from .body_field_format import FieldNotFoundError
 from .descriptor import DESCRIPTOR_NAME, Descriptor
 from .vcs import WorkingCopy
 from .vcs import detect as detect_vcs
@@ -201,14 +202,19 @@ class Tracker:
             raise refused(f"{path} is outside the tracker root {root}") from None
         return path
 
-    def _clean(self, text: str) -> str:
-        """Untrusted report text, with every marker the tracker parses neutralized."""
+    def _clean(self, text: str, *, body: bool = False) -> str:
+        """Untrusted report text, with every marker the tracker parses neutralized.
+
+        ``body`` is a whole report, whose ``### Field`` lines are its fields;
+        any other text (a field value) also has every line that would end a
+        field escaped.
+        """
         managed = []
         if self.desc.comments_mode == "section":
             managed.append(self.desc.comments_heading)
         if self.desc.rollup_mode == "section":
             managed.append(self.desc.rollup_heading)
-        return sections.neutralize(text, tuple(managed))
+        return sections.neutralize(text, tuple(managed), body=body)
 
     def _open(self, path: Path, flags: int, *, make_dirs: bool = False) -> int:
         """Open a managed file by walking from the tracker root one directory
@@ -475,7 +481,11 @@ class Tracker:
         entry = self.resolve(ident)
         _, body = self._read(entry)
         main, _ = self._split_managed(body)
-        return {"id": entry.id, "heading": heading, "value": sections.get_field(main, heading)}
+        try:
+            value = sections.get_field(main, heading, self.desc.field_heading_level)
+        except FieldNotFoundError as exc:  # a duplicate or disputed field
+            raise refused(str(exc)) from None
+        return {"id": entry.id, "heading": heading, "value": value}
 
     # ------------------------------------------------------------ writing
 
@@ -512,7 +522,7 @@ class Tracker:
             self._set(meta, "author", author)
         self._set(meta, "created", _today())
         self._set(meta, "updated", _today())
-        text = self._clean(body).strip("\n") + "\n"
+        text = self._clean(body, body=True).strip("\n") + "\n"
         if self.desc.title_source == "h1":
             text = f"# {title}\n\n{text}"
         rendered = md.render(meta, text)
@@ -569,7 +579,7 @@ class Tracker:
                 new_h1 = f"# {title}"
                 current = re.sub(r"^# .+$", lambda _m: new_h1, current, count=1, flags=re.MULTILINE)
         if body is not None:
-            body = self._clean(body)
+            body = self._clean(body, body=True)
             _, managed = self._split_managed(current)
             head = ""
             if self.desc.title_source == "h1":
@@ -584,9 +594,12 @@ class Tracker:
         entry = self.resolve(ident)
         meta, body = self._read(entry)
         main, managed = self._split_managed(body)
-        new_main, created = sections.set_field(
-            main, heading, self._clean(value), self.desc.field_heading_level
-        )
+        try:
+            new_main, created = sections.set_field(
+                main, heading, self._clean(value), self.desc.field_heading_level
+            )
+        except FieldNotFoundError as exc:  # a duplicate, disputed or unsafe rewrite
+            raise refused(str(exc)) from None
         self._write(entry, meta, new_main + ("\n" + managed.lstrip("\n") if managed else ""))
         return {"id": entry.id, "heading": heading, "created": created}
 
