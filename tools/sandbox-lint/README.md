@@ -157,6 +157,25 @@ uv run --project tools/sandbox-lint sandbox-lint --any-harness /path/to/magpie
      project that adopted Magpie, `<git-common-dir>/apache-magpie/run/<worktree-id>` in
      one that did not — see [Residual risk](#residual-risk) for
      the one case this cannot fully verify.
+   - No setting switches a control off wholesale, in any layer (the
+     committed file, the local template, or a contributor's own
+     `.claude/settings.local.json`): no `sandbox.excludedCommands` entry,
+     and no `Bash(...)` allow, whose command is `*`, starts with a shell or
+     interpreter by name or path (`bash`, `/bin/sh`, `env`, `python3`, … —
+     `ANY_COMMAND_LAUNCHERS`, plus versioned interpreters such as
+     `python3.12`), or is a package runner not pinned to a path (`uv run`
+     without `--project`, `uv tool run`, `uvx` without `--from`, `npx`,
+     `pipx run`, or any `npm`/`pnpm`/`yarn`/`pipx` subcommand but the
+     read-only ones). Leading `NAME=value` assignments are skipped first. Only
+     a runner pinned to an absolute or `~/` path outside the checkout, every
+     `allowWrite` directory, every working directory and the temp directories
+     counts as pinned; the same
+     goes for a command word that is a path to a script (`./scripts/run.sh *`,
+     `~/.cache/x.sh *` fail). A pinned runner is judged by the command it runs, so
+     `uv run --project ~/x python *` and `uv run --project . anything *` both
+     fail; every other `uv` subcommand (`sync`, `lock`, `pip`, `build`) counts
+     too, since each can run a project's build backend. No bare `Bash` allow; no `permissions.defaultMode: bypassPermissions`,
+     and no `*` in `sandbox.network.allowedDomains`.
 3. **Baseline self-check.** The same invariants are applied to
    `expected.json` itself, so a PR cannot weaken the baseline in
    lockstep with the live settings without the lint catching the
@@ -268,6 +287,22 @@ two files, two edits, one review surface. The lint refuses to pass
 if the two diverge.
 
 ## Residual risk
+
+The wholesale-weakening check (`_runs_anything`) recognises *shapes* of rule
+that run arbitrary code: shells and interpreters, globbed command words, and
+package runners not pinned to a path. It cannot prove an arbitrary rule safe.
+A tool that executes its arguments and is not on the list would pass, so
+review new `excludedCommands` and `Bash(...)` allows on their merits. The check
+is a backstop, not a substitute for that review.
+
+A pinned runner is only as safe as the files it runs, and the check looks at
+the pin's source path alone. The writable set it uses is `allowWrite`, the
+working directories (`permissions.additionalDirectories`, which the sandbox
+also makes writable), the checkout and the temp directories; a working
+directory that covers the vetted-ops checkout fails on its own. It does not
+cover the environment uv builds from a pin, which lives in the writable uv
+cache (`~/.cache/uv/`) or the project's `.venv`. An agent that edits it can
+change what an excluded vetted-ops command runs outside the sandbox.
 
 A maintainer running an agent locally can edit `.claude/settings.json`
 to weaken the sandbox without ever opening a PR. This lint catches
