@@ -26,10 +26,12 @@ Modules outside this member's dependencies are loaded from the source tree.
 
 from __future__ import annotations
 
+import functools
 import importlib.util
 import re
 import sys
 from collections import Counter
+from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType
 
@@ -93,14 +95,13 @@ def test_every_reader_sees_the_template_fields_once_each(report: str) -> None:
 
     vendored = _load("_vetted_body_field_format", TOOLS / "vetted-ops/src/vetted_ops/body_field_format.py")
     local = _load_from_package(TOOLS / "local-tracker/src", "magpie_local_tracker.sections")
-    jira = _load("_jira_markup", TOOLS / "jira/src/jira_bridge/markup.py")
+    jira = _load_from_package(TOOLS / "jira/src", "jira_bridge.markup")
 
-    lines = text.split("\n")
     readers = {
         "github-body-field": list_fields(text),
         "vetted-ops": vendored.list_fields(text),
-        "local-tracker": [t for _, level, t in local._headings(lines) if level == 3],
-        "jira": [h.text for h in jira.find_headings(lines) if h.level == 3],
+        "local-tracker": local.fields.list_fields(text),
+        "jira": jira.list_fields(text),
     }
     for reader, fields in readers.items():
         assert fields == TEMPLATE, reader
@@ -110,3 +111,78 @@ def test_every_reader_sees_the_template_fields_once_each(report: str) -> None:
     assert extract_field(text, "CWE") == "CWE-79"
     assert local.get_field(text, "Severity") == "Low"
     assert jira.get_field(text, "Severity") == "Low"
+
+
+# Bodies on which a field read or write must come out the same through every
+# implementation: fenced, Jira-macro and unclosed blocks, duplicates, CRLF,
+# two-space and closing-hash headings, container headings, private-field
+# merge attempts.
+BODIES = [
+    "### Severity\n\nLow\n\n### CWE\n\nCWE-79\n",
+    "###  Severity\r\n\r\nLow\r\n\r\n### CWE ##\r\n\r\nCWE-79\r\n",
+    "### A\n\n```\n### Severity\nCritical\n```\n\n### Severity\n\nLow\n",
+    "### A\n\n{code}\n### Severity\nCritical\n{code}\n\n### Severity\n\nLow\n",
+    "### A\n\n{code:java}\n### Severity\n{code}\n\n### CWE\n\nx\n",
+    "### A\n\n```\n### Severity\nCritical\n```\n",
+    "### A\n\n```\n\n### Severity\n\nLow\n\n### CWE\n\nx\n",
+    "### A\n\n{noformat}\n### Severity\n\nHigh\n",
+    "### Severity\n\nLow\n\n### Severity\n\nHigh\n",
+    "### Severity\n\nLow\n\n### Severity\n\nLow\n",
+    "### A\n\n> ### Severity\n\n### B\n\nb\n",
+    "### A\n\n- item\n   ### Severity\n   High\n\n### Severity\n\nLow\n",
+    "### Summary\n\n```\n### Security mailing list thread\nfake\n```\n\n### Security mailing list thread\n\nprivate\n",
+    "### Summary\n\n~~~\nsee\n\n### Security mailing list thread\n\nprivate\n\n~~~\n",
+    "### A\n\n````\n```\n### Severity\n```\n````\n\n### Severity\n\nLow\n",
+]
+NAMES = ["Severity", "CWE", "A", "B", "Summary", "Security mailing list thread"]
+
+
+def _outcome(call: Callable[[], str | None], *, strip: bool = True) -> tuple[str, str]:
+    """``("value", v)``, ``("missing", "")`` or ``("error", <exception class name>)``."""
+    try:
+        value = call()
+    except LookupError as exc:
+        if type(exc).__name__ == "FieldNotFoundError":
+            return ("missing", "")
+        return ("error", type(exc).__name__)
+    if value is None:
+        return ("missing", "")
+    return ("value", value.strip() if strip else value)
+
+
+def _implementations() -> dict[str, tuple[Callable[[str, str], str | None], Callable[[str, str, str], str]]]:
+    """Each implementation's (read, write) of one field, write returning the new body."""
+    from github_body_field import parser
+
+    vendored = _load("_vetted_body_field_format", TOOLS / "vetted-ops/src/vetted_ops/body_field_format.py")
+    local = _load_from_package(TOOLS / "local-tracker/src", "magpie_local_tracker.sections")
+    jira = _load_from_package(TOOLS / "jira/src", "jira_bridge.markup")
+    return {
+        "github-body-field": (parser.extract_field, parser.replace_field),
+        "vetted-ops": (vendored.extract_field, vendored.replace_field),
+        "local-tracker": (local.get_field, lambda b, n, v: local.set_field(b, n, v, 3)[0]),
+        "jira": (jira.get_field, lambda b, n, v: jira.set_field(b, n, v)[0]),
+    }
+
+
+@pytest.mark.parametrize("text", BODIES)
+def test_every_implementation_reads_and_writes_a_field_the_same(text: str) -> None:
+    implementations = _implementations()
+    for name in NAMES:
+        reads = {
+            impl: _outcome(functools.partial(read, text, name)) for impl, (read, _) in implementations.items()
+        }
+        assert len(set(reads.values())) == 1, (name, reads)
+        if reads["github-body-field"][0] == "missing":
+            continue
+        writes = {
+            impl: _outcome(functools.partial(write, text, name, "New\n"), strip=False)
+            for impl, (_, write) in implementations.items()
+        }
+        assert len(set(writes.values())) == 1, (name, writes)
+
+
+def test_the_bodies_cover_values_and_refusals() -> None:
+    read, _ = _implementations()["github-body-field"]
+    kinds = Counter(_outcome(functools.partial(read, text, name))[0] for text in BODIES for name in NAMES)
+    assert kinds["value"] and kinds["error"] and kinds["missing"]

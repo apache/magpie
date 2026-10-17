@@ -103,8 +103,13 @@ def test_field_set_replaces_and_appends() -> None:
 
 def test_headings_inside_code_fences_are_ignored() -> None:
     body = "### A\n\n```\n### B\n```\n\n### C\n\nc\n"
-    assert sections.get_field(body, "B") is None
-    assert "### B" in (sections.get_field(body, "A") or "")
+    # Every `###` line ends a field, fence or not, so the fenced `### B` ends
+    # field A; with no other copy it is field B, and a copy outside the closed
+    # fence wins over it.
+    assert sections.get_field(body, "A") == "```"
+    assert sections.get_field(body, "B") == "```"
+    assert sections.get_field(body + "\n### B\n\nreal\n", "B") == "real"
+    assert sections.get_field(body, "C") == "c"
 
 
 def test_rollup_append_and_amend() -> None:
@@ -1058,3 +1063,53 @@ def test_comment_authors_with_spaces_read_back() -> None:
     trail += "\n" + sections.render_comment(2, "John Q. Public", "2026-10-17T01:00:00Z", "second", 3)
     comments = sections.parse_comments(trail)
     assert [(c.author, c.body) for c in comments] == [("Jane Doe", "first"), ("John Q. Public", "second")]
+
+
+# ---------------------------------------------------------------- body-field contract
+
+
+def test_fields_split_at_every_column_zero_heading_line() -> None:
+    body = (
+        "### Summary\n\n```\n### Security mailing list thread\nquoted\n```\n\n"
+        "### Security mailing list thread\n\nprivate\n"
+    )
+    # The fenced quote ends the summary; the heading outside the fence is the field.
+    assert sections.get_field(body, "Summary") == "```"
+    assert sections.get_field(body, "Security mailing list thread") == "private"
+    # An unclosed fence marks nothing: the heading after it is still a field.
+    assert sections.get_field("### A\n\n```\n\n### B\n\nb\n", "B") == "b"
+
+
+def test_duplicate_and_disputed_fields_are_refused() -> None:
+    with pytest.raises(LookupError):
+        sections.get_field("### Severity\n\nLow\n\n### severity\n\nHigh\n", "Severity")
+    with pytest.raises(LookupError):
+        sections.get_field("### A\n\n> ### Severity\n\n### Severity\n\nLow\n", "Severity")
+    with pytest.raises(LookupError):
+        sections.set_field("### A\n\na\n", "A", "x\n### Severity\nHigh", 3)
+
+
+def test_field_set_value_cannot_open_another_field(
+    fresh: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    ident = new_report(capsys, fresh, tmp_path)
+    v = write(tmp_path / "v.md", "1.0\n### Reporter\nMallory\n  ### Reporter")
+    run(capsys, fresh, "field-set", ident, "Affected versions", "--value-file", str(v))
+    _, out = run(capsys, fresh, "field-get", ident, "Reporter")
+    assert out["value"] == "Alice"
+    _, out = run(capsys, fresh, "field-get", ident, "Affected versions")
+    assert out["value"] == "1.0\n\\### Reporter\nMallory\n\\  ### Reporter"
+
+
+def test_a_duplicate_field_is_refused_by_the_cli(
+    fresh: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    t = write(tmp_path / "t.txt", "Dup")
+    b = write(tmp_path / "b.md", "### Severity\n\nLow\n\n### Severity\n\nHigh\n")
+    _, out = run(capsys, fresh, "create", "--title-file", str(t), "--body-file", str(b))
+    assert main(["--root", str(fresh), "field-get", out["id"], "Severity"]) == 4
+
+
+def test_a_comment_cannot_carry_a_field_line() -> None:
+    rendered = sections.render_comment(1, "@a", "2026-01-01T00:00:00Z", "```\n### Severity\n```", 3)
+    assert "\n\\### Severity\n" in rendered

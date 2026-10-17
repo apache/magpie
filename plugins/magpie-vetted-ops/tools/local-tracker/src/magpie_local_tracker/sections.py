@@ -1,6 +1,15 @@
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
-"""Markdown section surgery, comment entries, and the status rollup."""
+"""Markdown section surgery, comment entries, and the status rollup.
+
+Body fields at the contract's level (``### <Field>``) are read and written
+through the body-field parser every tracker shares
+(tools/github/issue-template.md): every column-0 ``###`` line ends a field,
+code block or not, and closed code blocks only choose which heading starts
+a field. The report's other structure (the managed ``## Comments`` and
+rollup sections, comment headings, a descriptor's non-``###`` field level)
+keeps the heading-level section split below.
+"""
 
 from __future__ import annotations
 
@@ -12,6 +21,7 @@ from dataclasses import dataclass
 # A byte-identical copy of tools/github-body-field's parser (the plugin ships
 # this package without the workspace, so it cannot depend on that member);
 # tests/test_vendored_parser.py keeps the copy exact.
+from . import body_field_format as fields
 from .body_field_format import fence_roles
 
 _HEADING_RE = re.compile(r"^(?P<hashes>#{1,6})\s+(?P<text>.+?)\s*#*\s*$")
@@ -91,19 +101,39 @@ _FORGEABLE = re.compile(
 )
 
 
-def neutralize(text: str, managed_headings: tuple[str, ...] = ()) -> str:
+def escape_field_lines(text: str) -> str:
+    """``text`` with a leading backslash on every line that would end a body field.
+
+    A ``###`` line at column 0 ends a field, code block or not, so report
+    text never carries one; nor, as the import's inert block does for
+    readers that ignore fences, such a line behind indent, ``>`` or list
+    markers. Lines split at CommonMark's line endings, the parser's.
+    """
+    return "".join(
+        "\\" + line if fields.loose_heading_name(line) is not None else line
+        for line in fields.split_lines(text)
+    )
+
+
+def neutralize(text: str, managed_headings: tuple[str, ...] = (), *, body: bool = False) -> str:
     """Make untrusted text unable to forge structure.
 
     Report, comment and rollup text usually comes from outside the team (a
     reporter's mail, a scanner finding). Written verbatim, a line such as
     ``<!-- comment id=9 author=@lead … -->`` would read back as a comment by
     someone else, a ``<details><summary>…</summary>`` line as a rollup entry —
-    misleading `rollup-amend-latest` too — and a ``## Comments`` heading as the
-    start of the managed comment section. Each such marker is escaped
-    (``<`` becomes ``&lt;``, a managed heading gets a leading backslash), which
-    renders as the same visible text and is never parsed as structure.
+    misleading `rollup-amend-latest` too — a ``## Comments`` heading as the
+    start of the managed comment section, and a ``### Field`` line as the
+    start of another body field. Each such marker is escaped (``<`` becomes
+    ``&lt;``, a heading gets a leading backslash), which renders as the same
+    visible text and is never parsed as structure.
+
+    With ``body``, ``text`` is a whole report whose ``### Field`` lines are its
+    fields: those stay, and only the managed headings and markers are escaped.
     """
     text = close_fences(_FORGEABLE.sub("&lt;", text))
+    if not body:
+        text = escape_field_lines(text)
     if not managed_headings:
         return text
     managed = {h.lower() for h in managed_headings}
@@ -115,16 +145,50 @@ def escape_headings(text: str, which: Callable[[int, str], bool] | None = None) 
 
     Only real headings are touched — the same fence-aware scan the parsers use —
     so a ``# comment`` inside a fenced PoC stays exactly as the reporter wrote it.
+    With no ``which``, every line that would end a body field is escaped too,
+    fenced or not (:func:`escape_field_lines`).
     """
     lines = text.split("\n")
     for idx, level, title in _headings(lines):
         if which is None or which(level, title):
             lines[idx] = "\\" + lines[idx]
-    return "\n".join(lines)
+    text = "\n".join(lines)
+    return escape_field_lines(text) if which is None else text
 
 
-def get_field(body: str, heading: str) -> str | None:
-    found = find_section(body, heading)
+def _field_name(body: str, heading: str) -> str | None:
+    """The exact name of the field ``heading`` names, matched with case and inner whitespace ignored.
+
+    The parser's choice made over every spelling of the name: the copy
+    outside closed blocks, else the first. Two copies outside closed blocks,
+    however spelled, are a duplicate. With no copy, the parser's own refusal
+    of a disputed name (a container heading naming it) still applies.
+    """
+    wanted = fields.fold_name(heading)
+    copies = [s for s in fields.parse(body)[1] if fields.fold_name(s.name) == wanted]
+    if not copies:
+        try:
+            fields.extract_field(body, heading)
+        except fields.AmbiguousFieldError:
+            raise
+        except fields.FieldNotFoundError:
+            return None
+    outside = [s for s in copies if not s.in_block]
+    if len(outside) > 1:
+        raise fields.DuplicateFieldError(f"field {heading!r} appears {len(outside)} times; refusing to guess")
+    return (outside or copies)[0].name
+
+
+def get_field(body: str, heading: str, level: int = 3) -> str | None:
+    """The value of the ``heading`` field, or None when the body has none.
+
+    At level 3 the parser reads it (``FieldNotFoundError`` subclasses for a
+    duplicate or disputed field); another level keeps the heading-level split.
+    """
+    if level == 3:
+        name = _field_name(body, heading)
+        return None if name is None else fields.extract_field(body, name).strip("\n")
+    found = find_section(body, heading, level)
     if not found:
         return None
     _, start, end = found
@@ -152,15 +216,39 @@ def _join(before: list[str], middle: list[str], after: list[str]) -> str:
     return text.rstrip("\n") + "\n"
 
 
+def _shape(body: str) -> list[tuple[str, bool]]:
+    return [(s.name, s.in_block) for s in fields.parse(body)[1]]
+
+
 def set_field(body: str, heading: str, value: str, level: int) -> tuple[str, bool]:
-    """Replace a section's content, or append the section. Returns (body, created)."""
+    """Replace a section's content, or append the section. Returns (body, created).
+
+    At level 3 a replacement is the parser's ``replace_field`` (everything
+    outside the field byte-identical; a value holding a line that would end
+    the field is refused), and an append must leave every other field as it
+    was and read back as ``value``.
+    """
     lines = body.split("\n")
-    found = find_section(body, heading)
     value_lines = value.strip("\n").split("\n")
-    if found:
-        idx, _start, end = found
-        return _join(lines[: idx + 1], value_lines, lines[end:]), False
-    return _join(lines, ["#" * level + " " + heading, "", *value_lines], []), True
+    if level != 3:
+        found = find_section(body, heading, level)
+        if found:
+            idx, _start, end = found
+            return _join(lines[: idx + 1], value_lines, lines[end:]), False
+        return _join(lines, ["#" * level + " " + heading, "", *value_lines], []), True
+    name = _field_name(body, heading)
+    if name is not None:
+        return fields.replace_field(body, name, value.strip("\n") + "\n"), False
+    section = ["### " + heading, "", *value_lines]
+    before = _shape(body)
+    # Closing a fence the body leaves open keeps renderers from showing the new
+    # field as code, unless that would move another field heading into a block.
+    for candidate in (_join(lines, section, []), "\n".join([*lines, "", *section]).strip("\n") + "\n"):
+        if _shape(candidate)[:-1] == before and get_field(candidate, heading) == value.strip("\n"):
+            return candidate, True
+    raise fields.AmbiguousFieldError(
+        f"field {heading!r}: the new value would change the body's other fields; refusing to add it"
+    )
 
 
 def append_to_section(body: str, heading: str, level: int, text: str) -> str:

@@ -167,9 +167,11 @@ publication, with a human gate and an audit-log entry at every step.
   ambiguous field and `replace_field` / `body-field-set` refuse a value
   holding a line that would end the field, a span holding a
   heading-shaped line, and a rewrite that would change another field. The
-  local-files tracker and the Jira bridge pair fences the same way
-  (local-files through a byte-identical copy of the parser) for their own
-  section formats.
+  local-files tracker and the Jira bridge read and write fields through
+  byte-identical copies of the parser (the Jira bridge after reading wiki
+  `h1.`–`h3.` headings outside closed blocks as `### <Heading>`), matching
+  names case-insensitively; a test runs every implementation over the same
+  bodies and requires the same reads and writes.
 - **CVE fields come from the team or a confirmed proposal (#1672).** When
   `generate-cve-json --report-json` lists missing or ambiguous fields,
   sync, cve-allocate and deduplicate follow

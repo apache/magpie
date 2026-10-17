@@ -247,7 +247,10 @@ def op_labels(client: JiraClient, cfg: Config, args: argparse.Namespace) -> Any:
 def op_field_get(client: JiraClient, cfg: Config, args: argparse.Namespace) -> Any:
     key = expand_id(args.id, cfg.project)
     fields = client.issue(key, "description").get("fields") or {}
-    value = markup.get_field(fields.get("description") or "", args.heading)
+    try:
+        value = markup.get_field(fields.get("description") or "", args.heading)
+    except markup.FieldNotFoundError as exc:  # a duplicate or disputed field
+        raise RefusedError(str(exc)) from None
     return {"id": key, "heading": args.heading, "value": value}
 
 
@@ -257,7 +260,10 @@ def op_field_set(client: JiraClient, cfg: Config, args: argparse.Namespace) -> A
     value = _read_text(args.value_file, "value")
     issue = guarded_issue(client, key, "description", level=cfg.security_level)
     body = (issue.get("fields") or {}).get("description") or ""
-    new_body, created = markup.set_field(body, heading, value)
+    try:
+        new_body, created = markup.set_field(body, heading, value)
+    except markup.FieldNotFoundError as exc:  # a duplicate, disputed or unsafe rewrite
+        raise RefusedError(str(exc)) from None
     client.call(
         "PUT", f"/rest/api/2/issue/{key}", payload={"fields": {"description": new_body}}
     )
