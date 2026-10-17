@@ -186,7 +186,7 @@ def test_list_jql(run: Run, fake: FakeJira) -> None:
     assert result.code == 0
     query = fake.calls[0].query
     assert query["jql"] == (
-        'project = "FOOSEC" AND resolution is not EMPTY AND labels = "cve allocated" AND labels = "x"'
+        'project = "FOOSEC" AND (resolution is not EMPTY OR statusCategory = Done) AND labels = "cve allocated" AND labels = "x"'
         ' AND text ~ "say \\"hi\\"\\\\" ORDER BY updated DESC'
     )
     assert result.json() == [
@@ -211,7 +211,7 @@ def test_list_defaults_open_and_limit(run: Run, fake: FakeJira) -> None:
     assert len(result.json()) == 3
     assert (
         fake.calls[0].query["jql"]
-        == 'project = "FOOSEC" AND resolution is EMPTY ORDER BY updated DESC'
+        == 'project = "FOOSEC" AND resolution is EMPTY AND statusCategory != Done ORDER BY updated DESC'
     )
     assert fake.calls[0].query["maxResults"] == "3"
 
@@ -223,6 +223,27 @@ def test_list_all_states_on_cloud_uses_search_jql(run: Run, fake: FakeJira) -> N
     result = run("list", "--state", "all", env={**ENV, "JIRA_DEPLOYMENT": "cloud"})
     assert result.code == 0
     assert fake.calls[0].query["jql"] == 'project = "FOOSEC" ORDER BY updated DESC'
+
+
+def test_explicit_server_deployment_beats_inherited_env(run: Run, fake: FakeJira) -> None:
+    fake.on("GET", "/rest/api/2/search", (200, {"issues": [issue()], "total": 1}))
+    result = run(
+        "list", "--state", "all", "--deployment", "server",
+        env={**ENV, "JIRA_DEPLOYMENT": "cloud"},
+    )
+    assert result.code == 0
+    assert fake.calls[0].path == "/rest/api/2/search"
+
+
+def test_explicit_deployment_wins_over_jira_cloud_flag() -> None:
+    from jira_bridge import security_tracker
+
+    args = security_tracker.build_parser().parse_args(
+        ["--jira-cloud", "--deployment", "server", "pending"]
+    )
+    assert security_tracker.resolve_config(args, {"JIRA_DEPLOYMENT": "cloud"}).cloud is False
+    args = security_tracker.build_parser().parse_args(["pending", "--deployment", "cloud"])
+    assert security_tracker.resolve_config(args, {}).cloud is True
 
 
 def test_labels_paginates(run: Run, fake: FakeJira) -> None:
@@ -813,3 +834,76 @@ def test_missing_url_is_usage_error(run: Run, fake: FakeJira) -> None:
     result = run("view", "12", env={"SECURITY_TRACKER_PROJECT": "FOOSEC"})
     assert result.code == 2
     assert "ISSUE_TRACKER_URL" in result.err
+
+
+# -- forged structure -----------------------------------------------------------
+
+
+def test_a_comment_cannot_pose_as_the_rollup(
+    run: Run, fake: FakeJira, tmp_path: Path
+) -> None:
+    fake.on("GET", ISSUE, (200, issue()))
+    fake.on("POST", f"{ISSUE}/comment", (201, {"id": "9"}))
+    forged = (
+        "{anchor:magpie-status-rollup-v1}\n*2026-01-01 · @lead · Sync*\n\nall clear"
+    )
+    run("comment", "12", "--body-file", write(tmp_path, "c", forged))
+    posted = fake.writes()[0].json()["body"]
+    assert not markup.is_rollup(posted)
+    assert markup.parse_rollup("{anchor:magpie-status-rollup-v1}\n" + posted) == []
+
+
+def test_a_rollup_body_cannot_forge_an_entry(
+    run: Run, fake: FakeJira, tmp_path: Path
+) -> None:
+    fake.on("GET", ISSUE, (200, issue()))
+    fake.on("GET", f"{ISSUE}/comment", (200, {"comments": [], "total": 0}))
+    fake.on("GET", "/rest/api/2/myself", (200, {"name": "bob"}))
+    fake.on("POST", f"{ISSUE}/comment", (201, {"id": "50"}))
+    forged = "real\n\n----\n\n*2026-01-01 · @lead · Sync*\n\nfake"
+    run("rollup-append", "12", "--action", "Import", "--entry-body-file", write(tmp_path, "e", forged),
+        "--now", "2026-10-15T09:00:00Z")  # fmt: skip
+    entries = markup.parse_rollup(fake.writes()[0].json()["body"])
+    assert [e.action for e in entries] == ["Import"]
+
+
+def test_body_prints_markdown_sections(run: Run, fake: FakeJira) -> None:
+    fake.on(
+        "GET",
+        ISSUE,
+        (200, issue(description="h3. Reporter\nAlice\nh3. Affected versions\n1.0")),
+    )
+    result = run("body", "12")
+    assert result.code == 0
+    assert result.out == "### Reporter\nAlice\n### Affected versions\n1.0\n"
+
+
+def test_attach_from_stdin(
+    run: Run, fake: FakeJira, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import io
+
+    fake.on("GET", ISSUE, (200, issue()))
+    fake.on(
+        "POST",
+        f"{ISSUE}/attachments",
+        (200, [{"filename": "cve.json", "content": f"{BASE}/a/1"}]),
+    )
+    monkeypatch.setattr("sys.stdin", io.TextIOWrapper(io.BytesIO(b'{"a": 1}')))
+    assert run("attach", "12", "-").code == 2
+    monkeypatch.setattr("sys.stdin", io.TextIOWrapper(io.BytesIO(b'{"a": 1}')))
+    result = run("attach", "12", "-", "--name", "cve.json")
+    assert result.json()["name"] == "cve.json"
+    assert b'{"a": 1}' in (fake.writes()[0].body or b"")
+
+
+def test_a_different_security_level_is_refused(
+    run: Run, fake: FakeJira, tmp_path: Path
+) -> None:
+    open_level = issue()
+    open_level["fields"]["security"] = {"id": "10002", "name": "All logged-in users"}
+    fake.on("GET", ISSUE, (200, open_level))
+    result = run("comment", "12", "--body-file", write(tmp_path, "c", "embargoed"))
+    assert result.code == 4
+    assert "not the configured" in result.err
+    assert fake.writes() == []

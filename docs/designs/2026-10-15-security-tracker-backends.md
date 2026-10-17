@@ -56,12 +56,13 @@ named body fields, the single status rollup, attachments for the CVE record, and
    Skills never call a backend CLI.
    Every tracker `gh` command in a skill maps to a [vetted operation](../../tools/security-tracker/contract.md#from-skill-commands-to-vetted-operations),
    and vetted-ops translates that operation for the backend its policy names (`[tracker] platform`).
-   The translation is reviewed code: the policy supplies the backend's tool directory and pinned target, never a command,
+   The translation is reviewed code: the policy supplies only the pinned target, and the backend's code runs from the tool installed beside vetted-ops, never from a path a policy names,
    so the closed-shape guarantees — fixed program, unaddressable target, parameters as argv elements, bodies on stdin,
    reads unreachable from the write entry point — hold on all three backends.
-   Six operations were added so every tracker shape the skills use has a vetted form:
+   Nine operations were added so every tracker shape the skills use has a vetted form:
    `issue-create`, `issue-reopen`, `issue-list-label`, `issue-search` (plain words, no `:` qualifiers),
-   `tracker-pending` and `tracker-publish`.
+   `issue-body` and `issue-attach` (so CVE JSON generation works without GitHub),
+   `tracker-doctor` (the pre-flight on another backend), `tracker-pending` and `tracker-publish`.
    Tracker operations with no counterpart (boards, milestone administration, the roster, `rollup-fold`) refuse by name,
    and a test derives the tracker operations from the catalogue so a new one cannot go unmapped.
 5. **Skills switch through one shared block**, `tools/dev/blocks/tracker-backend.md`,
@@ -131,7 +132,7 @@ the Groovy bridge stays the general `contract:tracker` write path for the `issue
 one question in the existing batch picks the backend.
 For local files it finds the folder, runs `detect`, shows the decisions and notes, asks who can read the repository, and writes the descriptor only after that answer.
 The descriptor is the one file this step writes outside the personal layer. It is left uncommitted, and the first publish proposal includes it.
-For both non-GitHub backends the step also shows the vetted-ops `[tracker]` table and the six new caller grants, and writes them only on confirmation.
+For both non-GitHub backends the step also shows the vetted-ops `[tracker]` table and the nine new caller grants, and writes them only on confirmation.
 
 ## Alternatives considered
 

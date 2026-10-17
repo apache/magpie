@@ -101,6 +101,13 @@ def _validate_params(
                 )
             body = ops_mod.read_body(raw, workspace=config.workspace)
             resolved[name] = "-"
+        elif (
+            name == "number"
+            and config.tracker_backend is not None
+            and tracker_backends.is_tracker_op(op.name)
+        ):
+            # A non-GitHub tracker's IDs are the backend's own (SEC-0012, FOOSEC-12).
+            resolved[name] = ops_mod.tracker_id(raw)
         elif name in {"number", "comment_id", "run_id"}:
             resolved[name] = ops_mod.number(raw)
         elif name in {"ref", "base", "head", "prefix"}:
@@ -115,6 +122,8 @@ def _validate_params(
             resolved[name] = ops_mod.title(raw)
         elif name == "query":
             resolved[name] = ops_mod.query(raw)
+        elif name == "attachment":
+            resolved[name] = ops_mod.attachment_name(raw)
         elif name == "ghsa":
             resolved[name] = ops_mod.ghsa(raw)
         elif name in {"item_id", "content_id"}:
@@ -292,7 +301,7 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
         return EXIT_POLICY
 
     if isinstance(command, tracker_backends.BackendCall):
-        return _run_backend(command, body, dry_run=args.dry_run)
+        return _run_backend(command, body, dry_run=args.dry_run, save=args.save, config=config)
 
     if op.backend == "procedure":
         if not isinstance(command, procedures.Plan):
@@ -340,7 +349,14 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
         raise ops_mod.ParamError(f"unknown backend {op.backend!r}")
 
 
-def _run_backend(call: tracker_backends.BackendCall, body: bytes | None, *, dry_run: bool) -> int:
+def _run_backend(
+    call: tracker_backends.BackendCall,
+    body: bytes | None,
+    *,
+    dry_run: bool,
+    save: str | None = None,
+    config: Config | None = None,
+) -> int:
     """
     Run a translated tracker operation: no shell, body on stdin.
 
@@ -353,7 +369,14 @@ def _run_backend(call: tracker_backends.BackendCall, body: bytes | None, *, dry_
         if body is not None:
             print(f"(stdin: {len(body)} bytes)")
         return EXIT_OK
-    completed = subprocess.run(call.argv, check=False, input=body if body is not None else b"")
+    stdin = body if body is not None else b""
+    if save is not None and config is not None:
+        captured = subprocess.run(call.argv, check=False, input=stdin, stdout=subprocess.PIPE)
+        if captured.returncode == EXIT_OK:
+            return _save(save, captured.stdout, config)
+        completed = captured
+    else:
+        completed = subprocess.run(call.argv, check=False, input=stdin)
     if completed.returncode == EXIT_OK:
         return EXIT_OK
     if completed.returncode == 4:

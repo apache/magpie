@@ -21,7 +21,7 @@ from pathlib import Path
 from . import detect as detect_mod
 from .descriptor import DESCRIPTOR_NAME, Descriptor, load, save
 from .store import Tracker, TrackerError
-from .vcs import VcsError
+from .vcs import VcsError, VcsRefused
 from .vcs import detect as detect_vcs
 
 
@@ -63,6 +63,8 @@ def _tracker(args: argparse.Namespace) -> Tracker:
         desc = load(root)
     except FileNotFoundError as exc:
         raise TrackerError(str(exc), 3) from exc
+    except ValueError as exc:
+        raise TrackerError(f"invalid tracker descriptor: {exc}", 5) from exc
     return Tracker(root, desc)
 
 
@@ -225,7 +227,22 @@ def cmd_rollup_amend_latest(args: argparse.Namespace) -> int:
 
 
 def cmd_attach(args: argparse.Namespace) -> int:
-    _emit(_tracker(args).attach(args.id, Path(args.file), args.name))
+    if args.file == "-":
+        if not args.name:
+            raise TrackerError("attaching from stdin needs --name", 2)
+        content, name = sys.stdin.buffer.read(), args.name
+    else:
+        source = Path(args.file)
+        if not source.is_file():
+            raise TrackerError(f"{source} is not a file", 3)
+        content, name = source.read_bytes(), args.name or source.name
+    _emit(_tracker(args).attach(args.id, content, name))
+    return 0
+
+
+def cmd_body(args: argparse.Namespace) -> int:
+    # Raw markdown, not JSON: it is piped straight into generate-cve-json --stdin.
+    sys.stdout.write(_tracker(args).body(args.id))
     return 0
 
 
@@ -233,7 +250,17 @@ def cmd_pending(args: argparse.Namespace) -> int:
     root = _root(args)
     wc = detect_vcs(root)
     changes = wc.status(root) if root.exists() else []
-    _emit({"backend": "local-files", "vcs": wc.kind, "changes": changes, "needs_publish": bool(changes)})
+    unpushed = wc.unpushed()
+    _emit(
+        {
+            "backend": "local-files",
+            "vcs": wc.kind,
+            "changes": changes,
+            "unpushed_commits": unpushed,
+            "push_destination": wc.push_destination(),
+            "needs_publish": bool(changes) or bool(unpushed),
+        }
+    )
     return 0
 
 
@@ -373,6 +400,9 @@ def build_parser() -> argparse.ArgumentParser:
         p.add_argument("--user")
         p.add_argument("--now")
 
+    p = add("body", cmd_body, "print the report body as markdown (for generate-cve-json --stdin)")
+    p.add_argument("id")
+
     p = add("attach", cmd_attach, "attach a file")
     p.add_argument("id")
     p.add_argument("file")
@@ -397,6 +427,9 @@ def main(argv: list[str] | None = None) -> int:
     except TrackerError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return exc.code
+    except VcsRefused as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 4
     except VcsError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 5

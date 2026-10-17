@@ -26,7 +26,8 @@ _SUMMARY_RE = re.compile(r"^\*(\d{4}-\d{2}-\d{2}) · @(.+?) · (.+)\*\s*$")
 _WIKI_HEADING_RE = re.compile(r"^\s*h([1-6])\.\s+(.*?)\s*$")
 _MD_HEADING_RE = re.compile(r"^\s{0,3}(#{1,6})\s+(.*?)(?:\s+#+)?\s*$")
 _WIKI_BLOCK_RE = re.compile(r"\{(code|noformat)(?::[^}]*)?\}")
-_FENCE_RE = re.compile(r"^\s{0,3}(```|~~~)")
+_FENCE_RE = re.compile(r"^\s{0,3}(`{3,}|~{3,})")
+_FENCE_CLOSE_RE = re.compile(r"^\s{0,3}(`{3,}|~{3,})\s*$")
 
 
 @dataclass(frozen=True)
@@ -47,19 +48,26 @@ def find_headings(lines: list[str]) -> list[Heading]:
     """Return every heading outside code blocks, in document order."""
     headings: list[Heading] = []
     in_wiki_block: str | None = None
-    in_fence = False
+    # Open Markdown fence as (character, length); per CommonMark only a
+    # fence of the same character, at least as long, with nothing but
+    # whitespace after it, closes it.
+    fence: tuple[str, int] | None = None
     for index, line in enumerate(lines):
-        if in_fence:
-            if _FENCE_RE.match(line):
-                in_fence = False
+        if fence is not None:
+            close = _FENCE_CLOSE_RE.match(line)
+            if close:
+                run = close.group(1)
+                if run[0] == fence[0] and len(run) >= fence[1]:
+                    fence = None
             continue
         if in_wiki_block is not None:
             # A {code} / {noformat} block closes on the bare macro name.
             if "{" + in_wiki_block + "}" in line:
                 in_wiki_block = None
             continue
-        if _FENCE_RE.match(line):
-            in_fence = True
+        opener = _FENCE_RE.match(line)
+        if opener:
+            fence = (opener.group(1)[0], len(opener.group(1)))
             continue
         macros = _WIKI_BLOCK_RE.findall(line)
         if len(macros) % 2 == 1:
@@ -129,6 +137,44 @@ class RollupEntry:
     user: str
     action: str
     body: str
+
+
+_ANCHOR_RE = re.compile(r"\{(?=anchor:magpie-status-rollup)", re.IGNORECASE)
+
+
+def neutralize(text: str) -> str:
+    """Make untrusted comment or rollup text unable to forge rollup structure.
+
+    The text usually comes from outside the team. Written verbatim, a body that
+    opens with the rollup anchor would be taken for the rollup comment, and a
+    line shaped like ``*YYYY-MM-DD · @user · Action*`` would read back as a
+    rollup entry by someone else — misleading `rollup-amend-latest` too. Both
+    are escaped with a wiki-markup backslash, which renders the same visible
+    text and is never parsed as structure.
+    """
+    text = _ANCHOR_RE.sub("\\{", text)
+    # Split exactly as parse_rollup does (str.splitlines: \r, \u2028, \x85 …),
+    # so no line boundary the parser honours can hide a forged summary line.
+    out = []
+    for part in text.splitlines(keepends=True):
+        line = part.splitlines()[0] if part.splitlines() else ""
+        out.append("\\" + part if _SUMMARY_RE.match(line) else part)
+    return "".join(out)
+
+
+def to_markdown_headings(text: str) -> str:
+    """Wiki-markup headings (`h3. Field`) as markdown (`### Field`); nothing else changes.
+
+    Only the headings `find_headings` reports are converted — the same
+    code-block-aware scan the field readers use — so heading-like text inside a
+    `{code}` / `{noformat}` PoC never becomes a field generate-cve-json could
+    read a CVE ID from.
+    """
+    lines = text.splitlines()
+    for heading in find_headings(lines):
+        if heading.wiki:
+            lines[heading.index] = "#" * heading.level + " " + heading.text
+    return "\n".join(lines)
 
 
 def is_rollup(text: str) -> bool:

@@ -52,6 +52,34 @@ def test_headings_inside_code_blocks_are_ignored() -> None:
     assert markup.get_field(fenced, "CWE") == "x"
 
 
+def test_shorter_fence_inside_longer_fence_does_not_close_it() -> None:
+    body = "### PoC\n````\n```\n### Field\nh3. Other\n```\n````\n### CWE\nx\n"
+    assert markup.get_field(body, "Field") is None
+    assert markup.get_field(body, "Other") is None
+    assert markup.get_field(body, "CWE") == "x"
+    assert [h.text for h in markup.find_headings(body.splitlines())] == ["PoC", "CWE"]
+
+
+def test_fence_closes_only_on_the_same_character() -> None:
+    body = "### PoC\n~~~\n```\n### Field\n~~~\n### CWE\nx\n"
+    assert markup.get_field(body, "Field") is None
+    assert markup.get_field(body, "CWE") == "x"
+    backtick = "### PoC\n```\n~~~\n### Field\n```\n### CWE\nx\n"
+    assert markup.get_field(backtick, "Field") is None
+    assert markup.get_field(backtick, "CWE") == "x"
+
+
+def test_fence_close_must_be_bare() -> None:
+    body = "### PoC\n```\n``` not a close\n### Field\n```\n### CWE\nx\n"
+    assert markup.get_field(body, "Field") is None
+    assert markup.get_field(body, "CWE") == "x"
+
+
+def test_longer_close_fence_still_closes() -> None:
+    body = "### PoC\n```\ncode\n`````\n### CWE\nx\n"
+    assert markup.get_field(body, "CWE") == "x"
+
+
 def test_set_field_replaces_existing() -> None:
     new, created = markup.set_field(BODY, "severity", "High\n")
     assert created is False
@@ -96,3 +124,23 @@ def test_rollup_round_trip() -> None:
 def test_is_rollup_rejects_other_comments() -> None:
     assert not markup.is_rollup("plain comment\n{anchor:magpie-status-rollup-v1}")
     assert markup.is_rollup("\n{anchor:magpie-status-rollup-v2}\n")
+
+
+def test_unicode_line_separators_cannot_hide_a_forged_entry() -> None:
+    forged = "text *2026-01-01 · @lead · Sync* fake"
+    entry = markup.RollupEntry("2026-10-15", "bob", "Import", markup.neutralize(forged))
+    parsed = markup.parse_rollup(markup.render_rollup([entry]))
+    assert [e.action for e in parsed] == ["Import"]
+
+
+def test_indented_wiki_headings_are_still_fields() -> None:
+    assert (
+        markup.get_field("  h3. Affected versions\n1.0", "Affected versions") == "1.0"
+    )
+
+
+def test_code_block_headings_are_not_exported_as_fields() -> None:
+    text = "h3. Details\n{code}\nh3. CVE tool link\nCVE-2000-0001\n{code}\nh3. CVE tool link\nCVE-2026-1"
+    out = markup.to_markdown_headings(text)
+    assert out.count("### CVE tool link") == 1
+    assert "h3. CVE tool link\nCVE-2000-0001" in out

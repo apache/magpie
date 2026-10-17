@@ -26,9 +26,13 @@ tracker is translated into a call of that backend's CLI —
 
 The translation keeps every property the ``gh`` builders have:
 
-* The executable and the backend's script name are fixed here; the policy
-  supplies only the backend's project directory and its pinned settings (the
-  tracker folder, or the Jira URL, project and security level), never a command.
+* The executable, the backend's script name and the backend's code are fixed
+  here: the backend runs from the tool directory installed beside vetted-ops
+  itself (``tools/<dir>`` in a checkout, ``<install-root>/<dir>`` for the
+  installed copy), never from a directory a policy names. A policy file can be
+  chosen with ``--config``, so letting it name code would let whoever writes a
+  policy run code through the allowlisted read entry point. The policy supplies
+  only data: the tracker folder, or the Jira URL, project and security level.
   A caller cannot point an operation at another folder or another Jira project.
 * Parameters arrive already validated by the dispatcher, are placed as single
   argv elements, and run without a shell. Free-text values (titles, search
@@ -45,6 +49,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 
 from .ops import ParamError
 
@@ -55,6 +60,28 @@ BACKEND_SCRIPTS = {
     "local-files": ("local-tracker", "magpie-local-tracker"),
     "jira": ("jira", "magpie-jira-tracker"),
 }
+
+
+#: The stable path the vetted-ops plugin's SessionStart hook points at the
+#: installed plugin's ``tools/vetted-ops`` (outside every sandbox-writable root).
+STABLE_LINK = Path.home() / ".claude" / "magpie" / "vetted-ops"
+
+
+def backend_dir(platform: str) -> Path:
+    """The trusted backend tool directory for ``platform``.
+
+    When this module runs from its source tree — ``.../vetted-ops/src/vetted_ops``,
+    which is what ``uv run --project`` on the plugin or a checkout imports — the
+    backend is its sibling: the repository's ``tools/<dir>``, or the installed
+    plugin's. When it runs from an installed wheel (``uvx --from``) the module
+    sits in a uv cache the agent can write to, so its location proves nothing;
+    the backend then comes from beside the protected stable link instead.
+    """
+    tool_dir, _ = BACKEND_SCRIPTS[platform]
+    here = Path(__file__).resolve()
+    if here.parents[1].name == "src" and (here.parents[2] / "pyproject.toml").is_file():
+        return here.parents[3] / tool_dir
+    return STABLE_LINK.resolve().parent / tool_dir
 
 
 @dataclass(frozen=True)
@@ -70,6 +97,7 @@ class TrackerBackend:
     jira_url: str = ""
     jira_project: str = ""
     jira_security_level: str = ""
+    jira_issue_type: str = "Bug"
     jira_cloud: bool = False
 
     def prefix(self) -> list[str]:
@@ -84,8 +112,12 @@ class TrackerBackend:
             self.jira_project,
             "--security-level",
             self.jira_security_level,
+            "--issue-type",
+            self.jira_issue_type,
         ]
-        return [*argv, "--jira-cloud"] if self.jira_cloud else argv
+        # Always explicit, so an inherited JIRA_DEPLOYMENT cannot override
+        # the policy's deployment.
+        return [*argv, "--deployment", "cloud" if self.jira_cloud else "server"]
 
 
 @dataclass(frozen=True)
@@ -116,6 +148,8 @@ TRANSLATIONS: dict[str, Translate] = {
     "issue-comments": lambda p: ["view", p["number"], "--comments"],
     "issue-search": lambda p: ["list", "--state", "all", f"--search={p['query']}", "--limit", "100"],
     "label-list": lambda p: ["labels"],
+    "issue-body": lambda p: ["body", p["number"]],
+    "issue-attach": lambda p: ["attach", p["number"], "-", f"--name={p['attachment']}"],
     "issue-create": lambda p: ["create", f"--title={p['title']}", "--body-file", "-"],
     "issue-add-label": lambda p: ["edit", p["number"], "--add-label", p["label"]],
     "issue-remove-label": lambda p: ["edit", p["number"], "--remove-label", p["label"]],
@@ -145,6 +179,7 @@ TRANSLATIONS: dict[str, Translate] = {
     ],
     "body-field-get": lambda p: ["field-get", p["number"], p["field"]],
     "body-field-set": lambda p: ["field-set", p["number"], p["field"], "--value-file", "-"],
+    "tracker-doctor": lambda p: ["doctor"],
     "tracker-pending": lambda p: ["pending"],
     "tracker-publish": lambda p: ["publish", "--message-file", "-", "--push"],
 }
@@ -164,6 +199,7 @@ NOT_ON_BACKEND: dict[str, str] = {
 
 #: Operations that only exist for a working-copy or non-GitHub backend.
 GITHUB_NOT_APPLICABLE = {
+    "tracker-doctor": "check the GitHub tracker with `gh api repos/<tracker> --jq .name` and the collaborator roster",
     "tracker-pending": "GitHub tracker writes are visible as soon as they return; there is nothing pending",
     "tracker-publish": "GitHub tracker writes are visible as soon as they return; there is nothing to publish",
 }

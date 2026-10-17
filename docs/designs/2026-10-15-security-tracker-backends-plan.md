@@ -31,7 +31,7 @@ Per the [designs convention](README.md), this plan is folded into the design and
 | 10 | Setup: Step 3a — choose backend, detect format, confirm access, write descriptor | `plugins/magpie-setup/skills/setup/config.md` | Done |
 | 11 | Taxonomy: `contract:security-tracker` in the validator, capability docs, labeler | `tools/skill-and-tool-validator`, `docs/labels-and-capabilities.md`, `.github/labeler.yml` | Done |
 | 12 | Token restamp for the edited skills; `prek run --all-files` | `measured_tokens:` frontmatter | Done |
-| 12a | vetted-ops: `[tracker]` policy, translation of every tracker operation, six new operations, refusal of the rest, tests incl. an end-to-end run against the local tracker | `tools/vetted-ops/` | Done |
+| 12a | vetted-ops: `[tracker]` policy, translation of every tracker operation, nine new operations, refusal of the rest, tests incl. an end-to-end run against the local tracker | `tools/vetted-ops/` | Done |
 | 12b | Contract: skill-command → vetted-operation → backend table; shared block points skills at vetted operations | `tools/security-tracker/contract.md`, `tools/dev/blocks/tracker-backend.md` | Done |
 | 13 | Security-skill eval suites (self-eval) — 308/313; the 5 failures come from prompt files this change does not touch | `tools/skill-evals/evals/security-*` | Done (cross-model pass to do) |
 | 14 | Create the `contract:security-tracker` label on `apache/magpie` | GitHub labels | To do (maintainer) |

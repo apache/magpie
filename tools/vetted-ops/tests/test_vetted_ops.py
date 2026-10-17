@@ -105,6 +105,7 @@ def test_every_op_declares_validators_for_all_its_params() -> None:
         "content_id",
         "title",
         "query",
+        "attachment",
         "vuln_id",
         "package_name",
         "version",
@@ -142,6 +143,7 @@ def test_every_builder_produces_a_gh_argv(policy: config.Config) -> None:
         "content_id": "I_abc",
         "title": "A tracker title",
         "query": "path traversal",
+        "attachment": "cve.json",
         "label": "needs triage",
         "milestone": "1.2.3",
         "state": "open",
@@ -910,6 +912,7 @@ def test_tracker_and_upstream_operations_never_cross(policy: config.Config) -> N
         "content_id": "I_abc",
         "title": "A tracker title",
         "query": "path traversal",
+        "attachment": "cve.json",
         "label": "needs triage",
         "milestone": "1.2.3",
         "state": "open",
@@ -995,6 +998,7 @@ def test_no_operation_interpolates_a_traversing_ref(policy: config.Config) -> No
         "content_id": "I_abc",
         "title": "A tracker title",
         "query": "path traversal",
+        "attachment": "cve.json",
         "body": "unused",
     }
     body = policy.workspace / "ref.md"
@@ -1332,6 +1336,7 @@ def test_every_tracker_operation_refuses_rather_than_retargeting(
             "content_id": "I_abc",
             "title": "A tracker title",
             "query": "path traversal",
+            "attachment": "cve.json",
         }
         out = {}
         for name in op.params:

@@ -42,8 +42,9 @@ contract — they stay on the project's forge.
 
 The two non-GitHub backends expose **the same subcommand surface and the same
 JSON output**, defined [below](#operations).
-The vetted-ops policy pins the backend's tool directory and target (the tracker
-folder, or the Jira URL, project and security level); a skill cannot name either.
+The vetted-ops policy pins the target (the tracker folder, or the Jira URL,
+project and security level); the backend's code runs from the tool installed
+beside vetted-ops, never from a path a policy names. A skill can name neither.
 
 ## From skill commands to vetted operations
 
@@ -79,6 +80,9 @@ The last two columns are what vetted-ops runs on a non-GitHub tracker.
 | `vetted-op-tracker rollup-amend-latest` | `rollup-amend-latest N A F` | `rollup-amend-latest N --action A --entry-body-file -` |
 | `vetted-op-read body-field-get` | `body-field-get N FIELD` | `field-get N FIELD` |
 | `vetted-op-tracker body-field-set` | `body-field-set N FIELD F` | `field-set N FIELD --value-file -` |
+| `gh api repos/<tracker> --jq .name` (Step 0 access check) | `tracker-doctor` | `doctor` |
+| `generate-cve-json <N> --attach` (reads the issue) | `issue-body N` (saved), then `generate-cve-json --stdin` | `body N` (markdown `###` sections; Jira `h3.` converted) |
+| `generate-cve-json <N> --attach` (attaches the JSON) | `issue-attach N FILE NAME` | `attach N - --name=NAME` |
 | — (end of a session) | `tracker-pending` | `pending` (`local-files` only) |
 | — (end of a session) | `tracker-publish F` | `publish --message-file - --push` (`local-files` only) |
 
@@ -111,7 +115,7 @@ These are the backend CLIs' subcommands — what the vetted operations above run
 
 | Operation | Arguments | Output | Reached from |
 |---|---|---|---|
-| `view <id>` | `--comments` | `{id, title, state, labels, assignees, milestone, author, created, updated, body, url, comments?}` | `issue-view`, `issue-comments` |
+| `view <id>` | `--comments` | `{id, title, state, labels, assignees, milestone, author, created, updated, body, url, comments?}`; with `--comments` the status rollup is the first comment (`kind: "rollup"`), as on GitHub | `issue-view`, `issue-comments` |
 | `list` | `--state open\|closed\|all` (default `open`), `--label L` (repeatable, AND), `--search TEXT`, `--limit N` | `[{id, title, state, labels, updated, url}]` | `issue-list`, `issue-list-label`, `issue-search` |
 | `labels` | — | `["<label>", …]` (labels in use) | `label-list` |
 | `field-get <id> <heading>` | — | `{id, heading, value}` (`value` is `null` when the section is missing) | `body-field-get` |
@@ -123,8 +127,9 @@ These are the backend CLIs' subcommands — what the vetted operations above run
 | `reopen <id>` | — | `{id, state}` | `issue-reopen` |
 | `rollup-append <id>` | `--action A`, `--entry-body-file F`, `--user U`, `--now ISO8601` | `{id, url}` | `rollup-append` |
 | `rollup-amend-latest <id>` | `--action A`, `--entry-body-file F` | `{id, url}`; exit 4 when the latest entry's action is not `A` | `rollup-amend-latest` |
-| `attach <id> <file>` | `--name N` | `{id, name, url}` | direct (no vetted operation yet), e.g. the patch of `security-issue-fix`'s Subversion flow |
-| `pending` | — | `{backend, changes: [...], needs_publish: bool}` | `tracker-pending` |
+| `attach <id> <file>` | `--name N` (required when `<file>` is `-`, stdin) | `{id, name, url}` | `issue-attach`, e.g. the patch of `security-issue-fix`'s Subversion flow |
+| `body <id>` | — | the body as raw markdown with `###` field sections (not JSON), for `generate-cve-json --stdin` | `issue-body` |
+| `pending` | — | `{backend, changes: [...], unpushed_commits, needs_publish: bool}` | `tracker-pending` |
 | `publish` | `--message-file F`, `--trailer T` (repeatable), `--push` | `{committed, pushed, revision}` | `tracker-publish` |
 | `doctor` | — | `{backend, ok, checks: [{name, ok, detail}]}` | direct, from `/magpie-setup config` |
 
@@ -137,6 +142,11 @@ Rules that hold for every backend:
   `--title` exists for vetted-ops, which passes the validated one-line title as a
   single argv element with no shell; a human or skill typing a command uses
   `--title-file`.
+- **Untrusted text never forges structure.** Every marker a backend parses back
+  — comment markers and headings, the rollup marker, rollup entry summary lines,
+  managed section headings — is escaped in incoming bodies before they are
+  written, so a reporter's text cannot read back as another person's comment or
+  rollup entry, or mislead `rollup-amend-latest`.
 - **Labels and milestones are free strings.** The concrete names come from
   `tracker.labels` in `project.md`; a backend never invents a label.
 - **Body fields are `###` sections by default.** `field-get` / `field-set`
@@ -157,8 +167,10 @@ Rules that hold for every backend:
 The tracker holds embargoed vulnerability details.
 A backend **must refuse to write** to a tracker it cannot show is access-restricted, and say why, with exit `4`:
 
-- **`jira`** — every write checks that the issue carries an issue-security
-  level, and `create` always sets `tracker.jira.security_level`.
+- **`jira`** — every write checks that the issue carries exactly the
+  configured issue-security level (a scheme can define levels open to every
+  logged-in user, so "any level" is not enough), and `create` always sets
+  `tracker.jira.security_level`.
   An issue without one is refused, never "fixed" by the backend.
 - **`local-files`** — the backend refuses writes until the tracker's committed
   format descriptor records `access_restricted: true`, which only

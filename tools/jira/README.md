@@ -282,7 +282,7 @@ uv run --project <framework>/tools/jira magpie-jira-tracker --url <url> --projec
 
 **Why the level is mandatory.** Jira projects are often browsable by any logged-in user; the issue-security level is what makes a tracker private.
 `create` always sets the configured level and refuses to run without one.
-Before every write on an existing issue (`edit`, `field-set`, `comment`, `close`, `reopen`, `rollup-*`, `attach`) the backend reads the issue's `security` field and refuses with exit `4` when it is empty, before sending any content.
+Before every write on an existing issue (`edit`, `field-set`, `comment`, `close`, `reopen`, `rollup-*`, `attach`) the backend reads the issue's `security` field and refuses with exit `4` unless it is exactly the configured level, before sending any content: a scheme can define levels open to every logged-in user.
 It never sets a level on an existing issue itself: an issue without one may already have been exposed, and a human decides what to do.
 
 **Credentials are `jira_bridge.rest`'s.** Every request goes through `JiraRest.send`, so the token comes from `JIRA_API_TOKEN` or the token file
@@ -297,7 +297,8 @@ When the token is withheld — no confirmed host, or a different one — every w
 | `--project` | `SECURITY_TRACKER_PROJECT` | `tracker.jira.project` | Key of the private project. Deliberately separate from `ISSUE_TRACKER_PROJECT`, which names the public tracker; an ID from another project is a usage error. |
 | `--security-level` | `SECURITY_TRACKER_SECURITY_LEVEL` | `tracker.jira.security_level` | The level `create` sets. Required for `create`. |
 | `--issue-type` | `SECURITY_TRACKER_ISSUE_TYPE` | `tracker.jira.issue_type` | Default `Bug`. |
-| `--jira-cloud` | `JIRA_DEPLOYMENT=cloud` | `tracker.jira.deployment` | Cloud search endpoint (`/search/jql`) and account-ID assignees. |
+| `--deployment {server,cloud}` | `JIRA_DEPLOYMENT` | `tracker.jira.deployment` | Cloud uses the search endpoint `/search/jql` and account-ID assignees. When given, it wins over `JIRA_DEPLOYMENT` and `--jira-cloud`; vetted-ops always passes it. |
+| `--jira-cloud` | `JIRA_DEPLOYMENT=cloud` | — | Compatibility alias for `--deployment cloud`. |
 
 Under vetted-ops the URL, project and level are pinned by the policy's `[tracker]` table, not by the caller.
 
@@ -305,12 +306,13 @@ Under vetted-ops the URL, project and level are pinned by the policy's `[tracker
 |---|---|
 | IDs | `FOOSEC-12`, or a bare `12` expanded with the project key. |
 | `view` | `closed` when resolved or the status category is *Done*; `milestone` is the first fix version; adds `security_level` and `warnings` (one when the issue has no level). |
-| `list` | JQL `project = KEY`, resolution filter, one `labels = "L"` per label, `text ~ "…"` for `--search`, newest first. |
+| `list` | JQL `project = KEY`, the same open / closed rule as `view` (resolution or *Done* category), one `labels = "L"` per label, `text ~ "…"` for `--search`, newest first. |
 | `labels` | Distinct labels across the project (at most 5000 issues scanned). |
 | `create` / `edit` | `summary`, `description`, `labels`, `issuetype`, `security`; labels via `update.labels`, milestone via `fixVersions`, one assignee. |
 | `comment` | `--author` is echoed but Jira records the authenticated user. |
 | `close` / `reopen` | A transition into (or out of) the *Done* category; `close` sets `Fixed` or `Won't Fix` and retries without a resolution when the screen rejects one. |
 | `attach` | Multipart upload; `--name` reduced to a base name. |
+| `body` | The description with `h1.`–`h6.` headings as markdown `#`–`######`, raw (not JSON), for `generate-cve-json --stdin`. |
 | `pending` / `publish` | No-ops: Jira writes are immediate. |
 | `doctor` | URL, project, confirmed token, configured level, `/myself`, project reachability, and whether the level exists (403/404 on the listing reports *unverified*). |
 

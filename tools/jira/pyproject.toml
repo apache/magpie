@@ -54,9 +54,10 @@ minversion = "8.0"
 addopts = "-ra -q"
 testpaths = ["tests"]
 
-[dependency-groups]
-# The shared toolchain (mypy, pytest, ruff) comes from `magpie-dev`
-# (tools/dev), declared once for the whole workspace. The checks run each tool
-# via `uv run --directory <member> --project . python -m <tool>` — see
-# tools/dev/run-workspace-check.sh.
-dev = ["magpie-dev"]
+# No `[dependency-groups] dev` here: this project also ships inside the
+# `magpie-vetted-ops` plugin (vetted-ops runs it as a security-tracker backend
+# with `uv run --project <plugin>/tools/<this>`), and `magpie-dev` only resolves
+# through the workspace root's `[tool.uv.sources]`, which the plugin does not
+# ship — a `dev` group would make every plugin invocation fail. The shared
+# toolchain still reaches the tests: CI and the workspace checks sync the root
+# `dev` group. See tools/vetted-ops/pyproject.toml.

@@ -22,14 +22,20 @@ SCHEMA_VERSION = 1
 
 @dataclass
 class IdFormat:
+    # The prefix new reports get.
     prefix: str = "SEC-"
     width: int = 4
     # Existing names like ``2024-007-xss-in-login`` carry a slug after the
     # number; new reports then get one too, derived from the title.
     slug: bool = False
+    # Further prefixes existing reports use (``2025-`` next to ``2026-``).
+    # They are recognised, never allocated.
+    other_prefixes: list[str] = field(default_factory=list)
 
     def regex(self) -> re.Pattern[str]:
-        return re.compile("^" + re.escape(self.prefix) + r"(?P<num>\d+)(?:-(?P<slug>[A-Za-z0-9-]+))?$")
+        prefixes = sorted({self.prefix, *self.other_prefixes}, key=len, reverse=True)
+        alternatives = "|".join(re.escape(p) for p in prefixes)
+        return re.compile("^(?P<prefix>" + alternatives + r")(?P<num>\d+)(?:[-_](?P<slug>[A-Za-z0-9-]+))?$")
 
     def render(self, number: int, slug: str = "") -> str:
         base = f"{self.prefix}{number:0{self.width}d}"
@@ -117,6 +123,32 @@ class Descriptor:
         return desc
 
 
+# One path component: ordinary filename characters, spaces included (detection
+# accepts a state folder named `in progress` or a report file with spaces), but
+# no separator, NUL, control character or surrounding whitespace.
+_NAME_RE = re.compile(r"^(?! )[^/\\\x00-\x1f\x7f]+(?<! )$")
+
+
+def _check_names(desc: Descriptor) -> None:
+    """Every file or folder name the descriptor supplies stays inside the tracker.
+
+    The descriptor is committed with the reports, so anyone who can push to the
+    tracker can edit it; a name like ``../../.ssh/config`` must never become a
+    path the tool reads or writes.
+    """
+    names = {
+        "issue_file": desc.issue_file,
+        "comments_file": desc.comments_file,
+        "rollup_file": desc.rollup_file,
+        "attachments_dir": desc.attachments_dir,
+        "state.open_dir": desc.state.open_dir,
+        "state.closed_dir": desc.state.closed_dir,
+    }
+    for key, value in names.items():
+        if not _NAME_RE.match(value) or value in (".", "..") or ".." in value:
+            raise ValueError(f"descriptor {key} must be a plain file or folder name, got {value!r}")
+
+
 def load(root: Path) -> Descriptor:
     path = root / DESCRIPTOR_NAME
     if not path.is_file():
@@ -126,7 +158,9 @@ def load(root: Path) -> Descriptor:
     data = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
         raise ValueError(f"{path}: expected a JSON object")
-    return Descriptor.from_dict(data)
+    desc = Descriptor.from_dict(data)
+    _check_names(desc)
+    return desc
 
 
 def save(root: Path, desc: Descriptor) -> Path:

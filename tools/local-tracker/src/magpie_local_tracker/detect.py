@@ -152,7 +152,11 @@ def detect(root: Path) -> tuple[Descriptor, dict[str, object]]:
         + ")"
     )
     if len(prefixes) > 1:
-        desc.notes.append(f"several ID prefixes in use {dict(prefixes)}; new reports use {prefix!r}")
+        # Every prefix in use stays recognised; only the most common one is allocated.
+        desc.id.other_prefixes = sorted(p for p in prefixes if p != prefix)
+        desc.notes.append(
+            f"several ID prefixes in use {dict(prefixes)}; all are recognised, new reports use {prefix!r}"
+        )
 
     # 4. Metadata, keys, state values, headings.
     sample = issue_paths[:60]

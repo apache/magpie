@@ -215,12 +215,27 @@ Step 3c's harness command files are the two named exceptions). Never stage anyth
 ## Step 3a — Security tracker backend
 
 Run this when a `security-*` skill is in scope and `tracker.platform` in `project.md` is still unset or `TODO`.
+A freshly scaffolded `project.md` carries `platform: TODO`, so the question is part of every first setup;
+a `TODO` the user skips reads as `github`.
 Put one question in Step 3's batch, offering the three backends of the
 [security-tracker contract](../../../../tools/security-tracker/contract.md):
 
-- **`github`** (default) — a private GitHub repository, `tracker_repo`.
+- **`github`** (default) — a private GitHub repository, `tracker_repo`; write `tracker.platform: github`.
 - **`local-files`** — Markdown files in a folder of this repository (Git or SVN), committed and pushed at the end of each session.
-- **`jira`** — a Jira project whose issues carry an issue-security level; ask for `url`, `project` and `security_level`, and run the backend's `doctor`.
+- **`jira`** — a Jira project whose issues carry an issue-security level; follow the Jira steps below.
+
+For **`jira`**:
+
+1. **Ask for the target**: `tracker.jira.url`, `tracker.jira.project`, `tracker.jira.security_level` and `tracker.jira.deployment` (`server` or `cloud`).
+   Write them, with `tracker.platform: jira`, to the personal layer's `project.md`.
+2. **Make every label Jira-safe.** Jira labels cannot contain whitespace and the backend refuses any label that does, so the template's names (`needs triage`, `cve allocated`, …) fail on the first write.
+   Map each configured label to a whitespace-free name (`needs triage` → `needs-triage`) everywhere it is configured:
+   the `tracker.labels.*` values and the `scope_detection.labels` keys in `project.md`,
+   the `any_label` lists in `security-tracker-stats.md`,
+   and the vetted-ops policy's `[values] labels` list.
+   Show the mapping and apply it on the user's confirmation; the policy change goes in the same diff as the `[tracker]` table below.
+3. **Run `doctor`**: `uv run --project <framework>/tools/jira magpie-jira-tracker --url <url> --project <key> --security-level <level> --deployment <server|cloud> doctor`, and show its checks.
+   Do not declare the backend ready until every label is mapped and `doctor` passes.
 
 For **`local-files`**:
 
@@ -246,10 +261,10 @@ For **`local-files`**:
 For both `local-files` and `jira`, the skills reach the tracker only through vetted operations
 ([mapping](../../../../tools/security-tracker/contract.md#from-skill-commands-to-vetted-operations)).
 When a vetted-ops policy exists, show the `[tracker]` table it needs —
-`platform`, the backend's absolute `project` directory, and `root` or the `jira_*` target
+`platform`, and `root` or the `jira_*` target (the backend's code comes from the tool installed beside vetted-ops, never from the policy)
 ([vetted-ops → Tracker backends](../../../../tools/vetted-ops/README.md#tracker-backends)) —
 and write it only on the user's confirmation; the policy is a security control, not configuration this step may change unasked.
-Grant the security callers `issue-create`, `issue-search`, `issue-list-label`, `issue-reopen`, `tracker-pending` and `tracker-publish` in the same diff.
+Grant the security callers `issue-create`, `issue-search`, `issue-list-label`, `issue-reopen`, `issue-body`, `issue-attach`, `tracker-doctor`, `tracker-pending` and `tracker-publish` in the same diff.
 
 ## Step 3b — Record what this run reconciled
 

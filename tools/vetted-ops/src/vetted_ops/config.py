@@ -32,7 +32,7 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
-from .tracker_backends import BACKEND_SCRIPTS, PLATFORMS, TrackerBackend
+from .tracker_backends import PLATFORMS, TrackerBackend, backend_dir
 
 #: `owner/name`, conservative on both halves.
 _REPO = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,100}/[A-Za-z0-9][A-Za-z0-9._-]{0,100}$")
@@ -136,10 +136,10 @@ def _tracker_backend(raw: object) -> TrackerBackend | None:
     """
     Validate the optional ``[tracker]`` table.
 
-    Only data comes from the policy — the backend's tool directory and its
-    pinned target. The command that runs is fixed in tracker_backends.py, and
-    the tool directory must be the one the platform names, so the policy cannot
-    smuggle in a different program.
+    Only data comes from the policy — the backend's pinned target. The program
+    and the backend's code are fixed in tracker_backends.py (the tool directory
+    installed beside vetted-ops), so no policy — including one an agent wrote
+    and passed with --config — can choose code to run.
     """
     if raw is None:
         return None
@@ -150,12 +150,18 @@ def _tracker_backend(raw: object) -> TrackerBackend | None:
         raise ConfigError(f"[tracker] platform must be one of {', '.join(PLATFORMS)}, got {platform!r}")
     if platform == "github":
         return None
-    project = _absolute_dir(raw, "project")
-    expected_dir, _ = BACKEND_SCRIPTS[platform]
-    if Path(project).name != expected_dir:
+    if "project" in raw:
         raise ConfigError(
-            f"[tracker] project for {platform} must be the tools/{expected_dir} directory, got {project!r}"
+            "[tracker] no longer takes 'project': the backend runs from the tool directory "
+            "installed beside vetted-ops, never from a path a policy names"
         )
+    trusted = backend_dir(platform)
+    if not (trusted / "pyproject.toml").is_file():
+        raise ConfigError(
+            f"the {platform} tracker backend is not installed beside vetted-ops (expected {trusted}); "
+            "re-run the secure-setup install or update to copy it"
+        )
+    project = str(trusted)
     if platform == "local-files":
         return TrackerBackend(platform=platform, project=project, root=_absolute_dir(raw, "root"))
     url = _one_line(raw, "jira_url")
@@ -173,6 +179,7 @@ def _tracker_backend(raw: object) -> TrackerBackend | None:
         jira_url=url.rstrip("/"),
         jira_project=key,
         jira_security_level=_one_line(raw, "jira_security_level"),
+        jira_issue_type=_one_line(raw, "jira_issue_type") if "jira_issue_type" in raw else "Bug",
         jira_cloud=deployment == "cloud",
     )
 

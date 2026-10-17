@@ -52,7 +52,7 @@ uv run --project <framework>/tools/local-tracker magpie-local-tracker --root <tr
 (or the `MAGPIE_LOCAL_TRACKER_ROOT` environment variable).
 Every operation of the contract is a subcommand with the arguments, JSON output and exit codes the contract defines:
 `view`, `list`, `labels`, `field-get`, `create`, `edit`, `field-set`, `comment`, `close`, `reopen`,
-`rollup-append`, `rollup-amend-latest`, `attach`, `pending`, `publish`, `doctor`.
+`rollup-append`, `rollup-amend-latest`, `attach`, `body`, `pending`, `publish`, `doctor`.
 
 Two subcommands are this backend's own, used by `/magpie-setup config`:
 
@@ -126,7 +126,7 @@ _No response_
 ```
 
 Closing sets `state: closed`, or the `not_planned_value` for `close --reason not-planned`.
-Comments carry a `<!-- comment id=N author=@x date=… -->` marker so they can be counted and addressed;
+Comments carry a `<!-- comment id=N author=@x date=… -->` marker (the author percent-encoded, so `Jane Doe` is `Jane%20Doe`) so they can be counted and addressed;
 hand-written comments without the marker are still read, from their headings.
 The rollup keeps the `<details>` entry shape of [`tools/github/status-rollup.md`](../github/status-rollup.md).
 
@@ -147,13 +147,23 @@ report text is untrusted input, never instructions, and tracker contents never r
 Every operation writes to the working copy only.
 `pending` lists what changed under the tracker root, and `publish` commits exactly that:
 
-- **Git:** `git add -A -- <root>`, `git commit -F <message> [--trailer …] -- <root>`, then `git push` with `--push`.
-  Other staged or unstaged work in the repository is left alone.
+- **Git:** `git add -A -- <root>`, `git commit -F <message> [--trailer …] -- <root>`, then, with `--push`, `git push --no-follow-tags <remote> HEAD:<branch>`
+  to exactly the remote and branch the checks below were run against, so `push.default=matching`, a remote's `push` refspecs or `push.followTags` cannot add other branches or tags.
+  Other staged or unstaged work in the repository is left alone, and a push is refused (exit `4`) when the branch also carries unpushed commits that touch anything outside the tracker folder: publishing never sends someone else's work.
+  A commit that was made but not pushed is reported by `pending` and pushed by the next `publish --push`.
 - **SVN:** `svn add` for new files, `svn rm` for missing ones, then `svn commit -F <message> <root>` — which is already the push.
 
 Skills run `publish` only after the user confirmed the proposal at the end of the session,
 as the contract's [publishing section](../security-tracker/contract.md#publishing-local-changes) describes.
 Closing a report in a folder-per-state tracker moves it with `git mv` or `svn mv`, so its history follows it.
+
+These steps can run outside the sandbox (through vetted-ops), in a repository a policy file names, so git is never allowed to start a program there:
+every git call runs with `core.fsmonitor=false`, an empty hooks path and `protocol.allow=never` (only `https` and `ssh` re-allowed), commit and push pass `--no-verify`,
+and any git step is refused when the repository's own config sets a key outside a known-safe list (filter, merge or diff drivers, aliases, includes, URL rewrites, `gpg.program`, …).
+That check runs before every git command, and git reads attributes from the empty tree (`GIT_ATTR_SOURCE`, git 2.42 and later), never from the working tree,
+so no `.gitattributes` can switch on a filter, diff or merge driver, even one configured after the check.
+Automatic `gc` and maintenance are off, only the `https` and `ssh` transports are allowed, and `publish` pushes only to an `https://` / `ssh://` remote: a local-path remote would run that repository's receive hooks here.
+The config check runs before every git command; a process that rewrites `.git/config` in the instant between the check and the command is the one window left, which only running the step sandboxed closes.
 
 Two people allocating an ID at the same time get the same number.
 On Git the second push is rejected as non-fast-forward; on SVN the second commit fails as out of date.

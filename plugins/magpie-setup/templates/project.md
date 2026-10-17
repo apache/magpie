@@ -457,8 +457,9 @@ tracker:
   # Git or SVN working copy (tools/local-tracker/). `jira`: a Jira project
   # whose issues carry an issue-security level (tools/jira/).
   # `/magpie-setup config` asks and, for local-files, learns the format of
-  # the reports already in the folder.
-  platform: github
+  # the reports already in the folder. `TODO` (not yet asked) reads as
+  # `github`; the question writes the confirmed choice here.
+  platform: TODO
 
   # local-files only.
   local:

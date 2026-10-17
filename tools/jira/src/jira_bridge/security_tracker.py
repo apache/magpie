@@ -38,6 +38,7 @@ from jira_bridge.tracker_client import (
 )
 
 _KEY_RE = re.compile(r"^[A-Z][A-Z0-9_]*-\d+$")
+_RAW = object()  # an operation that already wrote its own (non-JSON) output
 _VIEW_FIELDS = "summary,status,resolution,labels,assignee,fixVersions,reporter,created,updated,description,security"
 _LIST_FIELDS = "summary,status,resolution,labels,updated"
 _LABEL_SCAN_CAP = 5000
@@ -135,16 +136,33 @@ def _single_line(value: str, what: str) -> str:
 
 
 def guarded_issue(
-    client: JiraClient, key: str, extra_fields: str = ""
+    client: JiraClient, key: str, extra_fields: str = "", *, level: str
 ) -> dict[str, Any]:
-    """Fetch ``key`` and refuse unless it carries an issue-security level."""
+    """Fetch ``key`` and refuse unless it carries exactly the configured
+    issue-security level.
+
+    Any level is not enough: a scheme can define levels open to every logged-in
+    user, and an issue created under one of those must not receive embargoed
+    content.
+    """
+    if not level:
+        raise RefusedError(
+            f"refusing to write to {key}: no issue-security level is configured "
+            "(--security-level / SECURITY_TRACKER_SECURITY_LEVEL / tracker.jira.security_level)"
+        )
     fields = "security" + ("," + extra_fields if extra_fields else "")
     issue = client.issue(key, fields)
-    if _security_name(issue.get("fields") or {}) is None:
+    actual = _security_name(issue.get("fields") or {})
+    if actual is None:
         raise RefusedError(
             f"refusing to write to {key}: the issue has no issue-security level, so it is not "
             "access-restricted, and this backend will not write embargoed content to it. "
             "Ask a Jira project admin to set the security level; the backend never sets it on an existing issue."
+        )
+    if actual.strip().casefold() != level.strip().casefold():
+        raise RefusedError(
+            f"refusing to write to {key}: its issue-security level is {actual!r}, not the configured "
+            f"{level!r}; a different level may be visible to people outside the security team"
         )
     return issue
 
@@ -194,10 +212,11 @@ def op_view(client: JiraClient, cfg: Config, args: argparse.Namespace) -> Any:
 
 def op_list(client: JiraClient, cfg: Config, args: argparse.Namespace) -> Any:
     clauses = [f"project = {jql_quote(cfg.project)}"]
+    # The same definition as _state(): closed is resolved *or* in the Done category.
     if args.state == "open":
-        clauses.append("resolution is EMPTY")
+        clauses.append("resolution is EMPTY AND statusCategory != Done")
     elif args.state == "closed":
-        clauses.append("resolution is not EMPTY")
+        clauses.append("(resolution is not EMPTY OR statusCategory = Done)")
     clauses.extend(f"labels = {jql_quote(label)}" for label in args.label or [])
     if args.search:
         clauses.append(f"text ~ {jql_quote(args.search)}")
@@ -236,7 +255,7 @@ def op_field_set(client: JiraClient, cfg: Config, args: argparse.Namespace) -> A
     key = expand_id(args.id, cfg.project)
     heading = _single_line(args.heading, "heading")
     value = _read_text(args.value_file, "value")
-    issue = guarded_issue(client, key, "description")
+    issue = guarded_issue(client, key, "description", level=cfg.security_level)
     body = (issue.get("fields") or {}).get("description") or ""
     new_body, created = markup.set_field(body, heading, value)
     client.call(
@@ -327,7 +346,7 @@ def op_edit(client: JiraClient, cfg: Config, args: argparse.Namespace) -> Any:
     removes = args.remove_assignee or []
     if not (fields or update or adds or removes):
         raise UsageError("edit: nothing to change")
-    issue = guarded_issue(client, key, "assignee")
+    issue = guarded_issue(client, key, "assignee", level=cfg.security_level)
     current = _person((issue.get("fields") or {}).get("assignee"))
     if adds:
         fields["assignee"] = _assignee_ref(cfg, adds[0])
@@ -345,8 +364,8 @@ def op_edit(client: JiraClient, cfg: Config, args: argparse.Namespace) -> Any:
 
 def op_comment(client: JiraClient, cfg: Config, args: argparse.Namespace) -> Any:
     key = expand_id(args.id, cfg.project)
-    body = _read_text(args.body_file, "body")
-    guarded_issue(client, key)
+    body = markup.neutralize(_read_text(args.body_file, "body"))
+    guarded_issue(client, key, level=cfg.security_level)
     data = client.call(
         "POST", f"/rest/api/2/issue/{key}/comment", payload={"body": body}
     )
@@ -378,7 +397,7 @@ def _target_category(transition: Mapping[str, Any]) -> str | None:
 
 def op_close(client: JiraClient, cfg: Config, args: argparse.Namespace) -> Any:
     key = expand_id(args.id, cfg.project)
-    issue = guarded_issue(client, key, "status,resolution")
+    issue = guarded_issue(client, key, "status,resolution", level=cfg.security_level)
     if _state(issue.get("fields") or {}) == "closed":
         return {"id": key, "state": "closed"}
     done = [t for t in _transitions(client, key) if _target_category(t) == "done"]
@@ -408,7 +427,7 @@ def op_close(client: JiraClient, cfg: Config, args: argparse.Namespace) -> Any:
 
 def op_reopen(client: JiraClient, cfg: Config, args: argparse.Namespace) -> Any:
     key = expand_id(args.id, cfg.project)
-    issue = guarded_issue(client, key, "status,resolution")
+    issue = guarded_issue(client, key, "status,resolution", level=cfg.security_level)
     if _state(issue.get("fields") or {}) == "open":
         return {"id": key, "state": "open"}
     candidates = [
@@ -450,9 +469,9 @@ def _rollup_user(client: JiraClient, user: str | None) -> str:
 def op_rollup_append(client: JiraClient, cfg: Config, args: argparse.Namespace) -> Any:
     key = expand_id(args.id, cfg.project)
     action = _single_line(args.action, "--action")
-    entry_body = _read_text(args.entry_body_file, "entry body")
+    entry_body = markup.neutralize(_read_text(args.entry_body_file, "entry body"))
     date = _date(args.now)
-    guarded_issue(client, key)
+    guarded_issue(client, key, level=cfg.security_level)
     user = _rollup_user(client, args.user)
     existing = _find_rollup(client, key)
     entry = markup.RollupEntry(date, user, action, entry_body)
@@ -479,8 +498,8 @@ def op_rollup_amend_latest(
 ) -> Any:
     key = expand_id(args.id, cfg.project)
     action = _single_line(args.action, "--action")
-    entry_body = _read_text(args.entry_body_file, "entry body")
-    guarded_issue(client, key)
+    entry_body = markup.neutralize(_read_text(args.entry_body_file, "entry body"))
+    guarded_issue(client, key, level=cfg.security_level)
     existing = _find_rollup(client, key)
     entries = markup.parse_rollup(str(existing.get("body") or "")) if existing else []
     if existing is None or not entries:
@@ -500,16 +519,30 @@ def op_rollup_amend_latest(
     return {"id": key, "url": client.comment_url(key, comment_id)}
 
 
+def op_body(client: JiraClient, cfg: Config, args: argparse.Namespace) -> Any:
+    """The description as markdown `### Field` sections, for generate-cve-json --stdin."""
+    key = expand_id(args.id, cfg.project)
+    data = client.issue(key, "description")
+    description = str((data.get("fields") or {}).get("description") or "")
+    sys.stdout.write(markup.to_markdown_headings(description).strip("\n") + "\n")
+    return _RAW
+
+
 def op_attach(client: JiraClient, cfg: Config, args: argparse.Namespace) -> Any:
     key = expand_id(args.id, cfg.project)
-    path = Path(args.file)
-    if not path.is_file():
-        raise UsageError(f"attachment {args.file} is not a readable file")
-    name = Path(args.name).name if args.name else path.name
+    if args.file == "-":
+        if not args.name:
+            raise UsageError("attaching from stdin needs --name")
+        content, name = sys.stdin.buffer.read(), Path(args.name).name
+    else:
+        path = Path(args.file)
+        if not path.is_file():
+            raise UsageError(f"attachment {args.file} is not a readable file")
+        name = Path(args.name).name if args.name else path.name
+        content = path.read_bytes()
     if not name:
         raise UsageError("attachment name is empty")
-    content = path.read_bytes()
-    guarded_issue(client, key)
+    guarded_issue(client, key, level=cfg.security_level)
     data = client.attach(key, name, content)
     first = data[0] if isinstance(data, list) and data else {}
     url = (
@@ -642,6 +675,12 @@ def _common(parser: argparse.ArgumentParser, default: Any) -> None:
         default=default,
         help="Jira Cloud deployment: assignees are accountIds (JIRA_DEPLOYMENT=cloud).",
     )
+    parser.add_argument(
+        "--deployment",
+        choices=["server", "cloud"],
+        default=default,
+        help="Jira deployment; when given, wins over JIRA_DEPLOYMENT and --jira-cloud.",
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -730,6 +769,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--action", required=True)
     p.add_argument("--entry-body-file", required=True)
 
+    p = add(
+        "body",
+        op_body,
+        "Print the description as markdown sections (for generate-cve-json --stdin).",
+    )
+    p.add_argument("id")
+
     p = add("attach", op_attach, "Attach a file.")
     p.add_argument("id")
     p.add_argument("file")
@@ -747,7 +793,14 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def resolve_config(args: argparse.Namespace, env: Mapping[str, str]) -> Config:
-    deployment = env.get("JIRA_DEPLOYMENT", "").strip().lower()
+    explicit = getattr(args, "deployment", None)
+    if explicit:
+        cloud = explicit == "cloud"
+    else:
+        cloud = (
+            bool(args.jira_cloud)
+            or env.get("JIRA_DEPLOYMENT", "").strip().lower() == "cloud"
+        )
     return Config(
         url=(args.url or env.get("ISSUE_TRACKER_URL", "")).strip().rstrip("/"),
         project=(args.project or env.get("SECURITY_TRACKER_PROJECT", ""))
@@ -760,7 +813,7 @@ def resolve_config(args: argparse.Namespace, env: Mapping[str, str]) -> Config:
             args.issue_type or env.get("SECURITY_TRACKER_ISSUE_TYPE", "")
         ).strip()
         or "Bug",
-        cloud=bool(args.jira_cloud) or deployment == "cloud",
+        cloud=cloud,
     )
 
 
@@ -800,7 +853,9 @@ def main(
             raise UsageError(
                 "project key not configured: set SECURITY_TRACKER_PROJECT or pass --project"
             )
-        _emit(args.func(client, cfg, args))
+        result = args.func(client, cfg, args)
+        if result is not _RAW:
+            _emit(result)
         return 0
     except TrackerError as exc:
         print(f"magpie-jira-tracker: error: {exc}", file=sys.stderr)

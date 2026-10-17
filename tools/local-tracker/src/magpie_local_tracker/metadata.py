@@ -33,6 +33,9 @@ class Metadata:
     style: str = "front-matter"
     values: dict[str, Value] = field(default_factory=dict)
     list_style: str = "inline"
+    # Set when the front matter uses YAML this parser does not model (block
+    # scalars, nested mappings, comments, …); rewriting it would lose data.
+    unsupported: str = ""
 
     def find_key(self, candidates: list[str]) -> str | None:
         """Return the stored key matching any candidate, case-insensitively."""
@@ -43,32 +46,133 @@ class Metadata:
         return None
 
 
+def _unescape_double(inner: str) -> str:
+    """Undo exactly what `_quote` does: `\\\\` -> `\\`, `\\"` -> `"`; any other
+    backslash is literal."""
+    out: list[str] = []
+    i = 0
+    while i < len(inner):
+        ch = inner[i]
+        if ch == "\\" and i + 1 < len(inner) and inner[i + 1] in '\\"':
+            out.append(inner[i + 1])
+            i += 2
+            continue
+        out.append(ch)
+        i += 1
+    return "".join(out)
+
+
 def _unquote(raw: str) -> str:
     raw = raw.strip()
     if len(raw) >= 2 and raw[0] == raw[-1] and raw[0] in "\"'":
         inner = raw[1:-1]
-        return inner.replace('\\"', '"') if raw[0] == '"' else inner.replace("''", "'")
+        return _unescape_double(inner) if raw[0] == '"' else inner.replace("''", "'")
     return raw
 
 
+def _has_inline_comment(raw: str) -> bool:
+    """A YAML ``# comment`` after a value.
+
+    A quote only opens a quoted scalar when it *starts* the value (``Bob's
+    report`` is a plain scalar); inside double quotes a backslash escapes the
+    next character, inside single quotes ``''`` is a literal quote. After the
+    scalar, a ``#`` preceded by whitespace starts a comment.
+    """
+    text = raw.strip()
+    rest = text
+    if text[:1] == "[":
+        # A flow sequence: quotes open quoted items at item boundaries only.
+        i, quote, at_item = 1, "", True
+        while i < len(text):
+            ch = text[i]
+            if quote == '"':
+                if ch == "\\":
+                    i += 2
+                    continue
+                if ch == '"':
+                    quote = ""
+            elif quote == "'":
+                if ch == "'":
+                    if text[i + 1 : i + 2] == "'":
+                        i += 2
+                        continue
+                    quote = ""
+            elif at_item and ch in "\"'":
+                quote, at_item = ch, False
+            elif ch == ",":
+                at_item = True
+            elif ch == "]":
+                break
+            elif not ch.isspace():
+                at_item = False
+            i += 1
+        rest = text[i + 1 :]
+        return re.search(r"\s#", rest) is not None or rest.lstrip().startswith("#")
+    if text[:1] == '"':
+        i = 1
+        while i < len(text):
+            if text[i] == "\\":
+                i += 2
+                continue
+            if text[i] == '"':
+                break
+            i += 1
+        rest = text[i + 1 :]
+    elif text[:1] == "'":
+        i = 1
+        while i < len(text):
+            if text[i] == "'":
+                if text[i + 1 : i + 2] == "'":
+                    i += 2
+                    continue
+                break
+            i += 1
+        rest = text[i + 1 :]
+    else:
+        rest = " " + text
+    return re.search(r"\s#", rest) is not None or rest.lstrip().startswith("#")
+
+
 def _split_inline_list(raw: str) -> list[str]:
+    """Items of a flow sequence, by the scalar rules `_has_inline_comment` uses:
+    a quote opens a quoted item only at an item boundary (``[Bob's report,
+    triaged]`` is two plain items), ``\\`` escapes inside double quotes, and
+    ``''`` is a literal quote inside single quotes."""
     inner = raw.strip()[1:-1]
     items: list[str] = []
     buf = ""
     quote = ""
-    for ch in inner:
-        if quote:
+    at_item = True
+    i = 0
+    while i < len(inner):
+        ch = inner[i]
+        if quote == '"':
             buf += ch
-            if ch == quote:
+            if ch == "\\" and i + 1 < len(inner):
+                buf += inner[i + 1]
+                i += 2
+                continue
+            if ch == '"':
                 quote = ""
-        elif ch in "\"'":
-            quote = ch
+        elif quote == "'":
             buf += ch
+            if ch == "'":
+                if inner[i + 1 : i + 2] == "'":
+                    buf += "'"
+                    i += 2
+                    continue
+                quote = ""
         elif ch == ",":
             items.append(buf)
-            buf = ""
-        else:
+            buf, at_item = "", True
+        elif at_item and ch in "\"'":
+            quote, at_item = ch, False
             buf += ch
+        else:
+            if not ch.isspace():
+                at_item = False
+            buf += ch
+        i += 1
     if buf.strip():
         items.append(buf)
     return [_unquote(i) for i in items if i.strip()]
@@ -96,6 +200,8 @@ def split(text: str) -> tuple[Metadata, str]:
                 return meta, body.lstrip("\n")
             if current_list and re.match(r"^\s*-\s+", line):
                 item = re.sub(r"^\s*-\s+", "", line)
+                if _has_inline_comment(item):
+                    meta.unsupported = meta.unsupported or "comments"
                 existing = meta.values.get(current_list)
                 if not isinstance(existing, list):
                     existing = []
@@ -103,10 +209,23 @@ def split(text: str) -> tuple[Metadata, str]:
                 existing.append(_unquote(item))
                 meta.list_style = "block"
                 continue
+            if line.strip() == "":
+                continue
+            if line.lstrip().startswith("#"):
+                meta.unsupported = meta.unsupported or "comments"
+                continue
             m = _KEY_RE.match(line)
-            if not m:
+            if not m or line[:1].isspace():
+                meta.unsupported = meta.unsupported or "nested or multi-line values"
+                current_list = None
                 continue
             key, value = m.group("key").strip(), m.group("value")
+            if _has_inline_comment(value):
+                meta.unsupported = meta.unsupported or "comments"
+            if value.strip()[:1] in ("|", ">", "{", "&", "*", "!"):
+                meta.unsupported = (
+                    meta.unsupported or f"the YAML construct {value.strip()[:1]!r} (key {key!r})"
+                )
             if value.strip() == "":
                 meta.values[key] = None
                 current_list = key
