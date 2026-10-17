@@ -16,7 +16,7 @@ argument-hint: "[skill-name]"
 capability: capability:platform
 surface_hash: sha256:6aa9dd2488726450
 license: Apache-2.0
-measured_tokens: 4558
+measured_tokens: 4731
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -119,6 +119,12 @@ Surface:
 - Any cross-skill references the override depends on
 
 Goal: the user and the agent both know *what* the change is and *where* it applies.
+
+**A `delegate:` block is never upstreamed.**
+If the file's frontmatter carries one, it names a skill that exists only in the adopter's repository, so it is excluded: it is not part of the design, the diff, or the PR body, and the PR does not name the project's skill.
+Say so, and carry on with the `### Override` sections alone.
+A file that holds nothing but a delegate block has nothing generic to upstream: stop at Step 3.
+Delegation itself is already the framework's extension point ([`agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md#delegate-to-the-projects-own-skill)); if the project's skill does something every adopter would want, design that as a change to the Magpie skill's own steps, described by what it does.
 
 ### Step 3 — Decide if upstreamable
 

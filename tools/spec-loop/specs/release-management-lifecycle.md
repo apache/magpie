@@ -121,20 +121,59 @@ code lands.
   `values`) and the Step 1 config metadata (`release-config load`), with
   shared rules (version / RC format, approver roster, ASF identity,
   automated-signing offer, archive destination) implemented once.
+  `tools/release-management` renders rc-cut's tag, build, sign, checksum,
+  staging and reproducibility blocks from that loaded configuration without
+  executing them. Rebuild commands preserve shell comments and heredocs,
+  and stop before running any build command if the checkout is unavailable.
+  Top-level build commands resolve release placeholders; custom builds emit
+  their reproducibility record. Per-entry modes describe the checks actually
+  run, and a failed outcome cannot propose a staging label.
+  It also classifies `release-verify-rc`'s results from saved files only
+  (#1619): `verify-rc args` emits the `release-verify` invocations from
+  `release-build.md`, and `rat`, `source-tree`, `jvm`, `nexus`, `repro` and
+  `report` classify Steps 4, 7, 6b, 6c, 9 and 10, checking the Nexus
+  staging-repository id shape before any URL is built and withholding the
+  trusted-hardware attestation unless automated signing, a Step 9 `PASS`
+  and every artefact `identical` all hold.
+  It renders the `[VOTE]` draft and planning-issue comment
+  (`vote-draft verdict` / `render`, #1617), the backend-shaped promotion
+  command set with a HOLD per unreproduced convenience artefact
+  (`promote verdict` / `render`, #1618), and the `[ANNOUNCE]` body and
+  site-bump PR (`announce-draft verdict` / `render`, #1618), each refusing
+  (exit `2`) what the skill must refuse.
+  A source version is a dotted version of two or more numeric parts with
+  no `.postN` (`2.11.0`) or, for a release wave named by date, a calendar
+  date `YYYY-MM-DD` (`2026-10-06`, tagged `2026-10-06-rc1`); an impossible
+  date such as `2026-02-30` blocks (#1605).
   `tools/release-verify` (#1511) runs `release-verify-rc`'s mechanical steps
   offline (`inventory`, `signatures`, `checksums`, `notice-license`,
   `binaries`, `symlinks`, `version`, `verdict`), verifying signatures in a
   throwaway `GNUPGHOME` and refusing a `KEYS` file with private-key material.
   Per-skill sibling scripts (#1512) under `skills/<alias>/scripts/` with
-  stdlib `unittest` suites in `skills/<alias>/tests/`: `archive-sweep`
-  `retention.py`, `audit-report` `render_record.py`, `keys-sync`
-  `check_key.py`, `prepare` `category_x.py` / `next_dev_version.py` /
-  `prev_tag.py`, and `vote-tally` `tally.py`; the `skill-script-tests`
-  pre-commit hook (`tools/dev/run-skill-script-tests.sh`) runs them.
+  stdlib `unittest` suites have all moved into `tools/release-management`
+  beside each skill's renders: the `vote-tally` tally (formerly `tally.py`)
+  is `release-management vote-tally tally`; `prepare`'s former
+  `prev_tag.py`, `category_x.py` and `next_dev_version.py` are
+  `release-management prepare prev-tag`, `category-x` and
+  `next-dev-version`, beside its Step 0 verdict, the planning-issue and PR
+  renders, the changelog coverage check, the 2e archive review and the
+  Step A eligibility gate and workflow render; `archive-sweep`
+  `retention.py` is `release-management archive-sweep retention` (beside
+  `verdict`, `listing`, `trains` and `render`); `audit-report`
+  `render_record.py` is `release-management audit-report record` (beside
+  `verdict`, `gather`, `voters`, `check` and `pr`); and `keys-sync`
+  `check_key.py` is `release-management keys-sync check` (beside `verdict`
+  and `render`), its gpg listing moved to `release-verify list-keys`, so
+  release-management still runs nothing.
 - Conditional steps load only when they run (#1515): `prepare` splits into
   `plan.md`, `prep.md`, `post.md` and `automated-signing.md`; `rc-cut` into
   `ci-signed.md` and `reproducibility-self-check.md`; `verify-rc` into
   `jvm-artefacts.md`, `nexus-staging.md` and `reproducibility.md`.
+  Since #1604–#1625 every skill in the family also keeps its prerequisites
+  and references in `prerequisites.md` / `references.md` and loads one file
+  per outcome, backend or classification (`outcomes/`, `backends/`,
+  `blockers/`, `classifications/`, `mechanisms/`, `delivery/`,
+  `overrides/`) only when the deterministic verdict names it.
 - Adapters it will read/draft through: `tools/github`, `tools/ponymail`
   (vote threads), `tools/gmail` (announce/vote drafts), plus the project's
   `svn` dist tree as a distribution backend.
@@ -250,6 +289,10 @@ code lands.
 4. `release-audit-report` validates the audit record against the
    required-field schema and flags incomplete lifecycle evidence before
    proposing an audit-log PR.
+5. `release-config preflight` accepts a source version or RC identifier
+   that is either a dotted numeric version or a real calendar date
+   `YYYY-MM-DD`, and blocks a malformed one or an impossible date (#1605;
+   `tools/release-config/tests/test_preflight.py`).
 
 ## Validation
 
@@ -290,8 +333,9 @@ uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/release-an
   schema lives at
   `plugins/magpie-release-management/skills/audit-report/audit-record-schema.md`
   (reached as `skills/release-audit-report/audit-record-schema.md`).
-  The `tools/skill-evals/evals/release-audit-report/` suite validates
-  incomplete records, including the `case-4-all-required-missing` fixture.
+  `tools/release-management/tests/test_audit_report.py` validates
+  incomplete records, including the former `case-4-all-required-missing`
+  eval case.
 - **Magpie's committed override is the unfilled template.** Per-file
   `<project-config>` resolution reads
   `.apache-magpie-overrides/release-management-config.md` in this
@@ -302,9 +346,7 @@ uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/release-an
   values (`project_dist_name: magpie`, ATR for both backends).
   `.apache-magpie-overrides/release-build.md` likewise differs from
   `projects/magpie/release-build.md`.
-- **Several of the family's `SKILL.md` files are still over the 500-line
-  cap.** After the helper tools, sibling scripts, conditional-step split and
-  wording passes (#1510–#1519), six of the ten remain over it
-  (`release-rc-cut` 696, `release-verify-rc` 684, `release-announce-draft`
-  529, `release-vote-draft` 528, `release-audit-report` 516,
-  `release-promote` 504); `release-prepare` fell from 1,208 to 399.
+- **No `SKILL.md` in the family is over the 500-line cap any more.** After
+  the decide-and-render-as-code passes (#1604, #1617–#1619, #1624, #1625)
+  the largest are `release-rc-cut` (472) and `release-verify-rc` (469);
+  `release-prepare` fell from 1,208 to 367.

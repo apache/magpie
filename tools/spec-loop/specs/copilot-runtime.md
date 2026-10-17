@@ -9,8 +9,9 @@ mode: infra
 source: >
   RFC-AI-0004 Principle 3 (vendor neutrality) and issue #318.
   Implemented by the canonical .agents/skills tree, the .github/skills
-  relay, .github/copilot-instructions.md, docs/adapters/copilot.md, and
-  tools/agent-isolation.
+  relay, .github/copilot-instructions.md, docs/adapters/copilot.md,
+  the .github/hooks/magpie.json guard hook (tools/agent-guard --copilot),
+  and tools/agent-isolation.
 acceptance:
   - A maintainer with GitHub Copilot and no Claude Code can discover and
     invoke Magpie SKILL.md workflows from .agents/skills or .github/skills.

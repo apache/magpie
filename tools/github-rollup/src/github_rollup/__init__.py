@@ -16,11 +16,16 @@
 # under the License.
 from github_rollup.cli import main
 from github_rollup.rollup import (
+    CANONICAL_MARKER_RE,
+    LEGACY_MARKER_RE,
+    ROLLUP_MARKER,
     ROLLUP_MARKER_PREFIX,
     ROLLUP_MARKER_RE,
     RollupEntry,
     build_entry,
     build_new_rollup_body,
+    find_rollup_index,
+    is_canonical_rollup_body,
     is_rollup_body,
     iter_entries,
     left_trim_lines,
@@ -31,11 +36,16 @@ from github_rollup.rollup import (
 )
 
 __all__ = [
+    "CANONICAL_MARKER_RE",
+    "LEGACY_MARKER_RE",
+    "ROLLUP_MARKER",
     "ROLLUP_MARKER_PREFIX",
     "ROLLUP_MARKER_RE",
     "RollupEntry",
     "build_entry",
     "build_new_rollup_body",
+    "find_rollup_index",
+    "is_canonical_rollup_body",
     "is_rollup_body",
     "iter_entries",
     "left_trim_lines",

@@ -107,7 +107,7 @@ single local branch.
 ## Why it never pushes
 
 `git push` and `gh pr create` are in the `ask` list of
-[`.claude/settings.json`](../.claude/settings.json) — they require a human
+[`tools/agent-isolation/claude-settings.template.json`](../tools/agent-isolation/claude-settings.template.json) — they require a human
 confirmation. The loop honours that: it ends every iteration at a **local
 commit** and prints the exact commands for the human to run:
 

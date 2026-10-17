@@ -18,7 +18,7 @@
 # Rendered to the .svg beside it by tools/dev/render-screenshot.sh, which
 # strips this header. Edit here, never there.
 
-> /magpie-setup adopt
+> /magpie-setup:setup adopt
 
   You configured three files locally. Adopting publishes them.
 

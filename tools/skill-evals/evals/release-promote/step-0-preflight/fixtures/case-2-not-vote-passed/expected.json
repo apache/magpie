@@ -1,9 +1,0 @@
-{
-  "verdict": "blocked",
-  "blockers": ["planning issue does not carry vote-passed label"],
-  "rm_is_pmc": true,
-  "non_asf": false,
-  "version": "2.11.0",
-  "rc": "rc1",
-  "dist_backend": "svnpubsub"
-}

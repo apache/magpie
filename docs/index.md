@@ -22,6 +22,8 @@
 
 # What is Apache Magpie?
 
+Join the community through the [Apache Magpie mailing lists](mailing-lists.md).
+
 Apache Magpie is an AI assistant for open-source project maintainers. It handles the repetitive parts of running a project — triaging issues, reviewing PRs, onboarding contributors, managing security reports, cutting releases — so maintainers can spend their time on design, relationships, and the work that actually requires a human.
 
 **The agent proposes. The human decides.** Magpie never merges, never pushes, never sends mail, never flips a label without a maintainer confirming first.

@@ -35,7 +35,7 @@
   <circle cx="44" cy="17" r="6" fill="#3f4448"/>
   <circle cx="66" cy="17" r="6" fill="#3f4448"/>
   <g font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="18" xml:space="preserve">
-    <text x="28" y="84" fill="#8abeb7">&gt; /magpie-setup adopt</text>
+    <text x="28" y="84" fill="#8abeb7">&gt; /magpie-setup:setup adopt</text>
     <text x="28" y="136" fill="#c5c8c6">  You configured three files locally. Adopting publishes them.</text>
     <text x="28" y="188" fill="#d8a657">  PROMOTE TO THE PROJECT</text>
     <text x="28" y="214" fill="#c5c8c6">    [x] project.md                   upstream repo, tracker, mail lists</text>

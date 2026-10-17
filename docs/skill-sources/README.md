@@ -130,7 +130,7 @@ directory draws no eval-coverage advisory because its evals are external).
 
 The [`setup`](../../skills/setup/SKILL.md) skill drives the fetch — the
 [`skill-sources`](../../skills/setup/skill-sources.md) sub-action
-(`/magpie-setup skill-sources`). In outline:
+(`/magpie-setup:setup skill-sources`). In outline:
 
 1. Read `<project-config>/skill-sources.md` — the trust list. Sources not
    listed there are never fetched.
@@ -150,7 +150,7 @@ The [`setup`](../../skills/setup/SKILL.md) skill drives the fetch — the
 
 Drift detection, `upgrade`, and `verify` extend to the source locks: a
 committed-vs-local mismatch surfaces the gap and proposes
-`/magpie-setup upgrade`, which re-fetches per the committed pins.
+`/magpie-setup:setup upgrade`, which re-fetches per the committed pins.
 
 ## Layout contract — skills, evals, tests
 

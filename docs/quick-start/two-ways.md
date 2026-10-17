@@ -29,7 +29,7 @@ committed for other people.
 **Individual use is the default, and it is not a waiting room.** You can work
 this way indefinitely, on a repo whose maintainers have never heard of Magpie.
 Nothing on this page asks the project for permission — including the
-configuration a skill needs, which `/magpie-setup config` writes into your
+configuration a skill needs, which `/magpie-setup:setup config` writes into your
 clone's git directory, where only your clone sees it. A skill that finds it missing runs
 that itself.
 

@@ -708,7 +708,23 @@ def test_keys_sync_from_user_md(project, preflight):
 
 def test_keys_sync_flags_win(project, preflight):
     result = preflight(project(), "keys-sync", "--fingerprint", "A" * 40, "--keys-url", "https://k", "--keyserver", "hkps://other")
-    assert result["values"] == {"fingerprint": "A" * 40, "fingerprint_source": "--fingerprint", "keys_file_url": "https://k", "keyserver": "hkps://other"}
+    assert result["values"] == {
+        "fingerprint": "A" * 40,
+        "fingerprint_source": "--fingerprint",
+        "keys_file_url": "https://k",
+        "keys_file_branch": None,
+        "keyserver": "hkps://other",
+    }
+
+
+def test_keys_sync_reads_keys_file_branch(project, preflight):
+    result = preflight(project({"keys_file_branch": "release/1.x"}), "keys-sync")
+    assert result["values"]["keys_file_branch"] == "release/1.x"
+
+
+@pytest.mark.parametrize("value", ["<branch>", "TODO", "*(optional)*"])
+def test_keys_sync_unset_keys_file_branch_is_none(project, preflight, value):
+    assert preflight(project({"keys_file_branch": value}), "keys-sync")["values"]["keys_file_branch"] is None
 
 
 def test_keys_sync_config_fingerprint(project, preflight):
@@ -787,3 +803,16 @@ def test_prepare_blockers(project, preflight):
 
 def test_prepare_no_arguments(project, preflight):
     blocked_on(preflight(project(), "prepare"), "no sub-command or version")
+
+
+def test_promote_self_hosted_needs_publish_template(project, preflight):
+    result = preflight(project({"release_dist_backend": "self-hosted"}), "promote", "1.1.0-rc1", "--rm", "johndoe")
+    blocked_on(result, "release_publish_command_template is unset")
+    ok = preflight(
+        project({"release_dist_backend": "self-hosted", "release_publish_command_template": "publish.sh <version>"}),
+        "promote",
+        "1.1.0-rc1",
+        "--rm",
+        "johndoe",
+    )
+    assert not any("release_publish_command_template" in b for b in ok["blockers"]), ok

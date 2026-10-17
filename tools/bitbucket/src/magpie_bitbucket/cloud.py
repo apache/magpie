@@ -102,39 +102,27 @@ def get_repository_restrictions(config: BitbucketConfig) -> dict[str, Any]:
     return combined
 
 
+_NATIVE_ISSUE_TRACKER_REMOVED = (
+    "Bitbucket Cloud native issue tracker API was removed by Atlassian "
+    "on 2026-08-20; use the Jira bridge (tools/jira) instead."
+)
+
+
+def removed_native_issue_tracker() -> BitbucketError:
+    """Return the fail-closed error for removed native Cloud issue APIs."""
+    return BitbucketError(_NATIVE_ISSUE_TRACKER_REMOVED)
+
+
 def list_open_issues(config: BitbucketConfig) -> dict[str, Any]:
-    """List open issues from a Bitbucket Cloud repository."""
-    workspace = quote_path(require(config.workspace, "BITBUCKET_WORKSPACE"))
-    repo_slug = quote_path(require(config.repo_slug, "BITBUCKET_REPO_SLUG"))
-    url = f"{CLOUD_API_BASE}/repositories/{workspace}/{repo_slug}/issues?q=state%3D%22new%22%20OR%20state%3D%22open%22%20OR%20state%3D%22on%20hold%22"
-
-    combined: dict[str, Any] = {
-        "values": [],
-        "paginated": True,
-        "pages": [],
-    }
-
-    seen_urls = {url}
-    while url:
-        page = get_json(url, config)
-        combined["pages"].append(page)
-
-        values = page.get("values")
-        if isinstance(values, list):
-            combined["values"].extend(item for item in values if isinstance(item, dict))
-
-        url = _validated_next_url(page.get("next"), seen_urls)
-
-    return combined
+    """Fail closed because Bitbucket Cloud removed its native issue tracker."""
+    _ = config
+    raise removed_native_issue_tracker()
 
 
 def get_issue(config: BitbucketConfig, issue_id: str) -> dict[str, Any]:
-    """Fetch one issue from a Bitbucket Cloud repository."""
-    workspace = quote_path(require(config.workspace, "BITBUCKET_WORKSPACE"))
-    repo_slug = quote_path(require(config.repo_slug, "BITBUCKET_REPO_SLUG"))
-    issue = quote_path(issue_id)
-    url = f"{CLOUD_API_BASE}/repositories/{workspace}/{repo_slug}/issues/{issue}"
-    return get_json(url, config)
+    """Fail closed because Bitbucket Cloud removed its native issue tracker."""
+    _ = (config, issue_id)
+    raise removed_native_issue_tracker()
 
 
 def create_issue_comment(
@@ -142,77 +130,21 @@ def create_issue_comment(
     issue_id: str,
     body: str,
 ) -> dict[str, Any]:
-    """Create one comment on a Bitbucket Cloud issue."""
-    workspace = quote_path(require(config.workspace, "BITBUCKET_WORKSPACE"))
-    repo_slug = quote_path(require(config.repo_slug, "BITBUCKET_REPO_SLUG"))
-    issue = quote_path(issue_id)
-    url = f"{CLOUD_API_BASE}/repositories/{workspace}/{repo_slug}/issues/{issue}/comments"
-
-    comment = post_json(
-        url,
-        config,
-        {"content": {"raw": body}},
-    )
-    return {
-        "issue_id": issue_id,
-        "comment": comment,
-    }
+    """Fail closed because Bitbucket Cloud removed its native issue tracker."""
+    _ = (config, issue_id, body)
+    raise removed_native_issue_tracker()
 
 
 def get_issue_comments(config: BitbucketConfig, issue_id: str) -> dict[str, Any]:
-    """Fetch comments for a Bitbucket Cloud issue."""
-    workspace = quote_path(require(config.workspace, "BITBUCKET_WORKSPACE"))
-    repo_slug = quote_path(require(config.repo_slug, "BITBUCKET_REPO_SLUG"))
-    issue = quote_path(issue_id)
-    url = f"{CLOUD_API_BASE}/repositories/{workspace}/{repo_slug}/issues/{issue}/comments"
-
-    combined: dict[str, Any] = {
-        "issue_id": issue_id,
-        "values": [],
-        "paginated": True,
-        "pages": [],
-    }
-
-    seen_urls = {url}
-    while url:
-        page = get_json(url, config)
-        combined["pages"].append(page)
-
-        values = page.get("values")
-        if isinstance(values, list):
-            combined["values"].extend(item for item in values if isinstance(item, dict))
-
-        url = _validated_next_url(page.get("next"), seen_urls)
-
-    return combined
+    """Fail closed because Bitbucket Cloud removed its native issue tracker."""
+    _ = (config, issue_id)
+    raise removed_native_issue_tracker()
 
 
 def get_issue_attachments(config: BitbucketConfig, issue_id: str) -> dict[str, Any]:
-    """Fetch attachment metadata and links for a Bitbucket Cloud issue."""
-    workspace = quote_path(require(config.workspace, "BITBUCKET_WORKSPACE"))
-    repo_slug = quote_path(require(config.repo_slug, "BITBUCKET_REPO_SLUG"))
-    issue = quote_path(issue_id)
-    url = f"{CLOUD_API_BASE}/repositories/{workspace}/{repo_slug}/issues/{issue}/attachments"
-
-    combined: dict[str, Any] = {
-        "issue_id": issue_id,
-        "values": [],
-        "paginated": True,
-        "pages": [],
-    }
-
-    seen_urls = {url}
-    while url:
-        page = get_json(url, config)
-        combined["pages"].append(page)
-
-        values = page.get("values")
-        if isinstance(values, list):
-            combined["values"].extend(item for item in values if isinstance(item, dict))
-
-        url = _validated_next_url(page.get("next"), seen_urls)
-
-    return combined
+    """Fail closed because Bitbucket Cloud removed its native issue tracker."""
+    _ = (config, issue_id)
+    raise removed_native_issue_tracker()
 
 
 def list_open_pull_requests(config: BitbucketConfig) -> dict[str, Any]:

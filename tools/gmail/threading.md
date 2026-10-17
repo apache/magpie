@@ -41,7 +41,7 @@ The two threading paths available to the skills, in preferred order:
 1. **Thread-attached draft** — the first-choice path. Both backends
    support this. Resolve the inbound thread's latest message ID (via
    `get_thread`) and pass it to `replyToMessageId`, or pass the
-   `threadId` to `oauth-draft-create --thread-id`.
+   `threadId` as `thread_id` to `mcp__gmail-plaintext__create_draft`.
 2. **Subject-matched draft** — the pragmatic fallback. Use when the
    thread cannot be resolved (archived, deleted, stale `threadId`)
    or the inbound subject is unsafe to match on. Both backends fall

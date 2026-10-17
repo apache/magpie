@@ -3,7 +3,7 @@
 
 ## step-10 — the verify interval has elapsed
 
-Suggest `/magpie-setup verify`, once, and say why it is worth taking:
+Suggest `/magpie-setup:setup verify`, once, and say why it is worth taking:
 `verify` is the only place a sandboxed session's own latest-version
 comparison happens, because the plugin cache it would need to read is
 denied there.

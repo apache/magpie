@@ -71,19 +71,29 @@ def _build_parser() -> argparse.ArgumentParser:
     repo_subparsers.add_parser("get", help="Fetch repository metadata.")
     repo_subparsers.add_parser("restrictions", help="Fetch repository branch restrictions.")
 
-    issue_parser = subparsers.add_parser("issue", help="Interact with Bitbucket issues.")
+    issue_parser = subparsers.add_parser(
+        "issue",
+        help="Native issue commands (compatibility stubs; Bitbucket Cloud removed its issue tracker).",
+    )
     issue_subparsers = issue_parser.add_subparsers(dest="issue_action", required=True)
-    issue_subparsers.add_parser("list-open", help="List open issues.")
+    issue_subparsers.add_parser(
+        "list-open", help="List open issues. Bitbucket Cloud removed its native issue tracker; fails closed."
+    )
 
-    issue_get = issue_subparsers.add_parser("get", help="Fetch one issue.")
+    issue_get = issue_subparsers.add_parser(
+        "get", help="Fetch one issue. Bitbucket Cloud removed its native issue tracker; fails closed."
+    )
     issue_get.add_argument("issue_id", help="Issue ID to fetch.")
 
-    issue_comments = issue_subparsers.add_parser("comments", help="Fetch issue comments.")
+    issue_comments = issue_subparsers.add_parser(
+        "comments",
+        help="Fetch issue comments. Bitbucket Cloud removed its native issue tracker; fails closed.",
+    )
     issue_comments.add_argument("issue_id", help="Issue ID to fetch comments for.")
 
     issue_comment = issue_subparsers.add_parser(
         "comment",
-        help="Create a comment on an issue after caller-side confirmation.",
+        help="Create a comment on an issue. Bitbucket Cloud removed its native issue tracker; fails closed.",
     )
     issue_comment.add_argument(
         "issue_id",
@@ -97,7 +107,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     issue_attachments = issue_subparsers.add_parser(
         "attachments",
-        help="Fetch issue attachment metadata and links, not file contents.",
+        help="Fetch issue attachment metadata and links. Bitbucket Cloud removed its native issue tracker; fails closed.",
     )
     issue_attachments.add_argument(
         "issue_id",
@@ -298,6 +308,9 @@ def _dispatch(args: argparse.Namespace, config: BitbucketConfig) -> dict[str, An
         return normalize.issue_comments(config.kind, raw)
 
     if args.subcommand == "issue" and args.issue_action == "comment":
+        if config.kind == "cloud":
+            # Report the removal, not a body-file error, before touching the file.
+            raise cloud.removed_native_issue_tracker()
         body = _read_body_file(args.body_file)
         raw = backend.create_issue_comment(config, args.issue_id, body)
         return normalize.created_issue_comment(config.kind, raw)

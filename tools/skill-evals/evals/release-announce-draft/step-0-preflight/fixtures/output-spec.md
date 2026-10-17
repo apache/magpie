@@ -16,6 +16,7 @@ The model must return ONLY valid JSON matching this schema:
 ```
 
 Grading rules:
+- The fields are the `release-management announce-draft verdict` output, without `read`; blockers are surfaced as written.
 - `verdict` must be `"proceed"` when all blockers are resolved.
 - `verdict` must be `"blocked"` when any hard blocker remains.
 - `blockers` must be an empty array when `verdict` is `"proceed"`.

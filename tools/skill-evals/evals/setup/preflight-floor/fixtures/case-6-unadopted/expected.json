@@ -1,1 +1,1 @@
-{"action": "configure", "commands": ["/magpie-setup config"], "blocks": false, "mention_adopt": true}
+{"action": "configure", "commands": ["/magpie-setup:setup config"], "blocks": false, "mention_adopt": true}

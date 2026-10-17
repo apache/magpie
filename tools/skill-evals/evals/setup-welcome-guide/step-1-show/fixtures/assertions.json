@@ -1,0 +1,7 @@
+{
+  "has_show_command": {
+    "type": "regex",
+    "field": "command",
+    "pattern": "python3?\\s+-m\\s+setup_preflight\\.welcome\\s+show\\b"
+  }
+}

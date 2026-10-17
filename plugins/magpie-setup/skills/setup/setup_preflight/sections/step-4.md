@@ -14,7 +14,7 @@ against a different shape of this skill. `facts.cause` says which half
 moved, and it selects the fix:
 
 - **`"requires_config"`** — an entry no longer resolves. Propose
-  `/magpie-setup config` for this skill. A `config-missing` finding
+  `/magpie-setup:setup config` for this skill. A `config-missing` finding
   usually accompanies this one, naming the files.
 - **`"anchors"`** — every `requires_config` entry still resolves, so what
   moved is a step heading or golden-rule name an override may anchor to.
@@ -28,12 +28,12 @@ Propose both when both findings are present.
 
 `facts.in_both_stores: true` is an expected transitional state, not a
 fault — someone configured the project before it adopted, on a machine
-`adopt` never ran from. The local entry wins; say that `/magpie-setup
+`adopt` never ran from. The local entry wins; say that `/magpie-setup:setup
 reconcile` offers to drop the redundant one.
 
 **`code: "sweep-never-run"`** — nothing in this project has ever been
 reconciled, so a per-skill fix would be guesswork about a baseline that
-does not exist. Propose the one-time `/magpie-setup reconcile` sweep
+does not exist. Propose the one-time `/magpie-setup:setup reconcile` sweep
 instead.
 
 **Record what you showed, the moment you show it.** Write

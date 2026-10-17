@@ -94,7 +94,7 @@ PROJECT_CACHE_TTL_SECONDS = 900
 class Finding:
     """One thing the agent has to act on, and where the rules for it live."""
 
-    scope: str  # "project" | "skill" | "machine" | "end-of-run"
+    scope: str  # "project" | "skill" | "family" | "machine" | "end-of-run"
     code: str
     section: str  # the `preflight-detail.md` section to read
     facts: dict[str, object] = field(default_factory=dict)
@@ -262,17 +262,37 @@ def _resolves(root: Path, name: str) -> bool:
     return resolve(root, name) is not None
 
 
+#: What the pre-flight itself keeps in a personal layer.  A layer holding
+#: only these, with a stamp that records nothing but the welcome-guide
+#: choice, was created by answering the guide, not by configuring anything.
+_BOOKKEEPING = frozenset({STAMP_NAME, CACHE_NAME})
+
+
+def _layer_configured(layer: Path) -> bool:
+    if not layer.is_dir():
+        return False
+    names = {p.name for p in layer.iterdir()}
+    if STAMP_NAME not in names or not names <= _BOOKKEEPING:
+        return True
+    try:
+        stamp = json.loads((layer / STAMP_NAME).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return True
+    return not (isinstance(stamp, dict) and set(stamp) <= {"welcome"})
+
+
 def configured_at_all(root: Path) -> bool:
     """Has anything ever been configured or adopted here?
 
     The lock, the personal layer (wherever it lives for this project, or
     the legacy in-tree directory), or the committed overrides.  All absent
     means there is nothing to reconcile, and the whole fingerprint
-    comparison is skipped in silence.
+    comparison is skipped in silence.  A personal layer that exists only
+    because the welcome guide's answer was recorded there does not count.
     """
     if (root / LOCK_NAME).exists() or (root / OVERRIDES_DIR).exists():
         return True
-    return any(layer.is_dir() for layer in personal_layers(root))
+    return any(_layer_configured(layer) for layer in personal_layers(root))
 
 
 def skill_findings(
@@ -341,6 +361,24 @@ def skill_findings(
             )
         )
     return findings
+
+
+# --- family scope: the first-run welcome guide -------------------------------------
+
+
+def welcome_findings(root: Path, skill: str) -> list[Finding]:
+    """The skill's family guide, when it ships one and the user has not set it aside."""
+    from . import welcome
+
+    try:
+        due = welcome.welcome_facts(root, skill)
+    except OSError:
+        # An optional guide must not hide the actual setup findings.
+        return []
+    if due is None:
+        return []
+    section, facts = due
+    return [Finding("family", "welcome", section, facts)]
 
 
 # --- end-of-run scope ---------------------------------------------------------------

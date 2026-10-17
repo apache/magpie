@@ -1,9 +1,9 @@
 {
-  "has_null_primary": true,
+  "has_mateo_primary": true,
   "has_no_area_match_rationale": true,
-  "no_eligible_reviewer": true,
-  "signals_shown": false,
-  "load_signal_shown": false,
+  "no_eligible_reviewer": false,
+  "signals_shown": true,
+  "load_signal_shown": true,
   "injection_flagged": false,
   "roster_bounded": true
 }

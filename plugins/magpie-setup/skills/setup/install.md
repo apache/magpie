@@ -305,7 +305,7 @@ still their own machine only, and still gitignored.
 
 **`--scope project` is adoption, so do not pass it here.** A
 committed file recommending these plugins to every contributor
-is the thing [`/magpie-setup adopt`](adopt.md) exists to write,
+is the thing [`/magpie-setup:setup adopt`](adopt.md) exists to write,
 and adopt writes more than the plugin list: a version floor
 beside it, staged rather than committed, so the recommendation
 lands through the project's normal review. A user who asks for
@@ -367,16 +367,45 @@ Tell the user, in this order:
    install rather than a later hardening pass, and say so.
    `magpie-agent-guard` from the baseline guards each command;
    this is what sandboxes the process around it.
-3. **How it updates** — Claude Code:
+3. **Companions for the families just installed** — read the
+   [companion page](../../../../docs/setup/companion-skills.md) (a
+   marketplace install ships no `docs/`, so fetch
+   `https://raw.githubusercontent.com/apache/magpie/main/docs/setup/companion-skills.md`,
+   which can be newer than the installed version; if neither can be read,
+   say so in one line and skip the offer)
+   and take the entries whose **Pairs with** line names a family
+   installed here and that have a heading for the agent from
+   [Step M2](#step-m2--identify-the-agent). Leave out a companion
+   that is already there (`command -v` for a CLI such as `roborev`,
+   the harness's plugin list for a plugin). For each, one line on
+   what it adds to that family and whose it is, then the commands
+   under that agent's heading verbatim, with the marketplace step
+   first when the entry names one — the same two-step rule as
+   [Step 5](#step-5--pick-the-skill-families-and-mcp-servers).
+   Print them; never run them. Append an `<id> <agent>` (the registry's harness key: `claude-code`, `codex`,
+`copilot`, `gemini`, `cursor`, `opencode`, `kiro`) line for each
+   companion offered to `~/.cache/apache-magpie/companions-offered`, and
+   skip `<id> <agent>` pairs already listed there, so upgrade does not
+   re-offer a decline and an offer on one agent does not hide the commands
+   for another. The file is per user and in no repository, so it never
+   marks a project as configured, and `~/.cache/` is writable under the
+   secure setup; a cleared cache only means one more offer. If the file
+   cannot be written, skip the record and say nothing. When the agent is Claude Code and an
+   offered companion has a sandbox step in `setup-isolated-setup-install`
+   (its note on the page names it — roborev: Step B), name that step on
+   the same line, since the secure setup above is where it gets wired;
+   on other agents the step does not apply, so leave it out. None of them is required — say so once, and
+   skip this item entirely when nothing matches.
+4. **How it updates** — Claude Code:
    `/plugin marketplace update apache-magpie` then
    `/plugin update <plugin>@apache-magpie`; Codex:
    `codex plugin update magpie`; Gemini:
    `gemini extensions update magpie`. The bundled `SessionStart`
    hook prompts on a version change where the client runs hooks.
-4. **Configure it for yourself when a skill asks.** A marketplace
+5. **Configure it for yourself when a skill asks.** A marketplace
    install delivers skills; it tells them nothing about this project.
    The first skill that needs project configuration stops and names
-   what it needs, and [`/magpie-setup config`](config.md) supplies it
+   what it needs, and [`/magpie-setup:setup config`](config.md) supplies it
    in the personal layer — on a repo that has never adopted Magpie,
    `<git-common-dir>/apache-magpie/` inside the git directory, so there
    is nothing in the working tree, no `.gitignore` line to negotiate,
@@ -385,12 +414,12 @@ Tell the user, in this order:
    Name it here; do not run it. There is nothing to configure until
    the user picks a skill to run, and configuring every installed
    family up front is an interview nobody asked for.
-5. **What this install deliberately does not set up**, with the one
+6. **What this install deliberately does not set up**, with the one
    thing that would change the answer: the **committed version pin**
    and drift detection — add the
    [pinned snapshot install](#step-0--pre-flight) when the project
    wants every contributor and CI job on one version.
-6. **This install wrote nothing to the repo, and that is the finished
+7. **This install wrote nothing to the repo, and that is the finished
    state.** A marketplace install touches only this machine's agent.
    Say so plainly: there is no repo-side step left undone, and the
    install is not partial, pending, or awaiting anything.
@@ -401,7 +430,7 @@ Tell the user, in this order:
    gets it") — an unprompted install recap does not raise it. When they
    do, say once that the project can commit a floor — a minimum version
    and plugin set every contributor picks up on clone — and name
-   [`/magpie-setup adopt`](adopt.md) as the way to do it. Do not write it
+   [`/magpie-setup:setup adopt`](adopt.md) as the way to do it. Do not write it
    here.
 
    One writer of the floor keeps the lock, the derived wiring, and the
@@ -844,7 +873,7 @@ available). These pre-populate `<project-config>/project.md` in Step 9:
     - `commits_list` is the target of the `commits` or `pullrequests` notification.
     - `dev_list` is the target of the `dev` or `issues` or `pullrequests` notification containing `dev@`. If not found, default to `dev@<project>.apache.org`.
     - `users_list` is the target of the `users` notification, or defaults to `users@<project>.apache.org`.
-    - `security_list` defaults to `security@<project>.apache.org`.
+    - `security_list` has no default: not every ASF project has a dedicated `security@<project>.apache.org` list. Detect it and ask, as [`adopt.md` Step 4b](adopt.md#4b--scaffold-whatever-is-still-missing) does; when no dedicated list is found, recommend requesting one from ASF Infra and offer `private@<project>.apache.org` only as a flagged fallback.
     - `private_list` defaults to `private@<project>.apache.org`.
     - `announce_list` defaults to `announce@apache.org`.
   - `github.homepage` in `.asf.yaml` may refine `product_family_url` if the GitHub repo homepage was empty.
@@ -930,6 +959,12 @@ detail; install is walked in [Step 9c](#step-9c--comdev-mcp-prerequisites-asf-pr
 - **`gmail-plaintext`** — create plain-text Gmail drafts with no
   tracking redirects (for operators who draft mail from the
   agent). Optional; not ASF-gated.
+- **Maildir** (a drafting backend, not an MCP server) — file
+  plain-text drafts into a local Maildir that Thunderbird, mutt,
+  Evolution or another mail client shows in its Drafts folder.
+  No account, no credential, no network. The alternative to
+  `gmail-plaintext` for operators who do not draft mail in Gmail;
+  walked through in [Step 9e](#step-9e--maildir-draft-backend-optional-thunderbird-and-other-mail-clients).
 
 **Companion skill packages** (third-party, none required —
 [`docs/setup/companion-skills.md`](../../../../docs/setup/companion-skills.md)
@@ -1005,9 +1040,13 @@ exclusive. Pre-selection:
 - *MCP servers* — for an ASF project (detected per
   [Step 9c](#step-9c--comdev-mcp-prerequisites-asf-projects)),
   pre-tick `ponymail` and `apache-projects` and label them
-  **required**; pre-tick `gmail-plaintext` only if the operator
-  selected a mail-drafting family (`security` or
-  `release-management`). For a non-ASF project, pre-tick nothing.
+  **required**. For a non-ASF project, pre-tick neither.
+  When the operator selected a mail-drafting family (`security` or
+  `release-management`), ask which drafting backend they use —
+  `gmail-plaintext` for Gmail, Maildir for Thunderbird or another
+  mail client — and pre-tick `gmail-plaintext` unless they named
+  the other. Never offer the claude.ai Gmail connector for drafting:
+  it rewrites links into tracking redirects.
 - *Companion skills* — pre-tick nothing, ever. List only the
   packages available on the detected agent, each with one line
   saying what it adds to a family the operator selected and,
@@ -1289,7 +1328,7 @@ to this repo.
 - Read the template `projects/_template/project.md` from the snapshot.
 - Replace the placeholder `TODO` lines with the values auto-sourced in Step 4b:
   - Always (organization-agnostic): `upstream_repo`, `upstream_default_branch`, `product_family_url`, `labels`.
-  - **Only when `organization: ASF`** (the ASF-specific block of Step 4b): `dev_list`, `commits_list`, `users_list`, `private_list`, `security_list`, `announce_list`. For a non-ASF `organization`, leave these as `TODO` — do not write `apache.org` addresses.
+  - **Only when `organization: ASF`** (the ASF-specific block of Step 4b): `dev_list`, `commits_list`, `users_list`, `private_list`, `announce_list`. `security_list` is not auto-sourced: settle it with the detect-and-recommend rule in `adopt.md` Step 4b ("Ask where security reports go explicitly"). For a non-ASF `organization`, leave these as `TODO` — do not write `apache.org` addresses.
 - Prompt the user to confirm the auto-sourced values, and only ask them to input values for stable fields that were absent or couldn't be derived.
 - Stage the written files in `.apache-magpie-overrides/` to git (`git add`).
 
@@ -1370,8 +1409,9 @@ setup; the skills skip any block that is missing or marked `TODO`.
   PonyMail MCP in your Claude Code `mcpServers` block. When enabled
   and authenticated, the security skills use PonyMail as the primary
   read backend for mailing-list archive queries; Gmail remains the
-  fallback for just-arrived inbound mail and the only backend for
-  draft composition. **ASF projects:** PonyMail is a mandatory
+  fallback for just-arrived inbound mail. PonyMail is read-only:
+  drafts go to Gmail or Maildir, per `mail_create` below.
+  **ASF projects:** PonyMail is a mandatory
   prerequisite (the manifest declares it `mandatory: yes`), so set
   this to `true` and complete the install in Step 9c — the
   mail-reading skills refuse to run when it is unavailable or
@@ -1390,6 +1430,20 @@ setup; the skills skip any block that is missing or marked `TODO`.
   mandatory prerequisite (the manifest declares
   `project_metadata.mandatory: true`), so set this to `true` and
   complete the install in Step 9c.
+
+### `mail_create`
+
+Only set this to draft differently from the project. It overrides the
+project's `mail_create` in `<project-config>/project.md`, key by key, and
+applies to every project on this machine.
+
+- `backend: TODO` — `gmail` (drafts in Gmail) or `maildir` (drafts in a
+  local Maildir that Thunderbird or another mail client shows; walked
+  through in Step 9e).
+- `drafts_path: TODO` — `maildir` only: the Drafts Maildir, e.g.
+  `~/Mail/<project>/Drafts`. `<project>` resolves to each project's
+  `short_name`.
+- `from_address: TODO` — `maildir` only: the `From:` of your drafts.
 ```
 
 **Where to write the file.** Default to
@@ -1550,6 +1604,21 @@ through it:
    (`ponymail.enabled` / `apache-projects.enabled`) and the
    recommended permission allow-list (the `mcp__apache-projects__*`
    read tools — see [`verify.md`](verify.md) check 8d).
+5. **Tell the operator what to do next**, as a numbered list they can
+   follow once this session ends — not a pointer to this step:
+   1. Run the clone, `npm install` and `claude mcp add` commands above.
+   2. Restart the agent. MCP servers load when a session starts, so the
+      new `mcp__ponymail__*` and `mcp__apache-projects__*` tools do not
+      appear in the session that registered them.
+   3. In the new session, log in to PonyMail once with
+      `mcp__ponymail__login()` and confirm it with
+      `mcp__ponymail__auth_status()`.
+   4. Run `setup verify`: check 8e confirms both servers and the
+      checkout.
+
+   Name the skills that refuse to start until this is done
+   (`security-issue-import` and `security-issue-sync`, which read the
+   list through PonyMail).
 
 Add `mcp__apache-projects__*` to the per-family permission
 allow-list recommendation exactly as the `mcp__ponymail__*` tools
@@ -1599,6 +1668,56 @@ Same hands-off contract as 9c — **surface, do not run**:
    tools — see [`verify.md`](verify.md) check 8d). It only ever creates
    **unsent** drafts the human reviews and sends, so allow-listing it
    avoids a prompt on every draft.
+4. **Tell the operator what to do next**, as a numbered list:
+   1. Run the `claude mcp add gmail-plaintext …` command above.
+   2. Restart the agent, so the `mcp__gmail-plaintext__*` tools load.
+   3. In the new session, call `mcp__gmail-plaintext__check_auth`. If
+      it reports no credential, call `setup_credentials` once (or run
+      the `oauth-draft-setup` CLI) and finish the consent flow in the
+      browser.
+   4. Keep the claude.ai Gmail connector connected for **reading**:
+      the security skills find the thread and any draft already on it
+      through its `get_thread` and `list_drafts`, which
+      `gmail-plaintext` does not provide. Only its `create_draft` is
+      never used.
+   5. From then on, a skill that drafts mail files it in Gmail's
+      Drafts folder. Nothing is sent: the operator reviews, edits and
+      sends it there.
+
+## Step 9e — Maildir draft backend (optional, Thunderbird and other mail clients)
+
+**Run this step when the operator chose Maildir as their drafting
+backend in Step 5.** The [Maildir backend](../../../../tools/maildir/README.md)
+ships in-repo and needs no MCP server, account or credential: a skill
+calls `maildir-draft-create`, which files a plain-text draft into a
+local Maildir, and the operator's mail client shows it in its Drafts
+folder.
+
+Same hands-off contract as 9c — **surface, do not run**:
+
+1. **Pick the Maildir path with the operator**: the Drafts folder of
+   the mail-client account they send project mail from (for example
+   `~/Mail/<project>/Drafts`), and the `From:` address. When the
+   whole project drafts to Maildir they go in the `mail_create` block
+   of `project.md`; when only this operator does, in `tools.mail_create`
+   of their own `user.md`, which wins
+   ([`tools/maildir/README.md` → Configuration](../../../../tools/maildir/README.md#configuration)).
+2. **Point the mail client at it.** Thunderbird reads a Maildir only
+   for an account whose message store is *File per message (maildir)*,
+   chosen when the account is set up. mutt, aerc and Evolution read a
+   Maildir directly.
+3. **Tell the operator what to do next**, as a numbered list:
+   1. Set up, or reuse, the mail-client account that stores its mail
+      at the path above.
+   2. Run any skill that drafts mail. It prints the path of each draft
+      it files.
+   3. Open the Drafts folder, then review, edit and send the draft by
+      hand. Nothing is ever sent for them.
+   4. **A new draft does not show up in Thunderbird?** Thunderbird keeps
+      a per-folder index (the `.msf` file) and does not always notice a
+      message another program wrote. Right-click the Drafts folder →
+      *Properties* → *Repair Folder* rebuilds the index, and the draft
+      appears.
 
 ## Step 10 — Worktree-aware post-checkout hook (FRESH only)
 
@@ -1912,6 +2031,15 @@ Four passes, in this order:
      replacing them during a later sync.
    - Do not edit Codex project trust. Tell the operator to make the
      trust decision in Codex.
+
+   Follow the [Codex guard and vetted-operation install contract](../../../../docs/adapters/codex.md#install) as well.
+   Merge the native `PreToolUse` registration, resolving the engine from the snapshot in adopters and directly from the framework in local self-adoption.
+   Ask the operator to review the definition in `/hooks`; do not grant hook trust on their behalf.
+   For marketplace installs use the `magpie-agent-guard` and optional `magpie-vetted-ops` plugins instead of adding a duplicate project hook.
+   Vetted-operation native rules are rendered per machine from the installed stable path and reviewed before installation in user scope.
+
+   For a marketplace-owned guard, omit the project hook and use `sandbox-lint --codex <repo-root>/.codex --guard-from-plugin`; verify plugin registration and trust separately in `/hooks`.
+   For a source or snapshot-owned guard, the stock command chooses the existing engine path and lint must confirm that file exists.
 
    Validate the merged result with `sandbox-lint --codex
    <repo-root>/.codex`. Both files are committed adopter

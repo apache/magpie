@@ -1,0 +1,12 @@
+{
+ "candidates_shown": [
+  "triage-reports -> security-issue-triage"
+ ],
+ "dropped_as_false_positive": [],
+ "files_written": [
+  ".apache-magpie-overrides/security-issue-triage.md"
+ ],
+ "staged": true,
+ "injection_flagged": false,
+ "render_refused": false
+}

@@ -63,7 +63,7 @@ Once you have [added the marketplace](../setup/marketplace-install.md):
 ```
 
 New to Magpie? The [quick start](../quick-start.md) walks the whole path in
-one place — install, the first `/magpie-setup` run, and a recording of it
+one place — install, the first `/magpie-setup:setup` run, and a recording of it
 happening — plus the other agents and the secure-isolation setup to run next.
 
 ### Before the first run
@@ -99,6 +99,16 @@ Automated pull-request review through several specialised agents, scored by conf
 *With this family:* Runs the same kind of pass over a PR that self-review runs over your local diff.
 
 Available on **Claude Code** only.
+
+**[roborev](https://roborev.io)** — Kenn Software (community, MIT)
+
+A local CLI and daemon that reviews every commit in the background with the coding agent you already use, and feeds the findings back for a fix-and-re-review loop before you push.
+
+*With this family:* self-review is a one-shot read of your local diff; roborev keeps reviewing each commit as you make it and drives the fix and re-review loop until the branch is clean.
+
+Available on **Claude Code**, **OpenAI Codex CLI**, **VS Code / GitHub Copilot**, **Google Gemini CLI**, **Cursor**.
+
+On Claude Code under Magpie's secure agent setup, roborev cannot read ~/.roborev/ and fails on every call; Step B of setup-isolated-setup-install wires the exclusion and the prompt that keep it safe outside the sandbox, and Step B.2 optionally lets its post-commit hook review the agent's own commits. Without Homebrew, see https://roborev.io/docs/installation/ for the other installers.
 
 **[Superpowers](https://github.com/obra/superpowers)** — obra (community)
 

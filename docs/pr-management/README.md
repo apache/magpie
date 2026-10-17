@@ -93,14 +93,14 @@ Once you have [added the marketplace](../setup/marketplace-install.md):
 ```
 
 New to Magpie? The [quick start](../quick-start.md) walks the whole path in
-one place — install, the first `/magpie-setup` run, and a recording of it
+one place — install, the first `/magpie-setup:setup` run, and a recording of it
 happening — plus the other agents and the secure-isolation setup to run next.
 
 ### Before the first run
 
 <!-- BEGIN generated: skill-config (tools/dev/check-skill-config.py --fix) -->
 
-![An animated `/magpie-setup config` run for the pr-management family: the check failing, the values derived from the repository, one question for the rest, and personal files written](../../assets/quickstart/wizard/pr-management.svg)
+![An animated `/magpie-setup:setup config` run for the pr-management family: the check failing, the values derived from the repository, one question for the rest, and personal files written](../../assets/quickstart/wizard/pr-management.svg)
 
 *Illustrative — the real run derives more and asks better. What is true is
 the shape: it runs itself, it writes only your personal layer, and it
@@ -112,11 +112,12 @@ your personal layer first — `.apache-magpie-local/` (gitignored) in a
 project that adopted Magpie, `<git-common-dir>/apache-magpie/` in one
 that did not — then `.apache-magpie-overrides/` (committed, the project's).
 
-**For yourself:** `/magpie-setup config` scaffolds and fills these locally.
+**For yourself:** `/magpie-setup:setup config` scaffolds and fills these locally
+(`/magpie-setup config` on a [pinned-snapshot install](../setup/marketplace.md#skill-names-differ-by-install-method)).
 Nothing is staged, nothing is committed, and it works on a repository that
 has never adopted Magpie.
 
-**For the project:** [`/magpie-setup adopt`](../setup/team-adoption.md)
+**For the project:** [`/magpie-setup:setup adopt`](../setup/team-adoption.md)
 commits them for every contributor, either scaffolded directly or promoted
 from what you configured locally.
 
@@ -160,6 +161,16 @@ Automated pull-request review through several specialised agents, scored by conf
 *With this family:* pr-management-code-review walks a maintainer through reviewing one PR at a time and drafts the review they post. This is the other half — a broad automated pass whose findings that review can weigh.
 
 Available on **Claude Code** only.
+
+**[roborev](https://roborev.io)** — Kenn Software (community, MIT)
+
+A local CLI and daemon that reviews every commit in the background with the coding agent you already use, and feeds the findings back for a fix-and-re-review loop before you push.
+
+*With this family:* pr-management-code-review reviews other people's PRs; roborev reviews your own branch before it becomes one, so the PRs you open arrive with the mechanical findings already fixed.
+
+Available on **Claude Code**, **OpenAI Codex CLI**, **VS Code / GitHub Copilot**, **Google Gemini CLI**, **Cursor**.
+
+On Claude Code under Magpie's secure agent setup, roborev cannot read ~/.roborev/ and fails on every call; Step B of setup-isolated-setup-install wires the exclusion and the prompt that keep it safe outside the sandbox, and Step B.2 optionally lets its post-commit hook review the agent's own commits. Without Homebrew, see https://roborev.io/docs/installation/ for the other installers.
 
 Install commands per agent are in
 [**Companion skill packages**](../setup/companion-skills.md).

@@ -57,8 +57,8 @@ Placeholder convention:
   thread, per the [threading rule](threading.md). On the default
   `claude_ai_mcp` backend that means resolving the thread's latest
   message ID and passing it as `replyToMessageId`; on the opt-in
-  `oauth_curl` backend it means passing the `threadId` to
-  `oauth-draft-create --thread-id`. Never fabricate a new thread for
+  `oauth_curl` backend it means passing the `threadId` as `thread_id`
+  to `mcp__gmail-plaintext__create_draft`. Never fabricate a new thread for
   a credit-preference relay; it goes on the same thread as the
   original inbound report.
 - **Subject** — `Re: <root subject>`, i.e. the subject of the

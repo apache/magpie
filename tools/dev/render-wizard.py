@@ -18,7 +18,7 @@ So this animates them. Two subjects:
   opened with the marketplace install, which became a prerequisite with its
   own page, and re-cutting it needed a terminal, a scratch project and a
   human. Generating it fixes the content and removes the human.
-- **`wizard/<family>.svg`** — `/magpie-setup config` for one family. Every
+- **`wizard/<family>.svg`** — `/magpie-setup:setup config` for one family. Every
   frame is derived, not written: the files that family's wizard would create
   come from its skills' `requires_config:` frontmatter, and the one-line
   description of each from the adopter scaffold's index — the same two sources
@@ -160,7 +160,7 @@ def script(family: str, required: list[str], desc: dict[str, str]) -> list[tuple
     out.append((OK, "  tree, nothing staged, no teammate affected."))
     out.append((FG, ""))
     out.append((MUTED, "  The project can also adopt Magpie, so contributors get this"))
-    out.append((MUTED, "  on clone: /magpie-setup adopt"))
+    out.append((MUTED, "  on clone: /magpie-setup:setup adopt"))
     return out
 
 
@@ -261,7 +261,7 @@ def demo_script() -> list[tuple[str, str]]:
         (CMD, "> /plugin marketplace add apache/magpie"),
         (OK, "  ✓ apache-magpie added - 12 plugins"),
         (FG, ""),
-        (CMD, "> /magpie-setup"),
+        (CMD, "> /magpie-setup:setup"),
         (OK, "  ✓ detected example-org/example-app - configuration written"),
         (FG, ""),
         (CMD, "> /magpie-setup:isolated-setup-install"),
@@ -446,7 +446,7 @@ def step_adopt_script() -> list[tuple[str, str]]:
     return [
         (WARN, "  Only if you are a maintainer, deciding with the others."),
         (FG, ""),
-        (CMD, "> /magpie-setup adopt"),
+        (CMD, "> /magpie-setup:setup adopt"),
         (FG, ""),
         (FG, "  Staged, not committed:"),
         (FG, "    .apache-magpie.lock       the floor - a minimum, not a pin"),
@@ -469,7 +469,7 @@ def setup_script() -> list[tuple[str, str]]:
     actually do, and the eval suites for both are what keep those honest.
     """
     return [
-        (CMD, "> /magpie-setup"),
+        (CMD, "> /magpie-setup:setup"),
         (FG, ""),
         (MUTED, "  Agent      Claude Code"),
         (MUTED, "  Installed  nothing yet"),
@@ -576,11 +576,11 @@ def build() -> dict[Path, str]:
             step_adopt_script(),
         ),
         SETUP_SVG: render(
-            "/magpie-setup — the first run",
-            "An animated first run of /magpie-setup: the agent detected, the skill families "
+            "/magpie-setup:setup — the first run",
+            "An animated first run of /magpie-setup:setup: the agent detected, the skill families "
             "picked, the install commands emitted, then the secure-agent setup applying the "
             "sandbox, the clean-environment wrapper, the hooks and the status line",
-            "Illustrative animation of a first /magpie-setup run and the secure-agent setup "
+            "Illustrative animation of a first /magpie-setup:setup run and the secure-agent setup "
             "that follows it. Not a recording.",
             setup_script(),
         ),
@@ -590,8 +590,8 @@ def build() -> dict[Path, str]:
         if not required:
             continue  # nothing to configure, so nothing to animate
         out[OUT_DIR / f"{family}.svg"] = render(
-            f"/magpie-setup config — {family}",
-            f"An animated /magpie-setup config run for the {family} family: the check failing, "
+            f"/magpie-setup:setup config — {family}",
+            f"An animated /magpie-setup:setup config run for the {family} family: the check failing, "
             f"values derived from the repository, one question, and personal files written",
             f"Illustrative animation of a configuration run for the {family} family. Derived "
             f"from the skills' declared required configuration.",

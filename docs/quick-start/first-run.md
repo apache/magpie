@@ -10,7 +10,7 @@
   - [2. It configures, deriving what it can](#2-it-configures-deriving-what-it-can)
   - [3. It writes, and nothing is committable](#3-it-writes-and-nothing-is-committable)
   - [4. Run it again](#4-run-it-again)
-  - [5. Only if you are adopting: `/magpie-setup adopt`](#5-only-if-you-are-adopting-magpie-setup-adopt)
+  - [5. Only if you are adopting: `/magpie-setup:setup adopt`](#5-only-if-you-are-adopting-magpie-setupsetup-adopt)
   - [The other two things the install offers](#the-other-two-things-the-install-offers)
     - [MCP servers — backends a few skills read through](#mcp-servers--backends-a-few-skills-read-through)
     - [Companion skills — other people's packages](#companion-skills--other-peoples-packages)
@@ -50,13 +50,20 @@ and, once the configuration resolves, prints nothing at all — you will not see
 it again.
 
 You did not have to run anything: the skill invokes
-[`/magpie-setup config`](../../skills/setup/config.md) itself and says so.
+[`/magpie-setup:setup config`](../../skills/setup/config.md) itself and says so.
 That is safe to do unasked because of what `config` touches — files
 in your clone's git directory and nothing else. It stages nothing, commits nothing, and
 changes nothing any teammate can see.
 
 What it will **not** do is proceed on a guess. It did not label anything, post
 anything, or fall back to a default committer team.
+
+Your first Magpie skill also opens with a one-minute
+[welcome guide](../../plugins/magpie-setup/skills/setup/setup_preflight/guides/general.md),
+and a family can bring its own for the next run in that family — the security family does.
+A guide shows before the work starts, never instead of it,
+and ends with a choice to see it again, dismiss it until the next upgrade, or hide it for good.
+`/magpie-setup:welcome-guide [<family>]` shows any of them again.
 
 ## 2. It configures, deriving what it can
 
@@ -123,7 +130,7 @@ Which files each family needs is on its README under *Before the first run*:
 Those tables are generated from the skills themselves, so they cannot drift
 from what the skills actually read.
 
-## 5. Only if you are adopting: `/magpie-setup adopt`
+## 5. Only if you are adopting: `/magpie-setup:setup adopt`
 
 ![The adopt wizard promoting two of the three local files to the project, leaving the unfinished one behind, and removing the local copies that are now identical](../../assets/quickstart/walkthrough/5-adopt-promotes.svg)
 
@@ -172,7 +179,7 @@ source.
 Registering them is a per-machine step, not a per-project one — like the
 plugin install itself, and unlike anything `config` writes. The walkthrough is
 in
-[`/magpie-setup`'s install flow](../setup/marketplace.md#auto-install-arriving-magpie-ready).
+[`/magpie-setup:setup`'s install flow](../setup/marketplace.md#auto-install-arriving-magpie-ready).
 
 ### Companion skills — other people's packages
 

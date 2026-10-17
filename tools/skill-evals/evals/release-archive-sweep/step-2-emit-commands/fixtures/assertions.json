@@ -17,12 +17,6 @@
     "pattern": "-m .*(archive|retention)",
     "flags": "i"
   },
-  "has_gh_delete_for_github_releases": {
-    "field": "commands",
-    "type": "regex",
-    "pattern": "gh release delete",
-    "flags": "i"
-  },
   "has_proposed_true": {
     "field": "proposed",
     "type": "field_true"

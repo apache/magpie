@@ -398,6 +398,7 @@ TOOL_CAPABILITIES = {
     "contract:security-cross-ref",
     "contract:typed-decision",
     "contract:people",
+    "contract:security-tracker",
     "substrate:analytics",
     "substrate:sandbox",
     "substrate:action-guard",

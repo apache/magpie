@@ -22,12 +22,12 @@
 
 | File | Embedded by | Shows |
 |---|---|---|
-| `magpie-setup.svg` | [`docs/quick-start.md`](../../docs/quick-start.md), and [`docs/setup/README.md`](../../docs/setup/README.md) | `/magpie-setup` detecting the checkout, printing its plan, and waiting for approval. A real recording of a real run. |
-| `wizard/<family>.svg` | that family's README, *Before the first run* | An **animated** `/magpie-setup config` run for that family. Generated from `requires_config:` frontmatter by [`render-wizard.py`](../../tools/dev/render-wizard.py) — there is no transcript to edit. Illustrative of the shape of a run, not a recording of one. |
+| `magpie-setup.svg` | [`docs/quick-start.md`](../../docs/quick-start.md), and [`docs/setup/README.md`](../../docs/setup/README.md) | `/magpie-setup:setup` detecting the checkout, printing its plan, and waiting for approval. A real recording of a real run. |
+| `wizard/<family>.svg` | that family's README, *Before the first run* | An **animated** `/magpie-setup:setup config` run for that family. Generated from `requires_config:` frontmatter by [`render-wizard.py`](../../tools/dev/render-wizard.py) — there is no transcript to edit. Illustrative of the shape of a run, not a recording of one. |
 | `families/<family>/<skill>.txt` | — | The authored transcript. This is the source file. |
 | `families/<family>/<skill>.svg` | that family's README, *Try these first* | The transcript rendered. Generated; never hand-edited. |
 
-The setup family has no screenshot of `/magpie-setup` itself: its first run
+The setup family has no screenshot of `/magpie-setup:setup` itself: its first run
 *is* `magpie-setup.svg`, so `docs/setup/README.md` embeds that rather than a
 copy.
 
@@ -36,7 +36,7 @@ copy.
 A capture needs a terminal, a scratch project, and a human — and it needs all
 three again the next time any output moves.
 
-That price is worth paying once. `/magpie-setup` is the run a reader has not
+That price is worth paying once. `/magpie-setup:setup` is the run a reader has not
 done yet, and seeing it actually happen, at the pace it happens, is worth more
 than a description of it. So that one is a recording.
 

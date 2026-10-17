@@ -147,7 +147,7 @@ The following table summarizes candidate opportunities for additive mods across 
 
 | Skill Family | Candidate Mod Enhancement | Fallback Behaviour (Without Mod) |
 |---|---|---|
-| **`family:setup`** | Instant lockfile drift notification on `session.start`; zero-token `/magpie-status` command; GPG hardware touch toast. | Skill pre-flight step performs comparison in prompt context; standard CLI status output. |
+| **`family:setup`** | Instant lockfile drift notification on `session.start` (Pilot 1); zero-token `/magpie-status` command (Pilot 2); GPG hardware touch toast. | Skill pre-flight step performs comparison in prompt context; standard CLI status output. |
 | **`family:utilities`** | Zero-token `/magpie-skills` command; live token-usage band during skill authoring and evals. | Standard skill execution via model turn. |
 | **`family:security`** | Deterministic pre-commit/pre-push grep for unredacted CVE references; local tracker queue dashboard pane. | Explicit grep check instruction in `security-issue-fix` workflow step. |
 | **`family:pr-management`** | Interactive review pane with accept/skip/edit buttons for code review findings; triage sweep progress band. | Sequential `AskUserQuestion` prompts or consolidated review summary markdown. |

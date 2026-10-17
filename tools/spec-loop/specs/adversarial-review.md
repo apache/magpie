@@ -160,17 +160,24 @@ before the PR is created, through one shared block.
   because the reviewers can read every file there, unless
   `--allow-tracker-checkout` says the tracker's own code is under review; the
   report then still carries the warning.
-- **One invocation spelling.** Every generated command, the shared block and
-  code review's copy invoke
-  `uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/<version>/tools/adversarial-review adversarial-review …`,
-  unquoted with a literal `~`, the only form the sandbox exclusion matches.
+- **One invocation spelling.** In Claude Code every generated command, the
+  shared block and code review's copy invoke
+  `uvx --from ~/.claude/magpie/adversarial-review adversarial-review …`,
+  unquoted with a literal `~`, the only form the sandbox exclusion matches
+  (#1578).
+  That path is a fixed link the plugin's `SessionStart` hook
+  (`tools/adversarial-review/hooks/link-stable-path.sh`) points at the
+  installed version each session; it only ever replaces a symlink, never a
+  real file or directory.
+  The exclusion therefore needs no `*` where the version sits, which would
+  also match `uv` options spliced in at that position.
   Tests pin each copy to the exclusion pattern.
-  No command bakes in a version: Claude Code's reads it from
-  `${CLAUDE_PLUGIN_ROOT}`, the others take the newest installed, so `upgrade`
+  No command bakes in a version: Claude Code's uses the fixed link, the
+  other harnesses take the newest installed plugin directory, so `upgrade`
   has nothing to rewrite.
 - **Sandbox exclusion without an allow rule.** `isolated-setup-install`
-  Step R adds one `excludedCommands` entry for that invocation and an `Edit`
-  deny on the plugin cache, since the tool runs unsandboxed.
+  Step R adds one `excludedCommands` entry for that invocation and `Edit`
+  denies on the plugin cache and the link, since the tool runs unsandboxed.
   There is deliberately no allow rule, so every run keeps its prompt.
   `isolated-setup-verify` check 14 checks all three.
 - **Setup offers reviewers only when named.** `config adversarial-review`
@@ -204,7 +211,7 @@ before the PR is created, through one shared block.
   command without opening a PR.
 - **Standalone resolution.** Like `tools/vetted-ops`, the project declares no
   workspace `dev` group, because it runs as
-  `uvx --from <plugin>/tools/adversarial-review adversarial-review …`, where
+  `uvx --from ~/.claude/magpie/adversarial-review adversarial-review …`, where
   the workspace root does not exist.
 
 ## Out of scope
@@ -235,6 +242,10 @@ before the PR is created, through one shared block.
    repository and the temporary directory.
 9. `skill-and-tool-validate` reports a `pre-pr-review-block` violation for
    any PR-opening skill without the shared block.
+10. The Claude Code invocation and its sandbox exclusion name the fixed
+    path `~/.claude/magpie/adversarial-review`, never a versioned
+    plugin-cache glob, and sandbox-lint rejects a `*` before the end of any
+    excluded command (#1578).
 
 ## Validation
 

@@ -220,13 +220,16 @@ source: skills/
       on('fs.exists', (_: any, e: any) => ({
         value: true,
       }));
-      on('fs.read', (_: any, e: any) => ({
-        value: e.path.endsWith('.apache-magpie.lock')
-          ? LOCK_BELOW_FLOOR
-          : e.path.endsWith('.claude-plugin/plugin.json')
-            ? JSON.stringify({ name: 'magpie-setup', version: '0.9.0' })
-            : '',
-      }));
+      on('fs.read', (_: any, e: any) => {
+        const p = (e.path || '').replace(/\\/g, '/');
+        return {
+          value: p.endsWith('.apache-magpie.lock')
+            ? LOCK_BELOW_FLOOR
+            : p.endsWith('.claude-plugin/plugin.json')
+              ? JSON.stringify({ name: 'magpie-setup', version: '0.9.0' })
+              : '',
+        };
+      });
 
       on('ui.render', () => ({ type: 'Box', children: [] }));
       on('session.start', () => ({ cwd: '/work' }));
@@ -251,13 +254,16 @@ source: skills/
       on('fs.exists', (_: any, e: any) => ({
         value: true,
       }));
-      on('fs.read', (_: any, e: any) => ({
-        value: e.path.endsWith('.apache-magpie.lock')
-          ? LOCK_SATISFYING_FLOOR
-          : e.path.endsWith('.claude-plugin/plugin.json')
-            ? JSON.stringify({ name: 'magpie-setup', version: '0.9.0' })
-            : '',
-      }));
+      on('fs.read', (_: any, e: any) => {
+        const p = (e.path || '').replace(/\\/g, '/');
+        return {
+          value: p.endsWith('.apache-magpie.lock')
+            ? LOCK_SATISFYING_FLOOR
+            : p.endsWith('.claude-plugin/plugin.json')
+              ? JSON.stringify({ name: 'magpie-setup', version: '0.9.0' })
+              : '',
+        };
+      });
 
       on('ui.render', () => ({ type: 'Box', children: [] }));
       on('session.start', () => ({ cwd: '/work' }));

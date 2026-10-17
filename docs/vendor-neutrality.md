@@ -163,7 +163,7 @@ with pluggable backends already include:
 | [`tools/mail-source`](../tools/mail-source/) | mbox, IMAP, Gmail API ([`tools/gmail`](../tools/gmail/)), Mailman 3 |
 | [`tools/forwarder-relay`](../tools/forwarder-relay/) | ASF Security relay, huntr.com, HackerOne triagers |
 | [`tools/scan-format`](../tools/scan-format/) | security-scanner report formats (ASVS reference) |
-| [`tools/vcs`](../tools/vcs/) | Git (complete), Mercurial (complete), Subversion, … (extension points) |
+| [`tools/vcs`](../tools/vcs/) | Git, Mercurial, Fossil, Subversion (complete); Jujutsu, Perforce (extension points) |
 | [`tools/typed-decision`](../tools/typed-decision/) | TypeSafe Jev API (cloud), in-tree local provider (Ollama / llama.cpp / vLLM) |
 | [`tools/people`](../tools/people/) | Forge / tracker accounts — GitHub (profile, collaborators, teams), Jira (profile lookup); GitLab, Forgejo, Bitbucket (extension points) |
 | [`tools/tracker`](../tools/tracker/) | Tracker activity queries — GitHub and Jira, both through [`tools/contributor-metrics`](../tools/contributor-metrics/) backends; GitLab, Forgejo, Bitbucket (extension points) |
@@ -348,7 +348,6 @@ Draft PR review gating; see the
 The remaining extension points are
 already open, labelled `good first issue`:
 [Amazon Q](https://github.com/apache/magpie/issues/320),
-[JetBrains Junie](https://github.com/apache/magpie/issues/321),
 [OpenHands](https://github.com/apache/magpie/issues/322).
 The step-by-step wiring recipe for any new runtime is
 [`docs/adapters/add-a-harness.md`](adapters/add-a-harness.md).
@@ -435,13 +434,13 @@ fixed that:
   (`magpie-vcs`) runs the *abstract* operation and detects the active
   backend from the working copy.
 
-Today: **Git and Mercurial are complete** (the Git and Mercurial bindings); Subversion
-([#602](https://github.com/apache/magpie/issues/602)) is a real, detected
-extension point that raises an actionable error naming its tracking
-issue until the full binding lands. Adding a backend means replacing one
-`_UnimplementedBackend` with a concrete `VCSBackend` subclass —
-detection, dispatch, the CLI, and every skill that calls `magpie-vcs`
-pick it up automatically. Nothing else changes.
+Today: **Git, Mercurial, Fossil, and Subversion are complete**. The
+Subversion binding ([#602](https://github.com/apache/magpie/issues/602))
+maps the operations onto SVN's centralized model: `commit` writes to the
+server, `fetch` has nothing to sync, and `push` is refused. Adding a
+backend means writing one concrete `VCSBackend` subclass and registering
+it — detection, dispatch, the CLI, and every skill that calls
+`magpie-vcs` pick it up automatically. Nothing else changes.
 
 The **ASF SVN** surface goes beyond the generic VCS binding: the
 [`tools/asf-svn/`](../tools/asf-svn/) adapter packages the SVN
@@ -452,12 +451,8 @@ GitHub-hosted ASF project that uses Git for source control needs
 `tools/asf-svn` to steward its release flow through `dist.apache.org`.
 
 Tracking issues exist, labelled `good first issue`, for the remaining
-non-Git/non-Hg systems:
-[Subversion](https://github.com/apache/magpie/issues/602) (generic VCS
-binding; `tools/asf-svn` covers the full ASF SVN surface including
-`dist.apache.org` and authorization),
-[Jujutsu](https://github.com/apache/magpie/issues/603),
-[Fossil](https://github.com/apache/magpie/issues/604), and
+systems:
+[Jujutsu](https://github.com/apache/magpie/issues/603) and
 [Perforce](https://github.com/apache/magpie/issues/605) — so the
 extension points are public and labelled, not hypothetical. (The
 Bitbucket and SourceHut forges, which carry their own VCS surfaces, are tracked
@@ -526,7 +521,7 @@ coverage without pretending one team can implement an open-ended set.
 | Agentic harness | ✅ by construction (`AGENTS.md` standard) | Claude Code; OpenCode; [Codex adapter](adapters/codex.md) (experimental); [Gemini adapter](adapters/gemini.md) (experimental); community use under Cursor, Copilot, Kiro | Remaining runtime adapters [#314–#322](https://github.com/apache/magpie/issues?q=is%3Aissue+state%3Aopen+adapter+in%3Atitle) |
 | Forge / tracker | ✅ by construction | GitHub, Jira, SourceHut; Bitbucket and GitLab `partial-read-only` foundations excluded from complete-backend counts; CVE/scan/relay via adapter contracts | Forgejo/Gitea [#310](https://github.com/apache/magpie/issues/310), Pagure [#312](https://github.com/apache/magpie/issues/312), full Bitbucket tracker/change-request/Jira coverage [#606](https://github.com/apache/magpie/issues/606), GitLab [#305](https://github.com/apache/magpie/issues/305), Bugzilla [#302](https://github.com/apache/magpie/issues/302) |
 | Communication channels | ✅ by construction | PonyMail / mail-archive reads; Mailman 3 / Hyperkitty public-archive reads ([`tools/mail-source/mailman3`](../tools/mail-source/mailman3/)) | mbox [#304](https://github.com/apache/magpie/issues/304), IMAP [#303](https://github.com/apache/magpie/issues/303); Discourse [#307](https://github.com/apache/magpie/issues/307), Zulip [#308](https://github.com/apache/magpie/issues/308), Matrix [#309](https://github.com/apache/magpie/issues/309) |
-| Source control (VCS) | ✅ by construction | **Git (complete)**, **Mercurial (complete)**; ASF SVN surface ([`tools/asf-svn`](../tools/asf-svn/): source control + dist.apache.org + authorization) | Subversion generic VCS binding [\#602](https://github.com/apache/magpie/issues/602) (detected); Jujutsu [\#603](https://github.com/apache/magpie/issues/603), Fossil [\#604](https://github.com/apache/magpie/issues/604), Perforce [\#605](https://github.com/apache/magpie/issues/605) (tracked) |
+| Source control (VCS) | ✅ by construction | **Git**, **Mercurial**, **Fossil**, **Subversion** (complete, [`tools/vcs`](../tools/vcs/)); ASF SVN surface ([`tools/asf-svn`](../tools/asf-svn/): source control + dist.apache.org + authorization) | Jujutsu [\#603](https://github.com/apache/magpie/issues/603), Perforce [\#605](https://github.com/apache/magpie/issues/605) (tracked) |
 | Project governance | ✅ by construction | ASF + non-ASF adopter profiles | Adopter config (modes, thresholds) |
 
 ✅ "by construction" means the workflows carry no vendor assumption;
@@ -586,7 +581,7 @@ generated block below.
 
 <!-- BEGIN vendor-neutrality-score — generated by `uv run --project tools/vendor-neutrality-score vendor-neutrality-score --markdown`; do not edit by hand -->
 
-**Overall vendor-neutrality score: 14/15 capability contracts (93%).** Generated by [`tools/vendor-neutrality-score`](../tools/vendor-neutrality-score/); re-run it to refresh this section.
+**Overall vendor-neutrality score: 15/16 capability contracts (94%).** Generated by [`tools/vendor-neutrality-score`](../tools/vendor-neutrality-score/); re-run it to refresh this section.
 
 | Capability contract | Neutral? | Class | Backends today | Basis |
 |---|---|---|---|---|
@@ -605,25 +600,26 @@ generated block below.
 | `contract:security-cross-ref` | ❌ | vendor-backed | OSV.dev | only 1 backend vendor (OSV.dev); needs 1 more |
 | `contract:typed-decision` | ✅ | vendor-backed | TypeSafe, self-hosted OpenAI-compatible | 2 backend vendors: TypeSafe, self-hosted OpenAI-compatible |
 | `contract:people` | ✅ | vendor-backed | Atlassian, GitHub | 2 backend vendors: Atlassian, GitHub |
+| `contract:security-tracker` | ✅ | vendor-backed | Atlassian, agnostic | 2 backend vendors: Atlassian, agnostic |
 
-**Per-skill assessment: 79/79 skills carry no vendor lock-in.** A skill is *capability-pure* when it names no backend at all, *portable* when every backend it names has an alternative (its contract is green), and *vendor-coupled* only when it reaches for a backend that is the sole implementation of a capability.
+**Per-skill assessment: 80/80 skills carry no vendor lock-in.** A skill is *capability-pure* when it names no backend at all, *portable* when every backend it names has an alternative (its contract is green), and *vendor-coupled* only when it reaches for a backend that is the sole implementation of a capability.
 
 | Skill neutrality | Count |
 |---|---|
-| capability-pure (names no backend) | 25 |
-| portable (named backends are swappable) | 54 |
+| capability-pure (names no backend) | 30 |
+| portable (named backends are swappable) | 50 |
 | vendor-coupled (sole-backend dependency) | 0 |
 
-Organization scope (declared, orthogonal to vendor): ASF = 16, agnostic = 63.
+Organization scope (declared, orthogonal to vendor): ASF = 16, agnostic = 64.
 
 **LLM / agent-integration neutrality**
 
-**Agent harness: 32/32 substrate tools run under any harness unchanged (100%).** Substrate tools are Magpie's own machinery; each declares the agent harness it integrates with (`**Harness:**`), or `agnostic`. A tool is neutral when it is harness-agnostic or supports two or more harnesses; *coupled* when it targets a single harness.
+**Agent harness: 33/33 substrate tools run under any harness unchanged (100%).** Substrate tools are Magpie's own machinery; each declares the agent harness it integrates with (`**Harness:**`), or `agnostic`. A tool is neutral when it is harness-agnostic or supports two or more harnesses; *coupled* when it targets a single harness.
 
 | Substrate tool | Substrate | Harness support | Verdict |
 |---|---|---|---|
 | `adversarial-review` | review | any | ✅ agnostic |
-| `agent-guard` | action-guard | Claude Code, Copilot, Gemini CLI, Grok, Kiro, OpenCode | ✅ portable |
+| `agent-guard` | action-guard | Claude Code, Codex, Copilot, Gemini CLI, Grok, Junie, Kiro, OpenCode | ✅ portable |
 | `agent-isolation` | sandbox | any | ✅ agnostic |
 | `container-gateway` | sandbox | any | ✅ agnostic |
 | `contributor-metrics` | analytics | any | ✅ agnostic |
@@ -638,9 +634,10 @@ Organization scope (declared, orthogonal to vendor): ASF = 16, agnostic = 63.
 | `privacy-llm` | privacy | any | ✅ agnostic |
 | `probe-templates` | sandbox | any | ✅ agnostic |
 | `release-config` | release | any | ✅ agnostic |
+| `release-management` | release | any | ✅ agnostic |
 | `release-verify` | release | any | ✅ agnostic |
 | `reproducible-archive` | release | any | ✅ agnostic |
-| `sandbox-lint` | sandbox | Claude Code, Codex, Cursor, Gemini CLI, Kiro, OpenCode | ✅ portable |
+| `sandbox-lint` | sandbox | Claude Code, Codex, Cursor, Gemini CLI, Grok, Kiro, OpenCode | ✅ portable |
 | `security-tracker-stats-dashboard` | analytics | any | ✅ agnostic |
 | `setup-preflight` | setup | any | ✅ agnostic |
 | `skill-and-tool-validator` | framework-dev | any | ✅ agnostic |
@@ -658,14 +655,15 @@ Organization scope (declared, orthogonal to vendor): ASF = 16, agnostic = 63.
 Harness → substrate tools it supports:
 
 - **Claude Code** (3): `agent-guard`, `sandbox-lint`, `spec-loop`
-- **Codex** (2): `sandbox-lint`, `spec-loop`
+- **Codex** (3): `agent-guard`, `sandbox-lint`, `spec-loop`
 - **Copilot** (1): `agent-guard`
 - **Cursor** (2): `sandbox-lint`, `spec-loop`
 - **Gemini CLI** (3): `agent-guard`, `sandbox-lint`, `spec-loop`
-- **Grok** (2): `agent-guard`, `spec-loop`
+- **Grok** (3): `agent-guard`, `sandbox-lint`, `spec-loop`
+- **Junie** (1): `agent-guard`
 - **Kiro** (3): `agent-guard`, `sandbox-lint`, `spec-loop`
 - **OpenCode** (3): `agent-guard`, `sandbox-lint`, `spec-loop`
-- **any harness** (29): `adversarial-review`, `agent-isolation`, `container-gateway`, `contributor-metrics`, `dashboard-generator`, `dev`, `egress-gateway`, `maven-artifact-verify`, `permission-audit`, `pilot-report-validator`, `pr-management`, `preflight-audit`, `privacy-llm`, `probe-templates`, `release-config`, `release-verify`, `reproducible-archive`, `security-tracker-stats-dashboard`, `setup-preflight`, `skill-and-tool-validator`, `skill-evals`, `skill-reconciler-diff`, `skill-token-count`, `spec-inventory`, `spec-status-index`, `spec-validator`, `symlink-lint`, `vendor-neutrality-score`, `vetted-ops`
+- **any harness** (30): `adversarial-review`, `agent-isolation`, `container-gateway`, `contributor-metrics`, `dashboard-generator`, `dev`, `egress-gateway`, `maven-artifact-verify`, `permission-audit`, `pilot-report-validator`, `pr-management`, `preflight-audit`, `privacy-llm`, `probe-templates`, `release-config`, `release-management`, `release-verify`, `reproducible-archive`, `security-tracker-stats-dashboard`, `setup-preflight`, `skill-and-tool-validator`, `skill-evals`, `skill-reconciler-diff`, `skill-token-count`, `spec-inventory`, `spec-status-index`, `spec-validator`, `symlink-lint`, `vendor-neutrality-score`, `vetted-ops`
 
 **Model endpoint: neutral by construction — 4 default-approved endpoint classes across independent trust domains, plus adopter opt-in.** From the [`privacy-llm` registry](../tools/privacy-llm/models.md): the framework keys approval on *endpoint identity*, not on who hosts the model, so no single LLM vendor is privileged.
 

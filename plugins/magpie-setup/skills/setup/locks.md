@@ -264,7 +264,7 @@ record-update` / `record-reminder` write it — see
 **Three keys are never committed, even inside an adopted project's
 `.apache-magpie.lock`, and live in this file on every project
 regardless of adoption state:** `verified_at`, `verify_suggested_at`,
-and `acknowledged`. Running `/magpie-setup verify` and being shown a
+and `acknowledged`. Running `/magpie-setup:setup verify` and being shown a
 reconciliation proposal are both per-machine acts — one contributor's
 health check, one contributor's own prompt history — and neither is a
 fact about the project's committed configuration the way
@@ -286,7 +286,7 @@ runs `config` on their machine before the project adopts, a
 maintainer runs `adopt` on a different machine, and `adopt` can only
 migrate the local stamp it can see — so the contributor's local
 entry survives beside the newly committed one. When it happens, the
-local entry wins for every comparison, and `/magpie-setup reconcile`
+local entry wins for every comparison, and `/magpie-setup:setup reconcile`
 names the collision and offers to drop the redundant local entries,
 leaving the committed lock as the single store.
 

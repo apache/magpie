@@ -1,0 +1,7 @@
+{
+  "$schema": "https://code.claude.com/schemas/hooks.json",
+  "description": "Apache Magpie — Claude Code mods for zero-token skill discovery.",
+  "modules": [
+    "./skills-command.ts"
+  ]
+}

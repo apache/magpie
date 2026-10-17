@@ -59,6 +59,7 @@ from .body_field_format import FieldNotFoundError, extract_field, replace_field
 from .rollup_format import (
     build_entry,
     build_new_rollup_body,
+    find_rollup_index,
     is_rollup_body,
     iter_entries,
     left_trim_lines,
@@ -279,10 +280,9 @@ def _list_comments(r: Runner, number: str) -> list[dict[str, object]]:
 
 
 def _find_rollup(comments: list[dict[str, object]]) -> dict[str, object] | None:
-    for c in comments:
-        if is_rollup_body(str(c.get("body") or "")):
-            return c
-    return None
+    """The rollup comment: the canonical marker first, else a legacy one."""
+    idx = find_rollup_index([str(c.get("body") or "") for c in comments])
+    return None if idx is None else comments[idx]
 
 
 _NODE_ID = re.compile(r"^[A-Za-z0-9_-]{1,120}$")
@@ -328,7 +328,7 @@ def _write_entry(r: Runner, number: str, entry: str) -> tuple[str, str]:
     if rollup is None:
         out = r.write(
             ["gh", "issue", "comment", number, "--repo", r.tracker, "--body-file", "-"],
-            stdin=build_new_rollup_body(entry, r.tracker.split("/")[-1]),
+            stdin=build_new_rollup_body(entry),
         )
         # `gh issue comment` prints the new comment's URL.
         return f"created rollup on {r.tracker}#{number}", out.strip()

@@ -11,7 +11,7 @@ source: >
   sandbox by default"); RFC-AI-0004 Principle 2 (secure sandbox by
   default) and RFC-AI-0003 § 4.4 (egress-allowlist gateway).
   Implemented in tools/container-gateway/, a SessionStart/SessionEnd
-  hook in tools/agent-isolation/, the reference .claude/settings.json,
+  hook in tools/agent-isolation/, the reference tools/agent-isolation/claude-settings.template.json,
   tools/sandbox-lint/expected.json, the setup-isolated-setup-doctor /
   -verify / -install skills, docs/setup/secure-agent-setup.md and
   docs/setup/sandbox-troubleshooting.md.
@@ -93,7 +93,7 @@ CLIs speak. Three properties fall out of the policy:
   `~/.claude/scripts/` by `setup-isolated-setup-install` like the other
   hook scripts. Other harnesses start the gateway by hand or from their
   wrapper; the hook is a convenience, not the mechanism.
-- `.claude/settings.json` (reference, and the copy in
+- `tools/agent-isolation/claude-settings.template.json` (reference, and the copy in
   `docs/setup/secure-agent-setup.md`): `env.CONTAINER_HOST`,
   `env.DOCKER_HOST`, `sandbox.network.allowUnixSockets` entries for the
   two gateway sockets. `tools/sandbox-lint/expected.json` mirrors them.
@@ -141,7 +141,7 @@ adds both, with absolute paths, to the gitignored, per-project
 `.claude/settings.local.json` by hand (the block is in
 [Container gateway](../../../docs/setup/secure-agent-setup.md#container-gateway)
 in the setup guide, and `setup-isolated-setup-install` Step L proposes
-it as a settings diff); `/magpie-setup config` does not write it. The macOS limit of 104 bytes on a socket path is
+it as a settings diff); `/magpie-setup:setup config` does not write it. The macOS limit of 104 bytes on a socket path is
 checked at start and reported.
 
 The gateway must run **outside** the sandbox: it connects to the real
@@ -478,12 +478,12 @@ PYTHONPATH=tools/skill-evals/src python3 -m skill_evals.runner \
 
 ## Known gaps
 
-- `/magpie-setup config` does not write the two gateway sockets into
+- `/magpie-setup:setup config` does not write the two gateway sockets into
   `.claude/settings.local.json`'s `sandbox.network.allowUnixSockets`,
   although the setup guide used to say it did. The operator adds the
   block by hand, or takes the settings diff
   `setup-isolated-setup-install` Step L proposes. Automating it in
-  `/magpie-setup config` is the follow-up.
+  `/magpie-setup:setup config` is the follow-up.
 - **Residual risk — a forged worktree layout.** In a linked worktree
   of a project that has not adopted Magpie, the run directory's anchor
   (the git common directory) is located from the worktree's `.git`

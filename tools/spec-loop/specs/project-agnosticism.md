@@ -144,7 +144,9 @@ The three mechanisms, in order of preference:
   Generic skills likewise dropped hardcoded release numbers, a backport
   label, maintainer names, a real CVE id, and one project's canned-response
   list in favour of `<project-config>` values, and the status-rollup marker
-  names the adopter's tracker instead of a fixed project slug (#1444).
+  carries no project slug: new rollups get the framework-wide
+  `<!-- apache-magpie: status-rollup v1 -->` marker, while the legacy
+  tracker-named one is still recognised (#1444, #1665).
 - **Advisory, not paternalistic.** The audit surfaces candidate coupling
   for a maintainer to judge; some ASF strings are legitimate (examples,
   the ASF default profile, ASF-specific docs). It does not auto-rewrite.
@@ -203,7 +205,9 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
   skills**: high-confidence `svn mv` or `dist/release/` in
   `release-archive-sweep` (two hits), `release-audit-report`,
   `release-keys-sync`, and `release-promote` (remedy adapter or capability
-  flag, pending the #602 Subversion backend), and a low-confidence bare
+  flag; the #602 Subversion backend has since shipped in `tools/vcs`
+  (#1609), but it covers source control, not the `dist` tree moves these
+  skills emit), and a low-confidence bare
   `PMC` in `dependency-license-audit`, `setup-privacy-llm`, and the new
   `contributor-identity-map`, which sits in the ASF-scoped
   contributor-growth family but declares no `organization: ASF` of its own,

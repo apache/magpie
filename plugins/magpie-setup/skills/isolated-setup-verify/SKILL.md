@@ -16,9 +16,9 @@ when_to_use: >-
   have started working — that is the canary for a denial having
   silently become an allow.
 capability: capability:platform
-surface_hash: sha256:393e3ecdf80a56a9
+surface_hash: sha256:ce33cb9437d44992
 license: Apache-2.0
-measured_tokens: 5098
+measured_tokens: 6217
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -32,7 +32,7 @@ Use the operator's explicitly requested runtime when supplied; otherwise use the
 An installed executable or configuration directory alone does not select a runtime.
 For the routing below, treat that selection as the active harness.
 
-When the active harness is Codex, run the verification contract in [docs/adapters/codex.md](../../../../docs/adapters/codex.md#verify): static profile lint, native rule classification, project trust, `/skills` visibility, and bridge preflights.
+When the active harness is Codex, follow the full verification contract in [docs/adapters/codex.md](../../../../docs/adapters/codex.md#verify), including its hook-trust, vetted-operation and isolation-gap checks.
 Report every Codex check and then stop.
 Do not interpret the Claude settings checks below as Codex requirements.
 
@@ -92,6 +92,7 @@ The canonical list lives in
 Walk each in order:
 
 1. Project `.claude/settings.json` shape: `sandbox.enabled: true`, `permissions.deny`, `permissions.ask`, `sandbox.network.allowedDomains`, and the `sandbox.filesystem` allowlist (`allowRead`/`allowWrite`).
+   In the Magpie framework checkout (it carries `tools/agent-isolation/claude-settings.template.json`) the file is not committed: a missing one is ✗, with the remedy to put the template in place ([CONTRIBUTING.md → Agent settings](../../../../CONTRIBUTING.md#agent-settings), or step T of `setup-isolated-setup-install`); one that lacks a block the template has is ⚠, naming the block.
 2. User-scope `~/.claude/settings.json` wiring: `PreToolUse` `Bash` matcher → `sandbox-bypass-warn.sh`, `PostToolUse` `Bash` matcher → `sandbox-error-hint.sh`, `statusLine` → `sandbox-status-line.sh` (or a custom statusline script that embeds the framework's prefix logic, the doc-allowed variant; report ⚠).
    A missing `PostToolUse` entry for `sandbox-error-hint.sh` reports ⚠ (not ✗).
    The hook is a discoverability aid for the failure modes in [`docs/setup/sandbox-troubleshooting.md`](../../../../docs/setup/sandbox-troubleshooting.md); without it nothing breaks, but those failures show the raw error without the `[sandbox-hint]` annotation.
@@ -191,6 +192,31 @@ Walk each in order:
     An entry with a glob (`/tmp/claude-*`) is listed as a working directory but never matched; report the path it was meant to cover as missing (⚠) and say plainly that the entry does nothing.
     The same paths in the committed project `.claude/settings.json`, or in a user-scope `~/.claude/settings.json` synced across machines, are ⚠: they are per-host and belong in `settings.local.json`.
     [Why these two directories](../../../../docs/setup/secure-agent-setup.md#working-directories-under-the-read-outside-working-directories-block).
+    Where check 16 applies, the read block being on at all is already ✗ there; these entries do not fix it.
+
+16. **Read-only vetted ops never prompt.** An imperative, not a preference: the read dispatcher MUST NOT prompt in any form, because background gatherer agents cannot surface a prompt and each one becomes a silent denial.
+    Same n/a condition as check 9.
+    Resolve `$HOME`, read every scope (user, project, project-local, managed where readable), and report each sub-check ✓ or ✗; there is no ⚠ here.
+
+    - **16a — both allow rules.** `permissions.allow` carries `Bash(<launcher> ~/.claude/magpie/vetted-ops vetted-op-read *)` for both launchers (`uvx --from`, `uv run --project`): two rules, in the project settings or in user scope.
+      Name each missing one.
+      A leftover rule spelled with the resolved `$HOME/.claude/magpie/vetted-ops` base is ✗ in the committed project settings (per-host path in a shared file) and otherwise only worth removing: the agent-guard `vetted-ops-spelling` guard refuses that spelling.
+    - **16b — no ask rule.** No `permissions.ask` entry in any scope matches a `vetted-op-read` command in either launcher form; broad rules such as `Bash(uvx *)` count, so match each rule as a pattern rather than searching it for the dispatcher name.
+      An ask rule prompts even when an allow rule matches.
+      Name the file that carries it.
+    - **16c — read block off.** `permissions.blockReadsOutsideWorkingDirectories` is `false` or absent in every scope.
+      With it on, every call prompts: the check cannot resolve the literal `~` the commands spell, and neither an `allow` rule nor an `additionalDirectories` entry overrides it.
+    - **16d — tamper protection.** All three vetted-ops `Edit` deny rules from check 9 are present.
+      This is what makes the unprompted read safe, so a missing one fails here as well as in check 9.
+    - **16e — an exclusion for every allowed form.** `sandbox.excludedCommands` carries `<launcher> ~/.claude/magpie/vetted-ops vetted-op-read *` for both launchers of 16a.
+      An allowed form without its exclusion is approved without a prompt but runs inside the sandbox, where its `gh` cannot verify TLS: a silent failure, as with a prompt.
+
+    [The required shape and why](../../../../docs/setup/secure-agent-setup.md#read-only-vetted-ops-never-prompt).
+
+17. **roborev exclusion, if installed.** Optional (step B of `setup-isolated-setup-install`).
+    **n/a** when `command -v roborev` finds nothing.
+    Otherwise:
+    [`conditional-checks.md`](conditional-checks.md#check-17--roborev-exclusion-if-installed).
 
 ## After the report
 
@@ -212,5 +238,8 @@ If anything is ✗ or ⚠, suggest the matching follow-up skill without invoking
 - ✗ on check 12a / 12b (hooks or the hook script missing) → `setup-isolated-setup-install` Step L.
 - ✗ on check 12c (project `env` or `allowUnixSockets` half missing) → `setup-isolated-setup-install` Step L, to propose the missing block as a settings diff for the operator to approve.
 - ✗ on check 12d (a raw daemon socket in `allowUnixSockets`) → the operator removes that entry themselves (settings.json changes are never applied from a skill) and, if they need the daemon reachable, follows Step L instead; then re-run `setup-isolated-setup-verify`.
+- ⚠ on check 17a, 17b or 17c, or ✗ on 17b, 17c, 17d or 17e → the operator edits settings themselves (settings.json changes are never applied from a skill): copy the rules from step B of `setup-isolated-setup-install`, remove every `roborev` `allow`, and for 17c remove any `allowWrite` on `~/.roborev/`, then on macOS finish step B.2 (the `unix://` `server_addr` and its `allowUnixSockets` entry) or remove its `allowRead`, and on Linux remove the `allowRead` and run `roborev review` explicitly instead; then re-run `setup-isolated-setup-verify`. ⚠ on 17f → show the operator `.roborev.toml` and its history and leave the decision to them. ✗ on 17f (roborev's hook in a shared whole-user hooks directory) → name the hook; the operator restores the Step P dispatcher there (`setup-isolated-setup-install` Step P) and moves roborev's hook into the repository's own `$(git rev-parse --git-common-dir)/hooks/post-commit`, never with `--force`; then re-run `setup-isolated-setup-verify`. ⚠ on 17g → name the hook or MCP entry and what it bypasses; removing it is the operator's call.
 - ⚠ on check 15 (a working directory missing, or covered only by a glob) → re-run `~/.claude/scripts/sandbox-add-project-root.sh --all-worktrees`, which writes the resolved paths to each worktree's `settings.local.json` (or re-run `setup-isolated-setup-install` if the helper is not installed); `/add-dir <path>` covers the current session meanwhile.
+- ✗ on check 16 → `setup-isolated-setup-install` Step V.1, which proposes the exact settings edit for each failing sub-check; the operator applies it (never this skill), then re-run `setup-isolated-setup-verify`.
+  Until check 16 passes, do not run a bulk skill that fans out into background gatherer agents: their reads fail silently.
 - For users who maintain the `~/.claude-config/` sync repo, the user-scope script copies live there; uncommitted local edits there → `setup-shared-config-sync`.

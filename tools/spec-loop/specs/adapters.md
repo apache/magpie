@@ -38,12 +38,39 @@ by swapping the adapter, not the skill.
 
 - `tools/gmail/` — private-mail read/draft (drafts to the outbox; never
   sends).
-- `tools/maildir/` — private-mail drafting to a local Maildir spool; an
-  offline alternative to Gmail when no cloud mail backend is available.
+- `tools/maildir/` — private-mail drafting to a local Maildir spool
+  (`maildir-draft-create`, plus the read-only `maildir-draft-find` for the
+  existing-draft check); an offline alternative to Gmail, selected per
+  project with a per-person override.
 - `tools/ponymail/` — public mailing-list archive search.
 - `tools/mail-archive/` — static mailing-list archive reader for
   projects whose list history is in a local mbox/Maildir export.
 - `tools/jira/` — issue-tracker adapter for projects on Jira.
+- `tools/security-tracker/` — Markdown contract spec for
+  `contract:security-tracker`: the operations the `security-*` skills perform
+  on `<tracker>` (view, list, labels, field get/set, create, edit, comment,
+  close/reopen, rollup append/amend-latest, attach, pending, publish, doctor),
+  fixed JSON outputs and exit codes (`3` not found, `4` refused), a
+  confidentiality guard every backend applies before writing, and a publish
+  step for working-copy backends. `tracker.platform` selects the backend:
+  `github` (default, the existing recipes), `local-files`, or `jira`.
+  Skills switch through the shared `tracker-backend` block, which maps each
+  tracker `gh` command to a vetted operation; `tools/vetted-ops/` translates
+  those operations for the backend its `[tracker]` policy names (fixed program,
+  policy-pinned target, bodies on stdin) and refuses by name the ones with no
+  counterpart (boards, milestone administration, roster, `rollup-fold`).
+- `tools/local-tracker/` (`magpie-local-tracker`) — stdlib-only
+  `contract:security-tracker` backend over Markdown files in a Git or SVN
+  working copy. `detect` infers a committed format descriptor
+  (`.magpie-tracker.json`) from existing reports; writes are refused until the
+  descriptor records a human-confirmed `access_restricted: true`; `publish`
+  commits only the tracker root (and pushes on Git).
+- `tools/jira/` also ships `magpie-jira-tracker` (`jira_bridge.security_tracker`),
+  the stdlib-only `contract:security-tracker` backend over Jira REST v2;
+  `create` always sets the configured issue-security level and every write on
+  an issue without one is refused. Every request goes through
+  `jira_bridge.rest.JiraRest`, whose `send()` keeps the token bound to a
+  confirmed host and refuses any write when the token was withheld.
 - `tools/github/` — issues/PRs/labels read + write-back helpers.
   Sub-adapters: `tools/github-body-field/` (reads GitHub issue/PR body
   structured field sets) and `tools/github-rollup/` (`contract:tracker`,
@@ -58,8 +85,12 @@ by swapping the adapter, not the skill.
   writer's entry is never overwritten), `fold` (moves one legacy bot comment
   into the rollup with its own date and author, then deletes it; refuses to
   fold the rollup itself), `list`, and `latest`.
-  An existing rollup is found by any `<!-- <name> status rollup v<N>`
-  marker, and a comment's id is read from its `#issuecomment-<id>` URL.
+  An existing rollup is found by the canonical
+  `<!-- apache-magpie: status-rollup v<N> -->` marker, preferred when a
+  tracker carries both, or by the legacy `<!-- <name> status rollup v<N>`
+  one; a new rollup always gets the canonical marker, in `github-rollup`
+  and `vetted-op-tracker rollup-append` alike (#1665).
+  A comment's id is read from its `#issuecomment-<id>` URL.
   `tools/github/status-rollup.md` calls the tool instead of carrying its own
   script.
   Under the secure agent setup both tools' `gh` runs sandboxed and fails,
@@ -71,8 +102,8 @@ by swapping the adapter, not the skill.
   [`vetted-command-surface.md`](vetted-command-surface.md)).
 - `tools/bitbucket/` — partial Bitbucket Cloud and Bitbucket
   Data Center bridge foundation. Supports repository metadata reads,
-  read-only branch restriction context, Cloud-only issue listing/fetching, issue comment fetching, issue attachment metadata fetching, and confirmed issue comment creation,
-  open pull-request listing, single pull-request fetching, read-only
+  read-only branch restriction context, open pull-request listing,
+  single pull-request fetching, read-only
   pull-request commit fetching, read-only pull-request diff fetching,
   comments-only pull-request discussion fetching, read-only pull-request
   review-state fetching, read-only merge-check context fetching, and
@@ -86,8 +117,11 @@ by swapping the adapter, not the skill.
   {merge,squash,rebase} --expected-source-commit <sha>`, which re-checks the
   head commit immediately before the merge POST so a moved head fails closed
   (#1471); it does not enforce approval or build gates itself.
+  Atlassian fully removed the native Bitbucket Cloud Issue Tracker API on
+  2026-08-20, so the historical `issue` CLI commands now fail closed before
+  any request and direct callers toward linked Jira coverage.
   It is not a complete `contract:change-request` or `contract:tracker`
-  backend yet; deeper Jira handoff, broader issue writes, Data Center
+  backend yet; deeper Jira handoff, Data Center
   review/merge writes, broader repository permissions, and fuller Pipelines
   run/log/retry coverage remain tracked in #606.
 - `tools/gitlab/` (`magpie-gitlab`) — partial, read-only GitLab REST API v4
@@ -145,8 +179,20 @@ by swapping the adapter, not the skill.
   active VCS backend, so skills call the abstract operation
   and the backend is detected from the working copy or forced with
   `--backend`/`$MAGPIE_VCS`.
-  `git`, `hg`, and `fossil` are complete backends; `svn` is detected but
-  remains an extension point (#602).
+  `git`, `hg`, `fossil`, and `svn` are complete backends; `svn` maps the
+  operations onto the centralized model — no staging area (`commit` records
+  every working-copy change), `fetch` a no-op, `push` refused (#602).
+  The `svn` backend needs Subversion 1.9+ (an older `svn` reports as
+  unavailable) and runs every call `--non-interactive`, so a missing
+  credential fails instead of prompting; on `svn` a change goes public at
+  `commit` and `new-branch` (a server-side copy), so a skill's pre-publish
+  gates belong there rather than at `push` (#1609).
+  `magpie-vcs probe` reports, read-only and offline, whether a checkout is
+  Subversion-hosted — an svn working copy, a git-svn clone, or a git-svn
+  mirror (HEAD carries a `git-svn-id` trailer) — with its URL, repository
+  root and `trunk`/`branches`/`tags` layout; `setup config` and `adopt`
+  propose the resulting `vcs_backend: svn`, `svn_url`, `svn_repository_root`
+  and `upstream_default_branch: trunk` for the user to confirm (#1638).
   A Fossil checkout is detected by its `.fslckout` (or `_FOSSIL_`) marker
   (#1494).
 - `tools/fossil/` (`magpie-fossil`) — stdlib-only Fossil SCM forge bridge,
@@ -273,6 +319,18 @@ by swapping the adapter, not the skill.
    privacy/credential handling, operations, and config keys.
 5. Mail-adapter tests prove private fetched content crosses the
    Privacy-LLM/redaction boundary before model-facing skill context.
+6. `magpie-vcs` drives Git, Mercurial, Fossil, and Subversion working
+   copies through the same abstract operations; on Subversion `fetch` is a
+   no-op, `push` and `diff --cached` are refused, and every `svn` call is
+   non-interactive (#1609).
+7. The drafting backend is Gmail or Maildir: the person's
+   `tools.mail_create.backend` in `user.md`, else the project's
+   `mail_create.backend` in `project.md`, else `gmail`. Every security
+   skill that drafts mail honours it through
+   `tools/gmail/draft-backends.md` § *How the skills pick a backend*, and
+   on Maildir threads by `In-Reply-To` / `References` and checks for an
+   existing draft with `maildir-draft-find` (eval suite
+   `tools/skill-evals/evals/security-issue-sync/step-draft-backend`).
 
 ## Validation
 
@@ -308,14 +366,15 @@ uv run --all-packages --group dev pytest tools/github-rollup/tests
   commit fetching, read-only pull-request diff fetching, comments-only pull-request
   discussion fetching, read-only review-state fetching, Cloud-only pull-request task listing/fetching,
   Cloud-only asynchronous merge task-status fetching, read-only merge-check context fetching,
-  read-only pull-request status fetching, and Cloud-only issue listing/fetching, issue comment fetching,
-  issue attachment metadata fetching, and confirmed issue comment creation;
-  #606 remains open for full tracker/change-request coverage.
+  and read-only pull-request status fetching. Native Bitbucket Cloud issue
+  commands fail closed because Atlassian removed the Issue Tracker API on
+  2026-08-20; #606 remains open for linked Jira tracker coverage and the
+  remaining change-request gaps.
 - Bitbucket write operations follow the framework write-path discipline:
   the calling skill must obtain explicit user confirmation before invoking a
   mutation. The bridge executes only the confirmed action; current write
-  coverage is Bitbucket Cloud issue-comment creation, Bitbucket Cloud
-  pull-request comment creation, backend-neutral `post_review` through
+  coverage is Bitbucket Cloud pull-request comment creation,
+  backend-neutral `post_review` through
   comment/approve/request-changes, backend-neutral `reject`, and Bitbucket
   Cloud pull-request approve/unapprove, request-changes/remove-request-changes,
   decline, and

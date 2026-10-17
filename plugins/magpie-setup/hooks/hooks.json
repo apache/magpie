@@ -8,7 +8,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/check-upgrade.sh\"",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/check-upgrade.sh\"",
             "timeout": 10
           }
         ]

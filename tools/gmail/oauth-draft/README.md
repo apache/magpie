@@ -101,6 +101,16 @@ Per-flag help: `oauth-draft-create --help`,
 `oauth-draft-mark-read --help`, `oauth-draft-message-id --help`,
 `oauth-draft-setup --help`.
 
+**Under the secure agent setup these scripts run outside the sandbox.**
+The sandbox denies the credentials file and blocks the Google API
+hosts, so a sandboxed command cannot use the token without a prompt
+(see [`secure-agent-setup.md`](../../../docs/setup/secure-agent-setup.md#the-frameworks-own-claudesettingsjson)).
+Approve each run, or add a per-machine `sandbox.excludedCommands`
+entry with your framework checkout's absolute path to user-scope or
+`settings.local.json` settings, never a wildcard path. For drafting
+alone, the [MCP server](#mcp-server) needs neither: Claude Code starts
+it outside the sandbox.
+
 ## Setup — one-time
 
 You need a Google OAuth client with the `https://mail.google.com/`

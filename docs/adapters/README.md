@@ -35,6 +35,7 @@ One page per supported agentic harness, each declaring
 - [**Gemini CLI**](gemini.md) — extension install, `BeforeTool` guard, tool
   sandboxing and policies. Experimental.
 - [**Grok Build**](grok.md) — `PreToolUse` action-guard integration.
+- [**JetBrains Junie**](junie.md) — native `.agents/skills/` and `AGENTS.md`, plus an Early Access `PreToolUse` action guard.
 - [**Goose**](goose.md) — Block's open-source agent CLI and desktop environment.
 - [**Kiro CLI**](kiro.md) — per-skill installs, no marketplace; guard on
   `preToolUse`.
@@ -54,6 +55,7 @@ reaches six of ten.
 | **OpenCode** | `opencode-iso` | from the OS-level sandbox | ✅ `tool.execute.before` |
 | **Kiro CLI** | `kiro-iso` | from the OS-level sandbox | ✅ `preToolUse` |
 | **Grok Build** | ❌ **none** | ❌ **none** | ✅ `PreToolUse` |
+| **JetBrains Junie** | `junie --sandbox` (srt; MCP and hooks unsandboxed) | `/brave` levels and `~/.junie/allowlist.json` | ✅ `PreToolUse` (Early Access) |
 | **OpenAI Codex CLI** | `agent-iso codex` | Codex's own sandbox and exec policy, statically validated by [sandbox-lint](../../tools/sandbox-lint/README.md) | ❌ **none** |
 | **Cursor** | `agent-iso cursor` | Cursor's own policy | ❌ **none** |
 | **Goose (Block)** | `agent-iso goose` | Goose developer mode / approval prompts | ❌ **none** |

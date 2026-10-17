@@ -1,0 +1,9 @@
+{
+  "guard_status": "trusted",
+  "vetted_rules": "unsafe",
+  "full_claude_parity": false,
+  "next_steps": [
+    "replace-write-allow",
+    "report-read-isolation-gap"
+  ]
+}

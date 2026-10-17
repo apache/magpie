@@ -1,11 +1,17 @@
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
-"""Read-only Jira REST v2 client, stdlib only — the Python counterpart of bridge.groovy's reads.
+"""Jira REST v2 client, stdlib only — the Python counterpart of bridge.groovy.
 
 It keeps the bridge's conventions: Jira Data Center REST API v2, a token in
 `JIRA_API_TOKEN` sent as `Authorization: <JIRA_AUTH_SCHEME> <token>` (`Basic` by default,
 `Bearer` for ASF personal access tokens), and anonymous reads when there is no token.
-It only ever sends GET requests.
+With `JIRA_USER` set and a raw (not base64 `user:secret`) token, `Basic` encodes
+`user:token` itself.
+
+`get()` / `search()` only ever send GET requests.  `send()` is the one write path,
+used by the security tracker (`jira_bridge.security_tracker`): it applies every rule
+below, and refuses any non-GET request outright when the token was withheld, so a
+write can never go out anonymously or to an unconfirmed host.
 
 **The token is the user's personal credential; the URL is not theirs to vouch for.**
 The Jira URL comes from project configuration, which can be committed by anyone with
@@ -24,11 +30,13 @@ write access, so a changed URL must never silently receive the token.  Four rule
 The token never appears in an error message or an exception.
 
 Consumers: the `jira` backend of tools/contributor-metrics (contributor-activity reads of
-`contract:tracker`).
+`contract:tracker`), and the private-Jira security tracker (`contract:security-tracker`).
 """
 
 from __future__ import annotations
 
+import base64
+import binascii
 import json
 import os
 import re
@@ -79,6 +87,26 @@ def default_credentials() -> tuple[str, str]:
     return token, host
 
 
+def _is_basic_encoded(token: str) -> bool:
+    try:
+        decoded = base64.b64decode(token, validate=True).decode("utf-8")
+    except (binascii.Error, UnicodeDecodeError, ValueError):
+        return False
+    return ":" in decoded
+
+
+def authorization_header(token: str, scheme: str, user: str = "") -> str:
+    """The `Authorization` value for a token, the way bridge.groovy builds it.
+
+    `Bearer` sends the token as-is.  `Basic` sends it as-is when it already is a
+    base64 `user:secret` string; when `user` is set and the token is a raw secret,
+    it encodes `user:token`.
+    """
+    if scheme == "Basic" and user and not _is_basic_encoded(token):
+        return "Basic " + base64.b64encode(f"{user}:{token}".encode()).decode("ascii")
+    return f"{scheme} {token}"
+
+
 class _RefuseRedirects(urllib.request.HTTPRedirectHandler):
     def redirect_request(
         self,
@@ -111,6 +139,7 @@ class JiraRest:
         token: str | None = None,
         token_host: str | None = None,
         auth_scheme: str | None = None,
+        user: str | None = None,
         opener: Opener | None = None,
         sleep: Callable[[float], None] | None = None,
     ) -> None:
@@ -142,6 +171,7 @@ class JiraRest:
             raise JiraRestConfigError(
                 f"JIRA_AUTH_SCHEME must be Basic or Bearer, got {self.auth_scheme!r}"
             )
+        self.user = (os.environ.get("JIRA_USER", "") if user is None else user).strip()
         self.opener: Opener = opener or _urlopen
         self.sleep: Callable[[float], None] = sleep or time.sleep
 
@@ -162,7 +192,10 @@ class JiraRest:
             self._token
             and urllib.parse.urlsplit(req.full_url).netloc.lower() == self.netloc
         ):
-            req.add_header("Authorization", f"{self.auth_scheme} {self._token}")
+            req.add_header(
+                "Authorization",
+                authorization_header(self._token, self.auth_scheme, self.user),
+            )
         delay = 2.0
         for attempt in range(MAX_TRIES):
             last = attempt == MAX_TRIES - 1
@@ -206,3 +239,61 @@ class JiraRest:
             if not batch or len(issues) >= total:
                 break
         return issues, total
+
+    def send(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: dict[str, str | int] | None = None,
+        body: bytes | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> tuple[int, bytes]:
+        """One request of any method; returns (status, body) and never raises for an HTTP status.
+
+        A non-GET request needs the token: when it was withheld (no host confirmed, or a
+        different one), the write is refused here rather than sent anonymously.  GET
+        retries transient failures like `get()`; a write is sent once.
+        """
+        if method != "GET" and not self._token:
+            raise JiraRestError(
+                f"refusing {method} {path}: writes need a Jira token confirmed for {self.host!r}"
+                + (
+                    f" ({self.auth_note})"
+                    if self.auth_note
+                    else " (no JIRA_API_TOKEN or token file)"
+                )
+            )
+        query = f"?{urllib.parse.urlencode(params)}" if params else ""
+        req = urllib.request.Request(
+            f"{self.url}{path}{query}",
+            data=body,
+            method=method,
+            headers={"Accept": "application/json", **(headers or {})},
+        )
+        if (
+            self._token
+            and urllib.parse.urlsplit(req.full_url).netloc.lower() == self.netloc
+        ):
+            req.add_header(
+                "Authorization",
+                authorization_header(self._token, self.auth_scheme, self.user),
+            )
+        tries = MAX_TRIES if method == "GET" else 1
+        delay = 2.0
+        for attempt in range(tries):
+            last = attempt == tries - 1
+            try:
+                with self.opener(req) as resp:
+                    return int(resp.status), resp.read()
+            except urllib.error.HTTPError as exc:
+                if exc.code not in RETRYABLE_STATUS or last:
+                    return int(exc.code), exc.read() or b""
+            except urllib.error.URLError as exc:
+                if last:
+                    raise JiraRestError(
+                        f"cannot reach {self.url}: {exc.reason}"
+                    ) from exc
+            self.sleep(delay)
+            delay = min(delay * 2, 120.0)
+        raise JiraRestError("Jira failed after retries")  # pragma: no cover

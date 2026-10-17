@@ -18,7 +18,8 @@
 """Lint the agent-host sandbox configuration.
 
 Implements mitigation M.29 from
-docs/security/threat-model.md: every change to .claude/settings.json
+docs/security/threat-model.md: every change to the agent settings baseline
+(in this repository, tools/agent-isolation/claude-settings.template.json; in a project, .claude/settings.json)
 must be acknowledged by an equivalent change to
 tools/sandbox-lint/expected.json (the shipped baseline), and the
 resulting configuration must satisfy the security invariants encoded
@@ -33,6 +34,7 @@ via developer override).
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import json
 import os
 import sys
@@ -46,8 +48,13 @@ from sandbox_lint.layers import GIT_HOME_NAME, LOCAL_DIR, RUN_DIR_NAME, run_dir_
 # Defaults
 # ---------------------------------------------------------------------------
 
-DEFAULT_SETTINGS = Path(".claude/settings.json")
+DEFAULT_SETTINGS = Path("tools/agent-isolation/claude-settings.template.json")
 DEFAULT_EXPECTED = Path("tools/sandbox-lint/expected.json")
+#: A contributor's own copy of the template (not committed, #1639). When the
+#: default template is linted and this file exists, it is checked against the
+#: security invariants too: it may carry personal additions, but it may not
+#: weaken the controls.
+LOCAL_LIVE_SETTINGS = Path(".claude/settings.json")
 
 # ---------------------------------------------------------------------------
 # Security invariants
@@ -71,6 +78,10 @@ FORBIDDEN_ALLOW_READ = {
     "~/.kube",
     "~/.azure",
     "~/.config/gcloud",
+    # The Gmail OAuth refresh token. The oauth-draft MCP server reads it
+    # outside the sandbox; a readable token plus the Google API hosts
+    # would let any unprompted sandboxed command use the user's Gmail.
+    "~/.config/apache-magpie",
 }
 
 # allowWrite must be even more restrictive than allowRead. A path
@@ -88,6 +99,34 @@ FORBIDDEN_ALLOW_WRITE = {
     "~/.docker",
     "~/.kube",
 }
+
+# Read-only vetted ops must never prompt: bulk skills call the read
+# dispatcher from background gatherer agents, which cannot surface a prompt,
+# so a prompt there is a silent denial. These invariants apply whenever the
+# settings carry any vetted-op rule. The `~` base is the only spelling the
+# skills use, and the agent-guard `vetted-ops-spelling` guard refuses others.
+VETTED_OPS_BASE = "~/.claude/magpie/vetted-ops"
+VETTED_OP_READ_LAUNCHERS = ("uv run --project", "uvx --from")
+REQUIRED_VETTED_OP_READ_ALLOW = tuple(
+    f"Bash({launcher} {VETTED_OPS_BASE} vetted-op-read *)" for launcher in VETTED_OP_READ_LAUNCHERS
+)
+# Sample read commands an ask rule is matched against, for both launchers and
+# both bases: the literal `~`, and a resolved absolute home, which an agent
+# without the spelling guard may still produce.
+VETTED_OP_READ_SAMPLE_COMMANDS = tuple(
+    f"{launcher} {base} vetted-op-read --caller sandbox-lint pr-view"
+    for launcher in VETTED_OP_READ_LAUNCHERS
+    for base in (VETTED_OPS_BASE, "/home/sandbox-lint/.claude/magpie/vetted-ops")
+)
+# Spellings that name a dispatcher: `vetted-op ` carries its trailing space so
+# the `vetted-ops` path segment alone does not count.
+VETTED_OP_DISPATCHER_NAMES = ("vetted-op-read", "vetted-op-tracker", "vetted-op ")
+# The tamper protection that makes the unprompted read safe to allow.
+REQUIRED_VETTED_OPS_DENY = (
+    "Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
+    "Edit(~/.claude/magpie/**)",
+    "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
+)
 
 # permissions.deny must contain at least these entries verbatim. Each
 # corresponds to an exfiltration vector documented in the threat model.
@@ -302,6 +341,8 @@ def check_invariants(settings: dict[str, Any], project_root: Path | None = None)
                     "name the exact value there and use '*' only at the end"
                 )
         ask = set(perms.get("ask", []) or [])
+        excluded = [e for e in sandbox.get("excludedCommands", []) or [] if isinstance(e, str)]
+        errors.extend(_vetted_op_read_never_prompts(perms, ask, deny, excluded))
         if "Bash(gh *)" in ask:
             errors.append(
                 "permissions.ask: must not contain 'Bash(gh *)' (ask beats allow "
@@ -348,6 +389,67 @@ def check_invariants(settings: dict[str, Any], project_root: Path | None = None)
                 "or <git-common-dir>/apache-magpie/run/<worktree-id>/*.sock when the project has not adopted Magpie) instead"
             )
 
+    return errors
+
+
+def _names_dispatcher(command: str) -> bool:
+    return any(name in f"{command} " for name in VETTED_OP_DISPATCHER_NAMES)
+
+
+def _bash_rule_matches(rule: str, command: str) -> bool:
+    """Whether a `Bash` permission rule matches ``command`` (fnmatch-style)."""
+    if rule == "Bash":
+        return True
+    if not (rule.startswith("Bash(") and rule.endswith(")")):
+        return False
+    pattern = rule[len("Bash(") : -1]
+    if pattern.endswith(":*"):  # legacy prefix form
+        pattern = pattern[:-2] + "*"
+    return fnmatch.fnmatchcase(command, pattern)
+
+
+def _vetted_op_read_never_prompts(
+    perms: dict[str, Any], ask: set[str], deny: set[str], excluded: list[str]
+) -> list[str]:
+    """Violations of the never-prompt shape for the vetted-ops read dispatcher.
+
+    Applies only when a `Bash(...)` permission rule or a
+    ``sandbox.excludedCommands`` entry names a dispatcher. The defensive
+    `Edit(...vetted-ops/**)` deny rules alone do not trigger it.
+    """
+    bash_rules = [
+        r[len("Bash(") : -1]
+        for key in ("allow", "ask", "deny")
+        for r in perms.get(key, []) or []
+        if isinstance(r, str) and r.startswith("Bash(") and r.endswith(")")
+    ]
+    if not any(_names_dispatcher(c) for c in [*bash_rules, *excluded]):
+        return []
+    errors: list[str] = []
+    allow = set(perms.get("allow", []) or [])
+    for required in REQUIRED_VETTED_OP_READ_ALLOW:
+        if required not in allow:
+            errors.append(
+                f"permissions.allow: must contain {required!r} "
+                "(a vetted-op-read call must never prompt; a background gatherer cannot answer it)"
+            )
+    for rule in sorted(ask):
+        if any(_bash_rule_matches(rule, c) for c in VETTED_OP_READ_SAMPLE_COMMANDS):
+            errors.append(
+                f"permissions.ask: must not contain {rule!r} "
+                "(ask beats allow, so every vetted-op-read call would prompt)"
+            )
+    if perms.get("blockReadsOutsideWorkingDirectories") is True:
+        errors.append(
+            "permissions.blockReadsOutsideWorkingDirectories: must not be true where vetted-ops is used "
+            "(the read check cannot resolve the literal '~' the commands spell, so every call prompts)"
+        )
+    for required in REQUIRED_VETTED_OPS_DENY:
+        if required not in deny:
+            errors.append(
+                f"permissions.deny: must contain {required!r} "
+                "(tamper protection for the vetted-ops catalogue, fixed path and policy)"
+            )
     return errors
 
 
@@ -410,7 +512,7 @@ def _lint_kiro(config_path: Path) -> int:
     return 1
 
 
-def _lint_codex(config_dir: Path) -> int:
+def _lint_codex(config_dir: Path, *, guard_from_plugin: bool = False) -> int:
     """Lint a project-scoped Codex sandbox + exec-policy profile."""
     from sandbox_lint.codex import check_codex_invariants
 
@@ -421,9 +523,13 @@ def _lint_codex(config_dir: Path) -> int:
     except FileNotFoundError:
         raise SystemExit(f"sandbox-lint: file not found: {rules_path}") from None
 
-    errors = check_codex_invariants(config, rules_text)
+    errors = check_codex_invariants(
+        config, rules_text, guard_from_plugin=guard_from_plugin, repo_root=config_dir.resolve().parent
+    )
     if not errors:
         print(f"sandbox-lint: OK ({config_dir} satisfies the Codex security invariants)")
+        if guard_from_plugin:
+            print("sandbox-lint: plugin guard not inspected; verify its registration and trust in /hooks")
         return 0
     print(f"sandbox-lint: Codex profile violations in {config_dir}:", file=sys.stderr)
     for e in errors:
@@ -456,7 +562,7 @@ def _lint_any_harness(framework_root: Path | None) -> int:
     ``tools/agent-isolation/`` (layer 0, clean-env wrapper) and
     ``tools/agent-guard/`` (layer 3, action guard) — are present in the
     framework tree. This is the posture check for runtimes that do not have a
-    dedicated per-harness config mode here (Cursor, …).
+    dedicated per-harness config mode here (Cursor, Grok, …).
     """
     from sandbox_lint.posture import PostureViolation, check_posture_violations, find_framework_root
 
@@ -474,7 +580,7 @@ def _lint_any_harness(framework_root: Path | None) -> int:
         return 0
     print(
         f"sandbox-lint: harness-neutral posture violations at {root} —\n"
-        "  For runtimes without a dedicated config mode (Cursor, …)\n"
+        "  For runtimes without a dedicated config mode (Cursor, Grok, …)\n"
         "  the security posture is enforced by these OS-level components:",
         file=sys.stderr,
     )
@@ -494,18 +600,26 @@ def _infer_project_root(settings_path: Path) -> Path | None:
     (e.g. an ad-hoc fixture in a test) yields ``None``, and
     ``check_invariants`` falls back to its documented unanchored-suffix
     residual for that call.
+
+    This repository's own template (``DEFAULT_SETTINGS``, #1639) is the
+    other recognised shape: the project root is the prefix before it, so
+    linting the template keeps the anchored check rather than falling back.
     """
     resolved = settings_path.resolve()
-    if resolved.parent.name != ".claude":
-        return None
-    return resolved.parent.parent
+    if resolved.parent.name == ".claude":
+        return resolved.parent.parent
+    template_parts = DEFAULT_SETTINGS.parts
+    if resolved.parts[-len(template_parts) :] == template_parts:
+        return Path(*resolved.parts[: -len(template_parts)])
+    return None
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="sandbox-lint",
         description=(
-            "Lint .claude/settings.json against the shipped baseline and the "
+            "Lint the agent settings (by default this repository's template, plus the "
+            "security invariants of a local .claude/settings.json) against the shipped baseline and the "
             "security invariants from docs/security/threat-model.md (M.29); "
             "or lint an OpenCode opencode.json permission policy (--opencode); "
             "or lint a project Codex profile (--codex); "
@@ -576,19 +690,26 @@ def main(argv: list[str] | None = None) -> int:
         metavar="FRAMEWORK_ROOT",
         help=(
             "Validate the harness-neutral security posture for runtimes without "
-            "a dedicated settings file (Cursor, …). "
+            "a dedicated settings file (Cursor, Grok, …). "
             "Checks that the OS-level enforcement components (agent-isolation "
             "layer-0 clean-env wrapper and agent-guard layer-3 action guard) "
             "are present. Optionally supply the framework root directory; "
             "default: auto-detected by walking up from the current directory."
         ),
     )
+    parser.add_argument(
+        "--guard-from-plugin",
+        action="store_true",
+        help="Codex only: verify plugin guard registration/trust separately, without requiring a duplicate project hook.",
+    )
     args = parser.parse_args(argv)
+    if args.guard_from_plugin and args.codex is None:
+        parser.error("--guard-from-plugin requires --codex")
 
     if args.gemini is not None:
         return _lint_gemini(args.gemini)
     if args.codex is not None:
-        return _lint_codex(args.codex)
+        return _lint_codex(args.codex, guard_from_plugin=args.guard_from_plugin)
     if args.kiro is not None:
         return _lint_kiro(args.kiro)
     if args.opencode is not None:
@@ -609,9 +730,27 @@ def main(argv: list[str] | None = None) -> int:
     # files in lockstep, the baseline must still pass on its own.
     baseline_invariant_errors = check_invariants(expected, project_root=project_root)
 
-    if not invariant_errors and not diff_errors and not baseline_invariant_errors:
+    # The template is what everyone inherits; the copy actually in force on this
+    # machine is .claude/settings.json. Without an explicit --settings, check that
+    # copy's invariants as well (no baseline diff: it may hold personal additions).
+    local_errors: list[str] = []
+    if args.settings == DEFAULT_SETTINGS and LOCAL_LIVE_SETTINGS.is_file():
+        local_errors = check_invariants(
+            _load_json(LOCAL_LIVE_SETTINGS), project_root=_infer_project_root(LOCAL_LIVE_SETTINGS)
+        )
+
+    if not invariant_errors and not diff_errors and not baseline_invariant_errors and not local_errors:
         print(f"sandbox-lint: OK ({args.settings} matches {args.expected})")
         return 0
+
+    if local_errors:
+        print(
+            f"sandbox-lint: invariant violations in your local {LOCAL_LIVE_SETTINGS} "
+            "(the copy in force here weakens a control the template keeps):",
+            file=sys.stderr,
+        )
+        for e in local_errors:
+            print(f"  - {e}", file=sys.stderr)
 
     if invariant_errors:
         print(f"sandbox-lint: invariant violations in {args.settings}:", file=sys.stderr)

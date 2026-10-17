@@ -1,0 +1,1 @@
+{"run": true, "batched": true, "read_default": ["apache-projects", "ponymail"], "draft_backend": "gmail-plaintext", "next_steps_for": ["apache-projects", "gmail-plaintext", "ponymail"], "draft_written_to": "project.md"}

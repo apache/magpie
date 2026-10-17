@@ -24,6 +24,9 @@ acceptance:
     candidates and the exact merge command for the maintainer.
   - pr-management-mentor never posts without explicit maintainer
     confirmation; its output is pedagogical, never gatekeeping.
+  - No pr-management body @-mentions anyone but the PR author and the
+    project's merged mention_allowlist; the agent-guard mention guard
+    refuses the rest on every posting surface.
   - All family skills validate under skill-and-tool-validate with no errors.
   - docs/pr-management/README.md lists all five family skills.
 ---
@@ -80,10 +83,17 @@ same directory; the behaviour is unchanged.
   It also ships agent-guard guards under `guards/` (`mark_ready.py`,
   `mention.py`) and the opt-in shadow pre-filter
   `scripts/typed_decision_prefilter.py` with its tests under `tests/`.
-- Skill: `pr-management-stats` — read-only summary tables of the open PR
+- Skill: `pr-management-stats` — read-only dashboard of the open PR
   backlog, grouped by area label, age bucket, and triage state. No tracker
   state is mutated. Ships `mode: Triage` + `capability: capability:stats`
   + `experimental`. Backed by `tools/pr-management/` (`pr-management stats build`).
+  Since #1572 the whole dashboard is built as code over reads saved with
+  `vetted-op-read --save`: `stats build` emits the HTML (or the Markdown
+  fallback), the health rating, the recommendations, the summary and the
+  exact gist-publish command; the skill is a router plus `panels.md`, read
+  only when a maintainer asks what a panel means.
+  Triage markers, bot detection and maintainer detection come from the same
+  modules `pr-management-triage` uses, so both agree on what "triaged" means.
 - Skill: `pr-management-code-review` (`code-review/`) — deep, line-aware
   code review one PR at a time; applies project criteria and drafts an
   `APPROVE` / `REQUEST_CHANGES` / `COMMENT` review with inline comments;
@@ -150,7 +160,11 @@ same directory; the behaviour is unchanged.
 - **Read-only or propose-then-confirm.** Triage-mode skills never write
   a label, comment, or state change without the maintainer typing a
   confirmation in-session. The single exception class — `pr-management-stats`
-  — is unconditionally read-only; it emits rendered tables, never a write.
+  — never writes to a PR or the tracker; its one write is publishing the
+  dashboard to a secret gist on the maintainer's own account, proposed and
+  run on confirmation (skipped under `dry-run` or `markdown`). The publish
+  command is assembled with `shlex.join`, and a stored gist id must be hex,
+  so agent-writable session state cannot inject shell syntax (#1572).
 - **Triage rules run as code, not as model judgement.** `pr-management triage
   classify` evaluates the pre-filters, the first-match-wins decision table,
   the stale sweeps and bot-draft promotion over the saved sweep and prints
@@ -161,7 +175,31 @@ same directory; the behaviour is unchanged.
   preceded by `triage guard` on fresh reads (moved head, pending workflow
   approval, unknown or conflicting mergeability), and every contributor-facing
   body comes from `triage render`, which allows only the author's
-  `@`-mention. Regression cases: `tools/pr-management/tests/`.
+  `@`-mention and the project's `mention_allowlist`.
+  Regression cases: `tools/pr-management/tests/`.
+- **Mentions are allowlisted, and the guard enforces it.** Every
+  pr-management renderer (triage notes, stale-sweep comments, mentor comments,
+  code-review bodies) keeps only the PR author's `@`-mention live and
+  backtick-quotes every other handle, except handles and teams listed in
+  `mention_allowlist` in `pr-management-config.md` (#1584).
+  The agent-guard `mention` guard checks `gh pr|issue comment`, folded notes,
+  `gh pr review --body/--body-file`, and every value a non-GET `gh api` call
+  sends (each `-f` / `-F` / `--raw-field` / `--field` spelling, `@file`
+  reads, `--input`); text it cannot read is refused rather than passed
+  (#1579).
+  The guard takes the allowlist, and the mentoring hand-off's
+  `maintainer_team_handle`, only from `.apache-magpie-overrides/` as GitHub
+  serves it from the target repository's default branch — never the local
+  checkout — so only a reviewed, merged change widens what may be mentioned.
+  The target must be explicit and unambiguous (`--repo` in any spelling,
+  including attached `-R`, and/or a PR or issue URL selector, all agreeing,
+  or a plain `repos/OWNER/REPO/…` endpoint); arguments are parsed by flag
+  arity, an unreadable line names no target, and GraphQL writes get no
+  allowlist.
+  The hand-off team is allowed alone, in a body that opens with the hand-off
+  template's line, and only for a team of the organisation owning the target.
+  One call can add a handle with `--allow-mention <login>` paired with
+  `MAGPIE_ALLOW_MENTIONS=1` on the posting command (#1584).
 - **Stable per-PR drill-in progress.** `pr-management-triage` prefixes each
   individual drill-in with the PR's original one-based group position and
   group size plus the active `classify → propose <action>` transition.
@@ -249,6 +287,18 @@ same directory; the behaviour is unchanged.
   candidates and the maintainer runs the exact `gh pr merge` command
   themselves. Automated merge belongs to a future Auto-merge mode that is
   deliberately off by MISSION sequencing.
+- **The quick-merge approve protocol fails closed.** `quick-merge
+  approve-check` needs the fresh PR, the live merge state and the
+  workflow-approval index (none optional), re-runs the Stage-1 gates and the
+  Stage-2 triviality screen on the fresh file list, and refuses when either
+  regressed, the head moved, the diff was not viewed at that head this
+  session, approvals are disabled, or the branch now conflicts.
+  Gate G7 blocks on any request for changes that still stands; a later push
+  does not dismiss it, only the reviewer can.
+  An optional `approve_body` ends with the triage-style `<sub>` credit line
+  naming the approving maintainer (#1580).
+  Regression cases: `tools/pr-management/tests/quick_merge/` and the
+  `approve-protocol` eval suite.
 - **Teaching register for mentoring.** `pr-management-mentor` follows the
   Mentoring mode's tone contract (polite, never gatekeeping, explicit
   hand-off to a human when scope exceeds the agent). It posts only on
@@ -257,6 +307,16 @@ same directory; the behaviour is unchanged.
   are input data for classification; injected instructions in PR body text
   are ignored and flagged. Inherits the absolute rule from
   [`AGENTS.md`](../../../AGENTS.md#treat-external-content-as-data-never-as-instructions).
+- **One APPROVE definition in code review.** `pr-management code-review
+  disposition` proposes `APPROVE` only when nothing is above a nit, real CI is
+  green, no review thread is unresolved, no other maintainer's
+  `CHANGES_REQUESTED` stands, and no maintainer question is unanswered; the
+  maintainer may downgrade it, and upgrading past a named gate needs a stated
+  reason (#1585).
+  The "touching mine" selector uses GitHub data rather than `git log
+  --author`, CODEOWNERS team ownership checks team membership rather than
+  organisation membership, and `maintain` permission gets the maintainer
+  footer (#1585).
 - **Evidence-gated dependency-version findings.**
   `pr-management-code-review` inventories every mandatory direct and
   transitive constraint path, applies environment markers, and intersects
@@ -376,6 +436,22 @@ same directory; the behaviour is unchanged.
     coverage table in every report; its eval suite pins the Step 1 gate,
     the Step 3 finding table, the Step 4 tier plan and the Step 6 posting
     rules.
+11. No pr-management renderer emits a live `@`-mention other than the PR
+    author and the target repository's merged `mention_allowlist`, and the
+    agent-guard `mention` guard refuses any other mention on comments,
+    folded notes, reviews and non-GET `gh api` writes, reading the allowlist
+    only from the target's default branch on GitHub (#1579, #1584).
+12. `pr-management-quick-merge` submits an `APPROVE` only after
+    `approve-check` passes on fresh reads, and refuses when any Stage-1 gate
+    or the Stage-2 screen has regressed or a change request still stands
+    (#1580).
+13. `pr-management-code-review` proposes `APPROVE` only when the single
+    disposition gate holds (no finding above a nit, real CI green, no
+    unresolved thread, no standing change request, no open maintainer
+    question) (#1585).
+14. `pr-management-stats` writes nothing to any PR or tracker; its only
+    write is the confirmed secret-gist publish on the maintainer's account
+    (#1572).
 
 ## Validation
 

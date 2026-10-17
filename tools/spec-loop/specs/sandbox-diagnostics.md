@@ -98,8 +98,8 @@ error, and two skills that probe or verify the setup on demand.
   which shows what an un-excluded `gh` does on this machine, then
   checks that `"gh *"` is configured.
 - Skill `setup-isolated-setup-verify` — static checks of the installed
-  configuration (numbered 1–15 under a section heading that still reads
-  `## The 12 checks`; 13 and 14 optional): settings shape, hook wiring, hook scripts, wrapper,
+  configuration (numbered 1–17 under a section heading that still reads
+  `## The 12 checks`; 13, 14 and 17 optional): settings shape, hook wiring, hook scripts, wrapper,
   pinned versions, status line, denial canaries, project-root grant
   (check 8 — also the dev-tool paths, whose absence is ⚠ not ✗, and in
   whole-user scope the shared hook directory probed from inside the
@@ -108,15 +108,33 @@ error, and two skills that probe or verify the setup on demand.
   the container gateway (check 12), the eval-harness exclusion
   (check 13, if installed), the adversarial-review exclusion (check 14,
   if the `magpie-adversarial-review` plugin is installed: the
-  `excludedCommands` entry, ⚠ when missing; the plugin-cache `Edit`
-  deny, ✗ when missing; and no `allow` rule, ✗ when one matches, #1371),
+  `excludedCommands` entry on the fixed `~/.claude/magpie/adversarial-review`
+  path, ⚠ when missing and ✗ in the older versioned-glob form; the
+  plugin-cache and `~/.claude/magpie/**` `Edit` denies, ✗ when missing;
+  no `allow` rule, ✗ when one matches, #1371; and 14d, the link resolving
+  into the installed plugin, ⚠ when broken and ✗ when it is a real file
+  or directory or points anywhere else, #1578),
   and the working directories under the read block (check 15: the two
   resolved paths in the worktree's `settings.local.json`, ⚠ when missing
   or glob-only, ⚠ when they sit in committed or synced user-scope
-  settings instead, #1418). Check 9 also fails a vetted-ops rule that
+  settings instead, #1418), and the never-prompt shape for read-only
+  vetted ops (check 16: every `vetted-op-read` allow form including the
+  absolute-`$HOME` base, each with its exclusion, no ask rule matching a
+  `vetted-op-read` command, the read block off,
+  the three vetted-ops `Edit` denies; each ✗ when it fails), and the roborev exclusion (check 17, if
+  `roborev` is on `PATH`: the `roborev *` exclusion, ⚠ when missing; no
+  `allow` for any roborev command, ✗ unless the catch-all `ask` covers it;
+  the `Bash(roborev *)` ask, ✗ when missing; `Edit` denies on
+  `.roborev.toml` and `~/.roborev/**`, ✗ when missing; an `allowWrite`
+  covering `~/.roborev/`, ✗ in every case; step B.2's `unix://` socket and
+  `allowUnixSockets` entry when `~/.roborev/` is opened, ⚠ when
+  incomplete; a roborev `post-commit` hook in a shared
+  whole-user hooks directory, ✗, and an operator-unconfirmed
+  `.roborev.toml` under the hook, ⚠; roborev agent hooks or MCP servers
+  in the harness, ⚠). Check 9 also fails a vetted-ops rule that
   spells the versioned plugin-cache path with a `*`, since the rule must
   name `~/.claude/magpie/vetted-ops` (#1406). The conditional checks —
-  9, 10, 12, 13, 14 and check 8's whole-user branch — live in
+  9, 10, 12, 13, 14, 17 and check 8's whole-user branch — live in
   `conditional-checks.md`; the
   body keeps each one's condition and its **n/a** answer, so a run
   that meets none of the conditions reads none of them (#1334).
@@ -214,6 +232,10 @@ error, and two skills that probe or verify the setup on demand.
    read-only and both link the catalog anchor on ✗.
 4. The `gh` entry, probe and check agree on the invocation-shape rule
    and cite the upstream issue.
+5. Verify check 14 fails the versioned-glob adversarial-review exclusion,
+   requires the `Edit(~/.claude/magpie/**)` deny, and reports a broken
+   `~/.claude/magpie/adversarial-review` link as ⚠ and a non-symlink or a
+   link outside the installed plugin as ✗ (#1578).
 
 ## Validation
 
@@ -247,10 +269,11 @@ PYTHONPATH=tools/skill-evals/src python3 -m skill_evals.runner \
   the wrapper's `allowRead` grant statically; the runtime-state entry
   is reached only through the hint hook.
 - The doctor's and verify skill's section headings (`## The 8 probes`,
-  `## The 12 checks`) lag their bodies (nine probes, fifteen checks).
-- A command that spells a working directory with a literal `~` can
-  still prompt under the read block even when the directory is listed;
-  the working-directories entry names that case as open.
+  `## The 12 checks`) lag their bodies (nine probes, seventeen checks).
+- A command that spells a working directory with a literal `~` still
+  prompts under the read block even when the directory is listed. For
+  the vetted-ops commands the setup closes this by requiring the read
+  block off (verify check 16); for any other such command it stays open.
 
 - The invocation-shape rule is measured on macOS / Claude Code 2.1.278
   and will change when anthropics/claude-code#95532 is fixed; the

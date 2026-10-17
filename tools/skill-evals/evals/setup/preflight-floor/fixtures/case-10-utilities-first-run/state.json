@@ -1,0 +1,23 @@
+{
+  "lock": null,
+  "plugins": [
+    [
+      "magpie-setup",
+      "0.4.0"
+    ],
+    [
+      "magpie-utilities",
+      "0.4.0"
+    ]
+  ],
+  "reconciled": {
+    "welcome": {
+      "general": {
+        "choice": "seen",
+        "shown": 1
+      }
+    }
+  },
+  "skill": "list-skills",
+  "welcome": true
+}

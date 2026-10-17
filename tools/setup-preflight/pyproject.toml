@@ -37,6 +37,7 @@ packages = ["src/setup_preflight"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "src/setup_preflight/sections" = "setup_preflight/sections"
+"src/setup_preflight/guides" = "setup_preflight/guides"
 
 [tool.ruff]
 line-length = 110

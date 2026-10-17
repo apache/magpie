@@ -51,7 +51,7 @@ framework safe to use.
 
 ## Install & first runs
 
-Install just this family — one plugin, 10 skills. Sandbox, clean environment, and the framework's own install/upgrade.
+Install just this family — one plugin, 11 skills. Sandbox, clean environment, and the framework's own install/upgrade.
 
 Once you have [added the marketplace](../setup/marketplace-install.md):
 
@@ -60,16 +60,17 @@ Once you have [added the marketplace](../setup/marketplace-install.md):
 ```
 
 New to Magpie? The [quick start](../quick-start.md) walks the whole path in
-one place — install, the first `/magpie-setup` run, and a recording of it
+one place — install, the first `/magpie-setup:setup` run, and a recording of it
 happening — plus the other agents and the secure-isolation setup to run next.
 
 ### The first run
 
-This family is what the other nine defer to. `/magpie-setup` works out how
+This family is what the other nine defer to. `/magpie-setup:setup` (`/magpie-setup`
+on a [pinned-snapshot install](marketplace.md#skill-names-differ-by-install-method)) works out how
 Magpie should be wired into the checkout in front of it, prints the plan, and
 waits — the same run the quick start opens with:
 
-![A `/magpie-setup` run in Claude Code: the picker with the baseline three already ticked, the plugins installed for the user, then the secure-agent setup proposing its changes and waiting for approval before writing anything](../../assets/quickstart/magpie-setup.svg)
+![A `/magpie-setup:setup` run in Claude Code: the picker with the baseline three already ticked, the plugins installed for the user, then the secure-agent setup proposing its changes and waiting for approval before writing anything](../../assets/quickstart/magpie-setup.svg)
 
 Nothing is written before you approve it.
 
@@ -89,7 +90,7 @@ it does not.
 | [`magpie-setup.md`](../../plugins/magpie-setup/templates/magpie-setup.md) | Overrides for the setup family's own checks. Every key has a default. | `setup` |
 | [`privacy-llm.md`](../../plugins/magpie-setup/templates/privacy-llm.md) | Which model tier may see which class of content, for projects routing foundation-private information away from third-party models. | `privacy-llm` |
 | [`project.md`](../../plugins/magpie-setup/templates/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `isolated-setup-install`, `setup` |
-| [`skill-sources.md`](../../plugins/magpie-setup/templates/skill-sources.md) | The install gate for pulling skills/families from trusted external repos. Lists the source ids this project trusts and commits each pin. `/magpie-setup` fetches only what is listed here. Leave empty to run only in-tree framework skills. See [`docs/skill-sources/`](../skill-sources/README.md). | `setup` |
+| [`skill-sources.md`](../../plugins/magpie-setup/templates/skill-sources.md) | The install gate for pulling skills/families from trusted external repos. Lists the source ids this project trusts and commits each pin. `/magpie-setup:setup` fetches only what is listed here. Leave empty to run only in-tree framework skills. See [`docs/skill-sources/`](../skill-sources/README.md). | `setup` |
 
 <!-- END generated: skill-config -->
 
@@ -155,6 +156,7 @@ for the complete rule.
 | [`setup-status`](../../skills/setup-status/SKILL.md) | Render a Markdown adoption dashboard (install pin, drift, wired agent targets, installed skill families, symlink health) and adjust the wiring in place. |
 | [`setup-shared-config-sync`](../../skills/setup-shared-config-sync/SKILL.md) | Commit + push the user's shared Claude config to its sync repo. |
 | [`setup-override-upstream`](../../skills/setup-override-upstream/SKILL.md) | Promote a local `.apache-magpie-overrides/<skill>.md` file into a PR against `apache/magpie`; prompts to remove the override once merged and upgraded. |
+| [`setup-welcome-guide`](../../skills/setup-welcome-guide/SKILL.md) | Show a Magpie welcome guide on demand — the general one, or a family's such as `security` — and turn a dismissed one back on. |
 | [`setup-upstream-fix`](../../skills/setup-upstream-fix/SKILL.md) | Turn a framework bug or quirk hit mid-session into a fix PR against `apache/magpie`, after checking for an existing issue or PR that already covers it. |
 
 ## Deep documentation

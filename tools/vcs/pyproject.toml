@@ -22,7 +22,7 @@ build-backend = "hatchling.build"
 [project]
 name = "magpie-vcs"
 version = "0.1.0"
-description = "Backend-dispatching implementation of the source-control (VCS) capability documented in tools/github/source-control.md — one abstract interface, a complete Git backend, and explicit extension points for non-Git VCS bridges."
+description = "Backend-dispatching implementation of the source-control (VCS) capability documented in tools/github/source-control.md — one abstract interface with Git, Mercurial, Fossil, and Subversion backends."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Apache-2.0" }

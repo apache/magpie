@@ -1,0 +1,14 @@
+{
+ "candidates_shown": [
+  "triage-reports -> security-issue-triage"
+ ],
+ "dropped_as_false_positive": [
+  "codeql-ci -> security-issue-triage"
+ ],
+ "files_written": [
+  ".apache-magpie-overrides/security-issue-triage.md"
+ ],
+ "staged": true,
+ "injection_flagged": false,
+ "render_refused": false
+}

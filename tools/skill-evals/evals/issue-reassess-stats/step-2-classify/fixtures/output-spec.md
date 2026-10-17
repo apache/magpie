@@ -27,5 +27,7 @@ Return ONLY valid JSON with this structure:
 ```
 
 `cross_table` contains only non-zero combinations.
+Count `classification` and `nature` exactly as given on each verdict; do not re-derive or re-bucket either.
+A mixed `cases` array does not change a verdict's `nature`; it only adds the key to `partial_fixes`.
 `partial_fixes` contains keys where the `cases` array has mixed outcomes (some still-failing, some fixed).
 Do not include any text outside the JSON object.

@@ -103,10 +103,12 @@ publication, with a human gate and an audit-log entry at every step.
 - **Reporter PII redacted in-context; reporter *credit* preserved** in
   the CVE `credits[]` only after the reporter confirms on the thread.
 - **Audit log** of every applied change (redacted identifiers only).
-  The per-tracker status rollup is recognised by any first line of the
-  form `<!-- <name> status rollup v<N>`, and a new rollup's marker names
-  the tracker repository, so the rollup works on any adopter's tracker
-  rather than only the reference one (#1444).
+  The per-tracker status rollup is recognised by a first line carrying the
+  canonical `<!-- apache-magpie: status-rollup v<N> -->` marker or the
+  legacy `<!-- <name> status rollup v<N>` one (#1444), the canonical one
+  winning when a tracker carries both, and a new rollup always gets the
+  canonical marker, so the rollup works on any adopter's tracker and is
+  never duplicated under a second marker (#1665).
   `amend-latest` fills in a value on the newest entry (refusing when that
   entry has a different action), and `fold` moves a legacy bot comment
   into the rollup, deleting the original only after the append succeeds.
@@ -124,6 +126,19 @@ publication, with a human gate and an audit-log entry at every step.
   `gh pr create` / `gh pr edit`, not a replacement: it covers a subset of
   the list and never sees the commit message, branch name, or
   newsfragment (#1444).
+- **Subversion projects fix through a private patch, then a gated
+  commit.** `security-issue-fix` picks its flow with
+  `magpie-vcs fix-flow --declared <Tools enabled → Source control>`:
+  Git keeps the PR flow; `svn` (`asf-svn`) takes the
+  `patch-then-commit` flow in `issue-fix/subversion-flow.md`, because
+  there `commit` and `new-branch` are the publication.
+  The patch is attached to the tracker (or posted as a private comment
+  on a GitHub tracker) and drafted to `<security-list>`; only after the
+  user confirms the team cleared it does `magpie-vcs propose-commit`
+  scrub the message, the diff, new files and the branch name, refuse
+  paths outside the agreed file list, and print the commands, and
+  `commit --scrub` / `new-branch --scrub` repeat the scrub before the
+  VCS runs (exit `3` on a hit).
 - **Adversarial review before a PR, on public content only.**
   `security-issue-fix`, `security-issue-import-from-pr` (over the patch it
   verifies) and `security-issue-import-from-scan` carry the shared
@@ -216,6 +231,17 @@ publication, with a human gate and an audit-log entry at every step.
   on ordinary runs, but on a `fix released` transition, where the record
   still needs `allocated → review-ready`, it raises the same deferral
   blocker in the Step 6 recap as an `expired` session.
+- **CVE selector and push overrides (#1554, #1558).**
+  A `sync CVE-…` selector matches a tracker only when the ID appears in
+  its *CVE tool link* field, so a related or cross-referenced CVE elsewhere
+  in the body does not select it.
+  The bulk pre-flight reviews its batched GraphQL result through a `jq`
+  projection of state, labels and last-comment metadata that never prints
+  the last comment's body.
+  The Step 5b push merges into the live record; `--replace-references`
+  (to drop a reference that must no longer appear) and
+  `--allow-product-change` (only while the record is still `DRAFT`) are
+  used only after the user confirms.
 - **Small always-on footprint (#1447).**
   Each security skill's `description` and `when_to_use`, which load in
   every session, state only its purpose, main trigger phrases and where
@@ -253,6 +279,19 @@ publication, with a human gate and an audit-log entry at every step.
   A re-rendered hand-off comment keeps the release manager's tick, and a
   ticked box keeps later runs quiet. The reminder links the project's
   pages through the optional `security_pages_url` manifest key (#1355).
+- **With `advisory_records` configured, sync proposes the security-pages edit.**
+  The optional `advisory_records` manifest block names the site repository
+  (Git or Subversion), its working copy and a layout: one CVE 5.x JSON file
+  per CVE, or an entry in a per-release-line page whose path, section name
+  and entry come from adopter templates. In the Step 1g closed-tracker pass,
+  once cve.org reports the CVE `PUBLISHED`, the deterministic
+  `advisory-records` planner (in `generate-cve-json`) computes the change and
+  the `magpie-vcs` commands; sync proposes them as one item and runs them only
+  on confirmation, then posts an `advisory-records` marker comment with the
+  ticked checklist item. The planner refuses before publication, is
+  idempotent, escapes tracker text, and refuses a page it cannot parse. The
+  reminder never fires for such a project. `magpie-vcs` gains `update` and
+  `checkout` for it.
 
 ## Out of scope
 
@@ -272,6 +311,9 @@ publication, with a human gate and an audit-log entry at every step.
    This resolution never redirects list reads or changes `<security-list>`.
    Draft recipes fail before backend invocation if the resolved CC has not
    been materialized or is blank; valid addresses reach the backend unchanged.
+5. A `sync CVE-…` selector picks only trackers whose *CVE tool link*
+   field carries that ID, and the bulk pre-flight never prints a private
+   comment body (#1554, #1558).
 
 ## Validation
 

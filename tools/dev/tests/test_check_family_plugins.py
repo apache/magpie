@@ -31,6 +31,7 @@ import json
 import os
 import pathlib
 import re
+import subprocess
 from pathlib import Path
 from types import ModuleType
 
@@ -190,13 +191,43 @@ def test_the_marketplace_lists_the_substrate_plugin(monkeypatch):
     assert entry["source"] == f"./plugins/{NAME}"
 
 
-def test_the_substrate_plugin_stays_out_of_the_non_claude_catalogs(monkeypatch):
-    """Its tool symlink resolves outside the plugin root, which Agent Plugins 1.0
-    forbids — the same reason the family plugins are Claude Code-only."""
+def test_codex_advertises_self_contained_substrates_only(monkeypatch):
     monkeypatch.chdir(REPO_ROOT)
-    for path in mod.CLIENT_CATALOGS:
-        names = [e.get("name") for e in json.loads(path.read_text(encoding="utf-8"))["plugins"]]
-        assert NAME not in names, f"{path} advertises {NAME}"
+    names = {e["name"] for e in json.loads(mod.CODEX_CATALOG.read_text())["plugins"]}
+    assert names >= mod.CODEX_SUBSTRATES
+    for name in mod.CODEX_SUBSTRATES:
+        spec = mod.SUBSTRATE_PLUGINS[name]
+        assert not spec["links"], "Codex must not install outward tool symlinks"
+        assert "hooks" not in spec, "Codex requires a hook config file"
+        if "hook_config" in spec:
+            plugin = REPO_ROOT / mod.PLUGINS / name
+            manifest = json.loads((plugin / ".claude-plugin/plugin.json").read_text())
+            assert "hooks" not in manifest
+            assert json.loads((plugin / "hooks/hooks.json").read_text()) == spec["hook_config"]
+        for relative in spec["must_resolve"]:
+            path = REPO_ROOT / mod.PLUGINS / name / relative
+            assert path.is_file()
+            assert path.resolve().is_relative_to((REPO_ROOT / mod.PLUGINS / name).resolve())
+    copilot = next(p for p in mod.CLIENT_CATALOGS if p != mod.CODEX_CATALOG)
+    assert NAME not in {e["name"] for e in json.loads(copilot.read_text())["plugins"]}
+
+
+def test_vetted_plugin_startup_creates_the_dispatcher_path(tmp_path):
+    plugin = REPO_ROOT / mod.PLUGINS / "magpie-vetted-ops"
+    hooks = json.loads((plugin / "hooks/hooks.json").read_text())
+    command = hooks["hooks"]["SessionStart"][0]["hooks"][0]["command"]
+    result = subprocess.run(
+        ["bash", "-c", command],
+        input="{}",
+        text=True,
+        capture_output=True,
+        env={**os.environ, "HOME": str(tmp_path), "CLAUDE_PLUGIN_ROOT": str(plugin)},
+    )
+    assert result.returncode == 0, result.stderr
+    link = tmp_path / ".claude/magpie/vetted-ops"
+    assert link.is_symlink()
+    assert link.resolve() == plugin / "tools/vetted-ops"
+    assert (link / "src/vetted_ops/cli.py").is_file()
 
 
 def test_fix_regenerates_a_deleted_substrate_plugin(tree, monkeypatch):
@@ -261,6 +292,38 @@ def test_a_preflight_package_linked_out_of_the_plugin_is_reported(tmp_path, monk
     errors = mod.check_setup_preflight_package()
     assert any("must be a real directory" in e for e in errors)
     assert any("expected a symlink" in e for e in errors)
+
+
+def _welcome_tree(root: Path) -> None:
+    """A copy of the real checker beside one plugin skill, whose map is stale."""
+    import shutil
+
+    shutil.copytree(
+        REPO_ROOT / mod.SETUP_PREFLIGHT_PACKAGE,
+        root / mod.SETUP_PREFLIGHT_PACKAGE,
+        ignore=shutil.ignore_patterns("__pycache__"),
+    )
+    skill = root / "plugins" / "magpie-security" / "skills" / "issue-sync"
+    skill.mkdir(parents=True)
+    (skill / "SKILL.md").write_text("---\nname: issue-sync\nfamily: security\n---\n", encoding="utf-8")
+
+
+def test_the_real_welcome_family_map_is_in_sync(monkeypatch):
+    monkeypatch.chdir(REPO_ROOT)
+    assert mod.welcome_families("check-constant") == []
+
+
+def test_a_stale_welcome_family_map_is_reported_and_fixed(tmp_path, monkeypatch):
+    _welcome_tree(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    assert any("families.py" in e for e in mod.welcome_families("check-constant"))
+    assert mod.welcome_families("write-constant") == []
+    assert mod.welcome_families("check-constant") == []
+
+
+def test_a_tree_without_the_checker_has_no_family_map_to_check(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    assert mod.welcome_families("check-constant") == []
 
 
 # ---------------------------------------------------------------------------
@@ -412,3 +475,61 @@ def test_templates_linked_out_of_the_plugin_are_reported(tmp_path, monkeypatch):
     errors = mod.check_setup_templates()
     assert any("must be a real directory" in e for e in errors)
     assert any("expected a symlink" in e for e in errors)
+
+
+def test_packaged_readme_links_stay_portable(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    src = tmp_path / "tools/tool/README.md"
+    dest = tmp_path / "plugins/plugin/tools/tool/README.md"
+    src.parent.mkdir(parents=True)
+    (src.parent / "src").mkdir()
+    src.write_text(
+        '[local](src/file.py) [framework](../../docs/file.md#anchor "title") '
+        "[web](https://example.com) [section](#part) [outside](../../../outside.md)\n"
+        "```markdown\n[example](../../unchanged.md)\n```\n"
+    )
+    copies = {str(dest.parent / "src"): str(src.parent / "src")}
+    text = mod.packaged_file_bytes(src, copies).decode()
+    assert "](src/file.py)" in text
+    assert '](https://github.com/apache/magpie/blob/main/docs/file.md#anchor "title")' in text
+    assert "[web](https://example.com)" in text
+    assert "](#part)" in text
+    assert "](../../../outside.md)" in text
+    assert "](../../unchanged.md)" in text
+
+
+def test_file_copy_passes_and_reports_drift(tree, monkeypatch):
+    source = tree / "runtime.toml"
+    source.write_text("enabled = true\n")
+    spec = {
+        **mod.SUBSTRATE_PLUGINS[NAME],
+        "copies": {
+            **mod.SUBSTRATE_PLUGINS[NAME]["copies"],
+            "tools/agent-guard/runtime.toml": "runtime.toml",
+        },
+    }
+    monkeypatch.setitem(mod.SUBSTRATE_PLUGINS, NAME, spec)
+    mod.write_substrate(NAME, SHARED)
+    assert mod.check_substrate(NAME, SHARED) == []
+    dest = tree / "plugins" / NAME / "tools/agent-guard/runtime.toml"
+    dest.write_text("enabled = false\n")
+    assert any("out of sync" in e for e in mod.check_substrate(NAME, SHARED))
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "tools/vetted-ops/src/vetted_ops/ops.py",
+        "tools/vetted-ops/hooks/link-stable-path.sh",
+        "tools/vetted-ops/pyproject.toml",
+        "tools/vetted-ops/README.md",
+        "tools/agent-guard/src/agent_guard/__init__.py",
+        "tools/dev/check-family-plugins.py",
+    ],
+)
+def test_source_changes_trigger_packaging_hook(path):
+    config = (REPO_ROOT / ".pre-commit-config.yaml").read_text()
+    block = config.split("- id: check-family-plugins\n", 1)[1].split("pass_filenames:", 1)[0]
+    match = re.search(r"files: (.+)", block)
+    assert match is not None
+    assert re.match(match.group(1), path), f"packaging check would skip {path}"

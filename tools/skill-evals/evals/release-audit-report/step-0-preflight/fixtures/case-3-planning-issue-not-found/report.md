@@ -23,3 +23,18 @@ release-config preflight output
   }
 }
 ```
+
+
+`release-management audit-report verdict --preflight <scratch>/audit-preflight.json --upstream apache/airflow --searched 2.12.0` output:
+
+```json
+{
+  "verdict": "blocked",
+  "blockers": [
+    "no planning issue found on apache/airflow matching \"2.12.0\" in its title; pass --planning-issue <url> to name it explicitly"
+  ],
+  "planning_issue_url": null,
+  "audit_log_path": "audit-logs/releases",
+  "warnings": []
+}
+```

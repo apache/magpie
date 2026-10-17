@@ -424,6 +424,10 @@ hand-off comment, all of it single clicks in the CVE tool —
    that sees the advisory shipped but the box still unticked posts
    a one-line reminder comment — at most once per tracker, never
    blocking the close-out.
+   A project that configures `advisory_records` gets the edit proposed instead:
+   once cve.org shows the CVE published, sync proposes the change to the site repository
+   (a CVE JSON file, or an entry in a per-release-line page) and the Git or Subversion commands that publish it —
+   see [`advisory-records.md`](advisory-records.md).
 
 The severity score follows the
 [ASF severity rating](https://security.apache.org/blog/severityrating)

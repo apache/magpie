@@ -1,0 +1,1 @@
+{"run": true, "batched": false, "read_default": ["apache-projects", "ponymail"], "draft_backend": "maildir", "next_steps_for": ["maildir"], "draft_written_to": "project.md"}

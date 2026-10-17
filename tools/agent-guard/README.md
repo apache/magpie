@@ -12,11 +12,13 @@
   - [Per-command overrides](#per-command-overrides)
   - [Wiring](#wiring)
     - [Snapshot adopters (`/magpie-setup`)](#snapshot-adopters-magpie-setup)
+    - [Codex](#codex)
     - [OpenCode](#opencode)
     - [Kiro CLI](#kiro-cli)
     - [Gemini CLI](#gemini-cli)
     - [Copilot CLI](#copilot-cli)
     - [Grok](#grok)
+    - [Junie CLI](#junie-cli)
     - [Harness-neutral path (any runtime)](#harness-neutral-path-any-runtime)
   - [Contributing guards](#contributing-guards)
   - [Tests](#tests)
@@ -30,7 +32,7 @@
 
 **Capability:** substrate:action-guard
 
-**Harness:** Claude Code, OpenCode, Kiro, Gemini CLI, Copilot, Grok
+**Harness:** Claude Code, Codex, OpenCode, Kiro, Gemini CLI, Copilot, Grok, Junie
 
 A deterministic pre-execution guard dispatcher. It inspects every shell command
 **before it runs** and **denies** the ones that would break a hard framework
@@ -59,6 +61,9 @@ so every wired harness enforces an identical rule set from one source of truth:
   Source/snapshot project hooks use `--grok`; marketplace plugin hooks are
   selected automatically from Grok's incoming hook payload shape.
   See [Grok](#grok).
+- **Junie CLI** — a `PreToolUse` hook (Early Access) on the `Bash` matcher,
+  using `--junie` (exit `2` plus a `decision` JSON and a stderr reason).
+  See [Junie CLI](#junie-cli).
 - **Any other runtime** — the `--check` and `--exec` CLI modes let any
   harness or shell wrapper enforce guard rules without a harness-specific hook
   adapter. See [Harness-neutral path (any runtime)](#harness-neutral-path-any-runtime).
@@ -66,7 +71,7 @@ so every wired harness enforces an identical rule set from one source of truth:
 It is **stdlib-only** and is invoked directly as
 `python3 <path>/agent_guard/__init__.py` (never via `uv run`) so it returns in a
 few milliseconds for any command that is not a guarded `gh` / `git commit` /
-`git push`.
+`git push` or a `uv` / `uvx` dispatcher launch.
 
 ## Prerequisites
 
@@ -106,13 +111,14 @@ within its rights, and a guard has nothing to say about a command reading
 
 ## Guards
 
-**Bundled** (shipped with the engine — universal `git` hygiene, on for every
-project):
+**Bundled** (shipped with the engine — universal `git` hygiene and the
+dispatcher spelling, on for every project):
 
 | Guard | Blocks | Rule it enforces |
 |---|---|---|
 | `commit-trailer` | `git commit` whose message contains `Co-Authored-By:`, unless the repository's [commit-attribution convention](../../docs/setup/commit-attribution.md) is `co-authored-by` | AGENTS.md: agents use the project's attribution trailer (default `Generated-by:`), not co-authorship |
 | `empty-rebase` | `git push --force[-with-lease]` of a branch with 0 commits over its base | an empty push to a PR head auto-closes it + revokes write |
+| `vetted-ops-spelling` | `uv run --project` / `uvx --from` (options on either side of `run`) launching `vetted-op`, `vetted-op-read`, `vetted-op-tracker` or `adversarial-review` from anything but the literal `~/.claude/magpie/<tool>` — an expanded home path, `$HOME/…`, or a checkout path, relative (`tools/vetted-ops`) or absolute inside the working tree | AGENTS.md golden rule: the sandbox exclusions and permission rules name only the `~` spelling. Under Codex, a `vetted-op-read` launched from the exact root its own [rewrite hook](../vetted-ops/hooks/codex-expand-stable-path.py) is registered with (`--stable-path` in the Codex configuration, else the account's home) is let through |
 
 **Skill-owned** (each lives in its skill's `guards/` dir, discovered the same
 way — see [Contributing guards](#contributing-guards)):
@@ -137,6 +143,7 @@ MAGPIE_ALLOW_COAUTHOR=1     git commit -m "…"            # not for AI co-autho
 MAGPIE_ALLOW_MARK_READY=1   gh pr edit 123 --add-label "ready for maintainer review"
 MAGPIE_ALLOW_SECURITY_LANG=1 gh pr create --title "…"    # disclosure already public
 MAGPIE_ALLOW_EMPTY_PUSH=1   git push --force …
+MAGPIE_ALLOW_VETTED_PATH=1  uv run --project tools/vetted-ops vetted-op-read …  # developing the dispatcher
 MAGPIE_GUARD_OFF=1          <any command>                # disable all guards once
 ```
 
@@ -203,6 +210,20 @@ The user-scope secure setup installs the engine once at
 that path is worktree- and repository-independent by construction. See
 [`setup-isolated-setup-install`](../../skills/setup-isolated-setup-install/SKILL.md).
 
+### Codex
+
+Codex supports native synchronous `PreToolUse` hooks with the canonical `Bash` event and `tool_input.command`.
+Register `python3 <engine-path>/__init__.py --codex` in `.codex/config.toml`, resolving the engine from the git root for source or snapshot installs.
+The marketplace plugin’s existing Claude-compatible hook also works in Codex without a second registration.
+The explicit adapter emits a native JSON deny on guard hits and no output on ordinary calls, leaving Codex approvals in charge.
+See the [Codex adapter](../../docs/adapters/codex.md#deterministic-guard-rules) for wiring, trust review, and verification.
+
+Prefer the installed plugin or user-scope engine outside writable roots for routine adopter sessions.
+A project source or snapshot engine can be edited by the agent without changing the trusted hook definition; report that limitation during verification.
+Use `/hooks` to trust the current definition after install or changes.
+Project trust alone does not activate an untrusted hook.
+Hook errors and timeouts are non-blocking in Codex, and interactive `write_stdin` input is not rechecked.
+
 ### OpenCode
 
 The same engine backs OpenCode via the plugin in
@@ -257,7 +278,7 @@ The engine is one shared, harness-agnostic file (`--kiro` only selects the I/O
 adapter). On a repo already wired for Claude Code it lives at
 `.claude/hooks/agent-guard.py`, so the hook reuses it; a **Kiro-only** adopter
 (no `.claude/`) points `MAGPIE_AGENT_GUARD` at wherever the engine is installed.
-Note: `/magpie-setup` currently installs the engine only on the Claude path — a
+Note: `/magpie-setup:setup` currently installs the engine only on the Claude path — a
 general installer that drops it for non-Claude-only adopters is a pending
 follow-up (see [`docs/adapters/add-a-harness.md`](../../docs/adapters/add-a-harness.md)).
 
@@ -394,6 +415,17 @@ together.
 
 See the [Grok adapter contract](../../docs/adapters/grok.md).
 
+### Junie CLI
+
+Junie's `PreToolUse` payload is Claude-shaped (`tool_name`, `tool_input.command`),
+so the no-argument dispatcher would route it to the Claude adapter,
+whose `hookSpecificOutput` deny Junie ignores and exit 0 would let the command run.
+Junie hooks must therefore invoke `--junie` explicitly.
+The adapter blocks with exit `2`, the one signal Junie honours regardless of output,
+and also prints a `decision` JSON and the reason on stderr.
+Other non-zero exits only warn in Junie, so the adapter never uses them.
+See [the Junie adapter](../../docs/adapters/junie.md).
+
 ### Harness-neutral path (any runtime)
 
 For runtimes without a wired pre-tool hook adapter, the engine ships two
@@ -441,7 +473,7 @@ bounds any accidental wrapper recursion instead of looping forever).
 
 Locate the engine at `agent_guard/__init__.py` inside the framework snapshot
 (`.apache-magpie/tools/agent-guard/src/agent_guard/__init__.py` in an adopter
-tree) or at the path `/magpie-setup` ships it to (`.claude/hooks/agent-guard.py`
+tree) or at the path `/magpie-setup:setup` ships it to (`.claude/hooks/agent-guard.py`
 for Claude Code setups — the file is the same and works for all three modes).
 
 ## Contributing guards

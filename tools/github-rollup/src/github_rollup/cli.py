@@ -37,6 +37,7 @@ from pathlib import Path
 from github_rollup.rollup import (
     build_entry,
     build_new_rollup_body,
+    find_rollup_index,
     is_rollup_body,
     iter_entries,
     left_trim_lines,
@@ -150,13 +151,10 @@ def _print_url(url: str) -> None:
 
 
 def _find_rollup(comments: list[dict]) -> dict | None:
-    """Return the first comment whose body begins with the rollup
-    marker, or None if no rollup exists on the issue."""
-    for c in comments:
-        body = c.get("body") or ""
-        if is_rollup_body(body):
-            return c
-    return None
+    """Return the rollup comment — the first with the canonical marker,
+    else the first with a legacy one — or None if the issue has none."""
+    idx = find_rollup_index([c.get("body") or "" for c in comments])
+    return None if idx is None else comments[idx]
 
 
 def _read_entry_body(args: argparse.Namespace) -> str:
@@ -206,7 +204,7 @@ def _write_entry(issue: str, repo: str, entry: str, action: str, date: str, dry_
             sys.stderr.write(f"dry-run: would APPEND to existing rollup comment {rollup.get('url')}\n")
         return True
     if rollup is None:
-        url = _gh_post_comment(issue, repo, build_new_rollup_body(entry, repo.split("/")[-1]))
+        url = _gh_post_comment(issue, repo, build_new_rollup_body(entry))
         sys.stderr.write(f"created rollup on {repo}#{issue} ({action!r}, date={date})\n")
         _print_url(url)
         return True

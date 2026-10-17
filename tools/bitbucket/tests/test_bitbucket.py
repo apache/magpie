@@ -2237,39 +2237,31 @@ def test_cli_repo_restrictions_datacenter(
 
 
 @patch("urllib.request.build_opener")
-def test_cloud_list_open_issues_follows_next(mock_build_opener: MagicMock, cloud_env: None) -> None:
-    opener = mock_opener(
-        mock_build_opener,
-        {
-            "values": [{"id": 1, "title": "First issue", "state": "open"}],
-            "next": "https://api.bitbucket.org/2.0/repositories/apache/magpie/issues?page=2",
-        },
-        {"values": [{"id": 2, "title": "Second issue", "state": "open"}]},
-    )
+def test_cloud_list_open_issues_removed_without_request(
+    mock_build_opener: MagicMock,
+    cloud_env: None,
+) -> None:
+    with pytest.raises(
+        BitbucketError,
+        match="native issue tracker API was removed by Atlassian on 2026-08-20",
+    ):
+        cloud.list_open_issues(load_config())
 
-    result = cloud.list_open_issues(load_config())
-
-    first_request = opener.open.call_args_list[0].args[0]
-    second_request = opener.open.call_args_list[1].args[0]
-    assert first_request.full_url == (
-        "https://api.bitbucket.org/2.0/repositories/apache/magpie/issues?q=state%3D%22new%22%20OR%20state%3D%22open%22%20OR%20state%3D%22on%20hold%22"
-    )
-    assert second_request.full_url.endswith("/issues?page=2")
-    assert result["values"] == [
-        {"id": 1, "title": "First issue", "state": "open"},
-        {"id": 2, "title": "Second issue", "state": "open"},
-    ]
+    mock_build_opener.assert_not_called()
 
 
 @patch("urllib.request.build_opener")
-def test_cloud_get_issue_url(mock_build_opener: MagicMock, cloud_env: None) -> None:
-    opener = mock_opener(mock_build_opener, {"id": 7, "title": "Fix issue"})
+def test_cloud_get_issue_removed_without_request(
+    mock_build_opener: MagicMock,
+    cloud_env: None,
+) -> None:
+    with pytest.raises(
+        BitbucketError,
+        match="native issue tracker API was removed by Atlassian on 2026-08-20",
+    ):
+        cloud.get_issue(load_config(), "7")
 
-    result = cloud.get_issue(load_config(), "7")
-
-    request = opener.open.call_args.args[0]
-    assert request.full_url == "https://api.bitbucket.org/2.0/repositories/apache/magpie/issues/7"
-    assert result == {"id": 7, "title": "Fix issue"}
+    mock_build_opener.assert_not_called()
 
 
 def test_datacenter_list_open_issues_unsupported(datacenter_env: None) -> None:
@@ -2329,65 +2321,18 @@ def test_normalize_cloud_issue_list() -> None:
     assert [item["state"] for item in normalized["issues"]] == ["open", "closed"]
 
 
-@patch("magpie_bitbucket.cloud.list_open_issues")
-def test_cli_issue_list_open_cloud(
-    mock_list_open_issues: MagicMock,
-    cloud_env: None,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    mock_list_open_issues.return_value = {"values": [{"id": 1, "title": "First issue", "state": "new"}]}
-
-    exit_code = main(["issue", "list-open"])
-
-    assert exit_code == 0
-    mock_list_open_issues.assert_called_once()
-    output = json.loads(capsys.readouterr().out)
-    assert output["backend"] == "bitbucket-cloud"
-    assert output["issues"][0]["title"] == "First issue"
-
-
-@patch("magpie_bitbucket.cloud.get_issue")
-def test_cli_issue_get_cloud(
-    mock_get_issue: MagicMock,
-    cloud_env: None,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    mock_get_issue.return_value = {"id": 7, "title": "Fix docs", "state": "new"}
-
-    exit_code = main(["issue", "get", "7"])
-
-    assert exit_code == 0
-    mock_get_issue.assert_called_once_with(load_config(), "7")
-    output = json.loads(capsys.readouterr().out)
-    assert output["backend"] == "bitbucket-cloud"
-    assert output["id"] == "7"
-    assert output["state"] == "open"
-
-
 @patch("urllib.request.build_opener")
-def test_cloud_get_issue_comments_follows_next(mock_build_opener: MagicMock, cloud_env: None) -> None:
-    opener = mock_opener(
-        mock_build_opener,
-        {
-            "values": [{"id": 101, "content": {"raw": "First comment"}}],
-            "next": "https://api.bitbucket.org/2.0/repositories/apache/magpie/issues/7/comments?page=2",
-        },
-        {"values": [{"id": 102, "content": {"raw": "Second comment"}}]},
-    )
+def test_cloud_get_issue_comments_removed_without_request(
+    mock_build_opener: MagicMock,
+    cloud_env: None,
+) -> None:
+    with pytest.raises(
+        BitbucketError,
+        match="native issue tracker API was removed by Atlassian on 2026-08-20",
+    ):
+        cloud.get_issue_comments(load_config(), "7")
 
-    result = cloud.get_issue_comments(load_config(), "7")
-
-    first_request = opener.open.call_args_list[0].args[0]
-    second_request = opener.open.call_args_list[1].args[0]
-    assert first_request.full_url == (
-        "https://api.bitbucket.org/2.0/repositories/apache/magpie/issues/7/comments"
-    )
-    assert second_request.full_url.endswith("/issues/7/comments?page=2")
-    assert result["issue_id"] == "7"
-    assert result["values"] == [
-        {"id": 101, "content": {"raw": "First comment"}},
-        {"id": 102, "content": {"raw": "Second comment"}},
-    ]
+    mock_build_opener.assert_not_called()
 
 
 def test_datacenter_get_issue_comments_unsupported(datacenter_env: None) -> None:
@@ -2432,51 +2377,18 @@ def test_normalize_cloud_issue_comments() -> None:
     assert deleted_normalized["comments"][0]["deleted"] is True
 
 
-@patch("magpie_bitbucket.cloud.get_issue_comments")
-def test_cli_issue_comments_cloud(
-    mock_get_issue_comments: MagicMock,
-    cloud_env: None,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    mock_get_issue_comments.return_value = {
-        "issue_id": "7",
-        "values": [{"id": 101, "user": {"display_name": "Alice"}, "content": {"raw": "Looks good."}}],
-    }
-
-    exit_code = main(["issue", "comments", "7"])
-
-    assert exit_code == 0
-    mock_get_issue_comments.assert_called_once()
-    output = json.loads(capsys.readouterr().out)
-    assert output["backend"] == "bitbucket-cloud"
-    assert output["issue_id"] == "7"
-    assert output["comments"][0]["body"] == "Looks good."
-
-
 @patch("urllib.request.build_opener")
-def test_cloud_get_issue_attachments_follows_next(mock_build_opener: MagicMock, cloud_env: None) -> None:
-    opener = mock_opener(
-        mock_build_opener,
-        {
-            "values": [{"id": 201, "name": "screenshot.png"}],
-            "next": "https://api.bitbucket.org/2.0/repositories/apache/magpie/issues/7/attachments?page=2",
-        },
-        {"values": [{"id": 202, "name": "trace.log"}]},
-    )
+def test_cloud_get_issue_attachments_removed_without_request(
+    mock_build_opener: MagicMock,
+    cloud_env: None,
+) -> None:
+    with pytest.raises(
+        BitbucketError,
+        match="native issue tracker API was removed by Atlassian on 2026-08-20",
+    ):
+        cloud.get_issue_attachments(load_config(), "7")
 
-    result = cloud.get_issue_attachments(load_config(), "7")
-
-    first_request = opener.open.call_args_list[0].args[0]
-    second_request = opener.open.call_args_list[1].args[0]
-    assert first_request.full_url == (
-        "https://api.bitbucket.org/2.0/repositories/apache/magpie/issues/7/attachments"
-    )
-    assert second_request.full_url.endswith("/issues/7/attachments?page=2")
-    assert result["issue_id"] == "7"
-    assert result["values"] == [
-        {"id": 201, "name": "screenshot.png"},
-        {"id": 202, "name": "trace.log"},
-    ]
+    mock_build_opener.assert_not_called()
 
 
 def test_datacenter_get_issue_attachments_unsupported(datacenter_env: None) -> None:
@@ -2541,27 +2453,6 @@ def test_normalize_cloud_issue_attachments() -> None:
     assert documented_payload["attachments"][0]["filename"] == "documented.txt"
     assert documented_payload["attachments"][0]["size"] is None
     assert documented_payload["attachments"][0]["download_url"].endswith("/attachments/documented.txt")
-
-
-@patch("magpie_bitbucket.cloud.get_issue_attachments")
-def test_cli_issue_attachments_cloud(
-    mock_get_issue_attachments: MagicMock,
-    cloud_env: None,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    mock_get_issue_attachments.return_value = {
-        "issue_id": "7",
-        "values": [{"id": 201, "name": "screenshot.png", "user": {"display_name": "Alice"}}],
-    }
-
-    exit_code = main(["issue", "attachments", "7"])
-
-    assert exit_code == 0
-    mock_get_issue_attachments.assert_called_once_with(load_config(), "7")
-    output = json.loads(capsys.readouterr().out)
-    assert output["backend"] == "bitbucket-cloud"
-    assert output["issue_id"] == "7"
-    assert output["attachments"][0]["name"] == "screenshot.png"
 
 
 @patch("urllib.request.build_opener")
@@ -2733,33 +2624,59 @@ def test_cli_pr_task_cloud(
 
 
 @patch("urllib.request.build_opener")
-def test_cloud_create_issue_comment_posts_json(
+def test_cloud_create_issue_comment_removed_without_request(
     mock_build_opener: MagicMock,
     cloud_env: None,
 ) -> None:
-    opener = mock_opener(
-        mock_build_opener,
-        {
-            "id": 501,
-            "content": {"raw": "Confirmed comment."},
-            "user": {"display_name": "Alice"},
-            "deleted": False,
-        },
-    )
+    with pytest.raises(
+        BitbucketError,
+        match="native issue tracker API was removed by Atlassian on 2026-08-20",
+    ):
+        cloud.create_issue_comment(
+            load_config(),
+            "7",
+            "Confirmed comment.",
+        )
 
-    result = cloud.create_issue_comment(
-        load_config(),
-        "7",
-        "Confirmed comment.",
-    )
+    mock_build_opener.assert_not_called()
 
-    request = opener.open.call_args.args[0]
-    assert request.full_url == ("https://api.bitbucket.org/2.0/repositories/apache/magpie/issues/7/comments")
-    assert request.get_method() == "POST"
-    assert request.get_header("Content-type") == "application/json"
-    assert json.loads(request.data.decode("utf-8")) == {"content": {"raw": "Confirmed comment."}}
-    assert result["issue_id"] == "7"
-    assert result["comment"]["id"] == 501
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["issue", "list-open"],
+        ["issue", "get", "7"],
+        ["issue", "comments", "7"],
+        ["issue", "attachments", "7"],
+        ["issue", "comment", "7", "--body-file", "comment.txt"],
+    ],
+)
+@patch("urllib.request.build_opener")
+def test_cli_issue_commands_fail_closed_on_cloud(
+    mock_build_opener: MagicMock,
+    argv: list[str],
+    cloud_env: None,
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "comment.txt").write_text("Confirmed comment.", encoding="utf-8")
+    argv = [str(tmp_path / a) if a == "comment.txt" else a for a in argv]
+
+    with pytest.raises(BitbucketError, match="removed by Atlassian on 2026-08-20"):
+        main(argv)
+
+    mock_build_opener.assert_not_called()
+
+
+@patch("urllib.request.build_opener")
+def test_cli_issue_comment_reports_removal_before_reading_body(
+    mock_build_opener: MagicMock,
+    cloud_env: None,
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(BitbucketError, match="removed by Atlassian on 2026-08-20"):
+        main(["issue", "comment", "7", "--body-file", str(tmp_path / "missing.txt")])
+
+    mock_build_opener.assert_not_called()
 
 
 def test_datacenter_create_issue_comment_unsupported(
@@ -2799,100 +2716,6 @@ def test_normalize_created_cloud_issue_comment() -> None:
     assert normalized["comment"]["id"] == "501"
     assert normalized["comment"]["author"] == "Alice"
     assert normalized["comment"]["body"] == "Confirmed comment."
-
-
-@patch("magpie_bitbucket.cloud.create_issue_comment")
-def test_cli_issue_comment_cloud(
-    mock_create_issue_comment: MagicMock,
-    cloud_env: None,
-    tmp_path: Path,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    body_file = tmp_path / "comment.txt"
-    body_file.write_text("Confirmed comment.", encoding="utf-8")
-
-    mock_create_issue_comment.return_value = {
-        "issue_id": "7",
-        "comment": {
-            "id": 501,
-            "content": {"raw": "Confirmed comment."},
-            "user": {"display_name": "Alice"},
-            "deleted": False,
-        },
-    }
-
-    exit_code = main(
-        [
-            "issue",
-            "comment",
-            "7",
-            "--body-file",
-            str(body_file),
-        ]
-    )
-
-    assert exit_code == 0
-    mock_create_issue_comment.assert_called_once_with(
-        load_config(),
-        "7",
-        "Confirmed comment.",
-    )
-
-    output = json.loads(capsys.readouterr().out)
-    assert output["ok"] is True
-    assert output["operation"] == "issue-comment-create"
-    assert output["comment"]["id"] == "501"
-
-
-@patch("magpie_bitbucket.cloud.create_issue_comment")
-def test_cli_issue_comment_rejects_empty_body_before_write(
-    mock_create_issue_comment: MagicMock,
-    cloud_env: None,
-    tmp_path: Path,
-) -> None:
-    body_file = tmp_path / "empty.txt"
-    body_file.write_text("   ", encoding="utf-8")
-
-    with pytest.raises(
-        BitbucketError,
-        match="Comment body file must not be empty",
-    ):
-        main(
-            [
-                "issue",
-                "comment",
-                "7",
-                "--body-file",
-                str(body_file),
-            ]
-        )
-
-    mock_create_issue_comment.assert_not_called()
-
-
-@patch("magpie_bitbucket.cloud.create_issue_comment")
-def test_cli_issue_comment_missing_body_file_before_write(
-    mock_create_issue_comment: MagicMock,
-    cloud_env: None,
-    tmp_path: Path,
-) -> None:
-    missing = tmp_path / "missing.txt"
-
-    with pytest.raises(
-        BitbucketError,
-        match="Body file not found",
-    ):
-        main(
-            [
-                "issue",
-                "comment",
-                "7",
-                "--body-file",
-                str(missing),
-            ]
-        )
-
-    mock_create_issue_comment.assert_not_called()
 
 
 @patch("magpie_bitbucket.client.urllib.request.build_opener")

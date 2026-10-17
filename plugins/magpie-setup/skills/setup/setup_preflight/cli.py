@@ -39,12 +39,15 @@ from pathlib import Path
 
 from .core import (
     DEFAULT_VERIFY_INTERVAL_DAYS,
+    Finding,
     Verdict,
     cached_project_findings,
     isolated_setup_findings,
     skill_findings,
     verify_findings,
+    welcome_findings,
 )
+from .delegation import findings as delegation_findings
 from .lockfile import MalformedLock
 
 
@@ -93,6 +96,19 @@ def read_installed(explicit: str | None) -> dict[str, str] | None:
     return installed or None
 
 
+def _delegation(root: Path, skill: str) -> list[Finding]:
+    """Delegation findings, never fatal to the verdict.
+
+    Unreadable override files are already reported per file; anything worse
+    (a layer directory that cannot be listed) drops delegation for this run,
+    which leaves the framework default -- the safe reading -- in charge.
+    """
+    try:
+        return delegation_findings(root, skill)
+    except OSError:
+        return []
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="setup-preflight",
@@ -127,6 +143,11 @@ def build_parser() -> argparse.ArgumentParser:
         "`isolated_setup_update_interval_days` config key, else 7); 0 disables the timer",
     )
     parser.add_argument(
+        "--no-welcome",
+        action="store_true",
+        help="omit the skill family's first-run welcome guide",
+    )
+    parser.add_argument(
         "--no-rules",
         action="store_true",
         help="omit each finding's rules text (the verdict alone)",
@@ -152,8 +173,10 @@ def main(argv: list[str] | None = None) -> int:
         else:
             project, cached = cached_project_findings(root, installed)
         findings = [
+            *([] if args.no_welcome else welcome_findings(root, args.skill)),
             *project,
             *skill_findings(root, args.skill, args.surface_hash, args.requires),
+            *_delegation(root, args.skill),
             *isolated_setup_findings(root, args.isolated_setup_interval_days),
             *verify_findings(root, args.verify_interval_days),
         ]

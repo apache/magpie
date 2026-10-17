@@ -37,6 +37,7 @@ def _clear_env(monkeypatch):
         "MAGPIE_ALLOW_MENTIONS",
         "MAGPIE_ALLOW_MARK_READY",
         "MAGPIE_ALLOW_SECURITY_LANG",
+        "MAGPIE_ALLOW_VETTED_PATH",
     ):
         monkeypatch.delenv(name, raising=False)
 
@@ -351,6 +352,40 @@ def test_empty_rebase_denied_past_a_global_flag(monkeypatch):
     assert reason and "0 commits" in reason
 
 
+def test_empty_rebase_denied_plus_refspec(monkeypatch):
+    # `+refspec` is git's other force spelling (git-push(1) documents it as
+    # equivalent to --force for that refspec); without it the guard is
+    # bypassed by `git push origin +branch` and `git push origin +b:d`.
+    monkeypatch.setattr(agent_guard, "_run", fake_run(_push_handler("0")))
+    reason = dispatch("git push origin +mybranch:mybranch")
+    assert reason and "0 commits" in reason
+
+
+def test_empty_rebase_denied_plus_refspec_short(monkeypatch):
+    monkeypatch.setattr(agent_guard, "_run", fake_run(_push_handler("0")))
+    reason = dispatch("git push origin +mybranch")
+    assert reason and "0 commits" in reason
+
+
+def test_plus_refspec_still_guarded_behind_a_global_flag(monkeypatch):
+    monkeypatch.setattr(agent_guard, "_run", fake_run(_push_handler("0")))
+    reason = dispatch("git -C /tmp push origin +mybranch:mybranch")
+    assert reason and "0 commits" in reason
+
+
+def test_plus_refspec_nonempty_push_allowed(monkeypatch):
+    monkeypatch.setattr(agent_guard, "_run", fake_run(_push_handler("3")))
+    assert dispatch("git push origin +mybranch:mybranch") is None
+
+
+def test_plain_refspec_push_not_guarded_as_force(monkeypatch):
+    def boom(args):
+        raise AssertionError("non-force push is not guarded")
+
+    monkeypatch.setattr(agent_guard, "_run", fake_run(boom))
+    assert dispatch("git push origin mybranch:mybranch") is None
+
+
 # --------------------------------------------------------------------------- #
 # bundled example contributed guard (guards.d/no_verify_commit.py)
 # --------------------------------------------------------------------------- #
@@ -593,3 +628,213 @@ def test_gh_subcommand_consumes_flag_values(argv, expected):
 )
 def test_git_subcommand_index_consumes_flag_values(argv, expected_index):
     assert agent_guard.git_subcommand_index(argv) == expected_index
+
+
+# --------------------------------------------------------------------------- #
+# vetted-ops-spelling — dispatchers launched only from the literal ~ path
+# --------------------------------------------------------------------------- #
+
+# A harness's own installed plugin directory (another harness's rules decide it).
+PLUGIN_CACHE_REVIEW = (
+    "~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/0.9.0/tools/adversarial-review"
+)
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller x pr-view 1",
+        "uv run --project ~/.claude/magpie/vetted-ops/ vetted-op-read pr-view 1",
+        "uvx --from ~/.claude/magpie/vetted-ops vetted-op-read pr-view 1",
+        "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker status",
+        "uv run --project ~/.claude/magpie/vetted-ops vetted-op x",
+        "uvx --from ~/.claude/magpie/adversarial-review adversarial-review detect",
+        "uv run --project=~/.claude/magpie/vetted-ops vetted-op-read pr-view 1",
+        # Not a dispatcher launch: tests, builds and other tools stay untouched.
+        "uv run --project tools/vetted-ops pytest -k vetted-op-read",
+        "uv run --directory tools/vetted-ops --group dev pytest",
+        # Another harness's own installed plugin directory is its rules' business.
+        f"uvx --from {PLUGIN_CACHE_REVIEW} adversarial-review detect",
+        "uvx --from /opt/harness/plugins/magpie/tools/adversarial-review adversarial-review detect",
+        "uvx ruff check .",
+        "uv sync",
+    ],
+)
+def test_vetted_ops_spelling_allows(command):
+    assert agent_guard.dispatch(command) is None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "uv run --project /Users/alice/.claude/magpie/vetted-ops vetted-op-read pr-view 1",
+        "uvx --from /home/alice/.claude/magpie/vetted-ops vetted-op-read pr-view 1",
+        "uv run --project $HOME/.claude/magpie/vetted-ops vetted-op-read pr-view 1",
+        "uv run --project tools/vetted-ops vetted-op-read pr-view 1",
+        "uv run --project ./tools/vetted-ops vetted-op-tracker status",
+        "uv run --project plugins/magpie-vetted-ops/tools/vetted-ops vetted-op x",
+        "uvx --from /home/alice/.claude/magpie/adversarial-review adversarial-review detect",
+        # The right base for the wrong dispatcher is still the wrong base.
+        "uvx --from ~/.claude/magpie/vetted-ops adversarial-review detect",
+        "cd /repo && uv run --project /Users/alice/.claude/magpie/vetted-ops vetted-op-read x",
+    ],
+)
+def test_vetted_ops_spelling_denies(command):
+    reason = agent_guard.dispatch(command)
+    assert reason and "agent-guard[vetted-ops-spelling]" in reason
+    assert "~/.claude/magpie/" in reason
+
+
+def test_vetted_ops_spelling_names_the_fix():
+    reason = agent_guard.dispatch("uv run --project /Users/alice/.claude/magpie/vetted-ops vetted-op-read x")
+    assert "`uv run --project ~/.claude/magpie/vetted-ops vetted-op-read …`" in reason
+
+
+def test_vetted_ops_spelling_override():
+    command = "MAGPIE_ALLOW_VETTED_PATH=1 uv run --project tools/vetted-ops vetted-op-read pr-view 1"
+    assert agent_guard.dispatch(command) is None
+
+
+def test_vetted_ops_spelling_codex_keeps_its_absolute_rewrite(monkeypatch, tmp_path):
+    import os
+
+    pwd = pytest.importorskip("pwd")
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path))  # no registration: the default root
+    home = pwd.getpwuid(os.getuid()).pw_dir
+    command = f"uv run --project {home}/.claude/magpie/vetted-ops vetted-op-read pr-view 1"
+    assert agent_guard.dispatch(command, harness="codex") is None
+    assert agent_guard.dispatch(command) is not None
+    # Any other `.claude/magpie` root is one the agent could have built: refused.
+    other = "uv run --project /elsewhere/.claude/magpie/vetted-ops vetted-op-read pr-view 1"
+    assert agent_guard.dispatch(other, harness="codex") is not None
+
+
+def _register_codex_hook(codex_home, root):
+    """Write the hook registration `vetted-ops-codex-rules --hook --tool-root <root>` renders."""
+    import shlex
+
+    command = f"python3 {shlex.quote(root + '/hooks/codex-expand-stable-path.py')} --stable-path {shlex.quote(root)}"
+    (codex_home / "config.toml").write_text(
+        '[[hooks.PreToolUse]]\nmatcher = "^Bash$"\n\n[[hooks.PreToolUse.hooks]]\n'
+        f'type = "command"\ncommand = {json.dumps(command)}\ntimeout = 10\n'
+    )
+
+
+@pytest.mark.parametrize(
+    "command, allowed",
+    [
+        # The trusted `--tool-root` the rewrite hook was registered with.
+        ("uv run --project /srv/account/.claude/magpie/vetted-ops vetted-op-read pr-view 1", True),
+        ("uvx --from /srv/account/.claude/magpie/vetted-ops/ vetted-op-read pr-view 1", True),
+        # The hook rewrites reads only, so a write in that spelling is the agent's.
+        ("uv run --project /srv/account/.claude/magpie/vetted-ops vetted-op-tracker status", False),
+        # Not the registered root, or a path game around it.
+        ("uv run --project /srv/other/.claude/magpie/vetted-ops vetted-op-read x", False),
+        ("uv run --project /srv/account/.claude/magpie/vetted-ops/../../../tmp/x vetted-op-read x", False),
+        ("uv run --project tools/vetted-ops vetted-op-read x", False),
+    ],
+)
+def test_vetted_ops_spelling_codex_accepts_only_its_registered_root(monkeypatch, tmp_path, command, allowed):
+    pytest.importorskip("pwd")
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path))
+    _register_codex_hook(tmp_path, "/srv/account/.claude/magpie/vetted-ops")
+    assert (agent_guard.dispatch(command, harness="codex") is None) is allowed
+    # Outside Codex the `~` spelling is the only one.
+    assert agent_guard.dispatch(command) is not None
+
+
+@pytest.mark.parametrize(
+    "command, denied",
+    [
+        ("uv --project tools/vetted-ops run vetted-op-read pr-view 1", True),
+        ("uv --directory /tmp --project tools/vetted-ops run vetted-op-tracker status", True),
+        ("uv --project=/home/alice/.claude/magpie/vetted-ops run vetted-op-read x", True),
+        ("uv --project ~/.claude/magpie/vetted-ops run vetted-op-read pr-view 1", False),
+        ("uv --directory /tmp run --project ~/.claude/magpie/vetted-ops vetted-op-read x", False),
+        # Another subcommand is not a launch.
+        ("uv --project tools/vetted-ops sync", False),
+    ],
+)
+def test_vetted_ops_spelling_reads_options_before_run(command, denied):
+    assert (agent_guard.dispatch(command) is not None) is denied
+
+
+def test_vetted_ops_spelling_reads_a_commented_codex_registration(monkeypatch, tmp_path):
+    pytest.importorskip("pwd")
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path))
+    _register_codex_hook(tmp_path, "/srv/account/.claude/magpie/vetted-ops")
+    config = tmp_path / "config.toml"
+    # Valid TOML a person might add by hand: an inline comment after the value.
+    config.write_text(config.read_text().replace("\ntimeout", "  # reviewed\ntimeout"))
+    command = "uv run --project /srv/account/.claude/magpie/vetted-ops vetted-op-read pr-view 1"
+    assert agent_guard.dispatch(command, harness="codex") is None
+
+
+def test_vetted_ops_spelling_finds_the_checkout_from_any_cwd(monkeypatch, tmp_path):
+    repo = tmp_path / "repo"
+    (repo / "tools" / "vetted-ops").mkdir(parents=True)
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+
+    def stub(args, cwd=None):
+        # git answers only inside the repository, as it does for real.
+        if args == ["git", "rev-parse", "--show-toplevel"] and cwd and str(cwd).startswith(str(repo)):
+            return str(repo)
+        return None
+
+    monkeypatch.setattr(agent_guard, "_run", stub)
+    command = f"uv --directory {repo} run --project {repo}/tools/vetted-ops vetted-op-read pr-view 1"
+    reason = agent_guard.dispatch(command, cwd=str(elsewhere))
+    assert reason and "agent-guard[vetted-ops-spelling]" in reason
+    # A directory merely named like a plugin cache inside a checkout is not one.
+    lookalike = repo / ".claude" / "plugins" / "cache" / "x" / "1.0" / "tools" / "adversarial-review"
+    lookalike.mkdir(parents=True)
+    monkeypatch.setattr(agent_guard, "_account_home", lambda: str(tmp_path / "home"))
+    reason = agent_guard.dispatch(f"uvx --from {lookalike} adversarial-review detect", cwd=str(repo))
+    assert reason and "agent-guard[vetted-ops-spelling]" in reason
+
+
+def test_vetted_ops_spelling_codex_matches_a_symlinked_home_as_spelled(monkeypatch, tmp_path):
+    import os
+
+    pwd = pytest.importorskip("pwd")
+    real = tmp_path / "real-home"
+    real.mkdir()
+    linked = tmp_path / "home"
+    linked.symlink_to(real)
+    entry = pwd.getpwuid(os.getuid())
+
+    class Entry:
+        pw_dir = str(linked)
+
+    monkeypatch.setattr(pwd, "getpwuid", lambda uid: Entry if uid == os.getuid() else entry)
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "codex"))  # no registration: the default root
+    # The rewrite hook keeps the database spelling of the home, symlink and all.
+    command = f"uv run --project {linked}/.claude/magpie/vetted-ops vetted-op-read pr-view 1"
+    assert agent_guard.dispatch(command, harness="codex") is None
+
+
+def test_vetted_ops_spelling_exempts_the_accounts_own_plugin_cache(monkeypatch, tmp_path):
+    # A version-controlled home: the real plugin cache sits inside a git tree.
+    home = tmp_path / "home"
+    cache = home / ".claude" / "plugins" / "cache" / "apache-magpie" / "1.0" / "tools" / "adversarial-review"
+    cache.mkdir(parents=True)
+    monkeypatch.setattr(agent_guard, "_account_home", lambda: str(home))
+    monkeypatch.setattr(agent_guard, "_run", lambda args, cwd=None: str(home))
+    assert agent_guard.dispatch(f"uvx --from {cache} adversarial-review detect", cwd=str(home)) is None
+
+
+def test_vetted_ops_spelling_refuses_an_absolute_checkout_path(monkeypatch, tmp_path):
+    repo = tmp_path / "repo"
+    (repo / "tools" / "vetted-ops").mkdir(parents=True)
+    monkeypatch.setattr(
+        agent_guard,
+        "_run",
+        fake_run(lambda args: str(repo) if args[:3] == ["git", "rev-parse", "--show-toplevel"] else None),
+    )
+    inside = f"uv run --project {repo}/tools/vetted-ops vetted-op-read pr-view 1"
+    reason = agent_guard.dispatch(inside, cwd=str(repo))
+    assert reason and "agent-guard[vetted-ops-spelling]" in reason
+    # A harness's own plugin directory outside the working tree is left alone.
+    outside = "uvx --from /opt/harness/plugins/magpie/tools/adversarial-review adversarial-review detect"
+    assert agent_guard.dispatch(outside, cwd=str(repo)) is None

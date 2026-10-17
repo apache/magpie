@@ -168,7 +168,7 @@ for the redact-after-fetch protocol skills follow.
 ## Pattern 7 — `gh permissions.ask` is on the path
 
 The framework's
-[`.claude/settings.json`](../../../../.claude/settings.json)
+[`tools/agent-isolation/claude-settings.template.json`](../../../../tools/agent-isolation/claude-settings.template.json)
 forces a confirmation prompt for state-mutating `gh` calls
 (`gh pr create *`, `gh issue create *`, `gh api * -F *`,
 `gh gist *`, `gh repo create *`, `gh secret *`, …). Design

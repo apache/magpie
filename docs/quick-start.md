@@ -9,7 +9,7 @@
   - [Installation or Adoption?](#installation-or-adoption)
   - [The walkthrough](#the-walkthrough)
     - [Step 1 — install from the Apache Magpie Marketplace](#step-1--install-from-the-apache-magpie-marketplace)
-    - [Step 2 — run `/magpie-setup`](#step-2--run-magpie-setup)
+    - [Step 2 — run `/magpie-setup:setup`](#step-2--run-magpie-setupsetup)
     - [Step 3 — isolate & guard](#step-3--isolate--guard)
     - [Step 4 — set up privacy](#step-4--set-up-privacy)
     - [Step 5 — use it](#step-5--use-it)
@@ -36,7 +36,7 @@ project and no opt-in from your teammates. Committing anything for other
 people is a separate act called **adoption** —
 [Installation or Adoption?](quick-start/two-ways.md) draws the line.
 
-**What you get.** 79 skills your agent can run, grouped into 10 **families** —
+**What you get.** 80 skills your agent can run, grouped into 10 **families** —
 PR triage and review, issue triage, security-report handling, release
 management, contributor mentoring. Install only the families you need; each one
 you add costs context in every session —
@@ -136,20 +136,23 @@ whether a family is earning its always-on context.
 
 ---
 
-### Step 2 — run `/magpie-setup`
+### Step 2 — run `/magpie-setup:setup`
 
 The marketplace install above is complete on its own: the skills are in your
-agent and you can start using them. `/magpie-setup` is what you run next when
+agent and you can start using them. `/magpie-setup:setup` is what you run next when
 you want Magpie wired into a **project** rather than only into your own agent —
 a committed floor, project config, or overrides. Committing those for everyone
 who clones the repo is **adoption** —
 [`setup/team-adoption.md`](setup/team-adoption.md).
+This page uses the marketplace names (`/<plugin>:<skill>`); on a pinned-snapshot install
+the same skills answer to shorter names such as `/magpie-setup` — see
+[Skill names differ by install method](setup/marketplace.md#skill-names-differ-by-install-method).
 
 One command. It works out which method fits this checkout, prints the plan it
 intends to carry out, and waits:
 
 ```text
-/magpie-setup
+/magpie-setup:setup
 ```
 
 **Or just ask for it.** Magpie's skills are model-invoked, so the slash form is
@@ -163,9 +166,9 @@ Both reach the same skill. Use whichever you prefer; this page shows the slash
 form first because it is unambiguous, and the sentence beside it because that
 is what most people actually type.
 
-![A `/magpie-setup` run in Claude Code: the picker with the baseline three already ticked, the plugins installed for the user, then the secure-agent setup proposing its changes and waiting for approval before writing anything](../assets/quickstart/magpie-setup.svg)
+![A `/magpie-setup:setup` run in Claude Code: the picker with the baseline three already ticked, the plugins installed for the user, then the secure-agent setup proposing its changes and waiting for approval before writing anything](../assets/quickstart/magpie-setup.svg)
 
-Nothing is written before you approve it. Afterwards, `/magpie-setup verify`
+Nothing is written before you approve it. Afterwards, `/magpie-setup:setup verify`
 (*check that Magpie is set up correctly here*) re-runs the health check and
 drift detection, and `/magpie-setup:status` (*what Magpie do I have
 installed?*) prints what is currently installed.
@@ -175,12 +178,12 @@ draws the line.
 
 **Every skill configures itself on first use.** You do not have to remember
 which projects are set up, or run anything to prepare a family before you use
-it: 69 of the 79 skills open with a silent pre-flight — the ten exceptions are
+it: 69 of the 80 skills open with a silent pre-flight — the eleven exceptions are
 the setup skills themselves, which are what you run to fix whatever it finds.
 
 The first time you call a skill in a project, that pre-flight works out how
 Magpie is installed here and whether this project is adopted. If anything is
-unresolved it **stops and proposes `/magpie-setup`** rather than guessing:
+unresolved it **stops and proposes `/magpie-setup:setup`** rather than guessing:
 
 - a pinned-snapshot project whose snapshot was never fetched on this machine,
   or that is on a different framework version than the project pins;
@@ -288,7 +291,7 @@ variant to your personal layer (`<git-common-dir>/apache-magpie/`, or
 both. A gate that says no is the useful output: it names the unapproved model
 and leaves your configuration alone until you decide.
 
-Re-run it after `/magpie-setup upgrade` — what counts as approved can narrow
+Re-run it after `/magpie-setup:setup upgrade` — what counts as approved can narrow
 between versions.
 
 → **The recipes, the variants, and what each mechanism does:**
@@ -342,7 +345,7 @@ Worth doing once the project — not one maintainer — agrees on what it wants 
 recommend. It obliges nobody: a contributor who would rather not use Magpie at
 all is unaffected.
 
-The command is `/magpie-setup adopt`, or ask for it — *adopt Magpie for this
+The command is `/magpie-setup:setup adopt`, or ask for it — *adopt Magpie for this
 repository so everyone gets it on clone*. Nothing runs it for you: unlike
 configuration, adoption is never automatic.
 

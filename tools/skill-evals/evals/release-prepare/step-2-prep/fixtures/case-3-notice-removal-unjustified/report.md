@@ -23,3 +23,17 @@ Do not open a prep PR. Surface the unjustified NOTICE removal to the RM.
 release-build.md § Source archive: source_archive_method default (tag export),
   export_ignore_reviewed: 2.10.0 (review done). Drift check: no new top-level
   paths since 2.10.3 — the source-archive review is not due.
+
+NOTICE at `2.10.3` and at `main` (`gh api -H "Accept: application/vnd.github.raw+json" "repos/apache/airflow/contents/NOTICE?ref=<ref>"`) were saved to `<scratch>/NOTICE.prev` and `<scratch>/NOTICE.base`.
+
+Output of `release-management prepare notice --old <scratch>/NOTICE.prev --new <scratch>/NOTICE.base`:
+
+```json
+{
+  "removed_attributions": [
+    "This product includes software developed by The Jackson Project (https://github.com/FasterXML/jackson)."
+  ],
+  "added_attributions": [],
+  "handoff_reason_if_unjustified": "NOTICE attribution removed for a dependency still present in the tree. Justify the removal or revert it."
+}
+```

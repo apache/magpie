@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:1f327e069312dad2
 license: Apache-2.0
-measured_tokens: 5455
+measured_tokens: 6179
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -150,6 +150,7 @@ Walk each:
 
    **Check `permissions.additionalDirectories` in each worktree's `settings.local.json`.**
    When `permissions.blockReadsOutsideWorkingDirectories` is on in any scope, the resolved `$HOME/.claude/magpie` and `/tmp/claude-$(id -u)` must be listed as literal absolute paths.
+   Where the vetted-ops dispatcher is used, the read block being on is itself a must-fix ([the vetted-ops split and exclusion](#the-vetted-ops-split-and-exclusion), fourth check), and these entries do not clear it.
    Report a missing path, or one covered only by a glob such as `/tmp/claude-*` (listed as a working directory but never matched), under "prompts you are paying"; the remedy is `sandbox-add-project-root.sh --all-worktrees`, which predates this check on older installs and needs the updated script copy.
    Flag the same paths in a synced user-scope settings file as per-host drift.
    Rules: [`docs/setup/secure-agent-setup.md` → Working directories under the read-outside-working-directories block](../../../../docs/setup/secure-agent-setup.md#working-directories-under-the-read-outside-working-directories-block).
@@ -161,6 +162,11 @@ Walk each:
      A settings file missing those three is behind, so report their *absence* as drift.
      The wildcard link-target hosts that once sat beside them (`*.apache.org`, `*.anthropic.com`, `*.claude.com`, `*.mitre.org`, `*.nist.gov`, `*.github.io`, `gist.github.com`, `astral.sh`, `json.schemastore.org`, `lychee.cli.rs`, `sdkman.io`) were dropped when the hook went offline (`offline = true` in `.lychee.toml`): lychee no longer fetches the URLs the docs link to.
      A settings file without those hosts is current, not stale — report their *presence* as dead weight to drop, never their absence as drift.
+   - **The Gmail token is no longer sandbox-readable.**
+     Earlier defaults put `~/.config/apache-magpie/` in `sandbox.filesystem.allowRead` and `oauth2.googleapis.com` / `gmail.googleapis.com` in `allowedDomains`.
+     Together they let any sandboxed command, which runs without a prompt, use the user's Gmail OAuth token.
+     Report their *presence* in any scope as a **must-fix**, not dead weight, and propose removing all three; keep the `Read(~/.config/apache-magpie/**)` deny.
+     Drafting keeps working through the `oauth-draft` MCP server, which runs outside the sandbox; the `oauth-draft-*` CLIs need an approved run or a per-machine absolute-path exclusion ([`docs/setup/secure-agent-setup.md` → The framework's own `.claude/settings.json`](../../../../docs/setup/secure-agent-setup.md#the-frameworks-own-claudesettingsjson)).
    - **`enableWeakerNetworkIsolation: true`.**
      It is not there for lychee, which runs offline.
      It lets native-TLS CLI tools verify TLS through the sandbox's TLS-terminating proxy — the mechanism the schema notes for `gh` / `gcloud` / `terraform`.
@@ -188,7 +194,7 @@ Walk each:
 
 ### The vetted-ops split and exclusion
 
-If the adopter uses the `vetted-ops` dispatcher (a `.apache-magpie-overrides/tools/vetted-ops/config.toml` exists, or `.claude/settings.json` carries a `vetted-op` rule), check three things.
+If the adopter uses the `vetted-ops` dispatcher (a `.apache-magpie-overrides/tools/vetted-ops/config.toml` exists, or `.claude/settings.json` carries a `vetted-op` rule), check four things.
 
 **First, and most important: has `vetted-op` drifted into `allow`?**
 Only `vetted-op-read` belongs there.
@@ -213,6 +219,22 @@ Rules and `sandbox.excludedCommands` entries spelled `~/.claude/plugins/cache/ap
 The `*` also matches spaces, so it approves, and runs unsandboxed, a command with extra `uv` options spliced in where the version sits.
 Report each one as a must-fix and propose the replacement, which names the fixed path the plugin's `SessionStart` hook maintains: `~/.claude/magpie/vetted-ops`.
 Check the user-scope settings and any agent definition whose `tools:` list carries the rule, not only the project's `.claude/settings.json`.
+
+**Fourth, read-only vetted ops never prompt.**
+This is an imperative of the setup, so every gap is a must-fix, reported beside the first check rather than under "prompts you are paying".
+Resolve `$HOME` and read every scope (user, project, project-local, managed where readable).
+Report as a must-fix:
+
+- a missing `vetted-op-read` allow rule: each launcher (`uvx --from`, `uv run --project`) with the literal `~/.claude/magpie/vetted-ops` base, two rules;
+- an allowed form without its matching `sandbox.excludedCommands` entry, since such a call runs sandboxed and its `gh` fails silently;
+- a leftover allow rule or exclusion spelled with the resolved `$HOME/.claude/magpie/vetted-ops` base, which the agent-guard `vetted-ops-spelling` guard now refuses anyway (propose removing it);
+- any `permissions.ask` rule that matches a `vetted-op-read` command in either launcher form, broad rules such as `Bash(uvx *)` included, since an ask rule prompts even when an allow rule matches;
+- `permissions.blockReadsOutsideWorkingDirectories` on in any scope, under which every call prompts because the check cannot resolve the literal `~`;
+- a missing vetted-ops `Edit` deny rule (the second check), since those rules are what make the unprompted read safe.
+
+The reason is the background gatherer agents: they cannot surface a prompt, so each prompt is a silent denial and a bulk sync returns partial results.
+This covers `vetted-op-read` only; `vetted-op-tracker` and `vetted-op` stay as the first check says.
+The remedy is `setup-isolated-setup-install` Step V.1; shape and rationale: [`docs/setup/secure-agent-setup.md` → Read-only vetted ops never prompt](../../../../docs/setup/secure-agent-setup.md#read-only-vetted-ops-never-prompt).
 
 **The adversarial-review exclusion has the same must-fix.**
 A `sandbox.excludedCommands` entry spelled `uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/*/tools/adversarial-review adversarial-review *` is the pre-fixed-path form: once the command is approved, a run with `uv` options spliced in where the version sits goes outside the sandbox.
@@ -245,7 +267,7 @@ PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir)/../.apache-ma
 
 This writes the current fingerprint and today's date into the `isolated_setup` block of the personal layer's `reconciled.json`, which resets both pre-flight reasons.
 Do not write the block by hand.
-Skip it when the command cannot find `setup_preflight`, and say that `/magpie-setup config` installs the checker.
+Skip it when the command cannot find `setup_preflight`, and say that `/magpie-setup:setup config` installs the checker.
 
 ## After the report
 
@@ -259,5 +281,6 @@ If something is out-of-date or has drifted, name the concrete follow-up:
 - comdev MCP checkout behind `origin/main` → run the printed `git pull --ff-only` + `npm install`; no manifest bump or cooldown (these track `main` by design).
   If the checkout is on the wrong branch or installed from a non-`apache/comdev` remote, re-install per [`tools/ponymail/tool.md`](../../../../tools/ponymail/tool.md#keeping-the-checkout-current) / [`tools/apache-projects/tool.md`](../../../../tools/apache-projects/tool.md#keeping-the-checkout-current).
 - User-scope script drift → re-`cp` from the framework checkout, or — if the script lives in `~/.claude-config/` and the user wants the change propagated to other machines — invoke `setup-shared-config-sync` to commit + push.
+- A `vetted-op-read` form that would prompt, or a missing vetted-ops `Edit` deny rule → must-fix; `setup-isolated-setup-install` Step V.1 proposes the edit and the user applies it.
 - Settings.json shape drift → the user merges the new framework block into their tracker's `.claude/settings.json` by hand (the section to copy from is documented in [The framework's own `.claude/settings.json`](../../../../docs/setup/secure-agent-setup.md#the-frameworks-own-claudesettingsjson)).
 - A previously-blocked denial command now succeeds → stop and surface as a regression, not a routine update; the user should investigate before bumping anything.

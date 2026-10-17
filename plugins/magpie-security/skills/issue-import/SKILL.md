@@ -18,9 +18,9 @@ when_to_use: |
   `import last 30d` / `import all` for a backlog).
 argument-hint: "[import] [last Nd|all] [skip threadId]"
 capability: capability:intake
-surface_hash: sha256:230714af47080ee7
+surface_hash: sha256:e9c563d494821baf
 license: Apache-2.0
-measured_tokens: 9417
+measured_tokens: 10136
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -48,7 +48,7 @@ PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir)/../.apache-ma
   python3 -m setup_preflight --skill <name> --hash <surface_hash> [--requires <file>]...
 ```
 
-The path finds the checker `/magpie-setup config` installed in the
+The path finds the checker `/magpie-setup:setup config` installed in the
 personal layer: this checkout's `.apache-magpie-local/`, the main
 checkout's when this is a linked worktree, or the git directory's
 `apache-magpie/` when Magpie is only installed.
@@ -69,18 +69,20 @@ checkout's when this is a linked worktree, or the git directory's
   yourself (first match wins: `.apache-magpie-local/<file>`, the main
   checkout's `.apache-magpie-local/<file>`, `<git-common-dir>/apache-magpie/<file>`,
   then `.apache-magpie-overrides/<file>`), stay silent if they all resolve, and
-  run `/magpie-setup config` for this skill if any does not, which also
+  run `/magpie-setup:setup config` for this skill if any does not, which also
   installs the checker. Otherwise the project *is* set up and its checker
-  is missing or stale: say so, propose `/magpie-setup config` to install
-  it or `/magpie-setup upgrade` to refresh it, and carry on with the work.
+  is missing or stale: say so, propose `/magpie-setup:setup config` to install
+  it or `/magpie-setup:setup upgrade` to refresh it, and carry on with the work.
 
-**Never run `/magpie-setup adopt` unattended** — not from a finding, not
+**Never run `/magpie-setup:setup adopt` unattended** — not from a finding, not
 later in the run, whatever else this skill is doing. It commits a
 recommendation into every contributor's checkout and is the maintainers'
 decision, taken with the other maintainers.
 
 Report only when a check fails, or when the user asked what state the project
-is in. `/magpie-setup verify` is the full diagnostic.
+is in. `/magpie-setup:setup verify` is the full diagnostic.
+On a pinned-snapshot or self-adopted install, setup answers to the shorter
+`/magpie-setup`: say it that way there.
 
 <!-- END MAGPIE PREFLIGHT -->
 
@@ -141,6 +143,36 @@ Local modifications go in the override file; framework changes go via PR to `apa
 
 <!-- END MAGPIE BLOCK: adopter-overrides -->
 
+## Tracker backend
+
+<!-- BEGIN MAGPIE BLOCK: tracker-backend — generated from tools/dev/blocks/tracker-backend.md -->
+
+Read `tracker.platform` from `<project-config>/project.md` before the first tracker operation; unset or `TODO` means `github`.
+With `github`, every recipe below runs as written.
+With `local-files` or `jira`, never run a `gh` command against `<tracker>`:
+look the command up in the [skill-command → vetted-operation table](../../../../tools/security-tracker/contract.md#from-skill-commands-to-vetted-operations)
+and run that vetted operation instead — `vetted-op-read` for reads, `vetted-op-tracker` for the rollup, body-field and publish operations, `vetted-op` for the other writes.
+Vetted-ops translates it for the configured backend; issue numbers become the backend's IDs (`SEC-0012`, `FOOSEC-12`), and the returned `url` is the link.
+Operations on `<upstream>` (PRs, code search) do not change.
+A refusal — the backend's confidentiality guard, or an operation the backend does not have — stops the step: report it, never route around it.
+
+**Pre-flight on another backend.** The GitHub checks in Step 0 — `gh api repos/<tracker>` access, the collaborator roster, project-board ids — do not apply.
+Run the `tracker-doctor` vetted operation instead and stop on any failing check; take the security-team roster from `<project-config>/release-trains.md`, and treat the project board as disabled.
+
+**CVE JSON on another backend.** `generate-cve-json <N> --attach` reads and attaches through GitHub, so do not run it.
+Instead: save the body with the `issue-body` vetted operation (`vetted-op-read … --save cve-body issue-body <id>`),
+run `generate-cve-json --stdin --title "<issue title>" --output <workspace>/<CVE-ID>.json` on that saved file —
+adding `--review` when the issue's labels (from `issue-view`) include the release-vote label or a forward-state label the generator's config names, since `--stdin` cannot see labels and would otherwise produce DRAFT —
+and attach the result with the `issue-attach` vetted operation (`<id> <workspace>/<CVE-ID>.json <CVE-ID>.json`).
+
+**Publish local tracker changes before ending.** With `local-files`, nothing reaches the team until it is committed.
+If this run wrote to the tracker, run the `tracker-pending` vetted operation as the last step, show the changed files and any unpushed commits,
+draft a commit message naming the trackers and the action, ending with the project's commit-attribution trailer, and ask.
+Only on the user's confirmation run `tracker-publish` with that message file
+(Git: commit the tracker folder and push; SVN: commit, which publishes).
+
+<!-- END MAGPIE BLOCK: tracker-backend -->
+
 ---
 
 ## Prerequisites
@@ -152,6 +184,7 @@ Before running, the skill needs:
   (adapters: [`gmail`](../../../../tools/gmail/tool.md), [`ponymail`](../../../../tools/ponymail/tool.md), [`imap`](../../../../tools/mail-source/imap/README.md), [`mbox`](../../../../tools/mail-source/mbox/README.md)).
   Together they must cover `list_recent_threads` + `read_thread` to find reports, and `create_draft` to draft the Step 7 receipt;
   without `create_draft`, Step 7 says *"no draft backend available"* and the user writes the reply by hand.
+  A `maildir` drafting backend ([`draft-backends.md`](../../../../tools/gmail/draft-backends.md#how-the-skills-pick-a-backend)) covers `create_draft` with no Gmail account.
 - **`gh` authenticated** with collaborator access to `<tracker>`.
 
 See

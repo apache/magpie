@@ -1,9 +1,0 @@
-{
-  "step": "jvm-artefacts",
-  "status": "PASS",
-  "pom_findings": [],
-  "companion_findings": [],
-  "has_tool_invocation": true,
-  "has_sha512_digests": true,
-  "has_podling_flag": true
-}

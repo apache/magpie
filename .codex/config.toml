@@ -25,3 +25,17 @@ approval_policy = "on-request"
 # Networked Magpie bridges cross the sandbox only after the native Codex
 # approval/rules layer has evaluated the action.
 network_access = false
+
+[[hooks.PreToolUse]]
+matcher = "^Bash$"
+
+[[hooks.PreToolUse.hooks]]
+type = "command"
+command = '''root="$(git rev-parse --show-toplevel)"
+if [ -f "$root/.apache-magpie/tools/agent-guard/src/agent_guard/__init__.py" ]; then
+  exec python3 "$root/.apache-magpie/tools/agent-guard/src/agent_guard/__init__.py" --codex
+else
+  exec python3 "$root/tools/agent-guard/src/agent_guard/__init__.py" --codex
+fi'''
+timeout = 30
+statusMessage = "Checking Magpie command guards"

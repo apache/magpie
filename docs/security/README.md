@@ -62,14 +62,20 @@ Once you have [added the marketplace](../setup/marketplace-install.md):
 ```
 
 New to Magpie? The [quick start](../quick-start.md) walks the whole path in
-one place — install, the first `/magpie-setup` run, and a recording of it
+one place — install, the first `/magpie-setup:setup` run, and a recording of it
 happening — plus the other agents and the secure-isolation setup to run next.
+
+The first security skill you run opens with a one-minute
+[welcome guide](../../plugins/magpie-setup/skills/setup/setup_preflight/guides/security.md):
+the typical flow, configuring Magpie, what to ask it, and how to make it yours.
+Dismiss it, or hide it for good, from its last line;
+*"show the security welcome again"* or `/magpie-setup:welcome-guide security` brings it back.
 
 ### Before the first run
 
 <!-- BEGIN generated: skill-config (tools/dev/check-skill-config.py --fix) -->
 
-![An animated `/magpie-setup config` run for the security family: the check failing, the values derived from the repository, one question for the rest, and personal files written](../../assets/quickstart/wizard/security.svg)
+![An animated `/magpie-setup:setup config` run for the security family: the check failing, the values derived from the repository, one question for the rest, and personal files written](../../assets/quickstart/wizard/security.svg)
 
 *Illustrative — the real run derives more and asks better. What is true is
 the shape: it runs itself, it writes only your personal layer, and it
@@ -81,11 +87,12 @@ your personal layer first — `.apache-magpie-local/` (gitignored) in a
 project that adopted Magpie, `<git-common-dir>/apache-magpie/` in one
 that did not — then `.apache-magpie-overrides/` (committed, the project's).
 
-**For yourself:** `/magpie-setup config` scaffolds and fills these locally.
+**For yourself:** `/magpie-setup:setup config` scaffolds and fills these locally
+(`/magpie-setup config` on a [pinned-snapshot install](../setup/marketplace.md#skill-names-differ-by-install-method)).
 Nothing is staged, nothing is committed, and it works on a repository that
 has never adopted Magpie.
 
-**For the project:** [`/magpie-setup adopt`](../setup/team-adoption.md)
+**For the project:** [`/magpie-setup:setup adopt`](../setup/team-adoption.md)
 commits them for every contributor, either scaffolded directly or promoted
 from what you configured locally.
 
@@ -219,6 +226,11 @@ referenced by URL; Magpie keeps no local copy.
 |---|---|
 | [`security-tracker-stats-dashboard`](../../skills/security-tracker-stats-dashboard/SKILL.md) | Generate a self-contained HTML dashboard of `<tracker>` repo statistics (lifecycle bands, opened-vs-untriaged backlog, mean time to triage / first response / fix). Read-only — never modifies tracker state. |
 
+The tracker itself need not be a GitHub repository.
+`tracker.platform` selects one of three backends of the [security-tracker contract](../../tools/security-tracker/contract.md):
+a private GitHub repository (default), [Markdown files](../../tools/local-tracker/README.md) in a private Git or SVN working copy — learning the format of the reports already there — or a [Jira project](../../tools/jira/README.md) with an issue-security level.
+`/magpie-setup config` asks which; the [design](../designs/2026-10-15-security-tracker-backends.md) explains the choices.
+
 ## Deep documentation
 
 - [**`poc-handling-policy.md`**](poc-handling-policy.md) — what an
@@ -249,6 +261,10 @@ referenced by URL; Magpie keeps no local copy.
   how the team operates and how a new member lands: the triager
   rotation that runs the skills and delegates, tracker access, mail
   list subscription, expected reading, first triage shadow.
+- [**`advisory-records.md`**](advisory-records.md) — recording a
+  published CVE in the project's own security records (a CVE JSON
+  file or a per-release-line page in its site repository, over Git
+  or Subversion), proposed by sync once cve.org shows it published.
 - [**`threat-model.md`**](threat-model.md) — release-blocking
   threat model for the security skill family: trust boundaries,
   adversary personas, STRIDE matrix per skill, mitigation cross-

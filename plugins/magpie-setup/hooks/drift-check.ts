@@ -18,6 +18,7 @@
 // under the License.
 
 import { atom, read, update } from 'claude-code';
+import { executeMagpieStatus } from './status-command.ts';
 
 export const driftNotice = atom(
   { plugin: 'magpie-setup', key: 'driftNotice' },
@@ -504,8 +505,19 @@ export async function checkSetupDrift(
  * Event hook registration entry point for Claude Code.
  */
 export function register(on: any): void {
-  // 1. Hook session.start to check for lockfile drift
+  // 1. Hook session.start to check for lockfile drift and register slash commands
   on('session.start', async ($: any, e: any, next: any) => {
+    try {
+      await $.command.register({
+        name: 'magpie-status',
+        description: 'Print Apache Magpie adoption and health dashboard (zero-token)',
+        argumentHint: '[--format md|json]',
+        immediate: true,
+      });
+    } catch {
+      // Safe no-op on command register exception
+    }
+
     try {
       const workspaceDir = await $.session.root();
       const pluginDir = $.plugin.root;
@@ -535,7 +547,33 @@ export function register(on: any): void {
     }
   });
 
-  // 2. Hook ui.render to display AbovePrompt drift banner if detected
+  // 2. Hook command.run on magpie-status (zero-token status dashboard)
+  on('command.run', { command: 'magpie-status' }, async ($: any, e: any) => {
+    try {
+      const workspaceDir = await $.session.root();
+      const pluginDir = $.plugin.root;
+      const scriptPath = joinPath(
+        pluginDir,
+        'skills',
+        'status',
+        'scripts',
+        'collect_status.py'
+      );
+
+      return await executeMagpieStatus(
+        (argv, init) => $.process.run(argv, init),
+        scriptPath,
+        workspaceDir,
+        e.args
+      );
+    } catch (err: any) {
+      return {
+        text: `⚠️ Apache Magpie: Unexpected error executing /magpie-status: ${err?.message || String(err)}`,
+      };
+    }
+  });
+
+  // 3. Hook ui.render to display AbovePrompt drift banner if detected
   on('ui.render', { component: 'AbovePrompt' }, async ($: any, e: any, next: any) => {
     const notice = await read($, driftNotice);
     if (!notice) {

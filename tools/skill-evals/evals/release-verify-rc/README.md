@@ -15,12 +15,39 @@ Behavioural eval suite for the
 | `step-3-verify-checksums` | Step 3 — Verify checksums | 2 | Checksum classification (PASS/MISMATCH/MISSING-DIGEST), deprecated md5 detection |
 | `step-5-notice-license` | Step 5 — NOTICE/LICENSE presence | 2 | File presence (PASS/WARN/FAIL), diff-lines count, diff summary |
 | `step-6-binary-exclusion` | Step 6 — Binary exclusion check | 2 | Prohibited-binary detection (PASS/FAIL), expected-binary classification |
-| `step-6b-jvm-artefacts` | Step 6b — JVM artefact checks | 6 | Tool-report classification (PASS/WARN/FAIL), POM licence/`INHERITED-UNVERIFIED` handling, companion signature detection, `ABSENT` jar vs `jvm_companion_location`, informational observations (timestamp signal, package/groupId correspondence, companion content) that never change the verdict |
-| `step-6c-nexus-staging` | Step 6c — Nexus staging repository | 9 | Probe classification (PASS/WARN/FAIL/SKIP), `open` vs not-reachable vs snapshots vs coordinates/version mismatch, anonymous-path `STATE-UNVERIFIED`, missing `.asc`, stale sibling repositories, non-JVM skip, malformed-id skip |
+| `step-6b-jvm-artefacts` | Step 6b — JVM artefact checks | 3 | Reading `verify-rc jvm`'s classification: the POM-licence and missing-companion-signature finding wording, and observations (a groupId outside `org.apache.*`, a consistent timestamp signal) that never change the verdict |
+| `step-6c-nexus-staging` | Step 6c — Nexus staging repository | 1 | The anonymous voter path: `STATE-UNVERIFIED` on a `401` stays a warning while a missing companion `.asc` fails, and the recipe carries no credentialed or write call |
 | `step-8-version-consistency` | Step 8 — Version string consistency | 2 | Exact version match across manifest files (PASS/FAIL) |
-| `step-9-reproducibility` | Step 9 — Reproducibility checks | 5 | `repro-archive compare` verdict → status (`identical` PASS, `differs` FAIL, `content-identical` WARN in RM-key mode / FAIL under automated signing), `mandatory` under `automated_release_signing: enabled` with `--skip-repro` ignored, `trusted_hardware_asserted` mirrors the flag, a project-specific convenience artefact whose rebuild differs (source identical, artefact `FAIL`, named in `binaries.differs`) |
 
-Total: **33 cases** across 9 step suites.
+Total: **17 cases** across 8 step suites.
+
+## Where the scripted cases went
+
+Step 6b's gate, `--podling` and digest choice, `ABSENT` handling and findings filtering,
+Step 6c's gates, staging-repository id check and probe classification,
+and the whole of Step 9's roll-up are code in
+[`release-management verify-rc`](../../../release-management/README.md#verify-rc).
+The model-graded cases that tested that logic are pytest cases in
+[`tools/release-management/tests/test_verify_rc.py`](../../../release-management/tests/test_verify_rc.py),
+named after each former case with the same scenario and assertions:
+
+| Former case | pytest |
+|---|---|
+| `step-6b-jvm-artefacts/case-1-clean-podling-staged-set` | `test_case_1_clean_podling_staged_set` |
+| `step-6b-jvm-artefacts/case-4-jar-absent-nexus-only` | `test_case_4_jar_absent_nexus_only` |
+| `step-6b-jvm-artefacts/case-5-observations-never-fail` | `test_case_5_observations_never_fail` |
+| `step-6c-nexus-staging/case-1-closed-repo-complete-set` | `test_case_1_closed_repo_complete_set` |
+| `step-6c-nexus-staging/case-2-open-repo` | `test_case_2_open_repo` |
+| `step-6c-nexus-staging/case-4-stale-sibling-repos` | `test_case_4_stale_sibling_repos` |
+| `step-6c-nexus-staging/case-5-not-reachable-404` | `test_case_5_not_reachable_404` |
+| `step-6c-nexus-staging/case-6-snapshots-repo-targeted` | `test_case_6_snapshots_repo_targeted` |
+| `step-6c-nexus-staging/case-7-version-mismatch` | `test_case_7_version_mismatch` |
+| `step-6c-nexus-staging/case-8-non-jvm-skip` | `test_case_8_non_jvm_skip` |
+| `step-6c-nexus-staging/case-9-malformed-id-skip` | `test_case_9_malformed_id_skip` |
+| `step-9-reproducibility/case-1-identical-pass` … `case-5-convenience-artefact-differs` | `test_case_1_identical_pass` … `test_case_5_convenience_artefact_differs` |
+
+The same file covers the Step 4 RAT classification, Step 7's `REVIEW` resolution and the Step 10 attestation decision, which never had model evals.
+The kept Step 6b and 6c cases carry the command's real output in `report.md`, as a run would show it.
 
 ## Run
 
@@ -37,13 +64,14 @@ uv run --project tools/skill-evals skill-eval --cli tools/skill-evals/evals/rele
 
 ## Grading methodology
 
-Steps 0, 2, 3, 5, 6, 8 and 9 all emit structured JSON.
+Steps 0, 2, 3, 5, 6, 6b, 6c and 8 all emit structured JSON.
 In Steps 2, 3, 5, 6 and 8 each case feeds the
 [`release-verify`](../../../release-verify/README.md) tool's JSON for the
 scenario (produced by running the tool on equivalent fixture data); the
 classification logic itself is covered by that tool's pytest suite, so
 these cases grade how the model reads and reports the tool output, and
-the judgement the tool leaves to it (Step 5's `REVIEW`). Cases use
+the judgement the tool leaves to it (Step 5's `REVIEW`). Steps 6b and 6c
+feed `release-management verify-rc jvm` / `nexus` output the same way. Cases use
 `expected.json` for exact-field grading and `output-spec.md` to
 document the allowed schema.
 
@@ -97,13 +125,3 @@ which are graded semantically.
   a non-JVM (or gate-failing) RC is an explicit `"SKIP"`.
 - **Step 8**: `status` must be `"FAIL"` for any `match: false` or
   `extracted: null`; dev/snapshot suffixes are always `match: false`.
-- **Step 9**: `differs` and `tag-moved` are always `"FAIL"`;
-  `content-identical` is `"WARN"` in RM-key mode and `"FAIL"` when the
-  report says `automated_release_signing: enabled`; `mandatory` is
-  `true` only in that mode and `--skip-repro` is then ignored;
-  `trusted_hardware_asserted` is `true` only when the report says the
-  committer passed `--trusted-hardware` (case-4), never inferred. A
-  convenience artefact that does not reproduce (case-5) is `"FAIL"`
-  and is named in `binaries.differs` even when the source is
-  `identical` — reproducibility is the check that decides whether a
-  binary is good, and `release-promote` reads that list.
