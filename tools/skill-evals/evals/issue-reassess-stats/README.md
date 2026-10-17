@@ -28,3 +28,13 @@ uv run --project tools/skill-evals skill-eval \
 uv run --project tools/skill-evals skill-eval \
     tools/skill-evals/evals/issue-reassess-stats/step-3-aggregate/fixtures/case-1-healthy
 ```
+
+## Run history
+
+Live model runs over this whole eval directory, newest first.
+Columns and rules: [Recording runs](../../README.md#recording-runs).
+
+| Date | Ref | Model | Runs | Result | Notes |
+|---|---|---|---|---|---|
+| 2026-10-16 | `399ab1bc` | `claude-opus-5-5` | 10 | pass |  |
+| 2026-10-13 | `dadb315c` | `claude-fable-5-1` | 4 | `step-2-classify/case-1-mixed-verdicts` failed 2 of 4 | fix: [#1615](https://github.com/apache/magpie/pull/1615) |
