@@ -838,3 +838,101 @@ def test_vetted_ops_spelling_refuses_an_absolute_checkout_path(monkeypatch, tmp_
     # A harness's own plugin directory outside the working tree is left alone.
     outside = "uvx --from /opt/harness/plugins/magpie/tools/adversarial-review adversarial-review detect"
     assert agent_guard.dispatch(outside, cwd=str(repo)) is None
+
+
+# --------------------------------------------------------------------------- #
+# Prefix wrappers (#1679): `env …` / `command …` run their argument, so every
+# guard sees through them.
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize(
+    "prefix",
+    ["env ", "env -i ", "env -u HOME ", "env A=1 B=2 ", "env -- ", "command ", "command -p ", "env command "],
+)
+def test_prefix_wrappers_reach_the_bundled_guards(prefix):
+    reason = agent_guard.dispatch(f'{prefix}git commit -m "x\n\nCo-Authored-By: a"')
+    assert reason and "Co-Authored-By" in reason
+    reason = agent_guard.dispatch(f"{prefix}uv run --project tools/vetted-ops vetted-op-read pr-view 1")
+    assert reason and "agent-guard[vetted-ops-spelling]" in reason
+
+
+def test_env_split_string_reaches_the_guards():
+    reason = agent_guard.dispatch("""env -S 'git commit -m "x Co-Authored-By: a"'""")
+    assert reason and "Co-Authored-By" in reason
+
+
+def test_command_lookup_is_not_an_execution():
+    assert agent_guard.dispatch("command -v git") is None
+
+
+def test_an_env_assignment_still_overrides():
+    assert (
+        agent_guard.dispatch(
+            "env MAGPIE_ALLOW_VETTED_PATH=1 uv run --project tools/vetted-ops vetted-op-read x"
+        )
+        is None
+    )
+
+
+@pytest.mark.parametrize(
+    "base",
+    ['"~/.claude/magpie/vetted-ops"', "'~/.claude/magpie/vetted-ops'", "\\~/.claude/magpie/vetted-ops"],
+)
+def test_vetted_ops_spelling_refuses_a_quoted_tilde(base):
+    reason = agent_guard.dispatch(f"uv run --project {base} vetted-op-read pr-view 1")
+    assert reason and "quoted or escaped" in reason
+    reason = agent_guard.dispatch(f"uvx --from={base} vetted-op-read pr-view 1")
+    assert reason and "quoted or escaped" in reason
+
+
+def test_a_bare_tilde_is_still_allowed():
+    assert (
+        agent_guard.dispatch("uv run --project ~/.claude/magpie/vetted-ops vetted-op-read pr-view 1") is None
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Sandbox-excluded user-scope scripts: only the literal `~` spelling matches.
+# --------------------------------------------------------------------------- #
+
+EVALS = "tools/skill-evals/evals/setup"
+
+
+def test_the_eval_wrapper_spelled_with_tilde_is_allowed():
+    assert agent_guard.dispatch(f"~/.claude/scripts/magpie-run-evals.sh {EVALS}") is None
+
+
+@pytest.mark.parametrize(
+    "head",
+    [
+        "/Users/alice/.claude/scripts/magpie-run-evals.sh",
+        "/home/alice/.claude/scripts/magpie-run-evals.sh",
+        "$HOME/.claude/scripts/magpie-run-evals.sh",
+        '"~/.claude/scripts/magpie-run-evals.sh"',
+        "\\~/.claude/scripts/magpie-run-evals.sh",
+        "tools/skill-evals/magpie-run-evals.sh",
+        "./magpie-run-evals.sh",
+        # Right spelling behind a wrapper: the exclusion matches the line's start.
+        "env ~/.claude/scripts/magpie-run-evals.sh",
+        "command ~/.claude/scripts/magpie-run-evals.sh",
+    ],
+)
+def test_the_eval_wrapper_spelled_otherwise_is_refused(head):
+    reason = agent_guard.dispatch(f"{head} {EVALS}")
+    assert reason and "~/.claude/scripts/magpie-run-evals.sh" in reason
+
+
+@pytest.mark.parametrize("prefix", ["env ", "command ", "env -i "])
+def test_a_wrapped_vetted_launch_is_refused_even_with_the_tilde(prefix):
+    reason = agent_guard.dispatch(f"{prefix}uv run --project ~/.claude/magpie/vetted-ops vetted-op-read x")
+    assert reason and "whole command" in reason
+
+
+def test_the_eval_wrapper_override():
+    assert (
+        agent_guard.dispatch(
+            f"MAGPIE_ALLOW_SCRIPT_PATH=1 /Users/a/.claude/scripts/magpie-run-evals.sh {EVALS}"
+        )
+        is None
+    )

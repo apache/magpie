@@ -502,6 +502,8 @@ The sandbox exclusions and permission rules name only the `~` spelling, so an ex
 A checkout path is worse: it runs code the agent can edit, which must never leave the sandbox.
 The agent-guard [`vetted-ops-spelling`](tools/agent-guard/README.md#guards) guard enforces this rule and names the corrected command.
 Codex's own absolute-path rewrite is the one exception.
+The same holds for the eval wrapper, `~/.claude/scripts/magpie-run-evals.sh`, and for any sandbox-excluded command:
+write it bare, with the literal `~`, as the whole command line (not behind `env` or `command`), or it runs inside the sandbox and fails.
 
 **Tool credentials live under `$HOME`, never in the project tree.** Any
 persistent token, API key, OAuth refresh token, or session cookie a

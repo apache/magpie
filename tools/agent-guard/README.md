@@ -118,7 +118,7 @@ dispatcher spelling, on for every project):
 |---|---|---|
 | `commit-trailer` | `git commit` whose message contains `Co-Authored-By:`, unless the repository's [commit-attribution convention](../../docs/setup/commit-attribution.md) is `co-authored-by` | AGENTS.md: agents use the project's attribution trailer (default `Generated-by:`), not co-authorship |
 | `empty-rebase` | `git push --force[-with-lease]` of a branch with 0 commits over its base | an empty push to a PR head auto-closes it + revokes write |
-| `vetted-ops-spelling` | `uv run --project` / `uvx --from` (options on either side of `run`) launching `vetted-op`, `vetted-op-read`, `vetted-op-tracker` or `adversarial-review` from anything but the literal `~/.claude/magpie/<tool>` — an expanded home path, `$HOME/…`, or a checkout path, relative (`tools/vetted-ops`) or absolute inside the working tree | AGENTS.md golden rule: the sandbox exclusions and permission rules name only the `~` spelling. Under Codex, a `vetted-op-read` launched from the exact root its own [rewrite hook](../vetted-ops/hooks/codex-expand-stable-path.py) is registered with (`--stable-path` in the Codex configuration, else the account's home) is let through |
+| `vetted-ops-spelling` | `uv run --project` / `uvx --from` (options on either side of `run`) launching `vetted-op`, `vetted-op-read`, `vetted-op-tracker` or `adversarial-review` from anything but the literal `~/.claude/magpie/<tool>` — an expanded home path, `$HOME/…`, or a checkout path, relative (`tools/vetted-ops`) or absolute inside the working tree; a quoted or escaped `~`; the right spelling behind `env` / `command` (the exclusion matches a line by its start); and `~/.claude/scripts/magpie-run-evals.sh` launched by any other path | AGENTS.md golden rule: the sandbox exclusions and permission rules name only the `~` spelling. Under Codex, a `vetted-op-read` launched from the exact root its own [rewrite hook](../vetted-ops/hooks/codex-expand-stable-path.py) is registered with (`--stable-path` in the Codex configuration, else the account's home) is let through |
 
 **Skill-owned** (each lives in its skill's `guards/` dir, discovered the same
 way — see [Contributing guards](#contributing-guards)):
@@ -131,6 +131,11 @@ way — see [Contributing guards](#contributing-guards)):
 
 A denied command is **not** posted/run; the model is shown the reason and the
 deterministic fix (e.g. "use a backtick `` `login` `` instead of `@login`").
+
+Every guard sees through the prefix wrappers that run their argument as the
+command: `env` (with `-i`, `-u NAME`, `-S "…"` and `NAME=value` assignments,
+which count as inline overrides) and `command` (`-p`). `env git commit …` is
+checked as `git commit …`; `command -v git` is a lookup and is left alone.
 
 ## Per-command overrides
 

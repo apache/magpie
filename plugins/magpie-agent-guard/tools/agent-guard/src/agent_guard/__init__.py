@@ -129,6 +129,9 @@ ATTRIBUTION_CONTRIBUTOR_CHOICE = "contributor-choice"  # project file only
 DEFAULT_ATTRIBUTION = "generated-by"
 
 
+_ASSIGNMENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=.*", re.DOTALL)
+
+
 class Segment:
     """One simple command from a (possibly compound) shell line.
 
@@ -137,24 +140,85 @@ class Segment:
     substring scans that survive heredocs, e.g. the Co-Authored-By trailer).
     """
 
-    def __init__(self, tokens: list[str], raw: str) -> None:
+    def __init__(self, tokens: list[str], raw: str, command: str = "") -> None:
         self.env: dict[str, str] = {}
-        i = 0
-        while i < len(tokens) and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=.*", tokens[i]):
-            name, _, value = tokens[i].partition("=")
-            self.env[name] = value
-            i += 1
-        argv = tokens[i:]
+        #: True when an `env` / `command` wrapper was looked through. Sandbox
+        #: exclusions match a command line by its start, so a wrapped excluded
+        #: command runs sandboxed even when the command itself is spelled right.
+        self.wrapped = False
+        argv = self._unwrap(self._take_assignments(tokens))
+        #: The command head as written (`~/.claude/scripts/x.sh`, `/usr/bin/git`),
+        #: for the rules that care how a command is spelled, not just its name.
+        self.head = argv[0] if argv else ""
         # Normalise the command head to its basename so a path-qualified
         # invocation (`/usr/bin/git`, `./git`) is guarded identically to the
         # bare name. Guard rules only inspect argv[0] as a command *name*; the
         # real execution path is untouched (exec_main hands the original argv
-        # to os.execvp). Prefix wrappers like `env git` / `command git` keep
-        # argv[0] == "env" and remain a separate, pre-existing gap.
+        # to os.execvp).
         if argv:
             argv[0] = os.path.basename(argv[0])
         self.argv: list[str] = argv
         self.raw = raw
+        #: The whole command line as written, before tokenising: the one place
+        #: quoting is still visible (a quoted `~` is not expanded by the shell).
+        self.command = command
+
+    def _take_assignments(self, tokens: list[str]) -> list[str]:
+        """Strip leading ``NAME=value`` assignments into ``env``."""
+        i = 0
+        while i < len(tokens) and _ASSIGNMENT_RE.fullmatch(tokens[i]):
+            name, _, value = tokens[i].partition("=")
+            self.env[name] = value
+            i += 1
+        return tokens[i:]
+
+    def _unwrap(self, argv: list[str]) -> list[str]:
+        """Look through prefix wrappers that run their argument as the command:
+        ``env [-i] [-u NAME] [NAME=value…] cmd …`` (its assignments join
+        ``env``, so an inline override still counts) and ``command [-p] cmd …``.
+        Without this, ``env git commit …`` reached no guard at all."""
+        for _ in range(8):  # nested wrappers (`env command git …`), bounded
+            if not argv:
+                return argv
+            head = os.path.basename(argv[0])
+            if head in ("env", "command") and not (head == "command" and argv[1:2] in (["-v"], ["-V"])):
+                self.wrapped = True
+            if head == "env":
+                i = 1
+                while i < len(argv):
+                    tok = argv[i]
+                    if tok in ("-u", "--unset", "-C", "--chdir"):
+                        i += 2
+                    elif tok in ("-S", "--split-string") and i + 1 < len(argv):
+                        # `env -S "git commit …"`: the string is the command.
+                        argv = [*shlex.split(argv[i + 1]), *argv[i + 2 :]]
+                        i = 0
+                        break
+                    elif tok.startswith("--split-string=") or (tok.startswith("-S") and len(tok) > 2):
+                        packed = tok.split("=", 1)[1] if tok.startswith("--") else tok[2:]
+                        argv = [*shlex.split(packed), *argv[i + 1 :]]
+                        i = 0
+                        break
+                    elif tok == "--":
+                        i += 1
+                        break
+                    elif tok.startswith("-"):
+                        i += 1
+                    else:
+                        break
+                else:
+                    return []
+                argv = self._take_assignments(argv[i:])
+            elif head == "command":
+                rest = argv[1:]
+                if rest[:1] and rest[0] in ("-v", "-V"):
+                    return argv  # a lookup, not an execution
+                while rest[:1] and rest[0] in ("-p", "--"):
+                    rest = rest[1:]
+                argv = rest
+            else:
+                return argv
+        return argv
 
     def override(self, *names: str) -> bool:
         """True if any of ``names`` (or the global off switch) is set truthy,
@@ -184,12 +248,12 @@ def split_segments(command: str) -> list[Segment]:
     for tok in tokens:
         if tok in SHELL_OPERATORS:
             if current:
-                segments.append(Segment(current, shlex.join(current)))
+                segments.append(Segment(current, shlex.join(current), command))
                 current = []
         else:
             current.append(tok)
     if current:
-        segments.append(Segment(current, shlex.join(current)))
+        segments.append(Segment(current, shlex.join(current), command))
     return segments
 
 
@@ -1090,6 +1154,42 @@ def _toml_commands(node: object) -> list[str]:
     return found
 
 
+#: User-scope scripts the sandbox exclusion names by their literal `~` path
+#: (docs/setup/secure-agent-setup.md): basename -> the one spelling that matches.
+EXCLUDED_SCRIPTS = {
+    "magpie-run-evals.sh": "~/.claude/scripts/magpie-run-evals.sh",
+}
+
+
+def guard_excluded_script_spelling(seg: Segment) -> str | None:
+    """Refuse a sandbox-excluded user-scope script launched by any other spelling.
+
+    The exclusion matches only ``~/.claude/scripts/<name>``: an expanded home
+    path (``/Users/<you>/…``), ``$HOME/…``, a quoted ``~`` or a repository copy
+    runs *inside* the sandbox, where the script cannot reach what it was
+    excluded for (the eval wrapper: the model API), so every case errors
+    without being graded.
+    """
+    stable = EXCLUDED_SCRIPTS.get(seg.argv[0])
+    if stable is None:
+        return None
+    quoted = re.search(r"""(?:^|[\s;&|(])(?:["']|\\)~/\.claude/scripts/""", seg.command)
+    if seg.head == stable and not quoted and not seg.wrapped:
+        return None
+    if seg.override("MAGPIE_ALLOW_SCRIPT_PATH"):
+        return None
+    shown = f"{'env/command … ' if seg.wrapped else ''}{seg.head}"
+    return (
+        f"agent-guard[vetted-ops-spelling]: run `{stable} …` exactly so, as the whole command "
+        f"with a bare `~`, not `{shown}`. The sandbox exclusion names only that spelling; any "
+        "other runs the script inside the sandbox, where it fails. Override: MAGPIE_ALLOW_SCRIPT_PATH=1."
+    )
+
+
+#: `--project "~/…"`, `--from='~/…'`, `--project \~/…`: a `~` the shell leaves alone.
+_QUOTED_TILDE_RE = re.compile(r"""(?:--project|--from)(?:=|\s+)(?:["']|\\)~""")
+
+
 def guard_vetted_ops_spelling(seg: Segment, cwd: str | None = None, harness: str | None = None) -> str | None:
     launch = _vetted_launch(seg.argv)
     if launch is None:
@@ -1098,6 +1198,27 @@ def guard_vetted_ops_spelling(seg: Segment, cwd: str | None = None, harness: str
     tool = VETTED_ENTRY_POINTS[entry]
     stable = VETTED_STABLE_BASE + tool
     base = base.rstrip("/")
+    if base.startswith("~") and _QUOTED_TILDE_RE.search(seg.command):
+        # Tokenising drops the quotes, but the shell does not expand a quoted
+        # or escaped `~`: uv would get a directory literally named `~`, and the
+        # exclusion (which names the bare spelling) would not match either.
+        if seg.override("MAGPIE_ALLOW_VETTED_PATH"):
+            return None
+        return (
+            f"agent-guard[vetted-ops-spelling]: the `~` in `{option} {base}` is quoted or escaped, "
+            "so the shell will not expand it and the sandbox exclusion will not match. "
+            f"Write it bare: `{seg.argv[0]} {'run ' if seg.argv[0] == 'uv' else ''}{option} {stable} {entry} …`."
+        )
+    if base == stable and seg.wrapped:
+        # Right spelling, but behind `env` / `command`: the exclusion matches a
+        # command line by its start, so this would run inside the sandbox.
+        if seg.override("MAGPIE_ALLOW_VETTED_PATH"):
+            return None
+        return (
+            f"agent-guard[vetted-ops-spelling]: run `{seg.argv[0]} {'run ' if seg.argv[0] == 'uv' else ''}"
+            f"{option} {stable} {entry} …` as the whole command, not behind `env` / `command`: "
+            "the sandbox exclusion matches only a command line that starts with it."
+        )
     if base == stable:
         return None
     if harness == "codex" and entry == "vetted-op-read" and base in _codex_stable_roots():
@@ -1506,6 +1627,11 @@ def dispatch(command: str, cwd: str | None = None, harness: str | None = None) -
             # Checked here rather than as a guarded head: a vetted launch is the
             # only `uv` rule, and contributed guards stay on `gh` / `git`.
             reason = guard_vetted_ops_spelling(seg, cwd, harness)
+            if reason:
+                return reason
+            continue
+        if seg.argv and seg.argv[0] in EXCLUDED_SCRIPTS:
+            reason = guard_excluded_script_spelling(seg)
             if reason:
                 return reason
             continue

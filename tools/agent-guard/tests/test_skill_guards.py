@@ -544,3 +544,21 @@ def test_security_language_in_comment_allowed():
 def test_security_override():
     cmd = 'MAGPIE_ALLOW_SECURITY_LANG=1 gh pr create --title "Fix CVE-2026-1234" --body "x"'
     assert dispatch(cmd) is None
+
+
+@pytest.mark.parametrize(
+    "prefix", ["env ", "env -i ", "env FOO=1 ", "command ", "env command ", "env -S 'gh"]
+)
+def test_prefix_wrappers_reach_the_mention_guard(monkeypatch, prefix):
+    monkeypatch.setattr(agent_guard, "_run", fake_run(gh_stub(author="alice")))
+    if prefix.endswith("'gh"):
+        command = f"""{prefix} pr comment 5 --body @bob'"""
+    else:
+        command = f'{prefix}gh pr comment 5 --body "@bob please review"'
+    reason = dispatch(command)
+    assert reason and "bob" in reason and "mention" in reason
+
+
+def test_an_override_on_env_still_counts(monkeypatch):
+    monkeypatch.setattr(agent_guard, "_run", fake_run(gh_stub(author="alice")))
+    assert dispatch('env MAGPIE_ALLOW_MENTIONS=1 gh pr comment 5 --body "@bob ping"') is None
