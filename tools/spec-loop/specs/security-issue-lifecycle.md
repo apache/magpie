@@ -143,24 +143,33 @@ publication, with a human gate and an audit-log entry at every step.
   findings-file section) into the body as one fenced block with info
   string `text`, its fence one backtick longer than the longest backtick
   run in the text. Nothing in it renders — no image, HTML, heading, link
-  or mention — and its content is byte-exact except two escapes for
-  readers that ignore fences: a line that would name a template field as
-  a `###` heading, and a line starting with `<!--` (a machine marker),
-  each get a leading `\` and are listed in `escaped_lines`. Short fields
+  or mention — and its content is byte-exact except two escapes: a line
+  that would end a field (`###` then a space, a tab or nothing, at column
+  0 or behind `>`, list markers or indent, whatever the name), and a line
+  starting with `<!--` (a machine marker), each get a leading `\` and are
+  listed in `escaped_lines`. Short fields
   stay one-line escaped values. The rendered body must pass
   github-body-field's normaliser (exactly the template fields once each,
   nothing to decide) or the render is refused. Reporter formatting
   therefore shows as plain text.
-- **Field reads and writes fail closed (#1672).** Every body-field reader
-  in the tree — github-body-field and its vetted-ops copy,
-  generate-cve-json, the local-files tracker, the Jira bridge's Markdown
-  path — pairs code fences the CommonMark way. A field heading is
-  `### <name>` at column 0, or a spacing variant after a blank line or a
-  heading; any other heading-shaped line naming a known field is a
-  `container-heading` decision, never taken and never ignored.
-  `extract_field` / `body-field-get` refuse an ambiguous field and
-  `replace_field` / `body-field-set` refuse a rewrite whose span holds a
-  heading-shaped line or that would change another field.
+- **Field reads and writes fail closed (#1672).** github-body-field is the
+  one implementation of the body-field contract, for reading and writing;
+  generate-cve-json and vetted-ops (a byte-identical copy) read through
+  it. Every `###` line at column 0 (then a space, a tab or nothing) ends a
+  field, code block or not, so no fence or macro can merge two fields;
+  closed code blocks (CommonMark fence pairs, Jira `{code}` /
+  `{noformat}` blocks) only choose which `### <name>` is the field — the
+  first outside every closed block, else the first — and a block left
+  open marks nothing. Two copies outside closed blocks with different
+  values are a `duplicate` decision; a heading-shaped line that ends no
+  field but names a known field is a `container-heading` decision, never
+  taken and never ignored. `extract_field` / `body-field-get` refuse an
+  ambiguous field and `replace_field` / `body-field-set` refuse a value
+  holding a line that would end the field, a span holding a
+  heading-shaped line, and a rewrite that would change another field. The
+  local-files tracker and the Jira bridge pair fences the same way
+  (local-files through a byte-identical copy of the parser) for their own
+  section formats.
 - **CVE fields come from the team or a confirmed proposal (#1672).** When
   `generate-cve-json --report-json` lists missing or ambiguous fields,
   sync, cve-allocate and deduplicate follow

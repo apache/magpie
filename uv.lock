@@ -1001,12 +1001,6 @@ dev = [{ name = "magpie-dev", editable = "tools/dev" }]
 name = "magpie-local-tracker"
 version = "0.1.0"
 source = { editable = "tools/local-tracker" }
-dependencies = [
-    { name = "github-body-field" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "github-body-field", editable = "tools/github-body-field" }]
 
 [[package]]
 name = "magpie-maildir"

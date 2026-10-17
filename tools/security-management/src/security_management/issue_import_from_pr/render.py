@@ -83,7 +83,7 @@ def render_body(data: Mapping[str, Any]) -> dict[str, Any]:
     pr = data["pr"]
     number = int(pr["number"])
     url = f"https://github.com/{upstream}/pull/{number}"
-    cleaned = body.inert_block(str(pr.get("body") or ""), body.headings(data.get("body_fields")).values())
+    cleaned = body.inert_block(str(pr.get("body") or ""))
     if not cleaned["ok"]:
         return {
             "ok": False,

@@ -20,7 +20,7 @@ when_to_use: |
 capability: capability:intake
 surface_hash: sha256:43894008501eb56d
 license: Apache-2.0
-measured_tokens: 5724
+measured_tokens: 5996
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):

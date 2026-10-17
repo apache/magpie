@@ -83,7 +83,8 @@ The uv CLI remains for use outside the sandbox.
 
 Print the field's value to stdout (with a trailing newline added if
 the value did not already end with one — convenient for shell
-pipelines). Exit 3 if the field is absent or appears more than once.
+pipelines). Exit 3 if the field is absent or appears more than once
+outside closed code blocks.
 
 ### `set <issue> --field "<name>" --value "<v>" | --value-file <path>`
 
@@ -91,7 +92,8 @@ Replace the field's value in place. Either `--value` (single argv
 string) or `--value-file` (any path; `-` reads stdin) must be
 given. The replacement preserves the original heading line
 byte-exact and re-uses the spacer-blank-line convention the original
-section had.
+section had. A value holding a line that would end the field
+(`###` at column 0, then a space, a tab or nothing — fenced or not) is refused (exit 2).
 
 `--dry-run` prints the diff summary to stderr but skips the push.
 
@@ -116,33 +118,34 @@ The JSON on stdout carries `changes` (`{line, kind}` per rewrite, input line num
 - `--output <path>`: write the normalised body to a local file, for a confirmed whole-body rewrite (`gh issue edit <N> --body-file <path>`).
 
 What it rewrites: `\r\n` and `\r` to `\n` (`line_endings`);
-a level-3 heading to `### Name` (`heading`, `heading_name`);
-(lines inside a fence are never rewritten, so fenced payloads round-trip byte-exact);
-a fence left open at the end to a closed one (`unclosed_fence`);
-a repeated field whose copies hold the same value to its first copy (`duplicate_dropped`, or `duplicate_resolved` with `--keep`).
+a fence left open to one closed in the field it opens in (`unclosed_fence`), unless the closer would move a field heading into or out of a closed block;
+a field heading outside closed code blocks to `### Name` (`heading`, `heading_name`)
+(lines inside a closed block are never rewritten, so fenced payloads round-trip byte-exact);
+a repeated field whose copies outside closed blocks hold the same value to its first copy (`duplicate_dropped`, or `duplicate_resolved` with `--keep`).
 Copies with different values stay as they are and land in `needs_decision`.
-A heading-shaped line that is not a field heading is never rewritten;
-when it names a known field (after stripping `>` and list markers), `{field, kind: "container-heading", lines}` lands in `needs_decision`, never taken as the field and never ignored.
-After normalising, a strict reader (column-0 headings under the same spacing rules, fences opened only at column 0) cross-checks the result,
-a heading-shaped line naming a known field where the two fence views disagree is a decision too,
-and a field heading the two disagree on lands there too, instead of either reading winning.
+A heading-shaped line that ends no field (behind `>` or a list marker, or indented) is never rewritten;
+when it names a known field and sits outside a fence for a CommonMark reader or a column-0-only one, `{field, kind: "container-heading", lines}` lands in `needs_decision`, never taken as the field and never ignored.
 The same function is importable as `github_body_field.normalise(body, known_fields, keep)`; `generate-cve-json` calls it in memory before every read.
 
 ## Body format assumptions
 
-The parser follows CommonMark where it matters for finding fields:
+This parser is the one implementation of the body-field contract ([`tools/github/issue-template.md`](../github/issue-template.md)):
+every reader and writer of a field, `generate-cve-json` and `vetted-ops` (a byte-identical copy) included, goes through it.
 
 - lines end at `\n`, `\r\n` or `\r` — not at the other characters `str.splitlines` breaks on;
-- a field heading is a level-3 ATX heading outside any fence: up to three spaces of indent, `###`, spaces or tabs, the name, an optional closing run of `#`;
-  level-2 and level-4 headings are content;
-- lists and block quotes are deliberately not modelled, so the rule fails closed:
-  a field heading is a `### <name>` line at column 0, or a lenient one (extra spaces or tabs after `###`, closing `#`s) at column 0 after a blank line or a field heading,
-  or an indented one only right after a field heading or as the first line;
-  any other heading-shaped line (behind `>` or a list marker, indented, under paragraph text) is never a field;
-- fenced code blocks pair the CommonMark way: the closer uses the opener's character (`` ` `` or `~`), is at least as long, and has nothing but whitespace after the run;
-  an unclosed fence runs to the end of the body.
-  So a four-backtick block holding a three-backtick line keeps its content,
-  and a literal `### foo` inside a shell snippet never false-matches as a heading;
+- **every line that starts, at column 0, with `###` followed by a space, a tab or the end of the line ends the current field, code block or not.**
+  So no fence, Jira macro or duplicate heading left in one field's text can make it absorb the next field:
+  a value is always exactly one section of that split.
+  The heading's name drops surrounding spaces and tabs and a closing run of `#`; names compare case-sensitively;
+- **closed code blocks only choose which heading starts a field**: among the `### <name>` lines, the first one outside every closed block, else the first.
+  A closed block is a CommonMark fence pair (the closer uses the opener's character, is at least as long, and has nothing but spaces or tabs after the run;
+  a backtick opener whose info string holds a backtick is not a fence),
+  or a Jira `{code}` / `{code:…}` / `{noformat}` block opened on a line starting with the macro and closed on the bare macro.
+  A block left open at the end marks nothing.
+  So a PoC quoting `### CVE tool link` inside a fence is not taken for the field when the real heading is outside one,
+  and two copies outside closed blocks are a duplicate;
+- a heading-shaped line that ends no field (indented, or behind `>` or a list marker) is content;
+  a renderer may still show it as a heading, so one naming the requested field makes `get` and `set` refuse (exit 2) instead of guessing;
 - preserves the original body byte-exact when no change is needed
   (idempotent rewrite — a `set` of the same value triggers no
   API write).
@@ -158,6 +161,6 @@ path; this tool intentionally does not invent headings.
 | Exit | Meaning |
 |---|---|
 | 0 | Success (or `set` was a no-op because new value matched current). |
-| 2 | CLI argument error (e.g. both `--value` and `--value-file` given), or `get` / `set` refused an ambiguous field (`AmbiguousFieldError`): the strict cross-check finds a different field set, or a heading naming the field sits behind `>`, a list marker or an indent. Every read and write runs this check itself; `set` also refuses when the replaced value, old or new, holds a heading-shaped line outside fences, or when the rewrite would change any other field. The body is untouched. |
-| 3 | Field heading not found, or matched more than once (`DuplicateFieldError`, a `FieldNotFoundError`). The body is untouched. |
+| 2 | CLI argument error (e.g. both `--value` and `--value-file` given), or `get` / `set` refused an ambiguous field (`AmbiguousFieldError`): a heading naming the field sits behind `>`, a list marker or an indent. Every read and write runs this check itself; `set` also refuses a new value holding a line that would end the field, a replaced value (old or new) holding a heading-shaped line outside fences, and a rewrite that would change any other field or move its heading into or out of a closed block. The body is untouched. |
+| 3 | Field heading not found, or matched more than once outside closed code blocks (`DuplicateFieldError`, a `FieldNotFoundError`). The body is untouched. |
 | other | `gh` returned non-zero; the underlying `gh` stderr is forwarded. |

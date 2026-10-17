@@ -31,9 +31,10 @@ block** (`inert_block`), not as markdown:
 - **Byte-exact content.** Inside a fenced block nothing renders: no image
   loads, no HTML block or comment opens, no heading becomes a section, no
   link or mention resolves, and the reporter's formatting shows as plain
-  text. The one exception is defence in depth for readers that ignore
-  fences: a line that would name a template field as a `###` heading gets
-  a leading `\\` (`escaped_lines` lists them).
+  text. The one exception is the body-field contract: every `###` line at
+  column 0 ends a field, fence or not, so every line that would (and, as
+  defence in depth, every such line behind `>`, list markers or indent)
+  gets a leading `\\` (`escaped_lines` lists them).
 
 Short fields (a credit, a version string) are reporter-derived too, but one
 line each: `short_field` demotes headings, defuses images and HTML and
@@ -51,10 +52,10 @@ never decides whether a body is an injection attempt.
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable, Mapping
+from collections.abc import Mapping
 from typing import Any
 
-from github_body_field.parser import fold_name, list_fields, loose_heading_name
+from github_body_field.parser import list_fields, loose_heading_name
 from github_body_field.parser import normalise as normalise_fields
 
 # Role -> default `###` heading, in body order. The headings are the ones the
@@ -128,18 +129,19 @@ def fence_for(text: str) -> str:
     return "`" * max(3, longest + 1)
 
 
-def inert_block(text: str, known_fields: Iterable[str] | None = None) -> dict[str, Any]:
+def inert_block(text: str) -> dict[str, Any]:
     """`{ok, indicator, text, escaped_lines}`: `text` as an inert ```` ```text ```` block, or `ok: False` and why.
 
     The content is byte-exact after line-ending normalisation, with one
-    exception, as defence in depth for readers that ignore fences: a line
-    that would be a heading naming one of `known_fields` if the fence were
-    ignored (after leading whitespace, `>` and list markers: `###`, a space
-    or tab, the name) gets a leading `\\`, and so does a line starting, after
-    whitespace, with `<!--`: machine markers (the CVE-JSON attachment, the
-    rollup) never travel in report text. `escaped_lines` lists them,
-    1-based within `text`. An empty or blank `text` gives an empty result.
-    A caller must not render the text of an `ok: False` result.
+    exception. Under the body-field contract every `###` line at column 0
+    ends a field, fence or not, so a line that would (`###`, then a space, a
+    tab or nothing) gets a leading `\\`, whatever its name; so does such a
+    line behind leading whitespace, `>` or list markers, for readers that
+    ignore fences, and a line starting, after whitespace, with `<!--`:
+    machine markers (the CVE-JSON attachment, the rollup) never travel in
+    report text. `escaped_lines` lists them, 1-based within `text`. An empty
+    or blank `text` gives an empty result. A caller must not render the text
+    of an `ok: False` result.
     """
     try:
         content = normalise(text)
@@ -147,16 +149,13 @@ def inert_block(text: str, known_fields: Iterable[str] | None = None) -> dict[st
         return {"ok": False, "indicator": "line break", "text": text, "escaped_lines": []}
     if not content.strip():
         return {"ok": True, "indicator": None, "text": "", "escaped_lines": []}
-    known = {
-        fold_name(name) for name in (DEFAULT_HEADINGS.values() if known_fields is None else known_fields)
-    }
     lines = content.split("\n")
     escaped: list[int] = []
     for index, line in enumerate(lines):
-        name = loose_heading_name(line)
-        # A machine marker (`<!-- generate-cve-json: … -->`, a rollup or ledger
-        # marker) is never carried in report text, even inside the block.
-        if (name and fold_name(name) in known) or line.lstrip(" \t").startswith("<!--"):
+        # A field boundary (or one behind container markers), or a machine
+        # marker (`<!-- generate-cve-json: … -->`, a rollup or ledger marker),
+        # is never carried in report text, even inside the block.
+        if loose_heading_name(line) is not None or line.lstrip(" \t").startswith("<!--"):
             lines[index] = "\\" + line
             escaped.append(index + 1)
     content = "\n".join(lines)

@@ -22,7 +22,7 @@ import re
 from pathlib import Path
 
 import pytest
-from github_body_field.parser import fence_roles, fold_name, loose_heading_name
+from github_body_field.parser import fence_roles, loose_heading_name
 from github_body_field.parser import normalise as normalise_fields
 
 from security_management.shared import body, reuse
@@ -148,16 +148,16 @@ def test_the_report_renders_as_one_inert_block(report: str) -> None:
     block = body.inert_block(report)
     assert block["ok"]
     fence = body.fence_for(report)
-    known = {fold_name(n) for n in body.DEFAULT_HEADINGS.values()}
     lines = report.rstrip("\n").split("\n")
+    # Every line that would end a field (and every such line behind markers),
+    # whatever its name, and every machine-marker line.
     expected_escapes = [
         n
         for n, line in enumerate(lines, 1)
-        if ((name := loose_heading_name(line)) and fold_name(name) in known)
-        or line.lstrip(" \t").startswith("<!--")
+        if loose_heading_name(line) is not None or line.lstrip(" \t").startswith("<!--")
     ]
     assert block["escaped_lines"] == expected_escapes
-    # Byte-exact except the escaped known-field heading lines, which gain a leading backslash.
+    # Byte-exact except the escaped lines, which gain a leading backslash.
     content = [("\\" + line if n in expected_escapes else line) for n, line in enumerate(lines, 1)]
     assert block["text"] == f"{fence}text\n" + "\n".join(content) + f"\n{fence}"
     text = body.render({"issue_description": block["text"], "severity": "Low"})
@@ -205,7 +205,19 @@ def test_pii_redaction_tokens_pass_through_unchanged() -> None:
 
 
 def test_crlf_and_lone_cr_become_lf() -> None:
-    assert body.inert_block("a\r\n### b\rc")["text"] == "```text\na\n### b\nc\n```"
+    assert body.inert_block("a\r\n### b\rc")["text"] == "```text\na\n\\### b\nc\n```"
+
+
+@pytest.mark.parametrize("line", ["### Steps to reproduce", "###", "###\tanything", "> - ### Notes"])
+def test_every_line_that_would_end_a_field_is_escaped(line: str) -> None:
+    # The body-field contract: any `###` line at column 0 ends a field, inside the
+    # block or not, so none may reach the body unescaped, known name or not.
+    block = body.inert_block(f"intro\n{line}\nrest")
+    assert block["escaped_lines"] == [2]
+    assert f"\n\\{line}\n" in block["text"]
+    text = body.render({"issue_description": block["text"]})
+    assert reuse.fields(text) == list(body.DEFAULT_HEADINGS.values())
+    assert body.verify(text) is None
 
 
 @pytest.mark.parametrize("char", ["\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u2029"])

@@ -25,7 +25,7 @@ argument-hint: "[kept-issue] [duplicate-issue]"
 capability: capability:resolve
 surface_hash: sha256:3c9f502b802d2037
 license: Apache-2.0
-measured_tokens: 6040
+measured_tokens: 6312
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):

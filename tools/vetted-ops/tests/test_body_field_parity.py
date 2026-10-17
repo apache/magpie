@@ -59,6 +59,10 @@ FIXTURES = [
     "### A\n\n" + "- 1. " * 10_000 + "### Severity\n",
     "### Severity\n\nLow\n\n- item\n   ```\n\n###  Severity\n\nHigh\n",
     "### A" + " " * 20_000 + "x\n",
+    "### A\n\n{code:java}\n### Severity\n{code}\n\n### Severity\n\nLow\n",
+    "### A\n\n```\n### Severity\n```\n\n### Severity\n\nLow\n\n### Severity\n\nHigh\n",
+    "### A\n\n{noformat}\n### Severity\n\nHigh\n",
+    "### A\n\n```\n\n### B\n\nx\n\n```\n\n### C\n",
 ]
 
 
