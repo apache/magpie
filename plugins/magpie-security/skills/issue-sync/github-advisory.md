@@ -108,13 +108,13 @@ for ASF projects, the foundation security team, via the [`tools/gmail/asf-relay.
 
 ### Delivery — an email relay (draft, never auto-sent)
 
-Create a **draft** email to the org's advisory-admin security team (`<foundation-security-list>`) with `oauth-draft-create` —
-never send directly (SKILL Golden rule 1), and never use the Gmail MCP, which mangles the `security/advisories/GHSA-…` URLs into redirects.
+Create a **draft** email to the org's advisory-admin security team (`<foundation-security-list>`) with `mcp__gmail-plaintext__create_draft` —
+never send directly (SKILL Golden rule 1), and never use the claude.ai Gmail MCP, which mangles the `security/advisories/GHSA-…` URLs into redirects.
 **Include the resolved `security_cc`** per the shared
 [security draft CC resolution](../../../../tools/mail-source/contract.md#security-draft-cc-resolution);
 block the draft if no address resolves.
-Reply on the originating `<security-list>` thread when the report was relayed there (`--thread-id <id>`);
-otherwise it is a **new** message (omit `--thread-id`) with a self-describing subject.
+Reply on the originating `<security-list>` thread when the report was relayed there (`thread_id=<id>`);
+otherwise it is a **new** message (omit `thread_id`) with a self-describing subject.
 When the drafting backend resolves to `maildir`, file it with `maildir-draft-create` per
 [*The Maildir backend*](../../../../tools/gmail/draft-backends.md#the-maildir-backend) instead:
 `--in-reply-to` the originating thread's `Message-ID` for a reply, neither threading flag for a new message.

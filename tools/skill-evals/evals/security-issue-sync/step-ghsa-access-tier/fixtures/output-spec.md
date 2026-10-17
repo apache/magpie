@@ -12,7 +12,7 @@ Decide how the sync handles that change and return ONLY valid JSON with these fi
   "access_tier": "admin" | "collaborator" | "not-collaborator",
   "action": "direct-write" | "relay-draft" | "browser-paste",
   "channel": "advisory-api" | "email-draft" | "advisory-web-ui",
-  "mail_tool": "oauth-draft-create" | "gmail-mcp" | null,
+  "mail_tool": "gmail-plaintext-mcp" | "gmail-mcp" | null,
   "recipient": "<foundation-security-list>" | null,
   "auto_send": true | false,
   "reply_on_security_thread": true | false | null,
@@ -35,7 +35,7 @@ Field rules:
   `browser-paste`: the sync opens the advisory in the browser and prints text for the operator to paste.
 - `channel` — where the change is delivered: `advisory-api`, `email-draft`, or `advisory-web-ui`.
 - `mail_tool`, `recipient`, `reply_on_security_thread` — set these only for an **admin hand-off** relay draft, as its Delivery rules decide:
-  the tool that creates the draft, the placeholder for its addressee, and whether it replies on an existing `<security-list>` thread (`true`) or is a new message (`false`).
+  the tool that creates the draft (`gmail-plaintext-mcp` is `mcp__gmail-plaintext__create_draft`, `gmail-mcp` is the claude.ai Gmail connector), the placeholder for its addressee, and whether it replies on an existing `<security-list>` thread (`true`) or is a new message (`false`).
   Set all three to `null` for every other action, including a reporter-reply relay fallback, whose delivery details live in the relay tool's own doc rather than in the rules above.
 - `auto_send` — `true` only if the sync itself sends the email (rather than leaving a draft for the operator).
 - `retry_after_403` — `true` if the sync retries an API call that returned `403`; `false` otherwise (including when no `403` occurred).

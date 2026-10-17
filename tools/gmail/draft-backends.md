@@ -132,21 +132,31 @@ section. On `gmail`, pick the Gmail backend as below — which should be
 
 **Preferred — `oauth_curl`.** Resolution:
 
-1. **Probe for `oauth_curl` credentials** in this order:
-   - `tools.gmail.oauth_credentials_path` from
-     `.apache-magpie-overrides/user.md` when set;
-   - the `$GMAIL_OAUTH_CREDENTIALS` environment variable;
-   - the default path `~/.config/apache-magpie/gmail-oauth.json`.
+The backend is reached through the `gmail-plaintext` MCP server
+(`oauth-draft-mcp`, see [`oauth-draft/README.md` → MCP server](oauth-draft/README.md#mcp-server)),
+never through a shell command. Claude Code starts the server outside
+the sandbox, so it can read the OAuth token and reach the Gmail API
+while sandboxed Bash can do neither.
 
-   The probe is a single `test -f <path>`.
-2. **Create the draft.** Invoke
-   `uv run --project <framework>/tools/gmail/oauth-draft oauth-draft-create`
-   with `--to`, `--cc`, `--subject`, `--body-file`, and either
-   `--thread-id <threadId>` (reply on an existing thread — the tracker
+1. **Probe for `oauth_curl` credentials** with
+   `mcp__gmail-plaintext__check_auth`, passing
+   `credentials_path=<tools.gmail.oauth_credentials_path>` when
+   `.apache-magpie-overrides/user.md` sets it (otherwise the server uses
+   `$GMAIL_OAUTH_CREDENTIALS`, then
+   `~/.config/apache-magpie/gmail-oauth.json`). `status: "ok"` means
+   the backend is usable; a tool error means it is not. Never probe the
+   path with a shell command: the sandbox denies it, so the probe would
+   always report the credentials missing. When the
+   `mcp__gmail-plaintext__*` tools are not registered at all, the
+   backend is unavailable; point the user at the
+   [MCP server setup](oauth-draft/README.md#mcp-server).
+2. **Create the draft** with `mcp__gmail-plaintext__create_draft`:
+   `to` and `cc` as lists, `subject`, the plain-text `body` inline, the
+   same `credentials_path` as the probe when set, and either
+   `thread_id=<threadId>` (reply on an existing thread — the tracker
    stores `threadId` per the *security-thread* body field convention)
-   or, for a brand-new message, `--no-reply-headers` with no
-   `--thread-id`. See [`oauth-draft/README.md`](oauth-draft/README.md)
-   for the full shape. URLs in the body are preserved verbatim.
+   or, for a brand-new message, no `thread_id`. URLs in the body are
+   preserved verbatim.
 
 **Last-resort fallback — `claude_ai_mcp`, only when `oauth_curl`
 credentials are unavailable.** Subject to the hard constraint in the
@@ -331,7 +341,8 @@ When a skill is about to draft a reply on a thread that **already
 has a pending draft on it from an earlier skill pass in the same
 session**, omit the thread-attachment parameter for the new draft —
 i.e. call `mcp__claude_ai_Gmail__create_draft` *without*
-`replyToMessageId` (or `oauth-draft-create` *without* `--thread-id`).
+`replyToMessageId` (or `mcp__gmail-plaintext__create_draft` *without*
+`thread_id`).
 The trade-off:
 
 - **Visibility wins:** the new draft is guaranteed to surface in the

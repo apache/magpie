@@ -153,7 +153,8 @@ attach to the original inbound Gmail thread. On the default
 `claude_ai_mcp` backend, that means resolving the thread's latest
 message ID (via `get_thread`) and passing it to `create_draft` as
 `replyToMessageId`; on the opt-in `oauth_curl` backend it means
-passing the `threadId` to `oauth-draft-create --thread-id`. The
+passing the `threadId` as `thread_id` to
+`mcp__gmail-plaintext__create_draft`. The
 pragmatic fallback — when the inbound thread cannot be resolved —
 is to omit the thread-attachment parameter and create the draft
 with the matching `Re: <root subject>` line, which most clients

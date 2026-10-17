@@ -202,11 +202,11 @@ Use:
   The draft is **plain text**; the **preferred** backend is `oauth_curl`, which preserves URLs in the body verbatim:
 
   - **`oauth_curl`** (preferred — `tools.gmail.draft_backend: oauth_curl`, credentials at
-    `tools.gmail.oauth_credentials_path` / `$GMAIL_OAUTH_CREDENTIALS` / default `~/.config/apache-magpie/gmail-oauth.json`) — invoke
-    `uv run --project <framework>/tools/gmail/oauth-draft oauth-draft-create`
-    (see [`tools/gmail/oauth-draft/README.md`](../../../../tools/gmail/oauth-draft/README.md))
-    with `--thread-id` from Step 1c, the standard `--to` / `--cc`,
-    `--subject "Re: <root subject>"`, and a `--body-file`.
+    `tools.gmail.oauth_credentials_path` / `$GMAIL_OAUTH_CREDENTIALS` / default `~/.config/apache-magpie/gmail-oauth.json`) — call
+    `mcp__gmail-plaintext__create_draft`, never a shell command
+    (see [`draft-backends.md` § *How the skills pick a backend*](../../../../tools/gmail/draft-backends.md#how-the-skills-pick-a-backend))
+    with `thread_id` from Step 1c, the standard `to` / `cc` lists,
+    `subject="Re: <root subject>"`, and the plain-text `body`.
   - **`claude_ai_mcp`** (**discouraged** — it silently rewrites embedded URLs into Google tracking redirects, see
     [`draft-backends.md`](../../../../tools/gmail/draft-backends.md#privacy-warning--the-claudeai-gmail-mcp-rewrites-embedded-urls-into-google-tracking-redirects)) —
     only when `oauth_curl` credentials are missing **and** the body has no links;
