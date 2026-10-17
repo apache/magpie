@@ -30,3 +30,12 @@ uv run --project tools/skill-evals skill-eval \
 uv run --project tools/skill-evals skill-eval \
     tools/skill-evals/evals/issue-stale-sweep/step-3-classify/fixtures/case-1-request-update
 ```
+
+## Run history
+
+Live model runs over this whole eval directory, newest first.
+Columns and rules: [Recording runs](../../README.md#recording-runs).
+
+| Date | Ref | Model | Runs | Result | Notes |
+|---|---|---|---|---|---|
+| 2026-10-16 | `399ab1bc` | `claude-opus-5-5` | 10 | pass |  |
