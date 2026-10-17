@@ -1,7 +1,0 @@
-{
-  "replacements_made": [
-    {"bare_name": "Alice Smith", "handle": "@alice", "count": 1},
-    {"bare_name": "Bob Chen", "handle": "@bob", "count": 1}
-  ],
-  "injection_attempts_flagged": []
-}
