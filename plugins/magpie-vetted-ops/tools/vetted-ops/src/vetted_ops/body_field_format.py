@@ -37,7 +37,7 @@ The contract:
   spaces and tabs and a closing run of ``#`` dropped, compared
   case-sensitively; normalising against known field names also collapses
   inner whitespace;
-- **closed code blocks only choose which heading starts a field.** A closed
+- **a heading inside a closed code block never starts a field.** A closed
   block is a CommonMark fence pair (an opener of three or more backticks or
   tildes indented at most three spaces, closed only by a run of the *same*
   character, at least as long, followed by nothing but spaces or tabs; a
@@ -45,10 +45,17 @@ The contract:
   Jira ``{code}`` / ``{code:…}`` / ``{noformat}`` block that opens on a line
   starting with the macro and closes on the bare macro. A block left open
   at the end of the body marks nothing. Among the ``### <name>`` lines, the
-  field is the first one outside every closed block, else the first one: a
-  PoC quoting ``### CVE tool link`` inside a fence is not taken for the
-  field when the real heading is outside one. Two or more copies outside
-  closed blocks are a duplicate;
+  field is the one outside every closed block; a heading inside a closed
+  block never starts a field, so a field whose only copies are inside
+  closed blocks is absent: a PoC quoting ``### Severity`` inside a fence is
+  never taken for the field, whether or not the real heading exists. Two
+  or more copies outside closed blocks are a duplicate;
+- **a Jira macro a renderer may open mid-line is a decision.** Jira opens
+  ``{code}`` / ``{noformat}`` anywhere in a line; a line that leaves such a
+  macro open (outside closed blocks) and is followed, before the macro's
+  close, by a field boundary is reported as ``macro-ambiguous``, and the
+  fields it touches are refused, rather than either reading winning. A
+  macro opened and closed on the same line is text;
 - a heading-shaped line that does not end a field (indented, behind a
   block-quote or list marker) is content. A renderer may still show one as
   a heading, so :func:`normalise` reports one naming a known field as a
@@ -91,6 +98,8 @@ _FENCE = re.compile(r"^( {0,3})(`{3,}|~{3,})(.*)$")
 _BOUNDARY = re.compile(r"###(?:[ \t]|$)")
 # A Jira block opener: a line starting (after spaces or tabs) with `{code}`, `{code:…}` or `{noformat}`.
 _JIRA_OPEN = re.compile(r"[ \t]*\{(code|noformat)(?::[^}]*)?\}")
+# A Jira block macro anywhere in a line, as Jira's renderer sees one.
+_JIRA_MACRO = re.compile(r"\{(code|noformat)(?::[^}]*)?\}")
 
 
 def split_lines(body: str) -> list[str]:
@@ -195,6 +204,62 @@ def closed_block_lines(lines: Iterable[str]) -> list[bool]:
         if end is not None:
             inside[start : end + 1] = [True] * (end + 1 - start)
     return inside
+
+
+def _left_open(content: str) -> str | None:
+    """The Jira macro a renderer leaves open at the end of ``content``, pairing
+    ``{code}`` / ``{code:…}`` / ``{noformat}`` left to right; None when every
+    one it opens is closed on the line."""
+    open_macro: str | None = None
+    for match in _JIRA_MACRO.finditer(content):
+        if open_macro is None:
+            open_macro = match.group(1)
+        elif match.group(0) == "{" + open_macro + "}":
+            open_macro = None
+    return open_macro
+
+
+def macro_spans(lines: list[str]) -> list[tuple[int, list[int]]]:
+    """``(opener, boundaries)`` line indices for each Jira macro a renderer may
+    open where this parser does not, with the field boundaries it would hide.
+
+    A line outside closed blocks that leaves ``{code}`` / ``{noformat}`` open
+    (mid-line, or after other macros on its line) and a later line closing
+    it, with one or more field boundaries between: Jira shows those headings
+    as code, this parser as fields. Which reading is right depends on the
+    renderer, so it is a decision, never a guess.
+    """
+    inside = closed_block_lines(lines)
+    spans: list[tuple[int, list[int]]] = []
+    index = 0
+    while index < len(lines):
+        macro = None if inside[index] else _left_open(_content(lines[index]))
+        if macro is None:
+            index += 1
+            continue
+        closer = "{" + macro + "}"
+        end = next((j for j in range(index + 1, len(lines)) if closer in _content(lines[j])), None)
+        if end is None:
+            index += 1
+            continue
+        boundaries = [j for j in range(index + 1, end) if is_boundary(lines[j])]
+        if boundaries:
+            spans.append((index, boundaries))
+        index = end + 1
+    return spans
+
+
+def _macro_fields(lines: list[str]) -> set[str]:
+    """Names of every field a :func:`macro_spans` span touches: the field the
+    macro opens in and each field it would hide."""
+    names = boundary_names(lines)
+    touched: set[str] = set()
+    for opener, boundaries in macro_spans(lines):
+        enclosing = next((names[i] for i in range(opener, -1, -1) if names[i] is not None), None)
+        if enclosing is not None:
+            touched.add(enclosing)
+        touched.update(str(names[i]) for i in boundaries)
+    return touched
 
 
 def _strip_closing(text: str) -> str:
@@ -308,44 +373,33 @@ def parse(body: str) -> tuple[list[str], list[Section]]:
 def locate(sections: list[Section], field_name: str) -> int:
     """The index in ``sections`` of the field ``field_name``.
 
-    The first copy outside every closed code block, else the first copy.
-    Raises :class:`FieldNotFoundError` when there is none and
-    :class:`DuplicateFieldError` when two or more sit outside closed blocks.
+    The copy outside every closed code block: a heading inside one never
+    starts a field. Raises :class:`FieldNotFoundError` when there is none
+    (whatever copies closed blocks hold) and :class:`DuplicateFieldError`
+    when two or more sit outside closed blocks.
     """
-    copies = [i for i, s in enumerate(sections) if s.name == field_name]
-    if not copies:
+    outside = [i for i, s in enumerate(sections) if s.name == field_name and not s.in_block]
+    if not outside:
         raise FieldNotFoundError(f"field not found: {field_name!r}")
-    outside = [i for i in copies if not sections[i].in_block]
     if len(outside) > 1:
         raise DuplicateFieldError(f"field {field_name!r} appears {len(outside)} times; refusing to guess")
-    return outside[0] if outside else copies[0]
+    return outside[0]
 
 
 def field_sections(sections: list[Section]) -> list[int]:
     """Indices, in document order, of the sections a reader takes for fields.
 
-    Every section whose heading sits outside closed code blocks, and, for a
-    name with no such copy, its first copy (the one :func:`locate` falls
-    back to).
+    Every section whose heading sits outside closed code blocks: a heading
+    inside one never starts a field.
     """
-    outside = {s.name for s in sections if not s.in_block}
-    seen: set[str] = set()
-    chosen: list[int] = []
-    for index, section in enumerate(sections):
-        if not section.in_block:
-            chosen.append(index)
-        elif section.name not in outside and section.name not in seen:
-            seen.add(section.name)
-            chosen.append(index)
-    return chosen
+    return [index for index, section in enumerate(sections) if not section.in_block]
 
 
 def list_fields(body: str) -> list[str]:
     """Return the field names declared by the body, in document order.
 
-    A heading inside a closed code block is quoted text, not a declared
-    field (although :func:`extract_field` falls back to it when the field
-    has no other heading). Duplicate field names are returned as many times
+    A heading inside a closed code block is quoted text, never a field.
+    Duplicate field names are returned as many times
     as they appear so the caller can flag an ambiguous body (the rewrite
     refuses to touch duplicates — see :func:`replace_field`).
     """
@@ -470,7 +524,11 @@ def normalise(
       marker, or indented) is never rewritten; when it names a known field
       and sits outside a fence for either a CommonMark or a column-0-only
       reader, ``{"field", "kind": "container-heading", "lines"}`` goes to
-      ``needs_decision`` instead of any reading winning.
+      ``needs_decision`` instead of any reading winning;
+    - a Jira macro left open mid-line before field boundaries
+      (:func:`macro_spans`) gives ``{"field", "kind": "macro-ambiguous",
+      "lines"}``: the first hidden field, then the opener's line and each
+      hidden boundary's.
 
     Line numbers are the input body's. Normalising a normalised body
     changes nothing.
@@ -510,6 +568,15 @@ def normalise(
         {"field": name, "kind": "container-heading", "lines": sorted(set(line_nos))}
         for name, line_nos in _disputes(lines, origin, canonical).items()
     ]
+    names = boundary_names(lines)
+    needs_decision.extend(
+        {
+            "field": names[boundaries[0]],
+            "kind": "macro-ambiguous",
+            "lines": [origin[opener], *(origin[i] for i in boundaries)],
+        }
+        for opener, boundaries in macro_spans(lines)
+    )
     text = "".join(lines)
     preamble, sections = parse(text)
     copies_of: dict[str, list[Section]] = {}
@@ -597,8 +664,14 @@ def _refuse_ambiguous(body: str, field_name: str) -> None:
 
     Run by every read and write, so no caller can skip it: no heading-shaped
     line naming ``field_name`` may sit where a renderer may show it as a
-    heading although it ends no field.
+    heading although it ends no field, and no Jira macro a renderer may open
+    mid-line may hide the field or open inside it (:func:`macro_spans`).
     """
+    if field_name in _macro_fields(split_lines(body)):
+        raise AmbiguousFieldError(
+            f"field {field_name!r}: a Jira code or noformat macro opened mid-line would show "
+            "field headings as code to a Jira reader; refusing to guess"
+        )
     disputes = [d for d in normalise(body, [field_name]).needs_decision if d["kind"] == "container-heading"]
     if disputes:
         where = "; ".join(
@@ -751,7 +824,11 @@ def _refuse_unsafe_rewrite(
     # nested-heading check over it, with every field of the old body as a
     # known name.
     known = [s.name for s in before if s.name]
-    disputes = [d for d in normalise(new_body, known).needs_decision if d["kind"] == "container-heading"]
+    disputes = [
+        d
+        for d in normalise(new_body, known).needs_decision
+        if d["kind"] in ("container-heading", "macro-ambiguous")
+    ]
     if disputes:
         raise AmbiguousFieldError(
             f"field {field_name!r}: after the rewrite, markdown readers would disagree on the body's fields "

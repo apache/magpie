@@ -49,15 +49,14 @@ def test_headings_inside_code_blocks_are_ignored() -> None:
     assert markup.get_field(body, "PoC") == "{code:bash}\nh3. not a heading\n{code}"
     assert markup.get_field(body, "not a heading") is None
     fenced = "### PoC\n```\n### fake\n```\n### CWE\nx\n"
-    # Every `###` line ends a field, fence or not: with no other copy, the
-    # fenced heading is the field; a copy outside the closed fence wins.
-    assert markup.get_field(fenced, "fake") == "```"
+    assert markup.get_field(fenced, "fake") is None
     assert markup.get_field(fenced + "### fake\nreal\n", "fake") == "real"
     assert markup.get_field(fenced, "CWE") == "x"
 
 
 def test_shorter_fence_inside_longer_fence_does_not_close_it() -> None:
     body = "### PoC\n````\n```\n### Field\nh3. Other\n```\n````\n### CWE\nx\n"
+    assert markup.get_field(body, "Field") is None
     # The fenced `### Field` is passed over for the real one only inside a closed block.
     assert markup.get_field(body + "### Field\nreal\n", "Field") == "real"
     assert markup.get_field(body, "Other") is None
@@ -67,15 +66,18 @@ def test_shorter_fence_inside_longer_fence_does_not_close_it() -> None:
 
 def test_fence_closes_only_on_the_same_character() -> None:
     body = "### PoC\n~~~\n```\n### Field\n~~~\n### CWE\nx\n"
+    assert markup.get_field(body, "Field") is None
     assert markup.get_field(body + "### Field\nreal\n", "Field") == "real"
     assert markup.get_field(body, "CWE") == "x"
     backtick = "### PoC\n```\n~~~\n### Field\n```\n### CWE\nx\n"
+    assert markup.get_field(backtick, "Field") is None
     assert markup.get_field(backtick + "### Field\nreal\n", "Field") == "real"
     assert markup.get_field(backtick, "CWE") == "x"
 
 
 def test_fence_close_must_be_bare() -> None:
     body = "### PoC\n```\n``` not a close\n### Field\n```\n### CWE\nx\n"
+    assert markup.get_field(body, "Field") is None
     assert markup.get_field(body + "### Field\nreal\n", "Field") == "real"
     assert markup.get_field(body, "CWE") == "x"
 
@@ -164,9 +166,22 @@ def test_a_code_macro_quoting_a_field_before_the_real_one() -> None:
     assert markup.list_fields(wiki) == ["Details", "Severity"]
 
 
-def test_a_macro_opens_only_at_the_start_of_a_line() -> None:
+def test_a_macro_opened_mid_line_before_a_field_is_refused() -> None:
+    # The parser opens a block only on a macro at the start of a line; Jira's
+    # renderer opens one mid-line too, so the reading is a decision.
     body = "h3. Details\nsee {code} here\nh3. Severity\nLow\nend {code}\n"
-    assert markup.get_field(body, "Severity") == "Low\nend {code}"
+    for field in ("Details", "Severity"):
+        with pytest.raises(markup.AmbiguousFieldError):
+            markup.get_field(body, field)
+    inline = "h3. Details\nsee {code}x{code} here\nh3. Severity\nLow\nend {code}\n"
+    assert markup.get_field(inline, "Severity") == "Low\nend {code}"
+
+
+def test_quoted_field_lines_are_escaped_at_ingest() -> None:
+    body = "### Details\n{code}\n### Severity\nCritical\n{code}\n### CWE\nx\n"
+    escaped = markup.escape_quoted_fields(body)
+    assert escaped == body.replace("\n### Severity", "\n\\### Severity")
+    assert markup.list_fields(escaped) == ["Details", "CWE"]
 
 
 def test_an_unclosed_macro_hides_no_field() -> None:

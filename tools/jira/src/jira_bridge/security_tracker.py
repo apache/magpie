@@ -305,7 +305,7 @@ def op_create(client: JiraClient, cfg: Config, args: argparse.Namespace) -> Any:
     title = _title_arg(args)
     if title is None:
         raise UsageError("create needs --title or --title-file")
-    body = _read_text(args.body_file, "body")
+    body = markup.escape_quoted_fields(_read_text(args.body_file, "body"))
     fields: dict[str, Any] = {
         "project": {"key": cfg.project},
         "summary": title,
@@ -348,7 +348,7 @@ def op_edit(client: JiraClient, cfg: Config, args: argparse.Namespace) -> Any:
     if title is not None:
         fields["summary"] = title
     if args.body_file:
-        fields["description"] = _read_text(args.body_file, "body")
+        fields["description"] = markup.escape_quoted_fields(_read_text(args.body_file, "body"))
     removes = args.remove_assignee or []
     if not (fields or update or adds or removes):
         raise UsageError("edit: nothing to change")

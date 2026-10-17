@@ -79,7 +79,7 @@ by swapping the adapter, not the skill.
 - `tools/github/` — issues/PRs/labels read + write-back helpers.
   Sub-adapters: `tools/github-body-field/` (reads GitHub issue/PR body
   structured field sets on the body-field contract — every column-0
-  `###` line ends a field, closed code blocks only choose the heading —
+  `###` line ends a field, a heading in a closed code block is never one —
   for every reader and writer; `normalise`
   returns the canonical body, its changes and the duplicate /
   container-heading decisions it will not make, and reads and writes

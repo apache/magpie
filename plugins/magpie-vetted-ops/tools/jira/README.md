@@ -317,9 +317,9 @@ Under vetted-ops the URL, project and level are pinned by the policy's `[tracker
 | `doctor` | URL, project, confirmed token, configured level, `/myself`, project reachability, and whether the level exists (403/404 on the listing reports *unverified*). |
 
 **Storage.** Body fields are `h3. <Heading>` wiki-markup sections of the description (markdown `###` sections are read too), read and written through a byte-identical copy of [`github-body-field`](https://github.com/apache/magpie/blob/main/tools/github-body-field/README.md)'s parser (`body_field_format.py`, kept exact by a test), so they follow the [body-field contract](https://github.com/apache/magpie/blob/main/tools/github/issue-template.md):
-every column-0 `###` line ends a field, code block or not, and closed code blocks only choose which heading starts a field.
+every column-0 `###` line ends a field, code block or not, a heading inside a closed code block is never a field, and a `{code}` / `{noformat}` macro opened mid-line before field headings is refused as ambiguous.
 A wiki heading of level 1 to 3 outside closed blocks reads as `### <Heading>`; closed blocks are CommonMark fence pairs and `{code}` / `{code:…}` / `{noformat}` blocks opened at the start of a line and closed on the bare macro, and a block left open marks nothing.
-Names match with case and inner whitespace ignored; `field-get` and `field-set` exit `4` on a duplicate or disputed field, and `field-set` on a value that would add, hide or move a field heading.
+`create` and `edit` escape every `###` line inside a closed block with a leading `\`, so quoted text never becomes a field copy. Names match with case and inner whitespace ignored; `field-get` and `field-set` exit `4` on a duplicate or disputed field, and `field-set` on a value that would add, hide or move a field heading.
 The status rollup is one comment opening with the invisible anchor `{anchor:magpie-status-rollup-v1}`, entries `*YYYY-MM-DD · @user · Action*` separated by `----`, oldest first;
 `rollup-amend-latest` exits `4` when the latest action differs. Neither rollup command prints the rollup text.
 

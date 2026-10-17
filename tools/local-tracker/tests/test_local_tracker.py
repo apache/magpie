@@ -104,10 +104,10 @@ def test_field_set_replaces_and_appends() -> None:
 def test_headings_inside_code_fences_are_ignored() -> None:
     body = "### A\n\n```\n### B\n```\n\n### C\n\nc\n"
     # Every `###` line ends a field, fence or not, so the fenced `### B` ends
-    # field A; with no other copy it is field B, and a copy outside the closed
-    # fence wins over it.
+    # field A; a heading inside a closed block is never a field, so B is
+    # absent, and a copy outside the fence is the field.
     assert sections.get_field(body, "A") == "```"
-    assert sections.get_field(body, "B") == "```"
+    assert sections.get_field(body, "B") is None
     assert sections.get_field(body + "\n### B\n\nreal\n", "B") == "real"
     assert sections.get_field(body, "C") == "c"
 
@@ -1113,3 +1113,15 @@ def test_a_duplicate_field_is_refused_by_the_cli(
 def test_a_comment_cannot_carry_a_field_line() -> None:
     rendered = sections.render_comment(1, "@a", "2026-01-01T00:00:00Z", "```\n### Severity\n```", 3)
     assert "\n\\### Severity\n" in rendered
+
+
+def test_a_body_quoting_a_field_in_a_fence_never_gains_that_field() -> None:
+    body = "### Details\n\n```\n### Severity\nCritical\n```\n\n### CWE\n\nx\n"
+    clean = sections.neutralize(body, body=True)
+    assert "\n\\### Severity\n" in clean
+    assert sections.get_field(clean, "Severity") is None
+    assert sections.get_field(clean, "CWE") == "x"
+    # A fence left open is closed in the field it opens in, never past a heading.
+    opened = sections.neutralize("### A\n\n```\ncode\n\n### B\n\nb\n", body=True)
+    assert opened == "### A\n\n```\ncode\n```\n\n### B\n\nb\n"
+    assert sections.get_field(opened, "B") == "b"

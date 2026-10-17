@@ -5,7 +5,7 @@
 Body fields at the contract's level (``### <Field>``) are read and written
 through the body-field parser every tracker shares
 (tools/github/issue-template.md): every column-0 ``###`` line ends a field,
-code block or not, and closed code blocks only choose which heading starts
+code block or not, and a heading inside a closed code block never starts
 a field. The report's other structure (the managed ``## Comments`` and
 rollup sections, comment headings, a descriptor's non-``###`` field level)
 keeps the heading-level section split below.
@@ -72,6 +72,41 @@ def close_fences(text: str) -> str:
     return f"{text.rstrip(chr(10))}\n{marker}" if marker else text
 
 
+def close_fences_in_fields(text: str) -> str:
+    """``text`` with each fence it leaves open closed in the field it opens in.
+
+    The closer goes after the last non-blank line before the next field
+    boundary, so no field heading ever moves into a block (it would stop
+    being a field), as github-body-field's normaliser closes one.
+    """
+    lines = text.split("\n")
+    for _ in range(len(lines) + 1):
+        roles = fence_roles(lines)
+        if "open" not in roles or "close" in roles[len(roles) - roles[::-1].index("open") :]:
+            break
+        start = len(roles) - 1 - roles[::-1].index("open")
+        at = next((i for i in range(start + 1, len(lines)) if fields.is_boundary(lines[i])), len(lines))
+        while at > start + 1 and not lines[at - 1].strip():
+            at -= 1
+        lines.insert(at, open_fence(lines[: start + 1]))
+    return "\n".join(lines)
+
+
+def escape_quoted_fields(text: str) -> str:
+    """``text`` with a leading backslash on every field boundary inside a closed code block.
+
+    A ``###`` line at column 0 ends a field even inside a block, and a
+    heading inside a block is never a field: escaped, quoted text can never
+    become a copy of a field at all, as in the import's inert block.
+    """
+    lines = fields.split_lines(text)
+    inside = fields.closed_block_lines(lines)
+    return "".join(
+        "\\" + line if inside[index] and fields.is_boundary(line) else line
+        for index, line in enumerate(lines)
+    )
+
+
 def heading_lines(lines: list[str]) -> list[tuple[int, int, str]]:
     """(line index, level, text) for every heading outside code fences."""
     return _headings(lines)
@@ -129,11 +164,15 @@ def neutralize(text: str, managed_headings: tuple[str, ...] = (), *, body: bool 
     visible text and is never parsed as structure.
 
     With ``body``, ``text`` is a whole report whose ``### Field`` lines are its
-    fields: those stay, and only the managed headings and markers are escaped.
+    fields: those stay, but every one inside a closed code block is escaped
+    (:func:`escape_quoted_fields`), and a fence left open is closed in the
+    field it opens in, never past another field's heading.
     """
-    text = close_fences(_FORGEABLE.sub("&lt;", text))
-    if not body:
-        text = escape_field_lines(text)
+    text = _FORGEABLE.sub("&lt;", text)
+    if body:
+        text = close_fences_in_fields(escape_quoted_fields(text))
+    else:
+        text = escape_field_lines(close_fences(text))
     if not managed_headings:
         return text
     managed = {h.lower() for h in managed_headings}
@@ -159,24 +198,23 @@ def escape_headings(text: str, which: Callable[[int, str], bool] | None = None) 
 def _field_name(body: str, heading: str) -> str | None:
     """The exact name of the field ``heading`` names, matched with case and inner whitespace ignored.
 
-    The parser's choice made over every spelling of the name: the copy
-    outside closed blocks, else the first. Two copies outside closed blocks,
-    however spelled, are a duplicate. With no copy, the parser's own refusal
-    of a disputed name (a container heading naming it) still applies.
+    The parser's rule over every spelling of the name: the copy outside
+    closed blocks (a heading inside one never starts a field). The parser's
+    refusal of an ambiguous field comes first, for every spelling; then two
+    copies outside closed blocks, however spelled, are a duplicate.
     """
     wanted = fields.fold_name(heading)
-    copies = [s for s in fields.parse(body)[1] if fields.fold_name(s.name) == wanted]
-    if not copies:
+    outside = [s for s in fields.parse(body)[1] if not s.in_block and fields.fold_name(s.name) == wanted]
+    for name in dict.fromkeys([heading, *(s.name for s in outside)]):
         try:
-            fields.extract_field(body, heading)
+            fields.extract_field(body, name)
         except fields.AmbiguousFieldError:
             raise
         except fields.FieldNotFoundError:
-            return None
-    outside = [s for s in copies if not s.in_block]
+            pass
     if len(outside) > 1:
         raise fields.DuplicateFieldError(f"field {heading!r} appears {len(outside)} times; refusing to guess")
-    return (outside or copies)[0].name
+    return outside[0].name if outside else None
 
 
 def get_field(body: str, heading: str, level: int = 3) -> str | None:
@@ -238,7 +276,8 @@ def set_field(body: str, heading: str, value: str, level: int) -> tuple[str, boo
         return _join(lines, ["#" * level + " " + heading, "", *value_lines], []), True
     name = _field_name(body, heading)
     if name is not None:
-        return fields.replace_field(body, name, value.strip("\n") + "\n"), False
+        stripped = value.strip("\n")
+        return fields.replace_field(body, name, stripped + "\n" if stripped else ""), False
     section = ["### " + heading, "", *value_lines]
     before = _shape(body)
     # Closing a fence the body leaves open keeps renderers from showing the new
