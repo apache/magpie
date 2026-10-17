@@ -133,9 +133,13 @@ A denied command is **not** posted/run; the model is shown the reason and the
 deterministic fix (e.g. "use a backtick `` `login` `` instead of `@login`").
 
 Every guard sees through the prefix wrappers that run their argument as the
-command: `env` (with `-i`, `-u NAME`, `-S "…"` and `NAME=value` assignments,
+command: `env` (with `-i`, `-u NAME`, `-C DIR` and `NAME=value` assignments,
 which count as inline overrides) and `command` (`-p`). `env git commit …` is
 checked as `git commit …`; `command -v git` is a lookup and is left alone.
+A wrapper the guards cannot parse is refused (`agent-guard[wrapper]`). That
+includes `env -S` / `--split-string`: env splits that string with its own
+escapes (`\_`, `\c`, `${VAR}`), so the guards could not be sure they see the
+command env runs.
 
 ## Per-command overrides
 
