@@ -36,6 +36,7 @@ import argparse
 import fnmatch
 import json
 import os
+import re
 import sys
 import tomllib
 from pathlib import Path
@@ -179,6 +180,134 @@ REQUIRED_PERMISSIONS_DENY = {
 # operate over the full filesystem instead of being an inclusion list
 # carved out of a denied home directory.
 REQUIRED_DENY_READ = {"~/"}
+
+# Settings that switch a control off wholesale, whichever layer sets them. A
+# local file may add personal entries; it may not add one of these.
+#
+# Commands that run whatever follows them: excluding one from the sandbox (or
+# excluding "*") runs arbitrary code outside it.
+ANY_COMMAND_LAUNCHERS = frozenset(
+    {
+        "bash", "sh", "zsh", "dash", "ksh", "fish", "csh", "tcsh", "busybox",
+        "env", "sudo", "doas", "xargs", "eval", "exec", "command", "source", ".",
+        "nohup", "nice",
+        "timeout", "time", "watch", "setsid", "stdbuf", "flock", "script",
+        "npx", "bunx", "deno", "bun", "pwsh", "powershell", "osascript",
+        "awk", "gawk", "nawk", "mawk", "tclsh", "lua", "Rscript",
+    }
+)  # fmt: skip
+# Interpreters, matched with any version suffix (`python3.12`, `node22`).
+_VERSIONED_INTERPRETER = re.compile(r"(python|pypy|node|ruby|perl|php)[0-9.]*")
+_ENV_ASSIGNMENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=")
+# Package managers whose subcommands fetch or run code (`npm exec`, `pnpm dlx`,
+# install hooks, project scripts); only these read-only ones stay legal.
+_PACKAGE_MANAGER_READS = {
+    "npm": {"--version", "-v", "--help", "ls", "list", "view", "outdated", "audit"},
+    "pnpm": {"--version", "-v", "--help", "ls", "list", "view", "outdated", "audit"},
+    "yarn": {"--version", "-v", "--help", "list", "info", "outdated", "audit"},
+    "pipx": {"--version", "--help", "-h", "list", "environment"},
+}
+# Where the sandbox lets every command write, whatever allowWrite says.
+_IMPLICIT_WRITABLE = ("/tmp", "/private/tmp", "/var/folders", "/private/var/folders")
+
+
+def _expand(path: str, project_root: Path | None) -> str | None:
+    """``path`` as an absolute, normalised string, or None when it is relative
+    and there is no project root to anchor it to."""
+    expanded = os.path.expanduser(path)
+    if not os.path.isabs(expanded):
+        if project_root is None:
+            return None
+        expanded = os.path.join(str(project_root), expanded)
+    return os.path.normpath(expanded)
+
+
+def _is_writable(path: str, writable: tuple[str, ...]) -> bool:
+    return any(path == root or path.startswith(root.rstrip("/") + "/") for root in writable)
+
+
+def _writable_roots(allow_write: list[str], project_root: Path | None) -> tuple[str, ...]:
+    """The directories the agent can write to: the sandbox's ``allowWrite``
+    entries and the project itself."""
+    entries = [e for e in allow_write if isinstance(e, str)] + ["."]
+    roots = tuple(r for r in (_expand(e, project_root) for e in entries) if r is not None)
+    return roots + _IMPLICIT_WRITABLE
+
+
+def _is_outside_pin(path: str, writable: tuple[str, ...] = ()) -> bool:
+    """A path the agent cannot edit: `~/...` or absolute, and not under a
+    directory the agent can write to.
+
+    A relative path (`.`, `./x`) names something in the checkout, and uv builds
+    a pinned project before running it, so its build backend and entry points
+    are the agent's. So is a script or project under ``allowWrite``.
+    """
+    if not (path.startswith("~/") or path.startswith("/")) or ".." in path.split("/"):
+        return False
+    return not _is_writable(os.path.normpath(os.path.expanduser(path)), writable)
+
+
+def _has_glob(word: str) -> bool:
+    return any(c in word for c in "*?[")
+
+
+def _runs_anything(command: str, writable: tuple[str, ...] = ()) -> bool:
+    """Whether ``command`` (a rule pattern) can launch arbitrary code.
+
+    A shell or interpreter by name or path, a bare ``*``, an option where a
+    command should be, or a package runner not pinned to a path. A pinned
+    runner (``uv run --project <path> ...``, ``uvx --from <path> ...`` with an
+    absolute or ``~/`` path, the vetted-ops forms) is judged by the command it
+    runs, so wrapping a shell in one does not help. Any other ``uv``
+    subcommand counts, since sync, lock, pip and build run a project's build
+    backend. A command word that is a path runs that file, so it counts unless
+    the path is outside the checkout and every ``writable`` directory.
+    """
+    text = command.strip()
+    # Claude Code's legacy prefix form `cmd:*` means the same as `cmd *`.
+    if text.endswith(":*"):
+        text = text[:-2] + " *"
+    words = text.split()
+    # `LC_ALL=C *` runs whatever follows the assignments.
+    while words and _ENV_ASSIGNMENT.match(words[0]):
+        words = words[1:]
+    # A glob in the command word (`bash*`, `b*`) matches a launcher too.
+    if not words or words[0].startswith("-") or _has_glob(words[0]):
+        return True
+    head = words[0].rstrip(":").rsplit("/", 1)[-1]
+    if "/" in words[0] and not _is_outside_pin(words[0].rstrip(":"), writable):
+        return True
+    # Likewise in a runner's subcommand or pin position (`uv run*`, `uvx*`,
+    # `uv run --proj*`); a glob in a plain subcommand's arguments is harmless.
+    if head in ("uv", "uvx", "pipx") and len(words) > 1 and _has_glob(words[1]):
+        return True
+    if head == "uv" and len(words) > 2 and words[1] in ("run", "tool") and _has_glob(words[2]):
+        return True
+    # Global options can precede the subcommand (`uv --offline run *`), so an
+    # option where the subcommand belongs counts as unpinned. Only the bare
+    # informational forms (`uv --version`) stay legal.
+    if head == "uv" and len(words) > 1 and words[1].startswith("-"):
+        return not (len(words) == 2 and words[1] in ("--version", "-V", "--help", "-h"))
+    if head == "uv" and len(words) > 2 and words[1] == "tool" and words[2].startswith("-"):
+        return True
+    if head in ANY_COMMAND_LAUNCHERS or _VERSIONED_INTERPRETER.fullmatch(head):
+        return True
+    if head == "uv":
+        # Every uv subcommand but `run` with an outside pin can execute code
+        # from a project the agent edits (sync, lock, pip, build run its build
+        # backend), so only that form and the bare informational one are legal.
+        if len(words) == 2 and words[1] in ("--version", "-V", "--help", "-h"):
+            return False
+        if len(words) < 5 or words[1:3] != ["run", "--project"] or not _is_outside_pin(words[3], writable):
+            return True
+        return _runs_anything(" ".join(words[4:]), writable)
+    if head == "uvx":
+        if len(words) < 4 or words[1] != "--from" or not _is_outside_pin(words[2], writable):
+            return True
+        return _runs_anything(" ".join(words[3:]), writable)
+    if head in _PACKAGE_MANAGER_READS:
+        return not (len(words) == 2 and words[1] in _PACKAGE_MANAGER_READS[head])
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -382,11 +511,20 @@ def check_invariants(settings: dict[str, Any], project_root: Path | None = None)
     if sandbox.get("enabled") is not True:
         errors.append("sandbox.enabled: must be true")
 
+    fs_settings = sandbox.get("filesystem")
+    writable = _writable_roots(
+        (fs_settings.get("allowWrite", []) or []) if isinstance(fs_settings, dict) else [], project_root
+    )
+
     # Same matching as a Bash allow rule (see `permissions.allow` below): a `*`
     # before the end also matches options spliced in at that position, and an
     # excluded command runs outside the sandbox once approved (the
     # adversarial-review exclusion once globbed the plugin version this way).
     for entry in sandbox.get("excludedCommands", []) or []:
+        if isinstance(entry, str) and _runs_anything(entry, writable):
+            errors.append(
+                f"sandbox.excludedCommands: {entry!r} would run arbitrary commands outside the sandbox"
+            )
         if isinstance(entry, str) and "*" in entry[:-1]:
             errors.append(
                 f"sandbox.excludedCommands: {entry!r} has a '*' before the end of the command, "
@@ -443,7 +581,19 @@ def check_invariants(settings: dict[str, Any], project_root: Path | None = None)
         # Anywhere but the end it therefore also matches options spliced in at
         # that position, which the rule then approves without a prompt (the
         # vetted-ops rules once globbed the plugin version this way).
+        if perms.get("defaultMode") == "bypassPermissions":
+            errors.append(
+                "permissions.defaultMode: must not be 'bypassPermissions' (it switches every prompt off)"
+            )
         for rule in perms.get("allow", []) or []:
+            bare = isinstance(rule, str) and rule.replace(" ", "") == "Bash"
+            inner = (
+                rule[len("Bash(") : -1]
+                if isinstance(rule, str) and rule.startswith("Bash(") and rule.endswith(")")
+                else None
+            )
+            if bare or (inner is not None and _runs_anything(inner, writable)):
+                errors.append(f"permissions.allow: {rule!r} approves every shell command without a prompt")
             if isinstance(rule, str) and rule.startswith("Bash(") and "*" in rule[:-2]:
                 errors.append(
                     f"permissions.allow: {rule!r} has a '*' before the end of the command, "
@@ -468,6 +618,9 @@ def check_invariants(settings: dict[str, Any], project_root: Path | None = None)
     # socket, and its sockets live under .apache-magpie-local/run/ (adopted
     # project) or <git-common-dir>/apache-magpie/run/<worktree-id>/ (not adopted), never
     # the daemon's own well-known path.
+    for domain in settings.get("sandbox", {}).get("network", {}).get("allowedDomains", []) or []:
+        if isinstance(domain, str) and domain.strip() in ("*", "*.*"):
+            errors.append(f"sandbox.network.allowedDomains: {domain!r} opens egress to every host")
     for entry in settings.get("sandbox", {}).get("network", {}).get("allowUnixSockets", []):
         stripped = entry.rstrip("/")
         name = stripped.rsplit("/", 1)[-1]

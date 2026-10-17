@@ -184,3 +184,168 @@ def test_a_missing_registry_beside_the_template_fails(
     expected = REPO_ROOT / "tools" / "sandbox-lint" / "expected.json"
     assert main(["--settings", str(settings), "--expected", str(expected)]) == 1
     assert "family-mcp-allows.json is missing" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "addition,needle",
+    [
+        ({"sandbox": {"excludedCommands": ["*"]}}, "arbitrary commands outside the sandbox"),
+        ({"sandbox": {"excludedCommands": ["bash *"]}}, "arbitrary commands outside the sandbox"),
+        ({"sandbox": {"excludedCommands": ["python3 *"]}}, "arbitrary commands outside the sandbox"),
+        ({"permissions": {"allow": ["Bash(*)"]}}, "approves every shell command"),
+        ({"permissions": {"allow": ["Bash"]}}, "approves every shell command"),
+        ({"permissions": {"defaultMode": "bypassPermissions"}}, "bypassPermissions"),
+        ({"sandbox": {"network": {"allowedDomains": ["*"]}}}, "egress to every host"),
+        ({"sandbox": {"excludedCommands": ["/bin/bash *"]}}, "arbitrary commands outside the sandbox"),
+        ({"sandbox": {"excludedCommands": ["/usr/bin/env *"]}}, "arbitrary commands outside the sandbox"),
+        ({"sandbox": {"excludedCommands": ["uv run *"]}}, "arbitrary commands outside the sandbox"),
+        ({"sandbox": {"excludedCommands": ["uvx *"]}}, "arbitrary commands outside the sandbox"),
+        ({"sandbox": {"excludedCommands": ["npx *"]}}, "arbitrary commands outside the sandbox"),
+        ({"sandbox": {"excludedCommands": ["pipx run *"]}}, "arbitrary commands outside the sandbox"),
+        ({"permissions": {"allow": ["Bash(bash *)"]}}, "approves every shell command"),
+        ({"permissions": {"allow": ["Bash(sh -c *)"]}}, "approves every shell command"),
+        ({"permissions": {"allow": ["Bash(/usr/bin/python3 *)"]}}, "approves every shell command"),
+        ({"permissions": {"allow": ["Bash(bash:*)"]}}, "approves every shell command"),
+        ({"permissions": {"allow": ["Bash(python3:*)"]}}, "approves every shell command"),
+        ({"sandbox": {"excludedCommands": ["pipx *"]}}, "arbitrary commands outside the sandbox"),
+        (
+            {"sandbox": {"excludedCommands": ["uv run --project . *"]}},
+            "arbitrary commands outside the sandbox",
+        ),
+        ({"sandbox": {"excludedCommands": ["uvx --from . *"]}}, "arbitrary commands outside the sandbox"),
+        (
+            {"sandbox": {"excludedCommands": ["uv run --project . python *"]}},
+            "arbitrary commands outside the sandbox",
+        ),
+        (
+            {"sandbox": {"excludedCommands": ["uv run --project . bash *"]}},
+            "arbitrary commands outside the sandbox",
+        ),
+        (
+            {"sandbox": {"excludedCommands": ["uv run --project ~/.claude/magpie/vetted-ops -- bash *"]}},
+            "arbitrary commands outside the sandbox",
+        ),
+        (
+            {"sandbox": {"excludedCommands": ["uvx --from . node *"]}},
+            "arbitrary commands outside the sandbox",
+        ),
+        ({"sandbox": {"excludedCommands": ["uv tool run *"]}}, "arbitrary commands outside the sandbox"),
+        ({"permissions": {"allow": ["Bash(python3.12 *)"]}}, "approves every shell command"),
+        ({"permissions": {"allow": ["Bash(osascript *)"]}}, "approves every shell command"),
+        ({"permissions": {"allow": ["Bash(awk *)"]}}, "approves every shell command"),
+        ({"permissions": {"allow": ["Bash(bash*)"]}}, "approves every shell command"),
+        ({"permissions": {"allow": ["Bash(python*)"]}}, "approves every shell command"),
+        ({"permissions": {"allow": ["Bash(b*)"]}}, "approves every shell command"),
+        ({"sandbox": {"excludedCommands": ["uv run*"]}}, "arbitrary commands outside the sandbox"),
+        ({"sandbox": {"excludedCommands": ["uvx*"]}}, "arbitrary commands outside the sandbox"),
+        ({"sandbox": {"excludedCommands": ["npx*"]}}, "arbitrary commands outside the sandbox"),
+        ({"sandbox": {"excludedCommands": ["uv --offline run *"]}}, "arbitrary commands outside the sandbox"),
+        ({"permissions": {"allow": ["Bash(uv -q run bash *)"]}}, "approves every shell command"),
+        (
+            {"sandbox": {"excludedCommands": ["uv tool --quiet run *"]}},
+            "arbitrary commands outside the sandbox",
+        ),
+        (
+            {"sandbox": {"excludedCommands": ["pipx --verbose run *"]}},
+            "arbitrary commands outside the sandbox",
+        ),
+    ],
+)
+def test_wholesale_weakenings_fail_in_any_layer(addition: dict[str, Any], needle: str) -> None:
+    errors = check_invariants(merge_layers(merge_layers(_load(FLOOR), _load(LOCAL_TEMPLATE)), addition))
+    assert any(needle in e for e in errors), errors
+
+
+def test_a_live_local_wholesale_weakening_fails_the_lint(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    settings, _ = _project_with(tmp_path, _load(LOCAL_TEMPLATE))
+    (settings.parent / "settings.local.json").write_text(json.dumps({"sandbox": {"excludedCommands": ["*"]}}))
+    expected = REPO_ROOT / "tools" / "sandbox-lint" / "expected.json"
+    assert main(["--settings", str(settings), "--expected", str(expected)]) == 1
+    assert "arbitrary commands outside the sandbox" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "uv run --project ~/.claude/magpie/vetted-ops vetted-op-read *",
+        "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *",
+        "gh *",
+        "~/.claude/scripts/magpie-run-evals.sh *",
+        "zizmor *",
+        "uv --version",
+        "gh auth status*",
+        "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *",
+        "uvx --from ~/.claude/magpie/adversarial-review adversarial-review *",
+        "npm --version",
+        "pipx list",
+    ],
+)
+def test_pinned_runners_and_named_tools_stay_legal(command: str) -> None:
+    from sandbox_lint import _runs_anything
+
+    assert not _runs_anything(command)
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "uv run --project . vetted-op-read *",
+        "uvx --from ./x tool *",
+        "uv run --project ~/../x vetted-op-read *",
+        "uv sync *",
+        "uv lock *",
+        "uv pip install *",
+        "uv build *",
+        "uv self update *",
+    ],
+)
+def test_relative_pins_and_building_uv_subcommands_run_code(command: str) -> None:
+    from sandbox_lint import _runs_anything
+
+    assert _runs_anything(command)
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "uv run --project ~/.cache/x tool *",
+        "uvx --from ~/.local/share/uv/x tool *",
+        "uv run --project /work/repo/sub tool *",
+        "./scripts/run.sh *",
+        "tools/foo/run.sh *",
+        "~/.cache/run.sh *",
+        "/work/repo/scripts/run.sh *",
+        "uv run --project ~/.claude/magpie/vetted-ops ./evil.py *",
+        "/tmp/claude/run.sh *",
+        "uv run --project /tmp/claude/p tool *",
+        "FOO=1 *",
+        "X=1 bash *",
+        "source *",
+        ". *",
+        "npm exec *",
+        "npm run *",
+        "pnpm dlx *",
+        "yarn dlx *",
+        "pipx install *",
+        "pipx runpip *",
+        "pipx --verbose run *",
+    ],
+)
+def test_paths_the_agent_can_write_run_code(command: str) -> None:
+    from sandbox_lint import _runs_anything, _writable_roots
+
+    writable = _writable_roots(["~/.cache/", "~/.local/share/uv/"], Path("/work/repo"))
+    assert _runs_anything(command, writable)
+
+
+def test_a_script_under_a_local_allow_write_fails_the_invariants() -> None:
+    addition = {
+        "sandbox": {
+            "filesystem": {"allowWrite": ["~/.claude/scripts/"], "allowRead": ["~/.claude/scripts/"]},
+        }
+    }
+    settings = merge_layers(merge_layers(_load(FLOOR), _load(LOCAL_TEMPLATE)), addition)
+    errors = check_invariants(settings, project_root=REPO_ROOT)
+    assert any("magpie-run-evals.sh" in e and "arbitrary commands" in e for e in errors), errors

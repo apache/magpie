@@ -593,10 +593,9 @@ what it dropped. CI lints the two layered together against the baseline (`sandbo
 
 If you set this repository up while `.claude/settings.json` was untracked (#1671), your
 copy may hold personal entries: before pulling, diff it against the committed floor and
-move anything personal into `.claude/settings.local.json`. Git will not overwrite an
-untracked file, so then move the old one aside in your own terminal
-(`mv .claude/settings.json .claude/settings.json.bak`; the agent sandbox cannot touch it)
-and pull.
+move anything personal into `.claude/settings.local.json`. That copy was gitignored, and
+`git pull` silently overwrites an ignored file, so back it up first in your own terminal
+(`cp .claude/settings.json .claude/settings.json.bak`; the agent sandbox cannot touch it).
 
 ### Lightening the agent context
 
