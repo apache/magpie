@@ -194,8 +194,9 @@ def test_a_heading_inside_a_closed_fence_ends_the_field_but_never_becomes_it() -
     assert result.needs_decision == []
     assert result.text.count("Critical") == 1  # the fenced copy is never dropped or rewritten
     assert extract_field(result.text, "Severity") == "Low\n"
-    # With no copy outside a closed block, the first copy is the field.
-    assert extract_field("### A\n\n```\n### B\n\nquoted\n```\n", "B") == "quoted\n```\n"
+    # With no copy outside a closed block, the field is absent: quoted text never becomes it.
+    with pytest.raises(FieldNotFoundError):
+        extract_field("### A\n\n```\n### B\n\nquoted\n```\n", "B")
 
 
 def test_replace_refuses_a_span_holding_a_heading_shaped_line() -> None:
@@ -600,3 +601,25 @@ def test_cli_get_and_set_on_a_remote_crlf_body(monkeypatch, capsys) -> None:
     assert writes == []  # unchanged: byte-identical, nothing written
     assert cli.main(["set", "1", "--field", "A", "--value", "z"]) == 0
     assert writes == [body.replace("\r\nx\r\n", "\r\nz\r\n")]
+
+
+def test_a_jira_macro_opened_mid_line_before_a_field_is_a_decision() -> None:
+    body = "### A\n\ntext {code}\n### Severity\nCritical\n{code}\n\n### CWE\n\nx\n"
+    result = normalise(body, KNOWN)
+    assert [(d["field"], d["kind"], d["lines"]) for d in result.needs_decision] == [
+        ("Severity", "macro-ambiguous", [3, 4])
+    ]
+    for field in ("A", "Severity"):
+        with pytest.raises(AmbiguousFieldError):
+            extract_field(body, field)
+    assert extract_field(body, "CWE") == "x\n"
+    with pytest.raises(AmbiguousFieldError):
+        replace_field("### A\n\na\n\n### B\n\nb\n\n### C\n\n{code}\n", "A", "see {code}")
+
+
+def test_a_jira_macro_closed_on_its_line_stays_text() -> None:
+    body = "### A\n\ninline {code}x{code} here\n### Severity\nLow\n{code}\n"
+    assert normalise(body, KNOWN).needs_decision == []
+    assert extract_field(body, "Severity") == "Low\n{code}\n"
+    # A macro opened mid-line but never closed hides nothing either.
+    assert normalise("### A\n\ntext {noformat}\n### Severity\nLow\n", KNOWN).needs_decision == []

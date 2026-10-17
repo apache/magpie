@@ -3,11 +3,11 @@
 
 """Body-field sections and the status rollup, in Jira wiki markup.
 
-Body fields follow the body-field contract (tools/github/issue-template.md)
+Body fields follow the body-field contract (tools/body-field-contract/contract.md)
 through :mod:`jira_bridge.body_field_format`, a byte-identical copy of
 tools/github-body-field's parser (tests/test_vendored_parser.py keeps it
 exact): every column-0 ``### <Heading>`` line ends a field, code block or
-not, and closed code blocks only choose which heading starts a field.
+not, and a heading inside a closed code block never starts a field.
 
 Jira's own heading syntax is mapped onto that contract before the parser
 reads the body (:func:`as_fields`): a wiki heading of level 1 to 3
@@ -45,6 +45,7 @@ __all__ = [
     "Heading",
     "RollupEntry",
     "as_fields",
+    "escape_quoted_fields",
     "find_headings",
     "get_field",
     "is_rollup",
@@ -115,26 +116,44 @@ def as_fields(body: str) -> str:
 def _field_name(body: str, heading: str) -> str | None:
     """The exact name of the field ``heading`` names, matched with case and inner whitespace ignored.
 
-    The parser's choice made over every spelling of the name: the copy
-    outside closed blocks, else the first. Two copies outside closed blocks,
-    however spelled, are a duplicate. With no copy, the parser's own refusal
-    of a disputed name (a container heading naming it) still applies.
+    The parser's rule over every spelling of the name: the copy outside
+    closed blocks (a heading inside one never starts a field). The parser's
+    refusal of an ambiguous field comes first, for every spelling; then two
+    copies outside closed blocks, however spelled, are a duplicate.
     """
     wanted = fields.fold_name(heading)
-    copies = [s for s in fields.parse(body)[1] if fields.fold_name(s.name) == wanted]
-    if not copies:
+    outside = [
+        s
+        for s in fields.parse(body)[1]
+        if not s.in_block and fields.fold_name(s.name) == wanted
+    ]
+    for name in dict.fromkeys([heading, *(s.name for s in outside)]):
         try:
-            fields.extract_field(body, heading)
+            fields.extract_field(body, name)
         except fields.AmbiguousFieldError:
             raise
         except fields.FieldNotFoundError:
-            return None
-    outside = [s for s in copies if not s.in_block]
+            pass
     if len(outside) > 1:
-        raise DuplicateFieldError(
+        raise fields.DuplicateFieldError(
             f"field {heading!r} appears {len(outside)} times; refusing to guess"
         )
-    return (outside or copies)[0].name
+    return outside[0].name if outside else None
+
+
+def escape_quoted_fields(body: str) -> str:
+    """``body`` with a leading backslash on every ``###`` field boundary inside a closed code block.
+
+    A heading inside a closed block is never a field; escaped at ingest
+    (create, edit), quoted text cannot become a copy of a field at all, as
+    in the import's inert block.
+    """
+    lines = fields.split_lines(body)
+    inside = fields.closed_block_lines(lines)
+    return "".join(
+        "\\" + line if inside[index] and fields.is_boundary(line) else line
+        for index, line in enumerate(lines)
+    )
 
 
 def list_fields(body: str) -> list[str]:

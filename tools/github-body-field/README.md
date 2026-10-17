@@ -125,6 +125,7 @@ a repeated field whose copies outside closed blocks hold the same value to its f
 Copies with different values stay as they are and land in `needs_decision`.
 A heading-shaped line that ends no field (behind `>` or a list marker, or indented) is never rewritten;
 when it names a known field and sits outside a fence for a CommonMark reader or a column-0-only one, `{field, kind: "container-heading", lines}` lands in `needs_decision`, never taken as the field and never ignored.
+A Jira `{code}` / `{noformat}` macro left open mid-line before field boundaries lands there as `{field, kind: "macro-ambiguous", lines}` (the first hidden field; the opener's line, then each hidden heading's).
 The same function is importable as `github_body_field.normalise(body, known_fields, keep)`; `generate-cve-json` calls it in memory before every read.
 
 ## Body format assumptions
@@ -137,13 +138,16 @@ every reader and writer of a field, `generate-cve-json` and `vetted-ops` (a byte
   So no fence, Jira macro or duplicate heading left in one field's text can make it absorb the next field:
   a value is always exactly one section of that split.
   The heading's name drops surrounding spaces and tabs and a closing run of `#`; names compare case-sensitively;
-- **closed code blocks only choose which heading starts a field**: among the `### <name>` lines, the first one outside every closed block, else the first.
+- **a heading inside a closed code block never starts a field**: among the `### <name>` lines, the field is the one outside every closed block, and a field whose only copies are inside closed blocks is absent.
   A closed block is a CommonMark fence pair (the closer uses the opener's character, is at least as long, and has nothing but spaces or tabs after the run;
   a backtick opener whose info string holds a backtick is not a fence),
   or a Jira `{code}` / `{code:…}` / `{noformat}` block opened on a line starting with the macro and closed on the bare macro.
   A block left open at the end marks nothing.
-  So a PoC quoting `### CVE tool link` inside a fence is not taken for the field when the real heading is outside one,
+  So a PoC quoting `### Severity` inside a fence is never taken for the field, whether or not the real heading exists,
   and two copies outside closed blocks are a duplicate;
+- **a Jira macro a renderer may open mid-line is a decision**: a line outside closed blocks that leaves `{code}` / `{noformat}` open
+  (a macro opened and closed on the same line is text), closed on a later line with field boundaries between,
+  gives `{field, kind: "macro-ambiguous", lines}` in `needs_decision`, and `get` and `set` refuse the fields it touches (the one it opens in and each it would hide);
 - a heading-shaped line that ends no field (indented, or behind `>` or a list marker) is content;
   a renderer may still show it as a heading, so one naming the requested field makes `get` and `set` refuse (exit 2) instead of guessing;
 - preserves the original body byte-exact when no change is needed

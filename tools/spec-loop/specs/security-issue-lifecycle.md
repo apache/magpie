@@ -159,8 +159,9 @@ publication, with a human gate and an audit-log entry at every step.
   field, code block or not, so no fence or macro can merge two fields;
   closed code blocks (CommonMark fence pairs, Jira `{code}` /
   `{noformat}` blocks) only choose which `### <name>` is the field — the
-  first outside every closed block, else the first — and a block left
-  open marks nothing. Two copies outside closed blocks with different
+  one outside every closed block; a field quoted only inside closed blocks
+  is absent — and a block left open marks nothing. A Jira macro opened
+  mid-line before field headings is a `macro-ambiguous` decision. Two copies outside closed blocks with different
   values are a `duplicate` decision; a heading-shaped line that ends no
   field but names a known field is a `container-heading` decision, never
   taken and never ignored. `extract_field` / `body-field-get` refuse an
