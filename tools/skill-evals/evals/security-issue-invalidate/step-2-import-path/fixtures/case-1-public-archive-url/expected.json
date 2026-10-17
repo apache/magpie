@@ -1,6 +1,0 @@
-{
-  "import_path": "security_at_imported_public",
-  "email_draft_step": "required",
-  "thread_id": null,
-  "rationale": "The Security mailing list thread field contains a real lists.apache.org URL, indicating the tracker was imported from a security@ email."
-}

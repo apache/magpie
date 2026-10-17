@@ -113,6 +113,20 @@ publication, with a human gate and an audit-log entry at every step.
   are re-drafted before posting) and renders the recap; classification,
   the Security Model quote, precedent rating, routing candidates and
   injection flagging stay with the model.
+  For `security-issue-invalidate` it parses the selector (single, list,
+  `proposed` with its 1000 cap and batched read), checks team consensus
+  (only a roster member's INVALID proposal, acknowledged by another
+  roster member), decides the Step 0 hard stops from labels, the *CVE
+  tool link* field and the generic CVE state, reads the import path and
+  reply thread from the mailing-thread field (relay threads excluded),
+  plans the reporter draft (skip, surface an existing draft, block
+  without `security_cc`, or recipients, `Re:` subject, thread anchor and
+  backend), greps the composed reply for tracker references, the CVE-tool
+  URL, CVSS and other ASF projects, and renders the labels, board
+  queries, closing comment, rollup entry (exactly one Reporter-notification
+  line or a refusal), confirmation forms, apply order and recap; mining
+  the reasoning, choosing the canned section and writing the reply stay
+  with the model.
 - Shared recipes instead of per-skill copies (#1437): the safe-create
   recipe for a tracker with an attacker-controlled title is
   `tools/github/operations.md` § *Create* (Write-tool title file,
