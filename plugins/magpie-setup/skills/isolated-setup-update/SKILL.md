@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:1f327e069312dad2
 license: Apache-2.0
-measured_tokens: 5981
+measured_tokens: 6179
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -162,6 +162,11 @@ Walk each:
      A settings file missing those three is behind, so report their *absence* as drift.
      The wildcard link-target hosts that once sat beside them (`*.apache.org`, `*.anthropic.com`, `*.claude.com`, `*.mitre.org`, `*.nist.gov`, `*.github.io`, `gist.github.com`, `astral.sh`, `json.schemastore.org`, `lychee.cli.rs`, `sdkman.io`) were dropped when the hook went offline (`offline = true` in `.lychee.toml`): lychee no longer fetches the URLs the docs link to.
      A settings file without those hosts is current, not stale — report their *presence* as dead weight to drop, never their absence as drift.
+   - **The Gmail token is no longer sandbox-readable.**
+     Earlier defaults put `~/.config/apache-magpie/` in `sandbox.filesystem.allowRead` and `oauth2.googleapis.com` / `gmail.googleapis.com` in `allowedDomains`.
+     Together they let any sandboxed command, which runs without a prompt, use the user's Gmail OAuth token.
+     Report their *presence* in any scope as a **must-fix**, not dead weight, and propose removing all three; keep the `Read(~/.config/apache-magpie/**)` deny.
+     Drafting keeps working through the `oauth-draft` MCP server, which runs outside the sandbox; the `oauth-draft-*` CLIs need an approved run or a per-machine absolute-path exclusion ([`docs/setup/secure-agent-setup.md` → The framework's own `.claude/settings.json`](../../../../docs/setup/secure-agent-setup.md#the-frameworks-own-claudesettingsjson)).
    - **`enableWeakerNetworkIsolation: true`.**
      It is not there for lychee, which runs offline.
      It lets native-TLS CLI tools verify TLS through the sandbox's TLS-terminating proxy — the mechanism the schema notes for `gh` / `gcloud` / `terraform`.

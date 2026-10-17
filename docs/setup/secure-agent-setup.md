@@ -548,7 +548,6 @@ The full block is below, annotated.
         "~/.local/bin/",              // uv-installed tool entry points
         "~/.docker/bin/",             // Docker Desktop's `docker` CLI (macOS); the rest of ~/.docker stays denied
         "~/.docker/cli-plugins/",     // `docker compose` / `docker buildx` plugin binaries
-        "~/.config/apache-magpie/",  // Gmail OAuth refresh token (oauth-draft tool)
         "~/.gnupg/",                  // gpg keyring reads (needed for signing, not sufficient on Linux — see sandbox-troubleshooting.md)
         "/run/user/*/gnupg/",         // gpg-agent socket dir (see "agent appears unreachable" in sandbox-troubleshooting.md)
         "~/.ssh/id_ed25519_sk.pub"    // ONLY with `gpg.format=ssh`: the public half git hands to `ssh-keygen -Y sign`. Use the file `git config user.signingkey` names (see sandbox-troubleshooting.md)
@@ -578,7 +577,6 @@ The full block is below, annotated.
         "pypi.org", "files.pythonhosted.org",
         "lists.apache.org", "dist.apache.org", "repository.apache.org", "downloads.apache.org", "archive.apache.org",
         "cveprocess.apache.org", "cve.org", "www.cve.org", "cveawg.mitre.org", "api.osv.dev",
-        "oauth2.googleapis.com", "gmail.googleapis.com",
         // `*.crates.io` + `static.rust-lang.org` let the `lychee` rust
         // hook bootstrap a rustup toolchain and `cargo install` lychee
         // on first run: prek downloads `rustup-init` from
@@ -705,7 +703,7 @@ The full block is below, annotated.
       "Read(~/.aws/**)", "Read(~/.ssh/**)", "Read(~/.netrc)",
       "Read(~/.docker/**)", "Read(~/.kube/**)",
       "Read(~/.config/gh/**)",                  // bash can read it (sandbox.allowRead); the AGENT can't
-      "Read(~/.config/apache-magpie/**)",      // same — Bash via oauth-draft tool, not the agent directly
+      "Read(~/.config/apache-magpie/**)",      // Gmail OAuth token: only the oauth-draft MCP server reads it, outside the sandbox
       "Read(~/.config/gcloud/**)", "Read(~/.azure/**)",
       "Read(//**/.env)", "Read(//**/.env.local)", "Read(//**/.env.*.local)",
       "Bash(curl *)", "Bash(wget *)",           // network egress via Bash bypasses the sandbox proxy
@@ -858,12 +856,26 @@ The full block is below, annotated.
 }
 ```
 
-The deny / allow split for `~/.config/gh/` and
-`~/.config/apache-magpie/` is deliberate: bash subprocesses (the `gh`
-CLI, `oauth-draft-create`) need to *use* the credential, but the
-agent should never *see* it. `sandbox.filesystem.allowRead` permits
-the bash subprocess to read the file; `permissions.deny[Read(...)]`
-blocks the agent's Read tool from reading the same path.
+The deny / allow split for `~/.config/gh/` is deliberate: the `gh`
+CLI needs to *use* the credential, but the agent should never *see*
+it. `sandbox.filesystem.allowRead` permits the bash subprocess to
+read the file; `permissions.deny[Read(...)]` blocks the agent's Read
+tool from reading the same path.
+
+`~/.config/apache-magpie/` gets no such split: it is denied to both.
+It holds the Gmail OAuth refresh token, and a sandboxed command runs
+without a prompt, so a readable token plus reachable Google API hosts
+would let any such command act on the user's Gmail. Drafting goes
+through the `oauth-draft` MCP server instead (see
+[`tools/gmail/oauth-draft/README.md` → MCP server](../../tools/gmail/oauth-draft/README.md#mcp-server)),
+which Claude Code starts outside the sandbox. That is why neither
+`oauth2.googleapis.com` nor `gmail.googleapis.com` is in
+`allowedDomains`. The `oauth-draft-*` CLIs still work, but only
+outside the sandbox: approve each run, or add a per-machine
+`sandbox.excludedCommands` entry naming your framework checkout's
+absolute path in user-scope or `settings.local.json` settings. Never use
+a wildcard path there. `sandbox-lint` refuses the token path in
+`allowRead`.
 
 **What the vetted-ops exclusion does and does not cover.** The `deny`
 rules block the agent's own `Edit`/`Write` tools. The catalogue gets

@@ -25,7 +25,6 @@
         "~/.local/bin/",
         "~/.docker/bin/",
         "~/.docker/cli-plugins/",
-        "~/.config/apache-magpie/",
         "~/.gnupg/",
         "/run/user/*/gnupg/"
       ],
@@ -55,8 +54,6 @@
         "www.cve.org",
         "cveawg.mitre.org",
         "api.osv.dev",
-        "oauth2.googleapis.com",
-        "gmail.googleapis.com",
         "*.crates.io",
         "static.rust-lang.org",
         "registry.npmjs.org",
