@@ -649,7 +649,6 @@ PLUGIN_CACHE_REVIEW = (
         "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker status",
         "uv run --project ~/.claude/magpie/vetted-ops vetted-op x",
         "uvx --from ~/.claude/magpie/adversarial-review adversarial-review detect",
-        "uv run --project=~/.claude/magpie/vetted-ops vetted-op-read pr-view 1",
         # Not a dispatcher launch: tests, builds and other tools stay untouched.
         "uv run --project tools/vetted-ops pytest -k vetted-op-read",
         "uv run --directory tools/vetted-ops --group dev pytest",
@@ -877,7 +876,13 @@ def test_an_env_assignment_still_overrides():
 
 @pytest.mark.parametrize(
     "base",
-    ['"~/.claude/magpie/vetted-ops"', "'~/.claude/magpie/vetted-ops'", "\\~/.claude/magpie/vetted-ops"],
+    [
+        '"~/.claude/magpie/vetted-ops"',
+        "'~/.claude/magpie/vetted-ops'",
+        "\\~/.claude/magpie/vetted-ops",
+        # A quote after the `~` stops expansion just the same.
+        '~"/.claude/magpie/vetted-ops"',
+    ],
 )
 def test_vetted_ops_spelling_refuses_a_quoted_tilde(base):
     reason = agent_guard.dispatch(f"uv run --project {base} vetted-op-read pr-view 1")
@@ -936,3 +941,47 @@ def test_the_eval_wrapper_override():
         )
         is None
     )
+
+
+def test_vetted_ops_spelling_refuses_the_equals_form_with_a_tilde():
+    # `--project=~/…` is not an assignment: the shell leaves the `~` alone.
+    reason = agent_guard.dispatch("uv run --project=~/.claude/magpie/vetted-ops vetted-op-read x")
+    assert reason and "quoted or escaped" in reason
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "env " * 70 + "git status",  # deeper than the unwrap limit
+        "env --bogus-option git commit -m x",
+        "env -X git commit -m x",
+        "env -u",  # option missing its value
+        'env -S "commit \'unbalanced"',  # the -S string itself does not tokenise
+        "command -x git commit -m x",
+    ],
+)
+def test_an_unparsable_wrapper_is_refused(command):
+    reason = agent_guard.dispatch(command)
+    assert reason and "agent-guard[wrapper]" in reason
+
+
+@pytest.mark.parametrize(
+    "prefix",
+    [
+        "env -iu HOME ",  # clustered short options, value in the next token
+        "env -uHOME ",  # value attached
+        "env -iCdir ",
+        "env --unset=HOME ",
+        "env --chdir /tmp ",
+        "env --default-signal ",
+        "command -p -- ",
+    ],
+)
+def test_wrapper_option_forms_still_reach_the_guards(prefix):
+    reason = agent_guard.dispatch(f'{prefix}git commit -m "x\n\nCo-Authored-By: a"')
+    assert reason and "Co-Authored-By" in reason
+
+
+def test_a_clustered_split_string_reaches_the_guards():
+    reason = agent_guard.dispatch("""env -iS'git commit -m "x Co-Authored-By: a"'""")
+    assert reason and "Co-Authored-By" in reason
