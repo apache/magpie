@@ -129,31 +129,80 @@ ATTRIBUTION_CONTRIBUTOR_CHOICE = "contributor-choice"  # project file only
 DEFAULT_ATTRIBUTION = "generated-by"
 
 
+def _strip_prefix_wrappers(
+    tokens: list[str], raws: list[str], i: int, env: dict[str, str]
+) -> tuple[list[str], list[str]]:
+    """Unwrap the ``env`` / ``command`` prefixes shells let any command hide
+    behind, so every guard sees the command that actually runs.
+
+    ``env`` is unwrapped with its options (``-i``, ``-u NAME`` in both
+    spellings, ``--unset=NAME``, ``--``) and its ``NAME=value`` assignments —
+    the assignments feed ``env`` like leading ones do, so an override written
+    as ``env MAGPIE_ALLOW_VETTED_PATH=1 …`` keeps working. ``command`` is
+    unwrapped with ``-p`` and ``--``; its other spellings (``-v``/``-V``) do
+    not run a command, so they end the wrapper and the segment stays
+    unguarded — the same fail-open an unparseable command already gets.
+    Nesting unwraps too (``env command git …``), and a wrapper with nothing
+    behind it leaves an empty argv. Returns the remaining tokens with their
+    source spellings.
+    """
+    while i < len(tokens) and os.path.basename(tokens[i]) in ("env", "command"):
+        wrapper, i = os.path.basename(tokens[i]), i + 1
+        if wrapper == "command":
+            while i < len(tokens) and tokens[i] in ("-p", "--"):
+                i += 1
+            continue
+        while i < len(tokens):
+            tok = tokens[i]
+            if tok in ("-i", "--ignore-environment"):
+                i += 1
+            elif tok == "-u" and i + 1 < len(tokens):
+                i += 2
+            elif (tok.startswith("-u") and len(tok) > 2) or tok.startswith("--unset="):
+                i += 1
+            elif tok == "--":
+                i += 1
+                break
+            elif re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=.*", tok):
+                name, _, value = tok.partition("=")
+                env[name] = value
+                i += 1
+            else:
+                break
+    return tokens[i:], raws[i:]
+
+
 class Segment:
     """One simple command from a (possibly compound) shell line.
 
-    ``argv`` has leading ``NAME=value`` env assignments stripped into ``env``;
-    ``raw`` is a reconstruction of this segment's own tokens only (used for
-    substring scans that survive heredocs, e.g. the Co-Authored-By trailer).
+    ``argv`` has leading ``NAME=value`` env assignments stripped into ``env``,
+    and the ``env`` / ``command`` prefix wrappers unwrapped: ``env FOO=1 git
+    push`` is guarded as ``git push``, with ``FOO`` in ``env``. ``raw`` is a
+    reconstruction of this segment's own tokens only (used for substring
+    scans that survive heredocs, e.g. the Co-Authored-By trailer);
+    ``raw_argv`` is each argv token's own source text, so a guard can read
+    the *spelling* a value arrived in — a quoted or escaped ``~`` looks
+    identical to a literal one in the plain values.
     """
 
-    def __init__(self, tokens: list[str], raw: str) -> None:
+    def __init__(self, tokens: list[str], raw: str, raw_tokens: list[str] | None = None) -> None:
+        raws = list(raw_tokens) if raw_tokens is not None else [shlex.quote(t) for t in tokens]
         self.env: dict[str, str] = {}
         i = 0
         while i < len(tokens) and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=.*", tokens[i]):
             name, _, value = tokens[i].partition("=")
             self.env[name] = value
             i += 1
-        argv = tokens[i:]
+        argv, argv_raws = _strip_prefix_wrappers(tokens, raws, i, self.env)
         # Normalise the command head to its basename so a path-qualified
         # invocation (`/usr/bin/git`, `./git`) is guarded identically to the
         # bare name. Guard rules only inspect argv[0] as a command *name*; the
         # real execution path is untouched (exec_main hands the original argv
-        # to os.execvp). Prefix wrappers like `env git` / `command git` keep
-        # argv[0] == "env" and remain a separate, pre-existing gap.
+        # to os.execvp).
         if argv:
             argv[0] = os.path.basename(argv[0])
         self.argv: list[str] = argv
+        self.raw_argv: list[str] = argv_raws
         self.raw = raw
 
     def override(self, *names: str) -> bool:
@@ -172,24 +221,75 @@ class Segment:
 # --------------------------------------------------------------------------- #
 
 
+def _lex(command: str) -> list[tuple[str, str]]:
+    """Tokenise ``command`` into ``(token, raw)`` pairs: the same tokens
+    ``shlex.split`` yields in posix mode with comments off, each paired with
+    its own source text, so a guard can read the spelling a value arrived in
+    — a quoted or escaped ``~`` is invisible in the plain value. Raises
+    ``ValueError`` exactly where ``shlex.split`` would."""
+    pairs: list[tuple[str, str]] = []
+    i, n = 0, len(command)
+    while i < n:
+        if command[i] in " \t\r\n":
+            i += 1
+            continue
+        start = i
+        value: list[str] = []
+        while i < n and command[i] not in " \t\r\n":
+            ch = command[i]
+            if ch == "\\":
+                if i + 1 >= n:
+                    raise ValueError("No escaped character")
+                # `\newline` is a line continuation, not an escape.
+                if command[i + 1] != "\n":
+                    value.append(command[i + 1])
+                i += 2
+            elif ch == "'":
+                end = command.find("'", i + 1)
+                if end == -1:
+                    raise ValueError("No closing quotation")
+                value.append(command[i + 1 : end])
+                i = end + 1
+            elif ch == '"':
+                i += 1
+                while i < n and command[i] != '"':
+                    if command[i] == "\\" and i + 1 < n and command[i + 1] in '$`"\\\n':
+                        if command[i + 1] != "\n":
+                            value.append(command[i + 1])
+                        i += 2
+                    else:
+                        value.append(command[i])
+                        i += 1
+                if i >= n:
+                    raise ValueError("No closing doublequote")
+                i += 1
+            else:
+                value.append(ch)
+                i += 1
+        pairs.append(("".join(value), command[start:i]))
+    return pairs
+
+
 def split_segments(command: str) -> list[Segment]:
     """Tokenise ``command`` and split it into simple-command segments on shell
     operators. Returns an empty list if the command cannot be tokenised."""
     try:
-        tokens = shlex.split(command, comments=False)
+        pairs = _lex(command)
     except ValueError:
         return []
     segments: list[Segment] = []
-    current: list[str] = []
-    for tok in tokens:
-        if tok in SHELL_OPERATORS:
-            if current:
-                segments.append(Segment(current, shlex.join(current)))
-                current = []
+    tokens: list[str] = []
+    raws: list[str] = []
+    for value, raw in pairs:
+        if value in SHELL_OPERATORS:
+            if tokens:
+                segments.append(Segment(tokens, shlex.join(tokens), raws))
+                tokens, raws = [], []
         else:
-            current.append(tok)
-    if current:
-        segments.append(Segment(current, shlex.join(current)))
+            tokens.append(value)
+            raws.append(raw)
+    if tokens:
+        segments.append(Segment(tokens, shlex.join(tokens), raws))
     return segments
 
 
@@ -959,9 +1059,12 @@ _UV_VALUE_OPTIONS = frozenset(
 )
 
 
-def _vetted_launch(argv: list[str]) -> tuple[str, str, str] | None:
-    """``(option, base, entry_point)`` for a ``uv run --project`` / ``uvx --from``
-    launch of a vetted dispatcher, or None for any other command."""
+def _vetted_launch(argv: list[str]) -> tuple[str, str, str, int] | None:
+    """``(option, base, entry_point, base_index)`` for a ``uv run --project`` /
+    ``uvx --from`` launch of a vetted dispatcher, or None for any other
+    command. ``base_index`` is the argv slot the base value arrived in (the
+    option's own token in the ``--project=X`` form), so the guard can read
+    that token's source spelling."""
     if not argv or argv[0] not in ("uv", "uvx"):
         return None
     # `uv` takes its options on either side of `run` (`uv --project X run …`
@@ -969,15 +1072,18 @@ def _vetted_launch(argv: list[str]) -> tuple[str, str, str] | None:
     option, rest = ("--project", argv[1:]) if argv[0] == "uv" else ("--from", argv[1:])
     needs_run = argv[0] == "uv"
     base: str | None = None
+    base_index = -1
     i = 0
     while i < len(rest):
         tok = rest[i]
         if tok == option:
             base = rest[i + 1] if i + 1 < len(rest) else None
+            base_index = i + 1
             i += 2
             continue
         if tok.startswith(option + "="):
             base = tok[len(option) + 1 :]
+            base_index = i
             i += 1
             continue
         if tok in _UV_VALUE_OPTIONS:
@@ -995,7 +1101,8 @@ def _vetted_launch(argv: list[str]) -> tuple[str, str, str] | None:
         break
     if needs_run or base is None or i >= len(rest) or rest[i] not in VETTED_ENTRY_POINTS:
         return None
-    return option, base, rest[i]
+    # Indices above run over `rest = argv[1:]`; hand back the argv slot.
+    return option, base, rest[i], base_index + len(argv) - len(rest)
 
 
 def _account_home() -> str | None:
@@ -1094,11 +1201,18 @@ def guard_vetted_ops_spelling(seg: Segment, cwd: str | None = None, harness: str
     launch = _vetted_launch(seg.argv)
     if launch is None:
         return None
-    option, base, entry = launch
+    option, base, entry, base_index = launch
     tool = VETTED_ENTRY_POINTS[entry]
     stable = VETTED_STABLE_BASE + tool
+    raw_base = seg.raw_argv[base_index] if 0 <= base_index < len(seg.raw_argv) else base
+    # The shell does not expand a tilde inside quotes, or one escaped by a
+    # backslash at the start of a word: the dispatcher then receives a
+    # directory literally named `~`, the sandbox exclusion does not match it,
+    # and the call fails inside the sandbox instead of being refused with the
+    # corrected command below.
+    unexpanded = bool(re.search(r"""['"]~""", raw_base)) or raw_base.startswith("\\~")
     base = base.rstrip("/")
-    if base == stable:
+    if base == stable and not unexpanded:
         return None
     if harness == "codex" and entry == "vetted-op-read" and base in _codex_stable_roots():
         # Codex's execpolicy cannot match `~`, so its own hook rewrites a lone
@@ -1119,10 +1233,15 @@ def guard_vetted_ops_spelling(seg: Segment, cwd: str | None = None, harness: str
         return None
     if seg.override("MAGPIE_ALLOW_VETTED_PATH"):
         return None
+    wrong = (
+        f"the quoted-or-escaped spelling `{raw_base}`, whose `~` the shell never expands"
+        if unexpanded
+        else f"`{base}`"
+    )
     return (
         f"agent-guard[vetted-ops-spelling]: `{entry}` must be launched as "
         f"`{seg.argv[0]} {'run ' if seg.argv[0] == 'uv' else ''}{option} {stable} {entry} …`, "
-        f"spelled with the literal `~`, not `{base}`. The sandbox exclusion and the "
+        f"spelled with the literal `~`, not {wrong}. The sandbox exclusion and the "
         "permission rules name only that spelling: an expanded home path runs inside the "
         "sandbox, where gh cannot verify TLS, and a checkout path runs code the agent can "
         "edit, which must never be excluded from the sandbox. Re-run it with the `~` form. "
