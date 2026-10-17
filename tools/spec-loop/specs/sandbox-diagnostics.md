@@ -60,10 +60,9 @@ error, and two skills that probe or verify the setup on demand.
   to write its cache (the home-directory dev-tool paths not granted in
   the worktree's `settings.local.json`, #1359), git hooks silently
   skipped for sandboxed commits (whole-user `core.hooksPath` under the
-  read-denied home, #1364), and reads of `~/.claude/magpie` or
-  `/tmp/claude-<uid>` asking for approval every time
-  (`permissions.blockReadsOutsideWorkingDirectories` on and neither
-  directory a working directory, #1418).
+  read-denied home, #1364), and reads of `/tmp/claude-<uid>` asking for
+  approval every time (`permissions.blockReadsOutsideWorkingDirectories`
+  on and the directory not a working directory, #1418).
 - `tools/agent-isolation/sandbox-error-hint.sh` — a Claude Code
   `PostToolUse` hook on the `Bash` matcher. Scans the tool's stdout +
   stderr for the catalogued symptom strings and, on a match, prints
@@ -88,8 +87,9 @@ error, and two skills that probe or verify the setup on demand.
   is set, fail when the directory or a hook's symlink target is
   unreadable, warn when it holds none of the common hooks (#1364). Probe 9, only
   when `permissions.blockReadsOutsideWorkingDirectories` is on, checks
-  that `$HOME/.claude/magpie` and `/tmp/claude-<uid>` are working
-  directories as resolved paths: ⚠ for a missing path or for a glob entry
+  that `/tmp/claude-<uid>` is a working directory as a resolved path, and
+  fails (✗, read block or not) when `$HOME/.claude/magpie` is one, since
+  that makes the vetted-ops checkout sandbox-writable: ⚠ for a missing path or for a glob entry
   such as `/tmp/claude-*`, which is listed but never matched, and ⊘ when
   the block is off, `HOME` is unset, or the entries are absent from the
   readable project files while user-scope settings are unreadable from

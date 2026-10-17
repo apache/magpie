@@ -1,0 +1,15 @@
+{
+  "snapshot_drift": "none",
+  "checks": [
+    {
+      "n": 1,
+      "status": "✓",
+      "evidence": "sandbox.enabled: true; deny and ask lists present; network and filesystem allowlists configured"
+    },
+    {
+      "n": 16,
+      "status": "✗",
+      "evidence": "16f fails: /home/alice/.claude/magpie is listed in additionalDirectories of .claude/settings.local.json, which makes the vetted-ops checkout sandbox-writable; 16a–16e pass"
+    }
+  ]
+}

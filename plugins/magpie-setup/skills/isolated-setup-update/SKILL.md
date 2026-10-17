@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:1f327e069312dad2
 license: Apache-2.0
-measured_tokens: 6179
+measured_tokens: 6254
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -149,10 +149,11 @@ Walk each:
    List the missing entries as "prompts you are paying", and separately flag any entry the user has in `allow` that is not read-only.
 
    **Check `permissions.additionalDirectories` in each worktree's `settings.local.json`.**
-   When `permissions.blockReadsOutsideWorkingDirectories` is on in any scope, the resolved `$HOME/.claude/magpie` and `/tmp/claude-$(id -u)` must be listed as literal absolute paths.
+   When `permissions.blockReadsOutsideWorkingDirectories` is on in any scope, the resolved `/tmp/claude-$(id -u)` must be listed as a literal absolute path.
+   In every case, an entry in any scope overlapping `$HOME/.claude/magpie` (that path, anything inside it, or a parent) is a must-fix, read block or not: a working directory is sandbox-writable, and the vetted-ops commands run from that checkout outside the sandbox. Older versions of `sandbox-add-project-root.sh` added it; the updated script removes it.
    Where the vetted-ops dispatcher is used, the read block being on is itself a must-fix ([the vetted-ops split and exclusion](#the-vetted-ops-split-and-exclusion), fourth check), and these entries do not clear it.
    Report a missing path, or one covered only by a glob such as `/tmp/claude-*` (listed as a working directory but never matched), under "prompts you are paying"; the remedy is `sandbox-add-project-root.sh --all-worktrees`, which predates this check on older installs and needs the updated script copy.
-   Flag the same paths in a synced user-scope settings file as per-host drift.
+   Flag the same path in a synced user-scope settings file as per-host drift.
    Rules: [`docs/setup/secure-agent-setup.md` → Working directories under the read-outside-working-directories block](../../../../docs/setup/secure-agent-setup.md#working-directories-under-the-read-outside-working-directories-block).
 
    Two `sandbox.network.*` settings are worth a look while diffing, but neither is a "missing default" to re-add:

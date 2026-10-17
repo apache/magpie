@@ -228,7 +228,8 @@ def _is_writable(path: str, writable: tuple[str, ...]) -> bool:
 
 def _writable_roots(allow_write: list[str], project_root: Path | None) -> tuple[str, ...]:
     """The directories the agent can write to: the sandbox's ``allowWrite``
-    entries and the project itself."""
+    entries (and the working directories, which the sandbox also makes
+    writable) and the project itself."""
     entries = [e for e in allow_write if isinstance(e, str)] + ["."]
     roots = tuple(r for r in (_expand(e, project_root) for e in entries) if r is not None)
     return roots + _IMPLICIT_WRITABLE
@@ -512,9 +513,27 @@ def check_invariants(settings: dict[str, Any], project_root: Path | None = None)
         errors.append("sandbox.enabled: must be true")
 
     fs_settings = sandbox.get("filesystem")
-    writable = _writable_roots(
-        (fs_settings.get("allowWrite", []) or []) if isinstance(fs_settings, dict) else [], project_root
+    perms_settings = settings.get("permissions")
+    work_dirs = (
+        (perms_settings.get("additionalDirectories", []) or []) if isinstance(perms_settings, dict) else []
     )
+    writable = _writable_roots(
+        ((fs_settings.get("allowWrite", []) or []) if isinstance(fs_settings, dict) else [])
+        + list(work_dirs),
+        project_root,
+    )
+    # The fixed path every vetted-ops and adversarial-review exclusion runs from.
+    magpie_dir = os.path.normpath(os.path.expanduser("~/.claude/magpie"))
+    for entry in work_dirs:
+        expanded = _expand(entry, project_root) if isinstance(entry, str) else None
+        if expanded is not None and (
+            _is_writable(magpie_dir, (expanded,)) or _is_writable(expanded, (magpie_dir,))
+        ):
+            errors.append(
+                f"permissions.additionalDirectories: {entry!r} makes the vetted-ops checkout writable, "
+                "and its commands run outside the sandbox; remove it (sandbox-add-project-root.sh "
+                "removes the ~/.claude/magpie entry it once added; remove any other by hand)"
+            )
 
     # Same matching as a Bash allow rule (see `permissions.allow` below): a `*`
     # before the end also matches options spliced in at that position, and an

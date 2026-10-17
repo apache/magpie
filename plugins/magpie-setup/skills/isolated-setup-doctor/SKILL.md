@@ -21,7 +21,7 @@ capability:
   - capability:reassess
 surface_hash: sha256:7d670b572d43bbeb
 license: Apache-2.0
-measured_tokens: 6221
+measured_tokens: 6320
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -319,8 +319,9 @@ bash <skill-dir>/scripts/probe-8-git-hooks.sh
 
 ### Probe 9 — Working directories under the read block
 
-Tests whether, with `permissions.blockReadsOutsideWorkingDirectories` on, the two directories the skills read on every run are working directories: `$HOME/.claude/magpie` (the fixed path the vetted-ops rules name) and the scratch root `/tmp/claude-<uid>`.
-Without them nothing breaks, but each read there prompts, and a bulk sync multiplies that by its gatherer agents.
+Tests whether, with `permissions.blockReadsOutsideWorkingDirectories` on, the scratch root `/tmp/claude-<uid>` the skills read on every run is a working directory.
+Without it nothing breaks, but each read there prompts, and a bulk sync multiplies that by its gatherer agents.
+It also fails when `$HOME/.claude/magpie` (the fixed path the vetted-ops rules name) is one, read block or not: the sandbox makes working directories writable, and the vetted-ops commands run from there outside the sandbox.
 The prompt comes before any command runs, so the [sandbox-error hint hook](../../../../docs/setup/secure-agent-setup.md#sandbox-error-hint-hook) never sees it; this probe is the only in-session pointer.
 Where the vetted-ops dispatcher is used, a ✓ here is not enough: its commands spell `~` literally, which the read block cannot check, so every `vetted-op-read` call prompts while the block is on, and a background gatherer turns each prompt into a silent denial.
 The setup requires the block off there ([Read-only vetted ops never prompt](../../../../docs/setup/secure-agent-setup.md#read-only-vetted-ops-never-prompt)); `setup-isolated-setup-verify` check 16 enforces it.
@@ -335,14 +336,15 @@ bash <skill-dir>/scripts/probe-9-working-dirs.sh
 
 | Result | Status | Meaning |
 |---|---|---|
-| `✓ … are working directories` | Pass | Both resolved paths are listed (normally in `.claude/settings.local.json`, written by `sandbox-add-project-root.sh`). |
-| `⚠ not a working directory: …` | Warn | Each named path is missing; reads under it prompt. |
+| `✗ … is a working directory overlapping …` | Fail | `$HOME/.claude/magpie`, a directory inside it, or a parent of it is listed, usually by an older `sandbox-add-project-root.sh`; re-run the updated script with `--all-worktrees` to remove it. |
+| `✓ … is a working directory` | Pass | The resolved scratch root is listed (normally in `.claude/settings.local.json`, written by `sandbox-add-project-root.sh`). |
+| `⚠ not a working directory: …` | Warn | The scratch root is missing; reads under it prompt. |
 | `⚠ … the glob entry … is never matched` | Warn | A glob such as `/tmp/claude-*` is listed as a working directory but does not match; replace it with the resolved path. |
 | `⊘ … blockReadsOutsideWorkingDirectories is off` | Skip | No read block, so nothing prompts. |
 | `⊘ HOME is not set` | Skip | The paths cannot be resolved; nothing to compare. |
 | `⊘ … user-scope settings unreadable from the sandbox` | Skip | The entries are missing from the readable project files, but the read block is usually set in user scope, which the sandbox cannot read; `setup-isolated-setup-verify` check 15 reads it from outside the sandbox. |
 
-**On ⚠ → remediation:**
+**On ✗ or ⚠ → remediation:**
 [`docs/setup/sandbox-troubleshooting.md` — Reads of `~/.claude/magpie` or `/tmp/claude-<uid>` ask for approval every time](../../../../docs/setup/sandbox-troubleshooting.md#reads-of-claudemagpie-or-tmpclaude-uid-ask-for-approval-every-time).
 
 ## After the report

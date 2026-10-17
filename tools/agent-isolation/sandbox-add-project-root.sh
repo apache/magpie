@@ -49,17 +49,22 @@
 #
 # Working directories: with `permissions.blockReadsOutsideWorkingDirectories`
 # on, every read outside the session's working directories asks first.
-# The skills read two such places on every run, so the helper also adds
-# them to `permissions.additionalDirectories`:
-#   $HOME/.claude/magpie     the fixed path the vetted-ops rules name
+# The skills keep their scratch files outside the repository, so the
+# helper also adds the session scratch root to
+# `permissions.additionalDirectories`:
 #   /tmp/claude-<uid>        the session scratch root
-# Both are resolved to literal absolute paths: the setting does not
-# match globs such as `/tmp/claude-*`. They are harmless when the read
-# block is off. They do NOT stop the prompt on a vetted-ops command, which
-# spells `~` literally and so cannot be checked against the read block;
-# where vetted-ops is used the read block must be off (see
-# docs/setup/secure-agent-setup.md, "Read-only vetted ops never prompt").
-# `--no-working-dirs` skips them.
+# It is resolved to a literal absolute path: the setting does not match
+# globs such as `/tmp/claude-*`. It is harmless when the read block is
+# off. `--no-working-dirs` skips it.
+#
+# `$HOME/.claude/magpie` is deliberately NOT a working directory, and the
+# helper removes it where an earlier version added it: the sandbox makes
+# every working directory writable, and the vetted-ops commands that run
+# from there are excluded from the sandbox, so a writable checkout would
+# let sandboxed code change what runs outside it. The vetted-ops commands
+# need the read block off anyway (they spell `~` literally, which the read
+# block cannot check; see docs/setup/secure-agent-setup.md, "Read-only
+# vetted ops never prompt"). The removal runs even with `--no-working-dirs`.
 #
 # Scope: writes ONLY to project-local `<repo>/.claude/settings.local.json`,
 # never to user-scope (`~/.claude/settings.json`) and never to the
@@ -230,7 +235,12 @@ fi
 # HOME is unset (nothing absolute to resolve).
 work_dirs='[]'
 if [ "$working_dirs" -eq 1 ] && [ -n "${HOME:-}" ]; then
-  work_dirs=$(jq -cn --arg h "$HOME" --arg u "$(id -u)" '[$h + "/.claude/magpie", "/tmp/claude-" + $u]')
+  work_dirs=$(jq -cn --arg u "$(id -u)" '["/tmp/claude-" + $u]')
+fi
+# Entries an earlier version added and that must go (see the header).
+stale_dirs='[]'
+if [ -n "${HOME:-}" ]; then
+  stale_dirs=$(jq -cn --arg h "$HOME" '[$h + "/.claude/magpie", $h + "/.claude/magpie/", "~/.claude/magpie", "~/.claude/magpie/"]')
 fi
 
 # --- update a single project-local settings file ----------------------------
@@ -240,7 +250,8 @@ fi
 # Ensure <project-root-abs-path> appears in `.sandbox.filesystem.allowRead`
 # and `.sandbox.filesystem.allowWrite` of <file>, along with the dev-tool
 # paths (`$tool_reads` / `$tool_writes`), and that the working directories
-# (`$work_dirs`) appear in `.permissions.additionalDirectories`. Atomic write.
+# (`$work_dirs`) appear in `.permissions.additionalDirectories` and the
+# stale ones (`$stale_dirs`) do not. Atomic write.
 # Creates <file> + parent dir if missing.
 update_settings() {
   local file="$1"
@@ -329,19 +340,22 @@ update_settings() {
           (.permissions.additionalDirectories // []) | add_missing($dirs)
         )
       else . end
+    | if (.permissions.additionalDirectories | type) == "array" then
+        .permissions.additionalDirectories |= map(select(. as $d | $stale | index([$d]) | not))
+      else . end
   '
 
   local tmp
   tmp=$(mktemp "${file}.XXXXXX")
 
   if [ "$input" = "/dev/null" ]; then
-    if ! printf '{}\n' | jq --arg p "$path" --argjson reads "$tool_reads" --argjson writes "$tool_writes" --argjson dirs "$work_dirs" "$jq_prog" > "$tmp"; then
+    if ! printf '{}\n' | jq --arg p "$path" --argjson reads "$tool_reads" --argjson writes "$tool_writes" --argjson dirs "$work_dirs" --argjson stale "$stale_dirs" "$jq_prog" > "$tmp"; then
       rm -f "$tmp"
       warn "jq update of $file failed — leaving file untouched."
       return 0
     fi
   else
-    if ! jq --arg p "$path" --argjson reads "$tool_reads" --argjson writes "$tool_writes" --argjson dirs "$work_dirs" "$jq_prog" "$file" > "$tmp"; then
+    if ! jq --arg p "$path" --argjson reads "$tool_reads" --argjson writes "$tool_writes" --argjson dirs "$work_dirs" --argjson stale "$stale_dirs" "$jq_prog" "$file" > "$tmp"; then
       rm -f "$tmp"
       warn "jq update of $file failed — leaving file untouched."
       return 0

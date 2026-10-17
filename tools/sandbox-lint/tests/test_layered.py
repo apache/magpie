@@ -349,3 +349,26 @@ def test_a_script_under_a_local_allow_write_fails_the_invariants() -> None:
     settings = merge_layers(merge_layers(_load(FLOOR), _load(LOCAL_TEMPLATE)), addition)
     errors = check_invariants(settings, project_root=REPO_ROOT)
     assert any("magpie-run-evals.sh" in e and "arbitrary commands" in e for e in errors), errors
+
+
+@pytest.mark.parametrize("work_dir", ["~/.claude/magpie", "~/.claude/", "~/"])
+def test_a_working_dir_over_vetted_ops_fails_the_invariants(work_dir: str) -> None:
+    addition = {"permissions": {"additionalDirectories": [work_dir]}}
+    settings = merge_layers(merge_layers(_load(FLOOR), _load(LOCAL_TEMPLATE)), addition)
+    errors = check_invariants(settings, project_root=REPO_ROOT)
+    assert any(e.startswith("permissions.additionalDirectories:") for e in errors), errors
+    assert any("vetted-op-read" in e and "arbitrary commands" in e for e in errors), errors
+
+
+def test_a_working_dir_elsewhere_passes_the_invariants() -> None:
+    addition = {"permissions": {"additionalDirectories": [f"/tmp/claude-{os.getuid()}", "/opt/data"]}}
+    settings = merge_layers(merge_layers(_load(FLOOR), _load(LOCAL_TEMPLATE)), addition)
+    assert check_invariants(settings, project_root=REPO_ROOT) == []
+
+
+@pytest.mark.parametrize("work_dir", ["~/.claude/magpie/vetted-ops", "~/.claude/magpie/adversarial-review/"])
+def test_a_working_dir_inside_the_checkout_fails_the_invariants(work_dir: str) -> None:
+    addition = {"permissions": {"additionalDirectories": [work_dir]}}
+    settings = merge_layers(merge_layers(_load(FLOOR), _load(LOCAL_TEMPLATE)), addition)
+    errors = check_invariants(settings, project_root=REPO_ROOT)
+    assert any(e.startswith(f"permissions.additionalDirectories: {work_dir!r}") for e in errors), errors

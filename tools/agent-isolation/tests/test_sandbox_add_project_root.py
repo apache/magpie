@@ -233,7 +233,7 @@ class TestToolPaths:
 
 
 def _work_dirs(home: Path) -> list[str]:
-    return [str(home / ".claude" / "magpie"), f"/tmp/claude-{os.getuid()}"]
+    return [f"/tmp/claude-{os.getuid()}"]
 
 
 class TestWorkingDirs:
@@ -269,6 +269,20 @@ class TestWorkingDirs:
         permissions = _load(repo / ".claude" / "settings.local.json")["permissions"]
         assert permissions["additionalDirectories"] == ["/opt/data"] + _work_dirs(home)
         assert permissions["allow"] == ["Bash(ls *)"]  # other permission keys untouched
+
+    @pytest.mark.parametrize("extra_args", [[], ["--no-working-dirs"]])
+    def test_removes_the_writable_magpie_dir(self, tmp_path: Path, extra_args: list[str]) -> None:
+        # A working directory is sandbox-writable, and the vetted-ops commands
+        # run from ~/.claude/magpie outside the sandbox.
+        repo = _make_git_repo(tmp_path)
+        home = tmp_path / "home"
+        magpie = str(home / ".claude" / "magpie")
+        stale = [magpie, magpie + "/", "~/.claude/magpie", "~/.claude/magpie/"]
+        _seed_settings(repo, {"permissions": {"additionalDirectories": ["/opt/data", *stale]}})
+        _run(repo, extra_args, extra_env={"HOME": str(home)})
+        dirs = _load(repo / ".claude" / "settings.local.json")["permissions"]["additionalDirectories"]
+        assert not set(stale) & set(dirs)
+        assert dirs[0] == "/opt/data"
 
     def test_no_working_dirs_flag_skips_them(self, tmp_path: Path) -> None:
         repo = _make_git_repo(tmp_path)

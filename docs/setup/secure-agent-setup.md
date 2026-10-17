@@ -952,7 +952,7 @@ Codex is the exception that proves the rule: its execpolicy cannot match `~`, so
    Claude Code evaluates deny, then ask, then allow, and a matching ask rule prompts even when an allow rule also matches.
 3. `permissions.blockReadsOutsideWorkingDirectories` is `false` or absent, in every scope.
    With it on, every call prompts (*"uvx names '~/.claude/magpie/vetted-ops', which cannot be checked against the read block"*): the read check cannot resolve the literal `~` that the commands spell, and the skills and agents spell it that way because the `~` exclusions are written that way.
-   Neither an `allow` rule nor listing the absolute `$HOME/.claude/magpie` in `permissions.additionalDirectories` overrides that check.
+   No `allow` rule overrides that check, and listing `$HOME/.claude/magpie` in `permissions.additionalDirectories` must not be tried: it makes the checkout sandbox-writable (see [Working directories](#working-directories-under-the-read-outside-working-directories-block)).
    Turning the setting off does not unsandbox anything: sandboxed Bash still reads only what `sandbox.filesystem` allows, and the agent's `Read` tool keeps its `permissions.deny` rules on credential paths.
 4. `permissions.deny` carries all three tamper-protection rules:
    - `Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)` — the operation catalogue;
@@ -1176,9 +1176,10 @@ The helper:
   into **each worktree's** own `.claude/settings.local.json`.
 - Without the flag, writes only the current worktree's path
   into the current worktree's `.claude/settings.local.json`.
-- Also adds the two [working directories](#working-directories-under-the-read-outside-working-directories-block)
-  (`$HOME/.claude/magpie`, `/tmp/claude-<uid>`), resolved, to
-  `permissions.additionalDirectories`; `--no-working-dirs` skips them.
+- Also adds the [working directory](#working-directories-under-the-read-outside-working-directories-block)
+  `/tmp/claude-<uid>`, resolved, to `permissions.additionalDirectories`;
+  `--no-working-dirs` skips it. It removes `$HOME/.claude/magpie` from
+  that list where an earlier version added it, with or without the flag.
 - Creates `.claude/settings.local.json` from scratch if missing
   (with only the `sandbox.filesystem` block and
   `permissions.additionalDirectories` — nothing else is touched).
@@ -1391,28 +1392,25 @@ gatherer agents.
 Claude Code's `permissions.blockReadsOutsideWorkingDirectories` setting,
 when it is on in user or managed settings, makes any read of a path
 outside the session's working directories ask first. That covers the
-agent's `Read` tool and Bash commands that name such a path. Two
-locations the Magpie skills read on every run sit outside the adopter
+agent's `Read` tool and Bash commands that name such a path. The
+skills read the session scratch root on every run, outside the adopter
 repository:
 
-- **`~/.claude/magpie`** — the fixed path the vetted-ops rules and
-  commands name ([why a fixed path](#the-frameworks-own-claudesettingsjson)).
 - **`/tmp/claude-<uid>`** — the session scratch root the sandbox makes
   writable, where skills keep temporary clones, rendered bodies and
   other intermediate files.
 
-Without them, each such read prompts, and a bulk sync that fans out into
+Without it, each such read prompts, and a bulk sync that fans out into
 read-only gatherer agents turns into one prompt per read per agent.
-Add both to `permissions.additionalDirectories` in the **project-local**
+Add it to `permissions.additionalDirectories` in the **project-local**
 `<repo>/.claude/settings.local.json` — the per-host file the
 [project-root coverage](#project-root-coverage-in-the-sandbox-allowlists)
 fix already uses. [`sandbox-add-project-root.sh`](#sandbox-add-project-rootsh)
-writes them there, next to the project root and the dev-tool paths:
+writes it there, next to the project root and the dev-tool paths:
 
 ```jsonc
 "permissions": {
   "additionalDirectories": [
-    "/home/alice/.claude/magpie",   // "$HOME/.claude/magpie", resolved
     "/tmp/claude-1000"              // "/tmp/claude-$(id -u)", resolved
   ]
 }
@@ -1420,28 +1418,34 @@ writes them there, next to the project root and the dev-tool paths:
 
 Three rules for the entries:
 
-- **Literal absolute paths.** The helper resolves `$HOME` and `id -u`.
+- **Literal absolute paths.** The helper resolves `id -u`.
   A glob such as `/tmp/claude-*` is accepted and even listed as a
   working directory, but it is not matched: reads under
   `/tmp/claude-<uid>/…` keep prompting.
-- **Per host, so project-local.** Both paths name this machine's home
-  directory and uid. Keep them out of the committed project settings,
-  and out of a user-scope `~/.claude/settings.json` that is
+- **Per host, so project-local.** The path names this machine's uid.
+  Keep it out of the committed project settings, and out of a
+  user-scope `~/.claude/settings.json` that is
   [synced across machines](#syncing-user-scope-config-across-machines):
   a synced file carries one machine's paths to every other.
-- **Nothing becomes editable that was not before.** The `deny` rule
-  `Edit(~/.claude/magpie/**)` still binds every file-editing tool in
-  that directory, so the catalogue behind the vetted-ops read `allow`
-  stays out of the agent's reach. The scratch root is already writable
-  to sandboxed Bash.
+- **Never `~/.claude/magpie`.** The sandbox makes every working
+  directory writable to sandboxed Bash, whatever `allowWrite` says; the
+  `Edit(~/.claude/magpie/**)` deny binds only the file-editing tools.
+  The vetted-ops commands run from that checkout outside the sandbox, so
+  listing it would let sandboxed code change what runs outside. The
+  helper removes the entry where an earlier version added it, and
+  [sandbox-lint](../../tools/sandbox-lint/README.md) fails on any working
+  directory that covers the checkout. Reads of the vetted-ops tree keep
+  prompting while the read block is on, which is one more reason the
+  block has to be off where the dispatcher is used.
 
 For a single session, `/add-dir <path>` does the same without a settings
-change. One case these entries do not cover: a Bash command that spells
+change, and the same rule applies. One case these entries do not cover: a Bash command that spells
 the path with a literal `~` still prompts, because the read check does
 not resolve `~` inside a command. Every vetted-ops command is spelled that
 way, which is why the read block itself has to be off. `setup-isolated-setup-install` runs the
 helper, `setup-isolated-setup-verify` checks the entries, and
-`setup-isolated-setup-update` reports them when they are missing.
+`setup-isolated-setup-update` reports them when they are missing or
+when `~/.claude/magpie` is listed.
 
 ## The clean-env wrapper
 
@@ -3544,13 +3548,13 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
     `permissions.blockReadsOutsideWorkingDirectories` is on in any
     scope (n/a otherwise). The worktree's project-local
     `.claude/settings.local.json` `permissions.additionalDirectories`
-    contains the resolved absolute paths of `$HOME/.claude/magpie` and
-    `/tmp/claude-$(id -u)`. A missing path is ⚠: nothing is exposed,
-    but every read under it prompts. An entry with a glob (such as
+    contains the resolved absolute path of `/tmp/claude-$(id -u)`. A
+    missing path is ⚠: nothing is exposed, but every read under it
+    prompts. An entry with a glob (such as
     `/tmp/claude-*`) does not cover the path it was meant to: it is
     listed as a working directory but never matched, so report it as
     that path missing (⚠) and say plainly the entry does nothing. The
-    same paths in the committed project settings, or in a user-scope
+    same path in the committed project settings, or in a user-scope
     settings file that is synced across machines, are ⚠: they are
     per-host.
 16. **Read-only vetted ops never prompt**, if the repo uses the
@@ -3563,8 +3567,12 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
     `vetted-op-read` command (broad rules such as `Bash(uvx *)`
     count);
     `permissions.blockReadsOutsideWorkingDirectories` is not `true`
-    in any scope (user, project, local, managed); and the three
-    vetted-ops `Edit` deny rules from check 9 are present. See
+    in any scope (user, project, local, managed); the three
+    vetted-ops `Edit` deny rules from check 9 are present; and no
+    `permissions.additionalDirectories` entry in any scope overlaps
+    `$HOME/.claude/magpie` (that path, anything inside it, or a parent
+    such as `$HOME/.claude`), since a working directory is sandbox-writable and
+    the vetted-ops commands run from there outside the sandbox. See
     [Read-only vetted ops never prompt](#read-only-vetted-ops-never-prompt).
 17. **roborev exclusion**, if `command -v roborev` finds it (n/a
     otherwise). `sandbox.excludedCommands` contains `"roborev *"` (⚠ when
