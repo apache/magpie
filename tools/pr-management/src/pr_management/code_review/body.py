@@ -165,6 +165,16 @@ def _where(finding: dict[str, Any]) -> str:
     return f"`{finding['file']}:{line}`" if line else f"`{finding.get('file') or 'general'}`"
 
 
+def _reviewer_names(reviewers: object) -> str:
+    """The adversarial reviewers as prose: a list from the tool path, or one name."""
+    if isinstance(reviewers, (list, tuple)):
+        names = [str(r) for r in reviewers if str(r).strip()]
+        if len(names) > 1:
+            return ", ".join(names[:-1]) + " and " + names[-1]
+        return names[0] if names else "the adversarial reviewer"
+    return str(reviewers) if reviewers else "the adversarial reviewer"
+
+
 def _block(finding: dict[str, Any], prefix: str) -> str:
     lines = [
         f"### {prefix}{finding.get('rule_id') or finding.get('category') or 'Finding'} ({_where(finding)})",
@@ -182,8 +192,7 @@ def _block(finding: dict[str, Any], prefix: str) -> str:
         lines += [
             "*Flagged by both the primary and adversarial reviewers.*"
             if finding["source"] == "both"
-            else f"*Flagged by {finding.get('reviewers') or 'the adversarial reviewer'} (adversarial review); "
-            "cross-checked.*",
+            else f"*Flagged by {_reviewer_names(finding.get('reviewers'))} (adversarial review); cross-checked.*",
             "",
         ]
     return "\n".join(lines).rstrip()

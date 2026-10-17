@@ -182,6 +182,34 @@ def test_compose_orders_sections_and_folds_dropped_inline_comments() -> None:
     assert body.verify_footer(text, "request-changes")["footer_present"]
 
 
+@pytest.mark.parametrize(
+    ("reviewers", "expected"),
+    [
+        (["codex"], "*Flagged by codex (adversarial review); cross-checked.*"),
+        (["codex", "copilot"], "*Flagged by codex and copilot (adversarial review); cross-checked.*"),
+        (
+            ["codex", "copilot", "gemini"],
+            "*Flagged by codex, copilot and gemini (adversarial review); cross-checked.*",
+        ),
+        ("codex", "*Flagged by codex (adversarial review); cross-checked.*"),
+        (None, "*Flagged by the adversarial reviewer (adversarial review); cross-checked.*"),
+        ([], "*Flagged by the adversarial reviewer (adversarial review); cross-checked.*"),
+    ],
+)
+def test_adversarial_attribution_names_the_reviewers_as_prose(reviewers: object, expected: str) -> None:
+    finding = {"file": "hook.py", "line": 12, "severity": "major", "rule_id": "r", "source": "adversarial"}
+    if reviewers is not None:
+        finding["reviewers"] = reviewers
+    text = body.compose(
+        summary="One finding.",
+        findings=[finding],
+        inline_kept=[],
+        footer_text=body.footer("request-changes", "Foo", URL),
+    )
+    assert expected in text
+    assert "['" not in text
+
+
 def test_inline_comments_and_payload() -> None:
     files = diff.parse(DIFF)
     findings = [
