@@ -347,6 +347,13 @@ The reference model is four layers, layered:
    - `~/.claude/scripts/magpie-run-evals.sh` (optional), so a suite
      can be graded by `claude -p` from inside the sandbox.
 
+   That list is closed: sandbox-lint accepts an exclusion only when it is
+   one of these entries or a narrowing of one (`EXCLUDED_COMMAND_ALLOWLIST`),
+   because no check can recognise every command that runs its arguments.
+   An adopter adds its own in
+   `.apache-magpie-overrides/sandbox-lint/excluded-commands.txt`, and those
+   still have to pass the runs-anything check.
+
    An exclusion runs whatever the command executes **outside** the
    sandbox, so the executed code must not be writable by the thing
    being sandboxed. The non-`gh` entries above therefore address code

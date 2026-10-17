@@ -176,6 +176,18 @@ uv run --project tools/sandbox-lint sandbox-lint --any-harness /path/to/magpie
      fail; every other `uv` subcommand (`sync`, `lock`, `pip`, `build`) counts
      too, since each can run a project's build backend. No bare `Bash` allow; no `permissions.defaultMode: bypassPermissions`,
      and no `*` in `sandbox.network.allowedDomains`.
+   - Every `sandbox.excludedCommands` entry, in any layer, is on the
+     exclusion allowlist (`EXCLUDED_COMMAND_ALLOWLIST`: `gh *`, `roborev *`,
+     the four vetted-ops forms, the adversarial-review runner and
+     `~/.claude/scripts/magpie-run-evals.sh *`) or narrows one of them
+     (`gh auth *`, `gh`). The shape check above cannot recognise every
+     command that runs its arguments (`find -exec`, `git -c`, `make`), and an
+     excluded command runs outside the sandbox, so exclusions are an
+     allowlist, not a denylist. A project that needs another exclusion lists
+     it, one per line (`#` comments), in
+     `.apache-magpie-overrides/sandbox-lint/excluded-commands.txt` under its
+     root; such an entry still has to pass the shape check, so it cannot add
+     a shell or an unpinned runner.
 3. **Baseline self-check.** The same invariants are applied to
    `expected.json` itself, so a PR cannot weaken the baseline in
    lockstep with the live settings without the lint catching the
@@ -291,9 +303,12 @@ if the two diverge.
 The wholesale-weakening check (`_runs_anything`) recognises *shapes* of rule
 that run arbitrary code: shells and interpreters, globbed command words, and
 package runners not pinned to a path. It cannot prove an arbitrary rule safe.
-A tool that executes its arguments and is not on the list would pass, so
-review new `excludedCommands` and `Bash(...)` allows on their merits. The check
-is a backstop, not a substitute for that review.
+For `excludedCommands` the allowlist closes that gap, except for what a
+project adds to its own extension file. For `Bash(...)` allows there is no
+allowlist (approving a tool such as `zizmor *` without a prompt is
+legitimate), so a tool that executes its arguments and is not on the list
+would pass. Review new `Bash(...)` allows and extension entries on their
+merits; the check is a backstop, not a substitute for that review.
 
 A pinned runner is only as safe as the files it runs, and the check looks at
 the pin's source path alone. The writable set it uses is `allowWrite`, the

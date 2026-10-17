@@ -59,6 +59,9 @@ DEFAULT_LOCAL_TEMPLATE = Path("tools/agent-isolation/claude-settings.local.templ
 # Which MCP tools each family calls. In the framework checkout every family is
 # in use, so the floor's MCP allows must be exactly what this derives.
 FAMILY_MCP_REGISTRY = Path("plugins/magpie-setup/skills/setup/family-mcp-allows.json")
+# A project's own additions to EXCLUDED_COMMAND_ALLOWLIST, one entry per line,
+# under its project root.
+PROJECT_EXCLUSION_ALLOWLIST = Path(".apache-magpie-overrides/sandbox-lint/excluded-commands.txt")
 # The layer actually in force on this machine. It may add personal entries
 # (and MCP allows for families not adopted), but layered over the floor it must
 # still pass every invariant and may not override a value the floor sets.
@@ -196,6 +199,23 @@ ANY_COMMAND_LAUNCHERS = frozenset(
         "awk", "gawk", "nawk", "mawk", "tclsh", "lua", "Rscript",
     }
 )  # fmt: skip
+# The only commands that may run outside the sandbox. Recognising commands that
+# run anything (below) cannot be complete: `find -exec`, `git -c`, `make` and
+# many more run their arguments. An exclusion therefore has to be one of these,
+# or a narrowing of one (`gh auth *` under `gh *`); a project adds its own in
+# PROJECT_EXCLUSION_ALLOWLIST, where they still pass the runs-anything check.
+EXCLUDED_COMMAND_ALLOWLIST = frozenset(
+    {
+        "gh *",
+        "roborev *",
+        "uv run --project ~/.claude/magpie/vetted-ops vetted-op-read *",
+        "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *",
+        "uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *",
+        "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *",
+        "uvx --from ~/.claude/magpie/adversarial-review adversarial-review *",
+        "~/.claude/scripts/magpie-run-evals.sh *",
+    }
+)
 # Interpreters, matched with any version suffix (`python3.12`, `node22`).
 _VERSIONED_INTERPRETER = re.compile(r"(python|pypy|node|ruby|perl|php)[0-9.]*")
 _ENV_ASSIGNMENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=")
@@ -246,6 +266,36 @@ def _is_outside_pin(path: str, writable: tuple[str, ...] = ()) -> bool:
     if not (path.startswith("~/") or path.startswith("/")) or ".." in path.split("/"):
         return False
     return not _is_writable(os.path.normpath(os.path.expanduser(path)), writable)
+
+
+def _read_project_exclusions(project_root: Path | None) -> tuple[frozenset[str], str | None]:
+    """The project's own allowed exclusions, and an error when its file exists
+    but cannot be read."""
+    if project_root is None:
+        return frozenset(), None
+    path = project_root / PROJECT_EXCLUSION_ALLOWLIST
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except FileNotFoundError:
+        return frozenset(), None
+    except (OSError, UnicodeDecodeError) as exc:
+        return frozenset(), f"{PROJECT_EXCLUSION_ALLOWLIST}: cannot be read ({exc})"
+    return frozenset(s for s in (line.strip() for line in lines) if s and not s.startswith("#")), None
+
+
+def _is_allowed_exclusion(entry: str, allowed: frozenset[str]) -> bool:
+    """``entry`` is an allowed exclusion or a narrowing of one: the same
+    command with more of its arguments named (``gh auth *`` under ``gh *``)."""
+    text = entry.strip()
+    # Claude Code's legacy prefix form `cmd:*` means the same as `cmd *`.
+    if text.endswith(":*"):
+        text = text[:-2] + " *"
+    for pattern in allowed:
+        if text == pattern:
+            return True
+        if pattern.endswith(" *") and (text == pattern[:-2] or text.startswith(pattern[:-1])):
+            return True
+    return False
 
 
 def _has_glob(word: str) -> bool:
@@ -539,7 +589,17 @@ def check_invariants(settings: dict[str, Any], project_root: Path | None = None)
     # before the end also matches options spliced in at that position, and an
     # excluded command runs outside the sandbox once approved (the
     # adversarial-review exclusion once globbed the plugin version this way).
+    project_exclusions, project_exclusions_error = _read_project_exclusions(project_root)
+    if project_exclusions_error:
+        errors.append(project_exclusions_error)
+    allowed_exclusions = EXCLUDED_COMMAND_ALLOWLIST | project_exclusions
     for entry in sandbox.get("excludedCommands", []) or []:
+        if isinstance(entry, str) and not _is_allowed_exclusion(entry, allowed_exclusions):
+            errors.append(
+                f"sandbox.excludedCommands: {entry!r} is not on the exclusion allowlist; an excluded "
+                "command runs outside the sandbox, so only the framework's own exclusions are accepted. "
+                f"Add it to {PROJECT_EXCLUSION_ALLOWLIST} once reviewed"
+            )
         if isinstance(entry, str) and _runs_anything(entry, writable):
             errors.append(
                 f"sandbox.excludedCommands: {entry!r} would run arbitrary commands outside the sandbox"
