@@ -125,7 +125,7 @@ github:
       # would block the PR). Excluded for that reason:
       # `asf-allowlist-check` (paths: `.github/**`) and
       # `lint .claude/settings.json against baseline` from
-      # sandbox-lint (paths: `.claude/settings.json`,
+      # sandbox-lint (paths: `.claude/settings.json`, `.claude/settings.local.json`,
       # `tools/agent-isolation/claude-settings.local.template.json`,
       # `plugins/magpie-setup/skills/setup/family-mcp-allows.json`,
       # `.gemini/**` and `tools/sandbox-lint/**`; see `paths:` in

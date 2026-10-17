@@ -28,6 +28,9 @@ on:  # yamllint disable-line rule:truthy
   pull_request:
     paths:
       - ".claude/settings.json"
+      # Each contributor's own layer, never tracked: a change here means
+      # someone committed one, and the job must run to refuse it.
+      - ".claude/settings.local.json"
       - "tools/agent-isolation/claude-settings.local.template.json"
       - "plugins/magpie-setup/skills/setup/family-mcp-allows.json"
       - ".gemini/**"
@@ -37,6 +40,9 @@ on:  # yamllint disable-line rule:truthy
     branches: [main]
     paths:
       - ".claude/settings.json"
+      # Each contributor's own layer, never tracked: a change here means
+      # someone committed one, and the job must run to refuse it.
+      - ".claude/settings.local.json"
       - "tools/agent-isolation/claude-settings.local.template.json"
       - "plugins/magpie-setup/skills/setup/family-mcp-allows.json"
       - ".gemini/**"
@@ -85,6 +91,17 @@ jobs:
       # repo root, which is what the linter expects so
       # `.claude/settings.json` and `tools/sandbox-lint/expected.json`
       # resolve relative to cwd.
+      # `.claude/settings.local.json` is each contributor's own layer over the
+      # committed floor, reconciled from the local template. Claude Code
+      # loads it for everyone who checks the repository out, and a local
+      # scalar overrides the floor's (`sandbox.enabled: false`), but CI lints
+      # only the floor and the template. Refuse a committed copy outright.
+      - name: Refuse a committed .claude/settings.local.json
+        run: |
+          if git ls-files --error-unmatch .claude/settings.local.json >/dev/null 2>&1; then
+            echo "::error file=.claude/settings.local.json::.claude/settings.local.json is each contributor's own layer and must not be committed. Shared settings go in the floor (.claude/settings.json) or the local template (tools/agent-isolation/claude-settings.local.template.json); remove the file with 'git rm --cached .claude/settings.local.json'."
+            exit 1
+          fi
       - name: Run sandbox-lint
         run: uv run sandbox-lint
       - name: Check Gemini sandbox and policy profile
