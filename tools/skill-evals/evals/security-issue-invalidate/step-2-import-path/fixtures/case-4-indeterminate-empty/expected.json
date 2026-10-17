@@ -1,6 +1,0 @@
-{
-  "import_path": "indeterminate",
-  "email_draft_step": "surface_to_user",
-  "thread_id": null,
-  "rationale": "The Security mailing list thread field is _No response_, which is unrecognised; the skill must ask the user whether to reply on a Gmail thread or close silently."
-}

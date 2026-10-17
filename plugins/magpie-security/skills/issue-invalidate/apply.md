@@ -47,7 +47,8 @@ gh issue edit <N> --repo <tracker> \
   --remove-label 'pr merged'
 ```
 
-`gh issue edit` ignores `--remove-label` for labels that aren't set, so listing all candidates is safe and idempotent.
+`gh issue edit` ignores `--remove-label` for labels that aren't set, so listing all candidates is safe and idempotent;
+`<sm> labels` prints the command with only the labels actually set.
 
 ### 6d — Close the tracker
 

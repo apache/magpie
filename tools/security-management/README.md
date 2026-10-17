@@ -16,6 +16,7 @@
     - [`issue-import-via-forwarder`](#issue-import-via-forwarder)
     - [`issue-import-from-scan`](#issue-import-from-scan)
     - [`issue-triage`](#issue-triage)
+    - [`issue-invalidate`](#issue-invalidate)
   - [Tests](#tests)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -35,7 +36,8 @@ Each skill family is a subcommand: [`security-issue-import`](../../plugins/magpi
 [`security-issue-import-from-md`](../../plugins/magpie-security/skills/issue-import-from-md/SKILL.md) (`issue-import-from-md`)
 [`security-issue-import-via-forwarder`](../../plugins/magpie-security/skills/issue-import-via-forwarder/SKILL.md) (`issue-import-via-forwarder`)
 [`security-issue-import-from-scan`](../../plugins/magpie-security/skills/issue-import-from-scan/SKILL.md) (`issue-import-from-scan`)
-and [`security-issue-triage`](../../plugins/magpie-security/skills/issue-triage/SKILL.md) (`issue-triage`).
+[`security-issue-triage`](../../plugins/magpie-security/skills/issue-triage/SKILL.md) (`issue-triage`)
+and [`security-issue-invalidate`](../../plugins/magpie-security/skills/issue-invalidate/SKILL.md) (`issue-invalidate`).
 The tool takes what the agent saved — search results, the redacted report text, the confirmed plan — and decides or renders everything rule-shaped:
 the Step 1 pre-filter, the batched `threadId` dedup, the forwarder pre-screen, the tracker body and its inert report block, the rollup entry, the rejections-ledger record,
 the fix-already-public reply, the receipt-draft matrix, the confirmation-reply grammar and the recap.
@@ -168,6 +170,26 @@ Every command takes `--input F`, a JSON file.
 | `parse-reply` | `action` (`post`, `cancel`, `ambiguous`), `post_items`, `post_now`, `skip_items`, `edits`, `reclassifications`, `redraft_items`, `force_triage`, `ambiguous_tokens`, `ambiguous_items`; nothing posts by default. |
 | `render-recap` | `distribution` (six keys), `trackers`, `next_steps` by class, `next_step_notes`, `skipped`, `sync_note`, `text`, `bare_refs`. |
 
+### `issue-invalidate`
+
+Every command takes `--input F`, a JSON file.
+
+| Command | Prints |
+|---|---|
+| `selector` | `mode` (`single`, `bulk`, `proposed`), `numbers`, the `gh issue view` / `invalidate proposed` list `command`, and for bulk the aliased `batches` with thumbs-up reactions; another repository exits `2`. |
+| `consensus` | `agreed` (a roster member's INVALID proposal with a thumbs-up or acknowledgement from another roster member), `awaiting` with the recap note, `stop` at the 1000 cap. |
+| `hard-stops` | `verdict` (`proceed`, `noop`, `stop`, `escalate`, `probe`, `ask`), `cve_id`, `message` from state, labels, the *CVE tool link* field and the generic CVE state. |
+| `import-path` | `import_path`, `email_draft_step`, `thread_id` (field, else the rollup provenance), `thread_source`, `secondary_threads`, `root_message_id`, `reporter_credit`; an ambiguous field exits `2`. |
+| `labels` | `labels_to_add` (`invalid`), `labels_to_remove` (needs triage, scope, `pr created` / `pr merged` when set), `security_issue_stays`, the `gh issue edit` `command`. |
+| `board` | The introspection query `file` and `command`; given `items`, the `archiveProjectV2Item` mutation or the *not on the board* note. |
+| `draft-plan` | `action` (`skip`, `ask`, `surface_existing`, `blocked`, `create`), `notification_case`, and for a draft `to`, `cc`, `subject` (`Re: <root subject>`), `backend`, `anchor`; links without OAuth credentials exit `2`. |
+| `check-draft` | `clean` and `hits`: tracker reference, CVE-tool URL, bare reference, re-opening phrase, CVSS, other ASF projects, a duplicate's missing canonical CVE. |
+| `render-close` | The brief closing comment `text`. |
+| `render-rollup` | `label`, `label_shell`, `text` (at most 5 quotes, the canned link, exactly one Reporter-notification line), `quotes_dropped`, `needs_amend`, `bare_refs`; no notification case exits `2`. |
+| `parse-reply` | `action` (`apply`, `apply_silent`, `replace_email_body`, `repick_canned`, `cancel`, `ambiguous`), `email_body_override`, `canned_section_override`. |
+| `apply-plan` | The 6a-6g `steps` in order, with file paths and commands, and the label plan. |
+| `render-recap` | The recap `text` with the hand-off line, `bare_refs`. |
+
 ## Tests
 
 ```bash
@@ -182,4 +204,5 @@ and those of `security-issue-import-via-forwarder/step-0-preflight`, `step-1-det
 `tests/test_issue_import_from_scan.py` pins the `security-issue-import-from-scan` bucket rule the `step-c-bucket` model eval grades.
 `tests/test_issue_triage.py` holds the cases of the retired `security-issue-triage` suites `step-1-selector`, `step-5-confirm` and `step-7-recap`, and cases 1–2 of `step-6-body-scrub`;
 it pins the `step-26-precedent-search` signal rule, which stays a model eval.
+`tests/test_issue_invalidate.py` holds the cases of the retired `security-issue-invalidate` suites `step-2-import-path`, `step-5a-labels`, `step-5b-closing-comment`, `step-5d-email-draft`, `step-5e-rollup-entry`, `step-5f-confirm` and `step-7-recap`.
 `tests/test_body.py` checks that the `tracker-body-template.md` files of the sibling import skills carry exactly the rendered headings.

@@ -1,6 +1,0 @@
-{
-  "import_path": "security_at_imported_gmail_only",
-  "email_draft_step": "required",
-  "thread_id": "18f3a2b9c1d4e507",
-  "rationale": "The Security mailing list thread field contains the Gmail-only sentinel with threadId 18f3a2b9c1d4e507, indicating the tracker was imported from a private security@ thread with no public archive."
-}

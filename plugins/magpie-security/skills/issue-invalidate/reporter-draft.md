@@ -7,6 +7,10 @@
 
 ### 5d — Email draft (security@-imported only)
 
+`<sm> draft-plan` decides this substep from the Step 2 `import_path`, the channel (`via_forwarder`, `ghsa`), `security_cc`, the recipients, the root subject and anchors, the backend inputs and `existing_drafts`:
+it prints `action` (`skip`, `ask`, `surface_existing`, `blocked`, `create`), the Step 5e `notification_case`, and for `create` the `to`, `cc`, `subject`, `backend` and thread `anchor`.
+Before drafting, run `<sm> check-draft` on the composed body (`{body, tracker, disposition, canonical_cve, own_names}`): it must come back `clean`.
+
 Skip this entire substep when the import path detected in Step 2
 is *PR-imported*. Two additional skip cases — both **must be
 named explicitly** in the Step 5e rollup terminal entry:

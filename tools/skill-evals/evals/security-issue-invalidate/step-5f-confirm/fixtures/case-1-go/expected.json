@@ -1,6 +1,0 @@
-{
-  "action": "apply",
-  "email_body_override": null,
-  "canned_section_override": null,
-  "rationale": "User replied 'go', which maps to the apply action — apply the full proposal as-is including the email draft."
-}

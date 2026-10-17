@@ -1,6 +1,0 @@
-{
-  "action": "cancel",
-  "email_body_override": null,
-  "canned_section_override": null,
-  "rationale": "User replied 'cancel', which means bail out — nothing is applied, the tracker remains unchanged."
-}

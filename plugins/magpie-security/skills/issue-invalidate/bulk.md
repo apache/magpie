@@ -26,10 +26,11 @@ gh issue list --repo <tracker> --state open --label "needs triage" \
   )) | .number]}'
 ```
 
+`<sm> selector` with `invalidate proposed` prints this command.
 The `--limit 1000` matches [`security-issue-triage`](../issue-triage/SKILL.md) Step 1's full-set fetch.
 If `fetched` equals 1000, stop and surface it rather than proceed on a possibly truncated set: a backlog that size is a triage-cadence problem.
 
-Then fetch the consensus inputs and the Step 1 state for every match in one batched read — one aliased GraphQL query per chunk of up to 20 trackers (⌈M/20⌉ round-trips for M matches), not a reactions call and a `gh issue view` per tracker.
+Then fetch the consensus inputs and the Step 1 state for every match in one batched read (`<sm> selector` on the matched numbers prints the chunks) — one aliased GraphQL query per chunk of up to 20 trackers (⌈M/20⌉ round-trips for M matches), not a reactions call and a `gh issue view` per tracker.
 Write the query with the Write tool to a scratch file — it holds only issue numbers and the `<tracker>` owner/name — and run it as a plain `gh api graphql -F query=@<file>`:
 
 ```graphql
@@ -53,6 +54,7 @@ query {
 ```
 
 The same query serves an explicit-list selector (`invalidate #N1, #N2, …`), minus the consensus check.
-Check each triage-proposal comment's thumbs-up reactions and follow-up comments in this result for the team-consensus marker.
-Drop trackers that fail the consensus check, and surface them in the recap as awaiting consensus.
+Check each triage-proposal comment's thumbs-up reactions and follow-up comments in this result for the team-consensus marker:
+`<sm> consensus` (`{tracker, roster, fetched, responses}`) does it — only a roster member's INVALID proposal counts, and the thumbs-up or acknowledgement must come from another roster member.
+Drop trackers that fail the consensus check (`awaiting`), and surface them in the recap as awaiting consensus.
 The result is also each remaining tracker's Step 1 state: Step 1 reads its fields from here instead of running `gh issue view` per tracker.
