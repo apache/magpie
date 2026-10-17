@@ -838,3 +838,138 @@ def test_vetted_ops_spelling_refuses_an_absolute_checkout_path(monkeypatch, tmp_
     # A harness's own plugin directory outside the working tree is left alone.
     outside = "uvx --from /opt/harness/plugins/magpie/tools/adversarial-review adversarial-review detect"
     assert agent_guard.dispatch(outside, cwd=str(repo)) is None
+
+
+# --------------------------------------------------------------------------- #
+# prefix wrappers — `env` / `command` hide nothing from the guards (#1679)
+# --------------------------------------------------------------------------- #
+
+
+COAUTHOR_MSG = 'git commit -m "fix\n\nCo-Authored-By: Someone <x@y.z>"'
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        f"env {COAUTHOR_MSG}",
+        f"command {COAUTHOR_MSG}",
+        f"env FOO=1 {COAUTHOR_MSG}",
+        f"env -i {COAUTHOR_MSG}",
+        f"env -u FOO {COAUTHOR_MSG}",
+        f"env -uFOO {COAUTHOR_MSG}",
+        f"env --unset=FOO {COAUTHOR_MSG}",
+        f"env -- {COAUTHOR_MSG}",
+        f"command -p {COAUTHOR_MSG}",
+        f"env command {COAUTHOR_MSG}",
+        f"command env FOO=1 {COAUTHOR_MSG}",
+        f"/usr/bin/env {COAUTHOR_MSG}",
+    ],
+)
+def test_commit_trailer_seen_behind_a_prefix_wrapper(command):
+    # `env` / `command` are not guarded heads: unwrapped in the engine, so
+    # every guard sees the wrapped command, not the wrapper.
+    reason = dispatch(command)
+    assert reason and "Co-Authored-By" in reason
+
+
+def test_env_prefix_assignments_feed_the_override():
+    assert dispatch('env MAGPIE_ALLOW_COAUTHOR=1 git commit -m "x\nCo-Authored-By: a"') is None
+
+
+def test_command_dash_v_is_not_a_wrapper():
+    # `command -v git` locates the command; it runs nothing. Unwrapping it
+    # would fabricate a bare `git` argv out of a lookup, so it ends instead.
+    assert dispatch("command -v git commit -m 'Co-Authored-By: a'") is None
+
+
+def test_empty_rebase_denied_behind_a_prefix_wrapper(monkeypatch):
+    monkeypatch.setattr(agent_guard, "_run", fake_run(_push_handler("0")))
+    reason = dispatch("command git push --force-with-lease origin mybranch:mybranch")
+    assert reason and "0 commits" in reason
+
+
+def test_empty_rebase_override_behind_env_assignments(monkeypatch):
+    monkeypatch.setattr(agent_guard, "_run", fake_run(_push_handler("0")))
+    assert dispatch("env MAGPIE_ALLOW_EMPTY_PUSH=1 git push --force origin b:b") is None
+
+
+def test_a_lone_env_wrapper_runs_nothing():
+    assert dispatch("env FOO=1") is None
+    assert dispatch("command") is None
+
+
+def test_a_lone_env_wrapper_is_separate_from_the_next_segment():
+    # `env FOO=1 && git commit ...`: the wrapper segment is empty, the git
+    # segment is guarded — the split, not the unwrap, decides that.
+    reason = dispatch("env FOO=1 && git commit -m 'x\n\nCo-Authored-By: a'")
+    assert reason and "Co-Authored-By" in reason
+
+
+def test_raw_argv_carries_each_token_spelling():
+    seg = agent_guard.split_segments('git commit -m "a b"')[0]
+    assert seg.argv == ["git", "commit", "-m", "a b"]
+    assert seg.raw_argv == ["git", "commit", "-m", '"a b"']
+
+
+def test_raw_argv_stays_aligned_behind_a_prefix_wrapper():
+    seg = agent_guard.split_segments('env FOO=1 git commit -m "a b"')[0]
+    assert seg.argv == ["git", "commit", "-m", "a b"]
+    assert seg.raw_argv == ["git", "commit", "-m", '"a b"']
+    assert seg.env == {"FOO": "1"}
+
+
+def test_unlexable_command_stays_empty():
+    assert agent_guard.split_segments("git commit -m 'unterminated") == []
+    assert agent_guard.split_segments("git commit -m \\") == []
+
+
+# --------------------------------------------------------------------------- #
+# vetted-ops-spelling: prefix wrappers and the quoted ~ (issue #1679)
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "env uv run --project ~/.claude/magpie/vetted-ops vetted-op-read pr-view 1",
+        "command uvx --from ~/.claude/magpie/vetted-ops vetted-op-read pr-view 1",
+        "env MAGPIE_ALLOW_VETTED_PATH=1 uv run --project tools/vetted-ops vetted-op-read x",
+    ],
+)
+def test_vetted_ops_spelling_wrapped(command):
+    # The stable spelling behind a wrapper still runs outside the sandbox;
+    # the override behind `env` assignments still exempts a checkout path.
+    assert agent_guard.dispatch(command) is None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "env uv run --project tools/vetted-ops vetted-op-read pr-view 1",
+        "command uvx --from /home/alice/.claude/magpie/vetted-ops vetted-op-read pr-view 1",
+    ],
+)
+def test_vetted_ops_spelling_wrapped_denies(command):
+    reason = agent_guard.dispatch(command)
+    assert reason and "agent-guard[vetted-ops-spelling]" in reason
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        'uv run --project "~/.claude/magpie/vetted-ops" vetted-op-read pr-view 1',
+        "uv run --project '~/.claude/magpie/vetted-ops' vetted-op-read pr-view 1",
+        'uvx --from "~/.claude/magpie/vetted-ops" adversarial-review detect',
+        "uv run --project='~/.claude/magpie/vetted-ops' vetted-op-read pr-view 1",
+        r"uv run --project \~/.claude/magpie/vetted-ops vetted-op-read pr-view 1",
+        'env uv run --project "~/.claude/magpie/vetted-ops" vetted-op-read pr-view 1',
+    ],
+)
+def test_vetted_ops_spelling_refuses_a_tilde_the_shell_wont_expand(command):
+    # The values parse to the stable spelling, so only the raw spelling
+    # distinguishes them — and the shell never expands these tildes: uv gets
+    # a directory literally named `~`, the sandbox exclusion does not match,
+    # and the call fails inside the sandbox instead of being refused here.
+    reason = agent_guard.dispatch(command)
+    assert reason and "agent-guard[vetted-ops-spelling]" in reason
+    assert "never expands" in reason
