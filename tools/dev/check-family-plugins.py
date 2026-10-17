@@ -294,6 +294,15 @@ SUBSTRATE_PLUGINS: dict[str, dict] = {
             "tools/vetted-ops/hooks": "tools/vetted-ops/hooks",
             "tools/vetted-ops/pyproject.toml": "tools/vetted-ops/pyproject.toml",
             "tools/vetted-ops/README.md": "tools/vetted-ops/README.md",
+            # The security-tracker backends vetted-ops runs beside itself
+            # (tracker_backends.backend_dir): real copies, not links, so a
+            # self-contained install (Codex, a plugin cache) carries them.
+            "tools/jira/src/jira_bridge": "tools/jira/src/jira_bridge",
+            "tools/jira/pyproject.toml": "tools/jira/pyproject.toml",
+            "tools/jira/README.md": "tools/jira/README.md",
+            "tools/local-tracker/src/magpie_local_tracker": "tools/local-tracker/src/magpie_local_tracker",
+            "tools/local-tracker/pyproject.toml": "tools/local-tracker/pyproject.toml",
+            "tools/local-tracker/README.md": "tools/local-tracker/README.md",
         },
         # The entry point skills invoke, and the hook that keeps the fixed path
         # permission rules name (~/.claude/magpie/vetted-ops) on this version.

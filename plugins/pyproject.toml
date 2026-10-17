@@ -56,6 +56,9 @@ package = false
 [tool.ruff]
 line-length = 110
 target-version = "py311"
+# A generated copy (tools/dev/check-family-plugins.py `copies`) whose source,
+# tools/jira, is linted and formatted under its own settings there.
+extend-exclude = ["magpie-vetted-ops/tools/jira"]
 
 [tool.ruff.lint]
 select = [
