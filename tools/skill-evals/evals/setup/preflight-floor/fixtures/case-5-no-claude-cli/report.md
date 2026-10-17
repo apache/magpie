@@ -7,5 +7,8 @@ magpie-agent-guard.
 
 `.apache-magpie-overrides/` exists and contains `project.md`.
 
-The running agent is Google Gemini CLI. There is no `claude` executable on
-PATH. The installed Magpie extension reports version 0.2.0.
+The running agent is Google Gemini CLI (`GEMINI_CLI=1`). There is no
+`claude` executable on PATH and no Codex session markers in the
+environment. The installed Magpie extension reports version 0.2.0:
+`gemini extensions list -o json` prints
+`[{"name": "magpie", "version": "0.2.0"}]`.

@@ -88,6 +88,17 @@ def test_a_genuinely_missing_plugin_is_a_finding(project: Path) -> None:
     found = project_findings(project, {"something-else": "9.9.9"})
     assert codes(found) == ["below-floor"]
     assert found[0].facts["missing"] == ["magpie-setup"]
+    # The listing came from `--plugin-list` here, so no harness is named.
+    assert found[0].facts["harness"] is None
+
+
+def test_the_floor_finding_names_the_harness_it_measured(project: Path) -> None:
+    """The finding carries the harness the listing came from, so the rules
+    can name that harness's own install and update commands."""
+    write_lock(project, MARKETPLACE)
+    found = project_findings(project, {"something-else": "9.9.9"}, "gemini")
+    assert codes(found) == ["below-floor"]
+    assert found[0].facts["harness"] == "gemini"
 
 
 def test_being_ahead_of_the_floor_is_never_a_finding(project: Path) -> None:
@@ -336,6 +347,19 @@ def test_a_changed_plugin_listing_invalidates_the_cache(project: Path) -> None:
     cached_project_findings(project, {"magpie-setup": "0.1.0"})
     found, cached = cached_project_findings(project, {"magpie-setup": "9.9.9"})
     assert cached is False and found == []
+
+
+def test_a_changed_harness_invalidates_the_cache(project: Path) -> None:
+    """The below-floor finding names the harness its listing came from, so
+    a verdict computed under one harness must not be served to another."""
+    write_lock(project, MARKETPLACE)
+    (project / ".apache-magpie-local").mkdir()
+    first, cached = cached_project_findings(project, {"magpie-setup": "0.1.0"}, "claude")
+    assert cached is False and codes(first) == ["below-floor"]
+    assert first[0].facts["harness"] == "claude"
+    second, cached = cached_project_findings(project, {"magpie-setup": "0.1.0"}, "codex")
+    assert cached is False and codes(second) == ["below-floor"]
+    assert second[0].facts["harness"] == "codex"
 
 
 def test_a_refreshed_checker_invalidates_the_cache(project: Path) -> None:

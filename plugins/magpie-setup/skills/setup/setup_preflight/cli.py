@@ -33,8 +33,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 
 from .core import (
@@ -47,17 +49,35 @@ from .core import (
 )
 from .lockfile import MalformedLock
 
-#: Each harness's own plugin-listing command, in probe order.  The floor
-#: must be readable on every harness, not only Claude Code: a missing
-#: `claude` binary on Codex or Gemini CLI is that harness answering with
-#: its own listing (`install.md` Step M5), never *unknown*.  The first
-#: binary that exists decides the answer; a listing it cannot read is
-#: unknown, and a machine running none of them stays unknown too.
-HARNESS_LISTINGS: tuple[tuple[str, list[str]], ...] = (
-    ("claude-code", ["claude", "plugin", "list", "--json"]),
-    ("codex", ["codex", "plugin", "list"]),
-    ("gemini", ["gemini", "extensions", "list"]),
+#: How to notice which harness is running, and that harness's own
+#: plugin-listing command (`install.md` Step M2/M5).  The markers mirror
+#: the canonical self-detection order in `tools/adversarial-review`: a
+#: harness started from inside another inherits the outer one's variables,
+#: so the innermost candidates are checked first and Claude Code's widely
+#: inherited `CLAUDECODE` comes last.  Only the running harness's listing
+#: runs — a machine may have several installed, and whichever comes first
+#: in a fixed probe order is not the one whose versions this session runs.
+#: Copilot installs from a repo URL or catalogue and has no listing CLI,
+#: so its entry has none: the floor stays unknown there rather than
+#: guessing what a listing would print.
+HARNESS_LISTINGS: tuple[
+    tuple[str, tuple[tuple[str, str | None], ...], list[str] | None], ...
+] = (
+    ("codex", (("CODEX_SANDBOX", None), ("CODEX_THREAD_ID", None)), ["codex", "plugin", "list", "--json"]),
+    ("copilot", (("COPILOT_CLI", None),), None),
+    ("gemini", (("GEMINI_CLI", "1"),), ["gemini", "extensions", "list", "-o", "json"]),
+    ("claude", (("CLAUDECODE", "1"),), ["claude", "plugin", "list", "--json"]),
 )
+
+
+def _running_harness(env: Mapping[str, str]) -> tuple[str | None, list[str] | None]:
+    """The harness these environment variables are running, and its listing."""
+    for harness, markers, argv in HARNESS_LISTINGS:
+        for var, want in markers:
+            value = env.get(var)
+            if value and (want is None or value == want):
+                return harness, argv
+    return None, None
 
 
 def _parse_listing(text: str) -> dict[str, str] | None:
@@ -85,39 +105,54 @@ def _parse_listing(text: str) -> dict[str, str] | None:
     return out or None
 
 
-def read_installed(explicit: str | None) -> dict[str, str] | None:
-    """The installed plugin map, or `None` for *unknown* — never `{}` for it.
+def read_installed(
+    explicit: str | None, env: Mapping[str, str] | None = None
+) -> tuple[str | None, dict[str, str] | None]:
+    """The running harness and its installed plugin map, or `None` for
+    *unknown* — never `{}` for it.  The pair is a coherent answer: both
+    are `None` unless the running harness's own listing was read and
+    parsed.
 
-    `--plugin-list` lets the caller supply what it already read; otherwise
-    each harness's own listing command is probed in order and the first
-    binary that exists answers for the machine.  Every failure mode
-    collapses to `None`: the command missing, a non-zero exit, unparsable
-    output, or a sandbox that denies the plugin cache.  The one case that
-    is *not* unknown is a listing that parsed and was genuinely empty,
-    which only a harness with no plugins installed produces.
+    `--plugin-list` lets the caller supply what it already read; the
+    harness is then not known, and the map stands alone.  Otherwise the
+    running harness is detected from its own environment markers and only
+    its listing command runs — no other harness's listing may answer for
+    it.  Every failure mode collapses to `(None, None)`: the harness
+    undetectable, a listing CLI the running harness does not have
+    (Copilot), the command missing, a non-zero exit, a timeout or a
+    refusal from the sandbox, unparsable output, or a sandbox that denies
+    the plugin cache.  The one case that is *not* unknown is a listing
+    that parsed and was genuinely empty, which only a harness with no
+    plugins installed produces.
     """
     if explicit is not None:
         text = sys.stdin.read() if explicit == "-" else Path(explicit).read_text(encoding="utf-8")
-        return _parse_listing(text)
-    for _harness, argv in HARNESS_LISTINGS:
-        try:
-            completed = subprocess.run(
-                argv,
-                check=False,
-                capture_output=True,
-                text=True,
-                timeout=20,
-            )
-        except (OSError, subprocess.SubprocessError):
-            # The binary is not on PATH: this is not the running harness,
-            # so the next harness's own command decides.
-            continue
-        if completed.returncode != 0:
-            return None
-        return _parse_listing(completed.stdout)
-    # No harness CLI exists on this machine: nothing was ever installed
-    # with one, and unknown stays the safe reading.
-    return None
+        return None, _parse_listing(text)
+    harness, argv = _running_harness(os.environ if env is None else env)
+    if argv is None:
+        # No harness is running here, or the one running has no listing
+        # CLI (Copilot installs from a repo URL): unknown, and no other
+        # harness's listing may be probed instead.
+        return None, None
+    try:
+        completed = subprocess.run(
+            argv,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+    except (OSError, subprocess.SubprocessError):
+        # The listing cannot be produced: the binary is missing from the
+        # harness it belongs to, it times out, or the sandbox refuses to
+        # execute it.  Unknown — never another harness's answer.
+        return None, None
+    if completed.returncode != 0:
+        return None, None
+    parsed = _parse_listing(completed.stdout)
+    if parsed is None:
+        return None, None
+    return harness, parsed
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -138,7 +173,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--plugin-list",
         metavar="PATH",
-        help="`claude plugin list --json` output to use instead of running it ('-' for stdin)",
+        help="harness plugin listing JSON to use instead of running it ('-' for stdin)",
     )
     parser.add_argument(
         "--verify-interval-days",
@@ -171,13 +206,13 @@ def main(argv: list[str] | None = None) -> int:
     root: Path = args.project_root
 
     try:
-        installed = read_installed(args.plugin_list)
+        harness, installed = read_installed(args.plugin_list)
         if args.no_cache:
             from .core import project_findings
 
-            project, cached = project_findings(root, installed), False
+            project, cached = project_findings(root, installed, harness), False
         else:
-            project, cached = cached_project_findings(root, installed)
+            project, cached = cached_project_findings(root, installed, harness=harness)
         findings = [
             *project,
             *skill_findings(root, args.skill, args.surface_hash, args.requires),

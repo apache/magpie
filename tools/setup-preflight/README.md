@@ -44,9 +44,10 @@ how to word it, and the prohibitions. Those live in each skill's
 - **Runtime** — Python 3.11+. Standard library only, deliberately: the
   module is copied into the user's personal configuration layer and run
   with bare `python3`, where nothing else is available.
-- **CLIs** — none required. The harness CLI (`claude plugin list --json`)
-  is consulted when present and its absence is a supported state, not an
-  error.
+- **CLIs** — none required. The running harness's own listing command
+  (detected from its environment markers, e.g. `claude plugin list
+  --json` under Claude Code) is consulted when present; its absence or
+  the absence of any harness marker is a supported state, not an error.
 - **Credentials / auth** — none.
 - **Network** — none. Every input is a file in the project.
 - **Optional** — `--plugin-list` accepts a listing the caller already
@@ -147,11 +148,11 @@ is settled when the run finishes rather than before it starts.
 
 **Unknown is never absent.** A plugin listing that could not be read is
 `None`, not `{}`. Inside a sandboxed session the plugin cache is
-read-denied and `claude plugin list --json` prints `[]`, which reads
-exactly like "nothing installed"; acting on it would propose installing a
-project's entire floor on every sandboxed run. An empty *parsed* listing
-is treated as unknown for the same reason — it is indistinguishable from
-the denied case.
+read-denied and the running harness's own listing prints `[]`, which
+reads exactly like "nothing installed"; acting on it would propose
+installing a project's entire floor on every sandboxed run. An empty
+*parsed* listing is treated as unknown for the same reason — it is
+indistinguishable from the denied case.
 
 **A dev build is a version like any other.** Nothing strips or rounds a
 `.devN` segment. `0.2.0.dev202609110041` is below `0.2.0`, and `0.10.0`

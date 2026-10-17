@@ -1,0 +1,1 @@
+{"action": "update", "commands": ["codex plugin update magpie-setup", "codex plugin update magpie-agent-guard"], "blocks": true, "mention_restart": true}
