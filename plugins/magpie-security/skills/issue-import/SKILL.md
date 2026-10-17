@@ -20,7 +20,7 @@ argument-hint: "[import] [last Nd|all] [skip threadId]"
 capability: capability:intake
 surface_hash: sha256:e9c563d494821baf
 license: Apache-2.0
-measured_tokens: 7867
+measured_tokens: 7875
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -376,7 +376,7 @@ Full procedure: [`apply.md`](apply.md).
 ## Step 8 — Recap
 
 Write what Step 7 recorded to `<scratch>/recap.json` and present the `text` of `<sm> render-recap --state <scratch>/recap.json`:
-`platform` (`tracker.platform`), `created` (`number`, or the backend's `id` and `url`; `candidate`), `drafts` (`draft_id`, `candidate` — a consolidated receipt under each candidate it covers, listed once),
+`platform` (`tracker.platform`), `created` (`number`, or the backend's `id` and `url`; `candidate`), `drafts` (`draft_id`, `candidate` — one entry per `draft_id`: a consolidated receipt appears once, under the first candidate it covers),
 `skipped` (`candidate`, `kind`: `user`, `canned` with `canned_name`, `public-fix`, `tracked` with the `existing` tracker as supplied, `answered`),
 `prefiltered` (the Step 1 `dropped` list), `bookkeeping_dropped` (Step 3's count) and `notes` (suppressed receipts, a missing ledger issue).
 The recap links every issue, lists **every** candidate not imported with its reason
