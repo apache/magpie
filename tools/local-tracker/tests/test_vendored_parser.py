@@ -17,7 +17,7 @@ _COPY = Path(__file__).resolve().parents[1] / "src" / "magpie_local_tracker" / "
 def test_vendored_parser_matches_its_source() -> None:
     """This package also ships inside the vetted-ops plugin, without the
     workspace, so it carries a copy of the parser rather than depending on it.
-    A copy that drifts would pair fences differently from every other reader.
+    A copy that drifts would read fields differently from every other reader.
     Skipped in an installed copy, where the source tree is absent."""
     if not _SOURCE.is_file():
         pytest.skip(f"source tree absent: {_SOURCE}")

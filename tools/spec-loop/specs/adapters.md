@@ -64,13 +64,18 @@ by swapping the adapter, not the skill.
   working copy. `detect` infers a committed format descriptor
   (`.magpie-tracker.json`) from existing reports; writes are refused until the
   descriptor records a human-confirmed `access_restricted: true`; `publish`
-  commits only the tracker root (and pushes on Git).
+  commits only the tracker root (and pushes on Git). `###` body fields are
+  read and written through a byte-identical copy of github-body-field's
+  parser; field values have every line that would end a field escaped.
 - `tools/jira/` also ships `magpie-jira-tracker` (`jira_bridge.security_tracker`),
   the stdlib-only `contract:security-tracker` backend over Jira REST v2;
   `create` always sets the configured issue-security level and every write on
   an issue without one is refused. Every request goes through
   `jira_bridge.rest.JiraRest`, whose `send()` keeps the token bound to a
   confirmed host and refuses any write when the token was withheld.
+  Body fields go through a byte-identical copy of github-body-field's
+  parser, with wiki `h1.`–`h3.` headings outside closed code blocks read
+  as `### <Heading>`; `body` exports exactly those fields.
 - `tools/github/` — issues/PRs/labels read + write-back helpers.
   Sub-adapters: `tools/github-body-field/` (reads GitHub issue/PR body
   structured field sets on the body-field contract — every column-0

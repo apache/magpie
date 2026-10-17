@@ -28,7 +28,11 @@ requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
 # General-tracker writes live in bridge.groovy. The package ships a stdlib-only REST
 # client (jira_bridge.rest) and, on top of it, the security-tracker backend
-# (jira_bridge.security_tracker), whose writes go through the same client.
+# (jira_bridge.security_tracker), whose writes go through the same client. Body
+# fields are read and written through a byte-identical copy of
+# tools/github-body-field's parser (src/jira_bridge/body_field_format.py): the
+# plugin ships this project without the workspace, so a dependency on that
+# member would be resolved from a package index instead.
 dependencies = []
 
 [project.scripts]
