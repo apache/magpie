@@ -1,8 +1,0 @@
-{
-  "action": "post",
-  "post_items": [1, 3],
-  "skip_items": [2, 4],
-  "edits": [],
-  "reclassifications": [],
-  "ambiguous_tokens": []
-}

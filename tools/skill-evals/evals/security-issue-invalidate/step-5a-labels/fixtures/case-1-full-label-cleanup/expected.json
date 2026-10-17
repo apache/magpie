@@ -1,5 +1,0 @@
-{
-  "labels_to_add": ["invalid"],
-  "labels_to_remove": ["needs triage", "airflow"],
-  "security_issue_stays": true
-}

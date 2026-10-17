@@ -1,6 +1,0 @@
-{
-  "action": "apply_silent",
-  "email_body_override": null,
-  "canned_section_override": null,
-  "rationale": "User replied 'silent', which means apply the close but deliberately skip the email draft and note the gap in the rollup."
-}

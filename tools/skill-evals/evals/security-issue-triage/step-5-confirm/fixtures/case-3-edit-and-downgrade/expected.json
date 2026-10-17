@@ -1,8 +1,0 @@
-{
-  "action": "post",
-  "post_items": [1, 2, 3],
-  "skip_items": [],
-  "edits": [{"item": 2, "instruction": "swap @alice to @bob"}],
-  "reclassifications": [{"item": 3, "new_class": "DEFENSE-IN-DEPTH"}],
-  "ambiguous_tokens": []
-}

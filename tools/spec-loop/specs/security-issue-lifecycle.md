@@ -62,7 +62,8 @@ publication, with a human gate and an audit-log entry at every step.
 - `tools/security-management` (stdlib, runs nothing) holds the
   deterministic rules of the security skills, one CLI family per skill
   over a shared library (`body`, `rollup`, `refs`, `titles`, `grammar`,
-  `keyword`). For `security-issue-import` it decides the Step 0
+  `keyword`, and `fields` / `threads` / `dispositions` / `selectors` for
+  reading existing trackers, #1672). For `security-issue-import` it decides the Step 0
   disclosure-governance defaults, the Step 1 pre-filter, the Step 2
   `threadId` batches and their attribution, the Step 3 forwarder
   pre-screen, the Step 6 reply grammar and the Step 7 receipt-draft
@@ -97,6 +98,35 @@ publication, with a human gate and an audit-log entry at every step.
   cross-scan triage report, parses the operator's decision and lists the
   scrub hits of a public report without rewriting it; bucketing and its
   grounding stay with the model.
+  For `security-issue-triage` it resolves the selector into its `gh`
+  query (CVE token, undeclared scope label and bare `--retriage` are
+  hard errors), applies the Step 1 stop cases (empty, the 1000 cap, a
+  CVE on several trackers, `--retriage` over 50) and the 20-issue
+  GraphQL batches, decides the four-rule pre-flight skip (the mail
+  rule in a second pass, the thread field read through
+  github-body-field), turns rated precedents into the Step 2.6 signal,
+  picks at most 3 roster handles by the routing priorities, renders
+  the proposal (its two markers, the DEFENSE-IN-DEPTH sentence, the
+  FIX-ALREADY-PUBLIC reply draft; a CVSS severity, an off-roster handle
+  or an unknown canned heading refused), replaces bare names, parses the
+  Step 5 reply (nothing posts by default; edits and re-classifications
+  are re-drafted before posting) and renders the recap; classification,
+  the Security Model quote, precedent rating, routing candidates and
+  injection flagging stay with the model.
+  For `security-issue-invalidate` it parses the selector (single, list,
+  `proposed` with its 1000 cap and batched read), checks team consensus
+  (only a roster member's INVALID proposal, acknowledged by another
+  roster member), decides the Step 0 hard stops from labels, the *CVE
+  tool link* field and the generic CVE state, reads the import path and
+  reply thread from the mailing-thread field (relay threads excluded),
+  plans the reporter draft (skip, surface an existing draft, block
+  without `security_cc`, or recipients, `Re:` subject, thread anchor and
+  backend), greps the composed reply for tracker references, the CVE-tool
+  URL, CVSS and other ASF projects, and renders the labels, board
+  queries, closing comment, rollup entry (exactly one Reporter-notification
+  line or a refusal), confirmation forms, apply order and recap; mining
+  the reasoning, choosing the canned section and writing the reply stay
+  with the model.
 - Shared recipes instead of per-skill copies (#1437): the safe-create
   recipe for a tracker with an attacker-controlled title is
   `tools/github/operations.md` § *Create* (Write-tool title file,

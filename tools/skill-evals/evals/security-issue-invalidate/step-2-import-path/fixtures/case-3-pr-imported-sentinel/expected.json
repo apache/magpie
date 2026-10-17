@@ -1,6 +1,0 @@
-{
-  "import_path": "pr_imported",
-  "email_draft_step": "skip",
-  "thread_id": null,
-  "rationale": "The Security mailing list thread field contains the PR-imported sentinel, indicating this tracker was opened from a public PR with no security@ thread; no reporter exists to notify."
-}
