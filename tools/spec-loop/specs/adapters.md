@@ -85,8 +85,12 @@ by swapping the adapter, not the skill.
   writer's entry is never overwritten), `fold` (moves one legacy bot comment
   into the rollup with its own date and author, then deletes it; refuses to
   fold the rollup itself), `list`, and `latest`.
-  An existing rollup is found by any `<!-- <name> status rollup v<N>`
-  marker, and a comment's id is read from its `#issuecomment-<id>` URL.
+  An existing rollup is found by the canonical
+  `<!-- apache-magpie: status-rollup v<N> -->` marker, preferred when a
+  tracker carries both, or by the legacy `<!-- <name> status rollup v<N>`
+  one; a new rollup always gets the canonical marker, in `github-rollup`
+  and `vetted-op-tracker rollup-append` alike (#1665).
+  A comment's id is read from its `#issuecomment-<id>` URL.
   `tools/github/status-rollup.md` calls the tool instead of carrying its own
   script.
   Under the secure agent setup both tools' `gh` runs sandboxed and fails,

@@ -128,6 +128,19 @@ code lands.
   Top-level build commands resolve release placeholders; custom builds emit
   their reproducibility record. Per-entry modes describe the checks actually
   run, and a failed outcome cannot propose a staging label.
+  It also classifies `release-verify-rc`'s results from saved files only
+  (#1619): `verify-rc args` emits the `release-verify` invocations from
+  `release-build.md`, and `rat`, `source-tree`, `jvm`, `nexus`, `repro` and
+  `report` classify Steps 4, 7, 6b, 6c, 9 and 10, checking the Nexus
+  staging-repository id shape before any URL is built and withholding the
+  trusted-hardware attestation unless automated signing, a Step 9 `PASS`
+  and every artefact `identical` all hold.
+  It renders the `[VOTE]` draft and planning-issue comment
+  (`vote-draft verdict` / `render`, #1617), the backend-shaped promotion
+  command set with a HOLD per unreproduced convenience artefact
+  (`promote verdict` / `render`, #1618), and the `[ANNOUNCE]` body and
+  site-bump PR (`announce-draft verdict` / `render`, #1618), each refusing
+  (exit `2`) what the skill must refuse.
   A source version is a dotted version of two or more numeric parts with
   no `.postN` (`2.11.0`) or, for a release wave named by date, a calendar
   date `YYYY-MM-DD` (`2026-10-06`, tagged `2026-10-06-rc1`); an impossible
@@ -156,6 +169,11 @@ code lands.
   `plan.md`, `prep.md`, `post.md` and `automated-signing.md`; `rc-cut` into
   `ci-signed.md` and `reproducibility-self-check.md`; `verify-rc` into
   `jvm-artefacts.md`, `nexus-staging.md` and `reproducibility.md`.
+  Since #1604–#1625 every skill in the family also keeps its prerequisites
+  and references in `prerequisites.md` / `references.md` and loads one file
+  per outcome, backend or classification (`outcomes/`, `backends/`,
+  `blockers/`, `classifications/`, `mechanisms/`, `delivery/`,
+  `overrides/`) only when the deterministic verdict names it.
 - Adapters it will read/draft through: `tools/github`, `tools/ponymail`
   (vote threads), `tools/gmail` (announce/vote drafts), plus the project's
   `svn` dist tree as a distribution backend.
@@ -328,9 +346,7 @@ uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/release-an
   values (`project_dist_name: magpie`, ATR for both backends).
   `.apache-magpie-overrides/release-build.md` likewise differs from
   `projects/magpie/release-build.md`.
-- **Several of the family's `SKILL.md` files are still over the 500-line
-  cap.** After the helper tools, sibling scripts, conditional-step split and
-  wording passes (#1510–#1519), six of the ten remain over it
-  (`release-rc-cut` 696, `release-verify-rc` 684, `release-announce-draft`
-  529, `release-vote-draft` 528, `release-audit-report` 516,
-  `release-promote` 504); `release-prepare` fell from 1,208 to 399.
+- **No `SKILL.md` in the family is over the 500-line cap any more.** After
+  the decide-and-render-as-code passes (#1604, #1617–#1619, #1624, #1625)
+  the largest are `release-rc-cut` (472) and `release-verify-rc` (469);
+  `release-prepare` fell from 1,208 to 367.

@@ -144,7 +144,9 @@ The three mechanisms, in order of preference:
   Generic skills likewise dropped hardcoded release numbers, a backport
   label, maintainer names, a real CVE id, and one project's canned-response
   list in favour of `<project-config>` values, and the status-rollup marker
-  names the adopter's tracker instead of a fixed project slug (#1444).
+  carries no project slug: new rollups get the framework-wide
+  `<!-- apache-magpie: status-rollup v1 -->` marker, while the legacy
+  tracker-named one is still recognised (#1444, #1665).
 - **Advisory, not paternalistic.** The audit surfaces candidate coupling
   for a maintainer to judge; some ASF strings are legitimate (examples,
   the ASF default profile, ASF-specific docs). It does not auto-rewrite.

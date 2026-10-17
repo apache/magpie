@@ -103,10 +103,12 @@ publication, with a human gate and an audit-log entry at every step.
 - **Reporter PII redacted in-context; reporter *credit* preserved** in
   the CVE `credits[]` only after the reporter confirms on the thread.
 - **Audit log** of every applied change (redacted identifiers only).
-  The per-tracker status rollup is recognised by any first line of the
-  form `<!-- <name> status rollup v<N>`, and a new rollup's marker names
-  the tracker repository, so the rollup works on any adopter's tracker
-  rather than only the reference one (#1444).
+  The per-tracker status rollup is recognised by a first line carrying the
+  canonical `<!-- apache-magpie: status-rollup v<N> -->` marker or the
+  legacy `<!-- <name> status rollup v<N>` one (#1444), the canonical one
+  winning when a tracker carries both, and a new rollup always gets the
+  canonical marker, so the rollup works on any adopter's tracker and is
+  never duplicated under a second marker (#1665).
   `amend-latest` fills in a value on the newest entry (refusing when that
   entry has a different action), and `fold` moves a legacy bot comment
   into the rollup, deleting the original only after the append succeeds.

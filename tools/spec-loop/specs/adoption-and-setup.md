@@ -702,12 +702,14 @@ committed version with drift detection.
 37. `tools/setup-preflight` has a **family** scope: a `welcome` finding
     (rules section `welcome`, guide in `facts.guide`, its name in
     `facts.family`). `setup_preflight/guides/general.md` is due on the first
-    run of any Magpie skill, and `guides/<family>.md` — today only
-    `security` — on the first run of a skill in that family. At most one
+    run of any Magpie skill, and `guides/<family>.md` — today `security`
+    and `utilities` (#1669) — on the first run of a skill in that family. At most one
     guide per run: a first showing beats a repeat, and between equals the
     general guide goes first, so a family guide first appears on the run
     after the general one. The skill's family is looked up in `families.py`, generated
-    from frontmatter and kept current by `check-family-plugins`. The answer
+    from frontmatter and kept current by `check-family-plugins`; the live
+    scan also resolves a mirror entry checked out as a plain text file
+    holding its target path, as git writes it without symlink support. The answer
     is recorded under `welcome.<guide>` in the personal layer's
     `reconciled.json` by `python3 -m setup_preflight.welcome record`, never
     by hand: `seen` shows again up to three recorded showings, `dismiss`

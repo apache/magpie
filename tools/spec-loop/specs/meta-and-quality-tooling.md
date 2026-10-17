@@ -134,6 +134,13 @@ trustworthy as it grows.
   generated index of every skill, grouped by family).
   The utility skills live at `plugins/magpie-utilities/skills/<alias>/`,
   reached through `skills/<name>` symlinks.
+- Claude Code mod: `plugins/magpie-utilities/hooks/skills-command.ts`
+  (registered in that plugin's `hooks/hooks.json` `modules`, #1667)
+  registers `/magpie-skills` at session start and answers it by running
+  `list-skills`' `list_skills.py` locally, with no model turn: a 30-second
+  timeout, UTF-8 output, `python3` falling back to `python`, and
+  `--verbose` / `-v`, `--help` / `-h` and `--root` passed through.
+  `skills-command.test.ts` covers it.
 - `tools/skill-token-count/` measures full local skill files with pinned
   `tiktoken` / `cl100k_base` and stamps each count into that skill's own
   frontmatter as a generated `measured_tokens:` line (#1394).

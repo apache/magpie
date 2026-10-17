@@ -151,7 +151,11 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
   for Copilot CLI's `preToolUse` event (wired in `.github/hooks/magpie.json`,
   #1560), which also allows one simple read-only command (`gh` reads,
   `git status/diff/log`, GET-only `gh api`, `vetted-op-read`) so reads never
-  prompt and leaves anything else to Copilot's own permission flow; inspects every shell command
+  prompt and leaves anything else to Copilot's own permission flow, and a
+  `--junie` adapter for JetBrains Junie's Early Access `PreToolUse` hook
+  (`~/.junie/config.json`, #1666; guide in `docs/adapters/junie.md`), which blocks with exit `2` and a
+  `decision` JSON, the one signal Junie honours, because Junie ignores the
+  Claude-shaped `hookSpecificOutput` deny; inspects every shell command
   before it runs and denies the ones that break a hard framework rule,
   independent of model memory. The guard decisions live in a single
   harness-agnostic `dispatch()` core so every wired harness enforces
@@ -233,6 +237,10 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
   `.claude/settings.json`) — the `sandbox` block (filesystem
   allow/deny, network `allowedDomains`, `excludedCommands`) and
   `permissions` (`deny` / `ask`).
+  `.claude/settings.json` itself is gitignored, and the `sandbox-lint`
+  workflow also runs when that path changes and fails while it is tracked,
+  so a force-added copy that Claude Code would load for every checkout is
+  refused before merge (#1675).
 - `.gemini/settings.json` and `.gemini/policies/magpie.toml` — Magpie's Gemini profile: tool-sandboxing and an explicitly loaded User-tier approval policy.
   Scoped shell reads are allowed; other shell calls, native edits, and MCP calls ask; listed commands and credential paths deny.
   Credential-path denies name the canonical `grep_search`; the native probe verifies its `search_file_content` alias, canonical policy names, and search/multi-file/web/resource argument schemas against the loaded runtime.
