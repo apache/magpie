@@ -141,12 +141,14 @@ The hook (`tools/vetted-ops/hooks/link-stable-path.sh`) only ever replaces a
 symlink: a real file or directory at the path is left alone and reported. The
 isolated-setup update and verify skills report a leftover versioned glob as
 must-fix (#1406).
-Under `permissions.blockReadsOutsideWorkingDirectories`, reads of the fixed
-path would prompt every time, so `sandbox-add-project-root.sh` lists
-`$HOME/.claude/magpie`, resolved, as a working directory in each worktree's
-`settings.local.json` (#1418; see
+The fixed path must never be a working directory
+(`permissions.additionalDirectories` or `/add-dir`): the sandbox makes working
+directories writable to sandboxed Bash, and the exclusions run this checkout's
+code outside the sandbox. `sandbox-add-project-root.sh` once listed it to stop
+reads there prompting under `permissions.blockReadsOutsideWorkingDirectories`
+(#1418) and now removes it; sandbox-lint fails on such an entry (see
 [`agent-isolation-sandbox.md`](agent-isolation-sandbox.md)).
-That does not cover the dispatcher commands themselves: they spell `~`
+The read block cannot be satisfied for the dispatcher commands anyway: they spell `~`
 literally, which the read check cannot resolve, so every call prompts while
 the block is on, whatever the `allow` rules or working directories say.
 Read-only vetted ops must never prompt, because background gatherer agents

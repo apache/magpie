@@ -38,7 +38,6 @@ cat .claude/settings.json:
 
 ## Check 15 — Working directories under the read block
 
-echo "$HOME/.claude/magpie" → /home/alice/.claude/magpie
 echo "/tmp/claude-$(id -u)" → /tmp/claude-1000
 
 cat ~/.claude/settings.json (permissions only):
@@ -59,5 +58,4 @@ cat /home/alice/myrepo/.claude/settings.local.json (permissions only):
 }
 ```
 
-/home/alice/.claude/magpie in additionalDirectories: no
 /tmp/claude-1000 in additionalDirectories: no (only the glob entry "/tmp/claude-*")

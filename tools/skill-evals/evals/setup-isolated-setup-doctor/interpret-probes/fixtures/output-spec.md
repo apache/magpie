@@ -40,7 +40,7 @@ Definitions:
 - `git_hooks_status`: `"pass"` if `PROBE: git-hooks → ✓`; `"warn"` if `⚠`;
   `"fail"` if `✗`; `"skip"` if `⊘` or if no `git-hooks` probe line is present.
 - `working_dirs_status`: `"pass"` if `PROBE: working-dirs → ✓`; `"warn"` if `⚠`;
-  `"skip"` if `⊘` or if no `working-dirs` probe line is present.
+  `"fail"` if `✗`; `"skip"` if `⊘` or if no `working-dirs` probe line is present.
 - `has_failures`: `true` if any status is `"fail"`; `false` otherwise.
 
 Ignore any lines that are not `PROBE:` output lines.

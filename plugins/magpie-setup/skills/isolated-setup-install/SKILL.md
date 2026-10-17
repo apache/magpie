@@ -418,14 +418,20 @@ prompt. They remain useful for the agent's own reads of the scratch root
 where the block is on for other reasons.
 
 Nothing extra to write: the `sandbox-add-project-root.sh` run in Step P also
-adds `$HOME/.claude/magpie` and `/tmp/claude-<uid>`, resolved, to
-`permissions.additionalDirectories` of each worktree's project-local
-`settings.local.json`. Under `permissions.blockReadsOutsideWorkingDirectories`
-the skills read both on every run; without the entries each read prompts, and
-a bulk sync multiplies that by its gatherer agents.
+adds `/tmp/claude-<uid>`, resolved, to `permissions.additionalDirectories` of
+each worktree's project-local `settings.local.json`. Under
+`permissions.blockReadsOutsideWorkingDirectories` the skills read it on every
+run; without the entry each read prompts, and a bulk sync multiplies that by
+its gatherer agents. The script also removes `$HOME/.claude/magpie` where an
+earlier version added it.
 
 After Step P, show the operator the resulting `additionalDirectories` list and
-check two things:
+check three things:
+
+- **Never `~/.claude/magpie`.** If any scope lists `$HOME/.claude/magpie` or a
+  parent of it, propose removing it. A working directory is writable to
+  sandboxed Bash, and the vetted-ops commands run from that checkout outside
+  the sandbox. `/add-dir` has the same effect for a session.
 
 - **No glob and no `~`.** If the operator already has an entry such as
   `/tmp/claude-*` in any scope, say it does nothing: the setting matches
@@ -433,7 +439,7 @@ check two things:
 - **Nothing per-host in a synced or committed file.** If the operator put the
   paths in a user-scope `~/.claude/settings.json` that is synced across
   machines, or in the committed project settings, suggest moving them: they
-  name this host's home directory and uid.
+  name this host's uid.
 
 Rationale and the rules in full:
 [`docs/setup/secure-agent-setup.md` → Working directories under the read-outside-working-directories block](../../../../docs/setup/secure-agent-setup.md#working-directories-under-the-read-outside-working-directories-block).

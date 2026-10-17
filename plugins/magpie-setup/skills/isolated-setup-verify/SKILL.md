@@ -186,11 +186,12 @@ Walk each in order:
     [`conditional-checks.md`](conditional-checks.md#check-14--adversarial-review-exclusion-if-installed).
 
 15. **Working directories under the read block.** Only when `permissions.blockReadsOutsideWorkingDirectories` is `true` in any scope (user, project, project-local or managed); otherwise **n/a**.
-    Resolve `$HOME` and `id -u`, then confirm the current worktree's project-local `.claude/settings.local.json` `permissions.additionalDirectories` contains both `$HOME/.claude/magpie` and `/tmp/claude-<uid>` as literal absolute paths.
+    Resolve `id -u`, then confirm the current worktree's project-local `.claude/settings.local.json` `permissions.additionalDirectories` contains `/tmp/claude-<uid>` as a literal absolute path.
+    `$HOME/.claude/magpie` is deliberately not one of them; check 16f fails on it.
     A missing path is ⚠, not ✗: nothing is exposed, but every read under it prompts, and a bulk sync multiplies that by its gatherer agents.
     An entry with a glob (`/tmp/claude-*`) is listed as a working directory but never matched; report the path it was meant to cover as missing (⚠) and say plainly that the entry does nothing.
-    The same paths in the committed project `.claude/settings.json`, or in a user-scope `~/.claude/settings.json` synced across machines, are ⚠: they are per-host and belong in `settings.local.json`.
-    [Why these two directories](../../../../docs/setup/secure-agent-setup.md#working-directories-under-the-read-outside-working-directories-block).
+    The same path in the committed project `.claude/settings.json`, or in a user-scope `~/.claude/settings.json` synced across machines, is ⚠: it is per-host and belongs in `settings.local.json`.
+    [Why this directory](../../../../docs/setup/secure-agent-setup.md#working-directories-under-the-read-outside-working-directories-block).
     Where check 16 applies, the read block being on at all is already ✗ there; these entries do not fix it.
 
 16. **Read-only vetted ops never prompt.** An imperative, not a preference: the read dispatcher MUST NOT prompt in any form, because background gatherer agents cannot surface a prompt and each one becomes a silent denial.
@@ -210,6 +211,9 @@ Walk each in order:
     - **16e — an exclusion for every allowed form.** `sandbox.excludedCommands` carries `<launcher> ~/.claude/magpie/vetted-ops vetted-op-read *` for both launchers of 16a.
       An allowed form without its exclusion is approved without a prompt but runs inside the sandbox, where its `gh` cannot verify TLS: a silent failure, as with a prompt.
 
+    - **16f — the checkout is not a working directory.** No `permissions.additionalDirectories` entry in any scope covers `$HOME/.claude/magpie` (that path or a parent such as `$HOME/.claude` or `$HOME`).
+      The sandbox makes every working directory writable to sandboxed Bash whatever `allowWrite` says, and the 16e exclusions run that checkout's code outside the sandbox, so a covering entry lets sandboxed code change what runs outside it.
+      Older versions of `sandbox-add-project-root.sh` added the entry; the remedy is to re-run the updated script (`--all-worktrees`), which removes it.
     [The required shape and why](../../../../docs/setup/secure-agent-setup.md#read-only-vetted-ops-never-prompt).
 
 17. **roborev exclusion, if installed.** Optional (step B of `setup-isolated-setup-install`).

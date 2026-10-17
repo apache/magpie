@@ -193,21 +193,27 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
   local file is where they take effect. It never adds the credential
   paths the committed list also names; `--no-tool-paths` limits it to
   the project root. Checked by `setup-isolated-setup-verify` check 8.
-  It also adds the two directories the skills read on every run,
-  `$HOME/.claude/magpie` (the fixed vetted-ops path) and the scratch root
-  `/tmp/claude-<uid>`, to `permissions.additionalDirectories` of the same
-  file, resolved to literal absolute paths, because with
+  It also adds the scratch root `/tmp/claude-<uid>`, which the skills
+  read on every run, to `permissions.additionalDirectories` of the same
+  file, resolved to a literal absolute path, because with
   `permissions.blockReadsOutsideWorkingDirectories` on every read outside
   a working directory asks and a glob such as `/tmp/claude-*` is listed
-  but never matched (#1418). They name one host's home directory and uid,
-  so they stay per host in the gitignored local file rather than in a
-  synced user-scope settings file; `--no-working-dirs` skips them.
-  Install proposes them (Step W), verify check 15 and doctor probe 9
-  report them, and update treats their absence as drift.
-  They do not stop the prompt on a vetted-ops command, which spells `~`
-  literally and so cannot be checked against the read block; where
-  vetted-ops is used, install Step V.1 requires the read block off
-  instead (#1640; see [`vetted-command-surface.md`](vetted-command-surface.md)).
+  but never matched (#1418). It names one host's uid, so it stays per
+  host in the gitignored local file rather than in a synced user-scope
+  settings file; `--no-working-dirs` skips it. Install proposes it
+  (Step W), verify check 15 and doctor probe 9 report it, and update
+  treats its absence as drift.
+  `$HOME/.claude/magpie` (the fixed vetted-ops path) is deliberately not
+  a working directory, and the helper removes it where an earlier version
+  added it: the sandbox makes every working directory writable to
+  sandboxed Bash, and the vetted-ops exclusions run that checkout's code
+  outside the sandbox. sandbox-lint counts working directories as
+  writable and fails on one covering the checkout; verify check 16f,
+  doctor probe 9 (✗) and update report it. Reads of the checkout keep
+  prompting under the read block, which the vetted-ops commands need off
+  anyway: they spell `~` literally, which the read block cannot check, so
+  install Step V.1 requires it off where vetted-ops is used (#1640; see
+  [`vetted-command-surface.md`](vetted-command-surface.md)).
   Capability: `substrate:sandbox`.
 - Whole-user git hooks — the install skill's Step P.3 alternative to
   per-project scope: global `core.hooksPath` pointing at
@@ -345,7 +351,9 @@ The reference model is four layers, layered:
    sandbox, so the executed code must not be writable by the thing
    being sandboxed. The non-`gh` entries above therefore address code
    outside the repository — the plugin cache, `~/.claude/magpie/` and
-   `~/.claude/scripts/`, none inside any `allowWrite` root — with
+   `~/.claude/scripts/`, none inside any `allowWrite` root or working
+   directory (`permissions.additionalDirectories`, which the sandbox
+   also makes writable) — with
    `permissions.deny` `Edit(…)` rules over the same paths. An in-repo path cannot carry
    that guarantee: without a deny the agent rewrites what runs
    unsandboxed, and a deny only stops the agent's editing tools while

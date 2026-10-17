@@ -168,7 +168,8 @@ uv run --project tools/sandbox-lint sandbox-lint --any-harness /path/to/magpie
      `pipx run`, or any `npm`/`pnpm`/`yarn`/`pipx` subcommand but the
      read-only ones). Leading `NAME=value` assignments are skipped first. Only
      a runner pinned to an absolute or `~/` path outside the checkout, every
-     `allowWrite` directory and the temp directories counts as pinned; the same
+     `allowWrite` directory, every working directory and the temp directories
+     counts as pinned; the same
      goes for a command word that is a path to a script (`./scripts/run.sh *`,
      `~/.cache/x.sh *` fail). A pinned runner is judged by the command it runs, so
      `uv run --project ~/x python *` and `uv run --project . anything *` both
@@ -296,13 +297,12 @@ is a backstop, not a substitute for that review.
 
 A pinned runner is only as safe as the files it runs, and the check looks at
 the pin's source path alone. The writable set it uses is `allowWrite`, the
-checkout and the temp directories; it does not count
-`permissions.additionalDirectories`, which the sandbox also makes writable and
-which `sandbox-add-project-root.sh` fills with `~/.claude/magpie` — the vetted-ops
-checkout the committed exclusions pin to. Nor does it cover the environment uv
-builds from a pin, which lives in the writable uv cache (`~/.cache/uv/`) or the
-project's `.venv`. An agent that edits either can change what an excluded
-vetted-ops command runs outside the sandbox.
+working directories (`permissions.additionalDirectories`, which the sandbox
+also makes writable), the checkout and the temp directories; a working
+directory that covers the vetted-ops checkout fails on its own. It does not
+cover the environment uv builds from a pin, which lives in the writable uv
+cache (`~/.cache/uv/`) or the project's `.venv`. An agent that edits it can
+change what an excluded vetted-ops command runs outside the sandbox.
 
 A maintainer running an agent locally can edit `.claude/settings.json`
 to weaken the sandbox without ever opening a PR. This lint catches
