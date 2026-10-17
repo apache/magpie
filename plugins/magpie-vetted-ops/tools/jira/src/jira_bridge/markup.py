@@ -133,6 +133,8 @@ def _field_name(body: str, heading: str) -> str | None:
         except fields.AmbiguousFieldError:
             raise
         except fields.FieldNotFoundError:
+            # This loop only probes each spelling for the ambiguity refusal above;
+            # a spelling that is absent is fine, and the duplicate check follows.
             pass
     if len(outside) > 1:
         raise fields.DuplicateFieldError(
