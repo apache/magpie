@@ -480,10 +480,19 @@ def test_body_field_set_refuses_to_replace_a_span_hiding_another_field() -> None
     assert fake.writes == []
 
 
-def test_body_field_set_refuses_a_value_that_splits_the_readers() -> None:
+def test_body_field_set_refuses_a_value_that_would_end_the_field() -> None:
+    # The body-field contract: any `###` line at column 0 ends a field, fenced or not.
     fake = FakeGh(body="### A\n\nx\n\n### B\n\ny\n")
-    with pytest.raises(procedures.ProcedureRefused, match="disagree"):
-        procedures.body_field_set(runner(fake), number="7", field="A", text="  ```\ncode\n```")
+    for text in ("```\n### B\n```", "x\n###\n"):
+        with pytest.raises(procedures.ProcedureRefused, match="would end the field"):
+            procedures.body_field_set(runner(fake), number="7", field="A", text=text)
+    assert fake.writes == []
+
+
+def test_body_field_set_refuses_a_value_that_moves_another_field_into_a_block() -> None:
+    fake = FakeGh(body="### A\n\nx\n\n### B\n\n```\n")
+    with pytest.raises(procedures.ProcedureRefused, match="another field"):
+        procedures.body_field_set(runner(fake), number="7", field="A", text="```")
     assert fake.writes == []
 
 

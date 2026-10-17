@@ -26,6 +26,11 @@ description = "Local folder-and-markdown security tracker for Apache Magpie (sec
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
+# Stdlib-only. The fence pairing every body-field reader shares comes from a
+# byte-identical copy of tools/github-body-field's parser
+# (src/magpie_local_tracker/body_field_format.py): the plugin ships this
+# project without the workspace, so a dependency on that member would be
+# resolved from a package index instead.
 dependencies = []
 
 [project.scripts]

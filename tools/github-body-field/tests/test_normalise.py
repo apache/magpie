@@ -51,7 +51,6 @@ def kinds(result) -> list[tuple[int, str]]:
     [
         "###  Severity",  # two spaces
         "###\tSeverity",  # a tab
-        "   ### Severity",  # three-space indent
         "### Severity ###",  # closing sequence
         "### Severity #",
         "### Severity   ",  # trailing whitespace
@@ -66,7 +65,9 @@ def test_lenient_level_3_headings_are_fields(heading: str) -> None:
     assert kinds(result) == [(1, "heading")]
 
 
-@pytest.mark.parametrize("line", ["    ### Severity", "#### Severity", "## Severity", "###Severity"])
+@pytest.mark.parametrize(
+    "line", ["   ### Severity", "    ### Severity", "#### Severity", "## Severity", "###Severity"]
+)
 def test_not_a_level_3_heading(line: str) -> None:
     body = f"### CWE\n\nx\n{line}\n"
     assert list_fields(body) == ["CWE"]
@@ -149,12 +150,15 @@ def test_four_space_indent_is_not_a_fence() -> None:
     assert list_fields("    ```\n### Seen\n") == ["Seen"]
 
 
-def test_unclosed_fence_hides_the_rest_and_is_closed_by_normalise() -> None:
+def test_an_unclosed_fence_hides_nothing_and_is_closed_in_its_own_field() -> None:
+    # The body-field contract: every `###` line at column 0 ends a field, and a
+    # block left open marks nothing, so B stays a field.
     body = "### A\n\n````py\ncode\n### B\n"
-    assert list_fields(body) == ["A"]
+    assert list_fields(body) == ["A", "B"]
     result = normalise(body)
-    assert result.text == "### A\n\n````py\ncode\n### B\n````\n"
+    assert result.text == "### A\n\n````py\ncode\n````\n### B\n"
     assert kinds(result) == [(3, "unclosed_fence")]
+    assert extract_field(result.text, "B") == ""
 
 
 def test_unclosed_fence_without_a_final_newline() -> None:
@@ -170,7 +174,7 @@ def test_fenced_lines_stay_byte_exact() -> None:
 
 
 def test_fenced_payloads_round_trip_through_extract_and_duplicate_resolution() -> None:
-    payload = "```py\n# comment\n### Severity\n\\escaped\n```\n"
+    payload = "```py\n# comment\n#### Severity\n\\escaped\n```\n"
     body = f"### Short public summary for publish\n\n{payload}\n### Severity\n\nLow\n\n### Severity\n\nHigh\n"
     result = normalise(body, KNOWN, keep={"Severity": 9})
     assert result.needs_decision == []
@@ -178,29 +182,51 @@ def test_fenced_payloads_round_trip_through_extract_and_duplicate_resolution() -
     assert extract_field(result.text, "Severity") == "Low\n"
 
 
+def test_a_heading_inside_a_closed_fence_ends_the_field_but_never_becomes_it() -> None:
+    # Every `###` line at column 0 ends a field, fence or not: no fence can make
+    # one field absorb the next. The fence only decides which heading is the field.
+    body = (
+        "### Short public summary for publish\n\n```\n### Severity\nCritical\n```\n\n"
+        "### Severity\n\nLow\n\n### Severity\n\nHigh\n"
+    )
+    assert extract_field(body, "Short public summary for publish") == "```\n"
+    result = normalise(body, KNOWN, keep={"Severity": 8})
+    assert result.needs_decision == []
+    assert result.text.count("Critical") == 1  # the fenced copy is never dropped or rewritten
+    assert extract_field(result.text, "Severity") == "Low\n"
+    # With no copy outside a closed block, the first copy is the field.
+    assert extract_field("### A\n\n```\n### B\n\nquoted\n```\n", "B") == "quoted\n```\n"
+
+
 def test_replace_refuses_a_span_holding_a_heading_shaped_line() -> None:
     body = "### The issue description\n\nreport\n\n   ### Severity\n\nHigh\n"
     with pytest.raises(AmbiguousFieldError, match="heading-shaped"):
         replace_field(body, "The issue description", "new report")
-    # A fenced one is code for every reader and does not block the rewrite.
+    # A fenced `### Severity` ends the field; replacing the value would take
+    # the heading out of its closed block, so that is refused too.
     fenced = "### The issue description\n\n```\n### Severity\n```\n\n### CWE\n\nx\n"
+    with pytest.raises(AmbiguousFieldError, match="another field"):
+        replace_field(fenced, "The issue description", "new")
+    # A fenced line that ends no field does not block the rewrite.
+    fenced = "### The issue description\n\n```\n#### Severity\n```\n\n### CWE\n\nx\n"
     assert replace_field(fenced, "The issue description", "new").startswith(
-        "### The issue description\n\nnew\n"
+        "### The issue description\n\nnew\n\n### CWE"
     )
 
 
 def test_replace_refuses_a_new_value_that_would_add_a_field() -> None:
     body = "### A\n\nx\n\n### B\n\ny\n"
-    for value in ("z\n\n### Severity\n\nHigh", "> ### B\n"):
+    for value in ("z\n\n### Severity\n\nHigh", "> ### B\n", "```\n###\n```", "x\r###\tB"):
         with pytest.raises(AmbiguousFieldError):
             replace_field(body, "A", value)
 
 
-def test_spacing_variant_after_an_indented_list_fence_needs_a_decision() -> None:
+def test_spacing_variant_after_an_indented_list_fence_is_a_duplicate() -> None:
+    # `###  Severity` at column 0 ends a field whatever fence is open before it.
     complete = "### Severity\n\nLow\n\n### CWE\n\nx\n\n"
     body = complete + "- item\n   ```\n\n###  Severity\n\nHigh\n"
     decisions = normalise(body, KNOWN).needs_decision
-    assert any(d["field"] == "Severity" and d["kind"] == "container-heading" for d in decisions)
+    assert decisions == [{"field": "Severity", "kind": "duplicate", "lines": [1, 12]}]
 
 
 def test_long_whitespace_runs_parse_in_linear_time() -> None:
@@ -367,7 +393,6 @@ def test_cli_normalise_needs_exactly_one_source(tmp_path, capsys: pytest.Capture
         ("Some text\n***\n- ### Severity\n", "Severity"),
         ("Paragraph text\n- ### Severity\n", "Severity"),  # a bullet under paragraph text
         ("Paragraph text\n2. ### CWE\n", "CWE"),  # an ordered marker other than 1 interrupting a paragraph
-        ("Paragraph text\n###  Severity\n", "Severity"),  # lenient form not after a blank line
         ("* ### Severity ##\n", "Severity"),
     ],
 )
@@ -387,6 +412,14 @@ def test_a_nested_known_field_heading_needs_a_decision(inner: str, field: str) -
     assert result.needs_decision == [{"field": field, "kind": "container-heading", "lines": lines}]
 
 
+def test_a_column_0_heading_under_paragraph_text_ends_the_field() -> None:
+    body = "### The issue description\n\nIntro\nParagraph text\n###  Severity\n\n### Severity\n\nLow\n"
+    assert list_fields(body) == ["The issue description", "Severity", "Severity"]
+    assert normalise(body, KNOWN).needs_decision == [
+        {"field": "Severity", "kind": "duplicate", "lines": [5, 7]}
+    ]
+
+
 def test_a_nested_unknown_heading_stays_content() -> None:
     body = "### A\n\n- item\n   ### Steps to reproduce\n> ### Notes\n"
     result = normalise(body, KNOWN)
@@ -404,28 +437,33 @@ def test_column_0_headings_are_fields_whatever_precedes_them() -> None:
     assert normalise(body, KNOWN).needs_decision == []
 
 
-def test_lenient_headings_after_a_blank_line_or_a_heading_are_fields() -> None:
+def test_lenient_column_0_headings_are_fields_and_indented_ones_need_a_decision() -> None:
     body = "###  Severity\n   ### CWE\n\nx\n\n###\tAffected versions #\n\ny\n"
-    assert list_fields(body) == ["Severity", "CWE", "Affected versions"]
+    assert list_fields(body) == ["Severity", "Affected versions"]
     result = normalise(body, KNOWN)
-    assert result.needs_decision == []
-    assert list_fields(result.text) == ["Severity", "CWE", "Affected versions"]
+    assert result.needs_decision == [{"field": "CWE", "kind": "container-heading", "lines": [2]}]
+    assert list_fields(result.text) == ["Severity", "Affected versions"]
 
 
-def test_an_indented_fence_in_a_list_does_not_hide_a_field_silently() -> None:
-    # GitHub closes the list item's fence when the list ends; this parser does not model
-    # lists, so it sees an unclosed fence. The strict cross-check catches the disagreement.
+def test_an_indented_fence_in_a_list_cannot_hide_a_field() -> None:
+    # GitHub closes the list item's fence when the list ends; this parser does not
+    # model lists, but a fence never decides where a field ends, so Severity stays
+    # a field. normalise closes the fence, at its own indent, before the field.
     body = "- item\n   ```\n\n### Severity\n\nLow\n"
     result = normalise(body, KNOWN)
-    assert result.needs_decision == [{"field": "Severity", "kind": "container-heading", "lines": [4]}]
+    assert result.needs_decision == []
+    assert result.text == "- item\n   ```\n   ```\n\n### Severity\n\nLow\n"
+    assert extract_field(body, "Severity") == "Low\n"
 
 
-def test_readers_that_disagree_need_a_decision() -> None:
-    # An indented fence at top level closed by a column-0 run: CommonMark (and
-    # this parser) closes the fence there; a column-0-only reader opens one.
+def test_fence_readers_that_disagree_cannot_move_a_field() -> None:
+    # An indented fence at top level closed by a column-0 run: CommonMark closes
+    # the fence there; a column-0-only reader opens one there that never closes.
+    # Either way `### Severity` ends the field before it and starts its own.
     body = "### A\n\n  ```\ncode\n```\n\n### Severity\n\nLow\n"
-    result = normalise(body)
-    assert result.needs_decision == [{"field": "Severity", "kind": "container-heading", "lines": [7]}]
+    assert normalise(body, KNOWN).needs_decision == []
+    assert extract_field(body, "Severity") == "Low\n"
+    assert extract_field(body, "A") == "  ```\ncode\n```\n"
 
 
 # ---------------------------------------------------------------------------
@@ -438,7 +476,6 @@ def test_readers_that_disagree_need_a_decision() -> None:
     [
         "### A\n\n> ### Severity\nHigh\n\n### Severity\n\nLow\n",  # a nested copy of the field
         "### A\n\n- item\n   ### Severity\n   High\n",  # only a nested copy: not "not found"
-        "### A\n\n- item\n   ```\n\n### Severity\n\nLow\n",  # the strict reader sees another field set
     ],
 )
 def test_extract_and_replace_refuse_an_ambiguous_field(body: str) -> None:
@@ -504,12 +541,27 @@ def test_ten_digit_ordered_markers_are_not_markers() -> None:
     assert normalise("### A\n\n1234567890. ### Severity\n", KNOWN).needs_decision == []
 
 
-def test_replace_refuses_a_value_that_splits_the_readers() -> None:
-    # Lenient pairing closes the indented fence at the column-0 run; a column-0
-    # reader opens a fence there instead and loses B.
-    body = "### A\n\nx\n\n### B\n\ny\n"
-    with pytest.raises(AmbiguousFieldError, match="disagree"):
-        replace_field(body, "A", "  ```\ncode\n```")
+def test_replace_refuses_a_value_that_moves_another_field_into_a_block() -> None:
+    # B's value opens a fence nothing closes; a fence in A's new value would pair
+    # with it and put B's heading in a closed block, changing how B is chosen.
+    body = "### A\n\nx\n\n### B\n\n```\n"
+    with pytest.raises(AmbiguousFieldError, match="another field"):
+        replace_field(body, "A", "```")
+    # Fence readers that disagree no longer matter: a fence never ends a field.
+    new = replace_field("### A\n\nx\n\n### B\n\ny\n", "A", "  ```\ncode\n```")
+    assert new.endswith("### B\n\ny\n")
+
+
+def test_jira_blocks_choose_the_heading_too() -> None:
+    body = "### A\n\n{code:java}\n### Severity\nCritical\n{code}\n\n### Severity\n\nLow\n"
+    assert list_fields(body) == ["A", "Severity"]
+    assert extract_field(body, "Severity") == "Low\n"
+    assert extract_field(body, "A") == "{code:java}\n"
+    # Inline or never closed, a macro marks nothing.
+    for opener in ("see `{code}` here", "{noformat}"):
+        unclosed = f"### A\n\n{opener}\n### Severity\n\nHigh\n\n### Severity\n\nLow\n"
+        with pytest.raises(DuplicateFieldError):
+            extract_field(unclosed, "Severity")
 
 
 def test_crlf_bodies_keep_their_spacers_and_line_endings() -> None:

@@ -40,11 +40,11 @@ class Refused(ValueError):
     """A render the skill must not emit."""
 
 
-def _clean(name: str, text: object, known: Sequence[str], escaped: dict[str, list[int]]) -> str:
+def _clean(name: str, text: object, escaped: dict[str, list[int]]) -> str:
     raw = "" if text is None else str(text).strip("\n")
     if not raw.strip():
         return body.NO_RESPONSE
-    out = body.inert_block(raw, known)
+    out = body.inert_block(raw)
     if not out["ok"]:
         raise Refused(f"section {name!r} is malformed ({out['indicator']}); it is not rendered")
     if out["escaped_lines"]:
@@ -64,14 +64,13 @@ def render_body(data: Mapping[str, Any]) -> dict[str, Any]:
     k, n = int(data["k"]), int(data["n"])
     upstream = str(data["upstream"])
     security_list = one_line(data.get("security_list") or "security@")
-    known = list(body.headings(data.get("body_fields")).values())
     escaped: dict[str, list[int]] = {}
     try:
-        details = _clean("Details", finding.get("details"), known, escaped)
-        impact = _clean("Impact", finding.get("impact"), known, escaped)
-        repro = _clean("Reproduction steps", finding.get("repro_steps"), known, escaped)
+        details = _clean("Details", finding.get("details"), escaped)
+        impact = _clean("Impact", finding.get("impact"), escaped)
+        repro = _clean("Reproduction steps", finding.get("repro_steps"), escaped)
         fix = finding.get("recommended_fix")
-        fix_text = _clean("Recommended fix", fix, known, escaped) if one_line(fix) else None
+        fix_text = _clean("Recommended fix", fix, escaped) if one_line(fix) else None
     except Refused as exc:
         return {"ok": False, "refused": str(exc)}
     note = (
@@ -128,8 +127,8 @@ def rollup(data: Mapping[str, Any], k: int, n: int) -> dict[str, Any]:
         f"**Imported from markdown file {code(basename)} on {one_line(data['date'])}** "
         f"(severity: {code(severity)}, category: {code(finding.get('category') or 'none')}).",
         "",
-        "This tracker was deliberately opened by the security team from a batch findings file. " +
-        "The validity of the report has **not** been assessed yet — the tracker landed in the "
+        "This tracker was deliberately opened by the security team from a batch findings file. "
+        + "The validity of the report has **not** been assessed yet — the tracker landed in the "
         "`Needs triage` column accordingly. Standard Step 3 discussion applies.",
         "",
         f"**Source:** {code(basename)} (finding `{k}` of `{n}` in the file).",

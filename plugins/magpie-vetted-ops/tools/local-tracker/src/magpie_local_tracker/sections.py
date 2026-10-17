@@ -9,39 +9,25 @@ import urllib.parse
 from collections.abc import Callable
 from dataclasses import dataclass
 
+# A byte-identical copy of tools/github-body-field's parser (the plugin ships
+# this package without the workspace, so it cannot depend on that member);
+# tests/test_vendored_parser.py keeps the copy exact.
+from .body_field_format import fence_roles
+
 _HEADING_RE = re.compile(r"^(?P<hashes>#{1,6})\s+(?P<text>.+?)\s*#*\s*$")
 
 
 _FENCE_RE = re.compile(r"^ {0,3}(?P<fence>`{3,}|~{3,})(?P<rest>.*)$")
 
 
-def _fence_step(open_fence: str, line: str) -> tuple[str, bool]:
-    """Advance the fence state over one line, the CommonMark way.
-
-    Returns (open fence after the line, whether the line is a fence line). A
-    fence opens with three or more backticks or tildes and closes only on a
-    line of the same character, at least as long, with nothing after it.
-    """
-    m = _FENCE_RE.match(line)
-    if not m:
-        return open_fence, False
-    fence, rest = m.group("fence"), m.group("rest")
-    if open_fence:
-        if fence[0] == open_fence[0] and len(fence) >= len(open_fence) and not rest.strip():
-            return "", True
-        return open_fence, False
-    if fence[0] == "`" and "`" in rest:
-        return "", False  # an inline code span, not a fence
-    return fence, True
-
-
 def _headings(lines: list[str]) -> list[tuple[int, int, str]]:
     """(line index, level, text) for every ATX heading outside code fences."""
     out: list[tuple[int, int, str]] = []
-    fence = ""
-    for idx, line in enumerate(lines):
-        fence, is_fence = _fence_step(fence, line)
-        if is_fence or fence:
+    # Fences pair the CommonMark way, through the parser every body-field reader
+    # shares: a ```` block holding ``` stays code, and ~~~ never closes ```.
+    roles = fence_roles(lines)
+    for idx, (line, role) in enumerate(zip(lines, roles, strict=True)):
+        if role != "text":
             continue
         m = _HEADING_RE.match(line)
         if m:
@@ -52,13 +38,16 @@ def _headings(lines: list[str]) -> list[tuple[int, int, str]]:
 def open_fence(lines: list[str]) -> str:
     """The fence marker still open after ``lines`` (```` ``` ```` / ``~~~``), or "".
 
-    The same toggling `_headings` uses, so escaping and parsing agree on what is
-    code.
+    Read from the same fence pairing `_headings` uses, so escaping and parsing
+    agree on what is code.
     """
-    fence = ""
-    for line in lines:
-        fence, _ = _fence_step(fence, line)
-    return fence
+    for line, role in zip(reversed(lines), reversed(fence_roles(lines)), strict=True):
+        if role == "close":
+            return ""
+        if role == "open":
+            m = _FENCE_RE.match(line)
+            return m.group("fence") if m else ""
+    return ""
 
 
 def close_fences(text: str) -> str:

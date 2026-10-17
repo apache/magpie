@@ -61,6 +61,15 @@ def _load(name: str, path: Path) -> ModuleType:
     return module
 
 
+def _load_from_package(src: Path, name: str) -> ModuleType:
+    """``name`` imported from the package source tree ``src`` (it imports its siblings)."""
+    if not (src / name.replace(".", "/")).with_suffix(".py").is_file():
+        pytest.skip(f"source tree absent: {src}")
+    if str(src) not in sys.path:
+        sys.path.insert(0, str(src))
+    return importlib.import_module(name)
+
+
 def _naive_known_fields(text: str) -> list[str]:
     """What a reader that ignores fences and containers takes for a known field."""
     known = {" ".join(n.split()).casefold(): n for n in TEMPLATE}
@@ -83,7 +92,7 @@ def test_every_reader_sees_the_template_fields_once_each(report: str) -> None:
     assert body.verify(text) is None
 
     vendored = _load("_vetted_body_field_format", TOOLS / "vetted-ops/src/vetted_ops/body_field_format.py")
-    local = _load("_local_tracker_sections", TOOLS / "local-tracker/src/magpie_local_tracker/sections.py")
+    local = _load_from_package(TOOLS / "local-tracker/src", "magpie_local_tracker.sections")
     jira = _load("_jira_markup", TOOLS / "jira/src/jira_bridge/markup.py")
 
     lines = text.split("\n")

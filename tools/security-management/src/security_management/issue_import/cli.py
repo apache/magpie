@@ -98,8 +98,7 @@ def add_parsers(sub: Any) -> None:
 
 def _render_body(data: dict[str, Any]) -> dict[str, Any]:
     fields = dict(data.get("fields") or {})
-    known = body.headings(data.get("body_fields")).values()
-    cleaned = body.inert_block(str(fields.get("issue_description") or ""), known)
+    cleaned = body.inert_block(str(fields.get("issue_description") or ""))
     if not cleaned["ok"]:
         return {
             "ok": False,

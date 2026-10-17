@@ -37,7 +37,7 @@ when there are none, it uses the default format below.
 
 ## Prerequisites
 
-- **Runtime:** Python 3.11+ run via `uv` (stdlib only, no third-party dependencies).
+- **Runtime:** Python 3.11+ run via `uv` (stdlib only; CommonMark fence pairing comes from a byte-identical copy of [`github-body-field`](https://github.com/apache/magpie/blob/main/tools/github-body-field/README.md)'s parser, `body_field_format.py`, kept exact by a test).
 - **CLIs:** `uv`; `git` or `svn` for `pending` / `publish` and for history-preserving moves; `gh` is used by `doctor` only, to read a GitHub remote's visibility.
 - **Credentials / auth:** None of its own. `publish --push` uses whatever credentials the working copy already pushes with.
 - **Network:** Offline for every tracker operation. `publish --push` reaches the working copy's remote, and `doctor` may call the GitHub API through `gh`.
