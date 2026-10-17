@@ -128,7 +128,7 @@ def rollup(data: Mapping[str, Any], k: int, n: int) -> dict[str, Any]:
         f"**Imported from markdown file {code(basename)} on {one_line(data['date'])}** "
         f"(severity: {code(severity)}, category: {code(finding.get('category') or 'none')}).",
         "",
-        "This tracker was deliberately opened by the security team from a batch findings file. "
+        "This tracker was deliberately opened by the security team from a batch findings file. " +
         "The validity of the report has **not** been assessed yet — the tracker landed in the "
         "`Needs triage` column accordingly. Standard Step 3 discussion applies.",
         "",
