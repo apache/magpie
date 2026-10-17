@@ -120,8 +120,11 @@ by swapping the adapter, not the skill.
   Atlassian fully removed the native Bitbucket Cloud Issue Tracker API on
   2026-08-20, so the historical `issue` CLI commands now fail closed before
   any request and direct callers toward linked Jira coverage.
+  Data Center `pr jira-issues <id>` provides read-only Jira-key discovery for
+  issues associated with pull-request commits and hands those keys to
+  `tools/jira`; Bitbucket does not proxy Jira tracker operations.
   It is not a complete `contract:change-request` or `contract:tracker`
-  backend yet; deeper Jira handoff, Data Center
+  backend yet; broader Jira handoff, Data Center
   review/merge writes, broader repository permissions, and fuller Pipelines
   run/log/retry coverage remain tracked in #606.
 - `tools/gitlab/` (`magpie-gitlab`) — partial, read-only GitLab REST API v4
