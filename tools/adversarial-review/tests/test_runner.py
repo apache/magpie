@@ -121,7 +121,9 @@ def test_one_timeout_does_not_block_the_others(stub_bin, tmp_path):
     make("codex", CODEX_OK)
     make("gemini", "import time; time.sleep(60)")
     contexts = {n: ctx(tmp_path, n) for n in ("codex", "gemini")}
-    results = {r.reviewer: r for r in run_all(["codex", "gemini"], contexts, 1, {"PATH": str(bin_dir)})}
+    # Room for codex's stub to start and answer on a loaded machine (a 1 s
+    # budget failed under the parallel pre-commit run); gemini sleeps far longer.
+    results = {r.reviewer: r for r in run_all(["codex", "gemini"], contexts, 5, {"PATH": str(bin_dir)})}
     assert results["codex"].status == "ok" and results["gemini"].status == "timeout"
 
 
