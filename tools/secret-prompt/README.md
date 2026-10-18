@@ -116,27 +116,30 @@ Seatbelt sandbox turns off Apple Events — so run the step outside the sandbox
   before pasting: an agent chooses the command, and this is what stops a
   look-alike prompt from handing the token to something that prints or
   forwards it.
-- `--set` values are shown as given. An inherited variable's name is
-  credential-like when one of its `_`-separated segments, with or without a
-  trailing `S`, is `AUTH`, `CRED`, `CREDENTIAL`, `JWT`, `PAT`, `PW`, `PWD`,
-  `COOKIE`, `SESSION`, `BEARER`, `PRIVATE`, `WEBHOOK`, `HOOK` or `DSN`, or ends
-  in `TOKEN`, `PASS`, `PASSWORD`, `PASSWD`, `PASSPHRASE`, `SECRET` or `KEY`. An
-  inherited URL always shows its host, whatever the name: up to its path (query
-  and fragment as `?***`/`#***`), or only `scheme://host/***` under a
-  credential-like name. Any other credential-like value is hidden as
-  `NAME=(set; value not shown)`, because a dialog receives the prompt in its
-  argv; the rest are shown.
+- `--set` values are shown as given. An inherited value is shown only when its
+  name has a routing segment (`URL`, `HOST`, `REPOSITORY`, `REGISTRY`,
+  `INDEX`, `ENDPOINT`, `USER`, `USERNAME`, `CERT`) and no credential-like one;
+  every other is listed as `NAME=(set; value not shown)`, because a dialog
+  receives the prompt in its argv. A name is credential-like when a segment,
+  with or without a trailing `S`, is `AUTH`, `CRED`, `CREDENTIAL`, `JWT`,
+  `PAT`, `PW`, `PWD`, `COOKIE`, `SESSION`, `BEARER`, `PRIVATE`, `WEBHOOK`,
+  `HOOK` or `DSN`, or ends in `TOKEN`, `PASS`, `PASSWORD`, `PASSWD`,
+  `PASSPHRASE`, `SECRET` or `KEY`.
+- An inherited URL always shows its host, whatever its name, so where the
+  secret may go is never hidden: up to its path under a routing name (query and
+  fragment as `?***`/`#***`), otherwise only `scheme://host/***`.
 - An inherited variable with one of the denied names below (`NODE_OPTIONS`
   beside `NODE_AUTH_TOKEN`) is shown verbatim, as it can make the command run
   something else.
 - Nothing is asked when an inherited variable can't be shown safely. That
   means a URL containing `@` (a user or password, or a host that could be
-  disguised), a `://` value too quoted or spaced to parse, or a
-  `user:password@host` value. It also means a denied name
-  that is also credential-like, a value with a control character or over 200
-  characters, or a name that is not a plain identifier. The error names the
-  variable to unset. The credential-like names are a heuristic, so a
-  credential under some other name would be shown. Only the secret's own
+  disguised), a `://` value too quoted or spaced to parse, or a routing value
+  that may carry a credential: an `@` that is not a plain e-mail address, a
+  `?` or `#`, or a `:` that is not a port (`user:pw@proxy`, `alice:s3cret`,
+  `host/simple?token=…`). It also
+  means a denied name that is also credential-like, a shown value with a
+  control character or over 200 characters, or a name that is not a plain
+  identifier. The error names the variable to unset. Only the secret's own
   prefix is scanned: npm's registry settings (`npm_config_registry`, `.npmrc`)
   are not shown.
 - The command is shown in full or not at all: one longer than 1000 characters

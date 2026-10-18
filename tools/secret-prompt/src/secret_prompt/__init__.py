@@ -28,6 +28,7 @@ import argparse
 import getpass
 import os
 import platform
+import re
 import shlex
 import shutil
 import subprocess
@@ -59,9 +60,21 @@ _DENIED_NAMES = {"PATH", "IFS", "HOME", "ENV", "BASH_ENV", "SHELLOPTS", "BASHOPT
 _DENIED_PREFIXES = ("LD_", "DYLD_", "PYTHON", "PERL5", "RUBY", "NODE_", "GIT_")
 # npm's publish credential; it only authenticates, so it is safe to set despite its prefix.
 _ALLOWED_NAMES = {"NODE_AUTH_TOKEN"}
-# An inherited value is hidden only when its name says it is a credential: a dialog's prompt
-# text is visible in its argv, but hiding anything else could hide where the secret goes.
-# Matched against whole name segments, so UNAUTHORIZED or KEYRING are not credentials.
+# A dialog's prompt text is visible in its argv, so an inherited value is shown only when its
+# name says where the secret goes and nothing in it suggests a credential. Names are matched
+# by whole segments, so UNAUTHORIZED or KEYRING are not credentials.
+_ROUTING_SEGMENTS = {
+    "CERT",
+    "ENDPOINT",
+    "HOST",
+    "INDEX",
+    "REGISTRY",
+    "REGISTRIES",
+    "REPOSITORY",
+    "URL",
+    "USER",
+    "USERNAME",
+}
 _SECRET_SEGMENTS = {
     "AUTH",
     "BEARER",
@@ -272,6 +285,14 @@ def is_credential_name(name: str) -> bool:
     return any(form in _SECRET_SEGMENTS or form.endswith(_SECRET_SUFFIXES) for form in forms)
 
 
+def is_routing_name(name: str) -> bool:
+    return not is_credential_name(name) and not _ROUTING_SEGMENTS.isdisjoint(name.upper().split("_"))
+
+
+def is_plain_email(value: str) -> bool:
+    return re.fullmatch(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}", value) is not None
+
+
 def find_unshowable(command: Sequence[str], extra: Mapping[str, str]) -> str | None:
     """Name the first shown string that a control or bidi character could make lie, if any."""
     # shlex.join quotes a newline, ESC or U+202E but does not escape it, so it would still
@@ -312,9 +333,9 @@ def describe_inherited(name: str, value: str) -> str:
         # urlsplit misreads an unencoded '/' in a password, so any '@' could hide the real host.
         if "@" in value:
             raise ValueError(f"the inherited {name} is a URL with a user or password{at_hint}")
-        # A URL says where the secret may go, so its host is shown whatever the name
-        # (XSP_TOKEN_URL); under a credential name the path may be the secret itself.
-        if credential:
+        # A URL says where the secret may go, so its host is always shown; its path only under a
+        # routing name, as elsewhere it may be the secret itself (a webhook).
+        if not is_routing_name(name):
             return f"{parts.scheme}://{parts.netloc}/***"
         shown = urllib.parse.urlunsplit((parts.scheme, parts.netloc, parts.path, "", ""))
         return shown + ("?***" if parts.query else "") + ("#***" if parts.fragment else "")
@@ -323,9 +344,13 @@ def describe_inherited(name: str, value: str) -> str:
     if "://" in value:
         # Quoted or spaced, it is not parsed reliably enough to redact its query or userinfo.
         raise ValueError(f"the inherited {name} is not a URL it can show; unset it")
-    # user:password@proxy:3128 carries a credential without being URL-shaped; me@example.org does not.
-    if ":" in value.partition("@")[0] and "@" in value:
-        raise ValueError(f"the inherited {name} holds a user and password{at_hint}")
+    if not is_routing_name(name):
+        return _HIDDEN_VALUE
+    # user:pw@proxy:3128, token@host, alice:s3cret or host/simple?token=... carry a credential;
+    # me@example.org and proxy:3128 do not.
+    has_userinfo = "@" in value and not is_plain_email(value)
+    if has_userinfo or "?" in value or "#" in value or re.search(r":(?!\d+(/|$))", value):
+        raise ValueError(f"the inherited {name} may hold a user, password or token{at_hint}")
     return value
 
 

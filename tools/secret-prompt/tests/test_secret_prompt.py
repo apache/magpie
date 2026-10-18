@@ -396,38 +396,51 @@ def test_too_long_command_is_refused_not_truncated(
     assert "longer than 1000 characters; nothing was asked" in capsys.readouterr().err
 
 
-def test_inherited_values_are_hidden_only_for_credential_names(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_inherited_values_are_shown_only_for_routing_names(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("XSP_UPLOAD_URL", "https://example.invalid/")
     monkeypatch.setenv("XSP_SECRET_KEY", "s3cr3t")
-    monkeypatch.setenv("XSP_AUTH_URL", "https://auth.example.invalid/")
+    monkeypatch.setenv("XSP_AUTH_URL", "https://auth.example.invalid/authpath")
     monkeypatch.setenv("XSP_PAT", "ghp_x")
-    monkeypatch.setenv("XSP_CREDS", "c")
     monkeypatch.setenv("XSP_AUTH_CONFIG", '{"registry":"https://r.invalid","token":"js0n"}')
-    monkeypatch.setenv("XSP_WEBHOOK_SECRET", "https://hooks.invalid/services/hookpath")
     monkeypatch.setenv("XSP_SLACK_WEBHOOK", "https://hooks.invalid/services/slackpath")
-    monkeypatch.setenv("XSP_TLS_REJECT_UNAUTHORIZED", "0")
+    monkeypatch.setenv("XSP_DEST", "https://other.invalid/destpath")
+    monkeypatch.setenv("XSP_TOKEN2", "t2")
+    monkeypatch.setenv("XSP_PROXY", "user:pw@proxy.invalid:3128")
     monkeypatch.setenv("XSP_REPOSITORY_URL", "https://example.invalid/simple?token=t0k#frag")
     monkeypatch.setenv("XSP_CERT", "/etc/ssl/other.pem")
     monkeypatch.setenv("XSP_USERNAME", "rm@example.invalid")
+    monkeypatch.setenv("XSP_HOST", "proxy.invalid:3128")
     prompt = _captured_prompt(
         monkeypatch, ["--env", "XSP_TOKEN", "--set", "XSP_TARGET=https://u@set.invalid/", "true"]
     )
-    assert prompt.splitlines()[-13:] == [
+    assert prompt.splitlines()[-14:] == [
         "  XSP_AUTH_CONFIG=(set; value not shown)",
         "  XSP_AUTH_URL=https://auth.example.invalid/***",
         "  XSP_CERT=/etc/ssl/other.pem",
-        "  XSP_CREDS=(set; value not shown)",
+        "  XSP_DEST=https://other.invalid/***",
+        "  XSP_HOST=proxy.invalid:3128",
         "  XSP_PAT=(set; value not shown)",
+        "  XSP_PROXY=(set; value not shown)",
         "  XSP_REPOSITORY_URL=https://example.invalid/simple?***#***",
         "  XSP_SECRET_KEY=(set; value not shown)",
         "  XSP_SLACK_WEBHOOK=https://hooks.invalid/***",
         "  XSP_TARGET=https://u@set.invalid/",
-        "  XSP_TLS_REJECT_UNAUTHORIZED=0",
+        "  XSP_TOKEN2=(set; value not shown)",
         "  XSP_UPLOAD_URL=https://example.invalid/",
         "  XSP_USERNAME=rm@example.invalid",
-        "  XSP_WEBHOOK_SECRET=https://hooks.invalid/***",
     ]
-    for leaked in ("s3cr3t", "ghp_x", "t0k", "frag", "js0n", "hookpath", "slackpath"):
+    for leaked in (
+        "s3cr3t",
+        "ghp_x",
+        "t0k",
+        "frag",
+        "js0n",
+        "authpath",
+        "slackpath",
+        "destpath",
+        "t2",
+        "pw@",
+    ):
         assert leaked not in prompt
 
 
@@ -445,11 +458,10 @@ def test_inherited_values_are_hidden_only_for_credential_names(monkeypatch: pyte
             "'https://host.invalid/simple?token=t0k'",
             "XSP_INDEX_URL is not a URL it can show",
         ),
-        (
-            "XSP_PROXY",
-            "user:pw@proxy.invalid:3128",
-            "XSP_PROXY holds a user and password; unset it, or remove",
-        ),
+        ("XSP_HOST", "tok@proxy.invalid:3128", "XSP_HOST may hold a user, password or token; unset it"),
+        ("XSP_USER", "user:pw@proxy.invalid", "XSP_USER may hold a user, password or token"),
+        ("XSP_USER", "alice:s3cret", "XSP_USER may hold a user, password or token"),
+        ("XSP_INDEX", "host.invalid/simple?token=t0k", "XSP_INDEX may hold a user, password or token"),
         (
             "XSP_API_TOKEN",
             "https://u:p/w@host.invalid/",
