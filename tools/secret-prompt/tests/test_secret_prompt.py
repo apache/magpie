@@ -30,13 +30,17 @@ from typing import Any
 
 import pytest
 
-import secret_prompt
 from secret_prompt import (
+    _DENIED_NAMES,
+    ASKERS,
     PromptBackendError,
     PromptCancelledError,
+    ask_kdialog,
     ask_osascript,
     ask_pinentry,
+    ask_zenity,
     candidate_backends,
+    is_credential_name,
     main,
 )
 
@@ -99,7 +103,7 @@ def _answer(
             raise error
         return value
 
-    monkeypatch.setitem(secret_prompt.ASKERS, "tty", ask)
+    monkeypatch.setitem(ASKERS, "tty", ask)
 
 
 def test_runs_command_with_secret_and_extra_variables(
@@ -191,9 +195,9 @@ def test_auto_falls_back_when_a_dialog_cannot_show(
     def broken(prompt: str, title: str) -> str:
         raise PromptBackendError("osascript failed: Not authorized to send Apple events")
 
-    monkeypatch.setattr(secret_prompt, "candidate_backends", lambda *args: ["osascript", "pinentry"])
-    monkeypatch.setitem(secret_prompt.ASKERS, "osascript", broken)
-    monkeypatch.setitem(secret_prompt.ASKERS, "pinentry", lambda prompt, title: "pypi-fallback")
+    monkeypatch.setattr("secret_prompt.candidate_backends", lambda *args: ["osascript", "pinentry"])
+    monkeypatch.setitem(ASKERS, "osascript", broken)
+    monkeypatch.setitem(ASKERS, "pinentry", lambda prompt, title: "pypi-fallback")
     main(["--env", "T", "--", "true"])
     [(_, _, env)] = exec_calls
     assert env["T"] == "pypi-fallback"
@@ -208,14 +212,14 @@ def test_auto_stops_at_a_real_cancel(
         raise PromptCancelledError("prompt cancelled")
 
     asked: list[str] = []
-    monkeypatch.setattr(secret_prompt, "candidate_backends", lambda *args: ["osascript", "pinentry"])
-    monkeypatch.setitem(secret_prompt.ASKERS, "osascript", cancelled)
+    monkeypatch.setattr("secret_prompt.candidate_backends", lambda *args: ["osascript", "pinentry"])
+    monkeypatch.setitem(ASKERS, "osascript", cancelled)
 
     def never_asked(prompt: str, title: str) -> str:
         asked.append("pinentry")
         return "x"
 
-    monkeypatch.setitem(secret_prompt.ASKERS, "pinentry", never_asked)
+    monkeypatch.setitem(ASKERS, "pinentry", never_asked)
     assert main(["--env", "T", "--", "true"]) == 1
     assert asked == []
     assert exec_calls == []
@@ -325,7 +329,7 @@ def _captured_prompt(monkeypatch: pytest.MonkeyPatch, argv: list[str]) -> str:
         prompts.append(prompt)
         return "pypi-abc"
 
-    monkeypatch.setitem(secret_prompt.ASKERS, "tty", ask)
+    monkeypatch.setitem(ASKERS, "tty", ask)
     monkeypatch.setattr(os, "execve", lambda file, args, env: None)
     main([*argv[:-1], "--backend", "tty", "--", *argv[-1].split("|")])
     [prompt] = prompts
@@ -477,7 +481,7 @@ def test_inherited_variable_that_cannot_be_shown_safely_is_refused(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     monkeypatch.setenv(name, value)
-    monkeypatch.setattr(secret_prompt, "_DENIED_NAMES", {*secret_prompt._DENIED_NAMES, "XSP_ASKPASS"})
+    monkeypatch.setattr("secret_prompt._DENIED_NAMES", {*_DENIED_NAMES, "XSP_ASKPASS"})
     _answer(monkeypatch, error=AssertionError("must not ask"))
     assert main(["--env", "XSP_TOKEN", "--backend", "tty", "--", "true"]) == 1
     assert message in capsys.readouterr().err
@@ -487,12 +491,12 @@ def test_inherited_variable_that_cannot_be_shown_safely_is_refused(
     "name", ["MAVEN_GPG_PASSPHRASE", "XSP_SECRETS", "XSP_TOKENS", "XSP_API_KEYS", "XSP_PW", "XSP_PASS"]
 )
 def test_credential_like_names(name: str) -> None:
-    assert secret_prompt.is_credential_name(name)
+    assert is_credential_name(name)
 
 
 @pytest.mark.parametrize("name", ["XSP_TLS_REJECT_UNAUTHORIZED", "XSP_KEYRING_BACKEND", "XSP_PASSES_DIR"])
 def test_names_that_only_contain_a_credential_word(name: str) -> None:
-    assert not secret_prompt.is_credential_name(name)
+    assert not is_credential_name(name)
 
 
 def test_inherited_denied_values_are_shown(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -541,7 +545,7 @@ def test_npm_auth_token_is_allowed(
     assert env["NODE_AUTH_TOKEN"] == "npm_abc"
 
 
-@pytest.mark.parametrize("asker", [secret_prompt.ask_zenity, secret_prompt.ask_kdialog])
+@pytest.mark.parametrize("asker", [ask_zenity, ask_kdialog])
 def test_markup_capable_dialogs_refuse_markup_characters(asker: object) -> None:
     with pytest.raises(PromptBackendError, match="markup"):
         asker("Paste <b>it</b>", "PyPI upload")  # type: ignore[operator]
@@ -572,4 +576,4 @@ def test_zenity_tells_cancel_from_a_missing_display(
 ) -> None:
     monkeypatch.setattr(subprocess, "run", lambda cmd, **kwargs: result)
     with pytest.raises(error):
-        secret_prompt.ask_zenity("Paste it", "PyPI upload")
+        ask_zenity("Paste it", "PyPI upload")

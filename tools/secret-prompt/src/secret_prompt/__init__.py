@@ -433,7 +433,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     env.update(item.split("=", 1) for item in args.set)
     env[args.env] = secret
     try:
-        os.execve(command[0], command, env)
+        os.execve(command[0], command, env)  # replaces this process; returns only by raising
     except OSError as err:
         print(f"secret-prompt: cannot run {command[0]}: {err.strerror}", file=sys.stderr)
-        return 127
+    return 127
