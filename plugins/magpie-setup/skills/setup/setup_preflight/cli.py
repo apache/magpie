@@ -63,9 +63,7 @@ from .lockfile import MalformedLock
 #: Copilot installs from a repo URL or catalogue and has no listing CLI,
 #: so its entry has none: the floor stays unknown there rather than
 #: guessing what a listing would print.
-HARNESS_LISTINGS: tuple[
-    tuple[str, tuple[tuple[str, str | None], ...], list[str] | None], ...
-] = (
+HARNESS_LISTINGS: tuple[tuple[str, tuple[tuple[str, str | None], ...], list[str] | None], ...] = (
     ("codex", (("CODEX_SANDBOX", None), ("CODEX_THREAD_ID", None)), ["codex", "plugin", "list", "--json"]),
     ("copilot", (("COPILOT_CLI", None),), None),
     ("gemini", (("GEMINI_CLI", "1"),), ["gemini", "extensions", "list", "-o", "json"]),

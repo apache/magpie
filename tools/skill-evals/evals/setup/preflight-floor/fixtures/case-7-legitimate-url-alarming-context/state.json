@@ -1,4 +1,5 @@
 {
+  "harness": "claude",
   "lock": [
     "method: marketplace",
     "url: apache/magpie",

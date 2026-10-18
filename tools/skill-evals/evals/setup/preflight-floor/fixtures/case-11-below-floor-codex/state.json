@@ -1,0 +1,21 @@
+{
+  "harness": "codex",
+  "lock": [
+    "method: marketplace",
+    "url: apache/magpie",
+    "min_version: 0.3.0",
+    "plugins:",
+    "  - magpie-setup",
+    "  - magpie-agent-guard"
+  ],
+  "plugins": [
+    [
+      "magpie-setup",
+      "0.2.0"
+    ],
+    [
+      "magpie-agent-guard",
+      "0.2.0"
+    ]
+  ]
+}

@@ -152,9 +152,7 @@ def _snapshot_findings(lock: Lock, root: Path) -> list[Finding]:
     return []
 
 
-def _floor_findings(
-    lock: Lock, installed: dict[str, str] | None, harness: str | None
-) -> list[Finding]:
+def _floor_findings(lock: Lock, installed: dict[str, str] | None, harness: str | None) -> list[Finding]:
     if lock.url and lock.url != TRUSTED_MARKETPLACE:
         return [Finding("project", "untrusted-marketplace", "step-3", {"url": lock.url})]
     if installed is None:

@@ -32,6 +32,13 @@ verdict is rendered, never written:
 * `requires` — `requires_config:` entries passed as `--requires`.
 * `skill`, `hash` — the invoking skill's `name:` and `surface_hash:`.
 * `reconciled` — dict written to personal layer `reconciled.json`, or `null`.
+* `harness` — the harness whose session the case runs in (`codex`,
+  `copilot`, `gemini`, or `claude`). The renderer puts that harness's
+  session markers in the environment and a stub listing command on `PATH`
+  that prints `plugins`, so the checker detects the harness itself and
+  reads the listing the way that harness's session would produce it.
+  Left out for no markers at all, which the checker reports as an unknown
+  harness.
 * `welcome` — `true` to include the skill family's first-run welcome guide.
   Left out otherwise (`--no-welcome`), so a floor case is about the floor
   and not about which family its skill happens to belong to.
@@ -57,6 +64,16 @@ CHECKER = Path("plugins/magpie-setup/skills/setup")
 MARKER = "\nThe pre-flight command printed:\n"
 DEFAULT_SKILL = "issue-triage"
 DEFAULT_HASH = "sha256:2edc90a1b7f3440d"
+
+#: The session markers each harness self-detects by, mirroring the
+#: checker's own `HARNESS_LISTINGS` marker order (the listing command is
+#: the checker's business, not the renderer's).
+HARNESS_ENV: dict[str, dict[str, str]] = {
+    "codex": {"CODEX_SANDBOX": "1"},
+    "copilot": {"COPILOT_CLI": "1"},
+    "gemini": {"GEMINI_CLI": "1"},
+    "claude": {"CLAUDECODE": "1"},
+}
 
 
 def run_checker(state: dict[str, object], repo_root: Path, scratch: Path) -> str:
@@ -93,6 +110,30 @@ def run_checker(state: dict[str, object], repo_root: Path, scratch: Path) -> str
     else:
         raise ValueError('`plugins` must be a list of [name, version] or "unreadable"')
 
+    harness = state.get("harness")
+    if harness is not None:
+        # The checker must detect this harness itself, from the same session
+        # markers a live session carries, and read the harness's own listing
+        # command — a stub on PATH that prints the case's listing. Passing
+        # `--plugin-list` would describe the listing as already read, which
+        # is exactly the "the harness is then not known" case.
+        markers = HARNESS_ENV.get(harness)
+        if markers is None:
+            raise ValueError(f"`harness` must be one of {', '.join(sorted(HARNESS_ENV))} or null")
+        bin_dir = scratch / "bin"
+        bin_dir.mkdir()
+        listing_arg = str(listing).replace("\\", "/")
+        stub = bin_dir / harness
+        stub.write_text(f'#!/bin/sh\ncat "{listing_arg}"\n', encoding="utf-8")
+        os.chmod(stub, 0o755)
+        (bin_dir / f"{harness}.bat").write_text(f'@echo off\ntype "{listing}"\r\n', encoding="utf-8")
+        env = _env(scratch)
+        env["PATH"] = str(bin_dir) + os.pathsep + env["PATH"]
+        env.update(markers)
+    else:
+        env = _env(scratch)
+    env["PYTHONPATH"] = str(repo_root / CHECKER)
+
     args = [
         sys.executable,
         "-m",
@@ -103,14 +144,15 @@ def run_checker(state: dict[str, object], repo_root: Path, scratch: Path) -> str
         str(state.get("hash", DEFAULT_HASH)),
         "--project-root",
         str(project),
-        "--plugin-list",
-        str(listing),
         "--no-cache",
         "--verify-interval-days",
         "0",
         "--isolated-setup-interval-days",
         "0",
     ]
+    if harness is None:
+        # No harness to detect: hand the checker the listing as already read.
+        args += ["--plugin-list", str(listing)]
     requires = state.get("requires", [])
     if not isinstance(requires, list):
         raise ValueError("`requires` must be a list")
@@ -119,8 +161,6 @@ def run_checker(state: dict[str, object], repo_root: Path, scratch: Path) -> str
     if state.get("welcome") is not True:
         args.append("--no-welcome")
 
-    env = _env(scratch)
-    env["PYTHONPATH"] = str(repo_root / CHECKER)
     result = subprocess.run(args, capture_output=True, text=True, env=env, cwd=project, check=False)
     if result.returncode != 0:
         raise RuntimeError(f"setup_preflight exited {result.returncode}: {result.stderr.strip()}")
