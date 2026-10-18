@@ -49,6 +49,7 @@ members = [
     "release-verify",
     "reproducible-archive",
     "sandbox-lint",
+    "secret-prompt",
     "security-management",
     "security-tracker-stats-dashboard",
     "setup-preflight",
@@ -1960,6 +1961,21 @@ wheels = [
 name = "sandbox-lint"
 version = "0.1.0"
 source = { editable = "tools/sandbox-lint" }
+
+[package.dev-dependencies]
+dev = [
+    { name = "magpie-dev" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [{ name = "magpie-dev", editable = "tools/dev" }]
+
+[[package]]
+name = "secret-prompt"
+version = "0.1.0"
+source = { editable = "tools/secret-prompt" }
 
 [package.dev-dependencies]
 dev = [

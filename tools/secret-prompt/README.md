@@ -1,0 +1,128 @@
+<!-- SPDX-License-Identifier: Apache-2.0
+     https://www.apache.org/licenses/LICENSE-2.0 -->
+
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+
+- [`secret-prompt`](#secret-prompt)
+  - [Prerequisites](#prerequisites)
+  - [How to use](#how-to-use)
+  - [How it asks](#how-it-asks)
+  - [What it guarantees](#what-it-guarantees)
+  - [Tests](#tests)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
+# `secret-prompt`
+
+**Capability:** substrate:release
+
+**Harness:** agnostic
+
+Asks the operator for a secret, such as a single-use PyPI token, and runs
+**one command** with it in **one environment variable**. The secret goes from
+the prompt into that command's environment and nowhere else: it is never
+printed, written to a file, or passed on a command line, so it stays out of
+the shell history, `ps`, CI logs, and an agent's transcript.
+
+It exists for the release steps that need a credential the release manager
+holds — uploading the convenience packages to PyPI being the common one —
+when the step is run by an agent on the release manager's behalf, or from a
+script that has no terminal to prompt on. The release manager still types
+or pastes the secret themselves, after checking the command the prompt names;
+the agent only ever sees that command's output.
+
+## Prerequisites
+
+- **Runtime** — Python 3.11+ (stdlib only), run via `uv`.
+- **CLIs** — one way to ask: a terminal, or `osascript` (macOS, built in),
+  `zenity` or `kdialog` (Linux desktop), or `pinentry` (any OS with GnuPG,
+  including `pinentry-mac`).
+- **Credentials / auth** — None of its own; it carries the one secret the
+  operator enters.
+- **Network** — None; the command it runs may need some.
+
+## How to use
+
+```bash
+secret-prompt --env TWINE_PASSWORD --set TWINE_USERNAME=__token__ --prefix pypi- \
+    --title "PyPI upload" --prompt "Paste the single-use PyPI token" \
+    -- twine upload dist/*.whl dist/*.tar.gz
+```
+
+Install it once, so the bare `secret-prompt` in a release recipe resolves:
+
+```bash
+uv tool install "git+https://github.com/apache/magpie#subdirectory=tools/secret-prompt"
+```
+
+Or run it without installing, from a checkout of this repository or straight from GitHub:
+
+```bash
+uv run --directory tools/secret-prompt --project . secret-prompt --env … -- <command>
+uvx --from "git+https://github.com/apache/magpie#subdirectory=tools/secret-prompt" \
+    secret-prompt --env … -- <command>
+```
+
+| Option | Meaning |
+| --- | --- |
+| `--env NAME` | Environment variable that receives the secret (required). |
+| `--set NAME=VALUE` | A non-secret variable for the command too, repeatable (`TWINE_USERNAME=__token__`). |
+| `--prefix TEXT` | Refuse a secret that does not start with `TEXT` (`pypi-`), so a wrong paste runs nothing. |
+| `--prompt` / `--title` | Text of the prompt and dialog title. |
+| `--backend` | `auto` (default), or force `tty`, `osascript`, `zenity`, `kdialog`, `pinentry`. |
+
+Exit status is the command's own; `1` when no usable secret arrived (cancelled,
+empty, the wrong prefix, or no backend could ask), `127` when the command cannot
+be started.
+
+## How it asks
+
+`--backend auto` uses the first that applies:
+
+1. **A terminal** (`/dev/tty` can be opened) — a hidden prompt there, even when
+   stdin is redirected.
+2. **macOS** — an `osascript` dialog with a hidden-answer field. The prompt text
+   reaches AppleScript as an argument, never spliced into the script.
+3. **A Linux desktop** (`DISPLAY` or `WAYLAND_DISPLAY` set) — `zenity --password`,
+   else `kdialog --password`.
+4. **`pinentry`** — the Assuan `GETPIN` exchange, which covers `pinentry-mac`,
+   `pinentry-gnome3`, `pinentry-qt` and the curses ones.
+
+When a backend *fails* rather than being cancelled — its program is missing, or
+it cannot show a dialog — `auto` moves on to the next one and, if none can ask,
+reports why. A **cancel** (the Cancel button, `Esc`, or `Ctrl-C`) stops there:
+nothing else is asked and nothing runs.
+
+An agent's command has no terminal, so on the release manager's Mac it gets
+the dialog; the same command in the release manager's own terminal prompts
+there instead. A **sandboxed** agent cannot show the macOS dialog — the
+Seatbelt sandbox turns off Apple Events — so run the step outside the sandbox
+(it is the release manager's upload either way), or let it fall back to
+`pinentry`.
+
+## What it guarantees
+
+- The secret is passed only in the environment of the one command it runs
+  (`exec`, so that command replaces the tool and keeps its exit status).
+- Nothing runs unless a non-empty secret arrives that matches `--prefix`; a
+  cancelled dialog runs nothing.
+- Error messages name the expected prefix, never what was entered.
+- Every prompt ends with **`It will be passed to: <command>`**, the exact command
+  that will receive the secret, and the caller cannot turn it off. Check that line
+  before pasting: an agent chooses the command, so this is what stops a look-alike
+  prompt from handing the token to something that prints it.
+
+It does **not** make the secret short-lived: create a single-use token for the
+step and delete it straight after, as the release docs say.
+
+## Tests
+
+```bash
+uv run --directory tools/secret-prompt --project . pytest
+```
+
+Every backend is exercised without a real dialog: `osascript` through a
+patched `subprocess.run`, `pinentry` through a fake `pinentry` script on
+`PATH`, which also drives an end-to-end run checking that the secret reaches
+the command's environment and none of the output.

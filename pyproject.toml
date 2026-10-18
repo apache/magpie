@@ -131,6 +131,7 @@ members = [
   "tools/cve-tool-vulnogram/oauth-api",
   "tools/github-body-field",
   "tools/github-rollup",
+  "tools/secret-prompt",
   "tools/gmail/oauth-draft",
   "tools/jira",
   "tools/maildir",

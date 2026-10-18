@@ -619,6 +619,7 @@ substrate:release:
               - 'tools/release-management/**'
               - 'tools/release-verify/**'
               - 'tools/reproducible-archive/**'
+              - 'tools/secret-prompt/**'
 
 substrate:review:
   - any:
