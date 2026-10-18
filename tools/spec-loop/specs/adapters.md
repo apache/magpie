@@ -67,6 +67,12 @@ by swapping the adapter, not the skill.
   commits only the tracker root (and pushes on Git). `###` body fields are
   read and written through a byte-identical copy of github-body-field's
   parser; field values have every line that would end a field escaped.
+  Reads and writes keep each file's line endings (LF, CRLF or CR, and a
+  missing final newline), so a field write changes no other byte on a Git
+  checkout with `core.autocrlf` or an SVN one with `svn:eol-style`; a file
+  mixing line endings is refused. A test runs the body-field conformance
+  cases through the store on temporary Git and SVN storage and reads them
+  back from a fresh checkout.
 - `tools/jira/` also ships `magpie-jira-tracker` (`jira_bridge.security_tracker`),
   the stdlib-only `contract:security-tracker` backend over Jira REST v2;
   `create` always sets the configured issue-security level and every write on

@@ -38,6 +38,19 @@ def refused(message: str) -> TrackerError:
     return TrackerError(message, 4)
 
 
+def _convention(raw: str) -> tuple[str | None, bool]:
+    """``(line ending, ends with one)`` of a file's text; the ending is None when it mixes several.
+
+    A file with no line ending at all counts as LF.
+    """
+    crlf = raw.count("\r\n")
+    lone_cr = raw.count("\r") - crlf
+    lone_lf = raw.count("\n") - crlf
+    used = [eol for eol, n in (("\r\n", crlf), ("\r", lone_cr), ("\n", lone_lf)) if n]
+    eol = used[0] if len(used) == 1 else ("\n" if not used else None)
+    return eol, raw.endswith(("\n", "\r")) or not raw
+
+
 def _today() -> str:
     return _dt.datetime.now(_dt.UTC).strftime("%Y-%m-%d")
 
@@ -75,6 +88,8 @@ class Tracker:
         # and refuses a symlink anywhere, so swapping the root (or any folder above
         # it) for a symlink afterwards cannot redirect a read or a write.
         self._real_root = Path(os.path.realpath(root))
+        # Each file's line-ending convention, as read: a write puts it back.
+        self._conventions: dict[str, tuple[str | None, bool]] = {}
 
     # ------------------------------------------------------------ locating
 
@@ -298,13 +313,34 @@ class Tracker:
             )
 
     def _read_file(self, path: Path) -> str:
-        with os.fdopen(self._open(path, os.O_RDONLY), encoding="utf-8") as handle:
-            return handle.read()
+        """The file's text with ``\n`` line endings, its own convention remembered for the write.
+
+        A Git checkout with ``core.autocrlf`` or an SVN one with
+        ``svn:eol-style=native`` may hand the file over with CRLF; the parser
+        and the section code work on ``\n``, and :meth:`_write_file` puts the
+        file's convention (and a missing final newline) back, so a write
+        changes no byte it did not mean to. Expanded ``svn:keywords``
+        (``$Id: … $``) are ordinary text.
+        """
+        with os.fdopen(self._open(path, os.O_RDONLY), encoding="utf-8", newline="") as handle:
+            raw = handle.read()
+        self._conventions[os.path.abspath(path)] = _convention(raw)
+        return raw.replace("\r\n", "\n").replace("\r", "\n")
 
     def _write_file(self, path: Path, text: str) -> None:
+        eol, final_newline = self._conventions.get(os.path.abspath(path), ("\n", True))
+        if eol is None:
+            raise refused(
+                f"{path} mixes line endings; normalise them to one convention before the tracker writes to it"
+            )
+        if not final_newline and text.endswith("\n"):
+            text = text[:-1]
+        if eol != "\n":
+            text = text.replace("\n", eol)
         fd = self._open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, make_dirs=True)
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="") as handle:
             handle.write(text)
+        self._conventions[os.path.abspath(path)] = (eol, final_newline)
 
     def _read(self, entry: Entry) -> tuple[md.Metadata, str]:
         meta, body = md.split(self._read_file(entry.path))
@@ -484,7 +520,7 @@ class Tracker:
         try:
             value = sections.get_field(main, heading, self.desc.field_heading_level)
         except FieldNotFoundError as exc:  # a duplicate or disputed field
-            raise refused(str(exc)) from None
+            raise refused(str(exc)) from exc
         return {"id": entry.id, "heading": heading, "value": value}
 
     # ------------------------------------------------------------ writing
@@ -599,7 +635,7 @@ class Tracker:
                 main, heading, self._clean(value), self.desc.field_heading_level
             )
         except FieldNotFoundError as exc:  # a duplicate, disputed or unsafe rewrite
-            raise refused(str(exc)) from None
+            raise refused(str(exc)) from exc
         self._write(entry, meta, new_main + ("\n" + managed.lstrip("\n") if managed else ""))
         return {"id": entry.id, "heading": heading, "created": created}
 
