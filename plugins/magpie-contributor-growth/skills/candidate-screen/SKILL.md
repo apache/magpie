@@ -10,19 +10,20 @@ requires_config:
   - contributor-nomination-config.md
   - project.md
 description: |
-  Surface details about likely committer and <governance-body>
-  candidates — deliberately more people than would be picked — as an
-  alphabetical list with a short summary, in a verified-private
-  repository. Never a ranking or a readiness verdict.
+  Surface activity data about recent contributors who pass a
+  long-tail pre-filter — for committer and <governance-body>
+  discussions — as an alphabetical list with details, in a
+  verified-private repository. Data only: no scoring, ranking,
+  floor comparison or readiness verdict.
 when_to_use: |
   Invoke on "screen for committer candidates", "who should we
   consider nominating", or "run the candidate report". Run after
   calibrate. Skip for one named person — use nomination.
 argument-hint: "[target:committer|pmc|both] [window:6m] [end:YYYY-MM-DD]"
 capability: capability:stats
-surface_hash: sha256:29c980868dbea19a
+surface_hash: sha256:a1767d466ee963d1
 license: Apache-2.0
-measured_tokens: 3695
+measured_tokens: 4084
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -53,7 +54,7 @@ PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir)/../.apache-ma
   python3 -m setup_preflight --skill <name> --hash <surface_hash> [--requires <file>]...
 ```
 
-The path finds the checker `/magpie-setup config` installed in the
+The path finds the checker `/magpie-setup:setup config` installed in the
 personal layer: this checkout's `.apache-magpie-local/`, the main
 checkout's when this is a linked worktree, or the git directory's
 `apache-magpie/` when Magpie is only installed.
@@ -74,25 +75,28 @@ checkout's when this is a linked worktree, or the git directory's
   yourself (first match wins: `.apache-magpie-local/<file>`, the main
   checkout's `.apache-magpie-local/<file>`, `<git-common-dir>/apache-magpie/<file>`,
   then `.apache-magpie-overrides/<file>`), stay silent if they all resolve, and
-  run `/magpie-setup config` for this skill if any does not, which also
+  run `/magpie-setup:setup config` for this skill if any does not, which also
   installs the checker. Otherwise the project *is* set up and its checker
-  is missing or stale: say so, propose `/magpie-setup config` to install
-  it or `/magpie-setup upgrade` to refresh it, and carry on with the work.
+  is missing or stale: say so, propose `/magpie-setup:setup config` to install
+  it or `/magpie-setup:setup upgrade` to refresh it, and carry on with the work.
 
-**Never run `/magpie-setup adopt` unattended** — not from a finding, not
+**Never run `/magpie-setup:setup adopt` unattended** — not from a finding, not
 later in the run, whatever else this skill is doing. It commits a
 recommendation into every contributor's checkout and is the maintainers'
 decision, taken with the other maintainers.
 
 Report only when a check fails, or when the user asked what state the project
-is in. `/magpie-setup verify` is the full diagnostic.
+is in. `/magpie-setup:setup verify` is the full diagnostic.
+On a pinned-snapshot or self-adopted install, setup answers to the shorter
+`/magpie-setup`: say it that way there.
 
 <!-- END MAGPIE PREFLIGHT -->
 
-Screen every recent contributor against the project's relaxed floors, list the likely candidates for committer or `<governance-body>` membership, and write one report with details about each.
+Cut the long tail of recent contributors with a cheap pre-filter, measure everyone who remains, and write one report with the activity data of each, for committer or `<governance-body>` discussions.
 
-**This skill surfaces information; `<governance-body>` members decide.**
-The list deliberately includes more people than the `<governance-body>` would consider, so nobody is overlooked; being on it means only that someone's details are worth a look.
+**This skill shows data; `<governance-body>` members decide.**
+The floors are used only by the pre-filter, to drop people whose activity is too small to be worth measuring; after that nobody is compared with them, scored, shortlisted or left out.
+The report deliberately includes more people than the `<governance-body>` would consider, so nobody is overlooked; being in it means only that someone's data is worth a look.
 It is never a ranking — every list of people is in alphabetical order of GitHub handle — and it never says or suggests whether anyone is ready.
 The report says so at the top.
 See [Surface information, never rank](../../../../docs/contributor-growth/README.md#surface-information-never-rank).
@@ -128,7 +132,8 @@ Local modifications go in the override file; framework changes go via PR to `apa
 | `window:Nm` | the configured window, else `6m` | Activity window |
 | `end:YYYY-MM-DD` | today | Last day of the window |
 
-From `<project-config>/contributor-nomination-config.md`: `report_repo` (required), `report_path` (default `reports/`), `screen_prefilter_ratio` (default `0.5`), `shortlist_max_missing` (default `2`).
+From `<project-config>/contributor-nomination-config.md`: `report_repo` (required), `report_path` (default `reports/`), `screen_prefilter_ratio` (default `0.5`), `screen_prefilter_require` (`any` or `all`, default `any`), `screen_prefilter_targets` (`committer` or `both`, default `committer`), `screen_recent_activity_months` (default `4`; `0` turns the check off).
+A `shortlist_max_missing` left over from an earlier version is ignored; say so once at the start of the run.
 Floors come from `<project-config>/committer-readiness.md`, else `contributor-nomination-config.md`, resolved as `contributor-to-committer` Step 1 does.
 Both files are personal configuration, read from the personal layer first and from `.apache-magpie-overrides/` only as a fallback; [they belong in the personal layer](../../../../docs/contributor-growth/README.md#why-the-configuration-is-personal).
 
@@ -169,39 +174,43 @@ If even a one-day slice exceeds the cap, stop and say so rather than build a par
 
 ## Step 2 — Pre-filter
 
-**`<governance-body>` target:** no pre-filter — the pool is the current committers who are not members, small enough to measure in full.
+The pre-filter only drops the long tail; it is the one place the floors are used.
 
-**Committer target:** for each person in the pool, run two count-only queries — changes landed (`list_authored(person, state: landed, count_only)`) and changes reviewed (`list_reviews_given(person, count_only)`), in the window — reading `total` only.
-Keep the person when either count is at least `screen_prefilter_ratio` × its floor.
-A floor of `0` (an evidence-only metric) is ignored here; it never keeps anyone by itself.
-Only these two counts are cheap enough to pre-filter a large pool; list, triage and community activity are measured in Step 3 for everyone who stays.
-Log everyone dropped, with both counts, in `dropped`; nobody leaves the pool silently.
+**Recent activity (both targets).**
+When `screen_recent_activity_months` is above `0`, run one count-only query per person — changes landed in the last that many months of the window (`list_authored(person, state: landed, since: <end> − N months, count_only)`) — and drop anyone whose `total` is `0`.
+Someone who stopped contributing months ago has nothing current for the `<governance-body>` to look at, however busy the start of the window was.
+
+**Counts.**
+For each person still in the pool, run two count-only queries — changes landed (`list_authored(person, state: landed, count_only)`) and changes reviewed (`list_reviews_given(person, count_only)`), in the window — reading `total` only, and compare each with `screen_prefilter_ratio` × its floor for the person's target.
+With `screen_prefilter_require: any`, keep the person when either count reaches its share; with `all`, only when both do.
+A floor of `0` (an evidence-only metric) is ignored here: it never keeps anyone by itself, and with `all` it is not required.
+The count check applies to the committer target, and to the `<governance-body>` target too when `screen_prefilter_targets` is `both`; otherwise the `<governance-body>` pool — the current committers who are not members — is small enough to measure in full and only the recent-activity check applies to it.
+
+Only these counts are cheap enough to pre-filter a large pool; list, triage and community activity are measured in Step 3 for everyone who stays.
+Log everyone dropped, with both counts, the landed count for the recent months when it was checked, and which check dropped them, in `dropped`; nobody leaves the pool silently.
 
 ---
 
-## Step 3 — Measure and list
+## Step 3 — Measure
 
 For each person who survived the pre-filter:
 
 1. Run `contributor-metrics fetch` and `score` exactly as [`contributor-to-committer` Step 2 and Step 2a](../contributor-to-committer/SKILL.md#step-2--fetch-contributor-activity) do, confirming pushback candidates on meaning.
-2. Compare each numeric floor with the adjusted count.
-   A metric the config marks *evidence only* never counts as missing.
-   A metric fed by a stream in `caps_hit` is a minimum: if it already meets the floor it is met; if it does not, it is *unknown* — not counted as missing — and the report says so.
-3. **List** the person as a likely candidate when they miss at most `shortlist_max_missing` floors.
-   When in doubt — an unknown metric, a borderline count — list them; the list is deliberately inclusive.
+   `score` computes adjusted counts — data about the person's own activity, not a score of the person.
+2. A metric fed by a stream in `caps_hit` is a minimum; the report says so.
+3. Collect community signals per [`community-signals.md`](../nomination/community-signals.md), including its step that asks the maintainer for the addresses people post from ([Ask the maintainer for addresses](../nomination/community-signals.md#ask-the-maintainer-for-addresses)) — ask once for everyone, after measuring — and resolve the person's name per [`real-names.md`](../nomination/real-names.md).
 
-For each listed candidate, collect community signals per [`community-signals.md`](../nomination/community-signals.md) and resolve their name per [`real-names.md`](../nomination/real-names.md).
-Everyone measured but not listed goes into *considered, not listed* with their counts.
-How many floors someone met is used only to decide whether to list them; it never appears in the report and never orders anyone.
+Everyone measured goes into the report.
+Do not compare anyone's counts with the floors, count floors met or missed, or select a subset: the pre-filter in Step 2 is the only place the floors are used.
 
 ---
 
 ## Step 4 — Write the report
 
 Write the report per [`report.md`](report.md) to `<scratch>/candidate-screen/<end>-candidate-screen.md`.
-The report opens with the people listed, in alphabetical order of GitHub handle, each linked to their section, followed by one or two paragraphs summarising the findings across the list.
+The report opens with everyone measured, in alphabetical order of GitHub handle, each linked to their section, followed by one or two paragraphs summarising the findings across the list.
 Each person's section, in the same order, holds two or three paragraphs of details: what they built and in which areas, their review, mentoring and community work, and factual flags — maintainer pushback on automated work, a single area or single vendor dominating their work where that is known.
-Nothing in the report compares people with each other, orders them by any measure, counts floors met, or says or implies that anyone is ready, close, or not ready.
+Nothing in the report compares people with each other or with the floors, orders them by any measure, scores them, counts floors met, or says or implies that anyone is ready, close, or not ready.
 Every claim links to its evidence.
 Handles appear as plain profile links, never as `@`-mentions.
 
@@ -222,9 +231,10 @@ Nothing is posted anywhere else — no issue, comment, list, or chat.
 
 ## Hard rules
 
-- The report only surfaces information about likely candidates, deliberately more than the `<governance-body>` would consider; it is never a ranking or a decision, and it says so at the top.
+- The report only shows data about everyone who passed the pre-filter, deliberately more people than the `<governance-body>` would consider; it is never a ranking, a score or a decision, and it says so at the top.
+- The floors are used only by the pre-filter; no one's counts are compared with them in the report.
 - Every list of people is alphabetical by GitHub handle, case-insensitive.
-- No readiness verdict, score, or floors-met count about any person.
+- No readiness verdict, score, shortlist, or floors-met count about any person.
 - The report goes only to a repository its code host reports as private (`repository_metadata`), checked before showing and again before writing; never a gist.
 - No `@`-mentions in the report.
 - Nothing is written without the maintainer's explicit yes.

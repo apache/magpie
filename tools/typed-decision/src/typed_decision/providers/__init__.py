@@ -18,5 +18,6 @@
 """Typed decision backend providers."""
 
 from typed_decision.providers.jev import JevProvider
+from typed_decision.providers.local import LocalProvider
 
-__all__ = ["JevProvider"]
+__all__ = ["JevProvider", "LocalProvider"]

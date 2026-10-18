@@ -26,6 +26,9 @@ Checks that every plugin is properly defined:
   root manifest's shared metadata (version, author, homepage, repository,
   license), and whose `skills/` directory contains exactly that family's skills
   as single-hop symlinks into the shared `skills/<skill>` tree;
+- the skill → family map generated into the pre-flight checker
+  (`setup_preflight/families.py`, which decides whether a family's first-run
+  welcome guide applies) matches the frontmatter and the `skills/` mirror;
 - every *substrate* plugin (`SUBSTRATE_PLUGINS` — a framework tool published as
   its own plugin rather than a family of skills) has a well-formed manifest that
   inherits the same shared metadata, declares the exact hook wiring the framework
@@ -46,6 +49,7 @@ import argparse
 import json
 import re
 import shutil
+import subprocess
 import sys
 import tomllib
 from pathlib import Path
@@ -143,6 +147,7 @@ AP1_AUTHOR_FIELDS = frozenset({"name", "email", "url"})
 # Reversing the direction fixed it without vendoring anything (PRINCIPLES §13):
 # the flat `skills/<name>` tree is now the mirror, pointing inward.
 # The all-in-one plugin is gone; installing everything was never the advice.
+CODEX_SUBSTRATES = frozenset({"magpie-agent-guard", "magpie-vetted-ops"})
 CODEX_CATALOG = Path(".agents/plugins/marketplace.json")  # Codex CLI repo marketplace
 CLIENT_CATALOGS = (
     CODEX_CATALOG,
@@ -239,6 +244,7 @@ VETTED_OPS_LINK_HOOK = "tools/vetted-ops/hooks/link-stable-path.sh"
 # network and their own credentials), so like vetted-ops it has to run from the
 # installed plugin tree, where the agent calling it cannot rewrite it.
 ADVERSARIAL_REVIEW_ENTRY = "tools/adversarial-review/src/adversarial_review/cli.py"
+ADVERSARIAL_REVIEW_LINK_HOOK = "tools/adversarial-review/hooks/link-stable-path.sh"
 SUBSTRATE_PLUGINS: dict[str, dict] = {
     "magpie-agent-guard": {
         "description": (
@@ -246,23 +252,33 @@ SUBSTRATE_PLUGINS: dict[str, dict] = {
             "that denies shell commands which would break a hard framework rule. Runs from "
             "the installed plugin, so no repository or worktree needs a local copy."
         ),
-        # <link path under the plugin root> -> <tools/ subdirectory it exposes>
-        "links": {"tools/agent-guard": "agent-guard"},
-        # Files that must resolve *through* those links for the hook to fire.
+        # Materialize the runtime package inside the plugin. Marketplace clients
+        # may drop symlinks whose targets escape the plugin root.
+        "copies": {
+            "tools/agent-guard/src/agent_guard": "tools/agent-guard/src/agent_guard",
+        },
+        "links": {},
+        # Files that must exist inside the generated plugin for the hook to fire.
         "must_resolve": (AGENT_GUARD_ENGINE,),
-        "hooks": {
-            "PreToolUse": [
-                {
-                    "matcher": "Bash",
-                    "hooks": [
-                        {
-                            "type": "command",
-                            "command": f'python3 "${{CLAUDE_PLUGIN_ROOT}}/{AGENT_GUARD_ENGINE}"',
-                            "timeout": 30,
-                        }
-                    ],
-                }
-            ]
+        "hook_config": {
+            "description": "Apache Magpie agent guard",
+            "hooks": {
+                "PreToolUse": [
+                    {
+                        "matcher": "Bash",
+                        "hooks": [
+                            {
+                                "type": "command",
+                                "command": (
+                                    f'python3 "${{GROK_PLUGIN_ROOT:-${{CLAUDE_PLUGIN_ROOT}}}}/'
+                                    f'{AGENT_GUARD_ENGINE}"'
+                                ),
+                                "timeout": 30,
+                            }
+                        ],
+                    }
+                ]
+            },
         },
     },
     "magpie-vetted-ops": {
@@ -272,22 +288,40 @@ SUBSTRATE_PLUGINS: dict[str, dict] = {
             "`ask` rules. Runs from the installed plugin, which is what keeps the operation "
             "catalogue out of reach of the agent that calls it."
         ),
-        "links": {"tools/vetted-ops": "vetted-ops"},
+        "links": {},
+        "copies": {
+            "tools/vetted-ops/src/vetted_ops": "tools/vetted-ops/src/vetted_ops",
+            "tools/vetted-ops/hooks": "tools/vetted-ops/hooks",
+            "tools/vetted-ops/pyproject.toml": "tools/vetted-ops/pyproject.toml",
+            "tools/vetted-ops/README.md": "tools/vetted-ops/README.md",
+            # The security-tracker backends vetted-ops runs beside itself
+            # (tracker_backends.backend_dir): real copies, not links, so a
+            # self-contained install (Codex, a plugin cache) carries them.
+            "tools/jira/src/jira_bridge": "tools/jira/src/jira_bridge",
+            "tools/jira/pyproject.toml": "tools/jira/pyproject.toml",
+            "tools/jira/README.md": "tools/jira/README.md",
+            "tools/local-tracker/src/magpie_local_tracker": "tools/local-tracker/src/magpie_local_tracker",
+            "tools/local-tracker/pyproject.toml": "tools/local-tracker/pyproject.toml",
+            "tools/local-tracker/README.md": "tools/local-tracker/README.md",
+        },
         # The entry point skills invoke, and the hook that keeps the fixed path
         # permission rules name (~/.claude/magpie/vetted-ops) on this version.
         "must_resolve": (VETTED_OPS_ENTRY, VETTED_OPS_LINK_HOOK),
-        "hooks": {
-            "SessionStart": [
-                {
-                    "hooks": [
-                        {
-                            "type": "command",
-                            "command": f'bash "${{CLAUDE_PLUGIN_ROOT}}/{VETTED_OPS_LINK_HOOK}"',
-                            "timeout": 10,
-                        }
-                    ],
-                }
-            ]
+        "hook_config": {
+            "description": "Apache Magpie vetted operations",
+            "hooks": {
+                "SessionStart": [
+                    {
+                        "hooks": [
+                            {
+                                "type": "command",
+                                "command": f'bash "${{CLAUDE_PLUGIN_ROOT}}/{VETTED_OPS_LINK_HOOK}"',
+                                "timeout": 10,
+                            }
+                        ],
+                    }
+                ]
+            },
         },
     },
     "magpie-adversarial-review": {
@@ -302,7 +336,27 @@ SUBSTRATE_PLUGINS: dict[str, dict] = {
             "tools/adversarial-review": "adversarial-review",
             "commands/adversarial-review.md": "adversarial-review/commands/adversarial-review.md",
         },
-        "must_resolve": (ADVERSARIAL_REVIEW_ENTRY, "commands/adversarial-review.md"),
+        # The entry point, the published command, and the hook that keeps the
+        # fixed path the sandbox exclusion names (~/.claude/magpie/adversarial-review)
+        # on this version.
+        "must_resolve": (
+            ADVERSARIAL_REVIEW_ENTRY,
+            "commands/adversarial-review.md",
+            ADVERSARIAL_REVIEW_LINK_HOOK,
+        ),
+        "hooks": {
+            "SessionStart": [
+                {
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": f'bash "${{CLAUDE_PLUGIN_ROOT}}/{ADVERSARIAL_REVIEW_LINK_HOOK}"',
+                            "timeout": 10,
+                        }
+                    ],
+                }
+            ]
+        },
     },
 }
 
@@ -343,9 +397,9 @@ def substrate_manifest(name: str, shared: dict) -> dict:
     truth `check` compares the on-disk file against."""
     spec = SUBSTRATE_PLUGINS[name]
     manifest = {"name": name, "description": spec["description"], **shared}
-    # A substrate plugin exists to publish a tool from the installed plugin root.
-    # Wiring a hook is one reason to need that, not the only one, so a spec
-    # without `hooks` emits a manifest without the key rather than an empty one.
+    # Some substrate plugins still publish inline manifest hooks. Others, such
+    # as magpie-agent-guard, use hook_config so Claude and Grok share a single
+    # hooks/hooks.json registration source.
     if "hooks" in spec:
         manifest["hooks"] = spec["hooks"]
     return manifest
@@ -371,6 +425,49 @@ def check_setup_templates() -> list[str]:
     return errors
 
 
+def packaged_file_bytes(src: Path, copies: dict[str, str]) -> bytes:
+    """Keep shipped links local and point framework links at their public source."""
+    if src.suffix != ".md":
+        return src.read_bytes()
+
+    def rebase(match: re.Match[str]) -> str:
+        target, title = match.group(1), match.group(2) or ""
+        if ":" in target or target.startswith(("#", "/", "<")):
+            return match.group(0)
+        path, sep, fragment = target.partition("#")
+        resolved = (src.parent / path).resolve()
+        for src_rel in copies.values():
+            source = Path(src_rel).resolve()
+            if resolved == source or (source.is_dir() and resolved.is_relative_to(source)):
+                # Every copied tree preserves its layout beneath the tool root.
+                # Current runtime README links are relative to that same root.
+                return match.group(0)
+        try:
+            relative = resolved.relative_to(Path.cwd().resolve()).as_posix()
+        except ValueError:
+            # An outside-repository link has no public framework equivalent.
+            # Preserve it for the link checker to report against the source.
+            return match.group(0)
+        return f"](https://github.com/apache/magpie/blob/main/{relative}{sep}{fragment}{title})"
+
+    output: list[str] = []
+    fence: tuple[str, int] | None = None
+    for line in src.read_text(encoding="utf-8").splitlines(keepends=True):
+        marker = re.match(r"^ {0,3}(`{3,}|~{3,})", line)
+        if marker:
+            token = marker.group(1)
+            if fence is None:
+                fence = (token[0], len(token))
+            elif token[0] == fence[0] and len(token) >= fence[1]:
+                fence = None
+            output.append(line)
+        elif fence is not None:
+            output.append(line)
+        else:
+            output.append(re.sub(r"\]\(([^)\s]+)(\s+\"[^\"]*\"|\s+'[^']*')?\)", rebase, line))
+    return "".join(output).encode()
+
+
 def check_substrate(name: str, shared: dict) -> list[str]:
     """A substrate plugin's manifest, hook wiring, and tool symlinks.
 
@@ -393,10 +490,27 @@ def check_substrate(name: str, shared: dict) -> list[str]:
         errors.append(f"{path}: missing/empty 'description'")
     if "skills" in data:
         errors.append(f"{path}: substrate plugins ship a tool, not skills — drop 'skills'")
-    if data.get("hooks") != spec.get("hooks"):
+    hook_config = spec.get("hook_config")
+    if hook_config is not None and "hooks" in data:
+        errors.append(f"{path}: substrate hook wiring belongs in hooks/hooks.json, not the manifest")
+    elif hook_config is None and data.get("hooks") != spec.get("hooks"):
         errors.append(
             f"{path}: 'hooks' does not match the wiring the framework expects (regenerate with --fix)"
         )
+
+    hook_path = pdir / "hooks" / "hooks.json"
+    if hook_config is not None:
+        if not hook_path.is_file():
+            errors.append(f"{hook_path}: missing substrate hook configuration")
+        else:
+            hook_data, hook_err = load_json(hook_path)
+            if hook_err:
+                errors.append(hook_err)
+            elif hook_data != hook_config:
+                errors.append(
+                    f"{hook_path}: hook wiring does not match the framework expectation "
+                    "(regenerate with --fix)"
+                )
     for key, want in (shared or {}).items():
         if data.get(key) != want:
             errors.append(
@@ -411,13 +525,44 @@ def check_substrate(name: str, shared: dict) -> list[str]:
         elif link.readlink() != want:
             errors.append(f"{name}: {link} -> {link.readlink()} (expected {want})")
 
-    # A manifest and a symlink that both look right still leave the hook dead if
+    for dest_rel, src_rel in spec.get("copies", {}).items():
+        dest = pdir / dest_rel
+        src = Path(src_rel)
+        if src.is_file():
+            if not dest.is_file() or dest.read_bytes() != packaged_file_bytes(src, spec.get("copies", {})):
+                errors.append(f"{name}: copied runtime file {dest} is out of sync (regenerate with --fix)")
+            continue
+        if not dest.is_dir():
+            errors.append(f"{name}: {dest} is missing copied runtime tree")
+        elif not src.is_dir():
+            errors.append(f"{name}: source runtime tree {src} is missing")
+        else:
+            src_files = sorted(
+                path.relative_to(src)
+                for path in src.rglob("*")
+                if path.is_file() and "__pycache__" not in path.parts
+            )
+            dest_files = sorted(
+                path.relative_to(dest)
+                for path in dest.rglob("*")
+                if path.is_file() and "__pycache__" not in path.parts
+            )
+            if dest_files != src_files:
+                errors.append(f"{name}: copied runtime tree {dest} is out of sync (regenerate with --fix)")
+            else:
+                for rel in src_files:
+                    if (dest / rel).read_bytes() != (src / rel).read_bytes():
+                        errors.append(
+                            f"{name}: copied runtime file {dest / rel} is out of sync (regenerate with --fix)"
+                        )
+
+    # A manifest and its packaged runtime can both look right while the hook is dead if
     # the file the command names is not reachable from the plugin root.
     for rel in spec["must_resolve"]:
         if not (pdir / rel).is_file():
             consequence = (
-                "the hook command names it, so the hook would silently never run"
-                if "hooks" in spec
+                "the hook command names it, so the guard cannot execute"
+                if "hook_config" in spec
                 else "the tool's entry point names it, so every call would fail to start"
             )
             errors.append(f"{name}: {pdir / rel} does not resolve — {consequence}")
@@ -438,9 +583,50 @@ def write_substrate(name: str, shared: dict) -> None:
                 continue
             link.unlink()
         link.symlink_to(want)
+
+    for dest_rel, src_rel in spec.get("copies", {}).items():
+        dest_rel_path = Path(dest_rel)
+        dest = pdir / dest_rel_path
+        src = Path(src_rel)
+
+        # A previous substrate layout may have exposed this destination through
+        # a symlink whose target lives outside the plugin. Remove that ancestor
+        # symlink itself before touching any descendant, otherwise rmtree()
+        # would follow it and delete source files in the framework checkout.
+        for depth in range(1, len(dest_rel_path.parts)):
+            ancestor = pdir.joinpath(*dest_rel_path.parts[:depth])
+            if ancestor.is_symlink():
+                ancestor.unlink()
+                break
+
+        if dest.exists() or dest.is_symlink():
+            if dest.is_symlink() or dest.is_file():
+                dest.unlink()
+            else:
+                shutil.rmtree(dest)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        if src.is_file():
+            dest.write_bytes(packaged_file_bytes(src, spec.get("copies", {})))
+            continue
+        shutil.copytree(
+            src,
+            dest,
+            ignore=shutil.ignore_patterns(
+                "__pycache__",
+                "*.pyc",
+                ".pytest_cache",
+                ".ruff_cache",
+                ".mypy_cache",
+            ),
+        )
+
     (pdir / ".claude-plugin" / "plugin.json").write_text(
         json.dumps(substrate_manifest(name, shared), indent=2) + "\n", encoding="utf-8"
     )
+    if hook_config := spec.get("hook_config"):
+        hook_dir = pdir / "hooks"
+        hook_dir.mkdir(parents=True, exist_ok=True)
+        (hook_dir / "hooks.json").write_text(json.dumps(hook_config, indent=2) + "\n", encoding="utf-8")
 
 
 def pyproject_version() -> tuple[str | None, list[str]]:
@@ -590,6 +776,8 @@ def check_client_catalogs() -> list[str]:
             for d in PLUGINS.glob("magpie-*")
             if d.is_dir() and d.name not in SUBSTRATE_PLUGINS and (d / "skills").is_dir()
         }
+        if path == CODEX_CATALOG:
+            on_disk |= CODEX_SUBSTRATES
         for fam in sorted(on_disk - listed):
             errors.append(f"{path}: missing family plugin entry '{fam}'")
         for extra in sorted(listed - on_disk - {"magpie"}):
@@ -719,6 +907,28 @@ def check_setup_preflight_package() -> list[str]:
     return errors
 
 
+def welcome_families(action: str) -> list[str]:
+    """Run `setup_preflight.welcome` `check-constant` or `write-constant` here.
+
+    The family map is a pure function of the frontmatter, so it is checked and
+    regenerated with the rest of this script's frontmatter-derived output.
+    A tree without the checker package (a test fixture) has nothing to check.
+    """
+    if not (SETUP_PREFLIGHT_PACKAGE / "welcome.py").is_file():
+        return []
+    result = subprocess.run(
+        [sys.executable, "-m", "setup_preflight.welcome", action],
+        capture_output=True,
+        text=True,
+        env={"PYTHONPATH": str(SETUP_PREFLIGHT_PACKAGE.parent), "PYTHONDONTWRITEBYTECODE": "1"},
+        check=False,
+    )
+    if result.returncode == 0 or (action == "write-constant" and result.returncode == 1):
+        return []
+    detail = (result.stderr or result.stdout).strip()
+    return [f"{SETUP_PREFLIGHT_PACKAGE}/families.py: {detail} (regenerate with --fix)"]
+
+
 def check(fam: dict[str, set[str]]) -> list[str]:
     errors: list[str] = []
 
@@ -749,10 +959,35 @@ def check(fam: dict[str, set[str]]) -> list[str]:
     if not UPGRADE_HOOK.is_file():
         errors.append(f"{UPGRADE_HOOK}: missing (magpie-setup's SessionStart upgrade check)")
     setup_manifest = PLUGINS / "magpie-setup" / ".claude-plugin" / "plugin.json"
+    setup_hooks_manifest = PLUGINS / "magpie-setup" / "hooks" / "hooks.json"
+    setup_types = PLUGINS / "magpie-setup" / "hooks" / "types.d.ts"
     setup_data, _setup_err = load_json(setup_manifest)
-    if setup_data is not None and "check-upgrade.sh" not in json.dumps(setup_data.get("hooks", {})):
-        errors.append(f"{setup_manifest}: SessionStart hook does not reference check-upgrade.sh")
+    if setup_types.is_file() and setup_data is not None and setup_data.get("types") != "./hooks/types.d.ts":
+        errors.append(f"{setup_manifest}: 'types' must declare './hooks/types.d.ts'")
+    if setup_hooks_manifest.is_file():
+        hooks_data, hooks_err = load_json(setup_hooks_manifest)
+        if hooks_err:
+            errors.append(f"{setup_hooks_manifest}: {hooks_err}")
+        elif hooks_data is not None:
+            if not isinstance(hooks_data, dict):
+                errors.append(f"{setup_hooks_manifest}: expected a JSON object")
+            else:
+                if not isinstance(hooks_data.get("modules"), list) or not hooks_data.get("modules"):
+                    errors.append(f"{setup_hooks_manifest}: 'modules' is missing or not a non-empty list")
+                if "check-upgrade.sh" not in json.dumps(hooks_data.get("hooks", {})):
+                    errors.append(
+                        f"{setup_hooks_manifest}: SessionStart hook does not reference check-upgrade.sh"
+                    )
+        if setup_data is not None and "hooks" in setup_data:
+            errors.append(
+                f"{setup_manifest}: declares inline 'hooks' while {setup_hooks_manifest} is present; "
+                "drop inline 'hooks' to avoid duplicate hooks collision in Claude Code"
+            )
+    else:
+        if setup_data is not None and "check-upgrade.sh" not in json.dumps(setup_data.get("hooks", {})):
+            errors.append(f"{setup_manifest}: SessionStart hook does not reference check-upgrade.sh")
     errors += check_setup_preflight_package()
+    errors += welcome_families("check-constant")
 
     errors += check_setup_templates()
 
@@ -872,19 +1107,30 @@ def unowned_entries(pdir: Path) -> list[str]:
     if not pdir.is_dir():
         return []
     mdir = pdir / ".claude-plugin"
-    # A substrate plugin owns its tool-symlink parents instead of `skills/`.
+    # A substrate plugin owns its generated tool parents instead of `skills/`.
+    hook_dir = None
     if spec := SUBSTRATE_PLUGINS.get(pdir.name):
         owned = {mdir} | {pdir / Path(link).parts[0] for link in spec["links"]}
+        owned |= {pdir / Path(dest).parts[0] for dest in spec.get("copies", {})}
         link_dirs = [pdir / Path(link).parent for link in spec["links"]]
+        if "hook_config" in spec:
+            hook_dir = pdir / "hooks"
+            owned.add(hook_dir)
     else:
         owned = {mdir, pdir / "skills"}
         link_dirs = [pdir / "skills"]
+
     unexpected = sorted(p for p in pdir.iterdir() if p not in owned)
+
     if mdir.is_dir():
         unexpected += sorted(p for p in mdir.iterdir() if p.name != "plugin.json")
+
     for sdir in link_dirs:
         if sdir.is_dir():
             unexpected += sorted(p for p in sdir.iterdir() if not p.is_symlink())
+
+    if hook_dir is not None and hook_dir.is_dir():
+        unexpected += sorted(p for p in hook_dir.iterdir() if p.name != "hooks.json")
     if not unexpected:
         return []
     return [
@@ -971,9 +1217,11 @@ def fix(fam: dict[str, set[str]]) -> int:
             "name": name,
             "description": f"Apache Magpie — {DESC.get(family, family + ' family skills')}",
             **shared,
-            "skills": "./skills",
         }
-        if name == "magpie-setup":
+        if (pdir / "hooks" / "types.d.ts").is_file():
+            manifest["types"] = "./hooks/types.d.ts"
+        manifest["skills"] = "./skills"
+        if name == "magpie-setup" and not (pdir / "hooks" / "hooks.json").is_file():
             manifest["hooks"] = SETUP_HOOKS
         (pdir / ".claude-plugin" / "plugin.json").write_text(
             json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
@@ -1010,6 +1258,29 @@ def fix(fam: dict[str, set[str]]) -> int:
         )
     market["plugins"] = keep
     MARKETPLACE.write_text(json.dumps(market, indent=2) + "\n", encoding="utf-8")
+    # Codex supports the same native plugin hooks, but only self-contained
+    # substrate packages can be advertised: outward symlinks are not installed.
+    if CODEX_CATALOG.is_file():
+        catalog, catalog_error = load_json(CODEX_CATALOG)
+        if catalog_error:
+            print(catalog_error, file=sys.stderr)
+            return 1
+        entries = [e for e in catalog["plugins"] if e.get("name") not in CODEX_SUBSTRATES]
+        entries += [
+            {
+                "name": name,
+                "source": {"source": "local", "path": f"./plugins/{name}"},
+                "category": "maintenance",
+                "policy": {"installation": "AVAILABLE"},
+            }
+            for name in sorted(CODEX_SUBSTRATES)
+        ]
+        catalog["plugins"] = sorted(entries, key=lambda e: e["name"])
+        CODEX_CATALOG.write_text(json.dumps(catalog, indent=2) + "\n", encoding="utf-8")
+    if welcome_errs := welcome_families("write-constant"):
+        for e in welcome_errs:
+            print(f"  - {e}", file=sys.stderr)
+        return 1
     print("Regenerated per-family plugins + marketplace entries from frontmatter.")
     return 0
 

@@ -95,9 +95,12 @@ def write_draft(msg: EmailMessage, maildir_path: str | Path) -> Path:
     convention Maildir clients read as "unsent draft". Returns the path of the
     written message file.
     """
+    # A configured path such as ``~/Mail/<project>/Drafts`` reaches us
+    # unexpanded when it was substituted into a command rather than typed.
+    maildir_path = Path(maildir_path).expanduser()
     # mailbox.Maildir(create=True) creates the maildir's own tmp/new/cur but
     # not any missing parent directories — make those first.
-    Path(maildir_path).parent.mkdir(parents=True, exist_ok=True)
+    maildir_path.parent.mkdir(parents=True, exist_ok=True)
     box = mailbox.Maildir(str(maildir_path), create=True)
     md_msg = mailbox.MaildirMessage(msg)
     md_msg.set_subdir("cur")

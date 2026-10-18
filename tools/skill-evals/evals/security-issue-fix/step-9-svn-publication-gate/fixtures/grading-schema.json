@@ -1,0 +1,12 @@
+{
+  "prose_fields": [
+    "rationale",
+    "reason",
+    "reasons",
+    "notes",
+    "summary",
+    "explanation",
+    "details",
+    "description"
+  ]
+}

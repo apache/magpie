@@ -77,9 +77,9 @@ The framework has two layers:
    milestone conventions. Lives in the adopter's
    `<project-config>/` directory and is **not** shipped with this
    framework. `<project-config>` resolves **per file, personal first**:
-   the personal layer (never committed, written by `/magpie-setup config`)
+   the personal layer (never committed, written by `/magpie-setup:setup config`)
    if the file is there, else `.apache-magpie-overrides/<file>`
-   (committed, project-wide, written by `/magpie-setup adopt`).
+   (committed, project-wide, written by `/magpie-setup:setup adopt`).
    The personal layer is `<git-common-dir>/apache-magpie/` in a repo
    that has only installed Magpie (inside the git directory: nothing in
    the working tree, no ignore entry, shared by every worktree), and
@@ -493,6 +493,18 @@ permissions + clean-env wrapper, sandbox primitives pinned with a
 7-day upstream cooldown, and an agent harness installed at the latest
 release subject to a minimum-version floor).
 
+**Golden rule — launch vetted operations with the literal `~` path, never an expanded one.**
+Run the dispatchers exactly as the skills spell them:
+`uv run --project ~/.claude/magpie/vetted-ops vetted-op-read …` (or `vetted-op-tracker`, `vetted-op`),
+`uvx --from ~/.claude/magpie/vetted-ops …`, and `uvx --from ~/.claude/magpie/adversarial-review adversarial-review …`.
+Never substitute `/Users/<you>/…`, `/home/<you>/…` or `$HOME/…`, and never fall back to a checkout path such as `tools/vetted-ops`.
+The sandbox exclusions and permission rules name only the `~` spelling, so an expanded path runs inside the sandbox, where `gh` cannot verify TLS, and the usual next step, a sandbox bypass, is exactly what the exclusion exists to avoid.
+A checkout path is worse: it runs code the agent can edit, which must never leave the sandbox.
+The agent-guard [`vetted-ops-spelling`](tools/agent-guard/README.md#guards) guard enforces this rule and names the corrected command.
+Codex's own absolute-path rewrite is the one exception.
+The same holds for the eval wrapper, `~/.claude/scripts/magpie-run-evals.sh`, and for any sandbox-excluded command:
+write it bare, with the literal `~`, as the whole command line (not behind `env` or `command`), or it runs inside the sandbox and fails.
+
 **Tool credentials live under `$HOME`, never in the project tree.** Any
 persistent token, API key, OAuth refresh token, or session cookie a
 framework tool needs goes under a well-known home-directory path —
@@ -550,7 +562,9 @@ to a home-dir path and update the tool to read from there.
   and `--body-file` (including the Gen-AI disclosure block) so they only need to review, not edit.
 - **Open a GitHub page for the human with `gh browse`, never `open <url>`.** The sandbox blocks
   macOS `open` (Launch Services and Apple Events: error `-10822`), while `gh` runs outside it
-  (`sandbox.excludedCommands`) and `gh browse` is in `permissions.allow`, so it opens the page with no
+  (`sandbox.excludedCommands`) and `gh browse` is in `permissions.allow` — both from your reconciled
+  `.claude/settings.local.json`, not the committed file (see
+  [CONTRIBUTING.md → Agent settings](CONTRIBUTING.md#agent-settings)) — so it opens the page with no
   prompt. Use `gh browse <PR-or-issue-number> -R <repo>`, `gh browse <path> -R <repo>` for a file, and
   `gh browse <commit-SHA> -R <repo>` for a commit. Run it as a bare command: a pipe, `$(…)` or a
   redirection puts `gh` back in the sandbox, where it fails. For a page `gh browse` cannot address,

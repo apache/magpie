@@ -1,9 +1,0 @@
-{
-  "verdict": "proceed",
-  "blockers": [],
-  "privacy_gate_passed": true,
-  "roster_source": "reviewer-roster",
-  "item_type": "pr",
-  "item_number": 42,
-  "upstream_repo": "apache/example"
-}

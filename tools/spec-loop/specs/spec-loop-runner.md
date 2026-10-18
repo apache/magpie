@@ -20,7 +20,7 @@ acceptance:
   - Open PRs and local work-item branches are passed into plan/build prompts
     as in-flight work so the loop does not duplicate already-built items.
   - The headless-agent harness contract is explicit for Claude Code, Codex,
-    Cursor, Gemini CLI, OpenCode, and Kiro.
+    Cursor, Gemini CLI, OpenCode, Kiro, and Grok Build.
   - The update marker `tools/spec-loop/.last-sync` is owned by the runner,
     not by the prompt.
 ---
@@ -119,6 +119,7 @@ sandbox, and stop without pushing or opening a PR.
 | Gemini CLI | `--prompt "<prompt>"` | launched from repo root | `--approval-mode default` | `--model` | `--output-format` | tool-sandboxing and Gemini policy; headless actions needing confirmation are refused |
 | OpenCode | positional prompt to `opencode run` | launched from repo root | `--auto` | `--model` | `--format json` for stream JSON | external sandbox and OpenCode policy |
 | Kiro | positional prompt to `kiro-cli chat` | launched from repo root | `--no-interactive` | agent config (`.kiro/agents`) | plain text only | external sandbox and the agent-guard `--kiro` hook |
+| Grok Build | `--prompt-file <assembled-prompt>` | `--cwd "$ROOT"` | `--always-approve` | `--model` | `plain`; `streaming-json` for stream JSON | `--deny` blocks `git push` and `gh`; external sandbox and agent guard remain active |
 
 `SPEC_LOOP_EFFORT` is the harness-neutral reasoning-effort band
 (`low` / `medium` / `high`). Unset means no effort flag is added. Invalid
@@ -140,6 +141,7 @@ harness CLI, re-check `--help` and update this table and
 | Kiro | `--effort` | [Kiro CLI effort docs](https://kiro.dev/docs/cli/chat/effort/) (`low\|medium\|high\|xhigh\|max`) | `low` | `medium` | `max` |
 | Cursor | (none — omitted silently) | `cursor agent --help` (no effort/thinking-level flag) | — | — | — |
 | Gemini CLI | (none — omitted silently) | `gemini --help` (no effort/thinking-level flag) | — | — | — |
+| Grok Build | `--reasoning-effort` | `grok 1.0.50 --help` (`--effort` alias also accepted) | `low` | `medium` | `high` |
 
 `SPEC_LOOP_AGENT` chooses the CLI. `SPEC_LOOP_HARNESS` chooses the
 invocation convention and defaults from the agent basename. Adding a new
@@ -168,8 +170,8 @@ in the same change.
    branch context.
 4. Update prompts receive incremental-scope guidance from `.last-sync`
    when present, but the runner remains the only writer of `.last-sync`.
-5. Claude Code, Codex, Cursor, Gemini CLI, OpenCode, and Kiro are documented in
-   the headless harness matrix and implemented in `loop.sh`.
+5. Claude Code, Codex, Cursor, Gemini CLI, OpenCode, Kiro, and Grok Build are
+   documented in the headless harness matrix and implemented by the runner.
 6. Operator docs and prompts agree on branch naming: build uses bare
    `<slug>` branches; update uses `sync-specs-<timestamp>` branches.
 7. Security docs describe unattended agent flags as harness-specific
@@ -186,9 +188,9 @@ uv run --project tools/spec-validator --group dev spec-validate
 
 ## Known gaps
 
-- The non-Claude harnesses rely on external policy/config plus the OS
-  sandbox for push/PR denial; only Claude has a per-invocation hard-deny
-  flag in the current runner.
+- Cursor, Gemini CLI, OpenCode, and Kiro rely on external policy/config plus
+  the OS sandbox for push/PR denial. Claude Code and Grok Build additionally
+  receive per-invocation hard-deny rules from the runner.
 - The deterministic scope helper this bullet used to call missing has
   shipped: `loop.sh` pipes the incremental diff through
   `tools/spec-inventory`'s `spec-scope`.

@@ -1,0 +1,1 @@
+{"next": "assign", "command": "gh pr edit 102 --repo apache/foo --add-assignee dev1"}

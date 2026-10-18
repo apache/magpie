@@ -27,6 +27,7 @@ OR, when the PR set is empty and --skip-empty-check was NOT passed:
 ```
 
 Grading rules:
+- The fields are the `release-management prepare plan` output, without `body_file`, `create_command` and `unfilled_placeholders`.
 - `proposed` must always be `true` in the non-empty-set path.
 - `empty_pr_set` must be `true` and `handoff_reason` non-empty when
   no PRs were merged since the previous tag and --skip-empty-check

@@ -11,8 +11,9 @@ source: >
   Implemented by tools/skill-and-tool-validator/, tools/skill-evals/,
   tools/sandbox-lint/, tools/dashboard-generator/, tools/probe-templates/,
   tools/pilot-report-validator/, tools/vendor-neutrality-score/,
-  tools/preflight-audit/, tools/spec-inventory/, and the write-skill /
-  list-skills utility skills.
+  tools/preflight-audit/, tools/spec-inventory/,
+  tools/dev/check-claude-mods.sh, tools/dev/bump-hook-npm-pins.py, and
+  the write-skill / list-skills utility skills.
 acceptance:
   - Skill definitions are validated (frontmatter keys name/description/
     license, internal link integrity, placeholder conventions).
@@ -102,7 +103,11 @@ trustworthy as it grows.
   vendor with no alternative? Reads `tools/*/README.md` and
   `skills/*/SKILL.md` locally. A tool declaring `**Coverage:** partial`
   (or `partial-read-only`) is listed but never counted as a backend
-  vendor. Capability: `substrate:framework-dev +
+  vendor.
+  A tool shipping several independent backends lists them on one
+  `**Vendor:**` line joined by `+`, and each counts as a backend vendor;
+  `agnostic` cannot be mixed with named vendors, and an empty entry is
+  rejected (#1575). Capability: `substrate:framework-dev +
   substrate:analytics`.
 - `tools/preflight-audit/` — dry-runs the bulk-mode pre-flight classifier
   in live mode (via `gh api graphql`) or replay mode (offline, from a
@@ -129,6 +134,13 @@ trustworthy as it grows.
   generated index of every skill, grouped by family).
   The utility skills live at `plugins/magpie-utilities/skills/<alias>/`,
   reached through `skills/<name>` symlinks.
+- Claude Code mod: `plugins/magpie-utilities/hooks/skills-command.ts`
+  (registered in that plugin's `hooks/hooks.json` `modules`, #1667)
+  registers `/magpie-skills` at session start and answers it by running
+  `list-skills`' `list_skills.py` locally, with no model turn: a 30-second
+  timeout, UTF-8 output, `python3` falling back to `python`, and
+  `--verbose` / `-v`, `--help` / `-h` and `--root` passed through.
+  `skills-command.test.ts` covers it.
 - `tools/skill-token-count/` measures full local skill files with pinned
   `tiktoken` / `cl100k_base` and stamps each count into that skill's own
   frontmatter as a generated `measured_tokens:` line (#1394).
@@ -214,7 +226,19 @@ trustworthy as it grows.
   see only the PR's own diff (`--from-ref` / `--to-ref`); on a push to
   `main` they run `--all-files`. The lychee link check is exempt from the
   scoping and runs whole-repo on both events, because its file filter
-  only decides whether it fires. A green PR check is therefore not a
+  only decides whether it fires.
+  So is `check-claude-mods` (#1564), a `manual`-stage hook CI runs in its
+  own step: it runs `claude plugin validate --strict` and `claude plugin
+  test` on every plugin whose `hooks/hooks.json` declares `modules`,
+  with Claude Code pinned in the hook environment, because Claude Code
+  silently skips a hooks module that fails its static analysis.
+  Its `check-claude-mods-local` twin runs on ordinary commits with the
+  contributor's own Claude Code and skips when it is absent or older than
+  the pin; CI skips the twin.
+  `bump-hook-npm-pins.yml` (`tools/dev/bump-hook-npm-pins.py`) moves the
+  npm pins in hooks' `additional_dependencies`, which Dependabot never
+  touches, in one draft PR, with a 7-day cooldown and 12 hours for
+  Claude Code. A green PR check is therefore not a
   whole-repo result, which is why `prek run --all-files` before pushing
   is a required pre-flight (#1317).
 - **Every required check runs on stacked PRs.** The `zizmor` workflow's
@@ -318,6 +342,13 @@ trustworthy as it grows.
     directory holding its `SKILL.md`.
 12. Every `SKILL.md` carries a current `measured_tokens:` stamp;
     `skill-token-count --check` fails on a missing or stale one.
+13. `check-claude-mods` fails a plugin whose hooks module does not pass
+    `claude plugin validate --strict` or whose `claude plugin test` run
+    fails or finds no tests, and CI runs it whole-repo on every pull
+    request and push to `main` (#1564).
+14. `vendor-neutrality-score` counts each `+`-joined `**Vendor:**` entry
+    as a separate backend vendor and rejects `agnostic` mixed with named
+    vendors or an empty entry (#1575).
 
 ## Validation
 

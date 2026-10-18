@@ -5,7 +5,7 @@
 
 This file documents how the skill **presents** proposals to the
 maintainer. The classification + action selection (from
-[`classify-and-act.md`](classify-and-act.md)) is
+`pr-management triage classify`) is
 deterministic; this step is where the maintainer's time is
 actually spent. Every optimisation here translates directly
 into maintainer velocity.
@@ -39,116 +39,11 @@ five.
 
 ## Step 3 — Group and present
 
-Using [`interaction-loop.md`](interaction-loop.md), group the
-tuples produced in Step 2 by `(classification, action)`. Groups
-**span the entire queue**: every passing PR across every page
-goes into a single `mark-ready` group, every CI-failed PR
-across every page goes into a single `draft` group, and so on.
-The maintainer sees one screen per `(classification, action)`
-class regardless of how many GitHub pages it spans.
+`triage classify` returns `groups` already keyed by `(classification, action)`, spanning the whole queue and **in presentation order**: workflow approvals first (safety), then the destructive `close` group, then the batchable groups, then the stale sweeps — the riskiest decisions while the maintainer's attention is fresh.
+Present them in that order, one at a time; never interleave groups, and if the maintainer quits mid-group, do not start later ones.
+Before a group, read the documents in its `docs` list — nothing else is needed to present it.
 
-Present each group to the maintainer in the order:
-
-1. `pending_workflow_approval` — safety-relevant, goes first
-2. `deterministic_flag` with action `close` — destructive,
-   review individually
-3. `deterministic_flag` with actions `draft` / `comment` /
-   `rebase` / `rerun` / `ping` — in that order
-4. `stale_review` → `ping`
-5. `deterministic_flag` → `request-author-confirmation`
-   (engagement heuristic fired; ask the author whether the
-   PR is ready before any label or reviewer-ping is generated
-   — first leg of the two-sweep gate)
-6. `author_confirmed_ready` → `mark-ready` (author replied
-   to a prior request; silent label apply, presented just
-   before plain `mark-ready` so the maintainer reviews all
-   label-add proposals back-to-back)
-7. `passing` → `mark-ready`
-8. Stale sweeps (`stale_draft` → `close`, `inactive_open` →
-   `draft`, `stale_workflow_approval` → `draft`,
-   `stale_ready_label` → `strip-ready-label`,
-   `stale_ready_label_unhealthy` → `close`,
-   `stale_author_confirm_request` → `ping`)
-
-For each group, present one screen worth of headline info
-(PR number, title, author, 1-line reason, label chips) and
-offer:
-
-- `[A]ll` — apply the suggested action to every PR in the group
-- `[E]ach` — walk through the group one PR at a time
-- `[P]ick NN` — handle PR `NN` individually, keep the rest in
-  the group
-- `[S]kip group` — leave every PR in the group alone this run
-- `[Q]uit` — exit the session
-
-`close` and `flag-suspicious` groups never accept `[A]ll`
-without an extra per-PR confirm — those are destructive enough
-that batching must still route through a per-PR review.
-
-When a PR is pulled out of a group via `[P]NN` or `[E]`, fetch
-the per-PR drill-in data (failed-job log snippets, full diff
-for `[W]`) lazily at that moment. Step 1's full-set fetch
-intentionally omits this deep data — the per-PR cost is paid
-only when the maintainer actually drills in.
-
-## Group ordering
-
-After classification and suggested-action computation, partition
-all PRs into groups keyed by `(classification, action)`. Present
-the groups in this fixed order:
-
-1. `(pending_workflow_approval, approve-workflow)` — safety-
-   relevant; uses the dedicated list-then-select flow in
-   [`workflow-approval.md`](workflow-approval.md) instead of the
-   generic `[A]/[E]/[P]/[O]/[S]/[Q]` group menu. The standard
-   group screen below is bypassed for this group.
-2. `(deterministic_flag, close)` — destructive, one-at-a-time
-   (but share the same group screen so the maintainer sees the
-   "queue pressure" signal from multiple PRs by the same
-   author at once).
-3. `(stale_copilot_review, draft)` — batchable. Drafts PRs whose
-   Copilot review has sat unaddressed for ≥ 7 days.
-4. `(deterministic_flag, draft)` — batchable.
-5. `(deterministic_flag, comment)` — batchable.
-6. `(deterministic_flag, rebase)` — batchable.
-7. `(deterministic_flag, rerun)` — batchable.
-8. `(deterministic_flag, ping)` — batchable (unresolved threads
-   from collaborators).
-9. `(stale_review, ping)` — batchable.
-10. `(deterministic_flag, request-author-confirmation)` —
-    batchable (unresolved threads where the engagement
-    heuristic fired; we ask the author whether the PR is
-    ready for maintainer review before any label or reviewer
-    ping is generated — the first leg of the two-sweep gate).
-11. `(author_confirmed_ready, mark-ready)` — batchable
-    (presented just before the plain mark-ready group because
-    both end with the `ready for maintainer review` label
-    going on). The author's reply is shown in the per-PR row
-    so the maintainer can read it before confirming `[A]ll` —
-    a non-affirmative reply is the maintainer's cue to
-    `[P]ick` the PR out and override to `skip` or `ping`.
-12. `(passing, mark-ready)` — batchable.
-13. `(stale_draft, close)` — batchable but with extra per-PR
-    confirm inside the batch (these are rarely wrong but when
-    wrong they're very wrong).
-14. `(inactive_open, draft)` — batchable.
-15. `(stale_workflow_approval, draft)` — batchable.
-
-Skipped (filtered before group presentation) but worth noting
-for completeness: `awaiting_author_confirmation` PRs (we asked
-the author, they have not yet replied, and we are still inside
-the cooldown) classify as `skip` in
-[row 14b](classify-and-act.md#decision-table) and never form
-a group. They reappear once the author replies (→ group 11) or
-when the cooldown lapses (→ Sweep 5 in
-[`stale-sweeps.md`](stale-sweeps.md)).
-
-The ordering is chosen so the maintainer always faces the
-riskiest decisions first, while their attention is fresh. The
-last few groups (stale sweeps) are mostly auto-apply-all.
-
-Never interleave groups. Finish one before starting the next.
-If the maintainer quits mid-group, don't start later groups.
+PRs the table skipped (`skipped`: already triaged, awaiting confirmation, unsettled, inside grace) form no group; mention their count once.
 
 ---
 
@@ -224,14 +119,14 @@ group screen itself a decision bottleneck.
 | `[Q]` | Quit the session. Emit summary. |
 
 After `[A]` the action is executed for every PR in the group
-(see batching rules in [`actions.md#batching-execution`](actions.md)).
+(see [Batch execution status](#batch-execution-status)).
 After `[E]`, the group becomes a queue; each PR gets its own
 individual prompt. After `[P]NN`, PR `NN` gets the individual
 flow and the rest of the group remains on screen for a follow-
 up `[A]`/`[E]`/`[S]`/`[Q]` decision.
 
-The two destructive groups —
-`(deterministic_flag, close)` and `(stale_draft, close)` —
+The destructive groups — every group whose `batchable` is
+false, i.e. `(deterministic_flag, close)` and `(stale_draft, close-stale)` —
 require a per-PR confirm inside `[A]`/`[E]` alike. `[A]` on
 those means "don't drop me back to the group menu between
 PRs", not "apply without confirm".
@@ -339,7 +234,7 @@ safe alternatives:
 | `request-author-confirmation` | `ping` (skip the author-confirmation step and post the plain reviewer-ping body directly if the maintainer thinks the engagement heuristic over-reached), `skip` |
 | `ping` | `comment`, `skip` |
 | `close` (deterministic_flag) | — (no overrides — use `[E]` to downgrade individually) |
-| `close` (stale_draft) | `draft`, `skip` |
+| `close-stale` (stale_draft) | `draft`, `skip` |
 | `draft` (inactive_open / stale_workflow_approval) | `comment`, `skip` |
 
 `close` from `deterministic_flag` has no override because its
@@ -353,67 +248,15 @@ previews per-PR.
 
 ## Step 4 — Execute
 
-On the maintainer's confirmation, execute the action for the
-confirmed PR(s) using the recipes in [`actions.md`](actions.md).
-Each action builds its comment body (when one is needed) from
-[`comment-templates.md`](comment-templates.md) and — before
-mutating — re-checks the PR's `head_sha` against the value
-captured in Step 1. If the SHA has changed, the maintainer is
-notified (the contributor pushed while we were deciding) and the
-PR is re-enriched and re-classified before the action is applied.
-This optimistic-lock pattern is the same one the original breeze
-tool used and catches the common race.
-
-After each group completes, update the session cache with the
-new classification and head SHA so a re-run inside the same
-window skips the PRs we just handled.
-
-## Optimistic lock (re-check before mutate)
-
-Between the fetch (Step 1 / 2) and the mutation (Step 4) the
-contributor may have pushed a new commit. Before executing any
-action for a given PR, re-check the PR's `head_sha` against
-the one captured at fetch time:
-
-```bash
-gh api graphql -F owner=<owner> -F repo=<repo> -F number=<N> -f query='
-  query($owner: String!, $repo: String!, $number: Int!) {
-    repository(owner: $owner, name: $repo) {
-      pullRequest(number: $number) {
-        headRefOid
-        mergeable
-        statusCheckRollup: commits(last: 1) {
-          nodes { commit { oid statusCheckRollup { state } } }
-        }
-      }
-    }
-  }'
-```
-
-If `headRefOid` matches, proceed. If it differs:
-
-- Tell the maintainer: *"Contributor pushed a new commit since
-  we classified this PR. Re-classifying…"*.
-- Re-fetch the full PR record and re-classify.
-- If the new classification yields the **same** suggested
-  action, carry on.
-- If it differs, drop back to the per-PR drill-in with the new
-  state and let the maintainer re-decide.
-
-This guard catches the common race and prevents the worst
-failure mode ("convert-to-draft-on-a-commit-that-wasn't-broken").
-Burn the one extra GraphQL point per action — a bad mutation
-costs more.
-
-Batch the re-check queries for `[A]` actions — one aliased
-`pullRequest(number: N)` per PR in the group, one round-trip.
+On the maintainer's confirmation, run the group's action file (its `docs` list names it).
+Every action re-checks the PR immediately before it mutates — the optimistic lock: the contributor may have pushed while the maintainer was deciding.
+The guards (`pr-management triage guard <action>`) refuse on a moved head with `reroute: reclassify`; tell the maintainer *"Contributor pushed a new commit since we classified this PR. Re-classifying…"*, save that PR again with `gql-pr-triage-one`, classify it, and carry on only if the proposed action is unchanged — otherwise drop back to the per-PR drill-in with the new state.
 
 ---
 
 ## Lazy drill-in fetches
 
-The full-set fetch in
-[`fetch-and-batch.md#step-1--resolve-the-selector-and-fetch-every-page`](fetch-and-batch.md#step-1--resolve-the-selector-and-fetch-every-page)
+The full-set fetch in Step 1
 deliberately omits per-PR deep data (failed-job log snippets,
 full diffs, author profile rollups). Defer those to the moment
 the maintainer pulls a PR out of a group via `[P]NN`, `[E]`, or
@@ -424,7 +267,7 @@ When a per-PR drill-in fires, fetch in the same tool-call turn:
 | Drill-in context | Fetch |
 |---|---|
 | `pending_workflow_approval` group, any PR | `gh pr diff <N>` for the workflow-approval safety review |
-| `deterministic_flag → draft/comment` PR | Failed-job log snippets per [`fetch-and-batch.md#optional-failed-job-log-snippets-deferred`](fetch-and-batch.md#optional-failed-job-log-snippets-deferred) |
+| `deterministic_flag → draft/comment` PR | Failed-job log snippets: `gh run view <run_id> --repo <upstream> --log-failed`, the last 40 lines per failed job |
 | `close` group (per-PR confirm) | Author's full open-PR list (for the "you have N flagged PRs" line in the body) |
 | Any per-PR drill-in pressing `[W]` | Full diff via `gh pr diff <N>`, cached in the session by head SHA |
 
@@ -460,49 +303,13 @@ before moving on.
 
 ## Step 6 — Session summary
 
-On exit, print a one-screen summary:
+On exit (`[Q]`, or after the last group), print the summary the session cache already holds:
 
-- counts of PRs handled per action (drafted, commented, closed,
-  rebased, reruns triggered, author-confirm requests posted,
-  marked ready, bot drafts promoted, pinged, workflow approvals,
-  suspicious flags)
-- counts of PRs skipped and per-reason breakdown (already
-  triaged, inside grace window, bot, collaborator)
-- counts of PRs left pending (classified in Step 2 but the
-  group containing them wasn't decided before quit)
-- total wall-clock time and PRs-per-minute velocity
-
-The on-screen summary is for the maintainer's quick read at
-session end.
-
-## Session summary
-
-On exit (either `[Q]` or after the last group), print a
-session summary:
-
-```text
-Session summary — 2026-04-22 09:42 UTC → 10:07 UTC (25m)
-
-PRs presented:  47
-PRs acted on:    22
-  - drafted:           5
-  - commented:         3
-  - closed:            2
-  - rebased:           4
-  - reruns triggered:  3
-  - marked ready:      3
-  - author-confirm requests:  1
-  - pings posted:      2
-PRs skipped:     15   (12 already triaged / inside grace, 2 bot, 1 collaborator)
-PRs left pending: 10   (classified but [Q] hit before the group was decided)
-
-Throughput: 22 actions / 25m = 53 PRs/h
+```bash
+uv run --project <framework>/tools/pr-management pr-management triage session summary --session <scratch>/triage-session.json
 ```
 
-Write a copy to the session cache under a `last_summary`
-key — re-invocations of the skill can reference it with *"last
-triage run closed 2h ago, these 12 PRs were skipped then"*.
-Don't persist across sessions on disk beyond the cache.
+It prints the per-action / per-reason / pending counts and the throughput as a ready-to-print block; show it as-is.
 
 ---
 

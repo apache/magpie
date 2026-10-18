@@ -26,3 +26,21 @@ KEYS file content (excerpt from dist.apache.org):
 
 No overrides file found at .apache-magpie-overrides/release-keys-sync.md.
 No snapshot drift detected.
+
+`release-verify list-keys --file <scratch>/KEYS` listed the 12 keys; none has fingerprint
+A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6ABCD as its primary or a subkey fingerprint.
+
+`release-management keys-sync verdict --preflight <scratch>/keys-preflight.json --keys-listing <scratch>/keys-list.json` output:
+
+```json
+{
+  "verdict": "proceed",
+  "blockers": [],
+  "noop_reason": null,
+  "fingerprint": "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6ABCD",
+  "keys_file_url": "https://dist.apache.org/repos/dist/release/airflow/KEYS",
+  "keyserver": "keys.openpgp.org",
+  "pending": [],
+  "read": []
+}
+```

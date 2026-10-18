@@ -433,8 +433,8 @@ that the engine path it names **resolves**; a wired hook pointing at
 a file that is not there is the failure mode worth catching, because
 a guard that never loads does not raise — it silently stops denying.
 
-1. **Plugin install** — the `magpie-agent-guard` plugin is
-   installed. Its manifest carries the hook, so there is nothing
+1. **Plugin install** — the `magpie-agent-guard` plugin is installed.
+   Its `hooks/hooks.json` carries the hook, so there is nothing
    repository-local to check and nothing to remediate per worktree.
    - ⚠ if no agent-guard install of any kind is found: print
      `/plugin install magpie-agent-guard@apache-magpie`.
@@ -889,12 +889,31 @@ Report missing components and configuration drift without modifying files.
 An absent profile is skipped unless Gemini secure setup was requested; in that case, point to `setup-isolated-setup-install`.
 A static pass does not replace live verification in Gemini.
 
+### 8h.1. Grok action guard (if configured)
+
+When Grok is a selected runtime, distinguish marketplace/plugin wiring from a source or pinned-snapshot project hook.
+For a marketplace install, confirm that `magpie-agent-guard` is installed and enabled and that no duplicate `.grok/hooks/magpie-agent-guard.json` was added merely to reach the executable.
+For a source or pinned snapshot, confirm that `.grok/hooks/magpie-agent-guard.json` exists, uses the `Bash` matcher, invokes `--grok`, and resolves to an existing `agent_guard/__init__.py`.
+
+Run `grok inspect --json` and report the loaded Magpie hook source.
+Warn when no Magpie guard is active or when more than one Magpie guard would inspect the same shell command.
+
+Static wiring is not sufficient.
+Ask the operator to perform one harmless allowed shell command and one known Magpie denial in Grok.
+Malformed input handled inside the adapter is fail-open, while Grok Build
+1.0.50 was observed to block hook-process exit 2. A live denial is still the
+verification that the configured hook, packaged runtime, and Magpie policy are
+actually enforcing together.
+
+Never grant, reset, or otherwise change Grok project-hook trust during verification.
+See [the Grok verification contract](../../../../docs/adapters/grok.md#verify).
+
 ### 8i. Adversarial reviewers (if configured)
 
 When `adversarial-review.md` resolves (the personal layer first, then
 `.apache-magpie-overrides/`), run the tool's `detect` in its one-line form —
-`uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/<version>/tools/adversarial-review adversarial-review detect`,
-unquoted with a literal `~`, `<version>` the newest installed — and compare
+`uvx --from ~/.claude/magpie/adversarial-review adversarial-review detect`,
+unquoted with a literal `~` — and compare
 it with the configured `reviewers`.
 
 - ✓ when every configured reviewer is available, or is `self` (skipped
@@ -903,7 +922,7 @@ it with the configured `reviewers`.
   `--version` probe fails, with the reason `detect` gave. A warning, never a
   failure: reviews are advisory, and a PR is never blocked by an
   unavailable reviewer. The remediation is to install or log in to that
-  CLI, or to drop it with `/magpie-setup config adversarial-review`.
+  CLI, or to drop it with `/magpie-setup:setup config adversarial-review`.
 - ⚠ when a configuration names reviewers but the `magpie-adversarial-review`
   plugin is not installed: print
   `/plugin install magpie-adversarial-review@apache-magpie`.
@@ -912,7 +931,7 @@ it with the configured `reviewers`.
   `~/.gemini/commands/magpie-adversarial-review.toml`) that differs from
   what `adversarial-review commands --harness <name>` prints for the
   installed plugin — the command text changed in a newer plugin. The
-  remediation is `/magpie-setup config adversarial-review`, which shows the
+  remediation is `/magpie-setup:setup config adversarial-review`, which shows the
   difference and asks.
 
 `detect` makes no model call, so a logged-out CLI passes here and shows up
@@ -934,7 +953,7 @@ target `SKILL.md` goes in `unchecked`, never reported as clean).
 
 **Read-only here.** Unlike `reconcile`, this check never confirms,
 applies, or writes the `reconciled:` stamp — it reports what a sweep
-would find and names `/magpie-setup reconcile` as where to act on it.
+would find and names `/magpie-setup:setup reconcile` as where to act on it.
 `verify` is invoked freely and often, including by the pre-flight nudge
 below (check 10 of
 [`tools/dev/preflight-block.md`](../../../../tools/dev/preflight-block.md));
@@ -951,16 +970,16 @@ completion (see [Writing `verified_at`](#writing-verified_at) below).
   no `reconciled:` block exists anywhere (or one exists but never
   covered this skill) — report the same numbered-proposal shape
   [`reconcile.md` Step 1](reconcile.md#step-1--present-the-findings)
-  produces; remediation: `/magpie-setup reconcile`.
+  produces; remediation: `/magpie-setup:setup reconcile`.
 - List any `unchecked` skills from the sandboxed-session degradation
   and say plainly that resolving them needs an unsandboxed
-  `/magpie-setup reconcile` run.
+  `/magpie-setup:setup reconcile` run.
 - A `skills` entry for the same skill present in **both** the
   committed lock and the local file is the expected transitional state
   [`reconcile.md` Step 0.3](reconcile.md#step-0--pre-flight)
   describes — config on one machine, adopt on another — not a fault.
   The local entry wins; name the collision and point at
-  `/magpie-setup reconcile`, which offers to drop the redundant local
+  `/magpie-setup:setup reconcile`, which offers to drop the redundant local
   entry. Do not resolve it here.
 
 ### 12. Latest available plugin version
@@ -1050,7 +1069,7 @@ committing it is optional and is not required to use the plugins in this repo.
   as available but not in use, and move on. **This is not a fault.** A
   project that never took the offer, or took it and later removed it, is
   correctly configured. Do not count it as a failed check, and do not
-  offer to write it here — `/magpie-setup adopt` is where the floor is
+  offer to write it here — `/magpie-setup:setup adopt` is where the floor is
   recorded. There is no block to diff the floor against, so `missing` is
   empty: the floor's entries are not "missing" from a block that does not
   exist.
@@ -1161,7 +1180,7 @@ list, ordered most → least urgent:
   `mcp__ponymail__login()` and/or `setup upgrade`
   Step 6e (live fetch + `git pull --ff-only`).
 - ⚠ on check 11 (reconciliation sweep finding, or `unchecked`
-  skills) → `/magpie-setup reconcile` (outside the sandbox, if the
+  skills) → `/magpie-setup:setup reconcile` (outside the sandbox, if the
   skills were left `unchecked`).
 - ⚠ on check 12 (installed plugin behind the marketplace clone) →
   `claude plugin marketplace update apache-magpie` then `claude

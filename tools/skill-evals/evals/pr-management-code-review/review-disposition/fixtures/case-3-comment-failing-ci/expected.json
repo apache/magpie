@@ -1,4 +1,0 @@
-{
-  "disposition": "COMMENT",
-  "reason": "Golden rule 8: CI is failing, so APPROVE is not permitted even though the failure is unrelated to this PR's diff. A COMMENT noting the unrelated CI flakiness is appropriate — once the main-branch failure resolves, this PR can be approved."
-}

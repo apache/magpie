@@ -32,7 +32,7 @@
 # Package name matches the project's canonical name. Not published to
 # PyPI — this name only frames the framework root as a uv-managed project.
 name = "apache-magpie"
-version = "0.9.0.dev202610090606"
+version = "0.9.0.dev202610160723"
 description = "Reusable, governance-agnostic framework of agentic skills for maintaining open-source projects."
 requires-python = ">=3.11"
 
@@ -111,6 +111,7 @@ package = false
 magpie-dev = { workspace = true }
 checker = { workspace = true }
 jira-bridge = { workspace = true }
+release-config = { workspace = true }
 
 
 [tool.uv.workspace]
@@ -134,11 +135,12 @@ members = [
   "tools/mail-source/imap",
   "tools/maven-artifact-verify",
   "tools/permission-audit",
-  "tools/pr-management-stats",
+  "tools/pr-management",
   "tools/preflight-audit",
   "tools/privacy-llm/checker",
   "tools/privacy-llm/redactor",
   "tools/release-config",
+  "tools/release-management",
   "tools/release-verify",
   "tools/reproducible-archive",
   "tools/sandbox-lint",
@@ -161,4 +163,5 @@ members = [
   "tools/sourcehut",
   "tools/gitlab",
   "tools/typed-decision",
+  "tools/local-tracker",
 ]

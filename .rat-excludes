@@ -62,3 +62,7 @@ tools/release-verify/tests/fixtures/gpg/OTHER.pub
 tools/release-verify/tests/fixtures/gpg/FINGERPRINTS
 tools/release-verify/tests/fixtures/gpg/*.tar.gz
 tools/release-verify/tests/fixtures/gpg/*.tar.gz.asc
+
+# Grok project hook configuration — strict JSON cannot carry a license comment.
+plugins/magpie-setup/templates/grok-agent-guard-hook.json
+plugins/magpie-agent-guard/hooks/hooks.json

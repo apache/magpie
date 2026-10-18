@@ -71,19 +71,29 @@ def _build_parser() -> argparse.ArgumentParser:
     repo_subparsers.add_parser("get", help="Fetch repository metadata.")
     repo_subparsers.add_parser("restrictions", help="Fetch repository branch restrictions.")
 
-    issue_parser = subparsers.add_parser("issue", help="Interact with Bitbucket issues.")
+    issue_parser = subparsers.add_parser(
+        "issue",
+        help="Native issue commands (compatibility stubs; Bitbucket Cloud removed its issue tracker).",
+    )
     issue_subparsers = issue_parser.add_subparsers(dest="issue_action", required=True)
-    issue_subparsers.add_parser("list-open", help="List open issues.")
+    issue_subparsers.add_parser(
+        "list-open", help="List open issues. Bitbucket Cloud removed its native issue tracker; fails closed."
+    )
 
-    issue_get = issue_subparsers.add_parser("get", help="Fetch one issue.")
+    issue_get = issue_subparsers.add_parser(
+        "get", help="Fetch one issue. Bitbucket Cloud removed its native issue tracker; fails closed."
+    )
     issue_get.add_argument("issue_id", help="Issue ID to fetch.")
 
-    issue_comments = issue_subparsers.add_parser("comments", help="Fetch issue comments.")
+    issue_comments = issue_subparsers.add_parser(
+        "comments",
+        help="Fetch issue comments. Bitbucket Cloud removed its native issue tracker; fails closed.",
+    )
     issue_comments.add_argument("issue_id", help="Issue ID to fetch comments for.")
 
     issue_comment = issue_subparsers.add_parser(
         "comment",
-        help="Create a comment on an issue after caller-side confirmation.",
+        help="Create a comment on an issue. Bitbucket Cloud removed its native issue tracker; fails closed.",
     )
     issue_comment.add_argument(
         "issue_id",
@@ -97,7 +107,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     issue_attachments = issue_subparsers.add_parser(
         "attachments",
-        help="Fetch issue attachment metadata and links, not file contents.",
+        help="Fetch issue attachment metadata and links. Bitbucket Cloud removed its native issue tracker; fails closed.",
     )
     issue_attachments.add_argument(
         "issue_id",
@@ -132,6 +142,26 @@ def _build_parser() -> argparse.ArgumentParser:
         "--body-file",
         required=True,
         help="Path to the confirmed comment body.",
+    )
+
+    pr_review = pr_subparsers.add_parser(
+        "review",
+        help="Post a pull request review after caller-side confirmation.",
+    )
+    pr_review.add_argument(
+        "pull_request_id",
+        help="Pull request ID to review.",
+    )
+    pr_review.add_argument(
+        "--verdict",
+        required=True,
+        choices=("comment", "approve", "request-changes"),
+        help="Review verdict required by the change-request post_review contract.",
+    )
+    pr_review.add_argument(
+        "--body-file",
+        required=True,
+        help="Path to the confirmed review body.",
     )
 
     pr_reviews = pr_subparsers.add_parser("reviews", help="Fetch pull request review-state activity.")
@@ -173,6 +203,20 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Pull request ID whose change request to remove.",
     )
 
+    pr_reject = pr_subparsers.add_parser(
+        "reject",
+        help="Reject a pull request with a reason after caller-side confirmation.",
+    )
+    pr_reject.add_argument(
+        "pull_request_id",
+        help="Pull request ID to reject.",
+    )
+    pr_reject.add_argument(
+        "--reason-file",
+        required=True,
+        help="Path to the confirmed rejection reason.",
+    )
+
     pr_decline = pr_subparsers.add_parser(
         "decline",
         help="Decline a pull request after caller-side confirmation.",
@@ -200,6 +244,19 @@ def _build_parser() -> argparse.ArgumentParser:
         "--expected-source-commit",
         required=True,
         help="Source commit confirmed by the caller before merging.",
+    )
+
+    pr_merge_task_status = pr_subparsers.add_parser(
+        "merge-task-status",
+        help="Fetch one asynchronous Bitbucket Cloud pull-request merge task.",
+    )
+    pr_merge_task_status.add_argument(
+        "pull_request_id",
+        help="Pull request ID whose merge task to fetch.",
+    )
+    pr_merge_task_status.add_argument(
+        "task_id",
+        help="Merge task ID returned by Bitbucket Cloud.",
     )
 
     pr_tasks = pr_subparsers.add_parser("tasks", help="List pull request tasks.")
@@ -251,6 +308,9 @@ def _dispatch(args: argparse.Namespace, config: BitbucketConfig) -> dict[str, An
         return normalize.issue_comments(config.kind, raw)
 
     if args.subcommand == "issue" and args.issue_action == "comment":
+        if config.kind == "cloud":
+            # Report the removal, not a body-file error, before touching the file.
+            raise cloud.removed_native_issue_tracker()
         body = _read_body_file(args.body_file)
         raw = backend.create_issue_comment(config, args.issue_id, body)
         return normalize.created_issue_comment(config.kind, raw)
@@ -287,6 +347,19 @@ def _dispatch(args: argparse.Namespace, config: BitbucketConfig) -> dict[str, An
             body,
         )
         return normalize.created_pull_request_comment(config.kind, raw)
+
+    if args.subcommand == "pr" and args.pr_action == "review":
+        body = _read_body_file(args.body_file)
+        raw = backend.post_pull_request_review(
+            config,
+            args.pull_request_id,
+            args.verdict,
+            body,
+        )
+        return normalize.posted_pull_request_review(
+            config.kind,
+            raw,
+        )
 
     if args.subcommand == "pr" and args.pr_action == "reviews":
         raw = backend.get_pull_request_reviews(config, args.pull_request_id)
@@ -330,6 +403,18 @@ def _dispatch(args: argparse.Namespace, config: BitbucketConfig) -> dict[str, An
             requested=False,
         )
 
+    if args.subcommand == "pr" and args.pr_action == "reject":
+        reason = _read_body_file(args.reason_file)
+        raw = backend.reject_pull_request(
+            config,
+            args.pull_request_id,
+            reason,
+        )
+        return normalize.rejected_pull_request(
+            config.kind,
+            raw,
+        )
+
     if args.subcommand == "pr" and args.pr_action == "decline":
         raw = backend.decline_pull_request(
             config,
@@ -350,6 +435,18 @@ def _dispatch(args: argparse.Namespace, config: BitbucketConfig) -> dict[str, An
         return normalize.merged_pull_request(
             config.kind,
             raw,
+        )
+
+    if args.subcommand == "pr" and args.pr_action == "merge-task-status":
+        raw = backend.get_pull_request_merge_task_status(
+            config,
+            args.pull_request_id,
+            args.task_id,
+        )
+        return normalize.merged_pull_request(
+            config.kind,
+            raw,
+            operation="pull-request-merge-task-status",
         )
 
     if args.subcommand == "pr" and args.pr_action == "tasks":

@@ -110,11 +110,13 @@ The two layers are complementary, not redundant. The sandbox stops
 a Bash subprocess (an MCP server's child process, a `gh` CLI call,
 a `python` snippet the model decided to run) from reading a denied
 path. `permissions.deny` stops the agent's Read tool from reading
-the same path. A secure setup needs both: the framework's
+the same path. A secure setup needs both: the framework's committed
 [`.claude/settings.json`](../../.claude/settings.json) deny-lists
-`Read(~/.config/gh/**)` *and* allow-reads `~/.config/gh/` in the
-sandbox, so `gh` can see its token but the agent can never read
-the file.
+`Read(~/.config/gh/**)`, *and* its local template
+[`claude-settings.local.template.json`](../../tools/agent-isolation/claude-settings.local.template.json)
+(layered in through `.claude/settings.local.json`) allow-reads
+`~/.config/gh/` in the sandbox, so `gh` can see its token but the agent
+can never read the file.
 
 ## Linux: bubblewrap + user namespaces
 

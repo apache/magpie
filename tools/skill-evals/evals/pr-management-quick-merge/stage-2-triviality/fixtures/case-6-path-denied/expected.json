@@ -1,6 +1,0 @@
-{
-  "disposition": "drop",
-  "tier": null,
-  "drop_reason": "path-denied",
-  "reason": ".github/workflows/ci.yml matches the deny glob .github/** — a single consequential file disqualifies the whole PR regardless of size."
-}

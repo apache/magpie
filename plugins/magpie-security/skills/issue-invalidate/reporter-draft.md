@@ -74,7 +74,8 @@ the **recipient** and the **body shape**.
      If no address resolves, block draft creation.
 2. **Subject:** `Re: <root subject>`.
    Never invent a fresh subject: the reply lands on the inbound thread
-   (`replyToMessageId` for `claude_ai_mcp`, `--thread-id` for `oauth_curl`).
+   (`replyToMessageId` for `claude_ai_mcp`, `--thread-id` for `oauth_curl`,
+   `--in-reply-to` the inbound `Message-ID` for `maildir`).
 3. **Body:**
    - Spine: the canned section picked in Step 4, verbatim.
    - Augmentation: a clearly-marked block filling the
@@ -102,12 +103,15 @@ the **recipient** and the **body shape**.
      [`AGENTS.md`](../../../../AGENTS.md#tone-polite-but-firm--no-room-to-wiggle):
      state the team's position once, with reasoning, and do not re-open the discussion (*"happy to discuss further"*).
 4. **Backend selection:** the project's configured drafting backend, per
-   [`tools/gmail/draft-backends.md`](../../../../tools/gmail/draft-backends.md#how-the-skills-pick-a-backend).
+   [`tools/gmail/draft-backends.md`](../../../../tools/gmail/draft-backends.md#how-the-skills-pick-a-backend):
+   first Gmail or Maildir, and on `maildir` the [Maildir recipe](../../../../tools/gmail/draft-backends.md#the-maildir-backend).
+   On Gmail:
    Prefer `oauth_curl` (credentials at default path `~/.config/apache-magpie/gmail-oauth.json`), which preserves URLs verbatim.
    Use the discouraged `claude_ai_mcp` backend, which
    [rewrites embedded URLs into Google tracking redirects](../../../../tools/gmail/draft-backends.md#privacy-warning--the-claudeai-gmail-mcp-rewrites-embedded-urls-into-google-tracking-redirects),
    only when `oauth_curl` credentials are missing AND the body has no links.
 5. **Existing-draft check.** Before drafting, scan the inbound thread for a pending draft per the
    [*Detecting drafts that already exist on a thread*](../../../../tools/gmail/draft-backends.md#detecting-drafts-that-already-exist-on-a-thread)
-   recipe — both `mcp__claude_ai_Gmail__list_drafts` and `mcp__claude_ai_Gmail__get_thread`.
+   recipe — both `mcp__claude_ai_Gmail__list_drafts` and `mcp__claude_ai_Gmail__get_thread`,
+   or `maildir-draft-find` on the `maildir` backend.
    If one exists, surface it instead of silently shadowing it.

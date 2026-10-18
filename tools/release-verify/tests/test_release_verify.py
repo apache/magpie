@@ -26,12 +26,16 @@ GNUPGHOME and is skipped where an agent cannot start.
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
+import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -637,3 +641,387 @@ def test_gpg_home_path_is_redacted(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     proc = rv._gpg(home, "--list-keys")
     assert str(home) not in proc.stderr
     assert "<gnupghome>/pubring.kbx" in proc.stderr
+
+
+# ---------------------------------------------------------------- list-keys (release-keys-sync)
+
+
+FPR = "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6ABCD"
+
+
+def colons(algo: str = "1", bits: str = "4096", curve: str = "", expires: str = "", validity: str = "-") -> str:
+    pub = ["pub", validity, bits, algo, "KEYID", "1647302400", expires] + [""] * 9 + [curve, "", "0", ""]
+    return "\n".join(
+        [
+            "tru::1:1791072876:0:3:1:5",
+            ":".join(pub),
+            f"fpr:::::::::{FPR}:",
+            "uid:-::::1647302400::HASH::Brendan Ngan <bngan@apache.org>::::::::::0:",
+            "uid:r::::1647302400::HASH::Old Name <old@example.org>::::::::::0:",
+            "sub:-:4096:1:SUBID:1647302400::::::e::::::23:",
+            "fpr:::::::::FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000:",
+        ]
+    )
+
+
+def test_parse_colons_reads_the_primary_key_without_gpg() -> None:
+    (key,) = rv.parse_colons(colons())
+    assert key == {
+        "fingerprint": FPR,
+        "validity": "-",
+        "algo_id": "1",
+        "algorithm": "RSA",
+        "bits": 4096,
+        "curve": "",
+        "created": "2022-03-15",
+        "expiry": None,
+        "caps": "",
+        "uids": ["Brendan Ngan <bngan@apache.org>"],  # the revoked uid is left out
+        "subkey_fingerprints": ["FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000"],
+        "subkeys": [
+            {
+                "fingerprint": "FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000",
+                "validity": "-",
+                "algo_id": "1",
+                "algorithm": "RSA",
+                "bits": 4096,
+                "curve": "",
+                "created": "2022-03-15",
+                "expiry": None,
+                "caps": "e",
+            }
+        ],
+    }
+
+
+def test_parse_colons_curve_iso_expiry_and_validity() -> None:
+    (key,) = rv.parse_colons(colons("22", "255", "ed25519", "20260715T000000", "r"))
+    assert (key["algorithm"], key["curve"], key["expiry"], key["validity"]) == ("EdDSA", "ed25519", "2026-07-15", "r")
+
+
+def test_list_keys_empty_file_lists_nothing(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    empty = tmp_path / "fetched.asc"
+    empty.write_text("")
+    out = run(capsys, "list-keys", "--file", str(empty))
+    assert out["_rc"] == 0 and out["keys"] == [] and out["file"] == "fetched.asc"
+
+
+def test_list_keys_refuses_private_key_material(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    keys = tmp_path / "KEYS"
+    block = "PGP " + "PRIVATE KEY BLOCK"
+    keys.write_text(f"-----BEGIN {block}-----\nxx\n-----END {block}-----\n")
+    out = run(capsys, "list-keys", "--file", str(keys))
+    assert out["_rc"] == 2 and "private key" in out["error"]
+
+
+@needs_gpg
+def test_list_keys_reads_every_key_in_keys(capsys: pytest.CaptureFixture[str]) -> None:
+    out = run(capsys, "list-keys", "--file", str(GPG_FIXTURES / "KEYS"))
+    assert out["_rc"] == 0 and out["file"] == "KEYS"
+    assert [k["fingerprint"] for k in out["keys"]] == [fingerprints()["rm"]]
+    assert out["keys"][0]["uids"] and out["keys"][0]["algorithm"] == "EdDSA"
+
+
+@needs_gpg
+def test_list_keys_reads_a_fetched_key(capsys: pytest.CaptureFixture[str]) -> None:
+    out = run(capsys, "list-keys", "--file", str(GPG_FIXTURES / "OTHER.pub"))
+    assert [k["fingerprint"] for k in out["keys"]] == [fingerprints()["other"]]
+
+
+@needs_gpg
+def test_list_keys_garbage_file_lists_nothing(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """Formerly keys-sync's GpgTest: a file that holds no key yields no key, not an error."""
+    junk = tmp_path / "junk.asc"
+    junk.write_text("not a key\n")
+    out = run(capsys, "list-keys", "--file", str(junk))
+    assert out["_rc"] == 0 and out["keys"] == [] and out["detail"]
+
+
+@needs_gpg
+def test_list_keys_never_touches_the_user_keyring(tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch) -> None:
+    home = tmp_path / "user-gnupg"
+    home.mkdir()
+    monkeypatch.setenv("GNUPGHOME", str(home))
+    run(capsys, "list-keys", "--file", str(GPG_FIXTURES / "KEYS"))
+    assert list(home.iterdir()) == []
+
+
+# ---------------------------------------------------------------- list-keys: gpg failures are errors, never "no key"
+# Ported from keys-sync's test_check_key.py (#1634): the gpg run moved here.
+
+NO_DATA = "[GNUPG:] NODATA 1\n[GNUPG:] IMPORT_RES " + " ".join(["0"] * 15) + "\n"
+
+
+def _public_key() -> str:
+    return (GPG_FIXTURES / "OTHER.pub").read_text(encoding="ascii")
+
+
+@needs_gpg
+def test_list_keys_directory_input_is_an_error(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    out = run(capsys, "list-keys", "--file", str(tmp_path))
+    assert out["_rc"] == 2 and "regular file" in out["error"]
+
+
+@needs_gpg
+@pytest.mark.parametrize(
+    "mangle",
+    [
+        lambda key: key[:160],  # truncated armour
+        lambda key: key.split("\n\n", 1)[0] + "\n",  # header only
+        lambda key: key + key[:160],  # a second, truncated block
+        lambda key: re.sub(r"\n=[A-Za-z0-9+/]{4}\n", "\n=AAAA\n", key),  # a corrupted armour checksum
+    ],
+)
+def test_list_keys_malformed_armoured_public_key_is_an_error(tmp_path: Path, capsys: pytest.CaptureFixture[str], mangle: Any) -> None:
+    path = tmp_path / "malformed key.asc"
+    path.write_text(mangle(_public_key()), encoding="ascii")
+    out = run(capsys, "list-keys", "--file", str(path))
+    assert out["_rc"] == 2 and "gpg --import failed (exit 2)" in out["error"]
+
+
+@needs_gpg
+def test_list_keys_unicode_text_imports_nothing(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    path = tmp_path / "not a key.asc"
+    path.write_text("这不是公钥\n", encoding="utf-8")
+    out = run(capsys, "list-keys", "--file", str(path))
+    assert out["_rc"] == 0 and out["keys"] == []
+
+
+@needs_gpg
+def test_list_keys_reads_a_binary_public_key(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    body = _public_key().split("\n\n", 1)[1].split("\n=", 1)[0]
+    path = tmp_path / "public key.gpg"
+    path.write_bytes(base64.b64decode(body))
+    out = run(capsys, "list-keys", "--file", str(path))
+    assert [k["fingerprint"] for k in out["keys"]] == [fingerprints()["other"]]
+
+
+@needs_gpg
+def test_list_keys_reports_capabilities_and_subkeys(capsys: pytest.CaptureFixture[str]) -> None:
+    (key,) = run(capsys, "list-keys", "--file", str(GPG_FIXTURES / "OTHER.pub"))["keys"]
+    assert key["caps"] and all(set(s) >= {"fingerprint", "caps", "algorithm"} for s in key["subkeys"])
+    assert [s["fingerprint"] for s in key["subkeys"]] == key["subkey_fingerprints"]
+
+
+@needs_gpg
+def test_list_keys_imports_the_bytes_read_before_the_file_changes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    path = tmp_path / "public key.asc"
+    path.write_text(_public_key(), encoding="ascii")
+    real = rv._gpg
+
+    def swap(home: Path, *args: str) -> subprocess.CompletedProcess[str]:
+        if "--import" in args:
+            path.write_text("not a key\n", encoding="utf-8")
+        return real(home, *args)
+
+    monkeypatch.setattr(rv, "_gpg", swap)
+    assert [k["fingerprint"] for k in rv.list_keys(str(path))["keys"]] == [fingerprints()["other"]]
+
+
+def test_parse_colons_reads_signing_subkeys() -> None:
+    text = "\n".join(
+        [
+            "pub:-:255:22:KEYID:1647302400::::::cSC:::::ed25519:",
+            f"fpr:::::::::{FPR}:",
+            "uid:-::::1647302400::HASH::Example RM <rm@example.invalid>::::::::::0:",
+            "sub:-:4096:1:SUBID:1647302400::::::s:::::::",
+            "fpr:::::::::FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000:",
+        ]
+    )
+    (key,) = rv.parse_colons(text)
+    assert (key["fingerprint"], key["caps"]) == (FPR, "cSC")
+    assert [(s["fingerprint"], s["caps"], s["bits"]) for s in key["subkeys"]] == [("FFFF0000FFFF0000FFFF0000FFFF0000FFFF0000", "s", 4096)]
+
+
+class _FakeGpg:
+    """Stands in for `_gpg`, answering each call with the next scripted result."""
+
+    def __init__(self, *results: subprocess.CompletedProcess[str] | OSError) -> None:
+        self.results = list(results)
+        self.homes: list[Path] = []
+
+    def __call__(self, home: Path, *args: str) -> subprocess.CompletedProcess[str]:
+        self.homes.append(home)
+        result = self.results.pop(0)
+        if isinstance(result, OSError):
+            raise result
+        return result
+
+
+def _done(code: int, stdout: str = "", stderr: str = "") -> subprocess.CompletedProcess[str]:
+    return subprocess.CompletedProcess([], code, stdout, stderr)
+
+
+@pytest.fixture
+def junk(tmp_path: Path) -> Path:
+    path = tmp_path / "public key.asc"
+    path.write_text("not a key\n", encoding="utf-8")
+    return path
+
+
+def _list(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], path: Path, *results: subprocess.CompletedProcess[str] | OSError
+) -> tuple[dict, _FakeGpg]:
+    fake = _FakeGpg(*results)
+    monkeypatch.setattr(rv, "_gpg", fake)
+    out = run(capsys, "list-keys", "--file", str(path))
+    for home in fake.homes:
+        assert not home.exists(), f"temporary keyring survived: {home}"
+    return out, fake
+
+
+def _assert_error(out: dict, stage: str) -> None:
+    assert out["_rc"] == 2 and set(out) == {"error", "_rc"} and f"gpg {stage}" in out["error"]
+
+
+def test_list_keys_import_failure_is_not_hidden_by_an_empty_keyring(junk: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    out, fake = _list(monkeypatch, capsys, junk, _done(2, stderr="permission denied"), _done(0))
+    _assert_error(out, "--import")
+    assert "exit 2" in out["error"] and "permission denied" in out["error"]
+    assert len(fake.results) == 1  # the listing never ran
+
+
+def test_list_keys_listing_failure_discards_partial_output(junk: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    out, _ = _list(monkeypatch, capsys, junk, _done(0), _done(2, colons(), "cannot read keyring"))
+    _assert_error(out, "--list-keys")
+    assert "cannot read keyring" in out["error"]
+
+
+@pytest.mark.parametrize("suffix", ["", "[GNUPG:] FAILURE gpg-exit 33554433\n"])
+def test_list_keys_only_no_data_is_no_key(junk: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], suffix: str) -> None:
+    out, fake = _list(monkeypatch, capsys, junk, _done(2, NO_DATA + suffix), _done(0, "tru::1:0:0:\n"))
+    assert out["_rc"] == 0 and out["keys"] == [] and not fake.results
+
+
+@pytest.mark.parametrize(
+    "status",
+    [
+        "ERROR add_keyblock_resource 33587281",
+        "IMPORT_PROBLEM 4",
+        f"IMPORT_OK 1 {FPR}",
+        "IMPORTED KEYID Test key",
+        "FAILURE import 33554433",
+        "FAILURE gpg-exit 33554445",
+    ],
+)
+def test_list_keys_no_data_never_hides_another_failure(junk: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], status: str) -> None:
+    out, _ = _list(monkeypatch, capsys, junk, _done(2, NO_DATA + f"[GNUPG:] {status}\n"))
+    _assert_error(out, "--import")
+
+
+@pytest.mark.parametrize(
+    "summary",
+    [
+        "",
+        "[GNUPG:] IMPORT_RES 0 0\n",
+        "[GNUPG:] IMPORT_RES " + " ".join(["0"] * 14 + ["1"]) + "\n",
+        "[GNUPG:] IMPORT_RES " + " ".join(["0"] * 14 + ["unknown"]) + "\n",
+    ],
+)
+def test_list_keys_no_data_needs_a_complete_zero_import_summary(
+    junk: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], summary: str
+) -> None:
+    out, _ = _list(monkeypatch, capsys, junk, _done(2, "[GNUPG:] NODATA 1\n" + summary))
+    _assert_error(out, "--import")
+
+
+@pytest.mark.parametrize("status", ["", "[GNUPG:] IMPORT_RES " + " ".join(["0"] * 15), "[GNUPG:] NODATA 99\n" + NO_DATA])
+def test_list_keys_unrecognised_or_missing_no_data_is_an_error(
+    junk: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], status: str
+) -> None:
+    out, _ = _list(monkeypatch, capsys, junk, _done(2, status))
+    _assert_error(out, "--import")
+
+
+def test_list_keys_no_data_still_needs_a_successful_listing(junk: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    out, _ = _list(monkeypatch, capsys, junk, _done(2, NO_DATA), _done(2, stderr="keyring unavailable"))
+    _assert_error(out, "--list-keys")
+
+
+def test_list_keys_no_data_with_a_listed_key_is_an_import_error(junk: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    out, _ = _list(monkeypatch, capsys, junk, _done(2, NO_DATA), _done(0, colons()))
+    _assert_error(out, "--import")
+
+
+@pytest.mark.parametrize("code", [1, -9, 127])
+def test_list_keys_other_exit_codes_are_never_no_data(junk: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], code: int) -> None:
+    out, _ = _list(monkeypatch, capsys, junk, _done(code, NO_DATA))
+    _assert_error(out, "--import")
+    assert f"exit {code}" in out["error"]
+
+
+def test_list_keys_error_falls_back_to_status_output(junk: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    out, _ = _list(monkeypatch, capsys, junk, _done(2, "[GNUPG:] ERROR keydb_search 33554445\n"))
+    _assert_error(out, "--import")
+    assert "ERROR keydb_search 33554445" in out["error"]
+
+
+def test_list_keys_error_without_diagnostics_names_stage_and_exit(junk: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    out, _ = _list(monkeypatch, capsys, junk, _done(2))
+    _assert_error(out, "--import")
+    assert "exit 2" in out["error"] and "no diagnostic output" in out["error"]
+
+
+@pytest.mark.parametrize("stage", ["--import", "--list-keys"])
+def test_list_keys_spawn_errors_name_the_stage(junk: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], stage: str) -> None:
+    results = (OSError("could not start"),) if stage == "--import" else (_done(0), OSError("could not start"))
+    out, _ = _list(monkeypatch, capsys, junk, *results)
+    _assert_error(out, stage)
+    assert "could not start" in out["error"]
+
+
+def test_list_keys_no_data_does_not_hide_a_declared_public_key(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    path = tmp_path / "truncated.asc"
+    path.write_text("-----BEGIN PGP PUBLIC KEY BLOCK-----\n\nmQENBGoz\n", encoding="ascii")
+    out, fake = _list(monkeypatch, capsys, path, _done(2, NO_DATA), _done(0))
+    _assert_error(out, "--import")
+    assert len(fake.results) == 1
+
+
+def test_list_keys_read_error_is_reported_before_gpg(junk: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    monkeypatch.setattr(Path, "read_bytes", lambda self: (_ for _ in ()).throw(PermissionError("permission denied")))
+    out, fake = _list(monkeypatch, capsys, junk, _done(0), _done(0, colons()))
+    assert out["_rc"] == 2 and "--file" in out["error"] and "permission denied" in out["error"]
+    assert len(fake.results) == 2
+
+
+def test_list_keys_directory_is_rejected_before_gpg(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    out, fake = _list(monkeypatch, capsys, tmp_path, _done(2, NO_DATA), _done(0))
+    assert out["_rc"] == 2 and "regular file" in out["error"] and len(fake.results) == 2
+
+
+def test_gpg_non_utf8_diagnostics_do_not_hide_the_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(rv.shutil, "which", lambda _: sys.executable)
+    real_run = subprocess.run
+
+    def fake_run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        script = "import sys; sys.stderr.buffer.write(b'failure: \\xff'); sys.exit(2)"
+        return real_run([sys.executable, "-c", script], **kwargs)
+
+    monkeypatch.setattr(rv.subprocess, "run", fake_run)
+    proc = rv._gpg(tmp_path, "--import")
+    assert proc.returncode == 2 and "�" in proc.stderr
+    assert "failure:" in str(rv._gpg_failure("--import", proc))
+
+
+def test_list_keys_empty_input_does_not_need_gpg(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    empty = tmp_path / "fetched.asc"
+    empty.write_bytes(b"")
+    out, fake = _list(monkeypatch, capsys, empty)
+    assert out["_rc"] == 0 and out["keys"] == [] and fake.homes == []
+
+
+def test_list_keys_gpg_unavailable_is_an_error(junk: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    monkeypatch.setattr(rv.shutil, "which", lambda _: None)
+    out = run(capsys, "list-keys", "--file", str(junk))
+    assert out["_rc"] == 2 and set(out) == {"error", "_rc"} and "gpg not found" in out["error"]
+
+
+_GPG = shutil.which("gpg")
+_MSYS_GPG = sys.platform == "win32" and _GPG is not None and Path(_GPG).with_name("msys-2.0.dll").is_file()
+
+
+@pytest.mark.skipif(not _MSYS_GPG, reason="requires Windows and Git/MSYS gpg")
+def test_list_keys_incompatible_homedir_is_an_error_not_a_missing_key(capsys: pytest.CaptureFixture[str]) -> None:
+    out = run(capsys, "list-keys", "--file", str(GPG_FIXTURES / "OTHER.pub"))
+    assert out["_rc"] == 2 and "gpg --import failed (exit 2)" in out["error"]

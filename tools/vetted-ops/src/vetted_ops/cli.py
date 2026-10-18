@@ -52,6 +52,7 @@ cannot verify TLS) while its writes keep their confirmation.
 from __future__ import annotations
 
 import argparse
+import json
 import subprocess
 import sys
 import urllib.error
@@ -60,7 +61,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from . import ops as ops_mod
-from . import procedures
+from . import procedures, tracker_backends
 from .config import Config, ConfigError, describe, load
 
 EXIT_OK = 0
@@ -100,6 +101,13 @@ def _validate_params(
                 )
             body = ops_mod.read_body(raw, workspace=config.workspace)
             resolved[name] = "-"
+        elif (
+            name == "number"
+            and config.tracker_backend is not None
+            and tracker_backends.is_tracker_op(op.name)
+        ):
+            # A non-GitHub tracker's IDs are the backend's own (SEC-0012, FOOSEC-12).
+            resolved[name] = ops_mod.tracker_id(raw)
         elif name in {"number", "comment_id", "run_id"}:
             resolved[name] = ops_mod.number(raw)
         elif name in {"ref", "base", "head", "prefix"}:
@@ -112,6 +120,10 @@ def _validate_params(
             resolved[name] = ops_mod.team(raw)
         elif name == "title":
             resolved[name] = ops_mod.title(raw)
+        elif name == "query":
+            resolved[name] = ops_mod.query(raw)
+        elif name == "attachment":
+            resolved[name] = ops_mod.attachment_name(raw)
         elif name == "ghsa":
             resolved[name] = ops_mod.ghsa(raw)
         elif name in {"item_id", "content_id"}:
@@ -126,6 +138,10 @@ def _validate_params(
             resolved[name] = ops_mod.commit_hash(raw)
         elif name == "cve_id":
             resolved[name] = ops_mod.cve_id(raw)
+        elif name == "date":
+            resolved[name] = ops_mod.date(raw)
+        elif name == "cursor":
+            resolved[name] = ops_mod.cursor(raw)
         elif name == "action":
             resolved[name] = ops_mod.action(raw)
         elif name == "field":
@@ -137,7 +153,16 @@ def _validate_params(
 
 def build_argv(
     op: ops_mod.Op, params: dict[str, str], config: Config
-) -> list[str] | dict[str, object] | procedures.Plan:
+) -> list[str] | dict[str, object] | procedures.Plan | tracker_backends.BackendCall:
+    # A non-GitHub security tracker: every tracker operation becomes a call of
+    # that backend's CLI. The gh builder never runs, so nothing can fall back to
+    # a GitHub repository; operations with no counterpart refuse by name.
+    backend = config.tracker_backend
+    if backend is not None and tracker_backends.is_tracker_op(op.name):
+        call = tracker_backends.translate(backend, op.name, params)
+        if call.argv[:2] != ["uv", "run"]:  # pragma: no cover - fixed in tracker_backends
+            raise ops_mod.ParamError(f"operation {op.name!r} produced a malformed backend argv")
+        return call
     result = op.build(config.as_mapping(), **params)
     if op.backend == "gh":
         if not isinstance(result, list) or not all(isinstance(a, str) for a in result):
@@ -152,6 +177,8 @@ def build_argv(
             raise ops_mod.ParamError(f"operation {op.name!r} produced a malformed procedure plan")
         if result.tracker != config.tracker_repo:
             raise ops_mod.ParamError(f"operation {op.name!r} planned against a repo other than the tracker")
+    elif op.backend == "tracker-cli":  # pragma: no cover - its builder always refuses on GitHub
+        raise ops_mod.ParamError(f"operation {op.name!r} needs a non-GitHub security tracker")
     else:
         raise ops_mod.ParamError(f"operation {op.name!r} has unknown backend {op.backend!r}")
     return result
@@ -178,7 +205,13 @@ def _entry_point_admits(op: ops_mod.Op, *, read_only: bool, tracker_only: bool) 
     """Whether an operation exists at all on this entry point."""
     if read_only and op.writes:
         return False
-    return not (tracker_only and op.backend != "procedure")
+    return not (tracker_only and not _tracker_entry(op))
+
+
+def _tracker_entry(op: ops_mod.Op) -> bool:
+    """Whether `vetted-op-tracker` runs this operation: the procedures, plus the
+    few tracker writes declared ``tracker_entry`` (the local tracker's push)."""
+    return op.backend == "procedure" or op.tracker_entry
 
 
 def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only: bool = False) -> int:
@@ -198,6 +231,12 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
     parser.add_argument("--caller", help="the skill or plugin invoking this operation")
     parser.add_argument("--config", type=Path, default=None, help="path to the policy TOML")
     parser.add_argument("--dry-run", action="store_true", help="print the argv that would run, then exit")
+    parser.add_argument(
+        "--save",
+        metavar="NAME",
+        default=None,
+        help="write a read operation's output to <workspace>/saved/NAME and print one JSON line instead",
+    )
     parser.add_argument("operation", nargs="?", help="operation name, or 'list-ops' / 'policy'")
     parser.add_argument("params", nargs="*", help="operation parameters, positionally")
     args = parser.parse_args(argv)
@@ -240,7 +279,7 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
         # sandbox, so everything but the tracker procedures — whose runner
         # refuses any gh call outside repos/<tracker>/ — does not exist here,
         # whatever the policy or --caller say.
-        if tracker_only and op.backend != "procedure":
+        if tracker_only and not _tracker_entry(op):
             raise ops_mod.ParamError(
                 f"{op.name!r} is not a tracker procedure, and this is the tracker dispatcher; "
                 f"run it through 'vetted-op' or 'vetted-op-read'"
@@ -253,9 +292,16 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
             )
         params, body = _validate_params(op, list(args.params), config)
         command = build_argv(op, params, config)
+        # A write's output is its confirmation and stays on screen; a procedure
+        # already keeps its bodies out of the caller's context.
+        if args.save is not None and (op.writes or op.backend == "procedure"):
+            raise ops_mod.ParamError(f"--save applies to read operations only, and {op.name!r} is not one")
     except (ops_mod.ParamError, ConfigError) as exc:
         print(f"vetted-op: refused: {exc}", file=sys.stderr)
         return EXIT_POLICY
+
+    if isinstance(command, tracker_backends.BackendCall):
+        return _run_backend(command, body, dry_run=args.dry_run, save=args.save, config=config)
 
     if op.backend == "procedure":
         if not isinstance(command, procedures.Plan):
@@ -280,6 +326,12 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
             raise ops_mod.ParamError(f"operation {op.name!r} produced invalid command type")
         # No shell. The argv list is passed through verbatim, and any body travels
         # on stdin as bytes we already read — `gh` opens no file of ours.
+        if args.save is not None:
+            captured = subprocess.run(command, check=False, input=body, stdout=subprocess.PIPE)
+            if captured.returncode != EXIT_OK:
+                print(f"vetted-op: {op.name} failed (gh exit {captured.returncode})", file=sys.stderr)
+                return EXIT_COMMAND
+            return _save(args.save, captured.stdout, config)
         completed = subprocess.run(command, check=False, input=body)
         if completed.returncode != EXIT_OK:
             print(f"vetted-op: {op.name} failed (gh exit {completed.returncode})", file=sys.stderr)
@@ -288,9 +340,50 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
     elif op.backend == "http-read":
         if not isinstance(command, dict):
             raise ops_mod.ParamError(f"operation {op.name!r} produced invalid request descriptor")
+        if args.save is not None:
+            sink = bytearray()
+            code = _run_http(command, body=body, sink=sink)
+            return code if code != EXIT_OK else _save(args.save, bytes(sink), config)
         return _run_http(command, body=body)
     else:  # pragma: no cover
         raise ops_mod.ParamError(f"unknown backend {op.backend!r}")
+
+
+def _run_backend(
+    call: tracker_backends.BackendCall,
+    body: bytes | None,
+    *,
+    dry_run: bool,
+    save: str | None = None,
+    config: Config | None = None,
+) -> int:
+    """
+    Run a translated tracker operation: no shell, body on stdin.
+
+    The backend's own exit codes follow the security-tracker contract; its
+    refusal (4) — the confidentiality guard, or an amend-latest mismatch — is
+    reported as this dispatcher's refusal, everything else as a failed command.
+    """
+    if dry_run:
+        print(" ".join(call.argv))
+        if body is not None:
+            print(f"(stdin: {len(body)} bytes)")
+        return EXIT_OK
+    stdin = body if body is not None else b""
+    if save is not None and config is not None:
+        captured = subprocess.run(call.argv, check=False, input=stdin, stdout=subprocess.PIPE)
+        if captured.returncode == EXIT_OK:
+            return _save(save, captured.stdout, config)
+        completed = captured
+    else:
+        completed = subprocess.run(call.argv, check=False, input=stdin)
+    if completed.returncode == EXIT_OK:
+        return EXIT_OK
+    if completed.returncode == 4:
+        print(f"vetted-op: refused: {call.op} was refused by the tracker backend", file=sys.stderr)
+        return EXIT_POLICY
+    print(f"vetted-op: {call.op} failed (backend exit {completed.returncode})", file=sys.stderr)
+    return EXIT_COMMAND
 
 
 def _run_procedure(op: ops_mod.Op, plan: procedures.Plan, body: bytes | None, *, dry_run: bool) -> int:
@@ -323,8 +416,19 @@ def _run_procedure(op: ops_mod.Op, plan: procedures.Plan, body: bytes | None, *,
         return EXIT_COMMAND
 
 
-def _run_http(request_desc: dict[str, object], *, body: bytes | None) -> int:
-    """Execute an HTTP read operation."""
+def _save(name: str, data: bytes, config: Config) -> int:
+    """Write saved output and report where, in one line the caller can parse."""
+    try:
+        path = ops_mod.save_output(name, data, workspace=config.workspace)
+    except ops_mod.ParamError as exc:
+        print(f"vetted-op: refused: {exc}", file=sys.stderr)
+        return EXIT_POLICY
+    print(json.dumps({"saved": str(path), "bytes": len(data)}))
+    return EXIT_OK
+
+
+def _run_http(request_desc: dict[str, object], *, body: bytes | None, sink: bytearray | None = None) -> int:
+    """Execute an HTTP read operation, streaming to stdout or into ``sink``."""
     url = request_desc.get("url")
     method = request_desc.get("method", "GET")
     headers = request_desc.get("headers", {})
@@ -353,6 +457,9 @@ def _run_http(request_desc: dict[str, object], *, body: bytes | None) -> int:
     try:
         with urllib.request.urlopen(req, timeout=30) as response:
             result = response.read()
+            if sink is not None:
+                sink.extend(result)
+                return EXIT_OK
             sys.stdout.buffer.write(result)
             sys.stdout.buffer.flush()
             return EXIT_OK

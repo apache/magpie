@@ -14,6 +14,9 @@
 - [`<project-config>/stale-sweep-config.md`](../../../magpie-setup/templates/stale-sweep-config.md) —
   per-project stale thresholds (`pr_warn_days`, `pr_close_days`,
   `pr_hard_close_days`).
+- [`tools/pr-management`](../../../../tools/pr-management/README.md) —
+  `stale-sweep plan | classify | render | record | recap`, the code behind
+  every rule above.
 - [`pr-management-triage`](../pr-triage/SKILL.md) — the
   companion triage skill for full first-pass PR triage including
   stale-draft handling.

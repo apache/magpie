@@ -102,6 +102,27 @@ procedures' `gh` must verify TLS, and kept on `ask`, never `allow`.
 `vetted-op` itself stays sandboxed: excluding it would run the whole write
 catalogue there.
 
+A read too large to carry through the agent's context goes to a file:
+`vetted-op-read --save NAME` writes a read operation's output to
+`<workspace>/saved/NAME` and prints one JSON line (`saved`, `bytes`), so a
+sweep's pages reach a deterministic tool such as `tools/pr-management`
+without passing through the agent (#1570).
+Writes and procedures refuse it, and `NAME` is a single path component.
+Because `vetted-op-read` runs outside the sandbox and `--config` can name a
+policy the agent wrote, `--save` writes only into a `<workspace>/saved/`
+directory that already exists and holds a regular `.vetted-ops-save` marker;
+it creates neither, so it never reaches a directory the caller could not
+already write.
+The output goes to an exclusively created `0600` temporary file renamed into
+place, opened with `O_NOFOLLOW`, so a planted symlink or hard link is
+replaced rather than written through.
+
+A skill family's operations may live in their own `ops_<family>.py` module
+inside the `vetted_ops` package (`ops_code_review`, `ops_quick_merge`,
+`ops_stack_review`, `ops_stale_sweep` today), registered like the core
+catalogue; only modules shipped in the package load, so the catalogue stays
+closed and adding one is the same reviewed change (#1579).
+
 The dispatcher runs from the installed `magpie-vetted-ops` plugin, which ships
 `tools/vetted-ops` without the workspace root, so the project must resolve
 standalone: it declares no `dev` dependency group, because uv resolves every
@@ -120,11 +141,34 @@ The hook (`tools/vetted-ops/hooks/link-stable-path.sh`) only ever replaces a
 symlink: a real file or directory at the path is left alone and reported. The
 isolated-setup update and verify skills report a leftover versioned glob as
 must-fix (#1406).
-Under `permissions.blockReadsOutsideWorkingDirectories`, reads of the fixed
-path would prompt every time, so `sandbox-add-project-root.sh` lists
-`$HOME/.claude/magpie`, resolved, as a working directory in each worktree's
-`settings.local.json` (#1418; see
+The fixed path must never be a working directory
+(`permissions.additionalDirectories` or `/add-dir`): the sandbox makes working
+directories writable to sandboxed Bash, and the exclusions run this checkout's
+code outside the sandbox. `sandbox-add-project-root.sh` once listed it to stop
+reads there prompting under `permissions.blockReadsOutsideWorkingDirectories`
+(#1418) and now removes it; sandbox-lint fails on such an entry (see
 [`agent-isolation-sandbox.md`](agent-isolation-sandbox.md)).
+The read block cannot be satisfied for the dispatcher commands anyway: they spell `~`
+literally, which the read check cannot resolve, so every call prompts while
+the block is on, whatever the `allow` rules or working directories say.
+Read-only vetted ops must never prompt, because background gatherer agents
+cannot answer a prompt and each one becomes a silent denial. The required
+shape is `vetted-op-read` allowed and excluded for both launchers on the
+literal `~` base only, no `ask` rule matching a `vetted-op-read` command, the
+read block off in every scope, and the three vetted-ops `Edit` deny rules present.
+The install skill applies it (Step V.1), verify checks it (check 16), update
+reports drift as must-fix, and sandbox-lint enforces it on the committed
+settings. `vetted-op-tracker` and `vetted-op` keep their `ask`.
+Every call spells the base `~/.claude/magpie/<tool>` (AGENTS.md golden rule):
+the agent-guard `vetted-ops-spelling` guard refuses an expanded home path,
+`$HOME/…` or a relative checkout path for `vetted-op`, `vetted-op-read`,
+`vetted-op-tracker` and `adversarial-review`, and names the `~` command.
+It also refuses an absolute path inside the working tree, and reads `uv`'s
+options on either side of `run`. Under Codex it lets a `vetted-op-read`
+through from the exact root Codex's own hook substitutes for `~` (the
+registered `--stable-path`, else the account's home from the password
+database), since Codex execpolicy cannot match `~`; any other root is one the
+agent could have built and stays refused.
 
 ## Scoping — what is real and what is aspiration
 
@@ -175,6 +219,17 @@ per [`docs/adapters/registry.md`](../../../docs/adapters/registry.md).
    do not load every PR description; `pr-view-with-body` returns the same fields
    plus `body`, against the policy-pinned upstream only, and is granted to
    `security-issue-import-from-pr`, which builds the tracker body from it (#1457).
+   The pr-management skills that now run their rules as code added the reads
+   those rules consume, each meant to be saved with `--save`: the triage
+   sweeps (open / label / author / review-requested) and one PR in a single
+   paginated triage shape, the triage pre-flight, recent main-branch failures,
+   the `action_required` run index, a head's workflow and check runs,
+   commits-behind, a team's roster, and the stats open and closed reads
+   (#1570); and per-family reads for quick-merge, pr-stale-sweep,
+   stack-review and code-review (#1580, #1581, #1582, #1585).
+   Each search string is built by the operation with `repo:<upstream>` from
+   policy first, so its parameter narrows a sweep and cannot re-aim it; this
+   is a fixed shape, unlike the free-text search refused below.
 
    *Repo health, release management, contributor growth and mentoring have
    landed*, completing the pass over the families that touch the forge. They
@@ -220,6 +275,29 @@ per [`docs/adapters/registry.md`](../../../docs/adapters/registry.md).
    dispatcher, its wildcard `ask` rules become dead weight;
    [`tools/permission-audit`](../../permission-audit/README.md) is the natural
    place to detect and offer to remove them.
+
+## Codex native integration
+
+The Codex marketplace advertises the self-contained vetted-ops substrate plugin.
+Its packaged runtime and policy remain separate: fixed code lives outside
+workspace-writable roots, while the adopter supplies the existing policy.
+The shared SessionStart stable-path hook requires Codex hook-definition trust.
+
+`vetted-ops-codex-rules` only prints native rules for review and installation in
+user scope, with absolute stable paths rather than version globs, never `~`
+(execpolicy rejects `~` words, and a `~` rule would follow a reassignable `HOME`
+or a relative `~` directory). `--hook` prints a Codex-only PreToolUse hook that
+rewrites a command that is exactly one `vetted-op-read` call in the `~` spelling
+to the absolute path fixed at render time, before the rules evaluate it; writes
+and compound commands are never rewritten, so it grants nothing itself.
+Both uv launchers allow `vetted-op-read` and prompt `vetted-op` and
+`vetted-op-tracker`; there is no general uv allowance or automatic policy edit.
+Codex escalation and native rules replace Claude's sandbox exclusions.
+
+Source changes to runtime code, hooks, metadata or README trigger the packaging
+consistency hook in diff-scoped PR CI as well as whole-tree runs.
+Packaged README links to shipped files stay local; links to framework files
+outside the installed package point to their public source.
 
 ## Non-goals
 

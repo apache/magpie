@@ -10,7 +10,7 @@ should really be drafted because of merge conflicts that
 appeared), the skill says so explicitly and points them at
 `pr-management-triage pr:<N>`. It does not silently invoke triage actions.
 
-**Exception — slop-detection early exit** — full carve-out text in [`slop-detection.md`](slop-detection.md).
+**Exception — slop-detection early exit** — full carve-out text in [`classifications/slop-early-exit.md`](classifications/slop-early-exit.md): the `[X]` close+lock action is offered only after the slop threshold fired, and only on the maintainer's confirmation.
 
 ## What this skill deliberately does NOT do
 

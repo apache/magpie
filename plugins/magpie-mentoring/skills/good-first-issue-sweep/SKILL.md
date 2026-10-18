@@ -9,19 +9,16 @@ requires_config:
   - issue-tracker-config.md
   - project.md
 description: |
-  Sweep the open `<issue-tracker>` backlog for existing issues that
-  could be labelled as good first issues. Classifies each candidate as
-  READY (propose the GFI label), NEAR-MISS (surface edits to make it
-  GFI-ready), or SKIP using the G1–G7 suitability rubric. Applies
-  labels only after explicit maintainer confirmation; never edits issue
-  bodies without the maintainer's direction.
+  Sweep the open `<issue-tracker>` backlog for issues that could be
+  labelled as good first issues. Classifies each candidate as READY
+  (propose the GFI label), NEAR-MISS (surface edits to make it
+  GFI-ready), or SKIP using the G1–G7 rubric. Applies labels only
+  after explicit maintainer confirmation.
 when_to_use: |
   Invoke when a maintainer says "find good first issues in the backlog",
   "which open issues could a newcomer pick up", "label existing issues
-  as good first issue", or "curate the backlog for newcomers". Also
-  useful before a mentoring push or contributor-growth sprint when the
-  team wants to stock the on-ramp queue from existing work. Skip when
-  the goal is to draft a brand-new issue from a known gap — use
+  as good first issue", or "curate the backlog for newcomers". Skip
+  when the goal is to draft a brand-new issue from a known gap — use
   `good-first-issue-author` for that. Ask before running if
   `<project-config>/good-first-issue-config.md` is absent.
 argument-hint: "[--component <label>] [--label <filter-label>] [--limit <N>]"
@@ -30,7 +27,7 @@ capability:
   - capability:triage
 surface_hash: sha256:591ae352325ca83d
 license: Apache-2.0
-measured_tokens: 4364
+measured_tokens: 4361
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
@@ -59,7 +56,7 @@ PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir)/../.apache-ma
   python3 -m setup_preflight --skill <name> --hash <surface_hash> [--requires <file>]...
 ```
 
-The path finds the checker `/magpie-setup config` installed in the
+The path finds the checker `/magpie-setup:setup config` installed in the
 personal layer: this checkout's `.apache-magpie-local/`, the main
 checkout's when this is a linked worktree, or the git directory's
 `apache-magpie/` when Magpie is only installed.
@@ -80,18 +77,20 @@ checkout's when this is a linked worktree, or the git directory's
   yourself (first match wins: `.apache-magpie-local/<file>`, the main
   checkout's `.apache-magpie-local/<file>`, `<git-common-dir>/apache-magpie/<file>`,
   then `.apache-magpie-overrides/<file>`), stay silent if they all resolve, and
-  run `/magpie-setup config` for this skill if any does not, which also
+  run `/magpie-setup:setup config` for this skill if any does not, which also
   installs the checker. Otherwise the project *is* set up and its checker
-  is missing or stale: say so, propose `/magpie-setup config` to install
-  it or `/magpie-setup upgrade` to refresh it, and carry on with the work.
+  is missing or stale: say so, propose `/magpie-setup:setup config` to install
+  it or `/magpie-setup:setup upgrade` to refresh it, and carry on with the work.
 
-**Never run `/magpie-setup adopt` unattended** — not from a finding, not
+**Never run `/magpie-setup:setup adopt` unattended** — not from a finding, not
 later in the run, whatever else this skill is doing. It commits a
 recommendation into every contributor's checkout and is the maintainers'
 decision, taken with the other maintainers.
 
 Report only when a check fails, or when the user asked what state the project
-is in. `/magpie-setup verify` is the full diagnostic.
+is in. `/magpie-setup:setup verify` is the full diagnostic.
+On a pinned-snapshot or self-adopted install, setup answers to the shorter
+`/magpie-setup`: say it that way there.
 
 <!-- END MAGPIE PREFLIGHT -->
 

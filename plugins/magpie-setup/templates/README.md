@@ -206,7 +206,7 @@ fill them in.
 
 | File | Purpose |
 |---|---|
-| [`skill-sources.md`](skill-sources.md) | **The install gate** for pulling skills/families from trusted external repos. Lists the source ids this project trusts and commits each pin. `/magpie-setup` fetches only what is listed here. Leave empty to run only in-tree framework skills. See [`docs/skill-sources/`](../../../docs/skill-sources/README.md). |
+| [`skill-sources.md`](skill-sources.md) | **The install gate** for pulling skills/families from trusted external repos. Lists the source ids this project trusts and commits each pin. `/magpie-setup:setup` fetches only what is listed here. Leave empty to run only in-tree framework skills. See [`docs/skill-sources/`](../../../docs/skill-sources/README.md). |
 
 ## Recommended setup order
 

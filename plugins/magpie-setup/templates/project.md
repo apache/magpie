@@ -10,11 +10,13 @@
   - [Repositories](#repositories)
   - [Mailing lists](#mailing-lists)
   - [Tools enabled](#tools-enabled)
+    - [Source control](#source-control)
   - [CVE tooling](#cve-tooling)
   - [GitHub project board](#github-project-board)
   - [Project chat](#project-chat)
   - [Mail sources](#mail-sources)
     - [Backend declaration](#backend-declaration)
+    - [Drafting backend](#drafting-backend)
     - [Per-backend config](#per-backend-config)
   - [Issue-template fields](#issue-template-fields)
   - [Security workflow configuration](#security-workflow-configuration)
@@ -27,6 +29,7 @@
     - [Project metadata](#project-metadata)
     - [Security cross-reference](#security-cross-reference)
     - [Tracker](#tracker)
+    - [Advisory records](#advisory-records)
     - [Scope detection](#scope-detection)
     - [Release process](#release-process)
     - [Roster](#roster)
@@ -49,7 +52,7 @@ this directory.
 **Note on Auto-sourcing:** Stable fields under Identity and Repositories
 (`upstream_repo`, `upstream_default_branch`, `product_family_url`, labels)
 can be automatically derived from GitHub repository metadata via
-`gh repo view` during `/magpie-setup adopt` or `/magpie-setup upgrade`, for
+`gh repo view` during `/magpie-setup:setup adopt` or `/magpie-setup:setup upgrade`, for
 any adopter. The **Mailing lists** are auto-sourced **only for
 `organization: ASF`** projects (from `.asf.yaml`, with `*.apache.org`
 defaults); a non-ASF `organization` fills them in by hand. Hand-editing is
@@ -86,12 +89,12 @@ produces.
 | `tracker_project_board_url` | TODO: URL of the GitHub Project V2 board, if any | Security board |
 | `upstream_repo` | TODO: e.g. `apache/foo` (auto-sourced from repo name/git remote) | Public codebase where fixes land |
 | `upstream_repo_url` | TODO | |
-| `upstream_default_branch` | TODO: e.g. `master` or `main` (auto-sourced from repo metadata default branch) | Upstream's default branch — what `<default-branch>` resolves to. Distinct from `tracker_default_branch` |
+| `upstream_default_branch` | TODO: e.g. `master` or `main` (auto-sourced from repo metadata default branch); `trunk` for Subversion | Upstream's default branch — what `<default-branch>` resolves to. Distinct from `tracker_default_branch` |
 | `upstream_agents_md_url` | TODO: `https://github.com/<upstream>/blob/main/AGENTS.md` | Conventions this repo mirrors |
 | `upstream_contributing_docs_url` | TODO | |
 | `upstream_genai_disclosure_anchor` | TODO: URL + anchor for the project's Gen-AI disclosure guideline | |
 | `upstream_security_policy_url` | TODO: `https://github.com/<upstream>/security/policy` | |
-| `security_pages_url` | TODO: e.g. `https://foo.apache.org/security` | Public security pages on the project website — updated by the release manager after each advisory (ASF security-committers policy step); read by `security-issue-sync` for the security-pages checklist reminder. Leave unset if the project has no security pages — the skill then uses the plain phrase without a link |
+| `security_pages_url` | TODO: e.g. `https://foo.apache.org/security` | Public security pages on the project website — updated by the release manager after each advisory (ASF security-committers policy step); read by `security-issue-sync` for the security-pages checklist reminder. Leave unset if the project has no security pages — the skill then uses the plain phrase without a link. To have sync propose the edit itself, also configure [Advisory records](#advisory-records) |
 
 ## Mailing lists
 
@@ -101,7 +104,7 @@ produces.
 
 | Key | Value | Notes |
 |---|---|---|
-| `security_list` | TODO: e.g. `security@foo.apache.org` | Inbound reports; **not** publicly archived (auto-sourced default) |
+| `security_list` | TODO: e.g. `security@foo.apache.org` | Inbound reports; **not** publicly archived (asked on adopt; with no dedicated list, request one from ASF Infra, and use `private@<project>.apache.org` only as a flagged fallback) |
 | `private_list` | TODO: e.g. `private@foo.apache.org` | PMC escalation; **not** publicly archived (auto-sourced default) |
 | `users_list` | TODO: e.g. `users@foo.apache.org` | Public advisories end up here; publicly archived (auto-sourced from `.asf.yaml` or default) |
 | `dev_list` | TODO: e.g. `dev@foo.apache.org` | Release `[RESULT][VOTE]` threads; publicly archived (auto-sourced from `.asf.yaml` or default) |
@@ -121,7 +124,8 @@ for ASF projects) is org-level — inherited from your organization's
 | Capability | Tool | Adapter directory | Config knobs declared here |
 |---|---|---|---|
 | Issue tracking + project board | `github` | [`../../tools/github/`](../../../tools/github/) | `tracker_repo`, `upstream_repo`, `github_project_board_*`, `issue_template_fields` |
-| Source control (VCS) | `github` (Git) — replaceable with a non-Git VCS | [`../../tools/github/source-control.md`](../../../tools/github/source-control.md) | `upstream_repo`, `default_branch`; for a non-Git VCS declare the sibling tool + its working-copy URL |
+| Security tracker backend | `github` (default), `local-files`, or `jira` — see [Tracker](#tracker) | [`../../tools/security-tracker/`](../../../tools/security-tracker/) (contract), [`tools/local-tracker/`](../../../tools/local-tracker/), [`tools/jira/`](../../../tools/jira/) | `tracker.platform`, `tracker.local.*`, `tracker.jira.*` |
+| Source control (VCS) | `github` (Git, default), or `svn` / `asf-svn` (Subversion) — see [Source control](#source-control); replaceable with another non-Git VCS | [`../../tools/github/source-control.md`](../../../tools/github/source-control.md), [`tools/asf-svn/source-control.md`](../../../tools/asf-svn/source-control.md), [`tools/vcs/`](../../../tools/vcs/) | `vcs_backend`, `upstream_repo`, `upstream_default_branch`; for `svn` also `svn_url`, `svn_repository_root`. On Subversion `security-issue-fix` shares a private patch and commits only once the team clears it, instead of opening a PR (see [`fix-workflow.md`](fix-workflow.md#subversion-projects)) |
 | Inbound email / drafts | `<one or more mail-source backends>` | [`../../tools/mail-source/contract.md`](../../../tools/mail-source/contract.md) (abstract) + per-backend adapter dirs (`tools/gmail/`, `tools/ponymail/`, `tools/mail-source/imap/`, `tools/mail-source/mbox/`, ...) | See [Mail sources](#mail-sources) below — declare each backend's role (primary / preferred-for-`<op>` / fallback / optional) and `mandatory` flag |
 | CVE allocation + record mgmt | *org-level* — inherited from `organizations/<org>/organization.md → cve_authority.tool`; for ASF: `vulnogram` ([`tools/cve-tool-vulnogram/`](../../../tools/cve-tool-vulnogram/)), for independent: `mitre-form` | — | override in [CVE authority](#cve-authority) only if this project differs from its org |
 | Security cross-ref | `osv` | [`../../tools/osv/`](../../../tools/osv/) | `security_cross_ref.tool`, `security_cross_ref.ecosystem` |
@@ -133,6 +137,29 @@ To replace a tool (e.g. swap GitHub issues for JIRA), declare an
 alternate tool in the table above, add a `tools/<name>/` adapter
 directory, and make sure the values the generic skills need are still
 reachable from this manifest.
+
+### Source control
+
+Which VCS the project's code lives in.
+A skill that runs [`magpie-vcs`](../../../tools/vcs/README.md) passes `vcs_backend` as `--backend`, so a checkout of the wrong kind fails loudly instead of silently using another backend.
+`/magpie-setup config` and `adopt` detect a Subversion-hosted project with `magpie-vcs probe` and propose these values; a Git project gets `git`.
+
+```yaml
+vcs_backend: TODO         # git | svn | hg | fossil; unset means git
+
+# Subversion only (vcs_backend: svn).
+svn_url: TODO             # project base URL, above trunk/branches/tags, e.g. https://svn.apache.org/repos/asf/foo
+svn_repository_root: TODO # repository root, e.g. https://svn.apache.org/repos/asf
+```
+
+With `vcs_backend: svn`:
+
+- `upstream_default_branch` is `trunk`, the line of work `magpie-vcs branch` reports.
+- The `svn` backend supports only the `trunk` / `branches/<name>` / `tags/<name>` layout below `svn_url`.
+  For a repository organised any other way, leave `upstream_default_branch` `TODO`: `branch` then reports the repository-relative path, and `new-branch` and name-based `switch` refuse.
+- `upstream_repo` names a GitHub repository only when the project really has one, such as a mirror it takes pull requests on.
+  Otherwise leave it `TODO`: the skills that act on GitHub pull requests and issues do not apply
+  (see [`tools/vcs/` → Subversion-hosted projects](../../../tools/vcs/README.md#subversion-hosted-projects)).
 
 ## CVE tooling
 
@@ -239,6 +266,27 @@ Reference adapter docs:
 [`tools/mail-source/imap/README.md`](../../../tools/mail-source/imap/README.md) (stub),
 [`tools/mail-source/mbox/README.md`](../../../tools/mail-source/mbox/README.md) (read-only offline archive — stub),
 [`tools/mail-source/mailman3/README.md`](../../../tools/mail-source/mailman3/README.md) (read-only public Mailman 3 / Hyperkitty archive).
+
+### Drafting backend
+
+Where the skills file the reply drafts they write.
+The project sets it here; a contributor overrides it for themselves with
+`tools.mail_create` in their own `user.md`.
+
+```yaml
+mail_create:
+  backend: gmail                          # gmail (default) or maildir
+  maildir:                                # only read when backend: maildir
+    drafts_path: ~/Mail/<project>/Drafts
+    from_address: TODO
+```
+
+`gmail` drafts in Gmail
+([`tools/gmail/draft-backends.md`](../../../tools/gmail/draft-backends.md));
+`maildir` files the draft into a local Maildir for Thunderbird or another
+mail client ([`tools/maildir/README.md`](../../../tools/maildir/README.md)).
+Resolution and the per-person override:
+[`draft-backends.md` § *How the skills pick a backend*](../../../tools/gmail/draft-backends.md#how-the-skills-pick-a-backend).
 
 ### Per-backend config
 
@@ -396,13 +444,35 @@ security_cross_ref:
 
 ### Tracker
 
-The tracker `platform`, `board`, `visibility`, and `skill_url_template`
-are org-level defaults — override them here only if this project differs
+The tracker `board`, `visibility`, and `skill_url_template`
+are org-level defaults (`platform` defaults to `github`) — override them here only if this project differs
 (e.g. a project that runs its security tracker publicly sets
 `visibility: public`). Declare this project's per-tracker vocabulary:
 
 ```yaml
 tracker:
+  # Where security reports live — the security-tracker contract
+  # (tools/security-tracker/contract.md). `github` (default): the private
+  # `tracker_repo`. `local-files`: markdown files in a folder of a private
+  # Git or SVN working copy (tools/local-tracker/). `jira`: a Jira project
+  # whose issues carry an issue-security level (tools/jira/).
+  # `/magpie-setup config` asks and, for local-files, learns the format of
+  # the reports already in the folder. `TODO` (not yet asked) reads as
+  # `github`; the question writes the confirmed choice here.
+  platform: TODO
+
+  # local-files only.
+  local:
+    root: TODO  # tracker folder, relative to the repository root, e.g. `security/reports`
+
+  # jira only.
+  jira:
+    url: TODO             # e.g. https://issues.example.org/jira
+    project: TODO         # project key, e.g. FOOSEC
+    security_level: TODO  # issue-security level every tracker must carry
+    issue_type: Bug
+    deployment: server    # server | cloud
+
   # Whether the reporter can see the tracker issue once opened.
   reporter_has_access: false
 
@@ -460,6 +530,54 @@ single `<!-- rejection-backfill v1 count: N -->` comment. The
 `security-tracker-stats-dashboard` renderer parses these and excludes the
 ledger issue from all tracker classification. Closes handled by
 `security-issue-invalidate` are **not** ledger entries.
+
+### Advisory records
+
+Optional, per-project — where the project records each published CVE in its own published security records
+(the site repository its security pages are built from),
+so that `security-issue-sync` can propose the change once cve.org shows the CVE published.
+Leave the block out and the step is skipped with a one-line note; the security-pages checklist reminder stays as it is.
+The deterministic part is `advisory-records` in
+[`tools/cve-tool-vulnogram/generate-cve-json/`](../../../tools/cve-tool-vulnogram/generate-cve-json/README.md#record-a-published-cve-in-the-projects-security-records--advisory-records);
+the step is described in [`docs/security/advisory-records.md`](../../../docs/security/advisory-records.md).
+
+```yaml
+advisory_records:
+  # git | svn. Default: the project's source-control backend (Tools enabled → Source control).
+  vcs: git
+  # Repository URL, used only to propose the first checkout.
+  repository: https://github.com/<org>/<project>-site.git
+  # Local working copy. A per-user path: `user.md → environment.advisory_records_clone` wins over this.
+  working_copy: ~/code/<project>-site
+  # Git only: the branch and remote the commit is pushed to.
+  branch: main
+  remote: origin
+  # One line; placeholder {cve_id}.
+  commit_message: "Add {cve_id} to the security pages"
+
+  # cve-json-file — one CVE 5.x JSON file per CVE, the record generate-cve-json emits
+  #                 (e.g. Apache HTTP Server keeps these under content/security/json/).
+  # release-page  — an entry in a per-release-line page, one section per fixed release, newest first
+  #                 (e.g. Apache Tomcat's xdocs/security-<line>.xml).
+  layout: cve-json-file
+
+  cve_json_file:
+    path: content/security/json/{cve_id}.json   # placeholders {cve_id}, {year}
+    indent: 4
+    keep_cna_private: false                     # drop the CNA tool's internal workflow block
+
+  release_page:
+    format: xml                                 # xml | markdown
+    path: xdocs/security-{line}.xml             # placeholder {line}
+    release_line_parts: 1                       # version components that name a line: 1 → "9" for 9.0.99
+    section_name: "Fixed in {product} {version}"
+    # Template files, relative to <project-config>; omit to use the shipped examples
+    # (tools/cve-tool-vulnogram/generate-cve-json/src/generate_cve_json/advisory_templates/).
+    # section_template: advisory-records/section.xml
+    # entry_template: advisory-records/entry.xml
+    # fix_commit_template: '<hashlink hash="{hash}"/>'
+    # section_parent: body                      # xml: where the first release section goes
+```
 
 ### Scope detection
 

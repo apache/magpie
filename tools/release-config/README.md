@@ -66,8 +66,9 @@ uv run --project <framework>/tools/release-config release-config load --skill pr
   --verify-binary apache-foo-2.11.0-bin.tar.gz=identical
 ```
 
-Prints `sources` (which file each config came from), `config` (the `release-management-config.md` keys with defaults applied), `build` (`release-build.md`: build command, expected artefacts, digest set, source-archive and reproducibility keys, convenience artefacts), `derived` (`signing_mode`, `is_asf`, `non_asf`, `automated_signing_offered` and the file that decided it, `approver_roster_path`, `release_lines`) and, with `--skill`, `metadata` — the config-derived fields of that skill's Step 1 table under the names the table uses.
+Prints `sources` (which file each config came from), `config` (the `release-management-config.md` keys with defaults applied), `build` (`release-build.md`: build command, expected artefacts, digest set, source-archive and reproducibility keys, convenience artefacts, the RAT config and excludes paths, `source_tree_validators`), `derived` (`signing_mode`, `is_asf`, `non_asf`, `automated_signing_offered` and the file that decided it, `approver_roster_path`, `release_lines`) and, with `--skill`, `metadata` — the config-derived fields of that skill's Step 1 table under the names the table uses.
 For `promote`, `metadata.convenience` splits the convenience artefacts into `publish` (verify-rc reported `identical` or `warn`) and `held` (`differs`, or no result).
+For `verify-rc`, `metadata` carries everything the [`release-management verify-rc`](../release-management/README.md#verify-rc) commands need: each expected artefact with `required` (`false` when its attributes say `optional`), the extra prohibited globs and accepted exceptions of `§ Binary-exclude list`, the RAT config and excludes paths of `§ Apache RAT configuration`, `source_tree_validators`, the `§ JVM artefact checks` keys, and the source-archive and reproducibility keys.
 
 ## What it reads
 
@@ -87,7 +88,7 @@ Blockquoted examples and `Template guidance` / `Example shape` lead-ins are neve
 
 Rules more than one skill applies have one implementation, so every skill gives the same answer:
 
-- **Source version and RC.** The source release candidate every skill takes (`<version>` plus `rcN`, tagged `<version>-rcN`): `<version>` is a dotted version of two or more numeric parts with no `.postN` (`2.11`, `2.11.0`, `2.11.0.1`); the RC is `rcN` with N ≥ 1 (`rc0` and `rc01` block).
+- **Source version and RC.** The source release candidate every skill takes (`<version>` plus `rcN`, tagged `<version>-rcN`): `<version>` is a dotted version of two or more numeric parts with no `.postN` (`2.11`, `2.11.0`, `2.11.0.1`), or a calendar date `YYYY-MM-DD` for a release wave named by date (`2026-10-06`; an impossible date such as `2026-02-30` blocks); the RC is `rcN` with N ≥ 1 (`rc0` and `rc01` block).
   `rc-cut`, `verify-rc`, `vote-draft`, `vote-tally` and `promote` check the RC; `announce-draft`, `audit-report` and `prepare` check the version alone.
 - **Convenience-artefact versions.** Each § Convenience artefacts entry may carry its own `version` (default the release version; `<version>` in it is rendered, e.g. `<version>.post1`), validated by the entry's optional `version_scheme`: a wheel `2.10.5.post1` passes against source release `2.10.5`.
   `promote` renders the artefact's name and `publish_command` with that version.
@@ -116,7 +117,7 @@ Rules more than one skill applies have one implementation, so every skill gives 
 | `verify-rc` | source `<version>-rcN`; `keys_file_url`, `release_dist_url_template`, `version_manifest_files` present; the four `release-build.md` sections exist; the staging URL renders well-formed; reports `keyserver`; convenience-artefact versions |
 | `archive-sweep` | `archive_retention_rule`, `release_dist_backend`, `release_dist_url_template` present; `release-trains.md` lists a release line; backend is a known one; archive destination derivable |
 | `audit-report` | source `<version>`; `audit_log_path` present; the approver roster has a row |
-| `keys-sync` | fingerprint from `--fingerprint`, then `rm_key_fingerprint`, then `user.md`; `keys_file_url` from `--keys-url` or config; `keyserver` from `--keyserver` or config |
+| `keys-sync` | fingerprint from `--fingerprint`, then `rm_key_fingerprint`, then `user.md`; `keys_file_url` from `--keys-url` or config; the optional `keys_file_branch` from config (null when unset or a placeholder); `keyserver` from `--keyserver` or config |
 | `prepare` | sub-command parsed; `automated-signing` only where the organization offers it; source `<version>`; `release_branch_base`, `version_manifest_files` present; `release-trains.md` readable |
 
 ## Wiring

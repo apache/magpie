@@ -183,11 +183,19 @@ def _target_url(cfg: Loaded, version: str | None) -> str | None:
 
 
 def _source_version(result: Result, args: argparse.Namespace, index: int = 0) -> str | None:
-    return _version(result, args, versions.SOURCE_VERSION, versions.SOURCE_VERSION_SHAPE, index)
+    version = _version(result, args, versions.SOURCE_VERSION, versions.SOURCE_VERSION_SHAPE, index)
+    if version is not None and not versions.is_source_version(version):
+        result.block(f"version {version!r} is not a real calendar date")
+        return None
+    return version
 
 
 def _source_rc_id(result: Result, args: argparse.Namespace) -> tuple[str | None, str | None]:
-    return _rc_id(result, args, versions.SOURCE_RC_ID, versions.SOURCE_RC_ID_SHAPE)
+    version, rc = _rc_id(result, args, versions.SOURCE_RC_ID, versions.SOURCE_RC_ID_SHAPE)
+    if version is not None and not versions.is_source_version(version):
+        result.block(f"RC identifier version {version!r} is not a real calendar date")
+        return None, None
+    return version, rc
 
 
 def _convenience_versions(result: Result, cfg: Loaded, version: str | None, rc: str | None) -> None:
@@ -289,7 +297,7 @@ def check_rc_cut(cfg: Loaded, args: argparse.Namespace, result: Result) -> None:
             elif build.found:
                 result.block(
                     "export_ignore_reviewed is unset in release-build.md § Source archive (archive_reviewed: false): "
-                    f"run `release-prepare prep {version or '<version>'}` — its Step 2f walks you through what ships in the source archive "
+                    f"run `release-prepare prep {version or '<version>'}` — its Step 2e walks you through what ships in the source archive "
                     "and lands `.gitattributes` in the prep PR"
                 )
     _signing_consistency(result, cfg)
@@ -429,6 +437,8 @@ def check_announce_draft(cfg: Loaded, args: argparse.Namespace, result: Result) 
 def check_promote(cfg: Loaded, args: argparse.Namespace, result: Result) -> None:
     version, rc = _source_rc_id(result, args)
     _require_keys(result, cfg, ("release_dist_backend", "release_dist_url_template"))
+    if cfg.raw.get("release_dist_backend") == "self-hosted" and not cfg.raw.get("release_publish_command_template"):
+        result.block("release_dist_backend is self-hosted but release_publish_command_template is unset — add the template to release-management-config.md")
     rm_is_pmc: bool | None = None
     if cfg.is_asf:
         identity = args.rm or _user_value(cfg, "apache_id") or _user_value(cfg, "release_manager.apache_id")
@@ -545,7 +555,14 @@ def check_keys_sync(cfg: Loaded, args: argparse.Namespace, result: Result) -> No
     if not keys_url:
         result.block("keys_file_url not resolvable: set it in release-management-config.md § Signing or pass --keys-url")
     keyserver = args.keyserver or cfg.get("keyserver")
-    result.values.update({"fingerprint": fingerprint, "fingerprint_source": source, "keys_file_url": keys_url, "keyserver": keyserver})
+    # Only for a KEYS file in a git repository whose branch holds "/" (release/1.x):
+    # the URL alone cannot say where such a branch ends.
+    keys_branch = cfg.raw.get("keys_file_branch")
+    if not isinstance(keys_branch, str) or not keys_branch.strip() or md.is_placeholder(keys_branch):
+        keys_branch = None
+    result.values.update(
+        {"fingerprint": fingerprint, "fingerprint_source": source, "keys_file_url": keys_url, "keys_file_branch": keys_branch, "keyserver": keyserver}
+    )
 
 
 def check_prepare(cfg: Loaded, args: argparse.Namespace, result: Result) -> None:
@@ -628,6 +645,14 @@ def _convenience_split(cfg: Loaded, version: str | None, verify: list[str]) -> d
     return {"publish": publish, "held": held}
 
 
+def _digest_list(value: Any) -> list[str]:
+    """A table digest cell (`sha512` or `sha512` `sha256`, or `sha512, sha256`) as a list; unset → []."""
+    if not value:
+        return []
+    items = value if isinstance(value, list) else str(value).split(",")
+    return [str(d).strip().lower() for d in items if str(d).strip()]
+
+
 def metadata(skill: str | None, cfg: Loaded, args: argparse.Namespace) -> dict[str, Any]:
     """The config-derived Step 1 fields of a skill, named as its Step 1 table names them."""
     if skill is None:
@@ -703,5 +728,36 @@ def metadata(skill: str | None, cfg: Loaded, args: argparse.Namespace) -> dict[s
             "rm_gpg_fingerprint": _user_value(cfg, "release_manager.gpg_fingerprint"),
             "git_upstream_remote": cfg.get("git_upstream_remote"),
             "convenience": _convenience_split(cfg, version, args.verify_binary or []),
+        }
+    if skill == "verify-rc":
+        optional = set(build.optional_artefacts)
+        return common | {
+            "rc": rc,
+            "rc_tag": f"{version}-{rc}" if version and rc else None,
+            "organization": cfg.organization,
+            "staging_url": _staging_url(cfg, version, rc),
+            "target_url": _target_url(cfg, version),
+            "keys_file_url": cfg.raw.get("keys_file_url"),
+            "keyserver": cfg.get("keyserver"),
+            "version_manifest_files": cfg.raw.get("version_manifest_files") or [],
+            "expected_artefacts": [
+                {"name": _render(a["name"], version, rc), "kind": a["kind"], "required": a["name"] not in optional} for a in build.expected_artefacts
+            ],
+            "digest_set": build.digest_set,
+            "binary_prohibit": build.binary_prohibit,
+            "binary_accept": build.binary_accept,
+            "rat_config_path": build.rat_config_path,
+            "rat_excludes_path": build.rat_excludes_path,
+            "source_tree_validators": build.source_tree_validators,
+            "jvm_artefact_checks": str(build.value("jvm_artefact_checks", "on")),
+            "jvm_companion_location": build.value("jvm_companion_location"),
+            "jvm_digest_set": _digest_list(build.value("jvm_digest_set")),
+            "nexus_staging_repo": build.value("nexus_staging_repo"),
+            "source_archive_method": build.source_archive_method,
+            "source_archive_format": build.as_dict()["source_archive_format"],
+            "source_archive_prefix": _render(build.value("source_archive_prefix"), version),
+            "reproducibility_source": build.reproducibility_source,
+            "reproducibility_binaries": build.reproducibility_binaries,
+            "build_command": build.build_command,
         }
     return common | {"rc": rc, "staging_url": _staging_url(cfg, version, rc), "target_url": _target_url(cfg, version)}

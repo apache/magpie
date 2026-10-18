@@ -377,6 +377,16 @@ def merge_pull_request(
     )
 
 
+def get_pull_request_merge_task_status(
+    config: BitbucketConfig,
+    pull_request_id: str,
+    task_id: str,
+) -> dict[str, Any]:
+    """Reject Cloud merge-task status reads for Bitbucket Data Center."""
+    _ = (config, pull_request_id, task_id)
+    raise BitbucketError("Bitbucket Data Center pull request merge task-status reads are not supported")
+
+
 def get_pull_request_reviews(config: BitbucketConfig, pull_request_id: str) -> dict[str, Any]:
     """Fetch review-state activity for a Bitbucket Data Center pull request."""
     pull_request = get_pull_request(config, pull_request_id)
@@ -439,6 +449,31 @@ def create_pull_request_comment(
     _ = (config, pull_request_id, body)
     msg = "Bitbucket Data Center pull request comment writes are not supported by this command yet"
     raise BitbucketError(msg)
+
+
+def post_pull_request_review(
+    config: BitbucketConfig,
+    pull_request_id: str,
+    verdict: str,
+    body: str,
+) -> dict[str, Any]:
+    """Reject post-review writes for Bitbucket Data Center for now."""
+    _ = (config, pull_request_id, verdict, body)
+    raise BitbucketError(
+        "Bitbucket Data Center pull request post-review writes are not supported by this command yet"
+    )
+
+
+def reject_pull_request(
+    config: BitbucketConfig,
+    pull_request_id: str,
+    reason: str,
+) -> dict[str, Any]:
+    """Reject pull-request reject writes for Bitbucket Data Center for now."""
+    _ = (config, pull_request_id, reason)
+    raise BitbucketError(
+        "Bitbucket Data Center pull request reject writes are not supported by this command yet"
+    )
 
 
 def get_pull_request_discussion(config: BitbucketConfig, pull_request_id: str) -> dict[str, Any]:

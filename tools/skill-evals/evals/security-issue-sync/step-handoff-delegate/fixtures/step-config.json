@@ -1,0 +1,7 @@
+{
+  "skill_md": "skills/security-issue-sync/next-step.md",
+  "step_heading": "### 2c. Next-step recommendation",
+  "also_include": [
+    "plugins/magpie-setup/skills/setup/setup_preflight/sections/step-13.md"
+  ]
+}

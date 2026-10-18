@@ -16,7 +16,7 @@
 **This file is the install gate.** It lists the external
 [skill sources](../../../docs/skill-sources/README.md) this project trusts and
 pins. Per [`PRINCIPLES.md` §14](../../../PRINCIPLES.md#14-snapshot-plus-override-never-vendored-copies),
-`/magpie-setup` fetches a source **only if it is listed here** — an
+`/magpie-setup:setup` fetches a source **only if it is listed here** — an
 organization curating a source, or the registry listing one, never triggers
 an install on its own. Committing this file is the adopter's explicit act of
 vouching for each source.
@@ -62,8 +62,8 @@ framework snapshot pin in [`.apache-magpie.lock`](../../../skills/setup/SKILL.md
 
 ## Selecting what to pull
 
-Running `/magpie-setup skill-sources` (or the source pass folded into
-`/magpie-setup` adoption) reads this file, fetches + verifies each trusted
+Running `/magpie-setup:setup skill-sources` (or the source pass folded into
+`/magpie-setup:setup` adoption) reads this file, fetches + verifies each trusted
 source into the gitignored `.apache-magpie-sources/<id>/`, writes the
 committed [`.apache-magpie.sources.lock`](../../../docs/skill-sources/README.md#how-a-trusted-skill-is-installed)
 pin, and symlinks in the `provides` skills exactly like framework-family

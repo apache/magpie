@@ -230,19 +230,20 @@ def _blocks(lines: list[str]) -> list[tuple[str, list[str]]]:
     return blocks
 
 
-def first_text_block(lines: list[str] | None) -> str | None:
+def first_text_block(lines: list[str] | None, sep: str = " ") -> str | None:
     """The section's own value: its first prose / bullet block.
 
     `None` when the section is missing, empty, or still the template's
     `TODO:` placeholder. Blockquoted examples, fences and tables are skipped,
-    as are `Template guidance` / `Example shape` lead-ins.
+    as are `Template guidance` / `Example shape` lead-ins. Lines are joined
+    with `sep`; pass `"\n"` to keep bullet boundaries visible.
     """
     if lines is None:
         return None
     for kind, block in _blocks(lines):
         if kind != "text":
             continue
-        joined = " ".join(part.strip() for part in block)
+        joined = sep.join(part.strip() for part in block)
         lowered = joined.lower()
         if lowered.startswith("todo"):
             return None

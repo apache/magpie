@@ -33,8 +33,10 @@ via developer override).
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import json
 import os
+import re
 import sys
 import tomllib
 from pathlib import Path
@@ -48,6 +50,36 @@ from sandbox_lint.layers import GIT_HOME_NAME, LOCAL_DIR, RUN_DIR_NAME, run_dir_
 
 DEFAULT_SETTINGS = Path(".claude/settings.json")
 DEFAULT_EXPECTED = Path("tools/sandbox-lint/expected.json")
+# The framework checkout splits its agent settings: the committed
+# `.claude/settings.json` is the floor every contributor shares, and this
+# template carries the rest, reconciled into each contributor's
+# `.claude/settings.local.json`. Claude Code merges the two, so the baseline is
+# compared against the merge. Projects without the template lint the file alone.
+DEFAULT_LOCAL_TEMPLATE = Path("tools/agent-isolation/claude-settings.local.template.json")
+# Which MCP tools each family calls. In the framework checkout every family is
+# in use, so the floor's MCP allows must be exactly what this derives.
+FAMILY_MCP_REGISTRY = Path("plugins/magpie-setup/skills/setup/family-mcp-allows.json")
+# The layer actually in force on this machine. It may add personal entries
+# (and MCP allows for families not adopted), but layered over the floor it must
+# still pass every invariant and may not override a value the floor sets.
+LOCAL_LIVE_SETTINGS = Path(".claude/settings.local.json")
+
+
+def registry_errors(floor: dict[str, Any], registry: dict[str, Any]) -> list[str]:
+    """The floor's MCP allows against the registry for every family."""
+    derived = {
+        f"mcp__{server}__{tool}"
+        for server, entry in (registry.get("servers") or {}).items()
+        for tool in entry.get("tools", [])
+    }
+    present = {
+        a for a in (floor.get("permissions", {}) or {}).get("allow", []) or [] if str(a).startswith("mcp__")
+    }
+    return [
+        f"floor permissions.allow: missing {a!r} (in {FAMILY_MCP_REGISTRY})"
+        for a in sorted(derived - present)
+    ] + [f"floor permissions.allow: {a!r} is not in {FAMILY_MCP_REGISTRY}" for a in sorted(present - derived)]
+
 
 # ---------------------------------------------------------------------------
 # Security invariants
@@ -71,6 +103,10 @@ FORBIDDEN_ALLOW_READ = {
     "~/.kube",
     "~/.azure",
     "~/.config/gcloud",
+    # The Gmail OAuth refresh token. The oauth-draft MCP server reads it
+    # outside the sandbox; a readable token plus the Google API hosts
+    # would let any unprompted sandboxed command use the user's Gmail.
+    "~/.config/apache-magpie",
 }
 
 # allowWrite must be even more restrictive than allowRead. A path
@@ -88,6 +124,34 @@ FORBIDDEN_ALLOW_WRITE = {
     "~/.docker",
     "~/.kube",
 }
+
+# Read-only vetted ops must never prompt: bulk skills call the read
+# dispatcher from background gatherer agents, which cannot surface a prompt,
+# so a prompt there is a silent denial. These invariants apply whenever the
+# settings carry any vetted-op rule. The `~` base is the only spelling the
+# skills use, and the agent-guard `vetted-ops-spelling` guard refuses others.
+VETTED_OPS_BASE = "~/.claude/magpie/vetted-ops"
+VETTED_OP_READ_LAUNCHERS = ("uv run --project", "uvx --from")
+REQUIRED_VETTED_OP_READ_ALLOW = tuple(
+    f"Bash({launcher} {VETTED_OPS_BASE} vetted-op-read *)" for launcher in VETTED_OP_READ_LAUNCHERS
+)
+# Sample read commands an ask rule is matched against, for both launchers and
+# both bases: the literal `~`, and a resolved absolute home, which an agent
+# without the spelling guard may still produce.
+VETTED_OP_READ_SAMPLE_COMMANDS = tuple(
+    f"{launcher} {base} vetted-op-read --caller sandbox-lint pr-view"
+    for launcher in VETTED_OP_READ_LAUNCHERS
+    for base in (VETTED_OPS_BASE, "/home/sandbox-lint/.claude/magpie/vetted-ops")
+)
+# Spellings that name a dispatcher: `vetted-op ` carries its trailing space so
+# the `vetted-ops` path segment alone does not count.
+VETTED_OP_DISPATCHER_NAMES = ("vetted-op-read", "vetted-op-tracker", "vetted-op ")
+# The tamper protection that makes the unprompted read safe to allow.
+REQUIRED_VETTED_OPS_DENY = (
+    "Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
+    "Edit(~/.claude/magpie/**)",
+    "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
+)
 
 # permissions.deny must contain at least these entries verbatim. Each
 # corresponds to an exfiltration vector documented in the threat model.
@@ -116,6 +180,135 @@ REQUIRED_PERMISSIONS_DENY = {
 # operate over the full filesystem instead of being an inclusion list
 # carved out of a denied home directory.
 REQUIRED_DENY_READ = {"~/"}
+
+# Settings that switch a control off wholesale, whichever layer sets them. A
+# local file may add personal entries; it may not add one of these.
+#
+# Commands that run whatever follows them: excluding one from the sandbox (or
+# excluding "*") runs arbitrary code outside it.
+ANY_COMMAND_LAUNCHERS = frozenset(
+    {
+        "bash", "sh", "zsh", "dash", "ksh", "fish", "csh", "tcsh", "busybox",
+        "env", "sudo", "doas", "xargs", "eval", "exec", "command", "source", ".",
+        "nohup", "nice",
+        "timeout", "time", "watch", "setsid", "stdbuf", "flock", "script",
+        "npx", "bunx", "deno", "bun", "pwsh", "powershell", "osascript",
+        "awk", "gawk", "nawk", "mawk", "tclsh", "lua", "Rscript",
+    }
+)  # fmt: skip
+# Interpreters, matched with any version suffix (`python3.12`, `node22`).
+_VERSIONED_INTERPRETER = re.compile(r"(python|pypy|node|ruby|perl|php)[0-9.]*")
+_ENV_ASSIGNMENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=")
+# Package managers whose subcommands fetch or run code (`npm exec`, `pnpm dlx`,
+# install hooks, project scripts); only these read-only ones stay legal.
+_PACKAGE_MANAGER_READS = {
+    "npm": {"--version", "-v", "--help", "ls", "list", "view", "outdated", "audit"},
+    "pnpm": {"--version", "-v", "--help", "ls", "list", "view", "outdated", "audit"},
+    "yarn": {"--version", "-v", "--help", "list", "info", "outdated", "audit"},
+    "pipx": {"--version", "--help", "-h", "list", "environment"},
+}
+# Where the sandbox lets every command write, whatever allowWrite says.
+_IMPLICIT_WRITABLE = ("/tmp", "/private/tmp", "/var/folders", "/private/var/folders")
+
+
+def _expand(path: str, project_root: Path | None) -> str | None:
+    """``path`` as an absolute, normalised string, or None when it is relative
+    and there is no project root to anchor it to."""
+    expanded = os.path.expanduser(path)
+    if not os.path.isabs(expanded):
+        if project_root is None:
+            return None
+        expanded = os.path.join(str(project_root), expanded)
+    return os.path.normpath(expanded)
+
+
+def _is_writable(path: str, writable: tuple[str, ...]) -> bool:
+    return any(path == root or path.startswith(root.rstrip("/") + "/") for root in writable)
+
+
+def _writable_roots(allow_write: list[str], project_root: Path | None) -> tuple[str, ...]:
+    """The directories the agent can write to: the sandbox's ``allowWrite``
+    entries (and the working directories, which the sandbox also makes
+    writable) and the project itself."""
+    entries = [e for e in allow_write if isinstance(e, str)] + ["."]
+    roots = tuple(r for r in (_expand(e, project_root) for e in entries) if r is not None)
+    return roots + _IMPLICIT_WRITABLE
+
+
+def _is_outside_pin(path: str, writable: tuple[str, ...] = ()) -> bool:
+    """A path the agent cannot edit: `~/...` or absolute, and not under a
+    directory the agent can write to.
+
+    A relative path (`.`, `./x`) names something in the checkout, and uv builds
+    a pinned project before running it, so its build backend and entry points
+    are the agent's. So is a script or project under ``allowWrite``.
+    """
+    if not (path.startswith("~/") or path.startswith("/")) or ".." in path.split("/"):
+        return False
+    return not _is_writable(os.path.normpath(os.path.expanduser(path)), writable)
+
+
+def _has_glob(word: str) -> bool:
+    return any(c in word for c in "*?[")
+
+
+def _runs_anything(command: str, writable: tuple[str, ...] = ()) -> bool:
+    """Whether ``command`` (a rule pattern) can launch arbitrary code.
+
+    A shell or interpreter by name or path, a bare ``*``, an option where a
+    command should be, or a package runner not pinned to a path. A pinned
+    runner (``uv run --project <path> ...``, ``uvx --from <path> ...`` with an
+    absolute or ``~/`` path, the vetted-ops forms) is judged by the command it
+    runs, so wrapping a shell in one does not help. Any other ``uv``
+    subcommand counts, since sync, lock, pip and build run a project's build
+    backend. A command word that is a path runs that file, so it counts unless
+    the path is outside the checkout and every ``writable`` directory.
+    """
+    text = command.strip()
+    # Claude Code's legacy prefix form `cmd:*` means the same as `cmd *`.
+    if text.endswith(":*"):
+        text = text[:-2] + " *"
+    words = text.split()
+    # `LC_ALL=C *` runs whatever follows the assignments.
+    while words and _ENV_ASSIGNMENT.match(words[0]):
+        words = words[1:]
+    # A glob in the command word (`bash*`, `b*`) matches a launcher too.
+    if not words or words[0].startswith("-") or _has_glob(words[0]):
+        return True
+    head = words[0].rstrip(":").rsplit("/", 1)[-1]
+    if "/" in words[0] and not _is_outside_pin(words[0].rstrip(":"), writable):
+        return True
+    # Likewise in a runner's subcommand or pin position (`uv run*`, `uvx*`,
+    # `uv run --proj*`); a glob in a plain subcommand's arguments is harmless.
+    if head in ("uv", "uvx", "pipx") and len(words) > 1 and _has_glob(words[1]):
+        return True
+    if head == "uv" and len(words) > 2 and words[1] in ("run", "tool") and _has_glob(words[2]):
+        return True
+    # Global options can precede the subcommand (`uv --offline run *`), so an
+    # option where the subcommand belongs counts as unpinned. Only the bare
+    # informational forms (`uv --version`) stay legal.
+    if head == "uv" and len(words) > 1 and words[1].startswith("-"):
+        return not (len(words) == 2 and words[1] in ("--version", "-V", "--help", "-h"))
+    if head == "uv" and len(words) > 2 and words[1] == "tool" and words[2].startswith("-"):
+        return True
+    if head in ANY_COMMAND_LAUNCHERS or _VERSIONED_INTERPRETER.fullmatch(head):
+        return True
+    if head == "uv":
+        # Every uv subcommand but `run` with an outside pin can execute code
+        # from a project the agent edits (sync, lock, pip, build run its build
+        # backend), so only that form and the bare informational one are legal.
+        if len(words) == 2 and words[1] in ("--version", "-V", "--help", "-h"):
+            return False
+        if len(words) < 5 or words[1:3] != ["run", "--project"] or not _is_outside_pin(words[3], writable):
+            return True
+        return _runs_anything(" ".join(words[4:]), writable)
+    if head == "uvx":
+        if len(words) < 4 or words[1] != "--from" or not _is_outside_pin(words[2], writable):
+            return True
+        return _runs_anything(" ".join(words[3:]), writable)
+    if head in _PACKAGE_MANAGER_READS:
+        return not (len(words) == 2 and words[1] in _PACKAGE_MANAGER_READS[head])
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -149,6 +342,7 @@ SET_LIST_KEYS = {
     "allowWrite",
     "allowedDomains",
     "excludedCommands",
+    "allow",
     "deny",
     "ask",
 }
@@ -186,6 +380,91 @@ def deep_diff(actual: Any, expected: Any, path: str = "$") -> list[str]:
     elif actual != expected:
         diffs.append(f"{path}: settings={actual!r} expected={expected!r}")
     return diffs
+
+
+# ---------------------------------------------------------------------------
+# Floor + local template
+# ---------------------------------------------------------------------------
+
+
+def merge_layers(floor: dict[str, Any], local: dict[str, Any]) -> dict[str, Any]:
+    """Merge settings the way Claude Code layers the local file over the project one.
+
+    Lists concatenate (de-duplicated, floor first); objects merge recursively.
+    A scalar both layers set is left to ``split_errors`` to report, so the
+    floor's value is kept here.
+    """
+    merged: dict[str, Any] = dict(floor)
+    for key, value in local.items():
+        base = merged.get(key)
+        if isinstance(base, dict) and isinstance(value, dict):
+            merged[key] = merge_layers(base, value)
+        elif isinstance(base, list) and isinstance(value, list):
+            combined = list(base)
+            combined.extend(item for item in value if item not in combined)
+            merged[key] = combined
+        elif key not in merged:
+            merged[key] = value
+    return merged
+
+
+def split_errors(floor: dict[str, Any], local: dict[str, Any]) -> list[str]:
+    """Rules that keep the floor/local split meaningful.
+
+    - The floor holds every ``deny`` and ``ask``: a local rule can only add, and
+      nobody's local file can weaken a protective rule.
+    - The floor's only ``allow`` entries are MCP tools, derived from the
+      families the project adopted (``setup`` writes them), and the
+      ``vetted-op-read`` pair a vetted-ops project must never be prompted for;
+      every other allow is a local convenience.
+    - The local template carries no MCP allows (they come from the family
+      registry for families installed on one machine) and no scalar the floor
+      sets: a local scalar overrides the committed one, so a local
+      ``sandbox.enabled: false`` would switch the sandbox off.
+    """
+    errors: list[str] = []
+    perms_floor = floor.get("permissions", {}) or {}
+    perms_local = local.get("permissions", {}) or {}
+    for rule in perms_floor.get("allow", []) or []:
+        if not (
+            isinstance(rule, str) and (rule.startswith("mcp__") or rule in REQUIRED_VETTED_OP_READ_ALLOW)
+        ):
+            errors.append(
+                f"floor permissions.allow: {rule!r} is neither a derived MCP tool nor the vetted-op-read "
+                "pair; move it to the local template"
+            )
+    for key in ("deny", "ask"):
+        for rule in perms_local.get(key, []) or []:
+            errors.append(f"local template permissions.{key}: {rule!r} belongs in the floor")
+    for rule in perms_local.get("allow", []) or []:
+        if isinstance(rule, str) and rule.startswith("mcp__"):
+            errors.append(
+                f"local template permissions.allow: {rule!r} is an MCP tool; "
+                "MCP allows are derived from the family registry"
+            )
+    errors.extend(override_errors(floor, local, label="local template"))
+    return errors
+
+
+def override_errors(
+    floor: dict[str, Any], local: dict[str, Any], *, label: str, path: str = "$"
+) -> list[str]:
+    """Scalars the local layer sets differently from the floor.
+
+    Claude Code lets a local scalar replace the committed one, so a different
+    value is an override of a control (``sandbox.enabled: false`` switches the
+    sandbox off); an equal one, as ``/sandbox`` may write, is harmless.
+    """
+    errors: list[str] = []
+    for key, value in local.items():
+        if key not in floor or key == "$schema":
+            continue
+        base = floor[key]
+        if isinstance(base, dict) and isinstance(value, dict):
+            errors.extend(override_errors(base, value, label=label, path=f"{path}.{key}"))
+        elif not (isinstance(base, list) and isinstance(value, list)) and value != base:
+            errors.append(f"{label} {path}.{key}: overrides a value the floor sets")
+    return errors
 
 
 # ---------------------------------------------------------------------------
@@ -232,6 +511,45 @@ def check_invariants(settings: dict[str, Any], project_root: Path | None = None)
 
     if sandbox.get("enabled") is not True:
         errors.append("sandbox.enabled: must be true")
+
+    fs_settings = sandbox.get("filesystem")
+    perms_settings = settings.get("permissions")
+    work_dirs = (
+        (perms_settings.get("additionalDirectories", []) or []) if isinstance(perms_settings, dict) else []
+    )
+    writable = _writable_roots(
+        ((fs_settings.get("allowWrite", []) or []) if isinstance(fs_settings, dict) else [])
+        + list(work_dirs),
+        project_root,
+    )
+    # The fixed path every vetted-ops and adversarial-review exclusion runs from.
+    magpie_dir = os.path.normpath(os.path.expanduser("~/.claude/magpie"))
+    for entry in work_dirs:
+        expanded = _expand(entry, project_root) if isinstance(entry, str) else None
+        if expanded is not None and (
+            _is_writable(magpie_dir, (expanded,)) or _is_writable(expanded, (magpie_dir,))
+        ):
+            errors.append(
+                f"permissions.additionalDirectories: {entry!r} makes the vetted-ops checkout writable, "
+                "and its commands run outside the sandbox; remove it (sandbox-add-project-root.sh "
+                "removes the ~/.claude/magpie entry it once added; remove any other by hand)"
+            )
+
+    # Same matching as a Bash allow rule (see `permissions.allow` below): a `*`
+    # before the end also matches options spliced in at that position, and an
+    # excluded command runs outside the sandbox once approved (the
+    # adversarial-review exclusion once globbed the plugin version this way).
+    for entry in sandbox.get("excludedCommands", []) or []:
+        if isinstance(entry, str) and _runs_anything(entry, writable):
+            errors.append(
+                f"sandbox.excludedCommands: {entry!r} would run arbitrary commands outside the sandbox"
+            )
+        if isinstance(entry, str) and "*" in entry[:-1]:
+            errors.append(
+                f"sandbox.excludedCommands: {entry!r} has a '*' before the end of the command, "
+                "so any options inserted at that position also run outside the sandbox; "
+                "name the exact value there and use '*' only at the end"
+            )
 
     fs = sandbox.get("filesystem")
     if not isinstance(fs, dict):
@@ -282,7 +600,19 @@ def check_invariants(settings: dict[str, Any], project_root: Path | None = None)
         # Anywhere but the end it therefore also matches options spliced in at
         # that position, which the rule then approves without a prompt (the
         # vetted-ops rules once globbed the plugin version this way).
+        if perms.get("defaultMode") == "bypassPermissions":
+            errors.append(
+                "permissions.defaultMode: must not be 'bypassPermissions' (it switches every prompt off)"
+            )
         for rule in perms.get("allow", []) or []:
+            bare = isinstance(rule, str) and rule.replace(" ", "") == "Bash"
+            inner = (
+                rule[len("Bash(") : -1]
+                if isinstance(rule, str) and rule.startswith("Bash(") and rule.endswith(")")
+                else None
+            )
+            if bare or (inner is not None and _runs_anything(inner, writable)):
+                errors.append(f"permissions.allow: {rule!r} approves every shell command without a prompt")
             if isinstance(rule, str) and rule.startswith("Bash(") and "*" in rule[:-2]:
                 errors.append(
                     f"permissions.allow: {rule!r} has a '*' before the end of the command, "
@@ -290,6 +620,8 @@ def check_invariants(settings: dict[str, Any], project_root: Path | None = None)
                     "name the exact value there and use '*' only at the end"
                 )
         ask = set(perms.get("ask", []) or [])
+        excluded = [e for e in sandbox.get("excludedCommands", []) or [] if isinstance(e, str)]
+        errors.extend(_vetted_op_read_never_prompts(perms, ask, deny, excluded))
         if "Bash(gh *)" in ask:
             errors.append(
                 "permissions.ask: must not contain 'Bash(gh *)' (ask beats allow "
@@ -305,6 +637,9 @@ def check_invariants(settings: dict[str, Any], project_root: Path | None = None)
     # socket, and its sockets live under .apache-magpie-local/run/ (adopted
     # project) or <git-common-dir>/apache-magpie/run/<worktree-id>/ (not adopted), never
     # the daemon's own well-known path.
+    for domain in settings.get("sandbox", {}).get("network", {}).get("allowedDomains", []) or []:
+        if isinstance(domain, str) and domain.strip() in ("*", "*.*"):
+            errors.append(f"sandbox.network.allowedDomains: {domain!r} opens egress to every host")
     for entry in settings.get("sandbox", {}).get("network", {}).get("allowUnixSockets", []):
         stripped = entry.rstrip("/")
         name = stripped.rsplit("/", 1)[-1]
@@ -336,6 +671,67 @@ def check_invariants(settings: dict[str, Any], project_root: Path | None = None)
                 "or <git-common-dir>/apache-magpie/run/<worktree-id>/*.sock when the project has not adopted Magpie) instead"
             )
 
+    return errors
+
+
+def _names_dispatcher(command: str) -> bool:
+    return any(name in f"{command} " for name in VETTED_OP_DISPATCHER_NAMES)
+
+
+def _bash_rule_matches(rule: str, command: str) -> bool:
+    """Whether a `Bash` permission rule matches ``command`` (fnmatch-style)."""
+    if rule == "Bash":
+        return True
+    if not (rule.startswith("Bash(") and rule.endswith(")")):
+        return False
+    pattern = rule[len("Bash(") : -1]
+    if pattern.endswith(":*"):  # legacy prefix form
+        pattern = pattern[:-2] + "*"
+    return fnmatch.fnmatchcase(command, pattern)
+
+
+def _vetted_op_read_never_prompts(
+    perms: dict[str, Any], ask: set[str], deny: set[str], excluded: list[str]
+) -> list[str]:
+    """Violations of the never-prompt shape for the vetted-ops read dispatcher.
+
+    Applies only when a `Bash(...)` permission rule or a
+    ``sandbox.excludedCommands`` entry names a dispatcher. The defensive
+    `Edit(...vetted-ops/**)` deny rules alone do not trigger it.
+    """
+    bash_rules = [
+        r[len("Bash(") : -1]
+        for key in ("allow", "ask", "deny")
+        for r in perms.get(key, []) or []
+        if isinstance(r, str) and r.startswith("Bash(") and r.endswith(")")
+    ]
+    if not any(_names_dispatcher(c) for c in [*bash_rules, *excluded]):
+        return []
+    errors: list[str] = []
+    allow = set(perms.get("allow", []) or [])
+    for required in REQUIRED_VETTED_OP_READ_ALLOW:
+        if required not in allow:
+            errors.append(
+                f"permissions.allow: must contain {required!r} "
+                "(a vetted-op-read call must never prompt; a background gatherer cannot answer it)"
+            )
+    for rule in sorted(ask):
+        if any(_bash_rule_matches(rule, c) for c in VETTED_OP_READ_SAMPLE_COMMANDS):
+            errors.append(
+                f"permissions.ask: must not contain {rule!r} "
+                "(ask beats allow, so every vetted-op-read call would prompt)"
+            )
+    if perms.get("blockReadsOutsideWorkingDirectories") is True:
+        errors.append(
+            "permissions.blockReadsOutsideWorkingDirectories: must not be true where vetted-ops is used "
+            "(the read check cannot resolve the literal '~' the commands spell, so every call prompts)"
+        )
+    for required in REQUIRED_VETTED_OPS_DENY:
+        if required not in deny:
+            errors.append(
+                f"permissions.deny: must contain {required!r} "
+                "(tamper protection for the vetted-ops catalogue, fixed path and policy)"
+            )
     return errors
 
 
@@ -398,7 +794,7 @@ def _lint_kiro(config_path: Path) -> int:
     return 1
 
 
-def _lint_codex(config_dir: Path) -> int:
+def _lint_codex(config_dir: Path, *, guard_from_plugin: bool = False) -> int:
     """Lint a project-scoped Codex sandbox + exec-policy profile."""
     from sandbox_lint.codex import check_codex_invariants
 
@@ -409,9 +805,13 @@ def _lint_codex(config_dir: Path) -> int:
     except FileNotFoundError:
         raise SystemExit(f"sandbox-lint: file not found: {rules_path}") from None
 
-    errors = check_codex_invariants(config, rules_text)
+    errors = check_codex_invariants(
+        config, rules_text, guard_from_plugin=guard_from_plugin, repo_root=config_dir.resolve().parent
+    )
     if not errors:
         print(f"sandbox-lint: OK ({config_dir} satisfies the Codex security invariants)")
+        if guard_from_plugin:
+            print("sandbox-lint: plugin guard not inspected; verify its registration and trust in /hooks")
         return 0
     print(f"sandbox-lint: Codex profile violations in {config_dir}:", file=sys.stderr)
     for e in errors:
@@ -444,7 +844,7 @@ def _lint_any_harness(framework_root: Path | None) -> int:
     ``tools/agent-isolation/`` (layer 0, clean-env wrapper) and
     ``tools/agent-guard/`` (layer 3, action guard) — are present in the
     framework tree. This is the posture check for runtimes that do not have a
-    dedicated per-harness config mode here (Cursor, …).
+    dedicated per-harness config mode here (Cursor, Grok, …).
     """
     from sandbox_lint.posture import PostureViolation, check_posture_violations, find_framework_root
 
@@ -462,7 +862,7 @@ def _lint_any_harness(framework_root: Path | None) -> int:
         return 0
     print(
         f"sandbox-lint: harness-neutral posture violations at {root} —\n"
-        "  For runtimes without a dedicated config mode (Cursor, …)\n"
+        "  For runtimes without a dedicated config mode (Cursor, Grok, …)\n"
         "  the security posture is enforced by these OS-level components:",
         file=sys.stderr,
     )
@@ -507,6 +907,16 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         default=DEFAULT_SETTINGS,
         help=f"Path to the live settings file (default: {DEFAULT_SETTINGS})",
+    )
+    parser.add_argument(
+        "--local-template",
+        type=Path,
+        default=None,
+        help=(
+            "Local settings template merged over --settings before the baseline "
+            f"diff (default: <project>/{DEFAULT_LOCAL_TEMPLATE} when --settings is "
+            "<project>/.claude/settings.json and the template exists)"
+        ),
     )
     parser.add_argument(
         "--expected",
@@ -564,19 +974,26 @@ def main(argv: list[str] | None = None) -> int:
         metavar="FRAMEWORK_ROOT",
         help=(
             "Validate the harness-neutral security posture for runtimes without "
-            "a dedicated settings file (Cursor, …). "
+            "a dedicated settings file (Cursor, Grok, …). "
             "Checks that the OS-level enforcement components (agent-isolation "
             "layer-0 clean-env wrapper and agent-guard layer-3 action guard) "
             "are present. Optionally supply the framework root directory; "
             "default: auto-detected by walking up from the current directory."
         ),
     )
+    parser.add_argument(
+        "--guard-from-plugin",
+        action="store_true",
+        help="Codex only: verify plugin guard registration/trust separately, without requiring a duplicate project hook.",
+    )
     args = parser.parse_args(argv)
+    if args.guard_from_plugin and args.codex is None:
+        parser.error("--guard-from-plugin requires --codex")
 
     if args.gemini is not None:
         return _lint_gemini(args.gemini)
     if args.codex is not None:
-        return _lint_codex(args.codex)
+        return _lint_codex(args.codex, guard_from_plugin=args.guard_from_plugin)
     if args.kiro is not None:
         return _lint_kiro(args.kiro)
     if args.opencode is not None:
@@ -587,8 +1004,43 @@ def main(argv: list[str] | None = None) -> int:
         explicit_root = None if args.any_harness is True else Path(args.any_harness)
         return _lint_any_harness(explicit_root)
 
-    settings = _load_json(args.settings)
+    floor = _load_json(args.settings)
     expected = _load_json(args.expected)
+    # The template belongs to the project whose settings are linted, never to
+    # the current directory: a settings file outside `<root>/.claude/` gets none.
+    template_path = args.local_template
+    settings_root = _infer_project_root(args.settings)
+    if (
+        template_path is None
+        and settings_root is not None
+        and (settings_root / DEFAULT_LOCAL_TEMPLATE).is_file()
+    ):
+        template_path = settings_root / DEFAULT_LOCAL_TEMPLATE
+    split: list[str] = []
+    local_errors: list[str] = []
+    if settings_root is not None and (settings_root / LOCAL_LIVE_SETTINGS).is_file():
+        live_local = _load_json(settings_root / LOCAL_LIVE_SETTINGS)
+        local_errors = override_errors(floor, live_local, label=str(LOCAL_LIVE_SETTINGS))
+        local_errors += check_invariants(merge_layers(floor, live_local), project_root=settings_root)
+    if settings_root is not None and (settings_root / FAMILY_MCP_REGISTRY).is_file():
+        split.extend(registry_errors(floor, _load_json(settings_root / FAMILY_MCP_REGISTRY)))
+    elif (
+        template_path is not None
+        and settings_root is not None
+        and template_path == settings_root / DEFAULT_LOCAL_TEMPLATE
+    ):
+        # The framework checkout always carries both; a missing registry must
+        # not silently skip the check of the committed MCP allows.
+        split.append(f"{FAMILY_MCP_REGISTRY} is missing beside {DEFAULT_LOCAL_TEMPLATE}")
+    if template_path is not None:
+        template = _load_json(template_path)
+        split.extend(split_errors(floor, template))
+        # Someone with no local file runs on the floor alone, so every
+        # protective setting, not only deny/ask rules, must stay in it.
+        split.extend(f"floor alone: {e}" for e in check_invariants(floor, project_root=settings_root))
+        settings = merge_layers(floor, template)
+    else:
+        settings = floor
 
     project_root = _infer_project_root(args.settings)
     invariant_errors = check_invariants(settings, project_root=project_root)
@@ -597,9 +1049,30 @@ def main(argv: list[str] | None = None) -> int:
     # files in lockstep, the baseline must still pass on its own.
     baseline_invariant_errors = check_invariants(expected, project_root=project_root)
 
-    if not invariant_errors and not diff_errors and not baseline_invariant_errors:
-        print(f"sandbox-lint: OK ({args.settings} matches {args.expected})")
+    if local_errors:
+        print(
+            f"sandbox-lint: your local {LOCAL_LIVE_SETTINGS} weakens a control the committed floor keeps:",
+            file=sys.stderr,
+        )
+        for e in local_errors:
+            print(f"  - {e}", file=sys.stderr)
+
+    if (
+        not invariant_errors
+        and not diff_errors
+        and not baseline_invariant_errors
+        and not split
+        and not local_errors
+    ):
+        layered = f" + {template_path}" if template_path is not None else ""
+        print(f"sandbox-lint: OK ({args.settings}{layered} matches {args.expected})")
         return 0
+
+    if split:
+        layers = f"{args.settings} / {template_path}" if template_path is not None else str(args.settings)
+        print(f"sandbox-lint: {layers} split violations:", file=sys.stderr)
+        for e in split:
+            print(f"  - {e}", file=sys.stderr)
 
     if invariant_errors:
         print(f"sandbox-lint: invariant violations in {args.settings}:", file=sys.stderr)

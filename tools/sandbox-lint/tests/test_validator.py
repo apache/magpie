@@ -29,10 +29,13 @@ from sandbox_lint import (
     check_invariants,
     deep_diff,
     main,
+    merge_layers,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 LIVE_SETTINGS = REPO_ROOT / ".claude" / "settings.json"
+# The committed floor plus the local template is what Claude Code applies here.
+LOCAL_TEMPLATE = REPO_ROOT / "tools" / "agent-isolation" / "claude-settings.local.template.json"
 BASELINE = REPO_ROOT / "tools" / "sandbox-lint" / "expected.json"
 
 
@@ -47,7 +50,7 @@ def baseline() -> dict[str, Any]:
 
 @pytest.fixture
 def live_settings() -> dict[str, Any]:
-    return _load(LIVE_SETTINGS)
+    return merge_layers(_load(LIVE_SETTINGS), _load(LOCAL_TEMPLATE))
 
 
 # ---------------------------------------------------------------------------
@@ -181,12 +184,131 @@ def test_baseline_names_the_fixed_vetted_ops_path_not_a_versioned_glob(baseline:
     assert "Edit(~/.claude/magpie/**)" in baseline["permissions"]["deny"]
 
 
+@pytest.mark.parametrize("form", ["uv run --project", "uvx --from"])
+def test_missing_vetted_op_read_allow_is_an_invariant_error(baseline: dict[str, Any], form: str) -> None:
+    # A vetted-op-read call must never prompt: background gatherer agents
+    # cannot answer a prompt, so each one is a silent denial.
+    weakened = copy.deepcopy(baseline)
+    rule = f"Bash({form} {VETTED_OP_READ})"
+    weakened["permissions"]["allow"].remove(rule)
+    errors = check_invariants(weakened)
+    assert any(rule in e and "permissions.allow" in e for e in errors), errors
+
+
+def test_vetted_op_read_ask_rule_is_an_invariant_error(baseline: dict[str, Any]) -> None:
+    # Ask beats allow regardless of specificity.
+    weakened = copy.deepcopy(baseline)
+    rule = f"Bash(uvx --from {VETTED_OP_READ})"
+    weakened["permissions"]["ask"].append(rule)
+    errors = check_invariants(weakened)
+    assert any(rule in e and "permissions.ask" in e for e in errors), errors
+
+
+def test_read_block_is_an_invariant_error_where_vetted_ops_is_used(baseline: dict[str, Any]) -> None:
+    # The read check cannot resolve the literal `~` the commands spell, so
+    # every vetted-op-read call prompts while the block is on.
+    assert baseline["permissions"].get("blockReadsOutsideWorkingDirectories") is not True
+    weakened = copy.deepcopy(baseline)
+    weakened["permissions"]["blockReadsOutsideWorkingDirectories"] = True
+    errors = check_invariants(weakened)
+    assert any("blockReadsOutsideWorkingDirectories" in e for e in errors), errors
+
+
+@pytest.mark.parametrize(
+    "rule",
+    [
+        "Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
+        "Edit(~/.claude/magpie/**)",
+        "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
+    ],
+)
+def test_missing_vetted_ops_tamper_protection_is_an_invariant_error(
+    baseline: dict[str, Any], rule: str
+) -> None:
+    weakened = copy.deepcopy(baseline)
+    weakened["permissions"]["deny"].remove(rule)
+    errors = check_invariants(weakened)
+    assert any(rule in e and "permissions.deny" in e for e in errors), errors
+
+
+@pytest.mark.parametrize(
+    "rule",
+    [
+        "Bash(uvx *)",
+        "Bash(uv run *)",
+        "Bash(uvx --from ~/.claude/magpie/vetted-ops *)",
+        "Bash(uv run --project /home/sandbox-lint/.claude/magpie/vetted-ops vetted-op-read *)",
+        "Bash(uvx:*)",
+    ],
+)
+def test_broad_ask_rule_covering_vetted_op_read_is_an_invariant_error(
+    baseline: dict[str, Any], rule: str
+) -> None:
+    # A broad ask rule prompts on vetted-op-read just as a specific one does.
+    weakened = copy.deepcopy(baseline)
+    weakened["permissions"]["ask"].append(rule)
+    errors = check_invariants(weakened)
+    assert any(rule in e and "permissions.ask" in e for e in errors), errors
+
+
+def test_unrelated_ask_rule_is_not_flagged_as_vetted_op_read(baseline: dict[str, Any]) -> None:
+    weakened = copy.deepcopy(baseline)
+    weakened["permissions"]["ask"].append("Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op *)")
+    errors = check_invariants(weakened)
+    assert not [e for e in errors if "permissions.ask" in e], errors
+
+
+def test_vetted_op_read_invariants_skip_a_deny_only_file(baseline: dict[str, Any]) -> None:
+    # The defensive Edit deny rules alone name no dispatcher, so they do not
+    # make the file a vetted-ops consumer.
+    stripped = copy.deepcopy(baseline)
+    perms = stripped["permissions"]
+    for key in ("allow", "ask"):
+        perms[key] = [r for r in perms[key] if "vetted-op" not in r]
+    stripped["sandbox"]["excludedCommands"] = [
+        e for e in stripped["sandbox"]["excludedCommands"] if "vetted-op" not in e
+    ]
+    assert "Edit(.apache-magpie-overrides/tools/vetted-ops/**)" in perms["deny"]
+    perms["blockReadsOutsideWorkingDirectories"] = True
+    assert not [e for e in check_invariants(stripped) if "vetted" in e or "blockReads" in e]
+
+
+def test_vetted_op_read_invariants_skip_settings_without_vetted_ops(baseline: dict[str, Any]) -> None:
+    stripped = copy.deepcopy(baseline)
+    perms = stripped["permissions"]
+    for key in ("allow", "ask", "deny"):
+        perms[key] = [r for r in perms[key] if "vetted-op" not in r]
+    stripped["sandbox"]["excludedCommands"] = [
+        e for e in stripped["sandbox"]["excludedCommands"] if "vetted-op" not in e
+    ]
+    perms["blockReadsOutsideWorkingDirectories"] = True
+    assert not [e for e in check_invariants(stripped) if "vetted" in e or "blockReads" in e]
+
+
 def test_mid_rule_wildcard_in_allow_is_an_invariant_error(baseline: dict[str, Any]) -> None:
     weakened = copy.deepcopy(baseline)
     rule = "Bash(uvx --from ~/.claude/plugins/cache/x/*/tools/vetted-ops vetted-op-read *)"
     weakened["permissions"]["allow"].append(rule)
     errors = check_invariants(weakened)
     assert any(rule in e for e in errors), errors
+
+
+def test_mid_entry_wildcard_in_excluded_commands_is_an_invariant_error(
+    baseline: dict[str, Any],
+) -> None:
+    weakened = copy.deepcopy(baseline)
+    entry = (
+        "uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/*"
+        "/tools/adversarial-review adversarial-review *"
+    )
+    weakened["sandbox"]["excludedCommands"].append(entry)
+    errors = check_invariants(weakened)
+    assert any(entry in e for e in errors), errors
+
+
+def test_adversarial_review_exclusion_names_the_stable_path(baseline: dict[str, Any]) -> None:
+    entries = [e for e in baseline["sandbox"]["excludedCommands"] if "adversarial-review" in e]
+    assert entries == ["uvx --from ~/.claude/magpie/adversarial-review adversarial-review *"]
 
 
 def test_catch_all_gh_ask_rule_is_an_invariant_error(baseline: dict[str, Any]) -> None:
@@ -196,8 +318,19 @@ def test_catch_all_gh_ask_rule_is_an_invariant_error(baseline: dict[str, Any]) -
     assert any("Bash(gh *)" in e for e in errors), errors
 
 
-def test_main_exits_zero_on_repo(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.chdir(REPO_ROOT)
+def test_main_exits_zero_on_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # A copy of the repository's committed layers, so a developer's own
+    # .claude/settings.local.json cannot change the outcome.
+    for rel in (
+        ".claude/settings.json",
+        "tools/agent-isolation/claude-settings.local.template.json",
+        "tools/sandbox-lint/expected.json",
+        "plugins/magpie-setup/skills/setup/family-mcp-allows.json",
+    ):
+        target = tmp_path / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text((REPO_ROOT / rel).read_text())
+    monkeypatch.chdir(tmp_path)
     assert main([]) == 0
 
 
@@ -274,6 +407,7 @@ def test_invariant_missing_deny_read_root(baseline: dict[str, Any]) -> None:
         "~/.kube",
         "~/.azure",
         "~/.config/gcloud",
+        "~/.config/apache-magpie/",
         "/",
         "~/",
         "~/.ssh//",

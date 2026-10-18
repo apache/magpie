@@ -1,0 +1,1 @@
+{"next": "edit-body", "command": "gh pr edit 102 --repo apache/foo --body-file /scratch/pr-102-newbody.md"}

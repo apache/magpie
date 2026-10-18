@@ -131,11 +131,20 @@ def test_shipped_org_manifests_automated_signing():
         ("2.11.0.post1", "rc1", False),
         ("2", "rc1", False),
         ("2.11.0", "rc0", False),
+        ("2026-10-06", "rc1", True),
+        ("2026-10-06", "rc0", False),
+        ("2026-13-01", "rc1", False),
+        ("2026-02-30", "rc1", False),
+        ("26-10-06", "rc1", False),
     ],
 )
 def test_source_version_rule(version, rc, ok):
-    assert bool(versions.SOURCE_VERSION.match(version) and versions.RC.match(rc)) is ok
-    assert bool(versions.SOURCE_RC_ID.match(f"{version}-{rc}")) is ok
+    assert bool(versions.is_source_version(version) and versions.RC.match(rc)) is ok
+    match = versions.SOURCE_RC_ID.match(f"{version}-{rc}")
+    assert bool(match and versions.is_source_version(match.group("version"))) is ok
+    if ok:
+        assert match is not None
+        assert match.group("version") == version and match.group("rc") == rc
 
 
 @pytest.mark.parametrize(
@@ -289,6 +298,7 @@ def test_framework_templates_parse():
     rmc = md.table_values((TEMPLATES / "release-management-config.md").read_text(encoding="utf-8"))
     assert rmc["release_dist_backend"] == "svnpubsub"
     assert rmc["rm_key_fingerprint"] is None
+    assert rmc["keys_file_branch"] is None  # optional, unset in the template
     assert rmc["version_manifest_files"] == ["setup.cfg", "foo/__init__.py"]
     assert "github-discussion" not in rmc  # the mechanism table is not a key table
     roster = md.parse_roster(TEMPLATES / "pmc-roster.md")
@@ -304,3 +314,133 @@ def test_main_prints_json(project, capsys):
 def test_unknown_skill_is_usage_error(project):
     with pytest.raises(SystemExit):
         cli.run(["preflight", "--project-root", str(project()), "--skill", "nope"])
+
+
+BUILD_VERIFY = """\
+# Apache Foo: release-build configuration
+
+## Source-tree validators
+
+```yaml
+source_tree_validators:
+  - "uv run --project tools/symlink-lint symlink-lint ."
+  - "make check-links"
+```
+
+## Expected artefact list
+
+- `apache-foo-<version>-source-release.zip`, canonical source artefact (required, signed, checksummed).
+- `apache-foo-<version>-bin.tar.gz`, convenience binary (optional, signed, checksummed).
+
+## Digest set
+
+- `sha512`, required.
+
+## JVM artefact checks
+
+| Key | Value | Notes |
+|---|---|---|
+| `jvm_artefact_checks` | `on` | |
+| `jvm_companion_location` | `staged` | |
+| `jvm_digest_set` | `sha512` `sha1` | |
+| `nexus_staging_repo` | `orgapachefoo-1024` | |
+
+## Binary-exclude list
+
+- `assets/vendor/**/*.min.js` — additional prohibited glob (vendored minified JS).
+- `third-party/some-native.so` — known-accepted exception (ships with a documented source counterpart).
+
+The baseline (`.class`, `.jar`, `.pyc`) is always scanned.
+
+## Apache RAT configuration
+
+- **RAT plugin config:** `pom.xml § rat-maven-plugin`.
+- **RAT excludes file:** `rat-excludes.txt`.
+"""
+
+
+def test_verify_rc_metadata(project, load):
+    meta = load(project(build=BUILD_VERIFY), "verify-rc", "1.1.0-rc2")["metadata"]
+    assert meta["rc_tag"] == "1.1.0-rc2"
+    assert meta["organization"] == "ASF"
+    assert meta["staging_url"] == "https://dist.apache.org/repos/dist/dev/foo/1.1.0-rc2/"
+    assert meta["keys_file_url"] == "https://dist.apache.org/repos/dist/release/foo/KEYS"
+    assert meta["version_manifest_files"] == ["setup.cfg", "foo/__init__.py"]
+    assert meta["expected_artefacts"] == [
+        {"name": "apache-foo-1.1.0-source-release.zip", "kind": "source", "required": True},
+        {"name": "apache-foo-1.1.0-bin.tar.gz", "kind": "convenience", "required": False},
+    ]
+    assert meta["binary_prohibit"] == ["assets/vendor/**/*.min.js"]
+    assert meta["binary_accept"] == ["third-party/some-native.so"]
+    assert meta["rat_config_path"] == "pom.xml § rat-maven-plugin"
+    assert meta["rat_excludes_path"] == "rat-excludes.txt"
+    assert meta["source_tree_validators"] == ["uv run --project tools/symlink-lint symlink-lint .", "make check-links"]
+    assert meta["jvm_artefact_checks"] == "on"
+    assert meta["jvm_companion_location"] == "staged"
+    assert meta["jvm_digest_set"] == ["sha512", "sha1"]
+    assert meta["nexus_staging_repo"] == "orgapachefoo-1024"
+
+
+def test_verify_rc_metadata_source_only_defaults(project, load):
+    meta = load(project(), "verify-rc", "1.1.0-rc1")["metadata"]
+    assert meta["expected_artefacts"] == [{"name": "apache-foo-1.1.0-source.tar.gz", "kind": "source", "required": True}]
+    assert meta["binary_prohibit"] == [] and meta["binary_accept"] == []
+    assert meta["rat_config_path"] is None
+    assert meta["rat_excludes_path"] == ".rat-excludes"
+    assert meta["source_tree_validators"] == []
+    assert meta["jvm_artefact_checks"] == "on"
+    assert meta["jvm_digest_set"] == [] and meta["nexus_staging_repo"] is None
+    assert meta["reproducibility_source"] == "on"
+
+
+def test_verify_rc_rat_prose_form():
+    build = load_build("## Apache RAT configuration\n\nRAT runs in CI (`.github/workflows/rat.yml`) with excludes in\n`.rat-excludes` at the repo root.\n")
+    assert (build.rat_config_path, build.rat_excludes_path) == (".github/workflows/rat.yml", ".rat-excludes")
+
+
+def test_verify_rc_template_sections_parse_empty():
+    build = load_build((TEMPLATES / "release-build.md").read_text(encoding="utf-8"))
+    assert build.binary_prohibit == [] and build.binary_accept == []
+    assert build.source_tree_validators == []
+    assert build.optional_artefacts == []
+
+
+def _binary_section(body: str):
+    build = load_build(f"## Binary-exclude list\n\n{body}\n")
+    return build.binary_prohibit, build.binary_accept
+
+
+@pytest.mark.parametrize(
+    "wording",
+    [
+        "prohibited; no exceptions accepted",
+        "prohibited, not an accepted exception",
+        "never accepted",
+        "accepted: no",
+        "exception: none",
+        "non-accepted vendored blob",
+        "without exception",
+    ],
+)
+def test_binary_exclude_negated_acceptance_stays_prohibited(wording):
+    assert _binary_section(f"- `vendor/blob.so` — {wording}.") == (["vendor/blob.so"], [])
+
+
+def test_binary_exclude_acceptance_is_scoped_to_its_own_bullet():
+    body = "- `vendor/blob.so` — additional prohibited glob\n- accepted exceptions are listed below:\n- `third-party/lib.so` — known-accepted exception"
+    assert _binary_section(body) == (["vendor/blob.so"], ["third-party/lib.so"])
+
+
+def test_binary_exclude_acceptance_on_a_wrapped_bullet_line_still_counts():
+    body = "- `third-party/lib.so` — ships with a documented source counterpart;\n  known-accepted exception.\n- `assets/*.min.js` — prohibited glob"
+    assert _binary_section(body) == (["assets/*.min.js"], ["third-party/lib.so"])
+
+
+def test_load_build_carries_the_voter_inputs(project, load):
+    """`load`'s `build` carries the RAT paths and validators, which `release-management prepare archive-review` protects."""
+    build = load(project(build=BUILD_VERIFY), None)["build"]
+    assert build["rat_config_path"] == "pom.xml § rat-maven-plugin"
+    assert build["rat_excludes_path"] == "rat-excludes.txt"
+    assert build["source_tree_validators"] == ["uv run --project tools/symlink-lint symlink-lint .", "make check-links"]
+    default = load(project(), None)["build"]
+    assert default["rat_excludes_path"] == ".rat-excludes" and default["source_tree_validators"] == []

@@ -2,7 +2,7 @@
   "access_tier": "collaborator",
   "action": "relay-draft",
   "channel": "email-draft",
-  "mail_tool": "oauth-draft-create",
+  "mail_tool": "gmail-plaintext-mcp",
   "recipient": "<foundation-security-list>",
   "auto_send": false,
   "reply_on_security_thread": true,

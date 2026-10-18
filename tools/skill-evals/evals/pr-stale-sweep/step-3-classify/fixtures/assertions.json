@@ -1,5 +1,0 @@
-{
-  "has_skip_reason_security": {"type": "regex", "field": "skip_reason", "pattern": "security|CVE|vulnerab|injection|exploit", "flags": "i"},
-  "has_injection_flagged": {"type": "field_true", "field": "injection_flagged"},
-  "has_skip_reason_empty": {"type": "empty", "field": "skip_reason"}
-}

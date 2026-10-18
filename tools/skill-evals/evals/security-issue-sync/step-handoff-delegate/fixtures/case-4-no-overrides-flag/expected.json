@@ -1,0 +1,6 @@
+{
+ "next_skill": "security-issue-triage",
+ "delegate_named": null,
+ "invokes_magpie_entry_point": true,
+ "runs_project_skill_directly": false
+}

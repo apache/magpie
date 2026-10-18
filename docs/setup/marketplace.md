@@ -53,7 +53,7 @@ Magpie**. The [pinned snapshot install](../quick-start/other-install-methods.md)
 for the cases it does not cover.
 
 > [!IMPORTANT]
-> A marketplace install drops the 79 skills into your agent and is complete
+> A marketplace install drops the 80 skills into your agent and is complete
 > for day-to-day use. What it does **not** set up on its own is the
 > repo-side machinery — the committed pin, the gitignored snapshot, drift
 > detection, agentic overrides — or the secure-agent setup, which you run
@@ -139,9 +139,11 @@ rather than skills and are installed independently of the choice below:
 `magpie-agent-guard` (a `PreToolUse` hook that denies shell commands breaking a
 hard framework rule) and `magpie-vetted-ops` (a dispatcher for fixed,
 policy-scoped forge operations, so a session needs one allowlist entry instead
-of a dozen wildcard `ask` rules). Both run from the installed plugin, so no
-repository or worktree needs a local copy — and neither adds always-on skill
-context. Pick based on the trade-off between install simplicity and
+of a dozen wildcard `ask` rules).
+Both run from the installed plugin, so no repository or worktree needs a local copy.
+Grok Build can consume the existing Claude-compatible `magpie-agent-guard` plugin hook.
+The dispatcher selects the Grok protocol from the incoming hook payload shape.
+Neither substrate plugin adds always-on skill context. Pick based on the trade-off between install simplicity and
 always-on token cost (each installed skill advertises a short description to
 the model on **every** turn — see ["always-on" cost](#versioning) below).
 
@@ -156,12 +158,12 @@ can say so, because it is the floor everything else is managed from.
 | Family plugin | Skills | ~Always-on tokens |
 |---|---|---|
 | `magpie-security` | 15 | ~1.1k |
-| `magpie-setup` | 10 | ~0.7k |
+| `magpie-setup` | 11 | ~0.8k |
 | `magpie-release-management` | 10 | ~0.8k |
 | `magpie-pr-management` | 9 | ~1.0k |
 | `magpie-issue` | 8 | ~0.7k |
 | `magpie-repo-health` | 7 | ~0.6k |
-| `magpie-utilities` | 5 | ~0.5k |
+| `magpie-utilities` | 5 | ~0.4k |
 | `magpie-contributor-growth` | 9 | ~0.6k |
 | `magpie-mentoring` | 4 | ~0.4k |
 | `magpie-pairing` | 2 | ~0.2k |
@@ -212,7 +214,7 @@ twice — [PRINCIPLES §13](../../PRINCIPLES.md) holds.
 The **same skill** is invoked by a **different name** depending on how you
 installed it. Each skill's frontmatter `name:` is its **plugin directory name**
 (`vote-tally`, `issue-triage`, `setup`); the family plugin adds its namespace
-with a colon, while the portable `/magpie-setup` install puts a `magpie-` prefix
+with a colon, while the portable `/magpie-setup:setup` install puts a `magpie-` prefix
 on the **directory** it installs the skill under.
 
 | Skill (flat `skills/` name) | Portable — `/magpie-setup` snapshot | Marketplace — family plugin |
@@ -298,7 +300,7 @@ Adding the marketplace clones the repo and reads
 **Updating** is `/plugin marketplace update apache-magpie` followed by
 `/plugin update magpie-<family>@apache-magpie` for each family you installed.
 On a version change the `magpie-setup` plugin's bundled `SessionStart` hook
-also prompts you to run `/magpie-setup upgrade`.
+also prompts you to run `/magpie-setup:setup upgrade`.
 
 Adding the marketplace from a tag rather than untagged pins which version the
 install tracks — see [Versioning](#versioning).
@@ -397,7 +399,7 @@ The install reads `gemini-extension.json` and auto-discovers the skills under
 name.
 
 Gemini has no lifecycle hook, so the shipped
-[`GEMINI.md`](../../GEMINI.md) reminds you to run `/magpie-setup upgrade` when
+[`GEMINI.md`](../../GEMINI.md) reminds you to run `/magpie-setup:setup upgrade` when
 the version changes.
 
 ### Cursor
@@ -471,11 +473,9 @@ elsewhere is a separate project and installs separately.
 > [!NOTE]
 > This is about running *Claude Code* (or another agent with a JetBrains
 > plugin) inside a JetBrains IDE. **JetBrains' own agent, Junie, is a separate
-> harness port** — tracked as
-> [#321](https://github.com/apache/magpie/issues/321) and listed *Not yet
-> ported* in [`CONTRIBUTING.md`](../../CONTRIBUTING.md) and
-> [`vendor-neutrality.md`](../vendor-neutrality.md). Junie does not read
-> Magpie's skills today.
+> harness** — see the [Junie guide](../adapters/junie.md)
+> ([#321](https://github.com/apache/magpie/issues/321)). It reads the
+> canonical `.agents/skills/` path, so no marketplace plugin is involved.
 
 ### Not supported
 
@@ -540,8 +540,8 @@ everyone who trusts the repo:
 ```
 
 > [!TIP]
-> `/magpie-setup` offers to write this block for you at the end of a
-> marketplace install, and `/magpie-setup verify` reports it if it falls
+> `/magpie-setup:setup` offers to write this block for you at the end of a
+> marketplace install, and `/magpie-setup:setup verify` reports it if it falls
 > behind a later release's floor. Both are opt-in: the block is a convenience
 > for teammates, never a prerequisite, and declining leaves a complete,
 > working install.
@@ -591,17 +591,16 @@ automatic while the *changes* stay confirmed.
 |---|---|
 | **Claude Code** | `SessionStart` hook [`plugins/magpie-setup/hooks/check-upgrade.sh`](../../plugins/magpie-setup/hooks/check-upgrade.sh) compares the installed version to a marker in the plugin's persistent data dir and prompts on change. Deterministic. |
 | **Codex CLI** | The same [`plugins/magpie-setup/hooks/check-upgrade.sh`](../../plugins/magpie-setup/hooks/check-upgrade.sh), wired inline via the plugin's `hooks` block — Codex uses the same event schema and the same `SessionStart` event. Codex sets `PLUGIN_ROOT`/`PLUGIN_DATA` (and the `CLAUDE_*` pair for compatibility), which the script reads. See the caveat below. |
-| **VS Code / Copilot, Cursor, Kiro (AP1)** | None. Agent Plugins 1.0 specifies no hook component and VS Code ignores client extension directories, so there is nothing to fire. Re-run `/magpie-setup upgrade` after updating. |
+| **VS Code / Copilot, Cursor, Kiro (AP1)** | None. Agent Plugins 1.0 specifies no hook component and VS Code ignores client extension directories, so there is nothing to fire. Re-run `/magpie-setup:setup upgrade` after updating. |
 | **Gemini CLI** | No lifecycle hook; the extension context file [`GEMINI.md`](../../GEMINI.md) instructs the agent to compare the extension version to a recorded marker and prompt on change (LLM-driven, advisory). |
-| Other agents | Re-run `/magpie-setup upgrade` manually after updating the package. |
+| Other agents | Re-run `/magpie-setup:setup upgrade` manually after updating the package. |
 
-> [!WARNING]
-> **Codex plugin-local hooks may not fire yet.** [openai/codex#16430](https://github.com/openai/codex/issues/16430)
-> reports that the runtime executes only the global `hooks.json` even though the
-> plugin docs describe plugin-local hooks. The manifest is written to the
-> documented schema so it starts working when the runtime catches up; until
-> then, treat the Codex upgrade prompt as best-effort and re-run
-> `/magpie-setup upgrade` manually.
+> [!IMPORTANT]
+> **Codex hooks require a separate trust decision.** Current Codex supports plugin-local hooks, but skips non-managed definitions until the operator reviews them in `/hooks`.
+> Project trust or plugin installation alone does not activate them.
+> Review the upgrade hook and the guard and vetted-ops hooks after installation or a definition change; then verify they actually run.
+> Older versions affected by [openai/codex#16430](https://github.com/openai/codex/issues/16430) still need manual upgrade checks.
+> See [the native hook contract](../adapters/codex.md#deterministic-guard-rules) and [OpenAI’s hook documentation](https://learn.chatgpt.com/docs/hooks).
 
 The hook writes its prompt to **stdout**, which is what a `SessionStart` hook
 exiting 0 has added to the session context — stderr on a zero exit reaches only
@@ -655,6 +654,22 @@ If you use the [secure agent setup](secure-agent-setup.md) on this machine, the 
 The same suggestion also comes back weekly by default, and the interval can be changed.
 Run the skill directly at any time to check now.
 Details: [Automatic reminders from the pre-flight](secure-agent-setup.md#automatic-reminders-from-the-pre-flight).
+
+**The first skills you run show a welcome guide.**
+The same pre-flight carries short first-run guides:
+a [general one](../../plugins/magpie-setup/skills/setup/setup_preflight/guides/general.md) on the first Magpie skill you run —
+getting started, staying current, asking in plain language, making Magpie yours —
+and a family's own on the next run of a skill in that family
+(today the [security family's](../../plugins/magpie-setup/skills/setup/setup_preflight/guides/security.md)).
+At most one guide shows per run, and each ends with three choices.
+**Continue** shows it again next time (three times at most),
+**Dismiss** hides it until the next Magpie upgrade,
+and **Don't show again** hides it until you ask for it back —
+say *"show the security welcome again"*.
+Any guide is one command away: `/magpie-setup:welcome-guide [<family>]`
+(`/magpie-setup-welcome-guide` on a pinned snapshot).
+The choice is kept in `reconciled.json` in your personal layer.
+Mechanics: [`welcome-guide`](../../plugins/magpie-setup/skills/welcome-guide/SKILL.md).
 
 ## Versioning
 
@@ -730,7 +745,7 @@ documentation**; what varies is whether it has also been exercised against a
 |---|---|---|
 | root `plugin.json` | [Agent Plugins 1.0.0 spec](https://github.com/agentplugins/agent-plugins-spec/blob/main/spec/1.0.0.md) + [`plugin.schema.json`](https://agent-plugins.org/schemas/1.0.0/plugin.schema.json) | Conforms to the published closed schema; enforced by `check-family-plugins.py`. Also the manifest Codex resolves first for the repo root — see [Which manifest Codex reads](#which-manifest-codex-reads) |
 | `.claude-plugin/*` | Claude Code plugins reference | Verified live — `claude plugin validate . --strict` passes with 0 warnings; a family plugin installs and loads from a local marketplace replica |
-| `.codex-plugin/plugin.json`, `.agents/plugins/marketplace.json` | The `codex` binary's own source and enums — Codex no longer publishes a plugins page under `docs/`, so the manifest-resolution order is read from [`plugin_namespace.rs`][codex-resolve] and [`protocol.rs`][codex-paths] | **Verified live** — `codex plugin marketplace add` + `plugin list` against codex 0.154.0. The first live run is what caught the invented `policy` values the documentation check could not; the enums are now enforced by `check-family-plugins.py`. Note `.codex-plugin/plugin.json` is an **overlay** on the root manifest, not the manifest itself. See the plugin-local hooks caveat above |
+| `.codex-plugin/plugin.json`, `.agents/plugins/marketplace.json` | The `codex` binary's own source and enums — native hook behavior is documented in [OpenAI’s hook reference](https://learn.chatgpt.com/docs/hooks); manifest-resolution order was checked against [`plugin_namespace.rs`][codex-resolve] and [`protocol.rs`][codex-paths] | **Verified live** — `codex plugin marketplace add` + `plugin list` against codex 0.154.0. The first live run is what caught the invented `policy` values the documentation check could not; the enums are now enforced by `check-family-plugins.py`. Note `.codex-plugin/plugin.json` is an **overlay** on the root manifest, not the manifest itself. See the hook-trust note above |
 | root `marketplace.json` | Copilot / VS Code plugin marketplace docs | Legacy-format catalog, explicitly still supported alongside AP1. Not yet live-installed |
 | `gemini-extension.json` | Gemini CLI extensions docs | Follows the published schema. Google has joined the AP1 TSC but has published no migration for this file — keep both |
 | `apm.yml` | `microsoft/apm` schema **v0.1** | Pre-1.0 and the most likely to churn; re-check before publish |

@@ -31,3 +31,24 @@ release-config preflight output
 
 gh pr list access confirmed.
 No .apache-magpie.local.lock drift. No override file.
+
+Facts for the verdict: `gh pr list` access confirmed (`--gh-access`).
+
+`release-management prepare verdict --preflight <scratch>/prepare-preflight.json --gh-access` output:
+
+```json
+{
+  "verdict": "blocked",
+  "sub_command": "automated-signing",
+  "version": null,
+  "blockers": [
+    "automated release signing is not offered by this project's organization (independent): release_process.automated_signing is unset or null (<framework>/organizations/independent/organization.md)"
+  ],
+  "release_branch_base": "main",
+  "previous_tag": null,
+  "train_covered": true,
+  "read": [
+    "automated-signing-ineligible.md"
+  ]
+}
+```

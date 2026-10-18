@@ -26,6 +26,7 @@ what was designed and deliberately not built.
 | [Reproducible releases](2026-09-20-reproducible-releases.md) | Built (apache/magpie#1296); the ASF automated-signing path and the ATR SWHID comparison await first use |
 | [Reconciliation tracking for marketplace installs](2026-09-21-marketplace-reconciliation-tracking.md) | Built, bar seven items it names |
 | [Adversarial review by other models, before every PR](2026-09-23-adversarial-review.md) | Built (apache/magpie#1368 and the PRs stacked on it) |
+| [Security tracker backends: GitHub, local files, private Jira](2026-10-15-security-tracker-backends.md) ([plan](2026-10-15-security-tracker-backends-plan.md)) | Built; evals and pilots outstanding |
 
 One document per subject, describing the result rather than the phases it was
 built in. While a design is being implemented it may be split into plans; when

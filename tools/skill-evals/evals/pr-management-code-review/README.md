@@ -5,18 +5,11 @@
 
 Behavioral evals for the `pr-management-code-review` skill.
 
-## Suites (126 cases total)
+## Suites (56 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
-| step-1-selectors-match-chips | Step 1 | 4 | Working-list membership + match-reason chips; triage-comment (comments[] vs reviews[]) and draft exclusion |
-| step-2.5-slop-detection | Step 2.5 | 9 | Slop hard/soft signal firing (H1–H5 / S1–S5) + early-exit threshold; prompt-injection resistance. Includes two regression guards for issues raised in review of PR #454: `case-7` (the H3+H4 correlation rule must keep a legitimate team-fork PR on the note-only path, not over-detect it as early-exit) and `case-9` (H1 must still fire from the real `gh --json files` payload by reading `new file mode` headers in the unified diff, since `--json files` exposes no `changeType` field). |
-| step-3-security-disclosure-scan | Step 3 | 6 | CVE/security-phrase detection in title, body, commits; prompt-injection resistance |
-| step-3-ai-authorship-disclosure | Step 3 | 5 | AI-authored body without the project's required disclosure → minor finding; self-calibrates (no finding when the project has no disclosure requirement, or when disclosure is affirmed); prompt-injection resistance |
-| step-4-third-party-license | Step 4 | 6 | X/B/A licence classification, LICENSE update check; licenses/ dir alone is insufficient |
-| step-4-compiled-artifacts | Step 4 | 5 | .jar/.pyc/.so/.whl detection; major vs blocking escalation |
 | step-4-image-ip | Step 4 | 4 | Diagram vs logo judgement; screenshot exemption |
-| step-4-license-headers | Step 4 | 8 | Tooling deference, exclusion masking, broad exclusions, exemptions (JSON, .md, README, LICENSE) |
 | step-4-db-query-correctness | Step 4 | 3 | N+1 query detection, unbounded result set; batched/bounded queries pass |
 | step-4-testing | Step 4 | 3 | New feature / bugfix without tests; change shipped with tests passes |
 | step-4-commit-hygiene | Step 4 | 3 | Missing newsfragment for user-facing change; present newsfragment / internal-only pass |
@@ -26,17 +19,18 @@ Behavioral evals for the `pr-management-code-review` skill.
 | step-4-dependency-compatibility | Step 4 | 6 | Complete constraint ledger; adopter policy selects remediation for compatible, broken (including uninstallable), and unknown graphs; environment markers affect supported resolutions |
 | step-4-architecture-boundaries | Step 4 | 3 | Lower-layer-imports-higher violation; correct direction / providers→core pass |
 | step-4-security-model | Step 4 | 3 | Calibration: vulnerability (blocking) vs known-limitation vs deployment-hardening (no finding) |
-| step-4.5-suggested-reviewers | Step 4.5 | 4 | Domain-expert reviewer suggestions from CODEOWNERS + commit history: grounded 2–3 with a committer; empty section when nothing grounds out; prompt-injection resistance (ungrounded body request ignored); exclusion of already-reviewing owners |
 | step-2-reviewer-resolution | prerequisites.md § 2 | 8 | tool path from `with-reviewers:` and from `adversarial-review.md` (including `on-demand`); slash path from `with-reviewer:` and from Review preferences when the config is `off`; with the plugin missing, an explicit `with-reviewer:` still wins and a config-selected tool path falls to Review preferences; `no-adversarial` wins over everything |
 | step-5-adversarial-integration | Step 5 | 3 | Merge/dedupe primary vs adversarial findings; source tagging (primary/adversarial/both); no-reviewer no-op |
-| step-8-mention-scan | Step 8 | 3 | Mention-policy scan before posting: clean backtick-escaped body passes silently; stray live `@`-mention (quoted text / adversarial fold-in / maintainer edit) triggers the `[K]eep`/`[E]scape` prompt; `@` tokens inside code spans, fences, cron aliases, and decorators do not fire |
-| step-6-disposition | Step 6 | 6 | APPROVE / REQUEST_CHANGES / COMMENT auto-pick logic |
-| step-7b-review-body-attribution | Step 7b | 4 | Golden rule 5 AI-attribution footer present / missing / paraphrased before posting; role-neutral variant accepted on `COMMENT` without confirmed maintainer access |
-| review-disposition | Step 2 (per-PR review loop — disposition) | 6 | APPROVE (clean PR), REQUEST_CHANGES (code issues), COMMENT (failing CI), COMMENT (unresolved maintainer REQUEST_CHANGES), COMMENT (bot-only green rollup — Real-CI guard), prompt-injection resistance |
-| selector-resolution | Step 0 (selector parsing) | 4 | single-pr, composed area+collab+max flags, default my-reviews, requested-only with dry-run and inline:off |
 | review-risk-classify | Step 4 (per-finding severity) | 4 | blocking (GPL dep), major (missing tests), minor (AI disclosure absent), none (clean code-quality change) |
 | injection-guard | Steps 3–4 (injection resistance) | 4 | PR-body approve-immediately, code-comment directive, commit-message SYSTEM directive, clean PR (no injection) |
 | review-handoff | Steps 7–8 (confirmation gate) | 3 | confirm→post, confirm in dry-run→dry-run-skip, wording edit→re-draft |
+
+## Where the scripted suites went
+
+The selectors and match chips, the slop signals and threshold, the security- and AI-disclosure scans, compiled-artifact detection, the third-party licence categories, the licence-header rules, the disposition auto-pick, reviewer ranking, the mention scan and the footer check are no longer applied by the model: [`tools/pr-management`](../../../pr-management/README.md) computes them (`pr-management code-review …`).
+The 70 model-graded cases of the thirteen suites that covered them — `selector-resolution`, `step-1-selectors-match-chips`, `step-2.5-slop-detection`, `step-3-security-disclosure-scan`, `step-3-ai-authorship-disclosure`, `step-4-compiled-artifacts`, `step-4-third-party-license`, `step-4-license-headers`, `step-4.5-suggested-reviewers`, `step-6-disposition`, `review-disposition`, `step-7b-review-body-attribution`, `step-8-mention-scan` — are pytest cases with the same scenarios and expected outcomes, named after each former case, under [`tools/pr-management/tests/code_review/`](../../../pr-management/tests/code_review/).
+Where a case left a judgement to the model — whether a slop candidate (H1, H5, S2) holds, whether an artifact ships in a release, the severity of a prose finding — the test passes that judgement in, and the suites above keep grading it.
+They run in the `pytest` matrix with every other workspace member, deterministically, on every push.
 
 ## Run
 
@@ -47,9 +41,5 @@ uv run --project tools/skill-evals skill-eval \
 
 # Single suite
 uv run --project tools/skill-evals skill-eval \
-    tools/skill-evals/evals/pr-management-code-review/review-disposition/fixtures/
-
-# Single case
-uv run --project tools/skill-evals skill-eval \
-    tools/skill-evals/evals/pr-management-code-review/review-disposition/fixtures/case-1-approve
+    tools/skill-evals/evals/pr-management-code-review/review-risk-classify/fixtures/
 ```

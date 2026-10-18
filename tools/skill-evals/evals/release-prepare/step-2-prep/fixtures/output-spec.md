@@ -43,6 +43,7 @@ OR (unjustified NOTICE removal):
 ```
 
 Grading rules:
+- On the clean path the fields are the `release-management prepare prep-pr` output, without `confirmed_out_of_scope` and `read`.
 - `proposed` must be `true` in the clean path.
 - `category_x_hit` must be `true` and `category_x_violations` non-empty
   when a Category-X dependency is found.

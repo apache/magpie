@@ -1,0 +1,9 @@
+{
+  "guard_status": "missing",
+  "vetted_rules": "pass",
+  "full_claude_parity": false,
+  "next_steps": [
+    "review-hook",
+    "report-read-isolation-gap"
+  ]
+}

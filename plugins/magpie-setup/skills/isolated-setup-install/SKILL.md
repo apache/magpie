@@ -15,9 +15,9 @@ when_to_use: >-
   If it is already installed, use `setup-isolated-setup-verify` to check
   it or `setup-isolated-setup-update` to refresh it.
 capability: capability:platform
-surface_hash: sha256:3f90b1ffdaa6e9ea
+surface_hash: sha256:fe5f2a0f66586cb2
 license: Apache-2.0
-measured_tokens: 5726
+measured_tokens: 7089
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -312,6 +312,63 @@ least-privilege hygiene for a cooperating skill, and it is worth
 having for that, but it stops nothing that chooses to name a
 different caller.
 
+#### Step V.1 — Read-only vetted ops MUST never prompt
+
+This is not optional. No `vetted-op-read` invocation may ever prompt, in
+any form: bulk skills run it from background gatherer agents, which cannot
+surface a prompt, so each prompt is a silent denial and the sync returns
+partial results nobody can verify. Rationale and the full shape:
+[`docs/setup/secure-agent-setup.md` → Read-only vetted ops never prompt](../../../../docs/setup/secure-agent-setup.md#read-only-vetted-ops-never-prompt).
+
+Resolve `$HOME`, read every settings scope (user, project, project-local,
+and managed where readable), and propose the exact edit for each gap. The
+operator applies it; never write a settings file on your own.
+
+1. **Allow both launchers.** `Bash(<launcher> ~/.claude/magpie/vetted-ops vetted-op-read *)`
+   MUST be allowed for each launcher in {`uvx --from`, `uv run --project`}:
+   two rules, in the committed project `.claude/settings.json` (as in the
+   framework's own) or in user scope. The literal `~` is the only spelling:
+   the agent-guard `vetted-ops-spelling` guard refuses an expanded home path,
+   so no absolute-path rule is needed. If an earlier run left
+   `<resolved $HOME>/.claude/magpie/vetted-ops` allow rules or exclusions,
+   propose removing them.
+2. **No ask rule.** Propose removing every `permissions.ask` rule, in any
+   scope, that matches a `vetted-op-read` command in either launcher form —
+   a broad rule such as `Bash(uvx *)` counts. An ask rule prompts even when
+   an allow rule matches.
+3. **Read block off.** If `permissions.blockReadsOutsideWorkingDirectories`
+   is `true` in any scope, propose removing it (or setting it `false`). With
+   it on, every call prompts, because the check cannot resolve the literal
+   `~` the commands spell, and no `allow` rule overrides it. Never offer an
+   `additionalDirectories` entry or `/add-dir` for the checkout instead (see
+   item 7). Say plainly that Bash stays
+   sandboxed and the credential `Read` denies still apply. If managed
+   settings force it on, the imperative cannot be met on this machine:
+   tell the operator, and that bulk skills must not run their gatherer
+   agents there.
+4. **Tamper protection.** The three `Edit` deny rules above MUST be present,
+   in the project settings or in user scope; propose any that is missing.
+   They are what makes the unprompted read safe.
+5. **Exclusions for both launchers.** `sandbox.excludedCommands` keeps
+   the `vetted-op-read` and `vetted-op-tracker` entries in both `~`
+   launcher forms. Without them an allowed call runs inside the sandbox,
+   where its `gh` cannot verify TLS: a silent failure again.
+6. **The spelling guard.** The agent-guard plugin MUST be installed, so its
+   `vetted-ops-spelling` guard turns an expanded spelling into a refusal that
+   names the `~` command, instead of a sandboxed call that fails silently.
+7. **The checkout is not a working directory.** No
+   `permissions.additionalDirectories` entry in any scope may cover
+   `$HOME/.claude/magpie` (that path, its `~` spelling, anything inside it
+   such as `~/.claude/magpie/vetted-ops`, or a parent such as
+   `$HOME/.claude` or `$HOME`). A working directory is writable to sandboxed
+   Bash, and item 5's exclusions run that checkout outside the sandbox.
+   `sandbox-add-project-root.sh` removes the `~/.claude/magpie` entry it once
+   added from each worktree's `settings.local.json`; propose the hand edit for
+   any other covering entry, naming the file.
+
+This covers the read dispatcher only. `vetted-op-tracker` and `vetted-op`
+stay in `ask`, never in `allow`, and `vetted-op` is never excluded.
+
 ### Step R — The adversarial-review exclusion
 
 Only applies when the `magpie-adversarial-review` plugin is installed. If it
@@ -320,19 +377,23 @@ is not, skip this step and say so.
 The reviewer CLIs it runs (`codex`, `copilot`, `gemini`, `grok`, `claude`)
 need network access and read their own credentials (`~/.codex`,
 `~/.copilot`, `~/.gemini`, `~/.grok`, `~/.claude`), which this sandbox denies. The tool therefore
-runs outside it, through one exclusion that names the installed plugin:
+runs outside it, through one exclusion. It names `~/.claude/magpie/adversarial-review`,
+a link the plugin's `SessionStart` hook points at the installed version every
+session, never a `*` where the version sits: that would also match `uv`
+options spliced in at that position, and run them outside the sandbox.
 
 ```jsonc
 "sandbox": {
   "excludedCommands": [
-    "uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/*/tools/adversarial-review adversarial-review *"
+    "uvx --from ~/.claude/magpie/adversarial-review adversarial-review *"
   ]
 },
 "permissions": {
   "deny": [
     // the tool runs unsandboxed, so the code it runs must not be editable
     // by the agent that calls it
-    "Edit(~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/**)"
+    "Edit(~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/**)",
+    "Edit(~/.claude/magpie/**)"
   ]
 }
 ```
@@ -360,15 +421,27 @@ Tell the operator what the exclusion covers and what it does not:
 
 ### Step W — Working directories for the read block
 
+Where the vetted-ops dispatcher is used, Step V.1 already requires
+`permissions.blockReadsOutsideWorkingDirectories` to be off, and these
+entries cannot stand in for that: they do not stop the `vetted-op-read`
+prompt. They remain useful for the agent's own reads of the scratch root
+where the block is on for other reasons.
+
 Nothing extra to write: the `sandbox-add-project-root.sh` run in Step P also
-adds `$HOME/.claude/magpie` and `/tmp/claude-<uid>`, resolved, to
-`permissions.additionalDirectories` of each worktree's project-local
-`settings.local.json`. Under `permissions.blockReadsOutsideWorkingDirectories`
-the skills read both on every run; without the entries each read prompts, and
-a bulk sync multiplies that by its gatherer agents.
+adds `/tmp/claude-<uid>`, resolved, to `permissions.additionalDirectories` of
+each worktree's project-local `settings.local.json`. Under
+`permissions.blockReadsOutsideWorkingDirectories` the skills read it on every
+run; without the entry each read prompts, and a bulk sync multiplies that by
+its gatherer agents. The script also removes `$HOME/.claude/magpie` where an
+earlier version added it.
 
 After Step P, show the operator the resulting `additionalDirectories` list and
-check two things:
+check three things:
+
+- **Never `~/.claude/magpie`.** If any scope lists `$HOME/.claude/magpie` or a
+  parent of it, propose removing it. A working directory is writable to
+  sandboxed Bash, and the vetted-ops commands run from that checkout outside
+  the sandbox. `/add-dir` has the same effect for a session.
 
 - **No glob and no `~`.** If the operator already has an entry such as
   `/tmp/claude-*` in any scope, say it does nothing: the setting matches
@@ -376,16 +449,31 @@ check two things:
 - **Nothing per-host in a synced or committed file.** If the operator put the
   paths in a user-scope `~/.claude/settings.json` that is synced across
   machines, or in the committed project settings, suggest moving them: they
-  name this host's home directory and uid.
+  name this host's uid.
 
 Rationale and the rules in full:
 [`docs/setup/secure-agent-setup.md` → Working directories under the read-outside-working-directories block](../../../../docs/setup/secure-agent-setup.md#working-directories-under-the-read-outside-working-directories-block).
 
-### Steps K, L and M — optional extras
+### Step T — Local agent settings
+
+The committed `.claude/settings.json` is only the shared floor; the rest
+of a working setup is personal and goes in `.claude/settings.local.json`.
+Build and hand over that file exactly as
+[`setup upgrade` → Reconcile the local agent settings](../setup/upgrade.md#reconcile-the-local-agent-settings)
+does: the MCP tools for families installed here but not adopted by the
+project and, **only when this project is the Magpie framework checkout**,
+its template (`tools/agent-isolation/claude-settings.local.template.json`).
+Never stage that template into another project: it would widen that
+project's sandbox beyond what its maintainers configured. An agent
+cannot write that file, so stage it and give the user the copy command.
+
+### Steps K, L, M and B — optional extras
 
 None of these is needed for a working install. Walk the one the operator
-asks for: a hardware security key (K), the container gateway (L), or the
-eval-harness exclusion (M).
+asks for: a hardware security key (K), the container gateway (L), the
+eval-harness exclusion (M), or the exclusion for the third-party
+[roborev](../../../../docs/setup/companion-skills.md#roborev) CLI (B) — offer B
+unprompted when `command -v roborev` finds it.
 
 **Procedures:** [`optional-steps.md`](optional-steps.md).
 
@@ -439,7 +527,7 @@ It writes the `isolated_setup` block of the personal layer's
 `reconciled.json` (`<git-common-dir>/apache-magpie/` when the project has
 not adopted Magpie, `.apache-magpie-local/` when it has) and nothing
 else. Skip it when the command cannot find `setup_preflight` — say that
-`/magpie-setup config` installs the checker, and that the reminders start
+`/magpie-setup:setup config` installs the checker, and that the reminders start
 once it is there.
 
 **Always propose shared-config sync once the install lands.**

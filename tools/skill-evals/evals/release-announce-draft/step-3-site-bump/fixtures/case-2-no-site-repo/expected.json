@@ -1,4 +1,0 @@
-{
-  "skipped": true,
-  "reason": "site_repo is not configured in release-management-config.md; no site-bump PR will be opened."
-}

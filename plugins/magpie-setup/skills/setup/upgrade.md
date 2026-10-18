@@ -61,7 +61,7 @@ Both paths run the same flow.
    check whether Magpie is **plugin-installed** (the signals in
    [`install.md` Step M1](install.md#step-m1--is-magpie-already-plugin-installed)).
    If it is, the upgrade the user wants is the plugin's — print
-   it and stop:
+   it, give the companion pointer below, and stop:
 
    ```text
    /plugin marketplace update apache-magpie
@@ -71,7 +71,9 @@ Both paths run the same flow.
    (Codex: `codex plugin update magpie`; Gemini:
    `gemini extensions update magpie`.) After the plugin refresh,
    run `setup-isolated-setup-update` for any installed harness profile;
-   plugin updates do not merge workspace configuration.
+   plugin updates do not merge workspace configuration. The companion
+   pointer is the one in [Step 0b](#step-0b--marketplace-method-the-floor-split) — this is the path every no-lock marketplace upgrade
+   takes, so it is where most operators see a new companion.
    The marketplace update
    comes first: `plugin update` compares **version strings**
    against the local marketplace clone, so skipping it reports
@@ -84,7 +86,9 @@ Both paths run the same flow.
    fetch, no `<local-lock>`, and nothing to drift; `git pull`
    is its upgrade. Run only
    [Refresh the pre-flight checker](#refresh-the-pre-flight-checker),
-   copying from the in-repo `tools/setup-preflight` package, and stop.
+   copying from the in-repo `tools/setup-preflight` package, and
+   [Reconcile the local agent settings](#reconcile-the-local-agent-settings),
+   then stop.
 3. Read `<local-lock>`. If missing (gitignored, fresh
    clone), the local install hasn't been initialised yet —
    route as a recover-snapshot install per the committed
@@ -108,6 +112,33 @@ Where there is no such CLI, print the commands instead. When every
 installed plugin is already at the latest available version, that run
 changes nothing — say so plainly instead of claiming an update
 happened.
+
+**Then point at companions, once.** Offer the
+[companion page](../../../../docs/setup/companion-skills.md) entries
+(on a marketplace install, fetch
+`https://raw.githubusercontent.com/apache/magpie/main/docs/setup/companion-skills.md`,
+which can be newer than the installed version; if neither can be read, say
+so in one line and skip the offer)
+whose **Pairs with** line names an installed family, that have a heading
+for this agent, and that are not already on the machine (`command -v`
+for a CLI such as `roborev`, the plugin list for a plugin) — exactly as
+[`install.md` Step M5](install.md#step-m5--recap-and-what-comes-next)
+item 3 does, printed and never run, naming the companion's sandbox step in
+`setup-isolated-setup-install` on the same line when the agent is Claude
+Code and its note names one (roborev: Step B). An upgrade is where a family grows a
+companion the operator has not heard of, so this runs whether or not any
+plugin version moved; when nothing matches, say nothing about it. Offer
+each companion once: append an `<id> <agent>` (the registry's harness key: `claude-code`, `codex`,
+`copilot`, `gemini`, `cursor`, `opencode`, `kiro`) line for each companion offered to
+`~/.cache/apache-magpie/companions-offered`, the same per-user file
+[`install.md` Step M5](install.md#step-m5--recap-and-what-comes-next) writes,
+and skip the `<id> <agent>` pairs already listed, so a decline is not
+repeated on every upgrade. If the file cannot be written, skip the record. It covers
+marketplace upgrades, adopted or not (Step 0 item 2 sends a no-lock one
+here for this paragraph only): a pinned-snapshot adopter skips Step 0b, and
+the companion page is where they find one.
+
+Then [reconcile the local agent settings](#reconcile-the-local-agent-settings).
 
 Then split on whether the project has adopted Magpie:
 
@@ -335,7 +366,7 @@ For each file in `<repo-root>/.apache-magpie-overrides/`:
    (the personal layer's `<file>`, then `.apache-magpie-overrides/<file>`).
    An entry that resolves through neither is a finding — the same
    [`reconcile.md`](reconcile.md#the-sweep) check 3 surfaces — propose
-   `/magpie-setup config <skill>` for it. Unlike check 2, this needs
+   `/magpie-setup:setup config <skill>` for it. Unlike check 2, this needs
    only files already in the repository, so it always completes even in
    a sandboxed session where the plugin cache is unreadable.
 
@@ -399,7 +430,7 @@ reporting the upgrade complete:
 
 ```bash
 PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir)/../.apache-magpie-local:$(git rev-parse --git-common-dir)/apache-magpie" \
-  python3 -m setup_preflight --skill magpie-setup
+  python3 -m setup_preflight --skill magpie-setup --no-welcome
 ```
 
 Skip this write entirely when `.apache-magpie-overrides/` is empty or
@@ -408,6 +439,46 @@ confirm and nothing to stamp. (A project with configuration but no
 overrides may still have unreconciled skills; that gap is
 `reconcile.md`'s to close, not this walk's — it has no overrides to
 iterate over in the first place.)
+
+### Reconcile the local agent settings
+
+The committed `.claude/settings.json` holds only what every contributor
+must share (the sandbox, every `deny` and `ask` rule, the plugin wiring,
+and the MCP tools of the adopted families). Everything else is personal
+and lives in the gitignored `.claude/settings.local.json`, which Claude
+Code layers on top. An upgrade can move what belongs there, so bring it
+up to date:
+
+1. **Build the proposed local entries** from two sources:
+   - in the framework checkout, the template
+     `tools/agent-isolation/claude-settings.local.template.json` (the
+     `gh` read allows, the remaining sandbox exclusions, network domains
+     and tool paths);
+   - in any project, the MCP tools from
+     [`family-mcp-allows.json`](family-mcp-allows.json) for each family
+     installed on this machine **but not** in the lock's `plugins`
+     (an adopted family's tools are already committed).
+2. **Compare with `.claude/settings.local.json`.** Drop any proposed
+   entry the committed `.claude/settings.json` already contains (in the
+   framework checkout that is every family's MCP tools), then add every
+   remaining one the local file lacks. Once the user confirms the copy,
+   record the template and registry entries you applied under
+   `local_settings`, keyed by this worktree's root
+   (`git rev-parse --show-toplevel`), in the personal layer's
+   `reconciled.json`; an entry recorded there that
+   the current template and registry no longer propose was dropped
+   upstream, so ask before removing it. An entry that was never recorded
+   is the user's own: never touch it.
+3. **Never add a `deny` or `ask` rule, and never set a value the
+   committed file sets.** Protective rules belong in the committed floor,
+   and a local scalar overrides the committed one (a local
+   `sandbox.enabled: false` would switch the sandbox off).
+4. **Hand the write to the user.** Claude Code does not let an agent
+   write its own settings files, sandbox or not. Write the merged result
+   to the scratch directory, show the diff, give one copy command for the
+   user to run, and confirm the file afterwards.
+
+Skip it, and say nothing, when there is nothing to add or remove.
 
 ## Step 6 — Refresh framework-skill symlinks
 
@@ -579,9 +650,22 @@ rather than pulls in via symlink. Examples:
   Codex settings; surface conflicts and hand edits rather than
   overwriting them. Run `sandbox-lint --codex .codex` after the merge
   and never modify Codex project trust.
+  Include native guard-hook registration and the [vetted-operation rules](../../../../docs/adapters/codex.md#vetted-operations) in the drift comparison.
+  Preserve installed stable paths and user rule files; do not hardcode a new plugin version into native prefixes.
+  Changed hook definitions need operator review in `/hooks`; never reset or grant hook trust automatically.
+  When the guard is plugin-owned, omit a duplicate project registration and run lint with `--guard-from-plugin`, then inspect plugin registration and trust separately.
 - An installed Gemini workspace profile and guard registration:
   follow [the Gemini update lifecycle](../../../../docs/adapters/gemini.md#update) to report drift, then use its install merge for approved repairs.
   Preserve unrelated configuration and hand edits, and verify after restarting the runtime.
+- Grok action-guard wiring, when Grok is an adopted runtime.
+  For a marketplace/plugin install, leave repository hook state alone and let the plugin manager update the bundled `magpie-agent-guard` executable and hook.
+  Do not create a project hook or snapshot merely because the plugin was upgraded.
+  For a source or pinned-snapshot install, compare only `<repo-root>/.grok/hooks/magpie-agent-guard.json` with the current expected hook shape.
+  Preserve every other `.grok/hooks/*` entry and never modify `.grok/config.toml`.
+  If the Magpie hook is stock-but-stale, refresh it.
+  If it appears hand-edited, surface the diff and ask before replacing it.
+  Do not grant or reset Grok project-hook trust during upgrade.
+  Trust remains an explicit operator decision.
 - Any future hook or local config the framework adds.
 
 These can drift independently of the snapshot — an

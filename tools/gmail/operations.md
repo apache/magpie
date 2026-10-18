@@ -185,8 +185,8 @@ backend:
   `mcp__ponymail__search_list` results carry it directly — no extra
   fetch needed.
 - **Gmail backend (claude.ai MCP).** Use the `oauth-draft-message-id`
-  console script, which reuses the same OAuth credentials as
-  `oauth-draft-create` and queries
+  console script, which reuses the same OAuth credentials as the
+  `gmail-plaintext` MCP server and queries
   `threads.get?format=metadata&metadataHeaders=Message-ID`:
 
   ```bash
@@ -289,38 +289,36 @@ mcp__claude_ai_Gmail__create_draft(
 
 ### Create draft — `oauth_curl` backend
 
-The `oauth-draft-create` console script (in
-[`oauth-draft/`](oauth-draft/README.md)) creates drafts by talking
-directly to the Gmail REST API with a user-provided OAuth refresh
-token. It sets `threadId` on the Gmail API call **and** populates
-`In-Reply-To` / `References` from the thread's last message, so every
-client threads consistently.
+The `gmail-plaintext` MCP server (`oauth-draft-mcp`, in
+[`oauth-draft/`](oauth-draft/README.md#mcp-server)) creates drafts by
+talking directly to the Gmail REST API with a user-provided OAuth
+refresh token. It sets `threadId` on the Gmail API call **and**
+populates `In-Reply-To` / `References` from the thread's last message,
+so every client threads consistently. Skills call it as an MCP tool,
+never as a shell command: the sandbox denies the token to Bash.
 
-Materialize the pre-flight's `security_cc` as a safely shell-quoted assignment
-in the **same shell invocation** as this recipe. A field in the agent's
-observed-state bag is not an environment variable, and a variable set in an
-earlier tool call may not persist. Use the exact resolved address; never
-substitute a sample address or rely on an inherited shell value.
+Pass the pre-flight's resolved `security_cc` in `cc`. Use the exact
+resolved address; never substitute a sample address.
 
-```bash
-# Assign security_cc from the current pre-flight before running this block.
-: "${security_cc:?Assign the resolved security CC in this shell invocation}"
-if [[ -z "${security_cc//[[:space:]]/}" ]]; then
-  printf '%s\n' 'Security CC must not be blank' >&2
-  exit 1
-fi
-uv run --project <framework>/tools/gmail/oauth-draft oauth-draft-create \
-  --thread-id <gmail-threadId> \
-  --to reporter@example.com \
-  --cc "$security_cc" \
-  --subject "Re: <root subject>" \
-  --body-file /tmp/body.txt
+```text
+# Bind security_cc to the pre-flight's resolved address before this block.
+# This is a value, not the literal string "security_cc".
+if not isinstance(security_cc, str) or not security_cc.strip():
+    raise ValueError("Resolve the security CC before calling the draft backend")
+
+mcp__gmail-plaintext__create_draft(
+  to=['reporter@example.com'],
+  cc=[security_cc],
+  subject='Re: <root subject>',
+  body='<body>',                # plain text; the server has no HTML option
+  thread_id='<gmail-threadId>',
+)
 ```
 
 See [`oauth-draft/README.md`](oauth-draft/README.md) for one-time
 setup (creating the Google Cloud OAuth client, obtaining a refresh
-token, and populating the credentials file) and for the full flag
-list.
+token, populating the credentials file, and registering the MCP
+server).
 
 Every bullet from the `claude_ai_mcp` section above applies to this
 backend too — drafts only, never send; subject is always

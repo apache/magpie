@@ -5,13 +5,20 @@
 
 Behavioral evals for the `pr-management-mentor` skill.
 
-## Suites (29 cases total)
+## Suites (6 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
-| intervention | Intervention selection (steps 3–5 of the runtime loop) | 9 | Template 1 (missing repro); template 2 (missing version); template 3 (convention gap); template 4 (why-pushback → hand-off); multiple triggers simultaneously (ask); maintainer already engaged (silent); no trigger fires (silent); out-of-scope topic (hand-off); out-of-scope deprecation/removal decision carrying draftable bug signals (hand-off still wins) |
-| tone-checks | Pre-post checklist | 15 | Clean pass; hard-fail rules 1 (praise), 2 (restating), 3 (AI self-ref), 4 (speaking for maintainer), 5 (hedging), 6 (multiple asks), 7 (missing footer), 8 (author not tagged), 9 (quoted doc), 10 (review prediction); soft-fail rules 11 (meta first line), 12 (too long), 13 (jargon without link), 14 (exclamation in body) |
-| hand-off | Hand-off triggers | 5 | No trigger; trigger 1 (max turns reached); trigger 2 (contributor pushback on why-answer); trigger 3 (out-of-scope topic); trigger 4 (contributor asks for human — highest priority) |
+| intervention | Picking the intervention (`pick-intervention.md`) | 5 | Template 1 (missing repro); template 2 (missing version); template 3 (convention gap); multiple triggers simultaneously (ask); no trigger fires (silent) |
+| tone-checks | Tone rule 13 (judgement) | 1 | Jargon without a link (soft-fail rule 13) |
+
+## Where the hand-off, gate and tone cases went
+
+The hand-off triggers, the out-of-scope and maintainer-engaged gates, and every tone rule that is a phrase list or a count are no longer applied by the model: [`tools/pr-management`](../../../pr-management/README.md) (`pr-management mentor`) computes them.
+The 23 model-graded cases those covered are now pytest cases with the same scenarios and expectations, named after each former case:
+[`tests/mentor/test_assess.py`](../../../pr-management/tests/mentor/test_assess.py) (hand-off cases 1–5, intervention cases 4, 6, 8, 9) and
+[`tests/mentor/test_tone.py`](../../../pr-management/tests/mentor/test_tone.py) (tone cases 1–13 and 15).
+What stays here is judgement: which intervention fits a thread, and rule 13.
 
 ## Run
 

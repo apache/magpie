@@ -144,7 +144,16 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
   (`stdlib`-only). Wired as a `PreToolUse` hook (Claude Code) or a
   `tool.execute.before` plugin (OpenCode), with a `--gemini` adapter for
   Gemini CLI's `BeforeTool` event (wired in the repository's
-  `.gemini/settings.json`; registration for snapshot adopters); inspects every shell command
+  `.gemini/settings.json`; registration for snapshot adopters), a `--grok`
+  adapter for Grok Build's `PreToolUse` event, and a `--copilot` adapter
+  for Copilot CLI's `preToolUse` event (wired in `.github/hooks/magpie.json`,
+  #1560), which also allows one simple read-only command (`gh` reads,
+  `git status/diff/log`, GET-only `gh api`, `vetted-op-read`) so reads never
+  prompt and leaves anything else to Copilot's own permission flow, and a
+  `--junie` adapter for JetBrains Junie's Early Access `PreToolUse` hook
+  (`~/.junie/config.json`, #1666; guide in `docs/adapters/junie.md`), which blocks with exit `2` and a
+  `decision` JSON, the one signal Junie honours, because Junie ignores the
+  Claude-shaped `hookSpecificOutput` deny; inspects every shell command
   before it runs and denies the ones that break a hard framework rule,
   independent of model memory. The guard decisions live in a single
   harness-agnostic `dispatch()` core so every wired harness enforces
@@ -172,7 +181,7 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
 - `tools/permission-audit/` — audits and atomically edits Claude Code's
   `permissions.allow[]` entries in `.claude/settings.json` and
   `.claude/settings.local.json`. Backs the `--apply-permission-audit`
-  flag of `/magpie-setup verify` (check 8d). Also handles OpenCode
+  flag of `/magpie-setup:setup verify` (check 8d). Also handles OpenCode
   `permission` config via `audit-opencode`. Capability: `substrate:sandbox`.
 - `tools/agent-isolation/sandbox-add-project-root.sh` — writes the
   worktree's absolute path, and the absolute dev-tool paths `prek` and
@@ -184,17 +193,27 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
   local file is where they take effect. It never adds the credential
   paths the committed list also names; `--no-tool-paths` limits it to
   the project root. Checked by `setup-isolated-setup-verify` check 8.
-  It also adds the two directories the skills read on every run,
-  `$HOME/.claude/magpie` (the fixed vetted-ops path) and the scratch root
-  `/tmp/claude-<uid>`, to `permissions.additionalDirectories` of the same
-  file, resolved to literal absolute paths, because with
+  It also adds the scratch root `/tmp/claude-<uid>`, which the skills
+  read on every run, to `permissions.additionalDirectories` of the same
+  file, resolved to a literal absolute path, because with
   `permissions.blockReadsOutsideWorkingDirectories` on every read outside
   a working directory asks and a glob such as `/tmp/claude-*` is listed
-  but never matched (#1418). They name one host's home directory and uid,
-  so they stay per host in the gitignored local file rather than in a
-  synced user-scope settings file; `--no-working-dirs` skips them.
-  Install proposes them (Step W), verify check 15 and doctor probe 9
-  report them, and update treats their absence as drift.
+  but never matched (#1418). It names one host's uid, so it stays per
+  host in the gitignored local file rather than in a synced user-scope
+  settings file; `--no-working-dirs` skips it. Install proposes it
+  (Step W), verify check 15 and doctor probe 9 report it, and update
+  treats its absence as drift.
+  `$HOME/.claude/magpie` (the fixed vetted-ops path) is deliberately not
+  a working directory, and the helper removes it where an earlier version
+  added it: the sandbox makes every working directory writable to
+  sandboxed Bash, and the vetted-ops exclusions run that checkout's code
+  outside the sandbox. sandbox-lint counts working directories as
+  writable and fails on one covering the checkout; verify check 16f,
+  doctor probe 9 (✗) and update report it. Reads of the checkout keep
+  prompting under the read block, which the vetted-ops commands need off
+  anyway: they spell `~` literally, which the read block cannot check, so
+  install Step V.1 requires it off where vetted-ops is used (#1640; see
+  [`vetted-command-surface.md`](vetted-command-surface.md)).
   Capability: `substrate:sandbox`.
 - Whole-user git hooks — the install skill's Step P.3 alternative to
   per-project scope: global `core.hooksPath` pointing at
@@ -218,9 +237,15 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
   socket is opened. Defence-in-depth per RFC-AI-0003: even a
   prompt-injection reaching for an arbitrary endpoint is blocked at the
   network layer. Capability: `substrate:sandbox`.
-- `.claude/settings.json` — the `sandbox` block (filesystem
-  allow/deny, network `allowedDomains`, `excludedCommands`) and
-  `permissions` (`deny` / `ask`).
+- `.claude/settings.json` — the committed floor: the `sandbox` block
+  (filesystem allow/deny, the core network `allowedDomains`, the vetted-ops
+  `excludedCommands`) and `permissions` (every `deny` / `ask`, the
+  `vetted-op-read` pair and the adopted families' MCP tools).
+- `tools/agent-isolation/claude-settings.local.template.json` — the rest of
+  the framework checkout's settings (the `gh` read allows, the remaining
+  exclusions, family-specific domains, personal tool paths), reconciled into
+  each contributor's `.claude/settings.local.json`. `sandbox-lint` lints the
+  two merged and keeps every `deny` / `ask` in the floor.
 - `.gemini/settings.json` and `.gemini/policies/magpie.toml` — Magpie's Gemini profile: tool-sandboxing and an explicitly loaded User-tier approval policy.
   Scoped shell reads are allowed; other shell calls, native edits, and MCP calls ask; listed commands and credential paths deny.
   Credential-path denies name the canonical `grep_search`; the native probe verifies its `search_file_content` alias, canonical policy names, and search/multi-file/web/resource argument schemas against the loaded runtime.
@@ -234,8 +259,8 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
 - Skills: `setup-isolated-setup-install`, `-update`, `-verify`,
   `-doctor`. The update skill establishes the agent-guard wiring before
   diffing anything: with the `magpie-agent-guard` plugin enabled, the
-  plugin registers the hook and resolves the engine under
-  `${CLAUDE_PLUGIN_ROOT}`, so an absent `~/.claude/scripts/agent-guard.py`
+  plugin's `hooks/hooks.json` registers the hook and resolves the engine
+  under `${GROK_PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}` (#1516), so an absent `~/.claude/scripts/agent-guard.py`
   is the expected shape rather than drift, and on either wiring a
   `git commit` carrying a `Co-Authored-By:` trailer must be denied as a
   behavioural canary (#1323). The diagnostic side — the failure catalog in
@@ -296,13 +321,29 @@ The reference model is four layers, layered:
      `excludedCommands` and `ask`, and its tests assert the tracker
      dispatcher is excluded and asked but not allowed, and that
      `vetted-op` is never excluded.
-   - the adversarial-review tool, in its single-line installed-plugin
-     form (`uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/*/tools/adversarial-review adversarial-review *`),
+   - the adversarial-review tool, in its single-line form
+     (`uvx --from ~/.claude/magpie/adversarial-review adversarial-review *`),
      because the reviewer CLIs need network and their own credentials
-     (#1371). The plugin cache is `Edit`-denied, and there is
+     (#1371). The path is the fixed link its plugin's `SessionStart` hook
+     maintains, never a `*` where the version sits, which would also match
+     `uv` options spliced in there; sandbox-lint rejects a `*` before the end
+     of any excluded command. The plugin cache and the link are `Edit`-denied, and there is
      deliberately no `allow` rule, so every run keeps its prompt.
      Install Step R wires it; verify check 14 checks the exclusion, the
      deny and the absence of an allow.
+   - `roborev *` (optional, third-party): the
+     [roborev](../../../docs/setup/companion-skills.md#roborev) CLI reads
+     its config, review database and daemon state under `~/.roborev/`.
+     It is not in the reference settings. Install Step B adds it with a
+     catch-all `Bash(roborev *)` ask and no `allow`, since outside the
+     sandbox `review --local` runs an agent, `--repo` reaches any checkout
+     and even `status --server` dials out, and `Edit`-denies
+     `.roborev.toml` and `~/.roborev/**`, which pick the agent, endpoint and
+     hooks the daemon runs. Optional Step B.2 moves the daemon to a fixed
+     unix socket and makes `~/.roborev/` readable (never writable) from the
+     sandbox so the post-commit hook reviews the agent's own commits, at the
+     cost of letting any sandboxed command drive the daemon without the
+     prompt. Verify check 17 covers both.
    - `~/.claude/scripts/magpie-run-evals.sh` (optional), so a suite
      can be graded by `claude -p` from inside the sandbox.
 
@@ -310,7 +351,9 @@ The reference model is four layers, layered:
    sandbox, so the executed code must not be writable by the thing
    being sandboxed. The non-`gh` entries above therefore address code
    outside the repository — the plugin cache, `~/.claude/magpie/` and
-   `~/.claude/scripts/`, none inside any `allowWrite` root — with
+   `~/.claude/scripts/`, none inside any `allowWrite` root or working
+   directory (`permissions.additionalDirectories`, which the sandbox
+   also makes writable) — with
    `permissions.deny` `Edit(…)` rules over the same paths. An in-repo path cannot carry
    that guarantee: without a deny the agent rewrites what runs
    unsandboxed, and a deny only stops the agent's editing tools while
@@ -347,6 +390,14 @@ The reference model is four layers, layered:
    start inside the sandbox; the rest of `~/.docker` stays denied, and
    `Read(~/.docker/**)` still denies it to the file tools (#1404; see
    [`container-gateway.md`](container-gateway.md)).
+
+   `sandbox.network.allowedDomains` stays deliberately narrow: beyond the
+   service hosts the skills call, it carries only the build-time download
+   hosts prek needs — `*.crates.io` and `static.rust-lang.org` for the
+   `lychee` toolchain, and `registry.npmjs.org`, `nodejs.org` and
+   `releases.astral.sh` for the node and python hook environments
+   (#1565). sandbox-lint's `expected.json` carries all five, and the
+   update skill reports any of them missing as drift.
 3. **Tool permissions** — the host's `permissions.deny` blocks denied
    paths/binaries (`Read(~/.ssh/**)`, `Bash(curl *)`, …).
 4. **Forced confirmation** — `permissions.ask` on `git push` and,
@@ -414,6 +465,10 @@ carrying a sandbox-setup security fix can move a day after release
    and not on a plain GET; no blanket `Bash(gh api *)` sits in `ask`.
 5. The adopter install merges `permissions.allow` with `deny` and `ask`,
    and the update skill diffs it.
+6. The dogfooded `allowedDomains` includes `registry.npmjs.org`,
+   `nodejs.org` and `releases.astral.sh`, so a sandboxed `prek run` builds
+   its node and python hook environments; the update skill reports their
+   absence as drift (#1565).
 
 ## Validation
 

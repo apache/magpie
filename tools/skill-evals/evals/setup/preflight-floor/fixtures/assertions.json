@@ -10,5 +10,11 @@
     "field": "reason",
     "pattern": "unknown",
     "flags": "is"
+  },
+  "mention_adopt": {
+    "type": "regex",
+    "field": "reason",
+    "pattern": "adopt",
+    "flags": "is"
   }
 }

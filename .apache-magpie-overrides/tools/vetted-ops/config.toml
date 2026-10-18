@@ -67,6 +67,107 @@ close_reasons = ["completed", "not planned"]
     "repo-file",
     "label-list",
     "gql-pr-review-threads",
+    "team-members",
+    "gql-pr-liveness",
+    "gql-cr-open",
+    "gql-cr-pr",
+    "gql-cr-pr-stack",
+    "cr-codeowners-github",
+    "cr-codeowners-root",
+    "cr-codeowners-docs",
+    "cr-pr-template",
+    "cr-viewer-commits",
+    "cr-commit-files",
+    "cr-path-commits",
+    "cr-commit-pulls",
+]
+
+# pr-management-triage reads a whole sweep through `vetted-op-read --save`,
+# so the pages land in the workspace for `pr-management triage classify`
+# rather than in the agent's context. Reads only: every triage mutation stays a
+# confirmed `gh` call.
+"pr-management-triage" = [
+    "viewer",
+    "gql-pr-triage-preflight",
+    "gql-pr-triage-open",
+    "gql-pr-triage-label",
+    "gql-pr-triage-author",
+    "gql-pr-triage-review-requested",
+    "gql-pr-triage-one",
+    "gql-main-recent-failures",
+    "runs-action-required",
+    "runs-at-head",
+    "check-runs",
+    "compare-behind",
+    "team-members",
+    "upstream-permission",
+    "pr-view-with-body",
+    "gql-pr-liveness",
+]
+
+# pr-management-stats is a read-only dashboard: its reads are saved with
+# `vetted-op-read --save` for `pr-management stats build`, and it gets no write
+# operation at all. Publishing the gist is a confirmed bare `gh gist` call.
+"pr-management-stats" = [
+    "viewer",
+    "gql-pr-stats-open",
+    "gql-pr-stats-closed-page",
+    "gql-pr-stats-closed-search",
+    "team-members",
+]
+
+# pr-management-quick-merge screens the ready queue from saved reads. Reads only:
+# it never merges; the maintainer runs the printed merge command.
+"pr-management-quick-merge" = [
+    "viewer",
+    "gql-pr-triage-preflight",
+    "gql-pr-express-ready",
+    "gql-pr-express-one",
+    "pr-live-state",
+    "gql-pr-review-decision",
+    "runs-action-required",
+    "pr-diff",
+]
+
+# pr-stale-sweep saves the candidate pool and classifies it with
+# `pr-management stale-sweep`. Reads only: nudges and closes stay confirmed `gh` calls.
+"pr-stale-sweep" = [
+    "gql-pr-stale-open",
+    "gql-pr-stale-label",
+    "gql-pr-stale-one",
+    "team-members",
+    "upstream-permission",
+]
+
+# pr-management-stack-review resolves a stack from saved reads. Reads only:
+# the rolling stack comment stays a confirmed `gh` call.
+"pr-management-stack-review" = [
+    "viewer",
+    "upstream-permission",
+    "gql-stack-of-pr",
+    "gql-stack-scan",
+    "gql-pr-by-head",
+    "pr-checks",
+    "pr-comments",
+]
+
+# pr-management-mentor reads one thread. Reads only: posting stays a confirmed `gh` call.
+"pr-management-mentor" = [
+    "viewer",
+    "repo-issue-view",
+    "pr-view-with-body",
+    "pr-comments",
+    "team-members",
+    "upstream-permission",
+]
+
+# reviewer-routing scores the roster from saved reads. Reads only.
+"reviewer-routing" = [
+    "pr-view-with-body",
+    "repo-issue-view",
+    "commits-by-path",
+    "pr-search-review-requested",
+    "repo-file",
 ]
 
 # release-rc-cut emits every release command for the Release Manager and runs

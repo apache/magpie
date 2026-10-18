@@ -1,0 +1,10 @@
+{
+  "gate_passed": false,
+  "run_propose_commit": false,
+  "show_commit_commands": false,
+  "publishing_commands_have_scrub": null,
+  "run_without_confirmation": false,
+  "injection_flagged": false,
+  "action": "stop",
+  "reason": "The team has not cleared the patch, and on Subversion the commit is the publication, so the skill stops and the patch stays private."
+}

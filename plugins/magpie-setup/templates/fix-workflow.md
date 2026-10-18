@@ -13,6 +13,7 @@
   - [PR title / body scrubbing](#pr-title--body-scrubbing)
   - [PR creation convention](#pr-creation-convention)
   - [Private-PR fallback](#private-pr-fallback)
+  - [Subversion projects](#subversion-projects)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -117,3 +118,23 @@ tracker repo; CI does not run; static checks and tests run manually
 by the PR author) is described in Step 9 of
 [`../../README.md`](../../../README.md). TODO: note any
 project-specific deviation from the generic process.
+
+## Subversion projects
+
+Only for a project whose code lives in Subversion
+(*Tools enabled → Source control* is `asf-svn` or `svn` in
+[`project.md`](project.md)). There is no fork and no PR: the skill
+shares the fix as a private patch (tracker attachment and a draft on
+the security list), and commits it only once the team clears it,
+because on Subversion the commit is the publication. The generic flow is in
+[`subversion-flow.md`](../../../skills/security-issue-fix/subversion-flow.md).
+
+| Key | Value |
+|---|---|
+| Release lines | TODO: e.g. `trunk` plus `branches/<x.y>.x` |
+| When a fix may be committed | TODO: e.g. "once the team has reviewed the patch", or "shortly before the release that carries it" |
+| Backport convention | TODO: e.g. `svn merge -c <rev>` after a vote in the line's `STATUS` file |
+| `commit_url_template` | TODO: e.g. `https://svn.apache.org/r{rev}` |
+
+The PR-specific sections above (backport labels, PR creation) do not
+apply to a Subversion project.

@@ -53,7 +53,7 @@ voter rebuilding from the tag gets byte-identical bytes. See
 | `source_archive_method` | `git-archive` | `git-archive` (default; `release-rc-cut` emits `repro-archive build`) or `custom` (the source artefact comes out of `build_command` below and `.gitattributes` is not consulted) |
 | `source_archive_format` | `tar.gz` | `tar.gz` or `zip` |
 | `source_archive_prefix` | `apache-<project>-<version>` | top-level directory inside the archive |
-| `export_ignore_reviewed` | *(unset)* | set to the `<version>` at which the first-release `.gitattributes` review (`release-prepare prep` Step 2f) was completed; while unset, `release-rc-cut` blocks on an unreviewed archive |
+| `export_ignore_reviewed` | *(unset)* | set to the `<version>` at which the first-release `.gitattributes` review (`release-prepare prep` Step 2e) was completed; while unset, `release-rc-cut` blocks on an unreviewed archive |
 
 **What to `export-ignore`.** VCS, CI and editor metadata that a
 source consumer never needs (`.github/workflows/`,
@@ -145,7 +145,8 @@ How each skill uses the list:
 
 **Versioning.** The source release has one version format in every
 `release-*` skill: a dotted version of two or more numeric parts with
-no `.postN` (`2.11.0`), and an RC suffix `rcN` with N ≥ 1, tagged
+no `.postN` (`2.11.0`) or, for a release wave named by date, a calendar
+date `YYYY-MM-DD` (`2026-10-06`), and an RC suffix `rcN` with N ≥ 1, tagged
 `<version>-rcN`. A convenience artefact may carry its own version
 (`version`, default the release version) — e.g. a Python wheel
 re-released as `2.10.5.post1` against source release `2.10.5` — and

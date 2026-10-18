@@ -30,6 +30,7 @@ reviewed code change rather than a runtime decision.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import re
@@ -219,6 +220,21 @@ def cve_id(value: str) -> str:
     return _check(_CVE_ID, value, "CVE id")
 
 
+#: A calendar date, strictly YYYY-MM-DD: it is written into a search string.
+_DATE = re.compile(r"^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$")
+
+#: A GraphQL connection cursor (opaque base64), or `start` for the first page.
+_CURSOR = re.compile(r"^(start|[A-Za-z0-9+/]{1,400}={0,2})$")
+
+
+def date(value: str) -> str:
+    return _check(_DATE, value, "date (YYYY-MM-DD)")
+
+
+def cursor(value: str) -> str:
+    return _check(_CURSOR, value, "connection cursor")
+
+
 def _label_text(value: str, what: str, forbidden: str) -> str:
     """One printable line of 1-80 characters, with no surrounding whitespace."""
     if not value or len(value) > 80:
@@ -233,6 +249,54 @@ def _label_text(value: str, what: str, forbidden: str) -> str:
     if bad:
         raise ParamError(f"{what} may not contain {''.join(bad)!r}: {value!r}")
     return value
+
+
+_TRACKER_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$")
+
+
+def tracker_id(value: str) -> str:
+    """An issue ID on a non-GitHub security tracker: ``SEC-0012``, ``FOOSEC-12``,
+    ``2024-007-xss-in-login``, or a bare number. Letters, digits, ``-`` and ``_``
+    only — no ``.`` or ``/``, so it can never name a path outside the tracker."""
+    return _check(_TRACKER_ID, value, "tracker issue id")
+
+
+_ATTACHMENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$")
+
+
+def attachment_name(value: str) -> str:
+    """A plain attachment file name (``CVE-2026-1234.json``): no path, no ``..``."""
+    if ".." in value:
+        raise ParamError(f"attachment name may not contain '..': {value!r}")
+    return _check(_ATTACHMENT, value, "attachment name")
+
+
+_QUERY_MAX = 200
+
+
+def query(value: str) -> str:
+    """
+    A tracker search query: one line of plain words.
+
+    ``gh search issues`` reads qualifiers such as ``repo:`` or ``org:`` out of
+    the query itself, and one of those would re-aim the search at another
+    repository — the one thing a policy-pinned operation must never do. So a
+    colon is refused outright, as are newlines and the empty query; what is
+    left is free text that can only narrow a search of the pinned tracker.
+    """
+    stripped = value.strip()
+    if not stripped or len(stripped) > _QUERY_MAX:
+        raise ParamError(f"query must be 1-{_QUERY_MAX} characters, got {len(stripped)}")
+    if "\n" in value or "\r" in value:
+        raise ParamError("query must be a single line")
+    if ":" in value:
+        raise ParamError(f"query may not contain ':' (search qualifiers would re-target it): {value!r}")
+    # The dispatcher refuses a raw leading dash, but stripping can expose one
+    # (" --repo=x"); refuse it here too, after the strip, so it can never
+    # become a flag.
+    if stripped.startswith("-"):
+        raise ParamError(f"query may not start with '-': {value!r}")
+    return stripped
 
 
 def action(value: str) -> str:
@@ -251,6 +315,118 @@ def field_name(value: str) -> str:
     as a heading of another level.
     """
     return _label_text(value, "field", "#")
+
+
+def checked_workspace(workspace: Path) -> Path:
+    """
+    The resolved workspace, refused unless it is a directory owned by this user
+    and closed to group and world.
+
+    Body files are read from it and saved reads are written to it, so a
+    directory anyone can write is one anyone can pre-seed: with a body that
+    gets published, or with a "saved" page that a later classification trusts.
+    """
+    root = workspace.expanduser().resolve()
+    try:
+        root_st = os.stat(root)
+    except OSError as exc:
+        raise ParamError(f"workspace {str(root)!r} is unusable: {exc}") from None
+    if not os.path.isdir(root):
+        raise ParamError(f"workspace {str(root)!r} is not a directory")
+    if root_st.st_uid != os.getuid():
+        raise ParamError(
+            f"workspace {str(root)!r} is owned by uid {root_st.st_uid}, not by you "
+            f"(uid {os.getuid()}) — refusing to publish a body from it"
+        )
+    if root_st.st_mode & 0o022:
+        raise ParamError(
+            f"workspace {str(root)!r} is group- or world-writable (mode "
+            f"{root_st.st_mode & 0o777:04o}) — anyone who can write it can choose "
+            f"what gets posted; chmod 700 it"
+        )
+    return root
+
+
+#: Where `--save` writes, under the workspace. One directory, created 0700.
+SAVED_DIR = "saved"
+
+#: A saved-output file name: one path component, no leading dot.
+_SAVE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$")
+
+
+#: The marker that makes a `saved/` directory a `--save` target. See `save_output`.
+SAVE_MARKER = ".vetted-ops-save"
+
+
+def save_output(name: str, data: bytes, *, workspace: Path) -> Path:
+    """
+    Write a read operation's output to ``<workspace>/saved/<name>``.
+
+    A sweep's pages run to hundreds of kilobytes. Printing them puts every
+    byte into the caller's context, so ``--save`` writes them where a
+    deterministic tool can read them and prints one line instead.
+
+    **This runs outside the sandbox, so it must not let the sandbox grow.** The
+    workspace comes from the policy, and ``--config`` can name a policy the
+    agent wrote, so the workspace alone proves nothing about who may write
+    there. Two rules keep ``--save`` from writing anywhere the caller could not
+    already write:
+
+    * The ``saved/`` directory must already exist and hold a regular file
+      named :data:`SAVE_MARKER`. Nothing here creates either. Whoever made
+      them — the user, or a sandboxed agent inside its own writable roots —
+      could already write to that directory, so a write there grants nothing
+      new; a policy aimed at any other directory is refused.
+    * The output goes to an exclusively created temporary file that is then
+      renamed over ``<name>``. A rename replaces the directory entry, so a
+      symlink or a hard link planted under that name is replaced, never
+      written through.
+
+    The name is one path component, and every path is resolved with
+    ``O_NOFOLLOW`` relative to a descriptor for the checked workspace.
+    """
+    _check(_SAVE_NAME, name, "save name")
+    root = checked_workspace(workspace)
+    root_fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        try:
+            dir_fd = os.open(SAVED_DIR, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=root_fd)
+        except OSError as exc:
+            raise ParamError(
+                f"{SAVED_DIR!r} under the workspace {str(root)!r} is unusable ({exc.strerror}); create it, "
+                f"with an empty {SAVE_MARKER} file inside, to allow --save there"
+            ) from None
+    finally:
+        os.close(root_fd)
+    try:
+        st = os.fstat(dir_fd)
+        if st.st_uid != os.getuid() or st.st_mode & 0o022:
+            raise ParamError(f"{SAVED_DIR!r} under the workspace must be yours and closed to group and world")
+        try:
+            marker = os.stat(SAVE_MARKER, dir_fd=dir_fd, follow_symlinks=False)
+        except OSError:
+            raise ParamError(
+                f"{SAVED_DIR!r} under the workspace {str(root)!r} holds no {SAVE_MARKER} file — --save writes "
+                f"only into a directory marked for it"
+            ) from None
+        if not stat_mod.S_ISREG(marker.st_mode) or marker.st_uid != os.getuid():
+            raise ParamError(f"{SAVE_MARKER} must be a regular file you own")
+        temp = f".{name}.{os.getpid()}.tmp"
+        try:
+            fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=dir_fd)
+        except OSError as exc:
+            raise ParamError(f"cannot write saved output {name!r} ({exc.strerror})") from None
+        try:
+            with os.fdopen(fd, "wb", closefd=True) as handle:
+                handle.write(data)
+            os.rename(temp, name, src_dir_fd=dir_fd, dst_dir_fd=dir_fd)
+        except BaseException:
+            with contextlib.suppress(OSError):
+                os.unlink(temp, dir_fd=dir_fd)
+            raise
+    finally:
+        os.close(dir_fd)
+    return root / SAVED_DIR / name
 
 
 def read_body(value: str, *, workspace: Path) -> bytes:
@@ -273,24 +449,7 @@ def read_body(value: str, *, workspace: Path) -> bytes:
     group and world: a directory anyone can write is a directory anyone can
     pre-seed, and these bodies become public comments.
     """
-    root = workspace.expanduser().resolve()
-    try:
-        root_st = os.stat(root)
-    except OSError as exc:
-        raise ParamError(f"workspace {str(root)!r} is unusable: {exc}") from None
-    if not os.path.isdir(root):
-        raise ParamError(f"workspace {str(root)!r} is not a directory")
-    if root_st.st_uid != os.getuid():
-        raise ParamError(
-            f"workspace {str(root)!r} is owned by uid {root_st.st_uid}, not by you "
-            f"(uid {os.getuid()}) — refusing to publish a body from it"
-        )
-    if root_st.st_mode & 0o022:
-        raise ParamError(
-            f"workspace {str(root)!r} is group- or world-writable (mode "
-            f"{root_st.st_mode & 0o777:04o}) — anyone who can write it can choose "
-            f"what gets posted; chmod 700 it"
-        )
+    root = checked_workspace(workspace)
 
     candidate = Path(value).expanduser()
     resolved = Path(os.path.realpath(candidate))
@@ -342,7 +501,9 @@ class Op:
     build: Callable[..., list[str] | dict[str, object] | Plan]
     #: Execution backend. "gh" returns an argv list; "http-read" returns a request
     #: descriptor dict; "procedure" returns a :class:`~vetted_ops.procedures.Plan`
-    #: the dispatcher executes through the restricted tracker-only runner.
+    #: the dispatcher executes through the restricted tracker-only runner;
+    #: "tracker-cli" exists only on a non-GitHub security tracker, where the
+    #: dispatcher translates it (tracker_backends.py) — on GitHub its builder refuses.
     backend: str = "gh"
     #: True when the operation changes state visible outside the machine.
     writes: bool = False
@@ -353,6 +514,9 @@ class Op:
     enums: dict[str, str] = field(default_factory=dict)
     #: Parameters holding a path to body content.
     body_files: tuple[str, ...] = ()
+    #: Admitted on `vetted-op-tracker` although not a `procedure` — a tracker
+    #: write that must run outside the sandbox (the local tracker's push).
+    tracker_entry: bool = False
 
 
 def _tracker(cfg: dict[str, str]) -> str:
@@ -431,6 +595,30 @@ _register(
             _tracker(cfg),
             "--state",
             state,
+            "--limit",
+            "1000",
+            "--json",
+            "number,title,state,labels,milestone,assignees,updatedAt,closedAt",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="issue-list-label",
+        params=("state", "label"),
+        summary="List tracker issues in a given state that carry one configured label.",
+        enums={"state": "issue_states", "label": "labels"},
+        build=lambda cfg, state, label: [
+            "gh",
+            "issue",
+            "list",
+            "--repo",
+            _tracker(cfg),
+            "--state",
+            state,
+            "--label",
+            label,
             "--limit",
             "1000",
             "--json",
@@ -813,6 +1001,131 @@ _register(
             "--reason",
             reason,
         ],
+    )
+)
+
+_register(
+    Op(
+        name="issue-reopen",
+        params=("number",),
+        writes=True,
+        summary="Reopen a tracker issue.",
+        build=lambda cfg, number: ["gh", "issue", "reopen", number, "--repo", _tracker(cfg)],
+    )
+)
+
+_register(
+    Op(
+        name="issue-create",
+        params=("title", "body"),
+        writes=True,
+        summary="Create a tracker issue; title as one validated line, body on stdin.",
+        body_files=("body",),
+        # `gh issue create` has no --title-file, so the title rides in argv as one
+        # validated `-f` value — never a shell word, so its punctuation is inert —
+        # and `-F body=@-` takes the body from stdin. `gh api` also skips the issue
+        # form, so required form fields do not block an import.
+        build=lambda cfg, title, body: [
+            "gh",
+            "api",
+            f"repos/{_tracker(cfg)}/issues",
+            "--method",
+            "POST",
+            "-f",
+            f"title={title}",
+            "-F",
+            "body=@-",
+            "--jq",
+            "{number: .number, url: .html_url}",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="issue-search",
+        params=("query",),
+        summary="Search tracker issues (open and closed) for plain words.",
+        build=lambda cfg, query: [
+            "gh",
+            "search",
+            "issues",
+            "--repo",
+            _tracker(cfg),
+            "--limit",
+            "100",
+            "--json",
+            "number,title,state,labels,updatedAt,url",
+            # End of options: the query is a positional, whatever it looks like.
+            "--",
+            query,
+        ],
+    )
+)
+
+
+def _not_on_github(op: str, reason: str) -> Callable[..., list[str]]:
+    def _build(cfg: dict[str, str], **_params: str) -> list[str]:
+        _tracker(cfg)
+        raise ParamError(f"{op!r} is not applicable on the github tracker: {reason}")
+
+    return _build
+
+
+_register(
+    Op(
+        name="issue-body",
+        params=("number",),
+        backend="tracker-cli",
+        summary="Print a non-GitHub tracker issue's body as markdown sections (for generate-cve-json --stdin).",
+        build=_not_on_github("issue-body", "generate-cve-json reads the GitHub issue itself"),
+    )
+)
+
+_register(
+    Op(
+        name="issue-attach",
+        params=("number", "file", "attachment"),
+        backend="tracker-cli",
+        writes=True,
+        summary="Attach a workspace file to a non-GitHub tracker issue under a plain name.",
+        body_files=("file",),
+        build=_not_on_github("issue-attach", "use generate-cve-json --attach"),
+    )
+)
+
+_register(
+    Op(
+        name="tracker-doctor",
+        params=(),
+        backend="tracker-cli",
+        summary="Check the non-GitHub security tracker's setup (local-files or jira).",
+        build=_not_on_github(
+            "tracker-doctor", "check it with `gh api repos/<tracker> --jq .name` and the collaborator roster"
+        ),
+    )
+)
+
+_register(
+    Op(
+        name="tracker-pending",
+        backend="tracker-cli",
+        params=(),
+        summary="List tracker changes not yet committed (local-files tracker only).",
+        build=_not_on_github("tracker-pending", "its writes are visible as soon as they return"),
+    )
+)
+
+_register(
+    Op(
+        name="tracker-publish",
+        backend="tracker-cli",
+        params=("message",),
+        writes=True,
+        tracker_entry=True,
+        summary="Commit the tracker folder and push (local-files tracker only); message on stdin.",
+        body_files=("message",),
+        build=_not_on_github("tracker-publish", "its writes are visible as soon as they return"),
     )
 )
 
@@ -1759,9 +2072,11 @@ _register(
             # paths drops that flag, so a caller cannot tell a complete listing
             # from a partial one and reads the gap as "those paths do not
             # exist". Fail loudly instead of answering with half a tree.
-            'if .truncated then error("repo-tree: the GitHub API truncated '
-            "this tree; the listing is incomplete. Walk the tree level by "
-            'level instead of relying on recursive=1.") else .tree[].path end',
+            (
+                'if .truncated then error("repo-tree: the GitHub API truncated '
+                "this tree; the listing is incomplete. Walk the tree level by "
+                'level instead of relying on recursive=1.") else .tree[].path end'
+            ),
         ],
     )
 )
@@ -1862,7 +2177,19 @@ _register(
 GRAPHQL_QUERIES: dict[str, tuple[str, ...]] = {
     "pr-liveness": ("number",),
     "pr-review-threads": ("number",),
+    "pr-triage-one": ("number",),
+    "main-recent-failures": (),
+    "pr-triage-preflight": (),
 }
+
+#: Documents whose single top-level connection is paginated with `--paginate --slurp`.
+PAGINATED_QUERIES: frozenset[str] = frozenset({"pr-triage-preflight"})
+
+#: Documents registered by their own builders below rather than through
+#: GRAPHQL_QUERIES, because they take no policy owner/repo variables.
+SEARCH_DOCUMENTS: frozenset[str] = frozenset(
+    {"pr-triage-search", "pr-stats-open", "pr-stats-closed-page", "pr-stats-closed-search"}
+)
 
 
 def _graphql_builder(query: str) -> Callable[..., list[str]]:
@@ -1881,6 +2208,8 @@ def _graphql_builder(query: str) -> Callable[..., list[str]]:
         ]
         for key, value in params.items():
             argv += ["-F", f"{key}={value}"]
+        if query in PAGINATED_QUERIES:
+            argv[3:3] = ["--paginate", "--slurp"]
         return argv
 
     return build
@@ -1895,6 +2224,223 @@ for _query, _params in GRAPHQL_QUERIES.items():
             build=_graphql_builder(_query),
         )
     )
+
+
+# ---- pr-management-triage fetch --------------------------------------------
+#
+# The triage sweep reads every open PR, and the pages are large: they go to a
+# file through `--save`, never into the caller's context. Each selector is its
+# own operation. The search string is assembled here, `repo:` from policy
+# first, so a parameter can narrow the sweep but never re-aim it.
+
+#: Selector -> (operation name, summary, search qualifier or None).
+_TRIAGE_SEARCHES: dict[str, tuple[str, str, str | None]] = {
+    "": ("gql-pr-triage-open", "Every open upstream PR, in triage shape (all pages).", None),
+    "label": (
+        "gql-pr-triage-label",
+        "Open upstream PRs carrying one configured label, in triage shape (all pages).",
+        "label",
+    ),
+    "login": (
+        "gql-pr-triage-author",
+        "Open upstream PRs by one author, in triage shape (all pages).",
+        "author",
+    ),
+}
+
+
+def _triage_search_builder(qualifier: str | None) -> Callable[..., list[str]]:
+    def build(cfg: dict[str, str], **params: str) -> list[str]:
+        search = f"repo:{_upstream(cfg)} is:pr is:open sort:updated-asc"
+        if qualifier is not None:
+            (value,) = params.values()
+            # A label may contain spaces; quote it. The value is a policy
+            # enum or a validated login, so it carries no quote of its own.
+            search += f' {qualifier}:"{value}"' if qualifier == "label" else f" {qualifier}:{value}"
+        return [
+            "gh",
+            "api",
+            "graphql",
+            "--paginate",
+            "--slurp",
+            "-f",
+            f"searchQuery={search}",
+            "-F",
+            f"query=@{query_name('pr-triage-search')}",
+        ]
+
+    return build
+
+
+for _param, (_op_name, _summary, _triage_qualifier) in _TRIAGE_SEARCHES.items():
+    _register(
+        Op(
+            name=_op_name,
+            params=(_param,) if _param else (),
+            summary=_summary,
+            enums={"label": "upstream_labels"} if _param == "label" else {},
+            build=_triage_search_builder(_triage_qualifier),
+        )
+    )
+
+_register(
+    Op(
+        name="gql-pr-triage-review-requested",
+        params=("login",),
+        summary="Open upstream PRs with a review requested from one user, in triage shape (all pages).",
+        build=lambda cfg, login: _triage_search_builder("review-requested")(cfg, login=login),
+    )
+)
+
+_register(
+    Op(
+        name="runs-action-required",
+        params=(),
+        summary="Every upstream workflow run awaiting approval (all pages).",
+        build=lambda cfg: [
+            "gh",
+            "api",
+            f"repos/{_upstream(cfg)}/actions/runs?status=action_required&per_page=100",
+            "--paginate",
+            "--slurp",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="runs-at-head",
+        params=("commit_hash",),
+        summary="Every workflow run on one upstream head commit (all pages): the pre-mutation guards' read.",
+        build=lambda cfg, commit_hash: [
+            "gh",
+            "api",
+            f"repos/{_upstream(cfg)}/actions/runs?head_sha={commit_hash}&per_page=100",
+            "--paginate",
+            "--slurp",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="check-runs",
+        params=("commit_hash",),
+        summary="Every check run on one upstream commit (all pages).",
+        build=lambda cfg, commit_hash: [
+            "gh",
+            "api",
+            f"repos/{_upstream(cfg)}/commits/{commit_hash}/check-runs?per_page=100",
+            "--paginate",
+            "--slurp",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="compare-behind",
+        params=("base", "head"),
+        summary="How many commits one upstream ref is behind another.",
+        build=lambda cfg, base, head: [
+            "gh",
+            "api",
+            f"repos/{_upstream(cfg)}/compare/{base}...{head}",
+            "--jq",
+            "{base: .base_commit.sha, behind_by: .behind_by, ahead_by: .ahead_by}",
+        ],
+    )
+)
+
+_register(
+    Op(
+        name="team-members",
+        params=("team",),
+        summary="The logins in one team of the upstream organisation (all pages).",
+        build=lambda cfg, team: [
+            "gh",
+            "api",
+            f"orgs/{_owner_name(_upstream(cfg))[0]}/teams/{team}/members?per_page=100",
+            "--paginate",
+            "--jq",
+            ".[].login",
+        ],
+    )
+)
+
+# ---- pr-management-stats fetch ----------------------------------------------
+#
+# The dashboard's reads, saved with `--save` like the triage sweep. The open
+# sweep and the `fast-closed` search build `repo:<upstream>` from policy into
+# the search string; the default closed path pages the repository's own
+# pull-request connection one page per call, because only the caller (the
+# `pr-management stats build` loop) knows when a page predates the cutoff.
+
+
+def _stats_search(document: str, search: str) -> list[str]:
+    return [
+        "gh",
+        "api",
+        "graphql",
+        "--paginate",
+        "--slurp",
+        "-f",
+        f"searchQuery={search}",
+        "-F",
+        f"query=@{query_name(document)}",
+    ]
+
+
+_register(
+    Op(
+        name="gql-pr-stats-open",
+        params=(),
+        summary="Every open upstream PR in the pr-management-stats shape (all pages).",
+        build=lambda cfg: _stats_search(
+            "pr-stats-open", f"repo:{_upstream(cfg)} is:pr is:open sort:created-asc"
+        ),
+    )
+)
+
+_register(
+    Op(
+        name="gql-pr-stats-closed-search",
+        params=("date",),
+        summary="Closed/merged upstream PRs since a date, via the search index (all pages; fast-closed).",
+        build=lambda cfg, date: _stats_search(
+            "pr-stats-closed-search",
+            f"repo:{_upstream(cfg)} is:pr -is:open closed:>={date} sort:updated-desc",
+        ),
+    )
+)
+
+
+def _stats_closed_page(cfg: dict[str, str], cursor: str) -> list[str]:
+    owner, name = _owner_name(_upstream(cfg))
+    argv = [
+        "gh",
+        "api",
+        "graphql",
+        "-F",
+        f"owner={owner}",
+        "-F",
+        f"repo={name}",
+        "-F",
+        f"query=@{query_name('pr-stats-closed-page')}",
+    ]
+    if cursor != "start":
+        argv += ["-f", f"cursor={cursor}"]
+    return argv
+
+
+_register(
+    Op(
+        name="gql-pr-stats-closed-page",
+        params=("cursor",),
+        summary="One page of closed/merged upstream PRs, newest update first (`start` for the first).",
+        build=_stats_closed_page,
+    )
+)
 
 # ---- http reads -----------------------------------------------------------
 
@@ -2047,6 +2593,26 @@ _register(
         build=_plan("body-field-get", procedures.body_field_get),
     )
 )
+
+
+# ---- per-skill catalogue extensions ----------------------------------------
+#
+# A skill family's operations may live in their own `ops_<family>.py` module in
+# this package, which registers through `_register` like everything above. The
+# catalogue stays closed: only modules shipped inside the package are loaded,
+# so adding one is the same reviewed change as adding an operation here.
+
+
+def _load_extensions() -> None:
+    import importlib
+    import pkgutil
+
+    for info in pkgutil.iter_modules([str(Path(__file__).parent)]):
+        if info.name.startswith("ops_"):
+            importlib.import_module(f"{__package__}.{info.name}")
+
+
+_load_extensions()
 
 
 def resolve(name: str) -> Op:

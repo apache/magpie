@@ -33,3 +33,22 @@ release-config preflight output
   }
 }
 ```
+
+Planning-issue label check: `promoted` present.
+
+`release-management announce-draft verdict --preflight <scratch>/announce-preflight.json --promoted` output:
+
+```json
+{
+  "verdict": "blocked",
+  "blockers": [
+    "Promote-wait gate: promote commit was at 2026-06-11T09:45:00Z; the one-hour gate clears at 2026-06-11T10:45:00Z (in ~30 minutes). Pass --skip-promote-wait <reason> to override."
+  ],
+  "skip_promote_wait_override": false,
+  "non_asf": false,
+  "promote_clear_after_utc": "2026-06-11T10:45:00Z",
+  "read": [
+    "outcomes/promote-wait.md"
+  ]
+}
+```

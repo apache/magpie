@@ -43,6 +43,7 @@ def test_rc_cut_passes(project, preflight):
     ("argv", "fragment"),
     [
         (("1", "rc1"), "version '1' does not match a dotted version"),
+        (("2026-13-01", "rc1"), "version '2026-13-01' does not match"),
         (("1.1.0", "r1"), "RC suffix 'r1' does not match rc<N>"),
         (("1.1.0", "rc0"), "RC suffix 'rc0' does not match rc<N> with N >= 1"),
         (("1.1.0", "rc01"), "RC suffix 'rc01'"),
@@ -57,6 +58,19 @@ def test_rc_cut_bad_arguments(project, preflight, argv, fragment):
 @pytest.mark.parametrize("version", ["1.1", "1.1.0", "2.11.0.1"])
 def test_rc_cut_dotted_versions_accepted(project, preflight, version):
     assert preflight(project(), "rc-cut", version, "rc12")["ok"]
+
+
+def test_rc_cut_calendar_version_accepted(project, preflight):
+    assert preflight(project(), "rc-cut", "2026-10-06", "rc1")["ok"]
+
+
+def test_rc_cut_impossible_date_blocked(project, preflight):
+    blocked_on(preflight(project(), "rc-cut", "2026-02-30", "rc1"), "not a real calendar date")
+
+
+def test_vote_tally_calendar_rc_id(project, preflight):
+    result = preflight(project(), "vote-tally", "2026-10-06-rc1", "--vote-opened", "2026-10-08 14:47 UTC", "--now", "2026-10-11T15:00:00Z")
+    assert result["ok"], result
 
 
 # The same source version / RC rule in every skill that takes an RC identifier.
@@ -694,7 +708,23 @@ def test_keys_sync_from_user_md(project, preflight):
 
 def test_keys_sync_flags_win(project, preflight):
     result = preflight(project(), "keys-sync", "--fingerprint", "A" * 40, "--keys-url", "https://k", "--keyserver", "hkps://other")
-    assert result["values"] == {"fingerprint": "A" * 40, "fingerprint_source": "--fingerprint", "keys_file_url": "https://k", "keyserver": "hkps://other"}
+    assert result["values"] == {
+        "fingerprint": "A" * 40,
+        "fingerprint_source": "--fingerprint",
+        "keys_file_url": "https://k",
+        "keys_file_branch": None,
+        "keyserver": "hkps://other",
+    }
+
+
+def test_keys_sync_reads_keys_file_branch(project, preflight):
+    result = preflight(project({"keys_file_branch": "release/1.x"}), "keys-sync")
+    assert result["values"]["keys_file_branch"] == "release/1.x"
+
+
+@pytest.mark.parametrize("value", ["<branch>", "TODO", "*(optional)*"])
+def test_keys_sync_unset_keys_file_branch_is_none(project, preflight, value):
+    assert preflight(project({"keys_file_branch": value}), "keys-sync")["values"]["keys_file_branch"] is None
 
 
 def test_keys_sync_config_fingerprint(project, preflight):
@@ -773,3 +803,16 @@ def test_prepare_blockers(project, preflight):
 
 def test_prepare_no_arguments(project, preflight):
     blocked_on(preflight(project(), "prepare"), "no sub-command or version")
+
+
+def test_promote_self_hosted_needs_publish_template(project, preflight):
+    result = preflight(project({"release_dist_backend": "self-hosted"}), "promote", "1.1.0-rc1", "--rm", "johndoe")
+    blocked_on(result, "release_publish_command_template is unset")
+    ok = preflight(
+        project({"release_dist_backend": "self-hosted", "release_publish_command_template": "publish.sh <version>"}),
+        "promote",
+        "1.1.0-rc1",
+        "--rm",
+        "johndoe",
+    )
+    assert not any("release_publish_command_template" in b for b in ok["blockers"]), ok

@@ -1,0 +1,68 @@
+{
+  "_comment": [
+    "Which MCP tools a Magpie family's skills call, so their permission allows can be derived",
+    "instead of granted to everyone. setup adopt/upgrade write the allows for the families in",
+    ".apache-magpie.lock into the committed .claude/settings.json (a derived key, like",
+    "enabledPlugins); reconciliation adds the allows for families installed only on one machine",
+    "to .claude/settings.local.json. List read-only or draft-only tools only: a tool that sends,",
+    "posts or deletes stays behind the harness prompt and never belongs here.",
+    "The claude_ai_Gmail entries are reads; drafting goes through gmail-plaintext, which writes",
+    "plain text with no tracking links."
+  ],
+  "servers": {
+    "apache-projects": {
+      "families": [
+        "contributor-growth"
+      ],
+      "tools": [
+        "project_stats",
+        "get_committee",
+        "get_group_members",
+        "get_person",
+        "search_people",
+        "get_releases",
+        "get_repositories",
+        "list_committees",
+        "search_projects"
+      ]
+    },
+    "claude_ai_Gmail": {
+      "families": [
+        "security"
+      ],
+      "tools": [
+        "get_thread",
+        "search_threads",
+        "get_message",
+        "list_drafts",
+        "get_draft"
+      ]
+    },
+    "gmail-plaintext": {
+      "families": [
+        "release-management",
+        "security"
+      ],
+      "tools": [
+        "create_draft",
+        "check_auth"
+      ]
+    },
+    "ponymail": {
+      "families": [
+        "contributor-growth",
+        "release-management",
+        "security"
+      ],
+      "tools": [
+        "search_list",
+        "auth_status",
+        "get_thread",
+        "get_email",
+        "list_restrictions",
+        "get_source",
+        "list_lists"
+      ]
+    }
+  }
+}

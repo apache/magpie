@@ -18,7 +18,9 @@
 
 The source release candidate every release-* skill takes (`<version>` plus
 `rcN`, tagged `<version>-rcN`) has one format everywhere: a dotted version of
-two or more numeric parts with no `.postN`, and `rcN` with N >= 1.
+two or more numeric parts with no `.postN`, or a calendar date `YYYY-MM-DD`
+for projects that name a release wave by date (Airflow's providers waves),
+and `rcN` with N >= 1.
 
 Convenience (non-source) artefacts may carry their own version (the optional
 `version` field of each `release-build.md § Convenience artefacts` entry,
@@ -33,15 +35,31 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import date
 from typing import Any
 
 RC = re.compile(r"^rc[1-9]\d*$")
-SOURCE_VERSION = re.compile(r"^\d+(?:\.\d+)+$")
-SOURCE_RC_ID = re.compile(r"^(?P<version>\d+(?:\.\d+)+)-(?P<rc>rc[1-9]\d*)$")
+_DOTTED = r"\d+(?:\.\d+)+"
+# A calendar date; the month and day ranges are checked here, the full date by `is_source_version`.
+_CALVER = r"\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])"
+SOURCE_VERSION = re.compile(rf"^(?:{_DOTTED}|{_CALVER})$")
+SOURCE_RC_ID = re.compile(rf"^(?P<version>{_DOTTED}|{_CALVER})-(?P<rc>rc[1-9]\d*)$")
 
-SOURCE_VERSION_SHAPE = "a dotted version of two or more numeric parts, no `.postN` (e.g. 2.11.0)"
+SOURCE_VERSION_SHAPE = "a dotted version of two or more numeric parts, no `.postN` (e.g. 2.11.0), or a calendar date YYYY-MM-DD (e.g. 2026-10-06)"
 RC_SHAPE = "rc<N> with N >= 1 (e.g. rc1)"
-SOURCE_RC_ID_SHAPE = "<version>-rc<N>: a dotted version of two or more numeric parts, no `.postN`, then `-rc` and N >= 1 (e.g. 2.11.0-rc1)"
+SOURCE_RC_ID_SHAPE = "<version>-rc<N>: a dotted version of two or more numeric parts, no `.postN`, or a calendar date YYYY-MM-DD, then `-rc` and N >= 1 (e.g. 2.11.0-rc1 or 2026-10-06-rc1)"
+
+
+def is_source_version(version: str) -> bool:
+    """Whether `version` has the source-release shape; a date must also be a real calendar day."""
+    if not SOURCE_VERSION.match(version):
+        return False
+    if "-" in version:
+        try:
+            date.fromisoformat(version)
+        except ValueError:
+            return False
+    return True
 
 
 @dataclass(frozen=True)

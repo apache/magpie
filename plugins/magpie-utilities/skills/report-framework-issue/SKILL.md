@@ -5,31 +5,25 @@ name: report-framework-issue
 family: utilities
 mode: Meta
 description: |
-  Help an adopter or framework developer file a clean, redacted
-  GitHub issue against the Apache Magpie framework repo when a
-  skill, tool, or doc misbehaves. It gathers the problem from the
-  user — never from the raw session transcript — then runs a
-  mandatory public-disclosure scrub before rendering the report
-  into the framework's `bug_report` / `change_proposal` issue
-  template, checking for duplicates, and filing via
-  `gh issue create --web` only on explicit confirmation. The scrub
-  is the point: the destination is a public repo, so the skill
-  strips any private tracker, embargoed-CVE, private-list, or
-  cross-project content the report would otherwise leak.
+  File a clean, redacted GitHub issue against the Apache Magpie
+  framework repo when a skill, tool, or doc misbehaves. Gathers the
+  problem from the user — never the raw session transcript — runs a
+  mandatory public-disclosure scrub, renders the report into the
+  framework's issue template, and files via `gh issue create --web`
+  only on explicit confirmation.
 when_to_use: |
-  Invoke when the user says "report this to the framework", "file
-  a magpie bug", "the setup skill is broken — open an issue on
-  magpie", "this magpie tool crashed and I want to report it", or
-  "propose a change to the framework" — any variation on turning a
-  problem they hit *while using Magpie itself* into an issue on the
-  framework repo (`apache/magpie`). Skip when the problem is in the
-  adopter's own project: issues on their `<tracker>` or
-  `<upstream>` have their own skills, not this one.
+  Invoke when the user says "report this to the framework", "file a
+  magpie bug", "the setup skill is broken — open an issue on magpie",
+  or "propose a change to the framework" — turning a problem hit *while
+  using Magpie itself* into an issue on the framework repo
+  (`apache/magpie`). Skip when the problem is in the adopter's own
+  project: issues on their `<tracker>` or `<upstream>` have their own
+  skills, not this one.
 argument-hint: "[what broke, or a problem description]"
 capability: capability:platform
 surface_hash: sha256:f14640fa1249c172
 license: Apache-2.0
-measured_tokens: 4697
+measured_tokens: 4646
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -63,7 +57,7 @@ PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir)/../.apache-ma
   python3 -m setup_preflight --skill <name> --hash <surface_hash> [--requires <file>]...
 ```
 
-The path finds the checker `/magpie-setup config` installed in the
+The path finds the checker `/magpie-setup:setup config` installed in the
 personal layer: this checkout's `.apache-magpie-local/`, the main
 checkout's when this is a linked worktree, or the git directory's
 `apache-magpie/` when Magpie is only installed.
@@ -84,18 +78,20 @@ checkout's when this is a linked worktree, or the git directory's
   yourself (first match wins: `.apache-magpie-local/<file>`, the main
   checkout's `.apache-magpie-local/<file>`, `<git-common-dir>/apache-magpie/<file>`,
   then `.apache-magpie-overrides/<file>`), stay silent if they all resolve, and
-  run `/magpie-setup config` for this skill if any does not, which also
+  run `/magpie-setup:setup config` for this skill if any does not, which also
   installs the checker. Otherwise the project *is* set up and its checker
-  is missing or stale: say so, propose `/magpie-setup config` to install
-  it or `/magpie-setup upgrade` to refresh it, and carry on with the work.
+  is missing or stale: say so, propose `/magpie-setup:setup config` to install
+  it or `/magpie-setup:setup upgrade` to refresh it, and carry on with the work.
 
-**Never run `/magpie-setup adopt` unattended** — not from a finding, not
+**Never run `/magpie-setup:setup adopt` unattended** — not from a finding, not
 later in the run, whatever else this skill is doing. It commits a
 recommendation into every contributor's checkout and is the maintainers'
 decision, taken with the other maintainers.
 
 Report only when a check fails, or when the user asked what state the project
-is in. `/magpie-setup verify` is the full diagnostic.
+is in. `/magpie-setup:setup verify` is the full diagnostic.
+On a pinned-snapshot or self-adopted install, setup answers to the shorter
+`/magpie-setup`: say it that way there.
 
 <!-- END MAGPIE PREFLIGHT -->
 

@@ -46,7 +46,7 @@ One comment per tracker, identified by an opening HTML marker on the
 first line:
 
 ```markdown
-<!-- <tracker-name> status rollup v1 — all bot-authored status updates fold into this single comment. -->
+<!-- apache-magpie: status-rollup v1 -->
 <details><summary>YYYY-MM-DD · @user · <Action></summary>
 
 <entry body>
@@ -65,11 +65,15 @@ first line:
 Rules (all load-bearing — breaking any of them breaks GitHub's
 Markdown rendering):
 
-- **First line is the marker.** `<!-- <tracker-name> status rollup v1 — … -->`
-  identifies the comment as the rollup, where `<tracker-name>` is the
-  tracker repository's name (the part of `<tracker>` after the `/`).
-  Detection matches `<!-- <any-name> status rollup v<N>` so a rollup
-  is found whatever wrote it, and future `v2` bumps remain findable.
+- **First line is the marker.** `<!-- apache-magpie: status-rollup v1 -->`
+  identifies the comment as the rollup — the framework-wide
+  `<!-- apache-magpie: <kind> v<N> -->` skill-comment marker with
+  `status-rollup` as the kind. Detection matches any `v<N>` so future
+  `v2` bumps remain findable. The **legacy** marker earlier tool
+  versions wrote, `<!-- <tracker-name> status rollup v1 — … -->`, is
+  still recognised so older trackers keep working; when a tracker
+  carries both, the canonical one is the rollup. New rollups always
+  get the canonical marker.
 - **Every entry is its own `<details>` block.** Including the very
   first one (the import receipt). There is no always-visible
   preamble above the first `<details>`. The reason: every entry —
@@ -218,7 +222,8 @@ original.
 A comment is a candidate for folding when **all** of the following hold:
 
 1. **Not already a rollup.** Its body does not start with a rollup
-   marker (`<!-- <tracker-name> status rollup v`).
+   marker (`<!-- apache-magpie: status-rollup v`, or the legacy
+   `<!-- <tracker-name> status rollup v`).
 2. **Author is on the security-team roster.** Cross-check
    `.comments[].author.login` against the collaborator list (see
    [`operations.md`](operations.md#collaborator-lookup-security-team-roster))
@@ -327,7 +332,7 @@ audit the change.
   subsequent line of the entry. Compose entries with all lines
   flush-left.
 - **Never create two rollups on the same tracker.** If Step 1 of the
-  upsert finds more than one `status rollup v` marker,
+  upsert finds more than one rollup marker (canonical or legacy),
   stop and ask the user which to keep — the cheapest recovery is a
   manual merge, not a silent overwrite.
 - **Never name or describe other ASF projects' vulnerabilities** in a

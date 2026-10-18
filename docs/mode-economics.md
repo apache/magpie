@@ -105,9 +105,16 @@ The rules are 2,057 tokens across eight sections, held once in the tool. A
 run that needs one pays for one — typically 120 to 580 tokens — and the
 ordinary `{"verdict": "ok"}` pays for none.
 
+The first-run welcome guides ride the same verdict:
+a `welcome` finding carrying one guide and the `welcome` rules, roughly 1,300 tokens.
+At most one guide per run, each paid on at most three runs per user (fewer once dismissed) —
+the general guide on any skill, a family's on that family's skills —
+and again only on the first run after an upgrade lifts a dismissal.
+`--no-welcome` leaves it out.
+
 What is left in the block is the part a model is for: run the command,
 stay silent on `ok`, follow the rules a finding carries, and never run
-`/magpie-setup adopt` unattended. What is left in neither is the
+`/magpie-setup:setup adopt` unattended. What is left in neither is the
 arithmetic, which is now tested rather than graded.
 
 Each skill's count lives in its own `SKILL.md`, as a generated
@@ -230,7 +237,7 @@ to input.
 
 | Skill | Typical invocation | Planning estimate | Primary cost driver | Replay p50 tokens |
 |---|---|---|---|---|
-| `pr-management-triage` | Single PR triage pass | 5K–30K | PR diff size and comment count | Not measured |
+| `pr-management-triage` | Single PR triage pass | 10K–20K | Number of classifications and actions present (each loads its own file); the sweep data itself stays in files `tools/pr-management` reads | Not measured |
 | `pr-management-stats` | Weekly queue report | 10K–50K | Number of open PRs read | Not measured |
 | `pr-management-code-review` | Single PR deep review | 15K–80K | Diff size; code-heavy PRs are expensive | Not measured |
 | `pr-management-stack-review` | One stack (5–10 layers) | 30K–150K | Lines read in full (Tier A/B); structure is script-side and nearly free, mechanical and generated layers cost one exemplar each | Not measured |

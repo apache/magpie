@@ -23,13 +23,15 @@ Every command is the same thin wrapper: it has the agent run the one-line tool
 invocation and present the report. The reviewer list is never written into a
 command; the tool reads the configured one, and skips the harness's own model.
 
-The invocation is always spelled
-`uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/<version>/tools/adversarial-review …`,
-unquoted and with a literal `~`: that is the exact form the sandbox exclusion
-names, and a quoted or expanded path would silently stay sandboxed, where the
-reviewer CLIs cannot read their credentials. No command bakes a version in —
-Claude Code's reads it from `${CLAUDE_PLUGIN_ROOT}`, the others resolve the
-newest installed one at run time — so a plugin upgrade leaves every command valid.
+Claude Code's invocation is always spelled
+`uvx --from ~/.claude/magpie/adversarial-review …`, unquoted and with a literal
+`~`: that is the exact form the sandbox exclusion names, and a quoted or
+expanded path would silently stay sandboxed, where the reviewer CLIs cannot read
+their credentials. The path is a link the plugin's SessionStart hook points at
+the installed version, so the exclusion needs no wildcard where the version
+sits; a `*` there would also match options spliced in at that position. The
+other harnesses resolve the newest installed version at run time. No command
+bakes a version in, so a plugin upgrade leaves every command valid.
 """
 
 from __future__ import annotations
@@ -38,6 +40,7 @@ import json
 
 HARNESSES = ("claude", "codex", "gemini", "copilot")
 PLUGIN_DIR = "~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review"
+STABLE_PATH = "~/.claude/magpie/adversarial-review"
 DESCRIPTION = "Adversarial review of this change by other models (Apache Magpie)"
 _FRONTMATTER = (
     "---\n"
@@ -52,7 +55,7 @@ _STEPS = """\
 Run an adversarial review of a change by other models, with Apache Magpie's adversarial-review tool.
 
 1. Work out the target: `{args}` if it is not empty (`branch`, `pr:<number>` or `diff:<path>`), otherwise `branch`.
-2. Run exactly this command, as one line with nothing chained to it, replacing <version> and <target>:
+2. Run exactly this command, as one line with nothing chained to it, replacing {placeholders}:
 
    {invocation} --target <target>
 
@@ -66,8 +69,8 @@ Run an adversarial review of a change by other models, with Apache Magpie's adve
 """
 
 _CLAUDE_VERSION = (
-    "`<version>` is the last path component of `${{CLAUDE_PLUGIN_ROOT}}`. Type the path exactly\n"
-    "   as shown, unquoted and with a literal `~`: that is the form the sandbox exclusion matches."
+    "Type the path exactly as shown, unquoted and with a literal `~`: that is the form\n"
+    "   the sandbox exclusion matches."
 )
 _OTHER_VERSION = (
     "`<version>` is the newest directory under `{plugin_dir}/`. The tool needs network\n"
@@ -80,6 +83,10 @@ def _invocation(plugin_dir: str) -> str:
     return f"uvx --from {plugin_dir}/<version>/tools/adversarial-review adversarial-review run"
 
 
+def _stable_invocation() -> str:
+    return f"uvx --from {STABLE_PATH} adversarial-review run"
+
+
 def render(harness: str, plugin_dir: str = PLUGIN_DIR) -> tuple[str, str]:
     """(path, content). The path is plugin-relative for Claude Code (the plugin ships it)
     and under the user's home for the others — never inside a repository.
@@ -87,14 +94,27 @@ def render(harness: str, plugin_dir: str = PLUGIN_DIR) -> tuple[str, str]:
     other = _OTHER_VERSION.format(plugin_dir=plugin_dir)
     if harness == "claude":
         body = _STEPS.format(
-            args="$ARGUMENTS", invocation=_invocation(PLUGIN_DIR), version_rule=_CLAUDE_VERSION.format()
+            args="$ARGUMENTS",
+            placeholders="<target>",
+            invocation=_stable_invocation(),
+            version_rule=_CLAUDE_VERSION.format(),
         )
         return "commands/adversarial-review.md", _FRONTMATTER + body
     if harness == "codex":
-        body = _STEPS.format(args="$ARGUMENTS", invocation=_invocation(plugin_dir), version_rule=other)
+        body = _STEPS.format(
+            args="$ARGUMENTS",
+            placeholders="<version> and <target>",
+            invocation=_invocation(plugin_dir),
+            version_rule=other,
+        )
         return "~/.codex/prompts/magpie-adversarial-review.md", _FRONTMATTER + body
     if harness == "gemini":
-        body = _STEPS.format(args="{{args}}", invocation=_invocation(plugin_dir), version_rule=other)
+        body = _STEPS.format(
+            args="{{args}}",
+            placeholders="<version> and <target>",
+            invocation=_invocation(plugin_dir),
+            version_rule=other,
+        )
         return (
             "~/.gemini/commands/magpie-adversarial-review.toml",
             f"description = {json.dumps(DESCRIPTION)}\nprompt = '''\n{body}'''\n",

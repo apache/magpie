@@ -1,0 +1,1 @@
+{"next": "post-comment", "command": "gh pr comment 102 --repo apache/foo --body-file /scratch/pr-102-draft.md"}

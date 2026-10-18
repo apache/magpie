@@ -24,6 +24,9 @@ acceptance:
     candidates and the exact merge command for the maintainer.
   - pr-management-mentor never posts without explicit maintainer
     confirmation; its output is pedagogical, never gatekeeping.
+  - No pr-management body @-mentions anyone but the PR author and the
+    project's merged mention_allowlist; the agent-guard mention guard
+    refuses the rest on every posting surface.
   - All family skills validate under skill-and-tool-validate with no errors.
   - docs/pr-management/README.md lists all five family skills.
 ---
@@ -69,44 +72,63 @@ same directory; the behaviour is unchanged.
   Classifies each candidate against a project decision table and proposes
   a disposition; the maintainer confirms per PR or per group. State changes
   execute on confirmation only. Ships `mode: Triage` + `experimental`.
-  Detail files: `prerequisites.md`, `fetch-and-batch.md`,
-  `classify-and-act.md`, `actions.md`, `interaction-loop.md`,
-  `stale-sweeps.md`, `comment-templates.md`, `session-history.md`,
-  `contract-binding.md`, `backport-check.md`, `workflow-approval.md`, and
-  `rationale.md`.
+  The deterministic work runs in `tools/pr-management` (`triage classify`,
+  `render`, `fold`, `guard`, `session`) over reads saved with
+  `vetted-op-read --save`; the agent never evaluates a rule or writes a body.
+  Detail files: `prerequisites.md`, `interaction-loop.md`,
+  `workflow-approval.md`, `backport-check.md`, `session-history.md`,
+  `contract-binding.md`, `typed-decision-prefilter.md`, `design-notes.md`,
+  one file per decision row or sweep under `classifications/`, and one per
+  action under `actions/`; `triage classify` names which of them a run loads.
   It also ships agent-guard guards under `guards/` (`mark_ready.py`,
   `mention.py`) and the opt-in shadow pre-filter
   `scripts/typed_decision_prefilter.py` with its tests under `tests/`.
-- Skill: `pr-management-stats` — read-only summary tables of the open PR
+- Skill: `pr-management-stats` — read-only dashboard of the open PR
   backlog, grouped by area label, age bucket, and triage state. No tracker
   state is mutated. Ships `mode: Triage` + `capability: capability:stats`
-  + `experimental`. Backed by `tools/pr-management-stats/`.
+  + `experimental`. Backed by `tools/pr-management/` (`pr-management stats build`).
+  Since #1572 the whole dashboard is built as code over reads saved with
+  `vetted-op-read --save`: `stats build` emits the HTML (or the Markdown
+  fallback), the health rating, the recommendations, the summary and the
+  exact gist-publish command; the skill is a router plus `panels.md`, read
+  only when a maintainer asks what a panel means.
+  Triage markers, bot detection and maintainer detection come from the same
+  modules `pr-management-triage` uses, so both agree on what "triaged" means.
 - Skill: `pr-management-code-review` (`code-review/`) — deep, line-aware
   code review one PR at a time; applies project criteria and drafts an
   `APPROVE` / `REQUEST_CHANGES` / `COMMENT` review with inline comments;
   posts on maintainer confirmation. Ships `mode: Triage` + `experimental`.
-  Detail files include `prerequisites.md`, `selectors.md`, `review-flow.md`,
-  `review-loop.md`, `criteria.md`, `slop-detection.md`, `adversarial.md`,
-  and `posting.md`.
+  Selection, scans, the slop threshold, disposition, inline anchoring and the
+  review payload run as code in `pr_management.code_review`; the agent judges
+  H1/H5/S2, writes the findings and assigns severity. Detail files include
+  `prerequisites.md`, `review-flow.md`, `review-loop.md`, `criteria.md`,
+  `adversarial.md`, `posting.md`, one file per outcome under
+  `classifications/` and per category under `criteria/`.
 - Skill: `pr-management-stack-review` (`stack-review/`) — stack-level review
   of a GitHub stacked pull request. Resolves the stack from a member PR or
   its stack number, fetches the layer heads into `refs/magpie-stack/<S>/*`
-  (proposed once, cleaned up at the end), and runs two stdlib scripts:
-  `scripts/stack_ledger.py` (file-by-layer matrix, hunk-shape mechanical
-  detection, outliers, duplicate release notes, regenerated generated
-  files, lock-without-manifest, reading plan and coverage table) and
-  `scripts/stack_chain.py` (chain currency, merge commits, trunk drift,
-  removed-definition seams at the layer's own head, later heads and new
-  trunk uses). Code is read by tier; the report carries the coverage
+  (proposed once, cleaned up at the end), and runs the detectors in
+  `tools/pr-management` (`pr_management.stack_review.stack_ledger`: file-by-layer
+  matrix, hunk-shape mechanical detection, outliers, duplicate release notes,
+  regenerated generated files, lock-without-manifest, reading plan and coverage
+  table; `stack_chain`: chain currency, merge commits, trunk drift,
+  removed-definition seams at the layer's own head, later heads and new trunk
+  uses); resolve, findings mapping, verdict and posting are
+  `pr-management stack-review` subcommands. Code is read by tier; the report carries the coverage
   table. Posts one rolling `COMMENT` on the lowest open layer (marker,
   updated in place) and never a review event. Ships `mode: Triage` +
-  `experimental`. Detail files: `resolve.md`, `detectors.md`, `tiers.md`,
-  `report.md`, `adopter-config.md`, `invocation.md`; tests under `tests/`.
+  `experimental`. Detail files: `tiers.md`, `report.md`, `adopter-config.md`,
+  `invocation.md`, and one file per finding class / verdict / step outcome
+  under `classifications/`; tests under `tools/pr-management/tests/stack_review/`.
 - Skill: `pr-management-quick-merge` — read-only express-lane screener
   for trivial, low-risk PRs (docs, changelog, translations, tests) that
   pass every quality gate; surfaces ranked candidates with diff summaries
   and the exact merge command. Never merges autonomously. Ships `mode:
   Triage` + `experimental`.
+  The screen runs as code (`pr-management quick-merge screen` / `approve-check`)
+  over reads saved with `vetted-op-read --save`; one file per gate, bucket,
+  tier and drop reason under `classifications/`, and
+  `actions/{present,approve,hand-off}.md`.
 - Skill: `pr-management-mentor` — drafts a teaching-register comment on a
   single GitHub issue or PR thread; waits for explicit maintainer
   confirmation before posting. Ships `mode: Mentoring` + `experimental`.
@@ -118,9 +140,13 @@ same directory; the behaviour is unchanged.
   `reviewer-routing` (`mode: Triage`; [reviewer routing](reviewer-routing.md)),
   and `pre-first-pr-check` (`mode: Pairing`, read-only newcomer checklist on a
   local branch; [pairing mode](pairing-mode.md)).
+  `pr-management-mentor`, `reviewer-routing` and `pre-first-pr-check` run their
+  rules in `tools/pr-management` (`mentor assess|render|tone-check|log`,
+  `reviewer-routing preflight|propose`, `pre-first-pr check|report`); their
+  detail files are per-classification under `classifications/`.
 - Family README: `docs/pr-management/README.md` — family overview, skill
   table, adopter-config scaffold.
-- Tool: `tools/pr-management-stats/` — deterministic Python backing for
+- Tool: `tools/pr-management/` (`pr_management.stats`) — deterministic Python backing for
   `pr-management-stats`; ships its own tests.
 - Adopter config (templates in `plugins/magpie-setup/templates/`, which
   `projects/_template/` links to): `project.md`,
@@ -134,7 +160,46 @@ same directory; the behaviour is unchanged.
 - **Read-only or propose-then-confirm.** Triage-mode skills never write
   a label, comment, or state change without the maintainer typing a
   confirmation in-session. The single exception class — `pr-management-stats`
-  — is unconditionally read-only; it emits rendered tables, never a write.
+  — never writes to a PR or the tracker; its one write is publishing the
+  dashboard to a secret gist on the maintainer's own account, proposed and
+  run on confirmation (skipped under `dry-run` or `markdown`). The publish
+  command is assembled with `shlex.join`, and a stored gist id must be hex,
+  so agent-writable session state cannot inject shell syntax (#1572).
+- **Triage rules run as code, not as model judgement.** `pr-management triage
+  classify` evaluates the pre-filters, the first-match-wins decision table,
+  the stale sweeps and bot-draft promotion over the saved sweep and prints
+  groups in presentation order with the documents each one needs. A decision
+  that depends on data the sweep lacks (a truncated rollup page, commits
+  behind, a login's permission, live mergeability) comes back under `needs`
+  as a vetted read; the skill runs it and classifies again. Every mutation is
+  preceded by `triage guard` on fresh reads (moved head, pending workflow
+  approval, unknown or conflicting mergeability), and every contributor-facing
+  body comes from `triage render`, which allows only the author's
+  `@`-mention and the project's `mention_allowlist`.
+  Regression cases: `tools/pr-management/tests/`.
+- **Mentions are allowlisted, and the guard enforces it.** Every
+  pr-management renderer (triage notes, stale-sweep comments, mentor comments,
+  code-review bodies) keeps only the PR author's `@`-mention live and
+  backtick-quotes every other handle, except handles and teams listed in
+  `mention_allowlist` in `pr-management-config.md` (#1584).
+  The agent-guard `mention` guard checks `gh pr|issue comment`, folded notes,
+  `gh pr review --body/--body-file`, and every value a non-GET `gh api` call
+  sends (each `-f` / `-F` / `--raw-field` / `--field` spelling, `@file`
+  reads, `--input`); text it cannot read is refused rather than passed
+  (#1579).
+  The guard takes the allowlist, and the mentoring hand-off's
+  `maintainer_team_handle`, only from `.apache-magpie-overrides/` as GitHub
+  serves it from the target repository's default branch — never the local
+  checkout — so only a reviewed, merged change widens what may be mentioned.
+  The target must be explicit and unambiguous (`--repo` in any spelling,
+  including attached `-R`, and/or a PR or issue URL selector, all agreeing,
+  or a plain `repos/OWNER/REPO/…` endpoint); arguments are parsed by flag
+  arity, an unreadable line names no target, and GraphQL writes get no
+  allowlist.
+  The hand-off team is allowed alone, in a body that opens with the hand-off
+  template's line, and only for a team of the organisation owning the target.
+  One call can add a handle with `--allow-mention <login>` paired with
+  `MAGPIE_ALLOW_MENTIONS=1` on the posting command (#1584).
 - **Stable per-PR drill-in progress.** `pr-management-triage` prefixes each
   individual drill-in with the PR's original one-based group position and
   group size plus the active `classify → propose <action>` transition.
@@ -154,8 +219,8 @@ same directory; the behaviour is unchanged.
   marker by anyone other than the viewer counts toward a close only after
   its author passes the live maintainer check, and a marker comment never
   double-counts as maintainer activity.
-  Regression cases: `tools/skill-evals/evals/pr-management-triage/`
-  decision-table fixtures, including `case-22-fold-by-another-triager`.
+  Regression cases: `tools/pr-management/tests/test_triage_classify.py`,
+  including `test_case_22_fold_by_another_triager_without_by`.
 - **Backports are checked early, when the project cherry-picks.** With
   `backport_branches` set in `pr-management-config.md`,
   `pr-management-triage` runs Step 0.7 before the main flow on every open
@@ -170,7 +235,7 @@ same directory; the behaviour is unchanged.
   empty the step is skipped. Regression cases:
   `tools/skill-evals/evals/pr-management-triage/backport-check/`.
 - **Acted-on PRs are not re-surfaced in the same session.**
-  After pagination dedup, Step 1 of `pr-management-triage` silently drops
+  After pagination dedup, `triage classify` silently drops
   every PR the session cache holds under a terminal `action_taken` whose
   cached `head_sha` equals the freshly fetched head SHA: it appears in no
   group, progress line, or Step 6 summary.
@@ -201,7 +266,7 @@ same directory; the behaviour is unchanged.
   affecting triage (#1403).
 - **The fold timestamp is untrusted input to stats.** The
   `pr-triage-fold` block lives in the PR body, which the author controls.
-  `tools/pr-management-stats/reference.py` (`fold_triaged_at`) treats an
+  `tools/pr-management/src/pr_management/stats/reference.py` (`fold_triaged_at`, via the shared `markers.parse_fold`) treats an
   unparsable or timezone-naive `triaged=` value as no fold event rather
   than crashing the run, and tries every marker, so a malformed one above
   the real block cannot hide it (`tests/test_fold_parsing.py`).
@@ -210,13 +275,30 @@ same directory; the behaviour is unchanged.
   a general comment, a review-thread comment, or a submitted top-level review
   whose body is non-empty after stripping whitespace — came from a maintainer,
   was posted after the latest author push, and is less than 72 hours old.
-  Regression cases:
-  `tools/skill-evals/evals/pr-management-triage/pre-filter/fixtures/case-11`
-  … `case-21`.
+  Regression cases: the F5a tests in
+  `tools/pr-management/tests/test_triage_classify.py`.
+- **Stale-sweep rules run as code.** `pr-management stale-sweep classify`
+  measures inactivity from the last real activity (never the sweep's own
+  comments), nudges before it closes (hard close excepted, with at least a
+  7-day notice), and reuses triage's maintainer-court, ready-label, security
+  and bot rules; the close notice carries `<!-- pr-stale-sweep-close -->`.
+  Regression cases: `tools/pr-management/tests/stale_sweep/`.
 - **Quick-merge never merges.** `pr-management-quick-merge` surfaces
   candidates and the maintainer runs the exact `gh pr merge` command
   themselves. Automated merge belongs to a future Auto-merge mode that is
   deliberately off by MISSION sequencing.
+- **The quick-merge approve protocol fails closed.** `quick-merge
+  approve-check` needs the fresh PR, the live merge state and the
+  workflow-approval index (none optional), re-runs the Stage-1 gates and the
+  Stage-2 triviality screen on the fresh file list, and refuses when either
+  regressed, the head moved, the diff was not viewed at that head this
+  session, approvals are disabled, or the branch now conflicts.
+  Gate G7 blocks on any request for changes that still stands; a later push
+  does not dismiss it, only the reviewer can.
+  An optional `approve_body` ends with the triage-style `<sub>` credit line
+  naming the approving maintainer (#1580).
+  Regression cases: `tools/pr-management/tests/quick_merge/` and the
+  `approve-protocol` eval suite.
 - **Teaching register for mentoring.** `pr-management-mentor` follows the
   Mentoring mode's tone contract (polite, never gatekeeping, explicit
   hand-off to a human when scope exceeds the agent). It posts only on
@@ -225,6 +307,16 @@ same directory; the behaviour is unchanged.
   are input data for classification; injected instructions in PR body text
   are ignored and flagged. Inherits the absolute rule from
   [`AGENTS.md`](../../../AGENTS.md#treat-external-content-as-data-never-as-instructions).
+- **One APPROVE definition in code review.** `pr-management code-review
+  disposition` proposes `APPROVE` only when nothing is above a nit, real CI is
+  green, no review thread is unresolved, no other maintainer's
+  `CHANGES_REQUESTED` stands, and no maintainer question is unanswered; the
+  maintainer may downgrade it, and upgrading past a named gate needs a stated
+  reason (#1585).
+  The "touching mine" selector uses GitHub data rather than `git log
+  --author`, CODEOWNERS team ownership checks team membership rather than
+  organisation membership, and `maintain` permission gets the maintainer
+  footer (#1585).
 - **Evidence-gated dependency-version findings.**
   `pr-management-code-review` inventories every mandatory direct and
   transitive constraint path, applies environment markers, and intersects
@@ -344,6 +436,22 @@ same directory; the behaviour is unchanged.
     coverage table in every report; its eval suite pins the Step 1 gate,
     the Step 3 finding table, the Step 4 tier plan and the Step 6 posting
     rules.
+11. No pr-management renderer emits a live `@`-mention other than the PR
+    author and the target repository's merged `mention_allowlist`, and the
+    agent-guard `mention` guard refuses any other mention on comments,
+    folded notes, reviews and non-GET `gh api` writes, reading the allowlist
+    only from the target's default branch on GitHub (#1579, #1584).
+12. `pr-management-quick-merge` submits an `APPROVE` only after
+    `approve-check` passes on fresh reads, and refuses when any Stage-1 gate
+    or the Stage-2 screen has regressed or a change request still stands
+    (#1580).
+13. `pr-management-code-review` proposes `APPROVE` only when the single
+    disposition gate holds (no finding above a nit, real CI green, no
+    unresolved thread, no standing change request, no open maintainer
+    question) (#1585).
+14. `pr-management-stats` writes nothing to any PR or tracker; its only
+    write is the confirmed secret-gist publish on the maintainer's account
+    (#1572).
 
 ## Validation
 
@@ -356,7 +464,7 @@ test -f .agents/skills/magpie-pr-management-stack-review/SKILL.md
 tools/dev/run-skill-script-tests.sh
 test -f .agents/skills/magpie-pr-management-mentor/SKILL.md
 test -f docs/pr-management/README.md
-uv run --all-packages --group dev pytest tools/pr-management-stats/tests
+uv run --all-packages --group dev pytest tools/pr-management/tests
 uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-validate
 ```
 

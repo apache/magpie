@@ -145,6 +145,15 @@ Use:
   Idempotency keys on the marker `<!-- apache-magpie: release-manager-wrap-up v1 -->`:
   if it is already on the tracker, skip the post entirely.
   Apply the same bare-name → `@handle` scrub before posting.
+- **Advisory-records update:** run the confirmed commands from the 2b item one at a time, in order, each as a plain command,
+  and stop at the first that fails —
+  the clean check exits `1` when the working copy has unrelated changes, and a branch other than the configured one is a stop too.
+  The `--apply` re-run recomputes the change on the updated working copy; if its file list differs from the confirmed one, stop and show the new diff.
+  After the `commit` (and on Git the `push`) succeeds, post a status comment from a temp file:
+  line 1 is the marker `<!-- apache-magpie: advisory-records v1 -->`, then one sentence naming the file(s) and the commit,
+  then the ticked item `- [x] <!-- apache-magpie: security-pages-checklist v1 --> Project security pages updated with CVE_ID`,
+  which records the security-pages step as done.
+  A failed command posts nothing; report it in the recap with the command's output.
 - **Vulnogram state transition (`REVIEW → PUBLIC`):** invoke the
   [`vulnogram-api-record-publish`](../../../../tools/cve-tool-vulnogram/oauth-api/README.md)
   CLI to flip the record's `CNA_private.state` over the OAuth API.
@@ -193,21 +202,26 @@ Use:
   The draft is **plain text**; the **preferred** backend is `oauth_curl`, which preserves URLs in the body verbatim:
 
   - **`oauth_curl`** (preferred — `tools.gmail.draft_backend: oauth_curl`, credentials at
-    `tools.gmail.oauth_credentials_path` / `$GMAIL_OAUTH_CREDENTIALS` / default `~/.config/apache-magpie/gmail-oauth.json`) — invoke
-    `uv run --project <framework>/tools/gmail/oauth-draft oauth-draft-create`
-    (see [`tools/gmail/oauth-draft/README.md`](../../../../tools/gmail/oauth-draft/README.md))
-    with `--thread-id` from Step 1c, the standard `--to` / `--cc`,
-    `--subject "Re: <root subject>"`, and a `--body-file`.
+    `tools.gmail.oauth_credentials_path` / `$GMAIL_OAUTH_CREDENTIALS` / default `~/.config/apache-magpie/gmail-oauth.json`) — call
+    `mcp__gmail-plaintext__create_draft`, never a shell command
+    (see [`draft-backends.md` § *How the skills pick a backend*](../../../../tools/gmail/draft-backends.md#how-the-skills-pick-a-backend))
+    with `thread_id` from Step 1c, the standard `to` / `cc` lists,
+    `subject="Re: <root subject>"`, and the plain-text `body`.
   - **`claude_ai_mcp`** (**discouraged** — it silently rewrites embedded URLs into Google tracking redirects, see
     [`draft-backends.md`](../../../../tools/gmail/draft-backends.md#privacy-warning--the-claudeai-gmail-mcp-rewrites-embedded-urls-into-google-tracking-redirects)) —
     only when `oauth_curl` credentials are missing **and** the body has no links;
     reply on the Step 1c thread with `subject="Re: <root subject>"` and `replyToMessageId=` its last message, per the call shape in
     [`draft-backends.md` § *How the skills pick a backend*](../../../../tools/gmail/draft-backends.md#how-the-skills-pick-a-backend).
+  - **`maildir`** (when the drafting backend resolves to it) — `maildir-draft-create` per
+    [*The Maildir backend*](../../../../tools/gmail/draft-backends.md#the-maildir-backend),
+    with `--in-reply-to` / `--references` from the thread's `Message-ID`s, the standard `--to` / `--cc`,
+    `--subject "Re: <root subject>"`, and a `--body-file`.
 
   **Before drafting, check for an existing pending draft on the thread** with **both** detection paths
   (`mcp__claude_ai_Gmail__list_drafts` **and** `mcp__claude_ai_Gmail__get_thread` with `messageFormat: MINIMAL`, scanning for a `DRAFT` label) in
   [`draft-backends.md` § *Detecting drafts that already exist on a thread*](../../../../tools/gmail/draft-backends.md#detecting-drafts-that-already-exist-on-a-thread):
   `list_drafts` alone misses thread-attached drafts under pile-up, whatever the backend.
+  On `maildir`, `maildir-draft-find` replaces both Gmail paths.
 
   **Surface which backend and which threading path the draft took** (thread-attached vs subject fallback) in the proposal;
   when subject fallback kicks in, record the backend and reason on the tracker's status comment so a future triager understands why the threading degraded.

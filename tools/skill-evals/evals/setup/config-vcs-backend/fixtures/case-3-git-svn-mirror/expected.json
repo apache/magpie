@@ -1,0 +1,1 @@
+{"asks_user": true, "vcs_backend": "svn", "svn_url": "https://svn.apache.org/repos/asf/baz", "svn_repository_root": null, "upstream_default_branch": "trunk", "writes_before_confirmation": false, "says_svn_checkout_needed": true, "runs_network_command": false}

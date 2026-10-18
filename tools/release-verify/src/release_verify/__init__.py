@@ -39,6 +39,9 @@ it and reports. The rules are the skill's, implemented once:
   project's own validators are echoed in the recipe, never run.
 - ``version``    — Step 8: version string per manifest, exact match.
 - ``verdict``    — Step 10: FAIL > WARN > PASS roll-up of step results.
+- ``list-keys``  — for ``release-keys-sync``: the fingerprints, UIDs,
+  algorithm, size, curve, dates and validity of every public key in a
+  ``KEYS`` file or a fetched key, read in a throwaway GNUPGHOME.
 - ``all``        — the above in one report.
 
 Read-only throughout: no file outside a temporary GNUPGHOME is written,
@@ -51,6 +54,7 @@ from __future__ import annotations
 import argparse
 import configparser
 import contextlib
+import datetime
 import difflib
 import fnmatch
 import hashlib
@@ -58,6 +62,7 @@ import json
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -81,7 +86,7 @@ STEP_ORDER = (
     "notice-license",
     "binary-exclusion",
     "jvm-artefacts",  # Step 6b, produced by maven-artifact-verify
-    "nexus-staging",  # Step 6c, classified by the agent from the asf-nexus probe
+    "nexus-staging",  # Step 6c, classified by `release-management verify-rc nexus` from the asf-nexus probe
     "source-tree-integrity",
     "version-consistency",
     "reproducibility",
@@ -220,6 +225,7 @@ def _gpg(home: Path, *args: str) -> subprocess.CompletedProcess[str]:
         [gpg, "--batch", "--no-tty", "--no-autostart", "--homedir", str(home), *args],
         capture_output=True,
         text=True,
+        errors="replace",  # a non-UTF-8 diagnostic must not hide the failure it reports
         check=False,
         env={**os.environ, "GNUPGHOME": str(home), "LC_ALL": "C"},
     )
@@ -315,6 +321,161 @@ def signatures(directory: Path, patterns: Sequence[str], keys: str, keys_url: st
 
 def cmd_signatures(args: argparse.Namespace) -> dict[str, Any]:
     return signatures(Path(args.dir), _patterns(args), args.keys, args.keys_url, args.extra_key or [])
+
+
+# ---------------------------------------------------------------------------
+# list-keys — the public keys a file holds (release-keys-sync)
+# ---------------------------------------------------------------------------
+
+KEY_ALGORITHMS = {"1": "RSA", "2": "RSA", "3": "RSA", "17": "DSA", "19": "ECDSA", "22": "EdDSA"}
+
+
+def _colon_date(value: str) -> str | None:
+    if not value:
+        return None
+    if "T" in value:  # ISO form some gpg builds print
+        return f"{value[0:4]}-{value[4:6]}-{value[6:8]}"
+    return datetime.datetime.fromtimestamp(int(value), datetime.UTC).date().isoformat()
+
+
+def _colon_key(f: list[str]) -> dict[str, Any]:
+    return {
+        "fingerprint": None,
+        "validity": f[1],
+        "algo_id": f[3],
+        "algorithm": KEY_ALGORITHMS.get(f[3]),
+        "bits": int(f[2]) if f[2].isdigit() else None,
+        "curve": f[16].lower(),
+        "created": _colon_date(f[5]),
+        "expiry": _colon_date(f[6]),
+        # gpg's field 12: c(ertify) s(ign) e(ncrypt) a(uthenticate); lowercase is this
+        # key's own usage, uppercase the whole key's.
+        "caps": f[11],
+    }
+
+
+def parse_colons(text: str) -> list[dict[str, Any]]:
+    """Primary keys from ``gpg --with-colons --fixed-list-mode --list-keys`` output.
+
+    Each key: ``fingerprint``, ``validity`` (gpg's field 2), ``algo_id``,
+    ``algorithm``, ``bits``, ``curve``, ``created`` / ``expiry`` (YYYY-MM-DD),
+    ``caps`` (gpg's capability field 12), ``uids`` (revoked and expired user
+    IDs left out, primary first), ``subkey_fingerprints``, and ``subkeys``:
+    each subkey's own ``fingerprint``, ``validity``, ``algo_id``, ``algorithm``,
+    ``bits``, ``curve``, ``created``, ``expiry`` and ``caps``.
+    """
+    keys: list[dict[str, Any]] = []
+    current: dict[str, Any] | None = None
+    pending: dict[str, Any] | None = None
+    for line in text.splitlines():
+        f = line.split(":") + [""] * 20
+        kind = f[0]
+        if kind == "pub":
+            current = {**_colon_key(f), "uids": [], "subkey_fingerprints": [], "subkeys": []}
+            keys.append(current)
+            pending = current
+        elif kind in ("sub", "ssb"):
+            if current is None:
+                pending = None
+                continue
+            current["subkeys"].append(_colon_key(f))
+            pending = current["subkeys"][-1]
+        elif kind == "fpr" and current is not None and pending is not None:
+            pending["fingerprint"] = f[9].upper()
+            if pending is not current:
+                current["subkey_fingerprints"].append(f[9].upper())
+            pending = None
+        elif kind == "uid" and current is not None and f[1] not in ("r", "e"):
+            current["uids"].append(f[9])
+    return keys
+
+
+PUBLIC_KEY_BEGIN = b"-----BEGIN PGP PUBLIC KEY BLOCK-----"
+
+
+def _gpg_stage(home: Path, stage: str, *args: str) -> subprocess.CompletedProcess[str]:
+    try:
+        return _gpg(home, *args)
+    except OSError as exc:
+        raise InputError(f"gpg {stage} could not run: {exc}") from exc
+
+
+def _gpg_failure(stage: str, proc: subprocess.CompletedProcess[str]) -> InputError:
+    diagnostic = proc.stderr.strip() or proc.stdout.strip() or "no diagnostic output"
+    return InputError(f"gpg {stage} failed (exit {proc.returncode}): {diagnostic}")
+
+
+def _only_no_key_data(proc: subprocess.CompletedProcess[str], data: bytes) -> bool:
+    """A failed import that only found no key data, read from gpg's status lines, not its localised text.
+
+    Never true for input that declares a public-key block: a block that fails to
+    import is malformed, not absent.
+    """
+    if proc.returncode != 2 or PUBLIC_KEY_BEGIN in data:
+        return False
+    no_data = empty_import = False
+    for line in proc.stdout.splitlines():
+        if not line.startswith("[GNUPG:] "):
+            continue
+        fields = line.removeprefix("[GNUPG:] ").split()
+        if not fields:
+            continue
+        status, *args = fields
+        if status == "NODATA":
+            if len(args) != 1 or args[0] not in {"1", "2", "3", "4"}:
+                return False
+            no_data = True
+        elif status == "IMPORT_RES":
+            # gpg's DETAILS defines at least 14 counters; newer versions may append more.
+            if len(args) < 14 or any(not v.isascii() or not v.isdecimal() or int(v) for v in args):
+                return False
+            empty_import = True
+        elif status in {"ERROR", "IMPORT_PROBLEM", "IMPORT_OK", "IMPORTED"}:
+            return False
+        elif status == "FAILURE" and args != ["gpg-exit", "33554433"]:
+            # gpg 2.4 appends this generic failure even to a plain no-data import.
+            return False
+    return no_data and empty_import
+
+
+def list_keys(source: str) -> dict[str, Any]:
+    """The public keys in ``source``, listed in a throwaway GNUPGHOME; nothing else is read or kept.
+
+    A file that is not a regular file or cannot be read, a failed gpg run, and a
+    public-key block that does not import are errors, never "no key": only an
+    import that found no key data followed by a successful empty listing is.
+    """
+    try:
+        if not stat.S_ISREG(Path(source).stat().st_mode):
+            raise InputError(f"cannot read --file {source}: not a regular file")
+        data = _read_public_keys(source)
+    except OSError as exc:
+        raise InputError(f"cannot read --file {source}: {exc}") from exc
+    out: dict[str, Any] = {"step": "list-keys", "file": Path(source).name, "keys": []}
+    if not data.strip():
+        out["detail"] = "file is empty"
+        return out
+    with _gnupghome() as home:
+        src = home / "import.asc"
+        src.write_bytes(data)  # the bytes read above, whatever the file holds by now
+        proc = _gpg_stage(home, "--import", "--status-fd", "1", "--import", str(src))
+        src.unlink()
+        if proc.returncode and not _only_no_key_data(proc, data):
+            raise _gpg_failure("--import", proc)
+        listing = _gpg_stage(home, "--list-keys", "--with-colons", "--fixed-list-mode", "--list-keys")
+    if listing.returncode:
+        raise _gpg_failure("--list-keys", listing)
+    out["keys"] = parse_colons(listing.stdout)
+    if proc.returncode and out["keys"]:
+        raise _gpg_failure("--import", proc)
+    if not out["keys"]:
+        lines = [ln for ln in proc.stderr.strip().splitlines() if ln.strip()]
+        out["detail"] = lines[-1] if lines else "no public key found"
+    return out
+
+
+def cmd_list_keys(args: argparse.Namespace) -> dict[str, Any]:
+    return list_keys(args.file)
 
 
 # ---------------------------------------------------------------------------
@@ -789,6 +950,10 @@ def build_parser() -> argparse.ArgumentParser:
     _add_expect(p)
     _add_keys(p)
     p.set_defaults(func=cmd_signatures)
+
+    p = sub.add_parser("list-keys", help="release-keys-sync: the public keys (fingerprints, UIDs, algorithm) a file holds")
+    p.add_argument("--file", required=True, help="a KEYS file or a fetched public key (public keys only; may be empty)")
+    p.set_defaults(func=cmd_list_keys)
 
     p = sub.add_parser("checksums", help="Step 3: digest files vs the artefacts")
     p.add_argument("--dir", required=True, help="local copy of the staging directory")

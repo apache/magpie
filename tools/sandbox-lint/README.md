@@ -13,6 +13,7 @@
   - [CI wiring](#ci-wiring)
   - [Updating the baseline](#updating-the-baseline)
   - [Residual risk](#residual-risk)
+    - [Codex guard ownership](#codex-guard-ownership)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -23,7 +24,7 @@
 
 **Capability:** substrate:sandbox
 
-**Harness:** Claude Code, Codex, Cursor, Gemini CLI, OpenCode, Kiro
+**Harness:** Claude Code, Codex, Cursor, Gemini CLI, OpenCode, Kiro, Grok
 
 Lints `.claude/settings.json` against the shipped baseline at
 `tools/sandbox-lint/expected.json`, and against the security
@@ -93,7 +94,7 @@ uv run --project tools/sandbox-lint sandbox-lint --gemini .gemini
 The ordinary regression suite needs no Gemini or Node installation.
 Optional [runtime integration tests](tests/integration/README.md) exercise Gemini's policy engine and Linux sandbox without a model.
 
-**Any other harness (Cursor, …).** `--any-harness`
+**Harnesses without a dedicated config profile (Cursor, Grok, …).** `--any-harness`
 validates the harness-neutral OS-level security posture: checks that the
 two enforcement components shared across all runtimes —
 `tools/agent-isolation/agent-iso.sh` (layer 0, clean-env credential strip)
@@ -137,6 +138,18 @@ uv run --project tools/sandbox-lint sandbox-lint --any-harness /path/to/magpie
    - `permissions.deny` contains the verbatim entries listed in
      [`src/sandbox_lint/__init__.py`](src/sandbox_lint/__init__.py)
      (`REQUIRED_PERMISSIONS_DENY`).
+   - When a `Bash(...)` permission rule or a `sandbox.excludedCommands`
+     entry names a vetted-op dispatcher (the defensive `Edit` deny rules
+     alone do not count), the read dispatcher never prompts:
+     `permissions.allow` carries `vetted-op-read` for both launchers
+     (`uv run --project`, `uvx --from`) on the
+     `~/.claude/magpie/vetted-ops` base, no `permissions.ask` rule
+     matches a `vetted-op-read` command (matched as a pattern, so a
+     broad `Bash(uvx *)` counts),
+     `permissions.blockReadsOutsideWorkingDirectories` is not `true`,
+     and `permissions.deny` carries the three vetted-ops `Edit`
+     tamper-protection rules. See
+     [Read-only vetted ops never prompt](../../docs/setup/secure-agent-setup.md#read-only-vetted-ops-never-prompt).
    - `sandbox.network.allowUnixSockets` contains no entry that names a
      container daemon socket (`docker.sock`, `podman.sock`, or anything
      ending in `-api.sock`, matched case-insensitively) unless it sits in the
@@ -144,6 +157,25 @@ uv run --project tools/sandbox-lint sandbox-lint --any-harness /path/to/magpie
      project that adopted Magpie, `<git-common-dir>/apache-magpie/run/<worktree-id>` in
      one that did not — see [Residual risk](#residual-risk) for
      the one case this cannot fully verify.
+   - No setting switches a control off wholesale, in any layer (the
+     committed file, the local template, or a contributor's own
+     `.claude/settings.local.json`): no `sandbox.excludedCommands` entry,
+     and no `Bash(...)` allow, whose command is `*`, starts with a shell or
+     interpreter by name or path (`bash`, `/bin/sh`, `env`, `python3`, … —
+     `ANY_COMMAND_LAUNCHERS`, plus versioned interpreters such as
+     `python3.12`), or is a package runner not pinned to a path (`uv run`
+     without `--project`, `uv tool run`, `uvx` without `--from`, `npx`,
+     `pipx run`, or any `npm`/`pnpm`/`yarn`/`pipx` subcommand but the
+     read-only ones). Leading `NAME=value` assignments are skipped first. Only
+     a runner pinned to an absolute or `~/` path outside the checkout, every
+     `allowWrite` directory, every working directory and the temp directories
+     counts as pinned; the same
+     goes for a command word that is a path to a script (`./scripts/run.sh *`,
+     `~/.cache/x.sh *` fail). A pinned runner is judged by the command it runs, so
+     `uv run --project ~/x python *` and `uv run --project . anything *` both
+     fail; every other `uv` subcommand (`sync`, `lock`, `pip`, `build`) counts
+     too, since each can run a project's build backend. No bare `Bash` allow; no `permissions.defaultMode: bypassPermissions`,
+     and no `*` in `sandbox.network.allowedDomains`.
 3. **Baseline self-check.** The same invariants are applied to
    `expected.json` itself, so a PR cannot weaken the baseline in
    lockstep with the live settings without the lint catching the
@@ -181,7 +213,7 @@ baseline drift.
 ## Harness-neutral posture check (any runtime)
 
 For runtimes that do not expose a per-harness sandbox configuration file
-(Cursor and any other agent harness not listed under
+(Cursor, Grok, and any other agent harness not listed under
 `--settings`, `--opencode`, `--kiro`, `--codex`, or `--gemini`), the security posture
 is enforced at the OS level by two harness-agnostic components:
 
@@ -239,13 +271,38 @@ The lint runs in two places:
 
 ## Updating the baseline
 
-Any legitimate edit to `.claude/settings.json` must be paired with
+Where the project ships a local settings template
+(`tools/agent-isolation/claude-settings.local.template.json`, found under the
+project root of the `--settings` file, or passed with `--local-template`), the
+lint merges it over `.claude/settings.json` the way Claude Code layers
+`.claude/settings.local.json`, compares the merge with the baseline, and
+enforces the split: every `deny` and `ask` stays in the committed file, its only
+`allow` entries are derived MCP tools and the `vetted-op-read` pair, and the
+template neither adds MCP allows nor overrides a value the committed file sets.
+
+Any legitimate edit to `.claude/settings.json` or the template must be paired with
 the same edit to `tools/sandbox-lint/expected.json` in the same PR.
 This is the explicit acknowledgement that mitigation M.29 requires:
 two files, two edits, one review surface. The lint refuses to pass
 if the two diverge.
 
 ## Residual risk
+
+The wholesale-weakening check (`_runs_anything`) recognises *shapes* of rule
+that run arbitrary code: shells and interpreters, globbed command words, and
+package runners not pinned to a path. It cannot prove an arbitrary rule safe.
+A tool that executes its arguments and is not on the list would pass, so
+review new `excludedCommands` and `Bash(...)` allows on their merits. The check
+is a backstop, not a substitute for that review.
+
+A pinned runner is only as safe as the files it runs, and the check looks at
+the pin's source path alone. The writable set it uses is `allowWrite`, the
+working directories (`permissions.additionalDirectories`, which the sandbox
+also makes writable), the checkout and the temp directories; a working
+directory that covers the vetted-ops checkout fails on its own. It does not
+cover the environment uv builds from a pin, which lives in the writable uv
+cache (`~/.cache/uv/`) or the project's `.venv`. An agent that edits it can
+change what an excluded vetted-ops command runs outside the sandbox.
 
 A maintainer running an agent locally can edit `.claude/settings.json`
 to weaken the sandbox without ever opening a PR. This lint catches
@@ -270,3 +327,10 @@ falls back to an unanchored suffix match on the parent directory string,
 under which a decoy path such as `/tmp/evil/.apache-magpie-local/run/podman.sock`
 or `/tmp/evil/apache-magpie/run/main/podman.sock` is indistinguishable from a legitimate project-scoped socket, since both
 end in the same suffix.
+
+### Codex guard ownership
+
+`sandbox-lint --codex .codex` requires a synchronous project `PreToolUse` guard and checks that the referenced engine exists in the framework or `.apache-magpie/` snapshot.
+For a guard owned by the installed `magpie-agent-guard` plugin, use `--guard-from-plugin` with `--codex` and omit the duplicate project hook.
+That mode checks sandbox and native rule invariants but reports plugin registration and trust as uninspected; verify both in Codex’s `/hooks` browser.
+It still rejects a profile that explicitly disables hooks.

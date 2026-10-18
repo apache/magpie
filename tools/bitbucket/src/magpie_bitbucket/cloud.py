@@ -102,39 +102,27 @@ def get_repository_restrictions(config: BitbucketConfig) -> dict[str, Any]:
     return combined
 
 
+_NATIVE_ISSUE_TRACKER_REMOVED = (
+    "Bitbucket Cloud native issue tracker API was removed by Atlassian "
+    "on 2026-08-20; use the Jira bridge (tools/jira) instead."
+)
+
+
+def removed_native_issue_tracker() -> BitbucketError:
+    """Return the fail-closed error for removed native Cloud issue APIs."""
+    return BitbucketError(_NATIVE_ISSUE_TRACKER_REMOVED)
+
+
 def list_open_issues(config: BitbucketConfig) -> dict[str, Any]:
-    """List open issues from a Bitbucket Cloud repository."""
-    workspace = quote_path(require(config.workspace, "BITBUCKET_WORKSPACE"))
-    repo_slug = quote_path(require(config.repo_slug, "BITBUCKET_REPO_SLUG"))
-    url = f"{CLOUD_API_BASE}/repositories/{workspace}/{repo_slug}/issues?q=state%3D%22new%22%20OR%20state%3D%22open%22%20OR%20state%3D%22on%20hold%22"
-
-    combined: dict[str, Any] = {
-        "values": [],
-        "paginated": True,
-        "pages": [],
-    }
-
-    seen_urls = {url}
-    while url:
-        page = get_json(url, config)
-        combined["pages"].append(page)
-
-        values = page.get("values")
-        if isinstance(values, list):
-            combined["values"].extend(item for item in values if isinstance(item, dict))
-
-        url = _validated_next_url(page.get("next"), seen_urls)
-
-    return combined
+    """Fail closed because Bitbucket Cloud removed its native issue tracker."""
+    _ = config
+    raise removed_native_issue_tracker()
 
 
 def get_issue(config: BitbucketConfig, issue_id: str) -> dict[str, Any]:
-    """Fetch one issue from a Bitbucket Cloud repository."""
-    workspace = quote_path(require(config.workspace, "BITBUCKET_WORKSPACE"))
-    repo_slug = quote_path(require(config.repo_slug, "BITBUCKET_REPO_SLUG"))
-    issue = quote_path(issue_id)
-    url = f"{CLOUD_API_BASE}/repositories/{workspace}/{repo_slug}/issues/{issue}"
-    return get_json(url, config)
+    """Fail closed because Bitbucket Cloud removed its native issue tracker."""
+    _ = (config, issue_id)
+    raise removed_native_issue_tracker()
 
 
 def create_issue_comment(
@@ -142,77 +130,21 @@ def create_issue_comment(
     issue_id: str,
     body: str,
 ) -> dict[str, Any]:
-    """Create one comment on a Bitbucket Cloud issue."""
-    workspace = quote_path(require(config.workspace, "BITBUCKET_WORKSPACE"))
-    repo_slug = quote_path(require(config.repo_slug, "BITBUCKET_REPO_SLUG"))
-    issue = quote_path(issue_id)
-    url = f"{CLOUD_API_BASE}/repositories/{workspace}/{repo_slug}/issues/{issue}/comments"
-
-    comment = post_json(
-        url,
-        config,
-        {"content": {"raw": body}},
-    )
-    return {
-        "issue_id": issue_id,
-        "comment": comment,
-    }
+    """Fail closed because Bitbucket Cloud removed its native issue tracker."""
+    _ = (config, issue_id, body)
+    raise removed_native_issue_tracker()
 
 
 def get_issue_comments(config: BitbucketConfig, issue_id: str) -> dict[str, Any]:
-    """Fetch comments for a Bitbucket Cloud issue."""
-    workspace = quote_path(require(config.workspace, "BITBUCKET_WORKSPACE"))
-    repo_slug = quote_path(require(config.repo_slug, "BITBUCKET_REPO_SLUG"))
-    issue = quote_path(issue_id)
-    url = f"{CLOUD_API_BASE}/repositories/{workspace}/{repo_slug}/issues/{issue}/comments"
-
-    combined: dict[str, Any] = {
-        "issue_id": issue_id,
-        "values": [],
-        "paginated": True,
-        "pages": [],
-    }
-
-    seen_urls = {url}
-    while url:
-        page = get_json(url, config)
-        combined["pages"].append(page)
-
-        values = page.get("values")
-        if isinstance(values, list):
-            combined["values"].extend(item for item in values if isinstance(item, dict))
-
-        url = _validated_next_url(page.get("next"), seen_urls)
-
-    return combined
+    """Fail closed because Bitbucket Cloud removed its native issue tracker."""
+    _ = (config, issue_id)
+    raise removed_native_issue_tracker()
 
 
 def get_issue_attachments(config: BitbucketConfig, issue_id: str) -> dict[str, Any]:
-    """Fetch attachment metadata and links for a Bitbucket Cloud issue."""
-    workspace = quote_path(require(config.workspace, "BITBUCKET_WORKSPACE"))
-    repo_slug = quote_path(require(config.repo_slug, "BITBUCKET_REPO_SLUG"))
-    issue = quote_path(issue_id)
-    url = f"{CLOUD_API_BASE}/repositories/{workspace}/{repo_slug}/issues/{issue}/attachments"
-
-    combined: dict[str, Any] = {
-        "issue_id": issue_id,
-        "values": [],
-        "paginated": True,
-        "pages": [],
-    }
-
-    seen_urls = {url}
-    while url:
-        page = get_json(url, config)
-        combined["pages"].append(page)
-
-        values = page.get("values")
-        if isinstance(values, list):
-            combined["values"].extend(item for item in values if isinstance(item, dict))
-
-        url = _validated_next_url(page.get("next"), seen_urls)
-
-    return combined
+    """Fail closed because Bitbucket Cloud removed its native issue tracker."""
+    _ = (config, issue_id)
+    raise removed_native_issue_tracker()
 
 
 def list_open_pull_requests(config: BitbucketConfig) -> dict[str, Any]:
@@ -508,6 +440,32 @@ def merge_pull_request(
     }
 
 
+def get_pull_request_merge_task_status(
+    config: BitbucketConfig,
+    pull_request_id: str,
+    task_id: str,
+) -> dict[str, Any]:
+    """Fetch the status of one asynchronous Bitbucket Cloud merge task."""
+    workspace = quote_path(require(config.workspace, "BITBUCKET_WORKSPACE"))
+    repo_slug = quote_path(require(config.repo_slug, "BITBUCKET_REPO_SLUG"))
+    pr_id = quote_path(pull_request_id)
+    merge_task_id = quote_path(task_id)
+
+    url = (
+        f"{CLOUD_API_BASE}/repositories/{workspace}/{repo_slug}/"
+        f"pullrequests/{pr_id}/merge/task-status/{merge_task_id}"
+    )
+
+    result = get_json(url, config)
+
+    return {
+        "pull_request_id": pull_request_id,
+        "task_id": task_id,
+        "task_url": url,
+        "result": result,
+    }
+
+
 def get_pull_request_reviews(config: BitbucketConfig, pull_request_id: str) -> dict[str, Any]:
     """Fetch review-state activity for a Bitbucket Cloud pull request."""
     pull_request = get_pull_request(config, pull_request_id)
@@ -654,6 +612,96 @@ def create_pull_request_comment(
     return {
         "pull_request_id": pull_request_id,
         "comment": comment,
+    }
+
+
+def post_pull_request_review(
+    config: BitbucketConfig,
+    pull_request_id: str,
+    verdict: str,
+    body: str,
+) -> dict[str, Any]:
+    """Post a confirmed review body and verdict to a Bitbucket Cloud pull request."""
+    if verdict not in {"comment", "approve", "request-changes"}:
+        raise BitbucketError(f"Unsupported pull request review verdict: {verdict}")
+
+    comment_result = create_pull_request_comment(
+        config,
+        pull_request_id,
+        body,
+    )
+
+    comment = comment_result.get("comment")
+
+    if verdict == "comment":
+        return {
+            "pull_request_id": pull_request_id,
+            "verdict": verdict,
+            "comment": comment,
+            "participant": None,
+        }
+
+    try:
+        if verdict == "approve":
+            verdict_result = approve_pull_request(
+                config,
+                pull_request_id,
+            )
+        else:
+            verdict_result = request_pull_request_changes(
+                config,
+                pull_request_id,
+            )
+    except BitbucketError as exc:
+        raise BitbucketError(
+            "Bitbucket pull request review body was posted, but the "
+            f"{verdict} verdict failed. Inspect `pr discussion {pull_request_id}` "
+            f"and `pr reviews {pull_request_id}` before retrying to avoid "
+            "duplicating the review comment."
+        ) from exc
+
+    return {
+        "pull_request_id": pull_request_id,
+        "verdict": verdict,
+        "comment": comment,
+        "participant": verdict_result.get("participant"),
+    }
+
+
+def reject_pull_request(
+    config: BitbucketConfig,
+    pull_request_id: str,
+    reason: str,
+) -> dict[str, Any]:
+    """Reject one Bitbucket Cloud pull request with a confirmed reason."""
+    if not reason.strip():
+        raise BitbucketError("Pull request rejection reason must not be empty")
+
+    comment_result = create_pull_request_comment(
+        config,
+        pull_request_id,
+        reason,
+    )
+    comment = comment_result.get("comment")
+
+    try:
+        decline_result = decline_pull_request(
+            config,
+            pull_request_id,
+        )
+    except BitbucketError as exc:
+        raise BitbucketError(
+            "Bitbucket pull request rejection reason was posted, but the "
+            f"decline failed. Inspect `pr discussion {pull_request_id}` and "
+            f"`pr get {pull_request_id}` before retrying to avoid duplicating "
+            "the rejection comment."
+        ) from exc
+
+    return {
+        "pull_request_id": pull_request_id,
+        "reason": reason,
+        "comment": comment,
+        "pull_request": decline_result.get("pull_request"),
     }
 
 

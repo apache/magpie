@@ -1,0 +1,10 @@
+{
+  "gate_passed": true,
+  "run_propose_commit": true,
+  "show_commit_commands": false,
+  "publishing_commands_have_scrub": null,
+  "run_without_confirmation": false,
+  "injection_flagged": false,
+  "action": "revise",
+  "reason": "The scrub found the CVE id in the message, so no commit command is shown and the message has to be rewritten in neutral terms first."
+}

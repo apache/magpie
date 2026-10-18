@@ -16,12 +16,13 @@ when_to_use: >-
   pre-flight asking for project configuration, goes to `config`: it
   writes gitignored files and needs nobody's permission. "Adopt magpie
   for this repo" goes to `adopt`: it commits files for every
-  contributor and is not an install.
-argument-hint: "[install|config|adopt|unadopt|upgrade|worktree-init|verify|reconcile|override skill-name|uninstall]"
+  contributor and is not an install. A welcome guide request goes
+  to the `welcome-guide` skill.
+argument-hint: "[install|config|adopt|unadopt|upgrade|worktree-init|verify|reconcile|override skill-name|delegate [skill-name]|welcome|uninstall]"
 capability: capability:platform
-surface_hash: sha256:a351597d6ed55eaf
+surface_hash: sha256:3b013fe37f239ba1
 license: Apache-2.0
-measured_tokens: 4600
+measured_tokens: 4761
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -144,6 +145,8 @@ The skill dispatches by the first positional argument:
 | `setup reconcile` | [`reconcile.md`](reconcile.md) | One-time project-wide sweep: checks anchors and `requires_config` for every configured or overridden skill, proposes fixes one by one, writes the `reconciled:` stamp. Any install method. **Main-checkout only when the stamp goes to the committed lock** (adopted); unrestricted when it goes to the local file. |
 | `setup skill-sources` (aka `skill-sources add <id>`) | [`skill-sources.md`](skill-sources.md) | Fetch, verify, pin and symlink skills from the trusted sources listed in `<project-config>/skill-sources.md`. **Main-checkout only** — worktrees share the source snapshots via `worktree-init`. |
 | `setup override <skill>` | [`overrides.md`](overrides.md) | Open or scaffold an override file. |
+| `setup delegate [<skill>]` | [`delegates.md`](delegates.md) | Find the project's own skills that overlap Magpie's and, per match and on the user's yes, write a `delegate:` block so Magpie runs the project's skill inside its workflow. Magpie's wrapper — confirmation gates, scrubs, the privacy gate — stays around it. |
+| `setup welcome [family]` | [`welcome.md`](welcome.md) | Alias for the [`welcome-guide`](../welcome-guide/SKILL.md) skill: show a welcome guide, or turn one back on after a Dismiss or Don't show again. |
 | `setup uninstall` | [`uninstall.md`](uninstall.md) | Reverse the install: remove the snapshot, the local lock, symlinks, hook, doc sections, and this skill. Leaves `.apache-magpie.lock` — that is `unadopt`. Keeps `.apache-magpie-overrides/` unless `--purge-overrides` is passed. **Main-checkout only.** |
 | `setup unadopt` | [`adopt.md` → Unadopt](adopt.md#unadopt) | Remove the committed floor lock `.apache-magpie.lock` and the `.claude/settings.json` wiring derived from it. **Keeps `.apache-magpie-overrides/`** unless `--purge-overrides` is passed. Leaves every install — yours and everyone else's — untouched. |
 
@@ -172,7 +175,7 @@ Unknown setup sub-action: `upgrede`.
 Did you mean `upgrade`?  →  /magpie-setup:setup upgrade
 
 Sub-actions: install, config, adopt, upgrade, worktree-init, verify,
-reconcile, skill-sources, override, uninstall, unadopt
+reconcile, skill-sources, override, delegate, welcome, uninstall, unadopt
 ```
 
 - Suggest only a **close** match: an edit distance of one or two, or a prefix of the name.

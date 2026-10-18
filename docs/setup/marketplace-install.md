@@ -10,6 +10,7 @@
   - [Claude Code](#claude-code)
   - [OpenAI Codex CLI](#openai-codex-cli)
   - [VS Code / GitHub Copilot](#vs-code--github-copilot)
+  - [Grok Build](#grok-build)
   - [Google Gemini CLI](#google-gemini-cli)
   - [Cursor](#cursor)
   - [microsoft/apm](#microsoftapm)
@@ -143,6 +144,26 @@ https://github.com/apache/magpie
 
 You can also add `apache/magpie` as a plugin marketplace and install
 individual families from it.
+
+## Grok Build
+
+Grok Build reads Claude-compatible marketplaces, plugins, and hooks.
+When `magpie-agent-guard` is installed from the Apache Magpie marketplace, Grok can use the plugin's bundled `PreToolUse` hook and executable directly.
+Do not create an `.apache-magpie/` snapshot or a second project hook merely to reach the marketplace-installed guard.
+
+The plugin hook uses the existing `Bash` matcher.
+The shared dispatcher selects the Grok adapter automatically from Grok's camelCase hook payload shape.
+
+Verify the loaded hook with:
+
+```bash
+grok inspect --json
+```
+
+Then exercise one harmless allow and one known Magpie denial.
+Project-hook trust remains an explicit operator action whenever a repository-local `.grok/hooks/` hook is used.
+
+See [the Grok adapter](../adapters/grok.md).
 
 ## Google Gemini CLI
 

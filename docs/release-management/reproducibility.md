@@ -75,7 +75,7 @@ That is why the review lands in the prep PR (`release-prepare prep`) and why `re
 
 ### The first-release `.gitattributes` review
 
-`release-prepare prep` Step 2f runs a guided review on the first release
+`release-prepare prep` Step 2e runs a guided review on the first release
 (or whenever `export_ignore_reviewed` is unset in `release-build.md`, or on `--review-archive`).
 It is an education step: the goal is that the operator understands *why* each path ships or does not, not that the agent guesses.
 The skill:

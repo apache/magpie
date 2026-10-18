@@ -178,6 +178,24 @@ the override targets.)
 (...)
 ```
 
+**Delegating to the project's own skill.** When the project already has
+a skill that should do this skill's work, the file also carries a
+`delegate:` frontmatter block, *above* the scaffold — frontmatter has to
+be the first thing in the file:
+
+```markdown
+---
+delegate:
+  skill: <project-skill>
+  mode: replace            # replace | merge | before | after
+---
+```
+
+[`setup delegate <framework-skill>`](delegates.md) finds the candidate,
+drafts a merged step list, and validates the block before writing it.
+The shape and the wrapper it cannot remove are in
+[`agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md#delegate-to-the-projects-own-skill).
+
 ## Step 3 — Surface the contract reminders
 
 Whenever the skill scaffolds or opens an override file,

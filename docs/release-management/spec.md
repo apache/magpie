@@ -286,6 +286,7 @@ The skill never operates on the private key half.
 |---|---|
 | `keys_file_url` | `https://dist.apache.org/repos/dist/release/<project>/KEYS` (overridable for non-ASF adopters). |
 | `keyserver` | Default `keys.openpgp.org`; overridable per project. |
+| `keys_file_branch` | Optional. The branch of a GitHub-hosted `keys_file_url`, for branch names containing `/`; unset means the first path segment after `blob/` is the branch and the rest (which may include subdirectories) is the KEYS path. |
 | `rm_key_fingerprint` | Set per-RM (often in `.apache-magpie-overrides/user.md`, not project config). |
 
 ### `release-rc-cut`
@@ -845,6 +846,7 @@ Required keys (cross-skill):
 | `release_dist_url_template` | `https://dist.apache.org/repos/dist/<bucket>/<project>/<version>/` for `svnpubsub`; backend-shaped URL template for non-ASF backends. | `release-rc-cut`, `release-promote`, `release-archive-sweep` |
 | `release_publish_command_template` | Backend-specific command template (required when `release_dist_backend = self-hosted`; defaulted from the backend for the other values). | `release-rc-cut`, `release-promote` |
 | `keys_file_url` | URL of the project's signing-key trust anchor (`KEYS` on ASF; equivalent file on non-ASF). | `release-keys-sync`, `release-verify-rc` |
+| `keys_file_branch` | Branch of a GitHub-hosted `keys_file_url` when the branch name contains `/`; optional. | `release-keys-sync` |
 | `release_approver_roster_path` | Roster the `release-vote-tally` skill consults to classify binding vs non-binding. ASF default: `<project-config>/pmc-roster.md`. | `release-vote-tally` |
 | `vote_window_hours` / `approval_window_hours` | Approval window length. ASF floor per policy. | `release-vote-draft`, `release-vote-tally` |
 | `vote_pass_rule_overrides` | Optional stricter rule (ASF baseline cannot be weakened; non-ASF backends define their own rule keys). | `release-vote-tally` |

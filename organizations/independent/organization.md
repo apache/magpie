@@ -130,6 +130,7 @@ release_process:
 roster:
   source: roster-file:release-trains.md
 tracker:
+  platform: github   # github | local-files | jira — see tools/security-tracker/
   visibility: private
   board: none
 ```

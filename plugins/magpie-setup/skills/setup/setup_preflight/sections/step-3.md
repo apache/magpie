@@ -5,7 +5,7 @@
 
 **`url` names something other than `apache/magpie`.** Run **nothing**. Name
 the marketplace the lock points at, show the commands it would take, and
-let the user decide. A lock is a committed file in whatever repository
+let the user decide: the skill stops until they have. A lock is a committed file in whatever repository
 happened to be opened, and acting on it automatically would make opening a
 repository enough to install someone else's code.
 

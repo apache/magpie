@@ -91,14 +91,14 @@ Once you have [added the marketplace](../setup/marketplace-install.md):
 ```
 
 New to Magpie? The [quick start](../quick-start.md) walks the whole path in
-one place — install, the first `/magpie-setup` run, and a recording of it
+one place — install, the first `/magpie-setup:setup` run, and a recording of it
 happening — plus the other agents and the secure-isolation setup to run next.
 
 ### Before the first run
 
 <!-- BEGIN generated: skill-config (tools/dev/check-skill-config.py --fix) -->
 
-![An animated `/magpie-setup config` run for the release-management family: the check failing, the values derived from the repository, one question for the rest, and personal files written](../../assets/quickstart/wizard/release-management.svg)
+![An animated `/magpie-setup:setup config` run for the release-management family: the check failing, the values derived from the repository, one question for the rest, and personal files written](../../assets/quickstart/wizard/release-management.svg)
 
 *Illustrative — the real run derives more and asks better. What is true is
 the shape: it runs itself, it writes only your personal layer, and it
@@ -110,11 +110,12 @@ your personal layer first — `.apache-magpie-local/` (gitignored) in a
 project that adopted Magpie, `<git-common-dir>/apache-magpie/` in one
 that did not — then `.apache-magpie-overrides/` (committed, the project's).
 
-**For yourself:** `/magpie-setup config` scaffolds and fills these locally.
+**For yourself:** `/magpie-setup:setup config` scaffolds and fills these locally
+(`/magpie-setup config` on a [pinned-snapshot install](../setup/marketplace.md#skill-names-differ-by-install-method)).
 Nothing is staged, nothing is committed, and it works on a repository that
 has never adopted Magpie.
 
-**For the project:** [`/magpie-setup adopt`](../setup/team-adoption.md)
+**For the project:** [`/magpie-setup:setup adopt`](../setup/team-adoption.md)
 commits them for every contributor, either scaffolded directly or promoted
 from what you configured locally.
 
@@ -133,7 +134,7 @@ says which file is missing.
 | File | What it carries | Read by |
 |---|---|---|
 | [`canned-responses.md`](../../plugins/magpie-setup/templates/canned-responses.md) | Reusable reporter-facing reply templates. | `announce-draft`, `vote-draft` |
-| [`project.md`](../../plugins/magpie-setup/templates/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `verify-rc` |
+| [`project.md`](../../plugins/magpie-setup/templates/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `audit-report` |
 
 <!-- END generated: skill-config -->
 

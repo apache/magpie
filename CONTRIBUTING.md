@@ -20,6 +20,7 @@
     - [Groovy](#groovy)
     - [Shell scripts](#shell-scripts)
   - [Getting set up](#getting-set-up)
+    - [Agent settings](#agent-settings)
     - [Lightening the agent context](#lightening-the-agent-context)
   - [Making changes](#making-changes)
   - [Authoring with an agent](#authoring-with-an-agent)
@@ -236,7 +237,7 @@ every piece of context it needs from some combination of the four
 │   ├── skill-and-tool-validator/  # Validate SKILL.md frontmatter + links + placeholders
 │   ├── skill-evals/      # Behavioral eval harness for skill steps
 │   ├── dashboard-generator/  # HTML dashboard reference impl (Groovy + Python)
-│   ├── pr-management-stats/  # Maintainer dashboard data layer
+│   ├── pr-management/    # Deterministic core of the pr-management skills (triage, stats dashboard)
 │   ├── security-tracker-stats-dashboard/  # Security-side stats
 │   ├── probe-templates/  # Boilerplate for sandbox-probe scripts
 │   └── dev/              # Local checkers (placeholders, agent pre-commit)
@@ -244,7 +245,7 @@ every piece of context it needs from some combination of the four
 ├── .pre-commit-config.yaml   # prek hook set (see "Running the dev loop")
 ├── pyproject.toml            # Workspace-level Python config
 ├── uv.lock                   # Reproducible Python lockfile
-└── .github/                  # CI: pre-commit, zizmor, link-check, ISSUE_TEMPLATE
+└── .github/                  # CI: pre-commit (incl. lychee), zizmor, ISSUE_TEMPLATE
 ```
 
 The adopter-side `.apache-magpie/` snapshot, the per-user
@@ -311,7 +312,7 @@ needs to fill in.
 | CVE workflow | `vulnogram/`, `cve-org/` | ASF Vulnogram (CVE allocation + JSON generation); MITRE CVE Services v2 |
 | Runtime / safety | `agent-isolation/`, `privacy-llm/`, `sandbox-lint/` | Bubblewrap + network-allowlist sandbox; redactor + checker for privacy-LLM gating; settings.json linter |
 | Dev loop | `skill-and-tool-validator/`, `skill-evals/`, `dev/` | SKILL.md validation; behavioral eval harness; local placeholder + pre-commit checkers |
-| Reporting | `dashboard-generator/`, `pr-management-stats/`, `security-tracker-stats-dashboard/` | HTML dashboards for maintainer + security review |
+| Reporting | `dashboard-generator/`, `pr-management/`, `security-tracker-stats-dashboard/` | HTML dashboards for maintainer + security review |
 | Authoring | `probe-templates/` | Boilerplate scaffold for sandbox probes |
 
 New tool subtrees follow the same pattern: a `tool.md` or
@@ -399,13 +400,13 @@ authoritative agent harness matrix. The current state per harness:
 | GitHub Copilot CLI + Coding Agent | Standalone CLI and server-side Coding Agent; Draft PR boundary and clean-env isolation — see the [harness guide](docs/adapters/copilot.md) | [#318](https://github.com/apache/magpie/issues/318) |
 | Goose (Block) | Open-source agent CLI; reads `.agents/skills/` natively, developer tool execution, and recipe workflows — see the [harness guide](docs/adapters/goose.md) | [#319](https://github.com/apache/magpie/issues/319) |
 | Amazon Q Developer CLI | Not yet ported | [#320](https://github.com/apache/magpie/issues/320) |
-| JetBrains Junie | Not yet ported | [#321](https://github.com/apache/magpie/issues/321) |
+| JetBrains Junie (CLI + IDE plugin) | Reads `.agents/skills/` and `AGENTS.md` natively; `PreToolUse` action guard (hooks are Early Access) — see the [harness guide](docs/adapters/junie.md) | [#321](https://github.com/apache/magpie/issues/321) |
 | OpenHands | Not yet ported | [#322](https://github.com/apache/magpie/issues/322) |
 
 The table lists **harnesses** — the agent that reads the skills — not the
 editors they run in. A JetBrains IDE, for instance, hosts an agent rather than
-being one: `JetBrains Junie` above is JetBrains' *own* agent and is genuinely
-not ported, but running Claude Code inside IntelliJ IDEA or PyCharm is the
+being one: `JetBrains Junie` above is JetBrains' *own* agent, ported separately from
+running Claude Code inside IntelliJ IDEA or PyCharm is the
 fully-supported Claude Code row, with nothing extra to install. See
 [the JetBrains section of `marketplace.md`](docs/setup/marketplace.md#jetbrains-ides-intellij-idea-pycharm-goland-).
 
@@ -573,6 +574,28 @@ skill to install the bubblewrap sandbox and pinned tools, then
 [`setup-isolated-setup-verify`](skills/setup-isolated-setup-verify/SKILL.md)
 to confirm the install. The install tutorial lives at
 [`docs/setup/install-recipes.md`](docs/quick-start/other-install-methods.md).
+
+### Agent settings
+
+The committed [`.claude/settings.json`](.claude/settings.json) is the floor every
+contributor shares: the sandbox, every `deny` and `ask` rule, the plugin wiring, the
+vetted-ops read path, and the MCP tools of the families this repository uses.
+Everything else (the `gh` read allows, the remaining sandbox exclusions, extra network
+domains, and paths for your own tools such as GnuPG or Docker) ships as
+[`tools/agent-isolation/claude-settings.local.template.json`](tools/agent-isolation/claude-settings.local.template.json)
+and belongs in your gitignored `.claude/settings.local.json`, which Claude Code layers on
+top. [`setup-isolated-setup-install`](skills/setup-isolated-setup-install/SKILL.md) puts it
+in place, and `setup upgrade` reconciles it whenever the template changes; both hand you
+the copy, since an agent cannot write its own settings. The local file is per
+worktree; `setup worktree-init` reconciles each new one. Keep your own additions in the
+same file: reconciliation only adds what the template gained and asks before removing
+what it dropped. CI lints the two layered together against the baseline (`sandbox-lint`).
+
+If you set this repository up while `.claude/settings.json` was untracked (#1671), your
+copy may hold personal entries: before pulling, diff it against the committed floor and
+move anything personal into `.claude/settings.local.json`. That copy was gitignored, and
+`git pull` silently overwrites an ignored file, so back it up first in your own terminal
+(`cp .claude/settings.json .claude/settings.json.bak`; the agent sandbox cannot touch it).
 
 ### Lightening the agent context
 
@@ -1046,14 +1069,16 @@ Good entry points, in rough order of ramp-up cost:
 2. **Documentation improvements.** Read a skill or a doc, find a
    gap or a stale reference, fix it. The `docs/setup/`,
    `docs/security/`, and `docs/pr-management/` trees are all
-   actively curated and welcome refinement. The `link-check`
-   workflow surfaces broken anchors and dead URLs daily — work
-   from that report is high-value.
+   actively curated and welcome refinement.
+   The `lychee` hook in the `pre-commit` workflow checks in-repo links and heading anchors on every pull request and push to `main`,
+   but it runs offline and never fetches external URLs.
+   Finding and fixing a dead external link by hand is therefore high-value work.
 
 3. **Eval fixtures.** [`tools/skill-evals/evals/`](tools/skill-evals/evals/)
    has 1000+ cases across all skills, but every skill could use more
-   edge cases. A new fixture is a directory with `input.json` +
-   `expected.json` + a `README.md` describing the scenario.
+   edge cases.
+   A new case is a `case-N-<name>/` directory under a step's `fixtures/`, holding `report.md` (the mock tool output the model reads) and `expected.json` (the ground truth it must produce), plus an optional `case-meta.json` for runner tags.
+   Describe the scenario in the skill's per-suite `README.md`, one level up.
    Lower friction than skill code changes — no model behaviour
    change, just better test coverage. See
    [`tools/skill-evals/README.md`](tools/skill-evals/README.md)

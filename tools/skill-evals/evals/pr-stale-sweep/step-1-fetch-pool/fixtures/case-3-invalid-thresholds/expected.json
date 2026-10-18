@@ -1,8 +1,0 @@
-{
-  "selector_type": "default",
-  "warn_days": 90,
-  "close_days": 45,
-  "label_filter": null,
-  "explicit_numbers": null,
-  "has_error_threshold_order": true
-}

@@ -8,7 +8,7 @@
       "uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *",
       "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *",
       "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *",
-      "uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/*/tools/adversarial-review adversarial-review *",
+      "uvx --from ~/.claude/magpie/adversarial-review adversarial-review *",
       "~/.claude/scripts/magpie-run-evals.sh *"
     ],
     "filesystem": {
@@ -25,7 +25,6 @@
         "~/.local/bin/",
         "~/.docker/bin/",
         "~/.docker/cli-plugins/",
-        "~/.config/apache-magpie/",
         "~/.gnupg/",
         "/run/user/*/gnupg/"
       ],
@@ -55,10 +54,11 @@
         "www.cve.org",
         "cveawg.mitre.org",
         "api.osv.dev",
-        "oauth2.googleapis.com",
-        "gmail.googleapis.com",
         "*.crates.io",
-        "static.rust-lang.org"
+        "static.rust-lang.org",
+        "registry.npmjs.org",
+        "nodejs.org",
+        "releases.astral.sh"
       ],
       "enableWeakerNetworkIsolation": true
     },
@@ -145,6 +145,8 @@
       "Read(//**/.env.*.local)",
       "Edit(.claude/settings.json)",
       "Edit(.claude/settings.local.json)",
+      "Edit(tools/agent-isolation/claude-settings.local.template.json)",
+      "Edit(plugins/magpie-setup/skills/setup/family-mcp-allows.json)",
       "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
       "Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
       "Edit(~/.claude/magpie/**)",

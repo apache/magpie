@@ -59,6 +59,13 @@ ship in the same adopter directory and are referenced from here:
 | `release_planning_issue_template` | `<project-config>/release-planning-issue.md` |
 | `release_branch_base` | `main` |
 | `version_manifest_files` | `setup.cfg`, `foo/__init__.py` |
+| `changelog_label_categories` | *(optional)* e.g. `kind/feature=Features`, `kind/bug-fix=Bug fixes`, `area/docs=Documentation` |
+
+> `changelog_label_categories` (optional) maps PR labels to the
+> `release-prepare prep` changelog sections (*Features*, *Bug fixes*,
+> *Documentation*, *Other changes*), as `LABEL=SECTION` pairs. Unset, a
+> label is sorted by its words (`kind/bug-fix` → *Bug fixes*); PRs no rule
+> places stay uncategorised until the RM assigns them.
 
 > `git_upstream_remote` is the **git remote name** in the RM's local
 > checkout that points at the upstream release repo (`<upstream>`), used
@@ -160,6 +167,7 @@ checks + vote; promotion is still `svn mv` to the `release` bucket.
 | Key | Value |
 |---|---|
 | `keys_file_url` | `https://dist.apache.org/repos/dist/release/foo/KEYS` |
+| `keys_file_branch` | *(optional; only for a `KEYS` file in a git repository whose branch contains `/`, e.g. `release/1.x`)* |
 | `keyserver` | `keys.openpgp.org` |
 | `rm_key_fingerprint` | *(per-RM; lives in `.apache-magpie-overrides/user.md` under `release_manager.gpg_fingerprint`)* |
 
@@ -169,6 +177,9 @@ it uses the fingerprint to fetch the *public* counterpart from the
 keyserver and verify that the matching public block already
 appears in `KEYS` (or draft a `KEYS` diff to add it via
 `release-keys-sync`).
+A `keys_file_url` on GitHub (`https://github.com/<org>/<repo>/blob/<branch>/<path>/KEYS`)
+is read as the first segment after `blob/` for the branch and the rest for the path,
+so `KEYS` may sit in a sub-directory; set `keys_file_branch` when the branch itself contains `/`.
 See
 [spec § Boundary 1](../../../docs/release-management/spec.md#boundary-1-agent-never-holds-the-rms-signing-key).
 

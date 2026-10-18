@@ -60,6 +60,7 @@ The decision about who is nominated, and when, is always made by PMC members.
 - **Never a verdict.**
   No skill says or suggests whether someone is ready, close, or not ready to be nominated.
   Counts are shown next to the project's reference levels as plain numbers, without a status, a band or a recommendation.
+  `candidate-screen` goes further: it uses the reference levels only to pre-filter out the long tail, and shows everyone else's data with no reference levels at all.
 - **Deliberately more, not fewer.**
   A list of likely candidates includes more people than the PMC would consider, on purpose, so that nobody is overlooked.
   `calibrate` sets its reference levels well below what the project has actually elected — by default three quarters of it (`calibration_relaxation`, `0.75`) — to make that true.
@@ -81,14 +82,14 @@ Once you have [added the marketplace](../setup/marketplace-install.md):
 ```
 
 New to Magpie? The [quick start](../quick-start.md) walks the whole path in
-one place — install, the first `/magpie-setup` run, and a recording of it
+one place — install, the first `/magpie-setup:setup` run, and a recording of it
 happening — plus the other agents and the secure-isolation setup to run next.
 
 ### Before the first run
 
 <!-- BEGIN generated: skill-config (tools/dev/check-skill-config.py --fix) -->
 
-![An animated `/magpie-setup config` run for the contributor-growth family: the check failing, the values derived from the repository, one question for the rest, and personal files written](../../assets/quickstart/wizard/contributor-growth.svg)
+![An animated `/magpie-setup:setup config` run for the contributor-growth family: the check failing, the values derived from the repository, one question for the rest, and personal files written](../../assets/quickstart/wizard/contributor-growth.svg)
 
 *Illustrative — the real run derives more and asks better. What is true is
 the shape: it runs itself, it writes only your personal layer, and it
@@ -100,11 +101,12 @@ your personal layer first — `.apache-magpie-local/` (gitignored) in a
 project that adopted Magpie, `<git-common-dir>/apache-magpie/` in one
 that did not — then `.apache-magpie-overrides/` (committed, the project's).
 
-**For yourself:** `/magpie-setup config` scaffolds and fills these locally.
+**For yourself:** `/magpie-setup:setup config` scaffolds and fills these locally
+(`/magpie-setup config` on a [pinned-snapshot install](../setup/marketplace.md#skill-names-differ-by-install-method)).
 Nothing is staged, nothing is committed, and it works on a repository that
 has never adopted Magpie.
 
-**This configuration stays personal.** `/magpie-setup adopt` never
+**This configuration stays personal.** `/magpie-setup:setup adopt` never
 promotes or scaffolds it into `.apache-magpie-overrides/`: committed
 thresholds would tell every contributor how to game them.
 
@@ -125,7 +127,7 @@ says which file is missing.
 
 | File | What it carries | Read by |
 |---|---|---|
-| [`contributor-identities.md`](../../plugins/magpie-setup/templates/contributor-identities.md) | The project's community channels, and confirmed mappings from each contributor's GitHub handle to their Slack, Discord, mailing-list, and social-media handles. Written by `contributor-identity-map` after a maintainer confirms each one. | `committer-onboarding`, `identity-map` |
+| [`contributor-identities.md`](../../plugins/magpie-setup/templates/contributor-identities.md) | The project's community channels, and confirmed mappings from each contributor's GitHub handle to their Slack, Discord, mailing-list, and social-media handles. Written by `contributor-identity-map` after a maintainer confirms each one. | `committer-onboarding`, `identity-map`, `nomination` |
 | [`issue-tracker-config.md`](../../plugins/magpie-setup/templates/issue-tracker-config.md) | Tracker URL, project key, auth model, default query templates. | `activity-sweep`, `calibrate`, `contributor-to-committer`, `nomination`, `sentiment` |
 | [`pmc-roster.md`](../../plugins/magpie-setup/templates/pmc-roster.md) | Who is binding. Read wherever a vote is counted or a PMC-only action is gated. | `candidate-screen`, `nomination` |
 
@@ -135,7 +137,7 @@ says which file is missing.
 
 This family is **personal-recommended and not adoptable by default.**
 Install it for yourself — user scope, or install-only in this repository — on the machine of each maintainer who runs these skills.
-`/magpie-setup adopt` leaves it out of the committed floor unless a maintainer explicitly insists and accepts the risk below, and records that acceptance in `.apache-magpie.lock`.
+`/magpie-setup:setup adopt` leaves it out of the committed floor unless a maintainer explicitly insists and accepts the risk below, and records that acceptance in `.apache-magpie.lock`.
 
 The reason is gaming.
 Committer thresholds, nomination criteria, calibration floors, sentiment caps and the identity map are the project's private judgement about people.
@@ -187,7 +189,7 @@ below sends, merges, or posts anything without you confirming it.*
 | **Backlog curation** | [`good-first-issue-sweep`](../../skills/good-first-issue-sweep/SKILL.md) | Sweeps the open issue backlog for existing issues that could be labelled as good first issues; scores each against the G1–G7 suitability rubric; classifies as READY / NEAR-MISS / SKIP and proposes labels after explicit maintainer confirmation. |
 | **Activity tracking** | [`contributor-activity-sweep`](../../skills/contributor-activity-sweep/SKILL.md) | Produces a read-only GitHub activity card (PRs authored, code reviews, issues, comments) over a configurable window. |
 | **Calibration** | [`contributor-calibrate`](../../skills/contributor-calibrate/SKILL.md) | Derives committer and PMC reference levels from the project's own past nomination decisions on the private list, deliberately relaxed well below what the project elected; proposes a config diff holding numbers only, with nothing about any nominee leaving the session. |
-| **Candidate screening** | [`contributor-candidate-screen`](../../skills/contributor-candidate-screen/SKILL.md) | Surfaces details about likely committer and PMC candidates — deliberately more people than the PMC would consider — and writes a report to a repository the GitHub API reports as private, after the maintainer has read it: an alphabetical list linked to each person's details, and a paragraph or two summarising the findings. Never a ranking, never a verdict. |
+| **Candidate screening** | [`contributor-candidate-screen`](../../skills/contributor-candidate-screen/SKILL.md) | Pre-filters out the long tail of recent contributors, then shows the activity data of everyone else — deliberately more people than the PMC would consider, never scored or compared with thresholds — and writes a report to a repository the GitHub API reports as private, after the maintainer has read it: an alphabetical list linked to each person's details, and a paragraph or two summarising the findings. Never a ranking, never a verdict. |
 | **Activity vs. reference** | [`contributor-to-committer`](../../skills/contributor-to-committer/SKILL.md) | Shows a contributor's activity next to the project's committer or PMC reference levels, as plain numbers with the difference, and a short factual summary. No status, band, or readiness verdict. Read-only; never opens a nomination thread. |
 | **Identity mapping** | [`contributor-identity-map`](../../skills/contributor-identity-map/SKILL.md) | Maps any contributor's GitHub handle to their Slack, Discord, Matrix, mailing-list, and social-media handles; infers from the sources the session can reach and records only the mappings a maintainer confirms. Used by `committer-onboarding` and `contributor-nomination`. |
 | **Nomination brief** | [`contributor-nomination`](../../skills/contributor-nomination/SKILL.md) | Assembles evidence for a committer or PMC discussion: activity breadth, consistency, vendor-neutrality context, and factual narrative prose. Never rates the contributor or says whether they are ready. Read-only; never posts to any list. |

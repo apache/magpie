@@ -48,6 +48,7 @@ from magpie_bitbucket.normalize import (
     issue_comments,
     issue_list,
     merged_pull_request,
+    posted_pull_request_review,
     pull_request,
     pull_request_approval,
     pull_request_change_request,
@@ -60,6 +61,7 @@ from magpie_bitbucket.normalize import (
     pull_request_status,
     pull_request_task,
     pull_request_tasks,
+    rejected_pull_request,
     repository,
     repository_restrictions,
 )
@@ -2235,39 +2237,31 @@ def test_cli_repo_restrictions_datacenter(
 
 
 @patch("urllib.request.build_opener")
-def test_cloud_list_open_issues_follows_next(mock_build_opener: MagicMock, cloud_env: None) -> None:
-    opener = mock_opener(
-        mock_build_opener,
-        {
-            "values": [{"id": 1, "title": "First issue", "state": "open"}],
-            "next": "https://api.bitbucket.org/2.0/repositories/apache/magpie/issues?page=2",
-        },
-        {"values": [{"id": 2, "title": "Second issue", "state": "open"}]},
-    )
+def test_cloud_list_open_issues_removed_without_request(
+    mock_build_opener: MagicMock,
+    cloud_env: None,
+) -> None:
+    with pytest.raises(
+        BitbucketError,
+        match="native issue tracker API was removed by Atlassian on 2026-08-20",
+    ):
+        cloud.list_open_issues(load_config())
 
-    result = cloud.list_open_issues(load_config())
-
-    first_request = opener.open.call_args_list[0].args[0]
-    second_request = opener.open.call_args_list[1].args[0]
-    assert first_request.full_url == (
-        "https://api.bitbucket.org/2.0/repositories/apache/magpie/issues?q=state%3D%22new%22%20OR%20state%3D%22open%22%20OR%20state%3D%22on%20hold%22"
-    )
-    assert second_request.full_url.endswith("/issues?page=2")
-    assert result["values"] == [
-        {"id": 1, "title": "First issue", "state": "open"},
-        {"id": 2, "title": "Second issue", "state": "open"},
-    ]
+    mock_build_opener.assert_not_called()
 
 
 @patch("urllib.request.build_opener")
-def test_cloud_get_issue_url(mock_build_opener: MagicMock, cloud_env: None) -> None:
-    opener = mock_opener(mock_build_opener, {"id": 7, "title": "Fix issue"})
+def test_cloud_get_issue_removed_without_request(
+    mock_build_opener: MagicMock,
+    cloud_env: None,
+) -> None:
+    with pytest.raises(
+        BitbucketError,
+        match="native issue tracker API was removed by Atlassian on 2026-08-20",
+    ):
+        cloud.get_issue(load_config(), "7")
 
-    result = cloud.get_issue(load_config(), "7")
-
-    request = opener.open.call_args.args[0]
-    assert request.full_url == "https://api.bitbucket.org/2.0/repositories/apache/magpie/issues/7"
-    assert result == {"id": 7, "title": "Fix issue"}
+    mock_build_opener.assert_not_called()
 
 
 def test_datacenter_list_open_issues_unsupported(datacenter_env: None) -> None:
@@ -2327,65 +2321,18 @@ def test_normalize_cloud_issue_list() -> None:
     assert [item["state"] for item in normalized["issues"]] == ["open", "closed"]
 
 
-@patch("magpie_bitbucket.cloud.list_open_issues")
-def test_cli_issue_list_open_cloud(
-    mock_list_open_issues: MagicMock,
-    cloud_env: None,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    mock_list_open_issues.return_value = {"values": [{"id": 1, "title": "First issue", "state": "new"}]}
-
-    exit_code = main(["issue", "list-open"])
-
-    assert exit_code == 0
-    mock_list_open_issues.assert_called_once()
-    output = json.loads(capsys.readouterr().out)
-    assert output["backend"] == "bitbucket-cloud"
-    assert output["issues"][0]["title"] == "First issue"
-
-
-@patch("magpie_bitbucket.cloud.get_issue")
-def test_cli_issue_get_cloud(
-    mock_get_issue: MagicMock,
-    cloud_env: None,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    mock_get_issue.return_value = {"id": 7, "title": "Fix docs", "state": "new"}
-
-    exit_code = main(["issue", "get", "7"])
-
-    assert exit_code == 0
-    mock_get_issue.assert_called_once_with(load_config(), "7")
-    output = json.loads(capsys.readouterr().out)
-    assert output["backend"] == "bitbucket-cloud"
-    assert output["id"] == "7"
-    assert output["state"] == "open"
-
-
 @patch("urllib.request.build_opener")
-def test_cloud_get_issue_comments_follows_next(mock_build_opener: MagicMock, cloud_env: None) -> None:
-    opener = mock_opener(
-        mock_build_opener,
-        {
-            "values": [{"id": 101, "content": {"raw": "First comment"}}],
-            "next": "https://api.bitbucket.org/2.0/repositories/apache/magpie/issues/7/comments?page=2",
-        },
-        {"values": [{"id": 102, "content": {"raw": "Second comment"}}]},
-    )
+def test_cloud_get_issue_comments_removed_without_request(
+    mock_build_opener: MagicMock,
+    cloud_env: None,
+) -> None:
+    with pytest.raises(
+        BitbucketError,
+        match="native issue tracker API was removed by Atlassian on 2026-08-20",
+    ):
+        cloud.get_issue_comments(load_config(), "7")
 
-    result = cloud.get_issue_comments(load_config(), "7")
-
-    first_request = opener.open.call_args_list[0].args[0]
-    second_request = opener.open.call_args_list[1].args[0]
-    assert first_request.full_url == (
-        "https://api.bitbucket.org/2.0/repositories/apache/magpie/issues/7/comments"
-    )
-    assert second_request.full_url.endswith("/issues/7/comments?page=2")
-    assert result["issue_id"] == "7"
-    assert result["values"] == [
-        {"id": 101, "content": {"raw": "First comment"}},
-        {"id": 102, "content": {"raw": "Second comment"}},
-    ]
+    mock_build_opener.assert_not_called()
 
 
 def test_datacenter_get_issue_comments_unsupported(datacenter_env: None) -> None:
@@ -2430,51 +2377,18 @@ def test_normalize_cloud_issue_comments() -> None:
     assert deleted_normalized["comments"][0]["deleted"] is True
 
 
-@patch("magpie_bitbucket.cloud.get_issue_comments")
-def test_cli_issue_comments_cloud(
-    mock_get_issue_comments: MagicMock,
-    cloud_env: None,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    mock_get_issue_comments.return_value = {
-        "issue_id": "7",
-        "values": [{"id": 101, "user": {"display_name": "Alice"}, "content": {"raw": "Looks good."}}],
-    }
-
-    exit_code = main(["issue", "comments", "7"])
-
-    assert exit_code == 0
-    mock_get_issue_comments.assert_called_once()
-    output = json.loads(capsys.readouterr().out)
-    assert output["backend"] == "bitbucket-cloud"
-    assert output["issue_id"] == "7"
-    assert output["comments"][0]["body"] == "Looks good."
-
-
 @patch("urllib.request.build_opener")
-def test_cloud_get_issue_attachments_follows_next(mock_build_opener: MagicMock, cloud_env: None) -> None:
-    opener = mock_opener(
-        mock_build_opener,
-        {
-            "values": [{"id": 201, "name": "screenshot.png"}],
-            "next": "https://api.bitbucket.org/2.0/repositories/apache/magpie/issues/7/attachments?page=2",
-        },
-        {"values": [{"id": 202, "name": "trace.log"}]},
-    )
+def test_cloud_get_issue_attachments_removed_without_request(
+    mock_build_opener: MagicMock,
+    cloud_env: None,
+) -> None:
+    with pytest.raises(
+        BitbucketError,
+        match="native issue tracker API was removed by Atlassian on 2026-08-20",
+    ):
+        cloud.get_issue_attachments(load_config(), "7")
 
-    result = cloud.get_issue_attachments(load_config(), "7")
-
-    first_request = opener.open.call_args_list[0].args[0]
-    second_request = opener.open.call_args_list[1].args[0]
-    assert first_request.full_url == (
-        "https://api.bitbucket.org/2.0/repositories/apache/magpie/issues/7/attachments"
-    )
-    assert second_request.full_url.endswith("/issues/7/attachments?page=2")
-    assert result["issue_id"] == "7"
-    assert result["values"] == [
-        {"id": 201, "name": "screenshot.png"},
-        {"id": 202, "name": "trace.log"},
-    ]
+    mock_build_opener.assert_not_called()
 
 
 def test_datacenter_get_issue_attachments_unsupported(datacenter_env: None) -> None:
@@ -2539,27 +2453,6 @@ def test_normalize_cloud_issue_attachments() -> None:
     assert documented_payload["attachments"][0]["filename"] == "documented.txt"
     assert documented_payload["attachments"][0]["size"] is None
     assert documented_payload["attachments"][0]["download_url"].endswith("/attachments/documented.txt")
-
-
-@patch("magpie_bitbucket.cloud.get_issue_attachments")
-def test_cli_issue_attachments_cloud(
-    mock_get_issue_attachments: MagicMock,
-    cloud_env: None,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    mock_get_issue_attachments.return_value = {
-        "issue_id": "7",
-        "values": [{"id": 201, "name": "screenshot.png", "user": {"display_name": "Alice"}}],
-    }
-
-    exit_code = main(["issue", "attachments", "7"])
-
-    assert exit_code == 0
-    mock_get_issue_attachments.assert_called_once_with(load_config(), "7")
-    output = json.loads(capsys.readouterr().out)
-    assert output["backend"] == "bitbucket-cloud"
-    assert output["issue_id"] == "7"
-    assert output["attachments"][0]["name"] == "screenshot.png"
 
 
 @patch("urllib.request.build_opener")
@@ -2731,33 +2624,59 @@ def test_cli_pr_task_cloud(
 
 
 @patch("urllib.request.build_opener")
-def test_cloud_create_issue_comment_posts_json(
+def test_cloud_create_issue_comment_removed_without_request(
     mock_build_opener: MagicMock,
     cloud_env: None,
 ) -> None:
-    opener = mock_opener(
-        mock_build_opener,
-        {
-            "id": 501,
-            "content": {"raw": "Confirmed comment."},
-            "user": {"display_name": "Alice"},
-            "deleted": False,
-        },
-    )
+    with pytest.raises(
+        BitbucketError,
+        match="native issue tracker API was removed by Atlassian on 2026-08-20",
+    ):
+        cloud.create_issue_comment(
+            load_config(),
+            "7",
+            "Confirmed comment.",
+        )
 
-    result = cloud.create_issue_comment(
-        load_config(),
-        "7",
-        "Confirmed comment.",
-    )
+    mock_build_opener.assert_not_called()
 
-    request = opener.open.call_args.args[0]
-    assert request.full_url == ("https://api.bitbucket.org/2.0/repositories/apache/magpie/issues/7/comments")
-    assert request.get_method() == "POST"
-    assert request.get_header("Content-type") == "application/json"
-    assert json.loads(request.data.decode("utf-8")) == {"content": {"raw": "Confirmed comment."}}
-    assert result["issue_id"] == "7"
-    assert result["comment"]["id"] == 501
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["issue", "list-open"],
+        ["issue", "get", "7"],
+        ["issue", "comments", "7"],
+        ["issue", "attachments", "7"],
+        ["issue", "comment", "7", "--body-file", "comment.txt"],
+    ],
+)
+@patch("urllib.request.build_opener")
+def test_cli_issue_commands_fail_closed_on_cloud(
+    mock_build_opener: MagicMock,
+    argv: list[str],
+    cloud_env: None,
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "comment.txt").write_text("Confirmed comment.", encoding="utf-8")
+    argv = [str(tmp_path / a) if a == "comment.txt" else a for a in argv]
+
+    with pytest.raises(BitbucketError, match="removed by Atlassian on 2026-08-20"):
+        main(argv)
+
+    mock_build_opener.assert_not_called()
+
+
+@patch("urllib.request.build_opener")
+def test_cli_issue_comment_reports_removal_before_reading_body(
+    mock_build_opener: MagicMock,
+    cloud_env: None,
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(BitbucketError, match="removed by Atlassian on 2026-08-20"):
+        main(["issue", "comment", "7", "--body-file", str(tmp_path / "missing.txt")])
+
+    mock_build_opener.assert_not_called()
 
 
 def test_datacenter_create_issue_comment_unsupported(
@@ -2797,100 +2716,6 @@ def test_normalize_created_cloud_issue_comment() -> None:
     assert normalized["comment"]["id"] == "501"
     assert normalized["comment"]["author"] == "Alice"
     assert normalized["comment"]["body"] == "Confirmed comment."
-
-
-@patch("magpie_bitbucket.cloud.create_issue_comment")
-def test_cli_issue_comment_cloud(
-    mock_create_issue_comment: MagicMock,
-    cloud_env: None,
-    tmp_path: Path,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    body_file = tmp_path / "comment.txt"
-    body_file.write_text("Confirmed comment.", encoding="utf-8")
-
-    mock_create_issue_comment.return_value = {
-        "issue_id": "7",
-        "comment": {
-            "id": 501,
-            "content": {"raw": "Confirmed comment."},
-            "user": {"display_name": "Alice"},
-            "deleted": False,
-        },
-    }
-
-    exit_code = main(
-        [
-            "issue",
-            "comment",
-            "7",
-            "--body-file",
-            str(body_file),
-        ]
-    )
-
-    assert exit_code == 0
-    mock_create_issue_comment.assert_called_once_with(
-        load_config(),
-        "7",
-        "Confirmed comment.",
-    )
-
-    output = json.loads(capsys.readouterr().out)
-    assert output["ok"] is True
-    assert output["operation"] == "issue-comment-create"
-    assert output["comment"]["id"] == "501"
-
-
-@patch("magpie_bitbucket.cloud.create_issue_comment")
-def test_cli_issue_comment_rejects_empty_body_before_write(
-    mock_create_issue_comment: MagicMock,
-    cloud_env: None,
-    tmp_path: Path,
-) -> None:
-    body_file = tmp_path / "empty.txt"
-    body_file.write_text("   ", encoding="utf-8")
-
-    with pytest.raises(
-        BitbucketError,
-        match="Comment body file must not be empty",
-    ):
-        main(
-            [
-                "issue",
-                "comment",
-                "7",
-                "--body-file",
-                str(body_file),
-            ]
-        )
-
-    mock_create_issue_comment.assert_not_called()
-
-
-@patch("magpie_bitbucket.cloud.create_issue_comment")
-def test_cli_issue_comment_missing_body_file_before_write(
-    mock_create_issue_comment: MagicMock,
-    cloud_env: None,
-    tmp_path: Path,
-) -> None:
-    missing = tmp_path / "missing.txt"
-
-    with pytest.raises(
-        BitbucketError,
-        match="Body file not found",
-    ):
-        main(
-            [
-                "issue",
-                "comment",
-                "7",
-                "--body-file",
-                str(missing),
-            ]
-        )
-
-    mock_create_issue_comment.assert_not_called()
 
 
 @patch("magpie_bitbucket.client.urllib.request.build_opener")
@@ -4098,3 +3923,800 @@ def test_cloud_merge_pull_request_reports_backend_strategy(
 
     assert (result["strategy"], result["backend_strategy"]) == ("rebase", "rebase_fast_forward")
     assert merged_pull_request("cloud", result)["backend_strategy"] == "rebase_fast_forward"
+
+
+@patch("magpie_bitbucket.client.urllib.request.build_opener")
+def test_cloud_get_pull_request_merge_task_status_pending(
+    mock_build_opener: MagicMock,
+    cloud_env: None,
+) -> None:
+    mock_opener(
+        mock_build_opener,
+        {
+            "task_status": "PENDING",
+            "links": {
+                "self": {
+                    "href": (
+                        "https://api.bitbucket.org/2.0/repositories/apache/magpie/"
+                        "pullrequests/7/merge/task-status/task-123"
+                    ),
+                },
+            },
+        },
+    )
+
+    result = cloud.get_pull_request_merge_task_status(
+        load_config(),
+        "7",
+        "task-123",
+    )
+
+    request = mock_build_opener.return_value.open.call_args.args[0]
+
+    assert request.get_method() == "GET"
+    assert request.full_url == (
+        "https://api.bitbucket.org/2.0/repositories/apache/magpie/pullrequests/7/merge/task-status/task-123"
+    )
+    assert result["pull_request_id"] == "7"
+    assert result["task_id"] == "task-123"
+    assert result["result"]["task_status"] == "PENDING"
+
+    normalized = merged_pull_request("cloud", result)
+
+    assert normalized["merge_status"] == "submitted"
+    assert normalized["task_status"] == "PENDING"
+    assert normalized["landed_ref"] is None
+
+
+@patch("magpie_bitbucket.client.urllib.request.build_opener")
+def test_cloud_get_pull_request_merge_task_status_success(
+    mock_build_opener: MagicMock,
+    cloud_env: None,
+) -> None:
+    mock_opener(
+        mock_build_opener,
+        {
+            "task_status": "SUCCESS",
+            "merge_result": {
+                "id": 7,
+                "state": "MERGED",
+                "merge_commit": {
+                    "hash": "abc123def456",
+                },
+            },
+        },
+    )
+
+    result = cloud.get_pull_request_merge_task_status(
+        load_config(),
+        "7",
+        "task-123",
+    )
+
+    normalized = merged_pull_request("cloud", result)
+
+    assert normalized["merge_status"] == "merged"
+    assert normalized["task_status"] == "SUCCESS"
+    assert normalized["landed_ref"] == "abc123def456"
+
+
+@pytest.mark.parametrize("task_status", ["FAILED", "ERROR"])
+@patch("magpie_bitbucket.client.urllib.request.build_opener")
+def test_cloud_get_pull_request_merge_task_status_failed(
+    mock_build_opener: MagicMock,
+    cloud_env: None,
+    task_status: str,
+) -> None:
+    mock_opener(mock_build_opener, {"task_status": task_status})
+
+    result = cloud.get_pull_request_merge_task_status(
+        load_config(),
+        "7",
+        "task-123",
+    )
+
+    normalized = merged_pull_request("cloud", result)
+
+    assert normalized["merge_status"] == "failed"
+    assert normalized["task_status"] == task_status
+    assert normalized["landed_ref"] is None
+
+
+def test_datacenter_get_pull_request_merge_task_status_unsupported(
+    datacenter_env: None,
+) -> None:
+    with pytest.raises(
+        BitbucketError,
+        match="merge task-status reads are not supported",
+    ):
+        datacenter.get_pull_request_merge_task_status(
+            load_config(),
+            "9",
+            "task-123",
+        )
+
+
+@patch("magpie_bitbucket.cloud.get_pull_request_merge_task_status")
+def test_cli_pr_merge_task_status_cloud(
+    mock_get_merge_task_status: MagicMock,
+    cloud_env: None,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    mock_get_merge_task_status.return_value = {
+        "pull_request_id": "7",
+        "task_id": "task-123",
+        "task_url": (
+            "https://api.bitbucket.org/2.0/repositories/apache/magpie/"
+            "pullrequests/7/merge/task-status/task-123"
+        ),
+        "result": {
+            "task_status": "SUCCESS",
+            "merge_result": {
+                "id": 7,
+                "state": "MERGED",
+                "merge_commit": {
+                    "hash": "abc123def456",
+                },
+            },
+        },
+    }
+
+    exit_code = main(
+        [
+            "pr",
+            "merge-task-status",
+            "7",
+            "task-123",
+        ]
+    )
+
+    assert exit_code == 0
+    mock_get_merge_task_status.assert_called_once()
+
+    args = mock_get_merge_task_status.call_args.args
+    assert args[1:] == ("7", "task-123")
+
+    output = json.loads(capsys.readouterr().out)
+
+    assert output["operation"] == "pull-request-merge-task-status"
+    assert output["merge_status"] == "merged"
+    assert output["task_status"] == "SUCCESS"
+    assert output["landed_ref"] == "abc123def456"
+
+
+@patch("magpie_bitbucket.client.urllib.request.build_opener")
+def test_cli_pr_merge_task_status_datacenter_fails_without_request(
+    mock_build_opener: MagicMock,
+    datacenter_env: None,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    exit_code = package_main(
+        [
+            "pr",
+            "merge-task-status",
+            "9",
+            "task-123",
+        ]
+    )
+
+    assert exit_code == 1
+    mock_build_opener.assert_not_called()
+
+    stderr = capsys.readouterr().err
+    assert "merge task-status reads are not supported" in stderr
+
+
+def test_cloud_post_pull_request_review_comment_only(
+    cloud_env: None,
+) -> None:
+    with (
+        patch(
+            "magpie_bitbucket.cloud.create_pull_request_comment",
+            return_value={
+                "pull_request_id": "7",
+                "comment": {
+                    "id": 601,
+                    "content": {"raw": "Review body."},
+                    "deleted": False,
+                },
+            },
+        ) as mock_comment,
+        patch("magpie_bitbucket.cloud.approve_pull_request") as mock_approve,
+        patch("magpie_bitbucket.cloud.request_pull_request_changes") as mock_request_changes,
+    ):
+        result = cloud.post_pull_request_review(
+            load_config(),
+            "7",
+            "comment",
+            "Review body.",
+        )
+
+    mock_comment.assert_called_once_with(
+        load_config(),
+        "7",
+        "Review body.",
+    )
+    mock_approve.assert_not_called()
+    mock_request_changes.assert_not_called()
+
+    assert result["verdict"] == "comment"
+    assert result["comment"]["id"] == 601
+    assert result["participant"] is None
+
+
+def test_cloud_post_pull_request_review_approve_posts_body_before_verdict(
+    cloud_env: None,
+) -> None:
+    order: list[str] = []
+
+    def create_comment(*args: Any) -> dict[str, Any]:
+        order.append("comment")
+        return {
+            "pull_request_id": "7",
+            "comment": {
+                "id": 601,
+                "content": {"raw": "LGTM."},
+                "deleted": False,
+            },
+        }
+
+    def approve(*args: Any) -> dict[str, Any]:
+        order.append("approve")
+        return {
+            "pull_request_id": "7",
+            "participant": {
+                "approved": True,
+                "state": "approved",
+            },
+        }
+
+    with (
+        patch(
+            "magpie_bitbucket.cloud.create_pull_request_comment",
+            side_effect=create_comment,
+        ),
+        patch(
+            "magpie_bitbucket.cloud.approve_pull_request",
+            side_effect=approve,
+        ),
+    ):
+        result = cloud.post_pull_request_review(
+            load_config(),
+            "7",
+            "approve",
+            "LGTM.",
+        )
+
+    assert order == ["comment", "approve"]
+    assert result["verdict"] == "approve"
+    assert result["participant"]["approved"] is True
+
+
+def test_cloud_post_pull_request_review_request_changes(
+    cloud_env: None,
+) -> None:
+    with (
+        patch(
+            "magpie_bitbucket.cloud.create_pull_request_comment",
+            return_value={
+                "pull_request_id": "7",
+                "comment": {
+                    "id": 601,
+                    "content": {"raw": "Please fix this."},
+                    "deleted": False,
+                },
+            },
+        ),
+        patch(
+            "magpie_bitbucket.cloud.request_pull_request_changes",
+            return_value={
+                "pull_request_id": "7",
+                "participant": {
+                    "approved": False,
+                    "state": "changes_requested",
+                },
+            },
+        ) as mock_request_changes,
+    ):
+        result = cloud.post_pull_request_review(
+            load_config(),
+            "7",
+            "request-changes",
+            "Please fix this.",
+        )
+
+    mock_request_changes.assert_called_once()
+    assert result["verdict"] == "request-changes"
+    assert result["participant"]["state"] == "changes_requested"
+
+
+def test_cloud_post_pull_request_review_rejects_invalid_verdict_before_write(
+    cloud_env: None,
+) -> None:
+    with (
+        patch("magpie_bitbucket.cloud.create_pull_request_comment") as mock_comment,
+        patch("magpie_bitbucket.cloud.approve_pull_request") as mock_approve,
+    ):
+        with pytest.raises(
+            BitbucketError,
+            match="Unsupported pull request review verdict",
+        ):
+            cloud.post_pull_request_review(
+                load_config(),
+                "7",
+                "dismiss",
+                "Review body.",
+            )
+
+    mock_comment.assert_not_called()
+    mock_approve.assert_not_called()
+
+
+def test_cloud_post_pull_request_review_reports_partial_failure(
+    cloud_env: None,
+) -> None:
+    with (
+        patch(
+            "magpie_bitbucket.cloud.create_pull_request_comment",
+            return_value={
+                "pull_request_id": "7",
+                "comment": {
+                    "id": 601,
+                    "content": {"raw": "LGTM."},
+                    "deleted": False,
+                },
+            },
+        ),
+        patch(
+            "magpie_bitbucket.cloud.approve_pull_request",
+            side_effect=BitbucketError("approve failed"),
+        ),
+        pytest.raises(
+            BitbucketError,
+            match="review body was posted",
+        ) as exc,
+    ):
+        cloud.post_pull_request_review(
+            load_config(),
+            "7",
+            "approve",
+            "LGTM.",
+        )
+
+    assert "before retrying" in str(exc.value)
+
+
+def test_datacenter_post_pull_request_review_unsupported(
+    datacenter_env: None,
+) -> None:
+    with pytest.raises(
+        BitbucketError,
+        match="Data Center pull request post-review writes are not supported",
+    ):
+        datacenter.post_pull_request_review(
+            load_config(),
+            "9",
+            "approve",
+            "LGTM.",
+        )
+
+
+def test_normalize_posted_pull_request_review() -> None:
+    normalized = posted_pull_request_review(
+        "cloud",
+        {
+            "pull_request_id": "7",
+            "verdict": "approve",
+            "comment": {
+                "id": 601,
+                "content": {"raw": "LGTM."},
+                "user": {"display_name": "Alice"},
+                "deleted": False,
+            },
+            "participant": {
+                "approved": True,
+                "state": "approved",
+            },
+        },
+    )
+
+    assert normalized["ok"] is True
+    assert normalized["backend"] == "bitbucket-cloud"
+    assert normalized["operation"] == "pull-request-review"
+    assert normalized["pull_request_id"] == "7"
+    assert normalized["verdict"] == "approve"
+    assert normalized["comment"]["body"] == "LGTM."
+    assert normalized["participant"]["approved"] is True
+
+
+@patch("magpie_bitbucket.cloud.post_pull_request_review")
+def test_cli_pr_review_cloud(
+    mock_post_review: MagicMock,
+    cloud_env: None,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    body_file = tmp_path / "review.md"
+    body_file.write_text("LGTM.", encoding="utf-8")
+
+    mock_post_review.return_value = {
+        "pull_request_id": "7",
+        "verdict": "approve",
+        "comment": {
+            "id": 601,
+            "content": {"raw": "LGTM."},
+            "user": {"display_name": "Alice"},
+            "deleted": False,
+        },
+        "participant": {
+            "approved": True,
+            "state": "approved",
+        },
+    }
+
+    exit_code = main(
+        [
+            "pr",
+            "review",
+            "7",
+            "--verdict",
+            "approve",
+            "--body-file",
+            str(body_file),
+        ]
+    )
+
+    assert exit_code == 0
+
+    mock_post_review.assert_called_once_with(
+        load_config(),
+        "7",
+        "approve",
+        "LGTM.",
+    )
+
+    output = json.loads(capsys.readouterr().out)
+
+    assert output["ok"] is True
+    assert output["operation"] == "pull-request-review"
+    assert output["verdict"] == "approve"
+    assert output["comment"]["body"] == "LGTM."
+    assert output["participant"]["approved"] is True
+
+
+@patch("magpie_bitbucket.cloud.post_pull_request_review")
+def test_cli_pr_review_rejects_empty_body_before_write(
+    mock_post_review: MagicMock,
+    cloud_env: None,
+    tmp_path: Path,
+) -> None:
+    body_file = tmp_path / "empty-review.md"
+    body_file.write_text("   ", encoding="utf-8")
+
+    with pytest.raises(
+        BitbucketError,
+        match="Comment body file must not be empty",
+    ):
+        main(
+            [
+                "pr",
+                "review",
+                "7",
+                "--verdict",
+                "approve",
+                "--body-file",
+                str(body_file),
+            ]
+        )
+
+    mock_post_review.assert_not_called()
+
+
+@patch("magpie_bitbucket.client.urllib.request.build_opener")
+def test_cli_pr_review_datacenter_fails_without_request(
+    mock_build_opener: MagicMock,
+    datacenter_env: None,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    body_file = tmp_path / "review.md"
+    body_file.write_text("LGTM.", encoding="utf-8")
+
+    exit_code = package_main(
+        [
+            "pr",
+            "review",
+            "9",
+            "--verdict",
+            "approve",
+            "--body-file",
+            str(body_file),
+        ]
+    )
+
+    assert exit_code == 1
+    mock_build_opener.assert_not_called()
+
+    stderr = capsys.readouterr().err
+    assert "post-review writes are not supported" in stderr
+
+
+@patch("magpie_bitbucket.cloud.post_pull_request_review")
+def test_cli_pr_review_rejects_invalid_verdict_before_write(
+    mock_post_review: MagicMock,
+    cloud_env: None,
+    tmp_path: Path,
+) -> None:
+    body_file = tmp_path / "review.md"
+    body_file.write_text("Review body.", encoding="utf-8")
+
+    with pytest.raises(SystemExit) as exc:
+        main(
+            [
+                "pr",
+                "review",
+                "7",
+                "--verdict",
+                "dismiss",
+                "--body-file",
+                str(body_file),
+            ]
+        )
+
+    assert exc.value.code == 2
+    mock_post_review.assert_not_called()
+
+
+def test_cloud_reject_pull_request_posts_reason_before_decline(
+    cloud_env: None,
+) -> None:
+    order: list[str] = []
+
+    def create_comment(*args: Any) -> dict[str, Any]:
+        order.append("comment")
+        return {
+            "pull_request_id": "7",
+            "comment": {
+                "id": 601,
+                "content": {"raw": "Superseded by #8."},
+                "deleted": False,
+            },
+        }
+
+    def decline(*args: Any) -> dict[str, Any]:
+        order.append("decline")
+        return {
+            "pull_request_id": "7",
+            "pull_request": {
+                "id": 7,
+                "state": "DECLINED",
+                "title": "Example PR",
+            },
+        }
+
+    with (
+        patch(
+            "magpie_bitbucket.cloud.create_pull_request_comment",
+            side_effect=create_comment,
+        ),
+        patch(
+            "magpie_bitbucket.cloud.decline_pull_request",
+            side_effect=decline,
+        ),
+    ):
+        result = cloud.reject_pull_request(
+            load_config(),
+            "7",
+            "Superseded by #8.",
+        )
+
+    assert order == ["comment", "decline"]
+    assert result["pull_request_id"] == "7"
+    assert result["reason"] == "Superseded by #8."
+    assert result["comment"]["id"] == 601
+    assert result["pull_request"]["state"] == "DECLINED"
+
+
+def test_cloud_reject_pull_request_rejects_empty_reason_before_write(
+    cloud_env: None,
+) -> None:
+    with (
+        patch("magpie_bitbucket.cloud.create_pull_request_comment") as mock_comment,
+        patch("magpie_bitbucket.cloud.decline_pull_request") as mock_decline,
+    ):
+        with pytest.raises(
+            BitbucketError,
+            match="rejection reason must not be empty",
+        ):
+            cloud.reject_pull_request(
+                load_config(),
+                "7",
+                "   ",
+            )
+
+    mock_comment.assert_not_called()
+    mock_decline.assert_not_called()
+
+
+def test_cloud_reject_pull_request_reports_partial_failure(
+    cloud_env: None,
+) -> None:
+    with (
+        patch(
+            "magpie_bitbucket.cloud.create_pull_request_comment",
+            return_value={
+                "pull_request_id": "7",
+                "comment": {
+                    "id": 601,
+                    "content": {"raw": "Out of scope."},
+                    "deleted": False,
+                },
+            },
+        ),
+        patch(
+            "magpie_bitbucket.cloud.decline_pull_request",
+            side_effect=BitbucketError("decline failed"),
+        ),
+        pytest.raises(
+            BitbucketError,
+            match="rejection reason was posted",
+        ) as exc,
+    ):
+        cloud.reject_pull_request(
+            load_config(),
+            "7",
+            "Out of scope.",
+        )
+
+    assert "before retrying" in str(exc.value)
+    assert "pr discussion 7" in str(exc.value)
+    assert "pr get 7" in str(exc.value)
+
+
+def test_datacenter_reject_pull_request_unsupported(
+    datacenter_env: None,
+) -> None:
+    with pytest.raises(
+        BitbucketError,
+        match="Data Center pull request reject writes are not supported",
+    ):
+        datacenter.reject_pull_request(
+            load_config(),
+            "9",
+            "Out of scope.",
+        )
+
+
+def test_normalize_rejected_pull_request() -> None:
+    normalized = rejected_pull_request(
+        "cloud",
+        {
+            "pull_request_id": "7",
+            "reason": "Superseded by #8.",
+            "comment": {
+                "id": 601,
+                "content": {"raw": "Superseded by #8."},
+                "user": {"display_name": "Alice"},
+                "deleted": False,
+            },
+            "pull_request": {
+                "id": 7,
+                "state": "DECLINED",
+                "title": "Example PR",
+            },
+        },
+    )
+
+    assert normalized["ok"] is True
+    assert normalized["backend"] == "bitbucket-cloud"
+    assert normalized["operation"] == "pull-request-reject"
+    assert normalized["pull_request_id"] == "7"
+    assert normalized["reason"] == "Superseded by #8."
+    assert normalized["comment"]["body"] == "Superseded by #8."
+    assert normalized["pull_request"]["state"] == "DECLINED"
+
+
+@patch("magpie_bitbucket.cloud.reject_pull_request")
+def test_cli_pr_reject_cloud(
+    mock_reject_pull_request: MagicMock,
+    cloud_env: None,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    reason_file = tmp_path / "reason.md"
+    reason_file.write_text("Superseded by #8.", encoding="utf-8")
+
+    mock_reject_pull_request.return_value = {
+        "pull_request_id": "7",
+        "reason": "Superseded by #8.",
+        "comment": {
+            "id": 601,
+            "content": {"raw": "Superseded by #8."},
+            "user": {"display_name": "Alice"},
+            "deleted": False,
+        },
+        "pull_request": {
+            "id": 7,
+            "state": "DECLINED",
+            "title": "Example PR",
+        },
+    }
+
+    exit_code = main(
+        [
+            "pr",
+            "reject",
+            "7",
+            "--reason-file",
+            str(reason_file),
+        ]
+    )
+
+    assert exit_code == 0
+
+    mock_reject_pull_request.assert_called_once_with(
+        load_config(),
+        "7",
+        "Superseded by #8.",
+    )
+
+    output = json.loads(capsys.readouterr().out)
+
+    assert output["ok"] is True
+    assert output["operation"] == "pull-request-reject"
+    assert output["reason"] == "Superseded by #8."
+    assert output["comment"]["body"] == "Superseded by #8."
+    assert output["pull_request"]["state"] == "DECLINED"
+
+
+@patch("magpie_bitbucket.cloud.reject_pull_request")
+def test_cli_pr_reject_rejects_empty_reason_before_write(
+    mock_reject_pull_request: MagicMock,
+    cloud_env: None,
+    tmp_path: Path,
+) -> None:
+    reason_file = tmp_path / "empty-reason.md"
+    reason_file.write_text("   ", encoding="utf-8")
+
+    with pytest.raises(
+        BitbucketError,
+        match="Comment body file must not be empty",
+    ):
+        main(
+            [
+                "pr",
+                "reject",
+                "7",
+                "--reason-file",
+                str(reason_file),
+            ]
+        )
+
+    mock_reject_pull_request.assert_not_called()
+
+
+@patch("magpie_bitbucket.client.urllib.request.build_opener")
+def test_cli_pr_reject_datacenter_fails_without_request(
+    mock_build_opener: MagicMock,
+    datacenter_env: None,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    reason_file = tmp_path / "reason.md"
+    reason_file.write_text("Out of scope.", encoding="utf-8")
+
+    exit_code = package_main(
+        [
+            "pr",
+            "reject",
+            "9",
+            "--reason-file",
+            str(reason_file),
+        ]
+    )
+
+    assert exit_code == 1
+    mock_build_opener.assert_not_called()
+
+    stderr = capsys.readouterr().err
+    assert "reject writes are not supported" in stderr

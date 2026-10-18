@@ -110,8 +110,12 @@ repos:
       # The next three hooks are *fixers*: they open every matched file
       # in read-write mode (to normalise it in place) before checking
       # whether a fix is even needed. The secure-agent sandbox
-      # write-denies three tracked path sets — the agent's own config
-      # (`.claude/settings.json`), the self-adoption skill relays
+      # write-denies tracked path sets — the agent's own config
+      # (`.claude/settings.json` and the local settings template it is
+      # layered with, `tools/agent-isolation/claude-settings.local.template.json`,
+      # and the family MCP registry it derives allows from,
+      # `plugins/magpie-setup/skills/setup/family-mcp-allows.json`),
+      # the self-adoption skill relays
       # (`.claude/skills/*` symlinks), and the plugin hook scripts
       # (`plugins/magpie-setup/hooks/`) — because agents must never
       # modify them. A hook script
@@ -121,8 +125,8 @@ repos:
       # `prek run --all-files` (which `agent-pre-commit.sh` and the CI
       # mirror both run) the read-write `open()` on those paths is denied
       # and the whole run aborts, even though the files need no fix.
-      # Exclude them: `.claude/settings.json` is gated by the
-      # sandbox-lint baseline, the skill symlinks are validated by
+      # Exclude them: `.claude/settings.json` and the template are gated
+      # by the sandbox-lint baseline, the skill symlinks are validated by
       # `symlink-lint`, the upgrade hook script is checked for
       # existence and correct wiring by `check-family-plugins.py`, and
       # the vetted-ops policy is parsed by `vetted_ops.config` on every
@@ -136,9 +140,14 @@ repos:
       # every one of these three hooks aborts the run without it.
       - id: end-of-file-fixer
         name: Make sure that there is an empty line at the end
-        exclude: &sandbox_write_denied ^(\.claude/(settings\.json|skills/)|plugins/magpie-setup/hooks/|\.apache-magpie-overrides/tools/vetted-ops/)
+        exclude: &sandbox_write_denied ^(\.claude/(settings\.json|skills/)|tools/agent-isolation/claude-settings\.local\.template\.json|plugins/magpie-setup/skills/setup/family-mcp-allows\.json|plugins/magpie-setup/hooks/|\.apache-magpie-overrides/tools/vetted-ops/)
+      # `--fix=lf`, not the default `auto`: `auto` only fails a file
+      # that mixes the two styles, so a file converted wholesale to
+      # CRLF (an editor on Windows, `core.autocrlf=true`) passes and
+      # lands as a whole-file rewrite. `lf` converts any CRLF to LF.
       - id: mixed-line-ending
-        name: Detect if mixed line ending is used (\r vs. \r\n)
+        name: Enforce LF line endings (convert \r\n to \n)
+        args: [--fix=lf]
         exclude: *sandbox_write_denied
       - id: trailing-whitespace
         name: Remove trailing whitespace at end of line
@@ -187,7 +196,7 @@ repos:
   # .gitignore inside `.venv`, so a synced workspace stays out of the
   # walk: it covers the same files the list did.
   - repo: https://github.com/crate-ci/typos
-    rev: v1.50.3
+    rev: v1.51.1
     hooks:
       - id: typos
         name: typos
@@ -333,7 +342,62 @@ repos:
         name: check-family-plugins (marketplace plugins vs frontmatter)
         language: system
         entry: python3 tools/dev/check-family-plugins.py --fix
-        files: ^(skills/.*/SKILL\.md|plugins/.*|\.claude-plugin/(marketplace|plugin)\.json|\.codex-plugin/plugin\.json|\.agents/plugins/marketplace\.json|(plugin|marketplace)\.json|gemini-extension\.json|apm\.yml|pyproject\.toml)$
+        files: ^(tools/(agent-guard/src/.*|vetted-ops/(src/.*|hooks/.*|pyproject\.toml|README\.md))|tools/dev/check-family-plugins\.py|\.pre-commit-config\.yaml|skills/.*/SKILL\.md|plugins/.*|\.claude-plugin/(marketplace|plugin)\.json|\.codex-plugin/plugin\.json|\.agents/plugins/marketplace\.json|(plugin|marketplace)\.json|gemini-extension\.json|apm\.yml|pyproject\.toml)$
+        pass_filenames: false
+  # Claude Code mods — `claude plugin validate --strict` and `claude plugin
+  # test` on every plugin whose `hooks/hooks.json` declares `modules`
+  # (docs/when-to-use-mods.md). Claude Code loads a hooks module only after
+  # static analysis passes; a module that fails it never runs, and nothing
+  # else in the tree notices. A no-op until the tree has a mod.
+  #
+  # `language: node` with the CLI pinned in `additional_dependencies`, so
+  # prek installs it into a cached hook env, the way `lychee` gets its
+  # toolchain: no local Claude Code needed, and CI needs no install step.
+  #
+  # `stages: [manual]`: the hook env is a ~200 MB native binary, which is
+  # not worth fetching on every contributor's first commit for a check that
+  # concerns only the few who write mods. CI runs it on every event (its own
+  # step in `.github/workflows/pre-commit.yml`); locally it is
+  # `prek run check-claude-mods --hook-stage manual --all-files`.
+  #
+  # Claude Code is a dev-only tool here: CI runs it to check the mods, it is
+  # not a dependency of anything Magpie ships, and nothing from it goes into a
+  # release or a plugin.
+  #
+  # The pin is moved by `.github/workflows/bump-hook-npm-pins.yml` (Dependabot's
+  # `pre-commit` ecosystem never touches `additional_dependencies`), with a
+  # 12-hour cooldown rather than the 7 days the rest of the tree uses. A
+  # cooldown buys time for a bad or compromised release to be withdrawn
+  # before CI installs it. Claude Code ships several times a day and replaces
+  # a bad release within hours, so 12 hours already covers that window; and
+  # a security problem in it is fixed by the next release, so a week-long wait
+  # would keep CI on the known-bad version instead of protecting it. The mods
+  # API is also still moving, and adopters auto-update, so the check has to
+  # track what they actually run. Being dev-only (above), the worst a bad
+  # version can do is fail or wrongly pass this check. See
+  # `tools/dev/bump-hook-npm-pins.py`.
+  - repo: local
+    hooks:
+      - id: check-claude-mods
+        name: check-claude-mods (claude plugin validate --strict / test)
+        language: node
+        entry: tools/dev/check-claude-mods.sh
+        additional_dependencies: ["@anthropic-ai/claude-code@2.1.301"]
+        files: ^(.*/hooks/.*|.*\.claude-plugin/plugin\.json|tools/dev/check-claude-mods\.sh)$
+        pass_filenames: false
+        stages: [manual]
+  # The same check on ordinary commits, with the contributor's own Claude
+  # Code: `language: system`, so nothing is downloaded. It skips itself when
+  # `claude` is not installed, and when the installed one is older than the
+  # pin above (an older CLI may not know events a mod uses). A newer one
+  # runs. CI's pinned run above stays the authoritative result.
+  - repo: local
+    hooks:
+      - id: check-claude-mods-local
+        name: check-claude-mods-local (local Claude Code, skipped if absent)
+        language: system
+        entry: tools/dev/check-claude-mods.sh --local
+        files: ^(.*/hooks/.*|.*\.claude-plugin/plugin\.json|tools/dev/check-claude-mods\.sh)$
         pass_filenames: false
   # Every shared prose block a skill carries — the auto-inserted setup
   # pre-flight, plus any number of declared blocks. It cannot be a hook: on
@@ -490,6 +554,18 @@ repos:
         language: system
         entry: python3 tools/dev/render-wizard.py
         files: ^(skills/[^/]+/SKILL\.md|plugins/magpie-[^/]+/skills/.*/SKILL\.md|plugins/magpie-setup/templates/.*|tools/dev/(render-wizard|check-skill-config)\.py)$
+        pass_filenames: false
+      # The pre-flight eval cases carry the checker's own verdict for each
+      # case's state, rendered by running `setup_preflight` against it. A
+      # hand-written verdict is what let the suite drift from the checker
+      # unnoticed, so any change to the checker, its rules sections, or the
+      # cases re-renders them; a case whose verdict moved needs its
+      # `expected.json` re-checked by a person.
+      - id: render-preflight-fixtures
+        name: render-preflight-fixtures (pre-flight eval cases vs the real checker)
+        language: system
+        entry: python3 tools/dev/render-preflight-fixtures.py
+        files: ^(plugins/magpie-setup/skills/setup/setup_preflight/.*|tools/skill-evals/evals/setup/preflight-floor/fixtures/.*|tools/dev/render-preflight-fixtures\.py)$
         pass_filenames: false
   # something else.
   - repo: local

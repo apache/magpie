@@ -80,6 +80,12 @@ Use the backend chosen in Step 5d:
   with `threadId=<tracker.threadId>`, `to=<reporterEmail>`,
   `cc=security_cc`, `subject='Re: <root subject>'`,
   `body=<file>`. The draft lands attached to the inbound thread.
+- **`maildir`** (when the drafting backend resolves to it): call
+  `maildir-draft-create` per [*The Maildir backend*](../../../../tools/gmail/draft-backends.md#the-maildir-backend)
+  with `--in-reply-to` the inbound report's `Message-ID`,
+  `--to <reporterEmail>`, `--cc security_cc`,
+  `--subject 'Re: <root subject>'` and `--body-file <file>`. The printed
+  draft path stands in for the `draftId`.
 
 Capture the returned `draftId`.
 If 6a ran with a placeholder draft ID in the *Reporter notification* line,

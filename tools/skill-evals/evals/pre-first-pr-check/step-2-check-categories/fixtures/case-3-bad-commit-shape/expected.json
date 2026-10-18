@@ -1,10 +1,7 @@
 {
-  "checks": [
-    {"category": "spdx_headers", "status": "pass"},
-    {"category": "commit_shape", "status": "fail"},
-    {"category": "placeholder_convention", "status": "pass"},
-    {"category": "contributing_conventions"},
-    {"category": "injection_guard", "status": "pass"}
+  "B1": [
+    {"location": "cde3456", "summary": "Subject is past tense (\"Added\"), not imperative."},
+    {"location": "def3456", "summary": "Subject is past tense (\"Fixed\"), not imperative."}
   ],
-  "any_blocking": true
+  "E": {"status": "pass"}
 }

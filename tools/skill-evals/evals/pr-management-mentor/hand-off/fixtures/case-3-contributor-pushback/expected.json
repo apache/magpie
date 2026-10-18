@@ -1,4 +1,0 @@
-{
-  "trigger": 2,
-  "reason": "Agent answered a why-question and the contributor's next message disagrees ('I don't think that applies here') — hand off rather than argue."
-}

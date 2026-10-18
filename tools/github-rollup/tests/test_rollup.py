@@ -19,9 +19,12 @@ from __future__ import annotations
 import pytest
 
 from github_rollup.rollup import (
-    ROLLUP_MARKER_PREFIX,
+    ROLLUP_MARKER,
     build_entry,
     build_new_rollup_body,
+    find_rollup_index,
+    is_canonical_rollup_body,
+    is_rollup_body,
     iter_entries,
     parse_summary_line,
     rebuild_with_appended_entry,
@@ -195,7 +198,8 @@ def test_build_entry_strips_body_whitespace():
 def test_build_new_rollup_body_includes_marker_first():
     entry = build_entry(date="2026-05-30", user="@a", action="b", body="c")
     body = build_new_rollup_body(entry, "airflow-s")
-    assert body.startswith(ROLLUP_MARKER_PREFIX)
+    assert body.startswith(f"{ROLLUP_MARKER}\n")
+    assert ROLLUP_MARKER == "<!-- apache-magpie: status-rollup v1 -->"
     assert "<details>" in body
     # Marker line + immediately the entry — no blank line gap.
     first_nl = body.find("\n")
@@ -240,3 +244,39 @@ def test_round_trip_three_appends_keeps_count():
             build_entry(date=f"2026-05-0{i}", user="@a", action=action, body=f"b{i}"),
         )
     assert [e.action for e in iter_entries(existing)] == ["x1", "x2", "x3"]
+
+
+# ---------------------------------------------------------------------------
+# marker detection: canonical first, legacy still recognised
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("body", "canonical", "rollup"),
+    [
+        ("<!-- apache-magpie: status-rollup v1 -->\n<details>", True, True),
+        ("<!-- apache-magpie: status-rollup v2 -->", True, True),
+        (f"{MARKER_LINE}\n<details>", False, True),
+        ("<!-- acme-security status rollup v1 — x -->", False, True),
+        ("<!-- apache-magpie: release-manager-handoff v1 -->", False, False),
+        ("<!-- apache-magpie: status-rollup-x v1 -->", False, False),
+        ("quoted <!-- apache-magpie: status-rollup v1 -->", False, False),
+        ("", False, False),
+    ],
+)
+def test_marker_detection(body, canonical, rollup):
+    assert is_canonical_rollup_body(body) is canonical
+    assert is_rollup_body(body) is rollup
+
+
+def test_find_rollup_index_prefers_canonical_then_first_legacy():
+    canonical = f"{ROLLUP_MARKER}\n<details><summary>2026-05-28 · @a · Import</summary>\n\nA.\n\n</details>"
+    legacy = f"{MARKER_LINE}\n<details><summary>2026-05-28 · @a · Import</summary>\n\nA.\n\n</details>"
+    assert find_rollup_index(["hi", legacy, canonical]) == 2
+    assert find_rollup_index(["hi", legacy, legacy]) == 1
+    assert find_rollup_index(["hi"]) is None
+
+
+def test_iter_entries_skips_the_canonical_marker_line():
+    body = f"{ROLLUP_MARKER}\n<details><summary>2026-05-28 · @a · Import</summary>\n\nA.\n\n</details>"
+    assert [(e.action, e.body) for e in iter_entries(body)] == [("Import", "A.")]

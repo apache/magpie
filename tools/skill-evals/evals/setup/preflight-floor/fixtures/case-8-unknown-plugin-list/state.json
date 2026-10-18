@@ -1,0 +1,11 @@
+{
+  "lock": [
+    "method: marketplace",
+    "url: apache/magpie",
+    "min_version: 0.3.0",
+    "plugins:",
+    "  - magpie-setup",
+    "  - magpie-agent-guard"
+  ],
+  "plugins": []
+}

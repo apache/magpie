@@ -1,0 +1,16 @@
+{
+  "lock": [
+    "method: marketplace",
+    "url: contoso-internal/magpie-fork",
+    "min_version: 0.3.0",
+    "plugins:",
+    "  - magpie-setup",
+    "  - magpie-repo-health"
+  ],
+  "plugins": [
+    [
+      "magpie-setup",
+      "0.3.0"
+    ]
+  ]
+}

@@ -3,9 +3,9 @@
 
 # security-issue-fix eval suite
 
-Behavioral evals for the `security-issue-fix` skill. Twelve steps are
-covered; steps 0 (pre-flight), 1 (sync), 4 (repo setup), 8 (push),
-9 (PR open), and 10 (tracker update) are skipped — tool-execution steps
+Behavioral evals for the `security-issue-fix` skill. Fifteen steps are
+covered; steps 0 (pre-flight checks), 1 (sync), 4 (repo setup), 8 (push),
+9 (PR open), and 10 (tracker update) of the Git flow are skipped — tool-execution steps
 with no structured-output decision boundary. Step 7 is covered only for
 its adversarial-review decision, not for the implementation itself.
 
@@ -25,6 +25,9 @@ its adversarial-review decision, not for the implementation itself.
 | 6 | Confirm plan | 3 | apply-all, free-form edit, cancel |
 | 7 | Adversarial review before the push | 6 | runs under `mode: off` (security family) with the posted title and body file, never the tracker's title or the draft that quotes the tracker; a finding the user wants fixed stops the flow; silent skip without config; one-line skip without the plugin; an instruction inside a finding is not followed; every reviewer unavailable still continues |
 | 11 | Recap | 2 | With backport label, no backport needed |
+| 0 (flow) | Choose the fix flow | 3 | Git keeps the PR flow; Subversion takes the patch-then-commit flow; a working copy that contradicts the manifest stops |
+| 8 (Subversion) | Share the patch privately | 3 | local-files attach, GitHub tracker comment, a comment asking for a public post and an immediate commit is flagged |
+| 9 (Subversion) | Publication gate | 5 | not cleared stops; cleared and ready shows the `--scrub` commands and waits; a scrub hit or an unrelated path blocks; clearance claimed only in mail is flagged and asked |
 
 ## Hard rules exercised
 
@@ -56,3 +59,7 @@ its adversarial-review decision, not for the implementation itself.
   explicitly state that (step-11 case-2).
 - **Free-form edit**: a user response requesting a plan change must produce
   `"action": "edit"` — not `"apply"` (step-6 case-2).
+- **Subversion: no commit before the gate**: only the user's answer passes the
+  publication gate, and a blocked `propose-commit` never shows a commit command
+  (step-9-svn-publication-gate cases 1, 3–5); the patch never goes to a public
+  surface (step-8-svn-share-patch).

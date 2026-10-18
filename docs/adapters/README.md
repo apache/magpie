@@ -34,6 +34,8 @@ One page per supported agentic harness, each declaring
 - [**Cursor**](cursor.md) — Composer and the Agent CLI.
 - [**Gemini CLI**](gemini.md) — extension install, `BeforeTool` guard, tool
   sandboxing and policies. Experimental.
+- [**Grok Build**](grok.md) — `PreToolUse` action-guard integration.
+- [**JetBrains Junie**](junie.md) — native `.agents/skills/` and `AGENTS.md`, plus an Early Access `PreToolUse` action guard.
 - [**Goose**](goose.md) — Block's open-source agent CLI and desktop environment.
 - [**Kiro CLI**](kiro.md) — per-skill installs, no marketplace; guard on
   `preToolUse`.
@@ -43,8 +45,8 @@ One page per supported agentic harness, each declaring
 ### What isolation each harness actually gets
 
 Not the same thing, and the differences matter more than the similarities.
-Every harness gets the clean-environment layer; the action guard reaches four
-of nine.
+Nine of ten harnesses get the clean-environment layer; the action guard
+reaches six of ten.
 
 | Harness | Clean environment | Filesystem sandbox | Action guard |
 |---|---|---|---|
@@ -52,11 +54,13 @@ of nine.
 | **Gemini CLI** | `agent-iso gemini` | tool sandboxing + policies | ✅ `BeforeTool` |
 | **OpenCode** | `opencode-iso` | from the OS-level sandbox | ✅ `tool.execute.before` |
 | **Kiro CLI** | `kiro-iso` | from the OS-level sandbox | ✅ `preToolUse` |
+| **Grok Build** | ❌ **none** | ❌ **none** | ✅ `PreToolUse` |
+| **JetBrains Junie** | `junie --sandbox` (srt; MCP and hooks unsandboxed) | `/brave` levels and `~/.junie/allowlist.json` | ✅ `PreToolUse` (Early Access) |
 | **OpenAI Codex CLI** | `agent-iso codex` | Codex's own sandbox and exec policy, statically validated by [sandbox-lint](../../tools/sandbox-lint/README.md) | ❌ **none** |
 | **Cursor** | `agent-iso cursor` | Cursor's own policy | ❌ **none** |
 | **Goose (Block)** | `agent-iso goose` | Goose developer mode / approval prompts | ❌ **none** |
 | **Aider** | `agent-iso aider` | Aider's own policy / git repository map | ❌ **none** |
-| **Copilot CLI** | `agent-iso copilot` | Copilot's own approval prompts | ❌ **none** |
+| **Copilot CLI** | `agent-iso copilot` | Copilot's own approval prompts | ✅ `preToolUse` |
 
 **What the last column costs.** The action guard is what deterministically
 refuses a command that would break a hard framework rule — pinging maintainers,

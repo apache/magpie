@@ -33,3 +33,17 @@ release-config preflight output
   }
 }
 ```
+
+`release-management vote-tally verdict --preflight <scratch>/vote-tally-preflight.json --planning-issue https://github.com/apache/airflow/issues/46100 --comments <scratch>/planning-comments.md` output:
+
+```json
+{
+  "verdict": "proceed",
+  "blockers": [],
+  "force_close": false,
+  "mechanism": "dev-list-vote",
+  "roster_path": "projects/airflow/pmc-roster.md",
+  "previous_ambiguous_note": false,
+  "warnings": []
+}
+```

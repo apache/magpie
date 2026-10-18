@@ -42,12 +42,15 @@ The package itself is stdlib-only.
 Always as one line, so the one sandbox exclusion matches:
 
 ```text
-uvx --from <plugin>/tools/adversarial-review adversarial-review detect
-uvx --from <plugin>/tools/adversarial-review adversarial-review run --base origin/main --title "<PR title>" --body-file <body.md>
-uvx --from <plugin>/tools/adversarial-review adversarial-review run --target pr:123 --repo owner/name
+uvx --from ~/.claude/magpie/adversarial-review adversarial-review detect
+uvx --from ~/.claude/magpie/adversarial-review adversarial-review run --base origin/main --title "<PR title>" --body-file <body.md>
+uvx --from ~/.claude/magpie/adversarial-review adversarial-review run --target pr:123 --repo owner/name
 ```
 
-`<plugin>` is the installed `magpie-adversarial-review` plugin, for example `~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/<version>`.
+Spell the path exactly so, with the literal `~`: the agent-guard [`vetted-ops-spelling`](../agent-guard/README.md#guards) guard refuses an expanded home path or a checkout path.
+`~/.claude/magpie/adversarial-review` is a stable link: the plugin's `SessionStart` hook ([`hooks/link-stable-path.sh`](hooks/link-stable-path.sh)) points that path at the installed version every session, so the sandbox exclusion names a fixed path instead of a wildcard where the version sits.
+A `*` there would also match spaces, letting a command with extra `uv` options spliced in at that position (`--with <any package>`, a second `--from`) run outside the sandbox.
+Other harnesses use the installed plugin directory, for example `~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/<version>/tools/adversarial-review`.
 
 `run` reads the reviewer list from `adversarial-review.md` (`.apache-magpie-local/` first, then `.apache-magpie-overrides/`, under `--project-root`), or from `--reviewers codex,copilot`.
 The model running the harness is skipped; `--self none` turns that off.
@@ -93,5 +96,5 @@ Reviewers can read files with their read-only tools, and that is the residual ri
 ## Sandbox
 
 The reviewer CLIs need network access and their own credentials (`~/.codex`, `~/.copilot`, `~/.gemini`, `~/.grok`, `~/.claude`), which the reference sandbox denies.
-The single-line `uvx --from <plugin>/tools/adversarial-review adversarial-review …` form is what the sandbox exclusion names; `setup` installs it.
+The single-line `uvx --from ~/.claude/magpie/adversarial-review adversarial-review …` form is what the sandbox exclusion names; `setup` installs it.
 The tool writes nothing to the repository: the brief and the schema live in a temporary directory that is removed afterwards.

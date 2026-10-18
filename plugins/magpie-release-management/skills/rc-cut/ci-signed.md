@@ -14,26 +14,18 @@ Under
 CI builds, signs and **stages** the artefacts;
 a committer re-validates them bit-by-bit on trusted hardware before anything is published.
 The RM still signs the **tag** with their own key (Section 1).
-Instead of Sections 3–4 and Step 3, emit:
+Instead of Sections 3–4 and Step 3, run
 
-```text
-# 1. Push the signed tag — this triggers <ci_release_workflow>
-git push <git-upstream-remote> <version>-<rcN>
-# 2. Watch the run; it builds reproducibly (repro-archive), self-compares,
-#    checksums, and uploads to ATR (OIDC trusted publishing). It publishes nothing.
-gh run list --repo <upstream> --workflow <ci_release_workflow> --branch <version>-<rcN>
-gh run watch --repo <upstream> <run-id>
-# 3. Confirm the staged candidate and its checks in ATR
-atr check status <project> <version> --verbose
-# 4. Record the run URL and the SOURCE_DATE_EPOCH from the run log for Step 4
+```bash
+uv run --project <framework>/tools/release-management release-management rc-cut render \
+  --step 2c --load <scratch>/rc-cut-load.json --upstream <upstream> --project <project> \
+  --framework <framework>
 ```
 
-Then hand off:
-*"Before this RC can be promoted, a committer must run `release-verify-rc <version>-<rcN>` on their own hardware;
-its Step 9 rebuilds every artefact and requires `identical`.
-`release-promote` refuses to promote without that attestation on the planning issue."*
+and present `text`: push the signed tag (it triggers `ci_release_workflow`), watch the run, confirm the staged candidate in ATR, and record the run URL and `SOURCE_DATE_EPOCH` for Step 4.
+End with the render's `handoff`, word for word: a committer must run `release-verify-rc <version>-<rcN>` on their own hardware, and `release-promote` refuses to promote without that attestation.
 
-Return ONLY valid JSON with this structure:
+Return ONLY valid JSON with this structure (the render's fields):
 
 ```json
 {
@@ -46,5 +38,3 @@ Return ONLY valid JSON with this structure:
   "proposed": true
 }
 ```
-
-`local_sign_commands_omitted` and `trusted_hardware_validation_required` are always `true` in this mode.

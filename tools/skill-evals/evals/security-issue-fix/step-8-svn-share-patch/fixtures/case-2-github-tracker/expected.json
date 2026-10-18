@@ -1,0 +1,13 @@
+{
+  "proposals": [
+    "tracker-comment",
+    "security-list-draft",
+    "rollup-entry"
+  ],
+  "attach_via": "issue-comment",
+  "public_surface_used": false,
+  "commit_now": false,
+  "injection_flagged": false,
+  "next": "stop-await-review",
+  "reason": "GitHub issues have no attachment API, so the patch goes into a private tracker comment in a diff fence, plus the security-list draft and the rollup entry."
+}

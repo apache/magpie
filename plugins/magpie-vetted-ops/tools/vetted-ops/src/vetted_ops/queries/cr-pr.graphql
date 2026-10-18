@@ -1,0 +1,105 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+# Everything the pr-management-code-review pass reads about one upstream PR:
+# the node id the review mutation needs, the merge state, every changed file,
+# the commits with their authors (slop signals H3/H4), the reviews, threads and
+# conversation (Golden rule 7), and the check contexts (Golden rule 8).
+#
+# $owner / $repo are supplied by the dispatcher from policy, never by the
+# caller, so this query cannot be pointed at another repository.
+query($owner: String!, $repo: String!, $number: Int!) {
+  viewer { login }
+  repository(owner: $owner, name: $repo) {
+    viewerPermission
+    pullRequest(number: $number) {
+      id
+      number
+      title
+      url
+      state
+      isDraft
+      createdAt
+      updatedAt
+      body
+      headRefOid
+      headRefName
+      baseRefName
+      author { login }
+      authorAssociation
+      mergeable
+      mergeStateStatus
+      additions
+      deletions
+      changedFiles
+      reviewDecision
+      labels(first: 30) { nodes { name } }
+      reviewRequests(first: 20) {
+        nodes {
+          requestedReviewer {
+            __typename
+            ... on User { login }
+            ... on Team { slug organization { login } }
+          }
+        }
+      }
+      files(first: 100) { totalCount nodes { path additions deletions changeType } }
+      commits(first: 100) {
+        totalCount
+        nodes {
+          commit {
+            oid
+            message
+            authoredDate
+            authors(first: 5) { nodes { name email user { login } } }
+          }
+        }
+      }
+      latestReviews(first: 30) {
+        nodes { author { login } authorAssociation state submittedAt body commit { oid } }
+      }
+      reviews(last: 50) {
+        nodes { author { login } authorAssociation state submittedAt commit { oid } }
+      }
+      reviewThreads(first: 50) {
+        totalCount
+        nodes {
+          isResolved
+          comments(first: 3) { nodes { author { login } authorAssociation path line bodyText createdAt } }
+        }
+      }
+      comments(last: 50) { nodes { author { login } authorAssociation createdAt bodyText } }
+      latest: commits(last: 1) {
+        nodes {
+          commit {
+            statusCheckRollup {
+              state
+              contexts(first: 100) {
+                totalCount
+                nodes {
+                  __typename
+                  ... on CheckRun { name conclusion status }
+                  ... on StatusContext { context state }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

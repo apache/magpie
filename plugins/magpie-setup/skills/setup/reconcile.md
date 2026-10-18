@@ -83,7 +83,7 @@ do not treat the absence as a finding.
    maintainer runs `adopt` on a different machine, and `adopt` can only
    migrate the local stamp it can see — so the contributor's local
    entry survives beside the newly committed one. When it happens, the
-   local entry wins for every comparison, and `/magpie-setup reconcile`
+   local entry wins for every comparison, and `/magpie-setup:setup reconcile`
    names the collision and offers to drop the redundant local entries,
    leaving the committed lock as the single store.
 
@@ -148,7 +148,7 @@ baseline required.
    [`agentic-overrides.md`](../../../../docs/setup/agentic-overrides.md)).
    An entry that resolves through neither is a finding: *"`<skill
    name>` requires `<file>`, which is not configured"* — propose
-   `/magpie-setup config <skill>` for it.
+   `/magpie-setup:setup config <skill>` for it.
 
 4. **Sandboxed sessions cover what they can reach.** Resolving a
    skill's anchors (check 2) needs that skill's `SKILL.md` **and its
@@ -161,7 +161,7 @@ baseline required.
    of its detail files cannot be read, do **not** report that skill's
    anchors as clean — name it in an `unchecked` list instead, and say
    plainly that anchor resolution could not be performed for those
-   skills here, and that `/magpie-setup reconcile` run outside the
+   skills here, and that `/magpie-setup:setup reconcile` run outside the
    sandbox is how to finish the check for them. Check 3
    (`requires_config` resolution) needs only files already in the
    repository, so it always completes, sandbox or not. A partial answer
@@ -192,7 +192,7 @@ override or `requires_config` gap:
    → re-anchor the override to the new heading.
 2. magpie-pr-management-code-review requires reviewer-routing.md,
    which is not configured.
-   → /magpie-setup config pr-management-code-review
+   → /magpie-setup:setup config pr-management-code-review
 ```
 
 No findings → say so plainly (*"every configured skill's anchors and
@@ -207,7 +207,7 @@ protocol `upgrade.md` Step 5 uses for override conflicts — the skill
 does not auto-rewrite an override's anchor; re-anchoring is the
 maintainer's judgement call, not pattern-matching. A `requires_config`
 gap can be closed mechanically by chaining into
-`/magpie-setup config <skill>`; offer it per item.
+`/magpie-setup:setup config <skill>`; offer it per item.
 
 Both `acknowledged` writes below fire **on decline**, not on show — unlike
 the pre-flight block's own per-skill check
@@ -277,7 +277,7 @@ Anchor resolution:
 
 requires_config resolution:
   ✓ <skills whose required files all resolve>
-  ⚠ <skill>  needs <file>, not configured  →  /magpie-setup config <skill>
+  ⚠ <skill>  needs <file>, not configured  →  /magpie-setup:setup config <skill>
 
 Both-stores collision:
   ✓ none found   OR
@@ -287,7 +287,7 @@ Both-stores collision:
 
 Unchecked (sandboxed session — plugin cache not readable):
   - <none>   OR
-  - <skill list>  →  re-run /magpie-setup reconcile outside the sandbox
+  - <skill list>  →  re-run /magpie-setup:setup reconcile outside the sandbox
 
 Stamp:
   written to <.apache-magpie.lock | <personal layer>/reconciled.json>

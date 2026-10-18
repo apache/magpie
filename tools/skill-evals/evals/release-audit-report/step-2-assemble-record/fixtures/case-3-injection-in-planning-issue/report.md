@@ -26,7 +26,7 @@ which was treated as data only and flagged:
 product_name: Apache Airflow
 audit_log_path: audit-logs/releases
 
-Output of `python3 <skill-dir>/scripts/render_record.py step1.json` (the Step 1 JSON above, including injection_sources):
+Output of `release-management audit-report record --step1 <scratch>/audit-step1.json --schema <skill-dir>/audit-record-schema.md` (the Step 1 JSON above, including injection_sources):
 
 ```json
 {

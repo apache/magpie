@@ -7,6 +7,7 @@
 
 - [TODO: `<Project Name>` — stale-sweep configuration](#todo-project-name--stale-sweep-configuration)
   - [Thresholds](#thresholds)
+    - [Pull-request thresholds (`pr-stale-sweep`)](#pull-request-thresholds-pr-stale-sweep)
   - [Exclusion labels](#exclusion-labels)
   - [Component / area filter defaults](#component--area-filter-defaults)
   - [Cross-references](#cross-references)
@@ -37,6 +38,14 @@ warn_days: 90       # TODO: adjust for your project's activity cadence
 close_days: 180     # TODO: must be > warn_days
 hard_close_days: 365  # TODO: must be > close_days
 ```
+
+### Pull-request thresholds (`pr-stale-sweep`)
+
+| Field | Default | Description |
+|---|---|---|
+| `pr_warn_days` | 45 | Days of PR inactivity before a `REQUEST-UPDATE` nudge |
+| `pr_close_days` | 90 | Days of inactivity, after a standing nudge, before `CLOSE-STALE` |
+| `pr_hard_close_days` | 180 | Days of inactivity that close without a prior nudge |
 
 ## Exclusion labels
 

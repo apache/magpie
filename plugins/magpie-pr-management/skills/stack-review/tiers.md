@@ -17,6 +17,27 @@ The ledger decides how much of each layer is read; this file says how to read it
 The plan is a function of the ledger, the per-layer limit (1,500 hand-written lines) and the budget, so two runs on the same heads read the same hunks; `stack_ledger.py hunks` prints them with new-side line numbers, and every note anchors to those numbers.
 Generated and binary lines never count: a layer that regenerates a 2,000-line lock file next to a 20-line manifest change is a 20-line layer.
 
+## What the ledger fields mean
+
+`layers` is a list of per-layer objects carrying `position` (1 = bottom); `classes` and `dir_histogram` hold counts; `touched_files` is the union of every file any layer changes.
+
+| Field | Meaning |
+|---|---|
+| `layers[].changed_lines` / `generated_lines`, `hunks` / `generated_hunks`, `generated_files` | hand-written changed lines and hunks (what sizing, the budget and the coverage table count) versus lines, hunks and files that are generated or binary (counted, never read) |
+| `layers[].classes` | file counts per class: `source`, `test`, `docs`, `config`, `generated`, `release-note` |
+| `layers[].dir_histogram` / `dir_outliers` | top directories of the layer; files in directories with ≤2 files when three directories hold ≥70% — *off-theme candidates* |
+| `layers[].mechanical` | repeated line shapes cover ≥80% of the hand-written changed lines (≥20 lines): a formatter, codemod or sed pass produced the layer |
+| `layers[].exemplars` / `outliers` / `outliers_planned` / `outlier_share` | one hunk per repeated hunk shape; every hunk whose shape occurs once in the layer, smallest first; how many outliers the plan reads — all of them in a mechanical layer, in a hand-written layer every one that fits the layer's `outlier_share` (its equal part of the budget the full reads left over), ranked source > config > test > docs then smallest first; Tier A and exemplars never count against the share |
+| `layers[].plan` | `full`, `exemplar` or `skip`, with `plan_reason`, `planned_hunks`, `planned_lines` and `planned_hunk_refs` (for `exemplar`: the de-duplicated union of overlap-file hunks, exemplars, planned outliers and off-theme files) |
+| `overlap` | file → layers that touch it; all of these are Tier A |
+| `detectors.release_note_in_several_layers` | the same newsfragment / changelog path edited in two layers |
+| `detectors.generated_in_several_layers` | a generated or lock file regenerated in two layers — regenerate once, in the layer that changes its source |
+| `detectors.lock_without_manifest` | a lock file changed in a layer whose manifest changed only elsewhere |
+
+Generated files come from the built-in globs (lock files, minified assets, snapshots, codegen suffixes, `generated/`), `--generated-globs`, and `.gitattributes` `linguist-generated` entries; they are counted, never read, and `render` lists them per layer so the tagging can be checked — a built-in never names a directory a project may use for hand-written code.
+When `.gitattributes` and the override file name no pattern, say so once in Step 2 and name the tool output you can see in the diffs (rendered command help, checksums, vendored schema snapshots): it counts as hand-written and inflates its layer until the adopter adds a pattern.
+Adopters widen the lists through the override file ([`adopter-config.md`](adopter-config.md)).
+
 ## Reading checklist
 
 For each hunk, in this order of priority:

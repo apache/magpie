@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$GROK_WORKSPACE_ROOT/tools/agent-guard/src/agent_guard/__init__.py\" --grok",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -31,3 +31,20 @@ release-build.md: source_archive_method git-archive, reproducibility_source: on,
   reproducibility_binaries: byte-identical (one convenience binary).
 gh pr list access confirmed: apache/foo responds.
 No .apache-magpie.local.lock drift. No override file.
+
+Facts for the verdict: `gh pr list` access confirmed (`--gh-access`).
+
+`release-management prepare verdict --preflight <scratch>/prepare-preflight.json --gh-access` output:
+
+```json
+{
+  "verdict": "proceed",
+  "sub_command": "automated-signing",
+  "version": null,
+  "blockers": [],
+  "release_branch_base": "main",
+  "previous_tag": null,
+  "train_covered": true,
+  "read": []
+}
+```

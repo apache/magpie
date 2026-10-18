@@ -151,7 +151,7 @@ feeling managed.
 
 Every contributor-facing comment ends with the same footer
 convention used by
-[`pr-management-triage/comment-templates.md`](../../skills/pr-management-triage/comment-templates.md),
+[`pr-management triage render`](../../tools/pr-management/README.md#triage-render--the-contributor-facing-bodies),
 adjusted to name the mentoring step rather than the triage
 step. The expansion lives in the adopter's
 `<project-config>/mentoring-config.md → ai_attribution_footer`.
@@ -219,7 +219,7 @@ fixed in the shipped implementations.
   the mode definition + responsible-AI framing.
 - [`docs/modes.md` § Mentoring](../modes.md#mentoring) —
   current implementation status (experimental, 7 skills shipped).
-- [`.claude/skills/pr-management-triage/comment-templates.md`](../../skills/pr-management-triage/comment-templates.md) —
+- [`.claude/skills/pr-management triage render`](../../tools/pr-management/README.md#triage-render--the-contributor-facing-bodies) —
   tone-footer convention; `pr-management-mentor` mirrors its
   format with a `mentoring` step token.
 - [`AGENTS.md`](../../AGENTS.md) — repository-level rules every

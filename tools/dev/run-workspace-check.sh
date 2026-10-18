@@ -161,23 +161,40 @@ fi
 count=$(echo "$applicable" | wc -l | tr -d ' ')
 echo "→ workspace-check: ${CHECK_KEY} (${CHECK_CMD} $*) across ${count} members"
 
+# Run one member's check via uv, against the member's own project:
+#   --directory "$member"  → cwd is the member, so ruff / mypy / pytest
+#                            configs resolve paths relative to the member root
+#   --project .            → the environment is that member's project (its
+#                            pyproject.toml + dev group), resolved after the
+#                            --directory chdir
+# mypy and pytest go through `python -m` to bypass console-script shebangs;
+# ruff is a native binary with no interpreter shebang, so it runs directly.
+run_member() {
+  local member=$1
+  shift
+  # shellcheck disable=SC2086 # CHECK_CMD may legitimately be multi-token
+  if [[ "$CHECK_KEY" == "mypy" ]] || [[ "$CHECK_KEY" == "pytest" ]]; then
+    uv run --directory "$member" --project . python -m $CHECK_CMD "$@"
+  else
+    uv run --directory "$member" --project . $CHECK_CMD "$@"
+  fi
+}
+
 failed=()
 for member in $applicable; do
   name=$(basename "$member")
-  # Run every check via uv, against the member's own project:
-  #   --directory "$member"  → cwd is the member, so ruff / mypy / pytest
-  #                            configs resolve paths relative to the member root
-  #   --project .            → the environment is that member's project (its
-  #                            pyproject.toml + dev group), resolved after the
-  #                            --directory chdir
-  # mypy and pytest go through `python -m` to bypass console-script shebangs;
-  # ruff is a native binary with no interpreter shebang, so it runs directly.
-  # shellcheck disable=SC2086 # CHECK_CMD may legitimately be multi-token
-  if [[ "$CHECK_KEY" == "mypy" ]] || [[ "$CHECK_KEY" == "pytest" ]]; then
-    if ! uv run --directory "$member" --project . python -m $CHECK_CMD "$@"; then
-      failed+=("$name")
-    fi
-  elif ! uv run --directory "$member" --project . $CHECK_CMD "$@"; then
+  status=0
+  run_member "$member" "$@" || status=$?
+  # A status above 128 is a process killed by a signal — a crash, not a
+  # finding. ruff has segfaulted on CI runners on members whose code did
+  # not change, failing unrelated PRs, so a crash gets one retry. A real
+  # finding exits 1 and is never retried; a second crash still fails.
+  if [ "$status" -gt 128 ]; then
+    echo "↻ ${CHECK_KEY}: ${name} crashed (signal $((status - 128))); retrying once" >&2
+    status=0
+    run_member "$member" "$@" || status=$?
+  fi
+  if [ "$status" -ne 0 ]; then
     failed+=("$name")
   fi
 done

@@ -30,6 +30,10 @@ on:  # yamllint disable-line rule:truthy
 
 permissions: {}
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   # Discover workspace members from the root pyproject.toml so the
   # pytest matrix below is data-driven — adding a new tool is a
@@ -167,6 +171,10 @@ jobs:
       contents: read
     strategy:
       fail-fast: false
+      # The full matrix is ~46 jobs. ASF Infra policy caps a workflow at
+      # 20 concurrent jobs and recommends 15:
+      # https://infra.apache.org/github-actions-policy.html
+      max-parallel: 15
       matrix:
         project: ${{ fromJSON(needs.members.outputs.members) }}
     # GitHub Actions log viewer renders ANSI colour escapes; without

@@ -49,6 +49,10 @@ score:
    (the `contract:<name>` it fulfils), `**Kind:**` (`interface` for a pure
    spec, `implementation` for a concrete backend), and `**Vendor:**` (the
    backend identity, or `agnostic` for an interface).
+   A tool that ships several independent backends lists them joined by `+`
+   (`**Vendor:** TypeSafe + self-hosted OpenAI-compatible`),
+   and each one counts as a backend vendor;
+   `agnostic` cannot be mixed with named vendors.
    An optional `**Coverage:**` of `partial` or `partial-read-only`
    ([coverage qualifiers](../../docs/labels-and-capabilities.md#coverage-qualifiers))
    marks a foundation that implements only part of its contracts:

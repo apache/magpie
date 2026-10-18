@@ -53,6 +53,7 @@ the same abstract operation.
 | History read | `git log` (`--oneline` / `--grep` / `--author` / `--since`), `git show` | reproducer, reassess, nomination |
 | Determine divergence base | `git merge-base`, `git rev-parse` | code-review (diff against base) |
 | Sync with the forge | `git fetch [origin]`, `git push [-u]` | fix-workflow hand-off |
+| Bring the working copy up to date / first checkout | `git pull --ff-only`, `git clone` | security-issue-sync (advisory records) |
 | Re-apply onto an updated base | `git rebase` | triage rebase action |
 | Isolated checkouts | `git worktree add` / `list --porcelain` | `magpie-setup` worktree flow |
 | Park uncommitted work | `git stash --include-untracked` | fix-workflow safety |
@@ -99,7 +100,8 @@ Tracked VCS bridges that implement this capability against a non-Git
 backend:
 
 - Mercurial (Hg) — apache/magpie#601
-- Apache Subversion (SVN) — apache/magpie#602 (generic VCS binding);
+- Apache Subversion (SVN) — generic VCS binding in
+  [`tools/vcs/`](../vcs/) (apache/magpie#602);
   [`tools/asf-svn/`](../asf-svn/) packages the full ASF SVN surface
   (source control + `dist.apache.org` release distribution +
   authorization) for ASF projects

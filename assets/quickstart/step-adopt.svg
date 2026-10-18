@@ -36,7 +36,7 @@
   <circle cx="66" cy="17" r="6" fill="#3f4448"/>
   <g font-family="ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="17" xml:space="preserve">
     <text x="26" y="80" fill="#d8a657" opacity="0">  Only if you are a maintainer, deciding with the others.<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0000;0.0010;1" dur="6.0s" repeatCount="indefinite"/></text>
-    <text x="26" y="128" fill="#8abeb7" opacity="0">&gt; /magpie-setup adopt<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0633;0.0643;1" dur="6.0s" repeatCount="indefinite"/></text>
+    <text x="26" y="128" fill="#8abeb7" opacity="0">&gt; /magpie-setup:setup adopt<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.0633;0.0643;1" dur="6.0s" repeatCount="indefinite"/></text>
     <text x="26" y="176" fill="#c5c8c6" opacity="0">  Staged, not committed:<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1267;0.1277;1" dur="6.0s" repeatCount="indefinite"/></text>
     <text x="26" y="200" fill="#c5c8c6" opacity="0">    .apache-magpie.lock       the floor - a minimum, not a pin<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.1900;0.1910;1" dur="6.0s" repeatCount="indefinite"/></text>
     <text x="26" y="224" fill="#c5c8c6" opacity="0">    .claude/settings.json     derived from it<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;0.2533;0.2543;1" dur="6.0s" repeatCount="indefinite"/></text>

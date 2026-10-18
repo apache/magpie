@@ -1,4 +1,8 @@
 {
   "skill_md": "skills/release-prepare/prep.md",
-  "step_heading": "# Step 2 — Draft the prep PR (sub-command: `prep`)"
+  "step_heading": "# Step 2 — Draft the prep PR (sub-command: `prep`)",
+  "also_include": [
+    "skills/release-prepare/archive-review.md",
+    "skills/release-prepare/classifications/notice-removal-unjustified.md"
+  ]
 }

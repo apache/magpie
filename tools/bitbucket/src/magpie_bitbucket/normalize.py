@@ -277,6 +277,50 @@ def created_pull_request_comment(
     }
 
 
+def posted_pull_request_review(
+    kind: str,
+    raw: dict[str, Any],
+) -> dict[str, Any]:
+    """Normalize a posted pull-request review."""
+    comment = raw.get("comment")
+    normalized_comment = _cloud_comment(comment) if kind == "cloud" and isinstance(comment, dict) else {}
+
+    participant = raw.get("participant")
+
+    return {
+        "ok": bool(normalized_comment),
+        "backend": "bitbucket-cloud" if kind == "cloud" else "bitbucket-datacenter",
+        "operation": "pull-request-review",
+        "pull_request_id": _string(raw.get("pull_request_id")),
+        "verdict": _string(raw.get("verdict")),
+        "comment": normalized_comment,
+        "participant": participant if isinstance(participant, dict) else None,
+        "raw": raw,
+    }
+
+
+def rejected_pull_request(
+    kind: str,
+    raw: dict[str, Any],
+) -> dict[str, Any]:
+    """Normalize a backend-neutral pull-request rejection."""
+    comment = raw.get("comment")
+    normalized_comment = _cloud_comment(comment) if kind == "cloud" and isinstance(comment, dict) else {}
+
+    pull_request = raw.get("pull_request")
+
+    return {
+        "ok": bool(normalized_comment) and isinstance(pull_request, dict),
+        "backend": "bitbucket-cloud" if kind == "cloud" else "bitbucket-datacenter",
+        "operation": "pull-request-reject",
+        "pull_request_id": _string(raw.get("pull_request_id")),
+        "reason": _string(raw.get("reason")),
+        "comment": normalized_comment,
+        "pull_request": pull_request if isinstance(pull_request, dict) else None,
+        "raw": raw,
+    }
+
+
 def pull_request_discussion(kind: str, raw: dict[str, Any]) -> dict[str, Any]:
     """Normalize pull request discussion/comments from Bitbucket."""
     values = raw.get("values")
@@ -507,8 +551,13 @@ def declined_pull_request(
 def merged_pull_request(
     kind: str,
     raw: dict[str, Any],
+    operation: str = "pull-request-merge",
 ) -> dict[str, Any]:
-    """Normalize a pull-request merge submission."""
+    """Normalize a pull-request merge submission, or a later read of its merge task.
+
+    ``operation`` names what the caller did, so a status poll is never
+    reported as a merge submission; the merge fields share one vocabulary.
+    """
     result = raw.get("result")
     result_data = result if isinstance(result, dict) else {}
 
@@ -542,7 +591,7 @@ def merged_pull_request(
     return {
         "ok": True,
         "backend": ("bitbucket-cloud" if kind == "cloud" else "bitbucket-datacenter"),
-        "operation": "pull-request-merge",
+        "operation": operation,
         "pull_request_id": _string(raw.get("pull_request_id")),
         "strategy": _string(raw.get("strategy")),
         "backend_strategy": _string(raw.get("backend_strategy")),

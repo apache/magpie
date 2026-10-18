@@ -1191,34 +1191,47 @@ it is never matched.
 
 ### Fix
 
-Re-run `~/.claude/scripts/sandbox-add-project-root.sh --all-worktrees`
-from a terminal (or with the sandbox bypass, as the setup skills do). It
-adds both directories as resolved absolute paths to each worktree's
-project-local, gitignored `.claude/settings.local.json`:
+For the scratch root, re-run
+`~/.claude/scripts/sandbox-add-project-root.sh --all-worktrees` from a
+terminal (or with the sandbox bypass, as the setup skills do). It adds the
+directory as a resolved absolute path to each worktree's project-local,
+gitignored `.claude/settings.local.json`:
 
 ```jsonc
 "permissions": {
   "additionalDirectories": [
-    "/home/alice/.claude/magpie",   // "$HOME/.claude/magpie", resolved
     "/tmp/claude-1000"              // "/tmp/claude-$(id -u)", resolved
   ]
 }
 ```
 
-Nothing becomes editable that was not before: `Edit(~/.claude/magpie/**)`
-in `permissions.deny` still binds every file-editing tool there, and the
-scratch root is already writable to sandboxed Bash. Rationale:
+Nothing becomes writable that was not before: the scratch root is
+already writable to sandboxed Bash.
+
+Do **not** list `~/.claude/magpie` there, and the helper removes it where
+an earlier version added it. The sandbox makes every working directory
+writable to sandboxed Bash, and the vetted-ops commands that run from that
+checkout are excluded from the sandbox, so a writable checkout lets
+sandboxed code change what runs outside it. `sandbox-lint` fails on such an
+entry. Reads of the vetted-ops tree keep prompting while the read block is
+on; the vetted-ops commands need it off anyway (see the notes below).
+Rationale:
 [Working directories under the read-outside-working-directories block](secure-agent-setup.md#working-directories-under-the-read-outside-working-directories-block).
 
 ### Notes
 
 - For one session, `/add-dir <path>` does the same without a settings
-  change.
-- A Bash command that spells the path with a literal `~` can still stop
+  change, and carries the same write consequence: never add
+  `~/.claude/magpie` that way either.
+- A Bash command that spells the path with a literal `~` still stops
   with `… names '~/.claude/magpie/vetted-ops', which cannot be checked
-  against the read block`, even with the directory listed: the check
-  does not resolve `~` inside a command. That case is not fixed by this
-  entry.
+  against the read block`, even with the directory listed or an `allow`
+  rule matching: the check does not resolve `~` inside a command. Every
+  vetted-ops command is spelled that way, so where the dispatcher is used
+  the only fix is to turn `blockReadsOutsideWorkingDirectories` off. That
+  is required, not optional: a background gatherer agent cannot answer
+  the prompt, so each one is a silent denial. See
+  [Read-only vetted ops never prompt](secure-agent-setup.md#read-only-vetted-ops-never-prompt).
 - The prompt comes before any command runs, so the sandbox-error hint
   hook never sees it. `setup-isolated-setup-doctor` probe 9 and
   `setup-isolated-setup-verify` check 15 detect it instead.

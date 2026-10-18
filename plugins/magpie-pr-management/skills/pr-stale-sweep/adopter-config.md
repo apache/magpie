@@ -27,7 +27,11 @@ file. Framework changes go via PR to `apache/magpie`.
 - **`<project-config>/project.md`** populated — the skill reads
   `upstream_repo` and `upstream_default_branch`.
 - **`<project-config>/pr-management-config.md`** populated — the skill
-  reads `ready_for_maintainer_review_label` and `committers_team`.
+  reads `ready_for_maintainer_review` and `committers_team`.
+- **A vetted-ops save directory** — every read is saved with
+  `vetted-op-read --save` into `<workspace>/saved/`, which must already
+  exist and hold a `.vetted-ops-save` marker (see the triage
+  [prerequisites](../pr-triage/prerequisites.md)).
 
 See
 [Prerequisites for running the agent skills](../../../../docs/quick-start/prerequisites.md#prerequisites-for-running-the-agent-skills)

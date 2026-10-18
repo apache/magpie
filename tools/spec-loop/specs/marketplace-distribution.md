@@ -10,6 +10,8 @@ source: >
   docs/setup/marketplace.md. The manifest set at .claude-plugin/,
   .codex-plugin/, .agents/plugins/, plugins/magpie-*/, and the repo-root
   plugin.json / marketplace.json / apm.yml / gemini-extension.json.
+  Hook wiring in plugins/magpie-setup/hooks/ and
+  plugins/magpie-agent-guard/hooks/.
   Enforced by tools/dev/check-family-plugins.py.
 acceptance:
   - Every ecosystem manifest mirrors pyproject.toml's project.version
@@ -58,6 +60,13 @@ Two manifest families, because the ecosystems have not converged:
   `.codex-plugin/plugin.json` with `.agents/plugins/marketplace.json` (Codex),
   the root `marketplace.json` (Copilot / VS Code legacy catalog),
   `gemini-extension.json`, and `apm.yml` (`microsoft/apm`, schema v0.1).
+  The root `marketplace.json` names each plugin's `source` as a bare
+  relative path (`"./plugins/magpie-<family>"`), not a `{"source": "local",
+  "path": …}` object, which is not a source type Claude Code documents
+  (#1622).
+  The Codex catalogue lists the ten families only; `magpie-agent-guard` is
+  not in it, so Codex adopters install `magpie-setup` and
+  `magpie-utilities` (`codex plugin add <plugin>@apache-magpie`, #1556).
 
 `.codex-plugin/plugin.json` is **not** the manifest Codex reads for a root that
 also has an AP1 `plugin.json`. Codex takes the root `plugin.json` first when it
@@ -84,6 +93,16 @@ inward — `tools/setup-preflight/src/setup_preflight` and `projects/_template`
 are symlinks into the plugin — since `magpie-setup` is listed by the Codex and
 Copilot catalogs, and Agent Plugins 1.0 §4.1 forbids a link out of such a
 plugin root.
+
+`magpie-setup` also carries hooks in `hooks/hooks.json` rather than inline in
+its manifest (#1552): the `SessionStart` `check-upgrade.sh` command hook and a
+`modules` list naming `drift-check.ts`, a Claude Code mod that checks the
+committed lock against the installed plugin or snapshot at session start, with
+no model tokens, and shows a drift banner above the prompt.
+Its manifest declares `"types": "./hooks/types.d.ts"`, and
+`check-family-plugins.py` fails when `hooks.json` lacks `modules` or the
+`check-upgrade.sh` hook, or when the manifest also declares inline `hooks`,
+which Claude Code would load twice.
 
 `tools/dev/check-family-plugins.py` is both the generator (`--fix`) and the
 CI gate — the prek hook runs it in `--fix` mode, so the gate corrects drift
@@ -146,10 +165,20 @@ adopter-facing page.
   (#1368) — declared in `SUBSTRATE_PLUGINS` in `check-family-plugins.py`.
   Each inherits the shared manifest metadata, declares no `skills`, exposes
   its `tools/<name>` through a symlink whose entry point must resolve, and
-  declares hook wiring only where it has a hook: agent-guard's `PreToolUse`,
-  and vetted-ops' `SessionStart` hook (`tools/vetted-ops/hooks/link-stable-path.sh`,
-  #1406), which points the fixed path `~/.claude/magpie/vetted-ops` at the
-  installed version each session so permission rules never name a versioned
+  declares hook wiring only where it has a hook.
+  `magpie-agent-guard` is the exception to the symlink (#1516): it carries
+  a byte-identical copy of `tools/agent-guard/src/agent_guard` as real
+  files, because a marketplace client may drop a link whose target leaves
+  the plugin root, and `check-family-plugins.py` fails when the copy drifts
+  from the source; its `PreToolUse` wiring lives in `hooks/hooks.json`, not
+  the manifest, with the engine resolved through
+  `${GROK_PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}` so Claude Code and Grok Build
+  share one registration.
+  The others are the `SessionStart` hooks of vetted-ops (`tools/vetted-ops/hooks/link-stable-path.sh`,
+  #1406) and adversarial-review (`tools/adversarial-review/hooks/link-stable-path.sh`),
+  which point the fixed paths `~/.claude/magpie/vetted-ops` and
+  `~/.claude/magpie/adversarial-review` at the installed version each session
+  so permission rules and sandbox exclusions never name a versioned
   plugin-cache glob. `magpie-adversarial-review` additionally publishes a
   `commands/adversarial-review.md` link to the command file generated into
   `tools/adversarial-review/commands/`, which Claude Code exposes as
@@ -193,10 +222,16 @@ adopter-facing page.
    substrate plugin's links and hook entry points resolving, and
    `magpie-setup` carrying `setup_preflight` and the templates as real files
    with their inward mirror links intact.
+   `magpie-agent-guard`'s copied runtime matches `tools/agent-guard`
+   byte for byte and its hook wiring sits only in `hooks/hooks.json`
+   (#1516); `magpie-setup`'s `hooks/hooks.json` declares `modules` and the
+   `check-upgrade.sh` hook, with no inline `hooks` in its manifest (#1552).
 2. `--fix` regenerates every manifest from `pyproject.toml` and is idempotent —
    a second run is a no-op.
 3. A version bump is a one-line edit to `pyproject.toml` plus a regeneration.
-4. Every catalogue lists all ten family plugins and no all-in-one.
+4. Every catalogue lists all ten family plugins and no all-in-one, and the
+   root `marketplace.json` gives each plugin's `source` as a relative path
+   string (#1622).
 5. A skill invoked through a family plugin resolves its own
    `surface_hash:` from its shipped frontmatter and its reconciliation
    stamp from the committed lock or the personal layer's `reconciled.json`

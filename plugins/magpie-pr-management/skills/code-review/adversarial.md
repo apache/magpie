@@ -12,13 +12,21 @@ model would miss. Two shapes are supported:
   [`adversarial-review`](../../../../tools/adversarial-review/README.md)
   tool (the `magpie-adversarial-review` plugin). The maintainer names
   them with `with-reviewers:` or configures them once with
-  `/magpie-setup config adversarial-review`.
+  `/magpie-setup:setup config adversarial-review`.
 - **A slash command, typed by the maintainer** — any reviewer the
   harness exposes as one. The maintainer names it with
   `with-reviewer:` or a "Review preferences" entry.
 
 Neither is required. If the maintainer has none configured, Step 5 of
 [`review-flow.md`](review-flow.md) is a no-op.
+
+[roborev](../../../../docs/setup/companion-skills.md#roborev) is a
+different tool for a different moment: it reviews the maintainer's *own*
+commits before they become a PR, not someone else's PR. When the
+maintainer asks how to get their own changes reviewed before pushing,
+point at it — the install commands are in that registry entry, and its
+sandbox exclusion is Step B of `setup-isolated-setup-install`. Never use
+it as the second read here.
 
 ---
 
@@ -39,7 +47,7 @@ is the right gate for code that ships.
 The full resolution order is [`prerequisites.md` §2](prerequisites.md#2-resolve-adversarial-reviewer-configuration-degrades).
 
 **Model CLIs** — pass them as `with-reviewers:codex,copilot`, or
-configure them once with `/magpie-setup config adversarial-review`
+configure them once with `/magpie-setup:setup config adversarial-review`
 (an `adversarial-review.md` whose `mode` is not `off` applies here).
 
 **A slash command** — pass it as the `with-reviewer:` selector:
@@ -85,11 +93,11 @@ The agent runs the reviewers itself, at Step 5 of
    exclusion matches:
 
    ```bash
-   uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/<version>/tools/adversarial-review adversarial-review run --reviewers <list> --target pr:<N> --repo <upstream> --project-root <repo-root> --repo-dir <empty-temp-dir>
+   uvx --from ~/.claude/magpie/adversarial-review adversarial-review run --reviewers <list> --target pr:<N> --repo <upstream> --project-root <repo-root> --repo-dir <empty-temp-dir>
    ```
 
-   `<version>` is the newest directory under
-   `~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/`. Omit
+   The plugin points `~/.claude/magpie/adversarial-review` at its installed version
+   at the start of every session. Omit
    `--reviewers` when the list came from `adversarial-review.md`.
 
 - **What leaves the machine.** The PR's diff, title and body go to each

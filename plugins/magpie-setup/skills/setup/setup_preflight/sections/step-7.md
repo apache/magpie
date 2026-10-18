@@ -3,7 +3,7 @@
 
 ## step-7 — a required config file is missing
 
-Running `/magpie-setup config` unasked is safe because of what it touches:
+Running `/magpie-setup:setup config` unasked is safe because of what it touches:
 only the personal layer — `<git-common-dir>/apache-magpie/` when the
 project has not adopted Magpie, the gitignored `.apache-magpie-local/` when
 it has (the main checkout's, from a linked worktree that has none) — which

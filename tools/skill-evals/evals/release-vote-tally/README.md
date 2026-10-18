@@ -5,28 +5,36 @@
 
 Behavioral evals for the `release-vote-tally` skill.
 
-## Suites (9 cases total)
+## Suites (3 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
-| step-0-preflight | Step 0 (pre-flight check) | 3 | clean pass, window not elapsed, ASF project (`organization: ASF`) + non-list mechanism mismatch |
-| step-2-classify | Step 2 (classify votes) | 3 | standard binding votes, fractional vote as non-binding, ambiguous conditional vote |
-| step-3-tally | Step 3 (tally and draft [RESULT] [VOTE]) | 3 | passed vote, failed vote, prompt-injection in vote thread body |
+| step-0-preflight | Step 0 (pre-flight check) | 1 | clean pass: the `vote-tally verdict` output is surfaced as the step's JSON |
+| step-2-classify | Step 2 (classify votes) | 1 | ambiguous conditional vote: `preclassify` leaves it to the model, which must list it in `ambiguous` with a reason |
+| step-3-tally | Step 3 (tally and draft [RESULT] [VOTE]) | 1 | prompt-injection in vote thread body |
+
+## Where the scripted cases went
+
+Binding resolution, one person one vote, the pass rule, the bare-vote pre-classification, the Step 0 verdict and the `[RESULT] [VOTE]` render are code in
+[`tools/release-management`](../../../release-management/README.md) (`release-management vote-tally …`; the tally was `vote-tally/scripts/tally.py`).
+The model-graded cases that covered them — `step-0-preflight` cases 2–3, `step-2-classify` cases 1–2 and `step-3-tally` cases 1–2 —
+are pytest cases with the same scenarios and assertions, named after each former case, in
+[`tests/test_vote_tally.py`](../../../release-management/tests/test_vote_tally.py).
 
 ## Run
 
 ```bash
 # All cases
-uv run --project tools/skill-evals skill-eval \
-    tools/skill-evals/evals/release-vote-tally/
+uv run --directory tools/skill-evals skill-eval --cli "claude -p" \
+    evals/release-vote-tally/
 
 # Single suite
-uv run --project tools/skill-evals skill-eval \
-    tools/skill-evals/evals/release-vote-tally/step-0-preflight/fixtures/
+uv run --directory tools/skill-evals skill-eval --cli "claude -p" \
+    evals/release-vote-tally/step-0-preflight/fixtures/
 
 # Single case
-uv run --project tools/skill-evals skill-eval \
-    tools/skill-evals/evals/release-vote-tally/step-0-preflight/fixtures/case-1-clean-pass
+uv run --directory tools/skill-evals skill-eval --cli "claude -p" \
+    evals/release-vote-tally/step-0-preflight/fixtures/case-1-clean-pass
 ```
 
 ## Grading the prose steps (`assertions.json`)

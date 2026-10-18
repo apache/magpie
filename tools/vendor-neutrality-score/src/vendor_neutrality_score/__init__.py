@@ -28,7 +28,9 @@ else, so the same tree always yields the same score:
     ``**Capability:**`` (the ``contract:<name>`` it fulfils),
     ``**Kind:**`` (``interface`` for a pure spec, ``implementation``
     for a concrete backend), and ``**Vendor:**`` (the backend identity,
-    or ``agnostic`` for an interface). An optional ``**Coverage:**``
+    or ``agnostic`` for an interface; a tool that ships several
+    independent backends lists them joined by ``+``, and each counts
+    as a vendor). An optional ``**Coverage:**``
     of ``partial`` / ``partial-read-only`` marks a foundation that
     implements only part of its contracts; it is reported but never
     counted as a backend vendor.
@@ -109,6 +111,10 @@ CONTRACT_POLICY: dict[str, tuple[str, str]] = {
     "contract:people": (
         VENDOR_BACKED,
         "Forge / tracker accounts: profile lookup, repository collaborators, team membership",
+    ),
+    "contract:security-tracker": (
+        VENDOR_BACKED,
+        "Security tracker for embargoed reports (GitHub / local files / private Jira)",
     ),
 }
 
@@ -201,6 +207,8 @@ HARNESS_VOCAB = {
     "Copilot",
     "OpenCode",
     "Kiro",
+    "Grok",
+    "Junie",
 }
 AGNOSTIC_HARNESS = "agnostic"
 _HARNESS_RE = re.compile(r"^\*\*Harness:\*\*[ \t]+(.+?)[ \t]*$", re.MULTILINE)
@@ -219,8 +227,12 @@ class ToolMeta:
     name: str
     contracts: tuple[str, ...]
     kind: str
-    vendor: str
+    vendor: str  # as declared; several backends are joined by ``+``
     coverage: str = COMPLETE
+
+    @property
+    def vendors(self) -> tuple[str, ...]:
+        return tuple(part.strip() for part in self.vendor.split("+") if part.strip())
 
     @property
     def partial(self) -> bool:
@@ -240,7 +252,7 @@ class ContractResult:
 
     @property
     def vendors(self) -> list[str]:
-        return sorted({t.vendor for t in self.implementations})
+        return sorted({v for t in self.implementations for v in t.vendors})
 
 
 @dataclass
@@ -318,6 +330,14 @@ def load_tools(repo_root: Path) -> list[ToolMeta]:
             raise ValueError(
                 f"tools/{name}: **Kind:** must be '{INTERFACE}' or '{IMPLEMENTATION}', got '{kind}'"
             )
+        vendor = vendor_m.group(1).strip()
+        vendors = [part.strip() for part in vendor.split("+")]
+        if not all(vendors):
+            raise ValueError(f"tools/{name}: **Vendor:** has an empty entry in '{vendor}'")
+        if len(vendors) > 1 and AGNOSTIC in (v.lower() for v in vendors):
+            raise ValueError(
+                f"tools/{name}: **Vendor:** cannot mix '{AGNOSTIC}' with named vendors, got '{vendor}'"
+            )
         coverage_m = _COVERAGE_RE.search(text)
         coverage = coverage_m.group(1).strip().strip("`").strip() if coverage_m else COMPLETE
         if coverage != COMPLETE and coverage not in PARTIAL_COVERAGE:
@@ -330,7 +350,7 @@ def load_tools(repo_root: Path) -> list[ToolMeta]:
                 name=name,
                 contracts=contracts,
                 kind=kind,
-                vendor=vendor_m.group(1).strip(),
+                vendor=vendor,
                 coverage=coverage,
             )
         )
@@ -591,7 +611,10 @@ def render_json(
                 "basis": r.basis,
                 "vendors": r.vendors,
                 "interfaces": r.interfaces,
-                "implementations": [{"tool": t.name, "vendor": t.vendor} for t in r.implementations],
+                "implementations": [
+                    {"tool": t.name, "vendor": t.vendor, "vendors": list(t.vendors)}
+                    for t in r.implementations
+                ],
                 "partial_implementations": [
                     {"tool": t.name, "vendor": t.vendor, "coverage": t.coverage}
                     for t in r.partial_implementations

@@ -144,6 +144,28 @@ spec_loop_launch_agent() {
         "$agent" chat --no-interactive \
             ${kiro_effort_args[@]+"${kiro_effort_args[@]}"} \
             "$(cat "$prompt_file")" &
+    elif [ "$harness" = "grok" ]; then
+        # Grok Build headless mode accepts the assembled prompt directly from
+        # a file. `--always-approve` permits unattended local work while the
+        # explicit deny rules keep remote mutation blocked in depth alongside
+        # the external sandbox and agent guard.
+        local grok_output_format=plain
+        local grok_effort_args=()
+        [ "$output_format" = "stream-json" ] && grok_output_format=streaming-json
+        case "$effort" in
+            low)    grok_effort_args=(--reasoning-effort low) ;;
+            medium) grok_effort_args=(--reasoning-effort medium) ;;
+            high)   grok_effort_args=(--reasoning-effort high) ;;
+        esac
+        "$agent" \
+            --always-approve \
+            --cwd "$root" \
+            --deny "Bash(git push:*)" \
+            --deny "Bash(gh:*)" \
+            --output-format "$grok_output_format" \
+            ${model_args[@]+"${model_args[@]}"} \
+            ${grok_effort_args[@]+"${grok_effort_args[@]}"} \
+            --prompt-file "$prompt_file" &
     else
         local verbose_args=()
         local claude_effort_args=()

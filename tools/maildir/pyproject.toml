@@ -30,6 +30,7 @@ dependencies = []
 
 [project.scripts]
 maildir-draft-create = "maildir_draft.create_draft:main"
+maildir-draft-find = "maildir_draft.find_drafts:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/maildir_draft"]

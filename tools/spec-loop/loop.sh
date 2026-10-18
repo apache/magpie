@@ -52,10 +52,12 @@
 #                    chosen by SPEC_LOOP_HARNESS below.
 #   SPEC_LOOP_HARNESS  which harness's headless-run convention to use when
 #                    invoking SPEC_LOOP_AGENT: `claude` (default), `codex`,
-#                    `cursor`, `gemini`, or `opencode`. Defaults from the
-#                    agent basename, so setting SPEC_LOOP_AGENT=codex,
-#                    SPEC_LOOP_AGENT=cursor-agent, SPEC_LOOP_AGENT=gemini, or
-#                    SPEC_LOOP_AGENT=opencode is usually enough.
+#                    `cursor`, `gemini`, `opencode`, `kiro`, or `grok`.
+#                    Defaults from the agent basename, so setting
+#                    SPEC_LOOP_AGENT=codex, SPEC_LOOP_AGENT=cursor-agent,
+#                    SPEC_LOOP_AGENT=gemini, SPEC_LOOP_AGENT=opencode,
+#                    SPEC_LOOP_AGENT=kiro-cli, or SPEC_LOOP_AGENT=grok is
+#                    usually enough.
 #   SPEC_LOOP_MODEL  model passed to the agent CLI. Defaults to `sonnet` for
 #                    Claude; all other harnesses use their configured default
 #                    unless this is set.
@@ -112,6 +114,7 @@ case "${SPEC_LOOP_HARNESS:-$(basename "$AGENT")}" in
     *gemini*)   HARNESS=gemini ;;
     *opencode*) HARNESS=opencode ;;
     *kiro*)     HARNESS=kiro ;;
+    *grok*)     HARNESS=grok ;;
     *)          HARNESS=claude ;;
 esac
 if [ -n "${SPEC_LOOP_MODEL:-}" ]; then
@@ -192,7 +195,7 @@ fi
 
 if ! command -v "$AGENT" >/dev/null 2>&1; then
     echo "Error: agent CLI '$AGENT' not found on PATH." >&2
-    echo "Set SPEC_LOOP_AGENT to a headless agent CLI (claude / codex / cursor / gemini / opencode / a wrapper)" >&2
+    echo "Set SPEC_LOOP_AGENT to a headless agent CLI (claude / codex / cursor / gemini / opencode / kiro / grok / a wrapper)" >&2
     echo "and SPEC_LOOP_HARNESS to its run convention if the name doesn't imply it." >&2
     exit 1
 fi

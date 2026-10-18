@@ -25,11 +25,18 @@ pre-tool hook to/from the core, so every wired harness enforces one rule set:
 
 * :func:`main` — Claude Code ``PreToolUse`` hook (reads the event on stdin,
   emits a deny decision as JSON). The default, no-argument invocation.
+* :func:`codex_main` — Codex native ``PreToolUse`` hook (``--codex``):
+  consumes canonical ``Bash`` events and emits a native JSON denial.
 * :func:`opencode_main` — OpenCode ``tool.execute.before`` plugin adapter
   (``--opencode``): reads ``{"command", "cwd"}`` on stdin, signals deny via a
   non-zero exit so the plugin can throw and abort the tool call.
 * :func:`gemini_main` — Gemini CLI ``BeforeTool`` hook (``--gemini``):
   matches ``run_shell_command`` and blocks with exit 2 and a stderr reason.
+* :func:`grok_main` — Grok Build ``PreToolUse`` adapter (``--grok`` or
+  automatic no-argument payload-shape detection): reads the documented
+  camelCase event and emits Grok's JSON allow/deny decision.
+* :func:`junie_main` — Junie CLI ``PreToolUse`` hook (``--junie``): reads the
+  snake_case event and blocks with a ``decision`` JSON and exit 2.
 * :func:`check_main` — Harness-neutral check-only entry point (``--check``):
   takes the command as remaining CLI args, exits ``DENY_EXIT`` with the reason
   on stdout on a deny, ``ALLOW_EXIT`` silently on allow, ``USAGE_EXIT`` when no
@@ -122,6 +129,20 @@ ATTRIBUTION_CONTRIBUTOR_CHOICE = "contributor-choice"  # project file only
 DEFAULT_ATTRIBUTION = "generated-by"
 
 
+_ASSIGNMENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=.*", re.DOTALL)
+
+# `env` options (GNU coreutils and BSD): flags without a value, long options
+# whose value is optional (`--default-signal[=SIG]`), and — handled in
+# `_env_inner` — `-u`/`--unset`, `-C`/`--chdir`, `-S`/`--split-string`, which
+# take one. Any other option leaves the command unparsed, and refused.
+_ENV_SHORT_FLAGS = frozenset("i0v")
+_ENV_LONG_FLAGS = frozenset({"ignore-environment", "null", "debug", "list-signal-handling"})
+_ENV_LONG_OPTIONAL = frozenset({"block-signal", "default-signal", "ignore-signal"})
+# Wrappers unwrapped per segment before the command counts as unparsed. Each
+# step consumes input, so only a crafted line ever reaches this.
+_UNWRAP_LIMIT = 64
+
+
 class Segment:
     """One simple command from a (possibly compound) shell line.
 
@@ -130,24 +151,136 @@ class Segment:
     substring scans that survive heredocs, e.g. the Co-Authored-By trailer).
     """
 
-    def __init__(self, tokens: list[str], raw: str) -> None:
+    def __init__(self, tokens: list[str], raw: str, command: str = "") -> None:
         self.env: dict[str, str] = {}
-        i = 0
-        while i < len(tokens) and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=.*", tokens[i]):
-            name, _, value = tokens[i].partition("=")
-            self.env[name] = value
-            i += 1
-        argv = tokens[i:]
+        #: True when an `env` / `command` wrapper was looked through. Sandbox
+        #: exclusions match a command line by its start, so a wrapped excluded
+        #: command runs sandboxed even when the command itself is spelled right.
+        self.wrapped = False
+        #: True when a wrapper could not be parsed; `dispatch` refuses the line.
+        self.unparsed = False
+        argv = self._unwrap(self._take_assignments(tokens))
+        #: The command head as written (`~/.claude/scripts/x.sh`, `/usr/bin/git`),
+        #: for the rules that care how a command is spelled, not just its name.
+        self.head = argv[0] if argv else ""
         # Normalise the command head to its basename so a path-qualified
         # invocation (`/usr/bin/git`, `./git`) is guarded identically to the
         # bare name. Guard rules only inspect argv[0] as a command *name*; the
         # real execution path is untouched (exec_main hands the original argv
-        # to os.execvp). Prefix wrappers like `env git` / `command git` keep
-        # argv[0] == "env" and remain a separate, pre-existing gap.
+        # to os.execvp).
         if argv:
             argv[0] = os.path.basename(argv[0])
         self.argv: list[str] = argv
         self.raw = raw
+        #: The whole command line as written, before tokenising: the one place
+        #: quoting is still visible (a quoted `~` is not expanded by the shell).
+        self.command = command
+
+    def _take_assignments(self, tokens: list[str]) -> list[str]:
+        """Strip leading ``NAME=value`` assignments into ``env``."""
+        i = 0
+        while i < len(tokens) and _ASSIGNMENT_RE.fullmatch(tokens[i]):
+            name, _, value = tokens[i].partition("=")
+            self.env[name] = value
+            i += 1
+        return tokens[i:]
+
+    def _unwrap(self, argv: list[str]) -> list[str]:
+        """Look through prefix wrappers that run their argument as the command:
+        ``env [options] [NAME=value…] cmd …`` (its assignments join ``env``, so
+        an inline override still counts) and ``command [-p] cmd …``.
+
+        Unwrapping runs until no wrapper is left — every step consumes input, so
+        it ends — and anything it cannot parse sets ``unparsed``, which
+        ``dispatch`` refuses: a wrapper is never a way past the guards.
+        """
+        steps = 0
+        while argv:
+            steps += 1
+            if steps > _UNWRAP_LIMIT:
+                self.unparsed = True
+                return argv
+            head = os.path.basename(argv[0])
+            if head == "env":
+                inner = self._env_inner(argv[1:])
+                if inner is None:
+                    self.unparsed = True
+                    return argv
+                self.wrapped = True
+                argv = inner
+            elif head == "command":
+                rest = argv[1:]
+                while rest and rest[0].startswith("-") and rest[0] != "-":
+                    flag = rest.pop(0)
+                    if flag == "--":
+                        break
+                    letters = flag[1:]
+                    if any(ch in "vV" for ch in letters):
+                        return argv  # `command -v x`: a lookup, not an execution
+                    if any(ch != "p" for ch in letters):
+                        self.unparsed = True
+                        return argv
+                self.wrapped = True
+                argv = rest
+            else:
+                return argv
+        return argv
+
+    def _env_inner(self, args: list[str]) -> list[str] | None:
+        """The command ``env`` runs, after its options and assignments; None
+        when an option is not one GNU / BSD ``env`` documents, or a ``-S``
+        string does not tokenise."""
+        try:
+            return self._env_inner_parse(list(args))
+        except ValueError:
+            return None
+
+    def _env_inner_parse(self, args: list[str]) -> list[str] | None:
+        while args:
+            tok = args[0]
+            if tok == "--":
+                args.pop(0)
+                break
+            if tok.startswith("--"):
+                name, eq, value = tok[2:].partition("=")
+                if name in _ENV_LONG_FLAGS or name in _ENV_LONG_OPTIONAL:
+                    args.pop(0)
+                    continue
+                if name in ("unset", "chdir"):
+                    args.pop(0)
+                    if not eq:
+                        if not args:
+                            return None
+                        args.pop(0)
+                    continue
+                if name == "split-string":
+                    args.pop(0)
+                    if not eq:
+                        if not args:
+                            return None
+                        value = args.pop(0)
+                    args = [*shlex.split(value), *args]
+                    continue
+                return None
+            if tok.startswith("-") and tok != "-":
+                args.pop(0)
+                letters = tok[1:]
+                for pos, ch in enumerate(letters):
+                    if ch in _ENV_SHORT_FLAGS:
+                        continue
+                    if ch in "uCS":
+                        attached = letters[pos + 1 :]
+                        if not attached:
+                            if not args:
+                                return None
+                            attached = args.pop(0)
+                        if ch == "S":
+                            args = [*shlex.split(attached), *args]
+                        break
+                    return None
+                continue
+            break
+        return self._take_assignments(args)
 
     def override(self, *names: str) -> bool:
         """True if any of ``names`` (or the global off switch) is set truthy,
@@ -177,12 +310,12 @@ def split_segments(command: str) -> list[Segment]:
     for tok in tokens:
         if tok in SHELL_OPERATORS:
             if current:
-                segments.append(Segment(current, shlex.join(current)))
+                segments.append(Segment(current, shlex.join(current), command))
                 current = []
         else:
             current.append(tok)
     if current:
-        segments.append(Segment(current, shlex.join(current)))
+        segments.append(Segment(current, shlex.join(current), command))
     return segments
 
 
@@ -354,6 +487,17 @@ def gh_subcommand(argv: list[str]) -> tuple[str, str] | None:
     return None
 
 
+def _json_strings(value: object) -> list[str]:
+    """Every string in a JSON value, depth first."""
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, dict):
+        return [s for v in value.values() for s in _json_strings(v)]
+    if isinstance(value, list):
+        return [s for v in value for s in _json_strings(v)]
+    return []
+
+
 def gh_body_text(argv: list[str], *, include_title: bool, read_files: bool) -> str:
     """Concatenate the inline ``--body`` (and optionally ``--title``) plus, when
     ``read_files`` is set, the contents of any ``--body-file``."""
@@ -451,6 +595,169 @@ def _find_repo_root(start: Path) -> Path | None:
 LOCK_NAME = ".apache-magpie.lock"
 LOCAL_DIR = ".apache-magpie-local"
 OVERRIDES_DIR = ".apache-magpie-overrides"
+
+_REPO_SLUG = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*")
+
+#: ``gh api`` flags that take a separate value, so the endpoint is the first other token.
+_GH_API_VALUE_FLAGS = frozenset(
+    {
+        "-X",
+        "--method",
+        "-f",
+        "--raw-field",
+        "-F",
+        "--field",
+        "-H",
+        "--header",
+        "--input",
+        "-q",
+        "--jq",
+        "-t",
+        "--template",
+        "--hostname",
+        "--cache",
+        "-p",
+        "--preview",
+    }
+)
+
+
+#: ``gh api`` flags that take no value.
+_GH_API_BOOL_FLAGS = frozenset({"--paginate", "--slurp", "-i", "--include", "--silent", "--verbose"})
+
+
+def _gh_api_endpoint(args: list[str]) -> str | None:
+    """The endpoint positional of a ``gh api`` argument list (everything after ``api``).
+
+    None unless the line parses unambiguously: an unknown flag (whose arity
+    the guard cannot know) or a second positional means the endpoint cannot
+    be told for certain.
+    """
+    endpoint: str | None = None
+    i = 0
+    while i < len(args):
+        tok = args[i]
+        if tok == "--":
+            rest = args[i + 1 :]
+            if endpoint is not None or len(rest) != 1:
+                return None
+            return rest[0]
+        if tok.startswith("--"):
+            name = tok.split("=", 1)[0]
+            if name in _GH_API_VALUE_FLAGS:
+                i += 1 if "=" in tok else 2
+                continue
+            if name in _GH_API_BOOL_FLAGS and "=" not in tok:
+                i += 1
+                continue
+            return None
+        if tok.startswith("-") and len(tok) > 1:
+            flag = tok[:2]
+            if flag in _GH_API_VALUE_FLAGS:
+                i += 1 if len(tok) > 2 else 2
+                continue
+            if tok in _GH_API_BOOL_FLAGS:
+                i += 1
+                continue
+            return None
+        if endpoint is not None:
+            return None
+        endpoint = tok
+        i += 1
+    return endpoint
+
+
+#: Value-taking flags of the ``gh pr`` / ``gh issue`` commands the mention
+#: guards widen (comment, edit, review), besides ``-R`` / ``--repo``.
+_GH_TARGET_VALUE_LONG = frozenset(
+    {
+        "--body",
+        "--body-file",
+        "--title",
+        "--base",
+        "--milestone",
+        "--add-label",
+        "--remove-label",
+        "--add-reviewer",
+        "--remove-reviewer",
+        "--add-assignee",
+        "--remove-assignee",
+        "--add-project",
+        "--remove-project",
+    }
+)
+_GH_TARGET_BOOL_LONG = frozenset(
+    {
+        "--approve",
+        "--comment",
+        "--request-changes",
+        "--edit-last",
+        "--delete-last",
+        "--yes",
+        "--create-if-none",
+        "--editor",
+        "--web",
+        "--remove-milestone",
+    }
+)
+_GH_TARGET_VALUE_SHORT = frozenset("bFtBm")
+_GH_TARGET_BOOL_SHORT = frozenset("acrew")
+
+
+def _gh_target_args(args: list[str]) -> tuple[list[str], list[str]] | None:
+    """Every ``--repo`` value and the positionals of a ``gh pr|issue`` argument list.
+
+    Parsed with each flag's arity, the way ``gh`` reads the line, so a flag's
+    value is never mistaken for a repository or a selector — ``--body
+    -Racme/x`` is body text, not ``-R``. None when the line cannot be read
+    for certain: an unknown flag, or combined short flags.
+    """
+    repos: list[str] = []
+    positionals: list[str] = []
+    i = 0
+    while i < len(args):
+        tok = args[i]
+        if tok == "--":
+            positionals.extend(args[i + 1 :])
+            break
+        if tok.startswith("--"):
+            name, eq, value = tok.partition("=")
+            if name == "--repo":
+                if not eq:
+                    if i + 1 >= len(args):
+                        return None
+                    value = args[i + 1]
+                    i += 1
+                repos.append(value)
+            elif name in _GH_TARGET_VALUE_LONG:
+                i += 0 if eq else 1
+            elif name not in _GH_TARGET_BOOL_LONG or eq:
+                return None
+            i += 1
+            continue
+        if tok.startswith("-") and len(tok) > 1:
+            letter, rest = tok[1], tok[2:]
+            if letter == "R":
+                value = rest[1:] if rest.startswith("=") else rest
+                if not value:
+                    if i + 1 >= len(args):
+                        return None
+                    value = args[i + 1]
+                    i += 1
+                repos.append(value)
+            elif letter in _GH_TARGET_VALUE_SHORT:
+                i += 0 if rest else 1
+            elif letter not in _GH_TARGET_BOOL_SHORT or rest:
+                return None
+            i += 1
+            continue
+        positionals.append(tok)
+        i += 1
+    if len(positionals) > 1:
+        return None
+    return repos, positionals
+
+
 GIT_HOME_NAME = "apache-magpie"
 
 
@@ -702,17 +1009,21 @@ def guard_empty_rebase(seg: Segment, cwd: str | None) -> str | None:
     idx = git_subcommand_index(seg.argv)
     if idx is None or seg.argv[idx] != "push":
         return None
+    # `+refspec` is git's other force spelling: git-push(1) documents it as
+    # equivalent to `--force` for that refspec, so it must be recognized here
+    # and stripped from the refs the resolution below reads.
+    refspecs = [t for t in seg.argv[idx + 1 :] if not t.startswith("-")]
     forced = any(
         t in ("-f", "--force") or t == "--force-with-lease" or t.startswith("--force-with-lease=")
         for t in seg.argv
-    )
+    ) or any(r.startswith("+") for r in refspecs)
     if not forced:
         return None
     if seg.override("MAGPIE_ALLOW_EMPTY_PUSH"):
         return None
 
     # Resolve the source ref being pushed: last `src[:dst]` positional, else HEAD.
-    positionals = [t for t in seg.argv[idx + 1 :] if not t.startswith("-")]
+    positionals = [t.removeprefix("+") for t in refspecs]
     src = "HEAD"
     if len(positionals) >= 2:
         src = positionals[1].split(":", 1)[0] or "HEAD"
@@ -737,6 +1048,281 @@ def guard_empty_rebase(seg: Segment, cwd: str | None) -> str | None:
             "result is non-empty first. Override: MAGPIE_ALLOW_EMPTY_PUSH=1."
         )
     return None
+
+
+# The dispatchers' entry points and the stable directory each must be launched
+# from. `sandbox.excludedCommands` and the `permissions.allow` rules name the
+# literal `~/.claude/magpie/<tool>` spelling, so only that spelling runs outside
+# the sandbox without a prompt (docs/setup/secure-agent-setup.md).
+VETTED_ENTRY_POINTS = {
+    "vetted-op": "vetted-ops",
+    "vetted-op-read": "vetted-ops",
+    "vetted-op-tracker": "vetted-ops",
+    "adversarial-review": "adversarial-review",
+}
+VETTED_STABLE_BASE = "~/.claude/magpie/"
+# `uv run` / `uvx` options that take a value, so the value is not mistaken for
+# the command they launch.
+_UV_VALUE_OPTIONS = frozenset(
+    {
+        "--project",
+        "--from",
+        "--directory",
+        "--with",
+        "--with-editable",
+        "--with-requirements",
+        "--group",
+        "--extra",
+        "--package",
+        "--python",
+        "-p",
+        "--env-file",
+        "--index",
+        "--default-index",
+        "--cache-dir",
+        "--config-file",
+    }
+)
+
+
+def _vetted_launch(argv: list[str]) -> tuple[str, str, str] | None:
+    """``(option, base, entry_point)`` for a ``uv run --project`` / ``uvx --from``
+    launch of a vetted dispatcher, or None for any other command."""
+    if not argv or argv[0] not in ("uv", "uvx"):
+        return None
+    # `uv` takes its options on either side of `run` (`uv --project X run …`
+    # is the same launch as `uv run --project X …`); `uvx` has no subcommand.
+    option, rest = ("--project", argv[1:]) if argv[0] == "uv" else ("--from", argv[1:])
+    needs_run = argv[0] == "uv"
+    base: str | None = None
+    i = 0
+    while i < len(rest):
+        tok = rest[i]
+        if tok == option:
+            base = rest[i + 1] if i + 1 < len(rest) else None
+            i += 2
+            continue
+        if tok.startswith(option + "="):
+            base = tok[len(option) + 1 :]
+            i += 1
+            continue
+        if tok in _UV_VALUE_OPTIONS:
+            i += 2
+            continue
+        if tok.startswith("-"):
+            i += 1
+            continue
+        if needs_run:
+            if tok != "run":
+                return None  # another uv subcommand
+            needs_run = False
+            i += 1
+            continue
+        break
+    if needs_run or base is None or i >= len(rest) or rest[i] not in VETTED_ENTRY_POINTS:
+        return None
+    return option, base, rest[i]
+
+
+def _account_home() -> str | None:
+    """The account's home from the password database, never from ``HOME``,
+    which an earlier command can reassign. None where there is none (Windows).
+    Spelled as the database spells it, unresolved: Codex's rewrite hook writes
+    that spelling, and ``_within`` resolves the roots it compares itself."""
+    try:
+        import pwd  # POSIX only; the engine also runs on Windows.
+
+        return pwd.getpwuid(os.getuid()).pw_dir
+    except (ImportError, KeyError, OSError):
+        return None
+
+
+def _within(path: str, root: str) -> bool:
+    root = os.path.realpath(root)
+    return path == root or path.startswith(root.rstrip(os.sep) + os.sep)
+
+
+def _inside_checkout(base: str, cwd: str | None) -> bool:
+    """True when the absolute ``base`` lies in a git working tree: the one the
+    command runs from, or the one ``base`` itself sits in, whatever the cwd.
+    A dispatcher there is code the agent can edit. The account's own plugin
+    cache is exempt, even when the home directory is version-controlled; a
+    directory merely named like one elsewhere is not."""
+    target = os.path.realpath(base)
+    home = _account_home()
+    if home and _within(target, os.path.join(home, ".claude", "plugins", "cache")):
+        return False
+    top = _run(["git", "rev-parse", "--show-toplevel"], cwd=cwd)
+    if top and _within(target, top):
+        return True
+    probe = target
+    while probe and not os.path.isdir(probe):
+        parent = os.path.dirname(probe)
+        if parent == probe:
+            return False
+        probe = parent
+    top = _run(["git", "rev-parse", "--show-toplevel"], cwd=probe)
+    return top is not None and _within(target, top)
+
+
+_CODEX_HOOK_SCRIPT = "codex-expand-stable-path.py"
+
+
+def _codex_stable_roots() -> set[str]:
+    """The absolute vetted-ops roots Codex's rewrite hook may substitute for `~`.
+
+    The hook rewrites to the root it was registered with: `--stable-path` in
+    the Codex configuration (`vetted-ops-codex-rules --hook --tool-root …`),
+    else the account's home. Only those exact roots are let through; a path
+    the agent could build itself is not.
+    """
+    home = _account_home()
+    if home is None:
+        return set()
+    roots = {f"{home.rstrip('/')}/{VETTED_STABLE_BASE[2:]}vetted-ops"}
+    config = Path(os.environ.get("CODEX_HOME") or f"{home}/.codex") / "config.toml"
+    try:
+        import tomllib  # 3.11+, the engine's floor.
+
+        data = tomllib.loads(config.read_text(encoding="utf-8"))
+    except (ImportError, OSError, ValueError):
+        return roots
+    for command in _toml_commands(data):
+        if _CODEX_HOOK_SCRIPT not in command:
+            continue
+        try:
+            argv = shlex.split(command)
+        except ValueError:
+            continue
+        if "--stable-path" in argv[:-1]:
+            root = argv[argv.index("--stable-path") + 1].rstrip("/")
+            if os.path.isabs(root):
+                roots.add(root)
+    return roots
+
+
+def _toml_commands(node: object) -> list[str]:
+    """Every string ``command`` value anywhere in parsed TOML."""
+    found: list[str] = []
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key == "command" and isinstance(value, str):
+                found.append(value)
+            else:
+                found += _toml_commands(value)
+    elif isinstance(node, list):
+        for item in node:
+            found += _toml_commands(item)
+    return found
+
+
+#: User-scope scripts the sandbox exclusion names by their literal `~` path
+#: (docs/setup/secure-agent-setup.md): basename -> the one spelling that matches.
+EXCLUDED_SCRIPTS = {
+    "magpie-run-evals.sh": "~/.claude/scripts/magpie-run-evals.sh",
+}
+
+
+def guard_excluded_script_spelling(seg: Segment) -> str | None:
+    """Refuse a sandbox-excluded user-scope script launched by any other spelling.
+
+    The exclusion matches only ``~/.claude/scripts/<name>``: an expanded home
+    path (``/Users/<you>/…``), ``$HOME/…``, a quoted ``~`` or a repository copy
+    runs *inside* the sandbox, where the script cannot reach what it was
+    excluded for (the eval wrapper: the model API), so every case errors
+    without being graded.
+    """
+    stable = EXCLUDED_SCRIPTS.get(seg.argv[0])
+    if stable is None:
+        return None
+    # Accept only the bare spelling as written: tokenising drops quotes, and a
+    # quote anywhere in a `~` prefix (`"~/…"`, `~"/…"`, `\\~/…`) stops the shell
+    # from expanding it, so the line itself must carry `~/.claude/scripts/<name>`.
+    bare = re.search(rf"(?:^|[\s;&|(]){re.escape(stable)}(?=\s|$)", seg.command)
+    if seg.head == stable and bare and not seg.wrapped:
+        return None
+    if seg.override("MAGPIE_ALLOW_SCRIPT_PATH"):
+        return None
+    shown = f"{'env/command … ' if seg.wrapped else ''}{seg.head}"
+    return (
+        f"agent-guard[vetted-ops-spelling]: run `{stable} …` exactly so, as the whole command "
+        f"with a bare `~`, not `{shown}`. The sandbox exclusion names only that spelling; any "
+        "other runs the script inside the sandbox, where it fails. Override: MAGPIE_ALLOW_SCRIPT_PATH=1."
+    )
+
+
+def _bare_base(command: str, option: str, base: str) -> bool:
+    """True when ``command`` carries ``<option> <base>`` exactly as written, unquoted.
+
+    Tokenising drops quotes, but a quote or backslash anywhere in a `~` prefix
+    (`"~/…"`, `~"/…"`, `\\~/…`) stops the shell from expanding it, so the raw
+    line must show the bare spelling.
+    """
+    # Space-separated only: `--project=~/…` is not an assignment, so the shell
+    # leaves that `~` alone too (and the exclusion is written with a space).
+    pattern = rf"{re.escape(option)}\s+{re.escape(base)}/?(?=[\s;&|)]|$)"
+    return re.search(pattern, command) is not None
+
+
+def guard_vetted_ops_spelling(seg: Segment, cwd: str | None = None, harness: str | None = None) -> str | None:
+    launch = _vetted_launch(seg.argv)
+    if launch is None:
+        return None
+    option, base, entry = launch
+    tool = VETTED_ENTRY_POINTS[entry]
+    stable = VETTED_STABLE_BASE + tool
+    base = base.rstrip("/")
+    if base.startswith("~") and not _bare_base(seg.command, option, base):
+        # Tokenising drops the quotes, but the shell does not expand a quoted
+        # or escaped `~`: uv would get a directory literally named `~`, and the
+        # exclusion (which names the bare spelling) would not match either.
+        if seg.override("MAGPIE_ALLOW_VETTED_PATH"):
+            return None
+        return (
+            f"agent-guard[vetted-ops-spelling]: the `~` in `{option} {base}` is quoted or escaped, "
+            "so the shell will not expand it and the sandbox exclusion will not match. "
+            f"Write it bare: `{seg.argv[0]} {'run ' if seg.argv[0] == 'uv' else ''}{option} {stable} {entry} …`."
+        )
+    if base == stable and seg.wrapped:
+        # Right spelling, but behind `env` / `command`: the exclusion matches a
+        # command line by its start, so this would run inside the sandbox.
+        if seg.override("MAGPIE_ALLOW_VETTED_PATH"):
+            return None
+        return (
+            f"agent-guard[vetted-ops-spelling]: run `{seg.argv[0]} {'run ' if seg.argv[0] == 'uv' else ''}"
+            f"{option} {stable} {entry} …` as the whole command, not behind `env` / `command`: "
+            "the sandbox exclusion matches only a command line that starts with it."
+        )
+    if base == stable:
+        return None
+    if harness == "codex" and entry == "vetted-op-read" and base in _codex_stable_roots():
+        # Codex's execpolicy cannot match `~`, so its own hook rewrites a lone
+        # read to the absolute root it was registered with
+        # (tools/vetted-ops/hooks/codex-expand-stable-path.py). Only reads are
+        # rewritten, and only to that exact root.
+        return None
+    # What is refused: the stable path spelled any other way (expanded home,
+    # `$HOME`, the wrong dispatcher's link), a relative path, and an absolute
+    # path inside the working tree: both are a checkout the agent can edit.
+    # Another absolute or `~` path is a harness's own installed plugin
+    # directory (docs: tools/adversarial-review/README.md) and is left to that
+    # harness's rules.
+    stable_elsewhere = "/.claude/magpie/" in base or base.startswith(VETTED_STABLE_BASE)
+    relative = not base.startswith(("/", "~"))
+    checkout = base.startswith("/") and not stable_elsewhere and _inside_checkout(base, cwd)
+    if not (stable_elsewhere or relative or checkout or base.startswith("$")):
+        return None
+    if seg.override("MAGPIE_ALLOW_VETTED_PATH"):
+        return None
+    return (
+        f"agent-guard[vetted-ops-spelling]: `{entry}` must be launched as "
+        f"`{seg.argv[0]} {'run ' if seg.argv[0] == 'uv' else ''}{option} {stable} {entry} …`, "
+        f"spelled with the literal `~`, not `{base}`. The sandbox exclusion and the "
+        "permission rules name only that spelling: an expanded home path runs inside the "
+        "sandbox, where gh cannot verify TLS, and a checkout path runs code the agent can "
+        "edit, which must never be excluded from the sandbox. Re-run it with the `~` form. "
+        "Override (developing the dispatcher itself): MAGPIE_ALLOW_VETTED_PATH=1."
+    )
 
 
 # The framework's bundled guards — the universal `git` hygiene rules that apply
@@ -819,6 +1405,185 @@ class GuardContext:
 
     def mentions(self, text: str) -> list[str]:
         return find_mentions(text)
+
+    def _committed_config_text(self, filename: str) -> str | None:
+        """``.apache-magpie-overrides/<filename>`` on the target repository's default branch, on GitHub.
+
+        A value that widens what a guard allows must come from somewhere the
+        agent cannot write. Anything local fails that test — the agent can
+        edit a file, commit it, or ``cd`` into a scratch repository it made —
+        so the guard reads the copy GitHub serves from the default branch of
+        the repository the command posts to, which only a reviewed, merged
+        change can alter. A fork or scratch repository only ever governs
+        itself. Unreadable → None, and the guard falls back to the strict rule.
+        """
+        repo = self.target_repo()
+        if repo is None:
+            return None
+        return self.run(
+            [
+                "gh",
+                "api",
+                f"repos/{repo}/contents/{OVERRIDES_DIR}/{filename}",
+                "-H",
+                "Accept: application/vnd.github.raw",
+            ]
+        )
+
+    def _committed_row(self, filename: str, key: str) -> str | None:
+        text = self._committed_config_text(filename)
+        for line in (text or "").splitlines():
+            cells = [c.strip() for c in line.strip().strip("|").split("|")]
+            if len(cells) >= 2 and cells[0] == f"`{key}`":
+                return cells[1]
+        return None
+
+    def committed_config_value(self, filename: str, key: str) -> str | None:
+        """The first backticked value of a `` | `key` | value | `` row of the config on the target repository's default branch."""
+        cell = self._committed_row(filename, key)
+        match = re.match(r"`([^`]+)`", cell or "")
+        return match.group(1).strip() if match else None
+
+    def committed_config_values(self, filename: str, key: str) -> list[str]:
+        """Every backticked value of a `` | `key` | value | `` row of the config on the target repository's default branch."""
+        return [t.strip() for t in re.findall(r"`([^`]+)`", self._committed_row(filename, key) or "")]
+
+    def gh_input_json(self) -> object | None:
+        """The JSON payload of ``gh api --input <file>``, or None."""
+        path = self.opt("--input", "--input")
+        if not path or path == "-":
+            return None
+        try:
+            return json.loads(Path(path).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+
+    def target_repo(self) -> str | None:
+        """``OWNER/REPO`` a ``gh`` command explicitly acts on, or None when that is not certain.
+
+        Only guards that *widen* a rule ask, so anything ambiguous answers
+        None and the strict rule stands. ``gh api`` acts on the repository in
+        a plain ``repos/OWNER/REPO/…`` endpoint; ``graphql`` and any other
+        endpoint can reach any repository, and an endpoint with ``.`` / ``..``
+        segments, percent-encoding or ``{owner}`` placeholders is refused
+        rather than resolved. Every other command must name its repository —
+        through ``--repo`` and/or a PR / issue URL as the selector
+        positional — and all of them must agree. There is no fallback to the
+        checkout: a ``cd`` or ``GH_REPO`` earlier on the line would change
+        what ``gh`` posts to without the guard seeing it.
+        """
+        sub = self.gh_subcommand()
+        if sub is not None and sub[0] == "api" and "api" in self.argv:
+            endpoint = _gh_api_endpoint(self.argv[self.argv.index("api") + 1 :]) or ""
+            path = endpoint.split("?", 1)[0].split("#", 1)[0]
+            if any(c in path for c in "%{}\\") or any(seg in (".", "..") for seg in path.split("/")):
+                return None
+            m = re.fullmatch(r"/?repos/([^/]+/[^/]+)(?:/.*)?", path)
+            found = {m.group(1).lower()} if m else set()
+        else:
+            parsed = _gh_target_args(self.argv[self.argv.index(sub[1]) + 1 :]) if sub is not None else None
+            if parsed is None:
+                return None
+            repos, positionals = parsed
+            found = {r.lower() for r in repos}
+            # Only the selector positional (`gh pr comment <URL>`) names a
+            # repository; a URL inside --body or any other value is text.
+            m = re.fullmatch(
+                r"https?://(?:www\.)?github\.com/([^/]+/[^/#?]+)/(?:pull|issues)/\d+(?:[/#?].*)?",
+                positionals[0] if positionals else "",
+                re.IGNORECASE,
+            )
+            if m:
+                found.add(m.group(1).lower())
+        if len(found) != 1:
+            return None
+        repo = found.pop()
+        return repo if _REPO_SLUG.fullmatch(repo) else None
+
+    def target_repo_owner(self) -> str | None:
+        """The owner of the repository a ``gh`` command acts on (see :meth:`target_repo`)."""
+        repo = self.target_repo()
+        return repo.split("/", 1)[0] if repo else None
+
+    def gh_api_posted_text(self) -> tuple[list[str], bool] | None:
+        """Every value a non-``GET`` ``gh api`` call would send, and whether all of it was readable.
+
+        ``None`` for anything that is not ``gh api``, and for an explicit
+        ``GET``. No endpoint or mutation list: a write to any endpoint is
+        scanned, so a newly added endpoint cannot slip past. The flags are
+        parsed the way ``gh`` accepts them — ``-X POST``, ``-XPOST``,
+        ``--method=POST``, ``-f k=v``, ``-fk=v``, ``--raw-field=k=v``, the
+        same for ``-F`` / ``--field`` (whose ``@file`` is read) and
+        ``--input`` (every string in its JSON). Text on stdin cannot be
+        inspected, so it comes back as not readable.
+        """
+        sub = self.gh_subcommand()
+        if sub is None or sub[0] != "api" or "api" not in self.argv:
+            return None
+        idx = self.argv.index("api")
+        method: str | None = None
+        raw_fields: list[str] = []
+        typed_fields: list[str] = []
+        inputs: list[str] = []
+        tokens = self.argv[idx + 1 :]
+        k = 0
+        while k < len(tokens):
+            tok = tokens[k]
+            value: str | None = None
+            for flags, sink in (
+                (("-X", "--method"), "method"),
+                (("-f", "--raw-field"), "raw"),
+                (("-F", "--field"), "typed"),
+                (("--input",), "input"),
+            ):
+                for flag in flags:
+                    if tok == flag:
+                        value = tokens[k + 1] if k + 1 < len(tokens) else ""
+                        k += 1
+                    elif flag.startswith("--") and tok.startswith(flag + "="):
+                        value = tok[len(flag) + 1 :]
+                    elif not flag.startswith("--") and tok.startswith(flag) and len(tok) > len(flag):
+                        value = tok[len(flag) :]
+                    if value is not None:
+                        break
+                if value is not None:
+                    if sink == "method":
+                        method = value.upper()
+                    elif sink == "raw":
+                        raw_fields.append(value)
+                    elif sink == "typed":
+                        typed_fields.append(value)
+                    else:
+                        inputs.append(value)
+                    break
+            k += 1
+        if method is None:
+            method = "POST" if (raw_fields or typed_fields or inputs) else "GET"
+        if method == "GET":
+            return None
+        texts: list[str] = [v.partition("=")[2] for v in raw_fields]
+        readable = True
+        for field in typed_fields:
+            value = field.partition("=")[2]
+            if value.startswith("@"):
+                if value == "@-":
+                    readable = False
+                    continue
+                try:
+                    texts.append(Path(value[1:]).read_text(encoding="utf-8", errors="replace"))
+                except OSError:
+                    readable = False
+            else:
+                texts.append(value)
+        for path in inputs:
+            if path == "-":
+                readable = False
+                continue
+            try:
+                texts.extend(_json_strings(json.loads(Path(path).read_text(encoding="utf-8"))))
+            except (OSError, ValueError):
+                readable = False
+        return texts, readable
 
     def positional_after(self, sub_token: str) -> str | None:
         try:
@@ -922,12 +1687,34 @@ def discover_guards() -> list[tuple[Callable[[GuardContext], str | None], set[st
 # --------------------------------------------------------------------------- #
 
 
-def dispatch(command: str, cwd: str | None = None) -> str | None:
-    """Return a deny reason for ``command``, or None to allow it."""
+def dispatch(command: str, cwd: str | None = None, harness: str | None = None) -> str | None:
+    """Return a deny reason for ``command``, or None to allow it.
+
+    ``harness`` names the calling adapter only where a rule must differ by
+    harness (the Codex stable-path rewrite, see guard_vetted_ops_spelling).
+    """
     if not command:
         return None
     contributed: list[tuple[Callable[[GuardContext], str | None], set[str] | None]] | None = None
     for seg in split_segments(command):
+        if seg.unparsed and not seg.override():
+            return (
+                "agent-guard[wrapper]: this command runs behind an `env` / `command` wrapper the "
+                "guards cannot parse, so they cannot see what it runs. Run the command without "
+                "the wrapper (inline `NAME=value` assignments work on their own)."
+            )
+        if seg.argv and seg.argv[0] in ("uv", "uvx"):
+            # Checked here rather than as a guarded head: a vetted launch is the
+            # only `uv` rule, and contributed guards stay on `gh` / `git`.
+            reason = guard_vetted_ops_spelling(seg, cwd, harness)
+            if reason:
+                return reason
+            continue
+        if seg.argv and seg.argv[0] in EXCLUDED_SCRIPTS:
+            reason = guard_excluded_script_spelling(seg)
+            if reason:
+                return reason
+            continue
         if not seg.argv or seg.argv[0] not in GUARDED_HEADS:
             continue  # fast path — non-guarded command family
         # Bundled guards (trusted, in-process; each self-filters its command).
@@ -969,20 +1756,48 @@ def _emit_deny(reason: str) -> None:
     sys.stdout.write("\n")
 
 
+def _claude_event(event: object, harness: str | None = None) -> int:
+    """Handle one parsed Claude Code ``PreToolUse`` event."""
+    if not isinstance(event, dict) or event.get("tool_name") != "Bash":
+        return ALLOW_EXIT
+    tool_input = event.get("tool_input")
+    if not isinstance(tool_input, dict):
+        return ALLOW_EXIT
+    command = str(tool_input.get("command", ""))
+    cwd = event.get("cwd")
+    reason = dispatch(command, cwd if isinstance(cwd, str) else None, harness)
+    if reason:
+        _emit_deny(reason)
+    return ALLOW_EXIT
+
+
 def main() -> int:
-    """Claude Code ``PreToolUse`` entry point (the default invocation)."""
+    """Claude Code ``PreToolUse`` entry point."""
     try:
         event = json.load(sys.stdin)
     except (json.JSONDecodeError, ValueError):
-        return 0  # Malformed event — never break the user's shell; allow.
-    if not isinstance(event, dict) or event.get("tool_name") != "Bash":
-        return 0
-    command = str(event.get("tool_input", {}).get("command", ""))
-    cwd = event.get("cwd")
-    reason = dispatch(command, cwd if isinstance(cwd, str) else None)
-    if reason:
-        _emit_deny(reason)
-    return 0
+        return ALLOW_EXIT
+    return _claude_event(event)
+
+
+def codex_main() -> int:
+    """Codex's native Bash hook shares Claude's event and denial schema.
+
+    Unified exec is reported as Bash with tool_input.command by Codex.
+    Never emit an allow decision: ordinary commands still need the native
+    sandbox and exec-policy approval checks. Malformed input follows the
+    shared fail-open contract; this hook is not a sandbox replacement.
+    """
+    try:
+        event = json.load(sys.stdin)
+    except (json.JSONDecodeError, ValueError):
+        return ALLOW_EXIT
+    if not isinstance(event, dict) or event.get("hook_event_name") != "PreToolUse":
+        return ALLOW_EXIT
+    tool_input = event.get("tool_input")
+    if not isinstance(tool_input, dict) or not isinstance(tool_input.get("command"), str):
+        return ALLOW_EXIT
+    return _claude_event(event, "codex")
 
 
 # Exit codes for the harness-neutral entry point (``--opencode`` and any future
@@ -1204,6 +2019,84 @@ def copilot_main() -> int:
     return ALLOW_EXIT
 
 
+def _grok_event(event: object) -> int:
+    """Handle one parsed Grok Build ``PreToolUse`` event."""
+    if not isinstance(event, dict):
+        return ALLOW_EXIT
+    if event.get("toolName") != "run_terminal_command":
+        return ALLOW_EXIT
+    tool_input = event.get("toolInput")
+    if not isinstance(tool_input, dict):
+        return ALLOW_EXIT
+    command = tool_input.get("command")
+    if not isinstance(command, str):
+        return ALLOW_EXIT
+
+    cwd = event.get("cwd")
+    reason = dispatch(command, cwd if isinstance(cwd, str) else None)
+    if reason:
+        json.dump({"decision": "deny", "reason": reason}, sys.stdout)
+        sys.stdout.write("\n")
+        return DENY_EXIT
+
+    return ALLOW_EXIT
+
+
+def grok_main() -> int:
+    """Translate Grok Build ``PreToolUse`` input to the shared guard core.
+
+    Verified with Grok Build 1.0.46 (2765805b9442). ``PreToolUse`` supplies
+    camelCase ``toolName`` / ``toolInput`` fields; the captured shell event uses
+    ``run_terminal_command`` and carries the command in ``toolInput.command``.
+    Relevant calls emit Grok's explicit JSON decision. Malformed or unrelated
+    events stay silent and fail open inside the adapter.
+    """
+    try:
+        event = json.load(sys.stdin)
+    except (json.JSONDecodeError, ValueError):
+        return ALLOW_EXIT
+    return _grok_event(event)
+
+
+def _junie_event(event: object) -> int:
+    """Handle one parsed Junie CLI ``PreToolUse`` event."""
+    if not isinstance(event, dict) or event.get("tool_name") != "Bash":
+        return ALLOW_EXIT
+    tool_input = event.get("tool_input")
+    if not isinstance(tool_input, dict):
+        return ALLOW_EXIT
+    command = tool_input.get("command")
+    if not isinstance(command, str):
+        return ALLOW_EXIT
+
+    cwd = event.get("cwd")
+    reason = dispatch(command, cwd if isinstance(cwd, str) else None)
+    if reason:
+        json.dump({"decision": "deny", "reason": reason}, sys.stdout)
+        sys.stdout.write("\n")
+        sys.stderr.write(reason + "\n")
+        return DENY_EXIT
+
+    return ALLOW_EXIT
+
+
+def junie_main() -> int:
+    """Translate Junie CLI ``PreToolUse`` input to the shared guard core.
+
+    Junie sends snake_case ``tool_name`` / ``tool_input`` like Claude Code but
+    does not honour Claude's ``hookSpecificOutput`` deny: it reads a top-level
+    ``decision`` and blocks unconditionally on exit code 2. The adapter emits
+    both, so the block holds whichever the runtime checks first. It is selected
+    explicitly with ``--junie`` because the no-argument shape sniff would route
+    this payload to the Claude adapter and fail open.
+    """
+    try:
+        event = json.load(sys.stdin)
+    except (json.JSONDecodeError, ValueError):
+        return ALLOW_EXIT
+    return _junie_event(event)
+
+
 def check_main(argv: list[str]) -> int:
     """Harness-neutral check-only entry point (``--check``).
 
@@ -1319,11 +2212,17 @@ def exec_main(argv: list[str]) -> int:
 def cli(argv: list[str] | None = None) -> int:
     """Route to the harness adapter named on the command line.
 
-    No argument → the Claude Code ``PreToolUse`` hook (:func:`main`).
+    No argument → inspect the parsed ``PreToolUse`` payload shape: Grok's
+    camelCase ``toolName`` / ``toolInput`` routes to :func:`_grok_event`;
+    Claude Code's snake_case ``tool_name`` / ``tool_input`` routes to
+    :func:`_claude_event`.
     ``--opencode`` → the OpenCode adapter (:func:`opencode_main`).
     ``--kiro`` → the Kiro CLI adapter (:func:`kiro_main`).
     ``--gemini`` → the Gemini CLI adapter (:func:`gemini_main`).
     ``--copilot`` → the Copilot CLI adapter (:func:`copilot_main`).
+    ``--codex`` → the Codex native hook adapter (:func:`codex_main`).
+    ``--grok`` → the Grok Build adapter (:func:`grok_main`).
+    ``--junie`` → the Junie CLI adapter (:func:`junie_main`).
     ``--check <cmd…>`` → harness-neutral check-only (:func:`check_main`).
     ``--exec <cmd…>`` → harness-neutral check-then-exec (:func:`exec_main`).
 
@@ -1332,6 +2231,8 @@ def cli(argv: list[str] | None = None) -> int:
     own hook at it.
     """
     args = sys.argv[1:] if argv is None else argv
+    if args and args[0] == "--codex":
+        return codex_main()
     if args and args[0] == "--opencode":
         return opencode_main()
     if args and args[0] == "--kiro":
@@ -1340,6 +2241,18 @@ def cli(argv: list[str] | None = None) -> int:
         return gemini_main()
     if args and args[0] == "--copilot":
         return copilot_main()
+    if args and args[0] == "--grok":
+        return grok_main()
+    if args and args[0] == "--junie":
+        return junie_main()
+    if not args:
+        try:
+            event = json.load(sys.stdin)
+        except (json.JSONDecodeError, ValueError):
+            return ALLOW_EXIT
+        if isinstance(event, dict) and event.get("toolName") == "run_terminal_command":
+            return _grok_event(event)
+        return _claude_event(event)
     if args and args[0] == "--check":
         return check_main(args[1:])
     if args and args[0] == "--exec":

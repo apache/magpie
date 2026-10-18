@@ -17,6 +17,7 @@ The model must return ONLY valid JSON matching this schema:
 ```
 
 Grading rules:
+- The fields are the `release-management prepare verdict` output, without `train_covered` and `read`.
 - `verdict` must be `"proceed"` when all blockers are resolved.
 - `verdict` must be `"blocked"` when any hard blocker remains.
 - `blockers` must be an empty array when `verdict` is `"proceed"`.

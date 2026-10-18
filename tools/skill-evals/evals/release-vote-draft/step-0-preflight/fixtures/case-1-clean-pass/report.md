@@ -24,3 +24,15 @@ release-config preflight output
   }
 }
 ```
+
+`release-management vote-draft verdict --preflight <scratch>/vote-draft-preflight.json --planning-issue https://github.com/apache/airflow/issues/45001 --verify-rc-verdict PASS --verify-rc-for 2.11.0-rc1` output:
+
+```json
+{
+  "verdict": "proceed",
+  "blockers": [],
+  "skip_verify_override": false,
+  "expedited": false,
+  "warnings": []
+}
+```

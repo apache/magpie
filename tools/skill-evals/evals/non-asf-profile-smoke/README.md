@@ -23,7 +23,7 @@ config substitution alone is sufficient across all tested surfaces.
 | step-security-intake-classify | `security-issue-import` | Step 3 (classify) | 3 | non-ASF GHSA intake: direct advisory, direct email (no forwarder), automated-scanner noise — no ASF forwarder relay or mailing-list infrastructure required |
 | step-release-backend-preflight | `release-prepare` | Step 0 (pre-flight) | 2 | non-ASF `github-releases` backend + `pr-approval` mechanism: clean pass and missing-train blocked |
 | step-contributor-governance-intake | `committer-onboarding` | Step 1 (IP-compliance + comms) | 2 | non-ASF DCO model (`github-codeowners` governance) and no-CLA model (`maintainer-roster` governance): ICLA check skipped in both paths |
-| step-reviewer-routing | `reviewer-routing` | Step 3 (score and rank) | 2 | non-ASF `reviewer-roster.md` (no ASF PMC/Apache-ID): area-match → primary reviewer selected; no-area-match → NO ELIGIBLE REVIEWER (empty eligible set) |
+| step-reviewer-routing | `reviewer-routing` | Step 3 (score and rank) | 2 | non-ASF `reviewer-roster.md` (no ASF PMC/Apache-ID): area-match → primary reviewer selected; no-area-match → every member eligible, the lowest load wins (#1583) |
 | step-1-fetch-pool | `issue-stale-sweep` | Step 1 (fetch candidate pool) | 3 | non-ASF GitHub Issues clean pass; framework-default fallback; component-filter selector |
 | step-3-classify | `issue-stale-sweep` | Step 3 (classify each issue) | 3 | stale request-update; active skip; security-label skip (no ASF label names required) |
 
@@ -68,9 +68,11 @@ config substitution alone is sufficient across all tested surfaces.
   `backup_reviewer` slot (Step 4) is intentionally left ungraded because a
   smoke suite should not pin an optional field, and `roster_bounded` still
   guards against any out-of-roster handle.
-- When no roster area matches the changed paths, the eligible set is
-  empty after area filtering, so Step 3's empty-result rule emits
-  NO ELIGIBLE REVIEWER (no area match) rather than proposing a fallback —
+- When no roster area matches the changed paths, every member is
+  eligible (#1583), so the load penalty decides: the member with fewest
+  open reviews above two wins, ties broken alphabetically, and the
+  rationale says no area matched. NO ELIGIBLE REVIEWER is left for an
+  empty or unresolved roster, or one where every member is overloaded —
   and this holds identically across organization profiles.
 
 ### Issue management (step-1-fetch-pool, step-3-classify)

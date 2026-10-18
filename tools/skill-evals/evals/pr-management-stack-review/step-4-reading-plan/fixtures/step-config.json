@@ -1,4 +1,7 @@
 {
   "skill_md": "skills/pr-management-stack-review/SKILL.md",
-  "step_heading": "## Step 4 — Read by tier"
+  "step_heading": "## Step 4 — Read by tier",
+  "also_include": [
+    "plugins/magpie-pr-management/skills/stack-review/tiers.md"
+  ]
 }
