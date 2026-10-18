@@ -27,6 +27,8 @@ from __future__ import annotations
 import importlib
 import importlib.util
 import json
+import shutil
+import subprocess
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -207,6 +209,40 @@ def test_conformance(implementation: str, case: dict[str, Any]) -> None:
     if adapter.stripped_values and case["op"] == "extract" and "value" in expected and "value" in got:
         expected, got = {"value": expected["value"].strip()}, {"value": got["value"].strip()}
     assert got == expected, f"{case['id']} ({case['clause']})"
+
+
+GROOVY = shutil.which("groovy")
+GROOVY_DIR = TOOLS / "body-field-contract" / "groovy"
+
+
+@pytest.fixture(scope="module")
+def groovy_results() -> dict[str, Any]:
+    """Every case's result from the Groovy implementation, in one JVM run."""
+    if GROOVY is None:
+        pytest.skip("groovy not found on PATH: the Groovy implementation's conformance is not checked here")
+    if not (GROOVY_DIR / "BodyFieldParser.groovy").is_file():
+        pytest.skip(f"source tree absent: {GROOVY_DIR}")
+    proc = subprocess.run(
+        [GROOVY, "-cp", str(GROOVY_DIR), str(GROOVY_DIR / "conformance.groovy"), str(CASES_FILE)],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=600,
+        check=False,
+    )
+    assert proc.returncode == 0, proc.stderr
+    results: dict[str, Any] = {}
+    for line in proc.stdout.split("\n"):
+        if line.strip():
+            row = json.loads(line)
+            results[row["id"]] = row["result"]
+    return results
+
+
+@pytest.mark.parametrize("case", CASES, ids=[c["id"] for c in CASES])
+def test_groovy_conformance(groovy_results: dict[str, Any], case: dict[str, Any]) -> None:
+    """The Groovy implementation (exact names, every operation) passes every case."""
+    assert groovy_results.get(case["id"]) == case["expect"], f"{case['id']} ({case['clause']})"
 
 
 def test_every_operation_has_an_implementation() -> None:

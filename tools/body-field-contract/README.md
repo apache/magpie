@@ -32,9 +32,12 @@ which `tools/github-body-field/tests/test_conformance.py` runs against every imp
 | [`tools/vetted-ops/`](../vetted-ops/README.md) | Python (byte-identical copy) |
 | [`tools/local-tracker/`](../local-tracker/README.md) | Python (byte-identical copy; escape text and escape body) |
 | [`tools/jira/`](../jira/README.md) | Python (byte-identical copy, after mapping wiki headings; escape body) |
+| [`groovy/`](groovy/BodyFieldParser.groovy) | Groovy (basic implementation, every operation) |
 | [`tools/security-management/`](../security-management/README.md) | Python (writer only: escape text, the import's inert block) |
 
 ## Prerequisites
 
-- **Runtime:** None — this directory is a Markdown contract and JSON Lines fixtures; no executable code ships here.
+- **Runtime:** None for the contract itself (Markdown and JSON Lines fixtures).
+  The Groovy implementation in [`groovy/`](groovy/BodyFieldParser.groovy) needs the Groovy runtime only (it was checked with Groovy 6.0.0 on JVM 27); it has no other dependency and pulls nothing with `@Grab`.
 - **CLIs / credentials / network:** None. The conformance runner lives in `tools/github-body-field/tests/` and runs offline under its pytest.
+- **Optional:** `groovy` on `PATH`, for the runner's Groovy check; without it that check skips with the reason.

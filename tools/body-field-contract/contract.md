@@ -135,6 +135,7 @@ Escaping is a leading `\` on the line, which renders as the same visible text an
 | [`tools/vetted-ops`](../vetted-ops/README.md) (`vetted_ops.body_field_format`) | Python | byte-identical copy | Pinned by `tests/test_body_field_parity.py`. |
 | [`tools/local-tracker`](../local-tracker/README.md) (`magpie_local_tracker.body_field_format`, used by `sections`) | Python | byte-identical copy | Pinned by `tests/test_vendored_parser.py`; lenient name lookup (BF-NAME-2). Writer: escape text (`sections.escape_field_lines`), escape body (`sections.escape_quoted_fields`). |
 | [`tools/jira`](../jira/README.md) (`jira_bridge.body_field_format`, used by `markup`) | Python | byte-identical copy | Pinned by `tests/test_vendored_parser.py`; reads wiki `h1.`–`h3.` headings outside closed blocks as `### <Heading>` first, lenient name lookup. Writer: escape body (`markup.escape_quoted_fields`). |
+| [`groovy/`](groovy/BodyFieldParser.groovy) (`BodyFieldParser`) | Groovy | basic implementation | Every operation, the writer operations included; exact name lookup. Dependency-free (the Groovy runtime only). Runs the suite through `groovy/conformance.groovy`. |
 | [`tools/security-management`](../security-management/README.md) (`security_management.shared.body.inert_block`) | Python | writer only | Escape text: the import's inert block, which escapes the lines inside its own fence. |
 
 ## Conformance suite
@@ -155,3 +156,12 @@ Escaping is a leading `\` on the line, which renders as the same visible text an
 `tools/github-body-field/tests/test_conformance.py` runs every case against every implementation in the repository through a thin adapter per implementation, and fails on the first case an implementation gets wrong.
 A new implementation (in another language, say) conforms by providing an adapter that, for each case, calls its own operation and returns the result in the `expect` shape — values compared exactly, errors by kind — and passes every case whose tags it does not opt out of.
 The simplest adapter is a program that reads `cases.jsonl` and prints one JSON object per line, `{"id", "result"}`, which the pytest runner compares; add it to the runner's adapter table with the condition under which it can run (a skip with a reason when its runtime is absent).
+The Groovy implementation is run this way:
+
+```bash
+groovy -cp tools/body-field-contract/groovy tools/body-field-contract/groovy/conformance.groovy \
+    tools/body-field-contract/conformance/cases.jsonl
+```
+
+`test_groovy_conformance` runs that command when `groovy` is on `PATH` and compares every line with the case's `expect`; without `groovy` it skips, saying so.
+No CI workflow installs Groovy, so in CI that check is skipped; it runs wherever a contributor has Groovy installed.

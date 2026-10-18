@@ -206,7 +206,9 @@ publication, with a human gate and an audit-log entry at every step.
   language-neutral, in `tools/body-field-contract/contract.md`
   (`contract:body-field`, RFC 2119 clauses `BF-*`, with the writer
   escapes for untrusted text), and its JSON Lines conformance cases, each
-  naming its clause, run against every implementation in the tree.
+  naming its clause, run against every implementation in the tree,
+  including a dependency-free Groovy implementation
+  (`tools/body-field-contract/groovy/`) when `groovy` is on `PATH`.
 - **CVE fields come from the team or a confirmed proposal (#1672).** When
   `generate-cve-json --report-json` lists missing or ambiguous fields,
   sync, cve-allocate and deduplicate follow
