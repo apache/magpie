@@ -50,6 +50,11 @@
 **/probe.txt
 **/SYNC_CHECK.txt
 
+# Body-field conformance cases: JSON Lines, one case object per line, which
+# has no comment syntax to carry a header. The contract and the runners that
+# read them carry the ASF/SPDX header.
+tools/body-field-contract/**/*.jsonl
+
 # Third-party-licence detection fixtures — these deliberately contain
 # non-Apache (GPL / EPL / …) licence text as eval input, so RAT must not
 # treat them as source files needing an Apache header.
