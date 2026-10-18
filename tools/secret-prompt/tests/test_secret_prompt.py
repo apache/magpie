@@ -396,36 +396,100 @@ def test_too_long_command_is_refused_not_truncated(
     assert "longer than 1000 characters; nothing was asked" in capsys.readouterr().err
 
 
-def test_inherited_values_are_shown_only_for_routing_names(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_inherited_values_are_hidden_only_for_credential_names(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("XSP_UPLOAD_URL", "https://example.invalid/")
     monkeypatch.setenv("XSP_SECRET_KEY", "s3cr3t")
-    monkeypatch.setenv("XSP_AUTH_URL", "https://user:pw@example.invalid/")
-    monkeypatch.setenv("XSP_INDEX_URL", "https://__token__:pypi-Ag/E@upload.example.invalid/legacy/")
+    monkeypatch.setenv("XSP_AUTH_URL", "https://auth.example.invalid/")
+    monkeypatch.setenv("XSP_PAT", "ghp_x")
+    monkeypatch.setenv("XSP_CREDS", "c")
+    monkeypatch.setenv("XSP_AUTH_CONFIG", '{"registry":"https://r.invalid","token":"js0n"}')
+    monkeypatch.setenv("XSP_WEBHOOK_SECRET", "https://hooks.invalid/services/hookpath")
+    monkeypatch.setenv("XSP_SLACK_WEBHOOK", "https://hooks.invalid/services/slackpath")
+    monkeypatch.setenv("XSP_TLS_REJECT_UNAUTHORIZED", "0")
     monkeypatch.setenv("XSP_REPOSITORY_URL", "https://example.invalid/simple?token=t0k#frag")
-    monkeypatch.setenv("XSP_MODE", "fast")
-    prompt = _captured_prompt(monkeypatch, ["--env", "XSP_TOKEN", "true"])
-    assert prompt.splitlines()[-6:] == [
-        "  XSP_AUTH_URL=(set; value not shown)",
-        "  XSP_INDEX_URL=(set; value not shown)",
-        "  XSP_MODE=(set; value not shown)",
+    monkeypatch.setenv("XSP_CERT", "/etc/ssl/other.pem")
+    monkeypatch.setenv("XSP_USERNAME", "rm@example.invalid")
+    prompt = _captured_prompt(
+        monkeypatch, ["--env", "XSP_TOKEN", "--set", "XSP_TARGET=https://u@set.invalid/", "true"]
+    )
+    assert prompt.splitlines()[-13:] == [
+        "  XSP_AUTH_CONFIG=(set; value not shown)",
+        "  XSP_AUTH_URL=https://auth.example.invalid/***",
+        "  XSP_CERT=/etc/ssl/other.pem",
+        "  XSP_CREDS=(set; value not shown)",
+        "  XSP_PAT=(set; value not shown)",
         "  XSP_REPOSITORY_URL=https://example.invalid/simple?***#***",
         "  XSP_SECRET_KEY=(set; value not shown)",
+        "  XSP_SLACK_WEBHOOK=https://hooks.invalid/***",
+        "  XSP_TARGET=https://u@set.invalid/",
+        "  XSP_TLS_REJECT_UNAUTHORIZED=0",
         "  XSP_UPLOAD_URL=https://example.invalid/",
+        "  XSP_USERNAME=rm@example.invalid",
+        "  XSP_WEBHOOK_SECRET=https://hooks.invalid/***",
     ]
-    for leaked in ("s3cr3t", "pw@", "pypi-Ag", "t0k", "frag"):
+    for leaked in ("s3cr3t", "ghp_x", "t0k", "frag", "js0n", "hookpath", "slackpath"):
         assert leaked not in prompt
 
 
-def test_inherited_denied_and_index_values_are_shown(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize(
+    ("name", "value", "message"),
+    [
+        (
+            "XSP_INDEX_URL",
+            "https://__token__:pypi-Ag/E@upload.invalid/",
+            "XSP_INDEX_URL is a URL with a user",
+        ),
+        ("XSP_ASKPASS", "/tmp/grab.sh", "XSP_ASKPASS changes how the command runs"),
+        (
+            "XSP_INDEX_URL",
+            "'https://host.invalid/simple?token=t0k'",
+            "XSP_INDEX_URL is not a URL it can show",
+        ),
+        (
+            "XSP_PROXY",
+            "user:pw@proxy.invalid:3128",
+            "XSP_PROXY holds a user and password; unset it, or remove",
+        ),
+        (
+            "XSP_API_TOKEN",
+            "https://u:p/w@host.invalid/",
+            "XSP_API_TOKEN is a URL with a user or password; unset it, or remove",
+        ),
+    ],
+)
+def test_inherited_variable_that_cannot_be_shown_safely_is_refused(
+    name: str,
+    value: str,
+    message: str,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setenv(name, value)
+    monkeypatch.setattr(secret_prompt, "_DENIED_NAMES", {*secret_prompt._DENIED_NAMES, "XSP_ASKPASS"})
+    _answer(monkeypatch, error=AssertionError("must not ask"))
+    assert main(["--env", "XSP_TOKEN", "--backend", "tty", "--", "true"]) == 1
+    assert message in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "name", ["MAVEN_GPG_PASSPHRASE", "XSP_SECRETS", "XSP_TOKENS", "XSP_API_KEYS", "XSP_PW", "XSP_PASS"]
+)
+def test_credential_like_names(name: str) -> None:
+    assert secret_prompt.is_credential_name(name)
+
+
+@pytest.mark.parametrize("name", ["XSP_TLS_REJECT_UNAUTHORIZED", "XSP_KEYRING_BACKEND", "XSP_PASSES_DIR"])
+def test_names_that_only_contain_a_credential_word(name: str) -> None:
+    assert not secret_prompt.is_credential_name(name)
+
+
+def test_inherited_denied_values_are_shown(monkeypatch: pytest.MonkeyPatch) -> None:
     for name in [name for name in os.environ if name.startswith("NODE_")]:
         monkeypatch.delenv(name)
     monkeypatch.setenv("NODE_OPTIONS", "--require=/tmp/x.js")
-    monkeypatch.setenv("NODE_PUBLISH_INDEX", "https://example.invalid/")
+    monkeypatch.setenv("NODE_PATH", "x:///tmp/evil?q#f")
     prompt = _captured_prompt(monkeypatch, ["--env", "NODE_AUTH_TOKEN", "true"])
-    assert prompt.splitlines()[-2:] == [
-        "  NODE_OPTIONS=--require=/tmp/x.js",
-        "  NODE_PUBLISH_INDEX=https://example.invalid/",
-    ]
+    assert prompt.splitlines()[-2:] == ["  NODE_OPTIONS=--require=/tmp/x.js", "  NODE_PATH=x:///tmp/evil?q#f"]
 
 
 @pytest.mark.parametrize(

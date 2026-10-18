@@ -116,17 +116,29 @@ Seatbelt sandbox turns off Apple Events — so run the step outside the sandbox
   before pasting: an agent chooses the command, and this is what stops a
   look-alike prompt from handing the token to something that prints or
   forwards it.
-- An inherited variable's value is shown only when its name says where the
-  secret goes (`URL`, `REPOSITORY`, `REGISTRY`/`REGISTRIES`, `INDEX`, `HOST`,
-  `ENDPOINT`, `USER`) and nothing suggests it is a credential (`TOKEN`, `PASS`,
-  `SECRET`, `KEY`, `AUTH`, `CREDENTIAL`), or when it is one of the denied names
-  below (`NODE_OPTIONS` beside `NODE_AUTH_TOKEN`). Every other one is listed as
-  `NAME=(set; value not shown)`. A shown URL stops at its path, with any query
-  or fragment as `?***`/`#***`, and one containing `@` is hidden whole, so the
-  prompt, which a dialog receives in its argv, does not carry the credentials
-  these usually hold. An inherited name that is not a plain identifier is
-  refused. Only the secret's own prefix is scanned: npm's registry settings
-  (`npm_config_registry`, `.npmrc`) are not shown.
+- `--set` values are shown as given. An inherited variable's name is
+  credential-like when one of its `_`-separated segments, with or without a
+  trailing `S`, is `AUTH`, `CRED`, `CREDENTIAL`, `JWT`, `PAT`, `PW`, `PWD`,
+  `COOKIE`, `SESSION`, `BEARER`, `PRIVATE`, `WEBHOOK`, `HOOK` or `DSN`, or ends
+  in `TOKEN`, `PASS`, `PASSWORD`, `PASSWD`, `PASSPHRASE`, `SECRET` or `KEY`. An
+  inherited URL always shows its host, whatever the name: up to its path (query
+  and fragment as `?***`/`#***`), or only `scheme://host/***` under a
+  credential-like name. Any other credential-like value is hidden as
+  `NAME=(set; value not shown)`, because a dialog receives the prompt in its
+  argv; the rest are shown.
+- An inherited variable with one of the denied names below (`NODE_OPTIONS`
+  beside `NODE_AUTH_TOKEN`) is shown verbatim, as it can make the command run
+  something else.
+- Nothing is asked when an inherited variable can't be shown safely. That
+  means a URL containing `@` (a user or password, or a host that could be
+  disguised), a `://` value too quoted or spaced to parse, or a
+  `user:password@host` value. It also means a denied name
+  that is also credential-like, a value with a control character or over 200
+  characters, or a name that is not a plain identifier. The error names the
+  variable to unset. The credential-like names are a heuristic, so a
+  credential under some other name would be shown. Only the secret's own
+  prefix is scanned: npm's registry settings (`npm_config_registry`, `.npmrc`)
+  are not shown.
 - The command is shown in full or not at all: one longer than 1000 characters
   is refused, never truncated. Every command argument and every shown value
   must be printable — no newline, escape sequence or invisible bidi character

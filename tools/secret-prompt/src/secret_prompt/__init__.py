@@ -59,10 +59,26 @@ _DENIED_NAMES = {"PATH", "IFS", "HOME", "ENV", "BASH_ENV", "SHELLOPTS", "BASHOPT
 _DENIED_PREFIXES = ("LD_", "DYLD_", "PYTHON", "PERL5", "RUBY", "NODE_", "GIT_")
 # npm's publish credential; it only authenticates, so it is safe to set despite its prefix.
 _ALLOWED_NAMES = {"NODE_AUTH_TOKEN"}
-# An inherited variable's value is shown only when its name says where the secret goes; any
-# other may itself be a credential, and a dialog's prompt text is visible in its argv.
-_ROUTING_WORDS = ("URL", "REPOSITORY", "REGISTRY", "REGISTRIES", "INDEX", "HOST", "ENDPOINT", "USER")
-_SECRET_WORDS = ("TOKEN", "PASS", "SECRET", "KEY", "AUTH", "CREDENTIAL")
+# An inherited value is hidden only when its name says it is a credential: a dialog's prompt
+# text is visible in its argv, but hiding anything else could hide where the secret goes.
+# Matched against whole name segments, so UNAUTHORIZED or KEYRING are not credentials.
+_SECRET_SEGMENTS = {
+    "AUTH",
+    "BEARER",
+    "COOKIE",
+    "CRED",
+    "CREDENTIAL",
+    "DSN",
+    "HOOK",
+    "JWT",
+    "PAT",
+    "PRIVATE",
+    "PW",
+    "PWD",
+    "SESSION",
+    "WEBHOOK",
+}
+_SECRET_SUFFIXES = ("TOKEN", "PASS", "PASSWORD", "PASSWD", "PASSPHRASE", "SECRET", "KEY")
 _HIDDEN_VALUE = "(set; value not shown)"
 _MAX_TEXT = 200
 _MAX_COMMAND = 1000
@@ -250,9 +266,10 @@ def is_plain_text(text: str) -> bool:
     return len(text) <= _MAX_TEXT and not text.startswith("-") and all(char.isprintable() for char in text)
 
 
-def is_routing_name(name: str) -> bool:
-    upper = name.upper()
-    return any(word in upper for word in _ROUTING_WORDS) and not any(word in upper for word in _SECRET_WORDS)
+def is_credential_name(name: str) -> bool:
+    # Each segment also without one trailing S, for TOKENS or SECRETS; never rstrip, or PASS loses it.
+    forms = {form for seg in name.upper().split("_") for form in (seg, seg.removesuffix("S"))}
+    return any(form in _SECRET_SEGMENTS or form.endswith(_SECRET_SUFFIXES) for form in forms)
 
 
 def find_unshowable(command: Sequence[str], extra: Mapping[str, str]) -> str | None:
@@ -270,30 +287,53 @@ def find_unshowable(command: Sequence[str], extra: Mapping[str, str]) -> str | N
     return None
 
 
-def redact_url(value: str) -> str:
-    """Show a URL up to its path: the host the operator checks, not a credential carried in it."""
-    if "://" not in value:
-        return value
-    # urlsplit misreads an unencoded '/' in a password, so any '@' hides the whole URL.
-    if "@" in value:
-        return _HIDDEN_VALUE
+def split_url(value: str) -> urllib.parse.SplitResult | None:
+    if any(char.isspace() or char in "\"'" for char in value):
+        return None
     try:
         parts = urllib.parse.urlsplit(value)
     except ValueError:
+        return None
+    return parts if parts.scheme and parts.netloc else None
+
+
+def describe_inherited(name: str, value: str) -> str:
+    """How an inherited variable appears in the prompt; ValueError when it cannot appear safely."""
+    credential = is_credential_name(name)
+    if is_denied_name(name):
+        # It can make the command run something else (NODE_OPTIONS, GIT_ASKPASS), so it is shown
+        # verbatim, or refused when it may also be a credential.
+        if credential:
+            raise ValueError(f"the inherited {name} changes how the command runs; unset it")
+        return value
+    at_hint = "; unset it, or remove the user and password from it"
+    parts = split_url(value)
+    if parts is not None:
+        # urlsplit misreads an unencoded '/' in a password, so any '@' could hide the real host.
+        if "@" in value:
+            raise ValueError(f"the inherited {name} is a URL with a user or password{at_hint}")
+        # A URL says where the secret may go, so its host is shown whatever the name
+        # (XSP_TOKEN_URL); under a credential name the path may be the secret itself.
+        if credential:
+            return f"{parts.scheme}://{parts.netloc}/***"
+        shown = urllib.parse.urlunsplit((parts.scheme, parts.netloc, parts.path, "", ""))
+        return shown + ("?***" if parts.query else "") + ("#***" if parts.fragment else "")
+    if credential:
         return _HIDDEN_VALUE
-    shown = urllib.parse.urlunsplit((parts.scheme, parts.netloc, parts.path, "", ""))
-    return shown + ("?***" if parts.query else "") + ("#***" if parts.fragment else "")
+    if "://" in value:
+        # Quoted or spaced, it is not parsed reliably enough to redact its query or userinfo.
+        raise ValueError(f"the inherited {name} is not a URL it can show; unset it")
+    # user:password@proxy:3128 carries a credential without being URL-shaped; me@example.org does not.
+    if ":" in value.partition("@")[0] and "@" in value:
+        raise ValueError(f"the inherited {name} holds a user and password{at_hint}")
+    return value
 
 
 def build_prompt(text: str, command: Sequence[str], extra: Mapping[str, str]) -> str:
     """The caller's text, then what it cannot change: the command and the variables it gets."""
     lines = [text, "", "It will be passed to:", shlex.join(command)]
     if extra:
-        lines += [
-            "",
-            "with:",
-            *(f"  {name}={redact_url(value)}" for name, value in sorted(extra.items())),
-        ]
+        lines += ["", "with:", *(f"  {name}={value}" for name, value in sorted(extra.items()))]
     return "\n".join(lines)
 
 
@@ -319,10 +359,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     if family:
         for name, value in os.environ.items():
             if name.startswith(family) and name != args.env and name not in extra:
-                # A denied name (NODE_OPTIONS for NODE_AUTH_TOKEN) can make the command run
-                # something else, so its value is always shown.
-                shown = is_routing_name(name) or is_denied_name(name)
-                extra[name] = value if shown else _HIDDEN_VALUE
+                try:
+                    extra[name] = describe_inherited(name, value)
+                except ValueError as err:
+                    print(f"secret-prompt: {err}; nothing was asked", file=sys.stderr)
+                    return 1
     unshowable = find_unshowable(command, extra)
     if unshowable:
         print(
