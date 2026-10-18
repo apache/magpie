@@ -125,7 +125,7 @@ def run_checker(state: dict[str, object], repo_root: Path, scratch: Path) -> str
         listing_arg = str(listing).replace("\\", "/")
         stub = bin_dir / harness
         stub.write_text(f'#!/bin/sh\ncat "{listing_arg}"\n', encoding="utf-8")
-        os.chmod(stub, 0o755)
+        os.chmod(stub, 0o700)  # owner-only: the renderer runs it as itself
         (bin_dir / f"{harness}.bat").write_text(f'@echo off\ntype "{listing}"\r\n', encoding="utf-8")
         env = _env(scratch)
         env["PATH"] = str(bin_dir) + os.pathsep + env["PATH"]
