@@ -44,6 +44,9 @@ REQUIRED_ROLES = ("title", "state", "labels", "assignees", "milestone")
 COMMENT_HEADINGS = ["Comments", "Discussion", "Notes", "Timeline", "History", "Log"]
 COMMENT_FILES = ["comments.md", "discussion.md", "notes.md", "timeline.md", "history.md"]
 
+# A `Name: value` field line, the layout tools/body-field-contract/formats/_template.py reads.
+_KEY_VALUE_RE = re.compile(r"^(?P<name>[A-Z][A-Za-z0-9 /_-]{0,60}):(?:[ \t]|$)")
+
 _ID_RE = re.compile(r"^(?P<prefix>.*?[-_])?(?P<num>\d+)(?:[-_](?P<slug>[A-Za-z].*))?$")
 
 
@@ -62,13 +65,62 @@ def _candidates(base: Path) -> tuple[list[Path], list[Path]]:
     return files, folders
 
 
+def _common_names(names: Counter[str]) -> list[str]:
+    """Field names shared by two or more reports (one report's own text never shows), at most 20."""
+    return sorted((name for name, count in names.items() if count >= 2), key=lambda n: (-names[n], n))[:20]
+
+
+def _field_layout(
+    desc: Descriptor,
+    sampled: int,
+    heading_levels: Counter[int],
+    section_names: Counter[str],
+    key_value_names: Counter[str],
+) -> dict[str, object]:
+    """``{layout, description, sample_field_names}``: how the reports keep their fields.
+
+    ``default`` when they use heading sections; ``custom`` when they have none
+    and most of them carry ``Name: value`` lines instead, which the default
+    parser would not read. Only field names are reported, and only names
+    shared by two or more reports, never report text.
+    """
+    if heading_levels or not sampled:
+        return {
+            "layout": "default",
+            "description": f"fields are level-{desc.field_heading_level} heading sections",
+            "sample_field_names": _common_names(section_names),
+        }
+    with_key_values = sum(1 for count in key_value_names.values() if count > sampled / 2)
+    if with_key_values >= 2:
+        desc.field_layout = "custom"
+        desc.notes.append(
+            "reports keep their fields as `Name: value` lines, not heading sections: the default parser "
+            "reads no fields from them; generate a local parser with `setup config` before using the tracker"
+        )
+        return {
+            "layout": "custom",
+            "description": "fields are `Name: value` lines at column 0; a value runs to the next such line",
+            "sample_field_names": _common_names(key_value_names),
+        }
+    return {
+        "layout": "default",
+        "description": "no field sections found in the reports",
+        "sample_field_names": [],
+    }
+
+
 def _is_word(name: str, words: list[str]) -> bool:
     return name.lower().replace("_", "-") in {w.replace(" ", "-") for w in words} or name.lower() in words
 
 
 def detect(root: Path) -> tuple[Descriptor, dict[str, object]]:
     desc = Descriptor()
-    evidence: dict[str, object] = {"root": str(root), "reports_found": 0, "decisions": []}
+    evidence: dict[str, object] = {
+        "root": str(root),
+        "reports_found": 0,
+        "decisions": [],
+        "field_layout": {"layout": "default", "description": "no existing reports", "sample_field_names": []},
+    }
     decisions: list[str] = evidence["decisions"]  # type: ignore[assignment]
 
     if not root.is_dir() or not [p for p in root.iterdir() if p.name != DESCRIPTOR_NAME]:
@@ -167,6 +219,9 @@ def detect(root: Path) -> tuple[Descriptor, dict[str, object]]:
     heading_levels: Counter[int] = Counter()
     h1_titles = 0
     comment_headings: Counter[str] = Counter()
+    # Field names per layout, counted once per report: the evidence for field_layout.
+    section_names: Counter[str] = Counter()
+    key_value_names: Counter[str] = Counter()
     for path in sample:
         meta, body = md.split(path.read_text(encoding="utf-8", errors="replace"))
         styles[meta.style] += 1
@@ -179,7 +234,12 @@ def detect(root: Path) -> tuple[Descriptor, dict[str, object]]:
             state_values[sval] += 1
         if re.search(r"^# .+$", body, re.MULTILINE):
             h1_titles += 1
+        sections_here: set[str] = set()
+        key_values_here: set[str] = set()
         for line in body.split("\n"):
+            kv = _KEY_VALUE_RE.match(line)
+            if kv:
+                key_values_here.add(" ".join(kv.group("name").split()))
             m = re.match(r"^(#{2,3})\s+(.+?)\s*$", line)
             if not m:
                 continue
@@ -188,6 +248,9 @@ def detect(root: Path) -> tuple[Descriptor, dict[str, object]]:
                 comment_headings[text] += 1
             else:
                 heading_levels[len(m.group(1))] += 1
+                sections_here.add(text.rstrip("#").strip()[:60])
+        section_names.update(sections_here)
+        key_value_names.update(key_values_here)
 
     style = styles.most_common(1)[0][0]
     desc.metadata = style if style != "none" else "bold-fields"
@@ -246,6 +309,9 @@ def detect(root: Path) -> tuple[Descriptor, dict[str, object]]:
     if heading_levels:
         desc.field_heading_level = heading_levels.most_common(1)[0][0]
         decisions.append(f"report sections use level-{desc.field_heading_level} headings")
+    evidence["field_layout"] = _field_layout(
+        desc, len(sample), heading_levels, section_names, key_value_names
+    )
 
     # 5. Comments.
     if desc.layout == "folder-per-issue":

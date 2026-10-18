@@ -73,6 +73,18 @@ by swapping the adapter, not the skill.
   mixing line endings is refused. A test runs the body-field conformance
   cases through the store on temporary Git and SVN storage and reads them
   back from a fresh checkout.
+  `detect` reports `field_layout` (`default` or `custom`, with the field
+  names two or more reports share as evidence, never report text). A
+  `custom` layout is read only through the project's own parser, generated
+  by `setup config` from `tools/body-field-contract/formats/_template.py`
+  into `.apache-magpie-overrides/tools/local-tracker/parsers/`, passed
+  through the conformance suite, and enabled on explicit confirmation by
+  `trust-parser` (`body_parser: {path, sha256}` in the descriptor, the hash
+  also in the never-committed personal layer). Every command loads it only
+  when the path stays in that directory (no `..`, no symlink) and both
+  hashes match, and stops with exit 2 otherwise, never falling back to the
+  default parser. `tools/body-field-contract/formats/` is the upstream home
+  for such format adapters; the conformance suite runs every one there.
 - `tools/jira/` also ships `magpie-jira-tracker` (`jira_bridge.security_tracker`),
   the stdlib-only `contract:security-tracker` backend over Jira REST v2;
   `create` always sets the configured issue-security level and every write on

@@ -295,6 +295,15 @@ class WorkingCopy:
             return [out.strip()] if out.strip() else []
         return []
 
+    def admin_dir(self) -> Path:
+        """The working copy's own admin area, never committed: Git's common dir, ``.svn`` on Subversion."""
+        if self.kind == "git":
+            out = self._run("git", "rev-parse", "--path-format=absolute", "--git-common-dir").strip()
+            return Path(out)
+        if self.kind == "svn":
+            return self.top / ".svn"
+        raise VcsError("no Git or Subversion working copy here")
+
     # ------------------------------------------------------------ move
 
     def _tracked(self, path: Path) -> bool:

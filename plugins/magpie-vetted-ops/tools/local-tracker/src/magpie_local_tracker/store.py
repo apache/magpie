@@ -13,10 +13,10 @@ import re
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
+from types import ModuleType
 
+from . import custom_parser, sections
 from . import metadata as md
-from . import sections
-from .body_field_format import FieldNotFoundError
 from .descriptor import DESCRIPTOR_NAME, Descriptor
 from .vcs import WorkingCopy
 from .vcs import detect as detect_vcs
@@ -49,6 +49,36 @@ def _convention(raw: str) -> tuple[str | None, bool]:
     used = [eol for eol, n in (("\r\n", crlf), ("\r", lone_cr), ("\n", lone_lf)) if n]
     eol = used[0] if len(used) == 1 else ("\n" if not used else None)
     return eol, raw.endswith(("\n", "\r")) or not raw
+
+
+def _custom_get(parser: ModuleType, body: str, name: str) -> str | None:
+    """``name``'s value through a custom parser, None when absent; a duplicate or dispute raises."""
+    try:
+        return str(parser.extract_field(body, name))
+    except parser.FieldNotFoundError as exc:
+        if isinstance(exc, (parser.DuplicateFieldError, parser.AmbiguousFieldError)):
+            raise
+        return None
+
+
+def _custom_set(parser: ModuleType, body: str, name: str, value: str) -> tuple[str, bool]:
+    """``body`` with ``name`` set through a custom parser, and whether the field was added."""
+    if _custom_get(parser, body, name) is None:
+        return str(parser.append_field(body, name, value)), True
+    return str(parser.replace_field(body, name, value)), False
+
+
+def _custom_markdown(parser: ModuleType, body: str) -> str:
+    """A custom-layout body as ``### Field`` sections, for generate-cve-json; refuses a disputed body."""
+    out: list[str] = []
+    try:
+        names = list(dict.fromkeys(parser.list_fields(body)))
+        for name in names:
+            value = sections.escape_field_lines(str(parser.extract_field(body, name)).strip("\n"))
+            out.append(f"### {sections.fields.collapse_name(str(name))}\n\n{value}\n")
+    except LookupError as exc:
+        raise refused(str(exc)) from exc
+    return "\n".join(out) if out else "\n"
 
 
 def _today() -> str:
@@ -88,6 +118,8 @@ class Tracker:
         # and refuses a symlink anywhere, so swapping the root (or any folder above
         # it) for a symlink afterwards cannot redirect a read or a write.
         self._real_root = Path(os.path.realpath(root))
+        # The project's own body-field parser, once loaded (field_layout: custom).
+        self._parser: ModuleType | None = None
         # Each file's line-ending convention, as read: a write puts it back.
         self._conventions: dict[str, tuple[str | None, bool]] = {}
 
@@ -513,13 +545,40 @@ class Tracker:
             seen.update(self._list(meta, "labels"))
         return sorted(seen)
 
+    def body_parser(self) -> ModuleType | None:
+        """The project's own body-field parser when the descriptor's field_layout is custom, else None.
+
+        Loaded once, through :mod:`custom_parser`'s checks; any failure stops
+        the operation with exit 2, and a custom layout is never read with the
+        default parser.
+        """
+        if self.desc.field_layout != "custom":
+            return None
+        if self._parser is None:
+            try:
+                self._parser = custom_parser.load(self.wc, self.desc.body_parser)
+            except custom_parser.ParserRefused as exc:
+                raise TrackerError(str(exc), 2) from exc
+        return self._parser
+
+    def _refuse_whole_body(self) -> None:
+        if self.body_parser() is not None:
+            raise refused(
+                "this tracker's reports use a custom field layout: a whole report body is written in `###` "
+                "sections, which its parser does not read; set fields one at a time with field-set"
+            )
+
     def field_get(self, ident: str, heading: str) -> dict[str, object]:
+        parser = self.body_parser()
         entry = self.resolve(ident)
         _, body = self._read(entry)
         main, _ = self._split_managed(body)
         try:
-            value = sections.get_field(main, heading, self.desc.field_heading_level)
-        except FieldNotFoundError as exc:  # a duplicate or disputed field
+            if parser is None:
+                value = sections.get_field(main, heading, self.desc.field_heading_level)
+            else:
+                value = _custom_get(parser, main, heading)
+        except LookupError as exc:  # a duplicate or disputed field
             raise refused(str(exc)) from exc
         return {"id": entry.id, "heading": heading, "value": value}
 
@@ -533,6 +592,7 @@ class Tracker:
 
     def create(self, title: str, body: str, labels: list[str], author: str = "") -> dict[str, object]:
         self.require_writable()
+        self._refuse_whole_body()
         title = " ".join(title.split())
         if not title:
             raise TrackerError("the title file is empty", 2)
@@ -615,6 +675,7 @@ class Tracker:
                 new_h1 = f"# {title}"
                 current = re.sub(r"^# .+$", lambda _m: new_h1, current, count=1, flags=re.MULTILINE)
         if body is not None:
+            self._refuse_whole_body()
             body = self._clean(body, body=True)
             _, managed = self._split_managed(current)
             head = ""
@@ -630,11 +691,15 @@ class Tracker:
         entry = self.resolve(ident)
         meta, body = self._read(entry)
         main, managed = self._split_managed(body)
+        parser = self.body_parser()
         try:
-            new_main, created = sections.set_field(
-                main, heading, self._clean(value), self.desc.field_heading_level
-            )
-        except FieldNotFoundError as exc:  # a duplicate, disputed or unsafe rewrite
+            if parser is None:
+                new_main, created = sections.set_field(
+                    main, heading, self._clean(value), self.desc.field_heading_level
+                )
+            else:
+                new_main, created = _custom_set(parser, main, heading, self._clean(value))
+        except LookupError as exc:  # a duplicate, disputed or unsafe rewrite
             raise refused(str(exc)) from exc
         self._write(entry, meta, new_main + ("\n" + managed.lstrip("\n") if managed else ""))
         return {"id": entry.id, "heading": heading, "created": created}
@@ -756,9 +821,12 @@ class Tracker:
     def body(self, ident: str) -> str:
         """The report body without metadata or managed sections: the `### Field`
         markdown generate-cve-json reads on stdin."""
+        parser = self.body_parser()
         entry = self.resolve(ident)
         _, text = self._read(entry)
         main, _ = self._split_managed(text)
+        if parser is not None:
+            return _custom_markdown(parser, main)
         level = self.desc.field_heading_level
         if level != 3:
             # generate-cve-json reads `### Field` sections only: shift the

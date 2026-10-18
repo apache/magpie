@@ -20,6 +20,7 @@
   - [What a writer must escape](#what-a-writer-must-escape)
     - [escape text](#escape-text)
     - [escape body](#escape-body)
+  - [Format adapters](#format-adapters)
   - [Implementations](#implementations)
   - [Conformance suite](#conformance-suite)
 
@@ -127,6 +128,27 @@ Escaping is a leading `\` on the line, which renders as the same visible text an
 - **BF-WRITE-2.** Every field boundary inside a closed block (BF-BLOCK-1 to BF-BLOCK-5) MUST be escaped, so quoted text never becomes a copy of a field; boundaries outside closed blocks, and every other line, MUST be left as they are.
   A writer SHOULD also close a fence the body leaves open in the field it opens in (as BF-NORM-2 does), never past another field's boundary.
 
+## Format adapters
+
+A project whose reports keep their fields in another layout (`Name: value` lines, a plain-text CVE file) reads and writes them through a *format adapter*:
+the operations above for that layout's own boundary rule, in place of BF-BOUND-1 to BF-BOUND-3 and BF-BLOCK-*.
+The local-files tracker loads one only when its descriptor says `field_layout: custom` and names the adapter, and a human has confirmed the adapter's hash
+([`tools/local-tracker`](../local-tracker/README.md#custom-field-layouts)).
+[`formats/`](formats/README.md) is the upstream home for adapters other projects can reuse; [`formats/_template.py`](formats/_template.py) is the skeleton.
+
+- **BF-FMT-1. Interface.** An adapter is one Python module using the standard library only, providing:
+  `FORMAT` and `DESCRIPTION` (the layout's name and one line describing it);
+  `boundary_name(line)` (the field a line starts, or None: the layout's one boundary rule) and `boundary_line(name)` (the line that starts field *name*);
+  `list_fields(body)`, `extract_field(body, name)`, `replace_field(body, name, value)` and `normalise(body, known_fields=None, keep=None)` with the inputs, outputs and errors of [Operations](#operations);
+  `append_field(body, name, value)`, which adds a field after the last one and fails `duplicate` when it exists;
+  the errors `FieldNotFoundError`, with `DuplicateFieldError` and `AmbiguousFieldError` as subclasses;
+  and `SAMPLE_BODY` / `SAMPLE_FIELDS`, a body in the layout with its fields, built from **synthetic** values only.
+- **BF-FMT-2. Rules every layout keeps.** BF-LINE-1 and BF-LINE-2 (lines and their endings), BF-SEL-2 (a duplicate fails), BF-EXT-1 (absent and duplicate fields fail, never guessed),
+  BF-REP-1 (everything outside the field byte for byte, in the body's line-ending convention), BF-REP-3 (a value holding a line that would start a field is refused),
+  BF-REP-5 (whole-body preservation), BF-NORM-1, BF-NORM-4 and BF-NORM-6.
+- **BF-FMT-3. Fixtures.** An adapter ships `<name>.cases.jsonl` beside it, in the [conformance case format](#conformance-suite), with synthetic values only, never text copied from a report;
+  the conformance suite runs it, and the generic properties of BF-FMT-2 over `SAMPLE_BODY`, before the adapter is enabled.
+
 ## Implementations
 
 | Implementation | Language | Status | Notes |
@@ -154,6 +176,7 @@ Escaping is a leading `\` on the line, which renders as the same visible text an
 - An implementation runs the `escape_text` and `escape_body` cases only for the writer operations it provides; a reader provides neither.
 
 `tools/github-body-field/tests/test_conformance.py` runs every case against every implementation in the repository through a thin adapter per implementation, and fails on the first case an implementation gets wrong.
+A format adapter runs through the same suite: its own fixtures and the generic properties (BF-FMT-3), for every adapter in [`formats/`](formats/README.md) and any named by `BODY_FIELD_FORMAT_ADAPTERS` (paths separated by the platform's path separator).
 A new implementation (in another language, say) conforms by providing an adapter that, for each case, calls its own operation and returns the result in the `expect` shape — values compared exactly, errors by kind — and passes every case whose tags it does not opt out of.
 The simplest adapter is a program that reads `cases.jsonl` and prints one JSON object per line, `{"id", "result"}`, which the pytest runner compares; add it to the runner's adapter table with the condition under which it can run (a skip with a reason when its runtime is absent).
 The Groovy implementation is run this way:

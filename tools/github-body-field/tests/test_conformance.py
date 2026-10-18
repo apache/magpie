@@ -27,6 +27,7 @@ from __future__ import annotations
 import importlib
 import importlib.util
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -245,6 +246,94 @@ def test_groovy_conformance(groovy_results: dict[str, Any], case: dict[str, Any]
     assert groovy_results.get(case["id"]) == case["expect"], f"{case['id']} ({case['clause']})"
 
 
+# ------------------------------------------------------------------ format adapters
+
+FORMATS = TOOLS / "body-field-contract" / "formats"
+
+
+def _format_paths() -> list[Path]:
+    """Every adapter in formats/, and any named by BODY_FIELD_FORMAT_ADAPTERS (os.pathsep-separated)."""
+    paths = sorted(FORMATS.glob("*.py"))
+    extra = os.environ.get("BODY_FIELD_FORMAT_ADAPTERS", "")
+    paths += [Path(p).resolve() for p in extra.split(os.pathsep) if p]
+    return paths
+
+
+FORMAT_PATHS = _format_paths()
+
+
+def _format_module(path: Path) -> ModuleType:
+    return _module_from_file(f"_conformance_format_{path.stem.lstrip('_')}_{abs(hash(str(path)))}", path)
+
+
+@pytest.mark.parametrize("path", FORMAT_PATHS, ids=[p.stem for p in FORMAT_PATHS])
+def test_format_adapter_generic_properties(path: Path) -> None:
+    """What every layout shares: reads, a rewrite that touches one field only,
+    and the refusals (missing, duplicate, a value that would start a field)."""
+    f = _format_module(path)
+    interface = (
+        *("FORMAT", "DESCRIPTION", "boundary_name", "boundary_line", "list_fields", "extract_field"),
+        *("replace_field", "append_field", "normalise", "SAMPLE_BODY", "SAMPLE_FIELDS"),
+    )
+    assert [a for a in interface if not hasattr(f, a)] == [], "BF-FMT-1"
+    assert issubclass(f.DuplicateFieldError, f.FieldNotFoundError)
+    assert issubclass(f.AmbiguousFieldError, f.FieldNotFoundError)
+    body, sample = f.SAMPLE_BODY, f.SAMPLE_FIELDS
+    names = list(sample)
+    assert f.list_fields(body) == names
+    for name, value in sample.items():
+        assert f.extract_field(body, name).strip() == value
+    first, last = names[0], names[-1]
+    assert f.replace_field(body, first, sample[first]) == body  # an unchanged value changes nothing
+    new = f.replace_field(body, first, "A new synthetic value")
+    assert f.extract_field(new, first).strip() == "A new synthetic value"
+    assert all(f.extract_field(new, n).strip() == sample[n] for n in names[1:])
+    with pytest.raises(f.AmbiguousFieldError):
+        f.replace_field(body, first, "x\n" + f.boundary_line(last) + " forged")
+    with pytest.raises(f.FieldNotFoundError) as missing:
+        f.extract_field(body, "No such field anywhere")
+    assert type(missing.value).__name__ == "FieldNotFoundError"
+    duplicate = body + f.boundary_line(first) + " again\n"
+    with pytest.raises(f.DuplicateFieldError):
+        f.extract_field(duplicate, first)
+    assert [d["kind"] for d in f.normalise(duplicate).needs_decision] == ["duplicate"]
+    appended = f.append_field(body, "Appended field", "value")
+    assert f.extract_field(appended, "Appended field").strip() == "value"
+    crlf = body.replace("\n", "\r\n")
+    assert f.extract_field(crlf, first).strip() == sample[first]
+    assert f.replace_field(crlf, first, "y").count("\r\n") == crlf.count("\r\n")
+    result = f.normalise(crlf)
+    assert [c["kind"] for c in result.changes] == ["line_endings"]
+    assert f.normalise(result.text).changes == []
+
+
+def _format_cases() -> list[tuple[Path, dict[str, Any]]]:
+    out = []
+    for path in FORMAT_PATHS:
+        fixtures = path.with_name(path.stem + ".cases.jsonl")
+        if fixtures.is_file():
+            out += [
+                (path, json.loads(line))
+                for line in fixtures.read_text(encoding="utf-8").split("\n")
+                if line.strip()
+            ]
+    return out
+
+
+FORMAT_CASES = _format_cases()
+
+
+@pytest.mark.parametrize("path, case", FORMAT_CASES, ids=[f"{p.stem}-{c['id']}" for p, c in FORMAT_CASES])
+def test_format_adapter_fixtures(path: Path, case: dict[str, Any]) -> None:
+    adapter = _parser_adapter(_format_module(path))
+    assert run_case(adapter, case) == case["expect"], f"{path.stem}: {case['id']}"
+
+
+def test_every_format_adapter_has_fixtures() -> None:
+    for path in FORMAT_PATHS:
+        assert path.with_name(path.stem + ".cases.jsonl").is_file(), path
+
+
 def test_every_operation_has_an_implementation() -> None:
     ops = {c["op"] for c in CASES}
     for op in ops:
@@ -266,4 +355,8 @@ def test_every_must_clause_has_a_case() -> None:
         for line in contract.splitlines()
         if line.startswith("- **BF-")
     }
-    assert clauses <= {c["clause"] for c in CASES}
+    tested = {c["clause"] for c in CASES}
+    # BF-FMT-* bind format adapters: test_format_adapter_* run them over formats/.
+    assert {c for c in clauses if not c.startswith("BF-FMT")} <= tested
+    assert {"BF-FMT-1", "BF-FMT-2", "BF-FMT-3"} <= clauses
+    assert FORMAT_PATHS, "formats/ holds no adapter (the template is one)"

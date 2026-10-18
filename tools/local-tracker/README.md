@@ -8,6 +8,7 @@
   - [Prerequisites](#prerequisites)
   - [Invocation](#invocation)
   - [The descriptor](#the-descriptor)
+  - [Custom field layouts](#custom-field-layouts)
   - [Default format](#default-format)
   - [Confidentiality](#confidentiality)
   - [Line endings and keywords](#line-endings-and-keywords)
@@ -61,6 +62,7 @@ Two subcommands are this backend's own, used by `/magpie-setup config`:
 |---|---|
 | `detect [--write] [--force]` | Reads the existing reports, prints the inferred format with the evidence behind every decision, and with `--write` saves it as the descriptor. |
 | `init [--force]` | Saves the default descriptor in an empty tracker folder. |
+| `trust-parser <path> --sha256 <hash>` | Records a reviewed [custom body parser](#custom-field-layouts): only after the user confirmed that hash. |
 
 Both take `--prefix` (ID prefix for new reports), `--url-template` (a browse URL with `{path}`),
 and `--access-restricted` with an optional `--access-note` — see [Confidentiality](#confidentiality).
@@ -80,6 +82,8 @@ It records:
 | `id` | `prefix`, zero-pad `width`, and `slug` when names carry a title slug (`2024-007-xss-in-login`). |
 | `state` | `mode: field` (a metadata value) or `mode: directory` (a sub-folder per state, such as `open/` and `closed/`), and the values or folder names that count as open and closed. |
 | `field_heading_level` | The heading level of body fields (`###` by default). At `###` the [body-field contract](../body-field-contract/contract.md) applies: every column-0 `###` line ends a field, code block or not, a heading inside a closed code block is never a field, a duplicate or disputed field is refused (exit `4`), and a field value has every line that would end a field escaped with a leading `\`; a whole report (`create`, `edit`) has every `###` line inside a closed block escaped and a fence it leaves open closed in its own field. Another level keeps the heading-level section split. |
+| `field_layout` | `default` (`###` field sections, or the `field_heading_level` split), or `custom`: the reports keep their fields another way and are read only through `body_parser`. |
+| `body_parser` | `{path, sha256}` of the project's own parser for a `custom` layout, written by `trust-parser`; see [Custom field layouts](#custom-field-layouts). |
 | `comments_mode`, `rollup_mode` | `file` (beside the report) or `section` (a `## ` heading at the end of the report). |
 | `url_template` | Optional private browse URL, for example a ViewVC or gitweb address. Without it, the `url` field is the path relative to the working copy. |
 | `access_restricted` | The human-confirmed access check that unlocks writes. |
@@ -90,6 +94,23 @@ the state values in use, the heading level of body sections,
 and an existing comments file or `## Comments` / `## Notes` / `## Timeline` heading.
 A role the skills need but the team never recorded (`labels`, `milestone`, …) is added in the team's own key casing, and the output says so.
 Anything detection could not place is listed under `notes`; setup shows them before writing.
+`detect` also prints `field_layout`: `default` or `custom`, a one-line description, and as evidence the field names shared by two or more reports, never report text.
+
+## Custom field layouts
+
+When the reports keep their fields as something other than heading sections (`Name: value` lines, say), `detect` reports `field_layout: custom`,
+and `/magpie-setup config` offers to generate a parser for the layout from [`tools/body-field-contract/formats/_template.py`](../body-field-contract/formats/_template.py),
+the [format adapter interface](../body-field-contract/contract.md#format-adapters).
+It lives at `.apache-magpie-overrides/tools/local-tracker/parsers/<name>.py` at the top of the working copy, with synthetic-value fixtures beside it as `<name>.cases.jsonl`,
+and is enabled only after the conformance suite passes on it and the user confirms its SHA-256: `trust-parser` then records `body_parser: {path, sha256}` in the descriptor
+and the same hash in the working copy's personal layer, never committed (`<git-common-dir>/apache-magpie/local-tracker-parsers.json` on Git, `.svn/apache-magpie/` on Subversion).
+
+The parser is code from the repository, which vetted operations run outside the sandbox, so every command loads it only when all of these hold, and stops with exit `2` otherwise:
+the descriptor names it; its path is a `.py` file directly in `.apache-magpie-overrides/tools/local-tracker/parsers/`, with no `..` and no symlink on the way;
+and its SHA-256 matches both the descriptor and the personal layer.
+A changed parser file therefore stops the tracker until someone reviews the diff and re-confirms it through `setup config`; a `custom` tracker is never read with the default parser.
+`field-get`, `field-set` (which appends a missing field) and `body` (the fields as `### <Name>` sections, for `generate-cve-json`) go through the parser;
+`create` and `edit --body-file`, which write whole `###` bodies, are refused (exit `4`). `doctor` reports whether the parser loads.
 
 ## Default format
 

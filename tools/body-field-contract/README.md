@@ -23,6 +23,8 @@ what a field boundary is, which code blocks count, which heading is the field, w
 the four operations an implementation provides (list fields, extract, replace, normalise) with their refusals,
 and the two writer operations (escape text, escape body) that keep untrusted text from ever becoming a field.
 
+A tracker whose reports use another layout reads them through a *format adapter* ([`formats/`](formats/README.md), the upstream home for them; [format adapter interface](contract.md#format-adapters)).
+
 See [`contract.md`](contract.md) for the rules and [`conformance/cases.jsonl`](conformance/cases.jsonl) for the shared conformance cases,
 which `tools/github-body-field/tests/test_conformance.py` runs against every implementation in the repository.
 
