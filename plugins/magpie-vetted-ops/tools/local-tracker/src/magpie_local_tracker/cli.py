@@ -136,8 +136,21 @@ def cmd_init(args: argparse.Namespace) -> int:
     return 0
 
 
+def _confirm_on_terminal(question: str) -> bool:
+    """Ask on the controlling terminal; with none (an agent's shell, a pipe) there is nobody to ask."""
+    if not sys.stdin.isatty():
+        return False
+    try:
+        with open("/dev/tty", "r+", encoding="utf-8") as tty:
+            tty.write(f"{question} Type yes to trust it: ")
+            tty.flush()
+            return tty.readline().strip() == "yes"
+    except OSError:
+        return False
+
+
 def cmd_trust_parser(args: argparse.Namespace) -> int:
-    """Record a reviewed custom body parser: the descriptor's body_parser and the personal-layer hash."""
+    """Record a reviewed custom body parser: the descriptor's body_parser and the user's confirmed hash."""
     root = _root(args)
     try:
         desc = load(root)
@@ -147,7 +160,7 @@ def cmd_trust_parser(args: argparse.Namespace) -> int:
         raise TrackerError(f"invalid tracker descriptor: {exc}", 5) from exc
     wc = detect_vcs(root)
     try:
-        record, digest = custom_parser.trust(wc, args.path, args.sha256)
+        record, digest = custom_parser.trust(wc, args.path, args.sha256, _confirm_on_terminal)
     except custom_parser.ParserRefused as exc:
         raise TrackerError(str(exc), 2) from exc
     desc.field_layout = "custom"
@@ -373,7 +386,11 @@ def build_parser() -> argparse.ArgumentParser:
         p.add_argument("--access-restricted", action="store_true", help="record the human access check")
         p.add_argument("--access-note", help="who checked the access control, and how")
 
-    p = add("trust-parser", cmd_trust_parser, "record a reviewed custom body parser (setup config only)")
+    p = add(
+        "trust-parser",
+        cmd_trust_parser,
+        "record a reviewed custom body parser; asks you on the terminal, so run it yourself",
+    )
     p.add_argument(
         "path", help=f"the parser, relative to the working copy top: {custom_parser.PARSER_DIR}/<name>.py"
     )

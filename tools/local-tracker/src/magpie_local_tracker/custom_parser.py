@@ -4,9 +4,9 @@
 
 `setup config` generates one from tools/body-field-contract/formats/_template.py
 when `detect` reports ``field_layout: custom``, runs the conformance suite on
-it, and, on the maintainer's explicit confirmation, records it with
-``trust-parser``: ``body_parser: {path, sha256}`` in the committed descriptor
-and the same hash in the working copy's personal layer.
+it, and hands the maintainer ``trust-parser`` to run in their own terminal,
+which records ``body_parser: {path, sha256}`` in the committed descriptor and
+the same hash in the maintainer's own record.
 
 The parser is code from the tracker's repository, which vetted operations run
 outside the sandbox, so it is loaded only when every check holds:
@@ -15,9 +15,16 @@ outside the sandbox, so it is loaded only when every check holds:
 2. its path is a ``.py`` file directly in
    ``.apache-magpie-overrides/tools/local-tracker/parsers/`` at the top of the
    working copy: no absolute path, no ``..``, no symlink anywhere on the way;
-3. its SHA-256 matches the descriptor's **and** the one recorded in the
-   personal layer, which is never committed: ``<git-common-dir>/apache-magpie/``
-   on Git, ``<working-copy>/.svn/apache-magpie/`` on Subversion.
+3. its SHA-256 matches the descriptor's **and** the one the user confirmed on
+   this machine, recorded in ``~/.config/apache-magpie/local-tracker-parsers.json``
+   under the working copy's real path.
+
+The record is kept where only the user writes. Nothing in a working copy can
+stand in for it (a committed ``.svn/`` or any other file is the repository's
+own content), and the secure setup never lets a sandboxed command write under
+``~/.config/apache-magpie``. ``trust-parser`` asks for the confirmation itself,
+on the controlling terminal, so an agent's shell, which has none, cannot record
+one.
 
 Any mismatch refuses (exit 2) and says to review the change and re-confirm
 through `setup config`. A tracker whose descriptor says ``field_layout:
@@ -29,15 +36,17 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import os
 import sys
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path, PurePosixPath
 from types import ModuleType
 
-from .vcs import VcsError, WorkingCopy
+from .vcs import WorkingCopy
 
 PARSER_DIR = PurePosixPath(".apache-magpie-overrides/tools/local-tracker/parsers")
-TRUST_FILE = "local-tracker-parsers.json"
+#: The user's confirmed hashes: {working-copy real path: {parser path: sha256}}.
+TRUST_FILE = Path("~/.config/apache-magpie/local-tracker-parsers.json")
 #: What a format adapter provides (tools/body-field-contract/contract.md, "Format adapters").
 INTERFACE = (
     "FORMAT",
@@ -61,18 +70,17 @@ def _refuse(why: str) -> ParserRefused:
     return ParserRefused(
         f"{why}. The tracker's custom body parser is not loaded, and the tracker is not read with the "
         "default parser either: review the parser file's diff, then re-confirm it with `setup config` "
-        "(which records the reviewed hash with `magpie-local-tracker trust-parser`)."
+        "(which hands you the `magpie-local-tracker trust-parser` command to run in your own terminal)."
     )
 
 
-def personal_layer(wc: WorkingCopy) -> Path:
-    """Where this working copy's never-committed trust record lives."""
-    try:
-        return wc.admin_dir() / "apache-magpie"
-    except VcsError as exc:
-        raise _refuse(
-            "a custom body parser needs a Git or Subversion working copy, whose admin area holds the trust record"
-        ) from exc
+def trust_file() -> Path:
+    """The user's record of confirmed parsers, outside every working copy."""
+    return TRUST_FILE.expanduser()
+
+
+def _key(wc: WorkingCopy) -> str:
+    return os.path.realpath(wc.top)
 
 
 def resolve(wc: WorkingCopy, relative: str) -> Path:
@@ -103,39 +111,49 @@ def sha256_of(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def trusted(wc: WorkingCopy) -> dict[str, str]:
-    """The confirmed hashes recorded on this machine, by parser path."""
-    path = personal_layer(wc) / TRUST_FILE
+def _records() -> dict[str, object]:
+    path = trust_file()
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
         return {}
     except (OSError, ValueError) as exc:
         raise _refuse(f"{path} cannot be read ({exc})") from exc
-    return {str(k): str(v) for k, v in data.items()} if isinstance(data, dict) else {}
+    return data if isinstance(data, dict) else {}
 
 
-def trust(wc: WorkingCopy, relative: str, expected: str) -> tuple[Path, str]:
-    """Record ``relative``'s hash in the personal layer; refuses unless it is ``expected``, the reviewed hash.
+def trusted(wc: WorkingCopy) -> dict[str, str]:
+    """The hashes the user confirmed for this working copy, by parser path."""
+    entry = _records().get(_key(wc))
+    return {str(k): str(v) for k, v in entry.items()} if isinstance(entry, dict) else {}
 
-    Returns the trust file and the hash.
+
+def trust(wc: WorkingCopy, relative: str, expected: str, confirm: Callable[[str], bool]) -> tuple[Path, str]:
+    """Record ``relative``'s hash once it is ``expected``, the reviewed hash, and ``confirm`` says yes.
+
+    ``confirm`` gets the question to put to the user. Returns the trust file and the hash.
     """
-    actual = sha256_of(resolve(wc, relative).read_bytes())
+    path = resolve(wc, relative)
+    actual = sha256_of(path.read_bytes())
     if actual != expected:
         raise _refuse(f"{relative} has SHA-256 {actual}, not the reviewed {expected}")
-    layer = personal_layer(wc)
-    layer.mkdir(parents=True, exist_ok=True)
-    records = trusted(wc)
-    records[str(PurePosixPath(relative))] = actual
-    (layer / TRUST_FILE).write_text(json.dumps(records, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    return layer / TRUST_FILE, actual
+    if not confirm(f"Trust {path} (SHA-256 {actual}) as this tracker's body parser?"):
+        raise _refuse(f"{relative} was not confirmed")
+    records = _records()
+    entry = records.get(_key(wc))
+    entry = dict(entry) if isinstance(entry, dict) else {}
+    entry[str(PurePosixPath(relative))] = actual
+    records[_key(wc)] = entry
+    target = trust_file()
+    target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    target.write_text(json.dumps(records, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return target, actual
 
 
 def load(wc: WorkingCopy, spec: Mapping[str, object]) -> ModuleType:
     """The verified parser module the descriptor's ``body_parser`` names."""
     if not isinstance(spec, Mapping) or not spec.get("path"):
         raise _refuse("the descriptor says field_layout is custom but names no body_parser")
-    personal_layer(wc)  # a working copy first: without one there is nowhere to confirm a parser
     relative = str(spec.get("path") or "")
     recorded = str(spec.get("sha256") or "")
     path = resolve(wc, relative)

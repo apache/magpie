@@ -78,9 +78,11 @@ by swapping the adapter, not the skill.
   `custom` layout is read only through the project's own parser, generated
   by `setup config` from `tools/body-field-contract/formats/_template.py`
   into `.apache-magpie-overrides/tools/local-tracker/parsers/`, passed
-  through the conformance suite, and enabled on explicit confirmation by
-  `trust-parser` (`body_parser: {path, sha256}` in the descriptor, the hash
-  also in the never-committed personal layer). Every command loads it only
+  through the conformance suite, and enabled by the user running
+  `trust-parser` in their own terminal, which asks there and refuses without
+  one (`body_parser: {path, sha256}` in the descriptor, the hash also in
+  `~/.config/apache-magpie/local-tracker-parsers.json`, outside every working
+  copy and never writable from the sandbox). Every command loads it only
   when the path stays in that directory (no `..`, no symlink) and both
   hashes match, and stops with exit 2 otherwise, never falling back to the
   default parser. `tools/body-field-contract/formats/` is the upstream home

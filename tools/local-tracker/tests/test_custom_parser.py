@@ -5,8 +5,8 @@
 The parser is code from the tracker's repository, run outside the sandbox
 through vetted operations, so each check that guards its loading has a test:
 the descriptor names it, its path stays in the override directory with no
-``..`` and no symlink, and its hash matches the descriptor and the personal
-layer. Every failure stops the command with exit 2 and never falls back to the
+``..`` and no symlink, and its hash matches the descriptor and the one the
+user confirmed on their terminal. Every failure stops the command with exit 2 and never falls back to the
 default parser. All report text here is synthetic.
 """
 
@@ -22,7 +22,7 @@ from typing import Any
 
 import pytest
 
-from magpie_local_tracker import main
+from magpie_local_tracker import cli, custom_parser, main
 from magpie_local_tracker.descriptor import DESCRIPTOR_NAME
 
 TEMPLATE = Path(__file__).resolve().parents[2] / "body-field-contract" / "formats" / "_template.py"
@@ -42,6 +42,20 @@ def run(capsys: pytest.CaptureFixture[str], root: Path, *args: str) -> tuple[int
 
 def _git(top: Path, *args: str) -> str:
     return subprocess.run(["git", *args], cwd=top, check=True, capture_output=True, text=True).stdout
+
+
+@pytest.fixture(autouse=True)
+def user(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """A home of its own, and a user who answers yes on the terminal; the questions asked are kept."""
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    asked: list[str] = []
+
+    def answer_yes(question: str) -> bool:
+        asked.append(question)
+        return True
+
+    monkeypatch.setattr(cli, "_confirm_on_terminal", answer_yes)
+    return asked
 
 
 @pytest.fixture
@@ -160,10 +174,7 @@ def test_a_confirmed_parser_reads_and_writes_fields(
 ) -> None:
     top, root, digest = _trusted(capsys, repo)
     assert _descriptor(root)["body_parser"] == {"path": PARSER, "sha256": digest}
-    record = Path(_git(top, "rev-parse", "--path-format=absolute", "--git-common-dir").strip())
-    assert json.loads((record / "apache-magpie" / "local-tracker-parsers.json").read_text()) == {
-        PARSER: digest
-    }
+    assert json.loads(custom_parser.trust_file().read_text()) == {os.path.realpath(top): {PARSER: digest}}
     assert run(capsys, root, "field-get", "SEC-0001", "Severity")[1]["value"] == "Low"
     value = top / "value.txt"
     value.write_text("High\n", encoding="utf-8")
@@ -212,9 +223,8 @@ def test_a_descriptor_hash_not_confirmed_here_is_refused(
 def test_a_parser_never_confirmed_on_this_machine_is_refused(
     capsys: pytest.CaptureFixture[str], repo: tuple[Path, Path]
 ) -> None:
-    top, root, _ = _trusted(capsys, repo)
-    record = Path(_git(top, "rev-parse", "--path-format=absolute", "--git-common-dir").strip())
-    (record / "apache-magpie" / "local-tracker-parsers.json").unlink()
+    _, root, _ = _trusted(capsys, repo)
+    custom_parser.trust_file().unlink()
     _refused(capsys, root, "has not been confirmed on this machine")
 
 
@@ -276,17 +286,61 @@ def test_a_parser_missing_the_interface_is_refused(
     _refused(capsys, root, "does not provide")
 
 
-def test_a_custom_layout_outside_a_working_copy_is_refused(
-    capsys: pytest.CaptureFixture[str], tmp_path: Path
+def test_trust_parser_records_nothing_without_a_terminal(
+    capsys: pytest.CaptureFixture[str], repo: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    root = tmp_path / "plain" / "security"
-    (root / "SEC-0001").mkdir(parents=True)
-    (root / "SEC-0001" / "issue.md").write_text(FRONT.format(n=1) + BODY.format(n=1), encoding="utf-8")
-    assert run(capsys, root, "init", "--access-restricted")[0] == 0
-    _set_descriptor(root, field_layout="custom", body_parser={"path": PARSER, "sha256": "0" * 64})
-    if (tmp_path / ".git").exists() or any((p / ".git").exists() for p in tmp_path.parents):
-        pytest.skip("the temporary directory sits inside a Git working copy")
-    _refused(capsys, root, "needs a Git or Subversion working copy")
+    """An agent's shell has no controlling terminal, so it cannot confirm a parser for the user."""
+    monkeypatch.undo()
+    monkeypatch.setenv("HOME", str(repo[0].parent / "home"))
+    top, root = repo
+    _detect_and_write(capsys, root)
+    digest = _install(top)
+    code, _, err = run(capsys, root, "trust-parser", PARSER, "--sha256", digest)
+    assert code == 2 and "was not confirmed" in err
+    assert _descriptor(root)["body_parser"] == {}
+    assert not custom_parser.trust_file().exists()
+
+
+def test_trust_parser_asks_about_the_file_and_its_hash(
+    capsys: pytest.CaptureFixture[str], repo: tuple[Path, Path], user: list[str]
+) -> None:
+    _, _, digest = _trusted(capsys, repo)
+    assert len(user) == 1 and PARSER in user[0] and digest in user[0]
+
+
+@pytest.mark.parametrize("at", ["top", "tracker"])
+def test_a_trust_record_committed_with_the_parser_is_ignored(
+    capsys: pytest.CaptureFixture[str], repo: tuple[Path, Path], at: str
+) -> None:
+    """A commit carrying the parser, its descriptor entry and a ``.svn/`` trust record confirms nothing.
+
+    At the tracker folder the committed ``.svn/`` even makes that folder look
+    like a Subversion working copy of its own: still the repository's content,
+    never the user's confirmation.
+    """
+    top, root = repo
+    _detect_and_write(capsys, root)
+    base = top if at == "top" else root
+    digest = _install(base)
+    _set_descriptor(root, field_layout="custom", body_parser={"path": PARSER, "sha256": digest})
+    layer = base / ".svn" / "apache-magpie"
+    layer.mkdir(parents=True)
+    record = {PARSER: digest, os.path.realpath(base): {PARSER: digest}}
+    (layer / "local-tracker-parsers.json").write_text(json.dumps(record), encoding="utf-8")
+    (top / ".git" / "apache-magpie").mkdir()
+    (top / ".git" / "apache-magpie" / "local-tracker-parsers.json").write_text(
+        json.dumps(record), encoding="utf-8"
+    )
+    _refused(capsys, root, "has not been confirmed on this machine")
+
+
+def test_a_confirmation_belongs_to_one_working_copy(
+    capsys: pytest.CaptureFixture[str], repo: tuple[Path, Path], tmp_path: Path
+) -> None:
+    top, _, _ = _trusted(capsys, repo)
+    other = tmp_path / "other"
+    shutil.copytree(top, other, symlinks=True)
+    _refused(capsys, other / "security", "has not been confirmed on this machine")
 
 
 def test_an_unknown_field_layout_is_refused(
