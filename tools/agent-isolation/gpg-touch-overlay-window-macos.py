@@ -207,6 +207,44 @@ class Pulse(tk.Canvas):
         self.circle(cx, cy, dot, fill="#%02x%02x%02x" % CORE, outline="")
 
 
+# NSPopUpMenuWindowLevel: above every normal and floating window, which is
+# all a dim needs. Tk's ``-topmost`` only reaches the floating level, and
+# only while this application is the active one.
+WINDOW_LEVEL = 101
+# NSWindowCollectionBehaviorCanJoinAllSpaces | Stationary | IgnoresCycle |
+# FullScreenAuxiliary: shown on whichever Space is current, including a
+# terminal that is full screen in its own, and never on the one it was
+# opened from instead.
+WINDOW_BEHAVIOUR = (1 << 0) | (1 << 4) | (1 << 6) | (1 << 8)
+
+
+def float_above_everything(app, send, objc):
+    """Put every window of this process in front, active or not.
+
+    Visibility must not depend on activation. Since macOS 14 a process
+    launched in the background can be refused activation, and an inactive
+    application's window then sits behind the terminal the operator is
+    watching, or on another Space altogether, while the key waits for a
+    touch nobody knows is wanted. ``orderFrontRegardless`` is the one
+    ordering call that works without being the active application.
+    """
+    windows = send(ctypes.c_void_p)(app, objc.sel_registerName(b"windows"))
+    count = send(ctypes.c_ulong)(windows, objc.sel_registerName(b"count"))
+    for index in range(count):
+        window = send(ctypes.c_void_p, ctypes.c_ulong)(
+            windows, objc.sel_registerName(b"objectAtIndex:"), index
+        )
+        send(None, ctypes.c_long)(
+            window, objc.sel_registerName(b"setLevel:"), WINDOW_LEVEL
+        )
+        send(None, ctypes.c_ulong)(
+            window,
+            objc.sel_registerName(b"setCollectionBehavior:"),
+            WINDOW_BEHAVIOUR,
+        )
+        send(None)(window, objc.sel_registerName(b"orderFrontRegardless"))
+
+
 def take_focus(root):
     """Make this process the active application, then focus the window.
 
@@ -242,9 +280,20 @@ def take_focus(root):
         send(ctypes.c_bool, ctypes.c_long)(
             app, objc.sel_registerName(b"setActivationPolicy:"), 0
         )
-        send(None, ctypes.c_bool)(
-            app, objc.sel_registerName(b"activateIgnoringOtherApps:"), True
-        )
+        float_above_everything(app, send, objc)
+        # macOS 14 made activation cooperative: a process started in the
+        # background may be refused it, and activateIgnoringOtherApps: is
+        # deprecated. Ask with the new call where it exists; being refused
+        # costs the keyboard, not the window, which is already up.
+        activate = objc.sel_registerName(b"activate")
+        if send(ctypes.c_bool, ctypes.c_void_p)(
+            app, objc.sel_registerName(b"respondsToSelector:"), activate
+        ):
+            send(None)(app, activate)
+        else:
+            send(None, ctypes.c_bool)(
+                app, objc.sel_registerName(b"activateIgnoringOtherApps:"), True
+            )
         root.lift()
         root.focus_force()
         root.update()
