@@ -108,10 +108,29 @@ Seatbelt sandbox turns off Apple Events — so run the step outside the sandbox
 - Nothing runs unless a non-empty secret arrives that matches `--prefix`; a
   cancelled dialog runs nothing.
 - Error messages name the expected prefix, never what was entered.
-- Every prompt ends with **`It will be passed to: <command>`**, the exact command
-  that will receive the secret, and the caller cannot turn it off. Check that line
-  before pasting: an agent chooses the command, so this is what stops a look-alike
-  prompt from handing the token to something that prints it.
+- Every prompt ends with what the caller cannot change: **`It will be passed to:`**
+  the command, resolved to an absolute path before asking and run exactly as
+  shown, and **`with:`** every `--set` variable plus any inherited variable that
+  shares the secret's prefix (`TWINE_*` for `TWINE_PASSWORD`, so a
+  `TWINE_REPOSITORY_URL` pointing elsewhere is visible). Check those lines
+  before pasting: an agent chooses the command, and this is what stops a
+  look-alike prompt from handing the token to something that prints or
+  forwards it.
+- The command is shown in full or not at all: one longer than 1000 characters
+  is refused, never truncated. `--prompt` and `--title` must be a single
+  printable line of at most 200 characters that does not start with `-`, so
+  they cannot imitate the lines above; `zenity` and `kdialog`, whose toolkits may
+  render `<` and `&` as markup, decline a prompt containing them and `auto`
+  moves on to the next backend.
+- `--env` and `--set` refuse names that change how the command runs or where it
+  reads its configuration: `PATH`, `IFS`, `HOME`, `ENV`, `BASH_ENV`,
+  `SHELLOPTS`, `BASHOPTS`, `PS4`, and the `LD_*`, `DYLD_*`, `PYTHON*`, `PERL5*`,
+  `RUBY*`, `NODE_*` and `GIT_*` families.
+
+What it cannot do is vouch for an environment the caller already controls:
+an agent that sets `LD_PRELOAD` or edits `~/.pypirc` *before* calling it can
+still subvert the command. The prompt shows what it can; when in doubt, run the
+step yourself, in your own terminal.
 
 It does **not** make the secret short-lived: create a single-use token for the
 step and delete it straight after, as the release docs say.

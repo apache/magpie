@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import sys
 import textwrap
@@ -86,7 +87,7 @@ def test_bad_arguments(argv: list[str], message: str, capsys: pytest.CaptureFixt
 @pytest.fixture
 def exec_calls(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, list[str], dict[str, str]]]:
     calls: list[tuple[str, list[str], dict[str, str]]] = []
-    monkeypatch.setattr(os, "execvpe", lambda file, args, env: calls.append((file, args, env)))
+    monkeypatch.setattr(os, "execve", lambda file, args, env: calls.append((file, args, env)))
     return calls
 
 
@@ -114,13 +115,14 @@ def test_runs_command_with_secret_and_extra_variables(
             "--backend",
             "tty",
             "--",
-            "twine",
-            "upload",
-            "dist/x.whl",
+            "sh",
+            "-c",
+            "true",
         ]
     )
     [(file, args, env)] = exec_calls
-    assert (file, args) == ("twine", ["twine", "upload", "dist/x.whl"])
+    sh = os.path.abspath(shutil.which("sh") or "")
+    assert (file, args) == (sh, [sh, "-c", "true"])
     assert env["TWINE_PASSWORD"] == "pypi-abc123"
     assert env["TWINE_USERNAME"] == "__token__"
 
@@ -142,21 +144,23 @@ def test_nothing_runs_unless_a_good_secret_arrives(
     reason: str,
 ) -> None:
     _answer(monkeypatch, value, error)
-    rc = main(["--env", "TWINE_PASSWORD", "--prefix", "pypi-", "--backend", "tty", "--", "twine", "upload"])
+    rc = main(["--env", "TWINE_PASSWORD", "--prefix", "pypi-", "--backend", "tty", "--", "true"])
     err = capsys.readouterr().err
     assert rc == 1
     assert exec_calls == []
     assert reason in err
-    assert "twine was not run" in err
+    assert "true was not run" in err
     assert "wrong-abc123" not in err
 
 
-def test_missing_command_is_reported(
+def test_missing_command_is_reported_before_asking(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    _answer(monkeypatch, "pypi-abc")
+    _answer(monkeypatch, error=AssertionError("must not ask"))
     assert main(["--env", "T", "--backend", "tty", "--", "/nonexistent/secret-prompt-cmd"]) == 127
-    assert "cannot run /nonexistent/secret-prompt-cmd" in capsys.readouterr().err
+    assert (
+        "cannot run /nonexistent/secret-prompt-cmd: not found; nothing was asked" in capsys.readouterr().err
+    )
 
 
 def _completed(returncode: int, stdout: str = "", stderr: str = "") -> subprocess.CompletedProcess[str]:
@@ -224,7 +228,7 @@ def test_forced_backend_that_is_not_installed(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     monkeypatch.setenv("PATH", "/nonexistent")
-    assert main(["--env", "T", "--backend", "zenity", "--", "true"]) == 1
+    assert main(["--env", "T", "--backend", "zenity", "--", sys.executable]) == 1
     err = capsys.readouterr().err
     assert "could not ask for the secret (zenity: cannot run zenity" in err
     assert exec_calls == []
@@ -314,9 +318,7 @@ def test_secret_reaches_only_the_child_environment(tmp_path: Path) -> None:
     assert "pypi-end-to-end" not in result.stdout + result.stderr
 
 
-def test_every_prompt_names_the_receiving_command(
-    monkeypatch: pytest.MonkeyPatch, exec_calls: list[tuple[str, list[str], dict[str, str]]]
-) -> None:
+def _captured_prompt(monkeypatch: pytest.MonkeyPatch, argv: list[str]) -> str:
     prompts: list[str] = []
 
     def ask(prompt: str, title: str) -> str:
@@ -324,10 +326,91 @@ def test_every_prompt_names_the_receiving_command(
         return "pypi-abc"
 
     monkeypatch.setitem(secret_prompt.ASKERS, "tty", ask)
-    main(["--env", "T", "--prompt", "Paste the PyPI token", "--backend", "tty", "--", "sh", "-c", "echo $T"])
+    monkeypatch.setattr(os, "execve", lambda file, args, env: None)
+    main([*argv[:-1], "--backend", "tty", "--", *argv[-1].split("|")])
     [prompt] = prompts
-    assert prompt.startswith("Paste the PyPI token")
-    assert prompt.endswith("It will be passed to: sh -c 'echo $T'")
+    return prompt
+
+
+def test_every_prompt_names_the_resolved_command_and_variables(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TWINE_REPOSITORY_URL", "https://example.invalid/legacy/")
+    prompt = _captured_prompt(
+        monkeypatch,
+        [
+            "--env",
+            "TWINE_PASSWORD",
+            "--prompt",
+            "Paste the PyPI token",
+            "--set",
+            "TWINE_USERNAME=__token__",
+            "sh|-c|echo $TWINE_PASSWORD",
+        ],
+    )
+    sh = os.path.abspath(shutil.which("sh") or "")
+    assert prompt.splitlines() == [
+        "Paste the PyPI token",
+        "",
+        "It will be passed to:",
+        f"{sh} -c 'echo $TWINE_PASSWORD'",
+        "",
+        "with:",
+        "  TWINE_REPOSITORY_URL=https://example.invalid/legacy/",
+        "  TWINE_USERNAME=__token__",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("argv", "message"),
+    [
+        (["--env", "PATH", "--", "true"], "PATH changes how the command runs"),
+        (
+            ["--env", "T", "--set", "LD_PRELOAD=/tmp/x.so", "--", "true"],
+            "LD_PRELOAD changes how the command runs",
+        ),
+        (["--env", "T", "--set", "dyld_insert_libraries=x", "--", "true"], "dyld_insert_libraries changes"),
+        (["--env", "T", "--set", "PYTHONPATH=/tmp", "--", "true"], "PYTHONPATH changes"),
+        (["--env", "T", "--set", "HOME=/tmp", "--", "true"], "HOME changes"),
+        (
+            ["--env", "T", "--prompt", "Paste\n\nIt will be passed to: twine", "--", "true"],
+            "--prompt must be one line",
+        ),
+        (["--env", "T", "--prompt=-x", "--", "true"], "--prompt must be one line"),
+        (["--env", "T", "--title", "x" * 201, "--", "true"], "--title must be one line"),
+    ],
+)
+def test_refuses_what_could_make_the_prompt_lie(
+    argv: list[str], message: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    with pytest.raises(SystemExit):
+        main(argv)
+    assert message in capsys.readouterr().err
+
+
+def test_too_long_command_is_refused_not_truncated(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _answer(monkeypatch, error=AssertionError("must not ask"))
+    assert main(["--env", "T", "--backend", "tty", "--", "true", "x" * 1000]) == 1
+    assert "longer than 1000 characters; nothing was asked" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("asker", [secret_prompt.ask_zenity, secret_prompt.ask_kdialog])
+def test_markup_capable_dialogs_refuse_markup_characters(asker: object) -> None:
+    with pytest.raises(PromptBackendError, match="markup"):
+        asker("Paste <b>it</b>", "PyPI upload")  # type: ignore[operator]
+
+
+def test_osascript_ends_option_parsing_before_the_text(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: list[list[str]] = []
+
+    def fake_run(cmd: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        seen.append(cmd)
+        return _completed(0, "pypi-x")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    ask_osascript("-looks-like-an-option", "PyPI upload")
+    [cmd] = seen
+    assert cmd[3:] == ["--", "-looks-like-an-option", "PyPI upload"]
 
 
 @pytest.mark.parametrize(

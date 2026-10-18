@@ -53,6 +53,15 @@ class PromptBackendError(Exception):
     """A backend could not ask: its program is missing, or it failed without the operator's say."""
 
 
+# Variables that change how a command runs or where it reads its configuration; letting the
+# caller set them would make the command shown in the prompt run something else.
+_DENIED_NAMES = {"PATH", "IFS", "HOME", "ENV", "BASH_ENV", "SHELLOPTS", "BASHOPTS", "PS4"}
+_DENIED_PREFIXES = ("LD_", "DYLD_", "PYTHON", "PERL5", "RUBY", "NODE_", "GIT_")
+_MAX_TEXT = 200
+_MAX_COMMAND = 1000
+# Characters GTK and Qt may render as markup in a dialog label.
+_MARKUP = ("<", "&")
+
 # pinentry's GPG_ERR_CANCELED, as "ERR 83886179 Operation cancelled".
 _PINENTRY_CANCELLED = "83886179"
 
@@ -124,12 +133,19 @@ def _run_dialog(cmd: Sequence[str], cancelled: Callable[[subprocess.CompletedPro
 def ask_osascript(prompt: str, title: str) -> str:
     # The Cancel button is AppleScript error -128; any other failure (e.g. Apple Events
     # blocked by a sandbox) means no dialog was shown.
-    return _run_dialog(["osascript", "-e", _OSASCRIPT, prompt, title], lambda r: "-128" in r.stderr)
+    # "--" ends osascript's option parsing, so text starting with "-" stays an argument.
+    return _run_dialog(["osascript", "-e", _OSASCRIPT, "--", prompt, title], lambda r: "-128" in r.stderr)
+
+
+def _refuse_markup(name: str, text: str) -> None:
+    if any(char in text for char in _MARKUP):
+        raise PromptBackendError(f"{name} may render '<' or '&' as markup, so it cannot show this prompt")
 
 
 def ask_zenity(prompt: str, title: str) -> str:
     # A real Cancel exits 1 with nothing on stderr; GTK also exits 1, with a message, when it
     # cannot open the display.
+    _refuse_markup("zenity", prompt + title)
     return _run_dialog(
         ["zenity", "--entry", "--hide-text", f"--title={title}", f"--text={prompt}"],
         lambda r: r.returncode == 1 and not r.stderr.strip(),
@@ -137,6 +153,7 @@ def ask_zenity(prompt: str, title: str) -> str:
 
 
 def ask_kdialog(prompt: str, title: str) -> str:
+    _refuse_markup("kdialog", prompt + title)
     return _run_dialog(["kdialog", "--title", title, "--password", prompt], lambda r: r.returncode == 1)
 
 
@@ -198,21 +215,64 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         parser.error("give the command to run after --")
     if not args.env.isidentifier():
         parser.error(f"--env {args.env!r} is not a valid environment variable name")
+    names = [args.env]
     for item in args.set:
         name, sep, _ = item.partition("=")
         if not sep or not name.isidentifier():
             parser.error(f"--set {item!r} is not NAME=VALUE")
+        names.append(name)
+    for name in names:
+        if is_denied_name(name):
+            parser.error(f"{name} changes how the command runs, so secret-prompt will not set it")
+    for option, text in (("--prompt", args.prompt), ("--title", args.title)):
+        if text is not None and not is_plain_text(text):
+            parser.error(
+                f"{option} must be one line of at most {_MAX_TEXT} printable characters, not starting with '-'"
+            )
     return args
+
+
+def is_denied_name(name: str) -> bool:
+    upper = name.upper()
+    return upper in _DENIED_NAMES or upper.startswith(_DENIED_PREFIXES)
+
+
+def is_plain_text(text: str) -> bool:
+    return len(text) <= _MAX_TEXT and not text.startswith("-") and all(char.isprintable() for char in text)
+
+
+def build_prompt(text: str, command: Sequence[str], extra: Mapping[str, str]) -> str:
+    """The caller's text, then what it cannot change: the command and the variables it gets."""
+    lines = [text, "", "It will be passed to:", shlex.join(command)]
+    if extra:
+        lines += ["", "with:", *(f"  {name}={value}" for name, value in sorted(extra.items()))]
+    return "\n".join(lines)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(sys.argv[1:] if argv is None else argv)
-    # Always name the receiving command, so the operator can see where the secret goes
-    # before pasting it; the caller cannot turn this off.
-    command = shlex.join(args.command)
-    if len(command) > 300:
-        command = command[:297] + "..."
-    prompt = f"{args.prompt or f'Paste the value for {args.env}'}\n\nIt will be passed to: {command}"
+    # Resolve the command before asking, and run exactly what the prompt shows.
+    resolved = shutil.which(args.command[0])
+    if resolved is None:
+        print(f"secret-prompt: cannot run {args.command[0]}: not found; nothing was asked", file=sys.stderr)
+        return 127
+    command = [os.path.abspath(resolved), *args.command[1:]]
+    if len(shlex.join(command)) > _MAX_COMMAND:
+        # Shown in full or not at all: a truncated command could hide what it does.
+        print(
+            f"secret-prompt: the command is longer than {_MAX_COMMAND} characters; nothing was asked",
+            file=sys.stderr,
+        )
+        return 1
+    extra = dict(item.split("=", 1) for item in args.set)
+    # Inherited variables sharing the secret's prefix (TWINE_* for TWINE_PASSWORD) can redirect
+    # where it goes, e.g. TWINE_REPOSITORY_URL, so the operator sees those too.
+    family = args.env.split("_", 1)[0] + "_" if "_" in args.env else None
+    if family:
+        for name, value in os.environ.items():
+            if name.startswith(family) and name != args.env and name not in extra:
+                extra[name] = value
+    prompt = build_prompt(args.prompt or f"Paste the value for {args.env}", command, extra)
     backends = [args.backend] if args.backend != "auto" else None
     failures: list[str] = []
     secret = ""
@@ -248,7 +308,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     env.update(item.split("=", 1) for item in args.set)
     env[args.env] = secret
     try:
-        os.execvpe(args.command[0], args.command, env)
+        os.execve(command[0], command, env)
     except OSError as err:
-        print(f"secret-prompt: cannot run {args.command[0]}: {err.strerror}", file=sys.stderr)
+        print(f"secret-prompt: cannot run {command[0]}: {err.strerror}", file=sys.stderr)
         return 127
