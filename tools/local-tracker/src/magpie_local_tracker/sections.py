@@ -167,7 +167,13 @@ def neutralize(text: str, managed_headings: tuple[str, ...] = (), *, body: bool 
     fields: those stay, but every one inside a closed code block is escaped
     (:func:`escape_quoted_fields`), and a fence left open is closed in the
     field it opens in, never past another field's heading.
+
+    Line endings become ``\n`` first: the file is read back with ``\r\n`` and
+    a lone ``\r`` both ending a line, so a ``\r`` left in would start a line
+    the escaping never saw, and a stray ``\r\n`` would leave the file mixing
+    conventions, which every later write refuses.
     """
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
     text = _FORGEABLE.sub("&lt;", text)
     if body:
         text = close_fences_in_fields(escape_quoted_fields(text))

@@ -298,3 +298,34 @@ def test_a_file_mixing_line_endings_is_refused(tmp_path: Path) -> None:
         tracker.field_set("SEC-0001", "Severity", "High")
     assert err.value.code == 4 and "mixes line endings" in str(err.value)
     assert path.read_bytes() == raw
+
+
+def test_carriage_returns_in_report_text_cannot_lock_the_file(tmp_path: Path) -> None:
+    """Report text is untrusted: its own ``\\r`` must neither mix the file's
+    line endings (which would refuse every later write) nor start a line the
+    escaping never saw."""
+    from magpie_local_tracker import main
+
+    root = tmp_path / "security"
+    root.mkdir()
+    assert main(["--root", str(root), "init", "--access-restricted"]) == 0
+    tracker = Tracker(root, load(root))
+    body = "### Severity\r\n\r\nLow\r\n\r\n### Note\r\n\r\nseen\rtwice\n"
+    created = tracker.create("A report", body, [])
+    ident, path = str(created["id"]), Path(str(created["path"]))
+    assert b"\r" not in path.read_bytes()
+    tracker.field_set(ident, "Severity", "High\r\nor\rmore\r### Forged\r\rno")
+    tracker.comment(ident, "a comment\r\nover\rlines", "@lead")
+    tracker.comment(ident, "a second one", "@lead")  # the comments file is still writable
+    for written in path.parent.iterdir():
+        assert b"\r" not in written.read_bytes(), written.name
+    assert str(tracker.field_get(ident, "Severity")["value"]).startswith("High\nor\nmore\n")
+    assert tracker.field_get(ident, "Forged")["value"] is None
+
+
+def test_a_carriage_return_in_a_value_keeps_the_files_one_convention(tmp_path: Path) -> None:
+    tracker, path = _plain(tmp_path, (FRONT + "### Severity\n\nLow\n").replace("\n", "\r\n").encode())
+    tracker.field_set("SEC-0001", "Severity", "High\rstill")
+    assert not set(path.read_bytes().decode().replace("\r\n", "")) & {"\r", "\n"}
+    tracker.field_set("SEC-0001", "Severity", "Critical")  # still writable
+    assert tracker.field_get("SEC-0001", "Severity")["value"] == "Critical"

@@ -365,6 +365,9 @@ class Tracker:
             raise refused(
                 f"{path} mixes line endings; normalise them to one convention before the tracker writes to it"
             )
+        # Whatever reached here is written in the file's one convention, so a
+        # write never turns a file into one that mixes line endings.
+        text = text.replace("\r\n", "\n").replace("\r", "\n")
         if not final_newline and text.endswith("\n"):
             text = text[:-1]
         if eol != "\n":
@@ -621,7 +624,7 @@ class Tracker:
         text = self._clean(body, body=True).strip("\n") + "\n"
         if self.desc.title_source == "h1":
             text = f"# {title}\n\n{text}"
-        rendered = md.render(meta, text)
+        rendered = md.render(meta, text).replace("\r\n", "\n").replace("\r", "\n")
         # Reserve the ID with an exclusive create: two writers that picked the
         # same number cannot both succeed, and the loser takes the next one.
         for _attempt in range(50):
