@@ -282,7 +282,9 @@ def test_a_parser_missing_the_interface_is_refused(
     target.parent.mkdir(parents=True)
     target.write_text("FORMAT = 'nothing'\n", encoding="utf-8")
     digest = hashlib.sha256(target.read_bytes()).hexdigest()
-    assert run(capsys, root, "trust-parser", PARSER, "--sha256", digest)[0] == 0
+    code, out, _ = run(capsys, root, "trust-parser", PARSER, "--sha256", digest)
+    # Said at once, to the user who confirmed it.
+    assert code == 2 and "does not provide" in out["parser_loads"]
     _refused(capsys, root, "does not provide")
 
 
@@ -306,6 +308,35 @@ def test_trust_parser_asks_about_the_file_and_its_hash(
 ) -> None:
     _, _, digest = _trusted(capsys, repo)
     assert len(user) == 1 and PARSER in user[0] and digest in user[0]
+
+
+def test_trust_parser_reports_that_the_parser_loads(
+    capsys: pytest.CaptureFixture[str], repo: tuple[Path, Path]
+) -> None:
+    top, root = repo
+    _detect_and_write(capsys, root)
+    digest = _install(top)
+    code, out, _ = run(capsys, root, "trust-parser", PARSER, "--sha256", digest)
+    assert code == 0 and out["parser_loads"] is True
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root reads an unreadable file")
+def test_an_unreadable_record_says_the_parser_cannot_be_verified_here(
+    capsys: pytest.CaptureFixture[str], repo: tuple[Path, Path]
+) -> None:
+    """The secure setup's sandbox may not read ~/.config/apache-magpie: that is no reason to re-confirm."""
+    _, root, _ = _trusted(capsys, repo)
+    record_dir = custom_parser.trust_file().parent
+    record_dir.chmod(0)
+    try:
+        code, out, err = run(capsys, root, "field-get", "SEC-0001", "Severity")
+        assert code == 2 and out == ""
+        assert "cannot be verified" in err and "vetted operations" in err and "re-confirm" not in err
+        _, report, _ = run(capsys, root, "doctor")
+        (check,) = [c for c in report["checks"] if c["name"] == "custom body parser"]
+        assert check["ok"] is False and check["unverifiable_here"] is True
+    finally:
+        record_dir.chmod(0o700)
 
 
 @pytest.mark.parametrize("at", ["top", "tracker"])

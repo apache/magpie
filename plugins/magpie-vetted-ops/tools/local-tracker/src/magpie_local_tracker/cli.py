@@ -166,8 +166,22 @@ def cmd_trust_parser(args: argparse.Namespace) -> int:
     desc.field_layout = "custom"
     desc.body_parser = {"path": args.path, "sha256": digest}
     written = save(root, desc)
-    _emit({"descriptor": str(written), "body_parser": desc.body_parser, "trust_record": str(record)})
-    return 0
+    # The user runs this outside the sandbox, where the record is readable:
+    # the one place a fresh confirmation can be seen to load.
+    try:
+        custom_parser.load(wc, desc.body_parser)
+        loads: object = True
+    except custom_parser.ParserRefused as exc:
+        loads = str(exc)
+    _emit(
+        {
+            "descriptor": str(written),
+            "body_parser": desc.body_parser,
+            "trust_record": str(record),
+            "parser_loads": loads,
+        }
+    )
+    return 0 if loads is True else 2
 
 
 def cmd_view(args: argparse.Namespace) -> int:
@@ -346,6 +360,10 @@ def cmd_doctor(args: argparse.Namespace) -> int:
             custom_parser.load(wc, desc.body_parser)
             checks.append(
                 {"name": "custom body parser", "ok": True, "detail": desc.body_parser.get("path", "")}
+            )
+        except custom_parser.ParserUnverifiable as exc:
+            checks.append(
+                {"name": "custom body parser", "ok": False, "unverifiable_here": True, "detail": str(exc)}
             )
         except custom_parser.ParserRefused as exc:
             checks.append({"name": "custom body parser", "ok": False, "detail": str(exc)})

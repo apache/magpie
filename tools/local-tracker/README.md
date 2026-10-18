@@ -105,7 +105,10 @@ It lives at `.apache-magpie-overrides/tools/local-tracker/parsers/<name>.py` at 
 and is enabled only after the conformance suite passes on it and the user confirms its SHA-256 by running `trust-parser` in their own terminal.
 `trust-parser` asks on the controlling terminal and refuses without one, so an agent's shell cannot run it;
 it records `body_parser: {path, sha256}` in the descriptor and the same hash in `~/.config/apache-magpie/local-tracker-parsers.json`, under the working copy's real path.
-That record lives outside every working copy, so nothing a commit carries (a `.svn/` directory included) can stand in for it, and the secure setup never lets a sandboxed command write there.
+That record lives outside every working copy, so nothing a commit carries (a `.svn/` directory included) can stand in for it.
+The secure setup never lets a sandboxed command write there, and its `permissions.deny` carries `Edit(~/.config/apache-magpie/local-tracker-parsers.json)` for the agent's own file tools.
+It does not let the sandbox read there either, since the directory also holds credentials, so a `custom` tracker is read through vetted operations, which run outside the sandbox;
+run from inside it, a command stops with exit `2` and `doctor` marks the parser check `unverifiable_here`, saying it cannot be verified rather than that it changed.
 
 The parser is code from the repository, which vetted operations run outside the sandbox, so every command loads it only when all of these hold, and stops with exit `2` otherwise:
 the descriptor names it; its path is a `.py` file directly in `.apache-magpie-overrides/tools/local-tracker/parsers/`, with no `..` and no symlink on the way;

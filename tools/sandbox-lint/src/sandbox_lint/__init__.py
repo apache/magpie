@@ -166,6 +166,10 @@ REQUIRED_PERMISSIONS_DENY = {
     "Read(~/.kube/**)",
     "Read(~/.config/gh/**)",
     "Read(~/.config/apache-magpie/**)",
+    # The user's confirmations of a tracker's custom body parser, which
+    # vetted operations then run outside the sandbox: the agent's own file
+    # tools must not be able to write one.
+    "Edit(~/.config/apache-magpie/local-tracker-parsers.json)",
     "Read(~/.config/gcloud/**)",
     "Read(~/.azure/**)",
     "Read(//**/.env)",

@@ -66,6 +66,10 @@ class ParserRefused(Exception):
     """The custom parser cannot be trusted; the message says why and what to do."""
 
 
+class ParserUnverifiable(ParserRefused):
+    """The user's record cannot be read here: the secure setup denies the sandbox reads under it."""
+
+
 def _refuse(why: str) -> ParserRefused:
     return ParserRefused(
         f"{why}. The tracker's custom body parser is not loaded, and the tracker is not read with the "
@@ -117,6 +121,16 @@ def _records() -> dict[str, object]:
         data = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
         return {}
+    except PermissionError as exc:
+        # The record shares ~/.config/apache-magpie with credentials, so the
+        # secure setup's sandbox may not read it: nothing to re-confirm, the
+        # command has to run where the record is readable.
+        raise ParserUnverifiable(
+            f"{path} cannot be read here ({exc.strerror}), so the tracker's custom body parser "
+            "cannot be verified: inside the secure setup's sandbox that is by design. Run the command "
+            "through vetted operations (vetted-op-read, vetted-op-tracker), which run outside the "
+            "sandbox; the tracker is not read with the default parser meanwhile."
+        ) from exc
     except (OSError, ValueError) as exc:
         raise _refuse(f"{path} cannot be read ({exc})") from exc
     return data if isinstance(data, dict) else {}
