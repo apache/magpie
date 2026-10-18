@@ -76,16 +76,14 @@ live in the project manifest.
 
 ## Body-field surgery
 
-Skills that update one field without touching the rest use the
-following pattern:
-
-1. **Read** the full body (`gh issue view <N> --json body --jq .body`).
-2. **Split** on `\n### ` to get per-field sections.
-3. **Replace** the target section's value (between its `### <name>\n\n`
-   header and the next `### ` or end-of-body).
-4. **Join** the sections back together.
-5. **Write** the new body via
-   `gh issue edit <N> --repo <tracker> --body-file <tmpfile>`.
+How a field is found, read and rewritten — field boundaries, code
+blocks, which heading is the field, and what is refused as ambiguous —
+is the [body-field contract](../body-field-contract/contract.md).
+Skills never split a body themselves: they read and write one field
+through an implementation of it, such as
+[`github-body-field`](../github-body-field/README.md) (`get` / `set`) or
+the `body-field-get` / `body-field-set` vetted operations, which keep
+everything outside the field byte-identical.
 
 Never construct the body by string concatenation in a shell command —
 literal backticks, `$(…)`, and newlines in the body are silently

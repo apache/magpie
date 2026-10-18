@@ -202,7 +202,11 @@ publication, with a human gate and an audit-log entry at every step.
   byte-identical copies of the parser (the Jira bridge after reading wiki
   `h1.`–`h3.` headings outside closed blocks as `### <Heading>`), matching
   names case-insensitively; a test runs every implementation over the same
-  bodies and requires the same reads and writes.
+  bodies and requires the same reads and writes. The rules are stated once,
+  language-neutral, in `tools/body-field-contract/contract.md`
+  (`contract:body-field`, RFC 2119 clauses `BF-*`, with the writer
+  escapes for untrusted text), and its JSON Lines conformance cases, each
+  naming its clause, run against every implementation in the tree.
 - **CVE fields come from the team or a confirmed proposal (#1672).** When
   `generate-cve-json --report-json` lists missing or ambiguous fields,
   sync, cve-allocate and deduplicate follow

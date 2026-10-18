@@ -83,7 +83,9 @@ by swapping the adapter, not the skill.
   for every reader and writer; `normalise`
   returns the canonical body, its changes and the duplicate /
   container-heading decisions it will not make, and reads and writes
-  refuse an ambiguous field, #1672) and `tools/github-rollup/` (`contract:tracker`,
+  refuse an ambiguous field, #1672; the rules are the language-neutral
+  `tools/body-field-contract/` (`contract:body-field`), whose conformance
+  cases every implementation passes) and `tools/github-rollup/` (`contract:tracker`,
   stdlib-only), which maintains the single status-rollup comment on a
   tracker issue in a subprocess so the growing rollup body never enters
   agent context.

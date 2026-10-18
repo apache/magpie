@@ -24,7 +24,7 @@
 
 # github-body-field
 
-**Capability:** contract:tracker
+**Capability:** contract:tracker + contract:body-field
 
 **Kind:** implementation
 
@@ -130,7 +130,7 @@ The same function is importable as `github_body_field.normalise(body, known_fiel
 
 ## Body format assumptions
 
-This parser is the one implementation of the body-field contract ([`tools/github/issue-template.md`](../github/issue-template.md)):
+This parser is the one implementation of the body-field contract ([`tools/body-field-contract/contract.md`](../body-field-contract/contract.md)):
 every reader and writer of a field, `generate-cve-json` and `vetted-ops` (a byte-identical copy) included, goes through it.
 
 - lines end at `\n`, `\r\n` or `\r` — not at the other characters `str.splitlines` breaks on;

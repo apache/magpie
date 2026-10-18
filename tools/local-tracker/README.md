@@ -20,7 +20,7 @@
 
 # Local file tracker
 
-**Capability:** contract:security-tracker
+**Capability:** contract:security-tracker + contract:body-field
 
 **Kind:** implementation
 
@@ -78,7 +78,7 @@ It records:
 | `title_source` | `key`, or `h1` when the title is the report's first `# ` heading. |
 | `id` | `prefix`, zero-pad `width`, and `slug` when names carry a title slug (`2024-007-xss-in-login`). |
 | `state` | `mode: field` (a metadata value) or `mode: directory` (a sub-folder per state, such as `open/` and `closed/`), and the values or folder names that count as open and closed. |
-| `field_heading_level` | The heading level of body fields (`###` by default). At `###` the [body-field contract](../github/issue-template.md) applies: every column-0 `###` line ends a field, code block or not, a heading inside a closed code block is never a field, a duplicate or disputed field is refused (exit `4`), and a field value has every line that would end a field escaped with a leading `\`; a whole report (`create`, `edit`) has every `###` line inside a closed block escaped and a fence it leaves open closed in its own field. Another level keeps the heading-level section split. |
+| `field_heading_level` | The heading level of body fields (`###` by default). At `###` the [body-field contract](../body-field-contract/contract.md) applies: every column-0 `###` line ends a field, code block or not, a heading inside a closed code block is never a field, a duplicate or disputed field is refused (exit `4`), and a field value has every line that would end a field escaped with a leading `\`; a whole report (`create`, `edit`) has every `###` line inside a closed block escaped and a fence it leaves open closed in its own field. Another level keeps the heading-level section split. |
 | `comments_mode`, `rollup_mode` | `file` (beside the report) or `section` (a `## ` heading at the end of the report). |
 | `url_template` | Optional private browse URL, for example a ViewVC or gitweb address. Without it, the `url` field is the path relative to the working copy. |
 | `access_restricted` | The human-confirmed access check that unlocks writes. |

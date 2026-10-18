@@ -418,6 +418,15 @@ family:utilities:
           - 'tools/skill-evals/evals/skill-reconciler/**'
           - 'tools/skill-evals/evals/write-skill/**'
 
+contract:body-field:
+  - any:
+      - changed-files:
+          - any-glob-to-any-file:
+              - 'tools/body-field-contract/**'
+              - 'tools/github-body-field/**'
+              - 'tools/jira/**'
+              - 'tools/local-tracker/**'
+
 contract:change-request:
   - any:
       - changed-files:

@@ -21,7 +21,7 @@ each followed by the field's value. This module exposes a pure
 parser/replacer so the CLI can run without ever bringing the body
 into the agent's context, and so the (numerous) tricky edge cases
 can be unit-tested in isolation. It is the one implementation of the
-body-field contract (tools/github/issue-template.md): every reader and
+body-field contract (tools/body-field-contract/contract.md): every reader and
 writer of a field, generate-cve-json included, goes through it.
 
 The contract:

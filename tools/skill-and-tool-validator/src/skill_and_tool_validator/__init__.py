@@ -399,6 +399,7 @@ TOOL_CAPABILITIES = {
     "contract:typed-decision",
     "contract:people",
     "contract:security-tracker",
+    "contract:body-field",
     "substrate:analytics",
     "substrate:sandbox",
     "substrate:action-guard",
