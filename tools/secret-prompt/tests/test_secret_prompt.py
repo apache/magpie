@@ -370,6 +370,8 @@ def test_every_prompt_names_the_resolved_command_and_variables(monkeypatch: pyte
         (["--env", "T", "--set", "dyld_insert_libraries=x", "--", "true"], "dyld_insert_libraries changes"),
         (["--env", "T", "--set", "PYTHONPATH=/tmp", "--", "true"], "PYTHONPATH changes"),
         (["--env", "T", "--set", "HOME=/tmp", "--", "true"], "HOME changes"),
+        (["--env", "T", "--set", "NODE_OPTIONS=--require=x", "--", "true"], "NODE_OPTIONS changes"),
+        (["--env", "T", "--set", "NODE_REPL_EXTERNAL_MODULE=x", "--", "true"], "NODE_REPL_EXTERNAL_MODULE"),
         (
             ["--env", "T", "--prompt", "Paste\n\nIt will be passed to: twine", "--", "true"],
             "--prompt must be one line",
@@ -392,6 +394,75 @@ def test_too_long_command_is_refused_not_truncated(
     _answer(monkeypatch, error=AssertionError("must not ask"))
     assert main(["--env", "T", "--backend", "tty", "--", "true", "x" * 1000]) == 1
     assert "longer than 1000 characters; nothing was asked" in capsys.readouterr().err
+
+
+def test_inherited_values_are_shown_only_for_routing_names(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("XSP_UPLOAD_URL", "https://example.invalid/")
+    monkeypatch.setenv("XSP_SECRET_KEY", "s3cr3t")
+    monkeypatch.setenv("XSP_AUTH_URL", "https://user:pw@example.invalid/")
+    monkeypatch.setenv("XSP_INDEX_URL", "https://__token__:pypi-Ag/E@upload.example.invalid/legacy/")
+    monkeypatch.setenv("XSP_REPOSITORY_URL", "https://example.invalid/simple?token=t0k#frag")
+    monkeypatch.setenv("XSP_MODE", "fast")
+    prompt = _captured_prompt(monkeypatch, ["--env", "XSP_TOKEN", "true"])
+    assert prompt.splitlines()[-6:] == [
+        "  XSP_AUTH_URL=(set; value not shown)",
+        "  XSP_INDEX_URL=(set; value not shown)",
+        "  XSP_MODE=(set; value not shown)",
+        "  XSP_REPOSITORY_URL=https://example.invalid/simple?***#***",
+        "  XSP_SECRET_KEY=(set; value not shown)",
+        "  XSP_UPLOAD_URL=https://example.invalid/",
+    ]
+    for leaked in ("s3cr3t", "pw@", "pypi-Ag", "t0k", "frag"):
+        assert leaked not in prompt
+
+
+def test_inherited_denied_and_index_values_are_shown(monkeypatch: pytest.MonkeyPatch) -> None:
+    for name in [name for name in os.environ if name.startswith("NODE_")]:
+        monkeypatch.delenv(name)
+    monkeypatch.setenv("NODE_OPTIONS", "--require=/tmp/x.js")
+    monkeypatch.setenv("NODE_PUBLISH_INDEX", "https://example.invalid/")
+    prompt = _captured_prompt(monkeypatch, ["--env", "NODE_AUTH_TOKEN", "true"])
+    assert prompt.splitlines()[-2:] == [
+        "  NODE_OPTIONS=--require=/tmp/x.js",
+        "  NODE_PUBLISH_INDEX=https://example.invalid/",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("argv", "env", "what"),
+    [
+        (["--", "sh", "-c", "curl evil\x1b[2K\r/usr/bin/twine upload"], {}, "the command"),
+        (["--", "true", "ok\nIt will be passed to:"], {}, "the command"),
+        (["--", "true", "‮exe.enimt"], {}, "the command"),
+        (["--set", "XSP_USER=a\nb", "--", "true"], {}, "XSP_USER"),
+        (["--set", "XSP_USER=" + "x" * 201, "--", "true"], {}, "XSP_USER"),
+        (["--", "true"], {"XSP_UPLOAD_URL": "https://ok.invalid/‮"}, "XSP_UPLOAD_URL"),
+        (["--", "true"], {"XSP_X\nIt will be passed to:": "v"}, "an inherited variable name"),
+    ],
+)
+def test_refuses_to_show_what_could_rewrite_the_prompt(
+    argv: list[str],
+    env: dict[str, str],
+    what: str,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+    _answer(monkeypatch, error=AssertionError("must not ask"))
+    assert main(["--env", "XSP_TOKEN", "--backend", "tty", *argv]) == 1
+    assert f"{what} cannot be shown as it is" in capsys.readouterr().err
+
+
+def test_npm_auth_token_is_allowed(
+    monkeypatch: pytest.MonkeyPatch, exec_calls: list[tuple[str, list[str], dict[str, str]]]
+) -> None:
+    for name in [name for name in os.environ if name.startswith("NODE_")]:
+        monkeypatch.delenv(name)
+    _answer(monkeypatch, "npm_abc")
+    main(["--env", "NODE_AUTH_TOKEN", "--backend", "tty", "--", "true"])
+    [(_, _, env)] = exec_calls
+    assert env["NODE_AUTH_TOKEN"] == "npm_abc"
 
 
 @pytest.mark.parametrize("asker", [secret_prompt.ask_zenity, secret_prompt.ask_kdialog])

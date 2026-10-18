@@ -57,6 +57,13 @@ class PromptBackendError(Exception):
 # caller set them would make the command shown in the prompt run something else.
 _DENIED_NAMES = {"PATH", "IFS", "HOME", "ENV", "BASH_ENV", "SHELLOPTS", "BASHOPTS", "PS4"}
 _DENIED_PREFIXES = ("LD_", "DYLD_", "PYTHON", "PERL5", "RUBY", "NODE_", "GIT_")
+# npm's publish credential; it only authenticates, so it is safe to set despite its prefix.
+_ALLOWED_NAMES = {"NODE_AUTH_TOKEN"}
+# An inherited variable's value is shown only when its name says where the secret goes; any
+# other may itself be a credential, and a dialog's prompt text is visible in its argv.
+_ROUTING_WORDS = ("URL", "REPOSITORY", "REGISTRY", "REGISTRIES", "INDEX", "HOST", "ENDPOINT", "USER")
+_SECRET_WORDS = ("TOKEN", "PASS", "SECRET", "KEY", "AUTH", "CREDENTIAL")
+_HIDDEN_VALUE = "(set; value not shown)"
 _MAX_TEXT = 200
 _MAX_COMMAND = 1000
 # Characters GTK and Qt may render as markup in a dialog label.
@@ -234,6 +241,8 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
 
 def is_denied_name(name: str) -> bool:
     upper = name.upper()
+    if upper in _ALLOWED_NAMES:
+        return False
     return upper in _DENIED_NAMES or upper.startswith(_DENIED_PREFIXES)
 
 
@@ -241,11 +250,50 @@ def is_plain_text(text: str) -> bool:
     return len(text) <= _MAX_TEXT and not text.startswith("-") and all(char.isprintable() for char in text)
 
 
+def is_routing_name(name: str) -> bool:
+    upper = name.upper()
+    return any(word in upper for word in _ROUTING_WORDS) and not any(word in upper for word in _SECRET_WORDS)
+
+
+def find_unshowable(command: Sequence[str], extra: Mapping[str, str]) -> str | None:
+    """Name the first shown string that a control or bidi character could make lie, if any."""
+    # shlex.join quotes a newline, ESC or U+202E but does not escape it, so it would still
+    # rewrite or reorder the line the operator checks.
+    if not all(arg.isprintable() for arg in command):
+        return "the command"
+    for name, value in extra.items():
+        # An inherited name comes from the environment unchecked and can hold anything but '='.
+        if not name.isidentifier():
+            return "an inherited variable name"
+        if len(value) > _MAX_TEXT or not value.isprintable():
+            return name
+    return None
+
+
+def redact_url(value: str) -> str:
+    """Show a URL up to its path: the host the operator checks, not a credential carried in it."""
+    if "://" not in value:
+        return value
+    # urlsplit misreads an unencoded '/' in a password, so any '@' hides the whole URL.
+    if "@" in value:
+        return _HIDDEN_VALUE
+    try:
+        parts = urllib.parse.urlsplit(value)
+    except ValueError:
+        return _HIDDEN_VALUE
+    shown = urllib.parse.urlunsplit((parts.scheme, parts.netloc, parts.path, "", ""))
+    return shown + ("?***" if parts.query else "") + ("#***" if parts.fragment else "")
+
+
 def build_prompt(text: str, command: Sequence[str], extra: Mapping[str, str]) -> str:
     """The caller's text, then what it cannot change: the command and the variables it gets."""
     lines = [text, "", "It will be passed to:", shlex.join(command)]
     if extra:
-        lines += ["", "with:", *(f"  {name}={value}" for name, value in sorted(extra.items()))]
+        lines += [
+            "",
+            "with:",
+            *(f"  {name}={redact_url(value)}" for name, value in sorted(extra.items())),
+        ]
     return "\n".join(lines)
 
 
@@ -271,7 +319,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     if family:
         for name, value in os.environ.items():
             if name.startswith(family) and name != args.env and name not in extra:
-                extra[name] = value
+                # A denied name (NODE_OPTIONS for NODE_AUTH_TOKEN) can make the command run
+                # something else, so its value is always shown.
+                shown = is_routing_name(name) or is_denied_name(name)
+                extra[name] = value if shown else _HIDDEN_VALUE
+    unshowable = find_unshowable(command, extra)
+    if unshowable:
+        print(
+            f"secret-prompt: {unshowable} cannot be shown as it is (a control or invisible character, "
+            f"or a value over {_MAX_TEXT} characters); nothing was asked",
+            file=sys.stderr,
+        )
+        return 1
     prompt = build_prompt(args.prompt or f"Paste the value for {args.env}", command, extra)
     backends = [args.backend] if args.backend != "auto" else None
     failures: list[str] = []

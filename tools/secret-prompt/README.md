@@ -116,8 +116,22 @@ Seatbelt sandbox turns off Apple Events — so run the step outside the sandbox
   before pasting: an agent chooses the command, and this is what stops a
   look-alike prompt from handing the token to something that prints or
   forwards it.
+- An inherited variable's value is shown only when its name says where the
+  secret goes (`URL`, `REPOSITORY`, `REGISTRY`/`REGISTRIES`, `INDEX`, `HOST`,
+  `ENDPOINT`, `USER`) and nothing suggests it is a credential (`TOKEN`, `PASS`,
+  `SECRET`, `KEY`, `AUTH`, `CREDENTIAL`), or when it is one of the denied names
+  below (`NODE_OPTIONS` beside `NODE_AUTH_TOKEN`). Every other one is listed as
+  `NAME=(set; value not shown)`. A shown URL stops at its path, with any query
+  or fragment as `?***`/`#***`, and one containing `@` is hidden whole, so the
+  prompt, which a dialog receives in its argv, does not carry the credentials
+  these usually hold. An inherited name that is not a plain identifier is
+  refused. Only the secret's own prefix is scanned: npm's registry settings
+  (`npm_config_registry`, `.npmrc`) are not shown.
 - The command is shown in full or not at all: one longer than 1000 characters
-  is refused, never truncated. `--prompt` and `--title` must be a single
+  is refused, never truncated. Every command argument and every shown value
+  must be printable — no newline, escape sequence or invisible bidi character
+  that could rewrite or reorder those lines — and a value may be at most 200
+  characters; otherwise nothing is asked. `--prompt` and `--title` must be a single
   printable line of at most 200 characters that does not start with `-`, so
   they cannot imitate the lines above; `zenity` and `kdialog`, whose toolkits may
   render `<` and `&` as markup, decline a prompt containing them and `auto`
@@ -125,7 +139,8 @@ Seatbelt sandbox turns off Apple Events — so run the step outside the sandbox
 - `--env` and `--set` refuse names that change how the command runs or where it
   reads its configuration: `PATH`, `IFS`, `HOME`, `ENV`, `BASH_ENV`,
   `SHELLOPTS`, `BASHOPTS`, `PS4`, and the `LD_*`, `DYLD_*`, `PYTHON*`, `PERL5*`,
-  `RUBY*`, `NODE_*` and `GIT_*` families.
+  `RUBY*`, `NODE_*` and `GIT_*` families — except `NODE_AUTH_TOKEN`, npm's
+  publish credential.
 
 What it cannot do is vouch for an environment the caller already controls:
 an agent that sets `LD_PRELOAD` or edits `~/.pypirc` *before* calling it can
