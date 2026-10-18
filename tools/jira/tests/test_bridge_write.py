@@ -139,6 +139,11 @@ def _run(
         "ISSUE_TRACKER_URL": mock_url,
         "ISSUE_TRACKER_PROJECT": "TEST",
     }
+    # The agent sandbox refuses IPv6 loopback sockets, so keep the JVM on IPv4 to reach the mock server; harmless elsewhere.
+    java_options = os.environ.get("JAVA_TOOL_OPTIONS", "")
+    if "-Djava.net.preferIPv4Stack=true" not in java_options:
+        java_options = f"{java_options} -Djava.net.preferIPv4Stack=true".strip()
+    env["JAVA_TOOL_OPTIONS"] = java_options
     if token:
         env["JIRA_API_TOKEN"] = token
     if env_extra:
