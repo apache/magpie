@@ -117,9 +117,9 @@ def run_checker(state: dict[str, object], repo_root: Path, scratch: Path) -> str
         # command — a stub on PATH that prints the case's listing. Passing
         # `--plugin-list` would describe the listing as already read, which
         # is exactly the "the harness is then not known" case.
-        markers = HARNESS_ENV.get(harness)
-        if markers is None:
+        if not isinstance(harness, str) or harness not in HARNESS_ENV:
             raise ValueError(f"`harness` must be one of {', '.join(sorted(HARNESS_ENV))} or null")
+        markers: dict[str, str] = HARNESS_ENV[harness]
         bin_dir = scratch / "bin"
         bin_dir.mkdir()
         listing_arg = str(listing).replace("\\", "/")
