@@ -118,7 +118,14 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
   window exists, so the watcher's close signal only sets the flag
   `watch_for_stop` polls; Tk's own handler called `Tcl_Exit` inside the
   signal and could deadlock the window mid-redraw until force-quit, and a
-  regression test pins the ordering (#1376). The
+  regression test pins the ordering (#1376). Visibility never depends on
+  activation, which macOS 14 made cooperative: a watcher started in the
+  background can be refused it, so every window is ordered front with
+  `orderFrontRegardless` at a level above other windows and joins all Spaces
+  (including a full-screen terminal's), and activation is only asked for
+  with `activate`, falling back to the deprecated
+  `activateIgnoringOtherApps:`; a refusal costs the keyboard, not the
+  window (#1697). The
   git the agent runs reads the same global config, so the wrapper's
   two files are a `sandbox.filesystem.allowRead` grant of their own
   (nothing wider under `~/.claude/`), or every sandboxed signed commit
@@ -162,6 +169,15 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
   `git --no-pager commit`), never by a fixed argv slice, and
   `GuardContext.git_subcommand()` gives contributed guards the same
   resolution `gh_subcommand()` gives for `gh` (#1330).
+  Every guard first unwraps the prefix wrappers that run their argument,
+  `env` (its GNU / BSD options, clustered short flags and `NAME=value`
+  assignments, which still count as inline overrides) and `command -p`,
+  until none is left, so `env git commit …` reaches the same guards as
+  `git commit …`; `command -v` is a lookup and is left alone. A segment
+  nested past a generous depth limit, carrying an undocumented `env`
+  option or another `command` flag, is marked unparsed and refused, and
+  `env -S` is refused outright, because GNU env splits its string with
+  escapes `shlex` does not reproduce (#1691, #1694).
   Hooks invoke the engine as a bare `python3`; when that resolves to a
   pre-3.11 interpreter, the engine re-runs itself under the newest
   `python3.N` (3.11+) on `PATH`, and exits 1 with an actionable message
@@ -245,7 +261,13 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
   the framework checkout's settings (the `gh` read allows, the remaining
   exclusions, family-specific domains, personal tool paths), reconciled into
   each contributor's `.claude/settings.local.json`. `sandbox-lint` lints the
-  two merged and keeps every `deny` / `ask` in the floor.
+  two merged and keeps every `deny` / `ask` in the floor. Its workflow also
+  runs when `.claude/settings.local.json` changes and fails while that file
+  is tracked, since a committed copy would load for everyone and its
+  scalars override the floor's (#1692). sandbox-lint refuses
+  `~/.config/apache-magpie` in `allowRead`: the Gmail OAuth token there is
+  read only by the drafting MCP server outside the sandbox, and the
+  template no longer grants it or the Google API hosts (#1681).
 - `.gemini/settings.json` and `.gemini/policies/magpie.toml` — Magpie's Gemini profile: tool-sandboxing and an explicitly loaded User-tier approval policy.
   Scoped shell reads are allowed; other shell calls, native edits, and MCP calls ask; listed commands and credential paths deny.
   Credential-path denies name the canonical `grep_search`; the native probe verifies its `search_file_content` alias, canonical policy names, and search/multi-file/web/resource argument schemas against the loaded runtime.
