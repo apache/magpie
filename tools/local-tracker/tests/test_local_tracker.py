@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import stat
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -583,6 +584,19 @@ def test_unround_trippable_front_matter_is_never_rewritten(
     assert main(["--root", str(root), "edit", "1", "--add-label", "x"]) == 4
     assert "cannot rewrite" in capsys.readouterr().err
     assert (root / "VULN-1" / "report.md").read_text() == original
+
+
+def test_a_new_report_is_readable_by_its_owner_only(
+    fresh: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Reports are embargoed: neither the file nor its folder (named after the title) is open to other users."""
+    ident = new_report(capsys, fresh, tmp_path)
+    c = write(tmp_path / "c.md", "A comment")
+    assert run(capsys, fresh, "comment", ident, "--body-file", str(c), "--author", "@carol")[0] == 0
+    folder = fresh / ident
+    assert stat.S_IMODE(folder.stat().st_mode) == 0o700
+    written = list(folder.iterdir())
+    assert written and all(stat.S_IMODE(p.stat().st_mode) == 0o600 for p in written)
 
 
 def test_create_retries_when_another_writer_took_the_id(

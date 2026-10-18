@@ -270,6 +270,9 @@ class Tracker:
         A path-based check followed by `open()` leaves a window in which a
         parent directory can be swapped for a symlink; opening each component
         relative to the previous descriptor with `O_NOFOLLOW` closes it.
+
+        What it creates is the owner's alone (folders 0700, files 0600): the
+        reports are embargoed, and a folder's name carries the title slug.
         """
         rel = os.path.relpath(os.path.abspath(path), os.path.abspath(self.root))
         parts = Path(rel).parts
@@ -286,7 +289,7 @@ class Tracker:
                         raise
                     # Created concurrently is fine: open it below like any other.
                     with contextlib.suppress(FileExistsError):
-                        os.mkdir(name, 0o755, dir_fd=dir_fd)
+                        os.mkdir(name, 0o700, dir_fd=dir_fd)
                     next_fd = os.open(name, dir_flags, dir_fd=dir_fd)
                 except OSError as exc:
                     if exc.errno in (errno.ELOOP, errno.ENOTDIR):
@@ -297,7 +300,7 @@ class Tracker:
                 os.close(dir_fd)
                 dir_fd = next_fd
             try:
-                return os.open(parts[-1], flags | os.O_NOFOLLOW, 0o644, dir_fd=dir_fd)
+                return os.open(parts[-1], flags | os.O_NOFOLLOW, 0o600, dir_fd=dir_fd)
             except OSError as exc:
                 if exc.errno == errno.ELOOP:
                     raise refused(f"{path} is a symlink; refusing to follow it") from exc
