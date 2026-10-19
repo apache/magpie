@@ -5,7 +5,7 @@
 
 A one-minute tour, then straight back to what you asked for.
 
-## Configure it
+## ⚙️ Configure it
 
 Start with `<upstream>`, the project's review criteria and its area labels.
 `pr-management-code-review-criteria.md` names the criteria sources;
@@ -21,7 +21,7 @@ Optional companion: roborev reviews your own branch before it becomes a PR;
 this family helps you review and manage other people's PRs.
 Neither requires the other.
 
-## The typical flow
+## 🔄 The typical flow
 
 1. **Triage the queue** — propose a disposition for each PR — *"triage the open PRs"*
 2. **Route reviewers** — use the roster to suggest the right people — *"who should review this PR?"*
@@ -34,15 +34,8 @@ Neither requires the other.
 Nothing is written, posted, labelled or closed without your explicit confirmation.
 Quick-merge never merges for you: it hands you the command.
 
-## Just ask
+## 💬 Just ask
 
-Plain language works:
-
-- *"check my branch before I open my first PR"*
-- *"triage the PRs waiting for review"*
-- *"review this PR stack in dependency order"*
-- *"draft a review, but do not post it"*
-- *"help this contributor understand the requested change"*
 - *"check my branch before I open my first PR"*
 - *"triage the PRs waiting for review"*
 - *"who should review this PR?"*
@@ -53,7 +46,7 @@ Plain language works:
 - *"what changed in the queue since the last sweep?"*
 - *"summarise the PR backlog by area"*
 
-## Make it yours
+## 🎨 Make it yours
 
 Change a workflow by describing the change:
 

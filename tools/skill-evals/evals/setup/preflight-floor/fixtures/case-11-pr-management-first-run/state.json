@@ -19,8 +19,6 @@
     }
   },
   "skill": "pr-triage",
-  "welcome": true
-  "hash": "sha256:54dc4ba1be7b36d4",
-  "skill": "pr-triage",
-  "welcome": true
+  "welcome": true,
+  "hash": "sha256:54dc4ba1be7b36d4"
 }

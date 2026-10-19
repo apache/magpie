@@ -390,7 +390,7 @@ def test_show_without_color_prints_the_markdown(capsys) -> None:
 # --- what ships -----------------------------------------------------------------------
 
 
-def test_the_rules_section_and_both_guides_ship() -> None:
+def test_the_rules_section_and_all_guides_ship() -> None:
     assert welcome.SECTION in sections.available()
     assert {"general", "pr-management", "security", "utilities"} <= set(welcome.guides())
     assert welcome.family_guides() == [g for g in welcome.guides() if g != "general"]

@@ -40,6 +40,8 @@
 extend-ignore-re = [
   "`[0-9a-f]{7,40}`",
   "surface_hash: sha256:[0-9a-f]+",
+  # Fixture state stores the invoking skill's generated surface digest as JSON.
+  '"hash": "sha256:[0-9a-f]+"',
   "FRAMEWORK_FINGERPRINT = \"sha256:[0-9a-f]+\"",
 ]
 
