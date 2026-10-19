@@ -47,7 +47,9 @@ def _workspace(tmp_path: Path, members: dict[str, str]) -> Path:
     (tmp_path / "pyproject.toml").write_text(f"[tool.uv.workspace]\nmembers = [{listed}]\n")
     for path, tool in members.items():
         (tmp_path / path / "tests").mkdir(parents=True)
-        (tmp_path / path / "pyproject.toml").write_text(tool)
+        (tmp_path / path / "pyproject.toml").write_text(
+            f'[project]\nname = "pkg-{path.rsplit("/", 1)[-1]}"\n' + tool
+        )
     return tmp_path
 
 
@@ -119,7 +121,18 @@ def test_the_cli_prints_the_matrix(tmp_path, capsys):
     changed = tmp_path / "changed.txt"
     changed.write_text("tools/b/src/y.py\n")
     assert cpb.main(["--root", str(root), "--changed-file", str(changed)]) == 0
-    assert json.loads(capsys.readouterr().out) == [{"key": "b", "name": "b", "paths": "tools/b"}]
+    assert json.loads(capsys.readouterr().out) == [
+        {"key": "b", "name": "b", "paths": "tools/b", "packages": "pkg-b"}
+    ]
+
+
+def test_packages_follow_the_paths_of_each_batch(tmp_path, capsys):
+    members = {f"tools/m{i:02}": PYTEST for i in range(cpb.SOLO_MAX + 3)}
+    root = _workspace(tmp_path, members)
+    assert cpb.main(["--root", str(root)]) == 0
+    for batch in json.loads(capsys.readouterr().out):
+        names = [p.rsplit("/", 1)[-1] for p in batch["paths"].split()]
+        assert batch["packages"].split() == [f"pkg-{n}" for n in names]
 
 
 @pytest.mark.skipif(not (REPO_ROOT / "pyproject.toml").is_file(), reason="needs the framework tree")

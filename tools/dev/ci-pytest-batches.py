@@ -31,9 +31,10 @@ members are grouped:
 * more: at most `MAX_BATCHES` jobs, balanced by the size of each member's tests
   (heaviest first onto the lightest job), each running its members one by one.
 
-Prints a JSON array of `{"key", "name", "paths"}` for the workflow's matrix
-(`paths` space-separated). `--changed-file` names a file listing the changed
-paths; omit it for a full run.
+Prints a JSON array of `{"key", "name", "paths", "packages"}` for the workflow's
+matrix (`paths` and `packages` space-separated, in the same order; `packages` are
+the members' project names, so a job syncs only what its members declare).
+`--changed-file` names a file listing the changed paths; omit it for a full run.
 """
 
 from __future__ import annotations
@@ -89,6 +90,11 @@ def weight(root: Path, path: str) -> int:
     return max(1, sum(len(f.read_bytes().splitlines()) for f in sorted(tests.rglob("*.py"))))
 
 
+def package(root: Path, path: str) -> str:
+    with (root / path / "pyproject.toml").open("rb") as f:
+        return str(tomllib.load(f)["project"]["name"])
+
+
 def _name(path: str) -> str:
     return path.rsplit("/", 1)[-1]
 
@@ -127,7 +133,10 @@ def main(argv: list[str] | None = None) -> int:
             if line.strip()
         ]
     paths = select(args.root, changed)
-    json.dump(batches(paths, {p: weight(args.root, p) for p in paths}), sys.stdout)
+    out = batches(paths, {p: weight(args.root, p) for p in paths})
+    for batch in out:
+        batch["packages"] = " ".join(package(args.root, p) for p in batch["paths"].split())
+    json.dump(out, sys.stdout)
     print()
     return 0
 

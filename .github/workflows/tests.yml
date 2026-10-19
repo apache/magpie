@@ -138,19 +138,28 @@ jobs:
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7  # v10.2.0
         with:
           enable-cache: true
-          # One slot for every leg: each one syncs `--all-packages`, so all
-          # of them store the same contents. (The suffix used to interpolate
-          # the matrix object, which renders as `tests-Object` — one shared
-          # slot already, by accident.)
-          cache-suffix: "tests"
-      - name: Sync workspace (installs ruff / mypy / pytest from root dev group)
+          # One slot per batch: each syncs only its own members, so a shared
+          # key would race and store the wrong contents. A batch's key is
+          # stable across runs (the split is deterministic), and a single
+          # member's key is its name.
+          cache-suffix: "tests-${{ matrix.batch.key }}"
+      - name: Sync the batch's members (and ruff / mypy / pytest from the root dev group)
         # Dev-group deps live in the root pyproject (`[dependency-groups]
         # dev`) and only land in the shared workspace `.venv` when an
-        # explicit `--group dev` sync runs. `--all-packages` ensures
-        # every workspace member is installed too (the root has
-        # `package = false`, so without it members and their
-        # `[project.scripts]` entry points would be skipped).
-        run: uv sync --all-packages --group dev
+        # explicit `--group dev` sync runs. One `--package` per member
+        # installs that member, its `[project.scripts]` entry points and
+        # what it declares — workspace siblings included — and nothing
+        # else, so a test that imports a sibling it does not declare
+        # fails here rather than passing by accident. `--frozen`: the
+        # lock is the input, never rewritten in CI.
+        env:
+          MEMBER_PACKAGES: ${{ matrix.batch.packages }}
+        run: |
+          args=()
+          for package in ${MEMBER_PACKAGES}; do
+            args+=(--package "${package}")
+          done
+          uv sync --frozen --group dev "${args[@]}"
       - name: Run pytest
         # `--directory` (not `--project`) — both move uv's project
         # context, but `--directory` also changes cwd, which pytest
