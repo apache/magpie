@@ -23,9 +23,9 @@ when_to_use: |
   open trackers describing the same bug from different angles.
 argument-hint: "[kept-issue] [duplicate-issue]"
 capability: capability:resolve
-surface_hash: sha256:3c9f502b802d2037
+surface_hash: sha256:4923aac5c8ba1af5
 license: Apache-2.0
-measured_tokens: 6312
+measured_tokens: 6029
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -190,6 +190,8 @@ Only on the user's confirmation run `tracker-publish` with that message file
 | `dedupe <keep> <drop>` | same, without the `#` |
 | `dedupe #NNN` (single argument) | ambiguous — ask the user which one is kept; do not guess |
 
+`<sm> selector` (`{invocation, tracker, platform}`) reads the two trackers, kept first, refuses one tracker, three, a range or another repository, and prints the two Step 1 reads.
+
 Picking which is kept vs. dropped is a user decision; the skill
 does **not** auto-pick. Practical guidance to offer when asked:
 
@@ -214,6 +216,10 @@ does **not** auto-pick. Practical guidance to offer when asked:
 - **`gh` CLI authenticated** with collaborator access to `<tracker>`,
   to read both trackers, edit the kept body, close the dropped tracker and add / remove labels.
 - **`uv` installed**, for the Step 5 CVE-JSON regeneration.
+- **The [`security-management`](../../../../tools/security-management/README.md) tool.**
+  `<sm> X` stands for `uv run --project <framework>/tools/security-management security-management issue-deduplicate X --input <scratch>/<file>.json`.
+  It prints JSON and runs nothing; tracker text reaches it only in files written with the Write tool.
+  A refusal exits `2` with `{ok: false, refused}`: show it and stop the step.
 
 See
 [Prerequisites for running the agent skills](../../../../docs/quick-start/prerequisites.md#prerequisites-for-running-the-agent-skills).
@@ -246,57 +252,39 @@ If any check fails, stop: a partial dedup (body merged but dropped tracker left 
 ## Step 1 — Fetch and classify both trackers
 
 ```bash
-gh issue view <keep>  --repo <tracker> --json number,title,state,body,labels,milestone,assignees,author,comments
-gh issue view <drop>  --repo <tracker> --json number,title,state,body,labels,milestone,assignees,author,comments
+gh issue view <keep>  --repo <tracker> --json number,title,state,body,labels,milestone,assignees,author,comments,createdAt
+gh issue view <drop>  --repo <tracker> --json number,title,state,body,labels,milestone,assignees,author,comments,createdAt
 ```
 
-`comments` stays in the field set: Step 2's CVE-JSON-attachment check reads it, and so does the legacy-bot-comment detection behind Step 5's fold-legacy sub-step.
+`comments` stays in the field set: Step 2's CVE-JSON-attachment check reads it, and so does the legacy-bot-comment detection behind Step 5's fold-legacy sub-step; `createdAt` orders the mailing threads in Step 3, earliest report first.
 
-Verify:
+Write `{tracker, scope_labels, keep, drop}` — each side `{number, state, labels, cve_link, cve_state}`, the *CVE tool link* read from its body — and run `<sm> classify`.
+Its `verdict` is `proceed`, `blocked` (show every `blockers` entry) or `probe` (run `<cve-tool>`'s `fetch_current_state` for each `probe` CVE, pass the state as `cve_state`, and classify again).
+It checks:
 
 - Both trackers are in state `open`.
   Merging into or out of a closed tracker is almost always a mistake:
   surface it as a blocker if either side is already closed and ask the user to confirm.
-- Both have the **same scope label** — the recognised scope
+- Both have the **same scope label**, and exactly one each — the recognised scope
   labels come from `scope_detection.labels` in
-  [`<project-config>/project.md`](../../../../<project-config>/project.md#scope-detection),
-  so one of `<scope-a>`, `<scope-b>`, or `<scope-c>` matches on both.
-  If the scope labels differ, refuse the merge and tell the user this is a
+  [`<project-config>/project.md`](../../../../<project-config>/project.md#scope-detection).
+  If the scope labels differ, the merge is refused: this is a
   multi-scope report to be handled by `security-issue-sync`'s scope-split flow instead.
 - Neither tracker is already labelled `duplicate`.
   That would mean a partial merge was left half-done: surface it as a blocker and let the user decide how to recover.
+- The CVE rules of *Inputs*: a CVE only on the dropped side means keep that side instead, a `public` record refuses the merge,
+  and with two CVEs the kept one must be at least as far along; its `retract` names the dropped side's CVE that item 7 retracts.
 
 ---
 
 ## Step 2 — Extract the per-field values from both
 
-For each tracker, extract the template fields:
-
-- *The issue description* — typically the reporter's full message.
-  In older trackers the field may not have an explicit heading
-  (everything above *"Short public summary for publish"* is the
-  description by convention).
-- *Short public summary for publish*
-- *Affected versions*
-- *Security mailing list thread*
-- *Public advisory URL*
-- *Reporter credited as*
-- *PR with the fix*
-- *CWE*
-- *Severity*
-- *CVE tool link*
-
-Also capture:
-
-- Each tracker's **labels** (scope, `cve allocated`, `pr *`,
-  `announced - emails sent`, etc.).
-- Each tracker's **milestone** — per-scope naming conventions live in
-  [`<project-config>/milestones.md`](../../../../<project-config>/milestones.md),
-  one milestone shape per `scope_detection.labels` entry.
-- Each tracker's **assignees**.
-- Whether each tracker has a **CVE JSON attachment** comment (from
-  `generate-cve-json --attach`) — only the kept side's attachment
-  will be regenerated in Step 5.
+Write `{keep, drop, body_fields}` — each side `{number, body, labels, milestone, comments}` from Step 1 — and run `<sm> fields`.
+It reads every template field of both bodies through github-body-field (a field it will not decide on stops the merge),
+with each side's labels, milestone and whether it carries a CVE JSON attachment (only the kept side's is regenerated in Step 5),
+and flags `cwe_conflict` (two different CWEs: a blocker for the triager, never silently picked)
+and `severity_propagation_risk` (the dropped side's severity differs: it is never carried over).
+Per-scope milestone conventions live in [`<project-config>/milestones.md`](../../../../<project-config>/milestones.md).
 
 ---
 
@@ -308,95 +296,44 @@ Merged-body template, bot/AI credit policy, and verbatim-append rules: [`merge-t
 
 ## Step 4 — Build the rollup-entry proposals
 
-Kept-side and dropped-side rollup-entry templates: [`merge-templates.md`](merge-templates.md#step-4--build-the-rollup-entry-proposals).
+Kept-side and dropped-side rollup entries: [`merge-templates.md`](merge-templates.md#step-4--build-the-rollup-entry-proposals).
 
 ---
 
 ## Step 5 — Confirm with the user, then apply sequentially
 
-Present the proposal:
-
-- Numbered items for the body update, each status comment, the
-  `duplicate` label application on the dropped side, the
-  close-issue action on the dropped side, and the CVE-JSON regen
-  on the kept side.
-- The resulting merged body rendered in full (not a diff), so the
-  user can proofread end to end before confirming.
+Write `{tracker, keep, drop, cve_id, retract_cve, blockers}` and run `<sm> proposal`; present its numbered items
+(1 the merged body, 2 and 3 the two rollup entries, 4 the `duplicate` label, 5 the close, 6 the CVE JSON, 7 the retraction only when both trackers had a CVE)
+with any blockers, and the merged body rendered in full (not a diff), so the user can proofread end to end before confirming.
 
 Confirmation forms:
 
 - `all` — apply every proposed action.
-- `1,3,5` — apply selected items only (for example, *"apply body
-  update and status comment but don't close the duplicate yet — I
-  want to triple-check"*).
+- `1,3,5` — apply selected items only, also with a comment after a dash (for example, *"1,2,3,4 — skip 5 and 6 for now, I want to triple-check"*).
 - `none` / `cancel` — bail.
 - Free-form edits — regenerate only the specified item and
   re-confirm.
 
-After confirmation, apply **sequentially** (never in parallel):
+Write `{reply, items}` and run `<sm> parse-reply`: nothing applies by default, and an unclear reply is `ambiguous` or an `edit`, so ask again.
 
-1. `gh issue edit <keep> --body-file <tmpfile>` — updated body
-2. Rollup-comment upsert on the kept tracker per
-   [`tools/github/status-rollup.md`](../../../../tools/github/status-rollup.md#upsert-recipe--append-to-an-existing-rollup-or-create-one).
-   First fold any legacy bot comments on the kept tracker into the
-   rollup, oldest first, per the fold-legacy sub-step in
-   [`security-issue-sync`](../issue-sync/SKILL.md) — one call per
-   legacy comment, which deletes the original only after its append
-   succeeded:
+After confirmation, apply **sequentially** (never in parallel).
+Write `{tracker, platform, keep, drop, scratch, items, cve_id, retract_cve, date, blockers, title, review}` (each side's accepted legacy comments as `legacy_comments`) and run `<sm> apply-plan`;
+it refuses while a blocker is open. Run its `steps` in order, writing each `write` file first with the Write tool:
 
-   ```bash
-   uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-deduplicate rollup-fold <keep> <legacy-comment-id> "<Action>"
-   ```
+1. the merged body — the load-bearing write;
+2. on the kept tracker, the legacy bot comments folded into the rollup oldest first (per the fold-legacy sub-step in [`security-issue-sync`](../issue-sync/SKILL.md); each fold deletes the original only after its append succeeded), then the `Merge (kept)` entry;
+3. the same on the dropped tracker with the `Merge (dropped)` entry;
+4. the `duplicate` label on the dropped tracker;
+5. the close of the dropped tracker as `not planned` (GitHub's `duplicate` reason is not exposed by `gh` on all versions; with the label it carries the same signal) — re-check that it is the dropped side;
+6. the kept tracker's CVE JSON — a report with any non-empty array (a merge can leave a field twice) goes through the [CVE JSON fallback](../issue-sync/outcomes/cve-json-fallback.md) — and, when it has a CVE, `<cve-tool>`'s `push_update(cve_id, fields)` per
+   [`tools/cve-tool/README.md`](../../../../tools/cve-tool/README.md#push_updatecve_id-fields-state_transitionnone-to-diff) with no state transition, so the merged credits and references land on the record;
+7. only when both trackers carried a CVE, `<cve-tool>`'s `retract(cve_id, reason)` per
+   [`tools/cve-tool/README.md`](../../../../tools/cve-tool/README.md#retractcve_id-reason-to-ok) for the dropped side's —
+   governance-gated (`governance.cve_allocation_gate`), so surface the gate before firing; the contract refuses a `public` record, which Step 1 already blocked.
 
-   Then write the `Merge (kept)` entry body to
-   `<scratch>/dedupe-<keep>-rollup.md` with the Write tool and append
-   it (the call creates the rollup if none exists yet):
-
-   ```bash
-   uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-deduplicate rollup-append <keep> "Merge (kept) (from #<drop>)" <scratch>/dedupe-<keep>-rollup.md
-   ```
-
-   These run through vetted-ops' `vetted-op-tracker` entry point,
-   which the secure setup lets out of the sandbox (every write still asks).
-   Without the secure setup, the same operations are
-   `uv run --directory <framework>/tools/github-rollup github-rollup --repo <tracker> append|amend-latest|fold …`
-   and `uv run --directory <framework>/tools/github-body-field body-field --repo <tracker> get|set …`;
-   see [`tools/vetted-ops/README.md`](../../../../tools/vetted-ops/README.md#tracker-procedures-rollup-and-body-field-writes).
-3. Rollup-comment upsert on the dropped tracker — fold its legacy
-   comments first when needed (`rollup-fold <drop> …`, same shape),
-   then append the `Merge (dropped)` entry:
-
-   ```bash
-   uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker --caller security-issue-deduplicate rollup-append <drop> "Merge (dropped) (into #<keep>)" <scratch>/dedupe-<drop>-rollup.md
-   ```
-4. `gh issue edit <drop> --repo <tracker> --add-label duplicate`
-5. `gh issue close <drop> --repo <tracker> --reason "not planned"`
-   (GitHub's `duplicate` close-reason is not exposed by `gh` on
-   all versions; `not planned` combined with the `duplicate` label
-   carries the same signal)
-6. `uv run --project <framework>/tools/<cve-tool>/generate-cve-json generate-cve-json <keep> --attach --report-json <scratch>/cve-report-<keep>.json`
-   — a report with any non-empty array (a merge can leave a field twice) goes through the [CVE JSON fallback](../issue-sync/outcomes/cve-json-fallback.md);
-   remediation-developer credits come from the *Remediation developer* body field
-   (populated by `security-issue-sync` from the linked PR's author); no CLI flag needed.
-   The regen output is the kept tracker's canonical JSON record.
-   When the kept tracker already carries an allocated CVE ID, feed the record into
-   `<cve-tool>`'s `push_update(cve_id, fields)` per
-   [`tools/cve-tool/README.md`](../../../../tools/cve-tool/README.md#push_updatecve_id-fields-state_transitionnone-to-diff),
-   so the merged credits and references land on the CVE record itself;
-   the adapter does the storage (for Vulnogram, the OAuth-authenticated write to the `#source` tab URL, `cve_authority.source_tab_url_template`).
-   Pass no state transition: dedup never moves the record across state verbs,
-   it only updates fields at its current state (`allocated` / `review-ready` / `publish-ready`).
-   If the kept tracker has no CVE ID, skip `push_update` and only regenerate the tracker-side JSON attachment.
-7. **Only when both trackers carried an allocated CVE ID** —
-   retract the dropped side's CVE record via `<cve-tool>`'s
-   `retract(cve_id, reason)` per
-   [`tools/cve-tool/README.md`](../../../../tools/cve-tool/README.md#retractcve_id-reason-to-ok),
-   with `reason` set to a short string of the form *"merged into
-   <kept-CVE-ID> per <tracker>#<keep> on <YYYY-MM-DD>"*.
-   The call is governance-gated (the same `governance.cve_allocation_gate` role that gated allocation);
-   surface the gate before firing.
-   The contract refuses to retract a record already at the `public` state;
-   the Step 0 / Inputs pre-check above should already have blocked the merge in that case.
+The rollup and body-field writes run through vetted-ops' `vetted-op-tracker` entry point, which the secure setup lets out of the sandbox (every write still asks);
+without it, the same operations are `uv run --directory <framework>/tools/github-rollup github-rollup --repo <tracker> append|amend-latest|fold …`,
+see [`tools/vetted-ops/README.md`](../../../../tools/vetted-ops/README.md#tracker-procedures-rollup-and-body-field-writes).
 
 If any step fails, stop and ask the user how to proceed; do not guess.
 Partial merges are recoverable as long as the body update (step 1) succeeded; the rest is bookkeeping on top.
@@ -405,20 +342,10 @@ Partial merges are recoverable as long as the body update (step 1) succeeded; th
 
 ## Step 6 — Recap
 
-After the apply loop, print a short recap:
-
-- The kept tracker as a clickable
-  [`<tracker>#<keep>`](https://github.com/<tracker>/issues/<N>) link with a short summary of
-  its new state (label set, credit list, both threads).
-- The dropped tracker as a clickable link with its new closed
-  state.
-- The regenerated CVE JSON attachment URL.
-- Any blockers surfaced during the merge (CWE conflict, unconfirmed
-  credits, stale drafts, etc.) repeated here so the user does not
-  have to scroll.
-
-Apply the `<tracker>` link-form self-check to the entire
-recap before presenting.
+After the apply loop, write `{tracker, keep, drop, applied, credits, cve_json_url, retract_cve, blockers, failed}` and run `<sm> render-recap`; print its `text`.
+It links the kept tracker with its new state (the credit list, both threads) and the dropped tracker with its closed state,
+the regenerated CVE JSON, and repeats every blocker surfaced during the merge (CWE conflict, unconfirmed credits, stale drafts) so the user does not have to scroll.
+Its `bare_refs` must be empty.
 
 ---
 

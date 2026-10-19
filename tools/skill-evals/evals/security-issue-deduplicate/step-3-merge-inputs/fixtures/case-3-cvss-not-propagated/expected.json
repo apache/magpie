@@ -1,0 +1,7 @@
+{
+  "headline": "Same SSRF via the redirect chain, with an additional vector through the Celery worker HTTP hook.",
+  "analysis": "Both reports are the same unvalidated outbound request; the second adds the Celery worker HTTP hook as a further path to it, closed by the same fix.",
+  "merged_summary": null,
+  "affected_versions": null,
+  "copies_reporter_score": false
+}

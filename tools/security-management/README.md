@@ -18,6 +18,7 @@
     - [`issue-triage`](#issue-triage)
     - [`issue-invalidate`](#issue-invalidate)
     - [`cve-allocate`](#cve-allocate)
+    - [`issue-deduplicate`](#issue-deduplicate)
   - [Tests](#tests)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -38,8 +39,9 @@ Each skill family is a subcommand: [`security-issue-import`](../../plugins/magpi
 [`security-issue-import-via-forwarder`](../../plugins/magpie-security/skills/issue-import-via-forwarder/SKILL.md) (`issue-import-via-forwarder`)
 [`security-issue-import-from-scan`](../../plugins/magpie-security/skills/issue-import-from-scan/SKILL.md) (`issue-import-from-scan`)
 [`security-issue-triage`](../../plugins/magpie-security/skills/issue-triage/SKILL.md) (`issue-triage`),
-[`security-issue-invalidate`](../../plugins/magpie-security/skills/issue-invalidate/SKILL.md) (`issue-invalidate`)
-and [`security-cve-allocate`](../../plugins/magpie-security/skills/cve-allocate/SKILL.md) (`cve-allocate`).
+[`security-issue-invalidate`](../../plugins/magpie-security/skills/issue-invalidate/SKILL.md) (`issue-invalidate`),
+[`security-cve-allocate`](../../plugins/magpie-security/skills/cve-allocate/SKILL.md) (`cve-allocate`)
+and [`security-issue-deduplicate`](../../plugins/magpie-security/skills/issue-deduplicate/SKILL.md) (`issue-deduplicate`).
 The tool takes what the agent saved — search results, the redacted report text, the confirmed plan — and decides or renders everything rule-shaped:
 the Step 1 pre-filter, the batched `threadId` dedup, the forwarder pre-screen, the tracker body and its inert report block, the rollup entry, the rejections-ledger record,
 the fix-already-public reply, the receipt-draft matrix, the confirmation-reply grammar and the recap.
@@ -88,6 +90,8 @@ Every command prints one JSON object; rendered text is in its `text` field.
 | `fields` | `read`: template fields of an existing tracker body through github-body-field (`normalise`, then `extract_field`); a field it will not decide on is `undecided`, never guessed or read as empty. |
 | `threads` | `classify`: the *Security mailing list thread* field as an import path (archive URL, Gmail-only, PR or markdown sentinel, indeterminate), the primary thread by the `tools/gmail/threading.md` relay signals, and the root `Message-ID`. |
 | `dispositions` | The six triage classes, the two proposal markers (`**Triage proposal**`, `**Proposed disposition: `) and `parse_time`. |
+| `numbered` | `parse`: the numbered-proposal reply of `cve-allocate` and `issue-deduplicate` — `all`, a list (with a comment after a dash only when it names other items to hold them back), `cancel`; anything else is an edit, and nothing applies by default. |
+| `rollup.notification_line` | The *Reporter notification* line (`notified`, `team_member`, `draft_pending` only once the draft is checked to be in Drafts, `omitted`). |
 | `selectors` | `issue_numbers`: `N`, `#N, #M`, `#N-#M`, `owner/repo#N`, an issue URL, refusing another repository; the CVE token rule. |
 | `shell` | `dq` / `w`, a copy of `release-management`'s. |
 
@@ -214,6 +218,22 @@ Every command takes `--input F`, a JSON file.
 | `apply-plan` | The confirmed items' `steps` in order, with file paths and commands, per backend. |
 | `render-recap` | The recap `text`, `bare_refs`. |
 
+### `issue-deduplicate`
+
+Every command takes `--input F`, a JSON file.
+
+| Command | Prints |
+|---|---|
+| `selector` | `keep`, `drop` (kept first) and the two Step 1 reads; one tracker, three, a range or another repository exits `2`. |
+| `classify` | `verdict` (`proceed`, `blocked`, `probe`), `blockers` (`scope_unclear`, `scope_mismatch`, `closed_tracker`, `already_duplicate`, `cve_on_drop`, `cve_public`, `drop_further_along`), `keep_cve`, `retract`. |
+| `fields` | Both sides' template fields (the CVE JSON attachment cut off), `has_cve_json_attachment`, labels, milestone, `cwe_conflict`, `severity_propagation_risk`; an undecided field exits `2`. |
+| `merge-body` | The kept body rewritten field by field (`replace_field`), `changed_fields`, `blockers` (a CWE conflict), `scores_removed`, `severity_note`, `tool_credits`, `skipped_credits`; a missing headline, analysis or needed merged value exits `2`. |
+| `render-rollup-kept`, `render-rollup-dropped` | `label`, `label_shell`, `text`, `needs_amend`, `bare_refs`. |
+| `proposal` | The numbered `items` (7 only with two CVEs), `blocked`, `text`. |
+| `parse-reply` | `action` (`apply`, `cancel`, `edit`, `ambiguous`), `items_applied`, `items_skipped`, `note`. |
+| `apply-plan` | The confirmed items' `steps` in order, per backend; an open blocker or the same tracker twice exits `2`. |
+| `render-recap` | The recap `text`, `blockers`, `bare_refs`. |
+
 ## Tests
 
 ```bash
@@ -230,4 +250,5 @@ and those of `security-issue-import-via-forwarder/step-0-preflight`, `step-1-det
 it pins the `step-26-precedent-search` signal rule, which stays a model eval.
 `tests/test_issue_invalidate.py` holds the cases of the retired `security-issue-invalidate` suites `step-2-import-path`, `step-5a-labels`, `step-5b-closing-comment`, `step-5d-email-draft`, `step-5e-rollup-entry`, `step-5f-confirm` and `step-7-recap`.
 `tests/test_cve_allocate.py` holds the cases of the retired `security-cve-allocate` suites `step-1-blocker-checks`, `step-2-title-normalize`, `step-3-allocation-recipe`, `step-4-propose-updates`, `step-5-confirm` and `step-7-recap`.
+`tests/test_issue_deduplicate.py` holds the cases of the retired `security-issue-deduplicate` suites `step-1-classify`, `step-2-extract-fields`, `step-3-merge-body`, `step-4-rollup-entries`, `step-5-confirm` and `step-6-recap`.
 `tests/test_body.py` checks that the `tracker-body-template.md` files of the sibling import skills carry exactly the rendered headings.

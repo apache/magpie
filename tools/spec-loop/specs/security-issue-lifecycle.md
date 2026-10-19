@@ -53,7 +53,8 @@ publication, with a human gate and an audit-log entry at every step.
   `duplicate-search.md`; `issue-fix/implementation-plan.md`,
   `tracker-update.md`; `issue-triage/classification.md`;
   `issue-sync/mail-preflight.md`, `next-step.md`;
-  `cve-allocate/tracker-updates.md`, `title-normalize.md`, `reporter-draft.md`.
+  `cve-allocate/tracker-updates.md`, `title-normalize.md`, `reporter-draft.md`;
+  `issue-deduplicate/merge-templates.md`.
   The tracker body templates of `issue-import-from-md` and
   `issue-import-from-pr` live in a `tracker-body-template.md` sibling of
   each (#1499).
@@ -145,6 +146,23 @@ publication, with a human gate and an audit-log entry at every step.
   stays with the model, and the allocation itself with the user. The
   reporter draft names the bare CVE ID, never the CVE-tool URL.
   `shared.drafting` holds the backend choice and leak scan both skills use.
+  For `security-issue-deduplicate` it reads the kept and dropped trackers
+  (one tracker is refused: the kept side is the user's call), checks both
+  are open with the same single scope label and neither `duplicate`,
+  applies the CVE rules (a CVE only on the dropped side means swap, a
+  `public` record refuses, the kept CVE must be at least as far along and
+  the dropped one is retracted), reads both bodies' fields (the CVE JSON
+  attachment cut off), and rewrites the kept body field by field through
+  github-body-field's `replace_field`, so the attachment and extra fields
+  stay byte-exact: the dropped report verbatim in a collapsed *Second
+  independent report* block (reporter CVSS removed, field-ending and
+  machine-marker lines escaped, an unmatched `</details>` defused), both
+  credits, threads and fix PRs, the kept severity, and a CWE conflict as a
+  blocker; it renders both rollup entries, the numbered proposal, the
+  per-backend apply order (refused while a blocker is open) and the
+  recap. The root-cause judgement, the headline and analysis, and any
+  merged summary or widened versions stay with the model.
+  `shared.numbered` is the numbered-proposal reply grammar both skills use.
 - Shared recipes instead of per-skill copies (#1437): the safe-create
   recipe for a tracker with an attacker-controlled title is
   `tools/github/operations.md` § *Create* (Write-tool title file,

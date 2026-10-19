@@ -1,9 +1,0 @@
-{
-  "kept_issue_number": 55,
-  "dropped_issue_number": 71,
-  "cve_json_regenerated": true,
-  "blockers": [
-    "CWE conflict: kept tracker has CWE-502, dropped tracker has CWE-94 — triager must resolve before CVE JSON is finalised.",
-    "Credit preference for Dave Security (drop reporter) not yet confirmed — send confirmation request before advisory publication."
-  ]
-}

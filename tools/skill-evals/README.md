@@ -19,7 +19,7 @@ Suites are currently implemented for:
 - **pairing-self-review** — 20 cases across 2 steps (step-2-classify-findings, step-3-compose-report)
 - **security-issue-import** — 36 cases across 8 steps; Steps 0, 6 and 7 are decided and pytest-tested in `tools/security-management`
 - **security-issue-triage** — 19 cases across 6 steps (2, 2.5, 2.6, 3, 4, 6); Steps 1, 5 and 7 and the Step 6 bare-name scrub are decided and pytest-tested in `tools/security-management`
-- **security-issue-deduplicate** — 18 cases across 6 steps (steps 1, 2, 3, 4, 5, 6)
+- **security-issue-deduplicate** — 3 cases across 1 step (3, the merge inputs); Steps 1, 2, 3 (the merged body), 4, 5 and 6 are decided and pytest-tested in `tools/security-management`
 - **security-cve-allocate** — 3 cases across 1 step (4, the reporter draft); Steps 1, 2, 3, 4 (proposal and rollup), 5 and 7 are decided and pytest-tested in `tools/security-management`
 - **security-issue-sync**: 86 cases across 15 steps (1d, 1f, 2a, 2b, 2c, 3, 5b, 6, bulk-orchestration, bulk-selectors, draft-backend, ghsa-access-tier, guardrails, handoff-delegate, security-cc)
 - **security-issue-fix** — 50 cases across 15 steps (2, 3, 5a–5g, 6, 7, 11, and the flow choice plus Subversion steps 8 and 9)
@@ -274,8 +274,7 @@ as `{"raw_output": <stdout>}`. A non-zero exit is wrapped the same way
 plus `stderr` and `exit_code`. That wrap exists so a suite can still
 grade a step whose output is prose — either by declaring `raw_output`
 (or `stderr` / `exit_code`) in `expected.json`, or by pointing a
-structural assertion's `field` at one of them in `assertions.json`
-(`security-issue-deduplicate/step-3-merge-body` does the latter).
+structural assertion's `field` at one of them in `assertions.json`.
 
 **If nothing asserts on a wrap key, the case is an ERROR, not a PASS.**
 The intersection-only comparator only checks keys present on both sides,

@@ -122,36 +122,12 @@ def proposal(data: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def _notification(n: Mapping[str, Any]) -> str | None:
-    case = str(n.get("case") or "")
-    draft = one_line(n.get("draft_id"))
-    if case == "notified":
-        return "Reporter has been notified on the original mail thread."
-    if case == "team_member":
-        return "No reporter notification needed (reporter is on the security team)."
-    if case == "omitted":
-        return None
-    if case == "blocked":
-        return f"Reporter notification still owed — no draft created: {one_line(n.get('reason') or 'see the recap')}."
-    if case == "draft_pending":
-        if not draft:
-            raise ValueError("draft_pending needs the draft id")
-        if draft == "<pending>":
-            return "Reporter notification still pending — see draft `<pending>`."
-        if n.get("in_drafts") is False:
-            return f"Reporter draft {code(draft)} is no longer in Drafts — sent or discarded."
-        if n.get("in_drafts") is not True:
-            raise ValueError("check that the draft is still in Drafts before claiming it is pending")
-        return f"Reporter notification still pending — see draft {code(draft)}."
-    raise ValueError(f"unknown reporter-notification case {case!r}")
-
-
 def rollup_entry(data: Mapping[str, Any]) -> dict[str, Any]:
     tracker = str(data["tracker"])
     try:
         cve_id = _cve(data)
         url = record_url(str(data["record_url_template"]), cve_id)
-        note = _notification(data.get("notification") or {})
+        note = rollup.notification_line(data.get("notification") or {})
     except ValueError as exc:
         return {"ok": False, "refused": str(exc)}
     allocated = str(data.get("cve_allocated_label") or CVE_ALLOCATED)

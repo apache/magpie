@@ -1,5 +1,0 @@
-{
-  "verdict": "blocked",
-  "blocker": "already_duplicate",
-  "blocker_detail": "Drop tracker #67 is already labelled 'duplicate', indicating a partial merge may have already occurred. Surface to the user to decide how to recover."
-}
