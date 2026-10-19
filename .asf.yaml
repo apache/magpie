@@ -43,7 +43,10 @@ github:
     rebase: false
 
   pull_requests:
-    allow_auto_merge: false
+    # Lets a maintainer approve a PR and have it merge once the required
+    # status checks pass, instead of returning to merge it by hand after CI.
+    # It changes nothing about what gates `main`.
+    allow_auto_merge: true
     allow_update_branch: true
     del_branch_on_merge: true
 
