@@ -62,6 +62,8 @@ _CROSS = re.compile(
     r"also reported against|cross-project|other apache projects|sister project|the same finder also",
     re.IGNORECASE,
 )
+# The CVE-tool host as a URL host, not a substring check: this scans text, it sanitises nothing.
+_CVE_TOOL_URL = re.compile(r"(?:https?://)?(?<![\w.-])cveprocess\.apache\.org(?![\w-])", re.IGNORECASE)
 _BREAK = re.compile(r"(?<=[.!?])\s+")
 
 
@@ -93,7 +95,7 @@ def check(data: Mapping[str, Any]) -> dict[str, Any]:
             if other.search(sentence) or _CROSS.search(sentence):
                 found.append(OTHER_ASF)
             if kind == "email":
-                if "cveprocess.apache.org" in sentence:
+                if _CVE_TOOL_URL.search(sentence):
                     found.append(LINK_CVE)
             elif kind in MARKDOWN:
                 if _bare_cves(sentence):
