@@ -133,6 +133,13 @@ convenience_artefacts:
     publish_command: null         # run by the RM after the vote, e.g. `twine upload dist/*`, `mvn nexus-staging:release`, `docker push …`; dist-release needs none (promoted with the source)
 ```
 
+A `stage_command` or `publish_command` that needs a credential the release manager holds — an upload token —
+is best declared wrapped in [`secret-prompt`](https://github.com/apache/magpie/tree/main/tools/secret-prompt), so running it asks the release manager
+for the token (in their terminal, or as a dialog when an agent runs it) instead of reading one from a file:
+`secret-prompt --env TWINE_PASSWORD --set TWINE_USERNAME=__token__ --prefix pypi- -- twine upload dist/*`
+(the release manager installs it once with
+`uv tool install "git+https://github.com/apache/magpie#subdirectory=tools/secret-prompt"`).
+
 How each skill uses the list:
 
 | Skill | Uses |

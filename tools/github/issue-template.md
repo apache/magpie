@@ -43,12 +43,15 @@ renamed, or removed:
    the concrete field name each skill role maps to. Renaming the
    field in the YAML requires updating this mapping.
 3. **The skills that write fresh issue bodies** — `security-issue-import`
-   emits a heredoc body with the full field set; when the schema
-   changes, the heredoc must change in lock-step.
+   renders the full field set with
+   [`security-management issue-import render-body`](../security-management/README.md)
+   (`DEFAULT_HEADINGS` in `security_management/shared/body.py`, each overridable through
+   `tracker.body_fields`); when the schema changes, that list must change in lock-step,
+   and so must the sibling import skills' `tracker-body-template.md` files (a test pins them to it).
 
 No skill parses the YAML at runtime. The field list is hand-
-maintained in the project manifest and in the `security-issue-import`
-heredoc, and the three surfaces are kept aligned by convention.
+maintained in the project manifest and in `security-management`,
+and the three surfaces are kept aligned by convention.
 
 ## Field roles the skills use
 
@@ -73,16 +76,14 @@ live in the project manifest.
 
 ## Body-field surgery
 
-Skills that update one field without touching the rest use the
-following pattern:
-
-1. **Read** the full body (`gh issue view <N> --json body --jq .body`).
-2. **Split** on `\n### ` to get per-field sections.
-3. **Replace** the target section's value (between its `### <name>\n\n`
-   header and the next `### ` or end-of-body).
-4. **Join** the sections back together.
-5. **Write** the new body via
-   `gh issue edit <N> --repo <tracker> --body-file <tmpfile>`.
+How a field is found, read and rewritten — field boundaries, code
+blocks, which heading is the field, and what is refused as ambiguous —
+is the [body-field contract](../body-field-contract/contract.md).
+Skills never split a body themselves: they read and write one field
+through an implementation of it, such as
+[`github-body-field`](../github-body-field/README.md) (`get` / `set`) or
+the `body-field-get` / `body-field-set` vetted operations, which keep
+everything outside the field byte-identical.
 
 Never construct the body by string concatenation in a shell command —
 literal backticks, `$(…)`, and newlines in the body are silently

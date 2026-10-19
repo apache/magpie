@@ -116,6 +116,7 @@ CONTRACT_POLICY: dict[str, tuple[str, str]] = {
         VENDOR_BACKED,
         "Security tracker for embargoed reports (GitHub / local files / private Jira)",
     ),
+    "contract:body-field": (AGNOSTIC, "Tracker body `### <Name>` field parsing and rewriting"),
 }
 
 # Which capability *contract* a skill actually invokes, keyed by

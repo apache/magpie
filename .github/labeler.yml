@@ -418,6 +418,15 @@ family:utilities:
           - 'tools/skill-evals/evals/skill-reconciler/**'
           - 'tools/skill-evals/evals/write-skill/**'
 
+contract:body-field:
+  - any:
+      - changed-files:
+          - any-glob-to-any-file:
+              - 'tools/body-field-contract/**'
+              - 'tools/github-body-field/**'
+              - 'tools/jira/**'
+              - 'tools/local-tracker/**'
+
 contract:change-request:
   - any:
       - changed-files:
@@ -564,6 +573,7 @@ substrate:analytics:
               - 'tools/dashboard-generator/**'
               - 'tools/pr-management/**'
               - 'tools/preflight-audit/**'
+              - 'tools/security-management/**'
               - 'tools/security-tracker-stats-dashboard/**'
               - 'tools/skill-token-count/**'
               - 'tools/spec-inventory/**'
@@ -609,6 +619,7 @@ substrate:release:
               - 'tools/release-management/**'
               - 'tools/release-verify/**'
               - 'tools/reproducible-archive/**'
+              - 'tools/secret-prompt/**'
 
 substrate:review:
   - any:

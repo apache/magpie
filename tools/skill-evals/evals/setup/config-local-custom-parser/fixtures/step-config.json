@@ -1,0 +1,7 @@
+{
+  "skill_md": "skills/setup/config.md",
+  "step_heading": "## Step 3a — Security tracker backend",
+  "also_include": [
+    "plugins/magpie-setup/skills/setup/local-files/custom-parser.md"
+  ]
+}

@@ -89,6 +89,7 @@
       "Read(~/.kube/**)",
       "Read(~/.config/gh/**)",
       "Read(~/.config/apache-magpie/**)",
+      "Edit(~/.config/apache-magpie/local-tracker-parsers.json)",
       "Read(~/.config/gcloud/**)",
       "Read(~/.azure/**)",
       "Read(//**/.env)",

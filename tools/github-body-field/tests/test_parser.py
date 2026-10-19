@@ -118,7 +118,9 @@ def test_extract_field_multiline_value():
     assert extract_field(body, "Notes") == ("line 1\nline 2\n\nline 4 (internal blank preserved)\n")
 
 
-def test_extract_field_value_with_inline_code_fence_containing_hash():
+def test_extract_field_value_ends_at_a_fenced_heading():
+    # The body-field contract: every `###` line at column 0 ends a field, inside
+    # a fence or not, so no fence in one field's text can carry the next field.
     body = (
         "### Repro\n"
         "\n"
@@ -131,9 +133,8 @@ def test_extract_field_value_with_inline_code_fence_containing_hash():
         "\n"
         "x\n"
     )
-    assert extract_field(body, "Repro") == (
-        "```python\n### this looks like a heading but is inside a fence\nprint(1)\n```\n"
-    )
+    assert extract_field(body, "Repro") == "```python\n"
+    assert extract_field(body, "Next") == "x\n"
 
 
 def test_extract_field_missing_raises():
@@ -195,11 +196,10 @@ def test_replace_field_preserves_preamble_byte_exact():
     assert new.startswith("<!-- a preamble comment from the issue template -->\n\n")
 
 
-def test_replace_field_does_not_treat_fenced_heading_as_section_break():
-    """A `### Foo` line inside a fenced code block must not fool the
-    parser into ending the current section. We verify by replacing a
-    *different* section and showing the fenced block in section A
-    survives byte-exact."""
+def test_replace_field_keeps_a_fenced_heading_byte_exact():
+    """A `### Foo` line inside a fenced code block ends section A but is never a
+    field of its own while the block is closed. Replacing a *different* section
+    leaves the fenced block in section A byte-exact."""
     body = "### A\n\n```\n### Bogus heading inside fence\necho hi\n```\n\n### B\n\nv\n"
     new = replace_field(body, "B", "new_v\n")
     assert "```\n### Bogus heading inside fence\necho hi\n```" in new

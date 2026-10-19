@@ -247,7 +247,10 @@ def op_labels(client: JiraClient, cfg: Config, args: argparse.Namespace) -> Any:
 def op_field_get(client: JiraClient, cfg: Config, args: argparse.Namespace) -> Any:
     key = expand_id(args.id, cfg.project)
     fields = client.issue(key, "description").get("fields") or {}
-    value = markup.get_field(fields.get("description") or "", args.heading)
+    try:
+        value = markup.get_field(fields.get("description") or "", args.heading)
+    except markup.FieldNotFoundError as exc:  # a duplicate or disputed field
+        raise RefusedError(str(exc)) from None
     return {"id": key, "heading": args.heading, "value": value}
 
 
@@ -257,7 +260,10 @@ def op_field_set(client: JiraClient, cfg: Config, args: argparse.Namespace) -> A
     value = _read_text(args.value_file, "value")
     issue = guarded_issue(client, key, "description", level=cfg.security_level)
     body = (issue.get("fields") or {}).get("description") or ""
-    new_body, created = markup.set_field(body, heading, value)
+    try:
+        new_body, created = markup.set_field(body, heading, value)
+    except markup.FieldNotFoundError as exc:  # a duplicate, disputed or unsafe rewrite
+        raise RefusedError(str(exc)) from None
     client.call(
         "PUT", f"/rest/api/2/issue/{key}", payload={"fields": {"description": new_body}}
     )
@@ -299,7 +305,7 @@ def op_create(client: JiraClient, cfg: Config, args: argparse.Namespace) -> Any:
     title = _title_arg(args)
     if title is None:
         raise UsageError("create needs --title or --title-file")
-    body = _read_text(args.body_file, "body")
+    body = markup.escape_quoted_fields(_read_text(args.body_file, "body"))
     fields: dict[str, Any] = {
         "project": {"key": cfg.project},
         "summary": title,
@@ -342,7 +348,7 @@ def op_edit(client: JiraClient, cfg: Config, args: argparse.Namespace) -> Any:
     if title is not None:
         fields["summary"] = title
     if args.body_file:
-        fields["description"] = _read_text(args.body_file, "body")
+        fields["description"] = markup.escape_quoted_fields(_read_text(args.body_file, "body"))
     removes = args.remove_assignee or []
     if not (fields or update or adds or removes):
         raise UsageError("edit: nothing to change")

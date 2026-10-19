@@ -33,10 +33,10 @@ candidate as a potential `fix-already-public`):
    Write the keywords to `<scratch>/pubfix-kw-<threadId>.txt` with the Write tool, clean them as in Step 2a:
 
    ```bash
-   tr -cd 'A-Za-z0-9._ -' < <scratch>/pubfix-kw-<threadId>.txt > <scratch>/pubfix-kw-<threadId>.clean.txt
+   uv run --project <framework>/tools/security-management security-management issue-import keyword --file <scratch>/pubfix-kw-<threadId>.txt
    ```
 
-   then read the cleaned file and run each search as a plain command, keywords single-quoted:
+   then run each search as a plain command, its `cleaned` keywords single-quoted:
 
    ```bash
    gh search prs '<cleaned keywords>' --repo <upstream> \

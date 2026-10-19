@@ -16,7 +16,7 @@ argument-hint: "[skill-name]"
 capability: capability:platform
 surface_hash: sha256:6aa9dd2488726450
 license: Apache-2.0
-measured_tokens: 4731
+measured_tokens: 4780
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -98,6 +98,7 @@ The skill ends with a pointer at that cleanup; it does not delete the override p
 
 List `<adopter-repo>/.apache-magpie-overrides/*.md` (excluding the directory's own `README.md`).
 For each, print the file name + first headline.
+Also list `.apache-magpie-overrides/tools/local-tracker/parsers/*.py`: a body-field parser `setup config` generated is upstreamed as a format adapter, by [`cases/parser-adapters.md`](cases/parser-adapters.md).
 
 - **Zero overrides** → stop. There is nothing to upstream.
 - **One override** → auto-pick.

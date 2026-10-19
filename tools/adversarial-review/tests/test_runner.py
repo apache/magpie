@@ -104,15 +104,17 @@ def test_timeout_kills_the_whole_process_group(stub_bin, tmp_path):
 
 def test_reviewers_run_in_parallel_and_keep_order(stub_bin, tmp_path):
     bin_dir, make = stub_bin
-    make("codex", "import time; time.sleep(1.5)\n" + CODEX_OK)
+    make("codex", "import time; time.sleep(3)\n" + CODEX_OK)
     make(
         "gemini",
-        "import json, time; time.sleep(1.5)\nprint(json.dumps({'response': json.dumps({'findings': []})}))\n",
+        "import json, time; time.sleep(3)\nprint(json.dumps({'response': json.dumps({'findings': []})}))\n",
     )
     contexts = {n: ctx(tmp_path, n) for n in ("gemini", "codex")}
     start = time.monotonic()
     results = run_all(["gemini", "codex"], contexts, 30, {"PATH": str(bin_dir)})
-    assert time.monotonic() - start < 2.8
+    # One after the other they take 6 s; the 2.5 s left over is for starting
+    # both stubs on a loaded machine (a 1.3 s margin failed under pre-commit).
+    assert time.monotonic() - start < 5.5
     assert [(r.reviewer, r.status) for r in results] == [("gemini", "ok"), ("codex", "ok")]
 
 
@@ -121,7 +123,9 @@ def test_one_timeout_does_not_block_the_others(stub_bin, tmp_path):
     make("codex", CODEX_OK)
     make("gemini", "import time; time.sleep(60)")
     contexts = {n: ctx(tmp_path, n) for n in ("codex", "gemini")}
-    results = {r.reviewer: r for r in run_all(["codex", "gemini"], contexts, 1, {"PATH": str(bin_dir)})}
+    # Room for codex's stub to start and answer on a loaded machine (a 1 s
+    # budget failed under the parallel pre-commit run); gemini sleeps far longer.
+    results = {r.reviewer: r for r in run_all(["codex", "gemini"], contexts, 5, {"PATH": str(bin_dir)})}
     assert results["codex"].status == "ok" and results["gemini"].status == "timeout"
 
 
@@ -136,9 +140,10 @@ def test_a_finished_answer_is_kept_when_a_helper_lingers(stub_bin, tmp_path):
         f"print(json.dumps({{'findings': [{FINDING!r}]}}))\n",
     )
     start = time.monotonic()
-    r = run_one("copilot", ctx(tmp_path, "copilot"), 5, {"PATH": str(bin_dir)})
+    r = run_one("copilot", ctx(tmp_path, "copilot"), 10, {"PATH": str(bin_dir)})
     assert r.status == "ok" and len(r.findings) == 1
-    assert time.monotonic() - start < 4
+    # Well inside the timeout, which a held stdout would have run into.
+    assert time.monotonic() - start < 8
 
 
 def test_timeout_is_bounded_even_when_a_helper_escapes_the_group(stub_bin, tmp_path):

@@ -18,6 +18,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from . import custom_parser
 from . import detect as detect_mod
 from .descriptor import DESCRIPTOR_NAME, Descriptor, load, save
 from .store import Tracker, TrackerError
@@ -65,7 +66,11 @@ def _tracker(args: argparse.Namespace) -> Tracker:
         raise TrackerError(str(exc), 3) from exc
     except ValueError as exc:
         raise TrackerError(f"invalid tracker descriptor: {exc}", 5) from exc
-    return Tracker(root, desc)
+    tracker = Tracker(root, desc)
+    # A custom field layout is read only through its confirmed parser: every
+    # command stops here (exit 2) while that parser cannot be trusted.
+    tracker.body_parser()
+    return tracker
 
 
 def _github_visibility(remote: str) -> str | None:
@@ -129,6 +134,54 @@ def cmd_init(args: argparse.Namespace) -> int:
     path = save(root, desc)
     _emit({"written": str(path), "summary": detect_mod.describe(desc)})
     return 0
+
+
+def _confirm_on_terminal(question: str) -> bool:
+    """Ask on the controlling terminal; with none (an agent's shell, a pipe) there is nobody to ask."""
+    if not sys.stdin.isatty():
+        return False
+    try:
+        with open("/dev/tty", "r+", encoding="utf-8") as tty:
+            tty.write(f"{question} Type yes to trust it: ")
+            tty.flush()
+            return tty.readline().strip() == "yes"
+    except OSError:
+        return False
+
+
+def cmd_trust_parser(args: argparse.Namespace) -> int:
+    """Record a reviewed custom body parser: the descriptor's body_parser and the user's confirmed hash."""
+    root = _root(args)
+    try:
+        desc = load(root)
+    except FileNotFoundError as exc:
+        raise TrackerError(str(exc), 3) from exc
+    except ValueError as exc:
+        raise TrackerError(f"invalid tracker descriptor: {exc}", 5) from exc
+    wc = detect_vcs(root)
+    try:
+        record, digest = custom_parser.trust(wc, args.path, args.sha256, _confirm_on_terminal)
+    except custom_parser.ParserRefused as exc:
+        raise TrackerError(str(exc), 2) from exc
+    desc.field_layout = "custom"
+    desc.body_parser = {"path": args.path, "sha256": digest}
+    written = save(root, desc)
+    # The user runs this outside the sandbox, where the record is readable:
+    # the one place a fresh confirmation can be seen to load.
+    try:
+        custom_parser.load(wc, desc.body_parser)
+        loads: object = True
+    except custom_parser.ParserRefused as exc:
+        loads = str(exc)
+    _emit(
+        {
+            "descriptor": str(written),
+            "body_parser": desc.body_parser,
+            "trust_record": str(record),
+            "parser_loads": loads,
+        }
+    )
+    return 0 if loads is True else 2
 
 
 def cmd_view(args: argparse.Namespace) -> int:
@@ -302,6 +355,18 @@ def cmd_doctor(args: argparse.Namespace) -> int:
             checks.append(
                 {"name": f"visibility {remote}", "ok": visibility != "public", "detail": visibility}
             )
+    if desc and desc.field_layout == "custom" and wc:
+        try:
+            custom_parser.load(wc, desc.body_parser)
+            checks.append(
+                {"name": "custom body parser", "ok": True, "detail": desc.body_parser.get("path", "")}
+            )
+        except custom_parser.ParserUnverifiable as exc:
+            checks.append(
+                {"name": "custom body parser", "ok": False, "unverifiable_here": True, "detail": str(exc)}
+            )
+        except custom_parser.ParserRefused as exc:
+            checks.append({"name": "custom body parser", "ok": False, "detail": str(exc)})
     checks.append(
         {
             "name": "access restricted (human-confirmed)",
@@ -338,6 +403,16 @@ def build_parser() -> argparse.ArgumentParser:
         p.add_argument("--url-template", help="browse URL with {path}")
         p.add_argument("--access-restricted", action="store_true", help="record the human access check")
         p.add_argument("--access-note", help="who checked the access control, and how")
+
+    p = add(
+        "trust-parser",
+        cmd_trust_parser,
+        "record a reviewed custom body parser; asks you on the terminal, so run it yourself",
+    )
+    p.add_argument(
+        "path", help=f"the parser, relative to the working copy top: {custom_parser.PARSER_DIR}/<name>.py"
+    )
+    p.add_argument("--sha256", required=True, help="the SHA-256 the human reviewed")
 
     p = add("view", cmd_view, "show one report")
     p.add_argument("id")

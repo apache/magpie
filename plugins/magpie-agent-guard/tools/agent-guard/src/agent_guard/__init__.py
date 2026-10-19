@@ -133,8 +133,11 @@ _ASSIGNMENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=.*", re.DOTALL)
 
 # `env` options (GNU coreutils and BSD): flags without a value, long options
 # whose value is optional (`--default-signal[=SIG]`), and — handled in
-# `_env_inner` — `-u`/`--unset`, `-C`/`--chdir`, `-S`/`--split-string`, which
-# take one. Any other option leaves the command unparsed, and refused.
+# `_env_inner` — `-u`/`--unset` and `-C`/`--chdir`, which take one. Any other
+# option leaves the command unparsed, and refused. That includes
+# `-S`/`--split-string`: env splits its string with its own escapes (`\_`,
+# `\c`, `${VAR}`), which shlex does not reproduce, so the guards would see a
+# different command from the one env runs.
 _ENV_SHORT_FLAGS = frozenset("i0v")
 _ENV_LONG_FLAGS = frozenset({"ignore-environment", "null", "debug", "list-signal-handling"})
 _ENV_LONG_OPTIONAL = frozenset({"block-signal", "default-signal", "ignore-signal"})
@@ -228,21 +231,15 @@ class Segment:
 
     def _env_inner(self, args: list[str]) -> list[str] | None:
         """The command ``env`` runs, after its options and assignments; None
-        when an option is not one GNU / BSD ``env`` documents, or a ``-S``
-        string does not tokenise."""
-        try:
-            return self._env_inner_parse(list(args))
-        except ValueError:
-            return None
-
-    def _env_inner_parse(self, args: list[str]) -> list[str] | None:
+        when an option is not one GNU / BSD ``env`` documents, or is ``-S``."""
+        args = list(args)
         while args:
             tok = args[0]
             if tok == "--":
                 args.pop(0)
                 break
             if tok.startswith("--"):
-                name, eq, value = tok[2:].partition("=")
+                name, eq, _ = tok[2:].partition("=")
                 if name in _ENV_LONG_FLAGS or name in _ENV_LONG_OPTIONAL:
                     args.pop(0)
                     continue
@@ -253,14 +250,6 @@ class Segment:
                             return None
                         args.pop(0)
                     continue
-                if name == "split-string":
-                    args.pop(0)
-                    if not eq:
-                        if not args:
-                            return None
-                        value = args.pop(0)
-                    args = [*shlex.split(value), *args]
-                    continue
                 return None
             if tok.startswith("-") and tok != "-":
                 args.pop(0)
@@ -268,14 +257,11 @@ class Segment:
                 for pos, ch in enumerate(letters):
                     if ch in _ENV_SHORT_FLAGS:
                         continue
-                    if ch in "uCS":
-                        attached = letters[pos + 1 :]
-                        if not attached:
+                    if ch in "uC":
+                        if not letters[pos + 1 :]:
                             if not args:
                                 return None
-                            attached = args.pop(0)
-                        if ch == "S":
-                            args = [*shlex.split(attached), *args]
+                            args.pop(0)
                         break
                     return None
                 continue

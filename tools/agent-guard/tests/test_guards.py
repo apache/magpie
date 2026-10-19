@@ -856,11 +856,6 @@ def test_prefix_wrappers_reach_the_bundled_guards(prefix):
     assert reason and "agent-guard[vetted-ops-spelling]" in reason
 
 
-def test_env_split_string_reaches_the_guards():
-    reason = agent_guard.dispatch("""env -S 'git commit -m "x Co-Authored-By: a"'""")
-    assert reason and "Co-Authored-By" in reason
-
-
 def test_command_lookup_is_not_an_execution():
     assert agent_guard.dispatch("command -v git") is None
 
@@ -956,7 +951,13 @@ def test_vetted_ops_spelling_refuses_the_equals_form_with_a_tilde():
         "env --bogus-option git commit -m x",
         "env -X git commit -m x",
         "env -u",  # option missing its value
-        'env -S "commit \'unbalanced"',  # the -S string itself does not tokenise
+        # env splits a -S string with escapes shlex does not reproduce.
+        "env -S 'git status'",
+        "env -S'git status'",
+        "env -iS 'git status'",
+        "env --split-string='git status'",
+        "env --split-string 'git status'",
+        """env -S 'git\\_commit -m x'""",
         "command -x git commit -m x",
     ],
 )
@@ -979,9 +980,4 @@ def test_an_unparsable_wrapper_is_refused(command):
 )
 def test_wrapper_option_forms_still_reach_the_guards(prefix):
     reason = agent_guard.dispatch(f'{prefix}git commit -m "x\n\nCo-Authored-By: a"')
-    assert reason and "Co-Authored-By" in reason
-
-
-def test_a_clustered_split_string_reaches_the_guards():
-    reason = agent_guard.dispatch("""env -iS'git commit -m "x Co-Authored-By: a"'""")
     assert reason and "Co-Authored-By" in reason

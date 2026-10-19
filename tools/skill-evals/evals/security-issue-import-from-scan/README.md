@@ -19,6 +19,13 @@
 - **Fixed-since-commit → `already-fixed`.** A finding whose cited code was fixed on the default branch after the scan's commit is `already-fixed`, no action.
 - **Every disposition carries grounding** — a Security-Model section, a precedent, or a fixing PR/commit.
 
+## Pinned in code
+
+What a bucket allows is decided by [`tools/security-management`](../../../security-management/README.md)
+(`security-management issue-import-from-scan bucket-action`): `creates_tracker` is true only for `import-as-tracker`,
+pytest-tested for every bucket in [`tests/test_issue_import_from_scan.py`](../../../security-management/tests/test_issue_import_from_scan.py).
+Choosing the bucket and its grounding stays the model's, so this suite stays a model eval.
+
 ## Steps not covered
 
-Step A (adapter read) and Step F (gist / report-back-PR / apply loop) are procedural / tool-driven without a clean prompt-only boundary; Step B's trust-boundary reasoning is exercised transitively through the Step C buckets above and is covered directly in the `security-issue-triage` suite.
+Step A (adapter read) and Step F (gist / report-back-PR / apply loop) are procedural / tool-driven without a clean prompt-only boundary (the Step D report, Step E decision grammar and Step F scrub are pytest-tested in `tools/security-management`); Step B's trust-boundary reasoning is exercised transitively through the Step C buckets above and is covered directly in the `security-issue-triage` suite.

@@ -79,7 +79,6 @@ def _has_inline_comment(raw: str) -> bool:
     scalar, a ``#`` preceded by whitespace starts a comment.
     """
     text = raw.strip()
-    rest = text
     if text[:1] == "[":
         # A flow sequence: quotes open quoted items at item boundaries only.
         i, quote, at_item = 1, "", True

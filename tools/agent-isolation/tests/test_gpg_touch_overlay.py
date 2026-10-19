@@ -1255,6 +1255,49 @@ def test_the_aqua_window_closes_when_it_loses_the_keyboard() -> None:
     assert "<Escape>" in bound, "the Aqua overlay no longer closes on Esc"
 
 
+def test_the_aqua_window_shows_whether_or_not_it_is_activated() -> None:
+    """Visibility must not hang on activation, which macOS may refuse.
+
+    Since macOS 14 activation is cooperative: a process started in the
+    background can be refused it. An inactive application's window stays
+    behind the terminal, or on another Space, so the touch prompt is up
+    and nobody sees it. The window has to be ordered front with the one
+    call that works without being active, at a level above normal and
+    floating windows, on every Space -- and before activation is asked
+    for, so a refusal has nothing left to hide.
+    """
+    window = SCRIPT.parent / "gpg-touch-overlay-window-macos.py"
+    tree = ast.parse(window.read_text())
+    functions = {
+        node.name: node for node in tree.body if isinstance(node, ast.FunctionDef)
+    }
+    selectors = {
+        node.value
+        for node in ast.walk(functions["float_above_everything"])
+        if isinstance(node, ast.Constant) and isinstance(node.value, bytes)
+    }
+    assert {b"orderFrontRegardless", b"setLevel:", b"setCollectionBehavior:"} <= selectors
+
+    order: list[tuple[int, str]] = []
+    for node in ast.walk(functions["take_focus"]):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "float_above_everything"
+        ):
+            order.append((node.lineno, "float"))
+        if isinstance(node, ast.Constant) and node.value in (
+            b"activate",
+            b"activateIgnoringOtherApps:",
+        ):
+            order.append((node.lineno, "activate"))
+    names = [name for _, name in sorted(order)]
+    assert names and names[0] == "float", (
+        "take_focus asks for activation before ordering the window front; "
+        f"a refused activation then leaves it hidden ({names})"
+    )
+
+
 def test_the_aqua_window_takes_termination_signals_back_from_tk() -> None:
     """The watcher's SIGTERM must reach the flag, never Tk's own handler.
 

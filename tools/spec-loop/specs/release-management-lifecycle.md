@@ -186,6 +186,12 @@ code lands.
   Release Manager runs every signing and `svn commit` operation as
   themselves. Mirrors `security-cve-allocate` (Vulnogram URL + paste-ready
   JSON, human submits).
+- **Upload credentials stay with the Release Manager.** A `stage_command` or
+  `publish_command` that needs the RM's token (e.g. `twine upload`) is declared
+  wrapped in `tools/secret-prompt`, which asks the RM for it — in their
+  terminal, or as a macOS / Linux dialog when an agent runs the step — and
+  passes it only to that one command's environment, so it never reaches a
+  file, the shell history, or the agent's transcript.
 - **The agent never publishes the release.** Step 10 (promotion) and step
   11 (`[ANNOUNCE]` send + site-bump merge) are the moments of release; the
   agent drafts artefacts, the RM and PMC execute and merge.

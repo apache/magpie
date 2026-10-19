@@ -372,3 +372,43 @@ def test_a_working_dir_inside_the_checkout_fails_the_invariants(work_dir: str) -
     settings = merge_layers(merge_layers(_load(FLOOR), _load(LOCAL_TEMPLATE)), addition)
     errors = check_invariants(settings, project_root=REPO_ROOT)
     assert any(e.startswith(f"permissions.additionalDirectories: {work_dir!r}") for e in errors), errors
+
+
+def _with_exclusions(*entries: str) -> dict[str, Any]:
+    return merge_layers(
+        merge_layers(_load(FLOOR), _load(LOCAL_TEMPLATE)), {"sandbox": {"excludedCommands": list(entries)}}
+    )
+
+
+@pytest.mark.parametrize("entry", ["roborev *", "gh auth *", "gh", "gh auth status", "gh:*", "roborev:*"])
+def test_allowlisted_exclusions_and_their_narrowings_pass(entry: str) -> None:
+    assert check_invariants(_with_exclusions(entry), project_root=REPO_ROOT) == []
+
+
+@pytest.mark.parametrize(
+    "entry", ["find *", "git *", "make *", "docker *", "zizmor *", "ghx *", "roborevx *"]
+)
+def test_an_exclusion_off_the_allowlist_fails(entry: str) -> None:
+    errors = check_invariants(_with_exclusions(entry), project_root=REPO_ROOT)
+    assert any(f"{entry!r} is not on the exclusion allowlist" in e for e in errors), errors
+
+
+def test_a_project_can_extend_the_allowlist(tmp_path: Path) -> None:
+    from sandbox_lint import PROJECT_EXCLUSION_ALLOWLIST
+
+    extension = tmp_path / PROJECT_EXCLUSION_ALLOWLIST
+    extension.parent.mkdir(parents=True)
+    extension.write_text("# reviewed in #123\nzizmor *\n\nbash *\n")
+    errors = check_invariants(_with_exclusions("zizmor *", "bash *"), project_root=tmp_path)
+    assert not any("'zizmor *'" in e for e in errors), errors
+    # An extension still has to pass the runs-anything check.
+    assert any("'bash *' would run arbitrary commands" in e for e in errors), errors
+    assert not any("'bash *' is not on the exclusion allowlist" in e for e in errors), errors
+
+
+def test_an_unreadable_extension_is_reported(tmp_path: Path) -> None:
+    from sandbox_lint import PROJECT_EXCLUSION_ALLOWLIST
+
+    (tmp_path / PROJECT_EXCLUSION_ALLOWLIST).mkdir(parents=True)
+    errors = check_invariants(_with_exclusions(), project_root=tmp_path)
+    assert any(e.startswith(f"{PROJECT_EXCLUSION_ALLOWLIST}: cannot be read") for e in errors), errors

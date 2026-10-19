@@ -1,7 +1,0 @@
-{
-  "action": "error",
-  "issue_numbers": null,
-  "scope_label": null,
-  "cve_token": null,
-  "error": "no selector provided — expected 'triage [<selector>]'"
-}

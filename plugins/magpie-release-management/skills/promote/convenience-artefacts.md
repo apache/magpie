@@ -12,6 +12,10 @@ The render emits it **after** the dist promotion and the final tag, as its own s
   (for example `twine upload dist/apache_<project>-<version>*`, `mvn nexus-staging:release -DstagingRepositoryId=<id>`, `docker push <registry>/<image>:<version>`, `helm push …`).
   These are the project's own commands; the skill never invents a channel or a command the config does not declare.
   An entry with no `publish_command` emits nothing and comes back in `warnings`.
+  A `publish_command` that uploads with the release manager's token is best declared wrapped in
+  [`secret-prompt`](../../../../tools/secret-prompt/README.md) (`secret-prompt --env TWINE_PASSWORD --set TWINE_USERNAME=__token__ --prefix pypi- -- twine upload …`),
+  so running it asks the release manager for the token (the tool's README has the one-time `uv tool install`);
+  the render still emits it verbatim, and never asks for or handles the token itself.
 
 **Reproducibility gate — the artefact must be good before it is published.**
 A convenience artefact is publishable only if the `release-verify-rc` run recorded on the planning issue rebuilt it from the voted tag and it reproduced:

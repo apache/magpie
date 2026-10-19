@@ -13,9 +13,10 @@ import re
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
+from types import ModuleType
 
+from . import custom_parser, sections
 from . import metadata as md
-from . import sections
 from .descriptor import DESCRIPTOR_NAME, Descriptor
 from .vcs import WorkingCopy
 from .vcs import detect as detect_vcs
@@ -35,6 +36,49 @@ def not_found(message: str) -> TrackerError:
 
 def refused(message: str) -> TrackerError:
     return TrackerError(message, 4)
+
+
+def _convention(raw: str) -> tuple[str | None, bool]:
+    """``(line ending, ends with one)`` of a file's text; the ending is None when it mixes several.
+
+    A file with no line ending at all counts as LF.
+    """
+    crlf = raw.count("\r\n")
+    lone_cr = raw.count("\r") - crlf
+    lone_lf = raw.count("\n") - crlf
+    used = [eol for eol, n in (("\r\n", crlf), ("\r", lone_cr), ("\n", lone_lf)) if n]
+    eol = used[0] if len(used) == 1 else ("\n" if not used else None)
+    return eol, raw.endswith(("\n", "\r")) or not raw
+
+
+def _custom_get(parser: ModuleType, body: str, name: str) -> str | None:
+    """``name``'s value through a custom parser, None when absent; a duplicate or dispute raises."""
+    try:
+        return str(parser.extract_field(body, name))
+    except parser.FieldNotFoundError as exc:
+        if isinstance(exc, (parser.DuplicateFieldError, parser.AmbiguousFieldError)):
+            raise
+        return None
+
+
+def _custom_set(parser: ModuleType, body: str, name: str, value: str) -> tuple[str, bool]:
+    """``body`` with ``name`` set through a custom parser, and whether the field was added."""
+    if _custom_get(parser, body, name) is None:
+        return str(parser.append_field(body, name, value)), True
+    return str(parser.replace_field(body, name, value)), False
+
+
+def _custom_markdown(parser: ModuleType, body: str) -> str:
+    """A custom-layout body as ``### Field`` sections, for generate-cve-json; refuses a disputed body."""
+    out: list[str] = []
+    try:
+        names = list(dict.fromkeys(parser.list_fields(body)))
+        for name in names:
+            value = sections.escape_field_lines(str(parser.extract_field(body, name)).strip("\n"))
+            out.append(f"### {sections.fields.collapse_name(str(name))}\n\n{value}\n")
+    except LookupError as exc:
+        raise refused(str(exc)) from exc
+    return "\n".join(out) if out else "\n"
 
 
 def _today() -> str:
@@ -74,6 +118,10 @@ class Tracker:
         # and refuses a symlink anywhere, so swapping the root (or any folder above
         # it) for a symlink afterwards cannot redirect a read or a write.
         self._real_root = Path(os.path.realpath(root))
+        # The project's own body-field parser, once loaded (field_layout: custom).
+        self._parser: ModuleType | None = None
+        # Each file's line-ending convention, as read: a write puts it back.
+        self._conventions: dict[str, tuple[str | None, bool]] = {}
 
     # ------------------------------------------------------------ locating
 
@@ -201,14 +249,19 @@ class Tracker:
             raise refused(f"{path} is outside the tracker root {root}") from None
         return path
 
-    def _clean(self, text: str) -> str:
-        """Untrusted report text, with every marker the tracker parses neutralized."""
+    def _clean(self, text: str, *, body: bool = False) -> str:
+        """Untrusted report text, with every marker the tracker parses neutralized.
+
+        ``body`` is a whole report, whose ``### Field`` lines are its fields;
+        any other text (a field value) also has every line that would end a
+        field escaped.
+        """
         managed = []
         if self.desc.comments_mode == "section":
             managed.append(self.desc.comments_heading)
         if self.desc.rollup_mode == "section":
             managed.append(self.desc.rollup_heading)
-        return sections.neutralize(text, tuple(managed))
+        return sections.neutralize(text, tuple(managed), body=body)
 
     def _open(self, path: Path, flags: int, *, make_dirs: bool = False) -> int:
         """Open a managed file by walking from the tracker root one directory
@@ -217,6 +270,9 @@ class Tracker:
         A path-based check followed by `open()` leaves a window in which a
         parent directory can be swapped for a symlink; opening each component
         relative to the previous descriptor with `O_NOFOLLOW` closes it.
+
+        What it creates is the owner's alone (folders 0700, files 0600): the
+        reports are embargoed, and a folder's name carries the title slug.
         """
         rel = os.path.relpath(os.path.abspath(path), os.path.abspath(self.root))
         parts = Path(rel).parts
@@ -233,7 +289,7 @@ class Tracker:
                         raise
                     # Created concurrently is fine: open it below like any other.
                     with contextlib.suppress(FileExistsError):
-                        os.mkdir(name, 0o755, dir_fd=dir_fd)
+                        os.mkdir(name, 0o700, dir_fd=dir_fd)
                     next_fd = os.open(name, dir_flags, dir_fd=dir_fd)
                 except OSError as exc:
                     if exc.errno in (errno.ELOOP, errno.ENOTDIR):
@@ -244,7 +300,7 @@ class Tracker:
                 os.close(dir_fd)
                 dir_fd = next_fd
             try:
-                return os.open(parts[-1], flags | os.O_NOFOLLOW, 0o644, dir_fd=dir_fd)
+                return os.open(parts[-1], flags | os.O_NOFOLLOW, 0o600, dir_fd=dir_fd)
             except OSError as exc:
                 if exc.errno == errno.ELOOP:
                     raise refused(f"{path} is a symlink; refusing to follow it") from exc
@@ -292,13 +348,37 @@ class Tracker:
             )
 
     def _read_file(self, path: Path) -> str:
-        with os.fdopen(self._open(path, os.O_RDONLY), encoding="utf-8") as handle:
-            return handle.read()
+        """The file's text with ``\n`` line endings, its own convention remembered for the write.
+
+        A Git checkout with ``core.autocrlf`` or an SVN one with
+        ``svn:eol-style=native`` may hand the file over with CRLF; the parser
+        and the section code work on ``\n``, and :meth:`_write_file` puts the
+        file's convention (and a missing final newline) back, so a write
+        changes no byte it did not mean to. Expanded ``svn:keywords``
+        (``$Id: … $``) are ordinary text.
+        """
+        with os.fdopen(self._open(path, os.O_RDONLY), encoding="utf-8", newline="") as handle:
+            raw = handle.read()
+        self._conventions[os.path.abspath(path)] = _convention(raw)
+        return raw.replace("\r\n", "\n").replace("\r", "\n")
 
     def _write_file(self, path: Path, text: str) -> None:
+        eol, final_newline = self._conventions.get(os.path.abspath(path), ("\n", True))
+        if eol is None:
+            raise refused(
+                f"{path} mixes line endings; normalise them to one convention before the tracker writes to it"
+            )
+        # Whatever reached here is written in the file's one convention, so a
+        # write never turns a file into one that mixes line endings.
+        text = text.replace("\r\n", "\n").replace("\r", "\n")
+        if not final_newline and text.endswith("\n"):
+            text = text[:-1]
+        if eol != "\n":
+            text = text.replace("\n", eol)
         fd = self._open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, make_dirs=True)
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="") as handle:
             handle.write(text)
+        self._conventions[os.path.abspath(path)] = (eol, final_newline)
 
     def _read(self, entry: Entry) -> tuple[md.Metadata, str]:
         meta, body = md.split(self._read_file(entry.path))
@@ -471,11 +551,42 @@ class Tracker:
             seen.update(self._list(meta, "labels"))
         return sorted(seen)
 
+    def body_parser(self) -> ModuleType | None:
+        """The project's own body-field parser when the descriptor's field_layout is custom, else None.
+
+        Loaded once, through :mod:`custom_parser`'s checks; any failure stops
+        the operation with exit 2, and a custom layout is never read with the
+        default parser.
+        """
+        if self.desc.field_layout != "custom":
+            return None
+        if self._parser is None:
+            try:
+                self._parser = custom_parser.load(self.wc, self.desc.body_parser)
+            except custom_parser.ParserRefused as exc:
+                raise TrackerError(str(exc), 2) from exc
+        return self._parser
+
+    def _refuse_whole_body(self) -> None:
+        if self.body_parser() is not None:
+            raise refused(
+                "this tracker's reports use a custom field layout: a whole report body is written in `###` "
+                "sections, which its parser does not read; set fields one at a time with field-set"
+            )
+
     def field_get(self, ident: str, heading: str) -> dict[str, object]:
+        parser = self.body_parser()
         entry = self.resolve(ident)
         _, body = self._read(entry)
         main, _ = self._split_managed(body)
-        return {"id": entry.id, "heading": heading, "value": sections.get_field(main, heading)}
+        try:
+            if parser is None:
+                value = sections.get_field(main, heading, self.desc.field_heading_level)
+            else:
+                value = _custom_get(parser, main, heading)
+        except LookupError as exc:  # a duplicate or disputed field
+            raise refused(str(exc)) from exc
+        return {"id": entry.id, "heading": heading, "value": value}
 
     # ------------------------------------------------------------ writing
 
@@ -487,6 +598,7 @@ class Tracker:
 
     def create(self, title: str, body: str, labels: list[str], author: str = "") -> dict[str, object]:
         self.require_writable()
+        self._refuse_whole_body()
         title = " ".join(title.split())
         if not title:
             raise TrackerError("the title file is empty", 2)
@@ -512,10 +624,10 @@ class Tracker:
             self._set(meta, "author", author)
         self._set(meta, "created", _today())
         self._set(meta, "updated", _today())
-        text = self._clean(body).strip("\n") + "\n"
+        text = self._clean(body, body=True).strip("\n") + "\n"
         if self.desc.title_source == "h1":
             text = f"# {title}\n\n{text}"
-        rendered = md.render(meta, text)
+        rendered = md.render(meta, text).replace("\r\n", "\n").replace("\r", "\n")
         # Reserve the ID with an exclusive create: two writers that picked the
         # same number cannot both succeed, and the loser takes the next one.
         for _attempt in range(50):
@@ -569,7 +681,8 @@ class Tracker:
                 new_h1 = f"# {title}"
                 current = re.sub(r"^# .+$", lambda _m: new_h1, current, count=1, flags=re.MULTILINE)
         if body is not None:
-            body = self._clean(body)
+            self._refuse_whole_body()
+            body = self._clean(body, body=True)
             _, managed = self._split_managed(current)
             head = ""
             if self.desc.title_source == "h1":
@@ -584,9 +697,16 @@ class Tracker:
         entry = self.resolve(ident)
         meta, body = self._read(entry)
         main, managed = self._split_managed(body)
-        new_main, created = sections.set_field(
-            main, heading, self._clean(value), self.desc.field_heading_level
-        )
+        parser = self.body_parser()
+        try:
+            if parser is None:
+                new_main, created = sections.set_field(
+                    main, heading, self._clean(value), self.desc.field_heading_level
+                )
+            else:
+                new_main, created = _custom_set(parser, main, heading, self._clean(value))
+        except LookupError as exc:  # a duplicate, disputed or unsafe rewrite
+            raise refused(str(exc)) from exc
         self._write(entry, meta, new_main + ("\n" + managed.lstrip("\n") if managed else ""))
         return {"id": entry.id, "heading": heading, "created": created}
 
@@ -707,9 +827,12 @@ class Tracker:
     def body(self, ident: str) -> str:
         """The report body without metadata or managed sections: the `### Field`
         markdown generate-cve-json reads on stdin."""
+        parser = self.body_parser()
         entry = self.resolve(ident)
         _, text = self._read(entry)
         main, _ = self._split_managed(text)
+        if parser is not None:
+            return _custom_markdown(parser, main)
         level = self.desc.field_heading_level
         if level != 3:
             # generate-cve-json reads `### Field` sections only: shift the

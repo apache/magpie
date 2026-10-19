@@ -8,19 +8,24 @@
 For each candidate `threadId`, check whether that ID already appears in an `<tracker>` issue body
 (the *"Security mailing list thread"* field holds it, as a `<mail-archive-url>/thread/<id>` URL or a textual note containing the Gmail `threadId`).
 Check every candidate in one pass: OR the `threadId`s into one `gh search issues` query,
-at most 6 IDs per query (GitHub search allows at most five `OR` operators):
+at most 6 IDs per query (GitHub search allows at most five `OR` operators).
+Write the ids as a JSON list to `<scratch>/thread-ids.json` and let the tool batch them
+(`<sm>` is `uv run --project <framework>/tools/security-management security-management issue-import`):
 
 ```bash
-gh search issues "<threadId-1> OR <threadId-2> OR … OR <threadId-6>" \
-  --repo <tracker> --match body --limit 100 \
-  --json number,title,state,url,body
+<sm> dedup-queries --thread-ids <scratch>/thread-ids.json --tracker <tracker>
 ```
 
-Attribute each hit to a candidate by finding which `threadId` its
-`body` contains; a hit can match more than one candidate.
-If a query returns exactly 100 hits, the result may be truncated —
-split that batch into smaller ones and re-run rather than treating
-the unmatched `threadId`s as untracked.
+It accepts the identifiers the mail-source backends emit — a Gmail or PonyMail id, a maildir file name, a root `Message-ID` such as `<report@example.org>` —
+and quotes each as a search phrase.
+**Exit `2` lists `rejected_ids`** it cannot search safely: stop and show them to the user; never search without them, or a tracked report re-imports.
+Run each batch's printed `command` (`gh search issues '<query>' --repo <tracker> --match body --limit 100 --json number,title,state,url,body`) as a plain command,
+saving its output to `<scratch>/dedup-hits-<n>.json`.
+
+Then attribute the hits with `<sm> dedup-attribute --thread-ids <scratch>/batch-<n>.json --hits <scratch>/dedup-hits-<n>.json`
+(the batch's `ids`; a hit can match more than one candidate; the same exit `2` applies).
+A batch that returns exactly 100 hits may be truncated: the tool reports `truncated`, no `untracked` ids, and `rerun` batches —
+run those rather than treating the unmatched `threadId`s as untracked.
 
 If the search returns any hit for a candidate, the thread is already imported — skip it; do **not** propose re-importing.
 If the user explicitly passed `import thread:<id>` and the thread is already imported, tell the user and link the existing issue.

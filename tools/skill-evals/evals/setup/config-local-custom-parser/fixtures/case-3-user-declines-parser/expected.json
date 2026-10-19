@@ -1,0 +1,1 @@
+{"generates_parser": false, "parser_in_override_dir": false, "runs_conformance_suite": false, "runs_trust_parser": false, "hands_trust_parser_to_user": false, "asks_confirmation_of_hash": false, "uses_default_parser": false, "copies_report_text": false, "backend_ready": false, "offers_upstream": false}

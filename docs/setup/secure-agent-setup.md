@@ -706,6 +706,7 @@ The full block below is the two merged, annotated.
       "Read(~/.docker/**)", "Read(~/.kube/**)",
       "Read(~/.config/gh/**)",                  // bash can read it (sandbox.allowRead); the AGENT can't
       "Read(~/.config/apache-magpie/**)",      // Gmail OAuth token: only the oauth-draft MCP server reads it, outside the sandbox
+      "Edit(~/.config/apache-magpie/local-tracker-parsers.json)", // the user's custom-parser confirmations: only `trust-parser`, run by the user, writes them
       "Read(~/.config/gcloud/**)", "Read(~/.azure/**)",
       "Read(//**/.env)", "Read(//**/.env.local)", "Read(//**/.env.*.local)",
       "Bash(curl *)", "Bash(wget *)",           // network egress via Bash bypasses the sandbox proxy

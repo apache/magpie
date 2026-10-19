@@ -124,6 +124,12 @@ supersedes; the proposal routes to
 instead).
 These searches stay per tracker: each key comes from that tracker's own report, so there is no cross-tracker query to batch them into.
 
+**`<sm> precedent-signal`** turns the precedents you rated into the signal the classifier weighs:
+write `rejection_precedents` and `positive_precedents` (`number`, `match_strength` STRONG or MODERATE, `closed_at`, `one_line_shape`) and `calls_used`.
+A STRONG rejection with no STRONG positive gives `lowers_to_invalid`, the reverse `raises_to_valid`, anything else `neutral`;
+it prints the *Direct precedent* citation for each STRONG rejection, `budget_exhausted` at 3 calls, and `trust_boundary_load_bearing` when STRONG precedents point both ways.
+Rating a match STRONG or MODERATE stays your judgement.
+
 **Hard rule**: a rejection precedent in Step 2.6 does **not**
 auto-classify INVALID — the human team reads the precedent
 and the new report side-by-side. The skill's job is to surface

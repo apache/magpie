@@ -3,10 +3,21 @@
 
 """Body-field sections and the status rollup, in Jira wiki markup.
 
-A body field is a level-3 section: ``h3. <Heading>`` (wiki markup), or
-``### <Heading>`` (Markdown, read compatibility), running until the next
-level 1-3 heading of either syntax.  Headings inside ``{code}`` /
-``{noformat}`` macros and Markdown code fences are ignored.
+Body fields follow the body-field contract (tools/body-field-contract/contract.md)
+through :mod:`jira_bridge.body_field_format`, a byte-identical copy of
+tools/github-body-field's parser (tests/test_vendored_parser.py keeps it
+exact): every column-0 ``### <Heading>`` line ends a field, code block or
+not, and a heading inside a closed code block never starts a field.
+
+Jira's own heading syntax is mapped onto that contract before the parser
+reads the body (:func:`as_fields`): a wiki heading of level 1 to 3
+(``h3. <Heading>``, indented or not) outside every closed code block reads
+as ``### <Heading>``. Closed blocks are the parser's: CommonMark fence pairs
+and ``{code}`` / ``{code:…}`` / ``{noformat}`` blocks opened at the start of
+a line and closed on the bare macro; a block left open marks nothing, so no
+macro left in one field can hide the headings after it. Wiki ``h4.`` to
+``h6.`` headings and Markdown ``#`` / ``##`` lines are field content.
+Field names match with case and inner whitespace ignored.
 
 The rollup is one comment whose first line is the invisible anchor macro
 :data:`ROLLUP_MARKER`; each entry is a bold summary line
@@ -19,15 +30,39 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from . import body_field_format as fields
+from .body_field_format import (
+    AmbiguousFieldError,
+    DuplicateFieldError,
+    FieldNotFoundError,
+)
+
+__all__ = [
+    "ROLLUP_MARKER",
+    "AmbiguousFieldError",
+    "DuplicateFieldError",
+    "FieldNotFoundError",
+    "Heading",
+    "RollupEntry",
+    "as_fields",
+    "escape_quoted_fields",
+    "find_headings",
+    "get_field",
+    "is_rollup",
+    "list_fields",
+    "neutralize",
+    "parse_rollup",
+    "render_rollup",
+    "set_field",
+    "to_markdown_headings",
+]
+
 ROLLUP_MARKER = "{anchor:magpie-status-rollup-v1}"
 
 _MARKER_RE = re.compile(r"^\{anchor:magpie-status-rollup-v\d+\}\s*$")
 _SUMMARY_RE = re.compile(r"^\*(\d{4}-\d{2}-\d{2}) · @(.+?) · (.+)\*\s*$")
 _WIKI_HEADING_RE = re.compile(r"^\s*h([1-6])\.\s+(.*?)\s*$")
 _MD_HEADING_RE = re.compile(r"^\s{0,3}(#{1,6})\s+(.*?)(?:\s+#+)?\s*$")
-_WIKI_BLOCK_RE = re.compile(r"\{(code|noformat)(?::[^}]*)?\}")
-_FENCE_RE = re.compile(r"^\s{0,3}(`{3,}|~{3,})")
-_FENCE_CLOSE_RE = re.compile(r"^\s{0,3}(`{3,}|~{3,})\s*$")
 
 
 @dataclass(frozen=True)
@@ -40,93 +75,163 @@ class Heading:
     wiki: bool
 
 
-def _normalise(name: str) -> str:
-    return " ".join(name.split()).casefold()
+def _content(line: str) -> str:
+    return line.rstrip("\r\n")
 
 
 def find_headings(lines: list[str]) -> list[Heading]:
-    """Return every heading outside code blocks, in document order."""
+    """Every heading outside closed code blocks (the parser's blocks), in document order."""
+    inside = fields.closed_block_lines(lines)
     headings: list[Heading] = []
-    in_wiki_block: str | None = None
-    # Open Markdown fence as (character, length); per CommonMark only a
-    # fence of the same character, at least as long, with nothing but
-    # whitespace after it, closes it.
-    fence: tuple[str, int] | None = None
     for index, line in enumerate(lines):
-        if fence is not None:
-            close = _FENCE_CLOSE_RE.match(line)
-            if close:
-                run = close.group(1)
-                if run[0] == fence[0] and len(run) >= fence[1]:
-                    fence = None
+        if inside[index]:
             continue
-        if in_wiki_block is not None:
-            # A {code} / {noformat} block closes on the bare macro name.
-            if "{" + in_wiki_block + "}" in line:
-                in_wiki_block = None
-            continue
-        opener = _FENCE_RE.match(line)
-        if opener:
-            fence = (opener.group(1)[0], len(opener.group(1)))
-            continue
-        macros = _WIKI_BLOCK_RE.findall(line)
-        if len(macros) % 2 == 1:
-            in_wiki_block = macros[-1]
-            continue
-        wiki = _WIKI_HEADING_RE.match(line)
+        wiki = _WIKI_HEADING_RE.match(_content(line))
         if wiki:
             headings.append(Heading(index, int(wiki.group(1)), wiki.group(2), True))
             continue
-        md = _MD_HEADING_RE.match(line)
+        md = _MD_HEADING_RE.match(_content(line))
         if md:
             headings.append(Heading(index, len(md.group(1)), md.group(2), False))
     return headings
 
 
-def _locate(lines: list[str], heading: str) -> tuple[int, int] | None:
-    """Return ``(heading_index, end_index)`` of the field section, or None."""
-    wanted = _normalise(heading)
-    headings = find_headings(lines)
-    for pos, found in enumerate(headings):
-        if found.level == 3 and _normalise(found.text) == wanted:
-            end = len(lines)
-            for later in headings[pos + 1 :]:
-                if later.level <= 3:
-                    end = later.index
-                    break
-            return found.index, end
-    return None
+def _project(lines: list[str]) -> list[str]:
+    """``lines`` with each wiki heading of level 1 to 3 outside closed blocks as ``### <text>``."""
+    inside = fields.closed_block_lines(lines)
+    out = list(lines)
+    for index, line in enumerate(lines):
+        content = _content(line)
+        wiki = None if inside[index] else _WIKI_HEADING_RE.match(content)
+        if wiki and int(wiki.group(1)) <= 3:
+            out[index] = f"### {wiki.group(2)}" + line[len(content) :]
+    return out
+
+
+def as_fields(body: str) -> str:
+    """``body`` as the body-field parser reads it: its wiki field headings spelled ``### <text>``."""
+    return "".join(_project(fields.split_lines(body)))
+
+
+def _field_name(body: str, heading: str) -> str | None:
+    """The exact name of the field ``heading`` names, matched with case and inner whitespace ignored.
+
+    The parser's rule over every spelling of the name: the copy outside
+    closed blocks (a heading inside one never starts a field). The parser's
+    refusal of an ambiguous field comes first, for every spelling; then two
+    copies outside closed blocks, however spelled, are a duplicate.
+    """
+    wanted = fields.fold_name(heading)
+    outside = [
+        s
+        for s in fields.parse(body)[1]
+        if not s.in_block and fields.fold_name(s.name) == wanted
+    ]
+    for name in dict.fromkeys([heading, *(s.name for s in outside)]):
+        try:
+            fields.extract_field(body, name)
+        except fields.AmbiguousFieldError:
+            raise
+        except fields.FieldNotFoundError:
+            # This loop only probes each spelling for the ambiguity refusal above;
+            # a spelling that is absent is fine, and the duplicate check follows.
+            pass
+    if len(outside) > 1:
+        raise fields.DuplicateFieldError(
+            f"field {heading!r} appears {len(outside)} times; refusing to guess"
+        )
+    return outside[0].name if outside else None
+
+
+def escape_quoted_fields(body: str) -> str:
+    """``body`` with a leading backslash on every ``###`` field boundary inside a closed code block.
+
+    A heading inside a closed block is never a field; escaped at ingest
+    (create, edit), quoted text cannot become a copy of a field at all, as
+    in the import's inert block.
+    """
+    lines = fields.split_lines(body)
+    inside = fields.closed_block_lines(lines)
+    return "".join(
+        "\\" + line if inside[index] and fields.is_boundary(line) else line
+        for index, line in enumerate(lines)
+    )
+
+
+def list_fields(body: str) -> list[str]:
+    """The field names the body declares (headings outside closed blocks), in document order."""
+    return fields.list_fields(as_fields(body))
 
 
 def get_field(body: str, heading: str) -> str | None:
-    """Return the stripped value of the ``heading`` section, or None when missing."""
-    lines = body.splitlines()
-    span = _locate(lines, heading)
-    if span is None:
+    """The stripped value of the ``heading`` field, or None when the body has no such field.
+
+    Raises :class:`DuplicateFieldError` or :class:`AmbiguousFieldError` (the
+    parser's) when the body does not say which section is the field.
+    """
+    projected = as_fields(body)
+    name = _field_name(projected, heading)
+    if name is None:
         return None
-    start, end = span
-    return "\n".join(lines[start + 1 : end]).strip()
+    return fields.extract_field(projected, name).strip()
+
+
+def _refuse(heading: str, action: str) -> AmbiguousFieldError:
+    return AmbiguousFieldError(
+        f"field {heading!r}: the new value holds a heading or a code block that would change "
+        f"the body's other fields; refusing to {action} it"
+    )
 
 
 def set_field(body: str, heading: str, value: str) -> tuple[str, bool]:
-    """Replace (or append) the ``heading`` section; return ``(new_body, created)``."""
-    lines = body.splitlines()
-    value_lines = value.strip("\n").splitlines()
-    span = _locate(lines, heading)
-    if span is not None:
-        start, end = span
-        tail = lines[end:]
-        new_lines = [*lines[: start + 1], *value_lines]
-        if tail:
-            new_lines.append("")
-        new_lines.extend(tail)
-        return "\n".join(new_lines) + "\n", False
+    """Replace (or append) the ``heading`` field; return ``(new_body, created)``.
+
+    A replacement is the parser's ``replace_field`` on :func:`as_fields`,
+    mapped back onto the wiki body, so everything outside the field stays
+    byte-identical. A value that would add, hide or move a field heading (a
+    ``###`` or wiki heading line, a code block reaching past the field) is
+    refused with :class:`AmbiguousFieldError`, as are the parser's own
+    refusals (a duplicate or disputed field).
+    """
+    lines = fields.split_lines(body)
+    projected = _project(lines)
+    before = "".join(projected)
+    sections = fields.parse(before)[1]
+    name = _field_name(before, heading)
+    if name is not None:
+        rewritten = fields.split_lines(fields.replace_field(before, name, value))
+        limit = min(len(projected), len(rewritten))
+        head = 0
+        while head < limit and rewritten[head] == projected[head]:
+            head += 1
+        tail = 0
+        while tail < limit - head and rewritten[-1 - tail] == projected[-1 - tail]:
+            tail += 1
+        middle = rewritten[head : len(rewritten) - tail]
+        new_body = "".join([*lines[:head], *middle, *lines[len(lines) - tail :]])
+        if as_fields(new_body) != "".join(rewritten):
+            raise _refuse(heading, "rewrite")
+        return new_body, False
     headings = find_headings(lines)
     markdown_only = bool(headings) and not any(h.wiki for h in headings)
     heading_line = f"### {heading}" if markdown_only else f"h3. {heading}"
     prefix = body.rstrip()
-    section = "\n".join([heading_line, *value_lines]) + "\n"
-    return (f"{prefix}\n\n{section}" if prefix else section), True
+    section = (
+        "\n".join(
+            [
+                heading_line,
+                *(_content(line) for line in fields.split_lines(value.strip("\n"))),
+            ]
+        )
+        + "\n"
+    )
+    new_body = f"{prefix}\n\n{section}" if prefix else section
+    after = fields.parse(as_fields(new_body))[1]
+    if [(s.name, s.in_block) for s in after[:-1]] != [
+        (s.name, s.in_block) for s in sections
+    ] or (get_field(new_body, heading) != value.strip()):
+        raise _refuse(heading, "add")
+    return new_body, True
 
 
 @dataclass
@@ -163,17 +268,19 @@ def neutralize(text: str) -> str:
 
 
 def to_markdown_headings(text: str) -> str:
-    """Wiki-markup headings (`h3. Field`) as markdown (`### Field`); nothing else changes.
+    """The description with markdown headings: :func:`as_fields`, and ``h4.``-``h6.`` as ``####``-``######``.
 
-    Only the headings `find_headings` reports are converted — the same
-    code-block-aware scan the field readers use — so heading-like text inside a
-    `{code}` / `{noformat}` PoC never becomes a field generate-cve-json could
-    read a CVE ID from.
+    The field headings are exactly the ones :func:`get_field` reads, so
+    generate-cve-json reading this output sees the same fields, and
+    heading-like text inside a closed ``{code}`` / ``{noformat}`` PoC never
+    becomes a field it could read a CVE ID from. Lines end in ``\\n``.
     """
-    lines = text.splitlines()
-    for heading in find_headings(lines):
-        if heading.wiki:
-            lines[heading.index] = "#" * heading.level + " " + heading.text
+    lines = [_content(line) for line in _project(fields.split_lines(text))]
+    inside = fields.closed_block_lines(lines)
+    for index, line in enumerate(lines):
+        wiki = None if inside[index] else _WIKI_HEADING_RE.match(line)
+        if wiki:
+            lines[index] = "#" * int(wiki.group(1)) + " " + wiki.group(2)
     return "\n".join(lines)
 
 

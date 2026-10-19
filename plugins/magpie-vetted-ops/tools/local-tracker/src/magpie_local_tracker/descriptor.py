@@ -82,6 +82,13 @@ class Descriptor:
     # ``key`` (metadata) or ``h1`` (first ``# `` heading of the body).
     title_source: str = "key"
     field_heading_level: int = 3
+    # ``default``: body fields are ``###`` sections (the body-field contract).
+    # ``custom``: another layout, read only through the project's own parser,
+    # which ``body_parser`` names (``{"path": ..., "sha256": ...}``) and
+    # ``trust-parser`` records after a human confirmed it; never through the
+    # default parser.
+    field_layout: str = "default"
+    body_parser: dict[str, str] = field(default_factory=dict)
     id: IdFormat = field(default_factory=IdFormat)
     state: StateFormat = field(default_factory=StateFormat)
     # ``file``: <ID>/comments.md. ``section``: a heading inside the issue file.
@@ -147,6 +154,10 @@ def _check_names(desc: Descriptor) -> None:
     for key, value in names.items():
         if not _NAME_RE.match(value) or value in (".", "..") or ".." in value:
             raise ValueError(f"descriptor {key} must be a plain file or folder name, got {value!r}")
+    if desc.field_layout not in ("default", "custom"):
+        raise ValueError(f"descriptor field_layout must be 'default' or 'custom', got {desc.field_layout!r}")
+    if not isinstance(desc.body_parser, dict):
+        raise ValueError("descriptor body_parser must be an object {path, sha256}")
 
 
 def load(root: Path) -> Descriptor:
