@@ -30,7 +30,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from security_management.cli import emit, read_object, refuse
-from security_management.issue_sync import advisory, bulk, preflight, push, render, select
+from security_management.issue_sync import advisory, bulk, preflight, push, render, select, state
 from security_management.shared import drafting, numbered, recipients
 
 FAMILY = "issue-sync"
@@ -48,6 +48,10 @@ COMMANDS = {
     "draft-backend": "Drafts: Gmail or Maildir, then the Gmail backend (JSON: user_backend, project_backend, oauth_credentials)",
     "ghsa-route": "GHSA trackers: the access tier and how a change is delivered",
     "push-decision": "Step 5b: skip, block, hand-off or push, and the next command",
+    "disclosure": "Step 1a: the issue's age and the disclosure-window flags",
+    "staleness": "Step 1c: whether the reporter thread is stale (JSON: now, messages, timeout_days)",
+    "closed-announced": "Step 1g: the cve.org state, the security-pages markers and the advisory records",
+    "release-vote": "Step 1h: an open [VOTE] thread matching the fix-PR milestone",
     "render-recap": "Step 6: the recap",
 }
 
@@ -91,6 +95,10 @@ def dispatch(args: argparse.Namespace) -> int:
         "draft-backend": _backend,
         "ghsa-route": advisory.route,
         "push-decision": push.decide,
+        "disclosure": state.disclosure,
+        "staleness": state.staleness,
+        "closed-announced": state.closed_announced,
+        "release-vote": state.release_vote,
         "render-recap": render.recap,
     }
     result = handlers[args.command](data)

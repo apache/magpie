@@ -255,6 +255,10 @@ Every command takes `--input F`, a JSON file.
 | `draft-backend` | `backend` (`maildir`, `oauth_curl`, `claude_ai_mcp`), `decided_by` (`user.md`, `project.md`, `default`); no credential with links in the body exits `2`. |
 | `ghsa-route` | `access_tier`, `action`, `channel`, and for an admin hand-off the draft tool, addressee, thread, rollup marker and three parts. |
 | `push-decision` | `action` (`skip`, `block`, `hand-off`, `push`, `pending` with the `next` command or gate), `gate_failed`, `handoff_variant`, `state_advance`, `recap_blocker`. |
+| `disclosure` | `issue_age_days`, `overdue_for_disclosure`, `approaching_window_end`, `grace_period_expired`, `distributor_notify_pending`, `expected_disclosure_by`. |
+| `staleness` | `stale` and `days`: the team's latest message older than the timeout with no reporter reply since. |
+| `closed-announced` | `cve_org` (`notify`, `already_notified`, `wait`, `blocker`, `retry`, `skip`), `security_pages_reminder_pending`, `advisory_records` and its next step, `blockers`. |
+| `release-vote` | `release_vote_in_progress` and `release_vote_thread_url` for an open `[VOTE]` matching the fix-PR milestone. |
 | `render-recap` | The recap `text`, `bare_refs`. |
 
 ## Tests
@@ -274,5 +278,6 @@ it pins the `step-26-precedent-search` signal rule, which stays a model eval.
 `tests/test_issue_invalidate.py` holds the cases of the retired `security-issue-invalidate` suites `step-2-import-path`, `step-5a-labels`, `step-5b-closing-comment`, `step-5d-email-draft`, `step-5e-rollup-entry`, `step-5f-confirm` and `step-7-recap`.
 `tests/test_cve_allocate.py` holds the cases of the retired `security-cve-allocate` suites `step-1-blocker-checks`, `step-2-title-normalize`, `step-3-allocation-recipe`, `step-4-propose-updates`, `step-5-confirm` and `step-7-recap`.
 `tests/test_issue_deduplicate.py` holds the cases of the retired `security-issue-deduplicate` suites `step-1-classify`, `step-2-extract-fields`, `step-3-merge-body`, `step-4-rollup-entries`, `step-5-confirm` and `step-6-recap`.
-`tests/test_issue_sync.py` and `tests/test_issue_sync_rules.py` hold the cases of the retired `security-issue-sync` suites `step-bulk-selectors`, `step-bulk-orchestration`, `step-3-confirm`, `step-6-recap`, `step-guardrails`, `step-security-cc`, `step-draft-backend`, `step-ghsa-access-tier` and `step-5b-push-decision`.
+`tests/test_issue_sync_state.py` pins the `security-issue-sync` Step 1 observations;
+`tests/test_issue_sync.py` and `tests/test_issue_sync_rules.py` hold the cases of its retired suites `step-bulk-selectors`, `step-bulk-orchestration`, `step-3-confirm`, `step-6-recap`, `step-guardrails`, `step-security-cc`, `step-draft-backend`, `step-ghsa-access-tier` and `step-5b-push-decision`.
 `tests/test_body.py` checks that the `tracker-body-template.md` files of the sibling import skills carry exactly the rendered headings.

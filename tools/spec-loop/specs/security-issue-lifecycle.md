@@ -179,7 +179,10 @@ publication, with a human gate and an audit-log entry at every step.
   admin-only change at the collaborator tier, or after a `403`, is a draft
   relay, never a tracker comment), and walks the Step 5b push flow,
   checking the title, upgrade-target and CWE gates itself and taking the
-  four judged gates as the model's verdicts; mining signals, gathering
+  four judged gates as the model's verdicts. The Step 1 observations
+  that are arithmetic are code too: the disclosure-window flags, reporter
+  staleness, the closed-`announced` cve.org move with the security-pages
+  markers and the advisory-records step, and the release-vote match; mining signals, gathering
   state, judging those gates and writing comments and drafts stay with
   the model.
 - Shared recipes instead of per-skill copies (#1437): the safe-create
