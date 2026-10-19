@@ -53,7 +53,7 @@ publication, with a human gate and an audit-log entry at every step.
   `duplicate-search.md`; `issue-fix/implementation-plan.md`,
   `tracker-update.md`; `issue-triage/classification.md`;
   `issue-sync/mail-preflight.md`, `next-step.md`;
-  `cve-allocate/tracker-updates.md`, `title-normalize.md`.
+  `cve-allocate/tracker-updates.md`, `title-normalize.md`, `reporter-draft.md`.
   The tracker body templates of `issue-import-from-md` and
   `issue-import-from-pr` live in a `tracker-body-template.md` sibling of
   each (#1499).
@@ -127,6 +127,24 @@ publication, with a human gate and an audit-log entry at every step.
   line or a refusal), confirmation forms, apply order and recap; mining
   the reasoning, choosing the canned section and writing the reply stay
   with the model.
+  For `security-cve-allocate` it reads the tracker and an optional CVE
+  override (a malformed CVE token refused, never repaired), decides the
+  Step 1 blockers (closed, a CVE in the field or the `cve allocated`
+  label unless it is the override already wired in, `duplicate`, not
+  exactly one scope label, an undecided field; `needs triage` warns only
+  when nothing blocks), strips the title by the project's names and
+  tracker prefixes (an over-strip warning under 3 words), maps the API
+  pre-flight and allocation exits to the next step (never re-running an
+  allocation on its own), renders the API proposal, the self-service
+  recipe or a non-member's terse relay, takes the one CVE ID from the
+  paste-back, plans the reporter status draft (both routing modes, the
+  primary thread, an existing draft surfaced), greps it for the CVE-tool
+  URL and the CVE ID, and renders the numbered proposal, the rollup entry
+  (a pending draft claimed only after checking Drafts), the confirmation
+  forms, the per-backend apply order and the recap; writing the draft
+  stays with the model, and the allocation itself with the user. The
+  reporter draft names the bare CVE ID, never the CVE-tool URL.
+  `shared.drafting` holds the backend choice and leak scan both skills use.
 - Shared recipes instead of per-skill copies (#1437): the safe-create
   recipe for a tracker with an attacker-controlled title is
   `tools/github/operations.md` § *Create* (Write-tool title file,

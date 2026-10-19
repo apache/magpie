@@ -123,9 +123,9 @@ template body with project-specific wording.
 
 ### CVE allocated (Step 6)
 
-TODO: one paragraph stating the CVE has been allocated, one stating
-the advisory will be sent when the fix ships, one line with the
-CVE-tool record URL.
+TODO: one paragraph stating the CVE has been allocated, naming the bare
+CVE ID, and one stating the advisory will be sent when the fix ships.
+Never the CVE-tool record URL: the reporter cannot open it.
 
 ### Fix PR opened (Step 10)
 

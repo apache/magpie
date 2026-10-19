@@ -84,19 +84,21 @@ TODO: one rule per bullet, applied in order. Typical patterns:
 
 ## Implementation recipe
 
-TODO: keep the transform inline in the skill, do not create a
-separate Python project. A typical cascade looks like:
+TODO: the cascade runs in code
+(`security-management cve-allocate title`, `security-cve-allocate`
+Step 2). It takes three values
+from this file, so record them here once you settle on them:
 
-1. Strip a leading `[ Security Report ]` or similar harness prefix.
-2. Strip a leading `<vendor>: <product>:` (e.g. the project's own
-   "Apache Foo:" prefix that the CVE tool re-applies).
-3. Strip a trailing version-parenthetical like `(<= 1.2.3)`.
-4. Strip a leading `Re:` if the original report came in by email and
-   was retitled with the reply prefix.
+- `project_names` — the names a separator may follow or not
+  (e.g. `Apache Foo`, stripped from `Apache Foo: …`, `Apache Foo 1.2 …`,
+  `… in Apache Foo` and `… (Apache Foo 1.2)`).
+- `short_names` — the names stripped only before a separator
+  (e.g. `Foo:`), so a title that starts with the component name keeps it.
+- `tracker_prefixes` — the external tracker IDs a parenthetical may carry
+  (default `ZDRES`, `HUNTR`, `GHSL`).
 
 The result is the bare vulnerability description that goes into the
-CVE record's `title` field. Document the cascade your project uses
-in this file once you settle on it.
+CVE record's `title` field.
 
 ## Sanity check
 

@@ -38,23 +38,10 @@ import re
 from collections.abc import Mapping
 from typing import Any
 
-from security_management.shared import refs
+from security_management.shared import drafting
 from security_management.shared.rollup import one_line
 from security_management.shared.titles import strip_mail_prefixes
 
-ASF_PROJECTS = (
-    "Superset", "Allura", "Tomcat", "Kafka", "Spark", "Cassandra", "Hadoop", "Hive", "HTTPD", "Struts",
-    "Solr", "Zookeeper", "Beam", "Flink", "NiFi", "Pulsar", "CloudStack", "OFBiz", "Commons", "Lucene",
-    "Camel", "Druid", "ActiveMQ", "Guacamole", "Shiro", "CXF", "Iceberg",
-)  # fmt: skip
-_CROSS_PROJECT = re.compile(
-    r"also reported against|cross-project|other apache projects|sister project|the same finder also",
-    re.IGNORECASE,
-)
-_REOPEN = re.compile(
-    r"happy to discuss further|open to other views|let us know if you disagree", re.IGNORECASE
-)
-_CVSS = re.compile(r"CVSS|\bAV:[NALP]\b|\b\d{1,2}\.\d\s*\(?(?:low|medium|high|critical)\b", re.IGNORECASE)
 _CVE = re.compile(r"CVE-\d{4}-\d{4,7}")
 
 
@@ -114,12 +101,8 @@ def plan(data: Mapping[str, Any]) -> dict[str, Any]:
             "notification_case": None,
             "reason": "the inbound root subject is needed: never a fresh subject",
         }
-    backend, backend_note = _backend(data)
-    anchor = {
-        "oauth_curl": {"thread_id": data.get("thread_id")},
-        "claude_ai_mcp": {"reply_to_message_id": data.get("last_message_id")},
-        "maildir": {"in_reply_to": data.get("root_message_id")},
-    }[backend]
+    backend, backend_note = drafting.backend(data)
+    anchor = drafting.anchor(backend, data)
     if not all(anchor.values()):
         return {
             "action": "blocked",
@@ -142,43 +125,10 @@ def plan(data: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def _backend(data: Mapping[str, Any]) -> tuple[str, str | None]:
-    if str(data.get("drafting_backend") or "gmail") == "maildir":
-        return "maildir", None
-    if data.get("oauth_credentials", True):
-        return "oauth_curl", None
-    if data.get("body_has_links", True):
-        raise ValueError(
-            "no oauth_curl credentials and the body has links: the claude_ai_mcp backend would rewrite them; "
-            "refresh the OAuth credentials"
-        )
-    return "claude_ai_mcp", "discouraged: no OAuth credentials and the body has no links"
-
-
 def check(data: Mapping[str, Any]) -> dict[str, Any]:
     text = str(data.get("body") or "")
     tracker = str(data["tracker"])
-    owner = tracker.split("/")[0]
-    hits: list[dict[str, Any]] = []
-
-    def hit(kind: str, pattern: re.Pattern[str]) -> None:
-        for number, line in enumerate(text.split("\n"), 1):
-            for match in pattern.finditer(line):
-                hits.append({"kind": kind, "line": number, "text": match.group(0)})
-
-    hit(
-        "tracker-reference",
-        re.compile(re.escape(tracker) + r"|\b" + re.escape(owner) + r"#\d+", re.IGNORECASE),
-    )
-    hit("cve-tool-url", re.compile(r"cveprocess\.apache\.org\S*"))
-    hit("reopening-phrase", _REOPEN)
-    hit("cvss", _CVSS)
-    hit("cross-project", _CROSS_PROJECT)
-    own = {str(n).lower() for n in data.get("own_names") or []}
-    names = [n for n in ASF_PROJECTS if n.lower() not in own]
-    hit("asf-project", re.compile(r"\b(?:" + "|".join(names) + r")\b"))
-    for ref in refs.bare_refs(text):
-        hits.append({"kind": "bare-ref", "line": None, "text": ref})
+    hits = drafting.scan(text, tracker, data.get("own_names") or [])
     if str(data.get("disposition") or "invalid") == "duplicate":
         canonical = one_line(data.get("canonical_cve"))
         if not canonical or canonical not in _CVE.findall(text):
