@@ -19,6 +19,7 @@
     - [`issue-invalidate`](#issue-invalidate)
     - [`cve-allocate`](#cve-allocate)
     - [`issue-deduplicate`](#issue-deduplicate)
+    - [`issue-sync`](#issue-sync)
   - [Tests](#tests)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -40,8 +41,9 @@ Each skill family is a subcommand: [`security-issue-import`](../../plugins/magpi
 [`security-issue-import-from-scan`](../../plugins/magpie-security/skills/issue-import-from-scan/SKILL.md) (`issue-import-from-scan`)
 [`security-issue-triage`](../../plugins/magpie-security/skills/issue-triage/SKILL.md) (`issue-triage`),
 [`security-issue-invalidate`](../../plugins/magpie-security/skills/issue-invalidate/SKILL.md) (`issue-invalidate`),
-[`security-cve-allocate`](../../plugins/magpie-security/skills/cve-allocate/SKILL.md) (`cve-allocate`)
-and [`security-issue-deduplicate`](../../plugins/magpie-security/skills/issue-deduplicate/SKILL.md) (`issue-deduplicate`).
+[`security-cve-allocate`](../../plugins/magpie-security/skills/cve-allocate/SKILL.md) (`cve-allocate`),
+[`security-issue-deduplicate`](../../plugins/magpie-security/skills/issue-deduplicate/SKILL.md) (`issue-deduplicate`)
+and [`security-issue-sync`](../../plugins/magpie-security/skills/issue-sync/SKILL.md) (`issue-sync`).
 The tool takes what the agent saved — search results, the redacted report text, the confirmed plan — and decides or renders everything rule-shaped:
 the Step 1 pre-filter, the batched `threadId` dedup, the forwarder pre-screen, the tracker body and its inert report block, the rollup entry, the rejections-ledger record,
 the fix-already-public reply, the receipt-draft matrix, the confirmation-reply grammar and the recap.
@@ -234,6 +236,22 @@ Every command takes `--input F`, a JSON file.
 | `apply-plan` | The confirmed items' `steps` in order, per backend; an open blocker or the same tracker twice exits `2`. |
 | `render-recap` | The recap `text`, `blockers`, `bare_refs`. |
 
+### `issue-sync`
+
+Every command takes `--input F`, a JSON file.
+
+| Command | Prints |
+|---|---|
+| `selector` | `queries` (each with `id`, `kind`, `command`, `limit`), explicit `numbers`, `searched_cve_ids`, `no_preflight`; a malformed `CVE-…` token sets `error: invalid_cve_token` and searches nothing. |
+| `resolve` | `resolved` (ascending; `rejections-ledger` dropped, closed `announced` cut to 90 days, a CVE kept only where its *CVE tool link* names it), `explicit`, `title_matches` to confirm, `warnings` for a capped list, the `echo`. |
+| `preflight-query` | One aliased GraphQL read per 50 trackers: `file`, `query`, `command`. |
+| `preflight` | Per tracker `decision` and `rule`, `dispatched`, `urgent`, `skipped`, the *Pre-flight skipped* text; explicit trackers and `--no-preflight` are never skipped. |
+| `bucket` | `cve_affecting`, `non_cve_affecting`, `walk_order`, `review_ready_push` and its bucket. |
+| `parse-bulk-reply` | `action` (`apply`, `force_sync`, `cancel`, `none`, `ambiguous`), `apply` per tracker, `edits`, `force_sync`, `skip`. |
+| `parse-reply` | The single-tracker form through `shared.numbered`. |
+| `check` | `clean` and `violations` (`surface`, `guardrail`, `evidence`) for reporter CVSS, other ASF projects, bare CVE IDs or the CVE-tool URL in an email, and bare `#NNN`. |
+| `render-recap` | The recap `text`, `bare_refs`. |
+
 ## Tests
 
 ```bash
@@ -251,4 +269,5 @@ it pins the `step-26-precedent-search` signal rule, which stays a model eval.
 `tests/test_issue_invalidate.py` holds the cases of the retired `security-issue-invalidate` suites `step-2-import-path`, `step-5a-labels`, `step-5b-closing-comment`, `step-5d-email-draft`, `step-5e-rollup-entry`, `step-5f-confirm` and `step-7-recap`.
 `tests/test_cve_allocate.py` holds the cases of the retired `security-cve-allocate` suites `step-1-blocker-checks`, `step-2-title-normalize`, `step-3-allocation-recipe`, `step-4-propose-updates`, `step-5-confirm` and `step-7-recap`.
 `tests/test_issue_deduplicate.py` holds the cases of the retired `security-issue-deduplicate` suites `step-1-classify`, `step-2-extract-fields`, `step-3-merge-body`, `step-4-rollup-entries`, `step-5-confirm` and `step-6-recap`.
+`tests/test_issue_sync.py` holds the cases of the retired `security-issue-sync` suites `step-bulk-selectors`, `step-bulk-orchestration`, `step-3-confirm`, `step-6-recap` and `step-guardrails`.
 `tests/test_body.py` checks that the `tracker-body-template.md` files of the sibling import skills carry exactly the rendered headings.

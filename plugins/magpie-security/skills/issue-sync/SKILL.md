@@ -25,7 +25,7 @@ argument-hint: "[issue-number]"
 capability: capability:intake
 surface_hash: sha256:5c4aad61d458d98f
 license: Apache-2.0
-measured_tokens: 7006
+measured_tokens: 7241
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -188,7 +188,8 @@ or more issues:
   default for a triage sweep.
 
 Selectors combine (`sync #212, CVE-2026-40690, JWT`), each resolved independently.
-The full resolution table and the confirmation prompt are in [`bulk-mode.md`](bulk-mode.md).
+`<sm> selector` turns the selector into its `gh` reads (a malformed `CVE-…` token stops everything, so nothing unvalidated reaches a search) and `<sm> resolve` turns their results into the set to sync;
+the full resolution table and the confirmation prompt are in [`bulk-mode.md`](bulk-mode.md).
 
 Optional: a hint from the user about what they want to focus on
 (*"has this been CVE-assessed yet?"*, *"is the PR merged?"*, etc.).
@@ -229,6 +230,11 @@ The skill needs:
 - Outbound HTTPS to `pypi.org`, `artifacthub.io`, and
   `<mail-archive-url>` — the sync curls these to detect released
   versions and to find advisory archive URLs.
+
+- **The [`security-management`](../../../../tools/security-management/README.md) tool.**
+  `<sm> X` stands for `uv run --project <framework>/tools/security-management security-management issue-sync X --input <scratch>/<file>.json`.
+  It prints JSON and runs nothing; tracker text reaches it only in files written with the Write tool.
+  A refusal exits `2` with `{ok: false, refused}`: show it and stop the step.
 
 Overall setup: [Prerequisites for running the agent skills](../../../../docs/quick-start/prerequisites.md#prerequisites-for-running-the-agent-skills).
 
@@ -356,7 +362,8 @@ any of the following forms of confirmation:
 - free-form edits — if the user asks for changes to a specific proposed item,
   regenerate just that item and re-confirm.
 
-Never assume confirmation. If the user replies ambiguously, ask again.
+Never assume confirmation: write `{reply, items}` and run `<sm> parse-reply`; an `ambiguous` reply or an `edit` applies nothing, so ask again.
+In bulk mode the merged proposal has its own syntax: [`bulk-mode.md`](bulk-mode.md#orchestrator-responsibilities).
 
 ---
 
@@ -369,40 +376,26 @@ and the unconditional end-of-sync sweep of board column, milestone and RM assign
 
 ## Step 6 — Recap
 
-After the regeneration step finishes, print a short recap:
+After the regeneration step finishes, write `{tracker, issue, applied, skipped, rollup_comment, milestone, cve_id, record_url_template, allocate_url, drafts, next_step}` and run `<sm> render-recap`; print its `text`.
+It says what was changed and what was skipped, and links:
 
-- what was changed, what was skipped;
-- the drafts that are now waiting in Gmail (with a link to the thread);
-- the next step from 2c, repeated so the user does not have to scroll;
-- the CVE allocation link, if applicable;
-- the embedded CVE JSON URL (deep-links to the
-  `## CVE JSON — paste-ready for <CVE>` heading anchor inside the
-  tracker body), or an explicit note that regeneration was skipped
-  because no CVE has been allocated yet.
+- the **tracking issue header** (*"Sync complete on [`<tracker>#233`](https://github.com/<tracker>/issues/233)"*);
+- the **status-rollup entry** the sync just posted, as a `#issuecomment-<C>` anchor link;
+- the **embedded CVE JSON section** from Step 5, deep-linked via the body's heading anchor (`…/issues/<N>#cve-json--paste-ready-for-<cve-id-slug>`),
+  or an explicit note that regeneration was skipped because no CVE has been allocated yet (with the allocation link);
+- the **milestone** the issue is on, as a `…/milestone/<number>` link;
+- each **draft** waiting in Gmail, with its thread;
+- the **next step** from 2c, repeated so the user does not have to scroll.
 
-**Before presenting the recap**, run the Golden rule 2 self-check over the whole recap:
-every tracking-issue, cross-referenced issue, PR, comment-anchor and milestone mention is a clickable markdown link.
-
-Concrete minimum that every recap must include as clickable links:
-
-- the **tracking issue header** (e.g. *"Sync complete on
-  [`<tracker>#233`](https://github.com/<tracker>/issues/233)"*);
-- the **status-change comment** the sync just posted, as a
-  `#issuecomment-<C>` anchor link;
-- the **embedded CVE JSON section** from Step 5, deep-linked via the
-  body's heading anchor (e.g.
-  `https://github.com/<tracker>/issues/<N>#cve-json--paste-ready-for-<cve-id-slug>`);
-- any **cross-referenced issues** mentioned by the proposal (for
-  example *"similar to [`<tracker>#214`](https://github.com/<tracker>/issues/<N>)"*);
-- any **milestone** the sync moved the issue to, as a
-  `…/milestone/<number>` link.
-
-If a reference is missing from the above list, fetch its URL before
-finalising the recap.
+Its `bare_refs` must be empty; a cross-referenced issue the proposal mentioned is linked too (fetch its URL before finalising the recap).
 
 ---
 
 ## Guardrails
+
+Before presenting the proposal, write every passage it would write — body patches, the status comment, the rollup entry, issue bodies, draft emails — as `surfaces` (`{kind, text}`, with the observed state as `observed`) and run `<sm> check`.
+It reports a reporter CVSS score outside the observed state, another ASF project's name or a cross-project phrase, a bare CVE ID on a markdown surface (or the CVE-tool URL in a reporter email), and a bare `#NNN`, one per passage and guardrail.
+Fix every hit and check again; it is the floor, not the whole review, so still read the surfaces against the rules below.
 
 - **Never send email.** Only create drafts.
 - **Never force-push, never delete labels or milestones without confirmation,
