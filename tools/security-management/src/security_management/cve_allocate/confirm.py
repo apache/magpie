@@ -37,7 +37,8 @@ from typing import Any
 CANONICAL = (1, 2, 3, 4, 5)
 _GO = frozenset({"all", "go", "proceed", "yes", "y", "ok", "okay"})
 _CANCEL = frozenset({"none", "cancel", "abort"})
-_LIST = re.compile(r"^#?\d+(?:\s*(?:,|\band\b|\s)\s*#?\d+)*$", re.IGNORECASE)
+# Separators that cannot overlap (a comma, `and`, or whitespace alone), so matching stays linear.
+_LIST = re.compile(r"^#?\d+(?:(?:\s*,\s*|\s+and\s+|\s+)#?\d+)*$", re.IGNORECASE)
 
 
 def parse(data: Mapping[str, Any]) -> dict[str, Any]:

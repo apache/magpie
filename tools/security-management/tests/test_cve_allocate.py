@@ -724,6 +724,6 @@ def test_case_2_no_draft(capsys, tmp_path):
         "Release manager completes process step 12 once the fix ships.",
     )  # fmt: skip
     flags_ = recap_flags(out["text"], 198, "CVE-2025-22891")
-    assert flags_.pop("has_draft_id") is False
-    assert all(flags_.values())
+    assert flags_["has_draft_id"] is False
+    assert all(value for key, value in flags_.items() if key != "has_draft_id")
     assert "Reporter draft: none — the reporter is on the security team." in out["text"]
