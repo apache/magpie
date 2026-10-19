@@ -382,7 +382,7 @@ repos:
         name: check-claude-mods (claude plugin validate --strict / test)
         language: node
         entry: tools/dev/check-claude-mods.sh
-        additional_dependencies: ["@anthropic-ai/claude-code@2.1.301"]
+        additional_dependencies: ["@anthropic-ai/claude-code@2.1.302"]
         files: ^(.*/hooks/.*|.*\.claude-plugin/plugin\.json|tools/dev/check-claude-mods\.sh)$
         pass_filenames: false
         stages: [manual]
