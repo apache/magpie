@@ -1,0 +1,7 @@
+{
+  "headline": "Same SSRF in the connection test endpoint, reached through a redirect chain as well as directly.",
+  "analysis": "Both reports land in the same unvalidated outbound request from /api/v1/connections/test; the redirect chain is a second path to the same flaw, closed by the same allowlist fix.",
+  "merged_summary": "SSRF via the connection test endpoint lets authenticated users reach internal hosts and cloud metadata endpoints, directly or by following redirects.",
+  "affected_versions": ">= 2.8.0, < 2.10.3",
+  "copies_reporter_score": false
+}

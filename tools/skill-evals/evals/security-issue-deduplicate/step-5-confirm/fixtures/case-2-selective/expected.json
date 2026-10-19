@@ -1,6 +1,0 @@
-{
-  "action": "apply",
-  "apply_items": [1, 2, 3, 4],
-  "skip_items": [5, 6],
-  "ambiguous_tokens": []
-}

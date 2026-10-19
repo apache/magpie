@@ -1,8 +1,0 @@
-[
-  {"number": 1, "title": "Update kept tracker #42 body", "body": "Merged body."},
-  {"number": 2, "title": "Append Merge (kept) entry to #42 rollup", "body": "Rollup update."},
-  {"number": 3, "title": "Append Merge (dropped) entry to #67 rollup", "body": "Rollup update."},
-  {"number": 4, "title": "Add 'duplicate' label to #67", "body": "Label action."},
-  {"number": 5, "title": "Close #67 as not planned", "body": "Close action."},
-  {"number": 6, "title": "Regenerate CVE JSON attachment on #42", "body": "CVE JSON regen."}
-]

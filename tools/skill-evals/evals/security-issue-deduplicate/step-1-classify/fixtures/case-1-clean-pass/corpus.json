@@ -1,7 +1,0 @@
-[
-  {
-    "number": 42,
-    "title": "Webserver: SSRF via connection test endpoint",
-    "body": "### The issue description\n\nSSRF via the connection test UI — an authenticated user can trigger outbound HTTP to internal addresses.\n\n### Reporter credited as\n\nAlice Example <alice@pentest.example>\n\n### Severity\n\nUnknown\n\n### Affected versions\n\n>= 2.9.0, < 2.10.3\n\nlabels: airflow, cve allocated\nstate: OPEN"
-  }
-]

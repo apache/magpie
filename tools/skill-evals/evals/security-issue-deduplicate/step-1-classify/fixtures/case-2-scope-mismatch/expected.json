@@ -1,5 +1,0 @@
-{
-  "verdict": "blocked",
-  "blocker": "scope_mismatch",
-  "blocker_detail": "Kept tracker #42 has scope label 'airflow'; drop tracker #67 has scope label 'providers'. Different scopes must not be merged — use security-issue-sync scope-split flow instead."
-}

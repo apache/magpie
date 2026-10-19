@@ -63,6 +63,35 @@ def column_zero(text: str) -> str:
     return "\n".join(line.lstrip() for line in text.split("\n"))
 
 
+def notification_line(n: Mapping[str, Any]) -> str | None:
+    """The rollup's *Reporter notification* line for `n` (`case`, `draft_id`, `in_drafts`, `reason`), None for `omitted`.
+
+    A draft id is claimed pending only once the caller checked it is still in
+    Drafts (`in_drafts`); a draft created after the entry is `<pending>`.
+    """
+    case = str(n.get("case") or "")
+    draft = one_line(n.get("draft_id"))
+    if case == "notified":
+        return "Reporter has been notified on the original mail thread."
+    if case == "team_member":
+        return "No reporter notification needed (reporter is on the security team)."
+    if case == "omitted":
+        return None
+    if case == "blocked":
+        return f"Reporter notification still owed — no draft created: {one_line(n.get('reason') or 'see the recap')}."
+    if case == "draft_pending":
+        if not draft:
+            raise ValueError("draft_pending needs the draft id")
+        if draft == "<pending>":
+            return "Reporter notification still pending — see draft `<pending>`."
+        if n.get("in_drafts") is False:
+            return f"Reporter draft {code(draft)} is no longer in Drafts — sent or discarded."
+        if n.get("in_drafts") is not True:
+            raise ValueError("check that the draft is still in Drafts before claiming it is pending")
+        return f"Reporter notification still pending — see draft {code(draft)}."
+    raise ValueError(f"unknown reporter-notification case {case!r}")
+
+
 def receipt_line(receipt: Mapping[str, Any]) -> str:
     """The *Receipt-of-confirmation reply* line for each Step 7 disposition."""
     draft = receipt.get("draft_id")
