@@ -728,6 +728,11 @@ committed version with drift detection.
     Checker verification during `config` and `upgrade` uses `--no-welcome`;
     unreadable optional guides do not suppress actual setup findings, and
     guide names cannot select Markdown files outside the shipped guides.
+38. A freshly scaffolded `project.md` carries `tracker.platform: TODO`, so
+    `setup config` asks for the security-tracker backend (`github`,
+    `jira` or `local-files`) on every first setup with a `security-*` skill
+    in scope; the Jira steps map labels to whitespace-free names and
+    require the backend's `doctor` to pass (#1683).
 
 ## Validation
 

@@ -1,0 +1,24 @@
+{
+  "lock": null,
+  "plugins": [
+    [
+      "magpie-setup",
+      "0.4.0"
+    ],
+    [
+      "magpie-pairing",
+      "0.4.0"
+    ]
+  ],
+  "reconciled": {
+    "welcome": {
+      "general": {
+        "choice": "seen",
+        "shown": 1
+      }
+    }
+  },
+  "skill": "self-review",
+  "welcome": true,
+  "hash": "sha256:ea0a2e29bb2aa0e0"
+}

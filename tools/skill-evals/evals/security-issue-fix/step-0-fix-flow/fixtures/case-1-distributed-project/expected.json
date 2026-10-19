@@ -1,6 +1,0 @@
-{
-  "flow": "pull-request",
-  "follow_subversion_flow": false,
-  "open_pr": true,
-  "reason": "The distributed backend takes the pull-request flow, so every step runs as written."
-}

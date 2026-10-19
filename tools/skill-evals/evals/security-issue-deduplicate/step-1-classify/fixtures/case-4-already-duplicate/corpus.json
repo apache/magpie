@@ -1,7 +1,0 @@
-[
-  {
-    "number": 42,
-    "title": "Webserver: SSRF via connection test endpoint",
-    "body": "### The issue description\n\nSSRF in core Airflow webserver.\n\n### Reporter credited as\n\nAlice Example\n\nlabels: airflow\nstate: OPEN"
-  }
-]

@@ -1994,6 +1994,7 @@ source = { editable = "tools/security-management" }
 dependencies = [
     { name = "generate-cve-json" },
     { name = "github-body-field" },
+    { name = "magpie-vcs" },
 ]
 
 [package.dev-dependencies]
@@ -2005,6 +2006,7 @@ dev = [
 requires-dist = [
     { name = "generate-cve-json", editable = "tools/cve-tool-vulnogram/generate-cve-json" },
     { name = "github-body-field", editable = "tools/github-body-field" },
+    { name = "magpie-vcs", editable = "tools/vcs" },
 ]
 
 [package.metadata.requires-dev]

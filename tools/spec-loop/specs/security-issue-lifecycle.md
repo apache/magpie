@@ -53,7 +53,8 @@ publication, with a human gate and an audit-log entry at every step.
   `duplicate-search.md`; `issue-fix/implementation-plan.md`,
   `tracker-update.md`; `issue-triage/classification.md`;
   `issue-sync/mail-preflight.md`, `next-step.md`;
-  `cve-allocate/tracker-updates.md`, `title-normalize.md`.
+  `cve-allocate/tracker-updates.md`, `title-normalize.md`, `reporter-draft.md`;
+  `issue-deduplicate/merge-templates.md`; `issue-fix/outcomes/preflight.md`.
   The tracker body templates of `issue-import-from-md` and
   `issue-import-from-pr` live in a `tracker-body-template.md` sibling of
   each (#1499).
@@ -62,8 +63,14 @@ publication, with a human gate and an audit-log entry at every step.
 - `tools/security-management` (stdlib, runs nothing) holds the
   deterministic rules of the security skills, one CLI family per skill
   over a shared library (`body`, `rollup`, `refs`, `titles`, `grammar`,
-  `keyword`, and `fields` / `threads` / `dispositions` / `selectors` for
-  reading existing trackers, #1672). For `security-issue-import` it decides the Step 0
+  `keyword`, `fields` / `threads` / `dispositions` / `selectors` for
+  reading existing trackers, and `drafting` / `recipients` / `numbered`
+  for reporter drafts, the security CC and the numbered-proposal reply,
+  #1672). It reuses, never copies, three stdlib workspace members:
+  github-body-field (the field parser), generate-cve-json (the bot-credit
+  policy) and magpie-vcs (the embargo scrub of public text). Every skill
+  of the family — the five importers, triage, invalidate, cve-allocate,
+  deduplicate, sync and fix — now has its family. For `security-issue-import` it decides the Step 0
   disclosure-governance defaults, the Step 1 pre-filter, the Step 2
   `threadId` batches and their attribution, the Step 3 forwarder
   pre-screen, the Step 6 reply grammar and the Step 7 receipt-draft
@@ -127,6 +134,73 @@ publication, with a human gate and an audit-log entry at every step.
   line or a refusal), confirmation forms, apply order and recap; mining
   the reasoning, choosing the canned section and writing the reply stay
   with the model.
+  For `security-cve-allocate` it reads the tracker and an optional CVE
+  override (a malformed CVE token refused, never repaired), decides the
+  Step 1 blockers (closed, a CVE in the field or the `cve allocated`
+  label unless it is the override already wired in, `duplicate`, not
+  exactly one scope label, an undecided field; `needs triage` warns only
+  when nothing blocks), strips the title by the project's names and
+  tracker prefixes (an over-strip warning under 3 words), maps the API
+  pre-flight and allocation exits to the next step (never re-running an
+  allocation on its own), renders the API proposal, the self-service
+  recipe or a non-member's terse relay, takes the one CVE ID from the
+  paste-back, plans the reporter status draft (both routing modes, the
+  primary thread, an existing draft surfaced), greps it for the CVE-tool
+  URL and the CVE ID, and renders the numbered proposal, the rollup entry
+  (a pending draft claimed only after checking Drafts), the confirmation
+  forms, the per-backend apply order and the recap; writing the draft
+  stays with the model, and the allocation itself with the user. The
+  reporter draft names the bare CVE ID, never the CVE-tool URL.
+  `shared.drafting` holds the backend choice and leak scan both skills use.
+  For `security-issue-deduplicate` it reads the kept and dropped trackers
+  (one tracker is refused: the kept side is the user's call), checks both
+  are open with the same single scope label and neither `duplicate`,
+  applies the CVE rules (a CVE only on the dropped side means swap, a
+  `public` record refuses, the kept CVE must be at least as far along and
+  the dropped one is retracted), reads both bodies' fields (the CVE JSON
+  attachment cut off), and rewrites the kept body field by field through
+  github-body-field's `replace_field`, so the attachment and extra fields
+  stay byte-exact: the dropped report verbatim in a collapsed *Second
+  independent report* block (reporter CVSS removed, field-ending and
+  machine-marker lines escaped, an unmatched `</details>` defused), both
+  credits, threads and fix PRs, the kept severity, and a CWE conflict as a
+  blocker; it renders both rollup entries, the numbered proposal, the
+  per-backend apply order (refused while a blocker is open) and the
+  recap. The root-cause judgement, the headline and analysis, and any
+  merged summary or widened versions stay with the model.
+  `shared.numbered` is the numbered-proposal reply grammar both skills use.
+  For `security-issue-fix` it maps `magpie-vcs fix-flow` onto the flow,
+  checks every public surface (branch, title, body, commit message,
+  newsfragment, comments) against the 5c forbidden terms through
+  `magpie_vcs.publication.scrub` (plus reporter names, verbatim private
+  text and `security` in a branch name), picks the backport labels, parses
+  the plan confirmation, decides when the adversarial reviewers run, and
+  drives the Subversion private-patch and publication gate (a `commit` or
+  `new-branch` without `--scrub` is never shown) and the recap; the
+  fixability call, the plan, the code and the PR body stay with the
+  model.
+  For `security-issue-sync` it parses the selector into its `gh` reads (a
+  malformed `CVE-…` token stops it before any search), resolves their
+  results (the rejections ledger dropped, the closed `announced` bucket
+  cut to 90 days, a CVE matched only in the *CVE tool link* field, capped
+  lists flagged), writes the batched pre-flight read and applies the
+  no-op rule table (never skipping an explicitly named tracker), sorts
+  the subagent reports into the CVE-affecting and non-CVE-affecting
+  buckets (the `allocated → review-ready` push riding the latter), parses
+  the single and bulk confirmation forms, checks the proposal's surfaces
+  against the Guardrails (reporter CVSS, other ASF projects, link forms)
+  and renders the recap. It also resolves the security CC through the
+  configuration layers (an explicit null disables the fallback) and the
+  drafting backend, routes each GHSA advisory change by access tier (an
+  admin-only change at the collaborator tier, or after a `403`, is a draft
+  relay, never a tracker comment), and walks the Step 5b push flow,
+  checking the title, upgrade-target and CWE gates itself and taking the
+  four judged gates as the model's verdicts. The Step 1 observations
+  that are arithmetic are code too: the disclosure-window flags, reporter
+  staleness, the closed-`announced` cve.org move with the security-pages
+  markers and the advisory-records step, and the release-vote match; mining signals, gathering
+  state, judging those gates and writing comments and drafts stay with
+  the model.
 - Shared recipes instead of per-skill copies (#1437): the safe-create
   recipe for a tracker with an attacker-controlled title is
   `tools/github/operations.md` § *Create* (Write-tool title file,
@@ -439,6 +513,7 @@ publication, with a human gate and an audit-log entry at every step.
 
 ```bash
 uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-validate
+uv run --project tools/security-management --group dev pytest
 uv run --project tools/cve-tool-vulnogram/generate-cve-json --group dev pytest
 uv run --project tools/gmail/oauth-draft pytest
 ```

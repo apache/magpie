@@ -167,6 +167,15 @@ Every call spells the base `~/.claude/magpie/<tool>` (AGENTS.md golden rule):
 the agent-guard `vetted-ops-spelling` guard refuses an expanded home path,
 `$HOME/…` or a relative checkout path for `vetted-op`, `vetted-op-read`,
 `vetted-op-tracker` and `adversarial-review`, and names the `~` command.
+It accepts the `~` only bare and space-separated: a quoted or escaped `~`,
+a quote after it, or the `--project=~/…` form leaves it unexpanded, so uv
+gets a directory named `~` and the exclusion does not match. Because an
+exclusion matches a command line by its start, the right spelling behind
+`env` or `command` still runs sandboxed and is refused with the command to
+run instead. The eval wrapper gets the same treatment: any spelling of
+`magpie-run-evals.sh` other than the bare `~/.claude/scripts/…` path is
+refused (override `MAGPIE_ALLOW_SCRIPT_PATH=1`), because it would run in the
+sandbox and every eval case would error ungraded (#1691).
 It also refuses an absolute path inside the working tree, and reads `uv`'s
 options on either side of `run`. Under Codex it lets a `vetted-op-read`
 through from the exact root Codex's own hook substitutes for `~` (the

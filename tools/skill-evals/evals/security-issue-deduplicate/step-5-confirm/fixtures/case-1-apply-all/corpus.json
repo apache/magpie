@@ -1,8 +1,0 @@
-[
-  {"number": 1, "title": "Update kept tracker #42 body", "body": "Merged body with second independent report block."},
-  {"number": 2, "title": "Append Merge (kept) entry to #42 rollup", "body": "Status rollup update for kept tracker."},
-  {"number": 3, "title": "Append Merge (dropped) entry to #67 rollup", "body": "Status rollup update for dropped tracker."},
-  {"number": 4, "title": "Add 'duplicate' label to #67", "body": "gh issue edit #67 --add-label duplicate"},
-  {"number": 5, "title": "Close #67 as not planned", "body": "gh issue close #67 --reason not-planned"},
-  {"number": 6, "title": "Regenerate CVE JSON attachment on #42", "body": "uv run generate-cve-json 42 --attach"}
-]

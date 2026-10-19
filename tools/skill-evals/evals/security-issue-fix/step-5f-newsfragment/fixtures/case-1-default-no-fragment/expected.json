@@ -1,1 +1,0 @@
-{"include_newsfragment": false, "rationale": "Default for security-adjacent bug fixes is no newsfragment in the initial PR; reviewers will request one if needed.", "security_framing_violation": false}

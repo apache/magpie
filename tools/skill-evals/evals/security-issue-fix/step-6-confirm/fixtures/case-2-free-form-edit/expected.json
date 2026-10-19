@@ -1,6 +1,0 @@
-{
-  "action": "edit",
-  "edit_request": "Add tests/utils/test_helpers.py to the files list (item 2) — user identified it also calls the same validator",
-  "items_applied": [],
-  "items_skipped": []
-}

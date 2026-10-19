@@ -391,6 +391,12 @@ Step 6 below describes how to verify the state advance landed (and what to do if
 
 ### Decision flow
 
+`<sm> push-decision` (`<sm>` is the `security-management issue-sync` command of [`SKILL.md`](SKILL.md#prerequisites)) walks this flow:
+write `{regenerated, cve_id, record, record_state, fix_released_transition, project_names, short_names, judged, session, push_exit, fetched_state, json_file}`, act on its `action`,
+and while it is `pending` run its `next` (a gate to judge, the session probe, the push, the state fetch) and call it again with the answer.
+It checks the title cascade, the upgrade-target version and the CWE long form on the JSON itself;
+the four gates that need judgement (trigger conditions, the incomplete-fix clause, the private-finder anonymisation, the conservative range) are your verdicts in `judged`, and one not given is asked for, never assumed.
+
 1. **Skip-condition gate.** Skip 5b entirely when 5a was skipped
    (no CVE allocated; tracker closed as invalid / duplicate / not
    CVE worthy). There is no record to push to.

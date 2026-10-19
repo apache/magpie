@@ -32,6 +32,8 @@ Subagents keep the per-issue mail threads, PR diffs and comment bodies out of th
    | `sync closed` | open *and* **all** closed issues (not just recent `announced`). Explicit request only — most sync actions are no-ops on closed issues outside the `announced` bucket. |
 
    Selectors combine: `sync #212, CVE-2026-40690, JWT` resolves each independently and dispatches the union.
+   `<sm> selector` (`{invocation, tracker, known_labels}`, the project's labels so a label selector is told from a title one) prints the queries with their commands;
+   run each and write the results, keyed by query `id`, with the selector output to `<sm> resolve` (`{…, now, results}`), which applies every rule below and prints the `echo`.
    After resolving, **echo the final list back to the user and ask for confirmation** before spawning subagents —
    it catches fuzzy-match surprises (an unintended title hit, a CVE alias matching two scope trackers) before they cost a round-trip.
    When both buckets contribute, group them in the echo: *"9 open, 2 recently-closed awaiting cve.org"*.
@@ -78,30 +80,11 @@ Subagents keep the per-issue mail threads, PR diffs and comment bodies out of th
     gh api graphql -F query=@<scratch>/sync-preflight.graphql
     ```
 
-    To review the batched result without printing the private last-comment body, use this `jq` projection and apply the rule table below to its output:
-
-    ```bash
-    gh api graphql -F query=@<scratch>/sync-preflight.graphql |
-      jq '
-        .data.repository
-        | to_entries
-        | map(
-            .value
-            | {
-                issue: .number,
-                state: .state,
-                closedAt: .closedAt,
-                updatedAt: .updatedAt,
-                labels: [.labels.nodes[].name],
-                last_comment_author: (.comments.nodes[0].author.login // null),
-                last_comment_at: (.comments.nodes[0].createdAt // null),
-                skill_comment: ((.comments.nodes[0].body // "") | startswith("<!-- apache-magpie: "))
-              }
-          )
-      '
-    ```
-
-    Keep the classifier in the rule table rather than building it as a nested `jq if` expression; that keeps the decisions reviewable and avoids emitting comment text.
+    `<sm> preflight-query` (`{tracker, numbers, scratch}`) prints the query file(s) in this shape, 50 trackers each, and their commands;
+    write each with the Write tool and run it as a plain `gh` command.
+    Then write `{tracker, now, responses, explicit, no_preflight, bot_logins}` — `explicit` is `resolve`'s, the trackers named by number or CVE —
+    and run `<sm> preflight`: it applies the rule table below and prints `dispatched`, `urgent`, `skipped` (with the rule) and the *"Pre-flight skipped"* text,
+    without ever printing a comment body.
 
     **Skill-or-bot detection — required for the rules below.** The skill writes rollups and RM hand-offs as the operator's GitHub user, *not* a `*[bot]` account,
     so recognise its comments by the **marker** every status-rollup / hand-off / wrap-up comment begins with:
@@ -184,6 +167,8 @@ Subagents keep the per-issue mail threads, PR diffs and comment bodies out of th
      reporter Gmail drafts, RM hand-off comments (template-bodied, no per-tracker CVE content).
      They change tracker state, not the published record.
 
+   `<sm> bucket` (`{reports}`) sorts the returned reports into the two buckets and the walk order, and lists the trackers whose `allocated → review-ready` push rides the non-CVE-affecting confirmation.
+
    **The mechanical `allocated → review-ready` state push at
    `fix released` is NOT gated by the CVE-affecting bucket's
    per-item review**, which exists for *body-field content judgment* (summary wording, CWE choice, credit-line shape).
@@ -222,6 +207,9 @@ Subagents keep the per-issue mail threads, PR diffs and comment bodies out of th
    - `force-sync <N>` — dispatch a subagent for a `skip-noop` tracker:
      the full Step 1 gather runs on the next turn and its result folds into the next proposal.
    - `cancel` / `none` — apply nothing.
+
+   Write `{reply, proposal, preflight_skipped}` (`proposal`: tracker → its item numbers) and run `<sm> parse-bulk-reply`.
+   An unknown tracker or item, two dispositions for one tracker, `force-sync` of a tracker that was not skipped, or free text is `ambiguous`: nothing applies, so ask again.
 
    **Proposal order in the merged pack.** Trackers appear in **ascending tracker-number order**, stable across reruns.
    The operator can name a different order at confirmation (*"apply #438 first; I want to think about #232 last"*) and the orchestrator honours it.

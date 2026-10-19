@@ -182,6 +182,18 @@ def get_pull_request(config: BitbucketConfig, pull_request_id: str) -> dict[str,
     return get_json(url, config)
 
 
+def get_pull_request_jira_issues(
+    config: BitbucketConfig,
+    pull_request_id: str,
+) -> dict[str, Any]:
+    """Reject the Data Center-specific PR-to-Jira issue lookup on Cloud."""
+    _ = (config, pull_request_id)
+    raise BitbucketError(
+        "PR-linked Jira issue lookup through Bitbucket is supported only "
+        "for Data Center; use the configured Jira tracker through tools/jira."
+    )
+
+
 def get_pull_request_commits(config: BitbucketConfig, pull_request_id: str) -> dict[str, Any]:
     """Fetch commits from a Bitbucket Cloud pull request."""
     workspace = quote_path(require(config.workspace, "BITBUCKET_WORKSPACE"))

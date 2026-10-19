@@ -19,6 +19,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from magpie_bitbucket.client import BitbucketConfig, BitbucketError, get_json, get_text, quote_path, require
@@ -28,6 +29,12 @@ def _api_base(config: BitbucketConfig) -> str:
     """Return the normalized Bitbucket Data Center REST API base URL."""
     base_url = require(config.base_url, "BITBUCKET_BASE_URL").rstrip("/")
     return f"{base_url}/rest/api/1.0"
+
+
+def _jira_api_base(config: BitbucketConfig) -> str:
+    """Return the Bitbucket Data Center Jira-integration API base URL."""
+    base_url = require(config.base_url, "BITBUCKET_BASE_URL").rstrip("/")
+    return f"{base_url}/rest/jira/latest"
 
 
 def _next_page_start(page: dict[str, Any], start: int) -> int | None:
@@ -174,6 +181,39 @@ def get_pull_request(config: BitbucketConfig, pull_request_id: str) -> dict[str,
     pr_id = quote_path(pull_request_id)
     url = f"{_api_base(config)}/projects/{project_key}/repos/{repo_slug}/pull-requests/{pr_id}"
     return get_json(url, config)
+
+
+def get_pull_request_jira_issues(
+    config: BitbucketConfig,
+    pull_request_id: str,
+) -> dict[str, Any]:
+    """Fetch Jira issues associated with commits in a Data Center pull request."""
+    project_key = quote_path(require(config.project_key, "BITBUCKET_PROJECT_KEY"))
+    repo_slug = quote_path(require(config.repo_slug, "BITBUCKET_REPO_SLUG"))
+    pr_id = quote_path(pull_request_id)
+
+    url = f"{_jira_api_base(config)}/projects/{project_key}/repos/{repo_slug}/pull-requests/{pr_id}/issues"
+
+    # This endpoint answers with a JSON array, which get_json rejects (it
+    # requires an object), so the body is read as text and parsed here.
+    response = get_text(
+        url,
+        config,
+        accept="application/json",
+    )
+
+    try:
+        parsed = json.loads(response["body"])
+    except json.JSONDecodeError as exc:
+        raise BitbucketError(f"Failed to parse Jira integration JSON response from {url}") from exc
+
+    if not isinstance(parsed, list):
+        raise BitbucketError(f"Expected JSON array from Jira integration endpoint {url}")
+
+    return {
+        "pull_request_id": pull_request_id,
+        "values": [item for item in parsed if isinstance(item, dict)],
+    }
 
 
 def get_pull_request_commits(config: BitbucketConfig, pull_request_id: str) -> dict[str, Any]:

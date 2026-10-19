@@ -14,21 +14,12 @@ Steps 0 (pre-flight), 1a–1c and 1e (data gathering), 1g (cve.org API check), 4
 | 2a | Observed state | 3 | Step 11 (PR merged), step 6 (CVE needed), step 2 (stale) |
 | 2b | Proposed changes | 12 | Label swap, milestone create, providers wave, disclosure overdue, distributor pre-announce, reporter unresponsive + replied, security-pages reminder, advisory-records update (proposed once published, held while cve.org is not) |
 | 2c | Next-step recommendation | 4 | Steps 3, 6, 11, 13 |
-| Guardrails | Guardrail violation detection | 3 | CVSS propagation, ASF project naming, clean pass |
-| 3 | Confirm with user | 3 | apply-all, selective, cancel |
-| 6 | Recap | 2 | Structural assertions; with and without CVE/draft |
-| Bulk orchestration | Bucket-and-walk decision in bulk mode | 3 | All label-only (one bundled), mixed buckets (split), all CVE-affecting (all walked) |
+| 5b | The four judged pre-push gates | 2 | A private-scanner analyst credit fails the anonymise gate; a clean fix-released record passes all four |
 | 1d | Actionable signals in comments and mail | 6 | Affected-versions lower bound (widen / keep + backtick-wrap), title strip and its under-3-words guard, private-scanner credit (anonymise / public-credit exemption), reporter CVSS surfaced only |
-| 5b | Push decision for the regenerated CVE JSON | 8 | Skip gate, expired and not-configured session hand-offs (blocker only on a `fix released` transition), title and private-finder hygiene gates, clean push with `allocated → review-ready`, close-out push on a `PUBLIC` record |
-| Bulk selectors | Selector resolution and pre-flight skips | 8 | Injection-shaped CVE token rejected, CVE list expansion, `sync all` skip rules, named trackers and CVE selectors never skipped, reporter reply under 24h is `dispatch-urgent`, `force-sync`, review-ready push exemption |
-| Draft backend | Gmail or Maildir, per project with a per-person override (`tools/gmail/draft-backends.md`) | 5 | Project Maildir, a person overriding back to Gmail, a person overriding to Maildir, nothing set (Gmail `oauth_curl`), and a project on Gmail with no OAuth credential (the `claude_ai_mcp` fallback) |
-| GHSA access tier | Repository security advisory writes by access tier | 5 | Collaborator direct field edit, 403 admin hand-off relay draft, admin direct write, reporter reply by browser paste, non-collaborator relay fallback |
 | Hand-off delegate | Next-step hand-off honouring a project delegate (pre-flight `step-13`) | 4 | Triage delegated (`replace`) named and invoked through `security-issue-triage`, CVE allocation delegated (`after`), a delegate for an unrelated skill (not named), and `--no-overrides` (ignored) |
 
 ## Hard rules exercised
 
-- **CVSS not propagated**: Reporter-supplied CVSS score in proposed body patch or status comment is flagged (guardrails case-1).
-- **Other ASF project vulnerabilities not named**: Naming a specific CVE from another ASF project is flagged (guardrails case-3).
 - **Observed state is tight**: 2a summary is a bullet list of facts only — no proposed actions embedded.
 - **Milestone create needed**: When the target milestone does not exist on the repo, `milestone_create_needed: true` must be set (2b case-2).
 - **Providers milestone is never the PR milestone**: For providers scope the milestone is the next wave date (2b case-3).
@@ -38,5 +29,18 @@ Steps 0 (pre-flight), 1a–1c and 1e (data gathering), 1g (cve.org API check), 4
 - **Hand-offs run delegates inside the wrapper**: a delegated next skill is named with its delegate and invoked through the Magpie skill, never by running the project skill directly (hand-off delegate cases 1-4).
 - **Advisory records only after publication**: with `advisory_records` configured, a closed-`announced` tracker whose CVE cve.org reports `PUBLISHED` gets one `advisory_records` item carrying the planner's change and commands (`advisory_records_proposed: true`) and no security-pages reminder; while cve.org does not report it `PUBLISHED`, nothing is proposed (2b cases 11-12).
 - **Golden rule 2 — no bare issue numbers**: `has_bare_issue_numbers` must always be false.
-- **CVE-affecting trackers walked individually**: in bulk mode, any tracker whose `proposed_body_field_updates` names a CVE-publication field (Title, Short public summary for publish, CWE, Severity, Affected versions, Reporter credited as, Remediation developer, PR with the fix, Public advisory URL) must end up in `cve_affecting` and the `walk_order` is ascending by tracker number (bulk-orchestration cases 2 + 3).
-- **Non-CVE-affecting trackers bundled**: trackers whose proposals are limited to label flips, milestone touches, assignee swaps, project-board moves, status-rollup entries, reporter Gmail drafts, or RM hand-off comments end up in `non_cve_affecting` (bulk-orchestration case 1 + the two label-only trackers in case 2).
+
+## Deterministic steps — pytest, not model evals
+
+Bulk selector resolution and pre-flight, the CVE-impact buckets, the Step 3 and bulk confirmation forms, the Guardrails surface check, the Step 6 recap,
+the security CC and drafting-backend choice, the GHSA access tier and delivery, and the Step 5b push decision flow
+are decided or rendered by `security-management issue-sync` and pytest-tested in
+[`tools/security-management/tests/test_issue_sync.py`](../../../security-management/tests/test_issue_sync.py),
+and `tests/test_issue_sync_rules.py`, one test per former case of `step-bulk-selectors` (cases 1–8), `step-bulk-orchestration` (1–3), `step-3-confirm` (1–3), `step-6-recap` (1–2), `step-guardrails` (1–3),
+`step-security-cc` (1–13), `step-draft-backend` (1–5), `step-ghsa-access-tier` (1–5) and `step-5b-push-decision` (1–8),
+with the hard rules they graded: an injection-shaped CVE token stops the selector before any search, named trackers and CVE selectors are never skipped,
+a reporter reply under 24h is `dispatch-urgent`, the `allocated → review-ready` push rides the non-CVE-affecting confirmation,
+a CVE-affecting tracker is walked individually in ascending order, a reporter CVSS score outside the observed state and another ASF project's name are flagged,
+a bare CVE ID is flagged on markdown surfaces and the CVE-tool URL in a reporter email, the first layer declaring a CC key wins (an explicit null disables the fallback),
+an admin-only advisory change at the collaborator tier (or after a `403`, never retried) is a draft relay and never a tracker comment,
+the push is skipped, blocked at the first failing gate or handed off on an expired or missing session, and no bare `#NNN`.
