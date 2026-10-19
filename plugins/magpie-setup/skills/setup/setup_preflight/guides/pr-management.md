@@ -43,7 +43,15 @@ Plain language works:
 - *"review this PR stack in dependency order"*
 - *"draft a review, but do not post it"*
 - *"help this contributor understand the requested change"*
+- *"check my branch before I open my first PR"*
+- *"triage the PRs waiting for review"*
+- *"who should review this PR?"*
+- *"review this PR against our criteria"*
+- *"review this PR stack in dependency order"*
+- *"which PRs are ready for quick-merge?"*
+- *"help this contributor understand the requested change"*
 - *"what changed in the queue since the last sweep?"*
+- *"summarise the PR backlog by area"*
 
 ## Make it yours
 
