@@ -124,6 +124,9 @@ RECORD_EXITS = {
 
 def closed_announced(data: Mapping[str, Any]) -> dict[str, Any]:
     texts = _texts(data)
+    # The state markers below are written in comments, never in the body:
+    # the body carries report text, which must not be able to satisfy them.
+    comments = texts[1:]
     out: dict[str, Any] = {"ok": True, "blockers": []}
     if not one_line(data.get("cve_id")):
         out["cve_org"] = "skip"
@@ -134,7 +137,7 @@ def closed_announced(data: Mapping[str, Any]) -> dict[str, Any]:
         out["cve_org"] = "retry"
         out["note"] = "cve.org lookup failed — try again next sync"
     elif state == "PUBLISHED":
-        notified = any(NOTIFIED.search(t) for t in texts) and bool(data.get("notification_sent_on_thread"))
+        notified = any(NOTIFIED.search(t) for t in comments) and bool(data.get("notification_sent_on_thread"))
         out["cve_org"] = "already_notified" if notified else "notify"
         out["date_published"] = data.get("date_published")
     elif state == "RESERVED":
@@ -150,7 +153,7 @@ def closed_announced(data: Mapping[str, Any]) -> dict[str, Any]:
     records = data.get("advisory_records_configured")
     if records:
         out["security_pages_reminder_pending"] = False
-        if any(RECORDS in t for t in texts):
+        if any(t.lstrip().startswith(RECORDS) for t in comments):
             out["advisory_records"] = "done"
         elif state != "PUBLISHED":
             out["advisory_records"] = "waiting_for_cve_org"
@@ -169,8 +172,8 @@ def closed_announced(data: Mapping[str, Any]) -> dict[str, Any]:
     else:
         out["advisory_records"] = "not_configured"
         populated = bool(one_line(data.get("public_advisory_url")))
-        ticked = any(CHECKLIST_DONE.search(t) for t in texts)
-        reminded = any(t.lstrip().startswith(REMINDER) for t in texts[1:])
+        ticked = any(CHECKLIST_DONE.search(t) for t in comments)
+        reminded = any(t.lstrip().startswith(REMINDER) for t in comments)
         out["security_pages_reminder_pending"] = populated and not ticked and not reminded
     return out
 

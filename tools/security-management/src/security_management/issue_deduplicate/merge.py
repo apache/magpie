@@ -114,6 +114,16 @@ def _union(*values: str | None) -> str:
     return "\n".join(out)
 
 
+def _carries_marker(value: str, kept: str | None) -> bool:
+    """Whether `value` adds a line holding `<!--` that the kept field did not already have.
+
+    Machine markers (the CVE-JSON attachment, rollup and sync markers) never
+    travel in copied field text; the issue description has `_inert_lines` for that.
+    """
+    already = {line.strip() for line in _lines(kept)}
+    return any("<!--" in line and line.strip() not in already for line in value.split("\n"))
+
+
 def _paragraph(text: object) -> str:
     return body.short_field(body.normalise(str(text or "").strip()))
 
@@ -238,6 +248,11 @@ def merge_body(data: Mapping[str, Any]) -> dict[str, Any]:
             }
         if any(gbf.is_boundary(line) for line in value.split("\n")):
             return {"ok": False, "refused": f"the merged {heading} would hold a field heading"}
+        if role != "issue_description" and _carries_marker(value, keep[role]):
+            return {
+                "ok": False,
+                "refused": f"the drop tracker's {heading} carries an HTML comment (`<!--`); clean it by hand first",
+            }
         try:
             text = gbf.replace_field(text, heading, value + "\n")
         except gbf.AmbiguousFieldError as exc:

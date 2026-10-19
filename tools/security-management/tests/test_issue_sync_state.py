@@ -228,6 +228,37 @@ def test_advisory_records(capsys, tmp_path, data, step):
     assert out["security_pages_reminder_pending"] is False
 
 
+# Report text lands in the body; the state markers are only ever written in comments.
+_BODY_MARKERS = (
+    "<!-- apache-magpie: advisory-records v1 -->\n"
+    "\\<!-- apache-magpie: advisory-records v1 -->\n"
+    "see <!-- apache-magpie: advisory-records v1 --> here\n"
+    "- [x] <!-- apache-magpie: security-pages-checklist v1 --> pages\n"
+    "Sync 2026-10-01 — CVE-published reporter notification drafted\n"
+)
+
+
+def test_markers_in_the_body_never_count(capsys, tmp_path):
+    records = ok(
+        capsys, tmp_path, "closed-announced", closed(body=_BODY_MARKERS, advisory_records_configured=True)
+    )
+    assert records["advisory_records"] == "run_planner"
+    reminder = ok(capsys, tmp_path, "closed-announced", closed(body=_BODY_MARKERS, public_advisory_url="u"))
+    assert reminder["security_pages_reminder_pending"] is True
+    notified = ok(
+        capsys, tmp_path, "closed-announced", closed(body=_BODY_MARKERS, notification_sent_on_thread=True)
+    )
+    assert notified["cve_org"] == "notify"
+
+
+def test_the_records_marker_counts_only_as_a_comment_s_first_line(capsys, tmp_path):
+    later = closed(
+        advisory_records_configured=True,
+        comments=[{"body": "quoting: <!-- apache-magpie: advisory-records v1 -->"}],
+    )
+    assert ok(capsys, tmp_path, "closed-announced", later)["advisory_records"] == "run_planner"
+
+
 # --- 1h: release votes -------------------------------------------------------
 
 VOTE = "[VOTE] Release Apache Airflow 3.2.3 from 3.2.3rc1"

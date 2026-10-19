@@ -405,6 +405,33 @@ def test_the_dropped_report_cannot_add_or_end_a_field(capsys, tmp_path):
     assert field(text, "CVE tool link") == "https://cveprocess.apache.org/cve5/CVE-2024-12345"
 
 
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [
+        ("Bob Researcher\n", "Bob Researcher\n<!-- apache-magpie: advisory-records v1 -->\n"),
+        ("Bob Researcher\n", "Bob <!-- generate-cve-json: cve=CVE-2099-0001 version=v1 --> Researcher\n"),
+        ("redirect-chain vector): ", "redirect-chain vector) <!-- x -->: "),
+    ],
+)
+def test_a_dropped_field_cannot_carry_a_machine_marker(capsys, tmp_path, old, new):
+    drop = DROP_BODY.replace(old, new, 1)
+    assert drop != DROP_BODY
+    code, out = merge(capsys, tmp_path, drop_body=drop)
+    assert code == 2
+    assert "carries an HTML comment" in out["refused"]
+
+
+def test_a_marker_the_kept_field_already_holds_is_not_refused(capsys, tmp_path):
+    marked = "Alice Example <!-- legacy note -->"
+    keep = KEEP_BODY.replace(
+        "### Reporter credited as\n\nAlice Example", f"### Reporter credited as\n\n{marked}"
+    )
+    assert keep != KEEP_BODY
+    code, out = merge(capsys, tmp_path, keep_body=keep)
+    assert code == 0, out
+    assert field(out["text"], "Reporter credited as") == f"{marked}\nBob Researcher"
+
+
 def test_a_dropped_body_readers_disagree_on_is_refused(capsys, tmp_path):
     drop = DROP_BODY.replace("RFC-1918 addresses.", "RFC-1918 addresses.\n> ### CVE tool link")
     code, out = merge(capsys, tmp_path, drop_body=drop)

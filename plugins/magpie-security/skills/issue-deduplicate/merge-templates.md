@@ -37,6 +37,10 @@ which refuses any rewrite that would change another field, so the CVE JSON attac
 - *CWE*: the one populated side; two different CWEs are a blocker (`blockers`) until the user picks one.
 - *Severity*, *CVE tool link*, *Public advisory URL*: the kept side's. A reporter-supplied severity on the dropped side is never carried over (`severity_note`), per the independent-scoring rule in [`AGENTS.md`](../../../../AGENTS.md).
 
+A field value the dropped side would add that holds an HTML comment (`<!--`) is refused rather than escaped:
+machine markers (the CVE-JSON attachment, rollup and sync markers) never travel in copied field text, and a backslash in a credit or link would be visible noise.
+Ask the user to clean that field on the dropped tracker by hand, then run the merge again.
+
 **The [bot/AI credit policy](../../../../tools/cve-tool-vulnogram/bot-credits-policy.md)** applies when consolidating.
 A finder-side credit matching the bot rule stays in *Reporter credited as* and is listed in `tool_credits`; the CVE JSON generator emits it with `type: "tool"`.
 Surface each in the proposal as *"credited as tool (during merge): `<line>` (matches bot policy)"* with its source tracker,
