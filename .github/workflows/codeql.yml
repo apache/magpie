@@ -35,9 +35,55 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # Which analyses can find anything new. On a pull request, `python`
+  # runs only when a `.py` file changed and `actions` only when
+  # something under `.github/` did; this workflow changing runs both.
+  # A push to `main` and the weekly schedule always run both, so the
+  # default branch's analysis — what pull requests are compared
+  # against — never goes stale. CodeQL is not a required check
+  # (`.asf.yaml`), so a skipped analysis blocks nothing.
+  languages:
+    name: select-languages
+    runs-on: ubuntu-slim
+    permissions:
+      contents: read
+    outputs:
+      languages: ${{ steps.pick.outputs.languages }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+          # Full history so the pull-request diff below has the merge base.
+          fetch-depth: 0
+      - id: pick
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ "${EVENT}" != "pull_request" ]; then
+            echo 'languages=["python","actions"]' >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          changed="${RUNNER_TEMP}/changed-files.txt"
+          git diff --name-only "${BASE_SHA}...${HEAD_SHA}" > "${changed}"
+          picked=()
+          if grep -qx '\.github/workflows/codeql\.yml' "${changed}"; then
+            picked=(python actions)
+          else
+            grep -q '\.py$' "${changed}" && picked+=(python)
+            grep -q '^\.github/' "${changed}" && picked+=(actions)
+          fi
+          json=$(printf '%s\n' "${picked[@]}" | python3 -c 'import json,sys; print(json.dumps([l for l in sys.stdin.read().split() if l]))')
+          echo "languages=${json}" >> "${GITHUB_OUTPUT}"
+          echo "CodeQL analyses for this pull request: ${json}"
+
   analyze:
     name: "Analyze (${{ matrix.language }})"
     runs-on: ubuntu-slim
+    needs: languages
+    # An empty matrix would fail the job rather than skip it.
+    if: ${{ needs.languages.outputs.languages != '[]' }}
     permissions:
       # Writing security-events is required for CodeQL to upload results to
       # the repository's "Security" tab. The rest stay read-only.
@@ -53,7 +99,8 @@ jobs:
         # YAML in `.github/workflows/` for taint flows, secret exposure,
         # and other CI-side vulnerabilities. It complements `zizmor.yml`
         # (lint-style ruleset) with the deeper data-flow analysis.
-        language: [python, actions]
+        # Which of the two run is decided by the `languages` job above.
+        language: ${{ fromJSON(needs.languages.outputs.languages) }}
 
     steps:
       - name: Checkout
