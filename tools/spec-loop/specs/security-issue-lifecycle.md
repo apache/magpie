@@ -63,8 +63,14 @@ publication, with a human gate and an audit-log entry at every step.
 - `tools/security-management` (stdlib, runs nothing) holds the
   deterministic rules of the security skills, one CLI family per skill
   over a shared library (`body`, `rollup`, `refs`, `titles`, `grammar`,
-  `keyword`, and `fields` / `threads` / `dispositions` / `selectors` for
-  reading existing trackers, #1672). For `security-issue-import` it decides the Step 0
+  `keyword`, `fields` / `threads` / `dispositions` / `selectors` for
+  reading existing trackers, and `drafting` / `recipients` / `numbered`
+  for reporter drafts, the security CC and the numbered-proposal reply,
+  #1672). It reuses, never copies, three stdlib workspace members:
+  github-body-field (the field parser), generate-cve-json (the bot-credit
+  policy) and magpie-vcs (the embargo scrub of public text). Every skill
+  of the family — the five importers, triage, invalidate, cve-allocate,
+  deduplicate, sync and fix — now has its family. For `security-issue-import` it decides the Step 0
   disclosure-governance defaults, the Step 1 pre-filter, the Step 2
   `threadId` batches and their attribution, the Step 3 forwarder
   pre-screen, the Step 6 reply grammar and the Step 7 receipt-draft
@@ -507,6 +513,7 @@ publication, with a human gate and an audit-log entry at every step.
 
 ```bash
 uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-validate
+uv run --project tools/security-management --group dev pytest
 uv run --project tools/cve-tool-vulnogram/generate-cve-json --group dev pytest
 uv run --project tools/gmail/oauth-draft pytest
 ```
