@@ -21,12 +21,18 @@
   body-field read will parse it.
 - `generate_cve_json.cve_json.is_bot_credit` (tools/cve-tool-vulnogram) owns the
   bot/AI credit policy; `is_bot_credit` answers it for a credit placeholder.
+- `magpie_vcs.publication.scrub` (tools/vcs) owns the machine-checkable subset of
+  `security-issue-fix`'s forbidden-term list; `scrub` runs it on public text.
 """
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from typing import Any
+
 from generate_cve_json.cve_json import is_bot_credit as _is_bot_credit
 from github_body_field.parser import list_fields as _list_fields
+from magpie_vcs.publication import scrub as _scrub
 
 
 def fields(body: str) -> list[str]:
@@ -37,3 +43,25 @@ def fields(body: str) -> list[str]:
 def is_bot_credit(name: str) -> bool:
     """Whether `name` matches the bot/AI credit policy (credited with `type: "tool"`)."""
     return bool(_is_bot_credit(name))
+
+
+def scrub(
+    *,
+    message: str | None = None,
+    diff: str | None = None,
+    branch: str | None = None,
+    extra_terms: Sequence[str] = (),
+    allow: Sequence[str] = (),
+    private_texts: Sequence[str] = (),
+) -> dict[str, Any]:
+    """`{clean, hits}`: the embargo scrub over public text (`magpie_vcs.publication.scrub`)."""
+    return dict(
+        _scrub(
+            message=message,
+            diff=diff,
+            branch=branch,
+            extra_terms=list(extra_terms),
+            allow=list(allow),
+            private_texts=list(private_texts),
+        )
+    )

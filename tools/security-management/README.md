@@ -20,6 +20,7 @@
     - [`cve-allocate`](#cve-allocate)
     - [`issue-deduplicate`](#issue-deduplicate)
     - [`issue-sync`](#issue-sync)
+    - [`issue-fix`](#issue-fix)
   - [Tests](#tests)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -42,8 +43,9 @@ Each skill family is a subcommand: [`security-issue-import`](../../plugins/magpi
 [`security-issue-triage`](../../plugins/magpie-security/skills/issue-triage/SKILL.md) (`issue-triage`),
 [`security-issue-invalidate`](../../plugins/magpie-security/skills/issue-invalidate/SKILL.md) (`issue-invalidate`),
 [`security-cve-allocate`](../../plugins/magpie-security/skills/cve-allocate/SKILL.md) (`cve-allocate`),
-[`security-issue-deduplicate`](../../plugins/magpie-security/skills/issue-deduplicate/SKILL.md) (`issue-deduplicate`)
-and [`security-issue-sync`](../../plugins/magpie-security/skills/issue-sync/SKILL.md) (`issue-sync`).
+[`security-issue-deduplicate`](../../plugins/magpie-security/skills/issue-deduplicate/SKILL.md) (`issue-deduplicate`),
+[`security-issue-sync`](../../plugins/magpie-security/skills/issue-sync/SKILL.md) (`issue-sync`)
+and [`security-issue-fix`](../../plugins/magpie-security/skills/issue-fix/SKILL.md) (`issue-fix`).
 The tool takes what the agent saved — search results, the redacted report text, the confirmed plan — and decides or renders everything rule-shaped:
 the Step 1 pre-filter, the batched `threadId` dedup, the forwarder pre-screen, the tracker body and its inert report block, the rollup entry, the rejections-ledger record,
 the fix-already-public reply, the receipt-draft matrix, the confirmation-reply grammar and the recap.
@@ -58,9 +60,10 @@ exits `2` with `{"ok": false, "refused": "<why>"}`.
 ## Prerequisites
 
 - **Runtime:** Python 3.11+, stdlib only; run with `uv run --project <framework>/tools/security-management`.
-  It imports two stdlib-only workspace members instead of copying their rules:
+  It imports three stdlib-only workspace members instead of copying their rules:
   [`github-body-field`](../github-body-field/README.md) (what a `### Field` section is) and
-  [`generate-cve-json`](../cve-tool-vulnogram/generate-cve-json/README.md) (the bot/AI credit policy).
+  [`generate-cve-json`](../cve-tool-vulnogram/generate-cve-json/README.md) (the bot/AI credit policy) and
+  [`magpie-vcs`](../vcs/README.md) (the embargo scrub of public text).
 - **CLIs:** None.
 - **Credentials / auth:** None.
 - **Network:** None.
@@ -261,6 +264,21 @@ Every command takes `--input F`, a JSON file.
 | `release-vote` | `release_vote_in_progress` and `release_vote_thread_url` for an open `[VOTE]` matching the fix-PR milestone. |
 | `render-recap` | The recap `text`, `bare_refs`. |
 
+### `issue-fix`
+
+Every command takes `--input F`, a JSON file.
+
+| Command | Prints |
+|---|---|
+| `flow` | `flow` (`pull-request`, `patch-then-commit`, `stop`), `follow_subversion_flow`, `open_pr`, from `magpie-vcs fix-flow`'s exit and JSON. |
+| `scrub` | Per surface (`branch`, `title`, `body`, `commit_message`, `newsfragment`, `comment`) `valid`, `terms` and `hits`; `clean`, `forbidden_terms_found`; for a newsfragment `include_newsfragment` (false) and `security_framing_violation`. |
+| `backport` | `backport_needed` and `backport_labels` for the milestone against the next main release, plus confirmed extra lines. |
+| `parse-reply` | The plan confirmation (items 1–7) through `shared.numbered`. |
+| `review-plan` | `run`, `skip_notice` (`silent`, `one-line`), the title and body file passed, and the `adversarial-review` command. |
+| `svn-share` | The three private proposals, `attach_via`, `public_surface_used` (false), `next` (`stop-await-review`). |
+| `svn-gate` | `action` (`ask`, `stop`, `run-propose-commit`, `revise`, `await-confirmation`), the prefixed commands; a `commit` / `new-branch` without `--scrub` exits `2`. |
+| `render-recap` | The recap `text`, `bare_refs`. |
+
 ## Tests
 
 ```bash
@@ -280,4 +298,5 @@ it pins the `step-26-precedent-search` signal rule, which stays a model eval.
 `tests/test_issue_deduplicate.py` holds the cases of the retired `security-issue-deduplicate` suites `step-1-classify`, `step-2-extract-fields`, `step-3-merge-body`, `step-4-rollup-entries`, `step-5-confirm` and `step-6-recap`.
 `tests/test_issue_sync_state.py` pins the `security-issue-sync` Step 1 observations;
 `tests/test_issue_sync.py` and `tests/test_issue_sync_rules.py` hold the cases of its retired suites `step-bulk-selectors`, `step-bulk-orchestration`, `step-3-confirm`, `step-6-recap`, `step-guardrails`, `step-security-cc`, `step-draft-backend`, `step-ghsa-access-tier` and `step-5b-push-decision`.
+`tests/test_issue_fix.py` holds the cases of the retired `security-issue-fix` suites `step-0-fix-flow`, `step-5a-branch-name`, `step-5c-title-check`, `step-5e-backport`, `step-5f-newsfragment`, `step-6-confirm` and `step-11-recap`, and pins the deterministic parts of steps 7, 8 and 9.
 `tests/test_body.py` checks that the `tracker-body-template.md` files of the sibling import skills carry exactly the rendered headings.

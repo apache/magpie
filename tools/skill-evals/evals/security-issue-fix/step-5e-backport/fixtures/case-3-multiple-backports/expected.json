@@ -1,1 +1,0 @@
-{"milestone": "Airflow 3.2.2", "backport_needed": true, "backport_labels": ["backport-to-v3-2-test", "backport-to-v3-1-test"], "rationale": "Fix is needed on both the 3-2-test branch (primary milestone) and the 3-1-test branch (team-confirmed additional backport)."}

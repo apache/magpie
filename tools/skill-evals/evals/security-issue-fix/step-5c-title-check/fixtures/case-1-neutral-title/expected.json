@@ -1,8 +1,0 @@
-{
-  "branch_name": "fix-extra-links-xcom-deserialization-owner-check",
-  "pr_title": "Improve xcom value handling in extra links API",
-  "branch_name_valid": true,
-  "pr_title_valid": true,
-  "forbidden_terms_found": [],
-  "recommendation": "looks good"
-}

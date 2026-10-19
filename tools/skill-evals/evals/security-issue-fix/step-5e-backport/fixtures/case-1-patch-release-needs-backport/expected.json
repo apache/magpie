@@ -1,1 +1,0 @@
-{"milestone": "Airflow 3.2.2", "backport_needed": true, "backport_labels": ["backport-to-v3-2-test"], "rationale": "Milestone is Airflow 3.2.2, a patch release on the 3-2-test branch, so the PR needs a backport-to-v3-2-test label."}

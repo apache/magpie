@@ -114,6 +114,7 @@ jira-bridge = { workspace = true }
 release-config = { workspace = true }
 github-body-field = { workspace = true }
 generate-cve-json = { workspace = true }
+magpie-vcs = { workspace = true }
 
 
 [tool.uv.workspace]

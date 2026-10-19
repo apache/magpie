@@ -54,7 +54,7 @@ publication, with a human gate and an audit-log entry at every step.
   `tracker-update.md`; `issue-triage/classification.md`;
   `issue-sync/mail-preflight.md`, `next-step.md`;
   `cve-allocate/tracker-updates.md`, `title-normalize.md`, `reporter-draft.md`;
-  `issue-deduplicate/merge-templates.md`.
+  `issue-deduplicate/merge-templates.md`; `issue-fix/outcomes/preflight.md`.
   The tracker body templates of `issue-import-from-md` and
   `issue-import-from-pr` live in a `tracker-body-template.md` sibling of
   each (#1499).
@@ -163,6 +163,16 @@ publication, with a human gate and an audit-log entry at every step.
   recap. The root-cause judgement, the headline and analysis, and any
   merged summary or widened versions stay with the model.
   `shared.numbered` is the numbered-proposal reply grammar both skills use.
+  For `security-issue-fix` it maps `magpie-vcs fix-flow` onto the flow,
+  checks every public surface (branch, title, body, commit message,
+  newsfragment, comments) against the 5c forbidden terms through
+  `magpie_vcs.publication.scrub` (plus reporter names, verbatim private
+  text and `security` in a branch name), picks the backport labels, parses
+  the plan confirmation, decides when the adversarial reviewers run, and
+  drives the Subversion private-patch and publication gate (a `commit` or
+  `new-branch` without `--scrub` is never shown) and the recap; the
+  fixability call, the plan, the code and the PR body stay with the
+  model.
   For `security-issue-sync` it parses the selector into its `gh` reads (a
   malformed `CVE-…` token stops it before any search), resolves their
   results (the rejections ledger dropped, the closed `announced` bucket
