@@ -173,8 +173,15 @@ publication, with a human gate and an audit-log entry at every step.
   buckets (the `allocated → review-ready` push riding the latter), parses
   the single and bulk confirmation forms, checks the proposal's surfaces
   against the Guardrails (reporter CVSS, other ASF projects, link forms)
-  and renders the recap; mining signals, gathering state and writing
-  comments and drafts stay with the model.
+  and renders the recap. It also resolves the security CC through the
+  configuration layers (an explicit null disables the fallback) and the
+  drafting backend, routes each GHSA advisory change by access tier (an
+  admin-only change at the collaborator tier, or after a `403`, is a draft
+  relay, never a tracker comment), and walks the Step 5b push flow,
+  checking the title, upgrade-target and CWE gates itself and taking the
+  four judged gates as the model's verdicts; mining signals, gathering
+  state, judging those gates and writing comments and drafts stay with
+  the model.
 - Shared recipes instead of per-skill copies (#1437): the safe-create
   recipe for a tracker with an attacker-controlled title is
   `tools/github/operations.md` § *Create* (Write-tool title file,

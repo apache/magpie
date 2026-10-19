@@ -86,7 +86,8 @@ Every command prints one JSON object; rendered text is in its `text` field.
 | `rollup` | Entry bodies at column 0, one-line values, the action label refused when it holds `<`, `>` or `·`, and handed back shell-quoted. |
 | `refs` | `bare_refs` / `linkify` for `#NNN` and `owner/repo#NNN` outside code spans (any backtick run), fences, links, autolinks and URLs, ported from `pr-management`'s `_BARE_REF`; `tracker_link` for a GitHub, Jira or local-files reference. |
 | `titles` | `strip_mail_prefixes`, `strip_pr_title`, `md_title`. |
-| `drafting` | `backend`: `maildir` when configured, else `oauth_curl`, and `claude_ai_mcp` only without OAuth credentials and with no link in the body; `anchor`: what each backend attaches the draft by; `scan`: tracker references, the CVE-tool URL, bare references, re-opening phrases, CVSS and other ASF projects in a composed reporter draft. |
+| `recipients` | `security_cc`: the security CC of every draft, each key from the first layer that declares it. |
+| `drafting` | `choose`: Gmail or Maildir (the person over the project), then `backend`: `maildir` when configured, else `oauth_curl`, and `claude_ai_mcp` only without OAuth credentials and with no link in the body; `anchor`: what each backend attaches the draft by; `scan`: tracker references, the CVE-tool URL, bare references, re-opening phrases, CVSS and other ASF projects in a composed reporter draft. |
 | `grammar` | `parse_reply`: the confirmation grammar; anything unplaceable goes to `ambiguous_tokens` for the agent to ask back, conflicting dispositions hold their candidate out of every list, unscoped free text holds everything, and a negation confirms nothing. |
 | `keyword` | The `tr -cd` allowlist for search keywords, read from a file, never starting with `-`. |
 | `fields` | `read`: template fields of an existing tracker body through github-body-field (`normalise`, then `extract_field`); a field it will not decide on is `undecided`, never guessed or read as empty. |
@@ -250,6 +251,10 @@ Every command takes `--input F`, a JSON file.
 | `parse-bulk-reply` | `action` (`apply`, `force_sync`, `cancel`, `none`, `ambiguous`), `apply` per tracker, `edits`, `force_sync`, `skip`. |
 | `parse-reply` | The single-tracker form through `shared.numbered`. |
 | `check` | `clean` and `violations` (`surface`, `guardrail`, `evidence`) for reporter CVSS, other ASF projects, bare CVE IDs or the CVE-tool URL in an email, and bare `#NNN`. |
+| `security-cc` | `security_cc`, `cc_fallback`, `warning` and `warning_text`, `draft_blocked`, `cc`, `search_list`, through the project / organization / framework layers. |
+| `draft-backend` | `backend` (`maildir`, `oauth_curl`, `claude_ai_mcp`), `decided_by` (`user.md`, `project.md`, `default`); no credential with links in the body exits `2`. |
+| `ghsa-route` | `access_tier`, `action`, `channel`, and for an admin hand-off the draft tool, addressee, thread, rollup marker and three parts. |
+| `push-decision` | `action` (`skip`, `block`, `hand-off`, `push`, `pending` with the `next` command or gate), `gate_failed`, `handoff_variant`, `state_advance`, `recap_blocker`. |
 | `render-recap` | The recap `text`, `bare_refs`. |
 
 ## Tests
@@ -269,5 +274,5 @@ it pins the `step-26-precedent-search` signal rule, which stays a model eval.
 `tests/test_issue_invalidate.py` holds the cases of the retired `security-issue-invalidate` suites `step-2-import-path`, `step-5a-labels`, `step-5b-closing-comment`, `step-5d-email-draft`, `step-5e-rollup-entry`, `step-5f-confirm` and `step-7-recap`.
 `tests/test_cve_allocate.py` holds the cases of the retired `security-cve-allocate` suites `step-1-blocker-checks`, `step-2-title-normalize`, `step-3-allocation-recipe`, `step-4-propose-updates`, `step-5-confirm` and `step-7-recap`.
 `tests/test_issue_deduplicate.py` holds the cases of the retired `security-issue-deduplicate` suites `step-1-classify`, `step-2-extract-fields`, `step-3-merge-body`, `step-4-rollup-entries`, `step-5-confirm` and `step-6-recap`.
-`tests/test_issue_sync.py` holds the cases of the retired `security-issue-sync` suites `step-bulk-selectors`, `step-bulk-orchestration`, `step-3-confirm`, `step-6-recap` and `step-guardrails`.
+`tests/test_issue_sync.py` and `tests/test_issue_sync_rules.py` hold the cases of the retired `security-issue-sync` suites `step-bulk-selectors`, `step-bulk-orchestration`, `step-3-confirm`, `step-6-recap`, `step-guardrails`, `step-security-cc`, `step-draft-backend`, `step-ghsa-access-tier` and `step-5b-push-decision`.
 `tests/test_body.py` checks that the `tracker-body-template.md` files of the sibling import skills carry exactly the rendered headings.

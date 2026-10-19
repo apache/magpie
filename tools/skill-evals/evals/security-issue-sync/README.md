@@ -14,10 +14,8 @@ Steps 0 (pre-flight), 1a–1c and 1e (data gathering), 1g (cve.org API check), 4
 | 2a | Observed state | 3 | Step 11 (PR merged), step 6 (CVE needed), step 2 (stale) |
 | 2b | Proposed changes | 12 | Label swap, milestone create, providers wave, disclosure overdue, distributor pre-announce, reporter unresponsive + replied, security-pages reminder, advisory-records update (proposed once published, held while cve.org is not) |
 | 2c | Next-step recommendation | 4 | Steps 3, 6, 11, 13 |
+| 5b | The four judged pre-push gates | 2 | A private-scanner analyst credit fails the anonymise gate; a clean fix-released record passes all four |
 | 1d | Actionable signals in comments and mail | 6 | Affected-versions lower bound (widen / keep + backtick-wrap), title strip and its under-3-words guard, private-scanner credit (anonymise / public-credit exemption), reporter CVSS surfaced only |
-| 5b | Push decision for the regenerated CVE JSON | 8 | Skip gate, expired and not-configured session hand-offs (blocker only on a `fix released` transition), title and private-finder hygiene gates, clean push with `allocated → review-ready`, close-out push on a `PUBLIC` record |
-| Draft backend | Gmail or Maildir, per project with a per-person override (`tools/gmail/draft-backends.md`) | 5 | Project Maildir, a person overriding back to Gmail, a person overriding to Maildir, nothing set (Gmail `oauth_curl`), and a project on Gmail with no OAuth credential (the `claude_ai_mcp` fallback) |
-| GHSA access tier | Repository security advisory writes by access tier | 5 | Collaborator direct field edit, 403 admin hand-off relay draft, admin direct write, reporter reply by browser paste, non-collaborator relay fallback |
 | Hand-off delegate | Next-step hand-off honouring a project delegate (pre-flight `step-13`) | 4 | Triage delegated (`replace`) named and invoked through `security-issue-triage`, CVE allocation delegated (`after`), a delegate for an unrelated skill (not named), and `--no-overrides` (ignored) |
 
 ## Hard rules exercised
@@ -34,11 +32,15 @@ Steps 0 (pre-flight), 1a–1c and 1e (data gathering), 1g (cve.org API check), 4
 
 ## Deterministic steps — pytest, not model evals
 
-Bulk selector resolution and pre-flight, the CVE-impact buckets, the Step 3 and bulk confirmation forms, the Guardrails surface check and the Step 6 recap
+Bulk selector resolution and pre-flight, the CVE-impact buckets, the Step 3 and bulk confirmation forms, the Guardrails surface check, the Step 6 recap,
+the security CC and drafting-backend choice, the GHSA access tier and delivery, and the Step 5b push decision flow
 are decided or rendered by `security-management issue-sync` and pytest-tested in
 [`tools/security-management/tests/test_issue_sync.py`](../../../security-management/tests/test_issue_sync.py),
-one test per former case of `step-bulk-selectors` (cases 1–8), `step-bulk-orchestration` (1–3), `step-3-confirm` (1–3), `step-6-recap` (1–2) and `step-guardrails` (1–3),
+and `tests/test_issue_sync_rules.py`, one test per former case of `step-bulk-selectors` (cases 1–8), `step-bulk-orchestration` (1–3), `step-3-confirm` (1–3), `step-6-recap` (1–2), `step-guardrails` (1–3),
+`step-security-cc` (1–13), `step-draft-backend` (1–5), `step-ghsa-access-tier` (1–5) and `step-5b-push-decision` (1–8),
 with the hard rules they graded: an injection-shaped CVE token stops the selector before any search, named trackers and CVE selectors are never skipped,
 a reporter reply under 24h is `dispatch-urgent`, the `allocated → review-ready` push rides the non-CVE-affecting confirmation,
 a CVE-affecting tracker is walked individually in ascending order, a reporter CVSS score outside the observed state and another ASF project's name are flagged,
-a bare CVE ID is flagged on markdown surfaces and the CVE-tool URL in a reporter email, and no bare `#NNN`.
+a bare CVE ID is flagged on markdown surfaces and the CVE-tool URL in a reporter email, the first layer declaring a CC key wins (an explicit null disables the fallback),
+an admin-only advisory change at the collaborator tier (or after a `403`, never retried) is a draft relay and never a tracker comment,
+the push is skipped, blocked at the first failing gate or handed off on an expired or missing session, and no bare `#NNN`.

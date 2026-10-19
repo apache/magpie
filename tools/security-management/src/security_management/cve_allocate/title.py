@@ -19,7 +19,7 @@
 The cascade of `title-normalize.md`: leading tags (a `[...]` / `(...)` tag
 naming *Security* or *Important*, `Security Report:`, the project name with an
 optional version) twice, then until nothing changes the identifier-bearing
-parentheticals anywhere (`GHSA-…`, the project's external tracker IDs,
+parentheticals anywhere (`(GHSA-…)` or `[GHSA-…]`, the project's external tracker IDs,
 `split from #N`, a prior CVE ID) and the trailing `in <Project>`,
 `(<Project> x.y)` and `(<name> follow-up)`; whitespace collapsed, a final
 period dropped, the first letter capitalised. The project's names and
@@ -63,7 +63,7 @@ def _patterns(names: Sequence[str], short: Sequence[str], prefixes: Sequence[str
     trailing.append(r"[ \t]*\([\w.][\w. -]*[ \t]+follow-up\)\.?[ \t]*$")
     ids = "|".join(re.escape(p) for p in prefixes)
     anywhere = [
-        r"[ \t]*\(GHSA-[\w-]+\)\.?",
+        r"[ \t]*(?:\(GHSA-[\w-]+\)|\[GHSA-[\w-]+\])\.?",
         r"[ \t]*\([^)]*split from #\d+[^)]*\)\.?",
         r"[ \t]*\([^)]*\bCVE-\d{4}-\d{4,7}\b[^)]*\)\.?",
     ]

@@ -25,7 +25,7 @@ argument-hint: "[issue-number]"
 capability: capability:intake
 surface_hash: sha256:5c4aad61d458d98f
 license: Apache-2.0
-measured_tokens: 7241
+measured_tokens: 7282
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -247,6 +247,7 @@ Overall setup: [Prerequisites for running the agent skills](../../../../docs/qui
 before mail probes or draft proposals. Keep `security_cc` and `cc_fallback`
 in the observed-state bag; a missing address blocks drafting, while
 read-only work remains subject to its own prerequisites.
+`<sm> security-cc` (the `project`, `organization` and `framework_defaults` layers, `existing_cc`) applies the rule and prints both, the warning and the CC array.
 
 Before reading any tracker state, verify:
 

@@ -32,6 +32,7 @@ from typing import Any
 
 from security_management.issue_deduplicate.gate import DUPLICATE
 from security_management.issue_deduplicate.render import labels
+from security_management.shared import selectors
 from security_management.shared.rollup import one_line
 from security_management.shell import dq, w
 
@@ -110,7 +111,11 @@ def plan(data: Mapping[str, Any]) -> dict[str, Any]:
                 "check": f"this closes the DROPPED tracker {drop}; the kept tracker {keep} stays open",
             }
         )
-    cve_id = one_line(data.get("cve_id"))
+    cve_id = one_line(data.get("cve_id")).upper()
+    retract = one_line(data.get("retract_cve")).upper()
+    for value in (cve_id, retract):
+        if value and not selectors.CVE.match(value):
+            return {"ok": False, "refused": f"{value!r} is not CVE-YYYY-NNNNN"}
     if 6 in chosen:
         report = f"{scratch}/cve-report-{slug_k}.json"
         if github:
@@ -147,7 +152,6 @@ def plan(data: Mapping[str, Any]) -> dict[str, Any]:
                     "command": f"the CVE tool's push_update({cve_id}, <regenerated JSON>) with no state transition",
                 }
             )
-    retract = one_line(data.get("retract_cve"))
     if 7 in chosen:
         if not retract or not cve_id:
             return {"ok": False, "refused": "item 7 retracts the dropped side's CVE and needs both CVE IDs"}

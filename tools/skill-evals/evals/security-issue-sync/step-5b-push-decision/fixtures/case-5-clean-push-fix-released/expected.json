@@ -1,8 +1,0 @@
-{
-  "action": "push",
-  "gate_failed": null,
-  "handoff_variant": "oauth-pushed",
-  "state_advance": "allocated->review-ready",
-  "recap_blocker": false,
-  "reason": "At pr merged -> fix released the push is mandatory and the transition's confirmation authorises it; every gate passes and the session is valid, so the push is made and succeeds."
-}

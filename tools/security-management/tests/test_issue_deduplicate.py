@@ -573,3 +573,21 @@ def test_case_2_with_blockers(capsys, tmp_path):
     )  # fmt: skip
     assert out["blockers"] == blockers
     assert "**Still to resolve:**" in out["text"]
+
+
+def test_apply_plan_refuses_a_malformed_cve_id(capsys, tmp_path):
+    base = {
+        "tracker": TRACKER,
+        "keep": {"number": 42},
+        "drop": {"number": 67},
+        "scratch": "/s",
+        "items": [6, 7],
+    }
+    assert (
+        run(capsys, tmp_path, "apply-plan", {**base, "cve_id": "CVE-2025-1111", "retract_cve": "$(id)"})[0]
+        == 2
+    )
+    assert (
+        run(capsys, tmp_path, "apply-plan", {**base, "cve_id": "CVE-1; x", "retract_cve": "CVE-2025-2222"})[0]
+        == 2
+    )

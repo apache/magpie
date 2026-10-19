@@ -361,8 +361,9 @@ by swapping the adapter, not the skill.
    skill that drafts mail honours it through
    `tools/gmail/draft-backends.md` § *How the skills pick a backend*, and
    on Maildir threads by `In-Reply-To` / `References` and checks for an
-   existing draft with `maildir-draft-find` (eval suite
-   `tools/skill-evals/evals/security-issue-sync/step-draft-backend`).
+   existing draft with `maildir-draft-find` (pytest:
+   `tools/security-management/tests/test_issue_sync_rules.py`, the cases of the
+   former `step-draft-backend` eval suite).
 
 ## Validation
 

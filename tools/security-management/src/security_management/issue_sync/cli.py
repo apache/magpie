@@ -30,8 +30,8 @@ from collections.abc import Mapping
 from typing import Any
 
 from security_management.cli import emit, read_object, refuse
-from security_management.issue_sync import bulk, preflight, render, select
-from security_management.shared import numbered
+from security_management.issue_sync import advisory, bulk, preflight, push, render, select
+from security_management.shared import drafting, numbered, recipients
 
 FAMILY = "issue-sync"
 
@@ -44,8 +44,20 @@ COMMANDS = {
     "parse-bulk-reply": "Bulk 4: the merged confirmation (JSON: reply, proposal, preflight_skipped)",
     "parse-reply": "Step 3: the single-tracker confirmation (JSON: reply, items)",
     "check": "Guardrails: CVSS, other ASF projects and link forms in the proposal's surfaces",
+    "security-cc": "Step 0: the security CC of every draft (JSON: project, organization, framework_defaults, existing_cc)",
+    "draft-backend": "Drafts: Gmail or Maildir, then the Gmail backend (JSON: user_backend, project_backend, oauth_credentials)",
+    "ghsa-route": "GHSA trackers: the access tier and how a change is delivered",
+    "push-decision": "Step 5b: skip, block, hand-off or push, and the next command",
     "render-recap": "Step 6: the recap",
 }
+
+
+def _cc(data: Mapping[str, Any]) -> dict[str, Any]:
+    return {"ok": True, **recipients.security_cc(data)}
+
+
+def _backend(data: Mapping[str, Any]) -> dict[str, Any]:
+    return {"ok": True, **drafting.choose(data)}
 
 
 def _parse(data: Mapping[str, Any]) -> dict[str, Any]:
@@ -75,6 +87,10 @@ def dispatch(args: argparse.Namespace) -> int:
         "parse-bulk-reply": bulk.parse_reply,
         "parse-reply": _parse,
         "check": render.check,
+        "security-cc": _cc,
+        "draft-backend": _backend,
+        "ghsa-route": advisory.route,
+        "push-decision": push.decide,
         "render-recap": render.recap,
     }
     result = handlers[args.command](data)

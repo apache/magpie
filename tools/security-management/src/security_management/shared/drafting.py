@@ -65,6 +65,26 @@ def backend(data: Mapping[str, Any]) -> tuple[str, str | None]:
     return "claude_ai_mcp", "discouraged: no OAuth credentials and the body has no links"
 
 
+def choose(data: Mapping[str, Any]) -> dict[str, Any]:
+    """The whole choice: Gmail or Maildir first, then the Gmail backend.
+
+    The person's `tools.mail_create.backend` (`user_backend`) wins over the
+    project's `mail_create.backend` (`project_backend`), else `gmail`.
+    `oauth_credentials` is the `mcp__gmail-plaintext__check_auth` answer.
+    """
+    decided_by = "default"
+    choice = "gmail"
+    for key, source in (("user_backend", "user.md"), ("project_backend", "project.md")):
+        value = str(data.get(key) or "").strip().lower()
+        if value:
+            if value not in ("gmail", "maildir"):
+                raise ValueError(f"{source}: mail_create.backend {value!r} is neither gmail nor maildir")
+            choice, decided_by = value, source
+            break
+    name, note = backend({**data, "drafting_backend": choice})
+    return {"backend": name, "decided_by": decided_by, "note": note}
+
+
 def anchor(name: str, data: Mapping[str, Any]) -> dict[str, Any]:
     return {
         "oauth_curl": {"thread_id": data.get("thread_id")},
