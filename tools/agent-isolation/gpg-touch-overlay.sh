@@ -21,7 +21,9 @@
 # signing key (YubiKey, Nitrokey, any OpenPGP card).
 #
 # A key whose signature slot has a touch policy of `on` or `cached`
-# (`ykman openpgp info`) needs a physical touch for every signature. gpg
+# (`ykman openpgp info`) needs a physical touch for every signature; one
+# whose signature and authentication slots are both `off` never does, and
+# then nothing is armed at all (see `touch_may_be_needed`). gpg
 # puts a pinentry window on screen for the *PIN* and nothing at all for
 # the *touch* — it simply blocks, and `git commit` sits there until the
 # key is touched or gpg gives up with "signing failed: Timeout". There is
@@ -190,6 +192,14 @@ readonly CONTEXT_DIR="$RUNTIME_DIR/context"
 readonly WINDOW_LOCK="$RUNTIME_DIR/window.lock"
 readonly DISMISSED_MARKER="$RUNTIME_DIR/dismissed"
 
+# The card's last answer to "does signing or authenticating need a
+# touch?", `on` or `off`, kept for TOUCH_POLICY_TTL_MIN minutes. A touch
+# policy changes only when someone runs `ykman openpgp keys set-touch`,
+# and every git command that can reach the key arms, so asking the card
+# on each of them would add its round trip to every push for nothing.
+readonly TOUCH_POLICY_CACHE="$RUNTIME_DIR/touch-policy"
+readonly TOUCH_POLICY_TTL_MIN=10
+
 # Logging is switched on by the environment or by a marker file. The
 # file is for the case that matters most: a hook runs with the
 # harness's environment, which nobody can set a variable in from a
@@ -212,6 +222,43 @@ signing_in_flight() {
 
 # pinentry is asking for the PIN and owns the screen.
 pinentry_up() { pgrep -x 'pinentry.*' >/dev/null 2>&1; }
+
+# Whether a touch can be asked for at all. A card whose signature *and*
+# authentication slots both have a touch policy of `off` never blocks on
+# one -- gpg and ssh-keygen sign through the first, every ssh transport
+# and a `gpg.format=ssh` signature through the second -- so a window would
+# only ever be a false alarm. Any other policy, `cached` included (a
+# touch, then fifteen seconds without one), keeps it.
+#
+# The policy is read from gpg's own card listing, the `uif:` record of
+# `gpg --card-status --with-colons` (sign:decrypt:auth, 0 for off), and
+# not from `ykman openpgp info`: ykman needs PC/SC, which the sandbox
+# denies, and contends with scdaemon for the card it already holds open.
+# It is asked here, before anything signs, because once a signature is
+# waiting for the touch scdaemon has the card and the question would wait
+# behind it.
+#
+# Fails only on a definite "both off". No card, no gpg, a listing without
+# a `uif:` record -- a token that is not an OpenPGP card with touch
+# support -- all mean unknown, and unknown keeps the window: a false alarm
+# costs a click, a missing window a silent block. Unknown is not cached.
+touch_may_be_needed() {
+    local cached="" uif sign auth verdict=on
+    if [[ -n "$(find "$TOUCH_POLICY_CACHE" -mmin -"$TOUCH_POLICY_TTL_MIN" 2>/dev/null)" ]]; then
+        read -r cached <"$TOUCH_POLICY_CACHE" 2>/dev/null || cached=""
+        [[ $cached == off ]] && return 1
+        [[ $cached == on ]] && return 0
+    fi
+    # Test seam: the gpg to ask, so the tests never reach a real card.
+    uif="$("${MAGPIE_GPG_TOUCH_GPG:-gpg}" --card-status --with-colons 2>/dev/null |
+        sed -n 's/^uif:\([^:]*\):[^:]*:\([^:]*\):.*/\1 \2/p' | head -n 1)"
+    read -r sign auth <<<"$uif"
+    [[ ${sign:-} =~ ^[0-9]+$ && ${auth:-} =~ ^[0-9]+$ ]] || return 0
+    [[ $sign == 0 && $auth == 0 ]] && verdict=off
+    mkdir -p "$RUNTIME_DIR" 2>/dev/null &&
+        printf '%s\n' "$verdict" >"$TOUCH_POLICY_CACHE" 2>/dev/null
+    [[ $verdict == on ]]
+}
 
 # The ssh agent sockets a request to the key can arrive through: gpg-agent's
 # (ssh transport and `ssh-keygen -Y sign` under `enable-ssh-support`) and
@@ -506,6 +553,9 @@ arm() {
         grep -Eq "(^|[;&|(]|[[:space:]])(git([[:space:]]+-[A-Za-z-]+([[:space:]]+[^[:space:]]+)?)*[[:space:]]+($KEY_SUBCOMMANDS)|($KEY_COMMANDS))([[:space:];&|)]|$)" ||
         return 0
 
+    # A card that never asks for a touch needs no watcher.
+    touch_may_be_needed || return 0
+
     # Test seam: report the decision instead of spawning a watcher, so
     # the command matcher can be exercised without an X display.
     if [[ -n ${MAGPIE_GPG_TOUCH_DRY_RUN:-} ]]; then
@@ -645,6 +695,9 @@ wrap() {
     # than by a race on the pid file. Claude Code marks its Bash with
     # CLAUDECODE=1.
     [[ -n ${CLAUDECODE:-} ]] && exec "$real" "$@"
+
+    # Nothing to watch for on a card that never asks for a touch.
+    touch_may_be_needed || exec "$real" "$@"
 
     # Test seam, as in arm: no display, but the watcher's trace is
     # still worth having.
@@ -961,6 +1014,7 @@ case "${1:-}" in
     _flatten) _flatten "${2:-}"; printf '\n'; exit 0 ;;
     _scrub)   _scrub "${2:-}"; printf '\n'; exit 0 ;;
     _signing_in_flight) signing_in_flight ;;
+    _touch_may_be_needed) touch_may_be_needed ;;
     _agent_sockets) agent_sockets ;;
     _agent_socket_rows) agent_socket_rows "$(printf '%s\n' "${@:2}")" ;;
     _spawn_session) shift; _set_session_launcher; exec "${SESSION_LAUNCHER[@]}" "$@" ;;

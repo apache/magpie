@@ -39,9 +39,24 @@ import pytest
 
 SCRIPT = Path(__file__).parent.parent / "gpg-touch-overlay.sh"
 
+# The card is never asked: a gpg that is not there makes the touch policy
+# unknown, which is the behaviour every test below except the touch-policy
+# ones is about. A real card whose slots are all `off` would otherwise
+# turn each "arms" expectation into silence.
+NO_CARD = {"MAGPIE_GPG_TOUCH_GPG": "/nonexistent/gpg"}
+
+# Where the dry-run arms below keep their state, so a touch-policy answer
+# cached by real use on this machine cannot reach them.
+_ARM_RUNTIME = tempfile.mkdtemp(prefix="gpg-touch-arm-")
+
 
 def _arm(command: str) -> str:
-    env = {**os.environ, "MAGPIE_GPG_TOUCH_DRY_RUN": "1"}
+    env = {
+        **os.environ,
+        **NO_CARD,
+        "XDG_RUNTIME_DIR": _ARM_RUNTIME,
+        "MAGPIE_GPG_TOUCH_DRY_RUN": "1",
+    }
     result = subprocess.run(
         ["bash", str(SCRIPT), "arm"],
         input=json.dumps({"tool_input": {"command": command}}),
@@ -215,6 +230,119 @@ def test_payload_without_a_command_is_ignored() -> None:
     )
     assert result.returncode == 0
     assert result.stdout == ""
+
+
+# --- the card's touch policy -------------------------------------------
+#
+# `gpg --card-status --with-colons` reports the policies as
+# `uif:<sign>:<decrypt>:<auth>:`, 0 for off; ykman's `cached` is 3.
+
+
+def _card(tmp_path: Path, listing: str | None) -> str:
+    """A gpg that prints ``listing`` for ``--card-status`` (None: fails)."""
+    gpg = tmp_path / "fake-gpg"
+    if listing is None:
+        gpg.write_text("#!/bin/sh\necho 'gpg: selecting card failed' >&2\nexit 2\n")
+    else:
+        gpg.write_text(f"#!/bin/sh\ncat <<'EOF'\n{listing}\nEOF\n")
+    gpg.chmod(0o755)
+    return str(gpg)
+
+
+def _arm_with_card(tmp_path: Path, gpg: str, command: str = "git commit -m x") -> str:
+    result = subprocess.run(
+        ["bash", str(SCRIPT), "arm"],
+        input=json.dumps({"tool_input": {"command": command}}),
+        capture_output=True,
+        text=True,
+        env={
+            **os.environ,
+            "XDG_RUNTIME_DIR": str(tmp_path / "run"),
+            "MAGPIE_GPG_TOUCH_GPG": gpg,
+            "MAGPIE_GPG_TOUCH_DRY_RUN": "1",
+        },
+    )
+    assert result.returncode == 0, result.stderr
+    return result.stdout.strip()
+
+
+CARD = "Reader:Yubico YubiKey:AID:openpgp-card:\nversion:0304:\nuif:{}:\nsigcount:12:::"
+
+
+@pytest.mark.parametrize(
+    ("uif", "decision"),
+    [
+        # Signing and authentication both off: no touch is ever asked for.
+        ("0:0:0", ""),
+        # Decryption is not on either path, so its policy alone changes nothing.
+        ("0:1:0", ""),
+        # `cached` still needs the first touch.
+        ("3:0:0", "arm"),
+        ("0:0:1", "arm"),
+        ("0:0:3", "arm"),
+        ("2:0:4", "arm"),
+    ],
+)
+def test_arm_follows_the_signing_and_authentication_touch_policies(
+    tmp_path: Path, uif: str, decision: str
+) -> None:
+    assert _arm_with_card(tmp_path, _card(tmp_path, CARD.format(uif))) == decision
+
+
+@pytest.mark.parametrize(
+    "listing",
+    [
+        None,  # no card, or gpg cannot reach it
+        "Reader:Nitrokey:AID:openpgp-card:\nversion:0201:",  # no `uif:` record
+        "uif:::",  # a record with nothing in it
+        "uif:x:0:0:",
+    ],
+)
+def test_an_unknown_touch_policy_keeps_the_watcher(tmp_path: Path, listing: str | None) -> None:
+    assert _arm_with_card(tmp_path, _card(tmp_path, listing)) == "arm"
+
+
+def test_a_missing_gpg_keeps_the_watcher(tmp_path: Path) -> None:
+    assert _arm_with_card(tmp_path, str(tmp_path / "no-such-gpg")) == "arm"
+
+
+def test_the_touch_policy_is_cached_and_unknown_is_not(tmp_path: Path) -> None:
+    calls = tmp_path / "calls"
+    gpg = tmp_path / "counting-gpg"
+    gpg.write_text(f"#!/bin/sh\necho x >>'{calls}'\nprintf 'uif:0:0:0:\\n'\n")
+    gpg.chmod(0o755)
+
+    assert _arm_with_card(tmp_path, str(gpg)) == ""
+    assert _arm_with_card(tmp_path, str(gpg)) == ""
+    assert calls.read_text().count("x") == 1
+    cache = tmp_path / "run" / "magpie-gpg-touch" / "touch-policy"
+    assert cache.read_text().strip() == "off"
+
+    cache.unlink()
+    assert _arm_with_card(tmp_path, _card(tmp_path, None)) == "arm"
+    assert not cache.exists()
+
+
+def test_wrap_runs_the_program_without_a_watcher_when_touch_is_off(tmp_path: Path) -> None:
+    runtime = tmp_path / "rt"
+    program = tmp_path / "ssh-keygen"
+    # Reports whether a watcher registered itself for this wrapper.
+    program.write_text('#!/bin/sh\n[ -n "$MAGPIE_GPG_TOUCH_REGISTRATION" ] && echo watched || echo bare\n')
+    program.chmod(0o755)
+    env = {
+        **_wrap_env(runtime),
+        "PATH": f"{tmp_path}:{os.environ['PATH']}",
+        "MAGPIE_GPG_TOUCH_GPG": _card(tmp_path, CARD.format("0:0:0")),
+    }
+    result = subprocess.run(
+        ["bash", str(SCRIPT), "wrap", "ssh-keygen", "-Y", "sign", "-n", "git"],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "bare"
+    assert _no_registrations(runtime)
 
 
 def test_disarm_is_silent_when_nothing_is_armed(tmp_path: Path) -> None:
@@ -468,6 +596,7 @@ def _wrap_env(runtime_root: Path) -> dict[str, str]:
     }
     return {
         **env,
+        **NO_CARD,
         "XDG_RUNTIME_DIR": str(runtime_root),
         "MAGPIE_GPG_TOUCH_DRY_RUN": "1",
     }
@@ -781,6 +910,7 @@ def _hook_env(runtime_root: Path) -> dict[str, str]:
     }
     return {
         **env,
+        **NO_CARD,
         "XDG_RUNTIME_DIR": str(runtime_root),
         "MAGPIE_GPG_TOUCH_ASSUME_GUI": "1",
     }
