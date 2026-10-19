@@ -12,7 +12,7 @@ Start with `<upstream>`, the project's review criteria and its area labels.
 `pr-management-config.md` carries the labels and queue rules.
 `reviewer-roster.md` tells reviewer routing who covers each area.
 
-- **Installed** — just for you: personal configuration, nothing committed — `/magpie-setup:setup config`
+- **Configure it for yourself** — personal configuration, nothing committed — `/magpie-setup:setup config`
 - **Adopted** — for your project: shared configuration committed to the repo — `/magpie-setup:setup adopt` (a maintainers' decision)
 
 On a pinned-snapshot install, use `/magpie-setup config` or `/magpie-setup adopt`.

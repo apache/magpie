@@ -34,7 +34,7 @@ from .conftest import personal, write_stamp
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SECURITY_SKILL = "issue-sync"
-OTHER_SKILL = "activity-sweep"
+OTHER_SKILL = "ci-runner-audit"
 
 
 def stamp(root: Path) -> dict:
@@ -118,7 +118,7 @@ def test_a_hidden_general_guide_does_not_hold_back_the_family_one(project: Path,
 
 
 def test_a_skill_of_a_family_without_a_guide_gets_only_the_general_one(project: Path, version) -> None:
-    assert welcome.family_of(OTHER_SKILL) == "contributor-growth"
+    assert welcome.family_of(OTHER_SKILL) == "repo-health"
     assert due(project, OTHER_SKILL) == [("general", "first-run")]
     welcome.record(project, "general", "never")
     assert due(project, OTHER_SKILL) == []
