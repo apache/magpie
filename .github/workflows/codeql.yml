@@ -80,7 +80,15 @@ jobs:
 
   analyze:
     name: "Analyze (${{ matrix.language }})"
-    runs-on: ubuntu-slim
+    # The Python analysis is ~8 minutes on `ubuntu-slim` (1 vCPU, 5 GB,
+    # killed at 15 minutes): ~2 minutes extracting and ~4 running
+    # queries, both multi-threaded, so the cores pay, and the tree only
+    # grows towards that kill. It runs on `ubuntu-latest` (4 vCPUs). The
+    # Actions analysis is ~2 minutes and stays on `ubuntu-slim`.
+    # `ubuntu-latest` has no 15-minute kill, so `timeout-minutes` keeps an
+    # explicit ceiling instead of the 6-hour default (as in pre-commit.yml).
+    runs-on: ${{ matrix.language == 'python' && 'ubuntu-latest' || 'ubuntu-slim' }}
+    timeout-minutes: 30
     needs: languages
     # An empty matrix would fail the job rather than skip it.
     if: ${{ needs.languages.outputs.languages != '[]' }}
