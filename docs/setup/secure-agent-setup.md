@@ -2479,7 +2479,8 @@ connections against the number it saw when the command started.
 When **both** the signature and the authentication slot are `Off`, the key never waits for a touch, and the hook arms nothing: no watcher, no window.
 It reads the two policies from `gpg --card-status --with-colons` (the `uif:` record, `0` for off) before the command runs, not from `ykman`, which needs PC/SC and competes with scdaemon for the card.
 `Cached` counts as a touch policy like `On`, because the first signature of each burst still waits.
-The answer is kept for ten minutes, so re-run the command after a `ykman openpgp keys set-touch` or wait that long.
+An `On` answer is kept for ten minutes, an `Off` answer for one, so turning touch on with `ykman openpgp keys set-touch` is noticed within a minute; a stale `Off` would leave a signature waiting for a touch with nothing on screen.
+To pick up a change at once, delete the cached answer, `touch-policy` in the overlay's runtime directory (`$XDG_RUNTIME_DIR/magpie-gpg-touch/`, else `~/.cache/magpie-gpg-touch/`).
 No card, no gpg, or a token whose listing has no `uif:` record means the policy is unknown, and an unknown policy keeps the window.
 
 This is the operator-facing half of the hardware-key rule in

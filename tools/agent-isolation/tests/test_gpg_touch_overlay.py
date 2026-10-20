@@ -323,6 +323,33 @@ def test_the_touch_policy_is_cached_and_unknown_is_not(tmp_path: Path) -> None:
     assert not cache.exists()
 
 
+def _age(path: Path, minutes: float) -> None:
+    then = time.time() - minutes * 60
+    os.utime(path, (then, then))
+
+
+def test_a_cached_off_is_asked_again_after_a_minute(tmp_path: Path) -> None:
+    # `ykman openpgp keys set-touch aut cached` after an `off` was cached: a
+    # stale `off` would keep the window away from a key that now waits.
+    assert _arm_with_card(tmp_path, _card(tmp_path, CARD.format("0:0:0"))) == ""
+    cache = tmp_path / "run" / "magpie-gpg-touch" / "touch-policy"
+    _age(cache, 2)
+
+    assert _arm_with_card(tmp_path, _card(tmp_path, CARD.format("0:0:3"))) == "arm"
+    assert cache.read_text().strip() == "on"
+
+
+def test_a_cached_on_is_trusted_for_ten_minutes(tmp_path: Path) -> None:
+    assert _arm_with_card(tmp_path, _card(tmp_path, CARD.format("0:0:3"))) == "arm"
+    cache = tmp_path / "run" / "magpie-gpg-touch" / "touch-policy"
+    _age(cache, 5)
+
+    # The card now says off, but a five-minute-old `on` is still believed:
+    # the worst a stale `on` does is show a window nobody needed.
+    assert _arm_with_card(tmp_path, _card(tmp_path, CARD.format("0:0:0"))) == "arm"
+    assert cache.read_text().strip() == "on"
+
+
 def test_wrap_runs_the_program_without_a_watcher_when_touch_is_off(tmp_path: Path) -> None:
     runtime = tmp_path / "rt"
     program = tmp_path / "ssh-keygen"

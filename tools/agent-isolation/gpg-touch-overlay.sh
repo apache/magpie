@@ -193,12 +193,18 @@ readonly WINDOW_LOCK="$RUNTIME_DIR/window.lock"
 readonly DISMISSED_MARKER="$RUNTIME_DIR/dismissed"
 
 # The card's last answer to "does signing or authenticating need a
-# touch?", `on` or `off`, kept for TOUCH_POLICY_TTL_MIN minutes. A touch
-# policy changes only when someone runs `ykman openpgp keys set-touch`,
-# and every git command that can reach the key arms, so asking the card
-# on each of them would add its round trip to every push for nothing.
+# touch?", `on` or `off`. A touch policy changes only when someone runs
+# `ykman openpgp keys set-touch`, and every git command that can reach
+# the key arms, so asking the card on each of them would add its round
+# trip to every push for nothing. The two answers are not equally safe
+# to keep: a stale `on` costs a spare window, a stale `off` a signature
+# that blocks with nothing on screen until gpg-agent gives up. So `on` is
+# kept for TOUCH_POLICY_TTL_MIN minutes and `off` only for
+# TOUCH_POLICY_OFF_TTL_MIN, long enough to cover one burst of git
+# commands and short enough that turning touch on is noticed at once.
 readonly TOUCH_POLICY_CACHE="$RUNTIME_DIR/touch-policy"
 readonly TOUCH_POLICY_TTL_MIN=10
+readonly TOUCH_POLICY_OFF_TTL_MIN=1
 
 # Logging is switched on by the environment or by a marker file. The
 # file is for the case that matters most: a hook runs with the
@@ -246,8 +252,9 @@ touch_may_be_needed() {
     local cached="" uif sign auth verdict=on
     if [[ -n "$(find "$TOUCH_POLICY_CACHE" -mmin -"$TOUCH_POLICY_TTL_MIN" 2>/dev/null)" ]]; then
         read -r cached <"$TOUCH_POLICY_CACHE" 2>/dev/null || cached=""
-        [[ $cached == off ]] && return 1
         [[ $cached == on ]] && return 0
+        [[ $cached == off && -n "$(find "$TOUCH_POLICY_CACHE" -mmin -"$TOUCH_POLICY_OFF_TTL_MIN" 2>/dev/null)" ]] &&
+            return 1
     fi
     # Test seam: the gpg to ask, so the tests never reach a real card.
     uif="$("${MAGPIE_GPG_TOUCH_GPG:-gpg}" --card-status --with-colons 2>/dev/null |
