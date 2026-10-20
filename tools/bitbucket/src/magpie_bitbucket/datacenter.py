@@ -484,10 +484,6 @@ def _pull_request_source_commit(raw: dict[str, Any]) -> str:
     raise BitbucketError(msg)
 
 
-# Bitbucket Data Center exposes PR comments through the broader activities feed.
-# We fetch the paginated feed here and filter comment-bearing activities during
-# normalization so review/merge/rescope lifecycle events are not exposed as
-# discussion comments.
 def create_pull_request_comment(
     config: BitbucketConfig,
     pull_request_id: str,
@@ -535,6 +531,10 @@ def reject_pull_request(
     )
 
 
+# Bitbucket Data Center exposes PR comments through the broader activities feed.
+# We fetch the paginated feed here and filter comment-bearing activities during
+# normalization so review/merge/rescope lifecycle events are not exposed as
+# discussion comments.
 def get_pull_request_discussion(config: BitbucketConfig, pull_request_id: str) -> dict[str, Any]:
     """Fetch pull request activities from Bitbucket Data Center."""
     project_key = quote_path(require(config.project_key, "BITBUCKET_PROJECT_KEY"))

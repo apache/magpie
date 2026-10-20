@@ -2924,18 +2924,22 @@ def test_cli_pr_comment_datacenter(
     assert output["comment"]["body"] == "Confirmed PR comment."
 
 
-@patch("magpie_bitbucket.cloud.create_pull_request_comment")
+@pytest.mark.parametrize("backend", ["cloud", "datacenter"])
 def test_cli_pr_comment_rejects_empty_body_before_write(
-    mock_create_pull_request_comment: MagicMock,
-    cloud_env: None,
+    backend: str,
+    request: pytest.FixtureRequest,
     tmp_path: Path,
 ) -> None:
+    request.getfixturevalue(f"{backend}_env")
     body_file = tmp_path / "comment.txt"
     body_file.write_text("   ", encoding="utf-8")
 
-    with pytest.raises(
-        BitbucketError,
-        match="Comment body file must not be empty",
+    with (
+        patch(f"magpie_bitbucket.{backend}.create_pull_request_comment") as mock_create_pull_request_comment,
+        pytest.raises(
+            BitbucketError,
+            match="Comment body file must not be empty",
+        ),
     ):
         main(
             [
@@ -2950,17 +2954,21 @@ def test_cli_pr_comment_rejects_empty_body_before_write(
     mock_create_pull_request_comment.assert_not_called()
 
 
-@patch("magpie_bitbucket.cloud.create_pull_request_comment")
+@pytest.mark.parametrize("backend", ["cloud", "datacenter"])
 def test_cli_pr_comment_missing_body_file_before_write(
-    mock_create_pull_request_comment: MagicMock,
-    cloud_env: None,
+    backend: str,
+    request: pytest.FixtureRequest,
     tmp_path: Path,
 ) -> None:
+    request.getfixturevalue(f"{backend}_env")
     body_file = tmp_path / "missing-comment.txt"
 
-    with pytest.raises(
-        BitbucketError,
-        match="Body file not found",
+    with (
+        patch(f"magpie_bitbucket.{backend}.create_pull_request_comment") as mock_create_pull_request_comment,
+        pytest.raises(
+            BitbucketError,
+            match="Body file not found",
+        ),
     ):
         main(
             [
