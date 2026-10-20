@@ -86,7 +86,7 @@ Both paths run the same flow.
    fetch, no `<local-lock>`, and nothing to drift; `git pull`
    is its upgrade. Run only
    [Refresh the pre-flight checker](#refresh-the-pre-flight-checker),
-   copying from the in-repo `tools/setup-preflight` package, and
+   copying from this skill's own `setup_preflight/` directory, and
    [Reconcile the local agent settings](#reconcile-the-local-agent-settings),
    then stop.
 3. Read `<local-lock>`. If missing (gitignored, fresh
@@ -404,12 +404,18 @@ it, and the next `setup verify` or `reconcile` run will still name it.
 The `setup_preflight/` directory in the personal layer (the
 `personal_dir` that `python3 -m setup_preflight.layers` prints —
 `<git-common-dir>/apache-magpie/` when the project has not adopted
-Magpie) is a **copy** of the framework's
-`tools/setup-preflight` package, taken when
+Magpie) is a **copy** of the `setup_preflight/` package in this skill's
+own directory, taken when
 [`config`](config.md#step-2a--install-the-pre-flight-checker) last ran.
 An upgrade moves the framework underneath it, so replace that copy with
 the one the newly-installed version ships, from the same source this
 upgrade took everything else from.
+
+Copy the files, not a link to them.
+`tools/setup-preflight/src/setup_preflight` is a relative symlink to that
+same package, so a plain `cp -R` from it leaves a link in the personal
+layer that points nowhere.
+Copy from the skill's directory, or follow the link with `cp -RL`.
 
 The fresh copy also carries the new version's isolated-setup
 fingerprint. When the secure-setup files changed in this upgrade, the
