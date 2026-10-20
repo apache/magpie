@@ -207,7 +207,7 @@ The same flow, condensed to commands you run yourself:
 #    section: "Required tools" below. claude-code is unpinned —
 #    always install the latest for the newest security fixes.
 sudo apt-get install --no-install-recommends \
-    bubblewrap=0.13.0-* socat=1.8.1.3-*
+    bubblewrap=0.13.1-* socat=1.8.1.3-*
 npm install -g --no-save @anthropic-ai/claude-code@latest
 
 # 2. Project-scope `.claude/settings.json`. Copy the framework's
@@ -277,7 +277,7 @@ The current pins live in machine-readable form in
 
 | Tool | Pinned version | Released | Cooldown | Purpose |
 |---|---|---|---|---|
-| `bubblewrap` | 0.13.0 | 2026-09-22 | 1d | Linux user-namespace sandbox (filesystem layer). Required on Linux; macOS uses Seatbelt instead. |
+| `bubblewrap` | 0.13.1 | 2026-10-14 | 1d | Linux user-namespace sandbox (filesystem layer). Required on Linux; macOS uses Seatbelt instead. |
 | `socat` | 1.8.1.3 | 2026-06-26 | 7d (default) | TCP relay for the sandbox network allowlist. Linux only. |
 | `claude-code` | *(unpinned — `@latest`)* | — | none | Agent harness. Installed at the latest release so it always carries the newest permission-rule / sandbox / prompt-injection fixes; not in the pin manifest. |
 
@@ -311,15 +311,15 @@ distro. Choose whichever applies to your host.
 ```bash
 sudo apt-get update
 sudo apt-get install --no-install-recommends \
-    bubblewrap=0.13.0-* \
+    bubblewrap=0.13.1-* \
     socat=1.8.1.3-*
 ```
 
-> **Distro packages lag the pin.** The pinned `bubblewrap 0.13.0`
+> **Distro packages lag the pin.** The pinned `bubblewrap 0.13.1`
 > is newer than most distributions package, so the `apt` / `dnf`
 > lines above resolve only once your distribution ships it. Until
 > then, build it from the
-> [release tarball](https://github.com/containers/bubblewrap/releases/tag/v0.13.0)
+> [release tarball](https://github.com/containers/bubblewrap/releases/tag/v0.13.1)
 > (`meson setup _build && meson compile -C _build && sudo meson install -C _build`),
 > or install the distribution's own `bubblewrap` and accept the same
 > LTS trade-off documented in the Ubuntu Noble shortcut below — the
@@ -332,7 +332,7 @@ sudo apt-get install --no-install-recommends \
 
 ```bash
 sudo dnf install \
-    bubblewrap-0.13.0 \
+    bubblewrap-0.13.1 \
     socat-1.8.1.3
 ```
 
@@ -350,7 +350,7 @@ npm install -g --no-save @anthropic-ai/claude-code@latest
 
 ### Distro-specific shortcut — Linux Mint 22.x / Ubuntu 24.04 Noble
 
-The pinned versions above (bubblewrap `0.13.0`, socat `1.8.1.3`) are
+The pinned versions above (bubblewrap `0.13.1`, socat `1.8.1.3`) are
 the *upstream* releases that have aged past the framework's 7-day
 cooldown. **They are not in Ubuntu Noble's main repos** — Noble
 ships `bubblewrap 0.9.0` (`0.9.0-1ubuntu0.3`) and
