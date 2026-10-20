@@ -444,7 +444,10 @@ The reference model is four layers, layered:
    sends request fields (`-f` / `-F` / `--field` / `--raw-field`, which
    switch the default to POST) or sends a body (`--input`), so the ask
    list matches each of those flags both right after `gh api` and later
-   in the command, value attached or separate. A plain GET (with `--jq`,
+   in the command, value attached or separate. It also asks on `-i`
+   (`--include`), `gh api`'s only boolean short flag: a write flag can be
+   bundled behind it (`-iXPOST`, `-iFquery=@q.graphql`), and such a
+   cluster matches none of the per-flag rules. A plain GET (with `--jq`,
    `-H` or `--paginate`) does not prompt, and the specific `gh api` GET
    allow rules, which a blanket `Bash(gh api *)` ask had silently
    overridden, take effect. GraphQL still asks, since every call sends

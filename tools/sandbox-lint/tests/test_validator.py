@@ -100,6 +100,9 @@ def test_baseline_asks_on_gh_writes_not_on_reads(baseline: dict[str, Any]) -> No
 # Every way `gh api` can send something other than a GET: an explicit method,
 # request fields (which switch the default method to POST), or a request body.
 GH_API_WRITE_FLAGS = ("-X", "--method", "-f", "-F", "--field", "--raw-field", "--input")
+# gh api's boolean short flags. pflag lets a write flag be bundled behind one
+# (`-iXPOST`, `-iFquery=@q.graphql`), and that cluster matches no per-flag rule.
+GH_API_BUNDLE_FLAGS = ("-i",)
 
 
 def test_baseline_asks_on_gh_api_writes_not_on_gets(baseline: dict[str, Any]) -> None:
@@ -109,7 +112,7 @@ def test_baseline_asks_on_gh_api_writes_not_on_gets(baseline: dict[str, Any]) ->
     # and later in the command, and with the value attached (`-XPOST`).
     ask = baseline["permissions"]["ask"]
     assert "Bash(gh api *)" not in ask
-    for flag in GH_API_WRITE_FLAGS:
+    for flag in GH_API_WRITE_FLAGS + GH_API_BUNDLE_FLAGS:
         assert f"Bash(gh api {flag}*)" in ask, flag
         assert f"Bash(gh api * {flag}*)" in ask, flag
 
@@ -127,6 +130,10 @@ def test_baseline_asks_on_gh_api_writes_not_on_gets(baseline: dict[str, Any]) ->
         ("gh api --method=DELETE repos/o/r/git/refs/heads/x", True),
         ("gh api graphql -f query='mutation{x}'", True),
         ("gh api graphql -F query=@q.graphql", True),
+        ("gh api graphql -iFquery=@q.graphql", True),
+        ("gh api -iXPOST repos/o/r/issues/1/comments", True),
+        ("gh api repos/o/r/labels -if name=x", True),
+        ("gh api repos/o/r/git/refs/heads/x -iiXDELETE", True),
     ],
 )
 def test_gh_api_ask_rules_split_gets_from_writes(baseline: dict[str, Any], command: str, asks: bool) -> None:

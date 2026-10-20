@@ -754,6 +754,10 @@ The full block below is the two merged, annotated.
       // specific `gh api` GET allow rules above now take effect. GraphQL still
       // asks: it always sends `-f query=…`, and a pattern cannot tell a query
       // from a mutation (vetted-ops carries the bounded GraphQL reads).
+      // `-i` (--include) asks too: it is gh api's only boolean short flag,
+      // so it is the only one a write flag can be bundled behind (-iXPOST,
+      // -iFquery=@q.graphql), and such a cluster matches none of the rules
+      // above. Bundles start with a boolean, so this pair closes them all.
       "Bash(gh api -X*)", "Bash(gh api * -X*)",
       "Bash(gh api --method*)", "Bash(gh api * --method*)",
       "Bash(gh api -f*)", "Bash(gh api * -f*)",
@@ -761,6 +765,7 @@ The full block below is the two merged, annotated.
       "Bash(gh api --field*)", "Bash(gh api * --field*)",
       "Bash(gh api --raw-field*)", "Bash(gh api * --raw-field*)",
       "Bash(gh api --input*)", "Bash(gh api * --input*)",
+      "Bash(gh api -i*)", "Bash(gh api * -i*)",
       "Bash(gh pr create *)",
       "Bash(gh pr comment *)",
       "Bash(gh pr review *)",
