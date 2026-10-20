@@ -387,6 +387,31 @@ def test_gemini_extension_below_floor_is_outdated_for_every_family(
     ]
 
 
+def test_a_supplied_gemini_listing_keeps_the_single_extension_rule(
+    project: Path, capsys, monkeypatch
+) -> None:
+    write_lock(project, MARKETPLACE + "  - magpie-agent-guard\n")
+    monkeypatch.setenv("GEMINI_CLI", "1")
+    listing = project / "plugins.json"
+    listing.write_text('[{"name": "magpie", "version": "0.3.0"}]')
+    code, payload = run(
+        capsys, "--skill", "magpie-x", "--project-root", str(project), "--plugin-list", str(listing)
+    )
+    assert code == 0
+    assert not any(f["code"] == "below-floor" for f in payload.get("findings", []))
+
+
+def test_a_supplied_codex_envelope_is_unwrapped(monkeypatch, tmp_path: Path) -> None:
+    listing = tmp_path / "codex.json"
+    listing.write_text(
+        (Path(__file__).parent / "fixtures" / "codex-0.149.1-list.json").read_text(encoding="utf-8")
+    )
+    assert read_installed(str(listing), {"CODEX_THREAD_ID": "test"}) == (
+        "codex",
+        {"documents": "26.1015.12040"},
+    )
+
+
 def test_codex_live_listing_reads_only_installed_entries(monkeypatch) -> None:
     text = (Path(__file__).parent / "fixtures" / "codex-0.149.1-list.json").read_text(encoding="utf-8")
     listing = json.loads(text)

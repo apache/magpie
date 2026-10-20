@@ -120,7 +120,9 @@ def read_installed(
     parsed.
 
     `--plugin-list` lets the caller supply what it already read; the
-    harness is then not known, and the map stands alone.  Otherwise the
+    harness is still detected from the environment, so its own parsing
+    and floor rules apply, and stays `None` only when no harness with a
+    listing command is running — the map then stands alone.  Otherwise the
     running harness is detected from its own environment markers and only
     its listing command runs — no other harness's listing may answer for
     it.  Every failure mode collapses to `(None, None)`: the harness
@@ -132,7 +134,14 @@ def read_installed(
     """
     if explicit is not None:
         text = sys.stdin.read() if explicit == "-" else Path(explicit).read_text(encoding="utf-8")
-        return None, _parse_listing(text)
+        # A supplied listing is still the running harness's own: without
+        # its id, a Gemini `magpie` extension reads as every floor plugin
+        # missing and a Codex envelope as unparsable.
+        harness, argv = _running_harness(os.environ if env is None else env)
+        if argv is None:
+            harness = None
+        parsed = _parse_listing(text, harness)
+        return (harness if parsed is not None else None), parsed
     harness, argv = _running_harness(os.environ if env is None else env)
     if argv is None:
         # No harness is running here, or the one running has no listing

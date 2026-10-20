@@ -40,6 +40,10 @@ Gemini installs the framework as one extension, so on it the floor is
 carried by the `magpie` extension as a whole: update that one extension
 rather than naming individual plugins.
 
+`facts.harness` is `null` when the caller supplied the listing and no
+harness with a listing command is running. Use the row of the harness this
+session runs in; if that is not known, print every row rather than guess.
+
 Copilot CLI installs from a repo URL or catalogue and has no plugin CLI to
 read a listing or run an action with. There the floor stays unknown: run
 nothing, and leave it to the user.
