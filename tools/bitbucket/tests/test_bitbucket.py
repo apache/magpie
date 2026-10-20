@@ -2751,18 +2751,64 @@ def test_cloud_create_pull_request_comment_posts_json(
     assert result["comment"]["id"] == 601
 
 
-def test_datacenter_create_pull_request_comment_unsupported(
+@patch("magpie_bitbucket.client.urllib.request.build_opener")
+def test_datacenter_create_pull_request_comment_posts_json(
+    mock_build_opener: MagicMock,
     datacenter_env: None,
 ) -> None:
-    with pytest.raises(
-        BitbucketError,
-        match="Data Center pull request comment writes are not supported",
-    ):
-        datacenter.create_pull_request_comment(
-            load_config(),
-            "9",
-            "Confirmed PR comment.",
-        )
+    mock_opener(
+        mock_build_opener,
+        {
+            "id": 701,
+            "text": "Confirmed PR comment.",
+            "author": {"displayName": "Alice"},
+            "createdDate": 1788230400000,
+            "updatedDate": 1788230401000,
+            "state": "OPEN",
+        },
+    )
+
+    result = datacenter.create_pull_request_comment(
+        load_config(),
+        "9",
+        "Confirmed PR comment.",
+    )
+
+    request = mock_build_opener.return_value.open.call_args.args[0]
+
+    assert request.full_url == (
+        "https://bitbucket.example.test/rest/api/1.0/projects/MAGPIE/repos/magpie/pull-requests/9/comments"
+    )
+    assert request.get_method() == "POST"
+    assert request.get_header("Content-type") == "application/json"
+    assert json.loads(request.data.decode("utf-8")) == {"text": "Confirmed PR comment."}
+    assert result["pull_request_id"] == "9"
+    assert result["comment"]["id"] == 701
+
+
+def test_normalize_created_datacenter_pull_request_comment() -> None:
+    normalized = created_pull_request_comment(
+        "datacenter",
+        {
+            "pull_request_id": "9",
+            "comment": {
+                "id": 701,
+                "text": "Confirmed PR comment.",
+                "author": {"displayName": "Alice"},
+                "createdDate": 1788230400000,
+                "updatedDate": 1788230401000,
+                "state": "OPEN",
+            },
+        },
+    )
+
+    assert normalized["ok"] is True
+    assert normalized["backend"] == "bitbucket-datacenter"
+    assert normalized["operation"] == "pull-request-comment-create"
+    assert normalized["pull_request_id"] == "9"
+    assert normalized["comment"]["id"] == "701"
+    assert normalized["comment"]["author"] == "Alice"
+    assert normalized["comment"]["body"] == "Confirmed PR comment."
 
 
 def test_normalize_created_cloud_pull_request_comment() -> None:
@@ -2829,6 +2875,53 @@ def test_cli_pr_comment_cloud(
     output = json.loads(capsys.readouterr().out)
     assert output["operation"] == "pull-request-comment-create"
     assert output["comment"]["id"] == "601"
+
+
+@patch("magpie_bitbucket.datacenter.create_pull_request_comment")
+def test_cli_pr_comment_datacenter(
+    mock_create_pull_request_comment: MagicMock,
+    datacenter_env: None,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    body_file = tmp_path / "comment.txt"
+    body_file.write_text("Confirmed PR comment.", encoding="utf-8")
+
+    mock_create_pull_request_comment.return_value = {
+        "pull_request_id": "9",
+        "comment": {
+            "id": 701,
+            "text": "Confirmed PR comment.",
+            "author": {"displayName": "Alice"},
+            "createdDate": 1788230400000,
+            "updatedDate": 1788230401000,
+            "state": "OPEN",
+        },
+    }
+
+    exit_code = main(
+        [
+            "pr",
+            "comment",
+            "9",
+            "--body-file",
+            str(body_file),
+        ]
+    )
+
+    assert exit_code == 0
+
+    mock_create_pull_request_comment.assert_called_once()
+    args = mock_create_pull_request_comment.call_args.args
+    assert args[1:] == ("9", "Confirmed PR comment.")
+
+    output = json.loads(capsys.readouterr().out)
+    assert output["backend"] == "bitbucket-datacenter"
+    assert output["operation"] == "pull-request-comment-create"
+    assert output["pull_request_id"] == "9"
+    assert output["comment"]["id"] == "701"
+    assert output["comment"]["author"] == "Alice"
+    assert output["comment"]["body"] == "Confirmed PR comment."
 
 
 @patch("magpie_bitbucket.cloud.create_pull_request_comment")

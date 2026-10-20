@@ -296,7 +296,12 @@ def created_pull_request_comment(
 ) -> dict[str, Any]:
     """Normalize the result of creating one pull request comment."""
     comment = raw.get("comment")
-    normalized = _cloud_comment(comment) if kind == "cloud" and isinstance(comment, dict) else {}
+    if not isinstance(comment, dict):
+        normalized = {}
+    elif kind == "cloud":
+        normalized = _cloud_comment(comment)
+    else:
+        normalized = _datacenter_comment(comment, {}, None)
 
     return {
         "ok": bool(normalized),

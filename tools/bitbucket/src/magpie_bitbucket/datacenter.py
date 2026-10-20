@@ -22,7 +22,15 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from magpie_bitbucket.client import BitbucketConfig, BitbucketError, get_json, get_text, quote_path, require
+from magpie_bitbucket.client import (
+    BitbucketConfig,
+    BitbucketError,
+    get_json,
+    get_text,
+    post_json,
+    quote_path,
+    require,
+)
 
 
 def _api_base(config: BitbucketConfig) -> str:
@@ -485,10 +493,21 @@ def create_pull_request_comment(
     pull_request_id: str,
     body: str,
 ) -> dict[str, Any]:
-    """Reject pull-request comment creation for Data Center for now."""
-    _ = (config, pull_request_id, body)
-    msg = "Bitbucket Data Center pull request comment writes are not supported by this command yet"
-    raise BitbucketError(msg)
+    """Create one top-level comment on a Bitbucket Data Center pull request."""
+    project_key = quote_path(require(config.project_key, "BITBUCKET_PROJECT_KEY"))
+    repo_slug = quote_path(require(config.repo_slug, "BITBUCKET_REPO_SLUG"))
+    pr_id = quote_path(pull_request_id)
+    url = f"{_api_base(config)}/projects/{project_key}/repos/{repo_slug}/pull-requests/{pr_id}/comments"
+
+    comment = post_json(
+        url,
+        config,
+        {"text": body},
+    )
+    return {
+        "pull_request_id": pull_request_id,
+        "comment": comment,
+    }
 
 
 def post_pull_request_review(

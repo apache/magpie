@@ -157,9 +157,9 @@ by swapping the adapter, not the skill.
   On Cloud, `pr status` fetches the pull request first and reports its
   state and source commit alongside the `/statuses` build checks, matching
   the Data Center payload (#1526).
-  Confirmed Cloud-only pull-request writes cover comments,
-  approve/unapprove, request-changes, decline, backend-neutral `reject`,
-  and `pr merge --strategy
+  Confirmed pull-request comment writes cover Cloud and Data Center.
+  Additional Cloud-only writes cover approve/unapprove, request-changes,
+  decline, backend-neutral `reject`, and `pr merge --strategy
   {merge,squash,rebase} --expected-source-commit <sha>`, which re-checks the
   head commit immediately before the merge POST so a moved head fails closed
   (#1471); it does not enforce approval or build gates itself.
