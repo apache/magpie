@@ -82,6 +82,65 @@ def test_unknown_severity_is_refused() -> None:
         _pick(["high"])
 
 
+# --- fixup -------------------------------------------------------------------------------------
+
+
+def _fixable(*severities: str) -> list[dict[str, Any]]:
+    return [{"severity": s, "fixup": f"fix {i}"} for i, s in enumerate(severities)]
+
+
+def _pick_findings(findings: list[dict[str, Any]], **kw: Any) -> dict[str, Any]:
+    kw.setdefault("ci_state", "SUCCESS")
+    kw.setdefault("real_ci", True)
+    kw.setdefault("unresolved_threads", 0)
+    kw.setdefault("other_changes_requested", [])
+    kw.setdefault("unanswered_question", False)
+    return disposition.pick(findings, **kw)
+
+
+def test_small_mechanical_findings_default_to_fixup() -> None:
+    result = _pick_findings(_fixable("minor", "nit", "nit"), head_pushable=True)
+    assert result["disposition"] == "COMMENT"
+    assert result["default"] == "FIXUP" and result["overrides"][0] == "FIXUP"
+    assert result["fixup"]["changes"] == ["fix 0", "fix 1", "fix 2"]
+
+
+def test_fixup_needs_push_access_to_the_head() -> None:
+    result = _pick_findings(_fixable("minor"))
+    assert result["default"] == "COMMENT" and "FIXUP" not in result["overrides"]
+    assert "push" in result["fixup"]["reason"]
+
+
+def test_fixup_needs_every_finding_to_be_mechanical() -> None:
+    findings = [*_fixable("minor"), {"severity": "minor"}]
+    assert not _pick_findings(findings, head_pushable=True)["fixup"]["eligible"]
+
+
+def test_a_major_is_never_fixed_up() -> None:
+    result = _pick_findings(_fixable("major", "minor"), head_pushable=True)
+    assert result["disposition"] == "COMMENT" and not result["fixup"]["eligible"]
+
+
+@pytest.mark.parametrize(
+    "gate",
+    [
+        {"ci_state": "PENDING"},
+        {"real_ci": False},
+        {"unresolved_threads": 1},
+        {"other_changes_requested": ["alice"]},
+        {"unanswered_question": True},
+        {"merge_state": "DIRTY"},
+    ],
+)
+def test_fixup_never_skips_an_approval_gate(gate: dict[str, Any]) -> None:
+    assert not _pick_findings(_fixable("minor"), head_pushable=True, **gate)["fixup"]["eligible"]
+
+
+def test_an_approve_needs_no_fixup() -> None:
+    result = _pick_findings(_fixable("nit"), head_pushable=True)
+    assert result["disposition"] == "APPROVE" and result["default"] == "APPROVE"
+
+
 # --- review-disposition ---------------------------------------------------------------------------
 
 

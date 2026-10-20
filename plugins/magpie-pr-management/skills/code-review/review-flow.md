@@ -161,6 +161,11 @@ For each finding, record:
     short, concrete fix. If short enough, also include a
     GitHub `suggestion` block in the eventual review body
     (see posting.md).
+  fixup: |
+    minor / nit only, and only when the fix is small and
+    mechanical: one line naming the exact change a maintainer
+    could commit to the PR head (see Step 6 and
+    classifications/disposition-fixup.md). Omit otherwise.
 ```
 
 Before recording a correctness finding, verify the claimed
@@ -277,13 +282,20 @@ Write the findings list to a file (Step 4 shape) and run:
 
 ```bash
 uv run --project <framework>/tools/pr-management pr-management code-review disposition --saved-dir <workspace>/saved --pr <N> --viewer <viewer> --findings <file> \
-  [--unanswered-question] [--ci-diff-caused]
+  [--unanswered-question] [--ci-diff-caused] [--head-pushable]
 ```
 
-Pass `--unanswered-question` when an author question to the maintainers is open, `--ci-diff-caused` when you judged a CI failure is this diff's. The result's `docs` names the disposition and footer files to read. **Propose**:
+Pass `--unanswered-question` when an author question to the maintainers is open, `--ci-diff-caused` when you judged a CI failure is this diff's, and `--head-pushable` when `gh pr view <N> --json maintainerCanModify,isCrossRepository` shows the maintainer can push to the head (`maintainerCanModify`, or a branch in the base repository).
+Give each `minor` / `nit` finding whose fix is small and mechanical a `fixup` field: one line naming the exact change.
+The result's `docs` names the disposition and footer files to read. **Propose**:
 
 > *Suggested disposition: `COMMENT` — <reason>. Override? `[A]pprove`, `[R]equest changes`, `[C]omment` (default), `[E]dit findings first`, `[S]kip-for-now`, `[Q]uit`.*
 
+When the result's `fixup.eligible` is true, `default` is `FIXUP` and the prompt leads with it, listing `fixup.changes`:
+
+> *Suggested: `[F]ixup` (default) — apply these <n> small changes on the contributor's branch, then approve: <changes>. Or `[C]omment` with them as findings, `[A]pprove` as-is, `[R]equest changes`, `[E]dit findings first`, `[S]kip-for-now`, `[Q]uit`.*
+
+`[F]` follows [`classifications/disposition-fixup.md`](classifications/disposition-fixup.md); Steps 7a–7b then compose the `APPROVE` that explains the fixup.
 `[E]dit` lets the maintainer drop or re-classify findings; re-run `disposition` after. A `conflict_note` is always stated in the body, whatever the disposition.
 
 ---

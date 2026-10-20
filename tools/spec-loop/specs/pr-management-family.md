@@ -313,6 +313,12 @@ same directory; the behaviour is unchanged.
   `CHANGES_REQUESTED` stands, and no maintainer question is unanswered; the
   maintainer may downgrade it, and upgrading past a named gate needs a stated
   reason (#1585).
+  When every gate holds and the only findings left are `minor` / `nit` ones
+  with a mechanical `fixup`, and the maintainer can push to the PR head,
+  `FIXUP` is the default action: the maintainer commits those changes to the
+  contributor's branch on confirmation, waits for CI, and approves with a body
+  that lists what the fixup changed. A `major` is never fixed up, and merging
+  stays a separate confirmed action.
   The "touching mine" selector uses GitHub data rather than `git log
   --author`, CODEOWNERS team ownership checks team membership rather than
   organisation membership, and `maintain` permission gets the maintainer
