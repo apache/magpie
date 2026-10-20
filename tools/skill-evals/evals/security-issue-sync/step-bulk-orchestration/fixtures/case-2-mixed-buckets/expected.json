@@ -1,5 +1,0 @@
-{
-  "cve_affecting": [411, 412],
-  "non_cve_affecting": [410, 413],
-  "walk_order": [411, 412]
-}

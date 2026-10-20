@@ -106,6 +106,7 @@ also to forwarder relays and advisory-admin hand-offs. Show the resolved
 recipient and any fallback warning in the proposal before the usual human
 confirmation. This rule does not authorize sending mail or changing an
 existing draft.
+The security skills apply this rule in code: `uv run --project <framework>/tools/security-management security-management issue-sync security-cc` reads the layers from a JSON file and prints `security_cc`, `cc_fallback`, the warning, `draft_blocked`, the CC array and `search_list`.
 
 `security_cc` and `cc_fallback` are run-state fields, not new placeholders
 or persisted configuration. **Do not redefine `<security-list>`**, rewrite

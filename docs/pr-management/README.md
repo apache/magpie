@@ -84,6 +84,8 @@ wording, CI-check → doc-URL map, review-criteria source files).
 
 ## Install & first runs
 
+New to this family? Read the [one-minute welcome guide](../../plugins/magpie-setup/skills/setup/setup_preflight/guides/pr-management.md).
+
 Install just this family — one plugin, 9 skills. Maintainer-facing PR-queue management.
 
 Once you have [added the marketplace](../setup/marketplace-install.md):

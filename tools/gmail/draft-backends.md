@@ -127,7 +127,8 @@ each person can override it for themselves. The first value found wins:
 3. `gmail`.
 
 On `maildir`, follow [The Maildir backend](#the-maildir-backend) and skip the rest of this
-section. On `gmail`, pick the Gmail backend as below — which should be
+section. The security skills make the whole choice in code: `uv run --project <framework>/tools/security-management security-management issue-sync draft-backend` takes
+both `backend` values, the `check_auth` answer and whether the body has links, and prints the backend and where the choice came from. On `gmail`, pick the Gmail backend as below — which should be
 `oauth_curl`.
 
 **Preferred — `oauth_curl`.** Resolution:

@@ -1,0 +1,24 @@
+{
+  "hash": "sha256:bdf92c88a304ddea",
+  "lock": null,
+  "plugins": [
+    [
+      "magpie-setup",
+      "0.4.0"
+    ],
+    [
+      "magpie-contributor-growth",
+      "0.4.0"
+    ]
+  ],
+  "reconciled": {
+    "welcome": {
+      "general": {
+        "choice": "seen",
+        "shown": 1
+      }
+    }
+  },
+  "skill": "contributor-to-committer",
+  "welcome": true
+}

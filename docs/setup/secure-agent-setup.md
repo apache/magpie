@@ -2476,6 +2476,12 @@ connection to the agent's socket — ssh opens one, asks, and closes it as
 soon as the answer is back — so the watcher counts the agent's
 connections against the number it saw when the command started.
 
+When **both** the signature and the authentication slot are `Off`, the key never waits for a touch, and the hook arms nothing: no watcher, no window.
+It reads the two policies from `gpg --card-status --with-colons` (the `uif:` record, `0` for off) before the command runs, not from `ykman`, which needs PC/SC and competes with scdaemon for the card.
+`Cached` counts as a touch policy like `On`, because the first signature of each burst still waits.
+The answer is kept for ten minutes, so re-run the command after a `ykman openpgp keys set-touch` or wait that long.
+No card, no gpg, or a token whose listing has no `uif:` record means the policy is unknown, and an unknown policy keeps the window.
+
 This is the operator-facing half of the hardware-key rule in
 [`AGENTS.md`](../../AGENTS.md) → *Commit and PR conventions*. That rule
 has the agent probe gpg-agent's cache and warn **before** committing.

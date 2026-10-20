@@ -103,7 +103,7 @@ addopts = "-ra -q"
 # `tools/<name>`, which is its own workspace member with its own pytest job —
 # don't collect it twice.
 testpaths = ["."]
-norecursedirs = ["magpie-agent-guard/tools", "magpie-vetted-ops/tools"]
+norecursedirs = ["magpie-adversarial-review/tools", "magpie-agent-guard/tools", "magpie-vetted-ops/tools"]
 
 [dependency-groups]
 # The shared toolchain (mypy, pytest, ruff) comes from `magpie-dev`

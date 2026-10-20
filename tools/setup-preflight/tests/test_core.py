@@ -96,9 +96,25 @@ def test_the_floor_finding_names_the_harness_it_measured(project: Path) -> None:
     """The finding carries the harness the listing came from, so the rules
     can name that harness's own install and update commands."""
     write_lock(project, MARKETPLACE)
-    found = project_findings(project, {"something-else": "9.9.9"}, "gemini")
+    found = project_findings(project, {"magpie": "0.1.0"}, "gemini")
     assert codes(found) == ["below-floor"]
     assert found[0].facts["harness"] == "gemini"
+    assert found[0].facts["missing"] == []
+    assert found[0].facts["outdated"] == [{"plugin": "magpie-setup", "installed": "0.1.0", "floor": "0.2.0"}]
+
+
+@pytest.mark.parametrize(
+    "harness,installed",
+    [
+        ("gemini", {"other-extension": "1.0.0"}),
+        ("gemini", {"magpie@apache-magpie": "1.0.0"}),
+        ("codex", {"magpie-setup@apache-magpie": "1.0.0"}),
+        ("codex", {"other-plugin": "1.0.0"}),
+    ],
+)
+def test_non_claude_names_must_match_before_reporting_absence(project: Path, harness, installed) -> None:
+    write_lock(project, MARKETPLACE)
+    assert project_findings(project, installed, harness) == []
 
 
 def test_being_ahead_of_the_floor_is_never_a_finding(project: Path) -> None:

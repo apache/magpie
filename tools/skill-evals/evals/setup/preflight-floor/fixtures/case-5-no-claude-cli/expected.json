@@ -1,1 +1,1 @@
-{"action": "update", "commands": ["gemini extensions update magpie"], "blocks": true, "mention_restart": true}
+{"action": "print-command", "commands": [], "commands_shown": ["claude plugin update magpie-setup@apache-magpie", "claude plugin update magpie-agent-guard@apache-magpie"], "blocks": true, "mention_restart": true}

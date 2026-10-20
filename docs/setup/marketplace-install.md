@@ -126,7 +126,7 @@ Add further families the same way.
 Verify with `/plugins` inside Codex, or `codex plugin list` from the shell.
 
 Codex has no auto-update setting for marketplaces, so refreshing is a manual
-step — `codex plugin marketplace upgrade` re-pulls the configured Git snapshots.
+step — `codex plugin marketplace upgrade apache-magpie` re-pulls the Magpie Git snapshot.
 Run it when you want the newer skills; nothing moves on its own.
 
 Once the baseline is in, ask for the rest in plain language — *install the

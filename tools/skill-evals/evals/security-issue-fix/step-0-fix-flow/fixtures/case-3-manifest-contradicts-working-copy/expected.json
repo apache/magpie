@@ -1,6 +1,0 @@
-{
-  "flow": "stop",
-  "follow_subversion_flow": false,
-  "open_pr": false,
-  "reason": "The working copy contradicts the manifest (exit 2), so the skill stops and reports it."
-}

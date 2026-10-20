@@ -1,1 +1,0 @@
-{"include_newsfragment": false, "rationale": "The proposed newsfragment explicitly describes the change as a security vulnerability fix, which defeats the private tracking workflow by revealing the security nature in the public changelog.", "security_framing_violation": true}

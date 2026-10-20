@@ -32,12 +32,16 @@ guide (the general one or the skill family's), offer its three choices and recor
 carrying on. That one **does not block** either, and recording the answer is
 not an install command.
 
-`commands` is the list of install/update commands the pre-flight actually
-**runs**, in the order it runs them. Reading installed state — `claude plugin
-list --json` or the running agent's equivalent — does not count; only commands
-that change what is installed do. It is empty whenever the pre-flight changes
+`commands` is the list of install/update commands, or the personal-configuration
+command `/magpie-setup:setup config`, that the pre-flight actually **runs**,
+in the order it runs them. Reading installed state — `claude plugin
+list --json` or the running agent's equivalent — does not count. It is empty whenever the pre-flight changes
 nothing: when it passes silently, when it only prints commands for the user to
 run, and when it declines to act and asks first.
+
+Welcome recording and acknowledgement writes are excluded from `commands`.
+For a welcome-only verdict, `commands` must be `[]` even though
+`setup_preflight.welcome record` records the user's choice.
 
 `print-command` also covers proposing `/magpie-setup:setup reconcile` for a
 `sweep-never-run` finding: it shows a proposal and continues, without running

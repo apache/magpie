@@ -26,10 +26,10 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
 # stdlib-only on purpose: the skills call it through `uv run --project` from an
-# adopter's snapshot. The two workspace members it reuses are stdlib-only too:
-# github-body-field (the `### Field` parser) and generate-cve-json (the bot-credit
-# policy), so their rules are imported, never copied.
-dependencies = ["github-body-field", "generate-cve-json"]
+# adopter's snapshot. The three workspace members it reuses are stdlib-only too:
+# github-body-field (the `### Field` parser), generate-cve-json (the bot-credit
+# policy) and magpie-vcs (the embargo scrub), so their rules are imported, never copied.
+dependencies = ["github-body-field", "generate-cve-json", "magpie-vcs"]
 
 [project.scripts]
 security-management = "security_management.cli:main"
@@ -60,10 +60,10 @@ no_implicit_optional = true
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
 
-# The two reused workspace members ship no `py.typed`; the thin wrappers in
+# The reused workspace members ship no `py.typed`; the thin wrappers in
 # security_management.shared.reuse give their functions types.
 [[tool.mypy.overrides]]
-module = ["github_body_field.*", "generate_cve_json.*"]
+module = ["github_body_field.*", "generate_cve_json.*", "magpie_vcs.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

@@ -1,0 +1,7 @@
+{
+  "trigger_conditions": true,
+  "incomplete_fix_clause": true,
+  "anonymise_private_finder": true,
+  "conservative_affected_range": true,
+  "reason": "Every judged gate passes: the summary states who and how, no earlier CVE is involved, the reporter is credited publicly, and the range starts at version 0."
+}

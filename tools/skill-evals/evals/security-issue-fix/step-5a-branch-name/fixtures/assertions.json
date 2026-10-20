@@ -1,5 +1,0 @@
-{
-  "has_cve_forbidden_pattern": {"type": "regex", "field": "forbidden_pattern_found", "pattern": "cve", "flags": "i"},
-  "has_security_fix_forbidden_pattern": {"type": "regex", "field": "forbidden_pattern_found", "pattern": "security-?fix|security", "flags": "i"},
-  "has_clean_recommendation": {"type": "regex", "field": "recommendation", "pattern": "^(?!.*(cve|security-?fix|vulnerability|advisory)).+", "flags": "i"}
-}

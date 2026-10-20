@@ -1,0 +1,15 @@
+{
+  "installed": [
+    {
+      "pluginId": "documents@openai-primary-runtime",
+      "name": "documents",
+      "marketplaceName": "openai-primary-runtime",
+      "version": "26.1015.12040",
+      "installed": true,
+      "enabled": true,
+      "installPolicy": "AVAILABLE",
+      "authPolicy": "ON_USE"
+    }
+  ],
+  "available": []
+}

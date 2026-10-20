@@ -26,9 +26,9 @@ verdict is rendered, never written:
 
 * `lock` — the committed `.apache-magpie.lock` lines, or `null` for none.
   A lock also gets `.apache-magpie-overrides/project.md`.
-* `plugins` — `[[name, version], ...]` for `claude plugin list --json`, or
-  the string `"unreadable"` for a listing that cannot be parsed (no `claude`
-  on `PATH`).
+* `plugins` — `[[name, version], ...]` for the running harness's listing,
+  or the string `"unreadable"` for output that cannot be parsed. Codex
+  entries are wrapped in its `installed` / `available` JSON envelope.
 * `requires` — `requires_config:` entries passed as `--requires`.
 * `skill`, `hash` — the invoking skill's `name:` and `surface_hash:`.
 * `reconciled` — dict written to personal layer `reconciled.json`, or `null`.
@@ -101,16 +101,18 @@ def run_checker(state: dict[str, object], repo_root: Path, scratch: Path) -> str
         personal.mkdir(parents=True, exist_ok=True)
         (personal / "reconciled.json").write_text(json.dumps(reconciled), encoding="utf-8")
 
+    harness = state.get("harness")
     listing = scratch / "plugins.json"
     plugins = state.get("plugins")
     if plugins == "unreadable":
-        listing.write_text("zsh: command not found: claude\n", encoding="utf-8")
+        listing.write_text("listing unavailable\n", encoding="utf-8")
     elif isinstance(plugins, list):
-        listing.write_text(json.dumps([{"name": n, "version": v} for n, v in plugins]), encoding="utf-8")
+        entries = [{"name": n, "version": v} for n, v in plugins]
+        payload = {"installed": entries, "available": []} if harness == "codex" else entries
+        listing.write_text(json.dumps(payload), encoding="utf-8")
     else:
         raise ValueError('`plugins` must be a list of [name, version] or "unreadable"')
 
-    harness = state.get("harness")
     if harness is not None:
         # The checker must detect this harness itself, from the same session
         # markers a live session carries, and read the harness's own listing
@@ -161,6 +163,19 @@ def run_checker(state: dict[str, object], repo_root: Path, scratch: Path) -> str
     if state.get("welcome") is not True:
         args.append("--no-welcome")
 
+    if os.name == "nt" and harness is not None:
+        # CreateProcess does not search PATHEXT for a bare command name.
+        # Resolve only the fixture's .bat stub; keep harness detection,
+        # listing arguments, parsing and the checker itself unchanged.
+        launcher = (
+            "from setup_preflight import cli; "
+            f"name = {harness!r}; stub = {str(bin_dir / (harness + '.bat'))!r}; "
+            "[(argv.__setitem__(0, stub)) for h, _, argv in cli.HARNESS_LISTINGS "
+            "if h == name and argv is not None]; "
+            "raise SystemExit(cli.main())"
+        )
+        args[1:3] = ["-c", launcher]
+
     result = subprocess.run(args, capture_output=True, text=True, env=env, cwd=project, check=False)
     if result.returncode != 0:
         raise RuntimeError(f"setup_preflight exited {result.returncode}: {result.stderr.strip()}")
@@ -171,13 +186,19 @@ def _env(scratch: Path) -> dict[str, str]:
     """A minimal environment, so nothing on the host leaks into a verdict."""
     home = scratch / "home"
     home.mkdir(exist_ok=True)
-    return {
+    env = {
         "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
         "HOME": str(home),
         "GIT_CONFIG_NOSYSTEM": "1",
         "GIT_CONFIG_GLOBAL": os.devnull,
         "LC_ALL": "C",
     }
+    if os.name == "nt":
+        # Windows needs these to launch batch stubs from the child Python.
+        for key in ("SystemRoot", "COMSPEC"):
+            if key in os.environ:
+                env[key] = os.environ[key]
+    return env
 
 
 def render_report(prose: str, verdict: str) -> str:
@@ -220,7 +241,7 @@ def main(argv: list[str] | None = None) -> int:
             continue
         stale.append(report)
         if not args.check:
-            report.write_text(text, encoding="utf-8")
+            report.write_text(text, encoding="utf-8", newline="\n")
 
     if not stale:
         return 0

@@ -23,7 +23,7 @@ capability:
   - capability:resolve
 surface_hash: sha256:550eabe3b9bb3689
 license: Apache-2.0
-measured_tokens: 7435
+measured_tokens: 7331
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -203,37 +203,31 @@ The `git …` invocations in this skill are the **Git binding** of the framework
 uv run --project <framework>/tools/vcs magpie-vcs -C <working-copy> fix-flow --declared <source-control value>
 ```
 
+Write its exit and JSON (`{exit, result, error}`) and run `<sm> flow`:
+
 - `"flow": "pull-request"` (Git) → every step runs as written.
 - `"flow": "patch-then-commit"` (Subversion, e.g. `asf-svn`) → there is no fork and no PR: Steps 0, 7, 8, 9, 10 and 11 follow [`subversion-flow.md`](subversion-flow.md) instead, where the change is shared as a private patch and committed only once the team clears it.
-- Exit `2` (the working copy contradicts the manifest, or an unknown value) → stop and report it.
+- `"flow": "stop"` (exit `2`: the working copy contradicts the manifest, or an unknown value) → stop and report it.
 
 ---
 
 ## Step 0 — Pre-flight check
 
+`<sm> X` stands for `uv run --project <framework>/tools/security-management security-management issue-fix X --input <scratch>/<file>.json`
+([`security-management`](../../../../tools/security-management/README.md)); it prints JSON and runs nothing, and public-bound text reaches it only in files written with the Write tool.
+
 Do **all** of these before the Step 1 sync.
 Any failure is an immediate stop — do not fix half the environment and continue.
 On the `patch-then-commit` flow, items 1–4 are replaced by [Step 0 (Subversion)](subversion-flow.md#step-0-subversion--pre-flight).
 
-1. **`gh` authenticated** — `gh api repos/<tracker> --jq .name` and `gh api repos/<upstream> --jq .name` both return.
-   A 401/403 on the first means no `<tracker>` access; on the second it is a quota/auth issue — both need user action, stop.
-2. **Fork exists and is pushable** — `gh repo view <your-login>/<upstream-repo-name> --json name --jq .name` returns the bare repo name (the segment after the `/` in `<upstream>`).
-   If there is no fork, tell the user to run `gh repo fork <upstream> --clone=false` and re-invoke.
-3. **Local clone is found and clean** — resolve the clone path from [`.apache-magpie-overrides/user.md`](../../../../docs/setup/agentic-overrides.md) → `environment.upstream_clone` (per [`AGENTS.md` § Per-project and per-user configuration](../../../../AGENTS.md#per-project-and-per-user-configuration)).
-   Verify its `origin` remote points at `<upstream>` and `git status --porcelain` is empty.
-   On uncommitted work, stop and ask the user to stash / commit / clean first.
-   Do not probe hard-coded filesystem paths.
-4. **Base branch is current** — `git fetch origin` and make sure the base (default `<default-branch>`, or the branch the user specified) is a fast-forward of `origin/<base>`.
-5. **Toolchain probe** — run the tool-version checks named in [`<project-config>/fix-workflow.md`](../../../../<project-config>/fix-workflow.md#toolchain).
-   Any missing tool stops the skill; installing tools mid-run is out of scope.
-6. **Privacy-LLM gate-check** passes:
+1. `gh` reaches both `<tracker>` and `<upstream>`;
+2. your fork of `<upstream>` exists and is pushable;
+3. the local clone (`environment.upstream_clone`) has `origin` at `<upstream>` and a clean status;
+4. the base branch is a fast-forward of `origin/<base>`;
+5. the toolchain in `fix-workflow.md` is installed;
+6. the Privacy-LLM gate-check passes.
 
-   ```bash
-   uv run --project <framework>/tools/privacy-llm/checker \
-     privacy-llm-check
-   ```
-
-   The redact-after-fetch protocol ([`tools/privacy-llm/wiring.md`](../../../../tools/privacy-llm/wiring.md)) applies to the Step 1 sync's fetch of the `<tracker>` issue body and comments.
+How to run each, and what each failure means: [`outcomes/preflight.md`](outcomes/preflight.md).
 
 Only after **every** check is green, proceed to Step 1.
 
@@ -292,7 +286,8 @@ Present the full plan and wait for explicit confirmation. Accept:
   re-present it for confirmation.
 - `none` / `cancel` — stop. Do not touch any files.
 
-Never assume confirmation. If the user replies ambiguously, ask again.
+Never assume confirmation: write `{reply}` and run `<sm> parse-reply` (the plan's items 1–7: branch and base, files, commit and title, test plan, backport, newsfragment, PR body).
+An `edit` regenerates the plan and asks again; an `ambiguous` reply asks again.
 
 ---
 
@@ -311,7 +306,8 @@ Only after Step 6 confirmation (on the `patch-then-commit` flow, with the change
 
 Before the review below, run the [5c](#5c-commit-message-and-pr-title) forbidden-term
 check on the final title and body — the one Step 9 repeats — so the
-reviewers see exactly what will be posted.
+reviewers see exactly what will be posted: `<sm> scrub` with `{branch, title, body, commit_message, newsfragment, reporter_names, private_texts}`.
+Then `<sm> review-plan` (`{config_found, reviewers, plugin_installed, title, body_file, project_root, repo_dir, base}`) says whether the reviewers run, with the command, under the rules below.
 
 <!-- BEGIN MAGPIE BLOCK: pre-pr-adversarial-review — generated from tools/dev/blocks/pre-pr-adversarial-review.md -->
 
@@ -443,8 +439,8 @@ gh pr edit <PR-NUMBER> --repo <upstream> --add-label "<backport-label>"
 
 The backport bot fires only on merge, so applying the label right away is safe and keeps it from being forgotten.
 
-**Grep the PR title and body one more time for the [5c forbidden terms](implementation-plan.md#5c-commit-message-and-pr-title)** before calling `gh pr create --web`.
-If anything matches, abort and tell the user.
+**Run `<sm> scrub` on the PR title and body one more time** (the [5c forbidden terms](implementation-plan.md#5c-commit-message-and-pr-title)) before calling `gh pr create --web`.
+If it is not `clean`, abort and tell the user.
 When the framework's secure setup is installed, the agent-guard `security-language` guard ([`guards/security_language.py`](guards/security_language.py)) also blocks a `gh pr create` / `gh pr edit` whose title or body carries a CVE ID, `security fix` or a vulnerability-class name.
 It does not match the bare words `vulnerability` or `advisory`, which would block ordinary PRs everywhere the guard runs, so those rely on this manual check.
 It is a backstop, not a replacement for this check: it covers only a subset of the 5c list, and it does not see the commit message, the branch name, or a newsfragment.
@@ -463,23 +459,15 @@ On the `patch-then-commit` flow, with the substitutions in [Step 10 (Subversion)
 ## Step 11 — Recap
 
 On the `patch-then-commit` flow, recap per [Step 11 (Subversion)](subversion-flow.md#step-11-subversion--recap).
-Otherwise print a short recap:
-
-- the public PR URL,
-- the branch name (in the user's fork),
-- the list of files changed,
-- the tests that were run and their results,
-- the comment posted on the `<tracker>` issue,
-- the backport label that was applied (or a note that none was needed),
-- the next step — typically *"wait for review; re-run
-  security-issue-sync after the PR merges to transition the issue
-  from `pr created` to `pr merged` and update the milestone"*.
+Otherwise write `{tracker, issue, pr_url, branch, files, tests, tracker_comment_url, backport_labels, next_step}` and run `<sm> render-recap`:
+the public PR URL, the branch in the user's fork, the files changed, each check with its result, the tracker comment,
+the backport label (or that none was needed) and the next step — by default *"wait for review; re-run security-issue-sync after the PR merges to transition the issue from `pr created` to `pr merged` and update the milestone"*.
 
 ---
 
 ## Guardrails
 
-- **No public leakage of *content* or *security framing*.** Grep every piece of public-bound text — commit message, PR title, PR body, branch name, newsfragment, comments on `<upstream>` — for the [5c forbidden terms](implementation-plan.md#5c-commit-message-and-pr-title); on any hit, abort and ask the user.
+- **No public leakage of *content* or *security framing*.** Run `<sm> scrub` on every piece of public-bound text — commit message, PR title, PR body, branch name, newsfragment, comments on `<upstream>` — against the [5c forbidden terms](implementation-plan.md#5c-commit-message-and-pr-title); on any hit, abort and ask the user.
   Bare tracker URLs and `<tracker>#NNN` identifiers are **not** flagged (see the Confidentiality paragraph above).
 - **Fork only.** Never push to `<upstream>` directly.
 - **Subversion: commit is publication.** Never `new-branch` or `commit` before the team clears the patch, and only through `magpie-vcs … --scrub`; the patch itself goes to private surfaces only ([`subversion-flow.md`](subversion-flow.md)).

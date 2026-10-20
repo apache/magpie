@@ -159,6 +159,17 @@ def _floor_findings(lock: Lock, installed: dict[str, str] | None, harness: str |
         # Unknown, never absent.  Say nothing and let the run continue: this
         # is the ordinary state of a sandboxed session, not a fault.
         return []
+    if harness == "gemini":
+        # Gemini ships all families in one extension. Its version carries
+        # every floor entry; an unrecognised extension name is unknown.
+        version = installed.get("magpie")
+        if version is None:
+            return []
+        installed = dict.fromkeys(lock.plugins, version)
+    elif harness == "codex" and not any(name in installed for name in lock.plugins):
+        # Until a listing identifies an exact floor name, qualified names
+        # or an unfamiliar schema are not evidence that plugins are absent.
+        return []
     missing = [name for name in lock.plugins if name not in installed]
     outdated = []
     for name in lock.plugins:

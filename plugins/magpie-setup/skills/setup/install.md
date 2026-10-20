@@ -399,7 +399,7 @@ Tell the user, in this order:
 4. **How it updates** — Claude Code:
    `/plugin marketplace update apache-magpie` then
    `/plugin update <plugin>@apache-magpie`; Codex:
-   `codex plugin update magpie`; Gemini:
+   `codex plugin marketplace upgrade apache-magpie`; Gemini:
    `gemini extensions update magpie`. The bundled `SessionStart`
    hook prompts on a version change where the client runs hooks.
 5. **Configure it for yourself when a skill asks.** A marketplace

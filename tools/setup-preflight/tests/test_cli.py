@@ -40,6 +40,14 @@ plugins:
 """
 
 
+@pytest.fixture(autouse=True)
+def clean_harness_markers(monkeypatch: pytest.MonkeyPatch) -> None:
+    # A developer's surrounding Codex session must not override the
+    # harness a test explicitly selects.
+    for marker in ("CODEX_SANDBOX", "CODEX_THREAD_ID", "COPILOT_CLI", "GEMINI_CLI", "CLAUDECODE"):
+        monkeypatch.delenv(marker, raising=False)
+
+
 def run(capsys: pytest.CaptureFixture[str], *args: str) -> tuple[int, dict]:
     code = main(list(args))
     out = capsys.readouterr().out
@@ -344,3 +352,75 @@ def test_a_supplied_listing_reports_no_harness(project: Path, capsys) -> None:
     )
     finding = next(f for f in payload["findings"] if f["code"] == "below-floor")
     assert finding["facts"]["harness"] is None
+
+
+@pytest.mark.parametrize("version", ["0.2.0", "0.3.0", "0.10.0"])
+def test_gemini_extension_at_or_above_floor_does_not_block(
+    project: Path, capsys, monkeypatch, version
+) -> None:
+    write_lock(project, MARKETPLACE + "  - magpie-agent-guard\n")
+    monkeypatch.setenv("GEMINI_CLI", "1")
+    monkeypatch.setattr(
+        "setup_preflight.cli.subprocess.run",
+        lambda argv, **kwargs: _listing_ok(argv, json.dumps([{"name": "magpie", "version": version}])),
+    )
+    code, payload = run(capsys, "--skill", "magpie-x", "--project-root", str(project), "--no-cache")
+    assert code == 0
+    assert not any(f["code"] == "below-floor" for f in payload.get("findings", []))
+
+
+def test_gemini_extension_below_floor_is_outdated_for_every_family(
+    project: Path, capsys, monkeypatch
+) -> None:
+    write_lock(project, MARKETPLACE + "  - magpie-agent-guard\n")
+    monkeypatch.setenv("GEMINI_CLI", "1")
+    monkeypatch.setattr(
+        "setup_preflight.cli.subprocess.run",
+        lambda argv, **kwargs: _listing_ok(argv, '[{"name":"magpie","version":"0.1.0"}]'),
+    )
+    _, payload = run(capsys, "--skill", "magpie-x", "--project-root", str(project), "--no-cache")
+    facts = next(f["facts"] for f in payload["findings"] if f["code"] == "below-floor")
+    assert facts["missing"] == []
+    assert facts["outdated"] == [
+        {"plugin": name, "installed": "0.1.0", "floor": "0.2.0"}
+        for name in ("magpie-setup", "magpie-agent-guard")
+    ]
+
+
+def test_codex_live_listing_reads_only_installed_entries(monkeypatch) -> None:
+    text = (Path(__file__).parent / "fixtures" / "codex-0.149.1-list.json").read_text(encoding="utf-8")
+    listing = json.loads(text)
+    listing["available"] = [{"name": "magpie-setup", "version": "0.1.0"}]
+    text = json.dumps(listing)
+    monkeypatch.setattr("setup_preflight.cli.subprocess.run", lambda argv, **kwargs: _listing_ok(argv, text))
+    assert read_installed(None, {"CODEX_THREAD_ID": "test"}) == ("codex", {"documents": "26.1015.12040"})
+
+
+def test_codex_envelope_reports_a_below_floor_install(project: Path, capsys, monkeypatch) -> None:
+    write_lock(project, MARKETPLACE)
+    monkeypatch.setenv("CODEX_THREAD_ID", "test")
+    monkeypatch.setattr(
+        "setup_preflight.cli.subprocess.run",
+        lambda argv, **kwargs: _listing_ok(
+            argv, '{"installed":[{"name":"magpie-setup","version":"0.1.0"}],"available":[]}'
+        ),
+    )
+    _, payload = run(capsys, "--skill", "magpie-x", "--project-root", str(project), "--no-cache")
+    facts = next(f["facts"] for f in payload["findings"] if f["code"] == "below-floor")
+    assert facts["harness"] == "codex"
+    assert facts["missing"] == []
+    assert facts["outdated"] == [{"plugin": "magpie-setup", "installed": "0.1.0", "floor": "0.2.0"}]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        '[{"id":"magpie-setup","version":"0.1.0"}]',
+        '[{"name":"magpie-setup","version":"0.1.0"},{"plugin":"magpie-agent-guard","version":"0.1.0"}]',
+        '{"installed":[],"available":[{"name":"magpie-setup","version":"0.1.0"}]}',
+        '{"available":[{"name":"magpie-setup","version":"0.1.0"}]}',
+    ],
+)
+def test_unrecognised_or_empty_codex_listing_is_unknown(monkeypatch, text) -> None:
+    monkeypatch.setattr("setup_preflight.cli.subprocess.run", lambda argv, **kwargs: _listing_ok(argv, text))
+    assert read_installed(None, {"CODEX_THREAD_ID": "test"}) == (None, None)

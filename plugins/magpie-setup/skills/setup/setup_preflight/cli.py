@@ -81,7 +81,7 @@ def _running_harness(env: Mapping[str, str]) -> tuple[str | None, list[str] | No
     return None, None
 
 
-def _parse_listing(text: str) -> dict[str, str] | None:
+def _parse_listing(text: str, harness: str | None = None) -> dict[str, str] | None:
     """One harness listing, parsed into the shared `{name: version}` map.
 
     Shared by every harness's listing command: `None` for unknown (the
@@ -92,6 +92,10 @@ def _parse_listing(text: str) -> dict[str, str] | None:
         listing = json.loads(text)
     except json.JSONDecodeError:
         return None
+    # Codex 0.149.1 separates installed plugins from available catalogue
+    # entries. Only the former describe what this session can run.
+    if harness == "codex" and isinstance(listing, dict):
+        listing = listing.get("installed")
     if not isinstance(listing, list):
         return None
     out: dict[str, str] = {}
@@ -99,8 +103,9 @@ def _parse_listing(text: str) -> dict[str, str] | None:
         if not isinstance(item, dict):
             return None
         version = item.get("version")
-        if isinstance(item.get("name"), str) and isinstance(version, str):
-            out[item["name"]] = version
+        if not isinstance(item.get("name"), str) or not isinstance(version, str):
+            return None
+        out[item["name"]] = version
     # A listing that parses but is empty leaves the sandbox read-denial
     # ambiguity standing, so we report unknown rather than an empty map.
     return out or None
@@ -122,9 +127,8 @@ def read_installed(
     undetectable, a listing CLI the running harness does not have
     (Copilot), the command missing, a non-zero exit, a timeout or a
     refusal from the sandbox, unparsable output, or a sandbox that denies
-    the plugin cache.  The one case that is *not* unknown is a listing
-    that parsed and was genuinely empty, which only a harness with no
-    plugins installed produces.
+    the plugin cache. An empty listing also stays unknown because it
+    cannot be distinguished from a denied cache read.
     """
     if explicit is not None:
         text = sys.stdin.read() if explicit == "-" else Path(explicit).read_text(encoding="utf-8")
@@ -150,7 +154,7 @@ def read_installed(
         return None, None
     if completed.returncode != 0:
         return None, None
-    parsed = _parse_listing(completed.stdout)
+    parsed = _parse_listing(completed.stdout, harness)
     if parsed is None:
         return None, None
     return harness, parsed

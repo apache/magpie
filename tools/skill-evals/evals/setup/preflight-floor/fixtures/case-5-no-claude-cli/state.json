@@ -1,5 +1,4 @@
 {
-  "harness": "gemini",
   "lock": [
     "method: marketplace",
     "url: apache/magpie",
@@ -10,8 +9,18 @@
   ],
   "plugins": [
     [
-      "magpie",
+      "magpie-setup",
+      "0.2.0"
+    ],
+    [
+      "magpie-agent-guard",
       "0.2.0"
     ]
-  ]
+  ],
+  "reconciled": {
+    "version": "0.2.0",
+    "skills": {
+      "issue-triage": "sha256:2edc90a1b7f3440d"
+    }
+  }
 }

@@ -124,6 +124,15 @@ def _build_parser() -> argparse.ArgumentParser:
     pr_commits = pr_subparsers.add_parser("commits", help="Fetch pull request commits.")
     pr_commits.add_argument("pull_request_id", help="Pull request ID to fetch commits for.")
 
+    pr_jira_issues = pr_subparsers.add_parser(
+        "jira-issues",
+        help="Fetch Jira issues associated with a pull request.",
+    )
+    pr_jira_issues.add_argument(
+        "pull_request_id",
+        help="Pull request ID whose linked Jira issues to fetch.",
+    )
+
     pr_diff = pr_subparsers.add_parser("diff", help="Fetch pull request diff.")
     pr_diff.add_argument("pull_request_id", help="Pull request ID to fetch diff for.")
 
@@ -330,6 +339,16 @@ def _dispatch(args: argparse.Namespace, config: BitbucketConfig) -> dict[str, An
     if args.subcommand == "pr" and args.pr_action == "commits":
         raw = backend.get_pull_request_commits(config, args.pull_request_id)
         return normalize.pull_request_commits(config.kind, raw)
+
+    if args.subcommand == "pr" and args.pr_action == "jira-issues":
+        raw = backend.get_pull_request_jira_issues(
+            config,
+            args.pull_request_id,
+        )
+        return normalize.pull_request_jira_issues(
+            config.kind,
+            raw,
+        )
 
     if args.subcommand == "pr" and args.pr_action == "diff":
         raw = backend.get_pull_request_diff(config, args.pull_request_id)

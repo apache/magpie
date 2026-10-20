@@ -34,7 +34,7 @@ from .conftest import personal, write_stamp
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SECURITY_SKILL = "issue-sync"
-OTHER_SKILL = "pr-triage"
+OTHER_SKILL = "ci-runner-audit"
 
 
 def stamp(root: Path) -> dict:
@@ -87,6 +87,84 @@ def test_the_utilities_family_guide_comes_on_the_next_run(project: Path, version
     assert due(project, "list-skills") == [("general", "again")]
 
 
+def test_the_mentoring_family_guide_comes_on_the_next_run(project: Path, version) -> None:
+    for skill in (
+        "welcome",
+        "good-first-issue-sweep",
+        "good-first-issue-author",
+        "newcomer-issue-explainer",
+    ):
+        assert welcome.family_of(skill) == "mentoring"
+
+    assert due(project, "welcome") == [("general", "first-run")]
+    welcome.record(project, "general", "seen")
+    assert due(project, "welcome") == [("mentoring", "first-run")]
+    welcome.record(project, "mentoring", "seen")
+    assert due(project, "welcome") == [("general", "again")]
+
+
+def test_the_pairing_family_guide_comes_on_the_next_run(project: Path, version) -> None:
+    assert welcome.family_of("self-review") == "pairing"
+    assert welcome.family_of("multi-agent-review") == "pairing"
+    assert due(project, "self-review") == [("general", "first-run")]
+    welcome.record(project, "general", "seen")
+    assert due(project, "self-review") == [("pairing", "first-run")]
+    welcome.record(project, "pairing", "seen")
+    assert due(project, "self-review") == [("general", "again")]
+
+
+def test_the_issue_family_guide_comes_on_the_next_run(project: Path, version) -> None:
+    for skill in (
+        "backlog-stats",
+        "deduplicate",
+        "fix-workflow",
+        "reassess",
+        "reassess-stats",
+        "reproducer",
+        "stale-sweep",
+    ):
+        assert welcome.family_of(skill) == "issue"
+
+    # The bare issue-triage name belongs to Security, not Issue.
+    assert welcome.family_of("issue-triage") == "security"
+    assert welcome.family_of("magpie-issue-triage") == "issue"
+
+    assert due(project, "magpie-issue-triage") == [("general", "first-run")]
+    welcome.record(project, "general", "seen")
+    assert due(project, "magpie-issue-triage") == [("issue", "first-run")]
+    welcome.record(project, "issue", "seen")
+    assert due(project, "magpie-issue-triage") == [("general", "again")]
+
+
+def test_the_pr_management_family_guide_comes_on_the_next_run(project: Path, version) -> None:
+    assert due(project, "pr-triage") == [("general", "first-run")]
+    welcome.record(project, "general", "seen")
+    assert due(project, "pr-triage") == [("pr-management", "first-run")]
+    welcome.record(project, "pr-management", "seen")
+    assert due(project, "pr-triage") == [("general", "again")]
+
+
+def test_the_contributor_growth_family_guide_comes_on_the_next_run(project: Path, version) -> None:
+    for skill in (
+        "activity-sweep",
+        "calibrate",
+        "candidate-screen",
+        "committer-onboarding",
+        "contributor-to-committer",
+        "identity-map",
+        "nomination",
+        "onboarding-concierge",
+        "sentiment",
+    ):
+        assert welcome.family_of(skill) == "contributor-growth"
+
+    assert due(project, "activity-sweep") == [("general", "first-run")]
+    welcome.record(project, "general", "seen")
+    assert due(project, "activity-sweep") == [("contributor-growth", "first-run")]
+    welcome.record(project, "contributor-growth", "seen")
+    assert due(project, "activity-sweep") == [("general", "again")]
+
+
 def test_at_most_one_guide_per_run(project: Path, version) -> None:
     for _ in range(8):
         found = welcome_findings(project, SECURITY_SKILL)
@@ -110,7 +188,7 @@ def test_a_hidden_general_guide_does_not_hold_back_the_family_one(project: Path,
 
 
 def test_a_skill_of_a_family_without_a_guide_gets_only_the_general_one(project: Path, version) -> None:
-    assert welcome.family_of(OTHER_SKILL) == "pr-management"
+    assert welcome.family_of(OTHER_SKILL) == "repo-health"
     assert due(project, OTHER_SKILL) == [("general", "first-run")]
     welcome.record(project, "general", "never")
     assert due(project, OTHER_SKILL) == []
@@ -382,13 +460,34 @@ def test_show_without_color_prints_the_markdown(capsys) -> None:
 # --- what ships -----------------------------------------------------------------------
 
 
-def test_the_rules_section_and_both_guides_ship() -> None:
+def test_the_rules_section_and_all_guides_ship() -> None:
     assert welcome.SECTION in sections.available()
-    assert {"general", "security", "utilities"} <= set(welcome.guides())
+    assert {
+        "general",
+        "security",
+        "utilities",
+        "mentoring",
+        "pairing",
+        "issue",
+        "pr-management",
+        "contributor-growth",
+    } <= set(welcome.guides())
     assert welcome.family_guides() == [g for g in welcome.guides() if g != "general"]
 
 
-@pytest.mark.parametrize("name", ["general", "security", "utilities"])
+@pytest.mark.parametrize(
+    "name",
+    [
+        "general",
+        "security",
+        "utilities",
+        "mentoring",
+        "pairing",
+        "issue",
+        "pr-management",
+        "contributor-growth",
+    ],
+)
 def test_each_guide_is_short_and_ends_with_the_way_back(name: str) -> None:
     text = welcome.guide(name) or ""
     assert not text.startswith("<!--")
@@ -410,7 +509,12 @@ def test_the_footer_is_shared_and_filled_in_per_guide() -> None:
     security = welcome.guide("security") or ""
     general = welcome.guide("general") or ""
     utilities = welcome.guide("utilities") or ""
-    for text in (security, general, utilities):
+    mentoring = welcome.guide("mentoring") or ""
+    pairing = welcome.guide("pairing") or ""
+    issue = welcome.guide("issue") or ""
+    pr_management = welcome.guide("pr-management") or ""
+    contributor_growth = welcome.guide("contributor-growth") or ""
+    for text in (security, general, utilities, mentoring, pairing, issue, pr_management, contributor_growth):
         assert "{{" not in text
         assert "welcome footer: generated" not in text
     assert "`/magpie-setup:welcome-guide security`" in security
@@ -419,6 +523,16 @@ def test_the_footer_is_shared_and_filled_in_per_guide() -> None:
     assert "--family general --color=always" in general
     assert "`/magpie-setup:welcome-guide utilities`" in utilities
     assert "--family utilities --color=always" in utilities
+    assert "`/magpie-setup:welcome-guide mentoring`" in mentoring
+    assert "--family mentoring --color=always" in mentoring
+    assert "`/magpie-setup:welcome-guide pairing`" in pairing
+    assert "--family pairing --color=always" in pairing
+    assert "`/magpie-setup:welcome-guide issue`" in issue
+    assert "--family issue --color=always" in issue
+    assert "`/magpie-setup:welcome-guide pr-management`" in pr_management
+    assert "--family pr-management --color=always" in pr_management
+    assert "`/magpie-setup:welcome-guide contributor-growth`" in contributor_growth
+    assert "--family contributor-growth --color=always" in contributor_growth
 
 
 def test_list_prints_every_guide(capsys) -> None:

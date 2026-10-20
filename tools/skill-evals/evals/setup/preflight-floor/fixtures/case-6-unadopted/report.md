@@ -9,6 +9,9 @@ with magpie-setup 0.4.0 and magpie-issue 0.4.0 installed.
 The invoked skill declares `requires_config: [issue-tracker-config.md,
 project.md]`. Neither file resolves in either directory.
 
+The user also asked to hear once about the project-adoption option,
+but did not ask to run adoption.
+
 The pre-flight command printed:
 
 ```json

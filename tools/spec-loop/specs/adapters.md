@@ -37,7 +37,12 @@ by swapping the adapter, not the skill.
 ## Where it lives
 
 - `tools/gmail/` — private-mail read/draft (drafts to the outbox; never
-  sends).
+  sends). Skills draft through the `gmail-plaintext` MCP server's
+  `check_auth` / `create_draft` tools, which run outside the sandbox, never
+  by shelling out to `oauth-draft-create` or probing the token file: the
+  OAuth token under `~/.config/apache-magpie/` is not readable from
+  sandboxed Bash, and sandbox-lint refuses an `allowRead` grant for it
+  (#1681).
 - `tools/maildir/` — private-mail drafting to a local Maildir spool
   (`maildir-draft-create`, plus the read-only `maildir-draft-find` for the
   existing-draft check); an offline alternative to Gmail, selected per
@@ -70,7 +75,9 @@ by swapping the adapter, not the skill.
   Reads and writes keep each file's line endings (LF, CRLF or CR, and a
   missing final newline), so a field write changes no other byte on a Git
   checkout with `core.autocrlf` or an SVN one with `svn:eol-style`; a file
-  mixing line endings is refused. A test runs the body-field conformance
+  mixing line endings is refused. Report files and folders it creates are
+  `0600` and `0700`, readable by their owner only; it never changes the
+  mode of a file that already exists (#1700). A test runs the body-field conformance
   cases through the store on temporary Git and SVN storage and reads them
   back from a fresh checkout.
   `detect` reports `field_layout` (`default` or `custom`, with the field
@@ -95,7 +102,14 @@ by swapping the adapter, not the skill.
   confirmed host and refuses any write when the token was withheld.
   Body fields go through a byte-identical copy of github-body-field's
   parser, with wiki `h1.`–`h3.` headings outside closed code blocks read
-  as `### <Heading>`; `body` exports exactly those fields.
+  as `### <Heading>`; `body` exports exactly those fields. The CLI takes
+  an explicit `--deployment {server,cloud}`, which vetted-ops always
+  passes, so an inherited `JIRA_DEPLOYMENT` cannot switch a Server tracker
+  to Cloud endpoints (#1683).
+- Both tracker backends reach the `magpie-vetted-ops` plugin as generated
+  copies under `plugins/magpie-vetted-ops/tools/` (the plugin generator's
+  `copies` table), not symlinks out of the plugin root, so a
+  self-contained install (Codex, a plugin cache) carries them (#1683).
 - `tools/github/` — issues/PRs/labels read + write-back helpers.
   Sub-adapters: `tools/github-body-field/` (reads GitHub issue/PR body
   structured field sets on the body-field contract — every column-0
@@ -152,8 +166,11 @@ by swapping the adapter, not the skill.
   Atlassian fully removed the native Bitbucket Cloud Issue Tracker API on
   2026-08-20, so the historical `issue` CLI commands now fail closed before
   any request and direct callers toward linked Jira coverage.
+  Data Center `pr jira-issues <id>` provides read-only Jira-key discovery for
+  issues associated with pull-request commits and hands those keys to
+  `tools/jira`; Bitbucket does not proxy Jira tracker operations.
   It is not a complete `contract:change-request` or `contract:tracker`
-  backend yet; deeper Jira handoff, Data Center
+  backend yet; broader Jira handoff, Data Center
   review/merge writes, broader repository permissions, and fuller Pipelines
   run/log/retry coverage remain tracked in #606.
 - `tools/gitlab/` (`magpie-gitlab`) — partial, read-only GitLab REST API v4
@@ -361,8 +378,9 @@ by swapping the adapter, not the skill.
    skill that drafts mail honours it through
    `tools/gmail/draft-backends.md` § *How the skills pick a backend*, and
    on Maildir threads by `In-Reply-To` / `References` and checks for an
-   existing draft with `maildir-draft-find` (eval suite
-   `tools/skill-evals/evals/security-issue-sync/step-draft-backend`).
+   existing draft with `maildir-draft-find` (pytest:
+   `tools/security-management/tests/test_issue_sync_rules.py`, the cases of the
+   former `step-draft-backend` eval suite).
 
 ## Validation
 

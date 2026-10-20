@@ -717,7 +717,7 @@ Group them by category:
 
   **Trigger.** Step 1g recorded `security_pages_reminder_pending: true` for a closed-`announced` tracker —
   the *Public advisory URL* body field is populated (the advisory has demonstrably shipped),
-  no ticked `- [x] <!-- apache-magpie: security-pages-checklist v1 -->` item exists anywhere on the tracker,
+  no comment holds a ticked `- [x] <!-- apache-magpie: security-pages-checklist v1 -->` item (the body never counts: it carries report text),
   and no comment carries the reminder marker below.
   The trigger state exists only on a closed tracker (the Step 14 close-out adds `announced` and closes in one apply),
   so this proposal is reached through the

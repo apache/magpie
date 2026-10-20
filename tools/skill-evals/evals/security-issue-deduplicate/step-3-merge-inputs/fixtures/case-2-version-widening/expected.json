@@ -1,0 +1,7 @@
+{
+  "headline": "Same XCom pickle deserialization, present since 2.7.0 through the Celery worker path.",
+  "analysis": "Both reports are the same unsafe pickle deserialization of XCom values; the second shows the code path exists from 2.7.0 in the Celery worker context, so the affected range is wider than first recorded.",
+  "merged_summary": null,
+  "affected_versions": ">= 2.7.0, < 2.10.3",
+  "copies_reporter_score": false
+}

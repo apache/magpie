@@ -21,6 +21,11 @@ own listing returns `[]` there — that reads exactly like "nothing installed"
 but is not. Acting on it would propose installing a project's entire floor
 on every sandboxed run.
 
+For Codex, read only the `installed` list in its JSON envelope; available
+catalogue entries are not installed versions. An unfamiliar name form or
+schema stays unknown. Require an exact floor plugin name before trusting
+a Codex listing, and the exact `magpie` extension name on Gemini.
+
 **The actions.**  The `below-floor` finding names the harness its listing
 came from (`facts.harness`); the commands differ per client, and naming one
 the operator cannot run in this session wastes their turn:
@@ -28,7 +33,7 @@ the operator cannot run in this session wastes their turn:
 | Harness | a floor plugin absent | a floor plugin below `min_version` |
 |---|---|---|
 | Claude Code | `claude plugin install <plugin>@apache-magpie` | `claude plugin update <plugin>@apache-magpie` |
-| Codex | `codex plugin add <plugin>@apache-magpie` | `codex plugin update <plugin>` |
+| Codex | `codex plugin add <plugin>@apache-magpie` | `codex plugin marketplace upgrade apache-magpie` |
 | Gemini CLI | `gemini extensions install https://github.com/apache/magpie` | `gemini extensions update magpie` |
 
 Gemini installs the framework as one extension, so on it the floor is

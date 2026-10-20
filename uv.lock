@@ -5,7 +5,7 @@ resolution-markers = [
     "python_full_version >= '3.15'",
     "python_full_version == '3.14.*'",
     "python_full_version >= '3.12' and python_full_version < '3.14' and sys_platform == 'emscripten'",
-    "(python_full_version < '3.14' and sys_platform != 'emscripten') or (python_full_version < '3.12' and sys_platform == 'emscripten')",
+    "python_full_version < '3.12' or (python_full_version >= '3.12' and python_full_version < '3.14' and sys_platform != 'emscripten')",
 ]
 
 [options]
@@ -141,7 +141,7 @@ wheels = [
 
 [[package]]
 name = "apache-magpie"
-version = "0.9.0.dev202610160723"
+version = "0.9.0.dev202610192305"
 source = { virtual = "." }
 
 [package.dev-dependencies]
@@ -1994,6 +1994,7 @@ source = { editable = "tools/security-management" }
 dependencies = [
     { name = "generate-cve-json" },
     { name = "github-body-field" },
+    { name = "magpie-vcs" },
 ]
 
 [package.dev-dependencies]
@@ -2005,6 +2006,7 @@ dev = [
 requires-dist = [
     { name = "generate-cve-json", editable = "tools/cve-tool-vulnogram/generate-cve-json" },
     { name = "github-body-field", editable = "tools/github-body-field" },
+    { name = "magpie-vcs", editable = "tools/vcs" },
 ]
 
 [package.metadata.requires-dev]

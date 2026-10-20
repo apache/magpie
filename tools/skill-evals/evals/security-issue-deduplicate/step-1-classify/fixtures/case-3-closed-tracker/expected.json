@@ -1,5 +1,0 @@
-{
-  "verdict": "blocked",
-  "blocker": "closed_tracker",
-  "blocker_detail": "Drop tracker #67 is already closed. Merging into or out of a closed tracker is almost always a mistake — confirm with the user before proceeding."
-}

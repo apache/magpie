@@ -42,6 +42,9 @@ They must not contain any of:
 
 This is the single forbidden-term list for every public surface of this skill.
 5g, Step 7, Step 9 and the Guardrails check against it rather than keeping their own copies.
+`security-management issue-fix scrub` checks the machine-matchable part (`magpie_vcs.publication.scrub`, the same check `propose-commit` runs),
+each reporter name you pass, verbatim private tracker text, and `security` as a word in a branch name;
+exploitation detail and the *"sensitive"* wording stay yours to check.
 
 Naming the affected component and describing the behaviour change in neutral terms is **allowed** — for example *"restrict the connection test endpoint to the configured host allowlist"* or *"stop deserializing XCom values with pickle"*, as the good examples below show.
 Naming the vulnerability class is not: a class name such as `SSRF` or `path traversal` in a public PR tells every reader the change is a security fix, which the [Confidentiality of the tracker repository](../../../../AGENTS.md#confidentiality-of-the-tracker-repository) rule embargoes until the advisory ships.
@@ -73,6 +76,7 @@ List:
 If the `<tracker>` issue's milestone indicates a release branch that has not yet been cut, note which backport label the PR should carry so the fix lands on the intended patch release.
 The label vocabulary and the active release branches live in [`<project-config>/fix-workflow.md`](../../../../<project-config>/fix-workflow.md#backport-labels) and [`<project-config>/release-trains.md`](../../../../<project-config>/release-trains.md).
 If no backport is needed (the milestone is the next `<default-branch>`-branch release), say so explicitly.
+`security-management issue-fix backport` (`{milestone, main_version, extra_lines, label_template}`) prints the labels: none for the next main release, `backport-to-vX-Y-test` for a patch line, plus each further line the team confirmed.
 
 ### 5f. Newsfragment
 

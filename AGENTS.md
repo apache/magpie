@@ -660,6 +660,9 @@ to a home-dir path and update the tool to read from there.
   around the agent's git commands, and as git's own signing program
   and ssh command (`gpg.ssh.program` / `gpg.program`,
   `core.sshCommand`) for the ones the operator runs by hand.
+  A key whose signature and authentication touch policies are both
+  `off` never waits for a touch, so the overlay stays out of the way
+  for it.
   On `cached=-`, surface a dialogue naming the key and telling the
   operator to expect the prompt, or hand them the `git commit` line to run
   in their own terminal — do not run it and hope. On `cached=1`, commit

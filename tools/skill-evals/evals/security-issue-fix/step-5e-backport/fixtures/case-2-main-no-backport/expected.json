@@ -1,1 +1,0 @@
-{"milestone": "Airflow 3.3.0", "backport_needed": false, "backport_labels": [], "rationale": "Milestone is Airflow 3.3.0, the next main-branch release, so no backport label is needed — the fix lands on main directly."}

@@ -1164,9 +1164,9 @@ def test_cli_mode_non_zero_exit_still_grades_when_expected_asserts_exit_code(
 def test_wrap_is_asserted_via_structural_assertions_field():
     """A structural assertion addressing raw_output makes the wrap meaningful.
 
-    This is the shape `security-issue-deduplicate/step-3-merge-body` uses: the
-    step's output is prose, and `assertions.json` gates on it with regex and
-    judge predicates against `field: raw_output`. That must keep grading.
+    This is the shape a prose step uses: its output is not JSON, and
+    `assertions.json` gates on it with regex and judge predicates against
+    `field: raw_output`. That must keep grading.
     """
     assertions = {
         "has_details_disclosure": {"field": "raw_output", "type": "regex", "pattern": "<details>"},
@@ -1191,8 +1191,8 @@ def test_prose_step_is_not_scavenged_for_json(tmp_path: Path, capsys: pytest.Cap
     task-list ``- [ ]`` parses as the JSON value ``[]``. When that fires on a
     step whose output is prose, the scavenged fragment replaces the whole body
     and every ``raw_output`` assertion fails against output the model got
-    right. That is what happened to all four cases of
-    ``security-issue-deduplicate/step-3-merge-body``.
+    right. That is what happened to all four cases of a former prose suite
+    (the deduplicate merged body, since moved to code).
     """
     body = "## Checklist\n\n- [ ] done\n"
     fixtures_dir, _ = _make_cli_case(tmp_path, expected={"raw_output": body})

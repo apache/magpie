@@ -245,6 +245,37 @@ def pull_request(kind: str, raw: dict[str, Any]) -> dict[str, Any]:
     return summary
 
 
+def pull_request_jira_issues(
+    kind: str,
+    raw: dict[str, Any],
+) -> dict[str, Any]:
+    """Normalize Jira issue keys associated with one pull request."""
+    values = raw.get("values")
+    if not isinstance(values, list):
+        values = []
+
+    issue_keys: list[str] = []
+
+    for item in values:
+        if not isinstance(item, dict):
+            continue
+
+        raw_key = _string(item.get("key") or item.get("issueKey"))
+        key = raw_key.strip().upper() if raw_key else None
+
+        if key and key not in issue_keys:
+            issue_keys.append(key)
+
+    return {
+        "backend": ("bitbucket-cloud" if kind == "cloud" else "bitbucket-datacenter"),
+        "coverage": "partial-read-only",
+        "pull_request_id": _string(raw.get("pull_request_id")),
+        "jira_issue_keys": issue_keys,
+        "handoff_tool": "tools/jira",
+        "raw": raw,
+    }
+
+
 def pull_request_list(kind: str, raw: dict[str, Any]) -> dict[str, Any]:
     """Normalize a Bitbucket pull-request list response."""
     values = raw.get("values")

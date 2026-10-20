@@ -38,6 +38,10 @@ A collaborator-management `PATCH` returns
 administrative/security management rights"` when the operator is a plain collaborator:
 treat that 403 as the definitive *"not admin"* signal, **do not retry**, and route the action to the admin hand-off below.
 
+`<sm> ghsa-route` (`{change, in_list, advisory_get_status, security_manager, got_403, security_thread_id, html_url}`, `change` one of `field_edit`, `collaborators`, `state`, `reporter_reply`)
+applies this table and the delivery rules below: it prints the tier, the action (`direct-write`, `relay-draft`, `browser-paste`), the channel, and for an admin hand-off the draft tool, the addressee, the thread, the rollup marker and the three parts.
+`<sm>` is the `security-management issue-sync` command of [`SKILL.md`](SKILL.md#prerequisites).
+
 The common tier for a project committee member is **advisory collaborator**: read + field-edit, but **not** collaborator-management and **not** publish.
 The sync does what that tier allows and *hands off* the rest —
 never blind-fire a `state=published` PATCH: a success is a **permanent public advisory**.

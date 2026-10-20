@@ -68,7 +68,7 @@ Both paths run the same flow.
    /plugin update <plugin>@apache-magpie
    ```
 
-   (Codex: `codex plugin update magpie`; Gemini:
+   (Codex: `codex plugin marketplace upgrade apache-magpie`; Gemini:
    `gemini extensions update magpie`.) After the plugin refresh,
    run `setup-isolated-setup-update` for any installed harness profile;
    plugin updates do not merge workspace configuration. The companion

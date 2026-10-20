@@ -1,0 +1,7 @@
+{
+  "trigger_conditions": true,
+  "incomplete_fix_clause": true,
+  "anonymise_private_finder": false,
+  "conservative_affected_range": true,
+  "reason": "The finding came through a private partner scan and the credits name the individual analyst, so the anonymise gate fails."
+}

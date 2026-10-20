@@ -45,7 +45,7 @@ jobs:
     permissions:
       contents: read
     outputs:
-      members: ${{ steps.list.outputs.members }}
+      batches: ${{ steps.list.outputs.batches }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -54,23 +54,22 @@ jobs:
           # head against its merge base. Harmless on push events.
           fetch-depth: 0
       - id: list
-        # Emit the workspace members as a JSON array of {name,path}
-        # objects so the matrix below can both label jobs by name
-        # AND pass the path to `uv run --directory`. The `pytest`
-        # applicability filter mirrors the auto-discovery rule in
-        # `tools/dev/run-workspace-check.sh`: only members with a
-        # `[tool.pytest.ini_options]` section get pytest jobs, and
-        # an explicit `[tool.magpie.checks] skip = [..., "pytest"]`
-        # opts out.
+        # `tools/dev/ci-pytest-batches.py` picks the members and groups
+        # them into jobs; its docstring has the rules. In short:
         #
-        # Path filter (PRs only): a member's pytest job is emitted
-        # only when that member's own Python source/test files changed
-        # in the PR. On push to `main` — and when a shared build input
-        # changes (root `pyproject.toml` / `uv.lock` / the
-        # workspace-check helper / this workflow) — the full matrix
-        # runs. If no member's tests are affected the matrix is empty
-        # and the `pytest` job is skipped; `tests-ok` treats that as a
-        # pass (see below).
+        # - Applicability mirrors `tools/dev/run-workspace-check.sh`: a
+        #   member with `[tool.pytest.ini_options]` and no
+        #   `[tool.magpie.checks] skip = [..., "pytest"]`.
+        # - Path filter (PRs only): a member is picked when its own
+        #   Python source/test files changed. On push to `main`, and when
+        #   a shared build input changes (root `pyproject.toml`,
+        #   `uv.lock`, the helpers, this workflow), every member is.
+        # - Grouping: most of a job is setup, so up to six members get a
+        #   job each (named after the member, as before); more are split
+        #   into at most eight jobs balanced by test size.
+        #
+        # An empty selection skips the `pytest` job, which `tests-ok`
+        # treats as a pass (see below).
         env:
           EVENT: ${{ github.event_name }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
@@ -81,102 +80,44 @@ jobs:
           # list thousands of paths, and putting that into the environment
           # overflows the exec arg/env size limit — `python3` then dies with
           # "Argument list too long" (exit 126). A file path stays small.
-          changed_file="${RUNNER_TEMP}/changed-files.txt"
           if [ "${EVENT}" = "pull_request" ]; then
+            changed_file="${RUNNER_TEMP}/changed-files.txt"
             git diff --name-only "${BASE_SHA}...${HEAD_SHA}" > "${changed_file}"
+            batches=$(python3 tools/dev/ci-pytest-batches.py --changed-file "${changed_file}")
           else
-            : > "${changed_file}"
+            batches=$(python3 tools/dev/ci-pytest-batches.py)
           fi
-          members=$(CHANGED_FILE="${changed_file}" python3 <<'PY'
-          import json
-          import os
-          import tomllib
+          echo "batches=${batches}" >> "$GITHUB_OUTPUT"
+          echo "pytest jobs:"
+          echo "${batches}" | python3 -m json.tool
 
-          event = os.environ.get("EVENT", "")
-          changed_file = os.environ.get("CHANGED_FILE", "")
-          changed = []
-          if changed_file:
-              with open(changed_file, encoding="utf-8") as fh:
-                  changed = [line.strip() for line in fh if line.strip()]
-
-          with open("pyproject.toml", "rb") as f:
-              root = tomllib.load(f)
-          paths = root["tool"]["uv"]["workspace"]["members"]
-
-          # Shared build inputs that force the full matrix even on a PR:
-          # a change to any of these can affect every member's tests.
-          GLOBAL = {
-              "pyproject.toml",
-              "uv.lock",
-              "tools/dev/run-workspace-check.sh",
-              ".github/workflows/tests.yml",
-          }
-          run_all = event != "pull_request" or any(c in GLOBAL for c in changed)
-
-          def member_changed(path: str) -> bool:
-              # A member is affected when the PR touches a `.py` file
-              # anywhere under it, or any file under its `tests/` dir
-              # (fixtures / data a test reads).
-              prefix = path + "/"
-              tests_prefix = path + "/tests/"
-              for c in changed:
-                  if c.startswith(prefix) and (
-                      c.endswith(".py") or c.startswith(tests_prefix)
-                  ):
-                      return True
-              return False
-
-          out = []
-          for path in paths:
-              with open(f"{path}/pyproject.toml", "rb") as f:
-                  data = tomllib.load(f)
-              tool = data.get("tool", {})
-              if "ini_options" not in tool.get("pytest", {}):
-                  continue
-              skip = tool.get("magpie", {}).get("checks", {}).get("skip", [])
-              if "pytest" in skip:
-                  continue
-              if not run_all and not member_changed(path):
-                  continue
-              out.append({"name": path.split("/")[-1], "path": path})
-          # Sort for deterministic CI ordering.
-          out.sort(key=lambda x: x["name"])
-          print(json.dumps(out))
-          PY
-          )
-          echo "members=${members}" >> "$GITHUB_OUTPUT"
-          echo "Selected workspace members for pytest matrix:"
-          echo "${members}" | python3 -m json.tool
-
-  # Per-member pytest matrix. Each Python project under tools/ that
-  # is a uv-workspace member with a `[tool.pytest.ini_options]`
-  # section gets its own job. Running them as separate matrix jobs
-  # surfaces per-project pass/fail in the CI checks list, which is
-  # easier to triage than the bundled `workspace-pytest` line inside
-  # the `prek` workflow's output. The `prek` workflow still
-  # exercises pytest as a hook, so this workflow is the visible
-  # signal — not the gate.
+  # The pytest matrix, one entry per job from the `members` job. A
+  # pull request touching a few projects gets one job per project, so
+  # per-project pass/fail shows in the checks list; a full run batches
+  # them, and each batch job prints a group and a summary row per
+  # member. The `prek` workflow still exercises pytest as a hook, so
+  # this workflow is the visible signal — not the gate.
   pytest:
-    name: "pytest (${{ matrix.project.name }})"
+    name: "pytest (${{ matrix.batch.name }})"
     runs-on: ubuntu-slim
     needs: members
     # Guard against an empty selection. When the path filter selects no
-    # members (a PR that changed no project's Python), the members output
+    # members (a PR that changed no project's Python), the batches output
     # is `[]`; feeding an empty array to `matrix` makes GitHub mark this
     # job `failure` ("matrix vector does not contain any values"), not
     # `skipped` — which would fail `tests-ok`. Skipping the job on an
     # empty list yields the `skipped` result `tests-ok` treats as a pass.
-    if: ${{ needs.members.outputs.members != '[]' }}
+    if: ${{ needs.members.outputs.batches != '[]' }}
     permissions:
       contents: read
     strategy:
       fail-fast: false
-      # The full matrix is ~46 jobs. ASF Infra policy caps a workflow at
-      # 20 concurrent jobs and recommends 15:
-      # https://infra.apache.org/github-actions-policy.html
+      # At most eight batches, but a PR can still pick six single
+      # jobs; ASF Infra policy caps a workflow at 20 concurrent jobs and
+      # recommends 15: https://infra.apache.org/github-actions-policy.html
       max-parallel: 15
       matrix:
-        project: ${{ fromJSON(needs.members.outputs.members) }}
+        batch: ${{ fromJSON(needs.members.outputs.batches) }}
     # GitHub Actions log viewer renders ANSI colour escapes; without
     # an attached TTY most tools default to monochrome. `FORCE_COLOR`
     # is the de-facto signal honoured by uv, ruff, mypy, and pytest's
@@ -197,19 +138,28 @@ jobs:
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7  # v10.2.0
         with:
           enable-cache: true
-        # One slot per matrix leg, not merely per job: these run in parallel
-        # with each other and each installs a different workspace member, so a
-        # shared key both races and stores the wrong contents. See the note in
-        # pre-commit.yml.
-          cache-suffix: "tests-${{ matrix.project }}"
-      - name: Sync workspace (installs ruff / mypy / pytest from root dev group)
+          # One slot per batch: each syncs only its own members, so a shared
+          # key would race and store the wrong contents. A batch's key is
+          # stable across runs (the split is deterministic), and a single
+          # member's key is its name.
+          cache-suffix: "tests-${{ matrix.batch.key }}"
+      - name: Sync the batch's members (and ruff / mypy / pytest from the root dev group)
         # Dev-group deps live in the root pyproject (`[dependency-groups]
         # dev`) and only land in the shared workspace `.venv` when an
-        # explicit `--group dev` sync runs. `--all-packages` ensures
-        # every workspace member is installed too (the root has
-        # `package = false`, so without it members and their
-        # `[project.scripts]` entry points would be skipped).
-        run: uv sync --all-packages --group dev
+        # explicit `--group dev` sync runs. One `--package` per member
+        # installs that member, its `[project.scripts]` entry points and
+        # what it declares — workspace siblings included — and nothing
+        # else, so a test that imports a sibling it does not declare
+        # fails here rather than passing by accident. `--frozen`: the
+        # lock is the input, never rewritten in CI.
+        env:
+          MEMBER_PACKAGES: ${{ matrix.batch.packages }}
+        run: |
+          args=()
+          for package in ${MEMBER_PACKAGES}; do
+            args+=(--package "${package}")
+          done
+          uv sync --frozen --group dev "${args[@]}"
       - name: Run pytest
         # `--directory` (not `--project`) — both move uv's project
         # context, but `--directory` also changes cwd, which pytest
@@ -217,7 +167,33 @@ jobs:
         # `testpaths = ["tests"]` relative to its own root. No
         # `--group` flag here because the sync above already
         # installed the dev tools into the shared workspace venv.
-        run: uv run --directory ${{ matrix.project.path }} pytest --color=yes
+        #
+        # Every member of the batch runs even after one fails; the job
+        # fails at the end, and the summary table names which member did.
+        env:
+          MEMBER_PATHS: ${{ matrix.batch.paths }}
+        run: |
+          failed=()
+          {
+            echo "| Project | pytest |"
+            echo "|---|---|"
+          } >> "${GITHUB_STEP_SUMMARY}"
+          for path in ${MEMBER_PATHS}; do
+            name="${path##*/}"
+            echo "::group::pytest (${name})"
+            if uv run --directory "${path}" pytest --color=yes; then
+              result="passed"
+            else
+              result="**failed**"
+              failed+=("${name}")
+            fi
+            echo "::endgroup::"
+            echo "| \`${name}\` | ${result} |" >> "${GITHUB_STEP_SUMMARY}"
+          done
+          if [ "${#failed[@]}" -gt 0 ]; then
+            echo "::error::pytest failed for: ${failed[*]}"
+            exit 1
+          fi
 
   # Umbrella status check. `.asf.yaml`'s `required_status_checks`
   # cannot use patterns or wildcards (GitHub's branch-protection and

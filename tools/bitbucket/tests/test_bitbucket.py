@@ -4720,3 +4720,195 @@ def test_cli_pr_reject_datacenter_fails_without_request(
 
     stderr = capsys.readouterr().err
     assert "reject writes are not supported" in stderr
+
+
+@patch("magpie_bitbucket.client.urllib.request.build_opener")
+def test_datacenter_get_pull_request_jira_issues(
+    mock_build_opener: MagicMock,
+    datacenter_env: None,
+) -> None:
+    expected_url = (
+        "https://bitbucket.example.test/rest/jira/latest/projects/MAGPIE/repos/magpie/pull-requests/7/issues"
+    )
+
+    response = make_mock_text_response(
+        json.dumps(
+            [
+                {"key": "MAGPIE-101"},
+                {"key": "MAGPIE-102"},
+            ]
+        ),
+        content_type="application/json",
+        url=expected_url,
+    )
+
+    opener = MagicMock()
+    opener.open.return_value = MagicMock(
+        __enter__=MagicMock(return_value=response),
+        __exit__=MagicMock(return_value=None),
+    )
+    mock_build_opener.return_value = opener
+
+    result = datacenter.get_pull_request_jira_issues(
+        load_config(),
+        "7",
+    )
+
+    request = opener.open.call_args.args[0]
+
+    assert request.get_method() == "GET"
+    assert request.full_url == expected_url
+    assert request.get_header("Accept") == "application/json"
+
+    assert result == {
+        "pull_request_id": "7",
+        "values": [
+            {"key": "MAGPIE-101"},
+            {"key": "MAGPIE-102"},
+        ],
+    }
+
+
+def _jira_issues_with_body(mock_build_opener: MagicMock, body: str) -> dict[str, Any]:
+    response = make_mock_text_response(body, content_type="application/json")
+    opener = MagicMock()
+    opener.open.return_value = MagicMock(
+        __enter__=MagicMock(return_value=response),
+        __exit__=MagicMock(return_value=None),
+    )
+    mock_build_opener.return_value = opener
+    return datacenter.get_pull_request_jira_issues(load_config(), "7")
+
+
+@pytest.mark.parametrize(
+    ("body", "match"),
+    [
+        ("<html><body>Log in</body></html>", "Failed to parse Jira integration JSON"),
+        ('{"key": "MAGPIE-101"}', "Expected JSON array"),
+    ],
+)
+@patch("magpie_bitbucket.client.urllib.request.build_opener")
+def test_datacenter_get_pull_request_jira_issues_fails_closed_on_unexpected_body(
+    mock_build_opener: MagicMock,
+    datacenter_env: None,
+    body: str,
+    match: str,
+) -> None:
+    with pytest.raises(BitbucketError, match=match):
+        _jira_issues_with_body(mock_build_opener, body)
+
+
+@patch("magpie_bitbucket.client.urllib.request.build_opener")
+def test_datacenter_get_pull_request_jira_issues_drops_non_object_items(
+    mock_build_opener: MagicMock,
+    datacenter_env: None,
+) -> None:
+    result = _jira_issues_with_body(mock_build_opener, json.dumps([{"key": "MAGPIE-101"}, "junk", 3, None]))
+
+    assert result["values"] == [{"key": "MAGPIE-101"}]
+
+
+@patch("magpie_bitbucket.client.urllib.request.build_opener")
+def test_cloud_get_pull_request_jira_issues_fails_without_request(
+    mock_build_opener: MagicMock,
+    cloud_env: None,
+) -> None:
+    with pytest.raises(
+        BitbucketError,
+        match="supported only for Data Center",
+    ):
+        cloud.get_pull_request_jira_issues(
+            load_config(),
+            "7",
+        )
+
+    mock_build_opener.assert_not_called()
+
+
+def test_normalize_pull_request_jira_issues() -> None:
+    from magpie_bitbucket.normalize import pull_request_jira_issues
+
+    normalized = pull_request_jira_issues(
+        "datacenter",
+        {
+            "pull_request_id": "7",
+            "values": [
+                {"key": " magpie-101 "},
+                {"issueKey": "MAGPIE-102"},
+                {"key": "MAGPIE-101"},
+                {"issueKey": " magpie-102 "},
+                {},
+            ],
+        },
+    )
+
+    assert normalized["backend"] == "bitbucket-datacenter"
+    assert normalized["coverage"] == "partial-read-only"
+    assert normalized["pull_request_id"] == "7"
+    assert normalized["jira_issue_keys"] == [
+        "MAGPIE-101",
+        "MAGPIE-102",
+    ]
+    assert normalized["handoff_tool"] == "tools/jira"
+
+
+@patch("magpie_bitbucket.datacenter.get_pull_request_jira_issues")
+def test_cli_pr_jira_issues_datacenter(
+    mock_get_jira_issues: MagicMock,
+    datacenter_env: None,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    mock_get_jira_issues.return_value = {
+        "pull_request_id": "7",
+        "values": [
+            {"key": "MAGPIE-101"},
+            {"key": "MAGPIE-102"},
+        ],
+    }
+
+    exit_code = main(
+        [
+            "pr",
+            "jira-issues",
+            "7",
+        ]
+    )
+
+    assert exit_code == 0
+
+    mock_get_jira_issues.assert_called_once_with(
+        load_config(),
+        "7",
+    )
+
+    output = json.loads(capsys.readouterr().out)
+
+    assert output["backend"] == "bitbucket-datacenter"
+    assert output["pull_request_id"] == "7"
+    assert output["jira_issue_keys"] == [
+        "MAGPIE-101",
+        "MAGPIE-102",
+    ]
+    assert output["handoff_tool"] == "tools/jira"
+
+
+@patch("magpie_bitbucket.client.urllib.request.build_opener")
+def test_cli_pr_jira_issues_cloud_fails_without_request(
+    mock_build_opener: MagicMock,
+    cloud_env: None,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    exit_code = package_main(
+        [
+            "pr",
+            "jira-issues",
+            "7",
+        ]
+    )
+
+    assert exit_code == 1
+    mock_build_opener.assert_not_called()
+
+    stderr = capsys.readouterr().err
+    assert "supported only for Data Center" in stderr
+    assert "tools/jira" in stderr

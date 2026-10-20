@@ -32,3 +32,12 @@ uv run --project tools/skill-evals skill-eval \
 uv run --project tools/skill-evals skill-eval \
     tools/skill-evals/evals/issue-reproducer/step-5.5-confirm/fixtures/case-3-env-read-and-subprocess
 ```
+
+## Run history
+
+Live model runs over this whole eval directory, newest first.
+Columns and rules: [Recording runs](../../README.md#recording-runs).
+
+| Date | Ref | Model | Runs | Result | Notes |
+|---|---|---|---|---|---|
+| 2026-10-16 | `399ab1bc` | `claude-opus-5-5` | 10 | `step-1-inventory/case-3-no-code-blocks` failed 3 of 10; `step-3-classify-shape/case-2-shape-b-missing-imports` failed 3 of 10; `step-7-verify/case-2-fixed-on-master` failed 1 of 10; `step-7-verify/case-4-timeout` failed 2 of 10; `step-7-verify/case-5-intended-behaviour` failed 1 of 10 | all prose-grader rejections, see [#1688](https://github.com/apache/magpie/issues/1688) |

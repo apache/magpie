@@ -48,15 +48,11 @@ Record:
   - CVE ID (if allocated),
   - link to the fixing PR(s);
 - the discussion so far (comments), paying attention to the most recent activity and any stalled-for-30-days state.
-- **Disclosure deadline check.** Compute `issue_age_days` as calendar days from `createdAt` to today,
-  compare it with `window_days` and `grace_period_days` from Step 0.6, and set these flags in the observed-state bag:
-  - `overdue_for_disclosure: true` — `issue_age_days > window_days` **and** no `announced` label (the advisory has not been sent).
-  - `approaching_window_end: true` — `issue_age_days > window_days * 0.8` (≥ 80 % of the window elapsed) and not yet `announced`;
-    a yellow-flag caution in the observed-state dump, with no proposal item.
-  - `grace_period_expired: true` — the issue carries `pr merged` or `fix released` **and** `issue_age_days > window_days + grace_period_days`,
-    and no `announced` label.
-  - `distributor_notify_pending: true` — `pre_announce_distributors: true` (Step 0.6) **and** the issue carries `pr merged` or `fix released`,
-    and no `announced` label; Step 2b then proposes a pre-announcement draft for the distributor embargo list.
+- **Disclosure deadline check.** Write `{now, created_at, labels, window_days, grace_period_days, pre_announce_distributors}` (the Step 0.6 values) and run `<sm> disclosure`;
+  record its `issue_age_days` and flags in the observed-state bag:
+  `overdue_for_disclosure` (past the window, no `announced`), `approaching_window_end` (past 80 % of it — a yellow flag with no proposal item),
+  `grace_period_expired` (`pr merged` / `fix released` and past window plus grace) and `distributor_notify_pending` (Step 2b then proposes the distributor pre-announcement).
+  `<sm>` is the `security-management issue-sync` command of [`SKILL.md`](SKILL.md#prerequisites).
 
   The flags are informational observations; they do not stop the sync.
   A missing `announced` label on a tracker whose body has the `announced` date populated is a missing label (propose adding it), not overdue.
@@ -189,16 +185,13 @@ Process for finding the real reporter and the original thread:
    - **every status update the security team has already sent the reporter** — this decides whether a new one is needed (Step 2b);
    - the latest message, *who* sent it, and whether the ball is in our court.
 
-5. **Check for reporter staleness.** From the step 4 timestamps and senders, find the team's **most recent outbound message** on this thread
-   and the reporter's **most recent reply**, if any.
-   If the team's latest outbound message is older than `security_inbox.reporter_response_timeout_days`
-   (resolved per the [configuration resolution order](../../../../AGENTS.md#configuration-resolution-order)
-   — `<project-config>/project.md`, else the project's organization; both shipped organizations default to 14)
-   **and** no reporter reply has landed since, mark the thread **stale** and surface it in Step 2b per the *Reporter unresponsiveness* row in
-   [`signals-to-actions.md`](signals-to-actions.md#step-2b--proposed-changes-signal-to-action-lookup-table).
-   It is a **proposal, not an automatic action** (policy: [`SKILL.md`](SKILL.md) Step 2b):
-   the user confirms before the team proceeds without the reporter.
-   Skip the check when the latest message is *from* the reporter — the clock runs only while we wait on a reply.
+5. **Check for reporter staleness.** Write the step 4 messages as `{at, from_team}` with `now` and `timeout_days`
+   (`security_inbox.reporter_response_timeout_days`, resolved per the [configuration resolution order](../../../../AGENTS.md#configuration-resolution-order); 14 in both shipped organizations)
+   and run `<sm> staleness`: the thread is **stale** when the team's latest outbound message is older than the timeout with no reporter reply since,
+   and the clock never runs while the latest message is the reporter's.
+   A stale thread is surfaced in Step 2b per the *Reporter unresponsiveness* row in
+   [`signals-to-actions.md`](signals-to-actions.md#step-2b--proposed-changes-signal-to-action-lookup-table) —
+   a **proposal, not an automatic action** (policy: [`SKILL.md`](SKILL.md) Step 2b): the user confirms before the team proceeds without the reporter.
 
 6. **Sync a reporter-confirmed credit line into the issue body** whenever the thread holds a clear credit confirmation from the reporter
    not yet reflected in the tracker's *"Reporter credited as"* field;
@@ -549,18 +542,11 @@ For each closed-`announced` tracker in this run:
    ```bash
    uv run --project ~/.claude/magpie/vetted-ops vetted-op-read --caller security-issue-sync cve-check-published <CVE-ID>
    ```
-3. Interpret:
-   - `state == "PUBLISHED"` → capture `datePublished` and propose the *CVE-published* reporter email in Step 2b.
-   - `state == "RESERVED"` → record *"cve.org shows RESERVED; propagation not complete yet"* in the observed state;
-     no email yet; a future sync run will catch the publication.
-   - `state == "REJECTED"` → **surface as a blocker**: the record was withdrawn post-publication.
-     Do not draft a reporter email; flag it to the security team.
-   - lookup error (non-zero exit from `vetted-op-read` — exit 4) → record *"cve.org lookup failed — <short error> — try again next sync"*.
-     Do not propose notification on an absent response.
-
-**Idempotence.** If the tracker's comment trail has a prior *"Sync YYYY-MM-DD — CVE-published reporter notification drafted"* status-change comment
-and the reporter thread already carries a corresponding sent message,
-skip the proposal and record *"CVE-published notification already sent on <date>"*.
+3. Write `{cve_id, cve_org_state, date_published, lookup_failed, notification_sent_on_thread, body, comments, public_advisory_url, advisory_records_configured, planner_exit, planner_result, planner_reason}`
+   and run `<sm> closed-announced`. Its `cve_org` is the move:
+   `notify` (propose the *CVE-published* reporter email in Step 2b), `already_notified` (a prior *"CVE-published reporter notification drafted"* comment and a sent message on the thread — record it),
+   `wait` (*"cve.org shows RESERVED; propagation not complete yet"*), `blocker` (the record was rejected after publication: no email, flag it to the security team),
+   `retry` (*"cve.org lookup failed — try again next sync"*; never propose a notification on an absent response) or `skip` (no CVE ID: a closing disposition, dropped from the sweep).
 
 **Gmail-budget.** The cve.org check is one HTTP call per tracker, not metered against the Gmail budget,
 but within the "≤ 1 extra HTTP round-trip per tracker" soft limit for closed-bucket scans:
@@ -568,31 +554,19 @@ with several closed trackers in scope, run the checks in parallel via the subage
 
 **Security-pages checklist.** The same closed-`announced` bucket is the only place the post-announcement security-pages step can be observed:
 the Step 14 close-out adds `announced` and closes the tracker in one apply, so an open tracker never carries the trigger state.
-For each closed-`announced` tracker whose *"Public advisory URL"* body field is populated,
-scan the issue body and every comment for the ticked checklist item
-```html
-- [x] <!-- apache-magpie: security-pages-checklist v1 -->
-```
-and, separately, for a reminder comment carrying
-```html
-<!-- apache-magpie: security-pages-reminder v1 -->
-```
-on its first line.
-Record `security_pages_reminder_pending: true` in the observed state only when **no** ticked checklist item exists **and** no reminder comment exists;
-an unticked box in the hand-off comment is the pending state, not the satisfied one.
+The same command scans the body and every comment the 1a fetch returned — no extra API call — for the ticked checklist item
+`- [x] <!-- apache-magpie: security-pages-checklist v1 -->` and for a comment opening with `<!-- apache-magpie: security-pages-reminder v1 -->`,
+and sets `security_pages_reminder_pending` only when the *Public advisory URL* is populated and neither exists
+(an unticked box in the hand-off comment is the pending state, not the satisfied one).
 Step 2b turns a pending flag into the *Security-pages reminder comment* proposal ([`signals-to-actions.md`](signals-to-actions.md)).
-The scan reads the body and comments the 1a fetch already returned — no extra API call.
 
 **Advisory records.** When [`<project-config>/project.md`](../../../../<project-config>/project.md#advisory-records) declares an `advisory_records` block,
 sync also records the CVE in the project's own security records — a site repository over Git or Subversion
 ([`docs/security/advisory-records.md`](../../../../docs/security/advisory-records.md)).
 Without the block, record *"advisory records: not configured — skipped"* in the observed state and do nothing else.
 With it, `security_pages_reminder_pending` is always `false`: sync proposes the edit itself instead of reminding the release manager.
-For each closed-`announced` tracker:
+`closed-announced` prints the step in `advisory_records`: `done` (an `advisory-records v1` comment exists), `waiting_for_cve_org` (not `PUBLISHED` yet; the tool refuses before publication too — never work around it) or `run_planner`, then:
 
-1. Skip when a comment carrying `<!-- apache-magpie: advisory-records v1 -->` exists: record *"advisory records: done on <date>"*.
-2. Skip unless the cve.org check above returned `PUBLISHED`: record *"advisory records: waiting for cve.org"*.
-   The tool refuses before publication too; never work around it.
 3. Write the record to the session scratch directory:
    `uv run --project <framework>/tools/cve-tool-vulnogram/generate-cve-json generate-cve-json <N> --output <scratch>/<CVE-ID>.json`.
 4. Run the planner as a plain command, without `--apply`.
@@ -605,12 +579,10 @@ For each closed-`announced` tracker:
    For `release-page`, pass `--reported-date` (the date of the first message on the *Security mailing list thread*).
    When the output names a missing input (`--release-date` for a new release section, `--fix-commit`, `--affects`), find it on the tracker,
    in [`release-trains.md`](../../../../<project-config>/release-trains.md) or in the release's announcement, and run it again; ask the user when none of them has it.
-5. Read the exit code:
-   `0` with `proposed` → `advisory_records_pending: true`, keeping the tool's diff and numbered commands for Step 2b;
-   `0` with `unchanged` → *"advisory records: already recorded"*;
-   `4` → `advisory_records_pending: true` with the single `checkout` command;
-   `3` → *"advisory records: refused — <reason>"*, surfaced as a blocker when the page cannot be parsed or already holds the CVE under another release;
-   `2` → a configuration error to show the user.
+5. Pass the planner's exit code (and `proposed` / `unchanged`, and a refusal's reason) back to `closed-announced`:
+   `pending` → `advisory_records_pending: true`, keeping the tool's diff and numbered commands for Step 2b;
+   `already_recorded`; `pending_checkout` → `advisory_records_pending: true` with the single `checkout` command;
+   `refused` → a blocker when the page cannot be parsed or already holds the CVE under another release; `config_error` → show the user.
 
 **When the tracker has no CVE ID.** Closed trackers without a `CVE-YYYY-NNNNN` in the *CVE tool link* body field
 are closing dispositions (`invalid` / `duplicate` / `wontfix`):
@@ -663,26 +635,12 @@ mcp__ponymail__search_list(
 )
 ```
 
-**Matching against the tracker's fix milestone.** For each returned thread:
-
-1. Extract the version from the subject line.
-   ASF [VOTE] subjects follow `[VOTE] Release <Project> <X.Y.Z> from <X.Y.Z>rcN`
-   (sometimes with sibling artifacts on the same vote — `& Task SDK <A.B.C> from <A.B.C>rcM`).
-   Parse the **first** `<X.Y.Z>` token after the project name.
-2. Compare it with the fix-PR milestone — the milestone on the PR, not on the tracker:
-   the tracker's may be a wave-month label like `<scope-b> 2026-04-21`, while the PR's carries the actual carrier version like `<product> 3.2.3`.
-   For wave-based component milestones, also check that the vote's release ships the right *component wave*:
-   the tracker's wave milestone (e.g. *<scope-b> 2026-04-21*) maps to a `[VOTE] Release <scope-b> …` thread.
-3. Check the thread's most recent message: a `[RESULT][VOTE]` reply is a closed vote; open votes have **no** `[RESULT]` reply yet.
-   The `[VOTE]` query above already returns the `[RESULT][VOTE]` messages (their subjects contain `[VOTE]`), so decide open / closed from that one result set — no per-thread fetch.
-   Closed votes get no label add: either the release shipped (the `fix released` flow takes over)
-   or the vote failed (the team cuts a fresh RC, and the next sync picks up the new `[VOTE]` thread).
-
-**Record in the per-tracker state bag:**
-
-- `release_vote_in_progress`: `true` when a tracker in the `pr merged` window has a matching open `[VOTE]` thread on the right list.
-- `release_vote_thread_url`: the PonyMail thread URL if found (`<mail-archive-url>/thread/<hash>?<list>@<domain>`),
-  used as the rationale in the Step 2b proposal.
+**Matching against the tracker's fix milestone.** Write `{gating, labels, fix_milestone, release_product, messages}` — the search results' `subject` and `url`,
+the milestone on the fix **PR** (it carries the carrier version, e.g. `<product> 3.2.3`, where the tracker's may be a wave label like `<scope-b> 2026-04-21`) —
+and run `<sm> release-vote`. It takes the first version after `Release` in each `[VOTE] Release <Project> <X.Y.Z> from <X.Y.Z>rcN` subject,
+treats a `[RESULT][VOTE]` message in the same result set as a closed vote (no label add: the release shipped or the vote failed and a fresh RC follows),
+and records `release_vote_in_progress` and `release_vote_thread_url` for a tracker in the `pr merged` window with a matching open vote;
+`release_product` keeps a component wave's vote to its own `[VOTE] Release <scope-b> …` thread.
 
 **Hard rule — no auto-apply.** The result feeds Step 2b's proposal and applies only after the user confirms.
 Never add `rc voting` silently: the next regen flips `CNA_private.state` to `REVIEW`,
