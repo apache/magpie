@@ -519,10 +519,10 @@ the four gates that need judgement (trigger conditions, the incomplete-fix claus
    immediately call the adapter's `fetch_current_state(cve_id)` to confirm the state advanced.
    For Vulnogram the entrypoint is `vulnogram-api-record-fetch`:
 
-    ```bash
-    uv run --project <framework>/tools/cve-tool-vulnogram/oauth-api vulnogram-api-record-fetch \
-      --cve-id <CVE-ID> --state-only
-    ```
+   ```bash
+   uv run --project <framework>/tools/cve-tool-vulnogram/oauth-api vulnogram-api-record-fetch \
+     --cve-id <CVE-ID> --state-only
+   ```
 
    If that fetch entrypoint is not yet installed on the operator's machine (see [`tools/cve-tool-vulnogram/oauth-api/README.md`](../../../../tools/cve-tool-vulnogram/oauth-api/README.md)),
    read the state from the `push_update` response envelope, which the contract requires to include the saved state.

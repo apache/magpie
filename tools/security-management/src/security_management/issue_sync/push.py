@@ -176,7 +176,7 @@ def decide(data: Mapping[str, Any]) -> dict[str, Any]:
             return out(
                 "pending",
                 "verify the state advance",
-                next=f"uv run --project {oauth_api} vulnogram-api-record-fetch --cve-id {w(cve_id)} --jq '.body.CNA_private.state'",
+                next=f"uv run --project {oauth_api} vulnogram-api-record-fetch --cve-id {w(cve_id)} --state-only",
             )
         if fetched in LATER:
             return out(
