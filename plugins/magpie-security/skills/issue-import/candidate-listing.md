@@ -115,7 +115,7 @@ This is a pre-flight no-op classifier in the sense of `security-issue-sync`'s [b
 Never read a body to decide.
 
 **Run it.** Write `<scratch>/threads.json` with the Write tool —
-`upstream`, `security_list`, `cve_tool_senders` (security-team members who post CVE-tool notifications, if any), `named_thread_id` under `import thread:<id>`,
+`upstream`, `security_list`, `cve_tool_senders` (resolved from `security_inbox.cve_tool_senders`; security-team members who post CVE-tool notifications, if any), `named_thread_id` under `import thread:<id>`,
 and `threads[]`, each `{thread_id, messages: [{subject, from}]}` — then:
 
 ```bash

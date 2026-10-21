@@ -384,6 +384,11 @@ security_inbox:
   # The concrete inbound address / channel ID / form URL for this project.
   # Consumed by: security-issue-import, security-issue-sync, canned-responses.
   address: <security-list>
+  # Optional override: addresses that send CVE-tool bookkeeping mail.
+  # ASF projects inherit security@apache.org; if overriding this list, repeat
+  # that address and add the active CNA reviewers.
+  # Consumed by: security-issue-import's Step 1 pre-filter.
+  # cve_tool_senders: [security@apache.org, reviewer@apache.org]
 ```
 
 **Optional override — `reporter_response_timeout_days`.** Days of
