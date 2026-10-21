@@ -22,7 +22,9 @@ Rules (one definition; the three the docs carried disagreed):
   `major` with an unanswered author question, or a CI failure the agent
   judged diff-caused.
 * `APPROVE` — every gate holds: rollup `SUCCESS` and real CI ran (Golden rule
-  8), no unresolved review thread, no other maintainer's standing
+  8), no unresolved review thread (an outdated one the agent verified the
+  current code addresses moves to `resolve_first` for the maintainer to
+  resolve instead), no other maintainer's standing
   `CHANGES_REQUESTED`, no unanswered maintainer question (Golden rule 7), and
   no finding above `nit`.
 * `COMMENT` — everything else.
@@ -73,7 +75,9 @@ def pick(
     merge_state: str | None = None,
     permission: str | None = None,
     head_pushable: bool = False,
+    resolve_first: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
+    resolve_first = resolve_first or []
     counts = Counter(str(f.get("severity") or "").lower() for f in findings)
     unknown = [s for s in counts if s not in SEVERITIES]
     if unknown:
@@ -111,6 +115,8 @@ def pick(
         disposition, reason = "COMMENT", f"findings above nit remain — {tally}"
     else:
         disposition, reason = "APPROVE", f"every approval gate holds — {tally}"
+        if resolve_first:
+            reason += f"; resolve the {len(resolve_first)} outdated thread(s) the current code addresses to unblock the merge"
     conflict = None
     if mergeable == "CONFLICTING" or merge_state == "DIRTY":
         conflict = "The branch currently conflicts with its base and needs a rebase before this can merge."
@@ -125,6 +131,7 @@ def pick(
         "approval_gates": gates,
         "footer": footer_variant(disposition, permission),
         "conflict_note": conflict,
+        "resolve_first": resolve_first,
         "fixup": fixup,
         "default": "FIXUP" if fixup["eligible"] else disposition,
         "overrides": ["FIXUP", *overrides] if fixup["eligible"] else overrides,

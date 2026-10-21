@@ -282,10 +282,11 @@ Write the findings list to a file (Step 4 shape) and run:
 
 ```bash
 uv run --project <framework>/tools/pr-management pr-management code-review disposition --saved-dir <workspace>/saved --pr <N> --viewer <viewer> --findings <file> \
-  [--unanswered-question] [--ci-diff-caused] [--head-pushable]
+  [--unanswered-question] [--ci-diff-caused] [--head-pushable] [--addressed-thread <id>]...
 ```
 
 Pass `--unanswered-question` when an author question to the maintainers is open, `--ci-diff-caused` when you judged a CI failure is this diff's, and `--head-pushable` when `gh pr view <N> --json maintainerCanModify,isCrossRepository` shows the maintainer can push to the head (`maintainerCanModify`, or a branch in the base repository).
+Pass `--addressed-thread <id>` for each of `context`'s `outdated_threads` that the current code addresses ([`classifications/outdated-thread.md`](classifications/outdated-thread.md)). The result's `resolve_first` lists them: before the prompt, tell the maintainer to resolve each one to unblock the merge.
 Give each `minor` / `nit` finding whose fix is small and mechanical a `fixup` field: one line naming the exact change.
 The result's `docs` names the disposition and footer files to read. **Propose**:
 
