@@ -28,9 +28,12 @@ import json
 import os
 import re
 import subprocess
+import tempfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-ROOT = os.environ.get("TRACKER_STATS_CACHE", "/tmp/tracker-stats-cache")
+# Default under the platform temp root, not a hardcoded `/tmp`: a sandboxed run is
+# granted its own scratch directory and cannot write `/tmp`. See fetch_issues.py.
+ROOT = os.environ.get("TRACKER_STATS_CACHE") or os.path.join(tempfile.gettempdir(), "tracker-stats-cache")
 UPSTREAM = os.environ.get("TRACKER_STATS_UPSTREAM_REPO", "apache/airflow")
 if UPSTREAM in ("", "none", "null"):
     print("TRACKER_STATS_UPSTREAM_REPO is empty/none - skipping PR fetch.")

@@ -207,7 +207,8 @@ If the adopter passes nothing, surface the resolved output path and cache state 
 2. **Check cache freshness.** Inspect
    `<cache>/issues.json` mtime, where `<cache>` is the
    `tracker_stats_cache` value from the step 1 config (else
-   `${TRACKER_STATS_CACHE:-/tmp/tracker-stats-cache}`, the fetch scripts' default).
+   `${TRACKER_STATS_CACHE:-<platform temp dir>/tracker-stats-cache}`, the
+   fetch scripts' default — `$TMPDIR` on POSIX, `%TEMP%` on Windows).
    Step 3 passes the same `<cache>` so the check and the fetch agree.
    If older than 24 h, propose a fresh fetch; if missing or
    the user passed `clear-cache`, do a fresh fetch unconditionally.

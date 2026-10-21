@@ -4,8 +4,8 @@
 # Usage: run.sh [output-path]
 #
 # Env overrides:
-#   TRACKER_STATS_CACHE          (default: /tmp/tracker-stats-cache)
-#   TRACKER_STATS_OUT            (default: /tmp/airflow_s_monthly.html - or arg $1)
+#   TRACKER_STATS_CACHE          (default: $TMPDIR/tracker-stats-cache)
+#   TRACKER_STATS_OUT            (default: $TMPDIR/airflow_s_monthly.html - or arg $1)
 #   TRACKER_STATS_REPO           tracker repo (default: airflow-s/airflow-s)
 #   TRACKER_STATS_BUCKETS        monthly | quarterly (overlay)
 #   TRACKER_STATS_START          "YYYY-MM" / "YYYY-Qn" (overlay)
@@ -55,4 +55,4 @@ echo "-> fetch_prs"
 echo "-> render"
 "${PY_CMD[@]}" "$HERE/render.py"
 
-echo "done: ${TRACKER_STATS_OUT:-/tmp/airflow_s_monthly.html}"
+echo "done: ${TRACKER_STATS_OUT:-${TMPDIR:-/tmp}/airflow_s_monthly.html}"

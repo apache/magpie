@@ -76,8 +76,8 @@ Env knobs (all optional):
 | Var | Default | Notes |
 |---|---|---|
 | `TRACKER_STATS_REPO` | *(e.g. `airflow-s/airflow-s`)* | `<tracker>` repo slug |
-| `TRACKER_STATS_OUT` | `/tmp/airflow_s_monthly.html` | output HTML path |
-| `TRACKER_STATS_CACHE` | `/tmp/tracker-stats-cache` | fetch cache dir |
+| `TRACKER_STATS_OUT` | `$TMPDIR/airflow_s_monthly.html` | output HTML path |
+| `TRACKER_STATS_CACHE` | `$TMPDIR/tracker-stats-cache` | fetch cache dir |
 | `TRACKER_STATS_CONFIG` | *(unset)* | path to a YAML overlay file |
 | `TRACKER_STATS_BUCKETS` | *(from config: `monthly`)* | `monthly` or `quarterly` |
 | `TRACKER_STATS_START` | *(from config: `null`)* | `YYYY-MM` or `YYYY-Qn` |
