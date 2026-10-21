@@ -416,6 +416,26 @@ Copy the files, not a link to them.
 same package, so a plain `cp -R` from it leaves a link in the personal
 layer that points nowhere.
 Copy from the skill's directory, or follow the link with `cp -RL`.
+For marketplace installs, the source is
+`<plugin-cache>/magpie-setup/<version>/skills/setup/setup_preflight`.
+Check the new copy before replacing the old one:
+
+```bash
+source_dir="<installed-skill-dir>/setup_preflight"
+personal_dir="<personal_dir from setup_preflight.layers>"
+target="$personal_dir/setup_preflight"
+
+if [ -e "$target" ] || [ -L "$target" ]; then
+  temp="$(mktemp -d "$personal_dir/.preflight.XXXXXX")" || exit 1
+  cp -RL "$source_dir" "$temp/setup_preflight" &&
+    PYTHONPATH="$temp" python3 -c 'import setup_preflight.cli' ||
+    { rm -rf "$temp"; exit 1; }
+  mv "$target" "$temp/old" || { rm -rf "$temp"; exit 1; }
+  mv "$temp/setup_preflight" "$target" ||
+    { mv "$temp/old" "$target"; exit 1; }
+  rm -rf "$temp"
+fi
+```
 
 The fresh copy also carries the new version's isolated-setup
 fingerprint. When the secure-setup files changed in this upgrade, the
