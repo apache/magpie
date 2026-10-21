@@ -311,7 +311,7 @@ check whether a CVE reviewer has left comments on the record.
 
 **Read the record's comments directly.** When the CVE-tool adapter exposes an authenticated record read —
 for the ASF default, [`vulnogram-api-record-fetch`](../../../../tools/cve-tool-vulnogram/oauth-api/README.md),
-on the Bearer token stored by `vulnogram-api-setup` —
+on the Bearer token stored by `vulnogram-api-setup --pmc <project>` —
 the reviewer comments are a **first-class field on the record** and that read is the primary signal path:
 
 ```bash
@@ -332,7 +332,7 @@ Run it for **every** tracker with an allocated CVE, not only those in `REVIEW` �
 reviewers comment on records that have moved on, and a comment on a `PUBLIC` record still needs an answer.
 
 > **Which records to poll.** One cheap, read-only fetch per tracker with an allocated CVE; it needs a live token.
-> On an expired-token error, re-run `vulnogram-api-setup` before continuing; if that is not possible this run,
+> On an expired-token error, re-run `vulnogram-api-setup --pmc <project>` before continuing; if that is not possible this run,
 > fall back to the mail path below and flag the gap in Step 2c rather than reporting *"no reviewer comments"* —
 > a failed read is not an empty result.
 

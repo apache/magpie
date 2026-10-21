@@ -24,8 +24,7 @@ On a pinned-snapshot install the commands are shorter: `/magpie-setup config`, `
 - 🧩 Gemini CLI takes `--auto-update` at install time; Codex has no auto-update, so run `codex plugin marketplace upgrade apache-magpie`
 
 After an update, the next skill you run checks your configuration against it and proposes any fixes;
-`/magpie-setup:setup reconcile` checks everything at once
-(on a pinned snapshot, `/magpie-setup upgrade` does the update).
+`/magpie-setup:setup reconcile` checks everything at once (on a pinned snapshot, `/magpie-setup upgrade` does the update).
 
 ## 💬 Just ask
 
@@ -41,8 +40,7 @@ Describe what you want a skill to do for you:
 - *"when you triage PRs, leave the bot-authored ones alone"*
 
 Magpie records it as an override for that skill (`/magpie-setup:setup override <skill>`).
-Worth sharing? Say *"upstream this change to Magpie"* —
-it makes the change generic and opens a PR to `apache/magpie` for you to review (`/magpie-setup:override-upstream`).
+Worth sharing? Say *"upstream this change to Magpie"* — it makes the change generic and opens a PR to `apache/magpie` for you to review (`/magpie-setup:override-upstream`).
 
 ## 📚 More guides
 

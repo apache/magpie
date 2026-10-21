@@ -321,7 +321,7 @@ Capture the printed URL — it deep-links to the `## CVE JSON — paste-ready fo
 
 **When the operator's machine has a valid authenticated session** for the adapter named in `cve_authority.tool`
 (one-time setup per `tools/<cve-tool>/README.md`; for Vulnogram,
-`uv run --project <framework>/tools/cve-tool-vulnogram/oauth-api vulnogram-api-setup`, see
+`uv run --project <framework>/tools/cve-tool-vulnogram/oauth-api vulnogram-api-setup --pmc <project>`, see
 [`tools/cve-tool-vulnogram/oauth-api/README.md`](../../../../tools/cve-tool-vulnogram/oauth-api/README.md)),
 **sync pushes the JSON to the record directly** through the adapter's `push_update(cve_id, fields, state_transition=None)` method
 (per [`tools/cve-tool/README.md`](../../../../tools/cve-tool/README.md))
@@ -461,7 +461,7 @@ the four gates that need judgement (trigger conditions, the incomplete-fix claus
 
    - **`valid`** → proceed to step 3.
    - **`expired`** → skip the push and surface a one-line reminder in the Step 6 recap:
-     *"CVE-tool authenticated session expired — re-run the adapter's setup entrypoint (for the Vulnogram adapter, `vulnogram-api-setup`) to restore automatic push; using manual-paste hand-off this run."*
+     *"CVE-tool authenticated session expired — re-run the adapter's setup entrypoint (for the Vulnogram adapter, `vulnogram-api-setup --pmc <project>`) to restore automatic push; using manual-paste hand-off this run."*
      Use the manual-paste hand-off variant for any 5c comment work below.
    - **`not-configured`** → skip the push;
      the manual-paste hand-off (via the `cve_authority.source_tab_url_template` link) still works.
@@ -521,7 +521,7 @@ the four gates that need judgement (trigger conditions, the incomplete-fix claus
 
    ```bash
    uv run --project <framework>/tools/cve-tool-vulnogram/oauth-api vulnogram-api-record-fetch \
-     --cve-id <CVE-ID> --jq '.body.CNA_private.state'
+     --cve-id <CVE-ID> --state-only
    ```
 
    If that fetch entrypoint is not yet installed on the operator's machine (see [`tools/cve-tool-vulnogram/oauth-api/README.md`](../../../../tools/cve-tool-vulnogram/oauth-api/README.md)),

@@ -226,7 +226,7 @@ uv run --project <framework>/tools/pr-management pr-management code-review <subc
 | `context` | the PR headline, the slop signals, the security and AI-disclosure scans, the `AGENTS.md` files that apply, the real-CI result |
 | `slop-outcome` | the slop outcome once the agent has judged H1, H5 and S2 |
 | `deps` | the dependency-constraint ledger: `broken`, `compatible` or `unknown` |
-| `disposition` | `APPROVE` / `REQUEST_CHANGES` / `COMMENT`, the footer variant and any conflict note |
+| `disposition` | `APPROVE` / `REQUEST_CHANGES` / `COMMENT`, the footer variant, any conflict note, and whether a `FIXUP` (commit the remaining small, mechanical findings to the PR head, then approve) is the default; `--head-pushable` says the maintainer can push there |
 | `reviewers` | ranked reviewer suggestions |
 | `render` | the review body file, the payload file, inline anchors (line, side, position) and the `shlex.join`-built post command |
 | `pick` | the parsed picker choice |

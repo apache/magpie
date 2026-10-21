@@ -34,7 +34,17 @@ from .conftest import personal, write_stamp
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SECURITY_SKILL = "issue-sync"
-OTHER_SKILL = "rc-cut"
+# Every shipped family now has a guide, so the "family without a guide"
+# cases use a synthetic one registered for the duration of each test.
+OTHER_SKILL = "example-guideless-skill"
+OTHER_FAMILY = "example-guideless-family"
+
+
+@pytest.fixture
+def guideless_family(monkeypatch: pytest.MonkeyPatch) -> None:
+    from setup_preflight import families
+
+    monkeypatch.setitem(families.SKILL_FAMILIES, OTHER_SKILL, OTHER_FAMILY)
 
 
 def stamp(root: Path) -> dict:
@@ -184,6 +194,51 @@ def test_the_repo_health_family_guide_comes_on_the_next_run(project: Path, versi
     assert due(project, "ci-runner-audit") == [("general", "again")]
 
 
+def test_the_setup_family_guide_comes_on_the_next_run(project: Path, version) -> None:
+    for skill in (
+        "isolated-setup-doctor",
+        "isolated-setup-install",
+        "isolated-setup-update",
+        "isolated-setup-verify",
+        "override-upstream",
+        "privacy-llm",
+        "setup",
+        "shared-config-sync",
+        "status",
+        "upstream-fix",
+        "welcome-guide",
+    ):
+        assert welcome.family_of(skill) == "setup"
+
+    assert due(project, "status") == [("general", "first-run")]
+    welcome.record(project, "general", "seen")
+    assert due(project, "status") == [("setup", "first-run")]
+    welcome.record(project, "setup", "seen")
+    assert due(project, "status") == [("general", "again")]
+
+
+def test_the_release_management_family_guide_comes_on_the_next_run(project: Path, version) -> None:
+    for skill in (
+        "announce-draft",
+        "archive-sweep",
+        "audit-report",
+        "keys-sync",
+        "prepare",
+        "promote",
+        "rc-cut",
+        "verify-rc",
+        "vote-draft",
+        "vote-tally",
+    ):
+        assert welcome.family_of(skill) == "release-management"
+
+    assert due(project, "rc-cut") == [("general", "first-run")]
+    welcome.record(project, "general", "seen")
+    assert due(project, "rc-cut") == [("release-management", "first-run")]
+    welcome.record(project, "release-management", "seen")
+    assert due(project, "rc-cut") == [("general", "again")]
+
+
 def test_at_most_one_guide_per_run(project: Path, version) -> None:
     for _ in range(8):
         found = welcome_findings(project, SECURITY_SKILL)
@@ -206,8 +261,10 @@ def test_a_hidden_general_guide_does_not_hold_back_the_family_one(project: Path,
     assert due(project) == [("security", "first-run")]
 
 
+@pytest.mark.usefixtures("guideless_family")
 def test_a_skill_of_a_family_without_a_guide_gets_only_the_general_one(project: Path, version) -> None:
-    assert welcome.family_of(OTHER_SKILL) == "release-management"
+    assert welcome.family_of(OTHER_SKILL) == OTHER_FAMILY
+    assert OTHER_FAMILY not in welcome.family_guides()
     assert due(project, OTHER_SKILL) == [("general", "first-run")]
     welcome.record(project, "general", "never")
     assert due(project, OTHER_SKILL) == []
@@ -270,6 +327,7 @@ def test_no_welcome_leaves_it_out(project: Path, capsys, version) -> None:
 # --- the three answers ----------------------------------------------------------------
 
 
+@pytest.mark.usefixtures("guideless_family")
 def test_seen_shows_again_and_stops_after_three(project: Path, version) -> None:
     reasons = []
     for _ in range(5):
@@ -288,6 +346,7 @@ def test_a_later_answer_replaces_seen_without_counting_twice(project: Path, vers
     assert entry["shown"] == 1
 
 
+@pytest.mark.usefixtures("guideless_family")
 def test_dismiss_hides_it_until_the_version_changes(project: Path, version) -> None:
     welcome.record(project, "general", "dismiss")
     assert codes(project, OTHER_SKILL) == []
@@ -296,12 +355,14 @@ def test_dismiss_hides_it_until_the_version_changes(project: Path, version) -> N
     assert [f.facts["reason"] for f in found] == ["upgraded"]
 
 
+@pytest.mark.usefixtures("guideless_family")
 def test_never_persists_across_versions(project: Path, version) -> None:
     welcome.record(project, "general", "never")
     version[0] = "1.0.0"
     assert codes(project, OTHER_SKILL) == []
 
 
+@pytest.mark.usefixtures("guideless_family")
 def test_enable_clears_the_choice(project: Path, version) -> None:
     welcome.record(project, "general", "never")
     assert welcome.enable(project, "general") is True
@@ -491,6 +552,8 @@ def test_the_rules_section_and_all_guides_ship() -> None:
         "pr-management",
         "contributor-growth",
         "repo-health",
+        "setup",
+        "release-management",
     } <= set(welcome.guides())
     assert welcome.family_guides() == [g for g in welcome.guides() if g != "general"]
 
@@ -507,6 +570,8 @@ def test_the_rules_section_and_all_guides_ship() -> None:
         "pr-management",
         "contributor-growth",
         "repo-health",
+        "setup",
+        "release-management",
     ],
 )
 def test_each_guide_is_short_and_ends_with_the_way_back(name: str) -> None:
@@ -536,6 +601,8 @@ def test_the_footer_is_shared_and_filled_in_per_guide() -> None:
     pr_management = welcome.guide("pr-management") or ""
     contributor_growth = welcome.guide("contributor-growth") or ""
     repo_health = welcome.guide("repo-health") or ""
+    setup = welcome.guide("setup") or ""
+    release_management = welcome.guide("release-management") or ""
     for text in (
         security,
         general,
@@ -546,6 +613,8 @@ def test_the_footer_is_shared_and_filled_in_per_guide() -> None:
         pr_management,
         contributor_growth,
         repo_health,
+        setup,
+        release_management,
     ):
         assert "{{" not in text
         assert "welcome footer: generated" not in text
@@ -567,6 +636,10 @@ def test_the_footer_is_shared_and_filled_in_per_guide() -> None:
     assert "--family contributor-growth --color=always" in contributor_growth
     assert "`/magpie-setup:welcome-guide repo-health`" in repo_health
     assert "--family repo-health --color=always" in repo_health
+    assert "`/magpie-setup:welcome-guide setup`" in setup
+    assert "--family setup --color=always" in setup
+    assert "`/magpie-setup:welcome-guide release-management`" in release_management
+    assert "--family release-management --color=always" in release_management
 
 
 def test_list_prints_every_guide(capsys) -> None:

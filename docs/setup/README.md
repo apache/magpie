@@ -63,6 +63,12 @@ New to Magpie? The [quick start](../quick-start.md) walks the whole path in
 one place — install, the first `/magpie-setup:setup` run, and a recording of it
 happening — plus the other agents and the secure-isolation setup to run next.
 
+The first setup skill you run opens with a one-minute
+[welcome guide](../../plugins/magpie-setup/skills/setup/setup_preflight/guides/setup.md):
+the typical flow, what needs configuring, what to ask it, and how to make it yours.
+Dismiss it, or hide it for good, from its last line;
+*"show the setup welcome again"* or `/magpie-setup:welcome-guide setup` brings it back.
+
 ### The first run
 
 This family is what the other nine defer to. `/magpie-setup:setup` (`/magpie-setup`

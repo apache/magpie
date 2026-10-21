@@ -32,5 +32,5 @@ asked to be credited. Not a follow-up to any earlier CVE.
 
 Adapter session probe (`vulnogram-api-check`): `valid`.
 `vulnogram-api-record-update`: exit 0 at 2026-10-03T14:12:09Z.
-`vulnogram-api-record-fetch --jq '.body.CNA_private.state'`: `"REVIEW"`
+`vulnogram-api-record-fetch --state-only`: `REVIEW`
 (normalised: `review-ready`).

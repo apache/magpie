@@ -1,0 +1,24 @@
+{
+  "lock": null,
+  "plugins": [
+    [
+      "magpie-setup",
+      "0.4.0"
+    ],
+    [
+      "magpie-release-management",
+      "0.4.0"
+    ]
+  ],
+  "reconciled": {
+    "welcome": {
+      "general": {
+        "choice": "seen",
+        "shown": 1
+      }
+    }
+  },
+  "skill": "rc-cut",
+  "welcome": true,
+  "hash": "sha256:60623e456e72bbf6"
+}

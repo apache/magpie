@@ -41,7 +41,11 @@ appeared), the skill says so explicitly and points them at
   proposes patches via `gh pr review --suggested-changes`
   beyond the verbatim suggestion blocks in
   [`posting.md`](posting.md), and never edits the contributor's
-  branch.
+  branch — with one exception: the `[F]ixup` action in
+  [`classifications/disposition-fixup.md`](classifications/disposition-fixup.md),
+  offered only when every remaining finding is a small,
+  mechanical `minor` / `nit`, and pushed only on the
+  maintainer's explicit confirmation.
 - **Bypassing the project's review criteria.** Findings cite
   specific rules from the source files declared in
   `<project-config>/pr-management-code-review-criteria.md` and

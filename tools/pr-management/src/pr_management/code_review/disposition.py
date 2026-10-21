@@ -27,6 +27,13 @@ Rules (one definition; the three the docs carried disagreed):
   no finding above `nit`.
 * `COMMENT` — everything else.
 
+When the only thing between a `COMMENT` and an `APPROVE` is a set of `minor` /
+`nit` findings that each carry a `fixup` (a one-line, mechanical change the
+maintainer can make), and the maintainer can push to the PR head, the result
+also offers `FIXUP`: apply those changes as a commit on the contributor's
+branch, then approve. It becomes the default action, not the disposition —
+what is posted after a fixup is still an `APPROVE`.
+
 Conflicts never force `REQUEST_CHANGES`, but a `DIRTY` / `CONFLICTING` /
 still-`UNKNOWN` branch is always named in the body.
 """
@@ -65,6 +72,7 @@ def pick(
     mergeable: str | None = None,
     merge_state: str | None = None,
     permission: str | None = None,
+    head_pushable: bool = False,
 ) -> dict[str, Any]:
     counts = Counter(str(f.get("severity") or "").lower() for f in findings)
     unknown = [s for s in counts if s not in SEVERITIES]
@@ -108,6 +116,8 @@ def pick(
         conflict = "The branch currently conflicts with its base and needs a rebase before this can merge."
     elif mergeable == "UNKNOWN":
         conflict = "GitHub has not computed whether this branch merges cleanly yet."
+    fixup = _fixup(findings, disposition, gates, conflict, head_pushable)
+    overrides = ["APPROVE", "REQUEST_CHANGES", "COMMENT"]
     return {
         "disposition": disposition,
         "reason": reason,
@@ -115,7 +125,37 @@ def pick(
         "approval_gates": gates,
         "footer": footer_variant(disposition, permission),
         "conflict_note": conflict,
-        "overrides": ["APPROVE", "REQUEST_CHANGES", "COMMENT"],
+        "fixup": fixup,
+        "default": "FIXUP" if fixup["eligible"] else disposition,
+        "overrides": ["FIXUP", *overrides] if fixup["eligible"] else overrides,
+    }
+
+
+def _fixup(
+    findings: list[dict[str, Any]],
+    disposition: str,
+    gates: list[str],
+    conflict: str | None,
+    head_pushable: bool,
+) -> dict[str, Any]:
+    """Whether applying the remaining findings as a commit would earn an `APPROVE`."""
+    if disposition != "COMMENT" or not findings:
+        return {"eligible": False, "reason": f"nothing to fix up on a {disposition}"}
+    if any(str(f.get("severity") or "").lower() in ("major", "blocking") for f in findings):
+        return {"eligible": False, "reason": "a major finding needs the author, not a fixup"}
+    if gates:
+        return {"eligible": False, "reason": "an approval gate other than the findings is open"}
+    if conflict:
+        return {"eligible": False, "reason": "the branch does not merge cleanly"}
+    if not head_pushable:
+        return {"eligible": False, "reason": "the maintainer cannot push to the PR head"}
+    missing = [f for f in findings if not str(f.get("fixup") or "").strip()]
+    if missing:
+        return {"eligible": False, "reason": f"{len(missing)} finding(s) have no mechanical fixup"}
+    return {
+        "eligible": True,
+        "reason": "every remaining finding is minor or nit with a mechanical fixup",
+        "changes": [str(f["fixup"]).strip() for f in findings],
     }
 
 

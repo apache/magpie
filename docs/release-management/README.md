@@ -94,6 +94,12 @@ New to Magpie? The [quick start](../quick-start.md) walks the whole path in
 one place — install, the first `/magpie-setup:setup` run, and a recording of it
 happening — plus the other agents and the secure-isolation setup to run next.
 
+The first release-management skill you run opens with a one-minute
+[welcome guide](../../plugins/magpie-setup/skills/setup/setup_preflight/guides/release-management.md):
+the typical flow, what needs configuring, what to ask it, and how to make it yours.
+Dismiss it, or hide it for good, from its last line;
+*"show the release-management welcome again"* or `/magpie-setup:welcome-guide release-management` brings it back.
+
 ### Before the first run
 
 <!-- BEGIN generated: skill-config (tools/dev/check-skill-config.py --fix) -->

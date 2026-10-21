@@ -341,11 +341,14 @@ def _disposition(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any]
         mergeable=pr.mergeable,
         merge_state=pr.merge_state,
         permission=permission,
+        head_pushable=args.head_pushable,
     )
     result["docs"] = [
         f"classifications/disposition-{result['disposition'].lower().replace('_', '-')}.md",
         f"classifications/footer-{result['footer']}.md",
     ]
+    if result["fixup"]["eligible"]:
+        result["docs"].append("classifications/disposition-fixup.md")
     return result
 
 
@@ -602,6 +605,11 @@ def add_parsers(sub: Any) -> None:
     dis.add_argument("--permission", default=None)
     dis.add_argument("--unanswered-question", action="store_true")
     dis.add_argument("--ci-diff-caused", action="store_true")
+    dis.add_argument(
+        "--head-pushable",
+        action="store_true",
+        help="the viewer can push to the PR head (maintainerCanModify, or a branch in the base repository)",
+    )
 
     rev = commands.add_parser("reviewers", help="Step 4.5: grounded reviewer suggestions")
     rev.add_argument("--saved-dir", type=Path, required=True)
