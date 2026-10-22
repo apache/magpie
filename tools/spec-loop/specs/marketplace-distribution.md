@@ -175,6 +175,10 @@ adopter-facing page.
   the manifest, with the engine resolved through
   `${GROK_PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}` so Claude Code and Grok Build
   share one registration.
+  With no framework tree above it in the plugin cache, the engine discovers
+  skill-owned guards in the sibling family plugins cached as
+  `<marketplace>/<plugin>/<version>/`, preferring each one's copy at the
+  engine's own version, else its most recently installed one.
   The others are the `SessionStart` hooks of vetted-ops (`tools/vetted-ops/hooks/link-stable-path.sh`,
   #1406) and adversarial-review (`tools/adversarial-review/hooks/link-stable-path.sh`),
   which point the fixed paths `~/.claude/magpie/vetted-ops` and

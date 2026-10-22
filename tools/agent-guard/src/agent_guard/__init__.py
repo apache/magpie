@@ -1624,10 +1624,48 @@ def framework_root() -> Path | None:
     return None
 
 
+#: The plugin that ships this engine, as named in a marketplace's plugin cache.
+ENGINE_PLUGIN = "magpie-agent-guard"
+
+
+def installed_plugin_guard_dirs() -> list[Path]:
+    """Skill guards of the family plugins installed beside this engine's plugin.
+
+    A marketplace install caches every plugin on its own, as
+    ``<marketplace>/<plugin>/<version>/``, so the plugins whose skills own guards
+    are siblings of this one rather than a framework tree above it. Each sibling's
+    copy at this engine's version is used, since the families are released
+    together; failing that, its most recently installed version. Empty when the
+    engine is not running from such a cache.
+    """
+    for plugin_root in Path(__file__).resolve().parents:
+        if (plugin_root / ".claude-plugin").is_dir():
+            break
+    else:
+        return []
+    if plugin_root.parent.name != ENGINE_PLUGIN:
+        return []
+    dirs: list[Path] = []
+    for plugin in sorted(plugin_root.parent.parent.iterdir()):
+        if plugin.name == ENGINE_PLUGIN or not plugin.is_dir():
+            continue
+        installed = [v for v in plugin.iterdir() if (v / ".claude-plugin").is_dir()]
+        same = plugin / plugin_root.name
+        if same in installed:
+            chosen = same
+        elif installed:
+            chosen = max(installed, key=lambda v: v.stat().st_mtime)
+        else:
+            continue
+        dirs.extend(sorted(chosen.glob("skills/*/guards")))
+    return dirs
+
+
 def guard_dirs() -> list[Path]:
     """Directories scanned for contributed guards: ``$MAGPIE_GUARD_DIRS`` entries,
     then every ``plugins/*/skills/*/guards`` and ``skills/*/guards`` in the framework
-    tree this file runs from, then the ``guards.d`` sibling of this file."""
+    tree this file runs from, or, from a marketplace install, the skill guards of
+    the sibling family plugins; then the ``guards.d`` sibling of this file."""
     dirs: list[Path] = []
     env = os.environ.get(GUARD_DIRS_ENV)
     if env:
@@ -1635,6 +1673,8 @@ def guard_dirs() -> list[Path]:
     if (root := framework_root()) is not None:
         dirs.extend(sorted((root / "plugins").glob("*/skills/*/guards")))
         dirs.extend(sorted((root / "skills").glob("*/guards")))
+    else:
+        dirs.extend(installed_plugin_guard_dirs())
     dirs.append(Path(__file__).resolve().parent / "guards.d")
     seen: set[Path] = set()
     out: list[Path] = []
