@@ -64,7 +64,7 @@
       "name": "magpie-repo-health",
       "source": "./plugins/magpie-repo-health",
       "version": "0.9.0.dev202610192305",
-      "description": "Apache Magpie repo-health family (7 skills)."
+      "description": "Apache Magpie repo-health family (8 skills)."
     },
     {
       "name": "magpie-security",

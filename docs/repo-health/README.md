@@ -14,6 +14,7 @@
     - [`audit-finding-fix` (experimental)](#audit-finding-fix-experimental)
     - [`ci-runner-audit` (experimental)](#ci-runner-audit-experimental)
     - [`workflow-security-audit` (experimental)](#workflow-security-audit-experimental)
+    - [`workflow-optimization` (experimental)](#workflow-optimization-experimental)
     - [`dependency-audit` (experimental)](#dependency-audit-experimental)
     - [`license-compliance-audit` (experimental)](#license-compliance-audit-experimental)
     - [`flaky-test-triage` (experimental)](#flaky-test-triage-experimental)
@@ -35,7 +36,7 @@
 Read-only agent-assisted audits that surface repository maintenance signals
 a human would otherwise have to detect by hand: runner label obsolescence,
 Actions workflow security issues, stale or vulnerable dependencies,
-license/NOTICE drift, and flaky-test patterns. Every skill in this family
+license/NOTICE drift, flaky-test patterns, and wasted CI runner capacity. Every skill in this family
 produces a human-readable report and proposes remedies; applying any change
 is the maintainer's action.
 
@@ -53,7 +54,7 @@ follow. See [`docs/modes.md` § Triage](../modes.md#triage).
 
 ## Install & first runs
 
-Install just this family — one plugin, 7 skills. Read-only repository-health audits, plus fixes for what they find.
+Install just this family — one plugin, 8 skills. Read-only repository-health audits, plus fixes for what they find.
 
 Once you have [added the marketplace](../setup/marketplace-install.md):
 
@@ -231,6 +232,31 @@ enable. All classes are enabled by default.
 
 ---
 
+### `workflow-optimization` (experimental)
+
+Reviews one repository's GitHub Actions workflows and seven days of run
+history against the practices on the ASF Infra page
+[Optimizing GitHub Actions workflows](https://infra.apache.org/github-actions-optimization.html),
+which is the skill's source of truth.
+
+It looks for what costs runner capacity without adding coverage: setup
+failures that burn retries, duplicate post-merge and merge-queue runs, many
+one-minute jobs each waiting for its own runner, toolchain matrices run on
+every PR instead of a scheduled canary, missing timeouts and cancellation,
+jobs that fit `ubuntu-slim`, and Dependabot noise. Every finding carries a
+`file:line` and the run numbers behind it.
+
+Output is a prioritised plan (P0 broken, P1 fewer jobs per PR, P2 hygiene,
+P3 needs community agreement) with an estimated saving and a suggested split
+into pull requests. Read-only; the skill never edits workflow files, opens
+PRs, or posts comments.
+
+**Adopter contract**: none — no `<project-config>` file is read. ASF-only
+checks (`.asf.yaml`, the GitHub Actions Policy, `creation_cap`) are skipped
+for repositories outside the ASF.
+
+---
+
 ### `dependency-audit` (experimental)
 
 Detects the project's dependency manager(s), runs the appropriate audit
@@ -331,7 +357,7 @@ policy: <https://www.apache.org/legal/resolved.html>.
 
 ## Status
 
-**Experimental.** All seven skills shipped. No adopter-pilot evaluation
+**Experimental.** All eight skills shipped. No adopter-pilot evaluation
 has run end-to-end yet; shape may change between framework versions.
 
 To provide pilot feedback, copy
