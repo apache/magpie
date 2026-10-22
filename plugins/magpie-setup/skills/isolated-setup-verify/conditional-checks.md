@@ -77,7 +77,10 @@ reading this file; read the section for a check whose condition holds.
    adopter routes forge operations through the `vetted-ops`
    dispatcher; if the repo has no
    `.apache-magpie-overrides/tools/vetted-ops/config.toml` and no
-   `vetted-op` rule, report **n/a** and move on.
+   `vetted-op` rule, report **n/a** and move on. With the sandbox not
+   enabled, report **n/a** too: install Step V skips the bypass
+   without it. A `vetted-op-read` allow rule or exclusion present
+   while the sandbox is off is ✗ — the bypass without its confinement.
 
    **9a — which dispatcher is allowlisted.** This is the check that
    matters. `permissions.allow` may contain `vetted-op-read` and

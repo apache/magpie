@@ -1,1 +1,1 @@
-{"status": "stale", "is_fault": true, "missing": ["magpie-agent-guard@apache-magpie"]}
+{"status": "stale", "is_fault": true, "missing": ["magpie-agent-guard@apache-magpie", "magpie-vetted-ops@apache-magpie"]}

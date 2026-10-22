@@ -8,7 +8,7 @@ magpie-agent-guard.
 `.apache-magpie-overrides/` exists and contains `project.md`.
 
 The running agent is Claude Code. `claude plugin list --json` reports
-magpie-setup 0.3.0 only.
+magpie-setup 0.3.0 and magpie-vetted-ops 0.3.0 only.
 
 The pre-flight command printed:
 

@@ -133,7 +133,7 @@
       },
       "category": "maintenance",
       "policy": {
-        "installation": "AVAILABLE"
+        "installation": "INSTALLED_BY_DEFAULT"
       }
     }
   ]

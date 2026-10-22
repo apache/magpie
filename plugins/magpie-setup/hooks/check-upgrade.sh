@@ -7,6 +7,9 @@
 # schema. Agent Plugins 1.0 defines no hook component, so an AP1-only client
 # does not run this at all — see docs/setup/marketplaces.md.
 #
+# Also warns, once per session, when the isolated setup is not configured on
+# this machine (see `setup_preflight.isolated.session_start`).
+#
 # Detects when the installed plugin version has changed since the last
 # session (i.e. the marketplace updated it) and prompts the user to run
 # `/magpie-setup upgrade`, which reconciles the gitignored snapshot, the
@@ -54,20 +57,34 @@ marker="$data/magpie-plugin-version"
 stored=""
 [ -f "$marker" ] && stored="$(cat "$marker" 2>/dev/null || true)"
 
+notice=""
 if [ "$current" != "$stored" ]; then
   mkdir -p "$data" 2>/dev/null || true
   printf '%s' "$current" >"$marker" 2>/dev/null || true
 
-  # stdout, not stderr: for a `SessionStart` hook exiting 0, Claude Code adds
-  # stdout to the session context (stderr on a zero exit only reaches the debug
-  # log). Writing the prompt to stderr would deliver it to nobody — and because
-  # the marker is written first, the next session would see no change and stay
-  # silent too.
   if [ -n "$stored" ]; then
-    echo "Apache Magpie plugin updated ($stored -> $current). If this repo adopts Magpie, run \`/magpie-setup upgrade\` to reconcile the snapshot, agentic overrides, and drift."
+    notice="Apache Magpie plugin updated ($stored -> $current). If this repo adopts Magpie, run \`/magpie-setup upgrade\` to reconcile the snapshot, agentic overrides, and drift."
   else
-    echo "Apache Magpie plugin $current is active. If this repo already adopts Magpie, run \`/magpie-setup upgrade\` to reconcile; otherwise run \`/magpie-setup\` to adopt."
+    notice="Apache Magpie plugin $current is active. If this repo already adopts Magpie, run \`/magpie-setup upgrade\` to reconcile; otherwise run \`/magpie-setup\` to adopt."
   fi
+fi
+
+# Once per session, the isolated-setup warning: `setup_preflight` decides
+# whether it applies and prints the notice with it, as hook JSON whose
+# `systemMessage` the user sees. Without python3 the notice goes out alone.
+output="$notice"
+if command -v python3 >/dev/null 2>&1; then
+  output="$(PYTHONPATH="$root/skills/setup" python3 -m setup_preflight.isolated session-start \
+    --project-root "${CLAUDE_PROJECT_DIR:-$PWD}" --notice "$notice" 2>/dev/null)" || output="$notice"
+fi
+
+# stdout, not stderr: for a `SessionStart` hook exiting 0, Claude Code adds
+# stdout to the session context (stderr on a zero exit only reaches the debug
+# log). Writing the prompt to stderr would deliver it to nobody — and because
+# the marker is written first, the next session would see no change and stay
+# silent too.
+if [ -n "$output" ]; then
+  printf '%s\n' "$output"
 fi
 
 exit 0

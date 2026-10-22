@@ -49,6 +49,8 @@ fingerprint into the stamp:
     python3 -m setup_preflight.isolated record-update     # the update skill ran
     python3 -m setup_preflight.isolated record-reminder   # the suggestion was shown
     python3 -m setup_preflight.isolated fingerprint       # print the current value
+    python3 -m setup_preflight.isolated configured        # {"configured": true|false}
+    python3 -m setup_preflight.isolated session-start     # the SessionStart hook's output
     python3 -m setup_preflight.isolated write-constant    # framework repo only (prek)
 """
 
@@ -62,7 +64,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from .layers import config_layers, personal_dir, personal_layers
+from .layers import OVERRIDES_DIR, adopted, config_layers, personal_dir, personal_layers
 
 #: The files a secure-setup install copies or mirrors, relative to the
 #: framework root.  Documentation is left out on purpose: a reworded
@@ -140,9 +142,8 @@ def current(root: Path) -> str | None:
     return shipped()
 
 
-def sandbox_enabled_in_project(root: Path) -> bool:
-    for name in ("settings.json", "settings.local.json"):
-        path = root / ".claude" / name
+def _sandbox_enabled(paths: list[Path]) -> bool:
+    for path in paths:
         try:
             loaded = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
@@ -151,6 +152,108 @@ def sandbox_enabled_in_project(root: Path) -> bool:
         if isinstance(sandbox, dict) and sandbox.get("enabled") is True:
             return True
     return False
+
+
+def sandbox_enabled_in_project(root: Path) -> bool:
+    return _sandbox_enabled([root / ".claude" / name for name in ("settings.json", "settings.local.json")])
+
+
+def configured(root: Path, home: Path | None = None) -> bool:
+    """Whether the isolated setup is in place for this project on this machine.
+
+    The stamp the install and update skills write, or a sandbox the project's
+    or the user's Claude Code settings enable. The install offers a whole-user
+    scope, which leaves no trace in the project, hence the user settings. A
+    file that cannot be read counts as not configured: inside the sandbox the
+    user's settings are read-denied, so callers that run there see `False` and
+    must treat it as "not known to be configured", never as proof of absence.
+    """
+    block = _load_stamp(root).get(BLOCK)
+    if isinstance(block, dict) and block:
+        return block.get("enabled") is not False
+    user = (home if home is not None else Path.home()) / ".claude" / "settings.json"
+    return sandbox_enabled_in_project(root) or _sandbox_enabled([user])
+
+
+#: Shown to the user once per session, at session start, while the isolated
+#: setup is not configured. Not a blocker: trying Magpie out does not need it.
+UNCONFIGURED_WARNING = """\
+Apache Magpie: the isolated setup is not configured on this machine.
+
+You do not need it to try Magpie out. If you plan to use Magpie for longer, \
+enable it: run /magpie-setup:isolated-setup-install.
+
+Why it matters: Magpie skills read text written by other people - pull \
+requests, issues, comments, mailing-list threads, attachments. Any of it can \
+hide instructions aimed at your agent (prompt injection). Without the isolated \
+setup the agent runs with your full access: it can read your credentials (SSH \
+keys, GitHub and cloud tokens, .env files), reach any host on the network, and \
+act in your name. An injected instruction could leak those secrets or private \
+content such as unreleased security reports, or push, comment, close or merge \
+as you.
+
+Until it is enabled, do not use Magpie on untrusted content - pull requests, \
+issues, comments or mail from people you do not know - and read every command \
+before you approve it."""
+
+#: What the model is told alongside the warning, so it neither repeats the
+#: warning on every turn nor forgets it at the moment it matters.
+UNCONFIGURED_CONTEXT = (
+    "The Apache Magpie isolated setup is not configured on this machine. The user was shown a "
+    "warning about it at session start; do not repeat it unprompted. Before a Magpie skill reads "
+    "pull requests, issues, comments, mail or other content written by people outside the project, "
+    "remind the user once in this session that the isolated setup is off, and suggest "
+    "/magpie-setup:isolated-setup-install."
+)
+
+
+WARNING_KEY = "isolation_warning"
+_WARNING_OFF_RE = re.compile(rf"^\s*{WARNING_KEY}\s*:\s*off\b", re.M)
+
+
+def warning_opted_out(root: Path) -> bool:
+    """Whether the project turned the warning off when it adopted Magpie.
+
+    Read from the committed `.apache-magpie-overrides/project.md` only: it is
+    the project's choice, made at adoption, not one a personal layer makes.
+    """
+    try:
+        text = (root / OVERRIDES_DIR / "project.md").read_text(encoding="utf-8")
+    except OSError:
+        return False
+    return _WARNING_OFF_RE.search(text) is not None
+
+
+def _adopted_root(start: Path) -> Path | None:
+    """The adopted repository `start` sits in: up to the first `.git`, never past it."""
+    for directory in (start, *start.parents):
+        if adopted(directory):
+            return directory
+        if (directory / ".git").exists():
+            return None
+    return None
+
+
+def session_start(root: Path, notice: str = "", home: Path | None = None) -> str:
+    """What the SessionStart hook prints: its own notice, plus the warning while unconfigured.
+
+    The hook fires once per session, which is the cadence the warning wants.
+    Only in a repository that has adopted Magpie, and not when that project
+    opted out at adoption. Hooks run outside the sandbox, so the user's
+    settings are readable here and "not configured" means what it says.
+    Plain text keeps the hook's original output when there is nothing to
+    warn about.
+    """
+    project = _adopted_root(root.resolve())
+    if project is None or warning_opted_out(project) or configured(project, home):
+        return notice
+    context = "\n\n".join(part for part in (notice, UNCONFIGURED_CONTEXT) if part)
+    return json.dumps(
+        {
+            "systemMessage": UNCONFIGURED_WARNING,
+            "hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": context},
+        }
+    )
 
 
 def interval_days(root: Path) -> int:
@@ -273,14 +376,31 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="setup_preflight.isolated", description=__doc__.split("\n")[0])
     parser.add_argument(
         "action",
-        choices=["fingerprint", "record-update", "record-reminder", "write-constant", "check-constant"],
+        choices=[
+            "fingerprint",
+            "configured",
+            "session-start",
+            "record-update",
+            "record-reminder",
+            "write-constant",
+            "check-constant",
+        ],
     )
     parser.add_argument("--project-root", default=".", type=Path)
+    parser.add_argument("--notice", default="", help="session-start: the hook's own notice, passed through")
     args = parser.parse_args(argv)
     root: Path = args.project_root
 
     if args.action == "fingerprint":
         print(current(root) or "")
+        return 0
+    if args.action == "configured":
+        print(json.dumps({"configured": configured(root)}))
+        return 0
+    if args.action == "session-start":
+        output = session_start(root, args.notice)
+        if output:
+            print(output)
         return 0
     if args.action in ("record-update", "record-reminder"):
         try:

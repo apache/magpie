@@ -17,7 +17,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:fe5f2a0f66586cb2
 license: Apache-2.0
-measured_tokens: 7089
+measured_tokens: 7337
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -220,8 +220,17 @@ Only applies when the adopter routes forge operations through the
 `vetted-ops` dispatcher — i.e. the repo has
 `.apache-magpie-overrides/tools/vetted-ops/config.toml`, or the
 operator asks for the dispatcher to be wired now. If neither is
-true, skip this step and say so; do not create a policy the project
-has not asked for.
+true, skip this step, report it as **n/a**, and continue with the
+next step: a missing policy is never a blocker for this install.
+Do not create a policy the project has not asked for.
+
+**Only with the sandbox on.** The allow rules and sandbox exclusions
+below are a permission bypass: they let the dispatcher run without a
+prompt, and outside the sandbox. They are safe only because the sandbox
+confines everything else. If the sandbox is not enabled for this
+session (Step P declined, or `sandbox.enabled` is not `true` in the
+scope being wired), skip this step, say so, and leave every vetted
+operation behind its normal prompt.
 
 There are three console scripts over one catalogue, and which of them
 gets the `allow` is the entire security question:
@@ -529,6 +538,14 @@ not adopted Magpie, `.apache-magpie-local/` when it has) and nothing
 else. Skip it when the command cannot find `setup_preflight` — say that
 `/magpie-setup:setup config` installs the checker, and that the reminders start
 once it is there.
+
+**Check that the vetted-ops plugin is installed.** `magpie-vetted-ops`
+is part of the baseline: the family skills run their forge operations
+through its dispatcher, and Step V's permission rules point at it.
+If the harness's plugin listing lacks it, propose
+`claude plugin install magpie-vetted-ops@apache-magpie`
+(`codex plugin add magpie-vetted-ops@apache-magpie` on Codex) and run it once the operator confirms.
+Where the harness has no plugin CLI, print the command instead of running it.
 
 **Always propose shared-config sync once the install lands.**
 Regardless of whether the operator already maintains the

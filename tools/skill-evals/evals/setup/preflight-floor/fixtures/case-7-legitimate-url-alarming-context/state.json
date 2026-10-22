@@ -21,6 +21,10 @@
     [
       "magpie-lockstep-audit",
       "0.5.0"
+    ],
+    [
+      "magpie-vetted-ops",
+      "0.6.0"
     ]
   ]
 }

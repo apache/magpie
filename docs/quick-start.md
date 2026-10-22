@@ -70,24 +70,26 @@ is a nice-to-have. Five and six are what you do with it.
 Installing is a **one-time, per-machine** step for whichever agent you use. It
 writes nothing to any repository and your teammates are unaffected.
 
-![Adding the apache-magpie marketplace, then installing the baseline — magpie-setup, magpie-agent-guard, magpie-utilities — and one family, with nothing written to the repository](../assets/quickstart/step-install.svg)
+![Adding the apache-magpie marketplace, then installing the baseline — magpie-setup, magpie-vetted-ops, magpie-agent-guard, magpie-utilities — and one family, with nothing written to the repository](../assets/quickstart/step-install.svg)
 
 → [**Prerequisite: install Magpie from your agent's
 marketplace**](setup/marketplace-install.md) has the commands, one section per
 agent: Claude Code, OpenAI Codex CLI, VS Code / GitHub Copilot, Google Gemini
 CLI, Cursor, `microsoft/apm`, and JetBrains IDEs.
 
-**Take the baseline — three plugins, strongly recommended on every machine:**
+**Take the baseline — four plugins, strongly recommended on every machine:**
 
 - **`magpie-setup`** — install this one first; nothing else installs, upgrades,
   configures or adopts without it, and it carries the secure-isolation skills
   from [Step 3](#step-3--isolate--guard).
+- **`magpie-vetted-ops`** — always installed: the dispatcher the family skills
+  run their GitHub reads and writes through. It adds no always-on context.
 - **`magpie-agent-guard`** — the deterministic pre-execution guard, a hook that
   inspects each shell command before it runs and denies the dangerous shapes.
 - **`magpie-utilities`** — `list-skills` and the small tools you reach for when
   you want to know what is actually installed.
 
-Those three are exactly the **floor** a project commits when it adopts Magpie,
+Those four are exactly the **floor** a project commits when it adopts Magpie,
 so taking them is taking what a project would recommend to every contributor.
 
 Then add **one plugin per family you actually want**, against a problem you
@@ -212,6 +214,12 @@ a command can reach, and the **action guard**, which decides whether a command
 runs at all. A sandbox will not stop a legal `gh pr comment` from pinging four
 maintainers who did not ask; a guard will not stop a command from reading
 `~/.ssh`.
+
+In a repository that has adopted Magpie, each session opens with a warning
+until this is in place: trying Magpie out is fine without it, but do not point
+a skill at pull requests, issues or mail from people you do not know.
+It also turns on the prompt-free read path of `magpie-vetted-ops`, which is
+installed everywhere but bypasses no prompt without the sandbox.
 
 | Harness | What to run |
 |---|---|

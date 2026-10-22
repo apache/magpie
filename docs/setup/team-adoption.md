@@ -56,7 +56,7 @@ below is derived from it, and it is the headline artefact `unadopt` removes —
 **2. The default plugin set — a floor, never a ceiling.** `extraKnownMarketplaces`
 plus an `enabledPlugins` block in the repo's `.claude/settings.json`, derived
 from the lock. A contributor who clones the repo and trusts it arrives with
-`magpie-setup`, `magpie-utilities` and `magpie-agent-guard` already enabled —
+`magpie-setup`, `magpie-utilities`, `magpie-agent-guard` and `magpie-vetted-ops` already enabled —
 no install step, no instructions to follow — and it never blocks or limits
 installing more, or running a newer Magpie.
 

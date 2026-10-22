@@ -64,9 +64,10 @@ Two manifest families, because the ecosystems have not converged:
   relative path (`"./plugins/magpie-<family>"`), not a `{"source": "local",
   "path": …}` object, which is not a source type Claude Code documents
   (#1622).
-  The Codex catalogue lists the ten families only; `magpie-agent-guard` is
-  not in it, so Codex adopters install `magpie-setup` and
-  `magpie-utilities` (`codex plugin add <plugin>@apache-magpie`, #1556).
+  The Codex catalogue lists the ten families plus the `magpie-agent-guard`
+  and `magpie-vetted-ops` substrates (`codex plugin add
+  <plugin>@apache-magpie`, #1556). `magpie-setup` and `magpie-vetted-ops` are
+  `INSTALLED_BY_DEFAULT`; every other entry is `AVAILABLE`.
 
 `.codex-plugin/plugin.json` is **not** the manifest Codex reads for a root that
 also has an AP1 `plugin.json`. Codex takes the root `plugin.json` first when it

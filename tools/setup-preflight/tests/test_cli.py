@@ -383,7 +383,7 @@ def test_gemini_extension_below_floor_is_outdated_for_every_family(
     assert facts["missing"] == []
     assert facts["outdated"] == [
         {"plugin": name, "installed": "0.1.0", "floor": "0.2.0"}
-        for name in ("magpie-setup", "magpie-agent-guard")
+        for name in ("magpie-setup", "magpie-agent-guard", "magpie-vetted-ops")
     ]
 
 
@@ -433,7 +433,7 @@ def test_codex_envelope_reports_a_below_floor_install(project: Path, capsys, mon
     _, payload = run(capsys, "--skill", "magpie-x", "--project-root", str(project), "--no-cache")
     facts = next(f["facts"] for f in payload["findings"] if f["code"] == "below-floor")
     assert facts["harness"] == "codex"
-    assert facts["missing"] == []
+    assert facts["missing"] == ["magpie-vetted-ops"]
     assert facts["outdated"] == [{"plugin": "magpie-setup", "installed": "0.1.0", "floor": "0.2.0"}]
 
 

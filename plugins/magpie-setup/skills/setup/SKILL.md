@@ -20,9 +20,9 @@ when_to_use: >-
   to the `welcome-guide` skill.
 argument-hint: "[install|config|adopt|unadopt|upgrade|worktree-init|verify|reconcile|override skill-name|delegate [skill-name]|welcome|uninstall]"
 capability: capability:platform
-surface_hash: sha256:3b013fe37f239ba1
+surface_hash: sha256:714de5ff4d954590
 license: Apache-2.0
-measured_tokens: 4761
+measured_tokens: 4911
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -124,6 +124,11 @@ Where a repo genuinely needs the pin, the snapshot **replaces** the marketplace 
 
 Five rules bind only on the pinned-snapshot path — the lock files, drift remediation, `.gitignore`, copy-versus-symlink, and reloading `setup` after a self-update (rule 9).
 They are in [`snapshot-model.md`](snapshot-model.md) with the machinery they govern; a marketplace install is not subject to them.
+
+**Golden rule 11 — a missing vetted-ops policy never blocks a setup run.**
+A repo that has only installed Magpie has no `.apache-magpie-overrides/tools/vetted-ops/config.toml`, and a `vetted-op` call there fails with `no vetted-ops config at …`.
+During any `setup` sub-action, report that as **n/a** in one line and carry on with the remaining steps; never call it a blocker, never stop the run for it, and never write a policy to get past it.
+The exemption is this run's only: every other skill still stops when the dispatcher refuses, and a policy that exists but fails to load is a real error here too.
 
 ## Sub-actions
 

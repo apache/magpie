@@ -28,6 +28,14 @@ import pytest
 from setup_preflight.layers import personal_dir
 
 
+@pytest.fixture(autouse=True)
+def isolated_home(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A home of its own, so the user's real Claude Code settings never decide a test."""
+    home = tmp_path_factory.mktemp("home")
+    monkeypatch.setenv("HOME", str(home))
+    return home
+
+
 @pytest.fixture
 def project(tmp_path: Path) -> Path:
     """A git repository (a bare `.git/` directory is all the layers read)."""

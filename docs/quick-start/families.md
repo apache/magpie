@@ -14,12 +14,13 @@
 
 ## Start with the baseline
 
-Three plugins are the **strongly recommended** starting set. Take all three,
+Four plugins are the **strongly recommended** starting set. Take all four,
 then add families against a problem you have today:
 
 | Plugin | Why it is in the baseline |
 |---|---|
 | `magpie-setup` | **Install this one first — nothing else works without it.** It is what installs, upgrades, configures and adopts everything else, and it carries the secure-isolation skills that sandbox your agent. |
+| `magpie-vetted-ops` | **Always installed.** The dispatcher the family skills run their GitHub reads and writes through: fixed, checked operations instead of free-form `gh` commands. Not a family and no skills of its own, so it adds no always-on context. |
 | `magpie-agent-guard` | The deterministic pre-execution guard: a hook that inspects each shell command *before* it runs and denies the dangerous shapes outright. It is not a family and has no skills of its own — it is a safety net under whatever else you install. |
 | `magpie-utilities` | `list-skills`, so you can see what is actually installed, plus skill authoring and a path to report framework bugs upstream. Small, and the thing you reach for when something is not behaving. |
 

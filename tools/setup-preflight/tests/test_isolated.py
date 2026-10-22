@@ -205,3 +205,90 @@ def test_without_framework_source_the_shipped_constant_is_used(project: Path) ->
 def test_the_shipped_constant_matches_the_framework_tree() -> None:
     """The prek hook keeps this in sync; a failure means it was bypassed."""
     assert isolated.shipped() == isolated.compute(REPO_ROOT)
+
+
+def test_nothing_configured_is_not_configured(project: Path) -> None:
+    assert isolated.configured(project) is False
+
+
+def test_a_sandbox_in_the_user_settings_is_configured(project: Path, isolated_home: Path) -> None:
+    """The whole-user install scope leaves no trace in the project."""
+    (isolated_home / ".claude").mkdir()
+    (isolated_home / ".claude" / "settings.json").write_text('{"sandbox": {"enabled": true}}')
+    assert isolated.configured(project) is True
+
+
+def test_a_sandbox_in_the_project_settings_is_configured(project: Path) -> None:
+    (project / ".claude").mkdir()
+    (project / ".claude" / "settings.local.json").write_text('{"sandbox": {"enabled": true}}')
+    assert isolated.configured(project) is True
+
+
+def test_unreadable_user_settings_are_not_configured(project: Path, isolated_home: Path) -> None:
+    (isolated_home / ".claude").mkdir()
+    (isolated_home / ".claude" / "settings.json").write_text("{not json")
+    assert isolated.configured(project) is False
+
+
+def test_the_configured_action_prints_json(project: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert isolated.main(["configured", "--project-root", str(project)]) == 0
+    assert json.loads(capsys.readouterr().out) == {"configured": False}
+
+
+def adopt(root: Path, project_md: str = "") -> None:
+    (root / ".apache-magpie.lock").write_text("method: marketplace\nurl: apache/magpie\n")
+    (root / ".apache-magpie-overrides").mkdir(exist_ok=True)
+    (root / ".apache-magpie-overrides" / "project.md").write_text(project_md)
+
+
+def test_session_start_warns_while_unconfigured(project: Path) -> None:
+    adopt(project)
+    out = json.loads(isolated.session_start(project, "plugin 1.0 is active"))
+    assert out["systemMessage"] == isolated.UNCONFIGURED_WARNING
+    context = out["hookSpecificOutput"]["additionalContext"]
+    assert context.startswith("plugin 1.0 is active\n\n")
+    assert isolated.UNCONFIGURED_CONTEXT in context
+
+
+def test_session_start_warns_from_a_subdirectory(project: Path) -> None:
+    adopt(project)
+    (project / "src").mkdir()
+    assert "systemMessage" in json.loads(isolated.session_start(project / "src"))
+
+
+def test_the_warning_says_what_matters() -> None:
+    """Optional for a trial, recommended for longer use, the consequences, and the untrusted-content warning."""
+    text = isolated.UNCONFIGURED_WARNING
+    for phrase in (
+        "do not need it to try Magpie out",
+        "/magpie-setup:isolated-setup-install",
+        "prompt injection",
+        "credentials",
+        "do not use Magpie on untrusted content",
+    ):
+        assert phrase in text
+
+
+def test_no_warning_in_a_repository_that_has_not_adopted(project: Path) -> None:
+    assert isolated.session_start(project, "plugin 1.0 is active") == "plugin 1.0 is active"
+
+
+def test_no_warning_when_the_project_opted_out(project: Path) -> None:
+    adopt(project, "isolated_setup_update_interval_days: 7\nisolation_warning: off\n")
+    assert isolated.session_start(project) == ""
+
+
+def test_a_personal_layer_cannot_opt_out_for_the_project(project: Path) -> None:
+    adopt(project)
+    local = personal(project)
+    local.mkdir(parents=True, exist_ok=True)
+    (local / "project.md").write_text("isolation_warning: off\n")
+    assert "systemMessage" in json.loads(isolated.session_start(project))
+
+
+def test_session_start_passes_the_notice_through_once_configured(project: Path) -> None:
+    adopt(project)
+    (project / ".claude").mkdir()
+    (project / ".claude" / "settings.json").write_text('{"sandbox": {"enabled": true}}')
+    assert isolated.session_start(project, "plugin 1.0 is active") == "plugin 1.0 is active"
+    assert isolated.session_start(project) == ""

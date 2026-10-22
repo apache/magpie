@@ -74,12 +74,13 @@ in the agent you already use. Nothing is written to your repository.
 ```text
 /plugin marketplace add apache/magpie                # Claude Code
 /plugin install magpie-setup@apache-magpie           # install this one first
+/plugin install magpie-vetted-ops@apache-magpie      # always: the skills run on it
 /plugin install magpie-agent-guard@apache-magpie     # the baseline:
-/plugin install magpie-utilities@apache-magpie       #   take all three
+/plugin install magpie-utilities@apache-magpie       #   take all four
 /plugin install magpie-pr-management@apache-magpie   # + the families you need
 ```
 
-Those first three are the **baseline** — and the same set a project commits as
+Those first four are the **baseline** — and the same set a project commits as
 its floor when it adopts Magpie, so taking them is taking what a project would
 recommend to every contributor. After that, install **one plugin per family you
 actually want**: every installed skill costs context on every turn, used or

@@ -12,6 +12,10 @@
     [
       "magpie-setup",
       "0.3.0"
+    ],
+    [
+      "magpie-vetted-ops",
+      "0.3.0"
     ]
   ]
 }
