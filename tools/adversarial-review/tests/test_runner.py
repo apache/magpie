@@ -104,18 +104,27 @@ def test_timeout_kills_the_whole_process_group(stub_bin, tmp_path):
 
 def test_reviewers_run_in_parallel_and_keep_order(stub_bin, tmp_path):
     bin_dir, make = stub_bin
-    make("codex", "import time; time.sleep(3)\n" + CODEX_OK)
+
+    # Each stub records when it was running. A total wall-clock bound failed
+    # on a loaded machine (pytest-xdist workers, pre-commit), so the test
+    # checks the two runs overlapped instead.
+    def timed(name: str, body: str) -> str:
+        log = tmp_path / f"{name}.times"
+        return (
+            f"import time; s = time.time(); time.sleep(3)\n"
+            f"open({str(log)!r}, 'w').write(f'{{s}} {{time.time()}}')\n" + body
+        )
+
+    make("codex", timed("codex", CODEX_OK))
     make(
         "gemini",
-        "import json, time; time.sleep(3)\nprint(json.dumps({'response': json.dumps({'findings': []})}))\n",
+        timed("gemini", "import json\nprint(json.dumps({'response': json.dumps({'findings': []})}))\n"),
     )
     contexts = {n: ctx(tmp_path, n) for n in ("gemini", "codex")}
-    start = time.monotonic()
     results = run_all(["gemini", "codex"], contexts, 30, {"PATH": str(bin_dir)})
-    # One after the other they take 6 s; the 2.5 s left over is for starting
-    # both stubs on a loaded machine (a 1.3 s margin failed under pre-commit).
-    assert time.monotonic() - start < 5.5
     assert [(r.reviewer, r.status) for r in results] == [("gemini", "ok"), ("codex", "ok")]
+    spans = [tuple(map(float, (tmp_path / f"{n}.times").read_text().split())) for n in ("gemini", "codex")]
+    assert max(start for start, _ in spans) < min(end for _, end in spans)
 
 
 def test_one_timeout_does_not_block_the_others(stub_bin, tmp_path):

@@ -19,9 +19,10 @@
 
 A member gets pytest when it has a `[tool.pytest.ini_options]` section and does
 not opt out with `[tool.magpie.checks] skip = [..., "pytest"]` — the same rule
-as `tools/dev/run-workspace-check.sh`. On a pull request only the members whose
-Python or `tests/` files changed are picked, unless a shared build input changed;
-on any other event every member is.
+as `tools/dev/run-workspace-check.sh`. On a pull request only the members with a
+changed file other than Markdown (directly or through a symlinked source) are
+picked, together with every member that depends on one of them, unless
+a shared build input changed; on any other event every member is.
 
 Most of a pytest job is setup (checkout, uv, a workspace sync), so the picked
 members are grouped:
@@ -35,18 +36,25 @@ Prints a JSON array of `{"key", "name", "paths", "packages"}` for the workflow's
 matrix (`paths` and `packages` space-separated, in the same order; `packages` are
 the members' project names, so a job syncs only what its members declare).
 `--changed-file` names a file listing the changed paths; omit it for a full run.
+`--paths` prints the picked member paths one per line instead, for the local
+`workspace-pytest` hook, so a commit runs the same members a pull request would.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
+import re
 import sys
 import tomllib
 from pathlib import Path
 
 SOLO_MAX = 6
 MAX_BATCHES = 8
+
+#: The shared toolchain every member's `dev` group lists; not a dependency to follow.
+TOOLCHAIN = "magpie-dev"
 
 # A change to any of these can affect every member's tests.
 GLOBAL = frozenset(
@@ -68,17 +76,95 @@ def has_pytest(root: Path, path: str) -> bool:
     return "pytest" not in tool.get("magpie", {}).get("checks", {}).get("skip", [])
 
 
-def member_changed(path: str, changed: list[str]) -> bool:
-    """A `.py` file anywhere under the member, or any file under its `tests/`."""
-    prefix, tests = path + "/", path + "/tests/"
-    return any(c.startswith(prefix) and (c.endswith(".py") or c.startswith(tests)) for c in changed)
+def find_linked_sources(root: Path, path: str) -> list[str]:
+    """Repo-relative targets of the directory symlinks under a member.
+
+    A member such as `tools/setup-preflight` tests code that lives elsewhere in
+    the tree through a `src/` symlink; a change at the target is a change to
+    the member.
+    """
+    resolved_root = root.resolve()
+    linked = []
+    for current, dirs, _ in os.walk(root / path):
+        dirs[:] = [d for d in dirs if not d.startswith(".") and d != "node_modules"]
+        for name in dirs:
+            entry = Path(current) / name
+            if not entry.is_symlink():
+                continue
+            try:
+                linked.append(entry.resolve().relative_to(resolved_root).as_posix())
+            except ValueError:
+                continue
+    return sorted(linked)
+
+
+def member_changed(path: str, changed: list[str], linked: list[str] | None = None) -> bool:
+    """Any file under the member or its linked sources, but Markdown and plugin manifests.
+
+    Not only Python: tests also run shell scripts and read data files beside
+    the code (`tools/agent-isolation` tests `agent-iso.sh`). A dev-version bump
+    rewrites every `.claude-plugin/plugin.json`, which no member's tests read;
+    the `check-family-plugins` hook checks them.
+    """
+    prefixes = tuple(p + "/" for p in [path, *(linked or [])])
+    return any(
+        c.startswith(prefixes) and not c.endswith(".md") and "/.claude-plugin/" not in c for c in changed
+    )
+
+
+def _normalize(name: str) -> str:
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+def find_dependents(root: Path, paths: list[str]) -> dict[str, set[str]]:
+    """Map each member to the members that depend on it, at runtime or in a dependency group.
+
+    Groups count because a test-only dependency is still exercised by the
+    dependent's tests (`release-management` tests run `release-config`).
+    `TOOLCHAIN` does not: every member lists it in its `dev` group for the shared
+    toolchain, and following it would turn any change under `tools/dev` into a
+    full run.
+    """
+    pyprojects = {}
+    for path in paths:
+        with (root / path / "pyproject.toml").open("rb") as f:
+            pyprojects[path] = tomllib.load(f)
+    by_name = {
+        _normalize(data["project"]["name"]): path
+        for path, data in pyprojects.items()
+        if "name" in data.get("project", {})
+    }
+    by_name.pop(TOOLCHAIN, None)
+    dependents: dict[str, set[str]] = {path: set() for path in paths}
+    for path, data in pyprojects.items():
+        project = data.get("project", {})
+        requirements = list(project.get("dependencies", []))
+        for extra in project.get("optional-dependencies", {}).values():
+            requirements += extra
+        for group in data.get("dependency-groups", {}).values():
+            requirements += [r for r in group if isinstance(r, str)]
+        for requirement in requirements:
+            target = by_name.get(_normalize(re.split(r"[\s\[<>=!~;@(]", requirement, maxsplit=1)[0]))
+            if target is not None and target != path:
+                dependents[target].add(path)
+    return dependents
 
 
 def select(root: Path, changed: list[str] | None) -> list[str]:
+    """The members to test: those a change touches, plus every member depending on them."""
     with (root / "pyproject.toml").open("rb") as f:
         paths = tomllib.load(f)["tool"]["uv"]["workspace"]["members"]
-    run_all = changed is None or any(c in GLOBAL for c in changed)
-    picked = [p for p in paths if has_pytest(root, p) and (run_all or member_changed(p, changed or []))]
+    if changed is None or any(c in GLOBAL for c in changed):
+        affected = set(paths)
+    else:
+        affected = {p for p in paths if member_changed(p, changed, find_linked_sources(root, p))}
+        dependents = find_dependents(root, paths)
+        pending = list(affected)
+        while pending:
+            for dependent in dependents[pending.pop()] - affected:
+                affected.add(dependent)
+                pending.append(dependent)
+    picked = [p for p in paths if p in affected and has_pytest(root, p)]
     return sorted(picked, key=lambda p: p.rsplit("/", 1)[-1])
 
 
@@ -124,6 +210,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--root", type=Path, default=Path("."))
     parser.add_argument("--changed-file", type=Path, help="file listing a pull request's changed paths")
+    parser.add_argument("--paths", action="store_true", help="print the picked member paths, one per line")
     args = parser.parse_args(argv)
     changed = None
     if args.changed_file:
@@ -133,6 +220,10 @@ def main(argv: list[str] | None = None) -> int:
             if line.strip()
         ]
     paths = select(args.root, changed)
+    if args.paths:
+        for path in paths:
+            print(path)
+        return 0
     out = batches(paths, {p: weight(args.root, p) for p in paths})
     for batch in out:
         batch["packages"] = " ".join(package(args.root, p) for p in batch["paths"].split())

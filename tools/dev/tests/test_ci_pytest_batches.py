@@ -74,6 +74,9 @@ def test_only_members_with_pytest_and_no_opt_out_are_picked(tmp_path):
         (["tools/a/src/x.py"], ["tools/a"]),
         (["tools/a/tests/fixtures/data.json"], ["tools/a"]),
         (["tools/a/README.md"], []),
+        (["tools/a/scripts/run.sh"], ["tools/a"]),
+        (["tools/a/pyproject.toml"], ["tools/a"]),
+        (["tools/a/.claude-plugin/plugin.json"], []),
         (["uv.lock"], ["tools/a", "tools/b"]),
         (["tools/dev/ci-pytest-batches.py"], ["tools/a", "tools/b"]),
         ([], []),
@@ -82,6 +85,62 @@ def test_only_members_with_pytest_and_no_opt_out_are_picked(tmp_path):
 def test_a_pull_request_picks_only_what_it_changed(tmp_path, changed, picked):
     root = _workspace(tmp_path, {"tools/a": PYTEST, "tools/b": PYTEST})
     assert cpb.select(root, changed) == picked
+
+
+def test_a_change_behind_a_member_symlink_picks_the_member(tmp_path):
+    root = _workspace(tmp_path, {"tools/a": PYTEST, "tools/b": PYTEST})
+    (root / "plugins" / "shared").mkdir(parents=True)
+    (root / "tools" / "a" / "src").mkdir()
+    (root / "tools" / "a" / "src" / "shared").symlink_to(root / "plugins" / "shared")
+    assert cpb.select(root, ["plugins/shared/x.py"]) == ["tools/a"]
+
+
+@pytest.mark.parametrize(
+    ("changed", "picked"),
+    [
+        (["tools/c/src/z.py"], ["tools/a", "tools/b", "tools/c"]),
+        (["tools/b/src/y.py"], ["tools/a", "tools/b"]),
+        (["tools/a/src/x.py"], ["tools/a"]),
+    ],
+)
+def test_a_change_picks_the_members_depending_on_it(tmp_path, changed, picked):
+    root = _workspace(
+        tmp_path,
+        {
+            "tools/a": '[project.optional-dependencies]\nall = ["pkg-b>=1"]\n' + PYTEST,
+            "tools/b": 'dependencies = ["Pkg_C"]\n' + PYTEST,
+            "tools/c": PYTEST,
+        },
+    )
+    assert cpb.select(root, changed) == picked
+
+
+def test_a_dependency_group_makes_a_dependent(tmp_path):
+    root = _workspace(
+        tmp_path,
+        {"tools/a": '[dependency-groups]\ndev = ["pkg-b"]\n' + PYTEST, "tools/b": PYTEST},
+    )
+    assert cpb.select(root, ["tools/b/src/y.py"]) == ["tools/a", "tools/b"]
+
+
+def test_the_shared_toolchain_does_not_make_a_dependent(tmp_path):
+    root = _workspace(
+        tmp_path,
+        {
+            "tools/a": '[dependency-groups]\ndev = ["magpie-dev"]\n' + PYTEST,
+            "tools/dev": PYTEST,
+        },
+    )
+    (root / "tools" / "dev" / "pyproject.toml").write_text('[project]\nname = "magpie-dev"\n' + PYTEST)
+    assert cpb.select(root, ["tools/dev/src/z.py"]) == ["tools/dev"]
+
+
+def test_the_cli_prints_the_picked_paths(tmp_path, capsys):
+    root = _workspace(tmp_path, {"tools/a": PYTEST, "tools/b": PYTEST})
+    changed = tmp_path / "changed.txt"
+    changed.write_text("tools/a/src/x.py\ntools/b/tests/test_y.py\n")
+    assert cpb.main(["--root", str(root), "--changed-file", str(changed), "--paths"]) == 0
+    assert capsys.readouterr().out == "tools/a\ntools/b\n"
 
 
 def test_up_to_solo_max_members_get_one_job_each_named_after_the_member():

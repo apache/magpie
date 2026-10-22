@@ -42,7 +42,7 @@ requires-python = ">=3.11"
 # - `prek` is the static-check / pre-commit runner. CI installs it
 #   via `uv sync --group dev` and invokes `uv run prek …`.
 # - `magpie-dev` (tools/dev) carries the shared static-analysis +
-#   test toolchain — ruff, mypy, pytest — declared in ONE place and
+#   test toolchain — ruff, mypy, pytest, pytest-xdist — declared in ONE place and
 #   depended on by every workspace member's own `dev` group, so each
 #   sub-project's environment is still self-contained. The workspace
 #   checks run each tool against the member's own project via

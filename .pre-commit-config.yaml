@@ -658,9 +658,18 @@ repos:
       - id: workspace-pytest
         name: pytest (workspace)
         language: system
-        entry: tools/dev/run-workspace-check.sh pytest "pytest --color=yes"
-        files: ^(tools/[^/]+(/[^/]+)?/(src|tests|pyproject\.toml)|pyproject\.toml|tools/dev/run-workspace-check\.sh)
-        pass_filenames: false
+        entry: tools/dev/run-workspace-check.sh pytest "pytest --color=yes -n auto"
+        # Each member's tests run in parallel (`pytest-xdist`, from the
+        # shared `magpie-dev` toolchain). Only the members the changed
+        # files touch run, with the members depending on them
+        # (`tools/dev/ci-pytest-batches.py`); the root `pyproject.toml`,
+        # `uv.lock` and the plugin manifests are left out so a
+        # dev-version bump runs nothing. CI's `tests` workflow still runs
+        # them all when either root file changes. Serial, so one
+        # invocation sees every file.
+        files: ^(tools|plugins|ai-tutors)/
+        exclude: (\.md$|/\.claude-plugin/)
+        require_serial: true
       # Skills' sibling scripts (plugins/*/skills/*/scripts) are not
       # workspace members; their stdlib unittest suites run here.
       - id: skill-script-tests

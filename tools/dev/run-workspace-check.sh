@@ -38,6 +38,12 @@
 # may be a multi-token string (e.g. "ruff check") quoted as a
 # single argv item.
 #
+# For `pytest`, any further arguments are the changed files (the
+# `workspace-pytest` hook passes them): only the members those files
+# touch run, picked by `tools/dev/ci-pytest-batches.py`, the same
+# selection a pull request's `tests` workflow makes. With no files
+# every applicable member runs.
+#
 # Per-member opt-out: a workspace member can skip one or more
 # checks by adding a `[tool.magpie.checks]` block:
 #
@@ -48,7 +54,7 @@
 #   tools/dev/run-workspace-check.sh ruff        "ruff check"
 #   tools/dev/run-workspace-check.sh ruff-format "ruff format --check"
 #   tools/dev/run-workspace-check.sh mypy        mypy
-#   tools/dev/run-workspace-check.sh pytest      "pytest --color=yes"
+#   tools/dev/run-workspace-check.sh pytest      "pytest --color=yes -n auto"
 #
 # Exit code: 0 iff the check succeeded on every applicable
 # member; 1 otherwise. The script does NOT short-circuit on the
@@ -151,6 +157,17 @@ PY
 status=$?
 if [ "$status" -ne 0 ]; then
   exit "$status"
+fi
+
+if [ "$CHECK_KEY" = "pytest" ] && [ "$#" -gt 0 ]; then
+  # The list goes through stdin, not a temp file: a sandboxed agent may
+  # not be able to write the system temp directory.
+  applicable=$(printf '%s\n' "$@" | python3 tools/dev/ci-pytest-batches.py --changed-file /dev/stdin --paths)
+  status=$?
+  if [ "$status" -ne 0 ]; then
+    exit "$status"
+  fi
+  set --
 fi
 
 if [ -z "$applicable" ]; then
