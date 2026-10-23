@@ -5,7 +5,8 @@ The repo is a main checkout with no `.apache-magpie.lock`. The running agent is
 Claude Code.
 
 `claude plugin list --json` reports magpie-setup 0.3.0, magpie-utilities 0.3.0,
-magpie-agent-guard 0.3.0 and magpie-pr-management 0.3.0, all from the
+magpie-agent-guard 0.3.0, magpie-vetted-ops 0.3.0 and magpie-pr-management 0.3.0,
+all from the
 `apache-magpie` marketplace.
 
 The maintainer was shown the seeded floor and its always-on context cost, asked

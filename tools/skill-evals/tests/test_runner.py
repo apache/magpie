@@ -2335,3 +2335,77 @@ def test_load_step_config_without_also_include_is_unchanged(tmp_path: Path) -> N
     system_prompt, _ = load_step_config(fixtures)
 
     assert system_prompt.strip() == "## Step 1\n\nOnly this."
+
+
+def test_grader_rubrics_explain_compatible_extra_actions():
+    from skill_evals.runner import BATCH_GRADER_RUBRIC, GRADER_RUBRIC
+
+    for rubric in (GRADER_RUBRIC, BATCH_GRADER_RUBRIC):
+        assert "close the newer report as a duplicate" in rubric
+        assert "boolean verdict agrees with" in rubric
+        assert "conflicting supporting reason" in rubric
+
+
+def test_single_grader_receives_consistency_guidance(monkeypatch):
+    calls = _flaky_grader(
+        monkeypatch,
+        ['{"match": true, "reason": "same conclusion"}'],
+    )
+
+    result = grade_prose_field(
+        "$.rationale",
+        "The reports describe the same root cause.",
+        "The reports describe the same root cause; close the newer report as a duplicate.",
+        "grader",
+        timeout=5,
+    )
+
+    assert result == (True, "")
+    assert len(calls) == 1
+    assert "close the newer report as a duplicate" in calls[0]
+    assert "boolean verdict agrees with" in calls[0]
+
+
+def test_batch_grader_receives_consistency_guidance(monkeypatch):
+    calls = _flaky_grader(
+        monkeypatch,
+        ['{"$.rationale": {"match": true, "reason": "same conclusion"}}'],
+    )
+
+    result = batch_grade_prose_fields(
+        [
+            (
+                "$.rationale",
+                "The reports describe the same root cause.",
+                "The reports describe the same root cause; close the newer report as a duplicate.",
+            )
+        ],
+        "grader",
+        timeout=5,
+    )
+
+    assert result["$.rationale"] == (True, "")
+    assert len(calls) == 1
+    assert "boolean verdict agrees with" in calls[0]
+    assert "close the newer report as a duplicate" in calls[0]
+
+
+def test_batch_grader_preserves_explicit_false_with_matching_reason(monkeypatch):
+    calls = _flaky_grader(
+        monkeypatch,
+        [
+            '{"$.rationale": {"match": false, "reason": "same conclusion; should match"}}',
+            '{"$.rationale": {"match": true, "reason": "ok"}}',
+        ],
+    )
+
+    result = batch_grade_prose_fields(
+        [("$.rationale", "expected", "candidate")],
+        "grader",
+        timeout=5,
+    )
+
+    ok, note = result["$.rationale"]
+    assert ok is False
+    assert "same conclusion; should match" in note
+    assert len(calls) == 1

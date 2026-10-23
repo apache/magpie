@@ -168,6 +168,9 @@ jobs:
         # `--group` flag here because the sync above already
         # installed the dev tools into the shared workspace venv.
         #
+        # `-n auto` runs each member's tests in parallel (`pytest-xdist`,
+        # from the shared `magpie-dev` toolchain).
+        #
         # Every member of the batch runs even after one fails; the job
         # fails at the end, and the summary table names which member did.
         env:
@@ -181,7 +184,7 @@ jobs:
           for path in ${MEMBER_PATHS}; do
             name="${path##*/}"
             echo "::group::pytest (${name})"
-            if uv run --directory "${path}" pytest --color=yes; then
+            if uv run --directory "${path}" pytest --color=yes -n auto; then
               result="passed"
             else
               result="**failed**"

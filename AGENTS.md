@@ -461,11 +461,25 @@ line:
 test -x .git/hooks/pre-commit || prek install
 ```
 
-**Before opening or updating a PR, run `prek run --all-files`** as a
-hard pre-flight gate. The commit hook only sees the files in that
-commit, so issues in files committed earlier on the branch can slip
-past it; and the PR's CI run is scoped to the PR's diff, so a file the
-branch did not touch but broke anyway (a moved anchor, a renamed
+**Before opening or updating a PR, run every hook but the tests on every
+file, then the tests for what the branch changed**, as a hard pre-flight
+gate:
+
+```bash
+prek run --all-files --skip workspace-pytest
+prek run workspace-pytest --from-ref origin/main --to-ref HEAD
+```
+
+The second run tests only the workspace members with a file the branch
+changed (Markdown and plugin manifests aside), and every member that depends
+on one of them (`tools/dev/ci-pytest-batches.py` picks them, as the PR's
+`tests` workflow does). Do not run the whole suite locally (`prek run --all-files`
+with the tests included) unless asked: a change to a root build input such
+as `uv.lock` already gets a full run in CI.
+
+The commit hook only sees the files in that commit, so issues in files
+committed earlier on the branch can slip past it; and the PR's CI run is
+scoped to the PR's diff, so a file the branch did not touch but broke anyway (a moved anchor, a renamed
 heading, a hook whose config changed) goes green on the PR and fails on
 the `main` build after merge. A whole-tree run locally mirrors that
 `main` build and surfaces both classes before you push. If a hook modifies

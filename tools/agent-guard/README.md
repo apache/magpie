@@ -181,6 +181,10 @@ guard is active in it the moment the plugin is installed.
 Skill-owned guards work the same way: the engine discovers every
 `skills/<skill>/guards` in the framework tree it is running from, so a skill's
 guards take effect where they live and nothing collects or syncs them.
+A marketplace install has no such tree — it caches each plugin on its own, as
+`<marketplace>/<plugin>/<version>/` — so the engine scans the
+`skills/*/guards` of the family plugins installed beside its own, at its own
+version (they are released together), else at their most recently installed one.
 
 The guard is its own plugin rather than a hook on `magpie` or on each family
 plugin because Claude Code merges hooks from **every** enabled plugin — wiring it
@@ -490,7 +494,9 @@ for Claude Code setups — the file is the same and works for all three modes).
 The hook is **wired once**. Beyond the two bundled guards, additional guards are
 discovered at runtime from every `*.py` in a discovered guard directory — any
 directory listed in `$MAGPIE_GUARD_DIRS` (colon-separated), then every
-`skills/*/guards` in the framework tree the engine runs from, then the
+`plugins/*/skills/*/guards` and `skills/*/guards` in the framework tree the
+engine runs from (or, from a marketplace install, in the family plugins cached
+beside it), then the
 `guards.d` sibling of the running script. **No `settings.json` change and no
 install step is needed to add a guard.**
 

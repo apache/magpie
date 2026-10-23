@@ -1,0 +1,8 @@
+{
+  "check_ids": [
+    "P1-tiny-jobs"
+  ],
+  "needs_asf_yaml_change": true,
+  "experimental_recommended": false,
+  "injection_flagged": false
+}

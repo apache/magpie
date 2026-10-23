@@ -1,4 +1,4 @@
 {
   "shape": "B",
-  "rationale": "The script has clear logic but is missing imports (BashOperator, DAG definition) and a main entry point — minor additions would make it runnable."
+  "rationale": "The snippet has clear logic but lacks the BashOperator import and a definition of dag; minor additions would make it runnable."
 }

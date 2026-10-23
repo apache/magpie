@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:ce33cb9437d44992
 license: Apache-2.0
-measured_tokens: 6614
+measured_tokens: 6662
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -149,6 +149,7 @@ Walk each in order:
 
 9. **The vetted-ops split and exclusion.** Only when the adopter routes forge operations through the `vetted-ops` dispatcher.
    No `.apache-magpie-overrides/tools/vetted-ops/config.toml` and no `vetted-op` rule → report **n/a** and move on.
+   The sandbox not enabled → **n/a** as well: install Step V skips the bypass without it, so every vetted operation keeps its prompt; a `vetted-op-read` allow rule or exclusion present anyway is ✗.
    Otherwise:
    [`conditional-checks.md`](conditional-checks.md#check-9--the-vetted-ops-split-and-exclusion).
 

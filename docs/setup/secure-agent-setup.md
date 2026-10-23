@@ -3642,6 +3642,11 @@ The default is `7`.
 To turn both off on a machine that does not use the isolated setup, set `"isolated_setup": {"enabled": false}` in `reconciled.json` in your personal layer.
 The personal layer is `<git-common-dir>/apache-magpie/` when Magpie is only installed, `.apache-magpie-local/` when the project has adopted it.
 
+**The session-start warning.**
+In a repository that has adopted Magpie, `magpie-setup`'s session-start hook warns once per session when this machine has no isolated setup:
+trying Magpie out does not need it, but the skills read pull requests, issues and mail written by other people, and without the sandbox an injected instruction runs with your full access.
+A project turns the warning off for every contributor with `isolation_warning: off` under `setup:` in `.apache-magpie-overrides/project.md`, which `adopt` asks about; a personal layer cannot turn it off.
+
 **Running it now.**
 Invoke the skill directly at any time: `/magpie-setup:isolated-setup-update` on a marketplace install, `/magpie-setup-isolated-setup-update` on a pinned snapshot.
 The pre-flight state is recorded when the run finishes, so a manual run also resets the timer.

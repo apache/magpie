@@ -5,7 +5,7 @@ The project uses the trusted apache/magpie marketplace, requires version
 0.3.0 of magpie-setup and magpie-agent-guard, and has project.md configured.
 The running agent is Claude Code, but its `claude` executable is missing
 from PATH. The operator supplied a previously captured listing using
-`--plugin-list`: both plugins were installed at 0.2.0. The checker therefore
+`--plugin-list`: both plugins were installed at 0.2.0, beside magpie-vetted-ops at 0.3.0. The checker therefore
 knows the floor is unmet even though no update command can run here.
 The invoking skill is already reconciled to `sha256:2edc90a1b7f3440d`.
 

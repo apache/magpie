@@ -64,9 +64,10 @@ Two manifest families, because the ecosystems have not converged:
   relative path (`"./plugins/magpie-<family>"`), not a `{"source": "local",
   "path": …}` object, which is not a source type Claude Code documents
   (#1622).
-  The Codex catalogue lists the ten families only; `magpie-agent-guard` is
-  not in it, so Codex adopters install `magpie-setup` and
-  `magpie-utilities` (`codex plugin add <plugin>@apache-magpie`, #1556).
+  The Codex catalogue lists the ten families plus the `magpie-agent-guard`
+  and `magpie-vetted-ops` substrates (`codex plugin add
+  <plugin>@apache-magpie`, #1556). `magpie-setup` and `magpie-vetted-ops` are
+  `INSTALLED_BY_DEFAULT`; every other entry is `AVAILABLE`.
 
 `.codex-plugin/plugin.json` is **not** the manifest Codex reads for a root that
 also has an AP1 `plugin.json`. Codex takes the root `plugin.json` first when it
@@ -174,6 +175,10 @@ adopter-facing page.
   the manifest, with the engine resolved through
   `${GROK_PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}` so Claude Code and Grok Build
   share one registration.
+  With no framework tree above it in the plugin cache, the engine discovers
+  skill-owned guards in the sibling family plugins cached as
+  `<marketplace>/<plugin>/<version>/`, preferring each one's copy at the
+  engine's own version, else its most recently installed one.
   The others are the `SessionStart` hooks of vetted-ops (`tools/vetted-ops/hooks/link-stable-path.sh`,
   #1406) and adversarial-review (`tools/adversarial-review/hooks/link-stable-path.sh`),
   which point the fixed paths `~/.claude/magpie/vetted-ops` and

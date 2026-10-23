@@ -53,7 +53,7 @@ Magpie**. The [pinned snapshot install](../quick-start/other-install-methods.md)
 for the cases it does not cover.
 
 > [!IMPORTANT]
-> A marketplace install drops the 80 skills into your agent and is complete
+> A marketplace install drops the 81 skills into your agent and is complete
 > for day-to-day use. What it does **not** set up on its own is the
 > repo-side machinery — the committed pin, the gitignored snapshot, drift
 > detection, agentic overrides — or the secure-agent setup, which you run
@@ -135,7 +135,9 @@ never the advice, because every installed skill costs context on every turn
 whether you use it or not.
 
 Two further entries in the catalog are **substrate plugins**, which ship tooling
-rather than skills and are installed independently of the choice below:
+rather than skills and are installed independently of the choice below
+(`magpie-vetted-ops` always — the family skills run on it — and
+`magpie-agent-guard` as part of the recommended baseline):
 `magpie-agent-guard` (a `PreToolUse` hook that denies shell commands breaking a
 hard framework rule) and `magpie-vetted-ops` (a dispatcher for fixed,
 policy-scoped forge operations, so a session needs one allowlist entry instead
@@ -162,7 +164,7 @@ can say so, because it is the floor everything else is managed from.
 | `magpie-release-management` | 10 | ~0.8k |
 | `magpie-pr-management` | 9 | ~1.0k |
 | `magpie-issue` | 8 | ~0.7k |
-| `magpie-repo-health` | 7 | ~0.6k |
+| `magpie-repo-health` | 8 | ~0.7k |
 | `magpie-utilities` | 5 | ~0.4k |
 | `magpie-contributor-growth` | 9 | ~0.6k |
 | `magpie-mentoring` | 4 | ~0.4k |
@@ -534,7 +536,8 @@ everyone who trusts the repo:
   "enabledPlugins": {
     "magpie-setup@apache-magpie": true,
     "magpie-utilities@apache-magpie": true,
-    "magpie-agent-guard@apache-magpie": true
+    "magpie-agent-guard@apache-magpie": true,
+    "magpie-vetted-ops@apache-magpie": true
   }
 }
 ```
@@ -546,7 +549,7 @@ everyone who trusts the repo:
 > for teammates, never a prerequisite, and declining leaves a complete,
 > working install.
 
-Three plugins, for two different reasons.
+Four plugins, for three different reasons.
 
 `setup` and `utilities` are the framework's two **always-on families** — the
 same pair the pinned-snapshot install wires unconditionally, with no way to ask
@@ -565,6 +568,15 @@ install guards nothing: it costs no always-on context — it is a hook, not
 skills — and it is most valuable in exactly the sessions where nobody was
 thinking about it. It only ever *denies*, so the failure mode of having it on
 is a blocked command with a stated reason, not a silent action.
+
+`magpie-vetted-ops` is the other substrate plugin, and the one entry that is
+never optional: the family skills run their forge reads and writes through its
+dispatcher, so without it they cannot run at all. Like the guard it adds no
+always-on context. Every skill's pre-flight treats it as part of the floor even
+when an older lock omits it. Installing it grants nothing: the permission rules
+that let its read dispatcher run without a prompt are wired by the
+[isolated setup](secure-agent-setup.md), and only where the sandbox is
+configured. Without the sandbox every vetted operation keeps its prompt.
 
 > [!NOTE]
 > The guard runs from the installed plugin, so no repository or worktree needs

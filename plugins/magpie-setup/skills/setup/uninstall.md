@@ -370,10 +370,10 @@ If `.claude/settings.json` commits the block described in
   `.apache-magpie.lock`'s `plugins` list, in floor order, each as
   `<plugin>@apache-magpie`. That list is **seeded** with
   `magpie-setup@apache-magpie`, `magpie-utilities@apache-magpie`,
-  `magpie-agent-guard@apache-magpie`, in that order; a project whose
-  maintainers enlarged the floor has more, so read the lock rather than
-  assuming a count. (No lock to read — the project un-adopted but kept the
-  block — leaves the seeded three.) Keep every other entry untouched,
+  `magpie-agent-guard@apache-magpie`, `magpie-vetted-ops@apache-magpie`,
+  in that order; a project whose maintainers enlarged the floor has more,
+  so read the lock rather than assuming a count. (No lock to read — the
+  project un-adopted but kept the block — leaves the seeded four.) Keep every other entry untouched,
   whether it is a Magpie plugin outside the floor or another vendor's
   plugin.
 - Delete the `apache-magpie` entry from `extraKnownMarketplaces`. Keep any
