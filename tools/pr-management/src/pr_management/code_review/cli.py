@@ -341,7 +341,7 @@ def _disposition(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any]
                 f"pr-management: {thread_id!r} is not an unresolved outdated thread on PR {args.pr}"
             )
     resolve_first = [
-        {k: v for k, v in outdated[i].items() if k != "comment_untrusted"}
+        {k: v for k, v in outdated[i].items() if not k.endswith("_untrusted")}
         for i in dict.fromkeys(args.addressed_thread)
     ]
     result = disposition.pick(

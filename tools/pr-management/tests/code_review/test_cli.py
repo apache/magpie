@@ -378,3 +378,35 @@ def test_addressed_thread_must_be_outdated_and_unresolved(
         _disposition(capsys, project, saved, "--addressed-thread", "T1")
     dis = _disposition(capsys, project, saved, "--addressed-thread", "T2")
     assert dis["disposition"] == "COMMENT" and dis["approval_gates"] == ["1 unresolved review thread(s)"]
+
+
+def test_outdated_thread_lists_every_reply_for_the_agent(
+    capsys: pytest.CaptureFixture[str], project: Path, saved: Path, tmp_path: Path
+) -> None:
+    _with_threads(saved, thread("T1", outdated=True, replies=(("rex", "Also the retry path."),)))
+    ctx = _run(
+        capsys,
+        "--config-dir",
+        str(project),
+        "code-review",
+        "context",
+        "--saved-dir",
+        str(saved),
+        "--pr",
+        "7",
+        "--repo-root",
+        str(tmp_path),
+    )
+    (listed,) = ctx["outdated_threads"]
+    assert listed["replies_untrusted"] == [{"author": "rex", "comment": "Also the retry path."}]
+    dis = _disposition(capsys, project, saved, "--addressed-thread", "T1")
+    assert not any(k.endswith("_untrusted") for k in dis["resolve_first"][0])
+
+
+def test_outdated_thread_longer_than_the_read_stays_a_gate(
+    capsys: pytest.CaptureFixture[str], project: Path, saved: Path
+) -> None:
+    _with_threads(saved, thread("T1", outdated=True, total=25))
+    with pytest.raises(SystemExit, match="'T1' is not an unresolved outdated thread"):
+        _disposition(capsys, project, saved, "--addressed-thread", "T1")
+    assert _disposition(capsys, project, saved)["approval_gates"] == ["1 unresolved review thread(s)"]
