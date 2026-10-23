@@ -72,7 +72,7 @@ A contribution that includes AI-generated content is acceptable only when:
    They have read every line of the diff, can explain it,
    and answer review questions themselves rather than relaying them to the agent.
 2. **Verification before review.**
-   `prek run --all-files`, the affected package's tests,
+   `prek run --all-files --skip workspace-pytest`, the tests of the affected packages and their dependents,
    and — for a skill change — the affected eval suite are run before review is requested.
 3. **Review comments carry the reviewer's own judgement.**
    A comment that only restates the PR description, the diff,

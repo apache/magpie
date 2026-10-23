@@ -138,6 +138,7 @@ SKILL_FAMILIES: dict[str, str] = {
     "magpie-setup-upstream-fix": "setup",
     "magpie-setup-welcome-guide": "setup",
     "magpie-skill-reconciler": "utilities",
+    "magpie-workflow-optimization": "repo-health",
     "magpie-workflow-security-audit": "repo-health",
     "magpie-write-skill": "utilities",
     "mentor": "pr-management",
@@ -180,6 +181,7 @@ SKILL_FAMILIES: dict[str, str] = {
     "vote-tally": "release-management",
     "welcome": "mentoring",
     "welcome-guide": "setup",
+    "workflow-optimization": "repo-health",
     "workflow-security-audit": "repo-health",
     "write-skill": "utilities",
 }

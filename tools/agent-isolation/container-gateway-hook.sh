@@ -22,8 +22,8 @@
 # socket to talk to. Runs outside the sandbox, like every hook. Never fails
 # the session: every exit is 0, and a missing gateway is silently a no-op.
 #
-#   start   SessionStart — python3 -m container_gateway serve --project=<root> --daemon
-#   stop    SessionEnd   — python3 -m container_gateway stop  --project=<root>
+#   start   SessionStart — python3 -P -m container_gateway serve --project=<root> --daemon
+#   stop    SessionEnd   — python3 -P -m container_gateway stop  --project=<root>
 #
 # Trust model: the hook executes only code from locations the operator installed
 # or pinned, never from the repository being opened. This prevents a malicious repo
@@ -38,6 +38,9 @@
 #   PYTHONPATH is *replaced*, never extended. An inherited entry ahead of (or
 #   behind) the gateway's own source directory can shadow a stdlib module the
 #   package imports, which would run repository code inside the gateway process.
+#   For the same reason the interpreter runs with -P: `python3 -m` puts the
+#   working directory, which is the project being opened, on sys.path ahead of
+#   PYTHONPATH, so a `container_gateway/` package in the project would win.
 #
 #   $MAGPIE_CONTAINER_GATEWAY_ARGS is allow-listed, token by token, against the
 #   flags below (e.g. "--egress require"). Anything else -- notably
@@ -101,9 +104,9 @@ if [[ $action == start ]]; then
             "${0##*/}" "${MAGPIE_CONTAINER_GATEWAY_ARGS}" >&2
         extra=()
     fi
-    cmd=(python3 -m container_gateway serve --project="$root" --daemon "${extra[@]}")
+    cmd=(python3 -P -m container_gateway serve --project="$root" --daemon "${extra[@]}")
 else
-    cmd=(python3 -m container_gateway stop --project="$root")
+    cmd=(python3 -P -m container_gateway stop --project="$root")
 fi
 
 if [[ -n ${MAGPIE_CONTAINER_GATEWAY_DRY_RUN:-} ]]; then

@@ -1,3 +1,4 @@
 {"wrote_lock": true, "min_version": "0.4.0.dev202609130112",
- "plugins": ["magpie-setup", "magpie-utilities", "magpie-agent-guard"],
+ "plugins": ["magpie-setup", "magpie-utilities", "magpie-agent-guard",
+             "magpie-vetted-ops"],
  "marketplace_tagged": false}

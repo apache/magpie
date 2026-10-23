@@ -70,6 +70,10 @@ STAMP_NAME = "reconciled.json"
 CACHE_NAME = ".preflight-cache.json"
 
 TRUSTED_MARKETPLACE = "apache/magpie"
+#: Plugins every marketplace floor needs, whatever the committed lock lists:
+#: the family skills run their forge operations through the vetted-ops
+#: dispatcher, so a floor committed before it joined the seed still gets it.
+ALWAYS_REQUIRED = ("magpie-vetted-ops",)
 SNAPSHOT_METHODS = frozenset({"svn-zip", "git-tag", "git-branch"})
 #: Each pinned key in the committed lock, and the local-lock key that records
 #: what this machine actually fetched for it (`locks.md`, `upgrade.md` Step 1).
@@ -155,6 +159,7 @@ def _snapshot_findings(lock: Lock, root: Path) -> list[Finding]:
 def _floor_findings(lock: Lock, installed: dict[str, str] | None, harness: str | None) -> list[Finding]:
     if lock.url and lock.url != TRUSTED_MARKETPLACE:
         return [Finding("project", "untrusted-marketplace", "step-3", {"url": lock.url})]
+    required = [*lock.plugins, *(name for name in ALWAYS_REQUIRED if name not in lock.plugins)]
     if installed is None:
         # Unknown, never absent.  Say nothing and let the run continue: this
         # is the ordinary state of a sandboxed session, not a fault.
@@ -165,14 +170,14 @@ def _floor_findings(lock: Lock, installed: dict[str, str] | None, harness: str |
         version = installed.get("magpie")
         if version is None:
             return []
-        installed = dict.fromkeys(lock.plugins, version)
+        installed = dict.fromkeys(required, version)
     elif harness == "codex" and not any(name in installed for name in lock.plugins):
         # Until a listing identifies an exact floor name, qualified names
         # or an unfamiliar schema are not evidence that plugins are absent.
         return []
-    missing = [name for name in lock.plugins if name not in installed]
+    missing = [name for name in required if name not in installed]
     outdated = []
-    for name in lock.plugins:
+    for name in required:
         current = installed.get(name)
         if current is None or lock.min_version is None:
             continue

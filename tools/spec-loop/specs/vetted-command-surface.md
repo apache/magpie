@@ -134,6 +134,12 @@ group before running and `magpie-dev` resolves only through the root's
 `[tool.uv.sources]`. Its tests take the shared toolchain from the root `dev`
 group instead (#1357).
 
+The plugin is part of every install's baseline, but installing it grants
+nothing. The read `allow` rules and sandbox exclusions are a permission bypass
+that is safe only inside the sandbox, so the isolated setup wires them (and the
+Codex native rules) only where the sandbox is configured; without it every
+vetted operation keeps its prompt, and verify treats such rules as a failure.
+
 Permission rules and sandbox exclusions name the fixed path
 `~/.claude/magpie/vetted-ops`, never the versioned plugin-cache directory. The
 plugin's `SessionStart` hook points that path at the installed version each

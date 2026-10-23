@@ -10,7 +10,7 @@ magpie-agent-guard.
 The running agent is OpenAI Codex CLI (`CODEX_SANDBOX=1`). There is no
 `claude` executable on PATH and no Gemini session markers in the
 environment. `codex plugin list --json` reports magpie-setup 0.2.0 and
-magpie-agent-guard 0.2.0, both from the `apache-magpie` marketplace.
+magpie-agent-guard 0.2.0, plus magpie-vetted-ops 0.3.0, all from the `apache-magpie` marketplace.
 
 The pre-flight command printed:
 

@@ -1058,10 +1058,11 @@ writes nothing.
 Read `.claude/settings.json` at the repo root and compare its committed
 `enabledPlugins` block against the floor — the `plugins` list in
 `.apache-magpie.lock`, in floor order, each as `<plugin>@apache-magpie`.
-`adopt` *seeds* that list with `magpie-setup`, `magpie-utilities` and
-`magpie-agent-guard`, and a project whose maintainers enlarged the floor
-carries more, so read the lock rather than assuming a count; with no lock in
-evidence, the seeded three stand. This block is written by
+`adopt` *seeds* that list with `magpie-setup`, `magpie-utilities`,
+`magpie-agent-guard` and `magpie-vetted-ops`, and a project whose maintainers
+enlarged the floor carries more, so read the lock rather than assuming a count;
+with no lock in evidence, the seeded four stand. `magpie-vetted-ops` is
+expected even when an older lock omits it. This block is written by
 [`adopt`](adopt.md) (Claude Code only) to record that floor in the repo;
 committing it is optional and is not required to use the plugins in this repo.
 

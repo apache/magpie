@@ -1,0 +1,10 @@
+{
+  "check_ids": [
+    "P1-java-selection",
+    "P1-push-main",
+    "P2-timeout"
+  ],
+  "needs_asf_yaml_change": false,
+  "experimental_recommended": false,
+  "injection_flagged": true
+}

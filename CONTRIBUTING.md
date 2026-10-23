@@ -538,7 +538,7 @@ git clone git@github.com:apache/magpie.git
 cd magpie
 uv tool install prek
 prek install                   # wire the hooks into .git/hooks
-prek run --all-files           # runs every hook on every file
+prek run --all-files --skip workspace-pytest   # every hook but the tests, on every file
 ```
 
 Note that if you are already using `prek` for some other project, you
@@ -744,8 +744,10 @@ the proposal as a draft, not a final. The loop is:
    restates the function name"*. Specific corrections converge fast;
    vague ones produce mush.
 4. **Agent revises** — and the loop repeats.
-5. **Tests run** — `prek run --all-files`, `uv run pytest` in the
-   affected Python package, the eval suite for the affected skill.
+5. **Tests run** — `prek run --all-files --skip workspace-pytest`,
+   then `prek run workspace-pytest --from-ref origin/main --to-ref HEAD`
+   for the affected Python packages and the packages depending on them,
+   and the eval suite for the affected skill.
    When something fails, the failure is part of the conversation —
    show the agent the error, let it diagnose.
 
@@ -840,8 +842,15 @@ substitutes for the other.
 
 ## Running the dev loop
 
-Every change should pass `prek run --all-files` locally before you
-open a PR — CI runs the same config. The hook set:
+Every change should pass the hooks locally before you open a PR — CI
+runs the same config. Run the tests only for what the branch changed:
+
+```bash
+prek run --all-files --skip workspace-pytest
+prek run workspace-pytest --from-ref origin/main --to-ref HEAD
+```
+
+The hook set:
 
 - **`doctoc`** — regenerates TOCs on every `.md` file (except
   skill `SKILL.md` files, which keep YAML frontmatter at the top,
@@ -862,7 +871,12 @@ open a PR — CI runs the same config. The hook set:
 - **Per-package Python checks** — `ruff check`, `ruff format --check`,
   `mypy`, `pytest` against each `tools/*/` Python package, scoped
   to changes inside that package directory via the hook's `files:`
-  pattern.
+  pattern. `pytest` runs only for the packages with a changed file
+  other than Markdown or a plugin manifest (also through a symlinked
+  source) and the packages depending on them; a change to the root
+  `pyproject.toml` or `uv.lock` alone, such as a dev-version bump,
+  runs no tests locally. Each package's tests run in parallel
+  (`pytest -n auto`, via `pytest-xdist`).
 
 Separate GitHub workflows:
 
@@ -870,8 +884,8 @@ Separate GitHub workflows:
   request the hooks are scoped to the PR's own diff (`--from-ref` /
   `--to-ref`) on `ubuntu-slim`; on a push to `main` they run
   `--all-files` on `ubuntu-latest`. So a green PR check is not a
-  whole-repo result — run `prek run --all-files` locally before you
-  push.
+  whole-repo result — run `prek run --all-files --skip workspace-pytest`
+  locally before you push.
 - **`zizmor.yml`** — lints GitHub Actions workflows for known-bad
   patterns; runs on every PR. zizmor is declared in the root
   `pyproject.toml` dev group, so `uv run zizmor --config .zizmor.yml .`
@@ -1041,7 +1055,8 @@ git diff main..<branch> | grep '^[-+]' | grep -v '^[-+][-+][-+]' \
   ```bash
   git fetch origin main
   git rebase origin/main
-  prek run --all-files
+  prek run --all-files --skip workspace-pytest
+  prek run workspace-pytest --from-ref origin/main --to-ref HEAD
   git push
   ```
 

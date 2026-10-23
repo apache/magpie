@@ -8,7 +8,8 @@ magpie-pr-management.
 `.apache-magpie-overrides/` exists and contains `project.md`.
 
 The running agent is Claude Code. `claude plugin list --json` reports
-magpie-setup 0.3.0 and magpie-pr-management 0.2.0, both from the
+magpie-setup 0.3.0, magpie-vetted-ops 0.3.0 and magpie-pr-management 0.2.0,
+all from the
 `apache-magpie` marketplace.
 
 The pre-flight command printed:

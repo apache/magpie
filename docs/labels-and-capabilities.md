@@ -77,7 +77,7 @@ every install; the other eight are opt-in (see
 | `family:issue` | opt-in | `issue-*` skills (`issue-triage`, `issue-reproducer`, `issue-fix-workflow`, `issue-reassess`, `issue-reassess-stats`, `issue-stale-sweep`, `issue-deduplicate`, `issue-backlog-stats`) ([`docs/issue-management/`](issue-management/README.md)) |
 | `family:pr-management` | opt-in | `pr-management-*` skills plus `pr-stale-sweep`, `pre-first-pr-check`, `reviewer-routing` ([`docs/pr-management/`](pr-management/README.md)) |
 | `family:release-management` | opt-in | `release-*` skills — planning, RC cut, `[VOTE]` draft + tally, promote, `[ANNOUNCE]`, archive sweep, audit report, keys sync ([`docs/release-management/`](release-management/README.md)) |
-| `family:repo-health` | opt-in | Read-only repository audits and their follow-up fixes: `ci-runner-audit`, `workflow-security-audit`, `dependency-audit`, `dependency-license-audit`, `license-compliance-audit`, `flaky-test-triage`, `audit-finding-fix` ([`docs/repo-health/`](repo-health/README.md)) |
+| `family:repo-health` | opt-in | Read-only repository audits and their follow-up fixes: `ci-runner-audit`, `workflow-security-audit`, `workflow-optimization`, `dependency-audit`, `dependency-license-audit`, `license-compliance-audit`, `flaky-test-triage`, `audit-finding-fix` ([`docs/repo-health/`](repo-health/README.md)) |
 | `family:pairing` | opt-in | `pairing-self-review`, `pairing-multi-agent-review` ([`docs/pairing/`](pairing/README.md)) |
 | `family:mentoring` | opt-in | `mentoring-welcome`, `newcomer-issue-explainer`, `good-first-issue-author`, `good-first-issue-sweep` ([`docs/mentoring/`](mentoring/README.md)) |
 | `family:contributor-growth` | opt-in | The path-to-committer track: `contributor-activity-sweep`, `contributor-sentiment`, `contributor-to-committer`, `contributor-nomination`, `contributor-calibrate`, `contributor-candidate-screen`, `committer-onboarding`, `contributor-identity-map`, `onboarding-concierge` ([`docs/contributor-growth/`](contributor-growth/README.md)) |
@@ -235,6 +235,7 @@ Capabilities for every skill currently in
 | `dependency-audit` | `capability:triage` |
 | `dependency-license-audit` | `capability:triage` |
 | `workflow-security-audit` | `capability:triage` |
+| `workflow-optimization` | `capability:triage` |
 | `license-compliance-audit` | `capability:triage` |
 | `flaky-test-triage` | `capability:triage` |
 | `reviewer-routing` | `capability:triage` *(scores the configured reviewer roster on area match, git-history familiarity, and open-review load; proposes a primary reviewer plus optional backup — read-only, propose-then-confirm)* |

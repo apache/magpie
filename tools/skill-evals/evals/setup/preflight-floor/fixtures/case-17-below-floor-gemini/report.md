@@ -33,6 +33,11 @@ The pre-flight command printed:
             "floor": "0.3.0",
             "installed": "0.2.0",
             "plugin": "magpie-agent-guard"
+          },
+          {
+            "floor": "0.3.0",
+            "installed": "0.2.0",
+            "plugin": "magpie-vetted-ops"
           }
         ],
         "restart_required": true

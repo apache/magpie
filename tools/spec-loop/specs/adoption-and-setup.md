@@ -109,7 +109,8 @@ acceptance:
     is offered once, recorded in `~/.cache/apache-magpie/companions-offered`
     outside every repository, so the record never marks a project as
     configured.
-  - The default-set floor is seeded with three plugins and never grows
+  - The default-set floor is seeded with four plugins (`magpie-setup`,
+    `magpie-utilities`, `magpie-agent-guard`, `magpie-vetted-ops`) and never grows
     automatically — not to match which other families this maintainer
     installed, and never to include a maintainer-only family. It is enlarged
     only when the maintainer explicitly asks, and every surface that reads
@@ -377,7 +378,7 @@ committed version with drift detection.
 - **Adoption records a floor, not a pin.** On the marketplace path,
   `adopt` writes `.apache-magpie.lock` with `method: marketplace`, a
   `min_version` equal to the version installed at adopt time, and a
-  plugin list seeded with the framework's three. Both are minimums:
+  plugin list seeded with the framework's four. Both are minimums:
   contributors may run newer versions and more plugins, and nothing is
   ever downgraded, removed, or pinned. The derived
   `extraKnownMarketplaces` entry is written untagged.
@@ -400,7 +401,25 @@ committed version with drift detection.
   confirmation.
 - **Every skill's pre-flight brings the machine up to the floor** and
   then stops for a restart, and does so without asking only when the
-  lock's `url` is `apache/magpie`.
+  lock's `url` is `apache/magpie`. `magpie-vetted-ops` counts as part of
+  every marketplace floor even when an older lock omits it: the family
+  skills run their forge operations through its dispatcher.
+- **`magpie-vetted-ops` is always installed and never unticked**, like
+  `magpie-setup`. Installing it grants nothing: the permission bypass for its
+  read dispatcher is wired only by the isolated setup, and only where the
+  sandbox is configured.
+- **A missing vetted-ops policy never blocks a setup run.** During any
+  `setup` sub-action it is reported as n/a and the run continues; no policy
+  is written to get past it. Every other skill, and a policy that exists but
+  fails to load, still stops.
+- **The isolated-setup warning is shown once per session, in adopted repos
+  only.** `magpie-setup`'s `SessionStart` hook warns while the machine has no
+  isolated setup (its stamp, or a sandbox enabled in project or user
+  settings): optional for a trial, recommended for longer use, the
+  consequences of running without it, and a warning against pointing skills
+  at untrusted content. A project opts out with `isolation_warning: off` in
+  the committed `.apache-magpie-overrides/project.md`, which `adopt` asks
+  about; a personal layer cannot opt out.
 - **`upgrade` splits on adoption:** nothing repo-side when the project
   has not adopted; `min_version` raised — never lowered — and staged
   when it has.

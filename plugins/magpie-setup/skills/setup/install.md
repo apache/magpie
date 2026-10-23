@@ -77,8 +77,9 @@ skill recognises and routes between automatically:
 Before proposing anything, read `.apache-magpie.lock` at the repo root.
 
 **No lock** → this repo has not adopted a floor. The source is
-**framework-defaults**: propose the framework's three defaults —
-`magpie-setup`, `magpie-utilities`, `magpie-agent-guard`.
+**framework-defaults**: propose the framework's four defaults —
+`magpie-setup`, `magpie-utilities`, `magpie-agent-guard`,
+`magpie-vetted-ops`.
 
 **A lock whose `method` is one of the three snapshot methods** → the
 source is still **framework-defaults**, but this step itself proposes
@@ -88,8 +89,9 @@ this marketplace pre-fill step contributes nothing on that path.
 
 **`method: marketplace`** → the project has adopted Magpie and this
 lock is its floor. Propose **exactly the floor's `plugins`, in the
-order the lock gives them**, rather than the framework's three
-defaults. Say where the proposal came from:
+order the lock gives them**, rather than the framework's four
+defaults, and append `magpie-vetted-ops` when an `apache/magpie`
+floor lacks it (see Step M3). Say where the proposal came from:
 
 ```text
 This project has adopted Magpie (.apache-magpie.lock).
@@ -195,21 +197,30 @@ is the source text.
 Three rules for the recommendation:
 
 - **The baseline is pre-ticked: `magpie-setup`,
-  `magpie-agent-guard`, `magpie-utilities`.** That is the same
+  `magpie-vetted-ops`, `magpie-agent-guard`, `magpie-utilities`.** That is the same
   set a project commits as its floor when it adopts
   ([`adopt.md`](adopt.md)), and the reason is the same on one
   machine as on a project: `magpie-setup` installs, upgrades,
   configures and adopts everything else and carries the
   secure-isolation skills of
   [Step M5](#step-m5--recap-and-what-comes-next);
+  `magpie-vetted-ops` is the dispatcher the family skills call for
+  their forge reads and writes;
   `magpie-agent-guard` denies dangerous shell shapes before they
   run; `magpie-utilities` is how anyone finds out what is
   actually installed. Say why each is ticked.
 
-  **`magpie-setup` is not optional** — it is this skill, and
-  nothing else installs or upgrades without it. The other two
-  are *strongly* recommended and can be unticked; say what is
-  given up rather than arguing, and move on.
+  **`magpie-setup` and `magpie-vetted-ops` are not optional** —
+  `magpie-setup` is this skill, and nothing else installs or
+  upgrades without it; `magpie-vetted-ops` is what the family
+  skills run their forge operations through, and adds no
+  always-on context. The other two are *strongly* recommended
+  and can be unticked; say what is given up rather than arguing,
+  and move on.
+  Installing `magpie-vetted-ops` grants nothing by itself: the
+  permission rules that let its read dispatcher run without a
+  prompt are wired only by the isolated setup, and only where the
+  sandbox is configured.
 - **Install a family at a time; there is no everything plugin.**
   Each installed skill advertises its name and description to
   the model on *every* turn, so all ten families at once would
@@ -220,9 +231,10 @@ Three rules for the recommendation:
   a symlink.
 
 If the user passed `skill-families:<list>`, use it verbatim and
-skip the prompt — with `magpie-setup` added if it is absent,
-because the list names families to install and this skill is
-what installs them. Do not add the other two baseline plugins to
+skip the prompt — with `magpie-setup` and `magpie-vetted-ops`
+added if absent, because the list names families to install,
+this skill is what installs them, and the dispatcher is what
+they run on. Do not add the other two baseline plugins to
 an explicit list; naming families is a choice, and quietly
 enlarging it is not. Say in one line that the baseline exists
 and what is missing from it.
@@ -2035,8 +2047,8 @@ Four passes, in this order:
    Follow the [Codex guard and vetted-operation install contract](../../../../docs/adapters/codex.md#install) as well.
    Merge the native `PreToolUse` registration, resolving the engine from the snapshot in adopters and directly from the framework in local self-adoption.
    Ask the operator to review the definition in `/hooks`; do not grant hook trust on their behalf.
-   For marketplace installs use the `magpie-agent-guard` and optional `magpie-vetted-ops` plugins instead of adding a duplicate project hook.
-   Vetted-operation native rules are rendered per machine from the installed stable path and reviewed before installation in user scope.
+   For marketplace installs use the `magpie-agent-guard` and `magpie-vetted-ops` plugins instead of adding a duplicate project hook.
+   Vetted-operation native rules are rendered per machine from the installed stable path and reviewed before installation in user scope — only where the sandbox is configured; without it, skip them and let every vetted operation keep its prompt.
 
    For a marketplace-owned guard, omit the project hook and use `sandbox-lint --codex <repo-root>/.codex --guard-from-plugin`; verify plugin registration and trust separately in `/hooks`.
    For a source or snapshot-owned guard, the stock command chooses the existing engine path and lint must confirm that file exists.

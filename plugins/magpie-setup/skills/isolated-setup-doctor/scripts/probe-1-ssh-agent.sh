@@ -22,11 +22,13 @@ elif [ ! -S "$SSH_AUTH_SOCK" ]; then
   echo "PROBE: ssh-agent → ✗ (socket file at SSH_AUTH_SOCK not stat-able from inside sandbox)"
   echo "       SSH_AUTH_SOCK=$SSH_AUTH_SOCK"
 else
-  ssh-add -l > /tmp/ssh-add.out 2>&1; rc=$?
+  # Held in a variable, not a file: /tmp is read-only inside the sandbox, and a
+  # failed redirection never runs ssh-add but exits 1, the "no identities" code.
+  out=$(ssh-add -l 2>&1); rc=$?
   case "$rc" in
-    0) echo "PROBE: ssh-agent → ✓ ($(wc -l < /tmp/ssh-add.out | tr -d ' ') identities listed)" ;;
+    0) echo "PROBE: ssh-agent → ✓ ($(printf '%s\n' "$out" | wc -l | tr -d ' ') identities listed)" ;;
     1) echo "PROBE: ssh-agent → ✓ (agent reachable, no identities configured)" ;;
-    2) echo "PROBE: ssh-agent → ✗ (agent unreachable: $(head -1 /tmp/ssh-add.out))" ;;
-    *) echo "PROBE: ssh-agent → ⚠ (unexpected rc=$rc: $(head -1 /tmp/ssh-add.out))" ;;
+    2) echo "PROBE: ssh-agent → ✗ (agent unreachable: $(printf '%s\n' "$out" | head -1))" ;;
+    *) echo "PROBE: ssh-agent → ⚠ (unexpected rc=$rc: $(printf '%s\n' "$out" | head -1))" ;;
   esac
 fi
