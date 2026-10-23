@@ -72,9 +72,13 @@ fi
 # Once per session, the isolated-setup warning: `setup_preflight` decides
 # whether it applies and prints the notice with it, as hook JSON whose
 # `systemMessage` the user sees. Without python3 the notice goes out alone.
+# `-P` keeps the working directory, which is the project being opened, off
+# `sys.path`: `python3 -m` would otherwise put it ahead of `PYTHONPATH`, and
+# a `setup_preflight/` package committed to that project would run in place
+# of the plugin's own.
 output="$notice"
 if command -v python3 >/dev/null 2>&1; then
-  output="$(PYTHONPATH="$root/skills/setup" python3 -m setup_preflight.isolated session-start \
+  output="$(PYTHONPATH="$root/skills/setup" python3 -P -m setup_preflight.isolated session-start \
     --project-root "${CLAUDE_PROJECT_DIR:-$PWD}" --notice "$notice" 2>/dev/null)" || output="$notice"
 fi
 
