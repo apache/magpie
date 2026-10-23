@@ -20,8 +20,9 @@
 """Dump the security-team roster (tracker repo's collaborators) to <cache>/roster.txt."""
 
 import os
-import subprocess
 import tempfile
+
+from gh_retry import run_gh
 
 # Default under the platform temp root, not a hardcoded `/tmp`: a sandboxed run is
 # granted its own scratch directory and cannot write `/tmp`. See fetch_issues.py.
@@ -30,14 +31,10 @@ REPO = os.environ.get("TRACKER_STATS_REPO", "airflow-s/airflow-s")
 
 os.makedirs(ROOT, exist_ok=True)
 
-r = subprocess.run(
+r = run_gh(
     ["gh", "api", f"repos/{REPO}/collaborators", "--jq", ".[].login", "--paginate"],
-    capture_output=True,
-    text=True,
     timeout=60,
 )
-if r.returncode != 0:
-    raise SystemExit(f"gh failed: {r.stderr}")
 
 logins = [ln.strip() for ln in r.stdout.splitlines() if ln.strip()]
 with open(f"{ROOT}/roster.txt", "w") as f:

@@ -57,6 +57,7 @@ tools/security-tracker-stats-dashboard/
 ├── README.md             (this file)
 ├── default-config.yaml   (config schema + adopter-overridable defaults)
 ├── render.py             (renders cached data to HTML; reads config)
+├── gh_retry.py           (runs gh, retrying transient failures; used by the fetch scripts)
 ├── fetch_issues.py       (gh issue list, incl. body + closedByPRs -> issues.json)
 ├── fetch_roster.py       (gh api collaborators -> roster.txt)
 ├── fetch_bodies.py       (body + closedByPRs from issues.json -> issue_extra.json)

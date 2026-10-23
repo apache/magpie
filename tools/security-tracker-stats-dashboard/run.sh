@@ -55,4 +55,5 @@ echo "-> fetch_prs"
 echo "-> render"
 "${PY_CMD[@]}" "$HERE/render.py"
 
-echo "done: ${TRACKER_STATS_OUT:-${TMPDIR:-/tmp}/airflow_s_monthly.html}"
+# render.py prints the path it wrote ("Wrote <path>"), so it is not guessed here.
+echo "done"
