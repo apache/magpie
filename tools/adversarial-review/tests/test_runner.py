@@ -17,9 +17,12 @@
 # under the License.
 from __future__ import annotations
 
+import subprocess
+import threading
 import time
 from pathlib import Path
 
+from adversarial_review import runner
 from adversarial_review.backends import RunContext
 from adversarial_review.runner import run_all, run_one
 
@@ -105,36 +108,59 @@ def test_timeout_kills_the_whole_process_group(stub_bin, tmp_path):
 def test_reviewers_run_in_parallel_and_keep_order(stub_bin, tmp_path):
     bin_dir, make = stub_bin
 
-    # Each stub records when it was running. A total wall-clock bound failed
-    # on a loaded machine (pytest-xdist workers, pre-commit), so the test
-    # checks the two runs overlapped instead.
-    def timed(name: str, body: str) -> str:
-        log = tmp_path / f"{name}.times"
+    # Each stub marks that it started, then waits for the other's mark. Run one
+    # after the other, the first stub waits in vain and records False. Both a
+    # wall-clock bound and a fixed 3 s overlap window failed on a loaded machine
+    # (pytest-xdist workers, pre-commit), where a stub can start seconds late.
+    def waits_for(name: str, other: str, body: str) -> str:
+        mine, theirs = (tmp_path / f"{n}.started" for n in (name, other))
+        saw = tmp_path / f"{name}.saw"
         return (
-            f"import time; s = time.time(); time.sleep(3)\n"
-            f"open({str(log)!r}, 'w').write(f'{{s}} {{time.time()}}')\n" + body
+            "import os, time\n"
+            f"open({str(mine)!r}, 'w').close()\n"
+            "deadline = time.time() + 20\n"
+            f"while not os.path.exists({str(theirs)!r}) and time.time() < deadline: time.sleep(0.05)\n"
+            f"open({str(saw)!r}, 'w').write(str(os.path.exists({str(theirs)!r})))\n" + body
         )
 
-    make("codex", timed("codex", CODEX_OK))
+    make("codex", waits_for("codex", "gemini", CODEX_OK))
     make(
         "gemini",
-        timed("gemini", "import json\nprint(json.dumps({'response': json.dumps({'findings': []})}))\n"),
+        waits_for(
+            "gemini", "codex", "import json\nprint(json.dumps({'response': json.dumps({'findings': []})}))\n"
+        ),
     )
     contexts = {n: ctx(tmp_path, n) for n in ("gemini", "codex")}
-    results = run_all(["gemini", "codex"], contexts, 30, {"PATH": str(bin_dir)})
+    results = run_all(["gemini", "codex"], contexts, 60, {"PATH": str(bin_dir)})
     assert [(r.reviewer, r.status) for r in results] == [("gemini", "ok"), ("codex", "ok")]
-    spans = [tuple(map(float, (tmp_path / f"{n}.times").read_text().split())) for n in ("gemini", "codex")]
-    assert max(start for start, _ in spans) < min(end for _, end in spans)
+    assert [(tmp_path / f"{n}.saw").read_text() for n in ("gemini", "codex")] == ["True", "True"]
 
 
-def test_one_timeout_does_not_block_the_others(stub_bin, tmp_path):
+def test_one_timeout_does_not_block_the_others(stub_bin, tmp_path, monkeypatch):
+    """gemini times out only after codex has answered, so the result does not
+    depend on how fast a stub starts (a wall-clock budget failed under the
+    parallel pre-commit run, at 1 s and again at 5 s). gemini is listed first:
+    run one after the other, codex would never start and the wait would fail."""
     bin_dir, make = stub_bin
     make("codex", CODEX_OK)
     make("gemini", "import time; time.sleep(60)")
     contexts = {n: ctx(tmp_path, n) for n in ("codex", "gemini")}
-    # Room for codex's stub to start and answer on a loaded machine (a 1 s
-    # budget failed under the parallel pre-commit run); gemini sleeps far longer.
-    results = {r.reviewer: r for r in run_all(["codex", "gemini"], contexts, 5, {"PATH": str(bin_dir)})}
+    codex_answered = threading.Event()
+    gemini_saw_codex: list[bool] = []
+    execute = runner._execute
+
+    def fake_execute(argv, stdin, timeout_s, cwd, env):
+        if Path(argv[0]).name == "gemini":
+            gemini_saw_codex.append(codex_answered.wait(60))
+            raise subprocess.TimeoutExpired(argv, timeout_s)
+        try:
+            return execute(argv, stdin, timeout_s, cwd, env)
+        finally:
+            codex_answered.set()
+
+    monkeypatch.setattr(runner, "_execute", fake_execute)
+    results = {r.reviewer: r for r in run_all(["gemini", "codex"], contexts, 60, {"PATH": str(bin_dir)})}
+    assert gemini_saw_codex == [True]
     assert results["codex"].status == "ok" and results["gemini"].status == "timeout"
 
 
