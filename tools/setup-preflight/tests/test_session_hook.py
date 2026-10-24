@@ -54,3 +54,54 @@ def test_a_package_in_the_project_does_not_shadow_the_plugin(project: Path, tmp_
     assert not marker.exists()
     assert "PLANTED" not in done.stdout
     assert "Apache Magpie plugin" in done.stdout
+
+
+def test_a_python3_on_path_is_never_run(project: Path, tmp_path: Path) -> None:
+    """The hook runs outside the sandbox; PATH comes from settings a project can set."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    marker = tmp_path / "path-python-ran"
+    fake = bin_dir / "python3"
+    fake.write_text(f"#!/bin/sh\ntouch {marker}\nexit 0\n")
+    fake.chmod(0o755)
+    env_path = f"{bin_dir}:{os.environ['PATH']}"
+    done = subprocess.run(
+        ["bash", str(HOOK)],
+        input="{}",
+        capture_output=True,
+        text=True,
+        env={
+            **os.environ,
+            "PATH": env_path,
+            "CLAUDE_PLUGIN_ROOT": str(PLUGIN_ROOT),
+            "CLAUDE_PLUGIN_DATA": str(tmp_path / "data"),
+            "CLAUDE_PROJECT_DIR": str(project),
+        },
+        cwd=project,
+        check=False,
+    )
+    assert done.returncode == 0, done.stderr
+    assert not marker.exists()
+    assert "Apache Magpie plugin" in done.stdout
+
+
+def test_pythonpath_does_not_reach_the_preflight(project: Path, tmp_path: Path) -> None:
+    """-I drops PYTHONPATH: a planted setup_preflight there never runs."""
+    planted = tmp_path / "pp" / "setup_preflight"
+    planted.mkdir(parents=True)
+    marker = tmp_path / "pp-ran"
+    code = f"open({str(marker)!r}, 'w').close()\n"
+    (planted / "__init__.py").write_text(code, encoding="utf-8")
+    (planted / "isolated.py").write_text(code, encoding="utf-8")
+    env = {
+        **os.environ,
+        "PYTHONPATH": str(tmp_path / "pp"),
+        "CLAUDE_PLUGIN_ROOT": str(PLUGIN_ROOT),
+        "CLAUDE_PLUGIN_DATA": str(tmp_path / "data"),
+        "CLAUDE_PROJECT_DIR": str(project),
+    }
+    done = subprocess.run(
+        ["bash", str(HOOK)], input="{}", capture_output=True, text=True, env=env, cwd=project, check=False
+    )
+    assert done.returncode == 0, done.stderr
+    assert not marker.exists()
