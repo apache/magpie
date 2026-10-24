@@ -244,9 +244,9 @@ def test_a_python3_on_path_is_not_used(tmp_path: Path) -> None:
     assert str(fake) not in done.stdout + done.stderr
 
 
-@pytest.mark.parametrize("rel", [".local/share/uv/python/bin/python3", ".cache/py/python3"])
+@pytest.mark.parametrize("rel", [".local/share/uv/tools/x/bin/python3", ".local/bin/python3", ".cache/py/python3"])
 def test_a_pin_under_a_writable_root_is_skipped(tmp_path: Path, rel: str) -> None:
-    """A uv-managed python3 under ~/.local/share/uv is writable from the sandbox."""
+    """~/.local and ~/.cache are refused outside uv's managed interpreters."""
     lay = Layout(tmp_path)
     planted = lay.home / rel
     planted.parent.mkdir(parents=True)
@@ -254,6 +254,38 @@ def test_a_pin_under_a_writable_root_is_skipped(tmp_path: Path, rel: str) -> Non
     (lay.scripts / "python").write_text(f"{planted}\n")
     done = run("start", lay.project, home=lay.home)
     assert str(planted) not in done.stdout
+
+
+def _uv_runtime(lay: Layout) -> tuple[Path, Path]:
+    """A uv-managed CPython layout under ~/.local/share/uv/python; returns (interpreter, marker)."""
+    prefix = lay.home / ".local" / "share" / "uv" / "python" / "cpython-3.13.7-linux-x86_64-gnu"
+    (prefix / "bin").mkdir(parents=True)
+    (prefix / "lib" / "python3.13").mkdir(parents=True)
+    (prefix / "lib" / "python3.13" / "os.py").write_text("")
+    marker = lay.base / "uv-interpreter-ran"
+    interpreter = prefix / "bin" / "python3.13"
+    interpreter.write_text(f"#!/bin/sh\ntouch {marker}\nexit 1\n")
+    interpreter.chmod(0o755)
+    return interpreter, marker
+
+
+def test_a_uv_managed_interpreter_is_trusted(tmp_path: Path) -> None:
+    """~/.local/share/uv is read-only to the sandbox in the reference setup."""
+    lay = Layout(tmp_path)
+    interpreter, marker = _uv_runtime(lay)
+    (lay.scripts / "python").write_text(f"{interpreter}\n")
+    run("start", lay.project, home=lay.home)
+    assert marker.exists()  # trusted far enough to run its version probe
+
+
+@pytest.mark.parametrize("grant", ["~/.local/share/uv", "~/.local/share/uv/python", "~/.local"])
+def test_a_uv_managed_interpreter_under_a_grant_is_refused(tmp_path: Path, grant: str) -> None:
+    lay = Layout(tmp_path)
+    interpreter, marker = _uv_runtime(lay)
+    (lay.scripts / "python").write_text(f"{interpreter}\n")
+    lay.settings({"sandbox": {"filesystem": {"allowWrite": [grant]}}})
+    run("start", lay.project, home=lay.home)
+    assert not marker.exists()
 
 
 def test_a_pin_inside_the_project_is_skipped(tmp_path: Path) -> None:
@@ -363,6 +395,19 @@ def test_a_stdlib_link_into_a_system_location_is_accepted(tmp_path: Path) -> Non
     (stdlib / "sitecustomize.py").symlink_to("/etc/hosts")
     run("start", lay.project, home=lay.home)
     assert marker.exists()  # trusted far enough to run its version probe
+
+
+def test_a_symlinked_component_routing_through_a_writable_dir_is_refused(tmp_path: Path) -> None:
+    """prefix/x -> ~/.cache/h -> /etc: inside the prefix by name, re-pointable in fact."""
+    lay = Layout(tmp_path)
+    fake, stdlib, marker = _fake_runtime(lay)
+    hop = lay.home / ".cache" / "h"
+    hop.parent.mkdir(parents=True)
+    hop.symlink_to("/etc")
+    (fake / "x").symlink_to(hop)
+    (stdlib / "sitecustomize.py").symlink_to("../../x/hosts")
+    run("start", lay.project, home=lay.home)
+    assert not marker.exists()
 
 
 def test_a_stdlib_link_hopping_out_and_back_is_refused(tmp_path: Path) -> None:

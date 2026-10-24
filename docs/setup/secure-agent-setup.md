@@ -2834,13 +2834,15 @@ refuses a source under any sandbox-writable directory, so neither
 this checkout nor an `.apache-magpie/` snapshot is used — the project root is
 always writable from the sandbox, and the hook runs outside it.
 
-The hook also never takes `python3` from `PATH`, which on many machines is a
-uv-managed interpreter under the sandbox-writable `~/.local/share/uv`. It
-runs the first Python 3.11+ outside every writable directory among
-`/opt/homebrew/bin`, `/usr/local/bin` and `/usr/bin`, with `-I`. Where none
-qualifies, write the absolute path of one that does to
-`~/.claude/scripts/container-gateway/python`; until then the hook logs one
-line and does not start the gateway.
+The hook also never takes `python3` from `PATH`, which project settings can
+set. It runs the first Python 3.11+ outside every writable directory among
+`/opt/homebrew/bin`, `/usr/local/bin`, `/usr/bin` and uv's managed
+interpreters under `~/.local/share/uv/python`, by its real path with `-I -S`.
+The uv interpreters count only while `~/.local/share/uv` is read-only to the
+sandbox, as the reference settings keep it; a write grant over it in any
+scope makes the hook skip them. Where none qualifies, write the absolute path
+of one that does to `~/.claude/scripts/container-gateway/python`; until then
+the hook logs one line and does not start the gateway.
 
 Wire it as a `SessionStart` / `SessionEnd` pair in `~/.claude/settings.json`, alongside any other hooks already there:
 

@@ -36,14 +36,18 @@
 #   /private/tmp/claude*, $CLAUDE_CODE_TMPDIR, or any sandbox.filesystem.allowWrite
 #   or permissions.additionalDirectories entry in the user, project, local or
 #   managed settings. $HOME/.cache and $HOME/.local are always refused, whatever
-#   this project grants, because the reference setup grants them to every
-#   project: a uv-managed python3 under ~/.local/share/uv is writable from any
-#   other project's sandbox.
+#   this project grants, because setups grant them to every project. The one
+#   exception is uv's managed interpreters, $HOME/.local/share/uv/python: the
+#   reference setup keeps ~/.local/share/uv read-only to the sandbox and
+#   sandbox-lint rejects a grant over it, so they are refused only when a
+#   settings scope here grants it anyway. A machine where another project still
+#   carries the old grant must drop it (sandbox-add-project-root.sh does).
 #
 #   The interpreter is never looked up on PATH, which a repository can set
 #   through project settings. Candidates, in order: the absolute path in
 #   $HOME/.claude/scripts/container-gateway/python (an operator pin, one line),
-#   then fixed Homebrew and system locations. The first one outside every
+#   then fixed Homebrew and system locations, then uv-managed CPython under
+#   $HOME/.local/share/uv/python (newest minor first). The first one outside every
 #   writable root that is Python 3.11 or newer wins; none means the hook logs one
 #   line and does nothing.
 #
@@ -121,6 +125,9 @@ link_stays_inside() {
             ..) cur="${cur%/*}" ;;
             *) cur="$cur/$part" ;;
         esac
+        # A component that is itself a symlink is followed physically, hop by
+        # hop: inside the prefix by name, it could still route through ~/.cache.
+        [[ -L $cur ]] && under_writable_root "$cur" && return 1
         [[ -z $cur || $cur == "$inside" || $cur == "$inside"/* || $inside == "$cur"/* ]] && continue
         in_system_dir "$cur" || return 1
     done
@@ -165,7 +172,11 @@ normalize_entry() {
     done
 }
 
-writable_roots=("$root" "$HOME/.cache" "$HOME/.local")
+writable_roots=("$root" "$HOME/.cache")
+# $HOME/.local is refused too, all but uv's managed interpreters (see the header);
+# kept out of writable_roots so a settings grant over them still counts in full.
+home_local="$HOME/.local"
+uv_python_dir="$HOME/.local/share/uv/python"
 [[ -n ${CLAUDE_CODE_TMPDIR:-} ]] && writable_roots+=("$CLAUDE_CODE_TMPDIR")
 # Each settings file with the root its relative entries resolve against.
 # In a linked worktree Claude Code also reads the main checkout's settings,
@@ -240,9 +251,16 @@ for form in "${writable_forms[@]}"; do
 done
 
 is_writable_path() {
-    local path="$1" form
+    local path="$1" form local_form uv_form
     # The sandbox's own scratch space, by prefix: /tmp/claude, /tmp/claude-<uid>, ...
     [[ $path == /tmp/claude* || $path == /private/tmp/claude* ]] && return 0
+    for local_form in "$home_local" "$(resolve "$home_local")"; do
+        [[ $path == "$local_form" || $path == "$local_form"/* ]] || continue
+        for uv_form in "$uv_python_dir" "$(resolve "$uv_python_dir")"; do
+            [[ $path == "$uv_form"/* ]] && continue 2
+        done
+        return 0
+    done
     for form in "${writable_forms[@]}"; do
         [[ -n $form && ( $path == "$form" || $path == "$form"/* || $form == / ) ]] && return 0
     done
@@ -321,6 +339,17 @@ if [[ -r $pin ]] && ! under_writable_root "$pin"; then
     [[ ${pinned:-} == /* ]] && python_candidates+=("$pinned")
 fi
 python_candidates+=(/opt/homebrew/bin/python3 /usr/local/bin/python3 /usr/bin/python3)
+# uv-managed CPython, newest minor first; the free-threaded builds are left out.
+for minor in 14 13 12 11; do
+    found=()
+    for uv_python in "$uv_python_dir"/cpython-3."$minor".*/bin/python3."$minor"; do
+        [[ -x $uv_python && $uv_python != *freethreaded* ]] && found+=("$uv_python")
+    done
+    # The glob sorts patch releases oldest first; take the newest first.
+    for (( i = ${#found[@]} - 1; i >= 0; i-- )); do
+        python_candidates+=("${found[i]}")
+    done
+done
 for minor in 14 13 12 11; do
     python_candidates+=("/opt/homebrew/bin/python3.$minor" "/usr/local/bin/python3.$minor" "/usr/bin/python3.$minor")
 done
