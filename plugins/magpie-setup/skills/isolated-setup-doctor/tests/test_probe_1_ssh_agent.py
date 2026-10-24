@@ -48,15 +48,21 @@ class ProbeOneSshAgent(unittest.TestCase):
         # ssh-add never connects to it. A sandbox may refuse bind(2), so fall
         # back to the session's own agent socket.
         self.sock_path = self.tmp / "agent.sock"
-        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        self.addCleanup(sock.close)
-        try:
-            sock.bind(str(self.sock_path))
-        except OSError:
+        if not hasattr(socket, "AF_UNIX"):
             existing = os.environ.get("SSH_AUTH_SOCK", "")
             if not (existing and Path(existing).is_socket()):
-                self.skipTest("cannot bind a unix socket and no SSH_AUTH_SOCK to reuse")
+                self.skipTest("AF_UNIX is not supported on this platform and no SSH_AUTH_SOCK to reuse")
             self.sock_path = Path(existing)
+        else:
+            sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            self.addCleanup(sock.close)
+            try:
+                sock.bind(str(self.sock_path))
+            except OSError:
+                existing = os.environ.get("SSH_AUTH_SOCK", "")
+                if not (existing and Path(existing).is_socket()):
+                    self.skipTest("cannot bind a unix socket and no SSH_AUTH_SOCK to reuse")
+                self.sock_path = Path(existing)
 
     def fake_ssh_add(self, output: str, rc: int) -> None:
         script = self.bin / "ssh-add"
@@ -69,7 +75,14 @@ class ProbeOneSshAgent(unittest.TestCase):
             "SSH_AUTH_SOCK": str(self.sock_path),
             "TMPDIR": str(self.tmp),
         }
-        result = subprocess.run(["bash", str(PROBE)], env=env, capture_output=True, text=True, check=True)
+        result = subprocess.run(
+            ["bash", str(PROBE)],
+            env=env,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            check=True,
+        )
         return result.stdout.strip()
 
     def test_counts_listed_identities(self) -> None:
