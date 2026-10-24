@@ -205,6 +205,18 @@ caches the session cookie at `~/.ponymail-mcp/session.json`; this
 file is reused for subsequent requests and survives across Claude
 Code sessions until the cookie expires.
 
+The login window uses a throwaway browser profile, so the browser
+cannot save your ASF password. To have it saved, add
+`"PONYMAIL_BROWSER_PROFILE": "persistent"` to the `env` above and
+reconnect. This needs a `ponymail-mcp` checkout that clears the
+profile's login cookies after each login ([apache/comdev#68](https://github.com/apache/comdev/pull/68));
+older ones keep them, so pull the checkout first. With it, 2FA is
+still asked every time. Once logged in, the MCP
+reads the private lists it is allowed to without asking again
+until the session expires (up to about 24 hours) or you
+`logout`. See
+[Offer to save the password for next time](operations.md#offer-to-save-the-password-for-next-time).
+
 Verify:
 
 ```text

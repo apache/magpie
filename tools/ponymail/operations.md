@@ -70,10 +70,12 @@ mcp__ponymail__auth_status()
 
 If the response reports no session, stop and ask the user to run
 `mcp__ponymail__login()` — the MCP opens a browser window for ASF
-LDAP OAuth. For skills that only need public-list reads
-(`users@`, `announce@`, `dev@`), a missing session is tolerable and
-the pre-flight emits a warning instead of a stop; see the
-[Authentication](#authentication) section below.
+LDAP OAuth. Add the
+[saved-password hint](#offer-to-save-the-password-for-next-time)
+to that request when it applies. For skills that only need
+public-list reads (`users@`, `announce@`, `dev@`), a missing session
+is tolerable and the pre-flight emits a warning instead of a stop;
+see the [Authentication](#authentication) section below.
 
 ## Authentication
 
@@ -91,6 +93,58 @@ Opens a browser window to `oauth.apache.org` for ASF LDAP login. On
 success, the session cookie is cached to
 `~/.ponymail-mcp/session.json`. Subsequent calls from any Claude
 Code session pick up the cached cookie automatically.
+
+#### Offer to save the password for next time
+
+By default the login window uses a throwaway browser profile that
+the MCP deletes after the login, so the browser cannot save the ASF
+password and the user types it on every login. The MCP's opt-in
+`PONYMAIL_BROWSER_PROFILE=persistent` keeps the profile in
+`~/.ponymail-mcp/browser-profile/` (owner-only), where the browser's
+password manager can save it, encrypted with the OS credential store
+(macOS Keychain, Linux keyring). The MCP clears the profile's
+cookies every time the login window closes, so the ASF login
+session is never reused: the next login fills in the saved
+password and still asks for 2FA. Older `ponymail-mcp` versions
+kept those cookies, so the tip below applies only to a version
+that clears them.
+
+The login result does not say which profile was used, so check the
+default location instead. When asking the user to log in, if
+`~/.ponymail-mcp/browser-profile/` does not exist (or cannot be
+read from this session), add one line to the request:
+
+```text
+Tip: the login window forgets your ASF password. If you want the
+browser to save it for next time, ask me to enable a kept login
+profile for PonyMail.
+```
+
+Give the tip once per session and never repeat it after the user
+declines. If they ask for it, first warn them, in these words or
+close to them:
+
+```text
+The kept profile saves only your password. Each login still asks
+for 2FA, because the MCP clears the profile's login cookies when
+the window closes. After you log in, the MCP holds the PonyMail
+session until it expires (up to about 24 hours), and during that
+time it reads every private list it is allowed to
+(PONYMAIL_ALLOWED_LISTS) without asking for your password or 2FA
+again. `logout` ends that session early; deleting the profile
+directory (~/.ponymail-mcp/browser-profile/ by default) forgets
+the saved password.
+```
+
+Only after they confirm, propose adding
+`"PONYMAIL_BROWSER_PROFILE": "persistent"` to the `env` of the
+`ponymail` entry in their `mcpServers` config (an absolute path
+instead of `persistent` keeps the profile there), then reconnecting
+the server (`/mcp` → `reconnect`). The config is user-scope and
+outside the repository. Show the edit and let the user apply it,
+leaving the rest of the entry untouched, `PONYMAIL_ALLOWED_LISTS`
+included. Their next login prompts for the password once, and the
+browser offers to save it.
 
 ### Auth status
 
@@ -110,8 +164,14 @@ mcp__ponymail__logout()
 ```
 
 Clears the cached cookie at `~/.ponymail-mcp/session.json`. Use on a
-shared workstation or when rotating credentials. Skills never call
-logout on their own — it is a user-driven lifecycle step.
+shared workstation or when rotating credentials. A
+[kept login profile](#offer-to-save-the-password-for-next-time)
+still holds the saved password, but no login session, so the next
+`login` asks for 2FA. Delete the profile directory
+(`~/.ponymail-mcp/browser-profile/` by default) to forget the
+password too.
+Skills never call logout on their own — it is a user-driven
+lifecycle step.
 
 ## Read
 
