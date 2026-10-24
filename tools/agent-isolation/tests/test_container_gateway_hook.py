@@ -25,7 +25,6 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -71,6 +70,29 @@ class Layout:
 
     def settings(self, data: dict[str, object]) -> None:
         (self.home / ".claude" / "settings.json").write_text(json.dumps(data))
+
+
+def _fake_runtime(lay: Layout, *, link_stdlib_to: Path | None = None) -> tuple[Path, Path, Path]:
+    """<prefix>/bin/python3 + <prefix>/lib/python3.X, pinned; returns (prefix, stdlib, marker).
+
+    The "interpreter" only touches the marker, so the marker exists exactly when the
+    hook trusted the layout far enough to run it.
+    """
+    fake = lay.base / "py"
+    marker = lay.base / "interpreter-ran"
+    (fake / "bin").mkdir(parents=True)
+    (fake / "lib").mkdir()
+    stdlib = fake / "lib" / "python3.13"
+    if link_stdlib_to is None:
+        stdlib.mkdir()
+    else:
+        stdlib.symlink_to(link_stdlib_to)
+    (stdlib / "os.py").write_text("")
+    interpreter = fake / "bin" / "python3"
+    interpreter.write_text(f"#!/bin/sh\ntouch {marker}\nexit 1\n")
+    interpreter.chmod(0o755)
+    (lay.scripts / "python").write_text(f"{interpreter}\n")
+    return fake, stdlib, marker
 
 
 def test_start_runs_the_pinned_interpreter_isolated(tmp_path: Path) -> None:
@@ -254,43 +276,24 @@ def test_a_grant_inside_the_interpreter_prefix_skips_it(tmp_path: Path) -> None:
 
 
 def test_a_stdlib_module_linked_into_a_writable_dir_skips_the_interpreter(tmp_path: Path) -> None:
-    """Built from a copy of the running interpreter's layout, so nothing real is touched."""
     lay = Layout(tmp_path)
-    real_prefix = Path(PYTHON).parent.parent
-    version = f"python{sys.version_info.major}.{sys.version_info.minor}"
-    fake = lay.base / "py"
-    (fake / "bin").mkdir(parents=True)
-    (fake / "lib" / version).mkdir(parents=True)
-    (fake / "lib" / version / "os.py").write_text("")
+    _, stdlib, marker = _fake_runtime(lay)
     planted = lay.home / ".cache" / "sysconfig.py"
     planted.parent.mkdir(parents=True)
     planted.write_text("")
-    (fake / "lib" / version / "sysconfig.py").symlink_to(planted)
-    shutil.copy2(PYTHON, fake / "bin" / "python3")
-    (lay.scripts / "python").write_text(f"{fake / 'bin' / 'python3'}\n")
-    done = run("start", lay.project, home=lay.home)
-    assert str(fake) not in done.stdout
-    assert real_prefix.exists()
+    (stdlib / "sysconfig.py").symlink_to(planted)
+    run("start", lay.project, home=lay.home)
+    assert not marker.exists()
 
 
-def test_a_module_behind_a_linked_stdlib_dir_skips_the_interpreter(tmp_path: Path) -> None:
+def test_a_linked_stdlib_dir_skips_the_interpreter(tmp_path: Path) -> None:
+    """lib/python3.X must be a real directory: a link could be re-pointed through any hop."""
     lay = Layout(tmp_path)
-    version = f"python{sys.version_info.major}.{sys.version_info.minor}"
     external = lay.base / "external-stdlib"
     external.mkdir()
-    (external / "os.py").write_text("")
-    planted = lay.home / ".cache" / "sysconfig.py"
-    planted.parent.mkdir(parents=True)
-    planted.write_text("")
-    (external / "sysconfig.py").symlink_to(planted)
-    fake = lay.base / "py"
-    (fake / "bin").mkdir(parents=True)
-    (fake / "lib").mkdir()
-    (fake / "lib" / version).symlink_to(external)
-    shutil.copy2(PYTHON, fake / "bin" / "python3")
-    (lay.scripts / "python").write_text(f"{fake / 'bin' / 'python3'}\n")
-    done = run("start", lay.project, home=lay.home)
-    assert str(fake) not in done.stdout
+    _, _, marker = _fake_runtime(lay, link_stdlib_to=external)
+    run("start", lay.project, home=lay.home)
+    assert not marker.exists()
 
 
 def test_a_linked_worktree_counts_the_main_checkout_grants(tmp_path: Path) -> None:
@@ -337,6 +340,38 @@ def test_an_unconfirmed_worktree_link_refuses_to_start(tmp_path: Path) -> None:
     (worktree / ".git").write_text(f"gitdir: {fake_common / 'worktrees' / 'wt'}\n")
     done = run("start", worktree, home=lay.home)
     assert done.returncode == 0
+    assert done.stdout == ""
+
+
+def test_a_stdlib_link_that_stays_in_the_prefix_is_accepted(tmp_path: Path) -> None:
+    """Homebrew's config-3.X links point back into the prefix; site-packages is never loaded."""
+    lay = Layout(tmp_path)
+    fake, stdlib, marker = _fake_runtime(lay)
+    (fake / "Python").write_text("")
+    (stdlib / "config").mkdir()
+    (stdlib / "config" / "libpython.dylib").symlink_to("../../../Python")
+    (stdlib / "site-packages").symlink_to(lay.home / ".cache")
+    run("start", lay.project, home=lay.home)
+    assert marker.exists()  # trusted far enough to run its version probe
+
+
+def test_a_stdlib_link_hopping_out_and_back_is_refused(tmp_path: Path) -> None:
+    """Out through a re-pointable directory, back into the prefix: lexically it leaves."""
+    lay = Layout(tmp_path)
+    _, stdlib, marker = _fake_runtime(lay)
+    (stdlib / "real_sysconfig.py").write_text("")
+    hop = lay.home / ".cache" / "hop"
+    hop.parent.mkdir(parents=True)
+    hop.symlink_to(stdlib)
+    (stdlib / "sysconfig.py").symlink_to(hop / "real_sysconfig.py")
+    run("start", lay.project, home=lay.home)
+    assert not marker.exists()
+
+
+def test_a_grant_with_dotdot_refuses_everything(tmp_path: Path) -> None:
+    lay = Layout(tmp_path)
+    lay.settings({"sandbox": {"filesystem": {"allowWrite": ["../elsewhere"]}}})
+    done = run("start", lay.project, home=lay.home)
     assert done.stdout == ""
 
 

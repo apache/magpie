@@ -92,6 +92,22 @@ root="$(cd "$root" 2>/dev/null && pwd -P)" || exit 0
 
 log() { printf '%s: %s\n' "${0##*/}" "$*" >&2; }
 
+# An absolute path with `.` and `..` folded away without consulting the
+# filesystem, so no symlink is followed.
+lexical_path() {
+    local part out=""
+    local -a parts
+    IFS=/ read -r -a parts <<< "$1"
+    for part in ${parts[@]+"${parts[@]}"}; do
+        case "$part" in
+            ""|.) ;;
+            ..) out="${out%/*}" ;;
+            *) out="$out/$part" ;;
+        esac
+    done
+    printf '%s' "${out:-/}"
+}
+
 # Physical path, symlinks resolved; the literal path when it does not exist.
 resolve() {
     local p
@@ -105,14 +121,20 @@ resolve() {
 # absolute for sandbox paths but relative to <base> for permission rules, so it
 # yields both: a root counted twice only refuses more.
 normalize_entry() {
-    local entry="$1" base="$2" p
-    local -a forms
+    local entry="$1" base="$2" p b
+    local -a forms bases
+    # Sandbox paths and permission rules resolve relative entries differently
+    # (settings directory, project root, session cwd), so a relative entry
+    # counts against every one of them; a root counted twice only refuses more.
+    bases=("$base" "$root")
+    [[ -n ${main_root:-} ]] && bases+=("$main_root")
     case "$entry" in
+        */../*|*/..|../*|..) forms=("/") ;;  # not folded: refuse everything
         //*) forms=("/${entry#//}") ;;
         "~") forms=("$HOME") ;;
         "~/"*) forms=("$HOME/${entry#\~/}") ;;
-        /*) forms=("$entry" "$base$entry") ;;
-        *) forms=("$base/$entry") ;;
+        /*) forms=("$entry"); for b in "${bases[@]}"; do forms+=("$b$entry"); done ;;
+        *) forms=(); for b in "${bases[@]}"; do forms+=("$b/${entry#./}"); done ;;
     esac
     for p in "${forms[@]}"; do
         if [[ $p == *[\*\?\[]* ]]; then
@@ -136,9 +158,14 @@ main_root=""
 if [[ -f $root/.git ]]; then
     git_dir="$(git -C "$root" rev-parse --absolute-git-dir 2>/dev/null || true)"
     common_dir="$(git -C "$root" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+    # The git dir must be exactly <common>/worktrees/<name>, and the back-pointer
+    # is read from the common dir, not from wherever the .git file says.
     back=""
-    [[ -n $git_dir && -r $git_dir/gitdir ]] && IFS= read -r back < "$git_dir/gitdir"
-    if [[ -z $common_dir || $common_dir != */.git || -z $back \
+    if [[ -n $git_dir && -n $common_dir ]]; then
+        expected="$(resolve "$common_dir")/worktrees/$(basename -- "$git_dir")"
+        [[ "$(resolve "$git_dir")" == "$expected" && -r $expected/gitdir ]] && IFS= read -r back < "$expected/gitdir"
+    fi
+    if [[ $common_dir != */.git || -z $back \
           || "$(resolve "$back")" != "$(resolve "$root/.git")" ]]; then
         log "cannot confirm the main checkout of linked worktree $root; not starting the container gateway"
         exit 0
@@ -291,24 +318,23 @@ for candidate in "${python_candidates[@]}"; do
     done
     (( stdlib_found )) || continue
     overlaps_writable "$prefix" && continue
-    # A standard-library module symlinked out of the prefix is judged where it
-    # points: one link into a writable directory refuses the interpreter. A
-    # linked directory is walked the same way, so a module behind it counts.
+    # The standard library is a real directory and every symlink in it stays
+    # inside the prefix, lexically and once resolved, so no link anywhere on
+    # the way can lead out to something re-pointable. site-packages is exempt:
+    # -S never loads it.
+    stdlib_dir="${stdlib%/os.py}"
+    [[ -L $prefix/lib || -L $stdlib_dir ]] && continue
     runtime_ok=1
-    walk=("$prefix") visited=" " walked=0
-    while (( runtime_ok && ${#walk[@]} )); do
-        dir="${walk[0]}"
-        walk=(${walk[@]+"${walk[@]:1}"})
-        (( ++walked > 64 )) && { runtime_ok=0; break; }  # a link maze: refuse
-        while IFS= read -r -d '' link; do
-            under_writable_root "$link" && { runtime_ok=0; break; }
-            if [[ -d $link ]]; then
-                target="$(resolve "$link")"
-                overlaps_writable "$target" && { runtime_ok=0; break; }
-                [[ $visited == *" $target "* ]] || { visited+="$target "; walk+=("$target"); }
-            fi
-        done < <(find "$dir" -type l -print0 2>/dev/null)
-    done
+    while IFS= read -r -d '' link; do
+        [[ $link == "$stdlib_dir/site-packages" ]] && continue
+        target="$(readlink -- "$link")" || { runtime_ok=0; break; }
+        [[ $target == /* ]] || target="$(dirname -- "$link")/$target"
+        lexical="$(lexical_path "$target")"
+        if [[ $lexical != "$prefix"/* ]] || [[ "$(resolve "$link")" != "$prefix"/* ]]; then
+            runtime_ok=0
+            break
+        fi
+    done < <(find "$stdlib_dir" -type l -print0 2>/dev/null)
     (( runtime_ok )) || continue
     "$canonical" -I -S -c 'import sys; sys.exit(sys.version_info < (3, 11))' >/dev/null 2>&1 || continue
     # Where the interpreter really loads its standard library from.
