@@ -408,9 +408,9 @@ else
 fi
 record="$state_dir/$key"
 # A record is only as good as its directory: one the sandbox can write proves
-# nothing, so that refuses before any record is read or trusted.
-if [[ -e $record || $linked_worktree -eq 1 ]] \
-    && { under_writable_root "$state_dir" || overlaps_writable "$HOME/.claude/magpie-gateway"; }; then
+# nothing, and could have been emptied along with the worktree's .git file, so
+# it refuses for every checkout, before any record is read or trusted.
+if under_writable_root "$state_dir" || overlaps_writable "$HOME/.claude/magpie-gateway"; then
     log "the worktree record directory $state_dir is sandbox-writable; not starting the container gateway for $root"
     exit 0
 fi

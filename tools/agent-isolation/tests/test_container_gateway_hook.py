@@ -772,3 +772,11 @@ def test_a_record_in_a_writable_directory_is_never_trusted(tmp_path: Path) -> No
     lay.settings({"sandbox": {"filesystem": {"allowWrite": ["~/.claude/magpie-gateway"]}}})
     done = run("stop", worktree, home=lay.home)
     assert done.stdout == "" and "is sandbox-writable" in done.stderr
+
+
+def test_a_writable_record_directory_refuses_even_a_plain_checkout(tmp_path: Path) -> None:
+    """Otherwise deleting the record and the .git file together would skip the check."""
+    lay = Layout(tmp_path)
+    lay.settings({"sandbox": {"filesystem": {"allowWrite": ["~/.claude/magpie-gateway"]}}})
+    done = run("start", lay.project, home=lay.home)
+    assert done.stdout == "" and "is sandbox-writable" in done.stderr
