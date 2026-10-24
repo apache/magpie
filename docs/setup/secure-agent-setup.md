@@ -35,6 +35,10 @@
     - [Extensible — any skill can contribute a guard](#extensible--any-skill-can-contribute-a-guard)
     - [Install (user-scope)](#install-user-scope-1)
     - [Verify](#verify-1)
+  - [Public-surface scrub mod (Claude Code plugin / hook)](#public-surface-scrub-mod-claude-code-plugin--hook)
+    - [Term canonicalization](#term-canonicalization)
+    - [Scoping and fail-closed gates](#scoping-and-fail-closed-gates)
+    - [Trade-offs and runtime characteristics](#trade-offs-and-runtime-characteristics)
   - [Sandbox-error hint hook](#sandbox-error-hint-hook)
     - [Why install it](#why-install-it)
     - [Why install it user-scope, not project-scope](#why-install-it-user-scope-not-project-scope-1)
@@ -1782,6 +1786,70 @@ echo '{"tool_name":"Bash","tool_input":{"command":"gh pr edit 5 --body \"@alice 
 Expected: a JSON object with `permissionDecision: "deny"` and a
 reason mentioning the `mention` guard. A plain command
 (`{"tool_input":{"command":"ls"}}`) produces no output and `exit=0`.
+
+## Public-surface scrub mod (Claude Code plugin / hook)
+
+For Claude Code harnesses using plugins (such as `magpie-security`),
+a deterministic TypeScript mod hook
+([`plugins/magpie-security/hooks/public-surface-scrub.ts`](../../plugins/magpie-security/hooks/public-surface-scrub.ts))
+intercepts `Bash` tool calls (`git commit`, `git tag`, `gh pr create|edit|review|comment`, `gh api`)
+before execution to prevent accidental early disclosure of security vulnerabilities on public surfaces.
+
+### Term canonicalization
+
+The mod does not maintain a private list of forbidden terms. The forbidden
+disclosure terms and regex patterns are derived directly from the canonical
+single source of truth: `magpie_vcs.publication.DEFAULT_TERMS`
+in `tools/vcs/src/magpie_vcs/publication.py` (via `tools/dev/sync-forbidden-terms.py`
+and tracked by the pre-commit sync check).
+
+### Scoping and fail-closed gates
+
+- **Private tracker exemption**: Subcommands explicitly targeting the private security
+  tracker repository (`tracker_repo` in `project.md`, e.g. `-R airflow-s/airflow-s`)
+  are exempt.
+- **Upstream repository protection**: Subcommands targeting the public codebase
+  (`upstream_repo` in `project.md`) or operating within an upstream working tree
+  are scrubbed. Commands targeting unrelated third-party or adopter documentation
+  repositories pass unchecked.
+- **`cd <dir>` transition tracking**: Tracks working directory transitions across
+  composite subcommands (e.g. `cd ../upstream && git commit -m "..."`).
+- **Deterministic git remote verification**: Repository scope is determined by
+  reading `.git/config` remotes rather than directory-name substring heuristics.
+- **Fail-closed on indeterminate scope**: If the target repository scope cannot
+  be verified deterministically, commands containing embargo terms fail closed.
+- **Fail-closed on unreadable files**: Invocations referencing message files
+  (`-F <file>` / `--file` / `--body-file`) fail closed if the referenced file cannot
+  be read.
+- **Fail-closed on dynamic input**: Commands constructing commit or PR content
+  dynamically via variables (`$VAR`), command substitution (`$(...)`), stdin pipes
+  (`-`), or automatic reuse (`git commit --amend` without an explicit message,
+  `gh pr create --fill`) cannot be verified statically and fail closed. The block
+  explanation instructs providing text explicitly or via an inspectable message file
+  (`-F <file>`).
+
+### Trade-offs and runtime characteristics
+
+The public-surface scrub mod is a deterministic guard against **accidental**
+public disclosure of embargoed security information, not a boundary against
+deliberate circumvention. A command running in a shell can always write to
+temporary files, pipe through external helpers, or execute dynamic subshells
+that cannot be fully predicted before execution. The hook documents these
+boundaries rather than chasing dynamic time-of-check-to-time-of-use (TOCTOU)
+scenarios: it fails closed on unresolvable shapes and indeterminate inputs,
+while relying on collaborator review for anything outside its deterministic
+static scope.
+
+- **Unsandboxed execution**: Claude Code mods and hooks execute directly in the
+  local Node runtime outside the container sandbox.
+- **File inspection**: The hook inspects message files specified by `-F <file>`
+  via the Claude Code plugin filesystem capability (`$.fs.read()`).
+- **Human-only escape hatch**: When legitimate post-coordinated-disclosure
+  maintenance requires mentioning CVE IDs or vulnerability terms on public surfaces,
+  a human maintainer sets `MAGPIE_ALLOW_EMBARGO_TERMS=1` in the environment
+  before starting the session. The escape hatch serves as a zero-token deterministic
+  guard against accidental leaks; inline environment variables passed to the command
+  line (e.g. `MAGPIE_ALLOW_EMBARGO_TERMS=1 git commit ...`) are ignored by the hook.
 
 ## Sandbox-error hint hook
 
