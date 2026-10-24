@@ -717,7 +717,7 @@ def test_a_changed_main_checkout_refuses_until_the_record_is_deleted(tmp_path: P
     record.write_text(f"{worktree}\n{lay.base / 'the-real-main'}\n")
     done = run("stop", worktree, home=lay.home)
     assert done.stdout == ""
-    assert "not the recorded" in done.stderr and str(record) in done.stderr
+    assert "no longer matches its worktree record" in done.stderr and str(record) in done.stderr
     record.unlink()
     assert f" -I -S {lay.src} " in run("stop", worktree, home=lay.home).stdout
 
@@ -741,3 +741,24 @@ def test_the_hook_uses_no_here_documents() -> None:
     text = SCRIPT.read_text()
     code = "\n".join(line.split("#", 1)[0] for line in text.splitlines())
     assert "<<" not in code
+
+
+def test_turning_the_worktree_into_a_plain_checkout_refuses(tmp_path: Path) -> None:
+    """Swapping the .git file for a directory must not make the record disappear."""
+    lay = Layout(tmp_path)
+    worktree = _linked_worktree(lay)
+    run("start", worktree, home=lay.home)
+    (worktree / ".git").unlink()
+    (worktree / ".git").mkdir()
+    done = run("stop", worktree, home=lay.home)
+    assert done.stdout == "" and "no longer matches its worktree record" in done.stderr
+
+
+def test_a_record_for_another_path_refuses(tmp_path: Path) -> None:
+    lay = Layout(tmp_path)
+    worktree = _linked_worktree(lay)
+    run("start", worktree, home=lay.home)
+    [record] = _records(lay)
+    record.write_text(f"{lay.base / 'someone-else'}\n{lay.project}\n")
+    done = run("start", worktree, home=lay.home)
+    assert done.stdout == "" and "no longer matches its worktree record" in done.stderr

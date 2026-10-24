@@ -400,33 +400,36 @@ tree_is_trusted() {
 # confirms for a worktree is recorded where the sandbox cannot write
 # (trust on first use); a later run that derives a different one refuses
 # until the operator deletes the record.
-if (( linked_worktree )); then
-    state_dir="$HOME/.claude/magpie-gateway/worktrees"
+state_dir="$HOME/.claude/magpie-gateway/worktrees"
+if command -v sha256sum >/dev/null 2>&1; then
+    key="$(printf '%s' "$root" | sha256sum | cut -d' ' -f1)"
+else
+    key="$(printf '%s' "$root" | shasum -a 256 | cut -d' ' -f1)"
+fi
+record="$state_dir/$key"
+# Looked up by path whether or not the checkout looks linked now: swapping the
+# worktree's `.git` file for a directory must not make the record disappear.
+if [[ -L $record ]]; then
+    log "the worktree record $record is a symlink; not starting the container gateway"
+    exit 0
+fi
+if [[ -f $record ]]; then
+    recorded_root="" recorded_main=""
+    { IFS= read -r recorded_root; IFS= read -r recorded_main; } < "$record" || true
+    if [[ $recorded_root != "$root" || $linked_worktree -eq 0 || $recorded_main != "$main_root" ]]; then
+        log "$root no longer matches its worktree record (main checkout '${recorded_main:-none}'); not starting the container gateway (delete $record if the change is yours)"
+        exit 0
+    fi
+elif (( linked_worktree )); then
     if under_writable_root "$state_dir" || overlaps_writable "$HOME/.claude/magpie-gateway"; then
         log "the worktree record directory $state_dir is sandbox-writable; not starting the container gateway for linked worktree $root"
         exit 0
     fi
-    key="$(printf '%s' "$root" | cksum | cut -d' ' -f1)"
-    record="$state_dir/$key"
-    if [[ -L $record ]]; then
-        log "the worktree record $record is a symlink; not starting the container gateway"
-        exit 0
-    fi
-    if [[ -f $record ]]; then
-        recorded_root="" recorded_main=""
-        { IFS= read -r recorded_root; IFS= read -r recorded_main; } < "$record" || true
-        if [[ $recorded_root == "$root" && $recorded_main != "$main_root" ]]; then
-            log "linked worktree $root now names main checkout '${main_root:-none}', not the recorded '${recorded_main:-none}'; not starting the container gateway (delete $record if the change is yours)"
-            exit 0
-        fi
-    else
-        mkdir -p "$state_dir" 2>/dev/null && chmod 700 "$HOME/.claude/magpie-gateway" "$state_dir" 2>/dev/null
-        tmp_record="$(mktemp "$state_dir/.record.XXXXXX" 2>/dev/null)" \
-            && printf '%s\n%s\n' "$root" "$main_root" > "$tmp_record" \
-            && mv -f "$tmp_record" "$record"
-    fi
+    mkdir -p "$state_dir" 2>/dev/null && chmod 700 "$HOME/.claude/magpie-gateway" "$state_dir" 2>/dev/null
+    tmp_record="$(mktemp "$state_dir/.record.XXXXXX" 2>/dev/null)" \
+        && printf '%s\n%s\n' "$root" "$main_root" > "$tmp_record" \
+        && mv -f "$tmp_record" "$record"
 fi
-
 src=""
 for candidate in "${MAGPIE_CONTAINER_GATEWAY_SRC:-}" \
                  "$HOME/.claude/scripts/container-gateway/src"; do
