@@ -95,17 +95,19 @@ run_framework() {
 }
 
 # --- prek's home outside the sandbox --------------------------------------
-# Claude Code's settings point sandboxed prek at a home of its own,
-# ~/.cache/prek-sandbox, which sandboxed commands can write. The same `env`
-# also reaches a command Claude runs outside the sandbox (an approved bypass,
-# often a signed commit), whose hooks would then run environments the sandbox
-# wrote. Outside the sandbox (no SANDBOX_RUNTIME) that home is dropped, so prek
-# falls back to ~/.cache/prek, which the sandbox cannot write. Sandboxed code
-# that unsets SANDBOX_RUNTIME only makes its own prek fail to write there.
+# prek runs a hook from environments under its home, ~/.cache/prek by default,
+# which the sandbox's ~/.cache grant makes writable. A hook run outside the
+# sandbox (a commit from a terminal, or one Claude Code ran with the sandbox
+# bypassed) must not run what a sandboxed command wrote there, so outside the
+# sandbox (no SANDBOX_RUNTIME) prek gets a home of its own under
+# ~/.local/share, which no sandbox grant covers. Sandboxed hooks keep the
+# default. An operator's own PREK_HOME is kept unless it sits under ~/.cache.
+# The selection need not be trusted: sandboxed code that unsets
+# SANDBOX_RUNTIME only makes its own prek fail to write the host home.
 if [ -z "${SANDBOX_RUNTIME:-}" ]; then
   case "${PREK_HOME:-}" in
-    "~/.cache/prek-sandbox"|"~/.cache/prek-sandbox/"*|"$HOME/.cache/prek-sandbox"|"$HOME/.cache/prek-sandbox/"*)
-      unset PREK_HOME
+    ""|"~/.cache"|"~/.cache/"*|"$HOME/.cache"|"$HOME/.cache/"*)
+      export PREK_HOME="$HOME/.local/share/prek-host"
       ;;
   esac
 fi

@@ -48,21 +48,27 @@ def _run(repo: Path, hook: Path, env_extra: dict[str, str]) -> None:
     subprocess.run(["bash", str(hook)], cwd=repo, env=env, check=True)
 
 
-@pytest.mark.parametrize("home", ["~/.cache/prek-sandbox", "{home}/.cache/prek-sandbox", "{home}/.cache/prek-sandbox/x"])
-def test_outside_the_sandbox_the_sandbox_prek_home_is_dropped(tmp_path: Path, home: str) -> None:
-    """A bypassed command keeps Claude Code's env; its hooks must not run what the sandbox wrote."""
+HOST_HOME = "{home}/.local/share/prek-host"
+
+
+@pytest.mark.parametrize("given", [None, "~/.cache/prek", "{home}/.cache/prek", "{home}/.cache/prek-sandbox"])
+def test_outside_the_sandbox_prek_gets_the_host_home(tmp_path: Path, given: str | None) -> None:
+    """A terminal or bypassed commit must not run environments the sandbox could write."""
     repo, hook, seen = _repo_with_local_hook(tmp_path)
-    _run(repo, hook, {"PREK_HOME": home.format(home=os.environ["HOME"])})
-    assert seen.read_text() == "<unset>"
+    home = os.environ["HOME"]
+    _run(repo, hook, {} if given is None else {"PREK_HOME": given.format(home=home)})
+    assert seen.read_text() == HOST_HOME.format(home=home)
 
 
-def test_inside_the_sandbox_the_sandbox_prek_home_is_kept(tmp_path: Path) -> None:
+@pytest.mark.parametrize("given", [None, "~/.cache/prek"])
+def test_inside_the_sandbox_prek_keeps_its_home(tmp_path: Path, given: str | None) -> None:
     repo, hook, seen = _repo_with_local_hook(tmp_path)
-    _run(repo, hook, {"PREK_HOME": "~/.cache/prek-sandbox", "SANDBOX_RUNTIME": "1"})
-    assert seen.read_text() == "~/.cache/prek-sandbox"
+    env = {"SANDBOX_RUNTIME": "1"} | ({} if given is None else {"PREK_HOME": given})
+    _run(repo, hook, env)
+    assert seen.read_text() == ("<unset>" if given is None else given)
 
 
-def test_an_operator_prek_home_is_left_alone(tmp_path: Path) -> None:
+def test_an_operator_prek_home_outside_the_cache_is_left_alone(tmp_path: Path) -> None:
     repo, hook, seen = _repo_with_local_hook(tmp_path)
     _run(repo, hook, {"PREK_HOME": "/opt/prek-home"})
     assert seen.read_text() == "/opt/prek-home"
