@@ -63,6 +63,7 @@ import json
 import os
 import re
 import secrets
+import subprocess
 import sys
 from datetime import date
 from pathlib import Path
@@ -403,6 +404,86 @@ def _report_covering_grants(settings: Path, base: Path, home: Path, removable: f
     ]
 
 
+def _git_config(home: Path, *args: str) -> str | None:
+    """`git config <args>`, run from $HOME with no repository discovery to speak of.
+
+    Only `--global` and `--file` reads and writes go through here, so no
+    repository's own config, hooks or fsmonitor are consulted.
+    """
+    env = {
+        k: v
+        for k, v in os.environ.items()
+        if k not in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_CONFIG")
+    }
+    try:
+        done = subprocess.run(
+            ["git", "config", *args],
+            cwd=home,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return done.stdout.strip() if done.returncode == 0 else None
+
+
+def _resolved(path: str, base: Path, home: Path) -> Path:
+    text = str(home) + path[1:] if path == "~" or path.startswith("~/") else path
+    candidate = Path(text) if text.startswith("/") else base / text
+    return Path(os.path.realpath(candidate))
+
+
+def drop_redundant_hooks_path(root: Path, home: Path | None = None) -> list[str]:
+    """Remove a repository's own `core.hooksPath` that hides the whole-user dispatcher.
+
+    With the whole-user dispatcher installed (global `core.hooksPath` at
+    `~/.claude/git-hooks`, its `post-checkout` the dispatcher), a repository
+    that sets `core.hooksPath` to its own `.git/hooks` (some `prek install`
+    runs do) skips the dispatcher, and with it the host-only prek home for
+    hooks run outside the sandbox. The dispatcher chains to `.git/hooks`
+    anyway, so that value is redundant and is removed; any other value is only
+    reported. Main checkouts only: a linked worktree's config lives in a common
+    directory its sandbox-writable `.git` file names.
+    """
+    home = home if home is not None else Path.home()
+    hooks_dir = home / ".claude" / "git-hooks"
+    global_path = _git_config(home, "--global", "--get", "core.hooksPath")
+    if not global_path or _resolved(global_path, home, home) != Path(os.path.realpath(hooks_dir)):
+        return []
+    if Path(os.path.realpath(hooks_dir / "post-checkout")).name != "git-hook-dispatcher.sh":
+        return []
+    checkout = _checkout(root)
+    dot_git = checkout / ".git"
+    config = dot_git / "config"
+    if dot_git.is_symlink() or not dot_git.is_dir() or config.is_symlink() or not config.is_file():
+        return []
+    local = _git_config(home, "--file", str(config), "--get", "core.hooksPath")
+    if not local:
+        return []
+    if _resolved(local, checkout, home) == Path(os.path.realpath(dot_git / "hooks")):
+        if _git_config(home, "--file", str(config), "--unset", "core.hooksPath") is not None:
+            return [
+                f"removed core.hooksPath={local} from {config}; the whole-user dispatcher chains to it anyway"
+            ]
+        return [
+            f"{config} sets core.hooksPath={local}, which skips the whole-user dispatcher; unset it by hand"
+        ]
+    return [
+        f"{config} sets core.hooksPath={local}, which skips the whole-user dispatcher "
+        "(and its host-only prek home); unset it unless you need it"
+    ]
+
+
+#: Shown when the session start removed or found a repository-level hooks path.
+HOOKS_PATH_HEADER = (
+    "Apache Magpie: a repository-level core.hooksPath bypasses the whole-user git-hook dispatcher, "
+    "so hooks run outside the sandbox would use prek environments the sandbox can write (apache/magpie#1792)."
+)
+
+
 #: Shown when the session start removed or found a `~/.local/share/uv` grant.
 STALE_UV_HEADER = (
     "Apache Magpie: ~/.local/share/uv holds the interpreters and tools uv runs outside the sandbox, "
@@ -421,13 +502,17 @@ def session_start(root: Path, notice: str = "", home: Path | None = None) -> str
     warn about.
 
     Every session start also drops the old `~/.local/share/uv` write grant
-    (`drop_stale_uv_writes`), adopted or not, and tells the user what it did.
+    (`drop_stale_uv_writes`) and a repository-level `core.hooksPath` that
+    only hides the whole-user dispatcher (`drop_redundant_hooks_path`),
+    adopted or not, and tells the user what it did.
     """
     stale = drop_stale_uv_writes(root.resolve(), home)
     stale_message = "\n".join([STALE_UV_HEADER, *(f"- {m}" for m in stale)]) if stale else ""
+    hooks = drop_redundant_hooks_path(root.resolve(), home)
+    hooks_message = "\n".join([HOOKS_PATH_HEADER, *(f"- {m}" for m in hooks)]) if hooks else ""
     project = _adopted_root(root.resolve())
-    messages = [stale_message] if stale_message else []
-    contexts = [part for part in (notice, stale_message) if part]
+    messages = [m for m in (stale_message, hooks_message) if m]
+    contexts = [part for part in (notice, stale_message, hooks_message) if part]
     if project is not None and not warning_opted_out(project) and not configured(project, home):
         messages.append(UNCONFIGURED_WARNING)
         contexts.append(UNCONFIGURED_CONTEXT)

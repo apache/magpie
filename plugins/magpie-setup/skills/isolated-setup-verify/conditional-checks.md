@@ -70,7 +70,9 @@ reading this file; read the section for a check whose condition holds.
      (`git config --local --get core.hooksPath`, often left by a
      `prek install`): it overrides the global one, so git never runs the
      dispatcher there, and neither its post-checkout allowlist sync nor its
-     prek-home switch happens. Remediation: `git config --local --unset
+     prek-home switch happens. magpie-setup's session-start hook removes
+     a value pointing at the repository's own `.git/hooks` by itself; for
+     any other, the remediation is `git config --local --unset
      core.hooksPath` in that repository, run by the operator; the
      dispatcher still chains to the repository's own `.git/hooks/`.
 

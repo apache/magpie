@@ -447,3 +447,90 @@ def test_nothing_to_remove_keeps_the_plain_notice(tmp_path: Path, isolated_home:
     repo = git_repo(tmp_path / "repo")
     write_local(repo, [str(repo), f"{isolated_home}/.cache"])
     assert isolated.session_start(repo, "plugin 1.0 is active", home=isolated_home) == "plugin 1.0 is active"
+
+
+# --- the session start drops a repository-level core.hooksPath that hides the dispatcher ---
+
+
+def whole_user_dispatcher(home: Path) -> None:
+    """~/.claude/git-hooks with the dispatcher, wired as the global core.hooksPath."""
+    hooks = home / ".claude" / "git-hooks"
+    hooks.mkdir(parents=True)
+    (hooks / "git-hook-dispatcher.sh").write_text("#!/bin/sh\n")
+    (hooks / "post-checkout").symlink_to("git-hook-dispatcher.sh")
+    (home / ".gitconfig").write_text(f"[core]\n\thooksPath = {hooks}\n")
+
+
+def local_hooks_path(repo: Path) -> str:
+    done = subprocess.run(
+        ["git", "config", "--file", str(repo / ".git" / "config"), "--get", "core.hooksPath"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return done.stdout.strip()
+
+
+def test_a_redundant_repository_hooks_path_is_removed(tmp_path: Path, isolated_home: Path) -> None:
+    whole_user_dispatcher(isolated_home)
+    repo = git_repo(tmp_path / "repo")
+    subprocess.run(
+        ["git", "-C", str(repo), "config", "core.hooksPath", str(repo / ".git" / "hooks")], check=True
+    )
+    out = json.loads(isolated.session_start(repo, home=isolated_home))
+    assert local_hooks_path(repo) == ""
+    assert "removed core.hooksPath=" in out["systemMessage"]
+    assert isolated.session_start(repo, "plugin 1.0 is active", home=isolated_home) == "plugin 1.0 is active"
+
+
+def test_another_repository_hooks_path_is_only_reported(tmp_path: Path, isolated_home: Path) -> None:
+    whole_user_dispatcher(isolated_home)
+    repo = git_repo(tmp_path / "repo")
+    subprocess.run(["git", "-C", str(repo), "config", "core.hooksPath", ".husky"], check=True)
+    out = json.loads(isolated.session_start(repo, home=isolated_home))
+    assert local_hooks_path(repo) == ".husky"
+    assert "unset it unless you need it" in out["systemMessage"]
+
+
+def test_without_the_dispatcher_a_repository_hooks_path_is_left_alone(
+    tmp_path: Path, isolated_home: Path
+) -> None:
+    repo = git_repo(tmp_path / "repo")
+    subprocess.run(
+        ["git", "-C", str(repo), "config", "core.hooksPath", str(repo / ".git" / "hooks")], check=True
+    )
+    assert isolated.session_start(repo, "plugin 1.0 is active", home=isolated_home) == "plugin 1.0 is active"
+    assert local_hooks_path(repo) == str(repo / ".git" / "hooks")
+
+
+def test_a_linked_worktree_leaves_the_common_config_alone(tmp_path: Path, isolated_home: Path) -> None:
+    whole_user_dispatcher(isolated_home)
+    main = git_repo(tmp_path / "main")
+    subprocess.run(["git", "-C", str(main), "add", ".gitignore"], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(main),
+            "-c",
+            "user.name=t",
+            "-c",
+            "user.email=t@t",
+            "-c",
+            "commit.gpgsign=false",
+            "-c",
+            "core.hooksPath=/dev/null",
+            "commit",
+            "-q",
+            "-m",
+            "init",
+        ],
+        check=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(main), "config", "core.hooksPath", str(main / ".git" / "hooks")], check=True
+    )
+    worktree = tmp_path / "wt"
+    subprocess.run(["git", "-C", str(main), "worktree", "add", "-q", str(worktree)], check=True)
+    isolated.session_start(worktree, home=isolated_home)
+    assert local_hooks_path(main) == str(main / ".git" / "hooks")
