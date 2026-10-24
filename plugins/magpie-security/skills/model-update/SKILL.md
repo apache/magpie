@@ -23,7 +23,7 @@ capability:
   - capability:authoring
 surface_hash: sha256:5f058bd378b65f45
 license: Apache-2.0
-measured_tokens: 4821
+measured_tokens: 4969
 ---
 
 # Security model update
@@ -305,6 +305,14 @@ unlucky.
     `security-issue-invalidate` cites instead of paraphrasing; a resolved
     gap is a canned response that can now link a section rather than restate it.
 
+12. **Refresh the scanner copies.** Every row of *Scanner threat-model
+    summaries* in `<project-config>/security-model.md` whose *derived from*
+    commit is not the model file's latest commit — the one this amendment
+    produced — is stale: the scanner keeps filtering on the old
+    model. Propose the refresh through
+    [`security-submit-to-oss-scan`](../submit-to-oss-scan/SKILL.md) in
+    `update` mode, one PR per copy.
+
 ## Hard rules
 
 1. **Read-only on the tracker.** No label flips, no closes, no comments. This
@@ -340,6 +348,8 @@ unlucky.
   first model; runs this skill read-only to seed §1.15.
 - [`security-model-verify`](../model-verify/SKILL.md) — discoverability
   and completeness pre-flight; home of the PR helper.
+- [`security-submit-to-oss-scan`](../submit-to-oss-scan/SKILL.md) — keeps
+  the scanner's summary of this model in step (Step 12).
 - [`security-issue-triage`](../issue-triage/SKILL.md) — produces the
   dispositions this skill mines, and consumes the §1.15 entries it produces.
 - [`security-issue-invalidate`](../issue-invalidate/SKILL.md) — the

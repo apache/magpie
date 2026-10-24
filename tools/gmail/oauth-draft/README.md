@@ -37,7 +37,7 @@
 # oauth-draft
 
 Small Python project that talks directly to the Gmail REST API on a
-user-provided OAuth refresh token. Five console scripts:
+user-provided OAuth refresh token. Six console scripts:
 
 | Console script | Purpose |
 |---|---|
@@ -45,6 +45,7 @@ user-provided OAuth refresh token. Five console scripts:
 | `oauth-draft-create` | Create a Gmail draft with `threadId` attachment. (As of the `replyToMessageId` parameter on the claude.ai Gmail MCP `create_draft`, the MCP can also produce thread-attached drafts — see [`../draft-backends.md`](../draft-backends.md). This script remains useful when you have a `threadId` on hand and would rather skip the extra `get_thread` round-trip the MCP path requires, and is the only path that lets the skills delete drafts via the Gmail API afterwards.) |
 | `oauth-draft-mark-read` | Bulk-modify Gmail threads matching a search query (default: mark as read by removing the `UNREAD` label). No MCP equivalent today. |
 | `oauth-draft-message-id` | Resolve the root RFC-5322 `Message-ID` header of one or more threads (`threads.get?format=metadata`). No MCP equivalent — the claude.ai Gmail MCP `get_thread` surfaces only Gmail's opaque per-message IDs, never the `Message-ID:` header. `security-issue-import` records the result in the *Security mailing list thread* tracker field. |
+| `oauth-draft-fetch-message` | Save one message's full RFC-5322 source to a local `.eml` file (`messages.get?format=raw`; read-only) and print only its identifying headers. For messages too big for the claude.ai Gmail MCP — a scanner disclosure of several MB — whose text rendering also drops control characters such as NUL. `security-issue-import-from-scan` parses the file with `parse-email`. |
 | `oauth-draft-mcp` | Exposes the same plain-text drafting as an **MCP server** (`create_draft`, plus `setup_credentials` / `check_auth` for in-MCP authentication) so any MCP-speaking agent can create Gmail drafts without the claude.ai Gmail connector (which rewrites links into tracking redirects). Needs the optional `mcp` extra. See [MCP server](#mcp-server) below. |
 
 The **strongly preferred** drafting backend is this `oauth_curl` tool:
@@ -95,10 +96,15 @@ uv run --project <framework>/tools/gmail/oauth-draft oauth-draft-mark-read \
 # Resolve the root Message-ID of one or more threads (TSV, or --json)
 uv run --project <framework>/tools/gmail/oauth-draft oauth-draft-message-id \
   19e9d09a31ff6bdd 19dda947a5d6ca88
+
+# Save one message (by Gmail message id) to a file, body never printed
+uv run --project <framework>/tools/gmail/oauth-draft oauth-draft-fetch-message \
+  19e9d09a31ff6bdd --out <scratch>/scan.eml
 ```
 
 Per-flag help: `oauth-draft-create --help`,
 `oauth-draft-mark-read --help`, `oauth-draft-message-id --help`,
+`oauth-draft-fetch-message --help`,
 `oauth-draft-setup --help`.
 
 **Under the secure agent setup these scripts run outside the sandbox.**

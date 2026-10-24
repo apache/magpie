@@ -53,7 +53,7 @@ and reuse the skills verbatim.
 
 ## Install & first runs
 
-Install just this family — one plugin, 15 skills. The security-report lifecycle, from intake through CVE publication.
+Install just this family — one plugin, 16 skills. The security-report lifecycle, from intake through CVE publication.
 
 Once you have [added the marketplace](../setup/marketplace-install.md):
 
@@ -104,12 +104,12 @@ says which file is missing.
 | [`canned-responses.md`](../../plugins/magpie-setup/templates/canned-responses.md) | Reusable reporter-facing reply templates. | `issue-invalidate`, `issue-triage` |
 | [`fix-workflow.md`](../../plugins/magpie-setup/templates/fix-workflow.md) | Fork / clone / toolchain specifics, backport-label policy, commit-trailer wording, PR scrubbing, private-PR fallback. | `issue-fix` |
 | [`milestones.md`](../../plugins/magpie-setup/templates/milestones.md) | Milestone naming conventions + create-and-assign recipe. | `issue-sync` |
-| [`project.md`](../../plugins/magpie-setup/templates/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `cve-allocate`, `issue-deduplicate`, `issue-fix`, `issue-import`, `issue-import-from-md`, `issue-import-from-pr`, `issue-import-from-scan`, `issue-import-via-forwarder`, `issue-invalidate`, `issue-triage`, `model-verify`, `tracker-stats-dashboard` |
+| [`project.md`](../../plugins/magpie-setup/templates/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `cve-allocate`, `issue-deduplicate`, `issue-fix`, `issue-import`, `issue-import-from-md`, `issue-import-from-pr`, `issue-import-from-scan`, `issue-import-via-forwarder`, `issue-invalidate`, `issue-triage`, `model-verify`, `submit-to-oss-scan`, `tracker-stats-dashboard` |
 | [`release-trains.md`](../../plugins/magpie-setup/templates/release-trains.md) | Active release branches, release-manager attribution per cut, rotation rosters, security-team roster. | `issue-triage` |
 | [`scanner-products.md`](../../plugins/magpie-setup/templates/scanner-products.md) | Private scanner product names, and the finder-anonymisation rule applied before anything is quoted publicly. | `issue-sync` |
 | [`scope-labels.md`](../../plugins/magpie-setup/templates/scope-labels.md) | Scope label → CVE product / `packageName` / collection-URL mapping. Exactly one scope label per tracker. | `issue-deduplicate`, `issue-import-from-md`, `issue-import-from-pr`, `issue-triage`, `tracker-stats-dashboard` |
 | [`security-intake-config.md`](../../plugins/magpie-setup/templates/security-intake-config.md) | Capability-flag vocabulary for the intake path: how reports arrive, what counts as in scope, and what a receipt says. | `issue-import` |
-| [`security-model.md`](../../plugins/magpie-setup/templates/security-model.md) | Authoritative URL for the project's Security Model + known-useful anchors + drafting rule. | `issue-triage`, `model-prepare`, `model-update`, `model-verify` |
+| [`security-model.md`](../../plugins/magpie-setup/templates/security-model.md) | Authoritative URL for the project's Security Model + known-useful anchors + drafting rule. | `issue-triage`, `model-prepare`, `model-update`, `model-verify`, `submit-to-oss-scan` |
 | [`security-tracker-stats.md`](../../plugins/magpie-setup/templates/security-tracker-stats.md) | Which tracker fields and windows the stats dashboard reads, and what it publishes. | `tracker-stats-dashboard` |
 | [`title-normalization.md`](../../plugins/magpie-setup/templates/title-normalization.md) | Regex cascade the `security-cve-allocate` skill applies to tracker titles before pasting them into the CVE-tool allocation form. | `cve-allocate` |
 

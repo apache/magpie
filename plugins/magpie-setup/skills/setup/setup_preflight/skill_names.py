@@ -95,6 +95,7 @@ FRONTMATTER_TO_OVERRIDE: dict[str, str] = {
     "stale-sweep": "issue-stale-sweep",
     "stats": "pr-management-stats",
     "status": "setup-status",
+    "submit-to-oss-scan": "security-submit-to-oss-scan",
     "tracker-stats-dashboard": "security-tracker-stats-dashboard",
     "triage": "issue-triage",
     "upstream-fix": "setup-upstream-fix",

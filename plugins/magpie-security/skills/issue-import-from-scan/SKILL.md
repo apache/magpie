@@ -19,7 +19,7 @@ argument-hint: "[scan-source ...]  (one or more GitHub issues and/or report fold
 capability: capability:intake
 surface_hash: sha256:7adfbe73f79606b1
 license: Apache-2.0
-measured_tokens: 6302
+measured_tokens: 6580
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -169,8 +169,12 @@ Only on the user's confirmation run `tracker-publish` with that message file
 ## Inputs — sources
 
 The selector accepts **one or more** sources, freely mixing GitHub
-issues and report folders (e.g. *"import #23, #24 and #34"*, or
-*"import the `ASVS/reports/opus-4.8/<component>` tree"*).
+issues, report folders and **scanner disclosure emails** (e.g. *"import #23, #24 and #34"*,
+*"import the `ASVS/reports/opus-4.8/<component>` tree"*, or *"import the OSS Scanner mail with 115 findings"*).
+
+**Email sources** (a scanner that mails the whole scan, e.g. the Anthropic OSS Scanner) are first materialised into a scan folder:
+save the message with `oauth-draft-fetch-message`, split it with `<sm> parse-email`, and triage only when `checks.complete` is true
+([how, and the lossy fallback](../../../../tools/scan-format/README.md#email-delivered-scans)).
 
 **Multiple sources in one run.** Resolve every source to a concrete set
 of **scan folders** (each a directory the scan-format adapter recognises
@@ -265,7 +269,8 @@ a by-design, duplicate or already-fixed row without grounding is refused.
 For several scans it adds the **cross-scan processing report** (per-scan outcomes, the aggregate breakdown **with percentages**, severity vs disposition);
 you add the *"what the scanner is / isn't good for"* assessment at its marker.
 
-**Publish the report as a secret gist (default)** and surface the URL —
+**A report built from a private source — a scanner disclosure email — never leaves the machine before disclosure:** keep it as a local file in `<scratch>` and say where; no gist, no per-source post, whatever else the run includes. A secret gist is readable by anyone holding the link, and the scrub cannot recognise an embargoed finding by its title.
+For public sources only, **publish the report as a secret gist (default)** and surface the URL —
 `gh gist create --desc "<title>" <report.md>` (secret is the default; do
 **not** pass `--public`). The gist is the portable, shareable artifact.
 
@@ -281,7 +286,7 @@ write `{"reply", "findings": [{"n", "bucket"}]}` to a file and run `<sm> parse-d
 ## Step F — Land the report, then apply confirmed actions
 
 1. **Publish + land the report(s):**
-   - **Gist (default):** the secret gist from Step D; surface the URL.
+   - **Gist (default, public sources only):** the secret gist from Step D; surface the URL. A private (email) source stays a local file.
    - **Per-source:** GH-issue → draft the comment, confirm, then
      `gh issue comment <N> --repo <scan-repo> --body-file <tmp>`;
      folder → write `issue_analysis.md` into the folder.
@@ -374,6 +379,9 @@ write `{"reply", "findings": [{"n", "bucket"}]}` to a file and run `<sm> parse-d
    - **PR-worth / defense-in-depth** → hand to
      [`security-issue-fix`](../issue-fix/SKILL.md) (public PR) or skip;
    - **by-design / dup / already-fixed** → no action; the report is the record.
+3. **Close the loop on repeat false positives.** A by-design cluster the scanner keeps reporting is a
+   [`security-model-update`](../model-update/SKILL.md) candidate; once the model changes,
+   [`security-submit-to-oss-scan`](../submit-to-oss-scan/SKILL.md) refreshes the scanner's threat-model copy so it stops filing them.
 
 ## Hard rules
 

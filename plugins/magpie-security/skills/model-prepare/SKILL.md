@@ -19,7 +19,7 @@ argument-hint: "[repo-or-project]"
 capability: capability:authoring
 surface_hash: sha256:db4f1e33c6b3fab3
 license: Apache-2.0
-measured_tokens: 4673
+measured_tokens: 4715
 ---
 
 # Security model prepare
@@ -345,6 +345,9 @@ A mostly unratified draft is not yet the project's model; say so in the header.
   the gaps as triage decisions accumulate.
 - `<project-config>/security-model.md` — record the authoritative URL so every
   other security skill can cite it.
+- `security-submit-to-oss-scan` — when the team wants the project scanned,
+  it derives the scanner's `threat_model.md` from this model and prepares
+  the enrolment PR.
 
 ## Hard rules
 

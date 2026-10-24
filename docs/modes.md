@@ -61,7 +61,7 @@ Autonomous* (the renamed former *Auto-merge*).
 |---|---|---|---|
 | **Triage** | *(Agentic Triage)* Issues, security reports, PRs: spot, classify, route, surface duplicates. Every output is a suggestion the human signs off on. | stable (security) / experimental (pr-management, issue-management, contributor-nomination, repo-health, release-management) | 40 |
 | **Mentoring** | *(Agentic Mentoring)* Joins issue and PR threads in a teaching register: clarifying questions, pointers to project conventions, paired examples from prior PRs, hand-off to a human when scope exceeds the agent. Also authors net-new good first issues, curates the existing backlog, and explains filed issues to newcomers to lower onboarding latency. | experimental | 7 |
-| **Drafting** | *(Agentic Drafting)* Agent drafts a fix for a well-scoped problem and opens a PR; every PR is reviewed and merged by a human committer. | stable (security-only); experimental (issue-management, audit-findings, release-management family) | 11 |
+| **Drafting** | *(Agentic Drafting)* Agent drafts a fix for a well-scoped problem and opens a PR; every PR is reviewed and merged by a human committer. | stable (security-only); experimental (issue-management, audit-findings, release-management family) | 12 |
 | **Pairing** | *(Agentic Pairing)* Developer-side dev-cycle skills with mentorship intrinsic — multi-agent review pipelines, self-review and pre-flight patterns, scoped fix drafting under the developer's driver's seat. | experimental | 3 |
 | **Meta** | *(framework infrastructure & authoring)* Adoption, isolation, upgrade, status, and skill-authoring flows plus read-only stats dashboards' framework plumbing. These skills are framework machinery rather than a maintainership mode; they do not act on issues, PRs, or contributor threads on their own. | stable | 20 |
 | **Agentic Autonomous** | Auto-merge restricted to objectively boring change classes only (lint, dependency bumps inside an allow-list, license-header insertion, formatting, broken-link repair). | off | 0 |
@@ -188,6 +188,7 @@ the agent never merges its own work.
 |---|---|---|
 | [`security-issue-fix`](../skills/security-issue-fix/SKILL.md) | Draft a fix PR in `<upstream>` from a triaged, CVE-allocated tracker. | stable (security-only) |
 | [`issue-fix-workflow`](../skills/issue-fix-workflow/SKILL.md) | Draft a fix for a triaged general-issue-tracker issue (BUG or FEATURE-REQUEST). | experimental |
+| [`security-submit-to-oss-scan`](../skills/security-submit-to-oss-scan/SKILL.md) | Draft the enrolment PR for an automated security scanner: `project.yaml`, an offline-capable `Dockerfile`, and a threat-model summary derived from the project's security model. | experimental |
 | [`audit-finding-fix`](../skills/audit-finding-fix/SKILL.md) | Draft fixes for non-security audit-tool findings (lint violations, type errors, CodeQL alerts, doc-coverage gaps); re-runs the tool after each batch to confirm findings are cleared. | experimental |
 | [`release-prepare`](../skills/release-prepare/SKILL.md) | Planning issue + version-bump / changelog / NOTICE / LICENSE prep PR (Steps 1-2). Also the post-release `-SNAPSHOT` bump (Step 14). | experimental |
 | [`release-keys-sync`](../skills/release-keys-sync/SKILL.md) | Draft the `KEYS` diff for a new Release Manager (Step 3). Agent never holds the private key. | experimental |

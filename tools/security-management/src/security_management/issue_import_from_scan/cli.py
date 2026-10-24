@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Any
 
 from security_management.cli import emit, read_json, read_object
-from security_management.issue_import_from_scan import scan
+from security_management.issue_import_from_scan import oss_scanner, scan
 
 FAMILY = "issue-import-from-scan"
 
@@ -37,6 +37,18 @@ def add_parsers(sub: Any) -> None:
         FAMILY, help="security-issue-import-from-scan: bucket rules, report, decision, scrub"
     )
     commands = parser.add_subparsers(dest="command", required=True)
+
+    e = commands.add_parser(
+        "parse-email", help="Step A: split an Anthropic OSS Scanner disclosure email into a scan folder"
+    )
+    e.add_argument(
+        "--source", required=True, help="the email: an .eml file, its plain-text body, or a saved Gmail JSON"
+    )
+    e.add_argument("--out-dir", required=True, help="the scan folder to write (index.json + evidence/)")
+    e.add_argument("--archive-dir", help="an operator-decrypted findings archive, to link each REPORT.md")
+    e.add_argument(
+        "--attachments-dir", help="save the .eml's attachments here (byte-exact; never decrypted or opened)"
+    )
 
     b = commands.add_parser("bucket-action", help="Step C: what a disposition bucket allows")
     b.add_argument("--bucket", required=True, help=f"one of {', '.join(scan.BUCKETS)}")
@@ -77,7 +89,18 @@ def _scans(findings: Any, buckets: Any) -> list[dict[str, Any]]:
 
 def dispatch(args: argparse.Namespace) -> int:
     command = args.command
-    if command == "bucket-action":
+    if command == "parse-email":
+        body, meta = oss_scanner.load_body(Path(args.source))
+        parsed = oss_scanner.parse(body)
+        if args.archive_dir:
+            oss_scanner.attach_archive(parsed, Path(args.archive_dir))
+        summary = oss_scanner.materialise(parsed, meta, Path(args.out_dir))
+        if args.attachments_dir:
+            summary["attachments"] = oss_scanner.save_attachments(
+                Path(args.source), Path(args.attachments_dir)
+            )
+        emit(summary)
+    elif command == "bucket-action":
         emit(scan.bucket_action(args.bucket))
     elif command == "render-report":
         emit(scan.render_report(_scans(read_json(args.findings), read_json(args.buckets)), args.title))

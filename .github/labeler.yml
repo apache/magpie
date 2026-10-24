@@ -27,11 +27,13 @@ capability:authoring:
       - any-glob-to-any-file:
           - 'plugins/magpie-security/skills/model-prepare/**'
           - 'plugins/magpie-security/skills/model-update/**'
+          - 'plugins/magpie-security/skills/submit-to-oss-scan/**'
           - 'plugins/magpie-utilities/skills/optimize-skill/**'
           - 'plugins/magpie-utilities/skills/write-skill/**'
           - 'tools/skill-evals/evals/optimize-skill/**'
           - 'tools/skill-evals/evals/security-model-prepare/**'
           - 'tools/skill-evals/evals/security-model-update/**'
+          - 'tools/skill-evals/evals/security-submit-to-oss-scan/**'
           - 'tools/skill-evals/evals/write-skill/**'
 
 capability:fix:
@@ -376,6 +378,7 @@ family:security:
           - 'tools/skill-evals/evals/security-model-prepare/**'
           - 'tools/skill-evals/evals/security-model-update/**'
           - 'tools/skill-evals/evals/security-model-verify/**'
+          - 'tools/skill-evals/evals/security-submit-to-oss-scan/**'
           - 'tools/skill-evals/evals/security-tracker-stats-dashboard/**'
 
 family:setup:
