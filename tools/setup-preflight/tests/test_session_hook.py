@@ -207,10 +207,8 @@ def test_a_skipped_preflight_still_reports_the_stale_uv_grant(project: Path, tmp
         check=False,
     )
     assert done.returncode == 0, done.stderr
-    try:
-        message = json.loads(done.stdout)["systemMessage"]
-    except ValueError:
-        pytest.fail(f"no warning: {done.stdout!r}")
+    assert done.stdout.startswith("{"), f"no warning: {done.stdout!r}"
+    message = json.loads(done.stdout)["systemMessage"]
     assert "~/.local/share/uv" in message
     assert str(project / ".claude" / "settings.local.json") in message
     # The file is reported, never edited without the pre-flight.
