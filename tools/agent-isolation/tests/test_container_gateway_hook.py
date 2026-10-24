@@ -762,3 +762,13 @@ def test_a_record_for_another_path_refuses(tmp_path: Path) -> None:
     record.write_text(f"{lay.base / 'someone-else'}\n{lay.project}\n")
     done = run("start", worktree, home=lay.home)
     assert done.stdout == "" and "no longer matches its worktree record" in done.stderr
+
+
+def test_a_record_in_a_writable_directory_is_never_trusted(tmp_path: Path) -> None:
+    """A grant over the record directory lets the sandbox forge the record itself."""
+    lay = Layout(tmp_path)
+    worktree = _linked_worktree(lay)
+    run("start", worktree, home=lay.home)
+    lay.settings({"sandbox": {"filesystem": {"allowWrite": ["~/.claude/magpie-gateway"]}}})
+    done = run("stop", worktree, home=lay.home)
+    assert done.stdout == "" and "is sandbox-writable" in done.stderr

@@ -407,6 +407,13 @@ else
     key="$(printf '%s' "$root" | shasum -a 256 | cut -d' ' -f1)"
 fi
 record="$state_dir/$key"
+# A record is only as good as its directory: one the sandbox can write proves
+# nothing, so that refuses before any record is read or trusted.
+if [[ -e $record || $linked_worktree -eq 1 ]] \
+    && { under_writable_root "$state_dir" || overlaps_writable "$HOME/.claude/magpie-gateway"; }; then
+    log "the worktree record directory $state_dir is sandbox-writable; not starting the container gateway for $root"
+    exit 0
+fi
 # Looked up by path whether or not the checkout looks linked now: swapping the
 # worktree's `.git` file for a directory must not make the record disappear.
 if [[ -L $record ]]; then
@@ -421,10 +428,6 @@ if [[ -f $record ]]; then
         exit 0
     fi
 elif (( linked_worktree )); then
-    if under_writable_root "$state_dir" || overlaps_writable "$HOME/.claude/magpie-gateway"; then
-        log "the worktree record directory $state_dir is sandbox-writable; not starting the container gateway for linked worktree $root"
-        exit 0
-    fi
     mkdir -p "$state_dir" 2>/dev/null && chmod 700 "$HOME/.claude/magpie-gateway" "$state_dir" 2>/dev/null
     tmp_record="$(mktemp "$state_dir/.record.XXXXXX" 2>/dev/null)" \
         && printf '%s\n%s\n' "$root" "$main_root" > "$tmp_record" \
