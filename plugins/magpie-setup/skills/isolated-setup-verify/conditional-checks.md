@@ -66,6 +66,14 @@ reading this file; read the section for a check whose condition holds.
        Do not report them as inert; that is the simple flavour's
        cost, which this flavour exists to remove.
 
+   - ⚠ for each repository that sets its own `core.hooksPath`
+     (`git config --local --get core.hooksPath`, often left by a
+     `prek install`): it overrides the global one, so git never runs the
+     dispatcher there, and neither its post-checkout allowlist sync nor its
+     prek-home switch happens. Remediation: `git config --local --unset
+     core.hooksPath` in that repository, run by the operator; the
+     dispatcher still chains to the repository's own `.git/hooks/`.
+
    If `core.hooksPath` is unset (or points elsewhere), the
    operator is in **per-project** scope (the default). No further
    sub-check needed — the per-project mode is fully covered by

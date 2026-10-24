@@ -1,5 +1,8 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "env": {
+    "PREK_HOME": "~/.cache/prek-sandbox"
+  },
   "sandbox": {
     "enabled": true,
     "excludedCommands": [
@@ -155,6 +158,7 @@
       "Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
       "Edit(~/.claude/magpie/**)",
       "Edit(~/.config/uv/**)",
+      "Edit(~/.cache/prek/**)",
       "Edit(~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/**)",
       "Edit(~/.claude/scripts/**)",
       "Bash(curl *)",

@@ -892,3 +892,21 @@ def test_invariant_requires_the_host_uv_config_denies(baseline: dict[str, Any], 
     settings["permissions"]["deny"].remove(required)
     errors = check_invariants(settings)
     assert f"permissions.deny: must contain {required!r}" in errors
+
+
+@pytest.mark.parametrize("value", [None, "~/.cache/prek", "~/.cache/prek/sub", "~/.cache"])
+def test_invariant_requires_a_separate_sandbox_prek_home(baseline: dict[str, Any], value: str | None) -> None:
+    """A terminal's git hooks run prek's environments outside the sandbox."""
+    settings = copy.deepcopy(baseline)
+    if value is None:
+        settings.pop("env", None)
+    else:
+        settings["env"] = {"PREK_HOME": value}
+    errors = check_invariants(settings)
+    assert any(e.startswith("env.PREK_HOME:") for e in errors), errors
+
+
+def test_the_baseline_gives_sandboxed_prek_its_own_home(baseline: dict[str, Any]) -> None:
+    assert baseline["env"]["PREK_HOME"] == "~/.cache/prek-sandbox"
+    assert "Edit(~/.cache/prek/**)" in baseline["permissions"]["deny"]
+    assert check_invariants(baseline) == []

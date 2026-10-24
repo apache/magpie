@@ -1131,6 +1131,10 @@ uv tool install prek
 
 Do not add `~/.local/share/uv` back to `allowWrite`: `sandbox-lint` rejects it.
 
+The same switch moved sandboxed prek to its own home, `~/.cache/prek-sandbox`
+(`env.PREK_HOME`), so the first sandboxed `prek run` after it rebuilds its hook
+environments once; that is expected, not a failure.
+
 ---
 
 ## Git hooks silently skipped for commits made inside the sandbox

@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:ce33cb9437d44992
 license: Apache-2.0
-measured_tokens: 7251
+measured_tokens: 7317
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -249,12 +249,15 @@ Walk each in order:
       `Read(~/.config/uv/uv.toml)` and `Edit(~/.config/uv/**)`, and a
       sandboxed `uv cache dir` prints uv's default cache, not 19b's. Printing
       19b's path is ✗: the sandbox reads the config and writes the host cache.
-    - **19d — host-run hooks get their own prek home.** With the whole-user
-      dispatcher (check 8), its copy carries the `PREK_HOME` block that points a
-      hook run outside the sandbox at `~/.local/share/prek-host`; an older copy
-      is ✗ (stale: terminal commits run prek from the sandbox-writable
-      `~/.cache/prek`). Per-project scope is ⚠ for the same reason: nothing
-      sits in front of `.git/hooks/` to switch the home.
+    - **19d — sandboxed prek has its own home.** The merged settings carry
+      `env.PREK_HOME` outside `~/.cache/prek` (`~/.cache/prek-sandbox` in the
+      reference) and `permissions.deny` carries `Edit(~/.cache/prek/**)`; a
+      sandboxed write probe into `~/.cache/prek` fails. Either missing is ✗: a
+      terminal's git hooks run prek's environments there, outside the sandbox.
+      With the whole-user dispatcher, an installed copy without the
+      `prek-host` block is ✗ (stale: commits Claude runs outside the sandbox
+      would use the sandbox home). Per-project scope, or a repository whose own
+      `core.hooksPath` skips the dispatcher (check 8), is ⚠ for that same case.
 
     [Why](../../../../docs/setup/secure-agent-setup.md#host-only-uv-state).
 
