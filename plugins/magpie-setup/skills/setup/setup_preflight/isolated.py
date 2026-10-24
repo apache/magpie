@@ -57,6 +57,7 @@ fingerprint into the stamp:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hashlib
 import json
 import os
@@ -333,10 +334,10 @@ def _drop_from_local_settings(local: Path, stale: frozenset[str]) -> str | None:
                 handle.write(json.dumps(loaded, indent=2) + "\n")
             os.replace(tmp_name, local.name, src_dir_fd=dfd, dst_dir_fd=dfd)
         except OSError:
-            try:
+            # Best effort: a temporary file left behind is inert, and the
+            # refusal is reported either way.
+            with contextlib.suppress(OSError):
                 os.unlink(tmp_name, dir_fd=dfd)
-            except OSError:
-                pass
             return "refused"
         return "removed"
     finally:
@@ -425,13 +426,15 @@ def session_start(root: Path, notice: str = "", home: Path | None = None) -> str
     stale = drop_stale_uv_writes(root.resolve(), home)
     stale_message = "\n".join([STALE_UV_HEADER, *(f"- {m}" for m in stale)]) if stale else ""
     project = _adopted_root(root.resolve())
-    warn = not (project is None or warning_opted_out(project) or configured(project, home))
-    if not warn and not stale_message:
+    messages = [stale_message] if stale_message else []
+    contexts = [part for part in (notice, stale_message) if part]
+    if project is not None and not warning_opted_out(project) and not configured(project, home):
+        messages.append(UNCONFIGURED_WARNING)
+        contexts.append(UNCONFIGURED_CONTEXT)
+    if not messages:
         return notice
-    message = "\n\n".join(part for part in (stale_message, UNCONFIGURED_WARNING if warn else "") if part)
-    context = "\n\n".join(
-        part for part in (notice, stale_message, UNCONFIGURED_CONTEXT if warn else "") if part
-    )
+    message = "\n\n".join(messages)
+    context = "\n\n".join(contexts)
     return json.dumps(
         {
             "systemMessage": message,
