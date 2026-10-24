@@ -88,7 +88,7 @@ Suites are currently implemented for:
 - **setup-upstream-fix** — 12 cases across 3 suites (step-2-classify, step-3-dedup, step-5-adversarial-review)
 - **skill-reconciler** — 12 cases across 2 suites (step-0-discover-pairs, step-2-classify)
 - **workflow-security-audit** — 8 cases across 2 suites (step-findings-report, step-scope-selection)
-- **workflow-optimization** — 7 cases across 2 suites (step-2-classify, step-3-plan)
+- **workflow-optimization** — 8 cases across 2 suites (step-2-classify, step-3-plan)
 - **write-skill** — 5 cases across 1 suite (step-5-security-checklist)
 - **setup-privacy-llm** — 6 cases across 2 suites (step-1-resolve, step-4-gate)
 - **preflight-reconciliation** — 7 cases across 1 suite (step-reconciliation)
