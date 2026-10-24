@@ -369,6 +369,12 @@ When the dedicated list was not found or the evidence is unclear, recommend aski
 
 Write the answer to `security_list` in `.apache-magpie-overrides/project.md`.
 
+**Ask which CNA reviewers send CVE-tool mail** (ASF projects only).
+`security_inbox.cve_tool_senders` inherits `security@apache.org` from the ASF organization profile; the CNA reviewers who comment on the project's CVEs send from their own addresses, so their "Comment added on CVE-…" mails are imported as reports unless they are listed.
+Ask for those reviewers' addresses, and never guess them.
+A non-empty answer is written as one list in `.apache-magpie-overrides/project.md` that repeats `security@apache.org` and adds the confirmed addresses, because a project value replaces the organization default rather than merging with it.
+An empty answer leaves the key absent, so the inherited address stays in effect.
+
 `git add` the store; do not commit.
 
 ### 4c — Review the project's existing process
