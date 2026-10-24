@@ -2854,6 +2854,12 @@ scope makes the hook skip them. Where none qualifies, write the absolute path
 of one that does to `~/.claude/scripts/container-gateway/python`; until then
 the hook logs one line and does not start the gateway.
 
+In a linked worktree the hook also counts the main checkout's settings. It
+records which main checkout it confirmed the first time, under
+`~/.claude/magpie-gateway/worktrees/`, because the worktree's `.git` file is
+sandbox-writable; a later session that derives a different one is refused
+until you delete that record (the log line names it).
+
 Wire it as a `SessionStart` / `SessionEnd` pair in `~/.claude/settings.json`, alongside any other hooks already there, **by its absolute path** (your real home, `/home/<you>` on Linux). A `~` in a hook command is expanded from `$HOME` by the launching shell, and a session environment that redirects `$HOME` would run another script:
 
 ```jsonc

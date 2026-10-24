@@ -171,7 +171,17 @@ link_stays_inside() {
     local -a parts
     target="$(readlink -- "$link")" || return 1
     if [[ $target == /* ]]; then cur=""; else cur="$(dirname -- "$link")"; fi
-    IFS=/ read -r -a parts <<< "$target"
+    # Split without a here-string: bash 3.2 backs `<<<` with a temporary file,
+    # and when it cannot create one `read` gets nothing, the loop never runs,
+    # and the link would pass as staying inside. Plain word splitting with
+    # globbing off needs no file.
+    local saved_ifs="$IFS"
+    IFS=/
+    set -f
+    # shellcheck disable=SC2206  # splitting on / is the point; globbing is off
+    parts=($target)
+    set +f
+    IFS="$saved_ifs"
     for part in ${parts[@]+"${parts[@]}"}; do
         case "$part" in
             ""|.) continue ;;
@@ -254,7 +264,9 @@ uv_python_dir="$HOME/.local/share/uv/python"
 # the worktree, so the main checkout counts only when its
 # `worktrees/<name>/gitdir` points back here; otherwise the hook refuses.
 main_root=""
+linked_worktree=0
 if [[ -f $root/.git ]]; then
+    linked_worktree=1
     git_dir="$(git -C "$root" rev-parse --absolute-git-dir 2>/dev/null || true)"
     common_dir="$(git -C "$root" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
     # The git dir must be exactly <common>/worktrees/<name>, and the back-pointer
@@ -381,6 +393,39 @@ tree_is_trusted() {
     done < <(find "$dir" -mindepth 1 -print0 2>/dev/null)
     return 0
 }
+
+# A linked worktree's main checkout is re-derived on every run from `.git`
+# metadata the sandbox can rewrite, so a session could hide the main
+# checkout's grants from the run at its end. The first main checkout this hook
+# confirms for a worktree is recorded where the sandbox cannot write
+# (trust on first use); a later run that derives a different one refuses
+# until the operator deletes the record.
+if (( linked_worktree )); then
+    state_dir="$HOME/.claude/magpie-gateway/worktrees"
+    if under_writable_root "$state_dir" || overlaps_writable "$HOME/.claude/magpie-gateway"; then
+        log "the worktree record directory $state_dir is sandbox-writable; not starting the container gateway for linked worktree $root"
+        exit 0
+    fi
+    key="$(printf '%s' "$root" | cksum | cut -d' ' -f1)"
+    record="$state_dir/$key"
+    if [[ -L $record ]]; then
+        log "the worktree record $record is a symlink; not starting the container gateway"
+        exit 0
+    fi
+    if [[ -f $record ]]; then
+        recorded_root="" recorded_main=""
+        { IFS= read -r recorded_root; IFS= read -r recorded_main; } < "$record" || true
+        if [[ $recorded_root == "$root" && $recorded_main != "$main_root" ]]; then
+            log "linked worktree $root now names main checkout '${main_root:-none}', not the recorded '${recorded_main:-none}'; not starting the container gateway (delete $record if the change is yours)"
+            exit 0
+        fi
+    else
+        mkdir -p "$state_dir" 2>/dev/null && chmod 700 "$HOME/.claude/magpie-gateway" "$state_dir" 2>/dev/null
+        tmp_record="$(mktemp "$state_dir/.record.XXXXXX" 2>/dev/null)" \
+            && printf '%s\n%s\n' "$root" "$main_root" > "$tmp_record" \
+            && mv -f "$tmp_record" "$record"
+    fi
+fi
 
 src=""
 for candidate in "${MAGPIE_CONTAINER_GATEWAY_SRC:-}" \

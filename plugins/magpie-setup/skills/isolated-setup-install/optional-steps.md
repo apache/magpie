@@ -169,6 +169,12 @@ scope makes the hook skip them. Where none qualifies, write the absolute path
 of one that does to `~/.claude/scripts/container-gateway/python`; until then
 the hook logs one line and does not start the gateway.
 
+In a linked worktree the hook also counts the main checkout's settings. It
+records which main checkout it confirmed the first time, under
+`~/.claude/magpie-gateway/worktrees/`, because the worktree's `.git` file is
+sandbox-writable; a later session that derives a different one is refused
+until you delete that record (the log line names it).
+
 **L.2 — Hooks.** Wire a `SessionStart` hook running
 `container-gateway-hook.sh start` and a `SessionEnd` hook running
 `container-gateway-hook.sh stop` into `~/.claude/settings.json`, each

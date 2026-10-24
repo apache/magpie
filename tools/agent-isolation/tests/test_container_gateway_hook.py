@@ -679,3 +679,65 @@ def test_the_launch_environment_never_runs_code(tmp_path: Path, hostile: str) ->
     assert not marker.exists()
     assert "+ " not in done.stderr  # no xtrace imported through SHELLOPTS
     assert f"container_gateway serve --project={lay.project}" in done.stdout
+
+
+# --- linked worktrees: the main checkout is anchored on first use ---
+
+
+def _linked_worktree(lay: Layout) -> Path:
+    git_env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+               "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
+    subprocess.run(["git", "-C", str(lay.project), "-c", "commit.gpgsign=false", "commit", "-q",
+                    "--allow-empty", "-m", "init"], check=True, env=git_env)
+    worktree = lay.base / "wt"
+    subprocess.run(["git", "-C", str(lay.project), "worktree", "add", "-q", str(worktree)], check=True)
+    return worktree
+
+
+def _records(lay: Layout) -> list[Path]:
+    state = lay.home / ".claude" / "magpie-gateway" / "worktrees"
+    return sorted(p for p in state.iterdir() if not p.name.startswith(".")) if state.is_dir() else []
+
+
+def test_the_first_run_records_the_worktree_main_checkout(tmp_path: Path) -> None:
+    lay = Layout(tmp_path)
+    worktree = _linked_worktree(lay)
+    done = run("start", worktree, home=lay.home)
+    assert f" -I -S {lay.src} " in done.stdout
+    [record] = _records(lay)
+    assert record.read_text().splitlines() == [str(worktree), str(lay.project)]
+
+
+def test_a_changed_main_checkout_refuses_until_the_record_is_deleted(tmp_path: Path) -> None:
+    """Rewritten .git metadata could otherwise hide the real main checkout's grants at session end."""
+    lay = Layout(tmp_path)
+    worktree = _linked_worktree(lay)
+    run("start", worktree, home=lay.home)
+    [record] = _records(lay)
+    record.write_text(f"{worktree}\n{lay.base / 'the-real-main'}\n")
+    done = run("stop", worktree, home=lay.home)
+    assert done.stdout == ""
+    assert "not the recorded" in done.stderr and str(record) in done.stderr
+    record.unlink()
+    assert f" -I -S {lay.src} " in run("stop", worktree, home=lay.home).stdout
+
+
+def test_a_symlinked_record_refuses(tmp_path: Path) -> None:
+    lay = Layout(tmp_path)
+    worktree = _linked_worktree(lay)
+    run("start", worktree, home=lay.home)
+    [record] = _records(lay)
+    target = lay.base / "planted"
+    target.write_text(record.read_text())
+    record.unlink()
+    record.symlink_to(target)
+    done = run("start", worktree, home=lay.home)
+    assert done.stdout == "" and "is a symlink" in done.stderr
+
+
+def test_the_hook_uses_no_here_documents() -> None:
+    """bash 3.2 backs <<< and << with temporary files; when one cannot be created
+    the input is silently empty, and a check reading it would fail open."""
+    text = SCRIPT.read_text()
+    code = "\n".join(line.split("#", 1)[0] for line in text.splitlines())
+    assert "<<" not in code
