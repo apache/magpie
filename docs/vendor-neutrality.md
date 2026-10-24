@@ -600,7 +600,7 @@ generated block below.
 | `contract:security-cross-ref` | ❌ | vendor-backed | OSV.dev | only 1 backend vendor (OSV.dev); needs 1 more |
 | `contract:typed-decision` | ✅ | vendor-backed | TypeSafe, self-hosted OpenAI-compatible | 2 backend vendors: TypeSafe, self-hosted OpenAI-compatible |
 | `contract:people` | ✅ | vendor-backed | Atlassian, GitHub | 2 backend vendors: Atlassian, GitHub |
-| `contract:security-tracker` | ✅ | vendor-backed | Atlassian, agnostic | 2 backend vendors: Atlassian, agnostic |
+| `contract:security-tracker` | ✅ | vendor-backed | Atlassian, agnostic | 2 backend vendors: Atlassian, agnostic; partial foundation, not counted: asf-security-dash |
 | `contract:body-field` | ✅ | agnostic | Atlassian, GitHub, agnostic | vendor-neutral by construction — one spec serves every backend |
 
 **Per-skill assessment: 81/81 skills carry no vendor lock-in.** A skill is *capability-pure* when it names no backend at all, *portable* when every backend it names has an alternative (its contract is green), and *vendor-coupled* only when it reaches for a backend that is the sole implementation of a capability.

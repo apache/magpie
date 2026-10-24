@@ -125,6 +125,7 @@ members = [
   "tools/dev",
   "tools/agent-isolation",
   "tools/bitbucket",
+  "tools/asf-security-dash",
   "tools/discourse",
   "tools/egress-gateway",
   "tools/container-gateway",

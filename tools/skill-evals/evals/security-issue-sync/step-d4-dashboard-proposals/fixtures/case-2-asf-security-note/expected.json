@@ -1,0 +1,8 @@
+{
+  "proposes_import": false,
+  "asks_whether_case_is_a_report": false,
+  "links_dashboard_page": false,
+  "drafts_reporter_reply_for_dashboard_triage": false,
+  "asf_security_notes": 1,
+  "applies_without_confirmation": false
+}

@@ -15,7 +15,8 @@ source: >
   tools/asf-svn/, tools/mail-archive/, tools/mail-patch/,
   tools/jira-patch/, tools/forwarder-relay/, tools/github-body-field/,
   tools/github-rollup/, tools/gitlab/, tools/chat/, tools/chat-slack/,
-  tools/chat-discord/, tools/forgejo/, tools/discourse/, tools/fossil/, tools/asf-nexus/, tools/typed-decision/.
+  tools/chat-discord/, tools/forgejo/, tools/discourse/, tools/fossil/, tools/asf-nexus/, tools/typed-decision/,
+  tools/asf-security-dash/.
 acceptance:
   - Project-specific integrations live behind adapter modules, not
     hardcoded into skills.
@@ -64,6 +65,22 @@ by swapping the adapter, not the skill.
   those operations for the backend its `[tracker]` policy names (fixed program,
   policy-pinned target, bodies on stdin) and refuses by name the ones with no
   counterpart (boards, milestone administration, roster, `rollup-fold`).
+- `tools/asf-security-dash/` (`magpie-asf-security-dash`) — stdlib-only,
+  read-only bridge to the ASF Security dashboard (`dash.security.apache.org`),
+  declared `contract:security-tracker` with `**Coverage:** partial`: it is not a
+  `tracker.platform` value. `cases --pmc P` lists a PMC's open cases keyed by the
+  reporting email's `Message-ID`; `reconcile --pmc P --tracker FILE` pairs them
+  with tracker issues (by `Message-ID`, else a shared CVE) and lists each
+  disagreement with who fixes it (`tracker`, `import`, `review`,
+  `dashboard-triage`, `asf-security`). Entries of the security team's standing
+  labels (`aaa-*` / `zzz-*` tags, `glasswing` / `non-fwd` states) are skipped;
+  while the API omits the tag, an untriaged untracked case is `review`, never
+  `import`. Auth is the ASF OAuth session cookie from
+  `~/.config/apache-magpie/asf-security-dash/session.json`, sent only to the
+  dashboard's origin with GET and no redirects followed; `--input` reads API
+  output saved from a signed-in browser instead. `security-issue-sync`'s
+  dashboard mode drives it and never drafts a reporter reply for a decision the
+  dashboard's own triage form will email.
 - `tools/local-tracker/` (`magpie-local-tracker`) — stdlib-only
   `contract:security-tracker` backend over Markdown files in a Git or SVN
   working copy. `detect` infers a committed format descriptor

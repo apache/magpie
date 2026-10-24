@@ -526,6 +526,7 @@ contract:security-tracker:
   - any:
       - changed-files:
           - any-glob-to-any-file:
+              - 'tools/asf-security-dash/**'
               - 'tools/jira/**'
               - 'tools/local-tracker/**'
               - 'tools/security-tracker/**'

@@ -28,6 +28,7 @@ members = [
     "github-rollup",
     "imap-source",
     "jira-bridge",
+    "magpie-asf-security-dash",
     "magpie-bitbucket",
     "magpie-dev",
     "magpie-discourse",
@@ -945,6 +946,21 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/85/6d/7c31a506eb847bc58aeb2402d58e17605e821f68ab5df5e66fe274a6df41/librt-0.16.0-cp315-cp315t-win_amd64.whl", hash = "sha256:bd3150023d3dc2bc70f3784e59ffa1140d56ddba3d8125b3d6f9f85221279bfc", size = 126134, upload-time = "2026-09-29T00:55:06.017Z" },
     { url = "https://files.pythonhosted.org/packages/36/69/7a5d10ac409c4da0355e054a14371871da9b5557fcc42772cd00181c6cce/librt-0.16.0-cp315-cp315t-win_arm64.whl", hash = "sha256:8ceafb70f2a4f0826f11031942e59c0728fd98da112dc346d4352bde1e486866", size = 116391, upload-time = "2026-09-29T00:55:07.484Z" },
 ]
+
+[[package]]
+name = "magpie-asf-security-dash"
+version = "0.1.0"
+source = { editable = "tools/asf-security-dash" }
+
+[package.dev-dependencies]
+dev = [
+    { name = "magpie-dev" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [{ name = "magpie-dev", editable = "tools/dev" }]
 
 [[package]]
 name = "magpie-bitbucket"

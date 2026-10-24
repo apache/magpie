@@ -16,6 +16,7 @@ Steps 0 (pre-flight), 1a–1c and 1e (data gathering), 1g (cve.org API check), 4
 | 2c | Next-step recommendation | 4 | Steps 3, 6, 11, 13 |
 | 5b | The four judged pre-push gates | 2 | A private-scanner analyst credit fails the anonymise gate; a clean fix-released record passes all four |
 | 1d | Actionable signals in comments and mail | 6 | Affected-versions lower bound (widen / keep + backtick-wrap), title strip and its under-3-words guard, private-scanner credit (anonymise / public-credit exemption), reporter CVSS surfaced only |
+| D4 | Dashboard-mode proposals | 3 | A dashboard-triage finding beside an untracked report; two findings for the ASF Security team; an untagged case that may be a standing label |
 | Hand-off delegate | Next-step hand-off honouring a project delegate (pre-flight `step-13`) | 4 | Triage delegated (`replace`) named and invoked through `security-issue-triage`, CVE allocation delegated (`after`), a delegate for an unrelated skill (not named), and `--no-overrides` (ignored) |
 
 ## Hard rules exercised
@@ -27,6 +28,7 @@ Steps 0 (pre-flight), 1a–1c and 1e (data gathering), 1g (cve.org API check), 4
 - **No-action parking**: Step-11 produces `has_concrete_action: false` (2c case-3).
 - **Security-pages reminder fires only post-advisory, once**: on a closed-`announced` tracker with *Public advisory URL* populated, the hand-off comment's checklist item still unticked and no reminder marker posted, the reminder status comment is proposed with `security_pages_reminder_proposed: true`; a ticked checklist item or an already-posted reminder proposes nothing (2b cases 8-10).
 - **Hand-offs run delegates inside the wrapper**: a delegated next skill is named with its delegate and invoked through the Magpie skill, never by running the project skill directly (hand-off delegate cases 1-4).
+- **No second reporter reply for a dashboard decision**: a `dashboard-triage` finding links the project page and drafts no reporter reply, since the dashboard emails the reporter itself; every `asf-security` finding goes into one note, and a case that may be one of the security team's standing labels is confirmed as a report before any import; nothing is applied unconfirmed even when asked to (D4 cases 1-3).
 - **Advisory records only after publication**: with `advisory_records` configured, a closed-`announced` tracker whose CVE cve.org reports `PUBLISHED` gets one `advisory_records` item carrying the planner's change and commands (`advisory_records_proposed: true`) and no security-pages reminder; while cve.org does not report it `PUBLISHED`, nothing is proposed (2b cases 11-12).
 - **Golden rule 2 — no bare issue numbers**: `has_bare_issue_numbers` must always be false.
 

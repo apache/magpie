@@ -20,12 +20,13 @@ when_to_use: |
   state of issue NNN", "update issue NNN from the thread", or "walk me
   through issue NNN". Also appropriate as part of a recurring triage sweep
   where the team member wants to reconcile a batch of open issues with the
-  current state of the world.
+  current state of the world. For ASF projects, "sync dashboard" reconciles
+  the tracker with dash.security.apache.org.
 argument-hint: "[issue-number]"
 capability: capability:intake
-surface_hash: sha256:5c4aad61d458d98f
+surface_hash: sha256:019c545c3013d4c2
 license: Apache-2.0
-measured_tokens: 6948
+measured_tokens: 7053
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -211,6 +212,14 @@ The full orchestration contract — bucketing by CVE-record impact,
 parallel subagent fan-out, merged-proposal review shape, confirmation
 syntax, hard rules, when bulk mode is NOT appropriate — lives in
 [`bulk-mode.md`](bulk-mode.md). Read it before invoking a bulk run.
+
+## Dashboard mode — reconciling with dash.security.apache.org
+
+ASF projects only.
+On *"sync dashboard"* or *"reconcile with the security dashboard"*,
+compare `<tracker>` with the ASF Security team's case list for the PMC and propose a fix for each disagreement,
+following [`dashboard.md`](dashboard.md).
+A project with no tracker of its own can use the same case list as its list of reports to handle.
 ## Prerequisites
 
 The skill needs:
