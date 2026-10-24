@@ -865,6 +865,20 @@ Store the union of triggered families as
 triggered, `<signal-derived-families>` is the empty set and
 Step 5's fallback default applies.
 
+**Organization** (`organization:` in `<project-config>/project.md`) — settle it before
+the auto-sourced fields below, since the ASF-specific ones depend on it.
+Propose `ASF` only on evidence:
+a GitHub remote under `apache/`, a `.asf.yaml` at the repo root, or, in a Subversion
+working copy, a `svn_url` / `svn_repository_root` (from `magpie-vcs probe`) under
+`https://svn.apache.org/`.
+With none of those, ask which organization the project belongs to — `independent`,
+or one named under `organizations/` or `.apache-magpie-overrides/organizations/` —
+and **never default to `ASF`**.
+A non-ASF project must not inherit ASF values: no `apache.org` addresses, no
+`cna_private_*` fields, and in `cve-json-config.toml` its own CNA's UUID as
+`[cna].org_id`, never the ASF CNA's (`cve_authority.vulnogram.asf_org_id`).
+Ask for that UUID; when the user does not know it, leave it `TODO`.
+
 **Auto-sourced metadata fields** (run when `gh` and/or `.asf.yaml` are
 available). These pre-populate `<project-config>/project.md` in Step 9:
 

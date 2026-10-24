@@ -173,13 +173,16 @@ for the GitHub-native baseline). Override a key in the
 [Security workflow configuration → CVE authority](#cve-authority) block only
 if this project's CNA setup genuinely differs from its organization.
 
-For **ASF adopters**, fill in the per-project CNA queue fields below — each
-ASF project has its own queue slug and org UUID, so these are not org-level:
+The CNA's org UUID (`asf_org_id`, the `assignerOrgId` of every record) is
+org-level too: the ASF CNA uses one UUID for every Apache project, and the
+ASF organization supplies it.
+It is not needed to allocate a CVE; only the generated CVE JSON carries it.
+
+For **ASF adopters**, fill in the per-project CNA queue fields below:
 
 | Key | Value |
 |---|---|
-| `asf_org_id` | TODO: project's CNA org UUID — e.g. `f0158376-9dc2-43b6-827c-5f631a4d8d09` |
-| `cna_private_owner` | TODO: e.g. `foo` (CNA_private.owner — the project slug inside the ASF CNA queue) |
+| `cna_private_owner` | TODO: e.g. `foo` (CNA_private.owner — the PMC's name in Vulnogram, the lower-case project slug) |
 | `cna_private_projecturl` | TODO: e.g. `https://foo.apache.org/` |
 | `cna_private_userslist` | TODO: e.g. `users@foo.apache.org` |
 

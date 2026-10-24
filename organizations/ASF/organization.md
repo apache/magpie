@@ -97,6 +97,11 @@ cve_authority:
   reviewer_channel: mailing-list       # PMC reviews on the private list
   # Resolves the <cve-tool-url> placeholder used in agnostic skills:
   cve_tool_url: https://cveprocess.apache.org
+  vulnogram:
+    # The ASF CNA's UUID: the assignerOrgId of every Apache CVE record, the
+    # same for every project. Only the generated CVE JSON uses it; allocation
+    # does not.
+    asf_org_id: f0158376-9dc2-43b6-827c-5f631a4d8d09
 ```
 
 ## Governance gate

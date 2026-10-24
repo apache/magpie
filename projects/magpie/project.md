@@ -73,7 +73,6 @@ authority for the release flow.
 
 | Key | Value |
 |---|---|
-| `asf_org_id` | *TODO — the project's CNA org UUID* |
 | `cna_private_owner` | *TODO* |
 | `cna_private_projecturl` | `https://magpie.apache.org/` |
 | `cna_private_userslist` | `users@magpie.apache.org` |
