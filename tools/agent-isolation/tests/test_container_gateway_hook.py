@@ -139,6 +139,31 @@ def test_override_under_a_granted_directory_is_refused(tmp_path: Path, key: str)
     assert f" -I {lay.src} " in done.stdout
 
 
+def test_a_relative_user_scope_grant_resolves_under_dot_claude(tmp_path: Path) -> None:
+    """Relative entries in ~/.claude/settings.json resolve against ~/.claude, not the project."""
+    lay = Layout(tmp_path)
+    alt = lay.home / ".claude" / "shared" / "src"
+    (alt / "container_gateway").mkdir(parents=True)
+    lay.settings({"sandbox": {"filesystem": {"allowWrite": ["shared"]}}})
+    done = run("start", lay.project, {"MAGPIE_CONTAINER_GATEWAY_SRC": str(alt)}, home=lay.home)
+    assert "refusing gateway source" in done.stderr
+    assert f" -I {lay.src} " in done.stdout
+
+
+def test_helpers_are_not_taken_from_an_inherited_path(tmp_path: Path) -> None:
+    lay = Layout(tmp_path)
+    bin_dir = lay.base / "bin"
+    bin_dir.mkdir()
+    marker = lay.base / "ran"
+    for name in ("jq", "git", "readlink", "dirname"):
+        tool = bin_dir / name
+        tool.write_text(f"#!/bin/sh\ntouch {marker}\nexit 1\n")
+        tool.chmod(0o755)
+    done = run("start", lay.project, {"PATH": f"{bin_dir}:{os.environ['PATH']}"}, home=lay.home)
+    assert not marker.exists()
+    assert done.stdout.strip() == f"{PYTHON} -I {lay.src} container_gateway serve --project={lay.project} --daemon"
+
+
 @pytest.mark.parametrize("rel", [".cache/gw", ".local/share/gw"])
 def test_override_under_home_cache_or_local_is_refused(tmp_path: Path, rel: str) -> None:
     """Granted to every project by the reference setup, so refused whatever this one grants."""

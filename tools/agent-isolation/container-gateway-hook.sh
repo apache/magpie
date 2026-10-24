@@ -68,6 +68,11 @@
 
 set -uo pipefail
 
+# Every helper this hook runs (jq, git, readlink, dirname) comes from fixed
+# system locations, not from an inherited PATH that project settings can set.
+PATH=/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin:/usr/local/bin
+export PATH
+
 action="${1:-}"
 case "$action" in
     start|stop) ;;
@@ -89,35 +94,47 @@ resolve() {
     printf '%s' "$1"
 }
 
-# A settings path entry as an absolute directory: `//x` and `~` expanded,
-# relative entries taken from the project root, and any glob cut back to the
-# directory that holds it.
+# A settings path entry as absolute directories, one per line: `//x` and `~`
+# expanded, relative entries taken from the settings file's root (<base>), and
+# any glob cut back to the directory that holds it. A single-slash `/x` is
+# absolute for sandbox paths but relative to <base> for permission rules, so it
+# yields both: a root counted twice only refuses more.
 normalize_entry() {
-    local p="$1"
-    case "$p" in
-        //*) p="/${p#//}" ;;
-        "~") p="$HOME" ;;
-        "~/"*) p="$HOME/${p#\~/}" ;;
-        /*) ;;
-        *) p="$root/$p" ;;
+    local entry="$1" base="$2" p
+    local -a forms
+    case "$entry" in
+        //*) forms=("/${entry#//}") ;;
+        "~") forms=("$HOME") ;;
+        "~/"*) forms=("$HOME/${entry#\~/}") ;;
+        /*) forms=("$entry" "$base$entry") ;;
+        *) forms=("$base/$entry") ;;
     esac
-    if [[ $p == *[\*\?\[]* ]]; then
-        p="${p%%[\*\?\[]*}"
-        [[ $p == */ ]] || p="$(dirname -- "$p")"
-    fi
-    p="${p%/}"
-    printf '%s' "${p:-/}"
+    for p in "${forms[@]}"; do
+        if [[ $p == *[\*\?\[]* ]]; then
+            p="${p%%[\*\?\[]*}"
+            [[ $p == */ ]] || p="$(dirname -- "$p")"
+        fi
+        p="${p%/}"
+        printf '%s\n' "${p:-/}"
+    done
 }
 
 writable_roots=("$root" "$HOME/.cache" "$HOME/.local")
 [[ -n ${CLAUDE_CODE_TMPDIR:-} ]] && writable_roots+=("$CLAUDE_CODE_TMPDIR")
-for settings in "$HOME/.claude/settings.json" "$HOME/.claude/settings.local.json" \
-                "$root/.claude/settings.json" "$root/.claude/settings.local.json" \
-                "/Library/Application Support/ClaudeCode/managed-settings.json" \
-                "/etc/claude-code/managed-settings.json"; do
+# Each settings file with the root its relative entries resolve against.
+for spec in "$HOME/.claude/settings.json|$HOME/.claude" \
+            "$HOME/.claude/settings.local.json|$HOME/.claude" \
+            "$root/.claude/settings.json|$root" \
+            "$root/.claude/settings.local.json|$root" \
+            "/Library/Application Support/ClaudeCode/managed-settings.json|/Library/Application Support/ClaudeCode" \
+            "/etc/claude-code/managed-settings.json|/etc/claude-code"; do
+    settings="${spec%|*}" base="${spec##*|}"
     [[ -r $settings ]] || continue
     while IFS= read -r entry; do
-        [[ -n $entry ]] && writable_roots+=("$(normalize_entry "$entry")")
+        [[ -n $entry ]] || continue
+        while IFS= read -r form; do
+            writable_roots+=("$form")
+        done < <(normalize_entry "$entry" "$base")
     done < <(jq -r '(.sandbox.filesystem.allowWrite // [])[], (.permissions.additionalDirectories // [])[]
                     | strings' "$settings" 2>/dev/null)
 done
