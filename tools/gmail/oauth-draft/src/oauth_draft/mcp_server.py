@@ -66,6 +66,7 @@ as ``mcp__gmail-plaintext__create_draft``.
 from __future__ import annotations
 
 import contextlib
+import os
 import pathlib
 from collections.abc import Iterator
 from typing import Any
@@ -75,6 +76,7 @@ from mcp.server.mcpserver import MCPServer
 from oauth_draft import create_draft as _cd
 from oauth_draft import setup_creds as _setup
 from oauth_draft.credentials import (
+    DEFAULT_CREDENTIALS_DIR,
     DEFAULT_CREDENTIALS_PATH,
     Credentials,
     locate_credentials,
@@ -82,6 +84,41 @@ from oauth_draft.credentials import (
 )
 
 mcp = MCPServer("gmail-plaintext")
+
+
+def _vetted_credentials_path(credentials_path: str | None) -> str | None:
+    """A caller-supplied credentials path, confined to the operator's credential directories.
+
+    This server runs outside the agent's sandbox, and the path is a tool
+    argument, so whoever drives the agent chooses it. Unconfined,
+    `setup_credentials` would write the refresh token wherever a sandboxed
+    command can read it, and the other tools would load a planted file. So a
+    path is accepted only as a `.json` file directly in the default directory
+    (~/.config/apache-magpie/) or in the directory of $GMAIL_OAUTH_CREDENTIALS,
+    which comes from this server's own configuration; and never through a
+    symlink, at the file or on the way to it. `None` keeps the default lookup.
+    """
+    if credentials_path is None:
+        return None
+    path = pathlib.Path(credentials_path).expanduser()
+    if not path.is_absolute() or path.suffix != ".json":
+        raise ValueError(f"credentials_path must be an absolute path to a .json file: {credentials_path}")
+    allowed = {DEFAULT_CREDENTIALS_DIR}
+    env = os.environ.get("GMAIL_OAUTH_CREDENTIALS")
+    if env:
+        allowed.add(pathlib.Path(env).expanduser().parent)
+    parent = path.parent
+    real_parent = pathlib.Path(os.path.realpath(parent))
+    if (
+        parent != real_parent
+        or path.is_symlink()
+        or not any(real_parent == pathlib.Path(os.path.realpath(d)) for d in allowed)
+    ):
+        raise ValueError(
+            f"credentials_path must sit directly in {', '.join(sorted(str(d) for d in allowed))} "
+            f"(no symlinks): {credentials_path}"
+        )
+    return str(path)
 
 
 @contextlib.contextmanager
@@ -110,6 +147,7 @@ def _create_draft_impl(
     credentials_path: str | None,
 ) -> dict[str, str]:
     """Shared implementation, kept plain so the tests can call it directly."""
+    credentials_path = _vetted_credentials_path(credentials_path)
     with _as_tool_error():
         creds = Credentials.load(locate_credentials(credentials_path))
         assert creds.from_address is not None  # require_from_address=True default
@@ -214,10 +252,13 @@ def setup_credentials(
             $GMAIL_FROM, then `git config user.email`.
         credentials_path: Where to write the credentials JSON. Defaults to
             $GMAIL_OAUTH_CREDENTIALS or ~/.config/apache-magpie/gmail-oauth.json.
+            Only a .json file directly in ~/.config/apache-magpie/ or in the
+            directory of $GMAIL_OAUTH_CREDENTIALS is accepted.
 
     Returns:
         ``{credentials_path, from_address, scopes}``.
     """
+    credentials_path = _vetted_credentials_path(credentials_path)
     resolved_from = from_address or _setup.detect_from_address()
     if not resolved_from:
         raise ValueError(
@@ -260,11 +301,14 @@ def check_auth(credentials_path: str | None = None) -> dict[str, str]:
     Args:
         credentials_path: Override the credentials JSON path. Defaults to
             $GMAIL_OAUTH_CREDENTIALS or ~/.config/apache-magpie/gmail-oauth.json.
+            Only a .json file directly in ~/.config/apache-magpie/ or in the
+            directory of $GMAIL_OAUTH_CREDENTIALS is accepted.
 
     Returns:
         ``{status: "ok", credentials_path, from_address}`` when auth works;
         raises with a helpful message when credentials are missing or invalid.
     """
+    credentials_path = _vetted_credentials_path(credentials_path)
     with _as_tool_error():
         path = locate_credentials(credentials_path)
         creds = Credentials.load(path, require_from_address=False)

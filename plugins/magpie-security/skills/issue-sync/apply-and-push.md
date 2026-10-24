@@ -157,8 +157,8 @@ Use:
 - **Vulnogram state transition (`REVIEW → PUBLIC`):** invoke the
   [`vulnogram-api-record-publish`](../../../../tools/cve-tool-vulnogram/oauth-api/README.md)
   CLI to flip the record's `CNA_private.state` over the OAuth API.
-  It refuses the transition unless the current state is `REVIEW`;
-  widen with `--allow-state` only when explicitly justified (e.g. a record already moved to `READY` manually):
+  It refuses the transition unless the current state is `REVIEW` and the record already lists the archived advisory URL as a `vendor-advisory` reference (re-push the CVE JSON after capturing the URL, before this step);
+  `--allow-state READY` also accepts a record moved to `READY` manually, and no earlier state can be published:
 
   ```bash
   uv run --project <framework>/tools/cve-tool-vulnogram/oauth-api \
@@ -170,7 +170,7 @@ Use:
   Outside that trigger, the state transition stays manual.
 
   Idempotent: re-running on a record already in `PUBLIC` exits 0 with an informational message.
-  Exit codes match `record-update` (2 = token expired, 3 = unexpected state, 5 = save failed, 6 = other API error, 7 = unexpected envelope).
+  Exit codes match `record-update` (2 = token expired, 3 = unexpected state, 5 = save failed, 6 = other API error, 7 = unexpected envelope), plus 4 = no `vendor-advisory` reference.
   On a non-zero exit, the combined apply stops and the failure surfaces in the recap;
   the partial state (URL captured, labels flipped, JSON re-pushed, tracker NOT yet closed) is the recovery starting point for the next sync.
 - **Advisory short-summary extraction:** when the *Advisory archived on `<users-list>`* combined apply fires (Step 2b row),
