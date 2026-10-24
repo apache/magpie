@@ -1041,6 +1041,8 @@ uv tool upgrade --all --reinstall
 ```
 
 The old `~/.cache/uv/` stays as the sandbox's cache; the host never reads it again.
+
+Projects set up before the switch may still carry the old write grant. `sandbox-add-project-root.sh` removes it whenever it runs (on checkout, adopt and upgrade), and magpie-setup's session-start hook removes it from the checkout's gitignored `.claude/settings.local.json` (and the main checkout's, in a linked worktree) the next time a session opens there, and says so. A broader grant, or one in user-scope or committed settings, is reported for you to remove; those files are yours.
 `sandbox-lint` fails a settings file that makes `~/.local/share/uv` writable or lacks the two `~/.config/uv` deny rules; `setup-isolated-setup-verify` checks the config file itself.
 
 ## Project-root coverage in the sandbox allowlists

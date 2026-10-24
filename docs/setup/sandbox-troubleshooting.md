@@ -1117,7 +1117,8 @@ hooks, MCP servers, the excluded `uvx` / `uv run` commands and your own
 terminal run outside the sandbox, so the sandbox may read it but not write
 it ([Host-only uv state](secure-agent-setup.md#host-only-uv-state)). Older
 versions of `sandbox-add-project-root.sh` granted the write; the current one
-removes it.
+removes it, and so does magpie-setup's session-start hook the next time a
+session opens in the project.
 
 ### Fix
 

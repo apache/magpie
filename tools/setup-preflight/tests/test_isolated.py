@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from datetime import date
 from pathlib import Path
 
@@ -300,3 +301,109 @@ def test_session_start_passes_the_notice_through_once_configured(project: Path) 
     (project / ".claude" / "settings.json").write_text('{"sandbox": {"enabled": true}}')
     assert isolated.session_start(project, "plugin 1.0 is active") == "plugin 1.0 is active"
     assert isolated.session_start(project) == ""
+
+
+# --- the session start drops the old ~/.local/share/uv write grant ---
+
+
+def git_repo(root: Path, ignore_local: bool = True) -> Path:
+    """A real repository, so `git check-ignore` can judge settings.local.json."""
+    subprocess.run(["git", "init", "-q", str(root)], check=True)
+    if ignore_local:
+        (root / ".gitignore").write_text("/.claude/settings.local.json\n")
+    (root / ".claude").mkdir(exist_ok=True)
+    return root
+
+
+def write_local(root: Path, allow_write: list[str]) -> Path:
+    local = root / ".claude" / "settings.local.json"
+    local.write_text(
+        json.dumps({"sandbox": {"enabled": True, "filesystem": {"allowWrite": allow_write}}, "keep": 1})
+    )
+    return local
+
+
+@pytest.mark.parametrize(
+    "spelling",
+    ["{home}/.local/share/uv", "{home}/.local/share/uv/", "~/.local/share/uv", "~/.local/share/uv/"],
+)
+def test_session_start_removes_the_stale_uv_write(tmp_path: Path, isolated_home: Path, spelling: str) -> None:
+    repo = git_repo(tmp_path / "repo")
+    local = write_local(repo, [str(repo), spelling.format(home=isolated_home), f"{isolated_home}/.cache"])
+    out = json.loads(isolated.session_start(repo, home=isolated_home))
+    data = json.loads(local.read_text())
+    assert data["sandbox"]["filesystem"]["allowWrite"] == [str(repo), f"{isolated_home}/.cache"]
+    assert data["keep"] == 1 and data["sandbox"]["enabled"] is True  # nothing else touched
+    assert "removed the ~/.local/share/uv sandbox write grant" in out["systemMessage"]
+    assert isolated.STALE_UV_HEADER in out["hookSpecificOutput"]["additionalContext"]
+
+
+def test_the_next_session_start_is_quiet_again(tmp_path: Path, isolated_home: Path) -> None:
+    repo = git_repo(tmp_path / "repo")
+    write_local(repo, [f"{isolated_home}/.local/share/uv"])
+    isolated.session_start(repo, home=isolated_home)
+    assert isolated.session_start(repo, "plugin 1.0 is active", home=isolated_home) == "plugin 1.0 is active"
+
+
+def test_a_tracked_settings_local_is_reported_not_rewritten(tmp_path: Path, isolated_home: Path) -> None:
+    repo = git_repo(tmp_path / "repo", ignore_local=False)
+    local = write_local(repo, [f"{isolated_home}/.local/share/uv"])
+    before = local.read_text()
+    out = json.loads(isolated.session_start(repo, home=isolated_home))
+    assert local.read_text() == before
+    assert "not gitignored; remove it by hand" in out["systemMessage"]
+
+
+@pytest.mark.parametrize("entry", ["~/.local", "~/.local/share/uv/python", "~"])
+def test_a_broader_grant_is_reported_not_rewritten(tmp_path: Path, isolated_home: Path, entry: str) -> None:
+    repo = git_repo(tmp_path / "repo")
+    local = write_local(repo, [entry])
+    before = local.read_text()
+    out = json.loads(isolated.session_start(repo, home=isolated_home))
+    assert local.read_text() == before
+    assert f"({entry!r}); remove it by hand" in out["systemMessage"]
+
+
+def test_a_user_scope_grant_is_reported_not_rewritten(tmp_path: Path, isolated_home: Path) -> None:
+    repo = git_repo(tmp_path / "repo")
+    user = isolated_home / ".claude" / "settings.json"
+    user.parent.mkdir()
+    user.write_text(json.dumps({"sandbox": {"filesystem": {"allowWrite": ["~/.local/share/uv/"]}}}))
+    before = user.read_text()
+    out = json.loads(isolated.session_start(repo, home=isolated_home))
+    assert user.read_text() == before
+    assert str(user) in out["systemMessage"]
+
+
+def test_a_linked_worktree_also_cleans_the_main_checkout(tmp_path: Path, isolated_home: Path) -> None:
+    main = git_repo(tmp_path / "main")
+    subprocess.run(["git", "-C", str(main), "add", ".gitignore"], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(main),
+            "-c",
+            "user.name=t",
+            "-c",
+            "user.email=t@t",
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "-q",
+            "-m",
+            "init",
+        ],
+        check=True,
+    )
+    worktree = tmp_path / "wt"
+    subprocess.run(["git", "-C", str(main), "worktree", "add", "-q", str(worktree)], check=True)
+    main_local = write_local(main, [f"{isolated_home}/.local/share/uv"])
+    isolated.session_start(worktree, home=isolated_home)
+    assert json.loads(main_local.read_text())["sandbox"]["filesystem"]["allowWrite"] == []
+
+
+def test_nothing_to_remove_keeps_the_plain_notice(tmp_path: Path, isolated_home: Path) -> None:
+    repo = git_repo(tmp_path / "repo")
+    write_local(repo, [str(repo), f"{isolated_home}/.cache"])
+    assert isolated.session_start(repo, "plugin 1.0 is active", home=isolated_home) == "plugin 1.0 is active"

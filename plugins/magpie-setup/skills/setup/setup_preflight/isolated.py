@@ -59,7 +59,9 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
+import subprocess
 import sys
 from datetime import date
 from pathlib import Path
@@ -237,6 +239,149 @@ def _adopted_root(start: Path) -> Path | None:
     return None
 
 
+#: The sandbox write grant earlier versions of `sandbox-add-project-root.sh`
+#: added. `~/.local/share/uv` holds the interpreters and tool venvs that hooks,
+#: MCP servers and the excluded `uvx` / `uv run` commands run outside the
+#: sandbox, so a sandboxed command able to write there plants code that runs
+#: unsandboxed (apache/magpie#1785). The helper removes it whenever it runs;
+#: the session start removes it from a project the helper has not run in since.
+_UV_DATA_DIR = ".local/share/uv"
+
+
+def _list_at(loaded: object, *keys: str) -> list[object]:
+    """`loaded[k1][k2]...` when every step is an object and the end a list, else `[]`."""
+    for key in keys:
+        if not isinstance(loaded, dict):
+            return []
+        loaded = loaded.get(key)
+    return loaded if isinstance(loaded, list) else []
+
+
+def _stale_uv_writes(home: Path) -> frozenset[str]:
+    absolute = str(home / _UV_DATA_DIR)
+    return frozenset({absolute, absolute + "/", "~/" + _UV_DATA_DIR, "~/" + _UV_DATA_DIR + "/"})
+
+
+def _covers_uv_data_dir(entry: str, home: Path, base: Path) -> bool:
+    """Whether a write-grant entry makes `~/.local/share/uv` (or a part of it) writable."""
+    text = entry.strip()
+    if text.startswith("//"):
+        text = text[1:]
+    if text == "~" or text.startswith("~/"):
+        text = str(home) + text[1:]
+    path = Path(text) if text.startswith("/") else base / text
+    target = home / _UV_DATA_DIR
+    for candidate in (path, target):
+        other = target if candidate is path else path
+        if candidate == other or other in candidate.parents:
+            return True
+    return False
+
+
+def _project_dirs(root: Path) -> list[Path]:
+    """The session's checkout and, for a linked worktree, its main checkout."""
+    for directory in (root, *root.parents):
+        dot_git = directory / ".git"
+        if dot_git.is_dir():
+            return [directory]
+        if dot_git.is_file():
+            dirs = [directory]
+            try:
+                gitdir_line = dot_git.read_text(encoding="utf-8").strip()
+                git_dir = Path(gitdir_line.removeprefix("gitdir:").strip())
+                git_dir = git_dir if git_dir.is_absolute() else (directory / git_dir)
+                common = (git_dir / (git_dir / "commondir").read_text(encoding="utf-8").strip()).resolve()
+            except OSError:
+                return dirs
+            if common.name == ".git" and common.parent != directory:
+                dirs.append(common.parent)
+            return dirs
+    return [root]
+
+
+def _gitignored(directory: Path, file: Path) -> bool:
+    """`git check-ignore`, run from the checkout with any hook environment stripped."""
+    env = {k: v for k, v in os.environ.items() if k not in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE")}
+    try:
+        done = subprocess.run(
+            ["git", "-C", str(directory), "check-ignore", "-q", str(file)],
+            env=env,
+            capture_output=True,
+            check=False,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return done.returncode == 0
+
+
+def drop_stale_uv_writes(root: Path, home: Path | None = None) -> list[str]:
+    """Remove the old `~/.local/share/uv` write grant; report what was removed or must be.
+
+    Only from a checkout's gitignored `.claude/settings.local.json`, the one
+    file the project-root helper already maintains, and only the exact entries
+    it once added. A broader grant, or one in user-scope or committed settings,
+    is reported for the user to remove: those files are theirs, not the
+    helper's. Hooks run outside the sandbox, so every file here is readable.
+    """
+    home = home if home is not None else Path.home()
+    stale = _stale_uv_writes(home)
+    messages: list[str] = []
+    for directory in _project_dirs(root):
+        local = directory / ".claude" / "settings.local.json"
+        try:
+            loaded = json.loads(local.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            loaded = None
+        writes = _list_at(loaded, "sandbox", "filesystem", "allowWrite")
+        if isinstance(loaded, dict) and any(w in stale for w in writes if isinstance(w, str)):
+            if _gitignored(directory, local):
+                loaded["sandbox"]["filesystem"]["allowWrite"] = [w for w in writes if w not in stale]
+                tmp = local.with_name(local.name + ".tmp")
+                tmp.write_text(json.dumps(loaded, indent=2) + "\n", encoding="utf-8")
+                tmp.replace(local)
+                messages.append(f"removed the ~/.local/share/uv sandbox write grant from {local}")
+            else:
+                messages.append(
+                    f"{local} grants sandbox writes to ~/.local/share/uv but is not gitignored; remove it by hand"
+                )
+        candidates = [(directory / ".claude" / "settings.json", directory)]
+        if isinstance(loaded, dict):
+            candidates.append((local, directory))
+        for settings, base in candidates:
+            messages.extend(_report_covering_grants(settings, base, home, stale))
+    user = home / ".claude"
+    for name in ("settings.json", "settings.local.json"):
+        messages.extend(_report_covering_grants(user / name, user, home, frozenset()))
+    return messages
+
+
+def _report_covering_grants(settings: Path, base: Path, home: Path, removable: frozenset[str]) -> list[str]:
+    try:
+        loaded = json.loads(settings.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    if not isinstance(loaded, dict):
+        return []
+    entries = [
+        *_list_at(loaded, "sandbox", "filesystem", "allowWrite"),
+        *_list_at(loaded, "permissions", "additionalDirectories"),
+    ]
+    left = [
+        e for e in entries if isinstance(e, str) and e not in removable and _covers_uv_data_dir(e, home, base)
+    ]
+    return [
+        f"{settings} makes ~/.local/share/uv writable to the sandbox ({e!r}); remove it by hand" for e in left
+    ]
+
+
+#: Shown when the session start removed or found a `~/.local/share/uv` grant.
+STALE_UV_HEADER = (
+    "Apache Magpie: ~/.local/share/uv holds the interpreters and tools uv runs outside the sandbox, "
+    "so the sandbox must not write there (apache/magpie#1785)."
+)
+
+
 def session_start(root: Path, notice: str = "", home: Path | None = None) -> str:
     """What the SessionStart hook prints: its own notice, plus the warning while unconfigured.
 
@@ -246,14 +391,23 @@ def session_start(root: Path, notice: str = "", home: Path | None = None) -> str
     settings are readable here and "not configured" means what it says.
     Plain text keeps the hook's original output when there is nothing to
     warn about.
+
+    Every session start also drops the old `~/.local/share/uv` write grant
+    (`drop_stale_uv_writes`), adopted or not, and tells the user what it did.
     """
+    stale = drop_stale_uv_writes(root.resolve(), home)
+    stale_message = "\n".join([STALE_UV_HEADER, *(f"- {m}" for m in stale)]) if stale else ""
     project = _adopted_root(root.resolve())
-    if project is None or warning_opted_out(project) or configured(project, home):
+    warn = not (project is None or warning_opted_out(project) or configured(project, home))
+    if not warn and not stale_message:
         return notice
-    context = "\n\n".join(part for part in (notice, UNCONFIGURED_CONTEXT) if part)
+    message = "\n\n".join(part for part in (stale_message, UNCONFIGURED_WARNING if warn else "") if part)
+    context = "\n\n".join(
+        part for part in (notice, stale_message, UNCONFIGURED_CONTEXT if warn else "") if part
+    )
     return json.dumps(
         {
-            "systemMessage": UNCONFIGURED_WARNING,
+            "systemMessage": message,
             "hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": context},
         }
     )

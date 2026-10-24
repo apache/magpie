@@ -17,9 +17,11 @@
 #
 # Deliberately DETECT-AND-PROMPT, not auto-run: a plugin hook cannot invoke
 # a slash command, and Magpie never mutates an adopter repo without the
-# guided skill's confirmation. The hook is read-only apart from writing its
-# own version marker; it makes no network calls and touches nothing in the
-# adopter repo.
+# guided skill's confirmation. The hook makes no network calls and writes
+# only its own version marker and, through `setup_preflight`, one cleanup: it
+# drops the old `~/.local/share/uv` sandbox write grant from a gitignored
+# `.claude/settings.local.json`, the per-machine file the project-root helper
+# already maintains, and tells the user (apache/magpie#1785).
 #
 # Agents without a session hook (e.g. Gemini CLI) surface the same prompt via
 # their extension context file (GEMINI.md) instead.
