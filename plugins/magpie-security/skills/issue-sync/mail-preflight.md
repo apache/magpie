@@ -39,7 +39,7 @@
      - *`mandatory: no`:* record `ponymail_enabled: false` and
        silently proceed Gmail-only.
    When the manifest declares `ponymail` with `mandatory: no` and
-   `.apache-magpie-overrides/user.md` sets `tools.ponymail.enabled:
+   the resolved `user.md` ([order](../../../../AGENTS.md#usermd-resolution-order)) sets `tools.ponymail.enabled:
    false` (or omits the block), skip this sub-step; Gmail is the
    only read backend. See
    [`tools/ponymail/tool.md`](../../../../tools/ponymail/tool.md)

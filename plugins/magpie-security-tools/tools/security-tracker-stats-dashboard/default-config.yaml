@@ -1,0 +1,196 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+# Default configuration for security-tracker-stats-dashboard.
+#
+# All knobs here can be overridden either by a YAML file pointed at by
+# the `TRACKER_STATS_CONFIG` env var (deep-merged with this default; the
+# `milestones` and `categories` lists are REPLACED entirely, not
+# concatenated), or by env-var quick overrides for the most common knobs
+# (`TRACKER_STATS_BUCKETS`, `TRACKER_STATS_START`, `TRACKER_STATS_UPSTREAM_REPO`).
+#
+# Defaults below match the reference `airflow-s/airflow-s` dashboard
+# byte-for-byte; the ASF adopter inherits these without an overlay.
+# Non-ASF adopters override via the YAML overlay pointed at by
+# `tracker_stats_config:` in <project-config>/security-tracker-stats.md.
+# The `upstream_repo`, `scope_labels`, and `categories` knobs below
+# mirror values declared in <project-config>/project.md (Repositories
+# block and `scope_detection.labels`) — keep them in sync with that
+# manifest when overriding.
+
+buckets: monthly                # monthly | quarterly
+start: null                     # null = first tracker createdAt; else "YYYY-MM" (monthly) or "YYYY-Qn" (quarterly)
+rejections_ledger_label: rejections-ledger   # label identifying the "rejected without tracker" ledger issue; set to null to disable the stat
+                                # The ledger is a single open issue (labelled with this value, NOT the security-marker
+                                # label) whose comments record reports rejected on-thread without ever creating a
+                                # tracker. The renderer parses those comments for "rejected (no tracker)" counts and
+                                # excludes the ledger issue itself from all tracker classification. null -> stat omitted.
+upstream_repo: apache/airflow   # null -> skip c_prc/c_prm/c_rel charts and the back-fill rule
+                                # Mirrors <project-config>/project.md -> `upstream_repo`; ASF default is the airflow-s adopter's
+                                # value. Override in the overlay if the renderer should chart a different repo (or null).
+
+# End-of-bucket projection for the current (partial) bucket. The last
+# bucket on the axis is almost always cut short by "now", so every count
+# in it reads low next to complete buckets. When enabled, the renderer
+# extrapolates each projectable series to bucket end and draws the
+# result as a dotted continuation plus a header banner.
+#
+# Rate series (opened / rejected / reported in bucket) scale whole:
+# observed / elapsed_fraction. Level series (cumulative totals, the
+# lifecycle bands, the untriaged backlog) scale only their movement
+# inside the bucket: prev + (observed - prev) / elapsed_fraction. The
+# mean-time charts are not projected at all — a mean of the items so
+# far is already an estimate of the bucket's mean.
+projection:
+  enabled: true                 # false -> no projection banner, trace, or stdout line
+  min_elapsed_fraction: 0.1     # skip the projection until this much of the bucket has
+                                # elapsed; a couple of days into a month one report
+                                # extrapolates to fifteen, which is noise, not a signal
+
+milestones:
+  - date: 2026-04-13
+    label: skill adoption
+
+# Tracker scope labels — the project's "what does this affect" axis.
+# Mirrors the keys of `scope_detection.labels` in
+# <project-config>/project.md (and the rows of
+# <project-config>/scope-labels.md). ASF/Airflow default below matches
+# the three airflow-s scope labels; non-ASF adopters override in the
+# overlay to match their own scope label set.
+scope_labels: [airflow, providers, chart]
+
+# Categories - evaluated top-to-bottom, FIRST MATCH WINS. Multiple rules
+# can share the same `name` (and `color`) to express disjoint branches
+# of the same final category. The set of distinct names defines the
+# stacked-band order in the dashboard's lifecycle chart (preserved in
+# the order they FIRST appear in this list).
+#
+# Each predicate is conjunctive: ALL conditions must match. Supported keys:
+#   state                       open | closed
+#   state_reason                COMPLETED | NOT_PLANNED | REOPENED | null
+#   any_label                   list - at least one of these labels present
+#   all_labels                  list - every label in this list present
+#   not_label                   single label - must NOT be present
+#   not_any_label               list - none of these labels present
+#   no_scope_label              true  - tracker has none of the scope_labels
+#   has_scope_label             true  - tracker has at least one scope_label
+#   pr_merged_by_snapshot       true  - a linked upstream PR is merged at snapshot time
+# Logical combinators: any_of / all_of (nest as deep as you need).
+categories:
+  # --- Closed branch (mirrors `if not is_open:` in the reference). ----
+  - name: fixed_released
+    color: "#2ca02c"
+    predicate:
+      all_of:
+        state: closed
+        any_of:
+          - any_label: [fix released, "announced - emails sent", announced]
+          - all_of:
+              state_reason: COMPLETED
+              any_label: [cve allocated]
+  - name: closed_other
+    color: "#888888"
+    predicate:
+      state: closed
+
+  # --- Open branch (mirrors the reference's open-branch order). -------
+  - name: open_untriaged
+    color: "#d62728"
+    predicate:
+      all_of:
+        state: open
+        any_of:
+          - any_label: [needs triage]
+          - no_scope_label: true
+  # PR-merge-by-snapshot back-fill: an upstream PR has merged by the
+  # snapshot timestamp. Captures historical trackers that predate the
+  # `pr merged` label convention.
+  - name: open_pr_merged
+    color: "#e67e22"
+    predicate:
+      all_of:
+        state: open
+        pr_merged_by_snapshot: true
+        not_label: fix released
+  - name: fixed_released
+    color: "#2ca02c"
+    predicate:
+      all_of:
+        state: open
+        pr_merged_by_snapshot: true
+        any_label: [fix released]
+  - name: open_pr_merged
+    color: "#e67e22"
+    predicate:
+      all_of:
+        state: open
+        any_label: [pr merged]
+        not_label: fix released
+  - name: fixed_released
+    color: "#2ca02c"
+    predicate:
+      all_of:
+        state: open
+        any_label: [fix released, "announced - emails sent", announced]
+  - name: open_triaged
+    color: "#f1c40f"
+    predicate:
+      state: open
+
+# The order in which distinct category names FIRST appear above is the
+# stacked-band order top-to-bottom in the lifecycle chart. For the
+# defaults that resolves to: fixed_released, closed_other,
+# open_untriaged, open_pr_merged, open_triaged. The reference dashboard
+# uses a different stack order, however, so we re-pin it here:
+stack_order:
+  - fixed_released
+  - open_pr_merged
+  - open_triaged
+  - open_untriaged
+  - closed_other
+
+triage:
+  keywords:
+    - triage proposal
+    - proposed disposition
+    - VALID
+    - INVALID
+    - DEFENSE-IN-DEPTH
+    - INFO-ONLY
+    - PROBABLE-DUP
+    - looks like a valid security issue
+    - not a security issue
+    - not a vulnerability
+    - out of scope
+    - out-of-scope
+    - agreed
+    - Security Model
+    - cve-worthy
+    - CVE-worthy
+  # Skill-authored comments, skipped when measuring human triage
+  # activity. The first entry is the canonical machine marker every
+  # framework skill writes (`<!-- apache-magpie: <kind> vN -->`); the
+  # rest are prose prefixes from older comment shapes.
+  #
+  # NOTE: this list is REPLACED wholesale by an overlay, not merged --
+  # an overlay adding one prefix must restate the whole list.
+  bot_prefixes:
+    - "<!-- apache-magpie: "
+    - "**Sync "
+    - "**Imported on "
+    - "**Status update"
+    - "**Allocated CVE"

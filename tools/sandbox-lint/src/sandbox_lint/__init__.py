@@ -154,6 +154,14 @@ REQUIRED_VETTED_OPS_DENY = (
     "Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
     "Edit(~/.claude/magpie/**)",
     "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
+    # The same policy in a maintainer's personal layer (a project that has not
+    # adopted Magpie): inside the git directory (`.git/**` also covers a
+    # submodule's `.git/modules/<name>/`) or the Subversion one, or the legacy
+    # in-tree layer. Absolute globs, since a linked worktree's git directory
+    # lives outside it. vetted-ops reads a personal policy only in these shapes.
+    "Edit(//**/.git/**/apache-magpie/tools/vetted-ops/**)",
+    "Edit(//**/.svn/apache-magpie/tools/vetted-ops/**)",
+    "Edit(//**/.apache-magpie-local/tools/vetted-ops/**)",
 )
 
 # permissions.deny must contain at least these entries verbatim. Each

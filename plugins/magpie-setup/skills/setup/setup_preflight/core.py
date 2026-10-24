@@ -74,6 +74,9 @@ TRUSTED_MARKETPLACE = "apache/magpie"
 #: the family skills run their forge operations through the vetted-ops
 #: dispatcher, so a floor committed before it joined the seed still gets it.
 ALWAYS_REQUIRED = ("magpie-vetted-ops",)
+#: A family plugin and the substrate it cannot run without: the security skills
+#: run their framework tools from `magpie-security-tools` on a marketplace install.
+COMPANIONS = {"magpie-security": "magpie-security-tools"}
 SNAPSHOT_METHODS = frozenset({"svn-zip", "git-tag", "git-branch"})
 #: Each pinned key in the committed lock, and the local-lock key that records
 #: what this machine actually fetched for it (`locks.md`, `upgrade.md` Step 1).
@@ -160,6 +163,12 @@ def _floor_findings(lock: Lock, installed: dict[str, str] | None, harness: str |
     if lock.url and lock.url != TRUSTED_MARKETPLACE:
         return [Finding("project", "untrusted-marketplace", "step-3", {"url": lock.url})]
     required = [*lock.plugins, *(name for name in ALWAYS_REQUIRED if name not in lock.plugins)]
+    if installed is not None:
+        # A family on the floor or on the machine brings its companion, so an
+        # upgrade from before the companion existed is caught here too.
+        for family, companion in COMPANIONS.items():
+            if (family in required or family in installed) and companion not in required:
+                required.append(companion)
     if installed is None:
         # Unknown, never absent.  Say nothing and let the run continue: this
         # is the ordinary state of a sandboxed session, not a fault.

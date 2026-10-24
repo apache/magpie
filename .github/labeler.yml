@@ -406,6 +406,7 @@ family:tools:
           - any-glob-to-any-file:
               - 'plugins/magpie-adversarial-review/**'
               - 'plugins/magpie-agent-guard/**'
+              - 'plugins/magpie-security-tools/**'
               - 'plugins/magpie-vetted-ops/**'
       - changed-files:
           - all-globs-to-any-file:

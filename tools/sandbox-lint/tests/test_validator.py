@@ -227,6 +227,9 @@ def test_read_block_is_an_invariant_error_where_vetted_ops_is_used(baseline: dic
         "Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
         "Edit(~/.claude/magpie/**)",
         "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
+        "Edit(//**/.git/**/apache-magpie/tools/vetted-ops/**)",
+        "Edit(//**/.svn/apache-magpie/tools/vetted-ops/**)",
+        "Edit(//**/.apache-magpie-local/tools/vetted-ops/**)",
     ],
 )
 def test_missing_vetted_ops_tamper_protection_is_an_invariant_error(

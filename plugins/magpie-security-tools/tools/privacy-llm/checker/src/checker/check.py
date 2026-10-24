@@ -1,0 +1,485 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+"""``privacy-llm-check`` — verify the active LLM stack is approved.
+
+Exit codes:
+
+- ``0`` — every entry in the *Currently configured LLM stack*
+  section is approved per the rules in
+  ``tools/privacy-llm/models.md``.
+- ``1`` — at least one entry is unapproved (or the config file is
+  missing values an opt-in entry needs); the stderr explanation
+  names the offending entries.
+- ``2`` — the config file could not be located or parsed.
+
+Skills shell out to this command at Step 0 (pre-flight) when they
+may read ``<private-list>`` content. The wiring contract is in
+``tools/privacy-llm/wiring.md``.
+"""
+
+from __future__ import annotations
+
+import argparse
+import dataclasses
+import re
+import sys
+import urllib.parse
+
+from checker.config import (
+    LLMEntry,
+    OptInEntry,
+    ParsedConfig,
+    _first_url,
+    host_of,
+    locate_config_path,
+    parse_config,
+)
+
+# Hosts that resolve to "local-only inference" — not over the wire.
+_LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+
+# ``*.apache.org`` hosts that are explicitly NOT default-approved for
+# foundation private data, despite matching the apache.org rule below.
+# The blanket apache.org approval assumes infra-level ASF governance;
+# these endpoints do not meet it and are carved out by name. See
+# ``tools/privacy-llm/models.md`` — "Carve-outs from the apache.org rule".
+_APACHE_ORG_CARVE_OUTS = {
+    "llm.apache.org": (
+        "LLMAO pilot: serves self-hosted models from rented third-party GPU "
+        "hardware (Vast.ai, RunPod), and its operators state that pilot traffic "
+        "must be treated as visible to llmao admins — public and "
+        "project-internal material only, no credentials or embargoed work"
+    ),
+}
+
+# Free-text matches for the always-approved Claude Code entry.
+# Case-insensitive, matched as a substring of the bullet's raw
+# text. Adopters may write "Claude Code (the agent ...)" or
+# "Claude Code itself" or just "Claude Code" — all fine.
+_CLAUDE_CODE_MATCH = "claude code"
+
+
+@dataclasses.dataclass(frozen=True)
+class Verdict:
+    """The check result for one ``LLMEntry``."""
+
+    entry: LLMEntry
+    approved: bool
+    reason: str
+
+
+def _approve_by_default_rules(entry: LLMEntry) -> Verdict | None:
+    """Return a verdict if the entry matches a default-approved rule;
+    otherwise ``None`` (the caller falls back to the opt-in match)."""
+    if _CLAUDE_CODE_MATCH in entry.raw.lower():
+        return Verdict(entry, True, "Claude Code itself (default-approved)")
+    if entry.url is not None:
+        host = host_of(entry.url)
+        if host is None:
+            return Verdict(entry, False, f"unparsable URL host in {entry.url!r}")
+        if host in _LOCAL_HOSTS:
+            return Verdict(entry, True, f"local-only inference at {host} (default-approved)")
+        if host in _APACHE_ORG_CARVE_OUTS:
+            return Verdict(
+                entry,
+                False,
+                f"{host} is carved out of the *.apache.org default approval "
+                f"({_APACHE_ORG_CARVE_OUTS[host]}); declare it as an opt-in "
+                f"entry if the PMC accepts the residency terms",
+            )
+        if host.endswith(".apache.org") or host == "apache.org":
+            return Verdict(entry, True, f"*.apache.org-hosted endpoint at {host} (default-approved)")
+    return None
+
+
+def _approve_by_opt_in(entry: LLMEntry, opt_in: list[OptInEntry]) -> Verdict:
+    """Match ``entry`` against the adopter's opt-in registry.
+
+    A match requires either:
+    - the entry's URL appears in the opt-in entry's ``name`` (free-text), OR
+    - the entry's first non-URL token sequence matches the opt-in entry's name
+      (case-insensitive substring on either side).
+
+    A *valid* match additionally requires the opt-in entry to carry
+    a non-empty ``Data-residency contract`` and ``Approved-by`` line.
+    """
+    raw_lc = entry.raw.lower()
+    url_lc = entry.url.lower() if entry.url else ""
+    for opt in opt_in:
+        name_lc = opt.name.lower()
+        # Match if either the bullet's raw text contains the opt-in
+        # name, or vice versa, or the URL is a substring of the
+        # opt-in name (or vice versa).
+        if not (
+            name_lc in raw_lc
+            or _shortname(name_lc) in raw_lc
+            or (url_lc and (url_lc in name_lc or name_lc in url_lc))
+        ):
+            continue
+        if not opt.data_residency:
+            return Verdict(
+                entry,
+                False,
+                f"opt-in entry {opt.name!r} matches but is missing the 'Data-residency contract' sub-bullet",
+            )
+        if not opt.approved_by or _is_placeholder(opt.approved_by):
+            return Verdict(
+                entry,
+                False,
+                f"opt-in entry {opt.name!r} matches but the 'Approved-by' "
+                f"sub-bullet is missing or still has placeholder text "
+                f"({opt.approved_by!r}); a real PMC member must sign off.",
+            )
+        return Verdict(entry, True, f"opt-in entry {opt.name!r} (data-residency + approved-by present)")
+    return Verdict(
+        entry,
+        False,
+        "no default-approval rule matches and no opt-in entry was declared "
+        "for this LLM. Add an entry under 'Approved third-party endpoints "
+        "(opt-in)' with a Data-residency contract line and an Approved-by "
+        "sign-off, or remove this LLM from the active stack.",
+    )
+
+
+def _shortname(name_lc: str) -> str:
+    """Heuristic: take the leading word(s) before the first ``—`` /
+    ``-`` / ``,`` / ``(`` so that ``aws bedrock — eu-central-1``
+    matches a stack bullet that just says ``aws bedrock``."""
+    for sep in (" — ", " - ", ",", "(", ":"):
+        if sep in name_lc:
+            return name_lc.split(sep, 1)[0].strip()
+    return name_lc
+
+
+def _is_placeholder(text: str) -> bool:
+    """Recognise the template's placeholder forms so we don't accept
+    them as valid sign-off."""
+    lc = text.lower().strip()
+    if not lc:
+        return True
+    return any(
+        marker in lc for marker in ("<pmc-member-initials>", "<initials>", "<yyyy-mm-dd>", "yyyy-mm-dd")
+    )
+
+
+def check_stack(config: ParsedConfig) -> list[Verdict]:
+    """Run every default-approval rule, falling back to the opt-in
+    registry. Returns one :class:`Verdict` per LLM stack entry."""
+    out: list[Verdict] = []
+    for entry in config.llm_stack:
+        v = _approve_by_default_rules(entry)
+        if v is None:
+            v = _approve_by_opt_in(entry, config.opt_in)
+        out.append(v)
+    return out
+
+
+_HOSTNAME_LABEL_RE = re.compile(r"^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$")
+
+
+def _is_valid_hostname(token: str) -> bool:
+    """Validate that candidate token is a genuine hostname.
+
+    Rejects tokens containing userinfo (@), fragments (#), path slashes (/),
+    version numbers (all-numeric dot-separated segments like 3.5, 4.0, 1.0.0),
+    TLDs without ASCII alphabetical characters, or invalid label syntax.
+    """
+    if not token or len(token) > 253:
+        return False
+    if any(c in token for c in ("@", "#", "/", ":", "?")):
+        return False
+    labels = token.split(".")
+    if len(labels) < 2:
+        return False
+    # Reject tokens where all dot-separated segments are purely numeric
+    if all(lbl.isdigit() for lbl in labels):
+        return False
+    # Require at least one ASCII alphabetical character in top-level domain / rightmost label
+    if not any(c.isascii() and c.isalpha() for c in labels[-1]):
+        return False
+    # Require valid hostname label syntax for each label
+    for lbl in labels:
+        if not lbl or len(lbl) > 63:
+            return False
+        if not _HOSTNAME_LABEL_RE.match(lbl):
+            return False
+    return True
+
+
+def _extract_opt_in_host(name: str) -> str | None:
+    """Extract destination hostname from an opt-in entry name.
+
+    Recognises full URLs (https://api.example.com/v1) and bare hostnames
+    at the start of the entry (api.example.com (Provider)). Returns None
+    for name-only opt-ins (e.g. 'TypeSafe — Jev API', 'AWS Bedrock',
+    '3.5 Sonnet (AWS Bedrock)').
+    """
+    url = _first_url(name)
+    if url is not None:
+        return host_of(url)
+
+    # Hyphens are not separators here: they are legal inside hostname labels
+    # (``bedrock-runtime.eu-central-1.amazonaws.com``).
+    first_token = re.split(r"[\s—,(:]+", name.strip())[0]
+    if _is_valid_hostname(first_token):
+        return host_of("//" + first_token)
+    return None
+
+
+_URL_IN_TEXT_RE = re.compile(r"[a-zA-Z][a-zA-Z0-9+.-]*://\S+")
+
+
+def _name_matches_description(opt_name: str, raw_desc: str) -> bool:
+    """Match a name-only opt-in against the provider description.
+
+    URLs are stripped from the description first, and the opt-in name (or its
+    short name) must appear as whole words. Otherwise a short opt-in name such
+    as ``AI (internal)`` would match inside ``https://api.typesafe.ai/...`` and
+    approve a provider nobody opted in to.
+    """
+    desc_lc = _URL_IN_TEXT_RE.sub(" ", raw_desc).strip().lower()
+    if not desc_lc:
+        return False
+    name_lc = opt_name.lower().strip()
+    for candidate in (name_lc, _shortname(name_lc)):
+        if candidate and re.search(rf"(?<!\w){re.escape(candidate)}(?!\w)", desc_lc):
+            return True
+    return False
+
+
+def _approve_endpoint_by_opt_in(
+    entry: LLMEntry,
+    ep_host: str,
+    opt_in: list[OptInEntry],
+    *,
+    default_endpoint: str | None = None,
+    raw_desc: str | None = None,
+) -> Verdict:
+    """Match endpoint against opt-in entries.
+
+    For URL opt-in entries: requires exact host_of(endpoint) == host_of(opt_url).
+    For name-only opt-in entries: matches only if endpoint matches default_endpoint
+    and the provider name matches the opt-in entry name.
+    """
+    for opt in opt_in:
+        opt_host = _extract_opt_in_host(opt.name)
+        matched = False
+
+        if opt_host is not None:
+            if ep_host == opt_host:
+                matched = True
+        else:
+            # Name-only opt-in: matches only if endpoint is the default endpoint
+            if default_endpoint is not None:
+                def_host = host_of(default_endpoint)
+                if (entry.url == default_endpoint) or (def_host is not None and ep_host == def_host):
+                    matched = _name_matches_description(opt.name, raw_desc or "")
+
+        if not matched:
+            continue
+
+        if not opt.data_residency:
+            return Verdict(
+                entry,
+                False,
+                f"opt-in entry {opt.name!r} matches but is missing the 'Data-residency contract' sub-bullet",
+            )
+        if not opt.approved_by or _is_placeholder(opt.approved_by):
+            return Verdict(
+                entry,
+                False,
+                f"opt-in entry {opt.name!r} matches but the 'Approved-by' "
+                f"sub-bullet is missing or still has placeholder text "
+                f"({opt.approved_by!r}); a real PMC member must sign off.",
+            )
+        return Verdict(entry, True, f"opt-in entry {opt.name!r} (data-residency + approved-by present)")
+
+    return Verdict(
+        entry,
+        False,
+        f"third-party endpoint {entry.url} denied: no opt-in entry was declared "
+        f"with matching host in <project-config>/privacy-llm.md",
+    )
+
+
+def check_endpoint(
+    endpoint: str,
+    config: ParsedConfig | None = None,
+    *,
+    default_endpoint: str | None = None,
+    raw_desc: str | None = None,
+) -> Verdict:
+    """Verify whether a single outbound LLM endpoint URL is approved.
+
+    Checks default-approval rules (e.g. localhost, *.apache.org), falling back
+    to host-bound opt-in entries in ``<project-config>/privacy-llm.md``.
+    URLs containing userinfo or fragments are strictly rejected. The free-text
+    Claude Code rule does not apply to endpoint URL checks.
+    """
+    desc = raw_desc if raw_desc is not None else endpoint
+    entry = LLMEntry(raw=desc, url=endpoint)
+
+    # 1. URL validation: reject userinfo, fragments, or malformed URLs
+    try:
+        parsed = urllib.parse.urlsplit(endpoint)
+    except ValueError as err:
+        return Verdict(entry, False, f"unparsable URL {endpoint!r}: {err}")
+
+    if not parsed.scheme or not parsed.netloc:
+        return Verdict(entry, False, f"invalid URL (missing scheme or host): {endpoint!r}")
+
+    if parsed.scheme.lower() not in ("http", "https"):
+        return Verdict(entry, False, f"unsupported URL scheme {parsed.scheme!r} in {endpoint!r}")
+
+    if parsed.fragment or "#" in endpoint:
+        return Verdict(entry, False, f"endpoint URL must not contain a fragment: {endpoint!r}")
+
+    if parsed.username is not None or parsed.password is not None or "@" in parsed.netloc:
+        return Verdict(entry, False, f"endpoint URL must not contain userinfo: {endpoint!r}")
+
+    ep_host = parsed.hostname
+    if ep_host is None:
+        return Verdict(entry, False, f"unparsable URL host in {endpoint!r}")
+    ep_host = ep_host.lower()
+
+    # 2. Default rules for URL-only check (no Claude Code free-text rule!)
+    if ep_host in _LOCAL_HOSTS:
+        return Verdict(entry, True, f"local-only inference at {ep_host} (default-approved)")
+    if ep_host in _APACHE_ORG_CARVE_OUTS:
+        return Verdict(
+            entry,
+            False,
+            f"{ep_host} is carved out of the *.apache.org default approval "
+            f"({_APACHE_ORG_CARVE_OUTS[ep_host]}); declare it as an opt-in "
+            f"entry if the PMC accepts the residency terms",
+        )
+    if ep_host.endswith(".apache.org") or ep_host == "apache.org":
+        return Verdict(entry, True, f"*.apache.org-hosted endpoint at {ep_host} (default-approved)")
+
+    # 3. Locate and parse config if not passed
+    if config is None:
+        try:
+            path = locate_config_path()
+        except FileNotFoundError as err:
+            return Verdict(
+                entry,
+                False,
+                f"Third-party endpoint {endpoint} denied (no privacy-llm config found): {err}",
+            )
+        try:
+            config = parse_config(path)
+        except Exception as err:
+            return Verdict(
+                entry,
+                False,
+                f"Failed to parse privacy-llm config at {path}: {err}",
+            )
+
+    return _approve_endpoint_by_opt_in(
+        entry,
+        ep_host,
+        config.opt_in,
+        default_endpoint=default_endpoint,
+        raw_desc=raw_desc,
+    )
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        prog="privacy-llm-check",
+        description=(
+            "Verify every entry in <project-config>/privacy-llm.md's "
+            "'Currently configured LLM stack' is approved per "
+            "tools/privacy-llm/models.md."
+        ),
+    )
+    parser.add_argument(
+        "--config",
+        default=None,
+        help=(
+            "Path to the privacy-llm.md config. Default: "
+            "$PRIVACY_LLM_CONFIG, then privacy-llm.md in the personal "
+            "config layer (<cwd>/.apache-magpie-local/ when the repository "
+            "adopted Magpie, <git-common-dir>/apache-magpie/ otherwise, "
+            "then a legacy <cwd>/.apache-magpie-local/), then "
+            "<cwd>/.apache-magpie-overrides/privacy-llm.md."
+        ),
+    )
+    parser.add_argument(
+        "--reads-private-list",
+        action="store_true",
+        help=(
+            "Set this when the calling skill may read <private-list> "
+            "content. The check itself is the same — the flag just "
+            "tells the user via the printed banner why the gate is firing."
+        ),
+    )
+    parser.add_argument(
+        "--quiet",
+        action="store_true",
+        help="On approval, print nothing. On rejection, print stderr only.",
+    )
+    args = parser.parse_args(argv)
+
+    try:
+        path = locate_config_path(args.config)
+    except FileNotFoundError as e:
+        print(str(e), file=sys.stderr)
+        return 2
+    try:
+        cfg = parse_config(path)
+    except OSError as e:
+        print(f"{path}: {e}", file=sys.stderr)
+        return 2
+
+    verdicts = check_stack(cfg)
+    if not verdicts:
+        print(
+            f"{path}: 'Currently configured LLM stack' is empty — at least "
+            f"one entry (typically 'Claude Code') is required.",
+            file=sys.stderr,
+        )
+        return 1
+
+    bad = [v for v in verdicts if not v.approved]
+    if not bad:
+        if not args.quiet:
+            banner = "privacy-llm-check: every active-stack entry is approved" + (
+                " (skill reads <private-list>)" if args.reads_private_list else ""
+            )
+            print(banner)
+            for v in verdicts:
+                print(f"  ✓ {v.entry.raw}  —  {v.reason}")
+        return 0
+
+    print(
+        f"privacy-llm-check: {len(bad)} of {len(verdicts)} "
+        f"active-stack entr{'y is' if len(bad) == 1 else 'ies are'} not approved.",
+        file=sys.stderr,
+    )
+    for v in verdicts:
+        marker = "✓" if v.approved else "✗"
+        print(f"  {marker} {v.entry.raw}  —  {v.reason}", file=sys.stderr)
+    print(
+        f"\nFix: edit {path} per tools/privacy-llm/models.md.",
+        file=sys.stderr,
+    )
+    return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

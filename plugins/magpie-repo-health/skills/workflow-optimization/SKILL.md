@@ -18,7 +18,7 @@ argument-hint: "--repo owner/name"
 capability: capability:triage
 surface_hash: sha256:bbfe83b236640f9e
 license: Apache-2.0
-measured_tokens: 3037
+measured_tokens: 3048
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -26,8 +26,8 @@ measured_tokens: 3037
 
 <!-- Placeholder convention (see ../../../../AGENTS.md#placeholder-convention-used-in-skill-files):
      <upstream>  → adopter's public source repo (`owner/repo`)
-     <framework> → `.apache-magpie/apache-magpie` in adopters; `.` in
-                   the framework standalone -->
+     <framework> → `.` standalone, `.apache-magpie/apache-magpie` (snapshot),
+                   `~/.cache/apache-magpie/framework/current` (marketplace) -->
 
 # workflow-optimization
 

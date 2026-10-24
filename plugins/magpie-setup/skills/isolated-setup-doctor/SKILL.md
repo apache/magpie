@@ -21,11 +21,11 @@ capability:
   - capability:reassess
 surface_hash: sha256:7d670b572d43bbeb
 license: Apache-2.0
-measured_tokens: 6320
+measured_tokens: 6326
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
-     <project-config> → adopting project's `.apache-magpie/` directory -->
+     <project-config> → per file: the personal layer, else `.apache-magpie-overrides/` -->
 
 # setup-isolated-setup-doctor
 

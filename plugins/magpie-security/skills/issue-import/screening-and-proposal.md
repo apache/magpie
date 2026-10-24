@@ -54,7 +54,7 @@ query templates and the substitution-values guide live in
 in short:
 
 **Backend selection.** When PonyMail MCP is enabled and authenticated (Step 0)
-**and** `<security-list>` is in `.apache-magpie-overrides/user.md` → `tools.ponymail.private_lists`,
+**and** `<security-list>` is in the resolved `user.md` ([order](../../../../AGENTS.md#usermd-resolution-order)) → `tools.ponymail.private_lists`,
 **PonyMail MCP is the primary backend for this step**:
 
 ```text

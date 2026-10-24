@@ -18,11 +18,11 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:1f327e069312dad2
 license: Apache-2.0
-measured_tokens: 6446
+measured_tokens: 6526
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
-     <project-config> → adopting project's `.apache-magpie/` directory -->
+     <project-config> → per file: the personal layer, else `.apache-magpie-overrides/` -->
 
 # setup-isolated-setup-update
 
@@ -198,7 +198,7 @@ Walk each:
 
 ### The vetted-ops split and exclusion
 
-If the adopter uses the `vetted-ops` dispatcher (a `.apache-magpie-overrides/tools/vetted-ops/config.toml` exists, or `.claude/settings.json` carries a `vetted-op` rule), check four things.
+If the adopter uses the `vetted-ops` dispatcher (a `.apache-magpie-overrides/tools/vetted-ops/config.toml` or a personal-layer `tools/vetted-ops/config.toml` exists, or `.claude/settings.json` carries a `vetted-op` rule), check four things.
 
 **First, and most important: has `vetted-op` drifted into `allow`?**
 Only `vetted-op-read` belongs there.
@@ -212,6 +212,7 @@ Report that as a must-fix, ahead of anything else in this section.
 - `~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**`
 - `~/.claude/magpie/**`
 - `.apache-magpie-overrides/tools/vetted-ops/**`
+- `//**/.git/**/apache-magpie/tools/vetted-ops/**`, `//**/.svn/apache-magpie/tools/vetted-ops/**`, `//**/.apache-magpie-local/tools/vetted-ops/**` (a personal policy)
 
 Report a missing rule as drift to repair, not a note.
 A leftover `Write(…)` rule on either path is the opposite kind of drift: `Edit(path)` already binds every file-editing tool, and the file permission check does not match a `Write(path)` rule, so surface it as cruft to delete.

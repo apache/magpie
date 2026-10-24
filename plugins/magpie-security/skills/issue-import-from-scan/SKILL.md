@@ -19,11 +19,11 @@ argument-hint: "[scan-source ...]  (one or more GitHub issues and/or report fold
 capability: capability:intake
 surface_hash: sha256:7adfbe73f79606b1
 license: Apache-2.0
-measured_tokens: 6580
+measured_tokens: 6585
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
-     <project-config> → adopting project's `.apache-magpie/` directory
+     <project-config> → per file: the personal layer, else `.apache-magpie-overrides/`
      <tracker>        → `tracker_repo:` in <project-config>/project.md
      <upstream>       → `upstream_repo:` in <project-config>/project.md
      <scan-repo>      → the public repository the scan reports live in

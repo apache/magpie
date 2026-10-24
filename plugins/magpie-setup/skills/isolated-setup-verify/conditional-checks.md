@@ -76,8 +76,8 @@ reading this file; read the section for a check whose condition holds.
 9. **The vetted-ops split and exclusion.** Only meaningful when the
    adopter routes forge operations through the `vetted-ops`
    dispatcher; if the repo has no
-   `.apache-magpie-overrides/tools/vetted-ops/config.toml` and no
-   `vetted-op` rule, report **n/a** and move on. With the sandbox not
+   `.apache-magpie-overrides/tools/vetted-ops/config.toml`, no personal-layer
+   `tools/vetted-ops/config.toml` and no `vetted-op` rule, report **n/a** and move on. With the sandbox not
    enabled, report **n/a** too: install Step V skips the bypass
    without it. A `vetted-op-read` allow rule or exclusion present
    while the sandbox is off is ✗ — the bypass without its confinement.
@@ -119,8 +119,11 @@ reading this file; read the section for a check whose condition holds.
    - `~/.claude/magpie/**` — the fixed path the rules name, which
      the plugin's `SessionStart` hook points at the catalogue.
    - `.apache-magpie-overrides/tools/vetted-ops/**` — the policy.
+   - `//**/.git/**/apache-magpie/tools/vetted-ops/**`, `//**/.svn/apache-magpie/tools/vetted-ops/**`
+     and `//**/.apache-magpie-local/tools/vetted-ops/**` — the policy in a
+     maintainer's personal layer.
 
-   Either one missing is ✗. One `Edit` rule per surface is the whole
+   Any one missing is ✗. One `Edit` rule per surface is the whole
    coverage — in `permissions`, `Edit(path)` binds every file-editing
    tool, and a `Write(path)` rule is not matched by the file
    permission check at all. A `Write(…)` line beside an `Edit(…)` is

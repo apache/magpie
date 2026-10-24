@@ -19,6 +19,12 @@
       "description": "Apache Magpie \u2014 deterministic pre-execution command guard: a PreToolUse hook that denies shell commands which would break a hard framework rule. Runs from the installed plugin, so no repository or worktree needs a local copy."
     },
     {
+      "name": "magpie-security-tools",
+      "source": "./plugins/magpie-security-tools",
+      "version": "0.9.0.dev202610241347",
+      "description": "Apache Magpie \u2014 the tools the security skills run (tracker field and rollup edits, CVE JSON, the privacy gate, the scan importer), shipped so a marketplace install needs no framework checkout."
+    },
+    {
       "name": "magpie-vetted-ops",
       "source": "./plugins/magpie-vetted-ops",
       "version": "0.9.0.dev202610241347",

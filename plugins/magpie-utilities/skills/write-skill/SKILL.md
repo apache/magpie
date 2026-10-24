@@ -17,18 +17,18 @@ when_to_use: >-
 capability: capability:authoring
 surface_hash: sha256:31626428a2545bce
 license: Apache-2.0
-measured_tokens: 2625
+measured_tokens: 2641
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
-     <project-config> → adopting project's `.apache-magpie/` directory
+     <project-config> → per file: the personal layer, else `.apache-magpie-overrides/`
      <tracker>        → value of `tracker_repo:` in <project-config>/project.md
      <upstream>       → value of `upstream_repo:` in <project-config>/project.md
-     <framework>      → `.apache-magpie/apache-magpie` in adopters; `.` in
-                        the framework standalone -->
+     <framework>      → `.` standalone, `.apache-magpie/apache-magpie` (snapshot),
+                        `~/.cache/apache-magpie/framework/current` (marketplace) -->
 
 # write-skill
 

@@ -533,3 +533,49 @@ def test_source_changes_trigger_packaging_hook(path):
     match = re.search(r"files: (.+)", block)
     assert match is not None
     assert re.match(match.group(1), path), f"packaging check would skip {path}"
+
+
+# --- the packaged pyproject of a copied tool -------------------------------------
+
+
+def test_a_copied_tool_pyproject_resolves_inside_the_plugin(tmp_path, monkeypatch):
+    # A tool depending on another copied tool, with the workspace-only dev group.
+    (tmp_path / "tools" / "a").mkdir(parents=True)
+    (tmp_path / "tools" / "nested" / "b").mkdir(parents=True)
+    (tmp_path / "tools" / "a" / "pyproject.toml").write_text(
+        '[project]\nname = "a"\ndependencies = ["b>=1"]\n\n[dependency-groups]\ndev = ["magpie-dev"]\n\n'
+        "[tool.ruff]\nline-length = 110\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "tools" / "nested" / "b" / "pyproject.toml").write_text(
+        '[project]\nname = "b"\ndependencies = []\n', encoding="utf-8"
+    )
+    monkeypatch.chdir(tmp_path)
+    copies = {
+        "tools/a/pyproject.toml": "tools/a/pyproject.toml",
+        "tools/nested/b/pyproject.toml": "tools/nested/b/pyproject.toml",
+    }
+    packaged = mod.packaged_file_bytes(Path("tools/a/pyproject.toml"), copies).decode()
+    assert "[dependency-groups]" not in packaged and "magpie-dev" not in packaged
+    assert '[tool.uv.sources]\nb = { path = "../nested/b" }\n' in packaged
+    assert "[tool.ruff]" in packaged  # only the dev group goes
+
+
+def test_the_security_tools_plugin_ships_every_tool_the_skills_name():
+    # Every `<framework>/tools/<tool>` a security skill runs is in the plugin.
+    named = set()
+    for skill in (REPO_ROOT / "plugins" / "magpie-security" / "skills").rglob("*.md"):
+        named |= set(
+            re.findall(r"<framework>/tools/([a-z0-9-]+(?:/[a-z0-9-]+)?)", skill.read_text(encoding="utf-8"))
+        )
+    shipped = {Path(dest).relative_to("tools").as_posix() for dest in mod.SECURITY_TOOLS} | {
+        "security-tracker-stats-dashboard/run",
+        "local-tracker",  # ships with magpie-vetted-ops, beside the dispatcher
+    }
+    assert named <= shipped, sorted(named - shipped)
+
+
+def test_the_security_tools_plugin_ships_the_forwarder_registry():
+    copies = mod.SUBSTRATE_PLUGINS["magpie-security-tools"]["copies"]
+    assert "tools/forwarder-relay/README.md" in copies
+    assert "tools/gmail/asf-relay.md" in copies

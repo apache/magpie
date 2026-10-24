@@ -10,7 +10,7 @@ Relative links are rooted one level deeper than in `SKILL.md`.
    A 401/403 on the first means no `<tracker>` access; on the second it is a quota/auth issue — both need user action, stop.
 2. **Fork exists and is pushable** — `gh repo view <your-login>/<upstream-repo-name> --json name --jq .name` returns the bare repo name (the segment after the `/` in `<upstream>`).
    If there is no fork, tell the user to run `gh repo fork <upstream> --clone=false` and re-invoke.
-3. **Local clone is found and clean** — resolve the clone path from [`.apache-magpie-overrides/user.md`](../../../../../docs/setup/agentic-overrides.md) → `environment.upstream_clone` (per [`AGENTS.md` § Per-project and per-user configuration](../../../../../AGENTS.md#per-project-and-per-user-configuration)).
+3. **Local clone is found and clean** — resolve the clone path from [the resolved `user.md` ([order](../../../../../AGENTS.md#usermd-resolution-order))](../../../../../docs/setup/agentic-overrides.md) → `environment.upstream_clone` (per [`AGENTS.md` § Per-project and per-user configuration](../../../../../AGENTS.md#per-project-and-per-user-configuration)).
    Verify its `origin` remote points at `<upstream>` and `git status --porcelain` is empty.
    On uncommitted work, stop and ask the user to stash / commit / clean first.
    Do not probe hard-coded filesystem paths.

@@ -143,6 +143,14 @@ hard framework rule) and `magpie-vetted-ops` (a dispatcher for fixed,
 policy-scoped forge operations, so a session needs one allowlist entry instead
 of a dozen wildcard `ask` rules).
 Both run from the installed plugin, so no repository or worktree needs a local copy.
+A third, `magpie-security-tools`, goes with the `magpie-security` family: it carries
+the framework tools the security skills run (tracker field and rollup edits, CVE
+JSON, the privacy gate, the scan importer). Its session hook materialises a copy of
+them once per installed version under `~/.cache/apache-magpie/framework/` and points
+`~/.cache/apache-magpie/framework/current` at it, which is what `<framework>` means on a marketplace
+install. The plugin cache is read-only to a sandboxed command; the copy is not, so the
+skills' `uv run --project <framework>/tools/<tool> …` works unchanged (and so does
+`uvx --from`). The tools run sandboxed, so the writable copy grants nothing new.
 Grok Build can consume the existing Claude-compatible `magpie-agent-guard` plugin hook.
 The dispatcher selects the Grok protocol from the incoming hook payload shape.
 Neither substrate plugin adds always-on skill context. Pick based on the trade-off between install simplicity and

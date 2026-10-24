@@ -19,7 +19,7 @@ project's GitHub-notification exclusions — both declared in
 the archive lags the inbox by minutes to hours for brand-new messages, exactly the threads this skill exists to import.
 
 When PonyMail MCP is enabled and authenticated (Step 0) **and**
-`<security-list>` is in `.apache-magpie-overrides/user.md` →
+`<security-list>` is in the resolved `user.md` ([order](../../../../AGENTS.md#usermd-resolution-order)) →
 `tools.ponymail.private_lists`, run the archive as a **paired
 authoritative check** against the Gmail result set:
 

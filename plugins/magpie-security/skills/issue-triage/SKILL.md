@@ -23,11 +23,11 @@ when_to_use: |
 capability: capability:triage
 surface_hash: sha256:4fb1fcfc79d7f275
 license: Apache-2.0
-measured_tokens: 6322
+measured_tokens: 6327
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
-     <project-config> → adopting project's `.apache-magpie/` directory
+     <project-config> → per file: the personal layer, else `.apache-magpie-overrides/`
      <tracker>        → value of `tracker_repo:` in <project-config>/project.md
      <upstream>       → value of `upstream_repo:` in <project-config>/project.md
      <security-list>  → value of `security_list:` in <project-config>/project.md

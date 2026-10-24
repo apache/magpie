@@ -69,7 +69,10 @@ Both paths run the same flow.
    ```
 
    (Codex: `codex plugin marketplace upgrade apache-magpie`; Gemini:
-   `gemini extensions update magpie`.) After the plugin refresh,
+   `gemini extensions update magpie`.) When `magpie-security` is installed
+   and `magpie-security-tools` is not, add
+   `/plugin install magpie-security-tools@apache-magpie`: the security
+   skills run their framework tools from it. After the plugin refresh,
    run `setup-isolated-setup-update` for any installed harness profile;
    plugin updates do not merge workspace configuration. The companion
    pointer is the one in [Step 0b](#step-0b--marketplace-method-the-floor-split) — this is the path every no-lock marketplace upgrade

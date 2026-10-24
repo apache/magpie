@@ -17,11 +17,11 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:6358702510d21c26
 license: Apache-2.0
-measured_tokens: 7793
+measured_tokens: 7894
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
-     <project-config> → adopting project's `.apache-magpie/` directory
+     <project-config> → per file: the personal layer, else `.apache-magpie-overrides/`
      <tracker>        → value of `tracker_repo:` in <project-config>/project.md
      <upstream>       → value of `upstream_repo:` in <project-config>/project.md -->
 
@@ -218,8 +218,10 @@ the machine, so it carries a disclosure the operator has to acknowledge.
 
 Only applies when the adopter routes forge operations through the
 `vetted-ops` dispatcher — i.e. the repo has
-`.apache-magpie-overrides/tools/vetted-ops/config.toml`, or the
-operator asks for the dispatcher to be wired now. If neither is
+`.apache-magpie-overrides/tools/vetted-ops/config.toml`, the maintainer
+keeps a personal one (`<personal layer>/tools/vetted-ops/config.toml`,
+for a project that has not adopted Magpie), or the operator asks for the
+dispatcher to be wired now. If neither is
 true, skip this step, report it as **n/a**, and continue with the
 next step: a missing policy is never a blocker for this install.
 Do not create a policy the project has not asked for.
@@ -271,7 +273,10 @@ writes structurally.
     // the fixed path the rules name, which points into that catalogue
     "Edit(~/.claude/magpie/**)",
     // the policy naming which caller may run which operation
-    "Edit(.apache-magpie-overrides/tools/vetted-ops/**)"
+    "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
+    "Edit(//**/.git/**/apache-magpie/tools/vetted-ops/**)",
+    "Edit(//**/.svn/apache-magpie/tools/vetted-ops/**)",
+    "Edit(//**/.apache-magpie-local/tools/vetted-ops/**)"
   ]
 }
 ```

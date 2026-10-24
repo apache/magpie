@@ -732,6 +732,9 @@ The full block below is the two merged, annotated.
       "Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
       "Edit(~/.claude/magpie/**)",
       "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
+      "Edit(//**/.git/**/apache-magpie/tools/vetted-ops/**)",
+      "Edit(//**/.svn/apache-magpie/tools/vetted-ops/**)",
+      "Edit(//**/.apache-magpie-local/tools/vetted-ops/**)",
       // The adversarial-review tool runs unsandboxed (excludedCommands above), so
       // the code it runs must not be editable by the agent that calls it.
       "Edit(~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/**)"
@@ -894,8 +897,9 @@ a second, independent layer for free: the plugin cache sits outside
 every `sandbox.filesystem.allowWrite` root, so a sandboxed `Bash`
 call cannot write it either. The **policy TOML** lives inside the
 adopter repo, which is sandbox-writable by design. Under Claude Code its
-`Edit(.apache-magpie-overrides/tools/vetted-ops/**)` deny is also merged
-into the sandbox's write-deny list, so a Bash-level write (`sed -i`, a
+`Edit(.apache-magpie-overrides/tools/vetted-ops/**)` deny — and the
+personal-layer ones for a maintainer whose project has not adopted
+Magpie — is also merged into the sandbox's write-deny list, so a Bash-level write (`sed -i`, a
 heredoc redirect) is refused as well. Harnesses without that merge have
 only the tool-level deny, and must deny writes to that path in their
 sandbox configuration explicitly.
@@ -966,7 +970,8 @@ Codex is the exception that proves the rule: its execpolicy cannot match `~`, so
 4. `permissions.deny` carries all three tamper-protection rules:
    - `Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)` — the operation catalogue;
    - `Edit(~/.claude/magpie/**)` — the fixed path the rules name;
-   - `Edit(.apache-magpie-overrides/tools/vetted-ops/**)` — the policy.
+   - `Edit(.apache-magpie-overrides/tools/vetted-ops/**)` — the policy;
+   - `Edit(//**/.git/**/apache-magpie/tools/vetted-ops/**)`, `Edit(//**/.svn/apache-magpie/tools/vetted-ops/**)` and `Edit(//**/.apache-magpie-local/tools/vetted-ops/**)` — the same policy kept in a maintainer's personal layer, for a project that has not adopted Magpie.
 
    They are what makes an unprompted read safe to allow: the `allow` rests on the catalogue's shape, so the agent that calls the dispatcher must not be able to edit it.
    A missing rule is a must-fix.
@@ -991,7 +996,10 @@ Codex is the exception that proves the rule: its execpolicy cannot match `~`, so
   "deny": [
     "Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
     "Edit(~/.claude/magpie/**)",
-    "Edit(.apache-magpie-overrides/tools/vetted-ops/**)"
+    "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
+    "Edit(//**/.git/**/apache-magpie/tools/vetted-ops/**)",
+    "Edit(//**/.svn/apache-magpie/tools/vetted-ops/**)",
+    "Edit(//**/.apache-magpie-local/tools/vetted-ops/**)"
   ]
   // and: no ask rule matching vetted-op-read,
   // no "blockReadsOutsideWorkingDirectories": true in any scope
@@ -3532,7 +3540,10 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
      `~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**`
      (the catalogue), `~/.claude/magpie/**` (the fixed path the
      rules name) and
-     `.apache-magpie-overrides/tools/vetted-ops/**` (the policy).
+     `.apache-magpie-overrides/tools/vetted-ops/**` (the policy), and
+     the personal-layer copies `//**/.git/**/apache-magpie/tools/vetted-ops/**`,
+     `//**/.svn/apache-magpie/tools/vetted-ops/**` and
+     `//**/.apache-magpie-local/tools/vetted-ops/**`.
    - No `vetted-op` rule names the versioned plugin-cache path with
      a `*`; the rules name `~/.claude/magpie/vetted-ops`.
      One `Edit` rule per surface is the whole coverage — it binds

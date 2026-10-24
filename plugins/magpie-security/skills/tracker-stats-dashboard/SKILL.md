@@ -18,17 +18,17 @@ when_to_use: |
 capability: capability:stats
 surface_hash: sha256:779340f8eb985eeb
 license: Apache-2.0
-measured_tokens: 4609
+measured_tokens: 4622
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
-     <project-config> -> adopting project's `.apache-magpie/` directory
-     <framework>      -> framework root (the `.apache-magpie/`
-                         snapshot in an adopter repo, or `.` in the
-                         framework standalone checkout)
+     <project-config> -> per file: the personal layer, else `.apache-magpie-overrides/`
+     <framework>      -> framework root (`.` standalone, the `.apache-magpie/`
+                         snapshot, or `~/.cache/apache-magpie/framework/current` on a
+                         marketplace install)
      <tracker>        -> value of `tracker_repo:` in <project-config>/project.md
                          (example: <tracker>)
      <upstream>       -> value of `upstream_repo:` in <project-config>/project.md
@@ -157,7 +157,7 @@ Only on the user's confirmation run `tracker-publish` with that message file
 With `tracker.platform` set to `local-files` or `jira`, stop before fetching anything and tell the user the dashboard does not support that backend yet; never point the pipeline at a GitHub repository instead.
 
 *Renderer* configuration (bucket granularity, milestones, categories, scope labels, triage keywords, …) lives in a separate YAML file at
-`.apache-magpie-overrides/security-tracker-stats.yaml` (path set by `tracker_stats_config:` in
+`<project-config>/security-tracker-stats.yaml` — the personal layer's copy first, else `.apache-magpie-overrides/` (path set by `tracker_stats_config:` in
 [`<project-config>/security-tracker-stats.md`](../../../magpie-setup/templates/security-tracker-stats.md)).
 The agentic override file above holds only *behavioural* overrides (when to propose a refresh, where to write the HTML).
 
@@ -198,7 +198,7 @@ If the adopter passes nothing, surface the resolved output path and cache state 
 1. **Resolve config.** Read
    [`<project-config>/security-tracker-stats.md`](../../../magpie-setup/templates/security-tracker-stats.md)
    for the project's per-renderer YAML config path (default:
-   `<adopter-repo>/.apache-magpie-overrides/security-tracker-stats.yaml`).
+   `<project-config>/security-tracker-stats.yaml`, resolved personal layer first).
    Surface to the user *which* config file will be applied and
    *what bucket granularity* it resolves to. If the YAML file does
    not exist, fall back silently to the framework's
@@ -218,7 +218,7 @@ If the adopter passes nothing, surface the resolved output path and cache state 
    ```bash
    TRACKER_STATS_REPO=<tracker> \
    TRACKER_STATS_UPSTREAM_REPO=<upstream> \
-   TRACKER_STATS_CONFIG=<adopter-repo>/.apache-magpie-overrides/security-tracker-stats.yaml \
+   TRACKER_STATS_CONFIG=<project-config>/security-tracker-stats.yaml \
    TRACKER_STATS_CACHE=<cache> \
    bash <framework>/tools/security-tracker-stats-dashboard/run.sh <output-path>
    ```

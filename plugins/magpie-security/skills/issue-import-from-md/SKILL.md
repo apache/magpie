@@ -27,11 +27,11 @@ argument-hint: "[path-to-markdown-file]"
 capability: capability:intake
 surface_hash: sha256:e2437e84cdf98aa5
 license: Apache-2.0
-measured_tokens: 6088
+measured_tokens: 6093
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
-     <project-config> → adopting project's `.apache-magpie/` directory
+     <project-config> → per file: the personal layer, else `.apache-magpie-overrides/`
      <tracker>        → value of `tracker_repo:` in <project-config>/project.md
                        (example: `<tracker>`)
      <upstream>       → value of `upstream_repo:` in <project-config>/project.md

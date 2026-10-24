@@ -47,6 +47,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -147,7 +148,7 @@ AP1_AUTHOR_FIELDS = frozenset({"name", "email", "url"})
 # Reversing the direction fixed it without vendoring anything (PRINCIPLES §13):
 # the flat `skills/<name>` tree is now the mirror, pointing inward.
 # The all-in-one plugin is gone; installing everything was never the advice.
-CODEX_SUBSTRATES = frozenset({"magpie-agent-guard", "magpie-vetted-ops"})
+CODEX_SUBSTRATES = frozenset({"magpie-agent-guard", "magpie-vetted-ops", "magpie-security-tools"})
 CODEX_CATALOG = Path(".agents/plugins/marketplace.json")  # Codex CLI repo marketplace
 CLIENT_CATALOGS = (
     CODEX_CATALOG,
@@ -247,6 +248,59 @@ VETTED_OPS_LINK_HOOK = "tools/vetted-ops/hooks/link-stable-path.sh"
 # installed plugin tree, where the agent calling it cannot rewrite it.
 ADVERSARIAL_REVIEW_ENTRY = "tools/adversarial-review/src/adversarial_review/cli.py"
 ADVERSARIAL_REVIEW_LINK_HOOK = "tools/adversarial-review/hooks/link-stable-path.sh"
+# The tools the security skills run as `<framework>/tools/<tool>`. A marketplace
+# install has no framework checkout, so this plugin carries copies and its hook
+# materialises them, per version, under `~/.cache/apache-magpie/framework/` with
+# `current` pointing at the live one: a writable tree, so the skills' usual
+# `uv run --project <framework>/tools/<tool>` works there.
+SECURITY_TOOLS_LINK_HOOK = "tools/security-management/hooks/link-framework-path.sh"
+SECURITY_TOOLS = {
+    # tool directory: its package under src/
+    "tools/security-management": "security_management",
+    "tools/github-body-field": "github_body_field",
+    "tools/github-rollup": "github_rollup",
+    "tools/vcs": "magpie_vcs",
+    "tools/cve-tool-vulnogram/generate-cve-json": "generate_cve_json",
+    "tools/cve-tool-vulnogram/oauth-api": "vulnogram_api",
+    "tools/privacy-llm/checker": "checker",
+    "tools/asf-security-dash": "magpie_asf_security_dash",
+    "tools/gmail/oauth-draft": "oauth_draft",
+    # The tracker backends `setup config` and the Subversion fix flow call through
+    # `<framework>`; magpie-vetted-ops carries its own copies beside the dispatcher.
+    "tools/local-tracker": "magpie_local_tracker",
+    "tools/jira": "jira_bridge",
+}
+SECURITY_STATS_DASHBOARD_FILES = (
+    "run.sh",
+    "fetch_bodies.py",
+    "fetch_events.py",
+    "fetch_issues.py",
+    "fetch_prs.py",
+    "fetch_roster.py",
+    "gh_retry.py",
+    "render.py",
+    "default-config.yaml",
+    "src/security_tracker_stats_dashboard",
+    "pyproject.toml",
+    "README.md",
+)
+
+
+def _security_tool_copies() -> dict[str, str]:
+    copies = {SECURITY_TOOLS_LINK_HOOK: SECURITY_TOOLS_LINK_HOOK}
+    for tool, package in SECURITY_TOOLS.items():
+        for part in (f"src/{package}", "pyproject.toml", "README.md"):
+            copies[f"{tool}/{part}"] = f"{tool}/{part}"
+    # The forwarder registry `issue-import-via-forwarder` reads, and the shipping
+    # adapter's doc its README row names.
+    for path in ("tools/forwarder-relay/README.md", "tools/gmail/asf-relay.md"):
+        copies[path] = path
+    for name in SECURITY_STATS_DASHBOARD_FILES:
+        path = f"tools/security-tracker-stats-dashboard/{name}"
+        copies[path] = path
+    return copies
+
+
 SUBSTRATE_PLUGINS: dict[str, dict] = {
     "magpie-agent-guard": {
         "description": (
@@ -318,6 +372,35 @@ SUBSTRATE_PLUGINS: dict[str, dict] = {
                             {
                                 "type": "command",
                                 "command": f'bash "${{CLAUDE_PLUGIN_ROOT}}/{VETTED_OPS_LINK_HOOK}"',
+                                "timeout": 10,
+                            }
+                        ],
+                    }
+                ]
+            },
+        },
+    },
+    "magpie-security-tools": {
+        "description": (
+            "Apache Magpie \u2014 the tools the security skills run (tracker field and rollup "
+            "edits, CVE JSON, the privacy gate, the scan importer), shipped so a marketplace "
+            "install needs no framework checkout."
+        ),
+        "links": {},
+        "copies": _security_tool_copies(),
+        "must_resolve": (
+            "tools/security-management/src/security_management/cli.py",
+            SECURITY_TOOLS_LINK_HOOK,
+        ),
+        "hook_config": {
+            "description": "Apache Magpie security tools",
+            "hooks": {
+                "SessionStart": [
+                    {
+                        "hooks": [
+                            {
+                                "type": "command",
+                                "command": f'bash "${{CLAUDE_PLUGIN_ROOT}}/{SECURITY_TOOLS_LINK_HOOK}"',
                                 "timeout": 10,
                             }
                         ],
@@ -427,8 +510,36 @@ def check_setup_templates() -> list[str]:
     return errors
 
 
+def _packaged_pyproject(src: Path, copies: dict[str, str]) -> bytes:
+    """A copied tool's pyproject, made to resolve inside the plugin.
+
+    The workspace root's `[tool.uv.sources]` does not ship, so the `dev` group
+    (which names a workspace member) is dropped, and every dependency that is
+    another copied tool gets a path source to that copy.
+    """
+    shipped: dict[str, Path] = {}
+    for src_rel in copies.values():
+        candidate = Path(src_rel)
+        if candidate.name == "pyproject.toml" and candidate.is_file():
+            data = tomllib.loads(candidate.read_text(encoding="utf-8"))
+            shipped[str(data.get("project", {}).get("name", ""))] = candidate.parent
+    text = src.read_text(encoding="utf-8")
+    text = re.sub(r"(?ms)^\[dependency-groups\]\n.*?(?=^\[|\Z)", "", text).rstrip("\n") + "\n"
+    deps = tomllib.loads(text).get("project", {}).get("dependencies", [])
+    names = [re.split(r"[\s<>=!~;\[]", dep, maxsplit=1)[0] for dep in deps]
+    local = {n: shipped[n] for n in names if n in shipped}
+    if local and "[tool.uv.sources]" not in text:
+        rel = {n: os.path.relpath(path, src.parent) for n, path in local.items()}
+        text += "\n[tool.uv.sources]\n" + "".join(
+            f'{n} = {{ path = "{p}" }}\n' for n, p in sorted(rel.items())
+        )
+    return text.encode()
+
+
 def packaged_file_bytes(src: Path, copies: dict[str, str]) -> bytes:
     """Keep shipped links local and point framework links at their public source."""
+    if src.name == "pyproject.toml":
+        return _packaged_pyproject(src, copies)
     if src.suffix != ".md":
         return src.read_bytes()
 

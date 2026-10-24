@@ -124,7 +124,7 @@ A PR merged into `<upstream>` with a milestone set is the strongest signal for t
 > Identify them before proposing credit, draft replies, or status updates.
 
 **Backend selection.** When Step 0 recorded `ponymail_authenticated: true` **and** `<security-list>` is in
-`.apache-magpie-overrides/user.md` → `tools.ponymail.private_lists`,
+the resolved `user.md` ([order](../../../../AGENTS.md#usermd-resolution-order)) → `tools.ponymail.private_lists`,
 **PonyMail MCP is the primary backend for this step** (the archive reaches further back than any one Gmail window).
 Run the distinctive-phrase search against:
 
@@ -237,7 +237,7 @@ Process for finding the real reporter and the original thread:
 **Backend selection.** When PonyMail MCP is enabled and authenticated (Step 0), **PonyMail is the primary source for archive queries** in this step:
 historical lookups, cross-list fan-outs (`<announce-list>`, `<dev-list>`, `<users-list>`), and anything older than ~90 days.
 Gmail is the fallback when (a) PonyMail is not enabled / not authenticated,
-(b) a private list the query targets is not in `.apache-magpie-overrides/user.md` → `tools.ponymail.private_lists`,
+(b) a private list the query targets is not in the resolved `user.md` ([order](../../../../AGENTS.md#usermd-resolution-order)) → `tools.ponymail.private_lists`,
 or (c) the signal is *just-arrived inbound mail* the archive has not indexed yet.
 The per-issue budget is ≤ 2 archive searches (whichever backend) plus ≤ 3 Gmail inbox searches on the reporter thread.
 
@@ -365,7 +365,7 @@ and its thread is where the courtesy reply below lands, since the reviewer watch
 Use it as the signal source only when the record read is unavailable.
 
 **Backend selection for the mail path.** When PonyMail MCP is enabled and authenticated (Step 0) **and** `<security-list>` is in
-`.apache-magpie-overrides/user.md` → `tools.ponymail.private_lists`, **PonyMail MCP is the primary path** for reviewer-comment archive queries:
+the resolved `user.md` ([order](../../../../AGENTS.md#usermd-resolution-order)) → `tools.ponymail.private_lists`, **PonyMail MCP is the primary path** for reviewer-comment archive queries:
 
 ```text
 mcp__ponymail__search_list(

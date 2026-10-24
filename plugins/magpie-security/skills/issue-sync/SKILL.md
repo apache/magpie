@@ -26,11 +26,11 @@ argument-hint: "[issue-number]"
 capability: capability:intake
 surface_hash: sha256:019c545c3013d4c2
 license: Apache-2.0
-measured_tokens: 7053
+measured_tokens: 7058
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
-     <project-config> → adopting project's `.apache-magpie/` directory
+     <project-config> → per file: the personal layer, else `.apache-magpie-overrides/`
      <tracker>        → value of `tracker_repo:` in <project-config>/project.md
      <upstream>       → value of `upstream_repo:` in <project-config>/project.md
      <cve-tool>       → adapter directory under `tools/` named by

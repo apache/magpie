@@ -23,11 +23,11 @@ capability:
   - capability:resolve
 surface_hash: sha256:550eabe3b9bb3689
 license: Apache-2.0
-measured_tokens: 7331
+measured_tokens: 7336
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
-     <project-config> → adopting project's `.apache-magpie/` directory
+     <project-config> → per file: the personal layer, else `.apache-magpie-overrides/`
      <tracker>        → value of `tracker_repo:` in <project-config>/project.md
      <upstream>       → value of `upstream_repo:` in <project-config>/project.md
      Before running any bash command below, substitute these with the

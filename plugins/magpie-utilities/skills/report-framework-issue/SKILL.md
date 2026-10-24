@@ -23,18 +23,18 @@ argument-hint: "[what broke, or a problem description]"
 capability: capability:platform
 surface_hash: sha256:f14640fa1249c172
 license: Apache-2.0
-measured_tokens: 4646
+measured_tokens: 4661
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
-     <project-config> → adopting project's `.apache-magpie/` directory
+     <project-config> → per file: the personal layer, else `.apache-magpie-overrides/`
      <tracker>        → value of `tracker_repo:` in <project-config>/project.md
      <upstream>       → value of `upstream_repo:` in <project-config>/project.md
-     <framework>      → `.apache-magpie/apache-magpie` in adopters; `.` in
-                        the framework standalone
+     <framework>      → `.` standalone, `.apache-magpie/apache-magpie` (snapshot),
+                        `~/.cache/apache-magpie/framework/current` (marketplace)
      framework repo   → where framework issues are filed. Default
                         `apache/magpie`; override with `framework_repo` in
                         `.apache-magpie-overrides/report-framework-issue.md`. -->

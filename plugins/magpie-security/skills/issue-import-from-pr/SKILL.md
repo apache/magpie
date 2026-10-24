@@ -20,11 +20,11 @@ argument-hint: "[pr-number] [repo:owner/name]"
 capability: capability:intake
 surface_hash: sha256:c746e4aecc3cf315
 license: Apache-2.0
-measured_tokens: 7536
+measured_tokens: 7541
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
-     <project-config> → adopting project's `.apache-magpie/` directory
+     <project-config> → per file: the personal layer, else `.apache-magpie-overrides/`
      <tracker>        → value of `tracker_repo:` in <project-config>/project.md
      <upstream>       → value of `upstream_repo:` in <project-config>/project.md
      Before running any bash command below, substitute these with the

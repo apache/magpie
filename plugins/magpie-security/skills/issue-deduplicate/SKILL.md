@@ -25,11 +25,11 @@ argument-hint: "[kept-issue] [duplicate-issue]"
 capability: capability:resolve
 surface_hash: sha256:4923aac5c8ba1af5
 license: Apache-2.0
-measured_tokens: 6029
+measured_tokens: 6034
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
-     <project-config> → adopting project's `.apache-magpie/` directory
+     <project-config> → per file: the personal layer, else `.apache-magpie-overrides/`
      <tracker>        → value of `tracker_repo:` in <project-config>/project.md
                        (example: <tracker>)
      <upstream>       → value of `upstream_repo:` in <project-config>/project.md

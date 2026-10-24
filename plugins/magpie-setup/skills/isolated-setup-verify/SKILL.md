@@ -18,11 +18,11 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:ce33cb9437d44992
 license: Apache-2.0
-measured_tokens: 7113
+measured_tokens: 7119
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
-     <project-config> → adopting project's `.apache-magpie/` directory -->
+     <project-config> → per file: the personal layer, else `.apache-magpie-overrides/` -->
 
 # setup-isolated-setup-verify
 

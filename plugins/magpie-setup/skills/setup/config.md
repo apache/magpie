@@ -270,6 +270,23 @@ When a vetted-ops policy exists, show the `[tracker]` table it needs —
 and write it only on the user's confirmation; the policy is a security control, not configuration this step may change unasked.
 Grant the security callers `issue-create`, `issue-search`, `issue-list-label`, `issue-reopen`, `issue-body`, `issue-attach`, `tracker-doctor`, `tracker-pending` and `tracker-publish` in the same diff.
 
+### Personal tool configs, for a project that has not adopted Magpie
+
+Two security tools read a config file the `requires_config:` check does not cover, so a maintainer working alone passes pre-flight and then stops mid-run without them.
+Both look in the committed `.apache-magpie-overrides/tools/…` first and then in the personal layer, at the same relative path:
+
+| File, under the personal layer | Read by | Without it |
+|---|---|---|
+| `tools/vetted-ops/config.toml` | every tracker operation in the security skills ([schema](../../../../tools/vetted-ops/README.md#configuration)) | `no vetted-ops config at …` |
+| `tools/cve-tool-vulnogram/cve-json-config.toml` | `generate-cve-json` in `cve-allocate`, `issue-sync`, `issue-deduplicate` | `config file not found` |
+
+Run this only when the project is **not** adopted, a security skill is in scope, and the file is missing from both places.
+Draft each file from the values already in the personal `project.md` (`upstream`, `tracker`, labels, milestones) and show it.
+**The vetted-ops policy is a security control, not configuration:** it decides which caller may run which operation,
+and the sandbox profile denies the agent's writes to it (`Edit(//**/.git/**/apache-magpie/tools/vetted-ops/**)` and its siblings).
+So the user saves it themselves, from the draft; never route around that deny to write it.
+The CVE JSON config is ordinary configuration: write it on the user's yes.
+
 ## Step 3b — Record what this run reconciled
 
 For every skill in scope (Step 1) whose `requires_config:` set now fully
