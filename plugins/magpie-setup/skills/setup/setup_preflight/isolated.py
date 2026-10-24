@@ -405,10 +405,10 @@ def _report_covering_grants(settings: Path, base: Path, home: Path, removable: f
 
 
 def _git_config(home: Path, *args: str) -> str | None:
-    """`git config <args>`, run from $HOME with no repository discovery to speak of.
+    """`git config <args>` for the user's own global config, run from $HOME.
 
-    Only `--global` and `--file` reads and writes go through here, so no
-    repository's own config, hooks or fsmonitor are consulted.
+    Only `--global` reads go through here; a repository's config is parsed
+    directly (`_rewrite_repo_config`), never handed to git.
     """
     env = {
         k: v
@@ -436,6 +436,115 @@ def _resolved(path: str, base: Path, home: Path) -> Path:
     return Path(os.path.realpath(candidate))
 
 
+_SECTION_RE = re.compile(r'^\s*\[\s*([A-Za-z0-9.-]+)\s*(?:"[^"]*")?\s*\]')
+_HOOKS_PATH_RE = re.compile(r"^\s*hookspath\s*=\s*(.*?)\s*$", re.I)
+
+
+def _shown(value: str) -> str:
+    """A config value fit for a message the model reads: quoted, short, no control characters."""
+    cleaned = "".join(ch for ch in value if ch.isprintable())[:120]
+    return repr(cleaned)
+
+
+def _core_hooks_path_lines(text: str) -> tuple[list[int], list[str]] | None:
+    """Indices and values of `[core] hooksPath` lines, or None when the file is not plain enough.
+
+    Only a plain file is rewritten: an `include` directive, a continued or
+    unparsable line means the value may come from elsewhere, so the caller only
+    reports.
+    """
+    indices: list[int] = []
+    values: list[str] = []
+    section = ""
+    for number, line in enumerate(text.splitlines()):
+        stripped = line.strip()
+        if not stripped or stripped[0] in "#;":
+            continue
+        header = _SECTION_RE.match(line)
+        if header:
+            section = header.group(1).lower()
+            if section in ("include", "includeif"):
+                return None
+            continue
+        if line.rstrip().endswith("\\"):
+            return None
+        match = _HOOKS_PATH_RE.match(line)
+        if section == "core" and not line.lstrip().startswith("[") and match:
+            value = match.group(1)
+            if len(value) >= 2 and value[0] == value[-1] == '"':
+                value = value[1:-1]
+            indices.append(number)
+            values.append(value)
+    return indices, values
+
+
+def _rewrite_repo_config(checkout: Path, home: Path, own_hooks: Path) -> list[str]:
+    """Drop `core.hooksPath` from `<checkout>/.git/config` when it names `own_hooks`.
+
+    The checkout is sandbox-writable and this runs outside the sandbox, so no
+    git command touches it: `.git` and `config` are opened without following a
+    symlink through one directory descriptor, and the rewrite goes to a fresh
+    temporary file renamed inside that directory.
+    """
+    try:
+        cfd = os.open(checkout, os.O_RDONLY | _DIRECTORY)
+    except OSError:
+        return []
+    try:
+        try:
+            gfd = os.open(".git", os.O_RDONLY | _DIRECTORY | _NOFOLLOW, dir_fd=cfd)
+        except OSError:
+            return []  # a linked worktree's .git file, a symlink, or none
+        try:
+            try:
+                fd = os.open("config", os.O_RDONLY | _NOFOLLOW, dir_fd=gfd)
+            except OSError:
+                return []
+            with os.fdopen(fd, encoding="utf-8", errors="strict") as handle:
+                try:
+                    text = handle.read()
+                except UnicodeDecodeError:
+                    return []
+            parsed = _core_hooks_path_lines(text)
+            config = checkout / ".git" / "config"
+            if parsed is None:
+                return [
+                    f"{config} may set core.hooksPath (it uses includes); check it skips no hooks you need"
+                ]
+            indices, values = parsed
+            if not values:
+                return []
+            if len(values) == 1 and _resolved(values[0], checkout, home) == own_hooks:
+                lines = text.splitlines(keepends=True)
+                kept = "".join(line for number, line in enumerate(lines) if number != indices[0])
+                tmp_name = f".config.{secrets.token_hex(8)}.tmp"
+                try:
+                    tfd = os.open(
+                        tmp_name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | _NOFOLLOW, 0o644, dir_fd=gfd
+                    )
+                except OSError:
+                    return [f"{config} sets core.hooksPath={_shown(values[0])}; unset it by hand"]
+                try:
+                    with os.fdopen(tfd, "w", encoding="utf-8") as handle:
+                        handle.write(kept)
+                    os.replace(tmp_name, "config", src_dir_fd=gfd, dst_dir_fd=gfd)
+                except OSError:
+                    with contextlib.suppress(OSError):
+                        os.unlink(tmp_name, dir_fd=gfd)
+                    return [f"{config} sets core.hooksPath={_shown(values[0])}; unset it by hand"]
+                return [
+                    f"removed core.hooksPath={_shown(values[0])} from {config}; the dispatcher chains to it anyway"
+                ]
+            return [
+                f"{config} sets core.hooksPath={_shown(values[-1])}, which skips the whole-user dispatcher "
+                "(and its host-only prek home); unset it unless you need it"
+            ]
+        finally:
+            os.close(gfd)
+    finally:
+        os.close(cfd)
+
+
 def drop_redundant_hooks_path(root: Path, home: Path | None = None) -> list[str]:
     """Remove a repository's own `core.hooksPath` that hides the whole-user dispatcher.
 
@@ -456,25 +565,7 @@ def drop_redundant_hooks_path(root: Path, home: Path | None = None) -> list[str]
     if Path(os.path.realpath(hooks_dir / "post-checkout")).name != "git-hook-dispatcher.sh":
         return []
     checkout = _checkout(root)
-    dot_git = checkout / ".git"
-    config = dot_git / "config"
-    if dot_git.is_symlink() or not dot_git.is_dir() or config.is_symlink() or not config.is_file():
-        return []
-    local = _git_config(home, "--file", str(config), "--get", "core.hooksPath")
-    if not local:
-        return []
-    if _resolved(local, checkout, home) == Path(os.path.realpath(dot_git / "hooks")):
-        if _git_config(home, "--file", str(config), "--unset", "core.hooksPath") is not None:
-            return [
-                f"removed core.hooksPath={local} from {config}; the whole-user dispatcher chains to it anyway"
-            ]
-        return [
-            f"{config} sets core.hooksPath={local}, which skips the whole-user dispatcher; unset it by hand"
-        ]
-    return [
-        f"{config} sets core.hooksPath={local}, which skips the whole-user dispatcher "
-        "(and its host-only prek home); unset it unless you need it"
-    ]
+    return _rewrite_repo_config(checkout, home, Path(os.path.realpath(checkout / ".git" / "hooks")))
 
 
 #: Shown when the session start removed or found a repository-level hooks path.
