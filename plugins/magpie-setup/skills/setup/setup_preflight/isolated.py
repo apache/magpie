@@ -63,6 +63,7 @@ import json
 import os
 import re
 import secrets
+import stat
 import subprocess
 import sys
 from datetime import date
@@ -508,6 +509,7 @@ def _rewrite_repo_config(checkout: Path, home: Path, own_hooks: Path) -> list[st
                 fd = os.open("config", os.O_RDONLY | _NOFOLLOW, dir_fd=gfd)
             except OSError:
                 return []
+            original_mode = stat.S_IMODE(os.fstat(fd).st_mode)
             with os.fdopen(fd, encoding="utf-8", errors="strict") as handle:
                 try:
                     text = handle.read()
@@ -535,13 +537,15 @@ def _rewrite_repo_config(checkout: Path, home: Path, own_hooks: Path) -> list[st
                 tmp_name = f".config.{secrets.token_hex(8)}.tmp"
                 try:
                     tfd = os.open(
-                        tmp_name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | _NOFOLLOW, 0o644, dir_fd=gfd
+                        tmp_name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | _NOFOLLOW, 0o600, dir_fd=gfd
                     )
                 except OSError:
                     return [f"{config} sets core.hooksPath={_shown(values[0])}; unset it by hand"]
                 try:
                     with os.fdopen(tfd, "w", encoding="utf-8") as handle:
                         handle.write(kept)
+                        # The config keeps the mode it had, whatever this process's umask.
+                        os.fchmod(handle.fileno(), original_mode)
                     os.replace(tmp_name, "config", src_dir_fd=gfd, dst_dir_fd=gfd)
                 except OSError:
                     with contextlib.suppress(OSError):

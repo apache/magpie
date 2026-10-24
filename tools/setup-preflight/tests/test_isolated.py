@@ -634,3 +634,16 @@ def test_an_undecodable_config_is_reported(tmp_path: Path, isolated_home: Path) 
     config.write_bytes(config.read_bytes() + b"[core]\n\thooksPath = \xff\xfe\n")
     out = json.loads(isolated.session_start(repo, home=isolated_home))
     assert "could not be read as text" in out["systemMessage"]
+
+
+def test_the_rewritten_config_keeps_its_mode(tmp_path: Path, isolated_home: Path) -> None:
+    whole_user_dispatcher(isolated_home)
+    repo = git_repo(tmp_path / "repo")
+    config = repo / ".git" / "config"
+    subprocess.run(
+        ["git", "-C", str(repo), "config", "core.hooksPath", str(repo / ".git" / "hooks")], check=True
+    )
+    config.chmod(0o640)
+    isolated.session_start(repo, home=isolated_home)
+    assert local_hooks_path(repo) == ""
+    assert config.stat().st_mode & 0o777 == 0o640
