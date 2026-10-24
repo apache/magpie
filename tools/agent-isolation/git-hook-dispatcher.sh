@@ -100,14 +100,25 @@ run_framework() {
 # sandbox (a commit from a terminal, or one Claude Code ran with the sandbox
 # bypassed) must not run what a sandboxed command wrote there, so outside the
 # sandbox (no SANDBOX_RUNTIME) prek gets a home of its own under
-# ~/.local/share, which no sandbox grant covers. Sandboxed hooks keep the
-# default. An operator's own PREK_HOME is kept unless it sits under ~/.cache.
+# ~/.local/share, which no sandbox grant covers, and so does XDG_CACHE_HOME.
+# Sandboxed hooks keep the defaults. An operator's own value is kept unless it
+# sits under ~/.cache.
 # The selection need not be trusted: sandboxed code that unsets
 # SANDBOX_RUNTIME only makes its own prek fail to write the host home.
 if [ -z "${SANDBOX_RUNTIME:-}" ]; then
   case "${PREK_HOME:-}" in
     ""|"~/.cache"|"~/.cache/"*|"$HOME/.cache"|"$HOME/.cache/"*)
       export PREK_HOME="$HOME/.local/share/prek-host"
+      ;;
+  esac
+  # The tools a hook calls keep caches of their own (pip, go, npm and uv
+  # without a configured cache-dir follow XDG_CACHE_HOME, ~/.cache by default
+  # on Linux), and installing from a cache the sandbox wrote is the same
+  # escape. Same rule: a host-only cache root unless the operator chose one
+  # outside ~/.cache.
+  case "${XDG_CACHE_HOME:-}" in
+    ""|"~/.cache"|"~/.cache/"*|"$HOME/.cache"|"$HOME/.cache/"*)
+      export XDG_CACHE_HOME="$HOME/.local/share/prek-host/cache"
       ;;
   esac
 fi

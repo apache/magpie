@@ -34,7 +34,10 @@ def _repo_with_local_hook(tmp_path: Path) -> tuple[Path, Path, Path]:
     subprocess.run(["git", "init", "-q", str(repo)], check=True)
     seen = tmp_path / "seen"
     local = repo / ".git" / "hooks" / "pre-commit"
-    local.write_text(f'#!/bin/sh\nprintf "%s" "${{PREK_HOME-<unset>}}" > {seen}\n')
+    local.write_text(
+        f'#!/bin/sh\nprintf "%s" "${{PREK_HOME-<unset>}}" > {seen}\n'
+        f'printf "%s" "${{XDG_CACHE_HOME-<unset>}}" > {seen}.xdg\n'
+    )
     local.chmod(0o755)
     hooks = tmp_path / "global-hooks"
     hooks.mkdir()
@@ -43,7 +46,7 @@ def _repo_with_local_hook(tmp_path: Path) -> tuple[Path, Path, Path]:
 
 
 def _run(repo: Path, hook: Path, env_extra: dict[str, str]) -> None:
-    env = {k: v for k, v in os.environ.items() if k not in ("PREK_HOME", "SANDBOX_RUNTIME")}
+    env = {k: v for k, v in os.environ.items() if k not in ("PREK_HOME", "SANDBOX_RUNTIME", "XDG_CACHE_HOME")}
     env.update(env_extra)
     subprocess.run(["bash", str(hook)], cwd=repo, env=env, check=True)
 
@@ -79,3 +82,19 @@ def test_a_repository_without_its_own_hook_is_a_no_op(tmp_path: Path) -> None:
     (repo / ".git" / "hooks" / "pre-commit").unlink()
     _run(repo, hook, {})
     assert not seen.exists()
+
+
+@pytest.mark.parametrize("given", [None, "{home}/.cache"])
+def test_outside_the_sandbox_tool_caches_move_too(tmp_path: Path, given: str | None) -> None:
+    """pip, go, npm and uv caches under ~/.cache would be sandbox-written too."""
+    repo, hook, seen = _repo_with_local_hook(tmp_path)
+    home = os.environ["HOME"]
+    env = {} if given is None else {"XDG_CACHE_HOME": given.format(home=home)}
+    _run(repo, hook, env)
+    assert Path(f"{seen}.xdg").read_text() == f"{home}/.local/share/prek-host/cache"
+
+
+def test_inside_the_sandbox_tool_caches_stay(tmp_path: Path) -> None:
+    repo, hook, seen = _repo_with_local_hook(tmp_path)
+    _run(repo, hook, {"SANDBOX_RUNTIME": "1"})
+    assert Path(f"{seen}.xdg").read_text() == "<unset>"
