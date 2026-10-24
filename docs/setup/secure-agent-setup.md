@@ -1050,6 +1050,8 @@ uv tool upgrade --all --reinstall
 
 The old `~/.cache/uv/` stays as the sandbox's cache; the host never reads it again.
 
+**prek has the same problem, solved more simply.** The git hooks of a commit you make in a terminal run prek outside the sandbox, from its hook environments under `~/.cache/prek/`, which the `~/.cache/` grant made sandbox-writable. Nothing excluded from the sandbox runs prek, so the settings `env` (which only Claude Code's own commands see, never your terminal) can do the split: `"PREK_HOME": "~/.cache/prek-sandbox"` gives sandboxed prek a home of its own, and `Edit(~/.cache/prek/**)` keeps sandboxed commands out of the terminal's. prek expands the `~`. The first sandboxed `prek run` after the switch rebuilds its hook environments there once. `sandbox-lint` fails a settings file whose `PREK_HOME` is missing or overlaps `~/.cache/prek`.
+
 Projects set up before the switch may still carry the old write grant. `sandbox-add-project-root.sh` removes it whenever it runs (on checkout, adopt and upgrade), and magpie-setup's session-start hook removes it from the checkout's `.claude/settings.local.json` the next time a session opens there, and says so. A linked worktree's main checkout is cleaned when a session opens in it: the worktree's `.git` file is sandbox-writable, so the hook never follows it. A broader grant, or one in user-scope or committed settings, is reported for you to remove; those files are yours.
 `sandbox-lint` fails a settings file that makes `~/.local/share/uv` writable or lacks the two `~/.config/uv` deny rules; `setup-isolated-setup-verify` checks the config file itself.
 

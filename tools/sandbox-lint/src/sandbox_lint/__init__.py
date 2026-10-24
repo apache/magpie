@@ -185,6 +185,9 @@ REQUIRED_PERMISSIONS_DENY = {
     # keeps its own writable default cache; never editable by the agent.
     "Read(~/.config/uv/uv.toml)",
     "Edit(~/.config/uv/**)",
+    # prek's default home, which the hooks of commits made in a terminal run
+    # outside the sandbox: sandboxed prek gets its own (env.PREK_HOME below).
+    "Edit(~/.cache/prek/**)",
     "Read(~/.azure/**)",
     "Read(//**/.env)",
     "Read(//**/.env.local)",
@@ -624,6 +627,24 @@ def check_invariants(settings: dict[str, Any], project_root: Path | None = None)
                     "under it run outside the sandbox; keep it in allowRead only "
                     "(sandbox-add-project-root.sh removes the write it once added)"
                 )
+
+    # Sandboxed prek must not share the home a terminal's git hooks run from:
+    # env.PREK_HOME (which only Claude Code's own commands see) points it at a
+    # directory of its own, outside ~/.cache/prek.
+    env = settings.get("env")
+    prek_home = env.get("PREK_HOME") if isinstance(env, dict) else None
+    default_prek = os.path.normpath(os.path.expanduser("~/.cache/prek"))
+    expanded_prek = _expand(prek_home, project_root) if isinstance(prek_home, str) and prek_home else None
+    if expanded_prek is None:
+        errors.append(
+            "env.PREK_HOME: missing; set it to ~/.cache/prek-sandbox so sandboxed prek does not "
+            "write the hook environments a terminal's commits run outside the sandbox"
+        )
+    elif _is_writable(expanded_prek, (default_prek,)) or _is_writable(default_prek, (expanded_prek,)):
+        errors.append(
+            f"env.PREK_HOME: {prek_home!r} overlaps ~/.cache/prek, the home a terminal's git hooks "
+            "run from outside the sandbox; use ~/.cache/prek-sandbox"
+        )
 
     # Same matching as a Bash allow rule (see `permissions.allow` below): a `*`
     # before the end also matches options spliced in at that position, and an

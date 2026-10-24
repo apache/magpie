@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:ce33cb9437d44992
 license: Apache-2.0
-measured_tokens: 7119
+measured_tokens: 7242
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -231,11 +231,11 @@ Walk each in order:
     a local value that overrides one the committed file sets (such as
     `sandbox.enabled`) is ✗.
 
-19. **Host-only uv state.** Only when the sandbox is enabled; otherwise **n/a**.
+19. **Host-only uv and prek state.** Only when the sandbox is enabled; otherwise **n/a**.
     Hooks, MCP servers, the excluded `uvx` / `uv run` commands and the
-    operator's terminal run uv-managed code outside the sandbox, so none of
-    it may come from a directory a sandboxed command can write. Three
-    sub-checks, each ✓ or ✗:
+    operator's terminal (its git hooks included) run uv- and prek-managed
+    code outside the sandbox, so none of it may come from a directory a
+    sandboxed command can write. Four sub-checks, each ✓ or ✗:
 
     - **19a — the uv data dir is read-only.** No `allowWrite` or
       `additionalDirectories` entry in any scope covers `~/.local/share/uv`
@@ -249,6 +249,11 @@ Walk each in order:
       `Read(~/.config/uv/uv.toml)` and `Edit(~/.config/uv/**)`, and a
       sandboxed `uv cache dir` prints uv's default cache, not 19b's. Printing
       19b's path is ✗: the sandbox reads the config and writes the host cache.
+    - **19d — sandboxed prek has its own home.** The merged settings carry
+      `env.PREK_HOME` outside `~/.cache/prek` (`~/.cache/prek-sandbox` in the
+      reference) and `permissions.deny` carries `Edit(~/.cache/prek/**)`; a
+      sandboxed write probe into `~/.cache/prek` fails. Either missing is ✗: a
+      terminal's git hooks run prek's environments there, outside the sandbox.
 
     [Why](../../../../docs/setup/secure-agent-setup.md#host-only-uv-state).
 
