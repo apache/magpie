@@ -278,6 +278,19 @@ def test_a_uv_managed_interpreter_is_trusted(tmp_path: Path) -> None:
     assert marker.exists()  # trusted far enough to run its version probe
 
 
+def test_a_symlinked_uv_python_dir_loses_the_exemption(tmp_path: Path) -> None:
+    """A linked ~/.local/share/uv/python could point anywhere, ~/.cache included."""
+    lay = Layout(tmp_path)
+    interpreter, marker = _uv_runtime(lay)
+    uv_python = lay.home / ".local" / "share" / "uv" / "python"
+    real = lay.home / ".local" / "share" / "elsewhere"
+    uv_python.rename(real)
+    uv_python.symlink_to(real)
+    (lay.scripts / "python").write_text(f"{interpreter}\n")
+    run("start", lay.project, home=lay.home)
+    assert not marker.exists()
+
+
 @pytest.mark.parametrize("grant", ["~/.local/share/uv", "~/.local/share/uv/python", "~/.local"])
 def test_a_uv_managed_interpreter_under_a_grant_is_refused(tmp_path: Path, grant: str) -> None:
     lay = Layout(tmp_path)

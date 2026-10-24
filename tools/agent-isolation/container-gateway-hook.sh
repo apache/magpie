@@ -177,6 +177,10 @@ writable_roots=("$root" "$HOME/.cache")
 # kept out of writable_roots so a settings grant over them still counts in full.
 home_local="$HOME/.local"
 uv_python_dir="$HOME/.local/share/uv/python"
+# The exemption holds only for a real directory reached without a symlink:
+# a linked ~/.local/share/uv/python (or a linked parent) could point anywhere.
+uv_exempt=0
+[[ -d $uv_python_dir && "$(resolve "$uv_python_dir")" == "$uv_python_dir" ]] && uv_exempt=1
 [[ -n ${CLAUDE_CODE_TMPDIR:-} ]] && writable_roots+=("$CLAUDE_CODE_TMPDIR")
 # Each settings file with the root its relative entries resolve against.
 # In a linked worktree Claude Code also reads the main checkout's settings,
@@ -251,14 +255,12 @@ for form in "${writable_forms[@]}"; do
 done
 
 is_writable_path() {
-    local path="$1" form local_form uv_form
+    local path="$1" form local_form
     # The sandbox's own scratch space, by prefix: /tmp/claude, /tmp/claude-<uid>, ...
     [[ $path == /tmp/claude* || $path == /private/tmp/claude* ]] && return 0
     for local_form in "$home_local" "$(resolve "$home_local")"; do
         [[ $path == "$local_form" || $path == "$local_form"/* ]] || continue
-        for uv_form in "$uv_python_dir" "$(resolve "$uv_python_dir")"; do
-            [[ $path == "$uv_form"/* ]] && continue 2
-        done
+        (( uv_exempt )) && [[ $path == "$uv_python_dir"/* ]] && continue
         return 0
     done
     for form in "${writable_forms[@]}"; do
