@@ -252,7 +252,12 @@ reading this file; read the section for a check whose condition holds.
       has a `SessionStart` hook running
       `container-gateway-hook.sh start` and a `SessionEnd` hook
       running `container-gateway-hook.sh stop`. Either missing is
-      ✗.
+      ✗; a hook command naming the script through `~` or `$HOME`
+      rather than its absolute path is ◐ (the launching shell expands
+      it from `$HOME`, which the session environment can redirect),
+      and so is one that runs it through `bash`/`sh` rather than
+      directly (its `#!/bin/bash -p` shebang is what keeps `BASH_ENV`
+      and exported functions out).
     - **12b — hook script present.** `~/.claude/scripts/container-gateway-hook.sh`
       exists and is executable. Missing or non-executable is ✗.
     - **12c — project wiring.** The gitignored

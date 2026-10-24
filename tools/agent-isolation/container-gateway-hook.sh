@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -p
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -79,6 +79,16 @@
 #   counts as well: its .cache, its .local and its user settings, even when
 #   $HOME names another directory.
 #
+#   Bash itself reads the environment before this script runs: $BASH_ENV (a
+#   file it executes), exported functions (BASH_FUNC_git%%=... would replace
+#   git) and SHELLOPTS / BASHOPTS. The shebang's -p (privileged mode) turns all
+#   of that off, so the hook must be executed directly, never as `bash <path>`
+#   or `sh <path>`: then the shebang does not apply, and nothing inside the
+#   script can undo what the shell already imported (an exported function can
+#   shadow even `exec` or `unset`). Wire it by its absolute path, too: a `~` in
+#   the hook command is expanded from $HOME by the launching shell, which could
+#   then run another script entirely.
+#
 #   Known gap: write grants given only on the command line (--add-dir, a
 #   --settings file) are invisible to a hook. They come from whoever launches
 #   the session, not from the repository; do not grant a directory that holds the
@@ -132,8 +142,12 @@ if [[ $user =~ ^[A-Za-z0-9._][A-Za-z0-9._-]*$ ]]; then
     eval "account_home=~$user"
     [[ $account_home == /* ]] || account_home=""
 fi
+if [[ -z $account_home ]]; then
+    log "cannot determine this account's home directory; not starting the container gateway"
+    exit 0
+fi
 homes=("$HOME")
-[[ -n $account_home && $account_home != "$HOME" ]] && homes+=("$account_home")
+[[ $account_home != "$HOME" ]] && homes+=("$account_home")
 
 # System and package-manager locations. The hook refuses to run at all when a
 # write grant overlaps one (below), so nothing inside them is writable or

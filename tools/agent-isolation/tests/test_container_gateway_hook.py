@@ -649,3 +649,33 @@ def test_a_home_nested_in_the_account_local_exempts_nothing_there(tmp_path: Path
         assert str(planted) not in done.stdout
     finally:
         shutil.rmtree(fake_home, ignore_errors=True)
+
+
+def _run_by_shebang(action: str, cwd: Path, env_extra: dict[str, str], home: Path) -> subprocess.CompletedProcess[str]:
+    """As Claude Code runs it: the script itself, so its shebang applies."""
+    env = {k: v for k, v in os.environ.items() if k != "CLAUDE_CODE_TMPDIR"}
+    env.update({"MAGPIE_CONTAINER_GATEWAY_DRY_RUN": "1", "HOME": str(home), **env_extra})
+    return subprocess.run([str(SCRIPT), action], input=json.dumps({"cwd": str(cwd)}),
+                          capture_output=True, text=True, env=env, cwd=cwd, check=False)
+
+
+
+@pytest.mark.parametrize("hostile", ["BASH_ENV", "BASH_FUNC_git%%", "BASH_FUNC_exec%%", "SHELLOPTS"])
+def test_the_launch_environment_never_runs_code(tmp_path: Path, hostile: str) -> None:
+    """Executed directly, as the hook is wired, the shebang's privileged mode keeps
+    BASH_ENV, exported functions and SHELLOPTS from running anything."""
+    lay = Layout(tmp_path)
+    marker = lay.base / "launch-env-ran"
+    rc = lay.base / "rc.sh"
+    rc.write_text(f"touch {marker}\n")
+    value = {
+        "BASH_ENV": str(rc),
+        "BASH_FUNC_git%%": f"() {{ touch {marker}; }}",
+        "BASH_FUNC_exec%%": f"() {{ touch {marker}; }}",
+        "SHELLOPTS": "xtrace",
+    }[hostile]
+    done = _run_by_shebang("start", lay.project, {hostile: value}, lay.home)
+    assert done.returncode == 0, done.stderr
+    assert not marker.exists()
+    assert "+ " not in done.stderr  # no xtrace imported through SHELLOPTS
+    assert f"container_gateway serve --project={lay.project}" in done.stdout

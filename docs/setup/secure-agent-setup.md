@@ -2854,16 +2854,16 @@ scope makes the hook skip them. Where none qualifies, write the absolute path
 of one that does to `~/.claude/scripts/container-gateway/python`; until then
 the hook logs one line and does not start the gateway.
 
-Wire it as a `SessionStart` / `SessionEnd` pair in `~/.claude/settings.json`, alongside any other hooks already there:
+Wire it as a `SessionStart` / `SessionEnd` pair in `~/.claude/settings.json`, alongside any other hooks already there, **by its absolute path** (your real home, `/home/<you>` on Linux). A `~` in a hook command is expanded from `$HOME` by the launching shell, and a session environment that redirects `$HOME` would run another script:
 
 ```jsonc
 {
   "hooks": {
     "SessionStart": [
-      { "hooks": [ { "type": "command", "command": "~/.claude/scripts/container-gateway-hook.sh start" } ] }
+      { "hooks": [ { "type": "command", "command": "/Users/<you>/.claude/scripts/container-gateway-hook.sh start" } ] }
     ],
     "SessionEnd": [
-      { "hooks": [ { "type": "command", "command": "~/.claude/scripts/container-gateway-hook.sh stop" } ] }
+      { "hooks": [ { "type": "command", "command": "/Users/<you>/.claude/scripts/container-gateway-hook.sh stop" } ] }
     ]
   }
 }

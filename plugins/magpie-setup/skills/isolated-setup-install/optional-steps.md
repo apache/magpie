@@ -171,7 +171,11 @@ the hook logs one line and does not start the gateway.
 
 **L.2 — Hooks.** Wire a `SessionStart` hook running
 `container-gateway-hook.sh start` and a `SessionEnd` hook running
-`container-gateway-hook.sh stop` into `~/.claude/settings.json` —
+`container-gateway-hook.sh stop` into `~/.claude/settings.json`, each
+**by the script's absolute path** with the home directory written out (a `~`
+there is expanded from `$HOME`, which the session environment can redirect),
+executed directly rather than through `bash`/`sh` (its `#!/bin/bash -p`
+shebang keeps `BASH_ENV` and exported functions out) —
 merging into existing arrays with a diff the operator approves,
 exactly as for K.2's touch-overlay hooks.
 
