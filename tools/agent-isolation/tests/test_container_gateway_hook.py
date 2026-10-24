@@ -44,7 +44,7 @@ def run(action: str, cwd: Path, env_extra: dict[str, str] | None = None, home: P
     if home is not None:
         env["HOME"] = str(home)
     env.update(env_extra or {})
-    return subprocess.run(["bash", str(SCRIPT), action], input=json.dumps({"cwd": str(cwd)}),
+    return subprocess.run(["/bin/bash", str(SCRIPT), action], input=json.dumps({"cwd": str(cwd)}),
                           capture_output=True, text=True, env=env, cwd=cwd, check=False)
 
 
@@ -264,6 +264,38 @@ def test_the_interpreter_runs_by_its_canonical_path(tmp_path: Path) -> None:
     (lay.scripts / "python").write_text(f"{link_dir / Path(PYTHON).name}\n")
     done = run("start", lay.project, home=lay.home)
     assert str(link_dir) not in done.stdout and str(hop) not in done.stdout
+
+
+def test_a_relative_source_override_is_refused(tmp_path: Path) -> None:
+    lay = Layout(tmp_path)
+    (lay.project / "gw" / "container_gateway").mkdir(parents=True)
+    done = run("start", lay.project, {"MAGPIE_CONTAINER_GATEWAY_SRC": "gw"}, home=lay.home)
+    assert "not an absolute path" in done.stderr
+    assert f" -I -S {lay.src} " in done.stdout
+
+
+def test_a_virtualenv_pin_is_never_run(tmp_path: Path) -> None:
+    """Its base runtime could live anywhere, ~/.local/share/uv included."""
+    lay = Layout(tmp_path)
+    venv = lay.base / "venv"
+    subprocess.run([PYTHON, "-m", "venv", "--without-pip", "--copies", str(venv)], check=True)
+    (lay.scripts / "python").write_text(f"{venv / 'bin' / 'python3'}\n")
+    done = run("start", lay.project, home=lay.home)
+    assert str(venv) not in done.stdout
+
+
+def test_a_pin_without_a_standard_library_is_never_executed(tmp_path: Path) -> None:
+    """A launcher stub (macOS /usr/bin/python3) execs another interpreter; it is judged unrun."""
+    lay = Layout(tmp_path)
+    marker = lay.base / "ran"
+    stub = lay.base / "stub" / "bin" / "python3"
+    stub.parent.mkdir(parents=True)
+    stub.write_text(f"#!/bin/sh\ntouch {marker}\nexit 0\n")
+    stub.chmod(0o755)
+    (lay.scripts / "python").write_text(f"{stub}\n")
+    done = run("start", lay.project, home=lay.home)
+    assert not marker.exists()
+    assert str(stub) not in done.stdout
 
 
 def test_isolated_mode_ignores_pythonpath_and_the_project(tmp_path: Path) -> None:

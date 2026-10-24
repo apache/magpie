@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -70,9 +70,12 @@
 
 set -uo pipefail
 
-# Every helper this hook runs (jq, git, readlink, dirname) comes from fixed
-# system locations, not from an inherited PATH that project settings can set.
-PATH=/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin:/usr/local/bin
+# Every helper this hook runs (jq, git, readlink, dirname, find) comes from the
+# root-owned system directories, never from an inherited PATH that project
+# settings can set, nor from a package-manager prefix a sandbox grant could
+# cover. The shebang names /bin/bash for the same reason; the script keeps to
+# bash 3.2.
+PATH=/usr/bin:/bin:/usr/sbin:/sbin
 export PATH
 
 action="${1:-}"
@@ -132,6 +135,10 @@ for spec in "$HOME/.claude/settings.json|$HOME/.claude" \
             "/etc/claude-code/managed-settings.json|/etc/claude-code"; do
     settings="${spec%|*}" base="${spec##*|}"
     [[ -r $settings ]] || continue
+    if ! command -v jq >/dev/null 2>&1; then
+        log "no jq in /usr/bin or /bin to read $settings; not starting the container gateway"
+        exit 0
+    fi
     while IFS= read -r entry; do
         [[ -n $entry ]] || continue
         while IFS= read -r form; do
@@ -201,14 +208,22 @@ tree_is_trusted() {
 src=""
 for candidate in "${MAGPIE_CONTAINER_GATEWAY_SRC:-}" \
                  "$HOME/.claude/scripts/container-gateway/src"; do
-    [[ -n $candidate && -d $candidate/container_gateway ]] || continue
+    [[ -n $candidate ]] || continue
+    if [[ $candidate != /* ]]; then
+        log "refusing gateway source $candidate: not an absolute path"
+        continue
+    fi
+    # Resolved once: the path judged below is the path that runs, so no
+    # symlink on the way can be re-pointed in between.
+    canonical="$(readlink -f -- "$candidate" 2>/dev/null)" || continue
+    [[ -n $canonical && -d $canonical/container_gateway ]] || continue
     # The whole directory goes on sys.path, so a stray json.py beside the
     # package would shadow the stdlib: judge all of it, by its real location.
-    if under_writable_root "$candidate" || ! tree_is_trusted "$(resolve "$candidate")"; then
+    if under_writable_root "$candidate" || ! tree_is_trusted "$canonical"; then
         log "refusing gateway source $candidate: it is, contains or links into a sandbox-writable directory"
         continue
     fi
-    src="$(resolve "$candidate")"
+    src="$canonical"
     break
 done
 [[ -n $src ]] || exit 0
@@ -232,8 +247,20 @@ for candidate in "${python_candidates[@]}"; do
     [[ -x $candidate ]] || continue
     # Checked before it is ever run: the probes below execute it.
     under_writable_root "$candidate" && continue
-    canonical="$(resolve "$candidate")"
-    overlaps_writable "$(dirname -- "$(dirname -- "$canonical")")" && continue
+    canonical="$(readlink -f -- "$candidate" 2>/dev/null)" || continue
+    [[ -n $canonical && -x $canonical ]] || continue
+    # Judged before the first exec, from the layout alone: a real installation
+    # keeps its standard library in <prefix>/lib/python3.*, which rules out
+    # virtualenvs (their base runtime could be anywhere) and launcher stubs
+    # such as macOS's /usr/bin/python3, which execs another interpreter.
+    prefix="$(dirname -- "$(dirname -- "$canonical")")"
+    [[ -e $prefix/pyvenv.cfg || -e $(dirname -- "$canonical")/pyvenv.cfg ]] && continue
+    stdlib_found=0
+    for stdlib in "$prefix"/lib/python3.*/os.py; do
+        [[ -f $stdlib ]] && { stdlib_found=1; break; }
+    done
+    (( stdlib_found )) || continue
+    overlaps_writable "$prefix" && continue
     "$canonical" -I -S -c 'import sys; sys.exit(sys.version_info < (3, 11))' >/dev/null 2>&1 || continue
     # Where the interpreter really loads its standard library from.
     runtime_ok=1
@@ -273,12 +300,13 @@ vet_extra_args() {
 if [[ $action == start ]]; then
     # shellcheck disable=SC2206  # word-splitting the extra args is the point
     extra=(${MAGPIE_CONTAINER_GATEWAY_ARGS:-})
-    if (( ${#extra[@]} )) && ! vet_extra_args "${extra[@]}" >/dev/null; then
+    if (( ${#extra[@]} )) && ! vet_extra_args ${extra[@]+"${extra[@]}"} >/dev/null; then
         printf '%s: ignoring MAGPIE_CONTAINER_GATEWAY_ARGS: %s is not an accepted serve flag\n' \
             "${0##*/}" "${MAGPIE_CONTAINER_GATEWAY_ARGS}" >&2
         extra=()
     fi
-    args=(serve --project="$root" --daemon "${extra[@]}")
+    # ${extra[@]+...}: bash 3.2 treats an empty array as unset under set -u.
+    args=(serve --project="$root" --daemon ${extra[@]+"${extra[@]}"})
 else
     args=(stop --project="$root")
 fi
