@@ -43,6 +43,8 @@ def run(action: str, cwd: Path, env_extra: dict[str, str] | None = None, home: P
         env["MAGPIE_CONTAINER_GATEWAY_DRY_RUN"] = "1"
     if home is not None:
         env["HOME"] = str(home)
+        # Worktree records go under the fake home, never the account's real one.
+        env["MAGPIE_CONTAINER_GATEWAY_STATE_DIR"] = str(home / ".claude" / "magpie-gateway")
     env.update(env_extra or {})
     return subprocess.run(["/bin/bash", str(SCRIPT), action], input=json.dumps({"cwd": str(cwd)}),
                           capture_output=True, text=True, env=env, cwd=cwd, check=False)
@@ -769,7 +771,7 @@ def test_a_record_in_a_writable_directory_is_never_trusted(tmp_path: Path) -> No
     lay = Layout(tmp_path)
     worktree = _linked_worktree(lay)
     run("start", worktree, home=lay.home)
-    lay.settings({"sandbox": {"filesystem": {"allowWrite": ["~/.claude/magpie-gateway"]}}})
+    lay.settings({"sandbox": {"filesystem": {"allowWrite": [str(lay.home / ".claude" / "magpie-gateway")]}}})
     done = run("stop", worktree, home=lay.home)
     assert done.stdout == "" and "is sandbox-writable" in done.stderr
 
@@ -777,6 +779,6 @@ def test_a_record_in_a_writable_directory_is_never_trusted(tmp_path: Path) -> No
 def test_a_writable_record_directory_refuses_even_a_plain_checkout(tmp_path: Path) -> None:
     """Otherwise deleting the record and the .git file together would skip the check."""
     lay = Layout(tmp_path)
-    lay.settings({"sandbox": {"filesystem": {"allowWrite": ["~/.claude/magpie-gateway"]}}})
+    lay.settings({"sandbox": {"filesystem": {"allowWrite": [str(lay.home / ".claude" / "magpie-gateway")]}}})
     done = run("start", lay.project, home=lay.home)
     assert done.stdout == "" and "is sandbox-writable" in done.stderr

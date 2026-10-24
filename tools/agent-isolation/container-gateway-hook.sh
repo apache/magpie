@@ -400,7 +400,14 @@ tree_is_trusted() {
 # confirms for a worktree is recorded where the sandbox cannot write
 # (trust on first use); a later run that derives a different one refuses
 # until the operator deletes the record.
-state_dir="$HOME/.claude/magpie-gateway/worktrees"
+# Under the account database's home, not $HOME: a $HOME redirected by the
+# environment would otherwise hand the hook a fresh, empty record store.
+# $MAGPIE_CONTAINER_GATEWAY_STATE_DIR (tests, development) replaces it, under the
+# same writability checks; only settings can set a hook's environment, and the
+# sandbox cannot write those, so it gives sandboxed code nothing.
+record_home="${account_home:-$HOME}"
+state_root="${MAGPIE_CONTAINER_GATEWAY_STATE_DIR:-$record_home/.claude/magpie-gateway}"
+state_dir="$state_root/worktrees"
 if command -v sha256sum >/dev/null 2>&1; then
     key="$(printf '%s' "$root" | sha256sum | cut -d' ' -f1)"
 else
@@ -410,7 +417,7 @@ record="$state_dir/$key"
 # A record is only as good as its directory: one the sandbox can write proves
 # nothing, and could have been emptied along with the worktree's .git file, so
 # it refuses for every checkout, before any record is read or trusted.
-if under_writable_root "$state_dir" || overlaps_writable "$HOME/.claude/magpie-gateway"; then
+if under_writable_root "$state_dir" || overlaps_writable "$state_root"; then
     log "the worktree record directory $state_dir is sandbox-writable; not starting the container gateway for $root"
     exit 0
 fi
@@ -428,7 +435,7 @@ if [[ -f $record ]]; then
         exit 0
     fi
 elif (( linked_worktree )); then
-    mkdir -p "$state_dir" 2>/dev/null && chmod 700 "$HOME/.claude/magpie-gateway" "$state_dir" 2>/dev/null
+    mkdir -p "$state_dir" 2>/dev/null && chmod 700 "$state_root" "$state_dir" 2>/dev/null
     tmp_record="$(mktemp "$state_dir/.record.XXXXXX" 2>/dev/null)" \
         && printf '%s\n%s\n' "$root" "$main_root" > "$tmp_record" \
         && mv -f "$tmp_record" "$record"
