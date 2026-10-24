@@ -16,12 +16,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Two candidates, not the hook's three-way order (which also checks
-# $MAGPIE_CONTAINER_GATEWAY_SRC and $HOME/.claude/scripts/container-gateway/src
-# for an operator install): this probe only ever needs to run the read-only
-# `status` subcommand against a source already reachable from this doctor
-# session, so it deliberately omits the operator-install path rather than
-# widen what the probe depends on being readable.
+# Not the hook's lookup ($MAGPIE_CONTAINER_GATEWAY_SRC, then the operator install
+# in $HOME/.claude/scripts/container-gateway/src, never an in-repo copy): the
+# hook runs outside the sandbox and must refuse sandbox-writable sources, while
+# this probe runs inside it and only calls the read-only `status` subcommand, so
+# an in-repo copy is safe here and keeps what the probe needs readable narrow.
 gw_src=".apache-magpie/tools/container-gateway/src"
 [ -d "$gw_src/container_gateway" ] || gw_src="tools/container-gateway/src"
 status_json=$(PYTHONPATH="$gw_src" python3 -m container_gateway status --project "$PWD" 2>/dev/null)

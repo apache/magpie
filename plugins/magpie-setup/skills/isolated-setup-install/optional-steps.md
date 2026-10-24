@@ -152,12 +152,20 @@ operator installed or pinned — so also copy the whole package
 `~/.claude/scripts/container-gateway/src/container_gateway/`, next
 to the hook. Without this second copy the hook finds no source at
 session start and is a silent no-op: it never fails the session,
-it simply never starts the gateway. A framework contributor working
-in this checkout can instead export
-`MAGPIE_CONTAINER_GATEWAY_SRC=tools/container-gateway/src` and skip
-the copy; an adopter whose `.apache-magpie/` snapshot is already
-populated needs neither, since the hook falls back to
-`<root>/.apache-magpie/tools/container-gateway/src` on its own.
+it simply never starts the gateway.
+A framework contributor re-copies the package after changing it: the hook
+refuses a source under any sandbox-writable directory, so neither
+`MAGPIE_CONTAINER_GATEWAY_SRC=tools/container-gateway/src` pointing into
+this checkout nor an `.apache-magpie/` snapshot is used — the project root is
+always writable from the sandbox, and the hook runs outside it.
+
+The hook also never takes `python3` from `PATH`, which on many machines is a
+uv-managed interpreter under the sandbox-writable `~/.local/share/uv`. It
+runs the first Python 3.11+ outside every writable directory among
+`/opt/homebrew/bin`, `/usr/local/bin` and `/usr/bin`, with `-I`. Where none
+qualifies, write the absolute path of one that does to
+`~/.claude/scripts/container-gateway/python`; until then the hook logs one
+line and does not start the gateway.
 
 **L.2 — Hooks.** Wire a `SessionStart` hook running
 `container-gateway-hook.sh start` and a `SessionEnd` hook running

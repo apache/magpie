@@ -15,144 +15,208 @@
 # specific language governing permissions and limitations
 # under the License.
 
-"""The session hook finds the project, finds the gateway, and never blocks a session."""
+"""The session hook finds the project, finds the gateway, and never blocks a session.
+
+It runs outside the sandbox, so it must never execute an interpreter or a source
+tree that a sandboxed command could have written.
+"""
 
 from __future__ import annotations
 
 import json
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
 SCRIPT = Path(__file__).parent.parent / "container-gateway-hook.sh"
+PYTHON = os.path.realpath(sys.executable)  # a venv under the checkout would itself be refused
+SANDBOX_SCRATCH = ("/tmp/claude", "/private/tmp/claude")
 
 
-def run(action: str, cwd: Path, env_extra: dict[str, str] | None = None, payload: dict[str, object] | None = None, home: Path | None = None) -> subprocess.CompletedProcess[str]:
-    env = {**os.environ, "MAGPIE_CONTAINER_GATEWAY_DRY_RUN": "1"}
+def run(action: str, cwd: Path, env_extra: dict[str, str] | None = None, home: Path | None = None,
+        dry_run: bool = True) -> subprocess.CompletedProcess[str]:
+    env = {k: v for k, v in os.environ.items() if k != "CLAUDE_CODE_TMPDIR"}
+    if dry_run:
+        env["MAGPIE_CONTAINER_GATEWAY_DRY_RUN"] = "1"
     if home is not None:
         env["HOME"] = str(home)
     env.update(env_extra or {})
-    return subprocess.run(["bash", str(SCRIPT), action], input=json.dumps(payload or {"cwd": str(cwd)}),
+    return subprocess.run(["bash", str(SCRIPT), action], input=json.dumps({"cwd": str(cwd)}),
                           capture_output=True, text=True, env=env, cwd=cwd, check=False)
 
 
-def test_start_uses_snapshot_sources(tmp_path: Path) -> None:
-    tmp_path = tmp_path.resolve()  # the hook prints physical paths (pwd -P); macOS tmp dirs are symlinked
-    fake_home = tmp_path / "home"
-    fake_home.mkdir()
-    src = tmp_path / ".apache-magpie" / "tools" / "container-gateway" / "src" / "container_gateway"
-    src.mkdir(parents=True)
-    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
-    done = run("start", tmp_path, home=fake_home)
+class Layout:
+    """A fake $HOME holding the operator install and an interpreter pin, plus a project."""
+
+    def __init__(self, tmp_path: Path, *, user_copy: bool = True, pin: str | None = PYTHON) -> None:
+        base = tmp_path.resolve()  # the hook prints physical paths; macOS tmp dirs are symlinked
+        if str(base).startswith(SANDBOX_SCRATCH):
+            pytest.skip("the sandbox's scratch directory is itself a writable root; run outside the sandbox")
+        self.base = base
+        self.home = base / "home"
+        self.scripts = self.home / ".claude" / "scripts" / "container-gateway"
+        self.src = self.scripts / "src"
+        if user_copy:
+            (self.src / "container_gateway").mkdir(parents=True)
+        self.scripts.mkdir(parents=True, exist_ok=True)
+        if pin is not None:
+            (self.scripts / "python").write_text(pin + "\n")
+        self.project = base / "proj"
+        self.project.mkdir()
+        subprocess.run(["git", "init", "-q", str(self.project)], check=True)
+
+    def settings(self, data: dict[str, object]) -> None:
+        (self.home / ".claude" / "settings.json").write_text(json.dumps(data))
+
+
+def test_start_runs_the_pinned_interpreter_isolated(tmp_path: Path) -> None:
+    lay = Layout(tmp_path)
+    done = run("start", lay.project, home=lay.home)
     assert done.returncode == 0, done.stderr
-    assert done.stdout.strip() == f"PYTHONPATH={src.parent} python3 -P -m container_gateway serve --project={tmp_path} --daemon"
-
-
-def test_start_prefers_env_override_and_appends_args(tmp_path: Path) -> None:
-    tmp_path = tmp_path.resolve()
-    fake_home = tmp_path / "home"
-    fake_home.mkdir()
-    alt = tmp_path / "alt-src"
-    (alt / "container_gateway").mkdir(parents=True)
-    done = run("start", tmp_path, {"MAGPIE_CONTAINER_GATEWAY_SRC": str(alt), "MAGPIE_CONTAINER_GATEWAY_ARGS": "--egress require"}, home=fake_home)
-    assert done.stdout.strip().endswith(f"serve --project={tmp_path} --daemon --egress require")
-    assert f"PYTHONPATH={alt}" in done.stdout
+    assert done.stdout.strip() == f"{PYTHON} -I {lay.src} container_gateway serve --project={lay.project} --daemon"
 
 
 def test_stop_command(tmp_path: Path) -> None:
-    tmp_path = tmp_path.resolve()
-    fake_home = tmp_path / "home"
-    fake_home.mkdir()
-    src = tmp_path / ".apache-magpie" / "tools" / "container-gateway" / "src" / "container_gateway"
-    src.mkdir(parents=True)
-    done = run("stop", tmp_path, home=fake_home)
-    assert done.stdout.strip().endswith(f"stop --project={tmp_path}")
+    lay = Layout(tmp_path)
+    done = run("stop", lay.project, home=lay.home)
+    assert done.stdout.strip() == f"{PYTHON} -I {lay.src} container_gateway stop --project={lay.project}"
+
+
+def test_env_override_is_preferred_and_args_appended(tmp_path: Path) -> None:
+    lay = Layout(tmp_path)
+    alt = lay.base / "alt-src"
+    (alt / "container_gateway").mkdir(parents=True)
+    done = run("start", lay.project, {"MAGPIE_CONTAINER_GATEWAY_SRC": str(alt),
+                                      "MAGPIE_CONTAINER_GATEWAY_ARGS": "--egress require"}, home=lay.home)
+    assert done.stdout.strip() == f"{PYTHON} -I {alt} container_gateway serve --project={lay.project} --daemon --egress require"
 
 
 def test_no_sources_is_silent_success(tmp_path: Path) -> None:
-    fake_home = tmp_path / "home"
-    fake_home.mkdir()
-    done = run("start", tmp_path, home=fake_home)
+    lay = Layout(tmp_path, user_copy=False)
+    done = run("start", lay.project, home=lay.home)
     assert done.returncode == 0 and done.stdout == ""
-
-
-def test_in_repo_sources_are_ignored(tmp_path: Path) -> None:
-    """In-repo sources are never trusted, even when present."""
-    fake_home = tmp_path / "home"
-    fake_home.mkdir()
-    (tmp_path / "tools" / "container-gateway" / "src" / "container_gateway").mkdir(parents=True)
-    done = run("start", tmp_path, home=fake_home)
-    assert done.returncode == 0 and done.stdout == ""
-
-
-def test_user_scope_copy_is_preferred_over_snapshot(tmp_path: Path) -> None:
-    """Operator-installed copy in $HOME/.claude/scripts takes precedence over snapshot."""
-    tmp_path = tmp_path.resolve()
-    fake_home = tmp_path / "home"
-    fake_home.mkdir()
-    proj = tmp_path / "proj"
-    proj.mkdir()
-    # Create snapshot under proj/.apache-magpie
-    snap_src = proj / ".apache-magpie" / "tools" / "container-gateway" / "src" / "container_gateway"
-    snap_src.mkdir(parents=True)
-    # Create HOME copy under fake_home/.claude/scripts
-    user_src = fake_home / ".claude" / "scripts" / "container-gateway" / "src" / "container_gateway"
-    user_src.mkdir(parents=True)
-    subprocess.run(["git", "init", "-q", str(proj)], check=True)
-    done = run("start", proj, home=fake_home)
-    assert done.returncode == 0, done.stderr
-    # Should use the user-scope path, not the snapshot
-    assert f"PYTHONPATH={fake_home}/.claude/scripts/container-gateway/src" in done.stdout
-
-
-def test_snapshot_used_when_user_copy_absent(tmp_path: Path) -> None:
-    """When only the snapshot exists, it is used."""
-    tmp_path = tmp_path.resolve()
-    fake_home = tmp_path / "home"
-    fake_home.mkdir()
-    proj = tmp_path / "proj"
-    proj.mkdir()
-    # Create only snapshot under proj/.apache-magpie
-    snap_src = proj / ".apache-magpie" / "tools" / "container-gateway" / "src" / "container_gateway"
-    snap_src.mkdir(parents=True)
-    subprocess.run(["git", "init", "-q", str(proj)], check=True)
-    done = run("start", proj, home=fake_home)
-    assert done.returncode == 0, done.stderr
-    # Should use the snapshot path
-    assert f"PYTHONPATH={snap_src.parent}" in done.stdout
 
 
 def test_bad_action_exits_zero_with_message(tmp_path: Path) -> None:
-    fake_home = tmp_path / "home"
-    fake_home.mkdir()
-    done = run("frobnicate", tmp_path, home=fake_home)
+    done = run("frobnicate", tmp_path, home=tmp_path)
     assert done.returncode == 0 and "expected start|stop" in done.stderr
 
 
-# --- I5: the inherited environment is not part of the trust model ---
+# --- sources: never from a sandbox-writable directory ---
 
 
-def _project_with_snapshot(tmp_path: Path) -> tuple[Path, Path, Path]:
-    tmp_path = tmp_path.resolve()
-    fake_home = tmp_path / "home"
-    fake_home.mkdir()
-    src = tmp_path / ".apache-magpie" / "tools" / "container-gateway" / "src"
-    (src / "container_gateway").mkdir(parents=True)
-    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
-    return tmp_path, fake_home, src
+@pytest.mark.parametrize("rel", ["tools/container-gateway/src", ".apache-magpie/tools/container-gateway/src"])
+def test_in_repo_sources_are_never_used(tmp_path: Path, rel: str) -> None:
+    """The project root is always sandbox-writable, snapshot included."""
+    lay = Layout(tmp_path, user_copy=False)
+    (lay.project / rel / "container_gateway").mkdir(parents=True)
+    done = run("start", lay.project, home=lay.home)
+    assert done.returncode == 0 and done.stdout == ""
 
 
-def test_inherited_pythonpath_is_replaced_not_extended(tmp_path: Path) -> None:
-    """A repo-settable PYTHONPATH could shadow a stdlib module the package imports."""
-    project, fake_home, src = _project_with_snapshot(tmp_path)
-    shadow = project / "evil"
-    shadow.mkdir()
-    done = run("start", project, {"PYTHONPATH": str(shadow)}, home=fake_home)
+def test_override_inside_the_project_is_refused(tmp_path: Path) -> None:
+    lay = Layout(tmp_path)
+    inside = lay.project / "tools" / "container-gateway" / "src"
+    (inside / "container_gateway").mkdir(parents=True)
+    done = run("start", lay.project, {"MAGPIE_CONTAINER_GATEWAY_SRC": str(inside)}, home=lay.home)
+    assert "refusing gateway source" in done.stderr
+    assert f" -I {lay.src} " in done.stdout
+
+
+@pytest.mark.parametrize("key", ["allowWrite", "additionalDirectories"])
+def test_override_under_a_granted_directory_is_refused(tmp_path: Path, key: str) -> None:
+    lay = Layout(tmp_path)
+    shared = lay.base / "shared"
+    (shared / "src" / "container_gateway").mkdir(parents=True)
+    grant = ({"sandbox": {"filesystem": {"allowWrite": [f"{shared}/**"]}}} if key == "allowWrite"
+             else {"permissions": {"additionalDirectories": [str(shared)]}})
+    lay.settings(grant)
+    done = run("start", lay.project, {"MAGPIE_CONTAINER_GATEWAY_SRC": str(shared / "src")}, home=lay.home)
+    assert "refusing gateway source" in done.stderr
+    assert f" -I {lay.src} " in done.stdout
+
+
+@pytest.mark.parametrize("rel", [".cache/gw", ".local/share/gw"])
+def test_override_under_home_cache_or_local_is_refused(tmp_path: Path, rel: str) -> None:
+    """Granted to every project by the reference setup, so refused whatever this one grants."""
+    lay = Layout(tmp_path)
+    alt = lay.home / rel
+    (alt / "container_gateway").mkdir(parents=True)
+    done = run("start", lay.project, {"MAGPIE_CONTAINER_GATEWAY_SRC": str(alt)}, home=lay.home)
+    assert "refusing gateway source" in done.stderr
+    assert f" -I {lay.src} " in done.stdout
+
+
+def test_a_symlinked_source_is_judged_by_its_target(tmp_path: Path) -> None:
+    lay = Layout(tmp_path, user_copy=False)
+    real = lay.home / ".cache" / "gw"
+    (real / "container_gateway").mkdir(parents=True)
+    lay.src.symlink_to(real)
+    done = run("start", lay.project, home=lay.home)
+    assert "refusing gateway source" in done.stderr
+    assert done.stdout == ""
+
+
+# --- the interpreter: never from PATH, never from a sandbox-writable directory ---
+
+
+def test_a_python3_on_path_is_not_used(tmp_path: Path) -> None:
+    lay = Layout(tmp_path, pin=None)
+    bin_dir = lay.project / "bin"
+    bin_dir.mkdir()
+    fake = bin_dir / "python3"
+    fake.write_text("#!/bin/sh\nexit 0\n")
+    fake.chmod(0o755)
+    done = run("start", lay.project, {"PATH": f"{bin_dir}:{os.environ['PATH']}"}, home=lay.home)
+    assert str(fake) not in done.stdout + done.stderr
+
+
+@pytest.mark.parametrize("rel", [".local/share/uv/python/bin/python3", ".cache/py/python3"])
+def test_a_pin_under_a_writable_root_is_skipped(tmp_path: Path, rel: str) -> None:
+    """A uv-managed python3 under ~/.local/share/uv is writable from the sandbox."""
+    lay = Layout(tmp_path)
+    planted = lay.home / rel
+    planted.parent.mkdir(parents=True)
+    planted.symlink_to(PYTHON)  # its target is fine; the link itself can be re-pointed
+    (lay.scripts / "python").write_text(f"{planted}\n")
+    done = run("start", lay.project, home=lay.home)
+    assert str(planted) not in done.stdout
+
+
+def test_a_pin_inside_the_project_is_skipped(tmp_path: Path) -> None:
+    lay = Layout(tmp_path)
+    planted = lay.project / ".venv" / "bin" / "python3"
+    planted.parent.mkdir(parents=True)
+    planted.symlink_to(PYTHON)
+    (lay.scripts / "python").write_text(f"{planted}\n")
+    done = run("start", lay.project, home=lay.home)
+    assert str(planted) not in done.stdout
+
+
+def test_isolated_mode_ignores_pythonpath_and_the_project(tmp_path: Path) -> None:
+    """A real run: neither PYTHONPATH nor a package in the project reaches sys.path."""
+    lay = Layout(tmp_path)
+    (lay.src / "container_gateway" / "__main__.py").write_text(
+        "import json, sys\n"
+        "project = next(a.split('=', 1)[1] for a in sys.argv if a.startswith('--project='))\n"
+        "open(project + '/out.json', 'w').write(json.dumps({'path': sys.path, 'file': __file__, 'argv': sys.argv[1:]}))\n")
+    evil = lay.base / "evil"
+    evil.mkdir()
+    (lay.project / "container_gateway").mkdir()
+    (lay.project / "container_gateway" / "__main__.py").write_text("raise SystemExit('project code ran')\n")
+    done = run("stop", lay.project, {"PYTHONPATH": str(evil)}, home=lay.home, dry_run=False)
     assert done.returncode == 0, done.stderr
-    assert done.stdout.startswith(f"PYTHONPATH={src} ")
-    assert str(shadow) not in done.stdout
+    out = json.loads((lay.project / "out.json").read_text())
+    assert out["file"].startswith(str(lay.src))
+    assert out["argv"] == ["stop", f"--project={lay.project}"]
+    assert str(evil) not in out["path"]
+    assert str(lay.project) not in out["path"] and "" not in out["path"]
+
+
+# --- MAGPIE_CONTAINER_GATEWAY_ARGS is allow-listed ---
 
 
 @pytest.mark.parametrize(
@@ -169,10 +233,10 @@ def test_inherited_pythonpath_is_replaced_not_extended(tmp_path: Path) -> None:
     ],
 )
 def test_unvetted_extra_args_are_ignored_whole(tmp_path: Path, args: str) -> None:
-    project, fake_home, _ = _project_with_snapshot(tmp_path)
-    done = run("start", project, {"MAGPIE_CONTAINER_GATEWAY_ARGS": args}, home=fake_home)
+    lay = Layout(tmp_path)
+    done = run("start", lay.project, {"MAGPIE_CONTAINER_GATEWAY_ARGS": args}, home=lay.home)
     assert done.returncode == 0, done.stderr
-    assert done.stdout.strip().endswith(f"serve --project={project} --daemon")
+    assert done.stdout.strip().endswith(f"serve --project={lay.project} --daemon")
     assert "ignoring MAGPIE_CONTAINER_GATEWAY_ARGS" in done.stderr
 
 
@@ -188,17 +252,8 @@ def test_unvetted_extra_args_are_ignored_whole(tmp_path: Path, args: str) -> Non
     ],
 )
 def test_vetted_extra_args_are_passed_through(tmp_path: Path, args: str) -> None:
-    project, fake_home, _ = _project_with_snapshot(tmp_path)
-    done = run("start", project, {"MAGPIE_CONTAINER_GATEWAY_ARGS": args}, home=fake_home)
+    lay = Layout(tmp_path)
+    done = run("start", lay.project, {"MAGPIE_CONTAINER_GATEWAY_ARGS": args}, home=lay.home)
     assert done.returncode == 0, done.stderr
     assert done.stdout.strip().endswith(f"--daemon {args}")
     assert done.stderr == ""
-
-
-def test_the_project_directory_is_kept_off_sys_path(tmp_path: Path) -> None:
-    """`python3 -m` would put the project, the hook's cwd, ahead of the gateway source."""
-    project, fake_home, _ = _project_with_snapshot(tmp_path)
-    for action in ("start", "stop"):
-        done = run(action, project, home=fake_home)
-        assert done.returncode == 0, done.stderr
-        assert " python3 -P -m container_gateway " in done.stdout
