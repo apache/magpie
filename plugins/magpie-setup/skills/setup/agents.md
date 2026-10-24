@@ -45,7 +45,7 @@ directory, add a row, never a forked skill.
 skill. Its `magpie-<skill>` entries are the links that resolve to
 the actual skill source — the gitignored snapshot
 (`.apache-magpie/skills/<skill>/`) for a normal adopter, or the
-in-repo `../../skills/<skill>/` source for the framework's own
+in-repo `../../plugins/<family>/skills/<skill>` source for the framework's own
 [local self-adoption](install.md#local-self-adoption-methodlocal).
 
 This is the load-bearing move for neutrality on two fronts:
@@ -146,7 +146,7 @@ Every adoption rule is "canonical link, then relays", not
   copy for adopters; a committed symlink under self-adoption).
   `.claude`/`.github` carry a committed relay symlink to it.
 - **Local self-adoption** (framework checkout) — canonical
-  committed symlinks into `../../skills/<skill>/` in
+  committed symlinks into `../../plugins/<family>/skills/<skill>` in
   `.agents/skills/`, plus committed relays into
   `../../.agents/skills/magpie-<skill>` in every other active
   target. See
