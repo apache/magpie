@@ -512,7 +512,9 @@ How it differs from a remote adoption:
   `.apache-magpie.local.lock`.
 - **Symlinks are committed, not gitignored.** Each
   canonical `magpie-<skill>` symlink targets the skill's real
-  directory, `../../plugins/<family>/skills/<skill>` — an in-repo
+  directory, `../../plugins/<family>/skills/<alias>` (`<alias>` is
+  the skill's frontmatter `name:`, e.g. `pr-triage` for
+  `magpie-pr-management-triage`) — an in-repo
   path that always resolves on a fresh clone — so the
   links are committed. They are written under **every active
   target dir** ([`agents.md`](agents.md)) — `.agents/skills/`
@@ -587,8 +589,13 @@ How it differs from a remote adoption:
 6. **Create the symlinks** (canonical first, then relays). For
    each enumerated skill `<n>`:
    - **Canonical** — create `.agents/skills/magpie-<n>` →
-     the skill's real directory: follow `skills/<n>` one hop and
-     name what it names (`../../plugins/<family>/skills/<n>`), never
+     the skill's real directory: read the `skills/<n>` symlink and
+     rebase its target onto `.agents/skills/`
+     (`../../plugins/<family>/skills/<alias>` — the basename is the
+     skill's frontmatter `name:`, not `<n>`: `skills/pr-management-triage`
+     → `../plugins/magpie-pr-management/skills/pr-triage`, so the
+     canonical link is `../../plugins/magpie-pr-management/skills/pr-triage`).
+     Never build the target from `<n>`, and never point at
      `../../skills/<n>` itself — a symlink chain, which the release
      archive's extractor refuses. `symlink-lint` checks this.
    - **Relays** — for every *other* active target dir from

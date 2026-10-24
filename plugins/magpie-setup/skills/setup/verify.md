@@ -115,11 +115,16 @@ adoption state.
    `setup` otherwise.
 2. **Symlinks resolve (canonical → source, relays → canonical).**
    In the canonical dir `.agents/skills/`, every `magpie-<n>` is a
-   symlink whose target is the skill's real directory
-   (`../../plugins/<family>/skills/<n>`, where `skills/<n>` itself
-   points) and resolves to a directory containing `SKILL.md`. A
-   target of `../../skills/<n>` is ✗ — a symlink chain, which the
-   release archive refuses; `symlink-lint` enforces the rule.
+   symlink whose target is the skill's real directory — what
+   `skills/<n>` itself points at, rebased onto `.agents/skills/`
+   (`../../plugins/<family>/skills/<alias>`, where `<alias>` is the
+   skill's frontmatter `name:` and often differs from `<n>`:
+   `magpie-pr-management-triage` →
+   `../../plugins/magpie-pr-management/skills/pr-triage`) — and
+   resolves to a directory containing `SKILL.md`. Compare against
+   that symlink, never against a pattern built from `<n>`. A target
+   of `../../skills/<n>` is ✗ — a symlink chain, which the release
+   archive refuses; `symlink-lint` enforces the rule.
    In every **relay** target dir
    ([`agents.md`](agents.md) — `.claude/skills/`, `.github/skills/`,
    plus any present holdout), every `magpie-<n>` is a symlink whose
