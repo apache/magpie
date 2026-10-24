@@ -273,6 +273,45 @@ def test_a_stdlib_module_linked_into_a_writable_dir_skips_the_interpreter(tmp_pa
     assert real_prefix.exists()
 
 
+def test_a_module_behind_a_linked_stdlib_dir_skips_the_interpreter(tmp_path: Path) -> None:
+    lay = Layout(tmp_path)
+    version = f"python{sys.version_info.major}.{sys.version_info.minor}"
+    external = lay.base / "external-stdlib"
+    external.mkdir()
+    (external / "os.py").write_text("")
+    planted = lay.home / ".cache" / "sysconfig.py"
+    planted.parent.mkdir(parents=True)
+    planted.write_text("")
+    (external / "sysconfig.py").symlink_to(planted)
+    fake = lay.base / "py"
+    (fake / "bin").mkdir(parents=True)
+    (fake / "lib").mkdir()
+    (fake / "lib" / version).symlink_to(external)
+    shutil.copy2(PYTHON, fake / "bin" / "python3")
+    (lay.scripts / "python").write_text(f"{fake / 'bin' / 'python3'}\n")
+    done = run("start", lay.project, home=lay.home)
+    assert str(fake) not in done.stdout
+
+
+def test_a_linked_worktree_counts_the_main_checkout_grants(tmp_path: Path) -> None:
+    """Claude Code reads the main checkout's settings in a linked worktree."""
+    lay = Layout(tmp_path)
+    git_env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+               "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
+    subprocess.run(["git", "-C", str(lay.project), "commit", "-q", "--allow-empty", "-m", "init"],
+                   check=True, env=git_env)
+    worktree = lay.base / "wt"
+    subprocess.run(["git", "-C", str(lay.project), "worktree", "add", "-q", str(worktree)], check=True)
+    shared = lay.base / "shared"
+    (shared / "src" / "container_gateway").mkdir(parents=True)
+    (lay.project / ".claude").mkdir()
+    (lay.project / ".claude" / "settings.local.json").write_text(
+        json.dumps({"sandbox": {"filesystem": {"allowWrite": [str(shared)]}}}))
+    done = run("start", worktree, {"MAGPIE_CONTAINER_GATEWAY_SRC": str(shared / "src")}, home=lay.home)
+    assert "refusing gateway source" in done.stderr
+    assert f" -I -S {lay.src} " in done.stdout
+
+
 def test_the_interpreter_runs_by_its_canonical_path(tmp_path: Path) -> None:
     """A symlink on the way (here a writable one) cannot be swapped after the check."""
     lay = Layout(tmp_path)

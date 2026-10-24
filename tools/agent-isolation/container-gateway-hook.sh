@@ -127,12 +127,26 @@ normalize_entry() {
 writable_roots=("$root" "$HOME/.cache" "$HOME/.local")
 [[ -n ${CLAUDE_CODE_TMPDIR:-} ]] && writable_roots+=("$CLAUDE_CODE_TMPDIR")
 # Each settings file with the root its relative entries resolve against.
-for spec in "$HOME/.claude/settings.json|$HOME/.claude" \
-            "$HOME/.claude/settings.local.json|$HOME/.claude" \
-            "$root/.claude/settings.json|$root" \
-            "$root/.claude/settings.local.json|$root" \
-            "/Library/Application Support/ClaudeCode/managed-settings.json|/Library/Application Support/ClaudeCode" \
-            "/etc/claude-code/managed-settings.json|/etc/claude-code"; do
+# In a linked worktree Claude Code also reads the main checkout's settings,
+# and the main checkout is as writable as the worktree.
+main_root=""
+common_dir="$(git -C "$root" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+if [[ $common_dir == */.git ]]; then
+    main_root="$(cd "${common_dir%/.git}" 2>/dev/null && pwd -P)" || main_root=""
+    [[ $main_root == "$root" ]] && main_root=""
+fi
+settings_specs=("$HOME/.claude/settings.json|$HOME/.claude"
+                "$HOME/.claude/settings.local.json|$HOME/.claude"
+                "$root/.claude/settings.json|$root"
+                "$root/.claude/settings.local.json|$root")
+if [[ -n $main_root ]]; then
+    writable_roots+=("$main_root")
+    settings_specs+=("$main_root/.claude/settings.json|$main_root"
+                     "$main_root/.claude/settings.local.json|$main_root")
+fi
+settings_specs+=("/Library/Application Support/ClaudeCode/managed-settings.json|/Library/Application Support/ClaudeCode"
+                 "/etc/claude-code/managed-settings.json|/etc/claude-code")
+for spec in "${settings_specs[@]}"; do
     settings="${spec%|*}" base="${spec##*|}"
     [[ -r $settings ]] || continue
     if ! command -v jq >/dev/null 2>&1; then
@@ -262,11 +276,23 @@ for candidate in "${python_candidates[@]}"; do
     (( stdlib_found )) || continue
     overlaps_writable "$prefix" && continue
     # A standard-library module symlinked out of the prefix is judged where it
-    # points: one link into a writable directory refuses the interpreter.
+    # points: one link into a writable directory refuses the interpreter. A
+    # linked directory is walked the same way, so a module behind it counts.
     runtime_ok=1
-    while IFS= read -r -d '' link; do
-        under_writable_root "$link" && { runtime_ok=0; break; }
-    done < <(find "$prefix" -type l -print0 2>/dev/null)
+    walk=("$prefix") visited=" " walked=0
+    while (( runtime_ok && ${#walk[@]} )); do
+        dir="${walk[0]}"
+        walk=(${walk[@]+"${walk[@]:1}"})
+        (( ++walked > 64 )) && { runtime_ok=0; break; }  # a link maze: refuse
+        while IFS= read -r -d '' link; do
+            under_writable_root "$link" && { runtime_ok=0; break; }
+            if [[ -d $link ]]; then
+                target="$(resolve "$link")"
+                overlaps_writable "$target" && { runtime_ok=0; break; }
+                [[ $visited == *" $target "* ]] || { visited+="$target "; walk+=("$target"); }
+            fi
+        done < <(find "$dir" -type l -print0 2>/dev/null)
+    done
     (( runtime_ok )) || continue
     "$canonical" -I -S -c 'import sys; sys.exit(sys.version_info < (3, 11))' >/dev/null 2>&1 || continue
     # Where the interpreter really loads its standard library from.
