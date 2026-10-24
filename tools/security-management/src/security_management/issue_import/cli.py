@@ -69,6 +69,22 @@ def add_parsers(sub: Any) -> None:
         ("--hits", "the batch's `gh search issues --json number,title,state,url,body` output"),
     )
     command(
+        "dedup-index",
+        "Step 2: exact-match threadIds against a saved, bounded tracker issue-body index",
+        ("--thread-ids", "JSON list of candidate threadIds"),
+        ("--issues", "JSON array from the authorized saved tracker read"),
+    )
+    commands.choices["dedup-index"].add_argument(
+        "--limit",
+        type=int,
+        default=1000,
+        help="maximum number of tracker issues fetched (default: 1000)",
+    )
+    commands.choices["dedup-index"].add_argument(
+        "--body-fields",
+        help="optional JSON object mapping canonical roles to configured body headings",
+    )
+    command(
         "relay-prescreen",
         "Step 3: whether the via-forwarder sub-skill can match this root message",
         ("--message", "JSON: from, body (the root message)"),
@@ -141,6 +157,28 @@ def dispatch(args: argparse.Namespace) -> int:
             dedup.queries(read_json(args.thread_ids), args.tracker)
             if command == "dedup-queries"
             else dedup.attribute(read_json(args.thread_ids), read_json(args.hits))
+        )
+        if not result["ok"]:
+            return refuse(result["refused"], rejected_ids=result["rejected_ids"])
+        emit(result)
+        return 0
+    if command == "dedup-index":
+        issues = read_json(args.issues)
+        body_fields = read_json(args.body_fields) if args.body_fields else None
+        if not isinstance(issues, list) or any(not isinstance(item, dict) for item in issues):
+            return refuse("issue index must be a JSON array of issue objects")
+        if body_fields is not None and (
+            not isinstance(body_fields, dict)
+            or any(not isinstance(k, str) or not isinstance(v, str) for k, v in body_fields.items())
+        ):
+            return refuse("body-fields must be a JSON object of string headings")
+        if args.limit < 1 or args.limit > 1000:
+            return refuse("issue index limit must be between 1 and 1000")
+        result = dedup.attribute_index(
+            read_json(args.thread_ids),
+            issues,
+            body_fields=body_fields,
+            limit=args.limit,
         )
         if not result["ok"]:
             return refuse(result["refused"], rejected_ids=result["rejected_ids"])

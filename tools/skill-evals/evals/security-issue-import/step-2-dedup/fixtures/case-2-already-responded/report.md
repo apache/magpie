@@ -3,13 +3,21 @@
 
 threadId: AAMkAGQ1NjY9b2Zk
 
-### gh search issues "AAMkAGQ1NjY9b2Zk" --repo example-s/example-s --match body
+### dedup-index result from complete saved tracker index
 
 ```json
-[]
+{
+  "ok": true,
+  "tracked": {},
+  "untracked": [
+    "AAMkAGQ1NjY9b2Zk"
+  ],
+  "complete": true,
+  "truncated": false,
+  "undecided": [],
+  "rejected_ids": []
+}
 ```
-
-No existing tracker found.
 
 ### Gmail on-thread check (2-bis) — get_thread AAMkAGQ1NjY9b2Zk (MINIMAL)
 

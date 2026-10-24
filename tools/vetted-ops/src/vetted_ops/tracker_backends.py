@@ -186,6 +186,7 @@ TRANSLATIONS: dict[str, Translate] = {
 
 #: Tracker operations with no counterpart on a non-GitHub backend, and why.
 NOT_ON_BACKEND: dict[str, str] = {
+    "issue-list-with-bodies": "the non-GitHub list contract does not return issue bodies; refuse instead of declaring unmatched reports untracked",
     "milestone-list": "milestones are free values here; the policy's `milestones` list is the set",
     "milestone-create": "milestones are free values here and need no creating",
     "milestone-close": "milestones are free values here and are never closed",

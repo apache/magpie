@@ -216,7 +216,7 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                            "body-field-get", "body-field-set"]
 "security-issue-fix"    = ["rollup-append", "rollup-fold",
                            "body-field-get", "body-field-set"]
-"security-issue-import" = ["rollup-append"]
+"security-issue-import" = ["issue-list-with-bodies", "rollup-append"]
 "security-issue-import-from-md" = ["rollup-append"]
 "security-issue-import-from-pr" = ["pr-view-with-body", "rollup-append"]
 "security-issue-invalidate" = ["rollup-append", "rollup-amend-latest"]
@@ -554,6 +554,7 @@ Nine operations exist for it:
 | `issue-create` | write | `title body` | GitHub: `gh api …/issues -f title=… -F body=@-`. |
 | `issue-reopen` | write | `number` | |
 | `issue-list-label` | read | `state label` | `issue-list` filtered by one configured label. |
+| `issue-list-with-bodies` | read | none | GitHub tracker only: up to 1000 open and closed issues with bodies; requires an explicit caller grant. Use `--save` to keep confidential bodies out of model context. Unsupported on Jira/local-files. |
 | `issue-search` | read | `query` | Plain words; a `:` is refused, so a `repo:` qualifier cannot re-target the search. |
 | `issue-body` | read | `number` | Non-GitHub only: the body as markdown sections, for `generate-cve-json --stdin`. |
 | `issue-attach` | write | `number file attachment` | Non-GitHub only: attach a workspace file under a plain name (no path, no `..`). |

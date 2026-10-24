@@ -111,6 +111,7 @@ Every command prints one JSON object; rendered text is in its `text` field.
 | `prefilter --threads F` | Per thread: `decision` (`keep` / `drop`), `rule` (1 GHSA relay, 2 CVE-tool bookkeeping, 3 anything else), `class`, `pretag`; `dropped` and `counts`. Every message must match rule 2 to drop; a missing subject or sender keeps; `named_thread_id` is never dropped. |
 | `dedup-queries --thread-ids F [--tracker T]` | `batches` of at most six ids, each a quoted phrase OR'd into `query`, and the shell-quoted `command`; ids are Gmail / PonyMail ids, maildir names or root `Message-ID`s, and any other id exits `2` with `rejected_ids`. |
 | `dedup-attribute --thread-ids F --hits F` | `tracked` (id → hits), `untracked`; at 100 hits `truncated`, no `untracked`, and `rerun` batches; exit `2` with `rejected_ids` as above. |
+| `dedup-index --thread-ids F --issues F [--body-fields F] [--limit N]` | Match identifiers against a bounded, saved tracker issue-body index using the configured `mailing_thread` field. Returns matching issue summaries, `untracked` only when the index is complete, and `undecided`/`truncated` when a negative result is unsafe. Never prints private issue bodies. |
 | `relay-prescreen --message F --forwarders F` | `invoke_subskill`: false only when no enabled adapter's `sender_pattern` / `preamble_match` (first 400 characters) matches; an unresolved or invalid pattern invokes. |
 | `keyword --file F [--kind keywords\|email-local]` | `cleaned`, `empty`. |
 | `title --input F` | `title`: the subject without its mail prefixes. |

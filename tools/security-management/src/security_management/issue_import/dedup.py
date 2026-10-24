@@ -35,6 +35,7 @@ import re
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
+from security_management.shared import fields, threads
 from security_management.shell import w
 
 BATCH = 6
@@ -105,4 +106,110 @@ def attribute(thread_ids: Iterable[object], hits: Sequence[Mapping[str, Any]]) -
         "truncated": truncated,
         "rerun": batches(unmatched, half) if truncated and unmatched else [],
         "rejected_ids": bad,
+    }
+
+
+def attribute_index(
+    thread_ids: Iterable[object],
+    issues: Sequence[Mapping[str, Any]],
+    *,
+    body_fields: Mapping[str, str] | None = None,
+    limit: int = 1000,
+) -> dict[str, Any]:
+    """Match IDs against a bounded, complete issue-body index.
+
+    Never expose body contents in the result. Missing or ambiguous
+    authoritative fields prevent a definitive negative result when
+    they cannot be interpreted safely.
+    """
+    good, bad = valid_ids(thread_ids)
+    if bad:
+        return {
+            "ok": False,
+            "refused": "thread ids no mail-source backend emits",
+            "rejected_ids": bad,
+        }
+
+    tracked: dict[str, list[dict[str, Any]]] = {}
+    undecided: list[dict[str, Any]] = []
+
+    for issue in issues:
+        summary = {key: issue.get(key) for key in ("number", "title", "state", "url")}
+        if not isinstance(issue.get("body"), str):
+            undecided.append(
+                {
+                    "number": issue.get("number"),
+                    "reason": "missing or invalid issue body",
+                }
+            )
+            continue
+
+        parsed = fields.read(
+            issue["body"],
+            ["mailing_thread"],
+            body_fields,
+        )
+
+        if parsed["undecided"]:
+            undecided.append(
+                {
+                    "number": issue.get("number"),
+                    "reason": "ambiguous mailing_thread field",
+                }
+            )
+            continue
+
+        field_value = parsed["values"].get("mailing_thread", "")
+        if not field_value:
+            continue
+
+        identity = threads.classify(field_value)
+        if identity["needs_decision"]:
+            undecided.append(
+                {
+                    "number": issue.get("number"),
+                    "reason": "mailing_thread needs a decision",
+                }
+            )
+            continue
+
+        known = {
+            value
+            for value in (
+                identity["thread_id"],
+                identity["root_message_id"],
+            )
+            if value
+        }
+
+        # Archive-only entries carry the PonyMail identifier in the
+        # /thread/<id> path, rather than in a Gmail thread note.
+        archive_urls = [identity["archive_url"]]
+        for secondary in identity["secondary_threads"]:
+            if secondary.get("thread_id"):
+                known.add(secondary["thread_id"])
+            archive_urls.append(secondary.get("url"))
+
+        for url in archive_urls:
+            if not isinstance(url, str):
+                continue
+            match = re.search(r"/thread/([A-Za-z0-9_.,:=+-]{6,128})(?:[/?#]|$)", url)
+            if match:
+                known.add(match.group(1))
+
+        for candidate in good:
+            if candidate in known:
+                tracked.setdefault(candidate, []).append(summary)
+
+    truncated = len(issues) >= limit
+    complete = not truncated and not undecided
+
+    return {
+        "ok": True,
+        "tracked": tracked,
+        "untracked": [candidate for candidate in good if candidate not in tracked] if complete else [],
+        "complete": complete,
+        "truncated": truncated,
+        "undecided": undecided,
+        "rejected_ids": [],
     }

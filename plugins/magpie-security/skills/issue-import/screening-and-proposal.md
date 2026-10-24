@@ -98,11 +98,16 @@ The per-candidate budget is ≤ 2 archive searches (whichever backend) for the p
    -from:notifications@github.com -from:noreply@github.com
    ```
 
-   Cross-reference the hits' `threadId`s against existing trackers in one batched query, as in Step 2 —
-   the `dedup-queries` batches (≤ 6 IDs per query) run as
-   `gh search issues "<query>" --repo <tracker> --match body --limit 100 --json number,body`,
-   with `dedup-attribute` attributing each hit to the `threadId` its body contains
-   (the *Security mailing list thread* field or the rollup's threadId backfill note).
+   Cross-reference those hits' `threadId`s against the **same saved
+   tracker body index** fetched in Step 2. Write their IDs as JSON and
+   run `<sm> dedup-index --thread-ids <scratch>/precedent-ids.json
+   --issues <saved-index-path>` (also supplying the configured
+   `--body-fields` mapping when applicable).
+
+   Do not repeat the `gh search issues` queries. An empty GitHub search
+   result does not prove that a tracker is absent. If the issue index
+   is incomplete or its authoritative mailing-thread fields are
+   ambiguous, do not classify the thread as tracker-free.
    The hits with **no** corresponding tracker are the "rejected without tracker" precedents.
 
 **Surfacing in Step 5.** For each precedent found, attach to the
