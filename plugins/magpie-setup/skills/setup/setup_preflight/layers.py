@@ -24,9 +24,10 @@ Two layers, personal first:
   In a repository that has **not** adopted Magpie it is
   `<git-common-dir>/apache-magpie/`: inside the repository's git directory,
   never in the working tree, so it is never committed, needs no ignore
-  entry, and is shared by every worktree of the clone.  Outside a git
-  repository an unadopted project has no personal layer at all — nothing is
-  ever placed in a working tree that did not ask for Magpie.
+  entry, and is shared by every worktree of the clone.  In a Subversion
+  working copy it is `<.svn>/apache-magpie/` for the same reasons.  With no
+  version control at all there is nothing it could be committed to, so it is
+  the in-tree `<root>/.apache-magpie-local/`.
   A linked worktree of an adopted repository (`git worktree add`) has no
   `.apache-magpie-local/` of its own, since the directory is gitignored, so
   its main checkout's is read after its own, file by file, and written to
@@ -137,14 +138,42 @@ def main_worktree(root: Path) -> Path | None:
     return main if (main / ".git").is_dir() else None
 
 
-def personal_dir(root: Path) -> Path | None:
+def svn_admin_dir(root: Path) -> Path | None:
+    """`<root>/.svn` when `root` is the root of a Subversion working copy, else `None`.
+
+    Subversion keeps one `.svn`, holding a `wc.db`, at the root of a working
+    copy.  Only `root`'s own is accepted, as with `.git`: following one in an
+    ancestor would let any directory above the project redirect where its
+    configuration is read and written.  Reads files only, never spawns `svn`.
+    """
+    admin = _absolute(root) / ".svn"
+    return admin if (admin / "wc.db").is_file() else None
+
+
+def unadopted_home(root: Path) -> Path:
+    """Where an unadopted project keeps personal configuration; never created here.
+
+    `<git-common-dir>/apache-magpie` in a git repository, else
+    `<.svn>/apache-magpie` in a Subversion working copy: both inside the
+    VCS's own directory, so never committed.  With no VCS at all there is
+    nothing to commit it to, so it is the in-tree `<root>/.apache-magpie-local`.
+    """
+    common = git_common_dir(root)
+    if common is not None:
+        return common / GIT_HOME_NAME
+    svn = svn_admin_dir(root)
+    if svn is not None:
+        return svn / GIT_HOME_NAME
+    return root / LOCAL_DIR
+
+
+def personal_dir(root: Path) -> Path:
     """Where this user's configuration for `root` is written; never created here.
 
     Adopted → `<root>/.apache-magpie-local`, except in a linked worktree
     that has none while its main checkout has one: then the main
     checkout's, so a worktree writes where it already reads.  Not adopted →
-    `<git-common-dir>/apache-magpie`.  May not exist yet.  `None` means
-    there is nowhere to keep it: not adopted and not a git repository.
+    `unadopted_home`.  May not exist yet.
     """
     if adopted(root):
         own = root / LOCAL_DIR
@@ -152,8 +181,7 @@ def personal_dir(root: Path) -> Path | None:
         if own.is_dir() or main is None or not (main / LOCAL_DIR).is_dir():
             return own
         return main / LOCAL_DIR
-    common = git_common_dir(root)
-    return common / GIT_HOME_NAME if common is not None else None
+    return unadopted_home(root)
 
 
 def personal_layers(root: Path) -> list[Path]:
@@ -162,9 +190,9 @@ def personal_layers(root: Path) -> list[Path]:
     Adopted → `<root>/.apache-magpie-local`, then, in a linked worktree,
     the main checkout's when it exists: `.apache-magpie-local/` is
     gitignored, so a new worktree has none, and a file missing from its own
-    is found in the main checkout's.  Not adopted →
-    `<git-common-dir>/apache-magpie` (already shared by every worktree),
-    then a legacy in-tree `.apache-magpie-local/`.
+    is found in the main checkout's.  Not adopted → `unadopted_home`
+    (in git, already shared by every worktree), then a legacy in-tree
+    `.apache-magpie-local/`.
     """
     if adopted(root):
         found = [root / LOCAL_DIR]
@@ -172,8 +200,7 @@ def personal_layers(root: Path) -> list[Path]:
         if main is not None and (main / LOCAL_DIR).is_dir():
             found.append(main / LOCAL_DIR)
         return found
-    common = git_common_dir(root)
-    found = [] if common is None else [common / GIT_HOME_NAME]
+    found = [unadopted_home(root)]
     legacy = root / LOCAL_DIR
     if legacy.is_dir() and legacy not in found:
         found.append(legacy)
@@ -181,11 +208,15 @@ def personal_layers(root: Path) -> list[Path]:
 
 
 def legacy_local_dir(root: Path) -> Path | None:
-    """The old in-tree personal layer of an unadopted repository, if present."""
+    """The old in-tree personal layer of an unadopted repository, if present.
+
+    With no version control the in-tree directory is the personal layer
+    itself, not a leftover, so it is not reported.
+    """
     if adopted(root):
         return None
     legacy = root / LOCAL_DIR
-    return legacy if legacy.is_dir() else None
+    return legacy if legacy.is_dir() and legacy != unadopted_home(root) else None
 
 
 def config_layers(root: Path) -> list[Path]:
@@ -209,8 +240,8 @@ def describe(root: Path) -> dict[str, object]:
     return {
         "adopted": adopted(root),
         "main_worktree": str(main) if main is not None else None,
-        "personal_dir": str(home) if home is not None else None,
-        "personal_dir_exists": bool(home is not None and home.is_dir()),
+        "personal_dir": str(home),
+        "personal_dir_exists": home.is_dir(),
         "personal_layers": [str(p) for p in personal_layers(root)],
         "legacy_local_dir": str(legacy) if legacy is not None else None,
         "config_layers": [str(p) for p in config_layers(root)],

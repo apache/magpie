@@ -123,9 +123,53 @@ def test_an_adopted_repo_keeps_personal_config_in_tree(tmp_path: Path) -> None:
     assert layers.legacy_local_dir(tmp_path) is None
 
 
-def test_not_a_git_repo_and_not_adopted_has_no_personal_layer(tmp_path: Path) -> None:
-    assert layers.personal_dir(tmp_path) is None
-    assert layers.config_layers(tmp_path) == [tmp_path / ".apache-magpie-overrides"]
+def _svn_working_copy(root: Path) -> Path:
+    admin = root / ".svn"
+    admin.mkdir(parents=True)
+    (admin / "wc.db").write_bytes(b"")
+    return admin
+
+
+def test_vector_svn_admin_dir_of_the_working_copy_root(tmp_path: Path) -> None:
+    admin = _svn_working_copy(tmp_path)
+    assert layers.svn_admin_dir(tmp_path) == admin
+
+
+def test_vector_an_ancestor_dot_svn_is_never_followed(tmp_path: Path) -> None:
+    _svn_working_copy(tmp_path)
+    sub = tmp_path / "trunk" / "src"
+    sub.mkdir(parents=True)
+    assert layers.svn_admin_dir(sub) is None
+
+
+def test_vector_a_dot_svn_without_wc_db_is_not_a_working_copy(tmp_path: Path) -> None:
+    (tmp_path / ".svn").mkdir()
+    assert layers.svn_admin_dir(tmp_path) is None
+
+
+def test_an_unadopted_svn_working_copy_keeps_personal_config_in_the_svn_dir(tmp_path: Path) -> None:
+    admin = _svn_working_copy(tmp_path)
+    assert layers.personal_dir(tmp_path) == admin / "apache-magpie"
+    assert layers.config_layers(tmp_path) == [
+        admin / "apache-magpie",
+        tmp_path / ".apache-magpie-overrides",
+    ]
+
+
+def test_git_wins_over_svn(tmp_path: Path) -> None:
+    _svn_working_copy(tmp_path)
+    (tmp_path / ".git").mkdir()
+    assert layers.personal_dir(tmp_path) == tmp_path / ".git" / "apache-magpie"
+
+
+def test_no_version_control_keeps_personal_config_in_tree(tmp_path: Path) -> None:
+    assert layers.personal_dir(tmp_path) == tmp_path / ".apache-magpie-local"
+    assert layers.config_layers(tmp_path) == [
+        tmp_path / ".apache-magpie-local",
+        tmp_path / ".apache-magpie-overrides",
+    ]
+    (tmp_path / ".apache-magpie-local").mkdir()
+    assert layers.legacy_local_dir(tmp_path) is None
 
 
 def test_a_legacy_in_tree_dir_is_read_after_the_git_dir_home(tmp_path: Path) -> None:
@@ -289,7 +333,16 @@ COPIES = (
     "plugins/magpie-setup/skills/status/scripts/collect_status.py",
     "plugins/magpie-pr-management/skills/pr-triage/scripts/typed_decision_prefilter.py",
 )
-SHARED = ("_absolute", "git_common_dir", "adopted", "main_worktree", "personal_dir", "personal_layers")
+SHARED = (
+    "_absolute",
+    "git_common_dir",
+    "svn_admin_dir",
+    "unadopted_home",
+    "adopted",
+    "main_worktree",
+    "personal_dir",
+    "personal_layers",
+)
 
 
 def _functions(path: Path) -> dict[str, str]:

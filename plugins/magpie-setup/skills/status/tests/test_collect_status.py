@@ -132,11 +132,21 @@ class PersonalLayerStatus(unittest.TestCase):
         (self.tmp / ".gitignore").write_text("/.apache-magpie-local/\n")
         self.assertTrue(cs.gitignore_coverage(self.tmp, [])["local_overrides_ignored"])
 
-    def test_not_a_git_repo_has_no_personal_layer(self) -> None:
+    def test_no_version_control_keeps_the_personal_layer_in_tree(self) -> None:
         (self.tmp / ".git").rmdir()
         status = cs.personal_layer_status(self.tmp)
-        self.assertEqual(status["location"], "none")
-        self.assertIsNone(status["path"])
+        self.assertEqual(status["location"], "in-tree")
+        self.assertEqual(status["path"], str(self.tmp / ".apache-magpie-local"))
+        (self.tmp / ".apache-magpie-local").mkdir()
+        self.assertFalse(cs.personal_layer_status(self.tmp)["legacy_in_tree"])
+
+    def test_an_svn_working_copy_keeps_the_personal_layer_in_the_svn_dir(self) -> None:
+        (self.tmp / ".git").rmdir()
+        (self.tmp / ".svn").mkdir()
+        (self.tmp / ".svn" / "wc.db").write_bytes(b"")
+        status = cs.personal_layer_status(self.tmp)
+        self.assertEqual(status["location"], "svn-dir")
+        self.assertEqual(status["path"], str(self.tmp / ".svn" / "apache-magpie"))
 
 
 LOCAL = ".apache-magpie-local"

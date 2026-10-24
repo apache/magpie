@@ -226,8 +226,8 @@ def legacy_layout_findings(root: Path) -> list[Finding]:
             "step-12",
             {
                 "legacy_dir": str(legacy),
-                "personal_dir": str(home) if home is not None else None,
-                "personal_dir_exists": bool(home is not None and home.is_dir()),
+                "personal_dir": str(home),
+                "personal_dir_exists": home.is_dir(),
                 "exclude_file": str(exclude) if exclude is not None else None,
                 "exclude_has_entry": any(
                     line.strip()
@@ -555,7 +555,7 @@ def cached_project_findings(
     very state whose absence the skill scope reads as "never configured".
     """
     local_dir = personal_dir(root)
-    if local_dir is None or not local_dir.is_dir():
+    if not local_dir.is_dir():
         return project_findings(root, installed, harness), False
 
     stamp_now = now if now is not None else time.time()

@@ -178,10 +178,17 @@ def test_recording_carries_a_legacy_stamp_over_to_the_git_dir_home(project: Path
     assert (legacy / "reconciled.json").is_file()
 
 
-def test_recording_outside_a_git_repo_without_adoption_refuses(tmp_path: Path) -> None:
-    with pytest.raises(isolated.NoPersonalLayer):
-        isolated.record(tmp_path, "reminder", today=TODAY)
-    assert list(tmp_path.iterdir()) == []
+def test_recording_without_version_control_writes_the_in_tree_dir(tmp_path: Path) -> None:
+    isolated.record(tmp_path, "reminder", today=TODAY)
+    assert (tmp_path / ".apache-magpie-local" / isolated.STAMP_NAME).is_file()
+
+
+def test_recording_in_an_svn_working_copy_writes_the_svn_dir(tmp_path: Path) -> None:
+    (tmp_path / ".svn").mkdir()
+    (tmp_path / ".svn" / "wc.db").write_bytes(b"")
+    isolated.record(tmp_path, "reminder", today=TODAY)
+    assert (tmp_path / ".svn" / "apache-magpie" / isolated.STAMP_NAME).is_file()
+    assert sorted(p.name for p in tmp_path.iterdir()) == [".svn"]
 
 
 def test_the_interval_is_read_from_a_legacy_local_dir(project: Path) -> None:

@@ -82,7 +82,10 @@ The two directories:
      ignore entry, and is shared by every worktree of the clone.
      It is also lost with the clone, so a fresh clone starts
      unconfigured.
-     Outside a git repository there is no personal layer at all.
+     In a Subversion working copy it is **`<.svn>/apache-magpie/`**,
+     inside the working copy's `.svn` directory, for the same reasons.
+     With no version control at all it is the in-tree
+     **`.apache-magpie-local/`**, since there is nothing to commit it to.
    - **Adopted** — **`.apache-magpie-local/`** at the repo root,
      gitignored by the line `adopt` adds to `.gitignore`.
 

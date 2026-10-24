@@ -57,8 +57,7 @@ from datetime import date
 from pathlib import Path
 from typing import TextIO
 
-from .isolated import NoPersonalLayer, _load_stamp, _stamp_path
-from .layers import personal_dir
+from .isolated import _load_stamp, _stamp_path
 
 HERE = Path(__file__).resolve().parent
 GUIDES_DIR = HERE / "guides"
@@ -245,12 +244,10 @@ def due_guide(root: Path, skill: str) -> tuple[str, str, dict[str, object] | Non
 def welcome_facts(root: Path, skill: str) -> tuple[str, dict[str, object]] | None:
     """`(section, facts)` when a guide is due on this run, else `None`.
 
-    Silent for a skill that is not a Magpie skill, when the rules section is
-    missing, and when there is no personal layer to record a choice in (an
-    unadopted project outside a git repository): a guide that could never
-    be dismissed would repeat on every run.
+    Silent for a skill that is not a Magpie skill, and when the rules
+    section is missing.
     """
-    if not (SECTIONS_DIR / f"{SECTION}.md").is_file() or personal_dir(root) is None:
+    if not (SECTIONS_DIR / f"{SECTION}.md").is_file():
         return None
     chosen = due_guide(root, skill)
     if chosen is None:
@@ -510,15 +507,11 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.write(text)
         return 0
 
-    try:
-        if args.action == "record":
-            entry = record(args.project_root, args.family, args.choice)
-            print(json.dumps({BLOCK: {args.family: entry}}, indent=2, sort_keys=True))
-            return 0
-        cleared = enable(args.project_root, args.family)
-    except NoPersonalLayer as exc:
-        print(f"{args.action}: {exc}", file=sys.stderr)
-        return 2
+    if args.action == "record":
+        entry = record(args.project_root, args.family, args.choice)
+        print(json.dumps({BLOCK: {args.family: entry}}, indent=2, sort_keys=True))
+        return 0
+    cleared = enable(args.project_root, args.family)
     print(json.dumps({"family": args.family, "enabled": True, "cleared": cleared}))
     return 0
 

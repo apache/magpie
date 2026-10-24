@@ -599,11 +599,10 @@ def test_an_adopted_repo_with_an_in_tree_local_dir_is_not_legacy(project: Path) 
     assert project_findings(project, None) == []
 
 
-def test_a_legacy_dir_outside_a_git_repo_is_reported_with_nowhere_to_go(tmp_path: Path) -> None:
+def test_the_in_tree_dir_without_version_control_is_not_legacy(tmp_path: Path) -> None:
+    """With no VCS the in-tree directory is the personal layer itself."""
     (tmp_path / ".apache-magpie-local").mkdir()
-    [finding] = project_findings(tmp_path, None)
-    assert finding.facts["personal_dir"] is None
-    assert finding.facts["exclude_file"] is None
+    assert [f for f in project_findings(tmp_path, None) if f.code == "legacy-local-dir"] == []
 
 
 def test_not_a_git_repo_and_not_adopted_has_nothing_configured(tmp_path: Path) -> None:

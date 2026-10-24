@@ -281,18 +281,8 @@ def interval_days(root: Path) -> int:
 # --- recording ----------------------------------------------------------------------
 
 
-class NoPersonalLayer(RuntimeError):
-    """An unadopted project outside a git repository has nowhere to record."""
-
-
 def _stamp_path(root: Path) -> Path:
-    home = personal_dir(root)
-    if home is None:
-        raise NoPersonalLayer(
-            f"{root} has not adopted Magpie and is not a git repository; "
-            "there is no personal config layer to record into"
-        )
-    return home / STAMP_NAME
+    return personal_dir(root) / STAMP_NAME
 
 
 def _load_stamp(root: Path) -> dict[str, object]:
@@ -406,11 +396,7 @@ def main(argv: list[str] | None = None) -> int:
             print(output)
         return 0
     if args.action in ("record-update", "record-reminder"):
-        try:
-            block = record(root, args.action.removeprefix("record-"))
-        except NoPersonalLayer as exc:
-            print(f"{args.action}: {exc}", file=sys.stderr)
-            return 2
+        block = record(root, args.action.removeprefix("record-"))
         print(json.dumps({BLOCK: block}, indent=2, sort_keys=True))
         return 0
 

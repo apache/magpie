@@ -283,10 +283,9 @@ def test_mirror_names_resolve_only_with_their_prefix() -> None:
     assert welcome.family_of("magpie-security-issue-triage") == "security"
 
 
-def test_nowhere_to_record_means_no_guide(tmp_path: Path, version) -> None:
-    """An unadopted project outside git has no personal layer: a guide that
-    could never be dismissed would repeat on every run."""
-    assert welcome_findings(tmp_path, SECURITY_SKILL) == []
+def test_a_project_without_version_control_still_gets_the_guide(tmp_path: Path, version) -> None:
+    """With no VCS the choice is recorded in the in-tree personal layer."""
+    assert welcome_findings(tmp_path, SECURITY_SKILL) != []
 
 
 def run(project: Path, *extra: str) -> None:
@@ -425,11 +424,12 @@ def test_the_record_command_prints_the_entry(project: Path, capsys, version) -> 
     assert json.loads(capsys.readouterr().out)["welcome"]["security"]["choice"] == "never"
 
 
-def test_recording_outside_a_git_repo_refuses(tmp_path: Path, capsys, version) -> None:
+def test_recording_without_version_control_writes_the_in_tree_dir(tmp_path: Path, capsys, version) -> None:
     code = welcome.main(
         ["record", "--family", "security", "--choice", "seen", "--project-root", str(tmp_path)]
     )
-    assert code == 2
+    assert code == 0
+    assert (tmp_path / ".apache-magpie-local").is_dir()
 
 
 @pytest.mark.parametrize("family", ["../sections/welcome", "_footer", "/tmp/other-guide"])

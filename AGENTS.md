@@ -86,6 +86,9 @@ The framework has two layers:
    `.apache-magpie-local/` (gitignored) in a repo that has adopted it
    (committed `.apache-magpie.lock`); a linked worktree of an adopted
    repo falls back to its main checkout's `.apache-magpie-local/`.
+   A Subversion working copy that has only installed Magpie uses
+   `<.svn>/apache-magpie/`; a project with no version control uses the
+   in-tree `.apache-magpie-local/`.
    A legacy in-tree `.apache-magpie-local/` in an unadopted repo is
    still read, after the git-directory home. See
    [`docs/setup/agentic-overrides.md`](docs/setup/agentic-overrides.md).

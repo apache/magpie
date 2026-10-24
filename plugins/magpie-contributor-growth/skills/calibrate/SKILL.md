@@ -220,8 +220,8 @@ The maintainer compares the result with any live discussion themselves; the skil
 Show the diff that `propose.md` produced for `<project-config>/committer-readiness.md` and `<project-config>/contributor-nomination-config.md`.
 The target is the **personal layer**, always.
 Resolve it with `python3 -m setup_preflight.layers` (same `PYTHONPATH` as the pre-flight command) and write to its `personal_dir`:
-`<git-common-dir>/apache-magpie/` when Magpie is only installed, `.apache-magpie-local/` when the project has adopted it, the main checkout's in a linked worktree that has none of its own.
-Create the directory if it does not exist; if `personal_dir` is null (not a git repository), stop and say there is nowhere to keep personal config.
+`<git-common-dir>/apache-magpie/` (or `<.svn>/apache-magpie/` in a Subversion working copy) when Magpie is only installed, `.apache-magpie-local/` when the project has adopted it or has no version control, the main checkout's in a linked worktree that has none of its own.
+Create the directory if it does not exist.
 **Never offer `.apache-magpie-overrides/`**, even when asked for a project-wide change: committed floors become a public checklist contributors can point at to demand promotion
 ([why](../../../../docs/contributor-growth/README.md#why-the-configuration-is-personal)).
 If a committed copy exists there, say that the personal file now shadows it and recommend removing it.
