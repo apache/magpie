@@ -92,20 +92,24 @@ root="$(cd "$root" 2>/dev/null && pwd -P)" || exit 0
 
 log() { printf '%s: %s\n' "${0##*/}" "$*" >&2; }
 
-# An absolute path with `.` and `..` folded away without consulting the
-# filesystem, so no symlink is followed.
-lexical_path() {
-    local part out=""
+# True when following <link>'s target one component at a time never leaves
+# <inside> except to pass through its ancestors (which no writable root can
+# hold, or <inside> would already be refused).
+link_stays_inside() {
+    local link="$1" inside="$2" target cur part
     local -a parts
-    IFS=/ read -r -a parts <<< "$1"
+    target="$(readlink -- "$link")" || return 1
+    if [[ $target == /* ]]; then cur=""; else cur="$(dirname -- "$link")"; fi
+    IFS=/ read -r -a parts <<< "$target"
     for part in ${parts[@]+"${parts[@]}"}; do
         case "$part" in
-            ""|.) ;;
-            ..) out="${out%/*}" ;;
-            *) out="$out/$part" ;;
+            ""|.) continue ;;
+            ..) cur="${cur%/*}" ;;
+            *) cur="$cur/$part" ;;
         esac
+        [[ -z $cur || $cur == "$inside" || $cur == "$inside"/* || $inside == "$cur"/* ]] || return 1
     done
-    printf '%s' "${out:-/}"
+    return 0
 }
 
 # Physical path, symlinks resolved; the literal path when it does not exist.
@@ -208,6 +212,18 @@ done
 writable_forms=()
 for r in "${writable_roots[@]}"; do
     writable_forms+=("$r" "$(resolve "$r")")
+done
+
+# The hook trusts only system and package-manager locations for what it runs,
+# native libraries included (Homebrew's OpenSSL for _ssl, say), so a sandbox
+# grant over any of them leaves nothing it can vouch for.
+for form in "${writable_forms[@]}"; do
+    for system_dir in /usr /opt /Library /System /Applications /nix /etc /private/etc /bin /sbin; do
+        if [[ $form == / || $form == "$system_dir" || $form == "$system_dir"/* ]]; then
+            log "a sandbox write grant covers $form, a system location; not starting the container gateway"
+            exit 0
+        fi
+    done
 done
 
 is_writable_path() {
@@ -318,23 +334,20 @@ for candidate in "${python_candidates[@]}"; do
     done
     (( stdlib_found )) || continue
     overlaps_writable "$prefix" && continue
-    # The standard library is a real directory and every symlink in it stays
-    # inside the prefix, lexically and once resolved, so no link anywhere on
-    # the way can lead out to something re-pointable. site-packages is exempt:
-    # -S never loads it.
+    # The standard library is a real directory, and every symlink anywhere in
+    # the prefix stays inside it at each step of its target and once resolved,
+    # so no hop can lead out to something re-pointable. site-packages is
+    # exempt: -S never loads it.
     stdlib_dir="${stdlib%/os.py}"
     [[ -L $prefix/lib || -L $stdlib_dir ]] && continue
     runtime_ok=1
     while IFS= read -r -d '' link; do
         [[ $link == "$stdlib_dir/site-packages" ]] && continue
-        target="$(readlink -- "$link")" || { runtime_ok=0; break; }
-        [[ $target == /* ]] || target="$(dirname -- "$link")/$target"
-        lexical="$(lexical_path "$target")"
-        if [[ $lexical != "$prefix"/* ]] || [[ "$(resolve "$link")" != "$prefix"/* ]]; then
+        if ! link_stays_inside "$link" "$prefix" || [[ "$(resolve "$link")" != "$prefix"/* ]]; then
             runtime_ok=0
             break
         fi
-    done < <(find "$stdlib_dir" -type l -print0 2>/dev/null)
+    done < <(find "$prefix" -type l -print0 2>/dev/null)
     (( runtime_ok )) || continue
     "$canonical" -I -S -c 'import sys; sys.exit(sys.version_info < (3, 11))' >/dev/null 2>&1 || continue
     # Where the interpreter really loads its standard library from.

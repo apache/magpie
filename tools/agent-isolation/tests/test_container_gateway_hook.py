@@ -323,10 +323,11 @@ def test_an_edit_allow_rule_counts_as_a_write_grant(tmp_path: Path, rule: str) -
     (shared / "src" / "container_gateway").mkdir(parents=True)
     lay.settings({"permissions": {"allow": [rule.format(shared=shared)]}})
     done = run("start", lay.project, {"MAGPIE_CONTAINER_GATEWAY_SRC": str(shared / "src")}, home=lay.home)
-    assert "refusing gateway source" in done.stderr
-    if rule == "Edit":  # every file writable: nothing is trusted
+    if rule == "Edit":  # every file writable, system locations included: nothing is trusted
         assert done.stdout == ""
+        assert "system location" in done.stderr
     else:
+        assert "refusing gateway source" in done.stderr
         assert f" -I -S {lay.src} " in done.stdout
 
 
@@ -366,6 +367,29 @@ def test_a_stdlib_link_hopping_out_and_back_is_refused(tmp_path: Path) -> None:
     (stdlib / "sysconfig.py").symlink_to(hop / "real_sysconfig.py")
     run("start", lay.project, home=lay.home)
     assert not marker.exists()
+
+
+def test_a_stdlib_link_through_a_writable_dotdot_is_refused(tmp_path: Path) -> None:
+    """Folding `..` first would hide the writable hop; each step must stay inside."""
+    lay = Layout(tmp_path)
+    fake, stdlib, marker = _fake_runtime(lay)
+    (stdlib / "safe.py").write_text("")
+    hop = lay.home / ".cache" / "hop"
+    hop.mkdir(parents=True)
+    ups = "/".join([".."] * len(hop.relative_to("/").parts))
+    (stdlib / "sysconfig.py").symlink_to(f"{hop}/{ups}{stdlib}/safe.py")
+    run("start", lay.project, home=lay.home)
+    assert not marker.exists()
+
+
+@pytest.mark.parametrize("grant", ["/opt/homebrew/opt/openssl@3", "/usr/local", "/opt"])
+def test_a_grant_over_a_system_location_refuses_to_start(tmp_path: Path, grant: str) -> None:
+    """Native libraries (Homebrew's OpenSSL for _ssl) live there, beyond the prefix checks."""
+    lay = Layout(tmp_path)
+    lay.settings({"sandbox": {"filesystem": {"allowWrite": [grant]}}})
+    done = run("start", lay.project, home=lay.home)
+    assert done.stdout == ""
+    assert "system location" in done.stderr
 
 
 def test_a_grant_with_dotdot_refuses_everything(tmp_path: Path) -> None:
