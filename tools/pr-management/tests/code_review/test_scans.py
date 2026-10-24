@@ -306,6 +306,39 @@ def test_licence_case_5_no_third_party_content() -> None:
     )
 
 
+def test_licence_case_7_asf_header_with_spdx_is_not_third_party() -> None:
+    # The ASF header says "regarding copyright ownership"; that is not a copyright notice.
+    assert (
+        _tp(
+            _new(
+                "tools/discourse/src/magpie_discourse/topics.py",
+                f"# {SPDX}: Apache-2.0",
+                "# Licensed to the Apache Software Foundation (ASF) under one",
+                "# or more contributor license agreements.  See the NOTICE file",
+                "# distributed with this work for additional information",
+                "# regarding copyright ownership.  The ASF licenses this file",
+                "# to you under the Apache License, Version 2.0 (the",
+                "",
+                "def fetch_topic(url):",
+            )
+        )
+        == []
+    )
+
+
+def test_licence_case_8_third_party_apache_file_is_still_flagged() -> None:
+    (f,) = _tp(
+        _new(
+            "vendor/retry/retry.py",
+            f"# {SPDX}: Apache-2.0",
+            "# Copyright 2021 Example Corp.",
+            "",
+            "def retry(fn):",
+        )
+    )
+    assert (f["licence"], f["category"]) == ("Apache-2.0", "A")
+
+
 def test_licence_case_6_licenses_dir_alone_is_not_enough() -> None:
     (f,) = _tp(
         _new("airflow/utils/cron_descriptor.py", "# MIT License", "# Copyright (c) 2020 Adam Schubert"),
