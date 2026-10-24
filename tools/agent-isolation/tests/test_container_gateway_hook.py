@@ -76,13 +76,13 @@ def test_start_runs_the_pinned_interpreter_isolated(tmp_path: Path) -> None:
     lay = Layout(tmp_path)
     done = run("start", lay.project, home=lay.home)
     assert done.returncode == 0, done.stderr
-    assert done.stdout.strip() == f"{PYTHON} -I {lay.src} container_gateway serve --project={lay.project} --daemon"
+    assert done.stdout.strip() == f"{PYTHON} -I -S {lay.src} container_gateway serve --project={lay.project} --daemon"
 
 
 def test_stop_command(tmp_path: Path) -> None:
     lay = Layout(tmp_path)
     done = run("stop", lay.project, home=lay.home)
-    assert done.stdout.strip() == f"{PYTHON} -I {lay.src} container_gateway stop --project={lay.project}"
+    assert done.stdout.strip() == f"{PYTHON} -I -S {lay.src} container_gateway stop --project={lay.project}"
 
 
 def test_env_override_is_preferred_and_args_appended(tmp_path: Path) -> None:
@@ -91,7 +91,7 @@ def test_env_override_is_preferred_and_args_appended(tmp_path: Path) -> None:
     (alt / "container_gateway").mkdir(parents=True)
     done = run("start", lay.project, {"MAGPIE_CONTAINER_GATEWAY_SRC": str(alt),
                                       "MAGPIE_CONTAINER_GATEWAY_ARGS": "--egress require"}, home=lay.home)
-    assert done.stdout.strip() == f"{PYTHON} -I {alt} container_gateway serve --project={lay.project} --daemon --egress require"
+    assert done.stdout.strip() == f"{PYTHON} -I -S {alt} container_gateway serve --project={lay.project} --daemon --egress require"
 
 
 def test_no_sources_is_silent_success(tmp_path: Path) -> None:
@@ -123,7 +123,7 @@ def test_override_inside_the_project_is_refused(tmp_path: Path) -> None:
     (inside / "container_gateway").mkdir(parents=True)
     done = run("start", lay.project, {"MAGPIE_CONTAINER_GATEWAY_SRC": str(inside)}, home=lay.home)
     assert "refusing gateway source" in done.stderr
-    assert f" -I {lay.src} " in done.stdout
+    assert f" -I -S {lay.src} " in done.stdout
 
 
 @pytest.mark.parametrize("key", ["allowWrite", "additionalDirectories"])
@@ -136,7 +136,7 @@ def test_override_under_a_granted_directory_is_refused(tmp_path: Path, key: str)
     lay.settings(grant)
     done = run("start", lay.project, {"MAGPIE_CONTAINER_GATEWAY_SRC": str(shared / "src")}, home=lay.home)
     assert "refusing gateway source" in done.stderr
-    assert f" -I {lay.src} " in done.stdout
+    assert f" -I -S {lay.src} " in done.stdout
 
 
 def test_a_relative_user_scope_grant_resolves_under_dot_claude(tmp_path: Path) -> None:
@@ -147,7 +147,7 @@ def test_a_relative_user_scope_grant_resolves_under_dot_claude(tmp_path: Path) -
     lay.settings({"sandbox": {"filesystem": {"allowWrite": ["shared"]}}})
     done = run("start", lay.project, {"MAGPIE_CONTAINER_GATEWAY_SRC": str(alt)}, home=lay.home)
     assert "refusing gateway source" in done.stderr
-    assert f" -I {lay.src} " in done.stdout
+    assert f" -I -S {lay.src} " in done.stdout
 
 
 def test_helpers_are_not_taken_from_an_inherited_path(tmp_path: Path) -> None:
@@ -161,7 +161,7 @@ def test_helpers_are_not_taken_from_an_inherited_path(tmp_path: Path) -> None:
         tool.chmod(0o755)
     done = run("start", lay.project, {"PATH": f"{bin_dir}:{os.environ['PATH']}"}, home=lay.home)
     assert not marker.exists()
-    assert done.stdout.strip() == f"{PYTHON} -I {lay.src} container_gateway serve --project={lay.project} --daemon"
+    assert done.stdout.strip() == f"{PYTHON} -I -S {lay.src} container_gateway serve --project={lay.project} --daemon"
 
 
 @pytest.mark.parametrize("rel", [".cache/gw", ".local/share/gw"])
@@ -172,7 +172,7 @@ def test_override_under_home_cache_or_local_is_refused(tmp_path: Path, rel: str)
     (alt / "container_gateway").mkdir(parents=True)
     done = run("start", lay.project, {"MAGPIE_CONTAINER_GATEWAY_SRC": str(alt)}, home=lay.home)
     assert "refusing gateway source" in done.stderr
-    assert f" -I {lay.src} " in done.stdout
+    assert f" -I -S {lay.src} " in done.stdout
 
 
 def test_a_symlinked_source_is_judged_by_its_target(tmp_path: Path) -> None:
@@ -180,6 +180,28 @@ def test_a_symlinked_source_is_judged_by_its_target(tmp_path: Path) -> None:
     real = lay.home / ".cache" / "gw"
     (real / "container_gateway").mkdir(parents=True)
     lay.src.symlink_to(real)
+    done = run("start", lay.project, home=lay.home)
+    assert "refusing gateway source" in done.stderr
+    assert done.stdout == ""
+
+
+def test_a_symlink_inside_the_source_tree_is_refused(tmp_path: Path) -> None:
+    """A module linked out of the installed copy could point anywhere writable."""
+    lay = Layout(tmp_path)
+    planted = lay.home / ".cache" / "daemon.py"
+    planted.parent.mkdir(parents=True)
+    planted.write_text("")
+    (lay.src / "container_gateway" / "daemon.py").symlink_to(planted)
+    done = run("start", lay.project, home=lay.home)
+    assert "refusing gateway source" in done.stderr
+    assert done.stdout == ""
+
+
+def test_a_grant_on_one_file_of_the_source_is_refused(tmp_path: Path) -> None:
+    lay = Layout(tmp_path)
+    module = lay.src / "container_gateway" / "daemon.py"
+    module.write_text("")
+    lay.settings({"sandbox": {"filesystem": {"allowWrite": [str(module)]}}})
     done = run("start", lay.project, home=lay.home)
     assert "refusing gateway source" in done.stderr
     assert done.stdout == ""
@@ -219,6 +241,29 @@ def test_a_pin_inside_the_project_is_skipped(tmp_path: Path) -> None:
     (lay.scripts / "python").write_text(f"{planted}\n")
     done = run("start", lay.project, home=lay.home)
     assert str(planted) not in done.stdout
+
+
+def test_a_grant_inside_the_interpreter_prefix_skips_it(tmp_path: Path) -> None:
+    """A writable stdlib file would run during the version probe itself."""
+    lay = Layout(tmp_path)
+    prefix = Path(PYTHON).parent.parent
+    lay.settings({"sandbox": {"filesystem": {"allowWrite": [str(prefix / "lib" / "planted")]}}})
+    done = run("start", lay.project, home=lay.home)
+    assert not done.stdout.startswith(f"{PYTHON} ")
+
+
+def test_the_interpreter_runs_by_its_canonical_path(tmp_path: Path) -> None:
+    """A symlink on the way (here a writable one) cannot be swapped after the check."""
+    lay = Layout(tmp_path)
+    link_dir = lay.base / "opt" / "bin"
+    link_dir.parent.mkdir(parents=True)
+    hop = lay.home / ".cache" / "python-link"
+    hop.parent.mkdir(parents=True)
+    hop.symlink_to(Path(PYTHON).parent)
+    link_dir.symlink_to(hop)
+    (lay.scripts / "python").write_text(f"{link_dir / Path(PYTHON).name}\n")
+    done = run("start", lay.project, home=lay.home)
+    assert str(link_dir) not in done.stdout and str(hop) not in done.stdout
 
 
 def test_isolated_mode_ignores_pythonpath_and_the_project(tmp_path: Path) -> None:

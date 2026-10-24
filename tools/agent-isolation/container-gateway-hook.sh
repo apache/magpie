@@ -53,10 +53,12 @@
 #   inside the repository -- including an .apache-magpie/ snapshot -- is never
 #   used: the project root is always sandbox-writable.
 #
-#   The interpreter runs with -I, so PYTHONPATH, PYTHONHOME, every other PYTHON*
-#   variable, the user site-packages and the working directory (the project
-#   being opened) never reach sys.path; the source directory is put there
-#   explicitly by a one-line bootstrap.
+#   The interpreter runs by its canonical path with -I -S, so PYTHONPATH,
+#   PYTHONHOME, every other PYTHON* variable, site-packages (and any .pth file
+#   or sitecustomize in it) and the working directory (the project being
+#   opened) never reach sys.path; the source directory is put there explicitly
+#   by a one-line bootstrap. Its prefix and standard library must not overlap a
+#   writable root either, and neither may the source tree, file by file.
 #
 #   $MAGPIE_CONTAINER_GATEWAY_ARGS is allow-listed, token by token, against the
 #   flags below (e.g. "--egress require"). Anything else -- notably
@@ -169,12 +171,41 @@ under_writable_root() {
     done
 }
 
+# True when a directory is under a writable root, or a writable root is inside
+# it: a grant on one file in an interpreter's prefix or the gateway source makes
+# that file writable just the same.
+overlaps_writable() {
+    local dir form
+    dir="$(resolve "$1")"
+    is_writable_path "$dir" && return 0
+    [[ $dir == / || /tmp/claude == "$dir"/* || /private/tmp/claude == "$dir"/* ]] && return 0
+    for form in "${writable_forms[@]}"; do
+        [[ -n $form && $form == "$dir"/* ]] && return 0
+    done
+    return 1
+}
+
+# A source tree the hook may put on sys.path: not overlapping a writable root,
+# and holding no symlink (the operator install is a plain copy), so every file
+# in it is judged where it really is.
+tree_is_trusted() {
+    local dir="$1" entry
+    overlaps_writable "$dir" && return 1
+    while IFS= read -r -d '' entry; do
+        [[ -L $entry ]] && return 1
+        under_writable_root "$entry" && return 1
+    done < <(find "$dir" -mindepth 1 -print0 2>/dev/null)
+    return 0
+}
+
 src=""
 for candidate in "${MAGPIE_CONTAINER_GATEWAY_SRC:-}" \
                  "$HOME/.claude/scripts/container-gateway/src"; do
     [[ -n $candidate && -d $candidate/container_gateway ]] || continue
-    if under_writable_root "$candidate" || under_writable_root "$candidate/container_gateway"; then
-        log "refusing gateway source $candidate: it is under a sandbox-writable directory"
+    # The whole directory goes on sys.path, so a stray json.py beside the
+    # package would shadow the stdlib: judge all of it, by its real location.
+    if under_writable_root "$candidate" || ! tree_is_trusted "$(resolve "$candidate")"; then
+        log "refusing gateway source $candidate: it is, contains or links into a sandbox-writable directory"
         continue
     fi
     src="$(resolve "$candidate")"
@@ -193,13 +224,24 @@ for minor in 14 13 12 11; do
     python_candidates+=("/opt/homebrew/bin/python3.$minor" "/usr/local/bin/python3.$minor" "/usr/bin/python3.$minor")
 done
 
+# Run by its canonical path, so no symlink on the way can be re-pointed between
+# this check and the exec, and with -I -S: the gateway needs only the standard
+# library, so no site-packages, .pth file or sitecustomize is ever loaded.
 python=""
 for candidate in "${python_candidates[@]}"; do
     [[ -x $candidate ]] || continue
-    # Checked before it is ever run: the version probe below executes it.
+    # Checked before it is ever run: the probes below execute it.
     under_writable_root "$candidate" && continue
-    "$candidate" -I -c 'import sys; sys.exit(sys.version_info < (3, 11))' >/dev/null 2>&1 || continue
-    python="$candidate"
+    canonical="$(resolve "$candidate")"
+    overlaps_writable "$(dirname -- "$(dirname -- "$canonical")")" && continue
+    "$canonical" -I -S -c 'import sys; sys.exit(sys.version_info < (3, 11))' >/dev/null 2>&1 || continue
+    # Where the interpreter really loads its standard library from.
+    runtime_ok=1
+    while IFS= read -r dir; do
+        [[ -n $dir ]] && overlaps_writable "$dir" && { runtime_ok=0; break; }
+    done < <("$canonical" -I -S -c 'import sys, sysconfig; print(sys.prefix); print(sys.base_prefix); print(sysconfig.get_path("stdlib")); print(sysconfig.get_path("platstdlib"))' 2>/dev/null)
+    (( runtime_ok )) || continue
+    python="$canonical"
     break
 done
 if [[ -z $python ]]; then
@@ -242,11 +284,12 @@ else
 fi
 
 if [[ -n ${MAGPIE_CONTAINER_GATEWAY_DRY_RUN:-} ]]; then
-    printf '%s -I %s container_gateway %s\n' "$python" "$src" "${args[*]}"
+    printf '%s -I -S %s container_gateway %s\n' "$python" "$src" "${args[*]}"
     exit 0
 fi
 # -I keeps every PYTHON* variable, the user site and the working directory off
-# sys.path; the bootstrap puts the vetted source directory there and nothing else.
+# sys.path, -S every site-packages directory; the bootstrap puts the vetted
+# source directory there and nothing else.
 bootstrap='import runpy, sys; sys.path.insert(0, sys.argv.pop(1)); runpy.run_module("container_gateway", run_name="__main__", alter_sys=True)'
-"$python" -I -c "$bootstrap" "$src" "${args[@]}" >/dev/null 2>&1 || true
+"$python" -I -S -c "$bootstrap" "$src" "${args[@]}" >/dev/null 2>&1 || true
 exit 0
