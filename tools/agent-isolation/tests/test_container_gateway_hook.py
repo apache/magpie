@@ -356,6 +356,15 @@ def test_a_stdlib_link_that_stays_in_the_prefix_is_accepted(tmp_path: Path) -> N
     assert marker.exists()  # trusted far enough to run its version probe
 
 
+def test_a_stdlib_link_into_a_system_location_is_accepted(tmp_path: Path) -> None:
+    """Debian's /usr/lib/python3.X/sitecustomize.py links into /etc, which no grant may cover."""
+    lay = Layout(tmp_path)
+    _, stdlib, marker = _fake_runtime(lay)
+    (stdlib / "sitecustomize.py").symlink_to("/etc/hosts")
+    run("start", lay.project, home=lay.home)
+    assert marker.exists()  # trusted far enough to run its version probe
+
+
 def test_a_stdlib_link_hopping_out_and_back_is_refused(tmp_path: Path) -> None:
     """Out through a re-pointable directory, back into the prefix: lexically it leaves."""
     lay = Layout(tmp_path)

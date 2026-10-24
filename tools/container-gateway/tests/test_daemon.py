@@ -794,15 +794,21 @@ def test_cli_stop_signals_when_process_is_the_console_script(
         assert (our_pid, signal.SIGTERM) in calls
 
 
+# The argv a macOS framework build (Homebrew's python@3.x) re-execs as.
+_FRAMEWORK_PYTHON = (
+    "/opt/homebrew/Cellar/python@3.13/3.13.1/Frameworks/Python.framework/Versions/3.13/Resources/"
+    + "Python.app/Contents/MacOS/Python"
+)
+
+
 @pytest.mark.parametrize(
     "command_line",
     [
         "python3 -u -m container_gateway serve --project /x",
         "uv run python -m container_gateway serve --project /x",
-        "/opt/homebrew/Cellar/python@3.13/3.13.1/Frameworks/Python.framework/Versions/3.13/Resources/"
-        "Python.app/Contents/MacOS/Python -m container_gateway serve --project /x",
-        "/opt/homebrew/Cellar/python@3.13/3.13.1/Frameworks/Python.framework/Versions/3.13/Resources/"
-        "Python.app/Contents/MacOS/Python -I -S -c "
+        _FRAMEWORK_PYTHON + " -m container_gateway serve --project /x",
+        _FRAMEWORK_PYTHON
+        + " -I -S -c "
         + cli.HOOK_BOOTSTRAP
         + " /home/u/.claude/scripts/container-gateway/src serve --project=/x --daemon",
         "/opt/homebrew/Cellar/python@3.13/3.13.1/bin/python3.13 -I -S -c "

@@ -92,9 +92,23 @@ root="$(cd "$root" 2>/dev/null && pwd -P)" || exit 0
 
 log() { printf '%s: %s\n' "${0##*/}" "$*" >&2; }
 
+# System and package-manager locations. The hook refuses to run at all when a
+# write grant overlaps one (below), so nothing inside them is writable or
+# re-pointable from the sandbox.
+system_dirs=(/usr /opt /Library /System /Applications /nix /etc /private/etc /bin /sbin /lib /lib64)
+
+in_system_dir() {
+    local path="$1" dir
+    for dir in "${system_dirs[@]}"; do
+        [[ $path == "$dir" || $path == "$dir"/* ]] && return 0
+    done
+    return 1
+}
+
 # True when following <link>'s target one component at a time never leaves
 # <inside> except to pass through its ancestors (which no writable root can
-# hold, or <inside> would already be refused).
+# hold, or <inside> would already be refused) or a system location (which no
+# writable root may overlap): Debian's /usr/lib/python3.X links into /etc.
 link_stays_inside() {
     local link="$1" inside="$2" target cur part
     local -a parts
@@ -107,7 +121,8 @@ link_stays_inside() {
             ..) cur="${cur%/*}" ;;
             *) cur="$cur/$part" ;;
         esac
-        [[ -z $cur || $cur == "$inside" || $cur == "$inside"/* || $inside == "$cur"/* ]] || return 1
+        [[ -z $cur || $cur == "$inside" || $cur == "$inside"/* || $inside == "$cur"/* ]] && continue
+        in_system_dir "$cur" || return 1
     done
     return 0
 }
@@ -218,12 +233,10 @@ done
 # native libraries included (Homebrew's OpenSSL for _ssl, say), so a sandbox
 # grant over any of them leaves nothing it can vouch for.
 for form in "${writable_forms[@]}"; do
-    for system_dir in /usr /opt /Library /System /Applications /nix /etc /private/etc /bin /sbin; do
-        if [[ $form == / || $form == "$system_dir" || $form == "$system_dir"/* ]]; then
-            log "a sandbox write grant covers $form, a system location; not starting the container gateway"
-            exit 0
-        fi
-    done
+    if [[ $form == / ]] || in_system_dir "$form"; then
+        log "a sandbox write grant covers $form, a system location; not starting the container gateway"
+        exit 0
+    fi
 done
 
 is_writable_path() {
@@ -334,20 +347,24 @@ for candidate in "${python_candidates[@]}"; do
     done
     (( stdlib_found )) || continue
     overlaps_writable "$prefix" && continue
-    # The standard library is a real directory, and every symlink anywhere in
-    # the prefix stays inside it at each step of its target and once resolved,
-    # so no hop can lead out to something re-pointable. site-packages is
-    # exempt: -S never loads it.
+    # What -I -S loads: the standard library (a real directory) and the shared
+    # libpython beside it. Every symlink there stays inside the prefix or a
+    # system location at each step of its target and once resolved, so no hop
+    # can lead out to something re-pointable. site-packages / dist-packages are
+    # exempt: -S never loads them.
     stdlib_dir="${stdlib%/os.py}"
     [[ -L $prefix/lib || -L $stdlib_dir ]] && continue
     runtime_ok=1
     while IFS= read -r -d '' link; do
-        [[ $link == "$stdlib_dir/site-packages" ]] && continue
-        if ! link_stays_inside "$link" "$prefix" || [[ "$(resolve "$link")" != "$prefix"/* ]]; then
+        case "$link" in
+            "$stdlib_dir/site-packages"|"$stdlib_dir/dist-packages") continue ;;
+        esac
+        real="$(resolve "$link")"
+        if ! link_stays_inside "$link" "$prefix" || { [[ $real != "$prefix"/* ]] && ! in_system_dir "$real"; }; then
             runtime_ok=0
             break
         fi
-    done < <(find "$prefix" -type l -print0 2>/dev/null)
+    done < <(find "$stdlib_dir" -type l -print0 2>/dev/null; find "$prefix/lib" -maxdepth 1 -type l -print0 2>/dev/null)
     (( runtime_ok )) || continue
     "$canonical" -I -S -c 'import sys; sys.exit(sys.version_info < (3, 11))' >/dev/null 2>&1 || continue
     # Where the interpreter really loads its standard library from.
