@@ -17,5 +17,3 @@ Adapted reproducer run output:
     Heartbeat: 2026-05-18T10:01:00Z
   stderr: (empty)
   Wall-clock: 60.0s (timeout hit)
-
-Note: The reproducer was adapted to run a compressed-time simulation (each simulated hour = 1 real second) but the 60s budget was exhausted before reaching the 48h simulation threshold.

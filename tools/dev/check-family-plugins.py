@@ -20,7 +20,7 @@ Checks that every plugin is properly defined:
   uniquely-named `plugin.json` and carries the root manifest's version;
 - the Codex and Copilot catalogs (`.agents/plugins/marketplace.json`,
   `marketplace.json`) list every family plugin and no all-in-one, with
-  `magpie-setup` installed by default and the rest opt-in;
+  `magpie-setup` and `magpie-vetted-ops` installed by default and the rest opt-in;
 - for every family declared in a skill's `family:` frontmatter there is a
   `plugins/magpie-<family>/` plugin whose manifest is well-formed, inherits the
   root manifest's shared metadata (version, author, homepage, repository,
@@ -164,10 +164,11 @@ CLIENT_CATALOGS = (
 #
 # `installation` decides whether adding the marketplace also installs the
 # plugin. Every family stays AVAILABLE — a machine that adds the marketplace
-# gets the catalogue, not ten families' worth of always-on skills. The one
-# exception is `magpie-setup`, which is INSTALLED_BY_DEFAULT: it is the floor
-# the framework recommends to everyone, so arriving already installed is the
-# point. `authentication` is optional and names *when* a
+# gets the catalogue, not ten families' worth of always-on skills. The two
+# exceptions are INSTALLED_BY_DEFAULT: `magpie-setup`, the floor the framework
+# recommends to everyone, so arriving already installed is the point; and
+# `magpie-vetted-ops`, the dispatcher the family skills run their forge
+# operations through, which adds no always-on context. `authentication` is optional and names *when* a
 # plugin asks the user to authenticate; Magpie asks for no credential of its
 # own, so it is absent rather than set to a "no auth" value, which the enum
 # has no way to spell.
@@ -176,6 +177,7 @@ CODEX_POLICY_ENUMS = {
     "authentication": frozenset({"ON_INSTALL", "ON_USE"}),
 }
 CODEX_REQUIRED_INSTALLATION = "AVAILABLE"
+CODEX_ALWAYS_INSTALLED = frozenset({"magpie-setup", "magpie-vetted-ops"})
 # `name`: 1–64 chars, lowercase alphanumeric plus `-`/`.`, no `--`/`..`,
 # alphanumeric at both ends.
 AP1_NAME_RE = re.compile(r"^(?!.*(?:--|\.\.))[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$")
@@ -814,17 +816,18 @@ def check_codex_policy(path: Path, entries: list) -> list[str]:
             errors.append(f"{path}: '{name}' policy has unknown field(s) {', '.join(unknown)}")
         # magpie-setup is the floor every adopter gets: it carries the
         # secure-isolation skills and the SessionStart upgrade check, so it
-        # installs by default. Every other family is opt-in -- taking all ten
+        # installs by default, and so does the vetted-ops dispatcher the
+        # family skills call. Every other family is opt-in -- taking all ten
         # is the thing this framework argues against.
         installation = policy.get("installation")
-        want = "INSTALLED_BY_DEFAULT" if name == "magpie-setup" else CODEX_REQUIRED_INSTALLATION
+        want = "INSTALLED_BY_DEFAULT" if name in CODEX_ALWAYS_INSTALLED else CODEX_REQUIRED_INSTALLATION
         if installation is not None and installation != want:
             errors.append(
                 f"{path}: '{name}' policy.installation is {installation!r}, expected "
                 f"{want!r}"
                 + (
-                    " — magpie-setup is always installed"
-                    if name == "magpie-setup"
+                    f" — {name} is always installed"
+                    if name in CODEX_ALWAYS_INSTALLED
                     else " — every other family is opt-in, one problem at a time"
                 )
             )
@@ -1271,7 +1274,11 @@ def fix(fam: dict[str, set[str]]) -> int:
                 "name": name,
                 "source": {"source": "local", "path": f"./plugins/{name}"},
                 "category": "maintenance",
-                "policy": {"installation": "AVAILABLE"},
+                "policy": {
+                    "installation": "INSTALLED_BY_DEFAULT"
+                    if name in CODEX_ALWAYS_INSTALLED
+                    else CODEX_REQUIRED_INSTALLATION
+                },
             }
             for name in sorted(CODEX_SUBSTRATES)
         ]

@@ -72,6 +72,14 @@ def test_step6_case_6_unresolved_threads() -> None:
     assert result["disposition"] == "COMMENT" and "unresolved" in result["reason"]
 
 
+def test_step6_addressed_outdated_threads_go_to_the_maintainer() -> None:
+    thread = {"id": "T1", "url": "https://example.org/t1", "path": "a.py", "author": "rex"}
+    result = _pick([], resolve_first=[thread])
+    assert result["disposition"] == "APPROVE" and result["resolve_first"] == [thread]
+    assert "outdated thread" in result["reason"]
+    assert _pick([])["resolve_first"] == []
+
+
 def test_one_major_with_an_unanswered_question_requests_changes() -> None:
     assert _pick(["major"], unanswered_question=True)["disposition"] == "REQUEST_CHANGES"
     assert _pick(["major"])["disposition"] == "COMMENT"

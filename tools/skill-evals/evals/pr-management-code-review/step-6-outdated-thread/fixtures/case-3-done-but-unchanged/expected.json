@@ -1,0 +1,4 @@
+{
+  "addressed": false,
+  "reason": "The current diff still measures the timeout with time.time(), so the author's 'Done' is not borne out by the code."
+}

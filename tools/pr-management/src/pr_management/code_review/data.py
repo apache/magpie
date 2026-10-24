@@ -211,6 +211,36 @@ def from_node(node: dict[str, Any]) -> PR:
     )
 
 
+def outdated_threads(pr: PR) -> list[dict[str, Any]]:
+    """Unresolved threads GitHub marks outdated: a later push changed the lines they were left on.
+
+    A thread with more comments than the read fetched is left out: the agent could not see all
+    of it, so it stays an approval gate.
+    """
+    found: list[dict[str, Any]] = []
+    for thread in pr.thread_details:
+        if thread.get("isResolved") or not thread.get("isOutdated"):
+            continue
+        comments = _nodes(thread.get("comments"))
+        total = (thread.get("comments") or {}).get("totalCount")
+        if not comments or (total is not None and int(total) > len(comments)):
+            continue
+        first, replies = comments[0], comments[1:]
+        found.append(
+            {
+                "id": thread.get("id"),
+                "url": first.get("url"),
+                "path": first.get("path"),
+                "author": _login(first),
+                "comment_untrusted": str(first.get("bodyText") or ""),
+                "replies_untrusted": [
+                    {"author": _login(c), "comment": str(c.get("bodyText") or "")} for c in replies
+                ],
+            }
+        )
+    return found
+
+
 def load_open(path: Path) -> list[PR]:
     """Every PR in the saved `gql-cr-open` pages."""
     document = json.loads(path.read_text(encoding="utf-8"))

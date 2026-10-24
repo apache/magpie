@@ -57,6 +57,7 @@ tools/security-tracker-stats-dashboard/
 ├── README.md             (this file)
 ├── default-config.yaml   (config schema + adopter-overridable defaults)
 ├── render.py             (renders cached data to HTML; reads config)
+├── gh_retry.py           (runs gh, retrying transient failures; used by the fetch scripts)
 ├── fetch_issues.py       (gh issue list, incl. body + closedByPRs -> issues.json)
 ├── fetch_roster.py       (gh api collaborators -> roster.txt)
 ├── fetch_bodies.py       (body + closedByPRs from issues.json -> issue_extra.json)
@@ -76,8 +77,8 @@ Env knobs (all optional):
 | Var | Default | Notes |
 |---|---|---|
 | `TRACKER_STATS_REPO` | *(e.g. `airflow-s/airflow-s`)* | `<tracker>` repo slug |
-| `TRACKER_STATS_OUT` | `/tmp/airflow_s_monthly.html` | output HTML path |
-| `TRACKER_STATS_CACHE` | `/tmp/tracker-stats-cache` | fetch cache dir |
+| `TRACKER_STATS_OUT` | `$TMPDIR/airflow_s_monthly.html` | output HTML path |
+| `TRACKER_STATS_CACHE` | `$TMPDIR/tracker-stats-cache` | fetch cache dir |
 | `TRACKER_STATS_CONFIG` | *(unset)* | path to a YAML overlay file |
 | `TRACKER_STATS_BUCKETS` | *(from config: `monthly`)* | `monthly` or `quarterly` |
 | `TRACKER_STATS_START` | *(from config: `null`)* | `YYYY-MM` or `YYYY-Qn` |

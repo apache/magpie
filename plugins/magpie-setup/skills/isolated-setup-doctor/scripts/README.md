@@ -25,6 +25,11 @@ entry, add a probe for it:
 1. **A script here** — short, deterministic, side-effect-free, printing
    the `PROBE:` line above. One failure mode per script: a probe that
    conflates two restrictions makes the report ambiguous when it fails.
+   Hold a command's output in a variable, not a file: `/tmp` is read-only
+   inside the sandbox, and a failed redirection skips the command and
+   exits 1, which a probe reading exit codes takes for the command's own
+   answer. Probe 1 once passed every agent that way. Add a test under
+   [`../tests/`](../tests/) that runs the script against a fake binary.
 2. **An interpretation table in `SKILL.md`** — three to five rows
    mapping result strings to ✓ / ✗ / ⊘ / ⚠.
 3. **A remediation link** to the catalogue section that fixes it. Link

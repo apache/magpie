@@ -1,1 +1,1 @@
-{"pre_ticked": [], "install_set": ["magpie-setup", "magpie-security", "magpie-repo-health"], "prompted": false, "unremovable": ["magpie-setup"]}
+{"pre_ticked": [], "install_set": ["magpie-setup", "magpie-vetted-ops", "magpie-security", "magpie-repo-health"], "prompted": false, "unremovable": ["magpie-setup", "magpie-vetted-ops"]}

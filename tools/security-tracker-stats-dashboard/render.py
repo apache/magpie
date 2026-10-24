@@ -19,7 +19,7 @@
 
 """
 Regenerate a tracker-stats dashboard. Reads cached issues+events+PR data
-from `$TRACKER_STATS_CACHE` (default `/tmp/tracker-stats-cache`) and writes
+from `$TRACKER_STATS_CACHE` (default `<tempdir>/tracker-stats-cache`) and writes
 a self-contained HTML page to `$TRACKER_STATS_OUT`.
 
 Configuration is loaded from `scripts/default-config.yaml`, optionally
@@ -52,6 +52,7 @@ import os
 import re
 import statistics
 import sys
+import tempfile
 from collections import defaultdict
 
 # Make the src/ package importable when render.py is run as a standalone script.
@@ -104,8 +105,13 @@ except ImportError:
 
 # --- Config loading -------------------------------------------------
 
-ROOT = os.environ.get("TRACKER_STATS_CACHE", "/tmp/tracker-stats-cache")
-OUT_PATH = os.environ.get("TRACKER_STATS_OUT", "/tmp/airflow_s_monthly.html")
+# Both defaults sit under the platform temp root, not a hardcoded `/tmp`: a
+# sandboxed run is granted its own scratch directory and can write neither.
+# See fetch_issues.py.
+ROOT = os.environ.get("TRACKER_STATS_CACHE") or os.path.join(tempfile.gettempdir(), "tracker-stats-cache")
+OUT_PATH = os.environ.get("TRACKER_STATS_OUT") or os.path.join(
+    tempfile.gettempdir(), "airflow_s_monthly.html"
+)
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_CONFIG_PATH = os.path.join(HERE, "default-config.yaml")
 

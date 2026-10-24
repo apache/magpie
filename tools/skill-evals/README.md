@@ -11,7 +11,7 @@ Behavioral eval harness for Apache Magpie skills. Each eval suite tests a skill 
 
 Suites are currently implemented for:
 
-- **setup** — 141 cases across 30 steps (step-verify-drift, step-overrides-surface, step-override-bypass, step-m3-baseline-pick, step-m4-install-gates, step-m5-no-repo-offer, step-m5-companion-offer, step-upgrade-companion-offer, step-adopt-settings-merge, verify-default-set, uninstall-default-set, lock-marketplace-parse, adopt-write-floor, setup-prefill-from-floor, preflight-floor, upgrade-adoption-split, verify-floor, adopt-review-process, adopt-security-list, step-reconcile, step-verify, step-config-stamp, step-config-adversarial, step-config-mail, step-adopt-stamp, step-upgrade-stamp, step-delegate-propose, config-vcs-backend, config-local-custom-parser)
+- **setup** — 150 cases across 32 steps (step-verify-drift, step-overrides-surface, step-override-bypass, step-m3-baseline-pick, step-m4-install-gates, step-m5-no-repo-offer, step-m5-companion-offer, step-upgrade-companion-offer, step-adopt-settings-merge, verify-default-set, uninstall-default-set, lock-marketplace-parse, adopt-write-floor, setup-prefill-from-floor, preflight-floor, upgrade-adoption-split, verify-floor, adopt-review-process, adopt-security-list, step-reconcile, step-verify, step-config-stamp, step-config-adversarial, step-config-mail, step-adopt-stamp, step-upgrade-stamp, step-delegate-propose, config-vcs-backend, config-local-custom-parser)
 - **setup-isolated-setup-install** — 19 cases across 5 steps (runtime-routing, step-snapshot-drift, step-scope-confirm, step-hardware-key, step-roborev-exclusion)
 - **setup-privacy-llm** — 6 cases across 2 steps (step-1-resolve, step-4-gate)
 - **setup-shared-config-sync** — 12 cases across 2 steps (step-3-decide-action, step-5-draft-commit)
@@ -30,7 +30,7 @@ Suites are currently implemented for:
 - **issue-reproducer** — 27 cases across 7 steps (step-1-inventory, step-2-pick-candidate, step-3-classify-shape, step-5.5-confirm, step-7-verify, step-8-baselines, step-10-compose-verdict)
 - **issue-fix-workflow** — 20 cases across 7 steps (step-2-locate-area, step-6-scope-check, step-7-compose-commit, step-8-handback)
 - **issue-reassess-stats** — 8 cases across 3 steps (step-1-fetch-verdicts, step-2-classify, step-3-aggregate)
-- **pr-management-code-review** — 56 cases across 15 suites; the 13 scripted suites moved to `tools/pr-management/tests/code_review`
+- **pr-management-code-review** — 60 cases across 16 suites; the 13 scripted suites moved to `tools/pr-management/tests/code_review`
 - **pr-management-mentor** — 6 cases across 2 steps (intervention, tone-checks); the hand-off triggers and deterministic tone rules are pytest-tested in `tools/pr-management`
 - **pr-management-stats** — 6 cases across 1 step (build-loop)
 - **pr-management-triage** — 33 cases across 6 steps (backport-check, classify-loop, deliver-note, guard-reroute, terminal-links, interaction-progress); the pre-filters, decision table and pagination are pytest-tested in `tools/pr-management`
@@ -88,6 +88,7 @@ Suites are currently implemented for:
 - **setup-upstream-fix** — 12 cases across 3 suites (step-2-classify, step-3-dedup, step-5-adversarial-review)
 - **skill-reconciler** — 12 cases across 2 suites (step-0-discover-pairs, step-2-classify)
 - **workflow-security-audit** — 8 cases across 2 suites (step-findings-report, step-scope-selection)
+- **workflow-optimization** — 7 cases across 2 suites (step-2-classify, step-3-plan)
 - **write-skill** — 5 cases across 1 suite (step-5-security-checklist)
 - **setup-privacy-llm** — 6 cases across 2 suites (step-1-resolve, step-4-gate)
 - **preflight-reconciliation** — 7 cases across 1 suite (step-reconciliation)

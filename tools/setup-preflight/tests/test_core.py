@@ -87,7 +87,7 @@ def test_a_genuinely_missing_plugin_is_a_finding(project: Path) -> None:
     write_lock(project, MARKETPLACE)
     found = project_findings(project, {"something-else": "9.9.9"})
     assert codes(found) == ["below-floor"]
-    assert found[0].facts["missing"] == ["magpie-setup"]
+    assert found[0].facts["missing"] == ["magpie-setup", "magpie-vetted-ops"]
     # The listing came from `--plugin-list` here, so no harness is named.
     assert found[0].facts["harness"] is None
 
@@ -100,7 +100,10 @@ def test_the_floor_finding_names_the_harness_it_measured(project: Path) -> None:
     assert codes(found) == ["below-floor"]
     assert found[0].facts["harness"] == "gemini"
     assert found[0].facts["missing"] == []
-    assert found[0].facts["outdated"] == [{"plugin": "magpie-setup", "installed": "0.1.0", "floor": "0.2.0"}]
+    assert found[0].facts["outdated"] == [
+        {"plugin": "magpie-setup", "installed": "0.1.0", "floor": "0.2.0"},
+        {"plugin": "magpie-vetted-ops", "installed": "0.1.0", "floor": "0.2.0"},
+    ]
 
 
 @pytest.mark.parametrize(
@@ -119,7 +122,22 @@ def test_non_claude_names_must_match_before_reporting_absence(project: Path, har
 
 def test_being_ahead_of_the_floor_is_never_a_finding(project: Path) -> None:
     write_lock(project, MARKETPLACE)
-    assert project_findings(project, {"magpie-setup": "9.9.9"}) == []
+    assert project_findings(project, {"magpie-setup": "9.9.9", "magpie-vetted-ops": "9.9.9"}) == []
+
+
+def test_vetted_ops_is_required_even_when_the_floor_omits_it(project: Path) -> None:
+    """A floor committed before vetted-ops joined the seed still needs it:
+    the family skills run their forge operations through its dispatcher."""
+    write_lock(project, MARKETPLACE)
+    found = project_findings(project, {"magpie-setup": "9.9.9"})
+    assert codes(found) == ["below-floor"]
+    assert found[0].facts["missing"] == ["magpie-vetted-ops"]
+
+
+def test_a_floor_that_lists_vetted_ops_names_it_once(project: Path) -> None:
+    write_lock(project, MARKETPLACE + "  - magpie-vetted-ops\n")
+    found = project_findings(project, {"something-else": "9.9.9"})
+    assert found[0].facts["missing"] == ["magpie-setup", "magpie-vetted-ops"]
 
 
 def test_a_dev_build_below_the_floor_is_below_it(project: Path) -> None:
@@ -423,7 +441,7 @@ def test_a_changed_plugin_listing_invalidates_the_cache(project: Path) -> None:
     write_lock(project, MARKETPLACE)
     (project / ".apache-magpie-local").mkdir()
     cached_project_findings(project, {"magpie-setup": "0.1.0"})
-    found, cached = cached_project_findings(project, {"magpie-setup": "9.9.9"})
+    found, cached = cached_project_findings(project, {"magpie-setup": "9.9.9", "magpie-vetted-ops": "9.9.9"})
     assert cached is False and found == []
 
 

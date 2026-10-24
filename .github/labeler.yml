@@ -221,6 +221,7 @@ capability:triage:
           - 'plugins/magpie-repo-health/skills/dependency-license-audit/**'
           - 'plugins/magpie-repo-health/skills/flaky-test-triage/**'
           - 'plugins/magpie-repo-health/skills/license-compliance-audit/**'
+          - 'plugins/magpie-repo-health/skills/workflow-optimization/**'
           - 'plugins/magpie-repo-health/skills/workflow-security-audit/**'
           - 'plugins/magpie-security/skills/issue-triage/**'
           - 'tools/skill-evals/evals/ci-runner-audit/**'
@@ -240,6 +241,7 @@ capability:triage:
           - 'tools/skill-evals/evals/release-vote-tally/**'
           - 'tools/skill-evals/evals/reviewer-routing/**'
           - 'tools/skill-evals/evals/security-issue-triage/**'
+          - 'tools/skill-evals/evals/workflow-optimization/**'
           - 'tools/skill-evals/evals/workflow-security-audit/**'
 
 family:ci:
@@ -352,6 +354,7 @@ family:repo-health:
           - 'tools/skill-evals/evals/dependency-license-audit/**'
           - 'tools/skill-evals/evals/flaky-test-triage/**'
           - 'tools/skill-evals/evals/license-compliance-audit/**'
+          - 'tools/skill-evals/evals/workflow-optimization/**'
           - 'tools/skill-evals/evals/workflow-security-audit/**'
 
 family:security:

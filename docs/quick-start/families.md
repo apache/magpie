@@ -14,12 +14,13 @@
 
 ## Start with the baseline
 
-Three plugins are the **strongly recommended** starting set. Take all three,
+Four plugins are the **strongly recommended** starting set. Take all four,
 then add families against a problem you have today:
 
 | Plugin | Why it is in the baseline |
 |---|---|
 | `magpie-setup` | **Install this one first — nothing else works without it.** It is what installs, upgrades, configures and adopts everything else, and it carries the secure-isolation skills that sandbox your agent. |
+| `magpie-vetted-ops` | **Always installed.** The dispatcher the family skills run their GitHub reads and writes through: fixed, checked operations instead of free-form `gh` commands. Not a family and no skills of its own, so it adds no always-on context. |
 | `magpie-agent-guard` | The deterministic pre-execution guard: a hook that inspects each shell command *before* it runs and denies the dangerous shapes outright. It is not a family and has no skills of its own — it is a safety net under whatever else you install. |
 | `magpie-utilities` | `list-skills`, so you can see what is actually installed, plus skill authoring and a path to report framework bugs upstream. Small, and the thing you reach for when something is not behaving. |
 
@@ -44,7 +45,7 @@ today — you are not meant to take all of them.
 | `magpie-release-management` | 10 | An ASF release is a long checklist where one missed step invalidates the vote. | RC cut, RC verification (signatures, hashes, LICENSE/NOTICE, no stray binaries), the `[VOTE]` thread, the tally, promotion, `[ANNOUNCE]`, archive sweep, audit log. The agent never holds your signing key and never publishes. |
 | `magpie-pr-management` | 9 | The PR queue grows faster than you can read it, and the oldest ones quietly rot. | Queue triage into ready / needs-review / waiting-on-author, deep code review with blocking vs non-blocking findings, whole-stack review of stacked PRs, reviewer routing, express-lane merge, stale sweep, and queue statistics. |
 | `magpie-issue` | 8 | A backlog full of duplicates, unreproducible reports, and issues nobody has read in a year. | Triage with proposed labels, duplicate clustering, reproduction attempts across versions, fix drafting, reassessment of old issues, stale sweep, and backlog stats. |
-| `magpie-repo-health` | 7 | Slow rot you only notice when it breaks: vulnerable deps, unpinned actions, licence drift, flaky tests. | Read-only audits for dependency CVEs, dependency licences, LICENSE/NOTICE compliance, Actions workflow security, obsolete runner labels, and flaky-test patterns — plus a skill that fixes what they find. |
+| `magpie-repo-health` | 8 | Slow rot you only notice when it breaks: vulnerable deps, unpinned actions, licence drift, flaky tests, wasted CI runners. | Read-only audits for dependency CVEs, dependency licences, LICENSE/NOTICE compliance, Actions workflow security, obsolete runner labels, flaky-test patterns, and CI runner usage — plus a skill that fixes what they find. |
 | `magpie-contributor-growth` | 9 | Contributors who have earned committership go unnoticed because nobody is tracking the signal. | Activity sweeps against a review threshold, readiness tracking, threshold calibration from past nominations, candidate screening, sentiment signals, nomination briefs for the PMC, committer / post-vote onboarding checklists, and a contributor identity map across chat and social channels. |
 | `magpie-utilities` | 5 | You want to write your own skills, or find out what is actually installed. | Skill authoring and restructuring, a state reconciler, a live index of installed skills, and a path to report framework bugs upstream. **In the baseline.** |
 | `magpie-mentoring` | 4 | Newcomers open one PR, hit a wall of unwritten conventions, and never come back. | First-contact welcome comments, plain-language explanations of an issue for someone new, good-first-issue authoring, and a sweep that keeps that backlog honest. |

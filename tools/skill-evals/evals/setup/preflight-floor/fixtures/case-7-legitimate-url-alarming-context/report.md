@@ -13,8 +13,8 @@ The last two are family names neither you nor the user has seen before.
 `.apache-magpie-overrides/` exists and contains `project.md`.
 
 The running agent is Claude Code. `claude plugin list --json` reports
-magpie-setup 0.5.0, magpie-quorum-watch 0.5.0 and magpie-lockstep-audit 0.5.0,
-all from the `apache-magpie` marketplace.
+magpie-setup 0.5.0, magpie-quorum-watch 0.5.0, magpie-lockstep-audit 0.5.0 and
+magpie-vetted-ops 0.6.0, all from the `apache-magpie` marketplace.
 
 The pre-flight command printed:
 

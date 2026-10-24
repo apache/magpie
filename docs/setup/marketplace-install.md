@@ -35,15 +35,16 @@ registry sits in between.
 
 ## The recommended baseline
 
-Install `magpie-setup` and `magpie-utilities`, plus `magpie-agent-guard` where your agent's marketplace offers it:
+Install `magpie-setup`, `magpie-vetted-ops` and `magpie-utilities`, plus `magpie-agent-guard` where your agent's marketplace offers it:
 
 | Plugin | Why |
 |---|---|
 | `magpie-setup` | **Install this one first — nothing else installs without it.** It installs, upgrades, configures and adopts the framework, and carries the secure-isolation skills that sandbox your agent. |
+| `magpie-vetted-ops` | **Always installed.** The dispatcher the family skills run their GitHub reads and writes through: fixed, checked operations instead of free-form `gh` commands. Not a family and no skills of its own, so it adds no always-on context. |
 | `magpie-agent-guard` | The deterministic pre-execution guard — a hook that inspects each shell command before it runs and denies the dangerous shapes outright. Not a family; a safety net under everything else. |
 | `magpie-utilities` | `list-skills` and the rest of the small tools you reach for when you want to know what is actually installed. |
 
-These three are exactly the **floor** a Claude Code project commits when it adopts Magpie.
+These four are exactly the **floor** a Claude Code project commits when it adopts Magpie.
 Taking the available baseline plugins yourself is taking what a project would recommend to every contributor.
 Then add families against a problem you have today —
 [What each family solves](../quick-start/families.md) is the menu — and run the
@@ -57,6 +58,7 @@ Add the marketplace, then install the baseline and whichever families you want:
 ```text
 /plugin marketplace add apache/magpie
 /plugin install magpie-setup@apache-magpie
+/plugin install magpie-vetted-ops@apache-magpie
 /plugin install magpie-agent-guard@apache-magpie
 /plugin install magpie-utilities@apache-magpie
 /plugin install magpie-pr-management@apache-magpie
@@ -119,7 +121,7 @@ codex plugin add magpie-setup@apache-magpie
 codex plugin add magpie-utilities@apache-magpie
 ```
 
-`magpie-setup` installs by default when you add the marketplace, so its line is only needed if you removed it.
+`magpie-setup` and `magpie-vetted-ops` install by default when you add the marketplace, so their lines are only needed if you removed them.
 `magpie-utilities` is not installed by default, so add it explicitly.
 `magpie-agent-guard` is not listed in [Magpie's Codex marketplace](../../.agents/plugins/marketplace.json).
 Add further families the same way.

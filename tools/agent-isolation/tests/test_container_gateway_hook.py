@@ -47,7 +47,7 @@ def test_start_uses_snapshot_sources(tmp_path: Path) -> None:
     subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
     done = run("start", tmp_path, home=fake_home)
     assert done.returncode == 0, done.stderr
-    assert done.stdout.strip() == f"PYTHONPATH={src.parent} python3 -m container_gateway serve --project={tmp_path} --daemon"
+    assert done.stdout.strip() == f"PYTHONPATH={src.parent} python3 -P -m container_gateway serve --project={tmp_path} --daemon"
 
 
 def test_start_prefers_env_override_and_appends_args(tmp_path: Path) -> None:
@@ -193,3 +193,12 @@ def test_vetted_extra_args_are_passed_through(tmp_path: Path, args: str) -> None
     assert done.returncode == 0, done.stderr
     assert done.stdout.strip().endswith(f"--daemon {args}")
     assert done.stderr == ""
+
+
+def test_the_project_directory_is_kept_off_sys_path(tmp_path: Path) -> None:
+    """`python3 -m` would put the project, the hook's cwd, ahead of the gateway source."""
+    project, fake_home, _ = _project_with_snapshot(tmp_path)
+    for action in ("start", "stop"):
+        done = run(action, project, home=fake_home)
+        assert done.returncode == 0, done.stderr
+        assert " python3 -P -m container_gateway " in done.stdout

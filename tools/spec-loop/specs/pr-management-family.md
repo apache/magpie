@@ -310,7 +310,11 @@ same directory; the behaviour is unchanged.
 - **One APPROVE definition in code review.** `pr-management code-review
   disposition` proposes `APPROVE` only when nothing is above a nit, real CI is
   green, no review thread is unresolved, no other maintainer's
-  `CHANGES_REQUESTED` stands, and no maintainer question is unanswered; the
+  `CHANGES_REQUESTED` stands, and no maintainer question is unanswered; an
+  outdated thread the agent verified the current code addresses leaves the
+  thread gate and goes to the maintainer to resolve instead (the agent judges
+  every comment in the thread, and a thread longer than the read stays a
+  gate); the
   maintainer may downgrade it, and upgrading past a named gate needs a stated
   reason (#1585).
   When every gate holds and the only findings left are `minor` / `nit` ones
@@ -453,7 +457,8 @@ same directory; the behaviour is unchanged.
     (#1580).
 13. `pr-management-code-review` proposes `APPROVE` only when the single
     disposition gate holds (no finding above a nit, real CI green, no
-    unresolved thread, no standing change request, no open maintainer
+    unresolved thread other than an outdated one the current code
+    addresses, no standing change request, no open maintainer
     question) (#1585).
 14. `pr-management-stats` writes nothing to any PR or tracker; its only
     write is the confirmed secret-gist publish on the maintainer's account

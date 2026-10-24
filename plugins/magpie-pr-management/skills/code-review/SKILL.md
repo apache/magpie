@@ -24,7 +24,7 @@ argument-hint: "[pr:N] [area:LBL] [collab:true|false] [team:NAME] [ready] [dry-r
 capability: capability:review
 surface_hash: sha256:0e09164d15647a70
 license: Apache-2.0
-measured_tokens: 3770
+measured_tokens: 3826
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
@@ -207,7 +207,10 @@ questions in the PR conversation. If any are present, downgrade
 the proposal to `COMMENT` (with a note pointing at the
 unresolved item) or `REQUEST_CHANGES` if the unresolved item is
 material. Do not silently approve "around" another maintainer's
-concern.
+concern. An *outdated* thread that the current code verifiably
+addresses no longer gates the proposal. The skill instead tells
+the maintainer to resolve it, which unblocks the merge
+([`classifications/outdated-thread.md`](classifications/outdated-thread.md)).
 
 **Golden rule 8 — never approve a PR that fails CI, or whose
 real CI never ran.** Failing required checks block the merge

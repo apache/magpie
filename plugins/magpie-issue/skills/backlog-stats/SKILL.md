@@ -24,7 +24,7 @@ argument-hint: "[repo:owner/name] [since:date] [--markdown] [--tables-only] [cle
 capability: capability:stats
 surface_hash: sha256:0f124437a9fa54f9
 license: Apache-2.0
-measured_tokens: 4984
+measured_tokens: 5055
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -207,8 +207,15 @@ For each open issue, determine exactly one triage class:
 | `UNTRIAGED` | No comment from a collaborator (`OWNER`, `MEMBER`, `COLLABORATOR`) that contains a triage-proposal marker (the string `Triage proposal` for GitHub Issues, or the project's configured marker from `issue-tracker-config.md`). |
 | `TRIAGED` | A collaborator triage-proposal comment exists. Issue has no linked open PR and no assignee. |
 | `IN-PROGRESS` | A collaborator triage-proposal comment exists AND the issue has an assignee or a linked open PR. |
-| `STALE-CANDIDATE` | `days_since_updated >= warn_days` regardless of triage status. When both `IN-PROGRESS` and `STALE-CANDIDATE` apply, the issue is counted in both (staleness is orthogonal). |
 | `SKIP-SECURITY` | Title or first comment contains security signals (see Golden rule 7). Excluded from all aggregate counts. |
+
+Staleness is **not** a class. It is the separate `is_stale_candidate`
+boolean (`days_since_updated >= warn_days`), so an issue keeps its real
+class and can be stale on top of it. An untriaged issue last updated 216
+days ago with `warn_days` at 90 is `UNTRIAGED` with
+`is_stale_candidate: true` — never `STALE-CANDIDATE`. Every downstream
+count reads that boolean: the Step 3 `stale_candidate` bucket, the
+pressure score, and the untriaged funnel.
 
 Cache the class per `(issue_number, updated_at)` in the scratch cache.
 
@@ -230,7 +237,7 @@ Per area, compute:
 - `untriaged` — issues with class `UNTRIAGED`.
 - `triaged` — issues with class `TRIAGED`.
 - `in_progress` — issues with class `IN-PROGRESS`.
-- `stale_candidate` — issues with class `STALE-CANDIDATE`.
+- `stale_candidate` — issues with `is_stale_candidate: true`, whatever their class.
 - `age_buckets` — histogram of `[< 7 d, 7–30 d, 30–90 d, > 90 d]`.
 
 Also compute a `TOTAL` row where each issue is counted exactly once (NOT

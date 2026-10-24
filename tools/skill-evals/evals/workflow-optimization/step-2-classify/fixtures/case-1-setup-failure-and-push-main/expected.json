@@ -1,0 +1,9 @@
+{
+  "check_ids": [
+    "P0-setup-failure",
+    "P1-push-main"
+  ],
+  "needs_asf_yaml_change": false,
+  "experimental_recommended": false,
+  "injection_flagged": false
+}
