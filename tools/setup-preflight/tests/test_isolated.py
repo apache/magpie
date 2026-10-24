@@ -345,13 +345,13 @@ def test_the_next_session_start_is_quiet_again(tmp_path: Path, isolated_home: Pa
     assert isolated.session_start(repo, "plugin 1.0 is active", home=isolated_home) == "plugin 1.0 is active"
 
 
-def test_a_tracked_settings_local_is_reported_not_rewritten(tmp_path: Path, isolated_home: Path) -> None:
+def test_a_tracked_settings_local_is_cleaned_too(tmp_path: Path, isolated_home: Path) -> None:
+    """Dropping the grant only narrows the sandbox; the change shows in git diff."""
     repo = git_repo(tmp_path / "repo", ignore_local=False)
     local = write_local(repo, [f"{isolated_home}/.local/share/uv"])
-    before = local.read_text()
     out = json.loads(isolated.session_start(repo, home=isolated_home))
-    assert local.read_text() == before
-    assert "not gitignored; remove it by hand" in out["systemMessage"]
+    assert json.loads(local.read_text())["sandbox"]["filesystem"]["allowWrite"] == []
+    assert "removed the ~/.local/share/uv sandbox write grant" in out["systemMessage"]
 
 
 @pytest.mark.parametrize("entry", ["~/.local", "~/.local/share/uv/python", "~"])
@@ -375,7 +375,8 @@ def test_a_user_scope_grant_is_reported_not_rewritten(tmp_path: Path, isolated_h
     assert str(user) in out["systemMessage"]
 
 
-def test_a_linked_worktree_also_cleans_the_main_checkout(tmp_path: Path, isolated_home: Path) -> None:
+def test_a_linked_worktree_never_reaches_into_the_main_checkout(tmp_path: Path, isolated_home: Path) -> None:
+    """The worktree's .git file is sandbox-writable; following it would let sandboxed code pick the target."""
     main = git_repo(tmp_path / "main")
     subprocess.run(["git", "-C", str(main), "add", ".gitignore"], check=True)
     subprocess.run(
@@ -399,8 +400,47 @@ def test_a_linked_worktree_also_cleans_the_main_checkout(tmp_path: Path, isolate
     worktree = tmp_path / "wt"
     subprocess.run(["git", "-C", str(main), "worktree", "add", "-q", str(worktree)], check=True)
     main_local = write_local(main, [f"{isolated_home}/.local/share/uv"])
+    before = main_local.read_text()
     isolated.session_start(worktree, home=isolated_home)
-    assert json.loads(main_local.read_text())["sandbox"]["filesystem"]["allowWrite"] == []
+    assert main_local.read_text() == before
+
+
+def test_a_symlinked_settings_local_is_never_written_through(tmp_path: Path, isolated_home: Path) -> None:
+    repo = git_repo(tmp_path / "repo")
+    victim = tmp_path / "victim.json"
+    victim.write_text(
+        json.dumps({"sandbox": {"filesystem": {"allowWrite": [f"{isolated_home}/.local/share/uv"]}}})
+    )
+    before = victim.read_text()
+    (repo / ".claude" / "settings.local.json").symlink_to(victim)
+    isolated.session_start(repo, home=isolated_home)
+    assert victim.read_text() == before
+    assert (repo / ".claude" / "settings.local.json").is_symlink()
+
+
+def test_a_symlinked_claude_dir_is_never_written_through(tmp_path: Path, isolated_home: Path) -> None:
+    repo = git_repo(tmp_path / "repo")
+    (repo / ".claude").rmdir()
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    (repo / ".claude").symlink_to(elsewhere)
+    local = write_local(repo, [f"{isolated_home}/.local/share/uv"])
+    before = local.read_text()
+    out = json.loads(isolated.session_start(repo, home=isolated_home))
+    assert local.read_text() == before
+    assert "could not be rewritten safely" in out["systemMessage"]
+
+
+def test_a_planted_temp_file_symlink_is_never_followed(tmp_path: Path, isolated_home: Path) -> None:
+    """The old fixed `.tmp` name could be pre-planted as a link to, say, ~/.bashrc."""
+    repo = git_repo(tmp_path / "repo")
+    local = write_local(repo, [f"{isolated_home}/.local/share/uv"])
+    victim = tmp_path / "bashrc"
+    victim.write_text("untouched\n")
+    (repo / ".claude" / "settings.local.json.tmp").symlink_to(victim)
+    isolated.session_start(repo, home=isolated_home)
+    assert victim.read_text() == "untouched\n"
+    assert json.loads(local.read_text())["sandbox"]["filesystem"]["allowWrite"] == []
 
 
 def test_nothing_to_remove_keeps_the_plain_notice(tmp_path: Path, isolated_home: Path) -> None:

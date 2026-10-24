@@ -19,9 +19,10 @@
 # a slash command, and Magpie never mutates an adopter repo without the
 # guided skill's confirmation. The hook makes no network calls and writes
 # only its own version marker and, through `setup_preflight`, one cleanup: it
-# drops the old `~/.local/share/uv` sandbox write grant from a gitignored
+# drops the old `~/.local/share/uv` sandbox write grant from the checkout's
 # `.claude/settings.local.json`, the per-machine file the project-root helper
-# already maintains, and tells the user (apache/magpie#1785).
+# already maintains, and tells the user (apache/magpie#1785). It runs no git
+# command and follows no symlink to do it.
 #
 # Agents without a session hook (e.g. Gemini CLI) surface the same prompt via
 # their extension context file (GEMINI.md) instead.

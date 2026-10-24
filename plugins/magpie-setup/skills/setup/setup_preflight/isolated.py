@@ -61,8 +61,8 @@ import hashlib
 import json
 import os
 import re
-import subprocess
 import sys
+import tempfile
 from datetime import date
 from pathlib import Path
 
@@ -278,78 +278,74 @@ def _covers_uv_data_dir(entry: str, home: Path, base: Path) -> bool:
     return False
 
 
-def _project_dirs(root: Path) -> list[Path]:
-    """The session's checkout and, for a linked worktree, its main checkout."""
+def _checkout(root: Path) -> Path:
+    """The session's own checkout: the nearest directory holding a `.git`.
+
+    Never the main checkout a linked worktree's `.git` file names: that file is
+    as writable from the sandbox as the worktree, so following it would let
+    sandboxed code pick the directory this unsandboxed hook rewrites. The main
+    checkout is cleaned when a session opens there.
+    """
     for directory in (root, *root.parents):
-        dot_git = directory / ".git"
-        if dot_git.is_dir():
-            return [directory]
-        if dot_git.is_file():
-            dirs = [directory]
-            try:
-                gitdir_line = dot_git.read_text(encoding="utf-8").strip()
-                git_dir = Path(gitdir_line.removeprefix("gitdir:").strip())
-                git_dir = git_dir if git_dir.is_absolute() else (directory / git_dir)
-                common = (git_dir / (git_dir / "commondir").read_text(encoding="utf-8").strip()).resolve()
-            except OSError:
-                return dirs
-            if common.name == ".git" and common.parent != directory:
-                dirs.append(common.parent)
-            return dirs
-    return [root]
+        if (directory / ".git").exists():
+            return directory
+    return root
 
 
-def _gitignored(directory: Path, file: Path) -> bool:
-    """`git check-ignore`, run from the checkout with any hook environment stripped."""
-    env = {k: v for k, v in os.environ.items() if k not in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE")}
-    try:
-        done = subprocess.run(
-            ["git", "-C", str(directory), "check-ignore", "-q", str(file)],
-            env=env,
-            capture_output=True,
-            check=False,
-            timeout=5,
-        )
-    except (OSError, subprocess.SubprocessError):
+def _rewrite_settings(settings: Path, loaded: dict[str, object]) -> bool:
+    """Atomically rewrite `settings`, refusing anything a symlink could redirect.
+
+    The project tree is sandbox-writable and this runs outside the sandbox, so
+    neither `.claude` nor the file may be a symlink, and the temporary file is
+    created fresh (O_EXCL, random name) beside it rather than at a fixed name a
+    sandboxed command could plant.
+    """
+    if settings.parent.is_symlink() or settings.is_symlink() or not settings.is_file():
         return False
-    return done.returncode == 0
+    fd, tmp_name = tempfile.mkstemp(dir=settings.parent, prefix=".settings.local.", suffix=".tmp")
+    tmp = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(json.dumps(loaded, indent=2) + "\n")
+        os.replace(tmp, settings)
+    except OSError:
+        tmp.unlink(missing_ok=True)
+        return False
+    return True
 
 
 def drop_stale_uv_writes(root: Path, home: Path | None = None) -> list[str]:
     """Remove the old `~/.local/share/uv` write grant; report what was removed or must be.
 
-    Only from a checkout's gitignored `.claude/settings.local.json`, the one
-    file the project-root helper already maintains, and only the exact entries
-    it once added. A broader grant, or one in user-scope or committed settings,
-    is reported for the user to remove: those files are theirs, not the
-    helper's. Hooks run outside the sandbox, so every file here is readable.
+    Only from the session checkout's `.claude/settings.local.json`, the
+    per-machine file the project-root helper maintains, and only the exact
+    entries it once added. Removing them only narrows the sandbox, so a tracked
+    copy of the file is safe to rewrite too: the change shows in `git diff`.
+    No git command runs here: the repository's own config is sandbox-writable.
+    A broader grant, or one in user-scope or committed settings, is reported for
+    the user to remove: those files are theirs, not the helper's. Hooks run
+    outside the sandbox, so every file here is readable.
     """
     home = home if home is not None else Path.home()
     stale = _stale_uv_writes(home)
     messages: list[str] = []
-    for directory in _project_dirs(root):
-        local = directory / ".claude" / "settings.local.json"
-        try:
-            loaded = json.loads(local.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            loaded = None
-        writes = _list_at(loaded, "sandbox", "filesystem", "allowWrite")
-        if isinstance(loaded, dict) and any(w in stale for w in writes if isinstance(w, str)):
-            if _gitignored(directory, local):
-                loaded["sandbox"]["filesystem"]["allowWrite"] = [w for w in writes if w not in stale]
-                tmp = local.with_name(local.name + ".tmp")
-                tmp.write_text(json.dumps(loaded, indent=2) + "\n", encoding="utf-8")
-                tmp.replace(local)
-                messages.append(f"removed the ~/.local/share/uv sandbox write grant from {local}")
-            else:
-                messages.append(
-                    f"{local} grants sandbox writes to ~/.local/share/uv but is not gitignored; remove it by hand"
-                )
-        candidates = [(directory / ".claude" / "settings.json", directory)]
-        if isinstance(loaded, dict):
-            candidates.append((local, directory))
-        for settings, base in candidates:
-            messages.extend(_report_covering_grants(settings, base, home, stale))
+    directory = _checkout(root)
+    local = directory / ".claude" / "settings.local.json"
+    try:
+        loaded = None if local.is_symlink() else json.loads(local.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        loaded = None
+    writes = _list_at(loaded, "sandbox", "filesystem", "allowWrite")
+    if isinstance(loaded, dict) and any(w in stale for w in writes if isinstance(w, str)):
+        loaded["sandbox"]["filesystem"]["allowWrite"] = [w for w in writes if w not in stale]
+        if _rewrite_settings(local, loaded):
+            messages.append(f"removed the ~/.local/share/uv sandbox write grant from {local}")
+        else:
+            messages.append(
+                f"{local} grants sandbox writes to ~/.local/share/uv and could not be rewritten safely; remove it by hand"
+            )
+    for settings in (directory / ".claude" / "settings.json", local):
+        messages.extend(_report_covering_grants(settings, directory, home, stale))
     user = home / ".claude"
     for name in ("settings.json", "settings.local.json"):
         messages.extend(_report_covering_grants(user / name, user, home, frozenset()))
