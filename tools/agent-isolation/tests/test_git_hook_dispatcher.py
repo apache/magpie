@@ -1,0 +1,75 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+"""The whole-user dispatcher chains to each repository's own hook."""
+
+from __future__ import annotations
+
+import os
+import subprocess
+from pathlib import Path
+
+import pytest
+
+DISPATCHER = Path(__file__).parent.parent / "git-hook-dispatcher.sh"
+
+
+def _repo_with_local_hook(tmp_path: Path) -> tuple[Path, Path, Path]:
+    """A repository whose own pre-commit records the PREK_HOME it was given."""
+    repo = tmp_path / "repo"
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    seen = tmp_path / "seen"
+    local = repo / ".git" / "hooks" / "pre-commit"
+    local.write_text(f'#!/bin/sh\nprintf "%s" "${{PREK_HOME-<unset>}}" > {seen}\n')
+    local.chmod(0o755)
+    hooks = tmp_path / "global-hooks"
+    hooks.mkdir()
+    (hooks / "pre-commit").symlink_to(DISPATCHER)
+    return repo, hooks / "pre-commit", seen
+
+
+def _run(repo: Path, hook: Path, env_extra: dict[str, str]) -> None:
+    env = {k: v for k, v in os.environ.items() if k not in ("PREK_HOME", "SANDBOX_RUNTIME")}
+    env.update(env_extra)
+    subprocess.run(["bash", str(hook)], cwd=repo, env=env, check=True)
+
+
+@pytest.mark.parametrize("home", ["~/.cache/prek-sandbox", "{home}/.cache/prek-sandbox", "{home}/.cache/prek-sandbox/x"])
+def test_outside_the_sandbox_the_sandbox_prek_home_is_dropped(tmp_path: Path, home: str) -> None:
+    """A bypassed command keeps Claude Code's env; its hooks must not run what the sandbox wrote."""
+    repo, hook, seen = _repo_with_local_hook(tmp_path)
+    _run(repo, hook, {"PREK_HOME": home.format(home=os.environ["HOME"])})
+    assert seen.read_text() == "<unset>"
+
+
+def test_inside_the_sandbox_the_sandbox_prek_home_is_kept(tmp_path: Path) -> None:
+    repo, hook, seen = _repo_with_local_hook(tmp_path)
+    _run(repo, hook, {"PREK_HOME": "~/.cache/prek-sandbox", "SANDBOX_RUNTIME": "1"})
+    assert seen.read_text() == "~/.cache/prek-sandbox"
+
+
+def test_an_operator_prek_home_is_left_alone(tmp_path: Path) -> None:
+    repo, hook, seen = _repo_with_local_hook(tmp_path)
+    _run(repo, hook, {"PREK_HOME": "/opt/prek-home"})
+    assert seen.read_text() == "/opt/prek-home"
+
+
+def test_a_repository_without_its_own_hook_is_a_no_op(tmp_path: Path) -> None:
+    repo, hook, seen = _repo_with_local_hook(tmp_path)
+    (repo / ".git" / "hooks" / "pre-commit").unlink()
+    _run(repo, hook, {})
+    assert not seen.exists()

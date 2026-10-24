@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:ce33cb9437d44992
 license: Apache-2.0
-measured_tokens: 7242
+measured_tokens: 7314
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -254,6 +254,10 @@ Walk each in order:
       reference) and `permissions.deny` carries `Edit(~/.cache/prek/**)`; a
       sandboxed write probe into `~/.cache/prek` fails. Either missing is ✗: a
       terminal's git hooks run prek's environments there, outside the sandbox.
+      Per-project scope (no whole-user dispatcher, check 8) is ⚠: the dispatcher
+      is what drops the sandbox `PREK_HOME` from a commit Claude runs outside the
+      sandbox, so without it such a commit's hooks run the sandbox's own
+      environments; tell the operator not to bypass the sandbox for commits.
 
     [Why](../../../../docs/setup/secure-agent-setup.md#host-only-uv-state).
 

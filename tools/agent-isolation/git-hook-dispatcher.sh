@@ -94,6 +94,22 @@ run_framework() {
   esac
 }
 
+# --- prek's home outside the sandbox --------------------------------------
+# Claude Code's settings point sandboxed prek at a home of its own,
+# ~/.cache/prek-sandbox, which sandboxed commands can write. The same `env`
+# also reaches a command Claude runs outside the sandbox (an approved bypass,
+# often a signed commit), whose hooks would then run environments the sandbox
+# wrote. Outside the sandbox (no SANDBOX_RUNTIME) that home is dropped, so prek
+# falls back to ~/.cache/prek, which the sandbox cannot write. Sandboxed code
+# that unsets SANDBOX_RUNTIME only makes its own prek fail to write there.
+if [ -z "${SANDBOX_RUNTIME:-}" ]; then
+  case "${PREK_HOME:-}" in
+    "~/.cache/prek-sandbox"|"~/.cache/prek-sandbox/"*|"$HOME/.cache/prek-sandbox"|"$HOME/.cache/prek-sandbox/"*)
+      unset PREK_HOME
+      ;;
+  esac
+fi
+
 # --- resolve the repo-local hook (worktree-safe) ---------------------------
 common="$(git rev-parse --git-common-dir 2>/dev/null || echo .git)"
 case "$common" in
