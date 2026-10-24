@@ -1028,7 +1028,7 @@ cache-dir = "/home/<you>/.local/share/uv-host/cache"
 ```
 
 uv silently skips a user config it cannot read, so the sandbox side needs nothing else.
-Keep the host cache outside every `allowWrite` entry and working directory of every project — `~/.cache/` is granted to all of them, which is why it does not live there — and never point it at a project.
+Keep the host cache outside every directory a sandboxed command can write, in every project: each `allowWrite` and `additionalDirectories` entry, each project root, and the roots the sandbox writes without a grant (`/tmp`, `/private/tmp`, `/var/folders`, `$TMPDIR`). `~/.cache/` is granted to all projects, which is why it does not live there.
 `Edit(~/.config/uv/**)` keeps the agent's own file tools off the config.
 
 **After switching, reinstall what the host executes** from a terminal, since anything the sandbox could write before may already have been changed:
@@ -3336,7 +3336,9 @@ Then walk through:
 
 6. **Host-only uv state.** Read `~/.config/uv/uv.toml` if it
    exists. Unless it already sets a `cache-dir` outside every
-   `allowWrite` entry and working directory, stage the file with
+   directory a sandboxed command can write (`allowWrite` and
+   working directories, project roots, `/tmp`, `/var/folders`,
+   `$TMPDIR`), stage the file with
    `cache-dir = "<my resolved $HOME>/.local/share/uv-host/cache"` added
    (an absolute path: uv does not expand `~` there) and give me the
    command to put it in place — `Edit(~/.config/uv/**)` keeps you from
@@ -3658,8 +3660,9 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
     directory is ✗; an unrecognised `.roborev.toml` under the hook, and a
     roborev agent hook or MCP server in the harness, are ⚠.
 18. **Host-only uv state.** `~/.config/uv/uv.toml` sets `cache-dir` to an
-    absolute path outside every `allowWrite` entry and working directory
-    (✗ when missing, relative, or under one); no scope makes
+    absolute path outside every directory a sandboxed command can write —
+    `allowWrite` and `additionalDirectories` entries, project roots, `/tmp`,
+    `/var/folders` and `$TMPDIR` (✗ when missing, relative, or overlapping one); no scope makes
     `~/.local/share/uv` or a parent writable (✗); and `permissions.deny`
     contains `Read(~/.config/uv/uv.toml)` and `Edit(~/.config/uv/**)` (✗
     when missing). Probe it: `uv cache dir` inside the sandbox prints the

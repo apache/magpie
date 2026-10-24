@@ -17,7 +17,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:6358702510d21c26
 license: Apache-2.0
-measured_tokens: 7728
+measured_tokens: 7793
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -475,7 +475,8 @@ can write:
   helper removes the write an earlier version added; propose removing any other
   by hand.
 - **The host gets its own uv cache.** Read `~/.config/uv/uv.toml`. Unless it
-  sets a `cache-dir` that is absolute and outside every writable directory,
+  sets a `cache-dir` that is absolute and, symlinks resolved, outside every
+  directory a sandboxed command can write (every `allowWrite` and `additionalDirectories` entry in any scope, every project root, and the roots the sandbox writes without a grant (`/tmp`, `/private/tmp`, `/var/folders`, `/private/var/folders`, `$TMPDIR`)),
   stage it with `cache-dir = "<resolved $HOME>/.local/share/uv-host/cache"`
   added, keeping every other setting, and give the operator the copy command:
   `Edit(~/.config/uv/**)` keeps the agent from writing it. Never `~` (uv does

@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:ce33cb9437d44992
 license: Apache-2.0
-measured_tokens: 7046
+measured_tokens: 7113
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -241,9 +241,10 @@ Walk each in order:
       `additionalDirectories` entry in any scope covers `~/.local/share/uv`
       or a parent of it.
     - **19b — the host has its own cache.** `~/.config/uv/uv.toml` sets
-      `cache-dir` to an absolute path outside every writable directory of
-      check 8's allowlists, `~/.cache` included. Missing, relative (uv does
-      not expand `~` there) or writable is ✗.
+      `cache-dir` to an absolute path, symlinks resolved, outside every
+      directory a sandboxed command can write: every `allowWrite` and `additionalDirectories` entry in any scope, every project root, and the roots the sandbox writes without a grant (`/tmp`, `/private/tmp`, `/var/folders`, `/private/var/folders`, `$TMPDIR`), `~/.cache` included. A writable root inside the
+      cache counts too. Missing, relative (uv does not expand `~` there) or
+      overlapping is ✗.
     - **19c — the sandbox cannot read it.** `permissions.deny` carries
       `Read(~/.config/uv/uv.toml)` and `Edit(~/.config/uv/**)`, and a
       sandboxed `uv cache dir` prints uv's default cache, not 19b's. Printing
