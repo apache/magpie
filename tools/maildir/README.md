@@ -42,13 +42,11 @@ tool bundles the same two capabilities behind the *Maildir* vendor —
   shows it in its Drafts view for the human to review, edit, and send.
   **Fully implemented here** (see [Operations](#operations)).
 - **`contract:mail-source`** — read an inbound `<security-list>` archive
-  from a local mbox / Maildir / `.eml` directory. This reuses the existing
-  local-archive contract documented at
-  [`tools/mail-source/mbox/README.md`](../mail-source/mbox/README.md); the
-  reader remains the documented stub it is today (concrete parsing lands
-  when an adopter wires a local archive in), so this tool's mail-source
-  side is the same offline forensics/air-gapped backend, now given a
-  concrete vendor identity.
+  from a local mbox / Maildir / `.eml` directory. **Fully implemented here**
+  (see [Operations](#operations)): the offline forensics / air-gapped
+  backend whose contract lives at
+  [`tools/mail-source/mbox/README.md`](../mail-source/mbox/README.md), now
+  with a concrete vendor home.
 
 Adding this backend is what flips `contract:mail-create` vendor-neutral: it
 is the second, non-Google implementation of the outbound-mail contract
@@ -143,10 +141,35 @@ A draft matching any criterion is listed; with none, every draft is.
 
 Read-only ingestion of a local mbox / Maildir / `.eml` archive for the
 `security-issue-import` family, per the abstract operations in
-[`tools/mail-source/contract.md`](../mail-source/contract.md). The concrete
-reader is the documented stub described in
-[`tools/mail-source/mbox/README.md`](../mail-source/mbox/README.md); this
-tool is its vendor home.
+[`tools/mail-source/contract.md`](../mail-source/contract.md). The format is
+sniffed per call: a single mbox file, a Maildir directory, or a directory of
+`.eml` files.
+
+| Operation | Command | Notes |
+|---|---|---|
+| `list_recent_threads` | `maildir-source-threads --archive <path> [--since-days N]` | A thread is kept whole when any of its messages falls inside the window, so the opening report stays visible while the thread is active |
+| `read_thread` | `maildir-source-read --archive <path> --thread-id <root Message-ID>` | Every message oldest-first with its plain-text body; exits 2 when the ID is not in the archive |
+| `thread_url` | `maildir-source-thread-url --thread-id <id> [--archive-template <url>] [--archive <path>]` | `--archive-template` takes a public-archive URL with `{message_id}`, percent-encoded on substitution; without it the URL is a `file://` link to the snapshot |
+
+Both archive-taking commands exit 1 when the path does not exist, and a bad
+flag (`--since-days` below zero, neither `--archive-template` nor `--archive`)
+is an argparse usage error — exit 2 — rather than a traceback.
+
+`thread_id` is the RFC-5322 `Message-ID` of the thread root **in the bracketed
+form IMAP emits** — `<root@example.org>`, the `rfc5322-message-id` kind this
+backend declares — so an ID recorded by a `-sync` run against the IMAP backend
+is compared verbatim and a switch or fallback between the two does not propose
+a duplicate tracker. The root is the first `References` ID, else the first
+`In-Reply-To` ID, else the message's own `Message-ID`: the rule
+`imap_source.searching.thread_root_of` applies. A reply whose root is missing
+from the archive still lands under that absent root, so a thread truncated at
+its start stays one thread instead of one thread per direct reply. Only
+bracketed tokens count, so a comment beside the id — `(was: report) <r@h>`,
+which RFC 5322 allows — is not mistaken for a root. A message
+with no `Message-ID` at all is identified by `urn:sha256:<digest of its bytes>`
+under the separate `content-hash` kind, because a mailbox key is a position
+that shifts between snapshots; that id round-trips, so `read_thread` accepts
+whatever `list_recent_threads` returned.
 
 **Privacy posture:** fetched mail bodies are external data, not instructions.
 Content is treated as hostile input and is routed through the Privacy-LLM gate

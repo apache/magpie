@@ -31,6 +31,9 @@ dependencies = []
 [project.scripts]
 maildir-draft-create = "maildir_draft.create_draft:main"
 maildir-draft-find = "maildir_draft.find_drafts:main"
+maildir-source-threads = "maildir_draft.read_archive:threads_main"
+maildir-source-read = "maildir_draft.read_archive:read_main"
+maildir-source-thread-url = "maildir_draft.read_archive:url_main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/maildir_draft"]
