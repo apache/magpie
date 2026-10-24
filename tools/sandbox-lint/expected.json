@@ -29,8 +29,7 @@
         "/run/user/*/gnupg/"
       ],
       "allowWrite": [
-        "~/.cache/",
-        "~/.local/share/uv/"
+        "~/.cache/"
       ]
     },
     "network": {
@@ -140,6 +139,7 @@
       "Read(~/.config/apache-magpie/**)",
       "Edit(~/.config/apache-magpie/local-tracker-parsers.json)",
       "Read(~/.config/gcloud/**)",
+      "Read(~/.config/uv/uv.toml)",
       "Read(~/.azure/**)",
       "Read(//**/.env)",
       "Read(//**/.env.local)",
@@ -151,6 +151,7 @@
       "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
       "Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
       "Edit(~/.claude/magpie/**)",
+      "Edit(~/.config/uv/**)",
       "Edit(~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/**)",
       "Edit(~/.claude/scripts/**)",
       "Bash(curl *)",

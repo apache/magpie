@@ -15,9 +15,9 @@ when_to_use: >-
   If it is already installed, use `setup-isolated-setup-verify` to check
   it or `setup-isolated-setup-update` to refresh it.
 capability: capability:platform
-surface_hash: sha256:fe5f2a0f66586cb2
+surface_hash: sha256:6358702510d21c26
 license: Apache-2.0
-measured_tokens: 7337
+measured_tokens: 7728
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -462,6 +462,33 @@ check three things:
 
 Rationale and the rules in full:
 [`docs/setup/secure-agent-setup.md` → Working directories under the read-outside-working-directories block](../../../../docs/setup/secure-agent-setup.md#working-directories-under-the-read-outside-working-directories-block).
+
+### Step U — Host-only uv state
+
+The excluded `uvx` / `uv run` commands, MCP servers launched with `uv`, hooks
+that call `python3` and the operator's own terminal all run uv-managed code
+outside the sandbox. None of it may come from a directory a sandboxed command
+can write:
+
+- **`~/.local/share/uv` is read-only to the sandbox.** No scope may list it,
+  or a parent of it, in `allowWrite` or `additionalDirectories`. The Step P
+  helper removes the write an earlier version added; propose removing any other
+  by hand.
+- **The host gets its own uv cache.** Read `~/.config/uv/uv.toml`. Unless it
+  sets a `cache-dir` that is absolute and outside every writable directory,
+  stage it with `cache-dir = "<resolved $HOME>/.local/share/uv-host/cache"`
+  added, keeping every other setting, and give the operator the copy command:
+  `Edit(~/.config/uv/**)` keeps the agent from writing it. Never `~` (uv does
+  not expand it there) and never a relative path.
+- **The sandbox cannot read that file.** `permissions.deny` carries
+  `Read(~/.config/uv/uv.toml)` and `Edit(~/.config/uv/**)` (both in the
+  framework's `.claude/settings.json`, so Step 2's copy brings them). Sandboxed
+  uv then keeps its default, writable cache.
+
+Then hand the operator the reinstall commands from the doc to run in a
+terminal: interpreters and tools the sandbox could write before may already
+have been changed. Rationale and commands:
+[`docs/setup/secure-agent-setup.md` → Host-only uv state](../../../../docs/setup/secure-agent-setup.md#host-only-uv-state).
 
 ### Step T — Local agent settings
 

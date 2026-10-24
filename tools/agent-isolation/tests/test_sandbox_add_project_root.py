@@ -170,7 +170,8 @@ def _tool_reads(home: Path) -> list[str]:
 
 
 def _tool_writes(home: Path) -> list[str]:
-    return [str(home / p) for p in (".cache", ".local/share/uv")]
+    # Never ~/.local/share/uv: its interpreters and tool venvs run outside the sandbox.
+    return [str(home / ".cache")]
 
 
 class TestToolPaths:
@@ -217,6 +218,27 @@ class TestToolPaths:
         assert data["allowRead"].count(cache) == 1
         assert data["allowWrite"].count(cache) == 1
         assert data["allowRead"][0] == cache  # existing entries keep their place
+
+    def test_removes_the_uv_data_dir_write_an_earlier_version_added(self, tmp_path: Path) -> None:
+        """Hooks, MCP servers and excluded uv commands run its interpreters unsandboxed."""
+        repo = _make_git_repo(tmp_path)
+        home = tmp_path / "home"
+        uv = str(home / ".local" / "share" / "uv")
+        stale = [uv, uv + "/", "~/.local/share/uv", "~/.local/share/uv/"]
+        _seed_settings(repo, {"sandbox": {"filesystem": {"allowRead": [uv], "allowWrite": ["/opt/data", *stale]}}})
+        _run(repo, extra_env={"HOME": str(home)})
+        data = _load(repo / ".claude" / "settings.local.json")["sandbox"]["filesystem"]
+        assert not set(stale) & set(data["allowWrite"])
+        assert "/opt/data" in data["allowWrite"]
+        assert uv in data["allowRead"]  # reading it stays allowed
+
+    def test_removes_the_uv_data_dir_write_even_without_tool_paths(self, tmp_path: Path) -> None:
+        repo = _make_git_repo(tmp_path)
+        home = tmp_path / "home"
+        uv = str(home / ".local" / "share" / "uv")
+        _seed_settings(repo, {"sandbox": {"filesystem": {"allowWrite": [uv]}}})
+        _run(repo, args=["--no-tool-paths"], extra_env={"HOME": str(home)})
+        assert uv not in _load(repo / ".claude" / "settings.local.json")["sandbox"]["filesystem"]["allowWrite"]
 
     def test_no_tool_paths_flag_adds_project_root_only(self, tmp_path: Path) -> None:
         repo = _make_git_repo(tmp_path)

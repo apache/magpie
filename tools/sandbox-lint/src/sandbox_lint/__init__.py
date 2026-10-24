@@ -171,6 +171,12 @@ REQUIRED_PERMISSIONS_DENY = {
     # tools must not be able to write one.
     "Edit(~/.config/apache-magpie/local-tracker-parsers.json)",
     "Read(~/.config/gcloud/**)",
+    # The host-only uv config: it moves the cache uv uses outside the sandbox
+    # (hooks, MCP servers, the excluded uvx / uv run commands) to a directory
+    # the sandbox cannot write. Unreadable inside the sandbox, so sandboxed uv
+    # keeps its own writable default cache; never editable by the agent.
+    "Read(~/.config/uv/uv.toml)",
+    "Edit(~/.config/uv/**)",
     "Read(~/.azure/**)",
     "Read(//**/.env)",
     "Read(//**/.env.local)",
@@ -588,6 +594,28 @@ def check_invariants(settings: dict[str, Any], project_root: Path | None = None)
                 "and its commands run outside the sandbox; remove it (sandbox-add-project-root.sh "
                 "removes the ~/.claude/magpie entry it once added; remove any other by hand)"
             )
+
+    # uv's interpreters, tool venvs and credentials, which uv runs outside the
+    # sandbox for hooks, MCP servers and the excluded uvx / uv run commands: a
+    # sandboxed command able to write there plants code that runs unsandboxed.
+    uv_data_dir = os.path.normpath(os.path.expanduser("~/.local/share/uv"))
+    for key, entries in (
+        (
+            "sandbox.filesystem.allowWrite",
+            (fs_settings.get("allowWrite", []) or []) if isinstance(fs_settings, dict) else [],
+        ),
+        ("permissions.additionalDirectories", work_dirs),
+    ):
+        for entry in entries:
+            expanded = _expand(entry, project_root) if isinstance(entry, str) else None
+            if expanded is not None and (
+                _is_writable(uv_data_dir, (expanded,)) or _is_writable(expanded, (uv_data_dir,))
+            ):
+                errors.append(
+                    f"{key}: {entry!r} makes ~/.local/share/uv writable, and the interpreters and tools "
+                    "under it run outside the sandbox; keep it in allowRead only "
+                    "(sandbox-add-project-root.sh removes the write it once added)"
+                )
 
     # Same matching as a Bash allow rule (see `permissions.allow` below): a `*`
     # before the end also matches options spliced in at that position, and an

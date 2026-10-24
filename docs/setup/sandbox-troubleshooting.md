@@ -52,15 +52,19 @@
     - [Root cause](#root-cause-8)
     - [Fix](#fix-8)
     - [Notes](#notes-8)
-  - [Git hooks silently skipped for commits made inside the sandbox](#git-hooks-silently-skipped-for-commits-made-inside-the-sandbox)
+  - [`uv python install` or `uv tool install` fails inside the sandbox](#uv-python-install-or-uv-tool-install-fails-inside-the-sandbox)
     - [Symptom](#symptom-9)
     - [Root cause](#root-cause-9)
     - [Fix](#fix-9)
-    - [Notes](#notes-9)
-  - [Reads of `~/.claude/magpie` or `/tmp/claude-<uid>` ask for approval every time](#reads-of-claudemagpie-or-tmpclaude-uid-ask-for-approval-every-time)
+  - [Git hooks silently skipped for commits made inside the sandbox](#git-hooks-silently-skipped-for-commits-made-inside-the-sandbox)
     - [Symptom](#symptom-10)
     - [Root cause](#root-cause-10)
     - [Fix](#fix-10)
+    - [Notes](#notes-9)
+  - [Reads of `~/.claude/magpie` or `/tmp/claude-<uid>` ask for approval every time](#reads-of-claudemagpie-or-tmpclaude-uid-ask-for-approval-every-time)
+    - [Symptom](#symptom-11)
+    - [Root cause](#root-cause-11)
+    - [Fix](#fix-11)
     - [Notes](#notes-10)
   - [Adding a new entry](#adding-a-new-entry)
 
@@ -1030,7 +1034,7 @@ failure on `~/.gitconfig`.
 Claude Code filesystem allowlist. The framework's committed
 `.claude/settings.json` lists `~/.local/bin/`, `~/.local/share/uv/`,
 `~/.cache/`, `~/.gitconfig` and `~/.config/git/` under
-`sandbox.filesystem.allowRead` (and the first three writable under
+`sandbox.filesystem.allowRead` (and `~/.cache/` writable under
 `allowWrite`), carving them out of `denyRead: ["~/"]`. The harness
 does not apply those project-scope entries: the effective sandbox
 denies every one of them, while the same kind of entry in
@@ -1066,8 +1070,8 @@ project root it already adds:
       ],
       "allowWrite": [
         "/home/<you>/code/<repo>",
-        "/home/<you>/.cache",
-        "/home/<you>/.local/share/uv"
+        "/home/<you>/.cache"
+        // never ~/.local/share/uv: see the next entry
       ]
     }
   }
@@ -1093,6 +1097,38 @@ Confirm with `prek --version`, or with the doctor skill's
 - Do not reach for `dangerouslyDisableSandbox: true` to run `prek`:
   its hooks execute code from the working tree, and the sandbox is
   what keeps a compromised hook away from the rest of `$HOME`.
+
+---
+
+## `uv python install` or `uv tool install` fails inside the sandbox
+
+### Symptom
+
+A sandboxed `uv python install`, `uv tool install`, or a `uv run` / `prek
+run` that needs an interpreter not installed yet, fails writing under
+`~/.local/share/uv/` with `Operation not permitted` (macOS) or
+`Read-only file system` (Linux). Commands that use an interpreter or tool
+already installed keep working.
+
+### Root cause
+
+Deliberate. `~/.local/share/uv/` holds the interpreters and tool venvs that
+hooks, MCP servers, the excluded `uvx` / `uv run` commands and your own
+terminal run outside the sandbox, so the sandbox may read it but not write
+it ([Host-only uv state](secure-agent-setup.md#host-only-uv-state)). Older
+versions of `sandbox-add-project-root.sh` granted the write; the current one
+removes it.
+
+### Fix
+
+Run the install from a terminal, outside the sandbox:
+
+```bash
+uv python install 3.13
+uv tool install prek
+```
+
+Do not add `~/.local/share/uv` back to `allowWrite`: `sandbox-lint` rejects it.
 
 ---
 

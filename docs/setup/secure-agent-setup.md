@@ -17,6 +17,7 @@
     - [Wiring the check script into a weekly routine](#wiring-the-check-script-into-a-weekly-routine)
   - [The framework's own `.claude/settings.json`](#the-frameworks-own-claudesettingsjson)
   - [Read-only vetted ops never prompt](#read-only-vetted-ops-never-prompt)
+  - [Host-only uv state](#host-only-uv-state)
   - [Project-root coverage in the sandbox allowlists](#project-root-coverage-in-the-sandbox-allowlists)
     - [Why project-local, not user-scope and not committed-project](#why-project-local-not-user-scope-and-not-committed-project)
     - [Security rationale — why project-local is safe to write to](#security-rationale--why-project-local-is-safe-to-write-to)
@@ -555,8 +556,8 @@ The full block below is the two merged, annotated.
         "~/.ssh/id_ed25519_sk.pub"    // ONLY with `gpg.format=ssh`: the public half git hands to `ssh-keygen -Y sign`. Use the file `git config user.signingkey` names (see sandbox-troubleshooting.md)
       ],
       "allowWrite": [
-        "~/.cache/",                  // uv lock files, prek log + state, ruff/mypy caches, prek's rustup toolchains + cargo registry
-        "~/.local/share/uv/"          // uv's tool venvs (prek installs new hook envs here)
+        "~/.cache/"                   // uv's sandbox-only cache, prek log + state, ruff/mypy caches, prek's rustup toolchains + cargo registry
+        // never ~/.local/share/uv/: readable only — its interpreters and tool venvs run outside the sandbox (see "Host-only uv state")
       ]
     },
     "network": {
@@ -708,6 +709,8 @@ The full block below is the two merged, annotated.
       "Read(~/.config/apache-magpie/**)",      // Gmail OAuth token: only the oauth-draft MCP server reads it, outside the sandbox
       "Edit(~/.config/apache-magpie/local-tracker-parsers.json)", // the user's custom-parser confirmations: only `trust-parser`, run by the user, writes them
       "Read(~/.config/gcloud/**)", "Read(~/.azure/**)",
+      "Read(~/.config/uv/uv.toml)",             // the host-only uv cache-dir: unreadable inside the sandbox, so sandboxed uv keeps its own cache (see "Host-only uv state")
+      "Edit(~/.config/uv/**)",
       "Read(//**/.env)", "Read(//**/.env.local)", "Read(//**/.env.*.local)",
       "Bash(curl *)", "Bash(wget *)",           // network egress via Bash bypasses the sandbox proxy
       "Bash(aws *)", "Bash(gcloud *)", "Bash(az *)", "Bash(kubectl *)",
@@ -999,6 +1002,46 @@ An agent definition that narrows its tools, such as a read-only gatherer's `tool
 
 The imperative covers the read dispatcher only.
 `vetted-op-tracker` and `vetted-op` write: they keep their `ask` rule and never go in `allow` ([why](#the-frameworks-own-claudesettingsjson)), so a skill runs them from the foreground session, never from a background agent.
+
+## Host-only uv state
+
+Several things run Python through uv **outside** the sandbox: the excluded `uvx --from ~/.claude/magpie/… ` and `uv run --project ~/.claude/magpie/…` commands (`vetted-op-read` among them, with no prompt at all), MCP servers launched with `uv`, hooks that call `python3`, and every `uv` / `prek` you run from a terminal.
+Whatever they execute must live where a sandboxed command cannot write, or any sandboxed command — which runs without a prompt — can plant code that runs unsandboxed the next time one of them starts.
+Two places used to break that rule:
+
+- **`~/.local/share/uv/`** holds uv's managed interpreters (often what `python3` on `PATH` resolves to), its tool venvs (`prek`, `ruff`) and its credentials store.
+  It stays in `allowRead`, so sandboxed uv can still use the interpreters already installed, but it is never in `allowWrite`.
+  The cost: a sandboxed `uv python install` or `uv tool install` fails; run those from a terminal.
+- **`~/.cache/uv/`** is the cache `uvx` runs from: `uvx --from <path> <cmd>` executes the unpacked package straight out of `archive-v0/`.
+  Sandboxed uv needs a writable cache, and Claude Code has no environment that applies only inside the sandbox, so the split goes through a file the sandbox cannot read.
+
+The user-level uv config gives the host its own cache, and `Read(~/.config/uv/uv.toml)` hides it from the sandbox:
+
+```toml
+# ~/.config/uv/uv.toml — written by setup-isolated-setup-install (Step U).
+# Host-only uv state. The sandbox is denied reading this file, so sandboxed uv
+# keeps its default, sandbox-writable cache (~/.cache/uv); everything uv runs
+# outside the sandbox uses a cache no sandboxed command can write.
+# Absolute path: uv does not expand `~` here, and a relative path would land in
+# the working directory.
+cache-dir = "/home/<you>/.local/share/uv-host/cache"
+```
+
+uv silently skips a user config it cannot read, so the sandbox side needs nothing else.
+Keep the host cache outside every `allowWrite` entry and working directory of every project — `~/.cache/` is granted to all of them, which is why it does not live there — and never point it at a project.
+`Edit(~/.config/uv/**)` keeps the agent's own file tools off the config.
+
+**After switching, reinstall what the host executes** from a terminal, since anything the sandbox could write before may already have been changed:
+
+```bash
+d="$(uv python dir)"
+uv python install --reinstall $(uv python list --only-installed --output-format json \
+  | jq -r --arg d "$d" '.[] | select(.path != null and (.path | startswith($d))) | .version' | sort -u)
+uv tool upgrade --all --reinstall
+```
+
+The old `~/.cache/uv/` stays as the sandbox's cache; the host never reads it again.
+`sandbox-lint` fails a settings file that makes `~/.local/share/uv` writable or lacks the two `~/.config/uv` deny rules; `setup-isolated-setup-verify` checks the config file itself.
 
 ## Project-root coverage in the sandbox allowlists
 
@@ -3291,7 +3334,20 @@ Then walk through:
    them to the project-local `settings.local.json` instead. See
    [Working directories under the read-outside-working-directories block](#working-directories-under-the-read-outside-working-directories-block).
 
-6. **(Optional) Waiting-for-input terminal tint.** Ask me whether
+6. **Host-only uv state.** Read `~/.config/uv/uv.toml` if it
+   exists. Unless it already sets a `cache-dir` outside every
+   `allowWrite` entry and working directory, stage the file with
+   `cache-dir = "<my resolved $HOME>/.local/share/uv-host/cache"` added
+   (an absolute path: uv does not expand `~` there) and give me the
+   command to put it in place — `Edit(~/.config/uv/**)` keeps you from
+   writing it, and an existing file's other settings must survive.
+   Confirm no settings scope lists `~/.local/share/uv` (or a parent) in
+   `allowWrite` and that `Read(~/.config/uv/uv.toml)` and
+   `Edit(~/.config/uv/**)` are in `permissions.deny`. Then hand me the
+   reinstall commands from
+   [Host-only uv state](#host-only-uv-state) to run in a terminal.
+
+7. **(Optional) Waiting-for-input terminal tint.** Ask me whether
    I want the terminal background to tint while Claude is waiting
    on me (a pure quality-of-life signal, no security effect).
    **Default no.** Only if I say yes: copy
@@ -3309,7 +3365,7 @@ Then walk through:
    default. See
    [Waiting-for-input terminal tint](#waiting-for-input-terminal-tint).
 
-7. **(Optional) Hardware security key.** Ask whether I sign
+8. **(Optional) Hardware security key.** Ask whether I sign
    commits or authenticate to GitHub with a hardware key (YubiKey,
    Nitrokey, any OpenPGP card). **Default no.** Only if I say yes:
    hand me `ykman openpgp info` to run myself and read back the
@@ -3341,7 +3397,7 @@ Then walk through:
    sandboxed signed commit fails with `cannot exec`. See
    [Hardware security keys](#hardware-security-keys--signing-and-authentication).
 
-8. **(Optional) roborev.** Only if `command -v roborev` finds it
+9. **(Optional) roborev.** Only if `command -v roborev` finds it
    (a third-party companion; skip otherwise). Add
    `"roborev *"` to `sandbox.excludedCommands`, `Bash(roborev *)` to
    `permissions.ask` with **no** `allow` for any roborev command, and
@@ -3351,12 +3407,12 @@ Then walk through:
    macOS (Linux ignores `allowUnixSockets`), offer the setup skill's Step B.2 (a fixed `unix://` daemon socket and
    `~/.roborev/` readable — never writable — from the sandbox), and tell
    me any sandboxed command can then drive roborev without the prompt.
-9. **Verify.** After everything is in place, walk through the
+10. **Verify.** After everything is in place, walk through the
    Verification checks from the next section of this document
    ("Verification — Via a Claude Code prompt") and report
    ✓ done / ✗ missing / ⚠ partial for each piece.
 
-10. **Offer shared-config sync.** Once the install lands, propose
+11. **Offer shared-config sync.** Once the install lands, propose
    running `setup-shared-config-sync` to commit + push the
    user-scope config this install just wired up to my private
    `~/.claude-config` dotfile repo, so my other machines pick it
@@ -3601,6 +3657,14 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
     roborev `post-commit` in a shared whole-user hooks
     directory is ✗; an unrecognised `.roborev.toml` under the hook, and a
     roborev agent hook or MCP server in the harness, are ⚠.
+18. **Host-only uv state.** `~/.config/uv/uv.toml` sets `cache-dir` to an
+    absolute path outside every `allowWrite` entry and working directory
+    (✗ when missing, relative, or under one); no scope makes
+    `~/.local/share/uv` or a parent writable (✗); and `permissions.deny`
+    contains `Read(~/.config/uv/uv.toml)` and `Edit(~/.config/uv/**)` (✗
+    when missing). Probe it: `uv cache dir` inside the sandbox prints the
+    default cache, not the configured one (✗ if it prints the host cache —
+    the sandbox can read the config).
 ```
 
 Re-run either form after every Claude Code upgrade — the sandbox

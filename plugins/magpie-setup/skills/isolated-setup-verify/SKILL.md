@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:ce33cb9437d44992
 license: Apache-2.0
-measured_tokens: 6662
+measured_tokens: 7046
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -231,6 +231,26 @@ Walk each in order:
     a local value that overrides one the committed file sets (such as
     `sandbox.enabled`) is ✗.
 
+19. **Host-only uv state.** Only when the sandbox is enabled; otherwise **n/a**.
+    Hooks, MCP servers, the excluded `uvx` / `uv run` commands and the
+    operator's terminal run uv-managed code outside the sandbox, so none of
+    it may come from a directory a sandboxed command can write. Three
+    sub-checks, each ✓ or ✗:
+
+    - **19a — the uv data dir is read-only.** No `allowWrite` or
+      `additionalDirectories` entry in any scope covers `~/.local/share/uv`
+      or a parent of it.
+    - **19b — the host has its own cache.** `~/.config/uv/uv.toml` sets
+      `cache-dir` to an absolute path outside every writable directory of
+      check 8's allowlists, `~/.cache` included. Missing, relative (uv does
+      not expand `~` there) or writable is ✗.
+    - **19c — the sandbox cannot read it.** `permissions.deny` carries
+      `Read(~/.config/uv/uv.toml)` and `Edit(~/.config/uv/**)`, and a
+      sandboxed `uv cache dir` prints uv's default cache, not 19b's. Printing
+      19b's path is ✗: the sandbox reads the config and writes the host cache.
+
+    [Why](../../../../docs/setup/secure-agent-setup.md#host-only-uv-state).
+
 ## After the report
 
 If every check is ✓, say so explicitly and stop; no further suggestion is needed.
@@ -252,6 +272,7 @@ If anything is ✗ or ⚠, suggest the matching follow-up skill without invoking
 - ✗ on check 12c (project `env` or `allowUnixSockets` half missing) → `setup-isolated-setup-install` Step L, to propose the missing block as a settings diff for the operator to approve.
 - ✗ on check 12d (a raw daemon socket in `allowUnixSockets`) → the operator removes that entry themselves (settings.json changes are never applied from a skill) and, if they need the daemon reachable, follows Step L instead; then re-run `setup-isolated-setup-verify`.
 - ⚠ on check 17a, 17b or 17c, or ✗ on 17b, 17c, 17d or 17e → the operator edits settings themselves (settings.json changes are never applied from a skill): copy the rules from step B of `setup-isolated-setup-install`, remove every `roborev` `allow`, and for 17c remove any `allowWrite` on `~/.roborev/`, then on macOS finish step B.2 (the `unix://` `server_addr` and its `allowUnixSockets` entry) or remove its `allowRead`, and on Linux remove the `allowRead` and run `roborev review` explicitly instead; then re-run `setup-isolated-setup-verify`. ⚠ on 17f → show the operator `.roborev.toml` and its history and leave the decision to them. ✗ on 17f (roborev's hook in a shared whole-user hooks directory) → name the hook; the operator restores the Step P dispatcher there (`setup-isolated-setup-install` Step P) and moves roborev's hook into the repository's own `$(git rev-parse --git-common-dir)/hooks/post-commit`, never with `--force`; then re-run `setup-isolated-setup-verify`. ⚠ on 17g → name the hook or MCP entry and what it bypasses; removing it is the operator's call.
+- ✗ on check 19 → `setup-isolated-setup-install` Step U, which stages the `~/.config/uv/uv.toml` change and proposes the settings edits; the operator applies them and runs the reinstall commands from a terminal, then re-run `setup-isolated-setup-verify`.
 - ⚠ or ✗ on check 18 → `setup upgrade`, whose local-settings reconciliation stages the merged `.claude/settings.local.json` for the operator to copy; a ✗ override is the operator's to remove.
 - ⚠ on check 15 (a working directory missing, or covered only by a glob) → re-run `~/.claude/scripts/sandbox-add-project-root.sh --all-worktrees`, which writes the resolved paths to each worktree's `settings.local.json` (or re-run `setup-isolated-setup-install` if the helper is not installed); `/add-dir <path>` covers the current session meanwhile.
 - ✗ on check 16 → `setup-isolated-setup-install` Step V.1, which proposes the exact settings edit for each failing sub-check; the operator applies it (never this skill), then re-run `setup-isolated-setup-verify`.

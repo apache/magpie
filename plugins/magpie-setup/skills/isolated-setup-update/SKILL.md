@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:1f327e069312dad2
 license: Apache-2.0
-measured_tokens: 6254
+measured_tokens: 6446
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -168,6 +168,9 @@ Walk each:
      Together they let any sandboxed command, which runs without a prompt, use the user's Gmail OAuth token.
      Report their *presence* in any scope as a **must-fix**, not dead weight, and propose removing all three; keep the `Read(~/.config/apache-magpie/**)` deny.
      Drafting keeps working through the `oauth-draft` MCP server, which runs outside the sandbox; the `oauth-draft-*` CLIs need an approved run or a per-machine absolute-path exclusion ([`docs/setup/secure-agent-setup.md` → The framework's own `.claude/settings.json`](../../../../docs/setup/secure-agent-setup.md#the-frameworks-own-claudesettingsjson)).
+   - **`~/.local/share/uv` writable, or no host-only uv cache.**
+     Earlier defaults put `~/.local/share/uv/` in `allowWrite`, where the interpreters and tool venvs that hooks, MCP servers and the excluded `uvx` / `uv run` commands run outside the sandbox live; and `uvx` ran from the shared, sandbox-writable `~/.cache/uv`.
+     Report a write grant covering `~/.local/share/uv`, a `~/.config/uv/uv.toml` without an absolute host `cache-dir`, or a missing `Read(~/.config/uv/uv.toml)` / `Edit(~/.config/uv/**)` deny as a **must-fix**; the remedy is `setup-isolated-setup-install` Step U ([Host-only uv state](../../../../docs/setup/secure-agent-setup.md#host-only-uv-state)).
    - **`enableWeakerNetworkIsolation: true`.**
      It is not there for lychee, which runs offline.
      It lets native-TLS CLI tools verify TLS through the sandbox's TLS-terminating proxy — the mechanism the schema notes for `gh` / `gcloud` / `terraform`.

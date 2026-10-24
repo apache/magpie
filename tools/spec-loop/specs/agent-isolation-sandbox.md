@@ -202,8 +202,10 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
 - `tools/agent-isolation/sandbox-add-project-root.sh` — writes the
   worktree's absolute path, and the absolute dev-tool paths `prek` and
   `uv` need (`~/.gitconfig`, `~/.config/git`, `~/.cache`,
-  `~/.local/share/uv`, `~/.local/bin`; the cache and uv dirs also
-  writable), into each worktree's gitignored
+  `~/.local/share/uv`, `~/.local/bin`; only the cache also writable,
+  and it removes a `~/.local/share/uv` write an earlier version added,
+  because uv's interpreters and tool venvs there run outside the
+  sandbox), into each worktree's gitignored
   `.claude/settings.local.json`. The harness drops the committed
   project-scope `sandbox.filesystem` allow entries (issue #197), so the
   local file is where they take effect. It never adds the credential

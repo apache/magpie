@@ -853,3 +853,39 @@ def test_cli_rejects_a_decoy_daemon_socket_using_the_inferred_project_root(
     _write_json(expected_path, baseline)
     rc = main(["--settings", str(settings_path), "--expected", str(expected_path)])
     assert rc == 1
+
+
+@pytest.mark.parametrize(
+    ("key", "entry"),
+    [
+        ("allowWrite", "~/.local/share/uv/"),
+        ("allowWrite", "~/.local/share/uv/python"),
+        ("allowWrite", "~/.local/"),
+        ("additionalDirectories", "~/.local/share/uv"),
+    ],
+)
+def test_invariant_rejects_a_writable_uv_data_dir(baseline: dict[str, Any], key: str, entry: str) -> None:
+    """Its interpreters and tool venvs run outside the sandbox (hooks, MCP servers, excluded uv commands)."""
+    settings = copy.deepcopy(baseline)
+    if key == "allowWrite":
+        fs = settings["sandbox"]["filesystem"]
+        fs["allowRead"].append(entry)
+        fs["allowWrite"].append(entry)
+    else:
+        settings["permissions"]["additionalDirectories"] = [entry]
+    errors = check_invariants(settings)
+    assert any("makes ~/.local/share/uv writable" in e for e in errors), errors
+
+
+def test_reading_the_uv_data_dir_stays_allowed(baseline: dict[str, Any]) -> None:
+    assert "~/.local/share/uv/" in baseline["sandbox"]["filesystem"]["allowRead"]
+    assert "~/.local/share/uv/" not in baseline["sandbox"]["filesystem"]["allowWrite"]
+    assert check_invariants(baseline) == []
+
+
+@pytest.mark.parametrize("required", ["Read(~/.config/uv/uv.toml)", "Edit(~/.config/uv/**)"])
+def test_invariant_requires_the_host_uv_config_denies(baseline: dict[str, Any], required: str) -> None:
+    settings = copy.deepcopy(baseline)
+    settings["permissions"]["deny"].remove(required)
+    errors = check_invariants(settings)
+    assert f"permissions.deny: must contain {required!r}" in errors

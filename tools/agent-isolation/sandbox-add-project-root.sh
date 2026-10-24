@@ -40,7 +40,15 @@
 # paths under `$HOME`:
 #   allowRead:  ~/.gitconfig  ~/.config/git  ~/.cache
 #               ~/.local/share/uv  ~/.local/bin
-#   allowWrite: ~/.cache  ~/.local/share/uv
+#   allowWrite: ~/.cache
+# `~/.local/share/uv` is readable, never writable, and the helper removes
+# the write an earlier version added: it holds the uv-managed interpreters
+# and tool venvs that hooks, MCP servers and the excluded `uvx` / `uv run`
+# commands execute outside the sandbox, so a sandboxed command able to
+# write there could plant code that runs unsandboxed. uv's cache is the
+# same problem, solved differently: the host reads a `cache-dir` from
+# `~/.config/uv/uv.toml`, which the sandbox is denied reading (see
+# docs/setup/secure-agent-setup.md, "Host-only uv state").
 # The set is deliberately NOT a mirror of the committed `allowRead`:
 # that list also carries credential paths (`~/.config/gh/`,
 # `~/.config/apache-magpie/`, `~/.gnupg/`), and re-opening them to
@@ -226,7 +234,7 @@ tool_writes='[]'
 if [ "$tool_paths" -eq 1 ] && [ -n "${HOME:-}" ]; then
   tool_reads=$(jq -cn --arg h "$HOME" \
     '[$h + "/.gitconfig", $h + "/.config/git", $h + "/.cache", $h + "/.local/share/uv", $h + "/.local/bin"]')
-  tool_writes=$(jq -cn --arg h "$HOME" '[$h + "/.cache", $h + "/.local/share/uv"]')
+  tool_writes=$(jq -cn --arg h "$HOME" '[$h + "/.cache"]')
 fi
 
 # --- working directories ----------------------------------------------------
@@ -239,8 +247,10 @@ if [ "$working_dirs" -eq 1 ] && [ -n "${HOME:-}" ]; then
 fi
 # Entries an earlier version added and that must go (see the header).
 stale_dirs='[]'
+stale_writes='[]'
 if [ -n "${HOME:-}" ]; then
   stale_dirs=$(jq -cn --arg h "$HOME" '[$h + "/.claude/magpie", $h + "/.claude/magpie/", "~/.claude/magpie", "~/.claude/magpie/"]')
+  stale_writes=$(jq -cn --arg h "$HOME" '[$h + "/.local/share/uv", $h + "/.local/share/uv/", "~/.local/share/uv", "~/.local/share/uv/"]')
 fi
 
 # --- update a single project-local settings file ----------------------------
@@ -251,7 +261,8 @@ fi
 # and `.sandbox.filesystem.allowWrite` of <file>, along with the dev-tool
 # paths (`$tool_reads` / `$tool_writes`), and that the working directories
 # (`$work_dirs`) appear in `.permissions.additionalDirectories` and the
-# stale ones (`$stale_dirs`) do not. Atomic write.
+# stale ones (`$stale_dirs`) do not, and that no stale write
+# (`$stale_writes`) is left in `.sandbox.filesystem.allowWrite`. Atomic write.
 # Creates <file> + parent dir if missing.
 update_settings() {
   local file="$1"
@@ -334,6 +345,7 @@ update_settings() {
       )
     | .sandbox.filesystem.allowWrite = (
         (.sandbox.filesystem.allowWrite // []) | add_missing([$p] + $writes)
+        | map(select(. as $w | $stale_writes | index([$w]) | not))
       )
     | if ($dirs | length) > 0 then
         .permissions.additionalDirectories = (
@@ -349,13 +361,13 @@ update_settings() {
   tmp=$(mktemp "${file}.XXXXXX")
 
   if [ "$input" = "/dev/null" ]; then
-    if ! printf '{}\n' | jq --arg p "$path" --argjson reads "$tool_reads" --argjson writes "$tool_writes" --argjson dirs "$work_dirs" --argjson stale "$stale_dirs" "$jq_prog" > "$tmp"; then
+    if ! printf '{}\n' | jq --arg p "$path" --argjson reads "$tool_reads" --argjson writes "$tool_writes" --argjson dirs "$work_dirs" --argjson stale "$stale_dirs" --argjson stale_writes "$stale_writes" "$jq_prog" > "$tmp"; then
       rm -f "$tmp"
       warn "jq update of $file failed — leaving file untouched."
       return 0
     fi
   else
-    if ! jq --arg p "$path" --argjson reads "$tool_reads" --argjson writes "$tool_writes" --argjson dirs "$work_dirs" --argjson stale "$stale_dirs" "$jq_prog" "$file" > "$tmp"; then
+    if ! jq --arg p "$path" --argjson reads "$tool_reads" --argjson writes "$tool_writes" --argjson dirs "$work_dirs" --argjson stale "$stale_dirs" --argjson stale_writes "$stale_writes" "$jq_prog" "$file" > "$tmp"; then
       rm -f "$tmp"
       warn "jq update of $file failed — leaving file untouched."
       return 0
