@@ -79,24 +79,25 @@ fi
 #
 # The hook runs outside the sandbox, so the interpreter is never `python3`
 # from PATH, which project settings can set: only fixed system and Homebrew
-# locations, then uv's managed CPython (which the reference setup keeps
-# read-only to the sandbox, apache/magpie#1785). It runs with `-I`, so no
-# PYTHON* variable, user site-packages or working directory (the project
-# being opened, which could carry its own `setup_preflight/`) reaches
-# `sys.path`; a one-line bootstrap puts the plugin's own source there.
+# locations, which no sandbox grant may cover (the container-gateway hook
+# refuses to run at all when one does). uv-managed interpreters are left out:
+# trusting them needs the gateway hook's full writable-root checks, and this
+# hook only prints a notice, so without a system Python it prints its own.
+# It runs with `-I -S`, so no PYTHON* variable, site-packages or working
+# directory (the project being opened, which could carry its own
+# `setup_preflight/`) reaches `sys.path`; a one-line bootstrap puts the
+# plugin's own source there. `setup_preflight` needs only the stdlib.
 python=""
-for candidate in /opt/homebrew/bin/python3 /usr/local/bin/python3 /usr/bin/python3 \
-                 "$HOME"/.local/share/uv/python/cpython-3.*/bin/python3; do
+for candidate in /opt/homebrew/bin/python3 /usr/local/bin/python3 /usr/bin/python3; do
   [ -x "$candidate" ] || continue
-  case "$candidate" in *freethreaded*) continue ;; esac
-  "$candidate" -I -c 'import sys; sys.exit(sys.version_info < (3, 11))' >/dev/null 2>&1 || continue
+  "$candidate" -I -S -c 'import sys; sys.exit(sys.version_info < (3, 11))' >/dev/null 2>&1 || continue
   python="$candidate"
   break
 done
 output="$notice"
 if [ -n "$python" ]; then
   bootstrap='import runpy, sys; sys.path.insert(0, sys.argv.pop(1)); runpy.run_module("setup_preflight.isolated", run_name="__main__", alter_sys=True)'
-  output="$("$python" -I -c "$bootstrap" "$root/skills/setup" session-start \
+  output="$("$python" -I -S -c "$bootstrap" "$root/skills/setup" session-start \
     --project-root "${CLAUDE_PROJECT_DIR:-$PWD}" --notice "$notice" 2>/dev/null)" || output="$notice"
 fi
 
