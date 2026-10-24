@@ -1,0 +1,24 @@
+{
+  "proposals": [
+    {
+      "kind": "policy",
+      "skill": "security-issue-import",
+      "override_file": null,
+      "detail": "Missing caller security-issue-import in .apache-magpie-overrides/tools/vetted-ops/config.toml; propose rollup-append only."
+    },
+    {
+      "kind": "policy",
+      "skill": "security-issue-import-from-md",
+      "override_file": null,
+      "detail": "Existing caller security-issue-import-from-md lacks rollup-append; preserve its issue-view grant."
+    },
+    {
+      "kind": "policy",
+      "skill": "security-issue-import-from-pr",
+      "override_file": null,
+      "detail": "Existing caller security-issue-import-from-pr lacks pr-view-with-body; preserve its rollup-append grant."
+    }
+  ],
+  "unchecked": [],
+  "stamp_written": false
+}

@@ -270,6 +270,22 @@ When a vetted-ops policy exists, show the `[tracker]` table it needs —
 and write it only on the user's confirmation; the policy is a security control, not configuration this step may change unasked.
 Grant the security callers `issue-create`, `issue-search`, `issue-list-label`, `issue-reopen`, `issue-body`, `issue-attach`, `tracker-doctor`, `tracker-pending` and `tracker-publish` in the same diff.
 
+For the security issue-import workflows, also check the policy's `[callers]`
+table. When those workflows are configured, propose exactly these grants:
+
+| Caller | Required operations |
+|---|---|
+| `security-issue-import` | `rollup-append` |
+| `security-issue-import-from-md` | `rollup-append` |
+| `security-issue-import-from-pr` | `pr-view-with-body`, `rollup-append` |
+
+These are separate caller identities. Do not substitute one for another or
+grant `body-field-set` to an import caller: none of these workflows invokes it.
+Show the proposed policy diff and apply it **only on explicit user confirmation**.
+Merge missing operations into an existing caller array; never duplicate a TOML
+key, remove existing grants, or change unrelated callers. If no vetted-ops
+policy exists, do not create one implicitly.
+
 ## Step 3b — Record what this run reconciled
 
 For every skill in scope (Step 1) whose `requires_config:` set now fully
