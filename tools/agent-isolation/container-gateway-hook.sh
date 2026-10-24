@@ -402,11 +402,14 @@ tree_is_trusted() {
 # until the operator deletes the record.
 # Under the account database's home, not $HOME: a $HOME redirected by the
 # environment would otherwise hand the hook a fresh, empty record store.
-# $MAGPIE_CONTAINER_GATEWAY_STATE_DIR (tests, development) replaces it, under the
-# same writability checks; only settings can set a hook's environment, and the
-# sandbox cannot write those, so it gives sandboxed code nothing.
+# $MAGPIE_CONTAINER_GATEWAY_STATE_DIR replaces it only in a dry run, which
+# executes nothing, so the environment never picks the store a real run trusts;
+# it keeps the test suite out of the real account home.
 record_home="${account_home:-$HOME}"
-state_root="${MAGPIE_CONTAINER_GATEWAY_STATE_DIR:-$record_home/.claude/magpie-gateway}"
+state_root="$record_home/.claude/magpie-gateway"
+if [[ -n ${MAGPIE_CONTAINER_GATEWAY_DRY_RUN:-} && -n ${MAGPIE_CONTAINER_GATEWAY_STATE_DIR:-} ]]; then
+    state_root="$MAGPIE_CONTAINER_GATEWAY_STATE_DIR"
+fi
 state_dir="$state_root/worktrees"
 if command -v sha256sum >/dev/null 2>&1; then
     key="$(printf '%s' "$root" | sha256sum | cut -d' ' -f1)"
@@ -435,7 +438,9 @@ if [[ -f $record ]]; then
         exit 0
     fi
 elif (( linked_worktree )); then
-    mkdir -p "$state_dir" 2>/dev/null && chmod 700 "$state_root" "$state_dir" 2>/dev/null
+    # Only directories this hook creates get their mode set.
+    [[ -d $state_root ]] || mkdir -m 700 "$state_root" 2>/dev/null
+    [[ -d $state_dir ]] || mkdir -m 700 "$state_dir" 2>/dev/null
     tmp_record="$(mktemp "$state_dir/.record.XXXXXX" 2>/dev/null)" \
         && printf '%s\n%s\n' "$root" "$main_root" > "$tmp_record" \
         && mv -f "$tmp_record" "$record"
