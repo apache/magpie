@@ -573,3 +573,79 @@ def test_vetted_extra_args_are_passed_through(tmp_path: Path, args: str) -> None
     assert done.returncode == 0, done.stderr
     assert done.stdout.strip().endswith(f"--daemon {args}")
     assert done.stderr == ""
+
+
+def test_an_inherited_git_work_tree_cannot_move_the_project_root(tmp_path: Path) -> None:
+    """GIT_DIR / GIT_WORK_TREE from the session environment would make git report
+    another toplevel, leaving the real project uncounted as writable."""
+    lay = Layout(tmp_path)
+    planted = lay.project / "gw"
+    (planted / "container_gateway").mkdir(parents=True)
+    elsewhere = lay.base / "elsewhere"
+    elsewhere.mkdir()
+    done = run(
+        "start",
+        lay.project,
+        {
+            "GIT_DIR": str(lay.project / ".git"),
+            "GIT_WORK_TREE": str(elsewhere),
+            "MAGPIE_CONTAINER_GATEWAY_SRC": str(planted),
+        },
+        home=lay.home,
+    )
+    assert str(planted) not in done.stdout
+    assert "refusing gateway source" in done.stderr
+
+
+def test_a_core_worktree_outside_the_cwd_refuses_to_start(tmp_path: Path) -> None:
+    """`.git/config` is sandbox-writable; a core.worktree pointing elsewhere must not
+    turn the session's own directory into a non-writable one."""
+    lay = Layout(tmp_path)
+    elsewhere = lay.base / "elsewhere"
+    elsewhere.mkdir()
+    subprocess.run(["git", "-C", str(lay.project), "config", "core.worktree", str(elsewhere)], check=True)
+    done = run("start", lay.project, home=lay.home)
+    assert done.returncode == 0
+    assert done.stdout == ""
+    assert "does not contain" in done.stderr
+
+
+def test_a_redirected_home_does_not_hide_the_account_cache(tmp_path: Path) -> None:
+    """With $HOME pointed elsewhere, the account's real ~/.cache is still a writable root."""
+    import pwd
+    import shutil
+    import tempfile
+
+    account_cache = Path(pwd.getpwuid(os.getuid()).pw_dir) / ".cache"
+    if not os.access(account_cache, os.W_OK):
+        pytest.skip("the account's ~/.cache is not writable here")
+    lay = Layout(tmp_path)
+    planted = Path(tempfile.mkdtemp(prefix="magpie-gw-test-", dir=account_cache)).resolve()
+    try:
+        (planted / "container_gateway").mkdir()
+        done = run("start", lay.project, {"MAGPIE_CONTAINER_GATEWAY_SRC": str(planted)}, home=lay.home)
+        assert str(planted) not in done.stdout
+        assert "refusing gateway source" in done.stderr
+    finally:
+        shutil.rmtree(planted, ignore_errors=True)
+
+
+def test_a_home_nested_in_the_account_local_exempts_nothing_there(tmp_path: Path) -> None:
+    """$HOME inside the account's ~/.local, with its own share/uv/python: that
+    directory's exemption must not lift the account's ~/.local restriction."""
+    import pwd
+    import shutil
+    import tempfile
+
+    account_local = Path(pwd.getpwuid(os.getuid()).pw_dir) / ".local"
+    if not os.access(account_local, os.W_OK):
+        pytest.skip("the account's ~/.local is not writable here")
+    lay = Layout(tmp_path)
+    fake_home = Path(tempfile.mkdtemp(prefix="magpie-gw-test-", dir=account_local)).resolve()
+    try:
+        planted = fake_home / ".local" / "share" / "uv" / "python" / "src"
+        (planted / "container_gateway").mkdir(parents=True)
+        done = run("start", lay.project, {"MAGPIE_CONTAINER_GATEWAY_SRC": str(planted)}, home=fake_home)
+        assert str(planted) not in done.stdout
+    finally:
+        shutil.rmtree(fake_home, ignore_errors=True)

@@ -70,6 +70,20 @@
 #   the whole variable and log one line to stderr rather than start a gateway
 #   with a policy the repository chose.
 #
+#   The environment is the session's, and project settings can set it, so the
+#   hook does not let it decide what counts as writable. Every inherited GIT_*
+#   variable is dropped before git runs; the physical session cwd is a writable
+#   root, and its settings are read, whatever git reports as the toplevel, and a
+#   toplevel that does not contain the cwd (GIT_WORK_TREE, core.worktree) stops
+#   the hook. $HOME may point anywhere, so the account database's home directory
+#   counts as well: its .cache, its .local and its user settings, even when
+#   $HOME names another directory.
+#
+#   Known gap: write grants given only on the command line (--add-dir, a
+#   --settings file) are invisible to a hook. They come from whoever launches
+#   the session, not from the repository; do not grant a directory that holds the
+#   gateway source or the pinned interpreter that way.
+#
 # MAGPIE_CONTAINER_GATEWAY_DRY_RUN=1 prints the command instead of running it.
 
 set -uo pipefail
@@ -88,13 +102,38 @@ case "$action" in
     *) printf '%s: expected start|stop, got "%s"\n' "${0##*/}" "$action" >&2; exit 0 ;;
 esac
 
+# Project settings can set the session's environment: no GIT_* variable may
+# redirect the repository git reports on (GIT_DIR, GIT_WORK_TREE, GIT_CONFIG_*).
+for var in $(compgen -e); do
+    [[ $var == GIT_* ]] && unset "$var"
+done
+
+log() { printf '%s: %s\n' "${0##*/}" "$*" >&2; }
+
 payload="$(cat 2>/dev/null || true)"
 cwd="$(printf '%s' "$payload" | jq -r '.cwd // empty' 2>/dev/null || true)"
 [[ -n $cwd ]] || cwd="$PWD"
+cwd="$(cd "$cwd" 2>/dev/null && pwd -P)" || exit 0
 root="$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null || printf '%s' "$cwd")"
 root="$(cd "$root" 2>/dev/null && pwd -P)" || exit 0
+# The session's cwd is sandbox-writable whatever git says; a toplevel elsewhere
+# (core.worktree in a writable .git/config) would leave it uncounted.
+if [[ $cwd != "$root" && $cwd != "$root"/* ]]; then
+    log "git reports $root as the toplevel of $cwd, which it does not contain; not starting the container gateway"
+    exit 0
+fi
 
-log() { printf '%s: %s\n' "${0##*/}" "$*" >&2; }
+# The home directory from the account database (`~user` reads it, not $HOME),
+# so a $HOME redirected by the environment cannot hide the real ~/.cache,
+# ~/.local or user settings. Empty when the account has none.
+account_home=""
+user="$(id -un 2>/dev/null || true)"
+if [[ $user =~ ^[A-Za-z0-9._][A-Za-z0-9._-]*$ ]]; then
+    eval "account_home=~$user"
+    [[ $account_home == /* ]] || account_home=""
+fi
+homes=("$HOME")
+[[ -n $account_home && $account_home != "$HOME" ]] && homes+=("$account_home")
 
 # System and package-manager locations. The hook refuses to run at all when a
 # write grant overlaps one (below), so nothing inside them is writable or
@@ -172,15 +211,27 @@ normalize_entry() {
     done
 }
 
-writable_roots=("$root" "$HOME/.cache")
-# $HOME/.local is refused too, all but uv's managed interpreters (see the header);
+writable_roots=("$root" "$cwd")
+# ~/.local is refused too, all but uv's managed interpreters (see the header);
 # kept out of writable_roots so a settings grant over them still counts in full.
-home_local="$HOME/.local"
+# Both homes count: the one $HOME names and the account database's.
+# Paired by index: a home's uv exemption relaxes only that home's .local. A
+# $HOME nested inside the account's ~/.local must not exempt anything there.
+home_locals=()
+uv_exempt_dirs=()
+for home in "${homes[@]}"; do
+    writable_roots+=("$home/.cache")
+    home_locals+=("$home/.local")
+    # The exemption holds only for a real directory reached without a symlink:
+    # a linked ~/.local/share/uv/python (or a linked parent) could point anywhere.
+    uv_dir="$home/.local/share/uv/python"
+    if [[ -d $uv_dir && "$(resolve "$uv_dir")" == "$uv_dir" ]]; then
+        uv_exempt_dirs+=("$uv_dir")
+    else
+        uv_exempt_dirs+=("")
+    fi
+done
 uv_python_dir="$HOME/.local/share/uv/python"
-# The exemption holds only for a real directory reached without a symlink:
-# a linked ~/.local/share/uv/python (or a linked parent) could point anywhere.
-uv_exempt=0
-[[ -d $uv_python_dir && "$(resolve "$uv_python_dir")" == "$uv_python_dir" ]] && uv_exempt=1
 [[ -n ${CLAUDE_CODE_TMPDIR:-} ]] && writable_roots+=("$CLAUDE_CODE_TMPDIR")
 # Each settings file with the root its relative entries resolve against.
 # In a linked worktree Claude Code also reads the main checkout's settings,
@@ -207,10 +258,12 @@ if [[ -f $root/.git ]]; then
     main_root="$(cd "${common_dir%/.git}" 2>/dev/null && pwd -P)" || main_root=""
     [[ $main_root == "$root" ]] && main_root=""
 fi
-settings_specs=("$HOME/.claude/settings.json|$HOME/.claude"
-                "$HOME/.claude/settings.local.json|$HOME/.claude"
-                "$root/.claude/settings.json|$root"
-                "$root/.claude/settings.local.json|$root")
+settings_specs=()
+for home in "${homes[@]}"; do
+    settings_specs+=("$home/.claude/settings.json|$home/.claude" "$home/.claude/settings.local.json|$home/.claude")
+done
+settings_specs+=("$root/.claude/settings.json|$root" "$root/.claude/settings.local.json|$root")
+[[ $cwd != "$root" ]] && settings_specs+=("$cwd/.claude/settings.json|$cwd" "$cwd/.claude/settings.local.json|$cwd")
 if [[ -n $main_root ]]; then
     writable_roots+=("$main_root")
     settings_specs+=("$main_root/.claude/settings.json|$main_root"
@@ -258,10 +311,14 @@ is_writable_path() {
     local path="$1" form local_form
     # The sandbox's own scratch space, by prefix: /tmp/claude, /tmp/claude-<uid>, ...
     [[ $path == /tmp/claude* || $path == /private/tmp/claude* ]] && return 0
-    for local_form in "$home_local" "$(resolve "$home_local")"; do
-        [[ $path == "$local_form" || $path == "$local_form"/* ]] || continue
-        (( uv_exempt )) && [[ $path == "$uv_python_dir"/* ]] && continue
-        return 0
+    local i home_local uv_dir
+    for (( i = 0; i < ${#home_locals[@]}; i++ )); do
+        home_local="${home_locals[i]}" uv_dir="${uv_exempt_dirs[i]}"
+        for local_form in "$home_local" "$(resolve "$home_local")"; do
+            [[ $path == "$local_form" || $path == "$local_form"/* ]] || continue
+            [[ -n $uv_dir && $path == "$uv_dir"/* ]] && continue
+            return 0
+        done
     done
     for form in "${writable_forms[@]}"; do
         [[ -n $form && ( $path == "$form" || $path == "$form"/* || $form == / ) ]] && return 0
