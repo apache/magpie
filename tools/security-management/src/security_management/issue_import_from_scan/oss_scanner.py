@@ -59,9 +59,7 @@ INDEX_FILE = "index.json"
 SEVERITIES = ("critical", "high", "medium", "low")
 
 _ID = r"ANT-\d{4}-[A-Z0-9]{6,}"
-_LOC = r"[\w./-]+:\d+"
 _BANNER = re.compile(r"^#{20,}\n(.+?)\n#{20,}$", re.M)
-_FENCE = re.compile(r"^={20,}$", re.M)
 # A finding header is a fence, an `<id> [<severity>]` block holding no fence, and a
 # fence. A fence-like line inside a write-up is not followed by such a header.
 _HEADER_BLOCK = re.compile(rf"^={{20,}}\n({_ID}\s+\[(?:(?!^={{20,}}$).)*?)\n={{20,}}$", re.M | re.S)
