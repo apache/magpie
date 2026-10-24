@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -250,6 +251,26 @@ def test_a_grant_inside_the_interpreter_prefix_skips_it(tmp_path: Path) -> None:
     lay.settings({"sandbox": {"filesystem": {"allowWrite": [str(prefix / "lib" / "planted")]}}})
     done = run("start", lay.project, home=lay.home)
     assert not done.stdout.startswith(f"{PYTHON} ")
+
+
+def test_a_stdlib_module_linked_into_a_writable_dir_skips_the_interpreter(tmp_path: Path) -> None:
+    """Built from a copy of the running interpreter's layout, so nothing real is touched."""
+    lay = Layout(tmp_path)
+    real_prefix = Path(PYTHON).parent.parent
+    version = f"python{sys.version_info.major}.{sys.version_info.minor}"
+    fake = lay.base / "py"
+    (fake / "bin").mkdir(parents=True)
+    (fake / "lib" / version).mkdir(parents=True)
+    (fake / "lib" / version / "os.py").write_text("")
+    planted = lay.home / ".cache" / "sysconfig.py"
+    planted.parent.mkdir(parents=True)
+    planted.write_text("")
+    (fake / "lib" / version / "sysconfig.py").symlink_to(planted)
+    shutil.copy2(PYTHON, fake / "bin" / "python3")
+    (lay.scripts / "python").write_text(f"{fake / 'bin' / 'python3'}\n")
+    done = run("start", lay.project, home=lay.home)
+    assert str(fake) not in done.stdout
+    assert real_prefix.exists()
 
 
 def test_the_interpreter_runs_by_its_canonical_path(tmp_path: Path) -> None:

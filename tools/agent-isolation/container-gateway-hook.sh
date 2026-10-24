@@ -261,6 +261,13 @@ for candidate in "${python_candidates[@]}"; do
     done
     (( stdlib_found )) || continue
     overlaps_writable "$prefix" && continue
+    # A standard-library module symlinked out of the prefix is judged where it
+    # points: one link into a writable directory refuses the interpreter.
+    runtime_ok=1
+    while IFS= read -r -d '' link; do
+        under_writable_root "$link" && { runtime_ok=0; break; }
+    done < <(find "$prefix" -type l -print0 2>/dev/null)
+    (( runtime_ok )) || continue
     "$canonical" -I -S -c 'import sys; sys.exit(sys.version_info < (3, 11))' >/dev/null 2>&1 || continue
     # Where the interpreter really loads its standard library from.
     runtime_ok=1
