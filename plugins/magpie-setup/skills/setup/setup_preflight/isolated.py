@@ -436,7 +436,7 @@ def _resolved(path: str, base: Path, home: Path) -> Path:
     return Path(os.path.realpath(candidate))
 
 
-_SECTION_RE = re.compile(r'^\s*\[\s*([A-Za-z0-9.-]+)\s*(?:"[^"]*")?\s*\]')
+_SECTION_RE = re.compile(r'^\s*\[\s*([A-Za-z0-9.-]+)\s*(?:"([^"]*)")?\s*\](.*)$')
 _HOOKS_PATH_RE = re.compile(r"^\s*hookspath\s*=\s*(.*?)\s*$", re.I)
 
 
@@ -462,10 +462,18 @@ def _core_hooks_path_lines(text: str) -> tuple[list[int], list[str]] | None:
             continue
         header = _SECTION_RE.match(line)
         if header:
-            section = header.group(1).lower()
-            if section in ("include", "includeif"):
+            rest = header.group(3).strip()
+            # Git allows a key after the header on the same line; anything but a
+            # comment there is not plain enough to rewrite.
+            if rest and rest[0] not in "#;":
                 return None
+            name = header.group(1).lower()
+            if name in ("include", "includeif"):
+                return None
+            section = name if header.group(2) is None else f"{name}.{header.group(2)}"
             continue
+        if stripped.startswith("["):
+            return None  # a header this parser does not understand
         if line.rstrip().endswith("\\"):
             return None
         match = _HOOKS_PATH_RE.match(line)
@@ -504,9 +512,13 @@ def _rewrite_repo_config(checkout: Path, home: Path, own_hooks: Path) -> list[st
                 try:
                     text = handle.read()
                 except UnicodeDecodeError:
-                    return []
-            parsed = _core_hooks_path_lines(text)
+                    text = None
             config = checkout / ".git" / "config"
+            if text is None:
+                return [
+                    f"{config} could not be read as text; check that its core.hooksPath skips no hooks you need"
+                ]
+            parsed = _core_hooks_path_lines(text)
             if parsed is None:
                 return [
                     f"{config} may set core.hooksPath (it uses includes); check it skips no hooks you need"
@@ -517,6 +529,9 @@ def _rewrite_repo_config(checkout: Path, home: Path, own_hooks: Path) -> list[st
             if len(values) == 1 and _resolved(values[0], checkout, home) == own_hooks:
                 lines = text.splitlines(keepends=True)
                 kept = "".join(line for number, line in enumerate(lines) if number != indices[0])
+                # The result must read back plain and without the key, or nothing is written.
+                if _core_hooks_path_lines(kept) != ([], []):
+                    return [f"{config} sets core.hooksPath={_shown(values[0])}; unset it by hand"]
                 tmp_name = f".config.{secrets.token_hex(8)}.tmp"
                 try:
                     tfd = os.open(

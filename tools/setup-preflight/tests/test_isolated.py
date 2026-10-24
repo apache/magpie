@@ -597,3 +597,40 @@ def test_a_hostile_hooks_path_value_reaches_the_message_defanged(tmp_path: Path,
     out = json.loads(isolated.session_start(repo, home=isolated_home))
     line = next(m for m in out["systemMessage"].splitlines() if "core.hooksPath=" in m)
     assert "\x1b" not in line and len(line) < 400
+
+
+def test_a_key_on_the_header_line_is_not_rewritten(tmp_path: Path, isolated_home: Path) -> None:
+    """Git accepts `[core] hooksPath = ...`; this parser does not, so it only reports."""
+    whole_user_dispatcher(isolated_home)
+    repo = git_repo(tmp_path / "repo")
+    config = repo / ".git" / "config"
+    config.write_text(config.read_text() + f"[core] hooksPath = {repo / '.git' / 'hooks'}\n")
+    before = config.read_text()
+    isolated.session_start(repo, home=isolated_home)
+    assert config.read_text() == before
+
+
+def test_a_subsection_is_not_core(tmp_path: Path, isolated_home: Path) -> None:
+    """`[core "x"] hooksPath` is core.x.hookspath to git: left in place; the real one goes."""
+    whole_user_dispatcher(isolated_home)
+    repo = git_repo(tmp_path / "repo")
+    config = repo / ".git" / "config"
+    hooks = repo / ".git" / "hooks"
+    config.write_text(
+        config.read_text() + f'[core "x"]\n\thooksPath = {hooks}\n[core]\n\thooksPath = {hooks}\n'
+    )
+    isolated.session_start(repo, home=isolated_home)
+    listed = subprocess.run(
+        ["git", "config", "--file", str(config), "--list"], capture_output=True, text=True, check=True
+    ).stdout.lower()
+    assert "core.x.hookspath=" in listed
+    assert "\ncore.hookspath=" not in "\n" + listed
+
+
+def test_an_undecodable_config_is_reported(tmp_path: Path, isolated_home: Path) -> None:
+    whole_user_dispatcher(isolated_home)
+    repo = git_repo(tmp_path / "repo")
+    config = repo / ".git" / "config"
+    config.write_bytes(config.read_bytes() + b"[core]\n\thooksPath = \xff\xfe\n")
+    out = json.loads(isolated.session_start(repo, home=isolated_home))
+    assert "could not be read as text" in out["systemMessage"]
