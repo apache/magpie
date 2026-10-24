@@ -188,6 +188,29 @@ def test_closed_in_tracker_but_open_on_dashboard() -> None:
     assert kinds(result) == ["closed-in-tracker"]
 
 
+def test_closed_as_rejected_but_untriaged_on_dashboard_is_triaged_there() -> None:
+    """Triage clears the case, so no separate note to the security team."""
+    result = run([case("a@x")], [issue("1", ["a@x"], state="closed", decision="rejected")])
+    assert kinds(result) == ["triage-on-dashboard"]
+
+
+def test_a_closed_issue_still_shows_a_decision_conflict() -> None:
+    result = run([case("a@x", "non-issue-docs")], [issue("1", ["a@x"], state="closed", decision="accepted")])
+    assert kinds(result) == ["decision-conflict", "closed-in-tracker"]
+
+
+@pytest.mark.parametrize("state", ["cve-allocation", "non-issue-feedback"])
+def test_a_dashboard_decision_with_an_undecided_issue(state: str) -> None:
+    result = run([case("a@x", state)], [issue("1", ["a@x"], decision="undecided")])
+    assert kinds(result) == ["decision-missing-in-tracker"]
+    assert result["findings"][0]["fix"] == "tracker"
+
+
+def test_ambiguous_candidates_are_not_reported_missing() -> None:
+    result = run([case("a@x")], [issue("1", ["a@x"]), issue("2", ["a@x"])])
+    assert kinds(result) == ["ambiguous"]
+
+
 def test_disclosure_pending_is_reported() -> None:
     result = run(
         [case("a@x", "disclosure", ["CVE-2026-1"])],

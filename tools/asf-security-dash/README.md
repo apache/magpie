@@ -116,13 +116,14 @@ Each finding has `kind`, `fix`, `detail`, and the `case` and/or `issue` it conce
 |---|---|---|
 | `untracked` | `import` | The dashboard has a report the tracker has no issue for. |
 | `untracked` | `review` | The same, for an untriaged case whose `tag` the API did not return: it may be a standing label, so a human checks the thread first. |
-| `ambiguous` | `tracker` | The case matches more than one issue; record its `Message-ID` on the right one. |
+| `ambiguous` | `tracker` | The case matches more than one issue; record its `Message-ID` on the right one. Those issues get no `not-on-dashboard` finding meanwhile. |
 | `not-on-dashboard` | `asf-security` | An open issue with a security-list thread has no open case. |
 | `cve-missing-in-tracker` | `tracker` | The dashboard records a CVE the issue does not. |
 | `cve-missing-on-dashboard` | `asf-security` | The issue records a CVE the dashboard does not. |
 | `closed-in-tracker` | `asf-security` | The issue is closed; the dashboard still lists the case. |
-| `triage-on-dashboard` | `dashboard-triage` | The tracker has decided; the case is still untriaged on the dashboard. |
+| `triage-on-dashboard` | `dashboard-triage` | The tracker has decided, even on a closed issue; the case is still untriaged on the dashboard. Triage moves the case on, so no `closed-in-tracker` is added. |
 | `decision-conflict` | `tracker` | One side accepted the report, the other rejected it. |
+| `decision-missing-in-tracker` | `tracker` | The dashboard has the report accepted or rejected; the issue is still undecided. |
 | `disclosure-pending` | `tracker` | The dashboard says the fix is released and the announcement is still to go out. |
 
 `fix` names who acts:

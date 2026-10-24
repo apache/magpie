@@ -146,6 +146,8 @@ def reconcile(pmc: str, cases: list[dict[str, Any]], tracker: Iterable[Mapping[s
 
     findings: list[dict[str, Any]] = []
     paired: set[str] = set()
+    # Issues an ambiguous case might belong to: not known to be off the dashboard.
+    undetermined: set[str] = set()
     page = project_url(pmc)
     labels = [case for case in cases if case["label"]]
     for case in cases:
@@ -165,6 +167,7 @@ def reconcile(pmc: str, cases: list[dict[str, Any]], tracker: Iterable[Mapping[s
                     None,
                 )
             )
+            undetermined.update(unique)
             continue
         if not unique:
             findings.append(_untracked(case))
@@ -174,7 +177,7 @@ def reconcile(pmc: str, cases: list[dict[str, Any]], tracker: Iterable[Mapping[s
         findings.extend(_compare(case, issue, page))
 
     for issue in issues:
-        if issue["id"] in paired or issue["state"] == "closed" or not issue["message_ids"]:
+        if issue["id"] in paired | undetermined or issue["state"] == "closed" or not issue["message_ids"]:
             continue
         if issue["decision"] == "rejected":
             continue
@@ -247,24 +250,26 @@ def _compare(case: dict[str, Any], issue: dict[str, Any], page: str) -> list[dic
                 issue,
             )
         )
-    if issue["state"] == "closed":
-        out.append(
-            _finding(
-                "closed-in-tracker",
-                "asf-security",
-                "the tracker issue is closed but the dashboard still lists the case as open",
-                case,
-                issue,
-            )
-        )
-        return out
-    if case["stage"] == "untriaged" and issue["decision"] != "undecided":
+    # Decisions are compared whatever the issue's state: an issue closed as
+    # invalid still has to be recorded on the dashboard, which tells the reporter.
+    triage = case["stage"] == "untriaged" and issue["decision"] != "undecided"
+    if triage:
         out.append(
             _finding(
                 "triage-on-dashboard",
                 "dashboard-triage",
                 f"the tracker has {issue['decision']} the report; record it at {page} — "
                 "the dashboard then emails the reporter itself, so send no separate reply",
+                case,
+                issue,
+            )
+        )
+    elif case["stage"] in ("accepted", "rejected") and issue["decision"] == "undecided":
+        out.append(
+            _finding(
+                "decision-missing-in-tracker",
+                "tracker",
+                f"the dashboard has the report {case['stage']}; the tracker issue is still undecided",
                 case,
                 issue,
             )
@@ -279,7 +284,20 @@ def _compare(case: dict[str, Any], issue: dict[str, Any], page: str) -> list[dic
                 issue,
             )
         )
-    if case["state"] == "disclosure":
+    if issue["state"] == "closed":
+        # Triaging on the dashboard moves the case on, so only ask the
+        # security team to close it when there is no triage to record.
+        if not triage:
+            out.append(
+                _finding(
+                    "closed-in-tracker",
+                    "asf-security",
+                    "the tracker issue is closed but the dashboard still lists the case as open",
+                    case,
+                    issue,
+                )
+            )
+    elif case["state"] == "disclosure":
         out.append(
             _finding(
                 "disclosure-pending",
