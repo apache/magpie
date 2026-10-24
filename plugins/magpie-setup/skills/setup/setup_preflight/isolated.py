@@ -61,8 +61,8 @@ import hashlib
 import json
 import os
 import re
+import secrets
 import sys
-import tempfile
 from datetime import date
 from pathlib import Path
 
@@ -292,26 +292,55 @@ def _checkout(root: Path) -> Path:
     return root
 
 
-def _rewrite_settings(settings: Path, loaded: dict[str, object]) -> bool:
-    """Atomically rewrite `settings`, refusing anything a symlink could redirect.
+_NOFOLLOW = getattr(os, "O_NOFOLLOW", 0)
+_DIRECTORY = getattr(os, "O_DIRECTORY", 0)
+
+
+def _drop_from_local_settings(local: Path, stale: frozenset[str]) -> str | None:
+    """Remove `stale` from `local`'s allowWrite; `"removed"`, `"refused"`, or None if absent.
 
     The project tree is sandbox-writable and this runs outside the sandbox, so
-    neither `.claude` nor the file may be a symlink, and the temporary file is
-    created fresh (O_EXCL, random name) beside it rather than at a fixed name a
-    sandboxed command could plant.
+    everything goes through one descriptor for `.claude`, opened without
+    following a symlink: the read, a fresh temporary file (O_EXCL, random name)
+    and the rename all stay in that directory, whatever happens to its path
+    meanwhile. `.claude` or the file being a symlink refuses the rewrite.
     """
-    if settings.parent.is_symlink() or settings.is_symlink() or not settings.is_file():
-        return False
-    fd, tmp_name = tempfile.mkstemp(dir=settings.parent, prefix=".settings.local.", suffix=".tmp")
-    tmp = Path(tmp_name)
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            handle.write(json.dumps(loaded, indent=2) + "\n")
-        os.replace(tmp, settings)
+        dfd = os.open(local.parent, os.O_RDONLY | _DIRECTORY | _NOFOLLOW)
     except OSError:
-        tmp.unlink(missing_ok=True)
-        return False
-    return True
+        return None if not local.parent.is_symlink() else "refused"
+    try:
+        try:
+            fd = os.open(local.name, os.O_RDONLY | _NOFOLLOW, dir_fd=dfd)
+        except OSError:
+            return "refused" if os.path.islink(local) else None
+        with os.fdopen(fd, encoding="utf-8") as handle:
+            try:
+                loaded = json.load(handle)
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                return None
+        writes = _list_at(loaded, "sandbox", "filesystem", "allowWrite")
+        if not isinstance(loaded, dict) or not any(w in stale for w in writes if isinstance(w, str)):
+            return None
+        loaded["sandbox"]["filesystem"]["allowWrite"] = [w for w in writes if w not in stale]
+        tmp_name = f".settings.local.{secrets.token_hex(8)}.tmp"
+        try:
+            tfd = os.open(tmp_name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | _NOFOLLOW, 0o600, dir_fd=dfd)
+        except OSError:
+            return "refused"
+        try:
+            with os.fdopen(tfd, "w", encoding="utf-8") as handle:
+                handle.write(json.dumps(loaded, indent=2) + "\n")
+            os.replace(tmp_name, local.name, src_dir_fd=dfd, dst_dir_fd=dfd)
+        except OSError:
+            try:
+                os.unlink(tmp_name, dir_fd=dfd)
+            except OSError:
+                pass
+            return "refused"
+        return "removed"
+    finally:
+        os.close(dfd)
 
 
 def drop_stale_uv_writes(root: Path, home: Path | None = None) -> list[str]:
@@ -331,25 +360,27 @@ def drop_stale_uv_writes(root: Path, home: Path | None = None) -> list[str]:
     messages: list[str] = []
     directory = _checkout(root)
     local = directory / ".claude" / "settings.local.json"
-    try:
-        loaded = None if local.is_symlink() else json.loads(local.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        loaded = None
-    writes = _list_at(loaded, "sandbox", "filesystem", "allowWrite")
-    if isinstance(loaded, dict) and any(w in stale for w in writes if isinstance(w, str)):
-        loaded["sandbox"]["filesystem"]["allowWrite"] = [w for w in writes if w not in stale]
-        if _rewrite_settings(local, loaded):
-            messages.append(f"removed the ~/.local/share/uv sandbox write grant from {local}")
-        else:
-            messages.append(
-                f"{local} grants sandbox writes to ~/.local/share/uv and could not be rewritten safely; remove it by hand"
-            )
+    outcome = _drop_from_local_settings(local, stale)
+    if outcome == "removed":
+        messages.append(f"removed the ~/.local/share/uv sandbox write grant from {local}")
+    elif outcome == "refused" and any(_covers_uv_data_dir(e, home, directory) for e in _grants_in(local)):
+        messages.append(
+            f"{local} grants sandbox writes to ~/.local/share/uv and could not be rewritten safely; remove it by hand"
+        )
     for settings in (directory / ".claude" / "settings.json", local):
         messages.extend(_report_covering_grants(settings, directory, home, stale))
     user = home / ".claude"
     for name in ("settings.json", "settings.local.json"):
         messages.extend(_report_covering_grants(user / name, user, home, frozenset()))
     return messages
+
+
+def _grants_in(settings: Path) -> list[str]:
+    try:
+        loaded = json.loads(settings.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return []
+    return [e for e in _list_at(loaded, "sandbox", "filesystem", "allowWrite") if isinstance(e, str)]
 
 
 def _report_covering_grants(settings: Path, base: Path, home: Path, removable: frozenset[str]) -> list[str]:
