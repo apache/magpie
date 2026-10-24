@@ -129,9 +129,20 @@ writable_roots=("$root" "$HOME/.cache" "$HOME/.local")
 # Each settings file with the root its relative entries resolve against.
 # In a linked worktree Claude Code also reads the main checkout's settings,
 # and the main checkout is as writable as the worktree.
+# The worktree's own `.git` file names the main checkout and is as writable as
+# the worktree, so the main checkout counts only when its
+# `worktrees/<name>/gitdir` points back here; otherwise the hook refuses.
 main_root=""
-common_dir="$(git -C "$root" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
-if [[ $common_dir == */.git ]]; then
+if [[ -f $root/.git ]]; then
+    git_dir="$(git -C "$root" rev-parse --absolute-git-dir 2>/dev/null || true)"
+    common_dir="$(git -C "$root" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+    back=""
+    [[ -n $git_dir && -r $git_dir/gitdir ]] && IFS= read -r back < "$git_dir/gitdir"
+    if [[ -z $common_dir || $common_dir != */.git || -z $back \
+          || "$(resolve "$back")" != "$(resolve "$root/.git")" ]]; then
+        log "cannot confirm the main checkout of linked worktree $root; not starting the container gateway"
+        exit 0
+    fi
     main_root="$(cd "${common_dir%/.git}" 2>/dev/null && pwd -P)" || main_root=""
     [[ $main_root == "$root" ]] && main_root=""
 fi
@@ -158,7 +169,12 @@ for spec in "${settings_specs[@]}"; do
         while IFS= read -r form; do
             writable_roots+=("$form")
         done < <(normalize_entry "$entry" "$base")
-    done < <(jq -r '(.sandbox.filesystem.allowWrite // [])[], (.permissions.additionalDirectories // [])[]
+    # Edit/Write allow rules merge into the sandbox's write access too; a bare
+    # `Edit` (every file) comes out as `//`, i.e. the filesystem root.
+    done < <(jq -r '(.sandbox.filesystem.allowWrite // [])[], (.permissions.additionalDirectories // [])[],
+                    ((.permissions.allow // [])[] | strings
+                     | if test("^(Edit|Write|MultiEdit|NotebookEdit)$") then "//"
+                       else (capture("^(Edit|Write|MultiEdit|NotebookEdit)\\((?<p>.*)\\)$").p // empty) end)
                     | strings' "$settings" 2>/dev/null)
 done
 

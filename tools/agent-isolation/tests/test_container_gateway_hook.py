@@ -298,7 +298,7 @@ def test_a_linked_worktree_counts_the_main_checkout_grants(tmp_path: Path) -> No
     lay = Layout(tmp_path)
     git_env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
                "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
-    subprocess.run(["git", "-C", str(lay.project), "commit", "-q", "--allow-empty", "-m", "init"],
+    subprocess.run(["git", "-C", str(lay.project), "-c", "commit.gpgsign=false", "commit", "-q", "--allow-empty", "-m", "init"],
                    check=True, env=git_env)
     worktree = lay.base / "wt"
     subprocess.run(["git", "-C", str(lay.project), "worktree", "add", "-q", str(worktree)], check=True)
@@ -310,6 +310,34 @@ def test_a_linked_worktree_counts_the_main_checkout_grants(tmp_path: Path) -> No
     done = run("start", worktree, {"MAGPIE_CONTAINER_GATEWAY_SRC": str(shared / "src")}, home=lay.home)
     assert "refusing gateway source" in done.stderr
     assert f" -I -S {lay.src} " in done.stdout
+
+
+@pytest.mark.parametrize("rule", ["Edit({shared}/**)", "Write(/{shared}/**)", "Edit"])
+def test_an_edit_allow_rule_counts_as_a_write_grant(tmp_path: Path, rule: str) -> None:
+    """Claude Code merges Edit(...) allow rules into the sandbox's write access."""
+    lay = Layout(tmp_path)
+    shared = lay.base / "shared"
+    (shared / "src" / "container_gateway").mkdir(parents=True)
+    lay.settings({"permissions": {"allow": [rule.format(shared=shared)]}})
+    done = run("start", lay.project, {"MAGPIE_CONTAINER_GATEWAY_SRC": str(shared / "src")}, home=lay.home)
+    assert "refusing gateway source" in done.stderr
+    if rule == "Edit":  # every file writable: nothing is trusted
+        assert done.stdout == ""
+    else:
+        assert f" -I -S {lay.src} " in done.stdout
+
+
+def test_an_unconfirmed_worktree_link_refuses_to_start(tmp_path: Path) -> None:
+    """The worktree's own .git file is writable; a main checkout it names must point back."""
+    lay = Layout(tmp_path)
+    fake_common = lay.base / "elsewhere" / ".git"
+    (fake_common / "worktrees" / "wt").mkdir(parents=True)
+    worktree = lay.base / "wt"
+    worktree.mkdir()
+    (worktree / ".git").write_text(f"gitdir: {fake_common / 'worktrees' / 'wt'}\n")
+    done = run("start", worktree, home=lay.home)
+    assert done.returncode == 0
+    assert done.stdout == ""
 
 
 def test_the_interpreter_runs_by_its_canonical_path(tmp_path: Path) -> None:
