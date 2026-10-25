@@ -1,0 +1,10 @@
+{
+  "applied": [
+    "gateway-hook-stale",
+    "allowlist-worktrees",
+    "claude-config-diff"
+  ],
+  "skipped": [],
+  "second_plan": [],
+  "bypass_calls": 3
+}

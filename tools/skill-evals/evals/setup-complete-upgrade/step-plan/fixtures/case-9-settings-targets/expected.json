@@ -1,0 +1,15 @@
+{
+  "items": [
+    {
+      "group": "add",
+      "bypass": true,
+      "id": "worktree-settings-local-missing-deny"
+    }
+  ],
+  "run_yourself": [
+    "committed-settings-missing-entry"
+  ],
+  "still_open": [],
+  "isolated_offer": false,
+  "nothing_to_do": false
+}
