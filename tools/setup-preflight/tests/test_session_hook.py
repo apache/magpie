@@ -19,6 +19,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -39,6 +40,33 @@ def run_hook(cwd: Path, data: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         ["bash", str(HOOK)], input="{}", capture_output=True, text=True, env=env, cwd=cwd, check=False
     )
+
+
+def _plugin_version() -> str:
+    manifest = json.loads((PLUGIN_ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
+    return manifest["version"]
+
+
+def test_a_version_change_suggests_complete_upgrade(project: Path, tmp_path: Path) -> None:
+    data = tmp_path / "data"
+    data.mkdir()
+    (data / "magpie-plugin-version").write_text("0.0.1")
+    out = run_hook(project, data).stdout
+    assert f"Apache Magpie updated (0.0.1 -> {_plugin_version()})" in out
+    assert "/magpie-setup:complete-upgrade" in out
+    assert "/magpie-setup upgrade" not in out
+
+
+def test_an_unchanged_version_is_silent_about_upgrades(project: Path, tmp_path: Path) -> None:
+    data = tmp_path / "data"
+    data.mkdir()
+    (data / "magpie-plugin-version").write_text(_plugin_version())
+    assert "complete-upgrade" not in run_hook(project, data).stdout
+
+
+def test_a_first_session_names_complete_upgrade(project: Path, tmp_path: Path) -> None:
+    out = run_hook(project, tmp_path / "fresh").stdout
+    assert "/magpie-setup:complete-upgrade" in out
 
 
 def test_a_package_in_the_project_does_not_shadow_the_plugin(project: Path, tmp_path: Path) -> None:

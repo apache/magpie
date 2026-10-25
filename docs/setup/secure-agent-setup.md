@@ -3768,7 +3768,7 @@ Invoke the skill directly at any time: `/magpie-setup:isolated-setup-update` on 
 The pre-flight state is recorded when the run finishes, so a manual run also resets the timer.
 
 On a marketplace install, the pre-flight checker in your personal layer sees a new fingerprint once `/magpie-setup:setup upgrade` has refreshed it.
-The upgrade prompt after each plugin update tells you to run that.
+The prompt after each plugin update tells you to run `/magpie-setup:complete-upgrade`, which covers that refresh.
 
 ### Direct steps
 
