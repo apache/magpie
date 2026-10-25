@@ -304,8 +304,13 @@ agent_socket_rows() {
 # a false negative costs a silent block with no window. The subcommand
 # may be followed by whitespace, the end of the command, or whatever
 # ends a shell word — `git commit;`, `git commit)` and `git commit | tee`
-# sign just as much as `git commit -m`.
-readonly KEY_SUBCOMMANDS='commit|tag|merge|rebase|revert|cherry-pick|am|push|pull|fetch|clone|ls-remote|remote|submodule'
+# sign just as much as `git commit -m`. The plumbing and porcelain that
+# reach a remote without being `fetch` or `push` count too: `archive
+# --remote`, `fetch-pack` / `send-pack`, `lfs` (git-lfs-authenticate runs
+# over ssh), `subtree push`, `svn` (svn+ssh), `maintenance run` (its
+# prefetch task fetches) and `request-pull` (it asks the remote for the
+# commit).
+readonly KEY_SUBCOMMANDS='commit|tag|merge|rebase|revert|cherry-pick|am|push|pull|fetch-pack|fetch|clone|ls-remote|remote|submodule|archive|send-pack|lfs|subtree|svn|maintenance|request-pull'
 
 # The same reach, without git in front of it. An ssh transport asks the
 # key for its authentication touch before anything moves, and gpg asks
@@ -317,6 +322,32 @@ readonly KEY_SUBCOMMANDS='commit|tag|merge|rebase|revert|cherry-pick|am|push|pul
 # while leaving `ssh-keygen -Y sign` and `ssh-add -l` in. Longer names
 # lead the alternation so the match cannot stop short at `ssh`.
 readonly KEY_COMMANDS='ssh-keygen|ssh-add|ssh|scp|sftp|sshfs|rsync|svn|gpg2|gpg'
+
+# gh runs git for these, over ssh when its git_protocol is ssh: `create`
+# pushes a branch or repository that is not on GitHub yet. Options
+# may stand before the command group or between it and the command
+# (`gh -R owner/repo pr checkout 1`, `gh pr -R owner/repo checkout 1`), and
+# `co` is gh's own alias for `pr checkout`, both on its own (`gh co 1`)
+# and under `pr`.
+readonly GH_OPTIONS='([[:space:]]+-[^[:space:];&|]*([[:space:]]+[^-[:space:];&|][^[:space:];&|]*)?)*'
+readonly GH_GIT_COMMANDS="gh[\"']?${GH_OPTIONS}[[:space:]]+(repo${GH_OPTIONS}[[:space:]]+(clone|create|fork|sync)|pr${GH_OPTIONS}[[:space:]]+(checkout|co|create)|co)"
+
+# What may stand right before a command word, and right after one. Besides
+# the shell separators: a `/`, for a command named by its path
+# (`/usr/bin/git push`, `/opt/homebrew/bin/ssh host`), and quotes or a
+# backtick, for one handed to a shell as a string (`bash -c "git push"`,
+# `sh -c 'ssh host'`). A dot is not among them, which keeps `~/.ssh`
+# quiet.
+readonly WORD_START="(^|[;&|(\`\"'/]|[[:space:]])"
+readonly WORD_END="([[:space:];&|)\`\"']|$)"
+
+# One shell word of a git global option or its value: unquoted characters,
+# or a quoted span, which may hold spaces. Without the quoted spans
+# `git -c user.name="Jane Doe" commit` and `git --git-dir=/x commit` sign
+# with no window, because the option no longer looks like one word. A
+# backslash takes the character after it, so `O\'Brien` opens no quote,
+# and so it does inside bash's `$'...'`, where `$'O\'Brien'` is one word.
+readonly GIT_OPTION_WORD="(\\\\.|\\\$'([^'\\\\]|\\\\.)*'|[^[:space:]\"'\\\\]|\"([^\"\\\\]|\\\\.)*\"|'[^']*')"
 
 # A screen to draw on, and something to draw the window with.
 #
@@ -557,7 +588,7 @@ arm() {
     cwd="$(printf '%s' "$payload" | jq -r '.cwd // empty' 2>/dev/null)"
 
     printf '%s' "$command_text" |
-        grep -Eq "(^|[;&|(]|[[:space:]])(git([[:space:]]+-[A-Za-z-]+([[:space:]]+[^[:space:]]+)?)*[[:space:]]+($KEY_SUBCOMMANDS)|($KEY_COMMANDS))([[:space:];&|)]|$)" ||
+        grep -Eq "${WORD_START}(git[\"']?([[:space:]]+-${GIT_OPTION_WORD}*([[:space:]]+${GIT_OPTION_WORD}+)?)*[[:space:]]+($KEY_SUBCOMMANDS)|$GH_GIT_COMMANDS|($KEY_COMMANDS))${WORD_END}" ||
         return 0
 
     # A card that never asks for a touch needs no watcher.

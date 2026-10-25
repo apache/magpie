@@ -74,6 +74,18 @@ def _arm(command: str) -> str:
         "git commit -m 'x'",
         "git commit --amend --no-edit",
         "git -C /some/repo commit -m 'x'",
+        # Global options whose value is quoted and holds spaces, or is
+        # joined with `=`, still put the subcommand in front of the key.
+        'git -c user.name="Jane Doe" -c user.email="jane@example.com" commit -q -am x',
+        "git -c user.name='Jane Doe' commit -m x",
+        "git -c core.hooksPath=/dev/null rebase --continue",
+        "git --git-dir=/some/repo/.git commit -m x",
+        'GIT_EDITOR=true git -c user.name="Jane Doe" commit --amend --no-edit',
+        # A backslash-escaped quote opens no quoted span.
+        "git -c user.name=O\\'Brien commit -m x",
+        'git -c user.name="Jane \\"JD\\" Doe" commit -m x',
+        # bash's ANSI-C quoting, where a backslash escapes the quote too.
+        "git -c user.name=$'O\\'Brien' commit -m x",
         "cd /tmp/repo && git commit -m 'x'",
         "git tag -s v1.0.0 -m 'release'",
         "git rebase --continue",
@@ -106,6 +118,8 @@ def test_arms_for_commands_that_can_reach_the_key(command: str) -> None:
         "git status --short",
         "git log --oneline -5",
         "git diff HEAD",
+        'git -c user.name="Jane Doe" log --oneline -1',
+        "git -c color.ui=always status",
         "ls -la",
         "echo 'committing to the plan'",
         "grep -r commit .",
@@ -117,6 +131,17 @@ def test_arms_for_commands_that_can_reach_the_key(command: str) -> None:
         "sshuttle --dns -r host 0/0",
         # Starting an agent is not a request to the key.
         "ssh-agent -s",
+        # A path into an ssh directory, not the command.
+        "cat /etc/ssh/sshd_config",
+        # gh talking to the API only, never through git.
+        "gh pr view 1234",
+        "gh repo view apache/magpie",
+        "gh -R apache/magpie pr view 1234",
+        "gh pr -R apache/magpie list",
+        "gh pr comment 1234 --body done",
+        "gh codespace list",
+        # A script whose name merely starts with git-, not git itself.
+        "./scripts/git-push-helper.sh origin main",
     ],
 )
 def test_stays_quiet_for_commands_that_cannot_sign(command: str) -> None:
@@ -147,6 +172,42 @@ def test_stays_quiet_for_commands_that_cannot_sign(command: str) -> None:
         "ssh host; echo done",
         "(ssh host)",
         "git fetch && ssh host",
+        # Named by path rather than found on PATH.
+        "/usr/bin/git push origin main",
+        "/opt/homebrew/bin/ssh -T git@github.com",
+        # A quoted path or name: the quote closes before the arguments.
+        '"/usr/bin/git" push origin main',
+        '"git" commit -m x',
+        "'ssh' host",
+        '"gh" pr checkout 1234',
+        '"/opt/homebrew/bin/gh" repo clone apache/magpie',
+        # Handed to a shell as a string.
+        'bash -c "git push origin main"',
+        "sh -c 'ssh host uptime'",
+        "echo `git ls-remote origin`",
+        # Remote-talking git that is neither fetch nor push.
+        "git archive --remote=git@github.com:apache/magpie.git HEAD",
+        "git fetch-pack git@github.com:apache/magpie.git",
+        "git send-pack git@github.com:apache/magpie.git main",
+        "git lfs pull",
+        "git subtree push --prefix=docs origin gh-pages",
+        "git svn dcommit",
+        "git maintenance run --task=prefetch",
+        "git request-pull v1.0 origin",
+        # gh runs git for these, over ssh under git_protocol=ssh.
+        "gh repo clone apache/magpie",
+        "gh repo fork apache/magpie --clone",
+        "gh repo sync",
+        "gh pr checkout 1234",
+        # Options before or inside the command group, and gh's alias.
+        "gh -R apache/magpie pr checkout 1234",
+        "gh pr -R apache/magpie checkout 1234",
+        "gh pr co 1234",
+        "gh co 1234",
+        # Pushes the branch first when it is not on GitHub yet.
+        "gh pr create --fill",
+        "gh repo create apache/x --source=. --push",
+        "gh repo clone apache/magpie -- --depth=1",
     ],
 )
 def test_arms_for_non_git_commands_that_can_reach_the_key(command: str) -> None:
