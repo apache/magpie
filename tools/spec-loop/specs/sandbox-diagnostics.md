@@ -47,7 +47,7 @@ error, and two skills that probe or verify the setup on demand.
   **Root cause** (which sandbox layer blocks it and why), **Fix** (a
   settings widening with per-entry rationale, or — for the `gh` entry —
   an invocation-shape rule, because there is nothing to widen), and
-  **Notes**. Eleven entries today: SSH agent / Yubikey, signed commit
+  **Notes**. Twelve entries today: SSH agent / Yubikey, signed commit
   failing before any touch (`gpg.format=ssh` key unreadable), signed
   commit failing with `cannot exec` of the touch-overlay wrapper
   (`gpg.ssh.program` under the read-denied `~/.claude/scripts/`),
@@ -58,7 +58,11 @@ error, and two skills that probe or verify the setup on demand.
   socket, `/tmp` read-only, `gh` inside the sandbox (TLS
   `OSStatus -26276` / `HTTP 401`), `prek` or `uv` not found or unable
   to write its cache (the home-directory dev-tool paths not granted in
-  the worktree's `settings.local.json`, #1359), git hooks silently
+  the worktree's `settings.local.json`, #1359), `uv python install` or
+  `uv tool install` failing under `~/.local/share/uv/` (deliberately
+  read-only to the sandbox, since hooks and excluded commands run the
+  interpreters there outside it; the fix is to run the install from a
+  terminal, #1785), git hooks silently
   skipped for sandboxed commits (whole-user `core.hooksPath` under the
   read-denied home, #1364), and reads of `/tmp/claude-<uid>` asking for
   approval every time (`permissions.blockReadsOutsideWorkingDirectories`
@@ -78,7 +82,18 @@ error, and two skills that probe or verify the setup on demand.
   `PROBE: <slug> → ✓|✗|⊘|⚠ (<evidence>)` line the skill's
   interpretation tables match on; the commands stay out of the
   skill body, so they cost no context and can be run and tested on
-  their own (#1336). Probe 7 checks that `prek` and `uv` run inside
+  their own (#1336). A probe holds a command's output in a variable,
+  never a file: `/tmp` is read-only inside the sandbox, and a failed
+  redirection skips the command and exits 1, which probe 1 once read as
+  "agent reachable, no identities" for every agent (#1770). Probes 1, 3
+  and 5 have tests under the skill's `tests/` that run each script
+  against fake binaries (#1770, #1776). Probe 3 trusts a gateway socket
+  only on the gateway's own read-only `status` report, taken from the
+  pinned snapshot, the framework tree, or else the operator install at
+  `~/.claude/scripts/container-gateway/src` (a marketplace install); with
+  no report it fails as "gateway status unavailable" rather than "not
+  running", and a `status` that exits 2 without a report as "refused the
+  run directory" (#1815). Probe 7 checks that `prek` and `uv` run inside
   the sandbox and can write `~/.cache`, telling a missing grant (⚠)
   from a tool that is not installed (⊘) by reading the worktree's
   `settings.local.json`, since a read-denied `~/.local/bin` looks the
@@ -105,7 +120,11 @@ error, and two skills that probe or verify the setup on demand.
   whole-user scope the shared hook directory probed from inside the
   sandbox, whose unreadability is ✗), the vetted-ops split, the touch
   overlay and signing key (check 10), the `gh` exclusion (check 11),
-  the container gateway (check 12), the eval-harness exclusion
+  the container gateway (check 12; 12a accepts the hooks in
+  `~/.claude/settings.json` or `~/.claude/settings.local.json`, fails a
+  registered absolute path that does not exist on this machine, and marks
+  one in a `settings.json` linked into a synced config repo as ◐, #1797),
+  the eval-harness exclusion
   (check 13, if installed), the adversarial-review exclusion (check 14,
   if the `magpie-adversarial-review` plugin is installed: the
   `excludedCommands` entry on the fixed `~/.claude/magpie/adversarial-review`
@@ -263,11 +282,17 @@ PYTHONPATH=tools/skill-evals/src python3 -m skill_evals.runner \
 
 ## Known gaps
 
-- The doctor runs 9 probes over the catalog's 11 entries: the two
+- The doctor runs 9 probes over the catalog's 12 entries: the two
   touch-overlay entries (`cannot exec` of the wrapper, and the
   runtime-state directory) have no live probe. Verify check 10 covers
   the wrapper's `allowRead` grant statically; the runtime-state entry
   is reached only through the hint hook.
+- The `uv python install` / `uv tool install` entry (#1785) has neither a
+  hint-hook branch nor a doctor probe, and has no **Notes** section at all
+  (acceptance 1's four sections), so it breaks the "catalog entry first,
+  hook branch beside it" rule; the session-start hook's grant cleanup and `isolated-setup-update`'s
+  must-fix report are its only other surfaces.
+- Probes 2, 4 and 6–9 still have no script tests.
 - The doctor's and verify skill's section headings (`## The 8 probes`,
   `## The 12 checks`) lag their bodies (nine probes, seventeen checks).
 - A command that spells a working directory with a literal `~` still

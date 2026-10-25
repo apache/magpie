@@ -174,6 +174,82 @@ runs before it executes anything (so on-demand start reaches nothing
 asks the gateway's `status` whether it already serves, and otherwise
 starts it and waits up to five seconds for it to serve, so the command
 does not race the start. It never blocks the command.
+"Serve" means `status` reports a serving backend, not merely a live pid:
+the gateway takes its pid lock before it discovers backends and binds
+its sockets, so waiting on the pid let the command race the bind. The
+wait ends early once the gateway has come up and exited again (no
+backend) or never came up (#1826). The `PreToolUse` wiring carries no
+`if` filter, which missed `docker-compose`, `podman-compose` and
+path-qualified CLIs; the script's own check leaves in about 10 ms.
+
+### Hook trust model
+
+The hook runs outside the sandbox, so everything it executes — the
+interpreter, the standard library under it and the gateway source — must
+live where neither the repository being opened nor a sandboxed command,
+which runs without a prompt, can write; otherwise sandboxed code planted
+there would run unsandboxed at the next session start (#1784).
+
+- **Writable roots.** A path is refused when it resolves, through every
+  symlink hop, under the project root, `~/.cache`, `~/.local`,
+  `/tmp/claude*`, `/private/tmp/claude*`, `$CLAUDE_CODE_TMPDIR`, or any
+  `sandbox.filesystem.allowWrite`, `permissions.additionalDirectories` or
+  `Edit` / `Write` allow-rule path in the user, project, local or managed
+  settings (relative entries resolved against their own settings root;
+  an entry with `..` refuses everything). In a linked worktree the main
+  checkout and its settings count too. A write grant over a system or
+  package-manager location (`/usr`, `/opt`, `/Library`, …) refuses the
+  gateway outright. A settings path that is not a regular file refuses
+  the start without being opened, so a planted FIFO cannot stall the
+  hook (#1826).
+- **Interpreter.** Never looked up on `PATH`. Candidates, in order: an
+  operator pin in `~/.claude/scripts/container-gateway/python`, fixed
+  Homebrew and system locations, then uv-managed CPython under
+  `~/.local/share/uv/python` (newest first), the one exemption from the
+  `~/.local` refusal, holding only for a real, unlinked directory and only
+  while no settings scope grants writes over it; the first 3.11+
+  interpreter outside every writable root wins. A virtualenv or launcher
+  stub is never run, `<prefix>/lib/python3.X` must be a real directory,
+  and every symlink in the standard library and the libpython beside it
+  must stay inside the prefix or pass only through system locations at
+  each step. It runs by its canonical path with `-I -S` and a one-line
+  bootstrap that puts the source on `sys.path`, so no `PYTHON*`
+  variable, site-packages or the opened project reaches it (#1769, #1784).
+  `container_gateway stop` recognises that bootstrap command line
+  (`HOOK_BOOTSTRAP`, kept identical to the hook by a test) as well as the
+  `-m` form.
+- **Source.** `$MAGPIE_CONTAINER_GATEWAY_SRC` (absolute, resolved once)
+  or `~/.claude/scripts/container-gateway/src`, judged file by file and
+  refused if it holds a symlink; a copy inside the repository, an
+  `.apache-magpie/` snapshot included, is never used.
+  `$MAGPIE_CONTAINER_GATEWAY_ARGS` is allow-listed token by token;
+  anything else, notably `--extra-bind-root`, makes the hook ignore the
+  whole variable.
+- **Environment.** Helpers (`jq`, `git`, `readlink`, `dirname`, `find`)
+  come from a fixed root-owned `PATH`; every inherited `GIT_*` variable is
+  dropped; the physical cwd and the account database's home (its
+  `.cache`, `.local` and user settings, whatever `$HOME` says) count as
+  writable (#1789). The checkout root is also derived from the nearest
+  directory holding a `.git`, and the hook refuses when git's toplevel
+  differs from it or `core.worktree` is set (#1804). The shebang is
+  `#!/bin/bash -p`, which ignores `BASH_ENV`, exported functions and
+  `SHELLOPTS`, so the hook must be executed directly by its absolute
+  path, never as `bash <path>` or through a `~` the launching shell
+  expands from `$HOME`; it refuses to start when the account home cannot
+  be determined (#1793). The script avoids here-strings, which bash 3.2
+  backs with a temporary file and which failed open when that file could
+  not be created (#1790).
+- **Worktree records.** The first main checkout the hook confirms for a
+  linked worktree (its `worktrees/<name>/gitdir` must point back) is
+  recorded under `~/.claude/magpie-gateway/worktrees`, keyed by the
+  SHA-256 of the path, and a later run deriving a different one refuses
+  until the operator deletes the record, so a session cannot hide the
+  main checkout's grants by rewriting `.git` metadata. The record
+  directory is refused for every checkout when it is sandbox-writable or
+  a symlink (#1790).
+- **Known gap.** Write grants given only on the command line
+  (`--add-dir`, a `--settings` file) or mid-session without saving them
+  (`/add-dir`) are invisible to a hook (#1789).
 
 ### Backends
 
@@ -471,6 +547,9 @@ See the frontmatter `acceptance:` list. Additionally:
 ```bash
 # Unit + relay tests (no backend needed; integration auto-skips)
 (cd tools/container-gateway && uv run --group dev pytest)
+# Session hook: trust model, ensure, worktree records
+uv run --project tools/agent-isolation --group dev pytest \
+    tools/agent-isolation/tests/test_container_gateway_hook.py
 # Integration against whichever backend is installed
 (cd tools/container-gateway && uv run --group dev pytest -m integration)
 # Reference settings still lint clean with the gateway entries
@@ -532,8 +611,8 @@ PYTHONPATH=tools/skill-evals/src python3 -m skill_evals.runner \
   the field, which is the signal to add it.
 - The egress alias for Linux depends on the backend's bridge
   configuration and on the egress gateway listening on a non-loopback
-  address; until the egress gateway grows a `--bind` option, Linux
-  adopters run it with an explicit address.
+  address; it binds loopback by default, so Linux adopters start it
+  with `--host <bridge address>`.
 - Docker Desktop's file-sharing settings, not the gateway, decide
   which host paths the VM can see; a project root outside the shared
   set fails at mount time with Docker's own error.

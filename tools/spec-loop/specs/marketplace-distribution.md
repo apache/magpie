@@ -100,6 +100,14 @@ its manifest (#1552): the `SessionStart` `check-upgrade.sh` command hook and a
 `modules` list naming `drift-check.ts`, a Claude Code mod that checks the
 committed lock against the installed plugin or snapshot at session start, with
 no model tokens, and shows a drift banner above the prompt.
+The command hook is wired as `/bin/bash -p "${CLAUDE_PLUGIN_ROOT}/hooks/check-upgrade.sh"`,
+because it runs outside the sandbox and the session environment must not
+choose the shell (#1794); on a version change it points at
+`/magpie-setup:complete-upgrade` (#1813), and the interpreter rules are in
+[`adoption-and-setup.md`](adoption-and-setup.md).
+`tools/setup-preflight/tests/test_session_hook.py` asserts that wiring;
+`check-family-plugins.py` checks only that `hooks.json` references
+`check-upgrade.sh`.
 Its manifest declares `"types": "./hooks/types.d.ts"`, and
 `check-family-plugins.py` fails when `hooks.json` lacks `modules` or the
 `check-upgrade.sh` hook, or when the manifest also declares inline `hooks`,
@@ -161,12 +169,20 @@ adopter-facing page.
   plugin with zero skills and no error. Every catalogue lists all ten families.
 
 - **Substrate plugins publish a tool, not a family.** Beside the ten
-  families, the Claude Code catalogue carries three substrate plugins —
-  `magpie-agent-guard`, `magpie-vetted-ops` and `magpie-adversarial-review`
-  (#1368) — declared in `SUBSTRATE_PLUGINS` in `check-family-plugins.py`.
+  families, the Claude Code catalogue carries four substrate plugins —
+  `magpie-agent-guard`, `magpie-vetted-ops`, `magpie-adversarial-review`
+  (#1368) and `magpie-security-tools` (#1787) — declared in `SUBSTRATE_PLUGINS` in `check-family-plugins.py`.
   Each inherits the shared manifest metadata, declares no `skills`, exposes
   its `tools/<name>` through a symlink whose entry point must resolve, and
   declares hook wiring only where it has a hook.
+  `magpie-security-tools` carries the tools the security skills run
+  (tracker field and rollup edits, CVE JSON, the privacy gate, the scan
+  importer), so a marketplace install needs no framework checkout.
+  Its `SessionStart` hook (`tools/security-management/hooks/link-framework-path.sh`)
+  copies the plugin's `tools/` under `~/.cache/apache-magpie/framework/`
+  once per plugin version and points the `current` symlink at it; that is
+  `<framework>` on a marketplace install, writable so `uv run --project`
+  works, and the hook only ever replaces a symlink at `current`.
   `magpie-agent-guard` is the exception to the symlink (#1516): it carries
   a byte-identical copy of `tools/agent-guard/src/agent_guard` as real
   files, because a marketplace client may drop a link whose target leaves
@@ -275,3 +291,12 @@ For the Claude Code family, `claude plugin validate . --strict`.
   a bump that is forgotten fails silently in the one way that matters: adopters
   keep being told they are up to date. The staleness is only visible by reading
   the timestamp.
+- **`check-family-plugins.py`'s `SETUP_HOOKS` fallback lags the wiring.**
+  When `plugins/magpie-setup/hooks/hooks.json` is missing, `--fix` writes
+  inline manifest hooks with the bare `${CLAUDE_PLUGIN_ROOT}/hooks/check-upgrade.sh`
+  command, not the `/bin/bash -p` form `hooks.json` uses since #1794.
+- **The root `.codex-plugin/plugin.json` wires a hook that does not ship.**
+  Its inline `SessionStart` hook runs `${PLUGIN_ROOT}/hooks/check-upgrade.sh`,
+  but the repository root has had no `hooks/` directory since #1208; the
+  script lives only in `plugins/magpie-setup/hooks/`, and the root wiring also
+  lacks the `/bin/bash -p` form.

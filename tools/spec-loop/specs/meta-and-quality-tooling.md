@@ -12,7 +12,8 @@ source: >
   tools/sandbox-lint/, tools/dashboard-generator/, tools/probe-templates/,
   tools/pilot-report-validator/, tools/vendor-neutrality-score/,
   tools/preflight-audit/, tools/spec-inventory/,
-  tools/dev/check-claude-mods.sh, tools/dev/bump-hook-npm-pins.py, and
+  tools/dev/check-claude-mods.sh, tools/dev/bump-hook-npm-pins.py,
+  tools/dev/ci-pytest-batches.py, and
   the write-skill / list-skills utility skills.
 acceptance:
   - Skill definitions are validated (frontmatter keys name/description/
@@ -72,6 +73,14 @@ trustworthy as it grows.
   explains the decision without restating it, because the decision itself
   is compared exactly in its own structured fields; it answers no only on
   a different or contradictory conclusion (#1398).
+  A compatible recommended next action the reference omits is not a
+  mismatch, and the grader must make each boolean verdict agree with its
+  stated reason before returning (#1751).
+  CI never runs a live model, so live runs are recorded by hand in a
+  *Run history* table (`| Date | Ref | Model | Runs | Result | Notes |`) in
+  `evals/<skill>/README.md`: a `main` SHA as the ref, the model name as the
+  CLI uses it, one appended row per batch of identical runs, and failures
+  recorded even when a rerun passed (#1626).
   A step with no `user-prompt-template.md` gets a neutral user prompt: the
   case report followed by "Return JSON only."; a step that needs the
   `{corpus}` / `{roster}` / `{report}` framing carries its own template, as
@@ -239,8 +248,38 @@ trustworthy as it grows.
   npm pins in hooks' `additional_dependencies`, which Dependabot never
   touches, in one draft PR, with a 7-day cooldown and 12 hours for
   Claude Code. A green PR check is therefore not a
-  whole-repo result, which is why `prek run --all-files` before pushing
-  is a required pre-flight (#1317).
+  whole-repo result, which is why a whole-tree prek run before pushing
+  is a required pre-flight (#1317; the tests in it are scoped since #1764,
+  below).
+- **Workspace pytest runs only the affected members, batched.**
+  `tools/dev/ci-pytest-batches.py` picks the members that get pytest (a
+  `[tool.pytest.ini_options]` section and no `[tool.magpie.checks]` opt-out,
+  the rule `run-workspace-check.sh` uses): on a pull request only members with
+  a changed file other than Markdown or a `.claude-plugin/` manifest
+  (directly or through a symlinked source) plus every member depending on
+  one, unless a shared build input (root `pyproject.toml`, `uv.lock`, the two
+  selection scripts, `tests.yml`) changed; on any other event, every member
+  (#1717).
+  Up to six picked members get one job each, named after the member; more
+  are split into at most eight jobs balanced by test size, and each job
+  syncs only its members' packages.
+  `--changed-file` reads the changed paths from a file or `-` for stdin, with
+  path separators normalised (#1767); `--paths` feeds the local
+  `workspace-pytest` hook, which runs the same members a pull request would,
+  in parallel (`pytest -n auto`), except that its file filter leaves out the
+  root `pyproject.toml` and `uv.lock`, so a dev-version bump runs nothing
+  locally (#1764).
+  The pre-PR gate is `prek run --all-files --skip workspace-pytest` then
+  `prek run workspace-pytest --from-ref origin/main --to-ref HEAD`
+  (`AGENTS.md` § Local setup).
+  The required `tests-ok` job runs `if: always()` and fails unless member
+  discovery succeeded and the matrix either succeeded or was skipped on an
+  explicitly empty `[]` selection (#1807).
+  CodeQL, not a required check, picks its analyses per pull request: `python`
+  only when a `.py` file changed, `actions` only when something under
+  `.github/` did, both when the workflow itself changed or on a push to
+  `main` or the weekly schedule (#1718); the Python analysis runs on
+  `ubuntu-latest` with a 30-minute ceiling (#1719).
 - **Every required check runs on stacked PRs.** The `zizmor` workflow's
   `pull_request` trigger carries no `branches:` filter, because that filter
   matches the PR's base branch and a stacked PR based on another PR's branch
@@ -349,6 +388,10 @@ trustworthy as it grows.
 14. `vendor-neutrality-score` counts each `+`-joined `**Vendor:**` entry
     as a separate backend vendor and rejects `agnostic` mixed with named
     vendors or an empty entry (#1575).
+15. A pull request's `tests` run picks only the workspace members its
+    changes affect, and the required `tests-ok` gate fails when member
+    discovery fails or the matrix is skipped without an empty selection
+    (#1717, #1807).
 
 ## Validation
 
@@ -357,11 +400,12 @@ uv run --project tools/skill-and-tool-validator --group dev pytest
 uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-validate
 uv run --project tools/skill-evals --group dev pytest tools/skill-evals/tests
 uv run --project tools/spec-inventory --group dev pytest tools/spec-inventory/tests
+uv run --project tools/dev pytest tools/dev/tests/test_ci_pytest_batches.py tools/dev/tests/test_ci_tests_gate.py
 ```
 
 ## Known gaps
 
-- **Eval coverage is complete.** All 78 shipped skills have a matching
+- **Eval coverage is complete.** All 83 shipped skills have a matching
   suite in `tools/skill-evals/evals/`; the soft eval-coverage check in
   `skill-and-tool-validator` (check #8) warns when a newly added skill has
   no suite, keeping coverage complete going forward.
@@ -394,9 +438,9 @@ uv run --project tools/spec-inventory --group dev pytest tools/spec-inventory/te
 - **Vendor-neutrality measurement is available but unscheduled.** `tools/vendor-neutrality-score/`
   ships and can be run ad hoc, but is not yet wired into CI or the
   build loop. Score drift is not automatically surfaced.
-- **The 500-line cap is advisory and widely exceeded.** `skill-line-limit`
-  is a SOFT check. After the family trims (#1390 pr-management, #1400
-  issue, #1435 to #1438 security), 23 `SKILL.md` files are still over 500
-  lines, led by `release-prepare` (1,208), `release-verify-rc` (968) and
-  `release-rc-cut` (932); 8 of the 10 release-management skills and 10
-  security skills are among them.
+- **The 500-line cap is advisory and still exceeded.** `skill-line-limit`
+  is a SOFT check. After the family trims and deep splits (#1390
+  pr-management, #1400 issue, #1435 to #1438 and #1672 security, #1620
+  release-management), two `SKILL.md` files remain over 500 lines:
+  `setup-isolated-setup-install` (615) and `security-issue-import-from-pr`
+  (511).

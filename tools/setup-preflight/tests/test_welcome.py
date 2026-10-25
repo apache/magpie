@@ -323,6 +323,50 @@ def test_no_welcome_leaves_it_out(project: Path, capsys, version) -> None:
     assert json.loads(capsys.readouterr().out) == {"verdict": "ok"}
 
 
+def due_command(project: Path, capsys, skill: str = "setup") -> dict:
+    assert welcome.main(["due", "--skill", skill, "--project-root", str(project)]) == 0
+    return json.loads(capsys.readouterr().out)
+
+
+def test_due_carries_the_same_finding_and_rules_as_the_pre_flight(project: Path, capsys, version) -> None:
+    run(project)
+    via_preflight = json.loads(capsys.readouterr().out)
+    payload = due_command(project, capsys, SECURITY_SKILL)
+    assert payload["verdict"] == "action"
+    assert payload["findings"] == via_preflight["findings"][:1]
+    assert payload["rules"] == {"welcome": via_preflight["rules"]["welcome"]}
+
+
+def test_due_for_the_setup_skill_walks_general_then_setup(project: Path, capsys, version) -> None:
+    """The setup family runs no pre-flight; `due` is how `setup` opens its first run."""
+    first = due_command(project, capsys)
+    assert [(f["code"], f["facts"]["family"]) for f in first["findings"]] == [("welcome", "general")]
+    welcome.record(project, "general", "seen")
+    second = due_command(project, capsys)
+    assert [(f["facts"]["family"], f["facts"]["reason"]) for f in second["findings"]] == [
+        ("setup", "first-run")
+    ]
+
+
+def test_due_is_ok_and_silent_when_nothing_is_due(project: Path, capsys, version) -> None:
+    welcome.record(project, "general", "never")
+    welcome.record(project, "setup", "never")
+    assert due_command(project, capsys) == {"verdict": "ok"}
+
+
+def test_due_is_ok_for_a_skill_outside_magpie(project: Path, capsys, version) -> None:
+    assert due_command(project, capsys, "not-a-magpie-skill") == {"verdict": "ok"}
+
+
+def test_due_reads_no_setup_state_beyond_the_guide(project: Path, capsys, version) -> None:
+    """A missing `requires_config` file is the pre-flight's business, not `due`'s."""
+    welcome.record(project, "general", "never")
+    welcome.record(project, "setup", "never")
+    run(project, "--requires", "project.md")
+    assert json.loads(capsys.readouterr().out)["verdict"] == "action"
+    assert due_command(project, capsys) == {"verdict": "ok"}
+
+
 # --- the three answers ----------------------------------------------------------------
 
 

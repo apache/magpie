@@ -12,7 +12,8 @@ Checks that every plugin is properly defined:
   `pyproject.toml`'s `project.version` verbatim — including a `.devN` suffix;
 - `magpie-setup`'s manifest wires the `hooks/check-upgrade.sh` SessionStart
   hook (which must exist) -- it rides on the one plugin the recommended floor
-  always installs;
+  always installs -- and the root `.codex-plugin/plugin.json` wires the same
+  script for Codex, through `plugins/magpie-setup/` from the repo root;
 - the root `plugin.json` conforms to Agent Plugins 1.0 — the pinned `$schema`,
   the name pattern, the closed ten-field set (so a Claude-only component path
   never leaks in), and the same shared metadata as the Claude manifest;
@@ -71,7 +72,25 @@ SETUP_HOOKS = {
             "hooks": [
                 {
                     "type": "command",
-                    "command": "${CLAUDE_PLUGIN_ROOT}/hooks/check-upgrade.sh",
+                    "command": '/bin/bash -p "${CLAUDE_PLUGIN_ROOT}/hooks/check-upgrade.sh"',
+                    "timeout": 10,
+                }
+            ],
+        }
+    ]
+}
+# The same script, wired for Codex in the root plugin's `.codex-plugin/plugin.json`
+# (the overlay Codex merges over the root `plugin.json`). `${PLUGIN_ROOT}` is the
+# repo root there, so the path runs through `plugins/magpie-setup/`; the script
+# finds the root's manifests and its `skills/setup` symlink from that root.
+CODEX_MANIFEST = Path(".codex-plugin/plugin.json")
+CODEX_HOOKS = {
+    "SessionStart": [
+        {
+            "hooks": [
+                {
+                    "type": "command",
+                    "command": f'/bin/bash -p "${{PLUGIN_ROOT}}/{UPGRADE_HOOK.as_posix()}"',
                     "timeout": 10,
                 }
             ],
@@ -1100,6 +1119,14 @@ def check(fam: dict[str, set[str]]) -> list[str]:
     else:
         if setup_data is not None and "check-upgrade.sh" not in json.dumps(setup_data.get("hooks", {})):
             errors.append(f"{setup_manifest}: SessionStart hook does not reference check-upgrade.sh")
+    codex_data, codex_err = load_json(CODEX_MANIFEST)
+    if codex_err:
+        errors.append(codex_err)
+    elif isinstance(codex_data, dict) and codex_data.get("hooks") != CODEX_HOOKS:
+        errors.append(
+            f"{CODEX_MANIFEST}: 'hooks' must be exactly {json.dumps(CODEX_HOOKS)} "
+            "(the root plugin's PLUGIN_ROOT is the repo root, and the hook runs as `/bin/bash -p <path>`)"
+        )
     errors += check_setup_preflight_package()
     errors += welcome_families("check-constant")
 

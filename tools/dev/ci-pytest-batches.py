@@ -20,8 +20,8 @@
 A member gets pytest when it has a `[tool.pytest.ini_options]` section and does
 not opt out with `[tool.magpie.checks] skip = [..., "pytest"]` — the same rule
 as `tools/dev/run-workspace-check.sh`. On a pull request only the members with a
-changed file other than Markdown (directly or through a symlinked source) are
-picked, together with every member that depends on one of them, unless
+changed file other than Markdown or a `.claude-plugin/` manifest (directly or
+through a symlinked source) are picked, together with every member that depends on one of them, unless
 a shared build input changed; on any other event every member is.
 
 Most of a pytest job is setup (checkout, uv, a workspace sync), so the picked

@@ -377,3 +377,51 @@ def test_the_two_run_dir_copies_match() -> None:
     lint = _functions(REPO_ROOT / "tools/sandbox-lint/src/sandbox_lint/layers.py")
     for name in ("default_run_dir", "run_dir_candidates"):
         assert gateway[name] == lint[name]
+
+
+# --- the documented PYTHONPATH finds the checker wherever `config` installs it ----
+
+PREFLIGHT_BLOCK = REPO_ROOT / "tools" / "dev" / "preflight-block.md"
+
+
+def _documented_pythonpath() -> str:
+    import re
+
+    match = re.search(r'^PYTHONPATH="([^"]+)"', PREFLIGHT_BLOCK.read_text(encoding="utf-8"), re.M)
+    assert match, "the pre-flight block names no PYTHONPATH"
+    return match.group(1)
+
+
+@pytest.mark.skipif(not PREFLIGHT_BLOCK.is_file(), reason="needs the framework tree")
+@pytest.mark.parametrize("vcs", ["git", "svn", "none"])
+def test_the_block_pythonpath_finds_the_checker_in_every_personal_home(tmp_path: Path, vcs: str) -> None:
+    """Install the checker where `config` would, then resolve it exactly as the block does."""
+    import os
+    import shutil
+    import subprocess
+
+    root = tmp_path / "project"
+    root.mkdir()
+    if vcs == "git":
+        subprocess.run(["git", "init", "-q", str(root)], check=True, capture_output=True)
+    elif vcs == "svn":
+        _svn_working_copy(root)
+    package = Path(layers.__file__).resolve().parent
+    shutil.copytree(package, layers.personal_dir(root) / "setup_preflight")
+    env = {
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+        "HOME": str(tmp_path),
+        # Never let `git` find a repository above the test project.
+        "GIT_CEILING_DIRECTORIES": str(tmp_path),
+    }
+    script = (
+        f'PYTHONPATH="{_documented_pythonpath()}" python3 -P -c '
+        "'import pathlib, setup_preflight; print(pathlib.Path(setup_preflight.__file__).parent)'"
+    )
+    done = subprocess.run(
+        ["sh", "-c", script], cwd=root, env=env, capture_output=True, text=True, check=False
+    )
+    assert done.returncode == 0, done.stderr
+    assert done.stderr == ""
+    found = Path(done.stdout.strip()).resolve()
+    assert found == (layers.personal_dir(root) / "setup_preflight").resolve()

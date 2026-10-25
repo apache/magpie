@@ -9,7 +9,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${PLUGIN_ROOT}/hooks/check-upgrade.sh",
+            "command": "/bin/bash -p \"${PLUGIN_ROOT}/plugins/magpie-setup/hooks/check-upgrade.sh\"",
             "timeout": 10
           }
         ]

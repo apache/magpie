@@ -565,7 +565,7 @@ repos:
         name: render-preflight-fixtures (pre-flight eval cases vs the real checker)
         language: system
         entry: python3 tools/dev/render-preflight-fixtures.py
-        files: ^(plugins/magpie-setup/skills/setup/setup_preflight/.*|tools/skill-evals/evals/setup/preflight-floor/fixtures/.*|tools/dev/render-preflight-fixtures\.py)$
+        files: ^(plugins/magpie-setup/skills/setup/setup_preflight/.*|tools/skill-evals/evals/setup/(preflight-floor|welcome-first-run)/fixtures/.*|tools/dev/render-preflight-fixtures\.py)$
         pass_filenames: false
   # something else.
   - repo: local

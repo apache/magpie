@@ -47,6 +47,10 @@ The three mechanisms, in order of preference:
    only installed Magpie (#1533, #1535; see
    [adoption-and-setup.md](adoption-and-setup.md)), so a non-adopting
    project carries no Magpie files in its working tree.
+   A Subversion working copy keeps that layer in `<.svn>/apache-magpie/`,
+   inside its admin directory and never committed, and a project with no
+   version control in the in-tree `.apache-magpie-local/`, so a Subversion
+   project can configure Magpie without adopting it (#1779).
 2. **Adapters** for swapping the backing *system* a step talks to
    (`tools/gmail`, `tools/ponymail`, `tools/jira`, `tools/github`,
    `tools/mail-source`). See [adapters.md](adapters.md).
@@ -147,6 +151,20 @@ The three mechanisms, in order of preference:
   carries no project slug: new rollups get the framework-wide
   `<!-- apache-magpie: status-rollup v1 -->` marker, while the legacy
   tracker-named one is still recognised (#1444, #1665).
+- **An ASF-only surface is marked and gated, never assumed (#1796,
+  #1798).** Where a step or tool exists only for an ASF service (the
+  `dash.security.apache.org` dashboard, PonyMail, `lists.apache.org`
+  archive URLs, the ASF security relay, ASF Infra workflow policy, the ASF
+  licence-category model, the ASF-only permission recommendations), it
+  carries an `organization: ASF` scope marker and runs only when
+  `project.md` declares `organization: ASF`; every other project gets the
+  documented non-ASF default (for licences, the `allowlist` policy) and is
+  told which default applied
+  ([organization-adapters.md](organization-adapters.md)).
+  Setup never defaults a project to `ASF` without evidence, and a non-ASF
+  project never inherits the ASF CNA's UUID (#1779).
+  Generic user-facing text says "governing body" rather than "PMC", as the
+  privacy-LLM checker's sign-off messages now do.
 - **Advisory, not paternalistic.** The audit surfaces candidate coupling
   for a maintainer to judge; some ASF strings are legitimate (examples,
   the ASF default profile, ASF-specific docs). It does not auto-rewrite.
@@ -180,6 +198,9 @@ The three mechanisms, in order of preference:
 4. The template profile and non-ASF example expose the same required
    config surfaces, except where the example documents an intentional
    omission or an organization-inherited default.
+5. Every ASF-only surface stops, or falls back to its non-ASF default, for
+   a project whose `project.md` does not declare `organization: ASF`
+   (#1796, #1798).
 
 ## Validation
 

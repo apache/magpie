@@ -3,7 +3,7 @@
 
 # committer-onboarding — eval suite
 
-26 cases across 4 steps covering the post-vote onboarding workflow,
+27 cases across 4 steps covering the post-vote onboarding workflow,
 including intake-model and governance-model flag branches.
 
 ## Case inventory

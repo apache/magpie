@@ -46,7 +46,9 @@ artefact for leakage before emission.
   requires an opt-in entry in `privacy-llm.md` whose host matches exactly
   (or, for a name-only entry, the provider's default endpoint plus a
   whole-word name match) with a data-residency contract and a
-  non-placeholder `Approved-by`.
+  non-placeholder `Approved-by`; a placeholder is refused with a message
+  that a member of the project's governing body must sign off, not
+  specifically a PMC member (#1796).
   The free-text Claude Code rule of the stack check does not apply to it.
 - `tools/privacy-llm/models.md` — the approved-model registry and its
   carve-outs.
@@ -61,13 +63,19 @@ artefact for leakage before emission.
   `projects/_template/` in #1410). Without `--config` or
   `$PRIVACY_LLM_CONFIG`, the checker looks it up per config layer, first
   match wins: the personal layer (`<cwd>/.apache-magpie-local/` in an
-  adopted repository, `<git-common-dir>/apache-magpie/` otherwise), then a
+  adopted repository, then the main checkout's in a linked worktree;
+  otherwise `<git-common-dir>/apache-magpie/`, `<.svn>/apache-magpie/` in a
+  Subversion working copy, or the in-tree `.apache-magpie-local/` with no
+  version control, #1779), then a
   legacy in-tree `.apache-magpie-local/` of an unadopted repository, then
   the committed `.apache-magpie-overrides/`. The `.apache-magpie/`
   framework snapshot is never looked in: it is replaced by every upgrade
   and holds no adopter config, and the earlier snapshot-then-overrides
   order never read the personal file `setup-privacy-llm` writes. A file
   found nowhere stops the gate.
+  On a marketplace install the checker runs from the
+  `magpie-security-tools` plugin's materialised copy at
+  `<framework>/tools/privacy-llm/checker` (#1787).
 - Skill: `setup-privacy-llm` (`plugins/magpie-setup/skills/privacy-llm/`)
   detects the LLM stack in use, writes `<project-config>/privacy-llm.md`,
   and runs the gate and the redactor end to end so the approval is

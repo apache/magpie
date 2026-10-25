@@ -63,9 +63,11 @@ New to Magpie? The [quick start](../quick-start.md) walks the whole path in
 one place — install, the first `/magpie-setup:setup` run, and a recording of it
 happening — plus the other agents and the secure-isolation setup to run next.
 
-The first setup skill you run opens with a one-minute
+The `setup` skill (`/magpie-setup:setup`) opens with a one-minute
 [welcome guide](../../plugins/magpie-setup/skills/setup/setup_preflight/guides/setup.md):
 the typical flow, what needs configuring, what to ask it, and how to make it yours.
+If no Magpie skill has run here before, the general Magpie welcome comes first and this one on the next `setup` run.
+The other setup-family skills do not show it.
 Dismiss it, or hide it for good, from its last line;
 *"show the setup welcome again"* or `/magpie-setup:welcome-guide setup` brings it back.
 
@@ -157,7 +159,8 @@ for the complete rule.
 | [`setup-isolated-setup-update`](../../skills/setup-isolated-setup-update/SKILL.md) | Surface drift between the installed setup and the framework's latest. |
 | [`setup-privacy-llm`](../../skills/setup-privacy-llm/SKILL.md) | Configure which LLMs may see this project's private foundation mail, then prove it: detect the stack, write `privacy-llm.md` from the matching variant, and run the approved-LLM gate and the PII redactor end to end. |
 | [`setup`](../../skills/setup/SKILL.md) | Adopt and maintain the framework in a project repo through installation, verification, updates, overrides, and unadoption. |
-| [`setup upgrade`](../../skills/setup/upgrade.md) | Pull the framework checkout to latest `origin/main`. |
+| [`setup upgrade`](../../skills/setup/upgrade.md) | Pinned-snapshot install: re-fetch the snapshot per the committed lock, refresh symlinks, reconcile overrides, and refresh the personal layer's pre-flight checker. A marketplace install upgrades through the agent's plugin update instead. |
+| [`setup-complete-upgrade`](../../skills/setup-complete-upgrade/SKILL.md) | Finish a Magpie upgrade in one run: check this machine and project against the installed version, apply one approved plan, re-check, and print exact commands for what is out of reach. |
 | [`setup verify`](../../skills/setup/verify.md) | Verify the framework is integrated correctly into an adopter tracker. |
 | [`setup-status`](../../skills/setup-status/SKILL.md) | Render a Markdown adoption dashboard (install pin, drift, wired agent targets, installed skill families, symlink health) and adjust the wiring in place. |
 | [`setup-shared-config-sync`](../../skills/setup-shared-config-sync/SKILL.md) | Commit + push the user's shared Claude config to its sync repo. |

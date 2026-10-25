@@ -30,6 +30,12 @@ general guide):
 * **`dismiss`** — hidden until the framework version changes;
 * **`never`** — hidden until `enable` clears it.
 
+`due` answers the welcome question alone, in the pre-flight's own verdict
+shape: `{"verdict": "ok"}`, or the same `welcome` finding and rules the
+pre-flight would emit.  It is for a skill that runs no pre-flight — the
+setup family is exempt from the shared block — so the `setup` skill can
+still open its first run with the guide.
+
 Which family a skill belongs to comes from its frontmatter `family:`, which
 a marketplace install cannot read from here (the copy of this package in
 the personal layer carries no skills), so it is generated into
@@ -38,6 +44,7 @@ the personal layer carries no skills), so it is generated into
 Run as a module:
 
     python3 -m setup_preflight.welcome list
+    python3 -m setup_preflight.welcome due    --skill setup
     python3 -m setup_preflight.welcome show   --family general [--color[=auto|always|never]]
     python3 -m setup_preflight.welcome record --family security --choice seen|dismiss|never
     python3 -m setup_preflight.welcome enable --family security
@@ -57,6 +64,7 @@ from datetime import date
 from pathlib import Path
 from typing import TextIO
 
+from . import sections
 from .isolated import _load_stamp, _stamp_path
 
 HERE = Path(__file__).resolve().parent
@@ -262,6 +270,24 @@ def welcome_facts(root: Path, skill: str) -> tuple[str, dict[str, object]] | Non
     }
 
 
+def due_answer(root: Path, skill: str) -> dict[str, object]:
+    """The `due` answer: what the pre-flight's `welcome` finding would be, alone.
+
+    The same JSON shape `core.Verdict.to_json` gives a lone welcome finding,
+    built here rather than through `core`, which already imports this module.
+    """
+    try:
+        found = welcome_facts(root, skill)
+    except OSError:
+        # As in `core.welcome_findings`: an optional guide never fails the run.
+        found = None
+    if found is None:
+        return {"verdict": "ok"}
+    section, facts = found
+    finding = {"scope": "family", "code": "welcome", "section": section, "facts": facts}
+    return {"verdict": "action", "findings": [finding], "rules": sections.for_findings([section])}
+
+
 # --- recording ----------------------------------------------------------------------
 
 
@@ -455,6 +481,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="setup_preflight.welcome", description=__doc__.split("\n")[0])
     sub = parser.add_subparsers(dest="action", required=True)
     sub.add_parser("list", help="print the guides that ship, one per line")
+    due = sub.add_parser("due", help="the pre-flight's welcome finding for one skill, alone")
+    due.add_argument("--skill", required=True, help="the skill's frontmatter `name:`")
+    due.add_argument("--project-root", default=".", type=Path)
     show = sub.add_parser("show", help="print a family's welcome guide")
     show.add_argument("--family", required=True)
     show.add_argument(
@@ -494,6 +523,10 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.action == "list":
         print("\n".join(guides()))
+        return 0
+
+    if args.action == "due":
+        print(json.dumps(due_answer(args.project_root, args.skill), indent=2, sort_keys=True))
         return 0
 
     if guide(args.family) is None:

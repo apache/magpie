@@ -327,6 +327,17 @@ same directory; the behaviour is unchanged.
   --author`, CODEOWNERS team ownership checks team membership rather than
   organisation membership, and `maintain` permission gets the maintainer
   footer (#1585).
+- **Third-party licence scan reads only real copyright notices.**
+  `scans.third_party_licences` treats an added file as third-party code when
+  the first 25 lines carry a licence identifier or block and either a
+  copyright line naming someone other than the ASF or an "adapted / derived /
+  ported / copied / vendored from" note; it then reports Category X and B
+  licences as `blocking` and a Category A licence as `major` when
+  `LICENSE` / `LICENSE.txt` was not updated.
+  A copyright notice has to open its line (after comment markers, optionally
+  "Portions"), so the ASF header's mid-line "regarding copyright ownership"
+  never marks a file carrying `SPDX-License-Identifier: Apache-2.0` and the
+  full ASF header as third-party (#1777).
 - **Evidence-gated dependency-version findings.**
   `pr-management-code-review` inventories every mandatory direct and
   transitive constraint path, applies environment markers, and intersects
