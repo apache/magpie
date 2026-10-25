@@ -60,10 +60,12 @@ jobs:
         # - Applicability mirrors `tools/dev/run-workspace-check.sh`: a
         #   member with `[tool.pytest.ini_options]` and no
         #   `[tool.magpie.checks] skip = [..., "pytest"]`.
-        # - Path filter (PRs only): a member is picked when its own
-        #   Python source/test files changed. On push to `main`, and when
-        #   a shared build input changes (root `pyproject.toml`,
-        #   `uv.lock`, the helpers, this workflow), every member is.
+        # - Path filter (PRs only): the helper selects members whose
+        #   eligible files or linked sources changed, plus their
+        #   dependents; `member_changed` documents the exclusions.
+        #   On push to `main`, and when a shared build input changes
+        #   (root `pyproject.toml`, `uv.lock`, the helpers, this workflow),
+        #   every member is selected.
         # - Grouping: most of a job is setup, so up to six members get a
         #   job each (named after the member, as before); more are split
         #   into at most eight jobs balanced by test size.
@@ -95,16 +97,15 @@ jobs:
   # pull request touching a few projects gets one job per project, so
   # per-project pass/fail shows in the checks list; a full run batches
   # them, and each batch job prints a group and a summary row per
-  # member. The `prek` workflow still exercises pytest as a hook, so
-  # this workflow is the visible signal — not the gate.
+  # member. The required `tests-ok` job below aggregates discovery
+  # and matrix results; the `prek` workflow skips workspace pytest.
   pytest:
     name: "pytest (${{ matrix.batch.name }})"
     runs-on: ubuntu-slim
     needs: members
     # Guard against an empty selection. When the path filter selects no
-    # members (a PR that changed no project's Python), the batches output
-    # is `[]`; feeding an empty array to `matrix` makes GitHub mark this
-    # job `failure` ("matrix vector does not contain any values"), not
+    # members, the batches output is `[]`. An empty `matrix` makes GitHub
+    # mark this job `failure` ("matrix vector does not contain any values"), not
     # `skipped` — which would fail `tests-ok`. Skipping the job on an
     # empty list yields the `skipped` result `tests-ok` treats as a pass.
     if: ${{ needs.members.outputs.batches != '[]' }}
@@ -204,28 +205,40 @@ jobs:
   # with N entries would otherwise force N `.asf.yaml` lines that
   # must be kept in lock-step with the matrix. This single
   # `tests-ok` job is the only pytest-related context required by
-  # branch protection — it passes iff every entry in the `pytest`
-  # matrix above passed. Adding, renaming, or removing matrix
-  # entries no longer touches `.asf.yaml`.
+  # branch protection — it requires successful member discovery and
+  # a passing matrix (or a confirmed empty selection). Matrix changes
+  # no longer require `.asf.yaml` updates.
   tests-ok:
     name: tests-ok
     runs-on: ubuntu-slim
-    needs: pytest
+    needs: [members, pytest]
     # `always()` — without it, this job would be skipped (not
     # failed) when an upstream matrix entry fails, and a skipped
-    # required-check is treated as missing by branch protection,
-    # which leaves the PR mergeable. Run unconditionally and assert
-    # on the result instead.
+    # required check does not block merging. Run unconditionally and
+    # assert on discovery as well: its failure skips the matrix too.
     if: always()
     steps:
-      - name: Assert all pytest matrix entries succeeded
+      - name: Assert member discovery and pytest matrix results
+        # Explicit, so the runner uses the same flags the gate test runs it
+        # with (`--noprofile --norc -eo pipefail`), not the `bash -e` default.
+        shell: bash
+        env:
+          BATCHES: ${{ needs.members.outputs.batches }}
         # `success` — every selected member passed.
-        # `skipped` — the path filter selected no members (the PR
-        #   changed no project's Python source/test files), so there
-        #   was nothing to run; that is a pass, not a gap.
+        # `skipped` — accepted only after successful discovery with an
+        #   explicitly empty batches output, confirming nothing was selected.
         # Anything else (`failure` / `cancelled`) fails the gate.
         run: |
+          members_result="${{ needs.members.result }}"
+          if [ "${members_result}" != "success" ]; then
+            echo "workspace member discovery result: ${members_result}"
+            exit 1
+          fi
           result="${{ needs.pytest.result }}"
+          if [ "${result}" = "skipped" ] && [ "${BATCHES:-}" != "[]" ]; then
+            echo "pytest matrix skipped without an empty selection"
+            exit 1
+          fi
           if [ "${result}" != "success" ] && [ "${result}" != "skipped" ]; then
             echo "pytest matrix result: ${result}"
             exit 1

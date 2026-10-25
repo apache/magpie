@@ -1,0 +1,9 @@
+{
+  "items": [
+    {"group": "fix", "bypass": true, "id": "overlay-script-differs"}
+  ],
+  "run_yourself": [],
+  "still_open": [],
+  "isolated_offer": false,
+  "nothing_to_do": false
+}

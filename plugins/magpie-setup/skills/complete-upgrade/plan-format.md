@@ -38,7 +38,8 @@ Apply all? (yes / drop 2,5 / details 1 / no)
 - **What a `[bypass]` item executes** comes only from locations the sandbox cannot write: `~/.claude/scripts/` (literal `~`), the plugin cache under `~/.claude/plugins/`, and system paths.
   Never the checkout (including `tools/…`), the snapshot `.apache-magpie/`, the personal layer, `~/.cache/…` (including `~/.cache/apache-magpie/framework/current`), or the scratch directory.
 - **Copied content** (a framework script copy, a merged settings file prepared in the scratch directory) shows the SHA-256 recorded at plan time under `details <n>`; the one bypassed call that writes it re-verifies that checksum first, and a mismatch skips the item as `changed`.
-- **Script copies**: only a plain-content copy from [`script-inventory.md`](../isolated-setup-update/script-inventory.md) is an item; a symlinked entry, a git-hook flavour, the two Python packages or `guards.d` go to *Run these yourself* as "re-run `setup-isolated-setup-install` Step P".
+- **Script copies**: only a plain-content copy from [`script-inventory.md`](../isolated-setup-update/script-inventory.md) is an item; every other script entry goes to *Run these yourself* as a re-run of the `setup-isolated-setup-install` step that installs it (Step K, P.3, L, M or the agent-guard wiring; the mapping is in [`SKILL.md` → Plan](SKILL.md#plan)).
+  A copy that cannot be told apart from an older shipped version ends its line with `(replaces N lines only this copy has)`.
 - **A `[bypass]` target the sandbox cannot read** (such as `~/.claude/settings.json`) is compared and written in one bypassed call; `details <n>` names its post-apply re-check, one bypassed read under the same approval.
   A target Gather could not read starts as a *Check* item, never a *Fix*.
 - **Settings items** target only each worktree's `.claude/settings.local.json` or the user-scope `~/.claude/settings.json`, and show their unified diff under `details <n>`.
@@ -46,13 +47,13 @@ Apply all? (yes / drop 2,5 / details 1 / no)
   A change to the committed `.claude/settings.json` is never an item; it goes to *Run these yourself* as a diff.
 - **A lagging pinned snapshot** (local lock behind the committed lock) is never a *Fix* item; it goes to *Run these yourself* as `/magpie-setup:setup upgrade`.
 - **Paths** are named as they resolve: in a linked worktree a personal-layer item names the main checkout's `.apache-magpie-local/`, never a new one in the worktree.
-  Such a write needs no `[bypass]` when it is inside the gathered write scope.
+  Such a write needs no `[bypass]` when it is inside the gathered write scope (the directories where Gather's sandboxed probe write succeeded).
 - **Run these yourself** previews every hard-line or user-terminal command now, so nothing in the closing summary is a surprise.
   Render each as [`hard-lines.md`](hard-lines.md) describes.
 - **Not offered** (optional): a deny weakening or removed sandbox restriction, with its reason and no command.
 - **Still open** (optional, before the approval line): items Gather found but will not offer, with their reason; after Apply it also holds items skipped there (dropped, changed, failed).
   A hard-line item is never here.
-  A user-scope script copy with local-only lines goes here with its diff path, never into *Update*.
+  A user-scope script copy with local edits goes here with its diff path, never into *Update*.
 
 ## Classification
 

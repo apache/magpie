@@ -1,0 +1,9 @@
+{
+  "items": [
+    {"group": "update", "bypass": true, "id": "bypass-warn-differs"}
+  ],
+  "run_yourself": [],
+  "still_open": [],
+  "isolated_offer": false,
+  "nothing_to_do": false
+}

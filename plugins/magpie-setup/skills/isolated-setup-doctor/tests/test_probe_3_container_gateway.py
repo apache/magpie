@@ -56,20 +56,30 @@ class ProbeThreeContainerGateway(unittest.TestCase):
         script.chmod(script.stat().st_mode | stat.S_IXUSR)
         return script
 
-    def setup_stub_gateway(self, serving: list[str]) -> None:
-        gw_pkg = self.tmp / "tools" / "container-gateway" / "src" / "container_gateway"
+    def setup_stub_gateway(
+        self,
+        serving: list[str] | None,
+        root: Path | None = None,
+        exit_code: int = 2,
+        running: bool = True,
+    ) -> None:
+        # serving=None stands in for `status` printing nothing: exit 2 is a
+        # run-directory refusal, exit 1 an import failure on an old python3.
+        gw_pkg = (root or self.tmp / "tools" / "container-gateway" / "src") / "container_gateway"
         gw_pkg.mkdir(parents=True, exist_ok=True)
         (gw_pkg / "__init__.py").write_text("", encoding="utf-8")
-        status_payload = json.dumps({"running": True, "serving": serving})
-        (gw_pkg / "__main__.py").write_text(
-            f"import json\nprint({status_payload!r})\n",
-            encoding="utf-8",
-        )
+        if serving is None:
+            body = f"import sys\nsys.exit({exit_code})\n"
+        else:
+            status_payload = json.dumps({"running": running, "serving": serving})
+            body = f"import json\nprint({status_payload!r})\n"
+        (gw_pkg / "__main__.py").write_text(body, encoding="utf-8")
 
     def bind_unix_socket(self, name: str) -> Path:
         if not hasattr(socket, "AF_UNIX"):
             self.skipTest("AF_UNIX is not supported on this platform")
         sock_path = self.tmp / name
+        sock_path.parent.mkdir(parents=True, exist_ok=True)
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         self.addCleanup(sock.close)
         try:
@@ -118,11 +128,77 @@ class ProbeThreeContainerGateway(unittest.TestCase):
         )
 
     def test_gateway_not_running(self) -> None:
+        self.setup_stub_gateway([], running=False)
         self.fake_cmd("podman")
         sock = "/var/run/podman.sock"
-        out = self.run_probe({"CONTAINER_HOST": f"unix://{sock}"})
+        out = self.run_probe({"CONTAINER_HOST": f"unix://{sock}"}, cwd=self.tmp)
         self.assertIn(
             f"PROBE: podman-runtime → ✗ (gateway socket missing at {sock} — container gateway not running)",
+            out,
+        )
+
+    def test_no_gateway_source_is_not_a_pass(self) -> None:
+        # Without `status` nothing proves the socket is the gateway's: a raw
+        # daemon socket answers `info` just as well.
+        sock_path = self.bind_unix_socket("docker.sock")
+        posix_sock = to_posix(sock_path)
+        self.fake_cmd("docker")
+        out = self.run_probe(
+            {"DOCKER_HOST": f"unix://{posix_sock}"},
+            cwd=self.tmp,
+        )
+        self.assertIn(
+            "PROBE: docker-runtime → ✗ (gateway status unavailable — no gateway source in",
+            out,
+        )
+        self.assertIn(f"a socket exists at {posix_sock}, but nothing confirms", out)
+        self.assertNotIn("reaches the container gateway", out)
+
+    def test_status_import_failure_is_not_a_refusal(self) -> None:
+        # A gateway source the PATH python3 cannot import gives no status;
+        # that is not the gateway refusing its run directory.
+        self.setup_stub_gateway(None, exit_code=1)
+        self.fake_cmd("docker")
+        out = self.run_probe(
+            {"DOCKER_HOST": "unix:///var/run/docker.sock"},
+            cwd=self.tmp,
+        )
+        self.assertIn(
+            "PROBE: docker-runtime → ✗ (gateway status unavailable — status exited rc=1 without a report",
+            out,
+        )
+        self.assertNotIn("refused", out)
+
+    def test_status_refusal_is_reported(self) -> None:
+        # `status` refusing the run directory must not fall back to the
+        # socket check, which would trust whatever the socket leads to.
+        self.setup_stub_gateway(None)
+        sock_path = self.bind_unix_socket(".git/apache-magpie/run/main/docker.sock")
+        posix_sock = to_posix(sock_path)
+        self.fake_cmd("docker")
+        out = self.run_probe(
+            {"DOCKER_HOST": f"unix://{posix_sock}"},
+            cwd=self.tmp,
+        )
+        self.assertIn(
+            "PROBE: docker-runtime → ✗ (gateway status refused the run directory",
+            out,
+        )
+        self.assertNotIn("reaches the container gateway", out)
+
+    def test_operator_install_source_used(self) -> None:
+        self.setup_stub_gateway(
+            [], root=self.tmp / ".claude" / "scripts" / "container-gateway" / "src"
+        )
+        self.fake_cmd("docker")
+        workdir = self.tmp / "project"
+        workdir.mkdir()
+        out = self.run_probe(
+            {"DOCKER_HOST": "unix:///var/run/docker.sock"},
+            cwd=workdir,
+        )
+        self.assertIn(
+            "PROBE: docker-runtime → ✗ (gateway running without a docker backend",
             out,
         )
 

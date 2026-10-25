@@ -71,7 +71,7 @@ Content copied out of one of those carries a SHA-256 recorded at plan time and r
 A command that cannot meet this renders here:
 
 ```text
-• re-run setup-isolated-setup-install Step P   (not a plain-content script copy: symlink, git hook or Python package)
+• re-run setup-isolated-setup-install Step L   (not a plain-content script copy: the container_gateway package)
 ```
 
 ## Always the user's commands

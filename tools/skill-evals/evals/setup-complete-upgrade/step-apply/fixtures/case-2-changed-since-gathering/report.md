@@ -2,7 +2,7 @@
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
 Harness: Claude Code. Approved plan as shown:
-1. slug checker-copy-stale (Update)
+1. slug checker-copy-stale (Update): refresh the personal-layer checker from the sandbox-readable framework copy, inside the sandbox write scope, not marked [bypass]
 2. slug mentoring-config-missing (Add)
 3. slug privacy-llm-config-missing (Add): scaffold `privacy-llm.md` in the personal layer `.apache-magpie-local/`, inside the sandbox write scope, not marked [bypass]
 

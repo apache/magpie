@@ -21,17 +21,29 @@
 # hook runs outside the sandbox and must refuse sandbox-writable sources, while
 # this probe runs inside it and only calls the read-only `status` subcommand, so
 # an in-repo copy is safe here and keeps what the probe needs readable narrow.
+# A marketplace install has neither in-repo copy, so fall back to the operator
+# install the hook itself runs, which the reference `allowRead` already covers.
 gw_src=".apache-magpie/tools/container-gateway/src"
 [ -d "$gw_src/container_gateway" ] || gw_src="tools/container-gateway/src"
-status_json=$(PYTHONPATH="$gw_src" python3 -m container_gateway status --project "$PWD" 2>/dev/null)
+[ -d "$gw_src/container_gateway" ] || gw_src="$HOME/.claude/scripts/container-gateway/src"
+status_json=""
+status_rc=""
+if [ -d "$gw_src/container_gateway" ]; then
+  status_json=$(PYTHONPATH="$gw_src" python3 -m container_gateway status --project "$PWD" 2>/dev/null)
+  status_rc=$?
+fi
 
-gw_state() {  # $1=backend -> serving | not-serving | not-running
+gw_state() {  # $1=backend -> serving | not-serving | not-running | refused | unknown
+  # No status is unknown, not "not running": no gateway source at all, or a
+  # source the PATH python3 cannot import. Only exit 2 without output is a
+  # refusal: `status` raises SystemExit(2) when a run-directory component is
+  # a symlink or has the wrong owner, type or mode.
   printf '%s' "$status_json" | python3 -c "
 import json, sys
 try:
     d = json.load(sys.stdin)
 except Exception:
-    print('not-running'); sys.exit()
+    print('refused' if '$status_rc' == '2' else 'unknown'); sys.exit()
 if not d.get('running'):
     print('not-running')
 elif '$1' in d.get('serving', []):
@@ -84,6 +96,20 @@ for rt in podman docker; do
   esac
   sock="${url#unix://}"
   case "$(gw_state "$rt")" in
+    unknown)
+      # Only `status` can vouch for the socket: a raw daemon socket answers
+      # `<rt> info` just as well, so never pass without it.
+      if [ -z "$status_rc" ]; then
+        why="no gateway source in .apache-magpie/tools, tools/ or ~/.claude/scripts/container-gateway/src"
+      else
+        why="status exited rc=$status_rc without a report — is the python3 on PATH older than the gateway needs?"
+      fi
+      [ -S "$sock" ] && why="$why; a socket exists at $sock, but nothing confirms it is the gateway's"
+      echo "PROBE: ${rt}-runtime → ✗ (gateway status unavailable — $why)"
+      continue ;;
+    refused)
+      echo "PROBE: ${rt}-runtime → ✗ (gateway status refused the run directory — a component is a symlink or has the wrong owner, type or mode; inspect it from outside the sandbox)"
+      continue ;;
     not-running)
       echo "PROBE: ${rt}-runtime → ✗ (gateway socket missing at $sock — container gateway not running)"
       continue ;;
