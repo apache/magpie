@@ -672,6 +672,7 @@ adopter opted into via
   - `mcp__claude_ai_Gmail__list_drafts`
   - `mcp__claude_ai_Gmail__list_labels`
   - `mcp__gmail-plaintext__create_draft`
+  - and, only when `project.md` declares `organization: ASF` (they are ASF services):
   - `mcp__ponymail__search_list`
   - `mcp__ponymail__auth_status`
   - `mcp__ponymail__get_thread`
@@ -715,7 +716,8 @@ The skill invokes the CLI once per settings file:
 ```bash
 uv run --project <framework>/tools/permission-audit \
   permission-audit audit <repo>/.claude/settings.local.json \
-  --families <comma-joined families from the lock>
+  --families <comma-joined families from the lock> \
+  --organization <organization from project.md>
 ```
 
 The CLI emits structured JSON the skill folds into the verify

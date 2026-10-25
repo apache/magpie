@@ -107,7 +107,7 @@ ASF preamble or the `@apache.org` sender pattern.
 
 | Adapter | Status | Inbound channel | Reference doc |
 |---|---|---|---|
-| `asf-security` | shipping | Mail from `security@apache.org` or a personal `@apache.org` address with the ASF forwarding preamble | [`tools/gmail/asf-relay.md`](../gmail/asf-relay.md) |
+| `asf-security` | shipping | ASF projects only (`organization: ASF`): mail from `security@apache.org` or a personal `@apache.org` address with the ASF forwarding preamble | [`tools/gmail/asf-relay.md`](../gmail/asf-relay.md) |
 | `huntr-relay` | placeholder | Mail from huntr.com's notification address with the huntr disclosure preamble | not implemented — contract slot only |
 | `hackerone-relay` | placeholder | Mail from HackerOne's notification address with the HackerOne handoff preamble | not implemented — contract slot only |
 | `ghsa-relay` | placeholder | Mail forwarded from a GHSA private report by the GitHub notification system | not implemented — contract slot only |

@@ -21,6 +21,11 @@
 
 # Gmail — ASF PonyMail archive URL construction
 
+> **Scope — `organization: ASF` · 🪶 ASF-specific.** The archive these URLs point at,
+> `lists.apache.org`, holds the ASF's lists only: use this recipe only for a project whose
+> `<project-config>/project.md` declares `organization: ASF`. The PonyMail tooling itself is
+> [`tools/ponymail/`](../ponymail/README.md), also ASF-only.
+
 The ASF hosts mailing-list archives at
 [`lists.apache.org`](https://lists.apache.org/) (internally
 **PonyMail**). The skills use it for two distinct lookups:

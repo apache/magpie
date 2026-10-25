@@ -22,7 +22,7 @@ argument-hint: "[--manager pip|npm|cargo|maven|gradle|trivy] [--policy asf|allow
 capability: capability:triage
 surface_hash: sha256:9723ef52fb16204e
 license: Apache-2.0
-measured_tokens: 3624
+measured_tokens: 3739
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -137,7 +137,9 @@ is not installed, surface the installation recipe and stop.
 **Golden rule 6 — read the policy from config.** Read the policy model,
 `allowed_licenses`, and `forbidden_licenses` from
 `<project-config>/repo-health-config.md → dependency_license_audit`.
-Default to the `asf` policy when not configured.
+When not configured, default to the `asf` policy only for a project whose
+`<project-config>/project.md` declares `organization: ASF`; any other project
+defaults to `allowlist` with the lists below. Say which default applied.
 
 ---
 
@@ -196,7 +198,11 @@ repo_health:
     unknown_license_action: flag   # or: ignore
 ```
 
-When no config file exists, use the ASF policy defaults above.
+When no config file exists, the default depends on the project's organization
+(`<project-config>/project.md → organization`): `organization: ASF` gets
+`policy: asf`; every other project, including one with no `project.md`, gets
+`policy: allowlist` with the `allowed_licenses` / `forbidden_licenses` above.
+The ASF category model is ASF policy, not a general licence rule.
 
 ### ASF three-category model (`policy: asf`)
 

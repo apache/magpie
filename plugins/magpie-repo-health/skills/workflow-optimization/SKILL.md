@@ -18,7 +18,7 @@ argument-hint: "--repo owner/name"
 capability: capability:triage
 surface_hash: sha256:bbfe83b236640f9e
 license: Apache-2.0
-measured_tokens: 3048
+measured_tokens: 3094
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -184,7 +184,10 @@ Apply these while classifying:
   Fork CI and self-hosted runners are experimental on the Infra page.
   Recommend them only when the evidence shows heavy jobs, and carry the security caveats with them.
 - **ASF-only checks.**
-  The GitHub Actions Policy, `.asf.yaml` and `creation_cap` checks apply only to repositories under the ASF; skip them elsewhere.
+  The GitHub Actions Policy, `.asf.yaml` and `creation_cap` checks apply only to repositories under the ASF.
+  Run them only when `<project-config>/project.md` declares `organization: ASF`,
+  or, with no project config, when the repository's owner is the `apache` GitHub organization;
+  otherwise skip them and say so in the report.
 
 ---
 
