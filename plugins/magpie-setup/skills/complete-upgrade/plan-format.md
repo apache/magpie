@@ -45,12 +45,8 @@ Apply all? (yes / drop 2,5 / details 1 / no)
 
 ## Classification
 
-| Group | Put an item here when |
-|---|---|
-| **Fix** | Something is broken or stale: a copy missing a framework fix, a hook pointing at a missing file, a config that no longer resolves. |
-| **Update** | A newer framework copy exists for something that still works: the pre-flight checker, a script copy, a settings template entry. |
-| **Add** | Something the installed version needs is missing: a required config file, an allowlist entry, a hook, the `setup config` run on an unconfigured repo. |
-| **Check** | A read-only probe that needs the bypass to run at all: a `~/.zshrc` grep, a `~/.claude-config` diff, the overlay `_gui_available` probe, the `~/.claude.json` MCP projection, the out-of-sandbox `setup_preflight.isolated configured` confirmation. |
+The groups and the first-match-wins rule that assigns items to them are in [`SKILL.md` → Plan](SKILL.md#plan).
+Examples of a *Check* item: a `~/.zshrc` grep, a `~/.claude-config` diff, the overlay `_gui_available` probe, the `~/.claude.json` MCP projection, the out-of-sandbox `setup_preflight.isolated configured` confirmation.
 
 A *Check* item reads only.
 What it finds is handled by the second plan in [`SKILL.md` → Apply](SKILL.md#apply).

@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:9b62a5e3c672ed0e
 license: Apache-2.0
-measured_tokens: 4001
+measured_tokens: 4074
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -125,7 +125,12 @@ A probe that would read a credential file is not a *Check* item at all; it goes 
 ## Plan
 
 Show one plan, in the layout of [`plan-format.md`](plan-format.md).
-Groups, in this fixed order: **Fix** (broken or stale), **Update** (a newer copy of something that still works), **Add** (something the installed version needs is missing), **Check** (a read-only probe that needs the bypass to run).
+Groups are listed in this fixed order: **Fix**, **Update**, **Add**, **Check**.
+Classify each item by the first rule that matches, in this order:
+1. The thing is absent (a file, an entry, a rule, a link): **Add**.
+2. It is present but wrong (broken, misconfigured, or lacking a security fix the framework copy has): **Fix**.
+3. It is present, works, and is only behind the framework's copy with no known defect: **Update**.
+4. A read-only probe that needs the bypass to run: **Check**.
 Items are numbered across groups, in discovery order within a group, one line each under about 100 characters.
 A header line says how many items leave the sandbox; the *Run these yourself* preview and the isolated-setup offer, when it applies, are in the same message; values that cannot be derived are asked as one batched question.
 
