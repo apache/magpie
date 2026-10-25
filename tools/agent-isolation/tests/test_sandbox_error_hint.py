@@ -142,6 +142,15 @@ class TestKnownSignatures:
         assert result.returncode == 1
         assert f"{DOC}#temp-files-fail-with-read-only-file-system-under-tmp" in result.stderr
 
+    def test_bwrap_read_only_placeholder_beats_the_tmp_branch(self) -> None:
+        # A project under /tmp would otherwise match the /tmp branch.
+        result = _run(
+            _bash(stderr="bwrap: Can't create file at /tmp/proj/.claude/settings.json: Read-only file system")
+        )
+        assert result.returncode == 1
+        assert f"{DOC}#every-bash-call-fails-with-bwrap-cant-create-file--read-only-file-system" in result.stderr
+        assert "temp-files-fail" not in result.stderr
+
     def test_string_shaped_tool_response(self) -> None:
         payload = json.dumps(
             {"tool_name": "Bash", "tool_response": "Cannot connect to the Docker daemon"}

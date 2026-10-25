@@ -226,6 +226,20 @@ REQUIRED_PERMISSIONS_DENY |= {f"Edit({h[2]}/**)" for h in HOOK_MANAGER_HOMES}
 # carved out of a denied home directory.
 REQUIRED_DENY_READ = {"~/"}
 
+# Host sockets that `sandbox.network.allowAllUnixSockets: true` puts in reach
+# of every sandboxed command unless denyRead hides their paths: the container
+# daemons (host root through the daemon), and in the per-user runtime
+# directory rootless Podman and the D-Bus session bus (`systemd-run --user`
+# runs a command outside the sandbox). `<uid>` stands for any numeric or `*`
+# path segment.
+ALL_UNIX_SOCKETS_DENY_READ = (
+    "/run/docker.sock",
+    "/var/run/docker.sock",
+    "/run/podman/podman.sock",
+    "/run/user/<uid>/podman/podman.sock",
+    "/run/user/<uid>/bus",
+)
+
 # Settings that switch a control off wholesale, whichever layer sets them. A
 # local file may add personal entries; it may not add one of these.
 #
@@ -464,6 +478,21 @@ def _normalise(path: str) -> str:
 
 def _normalised_set(paths: list[str]) -> set[str]:
     return {_normalise(p) for p in paths}
+
+
+def _deny_covers(entry: str, target: str) -> bool:
+    """Whether a denyRead ``entry`` hides ``target``: the entry is the target
+    or an ancestor of it, segment by segment (``*`` globs allowed; a
+    ``<uid>`` target segment matches a numeric or ``*`` entry segment)."""
+    expanded = os.path.expanduser(entry)
+    if not os.path.isabs(expanded):
+        return False
+    entry_parts = [p for p in os.path.normpath(expanded).split("/") if p]
+    target_parts = [p for p in target.split("/") if p]
+    return len(entry_parts) <= len(target_parts) and all(
+        (e == "*" or e.isdigit()) if t == "<uid>" else fnmatch.fnmatchcase(t, e)
+        for e, t in zip(entry_parts, target_parts, strict=False)
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -773,6 +802,21 @@ def check_invariants(settings: dict[str, Any], project_root: Path | None = None)
                 f"sandbox.filesystem.allowWrite: contains {entry!r} which is not in allowRead "
                 "(allowWrite must be a subset of allowRead)"
             )
+        # bubblewrap mounts a read-only allowRead parent over its writable
+        # child, so every Bash call then fails creating its deny-write
+        # placeholders ("Can't create file … Read-only file system").
+        for read_entry in fs.get("allowRead", []) or []:
+            parent = _expand(read_entry, project_root) if isinstance(read_entry, str) else None
+            if parent is None or _is_writable(parent, writable):
+                continue
+            for write_entry in fs.get("allowWrite", []) or []:
+                child = _expand(write_entry, project_root) if isinstance(write_entry, str) else None
+                if child is not None and child.startswith(parent.rstrip("/") + "/"):
+                    errors.append(
+                        f"sandbox.filesystem.allowRead: {read_entry!r} is a parent of the allowWrite "
+                        f"entry {write_entry!r}, which the sandbox then mounts read-only; list the "
+                        "specific directories under it instead"
+                    )
 
     perms = settings.get("permissions")
     if not isinstance(perms, dict):
@@ -861,6 +905,18 @@ def check_invariants(settings: dict[str, Any], project_root: Path | None = None)
                 "route through the container gateway (<project>/.apache-magpie-local/run/*.sock, "
                 "or <git-common-dir>/apache-magpie/run/<worktree-id>/*.sock when the project has not adopted Magpie) instead"
             )
+
+    if settings.get("sandbox", {}).get("network", {}).get("allowAllUnixSockets") is True:
+        deny_entries = [
+            e for e in ((fs.get("denyRead", []) or []) if isinstance(fs, dict) else []) if isinstance(e, str)
+        ]
+        for target in ALL_UNIX_SOCKETS_DENY_READ:
+            if not any(_deny_covers(e, target) for e in deny_entries):
+                errors.append(
+                    f"sandbox.network.allowAllUnixSockets: true lets every sandboxed command connect to "
+                    f"{target}; add it (or its directory) to sandbox.filesystem.denyRead, see "
+                    "docs/setup/secure-agent-setup.md#linux-needs-allowallunixsockets"
+                )
 
     return errors
 

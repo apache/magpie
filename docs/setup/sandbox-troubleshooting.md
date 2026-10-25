@@ -66,6 +66,14 @@
     - [Root cause](#root-cause-11)
     - [Fix](#fix-11)
     - [Notes](#notes-10)
+  - [Every Bash call fails with `bwrap: Can't create file … Read-only file system`](#every-bash-call-fails-with-bwrap-cant-create-file--read-only-file-system)
+    - [Symptom](#symptom-12)
+    - [Root cause](#root-cause-12)
+    - [Fix](#fix-12)
+  - [`git status` shows files you never created, such as `.mcp.json` or `.bash_profile`](#git-status-shows-files-you-never-created-such-as-mcpjson-or-bash_profile)
+    - [Symptom](#symptom-13)
+    - [Root cause](#root-cause-13)
+    - [Fix](#fix-13)
   - [Adding a new entry](#adding-a-new-entry)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -198,6 +206,12 @@ fails with `No agent running`, and `gpg-connect-agent` cannot start one
 (`exit status 2`). Where that filter is active, an agent-dependent
 command — a signed `git commit`, `git tag -s`, `ssh-add -l` — must run
 with a per-call sandbox bypass, or outside the agent session entirely.
+The one setting that lifts the filter is
+`sandbox.network.allowAllUnixSockets: true` (`allowUnixSockets` is
+macOS-only, so it cannot name the agent socket here). It opens every
+socket the sandbox can see, not just the agent's, so set it only
+together with the `denyRead` entries in
+[Linux needs `allowAllUnixSockets`](secure-agent-setup.md#linux-needs-allowallunixsockets).
 The allowlist entries below remain correct and still matter (gpg reads
 the keyring through them); they simply do not restore the agent channel
 on their own.
@@ -673,7 +687,7 @@ dial unix ./.apache-magpie-local/run/podman.sock: connect: operation not permitt
 The first three lines are the CLI reaching straight for the real daemon socket or the podman machine's ssh identity, both denied by design.
 The last two are the CLI reaching the container gateway's own socket instead.
 `no such file or directory` means the gateway is not running for this project.
-`operation not permitted` means its socket is not in `sandbox.network.allowUnixSockets`.
+`operation not permitted` means its socket is not in `sandbox.network.allowUnixSockets` (macOS), or that `sandbox.network.allowAllUnixSockets` is not `true` (Linux).
 
 Inside the sandbox, `podman machine list` prints an empty table even when the machine is running, because the machine directory under `~/.local/share/containers/podman/machine/` is unreadable.
 An empty list from inside the sandbox is therefore not evidence that no machine exists.
@@ -705,7 +719,7 @@ See [Container gateway](secure-agent-setup.md#container-gateway) in the setup gu
 | `failed to read identity "…/machine/machine": operation not permitted` | `CONTAINER_HOST` / `DOCKER_HOST` are unset, so the CLI fell back to its default connection instead of the gateway | Add the reference `env` block below to `.claude/settings.local.json` |
 | `dial unix /.//.apache-magpie-local/run/podman.sock` — note the leading `/.//` | `CONTAINER_HOST` / `DOCKER_HOST` use a project-relative `unix://./…` value, which the CLIs do **not** resolve against the cwd | Use the absolute `unix:///<project>/…` spelling in the `env` block below |
 | `dial unix /<run-dir>/podman.sock: connect: no such file or directory` | The gateway is not running for this project. It exits after its idle timeout (4 h), when another session on the project ends, or when it crashes; the `PreToolUse` `ensure` hook restarts it before the next container command, so this error means that hook is not wired or could not start it | Wire the `ensure` hook per [Container gateway](secure-agent-setup.md#container-gateway), run `~/.claude/scripts/container-gateway-hook.sh start </dev/null` from a terminal in the project root (the hook reads its payload from stdin; with none it uses the current directory), or check `<run-dir>/container-gateway.log` for why it did not start |
-| `dial unix /<run-dir>/podman.sock: connect: operation not permitted` | The gateway is running but its socket is missing from `sandbox.network.allowUnixSockets` | Add both gateway sockets as absolute paths, per [Container gateway](secure-agent-setup.md#container-gateway) |
+| `dial unix /<run-dir>/podman.sock: connect: operation not permitted` | The gateway is running but its socket is missing from `sandbox.network.allowUnixSockets` (macOS), or `allowAllUnixSockets` is off (Linux, where the seccomp filter blocks every `AF_UNIX` socket) | Add both gateway sockets as absolute paths, per [Container gateway](secure-agent-setup.md#container-gateway); on Linux set `allowAllUnixSockets` with its `denyRead` entries, per [Linux needs `allowAllUnixSockets`](secure-agent-setup.md#linux-needs-allowallunixsockets) |
 | `no podman or docker backend found; nothing to serve` in the gateway log, while `podman` works by hand | On macOS the gateway asked `podman machine inspect` for the socket path, and that command renders it from the **caller's** `TMPDIR` | Update the framework: discovery now also probes `getconf DARWIN_USER_TEMP_DIR`/`podman/`, so a hook whose `TMPDIR` differs from the machine's still finds the socket |
 
 ```jsonc
@@ -1279,6 +1293,86 @@ Rationale:
 - Keep the entries out of the committed project settings and out of a
   user-scope `~/.claude/settings.json` synced across machines: both paths
   name this host's home directory and uid.
+
+---
+
+## Every Bash call fails with `bwrap: Can't create file … Read-only file system`
+
+### Symptom
+
+Every Bash tool call fails before the command runs, whatever the command,
+with:
+
+```text
+bwrap: Can't create file at <project>/.claude/settings.json: Read-only file system
+```
+
+The path named is one of the files the sandbox protects from writes
+(`.claude/settings.json`, `.mcp.json`, a shell rc), inside a directory that
+`sandbox.filesystem.allowWrite` lists.
+
+### Root cause
+
+Linux only. A `sandbox.filesystem.allowRead` entry that is a parent of an
+`allowWrite` path — `allowRead: ["/home/<you>/repos"]` next to
+`allowWrite: ["/home/<you>/repos/<project>"]`, under the reference
+`denyRead: ["~/"]` — makes bubblewrap mount the parent read-only on top of
+the writable child. The write path ends up read-only, and bubblewrap's
+first step, creating a placeholder for each write-protected file that does
+not exist yet, fails, so the whole command fails. The mount order is
+Claude Code's; the trap is in the settings shape.
+
+### Fix
+
+Never list a parent of an `allowWrite` path in `allowRead`. List the
+specific directories you need read instead:
+
+```jsonc
+{
+  "sandbox": {
+    "filesystem": {
+      "allowRead": [
+        // not "/home/<you>/repos"
+        "/home/<you>/repos/<project>",
+        "/home/<you>/repos/<other-project>"
+      ],
+      "allowWrite": ["/home/<you>/repos/<project>"]
+    }
+  }
+}
+```
+
+A parent that is itself in `allowWrite` is fine. `sandbox-lint` rejects an
+`allowRead` entry that is a strict parent of an `allowWrite` entry and not
+writable itself.
+
+---
+
+## `git status` shows files you never created, such as `.mcp.json` or `.bash_profile`
+
+### Symptom
+
+Inside the sandbox, `git status` lists untracked files that are not there
+when you look from your own terminal — typically `.claude/settings.json`,
+`.mcp.json`, or `.bash_profile`. `stat` shows they are not regular files:
+
+```console
+$ stat -c '%F %t,%T' .mcp.json
+character special file 1,3
+```
+
+### Root cause
+
+Device `1,3` is `/dev/null`. On Linux the sandbox hides a denied path that
+does not exist on the host by bind-mounting `/dev/null` over a placeholder
+at that path, so a sandboxed command can neither read nor create it. Git
+inside the sandbox sees the placeholder as a new file.
+
+### Fix
+
+None needed: it is not a real file on the host. Do not commit it and do not
+delete it. Check from outside the sandbox (your own terminal) whether a real
+file is there before acting on it.
 
 ## Adding a new entry
 

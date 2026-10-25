@@ -56,6 +56,7 @@
   - [Container gateway](#container-gateway)
     - [Why install it](#why-install-it-1)
     - [Install (user-scope)](#install-user-scope-4)
+    - [Linux needs `allowAllUnixSockets`](#linux-needs-allowallunixsockets)
     - [Egress](#egress)
     - [Verify](#verify-4)
     - [Trade-offs](#trade-offs-3)
@@ -561,6 +562,9 @@ The full block below is the two merged, annotated.
       ]
     },
     "network": {
+      // Linux ignores allowUnixSockets and blocks every AF_UNIX socket; the gateway and
+      // ssh-agent signing need a per-machine `allowAllUnixSockets: true` there, never
+      // without the host-socket denyRead entries in "Linux needs allowAllUnixSockets" below.
       "allowUnixSockets": [        // macOS only (ignored on Linux): sockets a sandboxed Bash may connect(2) to. A read entry alone lets it stat the file, not talk to it.
         "/Users/<you>/.gnupg/S.gpg-agent.ssh"   // gpg-agent's ssh socket — needed for signed commits and pushes over ssh; absolute path (see "SSH agent / Yubikey appears unreachable" in sandbox-troubleshooting.md)
         // Per project, local settings (`.claude/settings.local.json`,
@@ -2950,6 +2954,51 @@ The CLIs do not resolve it against the cwd: a `unix://` URL's authority is parse
 
 Never add the real daemon socket to `allowUnixSockets` under any name: the framework's `sandbox-lint` tool rejects an entry whose basename is `docker.sock`, `podman.sock`, or ends in `-api.sock`, unless its parent directory is the gateway's run directory, `<project>/.apache-magpie-local/run` or `<git-common-dir>/apache-magpie/run/<worktree-id>`.
 
+### Linux needs `allowAllUnixSockets`
+
+The `allowUnixSockets` entries above are macOS-only: Claude Code ignores them on Linux, where its seccomp filter rejects `socket(AF_UNIX, …)` before any path is consulted ([SSH agent / Yubikey appears unreachable](sandbox-troubleshooting.md#ssh-agent--yubikey-appears-unreachable-from-inside-the-sandbox)).
+On Linux the sandboxed `podman` / `docker` CLI reaches the gateway, and a sandboxed `git` reaches the ssh agent to sign, only with `sandbox.network.allowAllUnixSockets: true`, which skips that filter.
+Keep the `allowUnixSockets` entries anyway: they are inert on Linux and keep the block valid on a Mac.
+
+`allowAllUnixSockets` lets a sandboxed command connect to **every** Unix socket whose path it can see, and the reference `denyRead: ["~/"]` hides nothing outside your home.
+Pair it with `sandbox.filesystem.denyRead` entries, as absolute paths, for the host's daemon and IPC sockets.
+Each one is a way out of the sandbox:
+
+| Path | What a sandboxed command could do through it |
+|---|---|
+| `/run/docker.sock`, `/var/run/docker.sock` | Drive the Docker daemon: root-equivalent when you are in the `docker` group |
+| `/run/docker-cli.sock` | The same, through Docker Desktop's CLI socket |
+| `/run/podman` | Drive rootful Podman's daemon (`podman.sock`) |
+| `/run/user/<uid>` | Run commands outside the sandbox through the user D-Bus (`bus`, `systemd-run --user`), and drive rootless Podman (`podman/podman.sock`) |
+| `/run/dbus` | Talk to the system D-Bus |
+| `/tmp/.X11-unix` | Inject keystrokes into your X11 session |
+| `/run/WSL` (WSL only) | Launch Windows executables outside the sandbox through the interop sockets |
+| `/mnt/wslg` (WSL only) | Reach the WSLg display and audio sockets |
+
+```jsonc
+// per machine: ~/.claude/settings.local.json, or the project's .claude/settings.local.json
+{
+  "sandbox": {
+    "network": { "allowAllUnixSockets": true },
+    "filesystem": {
+      "denyRead": [
+        "/run/docker.sock", "/var/run/docker.sock", "/run/docker-cli.sock", "/run/podman",
+        "/run/user/<uid>", "/run/dbus", "/tmp/.X11-unix",
+        "/run/WSL", "/mnt/wslg"   // WSL only
+      ]
+    }
+  }
+}
+```
+
+The gateway's sockets are unaffected: its run directory is inside the project tree or the git directory (`<project>/.apache-magpie-local/run/` or `<git-common-dir>/apache-magpie/run/<worktree-id>/`), never under `/run/user`.
+The ssh agent may not be: run `echo "$SSH_AUTH_SOCK"` in your own terminal.
+When it is under `/run/user/<uid>/` (gnome-keyring's `keyring/ssh`, gpg-agent's `gnupg/S.gpg-agent.ssh`, systemd's `ssh-agent.socket`), deny `/run/user/<uid>/bus` and `/run/user/<uid>/podman` instead of the whole directory, or add the agent's own directory to `allowRead`, which takes precedence inside a `denyRead` the same way `~/.gnupg/` does under `~/`.
+
+Keep both halves in one per-machine file. `allowAllUnixSockets` lifts socket blocking on macOS too, so a user-scope `~/.claude/settings.json` [synced across machines](#syncing-user-scope-config-across-machines) would carry it to a Mac without the Linux denials.
+Inside the sandbox each denied path that exists is replaced by an empty directory or a `/dev/null` device, so `test -S /run/docker.sock` reports no socket there.
+`sandbox-lint` rejects `allowAllUnixSockets: true` without `denyRead` cover for the Docker and Podman daemon sockets and the user D-Bus, and `setup-isolated-setup-verify` check 12d flags each listed path that exists on the host and is not denied.
+
 ### Egress
 
 At start, the gateway resolves the egress gateway's address for each backend and probes it once.
@@ -2971,7 +3020,7 @@ podman run --rm -v "$HOME/.ssh:/x" alpine true # expected: 403 container-gateway
 ```
 
 `status` prints a JSON object (`running`, `pid`, `sockets`, `serving`) and exits 0 when the gateway is up for this project, 3 otherwise.
-The `podman info` call should succeed from inside the sandbox once the hook has started the gateway and the two `allowUnixSockets` entries are in place.
+The `podman info` call should succeed from inside the sandbox once the hook has started the gateway and the two `allowUnixSockets` entries (macOS) or `allowAllUnixSockets` with its `denyRead` entries (Linux) are in place.
 The `podman run` call is expected to fail: a bind mount outside the project root (and any `--extra-bind-root`) is exactly what the policy refuses, and the `403` message is the gateway working as intended.
 
 ### Trade-offs
@@ -3653,14 +3702,24 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
     - The project `.claude/settings.json` or
       `.claude/settings.local.json` has `env.CONTAINER_HOST` and
       `env.DOCKER_HOST`, and both gateway sockets appear in
-      `sandbox.network.allowUnixSockets`.
+      `sandbox.network.allowUnixSockets`. On Linux, which ignores
+      `allowUnixSockets`, the socket half is instead
+      `sandbox.network.allowAllUnixSockets: true` in any scope.
     - No scope (project, project-local, or user) lists a raw
       daemon socket in `allowUnixSockets` — an entry whose
       basename is `docker.sock`, `podman.sock`, or ends in
       `-api.sock`, unless its parent directory is
       `.apache-magpie-local/run` or `<git-common-dir>/apache-magpie/run/<worktree-id>`,
       is ✗: it is the same invariant
-      `tools/sandbox-lint` enforces.
+      `tools/sandbox-lint` enforces. On Linux, when any scope sets
+      `allowAllUnixSockets: true`, each of `/run/docker.sock`,
+      `/var/run/docker.sock`, `/run/docker-cli.sock`, `/run/podman`,
+      `/run/user/<uid>/bus`, `/run/user/<uid>/podman`, `/run/dbus`,
+      `/tmp/.X11-unix`, `/run/WSL` and `/mnt/wslg` that exists on this
+      host must be covered by a `sandbox.filesystem.denyRead` entry
+      (the path or a directory above it) in some scope; each one that
+      is not is ✗, naming the path (see
+      [Linux needs `allowAllUnixSockets`](#linux-needs-allowallunixsockets)).
     On any ✗, point at
     [`docs/setup/sandbox-troubleshooting.md` → Docker / Podman command fails with a socket error](sandbox-troubleshooting.md#docker--podman-command-fails-with-a-socket-error)
     rather than re-explaining the fix.

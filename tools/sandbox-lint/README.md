@@ -157,6 +157,18 @@ uv run --project tools/sandbox-lint sandbox-lint --any-harness /path/to/magpie
      project that adopted Magpie, `<git-common-dir>/apache-magpie/run/<worktree-id>` in
      one that did not — see [Residual risk](#residual-risk) for
      the one case this cannot fully verify.
+   - When `sandbox.network.allowAllUnixSockets` is `true`,
+     `sandbox.filesystem.denyRead` hides the host sockets it would
+     otherwise open to every sandboxed command: an entry for, or a
+     directory above, `/run/docker.sock`, `/var/run/docker.sock`,
+     `/run/podman/podman.sock`, and the per-user runtime directory's
+     `podman/podman.sock` and D-Bus `bus` (`/run/user/<uid>`, with the
+     uid as digits or `*`). See
+     [Linux needs `allowAllUnixSockets`](../../docs/setup/secure-agent-setup.md#linux-needs-allowallunixsockets).
+   - No `sandbox.filesystem.allowRead` entry is a strict parent of an
+     `allowWrite` entry unless the parent is itself writable: bubblewrap
+     then mounts the write path read-only and every Bash call fails (see
+     [Every Bash call fails with `bwrap: Can't create file`](../../docs/setup/sandbox-troubleshooting.md#every-bash-call-fails-with-bwrap-cant-create-file--read-only-file-system)).
    - No setting switches a control off wholesale, in any layer (the
      committed file, the local template, or a contributor's own
      `.claude/settings.local.json`): no `sandbox.excludedCommands` entry,

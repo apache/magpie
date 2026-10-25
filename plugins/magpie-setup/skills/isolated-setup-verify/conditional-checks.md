@@ -283,8 +283,12 @@ reading this file; read the section for a check whose condition holds.
     - **12c — project wiring.** The gitignored
       `.claude/settings.local.json` has `env.CONTAINER_HOST` and
       `env.DOCKER_HOST`, and both gateway sockets appear in
-      `sandbox.network.allowUnixSockets`. Either half missing
-      (the `env` pair or the socket allow-list pair) is ✗; report
+      `sandbox.network.allowUnixSockets`. On Linux, which ignores
+      `allowUnixSockets`, the socket half is instead
+      `sandbox.network.allowAllUnixSockets: true` in any scope;
+      `allowUnixSockets` entries there are inert and neither satisfy
+      nor fail it. Either half missing
+      (the `env` pair or the socket half) is ✗; report
       which half. All four values must be **absolute** paths: the
       CLIs read a `unix://` URL's authority as a host component, so
       a project-relative `unix://./…` value dials a path that does
@@ -308,6 +312,19 @@ reading this file; read the section for a check whose condition holds.
       > gateway (<project>/.apache-magpie-local/run/*.sock,
       > or <git-common-dir>/apache-magpie/run/<worktree-id>/*.sock when the
       > project has not adopted Magpie) instead`
+
+      On Linux, when any scope sets
+      `sandbox.network.allowAllUnixSockets: true`, every Unix socket
+      the sandbox can see becomes connectable, so 12d also requires
+      the host's daemon and IPC sockets to be hidden. For each of
+      `/run/docker.sock`, `/var/run/docker.sock`, `/run/docker-cli.sock`,
+      `/run/podman`, `/run/user/<uid>/bus`, `/run/user/<uid>/podman`
+      (`<uid>` from `id -u`), `/run/dbus`, `/tmp/.X11-unix`, `/run/WSL`
+      and `/mnt/wslg` that exists on the host, some scope's
+      `sandbox.filesystem.denyRead` must hold the path or a directory
+      above it. Each one that exists and is not covered is ✗, naming
+      the path; a path the host does not have needs no entry. Point at
+      [Linux needs `allowAllUnixSockets`](../../../../docs/setup/secure-agent-setup.md#linux-needs-allowallunixsockets).
 
     Install detail:
     [`docs/setup/secure-agent-setup.md` → Container gateway](../../../../docs/setup/secure-agent-setup.md#container-gateway).

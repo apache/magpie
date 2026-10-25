@@ -973,3 +973,68 @@ def test_the_default_prek_home_is_denied_even_without_prek(baseline: dict[str, A
     settings["permissions"]["deny"].remove("Edit(~/.cache/prek/**)")
     errors = check_invariants(settings, project_root=_git_repo(tmp_path / "r"))
     assert "permissions.deny: must contain 'Edit(~/.cache/prek/**)'" in errors, errors
+
+
+# ---------------------------------------------------------------------------
+# allowAllUnixSockets lifts the Linux seccomp AF_UNIX block, so any socket the
+# sandbox can see becomes connectable; denyRead must hide the host daemons and
+# the per-user runtime directory.
+# ---------------------------------------------------------------------------
+
+_DAEMON_SOCKET_DENIES = ["/run/docker.sock", "/var/run/docker.sock", "/run/podman"]
+
+
+def _all_unix_sockets(baseline: dict[str, Any], deny: list[str]) -> dict[str, Any]:
+    settings = copy.deepcopy(baseline)
+    settings["sandbox"]["network"]["allowAllUnixSockets"] = True
+    settings["sandbox"]["filesystem"]["denyRead"] += deny
+    return settings
+
+
+def test_all_unix_sockets_without_socket_denies_is_rejected(baseline: dict[str, Any]) -> None:
+    errors = check_invariants(_all_unix_sockets(baseline, []))
+    flagged = {e.split(" connect to ")[1].split(";")[0] for e in errors if "allowAllUnixSockets" in e}
+    assert flagged == {
+        "/run/docker.sock",
+        "/var/run/docker.sock",
+        "/run/podman/podman.sock",
+        "/run/user/<uid>/podman/podman.sock",
+        "/run/user/<uid>/bus",
+    }
+
+
+@pytest.mark.parametrize(
+    "user_deny",
+    [["/run/user/1000"], ["/run/user/*"], ["/run/user"], ["/run/user/1000/bus", "/run/user/1000/podman/"]],
+)
+def test_all_unix_sockets_with_socket_denies_passes(baseline: dict[str, Any], user_deny: list[str]) -> None:
+    settings = _all_unix_sockets(baseline, [*_DAEMON_SOCKET_DENIES, *user_deny])
+    assert not [e for e in check_invariants(settings) if "allowAllUnixSockets" in e]
+
+
+def test_user_bus_alone_leaves_rootless_podman_flagged(baseline: dict[str, Any]) -> None:
+    settings = _all_unix_sockets(baseline, [*_DAEMON_SOCKET_DENIES, "/run/user/1000/bus"])
+    errors = [e for e in check_invariants(settings) if "allowAllUnixSockets" in e]
+    assert len(errors) == 1 and "/run/user/<uid>/podman/podman.sock" in errors[0], errors
+
+
+def test_socket_denies_are_not_required_without_all_unix_sockets(baseline: dict[str, Any]) -> None:
+    assert not [e for e in check_invariants(baseline) if "allowAllUnixSockets" in e]
+
+
+def test_allow_read_parent_of_allow_write_is_rejected(baseline: dict[str, Any]) -> None:
+    # bubblewrap mounts the read-only parent over the writable child.
+    settings = copy.deepcopy(baseline)
+    settings["sandbox"]["filesystem"]["allowRead"] += ["/home/u/repos", "/home/u/repos/project"]
+    settings["sandbox"]["filesystem"]["allowWrite"] += ["/home/u/repos/project"]
+    errors = check_invariants(settings)
+    assert any(
+        "'/home/u/repos' is a parent of the allowWrite entry '/home/u/repos/project'" in e for e in errors
+    )
+
+
+def test_allow_read_parent_that_is_itself_writable_passes(baseline: dict[str, Any]) -> None:
+    settings = copy.deepcopy(baseline)
+    settings["sandbox"]["filesystem"]["allowRead"] += ["/home/u/repos", "/home/u/repos/project"]
+    settings["sandbox"]["filesystem"]["allowWrite"] += ["/home/u/repos", "/home/u/repos/project"]
+    assert not [e for e in check_invariants(settings) if "is a parent of the allowWrite" in e]

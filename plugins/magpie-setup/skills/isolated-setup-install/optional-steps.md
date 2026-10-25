@@ -226,6 +226,12 @@ project-relative `unix://./…` value against the cwd — the URL
 authority is read as a host component, so `unix://./x` dials
 `/.//x` — and `allowUnixSockets` has no relative form either.
 Nothing gateway-related is committed to `.claude/settings.json`.
+On Linux, which ignores `allowUnixSockets`, the same diff also proposes
+`sandbox.network.allowAllUnixSockets: true` together with
+`sandbox.filesystem.denyRead` entries for each host daemon and IPC
+socket path that exists on the machine, never the flag alone; the path
+list and the `/run/user/<uid>` caveat are in
+[docs/setup/secure-agent-setup.md → Linux needs `allowAllUnixSockets`](../../../../docs/setup/secure-agent-setup.md#linux-needs-allowallunixsockets).
 Never propose the real
 daemon socket under any name; `tools/sandbox-lint` rejects an
 `allowUnixSockets` entry named `docker.sock` / `podman.sock` /
