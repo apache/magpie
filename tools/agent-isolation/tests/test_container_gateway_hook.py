@@ -782,3 +782,27 @@ def test_a_writable_record_directory_refuses_even_a_plain_checkout(tmp_path: Pat
     lay.settings({"sandbox": {"filesystem": {"allowWrite": [str(lay.home / ".claude" / "magpie-gateway")]}}})
     done = run("start", lay.project, home=lay.home)
     assert done.stdout == "" and "is sandbox-writable" in done.stderr
+
+
+
+def test_a_planted_core_worktree_cannot_move_the_record_key(tmp_path: Path) -> None:
+    """A fake .git naming a parent as the toplevel still contains the cwd, but would
+    key the worktree records differently and skip the existing one."""
+    lay = Layout(tmp_path)
+    worktree = _linked_worktree(lay)
+    run("start", worktree, home=lay.home)
+    # A plain .git directory (so the checkout no longer looks linked) whose config
+    # names the parent as the work tree: git's toplevel then contains the cwd.
+    (worktree / ".git").unlink()
+    subprocess.run(["git", "init", "-q", str(worktree)], check=True)
+    subprocess.run(["git", "-C", str(worktree), "config", "core.worktree", str(lay.base)], check=True)
+    done = run("stop", worktree, home=lay.home)
+    assert done.stdout == ""
+    assert "but the checkout is" in done.stderr
+
+
+def test_core_worktree_on_a_plain_checkout_refuses(tmp_path: Path) -> None:
+    lay = Layout(tmp_path)
+    subprocess.run(["git", "-C", str(lay.project), "config", "core.worktree", str(lay.project)], check=True)
+    done = run("start", lay.project, home=lay.home)
+    assert done.stdout == "" and "core.worktree is set" in done.stderr

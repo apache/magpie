@@ -132,6 +132,32 @@ if [[ $cwd != "$root" && $cwd != "$root"/* ]]; then
     log "git reports $root as the toplevel of $cwd, which it does not contain; not starting the container gateway"
     exit 0
 fi
+# The root as the filesystem shows it, read without any repository config: the
+# nearest directory above the cwd holding a .git. git's toplevel must be that
+# directory, and core.worktree must be unset: a .git directory planted in a
+# sandbox-writable checkout could otherwise name a parent as the toplevel, which
+# still contains the cwd but keys the worktree records differently, so an
+# existing record would never be consulted.
+fs_root=""
+probe_dir="$cwd"
+while :; do
+    if [[ -e $probe_dir/.git || -L $probe_dir/.git ]]; then
+        fs_root="$probe_dir"
+        break
+    fi
+    [[ $probe_dir == / ]] && break
+    probe_dir="$(dirname -- "$probe_dir")"
+done
+if [[ -n $fs_root ]]; then
+    if [[ $fs_root != "$root" ]]; then
+        log "git reports $root as the toplevel of $cwd, but the checkout is $fs_root; not starting the container gateway"
+        exit 0
+    fi
+    if [[ -n "$(git -C "$root" config --get core.worktree 2>/dev/null)" ]]; then
+        log "core.worktree is set for $root; not starting the container gateway"
+        exit 0
+    fi
+fi
 
 # The home directory from the account database (`~user` reads it, not $HOME),
 # so a $HOME redirected by the environment cannot hide the real ~/.cache,
