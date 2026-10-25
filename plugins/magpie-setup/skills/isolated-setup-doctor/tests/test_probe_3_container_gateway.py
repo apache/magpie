@@ -187,9 +187,7 @@ class ProbeThreeContainerGateway(unittest.TestCase):
         self.assertNotIn("reaches the container gateway", out)
 
     def test_operator_install_source_used(self) -> None:
-        self.setup_stub_gateway(
-            [], root=self.tmp / ".claude" / "scripts" / "container-gateway" / "src"
-        )
+        self.setup_stub_gateway([], root=self.tmp / ".claude" / "scripts" / "container-gateway" / "src")
         self.fake_cmd("docker")
         workdir = self.tmp / "project"
         workdir.mkdir()
