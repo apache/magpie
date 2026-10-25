@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:9b62a5e3c672ed0e
 license: Apache-2.0
-measured_tokens: 3814
+measured_tokens: 4001
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -124,8 +124,14 @@ A probe that would read a credential file is not a *Check* item at all; it goes 
 
 ## Plan
 
-Show one plan, in the layout and with the classification and approval rules in [`plan-format.md`](plan-format.md).
-In short: groups **Fix**, **Update**, **Add**, **Check**; one numbered line per item under about 100 characters; `[bypass]` on every item that needs `dangerouslyDisableSandbox: true`; a header line saying how many items leave the sandbox; the *Run these yourself* preview; values that cannot be derived asked as one batched question; the isolated-setup offer, when it applies, in the same message.
+Show one plan, in the layout of [`plan-format.md`](plan-format.md).
+Groups, in this fixed order: **Fix** (broken or stale), **Update** (a newer copy of something that still works), **Add** (something the installed version needs is missing), **Check** (a read-only probe that needs the bypass to run).
+Items are numbered across groups, in discovery order within a group, one line each under about 100 characters.
+A header line says how many items leave the sandbox; the *Run these yourself* preview and the isolated-setup offer, when it applies, are in the same message; values that cannot be derived are asked as one batched question.
+
+An item carries `[bypass]` when its action writes outside the sandbox-writable paths or runs a read probe the sandbox denies: any write to a settings file (each worktree's `.claude/settings.local.json`, `~/.claude/settings.json`), to `~/.claude-config/` or to `~/.claude/scripts/`, and any probe of those or other denied paths.
+Writes inside the personal layer (including the main checkout's, from a linked worktree) or the worktree need no bypass.
+A harness without a bypass (see [Other harnesses](#other-harnesses)) lists every such item under *Run these yourself* instead.
 
 An item a hard line blocks goes under *Run these yourself*, never under *Still open*: the vetted-ops policy, any committed file (a needed change to the committed `.claude/settings.json` is shown there as a diff), a deny weakening, or a credential read.
 *Still open* holds only what is skipped, such as a dropped item, a target changed since gathering, a user-scope copy with local-only lines, or a failed item.
@@ -135,7 +141,8 @@ The approval accepts `yes`, `drop <n>[,<n>…]`, `details <n>`, or `no`.
 It names the bypass explicitly, so it covers the loud sandbox-bypass rule once, for the listed `[bypass]` items only.
 On `no`, apply nothing and show the summary with every item under *Still open*.
 
-When nothing is actionable, say so in one line, run [Re-check and record](#re-check-and-record), and stop.
+Nothing is actionable only when no group has an item and nothing is under *Still open* or *Run these yourself*.
+In that case say so in one line, run [Re-check and record](#re-check-and-record), and stop.
 
 ## Apply
 

@@ -32,10 +32,9 @@ Apply all? (yes / drop 2,5 / details 1 / no)
 - **Header**: the installed version, and the previous one when known.
   Below it, one line saying how many items leave the sandbox, for example `3 of 5 items run outside the sandbox ([bypass]).`
   Omit that line when no item carries `[bypass]`.
-- **Groups** in this order, each omitted when empty: **Fix**, **Update**, **Add**, **Check**.
-- **Items** numbered across groups, one line each, under about 100 characters: what is wrong, an arrow, what will be done.
-  Prefix `[bypass]` when the item needs `dangerouslyDisableSandbox: true`.
-- **Settings items** target only each worktree's `.claude/settings.local.json` or the user-scope `~/.claude/settings.json`, always carry `[bypass]`, and show their unified diff under `details <n>`.
+- **Groups** and the `[bypass]` rule are defined in [`SKILL.md` → Plan](SKILL.md#plan); each group is omitted when empty.
+- **Items** are one line each: what is wrong, an arrow, what will be done.
+- **Settings items** target only each worktree's `.claude/settings.local.json` or the user-scope `~/.claude/settings.json`, and show their unified diff under `details <n>`.
   A change to the committed `.claude/settings.json` is never an item; it goes to *Run these yourself* as a diff.
 - **A lagging pinned snapshot** (local lock behind the committed lock) is never a *Fix* item; it goes to *Run these yourself* as `/magpie-setup:setup upgrade`.
 - **Paths** are named as they resolve: in a linked worktree a personal-layer item names the main checkout's `.apache-magpie-local/`, never a new one in the worktree.
