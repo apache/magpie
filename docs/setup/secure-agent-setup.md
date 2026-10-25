@@ -1877,6 +1877,7 @@ automatically. Five classes of failure are recognised today:
 |---|---|
 | `Could not open a connection to your authentication agent` / `agent refused operation` / `ssh-add: error fetching identities` / `Permission denied (publickey)` | [SSH agent / Yubikey unreachable](sandbox-troubleshooting.md#ssh-agent--yubikey-appears-unreachable-from-inside-the-sandbox) |
 | `Cannot connect to the Docker daemon` / `open /var/run/docker.sock: operation not permitted` / `Cannot connect to Podman` / podman `connect: permission denied` | [Docker / Podman socket denied](sandbox-troubleshooting.md#docker--podman-command-fails-with-a-socket-error) |
+| `container-gateway: …; see docs/setup/sandbox-troubleshooting.md…` / `unable to upgrade to h2c, received 403` | [Container gateway policy refusal](sandbox-troubleshooting.md#docker--podman-command-fails-with-a-socket-error) |
 | `127.0.0.1 … Permission denied` / `Operation not permitted … bind` / `Errno 49 … assign requested address` / `Connection refused … 127.0.0.1` | [Localhost port-bind blocked](sandbox-troubleshooting.md#test-cannot-bind-to-a-localhost-port) |
 | `/tmp/…: Read-only file system` / `mktemp: failed to create` | [Temp files fail under `/tmp`](sandbox-troubleshooting.md#temp-files-fail-with-read-only-file-system-under-tmp) |
 | `x509: OSStatus -26276` / `HTTP 401: Requires authentication (https://api.github.com…` | [`gh` ran inside the sandbox](sandbox-troubleshooting.md#gh-fails-with-tls-osstatus--26276-or-http-401-inside-the-sandbox) |

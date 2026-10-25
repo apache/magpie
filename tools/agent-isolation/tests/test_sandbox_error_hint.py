@@ -29,6 +29,8 @@ import json
 import subprocess
 from pathlib import Path
 
+import pytest
+
 SCRIPT = Path(__file__).parent.parent / "sandbox-error-hint.sh"
 DOC = "docs/setup/sandbox-troubleshooting.md"
 
@@ -134,6 +136,25 @@ class TestKnownSignatures:
         result = _run(_bash(stderr="Cannot connect to the Docker daemon at unix:///var/run/docker.sock"))
         assert result.returncode == 1
         assert f"{DOC}#docker--podman-command-fails-with-a-socket-error" in result.stderr
+
+    @pytest.mark.parametrize(
+        "stderr",
+        [
+            "Error response from daemon: container-gateway: label-check: buildx_buildkit_default does not "
+            "belong to this project; see docs/setup/sandbox-troubleshooting.md#docker--podman-command-fails-with-a-socket-error",
+            "ERROR: failed to dial gRPC: unable to upgrade to h2c, received 403",
+        ],
+    )
+    def test_gateway_policy_refusal_signature(self, stderr: str) -> None:
+        result = _run(_bash(stderr=stderr))
+        assert result.returncode == 1
+        assert f"{DOC}#docker--podman-command-fails-with-a-socket-error" in result.stderr
+        assert "report the refusal to the user" in result.stderr
+
+    def test_gateway_backend_error_is_not_a_policy_refusal(self) -> None:
+        # A 502 is a backend outage, not a policy decision, and carries no catalog pointer.
+        result = _run(_bash(stderr="Error response from daemon: container-gateway: backend timed out"))
+        assert result.returncode == 0
 
     def test_tmp_signature(self) -> None:
         result = _run(
