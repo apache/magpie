@@ -140,8 +140,10 @@ class TestKnownSignatures:
     @pytest.mark.parametrize(
         "stderr",
         [
-            "Error response from daemon: container-gateway: label-check: buildx_buildkit_default does not "
-            "belong to this project; see docs/setup/sandbox-troubleshooting.md#docker--podman-command-fails-with-a-socket-error",
+            (
+                "Error response from daemon: container-gateway: label-check: buildx_buildkit_default does not "
+                "belong to this project; see docs/setup/sandbox-troubleshooting.md#docker--podman-command-fails-with-a-socket-error"
+            ),
             "ERROR: failed to dial gRPC: unable to upgrade to h2c, received 403",
         ],
     )
