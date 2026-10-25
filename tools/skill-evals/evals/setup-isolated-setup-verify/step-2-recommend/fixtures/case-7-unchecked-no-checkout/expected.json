@@ -1,0 +1,9 @@
+{
+  "overall": "pass",
+  "follow_up": [
+    {
+      "skill": "setup-isolated-setup-verify",
+      "reason": "checks 5 and 10a unchecked — no framework checkout; clone magpie (install item 2) and re-run verify with its path. Not a failure."
+    }
+  ]
+}

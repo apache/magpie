@@ -109,11 +109,14 @@ Effective sandbox.enabled: false
 
 ## Check 7 — Denial commands
 
-cat ~/.aws/credentials:
-  (no output — file does not exist)
+test -r ~/.aws/credentials:
+  rc=1
 
-echo $AWS_ACCESS_KEY_ID:
-  (empty)
+stat -c '%F %t,%T' ~/.aws/credentials:
+  stat: cannot statx '/home/alice/.aws/credentials': No such file or directory
+
+env | cut -d= -f1 | sort:
+  CLAUDECODE CLAUDE_CODE_ENTRYPOINT HOME LANG PATH PWD SHELL TERM USER
 
 curl https://example.com:
   <!doctype html><html>...

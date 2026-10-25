@@ -160,12 +160,15 @@ reading this file; read the section for a check whose condition holds.
     `true`) or a remote is reached over ssh through gpg-agent
     (`SSH_AUTH_SOCK` names its socket); otherwise report **n/a**.
     10c applies to any ssh-format signing key. 10a, 10b, 10d and 10e
-    apply only to a hardware key and are **n/a** otherwise: with
-    `gpg.format=ssh` the public key line starts with `sk-`
-    (`sk-ssh-ed25519@openssh.com`, `sk-ecdsa-sha2-nistp256@openssh.com`);
-    with OpenPGP, `gpg --card-status` finds a card (the user runs it
-    when the sandbox cannot see the device). A plain `ssh-ed25519` key
-    needs no touch, so the overlay has nothing to show.
+    apply only to a hardware key and are **n/a** otherwise. A
+    hardware key is an `sk-` public key (`sk-ssh-ed25519@openssh.com`,
+    `sk-ecdsa-sha2-nistp256@openssh.com`), or a card
+    `gpg --card-status` finds, whatever `gpg.format` is: ssh-format
+    signing through gpg-agent uses the card's `aut` slot and shows a
+    plain `ssh-ed25519` or `ssh-rsa` key. The user runs
+    `gpg --card-status` when the sandbox cannot see the device. A
+    plain software key needs no touch, so the overlay has nothing to
+    show.
     Five sub-checks, plus a note for a hardware key: the key's own touch policies
     (`ykman openpgp info`, run by the user — the sandbox does not
     see the device) are what make the overlay matter; report them

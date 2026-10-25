@@ -3598,18 +3598,21 @@ Verify my secure-agent-setup install is complete. Check each item
 below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
 (file path, line, command output). Do not attempt to fix anything
 — surface the gaps and stop. Never print a credential file's
-contents or an environment variable's value. Before check 1,
-locate my framework checkout (an `.apache-magpie/` snapshot in this
-repo, else the directory my shell rc sources `agent-iso.sh` from,
-else ask me); without one, report checks 5, 10a and 13c as
-"unchecked — no framework checkout". A path that `stat -c '%F %t,%T'`
+contents or a credential-shaped variable's value. Before check 1,
+locate my framework checkout (this repo if it is the framework,
+else an `.apache-magpie/` snapshot in this repo, else the directory
+my shell rc sources `agent-iso.sh` from, else ask me; a candidate
+counts only if it has `tools/agent-isolation/pinned-versions.toml`);
+without one, report checks 5, 10a and 13c as "unchecked — no
+framework checkout", still giving my running `claude --version`. A path that `stat -c '%F %t,%T'`
 shows as `character special file 1,3` is a sandbox placeholder, not
 a file: take its host state from git or from a read I run, and
 never delete it:
 
 1. The merged settings (project `.claude/settings.json`,
    project-local `.claude/settings.local.json`, user
-   `~/.claude/settings.json`; name the file each key came from) have
+   `~/.claude/settings.json`, and the managed settings where
+   readable; name the file each key came from) have
    `sandbox.enabled: true`, the `permissions.deny` block, the
    `permissions.ask` block, the
    `sandbox.network.allowedDomains` block, the
@@ -3644,12 +3647,17 @@ never delete it:
 7. Denials, each as its own Bash call. (a) `test -r` each of
    `~/.aws/credentials`, `~/.ssh/id_*` private keys,
    `~/.config/gh/hosts.yml`, `~/.netrc`, `~/.docker/config.json`:
-   any readable one is ✗ unless it is a sandbox placeholder; if
-   none is visible, report "inconclusive" and ask me to `ls` them
-   from my own terminal. (b) `env | cut -d= -f1`: names only; any
-   credential-shaped name (TOKEN, SECRET, PASSWORD, API_KEY, `*_KEY`,
-   `AWS_*`, `GH_*`, `GITHUB_*`, `AZURE_*`) outside the `agent-iso.sh`
-   passthrough list is ⚠, and so is a `CLAUDE_CODE_ENTRYPOINT` of an
+   any readable one is ✗ unless it is a sandbox placeholder. With
+   `denyRead` covering `~/`, prove the denial with a sentinel: a file
+   under `~/` that exists on my host (such as my shell rc) and that
+   no `allowRead` entry covers; a sandboxed `test -e` that cannot see
+   it is ✓. With no sentinel, report "inconclusive" and ask me to
+   `ls` the candidates from my own terminal; 7a turns ✓ once my `ls`
+   shows a file the sandbox cannot see. (b) `env | cut -d= -f1`:
+   names only; any credential-shaped name (TOKEN, SECRET, PASSWORD,
+   API_KEY, `*_KEY`, `AWS_*`, `GH_*`, `GITHUB_*`, `AZURE_*`) outside
+   the `agent-iso.sh` passthrough list is ⚠ (ask me whether I opted
+   it in with `AGENT_ISO_ALLOW`), and so is a `CLAUDE_CODE_ENTRYPOINT` of an
    IDE extension (such as `claude-vscode`), which never went through
    `claude-iso`. (c) `curl https://example.com` is denied.
 8. **Project-root coverage in the sandbox allowlists.** For this
@@ -4013,8 +4021,9 @@ anything — I will decide what to apply:
    `sandbox.excludedCommands` entry, and any missing vetted-ops
    `Edit` deny rule. See
    [Read-only vetted ops never prompt](#read-only-vetted-ops-never-prompt).
-6. Re-run `cat ~/.aws/credentials`, `echo $AWS_ACCESS_KEY_ID`,
-   `curl https://example.com` and confirm each is still denied.
+6. Re-run check 7's probes (7a `test -r` with the sentinel, 7b
+   variable names only, 7c `curl https://example.com`) and confirm
+   each is still denied.
    Note any newly-allowed call as a regression to investigate.
 ```
 

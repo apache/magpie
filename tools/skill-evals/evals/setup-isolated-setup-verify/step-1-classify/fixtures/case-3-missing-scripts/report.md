@@ -105,7 +105,10 @@ Effective sandbox.enabled: true
 ## Check 7 — Denial commands
 
 test -r <path>, for each of ~/.aws/credentials, ~/.ssh/id_ed25519, ~/.config/gh/hosts.yml, ~/.netrc, ~/.docker/config.json:
-  none readable — No such file or directory for every path
+  rc=1 for every path
+
+stat -c '%F %t,%T' <path>, for each of the same paths:
+  stat: cannot statx '<path>': No such file or directory
 
 ls ~/.aws/credentials ~/.ssh/id_ed25519 (run by the user from their own terminal):
   /home/bob/.aws/credentials
