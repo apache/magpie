@@ -3767,8 +3767,8 @@ A project turns the warning off for every contributor with `isolation_warning: o
 Invoke the skill directly at any time: `/magpie-setup:isolated-setup-update` on a marketplace install, `/magpie-setup-isolated-setup-update` on a pinned snapshot.
 The pre-flight state is recorded when the run finishes, so a manual run also resets the timer.
 
-On a marketplace install, the pre-flight checker in your personal layer sees a new fingerprint once `/magpie-setup:setup upgrade` has refreshed it.
-The prompt after each plugin update tells you to run `/magpie-setup:complete-upgrade`, which covers that refresh.
+On a marketplace install, the pre-flight checker in your personal layer sees a new fingerprint once `/magpie-setup:complete-upgrade` (or `/magpie-setup:setup upgrade`) has refreshed it.
+The prompt after each plugin update tells you to run `/magpie-setup:complete-upgrade`, which covers that refresh in one approved run.
 
 ### Direct steps
 

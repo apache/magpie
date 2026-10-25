@@ -35,7 +35,8 @@
 **Status:** design, awaiting approval.
 **Family:** `setup` (always-on).
 **Capability:** `platform`.
-**Invocation:** `/magpie-setup:complete-upgrade` (marketplace), `/magpie-complete-upgrade` (snapshot / self-adoption).
+**Invocation:** `/magpie-setup:complete-upgrade` (marketplace), `/magpie-setup-complete-upgrade` (snapshot / self-adoption).
+Skill names here are the marketplace form; on a pinned snapshot, invoke the `/magpie-<dir>` form.
 
 ## Intent
 

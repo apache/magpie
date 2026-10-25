@@ -1055,6 +1055,8 @@ Recommended follow-ups:
     radius (settings.json, agent-isolation/, pinned-versions.toml)
     appears in the diff.
   - Open .apache-magpie-overrides/<name>.md for any ⚠ entry above.
+
+Then run /magpie-setup:complete-upgrade to check and fix the machine and project for the new version.
 ```
 
 ## Failure modes

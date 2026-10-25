@@ -333,13 +333,15 @@ measures only small self-reviews; the pipeline remains unmeasured.
 The **Meta** mode is mostly framework machinery — setup, utilities,
 dashboards — whose cost is per machine or per repo rather than per
 maintainership item, so it is not budgeted per invocation here (see
-[`docs/modes.md` § Meta](modes.md#meta)). The exception with a
-recurring per-item shape is `committer-onboarding`, which runs once
-per new committer or PMC member:
+[`docs/modes.md` § Meta](modes.md#meta)). The exceptions with a
+recurring per-item shape are `committer-onboarding`, which runs once
+per new committer or PMC member, and `setup-complete-upgrade`, which runs once
+per machine and project after each Magpie version change:
 
 | Skill | Typical invocation | Planning estimate | Primary cost driver | Replay p50 tokens |
 |---|---|---|---|---|
 | `committer-onboarding` | One post-vote onboarding walkthrough | 10K–30K | Mostly procedural; podling vs TLP path length | Not measured |
+| `setup-complete-upgrade` | One post-upgrade check, plan and approved apply | 15K–40K | Skill body is 4,215 tokens (`measured_tokens`); the rest is the state gather and one Bash call per applied item. Estimated. | Not measured |
 
 ---
 

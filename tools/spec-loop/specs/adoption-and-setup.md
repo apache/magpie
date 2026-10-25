@@ -252,6 +252,28 @@ committed version with drift detection.
   `.apache-magpie-local/` in an unadopted repo; `local_overrides_ignored`
   is `null` when unadopted, since the git-directory home needs no ignore
   entry.
+- Skill: `setup-complete-upgrade` (`/magpie-setup:complete-upgrade`, snapshot
+  `/magpie-setup-complete-upgrade`) — after a Magpie version change, gathers
+  the state of this machine and project, shows one plan grouped **Fix**,
+  **Update**, **Add**, **Check** (one line per item, `[bypass]` prefix when
+  `dangerouslyDisableSandbox: true` is needed), and applies only the approved
+  items, one Bash call each.
+  Trigger: the session-start hook prints `Apache Magpie updated (<old> -> <new>)`
+  on any change of the installed version string, once per version through its
+  `magpie-plugin-version` marker.
+  Hard lines, never crossed even with approval: never write the vetted-ops
+  policy; never edit a committed file (`.claude/settings.json`, `.gitignore`,
+  `.apache-magpie.lock`, `.apache-magpie-overrides/**`); never weaken a deny
+  rule or remove a sandbox restriction; never read credential files.
+  It never commits, never runs `adopt`/`unadopt`, never updates plugins or
+  bumps snapshots.
+  Stamps: none of its own; it writes only the existing skills' stamps through
+  their own commands, and records `"isolated_setup": {"enabled": false}` in the
+  personal layer's `reconciled.json` when the user declines the isolated setup.
+  On a non-Claude harness every `[bypass]` item becomes a *Run these yourself*
+  command.
+  `setup upgrade` ends by pointing at it.
+  Skill names here are the marketplace form.
 - Docs: `docs/setup/` (install recipes, agentic-overrides contract,
   prerequisites, `commit-attribution.md`).
   `docs/setup/uninstall.md` states that uninstall preserves the personal

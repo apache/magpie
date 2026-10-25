@@ -22,7 +22,7 @@ argument-hint: "[install|config|adopt|unadopt|upgrade|worktree-init|verify|recon
 capability: capability:platform
 surface_hash: sha256:c43efc6b0564caff
 license: Apache-2.0
-measured_tokens: 4988
+measured_tokens: 5016
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -206,6 +206,7 @@ reconcile, skill-sources, override, delegate, welcome, uninstall, unadopt
 - The secure agent setup (sandbox, hooks, pinned tools): [`setup-isolated-setup-install`](../isolated-setup-install/SKILL.md).
 - Upgrading host tools (`bubblewrap`, `socat`, `claude-code` itself): [`setup-isolated-setup-update`](../isolated-setup-update/SKILL.md).
 - Syncing `~/.claude-config` across machines: [`setup-shared-config-sync`](../shared-config-sync/SKILL.md).
+- Checking and fixing everything after an upgrade in one approved run: [setup-complete-upgrade](../complete-upgrade/SKILL.md).
 - Committing framework changes. Those go as PRs against `apache/magpie`; the snapshot is read-only.
 
 ## Failure modes
