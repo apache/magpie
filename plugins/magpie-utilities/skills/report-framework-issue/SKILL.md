@@ -23,7 +23,7 @@ argument-hint: "[what broke, or a problem description]"
 capability: capability:platform
 surface_hash: sha256:f14640fa1249c172
 license: Apache-2.0
-measured_tokens: 4661
+measured_tokens: 4658
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -33,7 +33,7 @@ measured_tokens: 4661
      <project-config> → per file: the personal layer, else `.apache-magpie-overrides/`
      <tracker>        → value of `tracker_repo:` in <project-config>/project.md
      <upstream>       → value of `upstream_repo:` in <project-config>/project.md
-     <framework>      → `.` standalone, `.apache-magpie/apache-magpie` (snapshot),
+     <framework>      → `.` standalone, `.apache-magpie/` (snapshot),
                         `~/.cache/apache-magpie/framework/current` (marketplace)
      framework repo   → where framework issues are filed. Default
                         `apache/magpie`; override with `framework_repo` in

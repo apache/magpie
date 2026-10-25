@@ -26,9 +26,11 @@ vectors.
 * Adopted repository (a committed `.apache-magpie.lock`): the personal
   layer is `<repo>/.apache-magpie-local/`.
 * Not adopted: it is `<git-common-dir>/apache-magpie/` — inside the git
-  directory, never the working tree, shared by every worktree.  Outside a
-  git repository there is none.  A legacy in-tree `.apache-magpie-local/`
-  is still read after it.
+  directory, never the working tree, shared by every worktree.  In a
+  Subversion working copy it is `<.svn>/apache-magpie/` for the same
+  reasons.  With no version control at all there is nothing it could be
+  committed to, so it is the in-tree `<root>/.apache-magpie-local/`.  A
+  legacy in-tree `.apache-magpie-local/` is still read after it.
 * A linked worktree of an adopted repository falls back to its main
   checkout's `.apache-magpie-local/`, file by file (`main_worktree`).
 * The committed layer, `<repo>/.apache-magpie-overrides/`, comes last.

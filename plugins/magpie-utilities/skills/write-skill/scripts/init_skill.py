@@ -89,7 +89,7 @@ license: Apache-2.0
      <project-config> → per file: the personal layer, else `.apache-magpie-overrides/`
      <tracker>        → value of `tracker_repo:` in <project-config>/project.md
      <upstream>       → value of `upstream_repo:` in <project-config>/project.md
-     <framework>      → `.` standalone, `.apache-magpie/apache-magpie` (snapshot),
+     <framework>      → `.` standalone, `.apache-magpie/` (snapshot),
                         `~/.cache/apache-magpie/framework/current` (marketplace) -->
 
 # {name}

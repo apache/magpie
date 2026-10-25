@@ -17,7 +17,7 @@ when_to_use: >-
 capability: capability:authoring
 surface_hash: sha256:31626428a2545bce
 license: Apache-2.0
-measured_tokens: 2641
+measured_tokens: 2638
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -27,7 +27,7 @@ measured_tokens: 2641
      <project-config> → per file: the personal layer, else `.apache-magpie-overrides/`
      <tracker>        → value of `tracker_repo:` in <project-config>/project.md
      <upstream>       → value of `upstream_repo:` in <project-config>/project.md
-     <framework>      → `.` standalone, `.apache-magpie/apache-magpie` (snapshot),
+     <framework>      → `.` standalone, `.apache-magpie/` (snapshot),
                         `~/.cache/apache-magpie/framework/current` (marketplace) -->
 
 # write-skill

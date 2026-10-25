@@ -149,9 +149,9 @@ log() { printf '%s: %s\n' "${0##*/}" "$*" >&2; }
 git() { command git -c safe.bareRepository=explicit "$@"; }
 
 payload="$(cat 2>/dev/null || true)"
-# `ensure` runs before every Bash command the hook's `if` filter lets through,
-# and that filter is best-effort: anything not naming docker or podman leaves
-# here, before any of the checks below. The word may follow a path or an
+# `ensure` runs before every Bash command, with no filter in the hook wiring:
+# this word check is the only one, so anything not naming docker or podman
+# leaves here, before any of the checks below. The word may follow a path or an
 # operator (`/usr/local/bin/docker`, `cd x && podman run`).
 if [[ $action == ensure ]]; then
     command_line="$(printf '%s' "$payload" | jq -r '.tool_input.command // empty' 2>/dev/null || true)"

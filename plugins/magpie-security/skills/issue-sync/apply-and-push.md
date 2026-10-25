@@ -158,7 +158,7 @@ Use:
   [`vulnogram-api-record-publish`](../../../../tools/cve-tool-vulnogram/oauth-api/README.md)
   CLI to flip the record's `CNA_private.state` over the OAuth API.
   It refuses the transition unless the current state is `REVIEW` and the record already lists the archived advisory URL as a `vendor-advisory` reference (re-push the CVE JSON after capturing the URL, before this step);
-  `--allow-state READY` also accepts a record moved to `READY` manually, and no earlier state can be published:
+  `--allow-state REVIEW --allow-state READY` also accepts a record moved to `READY` manually, and no earlier state can be published:
 
   ```bash
   uv run --project <framework>/tools/cve-tool-vulnogram/oauth-api \

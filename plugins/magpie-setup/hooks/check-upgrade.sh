@@ -5,7 +5,7 @@
 # Session-start hook for the Apache Magpie plugin. Wired by the Claude Code
 # plugin (SessionStart) and by the Codex CLI plugin, which uses the same event
 # schema. Agent Plugins 1.0 defines no hook component, so an AP1-only client
-# does not run this at all — see docs/setup/marketplaces.md.
+# does not run this at all — see docs/setup/marketplace.md.
 #
 # Also warns, once per session, when the isolated setup is not configured on
 # this machine (see `setup_preflight.isolated.session_start`).

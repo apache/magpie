@@ -71,7 +71,7 @@ SETUP_HOOKS = {
             "hooks": [
                 {
                     "type": "command",
-                    "command": "${CLAUDE_PLUGIN_ROOT}/hooks/check-upgrade.sh",
+                    "command": '/bin/bash -p "${CLAUDE_PLUGIN_ROOT}/hooks/check-upgrade.sh"',
                     "timeout": 10,
                 }
             ],

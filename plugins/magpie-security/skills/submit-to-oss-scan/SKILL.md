@@ -20,7 +20,7 @@ argument-hint: "[enrol | update] [project-name]"
 capability: capability:authoring
 surface_hash: sha256:cefbd533dc1009f2
 license: Apache-2.0
-measured_tokens: 4996
+measured_tokens: 4993
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -32,7 +32,7 @@ measured_tokens: 4996
      <security-list>  → the project's private security list in <project-config>/project.md
      <scanner-repo>   → `anthropics/oss-scanner`, the enrolment repository
      <name>           → the project's directory, `projects/<name>/` in <scanner-repo>
-     <framework>      → `.` standalone, `.apache-magpie/apache-magpie` (snapshot),
+     <framework>      → `.` standalone, `.apache-magpie/` (snapshot),
                         `~/.cache/apache-magpie/framework/current` (marketplace) -->
 
 # submit-to-oss-scan

@@ -79,9 +79,11 @@ deterministic guard **without re-wiring the hook**: drop an import-free ``*.py``
 file that defines a module-level ``guard(ctx)`` returning a deny string or
 ``None`` into any discovered guard directory — see ``GuardContext`` and
 ``guards.d/no_verify_commit.py`` for the template. Three sources are discovered,
-in this order: every dir in ``$MAGPIE_GUARD_DIRS``, every
-``skills/<skill>/guards`` in the framework tree this file is running from, and
-the ``guards.d`` sibling of this file. A skill therefore owns its guards in its
+in this order: every dir in ``$MAGPIE_GUARD_DIRS``; every
+``plugins/<plugin>/skills/<skill>/guards`` and ``skills/<skill>/guards`` in the
+framework tree this file is running from, or, from a marketplace install, the
+skill guards of the sibling family plugins; and the ``guards.d`` sibling of this
+file. A skill therefore owns its guards in its
 own directory and they take effect as soon as the framework is installed —
 nothing collects, copies, or syncs them.
 """

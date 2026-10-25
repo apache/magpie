@@ -33,9 +33,9 @@ End-to-end automation for an ASF project's security-issue handling
 process — from inbound report on the project's `security@` mailing
 list through to a published CVE record on `cve.org`. Eleven skills
 that compose into the canonical 16-step lifecycle, three that produce,
-verify, and maintain the project's own security model, plus one
-read-only supporting skill for tracker-stats dashboards (fifteen skills
-total).
+verify, and maintain the project's own security model, one that carries
+that model into an OSS Scanner enrolment, plus one read-only supporting
+skill for tracker-stats dashboards (sixteen skills total).
 
 Why a framework skill family? The 16-step process exists across
 the foundation; every project's security team runs essentially
@@ -204,9 +204,10 @@ below sends, merges, or posts anything without you confirming it.*
 
 ### Security-model skills
 
-The lifecycle skills above route **one report**. These three maintain the
-document they route it against — the project's security model — so that
-routing has something to cite. See
+The lifecycle skills above route **one report**. These four work on the
+document they route it against — the project's security model: three
+maintain it so that routing has something to cite, and one carries it into
+an external scanner's enrolment. See
 [**`security-model-preparation.md`**](security-model-preparation.md) for
 the lifecycle and the rationale.
 
@@ -215,6 +216,7 @@ the lifecycle and the rationale.
 | [`security-model-prepare`](../../skills/security-model-prepare/SKILL.md) | Produce a first model for a project that has none, in draft-first mode, and land it with its discoverability chain as one PR per repository. |
 | [`security-model-verify`](../../skills/security-model-verify/SKILL.md) | Pre-flight an existing model: can an agent mechanically reach it, and does it cover the minimum bar a triager depends on. Discoverability is the only hard gate. |
 | [`security-model-update`](../../skills/security-model-update/SKILL.md) | Read the decision history back into the model — new known-non-finding entries and a model-gap list, regression-checked against past valid reports. |
+| [`security-submit-to-oss-scan`](../../skills/security-submit-to-oss-scan/SKILL.md) | Prepare the enrolment (or update) PR that puts a project into Anthropic's OSS Scanner — `project.yaml`, an offline-capable `Dockerfile`, and a `threat_model.md` derived from the security model — and guide the maintainer through testing it first. |
 
 The rubric these skills measure against is maintained externally by
 Alpha-Omega (<https://github.com/alpha-omega-security/threat-model>) and

@@ -158,6 +158,7 @@ for the complete rule.
 | [`setup-privacy-llm`](../../skills/setup-privacy-llm/SKILL.md) | Configure which LLMs may see this project's private foundation mail, then prove it: detect the stack, write `privacy-llm.md` from the matching variant, and run the approved-LLM gate and the PII redactor end to end. |
 | [`setup`](../../skills/setup/SKILL.md) | Adopt and maintain the framework in a project repo through installation, verification, updates, overrides, and unadoption. |
 | [`setup upgrade`](../../skills/setup/upgrade.md) | Pull the framework checkout to latest `origin/main`. |
+| [`setup-complete-upgrade`](../../skills/setup-complete-upgrade/SKILL.md) | Finish a Magpie upgrade in one run: check this machine and project against the installed version, apply one approved plan, re-check, and print exact commands for what is out of reach. |
 | [`setup verify`](../../skills/setup/verify.md) | Verify the framework is integrated correctly into an adopter tracker. |
 | [`setup-status`](../../skills/setup-status/SKILL.md) | Render a Markdown adoption dashboard (install pin, drift, wired agent targets, installed skill families, symlink health) and adjust the wiring in place. |
 | [`setup-shared-config-sync`](../../skills/setup-shared-config-sync/SKILL.md) | Commit + push the user's shared Claude config to its sync repo. |

@@ -77,7 +77,7 @@ Skill files and framework docs reference the same invocation via the
 uv run --project <framework>/tools/gmail/oauth-draft oauth-draft-create ...
 ```
 
-`<framework>` substitutes to `.apache-magpie/apache-magpie` in
+`<framework>` substitutes to `.apache-magpie/` in
 adopting projects and to `.` (the repository root) in framework
 standalone — see the placeholder convention in
 [`AGENTS.md`](../../../AGENTS.md#placeholder-convention-used-in-skill-files).
