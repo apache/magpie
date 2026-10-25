@@ -603,6 +603,18 @@ repos:
         entry: tools/dev/check-workspace-members.py
         files: ^((tools/[^/]+(/[^/]+)?|ai-tutors|skills)/pyproject\.toml|pyproject\.toml|.*/tests?/.*\.py|.*/test_[^/]+\.py|.*_test\.py)$
         pass_filenames: false
+  # The hook-manager registry (tools/hook-manager/registry.json) is written
+  # into the shim, the whole-user dispatcher and sandbox-lint as generated
+  # blocks, since none of them can read it where they run; the settings that
+  # give each sandbox home are checked against it, not written.
+  - repo: local
+    hooks:
+      - id: sync-hook-managers
+        name: sync-hook-managers (hook-manager registry -> shim, dispatcher, sandbox-lint)
+        language: system
+        entry: tools/dev/sync-hook-managers.py
+        files: ^(tools/hook-manager/registry\.json|tools/dev/sync-hook-managers\.py|tools/agent-isolation/(hook-manager-shim|git-hook-dispatcher)\.sh|tools/sandbox-lint/src/sandbox_lint/__init__\.py|\.claude/settings\.json|tools/sandbox-lint/expected\.json)$
+        pass_filenames: false
   # Tool-capability PR labels. `.github/labeler.yml` is generated from every
   # tool README's `**Capability:**` line; regenerate it whenever a README or
   # the generator changes, so a new tool is labelled with no hand-edit.

@@ -74,7 +74,7 @@ disclosure first, then Step P.0b (pick the whole-user *flavour* —
 simple vs dispatcher), then Step P.1, then Steps P.2-whole-user
 (walk existing checkouts) and P.3-whole-user (install the global
 hook + set `core.hooksPath`). If they chose the dispatcher flavour,
-also run Step P.3b-whole-user (install the dispatcher + prek shim).
+also run Step P.3b-whole-user (install the dispatcher + hook-manager shim).
 
 #### Step P.0a — Loud disclosure before setting whole-user scope
 
@@ -137,7 +137,7 @@ footprint and confirms they run no per-repo hooks.
   P.3b-whole-user additionally installs `git-hook-dispatcher.sh`
   (symlinked to each hook name, including `post-checkout` — which
   in this flavour supersedes the standalone `git-global-post-checkout.sh`)
-  and the `prek` PATH shim.
+  and the hook-manager PATH shim.
 
 ### Step P.1 — Install the helper script
 
@@ -292,7 +292,7 @@ framework's universal post-checkout, which keeps each
 Claude-Code-aware project's `.claude/settings.local.json` in
 sync without any further operator action.
 
-### Step P.3b-whole-user — Install the per-repo dispatcher + prek shim (dispatcher flavour only)
+### Step P.3b-whole-user — Install the per-repo dispatcher + hook-manager shim (dispatcher flavour only)
 
 Skip unless the operator picked the **dispatcher** flavour in
 Step P.0b. This is what keeps the operator's per-repo hooks (prek,
@@ -326,18 +326,27 @@ for the full rationale + the validated behaviour matrix.
    with the original argv + inherited stdin, so a failing local
    `pre-commit` / `pre-push` still aborts the git operation.
 
-2. **Install the `prek` PATH shim** so `prek install` writes its
+2. **Install the hook-manager PATH shim** so `prek install` writes its
    shim into the repo-local `.git/hooks/` (where the dispatcher
    chains) instead of the shared dir. Copy
-   [`tools/agent-isolation/prek-shim.sh`](../../../../tools/agent-isolation/prek-shim.sh)
-   into `~/.claude/bin/prek` (or symlink from
-   `~/.claude-config/bin/prek`), mode `0755`. The shim rewrites
-   only `prek install` (injecting
+   [`tools/agent-isolation/hook-manager-shim.sh`](../../../../tools/agent-isolation/hook-manager-shim.sh)
+   into `~/.claude/bin/<tool>` (or symlink from
+   `~/.claude-config/bin/<tool>`), mode `0755`, once for each adapter in the
+   [hook-manager registry](../../../../tools/hook-manager/registry.json)
+   that a repository the operator works in uses — `~/.claude/bin/prek` today.
+   A repository uses a manager when one of its config files is at the root
+   (or tracked below it, for prek's nested projects) or one of its installed
+   hooks runs it ([Detection](../../../../tools/hook-manager/README.md#detection));
+   for prek that is `prek.toml`, `.pre-commit-config.yaml` or
+   `.pre-commit-config.yml`. Install no shim for a manager no repository uses. The shim
+   takes the tool from the name it is installed under. For prek it
+   rewrites only `prek install` (injecting
    `--git-dir "$(git rev-parse --git-common-dir)"` unless the caller
    already passed `--git-dir`, asked for `--help`, or is outside a
    git work tree); **every other `prek` invocation passes through
    unchanged**. It is a no-op on hosts with no global
-   `core.hooksPath`.
+   `core.hooksPath`. A host that installed the older `prek-shim.sh`
+   as `~/.claude/bin/prek` keeps working; replacing it is optional.
 
 3. **Surface the PATH line for the operator to add** to their
    `~/.bashrc` / `~/.zshrc` (per the golden rules — never edit the

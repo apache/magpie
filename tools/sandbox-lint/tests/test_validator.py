@@ -20,6 +20,7 @@ from __future__ import annotations
 import copy
 import fnmatch
 import json
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +31,7 @@ from sandbox_lint import (
     deep_diff,
     main,
     merge_layers,
+    uses_hook_manager,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -910,3 +912,59 @@ def test_the_baseline_gives_sandboxed_prek_its_own_home(baseline: dict[str, Any]
     assert baseline["env"]["PREK_HOME"] == "~/.cache/prek-sandbox"
     assert "Edit(~/.cache/prek/**)" in baseline["permissions"]["deny"]
     assert check_invariants(baseline) == []
+
+
+def _git_repo(path: Path) -> Path:
+    subprocess.run(["git", "init", "-q", str(path)], check=True)
+    return path
+
+
+PREK_FILES = ("prek.toml", ".pre-commit-config.yaml", ".pre-commit-config.yml")
+
+
+def _uses_prek(root: Path) -> bool:
+    return uses_hook_manager(root, PREK_FILES, True, "prek")
+
+
+def test_a_project_without_prek_does_not_use_it(tmp_path: Path) -> None:
+    assert not _uses_prek(_git_repo(tmp_path / "r"))
+
+
+@pytest.mark.parametrize("name", PREK_FILES)
+def test_a_root_config_means_the_project_uses_prek(tmp_path: Path, name: str) -> None:
+    repo = _git_repo(tmp_path / "r")
+    (repo / name).write_text("")
+    assert _uses_prek(repo)
+
+
+def test_a_tracked_nested_config_means_the_project_uses_prek(tmp_path: Path) -> None:
+    """prek's workspace mode: a project config below the root."""
+    repo = _git_repo(tmp_path / "r")
+    (repo / "frontend").mkdir()
+    (repo / "frontend" / "prek.toml").write_text("")
+    assert not _uses_prek(repo)  # untracked: not part of the project yet
+    subprocess.run(["git", "-C", str(repo), "add", "frontend/prek.toml"], check=True)
+    assert _uses_prek(repo)
+
+
+def test_an_installed_hook_that_runs_prek_means_the_project_uses_it(tmp_path: Path) -> None:
+    """An install with a custom --config leaves no standard config name behind."""
+    repo = _git_repo(tmp_path / "r")
+    hook = repo / ".git" / "hooks" / "pre-push"
+    hook.write_text('#!/bin/sh\nexec prek hook-impl --config="ci/hooks.yaml" "$@"\n')
+    assert _uses_prek(repo)
+
+
+def test_settings_need_no_prek_home_for_a_project_without_prek(
+    baseline: dict[str, Any], tmp_path: Path
+) -> None:
+    repo = _git_repo(tmp_path / "r")
+    settings = copy.deepcopy(baseline)
+    settings.pop("env", None)
+    settings["permissions"]["deny"].remove("Edit(~/.cache/prek/**)")
+    errors = check_invariants(settings, project_root=repo)
+    assert not any("PREK_HOME" in e or "~/.cache/prek/**" in e for e in errors), errors
+    (repo / ".pre-commit-config.yaml").write_text("")
+    errors = check_invariants(settings, project_root=repo)
+    assert any(e.startswith("env.PREK_HOME: missing") for e in errors), errors
+    assert any("Edit(~/.cache/prek/**)" in e for e in errors), errors

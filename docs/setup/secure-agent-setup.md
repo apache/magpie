@@ -1050,7 +1050,7 @@ uv tool upgrade --all --reinstall
 
 The old `~/.cache/uv/` stays as the sandbox's cache; the host never reads it again.
 
-**prek has the same problem.** The git hooks of a commit you make in a terminal run prek outside the sandbox, from hook environments under its home: `~/.cache/prek/` by default, which the `~/.cache/` grant makes sandbox-writable. Nothing excluded from the sandbox runs prek, so the settings `env` (which only Claude Code's own commands see, never your terminal) does the split: `"PREK_HOME": "~/.cache/prek-sandbox"` gives sandboxed prek a home of its own, and `Edit(~/.cache/prek/**)` keeps sandboxed commands out of the terminal's. prek expands the `~`. The first sandboxed `prek run` after the switch rebuilds its hook environments there once. `sandbox-lint` fails a settings file whose `PREK_HOME` is missing or overlaps `~/.cache/prek`.
+**prek has the same problem.** The git hooks of a commit you make in a terminal run prek outside the sandbox, from hook environments under its home: `~/.cache/prek/` by default, which the `~/.cache/` grant makes sandbox-writable. Nothing excluded from the sandbox runs prek, so the settings `env` (which only Claude Code's own commands see, never your terminal) does the split: `"PREK_HOME": "~/.cache/prek-sandbox"` gives sandboxed prek a home of its own, and `Edit(~/.cache/prek/**)` keeps sandboxed commands out of the terminal's. prek expands the `~`. The first sandboxed `prek run` after the switch rebuilds its hook environments there once. `sandbox-lint` fails a settings file whose `PREK_HOME` is missing or overlaps `~/.cache/prek`. The same split applies to every hook manager with a home in the [hook-manager registry](../../tools/hook-manager/registry.json); see the [contract](../../tools/hook-manager/README.md#home).
 
 The `env` also reaches a command Claude Code runs *outside* the sandbox (an approved bypass, often a signed commit). The whole-user [git-hook dispatcher](#whole-user-with-the-per-repo-dispatcher) covers that: a hook it runs with no `SANDBOX_RUNTIME` in the environment gets `PREK_HOME=~/.local/share/prek-host` and a host-only `XDG_CACHE_HOME` (for the pip, go, npm and uv caches the hooks use), whatever the env said. It only runs when git reaches it: a repository-level `core.hooksPath` (some `prek install` runs set one) overrides the global one and skips the dispatcher. magpie-setup's session-start hook removes one that points at the repository's own `.git/hooks` (redundant, since the dispatcher chains there anyway) and says so; any other value is reported, and `setup-isolated-setup-verify` flags it. With per-project scope there is no dispatcher, so do not bypass the sandbox for a commit there.
 
@@ -1415,24 +1415,29 @@ original argv + inherited stdin, so a failing local `pre-commit` /
 `pre-push` still aborts the git operation. A repo with **no** local
 hook is a clean no-op.
 
-**The `prek` PATH shim.** prek honours `core.hooksPath`, so a bare
+**The hook-manager PATH shim.** prek honours `core.hooksPath`, so a bare
 `prek install` under whole-user scope would write its shim into the
 *shared* dir, not the repo. The framework ships a transparent shim
-([`tools/agent-isolation/prek-shim.sh`](../../tools/agent-isolation/prek-shim.sh),
+([`tools/agent-isolation/hook-manager-shim.sh`](../../tools/agent-isolation/hook-manager-shim.sh),
 installed as `~/.claude/bin/prek` with `~/.claude/bin` prepended to
 PATH) that rewrites **only** `prek install` — injecting
 `--git-dir "$(git rev-parse --git-common-dir)"` so the shim lands
 in the repo-local `.git/hooks/` where the dispatcher finds it.
 Every other `prek` command passes straight through, and the shim is
 a no-op on hosts with no global `core.hooksPath`.
+The shim, the host-only homes and the sandbox-lint checks all follow the
+[hook-manager contract](../../tools/hook-manager/README.md):
+one script serves every adapter in its registry, keyed by the name it is
+installed under, and other hook managers (pre-commit, lefthook, husky, …)
+join by adding an adapter there.
 
 Validated behaviour under this flavour (`core.hooksPath` global +
-dispatchers + prek shim):
+dispatchers + hook-manager shim):
 
 | Repo's local hook | Result |
 |---|---|
 | prek shim in `.git/hooks/` (installed via the shim) | dispatcher → prek runs that repo's `.pre-commit-config.yaml` |
-| hand-written / husky / lefthook `.git/hooks/<name>` | dispatcher → that hook runs (heterogeneous tooling coexists) |
+| hand-written `.git/hooks/<name>`, or one a manager without an adapter put there | dispatcher → that hook runs (heterogeneous tooling coexists) |
 | none | dispatcher no-op; git operation proceeds cleanly |
 | local hook exits non-zero | exit code propagates; git operation aborts |
 | `post-checkout` | framework sandbox sync **and** repo-local `post-checkout` both run |

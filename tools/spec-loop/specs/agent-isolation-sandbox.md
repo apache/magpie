@@ -249,6 +249,18 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
   the update skill's drift check and verify check 8 recognise the
   dispatcher flavour's symlinks as its installed shape, not as drift
   or as inert per-repo hooks (#1322, #1358).
+- `tools/hook-manager/` — the contract for git-hook managers (prek
+  today) under the secure setup, `contract:hook-manager`: a manager's
+  install puts its hook in the repository's own
+  `$(git rev-parse --git-common-dir)/hooks`, where the dispatcher
+  chains, and its home is split — `env.<HOME>` gives sandboxed runs a
+  home of their own, `Edit(<default home>/**)` is denied, and the
+  dispatcher gives hooks run outside the sandbox a host-only home under
+  `~/.local/share`. `registry.json` holds the adapters;
+  `tools/dev/sync-hook-managers.py` writes it into
+  `tools/agent-isolation/hook-manager-shim.sh` (installed as
+  `~/.claude/bin/<tool>`, keyed by that name), the dispatcher and
+  `sandbox-lint`, and checks the committed settings against it.
 - `tools/egress-gateway/` — local HTTP(S) forward proxy for egress
   control. Framework tools point `HTTPS_PROXY`/`HTTP_PROXY` at it; the
   gateway rejects any connection to a host not on its allowlist before a

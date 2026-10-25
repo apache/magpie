@@ -1,0 +1,30 @@
+{
+  "$comment": "Hook-manager adapters for the secure agent setup. The contract is tools/hook-manager/README.md; tools/dev/sync-hook-managers.py validates this file and writes it into the scripts that implement the contract.",
+  "adapters": {
+    "prek": {
+      "language": "Rust",
+      "upstream": "https://github.com/j178/prek",
+      "detect": {
+        "config_files": [
+          "prek.toml",
+          ".pre-commit-config.yaml",
+          ".pre-commit-config.yml"
+        ],
+        "nested": true,
+        "hook_marker": "prek"
+      },
+      "install": {
+        "subcommand": "install",
+        "strategy": "git-dir-flag",
+        "flag": "--git-dir"
+      },
+      "home": {
+        "env": "PREK_HOME",
+        "default": "~/.cache/prek",
+        "sandbox": "~/.cache/prek-sandbox",
+        "host": "~/.local/share/prek-host",
+        "expands_tilde": true
+      }
+    }
+  }
+}

@@ -465,6 +465,12 @@ contract:cve-authority:
               - 'tools/cve-tool/**'
               - 'tools/cve-tool-vulnogram/**'
 
+contract:hook-manager:
+  - any:
+      - changed-files:
+          - any-glob-to-any-file:
+              - 'tools/hook-manager/**'
+
 contract:mail-archive:
   - any:
       - changed-files:
