@@ -431,18 +431,20 @@ before running the commands. Use their actual paths, not placeholders.
 Check the new copy before replacing the old one:
 
 ```bash
-target="$personal_dir/setup_preflight"
+(
+  target="$personal_dir/setup_preflight"
 
-if [ -e "$target" ] || [ -L "$target" ]; then
-  temp="$(mktemp -d "$personal_dir/.preflight.XXXXXX")" || exit 1
-  cp -RL "$source_dir" "$temp/setup_preflight" &&
-    PYTHONPATH="$temp" python3 -P -m setup_preflight --skill magpie-setup --no-welcome ||
-    { rm -rf "$temp"; exit 1; }
-  mv "$target" "$temp/old" || { rm -rf "$temp"; exit 1; }
-  mv "$temp/setup_preflight" "$target" ||
-    { mv "$temp/old" "$target"; exit 1; }
-  rm -rf "$temp"
-fi
+  if [ -e "$target" ] || [ -L "$target" ]; then
+    temp="$(mktemp -d "$personal_dir/.preflight.XXXXXX")" || exit 1
+    cp -RL "$source_dir" "$temp/setup_preflight" &&
+      PYTHONPATH="$temp" python3 -P -m setup_preflight --skill magpie-setup --no-welcome ||
+      { rm -rf "$temp"; exit 1; }
+    mv "$target" "$temp/old" || { rm -rf "$temp"; exit 1; }
+    mv "$temp/setup_preflight" "$target" ||
+      { mv "$temp/old" "$target"; exit 1; }
+    rm -rf "$temp"
+  fi
+)
 ```
 
 The fresh copy also carries the new version's isolated-setup
