@@ -30,7 +30,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from generate_cve_json.cve_json import MD_SENTINEL, PR_SENTINEL, SCAN_SENTINEL
+from generate_cve_json.cve_json import MD_SENTINEL, NO_THREAD_PREFIX, PR_SENTINEL, SCAN_SENTINEL
 
 GMAIL_SENTINEL = "No public archive URL — tracked privately on Gmail thread"
 
@@ -91,6 +91,10 @@ def classify(value: str | None) -> dict[str, Any]:
     if lines[0]["text"].startswith(SCAN_SENTINEL):
         return done(
             "internal_audit", "the field holds the import-from-scan sentinel: an internal scan finding"
+        )
+    if lines[0]["text"].startswith(NO_THREAD_PREFIX):
+        return done(
+            "internal_audit", "the field starts with `N/A —`: no reporter thread, an internal finding"
         )
     threads = [ln for ln in lines if ln["thread_id"] or ln["url"]]
     if not threads:

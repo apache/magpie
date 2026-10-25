@@ -61,6 +61,7 @@ def test_fields_read_ignores_fenced_headings_and_refuses_containers():
         ),
         ("N/A — imported from markdown file `audit.md`; no security@ thread.", "internal_audit", None),
         ("N/A — imported from scan `asvs-2026-10`; no security@ thread.", "internal_audit", None),
+        ("N/A — internal finding while fixing #668; no inbound `security@` thread.", "internal_audit", None),
         ("", "indeterminate", None),
         ("see the mail", "indeterminate", None),
     ],
