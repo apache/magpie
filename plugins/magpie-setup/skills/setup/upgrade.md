@@ -421,16 +421,13 @@ to this skill in the installed plugin. Get the destination from
 `python3 -m setup_preflight.layers` as in
 [`config` Step 0](config.md#step-0--pre-flight).
 The marketplace cache under `~/.claude/plugins/cache/` is read-denied
-to a sandboxed shell. Have the agent's file tool copy the package into
-a temporary directory in the personal layer, following any symlinks.
-If the file tool cannot copy the directory, ask the user to run the
-following commands in their own terminal, outside the sandbox.
+to a sandboxed shell. For a marketplace install, ask the user to run
+the following commands in their own terminal, outside the sandbox.
 For a readable snapshot install, the commands can run in the sandbox.
 
 Set `source_dir` to that installed skill's `setup_preflight/` directory
 and `personal_dir` to the directory reported by `setup_preflight.layers`
 before running the commands. Use their actual paths, not placeholders.
-If the file tool already staged the package, skip the `cp` command.
 Check the new copy before replacing the old one:
 
 ```bash
