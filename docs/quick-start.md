@@ -36,7 +36,7 @@ project and no opt-in from your teammates. Committing anything for other
 people is a separate act called **adoption** —
 [Installation or Adoption?](quick-start/two-ways.md) draws the line.
 
-**What you get.** 82 skills your agent can run, grouped into 10 **families** —
+**What you get.** 83 skills your agent can run, grouped into 10 **families** —
 PR triage and review, issue triage, security-report handling, release
 management, contributor mentoring. Install only the families you need; each one
 you add costs context in every session —
@@ -180,7 +180,7 @@ draws the line.
 
 **Every skill configures itself on first use.** You do not have to remember
 which projects are set up, or run anything to prepare a family before you use
-it: 71 of the 82 skills open with a silent pre-flight — the eleven exceptions are
+it: 71 of the 83 skills open with a silent pre-flight — the twelve exceptions are
 the setup skills themselves, which are what you run to fix whatever it finds.
 
 The first time you call a skill in a project, that pre-flight works out how

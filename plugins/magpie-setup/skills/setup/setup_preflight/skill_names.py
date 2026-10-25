@@ -36,6 +36,7 @@ FRONTMATTER_TO_OVERRIDE: dict[str, str] = {
     "ci-runner-audit": "ci-runner-audit",
     "code-review": "pr-management-code-review",
     "committer-onboarding": "committer-onboarding",
+    "complete-upgrade": "setup-complete-upgrade",
     "contributor-to-committer": "contributor-to-committer",
     "cve-allocate": "security-cve-allocate",
     "deduplicate": "issue-deduplicate",

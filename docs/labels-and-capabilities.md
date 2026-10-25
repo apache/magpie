@@ -299,6 +299,7 @@ Capabilities for every skill currently in
 | `setup-isolated-setup-install` | `capability:platform` |
 | `setup-isolated-setup-verify` | `capability:platform` |
 | `setup-isolated-setup-update` | `capability:platform` |
+| `setup-complete-upgrade` | `capability:platform` |
 | `setup-isolated-setup-doctor` | `capability:platform` + `capability:reassess` *(re-checks an installed sandbox against current spec — the phase is reassess on subject setup)* |
 | `setup-override-upstream` | `capability:platform` |
 | `setup-welcome-guide` | `capability:platform` *(shows the framework's own welcome guides and turns a dismissed one back on)* |

@@ -51,7 +51,7 @@ framework safe to use.
 
 ## Install & first runs
 
-Install just this family — one plugin, 11 skills. Sandbox, clean environment, and the framework's own install/upgrade.
+Install just this family — one plugin, 12 skills. Sandbox, clean environment, and the framework's own install/upgrade.
 
 Once you have [added the marketplace](../setup/marketplace-install.md):
 

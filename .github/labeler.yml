@@ -69,6 +69,7 @@ capability:intake:
 capability:platform:
   - changed-files:
       - any-glob-to-any-file:
+          - 'plugins/magpie-setup/skills/complete-upgrade/**'
           - 'plugins/magpie-setup/skills/isolated-setup-doctor/**'
           - 'plugins/magpie-setup/skills/isolated-setup-install/**'
           - 'plugins/magpie-setup/skills/isolated-setup-update/**'
