@@ -961,10 +961,15 @@ def test_settings_need_no_prek_home_for_a_project_without_prek(
     repo = _git_repo(tmp_path / "r")
     settings = copy.deepcopy(baseline)
     settings.pop("env", None)
-    settings["permissions"]["deny"].remove("Edit(~/.cache/prek/**)")
-    errors = check_invariants(settings, project_root=repo)
-    assert not any("PREK_HOME" in e or "~/.cache/prek/**" in e for e in errors), errors
+    assert not any("PREK_HOME" in e for e in check_invariants(settings, project_root=repo))
     (repo / ".pre-commit-config.yaml").write_text("")
     errors = check_invariants(settings, project_root=repo)
     assert any(e.startswith("env.PREK_HOME: missing") for e in errors), errors
-    assert any("Edit(~/.cache/prek/**)" in e for e in errors), errors
+
+
+def test_the_default_prek_home_is_denied_even_without_prek(baseline: dict[str, Any], tmp_path: Path) -> None:
+    """The default home is per-user: another project's terminal commits run from it."""
+    settings = copy.deepcopy(baseline)
+    settings["permissions"]["deny"].remove("Edit(~/.cache/prek/**)")
+    errors = check_invariants(settings, project_root=_git_repo(tmp_path / "r"))
+    assert "permissions.deny: must contain 'Edit(~/.cache/prek/**)'" in errors, errors

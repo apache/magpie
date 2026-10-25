@@ -101,7 +101,7 @@ def test_a_registry_that_breaks_the_contract_is_refused(
 def test_a_manager_without_a_home_is_allowed(registry: dict[str, Any]) -> None:
     del registry["adapters"]["prek"]["home"]
     assert mod.validate(registry) == []
-    assert mod.render(registry)[mod.DISPATCHER] == 'hook_managers=""\n'
+    assert mod.render(registry)[mod.DISPATCHER] == 'hook_manager_homes=""\n'
 
 
 def _add_demo(tree: Path, registry: dict[str, Any]) -> None:
@@ -116,11 +116,10 @@ def _add_demo(tree: Path, registry: dict[str, Any]) -> None:
 def test_a_new_adapter_reaches_every_block(tree: Path, registry: dict[str, Any]) -> None:
     _add_demo(tree, registry)
     assert mod.main(["--check", "--root", str(tree)]) == 1
-    assert mod.main(["--root", str(tree)]) == 1  # rewrote the blocks
-    assert mod.main(["--check", "--root", str(tree)]) == 0  # this repository does not use demo
+    assert mod.main(["--root", str(tree)]) == 1  # rewrote the blocks; the settings lack the demo deny
     assert "    demo) install_subcommand=install;" in (tree / mod.SHIM).read_text()
     dispatcher = (tree / mod.DISPATCHER).read_text()
-    assert 'hook_managers="DEMO_HOME:demo-host:demo:demo.toml PREK_HOME:prek-host:prek:' in dispatcher
+    assert 'hook_manager_homes="DEMO_HOME=demo-host PREK_HOME=prek-host"' in dispatcher
     lint = (tree / mod.SANDBOX_LINT).read_text()
     assert (
         '        "DEMO_HOME",\n        "~/.cache/demo",\n        "~/.cache/demo-sandbox",\n        ("demo.toml",),'
@@ -128,17 +127,23 @@ def test_a_new_adapter_reaches_every_block(tree: Path, registry: dict[str, Any])
     )
 
 
-def test_a_used_adapter_needs_its_settings(tree: Path, registry: dict[str, Any]) -> None:
-    """Once the repository uses a manager, the committed settings must carry its homes."""
-    _add_demo(tree, registry)
-    mod.main(["--root", str(tree)])
-    (tree / "demo.toml").write_text("")
-    assert mod.main(["--check", "--root", str(tree)]) == 1
+def _set(tree: Path, env: dict[str, str], deny: list[str]) -> None:
     for rel in mod.SETTINGS:
         settings = json.loads((tree / rel).read_text())
-        settings["env"]["DEMO_HOME"] = "~/.cache/demo-sandbox"
-        settings["permissions"]["deny"].append("Edit(~/.cache/demo/**)")
+        settings["env"].update(env)
+        settings["permissions"]["deny"].extend(deny)
         (tree / rel).write_text(json.dumps(settings), encoding="utf-8")
+
+
+def test_every_adapter_needs_its_deny_and_a_used_one_its_home(tree: Path, registry: dict[str, Any]) -> None:
+    """The default-home deny is per-user; the sandbox home only where the repository uses it."""
+    _add_demo(tree, registry)
+    mod.main(["--root", str(tree)])
+    _set(tree, {}, ["Edit(~/.cache/demo/**)"])
+    assert mod.main(["--check", "--root", str(tree)]) == 0  # not used here: the deny is enough
+    (tree / "demo.toml").write_text("")
+    assert mod.main(["--check", "--root", str(tree)]) == 1
+    _set(tree, {"DEMO_HOME": "~/.cache/demo-sandbox"}, [])
     assert mod.main(["--check", "--root", str(tree)]) == 0
 
 

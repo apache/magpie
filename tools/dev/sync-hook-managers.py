@@ -30,8 +30,8 @@ and `END ...` markers:
 - `tools/sandbox-lint/src/sandbox_lint/__init__.py`: the homes the lint checks.
 
 It also checks, without writing, that the committed settings and the
-sandbox-lint baseline give the sandbox home and deny the default home of every
-manager this repository uses.
+sandbox-lint baseline deny every manager's default home and give the sandbox
+home of every manager this repository uses.
 
 Run as a prek hook. Rewrites the blocks in place and exits 1 if one changed
 (re-stage and commit again); `--check` reports drift without writing.
@@ -160,13 +160,11 @@ def render(registry: dict[str, Any]) -> dict[Path, str]:
         cases.append(f"    {name}) {'; '.join(fields)} ;;\n")
     shim = 'adapter() {\n  case "$1" in\n' + "".join(cases) + "    *) return 1 ;;\n  esac\n}\n"
     homes = [(n, a) for n, a in sorted(adapters.items()) if a.get("home")]
-    entries = []
-    for _, a in homes:
-        home, detect = a["home"], a["detect"]
-        entries.append(
-            f"{home['env']}:{home['host'][15:]}:{detect['hook_marker']}:{','.join(detect['config_files'])}"
-        )
-    dispatcher = f'hook_managers="{" ".join(entries)}"\n'
+    dispatcher = (
+        'hook_manager_homes="'
+        + " ".join(f"{a['home']['env']}={a['home']['host'][15:]}" for _, a in homes)
+        + '"\n'
+    )
     lint = "HOOK_MANAGER_HOMES = (\n"
     for name, a in homes:
         home, detect = a["home"], a["detect"]
@@ -187,8 +185,9 @@ def render(registry: dict[str, Any]) -> dict[Path, str]:
 def check_settings(registry: dict[str, Any], root: Path) -> list[str]:
     """The committed settings give each sandbox home and deny each default home.
 
-    Only for the managers this repository uses (a config file at its root),
-    as sandbox-lint requires them only there.
+    The deny for every manager (the default home is per-user); the sandbox
+    home only for the managers this repository uses (a config file at its
+    root), as sandbox-lint requires it only there.
     """
     errors = []
     for rel in SETTINGS:
@@ -197,9 +196,10 @@ def check_settings(registry: dict[str, Any], root: Path) -> list[str]:
         deny = (settings.get("permissions") or {}).get("deny") or []
         for name, adapter in sorted(registry["adapters"].items()):
             home = adapter.get("home")
-            if not home or not any((root / f).is_file() for f in adapter["detect"]["config_files"]):
+            if not home:
                 continue
-            if env.get(home["env"]) != home["sandbox"]:
+            used = any((root / f).is_file() for f in adapter["detect"]["config_files"])
+            if used and env.get(home["env"]) != home["sandbox"]:
                 errors.append(f"{rel}: env.{home['env']} must be {home['sandbox']!r} ({name})")
             if f"Edit({home['default']}/**)" not in deny:
                 errors.append(f"{rel}: permissions.deny must carry Edit({home['default']}/**) ({name})")

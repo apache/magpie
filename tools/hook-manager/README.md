@@ -35,7 +35,7 @@ Both halves meet the sandbox: where the install writes, and where the environmen
 The contract states the two rules every manager must satisfy, and [`registry.json`](registry.json) records, per manager, how it satisfies them.
 
 The secure setup does not *run* hook managers; it keeps them working, and keeps them from becoming a way out of the sandbox.
-It configures a manager only where a repository uses it (see [Detection](#detection)): a repository that uses none gets no shim, no home and no lint requirement.
+It configures a manager for a repository only where the repository uses it (see [Detection](#detection)): a repository that uses none gets no shim and no sandbox-home requirement. The protections of the per-user default and host homes apply everywhere.
 
 ## Prerequisites
 
@@ -86,7 +86,7 @@ A manager that keeps environments in a home outside the repository gets three di
 |---|---|---|
 | `default` (under `~/.cache/`) | The operator's terminal under per-project scope. | Sandboxed commands may not edit it: `permissions.deny` carries `Edit(<default>/**)`. |
 | `sandbox` (under `~/.cache/`, disjoint from `default`) | Every command Claude Code runs. | The committed settings' `env.<var>`, which only Claude Code's commands see. |
-| `host` (one directory under `~/.local/share/`) | Every hook the whole-user dispatcher runs outside the sandbox (no `SANDBOX_RUNTIME`). | The dispatcher exports `<var>=~/.local/share/<host>` unless the operator chose a value outside `~/.cache`. |
+| `host` (one directory under `~/.local/share/`) | Every hook the whole-user dispatcher runs outside the sandbox (no `SANDBOX_RUNTIME`). | The dispatcher exports `<var>=~/.local/share/<host>` for every registered manager unless the operator chose a value outside `~/.cache`. |
 
 `~/.local/share/` is outside every sandbox write grant, so nothing sandboxed can plant code in the host home.
 The committed settings can name a per-user directory only with `~`, so the contract requires a manager whose home variable is relative to `~` to expand it (`expands_tilde: true`); one that does not needs the sandbox home written as an absolute path into the per-user `settings.local.json`, which no adapter does yet.
@@ -99,13 +99,15 @@ A repository **uses** a hook manager when any of these holds:
 2. For a manager with nested project configs (prek's workspace mode), one of its config files is tracked anywhere below the root (`git ls-files ':(glob)**/<name>'`). An untracked nested file does not count.
 3. One of the repository's installed hooks (`$(git rev-parse --git-common-dir)/hooks/*`, samples aside) contains the manager's hook marker. This covers an install with a custom config path (`prek install --config ci/hooks.yaml` leaves no standard file name behind) and one made from a nested project.
 
-Only then does the setup configure the manager for that repository:
+Detection decides what the setup configures *for a repository*; it never decides a per-user protection, since a manager's default and host homes are shared by every repository on the host, and a hook can reach a manager detection does not see (through a script):
 
-| Integration | Where the rule is applied |
-|---|---|
-| Sandbox home and default-home deny | `sandbox-lint` (`uses_hook_manager`) requires `env.<var>` and `Edit(<default>/**)` only for a project that uses the manager; with no project to look at, every manager counts. The generator checks the framework's own settings the same way, from the root config files. |
-| Host home | The dispatcher exports `<var>` only for a repository whose top level has a config file, or whose own hook for this git operation contains the marker (rules 1 and 3, which need no `git ls-files` on every hook run). The host-only `XDG_CACHE_HOME` is not a manager setting and applies to every hook. |
-| Shim | `setup-isolated-setup-install` installs `~/.claude/bin/<tool>` only when a repository the operator works in uses the manager. |
+| Integration | Scope | Rule |
+|---|---|---|
+| Sandbox home (`env.<var>`) | per repository | `sandbox-lint` (`uses_hook_manager`) requires it only for a project that uses the manager; with no project to look at, every manager counts. A project without it is still safe: its sandboxed runs of the manager fail on the denied default home. The generator checks the framework's own settings the same way, from the root config files. |
+| Shim | per host, for the repositories the operator works in | `setup-isolated-setup-install` installs `~/.claude/bin/<tool>` only when such a repository uses the manager. |
+| Verify check 19d | per repository | **n/a** for a project that does not use prek. |
+| Default-home deny (`Edit(<default>/**)`) | per user | Always, for every registered manager: another repository's terminal commits run from that home. |
+| Host home (dispatcher) | per user | Always, outside the sandbox, for every registered manager: an unused variable is harmless, a missed detection would let a bypassed command inherit the sandbox home. |
 
 How prek configures itself, from its source (v0.5.7): it reads one project config per directory, `prek.toml`, then `.pre-commit-config.yaml`, then `.pre-commit-config.yml` (`crates/prek-consts/src/lib.rs`); searches upward from the current directory to the git root for the workspace root, and below it for nested project configs, honouring `.gitignore` and `.prekignore` (`crates/prek/src/workspace.rs`); takes `--config <path>` instead, which disables discovery and is baked into the installed hook; and reads a user-level `prek.toml` under the platform config directory that holds only update and display options, so it says nothing about whether a repository uses prek.
 The two YAML names are shared with pre-commit, so a repository with one uses both managers as far as detection goes; configuring a home the repository's hooks do not end up using is harmless.
@@ -133,9 +135,9 @@ The two YAML names are shared with pre-commit, so a repository with one uses bot
 
 - [`tools/agent-isolation/hook-manager-shim.sh`](../agent-isolation/hook-manager-shim.sh) — the install rewrite per tool;
 - [`tools/agent-isolation/git-hook-dispatcher.sh`](../agent-isolation/git-hook-dispatcher.sh) — the host home per tool;
-- [`tools/sandbox-lint/`](../sandbox-lint/) — `HOOK_MANAGER_HOMES`, which fails a project's settings file whose `env.<var>` is missing or overlaps the default home, or whose deny list lacks `Edit(<default>/**)`, when the project uses the manager.
+- [`tools/sandbox-lint/`](../sandbox-lint/) — `HOOK_MANAGER_HOMES`, which fails any settings file whose deny list lacks `Edit(<default>/**)`, and a project's settings file whose `env.<var>` is missing or overlaps the default home when the project uses the manager.
 
-It also checks, without writing, that [`.claude/settings.json`](../../.claude/settings.json) and [`tools/sandbox-lint/expected.json`](../sandbox-lint/expected.json) carry the sandbox home and default-home deny of each manager this repository uses.
+It also checks, without writing, that [`.claude/settings.json`](../../.claude/settings.json) and [`tools/sandbox-lint/expected.json`](../sandbox-lint/expected.json) deny every manager's default home and carry the sandbox home of each manager this repository uses.
 It runs as the `sync-hook-managers` prek hook.
 
 ## Adapters
@@ -149,7 +151,7 @@ It runs as the `sync-hook-managers` prek hook.
 1. Read the manager's source for the answers the registry needs — where its install writes and whether it honours, refuses or sets `core.hooksPath`; whether a `PATH` shim can reach the install; the home variable, its default, and whether it expands `~`; whether a hook run executes code from the home.
 2. Add the adapter to `registry.json`. If it needs an install strategy the shim does not implement, add the strategy to the shim and to `STRATEGIES` in the generator in the same change.
 3. Give the detection rules: the config file names, whether nested configs count, and a marker every hook it installs contains.
-4. If this repository uses the manager, give the sandbox home in `env` and deny the default home in `.claude/settings.json` and `tools/sandbox-lint/expected.json`.
+4. Deny the default home in `.claude/settings.json` and `tools/sandbox-lint/expected.json`, and, if this repository uses the manager, give the sandbox home in their `env`.
 5. Run `tools/dev/sync-hook-managers.py`, then the agent-isolation, sandbox-lint and dev tests, and add a shim test for the new strategy.
 6. Add a row above, and update the troubleshooting and verify pages if the manager brings a failure mode of its own.
 

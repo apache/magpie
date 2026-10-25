@@ -34,11 +34,8 @@ def _repo_with_local_hook(
     """A repository whose own pre-commit records the PREK_HOME it was given.
 
     `config` is the hook-manager config at its root, or None for a repository
-    that has none. The paths stay free of the hook marker ("prek"), so only
-    `config` or an explicit hook body makes the repository a prek user.
+    that has none.
     """
-    tmp_path = tmp_path / "t"
-    tmp_path.mkdir()
     repo = tmp_path / "repo"
     subprocess.run(["git", "init", "-q", str(repo)], check=True)
     if config is not None:
@@ -123,45 +120,10 @@ def test_inside_the_sandbox_tool_caches_stay(tmp_path: Path) -> None:
     assert Path(f"{seen}.xdg").read_text() == "<unset>"
 
 
-@pytest.fixture
-def marker_free_tmp(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """A temporary directory whose path does not contain the hook marker."""
-    path = tmp_path_factory.mktemp("dispatch")
-    assert "prek" not in str(path)
-    return path
-
-
-@pytest.mark.parametrize(
-    "config", ["prek.toml", ".pre-commit-config.yaml", ".pre-commit-config.yml"]
-)
-def test_each_config_file_makes_the_repository_a_user(
-    marker_free_tmp: Path, config: str
+def test_a_repository_without_a_detected_manager_still_gets_the_host_home(
+    tmp_path: Path,
 ) -> None:
-    repo, hook, seen = _repo_with_local_hook(marker_free_tmp, config=config)
-    _run(repo, hook, {})
-    assert seen.read_text() == HOST_HOME.format(home=os.environ["HOME"])
-
-
-def test_a_repository_without_the_manager_gets_no_home(marker_free_tmp: Path) -> None:
-    """Only a repository that uses a hook manager gets that manager's home."""
-    repo, hook, seen = _repo_with_local_hook(marker_free_tmp, config=None)
-    _run(repo, hook, {})
-    assert seen.read_text() == "<unset>"
-    # The tool caches move whatever runs the hook.
-    assert (
-        Path(f"{seen}.xdg").read_text()
-        == f"{os.environ['HOME']}/.local/share/prek-host/cache"
-    )
-
-
-def test_a_hook_that_runs_the_manager_makes_the_repository_a_user(
-    marker_free_tmp: Path,
-) -> None:
-    """An install with a custom --config, or from a nested workspace project."""
-    repo, hook, seen = _repo_with_local_hook(marker_free_tmp, config=None)
-    local = repo / ".git" / "hooks" / "pre-commit"
-    local.write_text(
-        local.read_text() + "# exec prek hook-impl --config=ci/hooks.yaml\n"
-    )
-    _run(repo, hook, {})
+    """Fail closed: a hook can reach prek through a script detection never sees."""
+    repo, hook, seen = _repo_with_local_hook(tmp_path, config=None)
+    _run(repo, hook, {"PREK_HOME": "~/.cache/prek-sandbox"})
     assert seen.read_text() == HOST_HOME.format(home=os.environ["HOME"])

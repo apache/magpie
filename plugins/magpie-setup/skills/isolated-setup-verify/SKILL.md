@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:ce33cb9437d44992
 license: Apache-2.0
-measured_tokens: 7347
+measured_tokens: 7351
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -249,8 +249,9 @@ Walk each in order:
       `Read(~/.config/uv/uv.toml)` and `Edit(~/.config/uv/**)`, and a
       sandboxed `uv cache dir` prints uv's default cache, not 19b's. Printing
       19b's path is ✗: the sandbox reads the config and writes the host cache.
-    - **19d — sandboxed prek has its own home.** **n/a** when the project
-      does not use prek ([detection](../../../../tools/hook-manager/README.md#detection)). The merged settings carry
+    - **19d — sandboxed prek has its own home.** When the project does not
+      use prek ([detection](../../../../tools/hook-manager/README.md#detection)),
+      only the deny below is checked. The merged settings carry
       `env.PREK_HOME` outside `~/.cache/prek` (`~/.cache/prek-sandbox` in the
       reference) and `permissions.deny` carries `Edit(~/.cache/prek/**)`; a
       sandboxed write probe into `~/.cache/prek` fails. Either missing is ✗: a
