@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:9b62a5e3c672ed0e
 license: Apache-2.0
-measured_tokens: 4115
+measured_tokens: 4215
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -146,6 +146,8 @@ The approval accepts `yes`, `drop <n>[,<n>…]`, `details <n>`, or `no`.
 It names the bypass explicitly, so it covers the loud sandbox-bypass rule once, for the listed `[bypass]` items only.
 On `no`, apply nothing and show the summary with every item under *Still open*.
 
+The isolated-setup offer is made only when absence is confirmed: `configured: false` read outside the sandbox, with no `"isolated_setup": {"enabled": false}` opt-out in `reconciled.json`.
+A `configured: false` read inside the sandbox means *unknown*: the plan carries a `[bypass]` *Check* item that re-runs it outside the sandbox and makes no offer yet; the offer may follow in the second plan once that *Check* confirms absence.
 A pending isolated-setup offer counts as actionable: a run whose only finding is that offer is not *nothing to do*; the plan message shows the offer and asks.
 Nothing is actionable only when no group has an item, nothing is under *Still open* or *Run these yourself*, and no isolated-setup offer is pending.
 In that case say so in one line, run [Re-check and record](#re-check-and-record), and stop.

@@ -22,7 +22,8 @@ Use exactly those slugs as ids.
   `bypass` is true when the item needs `dangerouslyDisableSandbox: true`.
 - `run_yourself` — slugs of findings the skill prints as commands for the user and never offers as plan items.
 - `still_open` — slugs of findings the skill will not offer, with a reason, in the plan's *Still open* block.
-- `isolated_offer` — true only when the isolated-setup offer is made in this plan message.
+- `isolated_offer` — true only when the isolated-setup offer is made in this plan message, which requires confirmed absence (`configured: false` read outside the sandbox, opt-out not set).
+  A `configured: false` read inside the sandbox is unknown: the plan carries a `[bypass]` *Check* item to confirm it and `isolated_offer` is false.
 - `nothing_to_do` — true only when there is nothing actionable, nothing for *Run these yourself*, and no isolated-setup offer is pending; a pending isolated-setup offer counts as actionable, so a plan whose only content is that offer has `nothing_to_do: false`.
 
 Do not include any text outside the JSON object.
