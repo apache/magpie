@@ -806,3 +806,18 @@ def test_core_worktree_on_a_plain_checkout_refuses(tmp_path: Path) -> None:
     subprocess.run(["git", "-C", str(lay.project), "config", "core.worktree", str(lay.project)], check=True)
     done = run("start", lay.project, home=lay.home)
     assert done.stdout == "" and "core.worktree is set" in done.stderr
+
+
+def test_a_planted_bare_repository_is_not_discovered(tmp_path: Path) -> None:
+    """In a project with no .git, HEAD / config / objects planted in the cwd would make
+    git treat it as a bare repository whose core.worktree names a parent."""
+    lay = Layout(tmp_path)
+    plain = lay.base / "plain"
+    plain.mkdir()
+    subprocess.run(["git", "init", "-q", "--bare", str(plain)], check=True)
+    subprocess.run(["git", "--git-dir", str(plain), "config", "core.worktree", str(lay.base)], check=True)
+    subprocess.run(["git", "--git-dir", str(plain), "config", "core.bare", "false"], check=True)
+    done = run("start", plain, home=lay.home)
+    # Either refused, or served for the directory itself: never for the parent.
+    assert done.stdout == "" or f"--project={plain.resolve()} " in done.stdout
+    assert f"--project={lay.base} " not in done.stdout

@@ -120,6 +120,10 @@ done
 
 log() { printf '%s: %s\n' "${0##*/}" "$*" >&2; }
 
+# Every git call: never discover a bare repository, which sandboxed code could
+# plant as HEAD / config / objects in a project that has no .git of its own.
+git() { command git -c safe.bareRepository=explicit "$@"; }
+
 payload="$(cat 2>/dev/null || true)"
 cwd="$(printf '%s' "$payload" | jq -r '.cwd // empty' 2>/dev/null || true)"
 [[ -n $cwd ]] || cwd="$PWD"
@@ -148,15 +152,19 @@ while :; do
     [[ $probe_dir == / ]] && break
     probe_dir="$(dirname -- "$probe_dir")"
 done
-if [[ -n $fs_root ]]; then
-    if [[ $fs_root != "$root" ]]; then
-        log "git reports $root as the toplevel of $cwd, but the checkout is $fs_root; not starting the container gateway"
-        exit 0
-    fi
-    if [[ -n "$(git -C "$root" config --get core.worktree 2>/dev/null)" ]]; then
-        log "core.worktree is set for $root; not starting the container gateway"
-        exit 0
-    fi
+git_toplevel="$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null || true)"
+if [[ -z $fs_root && -n $git_toplevel ]]; then
+    log "git finds a repository for $cwd but there is no .git on the way up; not starting the container gateway"
+    exit 0
+fi
+if [[ -n $fs_root && $fs_root != "$root" ]]; then
+    log "git reports $root as the toplevel of $cwd, but the checkout is $fs_root; not starting the container gateway"
+    exit 0
+fi
+# Checked whether or not a .git was found: core.worktree is what moves a toplevel.
+if [[ -n "$(git -C "$cwd" config --get core.worktree 2>/dev/null)" ]]; then
+    log "core.worktree is set for $cwd; not starting the container gateway"
+    exit 0
 fi
 
 # The home directory from the account database (`~user` reads it, not $HOME),
