@@ -27,6 +27,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -50,7 +51,7 @@ def run(action: str, cwd: Path, env_extra: dict[str, str] | None = None, home: P
     if payload is None:
         payload = json.dumps({"cwd": str(cwd)})
     return subprocess.run(["/bin/bash", str(SCRIPT), action], input=payload,
-                          capture_output=True, text=True, env=env, cwd=cwd, check=False)
+                          capture_output=True, text=True, env=env, cwd=cwd, check=False, timeout=60)
 
 
 def bash_payload(cwd: Path, command: str) -> str:
@@ -971,3 +972,85 @@ def test_a_planted_bare_repository_is_not_discovered(tmp_path: Path) -> None:
     # Either refused, or served for the directory itself: never for the parent.
     assert done.stdout == "" or f"--project={plain.resolve()} " in done.stdout
     assert f"--project={lay.base} " not in done.stdout
+
+
+# --- ensure: waiting for the gateway it started ---
+
+_FAKE_GATEWAY = '''
+import json, os, sys, time
+ctl = os.environ["FAKE_GW_DIR"]
+mode = open(os.path.join(ctl, "mode")).read().strip()
+cmd = sys.argv[1]
+with open(os.path.join(ctl, "calls"), "a") as log:
+    log.write(cmd + "\\n")
+started = os.path.join(ctl, "started")
+if cmd == "serve":
+    if mode != "never":
+        open(started, "w").write(str(time.time()))
+    sys.exit(0)
+if cmd == "status":
+    if mode == "already":
+        state = "serving"
+    elif not os.path.exists(started):
+        state = "down"
+    else:
+        age = time.time() - float(open(started).read())
+        if mode == "dies":
+            state = "starting" if age < 0.3 else "down"
+        else:
+            state = "starting" if age < 0.6 else "serving"
+    print(json.dumps({"running": state != "down", "serving": ["docker"] if state == "serving" else []}))
+    sys.exit(0 if state != "down" else 3)
+'''
+
+
+def _fake_gateway(lay: Layout, mode: str) -> Path:
+    (lay.src / "container_gateway" / "__init__.py").write_text("")
+    (lay.src / "container_gateway" / "__main__.py").write_text(_FAKE_GATEWAY)
+    ctl = lay.base / "fake-gw"
+    ctl.mkdir()
+    (ctl / "mode").write_text(mode)
+    return ctl
+
+
+def _ensure_for_real(lay: Layout, ctl: Path) -> tuple[subprocess.CompletedProcess[str], float, list[str]]:
+    env = {"CLAUDE_PROJECT_DIR": str(lay.project), "FAKE_GW_DIR": str(ctl)}
+    began = time.monotonic()
+    done = run("ensure", lay.project, env, home=lay.home, dry_run=False,
+               payload=bash_payload(lay.project, "docker ps"))
+    calls = (ctl / "calls").read_text().split() if (ctl / "calls").exists() else []
+    return done, time.monotonic() - began, calls
+
+
+def test_ensure_leaves_a_serving_gateway_alone(tmp_path: Path) -> None:
+    lay = Layout(tmp_path)
+    done, _, calls = _ensure_for_real(lay, _fake_gateway(lay, "already"))
+    assert done.returncode == 0 and calls == ["status"]
+
+
+def test_ensure_waits_until_the_gateway_serves(tmp_path: Path) -> None:
+    """Holding the pid lock is not serving: the wait ends only once a backend socket is bound."""
+    lay = Layout(tmp_path)
+    ctl = _fake_gateway(lay, "slow")
+    done, elapsed, calls = _ensure_for_real(lay, ctl)
+    assert done.returncode == 0 and calls[:2] == ["status", "serve"]
+    assert elapsed >= 0.6 and calls.count("status") >= 3
+
+
+@pytest.mark.parametrize("mode", ["dies", "never"])
+def test_ensure_stops_waiting_for_a_gateway_that_is_gone(tmp_path: Path, mode: str) -> None:
+    """No backend (the gateway exits) or no start at all must not stall every container command for 5 s."""
+    lay = Layout(tmp_path)
+    done, elapsed, calls = _ensure_for_real(lay, _fake_gateway(lay, mode))
+    assert done.returncode == 0 and "serve" in calls
+    assert elapsed < 3
+
+
+def test_a_settings_fifo_refuses_without_blocking(tmp_path: Path) -> None:
+    """jq must never open a FIFO sandboxed code planted where a settings file would be."""
+    lay = Layout(tmp_path)
+    sub = lay.base / "other"
+    (sub / ".claude").mkdir(parents=True)
+    os.mkfifo(sub / ".claude" / "settings.json")
+    done = ensure(lay, "docker ps", cwd=sub)
+    assert done.stdout == "" and "not a readable regular file" in done.stderr

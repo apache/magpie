@@ -380,7 +380,14 @@ settings_specs+=("/Library/Application Support/ClaudeCode/managed-settings.json|
                  "/etc/claude-code/managed-settings.json|/etc/claude-code")
 for spec in "${settings_specs[@]}"; do
     settings="${spec%|*}" base="${spec##*|}"
-    [[ -r $settings ]] || continue
+    [[ -e $settings || -L $settings ]] || continue
+    # Never opened unless it is a regular file: a FIFO planted by sandboxed
+    # code (in a subdirectory the agent `cd`s into, say) would block jq until
+    # the hook timed out. Refused rather than skipped, so a grant can't hide.
+    if [[ ! -f $settings || ! -r $settings ]]; then
+        log "$settings is not a readable regular file; not starting the container gateway"
+        exit 0
+    fi
     if ! command -v jq >/dev/null 2>&1; then
         log "no jq in /usr/bin or /bin to read $settings; not starting the container gateway"
         exit 0
@@ -671,22 +678,41 @@ fi
 # source directory there and nothing else.
 bootstrap='import runpy, sys; sys.path.insert(0, sys.argv.pop(1)); runpy.run_module("container_gateway", run_name="__main__", alter_sys=True)'
 
-# The gateway's own pid-lock probe: true once it serves, since it binds its
-# sockets before it writes the pid file.
-gateway_running() {
-    "$python" -I -S -c "$bootstrap" "$src" status --project="$root" 2>/dev/null \
-        | jq -e '.running == true' >/dev/null 2>&1
+# The gateway's own view of itself, from `status`: "serving" once a backend
+# socket is bound; "starting" while it holds its pid lock but has not bound
+# yet (it takes the lock first, then discovers backends and probes egress);
+# "down" otherwise.
+gateway_state() {
+    local state
+    state="$("$python" -I -S -c "$bootstrap" "$src" status --project="$root" 2>/dev/null \
+        | jq -r 'if ((.serving // []) | length) > 0 then "serving"
+                 elif .running == true then "starting" else "down" end' 2>/dev/null)" || true
+    printf '%s\n' "${state:-down}"
 }
 
-# Running already is the common case for `ensure`: one interpreter start.
-[[ $action == ensure ]] && gateway_running && exit 0
-"$python" -I -S -c "$bootstrap" "$src" "${args[@]}" >/dev/null 2>&1 || exit 0
-if [[ $action == ensure ]]; then
-    # --daemon returns before the sockets are bound; give the gateway up to
-    # five seconds so the command that triggered this does not race it.
-    for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25; do
-        gateway_running && break
-        sleep 0.2
-    done
+if [[ $action != ensure ]]; then
+    "$python" -I -S -c "$bootstrap" "$src" "${args[@]}" >/dev/null 2>&1 || true
+    exit 0
 fi
+# Serving already is the common case: one interpreter start.
+state="$(gateway_state)"
+[[ $state == serving ]] && exit 0
+if [[ $state == down ]]; then
+    "$python" -I -S -c "$bootstrap" "$src" "${args[@]}" >/dev/null 2>&1 || exit 0
+fi
+# --daemon returns before the sockets are bound; give the gateway up to five
+# seconds to serve, so the command that triggered this does not race it. Stop
+# early once it has come up and gone again (no backend: it logs why and exits),
+# or when it never came up within the first second.
+seen_starting=0
+for poll in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25; do
+    state="$(gateway_state)"
+    [[ $state == serving ]] && break
+    if [[ $state == starting ]]; then
+        seen_starting=1
+    elif (( seen_starting || poll >= 5 )); then
+        break
+    fi
+    sleep 0.2
+done
 exit 0

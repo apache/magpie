@@ -178,8 +178,7 @@ until you delete that record (the log line names it).
 **L.2 — Hooks.** Wire a `SessionStart` hook running
 `container-gateway-hook.sh start`, a `SessionEnd` hook running
 `container-gateway-hook.sh stop`, and a `PreToolUse` hook (matcher
-`Bash`, two handlers with `if` set to `Bash(docker *)` and
-`Bash(podman *)`, `timeout` 30) running
+`Bash`, no `if` filter, `timeout` 30) running
 `container-gateway-hook.sh ensure`, which starts the gateway again
 before a container command when it exited mid-session, into the user
 settings, each

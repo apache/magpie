@@ -2877,7 +2877,7 @@ Three events, one script:
 - `SessionEnd` → `stop` ends it.
 - `PreToolUse` on `Bash` → `ensure` starts it again before a `docker` or `podman` command when it is gone mid-session.
   It exits after its idle timeout (default 4 h), when another session on the same project ends and stops it, or when it or its backend dies; without `ensure` it stays down until the next session.
-  The two `if` filters keep the hook off every other command; they are best-effort, so the script checks the command itself as well and leaves at once when it names neither CLI.
+  It is registered for every `Bash` call, with no `if` filter: a filter such as `Bash(docker *)` would miss `docker-compose`, `podman-compose` and `/usr/local/bin/docker`. The script reads the command itself and leaves within about 10 ms when it names neither CLI.
   When the gateway is already running the check costs about half a second, on container commands only.
   `ensure` runs every check `start` does, so it can start nothing that `start` would refuse.
   It judges the directory the session started in, which Claude Code hands every hook as `CLAUDE_PROJECT_DIR`, never the directory the agent has `cd`'d into: judged from another directory, the session project's own write grants would go uncounted.
@@ -2894,10 +2894,7 @@ Three events, one script:
       { "hooks": [ { "type": "command", "command": "/Users/<you>/.claude/scripts/container-gateway-hook.sh stop" } ] }
     ],
     "PreToolUse": [
-      { "matcher": "Bash", "hooks": [
-        { "type": "command", "if": "Bash(docker *)", "timeout": 30, "command": "/Users/<you>/.claude/scripts/container-gateway-hook.sh ensure" },
-        { "type": "command", "if": "Bash(podman *)", "timeout": 30, "command": "/Users/<you>/.claude/scripts/container-gateway-hook.sh ensure" }
-      ] }
+      { "matcher": "Bash", "hooks": [ { "type": "command", "timeout": 30, "command": "/Users/<you>/.claude/scripts/container-gateway-hook.sh ensure" } ] }
     ]
   }
 }
@@ -2910,9 +2907,7 @@ jq --arg h "$(cd ~ && pwd -P)" '
   ($h+"/.claude/scripts/container-gateway-hook.sh") as $s
   | .hooks.SessionStart += [{"hooks":[{"type":"command","command":($s+" start")}]}]
   | .hooks.SessionEnd += [{"hooks":[{"type":"command","command":($s+" stop")}]}]
-  | .hooks.PreToolUse += [{"matcher":"Bash","hooks":[
-      {"type":"command","if":"Bash(docker *)","timeout":30,"command":($s+" ensure")},
-      {"type":"command","if":"Bash(podman *)","timeout":30,"command":($s+" ensure")}]}]
+  | .hooks.PreToolUse += [{"matcher":"Bash","hooks":[{"type":"command","timeout":30,"command":($s+" ensure")}]}]
 ' ~/.claude/settings.local.json > ~/.claude/settings.local.json.new && mv ~/.claude/settings.local.json.new ~/.claude/settings.local.json
 ```
 

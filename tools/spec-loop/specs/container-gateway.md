@@ -369,10 +369,12 @@ CLI flags with environment-variable equivalents, no config file:
 outside the tree — each one is logged at start so it shows up in a
 `setup verify` run), `--idle-timeout`, `--log-level`, `--pid-file`.
 
-Reference settings. The `hooks` half is committed and
-project-agnostic; the `env` half is per-machine and belongs in the
-gitignored `.claude/settings.local.json`, because it needs absolute
-socket paths:
+Reference settings. The `hooks` half goes in the user settings by the
+script's absolute path (per machine, so `~/.claude/settings.local.json`
+when `~/.claude/settings.json` is synced; a `~` there is expanded from
+`$HOME`, which the session environment can redirect); the `env` half is
+per-project and belongs in the gitignored `.claude/settings.local.json`,
+because it needs absolute socket paths:
 
 ```jsonc
 // .claude/settings.local.json — per machine
@@ -383,18 +385,15 @@ socket paths:
   }
 }
 
-// committed, project-agnostic
+// ~/.claude/settings.local.json — per machine, absolute path
 {
   "hooks": {
     "SessionStart": [{ "hooks": [{ "type": "command",
-      "command": "~/.claude/scripts/container-gateway-hook.sh start" }] }],
+      "command": "/Users/<you>/.claude/scripts/container-gateway-hook.sh start" }] }],
     "SessionEnd":   [{ "hooks": [{ "type": "command",
-      "command": "~/.claude/scripts/container-gateway-hook.sh stop" }] }],
-    "PreToolUse":   [{ "matcher": "Bash", "hooks": [
-      { "type": "command", "if": "Bash(docker *)", "timeout": 30,
-        "command": "~/.claude/scripts/container-gateway-hook.sh ensure" },
-      { "type": "command", "if": "Bash(podman *)", "timeout": 30,
-        "command": "~/.claude/scripts/container-gateway-hook.sh ensure" }] }]
+      "command": "/Users/<you>/.claude/scripts/container-gateway-hook.sh stop" }] }],
+    "PreToolUse":   [{ "matcher": "Bash", "hooks": [{ "type": "command", "timeout": 30,
+      "command": "/Users/<you>/.claude/scripts/container-gateway-hook.sh ensure" }] }]
   }
 }
 ```
