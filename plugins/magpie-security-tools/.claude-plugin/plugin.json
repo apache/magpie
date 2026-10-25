@@ -1,7 +1,7 @@
 {
   "name": "magpie-security-tools",
   "description": "Apache Magpie \u2014 the tools the security skills run (tracker field and rollup edits, CVE JSON, the privacy gate, the scan importer), shipped so a marketplace install needs no framework checkout.",
-  "version": "0.9.0.dev202610250024",
+  "version": "0.9.0.dev202610251812",
   "author": {
     "name": "Apache Magpie",
     "url": "https://magpie.apache.org/"
