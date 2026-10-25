@@ -2864,7 +2864,7 @@ records which main checkout it confirmed the first time, under
 sandbox-writable; a later session that derives a different one is refused
 until you delete that record (the log line names it).
 
-Wire it as a `SessionStart` / `SessionEnd` pair in `~/.claude/settings.json`, alongside any other hooks already there, **by its absolute path** (your real home, `/home/<you>` on Linux). A `~` in a hook command is expanded from `$HOME` by the launching shell, and a session environment that redirects `$HOME` would run another script:
+Wire it as a `SessionStart` / `SessionEnd` pair in your user settings, alongside any other hooks already there, **by its absolute path** (your real home, `/home/<you>` on Linux). A `~` in a hook command is expanded from `$HOME` by the launching shell, and a session environment that redirects `$HOME` would run another script. Because that path is per-machine, it goes in `~/.claude/settings.local.json` when your `~/.claude/settings.json` is [synced across machines](#syncing-user-scope-config-across-machines) — a `/Users/<you>/...` path synced to a Linux box points at nothing, and the gateway never starts there; otherwise `~/.claude/settings.json` is fine. Claude Code merges hooks from both files:
 
 ```jsonc
 {
@@ -2878,6 +2878,17 @@ Wire it as a `SessionStart` / `SessionEnd` pair in `~/.claude/settings.json`, al
   }
 }
 ```
+
+**Fixing your other machines.** If the hook was registered in a synced `~/.claude/settings.json`, move it: delete the two `container-gateway-hook.sh` entries from the synced file (once, on any machine), then on **every** machine add them to its own `~/.claude/settings.local.json` with that machine's home:
+
+```bash
+jq --arg h "$(cd ~ && pwd -P)" '
+  .hooks.SessionStart += [{"hooks":[{"type":"command","command":($h+"/.claude/scripts/container-gateway-hook.sh start")}]}]
+  | .hooks.SessionEnd += [{"hooks":[{"type":"command","command":($h+"/.claude/scripts/container-gateway-hook.sh stop")}]}]
+' ~/.claude/settings.local.json > ~/.claude/settings.local.json.new && mv ~/.claude/settings.local.json.new ~/.claude/settings.local.json
+```
+
+`setup-isolated-setup-verify` (check 12a) and `setup-isolated-setup-update` flag a hook whose registered path does not exist on the machine they run on.
 
 Every setting that points something at a gateway socket needs that socket's **absolute** path, which is per-machine, so the whole project-settings block belongs in the gitignored `.claude/settings.local.json` — nothing is committed.
 Add it by hand, substituting your own project's absolute path for `<project>` — nothing writes it for you.
@@ -3213,6 +3224,8 @@ Three reasons make this non-negotiable:
 
 Public dotfile repos are fine for shell aliases and editor configs;
 they are the wrong shape for agent-runtime files.
+
+**Per-machine entries stay out of the synced file.** Anything that names an absolute path under your home — the container gateway's `SessionStart` / `SessionEnd` hooks above, a pinned interpreter, socket paths — differs between macOS (`/Users/<you>`) and Linux (`/home/<you>`). Keep those in each machine's `~/.claude/settings.local.json`, which is never synced; Claude Code merges hooks and settings from both files.
 
 ## Adopter setup
 
@@ -3601,11 +3614,13 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
     and the `gh tofile` alias workaround).
 12. **Container gateway wired.** Only meaningful when `podman` or
     `docker` is on `PATH`; report n/a otherwise. Four things:
-    - User-scope `~/.claude/settings.json` has a `SessionStart`
-      hook running `container-gateway-hook.sh start` and a
-      `SessionEnd` hook running `container-gateway-hook.sh stop`,
-      and `~/.claude/scripts/container-gateway-hook.sh` exists and
-      is executable.
+    - User-scope `~/.claude/settings.json` or
+      `~/.claude/settings.local.json` has a `SessionStart` hook
+      running `container-gateway-hook.sh start` and a `SessionEnd`
+      hook running `container-gateway-hook.sh stop`, by an absolute
+      path that exists on this machine (✗ if it names another
+      machine's home), and `~/.claude/scripts/container-gateway-hook.sh`
+      exists and is executable.
     - The project `.claude/settings.json` or
       `.claude/settings.local.json` has `env.CONTAINER_HOST` and
       `env.DOCKER_HOST`, and both gateway sockets appear in

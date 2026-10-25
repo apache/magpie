@@ -177,13 +177,18 @@ until you delete that record (the log line names it).
 
 **L.2 — Hooks.** Wire a `SessionStart` hook running
 `container-gateway-hook.sh start` and a `SessionEnd` hook running
-`container-gateway-hook.sh stop` into `~/.claude/settings.json`, each
+`container-gateway-hook.sh stop` into the user settings, each
 **by the script's absolute path** with the home directory written out (a `~`
 there is expanded from `$HOME`, which the session environment can redirect),
 executed directly rather than through `bash`/`sh` (its `#!/bin/bash -p`
 shebang keeps `BASH_ENV` and exported functions out) —
 merging into existing arrays with a diff the operator approves,
-exactly as for K.2's touch-overlay hooks.
+exactly as for K.2's touch-overlay hooks. The file is
+`~/.claude/settings.local.json` when `~/.claude/settings.json` is a link
+into a synced config repo (the absolute path differs per machine;
+macOS `/Users/<you>`, Linux `/home/<you>`), and `~/.claude/settings.json`
+otherwise. If a synced file already carries the two entries, propose moving
+them, per the setup guide's "Fixing your other machines".
 
 **L.3 — Project wiring.** Propose the `env` block
 (`CONTAINER_HOST` / `DOCKER_HOST`) and the `allowUnixSockets` pair

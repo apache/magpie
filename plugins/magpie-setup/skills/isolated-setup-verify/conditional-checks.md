@@ -259,10 +259,14 @@ reading this file; read the section for a check whose condition holds.
     for the whole check. Four sub-checks:
 
     - **12a — hooks wired.** User-scope `~/.claude/settings.json`
-      has a `SessionStart` hook running
-      `container-gateway-hook.sh start` and a `SessionEnd` hook
-      running `container-gateway-hook.sh stop`. Either missing is
-      ✗; a hook command naming the script through `~` or `$HOME`
+      or `~/.claude/settings.local.json` has a `SessionStart` hook
+      running `container-gateway-hook.sh start` and a `SessionEnd`
+      hook running `container-gateway-hook.sh stop`. Either missing is
+      ✗, and so is a registered absolute path that does not exist on
+      this machine (synced from another one, e.g. `/Users/...` on
+      Linux): point at the setup guide's "Fixing your other machines".
+      An absolute path in a `~/.claude/settings.json` that links into a
+      synced config repo is ◐: it breaks on the next machine; a hook command naming the script through `~` or `$HOME`
       rather than its absolute path is ◐ (the launching shell expands
       it from `$HOME`, which the session environment can redirect),
       and so is one that runs it through `bash`/`sh` rather than
