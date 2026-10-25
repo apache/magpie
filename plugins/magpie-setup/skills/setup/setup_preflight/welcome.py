@@ -64,6 +64,7 @@ from datetime import date
 from pathlib import Path
 from typing import TextIO
 
+from . import sections
 from .isolated import _load_stamp, _stamp_path
 
 HERE = Path(__file__).resolve().parent
@@ -267,6 +268,24 @@ def welcome_facts(root: Path, skill: str) -> tuple[str, dict[str, object]] | Non
         "max_shown": MAX_SEEN,
         "guide": guide(name),
     }
+
+
+def due_answer(root: Path, skill: str) -> dict[str, object]:
+    """The `due` answer: what the pre-flight's `welcome` finding would be, alone.
+
+    The same JSON shape `core.Verdict.to_json` gives a lone welcome finding,
+    built here rather than through `core`, which already imports this module.
+    """
+    try:
+        found = welcome_facts(root, skill)
+    except OSError:
+        # As in `core.welcome_findings`: an optional guide never fails the run.
+        found = None
+    if found is None:
+        return {"verdict": "ok"}
+    section, facts = found
+    finding = {"scope": "family", "code": "welcome", "section": section, "facts": facts}
+    return {"verdict": "action", "findings": [finding], "rules": sections.for_findings([section])}
 
 
 # --- recording ----------------------------------------------------------------------
@@ -507,10 +526,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.action == "due":
-        from .core import Verdict, welcome_findings
-
-        findings = welcome_findings(args.project_root, args.skill)
-        print(Verdict("action" if findings else "ok", findings).to_json())
+        print(json.dumps(due_answer(args.project_root, args.skill), indent=2, sort_keys=True))
         return 0
 
     if guide(args.family) is None:
