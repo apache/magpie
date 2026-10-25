@@ -335,15 +335,26 @@ When step 1 wins, `.codex-plugin/plugin.json` is not ignored — it is merged
 over the root manifest as an **overlay**, so it carries Codex-specific fields
 rather than the whole manifest.
 
-For this repo that resolves two different ways:
+For this repo that resolves three different ways:
 
 | Installed root | Manifest Codex actually reads |
 |---|---|
-| the repo root | root [`plugin.json`](../../plugin.json) — its AP1 `$schema` matches — with `.codex-plugin/plugin.json` merged over it |
-| `plugins/magpie-<family>/` | `.claude-plugin/plugin.json`, reached by fallback: those roots carry neither a `plugin.json` nor a `.codex-plugin/` |
+| the repo root | root [`plugin.json`](../../plugin.json) — its AP1 `$schema` matches — with `.codex-plugin/plugin.json` merged over it. No catalogue installs this root as a Codex plugin |
+| `plugins/magpie-setup/`, `plugins/magpie-utilities/` | their own `.codex-plugin/plugin.json`, read **instead of** `.claude-plugin/plugin.json` (an overlay applies only over an AP1 root manifest), so it is a complete manifest: the same name, description and shared metadata, `skills`, and a `hooks` path — see below |
+| every other `plugins/magpie-<family>/` | `.claude-plugin/plugin.json`, reached by fallback: those roots carry neither a `plugin.json` nor a `.codex-plugin/` |
 
-The second row is why the ten family plugins install into Codex at all despite
+The last row is why the family plugins install into Codex at all despite
 carrying only a Claude-Code manifest.
+
+**Hooks.**
+Codex takes a plugin's hooks from its manifest's `hooks` entry, or, with none, from `hooks/hooks.json`.
+It parses each hook file strictly, as an object with only `description` and `hooks`.
+Any other top-level key rejects the whole file: Codex reports a load warning and runs none of its hooks.
+The `hooks/hooks.json` of `magpie-setup` and `magpie-utilities` belongs to Claude Code and carries `$schema` and `modules` for the [Claude Code mods](../when-to-use-mods.md), so Codex cannot use it.
+Each of those two plugins therefore has a `.codex-plugin/plugin.json` whose `hooks` names `./hooks/codex-hooks.json`, a file in the shape Codex parses.
+Claude Code reads neither file and keeps using `hooks/hooks.json`.
+For `magpie-setup` that file wires the [upgrade check](#automatic-upgrade-detection); for `magpie-utilities` it is empty, which only stops Codex from warning about `hooks/hooks.json` on every start.
+`tools/dev/check-family-plugins.py` generates both files with `--fix`, and fails any plugin in the Codex catalogue whose Codex-visible hook file carries another top-level key.
 
 > [!WARNING]
 > A plugin root's `plugin.json` must be a regular file. If it is a **symlink**,
@@ -610,7 +621,7 @@ automatic while the *changes* stay confirmed.
 | Agent | Mechanism |
 |---|---|
 | **Claude Code** | `SessionStart` hook [`plugins/magpie-setup/hooks/check-upgrade.sh`](../../plugins/magpie-setup/hooks/check-upgrade.sh) compares the installed version to a marker in the plugin's persistent data dir and prompts on change. Deterministic. |
-| **Codex CLI** | The same [`plugins/magpie-setup/hooks/check-upgrade.sh`](../../plugins/magpie-setup/hooks/check-upgrade.sh), wired inline in the `hooks` block of the root plugin's [`.codex-plugin/plugin.json`](../../.codex-plugin/plugin.json) as `/bin/bash -p "${PLUGIN_ROOT}/plugins/magpie-setup/hooks/check-upgrade.sh"` — Codex uses the same event schema and the same `SessionStart` event. For the root plugin `PLUGIN_ROOT` is the repo root, where the script finds the version manifests and the `skills/setup` symlink it needs. Codex sets `PLUGIN_ROOT`/`PLUGIN_DATA` (and the `CLAUDE_*` pair for compatibility), which the script reads. See the caveat below. |
+| **Codex CLI** | The same [`plugins/magpie-setup/hooks/check-upgrade.sh`](../../plugins/magpie-setup/hooks/check-upgrade.sh), on the same `startup` `SessionStart` event, wired in [`plugins/magpie-setup/hooks/codex-hooks.json`](../../plugins/magpie-setup/hooks/codex-hooks.json) as `/bin/bash -p "${PLUGIN_ROOT}/hooks/check-upgrade.sh"`. The plugin's [`.codex-plugin/plugin.json`](../../plugins/magpie-setup/.codex-plugin/plugin.json) names that file, because Codex cannot parse the Claude Code `hooks/hooks.json` (see [Which manifest Codex reads](#which-manifest-codex-reads)). `PLUGIN_ROOT` is the installed `magpie-setup` root, where the script finds its manifests and `skills/setup`. Codex sets `PLUGIN_ROOT`/`PLUGIN_DATA` (and the `CLAUDE_*` pair for compatibility), which the script reads. It runs only once you have trusted it — see the caveat below. |
 | **VS Code / Copilot, Cursor, Kiro (AP1)** | None. Agent Plugins 1.0 specifies no hook component and VS Code ignores client extension directories, so there is nothing to fire. Run `/magpie-setup:complete-upgrade` after updating. |
 | **Gemini CLI** | No lifecycle hook; the extension context file [`GEMINI.md`](../../GEMINI.md) instructs the agent to compare the extension version to a recorded marker and prompt on change (LLM-driven, advisory). |
 | Other agents | Run `/magpie-setup:complete-upgrade` manually after updating the package. |
@@ -618,7 +629,8 @@ automatic while the *changes* stay confirmed.
 > [!IMPORTANT]
 > **Codex hooks require a separate trust decision.** Current Codex supports plugin-local hooks, but skips non-managed definitions until the operator reviews them in `/hooks`.
 > Project trust or plugin installation alone does not activate them.
-> Review the upgrade hook and the guard and vetted-ops hooks after installation or a definition change; then verify they actually run.
+> After installing `magpie-setup`, open `/hooks`, review its `SessionStart` upgrade hook (source `hooks/codex-hooks.json`), and trust it; it then runs from the next new session.
+> Do the same for the guard and vetted-ops hooks, and again after any update that changes a hook definition, since Codex keys trust to the definition's hash; then verify they actually run.
 > Older versions affected by [openai/codex#16430](https://github.com/openai/codex/issues/16430) still need manual upgrade checks.
 > See [the native hook contract](../adapters/codex.md#deterministic-guard-rules) and [OpenAI’s hook documentation](https://learn.chatgpt.com/docs/hooks).
 
@@ -765,7 +777,7 @@ documentation**; what varies is whether it has also been exercised against a
 |---|---|---|
 | root `plugin.json` | [Agent Plugins 1.0.0 spec](https://github.com/agentplugins/agent-plugins-spec/blob/main/spec/1.0.0.md) + [`plugin.schema.json`](https://agent-plugins.org/schemas/1.0.0/plugin.schema.json) | Conforms to the published closed schema; enforced by `check-family-plugins.py`. Also the manifest Codex resolves first for the repo root — see [Which manifest Codex reads](#which-manifest-codex-reads) |
 | `.claude-plugin/*` | Claude Code plugins reference | Verified live — `claude plugin validate . --strict` passes with 0 warnings; a family plugin installs and loads from a local marketplace replica |
-| `.codex-plugin/plugin.json`, `.agents/plugins/marketplace.json` | The `codex` binary's own source and enums — native hook behavior is documented in [OpenAI’s hook reference](https://learn.chatgpt.com/docs/hooks); manifest-resolution order was checked against [`plugin_namespace.rs`][codex-resolve] and [`protocol.rs`][codex-paths] | **Verified live** — `codex plugin marketplace add` + `plugin list` against codex 0.154.0. The first live run is what caught the invented `policy` values the documentation check could not; the enums are now enforced by `check-family-plugins.py`. Note `.codex-plugin/plugin.json` is an **overlay** on the root manifest, not the manifest itself. See the hook-trust note above |
+| `.codex-plugin/plugin.json`, `.agents/plugins/marketplace.json` | The `codex` binary's own source and enums — native hook behavior is documented in [OpenAI’s hook reference](https://learn.chatgpt.com/docs/hooks); manifest-resolution order was checked against [`plugin_namespace.rs`][codex-resolve] and [`protocol.rs`][codex-paths] | **Verified live** — `codex plugin marketplace add` + `plugin list` against codex 0.154.0. The first live run is what caught the invented `policy` values the documentation check could not; the enums are now enforced by `check-family-plugins.py`. Note the root `.codex-plugin/plugin.json` is an **overlay** on the root manifest, not the manifest itself, while a family plugin's `.codex-plugin/plugin.json` is the whole manifest. The `magpie-setup` upgrade hook was checked live with the app server's `hooks/list` against codex 0.154.0: it loads from `hooks/codex-hooks.json` with no warning, untrusted until reviewed, where the Claude Code `hooks/hooks.json` failed with ``unknown field `$schema` ``. See the hook-trust note above |
 | root `marketplace.json` | Copilot / VS Code plugin marketplace docs | Legacy-format catalog, explicitly still supported alongside AP1. Not yet live-installed |
 | `gemini-extension.json` | Gemini CLI extensions docs | Follows the published schema. Google has joined the AP1 TSC but has published no migration for this file — keep both |
 | `apm.yml` | `microsoft/apm` schema **v0.1** | Pre-1.0 and the most likely to churn; re-check before publish |

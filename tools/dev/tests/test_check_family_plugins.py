@@ -579,3 +579,104 @@ def test_the_security_tools_plugin_ships_the_forwarder_registry():
     copies = mod.SUBSTRATE_PLUGINS["magpie-security-tools"]["copies"]
     assert "tools/forwarder-relay/README.md" in copies
     assert "tools/gmail/asf-relay.md" in copies
+
+
+# ---------------------------------------------------------------------------
+# Codex loads magpie-setup's upgrade hook from a hook file it can parse
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def codex_tree(tmp_path, monkeypatch):
+    """The plugins with Codex hook files, generated the way ``--fix`` does, and
+    a Codex catalogue listing them."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".codex-plugin").mkdir()
+    (tmp_path / ".codex-plugin" / "plugin.json").write_text(
+        json.dumps({"name": "magpie", "version": SHARED["version"], "skills": "./skills"}), encoding="utf-8"
+    )
+    for name in mod.CODEX_FAMILY_HOOKS:
+        pdir = tmp_path / "plugins" / name
+        (pdir / ".claude-plugin").mkdir(parents=True)
+        (pdir / "hooks").mkdir()
+        (pdir / ".claude-plugin" / "plugin.json").write_text(
+            json.dumps({"name": name, "description": f"{name} skills", **SHARED, "skills": "./skills"}),
+            encoding="utf-8",
+        )
+        # Claude Code's hook file, which Codex cannot parse.
+        (pdir / "hooks" / "hooks.json").write_text(
+            json.dumps({"$schema": "https://code.claude.com/schemas/hooks.json", "modules": ["./m.ts"]}),
+            encoding="utf-8",
+        )
+        mod.write_codex_family_hooks(name, f"{name} skills", SHARED)
+    catalog = tmp_path / mod.CODEX_CATALOG
+    catalog.parent.mkdir(parents=True)
+    catalog.write_text(
+        json.dumps(
+            {
+                "plugins": [
+                    {"name": name, "source": {"source": "local", "path": f"./plugins/{name}"}}
+                    for name in mod.CODEX_FAMILY_HOOKS
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    return tmp_path
+
+
+def _codex_manifest(tree: Path, name: str = "magpie-setup") -> Path:
+    return tree / "plugins" / name / ".codex-plugin" / "plugin.json"
+
+
+def test_the_generated_codex_wiring_passes(codex_tree):
+    assert mod.check_codex_family_hooks(SHARED) == []
+    assert mod.check_codex_hook_files() == []
+
+
+def test_the_codex_manifest_names_the_clean_hook_file(codex_tree):
+    manifest = json.loads(_codex_manifest(codex_tree).read_text(encoding="utf-8"))
+    assert manifest["hooks"] == "./hooks/codex-hooks.json"
+    assert manifest["skills"] == "./skills"
+    assert {k: manifest[k] for k in SHARED} == SHARED
+    hooks = json.loads((codex_tree / "plugins/magpie-setup/hooks/codex-hooks.json").read_text())
+    command = hooks["hooks"]["SessionStart"][0]["hooks"][0]["command"]
+    assert command == '/bin/bash -p "${PLUGIN_ROOT}/hooks/check-upgrade.sh"'
+
+
+def test_a_root_codex_hook_is_reported(codex_tree):
+    _rewrite(codex_tree / ".codex-plugin" / "plugin.json", hooks={"SessionStart": []})
+    assert any("no catalogue installs the repo root" in e for e in mod.check_codex_family_hooks(SHARED))
+
+
+def test_a_missing_codex_manifest_is_reported(codex_tree):
+    _codex_manifest(codex_tree).unlink()
+    assert any("missing" in e for e in mod.check_codex_family_hooks(SHARED))
+    # ...and Codex then falls back to the Claude-only hooks.json.
+    assert any("$schema" in e for e in mod.check_codex_hook_files())
+
+
+def test_a_codex_manifest_left_at_an_old_version_is_reported(codex_tree):
+    _rewrite(_codex_manifest(codex_tree), version="0.0.1")
+    assert any("does not match the Codex manifest" in e for e in mod.check_codex_family_hooks(SHARED))
+
+
+def test_an_altered_codex_hook_file_is_reported(codex_tree):
+    _rewrite(codex_tree / "plugins/magpie-setup/hooks/codex-hooks.json", hooks={})
+    assert any("does not match the Codex hook wiring" in e for e in mod.check_codex_family_hooks(SHARED))
+
+
+def test_a_claude_only_key_in_a_codex_hook_file_is_reported(codex_tree):
+    _rewrite(codex_tree / "plugins/magpie-setup/hooks/codex-hooks.json", modules=["./m.ts"])
+    assert any("modules" in e and "rejects the whole file" in e for e in mod.check_codex_hook_files())
+
+
+def test_an_inline_codex_hook_with_a_claude_only_key_is_reported(codex_tree):
+    _rewrite(_codex_manifest(codex_tree), hooks={"$schema": "x", "hooks": {}})
+    assert any("#hooks[0]" in e for e in mod.check_codex_hook_files())
+
+
+def test_every_real_codex_plugin_exposes_parseable_hooks(monkeypatch):
+    monkeypatch.chdir(REPO_ROOT)
+    assert mod.check_codex_hook_files() == []
+    assert mod.check_codex_family_hooks(mod.root_metadata()[0]) == []

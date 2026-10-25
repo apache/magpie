@@ -12,8 +12,15 @@ Checks that every plugin is properly defined:
   `pyproject.toml`'s `project.version` verbatim — including a `.devN` suffix;
 - `magpie-setup`'s manifest wires the `hooks/check-upgrade.sh` SessionStart
   hook (which must exist) -- it rides on the one plugin the recommended floor
-  always installs -- and the root `.codex-plugin/plugin.json` wires the same
-  script for Codex, through `plugins/magpie-setup/` from the repo root;
+  always installs. For Codex, `plugins/magpie-setup/.codex-plugin/plugin.json`
+  (a complete manifest with the same shared metadata) names
+  `hooks/codex-hooks.json`, which wires the same script in the
+  `{description, hooks}` shape Codex parses; the root `.codex-plugin/plugin.json`
+  wires no hook, since nothing installs the repo root as a Codex plugin;
+- every hook definition a plugin in the Codex catalogue exposes (its manifest's
+  `hooks` entry, else `hooks/hooks.json`) has no top-level key but
+  `description` and `hooks` -- Codex rejects the whole file otherwise, so a
+  Claude Code mod's `$schema` / `modules` there silently drops its hooks;
 - the root `plugin.json` conforms to Agent Plugins 1.0 — the pinned `$schema`,
   the name pattern, the closed ten-field set (so a Claude-only component path
   never leaks in), and the same shared metadata as the Claude manifest;
@@ -79,23 +86,49 @@ SETUP_HOOKS = {
         }
     ]
 }
-# The same script, wired for Codex in the root plugin's `.codex-plugin/plugin.json`
-# (the overlay Codex merges over the root `plugin.json`). `${PLUGIN_ROOT}` is the
-# repo root there, so the path runs through `plugins/magpie-setup/`; the script
-# finds the root's manifests and its `skills/setup` symlink from that root.
-CODEX_MANIFEST = Path(".codex-plugin/plugin.json")
-CODEX_HOOKS = {
-    "SessionStart": [
-        {
-            "hooks": [
+# The root plugin's Codex manifest. Nothing installs the repo root as a Codex
+# plugin (the Codex catalogue lists the family and substrate plugins only), so
+# it declares no `hooks`: the upgrade check is wired on magpie-setup, below.
+ROOT_CODEX_MANIFEST = Path(".codex-plugin/plugin.json")
+# Codex loads a plugin's hooks from its manifest's `hooks` entry when there is
+# one, else from `hooks/hooks.json`, and parses either as a strict
+# `{description, hooks}` object: any other top-level key rejects the file, so
+# Codex reports a load warning and runs none of its hooks. A family plugin's
+# `hooks/hooks.json` belongs to Claude Code and carries `$schema` and `modules`
+# for its mods, so such a plugin gets its own `.codex-plugin/plugin.json` --
+# which Codex reads in preference to `.claude-plugin/plugin.json`, as the whole
+# manifest rather than an overlay -- pointing at a Codex-clean hook file.
+# Claude Code reads neither file and keeps using `hooks/hooks.json` alone.
+CODEX_HOOK_KEYS = frozenset({"description", "hooks"})
+CODEX_HOOKS_FILE = Path("hooks/codex-hooks.json")  # relative to the plugin root
+# The exact content of each such plugin's Codex hook file. magpie-setup carries
+# the upgrade check, wired as for Claude Code (`startup` only, the fixed
+# `/bin/bash -p`); Codex's `PLUGIN_ROOT` is the plugin's own root, where the
+# script finds its manifests and `skills/setup`. magpie-utilities has no Codex
+# hook: its file exists so Codex does not fall back to the Claude-only
+# `hooks/hooks.json` and warn about it on every start.
+CODEX_FAMILY_HOOKS = {
+    "magpie-setup": {
+        "description": "Apache Magpie — the upgrade check, for Codex. Claude Code reads hooks.json.",
+        "hooks": {
+            "SessionStart": [
                 {
-                    "type": "command",
-                    "command": f'/bin/bash -p "${{PLUGIN_ROOT}}/{UPGRADE_HOOK.as_posix()}"',
-                    "timeout": 10,
+                    "matcher": "startup",
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": '/bin/bash -p "${PLUGIN_ROOT}/hooks/check-upgrade.sh"',
+                            "timeout": 10,
+                        }
+                    ],
                 }
-            ],
-        }
-    ]
+            ]
+        },
+    },
+    "magpie-utilities": {
+        "description": "Apache Magpie — no Codex hooks. hooks.json holds Claude Code mods only.",
+        "hooks": {},
+    },
 }
 # Every skill's pre-flight runs `setup_preflight`, and `setup config` installs it
 # from the plugin on a marketplace install, so the package has to be inside
@@ -211,7 +244,7 @@ PYPROJECT = Path("pyproject.toml")
 ECOSYSTEM_MANIFESTS = (
     ROOT_MANIFEST,
     AP1_MANIFEST,
-    Path(".codex-plugin/plugin.json"),
+    ROOT_CODEX_MANIFEST,
     Path("gemini-extension.json"),
     Path("apm.yml"),
 )
@@ -964,6 +997,148 @@ def check_codex_policy(path: Path, entries: list) -> list[str]:
     return errors
 
 
+def codex_family_manifest(name: str, description: str, shared: dict) -> dict:
+    """The `.codex-plugin/plugin.json` `--fix` writes for a plugin in `CODEX_FAMILY_HOOKS`.
+
+    A complete manifest, not an overlay: Codex reads it *instead of*
+    `.claude-plugin/plugin.json`, so it repeats that manifest's name,
+    description, shared metadata and skills path, and adds only `hooks`.
+    """
+    return {
+        "name": name,
+        "description": description,
+        **shared,
+        "skills": "./skills",
+        "hooks": f"./{CODEX_HOOKS_FILE.as_posix()}",
+    }
+
+
+def check_codex_family_hooks(shared: dict) -> list[str]:
+    """magpie-setup's upgrade check reaches Codex; the root Codex manifest wires no hook."""
+    errors: list[str] = []
+    root, err = load_json(ROOT_CODEX_MANIFEST)
+    if err:
+        errors.append(err)
+    elif isinstance(root, dict) and "hooks" in root:
+        errors.append(
+            f"{ROOT_CODEX_MANIFEST}: declares 'hooks', but no catalogue installs the repo root "
+            f"as a Codex plugin; the upgrade check is wired in "
+            f"{PLUGINS / 'magpie-setup' / CODEX_HOOKS_FILE} (remove it, or run --fix)"
+        )
+    for name, want_hooks in sorted(CODEX_FAMILY_HOOKS.items()):
+        pdir = PLUGINS / name
+        claude, claude_err = load_json(pdir / ".claude-plugin" / "plugin.json")
+        if claude_err:
+            errors.append(claude_err)
+            continue
+        path = pdir / ".codex-plugin" / "plugin.json"
+        if not path.is_file():
+            errors.append(
+                f"{path}: missing -- without it Codex reads hooks/hooks.json, which it cannot "
+                "parse (regenerate with --fix)"
+            )
+        else:
+            data, data_err = load_json(path)
+            want = codex_family_manifest(name, claude.get("description", ""), shared)
+            if data_err:
+                errors.append(data_err)
+            elif shared and data != want:
+                errors.append(
+                    f"{path}: does not match the Codex manifest the framework expects -- "
+                    f"{pdir / '.claude-plugin' / 'plugin.json'}'s name, description and shared "
+                    f"metadata, './skills', and 'hooks': './{CODEX_HOOKS_FILE.as_posix()}' "
+                    "(regenerate with --fix)"
+                )
+        hooks_path = pdir / CODEX_HOOKS_FILE
+        hooks, hooks_err = load_json(hooks_path)
+        if hooks_err:
+            errors.append(hooks_err)
+        elif hooks != want_hooks:
+            errors.append(
+                f"{hooks_path}: does not match the Codex hook wiring the framework expects "
+                "(regenerate with --fix)"
+            )
+    return errors
+
+
+def write_codex_family_hooks(name: str, description: str, shared: dict) -> None:
+    """(Re)generate a plugin's `.codex-plugin/plugin.json` and its Codex hook file."""
+    pdir = PLUGINS / name
+    (pdir / ".codex-plugin").mkdir(parents=True, exist_ok=True)
+    (pdir / ".codex-plugin" / "plugin.json").write_text(
+        json.dumps(codex_family_manifest(name, description, shared), indent=2) + "\n", encoding="utf-8"
+    )
+    (pdir / CODEX_HOOKS_FILE).parent.mkdir(parents=True, exist_ok=True)
+    (pdir / CODEX_HOOKS_FILE).write_text(
+        json.dumps(CODEX_FAMILY_HOOKS[name], indent=2) + "\n", encoding="utf-8"
+    )
+
+
+def codex_hook_sources(pdir: Path) -> list[tuple[str, object]]:
+    """The hook definitions Codex loads for the plugin at `pdir`, as (label, value).
+
+    Mirrors Codex's own resolution: the first of `.codex-plugin/plugin.json` and
+    `.claude-plugin/plugin.json` (no plugin here carries an Agent Plugins root
+    manifest), then its `hooks` entry -- a path, a list of paths, an inline
+    object, or a list of them -- or, with none, `hooks/hooks.json` if present.
+    A value that is not JSON comes back as an error string.
+    """
+    manifest = None
+    for rel in (".codex-plugin/plugin.json", ".claude-plugin/plugin.json"):
+        if (pdir / rel).is_file():
+            manifest = pdir / rel
+            break
+    if manifest is None:
+        return []
+    data, err = load_json(manifest)
+    if err:
+        return [(str(manifest), err)]
+    hooks = data.get("hooks") if isinstance(data, dict) else None
+    if hooks is None:
+        default = pdir / "hooks" / "hooks.json"
+        hooks = [] if not default.is_file() else ["./hooks/hooks.json"]
+    entries = hooks if isinstance(hooks, list) else [hooks]
+    sources: list[tuple[str, object]] = []
+    for index, entry in enumerate(entries):
+        if isinstance(entry, str):
+            path = pdir / entry.removeprefix("./")
+            value, value_err = load_json(path)
+            sources.append((str(path), value_err if value_err else value))
+        else:
+            sources.append((f"{manifest}#hooks[{index}]", entry))
+    return sources
+
+
+def check_codex_hook_files() -> list[str]:
+    """Every hook definition a Codex-catalogued plugin exposes parses as Codex's `HooksFile`.
+
+    Codex deserialises each with unknown fields denied, so a Claude-Code-only key
+    (`$schema`, `modules`) is not ignored: it rejects the file and every hook in it.
+    """
+    catalog, err = load_json(CODEX_CATALOG)
+    if err or not isinstance(catalog, dict):
+        return []  # reported by check_client_catalogs
+    errors: list[str] = []
+    for entry in catalog.get("plugins", []):
+        source = entry.get("source") if isinstance(entry, dict) else None
+        rel = source.get("path") if isinstance(source, dict) else None
+        if not isinstance(rel, str):
+            continue
+        for label, value in codex_hook_sources(Path(rel.removeprefix("./"))):
+            if isinstance(value, str):
+                errors.append(value)
+            elif not isinstance(value, dict):
+                errors.append(f"{label}: Codex expects a hooks object, found {type(value).__name__}")
+            elif extra := sorted(set(value) - CODEX_HOOK_KEYS):
+                errors.append(
+                    f"{label}: top-level key(s) {', '.join(extra)} -- Codex accepts only "
+                    f"{', '.join(sorted(CODEX_HOOK_KEYS))} and rejects the whole file, so none "
+                    f"of its hooks run. Give the plugin a .codex-plugin/plugin.json whose "
+                    f"'hooks' names a clean file (see CODEX_FAMILY_HOOKS)"
+                )
+    return errors
+
+
 def root_metadata() -> tuple[dict, list[str]]:
     """The subset of the root manifest that the family plugins inherit."""
     data, err = load_json(ROOT_MANIFEST)
@@ -1119,14 +1294,8 @@ def check(fam: dict[str, set[str]]) -> list[str]:
     else:
         if setup_data is not None and "check-upgrade.sh" not in json.dumps(setup_data.get("hooks", {})):
             errors.append(f"{setup_manifest}: SessionStart hook does not reference check-upgrade.sh")
-    codex_data, codex_err = load_json(CODEX_MANIFEST)
-    if codex_err:
-        errors.append(codex_err)
-    elif isinstance(codex_data, dict) and codex_data.get("hooks") != CODEX_HOOKS:
-        errors.append(
-            f"{CODEX_MANIFEST}: 'hooks' must be exactly {json.dumps(CODEX_HOOKS)} "
-            "(the root plugin's PLUGIN_ROOT is the repo root, and the hook runs as `/bin/bash -p <path>`)"
-        )
+    errors += check_codex_family_hooks(shared)
+    errors += check_codex_hook_files()
     errors += check_setup_preflight_package()
     errors += welcome_families("check-constant")
 
@@ -1366,6 +1535,19 @@ def fix(fam: dict[str, set[str]]) -> int:
             manifest["hooks"] = SETUP_HOOKS
         (pdir / ".claude-plugin" / "plugin.json").write_text(
             json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
+        )
+        if name in CODEX_FAMILY_HOOKS:
+            write_codex_family_hooks(name, manifest["description"], shared)
+
+    # Nothing installs the repo root as a Codex plugin, so its manifest wires no hook.
+    root_codex, root_codex_err = load_json(ROOT_CODEX_MANIFEST)
+    if root_codex_err:
+        print(f"  - {root_codex_err}", file=sys.stderr)
+        return 1
+    if isinstance(root_codex, dict) and "hooks" in root_codex:
+        del root_codex["hooks"]
+        ROOT_CODEX_MANIFEST.write_text(
+            json.dumps(root_codex, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
         )
 
     market, market_err = load_json(MARKETPLACE)

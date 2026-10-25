@@ -138,38 +138,59 @@ def test_pythonpath_does_not_reach_the_preflight(project: Path, tmp_path: Path) 
 
 
 HOOKS_JSON = PLUGIN_ROOT / "hooks" / "hooks.json"
+# Codex cannot parse hooks.json (its `$schema` and `modules` keys are Claude Code's),
+# so the plugin's Codex manifest names a hook file of its own.
+CODEX_MANIFEST = PLUGIN_ROOT / ".codex-plugin" / "plugin.json"
+CODEX_HOOKS_JSON = PLUGIN_ROOT / "hooks" / "codex-hooks.json"
+# Each client's hook file, and the variables it hands the hook: Claude Code the
+# `CLAUDE_*` pair, Codex `PLUGIN_ROOT` / `PLUGIN_DATA` (it sets the `CLAUDE_*`
+# pair too, but the hook must not depend on that).
+CLIENTS = {
+    "claude-code": (HOOKS_JSON, "CLAUDE_PLUGIN_ROOT", "CLAUDE_PLUGIN_DATA"),
+    "codex": (CODEX_HOOKS_JSON, "PLUGIN_ROOT", "PLUGIN_DATA"),
+}
 
 
-def _wired_command() -> str:
-    import json
-
-    data = json.loads(HOOKS_JSON.read_text(encoding="utf-8"))
+def _wired_command(hooks_file: Path = HOOKS_JSON) -> str:
+    data = json.loads(hooks_file.read_text(encoding="utf-8"))
     return data["hooks"]["SessionStart"][0]["hooks"][0]["command"]
 
 
-def test_the_hook_runs_a_fixed_bash_in_privileged_mode() -> None:
+def test_codex_loads_the_hook_from_its_own_file() -> None:
+    """Codex reads `.codex-plugin/plugin.json` first; its `hooks` must name a file Codex can parse."""
+    manifest = json.loads(CODEX_MANIFEST.read_text(encoding="utf-8"))
+    assert manifest["hooks"] == "./hooks/codex-hooks.json"
+    assert set(json.loads(CODEX_HOOKS_JSON.read_text(encoding="utf-8"))) <= {"description", "hooks"}
+    assert "${PLUGIN_ROOT}/hooks/check-upgrade.sh" in _wired_command(CODEX_HOOKS_JSON)
+
+
+@pytest.mark.parametrize("client", sorted(CLIENTS))
+def test_the_hook_runs_a_fixed_bash_in_privileged_mode(client: str) -> None:
     """`bash` and `#!/usr/bin/env bash` both resolve through PATH, which a project can set."""
-    assert _wired_command().startswith("/bin/bash -p ")
+    assert _wired_command(CLIENTS[client][0]).startswith("/bin/bash -p ")
     assert HOOK.read_text(encoding="utf-8").splitlines()[0] == "#!/bin/bash -p"
 
 
-def test_a_bash_on_path_is_never_run(project: Path, tmp_path: Path) -> None:
-    """The wired command, run by a shell as Claude Code runs it, ignores a bash on PATH."""
+@pytest.mark.parametrize("client", sorted(CLIENTS))
+def test_a_bash_on_path_is_never_run(project: Path, tmp_path: Path, client: str) -> None:
+    """The wired command, run by a shell as the client runs it, ignores a bash on PATH."""
+    hooks_file, root_var, data_var = CLIENTS[client]
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     marker = tmp_path / "path-bash-ran"
     fake = bin_dir / "bash"
     fake.write_text(f"#!/bin/sh\ntouch {marker}\nexit 0\n")
     fake.chmod(0o755)
+    inherited = {k: v for k, v in os.environ.items() if k not in {"CLAUDE_PLUGIN_ROOT", "CLAUDE_PLUGIN_DATA"}}
     env = {
-        **os.environ,
+        **inherited,
         "PATH": f"{bin_dir}:{os.environ['PATH']}",
-        "CLAUDE_PLUGIN_ROOT": str(PLUGIN_ROOT),
-        "CLAUDE_PLUGIN_DATA": str(tmp_path / "data"),
+        root_var: str(PLUGIN_ROOT),
+        data_var: str(tmp_path / "data"),
         "CLAUDE_PROJECT_DIR": str(project),
     }
     done = subprocess.run(
-        ["/bin/sh", "-c", _wired_command()],
+        ["/bin/sh", "-c", _wired_command(hooks_file)],
         input="{}",
         capture_output=True,
         text=True,

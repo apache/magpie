@@ -40,7 +40,7 @@ explicit confirmation before any write.
 > install — the default path — put nothing in the repo, so there
 > is nothing here to reverse: it is removed with the client's own
 > verb (`/plugin uninstall <plugin>@apache-magpie` in Claude
-> Code, `codex plugin uninstall magpie`,
+> Code, `codex plugin remove <plugin>@apache-magpie`,
 > `gemini extensions uninstall magpie`). If the repo has no
 > `.apache-magpie.lock` and Magpie is plugin-installed, print
 > that command instead of a snapshot removal plan.

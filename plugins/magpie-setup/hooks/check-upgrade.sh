@@ -2,11 +2,14 @@
 # SPDX-License-Identifier: Apache-2.0
 # https://www.apache.org/licenses/LICENSE-2.0
 #
-# Session-start hook for the Apache Magpie plugin. Wired by the Claude Code
-# magpie-setup plugin (hooks/hooks.json, SessionStart) and by the root Codex CLI
-# plugin (.codex-plugin/plugin.json, same event schema), whose PLUGIN_ROOT is
-# the repo root. Agent Plugins 1.0 defines no hook component, so an AP1-only client
-# does not run this at all — see docs/setup/marketplace.md.
+# Session-start hook for the Apache Magpie plugin. Wired by the magpie-setup
+# plugin twice, with the same event schema: for Claude Code in hooks/hooks.json,
+# and for Codex CLI in hooks/codex-hooks.json, which .codex-plugin/plugin.json
+# names because Codex cannot parse the Claude Code mods' keys in hooks.json.
+# Either way the plugin root is this plugin's own root. Codex runs it only once
+# the user has trusted it in `/hooks`. Agent Plugins 1.0 defines no hook
+# component, so an AP1-only client does not run this at all — see
+# docs/setup/marketplace.md.
 #
 # Also warns, once per session, when the isolated setup is not configured on
 # this machine (see `setup_preflight.isolated.session_start`).
