@@ -2875,6 +2875,9 @@ Three events, one script:
   The two `if` filters keep the hook off every other command; they are best-effort, so the script checks the command itself as well and leaves at once when it names neither CLI.
   When the gateway is already running the check costs about half a second, on container commands only.
   `ensure` runs every check `start` does, so it can start nothing that `start` would refuse.
+  It judges the directory the session started in, which Claude Code hands every hook as `CLAUDE_PROJECT_DIR`, never the directory the agent has `cd`'d into: judged from another directory, the session project's own write grants would go uncounted.
+  A settings `env` entry cannot override `CLAUDE_PROJECT_DIR`, and without it `ensure` does nothing.
+  `start` and `stop` judge it too, since `SessionStart` also fires after a compaction, `/clear` or resume, when the payload's directory has followed the agent's `cd`; they fall back to that directory only when the variable is unset.
 
 ```jsonc
 {

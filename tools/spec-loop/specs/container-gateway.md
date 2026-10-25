@@ -163,8 +163,14 @@ session on the same project ending (its `SessionEnd` stops the one
 gateway both share), a crash — so the hook's `ensure` action, wired as a
 `PreToolUse` hook on `Bash`, starts it again before a `docker` /
 `podman` command finds it gone. `ensure` leaves at once for a command
-naming neither CLI, runs every check `start` runs before it executes
-anything (so on-demand start reaches nothing `start` would refuse),
+naming neither CLI, and judges the directory the session started in —
+`CLAUDE_PROJECT_DIR`, which Claude Code sets on every hook and a
+settings `env` entry cannot override — never the payload's `cwd`, which
+follows the agent's `cd` and, judged from elsewhere, would leave the
+session project's write grants uncounted; without the variable it does
+nothing. It runs every check `start`
+runs before it executes anything (so on-demand start reaches nothing
+`start` would refuse),
 asks the gateway's `status` whether it already serves, and otherwise
 starts it and waits up to five seconds for it to serve, so the command
 does not race the start. It never blocks the command.

@@ -38,7 +38,8 @@ SANDBOX_SCRATCH = ("/tmp/claude", "/private/tmp/claude")
 
 def run(action: str, cwd: Path, env_extra: dict[str, str] | None = None, home: Path | None = None,
         dry_run: bool = True, payload: str | None = None) -> subprocess.CompletedProcess[str]:
-    env = {k: v for k, v in os.environ.items() if k != "CLAUDE_CODE_TMPDIR"}
+    # The harness under test sets CLAUDE_PROJECT_DIR on hooks; never inherit the one running these tests.
+    env = {k: v for k, v in os.environ.items() if k not in ("CLAUDE_CODE_TMPDIR", "CLAUDE_PROJECT_DIR")}
     if dry_run:
         env["MAGPIE_CONTAINER_GATEWAY_DRY_RUN"] = "1"
     if home is not None:
@@ -141,6 +142,18 @@ def test_bad_action_exits_zero_with_message(tmp_path: Path) -> None:
 # --- ensure: start on demand before a container command ---
 
 
+def ensure(lay: Layout, command: str, *, cwd: Path | None = None, project_dir: str | None = None,
+           env_extra: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
+    """`ensure` as Claude Code runs it: the session's project in CLAUDE_PROJECT_DIR, the agent's cwd in the payload."""
+    where = cwd or lay.project
+    env = {"CLAUDE_PROJECT_DIR": str(lay.project) if project_dir is None else project_dir, **(env_extra or {})}
+    return run("ensure", where, env, home=lay.home, payload=bash_payload(where, command))
+
+
+def _serve(lay: Layout) -> str:
+    return f"{PYTHON} -I -S {lay.src} container_gateway serve --project={lay.project} --daemon"
+
+
 @pytest.mark.parametrize("command", [
     "docker ps",
     "podman run --rm alpine:3 true",
@@ -153,9 +166,9 @@ def test_bad_action_exits_zero_with_message(tmp_path: Path) -> None:
 ])
 def test_ensure_starts_the_gateway_before_a_container_command(tmp_path: Path, command: str) -> None:
     lay = Layout(tmp_path)
-    done = run("ensure", lay.project, home=lay.home, payload=bash_payload(lay.project, command))
+    done = ensure(lay, command)
     assert done.returncode == 0, done.stderr
-    assert done.stdout.strip() == f"{PYTHON} -I -S {lay.src} container_gateway serve --project={lay.project} --daemon"
+    assert done.stdout.strip() == _serve(lay)
 
 
 @pytest.mark.parametrize("command", [
@@ -169,30 +182,102 @@ def test_ensure_starts_the_gateway_before_a_container_command(tmp_path: Path, co
 ])
 def test_ensure_ignores_other_commands(tmp_path: Path, command: str) -> None:
     lay = Layout(tmp_path)
-    done = run("ensure", lay.project, home=lay.home, payload=bash_payload(lay.project, command))
+    done = ensure(lay, command)
     assert done.returncode == 0 and done.stdout == "" and done.stderr == ""
 
 
 @pytest.mark.parametrize("payload", ["", "not json", json.dumps({"tool_input": None}), json.dumps([1, 2])])
 def test_ensure_ignores_a_malformed_payload(tmp_path: Path, payload: str) -> None:
     lay = Layout(tmp_path)
-    done = run("ensure", lay.project, home=lay.home, payload=payload)
+    done = run("ensure", lay.project, {"CLAUDE_PROJECT_DIR": str(lay.project)}, home=lay.home, payload=payload)
     assert done.returncode == 0 and done.stdout == ""
+
+
+def test_ensure_judges_the_session_project_not_the_cwd(tmp_path: Path) -> None:
+    """The payload cwd follows `cd`; CLAUDE_PROJECT_DIR is where the session started."""
+    lay = Layout(tmp_path)
+    elsewhere = lay.base / "other"
+    elsewhere.mkdir()
+    subprocess.run(["git", "init", "-q", str(elsewhere)], check=True)
+    done = ensure(lay, "docker ps", cwd=elsewhere)
+    assert done.stdout.strip() == _serve(lay)
+
+
+def test_ensure_counts_the_session_project_grants_after_a_cd(tmp_path: Path) -> None:
+    """A source the session project makes writable stays refused after `cd` into a directory without that grant."""
+    lay = Layout(tmp_path)
+    (lay.project / ".claude").mkdir()
+    (lay.project / ".claude" / "settings.local.json").write_text(
+        json.dumps({"sandbox": {"filesystem": {"allowWrite": [str(lay.src)]}}}))
+    elsewhere = lay.base / "other"
+    elsewhere.mkdir()
+    subprocess.run(["git", "init", "-q", str(elsewhere)], check=True)
+    done = ensure(lay, "docker ps", cwd=elsewhere)
+    assert done.stdout == "" and "refusing gateway source" in done.stderr
+
+
+@pytest.mark.parametrize("project_dir", ["", "relative/dir", "proj"])
+def test_ensure_without_an_absolute_project_dir_does_nothing(tmp_path: Path, project_dir: str) -> None:
+    lay = Layout(tmp_path)
+    done = ensure(lay, "docker ps", project_dir=project_dir)
+    assert done.returncode == 0 and done.stdout == ""
+
+
+def _nested_repo(lay: Layout) -> Path:
+    nested = lay.project / "vendor" / "nested"
+    nested.mkdir(parents=True)
+    subprocess.run(["git", "init", "-q", str(nested)], check=True)
+    return nested
+
+
+def test_start_judges_the_session_project_dir_over_the_payload_cwd(tmp_path: Path) -> None:
+    """SessionStart after a compaction carries the agent's current cwd; the session project is what counts."""
+    lay = Layout(tmp_path)
+    nested = _nested_repo(lay)
+    done = run("start", nested, {"CLAUDE_PROJECT_DIR": str(lay.project)}, home=lay.home)
+    assert done.stdout.strip() == _serve(lay)
+
+
+@pytest.mark.parametrize("action", ["start", "stop"])
+def test_start_and_stop_count_the_session_project_grants_from_a_nested_repo(tmp_path: Path, action: str) -> None:
+    lay = Layout(tmp_path)
+    (lay.project / ".claude").mkdir()
+    (lay.project / ".claude" / "settings.json").write_text(
+        json.dumps({"sandbox": {"filesystem": {"allowWrite": [str(lay.src)]}}}))
+    nested = _nested_repo(lay)
+    done = run(action, nested, {"CLAUDE_PROJECT_DIR": str(lay.project)}, home=lay.home)
+    assert done.stdout == "" and "refusing gateway source" in done.stderr
+
+
+def test_the_payload_cwd_grants_are_counted_too(tmp_path: Path) -> None:
+    """Settings in the directory the agent is in can only make the hook refuse more."""
+    lay = Layout(tmp_path)
+    elsewhere = lay.base / "other"
+    (elsewhere / ".claude").mkdir(parents=True)
+    (elsewhere / ".claude" / "settings.json").write_text(
+        json.dumps({"sandbox": {"filesystem": {"allowWrite": [str(lay.src)]}}}))
+    done = ensure(lay, "docker ps", cwd=elsewhere)
+    assert done.stdout == "" and "refusing gateway source" in done.stderr
+
+
+def test_start_falls_back_to_the_payload_cwd_without_a_project_dir(tmp_path: Path) -> None:
+    lay = Layout(tmp_path)
+    done = run("start", lay.project, home=lay.home)
+    assert done.stdout.strip() == _serve(lay)
 
 
 def test_ensure_runs_every_start_check(tmp_path: Path) -> None:
     """On demand opens no new path: a source the start path refuses stays refused."""
     lay = Layout(tmp_path, user_copy=False)
     (lay.project / "tools/container-gateway/src/container_gateway").mkdir(parents=True)
-    done = run("ensure", lay.project, home=lay.home, payload=bash_payload(lay.project, "docker ps"))
+    done = ensure(lay, "docker ps")
     assert done.returncode == 0 and done.stdout == ""
 
 
 def test_ensure_passes_vetted_extra_args(tmp_path: Path) -> None:
     lay = Layout(tmp_path)
-    done = run("ensure", lay.project, {"MAGPIE_CONTAINER_GATEWAY_ARGS": "--egress require"}, home=lay.home,
-               payload=bash_payload(lay.project, "docker ps"))
-    assert done.stdout.strip().endswith("serve --project=" + str(lay.project) + " --daemon --egress require")
+    done = ensure(lay, "docker ps", env_extra={"MAGPIE_CONTAINER_GATEWAY_ARGS": "--egress require"})
+    assert done.stdout.strip() == _serve(lay) + " --egress require"
 
 
 # --- sources: never from a sandbox-writable directory ---

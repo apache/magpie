@@ -29,7 +29,8 @@
 #   stop    SessionEnd   — <python> -I container_gateway stop  --project=<root>
 #   ensure  PreToolUse (Bash) — as start, but only when the command names
 #           docker or podman and the gateway is not running; waits briefly for
-#           its sockets so the command does not race the start
+#           its sockets so the command does not race the start. It judges
+#           $CLAUDE_PROJECT_DIR, never the payload's cwd (see below).
 #
 # Trust model: the hook runs outside the sandbox, so everything it executes --
 # the interpreter, the standard library under it, and the gateway source -- must
@@ -85,6 +86,22 @@
 #   counts as well: its .cache, its .local and its user settings, even when
 #   $HOME names another directory.
 #
+#   Which project is judged. The session's write grants come from the project
+#   the session started in, so that is the directory every check must start
+#   from. The payload's cwd is that directory only when a session first
+#   starts: before a tool call, and at the SessionStart that follows a
+#   compaction, /clear or resume, it has followed the agent's `cd`, and judged
+#   from another directory the session project's grants would go uncounted,
+#   letting a sandboxed `cd` elsewhere pass a source the sandbox can write as
+#   trusted. Every action therefore takes the directory from
+#   $CLAUDE_PROJECT_DIR, which Claude Code sets on every hook it spawns to the
+#   directory the session started in. It does not follow `cd`, and an `env`
+#   entry in settings does not override it (checked against Claude Code: a
+#   setting CLAUDE_PROJECT_DIR=/elsewhere still hands hooks the real
+#   directory). When it is unset or relative, `start` and `stop` fall back to
+#   the payload's cwd and `ensure` does nothing. The payload's cwd, with its
+#   settings, is counted as writable as well.
+#
 #   Bash itself reads the environment before this script runs: $BASH_ENV (a
 #   file it executes), exported functions (BASH_FUNC_git%%=... would replace
 #   git) and SHELLOPTS / BASHOPTS. The shebang's -p (privileged mode) turns all
@@ -96,9 +113,10 @@
 #   then run another script entirely.
 #
 #   Known gap: write grants given only on the command line (--add-dir, a
-#   --settings file) are invisible to a hook. They come from whoever launches
-#   the session, not from the repository; do not grant a directory that holds the
-#   gateway source or the pinned interpreter that way.
+#   --settings file) or mid-session without saving them to settings (/add-dir)
+#   are invisible to a hook. They come from whoever runs the session, not from
+#   the repository; do not grant a directory that holds the gateway source or
+#   the pinned interpreter that way.
 #
 # MAGPIE_CONTAINER_GATEWAY_DRY_RUN=1 prints the command instead of running it.
 
@@ -140,9 +158,21 @@ if [[ $action == ensure ]]; then
     container_word='(^|[^A-Za-z0-9_.-])(docker|podman)(-compose)?([^A-Za-z0-9_.-]|$)'
     [[ $command_line =~ $container_word ]] || exit 0
 fi
-cwd="$(printf '%s' "$payload" | jq -r '.cwd // empty' 2>/dev/null || true)"
-[[ -n $cwd ]] || cwd="$PWD"
+# The session's own project, never the payload's cwd (see the header).
+# SessionStart also fires after a compaction, /clear or a resume, when the
+# payload's cwd has followed the agent's `cd` too, so `start` and `stop` take
+# CLAUDE_PROJECT_DIR as well and fall back to the payload only when it is
+# unset; `ensure` has no fallback.
+payload_cwd="$(printf '%s' "$payload" | jq -r '.cwd // empty' 2>/dev/null || true)"
+cwd="${CLAUDE_PROJECT_DIR:-}"
+if [[ $cwd != /* ]]; then
+    [[ $action == ensure ]] && exit 0
+    cwd="${payload_cwd:-$PWD}"
+fi
 cwd="$(cd "$cwd" 2>/dev/null && pwd -P)" || exit 0
+# The directory the agent is in is sandbox-writable too, with any settings it
+# holds; counted as well, it can only refuse more.
+payload_cwd="$(cd "${payload_cwd:-$cwd}" 2>/dev/null && pwd -P)" || payload_cwd="$cwd"
 root="$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null || printf '%s' "$cwd")"
 root="$(cd "$root" 2>/dev/null && pwd -P)" || exit 0
 # The session's cwd is sandbox-writable whatever git says; a toplevel elsewhere
@@ -284,7 +314,7 @@ normalize_entry() {
     done
 }
 
-writable_roots=("$root" "$cwd")
+writable_roots=("$root" "$cwd" "$payload_cwd")
 # ~/.local is refused too, all but uv's managed interpreters (see the header);
 # kept out of writable_roots so a settings grant over them still counts in full.
 # Both homes count: the one $HOME names and the account database's.
@@ -339,6 +369,8 @@ for home in "${homes[@]}"; do
 done
 settings_specs+=("$root/.claude/settings.json|$root" "$root/.claude/settings.local.json|$root")
 [[ $cwd != "$root" ]] && settings_specs+=("$cwd/.claude/settings.json|$cwd" "$cwd/.claude/settings.local.json|$cwd")
+[[ $payload_cwd != "$root" && $payload_cwd != "$cwd" ]] \
+    && settings_specs+=("$payload_cwd/.claude/settings.json|$payload_cwd" "$payload_cwd/.claude/settings.local.json|$payload_cwd")
 if [[ -n $main_root ]]; then
     writable_roots+=("$main_root")
     settings_specs+=("$main_root/.claude/settings.json|$main_root"
