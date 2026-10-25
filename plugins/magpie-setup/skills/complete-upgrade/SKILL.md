@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:9b62a5e3c672ed0e
 license: Apache-2.0
-measured_tokens: 3719
+measured_tokens: 3814
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -126,6 +126,9 @@ A probe that would read a credential file is not a *Check* item at all; it goes 
 
 Show one plan, in the layout and with the classification and approval rules in [`plan-format.md`](plan-format.md).
 In short: groups **Fix**, **Update**, **Add**, **Check**; one numbered line per item under about 100 characters; `[bypass]` on every item that needs `dangerouslyDisableSandbox: true`; a header line saying how many items leave the sandbox; the *Run these yourself* preview; values that cannot be derived asked as one batched question; the isolated-setup offer, when it applies, in the same message.
+
+An item a hard line blocks goes under *Run these yourself*, never under *Still open*: the vetted-ops policy, any committed file (a needed change to the committed `.claude/settings.json` is shown there as a diff), a deny weakening, or a credential read.
+*Still open* holds only what is skipped, such as a dropped item, a target changed since gathering, a user-scope copy with local-only lines, or a failed item.
 
 The approval accepts `yes`, `drop <n>[,<n>…]`, `details <n>`, or `no`.
 `drop 2,5` is part of the one approval: it applies every other item immediately, with no extra round.
