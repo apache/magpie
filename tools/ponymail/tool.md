@@ -160,7 +160,9 @@ The `mcpServers` entry looks like:
     "ponymail": {
       "command": "node",
       "args": ["/absolute/path/to/comdev/mcp/ponymail-mcp/index.js"],
-      "env": {}
+      "env": {
+        "PONYMAIL_ATTACHMENT_DIRS": "/absolute/path/to/home/.cache/ponymail-attachments"
+      }
     }
   }
 }
@@ -187,6 +189,27 @@ patterns). By default the server **blocks all private lists** and
 expects the operator to opt the relevant ones in via
 `PONYMAIL_ALLOWED_LISTS` — list those that match the project's
 `<security-list>` / `<private-list>` if the skills need to read them.
+
+`PONYMAIL_ATTACHMENT_DIRS` turns on
+[`save_attachments`](operations.md#save-attachments), which downloads a
+report's attachments (and decrypts a password-protected ZIP) to disk.
+Without it the tool refuses every call. Set it to **one** directory that the
+agent can read but not write: only the MCP server, which runs outside the
+sandbox, writes there. Under the
+[secure agent setup](../../docs/setup/secure-agent-setup.md) that is
+`~/.cache/ponymail-attachments`, written as an absolute path because the MCP
+`env` block does not expand `~`. The sandbox can read it through the
+`~/.cache/` grant, and the template's `Edit(~/.cache/ponymail-attachments/**)`
+deny rule keeps the agent's edit tools and sandboxed commands from writing to
+or renaming it. That rule matters: the server checks paths, and a caller that
+could rename directories under the root mid-save could race those checks.
+Never point the variable at your home directory, a repository checkout, or a
+directory holding configuration or credentials. The server creates and pins
+the directory when it starts, and refuses to save once it has been replaced
+or re-pointed. Saved files are never deleted by the server; clear old reports
+out of the directory yourself. `save_attachments` needs a `ponymail-mcp`
+checkout of version 1.3.0 or later
+([apache/comdev#69](https://github.com/apache/comdev/pull/69)).
 
 Restart Claude Code (or run `/mcp` → `reconnect`) so the new server
 is picked up and its tools appear in the deferred-tool list.

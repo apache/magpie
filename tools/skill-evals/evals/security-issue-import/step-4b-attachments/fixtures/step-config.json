@@ -1,0 +1,5 @@
+{
+  "skill_md": "skills/security-issue-import/SKILL.md",
+  "step_heading": "## Step 4 — Extract template fields",
+  "also_include": ["skills/security-issue-import/attachments.md"]
+}

@@ -711,6 +711,7 @@ The full block below is the two merged, annotated.
       "Read(~/.config/gcloud/**)", "Read(~/.azure/**)",
       "Read(~/.config/uv/uv.toml)",             // the host-only uv cache-dir: unreadable inside the sandbox, so sandboxed uv keeps its own cache (see "Host-only uv state")
       "Edit(~/.config/uv/**)",
+      "Edit(~/.cache/ponymail-attachments/**)",  // PonyMail save_attachments root: readable in the sandbox, written only by the MCP server
       "Read(//**/.env)", "Read(//**/.env.local)", "Read(//**/.env.*.local)",
       "Bash(curl *)", "Bash(wget *)",           // network egress via Bash bypasses the sandbox proxy
       "Bash(aws *)", "Bash(gcloud *)", "Bash(az *)", "Bash(kubectl *)",

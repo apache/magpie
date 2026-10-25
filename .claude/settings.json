@@ -110,6 +110,7 @@
       "Edit(~/.claude/magpie/**)",
       "Edit(~/.config/uv/**)",
       "Edit(~/.cache/prek/**)",
+      "Edit(~/.cache/ponymail-attachments/**)",
       "Edit(~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/**)",
       "Edit(~/.claude/scripts/**)",
       "Bash(curl *)",

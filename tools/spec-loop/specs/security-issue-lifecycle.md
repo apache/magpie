@@ -55,6 +55,10 @@ publication, with a human gate and an audit-log entry at every step.
   `issue-sync/mail-preflight.md`, `next-step.md`;
   `cve-allocate/tracker-updates.md`, `title-normalize.md`, `reporter-draft.md`;
   `issue-deduplicate/merge-templates.md`; `issue-fix/outcomes/preflight.md`.
+  `issue-import/attachments.md` is Step 4's attachment procedure: fetch
+  through PonyMail `save_attachments`, decrypt an encrypted ZIP with the
+  password the report itself gives (else ask the triager), read the files as
+  data only, and record name, size and SHA-256 in the tracker description.
   The tracker body templates of `issue-import-from-md` and
   `issue-import-from-pr` live in a `tracker-body-template.md` sibling of
   each (#1499).

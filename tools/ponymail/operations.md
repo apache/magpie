@@ -16,6 +16,7 @@
     - [Search a list](#search-a-list)
     - [Get a thread](#get-a-thread)
     - [Get an email](#get-an-email)
+    - [Save attachments](#save-attachments)
     - [Get an mbox dump](#get-an-mbox-dump)
   - [Query patterns](#query-patterns)
     - [Find the advisory archive thread on `users@<project>.apache.org`](#find-the-advisory-archive-thread-on-usersprojectapacheorg)
@@ -278,6 +279,52 @@ original `Message-ID:` header value — the MCP resolves both.
 search result, from a PonyMail archive URL, or from an external
 reference) and want its full body.
 
+The *Attachments* section lists each attachment's name, type,
+size and `hash`; the bodies are not included.
+`get_source` and `get_mbox` truncate their output, so they cannot
+recover an attachment either — use `save_attachments`.
+
+### Save attachments
+
+```text
+mcp__ponymail__save_attachments(
+  id: "<mid or Message-ID header value>",
+  dir: "<PONYMAIL_ATTACHMENT_DIRS root>/<subdirectory>",
+  hashes: ["<hash from get_email>", ...],   // optional; default all
+  password: "<password from the report>"    // optional; for encrypted ZIPs
+)
+```
+
+Downloads an email's attachments into `dir` and returns, per file,
+the saved name, the original name, type, size, SHA-256 and path.
+The bytes never come back in the result, so a proof of concept
+does not land in the model's context.
+
+- **Disabled until configured.** `dir` must be one of the
+  `PONYMAIL_ATTACHMENT_DIRS` roots or a directory inside one
+  ([setup](tool.md#2-register-the-mcp-with-claude-code)).
+  Use one subdirectory per report, named after the thread or tracker
+  (e.g. `<root>/<threadId>`).
+  The directory is read-only to the agent (the secure setup denies
+  edits there), so only this tool writes into it.
+- **Safe names, no overwrites.** Filenames are reduced to ASCII
+  `[A-Za-z0-9._-]` with no path components, and an existing file gets
+  a numbered sibling instead of being replaced.
+- **Encrypted attachments.** Each file is checked for its format.
+  An encrypted ZIP is reported as such; call again with `password`
+  (reports often give it in the message text) to decrypt it, ZipCrypto
+  or AES, into `<name>-extracted/`.
+  The extraction applies the same name rules, never creates symlinks,
+  refuses archives whose entry names try to escape, and stops at 1000
+  entries / 200 MB. The password is never echoed back.
+  7z, RAR and PGP files are saved and flagged, but not decrypted.
+- **Same restrictions as `get_email`**: a blocked or private list is
+  refused unless allow-listed.
+
+Saving writes to the local disk, so it is not in the read-only
+`permissions.allow` set of the secure setup: the harness asks
+before each call.
+
 ### Get an mbox dump
 
 ```text
@@ -359,6 +406,8 @@ the version string or the project's release-cadence cut date.
 - **Read-only.** No tool writes to the archive; no tool posts a
   message. Drafts / replies remain on the Gmail tool per
   [`../gmail/operations.md`](../gmail/operations.md).
+  The one local write is `save_attachments`, confined to the
+  `PONYMAIL_ATTACHMENT_DIRS` roots.
 - **Session-scoped access.** Private-list queries return empty
   when the session cookie is missing, expired, or belongs to a
   user without LDAP membership on the list. Always pre-flight

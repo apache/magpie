@@ -18,9 +18,9 @@ when_to_use: |
   `import last 30d` / `import all` for a backlog).
 argument-hint: "[import] [last Nd|all] [skip threadId]"
 capability: capability:intake
-surface_hash: sha256:e9c563d494821baf
+surface_hash: sha256:0db7a7686bad58b0
 license: Apache-2.0
-measured_tokens: 8152
+measured_tokens: 8195
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -323,6 +323,8 @@ A field the reporter did not supply stays `_No response_`; later `security-issue
 **Apply the redact-after-fetch protocol BEFORE extracting fields** ([`outcomes/redact-before-extract.md`](outcomes/redact-before-extract.md#step-4--redact-then-extract)):
 identify the third parties the body names, keep the reporter's own values and the Step 0 collaborators in the clear, and pass the rest to `pii-redact`.
 Every field below comes from the **redacted body**, so `N-…` / `E-…` identifiers appear where the reporter named someone else.
+
+**Attachments** (a PoC file, a patch, an encrypted ZIP with the password in the text): fetch, decrypt and record them per [`attachments.md`](attachments.md) before extracting the fields.
 
 The generic body-field schema lives in [`tools/github/issue-template.md`](../../../../tools/github/issue-template.md),
 and the project's field names in [`<project-config>/project.md`](../../../../<project-config>/project.md#issue-template-fields).

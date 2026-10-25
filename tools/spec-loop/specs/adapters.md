@@ -48,7 +48,12 @@ by swapping the adapter, not the skill.
   (`maildir-draft-create`, plus the read-only `maildir-draft-find` for the
   existing-draft check); an offline alternative to Gmail, selected per
   project with a per-person override.
-- `tools/ponymail/` — public mailing-list archive search.
+- `tools/ponymail/` — public mailing-list archive search. Its one local
+  write, `save_attachments` (`ponymail-mcp` 1.3.0+), downloads a report's
+  attachments into a `PONYMAIL_ATTACHMENT_DIRS` root that the agent can
+  read but not write (the secure setup's `Edit(~/.cache/ponymail-attachments/**)`
+  deny), never returning the bytes, and decrypts a password-protected ZIP
+  when given the password from the report.
 - `tools/mail-archive/` — static mailing-list archive reader for
   projects whose list history is in a local mbox/Maildir export.
 - `tools/jira/` — issue-tracker adapter for projects on Jira.
