@@ -75,7 +75,7 @@ The approval names the bypass explicitly through the header line, so one `yes` s
 
 ## Nothing to do
 
-When Gather finds nothing actionable and nothing for *Run these yourself*:
+When there is nothing actionable, as [`SKILL.md` → Plan](SKILL.md#plan) defines it:
 
 ```text
 complete-upgrade — Magpie 0.9.0.dev202610250024: this machine and this project are already in line.
