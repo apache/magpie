@@ -12,6 +12,8 @@
     - [Home](#home)
     - [Detection](#detection)
   - [Registry](#registry)
+  - [Operations](#operations)
+  - [Configuration](#configuration)
   - [Adapters](#adapters)
   - [Adding an adapter](#adding-an-adapter)
   - [Consumers](#consumers)
@@ -139,6 +141,32 @@ The two YAML names are shared with pre-commit, so a repository with one uses bot
 
 It also checks, without writing, that [`.claude/settings.json`](../../.claude/settings.json) and [`tools/sandbox-lint/expected.json`](../sandbox-lint/expected.json) deny every manager's default home and carry the sandbox home of each manager this repository uses.
 It runs as the `sync-hook-managers` prek hook.
+
+## Operations
+
+The contract has no binary of its own.
+Its operations are carried out by the scripts generated from the registry:
+
+| Operation | Run by | Invocation | Behaviour |
+|---|---|---|---|
+| Install rewrite | [`hook-manager-shim.sh`](../agent-isolation/hook-manager-shim.sh), installed as `~/.claude/bin/<tool>` | `<tool> <install.subcommand> [args…]`, e.g. `prek install` | Applies the adapter's install strategy — for prek, runs `prek install --git-dir <absolute common dir> [args…]`. Left unchanged when `args` already carry the flag or `-h` / `--help`, or outside a git work tree. Every other subcommand passes through to the real binary, the next `<tool>` on `PATH` that is not the shim. Exits 127 when the name it is installed under has no adapter or no real binary is found. |
+| Host home | [`git-hook-dispatcher.sh`](../agent-isolation/git-hook-dispatcher.sh), from `~/.claude/git-hooks/` | Every hook git runs, before it chains to the repository's own hook | Outside the sandbox (no `SANDBOX_RUNTIME`), exports `<home.env>=~/.local/share/<home.host>` for every registered manager unless the operator's value lies outside `~/.cache`, and moves `XDG_CACHE_HOME` to `~/.local/share/prek-host/cache` by the same rule. Sandboxed hooks keep their values. |
+| Home check | [`sandbox-lint`](../sandbox-lint/) | `uv run --project tools/sandbox-lint sandbox-lint` | Fails a settings file whose `permissions.deny` lacks `Edit(<home.default>/**)` for any registered manager, and, for a project that uses a manager (see [Detection](#detection)), one whose `env.<home.env>` is missing or overlaps the default home. |
+| Registry sync | [`tools/dev/sync-hook-managers.py`](../dev/sync-hook-managers.py) | `tools/dev/sync-hook-managers.py [--check]`; the `sync-hook-managers` prek hook | Validates `registry.json`, rewrites the generated blocks of the three scripts above, and checks the committed settings and the sandbox-lint baseline. Exits 1 when a block changed (re-stage and commit), or, with `--check`, when one would. |
+
+## Configuration
+
+The registry is framework-side: an adopter does not edit it.
+What a repository or an operator configures is where each manager's environments live and which binary answers to the manager's name:
+
+| Setting | Where | Value for prek | Required |
+|---|---|---|---|
+| `permissions.deny` entry `Edit(<home.default>/**)` | `.claude/settings.json` (and `tools/sandbox-lint/expected.json` in this repository) | `Edit(~/.cache/prek/**)` | Always, for every registered manager. |
+| `env.<home.env>` | `.claude/settings.json` | `"PREK_HOME": "~/.cache/prek-sandbox"` | Only when the repository uses the manager; it must not overlap the default home. |
+| `<home.env>` in the operator's environment | the shell the operator commits from | unset, or a directory outside `~/.cache` | Optional: a value outside `~/.cache` is kept by the dispatcher; one under it is replaced with the host home. |
+| `PATH` | the operator's shell profile | `~/.claude/bin` ahead of the real `prek` | Only under whole-user scope, where the shim is installed; removing `~/.claude/bin` from `PATH` restores the stock binary. |
+
+[`setup-isolated-setup-install`](../../plugins/magpie-setup/skills/isolated-setup-install/SKILL.md) brings in the first two with its copy of the framework's `.claude/settings.json` and the `PATH` entry in [Step P](../../plugins/magpie-setup/skills/isolated-setup-install/step-p-sandbox-allowlists.md); `sandbox-lint` checks the first two.
 
 ## Adapters
 

@@ -12,7 +12,8 @@ Where that layer is depends on whether the project adopted Magpie
 | Project | Personal layer |
 |---|---|
 | Adopted (a `<committed-lock>` exists) | `<repo-root>/.apache-magpie-local/`, gitignored by `adopt`. In a linked worktree with none of its own, the main checkout's. |
-| Not adopted (Magpie only installed) | `<git-common-dir>/apache-magpie/`, inside the git directory: never in the working tree, never committable, shared by every worktree of the clone. |
+| Not adopted (Magpie only installed) | `<git-common-dir>/apache-magpie/`, inside the git directory: never in the working tree, never committable, shared by every worktree of the clone. In a Subversion working copy, `.svn/apache-magpie/` for the same reasons. |
+| No version control | `<repo-root>/.apache-magpie-local/`: there is nothing to commit it to. |
 
 **This is the sub-action an individual runs.** It works on a repository
 whose maintainers have never heard of Magpie, it asks the project for
@@ -31,7 +32,7 @@ from what this sub-action produced**. See
 |---|---|
 | `<skills>` | The families installed on this machine. `config <skill>` narrows it to one. |
 | `adversarial-review` | Not a skill: `config adversarial-review` runs only [Step 3c](#step-3c--adversarial-reviewers-optional), which configures the other models that review a change before a PR is opened. |
-| `<repo-root>` | The git repository the session is in. |
+| `<repo-root>` | The git repository the session is in, or the root of its Subversion working copy. |
 
 ## Invoked by a skill's pre-flight
 
@@ -61,12 +62,16 @@ When entered this way:
 
 ## Step 0 — Pre-flight
 
-1. **In a git repository?** If not, stop: there is no project to
-   configure. Say so plainly. When the directory is an SVN working copy
-   (a `.svn/` at or above it), say instead that setup keeps its
-   configuration in a Git repository, such as the tracker, and that the
-   SVN checkout is configured from there as the upstream working copy
-   ([Step 3g](#step-3g--source-control-backend)).
+1. **Which version control?** Work from the project root and name the case:
+   - **Git** — a git repository (`.git` here). The usual case.
+   - **Subversion** — a Subversion working copy, with its `.svn/` (holding `wc.db`) in this directory.
+     Its personal layer is `.svn/apache-magpie/`, inside Subversion's own administrative directory, so it is never committed either.
+     A `.svn/` only in a directory *above* this one is not used: stop, and ask the user to run `config` from the working copy's root.
+   - **Neither** — no version control at all. The personal layer is the in-tree `.apache-magpie-local/`:
+     there is nothing it could be committed to.
+     Say so, since a later `git init` or `svn add` would see it.
+
+   Git wins when a directory has both. The rules are `setup_preflight/layers.py`'s; this list only names them.
 2. **Is the repo already adopted?** Read `<committed-lock>`. If it
    exists, say so and name what changes: the project already publishes
    configuration, so anything written here **shadows it, per file**.
@@ -77,7 +82,7 @@ When entered this way:
    it — the same `PYTHONPATH` as every skill's pre-flight:
 
    ```bash
-   PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir)/../.apache-magpie-local:$(git rev-parse --git-common-dir)/apache-magpie" \
+   PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/../.apache-magpie-local:$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/apache-magpie:.svn/apache-magpie" \
      python3 -m setup_preflight.layers
    ```
 
@@ -86,7 +91,9 @@ When entered this way:
    this is a linked worktree without one and the main checkout
    (`$(git rev-parse --path-format=absolute --git-common-dir)/..`) has
    one, in which case the main checkout's; not adopted →
-   `$(git rev-parse --path-format=absolute --git-common-dir)/apache-magpie/`.
+   `$(git rev-parse --path-format=absolute --git-common-dir)/apache-magpie/`
+   in git, `<repo-root>/.svn/apache-magpie/` in a Subversion working copy,
+   and `<repo-root>/.apache-magpie-local/` with no version control.
    **Say which it is**, and on a worktree that falls back say that the
    values are written to the main checkout's directory and so are shared
    with every worktree that has none of its own.
@@ -118,7 +125,11 @@ edit a committed file to arrange that.
 - **Not adopted** → the layer is inside the git directory, which git
   never tracks. There is nothing to arrange: no `.gitignore` line, no
   `.git/info/exclude` line, nothing in the working tree. Create the
-  directory with mode `0700`.
+  directory with mode `0700`. A Subversion working copy is the same:
+  `.svn/` is never versioned, so `.svn/apache-magpie/` needs no
+  `svn:ignore`.
+- **No version control** → nothing to arrange; create the in-tree
+  `.apache-magpie-local/` with mode `0700`.
 - **Adopted** → `adopt` already added `/.apache-magpie-local/` to the
   committed `.gitignore`. If that line is missing, write it to the
   per-clone `<repo-root>/.git/info/exclude` instead (never committed,
@@ -126,8 +137,9 @@ edit a committed file to arrange that.
 
 **Never add a `.gitignore` line here, and never create
 `.apache-magpie-local/` or `.apache-magpie-overrides/` in a project that
-has not adopted Magpie.** Those are `adopt`'s, because `adopt` is already
-committing.
+has not adopted Magpie** (the no-version-control case aside, where the
+first is the personal layer). Those are `adopt`'s, because `adopt` is
+already committing.
 
 Say which case applied.
 
@@ -142,11 +154,12 @@ snapshot install `<snapshot-dir>/tools/setup-preflight/src/setup_preflight/`
 reaches the same files.
 
 This is what every skill's pre-flight actually runs — the path finds the
-copy in this checkout's `.apache-magpie-local/`, the main checkout's, or
-the git directory's `apache-magpie/`:
+copy in this checkout's `.apache-magpie-local/`, the main checkout's,
+the git directory's `apache-magpie/`, or a Subversion working copy's
+`.svn/apache-magpie/`:
 
 ```bash
-PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir)/../.apache-magpie-local:$(git rev-parse --git-common-dir)/apache-magpie" \
+PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/../.apache-magpie-local:$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/apache-magpie:.svn/apache-magpie" \
   python3 -m setup_preflight --skill … --hash …
 ```
 
@@ -169,7 +182,7 @@ Verify the copy answers before moving on; a checker that does not run
 makes every skill fall back to *step-0* of its `preflight-detail.md`:
 
 ```bash
-PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir)/../.apache-magpie-local:$(git rev-parse --git-common-dir)/apache-magpie" \
+PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/../.apache-magpie-local:$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/apache-magpie:.svn/apache-magpie" \
   python3 -m setup_preflight --skill magpie-setup --no-welcome
 ```
 
@@ -297,7 +310,7 @@ committed lock, adopted project or not.** That is the personal layer
 [Step 0](#step-0--pre-flight) item 3 located: this checkout's own
 `.apache-magpie-local/` (adopted), the main checkout's
 `.apache-magpie-local/` (a linked worktree of an adopted project with
-none of its own), or `<git-common-dir>/apache-magpie/` (not adopted). The two branches below trigger
+none of its own), or `<git-common-dir>/apache-magpie/` (not adopted; `.svn/apache-magpie/` in a Subversion working copy). The two branches below trigger
 on **different** conditions — read the "not adopted" one's scope as
 looser than the "already adopted" one's; they are not the same rule
 applied to two stores.

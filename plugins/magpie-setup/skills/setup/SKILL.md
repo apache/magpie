@@ -20,9 +20,9 @@ when_to_use: >-
   to the `welcome-guide` skill.
 argument-hint: "[install|config|adopt|unadopt|upgrade|worktree-init|verify|reconcile|override skill-name|delegate [skill-name]|welcome|uninstall]"
 capability: capability:platform
-surface_hash: sha256:c43efc6b0564caff
+surface_hash: sha256:946a4aba49ce60ff
 license: Apache-2.0
-measured_tokens: 5016
+measured_tokens: 5286
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -32,7 +32,8 @@ measured_tokens: 5016
      <project-config>           → per file, first hit wins: the personal layer
                                   (`.apache-magpie-local/` when adopted, falling back to the
                                   main checkout's in a linked worktree;
-                                  `<git-common-dir>/apache-magpie/` when only installed) then
+                                  `<git-common-dir>/apache-magpie/` when only installed,
+                                  `.svn/apache-magpie/` in a Subversion working copy) then
                                   `.apache-magpie-overrides/` (committed, project-wide)
      <snapshot-dir>             → `.apache-magpie/` (gitignored snapshot of the framework)
      <committed-lock>           → `.apache-magpie.lock` (committed — project's pin)
@@ -49,6 +50,21 @@ One `marketplace add`, then one `plugin install` per skill family, and nothing i
 `setup` with no arguments proposes it; the other methods are fallbacks for where a marketplace cannot reach.
 Walk-through: [`install.md` → Step M0b](install.md#step-m0b--pre-fill-from-the-committed-floor), which reads any committed floor first.
 Per-agent reference: [`docs/setup/marketplace.md`](../../../../docs/setup/marketplace.md).
+
+## First — the welcome guide
+
+The setup family runs no shared pre-flight, so this skill checks for its first-run welcome guide itself, before any sub-action, silently.
+`<skill-dir>` is the directory holding this `SKILL.md`, which carries the checker even before `config` has copied it into the personal layer:
+
+```bash
+PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/../.apache-magpie-local:$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/apache-magpie:.svn/apache-magpie:<skill-dir>" \
+  python3 -m setup_preflight.welcome due --skill setup
+```
+
+- **`{"verdict": "ok"}`**, or the command did not run at all → say nothing and go on to the sub-action.
+- **`{"verdict": "action", ...}`** → follow `rules.welcome`, the same rules a pre-flight `welcome` finding carries, and run its `record` command with the `PYTHONPATH` above.
+
+This is the only check: none of the pre-flight's setup, floor or fingerprint findings run here.
 
 ## The install paths
 

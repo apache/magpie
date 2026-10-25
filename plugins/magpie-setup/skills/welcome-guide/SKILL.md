@@ -16,7 +16,7 @@ argument-hint: "[family]"
 capability: capability:platform
 surface_hash: sha256:3dafaec43fc7bd00
 license: Apache-2.0
-measured_tokens: 1317
+measured_tokens: 1365
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -68,7 +68,7 @@ Pass any other name through as given and let the command say whether it exists.
 Every command uses the personal layer's copy of the checker, as the pre-flight does:
 
 ```bash
-PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir)/../.apache-magpie-local:$(git rev-parse --git-common-dir)/apache-magpie" \
+PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/../.apache-magpie-local:$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/apache-magpie:.svn/apache-magpie" \
   python3 -m setup_preflight.welcome show --family <family>
 ```
 
@@ -91,7 +91,7 @@ Only when the user asked to have a guide back
 clear its recorded choice so the pre-flight shows it again:
 
 ```bash
-PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir)/../.apache-magpie-local:$(git rev-parse --git-common-dir)/apache-magpie" \
+PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/../.apache-magpie-local:$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/apache-magpie:.svn/apache-magpie" \
   python3 -m setup_preflight.welcome enable --family <family>
 ```
 

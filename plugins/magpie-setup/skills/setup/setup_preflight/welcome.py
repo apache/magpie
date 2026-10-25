@@ -30,6 +30,12 @@ general guide):
 * **`dismiss`** — hidden until the framework version changes;
 * **`never`** — hidden until `enable` clears it.
 
+`due` answers the welcome question alone, in the pre-flight's own verdict
+shape: `{"verdict": "ok"}`, or the same `welcome` finding and rules the
+pre-flight would emit.  It is for a skill that runs no pre-flight — the
+setup family is exempt from the shared block — so the `setup` skill can
+still open its first run with the guide.
+
 Which family a skill belongs to comes from its frontmatter `family:`, which
 a marketplace install cannot read from here (the copy of this package in
 the personal layer carries no skills), so it is generated into
@@ -38,6 +44,7 @@ the personal layer carries no skills), so it is generated into
 Run as a module:
 
     python3 -m setup_preflight.welcome list
+    python3 -m setup_preflight.welcome due    --skill setup
     python3 -m setup_preflight.welcome show   --family general [--color[=auto|always|never]]
     python3 -m setup_preflight.welcome record --family security --choice seen|dismiss|never
     python3 -m setup_preflight.welcome enable --family security
@@ -455,6 +462,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="setup_preflight.welcome", description=__doc__.split("\n")[0])
     sub = parser.add_subparsers(dest="action", required=True)
     sub.add_parser("list", help="print the guides that ship, one per line")
+    due = sub.add_parser("due", help="the pre-flight's welcome finding for one skill, alone")
+    due.add_argument("--skill", required=True, help="the skill's frontmatter `name:`")
+    due.add_argument("--project-root", default=".", type=Path)
     show = sub.add_parser("show", help="print a family's welcome guide")
     show.add_argument("--family", required=True)
     show.add_argument(
@@ -494,6 +504,13 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.action == "list":
         print("\n".join(guides()))
+        return 0
+
+    if args.action == "due":
+        from .core import Verdict, welcome_findings
+
+        findings = welcome_findings(args.project_root, args.skill)
+        print(Verdict("action" if findings else "ok", findings).to_json())
         return 0
 
     if guide(args.family) is None:

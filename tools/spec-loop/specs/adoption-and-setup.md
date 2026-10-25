@@ -82,7 +82,7 @@ acceptance:
     into `.apache-magpie-local/`. `worktree-init` copies or links no
     personal config: the fallback covers it.
   - Every skill's pre-flight runs the checker with
-    `PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir)/../.apache-magpie-local:$(git rev-parse --git-common-dir)/apache-magpie"`,
+    `PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/../.apache-magpie-local:$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/apache-magpie:.svn/apache-magpie"`,
     so the copy is found in this checkout's `.apache-magpie-local/`, the
     main checkout's, or the git-directory home. The project-verdict
     cache is keyed on the checkout, since worktrees may share one
