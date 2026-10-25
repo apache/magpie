@@ -21,7 +21,7 @@ capability:
   - capability:reassess
 surface_hash: sha256:7d670b572d43bbeb
 license: Apache-2.0
-measured_tokens: 6326
+measured_tokens: 6573
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -145,7 +145,9 @@ bash <skill-dir>/scripts/probe-3-container-gateway.sh
 
 `status_json` comes from the gateway's own read-only `status` subcommand.
 The doctor may call it from inside the sandbox, since it neither binds a socket nor touches the daemon.
-`gw_src` picks the adopter's pinned snapshot (`.apache-magpie/tools/container-gateway/src`) when present, else the framework repo's own tree (`tools/container-gateway/src`), so the same probe runs in an adopter checkout and in this framework's own worktree.
+`gw_src` picks the adopter's pinned snapshot (`.apache-magpie/tools/container-gateway/src`) when present, else the framework repo's own tree (`tools/container-gateway/src`), else the operator install the `SessionStart` hook runs (`~/.claude/scripts/container-gateway/src`), so the same probe runs in an adopted checkout, in this framework's own worktree and on a marketplace install.
+Only `status` can vouch that the socket is the gateway's — a raw daemon socket answers `<rt> info` just as well — so with no status (no gateway source, or one the `PATH` `python3` cannot import) the probe fails rather than trusting the socket.
+A `status` that exits 2 without a report has refused the run directory.
 The `gw_state` check runs **before** the raw socket-file test.
 A backend that `status` does not list under `serving` never gets a socket file, so testing `-S "$sock"` first would misreport "gateway not running" for the "running, but this backend's machine/daemon is down" case.
 The `-S` test is a defensive fallback for an already-serving backend whose socket vanished mid-probe, not the primary check.
@@ -157,6 +159,8 @@ The `-S` test is a defensive fallback for an already-serving backend whose socke
 | `✓ <rt> reaches the container gateway at <sock>` | Pass | CLI → gateway → daemon all answer. |
 | `✗ … unset — gateway not wired into settings` | Fail | The reference `env` block is missing from project settings. |
 | `✗ gateway socket missing` | Fail | The `SessionStart` hook did not start the gateway, or it exited; check `container-gateway.log` in the gateway's run directory — `<project>/.apache-magpie-local/run/` when adopted, else `<git-common-dir>/apache-magpie/run/<worktree-id>/`. |
+| `✗ gateway status refused the run directory` | Fail | `status` exited 2 without a report: a run-directory component is a symlink or has the wrong owner, type or mode. Inspect the run directory from outside the sandbox; do not point the CLI around it. |
+| `✗ gateway status unavailable` | Fail | The probe could not get a report from `status`: no gateway source was found (install the operator copy, install Step L.1), or `status` exited without one (`rc=N`; typically a `python3` on `PATH` too old to import the gateway). The socket may still work, but nothing confirms it is the gateway's. |
 | `✗ gateway running without a <rt> backend` | Fail | `status` reports the gateway up but `serving` does not list this CLI's backend — the Podman machine or Docker daemon behind it is not running. Start it from outside the sandbox, then restart the gateway. |
 | `✗ connect … denied` | Fail | The gateway socket is not in `sandbox.network.allowUnixSockets`. |
 | `✗ gateway up, backend down` | Fail | Podman machine / Docker not running on the host; start it from your own terminal. |
