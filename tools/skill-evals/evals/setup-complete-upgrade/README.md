@@ -5,11 +5,11 @@
 
 Behavioral evals for the `setup-complete-upgrade` skill.
 
-## Suites (16 cases total)
+## Suites (18 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
-| step-plan | ## Plan | 12 | mixed groups and bypass marking, hard lines to run-yourself, nothing to do, local-only script lines, linked worktree, non-Claude harness, isolated setup unknown vs absent, settings targets, stale shipped copy vs local edits, no history to compare, per-step install routing |
+| step-plan | ## Plan | 14 | mixed groups and bypass marking, hard lines to run-yourself, nothing to do, local-only script lines, linked worktree, non-Claude harness, isolated setup unknown vs absent, settings targets, stale shipped copy vs local edits, no history to compare, per-step install routing, shallow clone, personal layer not created yet |
 | step-apply | ## Apply | 4 | drop applies the rest, changed-since-gathering skip, Check findings go to a second plan, one bypassed call per item |
 
 ## Run

@@ -1,0 +1,9 @@
+{
+  "items": [
+    {"group": "add", "bypass": false, "id": "setup-config-needed"}
+  ],
+  "run_yourself": [],
+  "still_open": [],
+  "isolated_offer": false,
+  "nothing_to_do": false
+}

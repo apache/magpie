@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:bf83981a9df27d35
 license: Apache-2.0
-measured_tokens: 6170
+measured_tokens: 6250
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -116,15 +116,16 @@ In a linked worktree of an adopted project that resolves to the main checkout's 
 
 **The sandbox write scope.**
 For each directory a plan item would write to (the personal layer, the main checkout's one from a linked worktree, the worktree itself), create a probe file there inside the sandbox, then remove it.
+When the directory does not exist yet (a personal layer `setup config` would create), probe its nearest existing parent instead, since the item creates the directory.
 The directories where that works make up the gathered sandbox write scope.
 A write outside them carries `[bypass]`.
 
 **Stale script copy or local edits.**
 A user-scope script copy that differs from its framework source may be an older shipped version or may carry the user's own edits.
-Where the framework's git history is readable inside the sandbox (a framework checkout), look up the copy's blob hash (`git hash-object`) in `git log --raw --no-abbrev --format= -- <source>`.
+Where the framework's full git history is readable inside the sandbox (a framework checkout for which `git rev-parse --is-shallow-repository` prints `false`), look up the copy's blob hash (`git hash-object`) in `git log --raw --no-abbrev --format= -- <source>`.
 A match means the copy is an older shipped version: it is stale.
 No match means local edits.
-With no history to look in (a marketplace or snapshot install), the two cannot be told apart: record the lines only the installed copy has, for the plan to show.
+With no history to look in, or only part of it (a marketplace or snapshot install, or a shallow clone), the two cannot be told apart: record the lines only the installed copy has, for the plan to show.
 
 **Magpie installed but not configured here.**
 No personal layer (or no checker copy to ask), no `.apache-magpie-overrides/`, no committed lock: the plan carries one *Add* item, run [`setup config`](../setup/config.md) (personal, gitignored, needs nobody's permission).
@@ -157,7 +158,7 @@ Classify each item by the first rule that matches, in this order:
 Items are numbered across groups, in discovery order within a group, one line each under about 100 characters.
 A loud header line counts and lists the items that leave the sandbox, such as `!!! 3 of 5 items leave the sandbox: 1, 4, 5 !!!`; the *Run these yourself* preview and the isolated-setup offer, when it applies, are in the same message; values that cannot be derived are asked as one batched question.
 
-An item carries `[bypass]` when its action writes outside the gathered sandbox write scope (the directories where Gather's sandboxed probe write succeeded) or reads a path the sandbox denies: any write to a settings file (each worktree's `.claude/settings.local.json`, `~/.claude/settings.json`), to `~/.claude-config/` or to `~/.claude/scripts/`, and any probe of those or other denied paths.
+An item carries `[bypass]` when its action writes outside the gathered sandbox write scope (the directories where Gather's sandboxed probe write succeeded, in the nearest existing parent for a directory not created yet) or reads a path the sandbox denies: any write to a settings file (each worktree's `.claude/settings.local.json`, `~/.claude/settings.json`), to `~/.claude-config/` or to `~/.claude/scripts/`, and any probe of those or other denied paths.
 A write inside the personal layer (including the main checkout's, from a linked worktree) or the worktree needs no bypass when it falls inside the gathered write scope; outside it, it carries `[bypass]`.
 A harness without a bypass (see [Other harnesses](#other-harnesses)) lists every such item under *Run these yourself* instead.
 
@@ -171,7 +172,7 @@ Anything else goes under *Run these yourself* as a re-run of the [`setup-isolate
 the `gpg-touch-wrap-*` symlinks and `shims/` are Step K, a `~/.claude/git-hooks/` flavour is Step P.3, the `container_gateway` package is Step L, the `skill_evals` package with `magpie-run-evals.sh` is Step M, and `agent-guard.py` with `guards.d` is the agent-guard wiring of Step P.
 A copy Gather found to be an older shipped version is stale: *Update*, or *Fix* when the framework copy carries a security fix.
 A copy with local edits goes under *Still open* with its diff path.
-A copy that could not be told apart (no history to compare) is an *Update* or *Fix* item whose line ends `(replaces N lines only this copy has)`.
+A copy that could not be told apart (no history to compare, or only a shallow clone's) is an *Update* or *Fix* item whose line ends `(replaces N lines only this copy has)`.
 Its `details <n>` lists those lines, and its bypassed call saves the old copy to the scratch directory before writing.
 This deliberately relaxes `setup-isolated-setup-update`'s "never re-`cp`" for plain-content copies only, under the checksum rule.
 

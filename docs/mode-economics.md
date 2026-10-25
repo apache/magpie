@@ -341,7 +341,7 @@ per machine and project after each Magpie version change:
 | Skill | Typical invocation | Planning estimate | Primary cost driver | Replay p50 tokens |
 |---|---|---|---|---|
 | `committer-onboarding` | One post-vote onboarding walkthrough | 10K–30K | Mostly procedural; podling vs TLP path length | Not measured |
-| `setup-complete-upgrade` | One post-upgrade check, plan and approved apply | 15K–40K | Skill body is 6,170 tokens (`measured_tokens`); the rest is the state gather and one Bash call per applied item. Estimated. | Not measured |
+| `setup-complete-upgrade` | One post-upgrade check, plan and approved apply | 15K–40K | Skill body is 6,250 tokens (`measured_tokens`); the rest is the state gather and one Bash call per applied item. Estimated. | Not measured |
 
 ---
 
