@@ -73,8 +73,10 @@ def test_install_targets_the_common_git_dir(tmp_path: Path) -> None:
 def test_a_linked_worktree_targets_the_main_checkout(tmp_path: Path) -> None:
     env, argv = _setup(tmp_path)
     repo = _repo(tmp_path)
+    # A developer's global commit.gpgsign would make this commit wait for (or
+    # fail on) their signing key; the throwaway repo has nothing to sign.
     subprocess.run(
-        ["git", "-C", str(repo), "commit", "-q", "--allow-empty", "-m", "x"],
+        ["git", "-C", str(repo), "-c", "commit.gpgsign=false", "commit", "-q", "--allow-empty", "-m", "x"],
         check=True,
         env=dict(
             os.environ,
