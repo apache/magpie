@@ -107,7 +107,8 @@ choose the shell (#1794); on a version change it points at
 [`adoption-and-setup.md`](adoption-and-setup.md).
 `tools/setup-preflight/tests/test_session_hook.py` asserts that wiring;
 `check-family-plugins.py` checks only that `hooks.json` references
-`check-upgrade.sh`.
+`check-upgrade.sh`, and its `--fix` fallback writes the same `/bin/bash -p`
+command when `hooks.json` is missing (#1829).
 Its manifest declares `"types": "./hooks/types.d.ts"`, and
 `check-family-plugins.py` fails when `hooks.json` lacks `modules` or the
 `check-upgrade.sh` hook, or when the manifest also declares inline `hooks`,
@@ -287,16 +288,16 @@ For the Claude Code family, `claude plugin validate . --strict`.
   likely of the set to churn.
 - **Gemini has no migration path off `gemini-extension.json`.** Google has
   joined the AP1 TSC but published nothing, so both files stay.
+- **Codex never runs the upgrade-detection hook.**
+  `plugins/magpie-setup/` has no `.codex-plugin/plugin.json`, so Codex reads
+  its default `hooks/hooks.json`, whose top-level `$schema` and `modules`
+  keys its strict hooks-file schema rejects: no hook loads.
+  The root `.codex-plugin/plugin.json` hook #1829 re-pointed is written as
+  `{"SessionStart": …}` without the inner `hooks` wrapper Codex's inline
+  form needs, so it is ignored too, and the Codex catalogue never installs
+  the root plugin anyway; `check-family-plugins.py`'s `CODEX_HOOKS` pins
+  that shape.
 - **Nothing checks the dev-suffix stamp is fresher than the last release**, so
   a bump that is forgotten fails silently in the one way that matters: adopters
   keep being told they are up to date. The staleness is only visible by reading
   the timestamp.
-- **`check-family-plugins.py`'s `SETUP_HOOKS` fallback lags the wiring.**
-  When `plugins/magpie-setup/hooks/hooks.json` is missing, `--fix` writes
-  inline manifest hooks with the bare `${CLAUDE_PLUGIN_ROOT}/hooks/check-upgrade.sh`
-  command, not the `/bin/bash -p` form `hooks.json` uses since #1794.
-- **The root `.codex-plugin/plugin.json` wires a hook that does not ship.**
-  Its inline `SessionStart` hook runs `${PLUGIN_ROOT}/hooks/check-upgrade.sh`,
-  but the repository root has had no `hooks/` directory since #1208; the
-  script lives only in `plugins/magpie-setup/hooks/`, and the root wiring also
-  lacks the `/bin/bash -p` form.

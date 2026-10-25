@@ -84,7 +84,12 @@ acceptance:
   - Every skill's pre-flight runs the checker with
     `PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/../.apache-magpie-local:$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/apache-magpie:.svn/apache-magpie"`,
     so the copy is found in this checkout's `.apache-magpie-local/`, the
-    main checkout's, or the git-directory home. The project-verdict
+    main checkout's, the git-directory home, or a Subversion working
+    copy's `.svn/apache-magpie/` (#1829); outside git the substitution
+    falls back to `.git`, yielding paths that do not exist, so the command
+    never errors. `tools/setup-preflight/tests/test_layers.py` runs the
+    block's path in a git repository, a Subversion working copy and a
+    directory with no version control. The project-verdict
     cache is keyed on the checkout, since worktrees may share one
     personal layer.
   - An unadopted repository that still has an in-tree
@@ -834,11 +839,25 @@ committed version with drift detection.
     Checker verification during `config` and `upgrade` uses `--no-welcome`;
     unreadable optional guides do not suppress actual setup findings, and
     guide names cannot select Markdown files outside the shipped guides.
+    The setup family runs no shared pre-flight, so the `setup` skill alone
+    checks for its guide, before any sub-action:
+    `python3 -m setup_preflight.welcome due --skill setup` answers
+    `{"verdict": "ok"}` or the same `welcome` finding and rules the
+    pre-flight would emit, built without importing `core`, and is silent
+    when it cannot run; the other setup-family skills show no guide
+    (#1829, eval suite `setup/welcome-first-run`).
 38. A freshly scaffolded `project.md` carries `tracker.platform: TODO`, so
     `setup config` asks for the security-tracker backend (`github`,
     `jira` or `local-files`) on every first setup with a `security-*` skill
     in scope; the Jira steps map labels to whitespace-free names and
     require the backend's `doctor` to pass (#1683).
+39. `setup config` Step 0 names the working copy's version control, as
+    `layers.py` does (#1829): git keeps the personal layer in the git
+    directory, a Subversion working copy (`.svn/` holding `wc.db` in the
+    current directory) in `.svn/apache-magpie/`, and a directory with no
+    version control in the in-tree `.apache-magpie-local/`. A `.svn/` only
+    in a parent directory stops `config` and asks for it to be run from the
+    working copy's root.
 
 ## Validation
 
@@ -855,13 +874,10 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
   here is the fallback. The skills delivered are the same tree either way —
   only the namespace of their invocation differs.
 
-- **The `setup` family's welcome guide (#1725) is never shown on its own.**
-  The setup family is exempt from the shared pre-flight block
-  (`EXEMPT_FAMILIES` in `tools/dev/check-shared-blocks.py`), and no setup
-  skill runs the checker's welcome path, so `guides/setup.md` is reachable
-  only through `/magpie-setup:welcome-guide setup`; the checker's logic for it
-  is tested (`test_welcome.py`, eval case `preflight-floor` 20) but no skill
-  ever asks for it.
+- **The `setup` welcome check is silent until the checker is in the personal
+  layer on a sandboxed marketplace install,** where the plugin cache cannot
+  be executed, and on a machine whose personal-layer checker predates the
+  `due` action until `setup upgrade` refreshes it.
 - `stable`; gaps appear as new agent targets to add to the registry
   ([`agents.md`](../../../plugins/magpie-setup/skills/setup/agents.md)) or new override
   surfaces — recorded by the plan pass.
