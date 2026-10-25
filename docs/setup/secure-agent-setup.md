@@ -3577,8 +3577,8 @@ Inside a `claude-iso` session, run these from the agent's Bash
 tool. Each should fail or be denied:
 
 ```bash
-test -r ~/.aws/credentials && echo readable   # → nothing (sandbox denies it)
-env | cut -d= -f1                             # → names only; no TOKEN/SECRET/*_KEY
+test -r ~/.aws/credentials && echo readable   # → nothing (denied or absent; see the 7a sentinel rule)
+env | cut -d= -f1                             # → names only; no TOKEN/SECRET/*_KEY/*_PAT
 curl https://example.com                      # → blocked by permissions.deny
 ```
 
@@ -3603,8 +3603,10 @@ locate my framework checkout (this repo if it is the framework,
 else an `.apache-magpie/` snapshot in this repo, else the directory
 my shell rc sources `agent-iso.sh` from, else ask me; a candidate
 counts only if it has `tools/agent-isolation/pinned-versions.toml`);
-without one, report checks 5, 10a and 13c as "unchecked — no
-framework checkout", still giving my running `claude --version`. A path that `stat -c '%F %t,%T'`
+without one, report 10a, 13c and check 5's `bubblewrap`/`socat`
+pins as "unchecked — no framework checkout" and the `claude-code`
+floor in check 5 as ⚠ (it cannot be read), still giving my running
+`claude --version`. A path that `stat -c '%F %t,%T'`
 shows as `character special file 1,3` is a sandbox placeholder, not
 a file: take its host state from git or from a read I run, and
 never delete it:
@@ -3617,8 +3619,8 @@ never delete it:
    `permissions.ask` block, the
    `sandbox.network.allowedDomains` block, the
    `sandbox.filesystem` allowlist (`allowRead`/`allowWrite`), and
-   `sandbox.filesystem.denyRead` containing `~/` (✗ without it:
-   bubblewrap reads are deny-only). A missing committed project file
+   `sandbox.filesystem.denyRead` containing `~/` (or the resolved
+   absolute home; ✗ without it: bubblewrap reads are deny-only). A missing committed project file
    is not ✗ on its own when the merge passes.
 2. User-scope `~/.claude/settings.json` has the `PreToolUse`
    `Bash` matcher wired to a `sandbox-bypass-warn.sh` command, a
@@ -3641,21 +3643,29 @@ never delete it:
    (Linux only). For the agent harness `claude-code` (unpinned,
    `@latest`), instead compare my running `claude --version`
    against the `[tools.claude-code]` `min_version` floor —
-   **hard-fail** if below it (running under Claude Code), else ✓.
+   **hard-fail** if below it (running under Claude Code), ⚠ when the
+   floor cannot be read, else ✓.
 6. The status-line prefix in this session shows `[sandbox]` (not
    `[NO SANDBOX]`).
 7. Denials, each as its own Bash call. (a) `test -r` each of
-   `~/.aws/credentials`, `~/.ssh/id_*` private keys,
+   `~/.aws/credentials`, the `~/.ssh/id_*` private keys (list the readable ones with
+   `find -H ~/.ssh -maxdepth 1 -name 'id_*' ! -name '*.pub' -exec test -r {} \; -print`,
+   which behaves the same in bash and zsh and follows a symlinked
+   `~/.ssh`; its error separates absent from denied except under
+   bubblewrap; then `stat` each),
    `~/.config/gh/hosts.yml`, `~/.netrc`, `~/.docker/config.json`:
    any readable one is ✗ unless it is a sandbox placeholder. With
    `denyRead` covering `~/`, prove the denial with a sentinel: a file
    under `~/` that exists on my host (such as my shell rc) and that
-   no `allowRead` entry covers; a sandboxed `test -e` that cannot see
-   it is ✓. With no sentinel, report "inconclusive" and ask me to
+   no `allowRead` entry covers; a sandboxed `test -r` that fails
+   (not `-e`, which zsh on macOS can pass) is ✓, and a `/dev/null`
+   placeholder counts as denied; a readable non-placeholder sentinel
+   is ✗. With no sentinel, report "inconclusive" and ask me to
    `ls` the candidates from my own terminal; 7a turns ✓ once my `ls`
    shows a file the sandbox cannot see. (b) `env | cut -d= -f1`:
    names only; any credential-shaped name (TOKEN, SECRET, PASSWORD,
-   API_KEY, `*_KEY`, `AWS_*`, `GH_*`, `GITHUB_*`, `AZURE_*`) outside
+   PASSWD, CREDENTIAL, DSN, API_KEY, a `_`-delimited AUTH segment,
+   `*_KEY`, `*_PAT`, `AWS_*`, `GH_*`, `GITHUB_*`, `AZURE_*`) outside
    the `agent-iso.sh` passthrough list is ⚠ (ask me whether I opted
    it in with `AGENT_ISO_ALLOW`), and so is a `CLAUDE_CODE_ENTRYPOINT` of an
    IDE extension (such as `claude-vscode`), which never went through
@@ -3702,8 +3712,18 @@ never delete it:
     `git config user.signingkey` names is readable from a sandboxed
     Bash (it needs its own `sandbox.filesystem.allowRead` entry).
     If a hardware key signs my commits or authenticates my git
-    remotes (an `sk-` public key, or a card `gpg --card-status`
-    finds; n/a otherwise): the touch overlay is wired (`PreToolUse` /
+    remotes (an `sk-` public key, or a card holding the signing key or the
+    key a remote authenticates with: for ssh format the `ssh-add -L`
+    line equal to `user.signingkey` has a `cardno:` comment; for
+    OpenPGP `gpg --list-secret-keys --with-colons <key>` (`<key>` is
+    `user.signingkey`, or the committer email when unset) shows a card
+    serial in field 15 (not `+` or `#`) on a signing-capable record
+    (lowercase `s` in field 12), or
+    `gpg --card-status`'s signature key matches; for a gpg-agent ssh
+    remote the offered key has a `cardno:` comment; a card with only
+    unrelated keys, or only the auth or encryption subkey for
+    OpenPGP signing, does not count; n/a otherwise): the touch overlay
+    is wired (`PreToolUse` /
     `PostToolUse` `Bash` →
     `~/.claude/scripts/gpg-touch-overlay.sh arm` / `disarm`), its
     scripts match the framework's `tools/agent-isolation/` copies,

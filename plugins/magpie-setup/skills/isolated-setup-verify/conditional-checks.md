@@ -162,13 +162,27 @@ reading this file; read the section for a check whose condition holds.
     10c applies to any ssh-format signing key. 10a, 10b, 10d and 10e
     apply only to a hardware key and are **n/a** otherwise. A
     hardware key is an `sk-` public key (`sk-ssh-ed25519@openssh.com`,
-    `sk-ecdsa-sha2-nistp256@openssh.com`), or a card
-    `gpg --card-status` finds, whatever `gpg.format` is: ssh-format
-    signing through gpg-agent uses the card's `aut` slot and shows a
-    plain `ssh-ed25519` or `ssh-rsa` key. The user runs
-    `gpg --card-status` when the sandbox cannot see the device. A
-    plain software key needs no touch, so the overlay has nothing to
-    show.
+    `sk-ecdsa-sha2-nistp256@openssh.com`), or a card that holds the
+    signing key or the key a remote authenticates with, shown by any
+    of: (a) `gpg.format=ssh`: the `ssh-add -L` line whose key equals
+    `user.signingkey` has a `cardno:` comment; (b) OpenPGP format:
+    `gpg --list-secret-keys --with-colons <key>`, where `<key>` is
+    `user.signingkey` (unset: the committer email, as git picks it; do
+    not list every secret key), shows a card serial in field 15 (not
+    `+`, a software key, or `#`, an offline stub) on a record whose
+    field 12 contains a lowercase `s` (the signing-capable key;
+    uppercase letters on the primary are the whole key's capabilities;
+    a card holding only the auth or encryption subkey does not count),
+    or `gpg --card-status`'s signature key fingerprint matches; (c)
+    the remote is reached over ssh through gpg-agent and the agent key
+    offered has a `cardno:` comment (this is the key the remote
+    authenticates with, not the signing key). A card holding only
+    unrelated keys does not count. Ssh-format signing through
+    gpg-agent uses the card's `aut` slot and shows a plain
+    `ssh-ed25519` or `ssh-rsa` key. The user runs these from their own
+    terminal when the sandbox cannot reach the agent or device. A
+    plain software key, even beside a plugged-in card, needs no touch,
+    so the overlay has nothing to show.
     Five sub-checks, plus a note for a hardware key: the key's own touch policies
     (`ykman openpgp info`, run by the user — the sandbox does not
     see the device) are what make the overlay matter; report them

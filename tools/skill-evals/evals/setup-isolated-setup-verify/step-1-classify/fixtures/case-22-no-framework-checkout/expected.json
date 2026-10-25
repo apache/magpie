@@ -3,8 +3,8 @@
   "checks": [
     {
       "n": 5,
-      "status": "unchecked",
-      "evidence": "unchecked — no framework checkout, so neither the bubblewrap/socat pins nor the claude-code min_version floor can be read; installed: bubblewrap 0.11.2, socat 1.8.1.3, claude-code 2.1.210"
+      "status": "⚠",
+      "evidence": "no framework checkout, so the bubblewrap/socat pins are unchecked and the claude-code min_version floor is not enforced; installed: bubblewrap 0.11.2, socat 1.8.1.3, claude-code 2.1.210"
     },
     {
       "n": 10,

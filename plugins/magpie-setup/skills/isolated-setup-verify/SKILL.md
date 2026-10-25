@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:ce33cb9437d44992
 license: Apache-2.0
-measured_tokens: 9013
+measured_tokens: 9714
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -99,7 +99,8 @@ Walk each in order.
 Look, in order, for: the current repository when it is the framework itself; an `.apache-magpie/` snapshot in the adopter repo; the checkout the shell rc sources `agent-iso.sh` or `claude-iso.sh` from (`grep` the source line in `~/.bashrc` / `~/.zshrc`).
 A candidate counts only when it has `tools/agent-isolation/pinned-versions.toml`; a copy under `~/.claude/agent-isolation/` is not a checkout.
 With none found, ask the user for the path once.
-With no checkout at all, report check 5's version comparisons, 10a's script comparison and 13c as **unchecked — no framework checkout**, not ✗ or ⚠, and say which path to supply.
+With no checkout at all, report 10a's script comparison and 13c as **unchecked — no framework checkout**, not ✗ or ⚠, and say which path to supply.
+Check 5's `bubblewrap`/`socat` pin comparisons are likewise unchecked, but the `claude-code` `min_version` floor is a hard gate that cannot be read without the manifest: an unenforced floor is **⚠** (overall `warn`), never unchecked, because a marketplace-only install below the minimum would otherwise pass.
 Check 5 still reports the running `claude --version` beside that verdict.
 
 1. Effective settings shape: `sandbox.enabled: true`, `permissions.deny`, `permissions.ask`, `sandbox.network.allowedDomains`, the `sandbox.filesystem` allowlist (`allowRead`/`allowWrite`), and `sandbox.filesystem.denyRead` containing `~/` (or the resolved absolute home).
@@ -137,14 +138,18 @@ Check 5 still reports the running `claude --version` beside that verdict.
    `permissions.deny` patterns match only the *first* command of a Bash tool call, so a chained `curl` later in the pipeline can slip past on macOS (which has no socat network proxy as a backstop).
    The three probes:
    - **7a — credential files.** For each of `~/.aws/credentials`, the `~/.ssh/id_*` private keys (not `*.pub`), `~/.config/gh/hosts.yml`, `~/.netrc` and `~/.docker/config.json`, run `test -r <path>` and `stat` it (`stat -c '%F %t,%T'` on Linux, `stat -f %HT` on macOS).
+     For the keys, list the readable ones with `find -H ~/.ssh -maxdepth 1 -name 'id_*' ! -name '*.pub' -exec test -r {} \; -print` and `stat` each printed path: a one-call `test -r ~/.ssh/id_*` hits zsh's no-match error or `test`'s too-many-arguments error, which reads as "not readable", and `find` behaves the same in bash and zsh (`-H` follows a symlinked `~/.ssh`, as with WSL or GNU stow; without it `find` prints nothing, rc=0, a false pass).
+     There is no `-type f`, so a `/dev/null` placeholder still shows; `find`'s own error tells an absent `~/.ssh` from a denied one on Seatbelt and for file modes, not under bubblewrap, where a denied directory also reads `No such file or directory`.
      The first one the sandbox reports readable is ✗, unless `stat` prints `character special file 1,3` (a sandbox placeholder, which counts as denied).
      `Operation not permitted` from `stat` (Seatbelt) is a denial of a file that exists: ✓.
      Under bubblewrap a denied file and a missing one look the same, so a candidate that is not visible proves nothing on its own.
      When check 1 found `denyRead` covering `~/`, prove the denial with a sentinel: a file under `~/` known to exist on the host (such as the shell rc check 4 read) that no `allowRead` entry covers.
-     A sandboxed `test -e <sentinel>` that fails proves the denial: ✓.
+     A sandboxed `test -r <sentinel>` that fails proves the denial: ✓ (use `-r`, not `-e`: under zsh on macOS Seatbelt, `test -e ~/.zshrc` can return 0 although `stat` is denied).
+     Apply the `/dev/null` placeholder exception to the sentinel as well: if `stat` shows `character special file 1,3`, the sandbox replaced it and that counts as denied.
+     A sentinel that is readable and not such a placeholder means `denyRead` is not in effect: ✗.
      Only with no sentinel available is 7a **inconclusive**: ask the user to `ls` the candidates from their own terminal, and report ✓ once one exists there that the sandbox cannot see.
    - **7b — clean environment.** List the variable names, never the values: `env | cut -d= -f1 | sort`.
-     Flag every credential-shaped name (containing `TOKEN`, `SECRET`, `PASSWORD` or `API_KEY`, ending in `_KEY`, or starting with `AWS_`, `GH_`, `GITHUB_` or `AZURE_`) that is not on the `agent-iso.sh` passthrough list; any such name is ⚠, listed by name.
+     Flag every credential-shaped name (containing `TOKEN`, `SECRET`, `PASSWORD`, `PASSWD`, `CREDENTIAL`, `DSN` or `API_KEY`, or a `_`-delimited `AUTH` segment (`(^|_)AUTH(_|$)`, so `GIT_AUTHOR_*` and `XAUTHORITY` do not match), ending in `_KEY` or `_PAT`, or starting with `AWS_`, `GH_`, `GITHUB_` or `AZURE_`) that is not on the `agent-iso.sh` passthrough list; any such name is ⚠, listed by name.
      A single empty variable proves nothing: the reference `sandbox.credentials` already unsets `AWS_ACCESS_KEY_ID` for sandboxed commands, wrapper or not.
      An `AGENT_ISO_ALLOW` / `CLAUDE_ISO_ALLOW` opt-in is invisible from inside the session, so ask the user whether a flagged name was opted in before calling it a gap.
      Report `CLAUDE_CODE_ENTRYPOINT`.
@@ -181,8 +186,8 @@ Check 5 still reports the running `claude --version` beside that verdict.
 10. **Hardware-key touch overlay and the signing key.** Only when commits are signed (`git config --get commit.gpgsign` is `true`) or a remote is reached over ssh through gpg-agent (`SSH_AUTH_SOCK` names its socket); otherwise **n/a**.
     10c applies to any ssh-format signing key.
     10a, 10b, 10d and 10e apply only to a hardware key and are **n/a** otherwise.
-    A hardware key is an `sk-` public key (`sk-ssh-ed25519@openssh.com`, `sk-ecdsa-sha2-nistp256@openssh.com`), or a card `gpg --card-status` finds, whatever `gpg.format` is: ssh-format signing through gpg-agent uses the card's `aut` slot and shows a plain `ssh-ed25519` or `ssh-rsa` key.
-    The user runs `gpg --card-status` when the sandbox cannot see the device.
+    A hardware key is an `sk-` public key (`sk-ssh-ed25519@openssh.com`, `sk-ecdsa-sha2-nistp256@openssh.com`), or a card that holds the signing key or the key a remote authenticates with, shown by any of: (a) `gpg.format=ssh`: the `ssh-add -L` line whose key equals `user.signingkey` has a `cardno:` comment; (b) OpenPGP format: `gpg --list-secret-keys --with-colons <key>`, where `<key>` is `user.signingkey` (unset: the committer email, as git picks it; do not list every secret key), shows a card serial in field 15 (not `+`, a software key, or `#`, an offline stub) on a record whose field 12 contains a lowercase `s` (the signing-capable key; uppercase letters on the primary are the whole key's capabilities; a card holding only the auth or encryption subkey does not count), or `gpg --card-status`'s signature key fingerprint matches; (c) the remote is reached over ssh through gpg-agent and the agent key offered has a `cardno:` comment (this is the key the remote authenticates with, not the signing key). A card holding only unrelated keys does not count. Ssh-format signing through gpg-agent uses the card's `aut` slot and shows a plain `ssh-ed25519` or `ssh-rsa` key.
+    The user runs these from their own terminal when the sandbox cannot reach the agent or device.
     Five sub-checks:
     [`conditional-checks.md`](conditional-checks.md#check-10--hardware-key-touch-overlay-and-the-signing-key).
 
@@ -301,12 +306,12 @@ If anything is ✗ or ⚠, suggest the matching follow-up skill without invoking
 
 - ✗ on checks 1 / 2 / 3 / 4 → `setup-isolated-setup-install` (missing install pieces).
   For a missing `denyRead` home entry, name the settings file to add it to.
-- **Unchecked — no framework checkout** on check 5, 10a or 13c → not a failure; re-run `setup-isolated-setup-verify` with the path of the user's `magpie` clone, cloning one first if they have none ([install item 2](../isolated-setup-install/SKILL.md)).
+- **Unchecked — no framework checkout** on 10a, 13c or check 5's `bubblewrap`/`socat` pins, or ⚠ on check 5 because the `claude-code` floor could not be read without a checkout → not a failure, but check 5 stays a warn until then; re-run `setup-isolated-setup-verify` with the path of the user's `magpie` clone, cloning one first if they have none ([install item 2](../isolated-setup-install/SKILL.md)).
 - Inconclusive 7a (no sentinel) → the user runs `ls` on the candidate credential paths from their own terminal; one that exists there while the sandbox cannot see it is ✓.
 - ⚠ on check 7b (an IDE-launched session, or credential-shaped names in the environment) → no skill fixes it: start the session through `claude-iso` from a terminal, or keep secrets out of the shell that starts the IDE and rely on `sandbox.credentials` ([The clean-env wrapper](../../../../docs/setup/secure-agent-setup.md#the-clean-env-wrapper)).
 - **✗ on check 5 (claude-code below the `min_version` floor, running under Claude Code)** → **hard fail; stop.**
   Tell the operator to upgrade (`npm install -g --no-save @anthropic-ai/claude-code@latest`) and re-run; the setup cannot be certified on a below-floor runtime.
-- ⚠ on check 5 (pinned sandbox-primitive drift, or the claude-code floor could not be hard-enforced on a non-Claude harness), or any user-scope script copy older than the framework's source of truth → `setup-isolated-setup-update`.
+- ⚠ on check 5 with a framework checkout found (pinned sandbox-primitive drift, or the claude-code floor could not be hard-enforced on a non-Claude harness), or any user-scope script copy older than the framework's source of truth → `setup-isolated-setup-update`.
 - ✗ on check 8 (project root missing from the current worktree's `.claude/settings.local.json`, or the live probe fails) → if `~/.claude/scripts/sandbox-add-project-root.sh` is installed, re-run it with `--all-worktrees`; otherwise re-run `setup-isolated-setup-install` to install the helper and add the paths in one pass.
 - ✗ on check 10a (hook or script missing) → the overlay is installed by hand, not by `setup-isolated-setup-install`; surface [`docs/setup/secure-agent-setup.md` → Hardware-key touch overlay](../../../../docs/setup/secure-agent-setup.md#hardware-key-touch-overlay) and stop.
   ⚠ on 10a (stale copy) → `setup-isolated-setup-update`.
