@@ -2969,11 +2969,14 @@ Each one is a way out of the sandbox:
 | `/run/docker.sock`, `/var/run/docker.sock` | Drive the Docker daemon: root-equivalent when you are in the `docker` group |
 | `/run/docker-cli.sock` | The same, through Docker Desktop's CLI socket |
 | `/run/podman` | Drive rootful Podman's daemon (`podman.sock`) |
-| `/run/user/<uid>` | Run commands outside the sandbox through the user D-Bus (`bus`, `systemd-run --user`), and drive rootless Podman (`podman/podman.sock`) |
+| `/run/user/<uid>` | Run commands outside the sandbox through the systemd user manager, over the user D-Bus (`bus`) or its own `systemd/private` socket (`systemd-run --user`); drive rootless Podman (`podman/podman.sock`); reach editor askpass sockets (`vscode-git-*.sock`) and systemd's ssh agent |
 | `/run/dbus` | Talk to the system D-Bus |
 | `/tmp/.X11-unix` | Inject keystrokes into your X11 session |
 | `/run/WSL` (WSL only) | Launch Windows executables outside the sandbox through the interop sockets |
 | `/mnt/wslg` (WSL only) | Reach the WSLg display and audio sockets |
+
+Deny `/run/user/<uid>` whole: the user manager answers on `systemd/private` even with the bus denied, so denying single sockets in it leaves a way out.
+One channel stays open whatever `denyRead` says: on Linux the flag also unblocks `AF_VSOCK` sockets (per Claude Code's settings schema), which have no path to deny. On WSL2 that is a channel to the Windows host. Treat it as residual risk.
 
 ```jsonc
 // per machine: ~/.claude/settings.local.json, or the project's .claude/settings.local.json
@@ -2993,11 +2996,13 @@ Each one is a way out of the sandbox:
 
 The gateway's sockets are unaffected: its run directory is inside the project tree or the git directory (`<project>/.apache-magpie-local/run/` or `<git-common-dir>/apache-magpie/run/<worktree-id>/`), never under `/run/user`.
 The ssh agent may not be: run `echo "$SSH_AUTH_SOCK"` in your own terminal.
-When it is under `/run/user/<uid>/` (gnome-keyring's `keyring/ssh`, gpg-agent's `gnupg/S.gpg-agent.ssh`, systemd's `ssh-agent.socket`), deny `/run/user/<uid>/bus` and `/run/user/<uid>/podman` instead of the whole directory, or add the agent's own directory to `allowRead`, which takes precedence inside a `denyRead` the same way `~/.gnupg/` does under `~/`.
+An agent socket under `/tmp` (the classic `ssh-agent`) needs nothing.
+When it is under `/run/user/<uid>/`, add the socket path itself to `allowRead`, or the agent's own subdirectory for gpg-agent (`gnupg/`) and gnome-keyring (`keyring/`) — never `/run/user/<uid>/` itself, where systemd's agent socket sits directly and an entry would re-open the whole directory.
+`allowRead` takes precedence inside a `denyRead` the same way `~/.gnupg/` does under `~/`; a single-file `allowRead` inside a denied directory has not been verified on Linux, so test signing after adding it.
 
 Keep both halves in one per-machine file. `allowAllUnixSockets` lifts socket blocking on macOS too, so a user-scope `~/.claude/settings.json` [synced across machines](#syncing-user-scope-config-across-machines) would carry it to a Mac without the Linux denials.
 Inside the sandbox each denied path that exists is replaced by an empty directory or a `/dev/null` device, so `test -S /run/docker.sock` reports no socket there.
-`sandbox-lint` rejects `allowAllUnixSockets: true` without `denyRead` cover for the Docker and Podman daemon sockets and the user D-Bus, and `setup-isolated-setup-verify` check 12d flags each listed path that exists on the host and is not denied.
+`sandbox-lint` rejects `allowAllUnixSockets: true` in the project's settings layers without `denyRead` cover for every path in the table (it does not read user-scope files), and `setup-isolated-setup-verify` check 12e flags each one that exists on the host and is not denied, in any scope.
 
 ### Egress
 
@@ -3711,18 +3716,20 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
       `-api.sock`, unless its parent directory is
       `.apache-magpie-local/run` or `<git-common-dir>/apache-magpie/run/<worktree-id>`,
       is ✗: it is the same invariant
-      `tools/sandbox-lint` enforces. On Linux, when any scope sets
-      `allowAllUnixSockets: true`, each of `/run/docker.sock`,
-      `/var/run/docker.sock`, `/run/docker-cli.sock`, `/run/podman`,
-      `/run/user/<uid>/bus`, `/run/user/<uid>/podman`, `/run/dbus`,
-      `/tmp/.X11-unix`, `/run/WSL` and `/mnt/wslg` that exists on this
-      host must be covered by a `sandbox.filesystem.denyRead` entry
-      (the path or a directory above it) in some scope; each one that
-      is not is ✗, naming the path (see
-      [Linux needs `allowAllUnixSockets`](#linux-needs-allowallunixsockets)).
+      `tools/sandbox-lint` enforces.
     On any ✗, point at
     [`docs/setup/sandbox-troubleshooting.md` → Docker / Podman command fails with a socket error](sandbox-troubleshooting.md#docker--podman-command-fails-with-a-socket-error)
     rather than re-explaining the fix.
+    Separately, and even when the rest of this check is n/a (the flag
+    may be set only for ssh-agent signing): on Linux, when any scope
+    sets `sandbox.network.allowAllUnixSockets: true`, each of
+    `/run/docker.sock`, `/var/run/docker.sock`, `/run/docker-cli.sock`,
+    `/run/podman`, `/run/user/<uid>`, `/run/dbus`, `/tmp/.X11-unix`,
+    `/run/WSL` and `/mnt/wslg` that exists on this host must be
+    covered by a `sandbox.filesystem.denyRead` entry (the path or a
+    directory above it) in some scope; each one that is not is ✗,
+    naming the path (see
+    [Linux needs `allowAllUnixSockets`](#linux-needs-allowallunixsockets)).
 13. **Eval-harness exclusion**, if installed (optional — report
     n/a when neither the exclusion nor the script is present;
     not running eval suites is a normal posture). When either is:

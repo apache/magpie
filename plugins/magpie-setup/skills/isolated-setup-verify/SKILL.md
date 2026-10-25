@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:ce33cb9437d44992
 license: Apache-2.0
-measured_tokens: 7415
+measured_tokens: 7460
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -172,8 +172,9 @@ Walk each in order:
     The catalog entry [`gh` fails with TLS `OSStatus -26276` or `HTTP 401` inside the sandbox](../../../../docs/setup/sandbox-troubleshooting.md#gh-fails-with-tls-osstatus--26276-or-http-401-inside-the-sandbox) has the measured shape table and the optional `gh tofile` alias that moves a redirection inside `gh`.
     If the operator has that alias installed, say so; it is a convenience, not a requirement.
 
-12. **Container gateway wired.** Only when `podman` or `docker` is on `PATH`; neither installed → **n/a** for the whole check.
-    Four sub-checks:
+12. **Container gateway wired.** 12a–12d only when `podman` or `docker` is on `PATH`; neither installed → **n/a** for those four.
+    12e (Linux host sockets hidden when `allowAllUnixSockets` is true) runs independently of that gate, so with no container runtime check 12 reports 12e alone.
+    Five sub-checks:
     [`conditional-checks.md`](conditional-checks.md#check-12--container-gateway-wired).
 
 13. **Eval-harness exclusion, if installed.** Optional (step M of `setup-isolated-setup-install`).
@@ -283,7 +284,7 @@ If anything is ✗ or ⚠, suggest the matching follow-up skill without invoking
 - ✗ on check 12a / 12b (hooks or the hook script missing) → `setup-isolated-setup-install` Step L.
 - ✗ on check 12c (project `env` or socket half missing: `allowUnixSockets`, or `allowAllUnixSockets` on Linux) → `setup-isolated-setup-install` Step L, to propose the missing block as a settings diff for the operator to approve.
 - ✗ on check 12d (a raw daemon socket in `allowUnixSockets`) → the operator removes that entry themselves (settings.json changes are never applied from a skill) and, if they need the daemon reachable, follows Step L instead; then re-run `setup-isolated-setup-verify`.
-- ✗ on check 12d (Linux, `allowAllUnixSockets` with a host socket not in `denyRead`) → the operator adds the named paths to `sandbox.filesystem.denyRead` themselves, per [Linux needs `allowAllUnixSockets`](../../../../docs/setup/secure-agent-setup.md#linux-needs-allowallunixsockets); then re-run `setup-isolated-setup-verify`.
+- ✗ on check 12e (Linux, `allowAllUnixSockets` with a host socket not in `denyRead`) → the operator adds the named paths to `sandbox.filesystem.denyRead` themselves, per [Linux needs `allowAllUnixSockets`](../../../../docs/setup/secure-agent-setup.md#linux-needs-allowallunixsockets); then re-run `setup-isolated-setup-verify`.
 - ⚠ on check 17a, 17b or 17c, or ✗ on 17b, 17c, 17d or 17e → the operator edits settings themselves (settings.json changes are never applied from a skill): copy the rules from step B of `setup-isolated-setup-install`, remove every `roborev` `allow`, and for 17c remove any `allowWrite` on `~/.roborev/`, then on macOS finish step B.2 (the `unix://` `server_addr` and its `allowUnixSockets` entry) or remove its `allowRead`, and on Linux remove the `allowRead` and run `roborev review` explicitly instead; then re-run `setup-isolated-setup-verify`. ⚠ on 17f → show the operator `.roborev.toml` and its history and leave the decision to them. ✗ on 17f (roborev's hook in a shared whole-user hooks directory) → name the hook; the operator restores the Step P dispatcher there (`setup-isolated-setup-install` Step P) and moves roborev's hook into the repository's own `$(git rev-parse --git-common-dir)/hooks/post-commit`, never with `--force`; then re-run `setup-isolated-setup-verify`. ⚠ on 17g → name the hook or MCP entry and what it bypasses; removing it is the operator's call.
 - ✗ on check 19 → `setup-isolated-setup-install` Step U, which stages the `~/.config/uv/uv.toml` change and proposes the settings edits; the operator applies them and runs the reinstall commands from a terminal, then re-run `setup-isolated-setup-verify`.
 - ⚠ or ✗ on check 18 → `setup upgrade`, whose local-settings reconciliation stages the merged `.claude/settings.local.json` for the operator to copy; a ✗ override is the operator's to remove.

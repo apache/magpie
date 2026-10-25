@@ -254,9 +254,10 @@ reading this file; read the section for a check whose condition holds.
 
 ## Check 12 — container gateway wired
 
-12. **Container gateway wired.** Only meaningful when `podman` or
-    `docker` is on `PATH`; if neither is installed, report **n/a**
-    for the whole check. Four sub-checks:
+12. **Container gateway wired.** 12a–12d are only meaningful when
+    `podman` or `docker` is on `PATH`; if neither is installed, report
+    them **n/a**. 12e has its own condition, so with no container
+    runtime check 12 reports 12e alone. Five sub-checks:
 
     - **12a — hooks wired.** User-scope `~/.claude/settings.json`
       or `~/.claude/settings.local.json` has a `SessionStart` hook
@@ -313,17 +314,21 @@ reading this file; read the section for a check whose condition holds.
       > or <git-common-dir>/apache-magpie/run/<worktree-id>/*.sock when the
       > project has not adopted Magpie) instead`
 
-      On Linux, when any scope sets
-      `sandbox.network.allowAllUnixSockets: true`, every Unix socket
-      the sandbox can see becomes connectable, so 12d also requires
-      the host's daemon and IPC sockets to be hidden. For each of
-      `/run/docker.sock`, `/var/run/docker.sock`, `/run/docker-cli.sock`,
-      `/run/podman`, `/run/user/<uid>/bus`, `/run/user/<uid>/podman`
-      (`<uid>` from `id -u`), `/run/dbus`, `/tmp/.X11-unix`, `/run/WSL`
-      and `/mnt/wslg` that exists on the host, some scope's
-      `sandbox.filesystem.denyRead` must hold the path or a directory
-      above it. Each one that exists and is not covered is ✗, naming
-      the path; a path the host does not have needs no entry. Point at
+    - **12e — Linux host sockets hidden.** Runs whenever any scope
+      sets `sandbox.network.allowAllUnixSockets: true`, even when
+      12a–12d are n/a (no container runtime: the flag may be there only
+      for ssh-agent signing); with the flag absent or not on Linux it
+      is n/a. The flag makes every Unix socket the sandbox can see
+      connectable, so for each of `/run/docker.sock`,
+      `/var/run/docker.sock`, `/run/docker-cli.sock`, `/run/podman`,
+      `/run/user/<uid>` (`<uid>` from `id -u`), `/run/dbus`,
+      `/tmp/.X11-unix`, `/run/WSL` and `/mnt/wslg` that exists on the
+      host, some scope's `sandbox.filesystem.denyRead` must hold the
+      path or a directory above it. Denying single sockets inside
+      `/run/user/<uid>` (`bus`, `podman`) does not count: the systemd
+      user manager also listens on `systemd/private`. Each one that
+      exists and is not covered is ✗, naming the path; a path the host
+      does not have needs no entry. Point at
       [Linux needs `allowAllUnixSockets`](../../../../docs/setup/secure-agent-setup.md#linux-needs-allowallunixsockets).
 
     Install detail:

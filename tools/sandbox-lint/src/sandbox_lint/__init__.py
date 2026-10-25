@@ -228,16 +228,22 @@ REQUIRED_DENY_READ = {"~/"}
 
 # Host sockets that `sandbox.network.allowAllUnixSockets: true` puts in reach
 # of every sandboxed command unless denyRead hides their paths: the container
-# daemons (host root through the daemon), and in the per-user runtime
-# directory rootless Podman and the D-Bus session bus (`systemd-run --user`
-# runs a command outside the sandbox). `<uid>` stands for any numeric or `*`
-# path segment.
+# daemons (host root through the daemon), the per-user runtime directory (the
+# systemd user manager over `bus` and `systemd/private` runs commands outside
+# the sandbox; rootless Podman; editor askpass sockets), the system bus, X11,
+# and WSL's interop and WSLg sockets. Claude Code skips a denyRead path the
+# host lacks, so the full list is safe everywhere. `<uid>` is the current
+# user's uid.
 ALL_UNIX_SOCKETS_DENY_READ = (
     "/run/docker.sock",
     "/var/run/docker.sock",
-    "/run/podman/podman.sock",
-    "/run/user/<uid>/podman/podman.sock",
-    "/run/user/<uid>/bus",
+    "/run/docker-cli.sock",
+    "/run/podman",
+    "/run/user/<uid>",
+    "/run/dbus",
+    "/tmp/.X11-unix",
+    "/run/WSL",
+    "/mnt/wslg",
 )
 
 # Settings that switch a control off wholesale, whichever layer sets them. A
@@ -482,15 +488,16 @@ def _normalised_set(paths: list[str]) -> set[str]:
 
 def _deny_covers(entry: str, target: str) -> bool:
     """Whether a denyRead ``entry`` hides ``target``: the entry is the target
-    or an ancestor of it, segment by segment (``*`` globs allowed; a
-    ``<uid>`` target segment matches a numeric or ``*`` entry segment)."""
+    or an ancestor of it, segment by segment (globs allowed; a ``<uid>``
+    target segment stands for the current user's uid, so ``/run/user/0``
+    does not cover it for uid 1000)."""
     expanded = os.path.expanduser(entry)
     if not os.path.isabs(expanded):
         return False
     entry_parts = [p for p in os.path.normpath(expanded).split("/") if p]
     target_parts = [p for p in target.split("/") if p]
     return len(entry_parts) <= len(target_parts) and all(
-        (e == "*" or e.isdigit()) if t == "<uid>" else fnmatch.fnmatchcase(t, e)
+        fnmatch.fnmatchcase(str(os.getuid()) if t == "<uid>" else t, e)
         for e, t in zip(entry_parts, target_parts, strict=False)
     )
 
@@ -804,7 +811,8 @@ def check_invariants(settings: dict[str, Any], project_root: Path | None = None)
             )
         # bubblewrap mounts a read-only allowRead parent over its writable
         # child, so every Bash call then fails creating its deny-write
-        # placeholders ("Can't create file … Read-only file system").
+        # placeholders ("Can't create file … Read-only file system"). Seen
+        # under denyRead ~/; checked everywhere, failing closed.
         for read_entry in fs.get("allowRead", []) or []:
             parent = _expand(read_entry, project_root) if isinstance(read_entry, str) else None
             if parent is None or _is_writable(parent, writable):
@@ -814,8 +822,8 @@ def check_invariants(settings: dict[str, Any], project_root: Path | None = None)
                 if child is not None and child.startswith(parent.rstrip("/") + "/"):
                     errors.append(
                         f"sandbox.filesystem.allowRead: {read_entry!r} is a parent of the allowWrite "
-                        f"entry {write_entry!r}, which the sandbox then mounts read-only; list the "
-                        "specific directories under it instead"
+                        f"entry {write_entry!r}, which the sandbox then mounts read-only (seen under "
+                        "denyRead ~/); list the specific directories under it instead"
                     )
 
     perms = settings.get("permissions")

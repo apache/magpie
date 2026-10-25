@@ -1363,10 +1363,13 @@ character special file 1,3
 
 ### Root cause
 
-Device `1,3` is `/dev/null`. On Linux the sandbox hides a denied path that
-does not exist on the host by bind-mounting `/dev/null` over a placeholder
-at that path, so a sandboxed command can neither read nor create it. Git
-inside the sandbox sees the placeholder as a new file.
+Device `1,3` is `/dev/null`. On Linux the sandbox protects a
+write-denied path that does not exist on the host — the agent settings
+files, `.mcp.json`, shell rc files — by bind-mounting `/dev/null` over a
+placeholder at that path, so a sandboxed command cannot create it. Git
+inside the sandbox sees the placeholder as a new file. An absent
+`denyRead` path gets no placeholder: there is nothing to hide, so nothing
+is mounted.
 
 ### Fix
 

@@ -75,8 +75,7 @@ Host socket paths (test -e on the host):
   /var/run/docker.sock → exists
   /run/docker-cli.sock → absent
   /run/podman → absent
-  /run/user/1000/bus → exists
-  /run/user/1000/podman → exists
+  /run/user/1000 → exists
   /run/dbus → exists
   /tmp/.X11-unix → exists
   /run/WSL → absent
