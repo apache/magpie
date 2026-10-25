@@ -4,7 +4,7 @@
     {
       "n": 1,
       "status": "✓",
-      "evidence": "sandbox.enabled: true; deny and ask lists present; network and filesystem allowlists configured"
+      "evidence": "sandbox.enabled: true; deny and ask lists present; network and filesystem allowlists configured; denyRead contains ~/"
     },
     {
       "n": 17,

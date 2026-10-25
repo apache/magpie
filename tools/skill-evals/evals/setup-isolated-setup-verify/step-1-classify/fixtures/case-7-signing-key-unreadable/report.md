@@ -20,7 +20,7 @@ Result: lock files match — no drift.
 ## Check 1 — Project .claude/settings.json
 
 sandbox.enabled: true; permissions.deny and permissions.ask present;
-sandbox.network.allowedDomains and sandbox.filesystem allowRead/allowWrite configured.
+sandbox.network.allowedDomains and sandbox.filesystem denyRead ["~/"] and allowRead/allowWrite configured.
 
 ## Check 2 — User-scope ~/.claude/settings.json wiring
 
@@ -50,8 +50,10 @@ Session status line shows [sandbox].
 
 ## Check 7 — Denial commands
 
-cat ~/.aws/credentials: Operation not permitted
-echo $AWS_ACCESS_KEY_ID: (empty)
+test -r ~/.aws/credentials: false
+stat -f %HT ~/.aws/credentials: stat: /Users/alice/.aws/credentials: Operation not permitted
+env | cut -d= -f1 | sort: CLAUDECODE CLAUDE_CODE_ENTRYPOINT HOME LANG PATH PWD SHELL SSH_AUTH_SOCK TERM TMPDIR USER
+echo $CLAUDE_CODE_ENTRYPOINT: cli
 curl https://example.com: Permission to use Bash with command 'curl https://example.com' has been denied.
 
 ## Check 8 — Project-root coverage
@@ -71,6 +73,7 @@ permissions.deny has Edit on ~/.claude/plugins/cache/apache-magpie/magpie-vetted
 git config --get commit.gpgsign: true
 git config --get gpg.format: ssh
 git config --get user.signingkey: /Users/alice/.ssh/id_ed25519_sk.pub
+Key type (the user ran `cut -d' ' -f1 ~/.ssh/id_ed25519_sk.pub` from their own terminal): sk-ssh-ed25519@openssh.com
 
 10a — wiring and scripts:
   PreToolUse Bash → ~/.claude/scripts/gpg-touch-overlay.sh arm

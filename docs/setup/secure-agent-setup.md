@@ -1613,6 +1613,13 @@ CLAUDE_ISO_ALLOW="GH_TOKEN" GH_TOKEN="$(op read 'op://Personal/GitHub/token')" c
 The `CLAUDE_ISO_ALLOW` mechanism is opt-in per invocation — no
 implicit propagation, no persistent allowlist.
 
+A session started by an IDE extension (the VS Code extension sets
+`CLAUDE_CODE_ENTRYPOINT=claude-vscode`) never goes through
+`claude-iso`, so the wrapper strips nothing from its environment.
+Such a session relies on `sandbox.credentials` for the variables it
+lists, and on you not exporting secrets into the shell that starts
+the IDE.
+
 ### Automatic sandbox allow-paths
 
 Beyond the env-stripping role, `claude-iso` also injects up to two
@@ -3570,12 +3577,14 @@ Inside a `claude-iso` session, run these from the agent's Bash
 tool. Each should fail or be denied:
 
 ```bash
-cat ~/.aws/credentials      # → permission denied (sandbox)
-echo $AWS_ACCESS_KEY_ID     # → empty (env stripped by claude-iso)
-curl https://example.com    # → blocked by permissions.deny
+test -r ~/.aws/credentials && echo readable   # → nothing (sandbox denies it)
+env | cut -d= -f1                             # → names only; no TOKEN/SECRET/*_KEY
+curl https://example.com                      # → blocked by permissions.deny
 ```
 
 Each command should produce a denial — not a leaked credential.
+Never `cat` a credential file to test the denial: if the denial is
+broken, the command prints the secret.
 
 ### Via a Claude Code prompt
 
@@ -3588,13 +3597,26 @@ on its own:
 Verify my secure-agent-setup install is complete. Check each item
 below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
 (file path, line, command output). Do not attempt to fix anything
-— surface the gaps and stop:
+— surface the gaps and stop. Never print a credential file's
+contents or an environment variable's value. Before check 1,
+locate my framework checkout (an `.apache-magpie/` snapshot in this
+repo, else the directory my shell rc sources `agent-iso.sh` from,
+else ask me); without one, report checks 5, 10a and 13c as
+"unchecked — no framework checkout". A path that `stat -c '%F %t,%T'`
+shows as `character special file 1,3` is a sandbox placeholder, not
+a file: take its host state from git or from a read I run, and
+never delete it:
 
-1. Project `.claude/settings.json` exists and has
+1. The merged settings (project `.claude/settings.json`,
+   project-local `.claude/settings.local.json`, user
+   `~/.claude/settings.json`; name the file each key came from) have
    `sandbox.enabled: true`, the `permissions.deny` block, the
    `permissions.ask` block, the
-   `sandbox.network.allowedDomains` block, and the
-   `sandbox.filesystem` allowlist (`allowRead`/`allowWrite`).
+   `sandbox.network.allowedDomains` block, the
+   `sandbox.filesystem` allowlist (`allowRead`/`allowWrite`), and
+   `sandbox.filesystem.denyRead` containing `~/` (✗ without it:
+   bubblewrap reads are deny-only). A missing committed project file
+   is not ✗ on its own when the merge passes.
 2. User-scope `~/.claude/settings.json` has the `PreToolUse`
    `Bash` matcher wired to a `sandbox-bypass-warn.sh` command, a
    `PostToolUse` `Bash` matcher wired to a `sandbox-error-hint.sh`
@@ -3610,7 +3632,7 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
    `~/.claude/scripts/sandbox-status-line.sh`).
 4. The `claude-iso` shell function is sourced in `~/.bashrc` or
    `~/.zshrc`. Note whether `alias claude='claude-iso'` is set.
-5. The pinned sandbox primitives from
+5. The pinned sandbox primitives from the checkout's
    `tools/agent-isolation/pinned-versions.toml` are installed at
    the pinned versions: `bubblewrap` (Linux only), `socat`
    (Linux only). For the agent harness `claude-code` (unpinned,
@@ -3619,8 +3641,17 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
    **hard-fail** if below it (running under Claude Code), else ✓.
 6. The status-line prefix in this session shows `[sandbox]` (not
    `[NO SANDBOX]`).
-7. Run `cat ~/.aws/credentials`, `echo $AWS_ACCESS_KEY_ID`, and
-   `curl https://example.com` and confirm each is denied.
+7. Denials, each as its own Bash call. (a) `test -r` each of
+   `~/.aws/credentials`, `~/.ssh/id_*` private keys,
+   `~/.config/gh/hosts.yml`, `~/.netrc`, `~/.docker/config.json`:
+   any readable one is ✗ unless it is a sandbox placeholder; if
+   none is visible, report "inconclusive" and ask me to `ls` them
+   from my own terminal. (b) `env | cut -d= -f1`: names only; any
+   credential-shaped name (TOKEN, SECRET, PASSWORD, API_KEY, `*_KEY`,
+   `AWS_*`, `GH_*`, `GITHUB_*`, `AZURE_*`) outside the `agent-iso.sh`
+   passthrough list is ⚠, and so is a `CLAUDE_CODE_ENTRYPOINT` of an
+   IDE extension (such as `claude-vscode`), which never went through
+   `claude-iso`. (c) `curl https://example.com` is denied.
 8. **Project-root coverage in the sandbox allowlists.** For this
    worktree and every other one `git worktree list --porcelain`
    names, confirm the worktree's own absolute path is in that
@@ -3659,8 +3690,12 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
      report it as cruft to remove, not as a second layer.
    If the repo has no vetted-ops policy at all, report n/a.
    The read dispatcher's never-prompt shape is check 16.
-10. If a hardware key signs my commits or authenticates my git
-    remotes: the touch overlay is wired (`PreToolUse` /
+10. If my commits are signed with `gpg.format=ssh`: the file
+    `git config user.signingkey` names is readable from a sandboxed
+    Bash (it needs its own `sandbox.filesystem.allowRead` entry).
+    If a hardware key signs my commits or authenticates my git
+    remotes (an `sk-` public key, or a card `gpg --card-status`
+    finds; n/a otherwise): the touch overlay is wired (`PreToolUse` /
     `PostToolUse` `Bash` →
     `~/.claude/scripts/gpg-touch-overlay.sh arm` / `disarm`), its
     scripts match the framework's `tools/agent-isolation/` copies,
@@ -3675,10 +3710,7 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
     the key's signing slot carries a touch policy and — with
     OpenPGP signing — its authentication slot does not
     (`ykman openpgp info`, which I run myself; with
-    `gpg.format=ssh` the `aut` slot is the signing slot),
-    and — with `gpg.format=ssh` — the file `git config
-    user.signingkey` names is readable from a sandboxed Bash (it
-    needs its own `sandbox.filesystem.allowRead` entry). For the
+    `gpg.format=ssh` the `aut` slot is the signing slot). For the
     toolkit probe (`gpg-touch-overlay.sh _gui_available`) hand me
     the command to run myself: it cannot see the display from
     inside the sandbox.

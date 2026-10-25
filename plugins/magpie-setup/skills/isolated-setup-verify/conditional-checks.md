@@ -159,7 +159,14 @@ reading this file; read the section for a check whose condition holds.
     commits are signed (`git config --get commit.gpgsign` is
     `true`) or a remote is reached over ssh through gpg-agent
     (`SSH_AUTH_SOCK` names its socket); otherwise report **n/a**.
-    Four sub-checks, plus a note: the key's own touch policies
+    10c applies to any ssh-format signing key. 10a, 10b, 10d and 10e
+    apply only to a hardware key and are **n/a** otherwise: with
+    `gpg.format=ssh` the public key line starts with `sk-`
+    (`sk-ssh-ed25519@openssh.com`, `sk-ecdsa-sha2-nistp256@openssh.com`);
+    with OpenPGP, `gpg --card-status` finds a card (the user runs it
+    when the sandbox cannot see the device). A plain `ssh-ed25519` key
+    needs no touch, so the overlay has nothing to show.
+    Five sub-checks, plus a note for a hardware key: the key's own touch policies
     (`ykman openpgp info`, run by the user — the sandbox does not
     see the device) are what make the overlay matter; report them
     as seen, and suggest `cached` on the slot that signs where it is
@@ -184,7 +191,8 @@ reading this file; read the section for a check whose condition holds.
     each against `tools/agent-isolation/` in the framework checkout:
     a copy that differs is ⚠ (stale — the watcher's behaviour has
     changed more than once, and a stale copy fails silently), a
-    missing file or hook is ✗. Install steps and rationale:
+    missing file or hook is ✗. With no framework checkout, report
+    the comparison as unchecked, not ⚠. Install steps and rationale:
     [`docs/setup/secure-agent-setup.md` → Hardware-key touch overlay](../../../../docs/setup/secure-agent-setup.md#hardware-key-touch-overlay).
 
     **10b — the window can draw.** The window needs a toolkit —
@@ -364,7 +372,8 @@ reading this file; read the section for a check whose condition holds.
       `tools/skill-evals/src/skill_evals/` (ignore `__pycache__`).
       Any difference is ⚠, not ✗, and names the drifted files: the
       harness still runs, it just runs an older grader than the one
-      in the tree. Remedy is re-running install step M.1.
+      in the tree. Remedy is re-running install step M.1. With no
+      framework checkout, report 13c as unchecked, not ⚠.
     - **13d — the deny is present.** `permissions.deny` contains
       `Edit(~/.claude/scripts/**)`. Missing is ✗ — without it the
       agent can edit the very code the exclusion runs outside the

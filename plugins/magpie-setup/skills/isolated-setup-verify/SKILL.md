@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:ce33cb9437d44992
 license: Apache-2.0
-measured_tokens: 7494
+measured_tokens: 8763
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -84,14 +84,27 @@ Local modifications go in the override file; framework changes go via PR to `apa
   The doc-allowed "richer custom statusLine" that embeds the framework's sandbox-prefix logic in a larger script is ⚠ (the by-name helper is absent, but the functionality is there).
   Use ⚠ for any *intentional* variation from the doc default; ✗ only for genuine gaps.
 - **Surface evidence.** Each check's report line names the file path, version string, command output, or `sandbox.enabled` value; never just "✓" or "✗" alone.
+- **Never print a credential.** No probe may print a credential file's contents or an environment variable's value: probe files with `test -r`, never `cat` or `head`, and list variables by name only.
+- **Sandbox placeholders are not files.** Inside the Claude Code sandbox a denied path that does not exist on the host can appear as a `/dev/null` bind mount: `stat -c '%F %t,%T' <path>` prints `character special file 1,3`.
+  `git status` lists such placeholders as untracked (`.bash_profile`, `.claude/settings.json`, `.mcp.json`), and reading one returns nothing, so an empty settings file seen this way is not evidence for checks 1 or 6.
+  Take the host state from git (`git ls-files <path>`, `git log -- <path>`) or from a read the user runs outside the sandbox, and never delete the placeholder.
 
 ## The 12 checks
 
 The canonical list lives in
 [docs/setup/secure-agent-setup.md → Verification → Via a Claude Code prompt](../../../../docs/setup/secure-agent-setup.md#via-a-claude-code-prompt-1).
-Walk each in order:
+Walk each in order.
 
-1. Project `.claude/settings.json` shape: `sandbox.enabled: true`, `permissions.deny`, `permissions.ask`, `sandbox.network.allowedDomains`, and the `sandbox.filesystem` allowlist (`allowRead`/`allowWrite`).
+**Locate the framework checkout first.** Checks 5, 10a and 13c compare against files that exist only in a `magpie` checkout; a marketplace-only install has no `tools/` in the plugin cache.
+Look, in order, for: the current repository when it is the framework itself; an `.apache-magpie/` snapshot in the adopter repo; the checkout the shell rc sources `agent-iso.sh` or `claude-iso.sh` from (`grep` the source line in `~/.bashrc` / `~/.zshrc`).
+A candidate counts only when it has `tools/agent-isolation/pinned-versions.toml`; a copy under `~/.claude/agent-isolation/` is not a checkout.
+With none found, ask the user for the path once.
+With no checkout at all, report check 5's version comparisons, 10a's script comparison and 13c as **unchecked — no framework checkout**, not ✗ or ⚠, and say which path to supply.
+
+1. Effective settings shape: `sandbox.enabled: true`, `permissions.deny`, `permissions.ask`, `sandbox.network.allowedDomains`, the `sandbox.filesystem` allowlist (`allowRead`/`allowWrite`), and `sandbox.filesystem.denyRead` containing `~/` (or the resolved absolute home).
+   Evaluate the merge of the project `.claude/settings.json`, the project-local `.claude/settings.local.json` and the user-scope `~/.claude/settings.json`, and name the file each key came from.
+   A missing `denyRead` home entry is ✗: Linux bubblewrap reads are deny-only, so without it every credential file under `~/` stays readable to sandboxed commands (`tools/sandbox-lint` enforces the same rule).
+   A missing committed project `.claude/settings.json` is not ✗ on its own when the merged settings pass; say which file carries them.
 2. User-scope `~/.claude/settings.json` wiring: `PreToolUse` `Bash` matcher → `sandbox-bypass-warn.sh`, `PostToolUse` `Bash` matcher → `sandbox-error-hint.sh`, `statusLine` → `sandbox-status-line.sh` (or a custom statusline script that embeds the framework's prefix logic, the doc-allowed variant; report ⚠).
    A missing `PostToolUse` entry for `sandbox-error-hint.sh` reports ⚠ (not ✗).
    The hook is a discoverability aid for the failure modes in [`docs/setup/sandbox-troubleshooting.md`](../../../../docs/setup/sandbox-troubleshooting.md); without it nothing breaks, but those failures show the raw error without the `[sandbox-hint]` annotation.
@@ -104,7 +117,7 @@ Walk each in order:
    Check whether `alias claude='claude-iso'` is set; report it as a note (the doc makes it optional).
 5. **Tool versions.** Two rules: an exact-pin match for the sandbox primitives, and a hard floor for the agent runtime.
 
-   - **Pinned sandbox primitives (`bubblewrap`, `socat`).** The installed version must match the exact `version` pin in `tools/agent-isolation/pinned-versions.toml`.
+   - **Pinned sandbox primitives (`bubblewrap`, `socat`).** The installed version must match the exact `version` pin in the framework checkout's `tools/agent-isolation/pinned-versions.toml`.
      Report drift either way (newer or older than the pin) as ⚠.
      On macOS, skip both (Seatbelt is built-in); nothing is left to check here.
    - **Agent harness (`claude-code`) — `min_version` floor, NOT a pin.** The runtime tracks `@latest`, so there is no exact version to match; the manifest's `[tools.claude-code]` table declares a `min_version` floor instead.
@@ -121,10 +134,17 @@ Walk each in order:
 7. Denial commands actually deny.
    **Important: run each as a standalone Bash invocation**, not as a chained pipeline.
    `permissions.deny` patterns match only the *first* command of a Bash tool call, so a chained `curl` later in the pipeline can slip past on macOS (which has no socat network proxy as a backstop).
-   The three commands:
-   - `cat ~/.aws/credentials` — should deny with `Operation not permitted` (Seatbelt) or `No such file or directory` (bubblewrap).
-   - `echo $AWS_ACCESS_KEY_ID` — should print empty (claude-iso stripped the env).
-   - `curl https://example.com` — should deny at the permission-prompt layer (`Permission to use Bash with command curl … has been denied`).
+   The three probes:
+   - **7a — credential files.** For each of `~/.aws/credentials`, the `~/.ssh/id_*` private keys (not `*.pub`), `~/.config/gh/hosts.yml`, `~/.netrc` and `~/.docker/config.json`, run `test -r <path>` and `stat` it (`stat -c '%F %t,%T'` on Linux, `stat -f %HT` on macOS).
+     The first one the sandbox reports readable is ✗, unless `stat` prints `character special file 1,3` (a sandbox placeholder, which counts as denied).
+     `Operation not permitted` from `stat` (Seatbelt) is a denial of a file that exists: ✓.
+     Under bubblewrap a denied file and a missing one look the same, so when no candidate is visible report 7a as **inconclusive**, not ✓, and ask the user to `ls` the candidates from their own terminal; ✓ once one of them exists on the host.
+   - **7b — clean environment.** List the variable names, never the values: `env | cut -d= -f1 | sort`.
+     Flag every credential-shaped name (containing `TOKEN`, `SECRET`, `PASSWORD` or `API_KEY`, ending in `_KEY`, or starting with `AWS_`, `GH_`, `GITHUB_` or `AZURE_`) that is not on the `agent-iso.sh` passthrough list; any such name is ⚠, listed by name.
+     A single empty variable proves nothing: the reference `sandbox.credentials` already unsets `AWS_ACCESS_KEY_ID` for sandboxed commands, wrapper or not.
+     Report `CLAUDE_CODE_ENTRYPOINT`.
+     An IDE extension's value (such as `claude-vscode`) means the session never went through `claude-iso`, so no wrapper stripped its environment: ⚠, with the credential-shaped names found or "none found" ([why](../../../../docs/setup/secure-agent-setup.md#the-clean-env-wrapper)).
+   - **7c — network.** `curl https://example.com` should deny at the permission-prompt layer (`Permission to use Bash with command curl … has been denied`).
 
 8. **Project-root coverage in the sandbox allowlists.**
    This defends against the harness behaviour in [issue #197](https://github.com/apache/magpie/issues/197): `allowRead: ["."]` does not in practice cover CWD, because the read side pre-resolves `.` at session start and drops the literal.
@@ -154,7 +174,9 @@ Walk each in order:
    [`conditional-checks.md`](conditional-checks.md#check-9--the-vetted-ops-split-and-exclusion).
 
 10. **Hardware-key touch overlay and the signing key.** Only when commits are signed (`git config --get commit.gpgsign` is `true`) or a remote is reached over ssh through gpg-agent (`SSH_AUTH_SOCK` names its socket); otherwise **n/a**.
-    Four sub-checks:
+    10c applies to any ssh-format signing key.
+    10a, 10b, 10d and 10e apply only to a hardware key and are **n/a** otherwise: with `gpg.format=ssh` the public key line starts with `sk-` (`sk-ssh-ed25519@openssh.com`, `sk-ecdsa-sha2-nistp256@openssh.com`); with OpenPGP, `gpg --card-status` finds a card (the user runs it when the sandbox cannot see the device).
+    Five sub-checks:
     [`conditional-checks.md`](conditional-checks.md#check-10--hardware-key-touch-overlay-and-the-signing-key).
 
 11. **`gh` runs outside the sandbox.** `sandbox.excludedCommands` must contain `"gh *"` in any layer Claude Code merges: the project `.claude/settings.json`, the project-local `.claude/settings.local.json` (where the framework checkout's template puts it), or the user-scope `~/.claude/settings.json`.
@@ -271,6 +293,10 @@ If every check is ✓, say so explicitly and stop; no further suggestion is need
 If anything is ✗ or ⚠, suggest the matching follow-up skill without invoking it:
 
 - ✗ on checks 1 / 2 / 3 / 4 → `setup-isolated-setup-install` (missing install pieces).
+  For a missing `denyRead` home entry, name the settings file to add it to.
+- **Unchecked — no framework checkout** on check 5, 10a or 13c → not a failure; ask the user for their `magpie` clone's path, or to clone one ([install item 2](../isolated-setup-install/SKILL.md)), and re-run.
+- Inconclusive 7a → the user runs `ls` on the candidate credential paths from their own terminal; one that exists there while the sandbox cannot see it is ✓.
+- ⚠ on check 7b (an IDE-launched session, or credential-shaped names in the environment) → no skill fixes it: start the session through `claude-iso` from a terminal, or keep secrets out of the shell that starts the IDE and rely on `sandbox.credentials` ([The clean-env wrapper](../../../../docs/setup/secure-agent-setup.md#the-clean-env-wrapper)).
 - **✗ on check 5 (claude-code below the `min_version` floor, running under Claude Code)** → **hard fail; stop.**
   Tell the operator to upgrade (`npm install -g --no-save @anthropic-ai/claude-code@latest`) and re-run; the setup cannot be certified on a below-floor runtime.
 - ⚠ on check 5 (pinned sandbox-primitive drift, or the claude-code floor could not be hard-enforced on a non-Claude harness), or any user-scope script copy older than the framework's source of truth → `setup-isolated-setup-update`.
