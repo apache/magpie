@@ -27,12 +27,31 @@ from pathlib import Path
 from typing import Any
 
 from magpie_asf_security_dash import cases
-from magpie_asf_security_dash.client import DashError, check_pmc, fetch_reports, load_cookie, parse_reports
+from magpie_asf_security_dash.client import (
+    DashError,
+    NotAsf,
+    check_pmc,
+    fetch_reports,
+    load_cookie,
+    parse_reports,
+)
+from magpie_asf_security_dash.organization import read_organization
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the magpie-asf-security-dash command line interface."""
     args = _build_parser().parse_args(argv)
+    # dash.security.apache.org lists ASF PMCs only: nothing is read or sent
+    # for a project that does not declare `organization: ASF`.
+    try:
+        org = read_organization(args.project_md)
+    except OSError as exc:
+        raise DashError(f"cannot read {args.project_md}: {exc}") from exc
+    if org != "ASF":
+        raise NotAsf(
+            f"{args.project_md} declares organization {org!r}; the ASF Security dashboard "
+            "covers ASF projects only (organization: ASF)"
+        )
     pmc = check_pmc(args.pmc)
     raw = parse_reports(args.input.read_bytes()) if args.input else fetch_reports(pmc, load_cookie())
     found = cases.normalise(raw)
@@ -69,6 +88,13 @@ def _build_parser() -> argparse.ArgumentParser:
         command = sub.add_parser(name, help=text, description=text)
         command.add_argument(
             "--pmc", required=True, help="PMC id, as the dashboard spells it (e.g. airflow)."
+        )
+        command.add_argument(
+            "--project-md",
+            type=Path,
+            required=True,
+            help="The project's resolved <project-config>/project.md; the bridge runs only "
+            "when it declares organization: ASF.",
         )
         command.add_argument(
             "--input",

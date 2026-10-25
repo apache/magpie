@@ -46,6 +46,10 @@ class DashError(Exception):
     """Raised when the bridge cannot complete a request."""
 
 
+class NotAsf(DashError):
+    """The project is not an ASF project, so the dashboard has nothing for it."""
+
+
 class SessionExpired(DashError):
     """The session cookie is missing, rejected, or has expired."""
 

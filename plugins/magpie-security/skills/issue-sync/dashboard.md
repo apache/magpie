@@ -13,6 +13,17 @@ The bridge, its output and its credential are documented in
 
 Triggers: *"sync dashboard"*, *"reconcile with the security dashboard"*, *"what does dash.security say"*.
 
+## Step D0 — ASF projects only
+
+Read `organization` from the resolved [`<project-config>/project.md`](../../../../<project-config>/project.md) (personal layer first).
+Anything but `ASF` — `independent`, another organization, unset, or a `TODO` — ends this mode here:
+say that the dashboard covers ASF PMCs only, so there is nothing to reconcile, and offer the regular sync instead.
+When `organization` is unset or a `TODO` but `<upstream>` is under the `apache/` GitHub organization,
+the project is an ASF project whose config does not say so yet:
+propose setting it with `/magpie-setup:setup config` (it writes `organization: ASF`, derived from the `apache/` org), then re-run.
+Never run the bridge, ask for a dashboard session or mention `dash.security.apache.org` for such a project.
+The bridge enforces the same rule on its own: it refuses (exit `3`) unless `--project-md` declares `organization: ASF`.
+
 ## Step D1 — Read the dashboard's cases
 
 `<pmc>` is the PMC id the dashboard uses: `cna_private_owner` from
@@ -20,8 +31,10 @@ Triggers: *"sync dashboard"*, *"reconcile with the security dashboard"*, *"what 
 else `<project>`.
 
 ```bash
-uv run --project <framework>/tools/asf-security-dash magpie-asf-security-dash cases --pmc <pmc>
+uv run --project <framework>/tools/asf-security-dash magpie-asf-security-dash cases --pmc <pmc> --project-md <project-config>/project.md
 ```
+
+Exit `3` means the project is not an ASF project after all (Step D0): stop the mode.
 
 On a missing or expired session (exit 1, the message says so), do not ask for the cookie in chat.
 Offer the user the two ways in the bridge's README:
@@ -48,7 +61,7 @@ When a finding shows that, propose adding the dashboard's `Message-ID` to the is
 ## Step D3 — Compare
 
 ```bash
-uv run --project <framework>/tools/asf-security-dash magpie-asf-security-dash reconcile --pmc <pmc> --tracker <file> [--input <saved reports>]
+uv run --project <framework>/tools/asf-security-dash magpie-asf-security-dash reconcile --pmc <pmc> --project-md <project-config>/project.md --tracker <file> [--input <saved reports>]
 ```
 
 ## Step D4 — Propose

@@ -70,15 +70,18 @@ A project without a tracker that wants Magpie to keep per-report state pairs it 
 ## Invocation
 
 ```bash
-uv run --project tools/asf-security-dash magpie-asf-security-dash cases --pmc <project>
-uv run --project tools/asf-security-dash magpie-asf-security-dash reconcile --pmc <project> --tracker issues.json
+uv run --project tools/asf-security-dash magpie-asf-security-dash cases --pmc <project> --project-md <project-config>/project.md
+uv run --project tools/asf-security-dash magpie-asf-security-dash reconcile --pmc <project> --project-md <project-config>/project.md --tracker issues.json
 # Either command reads saved API output instead of fetching it:
-uv run --project tools/asf-security-dash magpie-asf-security-dash cases --pmc <project> --input reports.json
+uv run --project tools/asf-security-dash magpie-asf-security-dash cases --pmc <project> --project-md <project-config>/project.md --input reports.json
 ```
 
 `--pmc` is the PMC id as the dashboard spells it (`project_url` and the API path use it as is).
+`--project-md` is the project's resolved `project.md`: the dashboard covers ASF projects only,
+so the bridge refuses, before it reads a session or sends a request, unless that file declares `organization: ASF`.
 Exit codes: `0` success, `1` an error (the message names a missing or expired session,
-a PMC the user may not see, or a malformed response), `2` a usage error.
+a PMC the user may not see, or a malformed response), `2` a usage error,
+`3` the project is not an ASF project.
 
 ## Output contract
 

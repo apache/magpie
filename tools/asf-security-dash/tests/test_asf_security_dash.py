@@ -331,27 +331,123 @@ def test_the_session_path_follows_the_environment(monkeypatch: pytest.MonkeyPatc
 # --- cli ---------------------------------------------------------------------------
 
 
-def test_cases_from_saved_input(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+@pytest.fixture
+def asf_project(tmp_path: Path) -> str:
+    """A project.md that declares the ASF, as every bridge run needs."""
+    path = tmp_path / "project.md"
+    path.write_text("| Key | Value |\n|---|---|\n| `organization` | `ASF` |\n")
+    return str(path)
+
+
+def test_cases_from_saved_input(tmp_path: Path, capsys: pytest.CaptureFixture[str], asf_project: str) -> None:
     saved = tmp_path / "reports.json"
     saved.write_text(json.dumps([case("a@x")]))
-    assert package_main(["cases", "--pmc", "foo", "--input", str(saved)]) == 0
+    assert package_main(["cases", "--pmc", "foo", "--project-md", asf_project, "--input", str(saved)]) == 0
     out = json.loads(capsys.readouterr().out)
     assert out["pmc"] == "foo" and out["cases"][0]["message_id"] == "a@x"
 
 
-def test_reconcile_from_saved_input(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_reconcile_from_saved_input(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], asf_project: str
+) -> None:
     saved = tmp_path / "reports.json"
     saved.write_text(json.dumps([case("a@x")]))
     tracker = tmp_path / "issues.json"
     tracker.write_text(json.dumps([issue("1", ["a@x"], decision="accepted")]))
-    assert package_main(["reconcile", "--pmc", "foo", "--input", str(saved), "--tracker", str(tracker)]) == 0
+    assert (
+        package_main(
+            [
+                "reconcile",
+                "--pmc",
+                "foo",
+                "--project-md",
+                asf_project,
+                "--input",
+                str(saved),
+                "--tracker",
+                str(tracker),
+            ]
+        )
+        == 0
+    )
     assert kinds(json.loads(capsys.readouterr().out)) == ["triage-on-dashboard"]
 
 
-def test_errors_exit_1_with_a_message(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_errors_exit_1_with_a_message(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], asf_project: str
+) -> None:
     tracker = tmp_path / "issues.json"
     tracker.write_text("{}")
     saved = tmp_path / "reports.json"
     saved.write_text("[]")
-    assert package_main(["reconcile", "--pmc", "foo", "--input", str(saved), "--tracker", str(tracker)]) == 1
+    assert (
+        package_main(
+            [
+                "reconcile",
+                "--pmc",
+                "foo",
+                "--project-md",
+                asf_project,
+                "--input",
+                str(saved),
+                "--tracker",
+                str(tracker),
+            ]
+        )
+        == 1
+    )
     assert "JSON list" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "| `organization` | `independent` |\n",
+        "| `organization` | TODO: the organization whose defaults this project inherits |\n",
+        "organization: acme\n",
+        "no organization at all\n",
+        "```\norganization: ASF\n```\n",
+        "<!--\n| `organization` | `ASF` |\n-->\n| `organization` | `independent` |\n",
+        "<!-- organization: ASF -->\n",
+        "| `organization` | `ASF.example` |\n",
+        "| `organization` | ASFX |\n",
+        "organization: ASF-fork\n",
+        "organization: ASF extra\n",
+    ],
+)
+def test_a_project_that_is_not_asf_is_refused_before_anything_is_read(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch, text: str
+) -> None:
+    """The dashboard lists ASF PMCs only: no cookie read, no request, exit 3."""
+    project = tmp_path / "project.md"
+    project.write_text(text)
+
+    def boom(*a: object, **kw: object) -> None:
+        raise AssertionError("must not touch the session or the network")
+
+    monkeypatch.setattr("magpie_asf_security_dash.cli.load_cookie", boom)
+    monkeypatch.setattr("magpie_asf_security_dash.cli.fetch_reports", boom)
+    assert package_main(["cases", "--pmc", "foo", "--project-md", str(project)]) == 3
+    assert "ASF projects only" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "| `organization` | `ASF` |\n",
+        "| `organization` | `ASF` (derived: apache/ GitHub org) |\n",
+        "organization: ASF\n",
+        "organization: `ASF`\n",
+        "organization: `ASF` (from .asf.yaml)\n",
+    ],
+)
+def test_an_asf_project_md_is_recognised(text: str) -> None:
+    from magpie_asf_security_dash.organization import organization
+
+    assert organization(text) == "ASF"
+
+
+def test_the_project_md_flag_is_required() -> None:
+    with pytest.raises(SystemExit) as excinfo:
+        package_main(["cases", "--pmc", "foo"])
+    assert excinfo.value.code == 2

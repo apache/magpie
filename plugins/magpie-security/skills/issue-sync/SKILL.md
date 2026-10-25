@@ -24,9 +24,9 @@ when_to_use: |
   the tracker with dash.security.apache.org.
 argument-hint: "[issue-number]"
 capability: capability:intake
-surface_hash: sha256:019c545c3013d4c2
+surface_hash: sha256:5d8871fa61317a06
 license: Apache-2.0
-measured_tokens: 7058
+measured_tokens: 7105
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -215,7 +215,7 @@ syntax, hard rules, when bulk mode is NOT appropriate — lives in
 
 ## Dashboard mode — reconciling with dash.security.apache.org
 
-ASF projects only.
+ASF projects only (`organization: ASF` in `<project-config>/project.md`): for any other organization the mode is not offered, and a request for it ends at [Step D0](dashboard.md#step-d0--asf-projects-only).
 On *"sync dashboard"* or *"reconcile with the security dashboard"*,
 compare `<tracker>` with the ASF Security team's case list for the PMC and propose a fix for each disagreement,
 following [`dashboard.md`](dashboard.md).

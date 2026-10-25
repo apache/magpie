@@ -29,10 +29,13 @@ __all__ = ["main"]
 def main(argv: Sequence[str] | None = None) -> int:
     """CLI entry point."""
     from magpie_asf_security_dash.cli import main as cli_main
-    from magpie_asf_security_dash.client import DashError
+    from magpie_asf_security_dash.client import DashError, NotAsf
 
     try:
         return cli_main(argv)
+    except NotAsf as exc:
+        print(f"magpie-asf-security-dash: {exc}", file=sys.stderr)
+        return 3
     except DashError as exc:
         print(f"magpie-asf-security-dash error: {exc}", file=sys.stderr)
         return 1
