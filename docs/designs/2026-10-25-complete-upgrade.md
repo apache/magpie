@@ -32,7 +32,7 @@
 
 # `complete-upgrade` — finish a Magpie upgrade in one run
 
-**Status:** design, awaiting approval.
+**Status:** approved; implemented.
 **Family:** `setup` (always-on).
 **Capability:** `platform`.
 **Invocation:** `/magpie-setup:complete-upgrade` (marketplace), `/magpie-setup-complete-upgrade` (snapshot / self-adoption).
@@ -236,3 +236,5 @@ No steps move between the two in this change.
 - No supersede rule; a completed run clears the other reminders by writing their stamps.
 - Adopted project: the committed `reconciled:` stamp goes to *Run these yourself* as `/magpie-setup:setup reconcile`; no `git add`.
 - Fixes discovered by a *Check* probe get a short second plan and approval.
+- A bypassed call executes only code the sandbox cannot write (`~/.claude/scripts/`, the plugin cache, system paths); content copied from a sandbox-writable source is checksummed at plan time and re-verified in the writing call; only plain-content script copies are copied, the rest route to `setup-isolated-setup-install` Step P.
+- Confirming "no isolated setup" reads the user-scope settings with the harness's file-read tool or `/usr/bin/jq`, never the personal layer's `setup_preflight` outside the sandbox.

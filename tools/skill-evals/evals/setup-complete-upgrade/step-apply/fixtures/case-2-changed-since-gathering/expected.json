@@ -1,7 +1,7 @@
 {
   "applied": [
     "checker-copy-stale",
-    "allowlist-worktrees"
+    "privacy-llm-config-missing"
   ],
   "skipped": [
     {

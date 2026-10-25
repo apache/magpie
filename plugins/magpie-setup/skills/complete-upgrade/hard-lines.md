@@ -4,7 +4,8 @@
 # Hard lines and *Run these yourself*
 
 These lines stay exactly as the framework draws them, even when the user approves an item that would cross one.
-A blocked item never runs; it is rendered under *Run these yourself*, in the plan preview and again in the summary, with a one-line reason.
+A blocked item never runs; it is rendered under *Run these yourself* (a deny weakening under *Not offered*), in the plan preview and again in the summary, with a one-line reason.
+A hard-line item is never under *Still open*.
 
 ## The four hard lines
 
@@ -30,6 +31,7 @@ Render: the unified diff written to the scratch directory, and the command to ap
 ```
 
 The per-machine `.claude/settings.local.json` (each worktree's) and the user-scope `~/.claude/settings.json` are not committed files: they can be plan items, marked `[bypass]` with their diff under `details <n>`, as [`SKILL.md` → Apply](SKILL.md#apply) describes.
+Such an item adds only entries copied verbatim from the framework template or reference config, or written by the helper that owns the write.
 If the harness refuses such a write, the item renders here as the copy command:
 
 ```text
@@ -43,10 +45,11 @@ The committed reconciliation stamp in `.apache-magpie.lock` is rendered as `/mag
 Any settings scope.
 Adding a missing deny, an allow-read for an already-intended path, or an exclusion the framework's reference config carries is allowed as a plan item; removing or loosening one is not.
 
-Render: refused with the reason, and no command.
+Render: on a separate *Not offered* line, not under *Run these yourself*, with the reason and no command.
 
 ```text
-• not offered: <rule> would be removed from <file>   (weakens a sandbox restriction)
+Not offered
+  • <rule> would be removed from <file>   (weakens a sandbox restriction)
 ```
 
 ### 4. Never read credential files
@@ -58,6 +61,17 @@ Render: the command for the user's own terminal, and what its output should show
 
 ```text
 • grep cache-dir ~/.config/uv/uv.toml   (credential file: absolute path outside ~/.cache expected)
+```
+
+## Bypassed calls run only code the sandbox cannot write
+
+Not a fifth hard line, but held as firmly: an approved `[bypass]` item executes code only from `~/.claude/scripts/` (always the literal `~`), the plugin cache under `~/.claude/plugins/`, or system paths.
+Never the checkout (including `tools/…` in the framework repo), the snapshot `.apache-magpie/`, the personal layer, `~/.cache/…` (including `~/.cache/apache-magpie/framework/current`), or the scratch directory.
+Content copied out of one of those carries a SHA-256 recorded at plan time and re-verified by the same bypassed call that writes it; a mismatch skips the item as `changed`.
+A command that cannot meet this renders here:
+
+```text
+• re-run setup-isolated-setup-install Step P   (not a plain-content script copy: symlink, git hook or Python package)
 ```
 
 ## Always the user's commands

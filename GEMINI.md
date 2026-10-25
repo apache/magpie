@@ -30,13 +30,13 @@ file if it does not exist):
 - If the version has **changed** since you last recorded it — the marketplace
   updated the extension — tell the user, once and non-intrusively:
 
-  > Apache Magpie was updated to `<version>`. If this repo adopts Magpie, run
-  > `/magpie-setup upgrade` to reconcile the snapshot, agentic overrides, and
-  > drift.
+  > Apache Magpie was updated to `<version>`. Run
+  > `/magpie-setup:complete-upgrade` to check and fix this machine and this
+  > project for the new version.
 
   Then record the new version.
 
 - If the version is unchanged, say nothing.
 
-Never run the upgrade yourself: `/magpie-setup upgrade` is a guided,
+Never run it yourself: `/magpie-setup:complete-upgrade` is a guided,
 user-confirmed action, and Magpie never mutates an adopter repo unattended.

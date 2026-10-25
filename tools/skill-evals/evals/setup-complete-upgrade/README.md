@@ -26,9 +26,9 @@ uv run --project tools/skill-evals skill-eval \
 
 ## Notes
 
-- Every finding in a `report.md` states its slug, and `expected.json` uses those slugs, so results are deterministic.
+- Every finding in a `report.md` states its slug, and `expected.json` uses those slugs, so the expected result is unambiguous.
 - The harness sends only the named `SKILL.md` section plus `output-spec.md`.
   `## Plan` delegates classification to `plan-format.md` and `hard-lines.md`; the cases that depend on them also state the relevant facts in the findings.
 - `step-plan/case-5-linked-worktree` pins the main checkout's personal layer path.
-- `step-plan/case-7-isolated-unknown` and `case-8-no-isolated` pin "not known" versus "confirmed absent" for the isolated-setup offer.
+- `step-plan/case-7-isolated-unknown` and `case-8-no-isolated` pin "not known" versus "confirmed absent" for the isolated-setup offer; they also pin the output shape (a `[bypass]` *Check* item and no offer, versus the offer with no items).
 - `step-apply/case-1-drop` reflects that `drop 2,5` applies the rest immediately, with no second round.
