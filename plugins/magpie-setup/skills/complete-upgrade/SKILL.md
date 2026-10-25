@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:9b62a5e3c672ed0e
 license: Apache-2.0
-measured_tokens: 3485
+measured_tokens: 3719
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -33,7 +33,7 @@ It gathers what five existing skills check, shows one short plan, applies the ap
 
 It starts after the new version is installed.
 It never updates plugins or the marketplace, never `git pull`s the framework, never bumps a snapshot, and never upgrades claude-code.
-A pinned snapshot whose `.apache-magpie.local.lock` lags the committed `.apache-magpie.lock` is the one upgrade-shaped item: the plan names [`setup upgrade`](../setup/upgrade.md) for it and goes no further on that item.
+A pinned snapshot whose `.apache-magpie.local.lock` lags the committed `.apache-magpie.lock` is the one upgrade-shaped finding: it goes under *Run these yourself* as [`setup upgrade`](../setup/upgrade.md), never under *Fix*, and this run goes no further on it.
 
 Invocation: `/magpie-setup:complete-upgrade` (marketplace), `/magpie-setup-complete-upgrade` (snapshot or self-adoption).
 
@@ -64,9 +64,10 @@ Local modifications go in the override file; framework changes go via PR to `apa
   Never weaken a deny rule or remove a sandbox restriction.
   Never read credential files.
   An item a hard line blocks goes to *Run these yourself*, rendered as [`hard-lines.md`](hard-lines.md) describes.
-- **Nothing runs before the plan is approved, and nothing outside it runs after.**
+- **Nothing is changed before the plan is approved, and no fix outside the approved plan is applied.**
   A dropped item is not applied.
   A fix found during Apply that was not in the plan needs its own approval (see [Apply](#apply)).
+  The read-only Gather probes, the re-check probes and the owning skills' stamps run as described below.
 - **One Bash call per applied item.**
   Never batch items into one call, and never batch them into one bypassed call in particular.
   Set `dangerouslyDisableSandbox: true` only on an item marked `[bypass]` in the approved plan.
@@ -114,7 +115,7 @@ inside the sandbox the user-scope settings are read-denied, so `false` there mea
 Put a `[bypass]` *Check* item in the plan that re-runs the same command outside the sandbox, and make the offer only once that confirms `false`.
 The offer is two or three plain lines: the agent then runs in a sandbox that cannot read credentials or reach arbitrary hosts, forge and git operations go through guarded and audited paths, and pre-disclosure security content stays on the machine.
 It proposes [`setup-isolated-setup-install`](../isolated-setup-install/SKILL.md) after this run, as one question folded into the plan's approval message.
-On a decline, drop the *Isolated setup* area from gathering and the plan, complete every other area, and record the decline as `"isolated_setup": {"enabled": false}` in the personal layer's `reconciled.json` so the next run does not ask again.
+On a decline, drop the *Isolated setup* area from gathering and the plan, complete every other area, and record the decline so the next run does not ask again: merge `"isolated_setup": {"enabled": false}` into the personal layer's `reconciled.json` as a JSON edit that preserves every other key (no CLI owns this key; [`setup-isolated-setup-update`](../isolated-setup-update/SKILL.md#when-the-pre-flight-proposes-this-skill) has users set it by hand).
 The summary says how to undo it: remove that key, or run `setup-isolated-setup-install`.
 
 **Probes the sandbox blocks are not run here.**
@@ -127,6 +128,7 @@ Show one plan, in the layout and with the classification and approval rules in [
 In short: groups **Fix**, **Update**, **Add**, **Check**; one numbered line per item under about 100 characters; `[bypass]` on every item that needs `dangerouslyDisableSandbox: true`; a header line saying how many items leave the sandbox; the *Run these yourself* preview; values that cannot be derived asked as one batched question; the isolated-setup offer, when it applies, in the same message.
 
 The approval accepts `yes`, `drop <n>[,<n>…]`, `details <n>`, or `no`.
+`drop 2,5` is part of the one approval: it applies every other item immediately, with no extra round.
 It names the bypass explicitly, so it covers the loud sandbox-bypass rule once, for the listed `[bypass]` items only.
 On `no`, apply nothing and show the summary with every item under *Still open*.
 
@@ -143,7 +145,11 @@ Work through the approved items in plan order:
    A user-scope script copy carrying lines the framework copy lacks is skipped with its diff written to the scratch directory; *Still open* names the diff path.
    Gather should already have kept such a copy out of the plan; this is the last guard.
 3. **One Bash call per item**, with `dangerouslyDisableSandbox: true` only when the item carries `[bypass]` and the harness offers the flag.
-   Settings files change only through an approved item that showed its diff under `details <n>`: run the framework helper the catalogue names (for example `sandbox-add-project-root.sh --all-worktrees`), or copy a merged file prepared in the scratch directory; when the harness refuses the write, the item moves to *Run these yourself* as the copy command.
+   **Settings writes have exactly two targets**: each worktree's `.claude/settings.local.json` and the user-scope `~/.claude/settings.json`.
+   The committed `.claude/settings.json` is never a target (hard line 2); its changes render as a diff under *Run these yourself*.
+   Every settings item is marked `[bypass]`, and its `details <n>` view shows the unified diff before approval.
+   Prefer the framework helper that owns the write (for example `sandbox-add-project-root.sh --all-worktrees` for allowlist entries); copying a merged file prepared in the scratch directory is the fallback.
+   This intentionally differs from [`setup upgrade`](../setup/upgrade.md#reconcile-the-local-agent-settings)'s "hand the write to the user", because the user approved the item in the plan; if the harness refuses the write, the item falls back to the copy command under *Run these yourself*.
 4. **One status line per item**, as soon as it finishes: `✓ 4. allowlist added for 3 worktrees`, `✗ 2. <reason>`, or `– 3. skipped: <reason>`.
 5. **A failed item does not stop the run.**
    Record it under *Still open* with the error and continue with the next item.

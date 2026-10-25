@@ -29,6 +29,13 @@ Render: the unified diff written to the scratch directory, and the command to ap
 • git apply <scratch>/settings-json.diff   (committed file: review, apply and commit it yourself)
 ```
 
+The per-machine `.claude/settings.local.json` (each worktree's) and the user-scope `~/.claude/settings.json` are not committed files: they can be plan items, marked `[bypass]` with their diff under `details <n>`, as [`SKILL.md` → Apply](SKILL.md#apply) describes.
+If the harness refuses such a write, the item renders here as the copy command:
+
+```text
+• cp <scratch>/settings.local.json <worktree>/.claude/settings.local.json   (harness refused the approved settings write)
+```
+
 The committed reconciliation stamp in `.apache-magpie.lock` is rendered as `/magpie-setup:setup reconcile`, which shows the stamp diff and stages it.
 
 ### 3. Never weaken a deny rule or remove a sandbox restriction

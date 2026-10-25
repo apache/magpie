@@ -35,6 +35,9 @@ Apply all? (yes / drop 2,5 / details 1 / no)
 - **Groups** in this order, each omitted when empty: **Fix**, **Update**, **Add**, **Check**.
 - **Items** numbered across groups, one line each, under about 100 characters: what is wrong, an arrow, what will be done.
   Prefix `[bypass]` when the item needs `dangerouslyDisableSandbox: true`.
+- **Settings items** target only each worktree's `.claude/settings.local.json` or the user-scope `~/.claude/settings.json`, always carry `[bypass]`, and show their unified diff under `details <n>`.
+  A change to the committed `.claude/settings.json` is never an item; it goes to *Run these yourself* as a diff.
+- **A lagging pinned snapshot** (local lock behind the committed lock) is never a *Fix* item; it goes to *Run these yourself* as `/magpie-setup:setup upgrade`.
 - **Paths** are named as they resolve: in a linked worktree a personal-layer item names the main checkout's `.apache-magpie-local/`, never a new one in the worktree.
 - **Run these yourself** previews every hard-line or user-terminal command now, so nothing in the closing summary is a surprise.
   Render each as [`hard-lines.md`](hard-lines.md) describes.
@@ -59,7 +62,7 @@ On a harness with no sandbox bypass (Codex, Gemini CLI, Copilot CLI), every item
 
 ```text
 yes                 apply every item
-drop 2,5            apply all but items 2 and 5 (asks again, showing the reduced plan)
+drop 2,5            apply every other item immediately (part of the one approval, no extra round)
 details 1           show item 1's diff or exact command, then ask again
 no                  apply nothing
 ```
