@@ -2864,7 +2864,17 @@ records which main checkout it confirmed the first time, under
 sandbox-writable; a later session that derives a different one is refused
 until you delete that record (the log line names it).
 
-Wire it as a `SessionStart` / `SessionEnd` pair in your user settings, alongside any other hooks already there, **by its absolute path** (your real home, `/home/<you>` on Linux). A `~` in a hook command is expanded from `$HOME` by the launching shell, and a session environment that redirects `$HOME` would run another script. Because that path is per-machine, it goes in `~/.claude/settings.local.json` when your `~/.claude/settings.json` is [synced across machines](#syncing-user-scope-config-across-machines) — a `/Users/<you>/...` path synced to a Linux box points at nothing, and the gateway never starts there; otherwise `~/.claude/settings.json` is fine. Claude Code merges hooks from both files:
+Wire it in your user settings, alongside any other hooks already there, **by its absolute path** (your real home, `/home/<you>` on Linux). A `~` in a hook command is expanded from `$HOME` by the launching shell, and a session environment that redirects `$HOME` would run another script. Because that path is per-machine, it goes in `~/.claude/settings.local.json` when your `~/.claude/settings.json` is [synced across machines](#syncing-user-scope-config-across-machines) — a `/Users/<you>/...` path synced to a Linux box points at nothing, and the gateway never starts there; otherwise `~/.claude/settings.json` is fine. Claude Code merges hooks from both files.
+
+Three events, one script:
+
+- `SessionStart` → `start` brings the gateway up with the session.
+- `SessionEnd` → `stop` ends it.
+- `PreToolUse` on `Bash` → `ensure` starts it again before a `docker` or `podman` command when it is gone mid-session.
+  It exits after its idle timeout (default 4 h), when another session on the same project ends and stops it, or when it or its backend dies; without `ensure` it stays down until the next session.
+  The two `if` filters keep the hook off every other command; they are best-effort, so the script checks the command itself as well and leaves at once when it names neither CLI.
+  When the gateway is already running the check costs about half a second, on container commands only.
+  `ensure` runs every check `start` does, so it can start nothing that `start` would refuse.
 
 ```jsonc
 {
@@ -2874,19 +2884,31 @@ Wire it as a `SessionStart` / `SessionEnd` pair in your user settings, alongside
     ],
     "SessionEnd": [
       { "hooks": [ { "type": "command", "command": "/Users/<you>/.claude/scripts/container-gateway-hook.sh stop" } ] }
+    ],
+    "PreToolUse": [
+      { "matcher": "Bash", "hooks": [
+        { "type": "command", "if": "Bash(docker *)", "timeout": 30, "command": "/Users/<you>/.claude/scripts/container-gateway-hook.sh ensure" },
+        { "type": "command", "if": "Bash(podman *)", "timeout": 30, "command": "/Users/<you>/.claude/scripts/container-gateway-hook.sh ensure" }
+      ] }
     ]
   }
 }
 ```
 
-**Fixing your other machines.** If the hook was registered in a synced `~/.claude/settings.json`, move it: delete the two `container-gateway-hook.sh` entries from the synced file (once, on any machine), then on **every** machine add them to its own `~/.claude/settings.local.json` with that machine's home:
+**Fixing your other machines.** If the hook was registered in a synced `~/.claude/settings.json`, move it: delete the `container-gateway-hook.sh` entries from the synced file (once, on any machine), then on **every** machine add them to its own `~/.claude/settings.local.json` with that machine's home:
 
 ```bash
 jq --arg h "$(cd ~ && pwd -P)" '
-  .hooks.SessionStart += [{"hooks":[{"type":"command","command":($h+"/.claude/scripts/container-gateway-hook.sh start")}]}]
-  | .hooks.SessionEnd += [{"hooks":[{"type":"command","command":($h+"/.claude/scripts/container-gateway-hook.sh stop")}]}]
+  ($h+"/.claude/scripts/container-gateway-hook.sh") as $s
+  | .hooks.SessionStart += [{"hooks":[{"type":"command","command":($s+" start")}]}]
+  | .hooks.SessionEnd += [{"hooks":[{"type":"command","command":($s+" stop")}]}]
+  | .hooks.PreToolUse += [{"matcher":"Bash","hooks":[
+      {"type":"command","if":"Bash(docker *)","timeout":30,"command":($s+" ensure")},
+      {"type":"command","if":"Bash(podman *)","timeout":30,"command":($s+" ensure")}]}]
 ' ~/.claude/settings.local.json > ~/.claude/settings.local.json.new && mv ~/.claude/settings.local.json.new ~/.claude/settings.local.json
 ```
+
+A machine wired before `ensure` existed already has the first two; add only the `PreToolUse` entry there.
 
 `setup-isolated-setup-verify` (check 12a) and `setup-isolated-setup-update` flag a hook whose registered path does not exist on the machine they run on.
 
@@ -2930,7 +2952,7 @@ At start, the gateway resolves the egress gateway's address for each backend and
 `inject-if-available` (the default) injects `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY` into every container it creates when that probe succeeds, and logs a warning instead of failing when it does not.
 `require` refuses container creation with `403` while the egress gateway is unreachable, for adopters who want a hard failure rather than a silent gap.
 `off` never injects, for adopters running their own container-level filtering.
-Set the mode with `MAGPIE_CONTAINER_GATEWAY_ARGS="--egress require"` (or `off`) before the `SessionStart` hook runs.
+Set the mode with `MAGPIE_CONTAINER_GATEWAY_ARGS="--egress require"` (or `off`) in the environment the hooks run in; it applies whenever `start` or `ensure` starts the gateway.
 
 On Linux, the address the gateway hands a container for the egress gateway is a fixed guess: `172.17.0.1` for dockerd's default bridge, `10.88.0.1` for rootless Podman.
 Neither is guaranteed to match every Linux install's actual bridge address.
@@ -3225,7 +3247,7 @@ Three reasons make this non-negotiable:
 Public dotfile repos are fine for shell aliases and editor configs;
 they are the wrong shape for agent-runtime files.
 
-**Per-machine entries stay out of the synced file.** Anything that names an absolute path under your home — the container gateway's `SessionStart` / `SessionEnd` hooks above, a pinned interpreter, socket paths — differs between macOS (`/Users/<you>`) and Linux (`/home/<you>`). Keep those in each machine's `~/.claude/settings.local.json`, which is never synced; Claude Code merges hooks and settings from both files.
+**Per-machine entries stay out of the synced file.** Anything that names an absolute path under your home — the container gateway's `SessionStart` / `SessionEnd` / `PreToolUse` hooks above, a pinned interpreter, socket paths — differs between macOS (`/Users/<you>`) and Linux (`/home/<you>`). Keep those in each machine's `~/.claude/settings.local.json`, which is never synced; Claude Code merges hooks and settings from both files.
 
 ## Adopter setup
 
@@ -3620,7 +3642,10 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
       hook running `container-gateway-hook.sh stop`, by an absolute
       path that exists on this machine (✗ if it names another
       machine's home), and `~/.claude/scripts/container-gateway-hook.sh`
-      exists and is executable.
+      exists and is executable. A missing `PreToolUse` `Bash` hook
+      running `container-gateway-hook.sh ensure` is ◐: the gateway
+      still starts with each session, but stays down once it exits
+      mid-session.
     - The project `.claude/settings.json` or
       `.claude/settings.local.json` has `env.CONTAINER_HOST` and
       `env.DOCKER_HOST`, and both gateway sockets appear in

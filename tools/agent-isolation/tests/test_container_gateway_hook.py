@@ -37,7 +37,7 @@ SANDBOX_SCRATCH = ("/tmp/claude", "/private/tmp/claude")
 
 
 def run(action: str, cwd: Path, env_extra: dict[str, str] | None = None, home: Path | None = None,
-        dry_run: bool = True) -> subprocess.CompletedProcess[str]:
+        dry_run: bool = True, payload: str | None = None) -> subprocess.CompletedProcess[str]:
     env = {k: v for k, v in os.environ.items() if k != "CLAUDE_CODE_TMPDIR"}
     if dry_run:
         env["MAGPIE_CONTAINER_GATEWAY_DRY_RUN"] = "1"
@@ -46,8 +46,16 @@ def run(action: str, cwd: Path, env_extra: dict[str, str] | None = None, home: P
         # Worktree records go under the fake home, never the account's real one.
         env["MAGPIE_CONTAINER_GATEWAY_STATE_DIR"] = str(home / ".claude" / "magpie-gateway")
     env.update(env_extra or {})
-    return subprocess.run(["/bin/bash", str(SCRIPT), action], input=json.dumps({"cwd": str(cwd)}),
+    if payload is None:
+        payload = json.dumps({"cwd": str(cwd)})
+    return subprocess.run(["/bin/bash", str(SCRIPT), action], input=payload,
                           capture_output=True, text=True, env=env, cwd=cwd, check=False)
+
+
+def bash_payload(cwd: Path, command: str) -> str:
+    """What Claude Code hands a PreToolUse hook for a Bash call."""
+    return json.dumps({"cwd": str(cwd), "hook_event_name": "PreToolUse", "tool_name": "Bash",
+                       "tool_input": {"command": command}})
 
 
 class Layout:
@@ -127,7 +135,64 @@ def test_no_sources_is_silent_success(tmp_path: Path) -> None:
 
 def test_bad_action_exits_zero_with_message(tmp_path: Path) -> None:
     done = run("frobnicate", tmp_path, home=tmp_path)
-    assert done.returncode == 0 and "expected start|stop" in done.stderr
+    assert done.returncode == 0 and "expected start|stop|ensure" in done.stderr
+
+
+# --- ensure: start on demand before a container command ---
+
+
+@pytest.mark.parametrize("command", [
+    "docker ps",
+    "podman run --rm alpine:3 true",
+    "cd sub && docker compose up -d",
+    "/usr/local/bin/docker version",
+    "docker-compose up",
+    "FOO=1 podman-compose build",
+    "make test; docker run x",
+    "(docker info)",
+])
+def test_ensure_starts_the_gateway_before_a_container_command(tmp_path: Path, command: str) -> None:
+    lay = Layout(tmp_path)
+    done = run("ensure", lay.project, home=lay.home, payload=bash_payload(lay.project, command))
+    assert done.returncode == 0, done.stderr
+    assert done.stdout.strip() == f"{PYTHON} -I -S {lay.src} container_gateway serve --project={lay.project} --daemon"
+
+
+@pytest.mark.parametrize("command", [
+    "ls -la",
+    "git log --oneline",
+    "cat Dockerfile",
+    "grep -r dockerfile .",
+    "vim docker.md",
+    "./mydocker run",
+    "rm podman_notes.txt",
+])
+def test_ensure_ignores_other_commands(tmp_path: Path, command: str) -> None:
+    lay = Layout(tmp_path)
+    done = run("ensure", lay.project, home=lay.home, payload=bash_payload(lay.project, command))
+    assert done.returncode == 0 and done.stdout == "" and done.stderr == ""
+
+
+@pytest.mark.parametrize("payload", ["", "not json", json.dumps({"tool_input": None}), json.dumps([1, 2])])
+def test_ensure_ignores_a_malformed_payload(tmp_path: Path, payload: str) -> None:
+    lay = Layout(tmp_path)
+    done = run("ensure", lay.project, home=lay.home, payload=payload)
+    assert done.returncode == 0 and done.stdout == ""
+
+
+def test_ensure_runs_every_start_check(tmp_path: Path) -> None:
+    """On demand opens no new path: a source the start path refuses stays refused."""
+    lay = Layout(tmp_path, user_copy=False)
+    (lay.project / "tools/container-gateway/src/container_gateway").mkdir(parents=True)
+    done = run("ensure", lay.project, home=lay.home, payload=bash_payload(lay.project, "docker ps"))
+    assert done.returncode == 0 and done.stdout == ""
+
+
+def test_ensure_passes_vetted_extra_args(tmp_path: Path) -> None:
+    lay = Layout(tmp_path)
+    done = run("ensure", lay.project, {"MAGPIE_CONTAINER_GATEWAY_ARGS": "--egress require"}, home=lay.home,
+               payload=bash_payload(lay.project, "docker ps"))
+    assert done.stdout.strip().endswith("serve --project=" + str(lay.project) + " --daemon --egress require")
 
 
 # --- sources: never from a sandbox-writable directory ---

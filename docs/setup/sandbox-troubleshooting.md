@@ -695,7 +695,7 @@ It runs outside the sandbox, holds the only connection to the real daemon socket
 and `<git-common-dir>/apache-magpie/run/<worktree-id>/` for one that has not (`git rev-parse --git-common-dir` prints the common directory; it is the main checkout's `.git`, also from a linked worktree).
 Below, `<run-dir>` is whichever of the two applies.
 `<worktree-id>` is `main` for the main working tree and the `<name>` of `.git/worktrees/<name>` for a linked worktree (it must match `[A-Za-z0-9._-]+`), so each worktree has its own gateway and sockets.
-`CONTAINER_HOST` and `DOCKER_HOST` point at `podman.sock` and `docker.sock` in that directory, only those two sockets are ever added to `allowUnixSockets`, and a `SessionStart` hook starts the gateway when a session begins.
+`CONTAINER_HOST` and `DOCKER_HOST` point at `podman.sock` and `docker.sock` in that directory, only those two sockets are ever added to `allowUnixSockets`, a `SessionStart` hook starts the gateway when a session begins, and a `PreToolUse` hook starts it again before a container command if it exited mid-session.
 See [Container gateway](secure-agent-setup.md#container-gateway) in the setup guide for the full install.
 
 ### Fix
@@ -704,7 +704,7 @@ See [Container gateway](secure-agent-setup.md#container-gateway) in the setup gu
 |---|---|---|
 | `failed to read identity "…/machine/machine": operation not permitted` | `CONTAINER_HOST` / `DOCKER_HOST` are unset, so the CLI fell back to its default connection instead of the gateway | Add the reference `env` block below to `.claude/settings.local.json` |
 | `dial unix /.//.apache-magpie-local/run/podman.sock` — note the leading `/.//` | `CONTAINER_HOST` / `DOCKER_HOST` use a project-relative `unix://./…` value, which the CLIs do **not** resolve against the cwd | Use the absolute `unix:///<project>/…` spelling in the `env` block below |
-| `dial unix /<run-dir>/podman.sock: connect: no such file or directory` | The gateway is not running for this project | Run `~/.claude/scripts/container-gateway-hook.sh start` from a terminal, or check `<run-dir>/container-gateway.log` for why it did not start |
+| `dial unix /<run-dir>/podman.sock: connect: no such file or directory` | The gateway is not running for this project. It exits after its idle timeout (4 h), when another session on the project ends, or when it crashes; the `PreToolUse` `ensure` hook restarts it before the next container command, so this error means that hook is not wired or could not start it | Wire the `ensure` hook per [Container gateway](secure-agent-setup.md#container-gateway), run `~/.claude/scripts/container-gateway-hook.sh start` from a terminal, or check `<run-dir>/container-gateway.log` for why it did not start |
 | `dial unix /<run-dir>/podman.sock: connect: operation not permitted` | The gateway is running but its socket is missing from `sandbox.network.allowUnixSockets` | Add both gateway sockets as absolute paths, per [Container gateway](secure-agent-setup.md#container-gateway) |
 | `no podman or docker backend found; nothing to serve` in the gateway log, while `podman` works by hand | On macOS the gateway asked `podman machine inspect` for the socket path, and that command renders it from the **caller's** `TMPDIR` | Update the framework: discovery now also probes `getconf DARWIN_USER_TEMP_DIR`/`podman/`, so a hook whose `TMPDIR` differs from the machine's still finds the socket |
 

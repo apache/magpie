@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:1f327e069312dad2
 license: Apache-2.0
-measured_tokens: 6705
+measured_tokens: 6845
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -172,8 +172,11 @@ Walk each:
      Earlier defaults put `~/.local/share/uv/` in `allowWrite`, where the interpreters and tool venvs that hooks, MCP servers and the excluded `uvx` / `uv run` commands run outside the sandbox live; and `uvx` ran from the shared, sandbox-writable `~/.cache/uv`.
      Report a write grant covering `~/.local/share/uv`, a `~/.config/uv/uv.toml` without an absolute host `cache-dir`, a missing `Read(~/.config/uv/uv.toml)` / `Edit(~/.config/uv/**)` / `Edit(~/.cache/prek/**)` deny, or an `env.PREK_HOME` that is missing or overlaps `~/.cache/prek`, as a **must-fix**; the remedy is `setup-isolated-setup-install` Step U ([Host-only uv state](../../../../docs/setup/secure-agent-setup.md#host-only-uv-state)).
    - **A container-gateway hook registered for another machine.**
-     The `SessionStart` / `SessionEnd` hooks run `container-gateway-hook.sh` by its absolute path, which differs between macOS (`/Users/<you>`) and Linux (`/home/<you>`).
+     The `SessionStart` / `SessionEnd` / `PreToolUse` hooks run `container-gateway-hook.sh` by its absolute path, which differs between macOS (`/Users/<you>`) and Linux (`/home/<you>`).
      Report a registered path that does not exist on this machine as a **must-fix** (the gateway never starts), and one in a `~/.claude/settings.json` that links into a synced config repo as drift; the remedy is the setup guide's [Fixing your other machines](../../../../docs/setup/secure-agent-setup.md#container-gateway): move the entries into each machine's `~/.claude/settings.local.json`.
+   - **No on-demand container-gateway hook.**
+     A machine wired with only the `SessionStart` / `SessionEnd` pair has no `PreToolUse` `Bash` hook running `container-gateway-hook.sh ensure`, so a gateway that exits mid-session (idle timeout, another session on the project ending, a crash) stays down until the next session.
+     Report it as drift when the start/stop pair is registered, and propose the `PreToolUse` entry from the setup guide's [Container gateway](../../../../docs/setup/secure-agent-setup.md#container-gateway) section, by the same absolute path as the pair.
    - **`enableWeakerNetworkIsolation: true`.**
      It is not there for lychee, which runs offline.
      It lets native-TLS CLI tools verify TLS through the sandbox's TLS-terminating proxy — the mechanism the schema notes for `gh` / `gcloud` / `terraform`.

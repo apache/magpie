@@ -61,6 +61,7 @@ In a linked worktree of an adopted project both its own `.apache-magpie-local/` 
 Configuration is CLI flags with environment-variable equivalents and no config file: `--project`, `--run-dir`, `--backend podman|docker|auto` (repeatable), `--egress inject-if-available|require|off`, `--egress-port`, `--extra-bind-root` (repeatable), `--idle-timeout`, `--log-level`, `--pid-file`.
 A second start for the same project is a no-op when the pid file names a live process.
 It exits on `SessionEnd`, on `SIGTERM`, or after an idle timeout (default 4h) as a backstop for sessions that end without the hook firing.
+The session hook's `ensure` action, wired as a Claude Code `PreToolUse` hook on `Bash`, starts it again before a `docker` / `podman` command when it has exited mid-session, so none of these leave a session without a gateway.
 
 ## Point the CLIs at it
 

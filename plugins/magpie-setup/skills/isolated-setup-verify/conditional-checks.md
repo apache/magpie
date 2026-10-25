@@ -272,6 +272,12 @@ reading this file; read the section for a check whose condition holds.
       and so is one that runs it through `bash`/`sh` rather than
       directly (its `#!/bin/bash -p` shebang is what keeps `BASH_ENV`
       and exported functions out).
+      A missing `PreToolUse` hook (matcher `Bash`) running
+      `container-gateway-hook.sh ensure` is ◐, not ✗: the gateway
+      still starts with each session, but once it exits mid-session
+      (idle timeout, another session on the project ending, a crash)
+      container commands fail until the next session. The same
+      path, `~` and `bash`/`sh` rules apply to it.
     - **12b — hook script present.** `~/.claude/scripts/container-gateway-hook.sh`
       exists and is executable. Missing or non-executable is ✗.
     - **12c — project wiring.** The gitignored

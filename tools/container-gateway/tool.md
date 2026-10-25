@@ -95,8 +95,10 @@ gateways together as the *socket gateways* row.
    [`README.md`](README.md)).
 3. Optionally wire `tools/agent-isolation/container-gateway-hook.sh` as a
    Claude Code `SessionStart` / `SessionEnd` hook so the gateway starts and
-   stops with the session; other harnesses start it by hand or from their
-   own wrapper.
+   stops with the session, and as a `PreToolUse` hook on `Bash` (`ensure`)
+   so it starts again before a container command after exiting
+   mid-session; other harnesses start it by hand or from their own
+   wrapper.
 
 ## What this tool is NOT for
 
@@ -164,6 +166,6 @@ imports (`socket`) are the mechanism, not an egress surface, per
 | Symptom | Likely cause | Remediation |
 |---|---|---|
 | CLI reports `502` from the gateway | Backend (Podman machine / Docker Desktop / dockerd) is down | Start the backend, then retry; see [`docs/setup/sandbox-troubleshooting.md`](../../docs/setup/sandbox-troubleshooting.md#docker--podman-command-fails-with-a-socket-error) |
-| CLI gets a connect error, no `502` | Gateway is not running for this project | Run the `SessionStart` hook or start the gateway by hand (see [`README.md`](README.md)) |
+| CLI gets a connect error, no `502` | Gateway is not running for this project, and the `PreToolUse` `ensure` hook is not wired or could not start it | Wire the `ensure` hook, or run the hook's `start` or start the gateway by hand (see [`README.md`](README.md)); the log in the run directory says why a start failed |
 | CLI gets `Operation not permitted` reaching the socket | The gateway's socket is not in `sandbox.network.allowUnixSockets` | Add the two gateway sockets (never the real daemon socket) per [`docs/setup/sandbox-troubleshooting.md`](../../docs/setup/sandbox-troubleshooting.md#docker--podman-command-fails-with-a-socket-error) |
 | Container create returns `403` | A create-time request violated the policy (see `README.md` § What the policy refuses) | Read the one-line reason in the response and adjust the request; it names the rule and what to change |

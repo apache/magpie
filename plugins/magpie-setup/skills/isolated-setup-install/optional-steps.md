@@ -176,8 +176,13 @@ sandbox-writable; a later session that derives a different one is refused
 until you delete that record (the log line names it).
 
 **L.2 — Hooks.** Wire a `SessionStart` hook running
-`container-gateway-hook.sh start` and a `SessionEnd` hook running
-`container-gateway-hook.sh stop` into the user settings, each
+`container-gateway-hook.sh start`, a `SessionEnd` hook running
+`container-gateway-hook.sh stop`, and a `PreToolUse` hook (matcher
+`Bash`, two handlers with `if` set to `Bash(docker *)` and
+`Bash(podman *)`, `timeout` 30) running
+`container-gateway-hook.sh ensure`, which starts the gateway again
+before a container command when it exited mid-session, into the user
+settings, each
 **by the script's absolute path** with the home directory written out (a `~`
 there is expanded from `$HOME`, which the session environment can redirect),
 executed directly rather than through `bash`/`sh` (its `#!/bin/bash -p`
@@ -237,7 +242,9 @@ Tell the operator plainly, every time this step runs:
   serves the `docker` CLI, translated onto the Podman backend — the
   operator does not need both installed.
 - The hook lives in `~/.claude/scripts/`, runs outside the sandbox
-  on every `SessionStart` / `SessionEnd`, and — per L.1 — only ever
+  on every `SessionStart` / `SessionEnd` and before every `docker` /
+  `podman` command (where it restarts a gateway that exited
+  mid-session), and — per L.1 — only ever
   executes the copy installed here, never anything from the project
   tree it is about to serve.
 

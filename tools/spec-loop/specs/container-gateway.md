@@ -10,8 +10,8 @@ source: >
   MISSION.md § Privacy, security and supply-chain integrity ("Layered
   sandbox by default"); RFC-AI-0004 Principle 2 (secure sandbox by
   default) and RFC-AI-0003 § 4.4 (egress-allowlist gateway).
-  Implemented in tools/container-gateway/, a SessionStart/SessionEnd
-  hook in tools/agent-isolation/, the reference .claude/settings.json,
+  Implemented in tools/container-gateway/, a SessionStart/SessionEnd/
+  PreToolUse hook in tools/agent-isolation/, the reference .claude/settings.json,
   tools/sandbox-lint/expected.json, the setup-isolated-setup-doctor /
   -verify / -install skills, docs/setup/secure-agent-setup.md and
   docs/setup/sandbox-troubleshooting.md.
@@ -89,7 +89,8 @@ CLIs speak. Three properties fall out of the policy:
   `backends.py` discovery, `labels.py` project identity), `tests/`, `README.md` (how-to) and `tool.md`
   (contract). Capability: `substrate:sandbox`. Harness: agnostic.
 - `tools/agent-isolation/container-gateway-hook.sh` — Claude Code
-  `SessionStart` (`start`) / `SessionEnd` (`stop`) hook, installed to
+  `SessionStart` (`start`) / `SessionEnd` (`stop`) / `PreToolUse` on
+  `Bash` (`ensure`, before a `docker` / `podman` command) hook, installed to
   `~/.claude/scripts/` by `setup-isolated-setup-install` like the other
   hook scripts. Other harnesses start the gateway by hand or from their
   wrapper; the hook is a convenience, not the mechanism.
@@ -156,6 +157,17 @@ file, serve. It exits on `SessionEnd`, on `SIGTERM`, or after an idle
 timeout (default 4 h) as a backstop for sessions that end without the
 hook firing. A second start for the same project is a no-op when the
 pid file names a live process.
+
+The gateway can also exit while a session still needs it — the idle timeout, another
+session on the same project ending (its `SessionEnd` stops the one
+gateway both share), a crash — so the hook's `ensure` action, wired as a
+`PreToolUse` hook on `Bash`, starts it again before a `docker` /
+`podman` command finds it gone. `ensure` leaves at once for a command
+naming neither CLI, runs every check `start` runs before it executes
+anything (so on-demand start reaches nothing `start` would refuse),
+asks the gateway's `status` whether it already serves, and otherwise
+starts it and waits up to five seconds for it to serve, so the command
+does not race the start. It never blocks the command.
 
 ### Backends
 
@@ -371,7 +383,12 @@ socket paths:
     "SessionStart": [{ "hooks": [{ "type": "command",
       "command": "~/.claude/scripts/container-gateway-hook.sh start" }] }],
     "SessionEnd":   [{ "hooks": [{ "type": "command",
-      "command": "~/.claude/scripts/container-gateway-hook.sh stop" }] }]
+      "command": "~/.claude/scripts/container-gateway-hook.sh stop" }] }],
+    "PreToolUse":   [{ "matcher": "Bash", "hooks": [
+      { "type": "command", "if": "Bash(docker *)", "timeout": 30,
+        "command": "~/.claude/scripts/container-gateway-hook.sh ensure" },
+      { "type": "command", "if": "Bash(podman *)", "timeout": 30,
+        "command": "~/.claude/scripts/container-gateway-hook.sh ensure" }] }]
   }
 }
 ```
