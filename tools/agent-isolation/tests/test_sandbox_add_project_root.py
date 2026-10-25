@@ -534,6 +534,49 @@ class TestMissingJq:
 
 
 # ---------------------------------------------------------------------------
+# write-protected settings file (the agent sandbox)
+# ---------------------------------------------------------------------------
+
+
+def _fake_bin_failing_mv(tmp_path: Path) -> Path:
+    """A bin directory whose `mv` fails like a sandbox write-deny."""
+    fake_bin = tmp_path / "fake_mv_bin"
+    fake_bin.mkdir(exist_ok=True)
+    mv = fake_bin / "mv"
+    mv.write_text("#!/bin/sh\necho \"mv: rename $1 to $2: Operation not permitted\" >&2\nexit 1\n")
+    mv.chmod(0o755)
+    return fake_bin
+
+
+class TestReplaceFails:
+    def _run_denied(self, repo: Path, tmp_path: Path) -> subprocess.CompletedProcess:
+        fake_bin = _fake_bin_failing_mv(tmp_path)
+        return _run(repo, extra_env={"PATH": f"{fake_bin}{os.pathsep}{os.environ['PATH']}"})
+
+    def test_leaves_no_temp_file(self, tmp_path: Path) -> None:
+        """Regression: a failed rename left `settings.local.json.XXXXXX` behind."""
+        repo = _make_git_repo(tmp_path)
+        _seed_settings(repo)
+        self._run_denied(repo, tmp_path)
+        leftovers = sorted(p.name for p in (repo / ".claude").glob("settings.local.json.*"))
+        assert leftovers == []
+
+    def test_leaves_file_untouched(self, tmp_path: Path) -> None:
+        repo = _make_git_repo(tmp_path)
+        settings = _seed_settings(repo)
+        original = settings.read_text()
+        self._run_denied(repo, tmp_path)
+        assert settings.read_text() == original
+
+    def test_exits_zero_with_warning(self, tmp_path: Path) -> None:
+        repo = _make_git_repo(tmp_path)
+        _seed_settings(repo)
+        result = self._run_denied(repo, tmp_path)
+        assert result.returncode == 0
+        assert "could not replace" in result.stderr
+
+
+# ---------------------------------------------------------------------------
 # unknown option
 # ---------------------------------------------------------------------------
 

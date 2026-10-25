@@ -391,7 +391,15 @@ update_settings() {
     return 0
   fi
 
-  mv "$tmp" "$file"
+  # Inside the agent sandbox settings.local.json is write-protected, so the
+  # rename fails (the dispatcher's post-checkout runs this sandboxed). Under
+  # `set -e` that used to exit here, leaving the mktemp copy in .claude/ and
+  # skipping every remaining worktree.
+  if ! mv "$tmp" "$file"; then
+    rm -f "$tmp"
+    warn "could not replace $file (write-protected inside the agent sandbox?) — leaving file untouched; run this script from a terminal."
+    return 0
+  fi
   printf 'sandbox-add-project-root.sh: updated %s (project root: %s)\n' "$file" "$path" >&2
 }
 
