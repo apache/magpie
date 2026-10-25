@@ -1,0 +1,9 @@
+{
+  "items": [
+    {"group": "fix", "bypass": true, "id": "gateway-hook-older-version"}
+  ],
+  "run_yourself": [],
+  "still_open": [],
+  "isolated_offer": false,
+  "nothing_to_do": false
+}

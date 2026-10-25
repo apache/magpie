@@ -148,7 +148,7 @@ Apply all? (yes / drop 2,5 / details 1 / no)
 ### 3. Apply
 
 In plan order, one Bash call per item (never batch items into one bypassed call), one status line per item (`✓ 4. allowlist added for 3 worktrees`).
-Before overwriting any file, re-check the gathered state still holds; if the target changed since gathering, or a user-scope copy has local-only lines, skip the item and list it as still open with the reason.
+Before overwriting any file, re-check the gathered state still holds; if the target changed since gathering, or a user-scope copy carries local edits (not an older shipped version), skip the item and list it as still open with the reason.
 A failed item does not stop the run; later items continue.
 
 ### 4. Re-check and record
@@ -236,5 +236,5 @@ No steps move between the two in this change.
 - No supersede rule; a completed run clears the other reminders by writing their stamps.
 - Adopted project: the committed `reconciled:` stamp goes to *Run these yourself* as `/magpie-setup:setup reconcile`; no `git add`.
 - Fixes discovered by a *Check* probe get a short second plan and approval.
-- A bypassed call executes only code the sandbox cannot write (`~/.claude/scripts/`, the plugin cache, system paths); content copied from a sandbox-writable source is checksummed at plan time and re-verified in the writing call; only plain-content script copies are copied, the rest route to `setup-isolated-setup-install` Step P.
+- A bypassed call executes only code the sandbox cannot write (`~/.claude/scripts/`, the plugin cache, system paths); content copied from a sandbox-writable source is checksummed at plan time and re-verified in the writing call; only plain-content script copies are copied, the rest route to the `setup-isolated-setup-install` step that installs each (K, P.3, L, M, or the agent-guard wiring).
 - Confirming "no isolated setup" reads the user-scope settings with the harness's file-read tool or `/usr/bin/jq`, never the personal layer's `setup_preflight` outside the sandbox.

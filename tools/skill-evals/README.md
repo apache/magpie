@@ -37,7 +37,7 @@ Suites are currently implemented for:
 - **list-skills** — 8 cases across 2 steps (step-1-command, step-2-present)
 - **setup-isolated-setup-verify** — 27 cases across 4 steps (runtime-routing, codex-native, step-1-classify, step-2-recommend)
 - **setup-isolated-setup-update** — 15 cases across 4 steps (runtime-routing, step-snapshot-drift, step-tool-freshness, step-after-report)
-- **setup-complete-upgrade** — 13 cases across 2 steps (step-plan, step-apply)
+- **setup-complete-upgrade** — 16 cases across 2 steps (step-plan, step-apply)
 - **setup-isolated-setup-doctor** — 26 cases across 3 steps (runtime-routing, interpret-probes, after-report)
 - **contributor-activity-sweep** — 13 cases across 3 steps (step-0-resolve-inputs, step-1-classify-reviews, step-2-render)
 - **optimize-skill** — 7 cases across 1 step (step-diagnose)
