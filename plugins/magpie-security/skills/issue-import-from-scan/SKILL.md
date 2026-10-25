@@ -19,7 +19,7 @@ argument-hint: "[scan-source ...]  (one or more GitHub issues and/or report fold
 capability: capability:intake
 surface_hash: sha256:7adfbe73f79606b1
 license: Apache-2.0
-measured_tokens: 6585
+measured_tokens: 6637
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -375,7 +375,9 @@ write `{"reply", "findings": [{"n", "bucket"}]}` to a file and run `<sm> parse-d
 
 2. **Apply only the operator-confirmed actions**, sequentially:
    - **import-as-tracker** → [`security-issue-import`](../issue-import/SKILL.md)
-     Step 7 (one `Needs triage` tracker each) — the only tracker-creating path;
+     Step 7 (one `Needs triage` tracker each) — the only tracker-creating path.
+     Set *Security mailing list thread* to `N/A — imported from scan <scan-source>; no <security-list> thread.`:
+     there is no reporter thread, and the sentinel makes `generate-cve-json` record the finding as `INTERNAL`;
    - **PR-worth / defense-in-depth** → hand to
      [`security-issue-fix`](../issue-fix/SKILL.md) (public PR) or skip;
    - **by-design / dup / already-fixed** → no action; the report is the record.

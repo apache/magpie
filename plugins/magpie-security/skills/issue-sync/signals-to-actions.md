@@ -571,7 +571,7 @@ Group them by category:
   It has no OAuth-pushed / manual-paste variants: the remediation developer fills body fields and never sees the API-push state.
 
   **Resolving placeholders.** The placeholders it shares with the hand-off comment
-  (`CVE_ID`, `SOURCE_TAB_URL`, `TRACKER_URL`, `SECURITY_LIST`,
+  (`CVE_ID`, `RECORD_URL`, `TRACKER_URL`, `SECURITY_LIST`,
   `SECURITY_LIST_DOMAIN`, `FRAMEWORK_README_URL`,
   `FRAMEWORK_SYNC_SKILL_URL`) resolve the same way. Plus two unique placeholders:
 
@@ -659,9 +659,10 @@ Group them by category:
     the same lookup the assignee swap uses — do it once and reuse.
   - `SECURITY_LIST`, `USERS_LIST`, `ANNOUNCE_LIST` — from
     [`<project-config>/project.md`](../../../../<project-config>/project.md#mailing-lists).
-  - `SOURCE_TAB_URL`, `EMAIL_TAB_URL` — substitute `<CVE-ID>` into
-    `cve_tool_record_url_template` (from project.md), append
-    `#source` / `#email` per [`tools/cve-tool-vulnogram/record.md`](../../../../tools/cve-tool-vulnogram/record.md#record-urls).
+  - `RECORD_URL`, `SOURCE_TAB_URL`, `EMAIL_TAB_URL` — substitute `<CVE-ID>` into
+    `cve_tool_record_url_template` (from project.md): as is for `RECORD_URL`, with
+    `#source` / `#email` appended for the others, per [`tools/cve-tool-vulnogram/record.md`](../../../../tools/cve-tool-vulnogram/record.md#record-urls).
+    Every link that sends a reader to the record uses `RECORD_URL`; `SOURCE_TAB_URL` is only the manual-paste target.
   - `JSON_ANCHOR_URL` — the deep link `generate-cve-json` prints on every regen
     (the `https://github.com/<tracker>/issues/<N>#cve-json--paste-ready-for-<cve-id-slug>` anchor).
   - `ARCHIVE_SCAN_URL` — `ponymail_public_search_url_template` from project.md, parameterised with the CVE ID.
@@ -770,7 +771,7 @@ Group them by category:
   Vulnogram:
   [`tools/cve-tool-vulnogram/release-manager-publication-comment.md`](../../../../tools/cve-tool-vulnogram/release-manager-publication-comment.md)).
   Placeholders substituted: `CVE_ID`, `RM_HANDLE`, `ARCHIVE_URL`
-  (the just-captured archive URL), `SOURCE_TAB_URL`,
+  (the just-captured archive URL), `RECORD_URL`,
   `JSON_ANCHOR_URL`, `CVE_ORG_URL`
   (`https://www.cve.org/CVERecord?id=<CVE-ID>`).
 
