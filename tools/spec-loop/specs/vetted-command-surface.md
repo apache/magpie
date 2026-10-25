@@ -40,6 +40,18 @@ change.
 
 Shipping implementation: [`tools/vetted-ops`](../../vetted-ops/README.md).
 
+**Where the policy is read from** (#1787).
+Without `--config`, the dispatcher reads the committed
+`.apache-magpie-overrides/tools/vetted-ops/config.toml` first, then
+`tools/vetted-ops/config.toml` in a personal layer, so a maintainer whose
+project has not adopted Magpie can still run the security skills.
+A personal layer counts only in a shape the sandbox profile's deny globs
+cover (`//**/.git/**/apache-magpie/…`, `//**/.svn/apache-magpie/…`,
+`//**/.apache-magpie-local/…`), and a policy reached through a symlink
+anywhere on its path, or that is not a regular file, is not read.
+The personal policy supplies data only and grants nothing `--config` could
+not; `setup config` drafts it, the user saves it.
+
 The HTTP read backend (`http-read`, which implies `writes=False`) carries the
 security-data lookups the adapters used to spell as raw `curl`: four OSV.dev
 operations (`osv-get-vuln`, `osv-query-package`, `osv-query-commit`,

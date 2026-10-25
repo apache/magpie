@@ -54,6 +54,14 @@ by swapping the adapter, not the skill.
   read but not write (the secure setup's `Edit(~/.cache/ponymail-attachments/**)`
   deny), never returning the bytes, and decrypts a password-protected ZIP
   when given the password from the report.
+  The login uses a throwaway browser profile, so when a skill asks the user
+  to log in and no `~/.ponymail-mcp/browser-profile/` exists, it adds a
+  one-line tip, once per session, offering the MCP's opt-in
+  `PONYMAIL_BROWSER_PROFILE=persistent` kept profile (#1782).
+  Before enabling it the skill warns that the profile saves only the
+  password, that 2FA is still asked on every login, and that a logged-in
+  session reads the allowed private lists until it expires or the user logs
+  out.
 - `tools/mail-archive/` — static mailing-list archive reader for
   projects whose list history is in a local mbox/Maildir export.
 - `tools/jira/` — issue-tracker adapter for projects on Jira.
@@ -191,6 +199,8 @@ by swapping the adapter, not the skill.
   Data Center `pr jira-issues <id>` provides read-only Jira-key discovery for
   issues associated with pull-request commits and hands those keys to
   `tools/jira`; Bitbucket does not proxy Jira tracker operations.
+  Keys come only from the documented `key` field of each linked issue,
+  upper-cased and de-duplicated (#1727).
   It is not a complete `contract:change-request` or `contract:tracker`
   backend yet; broader Jira handoff, Data Center
   review/merge writes, broader repository permissions, and fuller Pipelines

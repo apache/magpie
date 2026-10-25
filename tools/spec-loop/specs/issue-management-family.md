@@ -117,6 +117,11 @@ unchanged.
   component pressure, and stale-fraction without modifying any tracker
   state. Ships `mode: Triage` + `capability: capability:stats`
   + `experimental`.
+  Each open issue gets exactly one triage class (`UNTRIAGED`, `TRIAGED`,
+  `IN-PROGRESS`, `SKIP-SECURITY`); staleness is not a class but the
+  separate `is_stale_candidate` boolean (`days_since_updated >= warn_days`),
+  so an issue keeps its real class and the `stale_candidate` bucket, the
+  pressure score and the untriaged funnel all read the boolean (#1753).
 
 - Skill: `issue-deduplicate` — identifies two open issues with the same root
   cause, drafts a merge rationale and cross-link comment, and proposes

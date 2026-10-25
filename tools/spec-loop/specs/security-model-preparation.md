@@ -8,7 +8,7 @@ kind: feature
 mode: Drafting
 source: >
   docs/security/security-model-preparation.md. The three
-  security-model-* skills. The external rubric at
+  security-model-* skills and security-submit-to-oss-scan. The external rubric at
   https://github.com/alpha-omega-security/threat-model. Transplanted and
   generalised from the ASF security team's own model-preparation
   workflow.
@@ -29,6 +29,8 @@ Gets a project's security model **written**, **findable**, and **current**
 skills: produce a first model in draft-first mode and land it; pre-flight
 an existing one for discoverability and completeness; and read the accrued
 triage decisions back into it.
+A fourth, `security-submit-to-oss-scan`, carries the model to an automated
+scanner as a derived summary and keeps that copy in step with it.
 
 The rubric for *what a model contains* is maintained externally by
 Alpha-Omega and referenced by URL. The framework keeps no local copy — a
@@ -59,6 +61,19 @@ triage history back into the document.
   that lacks it (model-update gained its declaration in #1444).
 - Threat model: skill family F in `docs/security/threat-model.md`
   (F.1–F.7, mitigations M.30–M.36).
+- Scanner copy (#1786): `security-submit-to-oss-scan` (Drafting,
+  `plugins/magpie-security/skills/submit-to-oss-scan/SKILL.md`, file
+  contracts in `references/enrolment-files.md`) prepares the `enrol` or
+  `update` PR against `anthropics/oss-scanner`: `project.yaml`, an
+  offline-capable `Dockerfile`, and a `threat_model.md` derived from this
+  model.
+  `security-model-prepare` points at it, and `security-model-update`
+  Step 12 proposes a refresh, one PR per copy, for every row of the
+  template's *Scanner threat-model summaries* table
+  (`<project-config>/security-model.md`) whose *derived from* model commit
+  is not the model file's latest.
+  Eval suite: `tools/skill-evals/evals/security-submit-to-oss-scan/`
+  (Step 5 derivation, 2 cases).
 
 ## Behaviour & contract
 
@@ -105,6 +120,19 @@ triage history back into the document.
   As security-family skills they run it whenever at least one reviewer
   is configured, whatever the `mode`; findings are advisory and never
   block the flow.
+- **The scanner's threat model is derived, never authored.**
+  `security-submit-to-oss-scan` states every claim with the model section
+  it summarises (the scanner audits offline, so a link never stands in for
+  the statement), routes a line the model does not support to
+  `security-model-update` as a model gap, and stamps the copy with the
+  model URL and the model file's commit, so a stale copy is detectable.
+  It never ticks a checklist box, accepts terms or signs a CLA for the
+  maintainer, never runs `tools/check` or the built image itself, and
+  names the scan programme only in the scanner repository unless the team
+  chose in-repo placement.
+  Repeat false positives from `security-issue-import-from-scan` close the
+  loop the same way: a by-design cluster becomes a model-update candidate,
+  then a scanner-copy refresh.
 
 ## Out of scope
 
@@ -130,6 +158,9 @@ triage history back into the document.
 4. No proposed model diff contains reporter identity, tracker contents, an
    unpublished CVE ID, or detail of an unfixed issue.
 5. The PR scaffold is idempotent and never edits existing prose.
+6. Every claim in a scanner `threat_model.md` cites the model section it
+   summarises, a claim the model lacks is reported as a gap rather than
+   written, and the copy records the model commit it came from (#1786).
 
 ## Validation
 

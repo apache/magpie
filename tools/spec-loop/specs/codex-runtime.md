@@ -95,6 +95,11 @@ tool adapters, and uses its own sandbox, rules, and approvals.
     native prompt decisions; generated rules never allowlist a general uv
     command or a mutable checkout. Code and policy tamper limitations and the
     remaining differences from Claude are reported explicitly.
+14. The Codex catalogue (`.agents/plugins/marketplace.json`) marks
+    `magpie-vetted-ops` `INSTALLED_BY_DEFAULT`, beside `magpie-setup`
+    (#1761). Installing it grants nothing: its native rules, like the
+    Claude allow rules and sandbox exclusions, are wired only where the
+    isolated setup is configured.
 
 ## Out of scope
 

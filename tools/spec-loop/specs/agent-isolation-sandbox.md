@@ -125,7 +125,18 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
   (including a full-screen terminal's), and activation is only asked for
   with `activate`, falling back to the deprecated
   `activateIgnoringOtherApps:`; a refusal costs the keyboard, not the
-  window (#1697). The
+  window (#1697).
+  A key that never waits for a touch draws no window at all: before
+  anything signs, `arm` and `wrap` read the signature and authentication
+  slots' touch policies from the `uif:` record of
+  `gpg --card-status --with-colons` (never `ykman`, which needs PC/SC,
+  denied in the sandbox, and contends with scdaemon for the card), and
+  start no watcher when both are `off` (#1715).
+  `cached`, any other value, and an unknown policy (no card, no gpg, no
+  `uif:` record) keep the window.
+  A definite answer is cached in the runtime directory for ten minutes,
+  but an `off` only for one, so a policy turned on since is honoured on
+  the next burst of commands (#1723). The
   git the agent runs reads the same global config, so the wrapper's
   two files are a `sandbox.filesystem.allowRead` grant of their own
   (nothing wider under `~/.claude/`), or every sandboxed signed commit
@@ -178,6 +189,14 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
   option or another `command` flag, is marked unparsed and refused, and
   `env -S` is refused outright, because GNU env splits its string with
   escapes `shlex` does not reproduce (#1691, #1694).
+  Beyond the bundled `guards.d`, skill-owned guards are discovered in
+  place, with no collection step: every `$MAGPIE_GUARD_DIRS` entry, then
+  every `plugins/*/skills/*/guards` and `skills/*/guards` of the framework
+  tree the engine runs from (#1757), or, on a marketplace install, where
+  each plugin is cached on its own as `<marketplace>/<plugin>/<version>/`
+  and there is no framework tree, the `skills/*/guards` of the family
+  plugins cached beside `magpie-agent-guard`, each at the engine's own
+  version, else its most recently installed one (#1762).
   Hooks invoke the engine as a bare `python3`; when that resolves to a
   pre-3.11 interpreter, the engine re-runs itself under the newest
   `python3.N` (3.11+) on `PATH`, and exits 1 with an actionable message
@@ -205,8 +224,13 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
   `~/.local/share/uv`, `~/.local/bin`; only the cache also writable,
   and it removes a `~/.local/share/uv` write an earlier version added,
   because uv's interpreters and tool venvs there run outside the
-  sandbox), into each worktree's gitignored
-  `.claude/settings.local.json`. The harness drops the committed
+  sandbox; sandbox-lint rejects any write grant over that directory,
+  #1785), into each worktree's gitignored
+  `.claude/settings.local.json`, through a temporary copy and a final
+  rename. A rename the sandbox denies — the dispatcher runs the helper
+  sandboxed on every post-checkout — removes the copy, warns and leaves
+  the file untouched rather than aborting the remaining worktrees
+  (#1812). The harness drops the committed
   project-scope `sandbox.filesystem` allow entries (issue #197), so the
   local file is where they take effect. It never adds the credential
   paths the committed list also names; `--no-tool-paths` limits it to
@@ -261,12 +285,47 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
   `tools/agent-isolation/hook-manager-shim.sh` (installed as
   `~/.claude/bin/<tool>`, keyed by that name), the dispatcher and
   `sandbox-lint`, and checks the committed settings against it.
+  The settings template likewise denies `Edit(~/.cache/ponymail-attachments/**)`
+  (#1828): the PonyMail MCP saves report attachments there from outside the
+  sandbox, and a sandboxed command that could rename directories under that
+  root mid-save could race the server's path checks.
+  For prek the split is concrete (#1792): the settings `env` sets
+  `PREK_HOME=~/.cache/prek-sandbox` for sandboxed runs,
+  `Edit(~/.cache/prek/**)` keeps sandboxed commands out of the default
+  home a terminal commit runs hooks from, and the dispatcher, when
+  `SANDBOX_RUNTIME` is absent (a terminal commit or a bypassed one),
+  points `PREK_HOME` at `~/.local/share/prek-host` and `XDG_CACHE_HOME`
+  at `~/.local/share/prek-host/cache`, keeping an operator's own value
+  outside `~/.cache`.
+  Detection (a root config file, a tracked nested config, or an
+  installed hook that runs the manager) decides only what a repository
+  is configured with — the sandbox home its settings must carry, the
+  shim, verify check 19d; the default-home deny and the dispatcher's host
+  home stay on for every registered manager, because both homes are per
+  user (#1819).
+- `plugins/magpie-setup/hooks/check-upgrade.sh` — magpie-setup's
+  `SessionStart` hook.
+  It runs outside the sandbox over a sandbox-writable tree, so it trusts
+  nothing the session environment supplies: `/bin/bash -p`, a fixed `PATH`,
+  and Python only from a vetted root-owned interpreter under `env -i` with
+  `-I -S` (#1769, #1791, #1794).
+  It also removes the stale `~/.local/share/uv` write grant (#1788) and a
+  repository-level `core.hooksPath` that would skip the whole-user
+  dispatcher (#1792).
+  The full contract, including the isolation warning, is specified in
+  [`adoption-and-setup.md`](adoption-and-setup.md).
 - `tools/egress-gateway/` — local HTTP(S) forward proxy for egress
   control. Framework tools point `HTTPS_PROXY`/`HTTP_PROXY` at it; the
   gateway rejects any connection to a host not on its allowlist before a
   socket is opened. Defence-in-depth per RFC-AI-0003: even a
   prompt-injection reaching for an arbitrary endpoint is blocked at the
-  network layer. Capability: `substrate:sandbox`.
+  network layer. The `egress-gateway` console script takes `--host`
+  (default `127.0.0.1`), `--port` (default `8899`) and `--log-level`,
+  passes any other argument through to proxy.py unfiltered (a trusted
+  operator's choice, outside the allowlist guarantee), and starts the
+  proxy with those arguments explicitly, as `proxy.Proxy(input_args=…)`
+  plus `sleep_loop()`, rather than letting proxy.py parse the process
+  argv (#1774). Capability: `substrate:sandbox`.
 - `.claude/settings.json` — the committed floor: the `sandbox` block
   (filesystem allow/deny, the core network `allowedDomains`, the vetted-ops
   `excludedCommands`) and `permissions` (every `deny` / `ask`, the
@@ -282,6 +341,12 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
   `~/.config/apache-magpie` in `allowRead`: the Gmail OAuth token there is
   read only by the drafting MCP server outside the sandbox, and the
   template no longer grants it or the Google API hosts (#1681).
+  Because that server runs outside the sandbox, it accepts a
+  caller-supplied `credentials_path` only as a `.json` file directly in
+  `~/.config/apache-magpie/` or in the directory of
+  `$GMAIL_OAUTH_CREDENTIALS`, reached without a symlink, so a tool call
+  can neither write the refresh token where sandboxed code reads it nor
+  load a planted file (#1795).
 - `.gemini/settings.json` and `.gemini/policies/magpie.toml` — Magpie's Gemini profile: tool-sandboxing and an explicitly loaded User-tier approval policy.
   Scoped shell reads are allowed; other shell calls, native edits, and MCP calls ask; listed commands and credential paths deny.
   Credential-path denies name the canonical `grep_search`; the native probe verifies its `search_file_content` alias, canonical policy names, and search/multi-file/web/resource argument schemas against the loaded runtime.
@@ -490,7 +555,7 @@ framework's 7-day default unless a tool's `[tools.<name>]` table in
 `tools/agent-isolation/pinned-versions.toml` sets its own
 `cooldown_days`; `bubblewrap` carries `cooldown_days = 1`, so a pin
 carrying a sandbox-setup security fix can move a day after release
-(#1360, pinned at 0.13.0).
+(#1360; pinned at 0.13.1 since #1721).
 
 ## Out of scope
 
@@ -529,6 +594,9 @@ python3 -c "import json,sys; s=json.load(open('.claude/settings.json')); \
     and 'Bash(gh pr merge *)' in ask and 'Bash(gh *)' not in ask \
     and 'Bash(gh api -X*)' in ask and 'Bash(gh api *)' not in ask else 1)"
 uv run --project tools/sandbox-lint --group dev pytest
+python3 tools/dev/sync-hook-managers.py --check
+uv run --project tools/setup-preflight --group dev pytest \
+  tools/setup-preflight/tests/test_session_hook.py
 ```
 
 ## Known gaps

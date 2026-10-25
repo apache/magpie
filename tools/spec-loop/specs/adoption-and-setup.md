@@ -272,6 +272,20 @@ committed version with drift detection.
   personal layer's `reconciled.json` when the user declines the isolated setup.
   On a non-Claude harness every `[bypass]` item becomes a *Run these yourself*
   command.
+  The sandbox write scope is gathered, not assumed: a sandboxed probe write in
+  each directory a plan item would write to (the nearest existing parent for
+  one not created yet), and a write outside that scope carries `[bypass]`
+  (#1816, #1817).
+  A user-scope script copy that differs from its framework source is told
+  apart by its `git hash-object` blob: found in the framework's full history
+  it is a stale shipped version (*Update*, or *Fix* for a security fix); not
+  found, it carries local edits and goes under *Still open* with its diff.
+  With no history, or a shallow clone's, the copy becomes an item ending
+  `(replaces N lines only this copy has)` whose bypassed call backs the old
+  copy up first.
+  A script entry that is not a plain-content copy is routed to the
+  `setup-isolated-setup-install` step that installs it (K, P.3, L, M, or the
+  agent-guard wiring of P).
   `setup upgrade` ends by pointing at it.
   Skill names here are the marketplace form.
 - Docs: `docs/setup/` (install recipes, agentic-overrides contract,
@@ -337,6 +351,31 @@ committed version with drift detection.
   shows nothing.
   Any error is a silent no-op; the `check-upgrade.sh` command hook stays
   wired beside it for sessions where mods do not load.
+- **The session-start command hook runs only code the sandbox cannot
+  rewrite** (#1791, #1794).
+  `check-upgrade.sh` prints `Apache Magpie updated (<old> -> <new>)` (or a
+  first-activation line) naming `/magpie-setup:complete-upgrade` on any change
+  of the installed version string, once per version.
+  It runs outside the sandbox, so nothing the session environment sets may
+  choose what runs: `hooks.json` wires it as `/bin/bash -p <path>` (the
+  shebang says the same), it sets a fixed system `PATH`, and it runs
+  `setup_preflight` only under a root-owned Python 3.11+ from
+  `/usr/bin`, `/usr/local/bin` or `/opt/homebrew/bin` whose every path
+  component, symlink hop, standard library and neighbouring shared libraries
+  are root-owned and not group- or world-writable, with no `pyvenv.cfg`.
+  That interpreter runs under `env -i` with `-I -S`, so neither inherited
+  variables, site-packages nor the opened project reach `sys.path`.
+  With no such Python the hook prints its own notice alone, says when that
+  leaves the uv cleanup below undone, and skips the isolated-setup warning,
+  which only the pre-flight can decide.
+  Tests: `tools/setup-preflight/tests/test_session_hook.py`.
+- **Session start cleans up two stale sandbox settings**, adopted or not, and
+  tells the user what it did.
+  It removes a `~/.local/share/uv` write grant from the checkout's
+  `.claude/settings.local.json` and reports one it could not remove or that
+  sits elsewhere (#1788), and drops a repository-level `core.hooksPath`
+  pointing at the repo's own `.git/hooks` when the whole-user git-hook
+  dispatcher is installed, only reporting any other value (#1792).
 - **An `svn-zip` lock may carry `sha512:`** (#1596), the released zip's
   digest `locks.md` documents; `setup_preflight` accepts it only on
   `method: svn-zip`, rejects it on any other method and reports an empty
@@ -436,8 +475,8 @@ committed version with drift detection.
   fails to load, still stops.
 - **The isolated-setup warning is shown once per session, in adopted repos
   only.** `magpie-setup`'s `SessionStart` hook warns while the machine has no
-  isolated setup (its stamp, or a sandbox enabled in project or user
-  settings): optional for a trial, recommended for longer use, the
+  isolated setup (its stamp, or a sandbox enabled in the project's or the
+  user's `settings.json` or `settings.local.json`, #1763): optional for a trial, recommended for longer use, the
   consequences of running without it, and a warning against pointing skills
   at untrusted content. A project opts out with `isolation_warning: off` in
   the committed `.apache-magpie-overrides/project.md`, which `adopt` asks
@@ -495,6 +534,12 @@ committed version with drift detection.
   checker's lock parser accepts that key and returns no project findings
   for the method, and `upgrade` on it only refreshes the pre-flight
   checker from the in-repo package and stops.
+  Each canonical `.agents/skills/magpie-<n>` link of a self-adopted checkout
+  targets the skill's real directory, `../../plugins/<family>/skills/<alias>`
+  (`<alias>` is the frontmatter `name:`), derived from the `skills/<n>`
+  symlink, never `../../skills/<n>`, a symlink chain the release archive
+  refuses; `symlink-lint` enforces it, and `verify` and `install` describe
+  the same target (#1781).
 - **Every skill's pre-flight also compares its own generated
   `surface_hash` against the reconciliation stamp**, silently when they
   match, at no extra cost inside a sandboxed session: both values are
@@ -553,6 +598,13 @@ committed version with drift detection.
 9. A pre-flight on a machine at or ahead of the floor prints nothing; one
    below it installs or updates only floor plugins, reports what ran, and
    stops for a restart without removing, downgrading or pinning anything.
+   The installed versions come from the running harness's own listing
+   (`claude plugin list --json`, `codex plugin list --json`,
+   `gemini extensions list -o json`), the harness detected from its
+   environment markers innermost-first, and the below-floor finding names
+   that harness (`facts.harness`) and its commands; a harness with no listing
+   command (Copilot CLI) or a listing that cannot be produced leaves the floor
+   unknown (#1673; eval cases `preflight-floor` 16–18).
 10. A pre-flight whose lock names a `url` other than `apache/magpie` runs
     nothing and asks first.
 11. Version comparison is PEP 440: `0.10.0` satisfies a `0.9.0` floor, and
@@ -676,6 +728,12 @@ committed version with drift detection.
     run unattended from a skill's pre-flight. `upgrade` skips the refresh
     when the directory does not exist rather than creating it, because its
     absence is what marks a project as never configured.
+    The refresh copies files from the `setup_preflight/` package beside the
+    skill, never the `tools/setup-preflight/src` link (a plain `cp -R` of it
+    leaves a dangling link), checks the new copy in a temporary directory with
+    `--no-welcome`, and only then swaps it in, restoring the old copy if the
+    swap fails; on a marketplace install the user runs it outside the sandbox,
+    since the plugin cache is read-denied (#1722, #1747).
 27. `tools/setup-preflight` also has a **machine** scope for the isolated
     (secure agent) setup, reported only where it is used here — an
     `isolated_setup` block in the personal layer's `reconciled.json`
@@ -751,8 +809,15 @@ committed version with drift detection.
 37. `tools/setup-preflight` has a **family** scope: a `welcome` finding
     (rules section `welcome`, guide in `facts.guide`, its name in
     `facts.family`). `setup_preflight/guides/general.md` is due on the first
-    run of any Magpie skill, and `guides/<family>.md` — today `security`
-    and `utilities` (#1669) — on the first run of a skill in that family. At most one
+    run of any Magpie skill, and `guides/<family>.md` on the first run of a
+    skill in that family; every one of the ten skill families ships a guide
+    (`security`, `utilities` #1669, `contributor-growth` #1702,
+    `pr-management` #1701, `pairing` #1706, `mentoring` #1708, `issue` #1709,
+    `repo-health` #1724, `setup` #1725, `release-management` #1726), each
+    linked from the family's README under `docs/`. The general guide's family list
+    and every guide's shared footer (`guides/_footer.md`: the three choices and
+    the `/magpie-setup:welcome-guide <family>` way back) are generated into the
+    guide at `show` time, so a guide never names one that does not ship. At most one
     guide per run: a first showing beats a repeat, and between equals the
     general guide goes first, so a family guide first appears on the run
     after the general one. The skill's family is looked up in `families.py`, generated
@@ -790,6 +855,13 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
   here is the fallback. The skills delivered are the same tree either way —
   only the namespace of their invocation differs.
 
+- **The `setup` family's welcome guide (#1725) is never shown on its own.**
+  The setup family is exempt from the shared pre-flight block
+  (`EXEMPT_FAMILIES` in `tools/dev/check-shared-blocks.py`), and no setup
+  skill runs the checker's welcome path, so `guides/setup.md` is reachable
+  only through `/magpie-setup:welcome-guide setup`; the checker's logic for it
+  is tested (`test_welcome.py`, eval case `preflight-floor` 20) but no skill
+  ever asks for it.
 - `stable`; gaps appear as new agent targets to add to the registry
   ([`agents.md`](../../../plugins/magpie-setup/skills/setup/agents.md)) or new override
   surfaces — recorded by the plan pass.
