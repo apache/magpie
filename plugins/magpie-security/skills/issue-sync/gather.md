@@ -429,7 +429,7 @@ and surface it as a numbered item in Step 2b.
 The body is the single source of truth for the CVE JSON:
 *reviewer asks → body field updated → CVE JSON regenerated (Step 5, automatic after apply) → record rewritten via
 [`vulnogram-api-record-update`](../../../../tools/cve-tool-vulnogram/oauth-api/README.md) (fallback: the `#source` paste)*,
-so the release manager opens the record only once, to resolve the comment.
+so nobody hand-edits the record.
 
 Map common review comments to body fields like this:
 
@@ -448,11 +448,12 @@ Map common review comments to body fields like this:
 A review comment that fits no row above goes into Step 2a verbatim and is flagged in Step 2c for human decision — do not guess a body mapping:
 a wrong change applied silently propagates through the regenerated CVE JSON into a broken PUBLISHED record.
 
-Also include the standard *"Open the CVE record at `<URL>` and resolve the review comment"* line in Step 2c:
-resolving the comment is a Vulnogram UI action sync cannot drive.
+Never ask anyone to resolve the comment on the record: Vulnogram has no resolve action for comments, neither in the API nor in the UI.
+A comment counts as handled once the body change it asked for is applied, its slug is in the processed ledger, and the reviewer has a courtesy reply.
+The courtesy reply is what tells the reviewer; nothing on the record changes.
 
 **Also propose a courtesy reply to the reviewer on their notification thread.** Vulnogram does not notify reviewers when a record changes;
-they watch the thread of their *"Comment added on `<CVE-ID>`"* notification, so without a reply the comment can sit unresolved for days.
+they watch the thread of their *"Comment added on `<CVE-ID>`"* notification, so without a reply they do not learn that the comment was answered.
 The draft:
 
 - **To:** the reviewer's address (the `From:` of the original notification).
