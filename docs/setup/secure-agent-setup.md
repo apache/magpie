@@ -2994,6 +2994,8 @@ One channel stays open whatever `denyRead` says: on Linux the flag also unblocks
 }
 ```
 
+Replace `<uid>` with the output of `id -u` (for example `/run/user/1000`). Pasted as-is, the entry names a path that does not exist and hides nothing; sandbox-lint and check 12e both flag it.
+
 The gateway's sockets are unaffected: its run directory is inside the project tree or the git directory (`<project>/.apache-magpie-local/run/` or `<git-common-dir>/apache-magpie/run/<worktree-id>/`), never under `/run/user`.
 The ssh agent may not be: run `echo "$SSH_AUTH_SOCK"` in your own terminal.
 An agent socket under `/tmp` (the classic `ssh-agent`) needs nothing.
