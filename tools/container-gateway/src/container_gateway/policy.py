@@ -68,6 +68,7 @@ __all__ = [
     "check_create",
     "check_exec_create",
     "check_update",
+    "check_volume_create",
     "named_networks",
     "named_volumes",
     "resolve_bind_source",
@@ -586,6 +587,27 @@ def _mounts_deny(
     for volume in body.get("volumes") or []:
         if isinstance(volume, dict) and _volume_driver_options(volume.get("Options")):
             return Deny(_VOLUME_DRIVER_DENY_REASON)
+    return None
+
+
+def check_volume_create(body: dict[str, Any], *, libpod: bool) -> Deny | None:
+    """Refuse a volume create that configures its driver.
+
+    The same refusal ``_mount_type_deny`` applies to a mount entry, applied
+    where the volume itself is made: a volume created with ``local`` and
+    ``{"type": "none", "device": "/", "o": "bind"}`` carries the gateway's
+    label, so the relay lets a container mount it by name. Only the stock
+    ``local`` driver with no options is allowed. Both CLIs send an empty
+    options map and ``local`` on every create, so only a value counts. Runs
+    after ``resource_create_spelling_violation``, which has already refused
+    any second spelling of these keys.
+    """
+    driver_key, options_key = ("driver", "options") if libpod else ("Driver", "DriverOpts")
+    driver = body.get(driver_key)
+    if body.get(options_key) or (driver and str(driver) != "local"):
+        return Deny(
+            "volume-driver: a volume driver or driver options are refused; create a plain local volume"
+        )
     return None
 
 
