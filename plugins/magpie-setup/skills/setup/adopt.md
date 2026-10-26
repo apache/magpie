@@ -35,7 +35,7 @@ The reader-facing page for this sub-action is
 2. **Claude Code only, for the default set.** On any other client,
    skip the default set entirely and say why rather than writing a
    file that does nothing: Codex can only default-install all ten
-   families, and Gemini has no workspace-extension mechanism. The
+   families, and Antigravity has no workspace-plugin mechanism. The
    overrides store in Step 4 still applies on every client.
 3. **Is this the user's decision to make?** Adoption commits files
    that change what every contributor's agent loads. If there is any
@@ -201,7 +201,7 @@ would convert it into a ceiling that stops contributors receiving any
 later release.
 
 On a client that cannot express this — Codex can only default-install
-all ten families, Gemini has no workspace-extension mechanism — skip
+all ten families, Antigravity has no workspace-plugin mechanism — skip
 this step and say so. The lock from Step 2 still stands and is still
 the project's record; what is missing is only the automatic wiring.
 

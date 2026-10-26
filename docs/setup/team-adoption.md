@@ -85,7 +85,7 @@ maintainer's personal layer and is never committed to
 
 > [!NOTE]
 > The committed default set is **Claude Code only** today. Codex can only
-> default-install all ten families, and Gemini has no workspace-extension
+> default-install all ten families, and Antigravity has no workspace plugin
 > mechanism, so there is nothing useful to commit for either. Contributors on
 > those agents install the families they want themselves; everything else on
 > this page still applies.
@@ -120,7 +120,7 @@ the marketplace and simply needs to meet the floor.
 The lock itself is written on every client — it is the harness-neutral
 record of what the project committed. The derived `.claude/settings.json`
 wiring that acts on it is Claude-Code-specific and is written only where the
-harness can express it; on Codex or Gemini the lock is still written and
+harness can express it; on Codex or Antigravity the lock is still written and
 still stands as the project's record, there is just no settings file for
 either agent to derive the wiring into.
 

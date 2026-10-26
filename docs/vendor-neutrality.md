@@ -92,7 +92,7 @@ axes, and a backend choice on one axis never constrains the others:
 | Axis | The "vendor" | Neutral by… |
 |---|---|---|
 | **LLM backend** | Anthropic, OpenAI, Google, Bedrock, local Ollama/vLLM, a future ASF endpoint | Skills written against a model *contract* (capability floor), not a client; a privacy gate that keys on endpoint identity, not on who hosts it |
-| **Agentic harness** | Claude Code, Codex, Cursor, Gemini CLI, Copilot, OpenCode, Kiro, … | Skills are [`AGENTS.md`](https://agents.md/)-standard markdown under a shared `.agents/skills/` home that every runtime reads |
+| **Agentic harness** | Claude Code, Codex, Cursor, Antigravity, Copilot, OpenCode, Kiro, … | Skills are [`AGENTS.md`](https://agents.md/)-standard markdown under a shared `.agents/skills/` home that every runtime reads |
 | **Forge / tracker** | GitHub, GitLab, Gitea, Forgejo, Pagure, Bitbucket, Jira, Bugzilla | Per-interface **tools** behind capability contracts; many tools are pure adapter *specs* with pluggable backends |
 | **Communication channels** | Mailing lists, GitHub Discussions, Discourse, Zulip, Matrix, IRC | Mail-archive / mail-source adapter contracts; chat and forum bridges as sibling tools |
 | **Source control (VCS)** | Git, Mercurial, Subversion, Jujutsu, Fossil, Perforce, … | A single `VCSBackend` contract; skills call the abstract operation, the backend is detected from the working copy |
@@ -320,7 +320,7 @@ subscription is out of reach still gets the full skill catalogue.
 Magpie skills are not a Claude Code feature. They are
 [`AGENTS.md`](https://agents.md/)-standard markdown, installed under a
 single canonical home — `.agents/skills/` — which is the path shared by
-Codex, Cursor, Gemini CLI, Copilot and others, with thin relay symlinks
+Codex, Cursor, Antigravity, Copilot and others, with thin relay symlinks
 giving every other agent directory (`.claude/skills/`,
 `.github/skills/`, …) a pointer to the same entry
 ([`README.md` § snapshot + override](../README.md)). Users already run
@@ -328,8 +328,8 @@ Magpie under several different agentic CLIs. Codex now has a
 [first-class adapter](adapters/codex.md) (experimental); adding another
 runtime is a [`family:tools`](labels-and-capabilities.md#1-family--subject)
 contribution, not a re-architecture.
-Gemini CLI also has an [experimental agent harness integration](adapters/gemini.md) that reads Magpie's canonical `.agents/skills/` tree.
-Its guide covers setup, approval policies, verification, and [known limitations](adapters/gemini.md#known-limitations), including the remaining sandbox parity gaps.
+Antigravity, the successor to Gemini CLI, also has an [experimental agent harness integration](adapters/antigravity.md) that reads Magpie's canonical `.agents/skills/` tree.
+Its guide covers the user-scope setup, permission rules, verification, and [known limitations](adapters/antigravity.md#known-limitations), including the remaining sandbox parity gaps.
 Cursor reads Magpie's canonical `.agents/skills/` tree and supports per-action
 confirmation in Composer and the `cursor-agent` CLI; see the
 [Cursor harness guide](adapters/cursor.md).
@@ -518,7 +518,7 @@ coverage without pretending one team can implement an open-ended set.
 | Axis | Architecture neutral? | Reference backends working today | Extension points |
 |---|---|---|---|
 | LLM backend | ✅ by construction | Claude Code, Ollama, vLLM, Apache-hosted, Bedrock, direct Anthropic | Any endpoint meeting the capability floor + privacy gate |
-| Agentic harness | ✅ by construction (`AGENTS.md` standard) | Claude Code; OpenCode; [Codex adapter](adapters/codex.md) (experimental); [Gemini adapter](adapters/gemini.md) (experimental); community use under Cursor, Copilot, Kiro | Remaining runtime adapters [#314–#322](https://github.com/apache/magpie/issues?q=is%3Aissue+state%3Aopen+adapter+in%3Atitle) |
+| Agentic harness | ✅ by construction (`AGENTS.md` standard) | Claude Code; OpenCode; [Codex adapter](adapters/codex.md) (experimental); [Antigravity adapter](adapters/antigravity.md) (experimental); community use under Cursor, Copilot, Kiro | Remaining runtime adapters [#314–#322](https://github.com/apache/magpie/issues?q=is%3Aissue+state%3Aopen+adapter+in%3Atitle) |
 | Forge / tracker | ✅ by construction | GitHub, Jira, SourceHut; Bitbucket and GitLab `partial-read-only` foundations excluded from complete-backend counts; CVE/scan/relay via adapter contracts | Forgejo/Gitea [#310](https://github.com/apache/magpie/issues/310), Pagure [#312](https://github.com/apache/magpie/issues/312), full Bitbucket tracker/change-request/Jira coverage [#606](https://github.com/apache/magpie/issues/606), GitLab [#305](https://github.com/apache/magpie/issues/305), Bugzilla [#302](https://github.com/apache/magpie/issues/302) |
 | Communication channels | ✅ by construction | PonyMail / mail-archive reads; Mailman 3 / Hyperkitty public-archive reads ([`tools/mail-source/mailman3`](../tools/mail-source/mailman3/)); Discourse topic reads ([`tools/discourse`](../tools/discourse/), `partial`) | mbox [#304](https://github.com/apache/magpie/issues/304), IMAP [#303](https://github.com/apache/magpie/issues/303); Discourse [#307](https://github.com/apache/magpie/issues/307), Zulip [#308](https://github.com/apache/magpie/issues/308), Matrix [#309](https://github.com/apache/magpie/issues/309) |
 | Source control (VCS) | ✅ by construction | **Git**, **Mercurial**, **Fossil**, **Subversion** (complete, [`tools/vcs`](../tools/vcs/)); ASF SVN surface ([`tools/asf-svn`](../tools/asf-svn/): source control + dist.apache.org + authorization) | Jujutsu [\#603](https://github.com/apache/magpie/issues/603), Perforce [\#605](https://github.com/apache/magpie/issues/605) (tracked) |
@@ -621,7 +621,7 @@ Organization scope (declared, orthogonal to vendor): ASF = 16, agnostic = 67.
 | Substrate tool | Substrate | Harness support | Verdict |
 |---|---|---|---|
 | `adversarial-review` | review | any | ✅ agnostic |
-| `agent-guard` | action-guard | Claude Code, Codex, Copilot, Gemini CLI, Grok, Junie, Kiro, OpenCode | ✅ portable |
+| `agent-guard` | action-guard | Antigravity, Claude Code, Codex, Copilot, Grok, Junie, Kiro, OpenCode | ✅ portable |
 | `agent-isolation` | sandbox | any | ✅ agnostic |
 | `container-gateway` | sandbox | any | ✅ agnostic |
 | `contributor-metrics` | analytics | any | ✅ agnostic |
@@ -639,7 +639,7 @@ Organization scope (declared, orthogonal to vendor): ASF = 16, agnostic = 67.
 | `release-management` | release | any | ✅ agnostic |
 | `release-verify` | release | any | ✅ agnostic |
 | `reproducible-archive` | release | any | ✅ agnostic |
-| `sandbox-lint` | sandbox | Claude Code, Codex, Cursor, Gemini CLI, Grok, Kiro, OpenCode | ✅ portable |
+| `sandbox-lint` | sandbox | Antigravity, Claude Code, Codex, Cursor, Grok, Kiro, OpenCode | ✅ portable |
 | `secret-prompt` | release | any | ✅ agnostic |
 | `security-management` | analytics | any | ✅ agnostic |
 | `security-tracker-stats-dashboard` | analytics | any | ✅ agnostic |
@@ -649,7 +649,7 @@ Organization scope (declared, orthogonal to vendor): ASF = 16, agnostic = 67.
 | `skill-reconciler-diff` | framework-dev | any | ✅ agnostic |
 | `skill-token-count` | framework-dev, analytics | any | ✅ agnostic |
 | `spec-inventory` | framework-dev, analytics | any | ✅ agnostic |
-| `spec-loop` | framework-dev | Claude Code, Codex, Cursor, Gemini CLI, Grok, Kiro, OpenCode | ✅ portable |
+| `spec-loop` | framework-dev | Antigravity, Claude Code, Codex, Cursor, Grok, Kiro, OpenCode | ✅ portable |
 | `spec-status-index` | framework-dev, analytics | any | ✅ agnostic |
 | `spec-validator` | framework-dev | any | ✅ agnostic |
 | `symlink-lint` | framework-dev | any | ✅ agnostic |
@@ -658,11 +658,11 @@ Organization scope (declared, orthogonal to vendor): ASF = 16, agnostic = 67.
 
 Harness → substrate tools it supports:
 
+- **Antigravity** (3): `agent-guard`, `sandbox-lint`, `spec-loop`
 - **Claude Code** (3): `agent-guard`, `sandbox-lint`, `spec-loop`
 - **Codex** (3): `agent-guard`, `sandbox-lint`, `spec-loop`
 - **Copilot** (1): `agent-guard`
 - **Cursor** (2): `sandbox-lint`, `spec-loop`
-- **Gemini CLI** (3): `agent-guard`, `sandbox-lint`, `spec-loop`
 - **Grok** (3): `agent-guard`, `sandbox-lint`, `spec-loop`
 - **Junie** (1): `agent-guard`
 - **Kiro** (3): `agent-guard`, `sandbox-lint`, `spec-loop`

@@ -60,7 +60,7 @@ In priority order, first match wins:
    session (still announce: *"adversarial reviewer disabled for this
    session"*).
 2. **`with-reviewers:<list>`** → the tool path, with exactly that list
-   (comma-separated backend names: `codex`, `copilot`, `gemini`,
+   (comma-separated backend names: `codex`, `copilot`, `antigravity`,
    `grok`, `claude`).
 3. **`with-reviewer:<command>`** → the slash path, with that command.
 4. **`adversarial-review.md`** (`.apache-magpie-local/` first, then

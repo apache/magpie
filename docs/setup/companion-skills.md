@@ -47,7 +47,7 @@ SAST, secrets and infrastructure-as-code scanning surfaced in the session.
 /plugin install aikido
 ```
 
-Not available on OpenAI Codex CLI, VS Code / GitHub Copilot, Google Gemini CLI, Cursor, OpenCode, Kiro CLI.
+Not available on OpenAI Codex CLI, VS Code / GitHub Copilot, Google Antigravity, Cursor, OpenCode, Kiro CLI.
 
 ## [Claude Security](https://code.claude.com/docs/en/claude-security)
 
@@ -63,7 +63,7 @@ Claude Code only: it drives subagents and a scan workflow that Agent Plugins 1.0
 /plugin install claude-security
 ```
 
-Not available on OpenAI Codex CLI, VS Code / GitHub Copilot, Google Gemini CLI, Cursor, OpenCode, Kiro CLI.
+Not available on OpenAI Codex CLI, VS Code / GitHub Copilot, Google Antigravity, Cursor, OpenCode, Kiro CLI.
 
 ## [Code Review](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/code-review)
 
@@ -77,7 +77,7 @@ Automated pull-request review through several specialised agents, scored by conf
 /plugin install code-review
 ```
 
-Not available on OpenAI Codex CLI, VS Code / GitHub Copilot, Google Gemini CLI, Cursor, OpenCode, Kiro CLI.
+Not available on OpenAI Codex CLI, VS Code / GitHub Copilot, Google Antigravity, Cursor, OpenCode, Kiro CLI.
 
 ## [roborev](https://roborev.io)
 
@@ -108,7 +108,7 @@ brew install kenn-io/tap/roborev
 roborev skills install
 ```
 
-**Google Gemini CLI**
+**Google Antigravity**
 
 ```text
 brew install kenn-io/tap/roborev
@@ -166,10 +166,10 @@ codex plugin add superpowers@superpowers-marketplace
 install from github.com/obra/superpowers
 ```
 
-**Google Gemini CLI**
+**Google Antigravity**
 
 ```text
-gemini extensions install https://github.com/obra/superpowers
+agy plugin install https://github.com/obra/superpowers
 ```
 
 **Cursor**

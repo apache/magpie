@@ -68,8 +68,8 @@ Both paths run the same flow.
    /plugin update <plugin>@apache-magpie
    ```
 
-   (Codex: `codex plugin marketplace upgrade apache-magpie`; Gemini:
-   `gemini extensions update magpie`.) When `magpie-security` is installed
+   (Codex: `codex plugin marketplace upgrade apache-magpie`; Antigravity: re-run
+   `agy plugin install https://github.com/apache/magpie`.) When `magpie-security` is installed
    and `magpie-security-tools` is not, add
    `/plugin install magpie-security-tools@apache-magpie`: the security
    skills run their framework tools from it. After the plugin refresh,
@@ -132,7 +132,7 @@ Code and its note names one (roborev: Step B). An upgrade is where a family grow
 companion the operator has not heard of, so this runs whether or not any
 plugin version moved; when nothing matches, say nothing about it. Offer
 each companion once: append an `<id> <agent>` (the registry's harness key: `claude-code`, `codex`,
-`copilot`, `gemini`, `cursor`, `opencode`, `kiro`) line for each companion offered to
+`copilot`, `antigravity`, `cursor`, `opencode`, `kiro`) line for each companion offered to
 `~/.cache/apache-magpie/companions-offered`, the same per-user file
 [`install.md` Step M5](install.md#step-m5--recap-and-what-comes-next) writes,
 and skip the `<id> <agent>` pairs already listed, so a decline is not
@@ -525,7 +525,7 @@ This step refreshes symlinks for **every active target dir**
 ([`agents.md`](agents.md)), not just the `.claude/`/`.github/`
 pair. Compute the **active target set** the same way `adopt`
 does: the always-on neutral targets `.agents/skills/`
-(`universal` — the path shared by Codex, Cursor, Gemini CLI,
+(`universal` — the path shared by Codex, Cursor, Antigravity,
 Copilot, OpenCode, …), `.claude/skills/` (`claude-code`), and
 `.github/skills/` (`github`), **plus any registry holdout
 already present in the repo** (`.windsurf/skills/`,
@@ -693,9 +693,9 @@ rather than pulls in via symlink. Examples:
   Preserve installed stable paths and user rule files; do not hardcode a new plugin version into native prefixes.
   Changed hook definitions need operator review in `/hooks`; never reset or grant hook trust automatically.
   When the guard is plugin-owned, omit a duplicate project registration and run lint with `--guard-from-plugin`, then inspect plugin registration and trust separately.
-- An installed Gemini workspace profile and guard registration:
-  follow [the Gemini update lifecycle](../../../../docs/adapters/gemini.md#update) to report drift, then use its install merge for approved repairs.
-  Preserve unrelated configuration and hand edits, and verify after restarting the runtime.
+- A user-scope Antigravity guard registration that points into this snapshot:
+  follow [the Antigravity update lifecycle](../../../../docs/adapters/antigravity.md#update) to report drift, then use its install merge for approved repairs.
+  It lives in `~/.gemini/`, not the repository; preserve the user's unrelated hooks and rules, and verify after restarting the runtime.
 - Grok action-guard wiring, when Grok is an adopted runtime.
   For a marketplace/plugin install, leave repository hook state alone and let the plugin manager update the bundled `magpie-agent-guard` executable and hook.
   Do not create a project hook or snapshot merely because the plugin was upgraded.

@@ -145,8 +145,8 @@ stacked on a working one:
   and `~/.claude/plugins/known_marketplaces.json` name the
   installed plugins and whether the `apache-magpie` marketplace
   is registered.
-- **Codex CLI** — `codex plugin list`. **Gemini CLI** —
-  `gemini extensions list`.
+- **Codex CLI** — `codex plugin list`. **Antigravity** —
+  `agy plugin list --json`.
 
 If it is installed: report which plugins are active and their
 version, offer to **add** any family the user now wants — the same
@@ -171,7 +171,7 @@ floor [Step M0b](#step-m0b--pre-fill-from-the-committed-floor) reads.
 | Claude Code | `~/.claude/` present; `CLAUDE_*` env; the session itself | `/plugin` |
 | OpenAI Codex CLI | `codex` on `PATH`, `~/.codex/` | `codex plugin` |
 | VS Code / GitHub Copilot | `.vscode/`, the Copilot CLI on `PATH` | repo URL or catalog |
-| Google Gemini CLI | `gemini` on `PATH`, `~/.gemini/` | `gemini extensions` |
+| Google Antigravity | `agy` on `PATH`, `~/.gemini/antigravity-cli/` | `agy plugin` |
 | Cursor, `microsoft/apm`, Kiro, OpenCode | per [`marketplace.md`](../../../../docs/setup/marketplace.md#supported-agents) | varies |
 
 When the running agent is ambiguous, ask — one structured
@@ -249,7 +249,7 @@ and what is missing from it.
 **Run the installs. Do not hand the user a list to type.** The
 `/plugin …` form is a client command typed into a session and no
 tool can invoke it — but every marketplace harness ships a *CLI*
-beside it (`claude plugin`, `codex plugin`, `gemini extensions`),
+beside it (`claude plugin`, `codex plugin`, `agy plugin`),
 and those are ordinary binaries. Every skill's adoption-floor
 pre-flight already calls them to bring a machine up to a
 project's floor ([`locks.md`](locks.md)); this step calls them
@@ -336,11 +336,14 @@ codex plugin marketplace add apache/magpie
 codex plugin add magpie-setup@apache-magpie   # plus each family picked
 ```
 
-Gemini CLI:
+Antigravity:
 
 ```bash
-gemini extensions install https://github.com/apache/magpie
+agy plugin install https://github.com/apache/magpie
 ```
+
+A user coming from Gemini CLI with the old Magpie extension installed
+can convert it instead with `agy plugin import gemini`.
 
 VS Code / Copilot has no CLI on this path: point the plugin
 install at `https://github.com/apache/magpie`, and say that is
@@ -400,7 +403,7 @@ Tell the user, in this order:
    first when the entry names one — the same two-step rule as
    [Step 5](#step-5--pick-the-skill-families-and-mcp-servers).
    Print them; never run them. Append an `<id> <agent>` (the registry's harness key: `claude-code`, `codex`,
-`copilot`, `gemini`, `cursor`, `opencode`, `kiro`) line for each
+`copilot`, `antigravity`, `cursor`, `opencode`, `kiro`) line for each
    companion offered to `~/.cache/apache-magpie/companions-offered`, and
    skip `<id> <agent>` pairs already listed there, so upgrade does not
    re-offer a decline and an offer on one agent does not hide the commands
@@ -416,8 +419,8 @@ Tell the user, in this order:
 4. **How it updates** — Claude Code:
    `/plugin marketplace update apache-magpie` then
    `/plugin update <plugin>@apache-magpie`; Codex:
-   `codex plugin marketplace upgrade apache-magpie`; Gemini:
-   `gemini extensions update magpie`. The bundled `SessionStart`
+   `codex plugin marketplace upgrade apache-magpie`; Antigravity: re-run
+   `agy plugin install https://github.com/apache/magpie`. The bundled `SessionStart`
    hook prompts on a version change where the client runs hooks.
 5. **Configure it for yourself when a skill asks.** A marketplace
    install delivers skills; it tells them nothing about this project.
@@ -564,7 +567,7 @@ How it differs from a remote adoption:
   path that always resolves on a fresh clone — so the
   links are committed. They are written under **every active
   target dir** ([`agents.md`](agents.md)) — `.agents/skills/`
-  (the universal path shared by Codex, Cursor, Gemini CLI,
+  (the universal path shared by Codex, Cursor, Antigravity,
   Copilot, …), `.claude/skills/` (Claude Code), and
   `.github/skills/` (GitHub's skill loader) — so the framework's
   own skills are discoverable by any harness; `.gitignore`
@@ -1290,7 +1293,7 @@ into **every active target dir**, canonical first:
   skill at `.agents/skills/magpie-<n>` → relative path into the
   snapshot (`../../.apache-magpie/skills/<n>/`). Gitignored. This
   is the single placement that makes the framework discoverable to
-  Codex, Cursor, Gemini CLI, Copilot, OpenCode, and the rest of
+  Codex, Cursor, Antigravity, Copilot, OpenCode, and the rest of
   the shared-path cluster, and the one source every relay points
   at.
 
@@ -2091,10 +2094,9 @@ Four passes, in this order:
    gitignored. See
    [the Codex adapter](../../../../docs/adapters/codex.md).
 
-   **Gemini project profile (when Gemini is the selected runtime).**
-   Follow [the Gemini install lifecycle](../../../../docs/adapters/gemini.md#install) to propose and merge its workspace profile and guard registration from this snapshot.
-   Preserve unrelated configuration and review conflicts before applying changes.
-   Validate the merged profile and hand off live verification to Gemini.
+   **Antigravity writes no project profile.**
+   Its sandbox, permission rules and guard are per user, in `~/.gemini/`;
+   when Antigravity is the selected runtime, point to `setup-isolated-setup-install` ([the Antigravity install](../../../../docs/adapters/antigravity.md#install)) instead of writing anything into the repository.
    **Grok action guard (when Grok is the selected runtime).**
    First distinguish a marketplace/plugin install from a source or pinned-snapshot install.
    When `magpie-agent-guard` is already available as an enabled marketplace plugin, use that bundled hook and executable.

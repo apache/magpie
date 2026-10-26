@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:1f327e069312dad2
 license: Apache-2.0
-measured_tokens: 6869
+measured_tokens: 6874
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -37,7 +37,7 @@ Surface policy, rules, and tested-version drift; never auto-weaken or silently o
 Then stop.
 The remainder of this skill is the Claude Code update branch.
 
-When the selected runtime is Gemini CLI, follow [docs/adapters/gemini.md](../../../../docs/adapters/gemini.md#update): compare the workspace profile, guard path, wrapper, and runtime version with the existing installation's sources.
+When the selected runtime is Antigravity, follow [docs/adapters/antigravity.md](../../../../docs/adapters/antigravity.md#update): compare the user-scope profile, guard path, wrapper, and runtime version with the framework's shipped profile.
 Report drift and proposed changes only; do not apply changes or require Claude configuration.
 Then stop before the Claude-specific drift report below.
 

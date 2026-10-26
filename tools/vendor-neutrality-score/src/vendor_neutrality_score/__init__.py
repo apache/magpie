@@ -208,7 +208,7 @@ HARNESS_VOCAB = {
     "Claude Code",
     "Codex",
     "Cursor",
-    "Gemini CLI",
+    "Antigravity",
     "Copilot",
     "OpenCode",
     "Kiro",

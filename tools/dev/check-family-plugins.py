@@ -8,7 +8,7 @@ Checks that every plugin is properly defined:
 
 - every ecosystem manifest that declares the framework version
   (`.claude-plugin/plugin.json`, the Agent Plugins 1.0 `plugin.json`,
-  `.codex-plugin/plugin.json`, `gemini-extension.json`, `apm.yml`) mirrors
+  `.codex-plugin/plugin.json`, `apm.yml`) mirrors
   `pyproject.toml`'s `project.version` verbatim — including a `.devN` suffix;
 - `magpie-setup`'s manifest wires the `hooks/check-upgrade.sh` SessionStart
   hook (which must exist) -- it rides on the one plugin the recommended floor
@@ -158,8 +158,8 @@ ALIAS_OVERRIDES = {
     "setup": "setup",
     # "to-committer" does not read as the name of anything.
     "contributor-to-committer": "contributor-to-committer",
-    # The alias is also the skill's frontmatter `name:`, and Gemini CLI keeps
-    # skill names in one flat registry, so aliases must be unique across every
+    # The alias is also the skill's frontmatter `name:`, and Antigravity turns
+    # every skill into a slash command in one flat namespace, so aliases must be unique across every
     # family, not just within one. `magpie-issue` keeps `triage` / `stale-sweep`.
     "pr-management-triage": "pr-triage",
     "pr-stale-sweep": "pr-stale-sweep",
@@ -249,7 +249,6 @@ ECOSYSTEM_MANIFESTS = (
     ROOT_MANIFEST,
     AP1_MANIFEST,
     ROOT_CODEX_MANIFEST,
-    Path("gemini-extension.json"),
     Path("apm.yml"),
 )
 APM_VERSION_RE = re.compile(r"^(version:[ \t]*)(\S+)[ \t]*$", re.M)
@@ -468,8 +467,8 @@ SUBSTRATE_PLUGINS: dict[str, dict] = {
     "magpie-adversarial-review": {
         "description": (
             "Apache Magpie \u2014 adversarial review: runs other models' CLIs (Codex, Copilot, "
-            "Gemini, Claude) read-only over a change before its PR is created, and merges their "
-            "findings. Runs from the installed plugin, so no repository needs a copy."
+            "Antigravity, Grok, Claude) read-only over a change before its PR is created, and "
+            "merges their findings. Runs from the installed plugin, so no repository needs a copy."
         ),
         # The Claude Code command is a generated file in the tool (pinned there by a
         # test against the generator), published at the plugin's `commands/`.
@@ -1165,7 +1164,7 @@ def plugin_alias(skill: str, family: str) -> str:
 
     Aliases must be unique across every family, not only within one: the alias
     is also the skill's frontmatter ``name:``, and harnesses that keep skills in
-    one flat registry (Gemini CLI) would otherwise collide them. ``check``
+    one flat namespace (Antigravity slash commands) would otherwise collide them. ``check``
     enforces that; :data:`ALIAS_OVERRIDES` resolves a repeat.
     """
     if skill in ALIAS_OVERRIDES:
@@ -1379,8 +1378,8 @@ def check(fam: dict[str, set[str]]) -> list[str]:
                 errors.append(f"{mirror} -> {mirror.readlink()} (expected {want})")
 
     # 3b) Aliases are unique across *all* families. The alias is the skill's
-    #     frontmatter `name:`, and Gemini CLI registers skills by that name in
-    #     one flat namespace, so a repeat across two families is a collision.
+    #     frontmatter `name:`, and Antigravity registers skills by that name in
+    #     one flat slash-command namespace, so a repeat across two families is a collision.
     owners: dict[str, list[str]] = {}
     for family, skills in sorted(fam.items()):
         for alias in aliases_for(family, skills):

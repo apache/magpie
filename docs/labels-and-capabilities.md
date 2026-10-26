@@ -186,7 +186,7 @@ LLM-integration neutrality and is scored by
 [`tools/vendor-neutrality-score`](../tools/vendor-neutrality-score/) —
 distinct from a tool's `**Runtime:**` field, which is its *execution*
 environment (e.g. "Python stdlib"). The recognised harnesses are: Claude
-Code, Codex, Cursor, Gemini CLI, Copilot, OpenCode, Kiro. A tool is
+Code, Codex, Cursor, Antigravity, Copilot, OpenCode, Kiro. A tool is
 harness-neutral when it is `agnostic` or supports two or more harnesses.
 
 ### 3. `kind:*` — change type (pre-existing)
@@ -322,7 +322,7 @@ or a contract-free mix of substrates (e.g. `tools/spec-inventory` is
 
 | Tool | Capability / capabilities | Role |
 |---|---|---|
-| [`tools/agent-guard`](../tools/agent-guard/) | `substrate:action-guard` | Deterministic pre-execution guard dispatcher (harness-neutral core behind Claude Code and Codex native `PreToolUse` hooks, an OpenCode `tool.execute.before` plugin, a Kiro `preToolUse` hook, and a Gemini CLI `BeforeTool` hook): blocks `gh`/`git` commands that would ping maintainers, carry a `Co-Authored-By` trailer, mark-ready prematurely, leak security language publicly, or empty a PR via force-push. Extensible — skills contribute guards via `guards.d` |
+| [`tools/agent-guard`](../tools/agent-guard/) | `substrate:action-guard` | Deterministic pre-execution guard dispatcher (harness-neutral core behind Claude Code and Codex native `PreToolUse` hooks, an OpenCode `tool.execute.before` plugin, a Kiro `preToolUse` hook, and an Antigravity `PreToolUse` hook): blocks `gh`/`git` commands that would ping maintainers, carry a `Co-Authored-By` trailer, mark-ready prematurely, leak security language publicly, or empty a PR via force-push. Extensible — skills contribute guards via `guards.d` |
 | [`tools/agent-isolation`](../tools/agent-isolation/) | `substrate:sandbox` | Secure-agent sandbox helpers |
 | [`tools/apache-projects`](../tools/apache-projects/) | `contract:project-metadata` | ASF project-metadata substrate (`apache/comdev` `apache-projects-mcp`); read-only `projects.apache.org/json` rosters / people / releases. Backs `contributor-nomination` and the security roster-resolution paths; tracked at `main`, not pinned |
 | [`tools/asf-nexus`](../tools/asf-nexus/) | `contract:release-staging` | ASF Nexus staging-repository adapter (read-only, `repository.apache.org`): anonymous content-tree reads plus authenticated staging-API reads for the authoritative `open`/`closed` state and the profile-wide repository listing. Implements check 4 of issue #1173; consumed by `release-verify-rc` Step 6c. Never closes, drops, or promotes |
@@ -359,7 +359,7 @@ or a contract-free mix of substrates (e.g. `tools/spec-inventory` is
 | [`tools/ponymail`](../tools/ponymail/) | `contract:mail-archive` + `contract:mail-source` | PonyMail public mail-archive substrate (ASF `lists.apache.org`); implements the `tools/mail-archive/` contract for archive reads and the `tools/mail-source/` contract for inbound list-traffic ingestion |
 | [`tools/scan-format`](../tools/scan-format/) | `contract:scan-format` | Adapter contract for security-scanner report formats (ASVS reference; `anthropic-oss-scanner` for scans delivered as one email); reads a scan's finding index + per-finding evidence for the `security-issue-import-from-scan` pipeline. |
 | [`tools/permission-audit`](../tools/permission-audit/) | `substrate:sandbox` | Audit + atomically edit Claude Code `permissions.allow[]` entries; backs `/magpie-setup:setup verify --apply-permission-audit` (check 8d) |
-| [`tools/adversarial-review`](../tools/adversarial-review/) | `substrate:review` | Runs other models' CLIs (Codex, Copilot, Gemini, Claude) read-only over a change before its PR is created, and merges their findings into one advisory JSON report |
+| [`tools/adversarial-review`](../tools/adversarial-review/) | `substrate:review` | Runs other models' CLIs (Codex, Copilot, Antigravity, Grok, Claude) read-only over a change before its PR is created, and merges their findings into one advisory JSON report |
 | [`tools/vetted-ops`](../tools/vetted-ops/) | `substrate:sandbox` | Fixed, policy-scoped forge operations — a closed catalogue whose parameters can never become commands or flags, so one `allow` entry replaces the wildcard Layer 3 `ask` rules |
 | [`tools/contributor-metrics`](../tools/contributor-metrics/) | `substrate:analytics` | Deterministic contributor activity counts, per-area shares and automated-work weighting for the contributor-growth skills |
 | [`tools/pr-management`](../tools/pr-management/) | `substrate:analytics` | Deterministic core of the `pr-management` skills: classifies a saved PR sweep (pre-filters, decision table, stale sweeps), guards each mutation on fresh reads, renders every contributor-facing body, and builds the whole PR-backlog dashboard |

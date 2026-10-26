@@ -64,9 +64,9 @@ def resolve_self(override: str | None, env: Mapping[str, str]) -> str | None:
 
 def detect(env: Mapping[str, str], self_name: str | None, probe_timeout: float = 15.0) -> list[Detection]:
     rows: list[Detection] = []
-    for name in BACKENDS:
+    for name, backend in BACKENDS.items():
         is_self = name == self_name
-        path = shutil.which(name, path=env.get("PATH", ""))
+        path = shutil.which(backend.executable, path=env.get("PATH", ""))
         if path is None:
             rows.append(Detection(name, None, None, False, is_self, "not on PATH"))
             continue

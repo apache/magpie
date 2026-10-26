@@ -35,12 +35,18 @@ successful prompt injection cannot read credentials or reach a
 non-allowed host. The fallback when prompt engineering fails is the OS
 saying "no".
 
-Gemini CLI uses tool sandboxing rather than whole-process isolation.
-Its native file tools restrict reads to allowed directories, but the tested
-Linux backend exposes host files broadly read-only to approved shell commands.
-Native credential-path policy denies do not block equivalent shell reads.
-Tool network restrictions do not cover the CLI, hooks, or MCP servers;
-existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
+Antigravity CLI (`agy`, which replaced Gemini CLI) sandboxes terminal commands rather than the whole process.
+Its profile is user-scope, like the Claude Code reference setup:
+`~/.gemini/antigravity-cli/settings.json` sets `enableTerminalSandbox`,
+a `toolPermission` that keeps approvals (`request-review`, `proceed-in-sandbox` or `strict`, never `always-proceed`),
+`allowNonWorkspaceAccess: false`, and `permissions.allow` / `ask` / `deny` rules
+(`command(…)`, `read_file(…)`, `write_file(…)`, `read_url(…)`, `mcp(…)`; deny wins over ask over allow).
+On macOS the sandbox is a Seatbelt profile: an observed probe on `agy` 1.3.6 could read ordinary home files such as `~/.gitconfig`,
+could not list `~/.ssh`, could not write under `$HOME`, and had no network (DNS failed).
+Domains allowed by `read_url(…)` join the sandbox's outbound allowlist.
+The sandbox covers terminal commands only: native file tools are governed by the permission rules,
+and the model, web tools, hooks, and MCP servers run outside it.
+See `docs/adapters/antigravity.md`.
 
 ## Where it lives
 
@@ -160,9 +166,10 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
   deleting the private key (#1367).
 - `tools/agent-guard/` — deterministic pre-execution guard dispatcher
   (`stdlib`-only). Wired as a `PreToolUse` hook (Claude Code) or a
-  `tool.execute.before` plugin (OpenCode), with a `--gemini` adapter for
-  Gemini CLI's `BeforeTool` event (wired in the repository's
-  `.gemini/settings.json`; registration for snapshot adopters), a `--grok`
+  `tool.execute.before` plugin (OpenCode), with an `--antigravity` adapter for
+  Antigravity CLI's `PreToolUse` event on `run_command` (registered user-scope
+  in `~/.gemini/config/hooks.json`; it answers `{"decision": "deny", "reason": …}`
+  on stdout), a `--grok`
   adapter for Grok Build's `PreToolUse` event, and a `--copilot` adapter
   for Copilot CLI's `preToolUse` event (wired in `.github/hooks/magpie.json`,
   #1560), which also allows one simple read-only command (`gh` reads,
@@ -347,16 +354,15 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
   `$GMAIL_OAUTH_CREDENTIALS`, reached without a symlink, so a tool call
   can neither write the refresh token where sandboxed code reads it nor
   load a planted file (#1795).
-- `.gemini/settings.json` and `.gemini/policies/magpie.toml` — Magpie's Gemini profile: tool-sandboxing and an explicitly loaded User-tier approval policy.
-  Scoped shell reads are allowed; other shell calls, native edits, and MCP calls ask; listed commands and credential paths deny.
-  Credential-path denies name the canonical `grep_search`; the native probe verifies its `search_file_content` alias, canonical policy names, and search/multi-file/web/resource argument schemas against the loaded runtime.
-  `google_web_search`, `web_fetch`, and `read_mcp_resource` require approval for each call in every mode, including auto-edit and Plan Mode; headless calls are refused.
-  Web search and URL fetching run outside shell network isolation; native MCP resource reads need an explicit rule because the MCP server-tool wildcard does not match them.
-  `list_mcp_resources` retains the built-in allow for cached resource discovery.
-  The native probe executes resource listing against a synthetic cache, asserts that metadata reaches the model, and rejects access to an MCP client.
-  Plan Mode permits the scoped reads and approved web/resource reads, and denies other shell calls, file edits, and MCP server tools; YOLO and remembered tool approvals are disabled.
-  `sandbox-lint --gemini .gemini` checks the static profile, with opt-in pytest integration tests against native 0.59.0 APIs for settings, policies, headless refusal, and Linux enforcement.
-  Every Gemini upgrade requires revalidating the native probe against that version; static CI checks alone do not establish effective policy precedence.
+- `tools/agent-isolation/antigravity/settings.json` and `hooks.json` — Magpie's Antigravity profile templates,
+  merged by the operator into the user-scope `~/.gemini/antigravity-cli/settings.json` and `~/.gemini/config/hooks.json`;
+  nothing is installed per repository.
+  The settings enable the terminal sandbox, keep tool approval on, deny non-workspace access,
+  and carry `permissions` rules: scoped read commands allow, other commands and MCP calls ask,
+  and credential/export commands and credential paths deny.
+  The hooks file registers one `PreToolUse` hook on `run_command` that runs `agent_guard --antigravity`.
+  `sandbox-lint --antigravity tools/agent-isolation/antigravity` checks the static templates;
+  static checks do not establish what a live `agy` session enforces.
 - Skills: `setup-isolated-setup-install`, `-update`, `-verify`,
   `-doctor`. The update skill establishes the agent-guard wiring before
   diffing anything: with the `magpie-agent-guard` plugin enabled, the
@@ -566,7 +572,7 @@ carrying a sandbox-setup security fix can move a day after release
 ## Acceptance criteria
 
 1. Filesystem and network default-deny with explicit allow-lists in the
-   reference setup; Gemini's different boundaries are documented above.
+   reference setup; Antigravity's different boundaries are documented above.
 2. The clean-env wrapper strips credential-shaped vars before exec.
 3. `git push` and every `gh` write subcommand are in `permissions.ask`,
    the read-only `gh` subcommands are in `allow`, and no catch-all
@@ -607,14 +613,16 @@ uv run --project tools/setup-preflight --group dev pytest \
   since the last pilot cycle; end-to-end integration with a real adopter
   session has not yet been exercised.
 
-## Gemini setup lifecycle
+## Antigravity setup lifecycle
 
-The four `setup-isolated-setup-*` skills route Gemini requests to
-`docs/adapters/gemini.md` and stop before the Claude-specific procedure.
-The install route merges the workspace profile and a single guard registration
-from the existing extension, snapshot, or framework checkout, preserving
-unrelated settings and requiring review of conflicts.
-Extension setup must not introduce a second snapshot installation.
+The four `setup-isolated-setup-*` skills route Antigravity requests to
+`docs/adapters/antigravity.md` and stop before the Claude-specific procedure.
+The install route proposes merging the user-scope profile into
+`~/.gemini/antigravity-cli/settings.json` and a single guard registration into
+`~/.gemini/config/hooks.json`, preserving unrelated settings and hooks and
+requiring review of conflicts; it never asks for per-repository setup.
+Installing the plugin (`agy plugin install https://github.com/apache/magpie`)
+must not introduce a second snapshot installation.
 Verification distinguishes static configuration from live enforcement;
 update and doctor report drift or diagnoses without applying changes.
 Generic setup reconciles installed profiles and removes their guard references

@@ -20,9 +20,9 @@ when_to_use: >-
   to the `welcome-guide` skill.
 argument-hint: "[install|config|adopt|unadopt|upgrade|worktree-init|verify|reconcile|override skill-name|delegate [skill-name]|welcome|uninstall]"
 capability: capability:platform
-surface_hash: sha256:946a4aba49ce60ff
+surface_hash: sha256:79fd0c850d3d8245
 license: Apache-2.0
-measured_tokens: 5286
+measured_tokens: 5289
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -70,7 +70,7 @@ This is the only check: none of the pre-flight's setup, floor or fingerprint fin
 
 | Path | What it sets up | Take it when |
 |---|---|---|
-| **`marketplace`** *(default)* | The agent's own plugin mechanism installs the skills, per machine. Nothing in the repo; updates arrive through the agent's plugin update. | The agent has a plugin / extension mechanism — Claude Code, Codex CLI, VS Code + Copilot, Gemini CLI, Cursor, `microsoft/apm`. The normal case. |
+| **`marketplace`** *(default)* | The agent's own plugin mechanism installs the skills, per machine. Nothing in the repo; updates arrive through the agent's plugin update. | The agent has a plugin / extension mechanism — Claude Code, Codex CLI, VS Code + Copilot, Antigravity, Cursor, `microsoft/apm`. The normal case. |
 | **`marketplace` + an adopted floor** | The same per-machine install, plus a committed `.apache-magpie.lock` recording the project's minimum version and plugin set. Contributors are brought up to it by any skill's pre-flight. | The project wants a floor every contributor meets, without pinning anyone to one version. Written by [`adopt`](adopt.md). |
 | **`svn-zip` / `git-tag` / `git-branch`** — the **pinned snapshot install** *(fallback)* | The gitignored snapshot at `<snapshot-dir>`, both lock files, gitignored `magpie-*` symlinks, the overrides scaffold, the post-checkout hook. | Only where a marketplace cannot reach: the agent has no plugin mechanism, the project needs the signed ASF source artefact, or it wants every contributor and CI job pinned to one committed framework version with drift detection. |
 | **`local`** | Committed symlinks into the in-repo `skills/` source. No fetch, no snapshot. | The Apache Magpie framework checkout itself (see below). |

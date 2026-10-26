@@ -170,7 +170,7 @@ You should see entries like `magpie-pr-management-triage`,
 framework skill.
 
 > **Why not `~/.agents/skills/`?** Claude Code's native user-scope path is
-> `~/.claude/skills/`. Other agents (Codex, Cursor, Gemini CLI, …) use
+> `~/.claude/skills/`. Other agents (Codex, Cursor, Antigravity, …) use
 > `~/.agents/skills/`. Add a parallel `~/.agents/skills/` loop if you want
 > the skills available user-scope in those agents too; the framework's
 > per-project canonical dir is `.agents/skills/`, but the user-scope

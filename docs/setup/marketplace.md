@@ -13,7 +13,7 @@
     - [Claude Code](#claude-code)
     - [OpenAI Codex CLI](#openai-codex-cli)
     - [VS Code and GitHub Copilot](#vs-code-and-github-copilot)
-    - [Google Gemini CLI](#google-gemini-cli)
+    - [Google Antigravity](#google-antigravity)
     - [Cursor](#cursor)
     - [microsoft/apm (multiplexer)](#microsoftapm-multiplexer)
     - [Kiro (AWS)](#kiro-aws)
@@ -107,10 +107,9 @@ predate the standard still read their own:
 
 | Manifest | Read by | Why it is still needed |
 |---|---|---|
-| [`plugin.json`](../../plugin.json) (root) | VS Code, GitHub Copilot (CLI + app + SDK) | The AP1 manifest. VS Code auto-detects the format from the root manifest and treats the `$schema` value as the AP1 marker |
+| [`plugin.json`](../../plugin.json) (root) | VS Code, GitHub Copilot (CLI + app + SDK), Google Antigravity | The AP1 manifest. VS Code auto-detects the format from the root manifest and treats the `$schema` value as the AP1 marker |
 | [`.claude-plugin/plugin.json`](../../.claude-plugin/plugin.json) | Claude Code (also read by VS Code) | Claude Code documents only this path, and AP1's schema is closed — it has no place for the `hooks` block or the `skills` path |
 | [`.codex-plugin/plugin.json`](../../.codex-plugin/plugin.json) | OpenAI Codex CLI | Codex documents this as its plugin entry point, with its own `interface` / `apps` / `hooks` fields |
-| [`gemini-extension.json`](../../gemini-extension.json) | Google Gemini CLI | Gemini's extension format is unrelated to AP1; Google has announced support for the standard but not a migration for this file |
 | [`apm.yml`](../../apm.yml) | `microsoft/apm` | A cross-client compiler, not a client — its own package schema |
 
 The manifests do not conflict: they sit at different paths, each client reads
@@ -207,7 +206,7 @@ twice — [PRINCIPLES §13](../../PRINCIPLES.md) holds.
 > including inward ones §4.1 permits. A family plugin therefore has to be
 > self-contained, which is what reversing the direction achieves. Measured on
 > real clients: on Codex `magpie-security` installs all fifteen of its skills
-> and `magpie-setup` all nine, and Gemini resolves the mirrored flat tree.
+> and `magpie-setup` all nine.
 
 > [!IMPORTANT]
 > **Windows.** The flat `skills/<skill>` mirror relies on git symlinks. Git for
@@ -251,7 +250,7 @@ Why the difference:
   self-adopted framework checkout. Harnesses that name skills by
   frontmatter instead show the alias there: Codex as `magpie-<family>:<alias>`
   (it resolves the symlink back to the family plugin that owns the skill),
-  Gemini CLI as the bare alias.
+  Antigravity as the bare alias.
 - **Why the aliases.** `magpie-security` + `security-issue-triage` would read
   `/magpie-security:security-issue-triage`, saying "security" twice. <!-- allow-stutter -->
   The family plugin owns each skill as a real directory named by the alias, and
@@ -259,7 +258,7 @@ Why the difference:
   The rule lives in `plugin_alias()` in
   [`tools/dev/check-family-plugins.py`](../../tools/dev/check-family-plugins.py),
   which also requires every alias to be unique across **all** families —
-  Gemini CLI registers skills by `name:` in one flat namespace, which is why the
+  Antigravity registers skills by `name:` as slash commands in one flat namespace, which is why the
   pull-request family's are `pr-triage` and `pr-stale-sweep` rather than a
   second `triage` and `stale-sweep`. `check-doc-sync.py` fails any doc that
   invokes a stuttering form, and the skill validator fails any `name:` that
@@ -289,7 +288,7 @@ Quick reference:
 | **Claude Code** | `/plugin marketplace add apache/magpie` → `/plugin install magpie-setup@apache-magpie` | `.claude-plugin/marketplace.json` + `.claude-plugin/plugin.json` |
 | **OpenAI Codex CLI** | `codex plugin marketplace add apache/magpie` → install `magpie-setup` | `.agents/plugins/marketplace.json`; per plugin root, whichever manifest [resolution](#which-manifest-codex-reads) picks |
 | **VS Code / GitHub Copilot** | install straight from the repo URL `https://github.com/apache/magpie`, or add it as a plugin marketplace | root `plugin.json` (AP1), `marketplace.json` (repo root) |
-| **Google Gemini CLI** | `gemini extensions install https://github.com/apache/magpie` | `gemini-extension.json` |
+| **Google Antigravity** | `agy plugin install https://github.com/apache/magpie` | root `plugin.json` + `skills/` |
 | **Cursor** | add via the plugin/skill install flow pointing at the repo | root `plugin.json` (AP1) |
 | **microsoft/apm** | `apm install apache/magpie` (compiles to Claude/Cursor/Codex/Copilot/Gemini) | `apm.yml` |
 | **Kiro** | install per-skill from a GitHub subdirectory, or the AP1 package | root `plugin.json` (AP1), native `skills/<name>/SKILL.md` |
@@ -411,17 +410,20 @@ them. As with Codex, all ten families are offered.
 > Copilot plugins that do not target AP1 remain supported, so the root
 > `marketplace.json` keeps working regardless.
 
-### Google Gemini CLI
+### Google Antigravity
 
-Commands: [**Prerequisite → Google Gemini CLI**](marketplace-install.md#google-gemini-cli).
+Commands: [**Prerequisite → Google Antigravity**](marketplace-install.md#google-antigravity).
 
-The install reads `gemini-extension.json` and auto-discovers the skills under
-`skills/`. Invoke them by asking the agent in natural language or by skill
-name.
+The install reads the root [`plugin.json`](../../plugin.json) and discovers
+the skills under `skills/`; `agy plugin validate .` reports all of them.
+Each skill becomes a slash command, and Antigravity loads `AGENTS.md`
+natively, so no Antigravity-specific context file ships. Antigravity replaced
+Gemini CLI, which Google retired for individual accounts on 2026-06-18;
+Magpie no longer ships a Gemini extension.
 
-Gemini has no lifecycle hook, so the shipped
-[`GEMINI.md`](../../GEMINI.md) reminds you to run `/magpie-setup:complete-upgrade` when
-the version changes.
+No upgrade prompt fires on Antigravity yet: re-run `/magpie-setup:complete-upgrade`
+after refreshing the plugin. The secure setup is per user; see
+[the Antigravity adapter](../adapters/antigravity.md).
 
 ### Cursor
 
@@ -521,7 +523,7 @@ difference is structural rather than a gap someone forgot to fill.
 | **Claude Code** | ✅ per-family | `extraKnownMarketplaces` + `enabledPlugins` in the project's `.claude/settings.json` |
 | **OpenAI Codex CLI** | ✅ the floor | `policy.installation: "INSTALLED_BY_DEFAULT"` on `magpie-setup` in `.agents/plugins/marketplace.json`; every other family stays `AVAILABLE` |
 | **VS Code / GitHub Copilot** | ❌ | No repo-side mechanism. The catalogue advertises; it cannot pre-install |
-| **Google Gemini CLI** | ❌ | Install is explicit-only. Gemini does **not** load a workspace `.gemini/extensions/` directory — verified against the CLI, which reports "No extensions installed" for a repo-local extension |
+| **Google Antigravity** | ❌ | Install is explicit-only. Plugins are installed per user under `~/.gemini/config/plugins/`; there is no repo-side plugin declaration |
 | **JetBrains IDEs** | ✅ inherited | Whatever the agent running inside the IDE supports. With Claude Code's JetBrains plugin that is the row above — the project's `.claude/settings.json` applies unchanged, because plugin state is one user-scope store shared by every host of the same CLI |
 
 Codex's `INSTALLED_BY_DEFAULT` is per-plugin, so it can express exactly the
@@ -623,7 +625,7 @@ automatic while the *changes* stay confirmed.
 | **Claude Code** | `SessionStart` hook [`plugins/magpie-setup/hooks/check-upgrade.sh`](../../plugins/magpie-setup/hooks/check-upgrade.sh) compares the installed version to a marker in the plugin's persistent data dir and prompts on change. Deterministic. |
 | **Codex CLI** | The same [`plugins/magpie-setup/hooks/check-upgrade.sh`](../../plugins/magpie-setup/hooks/check-upgrade.sh), on the same `startup` `SessionStart` event, wired in [`plugins/magpie-setup/hooks/codex-hooks.json`](../../plugins/magpie-setup/hooks/codex-hooks.json) as `/bin/bash -p "${PLUGIN_ROOT}/hooks/check-upgrade.sh"`. The plugin's [`.codex-plugin/plugin.json`](../../plugins/magpie-setup/.codex-plugin/plugin.json) names that file, because Codex cannot parse the Claude Code `hooks/hooks.json` (see [Which manifest Codex reads](#which-manifest-codex-reads)). `PLUGIN_ROOT` is the installed `magpie-setup` root, where the script finds its manifests and `skills/setup`. Codex sets `PLUGIN_ROOT`/`PLUGIN_DATA` (and the `CLAUDE_*` pair for compatibility), which the script reads. It runs only once you have trusted it — see the caveat below. |
 | **VS Code / Copilot, Cursor, Kiro (AP1)** | None. Agent Plugins 1.0 specifies no hook component and VS Code ignores client extension directories, so there is nothing to fire. Run `/magpie-setup:complete-upgrade` after updating. |
-| **Gemini CLI** | No lifecycle hook; the extension context file [`GEMINI.md`](../../GEMINI.md) instructs the agent to compare the extension version to a recorded marker and prompt on change (LLM-driven, advisory). |
+| **Antigravity** | None yet. Plugins can carry a `SessionStart` hook, but Magpie does not ship one for Antigravity until a plugin-root path for it is verified. Run `/magpie-setup:complete-upgrade` after refreshing the plugin. |
 | Other agents | Run `/magpie-setup:complete-upgrade` manually after updating the package. |
 
 > [!IMPORTANT]
@@ -726,7 +728,7 @@ The adopter's half of this is auto-update, and it is **off by default** for
 `apache-magpie` because Claude Code disables it for third-party marketplaces.
 A stamp that moves reaches nobody whose client never refreshes the catalogue, so
 [the install guide](marketplace-install.md#claude-code) tells adopters to turn it
-on, and the same page covers the equivalent for Gemini (`--auto-update`), Codex
+on, and the same page covers the equivalent for Antigravity (re-run the install), Codex
 (manual `marketplace upgrade`) and `apm` (lockfile by design).
 
 **When to bump.** Not every PR — that would put every contributor in conflict
@@ -779,7 +781,6 @@ documentation**; what varies is whether it has also been exercised against a
 | `.claude-plugin/*` | Claude Code plugins reference | Verified live — `claude plugin validate . --strict` passes with 0 warnings; a family plugin installs and loads from a local marketplace replica |
 | `.codex-plugin/plugin.json`, `.agents/plugins/marketplace.json` | The `codex` binary's own source and enums — native hook behavior is documented in [OpenAI’s hook reference](https://learn.chatgpt.com/docs/hooks); manifest-resolution order was checked against [`plugin_namespace.rs`][codex-resolve] and [`protocol.rs`][codex-paths] | **Verified live** — `codex plugin marketplace add` + `plugin list` against codex 0.154.0. The first live run is what caught the invented `policy` values the documentation check could not; the enums are now enforced by `check-family-plugins.py`. Note the root `.codex-plugin/plugin.json` is an **overlay** on the root manifest, not the manifest itself, while a family plugin's `.codex-plugin/plugin.json` is the whole manifest. The `magpie-setup` upgrade hook was checked live with the app server's `hooks/list` against codex 0.154.0: it loads from `hooks/codex-hooks.json` with no warning, untrusted until reviewed, where the Claude Code `hooks/hooks.json` failed with ``unknown field `$schema` ``. See the hook-trust note above |
 | root `marketplace.json` | Copilot / VS Code plugin marketplace docs | Legacy-format catalog, explicitly still supported alongside AP1. Not yet live-installed |
-| `gemini-extension.json` | Gemini CLI extensions docs | Follows the published schema. Google has joined the AP1 TSC but has published no migration for this file — keep both |
 | `apm.yml` | `microsoft/apm` schema **v0.1** | Pre-1.0 and the most likely to churn; re-check before publish |
 
 The skills themselves are checked against the

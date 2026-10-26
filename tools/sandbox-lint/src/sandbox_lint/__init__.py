@@ -1074,17 +1074,24 @@ def _lint_codex(config_dir: Path, *, guard_from_plugin: bool = False) -> int:
     return 1
 
 
-def _lint_gemini(config_dir: Path) -> int:
-    """Check the committed Gemini profile; this does not inspect a live session."""
-    from sandbox_lint.gemini import check_gemini_invariants
+def _lint_antigravity(profile: Path, hooks_path: Path | None) -> int:
+    """Check a user-scope Antigravity profile; this does not inspect a live session.
 
-    errors = check_gemini_invariants(
-        _load_json(config_dir / "settings.json"),
-        _load_toml(config_dir / "policies" / "magpie.toml"),
-    )
+    ``profile`` is a directory holding ``settings.json`` and ``hooks.json`` (the
+    shipped template) or the user's ``settings.json``; ``hooks_path`` overrides
+    where the guard registration is read from.
+    """
+    from sandbox_lint.antigravity import check_antigravity_hooks, check_antigravity_settings
+
+    settings_path = profile / "settings.json" if profile.is_dir() else profile
+    hooks_path = hooks_path or settings_path.with_name("hooks.json")
+    baseline = _load_json(Path(__file__).resolve().parents[2] / "expected.json")
+    errors = check_antigravity_settings(_load_json(settings_path), baseline)
+    errors += check_antigravity_hooks(_load_json(hooks_path))
     if not errors:
         print(
-            f"sandbox-lint: OK ({config_dir} satisfies the Gemini static profile checks; live enforcement not tested)"
+            f"sandbox-lint: OK ({settings_path} and {hooks_path} satisfy the Antigravity "
+            "static profile checks; live enforcement not tested)"
         )
         return 0
     for error in errors:
@@ -1152,7 +1159,7 @@ def main(argv: list[str] | None = None) -> int:
             "security invariants from docs/security/threat-model.md (M.29); "
             "or lint an OpenCode opencode.json permission policy (--opencode); "
             "or lint a project Codex profile (--codex); "
-            "or lint a project Gemini profile (--gemini); "
+            "or lint a user-scope Antigravity profile (--antigravity); "
             "or validate the harness-neutral OS-level posture for runtimes "
             "without a dedicated config file (--any-harness)."
         ),
@@ -1178,6 +1185,13 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         default=DEFAULT_EXPECTED,
         help=f"Path to the canonical baseline (default: {DEFAULT_EXPECTED})",
+    )
+    parser.add_argument(
+        "--antigravity-hooks",
+        type=Path,
+        default=None,
+        metavar="HOOKS_JSON",
+        help="With --antigravity: the hooks.json holding the guard (default: beside settings.json).",
     )
     # --opencode and --any-harness select alternate lint modes and are mutually
     # exclusive; passing both is a usage error rather than one silently winning.
@@ -1216,10 +1230,14 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     mode.add_argument(
-        "--gemini",
+        "--antigravity",
         type=Path,
-        metavar="GEMINI_DIR",
-        help="Lint Gemini settings.json and policies/magpie.toml (static checks, not live enforcement).",
+        metavar="PROFILE",
+        help=(
+            "Lint an Antigravity settings.json (or a directory holding settings.json "
+            "and hooks.json) against the Claude baseline's asks and denies "
+            "(static checks, not live enforcement)."
+        ),
     )
     mode.add_argument(
         "--any-harness",
@@ -1245,8 +1263,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.guard_from_plugin and args.codex is None:
         parser.error("--guard-from-plugin requires --codex")
 
-    if args.gemini is not None:
-        return _lint_gemini(args.gemini)
+    if args.antigravity is not None:
+        return _lint_antigravity(args.antigravity, args.antigravity_hooks)
     if args.codex is not None:
         return _lint_codex(args.codex, guard_from_plugin=args.guard_from_plugin)
     if args.kiro is not None:

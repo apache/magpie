@@ -231,7 +231,7 @@ error, and two skills that probe or verify the setup on demand.
   / `-update`); this area only diagnoses what is installed.
 - Applying a settings widening from a skill. Every fix is the
   operator's edit, and the doctor says so explicitly.
-- Non-Claude harnesses: the doctor and verify route Codex and Gemini to
+- Non-Claude harnesses: the doctor and verify route Codex and Antigravity to
   their adapters before the Claude-specific probes; the hook is a
   Claude Code `PostToolUse` contract.
 

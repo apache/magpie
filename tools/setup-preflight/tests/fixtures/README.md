@@ -11,5 +11,5 @@ entry; other entries and the `source` / `marketplaceSource` fields (local
 filesystem paths) were removed. The installed/available envelope, field
 names, and retained values are unchanged. This is a format fixture, not a
 Magpie installation. Synthetic Magpie names in the CLI tests exercise floor
-comparison separately. No live Gemini output was available: its listing
-is trusted only when the exact `magpie` extension name is present.
+comparison separately. Antigravity's `agy plugin list --json` output has
+not been captured, so the checker runs no listing there and the floor stays unknown.

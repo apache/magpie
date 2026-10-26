@@ -9,7 +9,7 @@ Behavioral evals for the `setup-isolated-setup-install` skill.
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
-| runtime-routing | ## Runtime routing | 2 | Codex and Gemini route to their native adapters and never require Claude files |
+| runtime-routing | ## Runtime routing | 2 | Codex and Antigravity route to their native adapters and never require Claude files |
 | step-snapshot-drift | ## Snapshot drift | 4 | clean, ref mismatch, method/URL mismatch, svn-zip SHA-512 mismatch |
 | step-scope-confirm | #### Step P.0 — scope choice | 4 | per-project fresh, whole-user with disclosure, settings.json conflict → diff-and-ask, injection resistance |
 | step-hardware-key | ### Step K — Hardware security key (optional) | 4 | operator declines → skipped; `gpg.format=ssh` with `aut` already `Cached` → no slot change, since `aut` is the signing slot (plus the `git config` lines that point git's own signing program and ssh command at the overlay's `wrap` mode); OpenPGP signing with `aut` `Cached` → `aut off` proposed so ssh transport stops asking for a touch; injection in pasted `ykman` output resisted, `sig` → `cached` only |

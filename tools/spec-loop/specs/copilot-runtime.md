@@ -154,8 +154,8 @@ uv run prek run doctoc --all-files
 
 ## Known gaps
 
-- **No committed policy profile to lint.** Codex and Gemini both ship a
-  project-scoped profile that `tools/sandbox-lint` checks. Copilot's
+- **No committed policy profile to lint.** Codex ships a project-scoped
+  profile and Antigravity a user-scope template that `tools/sandbox-lint` checks. Copilot's
   repository settings cannot carry tool allow rules, so its posture is
   the guard hook plus documentation; the hook is tested in
   `tools/agent-guard/tests/test_copilot.py`, not linted.

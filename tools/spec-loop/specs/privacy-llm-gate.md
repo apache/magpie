@@ -106,7 +106,7 @@ artefact for leakage before emission.
   This gate is the egress boundary only: redaction of private source
   content stays the calling skill's job, per `wiring.md`.
 - **Public-bound reviewer CLIs are outside the gate by design.** The
-  `adversarial-review` reviewers (`codex`, `copilot`, `gemini`, `grok`,
+  `adversarial-review` reviewers (`codex`, `copilot`, `antigravity`, `grok`,
   `claude`) receive only the diff and the public PR text, so `models.md`
   excludes them from the active stack
   ([adversarial review](adversarial-review.md)).

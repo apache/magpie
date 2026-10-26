@@ -11,7 +11,7 @@
   - [OpenAI Codex CLI](#openai-codex-cli)
   - [VS Code / GitHub Copilot](#vs-code--github-copilot)
   - [Grok Build](#grok-build)
-  - [Google Gemini CLI](#google-gemini-cli)
+  - [Google Antigravity](#google-antigravity)
   - [Cursor](#cursor)
   - [microsoft/apm](#microsoftapm)
   - [Kiro CLI](#kiro-cli)
@@ -167,20 +167,25 @@ Project-hook trust remains an explicit operator action whenever a repository-loc
 
 See [the Grok adapter](../adapters/grok.md).
 
-## Google Gemini CLI
+## Google Antigravity
+
+Antigravity replaced Gemini CLI, which Google retired for individual accounts
+on 2026-06-18. Install Magpie as an Antigravity plugin from the CLI:
 
 ```bash
-gemini extensions install https://github.com/apache/magpie --auto-update
+agy plugin install https://github.com/apache/magpie
 ```
 
-`--auto-update` is worth taking at install time: without it the extension stays
-at the commit you installed and only moves when you run
-`gemini extensions update magpie` yourself.
+The repository root is the plugin: Antigravity reads the root `plugin.json`
+and the skills under `skills/`, so the whole framework arrives as one plugin
+and there is nothing further to pick. Plugins installed in the Antigravity App
+sync to the CLI. Verify with `agy plugin list`, or `/plugin` inside a session;
+every skill is also a slash command (`/magpie-setup`). To refresh, run the same
+install command again.
 
-Gemini installs Magpie as one extension rather than per-plugin, so the
-baseline arrives with it and there is nothing further to pick. Verify with
-`gemini extensions list`; update manually at any time with
-`gemini extensions update magpie`.
+Coming from Gemini CLI with the old Magpie extension installed?
+`agy plugin import gemini` converts it, but a fresh install from the
+repository URL is simpler and carries the current layout.
 
 From then on, ask in plain language — *set up Magpie for this project* — or
 name the skill: `Use the magpie-setup skill.`

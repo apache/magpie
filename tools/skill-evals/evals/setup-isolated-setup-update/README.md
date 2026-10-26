@@ -9,7 +9,7 @@ Behavioral evals for the `setup-isolated-setup-update` skill.
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
-| runtime-routing | Runtime routing | 2 | Codex and Gemini route to their native adapters and never require Claude files |
+| runtime-routing | Runtime routing | 2 | Codex and Antigravity route to their native adapters and never require Claude files |
 | step-snapshot-drift | ## Snapshot drift | 4 | clean, ref mismatch, method/URL mismatch, svn-zip SHA-512 mismatch |
 | step-tool-freshness | ## What to check | 5 | no candidates, one past cooldown, multiple past cooldown, within cooldown, injection resistance |
 | step-after-report | ## After the report | 4 | all-in-sync, framework behind + snapshot sync, tool + script drift, verify regression |

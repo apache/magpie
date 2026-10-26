@@ -66,7 +66,7 @@ from .lockfile import MalformedLock
 HARNESS_LISTINGS: tuple[tuple[str, tuple[tuple[str, str | None], ...], list[str] | None], ...] = (
     ("codex", (("CODEX_SANDBOX", None), ("CODEX_THREAD_ID", None)), ["codex", "plugin", "list", "--json"]),
     ("copilot", (("COPILOT_CLI", None),), None),
-    ("gemini", (("GEMINI_CLI", "1"),), ["gemini", "extensions", "list", "-o", "json"]),
+    ("antigravity", (("ANTIGRAVITY_CONVERSATION_ID", None),), ["agy", "plugin", "list", "--json"]),
     ("claude", (("CLAUDECODE", "1"),), ["claude", "plugin", "list", "--json"]),
 )
 
@@ -103,6 +103,10 @@ def _parse_listing(text: str, harness: str | None = None) -> dict[str, str] | No
         if not isinstance(item, dict):
             return None
         version = item.get("version")
+        # Antigravity 1.3.6 lists plugins without a manifest version (e.g.
+        # Google's own) with no `version` key; they cannot be Magpie's.
+        if harness == "antigravity" and "version" not in item:
+            continue
         if not isinstance(item.get("name"), str) or not isinstance(version, str):
             return None
         out[item["name"]] = version
@@ -135,7 +139,7 @@ def read_installed(
     if explicit is not None:
         text = sys.stdin.read() if explicit == "-" else Path(explicit).read_text(encoding="utf-8")
         # A supplied listing is still the running harness's own: without
-        # its id, a Gemini `magpie` extension reads as every floor plugin
+        # its id, an Antigravity `magpie` plugin reads as every floor plugin
         # missing and a Codex envelope as unparsable.
         harness, argv = _running_harness(os.environ if env is None else env)
         if argv is None:

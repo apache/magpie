@@ -148,7 +148,7 @@ agent_iso_run() {
   # Only named variables pass through; setting KEY=value alone is insufficient.
   # The neutral name takes precedence, including an explicitly empty value.
   # CLAUDE_ISO_ALLOW remains the backwards-compatible fallback for every CLI.
-  # Example (key already set): AGENT_ISO_ALLOW=GEMINI_API_KEY agent-iso gemini
+  # Example (Linux keyring): AGENT_ISO_ALLOW=DBUS_SESSION_BUS_ADDRESS agent-iso agy
   local allowed_env_vars="${AGENT_ISO_ALLOW-${CLAUDE_ISO_ALLOW-}}"
   if [[ -n "$allowed_env_vars" ]]; then
     # Word-split portably: zsh doesn't split unquoted parameters by default
@@ -310,7 +310,7 @@ claude_iso_main() { agent_iso_run "${AGENT_ISO_AGENT:-claude}" "$@"; }
 # Generic entry point:
 #   agent-iso() / `bash agent-iso.sh agent-iso <cli> [args]` takes the
 #   harness CLI name as its first positional argument and works for ANY
-#   agentic harness — Codex, Cursor, Gemini CLI, Aider, or any future CLI.
+#   agentic harness — Codex, Cursor, Antigravity (`agy`), Aider, or any future CLI.
 #   The credential-strip and clean-env launch are harness-agnostic; only the
 #   `--settings` sandbox allowRead injection is skipped (it is Claude-specific
 #   and already guarded by `if [[ "$agent" == "claude" ]]`).

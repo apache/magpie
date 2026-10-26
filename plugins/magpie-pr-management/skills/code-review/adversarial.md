@@ -7,7 +7,7 @@ Some maintainers run a **second LLM reviewer** alongside their
 own reading and the in-skill review to catch blind spots one
 model would miss. Two shapes are supported:
 
-- **Model CLIs, run by the agent** — `codex`, `copilot`, `gemini`,
+- **Model CLIs, run by the agent** — `codex`, `copilot`, `antigravity`,
   `grok`, `claude` — through the framework's
   [`adversarial-review`](../../../../tools/adversarial-review/README.md)
   tool (the `magpie-adversarial-review` plugin). The maintainer names

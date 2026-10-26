@@ -18,7 +18,7 @@ logs
 # magpie-<skill> symlinks (see skills/setup/adopt.md → "Local
 # self-adoption"). .agents/skills/ is the ONE canonical home: its
 # magpie-<skill> entries point into ../../skills/<skill>/ (the path shared
-# by Codex, Cursor, Gemini CLI, Copilot, …). Every other agent dir is a
+# by Codex, Cursor, Antigravity, Copilot, …). Every other agent dir is a
 # thin relay: .claude/skills/ (Claude Code) and .github/skills/ (GitHub's
 # skill loader) each carry magpie-<skill> → ../../.agents/skills/magpie-<skill>.
 # Those symlinks ARE committed — their targets are in-repo and always

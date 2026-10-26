@@ -324,7 +324,7 @@ committed version with drift detection.
 - **One committed skill, no submodules, no vendored framework copies.**
   The snapshot lives in a gitignored `.apache-magpie/`.
 - **`.agents/skills/` is the canonical home** for framework-skill
-  symlinks (the path shared by Codex, Cursor, Gemini CLI, Copilot, …);
+  symlinks (the path shared by Codex, Cursor, Antigravity, Copilot, …);
   every other agent dir (`.claude/skills/`, `.github/skills/`, holdouts)
   gets per-skill relay symlinks into it. This is uniform — there is no
   per-project skills-dir convention to detect.
@@ -529,7 +529,7 @@ committed version with drift detection.
   `adversarial-review detect`, pre-selects every available backend except
   the running harness's own model, writes
   `adversarial-review.md` in the personal layer from its template, and
-  offers the Codex / Gemini command files under the user's home directory,
+  offers the Codex command file under the user's home directory,
   never inside a repository.
   `verify` check 8i reports configured reviewers whose CLI is gone and
   stale command files; `adopt` always flags `adversarial-review.md` as
@@ -605,10 +605,11 @@ committed version with drift detection.
    stops for a restart without removing, downgrading or pinning anything.
    The installed versions come from the running harness's own listing
    (`claude plugin list --json`, `codex plugin list --json`,
-   `gemini extensions list -o json`), the harness detected from its
-   environment markers innermost-first, and the below-floor finding names
-   that harness (`facts.harness`) and its commands; a harness with no listing
-   command (Copilot CLI) or a listing that cannot be produced leaves the floor
+   `agy plugin list --json`, where the one `magpie` plugin carries the floor),
+   the harness detected from its environment markers innermost-first, and the
+   below-floor finding names that harness (`facts.harness`) and its commands;
+   a harness with no listing command (Copilot CLI) or a listing that cannot be
+   produced leaves the floor
    unknown (#1673; eval cases `preflight-floor` 16–18).
 10. A pre-flight whose lock names a `url` other than `apache/magpie` runs
     nothing and asks first.

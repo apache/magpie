@@ -66,7 +66,7 @@ adopted or merely configured; they are not specific to this branch.
    client's plugin state — Claude Code:
    `~/.claude/plugins/installed_plugins.json` plus the version in
    the cached `…/apache-magpie/<plugin>/<version>/`; Codex:
-   `codex plugin list`; Gemini: `gemini extensions list`. Report
+   `codex plugin list`; Antigravity: `agy plugin list --json`. Report
    the family plugins installed and the version each is on.
 2. **Marketplace registered and reachable.** The `apache-magpie`
    marketplace appears in the client's known marketplaces
@@ -892,13 +892,14 @@ When `.codex/` is absent this check is skipped — the Codex profile is
 opt-in per runtime; see
 [the Codex adapter](../../../../docs/adapters/codex.md).
 
-### 8h. Gemini project profile (if present)
+### 8h. Antigravity user-scope profile (if present)
 
-When the workspace has a Magpie Gemini policy or guard registration, run the static checks in
-[the Gemini verification contract](../../../../docs/adapters/gemini.md#verify).
+When `~/.gemini/antigravity-cli/settings.json` or `~/.gemini/config/hooks.json` carries Magpie's profile or guard registration, run the static checks in
+[the Antigravity verification contract](../../../../docs/adapters/antigravity.md#verify).
+The profile is per user, so this check reads the home directory, never the repository.
 Report missing components and configuration drift without modifying files.
-An absent profile is skipped unless Gemini secure setup was requested; in that case, point to `setup-isolated-setup-install`.
-A static pass does not replace live verification in Gemini.
+An absent profile is skipped unless Antigravity secure setup was requested; in that case, point to `setup-isolated-setup-install`.
+A static pass does not replace live verification in Antigravity.
 
 ### 8h.1. Grok action guard (if configured)
 
@@ -939,7 +940,7 @@ it with the configured `reviewers`.
   `/plugin install magpie-adversarial-review@apache-magpie`.
 - ⚠ for each harness command under the user's home
   (`~/.codex/prompts/magpie-adversarial-review.md`,
-  `~/.gemini/commands/magpie-adversarial-review.toml`) that differs from
+  `~/.gemini/antigravity-cli/skills/magpie-adversarial-review/SKILL.md`) that differs from
   what `adversarial-review commands --harness <name>` prints for the
   installed plugin — the command text changed in a newer plugin. The
   remediation is `/magpie-setup:setup config adversarial-review`, which shows the

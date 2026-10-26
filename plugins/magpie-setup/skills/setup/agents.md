@@ -22,7 +22,7 @@ go"*, never as *"what files contain"*.
 
 | Target id | Project skills dir | Kind | Reads it |
 |---|---|---|---|
-| `universal` | `.agents/skills/` | universal **(canonical)** | Codex, Cursor, Gemini CLI, GitHub Copilot, Goose, Junie, OpenCode, Cline, Zed, Warp, Amp, and the rest of the cluster that converged on the shared path |
+| `universal` | `.agents/skills/` | universal **(canonical)** | Codex, Cursor, Antigravity, GitHub Copilot, Goose, Junie, OpenCode, Cline, Zed, Warp, Amp, and the rest of the cluster that converged on the shared path |
 | `claude-code` | `.claude/skills/` | native (relay) | Claude Code |
 | `github` | `.github/skills/` | native (relay) | GitHub's skill loader |
 | `windsurf` | `.windsurf/skills/` | native (relay) | Windsurf |
@@ -51,7 +51,7 @@ in-repo `../../plugins/<family>/skills/<alias>` (`<alias>` = the skill's frontma
 This is the load-bearing move for neutrality on two fronts:
 
 1. **One placement covers the whole shared-path cluster.** A large
-   set of agents (Codex, Cursor, Gemini CLI, GitHub Copilot,
+   set of agents (Codex, Cursor, Antigravity, GitHub Copilot,
    OpenCode, Cline, Zed, Warp, …) all read `.agents/skills/` as
    their project-scope skills path, so a single
    `.agents/skills/magpie-<skill>` link is seen by all of them:
@@ -60,7 +60,7 @@ This is the load-bearing move for neutrality on two fronts:
    .agents/skills/magpie-pr-management-triage   →  the canonical link
       ├─ Codex      picks it up
       ├─ Cursor     picks it up
-      ├─ Gemini CLI picks it up
+      ├─ Antigravity picks it up
       └─ Copilot …  picks it up
    ```
 
@@ -83,7 +83,7 @@ This is the load-bearing move for neutrality on two fronts:
    untouched — only the `magpie-*` entries are relayed.
 
 (Global / per-user skill paths diverge across agents — e.g.
-`~/.cursor/skills/`, `~/.codex/skills/`, `~/.gemini/skills/`. The
+`~/.cursor/skills/`, `~/.codex/skills/`, `~/.gemini/antigravity-cli/skills/`. The
 framework's adoption is **project-scope** — it writes inside the
 adopter repo — so it only ever cares about the project columns
 above. Global installs are the operator's concern, out of scope

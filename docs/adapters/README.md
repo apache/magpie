@@ -29,11 +29,11 @@ One page per supported agentic harness, each declaring
 `capability:platform`:
 
 - [**Aider**](aider.md) — terminal pair programming agent harness.
+- [**Antigravity**](antigravity.md) — plugin install, user-scope `PreToolUse`
+  guard, terminal sandbox and permission rules. Experimental.
 - [**Codex**](codex.md) — first-class harness.
 - [**Copilot CLI**](copilot.md) — standalone CLI and Coding Agent.
 - [**Cursor**](cursor.md) — Composer and the Agent CLI.
-- [**Gemini CLI**](gemini.md) — extension install, `BeforeTool` guard, tool
-  sandboxing and policies. Experimental.
 - [**Grok Build**](grok.md) — `PreToolUse` action-guard integration.
 - [**JetBrains Junie**](junie.md) — native `.agents/skills/` and `AGENTS.md`, plus an Early Access `PreToolUse` action guard.
 - [**Goose**](goose.md) — Block's open-source agent CLI and desktop environment.
@@ -51,7 +51,7 @@ reaches six of ten.
 | Harness | Clean environment | Filesystem sandbox | Action guard |
 |---|---|---|---|
 | **Claude Code** | `claude-iso` | Seatbelt / bubblewrap, plus a per-repo allowlist | ✅ `PreToolUse` |
-| **Gemini CLI** | `agent-iso gemini` | tool sandboxing + policies | ✅ `BeforeTool` |
+| **Antigravity** | `agent-iso agy` | terminal sandbox + user-scope permission rules | ✅ `PreToolUse` |
 | **OpenCode** | `opencode-iso` | from the OS-level sandbox | ✅ `tool.execute.before` |
 | **Kiro CLI** | `kiro-iso` | from the OS-level sandbox | ✅ `preToolUse` |
 | **Grok Build** | ❌ **none** | ❌ **none** | ✅ `PreToolUse` |

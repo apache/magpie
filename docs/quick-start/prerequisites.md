@@ -67,12 +67,13 @@ on any single vendor for either — any agent that reads the shared
   profile and HITL exec-policy rules. The adapter is **experimental**
   until its minimum tested harness version and an adopter pilot are
   recorded; see [the Codex harness guide](../adapters/codex.md).
-- **[Gemini CLI](https://geminicli.com/)** reads Magpie's canonical
-  `.agents/skills/` tree natively, with a `BeforeTool` action-guard adapter, a
-  spec-loop profile, tool sandboxing, and policies. The adapter is
-  **experimental**: Gemini 0.59.0 has native API checks and a Linux adopter pilot,
-  but host-read isolation, domain-restricted egress, and further validation remain open;
-  see [the harness guide's known limitations](../adapters/gemini.md#known-limitations).
+- **[Antigravity](https://antigravity.google/)** (CLI `agy`), the successor to
+  Gemini CLI, reads Magpie's canonical `.agents/skills/` tree and `AGENTS.md`
+  natively, with a user-scope `PreToolUse` action-guard adapter, a spec-loop
+  profile, the terminal sandbox, and permission rules. The adapter is
+  **experimental**: it was validated with CLI 1.3.6 on macOS, and the sandbox
+  hides only sensitive home-directory paths;
+  see [the harness guide's known limitations](../adapters/antigravity.md#known-limitations).
 - **[Cursor](https://cursor.com/)** (Composer + `cursor-agent` CLI) reads Magpie's
   canonical `.agents/skills/` tree natively and supports per-action confirmation
   and clean-environment isolation; see [the Cursor harness guide](../adapters/cursor.md).

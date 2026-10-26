@@ -56,7 +56,7 @@ and breaks). A self-adopted framework checkout renders like:
 
 **serves** (which agents read each target dir):
 
-- `universal` — Codex, Cursor, Gemini CLI, GitHub Copilot, OpenCode, Cline, Zed, Warp, …
+- `universal` — Codex, Cursor, Antigravity, GitHub Copilot, OpenCode, Cline, Zed, Warp, …
 - `claude-code` — Claude Code
 - `github` — GitHub's skill loader
 - `windsurf` — Windsurf

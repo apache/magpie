@@ -418,7 +418,7 @@ interviewed). A plain run mentions it in the recap instead.
    `adversarial-review commands --harness <name>` prints each one's path and
    content:
    - Codex CLI → `~/.codex/prompts/magpie-adversarial-review.md`
-   - Gemini CLI → `~/.gemini/commands/magpie-adversarial-review.toml`
+   - Antigravity CLI → `~/.gemini/antigravity-cli/skills/magpie-adversarial-review/SKILL.md` (a user skill, which Antigravity offers as a slash command)
    - Copilot CLI has no command mechanism: show the one-line invocation
      instead, and write nothing.
 

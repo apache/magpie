@@ -31,7 +31,7 @@ from adversarial_review.detect import detect, resolve_self, running_harness
         ({}, None),
         ({"CLAUDECODE": "1"}, "claude"),
         ({"CLAUDECODE": "0"}, None),
-        ({"GEMINI_CLI": "1"}, "gemini"),
+        ({"ANTIGRAVITY_CONVERSATION_ID": "abc"}, "antigravity"),
         ({"CODEX_SANDBOX": "seatbelt"}, "codex"),
         ({"CODEX_THREAD_ID": "abc"}, "codex"),
         ({"COPILOT_CLI": "1"}, "copilot"),
@@ -51,7 +51,7 @@ def test_leaked_companion_vars_do_not_mark_codex():
 
 def test_resolve_self_override():
     assert resolve_self("none", {"CLAUDECODE": "1"}) is None
-    assert resolve_self("gemini", {"CLAUDECODE": "1"}) == "gemini"
+    assert resolve_self("antigravity", {"CLAUDECODE": "1"}) == "antigravity"
     assert resolve_self(None, {"CLAUDECODE": "1"}) == "claude"
     with pytest.raises(ValueError, match="unknown harness"):
         resolve_self("vim", {})
@@ -60,15 +60,18 @@ def test_resolve_self_override():
 def test_detect_with_stub_path(stub_bin):
     bin_dir, make = stub_bin
     make("codex", 'print("codex-cli 0.154.0")')
-    make("gemini", 'import sys; sys.stderr.write("boom\\n"); sys.exit(1)')
+    make("agy", 'import sys; sys.stderr.write("boom\\n"); sys.exit(1)')
     make("claude", 'print("2.1.0 (Claude Code)")')
     rows = {d.name: d for d in detect({"PATH": str(bin_dir)}, self_name="claude")}
-    assert list(rows) == ["codex", "copilot", "gemini", "grok", "claude"]
+    assert list(rows) == ["codex", "copilot", "antigravity", "grok", "claude"]
     assert rows["codex"].available and rows["codex"].version == "codex-cli 0.154.0"
     assert not rows["codex"].is_self
     assert not rows["copilot"].available and rows["copilot"].reason == "not on PATH"
     assert not rows["grok"].available and rows["grok"].reason == "not on PATH"
-    assert not rows["gemini"].available and "`--version` failed (exit 1): boom" in rows["gemini"].reason
+    assert (
+        not rows["antigravity"].available
+        and "`--version` failed (exit 1): boom" in rows["antigravity"].reason
+    )
     assert rows["claude"].available and rows["claude"].is_self
 
 
@@ -85,7 +88,7 @@ def test_detect_subcommand_prints_json(stub_bin, capsys):
     assert main(["detect"], env={"PATH": str(bin_dir), "CLAUDECODE": "1"}) == 0
     out = json.loads(capsys.readouterr().out)
     assert out["self"] == "claude"
-    assert [b["name"] for b in out["backends"]] == ["codex", "copilot", "gemini", "grok", "claude"]
+    assert [b["name"] for b in out["backends"]] == ["codex", "copilot", "antigravity", "grok", "claude"]
 
 
 def test_detect_subcommand_rejects_unknown_self(capsys):

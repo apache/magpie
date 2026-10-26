@@ -315,7 +315,7 @@ after the Copilot branch.
 - [`docs/vendor-neutrality.md`](../vendor-neutrality.md) — framework vendor neutrality index across agent harnesses.
 - [`docs/adapters/cursor.md`](cursor.md) — Cursor IDE and agent CLI harness guide.
 - [`docs/adapters/goose.md`](goose.md) — Block's Goose agent harness guide.
-- [`docs/adapters/gemini.md`](gemini.md) — Google Gemini CLI harness guide.
+- [`docs/adapters/antigravity.md`](antigravity.md) — Google Antigravity harness guide.
 - [`docs/adapters/codex.md`](codex.md) — OpenAI Codex harness guide.
 - [`docs/adapters/local-llm.md`](local-llm.md) — Local LLM endpoints harness guide.
 - [`docs/adapters/add-a-harness.md`](add-a-harness.md) — step-by-step guide for integrating agent harnesses.

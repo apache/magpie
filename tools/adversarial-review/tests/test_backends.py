@@ -51,7 +51,7 @@ WRITE_GRANTING = {
 def test_backend_set_and_order():
     # Claude Code's widely inherited CLAUDECODE must stay last; grok's marker
     # is narrowly scoped to grok's own children, so it sits just before it.
-    assert list(BACKENDS) == ["codex", "copilot", "gemini", "grok", "claude"]
+    assert list(BACKENDS) == ["codex", "copilot", "antigravity", "grok", "claude"]
 
 
 def test_codex_argv():
@@ -95,18 +95,29 @@ def test_copilot_argv():
     assert inv.stdin is None
 
 
-def test_gemini_argv():
-    inv = BACKENDS["gemini"].build(CTX)
+def test_antigravity_argv():
+    inv = BACKENDS["antigravity"].build(CTX)
     assert inv.argv == [
-        "gemini",
-        "--approval-mode",
+        "agy",
+        "--mode",
         "plan",
-        "-o",
-        "json",
-        "-p",
-        "Follow the review brief given on standard input exactly. Change no file.",
+        "--input-format",
+        "stream-json",
+        "--output-format",
+        "stream-json",
+        "--print-timeout",
+        "0",
     ]
-    assert inv.stdin == "PROMPT"
+    # agy reads stdin only as stream-json: one NDJSON user message.
+    assert inv.stdin is not None and inv.stdin.endswith("\n") and inv.stdin.count("\n") == 1
+    assert json.loads(inv.stdin) == {"event": "user", "message": {"content": "PROMPT"}}
+
+
+def test_antigravity_stdin_keeps_a_multiline_prompt_on_one_ndjson_line():
+    ctx = RunContext(**{**CTX.__dict__, "prompt": "line 1\nline 2\n"})
+    stdin = BACKENDS["antigravity"].build(ctx).stdin
+    assert stdin is not None and stdin.count("\n") == 1
+    assert json.loads(stdin)["message"]["content"] == "line 1\nline 2\n"
 
 
 def test_grok_argv():
@@ -151,7 +162,13 @@ def test_claude_argv():
 
 @pytest.mark.parametrize(
     ("name", "flag"),
-    [("codex", "-m"), ("copilot", "--model"), ("gemini", "-m"), ("grok", "-m"), ("claude", "--model")],
+    [
+        ("codex", "-m"),
+        ("copilot", "--model"),
+        ("antigravity", "--model"),
+        ("grok", "-m"),
+        ("claude", "--model"),
+    ],
 )
 def test_model_override_is_passed(name, flag):
     ctx = RunContext(**{**CTX.__dict__, "model": "some-model"})
@@ -179,13 +196,75 @@ def test_codex_extract_without_file_is_an_output_error(tmp_path):
         BACKENDS["codex"].extract("", ctx)
 
 
-def test_gemini_extract_unwraps_response():
-    assert BACKENDS["gemini"].extract(json.dumps({"response": "R"}), CTX) == "R"
+def _agy_stream(*results: dict) -> str:
+    events = [{"event": "init", "init": {"permission_mode": "request-review"}}]
+    events.append({"event": "step_update", "step_update": {"state": "DONE", "text_delta": "partial"}})
+    events += [{"event": "result", "result": r} for r in results]
+    return "\n".join(json.dumps(e) for e in events) + "\n"
 
 
-def test_gemini_extract_error_envelope():
-    with pytest.raises(BackendOutputError, match="gemini reported an error"):
-        BACKENDS["gemini"].extract(json.dumps({"error": {"message": "quota"}}), CTX)
+def test_antigravity_extract_reads_the_last_result_event():
+    stdout = _agy_stream({"status": "SUCCESS", "response": "R"})
+    assert BACKENDS["antigravity"].extract(stdout, CTX) == "R"
+
+
+@pytest.mark.parametrize("status", ["ERROR", "CANCELED", "INTERRUPTED", "INVALID", "WAITING", None])
+def test_antigravity_extract_rejects_a_status_that_is_not_success(status):
+    stdout = _agy_stream({"status": status, "response": "R", "error": "quota"})
+    with pytest.raises(BackendOutputError, match="antigravity reported status"):
+        BACKENDS["antigravity"].extract(stdout, CTX)
+
+
+def test_antigravity_extract_without_result_event():
+    with pytest.raises(BackendOutputError, match="no `result` event"):
+        BACKENDS["antigravity"].extract("plain text\n", CTX)
+
+
+def test_antigravity_extract_empty_response():
+    with pytest.raises(BackendOutputError, match="no `response` text"):
+        BACKENDS["antigravity"].extract(_agy_stream({"status": "SUCCESS", "response": " \n"}), CTX)
+
+
+@pytest.mark.parametrize("config", [".agents/hooks.json", ".agents/mcp_config.json", ".agent/hooks.json"])
+def test_antigravity_refuses_a_tree_that_carries_executable_workspace_config(tmp_path, config):
+    """agy runs workspace hooks and MCP servers: the change under review must not supply them."""
+    (tmp_path / config).parent.mkdir(parents=True)
+    (tmp_path / config).write_text("{}", encoding="utf-8")
+    ctx = RunContext(**{**CTX.__dict__, "repo_dir": tmp_path})
+    refuse = BACKENDS["antigravity"].refuse
+    assert refuse is not None
+    reason = refuse(ctx)
+    assert reason is not None and config in reason
+
+
+def test_antigravity_refuses_a_subdirectory_of_a_tree_with_executable_config(tmp_path):
+    # agy can resolve the enclosing repository as its workspace.
+    (tmp_path / ".agents").mkdir()
+    (tmp_path / ".agents" / "hooks.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "sub").mkdir()
+    ctx = RunContext(**{**CTX.__dict__, "repo_dir": tmp_path / "sub"})
+    refuse = BACKENDS["antigravity"].refuse
+    assert refuse is not None
+    reason = refuse(ctx)
+    assert reason is not None and ".agents/hooks.json" in reason
+
+
+def test_antigravity_accepts_a_tree_without_executable_workspace_config(tmp_path):
+    (tmp_path / ".agents" / "skills").mkdir(parents=True)
+    ctx = RunContext(**{**CTX.__dict__, "repo_dir": tmp_path})
+    refuse = BACKENDS["antigravity"].refuse
+    assert refuse is not None and refuse(ctx) is None
+
+
+@pytest.mark.parametrize("name", [n for n in BACKENDS if n != "antigravity"])
+def test_other_backends_refuse_nothing(name):
+    assert BACKENDS[name].refuse is None
+
+
+@pytest.mark.parametrize("name", list(BACKENDS))
+def test_executable_is_the_binary_the_backend_runs(name):
+    """detect probes `executable`; run spawns argv[0]. They must agree."""
+    assert BACKENDS[name].executable == BACKENDS[name].build(CTX).argv[0]
 
 
 def test_claude_extract_unwraps_result():
@@ -212,7 +291,7 @@ def test_grok_extract_empty_text():
         BACKENDS["grok"].extract(json.dumps({"text": "  ", "stopReason": "end_turn"}), CTX)
 
 
-@pytest.mark.parametrize("name", ["gemini", "grok", "claude"])
+@pytest.mark.parametrize("name", ["grok", "claude"])
 def test_json_envelope_backends_reject_non_json(name):
     with pytest.raises(BackendOutputError, match="not JSON"):
         BACKENDS[name].extract("plain text", CTX)

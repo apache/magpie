@@ -66,21 +66,21 @@ def test_prompt_reaches_the_reviewer_on_stdin(stub_bin, tmp_path):
 
 def test_missing_binary_is_unavailable(stub_bin, tmp_path):
     bin_dir, _ = stub_bin
-    r = run_one("gemini", ctx(tmp_path, "gemini"), 30, {"PATH": str(bin_dir)})
+    r = run_one("antigravity", ctx(tmp_path, "antigravity"), 30, {"PATH": str(bin_dir)})
     assert r.status == "unavailable" and r.reason == "not on PATH"
 
 
 def test_auth_failure_is_unavailable(stub_bin, tmp_path):
     bin_dir, make = stub_bin
-    make("gemini", "import sys; sys.stderr.write('Error: please log in with `gemini auth`\\n'); sys.exit(1)")
-    r = run_one("gemini", ctx(tmp_path, "gemini"), 30, {"PATH": str(bin_dir)})
+    make("agy", "import sys; sys.stderr.write('Error: please log in with `agy`\\n'); sys.exit(1)")
+    r = run_one("antigravity", ctx(tmp_path, "antigravity"), 30, {"PATH": str(bin_dir)})
     assert r.status == "unavailable" and "log in" in r.reason
 
 
 def test_other_failure_is_error(stub_bin, tmp_path):
     bin_dir, make = stub_bin
-    make("gemini", "import sys; sys.stderr.write('segfault\\n'); sys.exit(139)")
-    r = run_one("gemini", ctx(tmp_path, "gemini"), 30, {"PATH": str(bin_dir)})
+    make("agy", "import sys; sys.stderr.write('segfault\\n'); sys.exit(139)")
+    r = run_one("antigravity", ctx(tmp_path, "antigravity"), 30, {"PATH": str(bin_dir)})
     assert r.status == "error" and r.reason == "exit 139: segfault"
 
 
@@ -123,35 +123,38 @@ def test_reviewers_run_in_parallel_and_keep_order(stub_bin, tmp_path):
             f"open({str(saw)!r}, 'w').write(str(os.path.exists({str(theirs)!r})))\n" + body
         )
 
-    make("codex", waits_for("codex", "gemini", CODEX_OK))
+    make("codex", waits_for("codex", "antigravity", CODEX_OK))
     make(
-        "gemini",
+        "agy",
         waits_for(
-            "gemini", "codex", "import json\nprint(json.dumps({'response': json.dumps({'findings': []})}))\n"
+            "antigravity",
+            "codex",
+            "import json\nprint(json.dumps({'event': 'result', 'result': "
+            "{'status': 'SUCCESS', 'response': json.dumps({'findings': []})}}))\n",
         ),
     )
-    contexts = {n: ctx(tmp_path, n) for n in ("gemini", "codex")}
-    results = run_all(["gemini", "codex"], contexts, 60, {"PATH": str(bin_dir)})
-    assert [(r.reviewer, r.status) for r in results] == [("gemini", "ok"), ("codex", "ok")]
-    assert [(tmp_path / f"{n}.saw").read_text() for n in ("gemini", "codex")] == ["True", "True"]
+    contexts = {n: ctx(tmp_path, n) for n in ("antigravity", "codex")}
+    results = run_all(["antigravity", "codex"], contexts, 60, {"PATH": str(bin_dir)})
+    assert [(r.reviewer, r.status) for r in results] == [("antigravity", "ok"), ("codex", "ok")]
+    assert [(tmp_path / f"{n}.saw").read_text() for n in ("antigravity", "codex")] == ["True", "True"]
 
 
 def test_one_timeout_does_not_block_the_others(stub_bin, tmp_path, monkeypatch):
-    """gemini times out only after codex has answered, so the result does not
+    """antigravity times out only after codex has answered, so the result does not
     depend on how fast a stub starts (a wall-clock budget failed under the
-    parallel pre-commit run, at 1 s and again at 5 s). gemini is listed first:
+    parallel pre-commit run, at 1 s and again at 5 s). antigravity is listed first:
     run one after the other, codex would never start and the wait would fail."""
     bin_dir, make = stub_bin
     make("codex", CODEX_OK)
-    make("gemini", "import time; time.sleep(60)")
-    contexts = {n: ctx(tmp_path, n) for n in ("codex", "gemini")}
+    make("agy", "import time; time.sleep(60)")
+    contexts = {n: ctx(tmp_path, n) for n in ("codex", "antigravity")}
     codex_answered = threading.Event()
-    gemini_saw_codex: list[bool] = []
+    antigravity_saw_codex: list[bool] = []
     execute = runner._execute
 
     def fake_execute(argv, stdin, timeout_s, cwd, env):
-        if Path(argv[0]).name == "gemini":
-            gemini_saw_codex.append(codex_answered.wait(60))
+        if Path(argv[0]).name == "agy":
+            antigravity_saw_codex.append(codex_answered.wait(60))
             raise subprocess.TimeoutExpired(argv, timeout_s)
         try:
             return execute(argv, stdin, timeout_s, cwd, env)
@@ -159,9 +162,9 @@ def test_one_timeout_does_not_block_the_others(stub_bin, tmp_path, monkeypatch):
             codex_answered.set()
 
     monkeypatch.setattr(runner, "_execute", fake_execute)
-    results = {r.reviewer: r for r in run_all(["gemini", "codex"], contexts, 60, {"PATH": str(bin_dir)})}
-    assert gemini_saw_codex == [True]
-    assert results["codex"].status == "ok" and results["gemini"].status == "timeout"
+    results = {r.reviewer: r for r in run_all(["antigravity", "codex"], contexts, 60, {"PATH": str(bin_dir)})}
+    assert antigravity_saw_codex == [True]
+    assert results["codex"].status == "ok" and results["antigravity"].status == "timeout"
 
 
 def test_a_finished_answer_is_kept_when_a_helper_lingers(stub_bin, tmp_path):
@@ -200,10 +203,12 @@ def test_terminate_all_kills_running_reviewers(stub_bin, tmp_path):
     from adversarial_review.runner import terminate_all
 
     bin_dir, make = stub_bin
-    make("gemini", "import time; time.sleep(60)")
+    make("agy", "import time; time.sleep(60)")
     results = []
     worker = threading.Thread(
-        target=lambda: results.append(run_one("gemini", ctx(tmp_path, "gemini"), 60, {"PATH": str(bin_dir)}))
+        target=lambda: results.append(
+            run_one("antigravity", ctx(tmp_path, "antigravity"), 60, {"PATH": str(bin_dir)})
+        )
     )
     start = time.monotonic()
     worker.start()
@@ -224,14 +229,36 @@ def test_auth_words_in_stdout_are_not_an_auth_failure(stub_bin, tmp_path):
     assert r.status == "error"
 
 
-def test_gemini_auth_method_message_is_unavailable(stub_bin, tmp_path):
+def test_antigravity_unauthenticated_headless_run_is_unavailable(stub_bin, tmp_path):
+    bin_dir, make = stub_bin
+    # A headless agy that never signed in exits with this instead of hanging.
+    make("agy", "import sys; sys.stderr.write('Error: authentication required\\n'); sys.exit(1)")
+    r = run_one("antigravity", ctx(tmp_path, "antigravity"), 30, {"PATH": str(bin_dir)})
+    assert r.status == "unavailable"
+
+
+def test_antigravity_answer_arrives_in_the_result_event(stub_bin, tmp_path):
     bin_dir, make = stub_bin
     make(
-        "gemini",
-        "import sys; sys.stderr.write('Please set an Auth method in settings.json\\n'); sys.exit(41)",
+        "agy",
+        "import json, sys\n"
+        "msg = json.loads(sys.stdin.readline())['message']['content']\n"
+        "finding = {'severity': 'low', 'file': 'app.py', 'line': 1, 'claim': 'got ' + msg, 'evidence': ''}\n"
+        "print(json.dumps({'event': 'init', 'init': {}}))\n"
+        "print(json.dumps({'event': 'result', 'result': {'status': 'SUCCESS', "
+        "'response': json.dumps({'findings': [finding]})}}))\n",
     )
-    r = run_one("gemini", ctx(tmp_path, "gemini"), 30, {"PATH": str(bin_dir)})
-    assert r.status == "unavailable"
+    r = run_one("antigravity", ctx(tmp_path, "antigravity"), 30, {"PATH": str(bin_dir)})
+    assert r.status == "ok" and r.findings[0].claim == "got THE PROMPT"
+
+
+def test_antigravity_is_skipped_on_a_tree_with_workspace_hooks(stub_bin, tmp_path):
+    bin_dir, make = stub_bin
+    make("agy", "raise SystemExit('agy must not run on this tree')")
+    (tmp_path / ".agents").mkdir()
+    (tmp_path / ".agents" / "hooks.json").write_text("{}", encoding="utf-8")
+    r = run_one("antigravity", ctx(tmp_path, "antigravity"), 30, {"PATH": str(bin_dir)})
+    assert r.status == "skipped" and ".agents/hooks.json" in r.reason
 
 
 def test_a_bad_finding_does_not_cost_the_good_ones(stub_bin, tmp_path):

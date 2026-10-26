@@ -188,8 +188,8 @@ def test_compose_orders_sections_and_folds_dropped_inline_comments() -> None:
         (["codex"], "*Flagged by codex (adversarial review); cross-checked.*"),
         (["codex", "copilot"], "*Flagged by codex and copilot (adversarial review); cross-checked.*"),
         (
-            ["codex", "copilot", "gemini"],
-            "*Flagged by codex, copilot and gemini (adversarial review); cross-checked.*",
+            ["codex", "copilot", "antigravity"],
+            "*Flagged by codex, copilot and antigravity (adversarial review); cross-checked.*",
         ),
         ("codex", "*Flagged by codex (adversarial review); cross-checked.*"),
         (None, "*Flagged by the adversarial reviewer (adversarial review); cross-checked.*"),

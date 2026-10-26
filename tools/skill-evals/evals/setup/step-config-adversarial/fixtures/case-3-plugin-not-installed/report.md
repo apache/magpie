@@ -4,4 +4,4 @@
 Entry: the user ran `/magpie-setup config adversarial-review`.
 
 The `magpie-adversarial-review` plugin is **not** installed. `codex` and
-`gemini` are on `PATH`.
+`agy` are on `PATH`.

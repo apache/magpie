@@ -44,7 +44,13 @@ plugins:
 def clean_harness_markers(monkeypatch: pytest.MonkeyPatch) -> None:
     # A developer's surrounding Codex session must not override the
     # harness a test explicitly selects.
-    for marker in ("CODEX_SANDBOX", "CODEX_THREAD_ID", "COPILOT_CLI", "GEMINI_CLI", "CLAUDECODE"):
+    for marker in (
+        "CODEX_SANDBOX",
+        "CODEX_THREAD_ID",
+        "COPILOT_CLI",
+        "ANTIGRAVITY_CONVERSATION_ID",
+        "CLAUDECODE",
+    ):
         monkeypatch.delenv(marker, raising=False)
 
 
@@ -182,20 +188,32 @@ def test_the_codex_marker_runs_codex_listing_with_its_json_flag(
     assert seen == [["codex", "plugin", "list", "--json"]]
 
 
-def test_the_gemini_marker_runs_gemini_listing_with_json_output(
+# The shape `agy plugin list --json` printed with Antigravity CLI 1.3.6: a
+# plugin without a manifest version carries no `version` key at all.
+AGY_LISTING = [
+    {"name": "googlecloudtools.datacloud_telemetry", "enabled": True, "path": "/p/telemetry", "hooks": ["t"]},
+    {"name": "magpie", "enabled": True, "version": "0.2.0", "source": "antigravity", "path": "/p/magpie"},
+]
+
+
+def test_the_antigravity_marker_runs_agy_listing_and_skips_unversioned_plugins(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """`gemini extensions list` prints plain text by default; only
-    `-o json` makes it emit the array the shared parser reads."""
     seen: list[list[str]] = []
 
     def run(argv: list[str], **_kwargs: object) -> subprocess.CompletedProcess:
         seen.append(list(argv))
-        return _listing_ok(argv, '[{"name": "magpie", "version": "0.2.0"}]')
+        return _listing_ok(argv, json.dumps(AGY_LISTING))
 
     monkeypatch.setattr("setup_preflight.cli.subprocess.run", run)
-    assert read_installed(None, {"GEMINI_CLI": "1"}) == ("gemini", {"magpie": "0.2.0"})
-    assert seen == [["gemini", "extensions", "list", "-o", "json"]]
+    assert read_installed(None, {"ANTIGRAVITY_CONVERSATION_ID": "c1"}) == ("antigravity", {"magpie": "0.2.0"})
+    assert seen == [["agy", "plugin", "list", "--json"]]
+
+
+def test_an_unversioned_entry_still_breaks_another_harness_listing() -> None:
+    from setup_preflight.cli import _parse_listing
+
+    assert _parse_listing(json.dumps(AGY_LISTING), "claude") is None
 
 
 def test_the_innermost_marker_wins_when_two_harnesses_inherit(
@@ -211,9 +229,9 @@ def test_the_innermost_marker_wins_when_two_harnesses_inherit(
         return _listing_ok(argv, '[{"name": "magpie", "version": "0.2.0"}]')
 
     monkeypatch.setattr("setup_preflight.cli.subprocess.run", run)
-    harness, _ = read_installed(None, {"CLAUDECODE": "1", "GEMINI_CLI": "1"})
-    assert harness == "gemini"
-    assert seen == [["gemini", "extensions", "list", "-o", "json"]]
+    harness, _ = read_installed(None, {"CLAUDECODE": "1", "CODEX_THREAD_ID": "t"})
+    assert harness == "codex"
+    assert seen == [["codex", "plugin", "list", "--json"]]
 
 
 def test_no_marker_is_unknown_and_no_listing_runs(
@@ -354,46 +372,63 @@ def test_a_supplied_listing_reports_no_harness(project: Path, capsys) -> None:
     assert finding["facts"]["harness"] is None
 
 
+def _agy_listing(version: str) -> str:
+    return json.dumps([AGY_LISTING[0], {**AGY_LISTING[1], "version": version}])
+
+
 @pytest.mark.parametrize("version", ["0.2.0", "0.3.0", "0.10.0"])
-def test_gemini_extension_at_or_above_floor_does_not_block(
+def test_antigravity_plugin_at_or_above_floor_does_not_block(
     project: Path, capsys, monkeypatch, version
 ) -> None:
     write_lock(project, MARKETPLACE + "  - magpie-agent-guard\n")
-    monkeypatch.setenv("GEMINI_CLI", "1")
+    monkeypatch.setenv("ANTIGRAVITY_CONVERSATION_ID", "c1")
     monkeypatch.setattr(
         "setup_preflight.cli.subprocess.run",
-        lambda argv, **kwargs: _listing_ok(argv, json.dumps([{"name": "magpie", "version": version}])),
+        lambda argv, **kwargs: _listing_ok(argv, _agy_listing(version)),
     )
     code, payload = run(capsys, "--skill", "magpie-x", "--project-root", str(project), "--no-cache")
     assert code == 0
     assert not any(f["code"] == "below-floor" for f in payload.get("findings", []))
 
 
-def test_gemini_extension_below_floor_is_outdated_for_every_family(
+def test_antigravity_plugin_below_floor_is_outdated_for_every_family(
     project: Path, capsys, monkeypatch
 ) -> None:
     write_lock(project, MARKETPLACE + "  - magpie-agent-guard\n")
-    monkeypatch.setenv("GEMINI_CLI", "1")
+    monkeypatch.setenv("ANTIGRAVITY_CONVERSATION_ID", "c1")
     monkeypatch.setattr(
         "setup_preflight.cli.subprocess.run",
-        lambda argv, **kwargs: _listing_ok(argv, '[{"name":"magpie","version":"0.1.0"}]'),
+        lambda argv, **kwargs: _listing_ok(argv, _agy_listing("0.1.0")),
     )
     _, payload = run(capsys, "--skill", "magpie-x", "--project-root", str(project), "--no-cache")
-    facts = next(f["facts"] for f in payload["findings"] if f["code"] == "below-floor")
-    assert facts["missing"] == []
-    assert facts["outdated"] == [
+    finding = next(f for f in payload["findings"] if f["code"] == "below-floor")
+    assert finding["facts"]["harness"] == "antigravity"
+    assert finding["facts"]["missing"] == []
+    assert finding["facts"]["outdated"] == [
         {"plugin": name, "installed": "0.1.0", "floor": "0.2.0"}
         for name in ("magpie-setup", "magpie-agent-guard", "magpie-vetted-ops")
     ]
 
 
-def test_a_supplied_gemini_listing_keeps_the_single_extension_rule(
+def test_antigravity_without_a_magpie_plugin_stays_unknown(project: Path, capsys, monkeypatch) -> None:
+    write_lock(project, MARKETPLACE + "  - magpie-agent-guard\n")
+    monkeypatch.setenv("ANTIGRAVITY_CONVERSATION_ID", "c1")
+    monkeypatch.setattr(
+        "setup_preflight.cli.subprocess.run",
+        lambda argv, **kwargs: _listing_ok(argv, json.dumps([{**AGY_LISTING[1], "name": "other"}])),
+    )
+    code, payload = run(capsys, "--skill", "magpie-x", "--project-root", str(project), "--no-cache")
+    assert code == 0
+    assert not any(f["code"] == "below-floor" for f in payload.get("findings", []))
+
+
+def test_a_supplied_antigravity_listing_keeps_the_single_plugin_rule(
     project: Path, capsys, monkeypatch
 ) -> None:
     write_lock(project, MARKETPLACE + "  - magpie-agent-guard\n")
-    monkeypatch.setenv("GEMINI_CLI", "1")
+    monkeypatch.setenv("ANTIGRAVITY_CONVERSATION_ID", "c1")
     listing = project / "plugins.json"
-    listing.write_text('[{"name": "magpie", "version": "0.3.0"}]')
+    listing.write_text(_agy_listing("0.3.0"))
     code, payload = run(
         capsys, "--skill", "magpie-x", "--project-root", str(project), "--plugin-list", str(listing)
     )

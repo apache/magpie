@@ -21,7 +21,7 @@ capability:
   - capability:reassess
 surface_hash: sha256:7d670b572d43bbeb
 license: Apache-2.0
-measured_tokens: 6745
+measured_tokens: 6754
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -40,9 +40,9 @@ Attribute failures separately to native sandbox/network denial, approval policy,
 Do not prescribe a `.claude` settings change for a Codex failure.
 Then stop before the Claude-specific branch below.
 
-When the selected runtime is Gemini CLI, follow
-[docs/adapters/gemini.md](../../../../docs/adapters/gemini.md#doctor): verify the profile first, then diagnose the actual tool result in the active Gemini session.
-Distinguish policy refusal, sandbox expansion, hook or trust failures, and wrapper or authentication problems.
+When the selected runtime is Antigravity, follow
+[docs/adapters/antigravity.md](../../../../docs/adapters/antigravity.md#doctor): verify the user-scope profile first, then diagnose the actual tool result in the active Antigravity session.
+Distinguish sandbox limits, permission-rule denials, guard-hook failures, and wrapper or authentication problems.
 Do not require Claude configuration or prescribe Claude settings changes; then stop before the Claude-specific probes below.
 
 When the selected runtime is Copilot CLI, follow [docs/adapters/copilot.md](../../../../docs/adapters/copilot.md#doctor): verify the hook first, then diagnose the actual tool result in the live session.

@@ -25,7 +25,7 @@
 [![Magpie](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/apache/magpie/main/assets/badge.json)](https://magpie.apache.org/)
 
 **Adopt a Magpie.** Magpie is a curated set of skills for the AI agent you
-already use — Claude Code, Codex, Gemini CLI, Copilot and others — that take
+already use — Claude Code, Codex, Antigravity, Copilot and others — that take
 on the repetitive parts of running an open-source project: triaging issues and
 pull requests, reviewing code, mentoring contributors, drafting fixes, and
 handling security reports end to end.
@@ -91,7 +91,7 @@ Once `magpie-setup` is in, you never type these again — ask in plain language
 (*"install the Magpie families for PR review"*) and the setup skill runs the
 installs for you.
 
-Codex, VS Code / Copilot, and Gemini are one-liners too — the
+Codex, VS Code / Copilot, and Antigravity are one-liners too — the
 [quick start](docs/quick-start.md) has all four, plus what to run next to put
 the agent in its sandbox. Nothing is committed to your repository.
 

@@ -34,8 +34,9 @@
 #   Most profiles run the agent in unattended / auto-approval mode
 #   (for example Claude's `--dangerously-skip-permissions`, Codex's
 #   `--dangerously-bypass-approvals-and-sandbox`, or Cursor's `--force`).
-#   Gemini instead uses `--approval-mode default`; headless calls needing
-#   approval are refused. See docs/adapters/gemini.md#spec-loop-runner.
+#   Antigravity (`agy`) instead never gets --dangerously-skip-permissions;
+#   headless calls needing approval are soft-denied (exit 0, `denied_actions`).
+#   See docs/adapters/antigravity.md#spec-loop-runner.
 #   Auto-approval bypasses the agent permission layer but NOT the
 #   external OS sandbox (clean-env + filesystem/network). Per the project's
 #   security model it MUST be launched inside the sandbox harness, with no
@@ -52,10 +53,10 @@
 #                    chosen by SPEC_LOOP_HARNESS below.
 #   SPEC_LOOP_HARNESS  which harness's headless-run convention to use when
 #                    invoking SPEC_LOOP_AGENT: `claude` (default), `codex`,
-#                    `cursor`, `gemini`, `opencode`, `kiro`, or `grok`.
+#                    `cursor`, `antigravity`, `opencode`, `kiro`, or `grok`.
 #                    Defaults from the agent basename, so setting
 #                    SPEC_LOOP_AGENT=codex, SPEC_LOOP_AGENT=cursor-agent,
-#                    SPEC_LOOP_AGENT=gemini, SPEC_LOOP_AGENT=opencode,
+#                    SPEC_LOOP_AGENT=agy, SPEC_LOOP_AGENT=opencode,
 #                    SPEC_LOOP_AGENT=kiro-cli, or SPEC_LOOP_AGENT=grok is
 #                    usually enough.
 #   SPEC_LOOP_MODEL  model passed to the agent CLI. Defaults to `sonnet` for
@@ -109,9 +110,9 @@ AGENT="${SPEC_LOOP_AGENT:-claude}"
 # agent basename so `SPEC_LOOP_AGENT=opencode` is enough; override explicitly
 # with SPEC_LOOP_HARNESS when the CLI name doesn't match the convention.
 case "${SPEC_LOOP_HARNESS:-$(basename "$AGENT")}" in
+    *agy*|*antigravity*) HARNESS=antigravity ;;
     *codex*)    HARNESS=codex ;;
     *cursor*)   HARNESS=cursor ;;
-    *gemini*)   HARNESS=gemini ;;
     *opencode*) HARNESS=opencode ;;
     *kiro*)     HARNESS=kiro ;;
     *grok*)     HARNESS=grok ;;
@@ -195,7 +196,7 @@ fi
 
 if ! command -v "$AGENT" >/dev/null 2>&1; then
     echo "Error: agent CLI '$AGENT' not found on PATH." >&2
-    echo "Set SPEC_LOOP_AGENT to a headless agent CLI (claude / codex / cursor / gemini / opencode / kiro / grok / a wrapper)" >&2
+    echo "Set SPEC_LOOP_AGENT to a headless agent CLI (claude / codex / cursor / agy / opencode / kiro / grok / a wrapper)" >&2
     echo "and SPEC_LOOP_HARNESS to its run convention if the name doesn't imply it." >&2
     exit 1
 fi

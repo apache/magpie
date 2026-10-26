@@ -1,0 +1,16 @@
+{
+  "magpie-agent-guard": {
+    "PreToolUse": [
+      {
+        "matcher": "run_command",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${HOME}/.gemini/config/plugins/magpie/tools/agent-guard/src/agent_guard/__init__.py\" --antigravity",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -170,7 +170,7 @@ test_harness_command_construction() {
     assert_contains "$TMPDIR_TEST/kiro-effort.log" "<max>"
     assert_not_contains "$TMPDIR_TEST/kiro-effort.log" "<--model>"
 
-    # Set-but-unsupported: Cursor/Gemini have no effort knob — omit silently.
+    # Set-but-unsupported: Cursor has no effort knob — omit silently.
     make_fake_agent "$TMPDIR_TEST/cursor-agent" "$TMPDIR_TEST/cursor.log"
     spec_loop_launch_agent cursor "$TMPDIR_TEST/cursor-agent" /repo "$TMPDIR_TEST/prompt.md" "" text high
     wait "$SPEC_LOOP_AGENT_PID"
@@ -181,22 +181,23 @@ test_harness_command_construction() {
     assert_not_contains "$TMPDIR_TEST/cursor.log" "<--variant>"
     assert_not_contains "$TMPDIR_TEST/cursor.log" "model_reasoning_effort"
 
-    make_fake_agent "$TMPDIR_TEST/gemini" "$TMPDIR_TEST/gemini.log"
-    spec_loop_launch_agent gemini "$TMPDIR_TEST/gemini" /repo "$TMPDIR_TEST/prompt.md" "" text high
+    # Antigravity CLI: headless -p, effort forwarded, never auto-approved.
+    make_fake_agent "$TMPDIR_TEST/agy" "$TMPDIR_TEST/agy.log"
+    spec_loop_launch_agent antigravity "$TMPDIR_TEST/agy" /repo "$TMPDIR_TEST/prompt.md" "" text high
     wait "$SPEC_LOOP_AGENT_PID"
-    assert_contains "$TMPDIR_TEST/gemini.log" "<--approval-mode> <default>"
-    assert_not_contains "$TMPDIR_TEST/gemini.log" "<--yolo>"
-    assert_contains "$TMPDIR_TEST/gemini.log" "<--prompt>"
-    assert_contains "$TMPDIR_TEST/gemini.log" "<--output-format> <text>"
-    assert_not_contains "$TMPDIR_TEST/gemini.log" "<--effort>"
-    assert_not_contains "$TMPDIR_TEST/gemini.log" "<--variant>"
-    assert_not_contains "$TMPDIR_TEST/gemini.log" "model_reasoning_effort"
+    assert_contains "$TMPDIR_TEST/agy.log" "<-p> <PROMPT BODY>"
+    assert_contains "$TMPDIR_TEST/agy.log" "<--output-format> <text>"
+    assert_contains "$TMPDIR_TEST/agy.log" "<--effort> <max>"
+    assert_not_contains "$TMPDIR_TEST/agy.log" "<--dangerously-skip-permissions>"
+    assert_not_contains "$TMPDIR_TEST/agy.log" "<--mode>"
+    assert_not_contains "$TMPDIR_TEST/agy.log" "<--model>"
 
-    spec_loop_launch_agent gemini "$TMPDIR_TEST/gemini" /repo "$TMPDIR_TEST/prompt.md" gemini-test stream-json
+    make_fake_agent "$TMPDIR_TEST/agy-model" "$TMPDIR_TEST/agy-model.log"
+    spec_loop_launch_agent antigravity "$TMPDIR_TEST/agy-model" /repo "$TMPDIR_TEST/prompt.md" agy-test stream-json low
     wait "$SPEC_LOOP_AGENT_PID"
-    assert_contains "$TMPDIR_TEST/gemini.log" "<--output-format> <stream-json>"
-    assert_contains "$TMPDIR_TEST/gemini.log" "<--model> <gemini-test>"
-    assert_contains "$TMPDIR_TEST/gemini.log" "<--prompt> <PROMPT BODY>"
+    assert_contains "$TMPDIR_TEST/agy-model.log" "<--output-format> <stream-json>"
+    assert_contains "$TMPDIR_TEST/agy-model.log" "<--model> <agy-test>"
+    assert_contains "$TMPDIR_TEST/agy-model.log" "<--effort> <low>"
 
     # Grok Build 1.0.50: prompt-file headless mode, explicit cwd,
     # unattended approval, remote-write denies, output mapping, model,

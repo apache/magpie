@@ -213,7 +213,7 @@ The reference implementation (see [`docs/setup/secure-agent-internals.md`](http
 
 ### Two axes of neutrality
 
-**Axis A — LLM backend neutrality.** Skills are markdown-with-YAML, not vendor-specific prompts. The agentic host (Claude Code, Codex, Gemini CLI, a local-Ollama wrapper, a future Apache-aligned agent harness) consumes the same skill file and behaves comparably. The reference implementation documents this explicitly: skills are "language-independent, since SKILLs are English; standard Python ecosystem dependencies for the deterministic-output scripts; no AI SDK integration needed".
+**Axis A — LLM backend neutrality.** Skills are markdown-with-YAML, not vendor-specific prompts. The agentic host (Claude Code, Codex, Antigravity, a local-Ollama wrapper, a future Apache-aligned agent harness) consumes the same skill file and behaves comparably. The reference implementation documents this explicitly: skills are "language-independent, since SKILLs are English; standard Python ecosystem dependencies for the deterministic-output scripts; no AI SDK integration needed".
 
 **Axis B — Project-governance neutrality.** ASF integrations (private mailing lists, Vulnogram CVE flows, PMC roles, ASF release process) are configurable, not hardcoded. A non-ASF adopter swaps in a private GitHub repo, GitHub Security Advisories, a maintainer roster, their own release process — and the same skill executes. The reference implementation's placeholder convention (`<tracker>`, `<upstream>`, `<security-list>`, `<private-list>`) and the `<project-config>/` adapter dir are how this is operationalised.
 

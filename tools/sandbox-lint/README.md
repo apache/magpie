@@ -24,7 +24,7 @@
 
 **Capability:** substrate:sandbox
 
-**Harness:** Claude Code, Codex, Cursor, Gemini CLI, OpenCode, Kiro, Grok
+**Harness:** Claude Code, Codex, Cursor, Antigravity, OpenCode, Kiro, Grok
 
 Lints `.claude/settings.json` against the shipped baseline at
 `tools/sandbox-lint/expected.json`, and against the security
@@ -84,15 +84,18 @@ configuration in the same files.
 uv run --project tools/sandbox-lint sandbox-lint --codex .codex
 ```
 
-**Gemini CLI profile.** `--gemini .gemini` checks `settings.json` and `policies/magpie.toml` for the shipped sandbox settings, explicit policy loading, per-call approvals, scoped reads, and representative deny coverage.
-These are static checks of project files; user/admin policies, saved grants, workspace trust, and live enforcement require [runtime verification](../../docs/adapters/gemini.md#verify).
+**Antigravity profile.** `--antigravity <profile>` checks a user-scope Antigravity profile: the terminal sandbox, the approval mode, workspace-only file access, wildcard allow grants, and a single `--antigravity` guard registration.
+The required ask and deny rules are derived from the Claude Code baseline in [`expected.json`](expected.json), so the two profiles cannot drift apart.
+Pass the shipped template directory, or the user's live `settings.json` together with the hooks file that registers the guard:
 
 ```bash
-uv run --project tools/sandbox-lint sandbox-lint --gemini .gemini
+uv run --project tools/sandbox-lint sandbox-lint --antigravity tools/agent-isolation/antigravity
+uv run --project tools/sandbox-lint sandbox-lint \
+  --antigravity ~/.gemini/antigravity-cli/settings.json \
+  --antigravity-hooks ~/.gemini/config/hooks.json
 ```
 
-The ordinary regression suite needs no Gemini or Node installation.
-Optional [runtime integration tests](tests/integration/README.md) exercise Gemini's policy engine and Linux sandbox without a model.
+These are static checks; the account's permission preset and live enforcement require [runtime verification](../../docs/adapters/antigravity.md#verify).
 
 **Harnesses without a dedicated config profile (Cursor, Grok, …).** `--any-harness`
 validates the harness-neutral OS-level security posture: checks that the
@@ -241,7 +244,7 @@ baseline drift.
 
 For runtimes that do not expose a per-harness sandbox configuration file
 (Cursor, Grok, and any other agent harness not listed under
-`--settings`, `--opencode`, `--kiro`, `--codex`, or `--gemini`), the security posture
+`--settings`, `--opencode`, `--kiro`, `--codex`, or `--antigravity`), the security posture
 is enforced at the OS level by two harness-agnostic components:
 
 Layer numbers follow the

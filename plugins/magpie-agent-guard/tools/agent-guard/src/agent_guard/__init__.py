@@ -30,8 +30,9 @@ pre-tool hook to/from the core, so every wired harness enforces one rule set:
 * :func:`opencode_main` — OpenCode ``tool.execute.before`` plugin adapter
   (``--opencode``): reads ``{"command", "cwd"}`` on stdin, signals deny via a
   non-zero exit so the plugin can throw and abort the tool call.
-* :func:`gemini_main` — Gemini CLI ``BeforeTool`` hook (``--gemini``):
-  matches ``run_shell_command`` and blocks with exit 2 and a stderr reason.
+* :func:`antigravity_main` — Antigravity ``PreToolUse`` hook
+  (``--antigravity``): matches ``run_command`` and prints a JSON
+  ``{"decision": "deny", "reason": ...}`` on stdout.
 * :func:`grok_main` — Grok Build ``PreToolUse`` adapter (``--grok`` or
   automatic no-argument payload-shape detection): reads the documented
   camelCase event and emits Grok's JSON allow/deny decision.
@@ -1937,31 +1938,46 @@ def kiro_main() -> int:
     return ALLOW_EXIT
 
 
-def gemini_main() -> int:
-    """Translate Gemini CLI's ``BeforeTool`` event to the shared guard core.
+def antigravity_main() -> int:
+    """Translate Antigravity's ``PreToolUse`` hook event to the shared guard core.
 
-    Exit 2 blocks the tool call and Gemini returns stderr as the reason.
-    Allow and malformed events are silent, matching the other adapters'
-    fail-open contract. This hook inspects shell calls only; it does not
-    replace native file/MCP permissions or the OS sandbox.
+    Antigravity pipes ``{"toolCall": {"name": "run_command", "args":
+    {"CommandLine": "...", "Cwd": "..."}}, "workspacePaths": [...], ...}`` on
+    stdin and reads a JSON decision from stdout. A deny is
+    ``{"decision": "deny", "reason": ...}``, which blocks the call and returns
+    the reason to the model. Everything else prints ``{"decision": "allow"}``,
+    which defers to the user's permission rules rather than approving the call.
+    Malformed and non-shell events allow, matching the other adapters'
+    fail-open contract.
+
+    The hook runs with its ``hooks.json`` directory as the working directory,
+    so Git checks use the command's ``Cwd`` when present, else the first
+    workspace root.
     """
+    allow = json.dumps({"decision": "allow"})
     try:
         event = json.load(sys.stdin)
     except (json.JSONDecodeError, ValueError):
+        sys.stdout.write(allow + "\n")
         return ALLOW_EXIT
-    if not isinstance(event, dict) or event.get("tool_name") != "run_shell_command":
+    tool_call = event.get("toolCall") if isinstance(event, dict) else None
+    if not isinstance(tool_call, dict) or tool_call.get("name") != "run_command":
+        sys.stdout.write(allow + "\n")
         return ALLOW_EXIT
-    tool_input = event.get("tool_input")
-    if not isinstance(tool_input, dict):
+    args = tool_call.get("args")
+    command = args.get("CommandLine") if isinstance(args, dict) else None
+    if not isinstance(args, dict) or not isinstance(command, str):
+        sys.stdout.write(allow + "\n")
         return ALLOW_EXIT
-    command = tool_input.get("command")
-    if not isinstance(command, str):
-        return ALLOW_EXIT
-    cwd = event.get("cwd")
-    reason = dispatch(command, cwd if isinstance(cwd, str) else None)
+    cwd = args.get("Cwd")
+    if not isinstance(cwd, str) or not cwd:
+        roots = event.get("workspacePaths")
+        cwd = roots[0] if isinstance(roots, list) and roots and isinstance(roots[0], str) else None
+    reason = dispatch(command, cwd)
     if reason:
-        sys.stderr.write(reason + "\n")
-        return DENY_EXIT
+        sys.stdout.write(json.dumps({"decision": "deny", "reason": reason}) + "\n")
+        return ALLOW_EXIT
+    sys.stdout.write(allow + "\n")
     return ALLOW_EXIT
 
 
@@ -2277,7 +2293,7 @@ def cli(argv: list[str] | None = None) -> int:
     :func:`_claude_event`.
     ``--opencode`` → the OpenCode adapter (:func:`opencode_main`).
     ``--kiro`` → the Kiro CLI adapter (:func:`kiro_main`).
-    ``--gemini`` → the Gemini CLI adapter (:func:`gemini_main`).
+    ``--antigravity`` → the Antigravity adapter (:func:`antigravity_main`).
     ``--copilot`` → the Copilot CLI adapter (:func:`copilot_main`).
     ``--codex`` → the Codex native hook adapter (:func:`codex_main`).
     ``--grok`` → the Grok Build adapter (:func:`grok_main`).
@@ -2296,8 +2312,8 @@ def cli(argv: list[str] | None = None) -> int:
         return opencode_main()
     if args and args[0] == "--kiro":
         return kiro_main()
-    if args and args[0] == "--gemini":
-        return gemini_main()
+    if args and args[0] == "--antigravity":
+        return antigravity_main()
     if args and args[0] == "--copilot":
         return copilot_main()
     if args and args[0] == "--grok":

@@ -33,7 +33,7 @@ verdict is rendered, never written:
 * `skill`, `hash` — the invoking skill's `name:` and `surface_hash:`.
 * `reconciled` — dict written to personal layer `reconciled.json`, or `null`.
 * `harness` — the harness whose session the case runs in (`codex`,
-  `copilot`, `gemini`, or `claude`). The renderer puts that harness's
+  `copilot`, `antigravity`, or `claude`). The renderer puts that harness's
   session markers in the environment and a stub listing command on `PATH`
   that prints `plugins`, so the checker detects the harness itself and
   reads the listing the way that harness's session would produce it.
@@ -83,9 +83,11 @@ DEFAULT_HASH = "sha256:2edc90a1b7f3440d"
 HARNESS_ENV: dict[str, dict[str, str]] = {
     "codex": {"CODEX_SANDBOX": "1"},
     "copilot": {"COPILOT_CLI": "1"},
-    "gemini": {"GEMINI_CLI": "1"},
+    "antigravity": {"ANTIGRAVITY_CONVERSATION_ID": "probe"},
     "claude": {"CLAUDECODE": "1"},
 }
+#: The listing executable, where it is not named after the harness.
+HARNESS_BIN: dict[str, str] = {"antigravity": "agy"}
 
 
 def run_checker(state: dict[str, object], repo_root: Path, scratch: Path) -> str:
@@ -152,10 +154,11 @@ def run_checker(state: dict[str, object], repo_root: Path, scratch: Path) -> str
         bin_dir = scratch / "bin"
         bin_dir.mkdir()
         listing_arg = str(listing).replace("\\", "/")
-        stub = bin_dir / harness
+        binary = HARNESS_BIN.get(harness, harness)
+        stub = bin_dir / binary
         stub.write_text(f'#!/bin/sh\ncat "{listing_arg}"\n', encoding="utf-8")
         os.chmod(stub, 0o700)  # owner-only: the renderer runs it as itself
-        (bin_dir / f"{harness}.bat").write_text(f'@echo off\ntype "{listing}"\r\n', encoding="utf-8")
+        (bin_dir / f"{binary}.bat").write_text(f'@echo off\ntype "{listing}"\r\n', encoding="utf-8")
         env = _env(scratch)
         env["PATH"] = str(bin_dir) + os.pathsep + env["PATH"]
         env.update(markers)

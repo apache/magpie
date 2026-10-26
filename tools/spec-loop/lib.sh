@@ -121,15 +121,23 @@ spec_loop_launch_agent() {
             ${model_args[@]+"${model_args[@]}"} \
             ${cursor_format_args[@]+"${cursor_format_args[@]}"} \
             "$(cat "$prompt_file")" &
-    elif [ "$harness" = "gemini" ]; then
-        # Gemini CLI has no per-invocation effort/thinking-level flag.
-        # Keep the native sandbox and Magpie policies active. In headless mode,
-        # operations requiring approval are denied, not silently approved.
+    elif [ "$harness" = "antigravity" ]; then
+        # Antigravity CLI (`agy`) headless: `-p <prompt>`. Never pass
+        # --dangerously-skip-permissions: headless runs keep the request-review
+        # permission mode, so tool calls needing approval are soft-denied (the
+        # run still exits 0; the JSON envelope lists them in `denied_actions`).
+        # Effort is a first-class `--effort` flag (low|medium|high|xhigh|max).
+        local agy_effort_args=()
+        case "$effort" in
+            low)    agy_effort_args=(--effort low) ;;
+            medium) agy_effort_args=(--effort medium) ;;
+            high)   agy_effort_args=(--effort max) ;;
+        esac
         "$agent" \
-            --approval-mode default \
             --output-format "$output_format" \
             ${model_args[@]+"${model_args[@]}"} \
-            --prompt "$(cat "$prompt_file")" &
+            ${agy_effort_args[@]+"${agy_effort_args[@]}"} \
+            -p "$(cat "$prompt_file")" &
     elif [ "$harness" = "kiro" ]; then
         # Kiro CLI headless: positional prompt to `kiro-cli chat --no-interactive`.
         # The model is selected by the chosen agent config (.kiro/agents), not a

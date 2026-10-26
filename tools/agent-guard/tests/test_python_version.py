@@ -61,12 +61,12 @@ def test_reexecs_under_newest_versioned_interpreter(
 ) -> None:
     available = {"python3.11": "/usr/bin/python3.11", "python3.13": "/usr/bin/python3.13"}
     monkeypatch.setattr(shutil, "which", available.get)
-    monkeypatch.setattr(sys, "argv", ["agent-guard", "--gemini"])
+    monkeypatch.setattr(sys, "argv", ["agent-guard", "--antigravity"])
     with pytest.raises(_Exec) as exc:
         agent_guard._reexec_under_supported_python()
     path, argv = exc.value.args
     assert path == "/usr/bin/python3.13"
-    assert argv == [path, os.path.abspath(agent_guard.__file__), "--gemini"]
+    assert argv == [path, os.path.abspath(agent_guard.__file__), "--antigravity"]
     assert old_python[agent_guard._REEXEC_VAR] == "1"
 
 

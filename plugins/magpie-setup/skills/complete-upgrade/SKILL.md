@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:bf83981a9df27d35
 license: Apache-2.0
-measured_tokens: 6274
+measured_tokens: 6280
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -269,7 +269,7 @@ When the user accepted the isolated-setup offer, hand off to [`setup-isolated-se
 
 ## Other harnesses
 
-Codex, Gemini CLI and Copilot CLI have no equivalent of `dangerouslyDisableSandbox`.
+Codex, Antigravity and Copilot CLI have no equivalent of `dangerouslyDisableSandbox` that this skill drives.
 There the plan still shows every item, but no `[bypass]` item is applied: each becomes an exact command under *Run these yourself*.
 Unmarked items apply as on Claude Code.
 Route the isolated-setup checks through the runtime branch each catalogue already has.

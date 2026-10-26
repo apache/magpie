@@ -7,7 +7,7 @@ mode: Meta
 description: >-
   Walk an adopter through the first-time install of the secure agent
   setup (sandbox, approval and clean-environment layers) for Claude
-  Code, Codex or Gemini CLI. Interactive throughout; never runs sudo,
+  Code, Codex or Antigravity. Interactive throughout; never runs sudo,
   edits a shell rc, or overwrites settings on its own.
 when_to_use: >-
   When the user wants the secure setup installed for the first time, or
@@ -17,7 +17,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:d33e1ff373860d4b
 license: Apache-2.0
-measured_tokens: 8140
+measured_tokens: 8191
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -41,10 +41,11 @@ steps. Do not write Claude settings or report a missing `.claude` file as a
 Codex failure. After completing the Codex branch, stop; the remainder of this
 skill is the Claude Code branch.
 
-When the selected runtime is Gemini CLI, follow
-[docs/adapters/gemini.md](../../../../docs/adapters/gemini.md#install): resolve the existing extension, snapshot, or framework checkout; propose the workspace profile and guard merge; then guide the wrapper launch and verification.
+When the selected runtime is Antigravity, follow
+[docs/adapters/antigravity.md](../../../../docs/adapters/antigravity.md#install): resolve the installed plugin, snapshot, or framework checkout; propose the merge of the user-scope profile into `~/.gemini/antigravity-cli/settings.json` and of the guard into `~/.gemini/config/hooks.json`; then guide the wrapper launch and verification.
+The setup is per user: write nothing into the repository.
 Do not require or write Claude configuration.
-After completing the Gemini branch, stop before the Claude-specific procedure below.
+After completing the Antigravity branch, stop before the Claude-specific procedure below.
 
 When the selected runtime is Copilot CLI, follow [docs/adapters/copilot.md](../../../../docs/adapters/copilot.md#install): register the guard hook, detect and declare mail sources from the MCP servers already present, and ask nothing beyond the single apply confirmation (PRINCIPLES.md §1, *Avoiding prompt fatigue*). Do not require or write Claude configuration.
 After completing the Copilot branch, stop before the Claude-specific procedure below.
@@ -388,9 +389,9 @@ stay in `ask`, never in `allow`, and `vetted-op` is never excluded.
 Only applies when the `magpie-adversarial-review` plugin is installed. If it
 is not, skip this step and say so.
 
-The reviewer CLIs it runs (`codex`, `copilot`, `gemini`, `grok`, `claude`)
+The reviewer CLIs it runs (`codex`, `copilot`, `agy`, `grok`, `claude`)
 need network access and read their own credentials (`~/.codex`,
-`~/.copilot`, `~/.gemini`, `~/.grok`, `~/.claude`), which this sandbox denies. The tool therefore
+`~/.copilot`, `~/.gemini/antigravity-cli`, `~/.grok`, `~/.claude`), which this sandbox denies. The tool therefore
 runs outside it, through one exclusion. It names `~/.claude/magpie/adversarial-review`,
 a link the plugin's `SessionStart` hook points at the installed version every
 session, never a `*` where the version sits: that would also match `uv`

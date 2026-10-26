@@ -29,8 +29,8 @@
 # already maintains, and tells the user (apache/magpie#1785). It runs no git
 # command and follows no symlink to do it.
 #
-# Agents without a session hook (e.g. Gemini CLI) surface the same prompt via
-# their extension context file (GEMINI.md) instead.
+# Agents without a session hook (e.g. Antigravity) get no automatic prompt;
+# their users reconcile with `/magpie-setup upgrade` after a plugin update.
 #
 # The session environment comes from settings a project can set, and this hook
 # runs outside the sandbox, so none of it may choose what runs: bash is the

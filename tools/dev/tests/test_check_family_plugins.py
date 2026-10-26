@@ -367,8 +367,8 @@ def test_aliases_are_unique_within_every_real_family(monkeypatch):
 
 
 def test_aliases_are_unique_across_all_families(monkeypatch):
-    """The alias is also the skill's frontmatter `name:`, and Gemini CLI keeps
-    skills in one flat registry, so a repeat across families is a collision."""
+    """The alias is also the skill's frontmatter `name:`, and Antigravity keeps
+    skills in one flat slash-command namespace, so a repeat across families is a collision."""
     monkeypatch.chdir(REPO_ROOT)
     seen: dict[str, str] = {}
     for family, skills in mod.families_from_frontmatter().items():

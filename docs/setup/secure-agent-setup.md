@@ -143,7 +143,7 @@ mapping. The long-form sections below remain the canonical Claude Code
 setup; the four `setup-isolated-*` skills route Codex to the adapter
 before entering any Claude-only settings flow.
 
-The same four skills route Gemini CLI to its [setup lifecycle](../adapters/gemini.md#setup-isolated-lifecycle).
+The same four skills route Antigravity to its [setup lifecycle](../adapters/antigravity.md#setup-isolated-lifecycle), which configures the user's `~/.gemini/` files once and never asks for per-repository setup.
 
 ### Agent-guided (recommended)
 
@@ -505,7 +505,7 @@ The full block below is the two merged, annotated.
     // workaround, and the upstream report (anthropics/claude-code#95532)
     // are in sandbox-troubleshooting.md → "`gh` fails with TLS …".
     // The adversarial-review tool runs other models' CLIs, which need network
-    // access and their own credentials (~/.codex, ~/.copilot, ~/.gemini,
+    // access and their own credentials (~/.codex, ~/.copilot, ~/.gemini/antigravity-cli,
     // ~/.grok, ~/.claude). Only its single-line, installed-plugin form is excluded;
     // it keeps its permission prompt (no `allow`), and the plugin cache is
     // `Edit`-denied below. See the isolated-setup-install skill, Step R.
@@ -2068,7 +2068,7 @@ to render exactly that, leading with the sandbox tag.
 the script is wired through Claude Code's `statusLine` setting, is fed
 Claude Code's statusLine payload on stdin, and reads Claude Code's
 `sandbox.enabled` schema. No other harness the framework supports has a
-status-line hook of that shape — Codex, Gemini, OpenCode and Kiro carry
+status-line hook of that shape — Codex, Antigravity, OpenCode and Kiro carry
 their sandbox posture in their own config and surface it, where they
 surface it at all, through their own UI. A harness that grows one gets
 its own helper; see

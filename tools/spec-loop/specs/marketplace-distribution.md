@@ -9,7 +9,7 @@ mode: infra
 source: >
   docs/setup/marketplace.md. The manifest set at .claude-plugin/,
   .codex-plugin/, .agents/plugins/, plugins/magpie-*/, and the repo-root
-  plugin.json / marketplace.json / apm.yml / gemini-extension.json.
+  plugin.json / marketplace.json / apm.yml.
   Hook wiring in plugins/magpie-setup/hooks/ and
   plugins/magpie-agent-guard/hooks/.
   Enforced by tools/dev/check-family-plugins.py.
@@ -59,7 +59,9 @@ Two manifest families, because the ecosystems have not converged:
   (Claude Code, the only family that carries `hooks` and per-family plugins),
   `.codex-plugin/plugin.json` with `.agents/plugins/marketplace.json` (Codex),
   the root `marketplace.json` (Copilot / VS Code legacy catalog),
-  `gemini-extension.json`, and `apm.yml` (`microsoft/apm`, schema v0.1).
+  and `apm.yml` (`microsoft/apm`, schema v0.1).
+  Antigravity CLI reads the AP1 root `plugin.json` and the root `skills/` tree
+  (`agy plugin install https://github.com/apache/magpie`); it needs no file of its own.
   The root `marketplace.json` names each plugin's `source` as a bare
   relative path (`"./plugins/magpie-<family>"`), not a `{"source": "local",
   "path": …}` object, which is not a source type Claude Code documents
@@ -281,13 +283,13 @@ For the Claude Code family, `claude plugin validate . --strict`.
 
 - **Only the Claude Code manifests are verified against a live install.** The
   rest — AP1 root `plugin.json`, the Codex pair, the Copilot catalog,
-  `gemini-extension.json`, `apm.yml` — conform to their vendors' published
+  `apm.yml` — conform to their vendors' published
   documentation but have not been exercised end-to-end. Re-check each against
   current vendor docs before a marketplace publish.
 - **`apm.yml` targets `microsoft/apm` schema v0.1**, pre-1.0 and the most
   likely of the set to churn.
-- **Gemini has no migration path off `gemini-extension.json`.** Google has
-  joined the AP1 TSC but published nothing, so both files stay.
+- **Antigravity is checked only with `agy plugin validate .`** (1.3.6 reports the
+  root's skills); an end-to-end `agy plugin install` has not been exercised.
 - **Codex never runs the upgrade-detection hook.**
   `plugins/magpie-setup/` has no `.codex-plugin/plugin.json`, so Codex reads
   its default `hooks/hooks.json`, whose top-level `$schema` and `modules`

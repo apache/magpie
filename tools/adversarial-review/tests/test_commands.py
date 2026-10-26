@@ -20,7 +20,6 @@ from __future__ import annotations
 import fnmatch
 import json
 import re
-import tomllib
 from pathlib import Path
 
 import pytest
@@ -37,7 +36,7 @@ def _invocation_line(content: str) -> str:
 
 
 def test_harness_set():
-    assert list(HARNESSES) == ["claude", "codex", "gemini", "copilot"]
+    assert list(HARNESSES) == ["claude", "codex", "antigravity", "copilot"]
 
 
 def test_claude_command_runs_the_tool_from_the_stable_path():
@@ -57,15 +56,18 @@ def test_codex_prompt():
     assert "outside it" in content  # the sandbox-escalation hint for Codex's no-network default
 
 
-def test_gemini_command_is_valid_toml():
-    path, content = render("gemini")
-    assert path == "~/.gemini/commands/magpie-adversarial-review.toml"
-    data = tomllib.loads(content)
-    assert set(data) == {"description", "prompt"}
-    assert "{{args}}" in data["prompt"]
-    assert (
-        "!{" not in data["prompt"]
-    )  # the agent runs it through its own shell tool, under its own permissions
+def test_antigravity_command_is_a_user_skill():
+    path, content = render("antigravity")
+    assert path == "~/.gemini/antigravity-cli/skills/magpie-adversarial-review/SKILL.md"
+    assert content.startswith("---\n# SPDX-License-Identifier: Apache-2.0\n")
+    frontmatter = content.split("---\n")[1]
+    assert "\nname: magpie-adversarial-review\n" in frontmatter
+    assert "\ndescription: " in frontmatter  # the one field Antigravity requires
+    assert "argument-hint" not in frontmatter
+    # Antigravity substitutes no arguments: nothing placeholder-shaped is left behind.
+    assert "$ARGUMENTS" not in content and "{{args}}" not in content and "``" not in content
+    assert "the one the user named, if any" in content
+    assert f"newest directory under `{PLUGIN_DIR}/`" in content
 
 
 def test_copilot_has_no_command_file_only_the_invocation():
@@ -113,7 +115,7 @@ def test_the_sandbox_exclusion_has_no_wildcard_before_the_tool_name():
     assert not fnmatch.fnmatchcase(spliced, pattern)
 
 
-@pytest.mark.parametrize("harness", ["claude", "codex", "gemini"])
+@pytest.mark.parametrize("harness", ["claude", "codex", "antigravity"])
 def test_every_command_treats_findings_as_untrusted_and_runs_one_line(harness):
     _, content = render(harness)
     assert "untrusted" in content

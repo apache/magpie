@@ -173,9 +173,9 @@ def _floor_findings(lock: Lock, installed: dict[str, str] | None, harness: str |
         # Unknown, never absent.  Say nothing and let the run continue: this
         # is the ordinary state of a sandboxed session, not a fault.
         return []
-    if harness == "gemini":
-        # Gemini ships all families in one extension. Its version carries
-        # every floor entry; an unrecognised extension name is unknown.
+    if harness == "antigravity":
+        # Antigravity installs the whole framework as one `magpie` plugin. Its
+        # version carries every floor entry; an unrecognised name is unknown.
         version = installed.get("magpie")
         if version is None:
             return []

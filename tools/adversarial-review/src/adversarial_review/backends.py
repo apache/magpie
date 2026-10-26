@@ -31,8 +31,13 @@ Read-only also means no MCP tools: a reviewer inherits the user's MCP servers
 in the diff could reach them. Codex gets an empty `mcp_servers` table and
 Claude `--strict-mcp-config` with no config. Grok cannot close its MCP servers
 from the CLI, so `--deny MCPTool` auto-denies every MCP tool invocation
-instead. Copilot and Gemini expose no equivalent switch in the versions this
-was written against; the README says so.
+instead. Copilot and Antigravity expose no equivalent switch in the versions
+this was written against; the README says so.
+
+Antigravity reads its prompt from stdin only in `stream-json` input mode. It
+also loads workspace hooks and MCP servers from the reviewed tree's `.agents/`
+directory, which would run code the change under review supplies, so it
+refuses such a tree instead of reviewing it.
 
 Grok's `--permission-mode plan` is not used: grok accepts it for compatibility
 but wires only `bypassPermissions` at spawn, so it would restrict nothing.
@@ -51,7 +56,6 @@ from typing import Any
 COPILOT_INSTRUCTION = (
     "Read the review brief at {brief} and follow it exactly. Change no file and run no command."
 )
-STDIN_INSTRUCTION = "Follow the review brief given on standard input exactly. Change no file."
 CLAUDE_DENIED_TOOLS = "Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch,Task"
 # Grok's read-only built-in tools. `--tools` removes everything else, including
 # the shell and the edit tools, but keeps the MCP meta-tools unless denied.
@@ -89,6 +93,14 @@ class Backend:
     self_markers: tuple[tuple[str, str | None], ...]
     build: Callable[[RunContext], Invocation]
     extract: Callable[[str, RunContext], str]
+    # Why this reviewer must not run on ctx.repo_dir, or None when it may.
+    refuse: Callable[[RunContext], str | None] | None = None
+    # The CLI's executable, when it is not named after the backend.
+    cli: str = ""
+
+    @property
+    def executable(self) -> str:
+        return self.cli or self.name
 
 
 def _model(flag: str, ctx: RunContext) -> list[str]:
@@ -162,19 +174,67 @@ def _plain_extract(stdout: str, ctx: RunContext) -> str:
     return stdout
 
 
-def _gemini(ctx: RunContext) -> Invocation:
-    argv = ["gemini", "--approval-mode", "plan", "-o", "json", *_model("-m", ctx), "-p", STDIN_INSTRUCTION]
-    return Invocation(argv, stdin=ctx.prompt)
+# Workspace files Antigravity acts on by itself: hooks run shell commands and
+# MCP configs start servers. `.agent/` is its legacy spelling of `.agents/`.
+ANTIGRAVITY_EXECUTABLE_CONFIG = tuple(
+    f"{d}/{f}" for d in (".agents", ".agent") for f in ("hooks.json", "mcp_config.json")
+)
 
 
-def _gemini_extract(stdout: str, ctx: RunContext) -> str:
-    data = _json_envelope(stdout, "gemini")
-    if data.get("error"):
-        raise BackendOutputError(f"gemini reported an error: {data['error']}")
-    response = data.get("response")
+def _antigravity(ctx: RunContext) -> Invocation:
+    # No --dangerously-skip-permissions: headless agy soft-denies every tool
+    # that needs approval, so plan mode under request-review stays read-only.
+    argv = [
+        "agy",
+        "--mode",
+        "plan",
+        "--input-format",
+        "stream-json",
+        "--output-format",
+        "stream-json",
+        # 0 waits for the turn to finish: the runner's timeout decides, where
+        # agy's own would return a partial answer still marked SUCCESS.
+        "--print-timeout",
+        "0",
+        *_model("--model", ctx),
+    ]
+    message = {"event": "user", "message": {"content": ctx.prompt}}
+    return Invocation(argv, stdin=json.dumps(message) + "\n")
+
+
+def _antigravity_extract(stdout: str, ctx: RunContext) -> str:
+    result = None
+    for line in stdout.splitlines():
+        try:
+            event = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(event, dict) and event.get("event") == "result":
+            result = event.get("result")
+    if not isinstance(result, dict):
+        raise BackendOutputError("antigravity output has no `result` event")
+    status = result.get("status")
+    if status != "SUCCESS":
+        raise BackendOutputError(f"antigravity reported status {status!r}: {result.get('error')}")
+    response = result.get("response")
     if not isinstance(response, str) or not response.strip():
-        raise BackendOutputError("gemini output has no `response` text")
+        raise BackendOutputError("antigravity output has no `response` text")
     return response
+
+
+def _antigravity_refuse(ctx: RunContext) -> str | None:
+    # agy may take an enclosing directory (a git root) as the workspace, so a
+    # config in any ancestor would run as well.
+    root = ctx.repo_dir.resolve()
+    found = [
+        str(d / rel)
+        for d in (root, *root.parents)
+        for rel in ANTIGRAVITY_EXECUTABLE_CONFIG
+        if (d / rel).exists()
+    ]
+    if found:
+        return f"the reviewed tree has {', '.join(found)}, which agy would execute"
+    return None
 
 
 def _claude(ctx: RunContext) -> Invocation:
@@ -237,7 +297,14 @@ def _grok_extract(stdout: str, ctx: RunContext) -> str:
 BACKENDS: dict[str, Backend] = {
     "codex": Backend("codex", (("CODEX_SANDBOX", None), ("CODEX_THREAD_ID", None)), _codex, _codex_extract),
     "copilot": Backend("copilot", (("COPILOT_CLI", None),), _copilot, _plain_extract),
-    "gemini": Backend("gemini", (("GEMINI_CLI", "1"),), _gemini, _gemini_extract),
+    "antigravity": Backend(
+        "antigravity",
+        (("ANTIGRAVITY_CONVERSATION_ID", None),),
+        _antigravity,
+        _antigravity_extract,
+        _antigravity_refuse,
+        cli="agy",
+    ),
     "grok": Backend("grok", (("GROK_SESSION_ID", None),), _grok, _grok_extract),
     "claude": Backend("claude", (("CLAUDECODE", "1"),), _claude, _claude_extract),
 }

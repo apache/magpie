@@ -57,7 +57,7 @@ The single source of truth for *where each runtime reads skills from* is
   `aider`, `openhands`).
 - `<runtime>/skills/` — the path the runtime reads for project-scope
   skills. Check the runtime's docs; if it reads `.agents/skills/`
-  directly (like Codex, Cursor, Gemini CLI) no new row is needed —
+  directly (like Codex, Cursor, Antigravity) no new row is needed —
   the `universal` row already covers it.
 - `native (relay)` — used for runtimes with their own per-agent
   directory. Leave the *kind* column as `native (relay)` if the
@@ -154,7 +154,7 @@ Add your runtime's convention in two places.
 case "${SPEC_LOOP_HARNESS:-$(basename "$AGENT")}" in
     *codex*)      HARNESS=codex ;;
     *cursor*)     HARNESS=cursor ;;
-    *gemini*)     HARNESS=gemini ;;
+    *agy*|*antigravity*) HARNESS=antigravity ;;
     *opencode*)   HARNESS=opencode ;;
     *kiro*)       HARNESS=kiro ;;
     *<runtime>*)  HARNESS=<runtime> ;;    # add your case here
@@ -173,7 +173,7 @@ patterns. Each branch runs the agent in the background (`&`) with:
 - `SPEC_LOOP_EFFORT` mapped when the CLI has a reasoning-effort knob
   (see the effort table in
   [`tools/spec-loop/specs/spec-loop-runner.md`](../../tools/spec-loop/specs/spec-loop-runner.md));
-  if the CLI has no such flag, omit silently like Cursor/Gemini — do not
+  if the CLI has no such flag, omit silently like Cursor — do not
   warn;
 - the prompt fed via stdin, a file argument, or a flag — whatever the
   runtime accepts.
@@ -215,11 +215,11 @@ README. When your new runtime uses one of these tools, update its line:
 
 | Tool | Current harness declaration |
 |---|---|
-| `tools/agent-guard` | `**Harness:** Claude Code, OpenCode, Kiro, Gemini CLI` |
+| `tools/agent-guard` | `**Harness:** Claude Code, OpenCode, Kiro, Antigravity` |
 | `tools/agent-isolation` | `**Harness:** agnostic` |
 | `tools/permission-audit` | `**Harness:** agnostic` |
-| `tools/sandbox-lint` | `**Harness:** Claude Code, Codex, Cursor, Gemini CLI, OpenCode, Kiro` |
-| `tools/spec-loop` | `**Harness:** Claude Code, Codex, Cursor, Gemini CLI, OpenCode, Kiro` |
+| `tools/sandbox-lint` | `**Harness:** Claude Code, Codex, Cursor, Antigravity, OpenCode, Kiro` |
+| `tools/spec-loop` | `**Harness:** Claude Code, Codex, Cursor, Antigravity, OpenCode, Kiro` |
 
 `tools/agent-isolation` already exposes a harness-agnostic `agent-iso <cli>` entry
 point — no update needed for new runtimes (see

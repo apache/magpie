@@ -117,6 +117,9 @@ def _execute(
 
 def run_one(name: str, ctx: RunContext, timeout_s: float, env: Mapping[str, str]) -> ReviewerResult:
     backend = BACKENDS[name]
+    refusal = backend.refuse(ctx) if backend.refuse else None
+    if refusal:
+        return ReviewerResult(name, "skipped", reason=refusal)
     inv = backend.build(ctx)
     path = shutil.which(inv.argv[0], path=env.get("PATH", ""))
     if path is None:

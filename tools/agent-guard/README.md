@@ -15,7 +15,7 @@
     - [Codex](#codex)
     - [OpenCode](#opencode)
     - [Kiro CLI](#kiro-cli)
-    - [Gemini CLI](#gemini-cli)
+    - [Antigravity](#antigravity)
     - [Copilot CLI](#copilot-cli)
     - [Grok](#grok)
     - [Junie CLI](#junie-cli)
@@ -32,7 +32,7 @@
 
 **Capability:** substrate:action-guard
 
-**Harness:** Claude Code, Codex, OpenCode, Kiro, Gemini CLI, Copilot, Grok, Junie
+**Harness:** Claude Code, Codex, OpenCode, Kiro, Antigravity, Copilot, Grok, Junie
 
 A deterministic pre-execution guard dispatcher. It inspects every shell command
 **before it runs** and **denies** the ones that would break a hard framework
@@ -51,10 +51,10 @@ so every wired harness enforces an identical rule set from one source of truth:
 - **Kiro CLI** — a [`preToolUse`](https://kiro.dev/docs/cli/hooks) hook on the
   `execute_bash` matcher, which blocks a call when the hook exits `2`
   (`agent-guard.py --kiro`, reason on stderr). See [Wiring](#wiring).
-- **Gemini CLI** — a [`BeforeTool`](https://geminicli.com/docs/hooks/reference/)
-  hook on `run_shell_command`, using `--gemini` (exit `2`, reason on stderr).
-  The repository's `.gemini/settings.json` wires this hook; snapshot
-  adopters register it in their own settings. See [Gemini CLI](#gemini-cli).
+- **Antigravity** — a [`PreToolUse`](https://antigravity.google/docs/hooks/)
+  hook on `run_command`, using `--antigravity` (a JSON `deny` decision on
+  stdout). The user-scope `~/.gemini/config/hooks.json` registers it once for
+  every repository. See [Antigravity](#antigravity).
 - **Grok Build** — a `PreToolUse` hook on the `Bash` matcher.
   Grok Build 1.0.46 was observed emitting `run_terminal_command` with the shell
   command in `toolInput.command`.
@@ -301,35 +301,28 @@ Claude Code and OpenCode paths — verified end-to-end: with this hook wired,
 Kiro refuses a `Co-Authored-By` commit (quoting the `commit-trailer` reason and
 leaving the commit uncreated) while a clean commit proceeds.
 
-### Gemini CLI
+### Antigravity
 
-The repository's [`.gemini/settings.json`](../../.gemini/settings.json) wires
-the `--gemini` adapter to Gemini CLI's `BeforeTool` event.
-Start Gemini from the checkout root; the command uses `GEMINI_PROJECT_DIR`
-to resolve the engine without a machine-specific path.
+The same engine backs [Antigravity](https://antigravity.google/docs/hooks/) (CLI, App and IDE) via its `PreToolUse` hook on the `run_command` tool.
+Antigravity pipes the event on stdin — the shell command is `toolCall.args.CommandLine`, the workspace roots are `workspacePaths` — and reads a JSON decision from stdout.
+`agent-guard.py --antigravity` runs the shared core and prints `{"decision": "deny", "reason": …}` on a deny, which blocks the call and returns the reason to the model; anything else prints `{"decision": "allow"}`, which defers to the user's own permission rules rather than approving the call.
+The hook runs with its `hooks.json` directory as the working directory, so Git checks use the command's `Cwd`, else the first workspace root.
 
-The [`setup-isolated-setup-install`](../../skills/setup-isolated-setup-install/SKILL.md)
-skill registers the adapter in the adopter's workspace `.gemini/settings.json`.
-It resolves the existing extension, snapshot, or framework checkout and merges
-one `magpie-agent-guard` entry while preserving unrelated hooks.
-See [the Gemini install lifecycle](../../docs/adapters/gemini.md#install)
-for path selection, trust, and verification.
-
-For manual registration, merge this entry into existing hooks and replace the
-example path with the resolved framework directory, quoted for the shell and
-encoded as JSON:
+The guard is registered **once per user**, in `~/.gemini/config/hooks.json`, never per repository.
+The shipped registration is [`tools/agent-isolation/antigravity/hooks.json`](../agent-isolation/antigravity/hooks.json); the [`setup-isolated-setup-install`](../../skills/setup-isolated-setup-install/SKILL.md) skill merges it while preserving unrelated hooks.
+It points at the engine inside the installed Magpie plugin:
 
 ```json
 {
-  "hooks": {
-    "BeforeTool": [
+  "magpie-agent-guard": {
+    "PreToolUse": [
       {
-        "matcher": "^run_shell_command$",
+        "matcher": "run_command",
         "hooks": [
           {
-            "name": "magpie-agent-guard",
             "type": "command",
-            "command": "python3 \"/absolute/path/to/magpie/tools/agent-guard/src/agent_guard/__init__.py\" --gemini"
+            "command": "python3 \"${HOME}/.gemini/config/plugins/magpie/tools/agent-guard/src/agent_guard/__init__.py\" --antigravity",
+            "timeout": 30
           }
         ]
       }
@@ -338,21 +331,13 @@ encoded as JSON:
 }
 ```
 
-Gemini supplies `tool_input.command` and `cwd` on stdin.
-The adapter calls `dispatch()` and returns exit `2` with the denial reason on
-stderr; permitted commands return `0` silently.
-The adapter tests cover CLI routing, preservation of core decisions, workspace-aware
-Git checks, malformed input, and execution of the project settings' hook command.
-An offline probe of Gemini CLI 0.59.0 also loaded those settings through its
-native settings loader and registered and executed the hook, recognizing its
-denial even from a checkout path containing spaces.
+Antigravity runs the hook command through a shell, so `${HOME}` expands and the file carries no username.
+For a framework checkout or snapshot instead of the plugin, replace the path with that tree's engine.
+Verified against Antigravity CLI 1.3.6 on macOS: `agy plugin install` staged the engine at the path above, the hook received the event, a deny blocked the command with the reason shown to the model, and an allow fell through to the permission prompt.
 
-This preserves the shared engine's fail-open behavior for malformed input.
-A missing hook executable or interpreter can also leave the session running
-with a warning, so verify a known denial after installation.
-The hook covers shell commands; native file and MCP tools still need their
-own permissions, and shell execution still needs an OS sandbox.
-See the [harness contract](../../docs/adapters/gemini.md).
+A missing interpreter or script leaves the session running, so verify a known denial after installation.
+The hook covers shell commands; native file, browser and MCP tools still need the permission rules, and shell execution still needs the terminal sandbox.
+See the [harness contract](../../docs/adapters/antigravity.md).
 
 ### Copilot CLI
 
