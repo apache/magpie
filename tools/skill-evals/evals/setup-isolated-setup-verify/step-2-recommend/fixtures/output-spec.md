@@ -17,9 +17,10 @@ Return ONLY valid JSON with this structure:
 }
 ```
 
-`overall` is `"pass"` when every check is ✓, `"warn"` when there are ⚠ but no ✗,
+`overall` is `"pass"` when no check is ⚠ or ✗, `"warn"` when there are ⚠ but no ✗,
 `"fail"` when any check is ✗.
-`follow_up` is an empty array when `overall` is `"pass"`.
+An `inconclusive` or `unchecked` check counts as neither ⚠ nor ✗ for `overall`, but still gets a `follow_up` entry.
+`follow_up` is an empty array when every check is ✓.
 `skill` is the skill slug (e.g. `"setup-isolated-setup-install"`) or
 `"sandbox-add-project-root.sh --all-worktrees"` for the check-8 helper.
 Do not include any text outside the JSON object.

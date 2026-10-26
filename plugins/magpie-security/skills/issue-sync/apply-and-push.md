@@ -382,7 +382,8 @@ Completing the push is the first action of the next session-capable sync.
 The remaining transitions stay separate:
 
 - `review-ready` → `publish-ready` is a **release-manager UI action** in the CVE tool (for Vulnogram, the State dropdown going `REVIEW` → `READY`),
-  done as Step 1 of the RM hand-off after any reviewer comments on the record are resolved.
+  done as Step 1 of the RM hand-off once any reviewer comments on the record are answered
+  (Vulnogram comments cannot be resolved; sync records each answered one in the processed-comments ledger).
   The generator does not emit `publish-ready`: it is a human decision that reviewer feedback is closed.
 - `publish-ready` → `public` is **sync-driven** via the adapter's `publish(cve_id)` method (see Step 4 above),
   fired when the advisory archive URL has been captured on `<mail-archive-url>/list.html?<users-list>`.

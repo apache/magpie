@@ -338,6 +338,12 @@ repos:
   # already corrected and staged-ready instead of as an instruction.
   - repo: local
     hooks:
+      - id: check-forbidden-terms-sync
+        name: check-forbidden-terms-sync (canonical scrub terms vs publication.py)
+        language: system
+        entry: python3 tools/dev/sync-forbidden-terms.py --check
+        files: ^(tools/vcs/src/magpie_vcs/publication\.py|tools/dev/sync-forbidden-terms\.py|plugins/magpie-security/hooks/forbidden-terms\.ts)$
+        pass_filenames: false
       - id: check-family-plugins
         name: check-family-plugins (marketplace plugins vs frontmatter)
         language: system

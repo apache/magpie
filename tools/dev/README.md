@@ -75,6 +75,7 @@ installable for other members to depend on it.
 | [`run-skill-script-tests.sh`](run-skill-script-tests.sh) | Runs the stdlib `unittest` suites under `plugins/*/skills/*/tests`, which cover skills' sibling scripts. Those scripts are not workspace members, so the `workspace-pytest` hook never reaches them. Runs as the `skill-script-tests` pre-commit hook. |
 | [`add-license-headers.py`](add-license-headers.py) | Stamps the SPDX licence header into Markdown files that lack one. |
 | [`agent-pre-commit.sh`](agent-pre-commit.sh) | Wrapper for `prek run --all-files`, for agent use. An agent running `pytest` / `ruff` / `mypy` individually still misses the rest of the CI gate (doctoc, markdownlint, typos, the checks above); this runs what CI runs. |
+| [`sync-forbidden-terms.py`](sync-forbidden-terms.py) | Derives the deterministic forbidden-term patterns from canonical `magpie_vcs.publication.DEFAULT_TERMS` and emits TypeScript definitions (`forbidden-terms.ts`) for the `magpie-security` Claude Code mod, preventing term drift. `--check` reports drift without writing. |
 
 Each `check-doc-sync.py` check was added after the drift it catches had been
 found by hand. None of them break anything when wrong, which is precisely why

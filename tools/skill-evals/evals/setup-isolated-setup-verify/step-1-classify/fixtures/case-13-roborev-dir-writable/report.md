@@ -25,7 +25,7 @@ cat .claude/settings.json:
   "sandbox": {
     "enabled": true,
     "network": {"allowedDomains": ["github.com", "api.github.com", "pypi.org"]},
-    "filesystem": {"allowRead": ["."], "allowWrite": ["."]}
+    "filesystem": {"denyRead": ["~/"], "allowRead": ["."], "allowWrite": ["."]}
   },
   "permissions": {
     "deny": ["Read(~/.aws/**)", "Bash(curl *)"],

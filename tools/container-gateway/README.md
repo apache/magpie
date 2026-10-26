@@ -113,6 +113,7 @@ The create-time rules below apply to containers and pods (the same fields under 
 
 `POST /build` gets the same treatment: `volume`, `remote`, `securityopt`, `cgroupparent`, `ulimits`, `devices`, `secrets`, `ssh`, `session`, podman's `addcaps` / `labelopts` / `extrahosts`, a `networkmode` outside the keyword set above, an `nsoptions` entry joining a host namespace other than `user`, and an `output` / `outputs` that names a filesystem destination — a path-shaped bare value, a `local` / `tar` / `oci` exporter, any `dest=` attribute, anything but `type=image` / `type=registry` in the JSON or comma form — are all refused, as is any parameter the gateway has not learned.
 A build also gets the egress proxy merged into its `buildargs`, so `RUN` obeys the same allow-list a container does.
+A volume create gets the project label and is refused when it names a driver other than `local` or carries any driver options (compat `DriverOpts`, libpod `options`), for the same reason as the mount rule above: a labelled volume can then be mounted by name.
 An exec body is allow-listed to the exec fields, with `Privileged: true` refused; an update body to resource limits and the restart policy.
 
 A denial comes back as `403` with a one-line reason both CLIs print verbatim.

@@ -394,6 +394,14 @@ resource exists but does not carry the label. A named **network** that does
 not already exist is refused outright — the relay never creates a network on
 the caller's behalf, unlike volumes.
 
+Because the relay trusts any volume that carries the label, a volume created
+through the gateway (`POST /volumes/create`, compat or libpod) must not be
+able to name a host resource: the create is refused when it names a driver
+other than `local` or carries any driver options (compat `DriverOpts`, libpod
+`options`), since `local` with `type=none,device=/,o=bind` is a host-root
+bind. Empty options and the `local` driver, which both CLIs send on every
+plain create, pass.
+
 Rewrites are logged at debug level; denials are returned as
 `403 {"message": "container-gateway: <rule> — <what to change>; see
 docs/setup/sandbox-troubleshooting.md#…"}` so both CLIs print the

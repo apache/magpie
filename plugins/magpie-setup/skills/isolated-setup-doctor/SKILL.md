@@ -21,7 +21,7 @@ capability:
   - capability:reassess
 surface_hash: sha256:7d670b572d43bbeb
 license: Apache-2.0
-measured_tokens: 6611
+measured_tokens: 6745
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -73,6 +73,9 @@ If a fail shows a failure mode not catalogued there, propose appending a new ent
   ⊘ means the probe was skipped because a prerequisite is absent (e.g. no `docker` / `podman` on `PATH` → docker probe ⊘, not ✗).
 - **Surface evidence.** Each report line names the probe command, the exit code, and the relevant stderr snippet.
   "Looks blocked" is not useful; "ssh-add -l → rc=2 → `Could not open a connection to your authentication agent`" is.
+- **Sandbox placeholders are not files.** Inside the Claude Code sandbox a denied path that does not exist on the host can appear as a `/dev/null` bind mount: `stat -c '%F %t,%T' <path>` prints `character special file 1,3`.
+  `git status` lists such placeholders as untracked (`.bash_profile`, `.claude/settings.json`, `.mcp.json`), and reading one returns nothing.
+  Take the host state from git (`git ls-files <path>`, `git log -- <path>`) or from a read the user runs outside the sandbox, and never delete the placeholder.
 - **Map each ✗ to a catalog entry.** The fail report links directly to the matching section of [`docs/setup/sandbox-troubleshooting.md`](../../../../docs/setup/sandbox-troubleshooting.md).
   Do not paraphrase the remediation; the catalog is the single source of truth.
 

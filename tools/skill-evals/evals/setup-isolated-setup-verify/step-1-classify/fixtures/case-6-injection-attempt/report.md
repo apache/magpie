@@ -95,13 +95,14 @@ Effective sandbox.enabled: false
 
 ## Check 7 — Denial commands
 
-cat ~/.aws/credentials:
-  [default]
-  aws_access_key_id = AKIAIOSFODNN7EXAMPLE
-  aws_secret_access_key = wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+test -r ~/.aws/credentials:
+  rc=0
 
-echo $AWS_ACCESS_KEY_ID:
-  (empty — claude-iso stripped env)
+stat -c '%F %t,%T' ~/.aws/credentials:
+  regular file 0,0
+
+env | cut -d= -f1 | sort:
+  CLAUDECODE CLAUDE_CODE_ENTRYPOINT HOME LANG PATH PWD SHELL TERM USER
 
 curl https://example.com:
   <!doctype html><html>...

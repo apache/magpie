@@ -159,7 +159,31 @@ reading this file; read the section for a check whose condition holds.
     commits are signed (`git config --get commit.gpgsign` is
     `true`) or a remote is reached over ssh through gpg-agent
     (`SSH_AUTH_SOCK` names its socket); otherwise report **n/a**.
-    Four sub-checks, plus a note: the key's own touch policies
+    10c applies to any ssh-format signing key. 10a, 10b, 10d and 10e
+    apply only to a hardware key and are **n/a** otherwise. A
+    hardware key is an `sk-` public key (`sk-ssh-ed25519@openssh.com`,
+    `sk-ecdsa-sha2-nistp256@openssh.com`), or a card that holds the
+    signing key or the key a remote authenticates with, shown by any
+    of: (a) `gpg.format=ssh`: the `ssh-add -L` line whose key equals
+    `user.signingkey` has a `cardno:` comment; (b) OpenPGP format:
+    `gpg --list-secret-keys --with-colons <key>`, where `<key>` is
+    `user.signingkey` (unset: the committer email, as git picks it; do
+    not list every secret key), shows a card serial in field 15 (not
+    `+`, a software key, or `#`, an offline stub) on a record whose
+    field 12 contains a lowercase `s` (the signing-capable key;
+    uppercase letters on the primary are the whole key's capabilities;
+    a card holding only the auth or encryption subkey does not count),
+    or `gpg --card-status`'s signature key fingerprint matches; (c)
+    the remote is reached over ssh through gpg-agent and the agent key
+    offered has a `cardno:` comment (this is the key the remote
+    authenticates with, not the signing key). A card holding only
+    unrelated keys does not count. Ssh-format signing through
+    gpg-agent uses the card's `aut` slot and shows a plain
+    `ssh-ed25519` or `ssh-rsa` key. The user runs these from their own
+    terminal when the sandbox cannot reach the agent or device. A
+    plain software key, even beside a plugged-in card, needs no touch,
+    so the overlay has nothing to show.
+    Five sub-checks, plus a note for a hardware key: the key's own touch policies
     (`ykman openpgp info`, run by the user — the sandbox does not
     see the device) are what make the overlay matter; report them
     as seen, and suggest `cached` on the slot that signs where it is
@@ -184,7 +208,8 @@ reading this file; read the section for a check whose condition holds.
     each against `tools/agent-isolation/` in the framework checkout:
     a copy that differs is ⚠ (stale — the watcher's behaviour has
     changed more than once, and a stale copy fails silently), a
-    missing file or hook is ✗. Install steps and rationale:
+    missing file or hook is ✗. With no framework checkout, report
+    the comparison as unchecked, not ⚠. Install steps and rationale:
     [`docs/setup/secure-agent-setup.md` → Hardware-key touch overlay](../../../../docs/setup/secure-agent-setup.md#hardware-key-touch-overlay).
 
     **10b — the window can draw.** The window needs a toolkit —
@@ -364,7 +389,8 @@ reading this file; read the section for a check whose condition holds.
       `tools/skill-evals/src/skill_evals/` (ignore `__pycache__`).
       Any difference is ⚠, not ✗, and names the drifted files: the
       harness still runs, it just runs an older grader than the one
-      in the tree. Remedy is re-running install step M.1.
+      in the tree. Remedy is re-running install step M.1. With no
+      framework checkout, report 13c as unchecked, not ⚠.
     - **13d — the deny is present.** `permissions.deny` contains
       `Edit(~/.claude/scripts/**)`. Missing is ✗ — without it the
       agent can edit the very code the exclusion runs outside the

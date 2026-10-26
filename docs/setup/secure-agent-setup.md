@@ -36,6 +36,10 @@
     - [Extensible — any skill can contribute a guard](#extensible--any-skill-can-contribute-a-guard)
     - [Install (user-scope)](#install-user-scope-1)
     - [Verify](#verify-1)
+  - [Public-surface scrub mod (Claude Code plugin / hook)](#public-surface-scrub-mod-claude-code-plugin--hook)
+    - [Term canonicalization](#term-canonicalization)
+    - [Scoping and fail-closed gates](#scoping-and-fail-closed-gates)
+    - [Trade-offs and runtime characteristics](#trade-offs-and-runtime-characteristics)
   - [Sandbox-error hint hook](#sandbox-error-hint-hook)
     - [Why install it](#why-install-it)
     - [Why install it user-scope, not project-scope](#why-install-it-user-scope-not-project-scope-1)
@@ -1613,6 +1617,13 @@ CLAUDE_ISO_ALLOW="GH_TOKEN" GH_TOKEN="$(op read 'op://Personal/GitHub/token')" c
 The `CLAUDE_ISO_ALLOW` mechanism is opt-in per invocation — no
 implicit propagation, no persistent allowlist.
 
+A session started by an IDE extension (the VS Code extension sets
+`CLAUDE_CODE_ENTRYPOINT=claude-vscode`) never goes through
+`claude-iso`, so the wrapper strips nothing from its environment.
+Such a session relies on `sandbox.credentials` for the variables it
+lists, and on you not exporting secrets into the shell that starts
+the IDE.
+
 ### Automatic sandbox allow-paths
 
 Beyond the env-stripping role, `claude-iso` also injects up to two
@@ -1850,6 +1861,76 @@ Expected: a JSON object with `permissionDecision: "deny"` and a
 reason mentioning the `mention` guard. A plain command
 (`{"tool_input":{"command":"ls"}}`) produces no output and `exit=0`.
 
+## Public-surface scrub mod (Claude Code plugin / hook)
+
+For Claude Code harnesses using plugins (such as `magpie-security`),
+a deterministic TypeScript mod hook
+([`plugins/magpie-security/hooks/public-surface-scrub.ts`](../../plugins/magpie-security/hooks/public-surface-scrub.ts))
+intercepts `Bash` tool calls (`git commit`, `git tag`, `git merge`, `gh pr create|edit|review|comment|merge|close`, `gh issue create|edit|comment|close`, `gh release create`, `gh api`)
+before execution to prevent accidental early disclosure of security vulnerabilities on public surfaces.
+
+### Term canonicalization
+
+The mod does not maintain a private list of forbidden terms. The forbidden
+disclosure terms and regex patterns are derived directly from the canonical
+single source of truth: `magpie_vcs.publication.DEFAULT_TERMS`
+in `tools/vcs/src/magpie_vcs/publication.py` (via `tools/dev/sync-forbidden-terms.py`
+and tracked by the pre-commit sync check).
+
+### Scoping and fail-closed gates
+
+- **Private tracker exemption**: Subcommands explicitly targeting the private security
+  tracker repository (`tracker_repo` in `project.md`, e.g. `-R airflow-s/airflow-s`)
+  are exempt. When working directory context falls back to `$.session.root()` (i.e. `cwd`
+  is omitted in the tool call event), the tracker cwd exemption is disabled to protect
+  against undetected in-session `cd ../<upstream>` transitions, falling through to the
+  deterministic term scan.
+  The Bash tool call carries no `cwd`, so in practice this is always the case:
+  tracker commands that mention a CVE id need an explicit `--repo <tracker_repo>`, and the
+  block message says so.
+- **Upstream repository protection**: Subcommands targeting the public codebase
+  (`upstream_repo` in `project.md`) or operating within an upstream working tree
+  are scrubbed. Commands targeting unrelated third-party or adopter documentation
+  repositories pass unchecked.
+- **`cd <dir>` transition tracking**: Tracks working directory transitions across
+  composite subcommands (e.g. `cd ../upstream && git commit -m "..."`).
+- **Deterministic git remote verification**: Repository scope is determined by
+  reading `.git/config` remotes rather than directory-name substring heuristics.
+- **Fail-closed on indeterminate scope**: If the target repository scope cannot
+  be verified deterministically, commands containing embargo terms fail closed.
+- **Fail-closed on unreadable files**: Invocations referencing message files
+  (`-F <file>` / `--file` / `--body-file`) fail closed if the referenced file cannot
+  be read.
+- **Fail-closed on dynamic input**: Commands constructing commit or PR content
+  dynamically via variables (`$VAR`), command substitution (`$(...)`), stdin pipes
+  (`-`), or automatic reuse (`git commit --amend` without an explicit message,
+  `gh pr create --fill`) cannot be verified statically and fail closed. The block
+  explanation instructs providing text explicitly or via an inspectable message file
+  (`-F <file>`).
+
+### Trade-offs and runtime characteristics
+
+The public-surface scrub mod is a deterministic guard against **accidental**
+public disclosure of embargoed security information, not a boundary against
+deliberate circumvention. A command running in a shell can always write to
+temporary files, pipe through external helpers, or execute dynamic subshells
+that cannot be fully predicted before execution. The hook documents these
+boundaries rather than chasing dynamic time-of-check-to-time-of-use (TOCTOU)
+scenarios: it fails closed on unresolvable shapes and indeterminate inputs,
+while relying on collaborator review for anything outside its deterministic
+static scope.
+
+- **Unsandboxed execution**: Claude Code mods and hooks execute directly in the
+  local Node runtime outside the container sandbox.
+- **File inspection**: The hook inspects message files specified by `-F <file>`
+  via the Claude Code plugin filesystem capability (`$.fs.read()`).
+- **Human-only escape hatch**: When legitimate post-coordinated-disclosure
+  maintenance requires mentioning CVE IDs or vulnerability terms on public surfaces,
+  a human maintainer sets `MAGPIE_ALLOW_EMBARGO_TERMS=1` in the environment
+  before starting the session. The escape hatch serves as a zero-token deterministic
+  guard against accidental leaks; inline environment variables passed to the command
+  line (e.g. `MAGPIE_ALLOW_EMBARGO_TERMS=1 git commit ...`) are ignored by the hook.
+
 ## Sandbox-error hint hook
 
 Companion to the *Sandbox-bypass visibility hook* above — a
@@ -1871,7 +1952,7 @@ The catalog (PR #291) and the diagnostic skill
 recall — *"my SSH push failed; let me check the catalog"* or
 *"let me run the doctor"*. The hint hook closes the loop by
 making the catalog reference appear next to the error
-automatically. Five classes of failure are recognised today:
+automatically. Seven classes of failure are recognised today:
 
 | Error signature | Catalog anchor |
 |---|---|
@@ -3571,12 +3652,14 @@ Inside a `claude-iso` session, run these from the agent's Bash
 tool. Each should fail or be denied:
 
 ```bash
-cat ~/.aws/credentials      # → permission denied (sandbox)
-echo $AWS_ACCESS_KEY_ID     # → empty (env stripped by claude-iso)
-curl https://example.com    # → blocked by permissions.deny
+test -r ~/.aws/credentials && echo readable   # → nothing (denied or absent; see the 7a sentinel rule)
+env | cut -d= -f1                             # → names only; no TOKEN/SECRET/*_KEY/*_PAT
+curl https://example.com                      # → blocked by permissions.deny
 ```
 
 Each command should produce a denial — not a leaked credential.
+Never `cat` a credential file to test the denial: if the denial is
+broken, the command prints the secret.
 
 ### Via a Claude Code prompt
 
@@ -3589,13 +3672,31 @@ on its own:
 Verify my secure-agent-setup install is complete. Check each item
 below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
 (file path, line, command output). Do not attempt to fix anything
-— surface the gaps and stop:
+— surface the gaps and stop. Never print a credential file's
+contents or a credential-shaped variable's value. Before check 1,
+locate my framework checkout (this repo if it is the framework,
+else an `.apache-magpie/` snapshot in this repo, else the directory
+my shell rc sources `agent-iso.sh` from, else ask me; a candidate
+counts only if it has `tools/agent-isolation/pinned-versions.toml`);
+without one, report 10a, 13c and check 5's `bubblewrap`/`socat`
+pins as "unchecked — no framework checkout" and the `claude-code`
+floor in check 5 as ⚠ (it cannot be read), still giving my running
+`claude --version`. A path that `stat -c '%F %t,%T'`
+shows as `character special file 1,3` is a sandbox placeholder, not
+a file: take its host state from git or from a read I run, and
+never delete it:
 
-1. Project `.claude/settings.json` exists and has
+1. The merged settings (project `.claude/settings.json`,
+   project-local `.claude/settings.local.json`, user
+   `~/.claude/settings.json`, and the managed settings where
+   readable; name the file each key came from) have
    `sandbox.enabled: true`, the `permissions.deny` block, the
    `permissions.ask` block, the
-   `sandbox.network.allowedDomains` block, and the
-   `sandbox.filesystem` allowlist (`allowRead`/`allowWrite`).
+   `sandbox.network.allowedDomains` block, the
+   `sandbox.filesystem` allowlist (`allowRead`/`allowWrite`), and
+   `sandbox.filesystem.denyRead` containing `~/` (or the resolved
+   absolute home; ✗ without it: bubblewrap reads are deny-only). A missing committed project file
+   is not ✗ on its own when the merge passes.
 2. User-scope `~/.claude/settings.json` has the `PreToolUse`
    `Bash` matcher wired to a `sandbox-bypass-warn.sh` command, a
    `PostToolUse` `Bash` matcher wired to a `sandbox-error-hint.sh`
@@ -3611,17 +3712,39 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
    `~/.claude/scripts/sandbox-status-line.sh`).
 4. The `claude-iso` shell function is sourced in `~/.bashrc` or
    `~/.zshrc`. Note whether `alias claude='claude-iso'` is set.
-5. The pinned sandbox primitives from
+5. The pinned sandbox primitives from the checkout's
    `tools/agent-isolation/pinned-versions.toml` are installed at
    the pinned versions: `bubblewrap` (Linux only), `socat`
    (Linux only). For the agent harness `claude-code` (unpinned,
    `@latest`), instead compare my running `claude --version`
    against the `[tools.claude-code]` `min_version` floor —
-   **hard-fail** if below it (running under Claude Code), else ✓.
+   **hard-fail** if below it (running under Claude Code), ⚠ when the
+   floor cannot be read, else ✓.
 6. The status-line prefix in this session shows `[sandbox]` (not
    `[NO SANDBOX]`).
-7. Run `cat ~/.aws/credentials`, `echo $AWS_ACCESS_KEY_ID`, and
-   `curl https://example.com` and confirm each is denied.
+7. Denials, each as its own Bash call. (a) `test -r` each of
+   `~/.aws/credentials`, the `~/.ssh/id_*` private keys (list the readable ones with
+   `find -H ~/.ssh -maxdepth 1 -name 'id_*' ! -name '*.pub' -exec test -r {} \; -print`,
+   which behaves the same in bash and zsh and follows a symlinked
+   `~/.ssh`; its error separates absent from denied except under
+   bubblewrap; then `stat` each),
+   `~/.config/gh/hosts.yml`, `~/.netrc`, `~/.docker/config.json`:
+   any readable one is ✗ unless it is a sandbox placeholder. With
+   `denyRead` covering `~/`, prove the denial with a sentinel: a file
+   under `~/` that exists on my host (such as my shell rc) and that
+   no `allowRead` entry covers; a sandboxed `test -r` that fails
+   (not `-e`, which zsh on macOS can pass) is ✓, and a `/dev/null`
+   placeholder counts as denied; a readable non-placeholder sentinel
+   is ✗. With no sentinel, report "inconclusive" and ask me to
+   `ls` the candidates from my own terminal; 7a turns ✓ once my `ls`
+   shows a file the sandbox cannot see. (b) `env | cut -d= -f1`:
+   names only; any credential-shaped name (TOKEN, SECRET, PASSWORD,
+   PASSWD, CREDENTIAL, DSN, API_KEY, a `_`-delimited AUTH segment,
+   `*_KEY`, `*_PAT`, `AWS_*`, `GH_*`, `GITHUB_*`, `AZURE_*`) outside
+   the `agent-iso.sh` passthrough list is ⚠ (ask me whether I opted
+   it in with `AGENT_ISO_ALLOW`), and so is a `CLAUDE_CODE_ENTRYPOINT` of an
+   IDE extension (such as `claude-vscode`), which never went through
+   `claude-iso`. (c) `curl https://example.com` is denied.
 8. **Project-root coverage in the sandbox allowlists.** For this
    worktree and every other one `git worktree list --porcelain`
    names, confirm the worktree's own absolute path is in that
@@ -3660,8 +3783,22 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
      report it as cruft to remove, not as a second layer.
    If the repo has no vetted-ops policy at all, report n/a.
    The read dispatcher's never-prompt shape is check 16.
-10. If a hardware key signs my commits or authenticates my git
-    remotes: the touch overlay is wired (`PreToolUse` /
+10. If my commits are signed with `gpg.format=ssh`: the file
+    `git config user.signingkey` names is readable from a sandboxed
+    Bash (it needs its own `sandbox.filesystem.allowRead` entry).
+    If a hardware key signs my commits or authenticates my git
+    remotes (an `sk-` public key, or a card holding the signing key or the
+    key a remote authenticates with: for ssh format the `ssh-add -L`
+    line equal to `user.signingkey` has a `cardno:` comment; for
+    OpenPGP `gpg --list-secret-keys --with-colons <key>` (`<key>` is
+    `user.signingkey`, or the committer email when unset) shows a card
+    serial in field 15 (not `+` or `#`) on a signing-capable record
+    (lowercase `s` in field 12), or
+    `gpg --card-status`'s signature key matches; for a gpg-agent ssh
+    remote the offered key has a `cardno:` comment; a card with only
+    unrelated keys, or only the auth or encryption subkey for
+    OpenPGP signing, does not count; n/a otherwise): the touch overlay
+    is wired (`PreToolUse` /
     `PostToolUse` `Bash` →
     `~/.claude/scripts/gpg-touch-overlay.sh arm` / `disarm`), its
     scripts match the framework's `tools/agent-isolation/` copies,
@@ -3676,10 +3813,7 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
     the key's signing slot carries a touch policy and — with
     OpenPGP signing — its authentication slot does not
     (`ykman openpgp info`, which I run myself; with
-    `gpg.format=ssh` the `aut` slot is the signing slot),
-    and — with `gpg.format=ssh` — the file `git config
-    user.signingkey` names is readable from a sandboxed Bash (it
-    needs its own `sandbox.filesystem.allowRead` entry). For the
+    `gpg.format=ssh` the `aut` slot is the signing slot). For the
     toolkit probe (`gpg-touch-overlay.sh _gui_available`) hand me
     the command to run myself: it cannot see the display from
     inside the sandbox.
@@ -3982,8 +4116,9 @@ anything — I will decide what to apply:
    `sandbox.excludedCommands` entry, and any missing vetted-ops
    `Edit` deny rule. See
    [Read-only vetted ops never prompt](#read-only-vetted-ops-never-prompt).
-6. Re-run `cat ~/.aws/credentials`, `echo $AWS_ACCESS_KEY_ID`,
-   `curl https://example.com` and confirm each is still denied.
+6. Re-run check 7's probes (7a `test -r` with the sentinel, 7b
+   variable names only, 7c `curl https://example.com`) and confirm
+   each is still denied.
    Note any newly-allowed call as a regression to investigate.
 ```
 

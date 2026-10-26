@@ -23,7 +23,7 @@ capability:
   - capability:resolve
 surface_hash: sha256:550eabe3b9bb3689
 license: Apache-2.0
-measured_tokens: 7386
+measured_tokens: 7494
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -445,6 +445,7 @@ If it is not `clean`, abort and tell the user.
 When the framework's secure setup is installed, the agent-guard `security-language` guard ([`guards/security_language.py`](guards/security_language.py)) also blocks a `gh pr create` / `gh pr edit` whose title or body carries a CVE ID, `security fix` or a vulnerability-class name.
 It does not match the bare words `vulnerability` or `advisory`, which would block ordinary PRs everywhere the guard runs, so those rely on this manual check.
 It is a backstop, not a replacement for this check: it covers only a subset of the 5c list, and it does not see the commit message, the branch name, or a newsfragment.
+In Claude Code sessions with the `magpie-security` plugin enabled, the deterministic public-surface scrub mod ([`hooks/public-surface-scrub.ts`](../../hooks/public-surface-scrub.ts)) automatically intercepts and gates `git commit`, `git tag`, `git merge`, `gh pr create|edit|review|comment|merge|close`, `gh issue create|edit|comment|close`, `gh release create`, and `gh api` calls to prevent early disclosure across the full canonical forbidden term list.
 
 After the user submits the PR, capture its URL (from the browser, or `gh pr view --json url --jq .url`) for Step 10.
 
