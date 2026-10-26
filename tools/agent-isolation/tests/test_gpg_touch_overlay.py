@@ -548,11 +548,11 @@ def process_named(tmp_path):
         proc = subprocess.Popen([str(binary), str(seconds)])
         started.append(proc)
         deadline = time.monotonic() + 5
-        while time.monotonic() < deadline:
-            if subprocess.run(["pgrep", "-x", name]).returncode == 0:
-                return proc
+        while subprocess.run(["pgrep", "-x", name]).returncode != 0:
+            if time.monotonic() >= deadline:
+                pytest.skip(f"pgrep never saw {name}")
             time.sleep(0.05)
-        pytest.skip(f"pgrep never saw {name}")
+        return proc
 
     try:
         yield start
