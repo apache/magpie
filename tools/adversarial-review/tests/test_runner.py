@@ -108,6 +108,19 @@ def test_malformed_reply_is_error_and_keeps_the_raw_text(stub_bin, tmp_path):
     assert "Looks fine to me." in r.raw
 
 
+def test_a_long_malformed_reply_keeps_its_end_and_stderr(stub_bin, tmp_path):
+    # A streamed reply ends with the event that says how the run finished.
+    bin_dir, make = stub_bin
+    make(
+        "copilot",
+        "import sys\nprint('start ' + 'x' * 5000 + ' THE END')\nsys.stderr.write('denied a tool\\n')\n",
+    )
+    r = run_one("copilot", ctx(tmp_path, "copilot"), 30, {"PATH": str(bin_dir)})
+    assert r.status == "error"
+    assert r.raw.startswith("start ") and "THE END" in r.raw and "characters cut" in r.raw
+    assert r.raw.endswith("[stderr]\ndenied a tool\n")
+
+
 def test_timeout_kills_the_whole_process_group(stub_bin, tmp_path):
     bin_dir, make = stub_bin
     make(
