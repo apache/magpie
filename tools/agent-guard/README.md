@@ -161,8 +161,9 @@ backslash) is refused when it names `git` or `gh` as a word
 (`agent-guard[parse]`): the guards cannot see what it runs.
 Quotes and backslashes are removed before that check, as bash removes them,
 so `g'i't` and `"g"h` count as `git` and `gh`; such a line holding `$`, a
-backtick or a backslash-newline is refused too, since an expansion can build
-the word (`g$()it`, `$CMD`). Simplify the
+backtick, a glob or brace character (`*`, `?`, `[`, `{`) or a
+backslash-newline is refused too, since an expansion can build the word
+(`g$()it`, `$CMD`, `/usr/bin/gi?`). Simplify the
 quoting, for example by passing a multi-line message with `-F <file>` /
 `--body-file <file>`. Any other unparsable line is allowed, as before.
 A heredoc's body is data, not shell syntax: an apostrophe in it does not make

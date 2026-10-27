@@ -173,9 +173,10 @@ _GUARDED_WORD_RE = re.compile(r"\b(?:git|gh)\b")
 # Quoting bash removes from a word before running it (`g'i't`, `"g"h`, `g\it`,
 # `g\<newline>it`, `$'g'h`).
 _QUOTING_RE = re.compile(r"\\\n|\$(?=['\"])|['\"\\]")
-# An expansion or a line continuation: on a line that cannot be tokenised it
-# may build any word (`g$()it`, `$CMD`), so such a line is refused outright.
-_EXPANSION_RE = re.compile(r"[$`]|\\\n")
+# An expansion, a glob or a line continuation: on a line that cannot be
+# tokenised it may build any word (`g$()it`, `$CMD`, `/usr/bin/gi?`,
+# `g{i,}t`), so such a line is refused outright.
+_EXPANSION_RE = re.compile(r"[$`*?\[{]|\\\n")
 
 
 def _names_guarded(text: str) -> bool:

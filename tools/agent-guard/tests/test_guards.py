@@ -513,6 +513,11 @@ def test_compound_command_other_segment_not_denied():
         "g``it push --force # it's",
         "g$@it push --force # it's",
         "$CMD push --force # it's",
+        # Globs and brace expansion can resolve to git / gh.
+        "/usr/bin/gi? push --force # it's",
+        "/usr/bin/g*t push --force # it's",
+        "/usr/bin/g[i]t push --force # it's",
+        "/usr/bin/g{i,}t push --force # it's",
     ],
 )
 def test_untokenisable_command_naming_a_guarded_head_is_refused(command):
