@@ -158,7 +158,9 @@ inside a `-c` string that names `git` or `gh` is refused (`agent-guard[wrapper]`
 
 A command line whose quoting cannot be parsed (an unbalanced quote, a trailing
 backslash) is refused when it names `git` or `gh` as a word
-(`agent-guard[parse]`): the guards cannot see what it runs. Simplify the
+(`agent-guard[parse]`): the guards cannot see what it runs.
+Quotes and backslashes are removed before that check, as bash removes them,
+so `g'i't` and `"g"h` count as `git` and `gh`. Simplify the
 quoting, for example by passing a multi-line message with `-F <file>` /
 `--body-file <file>`. Any other unparsable line is allowed, as before.
 A heredoc's body is data, not shell syntax: an apostrophe in it does not make

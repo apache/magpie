@@ -229,7 +229,8 @@ See `docs/adapters/goose.md`.
   A shell's `-c` string (`bash` / `sh` / `zsh -c`), or `eval`'s arguments (after one `--`; an `eval` with an option is refused), is split and checked
   as a command line of its own, one level deep; a nested `-c` string
   naming `git` or `gh` is refused, as is a line whose quoting cannot be
-  parsed when it names `git` or `gh`; a heredoc body is not read as
+  parsed when it names `git` or `gh` (after removing quotes and
+  backslashes, so `g'i't` counts); a heredoc body is not read as
   shell syntax unless it names `git` / `gh` and is fed to anything but
   a bare `cat` / `tee` starting its own command, in a command that
   without its heredoc bodies has no `$`, backtick, parenthesis, brace,

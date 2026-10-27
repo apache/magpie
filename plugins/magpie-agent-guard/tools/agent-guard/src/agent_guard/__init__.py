@@ -170,6 +170,14 @@ _SHELL_LONG_VALUE = frozenset({"rcfile", "init-file"})
 # A guarded head anywhere in a command line, as a word: what makes a line that
 # cannot be tokenised worth refusing rather than letting through.
 _GUARDED_WORD_RE = re.compile(r"\b(?:git|gh)\b")
+# Quoting bash removes from a word before running it (`g'i't`, `"g"h`, `g\it`).
+_QUOTING_RE = re.compile(r"['\"\\]")
+
+
+def _names_guarded(text: str) -> bool:
+    """Whether ``text`` names ``git`` / ``gh`` as a word once bash's quote
+    removal has run, so quoting inside the word does not hide it."""
+    return bool(_GUARDED_WORD_RE.search(_QUOTING_RE.sub("", text)))
 
 
 def _truthy(val: str | None) -> bool:
@@ -568,7 +576,7 @@ def _strip_heredoc_bodies(command: str) -> str:
                 pending.pop(0)
                 text = "\n".join(body)
                 all_sinks = all_sinks and sink
-                if _GUARDED_WORD_RE.search(text):
+                if _names_guarded(text):
                     expands = not quoted and _SUBSTITUTION_RE.search(text)
                     if expands or not sink:
                         return command
@@ -612,7 +620,7 @@ def split_segments(command: str, _depth: int = 0, _bodies_stripped: bool = False
         if without_bodies != command:
             # a heredoc body is data, and its apostrophes are not quoting
             return split_segments(without_bodies, _depth, _bodies_stripped=True)
-        if not _GUARDED_WORD_RE.search(command):
+        if not _names_guarded(command):
             return []
         seg = Segment([], command, command)
         seg.untokenised = True
@@ -732,7 +740,7 @@ def _shell_segments(seg: Segment, depth: int) -> list[Segment]:
     if script is None:
         return [seg]
     if depth >= _SHELL_DEPTH:
-        if _GUARDED_WORD_RE.search(script):
+        if _names_guarded(script):
             seg.unparsed = True
         return [seg]
     inner = split_segments(script, depth + 1)
