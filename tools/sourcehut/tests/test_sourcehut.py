@@ -465,6 +465,8 @@ def test_cli_ticket_comment_missing_body_file(mock_env: None, capsys: pytest.Cap
         "  mutation Drop($id: Int!) { deleteTracker(id: $id) { id } }",
         "query Q { me { id } }\nmutation M { deleteTracker(id: 1) { id } }",
         "# leading comment\nmutation{deleteTracker(id:1){id}}",
+        # GraphQL ends a comment at a carriage return too
+        "# leading comment\rmutation{deleteTracker(id:1){id}}",
         'query { a(s: "x") } mutation { b }',
     ],
 )

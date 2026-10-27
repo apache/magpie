@@ -852,10 +852,11 @@ def test_amend_refuses_when_only_a_decoy_exists() -> None:
     assert fake.writes == []
 
 
-def test_without_the_collaborator_list_only_the_viewer_is_trusted() -> None:
+def test_without_the_collaborator_list_another_authors_rollup_is_refused() -> None:
+    # bob may be a collaborator: appending could start a second rollup.
     by_bob = rollup_comment(existing_rollup("Import"), rest_id="222", author="bob")
     fake = FakeGh(comments=[by_bob])
     fake.collaborators = None
-    procedures.rollup_append(runner(fake), number="7", action="Sync", text="x")
-    ((argv, _stdin),) = fake.writes
-    assert argv[:3] == ["gh", "issue", "comment"]
+    with pytest.raises(procedures.ProcedureRefused, match="cannot list collaborators"):
+        procedures.rollup_append(runner(fake), number="7", action="Sync", text="x")
+    assert fake.writes == []

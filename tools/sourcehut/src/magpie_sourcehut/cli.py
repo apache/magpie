@@ -63,7 +63,7 @@ def _read_body_file(path: str) -> str:
 # GraphQL comments run from `#` to the end of the line, and string literals
 # ("…" or block strings """…""") may contain anything; drop both before
 # looking for an operation keyword so neither hides nor fakes one.
-_GRAPHQL_STRINGS_AND_COMMENTS = re.compile(r'"""(?:\\"""|[^"]|"(?!""))*"""|"(?:\\.|[^"\\\n])*"|#[^\n]*')
+_GRAPHQL_STRINGS_AND_COMMENTS = re.compile(r'"""(?:\\"""|[^"]|"(?!""))*"""|"(?:\\.|[^"\\\n])*"|#[^\r\n]*')
 _GRAPHQL_MUTATION = re.compile(r"\bmutation\b")
 
 

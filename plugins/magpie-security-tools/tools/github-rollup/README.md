@@ -109,8 +109,9 @@ A marker line in a comment by anyone else is ignored by every
 subcommand, so a commenter outside the roster cannot plant a comment that
 `append`, `amend-latest`, `list` or `latest` would then use.
 Listing collaborators needs push access to the repository; when the list
-cannot be read, only comments by the authenticated `gh` user count, and a
-note says so on stderr.
+cannot be read, only comments by the authenticated `gh` user count, and when
+the first marked comment is someone else's the command stops with an error
+rather than risk starting a second rollup next to a collaborator's.
 
 ### `amend-latest <issue> --action "<label>" ...`
 

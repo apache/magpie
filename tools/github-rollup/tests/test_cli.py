@@ -542,14 +542,19 @@ def test_author_match_is_case_insensitive(monkeypatch: pytest.MonkeyPatch) -> No
     assert f.patched_body is not None
 
 
-def test_without_the_collaborator_list_only_the_gh_user_is_trusted(
+def test_without_the_collaborator_list_another_authors_rollup_stops_the_run(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
+    # Not knowing whether alice is a collaborator, appending could start a
+    # second rollup next to hers; stop instead.
     f = FakeGh(rollup_author="alice")
     f.collaborators_fail = True
     monkeypatch.setattr(subprocess, "run", f)
-    assert cli.main(["--repo", "o/r", "latest", "1"]) == 3
+    with pytest.raises(SystemExit) as excinfo:
+        cli.main(["--repo", "o/r", "append", "1", "--action", "Sync", "--entry-body", "x"])
+    assert excinfo.value.code == 1
     assert "cannot list collaborators" in capsys.readouterr().err
+    assert f.patched_body is None
 
 
 def test_no_author_lookups_when_no_marker_comment_exists(fake_gh_no_rollup: FakeGh) -> None:

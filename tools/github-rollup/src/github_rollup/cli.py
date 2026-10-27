@@ -164,21 +164,16 @@ def _comment_author(comment: dict) -> str:
     return str((comment.get("author") or {}).get("login") or "")
 
 
-def _trusted_authors(repo: str) -> set[str]:
+def _trusted_authors(repo: str) -> tuple[set[str], bool]:
     """Who may author the rollup: the authenticated `gh` user and the
     repository's collaborators (the security-team roster, see
-    tools/github/operations.md). When the collaborator list cannot be
-    read, only the authenticated user is trusted."""
+    tools/github/operations.md), and whether the collaborator list could
+    be read. When it cannot, only the authenticated user is trusted."""
     trusted = {_gh_auth_user()}
     collaborators = _gh_collaborators(repo)
     if collaborators is None:
-        sys.stderr.write(
-            f"note: cannot list collaborators of {repo}; only rollups written by the "
-            "authenticated gh user are considered\n"
-        )
-    else:
-        trusted |= collaborators
-    return trusted
+        return trusted, False
+    return trusted | collaborators, True
 
 
 def _find_rollup(comments: list[dict], repo: str) -> dict | None:
@@ -186,13 +181,26 @@ def _find_rollup(comments: list[dict], repo: str) -> dict | None:
     else the first with a legacy one — or None if the issue has none.
 
     Only comments authored by a trusted login (see ``_trusted_authors``)
-    count; a marker line in anyone else's comment is ignored."""
+    count; a marker line in anyone else's comment is ignored.
+
+    When the collaborator list cannot be read and the first marked comment
+    is someone else's, it cannot be told apart from a collaborator's rollup,
+    so this stops rather than risk starting a second one."""
     bodies = [c.get("body") or "" for c in comments]
-    if find_rollup_index(bodies) is None:
+    first = find_rollup_index(bodies)
+    if first is None:
         # No marker anywhere: skip the author lookups.
         return None
     authors = [_comment_author(c) for c in comments]
-    idx = find_rollup_index(bodies, authors, _trusted_authors(repo))
+    trusted, complete = _trusted_authors(repo)
+    if not complete and authors[first] not in trusted:
+        sys.stderr.write(
+            f"error: cannot list collaborators of {repo}, so the author of the existing "
+            f"rollup ({authors[first] or 'unknown'}) cannot be checked; retry, or run as "
+            "a user with push access\n"
+        )
+        raise SystemExit(1)
+    idx = find_rollup_index(bodies, authors, trusted)
     return None if idx is None else comments[idx]
 
 
