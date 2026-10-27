@@ -292,6 +292,9 @@ class Segment:
                 argv = argv[1 if m.group("target") else 2 :]
             if argv == before or self.unparsed:
                 break
+        else:
+            # wrappers and redirections nested past the limit: never a way past the guards
+            self.unparsed = True
         #: The command head as written (`~/.claude/scripts/x.sh`, `/usr/bin/git`),
         #: for the rules that care how a command is spelled, not just its name.
         self.head = argv[0] if argv else ""

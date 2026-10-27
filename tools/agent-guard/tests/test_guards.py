@@ -823,6 +823,12 @@ def test_command_after_leading_redirections_is_checked(command):
     assert reason and "Co-Authored-By" in reason
 
 
+def test_wrappers_and_redirections_past_the_limit_are_refused():
+    command = "nohup >log " * 80 + _TRAILER_COMMIT
+    reason = dispatch(command)
+    assert reason and "agent-guard[wrapper]" in reason
+
+
 @pytest.mark.parametrize("command", ["exec 3>&1", "2>/dev/null git status", ">out.txt echo hi"])
 def test_leading_redirections_on_a_clean_command_allow(command):
     assert dispatch(command) is None
