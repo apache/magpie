@@ -407,6 +407,9 @@ _HEREDOC_RE = re.compile(r"(?<!<)<<(-?)(?!<)\s*(['\"]?)([A-Za-z_][\w.-]*)\2")
 # head is stripped only when one of these opens the introducing line; fed to
 # anything else, it may be run.
 _HEREDOC_DATA_SINKS = frozenset({"cat", "tee"})
+# Something on the introducing line that hands the sink's output on: a pipe,
+# a process or command substitution, a further command.
+_PASSES_ON_RE = re.compile(r"[|;&`]|<\(|>\(|\$\(")
 
 
 def _strip_heredoc_bodies(command: str) -> str:
@@ -426,7 +429,8 @@ def _strip_heredoc_bodies(command: str) -> str:
             if (line.lstrip("\t") if strip_tabs else line) == delim:
                 pending.pop(0)
                 head = os.path.basename(intro.split(maxsplit=1)[0]) if intro.strip() else ""
-                if _GUARDED_WORD_RE.search("\n".join(body)) and head not in _HEREDOC_DATA_SINKS:
+                sink = head in _HEREDOC_DATA_SINKS and not _PASSES_ON_RE.search(intro)
+                if _GUARDED_WORD_RE.search("\n".join(body)) and not sink:
                     return command
                 body = []
             else:
