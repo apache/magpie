@@ -561,7 +561,9 @@ def _strip_heredoc_bodies(command: str) -> str:
     so text that is only fed to a command's stdin is not read as shell syntax.
 
     ``command`` comes back unchanged when a heredoc is never closed, when a
-    ``<<`` cannot be placed (see :func:`_heredocs_opened`), or when a body
+    ``<<`` cannot be placed (see :func:`_heredocs_opened`), when a line
+    outside a body ends in a backslash (bash joins it with the next, so line
+    starts and comments are no longer where this reader sees them), or when a body
     naming ``git`` / ``gh`` may run: fed to anything but a bare ``cat`` /
     ``tee``, holding a command substitution under an unquoted delimiter,
     which bash expands, in a command whose other lines could run the sink's
@@ -590,16 +592,17 @@ def _strip_heredoc_bodies(command: str) -> str:
             else:
                 body.append(line)
             continue
+        if line.rstrip().endswith("\\"):
+            # a continued line: bash joins it with the next one, so a `#` at
+            # the start of that line may sit mid-word and a heredoc body
+            # starts after the logical line ends; this reader follows neither
+            return command
         previous = out[-1] if out else None
         out.append(line)
         opened = _heredocs_opened(line, quote)
         if opened is None:
             return command
         pending, quote, rest = opened
-        if pending and line.rstrip().endswith("\\"):
-            # a continued line: the body starts after the logical line ends,
-            # which this reader does not follow
-            return command
         sink = _is_data_sink(rest, previous)
     if pending:
         return command

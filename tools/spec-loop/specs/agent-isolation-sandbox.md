@@ -238,7 +238,8 @@ See `docs/adapters/goose.md`.
   `alias`, or `eval` / `source` / `.` / `hash` / `enable` as a word anywhere (after quote removal) and no non-sink heredoc, or holds a `$(…)` / backtick substitution under
   an unquoted delimiter; a `<<` inside quotes, a `#` comment, arithmetic
   or a `${…}` expansion opens no heredoc, and the delimiter is the whole
-  word after quote removal. Per-guard `MAGPIE_ALLOW_*`
+  word after quote removal; no body is stripped from a command where a
+  line outside a body ends in a backslash. Per-guard `MAGPIE_ALLOW_*`
   overrides are honoured inline or from the hook's environment;
   `MAGPIE_GUARD_OFF` is read from the hook's environment only, never
   from the command line.

@@ -616,6 +616,29 @@ def test_heredoc_operator_in_a_comment_or_quotes_is_not_a_heredoc(command):
 @pytest.mark.parametrize(
     "command",
     [
+        # bash joins `x\` and `#'` into the word `x#'`: the `#` is no comment,
+        # and the `'` opens a quote that swallows `cat <<EOF` and closes on
+        # the `'` line, so bash runs the line after it as a command. The last
+        # line leaves a quote open, so the command reaches heredoc stripping.
+        "echo x\\\n#'\ncat <<EOF\n'\ngit push --force\nEOF\necho 'oops",
+        "echo x\\\n#'\ncat <<'EOF'\n'\ngit push --force\nEOF\necho 'oops",
+        # A continued line that opens no heredoc, ahead of one that does: kept
+        # whole too, since this reader does not follow the joined line.
+        "echo x \\\n  y\ncat <<'EOF'\ngit push --force\nEOF\necho 'oops",
+    ],
+)
+def test_continued_line_anywhere_keeps_the_command_whole(command):
+    reason = dispatch(command)
+    assert reason and "agent-guard[parse]" in reason
+
+
+def test_backslash_inside_a_heredoc_body_is_data():
+    assert dispatch("cat <<'EOF' > notes.md\nthe user's git notes \\\nEOF") is None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
         "cat <<EOF\nit's $(git push --force)\nEOF",
         "cat <<EOF > notes.md\nit's `gh pr merge 5`\nEOF",
     ],

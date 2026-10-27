@@ -175,7 +175,10 @@ parenthesis or brace, no `alias`, and no `eval`, `source`, `.`, `hash` or
 `enable` as a word anywhere (after quote removal), in which every other heredoc
 is such a sink too, and,
 under an unquoted delimiter, holds no `$(…)` or backtick substitution (bash
-runs those); never for a heredoc that is not closed.
+runs those); never for a heredoc that is not closed, and never in a command
+where any line outside a heredoc body ends in a backslash: bash joins that line
+with the next, so a `#` at the start of the next line may sit mid-word rather
+than open a comment.
 A `<<` inside quotes, a `#` comment, arithmetic (`$((…))`, `$[…]`) or a
 `${…}` expansion opens no heredoc, so the lines after it are read as commands,
 as bash reads them. The delimiter is the whole word after quote removal
