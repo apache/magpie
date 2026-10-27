@@ -489,7 +489,7 @@ introduces and this step closes. Verify the refreshed copy answers before
 reporting the upgrade complete:
 
 ```bash
-PYTHONPATH="$(git rev-parse --git-common-dir 2>/dev/null || { test -e .git || echo .svn; })/apache-magpie" \
+PYTHONPATH="$(git rev-parse --git-common-dir 2>/dev/null || { test -e .git || { test -f .svn/wc.db && echo .svn; }; })/apache-magpie" \
   python3 -P -m setup_preflight --skill magpie-setup --no-welcome
 ```
 

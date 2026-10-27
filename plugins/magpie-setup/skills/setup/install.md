@@ -783,6 +783,13 @@ propose a sandbox bypass to the operator before cloning.
 
 If `<snapshot-dir>/` already exists with content, skip the
 fetch — the recipe ran first and left the snapshot in place.
+A skipped fetch still gets the anchor check: for `git-tag`
+(SUBSEQUENT), resolve the existing snapshot's commit
+(`git -C <snapshot-dir> rev-parse HEAD`) and compare it with the
+committed `commit` anchor; a mismatch, or a snapshot with no
+`.git/` to resolve, stops the install the same way — report both
+commits and offer to delete `<snapshot-dir>/` and fetch again.
+Nothing from that snapshot is copied or loaded before the check passes.
 
 After the fetch (or skip), confirm
 `<snapshot-dir>/skills/` lists the framework skills (e.g.

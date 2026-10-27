@@ -22,7 +22,7 @@ argument-hint: "[repo-or-model-path]"
 capability: capability:review
 surface_hash: sha256:03ecb6b8514583b2
 license: Apache-2.0
-measured_tokens: 5663
+measured_tokens: 5674
 ---
 
 # Security model verify
@@ -39,7 +39,7 @@ Run the checker with this skill's own frontmatter `name:` and
 `surface_hash:`, and one `--requires` for each `requires_config:` entry:
 
 ```bash
-PYTHONPATH="$(git rev-parse --git-common-dir 2>/dev/null || { test -e .git || echo .svn; })/apache-magpie" \
+PYTHONPATH="$(git rev-parse --git-common-dir 2>/dev/null || { test -e .git || { test -f .svn/wc.db && echo .svn; }; })/apache-magpie" \
   python3 -P -m setup_preflight --skill <name> --hash <surface_hash> [--requires <file>]...
 ```
 

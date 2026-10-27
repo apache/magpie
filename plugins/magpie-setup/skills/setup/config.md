@@ -82,7 +82,7 @@ When entered this way:
    it — the same `PYTHONPATH` as every skill's pre-flight:
 
    ```bash
-   PYTHONPATH="$(git rev-parse --git-common-dir 2>/dev/null || { test -e .git || echo .svn; })/apache-magpie" \
+   PYTHONPATH="$(git rev-parse --git-common-dir 2>/dev/null || { test -e .git || { test -f .svn/wc.db && echo .svn; }; })/apache-magpie" \
      python3 -P -m setup_preflight.layers
    ```
 
@@ -164,7 +164,7 @@ copy in the git directory's `apache-magpie/`, or a Subversion working
 copy's `.svn/apache-magpie/`:
 
 ```bash
-PYTHONPATH="$(git rev-parse --git-common-dir 2>/dev/null || { test -e .git || echo .svn; })/apache-magpie" \
+PYTHONPATH="$(git rev-parse --git-common-dir 2>/dev/null || { test -e .git || { test -f .svn/wc.db && echo .svn; }; })/apache-magpie" \
   python3 -P -m setup_preflight --skill … --hash …
 ```
 
@@ -197,7 +197,7 @@ Verify the copy answers before moving on; a checker that does not run
 makes every skill fall back to *step-0* of its `preflight-detail.md`:
 
 ```bash
-PYTHONPATH="$(git rev-parse --git-common-dir 2>/dev/null || { test -e .git || echo .svn; })/apache-magpie" \
+PYTHONPATH="$(git rev-parse --git-common-dir 2>/dev/null || { test -e .git || { test -f .svn/wc.db && echo .svn; }; })/apache-magpie" \
   python3 -P -m setup_preflight --skill magpie-setup --no-welcome
 ```
 

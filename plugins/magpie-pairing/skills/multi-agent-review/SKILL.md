@@ -21,7 +21,7 @@ argument-hint: "[base:<ref>] [staged] [path:<glob>]"
 capability: capability:review
 surface_hash: sha256:d1b0ba75f03a00c1
 license: Apache-2.0
-measured_tokens: 3799
+measured_tokens: 3810
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
@@ -47,7 +47,7 @@ Run the checker with this skill's own frontmatter `name:` and
 `surface_hash:`, and one `--requires` for each `requires_config:` entry:
 
 ```bash
-PYTHONPATH="$(git rev-parse --git-common-dir 2>/dev/null || { test -e .git || echo .svn; })/apache-magpie" \
+PYTHONPATH="$(git rev-parse --git-common-dir 2>/dev/null || { test -e .git || { test -f .svn/wc.db && echo .svn; }; })/apache-magpie" \
   python3 -P -m setup_preflight --skill <name> --hash <surface_hash> [--requires <file>]...
 ```
 

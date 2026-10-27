@@ -22,7 +22,7 @@ argument-hint: "[install|config|adopt|unadopt|upgrade|worktree-init|verify|recon
 capability: capability:platform
 surface_hash: sha256:2557a934f9ea5576
 license: Apache-2.0
-measured_tokens: 5262
+measured_tokens: 5338
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -54,10 +54,12 @@ Per-agent reference: [`docs/setup/marketplace.md`](../../../../docs/setup/market
 ## First — the welcome guide
 
 The setup family runs no shared pre-flight, so this skill checks for its first-run welcome guide itself, before any sub-action, silently.
-`<skill-dir>` is the directory holding this `SKILL.md`, which carries the checker even before `config` has copied it into its `checker_dir`:
+`<skill-dir>` is the directory holding this `SKILL.md`, which carries the checker even before `config` has copied it into its `checker_dir`.
+Append `:<skill-dir>` only when that directory is **outside** the project's working tree (a marketplace install's plugin cache);
+when this skill runs from inside the repository — the committed `.agents/skills/magpie-setup/` bootstrap — leave it off, so the check never imports code the repository ships:
 
 ```bash
-PYTHONPATH="$(git rev-parse --git-common-dir 2>/dev/null || { test -e .git || echo .svn; })/apache-magpie:<skill-dir>" \
+PYTHONPATH="$(git rev-parse --git-common-dir 2>/dev/null || { test -e .git || { test -f .svn/wc.db && echo .svn; }; })/apache-magpie[:<skill-dir>]" \
   python3 -P -m setup_preflight.welcome due --skill setup
 ```
 

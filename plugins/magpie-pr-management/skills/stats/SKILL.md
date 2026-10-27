@@ -21,7 +21,7 @@ argument-hint: "[repo:owner/name] [since:date] [clear-cache]"
 capability: capability:stats
 surface_hash: sha256:9e5dedfbf2f9f716
 license: Apache-2.0
-measured_tokens: 2613
+measured_tokens: 2624
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -45,7 +45,7 @@ Run the checker with this skill's own frontmatter `name:` and
 `surface_hash:`, and one `--requires` for each `requires_config:` entry:
 
 ```bash
-PYTHONPATH="$(git rev-parse --git-common-dir 2>/dev/null || { test -e .git || echo .svn; })/apache-magpie" \
+PYTHONPATH="$(git rev-parse --git-common-dir 2>/dev/null || { test -e .git || { test -f .svn/wc.db && echo .svn; }; })/apache-magpie" \
   python3 -P -m setup_preflight --skill <name> --hash <surface_hash> [--requires <file>]...
 ```
 

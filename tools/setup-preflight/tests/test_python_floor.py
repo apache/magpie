@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import ast
 import runpy
+import subprocess
 import sys
 from pathlib import Path
 
@@ -44,3 +45,29 @@ def test_an_old_python_is_refused_before_the_checker_loads(
 def test_the_entry_point_parses_on_an_old_grammar() -> None:
     """An old `python3` must reach the refusal, not stop on a SyntaxError."""
     ast.parse(MAIN.read_text(encoding="utf-8"), feature_version=(3, 6))
+
+
+BLOCK = Path(__file__).resolve().parents[2] / "dev" / "preflight-block.md"
+
+
+def _block_pythonpath(cwd: Path) -> str:
+    """What the shared block's PYTHONPATH expands to when run in `cwd`, with no git on PATH."""
+    line = next(ln for ln in BLOCK.read_text(encoding="utf-8").splitlines() if ln.startswith("PYTHONPATH="))
+    assignment = line.rstrip(" \\")
+    done = subprocess.run(
+        ["/bin/sh", "-c", f'{assignment}; printf %s "$PYTHONPATH"'],
+        cwd=cwd,
+        env={"PATH": "/nonexistent"},
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return done.stdout
+
+
+def test_a_planted_svn_dir_without_a_working_copy_is_not_on_the_path(tmp_path: Path) -> None:
+    """An archive can carry `.svn/apache-magpie/`; only a real working copy (`wc.db`) counts."""
+    (tmp_path / ".svn" / "apache-magpie" / "setup_preflight").mkdir(parents=True)
+    assert _block_pythonpath(tmp_path) == "/apache-magpie"
+    (tmp_path / ".svn" / "wc.db").write_bytes(b"")
+    assert _block_pythonpath(tmp_path) == ".svn/apache-magpie"

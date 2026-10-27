@@ -82,7 +82,7 @@ acceptance:
     into `.apache-magpie-local/`. `worktree-init` copies or links no
     personal config: the fallback covers it.
   - Every skill's pre-flight runs the checker with
-    `PYTHONPATH="$(git rev-parse --git-common-dir 2>/dev/null || { test -e .git || echo .svn; })/apache-magpie"`
+    `PYTHONPATH="$(git rev-parse --git-common-dir 2>/dev/null || { test -e .git || { test -f .svn/wc.db && echo .svn; }; })/apache-magpie"`
     and `python3 -P`, so the copy is found only in the git-directory home
     or a Subversion working copy's `.svn/apache-magpie/` — its
     `checker_dir` (`layers.checker_home`), adopted or not. Pre-flight
