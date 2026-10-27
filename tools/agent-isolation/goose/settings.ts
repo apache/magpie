@@ -27,7 +27,7 @@
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { expandPath, type Policy } from "../pi/policy.ts";
+import { expandPath, type Policy, withReal } from "../pi/policy.ts";
 
 /** Goose's own permission, mode and plugin settings: never writable from inside. */
 export const GOOSE_CONFIG_PATHS = [
@@ -113,19 +113,15 @@ export function gooseSandboxSettings(policy: Policy, cwd: string, plugin: string
 		},
 		filesystem: {
 			...base.filesystem,
-			denyRead: [...new Set([...base.filesystem.denyRead, ...GOOSE_SECRETS.map((p) => expandPath(p, cwd))])],
-			allowRead: [
-				...new Set([...base.filesystem.allowRead, expandPath(GOOSE_CONFIG, cwd), ...state, plugin, expandPath("~/.agents", cwd)]),
-			],
-			allowWrite: [...new Set([...base.filesystem.allowWrite, ...state])],
-			denyWrite: [
-				...new Set([
-					...base.filesystem.denyWrite,
-					plugin,
-					expandPath(GOOSE_CONFIG, cwd),
-					...GOOSE_CONFIG_PATHS.map((p) => expandPath(p, cwd)),
-				]),
-			],
+			denyRead: withReal([...base.filesystem.denyRead, ...GOOSE_SECRETS.map((p) => expandPath(p, cwd))]),
+			allowRead: withReal([...base.filesystem.allowRead, expandPath(GOOSE_CONFIG, cwd), ...state, plugin, expandPath("~/.agents", cwd)]),
+			allowWrite: withReal([...base.filesystem.allowWrite, ...state]),
+			denyWrite: withReal([
+				...base.filesystem.denyWrite,
+				plugin,
+				expandPath(GOOSE_CONFIG, cwd),
+				...GOOSE_CONFIG_PATHS.map((p) => expandPath(p, cwd)),
+			]),
 		},
 		// The provider's key must reach Goose; every other baseline credential stays out.
 		credentials: {

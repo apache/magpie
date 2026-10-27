@@ -219,10 +219,10 @@ export class Policy {
 				deniedDomains: [],
 			},
 			filesystem: {
-				denyRead: (sb.filesystem?.denyRead ?? []).map((p) => expandPath(p, cwd)),
-				allowRead: (sb.filesystem?.allowRead ?? []).map((p) => expandPath(p, cwd)),
-				allowWrite: [cwd, tmpdir(), "/tmp", ...(sb.filesystem?.allowWrite ?? [])].map((p) => expandPath(p, cwd)),
-				denyWrite: [...editDenies, ...PI_CONFIG_PATHS.map((p) => expandPath(p, cwd))],
+				denyRead: withReal((sb.filesystem?.denyRead ?? []).map((p) => expandPath(p, cwd))),
+				allowRead: withReal((sb.filesystem?.allowRead ?? []).map((p) => expandPath(p, cwd))),
+				allowWrite: withReal([cwd, tmpdir(), "/tmp", ...(sb.filesystem?.allowWrite ?? [])].map((p) => expandPath(p, cwd))),
+				denyWrite: withReal([...editDenies, ...PI_CONFIG_PATHS.map((p) => expandPath(p, cwd))]),
 			},
 			credentials: { envVars: sb.credentials?.envVars ?? [] },
 			enableWeakerNetworkIsolation: sb.network?.enableWeakerNetworkIsolation,
@@ -262,6 +262,25 @@ export function candidates(path: string, cwd: string, depth = 0): string[] {
 		return [literal];
 	}
 	return real === literal ? [literal] : [literal, real];
+}
+
+/**
+ * Each path plus its resolved form where it differs. The OS sandbox matches
+ * resolved paths, so an entry spelled through a link (macOS `/tmp` is
+ * `/private/tmp`) would otherwise never match what a process touches.
+ */
+export function withReal(paths: string[]): string[] {
+	const out: string[] = [];
+	for (const p of paths) {
+		if (!out.includes(p)) out.push(p);
+		try {
+			const real = realpathSync.native(p);
+			if (!out.includes(real)) out.push(real);
+		} catch {
+			// Not there yet: nothing to resolve.
+		}
+	}
+	return out;
 }
 
 function isSymlink(path: string): boolean {
