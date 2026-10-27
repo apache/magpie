@@ -189,9 +189,19 @@ def test_a_writable_bind_of_a_subdirectory_without_protected_paths_is_allowed(ro
 
 def test_a_sibling_under_dot_claude_stays_bindable(root: Path) -> None:
     """Only the listed entries are protected, not every file under `.claude/`."""
-    other = root / ".claude" / "worktrees" / "wt"
+    other = root / ".claude" / "output-styles"
     other.mkdir(parents=True)
     assert check_create(_binds(f"{other}:/w"), _ctx(root), libpod=False) is None
+
+
+def test_nested_agent_worktrees_are_protected(root: Path) -> None:
+    """Each `.claude/worktrees/<name>` has its own `.git` and `.claude/`."""
+    wt = root / ".claude" / "worktrees" / "wt"
+    (wt / "build").mkdir(parents=True)
+    ctx = _ctx(root)
+    assert _refused(_binds(f"{wt}:/w"), ctx)
+    assert _refused(_binds(f"{wt / '.claude' / 'settings.json'}:/w"), ctx)
+    assert check_create(_binds(f"{wt / 'build'}:/w"), ctx, libpod=False) is None
 
 
 # --- other spellings of the same path -----------------------------------------------

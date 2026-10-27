@@ -300,6 +300,10 @@ _WRITE_PROTECTED_IN_TREE = (
     ".mcp.json",
     ".git",
 )
+# Where Claude Code keeps a checkout's linked worktrees: each one carries its
+# own copy of the paths above, protected in place (the worktree itself stays
+# bindable, since the gateway may be serving one of them as its project root).
+_NESTED_WORKTREES = ".claude/worktrees"
 # The same, inside the repository's common git directory, which for a linked
 # worktree sits outside the worktree (and may still sit under a bind root).
 _WRITE_PROTECTED_IN_GIT_DIR = ("hooks", "config")
@@ -349,6 +353,13 @@ def write_protected_paths(*roots: Path) -> tuple[Path, ...]:
             root = Path(os.path.abspath(raw))
         for rel in _WRITE_PROTECTED_IN_TREE:
             add(root / rel)
+        try:
+            nested = [p for p in (root / _NESTED_WORKTREES).iterdir() if p.is_dir()]
+        except OSError:
+            nested = []
+        for wt in nested:
+            for rel in _WRITE_PROTECTED_IN_TREE:
+                add(wt / rel)
         common = git_common_dir(root)
         if common is not None:
             for rel in _WRITE_PROTECTED_IN_GIT_DIR:

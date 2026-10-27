@@ -115,7 +115,7 @@ The create-time rules below apply to containers and pods (the same fields under 
 The agent harness refuses sandboxed writes to the files that configure or run code outside the sandbox, but a container is started by the daemon, which the sandbox does not confine.
 So a bind that is writable is refused when its source is, contains, or sits under any of:
 
-- `.claude/settings.json`, `.claude/settings.local.json`, `.claude/hooks`, `.claude/skills`, `.claude/commands`, `.claude/agents` and `.mcp.json` under the project root, under every `--extra-bind-root`, and under the main checkout of a linked worktree;
+- `.claude/settings.json`, `.claude/settings.local.json`, `.claude/hooks`, `.claude/skills`, `.claude/commands`, `.claude/agents` and `.mcp.json` under the project root, under every `--extra-bind-root`, and under the main checkout of a linked worktree, and inside each worktree under any of those roots' `.claude/worktrees/`;
 - `.git` under each of those roots — the directory in a main checkout, the `gitdir:` file in a linked worktree or submodule;
 - the common git directory's `hooks` and `config`, and a linked worktree's own git directory (`.git/worktrees/<name>`), located by following the `.git` file, which matters when an extra bind root reaches them;
 - the run directory and the personal config layer.
@@ -185,7 +185,7 @@ Known and accepted, in the order you are likely to meet them:
   To remove the residual risk, pass `--run-dir` explicitly, or adopt Magpie, which puts the run directory in the worktree itself (`.apache-magpie-local/run/`).
 - **A writable bind of the whole project root is refused.**
   It covers `.claude/` and `.git`; bind it read-only, or bind the subdirectory the container needs to write.
-  Only the listed paths are protected, compared by path and file identity: the target of a symlink inside a protected directory, a hard link to a protected file, other files under `.claude/` (worktrees) and other in-tree files that a tool runs later — a `Makefile`, a git hook directory named by `core.hooksPath` inside the tree — are as writable through a subdirectory bind as they are to the sandboxed shell.
+  Only the listed paths are protected, compared by path and file identity: the target of a symlink inside a protected directory, a hard link to a protected file, a `.claude/worktrees/<name>` created after the request, other files under `.claude/`, and other in-tree files that a tool runs later — a `Makefile`, a git hook directory named by `core.hooksPath` inside the tree — are as writable through a subdirectory bind as they are to the sandboxed shell.
 - **A bind source is checked on the host at decision time and re-resolved by the daemon at mount time.**
   A symlink swapped between those two moments is not caught — the check and the mount are two separate resolutions of the same path, and the gateway holds no lock on the filesystem in between.
 - **Images are shared across projects by design.**

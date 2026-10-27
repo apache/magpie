@@ -34,7 +34,8 @@ acceptance:
     read-only is allowed. The protected paths are `.claude/settings.json`,
     `.claude/settings.local.json`, `.claude/hooks`, `.claude/skills`,
     `.claude/commands`, `.claude/agents`, `.mcp.json` and
-    `.git` under every bind root and a linked worktree's main checkout,
+    `.git` under every bind root (and inside each of its existing
+    `.claude/worktrees/<name>`) and a linked worktree's main checkout,
     the common git directory's `hooks` and `config` and a linked
     worktree's own git directory (located through its `.git` file), the
     run directory and the personal layer. Missing paths count, symlinks
