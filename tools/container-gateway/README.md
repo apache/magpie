@@ -126,6 +126,7 @@ The set is taken when the gateway starts and recomputed on every request, so rew
 A bind is read-only when it says so exactly: `ro` in a `Binds` entry's options, `ReadOnly: true` on a compat mount, `ro` in a libpod mount's options, in each case with no `rw` / `ro=false` / `readonly=false` beside it; anything else is writable.
 A libpod mount's options go to the runtime as written, and runc reads `ro=true` or `readonly` as filesystem data rather than as the read-only flag, so those spellings count as writable.
 So does `U` beside `ro`: podman changes the source's ownership on the host before mounting, read-only or not.
+Overlay mounts (`O`, `upperdir=`, `workdir=`) are refused on every bind and volume: their writes land in a host directory the bind rules never see.
 In practice: `-v "$PWD":/src` is refused, while `-v "$PWD":/src:ro` and `-v "$PWD/build":/out` are allowed.
 The gateway refuses rather than rewriting the request with read-only overlay mounts, for the same reason it refuses a bind of the run directory: an overlay would have to cover paths that do not exist yet, and a container could rename an unmasked parent such as `.claude/` or `.git/` and recreate it.
 

@@ -712,11 +712,31 @@ def _volume_driver_config(entry: dict[str, Any]) -> bool:
     return _volume_driver_options(entry.get("options"))
 
 
+_OVERLAY_DENY_REASON = (
+    "mount-options: overlay mounts (`O`, `upperdir=`, `workdir=`) are refused; "
+    "their writes land in a host directory the bind rules never see"
+)
+
+
+def _overlay_options(options: Any) -> bool:
+    """Whether a bind's options ask podman for an overlay mount, whose
+    ``upperdir`` / ``workdir`` are host paths outside the bind checks."""
+    if not isinstance(options, list):
+        return False
+    for opt in options:
+        text = str(opt).strip()
+        if text == "O" or text.casefold().startswith(("upperdir=", "workdir=")):
+            return True
+    return False
+
+
 def _mount_type_deny(
     entry: dict[str, Any], type_key: str, source_key: str, ctx: PolicyContext
 ) -> Deny | None:
     raw_type = entry.get(type_key)
     mtype = str(raw_type).casefold() if raw_type else ""
+    if _overlay_options(entry.get("options")):
+        return Deny(_OVERLAY_DENY_REASON)
     if mtype == "bind":
         source = str(entry.get(source_key, ""))
         if not resolve_bind_source(source, ctx):
@@ -742,7 +762,10 @@ def _mounts_deny(
 ) -> Deny | None:
     if not libpod:
         for spec in host.get("Binds") or []:
-            src = str(spec).split(":", 1)[0]
+            parts = str(spec).split(":")
+            if len(parts) >= 3 and _overlay_options(parts[2].split(",")):
+                return Deny(_OVERLAY_DENY_REASON)
+            src = parts[0]
             if src and _is_path_like(src):
                 if not resolve_bind_source(src, ctx):
                     return _bind_deny(src, ctx)
@@ -763,6 +786,8 @@ def _mounts_deny(
     for volume in body.get("volumes") or []:
         if isinstance(volume, dict) and _volume_driver_options(volume.get("Options")):
             return Deny(_VOLUME_DRIVER_DENY_REASON)
+        if isinstance(volume, dict) and _overlay_options(volume.get("Options")):
+            return Deny(_OVERLAY_DENY_REASON)
     return None
 
 

@@ -156,6 +156,17 @@ def test_a_binds_entry_with_rw_after_ro_counts_as_writable(root: Path) -> None:
     assert _refused(_binds(f"{root}:/w:ro,rw"), _ctx(root))
 
 
+@pytest.mark.parametrize(
+    "options",
+    [["O"], ["O", "upperdir=/tmp/up", "workdir=/tmp/work"], ["ro", "upperdir=/tmp/up"]],
+)
+def test_overlay_options_are_refused(root: Path, options: list[str]) -> None:
+    src = root / "src"
+    ctx = _ctx(root)
+    assert check_create(_binds(f"{src}:/w:{','.join(options)}"), ctx, libpod=False) is not None
+    assert check_create(_libpod_mount(src, options), ctx, libpod=True) is not None
+
+
 def test_a_binds_entry_with_ro_and_chown_counts_as_writable(root: Path) -> None:
     assert _refused(_binds(f"{root}:/w:ro,U"), _ctx(root))
 

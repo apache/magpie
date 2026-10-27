@@ -41,7 +41,8 @@ acceptance:
     are resolved, spellings are compared case-folded and by file
     identity, and the set is taken at start and recomputed per request.
     Only an exact `ro` makes a bind read-only, and `U` beside it counts
-    as writable.
+    as writable. Overlay mount options (`O`, `upperdir=`, `workdir=`)
+    are refused outright.
   - A create, exec, update or build request carrying a field or query
     parameter the gateway has not learned is refused with HTTP 403;
     the create body, the exec body, the update body and the build
