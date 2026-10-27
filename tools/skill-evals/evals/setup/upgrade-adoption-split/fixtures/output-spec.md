@@ -14,8 +14,9 @@ Return ONLY valid JSON with this structure:
 }
 ```
 
-`updates_plugins` reports whether this step updates the machine's installed
-plugins.
+`updates_plugins` reports whether this step changes the version of any of the
+machine's installed plugins. Running the plugin update when every plugin is
+already at the latest available version changes nothing, so it is `false`.
 
 `new_min_version` is the value `min_version` holds after this step, or `null`
 if no lock is written.

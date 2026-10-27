@@ -16,6 +16,9 @@ Return ONLY valid JSON with this structure:
 }
 ```
 
+Name each skill by its `name` field from the discovery output (for example
+`triage-reports -> security-issue-triage`), never by its path.
+
 `candidates_shown` lists, in the order shown, the matches put to the user as
 choices. `dropped_as_false_positive` lists the matches dropped before being
 put to the user because the overlap is only shared vocabulary.

@@ -21,7 +21,8 @@ named.
 
 `install_set` lists every plugin installed once the user has answered: the
 baseline plugins first, in baseline order, then the families in the order the
-user named them.
+user named them, each directly followed by any companion plugin it brings
+(`magpie-security` brings `magpie-security-tools`).
 
 `prompted` is whether a picker was shown at all. An explicit
 `skill-families:<list>` argument is used verbatim and skips it.
