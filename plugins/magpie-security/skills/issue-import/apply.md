@@ -18,7 +18,8 @@ For each confirmed `Report` or forwarder-relayed candidate:
    and the reporter's formatting shows as plain text.
 
    Write `<scratch>/body-<threadId>.json` with the Write tool:
-   `fields` keyed by role — `issue_description` (the redacted root body, verbatim), `affected_versions`, `mailing_thread` ([shape](outcomes/mailing-thread.md)), `reporter_credit`,
+   `fields` keyed by role — `issue_description` (the redacted root body, verbatim), `affected_versions`, `mailing_thread` ([shape](outcomes/mailing-thread.md)), `reporter_credit`
+   (for a forwarder-relayed candidate, only the value the user confirmed with `NN:reporter <text>`; omitted otherwise, per [`outcomes/credit-field.md`](outcomes/credit-field.md)),
    the rest per the [Step 4 table](SKILL.md#step-4--extract-template-fields), empty ones omitted —
    `body_fields` from `<project-config>/project.md → tracker.body_fields`,
    and `callout: true` only when the import-time prompt-injection flag fired

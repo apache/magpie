@@ -34,6 +34,15 @@
 - `release_vote` (1h): an open `[VOTE]` thread on the dev list whose first
   version matches the fix-PR milestone, for a tracker in the `pr merged`
   window; a `[RESULT]` message closes a vote.
+- `advisory_archive` (1d): whether a candidate archive URL may be proposed
+  as the *Public advisory URL*, the field whose capture moves the CVE
+  record to `PUBLIC`. A text search for the CVE ID matches any public post
+  that mentions it, so the candidate is accepted only when the thread the
+  archive returns is on the configured public advisory list, its root
+  subject is the advisory's own (`<CVE-ID>: <description>`, the subject
+  the CVE tool sends, optionally after `[...]` list tags; never a `Re:` or
+  `Fwd:`), and the URL sits under the configured archive. Acceptance is a
+  proposal: `requires_confirmation` is always true.
 """
 
 from __future__ import annotations
@@ -226,3 +235,53 @@ def release_vote(data: Mapping[str, Any]) -> dict[str, Any]:
             "reason": f"open vote for {version}, matching the fix-PR milestone",
         }
     return {"ok": True, "release_vote_in_progress": False, "reason": f"no open [VOTE] thread for {target}"}
+
+
+_CVE = re.compile(r"^CVE-\d{4}-\d{4,7}$")
+
+
+def _list_address(value: object) -> str:
+    """`users@foo.apache.org` from that address or PonyMail's `<users.foo.apache.org>` list id."""
+    text = one_line(value).strip().strip("<>").strip().lower()
+    if text and "@" not in text and "." in text:
+        local, _, domain = text.partition(".")
+        text = f"{local}@{domain}"
+    return text
+
+
+def advisory_archive(data: Mapping[str, Any]) -> dict[str, Any]:
+    cve = one_line(data.get("cve_id")).strip()
+    if not _CVE.match(cve):
+        return {"ok": False, "refused": f"cve_id {cve!r} is not of the form CVE-YYYY-NNNN"}
+    advisory_list = _list_address(data.get("advisory_list"))
+    if "@" not in advisory_list:
+        return {"ok": False, "refused": "advisory_list (the project's users_list) is not configured"}
+    url = one_line(data.get("url")).strip()
+    raw_thread = data.get("thread")
+    thread: Mapping[str, Any] = raw_thread if isinstance(raw_thread, Mapping) else {}
+    thread_list = _list_address(thread.get("list"))
+    subject = one_line(thread.get("subject")).strip()
+    archive = one_line(data.get("mail_archive_url")).strip().rstrip("/")
+    reasons: list[str] = []
+    if not url.startswith("https://"):
+        reasons.append("the URL is not an https archive URL")
+    elif archive and not (url == archive or url.startswith(archive + "/")):
+        reasons.append(f"the URL is not under the configured archive {archive}")
+    if not thread_list:
+        reasons.append("the archive did not report which list the thread is on; fetch the thread first")
+    elif thread_list != advisory_list:
+        reasons.append(f"the thread is on {thread_list}, not on the public advisory list {advisory_list}")
+    pattern = re.compile(r"^(?:\[[^\]]*\]\s*)*" + re.escape(cve) + r"\s*:\s*\S", re.IGNORECASE)
+    if not subject:
+        reasons.append("the thread's root subject is unknown; fetch the thread first")
+    elif not pattern.match(subject):
+        reasons.append(f"the root subject is not the advisory subject `{cve}: <description>`")
+    return {
+        "ok": True,
+        "accepted": not reasons,
+        "reasons": reasons,
+        "url": url,
+        "list": thread_list or None,
+        "subject": subject or None,
+        "requires_confirmation": True,
+    }

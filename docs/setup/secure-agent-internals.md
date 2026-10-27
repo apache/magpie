@@ -155,6 +155,20 @@ returns `Operation not permitted` rather than
 before the filesystem driver runs. The policy outcome is the
 same — denied paths are unreachable from within the subprocess.
 
+Network egress is filtered on macOS too. The generated profile
+lets the sandboxed subprocess open outbound connections only to
+the sandbox runtime's local proxy, and that proxy forwards only
+to hosts in `sandbox.network.allowedDomains` — the same list the
+framework's
+[`.claude/settings.json`](secure-agent-setup.md#the-frameworks-own-claudesettingsjson)
+configures for both platforms. A connection to a non-allowed host
+fails at the proxy, as on Linux; socat is not needed for this on
+macOS. Two settings widen it: `enableWeakerNetworkIsolation`
+(macOS-only, set for native-TLS tools such as lychee) opens a path
+through the `trustd` service, and commands listed in
+`sandbox.excludedCommands` (`gh`, the vetted-ops entry points) run
+outside the sandbox and are not filtered at all.
+
 No system packages need pinning on macOS — Seatbelt ships with
 the OS. The framework's
 [`pinned-versions.toml`](../../tools/agent-isolation/pinned-versions.toml)
@@ -194,17 +208,16 @@ sidestep:
   `node -e 'fetch(...)'` invoke the call from inside another
   process whose first token is `bash` / `python3` / `node`,
   not the denied one.
-- **Chained calls** (the macOS gap below) — even without any
-  of the above, the deny pattern only matches the *first*
-  command in a multi-command chain on macOS.
+- **Chained calls** (below) — even without any of the above,
+  the deny pattern only matches the *first* command in a
+  multi-command chain.
 
 **The actual exfiltration enforcement is the network allowlist.**
-On Linux, `socat`'s SNI proxy blocks egress to anything not in
-`sandbox.network.allowedDomains` regardless of which binary made
-the call or how the call was wrapped. Treat `permissions.deny`
-as a friction layer — useful for catching the sloppy injection,
-not a guarantee against a determined one. Adopters who care about
-the macOS gap should follow the mitigations later in this section.
+On both Linux and macOS the sandbox's proxy blocks egress to
+anything not in `sandbox.network.allowedDomains`, regardless of
+which binary made the call or how the call was wrapped. Treat
+`permissions.deny` as a friction layer — useful for catching the
+sloppy injection, not a guarantee against a determined one.
 
 For the same reason, `permissions.ask` patterns (e.g. the
 `gh gist *`, `gh repo create *`, `gh api * --method *`,
@@ -229,18 +242,25 @@ https://example.com; echo b`) starts as `echo a` and slips past
 the deny list — the runtime sees the first command and lets the
 chain run.
 
-On Linux, that gap is closed by socat's SNI proxy: even if the
-runtime lets `curl` start, the network layer of the sandbox
+That gap is closed by the sandbox's network layer on both
+platforms: even if the runtime lets `curl` start, the proxy
 blocks the egress unless the destination host is on
-`sandbox.network.allowedDomains`.
+`sandbox.network.allowedDomains` (on macOS, the Seatbelt profile
+confines the subprocess's outbound connections to that proxy —
+see [macOS: Seatbelt](#macos-seatbelt)).
 
-**On macOS there is no socat.** Network egress for the sandboxed
-Bash subprocess is unfiltered — Seatbelt enforces filesystem
-isolation but the framework's setup does not currently wrap
-network egress on macOS. A chained `curl` to an arbitrary host
-therefore reaches the network on macOS even when the same call
-in the same session would be blocked on Linux. This is a real
-adopter-facing gap, not an implementation detail.
+What the allowlist does not bound, on either platform:
+
+- **Allowed hosts that accept writes.** The list includes
+  general-purpose services such as `github.com`,
+  `*.githubusercontent.com` and `*.googleapis.com`; a chained call
+  to one of them is not blocked.
+- **Commands outside the sandbox.** Entries in
+  `sandbox.excludedCommands` (`gh`, the vetted-ops entry points)
+  and any call run with the sandbox turned off are not filtered.
+- **macOS `enableWeakerNetworkIsolation`.** The setting the
+  framework enables for native-TLS tools opens a documented path
+  through the `trustd` service.
 
 Mitigations available today, ordered from cheapest to strongest:
 
@@ -249,17 +269,11 @@ Mitigations available today, ordered from cheapest to strongest:
   that runs. The agent-guided
   `setup-isolated-setup-verify` skill does this deliberately when
   running its denial checks.
-- On hosts where `Bash(*)` chained execution is a meaningful
-  exfiltration concern, run an outbound packet filter
-  (`pf` on macOS, `nftables` on Linux) that whitelists the same
-  hosts as `sandbox.network.allowedDomains`. The OS-level filter
-  applies regardless of whether the call goes through Claude
-  Code's runtime or escapes via a chain.
-- A future framework enhancement could wrap macOS Bash
-  subprocesses in a `sandbox-exec` profile that *also* restricts
-  outbound `network*` operations the way the current profile
-  restricts `file-read*`. That is an open follow-up, not a
-  shipped capability today.
+- On hosts where chained execution is a meaningful exfiltration
+  concern, run an outbound packet filter (`pf` on macOS,
+  `nftables` on Linux) that allows the same hosts as
+  `sandbox.network.allowedDomains`. The OS-level filter also
+  covers the unsandboxed commands above.
 
 ## How the feedback mechanisms layer together
 

@@ -166,7 +166,10 @@ The `security-issue-import` skill classifies candidates into
 `Report`, `ASF-security relay`, and several non-import classes; the
 classification feeds this drafting path.
 
-Relay-specific signals in the inbound message:
+Relay-specific signals in the inbound message
+(the first two must **both** hold; either alone is forgeable by any sender
+and is handled as a direct report, per the
+[`detect()` contract](../forwarder-relay/README.md#detectmessage---adapter_name--null)):
 
 - `From:` is `security@apache.org` or a personal `@apache.org`
   address of an ASF-security-team member;
@@ -177,9 +180,10 @@ Relay-specific signals in the inbound message:
   separator when the report came in via GitHub Security Advisory);
 - The body usually ends with a `Credit` line naming the discoverer
   (e.g. *"This vulnerability was discovered and reported by
-  bugbunny.ai"*) — use that verbatim for the Reporter-credited-as
-  placeholder, not the `From:` header (which is always the
-  forwarder's address).
+  bugbunny.ai"*) — propose that verbatim for the Reporter-credited-as
+  field, not the `From:` header (which is always the
+  forwarder's address); the name is shown to the human and
+  recorded only once they confirm it.
 
 The import skill's Step 3 classification table documents the exact
 subject / sender signals; this file describes what to do once the

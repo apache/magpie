@@ -71,7 +71,7 @@ the **recipient** and the **body shape**.
      when `forwarders.enabled` is empty, never load it;
      otherwise invoke it only when the tracker's import rollup records a forwarder-relay provenance, or the inbound root message passes the parent-side `detect()` check in
      [`security-issue-import` Step 3](../issue-import/SKILL.md#step-3--classify-each-candidate)
-     (sender pattern OR first-400-character preamble of an enabled adapter).
+     (sender pattern AND first-400-character preamble of one enabled adapter).
      A tracker that passes neither is not an adapter relay; the policy's other via-forwarder cases (GHSA-only, markdown import, the no-direct-contact marker) route without the sub-skill.
    - `ccRecipients`: includes `security_cc` from the shared
      [security draft CC resolution](../../../../tools/mail-source/contract.md#security-draft-cc-resolution).

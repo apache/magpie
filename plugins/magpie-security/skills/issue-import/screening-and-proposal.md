@@ -70,6 +70,9 @@ The two-year lookback is the default because precedent-shape reports recur over 
 Gmail is the fallback when (a) PonyMail is not enabled / not authenticated,
 (b) the private list is not in the allowlist,
 or (c) the PonyMail query comes back empty and you want a last check against the user's mailbox.
+An empty PonyMail result is *"no prior rejection"* only when Step 0 confirmed the session for `<security-list>` (`auth_status` plus the list in `list_lists()`);
+without that it is **unknown — stop** the PonyMail search, run the Gmail search instead, and if Gmail cannot answer either, show *"prior-rejection check: unknown"* in Step 5 rather than *"none found"*
+([why](../../../../tools/ponymail/operations.md#an-empty-private-list-result-is-not-no-messages)).
 The per-candidate budget is ≤ 2 archive searches (whichever backend) for the prior-rejection path.
 
 1. **Prior rejections by the security team.** Pick 2–3 distinctive noun phrases from the report
@@ -195,6 +198,9 @@ Present all candidates as a single numbered proposal grouped by class:
   and any classification ambiguity, so the user can scan-then-override;
   do **not** pose them as open questions that gate the import.
   A `reject-with-canned` verdict flips this candidate's recommended default from import to the canned rejection (still overridable in Step 6).
+  For a forwarder-relayed candidate, show the extracted credit on its own line as *"proposed credit (from relay body, unconfirmed): `<name>` — `<raw_string>`; reply `NN:reporter <name>` to record it"*:
+  unlike the rest of the import, this field does **not** default in — without that reply the tracker lands with *Reporter credited as* `_No response_` ([why](outcomes/credit-field.md)).
+  Show any single-signal relay match (Step 3 `partial`) here as a one-line warning.
 - **Candidates not to import** (class `automated-scanner`, `consolidated-multi-issue`, `media-request`, `spam`,
   `cross-thread-followup`, `fix-already-public`): show the class, the reporter, a one-line summary,
   and the proposed Gmail draft (from `canned-responses.md`, or — for `fix-already-public` — from the *fix-already-public reply shape* below)
@@ -309,6 +315,8 @@ to import; the user only types back to *deviate* from that default):
   every Report and forwarder-relayed candidate as proposed (each
   lands in `Needs triage` with its receipt-of-confirmation reply
   drafted), and apply every confirmed non-import action.
+  This does **not** confirm a forwarder-relayed candidate's proposed credit:
+  that field stays `_No response_` unless the reply carries `NN:reporter <text>`.
 - `skip NN` — reject candidate `NN` upfront; no tracker created, no
   draft. Combine with `, ` to skip multiple (`skip 1, 3`).
 - `NN:reject-with-canned <canned-response-name>` — reject candidate `NN` upfront *and* draft the named canned reply
@@ -328,6 +336,7 @@ to import; the user only types back to *deviate* from that default):
   is still created with the edits applied.
 - `NN:title <text>`, `NN:reporter <text>`, `NN:severity <text>` — override one proposed field;
   the tracker is still created. A severity override is the team's own score, never the reporter's.
+  `NN:reporter <text>` is also the only way a forwarder-relayed candidate's credit is recorded.
 - `keep <threadId>` — send a thread the Step 1 pre-filter dropped back through Steps 2 to 5.
 - `none` / `cancel` — bail entirely; no trackers, no drafts.
 

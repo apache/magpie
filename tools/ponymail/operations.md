@@ -7,6 +7,7 @@
 
 - [PonyMail — MCP operation catalogue](#ponymail--mcp-operation-catalogue)
   - [Pre-flight](#pre-flight)
+    - [An empty private-list result is not "no messages"](#an-empty-private-list-result-is-not-no-messages)
   - [Authentication](#authentication)
     - [Login](#login)
     - [Auth status](#auth-status)
@@ -77,6 +78,28 @@ to that request when it applies. For skills that only need
 public-list reads (`users@`, `announce@`, `dev@`), a missing session
 is tolerable and the pre-flight emits a warning instead of a stop;
 see the [Authentication](#authentication) section below.
+
+### An empty private-list result is not "no messages"
+
+PonyMail answers a private-list query it cannot authorise with an
+**empty result, not an error** — for a missing or expired cookie,
+and for a valid session whose LDAP groups do not include the list.
+An empty private-list result is therefore evidence of absence only
+when the session is **confirmed** for that list:
+
+1. `auth_status()` reported a session at Step 0, **and**
+2. [`list_lists()`](#list-lists) — called once, right after it —
+   includes the private list being searched.
+
+When either is not established, an empty private-list result is
+**unknown**: do not record it, or act on it, as *"no messages"* /
+*"no prior thread"* / *"nothing new"*. Stop that check, say
+*"`<list>` result unknown — no confirmed PonyMail session for it"*
+in the skill's output, and use the skill's other backend for the
+same question if it has one (Gmail, for the security skills). If no
+other backend can answer it, the question stays open in the
+proposal; it is never resolved as a negative. Public lists
+(`users@`, `announce@`, `dev@`) are exempt: they need no session.
 
 ## Authentication
 
@@ -365,11 +388,17 @@ mcp__ponymail__search_list(
 )
 ```
 
-Returns summaries of messages on `users@` mentioning the CVE. A
-single hit is the advisory thread; capture its `tid` and construct
-the archive URL via the template in
-[`../gmail/ponymail-archive.md`](../gmail/ponymail-archive.md)
-for the tracker's *Public advisory URL* body field.
+Returns summaries of messages on `users@` mentioning the CVE —
+any post that names the ID, not only the advisory. Each hit is a
+candidate: fetch its thread (`get_thread`) for the list and root
+subject, and keep it only when the root subject is the advisory's
+own `<CVE-ID>: <description>` (never a `Re:` / `Fwd:`) on the
+configured `users_list` — `security-management issue-sync
+advisory-archive` makes that check. Construct the archive URL for
+the kept thread via the template in
+[`../gmail/ponymail-archive.md`](../gmail/ponymail-archive.md);
+the skill shows it to the user and records it in the tracker's
+*Public advisory URL* body field only after they confirm it.
 
 ### Pull the original report thread on `security@<project>.apache.org`
 
@@ -411,7 +440,10 @@ the version string or the project's release-cadence cut date.
 - **Session-scoped access.** Private-list queries return empty
   when the session cookie is missing, expired, or belongs to a
   user without LDAP membership on the list. Always pre-flight
-  `auth_status` when a skill intends to search a private list.
+  `auth_status` and `list_lists` when a skill intends to search a
+  private list, and treat an empty result without that
+  confirmation as unknown — see
+  [An empty private-list result is not "no messages"](#an-empty-private-list-result-is-not-no-messages).
 - **Summary vs full.** `search_list` returns summaries only —
   follow up with `get_thread` or `get_email` for bodies. Budget
   the follow-up calls the same way the Gmail tool budgets thread
@@ -440,10 +472,12 @@ land in tracker-destined text.
   `mcp__ponymail__login()`, and stop (for private-list queries)
   or fall back to public-list-only mode (for searches that can
   proceed without auth, e.g. `users@` archive scans).
-- **Empty result set on a query that should have matched** →
-  first check `list_lists()` to verify the session sees the
-  expected list; an empty hit is often *"LDAP doesn't grant
-  access"*, not *"the thread doesn't exist"*.
+- **Empty result set on a private list** → unknown unless the
+  session is confirmed for that list (`auth_status` at Step 0 plus
+  the list in `list_lists()`); an empty hit is often *"LDAP doesn't
+  grant access"* or *"the cookie expired mid-run"*, not *"the
+  thread doesn't exist"*. Stop the check and report it as unknown,
+  per [An empty private-list result is not "no messages"](#an-empty-private-list-result-is-not-no-messages).
 - **5xx from the backend** → retry once after a short backoff.
   If it persists, record the error in the skill's proposal and
   leave the triager to decide whether to proceed on degraded

@@ -60,6 +60,10 @@ MALFORMED = (
     "a relay message, so the skill fails fast."
 )
 NO_MATCH_NOTE = "no registered forwarder adapter matched this message; parent skill proceeds with the direct-reporter path."
+PARTIAL_MATCH_NOTE = (
+    "only one of an adapter's two relay signals (sender, preamble) matched; relay mode needs both, "
+    "so the parent skill proceeds with the direct-reporter path and shows this to the user."
+)
 
 
 def installed(framework: Path) -> set[str]:
@@ -106,11 +110,18 @@ def _snippet(body: str, start: int) -> str:
 def detect(
     message: Mapping[str, Any], forwarders: Mapping[str, Any], collaborators: Sequence[object] = ()
 ) -> dict[str, Any]:
-    """The first enabled adapter whose sender pattern OR preamble regex matches; later ones are skipped."""
+    """The first enabled adapter whose sender pattern AND preamble regex both match; later ones are skipped.
+
+    Either signal alone is forgeable by any sender (a `From:` display or a
+    pasted preamble), so one signal is not a relay: it is reported in
+    `partial_matches` for the parent to surface, and the message stays on the
+    direct-reporter path.
+    """
     sender = address(str(message.get("from") or ""))
     body = str(message.get("body") or "")
     preamble = body[:PREAMBLE_CHARS]
     tried: list[dict[str, Any]] = []
+    partial: list[dict[str, Any]] = []
     for name in [str(n) for n in forwarders.get("enabled") or []]:
         config = forwarders.get(name) or {}
         sender_pattern, preamble_pattern = config.get("sender_pattern"), config.get("preamble_match")
@@ -122,16 +133,19 @@ def detect(
         except re.error as exc:
             raise ValueError(f"adapter {name!r}: a pattern does not compile: {exc}") from exc
         tried.append({"adapter": name, "sender": bool(by_sender), "preamble": bool(by_preamble)})
-        if by_sender or by_preamble:
+        if bool(by_sender) != bool(by_preamble):
+            partial.append({"adapter": name, "signal": "sender" if by_sender else "preamble"})
+        if by_sender and by_preamble:
             known = {str(c).strip().lower() for c in collaborators}
             local = sender.split("@", 1)[0]
             return {
                 "match": name,
                 "sub_skill_applied": True,
-                "preamble_snippet": _snippet(body, by_preamble.start()) if by_preamble else None,
-                "sender_matched": sender if by_sender else None,
+                "preamble_snippet": _snippet(body, by_preamble.start()),
+                "sender_matched": sender,
                 "collaborator_warning": bool(sender) and (sender in known or local in known),
                 "adapters": tried,
+                "partial_matches": partial,
                 "note": None,
             }
     return {
@@ -141,7 +155,8 @@ def detect(
         "sender_matched": None,
         "collaborator_warning": False,
         "adapters": tried,
-        "note": NO_MATCH_NOTE,
+        "partial_matches": partial,
+        "note": PARTIAL_MATCH_NOTE if partial else NO_MATCH_NOTE,
     }
 
 

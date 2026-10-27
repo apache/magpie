@@ -285,3 +285,58 @@ def test_release_vote(capsys, tmp_path, data, in_progress):
     assert out["release_vote_in_progress"] is in_progress
     if in_progress:
         assert out["release_vote_thread_url"] == "https://lists/t1"
+
+
+# --- 1d: the advisory archive URL gate ----------------------------------------
+
+SUBJECT = "CVE-2026-12345: Apache Foo: path handling in the log viewer"
+ADVISORY: dict[str, Any] = {
+    "cve_id": "CVE-2026-12345",
+    "advisory_list": "users@foo.apache.org",
+    "mail_archive_url": "https://lists.apache.org",
+    "url": "https://lists.apache.org/thread/abc123",
+    "thread": {"list": "<users.foo.apache.org>", "subject": SUBJECT},
+}
+
+
+def test_advisory_archive_accepts_the_advisory_thread(capsys, tmp_path) -> None:
+    out = ok(capsys, tmp_path, "advisory-archive", ADVISORY)
+    assert (out["accepted"], out["reasons"], out["requires_confirmation"]) == (True, [], True)
+    assert out["list"] == "users@foo.apache.org"
+    tagged = {
+        **ADVISORY,
+        "thread": {"list": "users@foo.apache.org", "subject": "[ANNOUNCE] CVE-2026-12345: Foo"},
+    }
+    assert ok(capsys, tmp_path, "advisory-archive", tagged)["accepted"] is True
+
+
+@pytest.mark.parametrize(
+    ("change", "reason"),
+    [
+        ({"thread": {"list": "dev@foo.apache.org", "subject": SUBJECT}}, "not on the public"),
+        (
+            {"thread": {"list": "<users.foo.apache.org>", "subject": "Re: CVE-2026-12345: Apache Foo"}},
+            "advisory subject",
+        ),
+        (
+            {"thread": {"list": "<users.foo.apache.org>", "subject": "Question about CVE-2026-12345"}},
+            "advisory subject",
+        ),
+        (
+            {"thread": {"list": "<users.foo.apache.org>", "subject": "CVE-2026-99999: Apache Foo"}},
+            "advisory subject",
+        ),
+        ({"url": "https://example.org/thread/abc123"}, "configured archive"),
+        ({"thread": {}}, "fetch the thread first"),
+    ],
+)
+def test_advisory_archive_rejects_other_posts(capsys, tmp_path, change, reason) -> None:
+    out = ok(capsys, tmp_path, "advisory-archive", {**ADVISORY, **change})
+    assert out["accepted"] is False
+    assert any(reason in r for r in out["reasons"]), out["reasons"]
+
+
+def test_advisory_archive_refuses_without_a_list(capsys, tmp_path) -> None:
+    path = tmp_path / "a.json"
+    path.write_text(json.dumps({**ADVISORY, "advisory_list": ""}), encoding="utf-8")
+    assert main(["issue-sync", "advisory-archive", "--input", str(path)]) != 0

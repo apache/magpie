@@ -147,11 +147,16 @@ gh api "https://lists.apache.org/api/thread.lua?list=<users-list-local>&domain=<
   || curl -s "https://lists.apache.org/list.html?<users-list>:YYYY:<CVE-ID>"
 ```
 
-If the query returns a hit, the skill proposes populating the
-*public-advisory-url* field with the
-`lists.apache.org/thread/<id>?<users-list>` URL, regenerating the CVE
-JSON attachment (so the URL flows into `references[]` as
-`vendor-advisory`), and adding the `announced` label.
+A hit is a candidate only: the query matches any public post that
+names the CVE ID. The skill keeps a hit only when its thread is on
+`<users-list>` and its root subject is the advisory's own
+`<CVE-ID>: <description>` (never a `Re:` / `Fwd:`), checked with
+`security-management issue-sync advisory-archive`. It then shows the
+`lists.apache.org/thread/<id>?<users-list>` URL with its list and
+subject, and only after the user confirms it proposes populating the
+*public-advisory-url* field, regenerating the CVE JSON attachment (so
+the URL flows into `references[]` as `vendor-advisory`), and adding
+the `announced` label.
 
 Once the field is populated, the sync skill treats it as
 authoritative — no further archive scans needed.

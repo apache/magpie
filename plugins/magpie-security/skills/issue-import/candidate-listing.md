@@ -47,6 +47,9 @@ Surface two classes of mismatch as extra candidates in Step 5:
 When PonyMail MCP is disabled, unauthenticated, or the private
 list is not in the user's allowlist, skip the paired-check query
 and proceed Gmail-only.
+An **empty** paired-check result counts as *"the archive holds none of these"* only when Step 0's `auth_status` reported a session **and** `list_lists()` shows `<security-list>`;
+otherwise it is unknown — stop the paired check, say *"archive cross-check unknown — no confirmed PonyMail session for `<security-list>`"* in Step 5, and proceed Gmail-only
+([why](../../../../tools/ponymail/operations.md#an-empty-private-list-result-is-not-no-messages)).
 
 **Do not exclude `-from:<security-list>`.** That address carries CVE-tool bookkeeping,
 **ASF Security Team forwarding of inbound reports**, and ad-hoc ASF Security discussion / advice;

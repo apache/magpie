@@ -20,7 +20,7 @@ argument-hint: "[import] [last Nd|all] [skip threadId]"
 capability: capability:intake
 surface_hash: sha256:079bd7106b8b78ef
 license: Apache-2.0
-measured_tokens: 8381
+measured_tokens: 8471
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -295,8 +295,8 @@ use its classification when it returns one, else the table below.
 Invoke it only when `<sm> relay-prescreen --message <scratch>/root-<threadId>.json --forwarders <scratch>/forwarders.json` prints `invoke_subskill: true`.
 The message file holds the root's `from` and `body`; the forwarders file holds `project.md → forwarders`, each enabled adapter with its `sender_pattern` / `preamble_match`
 (else its [defaults](../../../../tools/forwarder-relay/README.md#asf-default--asf-security-forwarder)), never copied into this skill.
-The pre-screen ORs the two `detect()` signals (sender against `From:`, preamble against the first 400 characters),
-so it skips only candidates that cannot be relays; the sub-skill's Step 1 stays authoritative.
+The pre-screen needs both `detect()` signals of one adapter (sender against `From:` AND preamble against the first 400 characters), since either alone is forgeable by any sender;
+the sub-skill's Step 1 stays authoritative. An adapter listed under `partial` matched only one signal: classify the candidate as a direct report and show *"relay-shaped, one signal only"* in its Step 5 entry.
 
 | Class | How to spot it | How to handle |
 |---|---|---|
@@ -344,7 +344,7 @@ The table below says where each value comes from in the inbound report.
 | **Affected versions** | Extract the version(s) / range (`<version>` / `>= X, < Y` / `<Y`) the reporter states and record them as **bare, comma-separated version numbers** — e.g. `2.9.0, 2.9.3` or `>= 2.6.0, < 2.10.2`. **Do not prefix the product name** (the tracker is already project-scoped, so `<product> 2.9.0` is redundant — record `2.9.0`). If the reporter gave only a single version they tested on (e.g. `3.1.5`), record that verbatim; the triager can widen the range later. Leave `_No response_` if no version is mentioned. |
 | **Security mailing list thread** | The private thread handle, the PonyMail archive URL once the user pastes it back, and ``Root Message-ID: `<id>` `` (backtick-wrapped) — [how](outcomes/mailing-thread.md). **Internal-only**: `generate-cve-json` never exports it. |
 | **Public advisory URL** | `_No response_`. Populated at Step 14 by `security-issue-sync` once the advisory is archived. |
-| **Reporter credited as** | The reporter's full display name from the `From:` header (e.g. `Alice Example` from `"Alice Example" <alice@example.com>`). **When the body carries an explicit attribution line** — e.g. `Credit: discovered and reported by <name> of <org>`, common in ASF-security-relay forwards where the `From:` is `<security-list>` and the sender header is only a routing artefact — that line is **authoritative**: record the credited party **as written, including any affiliation** (e.g. `Jordan Lee of Horizon Security Research`, not just `Jordan Lee`). Service senders (`noreply`, relays, `notifications@`) are routing artefacts, never credited: take the real reporter from the body. The value is a **placeholder** the Step 7 receipt asks the reporter to confirm. Bot and AI credits (`render-body` reports `reporter_credit_is_bot`), via-forwarder mode and whether a `finder` credit applies at all: [`outcomes/credit-field.md`](outcomes/credit-field.md). |
+| **Reporter credited as** | The reporter's full display name from the `From:` header (e.g. `Alice Example` from `"Alice Example" <alice@example.com>`). **When the body carries an explicit attribution line** — e.g. `Credit: discovered and reported by <name> of <org>`, common in ASF-security-relay forwards where the `From:` is `<security-list>` and the sender header is only a routing artefact — that line is **authoritative**: record the credited party **as written, including any affiliation** (e.g. `Jordan Lee of Horizon Security Research`, not just `Jordan Lee`). Service senders (`noreply`, relays, `notifications@`) are routing artefacts, never credited: take the real reporter from the body. The value is a **placeholder** the Step 7 receipt asks the reporter to confirm. **For a forwarder-relayed candidate** the extracted credit is a proposal only: Step 5 shows it, and the field stays `_No response_` unless the user confirms it with `NN:reporter <text>`. Bot and AI credits (`render-body` reports `reporter_credit_is_bot`), via-forwarder mode and whether a `finder` credit applies at all: [`outcomes/credit-field.md`](outcomes/credit-field.md). |
 | **PR with the fix** | `_No response_`. |
 | **Remediation developer** | `_No response_`. `security-issue-sync` fills it from the fix PR's author, under the same [bot/AI credit policy](../../../../tools/cve-tool-vulnogram/bot-credits-policy.md). |
 | **CWE** | `_No response_`. The security team scores CWE independently; a reporter-supplied CWE is informational only (per the *"Reporter-supplied CVSS scores are informational only"* rule in [`AGENTS.md`](../../../../AGENTS.md)). Do **not** copy a CWE from the reporter's body into this field. |
@@ -387,7 +387,7 @@ Full procedure: [`apply.md`](apply.md).
 Write what Step 7 recorded to `<scratch>/recap.json` and present the `text` of `<sm> render-recap --state <scratch>/recap.json`:
 `platform` (`tracker.platform`), `created` (`number`, or the backend's `id` and `url`; `candidate`), `drafts` (`draft_id`, `candidate` — one entry per `draft_id`: a receipt covering several trackers from one thread appears once, under the first candidate it covers),
 `skipped` (`candidate`, `kind`: `user`, `canned` with `canned_name`, `public-fix`, `tracked` with the `existing` tracker as supplied, `answered`),
-`prefiltered` (the Step 1 `dropped` list), `bookkeeping_dropped` (Step 3's count) and `notes` (suppressed receipts, a missing ledger issue).
+`prefiltered` (the Step 1 `dropped` list), `bookkeeping_dropped` (Step 3's count) and `notes` (suppressed receipts, a missing ledger issue, a relay credit left unconfirmed).
 The recap links every issue, lists **every** candidate not imported with its reason
 (*"user skipped"*, *"rejected with canned response: <name>"*, *"already tracked as example-s/example-s#198"* — the full `owner/repo#NNN`, never a bare `#198`),
 gives each [pre-filtered](candidate-listing.md#step-1-pre-filter--classes-decidable-from-subject-and-sender) thread its own line within the *"N CVE-tool-bookkeeping emails dropped"* total,

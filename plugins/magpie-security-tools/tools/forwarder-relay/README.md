@@ -158,7 +158,7 @@ Given a fetched mail-source message (`From`, `Subject`,
 own name if the message is a relay message handled by this
 adapter, or `null` if not.
 
-Detection is the OR of two signals:
+Detection is the AND of two signals:
 
 * **Sender pattern.** A regex or set-membership check against
   the `From:` address. ASF Security: `security@apache.org` OR
@@ -171,8 +171,16 @@ Detection is the OR of two signals:
   vulnerability report has been received by the Apache Security
   Team …"*.
 
-Both signals are evaluated; either one matching is sufficient,
-but the adapter MAY require both for higher-confidence cases.
+Both signals are evaluated and **both must match**.
+Either one alone is forgeable by any sender:
+a `From:` address that fits a broad pattern such as `.+@apache\.org` says nothing about the body,
+and anyone can paste the broker's preamble into a direct report.
+Relay mode changes who the tracker credits and where reporter-facing drafts go,
+so a single signal is not enough to switch it on.
+A message that matches only one signal of an adapter is **not** a relay:
+`detect()` returns `null` for it, and the skill surfaces the single-signal match to the human
+(*"relay-shaped: only the `<sender|preamble>` signal of adapter `<name>` matched; handled as a direct report"*)
+so the triager can look at it, but nothing routes on it.
 The skill calls each enabled adapter's `detect()` in the order
 listed under `forwarders.enabled`; first non-null wins.
 
@@ -187,9 +195,15 @@ Given the relay-message body, extract the original reporter's
 credit. Returns:
 
 * `name` — the human-readable reporter name as it appears in
-  the body. Used verbatim in the tracker's *Reporter credited
-  as* field unless the reporter later requests a different
-  rendering through a credit-preference exchange.
+  the body. This is a **proposal**, never a value written on its own:
+  the body is external content, and the *Reporter credited as* field
+  flows into the public CVE record's `credits[]`.
+  The consuming skill shows the extracted name (and `raw_string`)
+  to the human and writes it into the tracker's *Reporter credited
+  as* field only after the human explicitly confirms that value;
+  without that confirmation the field stays `_No response_`.
+  A later credit-preference exchange with the reporter may change
+  the rendering.
 * `kind` — one of `human` (named individual), `tool`
   (automated scanner like `bugbunny.ai`, `protectai/modelscan`),
   `service` (a broker / VRP / SOC operating on someone else's
@@ -205,6 +219,9 @@ Returns `null` when the body does not contain a credit line in
 the adapter's expected shape. The skill then surfaces a "credit
 unknown — please confirm before drafting the receipt" prompt
 rather than guessing.
+
+In both cases the human decides what the tracker records:
+a default *"go"* on the parent's proposal does not confirm an extracted credit.
 
 **Lifecycle:** called by `security-issue-import` Step 4 (field
 population for the new tracker body), and by
@@ -308,7 +325,7 @@ Step 4 instead of carrying an `if asf_relay:` check inline.
 | Skill | Step | What the skill calls |
 |---|---|---|
 | [`security-issue-import`](https://github.com/apache/magpie/blob/main/plugins/magpie-security/skills/issue-import/SKILL.md) | Step 3 — classification | `detect()` on every enabled adapter; the first non-null return classifies the candidate as a relay import |
-| `security-issue-import` | Step 4 — field population | `extract_credit()` for the *Reporter credited as* field |
+| `security-issue-import` | Step 4 — field population | `extract_credit()` for the proposed *Reporter credited as* value, written only after the human confirms it |
 | `security-issue-import` | Step 7 — receipt-of-confirmation draft | `reporter_addressing_block()` + `via_forwarder_question_mode` to fold the credit-preference question |
 | [`security-issue-sync`](https://github.com/apache/magpie/blob/main/plugins/magpie-security/skills/issue-sync/SKILL.md) | Step 2b — draft routing | `contact_handle` + `reporter_addressing_block()` for any reporter-facing draft (CVE-allocated, fix-merged, advisory-shipped) on a relay tracker |
 | [`security-issue-invalidate`](https://github.com/apache/magpie/blob/main/plugins/magpie-security/skills/issue-invalidate/SKILL.md) | Step 5d — ASF-relay branch | `reporter_addressing_block()` for the polite-but-firm invalidation notice routed through the forwarder |
@@ -326,6 +343,8 @@ forwarders:
   enabled:
     - asf-security
   asf-security:
+    # Detection needs BOTH sender_pattern and preamble_match to match;
+    # neither alone switches a message into relay mode.
     sender_pattern: '(security@apache\.org|.+@apache\.org)'
     preamble_match: 'Dear PMC,\s+The security vulnerability report has been received by the Apache Security Team'
     credit_extraction_rule:
@@ -400,6 +419,8 @@ The framework ships sensible defaults for every key under
 `contact_handle` (their liaison) and possibly the
 `sender_pattern` (if they accept relays from a wider set of
 addresses than just `*@apache.org`).
+Widening `sender_pattern` does not loosen detection on its own:
+the preamble must still match as well.
 
 ## Cross-references
 

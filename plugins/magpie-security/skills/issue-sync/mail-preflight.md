@@ -16,6 +16,13 @@
      documented in 1c / 1d / 1e / 2b / 2c; Gmail becomes the
      fallback. This is the normal configuration for <governance-body>-authenticated
      triagers.
+     Then call `mcp__ponymail__list_lists()` once and record
+     `ponymail_security_list_visible: true` only when `<security-list>`
+     is in it. A private-list search that comes back empty counts as
+     *"no messages"* only with both flags true; otherwise it is
+     **unknown — stop that check**, say so in the observed state, and
+     answer the question from Gmail instead, never as a negative
+     ([why](../../../../tools/ponymail/operations.md#an-empty-private-list-result-is-not-no-messages)).
    - **No session / expired session** —
      - *`mandatory: yes` (ASF default):* **stop**. Surface
        *"mandatory mail-source backend `ponymail` is registered but

@@ -235,10 +235,17 @@ skill surfaces the gap without distinguishing reason.
 **When it fires.** Step 1h / Step 2b of `security-issue-sync` — the
 sync skill polls for the *"advisory archived on `<users-list>`"*
 signal that flips the tracker from `fix released` to `announced`.
-Today the ASF adapter resolves this by curling
-`https://lists.apache.org/list.html?<users-list>:YYYY:<CVE-ID>` and
-checking for a 200 response with a thread hit; other adapters
-implement the equivalent against their own search APIs.
+Today the ASF adapter searches
+`https://lists.apache.org/list.html?<users-list>:YYYY:<CVE-ID>` for
+thread hits; other adapters implement the equivalent against their
+own search APIs. A text search matches **any** public post that
+mentions the advisory ID (a user question, a reply, a forward), so a
+hit is only a candidate: the adapter narrows it to a thread whose
+list is the configured public advisory list and whose root subject
+is the advisory's own (`<CVE-ID>: <description>`, the subject the
+CVE tool sends; never a `Re:` / `Fwd:`), and the skill re-checks
+that with `security-management issue-sync advisory-archive` and
+shows the URL to the human before recording it.
 
 **Inputs.**
 
@@ -263,8 +270,8 @@ matches.
 - The adapter is `none` (no archive backend declared).
 
 The skill treats `null` as *"not yet archived"* and re-checks on the
-next sync run. A non-null return is a load-bearing signal — it
-triggers the multi-step `fix released to announced` close-out flow
+next sync run. A non-null return is a load-bearing signal — once the
+human confirms the URL, it triggers the multi-step `fix released to announced` close-out flow
 in `security-issue-sync` Step 4 (label flips, CVE JSON
 regeneration, Vulnogram `REVIEW to PUBLIC` push, milestone close,
 board archival, RM hand-off comment).

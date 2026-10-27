@@ -372,10 +372,18 @@ ASF = {
     ("message", "forwarders", "invoke"),
     [
         ({"from": "Researcher <r@example.com>", "body": "I found a bug"}, ASF, False),
-        ({"from": "ASF Security <security@apache.org>", "body": "hello"}, ASF, True),
+        ({"from": "ASF Security <security@apache.org>", "body": "hello"}, ASF, False),
         (
             {
                 "from": "r@example.com",
+                "body": "Dear PMC,\n\nThe security vulnerability report has been received by the Apache Security Team",
+            },
+            ASF,
+            False,
+        ),
+        (
+            {
+                "from": "ASF Security <security@apache.org>",
                 "body": "Dear PMC,\n\nThe security vulnerability report has been received by the Apache Security Team",
             },
             ASF,
@@ -400,6 +408,18 @@ def test_relay_prescreen(capsys, tmp_path, message, forwarders, invoke) -> None:
         write(tmp_path, "f.json", forwarders),
     )
     assert out["invoke_subskill"] is invoke
+
+
+def test_relay_prescreen_reports_a_single_signal_match(capsys, tmp_path) -> None:
+    _, out = run(
+        capsys,
+        "relay-prescreen",
+        "--message",
+        write(tmp_path, "m.json", {"from": "ASF Security <security@apache.org>", "body": "hello"}),
+        "--forwarders",
+        write(tmp_path, "f.json", ASF),
+    )
+    assert (out["invoke_subskill"], out["partial"]) == (False, ["asf-security"])
 
 
 def test_keyword_reads_a_file(capsys, tmp_path) -> None:

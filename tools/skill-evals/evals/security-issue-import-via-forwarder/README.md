@@ -53,7 +53,9 @@ adapter. Cases that need a second or third-party adapter use a generic
 ## Step 1 — Detect adapter match (`step-1-detect-adapter`)
 
 Iterates `forwarders.enabled` and runs each adapter's `detect()` (sender
-pattern + preamble regex). The first non-null match wins.
+pattern AND preamble regex; one signal alone is not a relay, covered by
+`test_one_signal_alone_is_not_a_relay` in the pytest suite). The first
+non-null match wins.
 
 | Case | Scenario | Expected outcome |
 |------|----------|-----------------|

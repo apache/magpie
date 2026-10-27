@@ -458,8 +458,13 @@ publication, with a human gate and an audit-log entry at every step.
   counted at Step 5 and listed at Step 8, and `keep <threadId>` sends one
   back through Steps 2 to 5.
   The forwarder sub-skill is invoked only when `forwarders.enabled` is set
-  and a message matches an enabled adapter's sender or preamble pattern,
-  a strict subset of the sub-skill's own *not a relay* outcome.
+  and a message matches both an enabled adapter's sender and preamble
+  patterns, a strict subset of the sub-skill's own *not a relay* outcome;
+  a message matching only one is not a relay and is shown to the user,
+  and relay-derived credit stays a proposal until a human confirms it.
+  `security-issue-sync` accepts a *Public advisory URL* only after
+  `issue-sync advisory-archive` validates it (thread on the advisory
+  list, root subject `<CVE-ID>: …`), and always with user confirmation.
   `gh` calls that were wrapped in `$(…)` or piped are now plain commands,
   which the secure setup needs; #1453 made the last one plain too
   (`security-issue-invalidate` Step 1 no longer redirects `gh issue view`

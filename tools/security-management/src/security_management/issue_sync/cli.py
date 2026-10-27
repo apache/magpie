@@ -52,6 +52,7 @@ COMMANDS = {
     "staleness": "Step 1c: whether the reporter thread is stale (JSON: now, messages, timeout_days)",
     "closed-announced": "Step 1g: the cve.org state, the security-pages markers and the advisory records",
     "release-vote": "Step 1h: an open [VOTE] thread matching the fix-PR milestone",
+    "advisory-archive": "Step 1d: whether an archive URL is the advisory itself on the public advisory list",
     "render-recap": "Step 6: the recap",
 }
 
@@ -99,6 +100,7 @@ def dispatch(args: argparse.Namespace) -> int:
         "staleness": state.staleness,
         "closed-announced": state.closed_announced,
         "release-vote": state.release_vote,
+        "advisory-archive": state.advisory_archive,
         "render-recap": render.recap,
     }
     result = handlers[args.command](data)
