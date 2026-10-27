@@ -155,6 +155,8 @@ def plan(data: Mapping[str, Any]) -> dict[str, Any]:
     if 7 in chosen:
         if not retract or not cve_id:
             return {"ok": False, "refused": "item 7 retracts the dropped side's CVE and needs both CVE IDs"}
+        if retract == cve_id:
+            return {"ok": False, "refused": f"item 7 would retract {cve_id}, the kept tracker's CVE"}
         steps.append(
             {
                 "item": 7,

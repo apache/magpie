@@ -177,7 +177,8 @@ publication, with a human gate and an audit-log entry at every step.
   are open with the same single scope label and neither `duplicate`,
   applies the CVE rules (a CVE only on the dropped side means swap, a
   `public` record refuses, the kept CVE must be at least as far along and
-  the dropped one is retracted), reads both bodies' fields (the CVE JSON
+  the dropped one is retracted, unless both trackers carry the same CVE),
+  reads both bodies' fields (the CVE JSON
   attachment cut off), and rewrites the kept body field by field through
   github-body-field's `replace_field`, so the attachment and extra fields
   stay byte-exact: the dropped report verbatim in a collapsed *Second

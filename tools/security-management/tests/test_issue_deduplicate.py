@@ -174,6 +174,13 @@ C2 = "https://cveprocess.apache.org/cve5/CVE-2025-2222"
         ),
         (
             side(42, ["airflow"], cve_link=C1, cve_state="allocated"),
+            side(67, ["airflow"], cve_link=C1, cve_state="allocated"),
+            "proceed",
+            None,
+            None,
+        ),
+        (
+            side(42, ["airflow"], cve_link=C1, cve_state="allocated"),
             side(67, ["airflow"], cve_link=C2, cve_state="publish-ready"),
             "blocked",
             "drop_further_along",
@@ -600,6 +607,19 @@ def test_case_2_with_blockers(capsys, tmp_path):
     )  # fmt: skip
     assert out["blockers"] == blockers
     assert "**Still to resolve:**" in out["text"]
+
+
+def test_apply_plan_refuses_to_retract_the_kept_cve(capsys, tmp_path):
+    data = {
+        "tracker": TRACKER,
+        "keep": {"number": 42},
+        "drop": {"number": 67},
+        "scratch": "/s",
+        "items": [7],
+        "cve_id": "CVE-2025-1111",
+        "retract_cve": "CVE-2025-1111",
+    }
+    assert run(capsys, tmp_path, "apply-plan", data)[0] == 2
 
 
 def test_apply_plan_refuses_a_malformed_cve_id(capsys, tmp_path):
