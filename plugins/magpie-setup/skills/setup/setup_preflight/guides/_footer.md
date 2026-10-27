@@ -13,5 +13,5 @@ Show this again any time: `/magpie-setup:welcome-guide{{arg}}`
 🌈 Prefer it in colour? Run this yourself — the `!` prefix runs it as a shell command:
 
 ```text
-! PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m=sys.argv[1:];p=os.path.join(h,d,hashlib.sha256(os.path.realpath(os.curdir).encode()).hexdigest()[:16]);print(p if os.path.isdir(os.path.join(p,m)) else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight)" python3 -P -m setup_preflight.welcome show --family {{guide}} --color=always
+! PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m,i=sys.argv[1:];r=os.path.realpath(os.curdir);s=os.stat(r);p=os.path.join(h,d,hashlib.sha256(r.encode()).hexdigest()[:16]);f=os.path.join(p,i);print(p if os.path.isdir(os.path.join(p,m)) and os.path.isfile(f) and open(f).read().split()==[str(s.st_dev),str(s.st_ino)] else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight root-id)" python3 -P -m setup_preflight.welcome show --family {{guide}} --color=always
 ```

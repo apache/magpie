@@ -207,6 +207,24 @@ def project_checker_home(root: Path) -> Path:
     return checker_home() / "projects" / project_key(root)
 
 
+ROOT_ID_NAME = "root-id"
+
+# Where an installed framework lives, relative to the user's home: the
+# harnesses' plugin installs, and the framework copy the session hook
+# materialises.  Nothing a project carries resolves under these.
+FRAMEWORK_ROOTS = (
+    Path(".claude") / "plugins" / "cache" / "apache-magpie",
+    Path(".agents") / "plugins" / "magpie",
+    Path(".gemini") / "config" / "plugins",
+    Path(".cache") / "apache-magpie" / "framework",
+)
+
+
+def framework_roots() -> list[Path]:
+    """The known framework locations under this user's home, unresolved."""
+    return [Path.home() / relative for relative in FRAMEWORK_ROOTS]
+
+
 def _inside(path: str, root: str) -> bool:
     return path == root or path.startswith(root.rstrip(os.sep) + os.sep)
 
@@ -214,22 +232,60 @@ def _inside(path: str, root: str) -> bool:
 def checker_install_dir(root: Path, source: Path) -> Path:
     """Where `config` or `upgrade` may install a checker copied from `source`.
 
-    The shared `checker_home` serves every project, so it only ever takes
-    code from outside the project being configured: the installed plugin,
-    or a framework copy under the user's home.  A `source` that resolves
-    inside `root` (a pinned snapshot, which a tarball can carry too) goes
-    to `project_checker_home(root)`, so a crafted tree can reach no other
-    project.  Symlinks are resolved first, on both sides.
+    The shared `checker_home` serves every project, so it takes a copy only
+    from a known framework location (`framework_roots`): a harness's plugin
+    install, or the framework copy under `~/.cache/apache-magpie/framework/`.
+    Anything else — a pinned snapshot inside the project, which a tarball can
+    carry too, or any other directory — goes to `project_checker_home(root)`
+    and serves that project alone, so a crafted tree reaches no other
+    project.  Both sides are resolved first, so a link under a known root
+    that points elsewhere does not count; and a source that resolves inside
+    the project never qualifies, even through a known root that is itself a
+    link into it.
     """
-    if _inside(os.path.realpath(source), os.path.realpath(root)):
+    resolved = os.path.realpath(source)
+    if _inside(resolved, os.path.realpath(root)):
         return project_checker_home(root)
-    return checker_home()
+    if any(_inside(resolved, os.path.realpath(known)) for known in framework_roots()):
+        return checker_home()
+    return project_checker_home(root)
+
+
+def _root_identity(root: Path) -> str:
+    st = os.stat(os.path.realpath(root))
+    return f"{st.st_dev} {st.st_ino}"
+
+
+def record_root_identity(root: Path) -> Path:
+    """Record `root`'s identity beside its per-project install; returns the file.
+
+    The key is the root's path, which outlives the project: a different tree
+    created later at the same path would otherwise import the old install.
+    The block and `import_dir` use the per-project copy only while the
+    identity (`st_dev`, `st_ino` of the resolved root) still matches.
+    """
+    own = project_checker_home(root)
+    own.mkdir(parents=True, exist_ok=True, mode=0o700)
+    path = own / ROOT_ID_NAME
+    path.write_text(_root_identity(root) + "\n", encoding="utf-8")
+    return path
 
 
 def import_dir(root: Path) -> Path:
-    """The directory the block puts on `PYTHONPATH` in `root`: the project's own, else the shared one."""
+    """The directory the block puts on `PYTHONPATH` in `root`.
+
+    The project's own when it holds a checker installed for this very tree
+    (its recorded identity matches), else the shared one.
+    """
     own = project_checker_home(root)
-    return own if (own / "setup_preflight").is_dir() else checker_home()
+    recorded = own / ROOT_ID_NAME
+    if (
+        (own / "setup_preflight").is_dir()
+        and recorded.is_file()
+        and recorded.read_text(encoding="utf-8").split() == _root_identity(root).split()
+    ):
+        return own
+    return checker_home()
 
 
 def personal_dir(root: Path) -> Path:

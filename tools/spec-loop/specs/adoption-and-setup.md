@@ -81,10 +81,13 @@ acceptance:
     into `.apache-magpie-local/`. `worktree-init` copies or links no
     personal config: the fallback covers it.
   - Every skill's pre-flight runs the checker with
-    `PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m=sys.argv[1:];p=os.path.join(h,d,hashlib.sha256(os.path.realpath(os.curdir).encode()).hexdigest()[:16]);print(p if os.path.isdir(os.path.join(p,m)) else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight)"`
+    `PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m,i=sys.argv[1:];r=os.path.realpath(os.curdir);s=os.stat(r);p=os.path.join(h,d,hashlib.sha256(r.encode()).hexdigest()[:16]);f=os.path.join(p,i);print(p if os.path.isdir(os.path.join(p,m)) and os.path.isfile(f) and open(f).read().split()==[str(s.st_dev),str(s.st_ino)] else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight root-id)"`
     and `python3 -P`, so the copy is found only under the per-user
     `~/.cache/apache-magpie/preflight/`, with or without version control:
-    the project's own `projects/<key>/` copy when it has one
+    the project's own `projects/<key>/` copy when it has one whose
+    `root-id` (the resolved root's `st_dev` and `st_ino`, written at
+    install) still matches, so a tree recreated at the same path does not
+    inherit it
     (`layers.project_checker_home`, `<key>` the first 16 hex digits of the
     SHA-256 of the project root's resolved path), else the shared
     `checker_dir` (`layers.checker_home`; `layers.import_dir` names the
@@ -94,10 +97,12 @@ acceptance:
     working tree off `sys.path`, and no directory inside the project is on
     `PYTHONPATH` — not `.apache-magpie-local/` (adopted or legacy), and
     not the project's `.git/` or `.svn/`, which a Subversion checkout or a
-    tarball can carry as plain files. A copy installed from inside a
-    project (a pinned snapshot) goes to that project's own directory and
-    never to the shared one (`layers.checker_install_dir`, symlinks
-    resolved), so a crafted tree reaches no other project.
+    tarball can carry as plain files. The shared directory takes a copy
+    only from a known framework location; a copy from inside a project (a
+    pinned snapshot) or anywhere else goes to that project's own
+    directory (`layers.checker_install_dir`, symlinks resolved, failing
+    closed), so a crafted tree reaches no other project, and `uninstall`
+    removes it with the snapshot.
     `tools/setup-preflight/tests/test_layers.py`
     runs the block's command in a git repository, a Subversion working
     copy and a directory with no version control, and checks that a
@@ -744,8 +749,9 @@ committed version with drift detection.
     are enforced by its tests.
 26. The checker is **copied into its `checker_dir`**
     (under the per-user `~/.cache/apache-magpie/preflight/`: the shared
-    copy from a source outside the project, the project's own
-    `projects/<key>/` copy from a pinned snapshot inside it — never inside
+    copy only from a known framework location (`layers.framework_roots`,
+    resolved, never inside the project), the project's own
+    `projects/<key>/` copy, with its `root-id`, from anything else — never inside
     a project) by `/magpie-setup:setup config` and refreshed
     there by `/magpie-setup:setup upgrade`, because Bash can neither read nor
     execute the plugin cache under the framework's own recommended

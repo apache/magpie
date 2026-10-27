@@ -155,6 +155,7 @@ every artefact).
 | Doc section: `CONTRIBUTING.md` | `<repo-root>/CONTRIBUTING.md` | contains the adoption section (fallback layout) |
 | Overrides directory | `<repo-root>/.apache-magpie-overrides/` | exists; count framework-scaffold files vs adopter-authored |
 | `setup` skill itself | canonical `.agents/skills/magpie-setup/` + the `.claude`/`.github` relay symlinks to it | exists (this is the only committed framework skill) |
+| Per-project pre-flight checker | `~/.cache/apache-magpie/preflight/projects/<key>/` (user scope; `python3 -P -m setup_preflight.layers` prints it as `project_checker_dir`) | exists. A snapshot install's checker lives here and serves this project only; remove the directory with the snapshot. Never touch the shared `~/.cache/apache-magpie/preflight/setup_preflight/`, which serves every other project. |
 
 For the overrides directory: distinguish the
 **framework-scaffold** files (`README.md`, `user.md` from
@@ -328,7 +329,10 @@ pointing at a deleted snapshot.
    Never remove unrelated `.grok/hooks/*`, modify `.grok/config.toml`, or change Grok's project-hook trust state.
    A repository uninstall does not uninstall or disable a user's marketplace `magpie-agent-guard` plugin; that plugin remains under the client's own plugin-manager lifecycle.
 
-4. **Snapshot directory.** `rm -rf <snapshot-dir>/`.
+4. **Snapshot directory.** `rm -rf <snapshot-dir>/`, then the
+   per-project pre-flight checker installed from it:
+   `rm -rf <project_checker_dir>/` with the path `setup_preflight.layers`
+   printed. Leave the shared `~/.cache/apache-magpie/preflight/` alone.
 5. **Local lock.** `rm <local-lock>`.
 6. **`.gitignore` entries.** Read `<repo-root>/.gitignore`,
    remove exactly the lines from

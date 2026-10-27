@@ -431,8 +431,9 @@ For marketplace installs, use the `setup_preflight/` directory next
 to this skill in the installed plugin. The destination follows the
 source exactly as in
 [`config` Step 2a](config.md#step-2a--install-the-pre-flight-checker):
-a source outside the project refreshes the shared copy, and one inside
-it (a pinned snapshot) refreshes only this project's own copy — never
+a source in a known framework location (the installed plugin) refreshes
+the shared copy, and anything else (a pinned snapshot) refreshes only this
+project's own copy, rewriting its `root-id` — never
 the shared one.
 The marketplace cache under `~/.claude/plugins/cache/` is read-denied
 to a sandboxed shell. For a marketplace install, ask the user to run
@@ -495,7 +496,7 @@ introduces and this step closes. Verify the refreshed copy answers before
 reporting the upgrade complete:
 
 ```bash
-PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m=sys.argv[1:];p=os.path.join(h,d,hashlib.sha256(os.path.realpath(os.curdir).encode()).hexdigest()[:16]);print(p if os.path.isdir(os.path.join(p,m)) else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight)" \
+PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m,i=sys.argv[1:];r=os.path.realpath(os.curdir);s=os.stat(r);p=os.path.join(h,d,hashlib.sha256(r.encode()).hexdigest()[:16]);f=os.path.join(p,i);print(p if os.path.isdir(os.path.join(p,m)) and os.path.isfile(f) and open(f).read().split()==[str(s.st_dev),str(s.st_ino)] else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight root-id)" \
   python3 -P -m setup_preflight --skill magpie-setup --no-welcome
 ```
 

@@ -82,7 +82,7 @@ When entered this way:
    it — the same `PYTHONPATH` as every skill's pre-flight:
 
    ```bash
-   PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m=sys.argv[1:];p=os.path.join(h,d,hashlib.sha256(os.path.realpath(os.curdir).encode()).hexdigest()[:16]);print(p if os.path.isdir(os.path.join(p,m)) else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight)" \
+   PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m,i=sys.argv[1:];r=os.path.realpath(os.curdir);s=os.stat(r);p=os.path.join(h,d,hashlib.sha256(r.encode()).hexdigest()[:16]);f=os.path.join(p,i);print(p if os.path.isdir(os.path.join(p,m)) and os.path.isfile(f) and open(f).read().split()==[str(s.st_dev),str(s.st_ino)] else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight root-id)" \
      python3 -P -m setup_preflight.layers
    ```
 
@@ -157,31 +157,36 @@ install that is inside the installed `magpie-setup` plugin, and on a
 snapshot install `<snapshot-dir>/tools/setup-preflight/src/setup_preflight/`
 reaches the same files.
 
-**Where it goes depends on where it comes from.** The shared
-`~/.cache/apache-magpie/preflight/` serves every project on this machine,
-so it only ever takes a copy from **outside** the project being
-configured — the installed plugin, or a framework copy under your home.
-A copy from **inside** the project — a pinned snapshot at
-`<project>/.apache-magpie/`, which a tarball can carry as easily as a real
-install — goes to this project's own
-`~/.cache/apache-magpie/preflight/projects/<key>/`, where `<key>` is the
-first 16 hex digits of the SHA-256 of the project root's resolved path,
-and serves this project only. Never write the shared directory from a
-source under the project root; resolve symlinks first, on both sides.
+**Where it goes depends on where it comes from, and fails closed.** The
+shared `~/.cache/apache-magpie/preflight/` serves every project on this
+machine, so it takes a copy **only** from a known framework location —
+`~/.claude/plugins/cache/apache-magpie/`, `~/.agents/plugins/magpie/`,
+`~/.gemini/config/plugins/` or `~/.cache/apache-magpie/framework/`,
+resolved — and never from a source that resolves inside the project.
+**Anything else** — a pinned snapshot at `<project>/.apache-magpie/`, which
+a tarball can carry as easily as a real install, or any other directory —
+goes to this project's own `~/.cache/apache-magpie/preflight/projects/<key>/`,
+where `<key>` is the first 16 hex digits of the SHA-256 of the project
+root's resolved path, and serves this project only. Beside it goes a
+`root-id` file holding the resolved root's `st_dev` and `st_ino`: the path
+outlives the project, so pre-flight uses this copy only while the tree at
+that path is still the one it was installed for.
 Run this from the project root, with `source_dir` set to the package you
-are copying, and install into what it prints
+are copying, and install into what it prints. For a per-project target it
+also creates the directory and writes `root-id`
 (`python3 -P -m setup_preflight.layers --install-source <source_dir>`
-prints the same as `install_dir`):
+prints the same directory as `install_dir`, without writing anything):
 
 ```bash
-python3 -I -c 'import hashlib,os,sys;s,h,d=sys.argv[1:];r=os.path.realpath(os.curdir);s=os.path.realpath(s);print(os.path.join(h,d,hashlib.sha256(r.encode()).hexdigest()[:16]) if s==r or s.startswith(r.rstrip(os.sep)+os.sep) else h)' "$source_dir" "$HOME/.cache/apache-magpie/preflight" projects
+python3 -I -c 'import hashlib,os,sys;s,h,d,i,*k=sys.argv[1:];r=os.path.realpath(os.curdir);s=os.path.realpath(s);t=not(s==r or s.startswith(r.rstrip(os.sep)+os.sep)) and any(s==x or s.startswith(x.rstrip(os.sep)+os.sep) for x in map(os.path.realpath,k));p=os.path.join(h,d,hashlib.sha256(r.encode()).hexdigest()[:16]);st=os.stat(r);t or os.makedirs(p,0o700,exist_ok=True);t or open(os.path.join(p,i),"w").write("%d %d\n"%(st.st_dev,st.st_ino));print(h if t else p)' "$source_dir" "$HOME/.cache/apache-magpie/preflight" projects root-id "$HOME/.claude/plugins/cache/apache-magpie" "$HOME/.agents/plugins/magpie" "$HOME/.gemini/config/plugins" "$HOME/.cache/apache-magpie/framework"
 ```
 
 This is what every skill's pre-flight actually runs — the path finds this
-project's own copy when there is one, else the shared copy:
+project's own copy when there is one and its `root-id` matches, else the
+shared copy:
 
 ```bash
-PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m=sys.argv[1:];p=os.path.join(h,d,hashlib.sha256(os.path.realpath(os.curdir).encode()).hexdigest()[:16]);print(p if os.path.isdir(os.path.join(p,m)) else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight)" \
+PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m,i=sys.argv[1:];r=os.path.realpath(os.curdir);s=os.stat(r);p=os.path.join(h,d,hashlib.sha256(r.encode()).hexdigest()[:16]);f=os.path.join(p,i);print(p if os.path.isdir(os.path.join(p,m)) and os.path.isfile(f) and open(f).read().split()==[str(s.st_dev),str(s.st_ino)] else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight root-id)" \
   python3 -P -m setup_preflight --skill … --hash …
 ```
 
@@ -221,7 +226,7 @@ Verify the copy answers before moving on; a checker that does not run
 makes every skill fall back to *step-0* of its `preflight-detail.md`:
 
 ```bash
-PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m=sys.argv[1:];p=os.path.join(h,d,hashlib.sha256(os.path.realpath(os.curdir).encode()).hexdigest()[:16]);print(p if os.path.isdir(os.path.join(p,m)) else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight)" \
+PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m,i=sys.argv[1:];r=os.path.realpath(os.curdir);s=os.stat(r);p=os.path.join(h,d,hashlib.sha256(r.encode()).hexdigest()[:16]);f=os.path.join(p,i);print(p if os.path.isdir(os.path.join(p,m)) and os.path.isfile(f) and open(f).read().split()==[str(s.st_dev),str(s.st_ino)] else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight root-id)" \
   python3 -P -m setup_preflight --skill magpie-setup --no-welcome
 ```
 

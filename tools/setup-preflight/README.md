@@ -68,27 +68,34 @@ control, and `/magpie-setup:setup upgrade` refreshes that copy against the
 framework version now installed. Where exactly depends on where the copy
 comes from (`layers.checker_install_dir`):
 
-- **From outside the project** — the installed plugin, or a framework copy
+- **From a known framework location** (`layers.framework_roots`, resolved,
+  and never inside the project) — a harness's plugin install, or the framework copy
   under the user's home — it goes in the shared `checker_dir` itself and
   serves every project without a copy of its own. The last `config` or
   `upgrade` from a plugin decides its version; it reads each project's own
   lock and configuration, so it serves projects pinned to different versions.
-- **From inside the project** — a pinned snapshot at `<project>/.apache-magpie/`,
-  which a tarball can carry as easily as a real install — it goes in
-  `projects/<key>/` (`layers.project_checker_home`), where `<key>` is the
-  first 16 hex digits of the SHA-256 of the project root's resolved path,
-  and serves that project alone. Code from inside one tree never reaches the
-  shared directory, so a crafted tree can run nothing in any other project.
+- **From anywhere else** — a pinned snapshot at `<project>/.apache-magpie/`,
+  which a tarball can carry as easily as a real install, or any other
+  directory, since the rule fails closed — it goes in `projects/<key>/`
+  (`layers.project_checker_home`), where `<key>` is the first 16 hex digits
+  of the SHA-256 of the project root's resolved path, and serves that
+  project alone. Code from inside one tree never reaches the shared
+  directory, so a crafted tree can run nothing in any other project.
   Symlinks are resolved on both sides before the comparison.
+  Beside it, `root-id` records the resolved root's `st_dev` and `st_ino`
+  (`layers.record_root_identity`): the path outlives the project, so the
+  block and `layers.import_dir` use the copy only while the tree at that
+  path is the one it was installed for, and otherwise fall back to the
+  shared copy.
 
-`uninstall` deliberately preserves personal configuration, so it does not
-delete the checker either.
+`uninstall` removes a project's own `projects/<key>/` copy with its
+snapshot; it never touches the shared copy, which serves other projects.
 
 **Pre-flight imports the checker only from outside the opened project.**
 Every skill runs it as
 
 ```bash
-PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m=sys.argv[1:];p=os.path.join(h,d,hashlib.sha256(os.path.realpath(os.curdir).encode()).hexdigest()[:16]);print(p if os.path.isdir(os.path.join(p,m)) else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight)" \
+PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m,i=sys.argv[1:];r=os.path.realpath(os.curdir);s=os.stat(r);p=os.path.join(h,d,hashlib.sha256(r.encode()).hexdigest()[:16]);f=os.path.join(p,i);print(p if os.path.isdir(os.path.join(p,m)) and os.path.isfile(f) and open(f).read().split()==[str(s.st_dev),str(s.st_ino)] else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight root-id)" \
   python3 -P -m setup_preflight …
 ```
 

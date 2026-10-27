@@ -486,6 +486,10 @@ def test_the_block_and_layers_agree_on_the_import_dir(
     own = layers.project_checker_home(root)
     assert own.parent == layers.checker_home() / "projects"
     (own / "setup_preflight").mkdir(parents=True)
+    # Not this project's until its identity is recorded beside the install.
+    assert _block_dir(root, home) == str(layers.checker_home())
+    assert layers.import_dir(root) == layers.checker_home()
+    layers.record_root_identity(root)
     assert _block_dir(root, home) == str(own)
     assert layers.import_dir(root) == own
     # Through a symlinked path the key is the same, because both resolve it.
@@ -495,21 +499,65 @@ def test_the_block_and_layers_agree_on_the_import_dir(
     assert layers.project_checker_home(link) == own
 
 
-def test_a_source_inside_the_project_never_installs_to_the_shared_dir(
+def test_only_a_known_framework_location_installs_to_the_shared_dir(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    """Fail closed: the shared dir takes a source only from a known framework root, resolved."""
+    home = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(home))
     root = _project(tmp_path, "git")
+    own = layers.project_checker_home(root)
     snapshot = root / ".apache-magpie" / "tools" / "setup-preflight" / "src" / "setup_preflight"
     snapshot.mkdir(parents=True)
-    assert layers.checker_install_dir(root, snapshot) == layers.project_checker_home(root)
-    # A link from outside that resolves into the project is still the project's.
-    outside_link = tmp_path / "looks-outside"
-    outside_link.symlink_to(snapshot)
-    assert layers.checker_install_dir(root, outside_link) == layers.project_checker_home(root)
-    plugin = tmp_path / "plugin" / "setup_preflight"
-    plugin.mkdir(parents=True)
-    assert layers.checker_install_dir(root, plugin) == layers.checker_home()
+    assert layers.checker_install_dir(root, snapshot) == own
+    # Somewhere else on disk is not a framework location either.
+    elsewhere = tmp_path / "elsewhere" / "setup_preflight"
+    elsewhere.mkdir(parents=True)
+    assert layers.checker_install_dir(root, elsewhere) == own
+    for known in layers.framework_roots():
+        assert known.is_relative_to(home)
+        source = known / "magpie-setup" / "0.2.0" / "skills" / "setup" / "setup_preflight"
+        source.mkdir(parents=True)
+        assert layers.checker_install_dir(root, source) == layers.checker_home(), known
+    # A link under a known root that resolves into the project is the project's.
+    planted = layers.framework_roots()[0] / "planted"
+    planted.symlink_to(snapshot)
+    assert layers.checker_install_dir(root, planted) == own
+    # A known root that is itself a link into the project does not count either.
+    framework = layers.framework_roots()[-1]
+    shutil_rmtree(framework)
+    framework.symlink_to(root)
+    assert layers.checker_install_dir(root, framework / ".apache-magpie") == own
+
+
+def shutil_rmtree(path: Path) -> None:
+    import shutil
+
+    shutil.rmtree(path)
+
+
+@pytest.mark.skipif(not PREFLIGHT_BLOCK.is_file(), reason="needs the framework tree")
+def test_a_project_recreated_at_the_same_path_does_not_inherit_the_old_install(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import shutil
+
+    home = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(home))
+    root = _project(tmp_path, "git")
+    own = layers.project_checker_home(root)
+    (own / "setup_preflight").mkdir(parents=True)
+    layers.record_root_identity(root)
+    assert layers.import_dir(root) == own
+    assert _block_dir(root, home) == str(own)
+    # Keep the old directory's inode alive, so the new one cannot reuse it.
+    moved = tmp_path / "moved-away"
+    root.rename(moved)
+    root = _project(tmp_path, "git")
+    assert layers.project_checker_home(root) == own, "same path, same key"
+    assert layers.import_dir(root) == layers.checker_home()
+    assert _block_dir(root, home) == str(layers.checker_home())
+    shutil.rmtree(moved)
 
 
 @pytest.mark.skipif(not PREFLIGHT_BLOCK.is_file(), reason="needs the framework tree")
@@ -529,6 +577,7 @@ def test_a_crafted_snapshot_does_not_change_what_another_project_imports(
         source / "setup_preflight",
         layers.checker_install_dir(crafted, source / "setup_preflight") / "setup_preflight",
     )
+    layers.record_root_identity(crafted)
     other = _project(tmp_path / "other", "git")
     done = _run_block(other, tmp_path, "setup_preflight")
     assert not marker.exists(), marker.read_text(encoding="utf-8")
@@ -634,25 +683,27 @@ CONFIG_DOC = REPO_ROOT / "plugins" / "magpie-setup" / "skills" / "setup" / "conf
 
 
 @pytest.mark.skipif(not CONFIG_DOC.is_file(), reason="needs the framework tree")
-@pytest.mark.parametrize("inside", [True, False])
+@pytest.mark.parametrize("where", ["snapshot", "elsewhere", "plugin"])
 def test_config_install_command_agrees_with_layers(
-    tmp_path: Path, inside: bool, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, where: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """`config` Step 2a's one-liner picks the same install directory as `checker_install_dir`."""
+    """`config` Step 2a's one-liner picks the same install directory as `checker_install_dir`,
+    and records the project's identity beside a per-project install."""
     import os
 
     command = next(
         line
         for line in CONFIG_DOC.read_text(encoding="utf-8").splitlines()
-        if line.startswith("python3 -I -c 'import hashlib,os,sys;s,h,d=")
+        if line.startswith("python3 -I -c 'import hashlib,os,sys;s,h,d,i,*k=")
     )
     home = tmp_path / "home"
     monkeypatch.setenv("HOME", str(home))
     root = _project(tmp_path, "git")
-    if inside:
-        source = root / ".apache-magpie" / "setup_preflight"
-    else:
-        source = tmp_path / "plugin" / "setup_preflight"
+    source = {
+        "snapshot": root / ".apache-magpie" / "setup_preflight",
+        "elsewhere": tmp_path / "elsewhere" / "setup_preflight",
+        "plugin": layers.framework_roots()[0] / "magpie-setup" / "skills" / "setup" / "setup_preflight",
+    }[where]
     source.mkdir(parents=True)
     done = subprocess.run(
         ["sh", "-c", command],
@@ -662,6 +713,12 @@ def test_config_install_command_agrees_with_layers(
         text=True,
         check=True,
     )
+    for known in layers.FRAMEWORK_ROOTS:
+        assert f'"$HOME/{known.as_posix()}"' in command, f"the one-liner misses {known}"
     expected = layers.checker_install_dir(root, source)
     assert done.stdout.strip() == str(expected)
-    assert (expected == layers.checker_home()) is not inside
+    shared = where == "plugin"
+    assert (expected == layers.checker_home()) is shared
+    if not shared:
+        (expected / "setup_preflight").mkdir()
+        assert layers.import_dir(root) == expected, "the one-liner recorded the identity"
