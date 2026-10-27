@@ -59,6 +59,15 @@ pi install git:github.com/apache/magpie
 ```
 
 That one command is the whole install, for every repository: Pi clones the framework, installs the pinned sandbox dependency, and records the package in `~/.pi/agent/settings.json`.
+Pi runs `npm install --omit=dev --legacy-peer-deps` in its clone, which honours the committed [`package-lock.json`](../../package-lock.json): every package in the sandbox runtime's tree is pinned to an exact version and integrity hash, and none has an install script.
+To refresh the lockfile, resolve with the same flags and the repository's 7-day cooldown, without installing or running anything:
+
+```bash
+npm install --package-lock-only --ignore-scripts --omit=dev --legacy-peer-deps \
+  --before="$(python3 -c 'import datetime; print(datetime.date.today() - datetime.timedelta(days=7))')"
+```
+
+Dependabot proposes the same updates weekly, with the same cooldown.
 Never install it per project with `pi install -l`; the secure setup belongs to the user.
 For guided setup, ask Pi: `/skill:isolated-setup-install`.
 
