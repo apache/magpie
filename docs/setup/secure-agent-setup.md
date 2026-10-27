@@ -1795,9 +1795,10 @@ ships **security-language** (no CVE / security-fix wording in a public
 `gh pr create|edit` title/body).
 
 Each guard is overridable per command by a visible inline env
-assignment (`MAGPIE_ALLOW_MENTIONS=1 gh pr comment …`, etc.) or
-disabled wholesale with `MAGPIE_GUARD_OFF=1` — the deny message
-names the override. The dispatcher is stdlib-only and invoked as
+assignment (`MAGPIE_ALLOW_MENTIONS=1 gh pr comment …`, etc.) — the
+deny message names the override — or disabled wholesale with
+`MAGPIE_GUARD_OFF=1` in the hook's own environment (never inline in a
+command). The dispatcher is stdlib-only and invoked as
 `python3 …/agent-guard.py`, fast-pathing everything that is not a
 `gh` / `git` command.
 

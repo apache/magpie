@@ -219,13 +219,22 @@ See `docs/adapters/goose.md`.
   resolution `gh_subcommand()` gives for `gh` (#1330).
   Every guard first unwraps the prefix wrappers that run their argument,
   `env` (its GNU / BSD options, clustered short flags and `NAME=value`
-  assignments, which still count as inline overrides) and `command -p`,
-  until none is left, so `env git commit …` reaches the same guards as
+  assignments, which still count as inline overrides), `command -p`,
+  `exec`, `nohup` and `time`, until none is left, so `env git commit …` reaches the same guards as
   `git commit …`; `command -v` is a lookup and is left alone. A segment
   nested past a generous depth limit, carrying an undocumented `env`
   option or another `command` flag, is marked unparsed and refused, and
   `env -S` is refused outright, because GNU env splits its string with
   escapes `shlex` does not reproduce (#1691, #1694).
+  A shell's `-c` string (`bash` / `sh` / `zsh -c`) is split and checked
+  as a command line of its own, one level deep; a nested `-c` string
+  naming `git` or `gh` is refused, as is a line whose quoting cannot be
+  parsed when it names `git` or `gh`; a heredoc body is not read as
+  shell syntax unless it names `git` / `gh` and is fed to anything but
+  `cat` / `tee`. Per-guard `MAGPIE_ALLOW_*`
+  overrides are honoured inline or from the hook's environment;
+  `MAGPIE_GUARD_OFF` is read from the hook's environment only, never
+  from the command line.
   Beyond the bundled `guards.d`, skill-owned guards are discovered in
   place, with no collection step: every `$MAGPIE_GUARD_DIRS` entry, then
   every `plugins/*/skills/*/guards` and `skills/*/guards` of the framework

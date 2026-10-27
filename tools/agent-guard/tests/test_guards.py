@@ -490,12 +490,131 @@ def test_compound_command_other_segment_not_denied():
     assert dispatch(command) is None
 
 
-def test_malformed_command_allows():
+@pytest.mark.parametrize(
+    "command",
+    [
+        'gh pr comment 5 --body "oops',
+        "git commit -m 'it''s",
+        "cd /tmp && /usr/bin/git push --force \\",
+        # Inside a shell `-c` string.
+        """bash -c "git commit -m 'oops" """,
+    ],
+)
+def test_untokenisable_command_naming_a_guarded_head_is_refused(command):
+    reason = dispatch(command)
+    assert reason and "agent-guard[parse]" in reason
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        'echo "oops',
+        "grep -r 'digit",  # `git` only inside a longer word
+        "cat .gitignore 'x",
+        "ls github.com/'x",
+    ],
+)
+def test_untokenisable_command_without_a_guarded_head_allows(command):
+    assert dispatch(command) is None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "cat <<'EOF' > notes.md\nThe user's git configuration\nEOF",
+        'cat <<-"EOF" > notes.md\n\tThe user\'s gh login\n\tEOF\necho done',
+    ],
+)
+def test_heredoc_body_apostrophe_is_not_quoting(command):
+    assert dispatch(command) is None
+
+
+def test_heredoc_stripped_line_is_still_checked():
+    command = "cat <<'EOF' > notes.md\nIt's the user's notes\nEOF\ngit commit -m 'oops"
+    reason = dispatch(command)
+    assert reason and "agent-guard[parse]" in reason
+
+
+def test_time_keyword_assignments_are_seen_through():
+    assert dispatch('time FOO=1 git commit -m "x\nCo-Authored-By: a"') is not None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        """zsh -oSH_WORD_SPLIT -c 'git commit -m "x\nCo-Authored-By: a"'""",
+        """bash -o pipefail -c 'git commit -m "x\nCo-Authored-By: a"'""",
+    ],
+)
+def test_shell_option_values_do_not_hide_the_c_string(command):
+    assert dispatch(command) is not None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        """bash -oc pipefail 'git commit -m "x\nCo-Authored-By: a"'""",
+        """sh -ec 'git commit -m "x\nCo-Authored-By: a"'""",
+    ],
+)
+def test_bash_option_clusters_do_not_hide_the_c_string(command):
+    assert dispatch(command) is not None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "bash <<'EOF'\nit's the user's script\ngit push --force\nEOF\necho 'oops",
+        "python3 - <<'EOF'\nit's the user's script, run git\nEOF\necho 'oops",
+        "cat <<'EOF'\nthe user's notes\ngit history",
+    ],
+)
+def test_heredoc_that_runs_or_never_closes_is_not_stripped(command):
+    reason = dispatch(command)
+    assert reason and "agent-guard[parse]" in reason
+
+
+def test_shell_option_value_letters_are_not_flags():
+    # `c` inside zsh's attached option value is not `-c`
+    assert dispatch("zsh -onocorrect script.zsh") is None
+
+
+def test_untokenisable_command_honours_the_hook_env_kill_switch(monkeypatch):
+    monkeypatch.setenv("MAGPIE_GUARD_OFF", "1")
     assert dispatch('gh pr comment 5 --body "oops') is None
 
 
-def test_global_off(monkeypatch):
-    assert dispatch('MAGPIE_GUARD_OFF=1 git commit -m "x\nCo-Authored-By: a"') is None
+def test_global_off_from_the_hook_environment(monkeypatch):
+    monkeypatch.setenv("MAGPIE_GUARD_OFF", "1")
+    assert dispatch('git commit -m "x\nCo-Authored-By: a"') is None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        'MAGPIE_GUARD_OFF=1 git commit -m "x\nCo-Authored-By: a"',
+        'env MAGPIE_GUARD_OFF=1 git commit -m "x\nCo-Authored-By: a"',
+        "MAGPIE_GUARD_OFF=1 bash -c \"git commit -m 'x\nCo-Authored-By: a'\"",
+    ],
+)
+def test_global_off_inline_is_ignored(command):
+    reason = dispatch(command)
+    assert reason and "Co-Authored-By" in reason
+
+
+@pytest.mark.parametrize("value", ["", "0", "false", "False"])
+def test_global_off_falsy_values_keep_the_guards(monkeypatch, value):
+    monkeypatch.setenv("MAGPIE_GUARD_OFF", value)
+    assert dispatch('git commit -m "x\nCo-Authored-By: a"') is not None
+
+
+def test_global_off_inline_does_not_pass_an_unparsable_wrapper():
+    reason = dispatch("MAGPIE_GUARD_OFF=1 env -S 'git status'")
+    assert reason and "agent-guard[wrapper]" in reason
+
+
+def test_per_guard_inline_override_still_honoured():
+    assert dispatch('MAGPIE_ALLOW_COAUTHOR=1 git commit -m "x\nCo-Authored-By: a"') is None
 
 
 # --------------------------------------------------------------------------- #
@@ -981,3 +1100,117 @@ def test_an_unparsable_wrapper_is_refused(command):
 def test_wrapper_option_forms_still_reach_the_guards(prefix):
     reason = agent_guard.dispatch(f'{prefix}git commit -m "x\n\nCo-Authored-By: a"')
     assert reason and "Co-Authored-By" in reason
+
+
+# --------------------------------------------------------------------------- #
+# More prefix wrappers: `exec`, `nohup`, `time`, and a shell's `-c` string.
+# --------------------------------------------------------------------------- #
+
+COAUTHOR_COMMIT = 'git commit -m "x\n\nCo-Authored-By: a"'
+
+
+@pytest.mark.parametrize(
+    "prefix",
+    [
+        "exec ",
+        "exec -c ",
+        "exec -l ",
+        "exec -cl ",
+        "exec -a name ",
+        "exec -aname ",
+        "exec -- ",
+        "nohup ",
+        "nohup -- ",
+        "time ",
+        "time -p ",
+        "time -v ",
+        "time -o out.txt ",
+        "time -f %e ",
+        "time --format=%e ",
+        "time --output out.txt ",
+        "/usr/bin/time -l ",
+        "env FOO=1 ",
+        "nohup env FOO=1 command ",
+        "time nohup exec ",
+    ],
+)
+def test_more_prefix_wrappers_reach_the_bundled_guards(prefix):
+    reason = agent_guard.dispatch(f"{prefix}{COAUTHOR_COMMIT}")
+    assert reason and "Co-Authored-By" in reason
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "bash -c 'git commit -m \"x\n\nCo-Authored-By: a\"'",
+        "sh -c 'git commit -m \"x\n\nCo-Authored-By: a\"'",
+        "zsh -c 'git commit -m \"x\n\nCo-Authored-By: a\"'",
+        "bash -lc 'git commit -m \"x\n\nCo-Authored-By: a\"'",
+        "bash -e -c 'git commit -m \"x\n\nCo-Authored-By: a\"'",
+        "bash -o pipefail -c 'git commit -m \"x\n\nCo-Authored-By: a\"'",
+        "bash --norc -c 'git commit -m \"x\n\nCo-Authored-By: a\"'",
+        "/bin/sh -c 'git commit -m \"x\n\nCo-Authored-By: a\"' name arg",
+        "env bash -c 'git commit -m \"x\n\nCo-Authored-By: a\"'",
+        "cd /tmp && bash -c 'ls && git commit -m \"x\n\nCo-Authored-By: a\"'",
+        "bash -c 'env git commit -m \"x\n\nCo-Authored-By: a\"'",
+    ],
+)
+def test_shell_dash_c_string_reaches_the_bundled_guards(command):
+    reason = agent_guard.dispatch(command)
+    assert reason and "Co-Authored-By" in reason
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "bash -c 'git status'",
+        "sh -c 'ls -la && git log --oneline -5'",
+        "bash -c \"git commit -m 'clean fix'\"",
+        "bash script.sh -c 'git commit'",  # `-c` after the script is the script's
+        "bash",
+        "bash -l",
+        "nohup --help",
+        "exec",
+        "exec 3>&1",
+        "time",
+        "time -p ls",
+        "nohup ./build.sh",
+    ],
+)
+def test_wrappers_and_shells_still_allow_clean_commands(command):
+    assert agent_guard.dispatch(command) is None
+
+
+def test_shell_dash_c_inherits_inline_per_guard_overrides():
+    command = "MAGPIE_ALLOW_COAUTHOR=1 bash -c 'git commit -m \"x\n\nCo-Authored-By: a\"'"
+    assert agent_guard.dispatch(command) is None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "bash -c \"bash -c 'git status'\"",
+        "sh -c 'zsh -c \"gh pr view 1\"'",
+        "exec -x git commit -m x",
+        "exec -a",
+        "nohup -x git commit -m x",
+        "time -Z git commit -m x",
+        "time --bogus git commit -m x",
+        "time -o",
+    ],
+)
+def test_more_unparsable_wrappers_are_refused(command):
+    reason = agent_guard.dispatch(command)
+    assert reason and "agent-guard[wrapper]" in reason
+
+
+def test_nested_shell_without_a_guarded_head_allows():
+    assert agent_guard.dispatch("bash -c \"sh -c 'echo hi'\"") is None
+
+
+def test_wrapped_vetted_launch_behind_the_new_wrappers_is_refused():
+    for prefix in ("exec ", "nohup ", "time "):
+        reason = agent_guard.dispatch(
+            f"{prefix}uv run --project ~/.claude/magpie/vetted-ops vetted-op-read x"
+        )
+        assert reason and "whole command" in reason

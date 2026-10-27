@@ -142,12 +142,28 @@ deterministic fix (e.g. "use a backtick `` `login` `` instead of `@login`").
 
 Every guard sees through the prefix wrappers that run their argument as the
 command: `env` (with `-i`, `-u NAME`, `-C DIR` and `NAME=value` assignments,
-which count as inline overrides) and `command` (`-p`). `env git commit …` is
-checked as `git commit …`; `command -v git` is a lookup and is left alone.
+which count as inline overrides), `command` (`-p`), `exec` (`-c`, `-l`,
+`-a NAME`), `nohup`, and `time` (the shell keyword's `-p` and the GNU / BSD
+`time` options). `env git commit …` is checked as `git commit …`;
+`command -v git` is a lookup and is left alone.
 A wrapper the guards cannot parse is refused (`agent-guard[wrapper]`). That
 includes `env -S` / `--split-string`: env splits that string with its own
 escapes (`\_`, `\c`, `${VAR}`), so the guards could not be sure they see the
 command env runs.
+
+A shell's `-c` string (`bash -c "…"`, `sh -c '…'`, `zsh -lc "…"`) is split
+and checked like a command line of its own, and inherits the inline
+assignments written before the shell. That goes one level deep: a `-c` string
+inside a `-c` string that names `git` or `gh` is refused (`agent-guard[wrapper]`).
+
+A command line whose quoting cannot be parsed (an unbalanced quote, a trailing
+backslash) is refused when it names `git` or `gh` as a word
+(`agent-guard[parse]`): the guards cannot see what it runs. Simplify the
+quoting, for example by passing a multi-line message with `-F <file>` /
+`--body-file <file>`. Any other unparsable line is allowed, as before.
+A heredoc's body is data, not shell syntax: an apostrophe in it does not make
+the line unparsable. That holds for a body naming `git` or `gh` only when it is
+fed to `cat` or `tee`, and never for a heredoc that is not closed.
 
 ## Per-command overrides
 
@@ -161,8 +177,16 @@ MAGPIE_ALLOW_MARK_READY=1   gh pr edit 123 --add-label "ready for maintainer rev
 MAGPIE_ALLOW_SECURITY_LANG=1 gh pr create --title "…"    # disclosure already public
 MAGPIE_ALLOW_EMPTY_PUSH=1   git push --force …
 MAGPIE_ALLOW_VETTED_PATH=1  uv run --project tools/vetted-ops vetted-op-read …  # developing the dispatcher
-MAGPIE_GUARD_OFF=1          <any command>                # disable all guards once
 ```
+
+Each `MAGPIE_ALLOW_*` override is also honoured when it is set in the hook's own
+environment.
+
+`MAGPIE_GUARD_OFF=1` disables every guard at once.
+The kill switch is read from the hook's environment only — the environment the
+harness starts the hook with, set by whoever launches the agent — never from the
+command line: `MAGPIE_GUARD_OFF=1 git commit …` written inline is checked like
+`git commit …`.
 
 `MAGPIE_READY_LABEL` overrides the label string the `mark-ready` guard watches
 for (default `ready for maintainer review`).

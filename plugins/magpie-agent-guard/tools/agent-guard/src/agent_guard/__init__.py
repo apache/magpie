@@ -72,9 +72,11 @@ through ``uv run`` — and returns in a few milliseconds for any command that is
 not a guarded ``gh`` / ``git commit`` / ``git push`` (the fast path).
 
 Every guard is overridable, per command, by a visible inline env assignment so a
-maintainer can consciously proceed (``MAGPIE_ALLOW_MENTIONS=1 gh pr comment …``)
-or disable the whole dispatcher (``MAGPIE_GUARD_OFF=1``). Overrides are read
-from the command string itself (and from the hook's own environment).
+maintainer can consciously proceed (``MAGPIE_ALLOW_MENTIONS=1 gh pr comment …``).
+Per-guard overrides are read from the command string itself (and from the
+hook's own environment). The whole dispatcher is disabled by
+``MAGPIE_GUARD_OFF=1``, which is read from the hook's own environment only — an
+inline ``MAGPIE_GUARD_OFF=1`` in the command is ignored.
 
 **Contributing guards.** Beyond the two bundled guards, any skill adds its own
 deterministic guard **without re-wiring the hook**: drop an import-free ``*.py``
@@ -148,6 +150,95 @@ _ENV_LONG_OPTIONAL = frozenset({"block-signal", "default-signal", "ignore-signal
 # Wrappers unwrapped per segment before the command counts as unparsed. Each
 # step consumes input, so only a crafted line ever reaches this.
 _UNWRAP_LIMIT = 64
+# `exec [-cl] [-a NAME]` (bash / zsh builtin): `a` takes a value.
+_EXEC_FLAGS = frozenset("cl")
+# `time` (the shell keyword's `-p`, and GNU / BSD /usr/bin/time): flags without
+# a value, flags that take one, and the GNU long spellings of both.
+_TIME_FLAGS = frozenset("ahlpqv")
+_TIME_VALUE_FLAGS = frozenset({"f", "o"})
+_TIME_LONG_FLAGS = frozenset({"append", "verbose", "portability", "quiet"})
+_TIME_LONG_VALUE = frozenset({"format", "output"})
+# Shells whose `-c <string>` is split and guarded like a command line of its
+# own. One level only: a `-c` string inside a `-c` string that names a guarded
+# head is refused rather than unwrapped again.
+_SHELLS = frozenset({"bash", "sh", "zsh", "ksh", "dash"})
+_SHELL_DEPTH = 1
+# Short shell options that take a value (`-o pipefail`, bash's `-O extglob`),
+# and the long options that do (`--rcfile FILE`); other long options are flags.
+_SHELL_VALUE_FLAGS = frozenset("oO")
+_SHELL_LONG_VALUE = frozenset({"rcfile", "init-file"})
+# A guarded head anywhere in a command line, as a word: what makes a line that
+# cannot be tokenised worth refusing rather than letting through.
+_GUARDED_WORD_RE = re.compile(r"\b(?:git|gh)\b")
+
+
+def _truthy(val: str | None) -> bool:
+    return val not in (None, "", "0", "false", "False")
+
+
+def _exec_inner(args: list[str]) -> list[str] | None:
+    """The command ``exec`` runs; None on an option bash / zsh ``exec`` lacks."""
+    args = list(args)
+    while args and args[0].startswith("-") and args[0] != "-":
+        tok = args.pop(0)
+        if tok == "--":
+            break
+        letters = tok[1:]
+        for pos, ch in enumerate(letters):
+            if ch in _EXEC_FLAGS:
+                continue
+            if ch == "a":
+                if not letters[pos + 1 :]:
+                    if not args:
+                        return None
+                    args.pop(0)
+                break
+            return None
+    return args
+
+
+def _nohup_inner(args: list[str]) -> list[str] | None:
+    """The command ``nohup`` runs; ``[]`` for ``--help`` / ``--version``."""
+    if args[:1] == ["--"]:
+        return args[1:]
+    if args[:1] in (["--help"], ["--version"]):
+        return []
+    if args and args[0].startswith("-") and args[0] != "-":
+        return None
+    return args
+
+
+def _time_inner(args: list[str]) -> list[str] | None:
+    """The command ``time`` runs; None on an option neither the shell keyword
+    nor GNU / BSD ``time`` documents."""
+    args = list(args)
+    while args and args[0].startswith("-") and args[0] != "-":
+        tok = args.pop(0)
+        if tok == "--":
+            break
+        if tok.startswith("--"):
+            name, eq, _ = tok[2:].partition("=")
+            if name in _TIME_LONG_FLAGS:
+                continue
+            if name in _TIME_LONG_VALUE:
+                if not eq:
+                    if not args:
+                        return None
+                    args.pop(0)
+                continue
+            return None
+        letters = tok[1:]
+        for pos, ch in enumerate(letters):
+            if ch in _TIME_FLAGS:
+                continue
+            if ch in _TIME_VALUE_FLAGS:
+                if not letters[pos + 1 :]:
+                    if not args:
+                        return None
+                    args.pop(0)
+                break
+            return None
+    return args
 
 
 class Segment:
@@ -166,6 +257,9 @@ class Segment:
         self.wrapped = False
         #: True when a wrapper could not be parsed; `dispatch` refuses the line.
         self.unparsed = False
+        #: True when the line (or a shell `-c` string in it) could not be
+        #: tokenised and names a guarded head; `dispatch` refuses the line.
+        self.untokenised = False
         argv = self._unwrap(self._take_assignments(tokens))
         #: The command head as written (`~/.claude/scripts/x.sh`, `/usr/bin/git`),
         #: for the rules that care how a command is spelled, not just its name.
@@ -195,7 +289,10 @@ class Segment:
     def _unwrap(self, argv: list[str]) -> list[str]:
         """Look through prefix wrappers that run their argument as the command:
         ``env [options] [NAME=value…] cmd …`` (its assignments join ``env``, so
-        an inline override still counts) and ``command [-p] cmd …``.
+        an inline override still counts), ``command [-p] cmd …``,
+        ``exec [-cl] [-a NAME] cmd …``, ``nohup cmd …`` and ``time [options] cmd …``.
+        A shell's ``-c <string>`` is not a prefix: :func:`split_segments` splits
+        the string into segments of its own.
 
         Unwrapping runs until no wrapper is left — every step consumes input, so
         it ends — and anything it cannot parse sets ``unparsed``, which
@@ -229,6 +326,19 @@ class Segment:
                         return argv
                 self.wrapped = True
                 argv = rest
+            elif head in ("exec", "nohup", "time"):
+                inner = {"exec": _exec_inner, "nohup": _nohup_inner, "time": _time_inner}[head](argv[1:])
+                if inner is None:
+                    self.unparsed = True
+                    return argv
+                if head == "time":
+                    # the shell keyword times a pipeline, which may open with
+                    # assignments: `time FOO=1 git commit …`
+                    inner = self._take_assignments(inner)
+                if not inner:
+                    return argv  # `exec` alone, `nohup --help`: nothing is run
+                self.wrapped = True
+                argv = inner
             else:
                 return argv
         return argv
@@ -273,14 +383,16 @@ class Segment:
         return self._take_assignments(args)
 
     def override(self, *names: str) -> bool:
-        """True if any of ``names`` (or the global off switch) is set truthy,
-        either as an inline env assignment on this segment or in the hook's own
-        environment."""
-        for name in (GLOBAL_OFF_ENV, *names):
-            val = self.env.get(name, os.environ.get(name))
-            if val not in (None, "", "0", "false", "False"):
-                return True
-        return False
+        """True if any of ``names`` is set truthy, either as an inline env
+        assignment on this segment or in the hook's own environment, or if the
+        global off switch is set truthy in the hook's own environment.
+
+        The global switch is never taken from the command: it turns every guard
+        off at once, so it belongs to whoever starts the agent, not to a line
+        the agent writes."""
+        if _truthy(os.environ.get(GLOBAL_OFF_ENV)):
+            return True
+        return any(_truthy(self.env.get(name, os.environ.get(name))) for name in names)
 
 
 # --------------------------------------------------------------------------- #
@@ -288,25 +400,143 @@ class Segment:
 # --------------------------------------------------------------------------- #
 
 
-def split_segments(command: str) -> list[Segment]:
+_HEREDOC_RE = re.compile(r"(?<!<)<<(-?)(?!<)\s*(['\"]?)([A-Za-z_][\w.-]*)\2")
+
+
+# Commands that only store what a heredoc feeds them. A body naming a guarded
+# head is stripped only when one of these opens the introducing line; fed to
+# anything else, it may be run.
+_HEREDOC_DATA_SINKS = frozenset({"cat", "tee"})
+
+
+def _strip_heredoc_bodies(command: str) -> str:
+    """``command`` with each heredoc's body and closing delimiter line removed,
+    so text that is only fed to a command's stdin is not read as shell syntax.
+
+    ``command`` comes back unchanged when a heredoc is never closed, or when a
+    body naming ``git`` / ``gh`` is fed to anything but a plain data sink
+    (``cat`` / ``tee`` opening the introducing line): it may be a script."""
+    out: list[str] = []
+    pending: list[tuple[str, bool]] = []
+    intro = ""
+    body: list[str] = []
+    for line in command.split("\n"):
+        if pending:
+            delim, strip_tabs = pending[0]
+            if (line.lstrip("\t") if strip_tabs else line) == delim:
+                pending.pop(0)
+                head = os.path.basename(intro.split(maxsplit=1)[0]) if intro.strip() else ""
+                if _GUARDED_WORD_RE.search("\n".join(body)) and head not in _HEREDOC_DATA_SINKS:
+                    return command
+                body = []
+            else:
+                body.append(line)
+            continue
+        out.append(line)
+        intro = line
+        pending = [(m.group(3), m.group(1) == "-") for m in _HEREDOC_RE.finditer(line)]
+    if pending:
+        return command
+    return "\n".join(out)
+
+
+def split_segments(command: str, _depth: int = 0, _bodies_stripped: bool = False) -> list[Segment]:
     """Tokenise ``command`` and split it into simple-command segments on shell
-    operators. Returns an empty list if the command cannot be tokenised."""
+    operators. A shell ``-c <string>`` segment is followed by the segments of
+    its string (see :func:`_shell_segments`).
+
+    A command that cannot be tokenised yields no segments, unless it names a
+    guarded head (``git`` / ``gh`` as a word): then it yields one segment
+    marked ``untokenised``, which ``dispatch`` refuses, since the guards cannot
+    see what such a line runs."""
     try:
         tokens = shlex.split(command, comments=False)
     except ValueError:
-        return []
+        without_bodies = command if _bodies_stripped else _strip_heredoc_bodies(command)
+        if without_bodies != command:
+            # a heredoc body is data, and its apostrophes are not quoting
+            return split_segments(without_bodies, _depth, _bodies_stripped=True)
+        if not _GUARDED_WORD_RE.search(command):
+            return []
+        seg = Segment([], command, command)
+        seg.untokenised = True
+        return [seg]
     segments: list[Segment] = []
     current: list[str] = []
     for tok in tokens:
         if tok in SHELL_OPERATORS:
             if current:
-                segments.append(Segment(current, shlex.join(current), command))
+                segments.extend(_shell_segments(Segment(current, shlex.join(current), command), _depth))
                 current = []
         else:
             current.append(tok)
     if current:
-        segments.append(Segment(current, shlex.join(current), command))
+        segments.extend(_shell_segments(Segment(current, shlex.join(current), command), _depth))
     return segments
+
+
+def _shell_script(argv: list[str]) -> str | None:
+    """The ``<string>`` of ``bash|sh|zsh [options] -c <string> …``, or None when
+    ``argv`` is not such a call (a script, an interactive shell)."""
+    if not argv or argv[0] not in _SHELLS:
+        return None
+    args = argv[1:]
+    run_string = False
+    while args:
+        tok = args[0]
+        if tok == "--":
+            args = args[1:]
+            break
+        if tok.startswith("--"):
+            args = args[1:]
+            if tok[2:] in _SHELL_LONG_VALUE and args:
+                args = args[1:]
+            continue
+        if tok[:1] in ("-", "+") and len(tok) > 1:
+            args = args[1:]
+            letters = tok[1:]
+            if argv[0] == "zsh":
+                # zsh reads the rest of the cluster as the option's value
+                # (`-oSH_WORD_SPLIT`); a bare `-o` takes the next argument
+                for pos, ch in enumerate(letters):
+                    if ch == "c":
+                        run_string = True
+                    elif ch in _SHELL_VALUE_FLAGS:
+                        if pos == len(letters) - 1 and args:
+                            args = args[1:]
+                        break
+            else:
+                # bash / sh read every letter as a flag, and each value flag
+                # takes the next argument in turn (`-oc pipefail '<script>'`)
+                run_string = run_string or "c" in letters
+                values = sum(ch in _SHELL_VALUE_FLAGS for ch in letters)
+                args = args[values:]
+            continue
+        break
+    if not run_string or not args:
+        return None
+    return args[0]
+
+
+def _shell_segments(seg: Segment, depth: int) -> list[Segment]:
+    """``seg``, followed by the segments of its shell ``-c`` string if it has one.
+
+    The string's segments inherit ``seg``'s inline assignments (the shell
+    exports them to what it runs) and count as wrapped. Past ``_SHELL_DEPTH``
+    a ``-c`` string that names a guarded head marks ``seg`` unparsed instead.
+    """
+    script = _shell_script(seg.argv)
+    if script is None:
+        return [seg]
+    if depth >= _SHELL_DEPTH:
+        if _GUARDED_WORD_RE.search(script):
+            seg.unparsed = True
+        return [seg]
+    inner = split_segments(script, depth + 1)
+    for sub in inner:
+        sub.env = {**seg.env, **sub.env}
+        sub.wrapped = True
+    return [seg, *inner]
 
 
 def strip_code(text: str) -> str:
@@ -1758,11 +1988,19 @@ def dispatch(command: str, cwd: str | None = None, harness: str | None = None) -
         return None
     contributed: list[tuple[Callable[[GuardContext], str | None], set[str] | None]] | None = None
     for seg in split_segments(command):
+        if seg.untokenised and not seg.override():
+            return (
+                "agent-guard[parse]: this command names `git` / `gh` but its quoting cannot be "
+                "parsed (an unbalanced quote or a trailing backslash), so the guards cannot see "
+                "what it runs. Simplify the quoting: put a long or multi-line message in a file "
+                "and pass it with `-F <file>` / `--body-file <file>`."
+            )
         if seg.unparsed and not seg.override():
             return (
-                "agent-guard[wrapper]: this command runs behind an `env` / `command` wrapper the "
-                "guards cannot parse, so they cannot see what it runs. Run the command without "
-                "the wrapper (inline `NAME=value` assignments work on their own)."
+                "agent-guard[wrapper]: this command runs behind a wrapper the guards cannot parse "
+                "(`env`, `command`, `exec`, `nohup`, `time`, or a shell `-c` string inside another), "
+                "so they cannot see what it runs. Run the command without the wrapper "
+                "(inline `NAME=value` assignments work on their own)."
             )
         if seg.argv and seg.argv[0] in ("uv", "uvx"):
             # Checked here rather than as a guarded head: a vetted launch is the
