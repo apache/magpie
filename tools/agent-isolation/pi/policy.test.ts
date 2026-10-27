@@ -110,6 +110,21 @@ test("a symlink cannot reach a denied path", () => {
 	assert.equal(linked.readDenied("other", ws), null);
 });
 
+test("writes outside the working folder are flagged, links included", () => {
+	const root = mkdtempSync(join(tmpdir(), "magpie-pi-ws-"));
+	const ws = join(root, "ws");
+	mkdirSync(ws);
+	mkdirSync(join(root, "elsewhere"));
+	symlinkSync(join(root, "elsewhere"), join(ws, "out"));
+	assert.equal(policy.outsideWorkspace("src/new.py", ws), false);
+	assert.equal(policy.outsideWorkspace(join(ws, "a.txt"), ws), false);
+	assert.equal(policy.outsideWorkspace("../elsewhere/x", ws), true);
+	assert.equal(policy.outsideWorkspace(join(root, "elsewhere", "x"), ws), true);
+	assert.equal(policy.outsideWorkspace("out/x", ws), true);
+	assert.equal(policy.outsideWorkspace("/tmp/x", ws), true);
+	assert.equal(policy.outsideWorkspace("~/notes.txt", ws), true);
+});
+
 test("directory tools may not walk into a denied directory", () => {
 	assert.ok(policy.treeDenied("~", cwd));
 	assert.ok(policy.treeDenied("~/.config", cwd));

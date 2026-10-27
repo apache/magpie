@@ -146,6 +146,17 @@ export default function (pi: ExtensionAPI) {
 			const check = { read: policy.readDenied, tree: policy.treeDenied, write: policy.writeDenied }[kind];
 			const reason = check.call(policy, path, ctx.cwd);
 			if (reason) return { block: true, reason: `Magpie: ${reason}` };
+			if (kind === "write" && policy.outsideWorkspace(path, ctx.cwd)) {
+				if (!ctx.hasUI) {
+					return {
+						block: true,
+						reason: `Magpie: writing ${path} outside the working folder needs your approval, which a non-interactive run cannot give`,
+					};
+				}
+				if (!(await ctx.ui.confirm("Magpie: write outside the working folder?", `${event.toolName} ${path}`))) {
+					return { block: true, reason: "Magpie: declined by the user" };
+				}
+			}
 			// Hand the tool the path just checked, links resolved, so a link
 			// swapped after the check cannot redirect it.
 			if (typeof event.input.path === "string") event.input.path = candidates(path, ctx.cwd).at(-1);

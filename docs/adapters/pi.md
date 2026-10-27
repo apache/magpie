@@ -94,6 +94,7 @@ Pi keeps provider credentials in `~/.pi/agent/auth.json` after `/login`; pass an
 | A command agent-guard denies (a `Co-Authored-By` trailer, `--no-verify`, …) | Denied, with the guard's reason. |
 | Native `read` / `grep` / `find` / `ls` of credential paths or `.env` files, or rooted above them | Denied, symlinks resolved. |
 | Native `write` / `edit` of agent settings, `~/.pi/agent/` or `.pi/` | Denied. |
+| Native `write` / `edit` outside the working folder, symlinks resolved | Asks; refused in a non-interactive run. |
 
 Deny outranks ask, which outranks allow, as in Claude Code.
 A command leaves the sandbox only when it is plain words: quotes, escapes, expansions, redirections and operators keep it inside.

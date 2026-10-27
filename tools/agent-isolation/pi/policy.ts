@@ -167,6 +167,22 @@ export class Policy {
 		return null;
 	}
 
+	/**
+	 * Whether a native write of `path` lands outside the working folder `cwd`.
+	 * Every candidate counts, so a link inside the folder that points out of it
+	 * is outside too. Such writes need the user's confirmation.
+	 */
+	outsideWorkspace(path: string, cwd: string): boolean {
+		const roots = candidates(cwd, cwd);
+		return candidates(path, cwd).some(
+			(target) =>
+				!roots.some((root) => {
+					const rel = relative(root, target);
+					return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
+				}),
+		);
+	}
+
 	/** Why a native write of `path` is refused, or null. */
 	writeDenied(path: string, cwd: string): string | null {
 		const read = this.readDenied(path, cwd);
