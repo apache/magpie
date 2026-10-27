@@ -13,5 +13,5 @@ Show this again any time: `/magpie-setup:welcome-guide{{arg}}`
 🌈 Prefer it in colour? Run this yourself — the `!` prefix runs it as a shell command:
 
 ```text
-! PYTHONPATH="$(git rev-parse --git-common-dir 2>/dev/null || { test -e .git || { test -f .svn/wc.db && echo .svn; }; })/apache-magpie" python3 -P -m setup_preflight.welcome show --family {{guide}} --color=always
+! PYTHONPATH="$HOME/.cache/apache-magpie/preflight" python3 -P -m setup_preflight.welcome show --family {{guide}} --color=always
 ```

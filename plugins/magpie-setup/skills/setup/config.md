@@ -82,7 +82,7 @@ When entered this way:
    it — the same `PYTHONPATH` as every skill's pre-flight:
 
    ```bash
-   PYTHONPATH="$(git rev-parse --git-common-dir 2>/dev/null || { test -e .git || { test -f .svn/wc.db && echo .svn; }; })/apache-magpie" \
+   PYTHONPATH="$HOME/.cache/apache-magpie/preflight" \
      python3 -P -m setup_preflight.layers
    ```
 
@@ -99,10 +99,9 @@ When entered this way:
    with every worktree that has none of its own.
 
    The same output's `checker_dir` is where Step 2a installs the checker.
-   It is not the personal layer: it is
-   `$(git rev-parse --path-format=absolute --git-common-dir)/apache-magpie/`
-   in git and `<repo-root>/.svn/apache-magpie/` in a Subversion working
-   copy, adopted or not, and there is none with no version control.
+   It is not the personal layer: it is your per-user
+   `~/.cache/apache-magpie/preflight/`, the same for every project and
+   with or without version control.
 4. **Which skills.** Resolve `<skills>` to the set whose configuration
    is in scope.
 
@@ -160,30 +159,36 @@ snapshot install `<snapshot-dir>/tools/setup-preflight/src/setup_preflight/`
 reaches the same files.
 
 This is what every skill's pre-flight actually runs — the path finds the
-copy in the git directory's `apache-magpie/`, or a Subversion working
-copy's `.svn/apache-magpie/`:
+copy in your per-user `~/.cache/apache-magpie/preflight/`:
 
 ```bash
-PYTHONPATH="$(git rev-parse --git-common-dir 2>/dev/null || { test -e .git || { test -f .svn/wc.db && echo .svn; }; })/apache-magpie" \
+PYTHONPATH="$HOME/.cache/apache-magpie/preflight" \
   python3 -P -m setup_preflight --skill … --hash …
 ```
 
-Pre-flight imports the checker only from paths a repository cannot
-commit. Never install it anywhere in the working tree, not even in a
-gitignored `.apache-magpie-local/`: a repository can commit that
-directory too, and `-P` keeps the working tree off the import path so
-that opening a repository is never enough to run code it carries. With
-no version control there is no `checker_dir`: skip this step and say
-that skills resolve their configuration without the checker there.
-An older copy in the personal layer's `.apache-magpie-local/setup_preflight/`
-is no longer imported; remove it once the new one answers.
+Pre-flight imports the checker only from outside the opened project.
+Never install it anywhere inside a project, not even in a gitignored
+`.apache-magpie-local/` or in the project's `.git/` or `.svn/`: a
+repository can commit the first, and a Subversion checkout or a tarball
+can carry a `.git/` or `.svn/` as plain files. `-P` keeps the working
+tree off the import path, so opening a project is never enough to run
+code it carries.
+An older copy under the personal layer (`.apache-magpie-local/setup_preflight/`,
+`<git-common-dir>/apache-magpie/setup_preflight/` or
+`.svn/apache-magpie/setup_preflight/`) is no longer imported; remove it
+once the new one answers.
+
+One copy serves every project on this machine, so the last `config` or
+`upgrade` to run decides its version. The checker reads each project's
+own lock and configuration, so a project pinned to an older framework is
+still checked against its own pin.
 
 It has to be copied rather than referenced. Under the sandbox the
 framework recommends, `~/.claude/plugins/cache/` is read-denied, so a
 module left in the plugin can be read by the agent's file tool but never
 *executed* by a shell — and a sandboxed marketplace install is exactly
-the case the check exists for. The `checker_dir` is inside the VCS's own
-directory, so nothing here reaches another clone.
+the case the check exists for. The `checker_dir` is per-user, so nothing
+here reaches another user or another clone's committed files.
 
 **Name it when you report.** This sub-action may run unattended from a
 skill's pre-flight, and its licence to do so rests on touching only
@@ -197,7 +202,7 @@ Verify the copy answers before moving on; a checker that does not run
 makes every skill fall back to *step-0* of its `preflight-detail.md`:
 
 ```bash
-PYTHONPATH="$(git rev-parse --git-common-dir 2>/dev/null || { test -e .git || { test -f .svn/wc.db && echo .svn; }; })/apache-magpie" \
+PYTHONPATH="$HOME/.cache/apache-magpie/preflight" \
   python3 -P -m setup_preflight --skill magpie-setup --no-welcome
 ```
 

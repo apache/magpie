@@ -16,7 +16,7 @@ argument-hint: "[family]"
 capability: capability:platform
 surface_hash: sha256:3dafaec43fc7bd00
 license: Apache-2.0
-measured_tokens: 1327
+measured_tokens: 1265
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -68,7 +68,7 @@ Pass any other name through as given and let the command say whether it exists.
 Every command uses the installed copy of the checker, as the pre-flight does:
 
 ```bash
-PYTHONPATH="$(git rev-parse --git-common-dir 2>/dev/null || { test -e .git || { test -f .svn/wc.db && echo .svn; }; })/apache-magpie" \
+PYTHONPATH="$HOME/.cache/apache-magpie/preflight" \
   python3 -P -m setup_preflight.welcome show --family <family>
 ```
 
@@ -91,7 +91,7 @@ Only when the user asked to have a guide back
 clear its recorded choice so the pre-flight shows it again:
 
 ```bash
-PYTHONPATH="$(git rev-parse --git-common-dir 2>/dev/null || { test -e .git || { test -f .svn/wc.db && echo .svn; }; })/apache-magpie" \
+PYTHONPATH="$HOME/.cache/apache-magpie/preflight" \
   python3 -P -m setup_preflight.welcome enable --family <family>
 ```
 

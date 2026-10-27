@@ -22,7 +22,7 @@ argument-hint: "[install|config|adopt|unadopt|upgrade|worktree-init|verify|recon
 capability: capability:platform
 surface_hash: sha256:2557a934f9ea5576
 license: Apache-2.0
-measured_tokens: 5338
+measured_tokens: 5307
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -59,7 +59,7 @@ Append `:<skill-dir>` only when that directory is **outside** the project's work
 when this skill runs from inside the repository — the committed `.agents/skills/magpie-setup/` bootstrap — leave it off, so the check never imports code the repository ships:
 
 ```bash
-PYTHONPATH="$(git rev-parse --git-common-dir 2>/dev/null || { test -e .git || { test -f .svn/wc.db && echo .svn; }; })/apache-magpie[:<skill-dir>]" \
+PYTHONPATH="$HOME/.cache/apache-magpie/preflight[:<skill-dir>]" \
   python3 -P -m setup_preflight.welcome due --skill setup
 ```
 

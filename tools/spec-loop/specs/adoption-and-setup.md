@@ -72,8 +72,7 @@ acceptance:
     no fallback, since its git-directory home is already shared.
   - `config` writes only the personal layer: on an unadopted repository
     `<git-common-dir>/apache-magpie/` (located with
-    `python3 -P -m setup_preflight.layers`), with the pre-flight checker
-    copied there, nothing in the working tree and no `.git/info/exclude`
+    `python3 -P -m setup_preflight.layers`), nothing in the working tree and no `.git/info/exclude`
     line; on an adopted one `.apache-magpie-local/` (the main checkout's,
     from a linked worktree that has none). Only `adopt` creates
     `.apache-magpie-local/`, its `.gitignore` entry and
@@ -82,18 +81,20 @@ acceptance:
     into `.apache-magpie-local/`. `worktree-init` copies or links no
     personal config: the fallback covers it.
   - Every skill's pre-flight runs the checker with
-    `PYTHONPATH="$(git rev-parse --git-common-dir 2>/dev/null || { test -e .git || { test -f .svn/wc.db && echo .svn; }; })/apache-magpie"`
-    and `python3 -P`, so the copy is found only in the git-directory home
-    or a Subversion working copy's `.svn/apache-magpie/` — its
-    `checker_dir` (`layers.checker_home`), adopted or not. Pre-flight
-    imports the checker only from paths a repository cannot commit: `-P`
-    keeps the working tree off `sys.path`, and no in-tree directory
-    (`.apache-magpie-local/`, adopted or legacy) is on `PYTHONPATH`. With
-    no version control there is no checker and skills resolve their
-    `requires_config:` by hand. `tools/setup-preflight/tests/test_layers.py`
+    `PYTHONPATH="$HOME/.cache/apache-magpie/preflight"`
+    and `python3 -P`, so the copy is found only in the per-user
+    `~/.cache/apache-magpie/preflight/` — its `checker_dir`
+    (`layers.checker_home`), the same for every project, with or without
+    version control. Pre-flight imports the checker only from outside the
+    opened project: `-P` keeps the working tree off `sys.path`, and no
+    directory inside the project is on `PYTHONPATH` — not
+    `.apache-magpie-local/` (adopted or legacy), and not the project's
+    `.git/` or `.svn/`, which a Subversion checkout or a tarball can carry
+    as plain files. `tools/setup-preflight/tests/test_layers.py`
     runs the block's command in a git repository, a Subversion working
     copy and a directory with no version control, and checks that a
-    planted `setup_preflight/` in the working tree is never imported. The project-verdict
+    planted `setup_preflight/` in the working tree, or in a `.git/` or
+    `.svn/` shipped inside it, is never imported. The project-verdict
     cache is keyed on the checkout, since worktrees may share one
     personal layer.
   - An unadopted repository that still has an in-tree
@@ -732,8 +733,8 @@ committed version with drift detection.
     than a rule-less instruction to act. Criteria 9, 10, 16, 17 and 18
     are enforced by its tests.
 26. The checker is **copied into its `checker_dir`**
-    (`<git-common-dir>/apache-magpie/`, or `.svn/apache-magpie/`, adopted
-    or not — never the working tree) by `/magpie-setup:setup config` and refreshed
+    (the per-user `~/.cache/apache-magpie/preflight/`, one copy for every
+    project — never inside a project) by `/magpie-setup:setup config` and refreshed
     there by `/magpie-setup:setup upgrade`, because Bash can neither read nor
     execute the plugin cache under the framework's own recommended
     sandbox. The copy's source is the package inside the installed
@@ -741,9 +742,9 @@ committed version with drift detection.
     `<snapshot-dir>/tools/setup-preflight/src/setup_preflight/` (the same
     files, through the mirror link) on a snapshot install. `config` states that it installed an executable, since it may
     run unattended from a skill's pre-flight. `upgrade` skips the refresh
-    when no copy exists rather than creating one, because its
-    absence is what marks a project as never configured; it moves a copy
-    an earlier version left in an adopted project's `.apache-magpie-local/`.
+    when no copy exists rather than creating one; it moves a copy an
+    earlier version left in an adopted project's `.apache-magpie-local/`
+    or in the project's `.git/apache-magpie/` or `.svn/apache-magpie/`.
     The refresh copies files from the `setup_preflight/` package beside the
     skill, never the `tools/setup-preflight/src` link (a plain `cp -R` of it
     leaves a dangling link), checks the new copy in a temporary directory with

@@ -50,14 +50,14 @@ def test_the_entry_point_parses_on_an_old_grammar() -> None:
 BLOCK = Path(__file__).resolve().parents[2] / "dev" / "preflight-block.md"
 
 
-def _block_pythonpath(cwd: Path) -> str:
+def _block_pythonpath(cwd: Path, home: Path) -> str:
     """What the shared block's PYTHONPATH expands to when run in `cwd`, with no git on PATH."""
     line = next(ln for ln in BLOCK.read_text(encoding="utf-8").splitlines() if ln.startswith("PYTHONPATH="))
     assignment = line.rstrip(" \\")
     done = subprocess.run(
         ["/bin/sh", "-c", f'{assignment}; printf %s "$PYTHONPATH"'],
         cwd=cwd,
-        env={"PATH": "/nonexistent"},
+        env={"PATH": "/nonexistent", "HOME": str(home)},
         capture_output=True,
         text=True,
         check=True,
@@ -65,9 +65,14 @@ def _block_pythonpath(cwd: Path) -> str:
     return done.stdout
 
 
-def test_a_planted_svn_dir_without_a_working_copy_is_not_on_the_path(tmp_path: Path) -> None:
-    """An archive can carry `.svn/apache-magpie/`; only a real working copy (`wc.db`) counts."""
-    (tmp_path / ".svn" / "apache-magpie" / "setup_preflight").mkdir(parents=True)
-    assert _block_pythonpath(tmp_path) == "/apache-magpie"
-    (tmp_path / ".svn" / "wc.db").write_bytes(b"")
-    assert _block_pythonpath(tmp_path) == ".svn/apache-magpie"
+def test_a_planted_vcs_dir_is_never_on_the_path(tmp_path: Path) -> None:
+    """An archive or a Subversion checkout can carry `.svn/` (`wc.db` included) or `.git/`; neither counts."""
+    home = tmp_path / "home"
+    project = tmp_path / "project"
+    expected = str(home / ".cache" / "apache-magpie" / "preflight")
+    (project / ".svn" / "apache-magpie" / "setup_preflight").mkdir(parents=True)
+    (project / ".git" / "apache-magpie" / "setup_preflight").mkdir(parents=True)
+    assert _block_pythonpath(project, home) == expected
+    (project / ".svn" / "wc.db").write_bytes(b"")
+    (project / ".git" / "HEAD").write_text("ref: refs/heads/main\n", encoding="utf-8")
+    assert _block_pythonpath(project, home) == expected

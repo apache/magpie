@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:1f327e069312dad2
 license: Apache-2.0
-measured_tokens: 7027
+measured_tokens: 6996
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -280,7 +280,7 @@ To run it on demand, invoke it directly: `/magpie-setup:isolated-setup-update` o
 At the end of every completed run, whatever it found, record it:
 
 ```bash
-PYTHONPATH="$(git rev-parse --git-common-dir 2>/dev/null || { test -e .git || { test -f .svn/wc.db && echo .svn; }; })/apache-magpie" \
+PYTHONPATH="$HOME/.cache/apache-magpie/preflight" \
   python3 -P -m setup_preflight.isolated record-update
 ```
 

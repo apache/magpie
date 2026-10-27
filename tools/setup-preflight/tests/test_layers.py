@@ -452,20 +452,24 @@ def test_the_block_pythonpath_names_no_in_tree_directory() -> None:
     pythonpath = _documented_pythonpath()
     assert ".apache-magpie-local" not in pythonpath
     assert ":" not in pythonpath, "one directory, the checker_dir"
+    assert "git" not in pythonpath and ".svn" not in pythonpath, "nothing the opened tree can supply"
+    assert pythonpath.startswith("$HOME/"), "a per-user directory, outside every project"
 
 
 @pytest.mark.skipif(not PREFLIGHT_BLOCK.is_file(), reason="needs the framework tree")
-@pytest.mark.parametrize("vcs", ["git", "svn"])
+@pytest.mark.parametrize("vcs", ["git", "svn", "none"])
 @pytest.mark.parametrize("adopted", [False, True])
-def test_the_block_finds_the_checker_in_its_checker_dir(tmp_path: Path, vcs: str, adopted: bool) -> None:
+def test_the_block_finds_the_checker_in_its_checker_dir(
+    tmp_path: Path, vcs: str, adopted: bool, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Install the checker where `config` would, then resolve it exactly as the block does."""
     import shutil
 
+    monkeypatch.setenv("HOME", str(tmp_path))
     root = _project(tmp_path, vcs)
     if adopted:
         (root / layers.LOCK_NAME).write_text("method: marketplace\n", encoding="utf-8")
-    home = layers.checker_home(root)
-    assert home is not None
+    home = layers.checker_home()
     package = Path(layers.__file__).resolve().parent
     shutil.copytree(package, home / "setup_preflight")
     done = _run_block(root, tmp_path, "setup_preflight.layers")
@@ -473,6 +477,36 @@ def test_the_block_finds_the_checker_in_its_checker_dir(tmp_path: Path, vcs: str
     assert done.stderr == ""
     described = json.loads(done.stdout)
     assert Path(described["checker_dir"]).resolve() == home.resolve()
+
+
+def _crafted_git_dir(root: Path) -> Path:
+    """A `.git/` that arrived as files (an svn checkout, a tarball), yet `git` accepts."""
+    dotgit = root / ".git"
+    (dotgit / "objects").mkdir(parents=True)
+    (dotgit / "refs" / "heads").mkdir(parents=True)
+    (dotgit / "HEAD").write_text("ref: refs/heads/main\n", encoding="utf-8")
+    return dotgit
+
+
+@pytest.mark.skipif(not PREFLIGHT_BLOCK.is_file(), reason="needs the framework tree")
+@pytest.mark.parametrize("carrier", ["svn", "none"])
+def test_a_vcs_directory_shipped_in_the_tree_is_never_imported(tmp_path: Path, carrier: str) -> None:
+    """A `.git/` or `.svn/` inside the opened tree can be content, not the VCS's own.
+
+    Subversion versions a `.git/` like any directory, and a tarball can carry
+    either, `wc.db` included.  A checker planted there must never be imported.
+    """
+    root = _project(tmp_path, carrier)
+    marker = tmp_path / "planted-ran"
+    _plant(_crafted_git_dir(root) / layers.GIT_HOME_NAME, marker)
+    if carrier == "none":
+        (root / ".svn").mkdir()
+        (root / ".svn" / "wc.db").write_bytes(b"")
+    _plant(root / ".svn" / layers.GIT_HOME_NAME, marker)
+    done = _run_block(root, tmp_path, "setup_preflight")
+    assert not marker.exists(), marker.read_text(encoding="utf-8")
+    assert "PLANTED" not in done.stdout
+    assert done.returncode != 0, "no checker is installed, so the block must not succeed"
 
 
 @pytest.mark.skipif(not PREFLIGHT_BLOCK.is_file(), reason="needs the framework tree")
@@ -500,21 +534,15 @@ def test_a_committable_setup_preflight_is_never_imported(tmp_path: Path, vcs: st
     assert done.returncode != 0, "no checker is installed, so the block must not succeed"
 
 
-def test_checker_home_is_inside_the_vcs_directory(tmp_path: Path) -> None:
-    def home(root: Path) -> Path:
-        found = layers.checker_home(root)
-        assert found is not None
-        return found.resolve()
-
-    git_root = _project(tmp_path / "g", "git")
-    assert home(git_root) == (git_root / ".git" / "apache-magpie").resolve()
-    (git_root / layers.LOCK_NAME).write_text("method: marketplace\n", encoding="utf-8")
-    assert home(git_root) == (git_root / ".git" / "apache-magpie").resolve()
-    svn_root = _project(tmp_path / "s", "svn")
-    assert home(svn_root) == (svn_root / ".svn" / "apache-magpie").resolve()
-
-
-def test_no_version_control_has_no_checker_home(tmp_path: Path) -> None:
-    root = _project(tmp_path, "none")
-    assert layers.checker_home(root) is None
-    assert layers.describe(root)["checker_dir"] is None
+@pytest.mark.parametrize("vcs", ["git", "svn", "none"])
+def test_checker_home_is_per_user_and_outside_every_project(
+    tmp_path: Path, vcs: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    user_home = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(user_home))
+    root = _project(tmp_path, vcs)
+    expected = user_home / ".cache" / "apache-magpie" / "preflight"
+    assert layers.checker_home() == expected
+    assert Path(str(layers.describe(root)["checker_dir"])) == expected
+    (root / layers.LOCK_NAME).write_text("method: marketplace\n", encoding="utf-8")
+    assert Path(str(layers.describe(root)["checker_dir"])) == expected
