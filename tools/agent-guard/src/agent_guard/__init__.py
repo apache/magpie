@@ -177,6 +177,9 @@ _QUOTING_RE = re.compile(r"\\\n|\$(?=['\"])|['\"\\]")
 # tokenised it may build any word (`g$()it`, `$CMD`, `/usr/bin/gi?`,
 # `g{i,}t`), so such a line is refused outright.
 _EXPANSION_RE = re.compile(r"[$`*?\[{]|\\\n")
+# The same characters in a command name that did tokenise (`$CMD push`,
+# `/usr/bin/gi? push`): the guards cannot see which command it resolves to.
+_EXPANDED_HEAD_RE = re.compile(r"[$`*?\[{]")
 
 
 def _names_guarded(text: str) -> bool:
@@ -2683,6 +2686,12 @@ def dispatch(command: str, cwd: str | None = None, harness: str | None = None) -
             if reason:
                 return reason
             continue
+        if _EXPANDED_HEAD_RE.search(seg.head) and seg.head not in ("[", "[[") and not seg.override():
+            return (
+                "agent-guard[expansion]: this command's name is built by an expansion or a glob "
+                f"(`{seg.head}`), so the guards cannot see which command runs. "
+                "Spell the command name out."
+            )
         if not seg.argv or seg.argv[0] not in GUARDED_HEADS:
             continue  # fast path — non-guarded command family
         # Bundled guards (trusted, in-process; each self-filters its command).

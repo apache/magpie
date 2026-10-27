@@ -753,6 +753,45 @@ def test_quoted_heredoc_body_substitution_is_data():
 @pytest.mark.parametrize(
     "command",
     [
+        # The guards cannot see what an expansion or glob in the command name
+        # resolves to, so such a command is refused even when it tokenises.
+        "$CMD push --force",
+        '"$CMD" push --force',
+        "${CMD} push --force",
+        "CMD=git; $CMD push --force",
+        "$(echo git) push --force",
+        "`echo git` push --force",
+        "/usr/bin/gi? push --force",
+        "/usr/bin/g*t push --force",
+        "/usr/bin/g[i]t push --force",
+        "/usr/bin/g{i,}t push --force",
+        "env $CMD push --force",
+        "command $CMD push --force",
+    ],
+)
+def test_expanded_command_name_is_refused(command):
+    reason = dispatch(command)
+    assert reason and "agent-guard[expansion]" in reason
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "[ -f README.md ]",
+        "[[ -f README.md ]]",
+        "echo $HOME",
+        "ls *.md",
+        "X=$(pwd) ls",
+        "git log --format='%h {x}'",
+    ],
+)
+def test_expansion_outside_the_command_name_allows(command):
+    assert dispatch(command) is None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
         # `<<` as a shift operator opens no heredoc.
         f"cat /dev/null $((1<<x)) # it's\n{_TRAILER_COMMIT}\nx",
         f"cat /dev/null $[1<<x] # it's\n{_TRAILER_COMMIT}\nx",
