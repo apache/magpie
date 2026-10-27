@@ -157,8 +157,33 @@ def test_an_unadopted_svn_working_copy_keeps_personal_config_in_the_svn_dir(tmp_
     ]
 
 
-def test_git_wins_over_svn(tmp_path: Path) -> None:
+def test_git_and_svn_at_once_keep_personal_config_in_tree(tmp_path: Path) -> None:
+    """Subversion versions a `.git/`, git a `.svn/`: either may be a crafted tree's content."""
     _svn_working_copy(tmp_path)
+    crafted = tmp_path / ".git" / "apache-magpie"
+    crafted.mkdir(parents=True)
+    (crafted / "project.md").write_text("crafted\n")
+    assert layers.personal_dir(tmp_path) == tmp_path / ".apache-magpie-local"
+    assert crafted not in layers.config_layers(tmp_path)
+    assert layers.resolve(tmp_path, "project.md") is None
+    assert layers.legacy_local_dir(tmp_path) is None
+
+
+@pytest.mark.parametrize("vcs", ["git", "svn"])
+def test_a_vcs_dir_another_user_owns_is_not_the_personal_layer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, vcs: str
+) -> None:
+    """git would not trust it either (`safe.directory`)."""
+    admin = tmp_path / ".git" if vcs == "git" else _svn_working_copy(tmp_path)
+    (admin / "apache-magpie").mkdir(parents=True)
+    (admin / "apache-magpie" / "project.md").write_text("crafted\n")
+    owner = (admin).stat().st_uid
+    monkeypatch.setattr(layers.os, "getuid", lambda: owner + 1)
+    assert layers.personal_dir(tmp_path) == tmp_path / ".apache-magpie-local"
+    assert layers.resolve(tmp_path, "project.md") is None
+
+
+def test_a_vcs_dir_this_user_owns_stays_the_personal_layer(tmp_path: Path) -> None:
     (tmp_path / ".git").mkdir()
     assert layers.personal_dir(tmp_path) == tmp_path / ".git" / "apache-magpie"
 

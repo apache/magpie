@@ -91,6 +91,10 @@ The framework has two layers:
    A Subversion working copy that has only installed Magpie uses
    `<.svn>/apache-magpie/`; a project with no version control uses the
    in-tree `.apache-magpie-local/`.
+   A VCS directory serves as the personal layer only when the current user
+   owns it and it is the only one at the root: with both a `.git` and a
+   Subversion working copy there, one may be versioned content of the other's
+   checkout, so the in-tree `.apache-magpie-local/` is used instead.
    A legacy in-tree `.apache-magpie-local/` in an unadopted repo is
    still read, after the git-directory home. See
    [`docs/setup/agentic-overrides.md`](docs/setup/agentic-overrides.md).

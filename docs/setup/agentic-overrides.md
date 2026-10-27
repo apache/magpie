@@ -86,6 +86,11 @@ The two directories:
      inside the working copy's `.svn` directory, for the same reasons.
      With no version control at all it is the in-tree
      **`.apache-magpie-local/`**, since there is nothing to commit it to.
+     The in-tree directory is also used when the VCS directory is not the
+     current user's, or when the root holds both a `.git` and a Subversion
+     working copy: Subversion versions a `.git/` and git a `.svn/`, so one of
+     them may be content a crafted tree carries, and configuration hidden
+     there would be read where nobody looks.
    - **Adopted** — **`.apache-magpie-local/`** at the repo root,
      gitignored by the line `adopt` adds to `.gitignore`.
 

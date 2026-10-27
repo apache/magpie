@@ -1624,3 +1624,23 @@ def test_wrapped_vetted_launch_behind_the_new_wrappers_is_refused():
             f"{prefix}uv run --project ~/.claude/magpie/vetted-ops vetted-op-read x"
         )
         assert reason and "whole command" in reason
+
+
+def test_git_run_in_the_opened_tree_ignores_its_fsmonitor_and_hooks(tmp_path):
+    """A crafted `.git/config` (a tarball, an svn checkout carrying `.git/`) can
+    name a `core.fsmonitor` program git runs on any index refresh; the guard's
+    own git calls never run it."""
+    import subprocess
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    marker = tmp_path / "marker"
+    hook = tmp_path / "hook.sh"
+    hook.write_text(f"#!/bin/sh\necho ran >> {marker}\nexit 1\n")
+    hook.chmod(0o755)
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    (repo / "f.txt").write_text("hi\n")
+    subprocess.run(["git", "-C", str(repo), "add", "f.txt"], check=True)
+    subprocess.run(["git", "-C", str(repo), "config", "core.fsmonitor", str(hook)], check=True)
+    assert agent_guard._run(["git", "status", "--porcelain"], cwd=str(repo)) is not None
+    assert not marker.exists()

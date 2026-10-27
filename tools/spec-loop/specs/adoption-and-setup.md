@@ -888,6 +888,12 @@ committed version with drift detection.
     version control in the in-tree `.apache-magpie-local/`. A `.svn/` only
     in a parent directory stops `config` and asks for it to be run from the
     working copy's root.
+40. A VCS directory is the personal layer only when the current user owns it
+    and it is the only one at the root; with both a `.git` and a Subversion
+    working copy there, or a VCS directory another user owns, every copy of
+    `unadopted_home` falls back to the in-tree `.apache-magpie-local/`.
+    agent-guard runs its own git commands with `core.fsmonitor=false` and an
+    empty `core.hooksPath`, so a crafted `.git/config` runs no program.
 
 ## Validation
 

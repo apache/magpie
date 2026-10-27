@@ -138,14 +138,27 @@ def unadopted_home(root: Path) -> Path:
     `<.svn>/apache-magpie` in a Subversion working copy: both inside the
     VCS's own directory, so never committed.  With no VCS at all there is
     nothing to commit it to, so it is the in-tree `<root>/.apache-magpie-local`.
+
+    A VCS directory is trusted as the home only when it is this user's and
+    the only one at the root.  With both a `.git` and a Subversion working
+    copy there, one may be versioned content of the other's checkout
+    (Subversion versions a `.git/`, git a `.svn/`), so a crafted tree could
+    supply configuration where nobody looks; and a directory another user
+    owns is one git itself would not trust (`safe.directory`).  Either way
+    the home is the in-tree `<root>/.apache-magpie-local`, in plain sight.
     """
     common = git_common_dir(root)
-    if common is not None:
-        return common / GIT_HOME_NAME
     svn = svn_admin_dir(root)
-    if svn is not None:
-        return svn / GIT_HOME_NAME
-    return root / LOCAL_DIR
+    admin = common if svn is None else svn if common is None else None
+    if admin is None:
+        return root / LOCAL_DIR
+    getuid = getattr(os, "getuid", None)
+    try:
+        if getuid is not None and os.stat(admin).st_uid != getuid():
+            return root / LOCAL_DIR
+    except OSError:
+        return root / LOCAL_DIR
+    return admin / GIT_HOME_NAME
 
 
 def personal_dir(root: Path) -> Path:
