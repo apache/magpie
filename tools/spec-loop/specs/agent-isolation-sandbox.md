@@ -233,7 +233,7 @@ See `docs/adapters/goose.md`.
   shell syntax unless it names `git` / `gh` and is fed to anything but
   a bare `cat` / `tee` starting its own command, in a command that
   without its heredoc bodies has no `$`, backtick, parenthesis, brace,
-  `alias`, or `eval` / `source` / `.` in command position (also behind `builtin` / `command` / an assignment) and no non-sink heredoc, or holds a `$(…)` / backtick substitution under
+  `alias`, or `eval` / `source` / `.` / `hash` / `enable` as a word anywhere (after quote removal) and no non-sink heredoc, or holds a `$(…)` / backtick substitution under
   an unquoted delimiter; a `<<` inside quotes, a `#` comment, arithmetic
   or a `${…}` expansion opens no heredoc, and the delimiter is the whole
   word after quote removal. Per-guard `MAGPIE_ALLOW_*`

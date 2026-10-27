@@ -695,9 +695,48 @@ def test_eval_spellings_are_checked_like_eval(command):
     assert dispatch(command) is not None
 
 
-def test_eval_with_an_option_is_refused():
-    reason = dispatch("eval -x 'git push --force'")
+@pytest.mark.parametrize(
+    "command",
+    [
+        """builtin command -- eval 'git commit -m "x\nCo-Authored-By: a"'""",
+        """command -p eval 'git commit -m "x\nCo-Authored-By: a"'""",
+    ],
+)
+def test_eval_behind_a_prefix_chain_is_checked(command):
+    assert dispatch(command) is not None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "eval -x 'git push --force'",
+        "command -x eval 'git push --force'",
+        "builtin -x eval 'git push --force'",
+    ],
+)
+def test_eval_with_an_option_is_refused(command):
+    reason = dispatch(command)
     assert reason and "agent-guard[wrapper]" in reason
+
+
+def test_command_lookup_is_not_an_eval():
+    assert dispatch("command -v gh") is None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        # Anywhere in the rest of the command, after quote removal.
+        "cat <<'EOF' > s\nit's\ngit push --force\nEOF\nxargs e'v'al < s",
+        "cat <<'EOF' > s\nit's\ngit push --force\nEOF\nenv source s",
+        "cat <<'EOF' > s\nit's\ngit push --force\nEOF\nenv . s",
+        "hash -p /bin/bash cat\ncat <<'EOF'\nit's\ngit push --force\nEOF",
+        "enable -f x.so cat\ncat <<'EOF'\nit's\ngit push --force\nEOF",
+    ],
+)
+def test_heredoc_body_is_kept_next_to_eval_source_hash_or_enable(command):
+    reason = dispatch(command)
+    assert reason and "agent-guard[parse]" in reason
 
 
 @pytest.mark.parametrize(

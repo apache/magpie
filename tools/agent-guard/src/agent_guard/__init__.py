@@ -513,15 +513,22 @@ _SINK_ARG_RE = re.compile(r"(?:>>?)?[\w./~+-]*")
 # Line endings that carry the command on to the next line.
 _CONTINUED_RE = re.compile(r"(?:\\|\||&&)\s*$")
 # In the command without its heredoc bodies: an expansion, a substitution, a
-# subshell, group or function, `eval` / `source` / `.` in command position
-# (also behind `builtin`, `command` or inline assignments), or an alias. Any of
-# these rules out stripping a body that names a guarded head, since the sink's
-# output may be run or the sink may not be `cat`.
-_SINK_DEFEATED_RE = re.compile(
-    r"[$`(){}]|\balias\b"
-    r"|(?:^|[;&|])\s*(?:(?:builtin|command|\w+=\S*)\s+)*(?:eval|source|\.)(?=\s|$)",
-    re.MULTILINE,
-)
+# subshell, group or function, or an alias. Any of these rules out stripping a
+# body that names a guarded head, since the sink's output may be run or the
+# sink may not be `cat`.
+_SINK_DEFEATED_RE = re.compile(r"[$`(){}]|\balias\b")
+# The same, for a word that can run a file or redefine a command, anywhere in
+# the command after quote and backslash removal (`xargs e'v'al`, `env . s`).
+_SINK_DEFEATING_WORD_RE = re.compile(r"(?<![\w./-])(?:eval|source|hash|enable|\.)(?![\w./-])")
+_QUOTE_CHARS_RE = re.compile(r"['\"\\]")
+
+
+def _sink_defeated(stripped: str) -> bool:
+    """Whether ``stripped`` (a command without its heredoc bodies) could run a
+    sink's output or redefine the sink (see ``_SINK_DEFEATED_RE``)."""
+    if _SINK_DEFEATED_RE.search(stripped):
+        return True
+    return bool(_SINK_DEFEATING_WORD_RE.search(_QUOTE_CHARS_RE.sub("", stripped)))
 
 
 def _is_data_sink(intro: str, previous: str | None) -> bool:
@@ -545,7 +552,7 @@ def _strip_heredoc_bodies(command: str) -> str:
     naming ``git`` / ``gh`` may run: fed to anything but a bare ``cat`` /
     ``tee``, holding a command substitution under an unquoted delimiter,
     which bash expands, in a command whose other lines could run the sink's
-    output (see ``_SINK_DEFEATED_RE``), or next to any heredoc that is not a
+    output (see :func:`_sink_defeated`), or next to any heredoc that is not a
     sink: its body is stripped too, and may redefine the sink."""
     out: list[str] = []
     pending: list[_Heredoc] = []
@@ -584,7 +591,7 @@ def _strip_heredoc_bodies(command: str) -> str:
     if pending:
         return command
     stripped = "\n".join(out)
-    if guarded and (not all_sinks or _SINK_DEFEATED_RE.search(stripped)):
+    if guarded and (not all_sinks or _sink_defeated(stripped)):
         return command
     return stripped
 
@@ -624,24 +631,43 @@ def split_segments(command: str, _depth: int = 0, _bodies_stripped: bool = False
     return segments
 
 
+# Words `eval` may sit behind: `builtin command -- eval …`, `command -p eval …`.
+_EVAL_PREFIXES = frozenset({"builtin", "command", "--", "-p"})
+
+
+def _eval_call(argv: list[str]) -> tuple[list[str] | None, bool]:
+    """The arguments of an ``eval`` behind any chain of ``builtin`` /
+    ``command`` / ``--`` / ``-p``, after one leading ``--``, and whether the
+    call is one the guards do not parse: an ``eval`` with an option, or an
+    option in the prefix chain. ``(None, False)`` when ``argv`` is no ``eval``.
+    """
+    i = 0
+    while i < len(argv) and argv[i] in _EVAL_PREFIXES:
+        i += 1
+    if i < len(argv) and argv[i] != "eval":
+        # an unknown option behind `builtin` / `command`, in front of an eval
+        if i and argv[i].startswith("-") and "eval" in argv[i:]:
+            return None, True
+        return None, False
+    if i == len(argv):
+        return None, False
+    args = argv[i + 1 :]
+    if args[:1] == ["--"]:
+        args = args[1:]
+    elif args and args[0].startswith("-") and args[0] != "-":
+        return args, True
+    return args, False
+
+
 def _eval_args(argv: list[str]) -> list[str] | None:
-    """The arguments of ``eval`` (also as ``builtin eval`` / ``command eval``),
-    after one leading ``--``; None when ``argv`` is not an ``eval``."""
-    if argv[:1] in (["builtin"], ["command"]):
-        argv = argv[1:]
-    if argv[:1] != ["eval"]:
-        return None
-    args = argv[1:]
-    return args[1:] if args[:1] == ["--"] else args
+    """The arguments of ``eval`` (see :func:`_eval_call`), or None."""
+    return _eval_call(argv)[0]
 
 
 def _eval_has_option(argv: list[str]) -> bool:
-    """Whether ``argv`` is an ``eval`` whose first argument is an option
-    (``eval -x …``): bash rejects it, and the guards do not guess at it."""
-    args = _eval_args(argv)
-    if not args:
-        return False
-    return args[0].startswith("-") and args[0] != "-"
+    """Whether ``argv`` is an ``eval`` the guards do not parse: bash rejects
+    an option there, and the guards do not guess at it."""
+    return _eval_call(argv)[1]
 
 
 def _shell_script(argv: list[str]) -> str | None:
