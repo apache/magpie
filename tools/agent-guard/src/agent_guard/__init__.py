@@ -400,7 +400,57 @@ class Segment:
 # --------------------------------------------------------------------------- #
 
 
-_HEREDOC_RE = re.compile(r"(?<!<)<<(-?)(?!<)\s*(['\"]?)([A-Za-z_][\w.-]*)\2")
+# A heredoc operator and its delimiter, matched only where `_heredocs_opened`
+# finds a `<<` outside quotes and comments.
+_HEREDOC_RE = re.compile(r"<<(-?)\s*(['\"]?)([A-Za-z_][\w.-]*)\2")
+# Characters after which a `#` starts a comment rather than continuing a word.
+_COMMENT_AFTER = frozenset(" \t;&|()<>")
+# Command and arithmetic substitution, which bash still runs inside the body
+# of a heredoc whose delimiter is unquoted.
+_SUBSTITUTION_RE = re.compile(r"\$\(|`")
+
+
+def _heredocs_opened(line: str, quote: str | None) -> tuple[list[tuple[str, bool, bool]], str | None]:
+    """The heredocs ``line`` opens, as ``(delimiter, strip_tabs, quoted)``, and
+    the quote still open at its end.
+
+    ``quote`` is the quote open when ``line`` starts (``'``, ``"``, ``$'`` or
+    None). A ``<<`` inside quotes or a ``#`` comment opens no heredoc: bash
+    reads the lines after it as commands."""
+    found: list[tuple[str, bool, bool]] = []
+    i, n = 0, len(line)
+    while i < n:
+        ch = line[i]
+        if quote == "'":
+            if ch == "'":
+                quote = None
+        elif quote in ('"', "$'"):
+            if ch == "\\":
+                i += 1
+            elif ch == quote[-1]:
+                quote = None
+        elif ch == "\\":
+            i += 1
+        elif ch in "'\"":
+            quote = ch
+        elif line.startswith("$'", i):
+            quote = "$'"
+            i += 1
+        elif ch == "#" and (i == 0 or line[i - 1] in _COMMENT_AFTER):
+            break
+        elif line.startswith("<<<", i):
+            i += 3
+            continue
+        elif line.startswith("<<", i):
+            m = _HEREDOC_RE.match(line, i)
+            if m:
+                found.append((m.group(3), m.group(1) == "-", bool(m.group(2))))
+                i = m.end()
+                continue
+            i += 2
+            continue
+        i += 1
+    return found, quote
 
 
 # Commands that only store what a heredoc feeds them. A body naming a guarded
@@ -417,20 +467,24 @@ def _strip_heredoc_bodies(command: str) -> str:
     so text that is only fed to a command's stdin is not read as shell syntax.
 
     ``command`` comes back unchanged when a heredoc is never closed, or when a
-    body naming ``git`` / ``gh`` is fed to anything but a plain data sink
-    (``cat`` / ``tee`` opening the introducing line): it may be a script."""
+    body naming ``git`` / ``gh`` may run: fed to anything but a plain data sink
+    (``cat`` / ``tee`` opening the introducing line), or holding a command
+    substitution under an unquoted delimiter, which bash expands."""
     out: list[str] = []
-    pending: list[tuple[str, bool]] = []
+    pending: list[tuple[str, bool, bool]] = []
+    quote: str | None = None
     intro = ""
     body: list[str] = []
     for line in command.split("\n"):
         if pending:
-            delim, strip_tabs = pending[0]
+            delim, strip_tabs, quoted = pending[0]
             if (line.lstrip("\t") if strip_tabs else line) == delim:
                 pending.pop(0)
+                text = "\n".join(body)
                 head = os.path.basename(intro.split(maxsplit=1)[0]) if intro.strip() else ""
                 sink = head in _HEREDOC_DATA_SINKS and not _PASSES_ON_RE.search(intro)
-                if _GUARDED_WORD_RE.search("\n".join(body)) and not sink:
+                expands = not quoted and _SUBSTITUTION_RE.search(text)
+                if _GUARDED_WORD_RE.search(text) and (expands or not sink):
                     return command
                 body = []
             else:
@@ -438,7 +492,7 @@ def _strip_heredoc_bodies(command: str) -> str:
             continue
         out.append(line)
         intro = line
-        pending = [(m.group(3), m.group(1) == "-") for m in _HEREDOC_RE.finditer(line)]
+        pending, quote = _heredocs_opened(line, quote)
         if pending and line.rstrip().endswith("\\"):
             # a continued line: the body starts after the logical line ends,
             # which this reader does not follow

@@ -576,6 +576,39 @@ def test_heredoc_that_runs_or_never_closes_is_not_stripped(command):
     assert reason and "agent-guard[parse]" in reason
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        # `<<EOF` inside a comment or quotes opens no heredoc: bash runs the
+        # next line as a command.
+        "cat /dev/null # <<EOF it's\ngit push --force\nEOF",
+        "cat /dev/null '<<EOF' # it's\ngit push --force\nEOF",
+        "cat /dev/null \"<<EOF\" $'it\\'s'\ngit push --force\nEOF",
+        # A quote opened on an earlier line is still open.
+        "echo 'x\ncat <<EOF' # it's\ngit push --force\nEOF",
+    ],
+)
+def test_heredoc_operator_in_a_comment_or_quotes_is_not_a_heredoc(command):
+    reason = dispatch(command)
+    assert reason and "agent-guard[parse]" in reason
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "cat <<EOF\nit's $(git push --force)\nEOF",
+        "cat <<EOF > notes.md\nit's `gh pr merge 5`\nEOF",
+    ],
+)
+def test_unquoted_heredoc_body_substitution_is_not_stripped(command):
+    reason = dispatch(command)
+    assert reason and "agent-guard[parse]" in reason
+
+
+def test_quoted_heredoc_body_substitution_is_data():
+    assert dispatch("cat <<'EOF' > notes.md\nit's $(git log) in the docs\nEOF") is None
+
+
 def test_shell_option_value_letters_are_not_flags():
     # `c` inside zsh's attached option value is not `-c`
     assert dispatch("zsh -onocorrect script.zsh") is None

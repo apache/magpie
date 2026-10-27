@@ -163,7 +163,10 @@ quoting, for example by passing a multi-line message with `-F <file>` /
 `--body-file <file>`. Any other unparsable line is allowed, as before.
 A heredoc's body is data, not shell syntax: an apostrophe in it does not make
 the line unparsable. That holds for a body naming `git` or `gh` only when it is
-fed to `cat` or `tee`, and never for a heredoc that is not closed.
+fed to `cat` or `tee` and, under an unquoted delimiter, holds no `$(…)` or
+backtick substitution (bash runs those); never for a heredoc that is not closed.
+A `<<` inside quotes or a `#` comment opens no heredoc, so the lines after it
+are read as commands, as bash reads them.
 
 ## Per-command overrides
 
