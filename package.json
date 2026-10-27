@@ -12,7 +12,7 @@
     "extensions": ["./tools/agent-isolation/pi/magpie.ts"]
   },
   "dependencies": {
-    "@anthropic-ai/sandbox-runtime": "0.0.80"
+    "@anthropic-ai/sandbox-runtime": "0.0.81"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*"
