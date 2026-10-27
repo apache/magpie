@@ -700,12 +700,14 @@ class _Lexer:
                 return
             tok, source = "".join(word), text[word_start:i]
             word = None
-            if source in ("{", "}"):
-                # a group's brace ends the command before it, as `(` does
-                # (`function f { git push; }`)
+            if source == "{" and _group_opens(cur.tokens):
+                # a group in command position (`{ git push; }`, `function f {`)
                 flush()
                 return
-            if source == "case" and closer is not None and all(t in _RESERVED_WORDS for t in cur.tokens):
+            if source == "}" and not cur.tokens:
+                # a group's closer, right after a control operator or newline
+                return
+            if source == "case" and closer is not None:
                 # a `case` pattern's `)` would close this construct early
                 raise ValueError("`case` inside a substitution or subshell")
             cur.tokens.append(tok)
@@ -931,17 +933,32 @@ _ANSI_C_NUMERIC = {
 _ANSI_C_OCTAL = re.compile(r"[0-7]{1,3}")
 
 
+def _group_opens(tokens: list[str]) -> bool:
+    """Whether a ``{`` read after ``tokens`` opens a group: in command position
+    (only reserved words before it), or as a function's body after
+    ``function name`` (``name()`` already ended its command at the ``(``)."""
+    if all(tok in _RESERVED_WORDS for tok in tokens):
+        return True
+    return (
+        len(tokens) >= 2 and tokens[-2] == "function" and all(tok in _RESERVED_WORDS for tok in tokens[:-2])
+    )
+
+
 def _ansi_c_string(text: str, i: int) -> tuple[str, int]:
     """Decode the ``$'…'`` string whose text starts at ``text[i]`` as bash
     does; return it and the index after its closing quote. Raises ValueError
     on ``\\c`` (a control character, which also ends the string's value in
-    some bash versions) and on an unclosed string."""
+    some bash versions), on an escape decoding to NUL (bash truncates the word
+    there) and on an unclosed string."""
     out: list[str] = []
     n = len(text)
     while i < n:
         c = text[i]
         if c == "'":
-            return "".join(out), i + 1
+            decoded = "".join(out)
+            if "\x00" in decoded:
+                raise ValueError("a NUL in a $'…' string")
+            return decoded, i + 1
         if c != "\\":
             out.append(c)
             i += 1

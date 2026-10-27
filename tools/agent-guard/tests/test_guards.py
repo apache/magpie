@@ -537,6 +537,19 @@ _TRAILER_COMMIT = 'git commit -m "x\nCo-Authored-By: a"'
         """$'\\x67it' commit -m "x\nCo-Authored-By: a\"""",
         """$'\\147it' commit -m "x\nCo-Authored-By: a\"""",
         """$'\\u0067it' commit -m "x\nCo-Authored-By: a\"""",
+        # A brace is a group only in command position; elsewhere it is a word
+        # and does not move a command boundary.
+        f"echo {{ x\n{_TRAILER_COMMIT}\n}}",
+        f"echo x}} ; {_TRAILER_COMMIT}",
+        'git commit -m x } -m "Co-Authored-By: a"',
+        'git commit -m x { -m "Co-Authored-By: a"',
+        # A NUL from a `$'…'` escape truncates the word in bash.
+        """$'git\\0x' commit -m "x\nCo-Authored-By: a\"""",
+        """$'git\\x00x' commit -m "x\nCo-Authored-By: a\"""",
+        """$'git\\u0000x' commit -m "x\nCo-Authored-By: a\"""",
+        # `case` behind any prefix inside a substitution.
+        f'echo "$(time case x in x) echo;; esac; {_TRAILER_COMMIT})"',
+        f'echo "$(time -p case x in x) echo;; esac; {_TRAILER_COMMIT})"',
         # A heredoc fed to a shell runs its body.
         f"bash <<'EOF'\n{_TRAILER_COMMIT}\nEOF",
         # An unquoted heredoc expands its substitutions.
@@ -579,25 +592,25 @@ def test_heredoc_body_stays_on_the_commit_it_feeds():
         # Inside a shell `-c` string.
         """bash -c "git commit -m 'oops" """,
         # Quoting and escapes inside the word: bash still runs git / gh.
-        "g'i't push --force # it's",
-        '"g"h pr merge 5 # it\'s',
-        "g\\it push --force # it's",
-        "$'gh' pr merge 5 # it's",
-        "/usr/bin/gi''t push --force # it's",
-        "g\\\nit push --force # it's",
-        "$'g'h pr merge 5 # it's",
-        '$"g"h pr merge 5 # it\'s',
+        "g'i't push --force ; echo 'oops",
+        '"g"h pr merge 5 ; echo \'oops',
+        "g\\it push --force ; echo 'oops",
+        "$'gh' pr merge 5 ; echo 'oops",
+        "/usr/bin/gi''t push --force ; echo 'oops",
+        "g\\\nit push --force ; echo 'oops",
+        "$'g'h pr merge 5 ; echo 'oops",
+        '$"g"h pr merge 5 ; echo \'oops',
         # Expansions that may be empty: the guards cannot see the word.
-        "g$()it push --force # it's",
-        "g${x:-}it push --force # it's",
-        "g``it push --force # it's",
-        "g$@it push --force # it's",
-        "$CMD push --force # it's",
+        "g$()it push --force ; echo 'oops",
+        "g${x:-}it push --force ; echo 'oops",
+        "g``it push --force ; echo 'oops",
+        "g$@it push --force ; echo 'oops",
+        "$CMD push --force ; echo 'oops",
         # Globs and brace expansion can resolve to git / gh.
-        "/usr/bin/gi? push --force # it's",
-        "/usr/bin/g*t push --force # it's",
-        "/usr/bin/g[i]t push --force # it's",
-        "/usr/bin/g{i,}t push --force # it's",
+        "/usr/bin/gi? push --force ; echo 'oops",
+        "/usr/bin/g*t push --force ; echo 'oops",
+        "/usr/bin/g[i]t push --force ; echo 'oops",
+        "/usr/bin/g{i,}t push --force ; echo 'oops",
     ],
 )
 def test_untokenisable_command_naming_a_guarded_head_is_refused(command):
