@@ -42,8 +42,16 @@ export const GOOSE_CONFIG_PATHS = [
 	".goose",
 ];
 
+/** Goose's configuration: readable, never writable from inside. */
+const GOOSE_CONFIG = "~/.config/goose";
 /** Directories Goose writes during a session (sessions database, logs, caches). */
-const GOOSE_STATE = ["~/.config/goose", "~/.local/share/goose", "~/.local/state/goose", "~/.cache/goose"];
+const GOOSE_STATE = ["~/.local/share/goose", "~/.local/state/goose", "~/.cache/goose"];
+/**
+ * Goose's file-based secret store. Everything Goose can read, a command it
+ * runs can read too, so the provider key comes in through the environment
+ * (AGENT_ISO_ALLOW) and this file stays out of the sandbox.
+ */
+export const GOOSE_SECRETS = ["~/.config/goose/secrets.yaml"];
 
 /** API hosts per GOOSE_PROVIDER, and the variable holding each provider's key. */
 const PROVIDERS: Record<string, { hosts: string[]; key?: string }> = {
@@ -105,9 +113,19 @@ export function gooseSandboxSettings(policy: Policy, cwd: string, plugin: string
 		},
 		filesystem: {
 			...base.filesystem,
-			allowRead: [...new Set([...base.filesystem.allowRead, ...state, plugin, expandPath("~/.agents", cwd)])],
+			denyRead: [...new Set([...base.filesystem.denyRead, ...GOOSE_SECRETS.map((p) => expandPath(p, cwd))])],
+			allowRead: [
+				...new Set([...base.filesystem.allowRead, expandPath(GOOSE_CONFIG, cwd), ...state, plugin, expandPath("~/.agents", cwd)]),
+			],
 			allowWrite: [...new Set([...base.filesystem.allowWrite, ...state])],
-			denyWrite: [...new Set([...base.filesystem.denyWrite, plugin, ...GOOSE_CONFIG_PATHS.map((p) => expandPath(p, cwd))])],
+			denyWrite: [
+				...new Set([
+					...base.filesystem.denyWrite,
+					plugin,
+					expandPath(GOOSE_CONFIG, cwd),
+					...GOOSE_CONFIG_PATHS.map((p) => expandPath(p, cwd)),
+				]),
+			],
 		},
 		// The provider's key must reach Goose; every other baseline credential stays out.
 		credentials: {

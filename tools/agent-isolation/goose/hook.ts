@@ -37,7 +37,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { type Baseline, Policy } from "../pi/policy.ts";
-import { GOOSE_CONFIG_PATHS } from "./settings.ts";
+import { GOOSE_CONFIG_PATHS, GOOSE_SECRETS } from "./settings.ts";
 
 const ENGINE = fileURLToPath(new URL("../../agent-guard/src/agent_guard/__init__.py", import.meta.url));
 const BASELINE = fileURLToPath(new URL("../../sandbox-lint/expected.json", import.meta.url));
@@ -76,8 +76,22 @@ export function decide(event: GooseEvent, policy: Policy, approving: boolean, gu
 	const writeArg = WRITE_TOOLS[name];
 	const arg = readArg ?? writeArg;
 	if (!arg) return null;
-	const path = typeof input[arg] === "string" ? (input[arg] as string) : ".";
-	if (readArg && /^[a-z][a-z0-9+.-]*:\/\//i.test(path)) return null; // a URL, not a file
+	let path = typeof input[arg] === "string" ? (input[arg] as string) : ".";
+	const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(path)?.[1]?.toLowerCase();
+	if (scheme && scheme.length > 1) {
+		// A remote page is the sandbox's network allowlist's business; a file
+		// URL is a path like any other; anything else is refused outright.
+		if (scheme === "http" || scheme === "https") return null;
+		if (scheme !== "file") return `Magpie: ${name} of a ${scheme}: source is not allowed`;
+		try {
+			path = fileURLToPath(path);
+		} catch {
+			return `Magpie: ${name} of ${path} is not allowed: not a local file URL`;
+		}
+	}
+	for (const secret of GOOSE_SECRETS) {
+		if (policy.pathUnder(path, secret, cwd)) return `Magpie: ${path} holds Goose's secrets and cannot be read or written by a tool`;
+	}
 	if (readArg) {
 		const reason = name === "tree" || name === "analyze" ? policy.treeDenied(path, cwd) : policy.readDenied(path, cwd);
 		return reason ? `Magpie: ${reason}` : null;

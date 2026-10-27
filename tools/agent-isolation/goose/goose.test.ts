@@ -67,6 +67,9 @@ test("file tools on credential paths are blocked", () => {
 	assert.ok(decide(event("load", { source: "~/.aws/credentials" }), policy, true, noGuard));
 	assert.ok(decide(event("write", { path: "~/.ssh/config", content: "x" }), policy, true, noGuard));
 	assert.equal(decide(event("load", { source: "https://example.com/doc" }), policy, true, noGuard), null);
+	assert.ok(decide(event("load", { source: `file://${homedir()}/.ssh/id_ed25519` }), policy, true, noGuard));
+	assert.match(decide(event("load", { source: "ftp://example.com/x" }), policy, true, noGuard) ?? "", /not allowed/);
+	assert.match(decide(event("read_image", { source: "data:image/png;base64,AA" }), policy, true, noGuard) ?? "", /not allowed/);
 	assert.equal(decide(event("tree", { path: "." }), policy, true, noGuard), null);
 });
 
@@ -104,7 +107,9 @@ test("the srt settings keep the baseline and add only what Goose needs", () => {
 	assert.ok(settings.filesystem.denyRead.includes(homedir()));
 	assert.ok(settings.filesystem.allowWrite.includes(join(homedir(), ".local", "share", "goose")));
 	assert.ok(settings.filesystem.denyWrite.includes(plugin));
-	assert.ok(settings.filesystem.denyWrite.includes(join(homedir(), ".config", "goose", "config.yaml")));
+	assert.ok(settings.filesystem.denyWrite.includes(join(homedir(), ".config", "goose")));
+	assert.ok(!settings.filesystem.allowWrite.includes(join(homedir(), ".config", "goose")));
+	assert.ok(settings.filesystem.denyRead.includes(join(homedir(), ".config", "goose", "secrets.yaml")));
 	assert.ok(!settings.credentials.envVars.some((v) => v.name === "ANTHROPIC_API_KEY"));
 	assert.ok(settings.credentials.envVars.some((v) => v.name === "GH_TOKEN"));
 });
