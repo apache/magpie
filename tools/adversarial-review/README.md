@@ -84,7 +84,9 @@ Reviewers can read files with their read-only tools, and that is the residual ri
   `copilot` and `antigravity` have no equivalent switch in the versions this was written against; their MCP servers, if any, stay reachable, so configure them with read-only servers or none.
 - `antigravity` runs in plan mode with no permission flag, so headless `agy` soft-denies every tool call that would need approval: shell, edits, web fetches and MCP calls.
   That holds only while your own `permissions.allow` list in `~/.gemini/antigravity-cli/settings.json` does not pre-approve them; an `allow` rule there applies to the reviewer too.
-- `antigravity` is `skipped` on a tree that contains `.agents/hooks.json` or `.agents/mcp_config.json` (or the legacy `.agent/` spellings).
+  agy takes the permission mode only from that file, so the tool reads it back from agy's `init` event and discards the review as an `error` unless it is `request-review`, `strict` or `proceed-in-sandbox` (whose auto-run commands stay in the terminal sandbox).
+  The check runs after the reviewer has finished, so on that error inspect the reviewed tree.
+- `antigravity` is `skipped` on a tree, or a tree inside a directory, that contains `.agents/hooks.json` or `.agents/mcp_config.json` (or the legacy `.agent/` spellings).
   Antigravity runs workspace hooks and starts workspace MCP servers by itself, so the change under review would choose code that runs on your machine.
 
 ## Backends

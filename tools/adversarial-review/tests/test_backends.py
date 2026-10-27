@@ -196,8 +196,8 @@ def test_codex_extract_without_file_is_an_output_error(tmp_path):
         BACKENDS["codex"].extract("", ctx)
 
 
-def _agy_stream(*results: dict) -> str:
-    events = [{"event": "init", "init": {"permission_mode": "request-review"}}]
+def _agy_stream(*results: dict, mode: str | None = "request-review") -> str:
+    events = [{"event": "init", "init": {"permission_mode": mode}}]
     events.append({"event": "step_update", "step_update": {"state": "DONE", "text_delta": "partial"}})
     events += [{"event": "result", "result": r} for r in results]
     return "\n".join(json.dumps(e) for e in events) + "\n"
@@ -215,8 +215,23 @@ def test_antigravity_extract_rejects_a_status_that_is_not_success(status):
         BACKENDS["antigravity"].extract(stdout, CTX)
 
 
+@pytest.mark.parametrize("mode", ["request-review", "strict", "proceed-in-sandbox"])
+def test_antigravity_extract_accepts_a_read_only_permission_mode(mode):
+    stdout = _agy_stream({"status": "SUCCESS", "response": "R"}, mode=mode)
+    assert BACKENDS["antigravity"].extract(stdout, CTX) == "R"
+
+
+@pytest.mark.parametrize("mode", ["always-proceed", "unknown-mode", None])
+def test_antigravity_extract_discards_a_run_whose_tools_were_not_read_only(mode):
+    # The mode comes from the user's settings: under one that auto-approves
+    # tools the review could have changed the tree, so it is not trusted.
+    stdout = _agy_stream({"status": "SUCCESS", "response": "R"}, mode=mode)
+    with pytest.raises(BackendOutputError, match="permission mode"):
+        BACKENDS["antigravity"].extract(stdout, CTX)
+
+
 def test_antigravity_extract_without_result_event():
-    with pytest.raises(BackendOutputError, match="no `result` event"):
+    with pytest.raises(BackendOutputError, match="permission mode"):
         BACKENDS["antigravity"].extract("plain text\n", CTX)
 
 

@@ -249,6 +249,8 @@ Remove the Magpie `permissions` rules only on the operator's approval; preserve 
 - **User-scope only:** the CLI documents no project-level permission file, so the profile cannot be narrowed per repository.
 - **Execution scope:** model requests, browser tools, hooks, and MCP servers run outside the terminal sandbox.
 - **Rule matching:** command rules are prefix matches, and path rules do not resolve symlinks.
+- **Workspace hooks:** the `write_file(.agents/hooks.json)` deny stops native edits; whether it also binds a sandboxed shell write inside the workspace is unverified.
+  A hook a command wrote there would run outside the sandbox in the next session, so treat an unexpected `.agents/hooks.json` or `.agents/mcp_config.json` in a repository as untrusted and remove it before starting `agy`.
 - **Plugin location:** CLI 1.3.6 stages a plugin as a full copy of the repository, `tools/` included, at `~/.gemini/config/plugins/<name>/`, not the `~/.gemini/antigravity-cli/plugins/` the upstream docs name. If a later version moves it, the guard path in `hooks.json` stops resolving and the guard silently stops running; [Verify](#verify) catches that.
 - **Validation scope:** a local `agy plugin install` with a guard denial from the staged copy, the guard event and decisions, headless soft-deny, and the macOS sandbox probe were exercised with CLI 1.3.6. Linux, Windows, the App, the IDE, `~` expansion in path rules, and authenticated MCP workflows remain unverified.
 

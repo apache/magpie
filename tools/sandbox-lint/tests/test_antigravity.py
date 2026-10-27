@@ -52,12 +52,27 @@ def test_cli_lints_shipped_profile_directory(capsys: pytest.CaptureFixture[str])
 
 def test_cli_reads_hooks_from_a_separate_file(tmp_path: Path) -> None:
     # The user's live profile keeps hooks in ~/.gemini/config, not beside settings.json.
+    # The install merge writes absolute home paths, which is what a live profile must hold.
     settings = tmp_path / "settings.json"
-    settings.write_text(json.dumps(SETTINGS))
+    settings.write_text(json.dumps(SETTINGS).replace("(~/", f"({Path.home()}/"))
     hooks = tmp_path / "config" / "hooks.json"
     hooks.parent.mkdir()
     hooks.write_text(json.dumps(HOOKS))
     assert main(["--antigravity", str(settings), "--antigravity-hooks", str(hooks)]) == 0
+
+
+def test_a_live_profile_with_tilde_rules_fails(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    # Whether Antigravity expands ~ in path rules is unverified, so a live ~/ deny may enforce nothing.
+    settings = tmp_path / "settings.json"
+    settings.write_text(json.dumps(SETTINGS))
+    (tmp_path / "hooks.json").write_text(json.dumps(HOOKS))
+    assert main(["--antigravity", str(settings)]) == 1
+    assert "read_file(~/.ssh) uses ~/" in capsys.readouterr().err
+
+
+def test_live_check_reports_each_tilde_rule() -> None:
+    errors = check_antigravity_settings(SETTINGS, BASELINE, home="/home/maintainer", live=True)
+    assert any("(/home/maintainer/.ssh)" in e for e in errors)
 
 
 def test_required_rules_follow_the_claude_baseline() -> None:

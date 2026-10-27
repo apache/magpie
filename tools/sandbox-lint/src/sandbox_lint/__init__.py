@@ -1085,8 +1085,12 @@ def _lint_antigravity(profile: Path, hooks_path: Path | None) -> int:
 
     settings_path = profile / "settings.json" if profile.is_dir() else profile
     hooks_path = hooks_path or settings_path.with_name("hooks.json")
-    baseline = _load_json(Path(__file__).resolve().parents[2] / "expected.json")
-    errors = check_antigravity_settings(_load_json(settings_path), baseline)
+    tool_root = Path(__file__).resolve().parents[2]
+    baseline = _load_json(tool_root / "expected.json")
+    # Only the shipped template may keep ~/ rules; an installed profile needs absolute paths.
+    template = tool_root.parent / "agent-isolation" / "antigravity" / "settings.json"
+    live = settings_path.resolve() != template.resolve()
+    errors = check_antigravity_settings(_load_json(settings_path), baseline, live=live)
     errors += check_antigravity_hooks(_load_json(hooks_path))
     if not errors:
         print(

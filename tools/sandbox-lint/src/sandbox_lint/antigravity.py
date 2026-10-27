@@ -96,11 +96,28 @@ def _rules(settings: dict[str, Any], key: str, home: str) -> list[Any]:
 
 
 def check_antigravity_settings(
-    settings: dict[str, Any], baseline: dict[str, Any], home: str | None = None
+    settings: dict[str, Any], baseline: dict[str, Any], home: str | None = None, *, live: bool = False
 ) -> list[str]:
-    """Check the sandbox, approval mode, and rule coverage of ``settings.json``."""
+    """Check the sandbox, approval mode, and rule coverage of ``settings.json``.
+
+    ``live`` marks the user's installed profile rather than the shipped
+    template. Antigravity matches absolute or workspace-relative paths and
+    whether it expands ``~`` is unverified, so a live ``~/`` rule may enforce
+    nothing: it is an error there, and only the absolute form satisfies the
+    required rules.
+    """
     home = home or str(Path.home())
     errors: list[str] = []
+    if live:
+        permissions = settings.get("permissions")
+        for key in ("allow", "ask", "deny"):
+            values = permissions.get(key) if isinstance(permissions, dict) else None
+            for rule in values if isinstance(values, list) else []:
+                if isinstance(rule, str) and "(~/" in rule:
+                    errors.append(
+                        f"settings.json: permissions.{key} rule {rule} uses ~/; write the absolute path "
+                        f"({rule.replace('(~/', f'({home}/')})"
+                    )
     if settings.get("enableTerminalSandbox") is not True:
         errors.append("settings.json: enableTerminalSandbox must be true")
     if settings.get("toolPermission") not in TOOL_PERMISSIONS:

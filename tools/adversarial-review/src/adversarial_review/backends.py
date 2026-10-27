@@ -202,15 +202,35 @@ def _antigravity(ctx: RunContext) -> Invocation:
     return Invocation(argv, stdin=json.dumps(message) + "\n")
 
 
+#: Permission modes a review may run under. agy takes the mode only from
+#: settings. Under request-review and strict, headless agy soft-denies every
+#: shell, write and web tool; proceed-in-sandbox (Magpie's own profile) also
+#: runs sandboxed commands, which reach no network and write only inside the
+#: exported tree under review. always-proceed approves everything.
+ANTIGRAVITY_READ_ONLY_MODES = ("request-review", "strict", "proceed-in-sandbox")
+
+
 def _antigravity_extract(stdout: str, ctx: RunContext) -> str:
     result = None
+    mode = None
     for line in stdout.splitlines():
         try:
             event = json.loads(line)
         except ValueError:
             continue
+        if isinstance(event, dict) and event.get("event") == "init" and isinstance(event.get("init"), dict):
+            mode = event["init"].get("permission_mode")
         if isinstance(event, dict) and event.get("event") == "result":
             result = event.get("result")
+    # The mode comes from the user's settings, not this command line, so a
+    # review run under a mode that auto-approves tools is discarded. The
+    # check is after the fact: say so, so the user inspects the tree.
+    if mode not in ANTIGRAVITY_READ_ONLY_MODES:
+        raise BackendOutputError(
+            f"agy ran with permission mode {mode!r}, not one of {', '.join(ANTIGRAVITY_READ_ONLY_MODES)}: "
+            "its tools were not confined, so the review is discarded; check the reviewed tree and "
+            "set toolPermission in ~/.gemini/antigravity-cli/settings.json"
+        )
     if not isinstance(result, dict):
         raise BackendOutputError("antigravity output has no `result` event")
     status = result.get("status")

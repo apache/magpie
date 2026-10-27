@@ -129,7 +129,8 @@ def test_reviewers_run_in_parallel_and_keep_order(stub_bin, tmp_path):
         waits_for(
             "antigravity",
             "codex",
-            "import json\nprint(json.dumps({'event': 'result', 'result': "
+            "import json\nprint(json.dumps({'event': 'init', 'init': {'permission_mode': 'request-review'}}))\n"
+            "print(json.dumps({'event': 'result', 'result': "
             "{'status': 'SUCCESS', 'response': json.dumps({'findings': []})}}))\n",
         ),
     )
@@ -244,7 +245,7 @@ def test_antigravity_answer_arrives_in_the_result_event(stub_bin, tmp_path):
         "import json, sys\n"
         "msg = json.loads(sys.stdin.readline())['message']['content']\n"
         "finding = {'severity': 'low', 'file': 'app.py', 'line': 1, 'claim': 'got ' + msg, 'evidence': ''}\n"
-        "print(json.dumps({'event': 'init', 'init': {}}))\n"
+        "print(json.dumps({'event': 'init', 'init': {'permission_mode': 'request-review'}}))\n"
         "print(json.dumps({'event': 'result', 'result': {'status': 'SUCCESS', "
         "'response': json.dumps({'findings': [finding]})}}))\n",
     )
