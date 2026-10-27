@@ -677,23 +677,46 @@ class _Lexer:
         text, n = self.text, self.n
         cur = _Command()
         word: list[str] | None = None
+        word_start = 0
+        # whether the last character read was an unquoted, unescaped `>` / `<`
+        redirect = False
         pending: list[tuple[str, bool, bool, _Command]] = []
 
-        def end_word() -> None:
-            nonlocal word
-            if word is not None:
-                cur.tokens.append("".join(word))
-                word = None
+        def add(piece: str) -> None:
+            nonlocal word, word_start
+            if word is None:
+                word, word_start = [], i
+            word.append(piece)
 
-        def end_command() -> None:
+        def flush() -> None:
             nonlocal cur
-            end_word()
             if cur.tokens or cur.bodies:
                 self.commands.append(cur)
                 cur = _Command()
 
+        def end_word() -> None:
+            nonlocal word
+            if word is None:
+                return
+            tok, source = "".join(word), text[word_start:i]
+            word = None
+            if source in ("{", "}"):
+                # a group's brace ends the command before it, as `(` does
+                # (`function f { git push; }`)
+                flush()
+                return
+            if source == "case" and closer is not None and all(t in _RESERVED_WORDS for t in cur.tokens):
+                # a `case` pattern's `)` would close this construct early
+                raise ValueError("`case` inside a substitution or subshell")
+            cur.tokens.append(tok)
+
+        def end_command() -> None:
+            end_word()
+            flush()
+
         while i < n:
             c = text[i]
+            after_redirect, redirect = redirect, False
             if c == ")":
                 end_command()
                 if closer == ")":
@@ -722,39 +745,32 @@ class _Lexer:
                 if i + 1 >= n:
                     raise ValueError("no escaped character")
                 if text[i + 1] != "\n":
-                    word = (word or []) + [text[i + 1]]
+                    add(text[i + 1])
                 i += 2
                 continue
             if c == "'":
                 end = text.find("'", i + 1)
                 if end < 0:
                     raise ValueError("no closing quotation")
-                word = (word or []) + [text[i + 1 : end]]
+                add(text[i + 1 : end])
                 i = end + 1
                 continue
             if text.startswith("$'", i):
-                j, buf = i + 2, []
-                while j < n and text[j] != "'":
-                    if text[j] == "\\" and j + 1 < n:
-                        buf.append(text[j + 1])
-                        j += 2
-                    else:
-                        buf.append(text[j])
-                        j += 1
-                if j >= n:
-                    raise ValueError("no closing quotation")
-                word = (word or []) + buf
-                i = j + 1
+                decoded, end = _ansi_c_string(text, i + 2)
+                add(decoded)
+                i = end
                 continue
             if c == '"' or text.startswith('$"', i):
-                word = word or []
+                add("")
+                assert word is not None
                 i = self._double(i + (2 if c == "$" else 1), word, depth)
                 continue
             if c == "$" or c == "`" or (c in "<>" and text.startswith("(", i + 1)):
                 start = i
-                i = self._expansion(i, depth)
-                if i > start:
-                    word = (word or []) + [text[start:i]]
+                end = self._expansion(i, depth)
+                if end > start:
+                    add(text[start:end])
+                    i = end
                     continue
             if self.heredocs and text.startswith("<<", i) and not text.startswith("<<<", i):
                 end_word()
@@ -773,15 +789,15 @@ class _Lexer:
                 pending.append((delim, strip_tabs, quoted, cur))
                 continue
             if text.startswith("<<<", i):
-                word = (word or []) + ["<<<"]
+                add("<<<")
                 i += 3
                 continue
             if c in ";&|":
-                held = "".join(word) if word is not None else ""
-                if (c == "&" and (held.endswith((">", "<")) or text.startswith(">", i + 1))) or (
-                    c == "|" and held.endswith(">")
+                # `>&` / `<&` / `>|` / `&>` stay inside the redirection word
+                if (c == "&" and (after_redirect or text.startswith(">", i + 1))) or (
+                    c == "|" and after_redirect and text[i - 1] == ">"
                 ):
-                    word = (word or []) + [c]
+                    add(c)
                     i += 1
                     continue
                 end_command()
@@ -791,7 +807,8 @@ class _Lexer:
                 end_command()
                 i = self.parse(i + 1, ")", depth + 1)
                 continue
-            word = (word or []) + [c]
+            add(c)
+            redirect = c in "<>"
             i += 1
         end_command()
         if closer is not None:
@@ -887,6 +904,72 @@ class _Lexer:
                     continue
             i += 1
         self.commands.extend(lexer.commands)
+
+
+# bash's `$'…'` escapes that stand for one fixed character.
+_ANSI_C_SIMPLE = {
+    "a": "\a",
+    "b": "\b",
+    "e": "\x1b",
+    "E": "\x1b",
+    "f": "\f",
+    "n": "\n",
+    "r": "\r",
+    "t": "\t",
+    "v": "\v",
+    "\\": "\\",
+    "'": "'",
+    '"': '"',
+    "?": "?",
+}
+# `\nnn` (octal), `\xHH`, `\uHHHH` and `\UHHHHHHHH`: digits the escape takes.
+_ANSI_C_NUMERIC = {
+    "x": (re.compile(r"[0-9A-Fa-f]{1,2}"), 16),
+    "u": (re.compile(r"[0-9A-Fa-f]{1,4}"), 16),
+    "U": (re.compile(r"[0-9A-Fa-f]{1,8}"), 16),
+}
+_ANSI_C_OCTAL = re.compile(r"[0-7]{1,3}")
+
+
+def _ansi_c_string(text: str, i: int) -> tuple[str, int]:
+    """Decode the ``$'…'`` string whose text starts at ``text[i]`` as bash
+    does; return it and the index after its closing quote. Raises ValueError
+    on ``\\c`` (a control character, which also ends the string's value in
+    some bash versions) and on an unclosed string."""
+    out: list[str] = []
+    n = len(text)
+    while i < n:
+        c = text[i]
+        if c == "'":
+            return "".join(out), i + 1
+        if c != "\\":
+            out.append(c)
+            i += 1
+            continue
+        if i + 1 >= n:
+            break
+        esc = text[i + 1]
+        if esc in _ANSI_C_SIMPLE:
+            out.append(_ANSI_C_SIMPLE[esc])
+            i += 2
+        elif esc in _ANSI_C_NUMERIC:
+            pattern, base = _ANSI_C_NUMERIC[esc]
+            m = pattern.match(text, i + 2)
+            if m is None:
+                out.append("\\" + esc)
+                i += 2
+            else:
+                out.append(chr(int(m.group(), base)))
+                i = m.end()
+        elif m := _ANSI_C_OCTAL.match(text, i + 1):
+            out.append(chr(int(m.group(), 8) & 0xFF))
+            i = m.end()
+        elif esc == "c":
+            raise ValueError("`\\c` in a $'…' string")
+        else:
+            out.append("\\" + esc)
+            i += 2
+    raise ValueError("no closing quotation")
 
 
 def _closing(text: str, i: int, opener: str, closer: str, open_count: int) -> int:

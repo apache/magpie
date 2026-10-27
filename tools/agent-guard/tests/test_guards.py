@@ -522,6 +522,21 @@ _TRAILER_COMMIT = 'git commit -m "x\nCo-Authored-By: a"'
         f"cat <({_TRAILER_COMMIT})",
         f"echo ${{x:-$({_TRAILER_COMMIT})}}",
         f"echo $(( $({_TRAILER_COMMIT}) ))",
+        # A `case` pattern's `)` inside a substitution or subshell.
+        f"echo $(case x in x) echo;; esac; {_TRAILER_COMMIT})",
+        f"(case x in x) true;; esac; {_TRAILER_COMMIT})",
+        f'echo "$(case x in x) echo;; esac; {_TRAILER_COMMIT})"',
+        # A quoted or escaped `>` is no redirection: `&` / `|` still split.
+        f"echo '>'&{_TRAILER_COMMIT}",
+        f"echo \\>|{_TRAILER_COMMIT}",
+        f'echo ">"&{_TRAILER_COMMIT}',
+        # A function body behind `function name`.
+        f"function f {{ {_TRAILER_COMMIT}; }}; f",
+        f"function f() {{ {_TRAILER_COMMIT}; }}; f",
+        # ANSI-C escapes decode as bash decodes them.
+        """$'\\x67it' commit -m "x\nCo-Authored-By: a\"""",
+        """$'\\147it' commit -m "x\nCo-Authored-By: a\"""",
+        """$'\\u0067it' commit -m "x\nCo-Authored-By: a\"""",
         # A heredoc fed to a shell runs its body.
         f"bash <<'EOF'\n{_TRAILER_COMMIT}\nEOF",
         # An unquoted heredoc expands its substitutions.
