@@ -816,6 +816,12 @@ def test_expansion_outside_the_command_name_allows(command):
         f"X=1 2>/dev/null {_TRAILER_COMMIT}",
         f"{{fd}}>log {_TRAILER_COMMIT}",
         f"nohup >log env {_TRAILER_COMMIT}",
+        # A detached target after `>&` / `N>&` / `<&` is the next word.
+        f">& /dev/null {_TRAILER_COMMIT}",
+        f"2>& /dev/null {_TRAILER_COMMIT}",
+        f"<& 0 {_TRAILER_COMMIT}",
+        f"&> /dev/null {_TRAILER_COMMIT}",
+        f">| /dev/null {_TRAILER_COMMIT}",
     ],
 )
 def test_command_after_leading_redirections_is_checked(command):

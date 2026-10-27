@@ -139,7 +139,7 @@ _ASSIGNMENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=.*", re.DOTALL)
 # A redirection word: an optional fd (or `{name}`), the operator, and the
 # target when written attached to it (`>file`, `2>&1`, `&>>log`, `<<<word`).
 _REDIRECTION_RE = re.compile(
-    r"(?:\d+|\{[A-Za-z_][A-Za-z0-9_]*\})?(?:&>>?|>>?\|?|>&|<&|<>|<<<|<)(?P<target>.+)?", re.DOTALL
+    r"(?:\d+|\{[A-Za-z_][A-Za-z0-9_]*\})?(?:&>>?|>&|<&|>>?\|?|<>|<<<|<)(?P<target>[^<>&|].*)?", re.DOTALL
 )
 
 # `env` options (GNU coreutils and BSD): flags without a value, long options
