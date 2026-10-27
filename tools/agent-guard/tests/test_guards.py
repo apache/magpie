@@ -533,6 +533,12 @@ _TRAILER_COMMIT = 'git commit -m "x\nCo-Authored-By: a"'
         # A function body behind `function name`.
         f"function f {{ {_TRAILER_COMMIT}; }}; f",
         f"function f() {{ {_TRAILER_COMMIT}; }}; f",
+        # `time` and `coproc` keep command position for a group.
+        f"time {{ {_TRAILER_COMMIT}; }}",
+        f"time -p {{ {_TRAILER_COMMIT}; }}",
+        f"! time -p -- {{ {_TRAILER_COMMIT}; }}",
+        f"coproc {{ {_TRAILER_COMMIT}; }}",
+        f"coproc c {{ {_TRAILER_COMMIT}; }}",
         # ANSI-C escapes decode as bash decodes them.
         """$'\\x67it' commit -m "x\nCo-Authored-By: a\"""",
         """$'\\147it' commit -m "x\nCo-Authored-By: a\"""",

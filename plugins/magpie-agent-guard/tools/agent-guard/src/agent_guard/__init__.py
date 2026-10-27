@@ -936,12 +936,26 @@ _ANSI_C_OCTAL = re.compile(r"[0-7]{1,3}")
 def _group_opens(tokens: list[str]) -> bool:
     """Whether a ``{`` read after ``tokens`` opens a group: in command position
     (only reserved words before it), or as a function's body after
-    ``function name`` (``name()`` already ended its command at the ``(``)."""
-    if all(tok in _RESERVED_WORDS for tok in tokens):
-        return True
-    return (
-        len(tokens) >= 2 and tokens[-2] == "function" and all(tok in _RESERVED_WORDS for tok in tokens[:-2])
-    )
+    ``function name`` (``name()`` already ended its command at the ``(``).
+    ``time`` (with ``-p`` / ``--``) and ``coproc`` (with an optional name) keep
+    command position, as in ``time -p { git push; }`` and ``coproc c { … }``."""
+    i, n = 0, len(tokens)
+    while i < n:
+        tok = tokens[i]
+        if tok == "function":
+            return i == n - 2
+        if tok == "time":
+            i += 1
+            while i < n and tokens[i] in ("-p", "--"):
+                i += 1
+        elif tok == "coproc":
+            # `coproc NAME { … }`: the name is the only word before the group
+            return n - (i + 1) <= 1
+        elif tok in _RESERVED_WORDS:
+            i += 1
+        else:
+            return False
+    return True
 
 
 def _ansi_c_string(text: str, i: int) -> tuple[str, int]:

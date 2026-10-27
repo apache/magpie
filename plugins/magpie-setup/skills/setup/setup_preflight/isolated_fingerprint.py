@@ -21,4 +21,4 @@ The isolated-setup fingerprint of the framework this package shipped with,
 for installs that do not carry the framework source (see `isolated.py`).
 """
 
-FRAMEWORK_FINGERPRINT = "sha256:f8f27cb5df1fb20b"
+FRAMEWORK_FINGERPRINT = "sha256:ea20bf7f9ba9efb5"
