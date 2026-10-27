@@ -230,7 +230,8 @@ See `docs/adapters/goose.md`.
   as a command line of its own, one level deep; a nested `-c` string
   naming `git` or `gh` is refused, as is a line whose quoting cannot be
   parsed when it names `git` or `gh` (after removing quotes and
-  backslashes, so `g'i't` counts); a heredoc body is not read as
+  backslashes, so `g'i't` counts) or holds `$`, a backtick or a
+  backslash-newline; a heredoc body is not read as
   shell syntax unless it names `git` / `gh` and is fed to anything but
   a bare `cat` / `tee` starting its own command, in a command that
   without its heredoc bodies has no `$`, backtick, parenthesis, brace,
