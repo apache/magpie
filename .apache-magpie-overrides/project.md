@@ -88,7 +88,7 @@ produces.
 | `upstream_agents_md_url` | `https://github.com/apache/magpie/blob/main/AGENTS.md` (derived) | Conventions this repo mirrors |
 | `upstream_contributing_docs_url` | `https://github.com/apache/magpie/blob/main/CONTRIBUTING.md` (derived: file exists) | |
 | `upstream_genai_disclosure_anchor` | `https://github.com/apache/magpie/blob/main/docs/ai-contribution-policy.md` | |
-| `upstream_security_policy_url` | `https://www.apache.org/security/` (ASF default; the repo ships no `SECURITY.md`) | |
+| `upstream_security_policy_url` | [`SECURITY.md`](../SECURITY.md) — reports go to `security@apache.org` under the ASF process (`https://www.apache.org/security/`); the threat model is [`docs/security/threat-model.md`](../docs/security/threat-model.md) | |
 
 ## Mailing lists
 

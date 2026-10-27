@@ -33,6 +33,7 @@
     - [When the rule fires](#when-the-rule-fires)
   - [Before submitting](#before-submitting)
   - [References](#references)
+  - [Security](#security)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -1228,3 +1229,10 @@ model responds.
 - [`tools/gmail/`](tools/gmail/) — Gmail tool adapter: `tool.md` (overview), `operations.md` (MCP catalogue + no-update limitation), `threading.md` (prefer-`threadId`-else-subject-fallback rule), `asf-relay.md` (ASF-security-relay drafting), `search-queries.md` (query templates), `ponymail-archive.md` (ASF PonyMail URL construction).
 - [`tools/cve-tool-vulnogram/`](tools/cve-tool-vulnogram/) — Vulnogram (ASF CVE tool) adapter: `tool.md` (overview), `allocation.md` (PMC-gated allocation flow), `record.md` (record URLs + `#source` paste + `DRAFT`/`REVIEW`/`PUBLIC` state machine + reviewer-comment signal), `generate-cve-json/` (CVE-5.x JSON generator — Python project).
 - [`tools/cve-org/`](tools/cve-org/) — public CVE registry adapter: `tool.md` covers the MITRE CVE Services API v2 `check-published` recipe, used by `security-issue-sync` to verify that a closed tracker's CVE has propagated from the CNA tool to cve.org before sending the reporter the final *"CVE is live"* email.
+
+## Security
+
+Security model: [SECURITY.md](./SECURITY.md)
+
+Agents that scan this repository should consult `SECURITY.md` and the
+threat model it links before reporting issues.
