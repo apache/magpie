@@ -773,6 +773,11 @@ def test_quoted_heredoc_body_substitution_is_data():
         "/usr/bin/gi<-> push --force",
         "/usr/bin/g^x push --force",
         "/usr/bin/git~x push --force",
+        # The `uv` rule is keyed on the basename, which does not make the
+        # head literal: the shell splits `${CMD}` into words.
+        'CMD="git push --force"; ${CMD}/uv',
+        "${CMD}/uvx",
+        "$(echo git)/uv",
     ],
 )
 def test_expanded_command_name_is_refused(command):
@@ -827,6 +832,50 @@ def test_expansion_outside_the_command_name_allows(command):
 def test_command_after_leading_redirections_is_checked(command):
     reason = dispatch(command)
     assert reason and "Co-Authored-By" in reason
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        # bash removes a redirection wherever it stands, so one between a
+        # wrapper's options is not the command.
+        f"env 2>/dev/null -i {_TRAILER_COMMIT}",
+        f"env -i 2>/dev/null -0 {_TRAILER_COMMIT}",
+        f"command -p 2>/dev/null -- {_TRAILER_COMMIT}",
+        f"exec -c 2>/dev/null -a name {_TRAILER_COMMIT}",
+        f"time -p 2>/dev/null {_TRAILER_COMMIT}",
+        f"nohup 2>/dev/null -- {_TRAILER_COMMIT}",
+    ],
+)
+def test_redirections_between_wrapper_options_are_skipped(command):
+    reason = dispatch(command)
+    assert reason and "Co-Authored-By" in reason
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        # Where an option takes a value, a redirection-shaped word is either a
+        # redirection before the value or, quoted, the value itself; tokens
+        # cannot tell which, and reading the wrong one shifts the command.
+        "env -u 2>/dev/null NAME git push --force",
+        "env -u '>x' git push --force",
+        "env --unset > /dev/null NAME git push --force",
+        "env -C 2>/dev/null /tmp git push --force",
+        "exec -a 2>/dev/null name git push --force",
+        "exec -a '>' x git push --force",
+        "time -o 2>/dev/null out.txt git push --force",
+        "time --output '>x' git push --force",
+    ],
+)
+def test_a_redirection_shaped_option_value_is_refused(command):
+    reason = dispatch(command)
+    assert reason and "agent-guard[wrapper]" in reason
+
+
+def test_a_quoted_redirection_shaped_value_does_not_hide_the_command():
+    """`env -u '>x' git …` unsets `>x` and runs git: never read `git` as the value."""
+    assert dispatch("env -u '>x' git status") is not None
 
 
 def test_wrappers_and_redirections_past_the_limit_are_refused():

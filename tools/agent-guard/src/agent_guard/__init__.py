@@ -199,10 +199,36 @@ def _truthy(val: str | None) -> bool:
     return val not in (None, "", "0", "false", "False")
 
 
+def _drop_redirections(args: list[str]) -> list[str]:
+    """Remove the redirection words at the front of ``args``, in place.
+
+    Bash takes a redirection out of a simple command wherever it stands, so a
+    wrapper's options can have one between them (`env 2>/dev/null -i git …`).
+    Each wrapper parser calls this before it reads an option, so it sees the
+    words bash passes on. Where an option is expected this is safe even for a
+    quoted word that only looks like a redirection (`env '>x' git …`, which
+    runs `>x`): dropping it makes the guards read further, never less.
+    """
+    while args and (m := _REDIRECTION_RE.fullmatch(args[0])):
+        del args[: 1 if m.group("target") else 2]
+    return args
+
+
+def _plain_value(args: list[str]) -> bool:
+    """Whether ``args`` starts with a word an option can take as its value.
+
+    Tokens carry no quoting, so a redirection-shaped word here is ambiguous:
+    `env -u 2>/dev/null NAME git …` puts a redirection before the value, while
+    `env -u '>x' git …` makes `>x` the value. Reading the wrong one shifts the
+    command by a word, so the wrapper counts as unparsed and is refused.
+    """
+    return bool(args) and not _REDIRECTION_RE.fullmatch(args[0])
+
+
 def _exec_inner(args: list[str]) -> list[str] | None:
     """The command ``exec`` runs; None on an option bash / zsh ``exec`` lacks."""
     args = list(args)
-    while args and args[0].startswith("-") and args[0] != "-":
+    while _drop_redirections(args) and args[0].startswith("-") and args[0] != "-":
         tok = args.pop(0)
         if tok == "--":
             break
@@ -212,7 +238,7 @@ def _exec_inner(args: list[str]) -> list[str] | None:
                 continue
             if ch == "a":
                 if not letters[pos + 1 :]:
-                    if not args:
+                    if not _plain_value(args):
                         return None
                     args.pop(0)
                 break
@@ -222,6 +248,7 @@ def _exec_inner(args: list[str]) -> list[str] | None:
 
 def _nohup_inner(args: list[str]) -> list[str] | None:
     """The command ``nohup`` runs; ``[]`` for ``--help`` / ``--version``."""
+    args = _drop_redirections(list(args))
     if args[:1] == ["--"]:
         return args[1:]
     if args[:1] in (["--help"], ["--version"]):
@@ -235,7 +262,7 @@ def _time_inner(args: list[str]) -> list[str] | None:
     """The command ``time`` runs; None on an option neither the shell keyword
     nor GNU / BSD ``time`` documents."""
     args = list(args)
-    while args and args[0].startswith("-") and args[0] != "-":
+    while _drop_redirections(args) and args[0].startswith("-") and args[0] != "-":
         tok = args.pop(0)
         if tok == "--":
             break
@@ -245,7 +272,7 @@ def _time_inner(args: list[str]) -> list[str] | None:
                 continue
             if name in _TIME_LONG_VALUE:
                 if not eq:
-                    if not args:
+                    if not _plain_value(args):
                         return None
                     args.pop(0)
                 continue
@@ -256,7 +283,7 @@ def _time_inner(args: list[str]) -> list[str] | None:
                 continue
             if ch in _TIME_VALUE_FLAGS:
                 if not letters[pos + 1 :]:
-                    if not args:
+                    if not _plain_value(args):
                         return None
                     args.pop(0)
                 break
@@ -356,7 +383,7 @@ class Segment:
                 argv = inner
             elif head == "command":
                 rest = argv[1:]
-                while rest and rest[0].startswith("-") and rest[0] != "-":
+                while _drop_redirections(rest) and rest[0].startswith("-") and rest[0] != "-":
                     flag = rest.pop(0)
                     if flag == "--":
                         break
@@ -389,7 +416,7 @@ class Segment:
         """The command ``env`` runs, after its options and assignments; None
         when an option is not one GNU / BSD ``env`` documents, or is ``-S``."""
         args = list(args)
-        while args:
+        while _drop_redirections(args):
             tok = args[0]
             if tok == "--":
                 args.pop(0)
@@ -402,7 +429,7 @@ class Segment:
                 if name in ("unset", "chdir"):
                     args.pop(0)
                     if not eq:
-                        if not args:
+                        if not _plain_value(args):
                             return None
                         args.pop(0)
                     continue
@@ -415,7 +442,7 @@ class Segment:
                         continue
                     if ch in "uC":
                         if not letters[pos + 1 :]:
-                            if not args:
+                            if not _plain_value(args):
                                 return None
                             args.pop(0)
                         break
@@ -2728,18 +2755,15 @@ def dispatch(command: str, cwd: str | None = None, harness: str | None = None) -
                 "so they cannot see what it runs. Run the command without the wrapper "
                 "(inline `NAME=value` assignments work on their own)."
             )
-        if seg.argv and seg.argv[0] in ("uv", "uvx"):
-            # Checked here rather than as a guarded head: a vetted launch is the
-            # only `uv` rule, and contributed guards stay on `gh` / `git`.
-            reason = guard_vetted_ops_spelling(seg, cwd, harness)
-            if reason:
-                return reason
-            continue
         if seg.argv and seg.argv[0] in EXCLUDED_SCRIPTS:
+            # Its spelling rule accepts only the literal stable path, so an
+            # expanded head is refused there, with the spelling to use.
             reason = guard_excluded_script_spelling(seg)
             if reason:
                 return reason
             continue
+        # Before the `uv` rule, which is keyed on the basename: `${CMD}/uv` has
+        # the basename `uv`, yet the shell splits `$CMD` into words and may run `git`.
         if (
             seg.head
             and not _LITERAL_HEAD_RE.fullmatch(seg.head)
@@ -2751,6 +2775,13 @@ def dispatch(command: str, cwd: str | None = None, harness: str | None = None) -
                 f"(`{seg.head}`), so the guards cannot see which command runs. "
                 "Spell the command name out."
             )
+        if seg.argv and seg.argv[0] in ("uv", "uvx"):
+            # Checked here rather than as a guarded head: a vetted launch is the
+            # only `uv` rule, and contributed guards stay on `gh` / `git`.
+            reason = guard_vetted_ops_spelling(seg, cwd, harness)
+            if reason:
+                return reason
+            continue
         if not seg.argv or seg.argv[0] not in GUARDED_HEADS:
             continue  # fast path — non-guarded command family
         # Bundled guards (trusted, in-process; each self-filters its command).

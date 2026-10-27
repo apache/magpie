@@ -181,9 +181,17 @@ A command that does parse is refused (`agent-guard[expansion]`) for the same
 reason when its name is anything but literal: letters, digits and `_ . / + : @ % , -`,
 with an optional leading `~/` (`[` and `[[` aside). That covers `$CMD push`,
 `"$GIT" push`, `/usr/bin/gi? push`, and zsh's `=git push` and `g(i)t` globs.
+That check runs before the `uv` rule, which is keyed on the basename:
+`${CMD}/uv` has the basename `uv`, yet the shell splits `$CMD` into words.
 Redirections written before the command name (`>/dev/null git …`, `2>&1 git …`,
 `exec 3>&1`) are skipped, as leading `NAME=value` assignments are, so the
 command after them is the one checked.
+So are redirections between a wrapper's options (`env 2>/dev/null -i git …`),
+since bash drops a redirection wherever it stands.
+Where an option takes a value (`env -u`, `exec -a`, `time -o`), a word that
+looks like a redirection may be the value itself (`env -u '>x' git …`),
+and the tokens carry no quoting to tell, so such a wrapper is refused
+(`agent-guard[wrapper]`).
 A heredoc's body is data, not shell syntax: an apostrophe in it does not make
 the line unparsable. That holds for a body naming `git` or `gh` only when it is
 fed to a bare `cat`, `/bin/cat`, `/usr/bin/cat` or `tee` (plain file arguments
