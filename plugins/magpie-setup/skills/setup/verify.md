@@ -218,10 +218,17 @@ Compare:
 - For `git-branch`: also compare upstream tip (the actual
   current `HEAD` of the branch on the remote) against
   `<local-lock>.fetched_commit`.
+- For `git-tag`: also compare `<committed-lock>.commit` against
+  `<local-lock>.fetched_commit`, and against the commit the tag
+  resolves to upstream now
+  (`git ls-remote <url> "refs/tags/<ref>^{}" "refs/tags/<ref>"`;
+  the peeled `^{}` line wins for an annotated tag).
 
 | Result | Severity |
 |---|---|
 | All match (and for `git-branch`, local is at upstream tip) | ✓ |
+| `git-tag` upstream tag resolves to a commit other than `<committed-lock>.commit` | ✗ — the tag moved, a supply-chain signal; name both commits and stop. Do **not** suggest `setup upgrade` as the fix: it refuses a moved tag. The project re-pins only deliberately, after reviewing the new commit |
+| `git-tag` `<local-lock>.fetched_commit` differs from `<committed-lock>.commit` | ✗ — this machine runs a commit the project did not pin; investigate before running skills; remediation once the upstream tag is confirmed unmoved: `setup upgrade` |
 | Method or URL differ | ✗ — full re-install needed; remediation: `setup upgrade` |
 | Ref differs (e.g. project bumped tag, or `git-branch` local is behind upstream) | ⚠ — sync needed; remediation: `setup upgrade` |
 | `svn-zip` SHA-512 differs from the verification anchor in `<committed-lock>` | ✗ — security-flagged; the released zip changed content; investigate before upgrading |

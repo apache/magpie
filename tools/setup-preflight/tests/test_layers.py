@@ -26,6 +26,7 @@ magpie-setup status).  Change them together.
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -392,36 +393,128 @@ def _documented_pythonpath() -> str:
     return match.group(1)
 
 
-@pytest.mark.skipif(not PREFLIGHT_BLOCK.is_file(), reason="needs the framework tree")
-@pytest.mark.parametrize("vcs", ["git", "svn", "none"])
-def test_the_block_pythonpath_finds_the_checker_in_every_personal_home(tmp_path: Path, vcs: str) -> None:
-    """Install the checker where `config` would, then resolve it exactly as the block does."""
-    import os
-    import shutil
-    import subprocess
+def _block_command() -> str:
+    """The block's command line, `PYTHONPATH=… \\` joined with the `python3 …` line."""
+    text = PREFLIGHT_BLOCK.read_text(encoding="utf-8")
+    lines = text.splitlines()
+    for index, line in enumerate(lines):
+        if line.startswith('PYTHONPATH="'):
+            return line.rstrip("\\").rstrip() + " " + lines[index + 1].strip()
+    raise AssertionError("the pre-flight block names no PYTHONPATH")
 
+
+def _project(tmp_path: Path, vcs: str) -> Path:
     root = tmp_path / "project"
-    root.mkdir()
+    root.mkdir(parents=True)
     if vcs == "git":
         subprocess.run(["git", "init", "-q", str(root)], check=True, capture_output=True)
     elif vcs == "svn":
         _svn_working_copy(root)
-    package = Path(layers.__file__).resolve().parent
-    shutil.copytree(package, layers.personal_dir(root) / "setup_preflight")
+    return root
+
+
+def _plant(directory: Path, marker: Path) -> None:
+    """A `setup_preflight` package that records it was imported."""
+    planted = directory / "setup_preflight"
+    planted.mkdir(parents=True)
+    code = f"open({str(marker)!r}, 'a').write({str(directory)!r} + '\\n')\n"
+    (planted / "__init__.py").write_text(code, encoding="utf-8")
+    (planted / "__main__.py").write_text(code + "print('PLANTED')\n", encoding="utf-8")
+
+
+def _run_block(root: Path, tmp_path: Path, module: str) -> subprocess.CompletedProcess[str]:
+    """Run the block's own command, with `-m setup_preflight` swapped for `module`."""
+    import os
+
     env = {
         "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
         "HOME": str(tmp_path),
         # Never let `git` find a repository above the test project.
         "GIT_CEILING_DIRECTORIES": str(tmp_path),
     }
-    script = (
-        f'PYTHONPATH="{_documented_pythonpath()}" python3 -P -c '
-        "'import pathlib, setup_preflight; print(pathlib.Path(setup_preflight.__file__).parent)'"
-    )
-    done = subprocess.run(
+    command = _block_command()
+    head = command.split(" --skill", 1)[0]
+    assert head.endswith("python3 -P -m setup_preflight"), head
+    script = head.removesuffix("setup_preflight") + module
+    return subprocess.run(
         ["sh", "-c", script], cwd=root, env=env, capture_output=True, text=True, check=False
     )
+
+
+@pytest.mark.skipif(not PREFLIGHT_BLOCK.is_file(), reason="needs the framework tree")
+def test_the_block_runs_the_checker_with_dash_p() -> None:
+    """`python3 -m` alone would put the opened project ahead of PYTHONPATH."""
+    assert " -P -m setup_preflight " in _block_command()
+
+
+@pytest.mark.skipif(not PREFLIGHT_BLOCK.is_file(), reason="needs the framework tree")
+def test_the_block_pythonpath_names_no_in_tree_directory() -> None:
+    pythonpath = _documented_pythonpath()
+    assert ".apache-magpie-local" not in pythonpath
+    assert ":" not in pythonpath, "one directory, the checker_dir"
+
+
+@pytest.mark.skipif(not PREFLIGHT_BLOCK.is_file(), reason="needs the framework tree")
+@pytest.mark.parametrize("vcs", ["git", "svn"])
+@pytest.mark.parametrize("adopted", [False, True])
+def test_the_block_finds_the_checker_in_its_checker_dir(tmp_path: Path, vcs: str, adopted: bool) -> None:
+    """Install the checker where `config` would, then resolve it exactly as the block does."""
+    import shutil
+
+    root = _project(tmp_path, vcs)
+    if adopted:
+        (root / layers.LOCK_NAME).write_text("method: marketplace\n", encoding="utf-8")
+    home = layers.checker_home(root)
+    assert home is not None
+    package = Path(layers.__file__).resolve().parent
+    shutil.copytree(package, home / "setup_preflight")
+    done = _run_block(root, tmp_path, "setup_preflight.layers")
     assert done.returncode == 0, done.stderr
     assert done.stderr == ""
-    found = Path(done.stdout.strip()).resolve()
-    assert found == (layers.personal_dir(root) / "setup_preflight").resolve()
+    described = json.loads(done.stdout)
+    assert Path(described["checker_dir"]).resolve() == home.resolve()
+
+
+@pytest.mark.skipif(not PREFLIGHT_BLOCK.is_file(), reason="needs the framework tree")
+@pytest.mark.parametrize("vcs", ["git", "svn", "none"])
+@pytest.mark.parametrize("adopted", [False, True])
+def test_a_committable_setup_preflight_is_never_imported(tmp_path: Path, vcs: str, adopted: bool) -> None:
+    """Pre-flight imports the checker only from paths a repository cannot commit.
+
+    The working-tree root, `.apache-magpie-local/` (adopted or legacy) and a
+    `.svn/` a git repository carries are all
+    committable, so none of them is ever imported, whatever else is there.
+    """
+    root = _project(tmp_path, vcs)
+    if adopted:
+        (root / layers.LOCK_NAME).write_text("method: marketplace\n", encoding="utf-8")
+    marker = tmp_path / "planted-ran"
+    _plant(root, marker)
+    _plant(root / layers.LOCAL_DIR, marker)
+    if vcs == "git":
+        # A git repository can commit a `.svn/` directory.
+        _plant(root / ".svn" / layers.GIT_HOME_NAME, marker)
+    done = _run_block(root, tmp_path, "setup_preflight")
+    assert not marker.exists(), marker.read_text(encoding="utf-8")
+    assert "PLANTED" not in done.stdout
+    assert done.returncode != 0, "no checker is installed, so the block must not succeed"
+
+
+def test_checker_home_is_inside_the_vcs_directory(tmp_path: Path) -> None:
+    def home(root: Path) -> Path:
+        found = layers.checker_home(root)
+        assert found is not None
+        return found.resolve()
+
+    git_root = _project(tmp_path / "g", "git")
+    assert home(git_root) == (git_root / ".git" / "apache-magpie").resolve()
+    (git_root / layers.LOCK_NAME).write_text("method: marketplace\n", encoding="utf-8")
+    assert home(git_root) == (git_root / ".git" / "apache-magpie").resolve()
+    svn_root = _project(tmp_path / "s", "svn")
+    assert home(svn_root) == (svn_root / ".svn" / "apache-magpie").resolve()
+
+
+def test_no_version_control_has_no_checker_home(tmp_path: Path) -> None:
+    root = _project(tmp_path, "none")
+    assert layers.checker_home(root) is None
+    assert layers.describe(root)["checker_dir"] is None

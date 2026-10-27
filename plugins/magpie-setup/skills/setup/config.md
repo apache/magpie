@@ -82,8 +82,8 @@ When entered this way:
    it — the same `PYTHONPATH` as every skill's pre-flight:
 
    ```bash
-   PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/../.apache-magpie-local:$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/apache-magpie:.svn/apache-magpie" \
-     python3 -m setup_preflight.layers
+   PYTHONPATH="$(git rev-parse --git-common-dir 2>/dev/null || { test -e .git || echo .svn; })/apache-magpie" \
+     python3 -P -m setup_preflight.layers
    ```
 
    and write to its `personal_dir`. Before the first install, derive it
@@ -97,6 +97,12 @@ When entered this way:
    **Say which it is**, and on a worktree that falls back say that the
    values are written to the main checkout's directory and so are shared
    with every worktree that has none of its own.
+
+   The same output's `checker_dir` is where Step 2a installs the checker.
+   It is not the personal layer: it is
+   `$(git rev-parse --path-format=absolute --git-common-dir)/apache-magpie/`
+   in git and `<repo-root>/.svn/apache-magpie/` in a Subversion working
+   copy, adopted or not, and there is none with no version control.
 4. **Which skills.** Resolve `<skills>` to the set whose configuration
    is in scope.
 
@@ -146,7 +152,7 @@ Say which case applied.
 ## Step 2a — Install the pre-flight checker
 
 Copy the framework's `setup_preflight/` package into a
-`setup_preflight/` directory in the personal layer, replacing any copy already
+`setup_preflight/` directory in the `checker_dir` from Step 0, replacing any copy already
 there. The package lives in this skill's own directory, `setup_preflight/`
 next to this file, so every install method has it: on a marketplace
 install that is inside the installed `magpie-setup` plugin, and on a
@@ -154,25 +160,34 @@ snapshot install `<snapshot-dir>/tools/setup-preflight/src/setup_preflight/`
 reaches the same files.
 
 This is what every skill's pre-flight actually runs — the path finds the
-copy in this checkout's `.apache-magpie-local/`, the main checkout's,
-the git directory's `apache-magpie/`, or a Subversion working copy's
-`.svn/apache-magpie/`:
+copy in the git directory's `apache-magpie/`, or a Subversion working
+copy's `.svn/apache-magpie/`:
 
 ```bash
-PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/../.apache-magpie-local:$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/apache-magpie:.svn/apache-magpie" \
-  python3 -m setup_preflight --skill … --hash …
+PYTHONPATH="$(git rev-parse --git-common-dir 2>/dev/null || { test -e .git || echo .svn; })/apache-magpie" \
+  python3 -P -m setup_preflight --skill … --hash …
 ```
+
+Pre-flight imports the checker only from paths a repository cannot
+commit. Never install it anywhere in the working tree, not even in a
+gitignored `.apache-magpie-local/`: a repository can commit that
+directory too, and `-P` keeps the working tree off the import path so
+that opening a repository is never enough to run code it carries. With
+no version control there is no `checker_dir`: skip this step and say
+that skills resolve their configuration without the checker there.
+An older copy in the personal layer's `.apache-magpie-local/setup_preflight/`
+is no longer imported; remove it once the new one answers.
 
 It has to be copied rather than referenced. Under the sandbox the
 framework recommends, `~/.claude/plugins/cache/` is read-denied, so a
 module left in the plugin can be read by the agent's file tool but never
 *executed* by a shell — and a sandboxed marketplace install is exactly
-the case the check exists for. The personal layer is gitignored or inside
-the git directory (Step 2), so nothing here reaches another clone.
+the case the check exists for. The `checker_dir` is inside the VCS's own
+directory, so nothing here reaches another clone.
 
 **Name it when you report.** This sub-action may run unattended from a
 skill's pre-flight, and its licence to do so rests on touching only
-the personal layer. Copying an executable is still within that promise —
+the personal layer and the `checker_dir`. Copying an executable is still within that promise —
 it is framework code of the same provenance as the plugin already
 installed, and it goes away with the directory — but it is a step beyond
 writing configuration files, so it is said out loud rather than done
@@ -182,8 +197,8 @@ Verify the copy answers before moving on; a checker that does not run
 makes every skill fall back to *step-0* of its `preflight-detail.md`:
 
 ```bash
-PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/../.apache-magpie-local:$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/apache-magpie:.svn/apache-magpie" \
-  python3 -m setup_preflight --skill magpie-setup --no-welcome
+PYTHONPATH="$(git rev-parse --git-common-dir 2>/dev/null || { test -e .git || echo .svn; })/apache-magpie" \
+  python3 -P -m setup_preflight --skill magpie-setup --no-welcome
 ```
 
 ## Step 3 — Scaffold and fill

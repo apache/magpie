@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:1f327e069312dad2
 license: Apache-2.0
-measured_tokens: 7042
+measured_tokens: 7016
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -271,7 +271,7 @@ Every skill's pre-flight proposes this one when the isolated setup is used on th
   Set `isolated_setup_update_interval_days` in `project.md` in the personal layer or in `.apache-magpie-overrides/project.md` (project-wide); `0` turns the timer off and keeps the change report.
 
 "Used on this machine" means this skill or `setup-isolated-setup-install` has recorded a run here, or the project's `.claude/settings*.json` enables the sandbox.
-To silence both reasons, set `"isolated_setup": {"enabled": false}` in the personal layer's `reconciled.json` (the `personal_dir` that `python3 -m setup_preflight.layers` prints).
+To silence both reasons, set `"isolated_setup": {"enabled": false}` in the personal layer's `reconciled.json` (the `personal_dir` that `python3 -P -m setup_preflight.layers` prints).
 The proposal never runs this skill by itself.
 To run it on demand, invoke it directly: `/magpie-setup:isolated-setup-update` on a marketplace install, `/magpie-setup-isolated-setup-update` on a pinned snapshot.
 
@@ -280,8 +280,8 @@ To run it on demand, invoke it directly: `/magpie-setup:isolated-setup-update` o
 At the end of every completed run, whatever it found, record it:
 
 ```bash
-PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/../.apache-magpie-local:$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/apache-magpie:.svn/apache-magpie" \
-  python3 -m setup_preflight.isolated record-update
+PYTHONPATH="$(git rev-parse --git-common-dir 2>/dev/null || { test -e .git || echo .svn; })/apache-magpie" \
+  python3 -P -m setup_preflight.isolated record-update
 ```
 
 This writes the current fingerprint and today's date into the `isolated_setup` block of the personal layer's `reconciled.json`, which resets both pre-flight reasons.

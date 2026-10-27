@@ -72,7 +72,7 @@ acceptance:
     no fallback, since its git-directory home is already shared.
   - `config` writes only the personal layer: on an unadopted repository
     `<git-common-dir>/apache-magpie/` (located with
-    `python3 -m setup_preflight.layers`), with the pre-flight checker
+    `python3 -P -m setup_preflight.layers`), with the pre-flight checker
     copied there, nothing in the working tree and no `.git/info/exclude`
     line; on an adopted one `.apache-magpie-local/` (the main checkout's,
     from a linked worktree that has none). Only `adopt` creates
@@ -82,14 +82,18 @@ acceptance:
     into `.apache-magpie-local/`. `worktree-init` copies or links no
     personal config: the fallback covers it.
   - Every skill's pre-flight runs the checker with
-    `PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/../.apache-magpie-local:$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/apache-magpie:.svn/apache-magpie"`,
-    so the copy is found in this checkout's `.apache-magpie-local/`, the
-    main checkout's, the git-directory home, or a Subversion working
-    copy's `.svn/apache-magpie/` (#1829); outside git the substitution
-    falls back to `.git`, yielding paths that do not exist, so the command
-    never errors. `tools/setup-preflight/tests/test_layers.py` runs the
-    block's path in a git repository, a Subversion working copy and a
-    directory with no version control. The project-verdict
+    `PYTHONPATH="$(git rev-parse --git-common-dir 2>/dev/null || { test -e .git || echo .svn; })/apache-magpie"`
+    and `python3 -P`, so the copy is found only in the git-directory home
+    or a Subversion working copy's `.svn/apache-magpie/` — its
+    `checker_dir` (`layers.checker_home`), adopted or not. Pre-flight
+    imports the checker only from paths a repository cannot commit: `-P`
+    keeps the working tree off `sys.path`, and no in-tree directory
+    (`.apache-magpie-local/`, adopted or legacy) is on `PYTHONPATH`. With
+    no version control there is no checker and skills resolve their
+    `requires_config:` by hand. `tools/setup-preflight/tests/test_layers.py`
+    runs the block's command in a git repository, a Subversion working
+    copy and a directory with no version control, and checks that a
+    planted `setup_preflight/` in the working tree is never imported. The project-verdict
     cache is keyed on the checkout, since worktrees may share one
     personal layer.
   - An unadopted repository that still has an in-tree
@@ -245,7 +249,7 @@ committed version with drift detection.
   framework PR), `setup-shared-config-sync`.
 - Skill: `setup-welcome-guide` (`/magpie-setup:welcome-guide [<family>]`) —
   shows a welcome guide from `setup_preflight/guides/` verbatim through
-  `python3 -m setup_preflight.welcome show`, lists the guides that ship for
+  `python3 -P -m setup_preflight.welcome show`, lists the guides that ship for
   an unknown name, and runs `welcome enable` only when asked to bring a
   guide back. The `setup welcome` sub-action is an alias for it.
 - Skill: `setup-status` — renders a Markdown adoption dashboard: install
@@ -352,6 +356,10 @@ committed version with drift detection.
   `.apache-magpie.local.lock`'s `source_ref` / `fetched_commit`; on
   `svn-zip` it compares `ref` with `source_ref`; a missing, empty or
   malformed lock of either kind is reported as drift.
+  `upgrade`, `verify` and a re-install also resolve a `git-tag` pin
+  upstream and compare it with the committed `commit` anchor: a moved
+  tag stops them with both commits named, as `skill-sources` does for a
+  trusted source; only a deliberate `bump-committed` re-pins.
   `method: local` is adopted with no drift (#1614), and a repo with no lock
   shows nothing.
   Any error is a silent no-op; the `check-upgrade.sh` command hook stays
@@ -723,8 +731,9 @@ committed version with drift detection.
     a finding naming a section that does not ship is an error rather
     than a rule-less instruction to act. Criteria 9, 10, 16, 17 and 18
     are enforced by its tests.
-26. The checker is **copied into the personal layer**
-    (`<git-common-dir>/apache-magpie/` unless adopted) by `/magpie-setup:setup config` and refreshed
+26. The checker is **copied into its `checker_dir`**
+    (`<git-common-dir>/apache-magpie/`, or `.svn/apache-magpie/`, adopted
+    or not — never the working tree) by `/magpie-setup:setup config` and refreshed
     there by `/magpie-setup:setup upgrade`, because Bash can neither read nor
     execute the plugin cache under the framework's own recommended
     sandbox. The copy's source is the package inside the installed
@@ -732,8 +741,9 @@ committed version with drift detection.
     `<snapshot-dir>/tools/setup-preflight/src/setup_preflight/` (the same
     files, through the mirror link) on a snapshot install. `config` states that it installed an executable, since it may
     run unattended from a skill's pre-flight. `upgrade` skips the refresh
-    when the directory does not exist rather than creating it, because its
-    absence is what marks a project as never configured.
+    when no copy exists rather than creating one, because its
+    absence is what marks a project as never configured; it moves a copy
+    an earlier version left in an adopted project's `.apache-magpie-local/`.
     The refresh copies files from the `setup_preflight/` package beside the
     skill, never the `tools/setup-preflight/src` link (a plain `cp -R` of it
     leaves a dangling link), checks the new copy in a temporary directory with
@@ -756,7 +766,7 @@ committed version with drift detection.
     fingerprint is computed from the framework source when the checkout
     carries it and otherwise read from a constant generated into the
     checker, kept current by the `isolated-setup-fingerprint` prek hook.
-    The stamp is written only by `python3 -m setup_preflight.isolated
+    The stamp is written only by `python3 -P -m setup_preflight.isolated
     record-update | record-reminder`, never by hand; the proposal never
     runs the update and never blocks the skill.
 28. The memoised project verdict is keyed on the lock files, the plugin
@@ -831,7 +841,7 @@ committed version with drift detection.
     scan also resolves a mirror entry checked out as a plain text file
     holding its target path, as git writes it without symlink support. The answer
     is recorded under `welcome.<guide>` in the personal layer's
-    `reconciled.json` by `python3 -m setup_preflight.welcome record`, never
+    `reconciled.json` by `python3 -P -m setup_preflight.welcome record`, never
     by hand: `seen` shows again up to three recorded showings, `dismiss`
     until the framework version changes, `never` until
     `welcome enable` (the `setup-welcome-guide` skill). The guide never
@@ -842,7 +852,7 @@ committed version with drift detection.
     guide names cannot select Markdown files outside the shipped guides.
     The setup family runs no shared pre-flight, so the `setup` skill alone
     checks for its guide, before any sub-action:
-    `python3 -m setup_preflight.welcome due --skill setup` answers
+    `python3 -P -m setup_preflight.welcome due --skill setup` answers
     `{"verdict": "ok"}` or the same `welcome` finding and rules the
     pre-flight would emit, built without importing `core`, and is silent
     when it cannot run; the other setup-family skills show no guide
@@ -875,9 +885,9 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
   here is the fallback. The skills delivered are the same tree either way —
   only the namespace of their invocation differs.
 
-- **The `setup` welcome check is silent until the checker is in the personal
-  layer on a sandboxed marketplace install,** where the plugin cache cannot
-  be executed, and on a machine whose personal-layer checker predates the
+- **The `setup` welcome check is silent until the checker is in its
+  `checker_dir` on a sandboxed marketplace install,** where the plugin cache cannot
+  be executed, and on a machine whose installed checker predates the
   `due` action until `setup upgrade` refreshes it.
 - `stable`; gaps appear as new agent targets to add to the registry
   ([`agents.md`](../../../plugins/magpie-setup/skills/setup/agents.md)) or new override

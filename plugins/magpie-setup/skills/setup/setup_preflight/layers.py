@@ -43,6 +43,10 @@ user can move it.
 Nothing here creates a directory.  A read that created the personal layer
 would fake the "configured" state the pre-flight reads from its presence.
 
+The pre-flight checker itself is not installed in the personal layer but in
+`checker_home`: inside the VCS's own directory in every case, so that no
+committed file can ever be imported as the checker.
+
 Run as a module it prints where each layer is, for a skill that has to
 write the personal layer rather than read it:
 
@@ -167,6 +171,29 @@ def unadopted_home(root: Path) -> Path:
     return root / LOCAL_DIR
 
 
+def checker_home(root: Path) -> Path | None:
+    """Where the pre-flight checker is installed and imported from, or `None`.
+
+    `<git-common-dir>/apache-magpie` in a git repository, else
+    `<.svn>/apache-magpie` in a Subversion working copy — adopted or not.
+    Both are inside the VCS's own directory, which no commit can carry, so
+    opening a repository is never enough to put code on the checker's import
+    path.  Every path a repository *can* commit is left out on purpose: the
+    working tree (`python3 -P`), an adopted repository's gitignored
+    `.apache-magpie-local/` (a repository can still force-add it), and the
+    legacy in-tree directory of an unadopted one.  With no version control
+    there is no such directory, so there is no checker and skills resolve
+    their configuration by hand.
+    """
+    common = git_common_dir(root)
+    if common is not None:
+        return common / GIT_HOME_NAME
+    svn = svn_admin_dir(root)
+    if svn is not None:
+        return svn / GIT_HOME_NAME
+    return None
+
+
 def personal_dir(root: Path) -> Path:
     """Where this user's configuration for `root` is written; never created here.
 
@@ -237,8 +264,10 @@ def describe(root: Path) -> dict[str, object]:
     home = personal_dir(root)
     legacy = legacy_local_dir(root)
     main = main_worktree(root)
+    checker = checker_home(root)
     return {
         "adopted": adopted(root),
+        "checker_dir": str(checker) if checker is not None else None,
         "main_worktree": str(main) if main is not None else None,
         "personal_dir": str(home),
         "personal_dir_exists": home.is_dir(),

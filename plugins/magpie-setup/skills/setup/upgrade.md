@@ -194,7 +194,7 @@ where applicable:
 | Method | Drift signal |
 |---|---|
 | `git-branch` | `<local-lock>.fetched_commit` vs upstream's current tip of `<committed-lock>.ref` (the branch). Drift if upstream has commits the local snapshot does not. |
-| `git-tag` | `<committed-lock>.ref` vs `<local-lock>.source_ref`. Drift if they differ. |
+| `git-tag` | `<committed-lock>.ref` vs `<local-lock>.source_ref`, and `<committed-lock>.commit` vs `<local-lock>.fetched_commit`. Drift if either differs. Also resolve the tag upstream (`git ls-remote <committed.url> "refs/tags/<committed.ref>^{}" "refs/tags/<committed.ref>"` — the peeled `^{}` line wins for an annotated tag) and compare it with `<committed-lock>.commit`: a mismatch means **the tag moved** — a supply-chain signal. Stop the upgrade before deleting anything, name both commits, and do not re-fetch. Re-pinning to the moved tag is a deliberate act: only with `bump-committed`, after showing both commits and getting an explicit confirmation. |
 | `svn-zip` | `<committed-lock>.ref` (version) vs `<local-lock>.source_ref`. Drift if they differ. Also: if `sha512` differs, surface as a security-flagged drift (the released zip changed under the same version — investigate). |
 
 Also check method change: if
@@ -257,7 +257,13 @@ Per `<committed-lock>.method`:
   the committed one (this run only).
 - **`git-tag`** — `git clone --depth=1 --branch
   <committed.ref> <committed.url> .apache-magpie`. If
-  `from:<git-ref>` overrides, use it.
+  `from:<git-ref>` overrides, use it. Then resolve `HEAD` and
+  confirm it equals the committed `commit` anchor; a mismatch
+  aborts the upgrade (the tag moved — a supply-chain signal):
+  delete the fresh clone, write no `<local-lock>`, and report
+  both commits. Only `from:<git-ref>` or `bump-committed` — a
+  deliberate re-pin the user asked for — skips the comparison,
+  and then Step 8 records the new `commit`.
 - **`svn-zip`** — `curl` the zip + verify `sha512` +
   `unzip` to `.apache-magpie/`. The verification step is
   **mandatory**; mismatched SHA-512 stops the upgrade and
@@ -405,10 +411,11 @@ it, and the next `setup verify` or `reconcile` run will still name it.
 
 ### Refresh the pre-flight checker
 
-The `setup_preflight/` directory in the personal layer (the
-`personal_dir` that `python3 -m setup_preflight.layers` prints —
-`<git-common-dir>/apache-magpie/` when the project has not adopted
-Magpie) is a **copy** of the `setup_preflight/` package in this skill's
+The `setup_preflight/` directory in the `checker_dir` that
+`python3 -P -m setup_preflight.layers` prints
+(`<git-common-dir>/apache-magpie/`, or `.svn/apache-magpie/` in a
+Subversion working copy — never in the working tree, so that a repository
+cannot commit what pre-flight imports) is a **copy** of the `setup_preflight/` package in this skill's
 own directory, taken when
 [`config`](config.md#step-2a--install-the-pre-flight-checker) last ran.
 An upgrade moves the framework underneath it, so replace that copy with
@@ -417,39 +424,52 @@ upgrade took everything else from.
 
 Copy the files, not a link to them.
 `tools/setup-preflight/src/setup_preflight` is a relative symlink to that
-same package, so a plain `cp -R` from it leaves a link in the personal
-layer that points nowhere.
+same package, so a plain `cp -R` from it leaves a link in the
+`checker_dir` that points nowhere.
 Copy from the skill's directory, or follow the link with `cp -RL`.
 For marketplace installs, use the `setup_preflight/` directory next
 to this skill in the installed plugin. Get the destination from
-`python3 -m setup_preflight.layers` as in
+`python3 -P -m setup_preflight.layers` as in
 [`config` Step 0](config.md#step-0--pre-flight).
 The marketplace cache under `~/.claude/plugins/cache/` is read-denied
 to a sandboxed shell. For a marketplace install, ask the user to run
 the following commands in their own terminal, outside the sandbox.
 For a readable snapshot install, the commands can run in the sandbox.
 
-Set `source_dir` to that installed skill's `setup_preflight/` directory
-and `personal_dir` to the directory reported by `setup_preflight.layers`
-before running the commands. Use their actual paths, not placeholders.
-Check the new copy before replacing the old one:
+Set `source_dir` to that installed skill's `setup_preflight/` directory,
+and `checker_dir` and `personal_dir` to the directories reported by
+`setup_preflight.layers`, before running the commands. Use their actual
+paths, not placeholders. With no version control there is no
+`checker_dir` and nothing to refresh. Check the new copy before
+replacing the old one:
 
 ```bash
 (
-  target="$personal_dir/setup_preflight"
+  target="$checker_dir/setup_preflight"
+  legacy="$personal_dir/setup_preflight"
 
-  if [ -e "$target" ] || [ -L "$target" ]; then
-    temp="$(mktemp -d "$personal_dir/.preflight.XXXXXX")" || exit 1
+  if [ -e "$target" ] || [ -L "$target" ] ||
+     { [ "$legacy" != "$target" ] && [ -e "$legacy" ]; }; then
+    mkdir -p -m 700 "$checker_dir" || exit 1
+    temp="$(mktemp -d "$checker_dir/.preflight.XXXXXX")" || exit 1
     cp -RL "$source_dir" "$temp/setup_preflight" &&
       PYTHONPATH="$temp" python3 -P -m setup_preflight --skill magpie-setup --no-welcome ||
       { rm -rf "$temp"; exit 1; }
-    mv "$target" "$temp/old" || { rm -rf "$temp"; exit 1; }
+    if [ -e "$target" ] || [ -L "$target" ]; then
+      mv "$target" "$temp/old" || { rm -rf "$temp"; exit 1; }
+    fi
     mv "$temp/setup_preflight" "$target" ||
-      { mv "$temp/old" "$target"; exit 1; }
+      { if [ -e "$temp/old" ]; then mv "$temp/old" "$target"; fi; exit 1; }
     rm -rf "$temp"
   fi
 )
 ```
+
+The second condition moves a checker an earlier version installed in an
+adopted project's `.apache-magpie-local/`: pre-flight no longer imports
+from the working tree, so that copy is dead. Say so, and offer to delete
+`$personal_dir/setup_preflight` once the new copy answers; never delete
+it unasked.
 
 The fresh copy also carries the new version's isolated-setup
 fingerprint. When the secure-setup files changed in this upgrade, the
@@ -458,7 +478,7 @@ proposes `setup-isolated-setup-update` — the refresh is what makes that
 happen on a marketplace install, where there is no framework source to
 hash.
 
-Skip it when the directory does not exist: a project that never ran
+Skip it when neither copy exists: a project that never ran
 `config` has nothing to refresh, and creating the directory here would
 manufacture the "has been configured" signal its absence carries.
 
@@ -469,8 +489,8 @@ introduces and this step closes. Verify the refreshed copy answers before
 reporting the upgrade complete:
 
 ```bash
-PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/../.apache-magpie-local:$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/apache-magpie:.svn/apache-magpie" \
-  python3 -m setup_preflight --skill magpie-setup --no-welcome
+PYTHONPATH="$(git rev-parse --git-common-dir 2>/dev/null || { test -e .git || echo .svn; })/apache-magpie" \
+  python3 -P -m setup_preflight --skill magpie-setup --no-welcome
 ```
 
 Skip this write entirely when `.apache-magpie-overrides/` is empty or

@@ -17,7 +17,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:d33e1ff373860d4b
 license: Apache-2.0
-measured_tokens: 8445
+measured_tokens: 8417
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -587,8 +587,8 @@ Suggest two follow-up routines the user can wire later:
 used on this machine and what it was installed against:
 
 ```bash
-PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/../.apache-magpie-local:$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/apache-magpie:.svn/apache-magpie" \
-  python3 -m setup_preflight.isolated record-update
+PYTHONPATH="$(git rev-parse --git-common-dir 2>/dev/null || { test -e .git || echo .svn; })/apache-magpie" \
+  python3 -P -m setup_preflight.isolated record-update
 ```
 
 It writes the `isolated_setup` block of the personal layer's

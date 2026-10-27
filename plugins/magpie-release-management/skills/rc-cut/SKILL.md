@@ -20,7 +20,7 @@ argument-hint: "<version> rc<N>"
 capability: capability:resolve
 surface_hash: sha256:60623e456e72bbf6
 license: Apache-2.0
-measured_tokens: 6933
+measured_tokens: 6935
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -53,15 +53,15 @@ Run the checker with this skill's own frontmatter `name:` and
 `surface_hash:`, and one `--requires` for each `requires_config:` entry:
 
 ```bash
-PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/../.apache-magpie-local:$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/apache-magpie:.svn/apache-magpie" \
-  python3 -m setup_preflight --skill <name> --hash <surface_hash> [--requires <file>]...
+PYTHONPATH="$(git rev-parse --git-common-dir 2>/dev/null || { test -e .git || echo .svn; })/apache-magpie" \
+  python3 -P -m setup_preflight --skill <name> --hash <surface_hash> [--requires <file>]...
 ```
 
 The path finds the checker `/magpie-setup:setup config` installed in the
-personal layer: this checkout's `.apache-magpie-local/`, the main
-checkout's when this is a linked worktree, or, when Magpie is only
-installed, the git directory's `apache-magpie/` (`.svn/apache-magpie/`
-in a Subversion working copy).
+git directory's `apache-magpie/` (`.svn/apache-magpie/` in a Subversion
+working copy). Pre-flight imports the checker only from paths a
+repository cannot commit: `-P` keeps the working tree off the import
+path, and no in-tree directory is on it. Never add one.
 
 - **`{"verdict": "ok"}`** → **silent**. Continue into the work the user
   asked for and say nothing about pre-flight. This is the ordinary answer.
@@ -70,17 +70,18 @@ in a Subversion working copy).
   inputs; what to propose, and what may not be done, are in the rules
   rather than here. **Act on a finding only through its rules.**
 - **The command did not run at all** — no such module, a non-zero exit, no
-  `python3` — → never read that as a pass, and do not re-derive the check
+  `python3` 3.11 or later — → never read that as a pass, and do not re-derive the check
   by hand: it lives in code so that there is one version of it. If the
   project has **no** `.apache-magpie.lock`, `.apache-magpie-overrides/`,
-  or personal layer (any of the directories above),
+  or personal layer (any of the directories below),
   nothing has been set up here and there is
   nothing to reconcile — resolve this skill's `requires_config:` entries
   yourself (first match wins: `.apache-magpie-local/<file>`, the main
   checkout's `.apache-magpie-local/<file>`, `<git-common-dir>/apache-magpie/<file>`,
   `.svn/apache-magpie/<file>`, then `.apache-magpie-overrides/<file>`), stay silent if they all resolve, and
   run `/magpie-setup:setup config` for this skill if any does not, which also
-  installs the checker. Otherwise the project *is* set up and its checker
+  installs the checker. With no version control there is no checker, by
+  design: resolve the entries the same way. Otherwise the project *is* set up and its checker
   is missing or stale: say so, propose `/magpie-setup:setup config` to install
   it or `/magpie-setup:setup upgrade` to refresh it, and carry on with the work.
 

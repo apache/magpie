@@ -304,8 +304,10 @@ stay and are named.
 6. **Move what stays personal into `.apache-magpie-local/`.** Once the
    lock exists the personal layer *is* `.apache-magpie-local/`, and
    `<git-common-dir>/apache-magpie/` is no longer read. Propose moving
-   every file left there (configuration, `reconciled.json`, the
-   `setup_preflight/` checker) into `.apache-magpie-local/`, creating it;
+   every file left there (configuration, `reconciled.json`) into
+   `.apache-magpie-local/`, creating it, but leave the `setup_preflight/`
+   checker where it is: pre-flight imports it only from there, never from
+   the working tree;
    where a file exists in both, show both and let the user choose. Leave
    its `run/` directory alone: a serving gateway's sockets must not move,
    and the gateway of an adopted project serves from

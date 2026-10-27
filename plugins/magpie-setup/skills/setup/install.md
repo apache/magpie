@@ -766,7 +766,10 @@ Per the chosen method (FRESH) or per the committed lock
   .apache-magpie`
 - **`git-tag`**: `git clone --depth=1 --branch <tag> <url>
   .apache-magpie`. After clone, capture the resolved commit
-  SHA for `<committed-lock>` (FRESH only).
+  SHA for `<committed-lock>` (FRESH only). SUBSEQUENT: confirm
+  it equals the committed `commit` anchor; a mismatch aborts
+  the install (the tag moved — a supply-chain signal): delete
+  the clone, write no `<local-lock>`, and report both commits.
 - **`svn-zip`**: `curl` the zip + `.sha512` + `.asc`,
   verify, `unzip` to `.apache-magpie/`. Re-fetch
   verification details into `<committed-lock>` (FRESH only).

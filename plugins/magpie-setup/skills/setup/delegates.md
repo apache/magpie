@@ -16,15 +16,15 @@ The contract — the block, the modes, the wrapper no delegate can remove, and h
 
 ## Step 0 — Pre-flight
 
-1. The checker must be installed in the personal layer ([`config` Step 2a](config.md#step-2a--install-the-pre-flight-checker)); this sub-action runs its `discovery` and `delegation` modules from there.
+1. The checker must be installed in its `checker_dir` ([`config` Step 2a](config.md#step-2a--install-the-pre-flight-checker)); this sub-action runs its `discovery` and `delegation` modules from there.
    If it is not, run `config`'s Step 2a first.
 2. The committed surface needs an adopted repository, exactly as [`overrides.md` Step 0](overrides.md#step-0--pre-flight) requires.
 
 Every command below runs with the same `PYTHONPATH` as the pre-flight block:
 
 ```bash
-PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/../.apache-magpie-local:$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/apache-magpie:.svn/apache-magpie" \
-  python3 -m setup_preflight.discovery --project-root . [--magpie-skills <dir>]
+PYTHONPATH="$(git rev-parse --git-common-dir 2>/dev/null || { test -e .git || echo .svn; })/apache-magpie" \
+  python3 -P -m setup_preflight.discovery --project-root . [--magpie-skills <dir>]
 ```
 
 ## Step 1 — Find and score the project's skills
@@ -66,7 +66,7 @@ Offer **skip the rest** at every match.
 For each accepted choice, render and validate the block first:
 
 ```bash
-python3 -m setup_preflight.delegation render --skill <magpie-skill> --delegate <project-skill> --mode <mode> \
+python3 -P -m setup_preflight.delegation render --skill <magpie-skill> --delegate <project-skill> --mode <mode> \
   [--path <SKILL.md>] [--step magpie:<ref> --step project:<ref> --step skip:<ref> ...] [--why "<reason>"]
 ```
 
@@ -77,7 +77,7 @@ Otherwise put the printed block at the top of `<surface>/<magpie-skill>.md` as i
 - **A file without a block** — add the block above the existing content; change nothing else.
 - **A file with a block** — show the difference and ask before replacing it.
 
-Then `python3 -m setup_preflight.delegation resolve <magpie-skill>` must answer `delegated`; anything else is reported and the file is restored.
+Then `python3 -P -m setup_preflight.delegation resolve <magpie-skill>` must answer `delegated`; anything else is reported and the file is restored.
 On the committed surface, `git add` each file and **never commit**.
 On the personal surface, nothing is staged.
 

@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:bf83981a9df27d35
 license: Apache-2.0
-measured_tokens: 6284
+measured_tokens: 6260
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -103,8 +103,8 @@ Run the checks in this order, reading each catalogue's current file; an item alr
 Ask the checker, with the same `PYTHONPATH` every skill's pre-flight uses:
 
 ```bash
-PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/../.apache-magpie-local:$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/apache-magpie:.svn/apache-magpie" \
-  python3 -m setup_preflight.layers
+PYTHONPATH="$(git rev-parse --git-common-dir 2>/dev/null || { test -e .git || echo .svn; })/apache-magpie" \
+  python3 -P -m setup_preflight.layers
 ```
 
 Its `personal_dir` is the only place this run writes personal-layer files.
@@ -132,7 +132,7 @@ No personal layer (or no checker copy to ask), no `.apache-magpie-overrides/`, n
 It mentions `/magpie-setup:setup adopt` as information only, one line saying adoption commits files for every contributor and is the project's decision; this skill never runs it.
 
 **No isolated setup.**
-When `python3 -m setup_preflight.isolated configured` prints `{"configured": false}` and the personal layer's `reconciled.json` does not carry `"isolated_setup": {"enabled": false}`:
+When `python3 -P -m setup_preflight.isolated configured` prints `{"configured": false}` and the personal layer's `reconciled.json` does not carry `"isolated_setup": {"enabled": false}`:
 inside the sandbox the user-scope settings are read-denied, so `false` there means *not known*, not *absent*.
 Put a `[bypass]` *Check* item in the plan that reads `~/.claude/settings.json` and `~/.claude/settings.local.json` for `sandbox.enabled`, with the harness's own file-read tool (not Bash) or with the system `/usr/bin/jq` in one bypassed call.
 Never run the personal layer's `setup_preflight` outside the sandbox: it is code the sandbox can rewrite.
@@ -242,7 +242,7 @@ An item whose re-check still fails is *Still open*, never *Done*.
 Then write the stamps the existing skills own, each through its own definition, never by hand (after a `no`, none):
 
 - `verified_at`, as [`setup verify` → Writing `verified_at`](../setup/verify.md#writing-verified_at) defines it.
-- The isolated-setup run record, through `python3 -m setup_preflight.isolated record-update` ([`setup-isolated-setup-update` → Record the run](../isolated-setup-update/SKILL.md#record-the-run)), only when no *Isolated setup* item was dropped, skipped or failed; otherwise leave that reminder armed and say so in the summary. Skip it when the isolated setup was declined.
+- The isolated-setup run record, through `python3 -P -m setup_preflight.isolated record-update` ([`setup-isolated-setup-update` → Record the run](../isolated-setup-update/SKILL.md#record-the-run)), only when no *Isolated setup* item was dropped, skipped or failed; otherwise leave that reminder armed and say so in the summary. Skip it when the isolated setup was declined.
 - The configuration entries exactly as [`setup config` Step 3b](../setup/config.md#step-3b--record-what-this-run-reconciled) defines them, in the personal layer's `reconciled.json`.
 
 There is no stamp of this skill's own: the session-start hook's version marker already makes the suggestion once per version.

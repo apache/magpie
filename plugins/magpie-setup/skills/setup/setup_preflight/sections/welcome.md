@@ -19,8 +19,8 @@ and `facts.reason` says why (`first-run`, `again`, or `upgraded` after a dismiss
    it replaces `seen`. Continue needs nothing further.
 
 ```bash
-PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/../.apache-magpie-local:$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/apache-magpie:.svn/apache-magpie" \
-  python3 -m setup_preflight.welcome record --family <facts.family> --choice <seen|dismiss|never>
+PYTHONPATH="$(git rev-parse --git-common-dir 2>/dev/null || { test -e .git || echo .svn; })/apache-magpie" \
+  python3 -P -m setup_preflight.welcome record --family <facts.family> --choice <seen|dismiss|never>
 ```
 
 `seen` brings the guide back on a later run, `facts.max_shown` recorded showings in all (`facts.shown` so far);

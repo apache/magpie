@@ -22,7 +22,7 @@ argument-hint: "[install|config|adopt|unadopt|upgrade|worktree-init|verify|recon
 capability: capability:platform
 surface_hash: sha256:2557a934f9ea5576
 license: Apache-2.0
-measured_tokens: 5288
+measured_tokens: 5262
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -54,11 +54,11 @@ Per-agent reference: [`docs/setup/marketplace.md`](../../../../docs/setup/market
 ## First — the welcome guide
 
 The setup family runs no shared pre-flight, so this skill checks for its first-run welcome guide itself, before any sub-action, silently.
-`<skill-dir>` is the directory holding this `SKILL.md`, which carries the checker even before `config` has copied it into the personal layer:
+`<skill-dir>` is the directory holding this `SKILL.md`, which carries the checker even before `config` has copied it into its `checker_dir`:
 
 ```bash
-PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/../.apache-magpie-local:$(git rev-parse --git-common-dir 2>/dev/null || echo .git)/apache-magpie:.svn/apache-magpie:<skill-dir>" \
-  python3 -m setup_preflight.welcome due --skill setup
+PYTHONPATH="$(git rev-parse --git-common-dir 2>/dev/null || { test -e .git || echo .svn; })/apache-magpie:<skill-dir>" \
+  python3 -P -m setup_preflight.welcome due --skill setup
 ```
 
 - **`{"verdict": "ok"}`**, or the command did not run at all → say nothing and go on to the sub-action.
