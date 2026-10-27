@@ -37,17 +37,18 @@ TEST = Path(__file__).resolve().parents[1] / "pi" / "policy.test.ts"
 def _node_args() -> list[str]:
     node = shutil.which("node")
     if node is None:
-        pytest.skip("node is not installed")
+        return pytest.skip("node is not installed")
     version = subprocess.run([node, "--version"], capture_output=True, text=True, check=False).stdout
     match = re.match(r"v(\d+)\.(\d+)", version.strip())
     if not match:
-        pytest.skip(f"cannot read the node version: {version!r}")
+        return pytest.skip(f"cannot read the node version: {version!r}")
     major, minor = int(match[1]), int(match[2])
     if (major, minor) >= (22, 18):
         return [node]
     if (major, minor) >= (22, 6):
         return [node, "--experimental-strip-types"]
-    pytest.skip(f"node {version.strip()} cannot strip TypeScript types")
+    # pytest.skip raises; returning it keeps every exit explicit.
+    return pytest.skip(f"node {version.strip()} cannot strip TypeScript types")
 
 
 def test_pi_policy_suite_passes() -> None:

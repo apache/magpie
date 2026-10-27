@@ -143,23 +143,29 @@ export default function (pi: ExtensionAPI) {
 		const kind = FILE_TOOLS[event.toolName];
 		if (kind) {
 			const path = typeof event.input.path === "string" ? event.input.path : ".";
+			// Resolve once: every check, the prompt and the tool use this target.
+			const target = candidates(path, ctx.cwd).at(-1) ?? path;
 			const check = { read: policy.readDenied, tree: policy.treeDenied, write: policy.writeDenied }[kind];
-			const reason = check.call(policy, path, ctx.cwd);
+			const reason = check.call(policy, path, ctx.cwd) ?? check.call(policy, target, ctx.cwd);
 			if (reason) return { block: true, reason: `Magpie: ${reason}` };
-			if (kind === "write" && policy.outsideWorkspace(path, ctx.cwd)) {
+			if (kind === "write" && (policy.outsideWorkspace(path, ctx.cwd) || policy.outsideWorkspace(target, ctx.cwd))) {
 				if (!ctx.hasUI) {
 					return {
 						block: true,
-						reason: `Magpie: writing ${path} outside the working folder needs your approval, which a non-interactive run cannot give`,
+						reason: `Magpie: writing ${target} outside the working folder needs your approval, which a non-interactive run cannot give`,
 					};
 				}
-				if (!(await ctx.ui.confirm("Magpie: write outside the working folder?", `${event.toolName} ${path}`))) {
+				const shown = target.replace(/[\u0000-\u001f\u007f-\u009f]/g, "?");
+				if (!(await ctx.ui.confirm("Magpie: write outside the working folder?", `${event.toolName} ${shown}`))) {
 					return { block: true, reason: "Magpie: declined by the user" };
 				}
+				// A link re-pointed while the prompt was open must not inherit the approval.
+				if ((candidates(path, ctx.cwd).at(-1) ?? path) !== target || policy.writeDenied(target, ctx.cwd)) {
+					return { block: true, reason: `Magpie: ${path} changed while waiting for approval; retry the write` };
+				}
 			}
-			// Hand the tool the path just checked, links resolved, so a link
-			// swapped after the check cannot redirect it.
-			if (typeof event.input.path === "string") event.input.path = candidates(path, ctx.cwd).at(-1);
+			// Hand the tool the checked target, so a link swapped afterwards cannot redirect it.
+			if (typeof event.input.path === "string") event.input.path = target;
 			return undefined;
 		}
 		if (event.toolName !== "bash") return undefined;

@@ -23,7 +23,7 @@
 // Code profile is linted against — so the two profiles cannot drift apart.
 // It imports nothing from Pi, so `node --test` exercises it on its own.
 
-import { existsSync, realpathSync } from "node:fs";
+import { existsSync, lstatSync, readlinkSync, realpathSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
@@ -230,11 +230,19 @@ export class Policy {
  * with every symlink resolved (for a file that does not exist yet, through
  * its nearest existing parent), so a link cannot reach a denied path.
  */
-export function candidates(path: string, cwd: string): string[] {
+export function candidates(path: string, cwd: string, depth = 0): string[] {
 	const literal = expandPath(path, cwd);
 	let existing = literal;
 	let rest = "";
 	while (!existsSync(existing)) {
+		// existsSync follows links: a dangling one reads as missing, yet a
+		// write through it lands at its target, so follow it explicitly.
+		if (isSymlink(existing)) {
+			if (depth >= 40) return [literal, "/"]; // a link loop: treat as outside everything
+			const target = resolve(dirname(existing), readlinkSync(existing));
+			const through = candidates(rest ? join(target, rest) : target, cwd, depth + 1);
+			return [literal, ...through.filter((p) => p !== literal)];
+		}
 		const parent = dirname(existing);
 		if (parent === existing) return [literal];
 		rest = rest ? join(basename(existing), rest) : basename(existing);
@@ -247,6 +255,14 @@ export function candidates(path: string, cwd: string): string[] {
 		return [literal];
 	}
 	return real === literal ? [literal] : [literal, real];
+}
+
+function isSymlink(path: string): boolean {
+	try {
+		return lstatSync(path).isSymbolicLink();
+	} catch {
+		return false;
+	}
 }
 
 /** `~/x` to the home directory, `//x` to `/x`, a relative path under `cwd`. */

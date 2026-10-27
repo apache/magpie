@@ -24,7 +24,7 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { type Baseline, pathMatches, Policy, segments } from "./policy.ts";
+import { type Baseline, candidates, pathMatches, Policy, segments } from "./policy.ts";
 
 const baseline = JSON.parse(
 	readFileSync(fileURLToPath(new URL("../../sandbox-lint/expected.json", import.meta.url)), "utf8"),
@@ -123,6 +123,26 @@ test("writes outside the working folder are flagged, links included", () => {
 	assert.equal(policy.outsideWorkspace("out/x", ws), true);
 	assert.equal(policy.outsideWorkspace("/tmp/x", ws), true);
 	assert.equal(policy.outsideWorkspace("~/notes.txt", ws), true);
+});
+
+test("a dangling link is followed to where a write through it would land", () => {
+	const root = mkdtempSync(join(tmpdir(), "magpie-pi-dangling-"));
+	const ws = join(root, "ws");
+	mkdirSync(ws);
+	mkdirSync(join(root, "outside"));
+	// The target file does not exist yet, so the link dangles.
+	symlinkSync(join(root, "outside", "new.txt"), join(ws, "dangling"));
+	assert.equal(policy.outsideWorkspace("dangling", ws), true);
+	assert.ok(candidates("dangling", ws).some((p) => p.endsWith(join("outside", "new.txt"))));
+	const guarded = new Policy({ permissions: { deny: [`Read(${root}/outside/**)`] } });
+	assert.ok(guarded.writeDenied("dangling", ws));
+});
+
+test("a link loop resolves to outside everything", () => {
+	const root = mkdtempSync(join(tmpdir(), "magpie-pi-loop-"));
+	symlinkSync(join(root, "b"), join(root, "a"));
+	symlinkSync(join(root, "a"), join(root, "b"));
+	assert.equal(policy.outsideWorkspace("a", root), true);
 });
 
 test("directory tools may not walk into a denied directory", () => {
