@@ -54,10 +54,13 @@ def _block_pythonpath(cwd: Path, home: Path) -> str:
     """What the shared block's PYTHONPATH expands to when run in `cwd`, with no git on PATH."""
     line = next(ln for ln in BLOCK.read_text(encoding="utf-8").splitlines() if ln.startswith("PYTHONPATH="))
     assignment = line.rstrip(" \\")
+    # Only the directory of this interpreter, which the block needs to pick its directory.
+    bin_dir = Path(sys.executable).parent
+    assert (bin_dir / "python3").exists()
     done = subprocess.run(
         ["/bin/sh", "-c", f'{assignment}; printf %s "$PYTHONPATH"'],
         cwd=cwd,
-        env={"PATH": "/nonexistent", "HOME": str(home)},
+        env={"PATH": str(bin_dir), "HOME": str(home)},
         capture_output=True,
         text=True,
         check=True,

@@ -386,11 +386,11 @@ PREFLIGHT_BLOCK = REPO_ROOT / "tools" / "dev" / "preflight-block.md"
 
 
 def _documented_pythonpath() -> str:
-    import re
-
-    match = re.search(r'^PYTHONPATH="([^"]+)"', PREFLIGHT_BLOCK.read_text(encoding="utf-8"), re.M)
-    assert match, "the pre-flight block names no PYTHONPATH"
-    return match.group(1)
+    """The block's `PYTHONPATH=…` value, as written (the shell has not expanded it)."""
+    for line in PREFLIGHT_BLOCK.read_text(encoding="utf-8").splitlines():
+        if line.startswith("PYTHONPATH="):
+            return line.removeprefix("PYTHONPATH=").rstrip("\\").rstrip()
+    raise AssertionError("the pre-flight block names no PYTHONPATH")
 
 
 def _block_command() -> str:
@@ -398,7 +398,7 @@ def _block_command() -> str:
     text = PREFLIGHT_BLOCK.read_text(encoding="utf-8")
     lines = text.splitlines()
     for index, line in enumerate(lines):
-        if line.startswith('PYTHONPATH="'):
+        if line.startswith("PYTHONPATH="):
             return line.rstrip("\\").rstrip() + " " + lines[index + 1].strip()
     raise AssertionError("the pre-flight block names no PYTHONPATH")
 
@@ -451,9 +451,91 @@ def test_the_block_runs_the_checker_with_dash_p() -> None:
 def test_the_block_pythonpath_names_no_in_tree_directory() -> None:
     pythonpath = _documented_pythonpath()
     assert ".apache-magpie-local" not in pythonpath
-    assert ":" not in pythonpath, "one directory, the checker_dir"
     assert "git" not in pythonpath and ".svn" not in pythonpath, "nothing the opened tree can supply"
-    assert pythonpath.startswith("$HOME/"), "a per-user directory, outside every project"
+    assert '"$HOME/.cache/apache-magpie/preflight"' in pythonpath, (
+        "a per-user directory, outside every project"
+    )
+    assert "python3 -I " in pythonpath, "choosing the directory runs no code from the opened tree"
+
+
+def _block_dir(root: Path, home: Path) -> str:
+    """The directory the block's PYTHONPATH expands to when run in `root`."""
+    import os
+
+    done = subprocess.run(
+        ["sh", "-c", f'PYTHONPATH={_documented_pythonpath()}; printf %s "$PYTHONPATH"'],
+        cwd=root,
+        env={"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": str(home)},
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return done.stdout
+
+
+@pytest.mark.skipif(not PREFLIGHT_BLOCK.is_file(), reason="needs the framework tree")
+def test_the_block_and_layers_agree_on_the_import_dir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The shared dir by default; a project's own dir once a per-project checker is installed there."""
+    home = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(home))
+    root = _project(tmp_path, "git")
+    assert _block_dir(root, home) == str(layers.checker_home())
+    assert layers.import_dir(root) == layers.checker_home()
+    own = layers.project_checker_home(root)
+    assert own.parent == layers.checker_home() / "projects"
+    (own / "setup_preflight").mkdir(parents=True)
+    assert _block_dir(root, home) == str(own)
+    assert layers.import_dir(root) == own
+    # Through a symlinked path the key is the same, because both resolve it.
+    link = tmp_path / "link"
+    link.symlink_to(root)
+    assert _block_dir(link, home) == str(own)
+    assert layers.project_checker_home(link) == own
+
+
+def test_a_source_inside_the_project_never_installs_to_the_shared_dir(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    root = _project(tmp_path, "git")
+    snapshot = root / ".apache-magpie" / "tools" / "setup-preflight" / "src" / "setup_preflight"
+    snapshot.mkdir(parents=True)
+    assert layers.checker_install_dir(root, snapshot) == layers.project_checker_home(root)
+    # A link from outside that resolves into the project is still the project's.
+    outside_link = tmp_path / "looks-outside"
+    outside_link.symlink_to(snapshot)
+    assert layers.checker_install_dir(root, outside_link) == layers.project_checker_home(root)
+    plugin = tmp_path / "plugin" / "setup_preflight"
+    plugin.mkdir(parents=True)
+    assert layers.checker_install_dir(root, plugin) == layers.checker_home()
+
+
+@pytest.mark.skipif(not PREFLIGHT_BLOCK.is_file(), reason="needs the framework tree")
+def test_a_crafted_snapshot_does_not_change_what_another_project_imports(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A tree carrying its own `.apache-magpie/` snapshot is installed for itself only."""
+    import shutil
+
+    home = tmp_path
+    monkeypatch.setenv("HOME", str(home))
+    marker = tmp_path / "planted-ran"
+    crafted = _project(tmp_path / "crafted", "none")
+    source = crafted / ".apache-magpie" / "src"
+    _plant(source, marker)
+    shutil.copytree(
+        source / "setup_preflight",
+        layers.checker_install_dir(crafted, source / "setup_preflight") / "setup_preflight",
+    )
+    other = _project(tmp_path / "other", "git")
+    done = _run_block(other, tmp_path, "setup_preflight")
+    assert not marker.exists(), marker.read_text(encoding="utf-8")
+    assert "PLANTED" not in done.stdout
+    # It does run in the crafted tree itself, which is as before: that tree is the framework there.
+    _run_block(crafted, tmp_path, "setup_preflight")
+    assert marker.exists()
 
 
 @pytest.mark.skipif(not PREFLIGHT_BLOCK.is_file(), reason="needs the framework tree")
@@ -546,3 +628,40 @@ def test_checker_home_is_per_user_and_outside_every_project(
     assert Path(str(layers.describe(root)["checker_dir"])) == expected
     (root / layers.LOCK_NAME).write_text("method: marketplace\n", encoding="utf-8")
     assert Path(str(layers.describe(root)["checker_dir"])) == expected
+
+
+CONFIG_DOC = REPO_ROOT / "plugins" / "magpie-setup" / "skills" / "setup" / "config.md"
+
+
+@pytest.mark.skipif(not CONFIG_DOC.is_file(), reason="needs the framework tree")
+@pytest.mark.parametrize("inside", [True, False])
+def test_config_install_command_agrees_with_layers(
+    tmp_path: Path, inside: bool, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`config` Step 2a's one-liner picks the same install directory as `checker_install_dir`."""
+    import os
+
+    command = next(
+        line
+        for line in CONFIG_DOC.read_text(encoding="utf-8").splitlines()
+        if line.startswith("python3 -I -c 'import hashlib,os,sys;s,h,d=")
+    )
+    home = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(home))
+    root = _project(tmp_path, "git")
+    if inside:
+        source = root / ".apache-magpie" / "setup_preflight"
+    else:
+        source = tmp_path / "plugin" / "setup_preflight"
+    source.mkdir(parents=True)
+    done = subprocess.run(
+        ["sh", "-c", command],
+        cwd=root,
+        env={"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": str(home), "source_dir": str(source)},
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    expected = layers.checker_install_dir(root, source)
+    assert done.stdout.strip() == str(expected)
+    assert (expected == layers.checker_home()) is not inside

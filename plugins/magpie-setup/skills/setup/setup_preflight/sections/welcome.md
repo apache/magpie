@@ -19,7 +19,7 @@ and `facts.reason` says why (`first-run`, `again`, or `upgraded` after a dismiss
    it replaces `seen`. Continue needs nothing further.
 
 ```bash
-PYTHONPATH="$HOME/.cache/apache-magpie/preflight" \
+PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m=sys.argv[1:];p=os.path.join(h,d,hashlib.sha256(os.path.realpath(os.curdir).encode()).hexdigest()[:16]);print(p if os.path.isdir(os.path.join(p,m)) else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight)" \
   python3 -P -m setup_preflight.welcome record --family <facts.family> --choice <seen|dismiss|never>
 ```
 

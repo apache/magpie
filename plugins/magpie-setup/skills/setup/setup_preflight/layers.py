@@ -43,10 +43,13 @@ user can move it.
 Nothing here creates a directory.  A read that created the personal layer
 would fake the "configured" state the pre-flight reads from its presence.
 
-The pre-flight checker itself is not installed in the personal layer but in
-`checker_home`: one per-user directory outside every project, so that
-nothing the opened tree carries, its `.git/` and `.svn/` included, can ever
-be imported as the checker.
+The pre-flight checker itself is not installed in the personal layer but
+under `checker_home`, a per-user directory outside every project, so that
+nothing the opened tree carries, its `.git/` and `.svn/` included, is ever
+imported as the checker.  A checker copied from a framework outside the
+project goes in `checker_home` itself and serves every project; one copied
+from inside the project (a pinned snapshot) goes in that project's own
+`project_checker_home` and serves only it (`checker_install_dir`).
 
 Run as a module it prints where each layer is, for a skill that has to
 write the personal layer rather than read it:
@@ -62,6 +65,7 @@ of `git_common_dir` and the same test vectors; keep them in step.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -189,6 +193,45 @@ def checker_home() -> Path:
     return Path.home() / CHECKER_HOME
 
 
+def project_key(root: Path) -> str:
+    """The project's key under `checker_home() / "projects"`: its resolved path, hashed.
+
+    The block computes the same value inline, as
+    `hashlib.sha256(os.path.realpath(os.curdir).encode()).hexdigest()[:16]`.
+    """
+    return hashlib.sha256(os.path.realpath(root).encode()).hexdigest()[:16]
+
+
+def project_checker_home(root: Path) -> Path:
+    """Where a checker copied from inside `root` is installed: for `root` alone."""
+    return checker_home() / "projects" / project_key(root)
+
+
+def _inside(path: str, root: str) -> bool:
+    return path == root or path.startswith(root.rstrip(os.sep) + os.sep)
+
+
+def checker_install_dir(root: Path, source: Path) -> Path:
+    """Where `config` or `upgrade` may install a checker copied from `source`.
+
+    The shared `checker_home` serves every project, so it only ever takes
+    code from outside the project being configured: the installed plugin,
+    or a framework copy under the user's home.  A `source` that resolves
+    inside `root` (a pinned snapshot, which a tarball can carry too) goes
+    to `project_checker_home(root)`, so a crafted tree can reach no other
+    project.  Symlinks are resolved first, on both sides.
+    """
+    if _inside(os.path.realpath(source), os.path.realpath(root)):
+        return project_checker_home(root)
+    return checker_home()
+
+
+def import_dir(root: Path) -> Path:
+    """The directory the block puts on `PYTHONPATH` in `root`: the project's own, else the shared one."""
+    own = project_checker_home(root)
+    return own if (own / "setup_preflight").is_dir() else checker_home()
+
+
 def personal_dir(root: Path) -> Path:
     """Where this user's configuration for `root` is written; never created here.
 
@@ -260,9 +303,12 @@ def describe(root: Path) -> dict[str, object]:
     legacy = legacy_local_dir(root)
     main = main_worktree(root)
     checker = checker_home()
+    own = project_checker_home(root)
     return {
         "adopted": adopted(root),
         "checker_dir": str(checker),
+        "import_dir": str(import_dir(root)),
+        "project_checker_dir": str(own),
         "main_worktree": str(main) if main is not None else None,
         "personal_dir": str(home),
         "personal_dir_exists": home.is_dir(),
@@ -277,8 +323,16 @@ def main(argv: list[str] | None = None) -> int:
         prog="setup_preflight.layers", description="Print where Magpie config lives."
     )
     parser.add_argument("--project-root", default=".", type=Path)
+    parser.add_argument(
+        "--install-source",
+        type=Path,
+        help="print the directory a checker copied from this source may be installed in",
+    )
     args = parser.parse_args(argv)
-    print(json.dumps(describe(args.project_root), indent=2, sort_keys=True))
+    described = describe(args.project_root)
+    if args.install_source is not None:
+        described["install_dir"] = str(checker_install_dir(args.project_root, args.install_source))
+    print(json.dumps(described, indent=2, sort_keys=True))
     return 0
 
 

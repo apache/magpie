@@ -82,7 +82,7 @@ When entered this way:
    it — the same `PYTHONPATH` as every skill's pre-flight:
 
    ```bash
-   PYTHONPATH="$HOME/.cache/apache-magpie/preflight" \
+   PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m=sys.argv[1:];p=os.path.join(h,d,hashlib.sha256(os.path.realpath(os.curdir).encode()).hexdigest()[:16]);print(p if os.path.isdir(os.path.join(p,m)) else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight)" \
      python3 -P -m setup_preflight.layers
    ```
 
@@ -98,10 +98,9 @@ When entered this way:
    values are written to the main checkout's directory and so are shared
    with every worktree that has none of its own.
 
-   The same output's `checker_dir` is where Step 2a installs the checker.
-   It is not the personal layer: it is your per-user
-   `~/.cache/apache-magpie/preflight/`, the same for every project and
-   with or without version control.
+   The checker is not in the personal layer either: it lives under your
+   per-user `~/.cache/apache-magpie/preflight/` (`checker_dir`), with or
+   without version control, and Step 2a decides where.
 4. **Which skills.** Resolve `<skills>` to the set whose configuration
    is in scope.
 
@@ -151,18 +150,38 @@ Say which case applied.
 ## Step 2a — Install the pre-flight checker
 
 Copy the framework's `setup_preflight/` package into a
-`setup_preflight/` directory in the `checker_dir` from Step 0, replacing any copy already
+`setup_preflight/` directory in the install directory below, replacing any copy already
 there. The package lives in this skill's own directory, `setup_preflight/`
 next to this file, so every install method has it: on a marketplace
 install that is inside the installed `magpie-setup` plugin, and on a
 snapshot install `<snapshot-dir>/tools/setup-preflight/src/setup_preflight/`
 reaches the same files.
 
-This is what every skill's pre-flight actually runs — the path finds the
-copy in your per-user `~/.cache/apache-magpie/preflight/`:
+**Where it goes depends on where it comes from.** The shared
+`~/.cache/apache-magpie/preflight/` serves every project on this machine,
+so it only ever takes a copy from **outside** the project being
+configured — the installed plugin, or a framework copy under your home.
+A copy from **inside** the project — a pinned snapshot at
+`<project>/.apache-magpie/`, which a tarball can carry as easily as a real
+install — goes to this project's own
+`~/.cache/apache-magpie/preflight/projects/<key>/`, where `<key>` is the
+first 16 hex digits of the SHA-256 of the project root's resolved path,
+and serves this project only. Never write the shared directory from a
+source under the project root; resolve symlinks first, on both sides.
+Run this from the project root, with `source_dir` set to the package you
+are copying, and install into what it prints
+(`python3 -P -m setup_preflight.layers --install-source <source_dir>`
+prints the same as `install_dir`):
 
 ```bash
-PYTHONPATH="$HOME/.cache/apache-magpie/preflight" \
+python3 -I -c 'import hashlib,os,sys;s,h,d=sys.argv[1:];r=os.path.realpath(os.curdir);s=os.path.realpath(s);print(os.path.join(h,d,hashlib.sha256(r.encode()).hexdigest()[:16]) if s==r or s.startswith(r.rstrip(os.sep)+os.sep) else h)' "$source_dir" "$HOME/.cache/apache-magpie/preflight" projects
+```
+
+This is what every skill's pre-flight actually runs — the path finds this
+project's own copy when there is one, else the shared copy:
+
+```bash
+PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m=sys.argv[1:];p=os.path.join(h,d,hashlib.sha256(os.path.realpath(os.curdir).encode()).hexdigest()[:16]);print(p if os.path.isdir(os.path.join(p,m)) else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight)" \
   python3 -P -m setup_preflight --skill … --hash …
 ```
 
@@ -178,17 +197,17 @@ An older copy under the personal layer (`.apache-magpie-local/setup_preflight/`,
 `.svn/apache-magpie/setup_preflight/`) is no longer imported; remove it
 once the new one answers.
 
-One copy serves every project on this machine, so the last `config` or
-`upgrade` to run decides its version. The checker reads each project's
-own lock and configuration, so a project pinned to an older framework is
-still checked against its own pin.
+The shared copy serves every project without one of its own, so the
+last `config` or `upgrade` from a plugin decides its version. The checker
+reads each project's own lock and configuration, so a project pinned to
+an older framework is still checked against its own pin.
 
 It has to be copied rather than referenced. Under the sandbox the
 framework recommends, `~/.claude/plugins/cache/` is read-denied, so a
 module left in the plugin can be read by the agent's file tool but never
 *executed* by a shell — and a sandboxed marketplace install is exactly
-the case the check exists for. The `checker_dir` is per-user, so nothing
-here reaches another user or another clone's committed files.
+the case the check exists for. Both directories are per-user, and a
+copy from inside a project reaches no other project.
 
 **Name it when you report.** This sub-action may run unattended from a
 skill's pre-flight, and its licence to do so rests on touching only
@@ -202,7 +221,7 @@ Verify the copy answers before moving on; a checker that does not run
 makes every skill fall back to *step-0* of its `preflight-detail.md`:
 
 ```bash
-PYTHONPATH="$HOME/.cache/apache-magpie/preflight" \
+PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m=sys.argv[1:];p=os.path.join(h,d,hashlib.sha256(os.path.realpath(os.curdir).encode()).hexdigest()[:16]);print(p if os.path.isdir(os.path.join(p,m)) else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight)" \
   python3 -P -m setup_preflight --skill magpie-setup --no-welcome
 ```
 

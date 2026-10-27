@@ -18,7 +18,7 @@ on a marketplace install), once, and say which reason applies:
 Then record that it was shown, whether or not the user takes it:
 
 ```bash
-PYTHONPATH="$HOME/.cache/apache-magpie/preflight" \
+PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m=sys.argv[1:];p=os.path.join(h,d,hashlib.sha256(os.path.realpath(os.curdir).encode()).hexdigest()[:16]);print(p if os.path.isdir(os.path.join(p,m)) else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight)" \
   python3 -P -m setup_preflight.isolated record-reminder
 ```
 

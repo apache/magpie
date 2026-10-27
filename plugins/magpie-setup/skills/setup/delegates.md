@@ -23,7 +23,7 @@ The contract — the block, the modes, the wrapper no delegate can remove, and h
 Every command below runs with the same `PYTHONPATH` as the pre-flight block:
 
 ```bash
-PYTHONPATH="$HOME/.cache/apache-magpie/preflight" \
+PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m=sys.argv[1:];p=os.path.join(h,d,hashlib.sha256(os.path.realpath(os.curdir).encode()).hexdigest()[:16]);print(p if os.path.isdir(os.path.join(p,m)) else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight)" \
   python3 -P -m setup_preflight.discovery --project-root . [--magpie-skills <dir>]
 ```
 

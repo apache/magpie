@@ -411,11 +411,11 @@ it, and the next `setup verify` or `reconcile` run will still name it.
 
 ### Refresh the pre-flight checker
 
-The `setup_preflight/` directory in the `checker_dir` that
-`python3 -P -m setup_preflight.layers` prints
-(your per-user `~/.cache/apache-magpie/preflight/` — never inside a
-project, so that nothing a project carries, its `.git/` or `.svn/`
-included, is what pre-flight imports) is a **copy** of the `setup_preflight/` package in this skill's
+The `setup_preflight/` directory under your per-user
+`~/.cache/apache-magpie/preflight/` — the shared copy, or this project's
+own `projects/<key>/` copy on a snapshot install; never inside a project,
+so that nothing a project carries, its `.git/` or `.svn/` included, is
+what pre-flight imports — is a **copy** of the `setup_preflight/` package in this skill's
 own directory, taken when
 [`config`](config.md#step-2a--install-the-pre-flight-checker) last ran.
 An upgrade moves the framework underneath it, so replace that copy with
@@ -425,20 +425,24 @@ upgrade took everything else from.
 Copy the files, not a link to them.
 `tools/setup-preflight/src/setup_preflight` is a relative symlink to that
 same package, so a plain `cp -R` from it leaves a link in the
-`checker_dir` that points nowhere.
+install directory that points nowhere.
 Copy from the skill's directory, or follow the link with `cp -RL`.
 For marketplace installs, use the `setup_preflight/` directory next
-to this skill in the installed plugin. Get the destination from
-`python3 -P -m setup_preflight.layers` as in
-[`config` Step 0](config.md#step-0--pre-flight).
+to this skill in the installed plugin. The destination follows the
+source exactly as in
+[`config` Step 2a](config.md#step-2a--install-the-pre-flight-checker):
+a source outside the project refreshes the shared copy, and one inside
+it (a pinned snapshot) refreshes only this project's own copy — never
+the shared one.
 The marketplace cache under `~/.claude/plugins/cache/` is read-denied
 to a sandboxed shell. For a marketplace install, ask the user to run
 the following commands in their own terminal, outside the sandbox.
 For a readable snapshot install, the commands can run in the sandbox.
 
 Set `source_dir` to that installed skill's `setup_preflight/` directory,
-`checker_dir` and `personal_dir` to the directories reported by
-`setup_preflight.layers`, and `vcs_dir` to the project's
+`checker_dir` to what `config` Step 2a's install-directory command prints
+for it (run from the project root), `personal_dir` to the personal layer
+`setup_preflight.layers` reports, and `vcs_dir` to the project's
 `<git-common-dir>/apache-magpie` (`.svn/apache-magpie` in a Subversion
 working copy, empty with no version control), before running the
 commands. Use their actual paths, not placeholders. Check the new copy
@@ -491,7 +495,7 @@ introduces and this step closes. Verify the refreshed copy answers before
 reporting the upgrade complete:
 
 ```bash
-PYTHONPATH="$HOME/.cache/apache-magpie/preflight" \
+PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m=sys.argv[1:];p=os.path.join(h,d,hashlib.sha256(os.path.realpath(os.curdir).encode()).hexdigest()[:16]);print(p if os.path.isdir(os.path.join(p,m)) else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight)" \
   python3 -P -m setup_preflight --skill magpie-setup --no-welcome
 ```
 

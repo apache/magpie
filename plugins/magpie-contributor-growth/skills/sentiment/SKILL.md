@@ -20,7 +20,7 @@ argument-hint: "[window:Nm] [baseline:YYYY-MM-DD..YYYY-MM-DD]"
 capability: capability:stats
 surface_hash: sha256:c325db1d99634a51
 license: Apache-2.0
-measured_tokens: 4685
+measured_tokens: 4793
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -45,14 +45,16 @@ Run the checker with this skill's own frontmatter `name:` and
 `surface_hash:`, and one `--requires` for each `requires_config:` entry:
 
 ```bash
-PYTHONPATH="$HOME/.cache/apache-magpie/preflight" \
+PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m=sys.argv[1:];p=os.path.join(h,d,hashlib.sha256(os.path.realpath(os.curdir).encode()).hexdigest()[:16]);print(p if os.path.isdir(os.path.join(p,m)) else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight)" \
   python3 -P -m setup_preflight --skill <name> --hash <surface_hash> [--requires <file>]...
 ```
 
-The path finds the checker `/magpie-setup:setup config` installed in your
-per-user `~/.cache/apache-magpie/preflight/`. Pre-flight imports the checker
-only from outside the opened project: `-P` keeps the working tree off the
-import path, and no directory inside the project is on it — not even its
+The path finds the checker `/magpie-setup:setup config` installed under your
+per-user `~/.cache/apache-magpie/preflight/`: this project's own copy in
+`projects/<key>/` when there is one, else the shared copy. Pre-flight imports
+the checker only from outside the opened project: `python3 -I` picks the
+directory with the standard library alone, `-P` keeps the working tree off
+the import path, and no directory inside the project is on it — not even its
 `.git/` or `.svn/`, which a checkout or a tarball can carry as plain files.
 Never add one.
 
