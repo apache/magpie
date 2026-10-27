@@ -249,6 +249,15 @@ def _list_address(value: object) -> str:
     return text
 
 
+_ADDRESS = re.compile(r"[^\s<>\"']+@[^\s<>\"']+")
+
+
+def _sender_address(value: object) -> str:
+    """The bare, lower-cased address in `Name <a@b>` or `a@b`; empty when there is none."""
+    match = _ADDRESS.search(one_line(value))
+    return match.group(0).lower() if match else ""
+
+
 def advisory_archive(data: Mapping[str, Any]) -> dict[str, Any]:
     cve = one_line(data.get("cve_id")).strip()
     if not _CVE.match(cve):
@@ -261,12 +270,26 @@ def advisory_archive(data: Mapping[str, Any]) -> dict[str, Any]:
     thread: Mapping[str, Any] = raw_thread if isinstance(raw_thread, Mapping) else {}
     thread_list = _list_address(thread.get("list"))
     subject = one_line(thread.get("subject")).strip()
+    sender = _sender_address(thread.get("from"))
+    raw_senders = data.get("authorized_senders")
+    authorized = {_sender_address(s) for s in raw_senders} if isinstance(raw_senders, list) else set()
+    authorized.discard("")
     archive = one_line(data.get("mail_archive_url")).strip().rstrip("/")
     reasons: list[str] = []
     if not url.startswith("https://"):
         reasons.append("the URL is not an https archive URL")
-    elif archive and not (url == archive or url.startswith(archive + "/")):
+    elif not archive:
+        reasons.append("mail_archive_url is not configured, so the URL's archive cannot be checked")
+    elif not (url == archive or url.startswith(archive + "/")):
         reasons.append(f"the URL is not under the configured archive {archive}")
+    if not authorized:
+        reasons.append("no authorized_senders (release managers / security team) were given")
+    elif not sender:
+        reasons.append("the archive did not report who sent the root message; fetch the thread first")
+    elif sender not in authorized:
+        reasons.append(
+            f"the root message is from {sender}, not from a release manager or security-team member"
+        )
     if not thread_list:
         reasons.append("the archive did not report which list the thread is on; fetch the thread first")
     elif thread_list != advisory_list:
@@ -283,5 +306,6 @@ def advisory_archive(data: Mapping[str, Any]) -> dict[str, Any]:
         "url": url,
         "list": thread_list or None,
         "subject": subject or None,
+        "sender": sender or None,
         "requires_confirmation": True,
     }

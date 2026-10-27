@@ -150,7 +150,7 @@ Subagents keep the per-issue mail threads, PR diffs and comment bodies out of th
      For any `cve allocated` tracker, search the public `<users-list>` archive for the CVE ID
      (PonyMail `search_list`, per [`tools/ponymail/`](../../../../tools/ponymail/); Gmail fallback)
      and cross-check cve.org publication state (per [`tools/cve-org/`](../../../../tools/cve-org/)).
-     A `<users-list>` hit is the advisory-shipped signal only when `<sm> advisory-archive` accepts it (the thread is on `<users-list>` and its root subject is the advisory's own `<CVE-ID>: <description>`, not a reply or a post that merely mentions the ID);
+     A `<users-list>` hit is the advisory-shipped signal only when `<sm> advisory-archive` accepts it (the thread is on `<users-list>`, its root subject is the advisory's own `<CVE-ID>: <description>`, not a reply or a post that merely mentions the ID, and its root message is from a release manager or security-team member);
      its `<mail-archive-url>/thread/<id>` permalink is then the *proposed* *Public advisory URL*, which the orchestrator shows with its list and subject and records only on the user's explicit confirmation.
      The body's *Public advisory URL* field and `announced` label are a **lagging mirror**, written only on the *next* sync after the out-of-band send:
      populated, they confirm shipment; empty is **never** proof the advisory did not ship.

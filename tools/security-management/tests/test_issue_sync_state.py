@@ -295,7 +295,12 @@ ADVISORY: dict[str, Any] = {
     "advisory_list": "users@foo.apache.org",
     "mail_archive_url": "https://lists.apache.org",
     "url": "https://lists.apache.org/thread/abc123",
-    "thread": {"list": "<users.foo.apache.org>", "subject": SUBJECT},
+    "authorized_senders": ["rm@apache.org", "Sec Member <sec@apache.org>"],
+    "thread": {
+        "list": "<users.foo.apache.org>",
+        "subject": SUBJECT,
+        "from": "Release Manager <RM@apache.org>",
+    },
 }
 
 
@@ -305,7 +310,11 @@ def test_advisory_archive_accepts_the_advisory_thread(capsys, tmp_path) -> None:
     assert out["list"] == "users@foo.apache.org"
     tagged = {
         **ADVISORY,
-        "thread": {"list": "users@foo.apache.org", "subject": "[ANNOUNCE] CVE-2026-12345: Foo"},
+        "thread": {
+            "list": "users@foo.apache.org",
+            "subject": "[ANNOUNCE] CVE-2026-12345: Foo",
+            "from": "sec@apache.org",
+        },
     }
     assert ok(capsys, tmp_path, "advisory-archive", tagged)["accepted"] is True
 
@@ -328,6 +337,13 @@ def test_advisory_archive_accepts_the_advisory_thread(capsys, tmp_path) -> None:
         ),
         ({"url": "https://example.org/thread/abc123"}, "configured archive"),
         ({"thread": {}}, "fetch the thread first"),
+        ({"mail_archive_url": None}, "mail_archive_url is not configured"),
+        ({"authorized_senders": []}, "no authorized_senders"),
+        (
+            {"thread": {"list": "<users.foo.apache.org>", "subject": SUBJECT, "from": "someone@example.org"}},
+            "not from a release manager",
+        ),
+        ({"thread": {"list": "<users.foo.apache.org>", "subject": SUBJECT}}, "who sent the root message"),
     ],
 )
 def test_advisory_archive_rejects_other_posts(capsys, tmp_path, change, reason) -> None:
