@@ -439,6 +439,10 @@ def _strip_heredoc_bodies(command: str) -> str:
         out.append(line)
         intro = line
         pending = [(m.group(3), m.group(1) == "-") for m in _HEREDOC_RE.finditer(line)]
+        if pending and line.rstrip().endswith("\\"):
+            # a continued line: the body starts after the logical line ends,
+            # which this reader does not follow
+            return command
     if pending:
         return command
     return "\n".join(out)

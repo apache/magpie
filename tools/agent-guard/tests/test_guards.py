@@ -567,6 +567,7 @@ def test_bash_option_clusters_do_not_hide_the_c_string(command):
         "bash <<'EOF'\nit's the user's script\ngit push --force\nEOF\necho 'oops",
         "python3 - <<'EOF'\nit's the user's script, run git\nEOF\necho 'oops",
         "cat <<'EOF' | bash\nit's the user's script\ngit push --force\nEOF\necho 'oops",
+        "cat <<'EOF' \\\n| bash\nit's the user's script\ngit push --force\nEOF\necho 'oops",
         "cat <<'EOF'\nthe user's notes\ngit history",
     ],
 )
