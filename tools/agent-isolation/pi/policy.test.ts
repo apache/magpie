@@ -19,12 +19,12 @@
 // type stripping); tools/agent-isolation/tests/test_pi_policy.py wraps it.
 
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { type Baseline, candidates, pathMatches, Policy, segments } from "./policy.ts";
+import { type Baseline, candidates, pathMatches, Policy, segments, withReal, withSystemReal } from "./policy.ts";
 
 const baseline = JSON.parse(
 	readFileSync(fileURLToPath(new URL("../../sandbox-lint/expected.json", import.meta.url)), "utf8"),
@@ -136,6 +136,18 @@ test("a dangling link is followed to where a write through it would land", () =>
 	assert.ok(candidates("dangling", ws).some((p) => p.endsWith(join("outside", "new.txt"))));
 	const guarded = new Policy({ permissions: { deny: [`Read(${root}/outside/**)`] } });
 	assert.ok(guarded.writeDenied("dangling", ws));
+});
+
+test("a link planted in an allowed directory does not widen the sandbox grant", () => {
+	const root = mkdtempSync(join(tmpdir(), "magpie-pi-grant-"));
+	mkdirSync(join(root, "wide"));
+	symlinkSync(join(root, "wide"), join(root, "cache"));
+	const allowed = withSystemReal([join(root, "cache")]);
+	assert.ok(!allowed.some((p) => p.endsWith("/wide")), allowed.join(", "));
+	// macOS's fixed /tmp link is still added, so a /tmp entry matches /private/tmp.
+	if (existsSync("/private/tmp")) assert.deepEqual(withSystemReal(["/tmp/x"]), ["/tmp/x", "/private/tmp/x"]);
+	// Deny lists still resolve fully: widening a denial is safe.
+	assert.ok(withReal([join(root, "cache")]).some((p) => p.endsWith("/wide")));
 });
 
 test("a link loop resolves to outside everything", () => {

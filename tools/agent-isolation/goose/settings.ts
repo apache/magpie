@@ -27,7 +27,7 @@
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { expandPath, type Policy, withReal } from "../pi/policy.ts";
+import { expandPath, type Policy, withReal, withSystemReal } from "../pi/policy.ts";
 
 /** Goose's own permission, mode and plugin settings: never writable from inside. */
 export const GOOSE_CONFIG_PATHS = [
@@ -114,8 +114,8 @@ export function gooseSandboxSettings(policy: Policy, cwd: string, plugin: string
 		filesystem: {
 			...base.filesystem,
 			denyRead: withReal([...base.filesystem.denyRead, ...GOOSE_SECRETS.map((p) => expandPath(p, cwd))]),
-			allowRead: withReal([...base.filesystem.allowRead, expandPath(GOOSE_CONFIG, cwd), ...state, plugin, expandPath("~/.agents", cwd)]),
-			allowWrite: withReal([...base.filesystem.allowWrite, ...state]),
+			allowRead: withSystemReal([...base.filesystem.allowRead, expandPath(GOOSE_CONFIG, cwd), ...state, plugin, expandPath("~/.agents", cwd)]),
+			allowWrite: withSystemReal([...base.filesystem.allowWrite, ...state]),
 			denyWrite: withReal([
 				...base.filesystem.denyWrite,
 				plugin,

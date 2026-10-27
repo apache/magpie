@@ -220,8 +220,8 @@ export class Policy {
 			},
 			filesystem: {
 				denyRead: withReal((sb.filesystem?.denyRead ?? []).map((p) => expandPath(p, cwd))),
-				allowRead: withReal((sb.filesystem?.allowRead ?? []).map((p) => expandPath(p, cwd))),
-				allowWrite: withReal([cwd, tmpdir(), "/tmp", ...(sb.filesystem?.allowWrite ?? [])].map((p) => expandPath(p, cwd))),
+				allowRead: withSystemReal((sb.filesystem?.allowRead ?? []).map((p) => expandPath(p, cwd))),
+				allowWrite: withSystemReal([cwd, tmpdir(), "/tmp", ...(sb.filesystem?.allowWrite ?? [])].map((p) => expandPath(p, cwd))),
 				denyWrite: withReal([...editDenies, ...PI_CONFIG_PATHS.map((p) => expandPath(p, cwd))]),
 			},
 			credentials: { envVars: sb.credentials?.envVars ?? [] },
@@ -265,9 +265,25 @@ export function candidates(path: string, cwd: string, depth = 0): string[] {
 }
 
 /**
- * Each path plus its resolved form where it differs. The OS sandbox matches
- * resolved paths, so an entry spelled through a link (macOS `/tmp` is
- * `/private/tmp`) would otherwise never match what a process touches.
+ * Each allow entry plus its form under macOS's fixed system links (`/tmp`,
+ * `/var` and `/etc` are `/private/...`), which the OS sandbox matches by
+ * their resolved path. Nothing else is resolved: a link the agent could
+ * plant in an allowed directory must not widen the grant on the next launch.
+ */
+export function withSystemReal(paths: string[]): string[] {
+	const out: string[] = [];
+	for (const p of paths) {
+		if (!out.includes(p)) out.push(p);
+		const fixed = /^\/(tmp|var|etc)(\/|$)/.test(p) && existsSync(`/private${p.slice(0, 4)}`) ? `/private${p}` : null;
+		if (fixed && !out.includes(fixed)) out.push(fixed);
+	}
+	return out;
+}
+
+/**
+ * Each deny entry plus its resolved form where it differs, so a denial
+ * spelled through a link still covers what a process touches. Resolving can
+ * only widen a deny list, never an allow list (see withSystemReal).
  */
 export function withReal(paths: string[]): string[] {
 	const out: string[] = [];
