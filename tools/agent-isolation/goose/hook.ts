@@ -54,15 +54,16 @@ interface GooseEvent {
 }
 
 /**
- * Whether a hook payload came from Goose. The repository root is also a
- * Claude-format plugin, so other hosts may load hooks/hooks.json too; Goose
- * alone sends `event` and `working_dir` (Claude sends `hook_event_name` and
- * `cwd`, Copilot `toolName` and `cwd`), and any other payload is left alone.
+ * Whether a hook payload is plainly another host's. The repository root is
+ * also a Claude-format plugin, so Claude Code (`hook_event_name`) or Copilot
+ * (`toolName`) may load hooks/hooks.json too; their payloads are left alone.
+ * Everything else is treated as Goose's and decided, so an unexpected shape
+ * fails closed rather than open.
  */
-export function isGooseEvent(payload: unknown): payload is GooseEvent {
+export function isForeignPayload(payload: unknown): boolean {
 	if (typeof payload !== "object" || payload === null) return false;
 	const p = payload as Record<string, unknown>;
-	return typeof p.event === "string" && typeof p.working_dir === "string" && typeof p.tool_name === "string";
+	return "hook_event_name" in p || "toolName" in p;
 }
 
 /** The reason to block this tool call, or null to let Goose (and its approve prompt) decide. */
@@ -131,9 +132,10 @@ function guard(command: string, cwd: string): string | null {
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
 	const payload: unknown = JSON.parse(readFileSync(0, "utf8") || "{}");
-	if (isGooseEvent(payload)) {
+	if (!isForeignPayload(payload)) {
+		const event = (typeof payload === "object" && payload !== null ? payload : {}) as GooseEvent;
 		const policy = new Policy(JSON.parse(readFileSync(BASELINE, "utf8")) as Baseline);
-		const reason = decide(payload, policy, process.env.GOOSE_MODE === "approve", guard);
+		const reason = decide(event, policy, process.env.GOOSE_MODE === "approve", guard);
 		if (reason) process.stdout.write(`${JSON.stringify({ decision: "block", reason })}\n`);
 	}
 }

@@ -25,7 +25,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { type Baseline, Policy } from "../pi/policy.ts";
-import { decide, isGooseEvent } from "./hook.ts";
+import { decide, isForeignPayload } from "./hook.ts";
 import { gooseSandboxSettings, providerAccess } from "./settings.ts";
 
 const baseline = JSON.parse(
@@ -98,12 +98,15 @@ test("writes outside the working folder need approve mode", () => {
 	assert.equal(decide(inside, policy, false, noGuard), null);
 });
 
-test("only a Goose-shaped payload is acted on", () => {
-	assert.ok(isGooseEvent({ event: "PreToolUse", tool_name: "write", tool_input: {}, working_dir: ws }));
+test("only a plainly foreign payload is skipped; anything else is decided", () => {
 	// Claude Code and Copilot payloads, should another host load hooks/hooks.json.
-	assert.ok(!isGooseEvent({ hook_event_name: "PreToolUse", tool_name: "Write", tool_input: {}, cwd: ws }));
-	assert.ok(!isGooseEvent({ toolName: "edit", toolArgs: "{}", cwd: ws }));
-	assert.ok(!isGooseEvent(null));
+	assert.ok(isForeignPayload({ hook_event_name: "PreToolUse", tool_name: "Write", tool_input: {}, cwd: ws }));
+	assert.ok(isForeignPayload({ toolName: "edit", toolArgs: "{}", cwd: ws }));
+	// Goose's own shape, and an unexpected one, are decided (fail closed).
+	assert.ok(!isForeignPayload({ event: "PreToolUse", tool_name: "write", tool_input: {}, working_dir: ws }));
+	assert.ok(!isForeignPayload({ tool_name: "shell", tool_input: { command: "curl x" } }));
+	assert.ok(!isForeignPayload(null));
+	assert.ok(decide({ tool_name: "shell", tool_input: { command: "curl x" } }, policy, true, noGuard));
 });
 
 test("other tools are left to Goose", () => {

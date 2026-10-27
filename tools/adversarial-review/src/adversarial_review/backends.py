@@ -91,6 +91,8 @@ class Invocation:
     stdin: str | None
     # Variables set for this reviewer on top of the caller's environment.
     env: dict[str, str] | None = None
+    # The reviewer's working directory, when it is not the reviewed tree.
+    cwd: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -298,16 +300,10 @@ def _goose(ctx: RunContext) -> Invocation:
         "-i",
         str(ctx.brief_path),
     ]
-    return Invocation(argv, stdin=None, env={"GOOSE_MODE": "chat"})
-
-
-def _goose_refuse(ctx: RunContext) -> str | None:
-    # Goose loads a project's plugins, hooks included, from its working
-    # directory's `.agents/plugins/`: code the change under review would supply.
-    found = ctx.repo_dir / ".agents" / "plugins"
-    if found.exists():
-        return f"the reviewed tree has {found}, which goose would load as a project plugin"
-    return None
+    # Run from the brief's own directory, not the reviewed tree: a chat-only
+    # reviewer needs no files, and Goose would otherwise load the tree's
+    # project plugins, hooks and context files from its working directory.
+    return Invocation(argv, stdin=None, env={"GOOSE_MODE": "chat"}, cwd=ctx.brief_path.parent)
 
 
 def _claude(ctx: RunContext) -> Invocation:
@@ -382,6 +378,6 @@ BACKENDS: dict[str, Backend] = {
     "grok": Backend("grok", (("GROK_SESSION_ID", None),), _grok, _grok_extract),
     # Goose's marker has a generic name, so it is checked after every
     # harness-specific one, just before Claude Code's widely inherited one.
-    "goose": Backend("goose", (("AGENT_SESSION_ID", None),), _goose, _plain_extract, _goose_refuse),
+    "goose": Backend("goose", (("AGENT_SESSION_ID", None),), _goose, _plain_extract),
     "claude": Backend("claude", (("CLAUDECODE", "1"),), _claude, _claude_extract),
 }

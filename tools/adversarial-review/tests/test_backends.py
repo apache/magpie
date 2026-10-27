@@ -150,13 +150,14 @@ def test_goose_argv_runs_chat_mode_with_the_brief_file():
     assert inv.env == {"GOOSE_MODE": "chat"}
 
 
-def test_goose_refuses_a_tree_that_ships_a_project_plugin(tmp_path):
-    ctx = RunContext(**{**CTX.__dict__, "repo_dir": tmp_path})
-    refuse = BACKENDS["goose"].refuse
-    assert refuse is not None and refuse(ctx) is None
+def test_goose_runs_from_the_brief_directory_not_the_reviewed_tree(tmp_path):
+    # Goose loads project plugins, hooks and context files from its working
+    # directory; a chat-only reviewer needs none of the reviewed tree's files.
     (tmp_path / ".agents" / "plugins" / "evil").mkdir(parents=True)
-    reason = refuse(ctx)
-    assert reason is not None and ".agents/plugins" in reason
+    ctx = RunContext(**{**CTX.__dict__, "repo_dir": tmp_path})
+    inv = BACKENDS["goose"].build(ctx)
+    assert inv.cwd == ctx.brief_path.parent
+    assert inv.cwd != tmp_path
 
 
 def test_goose_extract_is_plain_text():

@@ -90,7 +90,7 @@ Reviewers can read files with their read-only tools, and that is the residual ri
   `--no-approve` ignores the reviewed tree's `.pi/` (project settings, extensions and packages), so the change under review cannot load code into the reviewer.
   `AGENTS.md` still loads, as it does for every reviewer: its content is data in the brief, not an instruction to follow.
 - `goose` is read-only by construction: it runs with `GOOSE_MODE=chat`, which gives the model no tools at all, and `--no-profile`, so none of your configured extensions or MCP servers start.
-  It is `skipped` on a tree that ships a project plugin in `.agents/plugins/`, which Goose would load, hooks included.
+  It runs from the brief's own temporary directory, not the reviewed tree, so Goose loads none of the tree's project plugins, hooks or context files.
 - `antigravity` is `skipped` on a tree, or a tree inside a directory, that contains `.agents/hooks.json` or `.agents/mcp_config.json` (or the legacy `.agent/` spellings).
   Antigravity runs workspace hooks and starts workspace MCP servers by itself, so the change under review would choose code that runs on your machine.
 
