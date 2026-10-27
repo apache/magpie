@@ -151,7 +151,7 @@ includes `env -S` / `--split-string`: env splits that string with its own
 escapes (`\_`, `\c`, `${VAR}`), so the guards could not be sure they see the
 command env runs.
 
-A shell's `-c` string (`bash -c "…"`, `sh -c '…'`, `zsh -lc "…"`) is split
+A shell's `-c` string (`bash -c "…"`, `sh -c '…'`, `zsh -lc "…"`), or the joined arguments of `eval`, is split
 and checked like a command line of its own, and inherits the inline
 assignments written before the shell. That goes one level deep: a `-c` string
 inside a `-c` string that names `git` or `gh` is refused (`agent-guard[wrapper]`).
@@ -165,8 +165,9 @@ A heredoc's body is data, not shell syntax: an apostrophe in it does not make
 the line unparsable. That holds for a body naming `git` or `gh` only when it is
 fed to a bare `cat`, `/bin/cat`, `/usr/bin/cat` or `tee` (plain file arguments
 and `>` / `>>` only) that starts a command rather than continuing the line
-before, in a command with no `alias`, no `cat` / `tee` function and no `$((`,
-`((`, `$[` or `${`, and,
+before, in a command that, without its heredoc bodies, holds no `$`, backtick,
+parenthesis or brace, no `alias`, and no `eval`, `source` or `.` in command
+position, and,
 under an unquoted delimiter, holds no `$(…)` or backtick substitution (bash
 runs those); never for a heredoc that is not closed.
 A `<<` inside quotes, a `#` comment, arithmetic (`$((…))`, `$[…]`) or a

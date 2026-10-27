@@ -504,19 +504,19 @@ def _heredocs_opened(line: str, quote: str | None) -> tuple[list[_Heredoc], str 
 
 # Commands that only store what a heredoc feeds them. A body naming a guarded
 # head is stripped only in the narrowest shape known to be data: the
-# introducing line starts a command, is one of these, exactly, with plain file
-# arguments and redirections, and nothing in the command could redefine it or
-# hide a `<<`. Anything else may run the body, so the command is kept whole.
+# introducing line starts a command and is one of these, exactly, with plain
+# file arguments and redirections, and the rest of the command has nothing
+# that could run the output or redefine the sink. Anything else may run the
+# body, so the command is kept whole.
 _HEREDOC_DATA_SINKS = frozenset({"cat", "tee", "/bin/cat", "/usr/bin/cat"})
 _SINK_ARG_RE = re.compile(r"(?:>>?)?[\w./~+-]*")
 # Line endings that carry the command on to the next line.
 _CONTINUED_RE = re.compile(r"(?:\\|\||&&)\s*$")
-# A redefined `cat` / `tee`, or an arithmetic or parameter expansion that may
-# span lines: any of these anywhere in the command rules out stripping a body
-# that names a guarded head.
-_SINK_DEFEATED_RE = re.compile(
-    r"\balias\b|\b(?:cat|tee)\s*\(|\bfunction\s+(?:cat|tee)\b|\$\(\(|\(\(|\$\[|\$\{"
-)
+# In the command without its heredoc bodies: an expansion, a substitution, a
+# subshell, group or function, `eval` / `source` / `.` in command position, or
+# an alias. Any of these rules out stripping a body that names a guarded head,
+# since the sink's output may be run or the sink may not be `cat`.
+_SINK_DEFEATED_RE = re.compile(r"[$`(){}]|\balias\b|(?:^|[;&|])\s*(?:eval|source|\.)(?=\s|$)", re.MULTILINE)
 
 
 def _is_data_sink(intro: str, previous: str | None) -> bool:
@@ -538,13 +538,14 @@ def _strip_heredoc_bodies(command: str) -> str:
     ``command`` comes back unchanged when a heredoc is never closed, when a
     ``<<`` cannot be placed (see :func:`_heredocs_opened`), or when a body
     naming ``git`` / ``gh`` may run: fed to anything but a bare ``cat`` /
-    ``tee``, or holding a command substitution under an unquoted delimiter,
-    which bash expands."""
+    ``tee``, holding a command substitution under an unquoted delimiter,
+    which bash expands, or in a command whose other lines could run the
+    sink's output (see ``_SINK_DEFEATED_RE``)."""
     out: list[str] = []
     pending: list[_Heredoc] = []
     quote: str | None = None
     sink = False
-    sinks_allowed = not _SINK_DEFEATED_RE.search(command)
+    guarded = False
     body: list[str] = []
     for line in command.split("\n"):
         if pending:
@@ -552,9 +553,11 @@ def _strip_heredoc_bodies(command: str) -> str:
             if (line.lstrip("\t") if strip_tabs else line) == delim:
                 pending.pop(0)
                 text = "\n".join(body)
-                expands = not quoted and _SUBSTITUTION_RE.search(text)
-                if _GUARDED_WORD_RE.search(text) and (expands or not sink):
-                    return command
+                if _GUARDED_WORD_RE.search(text):
+                    expands = not quoted and _SUBSTITUTION_RE.search(text)
+                    if expands or not sink:
+                        return command
+                    guarded = True
                 body = []
             else:
                 body.append(line)
@@ -569,10 +572,13 @@ def _strip_heredoc_bodies(command: str) -> str:
             # a continued line: the body starts after the logical line ends,
             # which this reader does not follow
             return command
-        sink = sinks_allowed and _is_data_sink(rest, previous)
+        sink = _is_data_sink(rest, previous)
     if pending:
         return command
-    return "\n".join(out)
+    stripped = "\n".join(out)
+    if guarded and _SINK_DEFEATED_RE.search(stripped):
+        return command
+    return stripped
 
 
 def split_segments(command: str, _depth: int = 0, _bodies_stripped: bool = False) -> list[Segment]:
@@ -611,8 +617,11 @@ def split_segments(command: str, _depth: int = 0, _bodies_stripped: bool = False
 
 
 def _shell_script(argv: list[str]) -> str | None:
-    """The ``<string>`` of ``bash|sh|zsh [options] -c <string> …``, or None when
-    ``argv`` is not such a call (a script, an interactive shell)."""
+    """The ``<string>`` of ``bash|sh|zsh [options] -c <string> …``, or of
+    ``eval <args>…`` (its arguments joined by spaces, as bash joins them), or
+    None when ``argv`` is not such a call (a script, an interactive shell)."""
+    if argv and argv[0] == "eval":
+        return " ".join(argv[1:]) or None
     if not argv or argv[0] not in _SHELLS:
         return None
     args = argv[1:]

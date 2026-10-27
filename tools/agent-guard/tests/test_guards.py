@@ -664,11 +664,23 @@ def test_heredoc_with_a_quoted_delimiter_word_is_data(command):
         # `cat` redefined as a function or alias.
         "cat() { bash; }\ncat <<'EOF'\nit's\ngit push --force\nEOF",
         "alias cat=bash\ncat <<'EOF'\nit's\ngit push --force\nEOF",
+        # The cat output is run: substitution, process substitution, eval,
+        # or a group piped to a shell.
+        "$(cat <<'EOF'\nit's\ngit push --force\nEOF\n)",
+        "`cat <<'EOF'\nit's\ngit push --force\nEOF\n`",
+        "eval \"$(cat <<'EOF'\nit's\ngit push --force\nEOF\n)\"",
+        "bash <(cat <<'EOF'\nit's\ngit push --force\nEOF\n)",
+        "(\ncat <<'EOF'\nit's\ngit push --force\nEOF\n) | bash",
+        "{\ncat <<'EOF'\nit's\ngit push --force\nEOF\n} | bash",
     ],
 )
 def test_heredoc_sink_must_be_a_bare_cat_or_tee(command):
     reason = dispatch(command)
     assert reason and "agent-guard[parse]" in reason
+
+
+def test_eval_string_is_checked_like_a_shell_c_string():
+    assert dispatch("""eval 'git commit -m "x\nCo-Authored-By: a"'""") is not None
 
 
 def test_shell_option_value_letters_are_not_flags():
