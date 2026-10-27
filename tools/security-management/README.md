@@ -262,7 +262,7 @@ Every command takes `--input F`, a JSON file.
 | `staleness` | `stale` and `days`: the team's latest message older than the timeout with no reporter reply since. |
 | `closed-announced` | `cve_org` (`notify`, `already_notified`, `wait`, `blocker`, `retry`, `skip`), `security_pages_reminder_pending`, `advisory_records` and its next step, `blockers`. |
 | `release-vote` | `release_vote_in_progress` and `release_vote_thread_url` for an open `[VOTE]` matching the fix-PR milestone. |
-| `advisory-archive` | `accepted` and `reasons` for a candidate *Public advisory URL*: the thread must be on `advisory_list`, its root subject `<CVE-ID>: <description>` (no `Re:` / `Fwd:`), its root sender (`thread.from`) in `authorized_senders`, the URL under `mail_archive_url`; a missing `mail_archive_url` or `authorized_senders` rejects; `requires_confirmation` is always true. |
+| `advisory-archive` | `accepted` and `reasons` for a candidate *Public advisory URL*: the thread must be on `advisory_list`, its root subject `<CVE-ID>: <description>` (no `Re:` / `Fwd:`), its root sender (`thread.from`) in `authorized_senders`, the URL under `mail_archive_url`; a missing `mail_archive_url` or `authorized_senders` rejects; `requires_confirmation` is always true, since the sender is the archived `From:` header and is not verified. |
 | `render-recap` | The recap `text`, `bare_refs`. |
 
 ### `issue-fix`
