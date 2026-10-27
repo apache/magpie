@@ -83,9 +83,12 @@ on any single vendor for either — any agent that reads the shared
 - **[Cursor](https://cursor.com/)** (Composer + `cursor-agent` CLI) reads Magpie's
   canonical `.agents/skills/` tree natively and supports per-action confirmation
   and clean-environment isolation; see [the Cursor harness guide](../adapters/cursor.md).
-- **[Goose](https://github.com/block/goose)** is an open-source agent CLI that reads
-  Magpie's canonical `.agents/skills/` tree natively and supports recipe workflows;
-  see [the Goose harness guide](../adapters/goose.md).
+- **[Goose](https://github.com/aaif-goose/goose)** (CLI `goose`) loads Magpie's
+  skills from a per-user plugin install. Goose itself has no sandbox, so the
+  plugin adds an action-guard hook and `agent-iso goose` runs the whole Goose
+  process in sandbox-runtime, in approve mode. The adapter is **experimental**:
+  it was validated with Goose 1.56.0 on macOS;
+  see [the Goose harness guide](../adapters/goose.md#limits).
 - **[Aider](https://aider.chat/)** is an open-source, multi-model terminal pair programming CLI
   with per-action confirmation and native local/cloud model support;
   see [the Aider harness guide](../adapters/aider.md).

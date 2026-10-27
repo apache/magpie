@@ -145,6 +145,7 @@ before entering any Claude-only settings flow.
 
 The same four skills route Antigravity to its [setup lifecycle](../adapters/antigravity.md#setup-isolated-lifecycle), which configures the user's `~/.gemini/` files once and never asks for per-repository setup.
 They route Pi to its [setup lifecycle](../adapters/pi.md#setup-isolated-lifecycle): one per-user package install carries the action guard, the permission rules and an OS sandbox for bash, all derived from the same Claude Code baseline.
+They route Goose to its [setup lifecycle](../adapters/goose.md#setup-isolated-lifecycle): one per-user plugin install carries the guard hook and the baseline's deny rules, and `agent-iso goose` runs the whole Goose process in sandbox-runtime in approve mode.
 
 ### Agent-guided (recommended)
 

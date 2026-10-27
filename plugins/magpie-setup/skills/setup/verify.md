@@ -67,7 +67,8 @@ adopted or merely configured; they are not specific to this branch.
    `~/.claude/plugins/installed_plugins.json` plus the version in
    the cached `…/apache-magpie/<plugin>/<version>/`; Codex:
    `codex plugin list`; Antigravity: `agy plugin list --json`; Pi:
-   `pi list` (one framework package, no per-family plugins). Report
+   `pi list` (one framework package, no per-family plugins); Goose:
+   `goose skills list` (`magpie:*` skills from one framework plugin). Report
    the family plugins installed and the version each is on.
 2. **Marketplace registered and reachable.** The `apache-magpie`
    marketplace appears in the client's known marketplaces
@@ -929,6 +930,15 @@ The secure setup is per user: a project-scope install of the package is reported
 An absent package is skipped unless Pi secure setup was requested; in that case, point to `setup-isolated-setup-install`.
 A static pass does not replace live verification in Pi.
 
+### 8h.3. Goose plugin (if present)
+
+When `~/.agents/plugins/magpie/` exists, check that its `hooks/hooks.json` and the sandbox runtime under its `node_modules/` are present, and that no project `.agents/plugins/magpie/` shadows it, then follow
+[the Goose verification contract](../../../../docs/adapters/goose.md#verify).
+The secure setup is per user: a project-scope plugin is reported as a finding, never repaired by writing into the repository.
+A missing sandbox runtime (after `goose plugin update`) is reported with the `npm ci` command that restores it.
+An absent plugin is skipped unless Goose secure setup was requested; in that case, point to `setup-isolated-setup-install`.
+A static pass does not replace live verification in Goose.
+
 ### 8i. Adversarial reviewers (if configured)
 
 When `adversarial-review.md` resolves (the personal layer first, then
@@ -950,7 +960,8 @@ it with the configured `reviewers`.
 - ⚠ for each harness command under the user's home
   (`~/.codex/prompts/magpie-adversarial-review.md`,
   `~/.gemini/antigravity-cli/skills/magpie-adversarial-review/SKILL.md`,
-  `~/.pi/agent/skills/magpie-adversarial-review/SKILL.md`) that differs from
+  `~/.pi/agent/skills/magpie-adversarial-review/SKILL.md`,
+  `~/.agents/skills/magpie-adversarial-review/SKILL.md`) that differs from
   what `adversarial-review commands --harness <name>` prints for the
   installed plugin — the command text changed in a newer plugin. The
   remediation is `/magpie-setup:setup config adversarial-review`, which shows the

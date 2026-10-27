@@ -324,7 +324,7 @@ committed version with drift detection.
 - **One committed skill, no submodules, no vendored framework copies.**
   The snapshot lives in a gitignored `.apache-magpie/`.
 - **`.agents/skills/` is the canonical home** for framework-skill
-  symlinks (the path shared by Codex, Cursor, Antigravity, Copilot, Pi, …);
+  symlinks (the path shared by Codex, Cursor, Antigravity, Copilot, Pi, Goose, …);
   every other agent dir (`.claude/skills/`, `.github/skills/`, holdouts)
   gets per-skill relay symlinks into it. This is uniform — there is no
   per-project skills-dir convention to detect.

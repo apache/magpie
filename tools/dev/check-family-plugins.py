@@ -467,7 +467,7 @@ SUBSTRATE_PLUGINS: dict[str, dict] = {
     "magpie-adversarial-review": {
         "description": (
             "Apache Magpie \u2014 adversarial review: runs other models' CLIs (Codex, Copilot, "
-            "Antigravity, Pi, Grok, Claude) read-only over a change before its PR is created, and "
+            "Antigravity, Pi, Grok, Goose, Claude) read-only over a change before its PR is created, and "
             "merges their findings. Runs from the installed plugin, so no repository needs a copy."
         ),
         # The Claude Code command is a generated file in the tool (pinned there by a

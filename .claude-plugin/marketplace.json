@@ -10,7 +10,7 @@
       "name": "magpie-adversarial-review",
       "source": "./plugins/magpie-adversarial-review",
       "version": "0.9.0.dev202610270025",
-      "description": "Apache Magpie \u2014 adversarial review: runs other models' CLIs (Codex, Copilot, Antigravity, Pi, Grok, Claude) read-only over a change before its PR is created, and merges their findings. Runs from the installed plugin, so no repository needs a copy."
+      "description": "Apache Magpie \u2014 adversarial review: runs other models' CLIs (Codex, Copilot, Antigravity, Pi, Grok, Goose, Claude) read-only over a change before its PR is created, and merges their findings. Runs from the installed plugin, so no repository needs a copy."
     },
     {
       "name": "magpie-agent-guard",

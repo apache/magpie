@@ -56,10 +56,10 @@
 #                    chosen by SPEC_LOOP_HARNESS below.
 #   SPEC_LOOP_HARNESS  which harness's headless-run convention to use when
 #                    invoking SPEC_LOOP_AGENT: `claude` (default), `codex`,
-#                    `cursor`, `antigravity`, `pi`, `opencode`, `kiro`, or
+#                    `cursor`, `antigravity`, `pi`, `goose`, `opencode`, `kiro`, or
 #                    `grok`. Defaults from the agent basename, so setting
 #                    SPEC_LOOP_AGENT=codex, SPEC_LOOP_AGENT=cursor-agent,
-#                    SPEC_LOOP_AGENT=agy, SPEC_LOOP_AGENT=pi,
+#                    SPEC_LOOP_AGENT=agy, SPEC_LOOP_AGENT=pi, SPEC_LOOP_AGENT=goose,
 #                    SPEC_LOOP_AGENT=opencode,
 #                    SPEC_LOOP_AGENT=kiro-cli, or SPEC_LOOP_AGENT=grok is
 #                    usually enough.
@@ -117,6 +117,7 @@ case "${SPEC_LOOP_HARNESS:-$(basename "$AGENT")}" in
     *agy*|*antigravity*) HARNESS=antigravity ;;
     # Exact basename only: `pi` is a substring of too many other CLI names.
     pi)         HARNESS=pi ;;
+    goose)      HARNESS=goose ;;
     *codex*)    HARNESS=codex ;;
     *cursor*)   HARNESS=cursor ;;
     *opencode*) HARNESS=opencode ;;
@@ -202,7 +203,7 @@ fi
 
 if ! command -v "$AGENT" >/dev/null 2>&1; then
     echo "Error: agent CLI '$AGENT' not found on PATH." >&2
-    echo "Set SPEC_LOOP_AGENT to a headless agent CLI (claude / codex / cursor / agy / pi / opencode / kiro / grok / a wrapper)" >&2
+    echo "Set SPEC_LOOP_AGENT to a headless agent CLI (claude / codex / cursor / agy / pi / goose / opencode / kiro / grok / a wrapper)" >&2
     echo "and SPEC_LOOP_HARNESS to its run convention if the name doesn't imply it." >&2
     exit 1
 fi

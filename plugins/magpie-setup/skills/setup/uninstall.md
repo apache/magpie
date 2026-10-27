@@ -42,7 +42,8 @@ explicit confirmation before any write.
 > verb (`/plugin uninstall <plugin>@apache-magpie` in Claude
 > Code, `codex plugin remove <plugin>@apache-magpie`,
 > `agy plugin uninstall magpie`,
-> `pi remove git:github.com/apache/magpie`). If the repo has no
+> `pi remove git:github.com/apache/magpie`, removing
+> `~/.agents/plugins/magpie/` for Goose). If the repo has no
 > `.apache-magpie.lock` and Magpie is plugin-installed, print
 > that command instead of a snapshot removal plan.
 > If Antigravity secure setup was installed, first follow the
@@ -51,6 +52,9 @@ explicit confirmation before any write.
 > On Pi, `pi remove` takes the guard, rules and sandbox with the skills, so
 > nothing else needs cleaning up — say so, since the user loses the secure
 > setup with it.
+> On Goose, removing the plugin directory takes the guard hook and the
+> sandbox runtime with it, and `agent-iso goose` then refuses to start —
+> say so too.
 > Then stop. When **both**
 > installs are live, this sub-action removes only the repo-side
 > one — say so explicitly, so the user is not surprised that the

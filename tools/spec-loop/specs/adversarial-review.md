@@ -17,7 +17,7 @@ source: >
   (config Step 3c, verify 8i, isolated-setup-install Step R).
 acceptance:
   - The tool runs only installed reviewer CLIs (codex, copilot, antigravity, pi,
-    grok, claude), each in its own read-only headless mode, and skips the model
+    goose, grok, claude), each in its own read-only headless mode, and skips the model
     running the harness unless told otherwise.
   - A reviewer's input is limited by construction to the diff, the changed
     files, and the PR title and body as they will be posted; no option
@@ -64,7 +64,7 @@ before the PR is created, through one shared block.
     and `--body-file`, runs every requested reviewer, and prints the merged
     report. `--allow-tracker-checkout` lets it run on a tracker checkout
     whose own code is under review.
-  - `commands --harness claude|codex|antigravity|pi|copilot` — prints one harness's
+  - `commands --harness claude|codex|antigravity|pi|goose|copilot` — prints one harness's
     command file as JSON `{path, content}`, rendered from one template
     (`commands.py`). Claude Code's is plugin-relative
     (`commands/adversarial-review.md`); Codex's is
@@ -72,7 +72,8 @@ before the PR is created, through one shared block.
     skill `~/.gemini/antigravity-cli/skills/magpie-adversarial-review/SKILL.md`,
     which Antigravity offers as a slash command; Pi's is the user skill
     `~/.pi/agent/skills/magpie-adversarial-review/SKILL.md`, invoked as
-    `/skill:magpie-adversarial-review`; Copilot CLI has no
+    `/skill:magpie-adversarial-review`; Goose's is the user skill
+    `~/.agents/skills/magpie-adversarial-review/SKILL.md`; Copilot CLI has no
     command mechanism, so it gets an empty path and the one-line invocation.
 - `tools/adversarial-review/commands/adversarial-review.md` — the generated
   Claude Code command, pinned by a test against the generator.
@@ -128,7 +129,9 @@ before the PR is created, through one shared block.
   switched off and `--output-schema`; `copilot -p` with the shell and write
   tools denied; `agy --mode plan` with the brief on stdin as one
   `stream-json` user message and no permission flag, so headless Antigravity
-  soft-denies every tool that needs approval; `claude -p` with
+  soft-denies every tool that needs approval; `goose run --no-session` with
+  `GOOSE_MODE=chat`, Goose's chat-only mode, which runs no tools at all;
+  `claude -p` with
   `--strict-mcp-config` and Bash, the editing tools, web access and `Task`
   disallowed.
   The `antigravity` reviewer is `skipped` on a tree that carries
@@ -193,7 +196,7 @@ before the PR is created, through one shared block.
   (Step 3c) runs `detect`, pre-ticks every available backend except `self`,
   asks for the `mode`, and writes `.apache-magpie-local/adversarial-review.md`,
   showing the difference first when the file exists.
-  It then offers the Codex, Antigravity and Pi command files under the user's home,
+  It then offers the Codex, Antigravity, Pi and Goose command files under the user's home,
   never in a repository.
   It is never part of a pre-flight entry.
   `verify` 8i reports configured reviewers whose CLI is gone and stale command
@@ -292,6 +295,6 @@ Behavioural eval suites under `tools/skill-evals/evals/`:
 - **Copilot CLI has no command file.** `setup` can only show the one-line
   invocation for it.
 - **Grok is a reviewer only, not a command-file harness.** `commands
-  --harness` covers `claude`, `codex`, `antigravity`, `pi` and `copilot`; a maintainer
+  --harness` covers `claude`, `codex`, `antigravity`, `pi`, `goose` and `copilot`; a maintainer
   working inside grok cannot be offered a generated command, though `detect`
   recognises grok as `self` from `GROK_SESSION_ID`.

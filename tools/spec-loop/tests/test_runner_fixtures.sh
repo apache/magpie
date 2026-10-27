@@ -217,6 +217,21 @@ test_harness_command_construction() {
     assert_contains "$TMPDIR_TEST/pi-model.log" "<--model> <anthropic/claude-test>"
     assert_contains "$TMPDIR_TEST/pi-model.log" "<--thinking> <low>"
 
+    # Goose: `run --no-session -i <prompt file>`, no effort flag, no approval bypass.
+    make_fake_agent "$TMPDIR_TEST/goose" "$TMPDIR_TEST/goose.log"
+    spec_loop_launch_agent goose "$TMPDIR_TEST/goose" /repo "$TMPDIR_TEST/prompt.md" "" text high
+    wait "$SPEC_LOOP_AGENT_PID"
+    assert_contains "$TMPDIR_TEST/goose.log" "<run> <--no-session>"
+    assert_contains "$TMPDIR_TEST/goose.log" "<-i> <$TMPDIR_TEST/prompt.md>"
+    assert_not_contains "$TMPDIR_TEST/goose.log" "<--model>"
+    assert_not_contains "$TMPDIR_TEST/goose.log" "<--thinking>"
+    assert_not_contains "$TMPDIR_TEST/goose.log" "GOOSE_MODE"
+
+    make_fake_agent "$TMPDIR_TEST/goose-model" "$TMPDIR_TEST/goose-model.log"
+    spec_loop_launch_agent goose "$TMPDIR_TEST/goose-model" /repo "$TMPDIR_TEST/prompt.md" claude-test text low
+    wait "$SPEC_LOOP_AGENT_PID"
+    assert_contains "$TMPDIR_TEST/goose-model.log" "<--model> <claude-test>"
+
     # Grok Build 1.0.50: prompt-file headless mode, explicit cwd,
     # unattended approval, remote-write denies, output mapping, model,
     # and framework effort mapping.

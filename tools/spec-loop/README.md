@@ -5,7 +5,7 @@
 
 **Capability:** substrate:framework-dev
 
-**Harness:** Claude Code, Codex, Cursor, Antigravity, Pi, OpenCode, Kiro, Grok
+**Harness:** Claude Code, Codex, Cursor, Antigravity, Pi, Goose, OpenCode, Kiro, Grok
 
 A spec-driven build loop for this framework, in the general
 [Ralph](https://ghuntley.com/ralph/) style (run a fresh agent context
@@ -29,6 +29,8 @@ picks its run convention:
 - `pi` — `pi -p "<prompt>"`, with `--mode json` for the JSON output formats
   and `--thinking` when `SPEC_LOOP_EFFORT` is set. Selected only by the exact
   agent name `pi`.
+- `goose` — `goose run --no-session -i <prompt file>`, with `--model` when set
+  and no effort flag. Selected by the exact agent name `goose`.
 - `opencode` — `opencode run --auto --model … "<prompt>"`, prompt as a
   positional argument.
 - `grok` — `grok --always-approve --cwd … --prompt-file …`, with explicit
@@ -71,8 +73,13 @@ so an iteration that needs a push or a mutating `gh` call cannot complete unatte
 and plain bash runs in the extension's OS sandbox.
 See the [Pi runner notes](../../docs/adapters/pi.md#spec-loop-runner).
 
+**Goose:** the `goose` profile adds no approval flag either; Goose's mode comes from its settings.
+A headless run cannot answer approve-mode prompts, and outside approve mode Magpie's Goose hook blocks
+everything that would need confirmation, so a push or a mutating `gh` call cannot run unattended.
+See the [Goose runner notes](../../docs/adapters/goose.md#spec-loop-runner).
+
 All conventions run the agent non-interactively.
-The profiles other than Antigravity and Pi request automatic approval; their safety rails (never push, never open a PR) come from
+The profiles other than Antigravity, Pi and Goose request automatic approval; their safety rails (never push, never open a PR) come from
 the OS sandbox, missing push/write credentials, repo hooks, and the loop's own
 guards. Claude gets per-invocation `--disallowedTools` hard-deny flags.
 Grok gets equivalent per-invocation `--deny` rules for `git push` and `gh`.
@@ -86,7 +93,7 @@ See the SECURITY notes in [`loop.sh`](loop.sh).
 - **CLIs:** `git` (required — must run inside a git checkout), `gh`
   (for open-PR duplicate-work checks), and one supported headless agent
   CLI (`SPEC_LOOP_AGENT`, default `claude`; also supports `codex`,
-  `cursor` / `cursor-agent`, `agy`, `pi`, `opencode`, `kiro-cli`, and `grok`).
+  `cursor` / `cursor-agent`, `agy`, `pi`, `goose`, `opencode`, `kiro-cli`, and `grok`).
 - **Credentials / auth:** `gh` must be authenticated for the PR checks;
   the loop is designed to run with **no** push/write credentials in the
   environment (it hard-denies `git push` and `gh` writes).
@@ -153,13 +160,13 @@ for Claude, as defence in depth, the loop also hard-denies `git push` and
 - `SPEC_LOOP_BASE` — branch to fork work items from. Defaults to `main`;
   set it explicitly to build on top of a different branch.
 - `SPEC_LOOP_AGENT` — supported headless agent CLI or wrapper to run
-  (default `claude`; `codex`, `cursor`, `agy`, `pi`, `opencode`, `kiro-cli`,
+  (default `claude`; `codex`, `cursor`, `agy`, `pi`, `goose`, `opencode`, `kiro-cli`,
   and `grok` are first-class harnesses).
 - `SPEC_LOOP_HARNESS` — override the invocation convention when the CLI
   name does not imply it (`claude`, `codex`, `cursor`, `antigravity`, `pi`,
-  `opencode`, `kiro`, or `grok`).
+  `goose`, `opencode`, `kiro`, or `grok`).
 - `SPEC_LOOP_MODEL` — model passed to the agent CLI. Defaults to `sonnet`
-  for Claude; Codex/Cursor/Antigravity/Pi/OpenCode/Grok use their configured default
+  for Claude; Codex/Cursor/Antigravity/Pi/Goose/OpenCode/Grok use their configured default
   unless this is set.
 - `SPEC_LOOP_EFFORT` — reasoning-effort band: `low`, `medium`, or `high`.
   Unset means no effort flag is passed. Mapped per harness (Claude/Kiro/Antigravity

@@ -36,7 +36,7 @@ def _invocation_line(content: str) -> str:
 
 
 def test_harness_set():
-    assert list(HARNESSES) == ["claude", "codex", "antigravity", "pi", "copilot"]
+    assert list(HARNESSES) == ["claude", "codex", "antigravity", "pi", "goose", "copilot"]
 
 
 def test_claude_command_runs_the_tool_from_the_stable_path():
@@ -81,6 +81,13 @@ def test_pi_command_is_a_user_skill():
     assert "$ARGUMENTS" not in content and "{{args}}" not in content and "``" not in content
     assert "the one the user named, if any" in content
     assert render("pi")[1] == render("antigravity")[1]
+
+
+def test_goose_command_is_a_user_skill_in_the_agents_home():
+    path, content = render("goose")
+    assert path == "~/.agents/skills/magpie-adversarial-review/SKILL.md"
+    assert "\nname: magpie-adversarial-review\n" in content.split("---\n")[1]
+    assert render("goose")[1] == render("pi")[1]
 
 
 def test_copilot_has_no_command_file_only_the_invocation():

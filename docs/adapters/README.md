@@ -36,7 +36,8 @@ One page per supported agentic harness, each declaring
 - [**Cursor**](cursor.md) — Composer and the Agent CLI.
 - [**Grok Build**](grok.md) — `PreToolUse` action-guard integration.
 - [**JetBrains Junie**](junie.md) — native `.agents/skills/` and `AGENTS.md`, plus an Early Access `PreToolUse` action guard.
-- [**Goose**](goose.md) — Block's open-source agent CLI and desktop environment.
+- [**Goose**](goose.md) — per-user plugin with a `PreToolUse` guard hook;
+  `agent-iso goose` runs the whole process in sandbox-runtime, in approve mode. Experimental.
 - [**Kiro CLI**](kiro.md) — per-skill installs, no marketplace; guard on
   `preToolUse`.
 - [**Local LLM**](local-llm.md) — Ollama, llama.cpp, vLLM.
@@ -48,7 +49,7 @@ One page per supported agentic harness, each declaring
 
 Not the same thing, and the differences matter more than the similarities.
 Eleven of twelve harnesses get the clean-environment layer; the action guard
-reaches eight of twelve.
+reaches nine of twelve.
 
 | Harness | Clean environment | Filesystem sandbox | Action guard |
 |---|---|---|---|
@@ -61,14 +62,14 @@ reaches eight of twelve.
 | **JetBrains Junie** | `junie --sandbox` (srt; MCP and hooks unsandboxed) | `/brave` levels and `~/.junie/allowlist.json` | ✅ `PreToolUse` (Early Access) |
 | **OpenAI Codex CLI** | `agent-iso codex` | Codex's own sandbox and exec policy, statically validated by [sandbox-lint](../../tools/sandbox-lint/README.md) | ❌ **none** |
 | **Cursor** | `agent-iso cursor` | Cursor's own policy | ❌ **none** |
-| **Goose (Block)** | `agent-iso goose` | Goose developer mode / approval prompts | ❌ **none** |
+| **Goose** | `agent-iso goose` | sandbox-runtime around the whole Goose process, from the Claude baseline; approve mode | ✅ `PreToolUse` plugin hook |
 | **Aider** | `agent-iso aider` | Aider's own policy / git repository map | ❌ **none** |
 | **Copilot CLI** | `agent-iso copilot` | Copilot's own approval prompts | ✅ `preToolUse` |
 
 **What the last column costs.** The action guard is what deterministically
 refuses a command that would break a hard framework rule — pinging maintainers,
 a `Co-Authored-By` trailer, `--no-verify`, marking a PR ready prematurely,
-emptying a PR by force-push. On Codex, Cursor, Goose, Aider, and Copilot CLI those rules are instructions
+emptying a PR by force-push. On Codex, Cursor and Aider those rules are instructions
 the model is asked to follow, not a gate that stops it. These harnesses have
 their own approval prompts, and none of them know Magpie's rules out of the box.
 

@@ -337,9 +337,9 @@ confirmation in Composer and the `cursor-agent` CLI; see the
 Local LLMs (Ollama, llama.cpp, vLLM) serve open-weight models via
 OpenAI-compatible endpoints with calibrated capability floors; see the
 [Local LLM harness guide](adapters/local-llm.md).
-Goose is an open-source agent CLI that reads `.agents/skills/` natively and supports
-recipe workflows and developer tool execution; see the
-[Goose harness guide](adapters/goose.md).
+Goose has an [experimental agent harness integration](adapters/goose.md) as well:
+a per-user plugin install adds the skills and Magpie's guard hook, and
+`agent-iso goose` runs the whole Goose process in sandbox-runtime, in approve mode.
 Aider is an open-source terminal pair programming CLI with per-action confirmation,
 multi-model routing, and local LLM support; see the
 [Aider harness guide](adapters/aider.md).
@@ -519,7 +519,7 @@ coverage without pretending one team can implement an open-ended set.
 | Axis | Architecture neutral? | Reference backends working today | Extension points |
 |---|---|---|---|
 | LLM backend | ✅ by construction | Claude Code, Ollama, vLLM, Apache-hosted, Bedrock, direct Anthropic | Any endpoint meeting the capability floor + privacy gate |
-| Agentic harness | ✅ by construction (`AGENTS.md` standard) | Claude Code; OpenCode; [Codex adapter](adapters/codex.md) (experimental); [Antigravity adapter](adapters/antigravity.md) (experimental); [Pi adapter](adapters/pi.md) (experimental); community use under Cursor, Copilot, Kiro | Remaining runtime adapters [#314–#322](https://github.com/apache/magpie/issues?q=is%3Aissue+state%3Aopen+adapter+in%3Atitle) |
+| Agentic harness | ✅ by construction (`AGENTS.md` standard) | Claude Code; OpenCode; [Codex adapter](adapters/codex.md) (experimental); [Antigravity adapter](adapters/antigravity.md) (experimental); [Pi adapter](adapters/pi.md) (experimental); [Goose adapter](adapters/goose.md) (experimental); community use under Cursor, Copilot, Kiro | Remaining runtime adapters [#314–#322](https://github.com/apache/magpie/issues?q=is%3Aissue+state%3Aopen+adapter+in%3Atitle) |
 | Forge / tracker | ✅ by construction | GitHub, Jira, SourceHut; Bitbucket and GitLab `partial-read-only` foundations excluded from complete-backend counts; CVE/scan/relay via adapter contracts | Forgejo/Gitea [#310](https://github.com/apache/magpie/issues/310), Pagure [#312](https://github.com/apache/magpie/issues/312), full Bitbucket tracker/change-request/Jira coverage [#606](https://github.com/apache/magpie/issues/606), GitLab [#305](https://github.com/apache/magpie/issues/305), Bugzilla [#302](https://github.com/apache/magpie/issues/302) |
 | Communication channels | ✅ by construction | PonyMail / mail-archive reads; Mailman 3 / Hyperkitty public-archive reads ([`tools/mail-source/mailman3`](../tools/mail-source/mailman3/)); Discourse topic reads and category activity lists ([`tools/discourse`](../tools/discourse/), `partial`) | mbox [#304](https://github.com/apache/magpie/issues/304), IMAP [#303](https://github.com/apache/magpie/issues/303); Discourse [#307](https://github.com/apache/magpie/issues/307), Zulip [#308](https://github.com/apache/magpie/issues/308), Matrix [#309](https://github.com/apache/magpie/issues/309) |
 | Source control (VCS) | ✅ by construction | **Git**, **Mercurial**, **Fossil**, **Subversion** (complete, [`tools/vcs`](../tools/vcs/)); ASF SVN surface ([`tools/asf-svn`](../tools/asf-svn/): source control + dist.apache.org + authorization) | Jujutsu [\#603](https://github.com/apache/magpie/issues/603), Perforce [\#605](https://github.com/apache/magpie/issues/605) (tracked) |
@@ -622,7 +622,7 @@ Organization scope (declared, orthogonal to vendor): ASF = 16, agnostic = 67.
 | Substrate tool | Substrate | Harness support | Verdict |
 |---|---|---|---|
 | `adversarial-review` | review | any | ✅ agnostic |
-| `agent-guard` | action-guard | Antigravity, Claude Code, Codex, Copilot, Grok, Junie, Kiro, OpenCode, Pi | ✅ portable |
+| `agent-guard` | action-guard | Antigravity, Claude Code, Codex, Copilot, Goose, Grok, Junie, Kiro, OpenCode, Pi | ✅ portable |
 | `agent-isolation` | sandbox | any | ✅ agnostic |
 | `container-gateway` | sandbox | any | ✅ agnostic |
 | `contributor-metrics` | analytics | any | ✅ agnostic |
@@ -650,7 +650,7 @@ Organization scope (declared, orthogonal to vendor): ASF = 16, agnostic = 67.
 | `skill-reconciler-diff` | framework-dev | any | ✅ agnostic |
 | `skill-token-count` | framework-dev, analytics | any | ✅ agnostic |
 | `spec-inventory` | framework-dev, analytics | any | ✅ agnostic |
-| `spec-loop` | framework-dev | Antigravity, Claude Code, Codex, Cursor, Grok, Kiro, OpenCode, Pi | ✅ portable |
+| `spec-loop` | framework-dev | Antigravity, Claude Code, Codex, Cursor, Goose, Grok, Kiro, OpenCode, Pi | ✅ portable |
 | `spec-status-index` | framework-dev, analytics | any | ✅ agnostic |
 | `spec-validator` | framework-dev | any | ✅ agnostic |
 | `symlink-lint` | framework-dev | any | ✅ agnostic |
@@ -664,6 +664,7 @@ Harness → substrate tools it supports:
 - **Codex** (3): `agent-guard`, `sandbox-lint`, `spec-loop`
 - **Copilot** (1): `agent-guard`
 - **Cursor** (2): `sandbox-lint`, `spec-loop`
+- **Goose** (2): `agent-guard`, `spec-loop`
 - **Grok** (3): `agent-guard`, `sandbox-lint`, `spec-loop`
 - **Junie** (1): `agent-guard`
 - **Kiro** (3): `agent-guard`, `sandbox-lint`, `spec-loop`

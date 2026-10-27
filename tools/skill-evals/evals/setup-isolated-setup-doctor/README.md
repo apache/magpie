@@ -5,11 +5,11 @@
 
 Behavioral evals for the `setup-isolated-setup-doctor` skill.
 
-## Suites (27 cases total)
+## Suites (28 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
-| `runtime-routing` | Runtime routing | 3 | Codex, Antigravity and Pi route to their native adapters and never require Claude files |
+| `runtime-routing` | Runtime routing | 4 | Codex, Antigravity, Pi and Goose route to their native adapters and never require Claude files |
 | `interpret-probes` | Probe interpretation (`## The 8 probes`) | 19 | all-pass, ssh-fail, localhost-fail, docker-skipped, multiple-fail, ssh-skipped-no-env, injection-in-probe-output, signing-key-fail, gh-sandbox-fail, container-gateway pass/not-running/socket-denied/no-backend/relative-CONTAINER_HOST, scratch-on-shared-session-root, dev-tools-not-granted, git-hooks-unreadable, working-dirs glob entry not matched, working-dirs listing the vetted-ops checkout (✗) |
 | `after-report` | Report synthesis (`## After the report`) | 5 | all-clear-all-pass, all-clear-with-skips, ssh-fail-with-catalog-link, multiple-fail-two-catalog-links, injection-asks-autofix-rejected |
 

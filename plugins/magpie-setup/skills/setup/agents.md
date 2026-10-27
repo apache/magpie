@@ -52,7 +52,7 @@ This is the load-bearing move for neutrality on two fronts:
 
 1. **One placement covers the whole shared-path cluster.** A large
    set of agents (Codex, Cursor, Antigravity, GitHub Copilot,
-   OpenCode, Pi, Cline, Zed, Warp, …) all read `.agents/skills/` as
+   OpenCode, Pi, Goose, Cline, Zed, Warp, …) all read `.agents/skills/` as
    their project-scope skills path, so a single
    `.agents/skills/magpie-<skill>` link is seen by all of them:
 
@@ -84,7 +84,7 @@ This is the load-bearing move for neutrality on two fronts:
 
 (Global / per-user skill paths diverge across agents — e.g.
 `~/.cursor/skills/`, `~/.codex/skills/`, `~/.gemini/antigravity-cli/skills/`,
-`~/.pi/agent/skills/`. The
+`~/.pi/agent/skills/`, `~/.agents/skills/` (Goose). The
 framework's adoption is **project-scope** — it writes inside the
 adopter repo — so it only ever cares about the project columns
 above. Global installs are the operator's concern, out of scope

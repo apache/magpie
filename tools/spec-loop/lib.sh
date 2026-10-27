@@ -159,6 +159,16 @@ spec_loop_launch_agent() {
             ${model_args[@]+"${model_args[@]}"} \
             ${pi_effort_args[@]+"${pi_effort_args[@]}"} \
             -p "$(cat "$prompt_file")" &
+    elif [ "$harness" = "goose" ]; then
+        # Goose headless: `goose run --no-session -i <file>` reads the prompt
+        # from the instructions file. No approval-skipping flag: Goose's mode
+        # comes from its settings, and Magpie's Goose hook refuses everything
+        # that would need confirmation outside approve mode, so a push or a
+        # mutating gh call cannot run unattended. Goose has no per-invocation
+        # effort flag, so the runner omits it.
+        "$agent" run --no-session \
+            ${model_args[@]+"${model_args[@]}"} \
+            -i "$prompt_file" &
     elif [ "$harness" = "kiro" ]; then
         # Kiro CLI headless: positional prompt to `kiro-cli chat --no-interactive`.
         # The model is selected by the chosen agent config (.kiro/agents), not a

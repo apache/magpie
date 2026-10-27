@@ -7,7 +7,7 @@ mode: Meta
 description: >-
   Walk an adopter through the first-time install of the secure agent
   setup (sandbox, approval and clean-environment layers) for Claude
-  Code, Codex, Antigravity or Pi. Interactive throughout; never runs sudo,
+  Code, Codex, Antigravity, Pi or Goose. Interactive throughout; never runs sudo,
   edits a shell rc, or overwrites settings on its own.
 when_to_use: >-
   When the user wants the secure setup installed for the first time, or
@@ -17,7 +17,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:d33e1ff373860d4b
 license: Apache-2.0
-measured_tokens: 8304
+measured_tokens: 8445
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -52,6 +52,12 @@ When the selected runtime is Pi, follow
 The setup is per user: never install the package with `-l` and write nothing into the repository.
 Do not require or write Claude configuration.
 After completing the Pi branch, stop before the Claude-specific procedure below.
+
+When the selected runtime is Goose, follow
+[docs/adapters/goose.md](../../../../docs/adapters/goose.md#install): propose the per-user plugin install, which brings the skills and the guard hook, and the `npm ci` of the locked sandbox runtime into the plugin; then guide the `agent-iso goose` launch, which runs Goose in the sandbox in approve mode, and verification.
+The setup is per user: install nothing into a project's `.agents/plugins/` and write nothing into the repository.
+Do not require or write Claude configuration.
+After completing the Goose branch, stop before the Claude-specific procedure below.
 
 When the selected runtime is Copilot CLI, follow [docs/adapters/copilot.md](../../../../docs/adapters/copilot.md#install): register the guard hook, detect and declare mail sources from the MCP servers already present, and ask nothing beyond the single apply confirmation (PRINCIPLES.md §1, *Avoiding prompt fatigue*). Do not require or write Claude configuration.
 After completing the Copilot branch, stop before the Claude-specific procedure below.
@@ -395,9 +401,9 @@ stay in `ask`, never in `allow`, and `vetted-op` is never excluded.
 Only applies when the `magpie-adversarial-review` plugin is installed. If it
 is not, skip this step and say so.
 
-The reviewer CLIs it runs (`codex`, `copilot`, `agy`, `pi`, `grok`, `claude`)
+The reviewer CLIs it runs (`codex`, `copilot`, `agy`, `pi`, `goose`, `grok`, `claude`)
 need network access and read their own credentials (`~/.codex`,
-`~/.copilot`, `~/.gemini/antigravity-cli`, `~/.pi/agent`, `~/.grok`, `~/.claude`), which this sandbox denies. The tool therefore
+`~/.copilot`, `~/.gemini/antigravity-cli`, `~/.pi/agent`, `~/.config/goose`, `~/.grok`, `~/.claude`), which this sandbox denies. The tool therefore
 runs outside it, through one exclusion. It names `~/.claude/magpie/adversarial-review`,
 a link the plugin's `SessionStart` hook points at the installed version every
 session, never a `*` where the version sits: that would also match `uv`

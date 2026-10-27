@@ -51,7 +51,7 @@ WRITE_GRANTING = {
 def test_backend_set_and_order():
     # Claude Code's widely inherited CLAUDECODE must stay last; grok's marker
     # is narrowly scoped to grok's own children, so it sits just before it.
-    assert list(BACKENDS) == ["codex", "copilot", "antigravity", "pi", "grok", "claude"]
+    assert list(BACKENDS) == ["codex", "copilot", "antigravity", "pi", "grok", "goose", "claude"]
 
 
 def test_codex_argv():
@@ -142,6 +142,29 @@ def test_pi_tool_allowlist_has_no_shell_or_write_tool():
     assert "-a" not in argv and "--approve" not in argv
 
 
+def test_goose_argv_runs_chat_mode_with_the_brief_file():
+    inv = BACKENDS["goose"].build(CTX)
+    assert inv.argv == ["goose", "run", "--no-session", "--no-profile", "--quiet", "-i", str(CTX.brief_path)]
+    assert inv.stdin is None
+    # Chat mode gives the model no tools: the reviewer can only read the brief.
+    assert inv.env == {"GOOSE_MODE": "chat"}
+
+
+def test_goose_refuses_a_tree_that_ships_a_project_plugin(tmp_path):
+    ctx = RunContext(**{**CTX.__dict__, "repo_dir": tmp_path})
+    refuse = BACKENDS["goose"].refuse
+    assert refuse is not None and refuse(ctx) is None
+    (tmp_path / ".agents" / "plugins" / "evil").mkdir(parents=True)
+    reason = refuse(ctx)
+    assert reason is not None and ".agents/plugins" in reason
+
+
+def test_goose_extract_is_plain_text():
+    assert BACKENDS["goose"].extract('{"findings": []}\n', CTX) == '{"findings": []}\n'
+    with pytest.raises(BackendOutputError, match="empty reply"):
+        BACKENDS["goose"].extract("  \n", CTX)
+
+
 def test_pi_extract_is_plain_text():
     assert BACKENDS["pi"].extract('{"findings": []}\n', CTX) == '{"findings": []}\n'
     with pytest.raises(BackendOutputError, match="empty reply"):
@@ -196,6 +219,7 @@ def test_claude_argv():
         ("antigravity", "--model"),
         ("pi", "--model"),
         ("grok", "-m"),
+        ("goose", "--model"),
         ("claude", "--model"),
     ],
 )
@@ -300,7 +324,7 @@ def test_antigravity_accepts_a_tree_without_executable_workspace_config(tmp_path
     assert refuse is not None and refuse(ctx) is None
 
 
-@pytest.mark.parametrize("name", [n for n in BACKENDS if n != "antigravity"])
+@pytest.mark.parametrize("name", [n for n in BACKENDS if n not in ("antigravity", "goose")])
 def test_other_backends_refuse_nothing(name):
     assert BACKENDS[name].refuse is None
 

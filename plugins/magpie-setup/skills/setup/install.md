@@ -148,6 +148,8 @@ stacked on a working one:
 - **Codex CLI** — `codex plugin list`. **Antigravity** —
   `agy plugin list --json`. **Pi** — `pi list` shows
   `git:github.com/apache/magpie` when the package is installed.
+  **Goose** — `goose skills list` shows `magpie:*` skills, and
+  `~/.agents/plugins/magpie/` exists, when the plugin is installed.
 
 If it is installed: report which plugins are active and their
 version, offer to **add** any family the user now wants — the same
@@ -174,6 +176,7 @@ floor [Step M0b](#step-m0b--pre-fill-from-the-committed-floor) reads.
 | VS Code / GitHub Copilot | `.vscode/`, the Copilot CLI on `PATH` | repo URL or catalog |
 | Google Antigravity | `agy` on `PATH`, `~/.gemini/antigravity-cli/` | `agy plugin` |
 | Pi | `pi` on `PATH`, `~/.pi/agent/`; `PI_SESSION_ID` in the session | `pi install` (no marketplace) |
+| Goose | `goose` on `PATH`, `~/.agents/plugins/`; `AGENT_SESSION_ID` in the session | `goose plugin install` (no marketplace) |
 | Cursor, `microsoft/apm`, Kiro, OpenCode | per [`marketplace.md`](../../../../docs/setup/marketplace.md#supported-agents) | varies |
 
 When the running agent is ambiguous, ask — one structured
@@ -182,7 +185,7 @@ one wastes the user's turn.
 
 **If the agent has no plugin mechanism at all** — the clients
 [`marketplace.md`](../../../../docs/setup/marketplace.md#not-supported)
-lists as unsupported, Windsurf and Goose among them — say so
+lists as unsupported, Windsurf among them — say so
 plainly, name it as the reason, and hand off to the pinned
 snapshot install at [Step 0](#step-0--pre-flight). That — not a
 preference — is what the snapshot path is for.
@@ -354,6 +357,15 @@ per-user secure setup (guard, permission rules, bash sandbox):
 pi install git:github.com/apache/magpie
 ```
 
+Goose, once per user — the plugin carries the guard hook, and its
+sandbox runtime is installed from the committed lockfile into the
+plugin (see [the Goose install](../../../../docs/adapters/goose.md#install)):
+
+```bash
+goose plugin install https://github.com/apache/magpie
+npm ci --omit=dev --legacy-peer-deps --ignore-scripts --prefix ~/.agents/plugins/magpie
+```
+
 VS Code / Copilot has no CLI on this path: point the plugin
 install at `https://github.com/apache/magpie`, and say that is
 why this one is a manual step.
@@ -430,7 +442,8 @@ Tell the user, in this order:
    `/plugin update <plugin>@apache-magpie`; Codex:
    `codex plugin marketplace upgrade apache-magpie`; Antigravity: re-run
    `agy plugin install https://github.com/apache/magpie`; Pi:
-   `pi update --extensions`. The bundled `SessionStart`
+   `pi update --extensions`; Goose: `goose plugin update magpie`,
+   then the `npm ci` above again. The bundled `SessionStart`
    hook prompts on a version change where the client runs hooks.
 5. **Configure it for yourself when a skill asks.** A marketplace
    install delivers skills; it tells them nothing about this project.
@@ -1303,7 +1316,7 @@ into **every active target dir**, canonical first:
   skill at `.agents/skills/magpie-<n>` → relative path into the
   snapshot (`../../.apache-magpie/skills/<n>/`). Gitignored. This
   is the single placement that makes the framework discoverable to
-  Codex, Cursor, Antigravity, Copilot, OpenCode, Pi, and the rest of
+  Codex, Cursor, Antigravity, Copilot, OpenCode, Pi, Goose, and the rest of
   the shared-path cluster, and the one source every relay points
   at.
 
@@ -2111,6 +2124,10 @@ Four passes, in this order:
    **Pi writes no project profile either.**
    Its guard, permission rules and bash sandbox ship in the per-user Pi package;
    when Pi is the selected runtime, point to `setup-isolated-setup-install` ([the Pi install](../../../../docs/adapters/pi.md#install)) instead of writing anything into the repository, and never record the package in the project's `.pi/settings.json`.
+
+   **Goose writes no project profile either.**
+   Its guard hook ships in the per-user Goose plugin and its sandbox comes from `agent-iso goose`;
+   when Goose is the selected runtime, point to `setup-isolated-setup-install` ([the Goose install](../../../../docs/adapters/goose.md#install)) instead of writing anything into the repository, and never install the plugin into a project's `.agents/plugins/`.
    **Grok action guard (when Grok is the selected runtime).**
    First distinguish a marketplace/plugin install from a source or pinned-snapshot install.
    When `magpie-agent-guard` is already available as an enabled marketplace plugin, use that bundled hook and executable.

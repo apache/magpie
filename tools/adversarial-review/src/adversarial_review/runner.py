@@ -126,7 +126,7 @@ def run_one(name: str, ctx: RunContext, timeout_s: float, env: Mapping[str, str]
         return ReviewerResult(name, "unavailable", reason="not on PATH")
     start = time.monotonic()
     try:
-        proc = _execute([path, *inv.argv[1:]], inv.stdin, timeout_s, ctx.repo_dir, env)
+        proc = _execute([path, *inv.argv[1:]], inv.stdin, timeout_s, ctx.repo_dir, {**env, **(inv.env or {})})
     except subprocess.TimeoutExpired:
         return ReviewerResult(
             name, "timeout", reason=f"no answer within {timeout_s:g}s", seconds=time.monotonic() - start

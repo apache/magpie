@@ -25,7 +25,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { type Baseline, Policy } from "../pi/policy.ts";
-import { decide } from "./hook.ts";
+import { decide, isGooseEvent } from "./hook.ts";
 import { gooseSandboxSettings, providerAccess } from "./settings.ts";
 
 const baseline = JSON.parse(
@@ -96,6 +96,14 @@ test("writes outside the working folder need approve mode", () => {
 	assert.match(decide(out, policy, false, noGuard) ?? "", /outside the working folder/);
 	const inside = { tool_name: "edit", tool_input: { path: "src/a.py", before: "a", after: "b" }, working_dir: ws };
 	assert.equal(decide(inside, policy, false, noGuard), null);
+});
+
+test("only a Goose-shaped payload is acted on", () => {
+	assert.ok(isGooseEvent({ event: "PreToolUse", tool_name: "write", tool_input: {}, working_dir: ws }));
+	// Claude Code and Copilot payloads, should another host load hooks/hooks.json.
+	assert.ok(!isGooseEvent({ hook_event_name: "PreToolUse", tool_name: "Write", tool_input: {}, cwd: ws }));
+	assert.ok(!isGooseEvent({ toolName: "edit", toolArgs: "{}", cwd: ws }));
+	assert.ok(!isGooseEvent(null));
 });
 
 test("other tools are left to Goose", () => {

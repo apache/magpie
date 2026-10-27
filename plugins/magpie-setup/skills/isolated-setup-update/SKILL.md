@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:1f327e069312dad2
 license: Apache-2.0
-measured_tokens: 6951
+measured_tokens: 7042
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -43,6 +43,10 @@ Then stop before the Claude-specific drift report below.
 
 When the selected runtime is Pi, follow [docs/adapters/pi.md](../../../../docs/adapters/pi.md#update): compare the installed framework package's ref, the Pi version and the wrapper with the framework's current ones.
 Report drift and the `pi update --extensions` refresh only; do not apply changes or require Claude configuration.
+Then stop before the Claude-specific drift report below.
+
+When the selected runtime is Goose, follow [docs/adapters/goose.md](../../../../docs/adapters/goose.md#update): compare the installed plugin's ref, the sandbox runtime under it, the Goose version and the wrapper with the framework's current ones.
+Report drift and the `goose plugin update magpie` plus `npm ci` refresh only; do not apply changes or require Claude configuration.
 Then stop before the Claude-specific drift report below.
 
 When the selected runtime is Copilot CLI, follow [docs/adapters/copilot.md](../../../../docs/adapters/copilot.md#update): report hook drift against the framework copy; never loosen policy automatically.

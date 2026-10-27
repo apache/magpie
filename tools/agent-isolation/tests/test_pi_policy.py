@@ -15,7 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-"""Run the Pi extension's policy tests (``pi/policy.test.ts``) under Node.
+"""Run the Pi extension's policy tests (``pi/policy.test.ts``) and the Goose hook's
+tests (``goose/goose.test.ts``) under Node.
 
 The policy module is TypeScript that imports nothing from Pi, so Node's type
 stripping runs it directly. Node 22.18+ strips types by default; 22.6+ needs
@@ -32,13 +33,16 @@ from pathlib import Path
 import pytest
 
 TEST = Path(__file__).resolve().parents[1] / "pi" / "policy.test.ts"
+GOOSE_TEST = Path(__file__).resolve().parents[1] / "goose" / "goose.test.ts"
 
 
 def _node_args() -> list[str]:
     node = shutil.which("node")
     if node is None:
         return pytest.skip("node is not installed")
-    version = subprocess.run([node, "--version"], capture_output=True, text=True, check=False).stdout
+    version = subprocess.run(
+        [node, "--version"], capture_output=True, text=True, check=False
+    ).stdout
     match = re.match(r"v(\d+)\.(\d+)", version.strip())
     if not match:
         return pytest.skip(f"cannot read the node version: {version!r}")
@@ -51,9 +55,10 @@ def _node_args() -> list[str]:
     return pytest.skip(f"node {version.strip()} cannot strip TypeScript types")
 
 
-def test_pi_policy_suite_passes() -> None:
+@pytest.mark.parametrize("suite", [TEST, GOOSE_TEST], ids=["pi-policy", "goose-hook"])
+def test_node_suite_passes(suite: Path) -> None:
     result = subprocess.run(
-        [*_node_args(), "--test", str(TEST)],
+        [*_node_args(), "--test", str(suite)],
         capture_output=True,
         text=True,
         check=False,

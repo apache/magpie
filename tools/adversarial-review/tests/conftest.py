@@ -32,6 +32,7 @@ HARNESS_MARKERS = (
     "COPILOT_CLI",
     "GROK_SESSION_ID",
     "PI_SESSION_ID",
+    "AGENT_SESSION_ID",
 )
 
 

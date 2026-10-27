@@ -47,9 +47,22 @@ const READ_TOOLS: Record<string, string> = { tree: "path", analyze: "path", load
 const WRITE_TOOLS: Record<string, string> = { write: "path", edit: "path" };
 
 interface GooseEvent {
+	event?: string;
 	tool_name?: string;
 	tool_input?: Record<string, unknown>;
 	working_dir?: string;
+}
+
+/**
+ * Whether a hook payload came from Goose. The repository root is also a
+ * Claude-format plugin, so other hosts may load hooks/hooks.json too; Goose
+ * alone sends `event` and `working_dir` (Claude sends `hook_event_name` and
+ * `cwd`, Copilot `toolName` and `cwd`), and any other payload is left alone.
+ */
+export function isGooseEvent(payload: unknown): payload is GooseEvent {
+	if (typeof payload !== "object" || payload === null) return false;
+	const p = payload as Record<string, unknown>;
+	return typeof p.event === "string" && typeof p.working_dir === "string" && typeof p.tool_name === "string";
 }
 
 /** The reason to block this tool call, or null to let Goose (and its approve prompt) decide. */
@@ -117,8 +130,10 @@ function guard(command: string, cwd: string): string | null {
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-	const event = JSON.parse(readFileSync(0, "utf8") || "{}") as GooseEvent;
-	const policy = new Policy(JSON.parse(readFileSync(BASELINE, "utf8")) as Baseline);
-	const reason = decide(event, policy, process.env.GOOSE_MODE === "approve", guard);
-	if (reason) process.stdout.write(`${JSON.stringify({ decision: "block", reason })}\n`);
+	const payload: unknown = JSON.parse(readFileSync(0, "utf8") || "{}");
+	if (isGooseEvent(payload)) {
+		const policy = new Policy(JSON.parse(readFileSync(BASELINE, "utf8")) as Baseline);
+		const reason = decide(payload, policy, process.env.GOOSE_MODE === "approve", guard);
+		if (reason) process.stdout.write(`${JSON.stringify({ decision: "block", reason })}\n`);
+	}
 }

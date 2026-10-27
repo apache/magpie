@@ -63,7 +63,7 @@ _FALLBACK_TARGETS = [
         "universal",
         ".agents/skills",
         "canonical",
-        "Codex, Cursor, Antigravity, GitHub Copilot, OpenCode, Pi, "
+        "Codex, Cursor, Antigravity, GitHub Copilot, OpenCode, Pi, Goose, "
         "Cline, Zed, Warp, Amp, and the rest of the shared-path cluster",
     ),
     ("claude-code", ".claude/skills", "relay", "Claude Code"),

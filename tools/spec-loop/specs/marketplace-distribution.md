@@ -65,6 +65,9 @@ Two manifest families, because the ecosystems have not converged:
   Pi reads the root `package.json`, whose `pi` key names the `skills/` tree and the Magpie extension
   (`pi install git:github.com/apache/magpie`, once per user); the manifest is private — Magpie is not published to npm —
   and carries the extension's single pinned runtime dependency, which Pi installs itself.
+  Goose reads `.goose-plugin/plugin.json` first, which lists the family `plugins/*/skills` directories
+  (Goose's installer does not copy the root `skills/` symlinks), and the root `hooks/hooks.json` for its
+  guard hook; `goose plugin install https://github.com/apache/magpie` installs it per user.
   The root `marketplace.json` names each plugin's `source` as a bare
   relative path (`"./plugins/magpie-<family>"`), not a `{"source": "local",
   "path": …}` object, which is not a source type Claude Code documents

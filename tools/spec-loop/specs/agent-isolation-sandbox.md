@@ -61,6 +61,23 @@ An observed probe on Pi 1.4.0 (macOS) could not read `~/.ssh` or write under `$H
 reached `api.github.com` but not `example.com`, and saw an empty `$GH_TOKEN`.
 See `docs/adapters/pi.md`.
 
+Goose ships no sandbox, and its hooks can allow or block a tool call but cannot wrap one, so Magpie isolates the
+whole process: `agent-iso goose` runs `tools/agent-isolation/goose/launch.ts` from the per-user plugin
+(`goose plugin install https://github.com/apache/magpie` into `~/.agents/plugins/magpie/`), which runs Goose inside
+`@anthropic-ai/sandbox-runtime` with `GOOSE_MODE=approve`, so Goose asks before every tool call.
+The sandbox settings (`goose/settings.ts`) are the Claude baseline's, plus Goose's data, state and cache
+directories, the plugin (read-only) and the model provider's API host; `~/.config/goose` is read-only inside and
+`secrets.yaml` unreadable, so the provider key comes in through the environment.
+The plugin's root `hooks/hooks.json` runs `goose/hook.ts` before `shell`, `write`, `edit`, `tree`, `analyze`,
+`load` and `read_image`: agent-guard (`--goose`) and the baseline's deny rules through the shared `policy.ts`,
+and, outside approve mode, a block on what would have needed approval; the hook fails closed.
+The sandbox runtime comes from an `npm ci` of the committed lockfile into the plugin, which
+`goose plugin update` removes; the launcher refuses to start without it.
+An observed probe on Goose 1.56.0 (macOS) could not read `~/.ssh`, write under `$HOME` or append to Goose's
+`config.yaml`, reached `api.github.com` but not `example.com`, saw an empty `$GH_TOKEN`, and had the hook deny
+a `--no-verify` commit, `curl`, a `load` of `~/.aws/credentials` and a write of Goose's `permission.yaml`.
+See `docs/adapters/goose.md`.
+
 ## Where it lives
 
 - `tools/agent-isolation/` — the harness (clean-env wrapper +
@@ -379,6 +396,9 @@ See `docs/adapters/pi.md`.
 - `tools/agent-isolation/pi/` — Magpie's Pi extension: `magpie.ts` (guard via `agent_guard --pi`,
   permission rules, sandboxed bash tool) and `policy.ts` (the decisions, derived from the Claude baseline,
   tested with `node --test`). Loaded per user through the root `package.json`; never installed per project.
+- `tools/agent-isolation/goose/` — Magpie's Goose support: `hook.ts` (the plugin's `PreToolUse` hook),
+  `settings.ts` (the sandbox-runtime settings) and `launch.ts` (runs Goose in the sandbox in approve mode,
+  called by `agent-iso goose`), sharing `pi/policy.ts`; tested with `node --test`.
 - Skills: `setup-isolated-setup-install`, `-update`, `-verify`,
   `-doctor`. The update skill establishes the agent-guard wiring before
   diffing anything: with the `magpie-agent-guard` plugin enabled, the
@@ -654,3 +674,14 @@ it never installs the package per project (`-l`) and writes nothing into the rep
 Verification checks that the package is user-scope and exercises the guard, rules and sandbox live;
 update reports the package ref and leaves `pi update --extensions` to the user;
 uninstall is `pi remove git:github.com/apache/magpie`, which removes the secure setup with the skills.
+
+## Goose setup lifecycle
+
+The four `setup-isolated-setup-*` skills route Goose requests to `docs/adapters/goose.md`
+and stop before the Claude-specific procedure.
+The install route proposes the per-user `goose plugin install https://github.com/apache/magpie`
+and the `npm ci` of the sandbox runtime into the plugin, then the `agent-iso goose` launch;
+it never installs the plugin into a project's `.agents/plugins/` and writes nothing into the repository.
+Verification checks the plugin, its hook and sandbox runtime, and exercises the guard, rules and sandbox live;
+update reports the plugin ref and leaves `goose plugin update magpie` and the `npm ci` to the user;
+uninstall removes `~/.agents/plugins/magpie/`, which removes the secure setup with the skills.

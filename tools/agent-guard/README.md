@@ -15,6 +15,7 @@
     - [Codex](#codex)
     - [OpenCode](#opencode)
     - [Pi](#pi)
+    - [Goose](#goose)
     - [Kiro CLI](#kiro-cli)
     - [Antigravity](#antigravity)
     - [Copilot CLI](#copilot-cli)
@@ -33,7 +34,7 @@
 
 **Capability:** substrate:action-guard
 
-**Harness:** Claude Code, Codex, OpenCode, Pi, Kiro, Antigravity, Copilot, Grok, Junie
+**Harness:** Claude Code, Codex, OpenCode, Pi, Goose, Kiro, Antigravity, Copilot, Grok, Junie
 
 A deterministic pre-execution guard dispatcher. It inspects every shell command
 **before it runs** and **denies** the ones that would break a hard framework
@@ -52,6 +53,9 @@ so every wired harness enforces an identical rule set from one source of truth:
 - **Pi** — Magpie's user-scope Pi extension, which sends every `bash` call to
   `agent-guard.py --pi` (the OpenCode transport) and blocks it on a deny.
   See [Pi](#pi).
+- **Goose** — the Magpie Goose plugin's `PreToolUse` hook, which sends every
+  `shell` call to `agent-guard.py --goose` (the same transport) and blocks it
+  on a deny. See [Goose](#goose).
 - **Kiro CLI** — a [`preToolUse`](https://kiro.dev/docs/cli/hooks) hook on the
   `execute_bash` matcher, which blocks a call when the hook exits `2`
   (`agent-guard.py --kiro`, reason on stderr). See [Wiring](#wiring).
@@ -285,6 +289,27 @@ pi install git:github.com/apache/magpie
 It resolves the engine relative to its own file, so the installed package
 carries everything it runs. The same extension adds the permission rules and
 the OS sandbox for bash; see [the Pi harness](../../docs/adapters/pi.md).
+
+### Goose
+
+Goose runs hooks shipped in a plugin. The Magpie Goose plugin's
+[`hooks/hooks.json`](../../hooks/hooks.json) registers a `PreToolUse` hook,
+[`tools/agent-isolation/goose/hook.ts`](../agent-isolation/goose/hook.ts),
+which sends every `shell` command to `agent-guard.py --goose` before it runs
+and blocks the call on exit `2`, using the reason the engine prints on stdout.
+`--goose` shares the `{"command", "cwd"}` stdin transport with `--opencode`
+and `--pi`, so the decisions and reasons are identical; a missing engine fails
+open, like every other adapter, while a crash of the hook itself fails closed
+(`on_failure: block`).
+
+The plugin is installed **once per user**, never per repository:
+
+```bash
+goose plugin install https://github.com/apache/magpie
+```
+
+The same hook applies the baseline's deny rules, and `agent-iso goose` runs the
+whole Goose process in an OS sandbox; see [the Goose harness](../../docs/adapters/goose.md).
 
 ### Kiro CLI
 

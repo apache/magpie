@@ -50,6 +50,7 @@ def clean_harness_markers(monkeypatch: pytest.MonkeyPatch) -> None:
         "COPILOT_CLI",
         "ANTIGRAVITY_CONVERSATION_ID",
         "PI_SESSION_ID",
+        "AGENT_SESSION_ID",
         "CLAUDECODE",
     ):
         monkeypatch.delenv(marker, raising=False)
@@ -274,6 +275,34 @@ def test_the_pi_marker_is_unknown_without_a_versioned_listing(
     monkeypatch.setattr("setup_preflight.cli.subprocess.run", explode)
     assert read_installed(None, {"PI_SESSION_ID": "s1"}) == (None, None)
     assert read_installed(None, {"PI_SESSION_ID": "s1", "CLAUDECODE": "1"}) == (None, None)
+
+
+def test_the_goose_marker_runs_no_listing_and_wins_over_an_inherited_claude(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Goose has no plugin listing, so its floor stays unknown, and an
+    inherited `CLAUDECODE` must not make Claude's listing run instead."""
+
+    def explode(*_args: object, **_kwargs: object) -> subprocess.CompletedProcess:
+        raise AssertionError("goose has no versioned listing to run")
+
+    monkeypatch.setattr("setup_preflight.cli.subprocess.run", explode)
+    assert read_installed(None, {"AGENT_SESSION_ID": "s1"}) == (None, None)
+    assert read_installed(None, {"AGENT_SESSION_ID": "s1", "CLAUDECODE": "1"}) == (None, None)
+
+
+def test_a_specific_harness_marker_wins_over_goose_s_generic_one(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen: list[list[str]] = []
+
+    def run(argv: list[str], **_kwargs: object) -> subprocess.CompletedProcess:
+        seen.append(list(argv))
+        return subprocess.CompletedProcess(argv, 0, '{"installed": []}', "")
+
+    monkeypatch.setattr("setup_preflight.cli.subprocess.run", run)
+    read_installed(None, {"AGENT_SESSION_ID": "s1", "CODEX_THREAD_ID": "t"})
+    assert seen == [["codex", "plugin", "list", "--json"]]
 
 
 def test_a_timeout_of_the_running_harness_is_unknown(

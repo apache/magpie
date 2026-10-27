@@ -44,6 +44,22 @@ def ctx(tmp_path: Path, name: str) -> RunContext:
     )
 
 
+def test_goose_runs_in_chat_mode_and_reads_the_brief_file(stub_bin, tmp_path):
+    bin_dir, make = stub_bin
+    (tmp_path / "brief.md").write_text("THE BRIEF", encoding="utf-8")
+    # The stub answers only when it ran in chat mode and was handed the brief file.
+    make(
+        "goose",
+        "import json, os, sys\n"
+        "brief = open(sys.argv[sys.argv.index('-i') + 1]).read()\n"
+        "finding = {'severity': 'low', 'file': 'app.py', 'line': 1,"
+        " 'claim': os.environ.get('GOOSE_MODE', '') + ':' + brief, 'evidence': ''}\n"
+        "print(json.dumps({'findings': [finding]}))\n",
+    )
+    r = run_one("goose", ctx(tmp_path, "goose"), 30, {"PATH": str(bin_dir)})
+    assert r.status == "ok" and r.findings[0].claim == "chat:THE BRIEF"
+
+
 def test_ok(stub_bin, tmp_path):
     bin_dir, make = stub_bin
     make("codex", CODEX_OK)

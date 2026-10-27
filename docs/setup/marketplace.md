@@ -19,6 +19,7 @@
     - [Kiro (AWS)](#kiro-aws)
     - [OpenCode](#opencode)
     - [Pi](#pi)
+    - [Goose](#goose)
     - [JetBrains IDEs (IntelliJ IDEA, PyCharm, GoLand, …)](#jetbrains-ides-intellij-idea-pycharm-goland-)
     - [Not supported](#not-supported)
   - [Auto-install: arriving Magpie-ready](#auto-install-arriving-magpie-ready)
@@ -113,6 +114,8 @@ predate the standard still read their own:
 | [`.codex-plugin/plugin.json`](../../.codex-plugin/plugin.json) | OpenAI Codex CLI | Codex documents this as its plugin entry point, with its own `interface` / `apps` / `hooks` fields |
 | [`apm.yml`](../../apm.yml) | `microsoft/apm` | A cross-client compiler, not a client — its own package schema |
 | [`package.json`](../../package.json) (root, `pi` key) | Pi | A Pi package manifest: it names the `skills/` tree and the Magpie extension (guard, permission rules, OS sandbox), and carries the extension's one runtime dependency. Private — Magpie is not published to npm |
+| [`.goose-plugin/plugin.json`](../../.goose-plugin/plugin.json) | Goose | Goose reads this path before the root `plugin.json`. It lists the family `plugins/*/skills` directories, because Goose's installer does not copy the root `skills/` symlinks |
+| [`hooks/hooks.json`](../../hooks/hooks.json) (root) | Goose | The plugin's `PreToolUse` hook: Magpie's guard and the baseline's deny rules. Antigravity reads only a root `hooks.json`, so it ignores this file |
 
 The manifests do not conflict: they sit at different paths, each client reads
 the one it documents, and every one of them points at the same single `skills/`
@@ -296,6 +299,7 @@ Quick reference:
 | **Kiro** | install per-skill from a GitHub subdirectory, or the AP1 package | root `plugin.json` (AP1), native `skills/<name>/SKILL.md` |
 | **OpenCode** | no marketplace: the pinned snapshot's `.agents/skills/` (project), or skills linked into `~/.agents/skills/` (personal) | native `skills/<name>/SKILL.md` |
 | **Pi** | `pi install git:github.com/apache/magpie` (once per user) | root `package.json` (`pi` key) + `skills/` |
+| **Goose** | `goose plugin install https://github.com/apache/magpie` (once per user), then `npm ci` of the sandbox runtime | `.goose-plugin/plugin.json` + `hooks/hooks.json` |
 | **JetBrains IDEs** (IntelliJ, PyCharm, …) | nothing of its own — install for the agent you run inside the IDE, e.g. Claude Code's `/plugin marketplace add apache/magpie` | none; a host, not a distribution target |
 
 Detailed steps per agent follow.
@@ -497,6 +501,19 @@ the repository root is a Pi package. Its `package.json` `pi` key names the
 skills and the secure setup together. Pi installs the extension's runtime
 dependency itself. See [the Pi adapter](../adapters/pi.md).
 
+### Goose
+
+Commands: [**Prerequisite → Goose**](marketplace-install.md#goose).
+
+Goose has no marketplace; `goose plugin install` takes a git URL and copies
+the whole checkout into `~/.agents/plugins/magpie/`. Its
+`.goose-plugin/plugin.json` names the family skill directories, which load as
+`magpie:<skill>`, and the root `hooks/hooks.json` registers Magpie's guard
+hook. Goose does not install npm dependencies, so the sandbox runtime
+`agent-iso goose` runs Goose in comes from an `npm ci` of the committed
+lockfile into the plugin, repeated after every `goose plugin update`.
+See [the Goose adapter](../adapters/goose.md).
+
 ### JetBrains IDEs (IntelliJ IDEA, PyCharm, GoLand, …)
 
 A JetBrains IDE is a **host for an agent, not a distribution target of its
@@ -533,9 +550,6 @@ elsewhere is a separate project and installs separately.
 - **Windsurf** — has no skills/rules marketplace; project rules are plain
   `.windsurfrules` files with no install mechanism. Skills would have to be
   converted by hand; there is no distribution channel.
-- **Goose (Block)** — its extension registry is Model Context Protocol
-  (MCP) servers, not `SKILL.md` skills. Distributing Magpie there would
-  require wrapping skills behind an MCP server (a rebuild, not packaging).
 
 ## Auto-install: arriving Magpie-ready
 
@@ -553,6 +567,7 @@ difference is structural rather than a gap someone forgot to fill.
 | **VS Code / GitHub Copilot** | ❌ | No repo-side mechanism. The catalogue advertises; it cannot pre-install |
 | **Google Antigravity** | ❌ | Install is explicit-only. Plugins are installed per user under `~/.gemini/config/plugins/`; there is no repo-side plugin declaration |
 | **Pi** | ❌ by design | `pi install -l` could record the package in a project's `.pi/settings.json`, but Magpie's Pi package carries the secure setup, which is per user; install it with `pi install git:github.com/apache/magpie` instead |
+| **Goose** | ❌ by design | A project's `.agents/plugins/` could carry a plugin, but Magpie's Goose plugin carries the secure setup, which is per user; install it with `goose plugin install https://github.com/apache/magpie` instead |
 | **JetBrains IDEs** | ✅ inherited | Whatever the agent running inside the IDE supports. With Claude Code's JetBrains plugin that is the row above — the project's `.claude/settings.json` applies unchanged, because plugin state is one user-scope store shared by every host of the same CLI |
 
 Codex's `INSTALLED_BY_DEFAULT` is per-plugin, so it can express exactly the
@@ -656,6 +671,7 @@ automatic while the *changes* stay confirmed.
 | **VS Code / Copilot, Cursor, Kiro (AP1)** | None. Agent Plugins 1.0 specifies no hook component and VS Code ignores client extension directories, so there is nothing to fire. Run `/magpie-setup:complete-upgrade` after updating. |
 | **Antigravity** | None yet. Plugins can carry a `SessionStart` hook, but Magpie does not ship one for Antigravity until a plugin-root path for it is verified. Run `/magpie-setup:complete-upgrade` after refreshing the plugin. |
 | **Pi** | None. Run `/skill:complete-upgrade` after `pi update --extensions`. |
+| **Goose** | None. Run `magpie:complete-upgrade` after `goose plugin update magpie` and the `npm ci` that restores the sandbox runtime. |
 | Other agents | Run `/magpie-setup:complete-upgrade` manually after updating the package. |
 
 > [!IMPORTANT]

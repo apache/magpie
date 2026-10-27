@@ -21,8 +21,9 @@ harness it belongs to is recognised, and where its final answer sits in its outp
 
 The command lines are this package's security surface. Each one keeps the
 reviewer read-only, and none carries the prompt in argv: the diff can exceed
-ARG_MAX, so the prompt goes on stdin, or through a brief file for Copilot and
-Grok, whose single-turn flag takes text only. Pi takes it on stdin too, which
+ARG_MAX, so the prompt goes on stdin, or through a brief file for Copilot,
+Grok and Goose, whose single-turn flags take text or a path. Goose runs in
+chat mode, which gives the model no tools at all. Pi takes it on stdin too, which
 it prepends to a short instruction argument, and gets a read-only `--tools`
 allowlist, so no shell, edit or MCP tool exists in the session. `tests/test_backends.py` snapshots
 every argv and rejects known write-granting flags, so a regression that drops a
@@ -88,6 +89,8 @@ class RunContext:
 class Invocation:
     argv: list[str]
     stdin: str | None
+    # Variables set for this reviewer on top of the caller's environment.
+    env: dict[str, str] | None = None
 
 
 @dataclass(frozen=True)
@@ -280,6 +283,33 @@ def _antigravity_refuse(ctx: RunContext) -> str | None:
     return None
 
 
+def _goose(ctx: RunContext) -> Invocation:
+    # GOOSE_MODE=chat runs the model with no tools at all, so the reviewer can
+    # read only the brief. `--no-profile` skips the user's configured
+    # extensions, so no MCP server starts either. The brief goes in as the
+    # instructions file: `-i` takes a path, and a diff can exceed ARG_MAX.
+    argv = [
+        "goose",
+        "run",
+        "--no-session",
+        "--no-profile",
+        "--quiet",
+        *_model("--model", ctx),
+        "-i",
+        str(ctx.brief_path),
+    ]
+    return Invocation(argv, stdin=None, env={"GOOSE_MODE": "chat"})
+
+
+def _goose_refuse(ctx: RunContext) -> str | None:
+    # Goose loads a project's plugins, hooks included, from its working
+    # directory's `.agents/plugins/`: code the change under review would supply.
+    found = ctx.repo_dir / ".agents" / "plugins"
+    if found.exists():
+        return f"the reviewed tree has {found}, which goose would load as a project plugin"
+    return None
+
+
 def _claude(ctx: RunContext) -> Invocation:
     argv = [
         "claude",
@@ -350,5 +380,8 @@ BACKENDS: dict[str, Backend] = {
     ),
     "pi": Backend("pi", (("PI_SESSION_ID", None),), _pi, _plain_extract),
     "grok": Backend("grok", (("GROK_SESSION_ID", None),), _grok, _grok_extract),
+    # Goose's marker has a generic name, so it is checked after every
+    # harness-specific one, just before Claude Code's widely inherited one.
+    "goose": Backend("goose", (("AGENT_SESSION_ID", None),), _goose, _plain_extract, _goose_refuse),
     "claude": Backend("claude", (("CLAUDECODE", "1"),), _claude, _claude_extract),
 }

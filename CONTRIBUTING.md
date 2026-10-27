@@ -398,7 +398,7 @@ authoritative agent harness matrix. The current state per harness:
 | Cursor (Composer + Agent CLI) | Reads `.agents/skills/` natively; per-action confirmation and Composer/Agent CLI — see the [harness guide](docs/adapters/cursor.md) | [#316](https://github.com/apache/magpie/issues/316) |
 | Aider | Multi-model terminal pair programming CLI; per-action confirmation and on-demand skill ingestion — see the [harness guide](docs/adapters/aider.md) | [#317](https://github.com/apache/magpie/issues/317) |
 | GitHub Copilot CLI + Coding Agent | Standalone CLI and server-side Coding Agent; Draft PR boundary and clean-env isolation — see the [harness guide](docs/adapters/copilot.md) | [#318](https://github.com/apache/magpie/issues/318) |
-| Goose (Block) | Open-source agent CLI; reads `.agents/skills/` natively, developer tool execution, and recipe workflows — see the [harness guide](docs/adapters/goose.md) | [#319](https://github.com/apache/magpie/issues/319) |
+| Goose (CLI `goose`) | Experimental agent harness: one per-user plugin install adds the skills and a `PreToolUse` guard hook, and `agent-iso goose` runs the whole Goose process in sandbox-runtime, in approve mode — see the [harness guide](docs/adapters/goose.md) | [#319](https://github.com/apache/magpie/issues/319) |
 | Amazon Q Developer CLI | Not yet ported | [#320](https://github.com/apache/magpie/issues/320) |
 | JetBrains Junie (CLI + IDE plugin) | Reads `.agents/skills/` and `AGENTS.md` natively; `PreToolUse` action guard (hooks are Early Access) — see the [harness guide](docs/adapters/junie.md) | [#321](https://github.com/apache/magpie/issues/321) |
 | OpenHands | Not yet ported | [#322](https://github.com/apache/magpie/issues/322) |

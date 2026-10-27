@@ -16,6 +16,7 @@
   - [microsoft/apm](#microsoftapm)
   - [Kiro CLI](#kiro-cli)
   - [Pi](#pi)
+  - [Goose](#goose)
   - [JetBrains IDEs](#jetbrains-ides)
   - [Where to go next](#where-to-go-next)
 
@@ -243,6 +244,28 @@ Install it for the user, never per project: do not add `-l`. Verify with
 `pi remove git:github.com/apache/magpie`.
 [The Pi harness guide](../adapters/pi.md) covers what the extension enforces
 and how to verify it.
+
+## Goose
+
+Goose has no marketplace; `goose plugin install` takes a git URL.
+The repository root is a Goose plugin (`.goose-plugin/plugin.json` lists the
+family skill directories, and `hooks/hooks.json` registers Magpie's guard
+hook), so one command, run once per user, installs the skills as
+`magpie:<skill>` together with the hook. A second one installs the sandbox
+runtime from the committed lockfile into the plugin:
+
+```bash
+goose plugin install https://github.com/apache/magpie
+npm ci --omit=dev --legacy-peer-deps --ignore-scripts --prefix ~/.agents/plugins/magpie
+```
+
+Install it for the user, never into a project's `.agents/plugins/`. Start
+Goose through `agent-iso goose`, which runs the whole process in the sandbox
+in approve mode. Verify with `goose skills list`. Refresh with
+`goose plugin update magpie` followed by the same `npm ci` (the update drops
+`node_modules`), and remove everything by deleting `~/.agents/plugins/magpie/`.
+[The Goose harness guide](../adapters/goose.md) covers what the hook and the
+sandbox enforce and how to verify them.
 
 ## JetBrains IDEs
 

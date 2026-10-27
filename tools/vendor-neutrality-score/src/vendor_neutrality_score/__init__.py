@@ -215,6 +215,7 @@ HARNESS_VOCAB = {
     "Grok",
     "Junie",
     "Pi",
+    "Goose",
 }
 AGNOSTIC_HARNESS = "agnostic"
 _HARNESS_RE = re.compile(r"^\*\*Harness:\*\*[ \t]+(.+?)[ \t]*$", re.MULTILINE)
