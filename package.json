@@ -1,0 +1,20 @@
+{
+  "name": "apache-magpie",
+  "private": true,
+  "description": "Apache Magpie as a Pi package: the framework's skills plus the per-user secure setup (action guard, permission rules, OS sandbox for bash). Install with `pi install git:github.com/apache/magpie`.",
+  "license": "Apache-2.0",
+  "homepage": "https://magpie.apache.org/",
+  "repository": "https://github.com/apache/magpie",
+  "keywords": ["pi-package"],
+  "type": "module",
+  "pi": {
+    "skills": ["./skills"],
+    "extensions": ["./tools/agent-isolation/pi/magpie.ts"]
+  },
+  "dependencies": {
+    "@anthropic-ai/sandbox-runtime": "0.0.80"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  }
+}

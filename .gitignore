@@ -13,6 +13,10 @@ logs
 .build
 .claude/worktrees/
 .worktrees/
+# The root package.json makes the repository a Pi package; Pi installs its
+# dependencies itself, so nothing npm writes here is committed.
+/node_modules/
+/package-lock.json
 .claude/settings.local.json
 # Skill source lives in skills/. The framework self-adopts by committing
 # magpie-<skill> symlinks (see skills/setup/adopt.md → "Local
