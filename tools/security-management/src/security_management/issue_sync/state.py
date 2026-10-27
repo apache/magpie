@@ -50,6 +50,7 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 from datetime import datetime, timedelta
+from email.utils import getaddresses
 from typing import Any
 
 from security_management.issue_sync.select import _labels, _time
@@ -249,13 +250,14 @@ def _list_address(value: object) -> str:
     return text
 
 
-_ADDRESS = re.compile(r"[^\s<>\"']+@[^\s<>\"']+")
-
-
 def _sender_address(value: object) -> str:
-    """The bare, lower-cased address in `Name <a@b>` or `a@b`; empty when there is none."""
-    match = _ADDRESS.search(one_line(value))
-    return match.group(0).lower() if match else ""
+    """The mailbox of a `From`-style value (`Name <a@b>` or `a@b`), lower-cased,
+    parsed as a mail header so an address in the display name is not taken
+    for it; empty when there is not exactly one address."""
+    pairs = [addr for _name, addr in getaddresses([one_line(value)]) if addr]
+    if len(pairs) != 1 or "@" not in pairs[0]:
+        return ""
+    return pairs[0].strip().lower()
 
 
 def advisory_archive(data: Mapping[str, Any]) -> dict[str, Any]:

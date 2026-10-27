@@ -338,6 +338,26 @@ def test_advisory_archive_accepts_the_advisory_thread(capsys, tmp_path) -> None:
         ({"url": "https://example.org/thread/abc123"}, "configured archive"),
         ({"thread": {}}, "fetch the thread first"),
         ({"mail_archive_url": None}, "mail_archive_url is not configured"),
+        (
+            {
+                "thread": {
+                    "list": "<users.foo.apache.org>",
+                    "subject": SUBJECT,
+                    "from": '"rm@apache.org" <x@example.org>',
+                }
+            },
+            "not from a release manager",
+        ),
+        (
+            {
+                "thread": {
+                    "list": "<users.foo.apache.org>",
+                    "subject": SUBJECT,
+                    "from": "rm@apache.org, x@example.org",
+                }
+            },
+            "who sent the root message",
+        ),
         ({"authorized_senders": []}, "no authorized_senders"),
         (
             {"thread": {"list": "<users.foo.apache.org>", "subject": SUBJECT, "from": "someone@example.org"}},
