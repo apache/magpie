@@ -38,12 +38,14 @@ flag, and it does not re-validate what ``check_create`` already accepted.
 from __future__ import annotations
 
 import copy
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from .labels import with_label
+from .layers import git_common_dir
 from .policy_shape import (
     CATALOG_ANCHOR,
     CREATE_ALLOWED_FIELDS,
@@ -73,6 +75,7 @@ __all__ = [
     "named_volumes",
     "resolve_bind_source",
     "resource_create_spelling_violation",
+    "write_protected_paths",
 ]
 
 PROXY_VARS = ("HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "no_proxy")
@@ -207,6 +210,11 @@ class PolicyContext:
     #: Directories under a bind root that are never a bind source themselves:
     #: the gateway's run directory and the personal config layer.
     excluded_bind_roots: tuple[Path, ...] = ()
+    #: Paths no writable bind may be, contain or sit under, as computed when
+    #: the gateway started (``write_protected_paths``).  The check recomputes
+    #: them from the project root and every bind root on each request as
+    #: well, so a context built without them is still protected.
+    write_protected: tuple[Path, ...] = ()
 
 
 def _host(body: dict[str, Any], libpod: bool) -> dict[str, Any]:
@@ -273,6 +281,166 @@ def _bind_deny(src: str, ctx: PolicyContext) -> Deny:
         return Deny(f"bind-mount: {src} is the gateway's run directory or the personal config layer")
     roots = ", ".join(str(r) for r in ctx.bind_roots)
     return Deny(f"bind-mount: {src} is outside the allowed roots ({roots})")
+
+
+# Paths that configure or run code outside the sandbox.  The agent harness
+# refuses sandboxed writes to them, but a container is started by the daemon,
+# which the sandbox does not confine, so a writable bind that covers one of
+# them would hand that write back.  Relative to the project root and to every
+# other bind root.  `.git` is the whole entry: a directory in a main checkout,
+# and in a linked worktree or submodule the `gitdir:` file, whose rewrite
+# would point git at a directory the container chose.
+_WRITE_PROTECTED_IN_TREE = (
+    ".claude/settings.json",
+    ".claude/settings.local.json",
+    ".claude/hooks",
+    ".claude/skills",
+    ".claude/commands",
+    ".claude/agents",
+    ".mcp.json",
+    ".git",
+)
+# The same, inside the repository's common git directory, which for a linked
+# worktree sits outside the worktree (and may still sit under a bind root).
+_WRITE_PROTECTED_IN_GIT_DIR = ("hooks", "config")
+
+
+def _worktree_git_dir(root: Path) -> Path | None:
+    """The directory a `.git` *file* in `root` names, or `None`."""
+    dotgit = root / ".git"
+    if not dotgit.is_file():
+        return None
+    try:
+        first = dotgit.read_text(encoding="utf-8").splitlines()[0].strip()
+    except (OSError, UnicodeDecodeError, IndexError):
+        return None
+    if not first.startswith("gitdir:"):
+        return None
+    target = first.removeprefix("gitdir:").strip()
+    return Path(os.path.normpath(os.path.join(root, target))) if target else None
+
+
+def write_protected_paths(*roots: Path) -> tuple[Path, ...]:
+    """Every path a writable bind must not be, contain or sit under, for `roots`.
+
+    For each root: the in-tree entries above, spelled both under the
+    resolved root and fully resolved (a symlinked `.git` or `.claude` is
+    protected where it points as well as where it sits); the common git
+    directory's `hooks` and `config`, located through a `.git` file when
+    the checkout is a linked worktree; and that worktree's own git
+    directory.  Existence does not matter: a path missing today could be
+    created through a writable bind of its parent.
+    """
+    out: list[Path] = []
+
+    def add(path: Path) -> None:
+        out.append(path)
+        try:
+            real = path.resolve(strict=False)
+        except (OSError, RuntimeError):
+            return
+        if real != path:
+            out.append(real)
+
+    for raw in roots:
+        try:
+            root = raw.resolve(strict=False)
+        except (OSError, RuntimeError):
+            root = Path(os.path.abspath(raw))
+        for rel in _WRITE_PROTECTED_IN_TREE:
+            add(root / rel)
+        common = git_common_dir(root)
+        if common is not None:
+            for rel in _WRITE_PROTECTED_IN_GIT_DIR:
+                add(common / rel)
+        gitdir = _worktree_git_dir(root)
+        if gitdir is not None:
+            add(gitdir)
+    return tuple(dict.fromkeys(out))
+
+
+def _same_or_ancestor(a: Path, b: Path) -> bool:
+    """Whether `a` is `b` or one of `b`'s ancestors.
+
+    By spelling, case-folded (the default macOS and Windows file systems
+    are case-insensitive, so `.Claude` names `.claude` there), and by file
+    identity against each existing ancestor of `b`, so another spelling of
+    the same directory that case-folding does not catch still matches.
+    """
+    ap, bp = a.parts, b.parts
+    if len(ap) <= len(bp) and all(x.casefold() == y.casefold() for x, y in zip(ap, bp, strict=False)):
+        return True
+    try:
+        sa = os.stat(a)
+    except OSError:
+        return False
+    for ancestor in (b, *b.parents):
+        try:
+            sb = os.stat(ancestor)
+        except OSError:
+            continue
+        if os.path.samestat(sa, sb):
+            return True
+    return False
+
+
+def _write_protected_hit(src: str, ctx: PolicyContext) -> Path | None:
+    """The first write-protected path the bind source `src` is, contains or sits under."""
+    try:
+        real = Path(src).resolve(strict=False)
+    except (OSError, RuntimeError):
+        return Path(src)  # cannot tell where it is: treat it as covering
+    protected = dict.fromkeys(
+        (
+            *ctx.write_protected,
+            *write_protected_paths(ctx.project_root, *ctx.bind_roots),
+            *ctx.excluded_bind_roots,
+        )
+    )
+    for path in protected:
+        if _same_or_ancestor(real, path) or _same_or_ancestor(path, real):
+            return path
+    return None
+
+
+def _write_protected_deny(src: str, read_only: bool, ctx: PolicyContext) -> Deny | None:
+    """Refuse a writable bind whose source covers or sits under a protected path."""
+    if read_only:
+        return None
+    hit = _write_protected_hit(src, ctx)
+    if hit is None:
+        return None
+    return Deny(
+        f"bind-mount: {src} is writable and covers {hit}, which configures or runs code "
+        "outside the sandbox; mount it read-only (:ro) or bind a subdirectory that does not contain it"
+    )
+
+
+# Bind options that make a mount read-only, and those that make it writable.
+# Exact spellings only: a spelling the daemon does not know would be ignored
+# there (a writable mount) while it read as read-only here.  Any writable
+# option alongside a read-only one counts as writable.  Only `ro` itself:
+# podman hands a libpod mount's options to the runtime as written, and runc
+# reads `ro=true` / `readonly` as filesystem data, not as a read-only flag.
+# `U` chowns the source on the host before mounting, read-only or not.
+_BIND_RO_OPTIONS = frozenset({"ro"})
+_BIND_RW_OPTIONS = frozenset({"rw", "rw=true", "ro=false", "readonly=false", "U"})
+
+
+def _options_read_only(options: Any) -> bool:
+    """Whether a bind's option list makes it read-only, with no option undoing that."""
+    if not isinstance(options, list):
+        return False
+    opts = {str(o).strip() for o in options}
+    return bool(opts & _BIND_RO_OPTIONS) and not (opts & _BIND_RW_OPTIONS)
+
+
+def _binds_spec_read_only(spec: str) -> bool:
+    """A compat `Binds` entry `src:dst:opts` with `ro` among its comma-separated options."""
+    parts = spec.split(":")
+    if len(parts) < 3:
+        return False
+    return _options_read_only(parts[2].split(","))
 
 
 def _list_of_dicts_deny(name: str, value: Any) -> Deny | None:
@@ -553,7 +721,11 @@ def _mount_type_deny(
         source = str(entry.get(source_key, ""))
         if not resolve_bind_source(source, ctx):
             return _bind_deny(source, ctx)
-        return None
+        if type_key == "Type":
+            read_only = entry.get("ReadOnly") is True
+        else:
+            read_only = _options_read_only(entry.get("options"))
+        return _write_protected_deny(source, read_only, ctx)
     if mtype == "volume":
         if _volume_driver_config(entry):
             return Deny(_VOLUME_DRIVER_DENY_REASON)
@@ -571,8 +743,12 @@ def _mounts_deny(
     if not libpod:
         for spec in host.get("Binds") or []:
             src = str(spec).split(":", 1)[0]
-            if src and _is_path_like(src) and not resolve_bind_source(src, ctx):
-                return _bind_deny(src, ctx)
+            if src and _is_path_like(src):
+                if not resolve_bind_source(src, ctx):
+                    return _bind_deny(src, ctx)
+                denial = _write_protected_deny(src, _binds_spec_read_only(str(spec)), ctx)
+                if denial is not None:
+                    return denial
 
     type_key, source_key = ("type", "source") if libpod else ("Type", "Source")
     mounts = body.get("mounts") if libpod else host.get("Mounts")

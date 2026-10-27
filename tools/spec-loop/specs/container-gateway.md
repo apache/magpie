@@ -29,6 +29,19 @@ acceptance:
     unconfined security option, or a bind mount outside the project
     root and any `--extra-bind-root` is refused with HTTP 403 and a
     one-line reason.
+  - A writable bind mount whose source is, contains or sits under a
+    write-protected path is refused with HTTP 403; the same bind
+    read-only is allowed. The protected paths are `.claude/settings.json`,
+    `.claude/settings.local.json`, `.claude/hooks`, `.claude/skills`,
+    `.claude/commands`, `.claude/agents`, `.mcp.json` and
+    `.git` under every bind root and a linked worktree's main checkout,
+    the common git directory's `hooks` and `config` and a linked
+    worktree's own git directory (located through its `.git` file), the
+    run directory and the personal layer. Missing paths count, symlinks
+    are resolved, spellings are compared case-folded and by file
+    identity, and the set is taken at start and recomputed per request.
+    Only an exact `ro` makes a bind read-only, and `U` beside it counts
+    as writable.
   - A create, exec, update or build request carrying a field or query
     parameter the gateway has not learned is refused with HTTP 403;
     the create body, the exec body, the update body and the build
@@ -377,7 +390,7 @@ every route, as a backstop for a verb this policy has not enumerated.
 | `SecurityOpt` | allow-list per key: `seccomp` only `""` / `default`; `apparmor` denies only `unconfined` (any other value, including a custom profile, is allowed); `label` denies only `disable`; `no-new-privileges` allows only `""` / `true` (any other value, including `false`, is denied); `systempaths` allows only `""` (any non-empty value is denied); an unrecognised key (including `unmask`, `proc-opts`) is denied outright |
 | `Sysctls`, `CgroupParent`, `Runtime`, `Isolation` | deny |
 | `MaskedPaths`, `ReadonlyPaths` | deny when set to an empty list |
-| `Binds`, `Mounts[type=bind]`, libpod `mounts` | source must resolve (symlinks followed, on the host) under the project root or a `--extra-bind-root`; anything else denied. `tmpfs` allowed |
+| `Binds`, `Mounts[type=bind]`, libpod `mounts` | source must resolve (symlinks followed, on the host) under the project root or a `--extra-bind-root`; anything else denied. A writable bind covering a write-protected path (`.claude/` settings, hooks and skills, `.git`, the git directory's `hooks` / `config`) is denied; read-only is allowed. `tmpfs` allowed |
 | `Mounts[type=volume]`, named volumes in `Binds` | the named volume must carry the label, checked (and, for an unknown name, pre-created labelled) by the relay before the backend ever sees the create call |
 | `VolumesFrom` | refused outright — sharing another container's mounts would need the same by-id label check the relay does for named volumes/networks, and the common case is already covered by a named volume |
 | `PortBindings` / `publish` | allowed; an empty `HostIp` is rewritten to `127.0.0.1` |

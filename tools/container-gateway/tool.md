@@ -39,7 +39,15 @@ policy:
    a container into host access is stripped or refused. The create body, the
    exec body, the update body and the build query are **allow-lists**: a
    field or parameter the gateway has not learned is refused, rather than
-   forwarded because no rule happened to name it.
+   forwarded because no rule happened to name it. A bind mount stays inside
+   the project root (or an operator-named extra root), and a **writable**
+   bind never covers a path that configures or runs code outside the
+   sandbox: the harness settings, hooks and skills under `.claude/`, the
+   `.git` entry, and the git directory's `hooks` and `config` (followed
+   through a linked worktree's `.git` file). The daemon writes for the
+   container unsandboxed, so without this a container could hand back the
+   writes the harness refuses the sandboxed shell. Such a bind is refused,
+   not rewritten; the same bind read-only is allowed.
 2. **This project's containers only.** Every resource the gateway creates is
    labelled with the project slug; every read or act call is filtered to
    that label. Two projects on one machine share a daemon and see disjoint
@@ -126,6 +134,12 @@ does not cover, and what the design accepts:
   feature the gateway has not learned is unavailable through it until the
   table learns it. The refusal names the field, so the fix is a table entry
   plus a test, not a debugging session.
+- **A writable bind of the whole project root is refused.** It covers
+  `.claude/` and `.git`; the container gets the root read-only, or a
+  writable subdirectory. Only the listed paths are protected: other in-tree
+  files a tool later runs (a `Makefile`, an in-tree `core.hooksPath`
+  directory) are as writable through a subdirectory bind as they are to the
+  sandboxed shell.
 - **Bind sources are checked on the host at decision time and re-resolved by
   the daemon at mount time.** A symlink swapped between those two moments is
   not caught: they are two independent resolutions of the same path, and the
