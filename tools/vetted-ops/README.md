@@ -478,6 +478,10 @@ prompts. `vetted-op` can run the same operations, but only inside the sandbox.
   when the issue has none. It finds the rollup by that marker first, then by the
   legacy `<!-- <name> status rollup v<N>` marker, so a tracker carrying both keeps
   growing the canonical one.
+  Only a comment by the authenticated `gh` login or a tracker collaborator
+  (`gh api repos/<tracker>/collaborators`) counts as the rollup, for every rollup
+  operation; a marker line in anyone else's comment is ignored. When the
+  collaborator list cannot be read, only the authenticated login's comments count.
 - `rollup-amend-latest` refuses unless the latest entry's action equals `action`,
   so a concurrent entry by someone else is never overwritten.
 - `rollup-fold` keeps the legacy comment's date and author, left-trims its lines,

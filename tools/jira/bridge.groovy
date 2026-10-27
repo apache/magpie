@@ -26,7 +26,8 @@ import groovy.transform.Field
  * Configuration (environment only; the caller — typically a skill —
  * resolves these from <project-config>/issue-tracker-config.md and
  * exports them. The bridge does NOT read that file itself):
- *   ISSUE_TRACKER_URL       e.g. https://issues.apache.org/jira
+ *   ISSUE_TRACKER_URL       e.g. https://issues.apache.org/jira — must be https://
+ *                           (http:// only for localhost, 127.0.0.1 or ::1)
  *   ISSUE_TRACKER_PROJECT   the project key (e.g. FOO)
  *   JIRA_API_TOKEN          required for write operations
  *   JIRA_AUTH_SCHEME        "Basic" (default) or "Bearer" — ASF JIRA DC PATs use Bearer
@@ -53,9 +54,51 @@ if (!TRACKER_URL) {
     System.exit(2)
 }
 
+// The URL is project configuration; the token is the user's credential and
+// rides on every request. Require https so the server certificate is
+// verified and the token is never sent in clear text; http is accepted only
+// for loopback hosts (tests and local instances), matching jira_bridge.rest.
+@Field Set LOOPBACK_HOSTS = ['localhost', '127.0.0.1', '::1', '[::1]'] as Set
+
+def validateTrackerUrl(String raw) {
+    URI uri
+    try {
+        uri = new URI(raw)
+    } catch (URISyntaxException ignored) {
+        System.err.println("error: ISSUE_TRACKER_URL is not a valid URL: ${raw}")
+        System.exit(2)
+    }
+    def scheme = uri.scheme?.toLowerCase()
+    def host = uri.host?.toLowerCase()
+    if (!host || uri.rawUserInfo != null || !(scheme in ['https', 'http'])) {
+        System.err.println("error: ISSUE_TRACKER_URL must be an https:// URL with a host and no credentials, got ${raw}")
+        System.exit(2)
+    }
+    if (scheme != 'https' && !(host in LOOPBACK_HOSTS)) {
+        System.err.println("error: ISSUE_TRACKER_URL must be https:// (http:// only for localhost), got ${raw}")
+        System.exit(2)
+    }
+}
+
+validateTrackerUrl(TRACKER_URL)
+
+// Redirects are never followed: HttpURLConnection would replay the
+// Authorization header to the redirect target, which can be another host.
+def openConnection(String urlStr) {
+    def conn = (HttpURLConnection) new URL(urlStr).openConnection()
+    conn.instanceFollowRedirects = false
+    return conn
+}
+
+def refuseRedirect(HttpURLConnection conn, int code, String urlStr) {
+    if (code >= 300 && code < 400) {
+        System.err.println("error: refusing HTTP ${code} redirect from ${urlStr} to ${conn.getHeaderField('Location')}; check ISSUE_TRACKER_URL")
+        System.exit(3)
+    }
+}
+
 def httpGet(String urlStr) {
-    def url = new URL(urlStr)
-    def conn = url.openConnection()
+    def conn = openConnection(urlStr)
     conn.requestMethod = 'GET'
     conn.setRequestProperty('Accept', 'application/json')
     if (API_TOKEN) {
@@ -64,6 +107,7 @@ def httpGet(String urlStr) {
     conn.connectTimeout = 10000
     conn.readTimeout    = 30000
     def code = conn.responseCode
+    refuseRedirect(conn, code, urlStr)
     if (code < 200 || code >= 300) {
         def err = conn.errorStream ? conn.errorStream.text : conn.responseMessage
         System.err.println("error: HTTP ${code} fetching ${urlStr}\n${err}")
@@ -73,8 +117,7 @@ def httpGet(String urlStr) {
 }
 
 def httpWrite(String urlStr, String method, String jsonBody) {
-    def url = new URL(urlStr)
-    def conn = url.openConnection()
+    def conn = openConnection(urlStr)
     conn.requestMethod = method
     conn.doOutput = true
     conn.setRequestProperty('Content-Type', 'application/json')
@@ -88,6 +131,7 @@ def httpWrite(String urlStr, String method, String jsonBody) {
     conn.readTimeout    = 30000
     conn.outputStream.withWriter('UTF-8') { it.write(jsonBody) }
     def code = conn.responseCode
+    refuseRedirect(conn, code, urlStr)
     if (code < 200 || code >= 300) {
         def err = conn.errorStream ? conn.errorStream.text : conn.responseMessage
         System.err.println("error: HTTP ${code} ${method} ${urlStr}\n${err}")
@@ -100,8 +144,7 @@ def httpWrite(String urlStr, String method, String jsonBody) {
 
 def httpMultipart(String urlStr, File file) {
     def boundary = "----BridgeBoundary${System.currentTimeMillis()}"
-    def url = new URL(urlStr)
-    def conn = url.openConnection()
+    def conn = openConnection(urlStr)
     conn.requestMethod = 'POST'
     conn.doOutput = true
     conn.setRequestProperty('Content-Type', "multipart/form-data; boundary=${boundary}")
@@ -122,6 +165,7 @@ def httpMultipart(String urlStr, File file) {
     os.write("\r\n--${boundary}--\r\n".getBytes('UTF-8'))
     os.flush()
     def code = conn.responseCode
+    refuseRedirect(conn, code, urlStr)
     if (code < 200 || code >= 300) {
         def err = conn.errorStream ? conn.errorStream.text : conn.responseMessage
         System.err.println("error: HTTP ${code} uploading ${file.name} to ${urlStr}\n${err}")

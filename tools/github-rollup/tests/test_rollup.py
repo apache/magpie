@@ -277,6 +277,25 @@ def test_find_rollup_index_prefers_canonical_then_first_legacy():
     assert find_rollup_index(["hi"]) is None
 
 
+def test_find_rollup_index_skips_marker_comments_by_untrusted_authors():
+    canonical = f"{ROLLUP_MARKER}\n<details><summary>2026-05-28 · @a · Import</summary>\n\nA.\n\n</details>"
+    legacy = f"{MARKER_LINE}\n<details><summary>2026-05-28 · @a · Import</summary>\n\nA.\n\n</details>"
+    bodies = ["hi", canonical, legacy, canonical]
+    authors = ["outsider", "outsider", "Alice", "bob"]
+    # Untrusted canonical decoy at 1 is skipped; trusted canonical at 3 wins over legacy at 2.
+    assert find_rollup_index(bodies, authors, {"alice", "bob"}) == 3
+    assert find_rollup_index(bodies, authors, {"alice"}) == 2
+    assert find_rollup_index(bodies, authors, set()) is None
+    assert find_rollup_index([canonical], [""], {"alice"}) is None
+    # Without a trusted set the author is not consulted.
+    assert find_rollup_index(bodies) == 1
+
+
+def test_find_rollup_index_requires_one_author_per_body_when_filtering():
+    with pytest.raises(ValueError):
+        find_rollup_index(["a", "b"], ["x"], {"x"})
+
+
 def test_iter_entries_skips_the_canonical_marker_line():
     body = f"{ROLLUP_MARKER}\n<details><summary>2026-05-28 · @a · Import</summary>\n\nA.\n\n</details>"
     assert [(e.action, e.body) for e in iter_entries(body)] == [("Import", "A.")]

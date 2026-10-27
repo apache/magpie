@@ -8,6 +8,7 @@
   - [Prerequisites](#prerequisites)
   - [What this maps](#what-this-maps)
   - [Operations](#operations)
+    - [Reviewed-attachment pinning](#reviewed-attachment-pinning)
     - [Attribution](#attribution)
   - [Configuration](#configuration)
   - [Cross-references](#cross-references)
@@ -70,8 +71,11 @@ those verbs; it does not re-implement the JIRA REST client.
 
 The JIRA-patch backend resolves the change-request as: **a JIRA issue
 carrying a patch attachment is one change proposal.** The issue key is
-the proposal `id`; the newest `.patch`/`.diff` attachment is the diff;
-the issue's comment stream is the review discussion.
+the proposal `id`; the newest `.patch`/`.diff` attachment is the diff
+under review; the issue's comment stream is the review discussion.
+What lands is never "the newest attachment at land time": it is the
+attachment that was reviewed, pinned by its JIRA attachment id and the
+SHA-256 of its bytes (see [Reviewed-attachment pinning](#reviewed-attachment-pinning)).
 
 ## Operations
 
@@ -82,12 +86,42 @@ adapter's concrete resolution.
 | Verb | JIRA-patch resolution |
 |---|---|
 | `list_open(filter)` | JQL: `project = <KEY> AND status = Open AND attachments IS NOT EMPTY` (plus the filter's author/component/age narrowers), via `jira search`. One `proposal_summary` per issue that carries a patch attachment. |
-| `get(id)` | `jira issue <KEY>` for metadata; download the newest `.patch`/`.diff` attachment for the `diff`. `base` is the trunk path from `change_request.jira_patch.trunk_url`; `commits` is `[]` (a bare patch has none); `mergeable` is `unknown` until an `svn patch --dry-run` is run. |
+| `get(id)` | `jira issue <KEY>` for metadata; download the newest `.patch`/`.diff` attachment for the `diff`, and return its JIRA `attachment_id` and the `sha256` of the downloaded bytes alongside it. `base` is the trunk path from `change_request.jira_patch.trunk_url`; `commits` is `[]` (a bare patch has none); `mergeable` is `unknown` until an `svn patch --dry-run` is run. |
 | `get_discussion(id)` | The issue's comment stream, normalised to `{author, date, body, kind}`. A comment carrying the configured approval token maps to `kind: approval`. |
-| `post_review(id, verdict, body)` | `jira comment <KEY> --body-file <draft>`; the `verdict` is additionally encoded as a `jira transition` / `jira label` move (`approve` → *Reviewed*, `request-changes` → *Needs work*). |
-| `land(id, strategy)` | **Delegates to `contract:source-control`.** Fetches the patch via `get`, calls the source-control adapter's apply + commit (`svn patch <file>` then `svn commit` against the trunk working copy — see [`tools/asf-svn/source-control.md`](../asf-svn/source-control.md)), then transitions the issue to *Resolved/Fixed* and comments the landed revision. `strategy` is advisory — SVN applies a patch as a single commit, so `squash` is the only honoured strategy and the adapter reports that. |
+| `post_review(id, verdict, body)` | `jira comment <KEY> --body-file <draft>`; the `verdict` is additionally encoded as a `jira transition` / `jira label` move (`approve` → *Reviewed*, `request-changes` → *Needs work*). The comment ends with the pin line `Reviewed attachment: <attachment_id> sha256:<hex>` for the attachment `get` returned, so the review names exactly the bytes it covers. |
+| `land(id, strategy)` | **Delegates to `contract:source-control`.** Requires the reviewed `attachment_id` and `sha256` (see [Reviewed-attachment pinning](#reviewed-attachment-pinning)); downloads that attachment by id, and refuses unless its SHA-256 matches the recorded one and it is still the newest `.patch`/`.diff` on the issue. Only then calls the source-control adapter's apply + commit (`svn patch <file>` then `svn commit` against the trunk working copy — see [`tools/asf-svn/source-control.md`](../asf-svn/source-control.md)), then transitions the issue to *Resolved/Fixed* and comments the landed revision. `strategy` is advisory — SVN applies a patch as a single commit, so `squash` is the only honoured strategy and the adapter reports that. |
 | `reject(id, reason)` | `jira transition <KEY> "Won't Fix"` (or the configured rejected transition) with `reason` as a closing comment. No commit — the absence of a `land` is the rejection. |
 | `status(id)` | `checks: none`, `mergeable` from an `svn patch --dry-run` (`clean` / `conflicting`). JIRA has no CI gate unless a pipeline is wired to the issue; skills degrade the `checks` gate to advisory (see the contract's `status` graceful-degradation note). |
+
+### Reviewed-attachment pinning
+
+A JIRA issue keeps accepting attachments after review, so "the newest
+patch" can change between the review and the commit. The adapter pins
+the reviewed bytes instead:
+
+1. **At review time** `get` records the `attachment_id` of the patch it
+   downloaded and the SHA-256 of those bytes, and `post_review` writes
+   both into the review comment as the line
+   `Reviewed attachment: <attachment_id> sha256:<hex>`.
+2. **At land time** the caller passes the `attachment_id` and `sha256`
+   from the approving review it is acting on: the review the landing
+   committer posted in this session, or the pin line of an approval
+   comment whose author is a project committer. A pin line in a comment
+   by anyone else is ignored, since any JIRA user can comment.
+3. `land` downloads the attachment **by that id**, never by recency,
+   hashes the downloaded bytes, and **refuses** — no `svn patch`, no
+   commit, no transition — when:
+   - no reviewed `attachment_id` / `sha256` is supplied;
+   - the attachment id no longer exists on the issue;
+   - the SHA-256 of the downloaded bytes differs from the recorded one;
+   - a newer `.patch`/`.diff` attachment was added after the reviewed
+     one (the proposal changed after review; it goes back to review).
+4. The refusal names the reviewed and the current attachment ids so the
+   maintainer can re-run the review on the new patch. Landing a patch
+   that was not reviewed is never a fallback.
+
+The landing comment repeats the pin line, so the record shows which
+reviewed bytes became the landed revision.
 
 ### Attribution
 

@@ -329,7 +329,7 @@ The bridge reads its configuration from the environment:
 
 | Variable | Notes |
 |---|---|
-| `ISSUE_TRACKER_URL` | required; e.g. `https://issues.apache.org/jira` |
+| `ISSUE_TRACKER_URL` | required; must be `https://` (`http://` only for `localhost`, `127.0.0.1` or `::1`); e.g. `https://issues.apache.org/jira` |
 | `ISSUE_TRACKER_PROJECT` | project key (e.g. `FOO`) |
 | `JIRA_API_TOKEN` | required for write subcommands — see auth notes below |
 | `JIRA_AUTH_SCHEME` | `Basic` (default) or `Bearer` — see auth notes below |
@@ -339,6 +339,15 @@ from [`<project-config>/issue-tracker-config.md`](https://github.com/apache/magp
 and passes them in the environment). Direct file-fallback inside the
 bridge is a possible future enhancement — it is **not** implemented
 today; the bridge exits if `ISSUE_TRACKER_URL` is unset.
+
+The bridge checks `ISSUE_TRACKER_URL` before any request, the same way
+`jira_bridge.rest` does: anything but `https://` (or `http://` to a
+loopback host, for tests and local instances), or a URL carrying
+credentials, exits `2`, so `JIRA_API_TOKEN` is only ever sent to a server
+whose certificate is verified. Redirects are never followed — the
+connection would otherwise replay the `Authorization` header to the
+redirect target — and a `3xx` response exits `3` naming the target, so
+fix the configured URL instead.
 
 For anonymous-read trackers, no auth is required for read
 subcommands. Write subcommands always require `JIRA_API_TOKEN` and

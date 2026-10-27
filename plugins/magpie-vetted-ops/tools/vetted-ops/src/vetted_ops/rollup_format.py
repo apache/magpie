@@ -27,7 +27,7 @@ backticks, trailing whitespace) without mocking subprocess.
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from dataclasses import dataclass
 
 # First line the tools write when they create a rollup: the
@@ -63,16 +63,35 @@ def is_canonical_rollup_body(body: str) -> bool:
     return bool(CANONICAL_MARKER_RE.match(body))
 
 
-def find_rollup_index(bodies: Sequence[str]) -> int | None:
+def find_rollup_index(
+    bodies: Sequence[str],
+    authors: Sequence[str] | None = None,
+    trusted: Collection[str] | None = None,
+) -> int | None:
     """Index of the rollup among the comment ``bodies``, or ``None``.
 
     The first comment with the canonical marker wins; failing that, the
     first with a legacy marker. Preferring the canonical one means a
     tracker that carries both (a legacy-marker comment written next to
     the skills' rollup) keeps growing the rollup the skills read.
+
+    When ``trusted`` is given, ``authors`` holds each comment's author
+    login (parallel to ``bodies``), and only a comment whose author is in
+    ``trusted`` (compared case-insensitively, as GitHub logins are) can be
+    the rollup. A marker line in a comment by anyone else is ignored, so a
+    commenter outside the trusted set cannot plant a comment the tools
+    then read from or write to.
     """
+    eligible = [True] * len(bodies)
+    if trusted is not None:
+        if authors is None or len(authors) != len(bodies):
+            raise ValueError("authors must list one login per body when trusted is given")
+        allowed = {login.lower() for login in trusted if login}
+        eligible = [bool(login) and login.lower() in allowed for login in authors]
     legacy: int | None = None
     for i, body in enumerate(bodies):
+        if not eligible[i]:
+            continue
         if is_canonical_rollup_body(body):
             return i
         if legacy is None and is_rollup_body(body):

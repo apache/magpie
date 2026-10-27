@@ -71,8 +71,11 @@ class FakeGh:
         body: str = "",
         legacy: dict[str, object] | None = None,
         fail_on: str | None = None,
+        collaborators: list[str] | None = None,
     ) -> None:
         self.comments = comments or []
+        #: Set to None to make the collaborator listing fail, as it does without push access.
+        self.collaborators: list[str] | None = ["alice", "bob"] if collaborators is None else collaborators
         self.body = body
         self.legacy = legacy or {}
         self.fail_on = fail_on
@@ -84,6 +87,10 @@ class FakeGh:
             return 1, b"", b"HTTP 500\n"
         if argv == ["gh", "api", "user", "--jq", ".login"]:
             return 0, b"alice\n", b""
+        if argv == ["gh", "api", f"repos/{TRACKER}/collaborators", "--paginate", "--jq", ".[].login"]:
+            if self.collaborators is None:
+                return 1, b"", b"HTTP 403\n"
+            return 0, "".join(f"{c}\n" for c in self.collaborators).encode(), b""
         if argv[:2] == ["gh", "issue"] and argv[2] == "view" and "comments" in argv:
             return 0, json.dumps({"comments": self.comments}).encode(), b""
         if argv[:2] == ["gh", "issue"] and argv[2] == "view" and "body" in argv:
@@ -107,9 +114,10 @@ def runner(fake: FakeGh, *, writes: bool = True, dry_run: bool = False) -> proce
     return procedures.Runner(TRACKER, allow_writes=writes, dry_run=dry_run, exec_fn=fake)
 
 
-def rollup_comment(body: str, rest_id: str = "555") -> dict[str, object]:
+def rollup_comment(body: str, rest_id: str = "555", author: str = "alice") -> dict[str, object]:
     return {
         "id": "IC_kwDOnode",
+        "author": {"login": author},
         "url": f"https://github.com/acme/tracker/issues/7#issuecomment-{rest_id}",
         "body": body,
     }
@@ -813,3 +821,41 @@ def test_tracker_console_script_is_declared() -> None:
 
     pyproject = tomllib.loads((Path(__file__).parents[1] / "pyproject.toml").read_text())
     assert pyproject["project"]["scripts"]["vetted-op-tracker"] == "vetted_ops:main_tracker"
+
+
+# --- rollup authorship: a marker comment by an outsider is not the rollup ----------
+
+
+def test_append_ignores_a_marker_comment_by_a_non_collaborator() -> None:
+    decoy = rollup_comment(existing_rollup("Import"), rest_id="666", author="outsider")
+    real = rollup_comment(existing_rollup("Import"), rest_id="222", author="bob")
+    fake = FakeGh(comments=[decoy, real])
+    procedures.rollup_append(runner(fake), number="7", action="Sync", text="x")
+    targets = [a for a, _ in fake.writes]
+    assert any("issues/comments/222" in " ".join(a) for a in targets)
+    assert not any("666" in " ".join(a) for a in targets)
+
+
+def test_append_creates_a_rollup_when_only_a_decoy_exists() -> None:
+    decoy = rollup_comment(existing_rollup("Import"), rest_id="666", author="outsider")
+    fake = FakeGh(comments=[decoy])
+    procedures.rollup_append(runner(fake), number="7", action="Sync", text="x")
+    ((argv, _stdin),) = fake.writes
+    assert argv[:3] == ["gh", "issue", "comment"]
+
+
+def test_amend_refuses_when_only_a_decoy_exists() -> None:
+    decoy = rollup_comment(existing_rollup("Import"), rest_id="666", author="outsider")
+    fake = FakeGh(comments=[decoy])
+    with pytest.raises(procedures.ProcedureRefused, match="no rollup"):
+        procedures.rollup_amend_latest(runner(fake), number="7", action="Import", text="x")
+    assert fake.writes == []
+
+
+def test_without_the_collaborator_list_only_the_viewer_is_trusted() -> None:
+    by_bob = rollup_comment(existing_rollup("Import"), rest_id="222", author="bob")
+    fake = FakeGh(comments=[by_bob])
+    fake.collaborators = None
+    procedures.rollup_append(runner(fake), number="7", action="Sync", text="x")
+    ((argv, _stdin),) = fake.writes
+    assert argv[:3] == ["gh", "issue", "comment"]
