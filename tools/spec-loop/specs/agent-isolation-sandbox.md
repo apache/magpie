@@ -231,7 +231,9 @@ See `docs/adapters/goose.md`.
   naming `git` or `gh` is refused, as is a line whose quoting cannot be
   parsed when it names `git` or `gh`; a heredoc body is not read as
   shell syntax unless it names `git` / `gh` and is fed to anything but
-  a bare `cat` / `tee`, or holds a `$(…)` / backtick substitution under
+  a bare `cat` / `tee` starting its own command (no `alias`, no
+  `cat` / `tee` function and no arithmetic or `${` opener anywhere in the
+  command), or holds a `$(…)` / backtick substitution under
   an unquoted delimiter; a `<<` inside quotes, a `#` comment, arithmetic
   or a `${…}` expansion opens no heredoc, and the delimiter is the whole
   word after quote removal. Per-guard `MAGPIE_ALLOW_*`

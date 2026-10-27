@@ -503,17 +503,30 @@ def _heredocs_opened(line: str, quote: str | None) -> tuple[list[_Heredoc], str 
 
 
 # Commands that only store what a heredoc feeds them. A body naming a guarded
-# head is stripped only when the introducing line is one of these with plain
-# file arguments and redirections; fed to anything else, it may be run.
-_HEREDOC_DATA_SINKS = frozenset({"cat", "tee"})
+# head is stripped only in the narrowest shape known to be data: the
+# introducing line starts a command, is one of these, exactly, with plain file
+# arguments and redirections, and nothing in the command could redefine it or
+# hide a `<<`. Anything else may run the body, so the command is kept whole.
+_HEREDOC_DATA_SINKS = frozenset({"cat", "tee", "/bin/cat", "/usr/bin/cat"})
 _SINK_ARG_RE = re.compile(r"(?:>>?)?[\w./~+-]*")
+# Line endings that carry the command on to the next line.
+_CONTINUED_RE = re.compile(r"(?:\\|\||&&)\s*$")
+# A redefined `cat` / `tee`, or an arithmetic or parameter expansion that may
+# span lines: any of these anywhere in the command rules out stripping a body
+# that names a guarded head.
+_SINK_DEFEATED_RE = re.compile(
+    r"\balias\b|\b(?:cat|tee)\s*\(|\bfunction\s+(?:cat|tee)\b|\$\(\(|\(\(|\$\[|\$\{"
+)
 
 
-def _is_data_sink(intro: str) -> bool:
+def _is_data_sink(intro: str, previous: str | None) -> bool:
     """Whether ``intro``, without its heredoc operators, is a bare ``cat`` /
-    ``tee`` with only plain words and ``>`` / ``>>`` redirections after it."""
+    ``tee`` with only plain words and ``>`` / ``>>`` redirections after it,
+    starting a command rather than continuing ``previous``."""
+    if previous is not None and _CONTINUED_RE.search(previous):
+        return False
     words = intro.split()
-    if not words or os.path.basename(words[0]) not in _HEREDOC_DATA_SINKS:
+    if not words or words[0] not in _HEREDOC_DATA_SINKS:
         return False
     return all(_SINK_ARG_RE.fullmatch(word) for word in words[1:])
 
@@ -531,6 +544,7 @@ def _strip_heredoc_bodies(command: str) -> str:
     pending: list[_Heredoc] = []
     quote: str | None = None
     sink = False
+    sinks_allowed = not _SINK_DEFEATED_RE.search(command)
     body: list[str] = []
     for line in command.split("\n"):
         if pending:
@@ -545,6 +559,7 @@ def _strip_heredoc_bodies(command: str) -> str:
             else:
                 body.append(line)
             continue
+        previous = out[-1] if out else None
         out.append(line)
         opened = _heredocs_opened(line, quote)
         if opened is None:
@@ -554,7 +569,7 @@ def _strip_heredoc_bodies(command: str) -> str:
             # a continued line: the body starts after the logical line ends,
             # which this reader does not follow
             return command
-        sink = _is_data_sink(rest)
+        sink = sinks_allowed and _is_data_sink(rest, previous)
     if pending:
         return command
     return "\n".join(out)

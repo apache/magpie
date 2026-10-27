@@ -656,6 +656,14 @@ def test_heredoc_with_a_quoted_delimiter_word_is_data(command):
         # A body naming git / gh is stripped only for a bare `cat` / `tee`.
         "cat $(echo x) <<'EOF'\nthe user's git notes\nEOF",
         "cat <<'EOF' > \"$f\"\nthe user's git notes\nEOF",
+        "x/cat <<'EOF'\nthe user's git notes\nEOF",
+        # A `<<` inside arithmetic opened on an earlier line.
+        "echo $((1 +\ncat <<x)) # it's\ngit push --force\nx",
+        # The intro continues the previous line: `bash -s` runs stdin.
+        "bash -s \\\ncat <<'EOF'\nit's\ngit push --force\nEOF",
+        # `cat` redefined as a function or alias.
+        "cat() { bash; }\ncat <<'EOF'\nit's\ngit push --force\nEOF",
+        "alias cat=bash\ncat <<'EOF'\nit's\ngit push --force\nEOF",
     ],
 )
 def test_heredoc_sink_must_be_a_bare_cat_or_tee(command):
