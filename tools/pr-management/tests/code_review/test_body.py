@@ -225,3 +225,37 @@ def test_inline_comments_and_payload() -> None:
         {"path": "hook.py", "line": 12, "side": "RIGHT", "body": "ask `@bob`"}
     ]
     assert "addPullRequestReview" in payload["query"]
+
+
+def test_an_inline_comment_carries_the_finding_text_not_just_its_rule() -> None:
+    files = diff.parse(DIFF)
+    finding = {
+        "file": "hook.py",
+        "line": 12,
+        "severity": "nit",
+        "rule_id": "semantic line breaks",
+        "quoted_rule": "One sentence per line.",
+        "excerpt": "a. b.",
+        "suggestion": "Break it after `a.`, cc @bob.",
+    }
+    thread = body.inline_comments([finding], [1], files)["threads"][0]
+    assert thread["body"] == (
+        "**semantic line breaks**\n\n> One sentence per line.\n\nBreak it after `a.`, cc `@bob`."
+    )
+
+
+def test_a_folded_finding_keeps_its_suggestion() -> None:
+    finding = {
+        "file": "hook.py",
+        "line": 11,
+        "severity": "nit",
+        "rule_id": "style",
+        "suggestion": "Add a space.",
+    }
+    text = body.compose(
+        summary="S",
+        findings=[finding],
+        inline_kept=[],
+        footer_text=body.footer("request-changes", "Foo", URL),
+    )
+    assert "- `hook.py:11` — Add a space." in text
