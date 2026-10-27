@@ -174,6 +174,7 @@ Live MCP connections have not been verified for this profile.
 The `antigravity` profile in [`tools/spec-loop/lib.sh`](../../tools/spec-loop/lib.sh) runs `agy -p` with `--output-format`, and forwards `--model` and `--effort` when supplied.
 It never passes `--dangerously-skip-permissions`.
 In headless mode the permission mode is `request-review`: a tool call that needs approval is soft-denied, the run still exits 0, and the JSON envelope lists it under `denied_actions`.
+The denial also ends the turn: the envelope's `response` is empty even when the model had more to say (observed with CLI 1.4.7).
 A build iteration needing edits therefore cannot complete unattended under this profile; use an interactive session for those operations.
 See the [spec-loop guide](../../tools/spec-loop/README.md).
 

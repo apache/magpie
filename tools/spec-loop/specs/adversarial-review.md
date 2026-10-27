@@ -129,7 +129,9 @@ before the PR is created, through one shared block.
   switched off and `--output-schema`; `copilot -p` with the shell and write
   tools denied; `agy --mode plan` with the brief on stdin as one
   `stream-json` user message and no permission flag, so headless Antigravity
-  soft-denies every tool that needs approval; `goose run --no-session` with
+  denies every tool that needs approval (the first denial ends its turn with
+  an empty answer, so its brief asks for file reads and searches only, and a
+  run that still hits one is an `error` naming the denied tool); `goose run --no-session` with
   `GOOSE_MODE=chat`, Goose's chat-only mode, which runs no tools at all;
   `claude -p` with
   `--strict-mcp-config` and Bash, the editing tools, web access and `Task`

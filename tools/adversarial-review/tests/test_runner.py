@@ -259,7 +259,7 @@ def test_antigravity_answer_arrives_in_the_result_event(stub_bin, tmp_path):
     make(
         "agy",
         "import json, sys\n"
-        "msg = json.loads(sys.stdin.readline())['message']['content']\n"
+        "msg = json.loads(sys.stdin.readline())['message']['content'].split(chr(10))[0]\n"
         "finding = {'severity': 'low', 'file': 'app.py', 'line': 1, 'claim': 'got ' + msg, 'evidence': ''}\n"
         "print(json.dumps({'event': 'init', 'init': {'permission_mode': 'request-review'}}))\n"
         "print(json.dumps({'event': 'result', 'result': {'status': 'SUCCESS', "

@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pytest
 
-from adversarial_review.backends import BACKENDS, BackendOutputError, RunContext
+from adversarial_review.backends import ANTIGRAVITY_TOOL_NOTE, BACKENDS, BackendOutputError, RunContext
 
 CTX = RunContext(
     repo_dir=Path("/repo"),
@@ -110,14 +110,23 @@ def test_antigravity_argv():
     ]
     # agy reads stdin only as stream-json: one NDJSON user message.
     assert inv.stdin is not None and inv.stdin.endswith("\n") and inv.stdin.count("\n") == 1
-    assert json.loads(inv.stdin) == {"event": "user", "message": {"content": "PROMPT"}}
+    assert json.loads(inv.stdin) == {
+        "event": "user",
+        "message": {"content": "PROMPT" + ANTIGRAVITY_TOOL_NOTE},
+    }
 
 
 def test_antigravity_stdin_keeps_a_multiline_prompt_on_one_ndjson_line():
     ctx = RunContext(**{**CTX.__dict__, "prompt": "line 1\nline 2\n"})
     stdin = BACKENDS["antigravity"].build(ctx).stdin
     assert stdin is not None and stdin.count("\n") == 1
-    assert json.loads(stdin)["message"]["content"] == "line 1\nline 2\n"
+    assert json.loads(stdin)["message"]["content"] == "line 1\nline 2\n" + ANTIGRAVITY_TOOL_NOTE
+
+
+@pytest.mark.parametrize("name", [n for n in BACKENDS if n != "antigravity"])
+def test_only_antigravity_gets_the_tool_note(name):
+    inv = BACKENDS[name].build(CTX)
+    assert ANTIGRAVITY_TOOL_NOTE not in " ".join(inv.argv) + (inv.stdin or "")
 
 
 def test_pi_argv():
@@ -287,6 +296,17 @@ def test_antigravity_extract_discards_a_run_whose_tools_were_not_read_only(mode)
 def test_antigravity_extract_without_result_event():
     with pytest.raises(BackendOutputError, match="permission mode"):
         BACKENDS["antigravity"].extract("plain text\n", CTX)
+
+
+def test_antigravity_extract_names_the_tool_whose_denial_ended_the_turn():
+    # As captured from agy 1.4.7: a denied run_command ends the turn, still SUCCESS.
+    result = {
+        "status": "SUCCESS",
+        "response": "",
+        "denied_actions": [{"action": "command", "display_name": "RunCommand"}],
+    }
+    with pytest.raises(BackendOutputError, match=r"denied its RunCommand tool.*proceed-in-sandbox"):
+        BACKENDS["antigravity"].extract(_agy_stream(result), CTX)
 
 
 def test_antigravity_extract_empty_response():

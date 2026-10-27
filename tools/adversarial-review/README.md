@@ -82,8 +82,10 @@ Reviewers can read files with their read-only tools, and that is the residual ri
 - MCP tools are switched off for `codex` (`-c mcp_servers={}`) and `claude` (`--strict-mcp-config`).
   `grok` has no CLI switch that closes its MCP servers, so they stay connected, but `--deny MCPTool` auto-denies every MCP tool invocation.
   `copilot` and `antigravity` have no equivalent switch in the versions this was written against; their MCP servers, if any, stay reachable, so configure them with read-only servers or none.
-- `antigravity` runs in plan mode with no permission flag, so headless `agy` soft-denies every tool call that would need approval: shell, edits, web fetches and MCP calls.
+- `antigravity` runs in plan mode with no permission flag, so headless `agy` denies every tool call that would need approval: shell, edits, web fetches and MCP calls.
   That holds only while your own `permissions.allow` list in `~/.gemini/antigravity-cli/settings.json` does not pre-approve them; an `allow` rule there applies to the reviewer too.
+  The first denial ends the turn with an empty answer, so the prompt it gets asks it to read and search files only, and a review that still reaches for one is reported as an `error` naming the denied tool.
+  Under `proceed-in-sandbox` its commands run inside the terminal sandbox instead.
   agy takes the permission mode only from that file, so the tool reads it back from agy's `init` event and discards the review as an `error` unless it is `request-review`, `strict` or `proceed-in-sandbox` (whose auto-run commands stay in the terminal sandbox).
   The check runs after the reviewer has finished, so on that error inspect the reviewed tree.
 - `pi` is read-only by construction: `--tools read,grep,find,ls` is an allowlist, so the session has no shell, edit, write, MCP or extension tool at all.

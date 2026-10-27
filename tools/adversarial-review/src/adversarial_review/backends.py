@@ -209,9 +209,18 @@ ANTIGRAVITY_EXECUTABLE_CONFIG = tuple(
 )
 
 
+#: Appended to the prompt agy gets. Headless agy cannot ask for approval, and
+#: the first tool it denies ends the whole turn with an empty response, so a
+#: reviewer that reaches for a shell command loses its review.
+ANTIGRAVITY_TOOL_NOTE = (
+    "\n\nUse only file reads and searches. Do not run shell commands, fetch URLs or call MCP tools: "
+    "this run cannot approve them, and a denied tool ends the review with no answer.\n"
+)
+
+
 def _antigravity(ctx: RunContext) -> Invocation:
-    # No --dangerously-skip-permissions: headless agy soft-denies every tool
-    # that needs approval, so plan mode under request-review stays read-only.
+    # No --dangerously-skip-permissions: headless agy denies every tool that
+    # needs approval, so plan mode under request-review stays read-only.
     argv = [
         "agy",
         "--mode",
@@ -226,14 +235,14 @@ def _antigravity(ctx: RunContext) -> Invocation:
         "0",
         *_model("--model", ctx),
     ]
-    message = {"event": "user", "message": {"content": ctx.prompt}}
+    message = {"event": "user", "message": {"content": ctx.prompt + ANTIGRAVITY_TOOL_NOTE}}
     return Invocation(argv, stdin=json.dumps(message) + "\n")
 
 
 #: Permission modes a review may run under. agy takes the mode only from
-#: settings. Under request-review and strict, headless agy soft-denies every
-#: shell, write and web tool; proceed-in-sandbox (Magpie's own profile) also
-#: runs sandboxed commands, which reach no network and write only inside the
+#: settings. Under request-review and strict, headless agy denies every
+#: shell, write and web tool, and ends the turn at the first one;
+#: proceed-in-sandbox (Magpie's own profile) also runs sandboxed commands, which reach no network and write only inside the
 #: exported tree under review. always-proceed approves everything.
 ANTIGRAVITY_READ_ONLY_MODES = ("request-review", "strict", "proceed-in-sandbox")
 
@@ -266,6 +275,17 @@ def _antigravity_extract(stdout: str, ctx: RunContext) -> str:
         raise BackendOutputError(f"antigravity reported status {status!r}: {result.get('error')}")
     response = result.get("response")
     if not isinstance(response, str) or not response.strip():
+        denied = [
+            str(d.get("display_name") or d.get("action"))
+            for d in result.get("denied_actions") or []
+            if isinstance(d, dict) and (d.get("display_name") or d.get("action"))
+        ]
+        if denied:
+            raise BackendOutputError(
+                f"agy ended without an answer after headless mode denied its {', '.join(denied)} tool; "
+                "toolPermission proceed-in-sandbox in ~/.gemini/antigravity-cli/settings.json "
+                "lets it run commands inside the terminal sandbox"
+            )
         raise BackendOutputError("antigravity output has no `response` text")
     return response
 
