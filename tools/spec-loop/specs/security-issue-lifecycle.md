@@ -165,7 +165,9 @@ publication, with a human gate and an audit-log entry at every step.
   allocation on its own), renders the API proposal, the self-service
   recipe or a non-member's terse relay, takes the one CVE ID from the
   paste-back, plans the reporter status draft (both routing modes, the
-  primary thread, an existing draft surfaced), greps it for the CVE-tool
+  primary thread, an existing draft surfaced; on a tracker that merged
+  several independent reporters, one plan and one draft per reporter, each
+  on its own thread, a relay line being no further reporter), greps it for the CVE-tool
   URL and the CVE ID, and renders the numbered proposal, the rollup entry
   (a pending draft claimed only after checking Drafts), the confirmation
   forms, the per-backend apply order and the recap; writing the draft

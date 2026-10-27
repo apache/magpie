@@ -114,7 +114,13 @@ def plan(data: Mapping[str, Any]) -> dict[str, Any]:
                 {"item": 4, "command": f"{WRITE_OP} issue-attach {ref} {w(out)} {w(cve_id + '.json')}"},
             ]
     if 5 in chosen:
-        steps.append({"item": 5, "command": "create the draft from the Step 4 draft plan"})
+        steps.append(
+            {
+                "item": 5,
+                "command": "create the draft from each Step 4 draft plan that said `create`, "
+                "each on its own reporter's thread",
+            }
+        )
         if data.get("needs_amend"):
             steps.append(
                 {

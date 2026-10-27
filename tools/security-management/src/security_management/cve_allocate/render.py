@@ -19,11 +19,13 @@
 The proposal is items 1-4 always (*CVE tool link* field, `cve allocated`
 label, rollup entry, CVE JSON) and item 5 only when this run creates a
 reporter draft; a draft already waiting on the thread is surfaced instead.
+A tracker merging several independent reporters passes one plan per
+reporter (`drafts`), and item 5 creates one draft per reporter thread.
 
 The rollup entry is the body `rollup-append` wraps under the
 `CVE allocated (<CVE-ID>)` label: every line at column 0, every tracker
-reference a link, and exactly one *Reporter notification* line (or none for
-`omitted`). A draft id is claimed as pending only when the caller verified
+reference a link, and one *Reporter notification* line per reporter (none for
+`omitted`), each named by its thread when there are several. A draft id is claimed as pending only when the caller verified
 it is still in Drafts; a draft created after the entry carries `<pending>`
 and is amended in.
 
@@ -73,12 +75,21 @@ def _issue_url(data: Mapping[str, Any]) -> str | None:
     return None
 
 
+def _plans(data: Mapping[str, Any], key: str) -> list[Mapping[str, Any]]:
+    """The per-reporter list (`drafts`, `notifications`), else the single value under ``key``."""
+    many = data.get(key + "s")
+    if many:
+        return [p for p in many if p]
+    one = data.get(key)
+    return [one] if one else []
+
+
 def proposal(data: Mapping[str, Any]) -> dict[str, Any]:
     cve_id = _cve(data)
     url = record_url(str(data["record_url_template"]), cve_id)
     allocated = str(data.get("cve_allocated_label") or CVE_ALLOCATED)
     folds = list(data.get("legacy_comments") or [])
-    draft = data.get("draft") or {}
+    plans = _plans(data, "draft")
     items = [
         {"n": 1, "key": "cve_tool_link", "text": f"Set the *CVE tool link* body field to {url}"},
         {"n": 2, "key": "label", "text": f"Add the `{allocated}` label"},
@@ -91,7 +102,9 @@ def proposal(data: Mapping[str, Any]) -> dict[str, Any]:
         {"n": 4, "key": "cve_json", "text": "Regenerate the CVE JSON attachment in the tracker body"},
     ]
     notes = []
-    if draft.get("action") == "create":
+    creates = [p for p in plans if p.get("action") == "create"]
+    if len(creates) == 1:
+        draft = creates[0]
         items.append(
             {
                 "n": 5,
@@ -100,13 +113,28 @@ def proposal(data: Mapping[str, Any]) -> dict[str, Any]:
                 f"({one_line(draft.get('subject'))}) via {draft.get('backend')}",
             }
         )
-    elif draft.get("action") == "surface_existing":
-        notes.append(
-            f"A draft already waits on the inbound thread ({code(draft['notification']['draft_id'])}): "
-            "no new draft is created."
+    elif creates:
+        # one draft per reporter, each on its own thread: never one email to all
+        each = "; ".join(
+            f"to {one_line(d.get('to'))} ({one_line(d.get('subject'))}) via {d.get('backend')}"
+            for d in creates
         )
-    elif draft.get("reason"):
-        notes.append(f"No reporter draft: {one_line(draft['reason'])}.")
+        items.append(
+            {
+                "n": 5,
+                "key": "draft",
+                "text": f"Create {len(creates)} reporter status drafts, one per reporter thread: {each}",
+            }
+        )
+    for draft in plans:
+        where = f" on thread {code(draft['thread_id'])}" if len(plans) > 1 and draft.get("thread_id") else ""
+        if draft.get("action") == "surface_existing":
+            notes.append(
+                f"A draft already waits on the inbound thread{where} "
+                f"({code(draft['notification']['draft_id'])}): no new draft is created."
+            )
+        elif draft.get("action") != "create" and draft.get("reason"):
+            notes.append(f"No reporter draft{where}: {one_line(draft['reason'])}.")
     text = "\n".join(f"{item['n']}. {item['text']}" for item in items)
     if notes:
         text += "\n\n" + "\n".join(notes)
@@ -127,7 +155,15 @@ def rollup_entry(data: Mapping[str, Any]) -> dict[str, Any]:
     try:
         cve_id = _cve(data)
         url = record_url(str(data["record_url_template"]), cve_id)
-        note = rollup.notification_line(data.get("notification") or {})
+        given = _plans(data, "notification")
+        notes = []
+        for n in given:
+            line = rollup.notification_line(n)
+            if line and len(given) > 1 and n.get("thread_id"):
+                # one line per reporter, named by the thread its draft answers
+                line = f"Thread {code(n['thread_id'])}: {line}"
+            if line:
+                notes.append(line)
     except ValueError as exc:
         return {"ok": False, "refused": str(exc)}
     allocated = str(data.get("cve_allocated_label") or CVE_ALLOCATED)
@@ -152,8 +188,8 @@ def rollup_entry(data: Mapping[str, Any]) -> dict[str, Any]:
         "",
         f"**Next:** {one_line(data.get('next_step') or NEXT_STEP)}",
     ]
-    if note:
-        lines += ["", note]
+    if notes:
+        lines += ["", *notes]
     allocated_via = f"Allocated via the project's CVE tool at {one_line(data.get('allocate_url') or 'the allocation form')}"
     if one_line(data.get("allocated_by")) == "api":
         allocated_via = "Allocated through the CVE tool's API"
@@ -226,14 +262,18 @@ def recap(data: Mapping[str, Any]) -> dict[str, Any]:
         lines.append(
             f"- Status rollup: [entry]({issue}{anchor})" if issue else f"- Status rollup: `{anchor}`"
         )
-    draft = data.get("draft") or {}
-    if draft.get("id"):
-        where = "the Maildir drafts folder" if draft.get("backend") == "maildir" else "Gmail"
-        lines.append(f"- Reporter draft: {code(draft['id'])} — open {where} to review and send it.")
-    else:
-        lines.append(
-            f"- Reporter draft: none — {one_line(draft.get('reason') or 'no reporter notification owed')}."
-        )
+    drafts = _plans(data, "draft") or [{}]
+    for draft in drafts:
+        label_ = "Reporter draft"
+        if len(drafts) > 1 and draft.get("thread_id"):
+            label_ += f" on thread {code(draft['thread_id'])}"
+        if draft.get("id"):
+            where = "the Maildir drafts folder" if draft.get("backend") == "maildir" else "Gmail"
+            lines.append(f"- {label_}: {code(draft['id'])} — open {where} to review and send it.")
+        else:
+            lines.append(
+                f"- {label_}: none — {one_line(draft.get('reason') or 'no reporter notification owed')}."
+            )
     failed = data.get("failed")
     if failed:
         lines.append(f"- **Stopped at item {int(failed['item'])}:** {one_line(failed.get('error'))}.")
