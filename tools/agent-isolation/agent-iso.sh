@@ -272,6 +272,27 @@ agent_iso_run() {
     fi
   fi
 
+  # Goose has no sandbox of its own, so the whole process runs inside the
+  # sandbox runtime, in approve mode, through the launcher of the installed
+  # Magpie plugin (docs/adapters/goose.md). Refuse rather than fall back to an
+  # unsandboxed Goose when the launcher or Node is missing.
+  if [[ "$agent" == "goose" ]]; then
+    local goose_plugin="${MAGPIE_GOOSE_PLUGIN:-$HOME/.agents/plugins/magpie}"
+    local goose_launch="$goose_plugin/tools/agent-isolation/goose/launch.ts"
+    local node_bin
+    if [[ -n "${ZSH_VERSION-}" ]]; then
+      node_bin="$(whence -p node 2>/dev/null || true)"
+    else
+      node_bin="$(type -P node 2>/dev/null || true)"
+    fi
+    if [[ ! -f "$goose_launch" || -z "$node_bin" ]]; then
+      echo "goose-iso: needs node and the Magpie Goose plugin at $goose_plugin (goose plugin install https://github.com/apache/magpie). Not starting Goose unsandboxed." >&2
+      return 127
+    fi
+    set -- "$goose_launch" "$agent_bin" "$@"
+    agent_bin="$node_bin"
+  fi
+
   # When the user has aliased `claude=claude-iso`, an interactive
   # session looks indistinguishable from a normal `claude` launch.
   # Print a one-line banner on stderr (dim if a TTY) so it's obvious

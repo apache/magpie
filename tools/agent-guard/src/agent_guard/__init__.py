@@ -30,7 +30,7 @@ pre-tool hook to/from the core, so every wired harness enforces one rule set:
 * :func:`opencode_main` — OpenCode ``tool.execute.before`` plugin adapter
   (``--opencode``): reads ``{"command", "cwd"}`` on stdin, signals deny via a
   non-zero exit so the plugin can throw and abort the tool call. The Pi
-  extension uses the same transport (``--pi``).
+  extension (``--pi``) and the Goose hook (``--goose``) use the same transport.
 * :func:`antigravity_main` — Antigravity ``PreToolUse`` hook
   (``--antigravity``): matches ``run_command`` and prints a JSON
   ``{"decision": "deny", "reason": ...}`` on stdout.
@@ -2293,7 +2293,8 @@ def cli(argv: list[str] | None = None) -> int:
     Claude Code's snake_case ``tool_name`` / ``tool_input`` routes to
     :func:`_claude_event`.
     ``--opencode`` → the OpenCode adapter (:func:`opencode_main`).
-    ``--pi`` → the Pi extension, which uses the same ``{"command", "cwd"}``
+    ``--pi`` / ``--goose`` → the Pi extension and the Goose hook, which use
+    the same ``{"command", "cwd"}``
     transport (:func:`opencode_main`).
     ``--kiro`` → the Kiro CLI adapter (:func:`kiro_main`).
     ``--antigravity`` → the Antigravity adapter (:func:`antigravity_main`).
@@ -2311,7 +2312,7 @@ def cli(argv: list[str] | None = None) -> int:
     args = sys.argv[1:] if argv is None else argv
     if args and args[0] == "--codex":
         return codex_main()
-    if args and args[0] in ("--opencode", "--pi"):
+    if args and args[0] in ("--opencode", "--pi", "--goose"):
         return opencode_main()
     if args and args[0] == "--kiro":
         return kiro_main()

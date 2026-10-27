@@ -183,6 +183,11 @@ export class Policy {
 		);
 	}
 
+	/** Whether `path`, or the target a link in it leads to, is `base` or inside it. */
+	pathUnder(path: string, base: string, cwd: string): boolean {
+		return candidates(path, cwd).some((c) => pathMatches(base, c, cwd));
+	}
+
 	/** Why a native write of `path` is refused, or null. */
 	writeDenied(path: string, cwd: string): string | null {
 		const read = this.readDenied(path, cwd);

@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "^(shell|write|edit|tree|analyze|load|read_image)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/tools/agent-isolation/goose/hook.ts\"",
+            "timeout": 30,
+            "on_failure": "block"
+          }
+        ]
+      }
+    ]
+  }
+}
