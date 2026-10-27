@@ -177,9 +177,13 @@ backslash-newline is refused too, since an expansion can build the word
 (`g$()it`, `$CMD`, `/usr/bin/gi?`). Simplify the
 quoting, for example by passing a multi-line message with `-F <file>` /
 `--body-file <file>`. Any other unparsable line is allowed, as before.
-A command that does parse but whose name holds `$`, a backtick or a glob or
-brace character (`$CMD push`, `"$GIT" push`, `/usr/bin/gi? push`) is refused
-(`agent-guard[expansion]`) for the same reason; `[` and `[[` are exempt.
+A command that does parse is refused (`agent-guard[expansion]`) for the same
+reason when its name is anything but literal: letters, digits and `_ . / + : @ % , -`,
+with an optional leading `~/` (`[` and `[[` aside). That covers `$CMD push`,
+`"$GIT" push`, `/usr/bin/gi? push`, and zsh's `=git push` and `g(i)t` globs.
+Redirections written before the command name (`>/dev/null git …`, `2>&1 git …`,
+`exec 3>&1`) are skipped, as leading `NAME=value` assignments are, so the
+command after them is the one checked.
 A heredoc's body is data, not shell syntax: an apostrophe in it does not make
 the line unparsable. That holds for a body naming `git` or `gh` only when it is
 fed to a bare `cat`, `/bin/cat`, `/usr/bin/cat` or `tee` (plain file arguments

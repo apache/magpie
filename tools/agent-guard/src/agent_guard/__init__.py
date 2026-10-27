@@ -136,6 +136,11 @@ DEFAULT_ATTRIBUTION = "generated-by"
 
 
 _ASSIGNMENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=.*", re.DOTALL)
+# A redirection word: an optional fd (or `{name}`), the operator, and the
+# target when written attached to it (`>file`, `2>&1`, `&>>log`, `<<<word`).
+_REDIRECTION_RE = re.compile(
+    r"(?:\d+|\{[A-Za-z_][A-Za-z0-9_]*\})?(?:&>>?|>>?\|?|>&|<&|<>|<<<|<)(?P<target>.+)?", re.DOTALL
+)
 
 # `env` options (GNU coreutils and BSD): flags without a value, long options
 # whose value is optional (`--default-signal[=SIG]`), and — handled in
@@ -176,10 +181,12 @@ _QUOTING_RE = re.compile(r"\\\n|\$(?=['\"])|['\"\\]")
 # An expansion, a glob or a line continuation: on a line that cannot be
 # tokenised it may build any word (`g$()it`, `$CMD`, `/usr/bin/gi?`,
 # `g{i,}t`), so such a line is refused outright.
-_EXPANSION_RE = re.compile(r"[$`*?\[{]|\\\n")
-# The same characters in a command name that did tokenise (`$CMD push`,
-# `/usr/bin/gi? push`): the guards cannot see which command it resolves to.
-_EXPANDED_HEAD_RE = re.compile(r"[$`*?\[{]")
+_EXPANSION_RE = re.compile(r"[$`*?\[{(]|\\\n")
+# A command name the guards can trust to name itself: literal characters only,
+# with an optional leading `~/`. Anything else may be expanded by the shell
+# (`$CMD`, `/usr/bin/gi?`, zsh's `=git` and `g(i)t` globs), so the guards
+# cannot see which command it resolves to.
+_LITERAL_HEAD_RE = re.compile(r"(?:~(?=/|$))?[A-Za-z0-9_./+:@%,-]*")
 
 
 def _names_guarded(text: str) -> bool:
@@ -276,7 +283,15 @@ class Segment:
         #: True when the line (or a shell `-c` string in it) could not be
         #: tokenised and names a guarded head; `dispatch` refuses the line.
         self.untokenised = False
-        argv = self._unwrap(self._take_assignments(tokens))
+        argv = self._take_assignments(tokens)
+        for _ in range(_UNWRAP_LIMIT):
+            before = argv
+            argv = self._unwrap(argv)
+            while argv and (m := _REDIRECTION_RE.fullmatch(argv[0])):
+                # a wrapper's own redirections (`exec 3>&1`, `nohup >log env git …`)
+                argv = argv[1 if m.group("target") else 2 :]
+            if argv == before or self.unparsed:
+                break
         #: The command head as written (`~/.claude/scripts/x.sh`, `/usr/bin/git`),
         #: for the rules that care how a command is spelled, not just its name.
         self.head = argv[0] if argv else ""
@@ -294,12 +309,20 @@ class Segment:
         self.command = command
 
     def _take_assignments(self, tokens: list[str]) -> list[str]:
-        """Strip leading ``NAME=value`` assignments into ``env``."""
+        """Strip leading ``NAME=value`` assignments into ``env``, and leading
+        redirections (``>/dev/null git …``, ``2>&1 git …``), which bash allows
+        before the command name too."""
         i = 0
-        while i < len(tokens) and _ASSIGNMENT_RE.fullmatch(tokens[i]):
-            name, _, value = tokens[i].partition("=")
-            self.env[name] = value
-            i += 1
+        while i < len(tokens):
+            if _ASSIGNMENT_RE.fullmatch(tokens[i]):
+                name, _, value = tokens[i].partition("=")
+                self.env[name] = value
+                i += 1
+            elif m := _REDIRECTION_RE.fullmatch(tokens[i]):
+                # `> file` takes the next word as its target; `>file`, `2>&1` do not
+                i += 1 if m.group("target") else 2
+            else:
+                break
         return tokens[i:]
 
     def _unwrap(self, argv: list[str]) -> list[str]:
@@ -809,6 +832,10 @@ class _Lexer:
                 i += 1
                 continue
             if c == "(":
+                if word is not None and not text.startswith(")", i + 1) and not "".join(word).endswith("="):
+                    # mid-word `(` (`g(i)t`): a syntax error in bash, a glob
+                    # group in zsh; `name()` and `arr=(…)` aside
+                    raise ValueError("`(` inside a word")
                 end_command()
                 i = self.parse(i + 1, ")", depth + 1)
                 continue
@@ -2686,7 +2713,12 @@ def dispatch(command: str, cwd: str | None = None, harness: str | None = None) -
             if reason:
                 return reason
             continue
-        if _EXPANDED_HEAD_RE.search(seg.head) and seg.head not in ("[", "[[") and not seg.override():
+        if (
+            seg.head
+            and not _LITERAL_HEAD_RE.fullmatch(seg.head)
+            and seg.head not in ("[", "[[")
+            and not seg.override()
+        ):
             return (
                 "agent-guard[expansion]: this command's name is built by an expansion or a glob "
                 f"(`{seg.head}`), so the guards cannot see which command runs. "
