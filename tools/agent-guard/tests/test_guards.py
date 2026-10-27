@@ -609,6 +609,60 @@ def test_quoted_heredoc_body_substitution_is_data():
     assert dispatch("cat <<'EOF' > notes.md\nit's $(git log) in the docs\nEOF") is None
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        # `<<` as a shift operator opens no heredoc.
+        "cat /dev/null $((1<<x)) # it's\ngit push --force\nx",
+        "cat /dev/null $[1<<x] # it's\ngit push --force\nx",
+        "cat /dev/null ${a[1<<x]} # it's\ngit push --force\nx",
+    ],
+)
+def test_shift_operator_is_not_a_heredoc(command):
+    reason = dispatch(command)
+    assert reason and "agent-guard[parse]" in reason
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        # bash's delimiter is the whole word after quote removal: `E-O:F`,
+        # `EOF`; a shorter one would close the body too late.
+        "cat <<E-O:F # it's\nE-O:F\ngit push --force\nE-O",
+        "cat <<'E'OF # it's\nEOF\ngit push --force\nE",
+        'cat <<E"O"F # it\'s\nEOF\ngit push --force\nE',
+    ],
+)
+def test_heredoc_delimiter_is_the_whole_word(command):
+    reason = dispatch(command)
+    assert reason and "agent-guard[parse]" in reason
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "cat <<'E'OF > notes.md\nthe user's git notes\nEOF",
+        "cat <<\\EOF > notes.md\nthe user's git notes\nEOF",
+        "tee -a notes.md <<'EOF'\nthe user's git notes\nEOF",
+    ],
+)
+def test_heredoc_with_a_quoted_delimiter_word_is_data(command):
+    assert dispatch(command) is None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        # A body naming git / gh is stripped only for a bare `cat` / `tee`.
+        "cat $(echo x) <<'EOF'\nthe user's git notes\nEOF",
+        "cat <<'EOF' > \"$f\"\nthe user's git notes\nEOF",
+    ],
+)
+def test_heredoc_sink_must_be_a_bare_cat_or_tee(command):
+    reason = dispatch(command)
+    assert reason and "agent-guard[parse]" in reason
+
+
 def test_shell_option_value_letters_are_not_flags():
     # `c` inside zsh's attached option value is not `-c`
     assert dispatch("zsh -onocorrect script.zsh") is None

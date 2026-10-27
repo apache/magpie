@@ -400,25 +400,63 @@ class Segment:
 # --------------------------------------------------------------------------- #
 
 
-# A heredoc operator and its delimiter, matched only where `_heredocs_opened`
-# finds a `<<` outside quotes and comments.
-_HEREDOC_RE = re.compile(r"<<(-?)\s*(['\"]?)([A-Za-z_][\w.-]*)\2")
-# Characters after which a `#` starts a comment rather than continuing a word.
-_COMMENT_AFTER = frozenset(" \t;&|()<>")
-# Command and arithmetic substitution, which bash still runs inside the body
-# of a heredoc whose delimiter is unquoted.
+# Characters that end a shell word, and after which a `#` starts a comment.
+_SHELL_META = frozenset(" \t;&|()<>")
+# Arithmetic and parameter expansion, inside which `<<` is a shift.
+_ARITHMETIC_OPENERS = ("$((", "((", "$[", "${")
+# Command substitution, which bash still runs inside the body of a heredoc
+# whose delimiter is unquoted.
 _SUBSTITUTION_RE = re.compile(r"\$\(|`")
+# One heredoc a line opens: (delimiter, strip_tabs, quoted).
+_Heredoc = tuple[str, bool, bool]
 
 
-def _heredocs_opened(line: str, quote: str | None) -> tuple[list[tuple[str, bool, bool]], str | None]:
-    """The heredocs ``line`` opens, as ``(delimiter, strip_tabs, quoted)``, and
-    the quote still open at its end.
+def _heredoc_word(line: str, i: int) -> tuple[str, bool, int] | None:
+    """The heredoc delimiter starting at ``line[i]``, as bash reads it: the
+    whole word up to the next metacharacter, after quote removal. Returns
+    ``(delimiter, quoted, end)``, or None for a word this parser does not
+    reproduce (empty, unclosed, or holding an expansion)."""
+    word: list[str] = []
+    quoted = False
+    n = len(line)
+    while i < n and line[i] not in _SHELL_META:
+        ch = line[i]
+        if ch == "\\":
+            if i + 1 >= n:
+                return None
+            word.append(line[i + 1])
+            i += 2
+        elif ch in "'\"":
+            end = line.find(ch, i + 1)
+            if end < 0 or (ch == '"' and "\\" in line[i + 1 : end]):
+                return None
+            word.append(line[i + 1 : end])
+            i = end + 1
+        elif ch in "$`":
+            return None
+        else:
+            word.append(ch)
+            i += 1
+            continue
+        quoted = True
+    if not word:
+        return None
+    return "".join(word), quoted, i
+
+
+def _heredocs_opened(line: str, quote: str | None) -> tuple[list[_Heredoc], str | None, str] | None:
+    """The heredocs ``line`` opens, the quote still open at its end, and
+    ``line`` without its heredoc operators.
 
     ``quote`` is the quote open when ``line`` starts (``'``, ``"``, ``$'`` or
     None). A ``<<`` inside quotes or a ``#`` comment opens no heredoc: bash
-    reads the lines after it as commands."""
-    found: list[tuple[str, bool, bool]] = []
-    i, n = 0, len(line)
+    reads the lines after it as commands. None when the line has a ``<<``
+    this parser cannot place: inside arithmetic or a parameter expansion, or
+    before a delimiter it does not reproduce."""
+    found: list[_Heredoc] = []
+    rest: list[str] = []
+    i = kept = 0
+    n = len(line)
     while i < n:
         ch = line[i]
         if quote == "'":
@@ -436,44 +474,63 @@ def _heredocs_opened(line: str, quote: str | None) -> tuple[list[tuple[str, bool
         elif line.startswith("$'", i):
             quote = "$'"
             i += 1
-        elif ch == "#" and (i == 0 or line[i - 1] in _COMMENT_AFTER):
+        elif ch == "#" and (i == 0 or line[i - 1] in _SHELL_META):
             break
+        elif line.startswith(_ARITHMETIC_OPENERS, i) and "<<" in line[i:]:
+            return None
         elif line.startswith("<<<", i):
             i += 3
             continue
         elif line.startswith("<<", i):
-            m = _HEREDOC_RE.match(line, i)
-            if m:
-                found.append((m.group(3), m.group(1) == "-", bool(m.group(2))))
-                i = m.end()
-                continue
+            start = i
             i += 2
+            strip_tabs = line.startswith("-", i)
+            if strip_tabs:
+                i += 1
+            while i < n and line[i] in " \t":
+                i += 1
+            word = _heredoc_word(line, i)
+            if word is None:
+                return None
+            delim, quoted, i = word
+            found.append((delim, strip_tabs, quoted))
+            rest.append(line[kept:start])
+            kept = i
             continue
         i += 1
-    return found, quote
+    rest.append(line[kept:])
+    return found, quote, " ".join(rest)
 
 
 # Commands that only store what a heredoc feeds them. A body naming a guarded
-# head is stripped only when one of these opens the introducing line; fed to
-# anything else, it may be run.
+# head is stripped only when the introducing line is one of these with plain
+# file arguments and redirections; fed to anything else, it may be run.
 _HEREDOC_DATA_SINKS = frozenset({"cat", "tee"})
-# Something on the introducing line that hands the sink's output on: a pipe,
-# a process or command substitution, a further command.
-_PASSES_ON_RE = re.compile(r"[|;&`]|<\(|>\(|\$\(")
+_SINK_ARG_RE = re.compile(r"(?:>>?)?[\w./~+-]*")
+
+
+def _is_data_sink(intro: str) -> bool:
+    """Whether ``intro``, without its heredoc operators, is a bare ``cat`` /
+    ``tee`` with only plain words and ``>`` / ``>>`` redirections after it."""
+    words = intro.split()
+    if not words or os.path.basename(words[0]) not in _HEREDOC_DATA_SINKS:
+        return False
+    return all(_SINK_ARG_RE.fullmatch(word) for word in words[1:])
 
 
 def _strip_heredoc_bodies(command: str) -> str:
     """``command`` with each heredoc's body and closing delimiter line removed,
     so text that is only fed to a command's stdin is not read as shell syntax.
 
-    ``command`` comes back unchanged when a heredoc is never closed, or when a
-    body naming ``git`` / ``gh`` may run: fed to anything but a plain data sink
-    (``cat`` / ``tee`` opening the introducing line), or holding a command
-    substitution under an unquoted delimiter, which bash expands."""
+    ``command`` comes back unchanged when a heredoc is never closed, when a
+    ``<<`` cannot be placed (see :func:`_heredocs_opened`), or when a body
+    naming ``git`` / ``gh`` may run: fed to anything but a bare ``cat`` /
+    ``tee``, or holding a command substitution under an unquoted delimiter,
+    which bash expands."""
     out: list[str] = []
-    pending: list[tuple[str, bool, bool]] = []
+    pending: list[_Heredoc] = []
     quote: str | None = None
-    intro = ""
+    sink = False
     body: list[str] = []
     for line in command.split("\n"):
         if pending:
@@ -481,8 +538,6 @@ def _strip_heredoc_bodies(command: str) -> str:
             if (line.lstrip("\t") if strip_tabs else line) == delim:
                 pending.pop(0)
                 text = "\n".join(body)
-                head = os.path.basename(intro.split(maxsplit=1)[0]) if intro.strip() else ""
-                sink = head in _HEREDOC_DATA_SINKS and not _PASSES_ON_RE.search(intro)
                 expands = not quoted and _SUBSTITUTION_RE.search(text)
                 if _GUARDED_WORD_RE.search(text) and (expands or not sink):
                     return command
@@ -491,12 +546,15 @@ def _strip_heredoc_bodies(command: str) -> str:
                 body.append(line)
             continue
         out.append(line)
-        intro = line
-        pending, quote = _heredocs_opened(line, quote)
+        opened = _heredocs_opened(line, quote)
+        if opened is None:
+            return command
+        pending, quote, rest = opened
         if pending and line.rstrip().endswith("\\"):
             # a continued line: the body starts after the logical line ends,
             # which this reader does not follow
             return command
+        sink = _is_data_sink(rest)
     if pending:
         return command
     return "\n".join(out)
