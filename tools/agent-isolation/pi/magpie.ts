@@ -43,11 +43,11 @@ import { type Baseline, Policy } from "./policy.ts";
 
 const ENGINE = fileURLToPath(new URL("../../agent-guard/src/agent_guard/__init__.py", import.meta.url));
 const BASELINE = fileURLToPath(new URL("../../sandbox-lint/expected.json", import.meta.url));
-const FILE_TOOLS: Record<string, "read" | "write"> = {
+const FILE_TOOLS: Record<string, "read" | "tree" | "write"> = {
 	read: "read",
-	grep: "read",
-	find: "read",
-	ls: "read",
+	grep: "tree",
+	find: "tree",
+	ls: "tree",
 	write: "write",
 	edit: "write",
 };
@@ -143,7 +143,8 @@ export default function (pi: ExtensionAPI) {
 		const kind = FILE_TOOLS[event.toolName];
 		if (kind) {
 			const path = typeof event.input.path === "string" ? event.input.path : ".";
-			const reason = kind === "write" ? policy.writeDenied(path, ctx.cwd) : policy.readDenied(path, ctx.cwd);
+			const check = { read: policy.readDenied, tree: policy.treeDenied, write: policy.writeDenied }[kind];
+			const reason = check.call(policy, path, ctx.cwd);
 			return reason ? { block: true, reason: `Magpie: ${reason}` } : undefined;
 		}
 		if (event.toolName !== "bash") return undefined;

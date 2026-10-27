@@ -19,7 +19,7 @@
 // type stripping); tools/agent-isolation/tests/test_pi_policy.py wraps it.
 
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -59,10 +59,19 @@ test("allowed gh reads leave the sandbox; other gh commands ask", () => {
 	assert.equal(policy.decide("gh api repos/apache/magpie"), "ask");
 });
 
-test("an excluded command chained or redirected stays sandboxed or asks", () => {
-	assert.equal(policy.decide("gh pr view 1 && ls"), "sandboxed");
-	assert.equal(policy.decide("gh pr view 1 > out.txt"), "sandboxed");
-	assert.equal(policy.decide("gh pr view $(cat x)"), "sandboxed");
+test("only plain words leave the sandbox", () => {
+	for (const command of [
+		"gh pr view 1 && ls",
+		"gh pr view 1 > out.txt",
+		"gh pr view $(cat x)",
+		"gh pr view 1 \\; ls",
+		"gh pr view $'1'",
+		'gh pr view "1"',
+		"gh pr view 1 &",
+		"gh pr view `id`",
+	]) {
+		assert.equal(policy.decide(command), "sandboxed", command);
+	}
 });
 
 test("everything else runs sandboxed", () => {
@@ -86,6 +95,27 @@ test("native writes of agent and Pi configuration are refused", () => {
 	assert.ok(policy.writeDenied("~/.pi/agent/settings.json", cwd));
 	assert.ok(policy.writeDenied("~/.ssh/config", cwd));
 	assert.equal(policy.writeDenied("src/app.py", cwd), null);
+});
+
+test("a symlink cannot reach a denied path", () => {
+	const root = mkdtempSync(join(tmpdir(), "magpie-pi-link-"));
+	mkdirSync(join(root, "secret"));
+	writeFileSync(join(root, "secret", "key"), "x");
+	mkdirSync(join(root, "ws"));
+	symlinkSync(join(root, "secret"), join(root, "ws", "link"));
+	const linked = new Policy({ permissions: { deny: [`Read(${root}/secret/**)`] } });
+	const ws = join(root, "ws");
+	assert.ok(linked.readDenied("link/key", ws));
+	assert.ok(linked.writeDenied("link/new-file", ws));
+	assert.equal(linked.readDenied("other", ws), null);
+});
+
+test("directory tools may not walk into a denied directory", () => {
+	assert.ok(policy.treeDenied("~", cwd));
+	assert.ok(policy.treeDenied("~/.config", cwd));
+	assert.ok(policy.treeDenied("~/.ssh", cwd));
+	assert.equal(policy.treeDenied(".", cwd), null);
+	assert.equal(policy.treeDenied("src", cwd), null);
 });
 
 test("path rules match directories recursively and globs by segment", () => {

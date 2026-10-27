@@ -23,8 +23,9 @@
 // Code profile is linted against — so the two profiles cannot drift apart.
 // It imports nothing from Pi, so `node --test` exercises it on its own.
 
+import { existsSync, realpathSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
-import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 export interface Baseline {
 	permissions?: { allow?: string[]; ask?: string[]; deny?: string[] };
@@ -96,9 +97,11 @@ export function segments(command: string): string[] {
 	return out.map((s) => s.trim()).filter((s) => s.length > 0);
 }
 
-// Constructs that run or redirect beyond the visible command: such a line
-// never leaves the sandbox, whatever its first word.
-const SHELL_ESCAPES = /[`<>]|\$\(|\$\{|&\s*$|&[^&]/;
+// The only command lines allowed to leave the sandbox: plain words from a
+// conservative character set. Quotes, escapes, expansions, redirections and
+// operators all keep a line in the sandbox, so the splitter above never has
+// to be right for a command that runs outside it.
+const PLAIN_WORDS = /^[A-Za-z0-9_./:@=,+%~-]+( [A-Za-z0-9_./:@=,+%~-]+)*$/;
 
 export class Policy {
 	readonly baseline: Baseline;
@@ -121,19 +124,45 @@ export class Policy {
 		const parts = segments(command);
 		const any = (patterns: RegExp[]) => parts.some((s) => patterns.some((p) => p.test(s)));
 		if (any(this.deny)) return "deny";
-		const single = parts.length === 1 && !SHELL_ESCAPES.test(command);
-		const excluded = single && this.excluded.some((p) => p.test(parts[0]));
+		const plain = PLAIN_WORDS.test(command.trim());
+		const excluded = plain && this.excluded.some((p) => p.test(command.trim()));
 		if (any(this.ask)) return "ask";
 		if (!excluded) return "sandboxed";
 		// Outside the sandbox only what the baseline allows runs unprompted.
-		return this.allow.some((p) => p.test(parts[0])) ? "unsandboxed" : "ask";
+		return this.allow.some((p) => p.test(command.trim())) ? "unsandboxed" : "ask";
 	}
 
-	/** Why a native read of `path` is refused, or null. */
+	private readRules(): string[] {
+		return (this.baseline.permissions?.deny ?? [])
+			.map((r) => /^Read\((.*)\)$/.exec(r)?.[1])
+			.filter((r): r is string => r !== undefined);
+	}
+
+	/** Why a native read of `path` is refused, or null. Symlinks are checked by their target too. */
 	readDenied(path: string, cwd: string): string | null {
-		for (const rule of this.baseline.permissions?.deny ?? []) {
-			const m = /^Read\((.*)\)$/.exec(rule);
-			if (m && pathMatches(m[1], path, cwd)) return `reading ${path} is denied (${rule})`;
+		for (const candidate of candidates(path, cwd)) {
+			for (const rule of this.readRules()) {
+				if (pathMatches(rule, candidate, cwd)) return `reading ${path} is denied (Read(${rule}))`;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Why a directory-scoped tool (grep, find, ls) rooted at `path` is refused,
+	 * or null: it is refused when a denied directory lies inside its root,
+	 * since it would walk into it. Rules for a file name anywhere (`**\/.env`)
+	 * cannot be expressed this way and are left to the file tools' own checks.
+	 */
+	treeDenied(path: string, cwd: string): string | null {
+		const direct = this.readDenied(path, cwd);
+		if (direct) return direct;
+		for (const candidate of candidates(path, cwd)) {
+			for (const rule of this.readRules()) {
+				const base = expandPath(rule.split("*")[0].replace(/\/$/, "") || "/", cwd);
+				if (base === "/" || rule.startsWith("//**")) continue;
+				if (pathMatches(candidate, base, cwd)) return `searching ${path} would read ${base} (Read(${rule}))`;
+			}
 		}
 		return null;
 	}
@@ -142,13 +171,15 @@ export class Policy {
 	writeDenied(path: string, cwd: string): string | null {
 		const read = this.readDenied(path, cwd);
 		if (read) return read;
-		for (const rule of this.baseline.permissions?.deny ?? []) {
-			const m = /^Edit\((.*)\)$/.exec(rule);
-			if (m && pathMatches(m[1], path, cwd)) return `writing ${path} is denied (${rule})`;
-		}
-		for (const config of PI_CONFIG_PATHS) {
-			if (pathMatches(`${config}/**`, path, cwd)) {
-				return `writing ${path} is denied: Pi's configuration must be edited from your own terminal`;
+		for (const candidate of candidates(path, cwd)) {
+			for (const rule of this.baseline.permissions?.deny ?? []) {
+				const m = /^Edit\((.*)\)$/.exec(rule);
+				if (m && pathMatches(m[1], candidate, cwd)) return `writing ${path} is denied (${rule})`;
+			}
+			for (const config of PI_CONFIG_PATHS) {
+				if (pathMatches(`${config}/**`, candidate, cwd) || pathMatches(config, candidate, cwd)) {
+					return `writing ${path} is denied: Pi's configuration must be edited from your own terminal`;
+				}
 			}
 		}
 		return null;
@@ -176,6 +207,30 @@ export class Policy {
 			enableWeakerNetworkIsolation: sb.network?.enableWeakerNetworkIsolation,
 		};
 	}
+}
+
+/**
+ * The paths a file tool would really touch: the literal one, and its target
+ * with every symlink resolved (for a file that does not exist yet, through
+ * its nearest existing parent), so a link cannot reach a denied path.
+ */
+export function candidates(path: string, cwd: string): string[] {
+	const literal = expandPath(path, cwd);
+	let existing = literal;
+	let rest = "";
+	while (!existsSync(existing)) {
+		const parent = dirname(existing);
+		if (parent === existing) return [literal];
+		rest = rest ? join(basename(existing), rest) : basename(existing);
+		existing = parent;
+	}
+	let real: string;
+	try {
+		real = rest ? join(realpathSync(existing), rest) : realpathSync(existing);
+	} catch {
+		return [literal];
+	}
+	return real === literal ? [literal] : [literal, real];
 }
 
 /** `~/x` to the home directory, `//x` to `/x`, a relative path under `cwd`. */
@@ -213,8 +268,29 @@ function globRegex(glob: string): RegExp {
 /** Match a Claude path rule (`~/.ssh/**`, `//**\/.env`, `.claude/x.json`). */
 export function pathMatches(rule: string, path: string, cwd: string): boolean {
 	const target = resolve(cwd, path === "~" || path.startsWith("~/") ? join(homedir(), path.slice(1)) : path).split(sep).join("/");
-	const base = expandPath(rule, cwd).split(sep).join("/");
-	if (base.includes("*")) return globRegex(base).test(target);
-	const rel = relative(base, target);
-	return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
+	const expanded = expandPath(rule, cwd).split(sep).join("/");
+	// A rule's own directories may be symlinks too (macOS /var is /private/var).
+	return [expanded, realPrefix(expanded)].some((base) => {
+		if (base.includes("*")) return globRegex(base).test(target);
+		const rel = relative(base, target);
+		return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
+	});
+}
+
+/** `base` with the longest existing directory before any glob resolved through symlinks. */
+function realPrefix(base: string): string {
+	const star = base.indexOf("*");
+	const fixed = star < 0 ? base : base.slice(0, base.lastIndexOf("/", star) + 1);
+	let dir = fixed.replace(/\/$/, "") || "/";
+	let rest = base.slice(dir.length);
+	while (dir !== "/" && !existsSync(dir)) {
+		rest = `/${basename(dir)}${rest}`;
+		dir = dirname(dir);
+	}
+	try {
+		const real = realpathSync(dir);
+		return real === "/" ? rest || "/" : `${real}${rest}`;
+	} catch {
+		return base;
+	}
 }
