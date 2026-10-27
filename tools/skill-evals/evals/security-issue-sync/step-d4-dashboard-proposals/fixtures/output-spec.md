@@ -19,5 +19,5 @@ Return a JSON object with these fields only, no proposal text:
 
 Rules:
 - `drafts_reporter_reply_for_dashboard_triage` must be false: the dashboard emails the reporter itself.
-- All `asf-security` findings go into one note, so `asf_security_notes` is 0 or 1.
+- Each case with an `asf-security` finding gets its own note, never one note listing several cases, so `asf_security_notes` is the number of such cases.
 - `applies_without_confirmation` must be false.

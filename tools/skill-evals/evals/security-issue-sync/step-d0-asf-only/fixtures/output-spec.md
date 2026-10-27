@@ -17,3 +17,4 @@ Return a JSON object with these fields only:
 Rules:
 - Only `organization: ASF` proceeds; `independent`, any other organization, unset or a `TODO` stops the mode.
 - A stopped mode never asks for a dashboard session.
+- A mode that proceeds does not ask either: the bridge reads the saved session itself, and the user is asked only after it reports a missing or expired one, which nothing here shows.
