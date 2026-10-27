@@ -299,10 +299,31 @@ _WRITE_PROTECTED_IN_TREE = (
     ".claude/agents",
     ".mcp.json",
     ".git",
+    # The other harnesses' workspace config, where each keeps its hooks, MCP
+    # servers, plugins, rules or skills (docs/adapters/): the gateway serves
+    # whichever harness runs the agent.
+    ".agents",  # Antigravity, Codex skills
+    ".agent",  # Antigravity, legacy spelling
+    ".codex",
+    ".github/hooks",  # Copilot CLI
+    ".github/copilot",
+    ".github/skills",
+    ".gemini",
+    ".grok",
+    ".junie",
+    ".kiro",
+    ".opencode",
+    "opencode.json",
+    "opencode.jsonc",
+    ".pi",
+    ".cursor",
 )
 # Where Claude Code keeps a checkout's linked worktrees: each one carries its
 # own copy of the paths above, protected in place (the worktree itself stays
 # bindable, since the gateway may be serving one of them as its project root).
+# The directory itself is never under a writable bind either, even with no
+# worktree in it yet: one created while the container runs would get its
+# `.claude/` and `.git` from the container.
 _NESTED_WORKTREES = ".claude/worktrees"
 # The same, inside the repository's common git directory, which for a linked
 # worktree sits outside the worktree (and may still sit under a bind root).
@@ -411,6 +432,20 @@ def _write_protected_hit(src: str, ctx: PolicyContext) -> Path | None:
     for path in protected:
         if _same_or_ancestor(real, path) or _same_or_ancestor(path, real):
             return path
+    # The worktrees directory, and what holds it, but not what sits below it:
+    # a writable bind inside one worktree is checked against its own entries.
+    # Spelled under the resolved root and fully resolved, like the entries
+    # above, so a symlinked `.claude` is protected where it points too.
+    for root in (ctx.project_root, *ctx.bind_roots):
+        spellings: tuple[Path, ...]
+        try:
+            nested = root.resolve(strict=False) / _NESTED_WORKTREES
+            spellings = (nested, nested.resolve(strict=False))
+        except (OSError, RuntimeError):
+            spellings = (Path(os.path.abspath(root)) / _NESTED_WORKTREES,)
+        for spelling in spellings:
+            if _same_or_ancestor(real, spelling):
+                return spelling
     return None
 
 
