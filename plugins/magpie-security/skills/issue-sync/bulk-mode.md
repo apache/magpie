@@ -270,6 +270,8 @@ bucket it into the Step 14→15 close-out **regardless** of an empty *Public adv
   If a subagent reports a mutation, surface it as a bug and stop.
 - **No new CVE allocations in subagents.** Printing the CVE allocation URL is fine; allocating is a human step.
 - **Gmail drafts are created by the orchestrator**, only after user confirmation, from its main context.
+- **One draft per thread, never merged across trackers.** The merged *proposal* is for review only;
+  each tracker's reporter draft stays a separate draft on its own thread, even when several trackers share a reporter (Golden rule 3).
 - **Confidentiality still applies** to subagents: no `<tracker>` content leaks into any public surface.
 - **Link-form self-check still applies** to the merged output — every `#NNN` is a clickable link per Golden rule 2.
 - **Pre-flight skips are never silent.** Every Step 1b `skip-noop` appears in the *"Pre-flight skipped"* group with the rule that fired;

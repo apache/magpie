@@ -24,6 +24,7 @@
     - [CVE references must never point at non-public mailing-list threads](#cve-references-must-never-point-at-non-public-mailing-list-threads)
   - [Writing and editing documentation](#writing-and-editing-documentation)
     - [Tone: polite but firm — no room to wiggle](#tone-polite-but-firm--no-room-to-wiggle)
+    - [Golden rule — one reply, one thread; never combine threads](#golden-rule--one-reply-one-thread-never-combine-threads)
     - [Linking CVEs](#linking-cves)
     - [Linking tracker issues and PRs](#linking-tracker-issues-and-prs)
     - [Mentioning project maintainers and security-team members](#mentioning-project-maintainers-and-security-team-members)
@@ -1060,6 +1061,17 @@ negotiation), and free of accusation, sarcasm, condescension, and
 hedging. Anchor every decision in an authoritative document, not the
 responder's opinion. Full phrasing patterns:
 [`docs/editorial-guidelines.md`](docs/editorial-guidelines.md#tone-polite-but-firm--no-room-to-wiggle).
+
+### Golden rule — one reply, one thread; never combine threads
+
+Every drafted email answers exactly one inbound thread, attached to that thread's `threadId` with its `Re: <root subject>`.
+**Never combine the responses to several threads into one message** —
+not for the same reporter, not for several trackers imported or updated in one run, not when the replies would be near-identical.
+A combined reply confuses the reporter, who cannot tell which report it answers,
+and the security team, who track each case by its thread and `Message-ID`.
+One thread that yields several trackers still gets one reply on that thread.
+No skill, override or bulk mode may relax this.
+Full rule: [`tools/gmail/threading.md`](tools/gmail/threading.md#the-rule).
 
 ### Linking CVEs
 

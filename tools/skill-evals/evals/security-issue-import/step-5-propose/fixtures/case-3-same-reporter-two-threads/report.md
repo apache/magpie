@@ -4,7 +4,7 @@
 ### Candidates this run — same reporter, two separate threads
 
 Both are class Report. Both from researcher@example.com. Import both as
-separate trackers; propose a single consolidated receipt reply.
+separate trackers. Compose the proposal for candidate 2.
 
 #### Candidate 1
 
@@ -18,12 +18,6 @@ threadId: AAMkAGQ9aB4nRqTu (later thread, 2026-05-14)
 Proposed tracker: example-s/example-s#252
 Title: "DAG-scoped API user can read task log content from unauthorized DAGs"
 
-### Consolidated receipt detection
-
-Condition met: both candidates share the same reporter email
-(researcher@example.com). Single consolidated receipt required, replied on
-the earliest thread (AAMkAGQ8xZ3mPqRs).
-
 ### Step 2b prior-rejection signal (both candidates)
 
-No prior rejection found. recommendation: new_ground.
+No prior rejection found. recommendation: new_ground. There is no precedent to surface: the other candidate in this run is not a prior decision.

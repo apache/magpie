@@ -74,7 +74,7 @@ Present the findings grouped by `fix`, each with the case title, the issue link 
 | `review` | Show the case's thread link and ask whether it is a security report; the dashboard also lists the security team's catch-all labels (`aaa-support`, `zzz-admin`, …) as untriaged cases. Import only on a yes. |
 | `tracker` | The field, label or `Message-ID` change on the issue, applied as in [Step 4](SKILL.md#step-4--apply-confirmed-changes); `decision-conflict` is surfaced to the team, never resolved by the skill. |
 | `dashboard-triage` | The project page link, for a PMC member to record the decision there. |
-| `asf-security` | One drafted note to `<foundation-security-list>` listing the case titles, CVE IDs and what changed. |
+| `asf-security` | One drafted note to `<foundation-security-list>` **per case**, naming its title, CVE ID and what changed, on that case's thread when one exists — never one note listing several cases ([one reply, one thread](../../../../tools/gmail/threading.md#the-rule)). |
 
 **Triage on the dashboard emails the reporter.**
 For a `dashboard-triage` finding, do not also draft a reply to the reporter about that decision:

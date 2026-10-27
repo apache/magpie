@@ -24,9 +24,9 @@ when_to_use: |
   the tracker with dash.security.apache.org.
 argument-hint: "[issue-number]"
 capability: capability:intake
-surface_hash: sha256:5d8871fa61317a06
+surface_hash: sha256:23c1d23400108cf4
 license: Apache-2.0
-measured_tokens: 7155
+measured_tokens: 7268
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -109,6 +109,12 @@ This skill reconciles a single security issue in
 **Golden rule 1 — propose before applying.** Every change this skill
 performs is a *proposal*: nothing is created, closed, edited or sent without the user's clear "yes" for that specific action.
 Email is always a Gmail **draft**, never sent.
+
+**Golden rule 3 — one reply, one thread.** Every draft answers exactly one thread, attached to it.
+Never combine the replies to several threads into one message, in single or bulk mode, even for the same reporter or near-identical updates:
+it confuses the reporter and the security team, who track each case by its thread and `Message-ID`.
+A tracker merging several independent reporters gets one draft per reporter, each on that reporter's own thread
+([`threading.md`](../../../../tools/gmail/threading.md#the-rule)).
 
 **Golden rule 2 — every `<tracker>` reference is clickable in the
 surface it lands on.** Every issue, PR, comment, milestone and label reference this skill emits — in the observed state, the proposal, the confirmation prompt, the apply-loop and regeneration output, the recap, status-change comments and the CVE JSON reference list — is one click away:

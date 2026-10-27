@@ -20,7 +20,7 @@ The skipped list is exhaustive — user skips, canned rejections (naming the
 canned response), public-fix rejections, already-tracked candidates (full
 `owner/repo#NNN`, never a bare `#NNN`) — and every pre-filtered thread gets
 its own line. Pre-filtered `cve-tool-bookkeeping` threads count toward the
-bookkeeping total. A consolidated receipt is listed once, under the first
+bookkeeping total. A receipt covering several trackers from one thread is listed once, under the first
 candidate it covers.
 """
 

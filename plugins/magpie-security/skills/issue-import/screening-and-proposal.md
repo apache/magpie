@@ -238,41 +238,19 @@ applies symmetrically: no finder credit for a report that arrived after the fix 
 The user can override in Step 6 for a project-specific reason
 (e.g. the reporter privately spotted the issue before the unrelated PR landed).
 
-### Consolidated receipts for multi-tracker imports
+### One receipt per thread — never a consolidated receipt across threads
 
-When the resolved selector imports **N > 1 trackers from the same
-reporter or same source thread within one skill run**, propose a
-**single consolidated receipt-of-confirmation reply** that lists
-all N tracker URLs, instead of N separate receipts.
+**Golden rule: each inbound thread gets its own receipt draft, on that thread; never combine receipts for several threads into one reply.**
+This holds when one reporter sent several reports in the same run, when several trackers share a reporter or an outer thread, and when the replies would be nearly identical.
+A combined reply confuses the reporter about which report it answers, and the security team, who track each case by its thread and `Message-ID`.
+Full rule: [`tools/gmail/threading.md` — The rule](../../../../tools/gmail/threading.md#the-rule).
 
-**Detection conditions** (any one is sufficient):
-
-1. All N trackers reference the same Gmail `threadId` in their
-   "Split from" / "Imported from" provenance (e.g. one reporter
-   split a consolidated report into N separate GHSAs).
-2. All N trackers' inbound `From:` addresses are identical
-   (same reporter sent N independent reports in the same run).
-3. All N trackers were imported from N distinct threads that
-   *share an outer thread* (one reporter, one root, N
-   sub-threads).
-
-**Consolidated receipt shape**:
-
-- Reply on the **earliest** thread in the set (where the team
-  has an established channel with the reporter — typically the
-  consolidated-pre-split thread).
-- List each tracker URL + GHSA ID / equivalent identifier on
-  its own line, one per tracker.
-- Ask the credit-preference question **once**, applying to all
-  trackers in the set.
-- Use the *"Confirmation of receiving the report"* canned body
-  with a leading paragraph that lists the trackers.
-
-**Skip the per-tracker receipt drafts** when the consolidated one is created.
-Surface the consolidated draft with explicit *"this reply covers trackers #N1, #N2, …"* framing so the user knows what's bundled.
-
-**Coherence check**: the consolidated reply must accurately characterise *each* tracker, not just the largest one.
-If the reports differ so much that one reply would confuse, fall back to per-tracker receipts; do not force the bundle.
+The one case with a single receipt covering several trackers is **one thread that yields several trackers**
+(e.g. a reporter's message split into N trackers at import):
+that thread gets one receipt, on that thread, listing each tracker URL on its own line and asking the credit-preference question once.
+Surface it with explicit *"this reply on thread `<threadId>` covers trackers #N1, #N2, …"* framing;
+the other trackers from that thread skip their own receipt draft.
+Never extend it to trackers from another thread, even one from the same reporter.
 
 ### Canned-response discipline for negative-response drafts
 

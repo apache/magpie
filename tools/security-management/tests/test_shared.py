@@ -127,7 +127,7 @@ def test_rollup_label_refuses_angle_brackets_and_middle_dots(reporter: str) -> N
 @pytest.mark.parametrize(
     ("receipt", "expected"),
     [
-        ({"bundle_draft_id": "r9"}, "covered by the consolidated receipt draft `r9`"),
+        ({"bundle_draft_id": "r9"}, "covered by the receipt draft on the same inbound thread `r9`"),
         ({"converged": True, "converged_ref": "msg-1"}, "converged on the inbound thread (msg-1)"),
         ({"suppressed_reason": "acknowledgement_model=none: suppressed"}, "acknowledgement_model=none"),
         ({}, "no draft created"),

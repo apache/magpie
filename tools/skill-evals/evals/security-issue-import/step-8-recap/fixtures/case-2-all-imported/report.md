@@ -11,7 +11,7 @@ Candidate 1 — imported successfully
 Candidate 2 — imported successfully
   Issue created: example-s/example-s#262
   URL: https://github.com/example-s/example-s/issues/262
-  Consolidated receipt (covers candidates 1 and 2): draftId=r8271635490
+  Split from the same inbound thread as candidate 1; that thread's receipt covers candidates 1 and 2: draftId=r8271635490
 
 Candidate 3 — imported successfully
   Issue created: example-s/example-s#263

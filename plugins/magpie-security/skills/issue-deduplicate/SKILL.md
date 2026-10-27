@@ -25,7 +25,7 @@ argument-hint: "[kept-issue] [duplicate-issue]"
 capability: capability:resolve
 surface_hash: sha256:4923aac5c8ba1af5
 license: Apache-2.0
-measured_tokens: 6084
+measured_tokens: 6125
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -400,7 +400,9 @@ Its `bare_refs` must be empty.
   so ideally this skill is never needed on a fresh import.
 - [`security-issue-sync`](../issue-sync/SKILL.md) — runs
   on the kept tracker after the merge to reconcile labels /
-  milestone / credit-preference drafts for both reporters.
+  milestone / credit-preference drafts for both reporters —
+  one separate draft per reporter, each on that reporter's own thread, never one message to both
+  ([one reply, one thread](../../../../tools/gmail/threading.md#the-rule)).
 - [`generate-cve-json`](../../../../tools/cve-tool-vulnogram/generate-cve-json/SKILL.md)
   (at `tools/<cve-tool>/generate-cve-json/`) —
   regenerates the kept tracker's CVE JSON attachment so both

@@ -17,6 +17,9 @@ acceptance:
   - Tracker contents stay private; only stable identifiers (URLs, #NNN)
     are public-safe. Public PRs are scrubbed pre-disclosure.
   - Every applied state change is audit-logged.
+  - Every drafted email answers exactly one inbound thread; replies to
+    several threads are never combined into one message, in any skill or
+    bulk mode (one thread split into several trackers gets one reply).
   - Every security skill runs for a maintainer who only installed Magpie,
     with no adopted project and no framework checkout.
 ---

@@ -18,9 +18,9 @@ when_to_use: |
   `import last 30d` / `import all` for a backlog).
 argument-hint: "[import] [last Nd|all] [skip threadId]"
 capability: capability:intake
-surface_hash: sha256:0db7a7686bad58b0
+surface_hash: sha256:079bd7106b8b78ef
 license: Apache-2.0
-measured_tokens: 8245
+measured_tokens: 8381
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -115,6 +115,12 @@ Non-import candidate classes (`automated-scanner`,
 `cross-thread-followup`, `cve-tool-bookkeeping`) keep the original
 "propose first, apply only on explicit confirm" rule — those never
 default to a tracker.
+
+**Golden rule — one reply, one thread.** Every receipt or canned reply answers exactly one inbound thread, drafted on that thread.
+Never combine the replies to several threads into one message, even for the same reporter or near-identical reports:
+it confuses the reporter and the security team, who track each case by its thread and `Message-ID`.
+Only one thread that yields several trackers gets one reply covering them
+([Step 5](screening-and-proposal.md#one-receipt-per-thread--never-a-consolidated-receipt-across-threads), [`threading.md`](../../../../tools/gmail/threading.md#the-rule)).
 
 **Golden rule — confidentiality.** The `<security-list>` thread is private.
 Its body may be pasted verbatim into the (private) `<tracker>` issue, **never** into a public surface: not `<upstream>`, a public GHSA, or any public comment.
@@ -379,7 +385,7 @@ Full procedure: [`apply.md`](apply.md).
 ## Step 8 — Recap
 
 Write what Step 7 recorded to `<scratch>/recap.json` and present the `text` of `<sm> render-recap --state <scratch>/recap.json`:
-`platform` (`tracker.platform`), `created` (`number`, or the backend's `id` and `url`; `candidate`), `drafts` (`draft_id`, `candidate` — one entry per `draft_id`: a consolidated receipt appears once, under the first candidate it covers),
+`platform` (`tracker.platform`), `created` (`number`, or the backend's `id` and `url`; `candidate`), `drafts` (`draft_id`, `candidate` — one entry per `draft_id`: a receipt covering several trackers from one thread appears once, under the first candidate it covers),
 `skipped` (`candidate`, `kind`: `user`, `canned` with `canned_name`, `public-fix`, `tracked` with the `existing` tracker as supplied, `answered`),
 `prefiltered` (the Step 1 `dropped` list), `bookkeeping_dropped` (Step 3's count) and `notes` (suppressed receipts, a missing ledger issue).
 The recap links every issue, lists **every** candidate not imported with its reason

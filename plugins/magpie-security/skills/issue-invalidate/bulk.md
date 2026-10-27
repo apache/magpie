@@ -13,6 +13,8 @@ An INVALID triage proposal without a second roster member's ack is **excluded** 
 **Bulk-mode `all` confirmation does not pre-authorise reporter drafts.** Each draft body is still surfaced in the combined proposal, per the "draft before send" rule in
 [`AGENTS.md`](../../../../AGENTS.md).
 Drafts are created during apply; sending stays with the triager in Gmail.
+Each tracker's reporter draft is its own draft on its own thread: never merge the drafts of several trackers into one message, even for the same reporter,
+per the [one-reply-one-thread golden rule](../../../../tools/gmail/threading.md#the-rule).
 
 **Resolution recipe for `invalidate proposed`:**
 
