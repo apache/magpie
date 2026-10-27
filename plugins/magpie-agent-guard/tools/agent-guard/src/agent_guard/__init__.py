@@ -513,10 +513,15 @@ _SINK_ARG_RE = re.compile(r"(?:>>?)?[\w./~+-]*")
 # Line endings that carry the command on to the next line.
 _CONTINUED_RE = re.compile(r"(?:\\|\||&&)\s*$")
 # In the command without its heredoc bodies: an expansion, a substitution, a
-# subshell, group or function, `eval` / `source` / `.` in command position, or
-# an alias. Any of these rules out stripping a body that names a guarded head,
-# since the sink's output may be run or the sink may not be `cat`.
-_SINK_DEFEATED_RE = re.compile(r"[$`(){}]|\balias\b|(?:^|[;&|])\s*(?:eval|source|\.)(?=\s|$)", re.MULTILINE)
+# subshell, group or function, `eval` / `source` / `.` in command position
+# (also behind `builtin`, `command` or inline assignments), or an alias. Any of
+# these rules out stripping a body that names a guarded head, since the sink's
+# output may be run or the sink may not be `cat`.
+_SINK_DEFEATED_RE = re.compile(
+    r"[$`(){}]|\balias\b"
+    r"|(?:^|[;&|])\s*(?:(?:builtin|command|\w+=\S*)\s+)*(?:eval|source|\.)(?=\s|$)",
+    re.MULTILINE,
+)
 
 
 def _is_data_sink(intro: str, previous: str | None) -> bool:
@@ -539,13 +544,15 @@ def _strip_heredoc_bodies(command: str) -> str:
     ``<<`` cannot be placed (see :func:`_heredocs_opened`), or when a body
     naming ``git`` / ``gh`` may run: fed to anything but a bare ``cat`` /
     ``tee``, holding a command substitution under an unquoted delimiter,
-    which bash expands, or in a command whose other lines could run the
-    sink's output (see ``_SINK_DEFEATED_RE``)."""
+    which bash expands, in a command whose other lines could run the sink's
+    output (see ``_SINK_DEFEATED_RE``), or next to any heredoc that is not a
+    sink: its body is stripped too, and may redefine the sink."""
     out: list[str] = []
     pending: list[_Heredoc] = []
     quote: str | None = None
     sink = False
     guarded = False
+    all_sinks = True
     body: list[str] = []
     for line in command.split("\n"):
         if pending:
@@ -553,6 +560,7 @@ def _strip_heredoc_bodies(command: str) -> str:
             if (line.lstrip("\t") if strip_tabs else line) == delim:
                 pending.pop(0)
                 text = "\n".join(body)
+                all_sinks = all_sinks and sink
                 if _GUARDED_WORD_RE.search(text):
                     expands = not quoted and _SUBSTITUTION_RE.search(text)
                     if expands or not sink:
@@ -576,7 +584,7 @@ def _strip_heredoc_bodies(command: str) -> str:
     if pending:
         return command
     stripped = "\n".join(out)
-    if guarded and _SINK_DEFEATED_RE.search(stripped):
+    if guarded and (not all_sinks or _SINK_DEFEATED_RE.search(stripped)):
         return command
     return stripped
 
@@ -616,12 +624,33 @@ def split_segments(command: str, _depth: int = 0, _bodies_stripped: bool = False
     return segments
 
 
+def _eval_args(argv: list[str]) -> list[str] | None:
+    """The arguments of ``eval`` (also as ``builtin eval`` / ``command eval``),
+    after one leading ``--``; None when ``argv`` is not an ``eval``."""
+    if argv[:1] in (["builtin"], ["command"]):
+        argv = argv[1:]
+    if argv[:1] != ["eval"]:
+        return None
+    args = argv[1:]
+    return args[1:] if args[:1] == ["--"] else args
+
+
+def _eval_has_option(argv: list[str]) -> bool:
+    """Whether ``argv`` is an ``eval`` whose first argument is an option
+    (``eval -x …``): bash rejects it, and the guards do not guess at it."""
+    args = _eval_args(argv)
+    if not args:
+        return False
+    return args[0].startswith("-") and args[0] != "-"
+
+
 def _shell_script(argv: list[str]) -> str | None:
     """The ``<string>`` of ``bash|sh|zsh [options] -c <string> …``, or of
     ``eval <args>…`` (its arguments joined by spaces, as bash joins them), or
     None when ``argv`` is not such a call (a script, an interactive shell)."""
-    if argv and argv[0] == "eval":
-        return " ".join(argv[1:]) or None
+    args = _eval_args(argv)
+    if args is not None:
+        return " ".join(args) or None
     if not argv or argv[0] not in _SHELLS:
         return None
     args = argv[1:]
@@ -667,8 +696,12 @@ def _shell_segments(seg: Segment, depth: int) -> list[Segment]:
 
     The string's segments inherit ``seg``'s inline assignments (the shell
     exports them to what it runs) and count as wrapped. Past ``_SHELL_DEPTH``
-    a ``-c`` string that names a guarded head marks ``seg`` unparsed instead.
+    a ``-c`` string that names a guarded head marks ``seg`` unparsed instead,
+    as does an ``eval`` with an option.
     """
+    if _eval_has_option(seg.argv):
+        seg.unparsed = True
+        return [seg]
     script = _shell_script(seg.argv)
     if script is None:
         return [seg]

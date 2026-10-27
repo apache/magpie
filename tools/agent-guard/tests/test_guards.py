@@ -683,6 +683,39 @@ def test_eval_string_is_checked_like_a_shell_c_string():
     assert dispatch("""eval 'git commit -m "x\nCo-Authored-By: a"'""") is not None
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        """eval -- 'git commit -m "x\nCo-Authored-By: a"'""",
+        """builtin eval 'git commit -m "x\nCo-Authored-By: a"'""",
+        """command eval 'git commit -m "x\nCo-Authored-By: a"'""",
+    ],
+)
+def test_eval_spellings_are_checked_like_eval(command):
+    assert dispatch(command) is not None
+
+
+def test_eval_with_an_option_is_refused():
+    reason = dispatch("eval -x 'git push --force'")
+    assert reason and "agent-guard[wrapper]" in reason
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        # A non-sink heredoc body redefines `cat` before the stripped one.
+        "bash <<'A'\ncat(){ bash; }\nA\ncat <<'EOF'\nit's\ngit push --force\nEOF",
+        # `eval` / `source` / `.` behind a prefix.
+        "builtin source x\ncat <<'EOF'\nit's\ngit push --force\nEOF",
+        "command . x\ncat <<'EOF'\nit's\ngit push --force\nEOF",
+        "X=1 eval x\ncat <<'EOF'\nit's\ngit push --force\nEOF",
+    ],
+)
+def test_heredoc_body_is_stripped_only_when_every_heredoc_is_a_sink(command):
+    reason = dispatch(command)
+    assert reason and "agent-guard[parse]" in reason
+
+
 def test_shell_option_value_letters_are_not_flags():
     # `c` inside zsh's attached option value is not `-c`
     assert dispatch("zsh -onocorrect script.zsh") is None
