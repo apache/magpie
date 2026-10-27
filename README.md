@@ -91,7 +91,7 @@ Once `magpie-setup` is in, you never type these again — ask in plain language
 (*"install the Magpie families for PR review"*) and the setup skill runs the
 installs for you.
 
-Codex, VS Code / Copilot, and Antigravity are one-liners too — the
+Codex, VS Code / Copilot, Antigravity and Pi are one-liners too — the
 [quick start](docs/quick-start.md) has all four, plus what to run next to put
 the agent in its sandbox. Nothing is committed to your repository.
 

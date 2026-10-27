@@ -419,6 +419,7 @@ interviewed). A plain run mentions it in the recap instead.
    content:
    - Codex CLI → `~/.codex/prompts/magpie-adversarial-review.md`
    - Antigravity CLI → `~/.gemini/antigravity-cli/skills/magpie-adversarial-review/SKILL.md` (a user skill, which Antigravity offers as a slash command)
+   - Pi → `~/.pi/agent/skills/magpie-adversarial-review/SKILL.md` (a user skill, invoked as `/skill:magpie-adversarial-review`)
    - Copilot CLI has no command mechanism: show the one-line invocation
      instead, and write nothing.
 

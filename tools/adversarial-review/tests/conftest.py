@@ -31,6 +31,7 @@ HARNESS_MARKERS = (
     "CODEX_THREAD_ID",
     "COPILOT_CLI",
     "GROK_SESSION_ID",
+    "PI_SESSION_ID",
 )
 
 

@@ -62,6 +62,9 @@ Two manifest families, because the ecosystems have not converged:
   and `apm.yml` (`microsoft/apm`, schema v0.1).
   Antigravity CLI reads the AP1 root `plugin.json` and the root `skills/` tree
   (`agy plugin install https://github.com/apache/magpie`); it needs no file of its own.
+  Pi reads the root `package.json`, whose `pi` key names the `skills/` tree and the Magpie extension
+  (`pi install git:github.com/apache/magpie`, once per user); the manifest is private — Magpie is not published to npm —
+  and carries the extension's single pinned runtime dependency, which Pi installs itself.
   The root `marketplace.json` names each plugin's `source` as a bare
   relative path (`"./plugins/magpie-<family>"`), not a `{"source": "local",
   "path": …}` object, which is not a source type Claude Code documents
@@ -290,6 +293,8 @@ For the Claude Code family, `claude plugin validate . --strict`.
   likely of the set to churn.
 - **Antigravity is checked only with `agy plugin validate .`** (1.3.6 reports the
   root's skills); an end-to-end `agy plugin install` has not been exercised.
+- **Pi was exercised with `pi install git:` from a branch** (Pi 1.4.0, macOS): the package installed its
+  dependency and loaded the extension; Linux and Windows are unverified.
 - **Codex never runs the upgrade-detection hook.**
   `plugins/magpie-setup/` has no `.codex-plugin/plugin.json`, so Codex reads
   its default `hooks/hooks.json`, whose top-level `$schema` and `modules`

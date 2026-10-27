@@ -186,7 +186,7 @@ LLM-integration neutrality and is scored by
 [`tools/vendor-neutrality-score`](../tools/vendor-neutrality-score/) —
 distinct from a tool's `**Runtime:**` field, which is its *execution*
 environment (e.g. "Python stdlib"). The recognised harnesses are: Claude
-Code, Codex, Cursor, Antigravity, Copilot, OpenCode, Kiro. A tool is
+Code, Codex, Cursor, Antigravity, Copilot, OpenCode, Kiro, Pi. A tool is
 harness-neutral when it is `agnostic` or supports two or more harnesses.
 
 ### 3. `kind:*` — change type (pre-existing)
@@ -322,7 +322,7 @@ or a contract-free mix of substrates (e.g. `tools/spec-inventory` is
 
 | Tool | Capability / capabilities | Role |
 |---|---|---|
-| [`tools/agent-guard`](../tools/agent-guard/) | `substrate:action-guard` | Deterministic pre-execution guard dispatcher (harness-neutral core behind Claude Code and Codex native `PreToolUse` hooks, an OpenCode `tool.execute.before` plugin, a Kiro `preToolUse` hook, and an Antigravity `PreToolUse` hook): blocks `gh`/`git` commands that would ping maintainers, carry a `Co-Authored-By` trailer, mark-ready prematurely, leak security language publicly, or empty a PR via force-push. Extensible — skills contribute guards via `guards.d` |
+| [`tools/agent-guard`](../tools/agent-guard/) | `substrate:action-guard` | Deterministic pre-execution guard dispatcher (harness-neutral core behind Claude Code and Codex native `PreToolUse` hooks, an OpenCode `tool.execute.before` plugin, a Kiro `preToolUse` hook, an Antigravity `PreToolUse` hook, and a Pi `tool_call` extension): blocks `gh`/`git` commands that would ping maintainers, carry a `Co-Authored-By` trailer, mark-ready prematurely, leak security language publicly, or empty a PR via force-push. Extensible — skills contribute guards via `guards.d` |
 | [`tools/agent-isolation`](../tools/agent-isolation/) | `substrate:sandbox` | Secure-agent sandbox helpers |
 | [`tools/apache-projects`](../tools/apache-projects/) | `contract:project-metadata` | ASF project-metadata substrate (`apache/comdev` `apache-projects-mcp`); read-only `projects.apache.org/json` rosters / people / releases. Backs `contributor-nomination` and the security roster-resolution paths; tracked at `main`, not pinned |
 | [`tools/asf-nexus`](../tools/asf-nexus/) | `contract:release-staging` | ASF Nexus staging-repository adapter (read-only, `repository.apache.org`): anonymous content-tree reads plus authenticated staging-API reads for the authoritative `open`/`closed` state and the profile-wide repository listing. Implements check 4 of issue #1173; consumed by `release-verify-rc` Step 6c. Never closes, drops, or promotes |

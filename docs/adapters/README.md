@@ -41,18 +41,21 @@ One page per supported agentic harness, each declaring
   `preToolUse`.
 - [**Local LLM**](local-llm.md) — Ollama, llama.cpp, vLLM.
 - [**OpenCode**](opencode.md) — guard plugin on `tool.execute.before`.
+- [**Pi**](pi.md) — one per-user package install: skills, action guard,
+  permission rules and an OS sandbox for bash. Experimental.
 
 ### What isolation each harness actually gets
 
 Not the same thing, and the differences matter more than the similarities.
-Nine of ten harnesses get the clean-environment layer; the action guard
-reaches six of ten.
+Eleven of twelve harnesses get the clean-environment layer; the action guard
+reaches eight of twelve.
 
 | Harness | Clean environment | Filesystem sandbox | Action guard |
 |---|---|---|---|
 | **Claude Code** | `claude-iso` | Seatbelt / bubblewrap, plus a per-repo allowlist | ✅ `PreToolUse` |
 | **Antigravity** | `agent-iso agy` | terminal sandbox + user-scope permission rules | ✅ `PreToolUse` |
 | **OpenCode** | `opencode-iso` | from the OS-level sandbox | ✅ `tool.execute.before` |
+| **Pi** | `agent-iso pi` | sandbox-runtime (Seatbelt / bubblewrap) for bash, from the Claude baseline | ✅ `tool_call` extension |
 | **Kiro CLI** | `kiro-iso` | from the OS-level sandbox | ✅ `preToolUse` |
 | **Grok Build** | ❌ **none** | ❌ **none** | ✅ `PreToolUse` |
 | **JetBrains Junie** | `junie --sandbox` (srt; MCP and hooks unsandboxed) | `/brave` levels and `~/.junie/allowlist.json` | ✅ `PreToolUse` (Early Access) |

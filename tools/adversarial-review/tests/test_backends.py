@@ -51,7 +51,7 @@ WRITE_GRANTING = {
 def test_backend_set_and_order():
     # Claude Code's widely inherited CLAUDECODE must stay last; grok's marker
     # is narrowly scoped to grok's own children, so it sits just before it.
-    assert list(BACKENDS) == ["codex", "copilot", "antigravity", "grok", "claude"]
+    assert list(BACKENDS) == ["codex", "copilot", "antigravity", "pi", "grok", "claude"]
 
 
 def test_codex_argv():
@@ -120,6 +120,34 @@ def test_antigravity_stdin_keeps_a_multiline_prompt_on_one_ndjson_line():
     assert json.loads(stdin)["message"]["content"] == "line 1\nline 2\n"
 
 
+def test_pi_argv():
+    inv = BACKENDS["pi"].build(CTX)
+    assert inv.argv == [
+        "pi",
+        "-p",
+        "--no-session",
+        "--no-approve",
+        "--tools",
+        "read,grep,find,ls",
+        "Follow the review brief above exactly. Change no file.",
+    ]
+    # Pi prepends piped stdin to the first prompt.
+    assert inv.stdin == "PROMPT"
+
+
+def test_pi_tool_allowlist_has_no_shell_or_write_tool():
+    argv = BACKENDS["pi"].build(CTX).argv
+    tools = set(argv[argv.index("--tools") + 1].split(","))
+    assert tools == {"read", "grep", "find", "ls"}
+    assert "-a" not in argv and "--approve" not in argv
+
+
+def test_pi_extract_is_plain_text():
+    assert BACKENDS["pi"].extract('{"findings": []}\n', CTX) == '{"findings": []}\n'
+    with pytest.raises(BackendOutputError, match="empty reply"):
+        BACKENDS["pi"].extract("  \n", CTX)
+
+
 def test_grok_argv():
     inv = BACKENDS["grok"].build(CTX)
     assert inv.argv == [
@@ -166,6 +194,7 @@ def test_claude_argv():
         ("codex", "-m"),
         ("copilot", "--model"),
         ("antigravity", "--model"),
+        ("pi", "--model"),
         ("grok", "-m"),
         ("claude", "--model"),
     ],

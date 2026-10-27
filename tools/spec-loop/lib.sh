@@ -138,6 +138,27 @@ spec_loop_launch_agent() {
             ${model_args[@]+"${model_args[@]}"} \
             ${agy_effort_args[@]+"${agy_effort_args[@]}"} \
             -p "$(cat "$prompt_file")" &
+    elif [ "$harness" = "pi" ]; then
+        # Pi headless: `-p <prompt>`, text output by default, JSONL events with
+        # `--mode json`. Pi itself never prompts; Magpie's user-scope Pi
+        # extension refuses every command that would need approval when there
+        # is no UI, so a push or a mutating gh call cannot run unattended.
+        # Effort is `--thinking` (off|minimal|low|medium|high|xhigh|max).
+        local pi_mode_args=()
+        case "$output_format" in
+            json|stream-json) pi_mode_args=(--mode json) ;;
+        esac
+        local pi_effort_args=()
+        case "$effort" in
+            low)    pi_effort_args=(--thinking low) ;;
+            medium) pi_effort_args=(--thinking medium) ;;
+            high)   pi_effort_args=(--thinking max) ;;
+        esac
+        "$agent" \
+            ${pi_mode_args[@]+"${pi_mode_args[@]}"} \
+            ${model_args[@]+"${model_args[@]}"} \
+            ${pi_effort_args[@]+"${pi_effort_args[@]}"} \
+            -p "$(cat "$prompt_file")" &
     elif [ "$harness" = "kiro" ]; then
         # Kiro CLI headless: positional prompt to `kiro-cli chat --no-interactive`.
         # The model is selected by the chosen agent config (.kiro/agents), not a

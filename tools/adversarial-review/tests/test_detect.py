@@ -36,6 +36,8 @@ from adversarial_review.detect import detect, resolve_self, running_harness
         ({"CODEX_THREAD_ID": "abc"}, "codex"),
         ({"COPILOT_CLI": "1"}, "copilot"),
         ({"GROK_SESSION_ID": "abc"}, "grok"),
+        ({"PI_SESSION_ID": "abc"}, "pi"),
+        ({"PI_SESSION_ID": "abc", "CLAUDECODE": "1"}, "pi"),  # pi started inside Claude Code
         ({"CLAUDECODE": "1", "CODEX_SANDBOX": "seatbelt"}, "codex"),  # codex started inside Claude Code
         ({"GROK_SESSION_ID": "abc", "CLAUDECODE": "1"}, "grok"),  # grok started inside Claude Code
     ],
@@ -63,7 +65,7 @@ def test_detect_with_stub_path(stub_bin):
     make("agy", 'import sys; sys.stderr.write("boom\\n"); sys.exit(1)')
     make("claude", 'print("2.1.0 (Claude Code)")')
     rows = {d.name: d for d in detect({"PATH": str(bin_dir)}, self_name="claude")}
-    assert list(rows) == ["codex", "copilot", "antigravity", "grok", "claude"]
+    assert list(rows) == ["codex", "copilot", "antigravity", "pi", "grok", "claude"]
     assert rows["codex"].available and rows["codex"].version == "codex-cli 0.154.0"
     assert not rows["codex"].is_self
     assert not rows["copilot"].available and rows["copilot"].reason == "not on PATH"
@@ -88,7 +90,7 @@ def test_detect_subcommand_prints_json(stub_bin, capsys):
     assert main(["detect"], env={"PATH": str(bin_dir), "CLAUDECODE": "1"}) == 0
     out = json.loads(capsys.readouterr().out)
     assert out["self"] == "claude"
-    assert [b["name"] for b in out["backends"]] == ["codex", "copilot", "antigravity", "grok", "claude"]
+    assert [b["name"] for b in out["backends"]] == ["codex", "copilot", "antigravity", "pi", "grok", "claude"]
 
 
 def test_detect_subcommand_rejects_unknown_self(capsys):

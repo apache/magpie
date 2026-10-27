@@ -92,7 +92,7 @@ axes, and a backend choice on one axis never constrains the others:
 | Axis | The "vendor" | Neutral by… |
 |---|---|---|
 | **LLM backend** | Anthropic, OpenAI, Google, Bedrock, local Ollama/vLLM, a future ASF endpoint | Skills written against a model *contract* (capability floor), not a client; a privacy gate that keys on endpoint identity, not on who hosts it |
-| **Agentic harness** | Claude Code, Codex, Cursor, Antigravity, Copilot, OpenCode, Kiro, … | Skills are [`AGENTS.md`](https://agents.md/)-standard markdown under a shared `.agents/skills/` home that every runtime reads |
+| **Agentic harness** | Claude Code, Codex, Cursor, Antigravity, Copilot, OpenCode, Kiro, Pi, … | Skills are [`AGENTS.md`](https://agents.md/)-standard markdown under a shared `.agents/skills/` home that every runtime reads |
 | **Forge / tracker** | GitHub, GitLab, Gitea, Forgejo, Pagure, Bitbucket, Jira, Bugzilla | Per-interface **tools** behind capability contracts; many tools are pure adapter *specs* with pluggable backends |
 | **Communication channels** | Mailing lists, GitHub Discussions, Discourse, Zulip, Matrix, IRC | Mail-archive / mail-source adapter contracts; chat and forum bridges as sibling tools |
 | **Source control (VCS)** | Git, Mercurial, Subversion, Jujutsu, Fossil, Perforce, … | A single `VCSBackend` contract; skills call the abstract operation, the backend is detected from the working copy |
@@ -330,6 +330,7 @@ runtime is a [`family:tools`](labels-and-capabilities.md#1-family--subject)
 contribution, not a re-architecture.
 Antigravity, the successor to Gemini CLI, also has an [experimental agent harness integration](adapters/antigravity.md) that reads Magpie's canonical `.agents/skills/` tree.
 Its guide covers the user-scope setup, permission rules, verification, and [known limitations](adapters/antigravity.md#known-limitations), including the remaining sandbox parity gaps.
+Pi has an [experimental agent harness integration](adapters/pi.md) too: Pi reads the same `.agents/skills/` tree, and Magpie's per-user Pi package supplies the action guard, permission rules and OS sandbox that Pi does not ship itself.
 Cursor reads Magpie's canonical `.agents/skills/` tree and supports per-action
 confirmation in Composer and the `cursor-agent` CLI; see the
 [Cursor harness guide](adapters/cursor.md).
@@ -518,7 +519,7 @@ coverage without pretending one team can implement an open-ended set.
 | Axis | Architecture neutral? | Reference backends working today | Extension points |
 |---|---|---|---|
 | LLM backend | ✅ by construction | Claude Code, Ollama, vLLM, Apache-hosted, Bedrock, direct Anthropic | Any endpoint meeting the capability floor + privacy gate |
-| Agentic harness | ✅ by construction (`AGENTS.md` standard) | Claude Code; OpenCode; [Codex adapter](adapters/codex.md) (experimental); [Antigravity adapter](adapters/antigravity.md) (experimental); community use under Cursor, Copilot, Kiro | Remaining runtime adapters [#314–#322](https://github.com/apache/magpie/issues?q=is%3Aissue+state%3Aopen+adapter+in%3Atitle) |
+| Agentic harness | ✅ by construction (`AGENTS.md` standard) | Claude Code; OpenCode; [Codex adapter](adapters/codex.md) (experimental); [Antigravity adapter](adapters/antigravity.md) (experimental); [Pi adapter](adapters/pi.md) (experimental); community use under Cursor, Copilot, Kiro | Remaining runtime adapters [#314–#322](https://github.com/apache/magpie/issues?q=is%3Aissue+state%3Aopen+adapter+in%3Atitle) |
 | Forge / tracker | ✅ by construction | GitHub, Jira, SourceHut; Bitbucket and GitLab `partial-read-only` foundations excluded from complete-backend counts; CVE/scan/relay via adapter contracts | Forgejo/Gitea [#310](https://github.com/apache/magpie/issues/310), Pagure [#312](https://github.com/apache/magpie/issues/312), full Bitbucket tracker/change-request/Jira coverage [#606](https://github.com/apache/magpie/issues/606), GitLab [#305](https://github.com/apache/magpie/issues/305), Bugzilla [#302](https://github.com/apache/magpie/issues/302) |
 | Communication channels | ✅ by construction | PonyMail / mail-archive reads; Mailman 3 / Hyperkitty public-archive reads ([`tools/mail-source/mailman3`](../tools/mail-source/mailman3/)); Discourse topic reads and category activity lists ([`tools/discourse`](../tools/discourse/), `partial`) | mbox [#304](https://github.com/apache/magpie/issues/304), IMAP [#303](https://github.com/apache/magpie/issues/303); Discourse [#307](https://github.com/apache/magpie/issues/307), Zulip [#308](https://github.com/apache/magpie/issues/308), Matrix [#309](https://github.com/apache/magpie/issues/309) |
 | Source control (VCS) | ✅ by construction | **Git**, **Mercurial**, **Fossil**, **Subversion** (complete, [`tools/vcs`](../tools/vcs/)); ASF SVN surface ([`tools/asf-svn`](../tools/asf-svn/): source control + dist.apache.org + authorization) | Jujutsu [\#603](https://github.com/apache/magpie/issues/603), Perforce [\#605](https://github.com/apache/magpie/issues/605) (tracked) |
@@ -621,7 +622,7 @@ Organization scope (declared, orthogonal to vendor): ASF = 16, agnostic = 67.
 | Substrate tool | Substrate | Harness support | Verdict |
 |---|---|---|---|
 | `adversarial-review` | review | any | ✅ agnostic |
-| `agent-guard` | action-guard | Antigravity, Claude Code, Codex, Copilot, Grok, Junie, Kiro, OpenCode | ✅ portable |
+| `agent-guard` | action-guard | Antigravity, Claude Code, Codex, Copilot, Grok, Junie, Kiro, OpenCode, Pi | ✅ portable |
 | `agent-isolation` | sandbox | any | ✅ agnostic |
 | `container-gateway` | sandbox | any | ✅ agnostic |
 | `contributor-metrics` | analytics | any | ✅ agnostic |
@@ -649,7 +650,7 @@ Organization scope (declared, orthogonal to vendor): ASF = 16, agnostic = 67.
 | `skill-reconciler-diff` | framework-dev | any | ✅ agnostic |
 | `skill-token-count` | framework-dev, analytics | any | ✅ agnostic |
 | `spec-inventory` | framework-dev, analytics | any | ✅ agnostic |
-| `spec-loop` | framework-dev | Antigravity, Claude Code, Codex, Cursor, Grok, Kiro, OpenCode | ✅ portable |
+| `spec-loop` | framework-dev | Antigravity, Claude Code, Codex, Cursor, Grok, Kiro, OpenCode, Pi | ✅ portable |
 | `spec-status-index` | framework-dev, analytics | any | ✅ agnostic |
 | `spec-validator` | framework-dev | any | ✅ agnostic |
 | `symlink-lint` | framework-dev | any | ✅ agnostic |
@@ -667,6 +668,7 @@ Harness → substrate tools it supports:
 - **Junie** (1): `agent-guard`
 - **Kiro** (3): `agent-guard`, `sandbox-lint`, `spec-loop`
 - **OpenCode** (3): `agent-guard`, `sandbox-lint`, `spec-loop`
+- **Pi** (2): `agent-guard`, `spec-loop`
 - **any harness** (32): `adversarial-review`, `agent-isolation`, `container-gateway`, `contributor-metrics`, `dashboard-generator`, `dev`, `egress-gateway`, `maven-artifact-verify`, `permission-audit`, `pilot-report-validator`, `pr-management`, `preflight-audit`, `privacy-llm`, `probe-templates`, `release-config`, `release-management`, `release-verify`, `reproducible-archive`, `secret-prompt`, `security-management`, `security-tracker-stats-dashboard`, `setup-preflight`, `skill-and-tool-validator`, `skill-evals`, `skill-reconciler-diff`, `skill-token-count`, `spec-inventory`, `spec-status-index`, `spec-validator`, `symlink-lint`, `vendor-neutrality-score`, `vetted-ops`
 
 **Model endpoint: neutral by construction — 4 default-approved endpoint classes across independent trust domains, plus adopter opt-in.** From the [`privacy-llm` registry](../tools/privacy-llm/models.md): the framework keys approval on *endpoint identity*, not on who hosts the model, so no single LLM vendor is privileged.

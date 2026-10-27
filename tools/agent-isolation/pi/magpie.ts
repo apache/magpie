@@ -39,7 +39,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { BashOperations, ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { createBashTool } from "@earendil-works/pi-coding-agent";
-import { type Baseline, Policy } from "./policy.ts";
+import { type Baseline, candidates, Policy } from "./policy.ts";
 
 const ENGINE = fileURLToPath(new URL("../../agent-guard/src/agent_guard/__init__.py", import.meta.url));
 const BASELINE = fileURLToPath(new URL("../../sandbox-lint/expected.json", import.meta.url));
@@ -145,7 +145,11 @@ export default function (pi: ExtensionAPI) {
 			const path = typeof event.input.path === "string" ? event.input.path : ".";
 			const check = { read: policy.readDenied, tree: policy.treeDenied, write: policy.writeDenied }[kind];
 			const reason = check.call(policy, path, ctx.cwd);
-			return reason ? { block: true, reason: `Magpie: ${reason}` } : undefined;
+			if (reason) return { block: true, reason: `Magpie: ${reason}` };
+			// Hand the tool the path just checked, links resolved, so a link
+			// swapped after the check cannot redirect it.
+			if (typeof event.input.path === "string") event.input.path = candidates(path, ctx.cwd).at(-1);
+			return undefined;
 		}
 		if (event.toolName !== "bash") return undefined;
 		const command = typeof event.input.command === "string" ? event.input.command : "";

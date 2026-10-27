@@ -5,7 +5,7 @@
 
 **Capability:** substrate:framework-dev
 
-**Harness:** Claude Code, Codex, Cursor, Antigravity, OpenCode, Kiro, Grok
+**Harness:** Claude Code, Codex, Cursor, Antigravity, Pi, OpenCode, Kiro, Grok
 
 A spec-driven build loop for this framework, in the general
 [Ralph](https://ghuntley.com/ralph/) style (run a fresh agent context
@@ -26,6 +26,9 @@ picks its run convention:
   or `cursor-agent --print --force --trust --workspace … "<prompt>"`.
 - `antigravity` — `agy -p "<prompt>" --output-format …`, with `--effort`
   when `SPEC_LOOP_EFFORT` is set and never `--dangerously-skip-permissions`.
+- `pi` — `pi -p "<prompt>"`, with `--mode json` for the JSON output formats
+  and `--thinking` when `SPEC_LOOP_EFFORT` is set. Selected only by the exact
+  agent name `pi`.
 - `opencode` — `opencode run --auto --model … "<prompt>"`, prompt as a
   positional argument.
 - `grok` — `grok --always-approve --cwd … --prompt-file …`, with explicit
@@ -33,7 +36,7 @@ picks its run convention:
 
 `SPEC_LOOP_HARNESS` defaults from the agent basename, so
 `SPEC_LOOP_AGENT=codex`, `SPEC_LOOP_AGENT=cursor-agent`,
-`SPEC_LOOP_AGENT=agy`, `SPEC_LOOP_AGENT=opencode`, or
+`SPEC_LOOP_AGENT=agy`, `SPEC_LOOP_AGENT=pi`, `SPEC_LOOP_AGENT=opencode`, or
 `SPEC_LOOP_AGENT=grok` is usually all that is needed:
 
 ```bash
@@ -62,8 +65,14 @@ An operator who deliberately wants auto-accepted workspace edits wraps `agy --mo
 the runner does not add it.
 See the [Antigravity runner notes](../../docs/adapters/antigravity.md#spec-loop-runner).
 
+**Pi:** Pi has no approval prompts of its own and the `pi` profile adds no approval flag.
+Magpie's user-scope Pi extension refuses every command that would need approval when there is no UI,
+so an iteration that needs a push or a mutating `gh` call cannot complete unattended under this profile,
+and plain bash runs in the extension's OS sandbox.
+See the [Pi runner notes](../../docs/adapters/pi.md#spec-loop-runner).
+
 All conventions run the agent non-interactively.
-The profiles other than Antigravity request automatic approval; their safety rails (never push, never open a PR) come from
+The profiles other than Antigravity and Pi request automatic approval; their safety rails (never push, never open a PR) come from
 the OS sandbox, missing push/write credentials, repo hooks, and the loop's own
 guards. Claude gets per-invocation `--disallowedTools` hard-deny flags.
 Grok gets equivalent per-invocation `--deny` rules for `git push` and `gh`.
@@ -77,7 +86,7 @@ See the SECURITY notes in [`loop.sh`](loop.sh).
 - **CLIs:** `git` (required — must run inside a git checkout), `gh`
   (for open-PR duplicate-work checks), and one supported headless agent
   CLI (`SPEC_LOOP_AGENT`, default `claude`; also supports `codex`,
-  `cursor` / `cursor-agent`, `agy`, `opencode`, `kiro-cli`, and `grok`).
+  `cursor` / `cursor-agent`, `agy`, `pi`, `opencode`, `kiro-cli`, and `grok`).
 - **Credentials / auth:** `gh` must be authenticated for the PR checks;
   the loop is designed to run with **no** push/write credentials in the
   environment (it hard-denies `git push` and `gh` writes).
@@ -144,17 +153,17 @@ for Claude, as defence in depth, the loop also hard-denies `git push` and
 - `SPEC_LOOP_BASE` — branch to fork work items from. Defaults to `main`;
   set it explicitly to build on top of a different branch.
 - `SPEC_LOOP_AGENT` — supported headless agent CLI or wrapper to run
-  (default `claude`; `codex`, `cursor`, `agy`, `opencode`, `kiro-cli`,
+  (default `claude`; `codex`, `cursor`, `agy`, `pi`, `opencode`, `kiro-cli`,
   and `grok` are first-class harnesses).
 - `SPEC_LOOP_HARNESS` — override the invocation convention when the CLI
-  name does not imply it (`claude`, `codex`, `cursor`, `antigravity`,
+  name does not imply it (`claude`, `codex`, `cursor`, `antigravity`, `pi`,
   `opencode`, `kiro`, or `grok`).
 - `SPEC_LOOP_MODEL` — model passed to the agent CLI. Defaults to `sonnet`
-  for Claude; Codex/Cursor/Antigravity/OpenCode/Grok use their configured default
+  for Claude; Codex/Cursor/Antigravity/Pi/OpenCode/Grok use their configured default
   unless this is set.
 - `SPEC_LOOP_EFFORT` — reasoning-effort band: `low`, `medium`, or `high`.
   Unset means no effort flag is passed. Mapped per harness (Claude/Kiro/Antigravity
-  `--effort`, Codex `-c model_reasoning_effort=…`, OpenCode `--variant`;
+  `--effort`, Pi `--thinking`, Codex `-c model_reasoning_effort=…`, OpenCode `--variant`;
   Cursor has no knob and silently omits it). Framework `high` maps
   to each CLI's top value (`max` / `xhigh`); `low`/`medium` are not always
   pass-through (OpenCode `low` → `minimal`). Exact values are in the

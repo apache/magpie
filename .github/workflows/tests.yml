@@ -144,6 +144,12 @@ jobs:
           # stable across runs (the split is deterministic), and a single
           # member's key is its name.
           cache-suffix: "tests-${{ matrix.batch.key }}"
+      # Node runs the TypeScript tests of the Pi extension
+      # (tools/agent-isolation/pi/, via `node --test` type stripping), which
+      # the agent-isolation suite wraps; without it those tests skip.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with:
+          node-version: "24"
       - name: Sync the batch's members (and ruff / mypy / pytest from the root dev group)
         # Dev-group deps live in the root pyproject (`[dependency-groups]
         # dev`) and only land in the shared workspace `.venv` when an

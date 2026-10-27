@@ -84,6 +84,7 @@ HARNESS_ENV: dict[str, dict[str, str]] = {
     "codex": {"CODEX_SANDBOX": "1"},
     "copilot": {"COPILOT_CLI": "1"},
     "antigravity": {"ANTIGRAVITY_CONVERSATION_ID": "probe"},
+    "pi": {"PI_SESSION_ID": "probe"},
     "claude": {"CLAUDECODE": "1"},
 }
 #: The listing executable, where it is not named after the harness.

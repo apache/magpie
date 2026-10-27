@@ -41,12 +41,16 @@ explicit confirmation before any write.
 > is nothing here to reverse: it is removed with the client's own
 > verb (`/plugin uninstall <plugin>@apache-magpie` in Claude
 > Code, `codex plugin remove <plugin>@apache-magpie`,
-> `agy plugin uninstall magpie`). If the repo has no
+> `agy plugin uninstall magpie`,
+> `pi remove git:github.com/apache/magpie`). If the repo has no
 > `.apache-magpie.lock` and Magpie is plugin-installed, print
 > that command instead of a snapshot removal plan.
 > If Antigravity secure setup was installed, first follow the
 > [Antigravity cleanup contract](../../../../docs/adapters/antigravity.md#setup-isolated-lifecycle)
 > to propose removing the user-scope guard registration before uninstalling the plugin.
+> On Pi, `pi remove` takes the guard, rules and sandbox with the skills, so
+> nothing else needs cleaning up — say so, since the user loses the secure
+> setup with it.
 > Then stop. When **both**
 > installs are live, this sub-action removes only the repo-side
 > one — say so explicitly, so the user is not surprised that the

@@ -74,6 +74,12 @@ on any single vendor for either — any agent that reads the shared
   **experimental**: it was validated with CLI 1.3.6 on macOS, and the sandbox
   hides only sensitive home-directory paths;
   see [the harness guide's known limitations](../adapters/antigravity.md#known-limitations).
+- **[Pi](https://pi.dev/)** (CLI `pi`) reads Magpie's canonical
+  `.agents/skills/` tree and `AGENTS.md` natively. Pi itself has no approval
+  prompts or sandbox, so Magpie's Pi package adds them per user: an action
+  guard, permission rules and an OS sandbox for bash. The adapter is
+  **experimental**: it was validated with Pi 1.4.0 on macOS;
+  see [the Pi harness guide](../adapters/pi.md#limits).
 - **[Cursor](https://cursor.com/)** (Composer + `cursor-agent` CLI) reads Magpie's
   canonical `.agents/skills/` tree natively and supports per-action confirmation
   and clean-environment isolation; see [the Cursor harness guide](../adapters/cursor.md).

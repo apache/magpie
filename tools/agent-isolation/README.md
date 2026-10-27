@@ -74,6 +74,7 @@ per runtime — see [`docs/adapters/add-a-harness.md`](../../docs/adapters/add-a
 
 - **Runtime:** Bash + coreutils — this directory is plain shell scripts plus a TOML manifest, not a Python project (the `pyproject.toml` ships only the test harness, which runs under Python 3.11+ via `uv`). `claude-term-bg.sh` uses `python3` / `python` for one heuristic and falls back to calm when absent.
 - **CLIs:** `jq` (required by `check-tool-updates.sh` and the status-line scripts), `curl` (the update check), `git` (status line / git hooks), and `gh` (optional — status-line PR title). The secure setup itself installs the pinned `bubblewrap` and `socat` (via `apt-get`) and `@anthropic-ai/claude-code@latest` (via `npm` — the agent harness is intentionally unpinned; see [`pinned-versions.toml`](pinned-versions.toml)).
+- **Optional:** Node.js 22.18+ to run the Pi extension's policy tests (`pi/policy.test.ts`); without it `tests/test_pi_policy.py` skips. The extension itself runs inside Pi, which installs its `@anthropic-ai/sandbox-runtime` dependency.
 - **Credentials / auth:** None for these helpers; the wrapped runtime authenticates separately. For authentication requiring environment variables, use the explicit opt-in below.
 - **Network:** `api.github.com` and `www.dest-unreach.org` (the release checks in `check-tool-updates.sh`); the install step also reaches the apt and npm registries.
 
@@ -82,6 +83,7 @@ per runtime — see [`docs/adapters/add-a-harness.md`](../../docs/adapters/add-a
 | File | Purpose |
 |---|---|
 | [`pinned-versions.toml`](pinned-versions.toml) | Machine-readable manifest of pinned upstream versions for the sandbox primitives `bubblewrap` and `socat`. Each entry carries a `released` date that satisfies the framework's 7-day cooldown convention. `claude-code` is deliberately **not** pinned — the agent harness installs at `@latest` so it always carries the newest permission-rule / sandbox / prompt-injection fixes. |
+| [`pi/`](pi/) | Magpie's secure setup for **Pi**, as one user-scope extension loaded by the repository's root `package.json` (`pi install git:github.com/apache/magpie`). [`magpie.ts`](pi/magpie.ts) sends every bash call to agent-guard (`--pi`), applies the permission rules, refuses native reads and writes of credential paths and agent configuration, and runs bash in [`@anthropic-ai/sandbox-runtime`](https://github.com/anthropics/sandbox-runtime) (bash is refused if the sandbox cannot start). [`policy.ts`](pi/policy.ts) derives those decisions from the Claude Code baseline in [`tools/sandbox-lint/expected.json`](../sandbox-lint/expected.json) and reads no project configuration; [`policy.test.ts`](pi/policy.test.ts) runs under `node --test`, wrapped by `tests/test_pi_policy.py`. See [`docs/adapters/pi.md`](../../docs/adapters/pi.md). |
 | [`check-tool-updates.sh`](check-tool-updates.sh) | Reads the manifest and reports upstream releases that are newer than the pin AND have themselves aged past the 7-day cooldown. Side-effect-free — no installs, no edits, no PRs. |
 | [`agent-iso.sh`](agent-iso.sh) | Shell function to launch Claude Code with `env -i` and a tiny passthrough list, stripping every credential-shaped environment variable from the parent shell. The framework's "layer 0" of the secure setup. |
 | [`sandbox-bypass-warn.sh`](sandbox-bypass-warn.sh) | Claude Code `PreToolUse` hook (Bash matcher). Prints a bold-red banner to stderr whenever the model invokes the Bash tool with `dangerouslyDisableSandbox: true`. Belt-and-braces visibility for the sandbox-bypass permission prompt. Recommended user-scope (`~/.claude/settings.json`) so it fires across every session on the host. |
@@ -120,6 +122,7 @@ claude-iso
 agent-iso codex [codex-args]
 agent-iso cursor [cursor-args]
 agent-iso agy [agy-args]
+agent-iso pi [pi-args]
 # Or directly without sourcing:
 bash /path/to/magpie/tools/agent-isolation/agent-iso.sh agent-iso codex [codex-args]
 

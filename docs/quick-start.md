@@ -75,7 +75,7 @@ writes nothing to any repository and your teammates are unaffected.
 → [**Prerequisite: install Magpie from your agent's
 marketplace**](setup/marketplace-install.md) has the commands, one section per
 agent: Claude Code, OpenAI Codex CLI, VS Code / GitHub Copilot, Google
-Antigravity, Cursor, `microsoft/apm`, and JetBrains IDEs.
+Antigravity, Cursor, `microsoft/apm`, Pi, and JetBrains IDEs.
 
 **Take the baseline — four plugins, strongly recommended on every machine:**
 
@@ -226,6 +226,7 @@ installed everywhere but bypasses no prompt without the sandbox.
 | **Claude Code** | `/magpie-setup:isolated-setup-install` — the guided install below. |
 | **OpenAI Codex CLI** | [Codex setup lifecycle](adapters/codex.md#setup-isolated-lifecycle). |
 | **Google Antigravity** | [Antigravity setup lifecycle](adapters/antigravity.md#setup-isolated-lifecycle) — user-scope, never per repository. |
+| **Pi** | [Pi setup lifecycle](adapters/pi.md#setup-isolated-lifecycle) — one per-user `pi install`, never per repository. |
 | **Anything else** | The [secure setup guide](setup/secure-agent-setup.md) and your runtime's adapter. |
 
 ```text

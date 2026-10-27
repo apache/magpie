@@ -62,11 +62,13 @@ from .lockfile import MalformedLock
 #: in a fixed probe order is not the one whose versions this session runs.
 #: Copilot installs from a repo URL or catalogue and has no listing CLI,
 #: so its entry has none: the floor stays unknown there rather than
-#: guessing what a listing would print.
+#: guessing what a listing would print.  Pi's `pi list` prints package
+#: sources without versions and has no JSON form, so Pi is unknown too.
 HARNESS_LISTINGS: tuple[tuple[str, tuple[tuple[str, str | None], ...], list[str] | None], ...] = (
     ("codex", (("CODEX_SANDBOX", None), ("CODEX_THREAD_ID", None)), ["codex", "plugin", "list", "--json"]),
     ("copilot", (("COPILOT_CLI", None),), None),
     ("antigravity", (("ANTIGRAVITY_CONVERSATION_ID", None),), ["agy", "plugin", "list", "--json"]),
+    ("pi", (("PI_SESSION_ID", None),), None),
     ("claude", (("CLAUDECODE", "1"),), ["claude", "plugin", "list", "--json"]),
 )
 

@@ -22,7 +22,9 @@ harness it belongs to is recognised, and where its final answer sits in its outp
 The command lines are this package's security surface. Each one keeps the
 reviewer read-only, and none carries the prompt in argv: the diff can exceed
 ARG_MAX, so the prompt goes on stdin, or through a brief file for Copilot and
-Grok, whose single-turn flag takes text only. `tests/test_backends.py` snapshots
+Grok, whose single-turn flag takes text only. Pi takes it on stdin too, which
+it prepends to a short instruction argument, and gets a read-only `--tools`
+allowlist, so no shell, edit or MCP tool exists in the session. `tests/test_backends.py` snapshots
 every argv and rejects known write-granting flags, so a regression that drops a
 read-only flag fails.
 
@@ -56,6 +58,8 @@ from typing import Any
 COPILOT_INSTRUCTION = (
     "Read the review brief at {brief} and follow it exactly. Change no file and run no command."
 )
+PI_INSTRUCTION = "Follow the review brief above exactly. Change no file."
+PI_READ_ONLY_TOOLS = "read,grep,find,ls"
 CLAUDE_DENIED_TOOLS = "Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch,Task"
 # Grok's read-only built-in tools. `--tools` removes everything else, including
 # the shell and the edit tools, but keeps the MCP meta-tools unless denied.
@@ -166,6 +170,25 @@ def _copilot(ctx: RunContext) -> Invocation:
         *_model("--model", ctx),
     ]
     return Invocation(argv, stdin=None)
+
+
+def _pi(ctx: RunContext) -> Invocation:
+    # `--tools` is an allowlist, so the reviewer has the four read tools and
+    # nothing else: no bash, no edit or write, no MCP or extension tools.
+    # `--no-approve` ignores the reviewed tree's `.pi/` (settings, extensions,
+    # packages), which would otherwise be code the change under review supplies.
+    # Pi prepends piped stdin to the first prompt.
+    argv = [
+        "pi",
+        "-p",
+        "--no-session",
+        "--no-approve",
+        "--tools",
+        PI_READ_ONLY_TOOLS,
+        *_model("--model", ctx),
+        PI_INSTRUCTION,
+    ]
+    return Invocation(argv, stdin=ctx.prompt)
 
 
 def _plain_extract(stdout: str, ctx: RunContext) -> str:
@@ -325,6 +348,7 @@ BACKENDS: dict[str, Backend] = {
         _antigravity_refuse,
         cli="agy",
     ),
+    "pi": Backend("pi", (("PI_SESSION_ID", None),), _pi, _plain_extract),
     "grok": Backend("grok", (("GROK_SESSION_ID", None),), _grok, _grok_extract),
     "claude": Backend("claude", (("CLAUDECODE", "1"),), _claude, _claude_extract),
 }

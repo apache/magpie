@@ -32,9 +32,9 @@ Design: [`docs/designs/2026-09-23-adversarial-review.md`](../../docs/designs/202
 
 - **Runtime:** Python 3.11+ via `uv`.
 The package itself is stdlib-only.
-- **CLIs:** at least one reviewer CLI on `PATH` — `codex`, `copilot`, `agy` (the `antigravity` reviewer), `grok` or `claude` — logged in with its own account.
+- **CLIs:** at least one reviewer CLI on `PATH` — `codex`, `copilot`, `agy` (the `antigravity` reviewer), `pi`, `grok` or `claude` — logged in with its own account.
 `--target pr:<N>` also needs `gh`.
-- **Credentials:** whatever each reviewer CLI already uses (`~/.codex`, `~/.copilot`, `~/.gemini/antigravity-cli`, `~/.grok`, `~/.claude`); this tool reads none of them itself.
+- **Credentials:** whatever each reviewer CLI already uses (`~/.codex`, `~/.copilot`, `~/.gemini/antigravity-cli`, `~/.pi/agent`, `~/.grok`, `~/.claude`); this tool reads none of them itself.
   Headless `agy` uses the sign-in cached by an earlier interactive `agy` session; without one it exits with `authentication required`, which the report shows as `unavailable`.
 - **Network:** each reviewer CLI calls its own model provider; this tool makes no network calls of its own.
 
@@ -86,6 +86,9 @@ Reviewers can read files with their read-only tools, and that is the residual ri
   That holds only while your own `permissions.allow` list in `~/.gemini/antigravity-cli/settings.json` does not pre-approve them; an `allow` rule there applies to the reviewer too.
   agy takes the permission mode only from that file, so the tool reads it back from agy's `init` event and discards the review as an `error` unless it is `request-review`, `strict` or `proceed-in-sandbox` (whose auto-run commands stay in the terminal sandbox).
   The check runs after the reviewer has finished, so on that error inspect the reviewed tree.
+- `pi` is read-only by construction: `--tools read,grep,find,ls` is an allowlist, so the session has no shell, edit, write, MCP or extension tool at all.
+  `--no-approve` ignores the reviewed tree's `.pi/` (project settings, extensions and packages), so the change under review cannot load code into the reviewer.
+  `AGENTS.md` still loads, as it does for every reviewer: its content is data in the brief, not an instruction to follow.
 - `antigravity` is `skipped` on a tree, or a tree inside a directory, that contains `.agents/hooks.json` or `.agents/mcp_config.json` (or the legacy `.agent/` spellings).
   Antigravity runs workspace hooks and starts workspace MCP servers by itself, so the change under review would choose code that runs on your machine.
 
@@ -96,6 +99,7 @@ Reviewers can read files with their read-only tools, and that is the residual ri
 | `codex` | `codex exec -s read-only --ephemeral -c mcp_servers={} --output-schema <schema> -o <file> -` (prompt on stdin) |
 | `copilot` | `copilot -p <read the brief at …> --add-dir <brief dir> --deny-tool shell --deny-tool write` |
 | `antigravity` | `agy --mode plan --input-format stream-json --output-format stream-json --print-timeout 0` (prompt on stdin as one NDJSON user message; the answer is the final `result` event) |
+| `pi` | `pi -p --no-session --no-approve --tools read,grep,find,ls <follow the brief above>` (prompt on stdin, which Pi prepends to the instruction; the answer is stdout) |
 | `grok` | `grok --tools read_file,grep,list_dir --no-subagents --disable-web-search --deny Bash --deny Edit --deny Write --deny WebFetch --deny MCPTool --output-format json --prompt-file <brief>` (prompt as a file) |
 | `claude` | `claude -p --output-format json --strict-mcp-config --disallowedTools Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch,Task` (prompt on stdin) |
 
@@ -103,6 +107,6 @@ Reviewers can read files with their read-only tools, and that is the residual ri
 
 ## Sandbox
 
-The reviewer CLIs need network access and their own credentials (`~/.codex`, `~/.copilot`, `~/.gemini/antigravity-cli`, `~/.grok`, `~/.claude`), which the reference sandbox denies.
+The reviewer CLIs need network access and their own credentials (`~/.codex`, `~/.copilot`, `~/.gemini/antigravity-cli`, `~/.pi/agent`, `~/.grok`, `~/.claude`), which the reference sandbox denies.
 The single-line `uvx --from ~/.claude/magpie/adversarial-review adversarial-review …` form is what the sandbox exclusion names; `setup` installs it.
 The tool writes nothing to the repository: the brief and the schema live in a temporary directory that is removed afterwards.

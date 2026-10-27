@@ -15,6 +15,7 @@
   - [Cursor](#cursor)
   - [microsoft/apm](#microsoftapm)
   - [Kiro CLI](#kiro-cli)
+  - [Pi](#pi)
   - [JetBrains IDEs](#jetbrains-ides)
   - [Where to go next](#where-to-go-next)
 
@@ -223,6 +224,25 @@ Pin a tag rather than tracking `main` — without a marketplace there is no
 update command later, so what you install is what you keep until you install
 again. [The Kiro harness guide](../adapters/kiro.md) covers the guard hook and
 the rest of the wiring.
+
+## Pi
+
+Pi has no marketplace; it installs packages from git, npm or a local path.
+The repository root is a Pi package (its `package.json` carries a `pi` key),
+so one command, run once per user, installs the skills together with Magpie's
+secure setup for Pi — the action guard, the permission rules and the OS sandbox
+for bash:
+
+```bash
+pi install git:github.com/apache/magpie
+```
+
+Install it for the user, never per project: do not add `-l`. Verify with
+`pi list`; every skill is also a `/skill:<name>` command. Refresh with
+`pi update --extensions`, and remove everything with
+`pi remove git:github.com/apache/magpie`.
+[The Pi harness guide](../adapters/pi.md) covers what the extension enforces
+and how to verify it.
 
 ## JetBrains IDEs
 

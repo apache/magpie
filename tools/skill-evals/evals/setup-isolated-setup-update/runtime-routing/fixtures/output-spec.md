@@ -7,8 +7,8 @@ Return ONLY valid JSON with this structure:
 
 ~~~json
 {
-  "runtime": "codex" | "antigravity" | "claude" | "unknown",
-  "action": "follow-codex-update" | "follow-antigravity-update" | "continue-claude-branch" | "ask-for-runtime",
+  "runtime": "codex" | "antigravity" | "pi" | "claude" | "unknown",
+  "action": "follow-codex-update" | "follow-antigravity-update" | "follow-pi-update" | "continue-claude-branch" | "ask-for-runtime",
   "claude_files_required": true | false,
   "stop_before_claude_branch": true | false
 }

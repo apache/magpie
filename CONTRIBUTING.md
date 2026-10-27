@@ -402,6 +402,7 @@ authoritative agent harness matrix. The current state per harness:
 | Amazon Q Developer CLI | Not yet ported | [#320](https://github.com/apache/magpie/issues/320) |
 | JetBrains Junie (CLI + IDE plugin) | Reads `.agents/skills/` and `AGENTS.md` natively; `PreToolUse` action guard (hooks are Early Access) — see the [harness guide](docs/adapters/junie.md) | [#321](https://github.com/apache/magpie/issues/321) |
 | OpenHands | Not yet ported | [#322](https://github.com/apache/magpie/issues/322) |
+| Pi (CLI `pi`) | Experimental agent harness: native skills, and one per-user package install that adds an action guard, permission rules and an OS sandbox for bash, which Pi itself lacks — see the [harness guide](docs/adapters/pi.md) | — |
 
 The table lists **harnesses** — the agent that reads the skills — not the
 editors they run in. A JetBrains IDE, for instance, hosts an agent rather than
@@ -1070,7 +1071,7 @@ Good entry points, in rough order of ramp-up cost:
    - **Tool / adapter bridges** — JIRA write path, Bugzilla, IMAP / mbox
      concrete wiring, GitLab, Discourse, Zulip,
      Matrix, Forgejo, OSV.dev, Pagure.
-   - **Agent-CLI harness adapters** — Codex, Antigravity, local-LLM, Cursor,
+   - **Agent-CLI harness adapters** — Codex, Antigravity, Pi, local-LLM, Cursor,
      Aider, gh-copilot, Goose, Amazon Q, Junie, OpenHands.
 
    Before you start work, please leave a comment on the issue so a

@@ -146,7 +146,8 @@ stacked on a working one:
   installed plugins and whether the `apache-magpie` marketplace
   is registered.
 - **Codex CLI** — `codex plugin list`. **Antigravity** —
-  `agy plugin list --json`.
+  `agy plugin list --json`. **Pi** — `pi list` shows
+  `git:github.com/apache/magpie` when the package is installed.
 
 If it is installed: report which plugins are active and their
 version, offer to **add** any family the user now wants — the same
@@ -172,6 +173,7 @@ floor [Step M0b](#step-m0b--pre-fill-from-the-committed-floor) reads.
 | OpenAI Codex CLI | `codex` on `PATH`, `~/.codex/` | `codex plugin` |
 | VS Code / GitHub Copilot | `.vscode/`, the Copilot CLI on `PATH` | repo URL or catalog |
 | Google Antigravity | `agy` on `PATH`, `~/.gemini/antigravity-cli/` | `agy plugin` |
+| Pi | `pi` on `PATH`, `~/.pi/agent/`; `PI_SESSION_ID` in the session | `pi install` (no marketplace) |
 | Cursor, `microsoft/apm`, Kiro, OpenCode | per [`marketplace.md`](../../../../docs/setup/marketplace.md#supported-agents) | varies |
 
 When the running agent is ambiguous, ask — one structured
@@ -345,6 +347,13 @@ agy plugin install https://github.com/apache/magpie
 A user coming from Gemini CLI with the old Magpie extension installed
 can convert it instead with `agy plugin import gemini`.
 
+Pi, once per user — never with `-l`, since the package also carries the
+per-user secure setup (guard, permission rules, bash sandbox):
+
+```bash
+pi install git:github.com/apache/magpie
+```
+
 VS Code / Copilot has no CLI on this path: point the plugin
 install at `https://github.com/apache/magpie`, and say that is
 why this one is a manual step.
@@ -420,7 +429,8 @@ Tell the user, in this order:
    `/plugin marketplace update apache-magpie` then
    `/plugin update <plugin>@apache-magpie`; Codex:
    `codex plugin marketplace upgrade apache-magpie`; Antigravity: re-run
-   `agy plugin install https://github.com/apache/magpie`. The bundled `SessionStart`
+   `agy plugin install https://github.com/apache/magpie`; Pi:
+   `pi update --extensions`. The bundled `SessionStart`
    hook prompts on a version change where the client runs hooks.
 5. **Configure it for yourself when a skill asks.** A marketplace
    install delivers skills; it tells them nothing about this project.
@@ -1293,7 +1303,7 @@ into **every active target dir**, canonical first:
   skill at `.agents/skills/magpie-<n>` → relative path into the
   snapshot (`../../.apache-magpie/skills/<n>/`). Gitignored. This
   is the single placement that makes the framework discoverable to
-  Codex, Cursor, Antigravity, Copilot, OpenCode, and the rest of
+  Codex, Cursor, Antigravity, Copilot, OpenCode, Pi, and the rest of
   the shared-path cluster, and the one source every relay points
   at.
 
@@ -2097,6 +2107,10 @@ Four passes, in this order:
    **Antigravity writes no project profile.**
    Its sandbox, permission rules and guard are per user, in `~/.gemini/`;
    when Antigravity is the selected runtime, point to `setup-isolated-setup-install` ([the Antigravity install](../../../../docs/adapters/antigravity.md#install)) instead of writing anything into the repository.
+
+   **Pi writes no project profile either.**
+   Its guard, permission rules and bash sandbox ship in the per-user Pi package;
+   when Pi is the selected runtime, point to `setup-isolated-setup-install` ([the Pi install](../../../../docs/adapters/pi.md#install)) instead of writing anything into the repository, and never record the package in the project's `.pi/settings.json`.
    **Grok action guard (when Grok is the selected runtime).**
    First distinguish a marketplace/plugin install from a source or pinned-snapshot install.
    When `magpie-agent-guard` is already available as an enabled marketplace plugin, use that bundled hook and executable.

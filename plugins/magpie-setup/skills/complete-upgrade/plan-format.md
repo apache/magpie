@@ -63,7 +63,7 @@ Examples of a *Check* item: a `~/.zshrc` grep, a `~/.claude-config` diff, the ov
 A *Check* item reads only.
 What it finds is handled by the second plan in [`SKILL.md` → Apply](SKILL.md#apply).
 
-On a harness with no sandbox bypass (Codex, Antigravity, Copilot CLI), every item that would carry `[bypass]` is listed under *Run these yourself* instead, as the exact command, and the header line counts none.
+On a harness with no sandbox bypass (Codex, Antigravity, Pi, Copilot CLI), every item that would carry `[bypass]` is listed under *Run these yourself* instead, as the exact command, and the header line counts none.
 
 ## Approval grammar
 

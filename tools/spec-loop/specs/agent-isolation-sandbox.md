@@ -48,6 +48,19 @@ The sandbox covers terminal commands only: native file tools are governed by the
 and the model, web tools, hooks, and MCP servers run outside it.
 See `docs/adapters/antigravity.md`.
 
+Pi ships no approval prompts and no sandbox, so Magpie supplies both in a user-scope Pi extension
+(`tools/agent-isolation/pi/magpie.ts`), installed with the skills by one `pi install git:github.com/apache/magpie`
+through the root `package.json` (`pi` key); it reads no project configuration, so a repository cannot weaken it.
+Its rules are derived at load time from the Claude Code baseline (`tools/sandbox-lint/expected.json`, by `policy.ts`):
+deny > ask > allow for bash, asked commands refused without a UI, and native reads and writes of credential paths,
+`.env` files, agent settings and Pi's own configuration refused, with symlinks resolved.
+Bash runs in `@anthropic-ai/sandbox-runtime` (pinned) with the baseline's `denyRead` / `allowRead` / `allowWrite`,
+domain allowlist and credential-variable denies; only a plain-words command the baseline allows and excludes from the
+sandbox (read-only `gh`) runs outside it, and bash is refused when the sandbox cannot start.
+An observed probe on Pi 1.4.0 (macOS) could not read `~/.ssh` or write under `$HOME`, could read `~/.gitconfig`,
+reached `api.github.com` but not `example.com`, and saw an empty `$GH_TOKEN`.
+See `docs/adapters/pi.md`.
+
 ## Where it lives
 
 - `tools/agent-isolation/` — the harness (clean-env wrapper +
@@ -363,6 +376,9 @@ See `docs/adapters/antigravity.md`.
   The hooks file registers one `PreToolUse` hook on `run_command` that runs `agent_guard --antigravity`.
   `sandbox-lint --antigravity tools/agent-isolation/antigravity` checks the static templates;
   static checks do not establish what a live `agy` session enforces.
+- `tools/agent-isolation/pi/` — Magpie's Pi extension: `magpie.ts` (guard via `agent_guard --pi`,
+  permission rules, sandboxed bash tool) and `policy.ts` (the decisions, derived from the Claude baseline,
+  tested with `node --test`). Loaded per user through the root `package.json`; never installed per project.
 - Skills: `setup-isolated-setup-install`, `-update`, `-verify`,
   `-doctor`. The update skill establishes the agent-guard wiring before
   diffing anything: with the `magpie-agent-guard` plugin enabled, the
@@ -627,3 +643,14 @@ Verification distinguishes static configuration from live enforcement;
 update and doctor report drift or diagnoses without applying changes.
 Generic setup reconciles installed profiles and removes their guard references
 before uninstalling the source.
+
+## Pi setup lifecycle
+
+The four `setup-isolated-setup-*` skills route Pi requests to `docs/adapters/pi.md`
+and stop before the Claude-specific procedure.
+The install route proposes the one per-user `pi install git:github.com/apache/magpie`,
+which brings the skills, the guard, the rules and the bash sandbox together;
+it never installs the package per project (`-l`) and writes nothing into the repository.
+Verification checks that the package is user-scope and exercises the guard, rules and sandbox live;
+update reports the package ref and leaves `pi update --extensions` to the user;
+uninstall is `pi remove git:github.com/apache/magpie`, which removes the secure setup with the skills.

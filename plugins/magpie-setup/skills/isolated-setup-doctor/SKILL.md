@@ -21,7 +21,7 @@ capability:
   - capability:reassess
 surface_hash: sha256:7d670b572d43bbeb
 license: Apache-2.0
-measured_tokens: 6754
+measured_tokens: 6844
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -43,6 +43,11 @@ Then stop before the Claude-specific branch below.
 When the selected runtime is Antigravity, follow
 [docs/adapters/antigravity.md](../../../../docs/adapters/antigravity.md#doctor): verify the user-scope profile first, then diagnose the actual tool result in the active Antigravity session.
 Distinguish sandbox limits, permission-rule denials, guard-hook failures, and wrapper or authentication problems.
+Do not require Claude configuration or prescribe Claude settings changes; then stop before the Claude-specific probes below.
+
+When the selected runtime is Pi, follow
+[docs/adapters/pi.md](../../../../docs/adapters/pi.md#doctor): verify the package install first, then diagnose the actual tool result in the active Pi session.
+Distinguish sandbox limits or a sandbox that could not start, permission-rule denials, guard denials, and wrapper or authentication problems.
 Do not require Claude configuration or prescribe Claude settings changes; then stop before the Claude-specific probes below.
 
 When the selected runtime is Copilot CLI, follow [docs/adapters/copilot.md](../../../../docs/adapters/copilot.md#doctor): verify the hook first, then diagnose the actual tool result in the live session.

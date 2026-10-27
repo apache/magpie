@@ -18,6 +18,7 @@
     - [microsoft/apm (multiplexer)](#microsoftapm-multiplexer)
     - [Kiro (AWS)](#kiro-aws)
     - [OpenCode](#opencode)
+    - [Pi](#pi)
     - [JetBrains IDEs (IntelliJ IDEA, PyCharm, GoLand, …)](#jetbrains-ides-intellij-idea-pycharm-goland-)
     - [Not supported](#not-supported)
   - [Auto-install: arriving Magpie-ready](#auto-install-arriving-magpie-ready)
@@ -111,6 +112,7 @@ predate the standard still read their own:
 | [`.claude-plugin/plugin.json`](../../.claude-plugin/plugin.json) | Claude Code (also read by VS Code) | Claude Code documents only this path, and AP1's schema is closed — it has no place for the `hooks` block or the `skills` path |
 | [`.codex-plugin/plugin.json`](../../.codex-plugin/plugin.json) | OpenAI Codex CLI | Codex documents this as its plugin entry point, with its own `interface` / `apps` / `hooks` fields |
 | [`apm.yml`](../../apm.yml) | `microsoft/apm` | A cross-client compiler, not a client — its own package schema |
+| [`package.json`](../../package.json) (root, `pi` key) | Pi | A Pi package manifest: it names the `skills/` tree and the Magpie extension (guard, permission rules, OS sandbox), and carries the extension's one runtime dependency. Private — Magpie is not published to npm |
 
 The manifests do not conflict: they sit at different paths, each client reads
 the one it documents, and every one of them points at the same single `skills/`
@@ -250,7 +252,7 @@ Why the difference:
   self-adopted framework checkout. Harnesses that name skills by
   frontmatter instead show the alias there: Codex as `magpie-<family>:<alias>`
   (it resolves the symlink back to the family plugin that owns the skill),
-  Antigravity as the bare alias.
+  Antigravity as the bare alias, and Pi as `/skill:<alias>`.
 - **Why the aliases.** `magpie-security` + `security-issue-triage` would read
   `/magpie-security:security-issue-triage`, saying "security" twice. <!-- allow-stutter -->
   The family plugin owns each skill as a real directory named by the alias, and
@@ -292,7 +294,8 @@ Quick reference:
 | **Cursor** | add via the plugin/skill install flow pointing at the repo | root `plugin.json` (AP1) |
 | **microsoft/apm** | `apm install apache/magpie` (compiles to Claude/Cursor/Codex/Copilot/Gemini) | `apm.yml` |
 | **Kiro** | install per-skill from a GitHub subdirectory, or the AP1 package | root `plugin.json` (AP1), native `skills/<name>/SKILL.md` |
-| **OpenCode** | clone skills into `.opencode/skills/`, or use a community installer | native `skills/<name>/SKILL.md` |
+| **OpenCode** | no marketplace: the pinned snapshot's `.agents/skills/` (project), or skills linked into `~/.agents/skills/` (personal) | native `skills/<name>/SKILL.md` |
+| **Pi** | `pi install git:github.com/apache/magpie` (once per user) | root `package.json` (`pi` key) + `skills/` |
 | **JetBrains IDEs** (IntelliJ, PyCharm, …) | nothing of its own — install for the agent you run inside the IDE, e.g. Claude Code's `/plugin marketplace add apache/magpie` | none; a host, not a distribution target |
 
 Detailed steps per agent follow.
@@ -462,12 +465,37 @@ Kiro reads the `skills/<name>/SKILL.md` there.
 
 ### OpenCode
 
-OpenCode reads native Agent Skills from `.opencode/skills/`. Either:
+OpenCode has **no plugin marketplace**. Its `opencode plugin <module>` command
+installs npm modules only, and Magpie is not published to npm, so there is no
+marketplace install for OpenCode.
 
-- clone the skill directories you want into `.opencode/skills/` (project) or
-  `~/.opencode/skills/` (personal) from `github.com/apache/magpie`, or
-- use a community installer (e.g. the `opencode-skills-collection` npm
-  package) pointed at this repo.
+OpenCode reads native Agent Skills from these directories, walking up from the
+working directory to the git worktree root for the project ones:
+
+| Scope | Directories |
+|---|---|
+| Project | `.opencode/skills/`, `.claude/skills/`, `.agents/skills/` |
+| Personal | `~/.config/opencode/skills/`, `~/.claude/skills/`, `~/.agents/skills/` |
+
+So Magpie reaches OpenCode the same way it reaches the rest of the shared-path
+cluster:
+
+- **Project** — adopt the pinned snapshot; its `.agents/skills/` links are what
+  OpenCode reads.
+- **Personal** — link the skill directories from a framework checkout into
+  `~/.agents/skills/`.
+
+[The OpenCode adapter](../adapters/opencode.md) covers the guard plugin.
+
+### Pi
+
+Commands: [**Prerequisite → Pi**](marketplace-install.md#pi).
+
+Pi has no marketplace; it installs packages from git, npm or a local path, and
+the repository root is a Pi package. Its `package.json` `pi` key names the
+`skills/` tree and the Magpie extension, so one per-user install brings the
+skills and the secure setup together. Pi installs the extension's runtime
+dependency itself. See [the Pi adapter](../adapters/pi.md).
 
 ### JetBrains IDEs (IntelliJ IDEA, PyCharm, GoLand, …)
 
@@ -524,6 +552,7 @@ difference is structural rather than a gap someone forgot to fill.
 | **OpenAI Codex CLI** | ✅ the floor | `policy.installation: "INSTALLED_BY_DEFAULT"` on `magpie-setup` in `.agents/plugins/marketplace.json`; every other family stays `AVAILABLE` |
 | **VS Code / GitHub Copilot** | ❌ | No repo-side mechanism. The catalogue advertises; it cannot pre-install |
 | **Google Antigravity** | ❌ | Install is explicit-only. Plugins are installed per user under `~/.gemini/config/plugins/`; there is no repo-side plugin declaration |
+| **Pi** | ❌ by design | `pi install -l` could record the package in a project's `.pi/settings.json`, but Magpie's Pi package carries the secure setup, which is per user; install it with `pi install git:github.com/apache/magpie` instead |
 | **JetBrains IDEs** | ✅ inherited | Whatever the agent running inside the IDE supports. With Claude Code's JetBrains plugin that is the row above — the project's `.claude/settings.json` applies unchanged, because plugin state is one user-scope store shared by every host of the same CLI |
 
 Codex's `INSTALLED_BY_DEFAULT` is per-plugin, so it can express exactly the
@@ -626,6 +655,7 @@ automatic while the *changes* stay confirmed.
 | **Codex CLI** | The same [`plugins/magpie-setup/hooks/check-upgrade.sh`](../../plugins/magpie-setup/hooks/check-upgrade.sh), on the same `startup` `SessionStart` event, wired in [`plugins/magpie-setup/hooks/codex-hooks.json`](../../plugins/magpie-setup/hooks/codex-hooks.json) as `/bin/bash -p "${PLUGIN_ROOT}/hooks/check-upgrade.sh"`. The plugin's [`.codex-plugin/plugin.json`](../../plugins/magpie-setup/.codex-plugin/plugin.json) names that file, because Codex cannot parse the Claude Code `hooks/hooks.json` (see [Which manifest Codex reads](#which-manifest-codex-reads)). `PLUGIN_ROOT` is the installed `magpie-setup` root, where the script finds its manifests and `skills/setup`. Codex sets `PLUGIN_ROOT`/`PLUGIN_DATA` (and the `CLAUDE_*` pair for compatibility), which the script reads. It runs only once you have trusted it — see the caveat below. |
 | **VS Code / Copilot, Cursor, Kiro (AP1)** | None. Agent Plugins 1.0 specifies no hook component and VS Code ignores client extension directories, so there is nothing to fire. Run `/magpie-setup:complete-upgrade` after updating. |
 | **Antigravity** | None yet. Plugins can carry a `SessionStart` hook, but Magpie does not ship one for Antigravity until a plugin-root path for it is verified. Run `/magpie-setup:complete-upgrade` after refreshing the plugin. |
+| **Pi** | None. Run `/skill:complete-upgrade` after `pi update --extensions`. |
 | Other agents | Run `/magpie-setup:complete-upgrade` manually after updating the package. |
 
 > [!IMPORTANT]
@@ -728,7 +758,8 @@ The adopter's half of this is auto-update, and it is **off by default** for
 `apache-magpie` because Claude Code disables it for third-party marketplaces.
 A stamp that moves reaches nobody whose client never refreshes the catalogue, so
 [the install guide](marketplace-install.md#claude-code) tells adopters to turn it
-on, and the same page covers the equivalent for Antigravity (re-run the install), Codex
+on, and the same page covers the equivalent for Antigravity (re-run the install), Pi
+(`pi update --extensions`), Codex
 (manual `marketplace upgrade`) and `apm` (lockfile by design).
 
 **When to bump.** Not every PR — that would put every contributor in conflict

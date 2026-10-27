@@ -14,6 +14,7 @@
     - [Snapshot adopters (`/magpie-setup`)](#snapshot-adopters-magpie-setup)
     - [Codex](#codex)
     - [OpenCode](#opencode)
+    - [Pi](#pi)
     - [Kiro CLI](#kiro-cli)
     - [Antigravity](#antigravity)
     - [Copilot CLI](#copilot-cli)
@@ -32,7 +33,7 @@
 
 **Capability:** substrate:action-guard
 
-**Harness:** Claude Code, Codex, OpenCode, Kiro, Antigravity, Copilot, Grok, Junie
+**Harness:** Claude Code, Codex, OpenCode, Pi, Kiro, Antigravity, Copilot, Grok, Junie
 
 A deterministic pre-execution guard dispatcher. It inspects every shell command
 **before it runs** and **denies** the ones that would break a hard framework
@@ -48,6 +49,9 @@ so every wired harness enforces an identical rule set from one source of truth:
 - **OpenCode** — a [plugin](https://opencode.ai/docs/plugins/) on the
   `tool.execute.before` hook for the `bash` tool, which blocks a call by
   throwing (`agent-guard.py --opencode`). See [Wiring](#wiring).
+- **Pi** — Magpie's user-scope Pi extension, which sends every `bash` call to
+  `agent-guard.py --pi` (the OpenCode transport) and blocks it on a deny.
+  See [Pi](#pi).
 - **Kiro CLI** — a [`preToolUse`](https://kiro.dev/docs/cli/hooks) hook on the
   `execute_bash` matcher, which blocks a call when the hook exits `2`
   (`agent-guard.py --kiro`, reason on stderr). See [Wiring](#wiring).
@@ -260,6 +264,27 @@ copy of the script — and honours `MAGPIE_AGENT_GUARD=/abs/path/agent-guard.py`
 to point elsewhere. Because both harnesses call `dispatch()`, the bundled and
 skill-contributed guards, the `MAGPIE_*` overrides, and the deny reasons are
 byte-for-byte identical across the two; nothing about a guard is harness-aware.
+
+### Pi
+
+Pi has no hook configuration of its own; extensions intercept tool calls.
+Magpie's Pi extension, [`tools/agent-isolation/pi/magpie.ts`](../agent-isolation/pi/magpie.ts),
+sends every `bash` command to `agent-guard.py --pi` before it runs and blocks
+the call on exit `2`, using the reason the engine prints on stdout. `--pi`
+shares the `{"command", "cwd"}` stdin transport with `--opencode`, so the
+decisions and reasons are identical; a missing engine or interpreter fails
+open, like every other adapter.
+
+The extension is installed **once per user**, never per repository, by the
+framework's Pi package:
+
+```bash
+pi install git:github.com/apache/magpie
+```
+
+It resolves the engine relative to its own file, so the installed package
+carries everything it runs. The same extension adds the permission rules and
+the OS sandbox for bash; see [the Pi harness](../../docs/adapters/pi.md).
 
 ### Kiro CLI
 

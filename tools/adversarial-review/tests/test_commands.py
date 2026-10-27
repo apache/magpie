@@ -36,7 +36,7 @@ def _invocation_line(content: str) -> str:
 
 
 def test_harness_set():
-    assert list(HARNESSES) == ["claude", "codex", "antigravity", "copilot"]
+    assert list(HARNESSES) == ["claude", "codex", "antigravity", "pi", "copilot"]
 
 
 def test_claude_command_runs_the_tool_from_the_stable_path():
@@ -68,6 +68,19 @@ def test_antigravity_command_is_a_user_skill():
     assert "$ARGUMENTS" not in content and "{{args}}" not in content and "``" not in content
     assert "the one the user named, if any" in content
     assert f"newest directory under `{PLUGIN_DIR}/`" in content
+
+
+def test_pi_command_is_a_user_skill():
+    path, content = render("pi")
+    assert path == "~/.pi/agent/skills/magpie-adversarial-review/SKILL.md"
+    frontmatter = content.split("---\n")[1]
+    # Pi skill names: lowercase letters, digits and single hyphens, at most 64.
+    assert "\nname: magpie-adversarial-review\n" in frontmatter
+    assert "\ndescription: " in frontmatter  # skills without one are not loaded
+    assert "argument-hint" not in frontmatter
+    assert "$ARGUMENTS" not in content and "{{args}}" not in content and "``" not in content
+    assert "the one the user named, if any" in content
+    assert render("pi")[1] == render("antigravity")[1]
 
 
 def test_copilot_has_no_command_file_only_the_invocation():

@@ -7,7 +7,7 @@ mode: Meta
 description: >-
   Check the secure agent setup against its checklist and report done,
   missing or partial for each item, with the evidence — paths, command
-  output, versions. Covers Claude Code, Codex, Antigravity and Copilot CLI.
+  output, versions. Covers Claude Code, Codex, Antigravity, Pi and Copilot CLI.
   Read-only.
 when_to_use: >-
   When the user asks whether their secure setup is complete, or right
@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:ce33cb9437d44992
 license: Apache-2.0
-measured_tokens: 9720
+measured_tokens: 9817
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -39,6 +39,11 @@ Do not interpret the Claude settings checks below as Codex requirements.
 When the selected runtime is Antigravity, follow
 [docs/adapters/antigravity.md](../../../../docs/adapters/antigravity.md#verify): check the user-scope profile, guard registration, skill discovery, and actual runtime behavior.
 Report static and live checks separately, including any checks not run and the documented isolation limits.
+Do not require Claude configuration; then stop before the Claude-specific checks below.
+
+When the selected runtime is Pi, follow
+[docs/adapters/pi.md](../../../../docs/adapters/pi.md#verify): check that the framework package is installed for the user (not per project), that the Magpie extension loads, and the actual runtime behavior of the guard, the rules and the bash sandbox.
+Report static and live checks separately, including any checks not run and the documented limits.
 Do not require Claude configuration; then stop before the Claude-specific checks below.
 
 When the selected runtime is Copilot CLI, follow [docs/adapters/copilot.md](../../../../docs/adapters/copilot.md#verify): check the hook registration and probe an allow, a deny and a silent write.

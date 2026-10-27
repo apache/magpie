@@ -36,7 +36,7 @@ bakes a version in, so a plugin upgrade leaves every command valid.
 
 from __future__ import annotations
 
-HARNESSES = ("claude", "codex", "antigravity", "copilot")
+HARNESSES = ("claude", "codex", "antigravity", "pi", "copilot")
 PLUGIN_DIR = "~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review"
 STABLE_PATH = "~/.claude/magpie/adversarial-review"
 DESCRIPTION = "Adversarial review of this change by other models (Apache Magpie)"
@@ -106,9 +106,11 @@ def render(harness: str, plugin_dir: str = PLUGIN_DIR) -> tuple[str, str]:
             version_rule=other,
         )
         return "~/.codex/prompts/magpie-adversarial-review.md", _FRONTMATTER + body
-    if harness == "antigravity":
-        # Antigravity has no command files: a user skill becomes the slash
-        # command, and it substitutes no arguments into the body.
+    if harness in ("antigravity", "pi"):
+        # Neither has command files: a user skill becomes the slash command
+        # (`/magpie-adversarial-review` on Antigravity,
+        # `/skill:magpie-adversarial-review` on Pi), and neither substitutes
+        # arguments into the body.
         body = _STEPS.format(
             args="",
             placeholders="<version> and <target>",
@@ -118,7 +120,8 @@ def render(harness: str, plugin_dir: str = PLUGIN_DIR) -> tuple[str, str]:
         frontmatter = _FRONTMATTER.replace(
             "description:", "name: magpie-adversarial-review\ndescription:"
         ).replace("argument-hint: [branch | pr:<number> | diff:<path>]\n", "")
-        return "~/.gemini/antigravity-cli/skills/magpie-adversarial-review/SKILL.md", frontmatter + body
+        home = "~/.gemini/antigravity-cli/skills" if harness == "antigravity" else "~/.pi/agent/skills"
+        return f"{home}/magpie-adversarial-review/SKILL.md", frontmatter + body
     if harness == "copilot":
         return "", (
             f"{_invocation(plugin_dir)} --target branch\n"

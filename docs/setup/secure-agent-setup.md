@@ -144,6 +144,7 @@ setup; the four `setup-isolated-*` skills route Codex to the adapter
 before entering any Claude-only settings flow.
 
 The same four skills route Antigravity to its [setup lifecycle](../adapters/antigravity.md#setup-isolated-lifecycle), which configures the user's `~/.gemini/` files once and never asks for per-repository setup.
+They route Pi to its [setup lifecycle](../adapters/pi.md#setup-isolated-lifecycle): one per-user package install carries the action guard, the permission rules and an OS sandbox for bash, all derived from the same Claude Code baseline.
 
 ### Agent-guided (recommended)
 

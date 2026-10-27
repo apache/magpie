@@ -66,7 +66,8 @@ adopted or merely configured; they are not specific to this branch.
    client's plugin state — Claude Code:
    `~/.claude/plugins/installed_plugins.json` plus the version in
    the cached `…/apache-magpie/<plugin>/<version>/`; Codex:
-   `codex plugin list`; Antigravity: `agy plugin list --json`. Report
+   `codex plugin list`; Antigravity: `agy plugin list --json`; Pi:
+   `pi list` (one framework package, no per-family plugins). Report
    the family plugins installed and the version each is on.
 2. **Marketplace registered and reachable.** The `apache-magpie`
    marketplace appears in the client's known marketplaces
@@ -920,6 +921,14 @@ actually enforcing together.
 Never grant, reset, or otherwise change Grok project-hook trust during verification.
 See [the Grok verification contract](../../../../docs/adapters/grok.md#verify).
 
+### 8h.2. Pi package (if present)
+
+When `pi list` shows `git:github.com/apache/magpie`, check that it is recorded in the user's `~/.pi/agent/settings.json` rather than a project `.pi/settings.json`, then follow
+[the Pi verification contract](../../../../docs/adapters/pi.md#verify).
+The secure setup is per user: a project-scope install of the package is reported as a finding, never repaired by writing into the repository.
+An absent package is skipped unless Pi secure setup was requested; in that case, point to `setup-isolated-setup-install`.
+A static pass does not replace live verification in Pi.
+
 ### 8i. Adversarial reviewers (if configured)
 
 When `adversarial-review.md` resolves (the personal layer first, then
@@ -940,7 +949,8 @@ it with the configured `reviewers`.
   `/plugin install magpie-adversarial-review@apache-magpie`.
 - ⚠ for each harness command under the user's home
   (`~/.codex/prompts/magpie-adversarial-review.md`,
-  `~/.gemini/antigravity-cli/skills/magpie-adversarial-review/SKILL.md`) that differs from
+  `~/.gemini/antigravity-cli/skills/magpie-adversarial-review/SKILL.md`,
+  `~/.pi/agent/skills/magpie-adversarial-review/SKILL.md`) that differs from
   what `adversarial-review commands --harness <name>` prints for the
   installed plugin — the command text changed in a newer plugin. The
   remediation is `/magpie-setup:setup config adversarial-review`, which shows the

@@ -20,7 +20,7 @@ acceptance:
   - Open PRs and local work-item branches are passed into plan/build prompts
     as in-flight work so the loop does not duplicate already-built items.
   - The headless-agent harness contract is explicit for Claude Code, Codex,
-    Cursor, Antigravity CLI, OpenCode, Kiro, and Grok Build.
+    Cursor, Antigravity CLI, OpenCode, Kiro, Grok Build, and Pi.
   - The update marker `tools/spec-loop/.last-sync` is owned by the runner,
     not by the prompt.
 ---
@@ -118,6 +118,7 @@ sandbox, and stop without pushing or opening a PR.
 | Cursor | positional prompt to `cursor agent --print` or `cursor-agent --print` | `--workspace "$ROOT"` | `--force --trust` | `--model` | `--output-format` | external sandbox and Cursor policy |
 | Antigravity CLI | `-p "<prompt>"` to `agy` | launched from repo root | none — never `--dangerously-skip-permissions`; headless keeps `request-review` | `--model` | `--output-format` | user-scope terminal sandbox, permission rules and the agent-guard `--antigravity` hook; headless actions needing approval are soft-denied (exit `0`, listed in `denied_actions`) |
 | OpenCode | positional prompt to `opencode run` | launched from repo root | `--auto` | `--model` | `--format json` for stream JSON | external sandbox and OpenCode policy |
+| Pi | `-p "<prompt>"` to `pi` | launched from repo root | none — Pi has no approval flag; the user-scope Magpie extension refuses every asked command when there is no UI | `--model` | `--mode json` for stream JSON | the Magpie extension's guard, permission rules and bash sandbox |
 | Kiro | positional prompt to `kiro-cli chat` | launched from repo root | `--no-interactive` | agent config (`.kiro/agents`) | plain text only | external sandbox and the agent-guard `--kiro` hook |
 | Grok Build | `--prompt-file <assembled-prompt>` | `--cwd "$ROOT"` | `--always-approve` | `--model` | `plain`; `streaming-json` for stream JSON | `--deny` blocks `git push` and `gh`; external sandbox and agent guard remain active |
 
@@ -141,6 +142,7 @@ harness CLI, re-check `--help` and update this table and
 | Kiro | `--effort` | [Kiro CLI effort docs](https://kiro.dev/docs/cli/chat/effort/) (`low\|medium\|high\|xhigh\|max`) | `low` | `medium` | `max` |
 | Cursor | (none — omitted silently) | `cursor agent --help` (no effort/thinking-level flag) | — | — | — |
 | Antigravity CLI | `--effort` | `agy --help` 1.3.6 (`low\|medium\|high\|xhigh\|max`) | `low` | `medium` | `max` |
+| Pi | `--thinking` | `pi --help` 1.4.0 (`off\|minimal\|low\|medium\|high\|xhigh\|max`, clamped to the model) | `low` | `medium` | `max` |
 | Grok Build | `--reasoning-effort` | `grok 1.0.50 --help` (`--effort` alias also accepted) | `low` | `medium` | `high` |
 
 `SPEC_LOOP_AGENT` chooses the CLI. `SPEC_LOOP_HARNESS` chooses the
@@ -170,7 +172,7 @@ in the same change.
    branch context.
 4. Update prompts receive incremental-scope guidance from `.last-sync`
    when present, but the runner remains the only writer of `.last-sync`.
-5. Claude Code, Codex, Cursor, Antigravity CLI, OpenCode, Kiro, and Grok Build are
+5. Claude Code, Codex, Cursor, Antigravity CLI, OpenCode, Kiro, Grok Build, and Pi are
    documented in the headless harness matrix and implemented by the runner.
 6. Operator docs and prompts agree on branch naming: build uses bare
    `<slug>` branches; update uses `sync-specs-<timestamp>` branches.
@@ -188,7 +190,7 @@ uv run --project tools/spec-validator --group dev spec-validate
 
 ## Known gaps
 
-- Cursor, Antigravity CLI, OpenCode, and Kiro rely on external policy/config plus
+- Cursor, Antigravity CLI, OpenCode, Kiro, and Pi rely on external policy/config plus
   the OS sandbox for push/PR denial. Claude Code and Grok Build additionally
   receive per-invocation hard-deny rules from the runner.
 - The deterministic scope helper this bullet used to call missing has

@@ -199,6 +199,24 @@ test_harness_command_construction() {
     assert_contains "$TMPDIR_TEST/agy-model.log" "<--model> <agy-test>"
     assert_contains "$TMPDIR_TEST/agy-model.log" "<--effort> <low>"
 
+    # Pi: headless -p, text by default, --thinking for effort, no approval flag.
+    make_fake_agent "$TMPDIR_TEST/pi" "$TMPDIR_TEST/pi.log"
+    spec_loop_launch_agent pi "$TMPDIR_TEST/pi" /repo "$TMPDIR_TEST/prompt.md" "" text high
+    wait "$SPEC_LOOP_AGENT_PID"
+    assert_contains "$TMPDIR_TEST/pi.log" "<-p> <PROMPT BODY>"
+    assert_contains "$TMPDIR_TEST/pi.log" "<--thinking> <max>"
+    assert_not_contains "$TMPDIR_TEST/pi.log" "<--mode>"
+    assert_not_contains "$TMPDIR_TEST/pi.log" "<--model>"
+    assert_not_contains "$TMPDIR_TEST/pi.log" "<--magpie-no-sandbox>"
+    assert_not_contains "$TMPDIR_TEST/pi.log" "<--no-extensions>"
+
+    make_fake_agent "$TMPDIR_TEST/pi-model" "$TMPDIR_TEST/pi-model.log"
+    spec_loop_launch_agent pi "$TMPDIR_TEST/pi-model" /repo "$TMPDIR_TEST/prompt.md" anthropic/claude-test stream-json low
+    wait "$SPEC_LOOP_AGENT_PID"
+    assert_contains "$TMPDIR_TEST/pi-model.log" "<--mode> <json>"
+    assert_contains "$TMPDIR_TEST/pi-model.log" "<--model> <anthropic/claude-test>"
+    assert_contains "$TMPDIR_TEST/pi-model.log" "<--thinking> <low>"
+
     # Grok Build 1.0.50: prompt-file headless mode, explicit cwd,
     # unattended approval, remote-write denies, output mapping, model,
     # and framework effort mapping.

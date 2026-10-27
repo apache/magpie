@@ -49,6 +49,7 @@ def clean_harness_markers(monkeypatch: pytest.MonkeyPatch) -> None:
         "CODEX_THREAD_ID",
         "COPILOT_CLI",
         "ANTIGRAVITY_CONVERSATION_ID",
+        "PI_SESSION_ID",
         "CLAUDECODE",
     ):
         monkeypatch.delenv(marker, raising=False)
@@ -258,6 +259,21 @@ def test_the_copilot_marker_is_unknown_without_a_listing_cli(
 
     monkeypatch.setattr("setup_preflight.cli.subprocess.run", explode)
     assert read_installed(None, {"COPILOT_CLI": "1"}) == (None, None)
+
+
+def test_the_pi_marker_is_unknown_without_a_versioned_listing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`pi list` prints package sources without versions and has no JSON
+    form, so Pi is recognised but its floor stays unknown, and no other
+    harness's listing (Claude's, inherited `CLAUDECODE`) is probed instead."""
+
+    def explode(*_args: object, **_kwargs: object) -> subprocess.CompletedProcess:
+        raise AssertionError("pi has no versioned listing to run")
+
+    monkeypatch.setattr("setup_preflight.cli.subprocess.run", explode)
+    assert read_installed(None, {"PI_SESSION_ID": "s1"}) == (None, None)
+    assert read_installed(None, {"PI_SESSION_ID": "s1", "CLAUDECODE": "1"}) == (None, None)
 
 
 def test_a_timeout_of_the_running_harness_is_unknown(

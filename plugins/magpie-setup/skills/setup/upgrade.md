@@ -69,7 +69,7 @@ Both paths run the same flow.
    ```
 
    (Codex: `codex plugin marketplace upgrade apache-magpie`; Antigravity: re-run
-   `agy plugin install https://github.com/apache/magpie`.) When `magpie-security` is installed
+   `agy plugin install https://github.com/apache/magpie`; Pi: `pi update --extensions`.) When `magpie-security` is installed
    and `magpie-security-tools` is not, add
    `/plugin install magpie-security-tools@apache-magpie`: the security
    skills run their framework tools from it. After the plugin refresh,
@@ -696,6 +696,8 @@ rather than pulls in via symlink. Examples:
 - A user-scope Antigravity guard registration that points into this snapshot:
   follow [the Antigravity update lifecycle](../../../../docs/adapters/antigravity.md#update) to report drift, then use its install merge for approved repairs.
   It lives in `~/.gemini/`, not the repository; preserve the user's unrelated hooks and rules, and verify after restarting the runtime.
+- The user-scope Pi package: a snapshot upgrade does not touch it.
+  Report its ref per [the Pi update lifecycle](../../../../docs/adapters/pi.md#update) and leave the `pi update --extensions` refresh to the user.
 - Grok action-guard wiring, when Grok is an adopted runtime.
   For a marketplace/plugin install, leave repository hook state alone and let the plugin manager update the bundled `magpie-agent-guard` executable and hook.
   Do not create a project hook or snapshot merely because the plugin was upgraded.
