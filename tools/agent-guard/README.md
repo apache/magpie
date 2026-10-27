@@ -151,6 +151,17 @@ includes `env -S` / `--split-string`: env splits that string with its own
 escapes (`\_`, `\c`, `${VAR}`), so the guards could not be sure they see the
 command env runs.
 
+A command line is split into commands the way bash splits it: on a newline and
+on every control operator (`;`, `&`, `|`, `&&`, `||`, `|&`, `;;`), whether or
+not spaces surround it, so `echo hi;git push` and a `git` command on the second
+line are both checked. Redirections (`2>&1`, `&>file`, `>|`) stay words,
+quoted text and `#` comments are not commands, and a leading reserved word
+(`if`, `then`, `do`, `{`, `!` …) is skipped. A subshell `( … )`, a command or
+process substitution (`$( … )`, backticks, `<( … )`, also inside double quotes
+and `$(( … ))` / `${ … }`), and a heredoc body fed to anything but a bare `cat`
+/ `tee` are checked as commands of their own, as is a substitution in a heredoc
+body whose delimiter is unquoted.
+
 A shell's `-c` string (`bash -c "…"`, `sh -c '…'`, `zsh -lc "…"`), or the joined arguments of `eval` (after one `--`; also behind any chain of `builtin`, `command`, `--` and `-p`; an option anywhere else in front of the string is refused), is split
 and checked like a command line of its own, and inherits the inline
 assignments written before the shell. That goes one level deep: a `-c` string

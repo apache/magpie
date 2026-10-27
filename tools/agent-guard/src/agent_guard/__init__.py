@@ -612,10 +612,340 @@ def _strip_heredoc_bodies(command: str) -> str:
     return stripped
 
 
+# Reserved words bash recognises at the start of a command; the command that
+# follows one (`if git push; then …`, `{ git push; }`, `! git push`) is the one
+# that runs.
+_RESERVED_WORDS = frozenset(
+    {"!", "{", "}", "if", "then", "else", "elif", "fi", "while", "until", "do", "done"}
+    | {"case", "esac", "for", "select", "function"}
+)
+# Nesting of substitutions, subshells and groups the lexer follows; a deeper
+# command line is not tokenised (and is refused when it names a guarded head).
+_LEX_DEPTH = 32
+
+
+class _Command:
+    """One simple command as :class:`_Lexer` reads it: its words, and the
+    bodies of the heredocs it opens (data on its stdin, kept for the scans of
+    ``Segment.raw``)."""
+
+    __slots__ = ("bodies", "tokens")
+
+    def __init__(self) -> None:
+        self.tokens: list[str] = []
+        self.bodies: list[str] = []
+
+
+class _Lexer:
+    """Split a command line into simple commands the way bash reads it.
+
+    Words are read with bash's quoting (``'…'``, ``"…"``, ``$'…'``,
+    backslashes, line continuations) and ``#`` comments at the start of a
+    word. A command ends at a newline or an unquoted control operator (``;``,
+    ``&``, ``|``, ``&&``, ``||``, ``|&``, ``;;``), whether or not spaces
+    surround it; ``>&`` / ``<&`` / ``&>`` / ``>|`` stay inside the redirection
+    word. A subshell ``( … )``, a command substitution ``$( … )`` / backticks,
+    a process substitution ``<( … )`` / ``>( … )``, and the contents of
+    ``$(( … ))``, ``$[ … ]`` and ``${ … }`` are read as commands of their own,
+    since bash runs them. A heredoc's body (the lines after its operator's
+    line, up to the delimiter) is data on the command's stdin, with two
+    exceptions: substitutions in a body whose delimiter is unquoted, which
+    bash expands, and a body naming ``git`` / ``gh`` that may be run (``run_bodies``,
+    or a command that is not a bare ``cat`` / ``tee``), which is read as
+    commands too. Raises ValueError on input it cannot read like bash."""
+
+    def __init__(self, text: str, run_bodies: bool, heredocs: bool = True) -> None:
+        self.text = text
+        self.n = len(text)
+        self.run_bodies = run_bodies
+        self.heredocs = heredocs
+        self.commands: list[_Command] = []
+
+    def run(self, depth: int = 0) -> list[_Command]:
+        self.parse(0, None, depth)
+        return self.commands
+
+    def _sub(self, text: str, depth: int, heredocs: bool = True) -> None:
+        """Read ``text`` as a command line of its own, at ``depth``."""
+        self.commands.extend(_Lexer(text, self.run_bodies, heredocs).run(depth))
+
+    def parse(self, i: int, closer: str | None, depth: int) -> int:
+        """Read commands from ``text[i]`` to the end, or past the ``)`` that
+        closes a construct when ``closer`` is set; return the index after it."""
+        if depth > _LEX_DEPTH:
+            raise ValueError("nested too deeply")
+        text, n = self.text, self.n
+        cur = _Command()
+        word: list[str] | None = None
+        pending: list[tuple[str, bool, bool, _Command]] = []
+
+        def end_word() -> None:
+            nonlocal word
+            if word is not None:
+                cur.tokens.append("".join(word))
+                word = None
+
+        def end_command() -> None:
+            nonlocal cur
+            end_word()
+            if cur.tokens or cur.bodies:
+                self.commands.append(cur)
+                cur = _Command()
+
+        while i < n:
+            c = text[i]
+            if c == ")":
+                end_command()
+                if closer == ")":
+                    if pending:
+                        raise ValueError("heredoc left open in a substitution")
+                    return i + 1
+                # a `case` pattern (`a) git push;;`): the command follows it
+                i += 1
+                continue
+            if c in " \t":
+                end_word()
+                i += 1
+                continue
+            if c == "\n":
+                end_command()
+                i += 1
+                if pending:
+                    i = self._bodies(i, pending, depth)
+                    pending = []
+                continue
+            if c == "#" and word is None:
+                nl = text.find("\n", i)
+                i = n if nl < 0 else nl
+                continue
+            if c == "\\":
+                if i + 1 >= n:
+                    raise ValueError("no escaped character")
+                if text[i + 1] != "\n":
+                    word = (word or []) + [text[i + 1]]
+                i += 2
+                continue
+            if c == "'":
+                end = text.find("'", i + 1)
+                if end < 0:
+                    raise ValueError("no closing quotation")
+                word = (word or []) + [text[i + 1 : end]]
+                i = end + 1
+                continue
+            if text.startswith("$'", i):
+                j, buf = i + 2, []
+                while j < n and text[j] != "'":
+                    if text[j] == "\\" and j + 1 < n:
+                        buf.append(text[j + 1])
+                        j += 2
+                    else:
+                        buf.append(text[j])
+                        j += 1
+                if j >= n:
+                    raise ValueError("no closing quotation")
+                word = (word or []) + buf
+                i = j + 1
+                continue
+            if c == '"' or text.startswith('$"', i):
+                word = word or []
+                i = self._double(i + (2 if c == "$" else 1), word, depth)
+                continue
+            if c == "$" or c == "`" or (c in "<>" and text.startswith("(", i + 1)):
+                start = i
+                i = self._expansion(i, depth)
+                if i > start:
+                    word = (word or []) + [text[start:i]]
+                    continue
+            if self.heredocs and text.startswith("<<", i) and not text.startswith("<<<", i):
+                end_word()
+                j = i + 2
+                strip_tabs = text.startswith("-", j)
+                if strip_tabs:
+                    j += 1
+                while j < n and text[j] in " \t":
+                    j += 1
+                nl = text.find("\n", j)
+                found = _heredoc_word(text if nl < 0 else text[:nl], j)
+                if found is None:
+                    raise ValueError("a heredoc delimiter this parser does not read")
+                delim, quoted, i = found
+                cur.tokens.append("<<" + ("-" if strip_tabs else "") + delim)
+                pending.append((delim, strip_tabs, quoted, cur))
+                continue
+            if text.startswith("<<<", i):
+                word = (word or []) + ["<<<"]
+                i += 3
+                continue
+            if c in ";&|":
+                held = "".join(word) if word is not None else ""
+                if (c == "&" and (held.endswith((">", "<")) or text.startswith(">", i + 1))) or (
+                    c == "|" and held.endswith(">")
+                ):
+                    word = (word or []) + [c]
+                    i += 1
+                    continue
+                end_command()
+                i += 1
+                continue
+            if c == "(":
+                end_command()
+                i = self.parse(i + 1, ")", depth + 1)
+                continue
+            word = (word or []) + [c]
+            i += 1
+        end_command()
+        if closer is not None:
+            raise ValueError("unbalanced `(`")
+        if pending:
+            # bash reads a heredoc never closed as running to the end
+            self._bodies(n, pending, depth)
+        return i
+
+    def _expansion(self, i: int, depth: int) -> int:
+        """Read the substitution or expansion at ``text[i]`` (``$( … )``,
+        backticks, ``<( … )``, ``$(( … ))``, ``$[ … ]``, ``${ … }``) and
+        return the index after it, or ``i`` when there is none."""
+        text = self.text
+        if text.startswith("$((", i):
+            end = _closing(text, i + 3, "(", ")", 2)
+            self._sub(text[i + 3 : end - 2], depth + 1, heredocs=False)
+            return end
+        if text.startswith("$[", i):
+            end = _closing(text, i + 2, "[", "]", 1)
+            self._sub(text[i + 2 : end - 1], depth + 1, heredocs=False)
+            return end
+        if text.startswith("${", i):
+            end = _closing(text, i + 2, "{", "}", 1)
+            self._sub(text[i + 2 : end - 1], depth + 1, heredocs=False)
+            return end
+        if text.startswith(("$(", "<(", ">("), i):
+            return self.parse(i + 2, ")", depth + 1)
+        if text[i] == "`":
+            end = _backtick_end(text, i + 1)
+            self._sub(_unescape_backticks(text[i + 1 : end]), depth + 1)
+            return end + 1
+        return i
+
+    def _double(self, i: int, word: list[str], depth: int) -> int:
+        """Read a double-quoted string from ``text[i]`` into ``word``; return
+        the index after its closing quote."""
+        text, n = self.text, self.n
+        while i < n:
+            c = text[i]
+            if c == '"':
+                return i + 1
+            if c == "\\" and i + 1 < n:
+                nx = text[i + 1]
+                if nx != "\n":
+                    word.append(nx if nx in '$`"\\' else "\\" + nx)
+                i += 2
+                continue
+            if c in "$`":
+                start = i
+                i = self._expansion(i, depth)
+                if i > start:
+                    word.append(text[start:i])
+                    continue
+            word.append(c)
+            i += 1
+        raise ValueError("no closing quotation")
+
+    def _bodies(self, i: int, pending: list[tuple[str, bool, bool, _Command]], depth: int) -> int:
+        """Read the bodies of ``pending`` heredocs from ``text[i]``, one after
+        another; return the index after the last delimiter line."""
+        text, n = self.text, self.n
+        for delim, strip_tabs, quoted, target in pending:
+            lines: list[str] = []
+            while i < n:
+                nl = text.find("\n", i)
+                line = text[i:] if nl < 0 else text[i:nl]
+                i = n if nl < 0 else nl + 1
+                if (line.lstrip("\t") if strip_tabs else line) == delim:
+                    break
+                lines.append(line)
+            body = "\n".join(lines)
+            target.bodies.append(body)
+            if not quoted:
+                self._body_substitutions(body, depth)
+            if _names_guarded(body) and (self.run_bodies or not _is_sink_command(target)):
+                self._sub(body, depth + 1)
+        return i
+
+    def _body_substitutions(self, body: str, depth: int) -> None:
+        """Read the substitutions bash expands in a heredoc body whose
+        delimiter is unquoted; quotes there are plain text."""
+        lexer = _Lexer(body, self.run_bodies)
+        i = 0
+        while i < len(body):
+            if body[i] == "\\":
+                i += 2
+                continue
+            if body[i] in "$`":
+                end = lexer._expansion(i, depth + 1)
+                if end > i:
+                    i = end
+                    continue
+            i += 1
+        self.commands.extend(lexer.commands)
+
+
+def _closing(text: str, i: int, opener: str, closer: str, open_count: int) -> int:
+    """The index after the ``closer`` that balances ``open_count`` openers
+    before ``text[i]``, skipping quoted text and escaped characters."""
+    count, n = open_count, len(text)
+    while i < n:
+        c = text[i]
+        if c == "\\":
+            i += 2
+            continue
+        if c == "'" and opener == "{":
+            end = text.find("'", i + 1)
+            if end < 0:
+                raise ValueError("no closing quotation")
+            i = end + 1
+            continue
+        if c == opener:
+            count += 1
+        elif c == closer:
+            count -= 1
+            if count == 0:
+                return i + 1
+        i += 1
+    raise ValueError(f"unbalanced `{opener}`")
+
+
+def _backtick_end(text: str, i: int) -> int:
+    """The index of the backtick closing one opened before ``text[i]``."""
+    while i < len(text):
+        if text[i] == "\\":
+            i += 2
+            continue
+        if text[i] == "`":
+            return i
+        i += 1
+    raise ValueError("no closing backtick")
+
+
+def _unescape_backticks(text: str) -> str:
+    """A backtick substitution's command as bash runs it: ``\\```, ``\\\\``
+    and ``\\$`` lose their backslash."""
+    return re.sub(r"\\([`\\$])", r"\1", text)
+
+
+def _is_sink_command(cmd: _Command) -> bool:
+    """Whether ``cmd`` is a bare ``cat`` / ``tee``, the only commands whose
+    heredoc body is read as data when it names a guarded head."""
+    words = [tok for tok in cmd.tokens if tok not in _RESERVED_WORDS]
+    return bool(words) and words[0] in _HEREDOC_DATA_SINKS
+
+
 def split_segments(command: str, _depth: int = 0, _bodies_stripped: bool = False) -> list[Segment]:
-    """Tokenise ``command`` and split it into simple-command segments on shell
-    operators. A shell ``-c <string>`` segment is followed by the segments of
-    its string (see :func:`_shell_segments`).
+    """Split ``command`` into simple-command segments, as bash separates them
+    (see :class:`_Lexer`): on newlines and control operators, spaced or not,
+    and into subshells, groups and substitutions. A leading reserved word
+    (``if``, ``then``, ``{``, ``!`` …) is dropped from its segment. A shell
+    ``-c <string>`` segment is followed by the segments of its string (see
+    :func:`_shell_segments`).
 
     A command that cannot be tokenised yields no segments, unless it names a
     guarded head (``git`` / ``gh`` as a word, after quote removal) or holds an
@@ -623,8 +953,11 @@ def split_segments(command: str, _depth: int = 0, _bodies_stripped: bool = False
     marked ``untokenised``, which ``dispatch`` refuses, since the guards cannot
     see what such a line runs."""
     try:
-        tokens = shlex.split(command, comments=False)
-    except ValueError:
+        # A heredoc body naming a guarded head is data only where
+        # `_strip_heredoc_bodies` would strip it; elsewhere it may run.
+        run_bodies = _strip_heredoc_bodies(command) == command
+        commands = _Lexer(command, run_bodies).run()
+    except (ValueError, RecursionError):
         without_bodies = command if _bodies_stripped else _strip_heredoc_bodies(command)
         if without_bodies != command:
             # a heredoc body is data, and its apostrophes are not quoting
@@ -635,16 +968,17 @@ def split_segments(command: str, _depth: int = 0, _bodies_stripped: bool = False
         seg.untokenised = True
         return [seg]
     segments: list[Segment] = []
-    current: list[str] = []
-    for tok in tokens:
-        if tok in SHELL_OPERATORS:
-            if current:
-                segments.extend(_shell_segments(Segment(current, shlex.join(current), command), _depth))
-                current = []
-        else:
-            current.append(tok)
-    if current:
-        segments.extend(_shell_segments(Segment(current, shlex.join(current), command), _depth))
+    for cmd in commands:
+        start = 0
+        while start < len(cmd.tokens) and cmd.tokens[start] in _RESERVED_WORDS:
+            start += 1
+        tokens = cmd.tokens[start:]
+        if not tokens:
+            continue
+        raw = shlex.join(tokens)
+        if cmd.bodies:
+            raw += "\n" + "\n".join(cmd.bodies)
+        segments.extend(_shell_segments(Segment(tokens, raw, command), _depth))
     return segments
 
 

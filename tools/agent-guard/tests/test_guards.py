@@ -490,6 +490,71 @@ def test_compound_command_other_segment_not_denied():
     assert dispatch(command) is None
 
 
+_TRAILER_COMMIT = 'git commit -m "x\nCo-Authored-By: a"'
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        # A newline ends a command, as `;` does.
+        f"echo hi\n{_TRAILER_COMMIT}",
+        # Control operators split a command with or without spaces around them.
+        f"echo hi;{_TRAILER_COMMIT}",
+        f"true&&{_TRAILER_COMMIT}",
+        f"false||{_TRAILER_COMMIT}",
+        f"echo hi|{_TRAILER_COMMIT}",
+        f"sleep 1&{_TRAILER_COMMIT}",
+        f"echo hi|&{_TRAILER_COMMIT}",
+        # Subshells, groups, reserved words and comments.
+        f"({_TRAILER_COMMIT})",
+        f"{{ {_TRAILER_COMMIT}; }}",
+        f"if true; then {_TRAILER_COMMIT}; fi",
+        f"case x in x) {_TRAILER_COMMIT};; esac",
+        f"! {_TRAILER_COMMIT}",
+        f"echo hi # it's a note\n{_TRAILER_COMMIT}",
+        f"f() {{ {_TRAILER_COMMIT}; }}; f",
+        # A continued line joins the next: `x#'` is a word, not a comment.
+        f"echo x\\\n#'\ncat <<EOF\n'\n{_TRAILER_COMMIT}\nEOF",
+        # Substitutions run their command.
+        f"echo $({_TRAILER_COMMIT})",
+        f'echo "$({_TRAILER_COMMIT})"',
+        f"echo `{_TRAILER_COMMIT}`",
+        f"cat <({_TRAILER_COMMIT})",
+        f"echo ${{x:-$({_TRAILER_COMMIT})}}",
+        f"echo $(( $({_TRAILER_COMMIT}) ))",
+        # A heredoc fed to a shell runs its body.
+        f"bash <<'EOF'\n{_TRAILER_COMMIT}\nEOF",
+        # An unquoted heredoc expands its substitutions.
+        f"cat <<EOF > notes.md\n$({_TRAILER_COMMIT})\nEOF",
+    ],
+)
+def test_every_command_of_a_line_is_checked(command):
+    assert dispatch(command) is not None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "echo 'a;git push' \"b && gh pr merge 5\"",
+        "ls 2>&1 | grep x",
+        "make >/dev/null 2>&1 &",
+        "echo hi &>/dev/null",
+        "echo hi >| out.txt",
+        "cat <<< 'git notes'",
+        "cat <<'EOF' > notes.md\ngit commit -m x\nCo-Authored-By: a\nEOF",
+        "echo hi # git commit -m x Co-Authored-By: a",
+        "for f in a b; do echo $f; done",
+    ],
+)
+def test_quoted_and_redirection_text_is_not_a_command(command):
+    assert dispatch(command) is None
+
+
+def test_heredoc_body_stays_on_the_commit_it_feeds():
+    command = "git commit -F - <<'EOF'\nfix\n\nCo-Authored-By: a\nEOF"
+    assert dispatch(command) is not None
+
+
 @pytest.mark.parametrize(
     "command",
     [
@@ -600,17 +665,16 @@ def test_heredoc_that_runs_or_never_closes_is_not_stripped(command):
     "command",
     [
         # `<<EOF` inside a comment or quotes opens no heredoc: bash runs the
-        # next line as a command.
-        "cat /dev/null # <<EOF it's\ngit push --force\nEOF",
-        "cat /dev/null '<<EOF' # it's\ngit push --force\nEOF",
-        "cat /dev/null \"<<EOF\" $'it\\'s'\ngit push --force\nEOF",
+        # next line as a command, and the guards check it.
+        f"cat /dev/null # <<EOF it's\n{_TRAILER_COMMIT}\nEOF",
+        f"cat /dev/null '<<EOF' # it's\n{_TRAILER_COMMIT}\nEOF",
+        f"cat /dev/null \"<<EOF\" $'it\\'s'\n{_TRAILER_COMMIT}\nEOF",
         # A quote opened on an earlier line is still open.
-        "echo 'x\ncat <<EOF' # it's\ngit push --force\nEOF",
+        f"echo 'x\ncat <<EOF' # it's\n{_TRAILER_COMMIT}\nEOF",
     ],
 )
 def test_heredoc_operator_in_a_comment_or_quotes_is_not_a_heredoc(command):
-    reason = dispatch(command)
-    assert reason and "agent-guard[parse]" in reason
+    assert dispatch(command) is not None
 
 
 @pytest.mark.parametrize(
@@ -656,14 +720,15 @@ def test_quoted_heredoc_body_substitution_is_data():
     "command",
     [
         # `<<` as a shift operator opens no heredoc.
-        "cat /dev/null $((1<<x)) # it's\ngit push --force\nx",
-        "cat /dev/null $[1<<x] # it's\ngit push --force\nx",
-        "cat /dev/null ${a[1<<x]} # it's\ngit push --force\nx",
+        f"cat /dev/null $((1<<x)) # it's\n{_TRAILER_COMMIT}\nx",
+        f"cat /dev/null $[1<<x] # it's\n{_TRAILER_COMMIT}\nx",
+        f"cat /dev/null ${{a[1<<x]}} # it's\n{_TRAILER_COMMIT}\nx",
+        # A `<<` inside arithmetic opened on an earlier line.
+        f"echo $((1 +\ncat <<x)) # it's\n{_TRAILER_COMMIT}\nx",
     ],
 )
 def test_shift_operator_is_not_a_heredoc(command):
-    reason = dispatch(command)
-    assert reason and "agent-guard[parse]" in reason
+    assert dispatch(command) is not None
 
 
 @pytest.mark.parametrize(
@@ -671,14 +736,13 @@ def test_shift_operator_is_not_a_heredoc(command):
     [
         # bash's delimiter is the whole word after quote removal: `E-O:F`,
         # `EOF`; a shorter one would close the body too late.
-        "cat <<E-O:F # it's\nE-O:F\ngit push --force\nE-O",
-        "cat <<'E'OF # it's\nEOF\ngit push --force\nE",
-        'cat <<E"O"F # it\'s\nEOF\ngit push --force\nE',
+        f"cat <<E-O:F # it's\nE-O:F\n{_TRAILER_COMMIT}\nE-O",
+        f"cat <<'E'OF # it's\nEOF\n{_TRAILER_COMMIT}\nE",
+        f'cat <<E"O"F # it\'s\nEOF\n{_TRAILER_COMMIT}\nE',
     ],
 )
 def test_heredoc_delimiter_is_the_whole_word(command):
-    reason = dispatch(command)
-    assert reason and "agent-guard[parse]" in reason
+    assert dispatch(command) is not None
 
 
 @pytest.mark.parametrize(
@@ -700,8 +764,6 @@ def test_heredoc_with_a_quoted_delimiter_word_is_data(command):
         "cat $(echo x) <<'EOF'\nthe user's git notes\nEOF",
         "cat <<'EOF' > \"$f\"\nthe user's git notes\nEOF",
         "x/cat <<'EOF'\nthe user's git notes\nEOF",
-        # A `<<` inside arithmetic opened on an earlier line.
-        "echo $((1 +\ncat <<x)) # it's\ngit push --force\nx",
         # The intro continues the previous line: `bash -s` runs stdin.
         "bash -s \\\ncat <<'EOF'\nit's\ngit push --force\nEOF",
         # `cat` redefined as a function or alias.

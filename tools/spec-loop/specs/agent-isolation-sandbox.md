@@ -226,6 +226,14 @@ See `docs/adapters/goose.md`.
   option or another `command` flag, is marked unparsed and refused, and
   `env -S` is refused outright, because GNU env splits its string with
   escapes `shlex` does not reproduce (#1691, #1694).
+  A command line is split into commands as bash splits it: on newlines
+  and on control operators with or without surrounding spaces, into
+  subshells, groups, command / process substitutions (also inside double
+  quotes, arithmetic and `${…}`) and, past a leading reserved word, the
+  command that runs; redirections stay words and `#` comments are skipped.
+  A heredoc body is checked as commands when it names `git` / `gh` and is
+  fed to anything but a bare `cat` / `tee`, and its substitutions are
+  checked when its delimiter is unquoted.
   A shell's `-c` string (`bash` / `sh` / `zsh -c`), or `eval`'s arguments (after one `--`; an `eval` with an option is refused), is split and checked
   as a command line of its own, one level deep; a nested `-c` string
   naming `git` or `gh` is refused, as is a line whose quoting cannot be

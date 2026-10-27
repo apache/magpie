@@ -29,6 +29,7 @@ the same :func:`agent_guard.dispatch` core that backs Claude Code and OpenCode.
 from __future__ import annotations
 
 import os
+import shlex
 import subprocess
 import sys
 
@@ -89,7 +90,8 @@ def test_check_fail_open_on_dispatch_error(
 def test_check_decision_matches_dispatch() -> None:
     """--check must deny exactly what dispatch() denies (shared core)."""
     command_tokens = ["git", "commit", "-m", "x\n\nCo-Authored-By: A <a@b.c>"]
-    dispatch_denies = agent_guard.dispatch(" ".join(command_tokens)) is not None
+    # Quoted as check_main quotes it: unquoted, the newline would end the command.
+    dispatch_denies = agent_guard.dispatch(shlex.join(command_tokens)) is not None
     check_denies = agent_guard.check_main(command_tokens) == agent_guard.DENY_EXIT
     assert dispatch_denies is check_denies is True
 
