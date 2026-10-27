@@ -79,6 +79,8 @@ export function decide(event: GooseEvent, policy: Policy, approving: boolean, gu
 	let path = typeof input[arg] === "string" ? (input[arg] as string) : ".";
 	const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(path)?.[1]?.toLowerCase();
 	if (scheme && scheme.length > 1) {
+		// Only the fetching tools take URLs: a scheme on a write path is refused.
+		if (!readArg) return `Magpie: ${name} of ${path} is not allowed: write tools take a file path, not a URL`;
 		// A remote page is the sandbox's network allowlist's business; a file
 		// URL is a path like any other; anything else is refused outright.
 		if (scheme === "http" || scheme === "https") return null;

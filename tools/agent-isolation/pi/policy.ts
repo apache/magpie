@@ -233,7 +233,9 @@ export class Policy {
 /**
  * The paths a file tool would really touch: the literal one, and its target
  * with every symlink resolved (for a file that does not exist yet, through
- * its nearest existing parent), so a link cannot reach a denied path.
+ * its nearest existing parent), so a link cannot reach a denied path. The
+ * native realpath also returns the on-disk letter case, so `~/.SSH` on a
+ * case-insensitive filesystem is checked as `~/.ssh`.
  */
 export function candidates(path: string, cwd: string, depth = 0): string[] {
 	const literal = expandPath(path, cwd);
@@ -255,7 +257,7 @@ export function candidates(path: string, cwd: string, depth = 0): string[] {
 	}
 	let real: string;
 	try {
-		real = rest ? join(realpathSync(existing), rest) : realpathSync(existing);
+		real = rest ? join(realpathSync.native(existing), rest) : realpathSync.native(existing);
 	} catch {
 		return [literal];
 	}
@@ -325,7 +327,7 @@ function realPrefix(base: string): string {
 		dir = dirname(dir);
 	}
 	try {
-		const real = realpathSync(dir);
+		const real = realpathSync.native(dir);
 		return real === "/" ? rest || "/" : `${real}${rest}`;
 	} catch {
 		return base;

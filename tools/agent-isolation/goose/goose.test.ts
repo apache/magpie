@@ -19,7 +19,7 @@
 // tools/agent-isolation/tests/test_pi_policy.py wraps it.
 
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -71,6 +71,17 @@ test("file tools on credential paths are blocked", () => {
 	assert.match(decide(event("load", { source: "ftp://example.com/x" }), policy, true, noGuard) ?? "", /not allowed/);
 	assert.match(decide(event("read_image", { source: "data:image/png;base64,AA" }), policy, true, noGuard) ?? "", /not allowed/);
 	assert.equal(decide(event("tree", { path: "." }), policy, true, noGuard), null);
+});
+
+test("a URL on a write tool is refused, not exempted", () => {
+	const write = { tool_name: "write", tool_input: { path: "https://example.com/x", content: "x" }, working_dir: ws };
+	assert.match(decide(write, policy, true, noGuard) ?? "", /not a URL/);
+});
+
+test("letter case cannot dodge a path rule on a case-insensitive filesystem", () => {
+	// Holds where the filesystem folds case (macOS default); a no-op elsewhere.
+	const event = { tool_name: "load", tool_input: { source: "~/.SSH/known_hosts" }, working_dir: ws };
+	if (existsSync(join(homedir(), ".SSH"))) assert.ok(decide(event, policy, true, noGuard));
 });
 
 test("writes to Goose's own configuration are blocked", () => {

@@ -44,7 +44,7 @@ if (!goose) {
 if (!existsSync(SRT)) {
 	process.stderr.write(
 		`[goose-iso] sandbox runtime missing at ${SRT}\n` +
-			`  install it with: npm ci --omit=dev --ignore-scripts --prefix ${PLUGIN}\n`,
+			`  install it with: npm ci --omit=dev --legacy-peer-deps --ignore-scripts --prefix ${PLUGIN}\n`,
 	);
 	process.exit(1);
 }
