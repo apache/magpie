@@ -309,6 +309,37 @@ def test_antigravity_extract_names_the_tool_whose_denial_ended_the_turn():
         BACKENDS["antigravity"].extract(_agy_stream(result), CTX)
 
 
+def test_antigravity_extract_names_a_handoff_to_a_subagent():
+    # As captured from agy on 2026-10-27: asked to list and search, it starts a
+    # research subagent and the turn ends, SUCCESS, on a "waiting" note.
+    events = [
+        {"event": "init", "init": {"permission_mode": "request-review"}},
+        {
+            "event": "step_update",
+            "step_update": {"state": "ACTIVE", "step_type": "tool", "tool_name": "invoke_subagent"},
+        },
+        {
+            "event": "step_update",
+            "step_update": {"state": "DONE", "step_type": "subagent", "tool_name": "invoke_subagent"},
+        },
+        {
+            "event": "result",
+            "result": {
+                "status": "SUCCESS",
+                "response": "Waiting for the research subagent to explore the workspace.",
+            },
+        },
+    ]
+    stdout = "\n".join(json.dumps(e) for e in events) + "\n"
+    with pytest.raises(BackendOutputError, match="handed the review to a subagent"):
+        BACKENDS["antigravity"].extract(stdout, CTX)
+
+
+def test_antigravity_note_forbids_subagents_and_names_the_tools():
+    for word in ("subagent", "list_dir", "find_by_name", "grep_search", "view_file"):
+        assert word in ANTIGRAVITY_TOOL_NOTE
+
+
 def test_antigravity_extract_empty_response():
     with pytest.raises(BackendOutputError, match="no `response` text"):
         BACKENDS["antigravity"].extract(_agy_stream({"status": "SUCCESS", "response": " \n"}), CTX)

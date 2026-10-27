@@ -211,11 +211,22 @@ ANTIGRAVITY_EXECUTABLE_CONFIG = tuple(
 
 #: Appended to the prompt agy gets. Headless agy cannot ask for approval, and
 #: the first tool it denies ends the whole turn with an empty response, so a
-#: reviewer that reaches for a shell command loses its review.
+#: reviewer that reaches for a shell command loses its review. Asked to list
+#: or search, agy also hands the work to a research subagent, which headless
+#: mode does not wait for: the turn ends on "waiting for the subagent". And
+#: told only "file reads", it reads directories file by file. So the note
+#: names the tools that work.
 ANTIGRAVITY_TOOL_NOTE = (
-    "\n\nUse only file reads and searches. Do not run shell commands, fetch URLs or call MCP tools: "
-    "this run cannot approve them, and a denied tool ends the review with no answer.\n"
+    "\n\nUse only these tools: list_dir to list a directory, find_by_name to find files, "
+    "grep_search to search text, and view_file or read_file to read a file. "
+    "Do not run shell commands, fetch URLs or call MCP tools: "
+    "this run cannot approve them, and a denied tool ends the review with no answer. "
+    "Do not start or define subagents: this run ends before a subagent reports back, "
+    "so its work is lost.\n"
 )
+
+#: Step types and tools that hand the turn to a subagent.
+ANTIGRAVITY_SUBAGENT_TOOLS = frozenset({"invoke_subagent", "define_subagent", "manage_subagents"})
 
 
 def _antigravity(ctx: RunContext) -> Invocation:
@@ -250,6 +261,7 @@ ANTIGRAVITY_READ_ONLY_MODES = ("request-review", "strict", "proceed-in-sandbox")
 def _antigravity_extract(stdout: str, ctx: RunContext) -> str:
     result = None
     mode = None
+    subagent = False
     for line in stdout.splitlines():
         try:
             event = json.loads(line)
@@ -257,6 +269,14 @@ def _antigravity_extract(stdout: str, ctx: RunContext) -> str:
             continue
         if isinstance(event, dict) and event.get("event") == "init" and isinstance(event.get("init"), dict):
             mode = event["init"].get("permission_mode")
+        if (
+            isinstance(event, dict)
+            and event.get("event") == "step_update"
+            and isinstance(event.get("step_update"), dict)
+        ):
+            step = event["step_update"]
+            if step.get("step_type") == "subagent" or step.get("tool_name") in ANTIGRAVITY_SUBAGENT_TOOLS:
+                subagent = True
         if isinstance(event, dict) and event.get("event") == "result":
             result = event.get("result")
     # The mode comes from the user's settings, not this command line, so a
@@ -274,6 +294,13 @@ def _antigravity_extract(stdout: str, ctx: RunContext) -> str:
     if status != "SUCCESS":
         raise BackendOutputError(f"antigravity reported status {status!r}: {result.get('error')}")
     response = result.get("response")
+    if subagent:
+        # Whatever came back was written before the subagent reported: at
+        # best a "waiting for the subagent" note, never the review.
+        raise BackendOutputError(
+            "agy handed the review to a subagent, and headless mode ends the turn before a subagent "
+            "reports back, so there is no review"
+        )
     if not isinstance(response, str) or not response.strip():
         denied = [
             str(d.get("display_name") or d.get("action"))
