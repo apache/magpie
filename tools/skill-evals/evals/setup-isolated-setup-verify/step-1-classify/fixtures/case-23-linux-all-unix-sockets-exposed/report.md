@@ -44,6 +44,7 @@ command -v podman → /usr/bin/podman
 ~/.claude/settings.local.json hooks:
   SessionStart → /home/alice/.claude/scripts/container-gateway-hook.sh start
   SessionEnd → /home/alice/.claude/scripts/container-gateway-hook.sh stop
+  PreToolUse (matcher Bash) → /home/alice/.claude/scripts/container-gateway-hook.sh ensure
 test -x /home/alice/.claude/scripts/container-gateway-hook.sh → exists, executable
 
 cat /home/alice/tracker/.claude/settings.local.json:

@@ -44,7 +44,7 @@
     {
       "n": 9,
       "status": "✓",
-      "evidence": "only vetted-op-read in allow, vetted-op in ask; Edit+Write denied on catalogue and policy"
+      "evidence": "only vetted-op-read in allow, vetted-op in ask; Edit denied on the catalogue, ~/.claude/magpie/**, and the policy in .apache-magpie-overrides and every personal layer"
     },
     {
       "n": 10,

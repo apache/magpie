@@ -66,7 +66,8 @@ Live probe: read .git/HEAD OK; write .magpie-verify-probe.tmp OK (removed).
 ## Check 9 — vetted-ops split and exclusion
 
 permissions.allow contains vetted-op-read only; vetted-op is in ask.
-permissions.deny has Edit on ~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**, ~/.claude/magpie/** and .apache-magpie-overrides/tools/vetted-ops/**.
+permissions.deny has Edit on ~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**, ~/.claude/magpie/**, .apache-magpie-overrides/tools/vetted-ops/**,
+//**/.git/**/apache-magpie/tools/vetted-ops/**, //**/.svn/apache-magpie/tools/vetted-ops/** and //**/.apache-magpie-local/tools/vetted-ops/**.
 
 ## Check 10 — Hardware-key touch overlay and the signing key
 
@@ -78,6 +79,8 @@ Key type (the user ran `cut -d' ' -f1 ~/.ssh/id_ed25519_sk.pub` from their own t
 10a — wiring and scripts:
   PreToolUse Bash → ~/.claude/scripts/gpg-touch-overlay.sh arm
   PostToolUse Bash → ~/.claude/scripts/gpg-touch-overlay.sh disarm
+  PermissionDenied Bash → ~/.claude/scripts/gpg-touch-overlay.sh disarm
+  PostToolUseFailure Bash → ~/.claude/scripts/gpg-touch-overlay.sh disarm
   ~/.claude/scripts/gpg-touch-overlay.sh: -rwxr-xr-x, identical to tools/agent-isolation/gpg-touch-overlay.sh
   ~/.claude/scripts/gpg-touch-overlay-window-macos.py: -rwxr-xr-x, identical to tools/agent-isolation/gpg-touch-overlay-window-macos.py
 
