@@ -18,7 +18,7 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:1f327e069312dad2
 license: Apache-2.0
-measured_tokens: 5652
+measured_tokens: 5327
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -174,21 +174,8 @@ Walk each:
      **Surface the documented trade-off when reporting it**: the schema warns it "reduces security — opens a potential data-exfiltration vector through the trustd service," so the user decides whether to keep it.
      macOS-only, and a no-op outside the sandbox, e.g. in CI.
 5. **comdev MCP checkouts (`ponymail`, `apache-projects`).**
-   These ASF MCP servers are installed from a local `apache/comdev` checkout and are **tracked at `main`, not pinned**.
-   Unlike the system tools in check 2, there is no cooldown and no manifest bump, because comdev ships them as in-repo source with no tagged releases (see [`tools/ponymail/tool.md` → Keeping the checkout current](../../../../tools/ponymail/tool.md#keeping-the-checkout-current)).
-   For each server registered in the user/project `mcpServers` config, resolve the checkout root from its `args` path (`<comdev>/mcp/<server>/index.js`), then:
-   - Confirm `origin` is an `apache/comdev` URL and the checkout is on `main` (`git -C <root> rev-parse --abbrev-ref HEAD`).
-     Flag a detached HEAD / feature branch as drift; remediation `git -C <root> checkout main`.
-   - Run `git -C <root> fetch origin main` (the live fetch the read-only verify skill defers to update) and report the behind-count (`git -C <root> rev-list --count HEAD..origin/main`).
-     When behind, print — do not run — the refresh commands:
-
-     ```bash
-     git -C <root> pull --ff-only
-     ( cd <root>/mcp/<server> && npm install )
-     ```
-
-   Surface the upstream compare link (`https://github.com/apache/comdev/compare/<local-sha>...main`) so the operator can see what changed before pulling.
-   Do not pull or `npm install` for them — the fast-forward stays an explicit, user-run step, same as the framework-checkout pull in check 1.
+   Only when one of them is registered in the user or project `mcpServers` config.
+   The check: [`comdev-mcp.md`](comdev-mcp.md).
 6. **Re-verify.**
    Run the three denial commands as standalone Bash invocations (not chained — see [setup-isolated-setup-verify](../isolated-setup-verify/SKILL.md) for why).
    Report any newly-allowed call as a regression that warrants attention.
