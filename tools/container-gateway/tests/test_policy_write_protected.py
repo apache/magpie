@@ -198,6 +198,7 @@ def test_agent_config_paths_are_protected(root: Path, rel: str) -> None:
         ".pi",
         ".cursor/rules",
         ".aider.conf.yml",
+        ".env",
     ],
 )
 def test_other_harnesses_config_paths_are_protected(root: Path, rel: str) -> None:
@@ -213,6 +214,26 @@ def test_the_worktrees_directory_is_protected_before_any_worktree_exists(root: P
     assert _refused(_binds(f"{worktrees}:/w"), ctx)
     assert _refused(_binds(f"{root / '.claude'}:/w"), ctx)
     assert _refused(_binds(f"{worktrees}:/w"), _ctx(root.parent / "elsewhere", root))
+
+
+def test_a_path_in_a_worktree_that_does_not_exist_yet_is_refused(root: Path) -> None:
+    """`-v` would create it, and the container would fill it before a worktree is made."""
+    (root / ".claude" / "worktrees").mkdir(parents=True)
+    ctx = _ctx(root)
+    assert _refused(_binds(f"{root / '.claude' / 'worktrees' / 'new'}:/w"), ctx)
+    assert _refused(_binds(f"{root / '.claude' / 'worktrees' / 'new' / 'src'}:/w"), ctx)
+
+
+def test_worktrees_nested_at_any_depth_are_protected(root: Path) -> None:
+    deep = root / ".claude" / "worktrees" / "a" / ".claude" / "worktrees" / "b"
+    (deep / "build").mkdir(parents=True)
+    (deep / ".claude" / "worktrees").mkdir(parents=True)
+    ctx = _ctx(root)
+    assert _refused(_binds(f"{deep / '.claude' / 'settings.json'}:/w"), ctx)
+    assert _refused(_binds(f"{deep / '.git'}:/w"), ctx)
+    assert _refused(_binds(f"{deep / '.claude' / 'worktrees'}:/w"), ctx)
+    assert _refused(_binds(f"{deep / '.claude' / 'worktrees' / 'c'}:/w"), ctx)
+    assert check_create(_binds(f"{deep / 'build'}:/w"), ctx, libpod=False) is None
 
 
 def test_a_worktrees_own_worktrees_directory_is_protected(root: Path) -> None:

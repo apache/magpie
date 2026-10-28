@@ -318,6 +318,7 @@ _WRITE_PROTECTED_IN_TREE = (
     ".pi",
     ".cursor",
     ".aider.conf.yml",  # lint-cmd / test-cmd run commands
+    ".env",  # Aider loads it from the git root: AIDER_LINT_CMD, AIDER_TEST_CMD
 )
 # Where Claude Code keeps a checkout's linked worktrees: each one carries its
 # own copy of the paths above, protected in place (the worktree itself stays
@@ -457,6 +458,32 @@ def _write_protected_hit(src: str, ctx: PolicyContext) -> Path | None:
             for spelling in spellings:
                 if _same_or_ancestor(real, spelling):
                     return spelling
+    return _worktree_component_hit(real)
+
+
+def _worktree_component_hit(real: Path) -> Path | None:
+    """The protected path `real` reaches through a `.claude/worktrees` in its own path.
+
+    Walked at every depth, so a worktree inside a worktree is covered however
+    deep it sits: `real` may not be a worktrees directory, nor sit in a
+    worktree directory that does not exist yet (`-v` would create it, and the
+    container would fill it before a worktree is made there), nor cover one of
+    an existing worktree's own in-tree entries.
+    """
+    parts = real.parts
+    folded = [part.casefold() for part in parts]
+    for i in range(len(parts) - 1):
+        if (folded[i], folded[i + 1]) != (".claude", "worktrees"):
+            continue
+        if len(parts) == i + 2:
+            return real
+        worktree = Path(*parts[: i + 3])
+        if not worktree.is_dir():
+            return worktree
+        for rel in _WRITE_PROTECTED_IN_TREE:
+            entry = worktree / rel
+            if _same_or_ancestor(real, entry) or _same_or_ancestor(entry, real):
+                return entry
     return None
 
 
