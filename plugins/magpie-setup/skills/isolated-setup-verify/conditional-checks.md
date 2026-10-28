@@ -470,7 +470,7 @@ reading this file; read the section for a check whose condition holds.
 
     - **16f — the checkout is not a working directory.** No `permissions.additionalDirectories` entry in any scope overlaps `$HOME/.claude/magpie`: that path, its `~` spelling, anything inside it (such as `~/.claude/magpie/vetted-ops`, which the read-block prompt names), or a parent such as `$HOME/.claude` or `$HOME`.
       The sandbox makes every working directory writable to sandboxed Bash whatever `allowWrite` says, and the 16e exclusions run that checkout's code outside the sandbox, so a covering entry lets sandboxed code change what runs outside it.
-      Older versions of `sandbox-add-project-root.sh` added the entry; re-running the updated script (`--all-worktrees`) removes `$HOME/.claude/magpie` and `~/.claude/magpie` from project-local files. A parent directory, or an entry in user or committed project scope, needs a hand edit; [install Step V.1](../isolated-setup-install/SKILL.md#step-v1--read-only-vetted-ops-must-never-prompt) item 7 proposes it.
+      Older versions of `sandbox-add-project-root.sh` added the entry; re-running the updated script (`--all-worktrees`) removes `$HOME/.claude/magpie` and `~/.claude/magpie` from project-local files. A parent directory, or an entry in user or committed project scope, needs a hand edit; [install Step V.1](../isolated-setup-install/step-v-vetted-ops.md#step-v1--read-only-vetted-ops-must-never-prompt) item 7 proposes it.
     [The required shape and why](../../../../docs/setup/secure-agent-setup.md#read-only-vetted-ops-never-prompt).
 
 ## Check 17 — roborev exclusion, if installed
