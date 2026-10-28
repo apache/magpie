@@ -100,7 +100,11 @@ same directory; the behaviour is unchanged.
   posts on maintainer confirmation. Ships `mode: Triage` + `experimental`.
   Selection, scans, the slop threshold, disposition, inline anchoring and the
   review payload run as code in `pr_management.code_review`; the agent judges
-  H1/H5/S2, writes the findings and assigns severity. Detail files include
+  H1/H5/S2, writes the findings and assigns severity.
+  An inline comment carries the finding as the review body does (its
+  `quoted_rule` and `suggestion`), minus the excerpt it is anchored on, and
+  a folded finding falls back to its suggestion before its rule, never the
+  bare rule label (#1853). Detail files include
   `prerequisites.md`, `review-flow.md`, `review-loop.md`, `criteria.md`,
   `adversarial.md`, `posting.md`, one file per outcome under
   `classifications/` and per category under `criteria/`.

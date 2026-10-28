@@ -131,7 +131,12 @@ before the PR is created, through one shared block.
   `stream-json` user message and no permission flag, so headless Antigravity
   denies every tool that needs approval (the first denial ends its turn with
   an empty answer, so its brief asks for file reads and searches only, and a
-  run that still hits one is an `error` naming the denied tool); `goose run --no-session` with
+  run that still hits one is an `error` naming the denied tool).
+  The brief names the tools that work (`list_dir`, `find_by_name`,
+  `grep_search`, `view_file` / `read_file`) and forbids subagents, because
+  headless agy asked to list or search a tree hands off to a research
+  subagent and ends its turn at once; a run that does so is reported as a
+  subagent handoff, and an empty run says why (#1871, #1852); `goose run --no-session` with
   `GOOSE_MODE=chat`, Goose's chat-only mode, which runs no tools at all;
   `claude -p` with
   `--strict-mcp-config` and Bash, the editing tools, web access and `Task`
@@ -154,7 +159,10 @@ before the PR is created, through one shared block.
   private tracker the report says so in `warnings`.
 - **One findings schema, merged.** Every reviewer answers against the same
   schema (`severity`, `file`, `line`, `claim`, `evidence`). Parsing keeps the
-  good findings from a partly malformed reply and reports the bad ones;
+  good findings from a partly malformed reply and reports the bad ones,
+  with the reviewer's stderr and its raw output cut to the first 500 and
+  last 1500 characters, since a streamed reply's last event says how the
+  run ended (#1854);
   findings are de-duplicated across reviewers, keeping every reviewer's name,
   and sorted by severity.
 - **Bounded and interruptible.** Reviewers run in parallel, each with a

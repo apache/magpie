@@ -92,6 +92,15 @@ directories (`plugins/magpie-<family>/skills/<alias>/SKILL.md`); the flat
 `skills/<dir>` tree mirrors each one back with a single-hop symlink. Their
 manifest is Claude Code's `.claude-plugin/plugin.json`, but they are not
 Claude-Code-only: Codex installs them by falling through to that same file.
+The exception is a plugin whose `hooks/hooks.json` carries Claude Code mods
+(`$schema`, `modules`), which Codex's strict hooks schema rejects whole:
+`magpie-setup`, `magpie-utilities` and `magpie-security` each carry a
+complete `.codex-plugin/plugin.json` (read instead of the Claude manifest)
+whose `hooks` names a clean `hooks/codex-hooks.json` — the `startup`
+upgrade check (`/bin/bash -p check-upgrade.sh`) for `magpie-setup`, an empty
+file for the other two (#1836, #1676).
+`tools/dev/check-family-plugins.py --fix` generates them and fails a Codex
+catalogue plugin whose Codex-visible hook file has any other top-level key.
 
 `magpie-setup` also carries two non-skill payloads as real files inside its
 plugin root, because `setup config` installs them from the plugin on a

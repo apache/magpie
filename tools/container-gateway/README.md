@@ -116,6 +116,8 @@ The agent harness refuses sandboxed writes to the files that configure or run co
 So a bind that is writable is refused when its source is, contains, or sits under any of:
 
 - `.claude/settings.json`, `.claude/settings.local.json`, `.claude/hooks`, `.claude/skills`, `.claude/commands`, `.claude/agents` and `.mcp.json` under the project root, under every `--extra-bind-root`, and under the main checkout of a linked worktree, and inside each worktree under any of those roots' `.claude/worktrees/`;
+- the other harnesses' workspace config in the same places, where each keeps its hooks, MCP servers, plugins, rules or skills ([`docs/adapters/`](../../docs/adapters/)): `.agents/`, `.agent/`, `.codex/`, `.github/hooks/`, `.github/copilot/`, `.github/skills/`, `.gemini/`, `.grok/`, `.junie/`, `.kiro/`, `.opencode/`, `opencode.json`, `opencode.jsonc`, `.pi/`, `.cursor/` and `.aider.conf.yml`;
+- the `.claude/worktrees/` directory itself and what holds it (and each existing worktree's own), even before any worktree is in it, since one created while the container runs would get its `.claude/` and `.git` from the container (a bind inside one worktree is checked against that worktree's own entries);
 - `.git` under each of those roots — the directory in a main checkout, the `gitdir:` file in a linked worktree or submodule;
 - the common git directory's `hooks` and `config`, and a linked worktree's own git directory (`.git/worktrees/<name>`), located by following the `.git` file, which matters when an extra bind root reaches them;
 - the run directory and the personal config layer.

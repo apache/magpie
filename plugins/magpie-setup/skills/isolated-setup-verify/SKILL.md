@@ -16,9 +16,9 @@ when_to_use: >-
   have started working — that is the canary for a denial having
   silently become an allow.
 capability: capability:platform
-surface_hash: sha256:ce33cb9437d44992
+surface_hash: sha256:e076930daa2da2cc
 license: Apache-2.0
-measured_tokens: 9925
+measured_tokens: 9923
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -99,7 +99,7 @@ Local modifications go in the override file; framework changes go via PR to `apa
   `git status` lists such placeholders as untracked (`.bash_profile`, `.claude/settings.json`, `.mcp.json`), and reading one returns nothing, so an empty settings file seen this way is not evidence for checks 1 or 6.
   Take the host state from git (`git ls-files <path>`, `git log -- <path>`) or from a read the user runs outside the sandbox, and never delete the placeholder.
 
-## The 12 checks
+## The checks
 
 The canonical list lives in
 [docs/setup/secure-agent-setup.md → Verification → Via a Claude Code prompt](../../../../docs/setup/secure-agent-setup.md#via-a-claude-code-prompt-1).

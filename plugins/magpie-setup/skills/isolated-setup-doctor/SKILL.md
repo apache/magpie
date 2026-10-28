@@ -19,9 +19,9 @@ when_to_use: >-
 capability:
   - capability:platform
   - capability:reassess
-surface_hash: sha256:7d670b572d43bbeb
+surface_hash: sha256:f8a5db3da24024cb
 license: Apache-2.0
-measured_tokens: 6952
+measured_tokens: 6950
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -89,7 +89,7 @@ If a fail shows a failure mode not catalogued there, propose appending a new ent
 - **Map each ✗ to a catalog entry.** The fail report links directly to the matching section of [`docs/setup/sandbox-troubleshooting.md`](../../../../docs/setup/sandbox-troubleshooting.md).
   Do not paraphrase the remediation; the catalog is the single source of truth.
 
-## The 8 probes
+## The probes
 
 The probes cover the catalog's failure modes that a sandboxed command can detect on its own; the signing entries that need a live touch or a terminal are verified by `setup-isolated-setup-verify` check 10 instead.
 New probes are added when new entries land in the catalog, so the two stay in lock-step.

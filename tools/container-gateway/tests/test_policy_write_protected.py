@@ -176,6 +176,54 @@ def test_agent_config_paths_are_protected(root: Path, rel: str) -> None:
     assert _refused(_binds(f"{root / rel}:/w"), _ctx(root))
 
 
+@pytest.mark.parametrize(
+    "rel",
+    [
+        ".agents",
+        ".agents/hooks.json",
+        ".agents/mcp_config.json",
+        ".agent/hooks.json",
+        ".codex",
+        ".codex/config.toml",
+        ".codex/rules",
+        ".github/hooks",
+        ".github/copilot/settings.json",
+        ".github/skills",
+        ".gemini/settings.json",
+        ".grok/hooks",
+        ".junie/mcp/mcp.json",
+        ".kiro/agents",
+        ".opencode/plugin",
+        "opencode.json",
+        ".pi",
+        ".cursor/rules",
+        ".aider.conf.yml",
+    ],
+)
+def test_other_harnesses_config_paths_are_protected(root: Path, rel: str) -> None:
+    """Each harness the gateway may serve runs code from its workspace config."""
+    assert _refused(_binds(f"{root / rel}:/w"), _ctx(root))
+
+
+def test_the_worktrees_directory_is_protected_before_any_worktree_exists(root: Path) -> None:
+    """A worktree created while the container runs would sit under the bind."""
+    worktrees = root / ".claude" / "worktrees"
+    worktrees.mkdir(parents=True)
+    ctx = _ctx(root)
+    assert _refused(_binds(f"{worktrees}:/w"), ctx)
+    assert _refused(_binds(f"{root / '.claude'}:/w"), ctx)
+    assert _refused(_binds(f"{worktrees}:/w"), _ctx(root.parent / "elsewhere", root))
+
+
+def test_a_worktrees_own_worktrees_directory_is_protected(root: Path) -> None:
+    wt = root / ".claude" / "worktrees" / "wt"
+    (wt / ".claude" / "worktrees").mkdir(parents=True)
+    (wt / "build").mkdir()
+    ctx = _ctx(root)
+    assert _refused(_binds(f"{wt / '.claude' / 'worktrees'}:/w"), ctx)
+    assert check_create(_binds(f"{wt / 'build'}:/w"), ctx, libpod=False) is None
+
+
 # --- what keeps working ---------------------------------------------------------
 
 
@@ -228,6 +276,17 @@ def test_a_symlinked_dot_claude_is_protected_where_it_points(tmp_path: Path) -> 
     root = root.resolve()
     assert _refused(_binds(f"{root / 'src' / 'real-claude'}:/w"), _ctx(root))
     assert check_create(_binds(f"{root / 'src' / 'real-claude'}:/w:ro"), _ctx(root), libpod=False) is None
+
+
+def test_the_worktrees_directory_behind_a_symlinked_dot_claude_is_protected(tmp_path: Path) -> None:
+    """Before it exists, so file identity cannot match it: `-v` would create it."""
+    root = tmp_path / "proj"
+    root.mkdir()
+    elsewhere = root / "src" / "real-claude"
+    elsewhere.mkdir(parents=True)
+    (root / ".claude").symlink_to(elsewhere)
+    root = root.resolve()
+    assert _refused(_binds(f"{root / 'src' / 'real-claude' / 'worktrees'}:/w"), _ctx(root))
 
 
 # --- linked worktrees -------------------------------------------------------------

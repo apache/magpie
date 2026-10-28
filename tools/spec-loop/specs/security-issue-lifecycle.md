@@ -389,6 +389,22 @@ publication, with a human gate and an audit-log entry at every step.
   paths outside the agreed file list, and print the commands, and
   `commit --scrub` / `new-branch --scrub` repeat the scrub before the
   VCS runs (exit `3` on a hit).
+- **A deterministic public-surface scrub mod backs the skill's own check
+  (#1676).** In Claude Code with the `magpie-security` plugin enabled,
+  `plugins/magpie-security/hooks/public-surface-scrub.ts` intercepts Bash
+  calls to `git commit` / `tag` / `merge`, `gh pr`, `gh issue`,
+  `gh release create` and `gh api`, reads the message or body they carry
+  (`-m`, `-F`, `--body-file`, heredocs and pipelines included), and blocks
+  the call on a forbidden term, at zero token cost when the text is clean.
+  It keeps no list of its own: `forbidden-terms.ts` is generated from
+  `magpie_vcs.publication.DEFAULT_TERMS` by
+  `tools/dev/sync-forbidden-terms.py`, which a pre-commit hook checks.
+  A command aimed at `tracker_repo` by an explicit `--repo` is exempt;
+  one aimed at `upstream_repo` or run in an upstream working tree is
+  scanned, and unrelated repositories pass unchecked.
+  `MAGPIE_ALLOW_EMBARGO_TERMS=1` is the maintainer's escape hatch after
+  disclosure, and the block message does not tell the agent how to
+  bypass it.
 - **Adversarial review before a PR, on public content only.**
   `security-issue-fix`, `security-issue-import-from-pr` (over the patch it
   verifies) and `security-issue-import-from-scan` carry the shared

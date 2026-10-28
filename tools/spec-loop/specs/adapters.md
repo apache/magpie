@@ -65,6 +65,8 @@ by swapping the adapter, not the skill.
 - `tools/mail-archive/` — static mailing-list archive reader for
   projects whose list history is in a local mbox/Maildir export.
 - `tools/jira/` — issue-tracker adapter for projects on Jira.
+  Its `bridge.groovy` refuses a non-HTTPS base URL and does not follow
+  redirects (#1862).
 - `tools/security-tracker/` — Markdown contract spec for
   `contract:security-tracker`: the operations the `security-*` skills perform
   on `<tracker>` (view, list, labels, field get/set, create, edit, comment,
@@ -167,6 +169,9 @@ by swapping the adapter, not the skill.
   one; a new rollup always gets the canonical marker, in `github-rollup`
   and `vetted-op-tracker rollup-append` alike (#1665).
   A comment's id is read from its `#issuecomment-<id>` URL.
+  A comment counts as the rollup only when its author is the
+  authenticated `gh` user or a repository collaborator, in `github-rollup`
+  and vetted-ops alike, so a non-collaborator cannot plant one (#1862).
   `tools/github/status-rollup.md` calls the tool instead of carrying its own
   script.
   Under the secure agent setup both tools' `gh` runs sandboxed and fails,
@@ -267,6 +272,9 @@ by swapping the adapter, not the skill.
   status (`builds.sr.ht`), and repository reads (`git.sr.ht`/`hg.sr.ht`)
   via GraphQL. Capability: `contract:tracker + contract:source-control +
   contract:mail-archive`.
+  Comment bodies go through `--body-file` only, a GraphQL mutation needs
+  `--allow-mutation`, and the service must be a bare sr.ht subdomain
+  (#1862).
 - `tools/asf-svn/` — ASF Subversion distribution backend: staging area
   reads, `svn` command-sequence generation for releases and KEYS updates.
   Never runs `svn commit`; emits paste-ready commands for the Release
@@ -325,6 +333,8 @@ by swapping the adapter, not the skill.
   printing one JSON document; `create_draft` only `APPEND`s to the drafts
   folder and never sends, and an operation whose folder is unset or missing
   declines with exit 3 so the resolution chain falls through (#1466).
+  It connects with a verified TLS context (`ssl.create_default_context()`,
+  #1862).
   `tools/mail-source/mailman3/` is a doc-only, read-only backend over
   Hyperkitty's JSON API (`list_recent_threads`, `read_thread`,
   `thread_url`); it has no drafts or sent view, so it pairs with a drafting
@@ -347,6 +357,8 @@ by swapping the adapter, not the skill.
   patch-over-Jira adapters; implement `contract:change-request` for
   projects that land patches via mailing-list review or Jira rather than
   GitHub PRs.
+  `jira-patch` pins the reviewed attachment by id and sha256 before it is
+  applied (#1862).
 - `tools/chat/` — the `contract:chat` interface (pure Markdown) for a
   project's public chat.
   Three verbs, `list_channels`, `resolve_user(github_handle)`, and
