@@ -74,8 +74,7 @@ error, and two skills that probe or verify the setup on demand.
   exiting 1 so the line reaches the model and the user. Tests under
   `tools/agent-isolation/tests/test_sandbox_error_hint.py`.
 - Skill `setup-isolated-setup-doctor` — live, read-only probes
-  (nine, `### Probe 1` to `### Probe 9`, under a section heading that
-  still reads `## The 8 probes`), each reporting ✓ / ✗ / ⊘ / ⚠ with the command
+  (nine, `### Probe 1` to `### Probe 9`, under `## The probes`), each reporting ✓ / ✗ / ⊘ / ⚠ with the command
   and its output as evidence, and each mapping ✗ to the matching
   catalog anchor. Each probe is a deterministic, side-effect-free
   script, `scripts/probe-<n>-<slug>.sh`, printing one
@@ -113,8 +112,8 @@ error, and two skills that probe or verify the setup on demand.
   which shows what an un-excluded `gh` does on this machine, then
   checks that `"gh *"` is configured.
 - Skill `setup-isolated-setup-verify` — static checks of the installed
-  configuration (numbered 1–17 under a section heading that still reads
-  `## The 12 checks`; 13, 14 and 17 optional): settings shape, hook wiring, hook scripts, wrapper,
+  configuration (numbered 1–17 under `## The checks`; 13, 14 and 17
+  optional): settings shape, hook wiring, hook scripts, wrapper,
   pinned versions, status line, denial canaries, project-root grant
   (check 8 — also the dev-tool paths, whose absence is ⚠ not ✗, and in
   whole-user scope the shared hook directory probed from inside the
@@ -293,8 +292,6 @@ PYTHONPATH=tools/skill-evals/src python3 -m skill_evals.runner \
   hook branch beside it" rule; the session-start hook's grant cleanup and `isolated-setup-update`'s
   must-fix report are its only other surfaces.
 - Probes 2, 4 and 6–9 still have no script tests.
-- The doctor's and verify skill's section headings (`## The 8 probes`,
-  `## The 12 checks`) lag their bodies (nine probes, seventeen checks).
 - A command that spells a working directory with a literal `~` still
   prompts under the read block even when the directory is listed. For
   the vetted-ops commands the setup closes this by requiring the read
