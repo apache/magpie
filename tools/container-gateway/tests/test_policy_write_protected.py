@@ -197,6 +197,7 @@ def test_agent_config_paths_are_protected(root: Path, rel: str) -> None:
         "opencode.json",
         ".pi",
         ".cursor/rules",
+        ".aider.conf.yml",
     ],
 )
 def test_other_harnesses_config_paths_are_protected(root: Path, rel: str) -> None:
@@ -212,6 +213,15 @@ def test_the_worktrees_directory_is_protected_before_any_worktree_exists(root: P
     assert _refused(_binds(f"{worktrees}:/w"), ctx)
     assert _refused(_binds(f"{root / '.claude'}:/w"), ctx)
     assert _refused(_binds(f"{worktrees}:/w"), _ctx(root.parent / "elsewhere", root))
+
+
+def test_a_worktrees_own_worktrees_directory_is_protected(root: Path) -> None:
+    wt = root / ".claude" / "worktrees" / "wt"
+    (wt / ".claude" / "worktrees").mkdir(parents=True)
+    (wt / "build").mkdir()
+    ctx = _ctx(root)
+    assert _refused(_binds(f"{wt / '.claude' / 'worktrees'}:/w"), ctx)
+    assert check_create(_binds(f"{wt / 'build'}:/w"), ctx, libpod=False) is None
 
 
 # --- what keeps working ---------------------------------------------------------

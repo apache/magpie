@@ -317,6 +317,7 @@ _WRITE_PROTECTED_IN_TREE = (
     "opencode.jsonc",
     ".pi",
     ".cursor",
+    ".aider.conf.yml",  # lint-cmd / test-cmd run commands
 )
 # Where Claude Code keeps a checkout's linked worktrees: each one carries its
 # own copy of the paths above, protected in place (the worktree itself stays
@@ -436,16 +437,26 @@ def _write_protected_hit(src: str, ctx: PolicyContext) -> Path | None:
     # a writable bind inside one worktree is checked against its own entries.
     # Spelled under the resolved root and fully resolved, like the entries
     # above, so a symlinked `.claude` is protected where it points too.
+    # Each existing worktree has a worktrees directory of its own, protected
+    # the same way (the in-tree entries above reach the same one level down).
     for root in (ctx.project_root, *ctx.bind_roots):
-        spellings: tuple[Path, ...]
         try:
-            nested = root.resolve(strict=False) / _NESTED_WORKTREES
-            spellings = (nested, nested.resolve(strict=False))
+            base = root.resolve(strict=False)
         except (OSError, RuntimeError):
-            spellings = (Path(os.path.abspath(root)) / _NESTED_WORKTREES,)
-        for spelling in spellings:
-            if _same_or_ancestor(real, spelling):
-                return spelling
+            base = Path(os.path.abspath(root))
+        try:
+            worktrees = [p for p in (base / _NESTED_WORKTREES).iterdir() if p.is_dir()]
+        except OSError:
+            worktrees = []
+        for home in (base, *worktrees):
+            nested = home / _NESTED_WORKTREES
+            try:
+                spellings = (nested, nested.resolve(strict=False))
+            except (OSError, RuntimeError):
+                spellings = (nested, nested)
+            for spelling in spellings:
+                if _same_or_ancestor(real, spelling):
+                    return spelling
     return None
 
 
