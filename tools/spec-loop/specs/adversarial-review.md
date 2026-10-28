@@ -114,7 +114,7 @@ before the PR is created, through one shared block.
   ([PR management family](pr-management-family.md)).
 - Setup wiring under `plugins/magpie-setup/skills/`: `setup/config.md`
   Step 3c, `setup/verify.md` 8i, `setup/adopt.md` 4a,
-  `isolated-setup-install/SKILL.md` Step R, and
+  `isolated-setup-install/step-r-adversarial-review.md` (Step R), and
   `isolated-setup-verify/conditional-checks.md` check 14.
 - The sandbox exclusion in `.claude/settings.json`, mirrored in
   `tools/sandbox-lint/expected.json`.

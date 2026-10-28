@@ -441,6 +441,5 @@ uv run --project tools/dev pytest tools/dev/tests/test_ci_pytest_batches.py tool
 - **The 500-line cap is advisory and still exceeded.** `skill-line-limit`
   is a SOFT check. After the family trims and deep splits (#1390
   pr-management, #1400 issue, #1435 to #1438 and #1672 security, #1620
-  release-management), two `SKILL.md` files remain over 500 lines:
-  `setup-isolated-setup-install` (615) and `security-issue-import-from-pr`
-  (511).
+  release-management, and the setup isolated-setup splits), one `SKILL.md`
+  remains over 500 lines: `security-issue-import-from-pr` (516).
