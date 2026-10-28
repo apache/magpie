@@ -60,7 +60,10 @@ triage history back into the document.
   (verify also `project.md`), so the generated pre-flight stops a run
   that lacks it (model-update gained its declaration in #1444).
 - Threat model: skill family F in `docs/security/threat-model.md`
-  (F.1–F.7, mitigations M.30–M.36).
+  *Appendix B — Security skill family STRIDE model* (F.1–F.7,
+  mitigations M.30–M.36); since #1859 the document's main body is the
+  project-wide model on the Alpha-Omega rubric (§1.1–§1.19), and
+  Magpie's own `SECURITY.md` points at it.
 - Scanner copy (#1786): `security-submit-to-oss-scan` (Drafting,
   `plugins/magpie-security/skills/submit-to-oss-scan/SKILL.md`, file
   contracts in `references/enrolment-files.md`) prepares the `enrol` or

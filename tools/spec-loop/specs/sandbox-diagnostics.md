@@ -47,7 +47,7 @@ error, and two skills that probe or verify the setup on demand.
   **Root cause** (which sandbox layer blocks it and why), **Fix** (a
   settings widening with per-entry rationale, or — for the `gh` entry —
   an invocation-shape rule, because there is nothing to widen), and
-  **Notes**. Twelve entries today: SSH agent / Yubikey, signed commit
+  **Notes**. Fourteen entries today: SSH agent / Yubikey, signed commit
   failing before any touch (`gpg.format=ssh` key unreadable), signed
   commit failing with `cannot exec` of the touch-overlay wrapper
   (`gpg.ssh.program` under the read-denied `~/.claude/scripts/`),
@@ -66,7 +66,17 @@ error, and two skills that probe or verify the setup on demand.
   skipped for sandboxed commits (whole-user `core.hooksPath` under the
   read-denied home, #1364), and reads of `/tmp/claude-<uid>` asking for
   approval every time (`permissions.blockReadsOutsideWorkingDirectories`
-  on and the directory not a working directory, #1418).
+  on and the directory not a working directory, #1418), every Bash call
+  failing with `bwrap: Can't create file … Read-only file system` (an
+  `allowRead` parent of an `allowWrite` path makes bubblewrap mount it
+  read-only, #1809), and `git status` listing files nobody created
+  (`.mcp.json`, `.bash_profile`: the character-device placeholders
+  bubblewrap mounts over denied paths, #1809).
+  The Docker / Podman entry also covers the container gateway's policy
+  refusals (BuildKit, a socket bind-mount, an untyped `docker inspect`):
+  a tool that drives the docker CLI may hide the 403 body or report only
+  `unable to upgrade to h2c, received 403`, and the expected behaviour is
+  to report the refusal, never to route around the gateway (#1810).
 - `tools/agent-isolation/sandbox-error-hint.sh` — a Claude Code
   `PostToolUse` hook on the `Bash` matcher. Scans the tool's stdout +
   stderr for the catalogued symptom strings and, on a match, prints
@@ -152,7 +162,21 @@ error, and two skills that probe or verify the setup on demand.
   `.roborev.toml` under the hook, ⚠; roborev agent hooks or MCP servers
   in the harness, ⚠). Check 9 also fails a vetted-ops rule that
   spells the versioned plugin-cache path with a `*`, since the rule must
-  name `~/.claude/magpie/vetted-ops` (#1406). The conditional checks —
+  name `~/.claude/magpie/vetted-ops` (#1406).
+  Checks are written to catch false passes (#1808): check 1 evaluates the
+  merged project, project-local and user settings, requires the home
+  `denyRead` entry, and names the file each key came from; check 7a probes
+  credential paths with `test -r` / `stat`, never `cat`, and check 7b lists
+  variable names only and warns on an IDE-launched session that never went
+  through `claude-iso`; checks 5, 10a and 13c report unchecked when the
+  pre-flight finds no framework checkout; check 10's overlay sub-checks
+  apply only to a hardware key (a card `gpg --card-status` finds, whatever
+  `gpg.format` is); and check 12e fails `allowAllUnixSockets` on Linux
+  without the host-socket `denyRead` cover, whether or not a container
+  runtime is present (#1809).
+  Verify and doctor both say how to recognise the sandbox's `/dev/null`
+  placeholders and to take host state from git or the user.
+  The conditional checks —
   9, 10, 12, 13, 14, 17 and check 8's whole-user branch — live in
   `conditional-checks.md`; the
   body keeps each one's condition and its **n/a** answer, so a run

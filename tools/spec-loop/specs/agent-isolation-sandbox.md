@@ -170,6 +170,20 @@ See `docs/adapters/goose.md`.
   start no watcher when both are `off` (#1715).
   `cached`, any other value, and an unknown policy (no card, no gpg, no
   `uif:` record) keep the window.
+  A dismissal (Esc or a click) answers one signature only: its marker
+  names the signer processes it was made for, stops counting when one of
+  them ends or an unnamed signer starts, and never lasts past
+  `DISMISS_TTL_MIN`, so the next signature asks again even while other
+  sessions stay armed.
+  A window that closed unanswered (it lost the keyboard and exited with
+  `OVERLAY_UNANSWERED`, could not be drawn, or crashed) is no dismissal and
+  is shown again after `RESHOW_DELAY` while the signature still blocks
+  (#1832).
+  The matcher arms for every git that can reach the key — global options
+  with quoted values, git or ssh named by path or passed to a shell as a
+  string, remote-talking subcommands beyond fetch and push (`lfs`,
+  `archive --remote`, `subtree`, `svn`, `maintenance prefetch`), and the
+  `gh` commands that run git over ssh (#1833).
   A definite answer is cached in the runtime directory for ten minutes,
   but an `off` only for one, so a policy turned on since is honoured on
   the next burst of commands (#1723). The
@@ -338,8 +352,8 @@ See `docs/adapters/goose.md`.
   the update skill's drift check and verify check 8 recognise the
   dispatcher flavour's symlinks as its installed shape, not as drift
   or as inert per-repo hooks (#1322, #1358).
-- `tools/hook-manager/` — the contract for git-hook managers (prek
-  today) under the secure setup, `contract:hook-manager`: a manager's
+- `tools/hook-manager/` — the contract for git-hook managers under the
+  secure setup, `contract:hook-manager`: a manager's
   install puts its hook in the repository's own
   `$(git rev-parse --git-common-dir)/hooks`, where the dispatcher
   chains, and its home is split — `env.<HOME>` gives sandboxed runs a
@@ -368,6 +382,14 @@ See `docs/adapters/goose.md`.
   shim, verify check 19d; the default-home deny and the dispatcher's host
   home stay on for every registered manager, because both homes are per
   user (#1819).
+  `registry.json` registers prek (install strategy `git-dir-flag`) and
+  four managers with install strategy `none`, which already write to the
+  repository's own hooks directory whatever the global `core.hooksPath`:
+  `simple-git-hooks`, `cargo-husky`, `git-build-hook` and
+  `git-code-format-maven-plugin` (#1838).
+  A `none` manager gets no shim; its worktree caveats (cargo-husky skips
+  hook install in a linked worktree, the JGit plugins target
+  `<worktree>/hooks`) are recorded in the README's adapter table.
 - `plugins/magpie-setup/hooks/check-upgrade.sh` — magpie-setup's
   `SessionStart` hook.
   It runs outside the sandbox over a sandbox-writable tree, so it trusts
@@ -460,7 +482,17 @@ The reference model is four layers, layered:
    for the same reason (#1384).
 2. **Filesystem + network sandbox** — Linux `bubblewrap` + `socat` SNI
    proxy; macOS `sandbox-exec`. Default-deny reads outside the tree and
-   egress to non-allowed hosts. `sandbox.excludedCommands` carves out
+   egress to non-allowed hosts.
+   `sandbox.network.allowUnixSockets` is macOS-only: on Linux Claude Code's
+   seccomp filter rejects every `AF_UNIX` socket, so the container gateway
+   and ssh-agent signing need a per-machine `allowAllUnixSockets: true`,
+   which is only safe paired with absolute `denyRead` entries for the host's
+   daemon and IPC sockets (Docker / Podman, `/run/user/<uid>` with the user
+   D-Bus and systemd manager, the system bus, X11, WSL interop).
+   `docs/setup/secure-agent-setup.md` lists them; verify check 12e
+   (whenever the flag is set) and a `sandbox-lint` invariant require that
+   cover, the whole `/run/user/<uid>` of the current uid included (#1809).
+   `sandbox.excludedCommands` carves out
    commands that need host auth the sandbox blocks:
    - `gh` (OS keyring and, on macOS, Security.framework TLS
      verification); the blast radius is held by layers 3 (`gh auth
