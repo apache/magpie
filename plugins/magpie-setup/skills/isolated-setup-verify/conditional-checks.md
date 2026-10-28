@@ -1,9 +1,9 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# The conditional checks: 9, 10, 12, 13, 14 and 17
+# The conditional checks: 9, 10, 12, 13, 14, 15, 16 and 17
 
-Six of the checks, and check 8's whole-user branch, only apply when the install has the feature they
+Eight of the checks, and check 8's whole-user branch, only apply when the install has the feature they
 cover. `SKILL.md` carries the condition and reports **n/a** without
 reading this file; read the section for a check whose condition holds.
 
@@ -437,6 +437,41 @@ reading this file; read the section for a check whose condition holds.
       re-point it. A real file or directory at the path, or a link anywhere
       else, is ✗: the exclusion would run that code outside the sandbox, and
       the hook refuses to replace anything that is not a symlink.
+
+## Check 15 — working directories under the read block
+
+15. **Working directories under the read block.** Only when `permissions.blockReadsOutsideWorkingDirectories` is `true` in any scope (user, project, project-local or managed); otherwise **n/a**.
+    Resolve `id -u`, then confirm the current worktree's project-local `.claude/settings.local.json` `permissions.additionalDirectories` contains `/tmp/claude-<uid>` as a literal absolute path.
+    `$HOME/.claude/magpie` is deliberately not one of them; check 16f fails on it.
+    A missing path is ⚠, not ✗: nothing is exposed, but every read under it prompts, and a bulk sync multiplies that by its gatherer agents.
+    An entry with a glob (`/tmp/claude-*`) is listed as a working directory but never matched; report the path it was meant to cover as missing (⚠) and say plainly that the entry does nothing.
+    The same path in the committed project `.claude/settings.json`, or in a user-scope `~/.claude/settings.json` synced across machines, is ⚠: it is per-host and belongs in `settings.local.json`.
+    [Why this directory](../../../../docs/setup/secure-agent-setup.md#working-directories-under-the-read-outside-working-directories-block).
+    Where check 16 applies, the read block being on at all is already ✗ there; these entries do not fix it.
+
+## Check 16 — read-only vetted ops never prompt
+
+16. **Read-only vetted ops never prompt.** An imperative, not a preference: the read dispatcher MUST NOT prompt in any form, because background gatherer agents cannot surface a prompt and each one becomes a silent denial.
+    Same n/a condition as check 9.
+    Resolve `$HOME`, read every scope (user, project, project-local, managed where readable), and report each sub-check ✓ or ✗; there is no ⚠ here.
+
+    - **16a — both allow rules.** `permissions.allow` carries `Bash(<launcher> ~/.claude/magpie/vetted-ops vetted-op-read *)` for both launchers (`uvx --from`, `uv run --project`): two rules, in the project settings or in user scope.
+      Name each missing one.
+      A leftover rule spelled with the resolved `$HOME/.claude/magpie/vetted-ops` base is ✗ in the committed project settings (per-host path in a shared file) and otherwise only worth removing: the agent-guard `vetted-ops-spelling` guard refuses that spelling.
+    - **16b — no ask rule.** No `permissions.ask` entry in any scope matches a `vetted-op-read` command in either launcher form; broad rules such as `Bash(uvx *)` count, so match each rule as a pattern rather than searching it for the dispatcher name.
+      An ask rule prompts even when an allow rule matches.
+      Name the file that carries it.
+    - **16c — read block off.** `permissions.blockReadsOutsideWorkingDirectories` is `false` or absent in every scope.
+      With it on, every call prompts: the check cannot resolve the literal `~` the commands spell, and no `allow` rule overrides it. Listing the checkout as a working directory is not a workaround: 16f fails on it.
+    - **16d — tamper protection.** All three vetted-ops `Edit` deny rules from check 9 are present.
+      This is what makes the unprompted read safe, so a missing one fails here as well as in check 9.
+    - **16e — an exclusion for every allowed form.** `sandbox.excludedCommands` carries `<launcher> ~/.claude/magpie/vetted-ops vetted-op-read *` for both launchers of 16a.
+      An allowed form without its exclusion is approved without a prompt but runs inside the sandbox, where its `gh` cannot verify TLS: a silent failure, as with a prompt.
+
+    - **16f — the checkout is not a working directory.** No `permissions.additionalDirectories` entry in any scope overlaps `$HOME/.claude/magpie`: that path, its `~` spelling, anything inside it (such as `~/.claude/magpie/vetted-ops`, which the read-block prompt names), or a parent such as `$HOME/.claude` or `$HOME`.
+      The sandbox makes every working directory writable to sandboxed Bash whatever `allowWrite` says, and the 16e exclusions run that checkout's code outside the sandbox, so a covering entry lets sandboxed code change what runs outside it.
+      Older versions of `sandbox-add-project-root.sh` added the entry; re-running the updated script (`--all-worktrees`) removes `$HOME/.claude/magpie` and `~/.claude/magpie` from project-local files. A parent directory, or an entry in user or committed project scope, needs a hand edit; [install Step V.1](../isolated-setup-install/SKILL.md#step-v1--read-only-vetted-ops-must-never-prompt) item 7 proposes it.
+    [The required shape and why](../../../../docs/setup/secure-agent-setup.md#read-only-vetted-ops-never-prompt).
 
 ## Check 17 — roborev exclusion, if installed
 
