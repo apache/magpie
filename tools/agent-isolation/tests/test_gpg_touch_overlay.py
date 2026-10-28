@@ -30,6 +30,7 @@ import fcntl
 import json
 import os
 import shutil
+import signal
 import socket
 import subprocess
 import tempfile
@@ -918,7 +919,7 @@ def test_wrap_passes_a_verify_call_straight_through(tmp_path: Path) -> None:
     shutil.which("git") is None or shutil.which("ssh-keygen") is None,
     reason="needs git and ssh-keygen",
 )
-def test_git_signs_a_commit_through_the_wrapper(tmp_path: Path) -> None:
+def test_git_signs_a_commit_through_the_wrapper(tmp_path: Path, process_named) -> None:
     """End to end: `gpg.ssh.program` names the symlink and git commits.
 
     A software key stands in for the hardware one, so the real
@@ -2012,3 +2013,209 @@ def test_no_dismissal_outlasts_its_minute(tmp_path: Path, process_named) -> None
     assert not _dismissal_holds(tmp_path, f"{bystander.pid}\n", age_minutes=2), (
         "a dismissal outlived its minute because a named process stayed alive"
     )
+
+
+def _wrapped_test_signer(tmp_path: Path, window: Path) -> tuple[subprocess.Popen, Path, dict]:
+    """Run a real named child through the wrapper, without a key or display."""
+    binary_dir = tmp_path / "bin"
+    binary_dir.mkdir()
+    named_dir = tmp_path / "named"
+    named_dir.mkdir()
+    named = named_dir / "ssh-keygen"
+    named.symlink_to(shutil.which("sleep"))
+    pid_file = tmp_path / "actual-signer"
+    program = binary_dir / "ssh-keygen"
+    program.write_text(f'#!/bin/sh\nprintf "%s\\n" "$$" > "{pid_file}"\nexec "{named}" 30\n')
+    program.chmod(0o755)
+    env = {
+        **os.environ,
+        **NO_CARD,
+        "PATH": f"{binary_dir}:{os.environ['PATH']}",
+        "XDG_RUNTIME_DIR": str(tmp_path / "runtime"),
+        "MAGPIE_GPG_TOUCH_DRY_RUN": "1",
+        "MAGPIE_GPG_TOUCH_OVERLAY": str(window),
+    }
+    proc = subprocess.Popen(
+        ["bash", str(SCRIPT), "wrap", "ssh-keygen", "-Y", "sign"],
+        env=env,
+        start_new_session=True,
+    )
+    return proc, pid_file, env
+
+
+def _end_wrapped_test_signer(proc: subprocess.Popen) -> None:
+    """Also end an orphaned signer after the abnormal-owner test."""
+    try:
+        os.killpg(proc.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        pass
+    proc.wait(timeout=5)
+
+
+@_needs_a_quiet_signer
+def test_wrapped_and_hook_watchers_share_one_dismissal(tmp_path: Path, process_named) -> None:
+    """Both watchers answer one real signature, then remind for the next."""
+    window, shown = _fake_window(tmp_path, 0)
+    wrapper, actual, _env = _wrapped_test_signer(tmp_path, window)
+    hook = None
+    marker = tmp_path / "runtime" / "magpie-gpg-touch" / "dismissed"
+    try:
+        assert _wait_for(actual.exists, timeout=5)
+        signer = int(actual.read_text())
+        assert subprocess.run(["pgrep", "-x", "ssh-keygen"], capture_output=True, check=False).returncode == 0
+        hook = _start_watcher(tmp_path, window)
+        assert _wait_for(marker.exists, timeout=10)
+        # Give the second watcher several polls to reject an inconsistent
+        # marker. This fails on the base by observing the duplicate window.
+        time.sleep(2)
+        assert wrapper.poll() is None and hook.poll() is None
+        assert _showings(shown) == 1, "the other watcher re-showed the dismissed signature"
+        assert marker.read_text().split() == [str(signer)]
+        os.kill(signer, signal.SIGTERM)
+        wrapper.wait(timeout=5)
+        process_named("gpg", seconds=30)
+        assert _wait_for(lambda: _showings(shown) >= 2, timeout=10), "the next signature got no reminder"
+    finally:
+        _end_wrapped_test_signer(wrapper)
+        if hook is not None:
+            hook.terminate()
+            hook.wait(timeout=5)
+
+
+@_needs_a_quiet_signer
+def test_each_ssh_authentication_gets_its_own_reminder(tmp_path: Path, process_named) -> None:
+    """Actual accepted Unix connections end and restart inside the TTL."""
+    window, shown = _fake_window(tmp_path, 0)
+    path = str(tmp_path / "agent.sock")
+    runtime = tmp_path / "runtime" / "magpie-gpg-touch"
+    runtime.mkdir(parents=True)
+    trace = tmp_path / "trace"
+    env = {
+        **os.environ,
+        "XDG_RUNTIME_DIR": str(tmp_path / "runtime"),
+        "SSH_AUTH_SOCK": path,
+        "MAGPIE_GPG_TOUCH_OVERLAY": str(window),
+        "MAGPIE_GPG_TOUCH_DEBUG": "1",
+    }
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as server, trace.open("w") as output:
+        server.bind(path)
+        server.listen()
+        watcher = subprocess.Popen(["bash", str(SCRIPT), "_watch"], env=env, stderr=output)
+        try:
+            assert _wait_for(lambda: "+ baseline=" in trace.read_text(), timeout=5)
+            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
+                client.connect(path)
+                accepted, _address = server.accept()
+                with accepted:
+                    assert _wait_for((runtime / "dismissed").exists, timeout=10)
+                    assert _showings(shown) == 1
+                    offset = len(trace.read_text())
+            # Wait for the watcher's actual idle branch, not a guessed delay.
+            assert _wait_for(lambda: "+ reshow_at=0" in trace.read_text()[offset:], timeout=5)
+            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
+                client.connect(path)
+                accepted, _address = server.accept()
+                with accepted:
+                    assert _wait_for(lambda: _showings(shown) >= 2, timeout=10), (
+                        "the first authentication's empty dismissal hid the second"
+                    )
+        finally:
+            watcher.terminate()
+            watcher.wait(timeout=5)
+
+
+@_needs_a_quiet_signer
+@pytest.mark.parametrize("abnormal", [False, True], ids=["group-signal", "dead-owner-sweep"])
+def test_wrapped_signer_record_is_cleaned_up(tmp_path: Path, process_named, abnormal: bool) -> None:
+    """Normal signalling or sweeping a dead owner forgets its signer PID."""
+    window, _shown = _fake_window(tmp_path, 0)
+    wrapper, actual, env = _wrapped_test_signer(tmp_path, window)
+    state = tmp_path / "runtime" / "magpie-gpg-touch"
+    record = state / "context" / f"p-{wrapper.pid}.signer"
+    registration = state / "owners" / f"p-{wrapper.pid}"
+    try:
+        assert _wait_for(actual.exists, timeout=5)
+        assert _wait_for(record.exists, timeout=5)
+        assert record.read_text().strip() == actual.read_text().strip()
+        if abnormal:
+            wrapper.kill()
+            wrapper.wait(timeout=5)
+            subprocess.run(
+                ["bash", str(SCRIPT), "disarm"],
+                input=json.dumps({"session_id": "cleanup-other-owner"}),
+                text=True,
+                env=env,
+                check=True,
+            )
+        else:
+            os.killpg(wrapper.pid, signal.SIGTERM)
+            wrapper.wait(timeout=5)
+        assert not record.exists()
+        assert not registration.exists()
+    finally:
+        _end_wrapped_test_signer(wrapper)
+
+
+@_needs_a_quiet_signer
+def test_failed_signer_publication_preserves_input_status_and_reminder(tmp_path: Path, process_named) -> None:
+    """An obstructed context directory costs no input, status or reminder."""
+    window, shown = _fake_window(tmp_path, 0)
+    state = tmp_path / "runtime" / "magpie-gpg-touch"
+    state.mkdir(parents=True)
+    (state / "context").write_text("obstruct publication without relying on permissions")
+    binary_dir = tmp_path / "bin"
+    binary_dir.mkdir()
+    received = tmp_path / "received"
+    program = binary_dir / "gpg"
+    program.write_text(f'#!/bin/sh\ncat > "{received}"\nsleep 4\nexit 7\n')
+    program.chmod(0o755)
+    env = {
+        **os.environ,
+        **NO_CARD,
+        "PATH": f"{binary_dir}:{os.environ['PATH']}",
+        "XDG_RUNTIME_DIR": str(tmp_path / "runtime"),
+        "MAGPIE_GPG_TOUCH_DRY_RUN": "1",
+        "MAGPIE_GPG_TOUCH_OVERLAY": str(window),
+    }
+    wrapper = subprocess.Popen(
+        ["bash", str(SCRIPT), "wrap", "gpg", "-bsau"],
+        env=env,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        start_new_session=True,
+    )
+    try:
+        wrapper.stdin.write("synthetic signing input\n")
+        wrapper.stdin.close()
+        wrapper.stdin = None
+        marker = state / "dismissed"
+        assert _wait_for(marker.exists, timeout=3)
+        assert marker.read_text().split() == [str(wrapper.pid)]
+        assert _showings(shown) >= 1
+        _stdout, stderr = wrapper.communicate(timeout=6)
+        assert wrapper.returncode == 7
+        assert received.read_text() == "synthetic signing input\n"
+        assert stderr == ""
+    finally:
+        _end_wrapped_test_signer(wrapper)
+
+
+@_needs_a_quiet_signer
+def test_idle_watcher_preserves_a_nonempty_signer_dismissal(tmp_path: Path, process_named) -> None:
+    """Only empty auth markers are cleared; a named live bystander remains."""
+    window, _shown = _fake_window(tmp_path, 0)
+    state = tmp_path / "runtime" / "magpie-gpg-touch"
+    state.mkdir(parents=True)
+    marker = state / "dismissed"
+    with subprocess.Popen(["sleep", "30"]) as bystander:
+        marker.write_text(f"{bystander.pid}\n")
+        watcher = _start_watcher(tmp_path, window)
+        try:
+            time.sleep(1)
+            assert marker.read_text() == f"{bystander.pid}\n"
+        finally:
+            watcher.terminate()
+            watcher.wait(timeout=5)
+            bystander.terminate()

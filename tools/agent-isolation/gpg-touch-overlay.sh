@@ -515,7 +515,7 @@ _write_context() {
 }
 
 _forget_context() {
-    rm -f "$CONTEXT_DIR/$1" 2>/dev/null || true
+    rm -f "$CONTEXT_DIR/$1" "$CONTEXT_DIR/$1.signer" 2>/dev/null || true
 }
 
 # A context whose owner is gone left its watcher behind, and a watcher
@@ -785,6 +785,7 @@ wrap() {
     # raced or skipped.
     MAGPIE_GPG_TOUCH_WRAPPED_SIGNER=$signer MAGPIE_GPG_TOUCH_PARENT=$$ \
     MAGPIE_GPG_TOUCH_CONTEXT="$CONTEXT_DIR/$id" \
+    MAGPIE_GPG_TOUCH_SIGNER_FILE="$CONTEXT_DIR/$id.signer" \
         "${SESSION_LAUNCHER[@]}" "$SELF" _watch >>"$log" 2>&1 &
     own=$!
     _register "$id" "$$" "$own"
@@ -798,10 +799,20 @@ wrap() {
     # window it spawned, the pid itself for a watcher too young to have
     # called setsid (a signature that returns in milliseconds ends
     # before it has).
-    trap 'kill -- -'"$own"' '"$own"' 2>/dev/null; rm -f "'"$OWNERS_DIR/$id"'" "'"$CONTEXT_DIR/$id"'" 2>/dev/null; _cleanup_if_idle' EXIT
+    trap 'kill -- -'"$own"' '"$own"' 2>/dev/null; rm -f "'"$OWNERS_DIR/$id"'" "'"$CONTEXT_DIR/$id"'" "'"$CONTEXT_DIR/$id.signer"'" 2>/dev/null; _cleanup_if_idle' EXIT
 
-    "$real" "$@"
-    return $?
+    local status=0
+    if [[ -n $signer ]]; then
+        # A new foreground shell publishes its own pid; exec preserves it.
+        # The wrapper remains the lifetime owner and keeps stdin attached.
+        # Publication failure must never prevent the signer from running.
+        "$BASH" -c 'printf "%s\n" "$$" 2>/dev/null >"$1" || :; shift; exec "$@"' \
+            _ "$CONTEXT_DIR/$id.signer" "$real" "$@" || status=$?
+    else
+        "$real" "$@" || status=$?
+    fi
+    rm -f "$CONTEXT_DIR/$id.signer" 2>/dev/null
+    return "$status"
 }
 
 # ------------------------------------------------------------ watcher ---
@@ -819,6 +830,16 @@ overlay_signers=""
 # its pid fails with EPERM, which would read as the signature having ended.
 signer_pids() {
     if [[ -n ${MAGPIE_GPG_TOUCH_WRAPPED_SIGNER:-} && -n ${MAGPIE_GPG_TOUCH_PARENT:-} ]]; then
+        local pid=""
+        if [[ -n ${MAGPIE_GPG_TOUCH_SIGNER_FILE:-} && -r $MAGPIE_GPG_TOUCH_SIGNER_FILE ]]; then
+            read -r pid <"$MAGPIE_GPG_TOUCH_SIGNER_FILE" || true
+            if [[ $pid =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null; then
+                printf '%s\n' "$pid"
+                return 0
+            fi
+        fi
+        # A missing or failed publication costs an extra reminder, never
+        # an empty authentication marker that could hide another touch.
         printf '%s\n' "$MAGPIE_GPG_TOUCH_PARENT"
         return 0
     fi
@@ -952,7 +973,7 @@ _watch() {
     # The loop itself is silent, so a log is only worth having as a trace.
     _debugging && set -x
 
-    local i blocked=0 sockets baseline rows
+    local i blocked=0 sockets baseline rows dismissed
 
     # Connections to the agent that already exist are somebody else's —
     # a stuck client, a session in another terminal — and are not what
@@ -990,6 +1011,16 @@ _watch() {
         else
             blocked=0
             hide_overlay
+            # An empty dismissal answered the authentication that ended,
+            # not another one starting within the TTL. The existing lease
+            # protects the check and removal from a concurrent signer
+            # publishing a nonempty dismissal. Leave those markers alone.
+            if [[ -e $DISMISSED_MARKER ]] && _lease_acquire; then
+                if dismissed="$(cat "$DISMISSED_MARKER" 2>/dev/null)" && [[ -z $dismissed ]]; then
+                    rm -f "$DISMISSED_MARKER" 2>/dev/null
+                fi
+                _lease_release
+            fi
             # Nothing is signing here: a window that closed unanswered was
             # for the signature that just ended.
             reshow_at=0

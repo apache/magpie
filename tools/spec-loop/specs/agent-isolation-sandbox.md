@@ -174,7 +174,12 @@ See `docs/adapters/goose.md`.
   names the signer processes it was made for, stops counting when one of
   them ends or an unnamed signer starts, and never lasts past
   `DISMISS_TTL_MIN`, so the next signature asks again even while other
-  sessions stay armed.
+  sessions stay armed. Wrapped and hook watchers name the same real signer
+  PID; the wrapper retains its own PID for watcher ownership. A failed child
+  PID publication falls back to the owner, costing an extra reminder rather
+  than hiding a touch. An empty ssh-authentication dismissal is cleared when
+  the watcher observes the authentication end, under the shared window lease;
+  a nonempty signer dismissal is preserved (#1834).
   A window that closed unanswered (it lost the keyboard and exited with
   `OVERLAY_UNANSWERED`, could not be drawn, or crashed) is no dismissal and
   is shown again after `RESHOW_DELAY` while the signature still blocks
