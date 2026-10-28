@@ -346,7 +346,7 @@ For this repo that resolves three different ways:
 | Installed root | Manifest Codex actually reads |
 |---|---|
 | the repo root | root [`plugin.json`](../../plugin.json) — its AP1 `$schema` matches — with `.codex-plugin/plugin.json` merged over it. No catalogue installs this root as a Codex plugin |
-| `plugins/magpie-setup/`, `plugins/magpie-utilities/` | their own `.codex-plugin/plugin.json`, read **instead of** `.claude-plugin/plugin.json` (an overlay applies only over an AP1 root manifest), so it is a complete manifest: the same name, description and shared metadata, `skills`, and a `hooks` path — see below |
+| `plugins/magpie-setup/`, `plugins/magpie-utilities/`, `plugins/magpie-security/` | their own `.codex-plugin/plugin.json`, read **instead of** `.claude-plugin/plugin.json` (an overlay applies only over an AP1 root manifest), so it is a complete manifest: the same name, description and shared metadata, `skills`, and a `hooks` path — see below |
 | every other `plugins/magpie-<family>/` | `.claude-plugin/plugin.json`, reached by fallback: those roots carry neither a `plugin.json` nor a `.codex-plugin/` |
 
 The last row is why the family plugins install into Codex at all despite
@@ -356,11 +356,11 @@ carrying only a Claude-Code manifest.
 Codex takes a plugin's hooks from its manifest's `hooks` entry, or, with none, from `hooks/hooks.json`.
 It parses each hook file strictly, as an object with only `description` and `hooks`.
 Any other top-level key rejects the whole file: Codex reports a load warning and runs none of its hooks.
-The `hooks/hooks.json` of `magpie-setup` and `magpie-utilities` belongs to Claude Code and carries `$schema` and `modules` for the [Claude Code mods](../when-to-use-mods.md), so Codex cannot use it.
-Each of those two plugins therefore has a `.codex-plugin/plugin.json` whose `hooks` names `./hooks/codex-hooks.json`, a file in the shape Codex parses.
+The `hooks/hooks.json` of `magpie-setup`, `magpie-utilities` and `magpie-security` belongs to Claude Code and carries `$schema` and `modules` for the [Claude Code mods](../when-to-use-mods.md), so Codex cannot use it.
+Each of those three plugins therefore has a `.codex-plugin/plugin.json` whose `hooks` names `./hooks/codex-hooks.json`, a file in the shape Codex parses.
 Claude Code reads neither file and keeps using `hooks/hooks.json`.
-For `magpie-setup` that file wires the [upgrade check](#automatic-upgrade-detection); for `magpie-utilities` it is empty, which only stops Codex from warning about `hooks/hooks.json` on every start.
-`tools/dev/check-family-plugins.py` generates both files with `--fix`, and fails any plugin in the Codex catalogue whose Codex-visible hook file carries another top-level key.
+For `magpie-setup` that file wires the [upgrade check](#automatic-upgrade-detection); for `magpie-utilities` and `magpie-security` it is empty, which only stops Codex from warning about `hooks/hooks.json` on every start.
+`tools/dev/check-family-plugins.py` generates these files with `--fix`, and fails any plugin in the Codex catalogue whose Codex-visible hook file carries another top-level key.
 
 > [!WARNING]
 > A plugin root's `plugin.json` must be a regular file. If it is a **symlink**,
