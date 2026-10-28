@@ -176,10 +176,12 @@ error, and two skills that probe or verify the setup on demand.
   Verify and doctor both say how to recognise the sandbox's `/dev/null`
   placeholders and to take host state from git or the user.
   The conditional checks —
-  9, 10, 12, 13, 14, 17 and check 8's whole-user branch — live in
+  9, 10, 12, 13, 14, 15, 16, 17 and check 8's whole-user branch — live in
   `conditional-checks.md`; the
   body keeps each one's condition and its **n/a** answer, so a run
   that meets none of the conditions reads none of them (#1334).
+  The ✗ / ⚠ follow-up map is in `remediation.md`, read only when a check
+  needs one, and the non-Claude harness routing in `runtime-routing.md`.
   Mirrors the "Via a Claude Code prompt" checklist in
   `docs/setup/secure-agent-setup.md`, which is the canonical list.
 - `docs/setup/secure-agent-setup.md` § Sandbox-error hint hook — the
