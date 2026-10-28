@@ -2,6 +2,7 @@
   "skill_md": "skills/setup-isolated-setup-verify/SKILL.md",
   "step_heading": "## Runtime routing (run before the Claude-specific checks)",
   "also_include": [
+    "skills/setup-isolated-setup-verify/runtime-routing.md",
     "docs/adapters/codex.md"
   ]
 }
