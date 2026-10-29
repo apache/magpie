@@ -87,10 +87,12 @@ by swapping the adapter, not the skill.
   reporting email's `Message-ID`; `reconcile --pmc P --tracker FILE` pairs them
   with tracker issues (by `Message-ID`, else a shared CVE) and lists each
   disagreement with who fixes it (`tracker`, `import`, `review`,
-  `dashboard-triage`, `asf-security`). Entries of the security team's standing
-  labels (`aaa-*` / `zzz-*` tags, `glasswing` / `non-fwd` states) are skipped;
-  while the API omits the tag, an untriaged untracked case is `review`, never
-  `import`. Auth is the ASF OAuth session cookie from
+  `dashboard-triage`, `asf-security`). Entries of the security team's
+  multi-thread labels (`glasswing` / `non-fwd` states) are skipped; the API does
+  not mark its catch-all labels (`aaa-*` / `zzz-*`), which it lists as untriaged
+  cases, so an untriaged untracked case is `review`, never `import`. The bridge
+  reads no `tag`: it is the security team's internal name and not part of the
+  API (apache/security-dash#62). Auth is the ASF OAuth session cookie from
   `~/.config/apache-magpie/asf-security-dash/session.json`, sent only to the
   dashboard's origin with GET and no redirects followed; `--input` reads API
   output saved from a signed-in browser instead. `security-issue-sync`'s
