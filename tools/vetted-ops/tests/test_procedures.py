@@ -72,8 +72,11 @@ class FakeGh:
         legacy: dict[str, object] | None = None,
         fail_on: str | None = None,
         collaborators: list[str] | None = None,
+        drop_patches: bool = False,
     ) -> None:
         self.comments = comments or []
+        #: A PATCH lands on the matching comment unless this is set (a concurrent overwrite).
+        self.drop_patches = drop_patches
         #: Set to None to make the collaborator listing fail, as it does without push access.
         self.collaborators: list[str] | None = ["alice", "bob"] if collaborators is None else collaborators
         self.body = body
@@ -97,6 +100,11 @@ class FakeGh:
             return 0, (self.body + "\n").encode(), b""
         if argv[:2] == ["gh", "api"] and "-X" not in argv:
             return 0, json.dumps(self.legacy).encode(), b""
+        if argv[:2] == ["gh", "api"] and "PATCH" in argv and stdin is not None and not self.drop_patches:
+            target = argv[2].rsplit("/", 1)[-1]
+            for comment in self.comments:
+                if str(comment.get("url") or "").endswith(f"-{target}"):
+                    comment["body"] = stdin.decode()
         if argv[:3] == ["gh", "issue", "comment"]:
             return 0, b"https://github.com/acme/tracker/issues/7#issuecomment-901\n", b""
         return 0, b"", b""
@@ -499,6 +507,19 @@ def test_fold_refuses_a_second_rollup_with_content_the_parser_skips() -> None:
     with pytest.raises(procedures.ProcedureRefused, match="content outside its parsed entries"):
         procedures.rollup_fold(runner(fake), number="7", comment_id="999", action="x")
     assert fake.writes == []
+
+
+def test_fold_keeps_the_second_rollup_when_the_merge_did_not_land() -> None:
+    # A concurrent rollup write between the read and the PATCH: the merged
+    # entries are not there afterwards, so the source must survive.
+    fake = FakeGh(
+        comments=[rollup_comment(dated_rollup("2026-01-01"))],
+        legacy=legacy_comment(body=dated_rollup("2026-02-01", marker=LEGACY_MARKER), user={"login": "bob"}),
+        drop_patches=True,
+    )
+    with pytest.raises(procedures.ProcedureRefused, match="not deleted"):
+        procedures.rollup_fold(runner(fake), number="7", comment_id="999", action="x")
+    assert not any("DELETE" in argv for argv, _ in fake.calls)
 
 
 def test_fold_refuses_a_second_rollup_by_an_untrusted_author() -> None:

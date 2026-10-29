@@ -249,7 +249,15 @@ def insert_entries_by_date(existing_body: str, entries: Sequence[RollupEntry]) -
     """
     body = existing_body.rstrip()
     anchors: list[tuple[int, str]] = []
+    # Walk entries the way `iter_entries` does: an open tag inside an entry's
+    # body (a quoted example, a nested block) is part of that entry, never an
+    # anchor, or a merged entry could land inside it.
+    entry_end = 0
     for match in _OPEN_TAG_RE.finditer(body):
+        if match.start() < entry_end:
+            continue
+        close_idx = body.find(f"\n{_CLOSE_TAG}", match.end())
+        entry_end = len(body) if close_idx == -1 else close_idx + len(f"\n{_CLOSE_TAG}")
         parsed = parse_summary_line(match.group(1))
         if parsed is not None:
             anchors.append((match.start(), parsed.date))

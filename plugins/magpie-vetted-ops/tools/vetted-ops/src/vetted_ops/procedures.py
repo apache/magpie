@@ -499,7 +499,17 @@ def _fold_second_rollup(r: Runner, *, number: str, legacy: dict[str, object]) ->
         )
     rollup_id = _rest_id(r, rollup)
     _patch_comment(r, rollup_id, insert_entries_by_date(str(rollup.get("body") or ""), entries))
-    # Only reached when the merge succeeded: a failed write raises first.
+    # The source is deleted for good, so confirm the merge is actually on the
+    # rollup first: a concurrent rollup write between our read and our PATCH
+    # would otherwise erase the merged entries after their source is gone.
+    if not r.dry_run:
+        merged = _find_rollup(r, _list_comments(r, number))
+        merged_body = str((merged or {}).get("body") or "")
+        blocks = [build_entry(date=e.date, user=e.user, action=e.action, body=e.body) for e in entries]
+        if merged is None or not all(block in merged_body for block in blocks):
+            raise ProcedureRefused(
+                f"the merged entries are not on the rollup after the write; comment {comment_id} not deleted"
+            )
     r.write(["gh", "api", f"repos/{r.tracker}/issues/comments/{comment_id}", "-X", "DELETE"])
     prefix = "dry-run: " if r.dry_run else ""
     _say(

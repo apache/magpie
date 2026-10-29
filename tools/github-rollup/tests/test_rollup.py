@@ -259,6 +259,16 @@ def test_insert_entries_by_date_keeps_a_same_day_existing_entry_last():
     assert entries[-1].action == "Step"
 
 
+def test_insert_entries_by_date_ignores_summary_lines_inside_an_entry():
+    example = "<details><summary>2025-12-01 · @x · Example</summary>\n\nquoted\n\n</details>"
+    body = f"```\n{example}\n```"
+    existing = f"{MARKER_LINE}\n" + build_entry(date="2026-01-01", user="@a", action="Step", body=body)
+    out = insert_entries_by_date(existing, [_entry("2026-02-01")])
+    # Appended after the January entry, not inside its quoted example.
+    assert out.startswith(existing)
+    assert out.endswith(build_entry(date="2026-02-01", user="@c", action="Old", body="old 2026-02-01"))
+
+
 def test_insert_entries_by_date_skips_unparsed_anchors():
     existing = f"{MARKER_LINE}\n<details><summary>free text</summary>\n\nX.\n\n</details>"
     out = insert_entries_by_date(existing, [_entry("2026-01-01")])
