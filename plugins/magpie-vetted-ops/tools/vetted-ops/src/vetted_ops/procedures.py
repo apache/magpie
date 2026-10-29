@@ -426,7 +426,7 @@ def rollup_fold(r: Runner, *, number: str, comment_id: str, action: str) -> int:
     if not str(legacy.get("issue_url") or "").endswith(f"/issues/{number}"):
         raise ProcedureRefused(f"comment {comment_id} does not belong to {r.tracker}#{number}")
     if is_rollup_body(legacy_body):
-        return _fold_second_rollup(r, number=number, comment_id=comment_id, legacy_body=legacy_body)
+        return _fold_second_rollup(r, number=number, legacy=legacy)
     login = str((legacy.get("user") or {}).get("login") or "")
     date = str(legacy.get("created_at") or "")[:10]
     if not login or not date:
@@ -440,18 +440,33 @@ def rollup_fold(r: Runner, *, number: str, comment_id: str, action: str) -> int:
     return 0
 
 
-def _fold_second_rollup(r: Runner, *, number: str, comment_id: str, legacy_body: str) -> int:
+def _fold_second_rollup(r: Runner, *, number: str, legacy: dict[str, object]) -> int:
     """Merge a second rollup comment (typically a legacy-marker one next to
     the canonical rollup) into the rollup, entry by entry, then delete it.
 
     The comment the rollup lookup picks is never folded: that one *is* the
-    rollup. The merged entries go in by date rather than at the end, so an
-    old entry never becomes the latest one readers take as current state.
+    rollup. Its entries keep the `@user` and date their summaries claim, so
+    only a comment by a trusted author (see :func:`_trusted_authors`) is
+    merged; anyone else could otherwise forge entries into the rollup. The
+    merged entries go in by date rather than at the end, so an old entry
+    never becomes the latest one readers take as current state.
     """
+    # The fetched comment's own id, not the caller's spelling of it, decides
+    # identity and is what gets deleted.
+    comment_id = str(legacy.get("id") or "")
+    if not _NUMBER.match(comment_id):
+        raise ProcedureRefused(f"rollup comment has no usable id: {comment_id!r}")
     rollup = _find_rollup(r, _list_comments(r, number))
     if rollup is None or _rest_id(r, rollup) == comment_id:
         raise ProcedureRefused(f"comment {comment_id} is the rollup itself; refusing to fold")
-    entries = iter_entries(legacy_body)
+    login = str((legacy.get("user") or {}).get("login") or "")
+    trusted, complete = _trusted_authors(r)
+    if login.lower() not in {t.lower() for t in trusted}:
+        reason = "is not a collaborator" if complete else "cannot be checked (collaborator list unreadable)"
+        raise ProcedureRefused(
+            f"comment {comment_id} author {login!r} {reason}; refusing to merge its entries"
+        )
+    entries = iter_entries(str(legacy.get("body") or ""))
     if not entries:
         raise ProcedureRefused(
             f"comment {comment_id} carries a rollup marker but no entries; refusing to fold"

@@ -385,6 +385,7 @@ def test_amend_refuses_without_a_rollup() -> None:
 
 def legacy_comment(**overrides: object) -> dict[str, object]:
     base: dict[str, object] = {
+        "id": 999,
         "body": "   Status: assessed\n   more",
         "user": {"login": "carol"},
         "created_at": "2025-12-24T10:00:00Z",
@@ -444,7 +445,8 @@ def test_fold_merges_a_second_legacy_rollup_by_date() -> None:
     fake = FakeGh(
         comments=[rollup_comment(canonical)],
         legacy=legacy_comment(
-            body=dated_rollup("2026-02-01", "2026-04-01", marker=LEGACY_MARKER, user="carol")
+            body=dated_rollup("2026-02-01", "2026-04-01", marker=LEGACY_MARKER, user="carol"),
+            user={"login": "bob"},
         ),
     )
     procedures.rollup_fold(runner(fake), number="7", comment_id="999", action="x")
@@ -474,9 +476,38 @@ def test_fold_refuses_a_second_rollup_that_is_the_rollup() -> None:
 
 def test_fold_refuses_a_second_rollup_with_an_unparsed_entry() -> None:
     legacy = f"{LEGACY_MARKER}\n<details><summary>free text</summary>\n\nold\n\n</details>"
-    fake = FakeGh(comments=[rollup_comment(dated_rollup("2026-01-01"))], legacy=legacy_comment(body=legacy))
+    fake = FakeGh(
+        comments=[rollup_comment(dated_rollup("2026-01-01"))],
+        legacy=legacy_comment(body=legacy, user={"login": "bob"}),
+    )
     with pytest.raises(procedures.ProcedureRefused, match="not `date · @user · action`"):
         procedures.rollup_fold(runner(fake), number="7", comment_id="999", action="x")
+    assert fake.writes == []
+
+
+def test_fold_refuses_a_second_rollup_by_an_untrusted_author() -> None:
+    # Its entries claim their own `@user` and date, so a non-collaborator could
+    # otherwise forge entries into the rollup.
+    fake = FakeGh(
+        comments=[rollup_comment(dated_rollup("2026-01-01"))],
+        legacy=legacy_comment(
+            body=dated_rollup("2026-02-01", marker=LEGACY_MARKER), user={"login": "mallory"}
+        ),
+    )
+    with pytest.raises(procedures.ProcedureRefused, match="is not a collaborator"):
+        procedures.rollup_fold(runner(fake), number="7", comment_id="999", action="x")
+    assert fake.writes == []
+
+
+def test_fold_identifies_a_second_rollup_by_its_fetched_id() -> None:
+    # A zero-padded caller id must not slip past the "is the rollup" check.
+    body = dated_rollup("2026-01-01", marker=LEGACY_MARKER)
+    fake = FakeGh(
+        comments=[rollup_comment(body, rest_id="999")],
+        legacy=legacy_comment(body=body, user={"login": "bob"}),
+    )
+    with pytest.raises(procedures.ProcedureRefused, match="is the rollup itself"):
+        procedures.rollup_fold(runner(fake), number="7", comment_id="0999", action="x")
     assert fake.writes == []
 
 
