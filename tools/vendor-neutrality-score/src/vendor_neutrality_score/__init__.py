@@ -121,6 +121,10 @@ CONTRACT_POLICY: dict[str, tuple[str, str]] = {
         VENDOR_BACKED,
         "Git-hook managers under the secure setup: install target and sandbox / host homes (prek, …)",
     ),
+    "contract:sbom-pipeline": (
+        AGNOSTIC,
+        "SBOM generation in the build: one CycloneDX 1.7 SBOM per distributable artifact, any ecosystem",
+    ),
 }
 
 # Which capability *contract* a skill actually invokes, keyed by

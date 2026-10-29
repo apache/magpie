@@ -523,6 +523,12 @@ contract:report-relay:
           - any-glob-to-any-file:
               - 'tools/forwarder-relay/**'
 
+contract:sbom-pipeline:
+  - any:
+      - changed-files:
+          - any-glob-to-any-file:
+              - 'tools/sbom-pipeline/**'
+
 contract:scan-format:
   - any:
       - changed-files:
