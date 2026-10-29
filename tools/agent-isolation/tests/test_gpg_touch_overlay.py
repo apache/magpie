@@ -2048,6 +2048,7 @@ def _end_wrapped_test_signer(proc: subprocess.Popen) -> None:
     try:
         os.killpg(proc.pid, signal.SIGTERM)
     except ProcessLookupError:
+        # The group already exited; proc.wait() below still reaps the wrapper.
         pass
     proc.wait(timeout=5)
 
