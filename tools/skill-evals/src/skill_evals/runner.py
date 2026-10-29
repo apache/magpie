@@ -1260,6 +1260,15 @@ def main(argv: list[str] | None = None) -> int:
             "running prompts."
         ),
     )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help=(
+            "Build each step's system prompt under path without running a case. "
+            "Prints one line per fixtures dir whose prompt cannot be built, such as "
+            "a step_heading the SKILL.md no longer has, and exits 1 if there is any."
+        ),
+    )
     args = parser.parse_args(argv)
 
     grader_explicit = args.grader_cli != DEFAULT_GRADER_CLI
@@ -1275,6 +1284,16 @@ def main(argv: list[str] | None = None) -> int:
         for tag in sorted(tag_counts):
             print(f"{tag} {tag_counts[tag]}")
         return 0
+
+    if args.check:
+        broken = 0
+        for fixtures_dir in dict.fromkeys(fixtures_dir for _case_dir, fixtures_dir in cases):
+            try:
+                load_step_config(fixtures_dir)
+            except (OSError, ValueError, KeyError) as exc:
+                print(f"{fixtures_dir}: {exc}", file=sys.stderr)
+                broken += 1
+        return 1 if broken else 0
 
     if args.tag:
         requested_tags = set(args.tag)

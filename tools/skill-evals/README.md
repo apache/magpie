@@ -535,6 +535,10 @@ Print mode supports manual review, while `--cli` runs the configured model and c
 CI can use a deterministic stand-in CLI for harness behavior;
 live model runs remain an explicit pre-flight because they require provider credentials and can be nondeterministic.
 
+`--check` builds every step's system prompt without running a case,
+and names each fixtures dir whose prompt cannot be built, such as a `step_heading` the `SKILL.md` no longer has.
+The `check-eval-prompts` prek hook runs it over `evals/` whenever a Markdown file changes.
+
 One challenge is model non-determinism. Most cases in this suite have clear, unambiguous correct answers and should pass reliably on a single run. A small number sit closer to a decision boundary — the MEDIUM dedup verdicts and DEFENSE-IN-DEPTH vs NOT-CVE-WORTHY edge cases in particular — and may benefit from being run twice before failing a build. Running every case multiple times would be excessive and slow; the better approach is to tag genuinely borderline cases explicitly and apply a retry budget only to those.
 
 Coverage gaps are also more consequential under CI than in manual review. A missing step is invisible to the suite and produces an implicit green signal — worth filling before the suite result is used to gate anything.

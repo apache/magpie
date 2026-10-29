@@ -488,6 +488,17 @@ repos:
         entry: uv run --project tools/skill-token-count skill-token-count --check
         files: ^(skills/.*/SKILL\.md|plugins/magpie-[^/]+/skills/.*/SKILL\.md|tools/dev/preflight-block\.md|tools/skill-token-count/.*|uv\.lock|\.pre-commit-config\.yaml)$
         pass_filenames: false
+  # Every eval step builds its system prompt from the Markdown section its
+  # step-config.json names. Builds each one without running a case, so a
+  # renamed heading or a moved file fails here instead of in the next eval run.
+  - repo: local
+    hooks:
+      - id: check-eval-prompts
+        name: check-eval-prompts (each eval step-config still finds its section)
+        language: system
+        entry: uv run --project tools/skill-evals skill-eval tools/skill-evals/evals --check
+        files: (\.md$|^tools/skill-evals/|^\.pre-commit-config\.yaml$)
+        pass_filenames: false
   # Quick-start screenshot set. Three lists have to agree — the harnesses
   # `capture-screenshot.sh` offers, the ecosystem manifests that make a harness
   # real, and the PNGs on disk — and none of the existing gates read images, so
