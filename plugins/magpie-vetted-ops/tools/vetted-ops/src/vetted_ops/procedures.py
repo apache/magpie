@@ -60,6 +60,7 @@ from .rollup_format import (
     build_entry,
     build_new_rollup_body,
     find_rollup_index,
+    insert_entries_by_date,
     is_rollup_body,
     iter_entries,
     left_trim_lines,
@@ -419,13 +420,13 @@ def rollup_amend_latest(r: Runner, *, number: str, action: str, text: str) -> in
 def rollup_fold(r: Runner, *, number: str, comment_id: str, action: str) -> int:
     legacy = json.loads(r.read(["gh", "api", f"repos/{r.tracker}/issues/comments/{comment_id}"]))
     legacy_body = str(legacy.get("body") or "")
-    if is_rollup_body(legacy_body):
-        raise ProcedureRefused(f"comment {comment_id} is the rollup itself; refusing to fold")
     # A comment id is repo-wide, so pin it to the issue being folded into:
     # folding (and then deleting) a comment from a different tracker issue is
     # never the intent.
     if not str(legacy.get("issue_url") or "").endswith(f"/issues/{number}"):
         raise ProcedureRefused(f"comment {comment_id} does not belong to {r.tracker}#{number}")
+    if is_rollup_body(legacy_body):
+        return _fold_second_rollup(r, number=number, comment_id=comment_id, legacy_body=legacy_body)
     login = str((legacy.get("user") or {}).get("login") or "")
     date = str(legacy.get("created_at") or "")[:10]
     if not login or not date:
@@ -436,6 +437,38 @@ def rollup_fold(r: Runner, *, number: str, comment_id: str, action: str) -> int:
     r.write(["gh", "api", f"repos/{r.tracker}/issues/comments/{comment_id}", "-X", "DELETE"])
     prefix = "dry-run: " if r.dry_run else ""
     _say(f"{prefix}{summary} ({date} · @{login} · {action!r}); deleted legacy comment {comment_id}")
+    return 0
+
+
+def _fold_second_rollup(r: Runner, *, number: str, comment_id: str, legacy_body: str) -> int:
+    """Merge a second rollup comment (typically a legacy-marker one next to
+    the canonical rollup) into the rollup, entry by entry, then delete it.
+
+    The comment the rollup lookup picks is never folded: that one *is* the
+    rollup. The merged entries go in by date rather than at the end, so an
+    old entry never becomes the latest one readers take as current state.
+    """
+    rollup = _find_rollup(r, _list_comments(r, number))
+    if rollup is None or _rest_id(r, rollup) == comment_id:
+        raise ProcedureRefused(f"comment {comment_id} is the rollup itself; refusing to fold")
+    entries = iter_entries(legacy_body)
+    if not entries:
+        raise ProcedureRefused(
+            f"comment {comment_id} carries a rollup marker but no entries; refusing to fold"
+        )
+    if any(not e.date for e in entries):
+        raise ProcedureRefused(
+            f"comment {comment_id} has an entry whose summary is not `date · @user · action`; refusing to fold"
+        )
+    rollup_id = _rest_id(r, rollup)
+    _patch_comment(r, rollup_id, insert_entries_by_date(str(rollup.get("body") or ""), entries))
+    # Only reached when the merge succeeded: a failed write raises first.
+    r.write(["gh", "api", f"repos/{r.tracker}/issues/comments/{comment_id}", "-X", "DELETE"])
+    prefix = "dry-run: " if r.dry_run else ""
+    _say(
+        f"{prefix}merged {len(entries)} entries from rollup comment {comment_id} into the rollup on "
+        f"{r.tracker}#{number}; deleted comment {comment_id}"
+    )
     return 0
 
 

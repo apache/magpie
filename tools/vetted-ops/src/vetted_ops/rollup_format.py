@@ -236,6 +236,36 @@ def rebuild_with_appended_entry(existing_body: str, new_entry: str) -> str:
     return f"{existing_body.rstrip()}{_RULER_BETWEEN_ENTRIES}{new_entry}"
 
 
+def insert_entries_by_date(existing_body: str, entries: Sequence[RollupEntry]) -> str:
+    """Insert ``entries`` into ``existing_body`` in date order.
+
+    Each entry lands before the first existing entry dated later than it,
+    or at the end when none is, so the latest entry stays last: readers
+    take the last entry as the tracker's current state. Existing entries
+    keep their text byte-identical; an existing entry whose summary does
+    not parse is never an anchor, and entries sharing a slot keep their
+    given order.
+    """
+    body = existing_body.rstrip()
+    anchors: list[tuple[int, str]] = []
+    for match in _OPEN_TAG_RE.finditer(body):
+        parsed = parse_summary_line(match.group(1))
+        if parsed is not None:
+            anchors.append((match.start(), parsed.date))
+    slots: dict[int, list[str]] = {}
+    for entry in sorted(entries, key=lambda e: e.date):
+        pos = next((start for start, date in anchors if date > entry.date), len(body))
+        block = build_entry(date=entry.date, user=entry.user, action=entry.action, body=entry.body)
+        slots.setdefault(pos, []).append(block)
+    for pos in sorted(slots, reverse=True):
+        blocks = _RULER_BETWEEN_ENTRIES.join(slots[pos])
+        if pos == len(body):
+            body = f"{body}{_RULER_BETWEEN_ENTRIES}{blocks}"
+        else:
+            body = f"{body[:pos]}{blocks}{_RULER_BETWEEN_ENTRIES}{body[pos:]}"
+    return body
+
+
 def replace_latest_entry(existing_body: str, new_entry: str) -> str:
     """Replace the last `<details>` entry of ``existing_body`` with
     ``new_entry``, keeping everything before it byte-identical.

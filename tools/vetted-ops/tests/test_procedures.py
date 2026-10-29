@@ -429,6 +429,57 @@ def test_fold_refuses_a_legacy_marker_rollup() -> None:
     assert fake.writes == []
 
 
+def dated_rollup(*dates: str, marker: str = MARKER, user: str = "bob") -> str:
+    entries = [
+        rollup_format.build_entry(date=d, user=user, action=f"Step {d}", body=f"entry {d}") for d in dates
+    ]
+    body = f"{marker}\n{entries[0]}"
+    for e in entries[1:]:
+        body = rollup_format.rebuild_with_appended_entry(body, e)
+    return body
+
+
+def test_fold_merges_a_second_legacy_rollup_by_date() -> None:
+    canonical = dated_rollup("2026-01-01", "2026-03-01")
+    fake = FakeGh(
+        comments=[rollup_comment(canonical)],
+        legacy=legacy_comment(
+            body=dated_rollup("2026-02-01", "2026-04-01", marker=LEGACY_MARKER, user="carol")
+        ),
+    )
+    procedures.rollup_fold(runner(fake), number="7", comment_id="999", action="x")
+    (patch, stdin), (delete, _) = fake.writes
+    assert patch[2].endswith("/comments/555") and "PATCH" in patch
+    assert delete == ["gh", "api", f"repos/{TRACKER}/issues/comments/999", "-X", "DELETE"]
+    assert stdin is not None
+    merged = stdin.decode()
+    assert [e.date for e in rollup_format.iter_entries(merged)] == [
+        "2026-01-01",
+        "2026-02-01",
+        "2026-03-01",
+        "2026-04-01",
+    ]
+    # The canonical rollup's own text survives byte for byte.
+    first, second = canonical.split("\n\n---\n\n")
+    assert merged.startswith(first) and second in merged
+
+
+def test_fold_refuses_a_second_rollup_that_is_the_rollup() -> None:
+    body = dated_rollup("2026-01-01", marker=LEGACY_MARKER)
+    fake = FakeGh(comments=[rollup_comment(body, rest_id="999")], legacy=legacy_comment(body=body))
+    with pytest.raises(procedures.ProcedureRefused, match="is the rollup itself"):
+        procedures.rollup_fold(runner(fake), number="7", comment_id="999", action="x")
+    assert fake.writes == []
+
+
+def test_fold_refuses_a_second_rollup_with_an_unparsed_entry() -> None:
+    legacy = f"{LEGACY_MARKER}\n<details><summary>free text</summary>\n\nold\n\n</details>"
+    fake = FakeGh(comments=[rollup_comment(dated_rollup("2026-01-01"))], legacy=legacy_comment(body=legacy))
+    with pytest.raises(procedures.ProcedureRefused, match="not `date · @user · action`"):
+        procedures.rollup_fold(runner(fake), number="7", comment_id="999", action="x")
+    assert fake.writes == []
+
+
 def test_fold_refuses_a_comment_from_another_issue() -> None:
     fake = FakeGh(legacy=legacy_comment(issue_url="https://api.github.com/repos/acme/tracker/issues/70"))
     with pytest.raises(procedures.ProcedureRefused, match="does not belong"):
