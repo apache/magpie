@@ -38,6 +38,9 @@ it and never runs anything from it.
   (sanitised names, sha256) and, for an encrypted archive, checks the
   OpenPGP packet framing so a truncated download shows — without
   decrypting it.
+- `attach_archive` links each finding to its `REPORT.md` and candidate
+  patches in an operator-decrypted archive, and `render_patch_comments`
+  quotes those patches, folded, in tracker comment bodies.
 """
 
 from __future__ import annotations
@@ -434,14 +437,115 @@ def save_attachments(path: Path, out_dir: Path) -> list[dict[str, Any]]:
     return saved
 
 
+def _patch_number(path: Path) -> int:
+    return int(path.stem) if path.stem.isdigit() else 1 << 30
+
+
 def attach_archive(parsed: Mapping[str, Any], archive_dir: Path) -> None:
-    """Point each finding at its `REPORT.md` in an operator-decrypted archive (never runs `repro`)."""
+    """Point each finding at its `REPORT.md` and candidate patches in an operator-decrypted archive.
+
+    Never runs `repro`: the patches are only listed, for `render_patch_comments` to quote.
+    """
     for f in parsed["findings"]:
-        report = archive_dir / f["banner_severity"].lower() / f["id"] / "REPORT.md"
+        finding_dir = archive_dir / f["banner_severity"].lower() / f["id"]
+        report = finding_dir / "REPORT.md"
         f["report_md"] = str(report) if report.is_file() else None
+        patches = [p for p in (finding_dir / "patches").glob("*.patch") if p.is_file()]
+        f["patches"] = [str(p) for p in sorted(patches, key=lambda p: (_patch_number(p), p.name))]
     for b in parsed["not_security"]:
         report = archive_dir / "bugs-not-security" / b["id"] / "REPORT.md"
         b["report_md"] = str(report) if report.is_file() else None
+
+
+# GitHub refuses a comment over 65,536 characters; keep headroom for its own counting.
+COMMENT_LIMIT = 65_000
+# The skill-comment marker (tools/github/status-rollup.md), so sync's pre-flight
+# reads a patch comment as skill-authored rather than as human activity.
+PATCH_COMMENT_MARKER = "<!-- apache-magpie: scan-patches v1 -->"
+
+
+def _patch_summary(patch: str, n: int) -> str:
+    """The patch's one-line header (its second `#` line), safe inside `<summary>`."""
+    lines = patch.splitlines()
+    text = lines[1].lstrip("#").strip() if len(lines) > 1 and lines[1].startswith("#") else ""
+    text = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    # A bare `@task` would notify a GitHub user of that name.
+    text = re.sub(r"(?<![\w`])(@[\w.-]+)", r"`\1`", text)
+    return f"Candidate {n} — {text}" if text else f"Candidate {n}"
+
+
+def _patch_block(patch: str, n: int) -> str:
+    longest = max((len(run) for run in re.findall(r"`+", patch)), default=0)
+    fence = "`" * max(5, longest + 1)
+    return "\n".join(
+        [
+            f"<details><summary>{_patch_summary(patch, n)}</summary>",
+            "",
+            f"{fence}diff",
+            patch.rstrip("\n"),
+            fence,
+            "",
+            "</details>",
+            "",
+        ]
+    )
+
+
+def render_patch_comments(
+    finding: Mapping[str, Any], scan: Mapping[str, Any], limit: int = COMMENT_LIMIT
+) -> list[str]:
+    """Tracker comment bodies quoting a finding's candidate patches, each folded in `<details>`.
+
+    Returns `[]` when the finding has no patches. Patches go into as few bodies
+    as fit under *limit*, in order; a single patch too big for one body raises
+    `ValueError` rather than being cut, since a truncated diff is worse than none.
+    """
+    paths = [Path(p) for p in finding.get("patches") or []]
+    if not paths:
+        return []
+    fid = finding["id"]
+    where = " at ".join(f"`{v}`" for v in (scan.get("target"), scan.get("commit")) if v)
+    count = f"{len(paths)} candidate fix{'es' if len(paths) > 1 else ''}"
+    intro = (
+        f"The scan shipped {count} for this finding{f', against {where}' if where else ''}. "
+        "They are untested, machine-generated and not reviewed by the team: a starting point "
+        "for `security-issue-fix`, not a change to apply as-is. The patch headers spell out "
+        "the security impact, so do not copy them into a public PR."
+    )
+    blocks = [_patch_block(p.read_text(encoding="utf-8"), n) for n, p in enumerate(paths, 1)]
+
+    def heading(part: int, parts: int) -> str:
+        suffix = f" (part {part} of {parts})" if parts > 1 else ""
+        return (
+            f"{PATCH_COMMENT_MARKER}\n"
+            f"**Candidate patches from the security scan — `{fid}`**{suffix}\n\n{intro}\n\n"
+        )
+
+    # Size against the longest heading this finding can get.
+    room = limit - len(heading(len(blocks), len(blocks)))
+    groups: list[list[str]] = []
+    for n, block in enumerate(blocks, 1):
+        if len(block) > room:
+            raise ValueError(f"{fid}: candidate {n} is {len(block)} characters, over the comment limit")
+        if groups and len("\n".join([*groups[-1], block])) <= room:
+            groups[-1].append(block)
+        else:
+            groups.append([block])
+    return [heading(i, len(groups)) + "\n".join(g) for i, g in enumerate(groups, 1)]
+
+
+def write_patch_comments(
+    finding: Mapping[str, Any], scan: Mapping[str, Any], out_dir: Path
+) -> list[dict[str, Any]]:
+    """Write `render_patch_comments`' bodies as `<id>.md` (or `<id>-<n>.md` when split), owner-only."""
+    bodies = render_patch_comments(finding, scan)
+    _private_dir(out_dir)
+    written = []
+    for n, body in enumerate(bodies, 1):
+        name = f"{finding['id']}.md" if len(bodies) == 1 else f"{finding['id']}-{n}.md"
+        _private_write(out_dir / name, body.encode("utf-8"))
+        written.append({"path": str(out_dir / name), "chars": len(body)})
+    return written
 
 
 def materialise(parsed: Mapping[str, Any], meta: Mapping[str, Any], out_dir: Path) -> dict[str, Any]:
