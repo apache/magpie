@@ -497,18 +497,32 @@ def _fold_second_rollup(r: Runner, *, number: str, legacy: dict[str, object]) ->
         raise ProcedureRefused(
             f"comment {comment_id} has content outside its parsed entries; refusing to fold"
         )
+    rollup_body = str(rollup.get("body") or "")
+    # The entry walk stops at the first closing tag, so an entry body that
+    # carries its own `<details>` block (a quoted example) cannot be placed
+    # around safely; refuse rather than merge into the middle of it.
+    if any("<details" in e.body for e in [*iter_entries(rollup_body), *entries]):
+        raise ProcedureRefused(
+            f"an entry on the rollup or in comment {comment_id} holds a nested <details> block; fold it by hand"
+        )
     rollup_id = _rest_id(r, rollup)
-    _patch_comment(r, rollup_id, insert_entries_by_date(str(rollup.get("body") or ""), entries))
-    # The source is deleted for good, so confirm the merge is actually on the
-    # rollup first: a concurrent rollup write between our read and our PATCH
-    # would otherwise erase the merged entries after their source is gone.
+    new_body = insert_entries_by_date(rollup_body, entries)
+    _patch_comment(r, rollup_id, new_body)
+    # The source is deleted for good, so confirm the rollup reads back exactly
+    # as written, on the same comment, first: a concurrent rollup write after
+    # our PATCH, or a rollup that vanished, would otherwise lose the merge
+    # once its source is gone. (A write between our read and our PATCH is
+    # still overwritten, as with every rollup write: GitHub has no
+    # conditional comment update.)
     if not r.dry_run:
-        merged = _find_rollup(r, _list_comments(r, number))
-        merged_body = str((merged or {}).get("body") or "")
-        blocks = [build_entry(date=e.date, user=e.user, action=e.action, body=e.body) for e in entries]
-        if merged is None or not all(block in merged_body for block in blocks):
+        after = _find_rollup(r, _list_comments(r, number))
+        if (
+            after is None
+            or _rest_id(r, after) != rollup_id
+            or str(after.get("body") or "").rstrip() != new_body.rstrip()
+        ):
             raise ProcedureRefused(
-                f"the merged entries are not on the rollup after the write; comment {comment_id} not deleted"
+                f"the rollup does not read back as written; comment {comment_id} not deleted"
             )
     r.write(["gh", "api", f"repos/{r.tracker}/issues/comments/{comment_id}", "-X", "DELETE"])
     prefix = "dry-run: " if r.dry_run else ""

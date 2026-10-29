@@ -522,6 +522,42 @@ def test_fold_keeps_the_second_rollup_when_the_merge_did_not_land() -> None:
     assert not any("DELETE" in argv for argv, _ in fake.calls)
 
 
+def test_fold_refuses_when_an_entry_holds_a_nested_details_block() -> None:
+    quoted = "<details><summary>2025-12-01 · @x · Example</summary>\n\nq\n\n</details>"
+    canonical = f"{MARKER}\n" + rollup_format.build_entry(
+        date="2026-01-01", user="bob", action="A", body=quoted
+    )
+    fake = FakeGh(
+        comments=[rollup_comment(canonical)],
+        legacy=legacy_comment(body=dated_rollup("2026-02-01", marker=LEGACY_MARKER), user={"login": "bob"}),
+    )
+    with pytest.raises(procedures.ProcedureRefused, match="nested <details>"):
+        procedures.rollup_fold(runner(fake), number="7", comment_id="999", action="x")
+    assert fake.writes == []
+
+
+def test_fold_keeps_the_source_when_another_comment_is_the_rollup_afterwards() -> None:
+    # The destination vanished after the PATCH: the lookup now finds the
+    # legacy source itself, whose entries would pass a content check.
+    source = dated_rollup("2026-02-01", marker=LEGACY_MARKER)
+    fake = FakeGh(
+        comments=[rollup_comment(dated_rollup("2026-01-01"))],
+        legacy=legacy_comment(body=source, user={"login": "bob"}),
+    )
+    real_call = fake.__call__
+
+    def vanishing(argv: list[str], stdin: bytes | None) -> tuple[int, bytes, bytes]:
+        result = real_call(argv, stdin)
+        if "PATCH" in argv:
+            fake.comments = [rollup_comment(source, rest_id="999")]
+        return result
+
+    r = procedures.Runner(TRACKER, allow_writes=True, dry_run=False, exec_fn=vanishing)
+    with pytest.raises(procedures.ProcedureRefused, match="not deleted"):
+        procedures.rollup_fold(r, number="7", comment_id="999", action="x")
+    assert not any("DELETE" in argv for argv, _ in fake.calls)
+
+
 def test_fold_refuses_a_second_rollup_by_an_untrusted_author() -> None:
     # Its entries claim their own `@user` and date, so a non-collaborator could
     # otherwise forge entries into the rollup.
