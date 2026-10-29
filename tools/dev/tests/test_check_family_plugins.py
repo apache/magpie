@@ -581,6 +581,12 @@ def test_the_security_tools_plugin_ships_the_forwarder_registry():
     assert "tools/gmail/asf-relay.md" in copies
 
 
+def test_the_security_tools_plugin_ships_the_scan_format_contract():
+    # issue-import-from-scan reads it for the adapter contract and email-delivered scans.
+    copies = mod.SUBSTRATE_PLUGINS["magpie-security-tools"]["copies"]
+    assert "tools/scan-format/README.md" in copies
+
+
 # ---------------------------------------------------------------------------
 # Codex loads magpie-setup's upgrade hook from a hook file it can parse
 # ---------------------------------------------------------------------------
