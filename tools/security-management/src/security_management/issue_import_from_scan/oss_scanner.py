@@ -76,6 +76,8 @@ _HEADER = re.compile(
 _ENTRY_START = re.compile(rf"^\s*({_ID})\s+", re.M)
 _ENTRY_LOCATION = re.compile(r"\s*\(((?:[^()]|\([^()]*\))+?:\d+)\)\s*\Z")
 _PATCH = re.compile(rf"\b(\w+/{_ID}/patches/\d+\.patch)\b")
+# The scan's target and commit come from the email; only a plain ref may sit in a code span.
+_PLAIN_REF = re.compile(r"[\w./:@+-]+")
 
 
 def _unflow(text: str, delsp: bool = False) -> str:
@@ -504,7 +506,8 @@ def render_patch_comments(
     if not paths:
         return []
     fid = finding["id"]
-    where = " at ".join(f"`{v}`" for v in (scan.get("target"), scan.get("commit")) if v)
+    refs = (str(v) for v in (scan.get("target"), scan.get("commit")) if v)
+    where = " at ".join(f"`{v}`" for v in refs if _PLAIN_REF.fullmatch(v))
     count = f"{len(paths)} candidate fix{'es' if len(paths) > 1 else ''}"
     intro = (
         f"The scan shipped {count} for this finding{f', against {where}' if where else ''}. "

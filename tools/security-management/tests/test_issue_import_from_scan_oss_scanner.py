@@ -514,6 +514,16 @@ def test_patch_comment_folds_each_candidate(capsys, tmp_path) -> None:
     assert "<details open" not in body
 
 
+def test_patch_comment_drops_a_target_that_is_not_a_plain_ref(tmp_path) -> None:
+    path = tmp_path / "1.patch"
+    path.write_text(patch("Fix"))
+    finding = {"id": "ANT-2026-AAAAAAA1", "patches": [str(path)]}
+    scan = {"target": "x` @someone [link](https://example.com) `", "commit": "0123456789ab"}
+    (body,) = oss_scanner.render_patch_comments(finding, scan)
+    assert "against `0123456789ab`" in body
+    assert "@someone" not in body and "example.com" not in body
+
+
 def test_patch_fence_outgrows_backticks_in_the_patch() -> None:
     body = oss_scanner._patch_block(patch("Uses fences", "# ``````python\n"), 1)
     assert "```````diff\n" in body
