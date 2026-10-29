@@ -50,8 +50,8 @@
 # `~/.config/uv/uv.toml`, which the sandbox is denied reading (see
 # docs/setup/secure-agent-setup.md, "Host-only uv state").
 # The set is deliberately NOT a mirror of the committed `allowRead`:
-# that list also carries credential paths (`~/.config/gh/`,
-# `~/.config/apache-magpie/`, `~/.gnupg/`), and re-opening them to
+# that list also carries credential paths (`~/.config/apache-magpie/`,
+# `~/.gnupg/`), and re-opening them to
 # every sandboxed command is a decision for the operator, not for a
 # helper that runs from a git hook. `--no-tool-paths` skips the set.
 #

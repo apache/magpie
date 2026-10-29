@@ -22,7 +22,6 @@
         ".",
         "~/.gitconfig",
         "~/.config/git/",
-        "~/.config/gh/",
         "~/.cache/",
         "~/.local/share/uv/",
         "~/.local/bin/",

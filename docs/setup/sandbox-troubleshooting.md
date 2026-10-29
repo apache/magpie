@@ -1119,7 +1119,7 @@ Confirm with `prek --version`, or with the doctor skill's
 
 - The helper deliberately does **not** mirror the whole committed
   `allowRead`. That list also names credential paths
-  (`~/.config/gh/`, `~/.config/apache-magpie/`, `~/.gnupg/`), which
+  (`~/.config/apache-magpie/`, `~/.gnupg/`), which
   the same harness behaviour currently keeps out of sandboxed Bash.
   Re-open one of those only for the tool that needs it, per the
   entries above.

@@ -552,7 +552,6 @@ The full block below is the two merged, annotated.
         ".",                          // the project tree (cwd)
         "~/.gitconfig",               // git's user.name / user.email
         "~/.config/git/",             // git's per-host config
-        "~/.config/gh/",              // gh CLI auth (token in hosts.yml)
         "~/.cache/",                  // dev tool caches (uv HTTP cache, prek logs, ruff/mypy caches, and prek's own rustup + CARGO_HOME for the `lychee` rust hook)
         "~/.local/share/uv/",         // uv's tool venvs (prek, etc.)
         "~/.local/bin/",              // uv-installed tool entry points
@@ -715,7 +714,7 @@ The full block below is the two merged, annotated.
     "deny": [
       "Read(~/.aws/**)", "Read(~/.ssh/**)", "Read(~/.netrc)",
       "Read(~/.docker/**)", "Read(~/.kube/**)",
-      "Read(~/.config/gh/**)",                  // bash can read it (sandbox.allowRead); the AGENT can't
+      "Read(~/.config/gh/**)",                  // neither the agent nor sandboxed bash; only the excluded `gh` reads it
       "Read(~/.config/apache-magpie/**)",      // Gmail OAuth token: only the oauth-draft MCP server reads it, outside the sandbox
       "Edit(~/.config/apache-magpie/local-tracker-parsers.json)", // the user's custom-parser confirmations: only `trust-parser`, run by the user, writes them
       "Read(~/.config/gcloud/**)", "Read(~/.azure/**)",
@@ -881,11 +880,14 @@ The full block below is the two merged, annotated.
 }
 ```
 
-The deny / allow split for `~/.config/gh/` is deliberate: the `gh`
-CLI needs to *use* the credential, but the agent should never *see*
-it. `sandbox.filesystem.allowRead` permits the bash subprocess to
-read the file; `permissions.deny[Read(...)]` blocks the agent's Read
-tool from reading the same path.
+`~/.config/gh/` is denied to both the agent and sandboxed Bash.
+The `gh` CLI needs to *use* the credential, and it does: `gh *` is in
+`sandbox.excludedCommands`, so it runs outside the sandbox and reads
+its own token there. No sandboxed command needs the file, and a
+readable `hosts.yml` would let any unprompted sandboxed command copy
+the token. `permissions.deny[Read(...)]` blocks the agent's Read tool,
+and the default `denyRead: ["~/"]` blocks every sandboxed command;
+`sandbox-lint` refuses an `allowRead` entry that re-opens it.
 
 `~/.config/apache-magpie/` gets no such split: it is denied to both.
 It holds the Gmail OAuth refresh token, and a sandboxed command runs

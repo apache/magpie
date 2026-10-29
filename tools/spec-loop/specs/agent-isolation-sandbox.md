@@ -428,6 +428,9 @@ See `docs/adapters/goose.md`.
   `~/.config/apache-magpie` in `allowRead`: the Gmail OAuth token there is
   read only by the drafting MCP server outside the sandbox, and the
   template no longer grants it or the Google API hosts (#1681).
+  It refuses `~/.config/gh` in `allowRead` too: `gh *` is excluded from the
+  sandbox and reads its own token outside it, so no sandboxed command needs
+  `hosts.yml`, and the template no longer grants it.
   Because that server runs outside the sandbox, it accepts a
   caller-supplied `credentials_path` only as a `.json` file directly in
   `~/.config/apache-magpie/` or in the directory of

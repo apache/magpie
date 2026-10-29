@@ -112,11 +112,10 @@ a `python` snippet the model decided to run) from reading a denied
 path. `permissions.deny` stops the agent's Read tool from reading
 the same path. A secure setup needs both: the framework's committed
 [`.claude/settings.json`](../../.claude/settings.json) deny-lists
-`Read(~/.config/gh/**)`, *and* its local template
-[`claude-settings.local.template.json`](../../tools/agent-isolation/claude-settings.local.template.json)
-(layered in through `.claude/settings.local.json`) allow-reads
-`~/.config/gh/` in the sandbox, so `gh` can see its token but the agent
-can never read the file.
+`Read(~/.config/gh/**)`, and the sandbox's `denyRead: ["~/"]` keeps
+`~/.config/gh/` from every sandboxed command. `gh` still sees its token
+because it runs outside the sandbox (`sandbox.excludedCommands`), so
+neither the agent nor a sandboxed command can ever read the file.
 
 ## Linux: bubblewrap + user namespaces
 
