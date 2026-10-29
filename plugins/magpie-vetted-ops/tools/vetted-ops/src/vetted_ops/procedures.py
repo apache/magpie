@@ -57,6 +57,7 @@ from typing import TextIO
 
 from .body_field_format import FieldNotFoundError, extract_field, replace_field
 from .rollup_format import (
+    RollupEntry,
     build_entry,
     build_new_rollup_body,
     find_rollup_index,
@@ -440,6 +441,19 @@ def rollup_fold(r: Runner, *, number: str, comment_id: str, action: str) -> int:
     return 0
 
 
+def _entries_cover(rollup_body: str, entries: list[RollupEntry]) -> bool:
+    """True when ``entries``, rebuilt, account for all of ``rollup_body``
+    after its marker line, ignoring whitespace and the rulers between
+    entries."""
+
+    def words(text: str) -> list[str]:
+        return [w for w in text.split() if w != "---"]
+
+    rest = rollup_body.split("\n", 1)[1] if "\n" in rollup_body else ""
+    rebuilt = "\n".join(build_entry(date=e.date, user=e.user, action=e.action, body=e.body) for e in entries)
+    return words(rest) == words(rebuilt)
+
+
 def _fold_second_rollup(r: Runner, *, number: str, legacy: dict[str, object]) -> int:
     """Merge a second rollup comment (typically a legacy-marker one next to
     the canonical rollup) into the rollup, entry by entry, then delete it.
@@ -466,7 +480,8 @@ def _fold_second_rollup(r: Runner, *, number: str, legacy: dict[str, object]) ->
         raise ProcedureRefused(
             f"comment {comment_id} author {login!r} {reason}; refusing to merge its entries"
         )
-    entries = iter_entries(str(legacy.get("body") or ""))
+    legacy_body = str(legacy.get("body") or "")
+    entries = iter_entries(legacy_body)
     if not entries:
         raise ProcedureRefused(
             f"comment {comment_id} carries a rollup marker but no entries; refusing to fold"
@@ -474,6 +489,13 @@ def _fold_second_rollup(r: Runner, *, number: str, legacy: dict[str, object]) ->
     if any(not e.date for e in entries):
         raise ProcedureRefused(
             f"comment {comment_id} has an entry whose summary is not `date · @user · action`; refusing to fold"
+        )
+    # The comment is deleted after the merge, so everything in it must be in
+    # the parsed entries: an entry the parser cannot see (a split open tag,
+    # free text between entries) would otherwise be lost.
+    if not _entries_cover(legacy_body, entries):
+        raise ProcedureRefused(
+            f"comment {comment_id} has content outside its parsed entries; refusing to fold"
         )
     rollup_id = _rest_id(r, rollup)
     _patch_comment(r, rollup_id, insert_entries_by_date(str(rollup.get("body") or ""), entries))

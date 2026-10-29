@@ -485,6 +485,22 @@ def test_fold_refuses_a_second_rollup_with_an_unparsed_entry() -> None:
     assert fake.writes == []
 
 
+def test_fold_refuses_a_second_rollup_with_content_the_parser_skips() -> None:
+    # A split open tag is invisible to the parser; deleting the comment after
+    # merging only the parsed entry would lose it.
+    legacy = (
+        dated_rollup("2026-02-01", marker=LEGACY_MARKER)
+        + "\n\n---\n\n<details>\n<summary>2026-02-02 · @bob · Split</summary>\n\nlost\n\n</details>"
+    )
+    fake = FakeGh(
+        comments=[rollup_comment(dated_rollup("2026-01-01"))],
+        legacy=legacy_comment(body=legacy, user={"login": "bob"}),
+    )
+    with pytest.raises(procedures.ProcedureRefused, match="content outside its parsed entries"):
+        procedures.rollup_fold(runner(fake), number="7", comment_id="999", action="x")
+    assert fake.writes == []
+
+
 def test_fold_refuses_a_second_rollup_by_an_untrusted_author() -> None:
     # Its entries claim their own `@user` and date, so a non-collaborator could
     # otherwise forge entries into the rollup.

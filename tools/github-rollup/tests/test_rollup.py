@@ -252,6 +252,13 @@ def test_insert_entries_by_date_before_the_first_entry():
     assert existing.split("\n", 1)[1] in out
 
 
+def test_insert_entries_by_date_keeps_a_same_day_existing_entry_last():
+    out = insert_entries_by_date(_rollup("2026-01-01", "2026-03-01"), [_entry("2026-03-01")])
+    entries = iter_entries(out)
+    assert [e.date for e in entries] == ["2026-01-01", "2026-03-01", "2026-03-01"]
+    assert entries[-1].action == "Step"
+
+
 def test_insert_entries_by_date_skips_unparsed_anchors():
     existing = f"{MARKER_LINE}\n<details><summary>free text</summary>\n\nX.\n\n</details>"
     out = insert_entries_by_date(existing, [_entry("2026-01-01")])
