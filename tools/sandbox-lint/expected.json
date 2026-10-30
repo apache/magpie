@@ -299,6 +299,7 @@
   "enabledPlugins": {
     "magpie-setup@apache-magpie": true,
     "magpie-utilities@apache-magpie": true,
-    "magpie-agent-guard@apache-magpie": true
+    "magpie-agent-guard@apache-magpie": true,
+    "magpie-vetted-ops@apache-magpie": true
   }
 }

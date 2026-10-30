@@ -1,0 +1,7 @@
+{
+  "skill_md": "skills/setup-isolated-setup-install/step-p-sandbox-allowlists.md",
+  "step_heading": "### Step P.3b-whole-user — Install the per-repo dispatcher + hook-manager shim (dispatcher flavour only)",
+  "also_include": [
+    "tools/hook-manager/registry.json"
+  ]
+}
