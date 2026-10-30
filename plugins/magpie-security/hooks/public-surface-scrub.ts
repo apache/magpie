@@ -2194,6 +2194,7 @@ export async function evaluatePublicSurfaceCommand(
   // repository without changing directory.
   let hasPriorRedirect = REPOSITORY_SELECTING_ENV_VARS.some((name) => Boolean(options?.env?.[name]));
 
+  let prevSeparator: string | undefined;
   for (const item of subcommands) {
     if (item.subshellDepthDeltaBefore) {
       for (let d = 0; d < item.subshellDepthDeltaBefore; d++) {
@@ -2225,11 +2226,14 @@ export async function evaluatePublicSurfaceCommand(
       // any prefix): parseSubcommand acts only on GIT_DIR / GIT_WORK_TREE, and git reads many more.
       (hasPriorRedirect || parsed.setsOwnEnvironment === true) &&
       (parsed.commandType.startsWith('git ') || parsed.commandType.startsWith('gh '));
-    // `||` runs what follows only on failure, so the directory tracking (which follows every `cd`)
-    // can disagree with the shell (`cd /upstream || cd /tracker`): treat it as a redirect.
-    if (mayRedirectLaterCommands(rawSub) || item.separatorAfter === '||') {
+    // The directory tracking follows every `cd`, but a `cd` after `&&` or `||` runs only
+    // conditionally (`false && cd /tracker`, `cd /upstream || cd /tracker`), so the tracked directory
+    // can disagree with the shell: a conditional `cd`, or anything followed by `||`, is a redirect.
+    const isConditionalCd = Boolean(parsed.cdDir) && (prevSeparator === '&&' || prevSeparator === '||');
+    if (mayRedirectLaterCommands(rawSub) || item.separatorAfter === '||' || isConditionalCd) {
       hasPriorRedirect = true;
     }
+    prevSeparator = item.separatorAfter;
 
     // Track cd transitions: update virtualCwd across sequential operators (&&, ;, \n, ||)
     // Only exclude pipeline (|) and background (&) which run in subshells

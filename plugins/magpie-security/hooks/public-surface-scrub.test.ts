@@ -2340,6 +2340,8 @@ upstream_repo: apache/kafka
         'GH_REPO=apache/airflow gh issue create -t "CVE-2026-1234" -b "d"',
         'printf -vGH_REPO %s apache/airflow; gh issue create -t "CVE-2026-1234" -b "d"',
         'cd /home/dev/upstream || cd /home/dev/airflow-s; gh issue create -t "CVE-2026-1234" -b "d"',
+        'false && cd /home/dev/airflow-s; gh issue create -t "CVE-2026-1234" -b "d"',
+        'test -d /nope && cd /home/dev/airflow-s; git commit -m "Fix CVE-2026-1234"',
         'echo "${GH_REPO:=apache/airflow}"; gh issue create -t "CVE-2026-1234" -b "d"',
         'gh repo set-default apache/airflow && gh issue create -t "CVE-2026-1234" -b "d"',
         "printf '[remote \"origin\"]\\nurl = https://github.com/apache/airflow.git\\n' > .git/config && gh issue create -t 'CVE-2026-1234' -b d",
