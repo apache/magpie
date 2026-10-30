@@ -2349,7 +2349,15 @@ export async function evaluatePublicSurfaceCommand(
       if (trackerFallbackHint) {
         // The Bash tool call carries no cwd, so a command run in the tracker checkout cannot be
         // told apart from one run after an earlier `cd ../<upstream>`; an explicit target can.
-        reason += `\nIf this command targets the private tracker, name it explicitly: \`--repo ${trackerFallbackHint}\`.`;
+        if (parsed.commandType.startsWith('git ')) {
+          // git commit/tag/merge has no --repo flag; only the directory it runs in identifies the repository.
+          reason +=
+            '\nThe current directory of this command could not be determined, so the private-tracker exemption ' +
+            'was not applied. A git command has no repository flag; the exemption needs a known working directory ' +
+            'inside the tracker checkout.';
+        } else {
+          reason += `\nIf this command targets the private tracker, name it explicitly: \`--repo ${trackerFallbackHint}\`.`;
+        }
       }
       return {
         blocked: true,
@@ -2376,6 +2384,20 @@ export function register(on: any): void {
     if (typeof command === 'string') {
       let initialCwd: string | undefined = e?.cwd || e?.directory;
       let isSessionRootFallback = false;
+      if (!initialCwd) {
+        // The Bash tool event carries no directory. $.session.cwd() is the session's current
+        // directory: the shell's directory as left by earlier Bash calls (a `cd` that persists
+        // across calls moves it), or the calling agent's own directory. $.session.root() is only
+        // where the session started, so it is used just when the current directory is unknown.
+        try {
+          const current = await $.session.cwd();
+          if (typeof current === 'string' && current) {
+            initialCwd = current;
+          }
+        } catch {
+          // $.session.cwd may be absent in mock harnesses or older engines
+        }
+      }
       if (!initialCwd) {
         try {
           initialCwd = await $.session.root();

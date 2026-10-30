@@ -2210,6 +2210,74 @@ upstream_repo: apache/kafka
       });
       assert(res?.result && res.result.stdout === 'executed', `Expected tool call to execute: ${JSON.stringify(res)}`);
     });
+
+    test('a bare tracker git commit is blocked without --repo advice when only the root is known', async ($: any, on: any) => {
+      setupTrackerEnv(on);
+      const res = await $.tool.call({ tool: 'Bash', command: 'git commit -m "Allocated CVE-2026-1234"' });
+      assert(typeof res?.deny === 'string', `Expected deny: ${JSON.stringify(res)}`);
+      assert(!res.deny.includes('--repo'), `git block must not suggest --repo: ${res.deny}`);
+    });
+  });
+
+  describe('register() reads the current directory from $.session.cwd()', () => {
+    const trackerProject = '\n| Key | Value |\n| tracker_repo | airflow-s/airflow-s |\n| upstream_repo | apache/airflow |\n';
+    const trackerGitConfig = '\n[remote "origin"]\n  url = https://github.com/airflow-s/airflow-s.git\n';
+    const upstreamGitConfig = '\n[remote "origin"]\n  url = https://github.com/apache/airflow.git\n';
+    const msgFile = '/home/dev/msg.txt';
+
+    // Session root is always the tracker checkout; $.session.cwd() says where the shell is now.
+    function setupEnv(on: any, currentDir: string): void {
+      on('session.root', () => ({ value: '/home/dev/airflow-s' }));
+      on('session.cwd', () => ({ value: currentDir }));
+      on('fs.read', (_: any, e: any) => {
+        const p = (e.path || '').replace(/\\/g, '/');
+        if (p.endsWith('/.apache-magpie-overrides/project.md')) return { value: trackerProject };
+        if (p === '/home/dev/airflow-s/.git/config') return { value: trackerGitConfig };
+        if (p === '/home/dev/scratch/airflow-wt/.git/config') return { value: upstreamGitConfig };
+        if (p === msgFile) return { value: 'Note the CVE-2026-1234 advisory in the tracker config' };
+        return { value: null };
+      });
+      on('env.get', () => ({ value: undefined }));
+      on('tool.call', () => ({ result: { stdout: 'executed' } }));
+    }
+
+    test('a bare git commit -F passes when the current directory is the tracker checkout', async ($: any, on: any) => {
+      setupEnv(on, '/home/dev/airflow-s');
+      const res = await $.tool.call({ tool: 'Bash', command: `git commit -F ${msgFile}` });
+      assert(res?.result && res.result.stdout === 'executed', `Expected tool call to execute: ${JSON.stringify(res)}`);
+    });
+
+    test('a bare git commit is blocked after an earlier call moved the shell into an upstream worktree', async ($: any, on: any) => {
+      setupEnv(on, '/home/dev/scratch/airflow-wt');
+      const res = await $.tool.call({ tool: 'Bash', command: `git commit -F ${msgFile}` });
+      assert(typeof res?.deny === 'string', `Expected deny in upstream worktree: ${JSON.stringify(res)}`);
+    });
+
+    test('a cd on the same line still moves the scope away from the tracker', async ($: any, on: any) => {
+      setupEnv(on, '/home/dev/airflow-s');
+      const res = await $.tool.call({
+        tool: 'Bash',
+        command: 'cd /home/dev/scratch/airflow-wt && git commit -m "Fix CVE-2026-1234"',
+      });
+      assert(typeof res?.deny === 'string', `Expected deny after cd: ${JSON.stringify(res)}`);
+    });
+
+    test('an event cwd takes precedence over $.session.cwd()', async ($: any, on: any) => {
+      setupEnv(on, '/home/dev/airflow-s');
+      const res = await $.tool.call({
+        tool: 'Bash',
+        cwd: '/home/dev/scratch/airflow-wt',
+        command: `git commit -F ${msgFile}`,
+      });
+      assert(typeof res?.deny === 'string', `Expected deny on event cwd: ${JSON.stringify(res)}`);
+    });
+
+    test('gh pr create in the tracker directory is exempt like any verified tracker cwd', async ($: any, on: any) => {
+      // Not fallback any more, so the tracker cwd exemption applies like any verified cwd
+      setupEnv(on, '/home/dev/airflow-s');
+      const res = await $.tool.call({ tool: 'Bash', command: `gh pr create -t "Config" --body-file ${msgFile}` });
+      assert(res?.result && res.result.stdout === 'executed', `Expected verified tracker cwd to exempt gh: ${JSON.stringify(res)}`);
+    });
   });
 
 });
