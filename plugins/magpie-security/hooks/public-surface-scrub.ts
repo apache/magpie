@@ -2230,9 +2230,10 @@ export async function evaluatePublicSurfaceCommand(
     const isRedirectedByPriorCommand =
       // An own-environment git or gh command (`GIT_COMMON_DIR=... git tag`, `env ... git tag`, after
       // any prefix): parseSubcommand acts only on GIT_DIR / GIT_WORK_TREE, and git reads many more.
-      // A substitution inside the git or gh command itself (`gh issue create -t "$(git remote
-      // set-url ...)"`) runs before the command resolves its repository.
-      (hasPriorRedirect || parsed.setsOwnEnvironment === true || /`|\$\(|<\(/.test(rawSub)) &&
+      // An expansion or substitution inside the git or gh command itself (`gh issue create -t
+      // "$(git remote set-url ...)"`, `"${GH_REPO:=...}"`, `>(...)`) runs before the command
+      // resolves its repository; same fail-closed set as mayRedirectLaterCommands.
+      (hasPriorRedirect || parsed.setsOwnEnvironment === true || /[`$]|[<>]\(/.test(rawSub)) &&
       (parsed.commandType.startsWith('git ') || parsed.commandType.startsWith('gh '));
     // The directory tracking follows every `cd`, but once an `&&` or `||` has appeared on the line a
     // later `cd` may run only conditionally (`false && cd /tracker`, `cd /upstream || cd /tracker`,

@@ -2349,6 +2349,8 @@ upstream_repo: apache/kafka
         'case x in y) cd /home/dev/airflow-s;; esac; gh issue create -t "CVE-2026-1234" -b "d"',
         'gh issue create -t "$(git remote set-url origin https://github.com/apache/airflow.git; echo CVE-2026-1234)" -b d',
         'git commit -m "`git config core.worktree ../u` Fix CVE-2026-1234"',
+        'gh issue create -t "${GH_REPO:=apache/airflow} CVE-2026-1234" -b d',
+        'gh issue create -t "CVE-2026-1234" -b d --body-file >(git remote set-url origin https://github.com/apache/airflow.git)',
         'cd /home/dev/airflow-s unused extra; gh issue create -t "CVE-2026-1234" -b "d"',
         'cd -; git commit -m "Fix CVE-2026-1234"',
         'cd -P /home/dev/airflow-s; git commit -m "Fix CVE-2026-1234"',
