@@ -473,7 +473,8 @@ def _fold_second_rollup(r: Runner, *, number: str, legacy: dict[str, object]) ->
     rollup = _find_rollup(r, _list_comments(r, number))
     if rollup is None or _rest_id(r, rollup) == comment_id:
         raise ProcedureRefused(f"comment {comment_id} is the rollup itself; refusing to fold")
-    login = str((legacy.get("user") or {}).get("login") or "")
+    user = legacy.get("user")
+    login = str(user.get("login") or "") if isinstance(user, dict) else ""
     trusted, complete = _trusted_authors(r)
     if login.lower() not in {t.lower() for t in trusted}:
         reason = "is not a collaborator" if complete else "cannot be checked (collaborator list unreadable)"
