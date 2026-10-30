@@ -2152,6 +2152,12 @@ function mayRedirectLaterCommands(subcommand: string): boolean {
   if (!ENVIRONMENT_PRESERVING_COMMANDS.has(words[0])) {
     return true; // includes a leading `VAR=value`, `export`, `builtin`, `eval`, `if`, `f() {`, ...
   }
+  if (words[0] === 'cd') {
+    // Only a plain `cd <dir>` is tracked as a directory change; `cd a b` fails (too many operands)
+    // and leaves the shell where it was, and options or `cd -` move it somewhere the tracking
+    // does not model.
+    return words.length !== 2 || words[1].startsWith('-');
+  }
   if (words[0] === 'git') {
     // `git diff --output=.git/config` writes a file; any `--output` / `-o` option disqualifies.
     return (
@@ -2224,7 +2230,9 @@ export async function evaluatePublicSurfaceCommand(
     const isRedirectedByPriorCommand =
       // An own-environment git or gh command (`GIT_COMMON_DIR=... git tag`, `env ... git tag`, after
       // any prefix): parseSubcommand acts only on GIT_DIR / GIT_WORK_TREE, and git reads many more.
-      (hasPriorRedirect || parsed.setsOwnEnvironment === true) &&
+      // A substitution inside the git or gh command itself (`gh issue create -t "$(git remote
+      // set-url ...)"`) runs before the command resolves its repository.
+      (hasPriorRedirect || parsed.setsOwnEnvironment === true || /`|\$\(|<\(/.test(rawSub)) &&
       (parsed.commandType.startsWith('git ') || parsed.commandType.startsWith('gh '));
     // The directory tracking follows every `cd`, but once an `&&` or `||` has appeared on the line a
     // later `cd` may run only conditionally (`false && cd /tracker`, `cd /upstream || cd /tracker`,
