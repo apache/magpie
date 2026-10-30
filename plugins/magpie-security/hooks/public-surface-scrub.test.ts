@@ -2280,7 +2280,7 @@ upstream_repo: apache/kafka
     });
   });
 
-  describe('an earlier GIT_* assignment on the line redirects a bare git command', () => {
+  describe('an earlier environment change on the line redirects a bare git or gh command', () => {
     const config = { trackerRepo: 'airflow-s/airflow-s', upstreamRepo: 'apache/airflow' };
     const trackerGitConfig = '\n[remote "origin"]\n  url = https://github.com/airflow-s/airflow-s.git\n';
     const readFile = async (p: string) => (p.endsWith('.git/config') ? trackerGitConfig : null);
@@ -2300,16 +2300,36 @@ upstream_repo: apache/kafka
         'local GIT_OBJECT_DIRECTORY=../u/.git/objects; git tag -a v1 -m "Fix CVE-2026-1234"',
         'GIT_DIR=../u/.git; export GIT_DIR; git commit -m "Fix CVE-2026-1234"',
         'export FOO=1 GIT_NAMESPACE=x && git merge topic -m "Fix CVE-2026-1234"',
+        'builtin export GIT_DIR=../u/.git; git tag -a v1 -m "Fix CVE-2026-1234"',
+        'command export GIT_DIR=../u/.git; git commit -m "Fix CVE-2026-1234"',
+        'GIT_DIR+=x; git commit -m "Fix CVE-2026-1234"',
+        'GIT_DIR=../u/.git ls && git commit -m "Fix CVE-2026-1234"',
+        'eval "$SETUP"; git commit -m "Fix CVE-2026-1234"',
+        'source ./env.sh && git commit -m "Fix CVE-2026-1234"',
+        '. ./env.sh && git commit -m "Fix CVE-2026-1234"',
+        'set -a; git commit -m "Fix CVE-2026-1234"',
+        'printf -v X %s y; git commit -m "Fix CVE-2026-1234"',
+        'export "$V"; git commit -m "Fix CVE-2026-1234"',
       ]) {
         const res = await evaluate(cmd);
         assertStrictEqual(res.blocked, true, `Expected block for: ${cmd}`);
       }
     });
 
-    test('unrelated variables and a GIT_* assignment scoped to another command keep the exemption', async () => {
+    test('an earlier GH_REPO or GH_HOST blocks a later bare gh command', async () => {
+      for (const cmd of [
+        'export GH_REPO=apache/airflow; gh issue create -t "CVE-2026-1234" -b "details"',
+        'GH_HOST=example.com; gh pr create -t "Fix CVE-2026-1234" -b "x"',
+      ]) {
+        const res = await evaluate(cmd);
+        assertStrictEqual(res.blocked, true, `Expected block for: ${cmd}`);
+      }
+    });
+
+    test('unrelated earlier commands keep the exemption', async () => {
       for (const cmd of [
         'export FOO=1 && git commit -m "Fix CVE-2026-1234"',
-        'GIT_DIR=../u/.git ls && git commit -m "Fix CVE-2026-1234"',
+        'echo ready && git commit -m "Fix CVE-2026-1234"',
         'git commit -m "Fix CVE-2026-1234"',
       ]) {
         const res = await evaluate(cmd);

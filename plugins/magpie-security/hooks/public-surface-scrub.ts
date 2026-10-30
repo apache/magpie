@@ -2076,32 +2076,48 @@ const SAFE_READONLY_COMMANDS = new Set([
 /** Shell builtins that assign or export variables for the rest of the command line. */
 const VARIABLE_DECLARATION_BUILTINS = new Set(['export', 'declare', 'typeset', 'readonly', 'local']);
 
+/** Shell builtins that can change the environment in ways the hook cannot see. */
+const ENVIRONMENT_OPAQUE_BUILTINS = new Set(['eval', 'source', '.', 'set', 'read', 'mapfile', 'readarray']);
+
+/** Prefixes that run the next word as the command (`builtin export ...`, `command -p eval ...`). */
+const COMMAND_RUNNING_PREFIXES = new Set(['builtin', 'command', 'then', 'do', 'else', '!']);
+
 /**
- * True when a subcommand sets or exports a `GIT_*` variable for the subcommands after it:
- * `export GIT_DIR=...`, `declare -x GIT_WORK_TREE=...`, `export GIT_DIR` (exporting an earlier
- * assignment), or a bare `GIT_DIR=...` segment with no command after it. Any `GIT_*` name counts,
- * not only the repository-selection ones (GIT_DIR, GIT_WORK_TREE, GIT_COMMON_DIR, GIT_INDEX_FILE,
- * GIT_OBJECT_DIRECTORY, GIT_ALTERNATE_OBJECT_DIRECTORIES, GIT_CEILING_DIRECTORIES, GIT_NAMESPACE, ...):
- * the list grows with git releases, and a legitimate tracker commit has no reason to set any of them
- * earlier on the same line. `GIT_DIR=... git commit` (an assignment leading the git command itself)
- * is detected by parseSubcommand; `GIT_DIR=... ls` scopes the variable to `ls` and is not flagged.
+ * True when a subcommand may change which repository a LATER git or gh subcommand on the line acts
+ * on, without changing directory. Fails closed: the hook cannot model the shell's environment, so
+ * any of these counts —
+ * - any mention of a `GIT_*` or `GH_*` variable (`export GIT_DIR=...`, `GIT_WORK_TREE=x;`,
+ *   `builtin export GIT_DIR=...`, `export GH_REPO=...`, `GIT_DIR+=...`, `unset GIT_DIR`, even
+ *   `GIT_DIR=x ls`): git selects the repository from `GIT_DIR`, `GIT_WORK_TREE`, `GIT_COMMON_DIR` and
+ *   others (the list grows with git releases), and gh from `GH_REPO` / `GH_HOST`;
+ * - a builtin whose effect on the environment is opaque (`eval`, `source`, `.`, `set`, `read`,
+ *   `mapfile`, `printf -v`), after any `builtin` / `command` / control-word prefix;
+ * - a declaration builtin whose arguments expand (`export "$V"`, `declare -x $(...)`).
+ * A legitimate tracker commit has no reason to do any of this earlier on the same line.
+ * An assignment leading the git or gh command itself is detected by parseSubcommand.
  */
-function setsGitVariableForLaterCommands(subcommand: string): boolean {
-  const words = tokenizeShellWords(subcommand.trim());
+function mayRedirectLaterCommands(subcommand: string): boolean {
+  const text = subcommand.trim();
+  if (/\b(?:GIT|GH)_[A-Za-z0-9_]*/.test(text)) {
+    return true;
+  }
+  const words = tokenizeShellWords(text);
   let idx = 0;
-  let hasGitAssignment = false;
-  while (idx < words.length && /^[a-zA-Z_][a-zA-Z0-9_]*=/.test(words[idx])) {
-    if (/^GIT_[A-Za-z0-9_]*=/.test(words[idx])) hasGitAssignment = true;
+  while (idx < words.length && /^[a-zA-Z_][a-zA-Z0-9_]*\+?=/.test(words[idx])) idx++;
+  while (idx < words.length && (COMMAND_RUNNING_PREFIXES.has(words[idx]) || /^-[a-zA-Z]+$/.test(words[idx]))) {
     idx++;
   }
-  if (idx === words.length) {
-    return hasGitAssignment; // bare assignment segment: the variables persist for later subcommands
-  }
-  const binary = words[idx].split(/[/\\]/).pop()?.toLowerCase() ?? '';
-  if (!VARIABLE_DECLARATION_BUILTINS.has(binary)) {
+  if (idx >= words.length) {
     return false;
   }
-  return words.slice(idx + 1).some((w) => /^GIT_[A-Za-z0-9_]*(=|$)/.test(w));
+  const binary = words[idx].split(/[/\\]/).pop()?.toLowerCase() ?? '';
+  if (ENVIRONMENT_OPAQUE_BUILTINS.has(binary)) {
+    return true;
+  }
+  if (binary === 'printf' && words.slice(idx + 1).includes('-v')) {
+    return true;
+  }
+  return VARIABLE_DECLARATION_BUILTINS.has(binary) && /[$`]/.test(text);
 }
 
 /**
@@ -2130,9 +2146,10 @@ export async function evaluatePublicSurfaceCommand(
   const subshellCwdStack: (string | undefined)[] = [];
   const seenRedirectedFiles = new Set<string>();
   let hasPotentiallyMutatingPriorCommand = false;
-  // Set once an earlier subcommand on the line sets or exports a GIT_* variable, which can point a
-  // later bare git command at another repository without changing directory.
-  let hasPriorGitVariable = false;
+  // Set once an earlier subcommand on the line may have changed the environment (a GIT_* / GH_*
+  // variable, or an opaque builtin), which can point a later bare git or gh command at another
+  // repository without changing directory.
+  let hasPriorRedirect = false;
 
   for (const item of subcommands) {
     if (item.subshellDepthDeltaBefore) {
@@ -2160,9 +2177,10 @@ export async function evaluatePublicSurfaceCommand(
 
     const rawSub = item.raw;
     const parsed = parseSubcommand(rawSub);
-    const isRedirectedByPriorGitVariable = hasPriorGitVariable && parsed.commandType.startsWith('git ');
-    if (setsGitVariableForLaterCommands(rawSub)) {
-      hasPriorGitVariable = true;
+    const isRedirectedByPriorCommand =
+      hasPriorRedirect && (parsed.commandType.startsWith('git ') || parsed.commandType.startsWith('gh '));
+    if (mayRedirectLaterCommands(rawSub)) {
+      hasPriorRedirect = true;
     }
 
     // Track cd transitions: update virtualCwd across sequential operators (&&, ;, \n, ||)
@@ -2295,7 +2313,7 @@ export async function evaluatePublicSurfaceCommand(
         parsed.commandType.includes('work-tree') ||
         parsed.commandType.includes('GIT_DIR') ||
         parsed.commandType.includes('wrapped') ||
-        isRedirectedByPriorGitVariable
+        isRedirectedByPriorCommand
       ) {
         // Repository context is redirected or indeterminate — cwd remoteInfo cannot exempt it
         // Proceed directly to inspection and dynamic-input fail-closed check
