@@ -1864,6 +1864,8 @@ upstream_repo: apache/kafka
       for (const cmd of [
         'echo x | cd /tracker; gh issue create -t "CVE-2026-1234" -b "d"',
         'echo x | { true; cd /tracker; }; git commit -m "Fix CVE-2026-1234 SSRF"',
+        '{ cd /tracker; true; } | cat; gh issue create -t "CVE-2026-1234" -b "d"',
+        '{ cd /tracker; true; } & git commit -m "Fix CVE-2026-1234 SSRF"',
       ]) {
         const res = await evaluatePublicSurfaceCommand(cmd, {
           cwd: '/home/dev/upstream',
