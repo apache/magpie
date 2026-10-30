@@ -2241,8 +2241,10 @@ export async function evaluatePublicSurfaceCommand(
     // any such `cd`, or anything followed by `||`, is a redirect.
     const isConditionalCd = Boolean(parsed.cdDir) && hasSeenConditional;
     // With CDPATH set, `cd name` searches the CDPATH entries before the current directory, so the
-    // tracked directory can name a different checkout than the one the shell lands in.
-    const isCdPathCd = Boolean(parsed.cdDir) && Boolean(options?.env?.CDPATH) && !/^[/.]/.test(parsed.cdDir ?? '');
+    // tracked directory can name a different checkout than the one the shell lands in. Bash skips
+    // the search only for `/...`, `.`, `..`, `./...` and `../...` (`.hidden` is still searched).
+    const isCdPathCd =
+      Boolean(parsed.cdDir) && Boolean(options?.env?.CDPATH) && !/^(\/|\.\.?(\/|$))/.test(parsed.cdDir ?? '');
     if (mayRedirectLaterCommands(rawSub) || item.separatorAfter === '||' || isConditionalCd || isCdPathCd) {
       hasPriorRedirect = true;
     }

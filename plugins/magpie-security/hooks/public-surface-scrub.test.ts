@@ -2357,6 +2357,8 @@ upstream_repo: apache/kafka
         'test -d /nope && cd /home/dev/airflow-s; git commit -m "Fix CVE-2026-1234"',
         'echo "${GH_REPO:=apache/airflow}"; gh issue create -t "CVE-2026-1234" -b "d"',
         'gh repo set-default apache/airflow && gh issue create -t "CVE-2026-1234" -b "d"',
+        'CDPATH=/home/dev/public; cd child; gh issue create -t "CVE-2026-1234" -b "d"',
+        'export CDPATH=/home/dev/public; cd child; git commit -m "Fix CVE-2026-1234"',
         "printf '[remote \"origin\"]\\nurl = https://github.com/apache/airflow.git\\n' > .git/config && gh issue create -t 'CVE-2026-1234' -b d",
       ]) {
         const res = await evaluate(cmd);
@@ -2382,6 +2384,7 @@ upstream_repo: apache/kafka
       const env = { CDPATH: '/home/dev/public' };
       for (const [cmd, blocked] of [
         ['cd child && gh issue create -t "CVE-2026-1234" -b "d"', true],
+        ['cd .hidden && gh issue create -t "CVE-2026-1234" -b "d"', true],
         ['cd ./child && gh issue create -t "CVE-2026-1234" -b "d"', false],
         ['cd /home/dev/airflow-s && git commit -m "Fix CVE-2026-1234"', false],
       ] as const) {
