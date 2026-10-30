@@ -2280,4 +2280,47 @@ upstream_repo: apache/kafka
     });
   });
 
+  describe('an earlier GIT_* assignment on the line redirects a bare git command', () => {
+    const config = { trackerRepo: 'airflow-s/airflow-s', upstreamRepo: 'apache/airflow' };
+    const trackerGitConfig = '\n[remote "origin"]\n  url = https://github.com/airflow-s/airflow-s.git\n';
+    const readFile = async (p: string) => (p.endsWith('.git/config') ? trackerGitConfig : null);
+
+    // Verified tracker cwd (not the session-root fallback), so only the GIT_* rule can block.
+    function evaluate(cmd: string) {
+      return evaluatePublicSurfaceCommand(cmd, { cwd: '/home/dev/airflow-s', projectConfig: config, readFile });
+    }
+
+    test('export, declare, typeset, readonly, local and bare assignments of GIT_* block', async () => {
+      for (const cmd of [
+        'export GIT_DIR=../u/.git && git commit -m "Fix CVE-2026-1234"',
+        'GIT_WORK_TREE=x; git commit -m "Fix CVE-2026-1234"',
+        'declare -x GIT_DIR=../u/.git && git commit -m "Fix CVE-2026-1234"',
+        'typeset -x GIT_COMMON_DIR=../u/.git; git commit -m "Fix CVE-2026-1234"',
+        'readonly GIT_INDEX_FILE=../u/.git/index && git commit -m "Fix CVE-2026-1234"',
+        'local GIT_OBJECT_DIRECTORY=../u/.git/objects; git tag -a v1 -m "Fix CVE-2026-1234"',
+        'GIT_DIR=../u/.git; export GIT_DIR; git commit -m "Fix CVE-2026-1234"',
+        'export FOO=1 GIT_NAMESPACE=x && git merge topic -m "Fix CVE-2026-1234"',
+      ]) {
+        const res = await evaluate(cmd);
+        assertStrictEqual(res.blocked, true, `Expected block for: ${cmd}`);
+      }
+    });
+
+    test('unrelated variables and a GIT_* assignment scoped to another command keep the exemption', async () => {
+      for (const cmd of [
+        'export FOO=1 && git commit -m "Fix CVE-2026-1234"',
+        'GIT_DIR=../u/.git ls && git commit -m "Fix CVE-2026-1234"',
+        'git commit -m "Fix CVE-2026-1234"',
+      ]) {
+        const res = await evaluate(cmd);
+        assertStrictEqual(res.blocked, false, `Expected tracker exemption for: ${cmd}: ${JSON.stringify(res)}`);
+      }
+    });
+
+    test('a neutral message still passes after a GIT_* assignment', async () => {
+      const res = await evaluate('export GIT_DIR=../u/.git && git commit -m "Refactor config loading"');
+      assertStrictEqual(res.blocked, false, `Expected pass on neutral text: ${JSON.stringify(res)}`);
+    });
+  });
+
 });
