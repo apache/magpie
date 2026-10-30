@@ -12,7 +12,7 @@ Behavioral eval harness for Apache Magpie skills. Each eval suite tests a skill 
 Suites are currently implemented for:
 
 - **setup** — 152 cases across 33 steps (step-verify-drift, step-overrides-surface, step-override-bypass, step-m3-baseline-pick, step-m4-install-gates, step-m5-no-repo-offer, step-m5-companion-offer, step-upgrade-companion-offer, step-adopt-settings-merge, verify-default-set, uninstall-default-set, lock-marketplace-parse, adopt-write-floor, setup-prefill-from-floor, preflight-floor, upgrade-adoption-split, verify-floor, adopt-review-process, adopt-security-list, step-reconcile, step-verify, step-config-stamp, step-config-adversarial, step-config-mail, step-adopt-stamp, step-upgrade-stamp, step-delegate-propose, config-vcs-backend, config-local-custom-parser, adopt-isolation-warning, step-vetted-ops-no-policy, step-unknown-subaction)
-- **setup-isolated-setup-install** — 21 cases across 5 steps (runtime-routing, step-snapshot-drift, step-scope-confirm, step-hardware-key, step-roborev-exclusion)
+- **setup-isolated-setup-install** — 28 cases across 6 steps (runtime-routing, step-snapshot-drift, step-scope-confirm, step-hardware-key, step-roborev-exclusion, step-hook-manager-shim)
 - **setup-privacy-llm** — 6 cases across 2 steps (step-1-resolve, step-4-gate)
 - **setup-shared-config-sync** — 12 cases across 2 steps (step-3-decide-action, step-5-draft-commit)
 - **pairing-multi-agent-review** — 15 cases across 6 steps (step-1-collect-diff, step-2a-correctness-pass, step-2b-security-pass, step-2c-conventions-pass, step-3-merge-findings, step-4-compose-report)

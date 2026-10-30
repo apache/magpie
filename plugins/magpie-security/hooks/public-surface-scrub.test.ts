@@ -1860,6 +1860,22 @@ upstream_repo: apache/kafka
       assertStrictEqual(res.blocked, true, 'cd || exit 1 must update virtualCwd to upstream and block CVE commit');
     });
 
+    test('1b. a cd that is a later pipeline stage does not move the shell into the tracker', async () => {
+      for (const cmd of [
+        'echo x | cd /tracker; gh issue create -t "CVE-2026-1234" -b "d"',
+        'echo x | { true; cd /tracker; }; git commit -m "Fix CVE-2026-1234 SSRF"',
+        '{ cd /tracker; true; } | cat; gh issue create -t "CVE-2026-1234" -b "d"',
+        '{ cd /tracker; true; } & git commit -m "Fix CVE-2026-1234 SSRF"',
+      ]) {
+        const res = await evaluatePublicSurfaceCommand(cmd, {
+          cwd: '/home/dev/upstream',
+          projectConfig: config,
+          readFile: mockReadFile,
+        });
+        assertStrictEqual(res.blocked, true, `A piped cd runs in a subshell, so this stays upstream: ${cmd}`);
+      }
+    });
+
     test('2. gh api /v3/repos/... normalizes endpoint and blocks CVE comment', async () => {
       const cmd = 'gh api /v3/repos/apache/airflow/issues/1/comments -f body="Fix CVE-2026-1234"';
       const res = await evaluatePublicSurfaceCommand(cmd, {
@@ -2360,6 +2376,11 @@ upstream_repo: apache/kafka
         'CDPATH=/home/dev/public; cd child; gh issue create -t "CVE-2026-1234" -b "d"',
         'export CDPATH=/home/dev/public; cd child; git commit -m "Fix CVE-2026-1234"',
         "printf '[remote \"origin\"]\\nurl = https://github.com/apache/airflow.git\\n' > .git/config && gh issue create -t 'CVE-2026-1234' -b d",
+        // A `cd` in a pipeline or in the background runs in a subshell; the shell stays where it was.
+        'echo x | cd /home/dev/airflow-s; gh issue create -t "CVE-2026-1234" -b "d"',
+        'echo x | { true; cd /home/dev/airflow-s; }; gh issue create -t "CVE-2026-1234" -b "d"',
+        'echo x | cd /home/dev/airflow-s; git commit -m "Fix CVE-2026-1234"',
+        'sleep 1 & cd /home/dev/airflow-s | cat; gh issue create -t "CVE-2026-1234" -b "d"',
       ]) {
         const res = await evaluate(cmd);
         assertStrictEqual(res.blocked, true, `Expected block for: ${cmd}`);
