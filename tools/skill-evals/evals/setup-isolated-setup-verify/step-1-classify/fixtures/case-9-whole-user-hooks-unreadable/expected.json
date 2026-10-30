@@ -4,7 +4,7 @@
     {
       "n": 1,
       "status": "✓",
-      "evidence": "sandbox.enabled: true; deny and ask lists present; network and filesystem allowlists configured"
+      "evidence": "sandbox.enabled: true; deny and ask lists present; network and filesystem allowlists configured; denyRead contains ~/"
     },
     {
       "n": 2,
@@ -34,7 +34,7 @@
     {
       "n": 7,
       "status": "✓",
-      "evidence": "cat ~/.aws/credentials → Operation not permitted; $AWS_ACCESS_KEY_ID empty; curl denied at permission layer"
+      "evidence": "no credential file readable in the sandbox, and the user confirmed ~/.aws/credentials exists on the host; env names only, none credential-shaped, entrypoint cli; curl denied at permission layer"
     },
     {
       "n": 8,

@@ -54,8 +54,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     # Imported lazily so `--help` works even if proxy.py is somehow absent.
     import proxy
 
-    proxy.main(
-        [
+    with proxy.Proxy(
+        input_args=[
             "--hostname",
             args.host,
             "--port",
@@ -66,7 +66,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.log_level,
             *passthrough,
         ]
-    )
+    ):
+        proxy.sleep_loop()
     return 0
 
 

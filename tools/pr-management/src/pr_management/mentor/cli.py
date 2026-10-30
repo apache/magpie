@@ -149,10 +149,7 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
     if args.command == "tone-check":
         return tone.check(args.draft.read_text(encoding="utf-8"), author=args.author, footer=cfg.footer)
     if args.command == "log":
-        home = personal_dir(args.project_root)
-        if home is None:
-            return {"logged": False, "reason": "no personal config layer"}
-        path = home / "logs" / "pr-management-mentor.jsonl"
+        path = personal_dir(args.project_root) / "logs" / "pr-management-mentor.jsonl"
         path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         entry = {
             "at": dt.datetime.now(dt.UTC).isoformat(),

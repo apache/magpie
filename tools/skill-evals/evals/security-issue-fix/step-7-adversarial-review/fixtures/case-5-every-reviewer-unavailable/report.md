@@ -7,7 +7,7 @@ The `magpie-adversarial-review` plugin is installed.
 ```yaml
 adversarial_review:
   mode: on-pr-create
-  reviewers: [codex, gemini]
+  reviewers: [codex, antigravity]
 ```
 
 The diff has been shown to the user (Step 7 item 4), and the 5c
@@ -25,5 +25,5 @@ The tracker's own working title: `CVE-2026-12345: RCE via widget deserializer (t
 The reviewers already ran on that title and body. The report:
 
 ```json
-{"self": "claude", "warnings": [], "reviewers": [{"name": "codex", "status": "timeout", "reason": "no answer within 480s", "findings": 0}, {"name": "gemini", "status": "unavailable", "reason": "not on PATH", "findings": 0}], "findings": []}
+{"self": "claude", "warnings": [], "reviewers": [{"name": "codex", "status": "timeout", "reason": "no answer within 480s", "findings": 0}, {"name": "antigravity", "status": "unavailable", "reason": "not on PATH", "findings": 0}], "findings": []}
 ```

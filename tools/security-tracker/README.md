@@ -33,6 +33,11 @@ See [`contract.md`](contract.md) for the operations, outputs, exit codes and bac
 | `local-files` | Markdown files in a private Git or SVN working copy — [`tools/local-tracker/`](../local-tracker/README.md) |
 | `jira` | Jira project with an issue-security level — [`tools/jira/`](../jira/README.md) |
 
+ASF projects can also compare their tracker with the ASF Security team's dashboard,
+or work from it when they keep no tracker of their own:
+[`tools/asf-security-dash/`](../asf-security-dash/README.md).
+It is read-only and not a `tracker.platform` value.
+
 ## Prerequisites
 
 - **Runtime:** None — this directory is a Markdown contract spec; no executable code ships here.

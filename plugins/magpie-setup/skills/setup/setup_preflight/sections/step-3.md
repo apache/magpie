@@ -24,7 +24,7 @@ on every sandboxed run.
 For Codex, read only the `installed` list in its JSON envelope; available
 catalogue entries are not installed versions. An unfamiliar name form or
 schema stays unknown. Require an exact floor plugin name before trusting
-a Codex listing, and the exact `magpie` extension name on Gemini.
+a Codex listing, and the exact `magpie` plugin name on Antigravity.
 
 **The actions.**  The `below-floor` finding names the harness its listing
 came from (`facts.harness`); the commands differ per client, and naming one
@@ -34,11 +34,12 @@ the operator cannot run in this session wastes their turn:
 |---|---|---|
 | Claude Code | `claude plugin install <plugin>@apache-magpie` | `claude plugin update <plugin>@apache-magpie` |
 | Codex | `codex plugin add <plugin>@apache-magpie` | `codex plugin marketplace upgrade apache-magpie` |
-| Gemini CLI | `gemini extensions install https://github.com/apache/magpie` | `gemini extensions update magpie` |
+| Antigravity | `agy plugin install https://github.com/apache/magpie` | `agy plugin install https://github.com/apache/magpie` |
 
-Gemini installs the framework as one extension, so on it the floor is
-carried by the `magpie` extension as a whole: update that one extension
-rather than naming individual plugins.
+Antigravity installs the framework as one plugin, so on it the floor is
+carried by the `magpie` plugin as a whole: re-install that one plugin
+rather than naming individual plugins. Its listing also shows plugins
+without a version, such as Google's own; they are not Magpie's.
 
 `facts.harness` is `null` when the caller supplied the listing and no
 harness with a listing command is running. Use the row of the harness this

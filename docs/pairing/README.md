@@ -112,7 +112,7 @@ A local CLI and daemon that reviews every commit in the background with the codi
 
 *With this family:* self-review is a one-shot read of your local diff; roborev keeps reviewing each commit as you make it and drives the fix and re-review loop until the branch is clean.
 
-Available on **Claude Code**, **OpenAI Codex CLI**, **VS Code / GitHub Copilot**, **Google Gemini CLI**, **Cursor**.
+Available on **Claude Code**, **OpenAI Codex CLI**, **VS Code / GitHub Copilot**, **Google Antigravity**, **Cursor**.
 
 On Claude Code under Magpie's secure agent setup, roborev cannot read ~/.roborev/ and fails on every call; Step B of setup-isolated-setup-install wires the exclusion and the prompt that keep it safe outside the sandbox, and Step B.2 optionally lets its post-commit hook review the agent's own commits. Without Homebrew, see https://roborev.io/docs/installation/ for the other installers.
 
@@ -122,7 +122,7 @@ A skills library and development methodology: brainstorming, plan writing, subag
 
 *With this family:* self-review and multi-agent-review are pre-flight reads of your own diff; Superpowers adds the test-first and systematic-debugging habits upstream of them.
 
-Available on **Claude Code**, **OpenAI Codex CLI**, **VS Code / GitHub Copilot**, **Google Gemini CLI**, **Cursor**, **OpenCode**.
+Available on **Claude Code**, **OpenAI Codex CLI**, **VS Code / GitHub Copilot**, **Google Antigravity**, **Cursor**, **OpenCode**.
 
 Installing it means first adding a marketplace Magpie does not publish — `obra/superpowers-marketplace`. The install flow asks before it does, and names whose it is.
 

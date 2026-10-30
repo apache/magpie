@@ -52,6 +52,7 @@ def node(
     rollup: str | None = "SUCCESS",
     checks: list[dict[str, Any]] | None = None,
     unresolved: int = 0,
+    threads: list[dict[str, Any]] | None = None,
     mergeable: str = "MERGEABLE",
     merge_state: str = "CLEAN",
     head: str = "abc1234def",
@@ -98,8 +99,8 @@ def node(
         "reviews": {"nodes": reviews or []},
         "commits": {"nodes": commits or [{"commit": {"oid": head, "message": "Fix a thing"}}]},
         "reviewThreads": {
-            "totalCount": unresolved,
-            "nodes": [{"isResolved": False} for _ in range(unresolved)],
+            "totalCount": unresolved if threads is None else len(threads),
+            "nodes": [{"isResolved": False} for _ in range(unresolved)] if threads is None else threads,
         },
         "latest": {
             "nodes": [
@@ -141,3 +142,29 @@ def review(
 
 def pr(**kw: Any) -> data.PR:
     return data.from_node(node(**kw))
+
+
+def thread(
+    thread_id: str,
+    *,
+    outdated: bool,
+    resolved: bool = False,
+    by: str = "rex",
+    replies: tuple[tuple[str, str], ...] = (),
+    total: int | None = None,
+) -> dict[str, Any]:
+    nodes = [
+        {
+            "author": {"login": by},
+            "path": "scheduler/job.py",
+            "url": f"https://github.com/acme/product/pull/7#discussion_{thread_id}",
+            "bodyText": "Please rename b.",
+        }
+    ]
+    nodes += [{"author": {"login": who}, "bodyText": body} for who, body in replies]
+    return {
+        "id": thread_id,
+        "isResolved": resolved,
+        "isOutdated": outdated,
+        "comments": {"totalCount": len(nodes) if total is None else total, "nodes": nodes},
+    }

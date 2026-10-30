@@ -1,4 +1,8 @@
 {
   "skill_md": "skills/setup-isolated-setup-update/SKILL.md",
-  "step_heading": "## What to check"
+  "step_heading": "## What to check",
+  "also_include": [
+    "skills/setup-isolated-setup-update/vetted-ops-drift.md",
+    "skills/setup-isolated-setup-update/comdev-mcp.md"
+  ]
 }

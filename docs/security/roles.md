@@ -393,7 +393,7 @@ commands, no JSON paste:**
    hand-off comment. If the CVE reviewer has posted comments, work
    through them on the same thread; when it is clear, promote the
    record to `publish-ready` and save. (For the Vulnogram adapter, that
-   is the State dropdown going `REVIEW → READY` on the `#source` tab.)
+   is the State dropdown going `REVIEW → READY` on the record's Editor tab.)
    Most CVEs go through `review-ready` with no reviewer comments and
    the promotion is immediate.
 2. **Preview and send.** The hand-off comment links the CVE tool's

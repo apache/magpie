@@ -18,7 +18,8 @@ For each confirmed `Report` or forwarder-relayed candidate:
    and the reporter's formatting shows as plain text.
 
    Write `<scratch>/body-<threadId>.json` with the Write tool:
-   `fields` keyed by role — `issue_description` (the redacted root body, verbatim), `affected_versions`, `mailing_thread` ([shape](outcomes/mailing-thread.md)), `reporter_credit`,
+   `fields` keyed by role — `issue_description` (the redacted root body, verbatim), `affected_versions`, `mailing_thread` ([shape](outcomes/mailing-thread.md)), `reporter_credit`
+   (for a forwarder-relayed candidate, only the value the user confirmed with `NN:reporter <text>`; omitted otherwise, per [`outcomes/credit-field.md`](outcomes/credit-field.md)),
    the rest per the [Step 4 table](SKILL.md#step-4--extract-template-fields), empty ones omitted —
    `body_fields` from `<project-config>/project.md → tracker.body_fields`,
    and `callout: true` only when the import-time prompt-injection flag fired
@@ -64,7 +65,7 @@ For each confirmed `Report` or forwarder-relayed candidate:
 
 4. **Decide the receipt-of-confirmation draft** with `<sm> ack-decision --input <scratch>/ack-<threadId>.json`:
    `class`, `model` and `window_days` from the Step 0 observed-state bag (`reporter_acknowledgement_model`, default `manual`),
-   `bundle_draft_id` when a Step 5 consolidated receipt covers this tracker, `converged_ref` for a converged disposition.
+   `bundle_draft_id` when the Step 5 receipt of this candidate's own thread already covers it (same thread only), `converged_ref` for a converged disposition.
    Follow the file for the outcome it prints:
    [`ack-manual`](outcomes/ack-manual.md) or [`ack-auto`](outcomes/ack-auto.md) when `draft_created`,
    else [`ack-none`](outcomes/ack-none.md), [`converged`](outcomes/converged.md) or [`bundle`](outcomes/bundle.md).

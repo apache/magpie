@@ -239,6 +239,37 @@ def test_prefilter_rules(capsys, tmp_path) -> None:
     assert [t["thread_id"] for t in out["dropped"]] == ["t-bookkeeping"]
 
 
+def test_prefilter_drops_asf_cna_bookkeeping_from_configured_senders(capsys, tmp_path) -> None:
+    threads = {
+        "upstream": "apache/foo",
+        "security_list": "security@foo.apache.org",
+        "cve_tool_senders": ["security@apache.org", "reviewer@apache.org"],
+        "threads": [
+            {
+                "thread_id": "reservation",
+                "messages": [
+                    {"subject": "CVE-2026-12345 reserved for foo", "from": "security@apache.org"},
+                ],
+            },
+            {
+                "thread_id": "review-comment",
+                "messages": [
+                    {
+                        "subject": "Comment added on CVE-2026-12345",
+                        "from": "ASF Reviewer <reviewer@apache.org>",
+                    },
+                ],
+            },
+        ],
+    }
+
+    code, out = run(capsys, "prefilter", "--threads", write(tmp_path, "threads.json", threads))
+
+    assert code == 0
+    assert out["keep"] == []
+    assert [thread["thread_id"] for thread in out["dropped"]] == ["reservation", "review-comment"]
+
+
 def test_dedup_queries_batch_by_six(capsys, tmp_path) -> None:
     ids = [f"19d2f40286{i:06x}" for i in range(8)]
     code, out = run(
@@ -341,10 +372,18 @@ ASF = {
     ("message", "forwarders", "invoke"),
     [
         ({"from": "Researcher <r@example.com>", "body": "I found a bug"}, ASF, False),
-        ({"from": "ASF Security <security@apache.org>", "body": "hello"}, ASF, True),
+        ({"from": "ASF Security <security@apache.org>", "body": "hello"}, ASF, False),
         (
             {
                 "from": "r@example.com",
+                "body": "Dear PMC,\n\nThe security vulnerability report has been received by the Apache Security Team",
+            },
+            ASF,
+            False,
+        ),
+        (
+            {
+                "from": "ASF Security <security@apache.org>",
                 "body": "Dear PMC,\n\nThe security vulnerability report has been received by the Apache Security Team",
             },
             ASF,
@@ -369,6 +408,18 @@ def test_relay_prescreen(capsys, tmp_path, message, forwarders, invoke) -> None:
         write(tmp_path, "f.json", forwarders),
     )
     assert out["invoke_subskill"] is invoke
+
+
+def test_relay_prescreen_reports_a_single_signal_match(capsys, tmp_path) -> None:
+    _, out = run(
+        capsys,
+        "relay-prescreen",
+        "--message",
+        write(tmp_path, "m.json", {"from": "ASF Security <security@apache.org>", "body": "hello"}),
+        "--forwarders",
+        write(tmp_path, "f.json", ASF),
+    )
+    assert (out["invoke_subskill"], out["partial"]) == (False, ["asf-security"])
 
 
 def test_keyword_reads_a_file(capsys, tmp_path) -> None:

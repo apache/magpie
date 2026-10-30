@@ -1,4 +1,7 @@
 {
   "skill_md": "skills/setup-isolated-setup-install/SKILL.md",
-  "step_heading": "## Runtime routing (run before the Claude-specific procedure)"
+  "step_heading": "## Runtime routing (run before the Claude-specific procedure)",
+  "also_include": [
+    "skills/setup-isolated-setup-install/runtime-routing.md"
+  ]
 }

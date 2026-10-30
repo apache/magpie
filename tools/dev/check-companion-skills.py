@@ -58,7 +58,7 @@ HARNESSES = {
     "claude-code": "Claude Code",
     "codex": "OpenAI Codex CLI",
     "copilot": "VS Code / GitHub Copilot",
-    "gemini": "Google Gemini CLI",
+    "antigravity": "Google Antigravity",
     "cursor": "Cursor",
     "opencode": "OpenCode",
     "kiro": "Kiro CLI",

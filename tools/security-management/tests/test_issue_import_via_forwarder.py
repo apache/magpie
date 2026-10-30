@@ -221,11 +221,19 @@ def test_the_collaborator_warning_of_former_case_5(capsys, tmp_path) -> None:
     assert (out["match"], out["collaborator_warning"]) == ("asf-security", True)
 
 
-def test_preamble_only_match_and_the_400_character_window(capsys, tmp_path) -> None:
+def test_one_signal_alone_is_not_a_relay(capsys, tmp_path) -> None:
     out = detect(capsys, tmp_path, {"from": "someone@example.org", "body": ASF_BODY}, ASF)
-    assert (out["match"], out["sender_matched"]) == ("asf-security", None)
+    assert (out["match"], out["sub_skill_applied"]) == (None, False)
+    assert out["partial_matches"] == [{"adapter": "asf-security", "signal": "preamble"}]
+    assert out["note"].startswith("only one of an adapter's two relay signals")
+    out = detect(capsys, tmp_path, {"from": "security@apache.org", "body": "Credit: Mallory\n"}, ASF)
+    assert out["match"] is None
+    assert out["partial_matches"] == [{"adapter": "asf-security", "signal": "sender"}]
+
+
+def test_the_400_character_preamble_window(capsys, tmp_path) -> None:
     late = "x" * 400 + ASF_BODY
-    out = detect(capsys, tmp_path, {"from": "someone@example.org", "body": late}, ASF)
+    out = detect(capsys, tmp_path, {"from": "security@apache.org", "body": late}, ASF)
     assert out["match"] is None
 
 

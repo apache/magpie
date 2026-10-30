@@ -35,7 +35,7 @@ The reader-facing page for this sub-action is
 2. **Claude Code only, for the default set.** On any other client,
    skip the default set entirely and say why rather than writing a
    file that does nothing: Codex can only default-install all ten
-   families, and Gemini has no workspace-extension mechanism. The
+   families, and Antigravity has no workspace-plugin mechanism. The
    overrides store in Step 4 still applies on every client.
 3. **Is this the user's decision to make?** Adoption commits files
    that change what every contributor's agent loads. If there is any
@@ -46,9 +46,14 @@ The reader-facing page for this sub-action is
 
 ## Step 1 — Decide the default set
 
-The floor is **seeded** with `magpie-setup`, `magpie-utilities` and
-`magpie-agent-guard`, in that order, and that is what it stays unless
-the maintainer explicitly asks for more.
+The floor is **seeded** with `magpie-setup`, `magpie-utilities`,
+`magpie-agent-guard` and `magpie-vetted-ops`, in that order, and that
+is what it stays unless the maintainer explicitly asks for more.
+`magpie-setup` and `magpie-vetted-ops` are never dropped from it: the
+family skills run their forge operations through the vetted-ops
+dispatcher, and every skill's pre-flight requires it even on a floor
+that omits it. A floor that lists `magpie-security` also lists
+`magpie-security-tools`: the security skills' tools ship there.
 
 It **never grows automatically** — not to match what this maintainer
 installed, not to match what the framework has started shipping.
@@ -94,6 +99,7 @@ When the user asks for `magpie-contributor-growth` in the floor:
      - magpie-setup
      - magpie-utilities
      - magpie-agent-guard
+     - magpie-vetted-ops
      # contributor-growth gaming risk accepted by <git user.name> on <YYYY-MM-DD>; config stays personal
      - magpie-contributor-growth
    ```
@@ -124,6 +130,7 @@ plugins:
   - magpie-setup
   - magpie-utilities
   - magpie-agent-guard
+  - magpie-vetted-ops
 ```
 
 - **`min_version` is the Magpie version installed on this machine right
@@ -194,7 +201,7 @@ would convert it into a ceiling that stops contributors receiving any
 later release.
 
 On a client that cannot express this — Codex can only default-install
-all ten families, Gemini has no workspace-extension mechanism — skip
+all ten families, Antigravity has no workspace-plugin mechanism — skip
 this step and say so. The lock from Step 2 still stands and is still
 the project's record; what is missing is only the automatic wiring.
 
@@ -219,9 +226,11 @@ whatever they put there.
 - **Add whichever of the floor's entries are missing from an existing
   `enabledPlugins`, and remove nothing** — not other Magpie plugins,
   not other vendors' plugins. The floor's entries are the lock's
-  `plugins` list, in floor order, each as `<plugin>@apache-magpie`.
+  `plugins` list, in floor order, each as `<plugin>@apache-magpie`,
+  plus `magpie-vetted-ops@apache-magpie` when an older lock omits it.
   That list is **seeded** with `magpie-setup@apache-magpie`,
-  `magpie-utilities@apache-magpie`, `magpie-agent-guard@apache-magpie`
+  `magpie-utilities@apache-magpie`, `magpie-agent-guard@apache-magpie`,
+  `magpie-vetted-ops@apache-magpie`
   — a project whose maintainers enlarged it in Step 1 has more, and
   the lock is what you read, never a fixed count.
 - **Add whichever derived MCP allows are missing.** On `upgrade`, also
@@ -295,8 +304,11 @@ stay and are named.
 6. **Move what stays personal into `.apache-magpie-local/`.** Once the
    lock exists the personal layer *is* `.apache-magpie-local/`, and
    `<git-common-dir>/apache-magpie/` is no longer read. Propose moving
-   every file left there (configuration, `reconciled.json`, the
-   `setup_preflight/` checker) into `.apache-magpie-local/`, creating it;
+   every file left there (configuration, `reconciled.json`) into
+   `.apache-magpie-local/`, creating it, but never move a
+   `setup_preflight/` checker into it: pre-flight imports the checker only
+   from the per-user `~/.cache/apache-magpie/preflight/`, never from inside
+   a project, so a copy left here by an earlier version is dead and can go;
    where a file exists in both, show both and let the user choose. Leave
    its `run/` directory alone: a serving gateway's sockets must not move,
    and the gateway of an adopted project serves from
@@ -325,6 +337,13 @@ without having run `config` first; this step is what makes that work.
 probe the checkout with `magpie-vcs probe`, keep a Git project as it is, and on a Subversion-hosted one propose `vcs_backend: svn`, `svn_url`, `svn_repository_root` and `upstream_default_branch: trunk` for the maintainer to confirm.
 A promoted `project.md` that already declares `vcs_backend` is not asked again.
 Write the confirmed values to `.apache-magpie-overrides/project.md`; they reach every contributor.
+
+**Ask whether contributors see the isolated-setup warning.**
+Once the project has adopted Magpie, every session in it opens with a one-time warning when the contributor's machine has no isolated setup configured:
+the skills read text written by outsiders, and without the sandbox an injected instruction runs with the contributor's full access.
+Recommend keeping it, and ask one structured question — keep the warning (default) or turn it off for the project.
+On "turn it off", write `isolation_warning: off` under `setup:` in `.apache-magpie-overrides/project.md`, and say in the recap that contributors without the isolated setup are no longer told.
+It is the project's choice: a personal layer cannot turn it off, and it changes nothing for machines that do use the isolated setup.
 
 **Ask the commit-attribution convention explicitly**, even when
 `commit-attribution.toml` would otherwise be scaffolded unasked: it is
@@ -368,6 +387,12 @@ Then one structured question, with these options:
 When the dedicated list was not found or the evidence is unclear, recommend asking ASF Infra for a dedicated `security@<project>.apache.org` list and leave the question without a recommended option.
 
 Write the answer to `security_list` in `.apache-magpie-overrides/project.md`.
+
+**Ask which CNA reviewers send CVE-tool mail** (ASF projects only).
+`security_inbox.cve_tool_senders` inherits `security@apache.org` from the ASF organization profile; the CNA reviewers who comment on the project's CVEs send from their own addresses, so their "Comment added on CVE-…" mails are imported as reports unless they are listed.
+Ask for those reviewers' addresses, and never guess them.
+A non-empty answer is written as one list in `.apache-magpie-overrides/project.md` that repeats `security@apache.org` and adds the confirmed addresses, because a project value replaces the organization default rather than merging with it.
+An empty answer leaves the key absent, so the inherited address stays in effect.
 
 `git add` the store; do not commit.
 
@@ -597,7 +622,8 @@ Tell the user, in this order:
   delete it, in floor order, each as `<plugin>@apache-magpie`: a floor
   a maintainer enlarged carries more than the seeded
   `magpie-setup@apache-magpie`, `magpie-utilities@apache-magpie`,
-  `magpie-agent-guard@apache-magpie`, and leaving one behind would
+  `magpie-agent-guard@apache-magpie`, `magpie-vetted-ops@apache-magpie`,
+  and leaving one behind would
   commit a plugin entry whose marketplace definition you just removed;
   and the `mcp__…` allows the registry derives for those families, which
   the project no longer recommends. Keep every other allow.

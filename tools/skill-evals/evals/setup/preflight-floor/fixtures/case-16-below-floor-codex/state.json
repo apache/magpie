@@ -16,6 +16,10 @@
     [
       "magpie-agent-guard",
       "0.2.0"
+    ],
+    [
+      "magpie-vetted-ops",
+      "0.3.0"
     ]
   ]
 }

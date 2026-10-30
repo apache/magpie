@@ -34,7 +34,7 @@
 # it is wired through Claude Code's `statusLine` setting, is fed Claude
 # Code's statusLine payload on stdin, and reads Claude Code's
 # `sandbox.enabled` settings schema. No other harness the framework
-# supports has a status-line hook of that shape — Codex, Gemini,
+# supports has a status-line hook of that shape — Codex, Antigravity,
 # OpenCode and Kiro carry their sandbox posture in their own config and
 # surface it, where they surface it at all, through their own UI. A
 # harness that grows one gets its own helper; see

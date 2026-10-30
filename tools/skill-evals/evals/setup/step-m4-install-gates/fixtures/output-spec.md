@@ -23,7 +23,8 @@ hands the commands to the user instead, and `hand-off` when what was asked for
 is not this step's to do at all.
 
 `scope` is the `--scope` value the step installs or shows at, and `null` when
-the harness has no scopes or the step installs nothing. `user` is the default:
+the harness has no scopes or the step installs nothing — including when the
+only command shown is a `marketplace add`, which takes no `--scope`. `user` is the default:
 per-machine, writing nothing to the repository. `local` is this repository
 only, gitignored. `project` is the committed file every contributor gets — the
 step never passes it, because that is adoption.

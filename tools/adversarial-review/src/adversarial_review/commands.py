@@ -36,9 +36,7 @@ bakes a version in, so a plugin upgrade leaves every command valid.
 
 from __future__ import annotations
 
-import json
-
-HARNESSES = ("claude", "codex", "gemini", "copilot")
+HARNESSES = ("claude", "codex", "antigravity", "pi", "goose", "copilot")
 PLUGIN_DIR = "~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review"
 STABLE_PATH = "~/.claude/magpie/adversarial-review"
 DESCRIPTION = "Adversarial review of this change by other models (Apache Magpie)"
@@ -108,17 +106,26 @@ def render(harness: str, plugin_dir: str = PLUGIN_DIR) -> tuple[str, str]:
             version_rule=other,
         )
         return "~/.codex/prompts/magpie-adversarial-review.md", _FRONTMATTER + body
-    if harness == "gemini":
+    if harness in ("antigravity", "pi", "goose"):
+        # None has command files: a user skill becomes the command
+        # (`/magpie-adversarial-review` on Antigravity,
+        # `/skill:magpie-adversarial-review` on Pi, a user skill Goose loads
+        # from ~/.agents/skills), and none substitutes arguments into the body.
         body = _STEPS.format(
-            args="{{args}}",
+            args="",
             placeholders="<version> and <target>",
             invocation=_invocation(plugin_dir),
             version_rule=other,
-        )
-        return (
-            "~/.gemini/commands/magpie-adversarial-review.toml",
-            f"description = {json.dumps(DESCRIPTION)}\nprompt = '''\n{body}'''\n",
-        )
+        ).replace("`` if it is not empty", "the one the user named, if any")
+        frontmatter = _FRONTMATTER.replace(
+            "description:", "name: magpie-adversarial-review\ndescription:"
+        ).replace("argument-hint: [branch | pr:<number> | diff:<path>]\n", "")
+        home = {
+            "antigravity": "~/.gemini/antigravity-cli/skills",
+            "pi": "~/.pi/agent/skills",
+            "goose": "~/.agents/skills",
+        }[harness]
+        return f"{home}/magpie-adversarial-review/SKILL.md", frontmatter + body
     if harness == "copilot":
         return "", (
             f"{_invocation(plugin_dir)} --target branch\n"

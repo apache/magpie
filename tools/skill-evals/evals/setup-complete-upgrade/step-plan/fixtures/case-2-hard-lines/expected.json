@@ -1,0 +1,12 @@
+{
+  "items": [],
+  "run_yourself": [
+    "vetted-ops-policy-tracker-table",
+    "committed-settings-missing-deny",
+    "uv-toml-cache-dir",
+    "lock-stamp-stale"
+  ],
+  "still_open": [],
+  "isolated_offer": false,
+  "nothing_to_do": false
+}

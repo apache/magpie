@@ -17,7 +17,7 @@
 
 """Tests for the skill-owned guards, exercised end-to-end through the agent-guard
 discovery path — exactly how an adopter runs them. ``MAGPIE_GUARD_DIRS`` points
-the dispatcher at the real ``skills/<skill>/guards`` directories in this repo, so
+the dispatcher at the canonical plugin or skill guard directories in this repo, so
 these tests fail if a guard file is moved, renamed, or broken."""
 
 import os
@@ -28,8 +28,16 @@ import pytest
 import agent_guard
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-TRIAGE_GUARDS = REPO_ROOT / "skills" / "pr-management-triage" / "guards"
-SECURITY_GUARDS = REPO_ROOT / "skills" / "security-issue-fix" / "guards"
+TRIAGE_GUARDS = (
+    REPO_ROOT / "plugins" / "magpie-pr-management" / "skills" / "pr-triage" / "guards"
+    if (REPO_ROOT / "plugins" / "magpie-pr-management" / "skills" / "pr-triage" / "guards").is_dir()
+    else REPO_ROOT / "skills" / "pr-management-triage" / "guards"
+)
+SECURITY_GUARDS = (
+    REPO_ROOT / "plugins" / "magpie-security" / "skills" / "issue-fix" / "guards"
+    if (REPO_ROOT / "plugins" / "magpie-security" / "skills" / "issue-fix" / "guards").is_dir()
+    else REPO_ROOT / "skills" / "security-issue-fix" / "guards"
+)
 
 
 @pytest.fixture(autouse=True)
@@ -163,7 +171,7 @@ def test_graphql_review_payload_is_scanned(tmp_path):
         ),
         encoding="utf-8",
     )
-    reason = dispatch(f"gh api graphql --input {payload}")
+    reason = dispatch(f"gh api graphql --input {payload.as_posix()}")
     assert reason and "dave" in reason and "carol" not in reason
 
 
@@ -175,7 +183,7 @@ def test_any_graphql_write_is_scanned_not_just_reviews(tmp_path):
     payload.write_text(
         json.dumps({"query": "mutation { somethingNew(input: {}) { ok } }", "variables": {"note": "@x"}})
     )
-    assert dispatch(f"gh api graphql --input {payload}")
+    assert dispatch(f"gh api graphql --input {payload.as_posix()}")
 
 
 def _git(repo, *args):
@@ -220,7 +228,9 @@ def _allow(*handles):
 def _handoff(tmp_path, body, repo_flag="--repo acme/product"):
     f = tmp_path / "b.md"
     f.write_text(body, encoding="utf-8")
-    return agent_guard.dispatch(f"gh issue comment 7 {repo_flag} --body-file {f}", cwd=str(tmp_path))
+    return agent_guard.dispatch(
+        f"gh issue comment 7 {repo_flag} --body-file {f.as_posix()}", cwd=str(tmp_path)
+    )
 
 
 def test_mentoring_handoff_may_mention_the_configured_team(monkeypatch, tmp_path):
@@ -394,7 +404,7 @@ def test_review_body_on_stdin_is_refused():
 def test_rest_comment_through_gh_api_is_scanned(tmp_path):
     body = tmp_path / "c.md"
     body.write_text("ping @bob", encoding="utf-8")
-    reason = dispatch(f"gh api repos/acme/product/issues/5/comments -F body=@{body}")
+    reason = dispatch(f"gh api repos/acme/product/issues/5/comments -F body=@{body.as_posix()}")
     assert reason and "bob" in reason
 
 

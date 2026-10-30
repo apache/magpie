@@ -197,12 +197,12 @@ def test_consensus(capsys, tmp_path):
 # --- step-5a-labels ------------------------------------------------------------
 
 
-def label_plan(capsys, tmp_path, current: list[str], number: int) -> dict[str, Any]:
+def label_plan(capsys, tmp_path, current: list[str], number: int, **extra: Any) -> dict[str, Any]:
     _, out = run(
         capsys,
         tmp_path,
         "labels",
-        {"labels": current, "scope_labels": SCOPES, "tracker": TRACKER, "number": number},
+        {"labels": current, "scope_labels": SCOPES, "tracker": TRACKER, "number": number, **extra},
     )
     return out
 
@@ -225,6 +225,71 @@ def test_step5a_case_2_pr_created_also_present(capsys, tmp_path):
     assert out["labels_to_add"] == ["invalid"]
     assert out["labels_to_remove"] == ["providers", "pr created"]
     assert out["security_issue_stays"] is True
+
+
+FULL = ["security issue", "providers", "needs triage", "pr created", "pr merged"]
+EDIT_7 = 'gh issue edit 7 --repo airflow-s/airflow-s --add-label "invalid" '
+
+
+def test_step5a_default_without_keep_labels_is_unchanged(capsys, tmp_path):
+    out = label_plan(capsys, tmp_path, FULL, 7)
+    assert out["labels_to_remove"] == ["needs triage", "providers", "pr created", "pr merged"]
+    assert "labels_kept" not in out and "warnings" not in out
+    assert out == label_plan(capsys, tmp_path, FULL, 7, keep_labels=[])
+
+
+def test_step5a_keep_scope(capsys, tmp_path):
+    out = label_plan(capsys, tmp_path, FULL, 7, keep_labels=["scope"])
+    assert out["labels_to_remove"] == ["needs triage", "pr created", "pr merged"]
+    assert out["labels_kept"] == ["providers"]
+    assert out["command"] == (
+        EDIT_7 + '--remove-label "needs triage" --remove-label "pr created" --remove-label "pr merged"'
+    )
+
+
+def test_step5a_keep_pr(capsys, tmp_path):
+    out = label_plan(capsys, tmp_path, FULL, 7, keep_labels=["pr"])
+    assert out["labels_to_remove"] == ["needs triage", "providers"]
+    assert out["labels_kept"] == ["pr created", "pr merged"]
+
+
+def test_step5a_keep_scope_and_pr(capsys, tmp_path):
+    out = label_plan(capsys, tmp_path, FULL, 7, keep_labels=["scope", "pr"])
+    assert out["labels_to_remove"] == ["needs triage"]
+    assert out["command"] == EDIT_7 + '--remove-label "needs triage"'
+
+
+def test_step5a_keep_literal_label(capsys, tmp_path):
+    out = label_plan(capsys, tmp_path, FULL, 7, keep_labels=["pr merged", "chart"])
+    assert out["labels_to_remove"] == ["needs triage", "providers", "pr created"]
+    assert out["labels_kept"] == ["pr merged"]
+
+
+def test_step5a_needs_triage_cannot_be_kept(capsys, tmp_path):
+    out = label_plan(capsys, tmp_path, FULL, 7, keep_labels=["needs triage", "scope"])
+    assert out["labels_to_remove"] == ["needs triage", "pr created", "pr merged"]
+    assert out["labels_to_add"] == ["invalid"]
+    assert out["warnings"] == [
+        "keep_labels lists `needs triage`: ignored, it is always removed on invalidate"
+    ]
+
+
+def test_apply_plan_honours_keep_labels(capsys, tmp_path):
+    _, out = run(
+        capsys,
+        tmp_path,
+        "apply-plan",
+        {
+            "tracker": TRACKER,
+            "number": 7,
+            "scratch": "/s",
+            "labels": FULL,
+            "scope_labels": SCOPES,
+            "keep_labels": ["scope", "pr"],
+        },
+    )
+    step = next(s for s in out["steps"] if s["step"] == "6c")
+    assert step["command"] == EDIT_7 + '--remove-label "needs triage"'
 
 
 # --- step-5b-closing-comment -----------------------------------------------------

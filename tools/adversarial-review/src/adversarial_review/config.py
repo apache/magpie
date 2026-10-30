@@ -70,7 +70,11 @@ def _reviewers(value: str, where: str) -> tuple[str, ...]:
     names = tuple(dict.fromkeys(_unquote(v.strip()) for v in value[1:-1].split(",") if v.strip()))
     unknown = [n for n in names if n not in BACKENDS]
     if unknown:
-        raise ConfigError(f"{where}: unknown reviewer {', '.join(unknown)}; expected {', '.join(BACKENDS)}")
+        # Gemini CLI was retired in favour of Antigravity CLI; say so rather than just "unknown".
+        hint = "; gemini was replaced by antigravity (the agy CLI)" if "gemini" in unknown else ""
+        raise ConfigError(
+            f"{where}: unknown reviewer {', '.join(unknown)}; expected {', '.join(BACKENDS)}{hint}"
+        )
     return names
 
 

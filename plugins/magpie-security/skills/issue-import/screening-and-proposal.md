@@ -54,7 +54,7 @@ query templates and the substitution-values guide live in
 in short:
 
 **Backend selection.** When PonyMail MCP is enabled and authenticated (Step 0)
-**and** `<security-list>` is in `.apache-magpie-overrides/user.md` → `tools.ponymail.private_lists`,
+**and** `<security-list>` is in the resolved `user.md` ([order](../../../../AGENTS.md#usermd-resolution-order)) → `tools.ponymail.private_lists`,
 **PonyMail MCP is the primary backend for this step**:
 
 ```text
@@ -70,6 +70,9 @@ The two-year lookback is the default because precedent-shape reports recur over 
 Gmail is the fallback when (a) PonyMail is not enabled / not authenticated,
 (b) the private list is not in the allowlist,
 or (c) the PonyMail query comes back empty and you want a last check against the user's mailbox.
+An empty PonyMail result is *"no prior rejection"* only when Step 0 confirmed the session for `<security-list>` (`auth_status` plus the list in `list_lists()`);
+without that it is **unknown — stop** the PonyMail search, run the Gmail search instead, and if Gmail cannot answer either, show *"prior-rejection check: unknown"* in Step 5 rather than *"none found"*
+([why](../../../../tools/ponymail/operations.md#an-empty-private-list-result-is-not-no-messages)).
 The per-candidate budget is ≤ 2 archive searches (whichever backend) for the prior-rejection path.
 
 1. **Prior rejections by the security team.** Pick 2–3 distinctive noun phrases from the report
@@ -200,6 +203,9 @@ Present all candidates as a single numbered proposal grouped by class:
   and any classification ambiguity, so the user can scan-then-override;
   do **not** pose them as open questions that gate the import.
   A `reject-with-canned` verdict flips this candidate's recommended default from import to the canned rejection (still overridable in Step 6).
+  For a forwarder-relayed candidate, show the extracted credit on its own line as *"proposed credit (from relay body, unconfirmed): `<name>` — `<raw_string>`; reply `NN:reporter <name>` to record it"*:
+  unlike the rest of the import, this field does **not** default in — without that reply the tracker lands with *Reporter credited as* `_No response_` ([why](outcomes/credit-field.md)).
+  Show any single-signal relay match (Step 3 `partial`) here as a one-line warning.
 - **Candidates not to import** (class `automated-scanner`, `consolidated-multi-issue`, `media-request`, `spam`,
   `cross-thread-followup`, `fix-already-public`): show the class, the reporter, a one-line summary,
   and the proposed Gmail draft (from `canned-responses.md`, or — for `fix-already-public` — from the *fix-already-public reply shape* below)
@@ -243,41 +249,19 @@ applies symmetrically: no finder credit for a report that arrived after the fix 
 The user can override in Step 6 for a project-specific reason
 (e.g. the reporter privately spotted the issue before the unrelated PR landed).
 
-### Consolidated receipts for multi-tracker imports
+### One receipt per thread — never a consolidated receipt across threads
 
-When the resolved selector imports **N > 1 trackers from the same
-reporter or same source thread within one skill run**, propose a
-**single consolidated receipt-of-confirmation reply** that lists
-all N tracker URLs, instead of N separate receipts.
+**Golden rule: each inbound thread gets its own receipt draft, on that thread; never combine receipts for several threads into one reply.**
+This holds when one reporter sent several reports in the same run, when several trackers share a reporter or an outer thread, and when the replies would be nearly identical.
+A combined reply confuses the reporter about which report it answers, and the security team, who track each case by its thread and `Message-ID`.
+Full rule: [`tools/gmail/threading.md` — The rule](../../../../tools/gmail/threading.md#the-rule).
 
-**Detection conditions** (any one is sufficient):
-
-1. All N trackers reference the same Gmail `threadId` in their
-   "Split from" / "Imported from" provenance (e.g. one reporter
-   split a consolidated report into N separate GHSAs).
-2. All N trackers' inbound `From:` addresses are identical
-   (same reporter sent N independent reports in the same run).
-3. All N trackers were imported from N distinct threads that
-   *share an outer thread* (one reporter, one root, N
-   sub-threads).
-
-**Consolidated receipt shape**:
-
-- Reply on the **earliest** thread in the set (where the team
-  has an established channel with the reporter — typically the
-  consolidated-pre-split thread).
-- List each tracker URL + GHSA ID / equivalent identifier on
-  its own line, one per tracker.
-- Ask the credit-preference question **once**, applying to all
-  trackers in the set.
-- Use the *"Confirmation of receiving the report"* canned body
-  with a leading paragraph that lists the trackers.
-
-**Skip the per-tracker receipt drafts** when the consolidated one is created.
-Surface the consolidated draft with explicit *"this reply covers trackers #N1, #N2, …"* framing so the user knows what's bundled.
-
-**Coherence check**: the consolidated reply must accurately characterise *each* tracker, not just the largest one.
-If the reports differ so much that one reply would confuse, fall back to per-tracker receipts; do not force the bundle.
+The one case with a single receipt covering several trackers is **one thread that yields several trackers**
+(e.g. a reporter's message split into N trackers at import):
+that thread gets one receipt, on that thread, listing each tracker URL on its own line and asking the credit-preference question once.
+Surface it with explicit *"this reply on thread `<threadId>` covers trackers #N1, #N2, …"* framing;
+the other trackers from that thread skip their own receipt draft.
+Never extend it to trackers from another thread, even one from the same reporter.
 
 ### Canned-response discipline for negative-response drafts
 
@@ -336,6 +320,8 @@ to import; the user only types back to *deviate* from that default):
   every Report and forwarder-relayed candidate as proposed (each
   lands in `Needs triage` with its receipt-of-confirmation reply
   drafted), and apply every confirmed non-import action.
+  This does **not** confirm a forwarder-relayed candidate's proposed credit:
+  that field stays `_No response_` unless the reply carries `NN:reporter <text>`.
 - `skip NN` — reject candidate `NN` upfront; no tracker created, no
   draft. Combine with `, ` to skip multiple (`skip 1, 3`).
 - `NN:reject-with-canned <canned-response-name>` — reject candidate `NN` upfront *and* draft the named canned reply
@@ -355,6 +341,7 @@ to import; the user only types back to *deviate* from that default):
   is still created with the edits applied.
 - `NN:title <text>`, `NN:reporter <text>`, `NN:severity <text>` — override one proposed field;
   the tracker is still created. A severity override is the team's own score, never the reporter's.
+  `NN:reporter <text>` is also the only way a forwarder-relayed candidate's credit is recorded.
 - `keep <threadId>` — send a thread the Step 1 pre-filter dropped back through Steps 2 to 5.
 - `none` / `cancel` — bail entirely; no trackers, no drafts.
 

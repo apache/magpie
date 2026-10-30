@@ -34,6 +34,15 @@
 - `release_vote` (1h): an open `[VOTE]` thread on the dev list whose first
   version matches the fix-PR milestone, for a tracker in the `pr merged`
   window; a `[RESULT]` message closes a vote.
+- `advisory_archive` (1d): whether a candidate archive URL may be proposed
+  as the *Public advisory URL*, the field whose capture moves the CVE
+  record to `PUBLIC`. A text search for the CVE ID matches any public post
+  that mentions it, so the candidate is accepted only when the thread the
+  archive returns is on the configured public advisory list, its root
+  subject is the advisory's own (`<CVE-ID>: <description>`, the subject
+  the CVE tool sends, optionally after `[...]` list tags; never a `Re:` or
+  `Fwd:`), and the URL sits under the configured archive. Acceptance is a
+  proposal: `requires_confirmation` is always true.
 """
 
 from __future__ import annotations
@@ -41,6 +50,7 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 from datetime import datetime, timedelta
+from email.utils import getaddresses
 from typing import Any
 
 from security_management.issue_sync.select import _labels, _time
@@ -61,11 +71,18 @@ def _days(start: datetime, end: datetime) -> int:
     return (end.date() - start.date()).days
 
 
+def _configured_days(data: Mapping[str, Any], key: str, default: int) -> int:
+    value = data.get(key)
+    return default if value is None else int(value)
+
+
 def disclosure(data: Mapping[str, Any]) -> dict[str, Any]:
     now = _time(data["now"])
     age = _days(_time(data["created_at"]), now)
-    window = int(data.get("window_days") or 90)
-    grace = int(data.get("grace_period_days") or 14)
+    window = _configured_days(data, "window_days", 90)
+    if window <= 0:  # as issue-import reads it: the window must be positive
+        window = 90
+    grace = _configured_days(data, "grace_period_days", 14)
     labels = set(_labels(data))
     announced = bool(labels & {"announced", "announced - emails sent"})
     shipping = bool(labels & {"pr merged", "fix released"})
@@ -85,7 +102,7 @@ def disclosure(data: Mapping[str, Any]) -> dict[str, Any]:
 
 def staleness(data: Mapping[str, Any]) -> dict[str, Any]:
     now = _time(data["now"])
-    timeout = int(data.get("timeout_days") or 14)
+    timeout = _configured_days(data, "timeout_days", 14)
     messages = sorted((_time(m["at"]), bool(m.get("from_team"))) for m in data.get("messages") or [])
     if not messages or not messages[-1][1]:
         return {
@@ -226,3 +243,78 @@ def release_vote(data: Mapping[str, Any]) -> dict[str, Any]:
             "reason": f"open vote for {version}, matching the fix-PR milestone",
         }
     return {"ok": True, "release_vote_in_progress": False, "reason": f"no open [VOTE] thread for {target}"}
+
+
+_CVE = re.compile(r"^CVE-\d{4}-\d{4,7}$")
+
+
+def _list_address(value: object) -> str:
+    """`users@foo.apache.org` from that address or PonyMail's `<users.foo.apache.org>` list id."""
+    text = one_line(value).strip().strip("<>").strip().lower()
+    if text and "@" not in text and "." in text:
+        local, _, domain = text.partition(".")
+        text = f"{local}@{domain}"
+    return text
+
+
+def _sender_address(value: object) -> str:
+    """The mailbox of a `From`-style value (`Name <a@b>` or `a@b`), lower-cased,
+    parsed as a mail header so an address in the display name is not taken
+    for it; empty when there is not exactly one address."""
+    pairs = [addr for _name, addr in getaddresses([one_line(value)]) if addr]
+    if len(pairs) != 1 or "@" not in pairs[0]:
+        return ""
+    return pairs[0].strip().lower()
+
+
+def advisory_archive(data: Mapping[str, Any]) -> dict[str, Any]:
+    cve = one_line(data.get("cve_id")).strip()
+    if not _CVE.match(cve):
+        return {"ok": False, "refused": f"cve_id {cve!r} is not of the form CVE-YYYY-NNNN"}
+    advisory_list = _list_address(data.get("advisory_list"))
+    if "@" not in advisory_list:
+        return {"ok": False, "refused": "advisory_list (the project's users_list) is not configured"}
+    url = one_line(data.get("url")).strip()
+    raw_thread = data.get("thread")
+    thread: Mapping[str, Any] = raw_thread if isinstance(raw_thread, Mapping) else {}
+    thread_list = _list_address(thread.get("list"))
+    subject = one_line(thread.get("subject")).strip()
+    sender = _sender_address(thread.get("from"))
+    raw_senders = data.get("authorized_senders")
+    authorized = {_sender_address(s) for s in raw_senders} if isinstance(raw_senders, list) else set()
+    authorized.discard("")
+    archive = one_line(data.get("mail_archive_url")).strip().rstrip("/")
+    reasons: list[str] = []
+    if not url.startswith("https://"):
+        reasons.append("the URL is not an https archive URL")
+    elif not archive:
+        reasons.append("mail_archive_url is not configured, so the URL's archive cannot be checked")
+    elif not (url == archive or url.startswith(archive + "/")):
+        reasons.append(f"the URL is not under the configured archive {archive}")
+    if not authorized:
+        reasons.append("no authorized_senders (release managers / security team) were given")
+    elif not sender:
+        reasons.append("the archive did not report who sent the root message; fetch the thread first")
+    elif sender not in authorized:
+        reasons.append(
+            f"the root message is from {sender}, not from a release manager or security-team member"
+        )
+    if not thread_list:
+        reasons.append("the archive did not report which list the thread is on; fetch the thread first")
+    elif thread_list != advisory_list:
+        reasons.append(f"the thread is on {thread_list}, not on the public advisory list {advisory_list}")
+    pattern = re.compile(r"^(?:\[[^\]]*\]\s*)*" + re.escape(cve) + r"\s*:\s*\S", re.IGNORECASE)
+    if not subject:
+        reasons.append("the thread's root subject is unknown; fetch the thread first")
+    elif not pattern.match(subject):
+        reasons.append(f"the root subject is not the advisory subject `{cve}: <description>`")
+    return {
+        "ok": True,
+        "accepted": not reasons,
+        "reasons": reasons,
+        "url": url,
+        "list": thread_list or None,
+        "subject": subject or None,
+        "sender": sender or None,
+        "requires_confirmation": True,
+    }

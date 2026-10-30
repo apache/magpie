@@ -32,7 +32,7 @@
 # Package name matches the project's canonical name. Not published to
 # PyPI — this name only frames the framework root as a uv-managed project.
 name = "apache-magpie"
-version = "0.9.0.dev202610192305"
+version = "0.9.0.dev202610280340"
 description = "Reusable, governance-agnostic framework of agentic skills for maintaining open-source projects."
 requires-python = ">=3.11"
 
@@ -42,7 +42,7 @@ requires-python = ">=3.11"
 # - `prek` is the static-check / pre-commit runner. CI installs it
 #   via `uv sync --group dev` and invokes `uv run prek …`.
 # - `magpie-dev` (tools/dev) carries the shared static-analysis +
-#   test toolchain — ruff, mypy, pytest — declared in ONE place and
+#   test toolchain — ruff, mypy, pytest, pytest-xdist — declared in ONE place and
 #   depended on by every workspace member's own `dev` group, so each
 #   sub-project's environment is still self-contained. The workspace
 #   checks run each tool against the member's own project via
@@ -125,6 +125,8 @@ members = [
   "tools/dev",
   "tools/agent-isolation",
   "tools/bitbucket",
+  "tools/asf-security-dash",
+  "tools/discourse",
   "tools/egress-gateway",
   "tools/container-gateway",
   "tools/contributor-metrics",

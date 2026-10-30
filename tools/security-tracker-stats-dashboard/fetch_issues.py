@@ -21,49 +21,56 @@
 
 import json
 import os
-import subprocess
+import tempfile
 
-ROOT = os.environ.get("TRACKER_STATS_CACHE", "/tmp/tracker-stats-cache")
+from gh_retry import run_gh
+
+# The cache defaults under the platform temp root rather than a hardcoded `/tmp`:
+# a sandboxed run is typically granted its own scratch directory and cannot write
+# `/tmp`, so `/tmp/tracker-stats-cache` made the first fetch step fail outright.
+# `tempfile.gettempdir()` honours `$TMPDIR` (POSIX) and `%TEMP%` (Windows).
+ROOT = os.environ.get("TRACKER_STATS_CACHE") or os.path.join(tempfile.gettempdir(), "tracker-stats-cache")
 REPO = os.environ.get("TRACKER_STATS_REPO", "airflow-s/airflow-s")
 
-os.makedirs(ROOT, exist_ok=True)
 
-print(f"Fetching issue list from {REPO} (state=all, limit 1000) ...")
-r = subprocess.run(
-    [
-        "gh",
-        "issue",
-        "list",
-        "--repo",
-        REPO,
-        "--state",
-        "all",
-        "--limit",
-        "1000",
-        "--json",
-        # `updatedAt` is consumed by fetch_events.py, which refuses to trust a cached
-        # events file older than the issue's last update. Dropping it here silently
-        # disables that guard, because the check falls back to "no timestamp -> trust
-        # the cache" and every relabelled issue keeps its stale event history.
-        # `body` and `closedByPullRequestsReferences` ride on this one paginated call
-        # so fetch_bodies.py can build issue_extra.json without a `gh issue view`
-        # per issue.
-        "number,title,state,stateReason,createdAt,closedAt,updatedAt,labels,comments,body,closedByPullRequestsReferences",
-    ],
-    capture_output=True,
-    text=True,
-    timeout=300,
-)
-if r.returncode != 0:
-    raise SystemExit(f"gh failed: {r.stderr}")
+def main() -> None:
+    os.makedirs(ROOT, exist_ok=True)
 
-issues = json.loads(r.stdout)
-with open(f"{ROOT}/issues.json", "w") as f:
-    json.dump(issues, f)
-
-print(f"Wrote {len(issues)} issues to {ROOT}/issues.json")
-if len(issues) >= 1000:
-    print(
-        "WARNING: the issue list hit the 1000-issue cap; older issues are missing "
-        "and every count in the dashboard is a floor. Raise --limit in fetch_issues.py."
+    print(f"Fetching issue list from {REPO} (state=all, limit 1000) ...")
+    r = run_gh(
+        [
+            "gh",
+            "issue",
+            "list",
+            "--repo",
+            REPO,
+            "--state",
+            "all",
+            "--limit",
+            "1000",
+            "--json",
+            # `updatedAt` is consumed by fetch_events.py, which refuses to trust a cached
+            # events file older than the issue's last update. Dropping it here silently
+            # disables that guard, because the check falls back to "no timestamp -> trust
+            # the cache" and every relabelled issue keeps its stale event history.
+            # `body` and `closedByPullRequestsReferences` ride on this one paginated call
+            # so fetch_bodies.py can build issue_extra.json without a `gh issue view`
+            # per issue.
+            "number,title,state,stateReason,createdAt,closedAt,updatedAt,labels,comments,body,closedByPullRequestsReferences",
+        ]
     )
+
+    issues = json.loads(r.stdout)
+    with open(f"{ROOT}/issues.json", "w") as f:
+        json.dump(issues, f)
+
+    print(f"Wrote {len(issues)} issues to {ROOT}/issues.json")
+    if len(issues) >= 1000:
+        print(
+            "WARNING: the issue list hit the 1000-issue cap; older issues are missing "
+            "and every count in the dashboard is a floor. Raise --limit in fetch_issues.py."
+        )
+
+
+if __name__ == "__main__":
+    main()

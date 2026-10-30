@@ -25,10 +25,12 @@ else
     ssh-*) echo "PROBE: signing-key → ✓ (user.signingkey is a literal key, nothing to read)" ;;
     *)
       key="${key/#\~/$HOME}"
-      if head -c 1 "$key" >/dev/null 2>"${TMPDIR:-/tmp}/signing-key.err"; then
+      # Held in a variable, not a file: /tmp is read-only inside the sandbox.
+      out=$(head -c 1 "$key" 2>&1); rc=$?
+      if [ $rc -eq 0 ]; then
         echo "PROBE: signing-key → ✓ ($key readable inside sandbox)"
       else
-        echo "PROBE: signing-key → ✗ ($key not readable inside sandbox: $(head -1 "${TMPDIR:-/tmp}/signing-key.err"))"
+        echo "PROBE: signing-key → ✗ ($key not readable inside sandbox: $(printf '%s\n' "$out" | head -1))"
       fi ;;
   esac
 fi

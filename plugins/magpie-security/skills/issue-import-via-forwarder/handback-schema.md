@@ -22,7 +22,7 @@ routing:
   addressing_block: <string>     # paste-ready, ready to attach to draft
   question_mode: true | false
 warnings:
-  - <one-line warning>           # e.g. "matched sender is on collaborator list"
+  - <one-line warning>           # e.g. "matched sender is on collaborator list", or a single-signal partial match
 notes:
   - <one-line informational>     # e.g. "credit unknown — confirm before draft"
 ```
@@ -32,7 +32,7 @@ When `sub_skill_applied: false`, the other fields are empty / `null`; the parent
 The parent skill is responsible for:
 
 - folding the `match` block into its proposal so the user sees *"matched as relay via adapter `<name>` — preamble: `<snippet>`"*;
-- pre-filling the *Reporter credited as* tracker field with `credit.name` (subject to user override on confirmation);
+- showing `credit.name` and `credit.raw_string` to the user as the **proposed** *Reporter credited as* value, and writing it to the tracker only after the user explicitly confirms that value (a default *"go"* on the import leaves the field `_No response_`);
 - assembling the Gmail draft from `routing.to_recipients`, `routing.addressing_block`, and the appropriate canned-response body, using `routing.question_mode` to decide whether to fold the credit-preference question in;
 - surfacing every `warning` inline in the proposal — the user decides whether a warning blocks confirmation;
 - recording the matched adapter name in the tracker's status-rollup entry per [`tools/github/status-rollup.md`](../../../../tools/github/status-rollup.md), so a future sync pass knows the tracker is in via-forwarder mode without re-detecting.

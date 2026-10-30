@@ -1,0 +1,20 @@
+{
+  "name": "magpie",
+  "version": "0.9.0",
+  "description": "Apache Magpie for Goose: the framework's skills plus the per-user secure setup (action guard and deny rules as a PreToolUse hook; agent-iso goose runs Goose in sandbox-runtime, in approve mode).",
+  "skills": {
+    "paths": [
+      "./plugins/magpie-contributor-growth/skills",
+      "./plugins/magpie-issue/skills",
+      "./plugins/magpie-mentoring/skills",
+      "./plugins/magpie-pairing/skills",
+      "./plugins/magpie-pr-management/skills",
+      "./plugins/magpie-release-management/skills",
+      "./plugins/magpie-repo-health/skills",
+      "./plugins/magpie-security/skills",
+      "./plugins/magpie-setup/skills",
+      "./plugins/magpie-utilities/skills"
+    ],
+    "exclusive": true
+  }
+}

@@ -160,7 +160,9 @@ The `mcpServers` entry looks like:
     "ponymail": {
       "command": "node",
       "args": ["/absolute/path/to/comdev/mcp/ponymail-mcp/index.js"],
-      "env": {}
+      "env": {
+        "PONYMAIL_ATTACHMENT_DIRS": "/absolute/path/to/home/.cache/ponymail-attachments"
+      }
     }
   }
 }
@@ -188,6 +190,27 @@ expects the operator to opt the relevant ones in via
 `PONYMAIL_ALLOWED_LISTS` — list those that match the project's
 `<security-list>` / `<private-list>` if the skills need to read them.
 
+`PONYMAIL_ATTACHMENT_DIRS` turns on
+[`save_attachments`](operations.md#save-attachments), which downloads a
+report's attachments (and decrypts a password-protected ZIP) to disk.
+Without it the tool refuses every call. Set it to **one** directory that the
+agent can read but not write: only the MCP server, which runs outside the
+sandbox, writes there. Under the
+[secure agent setup](../../docs/setup/secure-agent-setup.md) that is
+`~/.cache/ponymail-attachments`, written as an absolute path because the MCP
+`env` block does not expand `~`. The sandbox can read it through the
+`~/.cache/` grant, and the template's `Edit(~/.cache/ponymail-attachments/**)`
+deny rule keeps the agent's edit tools and sandboxed commands from writing to
+or renaming it. That rule matters: the server checks paths, and a caller that
+could rename directories under the root mid-save could race those checks.
+Never point the variable at your home directory, a repository checkout, or a
+directory holding configuration or credentials. The server creates and pins
+the directory when it starts, and refuses to save once it has been replaced
+or re-pointed. Saved files are never deleted by the server; clear old reports
+out of the directory yourself. `save_attachments` needs a `ponymail-mcp`
+checkout of version 1.3.0 or later
+([apache/comdev#69](https://github.com/apache/comdev/pull/69)).
+
 Restart Claude Code (or run `/mcp` → `reconnect`) so the new server
 is picked up and its tools appear in the deferred-tool list.
 
@@ -204,6 +227,18 @@ A browser window opens and redirects to the ASF LDAP login at
 caches the session cookie at `~/.ponymail-mcp/session.json`; this
 file is reused for subsequent requests and survives across Claude
 Code sessions until the cookie expires.
+
+The login window uses a throwaway browser profile, so the browser
+cannot save your ASF password. To have it saved, add
+`"PONYMAIL_BROWSER_PROFILE": "persistent"` to the `env` above and
+reconnect. This needs a `ponymail-mcp` checkout that clears the
+profile's login cookies after each login ([apache/comdev#68](https://github.com/apache/comdev/pull/68));
+older ones keep them, so pull the checkout first. With it, 2FA is
+still asked every time. Once logged in, the MCP
+reads the private lists it is allowed to without asking again
+until the session expires (up to about 24 hours) or you
+`logout`. See
+[Offer to save the password for next time](operations.md#offer-to-save-the-password-for-next-time).
 
 Verify:
 

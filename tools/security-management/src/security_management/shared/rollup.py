@@ -105,7 +105,7 @@ def receipt_line(receipt: Mapping[str, Any]) -> str:
         )
     if receipt.get("bundle_draft_id"):
         return (
-            "Receipt-of-confirmation reply: covered by the consolidated receipt draft "
+            "Receipt-of-confirmation reply: covered by the receipt draft on the same inbound thread "
             f"{code(receipt['bundle_draft_id'])}."
         )
     if draft:

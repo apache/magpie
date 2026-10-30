@@ -179,7 +179,8 @@ class _FakeOAuthCreds:
     scopes = ("https://mail.google.com/",)
 
 
-def test_setup_credentials_runs_flow_and_writes(tmp_path):
+def test_setup_credentials_runs_flow_and_writes(tmp_path, monkeypatch):
+    monkeypatch.setenv("GMAIL_OAUTH_CREDENTIALS", str(tmp_path / "gmail-oauth.json"))
     secrets = tmp_path / "client_secrets.json"
     secrets.write_text("{}")
     out = tmp_path / "gmail-oauth.json"
@@ -245,3 +246,52 @@ def test_check_auth_converts_systemexit_to_tool_error():
     ):
         with pytest.raises(RuntimeError, match="refresh failed"):
             mcp_server.check_auth()
+
+
+# --- credentials_path is confined ----------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "where",
+    ["project/creds.json", "creds.json.txt", "relative.json"],
+)
+def test_setup_credentials_refuses_a_path_outside_the_credential_dirs(tmp_path, monkeypatch, where):
+    """The token must never be written where the sandboxed agent could read it."""
+    monkeypatch.setenv("GMAIL_OAUTH_CREDENTIALS", str(tmp_path / "conf" / "gmail-oauth.json"))
+    (tmp_path / "conf").mkdir()
+    secrets = tmp_path / "client_secrets.json"
+    secrets.write_text("{}")
+    target = where if where == "relative.json" else str(tmp_path / where)
+    with (
+        patch.object(mcp_server._setup, "run_consent_flow") as flow,
+        patch.object(mcp_server._setup, "write_credentials") as write,
+        pytest.raises(ValueError, match="credentials_path"),
+    ):
+        mcp_server.setup_credentials(
+            client_secrets_path=str(secrets), from_address="me@example.com", credentials_path=target
+        )
+    flow.assert_not_called()
+    write.assert_not_called()
+
+
+def test_a_symlinked_credentials_path_is_refused(tmp_path, monkeypatch):
+    conf = tmp_path / "conf"
+    conf.mkdir()
+    monkeypatch.setenv("GMAIL_OAUTH_CREDENTIALS", str(conf / "gmail-oauth.json"))
+    (conf / "link.json").symlink_to(tmp_path / "elsewhere.json")
+    with pytest.raises(ValueError, match="no symlinks"):
+        mcp_server.check_auth(credentials_path=str(conf / "link.json"))
+
+
+def test_a_path_in_the_configured_dir_is_accepted(tmp_path, monkeypatch):
+    conf = tmp_path / "conf"
+    conf.mkdir()
+    monkeypatch.setenv("GMAIL_OAUTH_CREDENTIALS", str(conf / "gmail-oauth.json"))
+    target = conf / "other.json"
+    with (
+        patch.object(mcp_server, "locate_credentials", return_value=target) as locate,
+        patch.object(mcp_server.Credentials, "load", return_value=CREDS),
+        patch.object(mcp_server, "refresh_access_token", return_value="tok"),
+    ):
+        assert mcp_server.check_auth(credentials_path=str(target))["status"] == "ok"
+    locate.assert_called_once_with(str(target))

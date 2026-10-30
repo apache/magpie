@@ -728,14 +728,14 @@ def test_marketplace_add_in_the_allowed_pages_is_silent(repo: Path) -> None:
 
 
 def test_the_other_harnesses_add_commands_are_caught_too(repo: Path) -> None:
-    """Claude Code is not the only one that repeats: Codex, Gemini and apm each
+    """Claude Code is not the only one that repeats: Codex, Antigravity and apm each
     have their own one-time add, and each was carried on several pages."""
     setup = repo / "docs" / "setup"
     setup.mkdir(parents=True, exist_ok=True)
     (repo / "docs" / "utilities").mkdir(parents=True)
     (repo / "docs" / "utilities" / "README.md").write_text(
         "```bash\ncodex plugin marketplace add apache/magpie\n"
-        "gemini extensions install https://github.com/apache/magpie\n"
+        "agy plugin install https://github.com/apache/magpie\n"
         "apm install apache/magpie\n```\n",
         encoding="utf-8",
     )

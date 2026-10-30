@@ -8,7 +8,6 @@
     ],
     "filesystem": {
       "allowRead": [
-        "~/.config/gh/",
         "~/.docker/bin/",
         "~/.docker/cli-plugins/",
         "~/.gnupg/",

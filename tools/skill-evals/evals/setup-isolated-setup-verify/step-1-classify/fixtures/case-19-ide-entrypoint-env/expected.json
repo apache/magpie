@@ -1,0 +1,15 @@
+{
+  "snapshot_drift": "none",
+  "checks": [
+    {
+      "n": 1,
+      "status": "✓",
+      "evidence": "sandbox.enabled: true; deny and ask lists present; network and filesystem allowlists configured; denyRead contains ~/ (.claude/settings.json)"
+    },
+    {
+      "n": 7,
+      "status": "⚠",
+      "evidence": "credential files denied (user confirmed ~/.aws/credentials and ~/.config/gh/hosts.yml exist on the host); CLAUDE_CODE_ENTRYPOINT=claude-vscode, so the session never went through claude-iso; credential-shaped names outside the passthrough list: AZURE_OPENAI_API_KEY, GITHUB_TOKEN; curl denied at permission layer"
+    }
+  ]
+}

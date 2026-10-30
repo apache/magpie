@@ -27,11 +27,13 @@ capability:authoring:
       - any-glob-to-any-file:
           - 'plugins/magpie-security/skills/model-prepare/**'
           - 'plugins/magpie-security/skills/model-update/**'
+          - 'plugins/magpie-security/skills/submit-to-oss-scan/**'
           - 'plugins/magpie-utilities/skills/optimize-skill/**'
           - 'plugins/magpie-utilities/skills/write-skill/**'
           - 'tools/skill-evals/evals/optimize-skill/**'
           - 'tools/skill-evals/evals/security-model-prepare/**'
           - 'tools/skill-evals/evals/security-model-update/**'
+          - 'tools/skill-evals/evals/security-submit-to-oss-scan/**'
           - 'tools/skill-evals/evals/write-skill/**'
 
 capability:fix:
@@ -67,6 +69,7 @@ capability:intake:
 capability:platform:
   - changed-files:
       - any-glob-to-any-file:
+          - 'plugins/magpie-setup/skills/complete-upgrade/**'
           - 'plugins/magpie-setup/skills/isolated-setup-doctor/**'
           - 'plugins/magpie-setup/skills/isolated-setup-install/**'
           - 'plugins/magpie-setup/skills/isolated-setup-update/**'
@@ -80,6 +83,7 @@ capability:platform:
           - 'plugins/magpie-setup/skills/welcome-guide/**'
           - 'plugins/magpie-utilities/skills/report-framework-issue/**'
           - 'tools/skill-evals/evals/report-framework-issue/**'
+          - 'tools/skill-evals/evals/setup-complete-upgrade/**'
           - 'tools/skill-evals/evals/setup-isolated-setup-doctor/**'
           - 'tools/skill-evals/evals/setup-isolated-setup-install/**'
           - 'tools/skill-evals/evals/setup-isolated-setup-update/**'
@@ -221,6 +225,7 @@ capability:triage:
           - 'plugins/magpie-repo-health/skills/dependency-license-audit/**'
           - 'plugins/magpie-repo-health/skills/flaky-test-triage/**'
           - 'plugins/magpie-repo-health/skills/license-compliance-audit/**'
+          - 'plugins/magpie-repo-health/skills/workflow-optimization/**'
           - 'plugins/magpie-repo-health/skills/workflow-security-audit/**'
           - 'plugins/magpie-security/skills/issue-triage/**'
           - 'tools/skill-evals/evals/ci-runner-audit/**'
@@ -240,6 +245,7 @@ capability:triage:
           - 'tools/skill-evals/evals/release-vote-tally/**'
           - 'tools/skill-evals/evals/reviewer-routing/**'
           - 'tools/skill-evals/evals/security-issue-triage/**'
+          - 'tools/skill-evals/evals/workflow-optimization/**'
           - 'tools/skill-evals/evals/workflow-security-audit/**'
 
 family:ci:
@@ -352,6 +358,7 @@ family:repo-health:
           - 'tools/skill-evals/evals/dependency-license-audit/**'
           - 'tools/skill-evals/evals/flaky-test-triage/**'
           - 'tools/skill-evals/evals/license-compliance-audit/**'
+          - 'tools/skill-evals/evals/workflow-optimization/**'
           - 'tools/skill-evals/evals/workflow-security-audit/**'
 
 family:security:
@@ -373,6 +380,7 @@ family:security:
           - 'tools/skill-evals/evals/security-model-prepare/**'
           - 'tools/skill-evals/evals/security-model-update/**'
           - 'tools/skill-evals/evals/security-model-verify/**'
+          - 'tools/skill-evals/evals/security-submit-to-oss-scan/**'
           - 'tools/skill-evals/evals/security-tracker-stats-dashboard/**'
 
 family:setup:
@@ -382,6 +390,7 @@ family:setup:
           - '.apache-magpie.lock'
           - 'docs/setup/**'
           - 'plugins/magpie-setup/**'
+          - 'tools/skill-evals/evals/setup-complete-upgrade/**'
           - 'tools/skill-evals/evals/setup-isolated-setup-doctor/**'
           - 'tools/skill-evals/evals/setup-isolated-setup-install/**'
           - 'tools/skill-evals/evals/setup-isolated-setup-update/**'
@@ -400,6 +409,7 @@ family:tools:
           - any-glob-to-any-file:
               - 'plugins/magpie-adversarial-review/**'
               - 'plugins/magpie-agent-guard/**'
+              - 'plugins/magpie-security-tools/**'
               - 'plugins/magpie-vetted-ops/**'
       - changed-files:
           - all-globs-to-any-file:
@@ -455,10 +465,17 @@ contract:cve-authority:
               - 'tools/cve-tool/**'
               - 'tools/cve-tool-vulnogram/**'
 
+contract:hook-manager:
+  - any:
+      - changed-files:
+          - any-glob-to-any-file:
+              - 'tools/hook-manager/**'
+
 contract:mail-archive:
   - any:
       - changed-files:
           - any-glob-to-any-file:
+              - 'tools/discourse/**'
               - 'tools/gmail/**'
               - 'tools/mail-archive/**'
               - 'tools/ponymail/**'
@@ -522,6 +539,7 @@ contract:security-tracker:
   - any:
       - changed-files:
           - any-glob-to-any-file:
+              - 'tools/asf-security-dash/**'
               - 'tools/jira/**'
               - 'tools/local-tracker/**'
               - 'tools/security-tracker/**'

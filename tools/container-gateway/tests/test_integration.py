@@ -182,6 +182,16 @@ def test_home_bind_mount_is_refused(gateway: tuple[Path, str]) -> None:
     assert "container-gateway: bind-mount" in done.stderr
 
 
+def test_writable_project_root_bind_is_refused_and_read_only_is_not(gateway: tuple[Path, str]) -> None:
+    project, cli = gateway
+    image = "docker.io/library/alpine:3"
+    done = _run(cli, project, "run", "--rm", "-v", f"{project}:/p", image, "true")
+    assert done.returncode != 0
+    assert "is writable and covers" in done.stderr
+    done = _run(cli, project, "run", "--rm", "-v", f"{project}:/p:ro", image, "true")
+    assert done.returncode == 0, done.stderr
+
+
 def test_privileged_is_refused(gateway: tuple[Path, str]) -> None:
     project, cli = gateway
     done = _run(cli, project, "run", "--rm", "--privileged", "docker.io/library/alpine:3", "true")

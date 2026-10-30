@@ -104,6 +104,17 @@
       }
     },
     {
+      "name": "magpie-security-tools",
+      "source": {
+        "source": "local",
+        "path": "./plugins/magpie-security-tools"
+      },
+      "category": "maintenance",
+      "policy": {
+        "installation": "AVAILABLE"
+      }
+    },
+    {
       "name": "magpie-setup",
       "source": {
         "source": "local",
@@ -133,7 +144,7 @@
       },
       "category": "maintenance",
       "policy": {
-        "installation": "AVAILABLE"
+        "installation": "INSTALLED_BY_DEFAULT"
       }
     }
   ]

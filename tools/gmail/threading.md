@@ -54,6 +54,22 @@ like live here.
 
 ## The rule
 
+- **Golden rule — one reply, one thread; never combine threads.**
+  A draft answers exactly one inbound thread.
+  Never fold the responses to several threads into one message —
+  not when the same reporter sent several reports, not when one
+  run imports or updates several trackers, not when the replies
+  would say nearly the same thing.
+  Each thread gets its own draft, attached to that thread's
+  `threadId`, with that thread's `Re: <root subject>`.
+  A combined reply confuses the reporter, who cannot tell which
+  report it answers, and the security team, who track each case by
+  its thread and `Message-ID`: the cases that lost their own reply
+  show no answer on their thread, and the one that carries it now
+  mixes in other cases.
+  One thread that yields several trackers still gets one reply on
+  that thread, listing them.
+  There is no exception and no override for this rule.
 - **Same thread every time, by `threadId` when known.** Whatever
   the recipient change — a reporter reply, an ASF-security relay
   request, a PMC credit question, a follow-up asking for a PoC —
@@ -93,6 +109,12 @@ more than one thread when:
   forward — *after* the original direct report had already been
   imported, so the secondary thread was appended to record the
   duplicate-of provenance.
+
+**When the tracker merges several independent reporters, each
+reporter's reply goes on that reporter's own thread**, as a separate
+draft, per the [one-reply-one-thread golden rule](#the-rule) above.
+The primary/secondary selection below only chooses between a
+reporter's direct thread and a forwarder/relay thread of the same report.
 
 **The rule: default drafts go to the primary reporter's thread,
 never to a forwarder/relay thread.** The forwarder/relay thread

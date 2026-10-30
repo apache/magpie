@@ -58,7 +58,8 @@ line-length = 110
 target-version = "py311"
 # A generated copy (tools/dev/check-family-plugins.py `copies`) whose source,
 # tools/jira, is linted and formatted under its own settings there.
-extend-exclude = ["magpie-vetted-ops/tools/jira"]
+# The security tools are copies too, each linted under its own settings at its source.
+extend-exclude = ["magpie-vetted-ops/tools/jira", "magpie-security-tools/tools"]
 
 [tool.ruff.lint]
 select = [
@@ -81,7 +82,7 @@ python_version = "3.11"
 files = ["."]
 # Same reason as pytest's `norecursedirs`: the substrate plugins' `tools/`
 # symlinks resolve into other workspace members that check themselves.
-exclude = "^magpie-(agent-guard|vetted-ops)/tools/"
+exclude = "^magpie-(agent-guard|vetted-ops|security-tools)/tools/"
 ignore_missing_imports = true
 warn_unused_ignores = true
 warn_redundant_casts = true
@@ -103,7 +104,12 @@ addopts = "-ra -q"
 # `tools/<name>`, which is its own workspace member with its own pytest job —
 # don't collect it twice.
 testpaths = ["."]
-norecursedirs = ["magpie-adversarial-review/tools", "magpie-agent-guard/tools", "magpie-vetted-ops/tools"]
+norecursedirs = [
+  "magpie-adversarial-review/tools",
+  "magpie-agent-guard/tools",
+  "magpie-vetted-ops/tools",
+  "magpie-security-tools/tools",
+]
 
 [dependency-groups]
 # The shared toolchain (mypy, pytest, ruff) comes from `magpie-dev`

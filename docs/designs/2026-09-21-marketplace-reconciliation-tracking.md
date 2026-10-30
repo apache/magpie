@@ -552,7 +552,7 @@ stamp; silence has no end.
   **One caveat survives, on one harness.** Codex reads the framework from
   the workspace and declares no filesystem read-deny; Gemini's
   pinned-snapshot install is in-workspace too. Gemini's *extension*
-  install is not, and [its adapter](../adapters/gemini.md) notes that
+  install is not, and its adapter (since removed with Gemini CLI support) noted that
   native file tools check paths against allowed workspace directories.
   That caveat applied to reading the sidecar and lapsed with it: the
   checker runs from the project tree on every harness, and the rules come

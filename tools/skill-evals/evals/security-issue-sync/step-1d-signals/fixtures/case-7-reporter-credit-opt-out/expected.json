@@ -1,0 +1,25 @@
+{
+  "affected_versions": {
+    "action": "none",
+    "proposed_value": null
+  },
+  "title": {
+    "action": "none",
+    "proposed_title": null,
+    "stripped_context_preserved": false
+  },
+  "reporter_credit": {
+    "action": "omit_finder_credit",
+    "proposed_value": "_No response_"
+  },
+  "short_public_summary": {
+    "action": "none"
+  },
+  "severity": {
+    "action": "none"
+  },
+  "cwe": {
+    "action": "none"
+  },
+  "notes": "The reporter declined credit ('do not credit me, anonymous is fine'), which is an opt-out rather than a credit line, so Reporter credited as stays the empty-field marker _No response_ instead of a literal anonymous (finder-credit policy Rule 2), and the opt-out is recorded in the status rollup so the credit question is resolved and not re-asked."
+}

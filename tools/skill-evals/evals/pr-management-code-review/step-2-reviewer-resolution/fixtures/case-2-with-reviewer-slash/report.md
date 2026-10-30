@@ -9,5 +9,5 @@ The `magpie-adversarial-review` plugin is installed.
 ```yaml
 adversarial_review:
   mode: on-pr-create
-  reviewers: [gemini]
+  reviewers: [antigravity]
 ```

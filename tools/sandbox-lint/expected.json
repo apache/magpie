@@ -1,5 +1,8 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "env": {
+    "PREK_HOME": "~/.cache/prek-sandbox"
+  },
   "sandbox": {
     "enabled": true,
     "excludedCommands": [
@@ -19,7 +22,6 @@
         ".",
         "~/.gitconfig",
         "~/.config/git/",
-        "~/.config/gh/",
         "~/.cache/",
         "~/.local/share/uv/",
         "~/.local/bin/",
@@ -29,8 +31,7 @@
         "/run/user/*/gnupg/"
       ],
       "allowWrite": [
-        "~/.cache/",
-        "~/.local/share/uv/"
+        "~/.cache/"
       ]
     },
     "network": {
@@ -140,6 +141,7 @@
       "Read(~/.config/apache-magpie/**)",
       "Edit(~/.config/apache-magpie/local-tracker-parsers.json)",
       "Read(~/.config/gcloud/**)",
+      "Read(~/.config/uv/uv.toml)",
       "Read(~/.azure/**)",
       "Read(//**/.env)",
       "Read(//**/.env.local)",
@@ -149,8 +151,14 @@
       "Edit(tools/agent-isolation/claude-settings.local.template.json)",
       "Edit(plugins/magpie-setup/skills/setup/family-mcp-allows.json)",
       "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
+      "Edit(//**/.git/**/apache-magpie/tools/vetted-ops/**)",
+      "Edit(//**/.svn/apache-magpie/tools/vetted-ops/**)",
+      "Edit(//**/.apache-magpie-local/tools/vetted-ops/**)",
       "Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
       "Edit(~/.claude/magpie/**)",
+      "Edit(~/.config/uv/**)",
+      "Edit(~/.cache/prek/**)",
+      "Edit(~/.cache/ponymail-attachments/**)",
       "Edit(~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/**)",
       "Edit(~/.claude/scripts/**)",
       "Bash(curl *)",

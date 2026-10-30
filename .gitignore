@@ -13,12 +13,16 @@ logs
 .build
 .claude/worktrees/
 .worktrees/
+# The root package.json makes the repository a Pi package, and Pi installs its
+# dependencies into its own clone. package-lock.json is committed (it pins the
+# sandbox runtime's whole tree, integrity hashes included); node_modules is not.
+/node_modules/
 .claude/settings.local.json
 # Skill source lives in skills/. The framework self-adopts by committing
 # magpie-<skill> symlinks (see skills/setup/adopt.md → "Local
 # self-adoption"). .agents/skills/ is the ONE canonical home: its
 # magpie-<skill> entries point into ../../skills/<skill>/ (the path shared
-# by Codex, Cursor, Gemini CLI, Copilot, …). Every other agent dir is a
+# by Codex, Cursor, Antigravity, Copilot, …). Every other agent dir is a
 # thin relay: .claude/skills/ (Claude Code) and .github/skills/ (GitHub's
 # skill loader) each carry magpie-<skill> → ../../.agents/skills/magpie-<skill>.
 # Those symlinks ARE committed — their targets are in-repo and always

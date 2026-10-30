@@ -22,7 +22,7 @@ The matrix, first match wins:
 |---|---|---|
 | class `Report (disposition converged)` | none | converged note in the rollup |
 | `reporter_acknowledgement_model: none` | none | suppression in the rollup, a recap note |
-| part of a consolidated-receipt bundle | none (the bundle covers it) | the bundle's draft id in the rollup |
+| another tracker from the same inbound thread already has the receipt | none (that thread's one receipt covers it) | that draft's id in the rollup |
 | `manual` | the canned receipt, for triager review | — |
 | `auto` | the same receipt, summary tagged `[auto-ack]` | — |
 

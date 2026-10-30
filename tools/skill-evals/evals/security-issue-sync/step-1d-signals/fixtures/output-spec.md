@@ -45,6 +45,7 @@ Field rules:
 - `affected_versions.proposed_value` is the literal field value you would write, including any backticks.
 - `title.action` is `strip_flag_ambiguity` when you propose a stripped title but flag it for the user to confirm or override; `strip` when you propose it without such a flag.
   `stripped_context_preserved` is `true` when an internal pointer removed from the title is kept elsewhere on the tracker (body or rollup), `false` when nothing is preserved or there is no title change.
+- `reporter_credit.action` is `omit_finder_credit` whenever the proposal leaves *Reporter credited as* as, or sets it to, the empty-field marker so no `finder` credit is emitted; `proposed_value` is then `_No response_`.
 - `audit_trail_fields_changed` is `true` if any proposal rewrites the *Security mailing list thread* body field, the status-rollup comment, or the mail thread.
 - `severity.action` is `surface_only` when a severity / CVSS statement is reported in the observed state for the user but no `Severity` field change is proposed.
 - `regenerate_cve_json` is `true` when any proposal is followed by regenerating the CVE JSON attachment.

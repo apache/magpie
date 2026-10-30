@@ -450,7 +450,7 @@ Expected value:
 Candidate value:
 {candidate_value}
 
-Does the candidate value support the same conclusion as the expected value? Ignore wording differences and reorderings. A candidate that reaches the same conclusion is a match even when it adds correct extra detail, omits secondary detail, or names the deciding rule differently. The answer's decision is carried by its structured fields, which are compared exactly on their own, so an explanation that gives the reasoning without restating the decision or the resulting action is still a match. Answer false only when the candidate states a different or contradictory conclusion, or rests it on a reason that conflicts with the expected one. Reply with one line of JSON only, no prose: {{"match": true, "reason": "<one-line explanation>"}} or {{"match": false, "reason": "<one-line explanation>"}}.
+Does the candidate value support the same conclusion as the expected value? Ignore wording differences and reorderings. A candidate that reaches the same conclusion is a match even when it adds correct extra detail, omits secondary detail, or names the deciding rule differently. The answer's decision is carried by its structured fields, which are compared exactly on their own, so an explanation that gives the reasoning without restating the decision or the resulting action is still a match. Answer false only when the candidate states a different or contradictory conclusion, or rests it on a reason that conflicts with the expected one. A compatible recommended next action is not a mismatch merely because the reference omits it. Example: expected rationale 'The reports describe the same root cause'; candidate rationale 'The reports describe the same root cause; close the newer report as a duplicate'; this is a match. Before returning JSON, ensure the boolean verdict agrees with the reason: return match=false only when the reason identifies a different conclusion or a conflicting supporting reason. Reply with one line of JSON only, no prose: {{"match": true, "reason": "<one-line explanation>"}} or {{"match": false, "reason": "<one-line explanation>"}}.
 """
 
 
@@ -458,6 +458,8 @@ BATCH_GRADER_RUBRIC = """\
 You are grading a model's structured answer against a reference answer, field by field.
 
 For each (Field, Expected, Candidate) triple below, decide whether the candidate value supports the same conclusion as the expected value. Ignore wording differences and reorderings. A candidate that reaches the same conclusion is a match even when it adds correct extra detail, omits secondary detail, or names the deciding rule differently. The answer's decision is carried by its structured fields, which are compared exactly on their own, so an explanation that gives the reasoning without restating the decision or the resulting action is still a match. Answer false only when the candidate states a different or contradictory conclusion, or rests it on a reason that conflicts with the expected one.
+
+A compatible recommended next action is not a mismatch merely because the reference omits it. Example: expected rationale 'The reports describe the same root cause'; candidate rationale 'The reports describe the same root cause; close the newer report as a duplicate'; this is a match. Before returning JSON, ensure every boolean verdict agrees with its reason: return match=false only when the reason identifies a different conclusion or a conflicting supporting reason.
 
 {fields_block}
 
@@ -1258,6 +1260,15 @@ def main(argv: list[str] | None = None) -> int:
             "running prompts."
         ),
     )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help=(
+            "Build each step's system prompt under path without running a case. "
+            "Prints one line per fixtures dir whose prompt cannot be built, such as "
+            "a step_heading the SKILL.md no longer has, and exits 1 if there is any."
+        ),
+    )
     args = parser.parse_args(argv)
 
     grader_explicit = args.grader_cli != DEFAULT_GRADER_CLI
@@ -1273,6 +1284,16 @@ def main(argv: list[str] | None = None) -> int:
         for tag in sorted(tag_counts):
             print(f"{tag} {tag_counts[tag]}")
         return 0
+
+    if args.check:
+        broken = 0
+        for fixtures_dir in dict.fromkeys(fixtures_dir for _case_dir, fixtures_dir in cases):
+            try:
+                load_step_config(fixtures_dir)
+            except (OSError, ValueError, KeyError) as exc:
+                print(f"{fixtures_dir}: {exc}", file=sys.stderr)
+                broken += 1
+        return 1 if broken else 0
 
     if args.tag:
         requested_tags = set(args.tag)

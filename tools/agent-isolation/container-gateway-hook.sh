@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash -p
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,29 +15,61 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-# container-gateway-hook.sh — Claude Code SessionStart / SessionEnd hook.
+# container-gateway-hook.sh — Claude Code SessionStart / SessionEnd / PreToolUse hook.
 #
 # Starts the per-project container gateway when a session begins and stops
 # it when the session ends, so sandboxed podman / docker commands have a
-# socket to talk to. Runs outside the sandbox, like every hook. Never fails
-# the session: every exit is 0, and a missing gateway is silently a no-op.
+# socket to talk to, and starts it again before a container command when it
+# is gone mid-session: it exits after its idle timeout, when another session
+# on the same project ends, or when it or its backend dies. Runs outside the
+# sandbox, like every hook. Never fails the session or blocks a command: every
+# exit is 0, and a missing gateway is silently a no-op.
 #
-#   start   SessionStart — python3 -m container_gateway serve --project=<root> --daemon
-#   stop    SessionEnd   — python3 -m container_gateway stop  --project=<root>
+#   start   SessionStart — <python> -I container_gateway serve --project=<root> --daemon
+#   stop    SessionEnd   — <python> -I container_gateway stop  --project=<root>
+#   ensure  PreToolUse (Bash) — as start, but only when the command names
+#           docker or podman and the gateway is not running; waits briefly for
+#           its sockets so the command does not race the start. It judges
+#           $CLAUDE_PROJECT_DIR, never the payload's cwd (see below).
 #
-# Trust model: the hook executes only code from locations the operator installed
-# or pinned, never from the repository being opened. This prevents a malicious repo
-# from shipping a gateway binary executed with the operator's privileges on
-# SessionStart. Sources are looked up in order: $MAGPIE_CONTAINER_GATEWAY_SRC
-# (development override), $HOME/.claude/scripts/container-gateway/src (operator
-# install), <root>/.apache-magpie/tools/container-gateway/src (pinned snapshot).
+# Trust model: the hook runs outside the sandbox, so everything it executes --
+# the interpreter, the standard library under it, and the gateway source -- must
+# live where neither the repository being opened nor a sandboxed command can
+# write. Otherwise any sandboxed command, which runs without a prompt, could
+# plant code that runs unsandboxed at the next session start.
 #
-# Two inherited variables are part of that trust model, because a repository can
-# set both through project settings:
+#   Writable roots. A path is refused when it resolves (symlinks followed) under
+#   the project root, $HOME/.cache, $HOME/.local, /tmp/claude*,
+#   /private/tmp/claude*, $CLAUDE_CODE_TMPDIR, or any sandbox.filesystem.allowWrite
+#   or permissions.additionalDirectories entry in the user, project, local or
+#   managed settings. $HOME/.cache and $HOME/.local are always refused, whatever
+#   this project grants, because setups grant them to every project. The one
+#   exception is uv's managed interpreters, $HOME/.local/share/uv/python: the
+#   reference setup keeps ~/.local/share/uv read-only to the sandbox and
+#   sandbox-lint rejects a grant over it, so they are refused only when a
+#   settings scope here grants it anyway. A machine where another project still
+#   carries the old grant must drop it (sandbox-add-project-root.sh does).
 #
-#   PYTHONPATH is *replaced*, never extended. An inherited entry ahead of (or
-#   behind) the gateway's own source directory can shadow a stdlib module the
-#   package imports, which would run repository code inside the gateway process.
+#   The interpreter is never looked up on PATH, which a repository can set
+#   through project settings. Candidates, in order: the absolute path in
+#   $HOME/.claude/scripts/container-gateway/python (an operator pin, one line),
+#   then fixed Homebrew and system locations, then uv-managed CPython under
+#   $HOME/.local/share/uv/python (newest minor first). The first one outside every
+#   writable root that is Python 3.11 or newer wins; none means the hook logs one
+#   line and does nothing.
+#
+#   The gateway source is looked up in $MAGPIE_CONTAINER_GATEWAY_SRC (development
+#   override), then $HOME/.claude/scripts/container-gateway/src (operator
+#   install), and refused under a writable root like the interpreter. A copy
+#   inside the repository -- including an .apache-magpie/ snapshot -- is never
+#   used: the project root is always sandbox-writable.
+#
+#   The interpreter runs by its canonical path with -I -S, so PYTHONPATH,
+#   PYTHONHOME, every other PYTHON* variable, site-packages (and any .pth file
+#   or sitecustomize in it) and the working directory (the project being
+#   opened) never reach sys.path; the source directory is put there explicitly
+#   by a one-line bootstrap. Its prefix and standard library must not overlap a
+#   writable root either, and neither may the source tree, file by file.
 #
 #   $MAGPIE_CONTAINER_GATEWAY_ARGS is allow-listed, token by token, against the
 #   flags below (e.g. "--egress require"). Anything else -- notably
@@ -45,32 +77,562 @@
 #   the whole variable and log one line to stderr rather than start a gateway
 #   with a policy the repository chose.
 #
+#   The environment is the session's, and project settings can set it, so the
+#   hook does not let it decide what counts as writable. Every inherited GIT_*
+#   variable is dropped before git runs; the physical session cwd is a writable
+#   root, and its settings are read, whatever git reports as the toplevel, and a
+#   toplevel that does not contain the cwd (GIT_WORK_TREE, core.worktree) stops
+#   the hook. $HOME may point anywhere, so the account database's home directory
+#   counts as well: its .cache, its .local and its user settings, even when
+#   $HOME names another directory.
+#
+#   Which project is judged. The session's write grants come from the project
+#   the session started in, so that is the directory every check must start
+#   from. The payload's cwd is that directory only when a session first
+#   starts: before a tool call, and at the SessionStart that follows a
+#   compaction, /clear or resume, it has followed the agent's `cd`, and judged
+#   from another directory the session project's grants would go uncounted,
+#   letting a sandboxed `cd` elsewhere pass a source the sandbox can write as
+#   trusted. Every action therefore takes the directory from
+#   $CLAUDE_PROJECT_DIR, which Claude Code sets on every hook it spawns to the
+#   directory the session started in. It does not follow `cd`, and an `env`
+#   entry in settings does not override it (checked against Claude Code: a
+#   setting CLAUDE_PROJECT_DIR=/elsewhere still hands hooks the real
+#   directory). When it is unset or relative, `start` and `stop` fall back to
+#   the payload's cwd and `ensure` does nothing. The payload's cwd, with its
+#   settings, is counted as writable as well.
+#
+#   Bash itself reads the environment before this script runs: $BASH_ENV (a
+#   file it executes), exported functions (BASH_FUNC_git%%=... would replace
+#   git) and SHELLOPTS / BASHOPTS. The shebang's -p (privileged mode) turns all
+#   of that off, so the hook must be executed directly, never as `bash <path>`
+#   or `sh <path>`: then the shebang does not apply, and nothing inside the
+#   script can undo what the shell already imported (an exported function can
+#   shadow even `exec` or `unset`). Wire it by its absolute path, too: a `~` in
+#   the hook command is expanded from $HOME by the launching shell, which could
+#   then run another script entirely.
+#
+#   Known gap: write grants given only on the command line (--add-dir, a
+#   --settings file) or mid-session without saving them to settings (/add-dir)
+#   are invisible to a hook. They come from whoever runs the session, not from
+#   the repository; do not grant a directory that holds the gateway source or
+#   the pinned interpreter that way.
+#
 # MAGPIE_CONTAINER_GATEWAY_DRY_RUN=1 prints the command instead of running it.
 
 set -uo pipefail
 
+# Every helper this hook runs (jq, git, readlink, dirname, find) comes from the
+# root-owned system directories, never from an inherited PATH that project
+# settings can set, nor from a package-manager prefix a sandbox grant could
+# cover. The shebang names /bin/bash for the same reason; the script keeps to
+# bash 3.2.
+PATH=/usr/bin:/bin:/usr/sbin:/sbin
+export PATH
+
 action="${1:-}"
 case "$action" in
-    start|stop) ;;
-    *) printf '%s: expected start|stop, got "%s"\n' "${0##*/}" "$action" >&2; exit 0 ;;
+    start|stop|ensure) ;;
+    *) printf '%s: expected start|stop|ensure, got "%s"\n' "${0##*/}" "$action" >&2; exit 0 ;;
 esac
 
+# Project settings can set the session's environment: no GIT_* variable may
+# redirect the repository git reports on (GIT_DIR, GIT_WORK_TREE, GIT_CONFIG_*).
+for var in $(compgen -e); do
+    [[ $var == GIT_* ]] && unset "$var"
+done
+
+log() { printf '%s: %s\n' "${0##*/}" "$*" >&2; }
+
+# Every git call: never discover a bare repository, which sandboxed code could
+# plant as HEAD / config / objects in a project that has no .git of its own.
+git() { command git -c safe.bareRepository=explicit "$@"; }
+
 payload="$(cat 2>/dev/null || true)"
-cwd="$(printf '%s' "$payload" | jq -r '.cwd // empty' 2>/dev/null || true)"
-[[ -n $cwd ]] || cwd="$PWD"
+# `ensure` runs before every Bash command, with no filter in the hook wiring:
+# this word check is the only one, so anything not naming docker or podman
+# leaves here, before any of the checks below. The word may follow a path or an
+# operator (`/usr/local/bin/docker`, `cd x && podman run`).
+if [[ $action == ensure ]]; then
+    command_line="$(printf '%s' "$payload" | jq -r '.tool_input.command // empty' 2>/dev/null || true)"
+    container_word='(^|[^A-Za-z0-9_.-])(docker|podman)(-compose)?([^A-Za-z0-9_.-]|$)'
+    [[ $command_line =~ $container_word ]] || exit 0
+fi
+# The session's own project, never the payload's cwd (see the header).
+# SessionStart also fires after a compaction, /clear or a resume, when the
+# payload's cwd has followed the agent's `cd` too, so `start` and `stop` take
+# CLAUDE_PROJECT_DIR as well and fall back to the payload only when it is
+# unset; `ensure` has no fallback.
+payload_cwd="$(printf '%s' "$payload" | jq -r '.cwd // empty' 2>/dev/null || true)"
+cwd="${CLAUDE_PROJECT_DIR:-}"
+if [[ $cwd != /* ]]; then
+    [[ $action == ensure ]] && exit 0
+    cwd="${payload_cwd:-$PWD}"
+fi
+cwd="$(cd "$cwd" 2>/dev/null && pwd -P)" || exit 0
+# The directory the agent is in is sandbox-writable too, with any settings it
+# holds; counted as well, it can only refuse more.
+payload_cwd="$(cd "${payload_cwd:-$cwd}" 2>/dev/null && pwd -P)" || payload_cwd="$cwd"
 root="$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null || printf '%s' "$cwd")"
 root="$(cd "$root" 2>/dev/null && pwd -P)" || exit 0
-
-src=""
-for candidate in "${MAGPIE_CONTAINER_GATEWAY_SRC:-}" \
-                 "$HOME/.claude/scripts/container-gateway/src" \
-                 "$root/.apache-magpie/tools/container-gateway/src"; do
-    if [[ -n $candidate && -d $candidate/container_gateway ]]; then
-        src="$candidate"
+# The session's cwd is sandbox-writable whatever git says; a toplevel elsewhere
+# (core.worktree in a writable .git/config) would leave it uncounted.
+if [[ $cwd != "$root" && $cwd != "$root"/* ]]; then
+    log "git reports $root as the toplevel of $cwd, which it does not contain; not starting the container gateway"
+    exit 0
+fi
+# The root as the filesystem shows it, read without any repository config: the
+# nearest directory above the cwd holding a .git. git's toplevel must be that
+# directory, and core.worktree must be unset: a .git directory planted in a
+# sandbox-writable checkout could otherwise name a parent as the toplevel, which
+# still contains the cwd but keys the worktree records differently, so an
+# existing record would never be consulted.
+fs_root=""
+probe_dir="$cwd"
+while :; do
+    if [[ -e $probe_dir/.git || -L $probe_dir/.git ]]; then
+        fs_root="$probe_dir"
         break
     fi
+    [[ $probe_dir == / ]] && break
+    probe_dir="$(dirname -- "$probe_dir")"
+done
+git_toplevel="$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null || true)"
+if [[ -z $fs_root && -n $git_toplevel ]]; then
+    log "git finds a repository for $cwd but there is no .git on the way up; not starting the container gateway"
+    exit 0
+fi
+if [[ -n $fs_root && $fs_root != "$root" ]]; then
+    log "git reports $root as the toplevel of $cwd, but the checkout is $fs_root; not starting the container gateway"
+    exit 0
+fi
+# Checked whether or not a .git was found: core.worktree is what moves a toplevel.
+if [[ -n "$(git -C "$cwd" config --get core.worktree 2>/dev/null)" ]]; then
+    log "core.worktree is set for $cwd; not starting the container gateway"
+    exit 0
+fi
+
+# The home directory from the account database (`~user` reads it, not $HOME),
+# so a $HOME redirected by the environment cannot hide the real ~/.cache,
+# ~/.local or user settings. Empty when the account has none.
+account_home=""
+user="$(id -un 2>/dev/null || true)"
+if [[ $user =~ ^[A-Za-z0-9._][A-Za-z0-9._-]*$ ]]; then
+    eval "account_home=~$user"
+    [[ $account_home == /* ]] || account_home=""
+fi
+if [[ -z $account_home ]]; then
+    log "cannot determine this account's home directory; not starting the container gateway"
+    exit 0
+fi
+homes=("$HOME")
+[[ $account_home != "$HOME" ]] && homes+=("$account_home")
+
+# System and package-manager locations. The hook refuses to run at all when a
+# write grant overlaps one (below), so nothing inside them is writable or
+# re-pointable from the sandbox.
+system_dirs=(/usr /opt /Library /System /Applications /nix /etc /private/etc /bin /sbin /lib /lib64)
+
+in_system_dir() {
+    local path="$1" dir
+    for dir in "${system_dirs[@]}"; do
+        [[ $path == "$dir" || $path == "$dir"/* ]] && return 0
+    done
+    return 1
+}
+
+# True when following <link>'s target one component at a time never leaves
+# <inside> except to pass through its ancestors (which no writable root can
+# hold, or <inside> would already be refused) or a system location (which no
+# writable root may overlap): Debian's /usr/lib/python3.X links into /etc.
+link_stays_inside() {
+    local link="$1" inside="$2" target cur part
+    local -a parts
+    target="$(readlink -- "$link")" || return 1
+    if [[ $target == /* ]]; then cur=""; else cur="$(dirname -- "$link")"; fi
+    # Split without a here-string: bash 3.2 backs `<<<` with a temporary file,
+    # and when it cannot create one `read` gets nothing, the loop never runs,
+    # and the link would pass as staying inside. Plain word splitting with
+    # globbing off needs no file.
+    local saved_ifs="$IFS"
+    IFS=/
+    set -f
+    # shellcheck disable=SC2206  # splitting on / is the point; globbing is off
+    parts=($target)
+    set +f
+    IFS="$saved_ifs"
+    for part in ${parts[@]+"${parts[@]}"}; do
+        case "$part" in
+            ""|.) continue ;;
+            ..) cur="${cur%/*}" ;;
+            *) cur="$cur/$part" ;;
+        esac
+        # A component that is itself a symlink is followed physically, hop by
+        # hop: inside the prefix by name, it could still route through ~/.cache.
+        [[ -L $cur ]] && under_writable_root "$cur" && return 1
+        [[ -z $cur || $cur == "$inside" || $cur == "$inside"/* || $inside == "$cur"/* ]] && continue
+        in_system_dir "$cur" || return 1
+    done
+    return 0
+}
+
+# Physical path, symlinks resolved; the literal path when it does not exist.
+resolve() {
+    local p
+    p="$(readlink -f -- "$1" 2>/dev/null)" && [[ -n $p ]] && { printf '%s' "$p"; return; }
+    printf '%s' "$1"
+}
+
+# A settings path entry as absolute directories, one per line: `//x` and `~`
+# expanded, relative entries taken from the settings file's root (<base>), and
+# any glob cut back to the directory that holds it. A single-slash `/x` is
+# absolute for sandbox paths but relative to <base> for permission rules, so it
+# yields both: a root counted twice only refuses more.
+normalize_entry() {
+    local entry="$1" base="$2" p b
+    local -a forms bases
+    # Sandbox paths and permission rules resolve relative entries differently
+    # (settings directory, project root, session cwd), so a relative entry
+    # counts against every one of them; a root counted twice only refuses more.
+    bases=("$base" "$root")
+    [[ -n ${main_root:-} ]] && bases+=("$main_root")
+    case "$entry" in
+        */../*|*/..|../*|..) forms=("/") ;;  # not folded: refuse everything
+        //*) forms=("/${entry#//}") ;;
+        "~") forms=("$HOME") ;;
+        "~/"*) forms=("$HOME/${entry#\~/}") ;;
+        /*) forms=("$entry"); for b in "${bases[@]}"; do forms+=("$b$entry"); done ;;
+        *) forms=(); for b in "${bases[@]}"; do forms+=("$b/${entry#./}"); done ;;
+    esac
+    for p in "${forms[@]}"; do
+        if [[ $p == *[\*\?\[]* ]]; then
+            p="${p%%[\*\?\[]*}"
+            [[ $p == */ ]] || p="$(dirname -- "$p")"
+        fi
+        p="${p%/}"
+        printf '%s\n' "${p:-/}"
+    done
+}
+
+writable_roots=("$root" "$cwd" "$payload_cwd")
+# ~/.local is refused too, all but uv's managed interpreters (see the header);
+# kept out of writable_roots so a settings grant over them still counts in full.
+# Both homes count: the one $HOME names and the account database's.
+# Paired by index: a home's uv exemption relaxes only that home's .local. A
+# $HOME nested inside the account's ~/.local must not exempt anything there.
+home_locals=()
+uv_exempt_dirs=()
+for home in "${homes[@]}"; do
+    writable_roots+=("$home/.cache")
+    home_locals+=("$home/.local")
+    # The exemption holds only for a real directory reached without a symlink:
+    # a linked ~/.local/share/uv/python (or a linked parent) could point anywhere.
+    uv_dir="$home/.local/share/uv/python"
+    if [[ -d $uv_dir && "$(resolve "$uv_dir")" == "$uv_dir" ]]; then
+        uv_exempt_dirs+=("$uv_dir")
+    else
+        uv_exempt_dirs+=("")
+    fi
+done
+uv_python_dir="$HOME/.local/share/uv/python"
+[[ -n ${CLAUDE_CODE_TMPDIR:-} ]] && writable_roots+=("$CLAUDE_CODE_TMPDIR")
+# Each settings file with the root its relative entries resolve against.
+# In a linked worktree Claude Code also reads the main checkout's settings,
+# and the main checkout is as writable as the worktree.
+# The worktree's own `.git` file names the main checkout and is as writable as
+# the worktree, so the main checkout counts only when its
+# `worktrees/<name>/gitdir` points back here; otherwise the hook refuses.
+main_root=""
+linked_worktree=0
+if [[ -f $root/.git ]]; then
+    linked_worktree=1
+    git_dir="$(git -C "$root" rev-parse --absolute-git-dir 2>/dev/null || true)"
+    common_dir="$(git -C "$root" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+    # The git dir must be exactly <common>/worktrees/<name>, and the back-pointer
+    # is read from the common dir, not from wherever the .git file says.
+    back=""
+    if [[ -n $git_dir && -n $common_dir ]]; then
+        expected="$(resolve "$common_dir")/worktrees/$(basename -- "$git_dir")"
+        [[ "$(resolve "$git_dir")" == "$expected" && -r $expected/gitdir ]] && IFS= read -r back < "$expected/gitdir"
+    fi
+    if [[ $common_dir != */.git || -z $back \
+          || "$(resolve "$back")" != "$(resolve "$root/.git")" ]]; then
+        log "cannot confirm the main checkout of linked worktree $root; not starting the container gateway"
+        exit 0
+    fi
+    main_root="$(cd "${common_dir%/.git}" 2>/dev/null && pwd -P)" || main_root=""
+    [[ $main_root == "$root" ]] && main_root=""
+fi
+settings_specs=()
+for home in "${homes[@]}"; do
+    settings_specs+=("$home/.claude/settings.json|$home/.claude" "$home/.claude/settings.local.json|$home/.claude")
+done
+settings_specs+=("$root/.claude/settings.json|$root" "$root/.claude/settings.local.json|$root")
+[[ $cwd != "$root" ]] && settings_specs+=("$cwd/.claude/settings.json|$cwd" "$cwd/.claude/settings.local.json|$cwd")
+[[ $payload_cwd != "$root" && $payload_cwd != "$cwd" ]] \
+    && settings_specs+=("$payload_cwd/.claude/settings.json|$payload_cwd" "$payload_cwd/.claude/settings.local.json|$payload_cwd")
+if [[ -n $main_root ]]; then
+    writable_roots+=("$main_root")
+    settings_specs+=("$main_root/.claude/settings.json|$main_root"
+                     "$main_root/.claude/settings.local.json|$main_root")
+fi
+settings_specs+=("/Library/Application Support/ClaudeCode/managed-settings.json|/Library/Application Support/ClaudeCode"
+                 "/etc/claude-code/managed-settings.json|/etc/claude-code")
+for spec in "${settings_specs[@]}"; do
+    settings="${spec%|*}" base="${spec##*|}"
+    [[ -e $settings || -L $settings ]] || continue
+    # Never opened unless it is a regular file: a FIFO planted by sandboxed
+    # code (in a subdirectory the agent `cd`s into, say) would block jq until
+    # the hook timed out. Refused rather than skipped, so a grant can't hide.
+    if [[ ! -f $settings || ! -r $settings ]]; then
+        log "$settings is not a readable regular file; not starting the container gateway"
+        exit 0
+    fi
+    if ! command -v jq >/dev/null 2>&1; then
+        log "no jq in /usr/bin or /bin to read $settings; not starting the container gateway"
+        exit 0
+    fi
+    while IFS= read -r entry; do
+        [[ -n $entry ]] || continue
+        while IFS= read -r form; do
+            writable_roots+=("$form")
+        done < <(normalize_entry "$entry" "$base")
+    # Edit/Write allow rules merge into the sandbox's write access too; a bare
+    # `Edit` (every file) comes out as `//`, i.e. the filesystem root.
+    done < <(jq -r '(.sandbox.filesystem.allowWrite // [])[], (.permissions.additionalDirectories // [])[],
+                    ((.permissions.allow // [])[] | strings
+                     | if test("^(Edit|Write|MultiEdit|NotebookEdit)$") then "//"
+                       else (capture("^(Edit|Write|MultiEdit|NotebookEdit)\\((?<p>.*)\\)$").p // empty) end)
+                    | strings' "$settings" 2>/dev/null)
+done
+
+writable_forms=()
+for r in "${writable_roots[@]}"; do
+    writable_forms+=("$r" "$(resolve "$r")")
+done
+
+# The hook trusts only system and package-manager locations for what it runs,
+# native libraries included (Homebrew's OpenSSL for _ssl, say), so a sandbox
+# grant over any of them leaves nothing it can vouch for.
+for form in "${writable_forms[@]}"; do
+    if [[ $form == / ]] || in_system_dir "$form"; then
+        log "a sandbox write grant covers $form, a system location; not starting the container gateway"
+        exit 0
+    fi
+done
+
+is_writable_path() {
+    local path="$1" form local_form
+    # The sandbox's own scratch space, by prefix: /tmp/claude, /tmp/claude-<uid>, ...
+    [[ $path == /tmp/claude* || $path == /private/tmp/claude* ]] && return 0
+    local i home_local uv_dir
+    for (( i = 0; i < ${#home_locals[@]}; i++ )); do
+        home_local="${home_locals[i]}" uv_dir="${uv_exempt_dirs[i]}"
+        for local_form in "$home_local" "$(resolve "$home_local")"; do
+            [[ $path == "$local_form" || $path == "$local_form"/* ]] || continue
+            [[ -n $uv_dir && $path == "$uv_dir"/* ]] && continue
+            return 0
+        done
+    done
+    for form in "${writable_forms[@]}"; do
+        [[ -n $form && ( $path == "$form" || $path == "$form"/* || $form == / ) ]] && return 0
+    done
+    return 1
+}
+
+# True when the path, any symlink on the way to its target, or the target itself
+# sits under a writable root: a symlink in a writable directory can be re-pointed.
+under_writable_root() {
+    local path="$1" hops=0 link
+    while :; do
+        is_writable_path "$path" && return 0
+        is_writable_path "$(resolve "$path")" && return 0
+        [[ -L $path ]] || return 1
+        link="$(readlink -- "$path")" || return 1
+        [[ $link == /* ]] || link="$(dirname -- "$path")/$link"
+        path="$link"
+        (( ++hops > 40 )) && return 0
+    done
+}
+
+# True when a directory is under a writable root, or a writable root is inside
+# it: a grant on one file in an interpreter's prefix or the gateway source makes
+# that file writable just the same.
+overlaps_writable() {
+    local dir form
+    dir="$(resolve "$1")"
+    is_writable_path "$dir" && return 0
+    [[ $dir == / || /tmp/claude == "$dir"/* || /private/tmp/claude == "$dir"/* ]] && return 0
+    for form in "${writable_forms[@]}"; do
+        [[ -n $form && $form == "$dir"/* ]] && return 0
+    done
+    return 1
+}
+
+# A source tree the hook may put on sys.path: not overlapping a writable root,
+# and holding no symlink (the operator install is a plain copy), so every file
+# in it is judged where it really is.
+tree_is_trusted() {
+    local dir="$1" entry
+    overlaps_writable "$dir" && return 1
+    while IFS= read -r -d '' entry; do
+        [[ -L $entry ]] && return 1
+        under_writable_root "$entry" && return 1
+    done < <(find "$dir" -mindepth 1 -print0 2>/dev/null)
+    return 0
+}
+
+# A linked worktree's main checkout is re-derived on every run from `.git`
+# metadata the sandbox can rewrite, so a session could hide the main
+# checkout's grants from the run at its end. The first main checkout this hook
+# confirms for a worktree is recorded where the sandbox cannot write
+# (trust on first use); a later run that derives a different one refuses
+# until the operator deletes the record.
+# Under the account database's home, not $HOME: a $HOME redirected by the
+# environment would otherwise hand the hook a fresh, empty record store.
+# $MAGPIE_CONTAINER_GATEWAY_STATE_DIR replaces it only in a dry run, which
+# executes nothing, so the environment never picks the store a real run trusts;
+# it keeps the test suite out of the real account home.
+record_home="${account_home:-$HOME}"
+state_root="$record_home/.claude/magpie-gateway"
+if [[ -n ${MAGPIE_CONTAINER_GATEWAY_DRY_RUN:-} && -n ${MAGPIE_CONTAINER_GATEWAY_STATE_DIR:-} ]]; then
+    state_root="$MAGPIE_CONTAINER_GATEWAY_STATE_DIR"
+fi
+state_dir="$state_root/worktrees"
+if command -v sha256sum >/dev/null 2>&1; then
+    key="$(printf '%s' "$root" | sha256sum | cut -d' ' -f1)"
+else
+    key="$(printf '%s' "$root" | shasum -a 256 | cut -d' ' -f1)"
+fi
+record="$state_dir/$key"
+# A record is only as good as its directory: one the sandbox can write proves
+# nothing, and could have been emptied along with the worktree's .git file, so
+# it refuses for every checkout, before any record is read or trusted.
+if under_writable_root "$state_dir" || overlaps_writable "$state_root"; then
+    log "the worktree record directory $state_dir is sandbox-writable; not starting the container gateway for $root"
+    exit 0
+fi
+# Looked up by path whether or not the checkout looks linked now: swapping the
+# worktree's `.git` file for a directory must not make the record disappear.
+if [[ -L $record ]]; then
+    log "the worktree record $record is a symlink; not starting the container gateway"
+    exit 0
+fi
+if [[ -f $record ]]; then
+    recorded_root="" recorded_main=""
+    { IFS= read -r recorded_root; IFS= read -r recorded_main; } < "$record" || true
+    if [[ $recorded_root != "$root" || $linked_worktree -eq 0 || $recorded_main != "$main_root" ]]; then
+        log "$root no longer matches its worktree record (main checkout '${recorded_main:-none}'); not starting the container gateway (delete $record if the change is yours)"
+        exit 0
+    fi
+elif (( linked_worktree )); then
+    # Only directories this hook creates get their mode set.
+    [[ -d $state_root ]] || mkdir -m 700 "$state_root" 2>/dev/null
+    [[ -d $state_dir ]] || mkdir -m 700 "$state_dir" 2>/dev/null
+    tmp_record="$(mktemp "$state_dir/.record.XXXXXX" 2>/dev/null)" \
+        && printf '%s\n%s\n' "$root" "$main_root" > "$tmp_record" \
+        && mv -f "$tmp_record" "$record"
+fi
+src=""
+for candidate in "${MAGPIE_CONTAINER_GATEWAY_SRC:-}" \
+                 "$HOME/.claude/scripts/container-gateway/src"; do
+    [[ -n $candidate ]] || continue
+    if [[ $candidate != /* ]]; then
+        log "refusing gateway source $candidate: not an absolute path"
+        continue
+    fi
+    # Resolved once: the path judged below is the path that runs, so no
+    # symlink on the way can be re-pointed in between.
+    canonical="$(readlink -f -- "$candidate" 2>/dev/null)" || continue
+    [[ -n $canonical && -d $canonical/container_gateway ]] || continue
+    # The whole directory goes on sys.path, so a stray json.py beside the
+    # package would shadow the stdlib: judge all of it, by its real location.
+    if under_writable_root "$candidate" || ! tree_is_trusted "$canonical"; then
+        log "refusing gateway source $candidate: it is, contains or links into a sandbox-writable directory"
+        continue
+    fi
+    src="$canonical"
+    break
 done
 [[ -n $src ]] || exit 0
+
+python_candidates=()
+pin="$HOME/.claude/scripts/container-gateway/python"
+if [[ -r $pin ]] && ! under_writable_root "$pin"; then
+    IFS= read -r pinned < "$pin" || true
+    [[ ${pinned:-} == /* ]] && python_candidates+=("$pinned")
+fi
+python_candidates+=(/opt/homebrew/bin/python3 /usr/local/bin/python3 /usr/bin/python3)
+# uv-managed CPython, newest minor first; the free-threaded builds are left out.
+for minor in 14 13 12 11; do
+    found=()
+    for uv_python in "$uv_python_dir"/cpython-3."$minor".*/bin/python3."$minor"; do
+        [[ -x $uv_python && $uv_python != *freethreaded* ]] && found+=("$uv_python")
+    done
+    # The glob sorts patch releases oldest first; take the newest first.
+    for (( i = ${#found[@]} - 1; i >= 0; i-- )); do
+        python_candidates+=("${found[i]}")
+    done
+done
+for minor in 14 13 12 11; do
+    python_candidates+=("/opt/homebrew/bin/python3.$minor" "/usr/local/bin/python3.$minor" "/usr/bin/python3.$minor")
+done
+
+# Run by its canonical path, so no symlink on the way can be re-pointed between
+# this check and the exec, and with -I -S: the gateway needs only the standard
+# library, so no site-packages, .pth file or sitecustomize is ever loaded.
+python=""
+for candidate in "${python_candidates[@]}"; do
+    [[ -x $candidate ]] || continue
+    # Checked before it is ever run: the probes below execute it.
+    under_writable_root "$candidate" && continue
+    canonical="$(readlink -f -- "$candidate" 2>/dev/null)" || continue
+    [[ -n $canonical && -x $canonical ]] || continue
+    # Judged before the first exec, from the layout alone: a real installation
+    # keeps its standard library in <prefix>/lib/python3.*, which rules out
+    # virtualenvs (their base runtime could be anywhere) and launcher stubs
+    # such as macOS's /usr/bin/python3, which execs another interpreter.
+    prefix="$(dirname -- "$(dirname -- "$canonical")")"
+    [[ -e $prefix/pyvenv.cfg || -e $(dirname -- "$canonical")/pyvenv.cfg ]] && continue
+    stdlib_found=0
+    for stdlib in "$prefix"/lib/python3.*/os.py; do
+        [[ -f $stdlib ]] && { stdlib_found=1; break; }
+    done
+    (( stdlib_found )) || continue
+    overlaps_writable "$prefix" && continue
+    # What -I -S loads: the standard library (a real directory) and the shared
+    # libpython beside it. Every symlink there stays inside the prefix or a
+    # system location at each step of its target and once resolved, so no hop
+    # can lead out to something re-pointable. site-packages / dist-packages are
+    # exempt: -S never loads them.
+    stdlib_dir="${stdlib%/os.py}"
+    [[ -L $prefix/lib || -L $stdlib_dir ]] && continue
+    runtime_ok=1
+    while IFS= read -r -d '' link; do
+        case "$link" in
+            "$stdlib_dir/site-packages"|"$stdlib_dir/dist-packages") continue ;;
+        esac
+        real="$(resolve "$link")"
+        if ! link_stays_inside "$link" "$prefix" || { [[ $real != "$prefix"/* ]] && ! in_system_dir "$real"; }; then
+            runtime_ok=0
+            break
+        fi
+    done < <(find "$stdlib_dir" -type l -print0 2>/dev/null; find "$prefix/lib" -maxdepth 1 -type l -print0 2>/dev/null)
+    (( runtime_ok )) || continue
+    "$canonical" -I -S -c 'import sys; sys.exit(sys.version_info < (3, 11))' >/dev/null 2>&1 || continue
+    # Where the interpreter really loads its standard library from.
+    runtime_ok=1
+    while IFS= read -r dir; do
+        [[ -n $dir ]] && overlaps_writable "$dir" && { runtime_ok=0; break; }
+    done < <("$canonical" -I -S -c 'import sys, sysconfig; print(sys.prefix); print(sys.base_prefix); print(sysconfig.get_path("stdlib")); print(sysconfig.get_path("platstdlib"))' 2>/dev/null)
+    (( runtime_ok )) || continue
+    python="$canonical"
+    break
+done
+if [[ -z $python ]]; then
+    log "no trusted Python 3.11+ found outside sandbox-writable directories; not starting the container gateway (pin one in $pin)"
+    exit 0
+fi
 
 # The only serve flags the hook will pass on from the environment. A value
 # may be attached (--egress=require) or follow as the next token
@@ -93,23 +655,64 @@ vet_extra_args() {
     printf '%s\n' "$@"
 }
 
-if [[ $action == start ]]; then
+if [[ $action == start || $action == ensure ]]; then
     # shellcheck disable=SC2206  # word-splitting the extra args is the point
     extra=(${MAGPIE_CONTAINER_GATEWAY_ARGS:-})
-    if (( ${#extra[@]} )) && ! vet_extra_args "${extra[@]}" >/dev/null; then
+    if (( ${#extra[@]} )) && ! vet_extra_args ${extra[@]+"${extra[@]}"} >/dev/null; then
         printf '%s: ignoring MAGPIE_CONTAINER_GATEWAY_ARGS: %s is not an accepted serve flag\n' \
             "${0##*/}" "${MAGPIE_CONTAINER_GATEWAY_ARGS}" >&2
         extra=()
     fi
-    cmd=(python3 -m container_gateway serve --project="$root" --daemon "${extra[@]}")
+    # ${extra[@]+...}: bash 3.2 treats an empty array as unset under set -u.
+    args=(serve --project="$root" --daemon ${extra[@]+"${extra[@]}"})
 else
-    cmd=(python3 -m container_gateway stop --project="$root")
+    args=(stop --project="$root")
 fi
 
 if [[ -n ${MAGPIE_CONTAINER_GATEWAY_DRY_RUN:-} ]]; then
-    printf 'PYTHONPATH=%s %s\n' "$src" "${cmd[*]}"
+    printf '%s -I -S %s container_gateway %s\n' "$python" "$src" "${args[*]}"
     exit 0
 fi
-# PYTHONPATH is replaced, not extended: see the trust-model note above.
-PYTHONPATH="$src" "${cmd[@]}" >/dev/null 2>&1 || true
+# -I keeps every PYTHON* variable, the user site and the working directory off
+# sys.path, -S every site-packages directory; the bootstrap puts the vetted
+# source directory there and nothing else.
+bootstrap='import runpy, sys; sys.path.insert(0, sys.argv.pop(1)); runpy.run_module("container_gateway", run_name="__main__", alter_sys=True)'
+
+# The gateway's own view of itself, from `status`: "serving" once a backend
+# socket is bound; "starting" while it holds its pid lock but has not bound
+# yet (it takes the lock first, then discovers backends and probes egress);
+# "down" otherwise.
+gateway_state() {
+    local state
+    state="$("$python" -I -S -c "$bootstrap" "$src" status --project="$root" 2>/dev/null \
+        | jq -r 'if ((.serving // []) | length) > 0 then "serving"
+                 elif .running == true then "starting" else "down" end' 2>/dev/null)" || true
+    printf '%s\n' "${state:-down}"
+}
+
+if [[ $action != ensure ]]; then
+    "$python" -I -S -c "$bootstrap" "$src" "${args[@]}" >/dev/null 2>&1 || true
+    exit 0
+fi
+# Serving already is the common case: one interpreter start.
+state="$(gateway_state)"
+[[ $state == serving ]] && exit 0
+if [[ $state == down ]]; then
+    "$python" -I -S -c "$bootstrap" "$src" "${args[@]}" >/dev/null 2>&1 || exit 0
+fi
+# --daemon returns before the sockets are bound; give the gateway up to five
+# seconds to serve, so the command that triggered this does not race it. Stop
+# early once it has come up and gone again (no backend: it logs why and exits),
+# or when it never came up within the first second.
+seen_starting=0
+for poll in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25; do
+    state="$(gateway_state)"
+    [[ $state == serving ]] && break
+    if [[ $state == starting ]]; then
+        seen_starting=1
+    elif (( seen_starting || poll >= 5 )); then
+        break
+    fi
+    sleep 0.2
+done
 exit 0

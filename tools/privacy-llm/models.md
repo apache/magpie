@@ -113,7 +113,7 @@ implies.
 
 The reviewer CLIs that
 [`tools/adversarial-review/`](../../tools/adversarial-review/README.md)
-runs (`codex`, `copilot`, `gemini`, `grok`, `claude`) are not
+runs (`codex`, `copilot`, `antigravity`, `grok`, `claude`) are not
 part of the active stack and are not gated here, by design:
 their input is limited to public-bound content, the diff and
 the PR text as it will be posted

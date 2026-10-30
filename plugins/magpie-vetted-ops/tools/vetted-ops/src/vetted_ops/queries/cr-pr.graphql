@@ -78,8 +78,10 @@ query($owner: String!, $repo: String!, $number: Int!) {
       reviewThreads(first: 50) {
         totalCount
         nodes {
+          id
           isResolved
-          comments(first: 3) { nodes { author { login } authorAssociation path line bodyText createdAt } }
+          isOutdated
+          comments(first: 20) { totalCount nodes { author { login } authorAssociation path line url bodyText createdAt } }
         }
       }
       comments(last: 50) { nodes { author { login } authorAssociation createdAt bodyText } }

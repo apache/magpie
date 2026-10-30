@@ -36,7 +36,7 @@ project and no opt-in from your teammates. Committing anything for other
 people is a separate act called **adoption** —
 [Installation or Adoption?](quick-start/two-ways.md) draws the line.
 
-**What you get.** 80 skills your agent can run, grouped into 10 **families** —
+**What you get.** 83 skills your agent can run, grouped into 10 **families** —
 PR triage and review, issue triage, security-report handling, release
 management, contributor mentoring. Install only the families you need; each one
 you add costs context in every session —
@@ -70,24 +70,26 @@ is a nice-to-have. Five and six are what you do with it.
 Installing is a **one-time, per-machine** step for whichever agent you use. It
 writes nothing to any repository and your teammates are unaffected.
 
-![Adding the apache-magpie marketplace, then installing the baseline — magpie-setup, magpie-agent-guard, magpie-utilities — and one family, with nothing written to the repository](../assets/quickstart/step-install.svg)
+![Adding the apache-magpie marketplace, then installing the baseline — magpie-setup, magpie-vetted-ops, magpie-agent-guard, magpie-utilities — and one family, with nothing written to the repository](../assets/quickstart/step-install.svg)
 
 → [**Prerequisite: install Magpie from your agent's
 marketplace**](setup/marketplace-install.md) has the commands, one section per
-agent: Claude Code, OpenAI Codex CLI, VS Code / GitHub Copilot, Google Gemini
-CLI, Cursor, `microsoft/apm`, and JetBrains IDEs.
+agent: Claude Code, OpenAI Codex CLI, VS Code / GitHub Copilot, Google
+Antigravity, Cursor, `microsoft/apm`, Pi, Goose, and JetBrains IDEs.
 
-**Take the baseline — three plugins, strongly recommended on every machine:**
+**Take the baseline — four plugins, strongly recommended on every machine:**
 
 - **`magpie-setup`** — install this one first; nothing else installs, upgrades,
   configures or adopts without it, and it carries the secure-isolation skills
   from [Step 3](#step-3--isolate--guard).
+- **`magpie-vetted-ops`** — always installed: the dispatcher the family skills
+  run their GitHub reads and writes through. It adds no always-on context.
 - **`magpie-agent-guard`** — the deterministic pre-execution guard, a hook that
   inspects each shell command before it runs and denies the dangerous shapes.
 - **`magpie-utilities`** — `list-skills` and the small tools you reach for when
   you want to know what is actually installed.
 
-Those three are exactly the **floor** a project commits when it adopts Magpie,
+Those four are exactly the **floor** a project commits when it adopts Magpie,
 so taking them is taking what a project would recommend to every contributor.
 
 Then add **one plugin per family you actually want**, against a problem you
@@ -126,7 +128,7 @@ whether a family is earning its always-on context.
 > [!NOTE]
 > **Per-family works on every agent listed.** A family plugin carries its
 > skills as real directories, so nothing depends on a client following a
-> symlink — measured on Codex and Gemini, not assumed.
+> symlink — measured on Codex, not assumed.
 
 > [!TIP]
 > **Installed a family and want to use it now?**
@@ -178,7 +180,7 @@ draws the line.
 
 **Every skill configures itself on first use.** You do not have to remember
 which projects are set up, or run anything to prepare a family before you use
-it: 69 of the 80 skills open with a silent pre-flight — the eleven exceptions are
+it: 71 of the 83 skills open with a silent pre-flight — the twelve exceptions are
 the setup skills themselves, which are what you run to fix whatever it finds.
 
 The first time you call a skill in a project, that pre-flight works out how
@@ -213,11 +215,19 @@ runs at all. A sandbox will not stop a legal `gh pr comment` from pinging four
 maintainers who did not ask; a guard will not stop a command from reading
 `~/.ssh`.
 
+In a repository that has adopted Magpie, each session opens with a warning
+until this is in place: trying Magpie out is fine without it, but do not point
+a skill at pull requests, issues or mail from people you do not know.
+It also turns on the prompt-free read path of `magpie-vetted-ops`, which is
+installed everywhere but bypasses no prompt without the sandbox.
+
 | Harness | What to run |
 |---|---|
 | **Claude Code** | `/magpie-setup:isolated-setup-install` — the guided install below. |
 | **OpenAI Codex CLI** | [Codex setup lifecycle](adapters/codex.md#setup-isolated-lifecycle). |
-| **Google Gemini CLI** | [Gemini setup lifecycle](adapters/gemini.md#setup-isolated-lifecycle). |
+| **Google Antigravity** | [Antigravity setup lifecycle](adapters/antigravity.md#setup-isolated-lifecycle) — user-scope, never per repository. |
+| **Pi** | [Pi setup lifecycle](adapters/pi.md#setup-isolated-lifecycle) — one per-user `pi install`, never per repository. |
+| **Goose** | [Goose setup lifecycle](adapters/goose.md#setup-isolated-lifecycle) — one per-user plugin install, then `agent-iso goose`. |
 | **Anything else** | The [secure setup guide](setup/secure-agent-setup.md) and your runtime's adapter. |
 
 ```text

@@ -5,7 +5,8 @@ The repo is a main checkout with no `.apache-magpie.lock` and no
 `.apache-magpie-overrides/`. The running agent is Claude Code.
 
 `claude plugin list --json` reports magpie-setup 0.3.0, magpie-utilities 0.3.0,
-magpie-agent-guard 0.3.0 and magpie-security 0.3.0, all from the
+magpie-agent-guard 0.3.0, magpie-vetted-ops 0.3.0 and magpie-security 0.3.0, all
+from the
 `apache-magpie` marketplace.
 
 The maintainer confirmed they are acting for the project and accepted the

@@ -20,11 +20,11 @@ when_to_use: |
 capability: capability:intake
 surface_hash: sha256:43894008501eb56d
 license: Apache-2.0
-measured_tokens: 5996
+measured_tokens: 6335
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
-     <project-config> → adopting project's `.apache-magpie/` directory
+     <project-config> → per file: the personal layer, else `.apache-magpie-overrides/`
      <tracker>        → value of `tracker_repo:` in <project-config>/project.md
                        (example: `<tracker>`)
      <upstream>       → value of `upstream_repo:` in <project-config>/project.md
@@ -50,14 +50,19 @@ Run the checker with this skill's own frontmatter `name:` and
 `surface_hash:`, and one `--requires` for each `requires_config:` entry:
 
 ```bash
-PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir)/../.apache-magpie-local:$(git rev-parse --git-common-dir)/apache-magpie" \
-  python3 -m setup_preflight --skill <name> --hash <surface_hash> [--requires <file>]...
+PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m,i=sys.argv[1:];r=os.path.realpath(os.curdir);s=os.stat(r);p=os.path.join(h,d,hashlib.sha256(r.encode()).hexdigest()[:16]);f=os.path.join(p,i);print(p if os.path.isdir(os.path.join(p,m)) and os.path.isfile(f) and open(f).read().split()==[str(s.st_dev),str(s.st_ino)] else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight root-id)" \
+  python3 -P -m setup_preflight --skill <name> --hash <surface_hash> [--requires <file>]...
 ```
 
-The path finds the checker `/magpie-setup:setup config` installed in the
-personal layer: this checkout's `.apache-magpie-local/`, the main
-checkout's when this is a linked worktree, or the git directory's
-`apache-magpie/` when Magpie is only installed.
+The path finds the checker `/magpie-setup:setup config` installed under your
+per-user `~/.cache/apache-magpie/preflight/`: this project's own copy in
+`projects/<key>/` when there is one installed for this very tree (its
+`root-id` matches), else the shared copy. Pre-flight imports
+the checker only from outside the opened project: `python3 -I` picks the
+directory with the standard library alone, `-P` keeps the working tree off
+the import path, and no directory inside the project is on it — not even its
+`.git/` or `.svn/`, which a checkout or a tarball can carry as plain files.
+Never add one.
 
 - **`{"verdict": "ok"}`** → **silent**. Continue into the work the user
   asked for and say nothing about pre-flight. This is the ordinary answer.
@@ -66,15 +71,15 @@ checkout's when this is a linked worktree, or the git directory's
   inputs; what to propose, and what may not be done, are in the rules
   rather than here. **Act on a finding only through its rules.**
 - **The command did not run at all** — no such module, a non-zero exit, no
-  `python3` — → never read that as a pass, and do not re-derive the check
+  `python3` 3.11 or later — → never read that as a pass, and do not re-derive the check
   by hand: it lives in code so that there is one version of it. If the
   project has **no** `.apache-magpie.lock`, `.apache-magpie-overrides/`,
-  or personal layer (any of the three directories above),
+  or personal layer (any of the directories below),
   nothing has been set up here and there is
   nothing to reconcile — resolve this skill's `requires_config:` entries
   yourself (first match wins: `.apache-magpie-local/<file>`, the main
   checkout's `.apache-magpie-local/<file>`, `<git-common-dir>/apache-magpie/<file>`,
-  then `.apache-magpie-overrides/<file>`), stay silent if they all resolve, and
+  `.svn/apache-magpie/<file>`, then `.apache-magpie-overrides/<file>`), stay silent if they all resolve, and
   run `/magpie-setup:setup config` for this skill if any does not, which also
   installs the checker. Otherwise the project *is* set up and its checker
   is missing or stale: say so, propose `/magpie-setup:setup config` to install
@@ -190,7 +195,7 @@ A standalone invocation (a security-team member typing `security-issue-import-vi
 Before running, the skill needs:
 
 - **`forwarders.enabled` non-empty in [`<project-config>/project.md`](../../../../<project-config>/project.md#forwarders).**
-  When the list is empty, the sub-skill is a no-op (Step 0); parents do not invoke it then, nor when their sender-OR-preamble pre-screen matches no enabled adapter
+  When the list is empty, the sub-skill is a no-op (Step 0); parents do not invoke it then, nor when their pre-screen finds no enabled adapter whose sender AND preamble both match
   ([`security-issue-import` Step 3](../issue-import/SKILL.md#step-3--classify-each-candidate)) — a strict subset of Step 1's *not a relay* outcome, which stays authoritative.
 - **An installed adapter** for each `name` in `forwarders.enabled`, satisfying the contract in [`tools/forwarder-relay/README.md`](../../../../tools/forwarder-relay/README.md);
   a declared adapter that does not exist stops Step 0, never a silent fall-through.
@@ -230,12 +235,13 @@ When Step 0 fails for any reason, return to the parent skill with a clear error 
 Run `<sm> detect --message <scratch>/fwd-message.json --forwarders <scratch>/forwarders.json --collaborators <scratch>/collaborators.json`
 (the collaborator list the parent fetched in its Step 0; patterns resolved from `project.md`, else each adapter's defaults).
 It iterates the registered adapters in the order they appear under `forwarders.enabled` ([the loop](outcomes/detect.md)):
-each adapter's `detect()` is the OR of a *sender-pattern* check against `From:` and a *preamble-match* regex against the first ~400 characters of the body,
-per the [detect contract](../../../../tools/forwarder-relay/README.md#detectmessage---adapter_name--null).
+each adapter's `detect()` is the AND of a *sender-pattern* check against `From:` and a *preamble-match* regex against the first ~400 characters of the body,
+per the [detect contract](../../../../tools/forwarder-relay/README.md#detectmessage---adapter_name--null): either signal alone is forgeable by any sender, so one is never enough.
 The first non-null wins; later adapters are skipped. An adapter whose patterns are unresolved or do not compile exits `2`: stop.
 
 **When `match` is null** — no registered adapter recognised the message.
 Return immediately with `match: null, sub_skill_applied: false` and the printed `note`; the parent keeps its direct-reporter classification. Do **not** fall back to a guess.
+When `partial_matches` is non-empty (one signal of an adapter matched, the other did not), hand it back as a warning the parent shows the user — *"relay-shaped: only the `<signal>` signal of `<adapter>` matched; handled as a direct report"* — and route nothing on it.
 
 **When `match` is set** — it prints the adapter's name, the `preamble_snippet` (the matched preamble up to its first line break, at most 80 characters, surfaced verbatim in the parent's proposal as a one-line *"yes this looks right"* check) and the `sender_matched`; continue to Step 2.
 
@@ -264,8 +270,10 @@ Per the [question-vs-confirmation distinction](../../../../docs/security/forward
 **When the adapter returns `null`** — record *"credit unknown — adapter `<name>` could not extract a credit line from the body"* and pass the empty credit back.
 The parent surfaces a *"credit unknown — please confirm before drafting the receipt"* prompt rather than guessing.
 
-The extracted credit string goes into the tracker's *Reporter credited as* template field (the parent's Step 4 — *Extract template fields*).
-The skill does **not** write the field itself; it returns the value for the parent to render.
+The extracted credit string is a **proposal** for the tracker's *Reporter credited as* template field (the parent's Step 4 — *Extract template fields*), never a value written on its own:
+it is lifted from external content, and the field flows into the public CVE record's `credits[]`.
+The skill does **not** write the field; it returns the value, with its `raw_string`, for the parent to show the user,
+and the parent records it only after the user explicitly confirms that value — a default *"go"* on the import does not.
 
 **Confidentiality** — the credit string is private until the advisory ships.
 Do not include it in any output outside the parent's confirmation surface (no console echo outside the parent's proposal, no clipboard copy, no log line); see Golden rule — confidentiality.

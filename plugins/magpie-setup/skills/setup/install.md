@@ -77,8 +77,9 @@ skill recognises and routes between automatically:
 Before proposing anything, read `.apache-magpie.lock` at the repo root.
 
 **No lock** → this repo has not adopted a floor. The source is
-**framework-defaults**: propose the framework's three defaults —
-`magpie-setup`, `magpie-utilities`, `magpie-agent-guard`.
+**framework-defaults**: propose the framework's four defaults —
+`magpie-setup`, `magpie-utilities`, `magpie-agent-guard`,
+`magpie-vetted-ops`.
 
 **A lock whose `method` is one of the three snapshot methods** → the
 source is still **framework-defaults**, but this step itself proposes
@@ -88,8 +89,9 @@ this marketplace pre-fill step contributes nothing on that path.
 
 **`method: marketplace`** → the project has adopted Magpie and this
 lock is its floor. Propose **exactly the floor's `plugins`, in the
-order the lock gives them**, rather than the framework's three
-defaults. Say where the proposal came from:
+order the lock gives them**, rather than the framework's four
+defaults, and append `magpie-vetted-ops` when an `apache/magpie`
+floor lacks it (see Step M3). Say where the proposal came from:
 
 ```text
 This project has adopted Magpie (.apache-magpie.lock).
@@ -143,8 +145,11 @@ stacked on a working one:
   and `~/.claude/plugins/known_marketplaces.json` name the
   installed plugins and whether the `apache-magpie` marketplace
   is registered.
-- **Codex CLI** — `codex plugin list`. **Gemini CLI** —
-  `gemini extensions list`.
+- **Codex CLI** — `codex plugin list`. **Antigravity** —
+  `agy plugin list --json`. **Pi** — `pi list` shows
+  `git:github.com/apache/magpie` when the package is installed.
+  **Goose** — `goose skills list` shows `magpie:*` skills, and
+  `~/.agents/plugins/magpie/` exists, when the plugin is installed.
 
 If it is installed: report which plugins are active and their
 version, offer to **add** any family the user now wants — the same
@@ -169,7 +174,9 @@ floor [Step M0b](#step-m0b--pre-fill-from-the-committed-floor) reads.
 | Claude Code | `~/.claude/` present; `CLAUDE_*` env; the session itself | `/plugin` |
 | OpenAI Codex CLI | `codex` on `PATH`, `~/.codex/` | `codex plugin` |
 | VS Code / GitHub Copilot | `.vscode/`, the Copilot CLI on `PATH` | repo URL or catalog |
-| Google Gemini CLI | `gemini` on `PATH`, `~/.gemini/` | `gemini extensions` |
+| Google Antigravity | `agy` on `PATH`, `~/.gemini/antigravity-cli/` | `agy plugin` |
+| Pi | `pi` on `PATH`, `~/.pi/agent/`; `PI_SESSION_ID` in the session | `pi install` (no marketplace) |
+| Goose | `goose` on `PATH`, `~/.agents/plugins/`; `AGENT_SESSION_ID` in the session | `goose plugin install` (no marketplace) |
 | Cursor, `microsoft/apm`, Kiro, OpenCode | per [`marketplace.md`](../../../../docs/setup/marketplace.md#supported-agents) | varies |
 
 When the running agent is ambiguous, ask — one structured
@@ -178,7 +185,7 @@ one wastes the user's turn.
 
 **If the agent has no plugin mechanism at all** — the clients
 [`marketplace.md`](../../../../docs/setup/marketplace.md#not-supported)
-lists as unsupported, Windsurf and Goose among them — say so
+lists as unsupported, Windsurf among them — say so
 plainly, name it as the reason, and hand off to the pinned
 snapshot install at [Step 0](#step-0--pre-flight). That — not a
 preference — is what the snapshot path is for.
@@ -195,21 +202,35 @@ is the source text.
 Three rules for the recommendation:
 
 - **The baseline is pre-ticked: `magpie-setup`,
-  `magpie-agent-guard`, `magpie-utilities`.** That is the same
+  `magpie-vetted-ops`, `magpie-agent-guard`, `magpie-utilities`.** That is the same
   set a project commits as its floor when it adopts
   ([`adopt.md`](adopt.md)), and the reason is the same on one
   machine as on a project: `magpie-setup` installs, upgrades,
   configures and adopts everything else and carries the
   secure-isolation skills of
   [Step M5](#step-m5--recap-and-what-comes-next);
+  `magpie-vetted-ops` is the dispatcher the family skills call for
+  their forge reads and writes;
   `magpie-agent-guard` denies dangerous shell shapes before they
   run; `magpie-utilities` is how anyone finds out what is
   actually installed. Say why each is ticked.
 
-  **`magpie-setup` is not optional** — it is this skill, and
-  nothing else installs or upgrades without it. The other two
-  are *strongly* recommended and can be unticked; say what is
-  given up rather than arguing, and move on.
+  **`magpie-setup` and `magpie-vetted-ops` are not optional** —
+  `magpie-setup` is this skill, and nothing else installs or
+  upgrades without it; `magpie-vetted-ops` is what the family
+  skills run their forge operations through, and adds no
+  always-on context. The other two are *strongly* recommended
+  and can be unticked; say what is given up rather than arguing,
+  and move on.
+  Installing `magpie-vetted-ops` grants nothing by itself: the
+  permission rules that let its read dispatcher run without a
+  prompt are wired only by the isolated setup, and only where the
+  sandbox is configured.
+- **`magpie-security` brings `magpie-security-tools`.** The security
+  skills run framework tools (`<framework>/tools/<tool>`); on a
+  marketplace install there is no framework checkout, so they come
+  from this companion plugin. Tick it whenever `magpie-security` is
+  ticked, and say so; it adds no always-on context.
 - **Install a family at a time; there is no everything plugin.**
   Each installed skill advertises its name and description to
   the model on *every* turn, so all ten families at once would
@@ -220,9 +241,10 @@ Three rules for the recommendation:
   a symlink.
 
 If the user passed `skill-families:<list>`, use it verbatim and
-skip the prompt — with `magpie-setup` added if it is absent,
-because the list names families to install and this skill is
-what installs them. Do not add the other two baseline plugins to
+skip the prompt — with `magpie-setup` and `magpie-vetted-ops`
+added if absent (and `magpie-security-tools` when the list names `security`), because the list names families to install,
+this skill is what installs them, and the dispatcher is what
+they run on. Do not add the other two baseline plugins to
 an explicit list; naming families is a choice, and quietly
 enlarging it is not. Say in one line that the baseline exists
 and what is missing from it.
@@ -232,7 +254,7 @@ and what is missing from it.
 **Run the installs. Do not hand the user a list to type.** The
 `/plugin …` form is a client command typed into a session and no
 tool can invoke it — but every marketplace harness ships a *CLI*
-beside it (`claude plugin`, `codex plugin`, `gemini extensions`),
+beside it (`claude plugin`, `codex plugin`, `agy plugin`),
 and those are ordinary binaries. Every skill's adoption-floor
 pre-flight already calls them to bring a machine up to a
 project's floor ([`locks.md`](locks.md)); this step calls them
@@ -319,10 +341,29 @@ codex plugin marketplace add apache/magpie
 codex plugin add magpie-setup@apache-magpie   # plus each family picked
 ```
 
-Gemini CLI:
+Antigravity:
 
 ```bash
-gemini extensions install https://github.com/apache/magpie
+agy plugin install https://github.com/apache/magpie
+```
+
+A user coming from Gemini CLI with the old Magpie extension installed
+can convert it instead with `agy plugin import gemini`.
+
+Pi, once per user — never with `-l`, since the package also carries the
+per-user secure setup (guard, permission rules, bash sandbox):
+
+```bash
+pi install git:github.com/apache/magpie
+```
+
+Goose, once per user — the plugin carries the guard hook, and its
+sandbox runtime is installed from the committed lockfile into the
+plugin (see [the Goose install](../../../../docs/adapters/goose.md#install)):
+
+```bash
+goose plugin install https://github.com/apache/magpie
+npm ci --omit=dev --legacy-peer-deps --ignore-scripts --prefix ~/.agents/plugins/magpie
 ```
 
 VS Code / Copilot has no CLI on this path: point the plugin
@@ -383,7 +424,7 @@ Tell the user, in this order:
    first when the entry names one — the same two-step rule as
    [Step 5](#step-5--pick-the-skill-families-and-mcp-servers).
    Print them; never run them. Append an `<id> <agent>` (the registry's harness key: `claude-code`, `codex`,
-`copilot`, `gemini`, `cursor`, `opencode`, `kiro`) line for each
+`copilot`, `antigravity`, `cursor`, `opencode`, `kiro`) line for each
    companion offered to `~/.cache/apache-magpie/companions-offered`, and
    skip `<id> <agent>` pairs already listed there, so upgrade does not
    re-offer a decline and an offer on one agent does not hide the commands
@@ -399,8 +440,10 @@ Tell the user, in this order:
 4. **How it updates** — Claude Code:
    `/plugin marketplace update apache-magpie` then
    `/plugin update <plugin>@apache-magpie`; Codex:
-   `codex plugin marketplace upgrade apache-magpie`; Gemini:
-   `gemini extensions update magpie`. The bundled `SessionStart`
+   `codex plugin marketplace upgrade apache-magpie`; Antigravity: re-run
+   `agy plugin install https://github.com/apache/magpie`; Pi:
+   `pi update --extensions`; Goose: `goose plugin update magpie`,
+   then the `npm ci` above again. The bundled `SessionStart`
    hook prompts on a version change where the client runs hooks.
 5. **Configure it for yourself when a skill asks.** A marketplace
    install delivers skills; it tells them nothing about this project.
@@ -540,11 +583,14 @@ How it differs from a remote adoption:
   `url`/`ref`/`commit`/`sha512`), and there is no
   `.apache-magpie.local.lock`.
 - **Symlinks are committed, not gitignored.** Each
-  `magpie-<skill>` symlink targets `../../skills/<skill>/` — an
-  in-repo path that always resolves on a fresh clone — so the
+  canonical `magpie-<skill>` symlink targets the skill's real
+  directory, `../../plugins/<family>/skills/<alias>` (`<alias>` is
+  the skill's frontmatter `name:`, e.g. `pr-triage` for
+  `magpie-pr-management-triage`) — an in-repo
+  path that always resolves on a fresh clone — so the
   links are committed. They are written under **every active
   target dir** ([`agents.md`](agents.md)) — `.agents/skills/`
-  (the universal path shared by Codex, Cursor, Gemini CLI,
+  (the universal path shared by Codex, Cursor, Antigravity,
   Copilot, …), `.claude/skills/` (Claude Code), and
   `.github/skills/` (GitHub's skill loader) — so the framework's
   own skills are discoverable by any harness; `.gitignore`
@@ -561,7 +607,7 @@ How it differs from a remote adoption:
   [Step 5](#step-5--pick-the-skill-families-and-mcp-servers) is skipped.
   `skill-families:` is still honoured if the maintainer wants to
   narrow the set.
-- **`magpie-setup` is itself a symlink** (→ `../../skills/setup/`),
+- **`magpie-setup` is itself a symlink** (→ `../../plugins/magpie-setup/skills/setup`),
   not a committed copy. The copy-vs-symlink rule of
   [`snapshot-model.md` Golden rule 6](snapshot-model.md#the-golden-rules-that-bind-only-here) exists only
   because adopter snapshots disappear on clone; the framework's
@@ -615,7 +661,15 @@ How it differs from a remote adoption:
 6. **Create the symlinks** (canonical first, then relays). For
    each enumerated skill `<n>`:
    - **Canonical** — create `.agents/skills/magpie-<n>` →
-     `../../skills/<n>` (the in-repo source).
+     the skill's real directory: read the `skills/<n>` symlink and
+     rebase its target onto `.agents/skills/`
+     (`../../plugins/<family>/skills/<alias>` — the basename is the
+     skill's frontmatter `name:`, not `<n>`: `skills/pr-management-triage`
+     → `../plugins/magpie-pr-management/skills/pr-triage`, so the
+     canonical link is `../../plugins/magpie-pr-management/skills/pr-triage`).
+     Never build the target from `<n>`, and never point at
+     `../../skills/<n>` itself — a symlink chain, which the release
+     archive's extractor refuses. `symlink-lint` checks this.
    - **Relays** — for every *other* active target dir from
      [`agents.md`](agents.md) (`.claude/skills/`, `.github/skills/`,
      plus any present holdout), create `magpie-<n>` →
@@ -712,7 +766,10 @@ Per the chosen method (FRESH) or per the committed lock
   .apache-magpie`
 - **`git-tag`**: `git clone --depth=1 --branch <tag> <url>
   .apache-magpie`. After clone, capture the resolved commit
-  SHA for `<committed-lock>` (FRESH only).
+  SHA for `<committed-lock>` (FRESH only). SUBSEQUENT: confirm
+  it equals the committed `commit` anchor; a mismatch aborts
+  the install (the tag moved — a supply-chain signal): delete
+  the clone, write no `<local-lock>`, and report both commits.
 - **`svn-zip`**: `curl` the zip + `.sha512` + `.asc`,
   verify, `unzip` to `.apache-magpie/`. Re-fetch
   verification details into `<committed-lock>` (FRESH only).
@@ -726,6 +783,13 @@ propose a sandbox bypass to the operator before cloning.
 
 If `<snapshot-dir>/` already exists with content, skip the
 fetch — the recipe ran first and left the snapshot in place.
+A skipped fetch still gets the anchor check: for `git-tag`
+(SUBSEQUENT), resolve the existing snapshot's commit
+(`git -C <snapshot-dir> rev-parse HEAD`) and compare it with the
+committed `commit` anchor; a mismatch, or a snapshot with no
+`.git/` to resolve, stops the install the same way — report both
+commits and offer to delete `<snapshot-dir>/` and fetch again.
+Nothing from that snapshot is copied or loaded before the check passes.
 
 After the fetch (or skip), confirm
 `<snapshot-dir>/skills/` lists the framework skills (e.g.
@@ -853,6 +917,20 @@ Store the union of triggered families as
 triggered, `<signal-derived-families>` is the empty set and
 Step 5's fallback default applies.
 
+**Organization** (`organization:` in `<project-config>/project.md`) — settle it before
+the auto-sourced fields below, since the ASF-specific ones depend on it.
+Propose `ASF` only on evidence:
+a GitHub remote under `apache/`, a `.asf.yaml` at the repo root, or, in a Subversion
+working copy, a `svn_url` / `svn_repository_root` (from `magpie-vcs probe`) under
+`https://svn.apache.org/`.
+With none of those, ask which organization the project belongs to — `independent`,
+or one named under `organizations/` or `.apache-magpie-overrides/organizations/` —
+and **never default to `ASF`**.
+A non-ASF project must not inherit ASF values: no `apache.org` addresses, no
+`cna_private_*` fields, and in `cve-json-config.toml` its own CNA's UUID as
+`[cna].org_id`, never the ASF CNA's (`cve_authority.vulnogram.asf_org_id`).
+Ask for that UUID; when the user does not know it, leave it `TODO`.
+
 **Auto-sourced metadata fields** (run when `gh` and/or `.asf.yaml` are
 available). These pre-populate `<project-config>/project.md` in Step 9:
 
@@ -874,6 +952,7 @@ available). These pre-populate `<project-config>/project.md` in Step 9:
     - `dev_list` is the target of the `dev` or `issues` or `pullrequests` notification containing `dev@`. If not found, default to `dev@<project>.apache.org`.
     - `users_list` is the target of the `users` notification, or defaults to `users@<project>.apache.org`.
     - `security_list` has no default: not every ASF project has a dedicated `security@<project>.apache.org` list. Detect it and ask, as [`adopt.md` Step 4b](adopt.md#4b--scaffold-whatever-is-still-missing) does; when no dedicated list is found, recommend requesting one from ASF Infra and offer `private@<project>.apache.org` only as a flagged fallback.
+    - `security_inbox.cve_tool_senders` inherits `security@apache.org` from the ASF organization profile. Ask which ASF CNA reviewers currently send CVE-tool notifications to the project. If the answer is non-empty, write one project-level list containing `security@apache.org` and the confirmed reviewer addresses because project values replace, rather than merge with, organization defaults. An empty answer leaves the key absent and keeps the inherited address; never guess reviewer addresses.
     - `private_list` defaults to `private@<project>.apache.org`.
     - `announce_list` defaults to `announce@apache.org`.
   - `github.homepage` in `.asf.yaml` may refine `product_family_url` if the GitHub repo homepage was empty.
@@ -1247,7 +1326,7 @@ into **every active target dir**, canonical first:
   skill at `.agents/skills/magpie-<n>` → relative path into the
   snapshot (`../../.apache-magpie/skills/<n>/`). Gitignored. This
   is the single placement that makes the framework discoverable to
-  Codex, Cursor, Gemini CLI, Copilot, OpenCode, and the rest of
+  Codex, Cursor, Antigravity, Copilot, OpenCode, Pi, Goose, and the rest of
   the shared-path cluster, and the one source every relay points
   at.
 
@@ -1329,6 +1408,7 @@ to this repo.
 - Replace the placeholder `TODO` lines with the values auto-sourced in Step 4b:
   - Always (organization-agnostic): `upstream_repo`, `upstream_default_branch`, `product_family_url`, `labels`.
   - **Only when `organization: ASF`** (the ASF-specific block of Step 4b): `dev_list`, `commits_list`, `users_list`, `private_list`, `announce_list`. `security_list` is not auto-sourced: settle it with the detect-and-recommend rule in `adopt.md` Step 4b ("Ask where security reports go explicitly"). For a non-ASF `organization`, leave these as `TODO` — do not write `apache.org` addresses.
+  - For ASF adopters with confirmed reviewer addresses, write `security_inbox.cve_tool_senders` with both `security@apache.org` and those addresses. If none were confirmed, leave the key absent so the organization default remains effective. Do not write guessed personal addresses.
 - Prompt the user to confirm the auto-sourced values, and only ask them to input values for stable fields that were absent or couldn't be derived.
 - Stage the written files in `.apache-magpie-overrides/` to git (`git add`).
 
@@ -2035,8 +2115,8 @@ Four passes, in this order:
    Follow the [Codex guard and vetted-operation install contract](../../../../docs/adapters/codex.md#install) as well.
    Merge the native `PreToolUse` registration, resolving the engine from the snapshot in adopters and directly from the framework in local self-adoption.
    Ask the operator to review the definition in `/hooks`; do not grant hook trust on their behalf.
-   For marketplace installs use the `magpie-agent-guard` and optional `magpie-vetted-ops` plugins instead of adding a duplicate project hook.
-   Vetted-operation native rules are rendered per machine from the installed stable path and reviewed before installation in user scope.
+   For marketplace installs use the `magpie-agent-guard` and `magpie-vetted-ops` plugins instead of adding a duplicate project hook.
+   Vetted-operation native rules are rendered per machine from the installed stable path and reviewed before installation in user scope — only where the sandbox is configured; without it, skip them and let every vetted operation keep its prompt.
 
    For a marketplace-owned guard, omit the project hook and use `sandbox-lint --codex <repo-root>/.codex --guard-from-plugin`; verify plugin registration and trust separately in `/hooks`.
    For a source or snapshot-owned guard, the stock command chooses the existing engine path and lint must confirm that file exists.
@@ -2047,10 +2127,17 @@ Four passes, in this order:
    gitignored. See
    [the Codex adapter](../../../../docs/adapters/codex.md).
 
-   **Gemini project profile (when Gemini is the selected runtime).**
-   Follow [the Gemini install lifecycle](../../../../docs/adapters/gemini.md#install) to propose and merge its workspace profile and guard registration from this snapshot.
-   Preserve unrelated configuration and review conflicts before applying changes.
-   Validate the merged profile and hand off live verification to Gemini.
+   **Antigravity writes no project profile.**
+   Its sandbox, permission rules and guard are per user, in `~/.gemini/`;
+   when Antigravity is the selected runtime, point to `setup-isolated-setup-install` ([the Antigravity install](../../../../docs/adapters/antigravity.md#install)) instead of writing anything into the repository.
+
+   **Pi writes no project profile either.**
+   Its guard, permission rules and bash sandbox ship in the per-user Pi package;
+   when Pi is the selected runtime, point to `setup-isolated-setup-install` ([the Pi install](../../../../docs/adapters/pi.md#install)) instead of writing anything into the repository, and never record the package in the project's `.pi/settings.json`.
+
+   **Goose writes no project profile either.**
+   Its guard hook ships in the per-user Goose plugin and its sandbox comes from `agent-iso goose`;
+   when Goose is the selected runtime, point to `setup-isolated-setup-install` ([the Goose install](../../../../docs/adapters/goose.md#install)) instead of writing anything into the repository, and never install the plugin into a project's `.agents/plugins/`.
    **Grok action guard (when Grok is the selected runtime).**
    First distinguish a marketplace/plugin install from a source or pinned-snapshot install.
    When `magpie-agent-guard` is already available as an enabled marketplace plugin, use that bundled hook and executable.

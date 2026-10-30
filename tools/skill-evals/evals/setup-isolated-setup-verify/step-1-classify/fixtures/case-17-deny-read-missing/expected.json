@@ -1,0 +1,15 @@
+{
+  "snapshot_drift": "none",
+  "checks": [
+    {
+      "n": 1,
+      "status": "✗",
+      "evidence": "sandbox.enabled: true (.claude/settings.json); deny, ask, allowedDomains and allowRead/allowWrite present; sandbox.filesystem.denyRead missing from .claude/settings.json, .claude/settings.local.json and ~/.claude/settings.json, so bubblewrap leaves every credential file under ~/ readable"
+    },
+    {
+      "n": 6,
+      "status": "✓",
+      "evidence": "effective sandbox.enabled: true (from .claude/settings.json)"
+    }
+  ]
+}

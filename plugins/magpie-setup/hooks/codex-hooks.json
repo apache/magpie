@@ -1,0 +1,17 @@
+{
+  "description": "Apache Magpie \u2014 the upgrade check, for Codex. Claude Code reads hooks.json.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/bash -p \"${PLUGIN_ROOT}/hooks/check-upgrade.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -17,6 +17,7 @@
     - [Wiring the check script into a weekly routine](#wiring-the-check-script-into-a-weekly-routine)
   - [The framework's own `.claude/settings.json`](#the-frameworks-own-claudesettingsjson)
   - [Read-only vetted ops never prompt](#read-only-vetted-ops-never-prompt)
+  - [Host-only uv state](#host-only-uv-state)
   - [Project-root coverage in the sandbox allowlists](#project-root-coverage-in-the-sandbox-allowlists)
     - [Why project-local, not user-scope and not committed-project](#why-project-local-not-user-scope-and-not-committed-project)
     - [Security rationale — why project-local is safe to write to](#security-rationale--why-project-local-is-safe-to-write-to)
@@ -35,6 +36,10 @@
     - [Extensible — any skill can contribute a guard](#extensible--any-skill-can-contribute-a-guard)
     - [Install (user-scope)](#install-user-scope-1)
     - [Verify](#verify-1)
+  - [Public-surface scrub mod (Claude Code plugin / hook)](#public-surface-scrub-mod-claude-code-plugin--hook)
+    - [Term canonicalization](#term-canonicalization)
+    - [Scoping and fail-closed gates](#scoping-and-fail-closed-gates)
+    - [Trade-offs and runtime characteristics](#trade-offs-and-runtime-characteristics)
   - [Sandbox-error hint hook](#sandbox-error-hint-hook)
     - [Why install it](#why-install-it)
     - [Why install it user-scope, not project-scope](#why-install-it-user-scope-not-project-scope-1)
@@ -55,6 +60,7 @@
   - [Container gateway](#container-gateway)
     - [Why install it](#why-install-it-1)
     - [Install (user-scope)](#install-user-scope-4)
+    - [Linux needs `allowAllUnixSockets`](#linux-needs-allowallunixsockets)
     - [Egress](#egress)
     - [Verify](#verify-4)
     - [Trade-offs](#trade-offs-3)
@@ -137,7 +143,9 @@ mapping. The long-form sections below remain the canonical Claude Code
 setup; the four `setup-isolated-*` skills route Codex to the adapter
 before entering any Claude-only settings flow.
 
-The same four skills route Gemini CLI to its [setup lifecycle](../adapters/gemini.md#setup-isolated-lifecycle).
+The same four skills route Antigravity to its [setup lifecycle](../adapters/antigravity.md#setup-isolated-lifecycle), which configures the user's `~/.gemini/` files once and never asks for per-repository setup.
+They route Pi to its [setup lifecycle](../adapters/pi.md#setup-isolated-lifecycle): one per-user package install carries the action guard, the permission rules and an OS sandbox for bash, all derived from the same Claude Code baseline.
+They route Goose to its [setup lifecycle](../adapters/goose.md#setup-isolated-lifecycle): one per-user plugin install carries the guard hook and the baseline's deny rules, and `agent-iso goose` runs the whole Goose process in sandbox-runtime in approve mode.
 
 ### Agent-guided (recommended)
 
@@ -377,7 +385,7 @@ sandbox flags don't depend on a specific bubblewrap version (the
 `denyRead`/`allowRead` API has been stable since `0.6.x`).
 
 The framework's `tools/agent-isolation/check-tool-updates.sh` will
-still report upstream `0.13.0` / `1.8.1.3` as the pinned versions —
+still report upstream `0.13.1` / `1.8.1.3` as the pinned versions —
 that's the manifest's view of what's *upstream-current*, not what
 your distro shipped. If you want to silence the drift, override the
 manifest locally with a `pinned-versions.local.toml` (gitignored)
@@ -499,7 +507,7 @@ The full block below is the two merged, annotated.
     // workaround, and the upstream report (anthropics/claude-code#95532)
     // are in sandbox-troubleshooting.md → "`gh` fails with TLS …".
     // The adversarial-review tool runs other models' CLIs, which need network
-    // access and their own credentials (~/.codex, ~/.copilot, ~/.gemini,
+    // access and their own credentials (~/.codex, ~/.copilot, ~/.gemini/antigravity-cli,
     // ~/.grok, ~/.claude). Only its single-line, installed-plugin form is excluded;
     // it keeps its permission prompt (no `allow`), and the plugin cache is
     // `Edit`-denied below. See the isolated-setup-install skill, Step R.
@@ -544,7 +552,6 @@ The full block below is the two merged, annotated.
         ".",                          // the project tree (cwd)
         "~/.gitconfig",               // git's user.name / user.email
         "~/.config/git/",             // git's per-host config
-        "~/.config/gh/",              // gh CLI auth (token in hosts.yml)
         "~/.cache/",                  // dev tool caches (uv HTTP cache, prek logs, ruff/mypy caches, and prek's own rustup + CARGO_HOME for the `lychee` rust hook)
         "~/.local/share/uv/",         // uv's tool venvs (prek, etc.)
         "~/.local/bin/",              // uv-installed tool entry points
@@ -555,11 +562,14 @@ The full block below is the two merged, annotated.
         "~/.ssh/id_ed25519_sk.pub"    // ONLY with `gpg.format=ssh`: the public half git hands to `ssh-keygen -Y sign`. Use the file `git config user.signingkey` names (see sandbox-troubleshooting.md)
       ],
       "allowWrite": [
-        "~/.cache/",                  // uv lock files, prek log + state, ruff/mypy caches, prek's rustup toolchains + cargo registry
-        "~/.local/share/uv/"          // uv's tool venvs (prek installs new hook envs here)
+        "~/.cache/"                   // uv's sandbox-only cache, prek log + state, ruff/mypy caches, prek's rustup toolchains + cargo registry
+        // never ~/.local/share/uv/: readable only — its interpreters and tool venvs run outside the sandbox (see "Host-only uv state")
       ]
     },
     "network": {
+      // Linux ignores allowUnixSockets and blocks every AF_UNIX socket; the gateway and
+      // ssh-agent signing need a per-machine `allowAllUnixSockets: true` there, never
+      // without the host-socket denyRead entries in "Linux needs allowAllUnixSockets" below.
       "allowUnixSockets": [        // macOS only (ignored on Linux): sockets a sandboxed Bash may connect(2) to. A read entry alone lets it stat the file, not talk to it.
         "/Users/<you>/.gnupg/S.gpg-agent.ssh"   // gpg-agent's ssh socket — needed for signed commits and pushes over ssh; absolute path (see "SSH agent / Yubikey appears unreachable" in sandbox-troubleshooting.md)
         // Per project, local settings (`.claude/settings.local.json`,
@@ -704,10 +714,13 @@ The full block below is the two merged, annotated.
     "deny": [
       "Read(~/.aws/**)", "Read(~/.ssh/**)", "Read(~/.netrc)",
       "Read(~/.docker/**)", "Read(~/.kube/**)",
-      "Read(~/.config/gh/**)",                  // bash can read it (sandbox.allowRead); the AGENT can't
+      "Read(~/.config/gh/**)",                  // neither the agent nor sandboxed bash; only the excluded `gh` reads it
       "Read(~/.config/apache-magpie/**)",      // Gmail OAuth token: only the oauth-draft MCP server reads it, outside the sandbox
       "Edit(~/.config/apache-magpie/local-tracker-parsers.json)", // the user's custom-parser confirmations: only `trust-parser`, run by the user, writes them
       "Read(~/.config/gcloud/**)", "Read(~/.azure/**)",
+      "Read(~/.config/uv/uv.toml)",             // the host-only uv cache-dir: unreadable inside the sandbox, so sandboxed uv keeps its own cache (see "Host-only uv state")
+      "Edit(~/.config/uv/**)",
+      "Edit(~/.cache/ponymail-attachments/**)",  // PonyMail save_attachments root: readable in the sandbox, written only by the MCP server
       "Read(//**/.env)", "Read(//**/.env.local)", "Read(//**/.env.*.local)",
       "Bash(curl *)", "Bash(wget *)",           // network egress via Bash bypasses the sandbox proxy
       "Bash(aws *)", "Bash(gcloud *)", "Bash(az *)", "Bash(kubectl *)",
@@ -729,6 +742,9 @@ The full block below is the two merged, annotated.
       "Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
       "Edit(~/.claude/magpie/**)",
       "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
+      "Edit(//**/.git/**/apache-magpie/tools/vetted-ops/**)",
+      "Edit(//**/.svn/apache-magpie/tools/vetted-ops/**)",
+      "Edit(//**/.apache-magpie-local/tools/vetted-ops/**)",
       // The adversarial-review tool runs unsandboxed (excludedCommands above), so
       // the code it runs must not be editable by the agent that calls it.
       "Edit(~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/**)"
@@ -864,11 +880,14 @@ The full block below is the two merged, annotated.
 }
 ```
 
-The deny / allow split for `~/.config/gh/` is deliberate: the `gh`
-CLI needs to *use* the credential, but the agent should never *see*
-it. `sandbox.filesystem.allowRead` permits the bash subprocess to
-read the file; `permissions.deny[Read(...)]` blocks the agent's Read
-tool from reading the same path.
+`~/.config/gh/` is denied to both the agent and sandboxed Bash.
+The `gh` CLI needs to *use* the credential, and it does: `gh *` is in
+`sandbox.excludedCommands`, so it runs outside the sandbox and reads
+its own token there. No sandboxed command needs the file, and a
+readable `hosts.yml` would let any unprompted sandboxed command copy
+the token. `permissions.deny[Read(...)]` blocks the agent's Read tool,
+and the default `denyRead: ["~/"]` blocks every sandboxed command;
+`sandbox-lint` refuses an `allowRead` entry that re-opens it.
 
 `~/.config/apache-magpie/` gets no such split: it is denied to both.
 It holds the Gmail OAuth refresh token, and a sandboxed command runs
@@ -891,8 +910,9 @@ a second, independent layer for free: the plugin cache sits outside
 every `sandbox.filesystem.allowWrite` root, so a sandboxed `Bash`
 call cannot write it either. The **policy TOML** lives inside the
 adopter repo, which is sandbox-writable by design. Under Claude Code its
-`Edit(.apache-magpie-overrides/tools/vetted-ops/**)` deny is also merged
-into the sandbox's write-deny list, so a Bash-level write (`sed -i`, a
+`Edit(.apache-magpie-overrides/tools/vetted-ops/**)` deny — and the
+personal-layer ones for a maintainer whose project has not adopted
+Magpie — is also merged into the sandbox's write-deny list, so a Bash-level write (`sed -i`, a
 heredoc redirect) is refused as well. Harnesses without that merge have
 only the tool-level deny, and must deny writes to that path in their
 sandbox configuration explicitly.
@@ -963,7 +983,8 @@ Codex is the exception that proves the rule: its execpolicy cannot match `~`, so
 4. `permissions.deny` carries all three tamper-protection rules:
    - `Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)` — the operation catalogue;
    - `Edit(~/.claude/magpie/**)` — the fixed path the rules name;
-   - `Edit(.apache-magpie-overrides/tools/vetted-ops/**)` — the policy.
+   - `Edit(.apache-magpie-overrides/tools/vetted-ops/**)` — the policy;
+   - `Edit(//**/.git/**/apache-magpie/tools/vetted-ops/**)`, `Edit(//**/.svn/apache-magpie/tools/vetted-ops/**)` and `Edit(//**/.apache-magpie-local/tools/vetted-ops/**)` — the same policy kept in a maintainer's personal layer, for a project that has not adopted Magpie.
 
    They are what makes an unprompted read safe to allow: the `allow` rests on the catalogue's shape, so the agent that calls the dispatcher must not be able to edit it.
    A missing rule is a must-fix.
@@ -988,7 +1009,10 @@ Codex is the exception that proves the rule: its execpolicy cannot match `~`, so
   "deny": [
     "Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
     "Edit(~/.claude/magpie/**)",
-    "Edit(.apache-magpie-overrides/tools/vetted-ops/**)"
+    "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
+    "Edit(//**/.git/**/apache-magpie/tools/vetted-ops/**)",
+    "Edit(//**/.svn/apache-magpie/tools/vetted-ops/**)",
+    "Edit(//**/.apache-magpie-local/tools/vetted-ops/**)"
   ]
   // and: no ask rule matching vetted-op-read,
   // no "blockReadsOutsideWorkingDirectories": true in any scope
@@ -999,6 +1023,52 @@ An agent definition that narrows its tools, such as a read-only gatherer's `tool
 
 The imperative covers the read dispatcher only.
 `vetted-op-tracker` and `vetted-op` write: they keep their `ask` rule and never go in `allow` ([why](#the-frameworks-own-claudesettingsjson)), so a skill runs them from the foreground session, never from a background agent.
+
+## Host-only uv state
+
+Several things run Python through uv **outside** the sandbox: the excluded `uvx --from ~/.claude/magpie/… ` and `uv run --project ~/.claude/magpie/…` commands (`vetted-op-read` among them, with no prompt at all), MCP servers launched with `uv`, hooks that call `python3`, and every `uv` / `prek` you run from a terminal.
+Whatever they execute must live where a sandboxed command cannot write, or any sandboxed command — which runs without a prompt — can plant code that runs unsandboxed the next time one of them starts.
+Two places used to break that rule:
+
+- **`~/.local/share/uv/`** holds uv's managed interpreters (often what `python3` on `PATH` resolves to), its tool venvs (`prek`, `ruff`) and its credentials store.
+  It stays in `allowRead`, so sandboxed uv can still use the interpreters already installed, but it is never in `allowWrite`.
+  The cost: a sandboxed `uv python install` or `uv tool install` fails; run those from a terminal.
+- **`~/.cache/uv/`** is the cache `uvx` runs from: `uvx --from <path> <cmd>` executes the unpacked package straight out of `archive-v0/`.
+  Sandboxed uv needs a writable cache, and Claude Code has no environment that applies only inside the sandbox, so the split goes through a file the sandbox cannot read.
+
+The user-level uv config gives the host its own cache, and `Read(~/.config/uv/uv.toml)` hides it from the sandbox:
+
+```toml
+# ~/.config/uv/uv.toml — written by setup-isolated-setup-install (Step U).
+# Host-only uv state. The sandbox is denied reading this file, so sandboxed uv
+# keeps its default, sandbox-writable cache (~/.cache/uv); everything uv runs
+# outside the sandbox uses a cache no sandboxed command can write.
+# Absolute path: uv does not expand `~` here, and a relative path would land in
+# the working directory.
+cache-dir = "/home/<you>/.local/share/uv-host/cache"
+```
+
+uv silently skips a user config it cannot read, so the sandbox side needs nothing else.
+Keep the host cache outside every directory a sandboxed command can write, in every project: each `allowWrite` and `additionalDirectories` entry, each project root, and the roots the sandbox writes without a grant (`/tmp`, `/private/tmp`, `/var/folders`, `$TMPDIR`). `~/.cache/` is granted to all projects, which is why it does not live there.
+`Edit(~/.config/uv/**)` keeps the agent's own file tools off the config.
+
+**After switching, reinstall what the host executes** from a terminal, since anything the sandbox could write before may already have been changed:
+
+```bash
+d="$(uv python dir)"
+uv python install --reinstall $(uv python list --only-installed --output-format json \
+  | jq -r --arg d "$d" '.[] | select(.path != null and (.path | startswith($d))) | .version' | sort -u)
+uv tool upgrade --all --reinstall
+```
+
+The old `~/.cache/uv/` stays as the sandbox's cache; the host never reads it again.
+
+**prek has the same problem.** The git hooks of a commit you make in a terminal run prek outside the sandbox, from hook environments under its home: `~/.cache/prek/` by default, which the `~/.cache/` grant makes sandbox-writable. Nothing excluded from the sandbox runs prek, so the settings `env` (which only Claude Code's own commands see, never your terminal) does the split: `"PREK_HOME": "~/.cache/prek-sandbox"` gives sandboxed prek a home of its own, and `Edit(~/.cache/prek/**)` keeps sandboxed commands out of the terminal's. prek expands the `~`. The first sandboxed `prek run` after the switch rebuilds its hook environments there once. When the project uses prek (a prek config at its root, or an installed git hook that runs prek), `sandbox-lint` fails a settings file whose `PREK_HOME` is missing or overlaps `~/.cache/prek`; with no project to inspect, it assumes prek is in use. The same split applies to every hook manager with a home in the [hook-manager registry](../../tools/hook-manager/registry.json); see the [contract](../../tools/hook-manager/README.md#home).
+
+The `env` also reaches a command Claude Code runs *outside* the sandbox (an approved bypass, often a signed commit). The whole-user [git-hook dispatcher](#whole-user-with-the-per-repo-dispatcher) covers that: a hook it runs with no `SANDBOX_RUNTIME` in the environment gets `PREK_HOME=~/.local/share/prek-host` and a host-only `XDG_CACHE_HOME` (for the pip, go, npm and uv caches the hooks use), whatever the env said. It only runs when git reaches it: a repository-level `core.hooksPath` (some `prek install` runs set one) overrides the global one and skips the dispatcher. magpie-setup's session-start hook removes one that points at the repository's own `.git/hooks` (redundant, since the dispatcher chains there anyway) and says so; any other value is reported, and `setup-isolated-setup-verify` flags it. With per-project scope there is no dispatcher, so do not bypass the sandbox for a commit there.
+
+Projects set up before the switch may still carry the old write grant. `sandbox-add-project-root.sh` removes it whenever it runs (on checkout, adopt and upgrade), and magpie-setup's session-start hook removes it from the checkout's `.claude/settings.local.json` the next time a session opens there, and says so. A linked worktree's main checkout is cleaned when a session opens in it: the worktree's `.git` file is sandbox-writable, so the hook never follows it. A broader grant, or one in user-scope or committed settings, is reported for you to remove; those files are yours.
+`sandbox-lint` fails a settings file that makes `~/.local/share/uv` writable or lacks the two `~/.config/uv` deny rules; `setup-isolated-setup-verify` checks the config file itself.
 
 ## Project-root coverage in the sandbox allowlists
 
@@ -1358,27 +1428,54 @@ original argv + inherited stdin, so a failing local `pre-commit` /
 `pre-push` still aborts the git operation. A repo with **no** local
 hook is a clean no-op.
 
-**The `prek` PATH shim.** prek honours `core.hooksPath`, so a bare
+**The hook-manager PATH shim.** prek honours `core.hooksPath`, so a bare
 `prek install` under whole-user scope would write its shim into the
 *shared* dir, not the repo. The framework ships a transparent shim
-([`tools/agent-isolation/prek-shim.sh`](../../tools/agent-isolation/prek-shim.sh),
+([`tools/agent-isolation/hook-manager-shim.sh`](../../tools/agent-isolation/hook-manager-shim.sh),
 installed as `~/.claude/bin/prek` with `~/.claude/bin` prepended to
 PATH) that rewrites **only** `prek install` — injecting
 `--git-dir "$(git rev-parse --git-common-dir)"` so the shim lands
 in the repo-local `.git/hooks/` where the dispatcher finds it.
 Every other `prek` command passes straight through, and the shim is
 a no-op on hosts with no global `core.hooksPath`.
+The shim, the host-only homes and the sandbox-lint checks all follow the
+[hook-manager contract](../../tools/hook-manager/README.md):
+one script serves every adapter in its registry, keyed by the name it is
+installed under, and other hook managers (pre-commit, lefthook, husky, …)
+join by adding an adapter there.
 
 Validated behaviour under this flavour (`core.hooksPath` global +
-dispatchers + prek shim):
+dispatchers + hook-manager shim):
 
 | Repo's local hook | Result |
 |---|---|
 | prek shim in `.git/hooks/` (installed via the shim) | dispatcher → prek runs that repo's `.pre-commit-config.yaml` |
-| hand-written / husky / lefthook `.git/hooks/<name>` | dispatcher → that hook runs (heterogeneous tooling coexists) |
+| local hook installed by a manager requiring no install fix (`simple-git-hooks`, `cargo-husky`, `git-code-format-maven-plugin`, `git-build-hook`) | dispatcher → local hook runs natively (installs straight to `.git/hooks/` ignoring global `core.hooksPath`) |
+| hand-written `.git/hooks/<name>`, or one a manager without an adapter put there | dispatcher → that hook runs (heterogeneous tooling coexists) |
 | none | dispatcher no-op; git operation proceeds cleanly |
 | local hook exits non-zero | exit code propagates; git operation aborts |
 | `post-checkout` | framework sandbox sync **and** repo-local `post-checkout` both run |
+
+Managers using the `none` install strategy (`tools/hook-manager/README.md`) require no binary PATH shim because their installers already target the repository-local `.git/hooks/` directory directly regardless of global `core.hooksPath`:
+- **`simple-git-hooks` (JavaScript):**
+  Verified under whole-user dispatcher (v2.14.0).
+  Installs directly into `$(git rev-parse --git-common-dir)/hooks/`.
+  Commits in main checkout and linked worktrees chain to the local hook cleanly.
+- **`cargo-husky` (Rust):**
+  Verified under whole-user dispatcher (v1.5.0).
+  Installs into `.git/hooks/pre-push`.
+  Commits and pushes chain through dispatcher.
+  In linked worktrees, `build.rs` searches for a `.git` directory and skips hook installation with a warning (`Warning: .git directory was not found`).
+- **`git-code-format-maven-plugin` (Java):**
+  From upstream source; not yet run under the whole-user dispatcher.
+  Installs into `$(git rev-parse --git-common-dir)/hooks/` via JGit (`com.cosium.code:git-code-format-maven-plugin` 5.3).
+  Commits in main checkout and linked worktrees chain through dispatcher cleanly.
+- **`git-build-hook` (Java):**
+  From upstream source; not yet run under the whole-user dispatcher.
+  Installs into `.git/hooks/` via JGit (`getGitDir()`, v3.6.0).
+  Commits in main checkout chain through dispatcher.
+  In linked worktrees, JGit resolves `<commondir>/worktrees/<name>/hooks/`, which C-git ignores on commit.
+  Note: running `mvn git-build-hook:configure` can write a repository-local `core.hooksPath`, which overrides Magpie's whole-user dispatcher.
 
 Reversal is the same as simple whole-user (`git config --global
 --unset core.hooksPath`), plus removing `~/.claude/bin` from PATH to
@@ -1545,6 +1642,13 @@ CLAUDE_ISO_ALLOW="GH_TOKEN" GH_TOKEN="$(op read 'op://Personal/GitHub/token')" c
 
 The `CLAUDE_ISO_ALLOW` mechanism is opt-in per invocation — no
 implicit propagation, no persistent allowlist.
+
+A session started by an IDE extension (the VS Code extension sets
+`CLAUDE_CODE_ENTRYPOINT=claude-vscode`) never goes through
+`claude-iso`, so the wrapper strips nothing from its environment.
+Such a session relies on `sandbox.credentials` for the variables it
+lists, and on you not exporting secrets into the shell that starts
+the IDE.
 
 ### Automatic sandbox allow-paths
 
@@ -1715,9 +1819,10 @@ ships **security-language** (no CVE / security-fix wording in a public
 `gh pr create|edit` title/body).
 
 Each guard is overridable per command by a visible inline env
-assignment (`MAGPIE_ALLOW_MENTIONS=1 gh pr comment …`, etc.) or
-disabled wholesale with `MAGPIE_GUARD_OFF=1` — the deny message
-names the override. The dispatcher is stdlib-only and invoked as
+assignment (`MAGPIE_ALLOW_MENTIONS=1 gh pr comment …`, etc.) — the
+deny message names the override — or disabled wholesale with
+`MAGPIE_GUARD_OFF=1` in the hook's own environment (never inline in a
+command). The dispatcher is stdlib-only and invoked as
 `python3 …/agent-guard.py`, fast-pathing everything that is not a
 `gh` / `git` command.
 
@@ -1783,6 +1888,76 @@ Expected: a JSON object with `permissionDecision: "deny"` and a
 reason mentioning the `mention` guard. A plain command
 (`{"tool_input":{"command":"ls"}}`) produces no output and `exit=0`.
 
+## Public-surface scrub mod (Claude Code plugin / hook)
+
+For Claude Code harnesses using plugins (such as `magpie-security`),
+a deterministic TypeScript mod hook
+([`plugins/magpie-security/hooks/public-surface-scrub.ts`](../../plugins/magpie-security/hooks/public-surface-scrub.ts))
+intercepts `Bash` tool calls (`git commit`, `git tag`, `git merge`, `gh pr create|edit|review|comment|merge|close`, `gh issue create|edit|comment|close`, `gh release create`, `gh api`)
+before execution to prevent accidental early disclosure of security vulnerabilities on public surfaces.
+
+### Term canonicalization
+
+The mod does not maintain a private list of forbidden terms. The forbidden
+disclosure terms and regex patterns are derived directly from the canonical
+single source of truth: `magpie_vcs.publication.DEFAULT_TERMS`
+in `tools/vcs/src/magpie_vcs/publication.py` (via `tools/dev/sync-forbidden-terms.py`
+and tracked by the pre-commit sync check).
+
+### Scoping and fail-closed gates
+
+- **Private tracker exemption**: Subcommands explicitly targeting the private security
+  tracker repository (`tracker_repo` in `project.md`, e.g. `-R airflow-s/airflow-s`)
+  are exempt. When working directory context falls back to `$.session.root()` (i.e. `cwd`
+  is omitted in the tool call event), the tracker cwd exemption is disabled to protect
+  against undetected in-session `cd ../<upstream>` transitions, falling through to the
+  deterministic term scan.
+  The Bash tool call carries no `cwd`, so in practice this is always the case:
+  tracker commands that mention a CVE id need an explicit `--repo <tracker_repo>`, and the
+  block message says so.
+- **Upstream repository protection**: Subcommands targeting the public codebase
+  (`upstream_repo` in `project.md`) or operating within an upstream working tree
+  are scrubbed. Commands targeting unrelated third-party or adopter documentation
+  repositories pass unchecked.
+- **`cd <dir>` transition tracking**: Tracks working directory transitions across
+  composite subcommands (e.g. `cd ../upstream && git commit -m "..."`).
+- **Deterministic git remote verification**: Repository scope is determined by
+  reading `.git/config` remotes rather than directory-name substring heuristics.
+- **Fail-closed on indeterminate scope**: If the target repository scope cannot
+  be verified deterministically, commands containing embargo terms fail closed.
+- **Fail-closed on unreadable files**: Invocations referencing message files
+  (`-F <file>` / `--file` / `--body-file`) fail closed if the referenced file cannot
+  be read.
+- **Fail-closed on dynamic input**: Commands constructing commit or PR content
+  dynamically via variables (`$VAR`), command substitution (`$(...)`), stdin pipes
+  (`-`), or automatic reuse (`git commit --amend` without an explicit message,
+  `gh pr create --fill`) cannot be verified statically and fail closed. The block
+  explanation instructs providing text explicitly or via an inspectable message file
+  (`-F <file>`).
+
+### Trade-offs and runtime characteristics
+
+The public-surface scrub mod is a deterministic guard against **accidental**
+public disclosure of embargoed security information, not a boundary against
+deliberate circumvention. A command running in a shell can always write to
+temporary files, pipe through external helpers, or execute dynamic subshells
+that cannot be fully predicted before execution. The hook documents these
+boundaries rather than chasing dynamic time-of-check-to-time-of-use (TOCTOU)
+scenarios: it fails closed on unresolvable shapes and indeterminate inputs,
+while relying on collaborator review for anything outside its deterministic
+static scope.
+
+- **Unsandboxed execution**: Claude Code mods and hooks execute directly in the
+  local Node runtime outside the container sandbox.
+- **File inspection**: The hook inspects message files specified by `-F <file>`
+  via the Claude Code plugin filesystem capability (`$.fs.read()`).
+- **Human-only escape hatch**: When legitimate post-coordinated-disclosure
+  maintenance requires mentioning CVE IDs or vulnerability terms on public surfaces,
+  a human maintainer sets `MAGPIE_ALLOW_EMBARGO_TERMS=1` in the environment
+  before starting the session. The escape hatch serves as a zero-token deterministic
+  guard against accidental leaks; inline environment variables passed to the command
+  line (e.g. `MAGPIE_ALLOW_EMBARGO_TERMS=1 git commit ...`) are ignored by the hook.
+
 ## Sandbox-error hint hook
 
 Companion to the *Sandbox-bypass visibility hook* above — a
@@ -1804,12 +1979,13 @@ The catalog (PR #291) and the diagnostic skill
 recall — *"my SSH push failed; let me check the catalog"* or
 *"let me run the doctor"*. The hint hook closes the loop by
 making the catalog reference appear next to the error
-automatically. Five classes of failure are recognised today:
+automatically. Seven classes of failure are recognised today:
 
 | Error signature | Catalog anchor |
 |---|---|
 | `Could not open a connection to your authentication agent` / `agent refused operation` / `ssh-add: error fetching identities` / `Permission denied (publickey)` | [SSH agent / Yubikey unreachable](sandbox-troubleshooting.md#ssh-agent--yubikey-appears-unreachable-from-inside-the-sandbox) |
 | `Cannot connect to the Docker daemon` / `open /var/run/docker.sock: operation not permitted` / `Cannot connect to Podman` / podman `connect: permission denied` | [Docker / Podman socket denied](sandbox-troubleshooting.md#docker--podman-command-fails-with-a-socket-error) |
+| `container-gateway: …; see docs/setup/sandbox-troubleshooting.md…` / `unable to upgrade to h2c, received 403` | [Container gateway policy refusal](sandbox-troubleshooting.md#docker--podman-command-fails-with-a-socket-error) |
 | `127.0.0.1 … Permission denied` / `Operation not permitted … bind` / `Errno 49 … assign requested address` / `Connection refused … 127.0.0.1` | [Localhost port-bind blocked](sandbox-troubleshooting.md#test-cannot-bind-to-a-localhost-port) |
 | `/tmp/…: Read-only file system` / `mktemp: failed to create` | [Temp files fail under `/tmp`](sandbox-troubleshooting.md#temp-files-fail-with-read-only-file-system-under-tmp) |
 | `x509: OSStatus -26276` / `HTTP 401: Requires authentication (https://api.github.com…` | [`gh` ran inside the sandbox](sandbox-troubleshooting.md#gh-fails-with-tls-osstatus--26276-or-http-401-inside-the-sandbox) |
@@ -1919,7 +2095,7 @@ to render exactly that, leading with the sandbox tag.
 the script is wired through Claude Code's `statusLine` setting, is fed
 Claude Code's statusLine payload on stdin, and reads Claude Code's
 `sandbox.enabled` schema. No other harness the framework supports has a
-status-line hook of that shape — Codex, Gemini, OpenCode and Kiro carry
+status-line hook of that shape — Codex, Antigravity, OpenCode and Kiro carry
 their sandbox posture in their own config and surface it, where they
 surface it at all, through their own UI. A harness that grows one gets
 its own helper; see
@@ -2784,26 +2960,74 @@ The hook executes only code from a location the operator installed or
 pinned, never from the repository being opened, so the second copy is
 not optional: without it the hook finds no source at session start and
 is a silent no-op — it never fails the session, it simply never starts
-the gateway. A framework contributor working inside this checkout can
-instead export `MAGPIE_CONTAINER_GATEWAY_SRC=tools/container-gateway/src`
-and skip the copy; an adopter whose `.apache-magpie/` snapshot is
-already populated needs neither, since the hook falls back to
-`<root>/.apache-magpie/tools/container-gateway/src` on its own.
+the gateway.
+A framework contributor re-copies the package after changing it: the hook
+refuses a source under any sandbox-writable directory, so neither
+`MAGPIE_CONTAINER_GATEWAY_SRC=tools/container-gateway/src` pointing into
+this checkout nor an `.apache-magpie/` snapshot is used — the project root is
+always writable from the sandbox, and the hook runs outside it.
 
-Wire it as a `SessionStart` / `SessionEnd` pair in `~/.claude/settings.json`, alongside any other hooks already there:
+The hook also never takes `python3` from `PATH`, which project settings can
+set. It runs the first Python 3.11+ outside every writable directory among
+`/opt/homebrew/bin`, `/usr/local/bin`, `/usr/bin` and uv's managed
+interpreters under `~/.local/share/uv/python`, by its real path with `-I -S`.
+The uv interpreters count only while `~/.local/share/uv` is read-only to the
+sandbox, as the reference settings keep it; a write grant over it in any
+scope makes the hook skip them. Where none qualifies, write the absolute path
+of one that does to `~/.claude/scripts/container-gateway/python`; until then
+the hook logs one line and does not start the gateway.
+
+In a linked worktree the hook also counts the main checkout's settings. It
+records which main checkout it confirmed the first time, under
+`~/.claude/magpie-gateway/worktrees/`, because the worktree's `.git` file is
+sandbox-writable; a later session that derives a different one is refused
+until you delete that record (the log line names it).
+
+Wire it in your user settings, alongside any other hooks already there, **by its absolute path** (your real home, `/home/<you>` on Linux). A `~` in a hook command is expanded from `$HOME` by the launching shell, and a session environment that redirects `$HOME` would run another script. Because that path is per-machine, it goes in `~/.claude/settings.local.json` when your `~/.claude/settings.json` is [synced across machines](#syncing-user-scope-config-across-machines) — a `/Users/<you>/...` path synced to a Linux box points at nothing, and the gateway never starts there; otherwise `~/.claude/settings.json` is fine. Claude Code merges hooks from both files.
+
+Three events, one script:
+
+- `SessionStart` → `start` brings the gateway up with the session.
+- `SessionEnd` → `stop` ends it.
+- `PreToolUse` on `Bash` → `ensure` starts it again before a `docker` or `podman` command when it is gone mid-session.
+  It exits after its idle timeout (default 4 h), when another session on the same project ends and stops it, or when it or its backend dies; without `ensure` it stays down until the next session.
+  It is registered for every `Bash` call, with no `if` filter: a filter such as `Bash(docker *)` would miss `docker-compose`, `podman-compose` and `/usr/local/bin/docker`. The script reads the command itself and leaves within about 10 ms when it names neither CLI.
+  When the gateway is already running the check costs about half a second, on container commands only.
+  `ensure` runs every check `start` does, so it can start nothing that `start` would refuse.
+  It judges the directory the session started in, which Claude Code hands every hook as `CLAUDE_PROJECT_DIR`, never the directory the agent has `cd`'d into: judged from another directory, the session project's own write grants would go uncounted.
+  A settings `env` entry cannot override `CLAUDE_PROJECT_DIR`, and without it `ensure` does nothing.
+  `start` and `stop` judge it too, since `SessionStart` also fires after a compaction, `/clear` or resume, when the payload's directory has followed the agent's `cd`; they fall back to that directory only when the variable is unset.
 
 ```jsonc
 {
   "hooks": {
     "SessionStart": [
-      { "hooks": [ { "type": "command", "command": "~/.claude/scripts/container-gateway-hook.sh start" } ] }
+      { "hooks": [ { "type": "command", "command": "/Users/<you>/.claude/scripts/container-gateway-hook.sh start" } ] }
     ],
     "SessionEnd": [
-      { "hooks": [ { "type": "command", "command": "~/.claude/scripts/container-gateway-hook.sh stop" } ] }
+      { "hooks": [ { "type": "command", "command": "/Users/<you>/.claude/scripts/container-gateway-hook.sh stop" } ] }
+    ],
+    "PreToolUse": [
+      { "matcher": "Bash", "hooks": [ { "type": "command", "timeout": 30, "command": "/Users/<you>/.claude/scripts/container-gateway-hook.sh ensure" } ] }
     ]
   }
 }
 ```
+
+**Fixing your other machines.** If the hook was registered in a synced `~/.claude/settings.json`, move it: delete the `container-gateway-hook.sh` entries from the synced file (once, on any machine), then on **every** machine add them to its own `~/.claude/settings.local.json` with that machine's home:
+
+```bash
+jq --arg h "$(cd ~ && pwd -P)" '
+  ($h+"/.claude/scripts/container-gateway-hook.sh") as $s
+  | .hooks.SessionStart += [{"hooks":[{"type":"command","command":($s+" start")}]}]
+  | .hooks.SessionEnd += [{"hooks":[{"type":"command","command":($s+" stop")}]}]
+  | .hooks.PreToolUse += [{"matcher":"Bash","hooks":[{"type":"command","timeout":30,"command":($s+" ensure")}]}]
+' ~/.claude/settings.local.json > ~/.claude/settings.local.json.new && mv ~/.claude/settings.local.json.new ~/.claude/settings.local.json
+```
+
+A machine wired before `ensure` existed already has the first two; add only the `PreToolUse` entry there.
+
+`setup-isolated-setup-verify` (check 12a) and `setup-isolated-setup-update` flag a hook whose registered path does not exist on the machine they run on.
 
 Every setting that points something at a gateway socket needs that socket's **absolute** path, which is per-machine, so the whole project-settings block belongs in the gitignored `.claude/settings.local.json` — nothing is committed.
 Add it by hand, substituting your own project's absolute path for `<project>` — nothing writes it for you.
@@ -2839,13 +3063,65 @@ The CLIs do not resolve it against the cwd: a `unix://` URL's authority is parse
 
 Never add the real daemon socket to `allowUnixSockets` under any name: the framework's `sandbox-lint` tool rejects an entry whose basename is `docker.sock`, `podman.sock`, or ends in `-api.sock`, unless its parent directory is the gateway's run directory, `<project>/.apache-magpie-local/run` or `<git-common-dir>/apache-magpie/run/<worktree-id>`.
 
+### Linux needs `allowAllUnixSockets`
+
+The `allowUnixSockets` entries above are macOS-only: Claude Code ignores them on Linux, where its seccomp filter rejects `socket(AF_UNIX, …)` before any path is consulted ([SSH agent / Yubikey appears unreachable](sandbox-troubleshooting.md#ssh-agent--yubikey-appears-unreachable-from-inside-the-sandbox)).
+On Linux the sandboxed `podman` / `docker` CLI reaches the gateway, and a sandboxed `git` reaches the ssh agent to sign, only with `sandbox.network.allowAllUnixSockets: true`, which skips that filter.
+Keep the `allowUnixSockets` entries anyway: they are inert on Linux and keep the block valid on a Mac.
+
+`allowAllUnixSockets` lets a sandboxed command connect to **every** Unix socket whose path it can see, and the reference `denyRead: ["~/"]` hides nothing outside your home.
+Pair it with `sandbox.filesystem.denyRead` entries, as absolute paths, for the host's daemon and IPC sockets.
+Each one is a way out of the sandbox:
+
+| Path | What a sandboxed command could do through it |
+|---|---|
+| `/run/docker.sock`, `/var/run/docker.sock` | Drive the Docker daemon: root-equivalent when you are in the `docker` group |
+| `/run/docker-cli.sock` | The same, through Docker Desktop's CLI socket |
+| `/run/podman` | Drive rootful Podman's daemon (`podman.sock`) |
+| `/run/user/<uid>` | Run commands outside the sandbox through the systemd user manager, over the user D-Bus (`bus`) or its own `systemd/private` socket (`systemd-run --user`); drive rootless Podman (`podman/podman.sock`); reach editor askpass sockets (`vscode-git-*.sock`) and systemd's ssh agent |
+| `/run/dbus` | Talk to the system D-Bus |
+| `/tmp/.X11-unix` | Inject keystrokes into your X11 session |
+| `/run/WSL` (WSL only) | Launch Windows executables outside the sandbox through the interop sockets |
+| `/mnt/wslg` (WSL only) | Reach the WSLg display and audio sockets |
+
+Deny `/run/user/<uid>` whole: the user manager answers on `systemd/private` even with the bus denied, so denying single sockets in it leaves a way out.
+One channel stays open whatever `denyRead` says: on Linux the flag also unblocks `AF_VSOCK` sockets (per Claude Code's settings schema), which have no path to deny. On WSL2 that is a channel to the Windows host. Treat it as residual risk.
+
+```jsonc
+// per machine: ~/.claude/settings.local.json, or the project's .claude/settings.local.json
+{
+  "sandbox": {
+    "network": { "allowAllUnixSockets": true },
+    "filesystem": {
+      "denyRead": [
+        "/run/docker.sock", "/var/run/docker.sock", "/run/docker-cli.sock", "/run/podman",
+        "/run/user/<uid>", "/run/dbus", "/tmp/.X11-unix",
+        "/run/WSL", "/mnt/wslg"   // WSL only
+      ]
+    }
+  }
+}
+```
+
+Replace `<uid>` with the output of `id -u` (for example `/run/user/1000`). Pasted as-is, the entry names a path that does not exist and hides nothing; sandbox-lint and check 12e both flag it.
+
+The gateway's sockets are unaffected: its run directory is inside the project tree or the git directory (`<project>/.apache-magpie-local/run/` or `<git-common-dir>/apache-magpie/run/<worktree-id>/`), never under `/run/user`.
+The ssh agent may not be: run `echo "$SSH_AUTH_SOCK"` in your own terminal.
+An agent socket under `/tmp` (the classic `ssh-agent`) needs nothing.
+When it is under `/run/user/<uid>/`, add the socket path itself to `allowRead`, or the agent's own subdirectory for gpg-agent (`gnupg/`) and gnome-keyring (`keyring/`) — never `/run/user/<uid>/` itself, where systemd's agent socket sits directly and an entry would re-open the whole directory.
+`allowRead` takes precedence inside a `denyRead` the same way `~/.gnupg/` does under `~/`; a single-file `allowRead` inside a denied directory has not been verified on Linux, so test signing after adding it.
+
+Keep both halves in one per-machine file. `allowAllUnixSockets` lifts socket blocking on macOS too, so a user-scope `~/.claude/settings.json` [synced across machines](#syncing-user-scope-config-across-machines) would carry it to a Mac without the Linux denials.
+Inside the sandbox each denied path that exists is replaced by an empty directory or a `/dev/null` device, so `test -S /run/docker.sock` reports no socket there.
+`sandbox-lint` rejects `allowAllUnixSockets: true` in the project's settings layers without `denyRead` cover for every path in the table (it does not read user-scope files), and `setup-isolated-setup-verify` check 12e flags each one that exists on the host and is not denied, in any scope.
+
 ### Egress
 
 At start, the gateway resolves the egress gateway's address for each backend and probes it once.
 `inject-if-available` (the default) injects `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY` into every container it creates when that probe succeeds, and logs a warning instead of failing when it does not.
 `require` refuses container creation with `403` while the egress gateway is unreachable, for adopters who want a hard failure rather than a silent gap.
 `off` never injects, for adopters running their own container-level filtering.
-Set the mode with `MAGPIE_CONTAINER_GATEWAY_ARGS="--egress require"` (or `off`) before the `SessionStart` hook runs.
+Set the mode with `MAGPIE_CONTAINER_GATEWAY_ARGS="--egress require"` (or `off`) in the environment the hooks run in; it applies whenever `start` or `ensure` starts the gateway.
 
 On Linux, the address the gateway hands a container for the egress gateway is a fixed guess: `172.17.0.1` for dockerd's default bridge, `10.88.0.1` for rootless Podman.
 Neither is guaranteed to match every Linux install's actual bridge address.
@@ -2860,7 +3136,7 @@ podman run --rm -v "$HOME/.ssh:/x" alpine true # expected: 403 container-gateway
 ```
 
 `status` prints a JSON object (`running`, `pid`, `sockets`, `serving`) and exits 0 when the gateway is up for this project, 3 otherwise.
-The `podman info` call should succeed from inside the sandbox once the hook has started the gateway and the two `allowUnixSockets` entries are in place.
+The `podman info` call should succeed from inside the sandbox once the hook has started the gateway and the two `allowUnixSockets` entries (macOS) or `allowAllUnixSockets` with its `denyRead` entries (Linux) are in place.
 The `podman run` call is expected to fail: a bind mount outside the project root (and any `--extra-bind-root`) is exactly what the policy refuses, and the `403` message is the gateway working as intended.
 
 ### Trade-offs
@@ -3140,6 +3416,8 @@ Three reasons make this non-negotiable:
 Public dotfile repos are fine for shell aliases and editor configs;
 they are the wrong shape for agent-runtime files.
 
+**Per-machine entries stay out of the synced file.** Anything that names an absolute path under your home — the container gateway's `SessionStart` / `SessionEnd` / `PreToolUse` hooks above, a pinned interpreter, socket paths — differs between macOS (`/Users/<you>`) and Linux (`/home/<you>`). Keep those in each machine's `~/.claude/settings.local.json`, which is never synced; Claude Code merges hooks and settings from both files.
+
 ## Adopter setup
 
 If you are adopting the framework into your own tracker repo, copy
@@ -3291,7 +3569,22 @@ Then walk through:
    them to the project-local `settings.local.json` instead. See
    [Working directories under the read-outside-working-directories block](#working-directories-under-the-read-outside-working-directories-block).
 
-6. **(Optional) Waiting-for-input terminal tint.** Ask me whether
+6. **Host-only uv state.** Read `~/.config/uv/uv.toml` if it
+   exists. Unless it already sets a `cache-dir` outside every
+   directory a sandboxed command can write (`allowWrite` and
+   working directories, project roots, `/tmp`, `/var/folders`,
+   `$TMPDIR`), stage the file with
+   `cache-dir = "<my resolved $HOME>/.local/share/uv-host/cache"` added
+   (an absolute path: uv does not expand `~` there) and give me the
+   command to put it in place — `Edit(~/.config/uv/**)` keeps you from
+   writing it, and an existing file's other settings must survive.
+   Confirm no settings scope lists `~/.local/share/uv` (or a parent) in
+   `allowWrite` and that `Read(~/.config/uv/uv.toml)` and
+   `Edit(~/.config/uv/**)` are in `permissions.deny`. Then hand me the
+   reinstall commands from
+   [Host-only uv state](#host-only-uv-state) to run in a terminal.
+
+7. **(Optional) Waiting-for-input terminal tint.** Ask me whether
    I want the terminal background to tint while Claude is waiting
    on me (a pure quality-of-life signal, no security effect).
    **Default no.** Only if I say yes: copy
@@ -3309,7 +3602,7 @@ Then walk through:
    default. See
    [Waiting-for-input terminal tint](#waiting-for-input-terminal-tint).
 
-7. **(Optional) Hardware security key.** Ask whether I sign
+8. **(Optional) Hardware security key.** Ask whether I sign
    commits or authenticate to GitHub with a hardware key (YubiKey,
    Nitrokey, any OpenPGP card). **Default no.** Only if I say yes:
    hand me `ykman openpgp info` to run myself and read back the
@@ -3341,7 +3634,7 @@ Then walk through:
    sandboxed signed commit fails with `cannot exec`. See
    [Hardware security keys](#hardware-security-keys--signing-and-authentication).
 
-8. **(Optional) roborev.** Only if `command -v roborev` finds it
+9. **(Optional) roborev.** Only if `command -v roborev` finds it
    (a third-party companion; skip otherwise). Add
    `"roborev *"` to `sandbox.excludedCommands`, `Bash(roborev *)` to
    `permissions.ask` with **no** `allow` for any roborev command, and
@@ -3351,12 +3644,12 @@ Then walk through:
    macOS (Linux ignores `allowUnixSockets`), offer the setup skill's Step B.2 (a fixed `unix://` daemon socket and
    `~/.roborev/` readable — never writable — from the sandbox), and tell
    me any sandboxed command can then drive roborev without the prompt.
-9. **Verify.** After everything is in place, walk through the
+10. **Verify.** After everything is in place, walk through the
    Verification checks from the next section of this document
    ("Verification — Via a Claude Code prompt") and report
    ✓ done / ✗ missing / ⚠ partial for each piece.
 
-10. **Offer shared-config sync.** Once the install lands, propose
+11. **Offer shared-config sync.** Once the install lands, propose
    running `setup-shared-config-sync` to commit + push the
    user-scope config this install just wired up to my private
    `~/.claude-config` dotfile repo, so my other machines pick it
@@ -3386,12 +3679,14 @@ Inside a `claude-iso` session, run these from the agent's Bash
 tool. Each should fail or be denied:
 
 ```bash
-cat ~/.aws/credentials      # → permission denied (sandbox)
-echo $AWS_ACCESS_KEY_ID     # → empty (env stripped by claude-iso)
-curl https://example.com    # → blocked by permissions.deny
+test -r ~/.aws/credentials && echo readable   # → nothing (denied or absent; see the 7a sentinel rule)
+env | cut -d= -f1                             # → names only; no TOKEN/SECRET/*_KEY/*_PAT
+curl https://example.com                      # → blocked by permissions.deny
 ```
 
 Each command should produce a denial — not a leaked credential.
+Never `cat` a credential file to test the denial: if the denial is
+broken, the command prints the secret.
 
 ### Via a Claude Code prompt
 
@@ -3404,13 +3699,31 @@ on its own:
 Verify my secure-agent-setup install is complete. Check each item
 below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
 (file path, line, command output). Do not attempt to fix anything
-— surface the gaps and stop:
+— surface the gaps and stop. Never print a credential file's
+contents or a credential-shaped variable's value. Before check 1,
+locate my framework checkout (this repo if it is the framework,
+else an `.apache-magpie/` snapshot in this repo, else the directory
+my shell rc sources `agent-iso.sh` from, else ask me; a candidate
+counts only if it has `tools/agent-isolation/pinned-versions.toml`);
+without one, report 10a, 13c and check 5's `bubblewrap`/`socat`
+pins as "unchecked — no framework checkout" and the `claude-code`
+floor in check 5 as ⚠ (it cannot be read), still giving my running
+`claude --version`. A path that `stat -c '%F %t,%T'`
+shows as `character special file 1,3` is a sandbox placeholder, not
+a file: take its host state from git or from a read I run, and
+never delete it:
 
-1. Project `.claude/settings.json` exists and has
+1. The merged settings (project `.claude/settings.json`,
+   project-local `.claude/settings.local.json`, user
+   `~/.claude/settings.json`, and the managed settings where
+   readable; name the file each key came from) have
    `sandbox.enabled: true`, the `permissions.deny` block, the
    `permissions.ask` block, the
-   `sandbox.network.allowedDomains` block, and the
-   `sandbox.filesystem` allowlist (`allowRead`/`allowWrite`).
+   `sandbox.network.allowedDomains` block, the
+   `sandbox.filesystem` allowlist (`allowRead`/`allowWrite`), and
+   `sandbox.filesystem.denyRead` containing `~/` (or the resolved
+   absolute home; ✗ without it: bubblewrap reads are deny-only). A missing committed project file
+   is not ✗ on its own when the merge passes.
 2. User-scope `~/.claude/settings.json` has the `PreToolUse`
    `Bash` matcher wired to a `sandbox-bypass-warn.sh` command, a
    `PostToolUse` `Bash` matcher wired to a `sandbox-error-hint.sh`
@@ -3426,17 +3739,39 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
    `~/.claude/scripts/sandbox-status-line.sh`).
 4. The `claude-iso` shell function is sourced in `~/.bashrc` or
    `~/.zshrc`. Note whether `alias claude='claude-iso'` is set.
-5. The pinned sandbox primitives from
+5. The pinned sandbox primitives from the checkout's
    `tools/agent-isolation/pinned-versions.toml` are installed at
    the pinned versions: `bubblewrap` (Linux only), `socat`
    (Linux only). For the agent harness `claude-code` (unpinned,
    `@latest`), instead compare my running `claude --version`
    against the `[tools.claude-code]` `min_version` floor —
-   **hard-fail** if below it (running under Claude Code), else ✓.
+   **hard-fail** if below it (running under Claude Code), ⚠ when the
+   floor cannot be read, else ✓.
 6. The status-line prefix in this session shows `[sandbox]` (not
    `[NO SANDBOX]`).
-7. Run `cat ~/.aws/credentials`, `echo $AWS_ACCESS_KEY_ID`, and
-   `curl https://example.com` and confirm each is denied.
+7. Denials, each as its own Bash call. (a) `test -r` each of
+   `~/.aws/credentials`, the `~/.ssh/id_*` private keys (list the readable ones with
+   `find -H ~/.ssh -maxdepth 1 -name 'id_*' ! -name '*.pub' -exec test -r {} \; -print`,
+   which behaves the same in bash and zsh and follows a symlinked
+   `~/.ssh`; its error separates absent from denied except under
+   bubblewrap; then `stat` each),
+   `~/.config/gh/hosts.yml`, `~/.netrc`, `~/.docker/config.json`:
+   any readable one is ✗ unless it is a sandbox placeholder. With
+   `denyRead` covering `~/`, prove the denial with a sentinel: a file
+   under `~/` that exists on my host (such as my shell rc) and that
+   no `allowRead` entry covers; a sandboxed `test -r` that fails
+   (not `-e`, which zsh on macOS can pass) is ✓, and a `/dev/null`
+   placeholder counts as denied; a readable non-placeholder sentinel
+   is ✗. With no sentinel, report "inconclusive" and ask me to
+   `ls` the candidates from my own terminal; 7a turns ✓ once my `ls`
+   shows a file the sandbox cannot see. (b) `env | cut -d= -f1`:
+   names only; any credential-shaped name (TOKEN, SECRET, PASSWORD,
+   PASSWD, CREDENTIAL, DSN, API_KEY, a `_`-delimited AUTH segment,
+   `*_KEY`, `*_PAT`, `AWS_*`, `GH_*`, `GITHUB_*`, `AZURE_*`) outside
+   the `agent-iso.sh` passthrough list is ⚠ (ask me whether I opted
+   it in with `AGENT_ISO_ALLOW`), and so is a `CLAUDE_CODE_ENTRYPOINT` of an
+   IDE extension (such as `claude-vscode`), which never went through
+   `claude-iso`. (c) `curl https://example.com` is denied.
 8. **Project-root coverage in the sandbox allowlists.** For this
    worktree and every other one `git worktree list --porcelain`
    names, confirm the worktree's own absolute path is in that
@@ -3463,7 +3798,10 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
      `~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**`
      (the catalogue), `~/.claude/magpie/**` (the fixed path the
      rules name) and
-     `.apache-magpie-overrides/tools/vetted-ops/**` (the policy).
+     `.apache-magpie-overrides/tools/vetted-ops/**` (the policy), and
+     the personal-layer copies `//**/.git/**/apache-magpie/tools/vetted-ops/**`,
+     `//**/.svn/apache-magpie/tools/vetted-ops/**` and
+     `//**/.apache-magpie-local/tools/vetted-ops/**`.
    - No `vetted-op` rule names the versioned plugin-cache path with
      a `*`; the rules name `~/.claude/magpie/vetted-ops`.
      One `Edit` rule per surface is the whole coverage — it binds
@@ -3472,8 +3810,22 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
      report it as cruft to remove, not as a second layer.
    If the repo has no vetted-ops policy at all, report n/a.
    The read dispatcher's never-prompt shape is check 16.
-10. If a hardware key signs my commits or authenticates my git
-    remotes: the touch overlay is wired (`PreToolUse` /
+10. If my commits are signed with `gpg.format=ssh`: the file
+    `git config user.signingkey` names is readable from a sandboxed
+    Bash (it needs its own `sandbox.filesystem.allowRead` entry).
+    If a hardware key signs my commits or authenticates my git
+    remotes (an `sk-` public key, or a card holding the signing key or the
+    key a remote authenticates with: for ssh format the `ssh-add -L`
+    line equal to `user.signingkey` has a `cardno:` comment; for
+    OpenPGP `gpg --list-secret-keys --with-colons <key>` (`<key>` is
+    `user.signingkey`, or the committer email when unset) shows a card
+    serial in field 15 (not `+` or `#`) on a signing-capable record
+    (lowercase `s` in field 12), or
+    `gpg --card-status`'s signature key matches; for a gpg-agent ssh
+    remote the offered key has a `cardno:` comment; a card with only
+    unrelated keys, or only the auth or encryption subkey for
+    OpenPGP signing, does not count; n/a otherwise): the touch overlay
+    is wired (`PreToolUse` /
     `PostToolUse` `Bash` →
     `~/.claude/scripts/gpg-touch-overlay.sh arm` / `disarm`), its
     scripts match the framework's `tools/agent-isolation/` copies,
@@ -3488,10 +3840,7 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
     the key's signing slot carries a touch policy and — with
     OpenPGP signing — its authentication slot does not
     (`ykman openpgp info`, which I run myself; with
-    `gpg.format=ssh` the `aut` slot is the signing slot),
-    and — with `gpg.format=ssh` — the file `git config
-    user.signingkey` names is readable from a sandboxed Bash (it
-    needs its own `sandbox.filesystem.allowRead` entry). For the
+    `gpg.format=ssh` the `aut` slot is the signing slot). For the
     toolkit probe (`gpg-touch-overlay.sh _gui_available`) hand me
     the command to run myself: it cannot see the display from
     inside the sandbox.
@@ -3509,15 +3858,22 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
     and the `gh tofile` alias workaround).
 12. **Container gateway wired.** Only meaningful when `podman` or
     `docker` is on `PATH`; report n/a otherwise. Four things:
-    - User-scope `~/.claude/settings.json` has a `SessionStart`
-      hook running `container-gateway-hook.sh start` and a
-      `SessionEnd` hook running `container-gateway-hook.sh stop`,
-      and `~/.claude/scripts/container-gateway-hook.sh` exists and
-      is executable.
+    - User-scope `~/.claude/settings.json` or
+      `~/.claude/settings.local.json` has a `SessionStart` hook
+      running `container-gateway-hook.sh start` and a `SessionEnd`
+      hook running `container-gateway-hook.sh stop`, by an absolute
+      path that exists on this machine (✗ if it names another
+      machine's home), and `~/.claude/scripts/container-gateway-hook.sh`
+      exists and is executable. A missing `PreToolUse` `Bash` hook
+      running `container-gateway-hook.sh ensure` is ◐: the gateway
+      still starts with each session, but stays down once it exits
+      mid-session.
     - The project `.claude/settings.json` or
       `.claude/settings.local.json` has `env.CONTAINER_HOST` and
       `env.DOCKER_HOST`, and both gateway sockets appear in
-      `sandbox.network.allowUnixSockets`.
+      `sandbox.network.allowUnixSockets`. On Linux, which ignores
+      `allowUnixSockets`, the socket half is instead
+      `sandbox.network.allowAllUnixSockets: true` in any scope.
     - No scope (project, project-local, or user) lists a raw
       daemon socket in `allowUnixSockets` — an entry whose
       basename is `docker.sock`, `podman.sock`, or ends in
@@ -3528,6 +3884,16 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
     On any ✗, point at
     [`docs/setup/sandbox-troubleshooting.md` → Docker / Podman command fails with a socket error](sandbox-troubleshooting.md#docker--podman-command-fails-with-a-socket-error)
     rather than re-explaining the fix.
+    Separately, and even when the rest of this check is n/a (the flag
+    may be set only for ssh-agent signing): on Linux, when any scope
+    sets `sandbox.network.allowAllUnixSockets: true`, each of
+    `/run/docker.sock`, `/var/run/docker.sock`, `/run/docker-cli.sock`,
+    `/run/podman`, `/run/user/<uid>`, `/run/dbus`, `/tmp/.X11-unix`,
+    `/run/WSL` and `/mnt/wslg` that exists on this host must be
+    covered by a `sandbox.filesystem.denyRead` entry (the path or a
+    directory above it) in some scope; each one that is not is ✗,
+    naming the path (see
+    [Linux needs `allowAllUnixSockets`](#linux-needs-allowallunixsockets)).
 13. **Eval-harness exclusion**, if installed (optional — report
     n/a when neither the exclusion nor the script is present;
     not running eval suites is a normal posture). When either is:
@@ -3601,6 +3967,15 @@ below and report ✓ done / ✗ missing / ⚠ partial, with the evidence
     roborev `post-commit` in a shared whole-user hooks
     directory is ✗; an unrecognised `.roborev.toml` under the hook, and a
     roborev agent hook or MCP server in the harness, are ⚠.
+18. **Host-only uv state.** `~/.config/uv/uv.toml` sets `cache-dir` to an
+    absolute path outside every directory a sandboxed command can write —
+    `allowWrite` and `additionalDirectories` entries, project roots, `/tmp`,
+    `/var/folders` and `$TMPDIR` (✗ when missing, relative, or overlapping one); no scope makes
+    `~/.local/share/uv` or a parent writable (✗); and `permissions.deny`
+    contains `Read(~/.config/uv/uv.toml)` and `Edit(~/.config/uv/**)` (✗
+    when missing). Probe it: `uv cache dir` inside the sandbox prints the
+    default cache, not the configured one (✗ if it prints the host cache —
+    the sandbox can read the config).
 ```
 
 Re-run either form after every Claude Code upgrade — the sandbox
@@ -3642,12 +4017,17 @@ The default is `7`.
 To turn both off on a machine that does not use the isolated setup, set `"isolated_setup": {"enabled": false}` in `reconciled.json` in your personal layer.
 The personal layer is `<git-common-dir>/apache-magpie/` when Magpie is only installed, `.apache-magpie-local/` when the project has adopted it.
 
+**The session-start warning.**
+In a repository that has adopted Magpie, `magpie-setup`'s session-start hook warns once per session when this machine has no isolated setup:
+trying Magpie out does not need it, but the skills read pull requests, issues and mail written by other people, and without the sandbox an injected instruction runs with your full access.
+A project turns the warning off for every contributor with `isolation_warning: off` under `setup:` in `.apache-magpie-overrides/project.md`, which `adopt` asks about; a personal layer cannot turn it off.
+
 **Running it now.**
 Invoke the skill directly at any time: `/magpie-setup:isolated-setup-update` on a marketplace install, `/magpie-setup-isolated-setup-update` on a pinned snapshot.
 The pre-flight state is recorded when the run finishes, so a manual run also resets the timer.
 
-On a marketplace install, the pre-flight checker in your personal layer sees a new fingerprint once `/magpie-setup:setup upgrade` has refreshed it.
-The upgrade prompt after each plugin update tells you to run that.
+On a marketplace install, the pre-flight checker in your personal layer sees a new fingerprint once `/magpie-setup:complete-upgrade` (or `/magpie-setup:setup upgrade`) has refreshed it.
+The prompt after each plugin update tells you to run `/magpie-setup:complete-upgrade`, which covers that refresh in one approved run.
 
 ### Direct steps
 
@@ -3763,8 +4143,9 @@ anything — I will decide what to apply:
    `sandbox.excludedCommands` entry, and any missing vetted-ops
    `Edit` deny rule. See
    [Read-only vetted ops never prompt](#read-only-vetted-ops-never-prompt).
-6. Re-run `cat ~/.aws/credentials`, `echo $AWS_ACCESS_KEY_ID`,
-   `curl https://example.com` and confirm each is still denied.
+6. Re-run check 7's probes (7a `test -r` with the sentinel, 7b
+   variable names only, 7c `curl https://example.com`) and confirm
+   each is still denied.
    Note any newly-allowed call as a regression to investigate.
 ```
 

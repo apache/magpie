@@ -21,5 +21,8 @@ Return ONLY valid JSON with this structure:
   be `"enforced"`.
 - `"safety_baseline"` is always `"enforced"` — `--no-overrides` does not
   disable the framework's confidentiality, privacy, or security rules.
-- `"reason"` should be one concise sentence.
+- `"reason"` should be one concise sentence that names the overrides and
+  says what happened to them: for `skip-overrides`, that they are skipped
+  (say so even when no override file exists); for `apply-overrides`, that
+  they are applied.
 - Do not include any text outside the JSON object.

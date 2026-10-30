@@ -92,7 +92,7 @@ loaded in place of PonyMail. Skills do not change.
 |---|---|---|---|
 | `ponymail` | shipping | [`tools/ponymail/`](../ponymail/) (will be renamed to `tools/mail-archive-ponymail/` in PR3) | ASF's `lists.apache.org` deployment; PMC LDAP OAuth for private lists; anonymous read for public lists; load-bearing for the `security-issue-import`, `security-issue-sync`, and `security-issue-invalidate` skills today. |
 | `hyperkitty` | placeholder | not implemented | Mailman 3's archive UI. Same conceptual surface as PonyMail (per-list archive, search by month + query, per-thread permalink) but a different URL grammar and a different JSON API. |
-| `discourse` | placeholder | not implemented | Topic-based forum, with mailing-list-mode bridging. The verbs map onto Discourse's `/search.json` and `/t/<slug>/<id>.json` endpoints. |
+| `discourse` | partial | [`tools/discourse/`](../discourse/) | Topic reads and category activity lists, not a complete/selectable archive backend. `topic view` reuses `thread_data` fields in forum stream order, which may differ from chronological contract order. `topic list` reuses `thread_summary` fields in pinned/activity order, filters on `bumped_at` and keeps last-message time separate; it does not implement `list_recent_threads` or its ordering. Mega topics without an ID stream are unsupported; output does not classify visibility. All contract verbs remain follow-up work in [#307](https://github.com/apache/magpie/issues/307). |
 | `google-groups` | placeholder | not implemented | `groups.google.com` archives. Lacks a stable JSON read API; an adapter likely degrades to user-paste for the per-thread URL, the same way PonyMail does for private lists. |
 | `github-discussions` | placeholder | not implemented | GitHub's discussions feature, accessed via the GraphQL API the `gh` CLI already wraps. Useful for projects whose announcement channel is a `discussions` category rather than a mailing list. |
 | `none` | placeholder | not implemented | Explicit *"no archive backend"* declaration. Every verb returns `null` / no-op; the consuming skill falls back to user-paste or to a *"not available"* note in the tracker body field. Useful for projects that do not host their security discussions on an archived list at all (private-only intake forms, chat-channel intake). |
@@ -235,10 +235,17 @@ skill surfaces the gap without distinguishing reason.
 **When it fires.** Step 1h / Step 2b of `security-issue-sync` — the
 sync skill polls for the *"advisory archived on `<users-list>`"*
 signal that flips the tracker from `fix released` to `announced`.
-Today the ASF adapter resolves this by curling
-`https://lists.apache.org/list.html?<users-list>:YYYY:<CVE-ID>` and
-checking for a 200 response with a thread hit; other adapters
-implement the equivalent against their own search APIs.
+Today the ASF adapter searches
+`https://lists.apache.org/list.html?<users-list>:YYYY:<CVE-ID>` for
+thread hits; other adapters implement the equivalent against their
+own search APIs. A text search matches **any** public post that
+mentions the advisory ID (a user question, a reply, a forward), so a
+hit is only a candidate: the adapter narrows it to a thread whose
+list is the configured public advisory list and whose root subject
+is the advisory's own (`<CVE-ID>: <description>`, the subject the
+CVE tool sends; never a `Re:` / `Fwd:`), and the skill re-checks
+that with `security-management issue-sync advisory-archive` and
+shows the URL to the human before recording it.
 
 **Inputs.**
 
@@ -263,8 +270,8 @@ matches.
 - The adapter is `none` (no archive backend declared).
 
 The skill treats `null` as *"not yet archived"* and re-checks on the
-next sync run. A non-null return is a load-bearing signal — it
-triggers the multi-step `fix released to announced` close-out flow
+next sync run. A non-null return is a load-bearing signal — once the
+human confirms the URL, it triggers the multi-step `fix released to announced` close-out flow
 in `security-issue-sync` Step 4 (label flips, CVE JSON
 regeneration, Vulnogram `REVIEW to PUBLIC` push, milestone close,
 board archival, RM hand-off comment).

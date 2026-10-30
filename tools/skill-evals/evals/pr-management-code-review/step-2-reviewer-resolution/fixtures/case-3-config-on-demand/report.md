@@ -9,7 +9,7 @@ The `magpie-adversarial-review` plugin is installed.
 ```yaml
 adversarial_review:
   mode: on-demand
-  reviewers: [codex, gemini]
+  reviewers: [codex, antigravity]
 ```
 
 `AGENTS.md` has a `## Review preferences` section naming `/codex:adversarial-review`.

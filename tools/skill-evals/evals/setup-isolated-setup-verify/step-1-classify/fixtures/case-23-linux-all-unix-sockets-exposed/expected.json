@@ -1,0 +1,15 @@
+{
+  "snapshot_drift": "none",
+  "checks": [
+    {
+      "n": 1,
+      "status": "✓",
+      "evidence": "sandbox.enabled: true; deny and ask lists present; network and filesystem allowlists configured"
+    },
+    {
+      "n": 12,
+      "status": "✗",
+      "evidence": "12a–12d pass (hooks, script, env pair, allowAllUnixSockets on Linux, no raw daemon socket); 12e fails: allowAllUnixSockets is true but denyRead (only ~/) does not cover /run/docker.sock, /var/run/docker.sock, /run/user/1000, /run/dbus, /tmp/.X11-unix, which exist on the host"
+    }
+  ]
+}

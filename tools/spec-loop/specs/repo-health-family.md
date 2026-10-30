@@ -75,6 +75,21 @@ grouped, prioritised report → wait for confirmation before any write.
   forbidden. Read-only; it proposes remediation (replace, remove, or
   request a relicense) and never edits a manifest or lock file. Ships
   `mode: Triage` + `experimental` with an eval suite.
+- Eighth skill: `workflow-optimization` (reviews one repository's
+  workflows and seven days of run history against the ASF Infra page
+  *Optimizing GitHub Actions workflows*, its source of truth, and produces a
+  prioritised plan to cut runner use: duplicate triggers, job consolidation,
+  scheduled canaries, timeouts, `ubuntu-slim`, Dependabot noise). Read-only;
+  ships `mode: Triage` + `experimental` with an eval suite.
+  The checks live in `workflow-optimization/checks.md`, tiered `P0` (broken
+  or about to break) to `P3` (needs community agreement); they include a
+  required check that a failed or cancelled dependency leaves skipped
+  (`P0-skipped-gate`, remedied by one `if: always()` umbrella job as the only
+  required context), cache entries that never restore (`P2-cache-miss`), and
+  per-run `apt-get` installs (`P2-apt-install`) (#1783).
+  `scripts/summarize_runs.py` summarises the run and job TSVs fetched in
+  Step 1. The GitHub Actions Policy, `.asf.yaml` and `creation_cap` checks
+  run only when `project.md` declares `organization: ASF`.
 - Design docs: `docs/repo-health/README.md` — family overview and the
   adopter-config scaffold.
 - Adopter config: `plugins/magpie-setup/templates/repo-health-config.md`
@@ -152,6 +167,7 @@ test -f .agents/skills/magpie-workflow-security-audit/SKILL.md
 test -f .agents/skills/magpie-dependency-audit/SKILL.md
 test -f .agents/skills/magpie-license-compliance-audit/SKILL.md
 test -f .agents/skills/magpie-flaky-test-triage/SKILL.md
+test -f .agents/skills/magpie-workflow-optimization/SKILL.md
 uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-validate
 ```
 

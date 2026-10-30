@@ -27,6 +27,7 @@
 # Generated dependency lock files
 **/*.lock
 *.lock
+package-lock.json
 
 # Python bytecode caches (untracked; present only in local runs)
 **/__pycache__/**

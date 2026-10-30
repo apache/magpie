@@ -148,7 +148,7 @@ agent_iso_run() {
   # Only named variables pass through; setting KEY=value alone is insufficient.
   # The neutral name takes precedence, including an explicitly empty value.
   # CLAUDE_ISO_ALLOW remains the backwards-compatible fallback for every CLI.
-  # Example (key already set): AGENT_ISO_ALLOW=GEMINI_API_KEY agent-iso gemini
+  # Example (Linux keyring): AGENT_ISO_ALLOW=DBUS_SESSION_BUS_ADDRESS agent-iso agy
   local allowed_env_vars="${AGENT_ISO_ALLOW-${CLAUDE_ISO_ALLOW-}}"
   if [[ -n "$allowed_env_vars" ]]; then
     # Word-split portably: zsh doesn't split unquoted parameters by default
@@ -272,6 +272,27 @@ agent_iso_run() {
     fi
   fi
 
+  # Goose has no sandbox of its own, so the whole process runs inside the
+  # sandbox runtime, in approve mode, through the launcher of the installed
+  # Magpie plugin (docs/adapters/goose.md). Refuse rather than fall back to an
+  # unsandboxed Goose when the launcher or Node is missing.
+  if [[ "$agent" == "goose" ]]; then
+    local goose_plugin="${MAGPIE_GOOSE_PLUGIN:-$HOME/.agents/plugins/magpie}"
+    local goose_launch="$goose_plugin/tools/agent-isolation/goose/launch.ts"
+    local node_bin
+    if [[ -n "${ZSH_VERSION-}" ]]; then
+      node_bin="$(whence -p node 2>/dev/null || true)"
+    else
+      node_bin="$(type -P node 2>/dev/null || true)"
+    fi
+    if [[ ! -f "$goose_launch" || -z "$node_bin" ]]; then
+      echo "goose-iso: needs node and the Magpie Goose plugin at $goose_plugin (goose plugin install https://github.com/apache/magpie). Not starting Goose unsandboxed." >&2
+      return 127
+    fi
+    set -- "$goose_launch" "$agent_bin" "$@"
+    agent_bin="$node_bin"
+  fi
+
   # When the user has aliased `claude=claude-iso`, an interactive
   # session looks indistinguishable from a normal `claude` launch.
   # Print a one-line banner on stderr (dim if a TTY) so it's obvious
@@ -310,7 +331,7 @@ claude_iso_main() { agent_iso_run "${AGENT_ISO_AGENT:-claude}" "$@"; }
 # Generic entry point:
 #   agent-iso() / `bash agent-iso.sh agent-iso <cli> [args]` takes the
 #   harness CLI name as its first positional argument and works for ANY
-#   agentic harness — Codex, Cursor, Gemini CLI, Aider, or any future CLI.
+#   agentic harness — Codex, Cursor, Antigravity (`agy`), Aider, or any future CLI.
 #   The credential-strip and clean-env launch are harness-agnostic; only the
 #   `--settings` sandbox allowRead injection is skipped (it is Claude-specific
 #   and already guarded by `if [[ "$agent" == "claude" ]]`).

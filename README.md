@@ -25,7 +25,7 @@
 [![Magpie](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/apache/magpie/main/assets/badge.json)](https://magpie.apache.org/)
 
 **Adopt a Magpie.** Magpie is a curated set of skills for the AI agent you
-already use — Claude Code, Codex, Gemini CLI, Copilot and others — that take
+already use — Claude Code, Codex, Antigravity, Copilot and others — that take
 on the repetitive parts of running an open-source project: triaging issues and
 pull requests, reviewing code, mentoring contributors, drafting fixes, and
 handling security reports end to end.
@@ -74,12 +74,13 @@ in the agent you already use. Nothing is written to your repository.
 ```text
 /plugin marketplace add apache/magpie                # Claude Code
 /plugin install magpie-setup@apache-magpie           # install this one first
+/plugin install magpie-vetted-ops@apache-magpie      # always: the skills run on it
 /plugin install magpie-agent-guard@apache-magpie     # the baseline:
-/plugin install magpie-utilities@apache-magpie       #   take all three
+/plugin install magpie-utilities@apache-magpie       #   take all four
 /plugin install magpie-pr-management@apache-magpie   # + the families you need
 ```
 
-Those first three are the **baseline** — and the same set a project commits as
+Those first four are the **baseline** — and the same set a project commits as
 its floor when it adopts Magpie, so taking them is taking what a project would
 recommend to every contributor. After that, install **one plugin per family you
 actually want**: every installed skill costs context on every turn, used or
@@ -90,8 +91,8 @@ Once `magpie-setup` is in, you never type these again — ask in plain language
 (*"install the Magpie families for PR review"*) and the setup skill runs the
 installs for you.
 
-Codex, VS Code / Copilot, and Gemini are one-liners too — the
-[quick start](docs/quick-start.md) has all four, plus what to run next to put
+Codex, VS Code / Copilot, Antigravity, Pi and Goose are short too — the
+[quick start](docs/quick-start.md) has each of them, plus what to run next to put
 the agent in its sandbox. Nothing is committed to your repository.
 
 **Fallback — the pinned snapshot install.** Use it when a marketplace is not
@@ -175,13 +176,13 @@ means and which modes are still proposed vs. shipping today.
 
 | Family | Type | Modes | Purpose | Detail |
 |---|---|---|---|---|
-| [**setup**](docs/setup/README.md) | always-on | (infra) | Isolated agent setup, framework install + maintenance, shared-config sync. The prerequisite — at minimum the `setup` skill itself runs out of this family. | 11 skills, [`docs/setup/`](docs/setup/) |
+| [**setup**](docs/setup/README.md) | always-on | (infra) | Isolated agent setup, framework install + maintenance, shared-config sync. The prerequisite — at minimum the `setup` skill itself runs out of this family. | 12 skills, [`docs/setup/`](docs/setup/) |
 | **utilities** | always-on | (meta) | Framework meta-skills: author skills (`write-skill`), restructure them (`optimize-skill`), reconcile skill state (`skill-reconciler`), report framework issues (`report-framework-issue`), and print a live index (`list-skills`). | 5 skills |
-| [**security**](docs/security/README.md) | opt-in | Triage, Drafting | 16-step security-issue handling lifecycle — from `security@` import through CVE publication, including state sync — plus producing, verifying, and maintaining the project's own security model. Maintainer-only. | 15 skills, [`docs/security/`](docs/security/) |
+| [**security**](docs/security/README.md) | opt-in | Triage, Drafting | 16-step security-issue handling lifecycle — from `security@` import through CVE publication, including state sync — plus producing, verifying, and maintaining the project's own security model. Maintainer-only. | 16 skills, [`docs/security/`](docs/security/) |
 | [**pr-management**](docs/pr-management/README.md) | opt-in | Triage | Maintainer-facing PR-queue management — triage, stats, deep code review, stack review, express-lane merge, stale-sweep, reviewer routing, and pre-first-PR checks. | 9 skills, [`docs/pr-management/`](docs/pr-management/README.md) |
 | [**issue**](docs/issue-management/README.md) | opt-in | Triage, Drafting | General-issue lifecycle: triage, reproduction, fix drafting, reassess, stale-sweep, deduplication, and backlog reporting. | 8 skills, [`docs/issue-management/`](docs/issue-management/README.md) |
 | [**release-management**](docs/release-management/README.md) | opt-in | Triage, Drafting | 14-step ASF release lifecycle, planning issue, RC cut + sign, `[VOTE]` thread, tally, promote, `[ANNOUNCE]`, archive, audit log. Agent never holds the RM's signing key and never publishes the release. **Experimental**, all 10 skills shipped. | 10 skills, [`docs/release-management/`](docs/release-management/) |
-| [**repo-health**](docs/repo-health/README.md) | opt-in | Triage | Read-only repository-health audits: obsolete runner labels, Actions workflow security, dependency vulnerabilities, dependency licence review, license/NOTICE compliance, flaky-test patterns, plus audit-finding fixes. | 7 skills, [`docs/repo-health/`](docs/repo-health/) |
+| [**repo-health**](docs/repo-health/README.md) | opt-in | Triage | Read-only repository-health audits: obsolete runner labels, Actions workflow security, dependency vulnerabilities, dependency licence review, license/NOTICE compliance, flaky-test patterns, workflow runner-usage optimization, plus audit-finding fixes. | 8 skills, [`docs/repo-health/`](docs/repo-health/) |
 | [**pairing**](docs/pairing/README.md) | opt-in | Pairing | Pair a change with a structured self-review or a multi-agent adversarial review before it lands. | 2 skills, [`docs/pairing/`](docs/pairing/README.md) |
 | [**mentoring**](docs/mentoring/README.md) | opt-in | Mentoring | Newcomer-facing mentoring — first-contact welcome, newcomer-issue explanations, and good-first-issue authoring + backlog curation. **Experimental**. | 4 skills, [`docs/mentoring/`](docs/mentoring/README.md) |
 | [**contributor-growth**](docs/contributor-growth/README.md) | opt-in | Triage, Mentoring | The path-to-committer track: activity sweeps, nomination briefs, contributor-sentiment signals, readiness tracking, threshold calibration, candidate screening, committer / post-vote onboarding, and contributor identity mapping across Slack, Discord, and social media. | 9 skills, [`docs/contributor-growth/`](docs/contributor-growth/README.md) |

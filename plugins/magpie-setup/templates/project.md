@@ -31,6 +31,7 @@
     - [Tracker](#tracker)
     - [Advisory records](#advisory-records)
     - [Scope detection](#scope-detection)
+    - [Invalidate](#invalidate)
     - [Release process](#release-process)
     - [Roster](#roster)
     - [Product](#product)
@@ -173,13 +174,16 @@ for the GitHub-native baseline). Override a key in the
 [Security workflow configuration → CVE authority](#cve-authority) block only
 if this project's CNA setup genuinely differs from its organization.
 
-For **ASF adopters**, fill in the per-project CNA queue fields below — each
-ASF project has its own queue slug and org UUID, so these are not org-level:
+The CNA's org UUID (`asf_org_id`, the `assignerOrgId` of every record) is
+org-level too: the ASF CNA uses one UUID for every Apache project, and the
+ASF organization supplies it.
+It is not needed to allocate a CVE; only the generated CVE JSON carries it.
+
+For **ASF adopters**, fill in the per-project CNA queue fields below:
 
 | Key | Value |
 |---|---|
-| `asf_org_id` | TODO: project's CNA org UUID — e.g. `f0158376-9dc2-43b6-827c-5f631a4d8d09` |
-| `cna_private_owner` | TODO: e.g. `foo` (CNA_private.owner — the project slug inside the ASF CNA queue) |
+| `cna_private_owner` | TODO: e.g. `foo` (CNA_private.owner — the PMC's name in Vulnogram, the lower-case project slug) |
 | `cna_private_projecturl` | TODO: e.g. `https://foo.apache.org/` |
 | `cna_private_userslist` | TODO: e.g. `users@foo.apache.org` |
 
@@ -384,6 +388,11 @@ security_inbox:
   # The concrete inbound address / channel ID / form URL for this project.
   # Consumed by: security-issue-import, security-issue-sync, canned-responses.
   address: <security-list>
+  # Optional override: addresses that send CVE-tool bookkeeping mail.
+  # ASF projects inherit security@apache.org; if overriding this list, repeat
+  # that address and add the active CNA reviewers.
+  # Consumed by: security-issue-import's Step 1 pre-filter.
+  # cve_tool_senders: [security@apache.org, reviewer@apache.org]
 ```
 
 **Optional override — `reporter_response_timeout_days`.** Days of
@@ -601,6 +610,24 @@ scope_detection:
       product: "<Secondary Product Name>"
       packageName: "<secondary-package-name>"
       path_prefix: "<secondary-path-prefix-regex>"
+```
+
+### Invalidate
+
+Per-project — labels `security-issue-invalidate` leaves on a tracker it
+closes as invalid. By default it removes `needs triage`, the scope label
+and `pr created` / `pr merged`; list here the ones to keep (e.g. so
+archived invalid trackers stay filterable by component):
+
+```yaml
+invalidate:
+  # `scope` keeps whichever scope label is set, `pr` keeps `pr created` /
+  # `pr merged`, any other entry is a literal label name. `needs triage`
+  # is always removed (an entry for it is ignored with a warning).
+  # Empty or absent: remove them all.
+  # Consumed by: security-issue-invalidate (Step 5a).
+  keep_labels: []
+  # keep_labels: [scope, pr]
 ```
 
 ### Release process

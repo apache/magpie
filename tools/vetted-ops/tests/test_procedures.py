@@ -71,8 +71,14 @@ class FakeGh:
         body: str = "",
         legacy: dict[str, object] | None = None,
         fail_on: str | None = None,
+        collaborators: list[str] | None = None,
+        drop_patches: bool = False,
     ) -> None:
         self.comments = comments or []
+        #: A PATCH lands on the matching comment unless this is set (a concurrent overwrite).
+        self.drop_patches = drop_patches
+        #: Set to None to make the collaborator listing fail, as it does without push access.
+        self.collaborators: list[str] | None = ["alice", "bob"] if collaborators is None else collaborators
         self.body = body
         self.legacy = legacy or {}
         self.fail_on = fail_on
@@ -84,12 +90,21 @@ class FakeGh:
             return 1, b"", b"HTTP 500\n"
         if argv == ["gh", "api", "user", "--jq", ".login"]:
             return 0, b"alice\n", b""
+        if argv == ["gh", "api", f"repos/{TRACKER}/collaborators", "--paginate", "--jq", ".[].login"]:
+            if self.collaborators is None:
+                return 1, b"", b"HTTP 403\n"
+            return 0, "".join(f"{c}\n" for c in self.collaborators).encode(), b""
         if argv[:2] == ["gh", "issue"] and argv[2] == "view" and "comments" in argv:
             return 0, json.dumps({"comments": self.comments}).encode(), b""
         if argv[:2] == ["gh", "issue"] and argv[2] == "view" and "body" in argv:
             return 0, (self.body + "\n").encode(), b""
         if argv[:2] == ["gh", "api"] and "-X" not in argv:
             return 0, json.dumps(self.legacy).encode(), b""
+        if argv[:2] == ["gh", "api"] and "PATCH" in argv and stdin is not None and not self.drop_patches:
+            target = argv[2].rsplit("/", 1)[-1]
+            for comment in self.comments:
+                if str(comment.get("url") or "").endswith(f"-{target}"):
+                    comment["body"] = stdin.decode()
         if argv[:3] == ["gh", "issue", "comment"]:
             return 0, b"https://github.com/acme/tracker/issues/7#issuecomment-901\n", b""
         return 0, b"", b""
@@ -107,9 +122,10 @@ def runner(fake: FakeGh, *, writes: bool = True, dry_run: bool = False) -> proce
     return procedures.Runner(TRACKER, allow_writes=writes, dry_run=dry_run, exec_fn=fake)
 
 
-def rollup_comment(body: str, rest_id: str = "555") -> dict[str, object]:
+def rollup_comment(body: str, rest_id: str = "555", author: str = "alice") -> dict[str, object]:
     return {
         "id": "IC_kwDOnode",
+        "author": {"login": author},
         "url": f"https://github.com/acme/tracker/issues/7#issuecomment-{rest_id}",
         "body": body,
     }
@@ -377,6 +393,7 @@ def test_amend_refuses_without_a_rollup() -> None:
 
 def legacy_comment(**overrides: object) -> dict[str, object]:
     base: dict[str, object] = {
+        "id": 999,
         "body": "   Status: assessed\n   more",
         "user": {"login": "carol"},
         "created_at": "2025-12-24T10:00:00Z",
@@ -418,6 +435,152 @@ def test_fold_refuses_a_legacy_marker_rollup() -> None:
     fake = FakeGh(legacy=legacy_comment(body=existing_rollup("Import", marker=LEGACY_MARKER)))
     with pytest.raises(procedures.ProcedureRefused, match="is the rollup itself"):
         procedures.rollup_fold(runner(fake), number="7", comment_id="555", action="x")
+    assert fake.writes == []
+
+
+def dated_rollup(*dates: str, marker: str = MARKER, user: str = "bob") -> str:
+    entries = [
+        rollup_format.build_entry(date=d, user=user, action=f"Step {d}", body=f"entry {d}") for d in dates
+    ]
+    body = f"{marker}\n{entries[0]}"
+    for e in entries[1:]:
+        body = rollup_format.rebuild_with_appended_entry(body, e)
+    return body
+
+
+def test_fold_merges_a_second_legacy_rollup_by_date() -> None:
+    canonical = dated_rollup("2026-01-01", "2026-03-01")
+    fake = FakeGh(
+        comments=[rollup_comment(canonical)],
+        legacy=legacy_comment(
+            body=dated_rollup("2026-02-01", "2026-04-01", marker=LEGACY_MARKER, user="carol"),
+            user={"login": "bob"},
+        ),
+    )
+    procedures.rollup_fold(runner(fake), number="7", comment_id="999", action="x")
+    (patch, stdin), (delete, _) = fake.writes
+    assert patch[2].endswith("/comments/555") and "PATCH" in patch
+    assert delete == ["gh", "api", f"repos/{TRACKER}/issues/comments/999", "-X", "DELETE"]
+    assert stdin is not None
+    merged = stdin.decode()
+    assert [e.date for e in rollup_format.iter_entries(merged)] == [
+        "2026-01-01",
+        "2026-02-01",
+        "2026-03-01",
+        "2026-04-01",
+    ]
+    # The canonical rollup's own text survives byte for byte.
+    first, second = canonical.split("\n\n---\n\n")
+    assert merged.startswith(first) and second in merged
+
+
+def test_fold_refuses_a_second_rollup_that_is_the_rollup() -> None:
+    body = dated_rollup("2026-01-01", marker=LEGACY_MARKER)
+    fake = FakeGh(comments=[rollup_comment(body, rest_id="999")], legacy=legacy_comment(body=body))
+    with pytest.raises(procedures.ProcedureRefused, match="is the rollup itself"):
+        procedures.rollup_fold(runner(fake), number="7", comment_id="999", action="x")
+    assert fake.writes == []
+
+
+def test_fold_refuses_a_second_rollup_with_an_unparsed_entry() -> None:
+    legacy = f"{LEGACY_MARKER}\n<details><summary>free text</summary>\n\nold\n\n</details>"
+    fake = FakeGh(
+        comments=[rollup_comment(dated_rollup("2026-01-01"))],
+        legacy=legacy_comment(body=legacy, user={"login": "bob"}),
+    )
+    with pytest.raises(procedures.ProcedureRefused, match="not `date · @user · action`"):
+        procedures.rollup_fold(runner(fake), number="7", comment_id="999", action="x")
+    assert fake.writes == []
+
+
+def test_fold_refuses_a_second_rollup_with_content_the_parser_skips() -> None:
+    # A split open tag is invisible to the parser; deleting the comment after
+    # merging only the parsed entry would lose it.
+    legacy = (
+        dated_rollup("2026-02-01", marker=LEGACY_MARKER)
+        + "\n\n---\n\n<details>\n<summary>2026-02-02 · @bob · Split</summary>\n\nlost\n\n</details>"
+    )
+    fake = FakeGh(
+        comments=[rollup_comment(dated_rollup("2026-01-01"))],
+        legacy=legacy_comment(body=legacy, user={"login": "bob"}),
+    )
+    with pytest.raises(procedures.ProcedureRefused, match="content outside its parsed entries"):
+        procedures.rollup_fold(runner(fake), number="7", comment_id="999", action="x")
+    assert fake.writes == []
+
+
+def test_fold_keeps_the_second_rollup_when_the_merge_did_not_land() -> None:
+    # A concurrent rollup write between the read and the PATCH: the merged
+    # entries are not there afterwards, so the source must survive.
+    fake = FakeGh(
+        comments=[rollup_comment(dated_rollup("2026-01-01"))],
+        legacy=legacy_comment(body=dated_rollup("2026-02-01", marker=LEGACY_MARKER), user={"login": "bob"}),
+        drop_patches=True,
+    )
+    with pytest.raises(procedures.ProcedureRefused, match="not deleted"):
+        procedures.rollup_fold(runner(fake), number="7", comment_id="999", action="x")
+    assert not any("DELETE" in argv for argv, _ in fake.calls)
+
+
+def test_fold_refuses_when_an_entry_holds_a_nested_details_block() -> None:
+    quoted = "<details><summary>2025-12-01 · @x · Example</summary>\n\nq\n\n</details>"
+    canonical = f"{MARKER}\n" + rollup_format.build_entry(
+        date="2026-01-01", user="bob", action="A", body=quoted
+    )
+    fake = FakeGh(
+        comments=[rollup_comment(canonical)],
+        legacy=legacy_comment(body=dated_rollup("2026-02-01", marker=LEGACY_MARKER), user={"login": "bob"}),
+    )
+    with pytest.raises(procedures.ProcedureRefused, match="nested <details>"):
+        procedures.rollup_fold(runner(fake), number="7", comment_id="999", action="x")
+    assert fake.writes == []
+
+
+def test_fold_keeps_the_source_when_another_comment_is_the_rollup_afterwards() -> None:
+    # The destination vanished after the PATCH: the lookup now finds the
+    # legacy source itself, whose entries would pass a content check.
+    source = dated_rollup("2026-02-01", marker=LEGACY_MARKER)
+    fake = FakeGh(
+        comments=[rollup_comment(dated_rollup("2026-01-01"))],
+        legacy=legacy_comment(body=source, user={"login": "bob"}),
+    )
+    real_call = fake.__call__
+
+    def vanishing(argv: list[str], stdin: bytes | None) -> tuple[int, bytes, bytes]:
+        result = real_call(argv, stdin)
+        if "PATCH" in argv:
+            fake.comments = [rollup_comment(source, rest_id="999")]
+        return result
+
+    r = procedures.Runner(TRACKER, allow_writes=True, dry_run=False, exec_fn=vanishing)
+    with pytest.raises(procedures.ProcedureRefused, match="not deleted"):
+        procedures.rollup_fold(r, number="7", comment_id="999", action="x")
+    assert not any("DELETE" in argv for argv, _ in fake.calls)
+
+
+def test_fold_refuses_a_second_rollup_by_an_untrusted_author() -> None:
+    # Its entries claim their own `@user` and date, so a non-collaborator could
+    # otherwise forge entries into the rollup.
+    fake = FakeGh(
+        comments=[rollup_comment(dated_rollup("2026-01-01"))],
+        legacy=legacy_comment(
+            body=dated_rollup("2026-02-01", marker=LEGACY_MARKER), user={"login": "mallory"}
+        ),
+    )
+    with pytest.raises(procedures.ProcedureRefused, match="is not a collaborator"):
+        procedures.rollup_fold(runner(fake), number="7", comment_id="999", action="x")
+    assert fake.writes == []
+
+
+def test_fold_identifies_a_second_rollup_by_its_fetched_id() -> None:
+    # A zero-padded caller id must not slip past the "is the rollup" check.
+    body = dated_rollup("2026-01-01", marker=LEGACY_MARKER)
+    fake = FakeGh(
+        comments=[rollup_comment(body, rest_id="999")],
+        legacy=legacy_comment(body=body, user={"login": "bob"}),
+    )
+    with pytest.raises(procedures.ProcedureRefused, match="is the rollup itself"):
+        procedures.rollup_fold(runner(fake), number="7", comment_id="0999", action="x")
     assert fake.writes == []
 
 
@@ -813,3 +976,42 @@ def test_tracker_console_script_is_declared() -> None:
 
     pyproject = tomllib.loads((Path(__file__).parents[1] / "pyproject.toml").read_text())
     assert pyproject["project"]["scripts"]["vetted-op-tracker"] == "vetted_ops:main_tracker"
+
+
+# --- rollup authorship: a marker comment by an outsider is not the rollup ----------
+
+
+def test_append_ignores_a_marker_comment_by_a_non_collaborator() -> None:
+    decoy = rollup_comment(existing_rollup("Import"), rest_id="666", author="outsider")
+    real = rollup_comment(existing_rollup("Import"), rest_id="222", author="bob")
+    fake = FakeGh(comments=[decoy, real])
+    procedures.rollup_append(runner(fake), number="7", action="Sync", text="x")
+    targets = [a for a, _ in fake.writes]
+    assert any("issues/comments/222" in " ".join(a) for a in targets)
+    assert not any("666" in " ".join(a) for a in targets)
+
+
+def test_append_creates_a_rollup_when_only_a_decoy_exists() -> None:
+    decoy = rollup_comment(existing_rollup("Import"), rest_id="666", author="outsider")
+    fake = FakeGh(comments=[decoy])
+    procedures.rollup_append(runner(fake), number="7", action="Sync", text="x")
+    ((argv, _stdin),) = fake.writes
+    assert argv[:3] == ["gh", "issue", "comment"]
+
+
+def test_amend_refuses_when_only_a_decoy_exists() -> None:
+    decoy = rollup_comment(existing_rollup("Import"), rest_id="666", author="outsider")
+    fake = FakeGh(comments=[decoy])
+    with pytest.raises(procedures.ProcedureRefused, match="no rollup"):
+        procedures.rollup_amend_latest(runner(fake), number="7", action="Import", text="x")
+    assert fake.writes == []
+
+
+def test_without_the_collaborator_list_another_authors_rollup_is_refused() -> None:
+    # bob may be a collaborator: appending could start a second rollup.
+    by_bob = rollup_comment(existing_rollup("Import"), rest_id="222", author="bob")
+    fake = FakeGh(comments=[by_bob])
+    fake.collaborators = None
+    with pytest.raises(procedures.ProcedureRefused, match="cannot list collaborators"):
+        procedures.rollup_append(runner(fake), number="7", action="Sync", text="x")
+    assert fake.writes == []

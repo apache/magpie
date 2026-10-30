@@ -29,6 +29,8 @@ import json
 import subprocess
 from pathlib import Path
 
+import pytest
+
 SCRIPT = Path(__file__).parent.parent / "sandbox-error-hint.sh"
 DOC = "docs/setup/sandbox-troubleshooting.md"
 
@@ -135,12 +137,49 @@ class TestKnownSignatures:
         assert result.returncode == 1
         assert f"{DOC}#docker--podman-command-fails-with-a-socket-error" in result.stderr
 
+    @pytest.mark.parametrize(
+        "stderr",
+        [
+            (
+                "Error response from daemon: container-gateway: label-check: buildx_buildkit_default does not "
+                "belong to this project; see docs/setup/sandbox-troubleshooting.md#docker--podman-command-fails-with-a-socket-error"
+            ),
+            "ERROR: failed to dial gRPC: unable to upgrade to h2c, received 403",
+        ],
+    )
+    def test_gateway_policy_refusal_signature(self, stderr: str) -> None:
+        result = _run(_bash(stderr=stderr))
+        assert result.returncode == 1
+        assert f"{DOC}#docker--podman-command-fails-with-a-socket-error" in result.stderr
+        assert "report the refusal to the user" in result.stderr
+
+    def test_gateway_backend_error_is_not_a_policy_refusal(self) -> None:
+        # A 502 is a backend outage, not a policy decision, and carries no catalog pointer.
+        result = _run(_bash(stderr="Error response from daemon: container-gateway: backend timed out"))
+        assert result.returncode == 0
+
     def test_tmp_signature(self) -> None:
         result = _run(
             _bash(stderr="mktemp: failed to create directory via template '/tmp/tmp.XXXXXXXXXX': Read-only file system")
         )
         assert result.returncode == 1
         assert f"{DOC}#temp-files-fail-with-read-only-file-system-under-tmp" in result.stderr
+
+    def test_bwrap_read_only_placeholder_beats_the_tmp_branch(self) -> None:
+        # A project under /tmp would otherwise match the /tmp branch.
+        result = _run(
+            _bash(stderr="bwrap: Can't create file at /tmp/proj/.claude/settings.json: Read-only file system")
+        )
+        assert result.returncode == 1
+        assert f"{DOC}#every-bash-call-fails-with-bwrap-cant-create-file--read-only-file-system" in result.stderr
+        assert "temp-files-fail" not in result.stderr
+
+    def test_bwrap_read_only_placeholder_with_a_space_in_the_path(self) -> None:
+        result = _run(
+            _bash(stderr="bwrap: Can't create file at /home/u/My Repos/p/.mcp.json: Read-only file system")
+        )
+        assert result.returncode == 1
+        assert f"{DOC}#every-bash-call-fails-with-bwrap-cant-create-file--read-only-file-system" in result.stderr
 
     def test_string_shaped_tool_response(self) -> None:
         payload = json.dumps(

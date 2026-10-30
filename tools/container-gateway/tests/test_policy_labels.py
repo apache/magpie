@@ -138,6 +138,56 @@ def test_resource_create_label_spelling_collision_is_denied(
     assert isinstance(d, Deny) and d.reason.startswith("ambiguous-field")
 
 
+@pytest.mark.parametrize(
+    ("path", "body"),
+    [
+        # The `local` driver with `type=none,device=/,o=bind` is a host-root
+        # bind mount; the label injected here would let a container mount it.
+        (
+            "/v1.45/volumes/create",
+            {"Name": "v", "Driver": "local", "DriverOpts": {"type": "none", "device": "/", "o": "bind"}},
+        ),
+        (
+            "/v5.0.0/libpod/volumes/create",
+            {"name": "v", "driver": "local", "options": {"type": "none", "device": "/", "o": "bind"}},
+        ),
+        ("/v1.45/volumes/create", {"Name": "v", "DriverOpts": {"device": "/"}}),
+        # Any driver but the stock one is refused, with or without options.
+        ("/v1.45/volumes/create", {"Name": "v", "Driver": "sshfs"}),
+        ("/v5.0.0/libpod/volumes/create", {"name": "v", "driver": "image"}),
+    ],
+)
+def test_volume_create_with_a_driver_configuration_is_denied(
+    ctx: PolicyContext, path: str, body: dict[str, object]
+) -> None:
+    d = decide(req("POST", path, body=body), ctx)
+    assert isinstance(d, Deny) and d.reason.startswith("volume-driver"), body
+
+
+@pytest.mark.parametrize(
+    ("path", "body"),
+    [
+        # What both CLIs send for a plain `volume create`: the zero values.
+        ("/v1.45/volumes/create", {"Name": "v", "Driver": "local", "DriverOpts": {}, "Labels": {}}),
+        ("/v5.0.0/libpod/volumes/create", {"name": "v", "driver": "local", "options": {}, "labels": {}}),
+        ("/v1.45/volumes/create", {"Name": "v", "Driver": ""}),
+    ],
+)
+def test_plain_local_volume_create_is_allowed(ctx: PolicyContext, path: str, body: dict[str, object]) -> None:
+    a = decide(req("POST", path, body=body), ctx)
+    assert isinstance(a, Allow), body
+
+
+def test_network_create_driver_options_are_not_volume_checked(ctx: PolicyContext) -> None:
+    a = decide(
+        req(
+            "POST", "/v1.45/networks/create", body={"Name": "n", "Driver": "bridge", "DriverOpts": {"a": "b"}}
+        ),
+        ctx,
+    )
+    assert isinstance(a, Allow)
+
+
 def test_resource_create_non_dict_body_is_denied(ctx: PolicyContext) -> None:
     v = decide(req("POST", "/v1.45/volumes/create", body=["x"]), ctx)
     n = decide(req("POST", "/v5.0.0/libpod/networks/create", body="not-a-dict"), ctx)

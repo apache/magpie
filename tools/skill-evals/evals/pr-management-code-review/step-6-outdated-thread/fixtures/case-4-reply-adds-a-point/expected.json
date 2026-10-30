@@ -1,0 +1,4 @@
+{
+  "addressed": false,
+  "reason": "retries is now a parameter, but nothing rejects a negative value as the reply asks."
+}

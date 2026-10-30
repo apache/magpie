@@ -1,0 +1,9 @@
+{
+  "overall": "warn",
+  "follow_up": [
+    {
+      "skill": "setup-isolated-setup-verify",
+      "reason": "check 5 ⚠ (claude-code min_version floor not enforced) and 10a unchecked — no framework checkout; clone magpie (install item 2) and re-run verify with its path."
+    }
+  ]
+}

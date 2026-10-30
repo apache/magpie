@@ -28,7 +28,7 @@ import pytest
 
 from pr_management import cli
 
-from .builders import NOW, node, review
+from .builders import NOW, node, review, thread
 
 DIFF = """diff --git a/scheduler/job.py b/scheduler/job.py
 --- a/scheduler/job.py
@@ -312,3 +312,101 @@ def test_slop_comment_builds_quoted_commands(
     )
     assert shlex.split(out["comment_command"])[:4] == ["gh", "pr", "comment", "9"]
     assert "Apache Product" in Path(out["body_file"]).read_text()
+
+
+def _with_threads(saved: Path, *threads: dict[str, Any]) -> None:
+    full = node(7, files=["scheduler/job.py"], threads=list(threads))
+    (saved / "cr-pr-7.json").write_text(
+        json.dumps({"data": {"repository": {"viewerPermission": "WRITE", "pullRequest": full}}})
+    )
+
+
+def _disposition(
+    capsys: pytest.CaptureFixture[str], project: Path, saved: Path, *extra: str
+) -> dict[str, Any]:
+    return _run(
+        capsys,
+        "--config-dir",
+        str(project),
+        "code-review",
+        "disposition",
+        "--saved-dir",
+        str(saved),
+        "--pr",
+        "7",
+        "--viewer",
+        "alice",
+        *extra,
+    )
+
+
+def test_outdated_thread_the_code_addresses_unblocks_approve(
+    capsys: pytest.CaptureFixture[str], project: Path, saved: Path, tmp_path: Path
+) -> None:
+    _with_threads(saved, thread("T1", outdated=True), thread("T2", outdated=True, resolved=True))
+    ctx = _run(
+        capsys,
+        "--config-dir",
+        str(project),
+        "code-review",
+        "context",
+        "--saved-dir",
+        str(saved),
+        "--pr",
+        "7",
+        "--repo-root",
+        str(tmp_path),
+    )
+    (listed,) = ctx["outdated_threads"]
+    assert listed["id"] == "T1" and listed["comment_untrusted"] == "Please rename b."
+    assert "classifications/outdated-thread.md" in ctx["docs"]
+
+    assert _disposition(capsys, project, saved)["disposition"] == "COMMENT"
+    dis = _disposition(capsys, project, saved, "--addressed-thread", "T1")
+    assert dis["disposition"] == "APPROVE"
+    assert [t["url"] for t in dis["resolve_first"]] == [
+        "https://github.com/acme/product/pull/7#discussion_T1"
+    ]
+    assert "comment_untrusted" not in dis["resolve_first"][0]
+
+
+def test_addressed_thread_must_be_outdated_and_unresolved(
+    capsys: pytest.CaptureFixture[str], project: Path, saved: Path
+) -> None:
+    _with_threads(saved, thread("T1", outdated=False), thread("T2", outdated=True))
+    with pytest.raises(SystemExit, match="'T1' is not an unresolved outdated thread"):
+        _disposition(capsys, project, saved, "--addressed-thread", "T1")
+    dis = _disposition(capsys, project, saved, "--addressed-thread", "T2")
+    assert dis["disposition"] == "COMMENT" and dis["approval_gates"] == ["1 unresolved review thread(s)"]
+
+
+def test_outdated_thread_lists_every_reply_for_the_agent(
+    capsys: pytest.CaptureFixture[str], project: Path, saved: Path, tmp_path: Path
+) -> None:
+    _with_threads(saved, thread("T1", outdated=True, replies=(("rex", "Also the retry path."),)))
+    ctx = _run(
+        capsys,
+        "--config-dir",
+        str(project),
+        "code-review",
+        "context",
+        "--saved-dir",
+        str(saved),
+        "--pr",
+        "7",
+        "--repo-root",
+        str(tmp_path),
+    )
+    (listed,) = ctx["outdated_threads"]
+    assert listed["replies_untrusted"] == [{"author": "rex", "comment": "Also the retry path."}]
+    dis = _disposition(capsys, project, saved, "--addressed-thread", "T1")
+    assert not any(k.endswith("_untrusted") for k in dis["resolve_first"][0])
+
+
+def test_outdated_thread_longer_than_the_read_stays_a_gate(
+    capsys: pytest.CaptureFixture[str], project: Path, saved: Path
+) -> None:
+    _with_threads(saved, thread("T1", outdated=True, total=25))
+    with pytest.raises(SystemExit, match="'T1' is not an unresolved outdated thread"):
+        _disposition(capsys, project, saved, "--addressed-thread", "T1")
+    assert _disposition(capsys, project, saved)["approval_gates"] == ["1 unresolved review thread(s)"]

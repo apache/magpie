@@ -32,5 +32,4 @@ Show the user exactly what would happen and wait for an explicit yes:
 **Nothing moves without the user's confirmation.**
 A declined move is fine: the legacy directory keeps working for configuration (gateway sockets already serve from `<facts.personal_dir>/run/<worktree-id>/` (`main`, or the linked worktree's `.git/worktrees/<name>` name)), and the finding repeats on later runs until the directory is gone.
 
-If `facts.personal_dir` is null, the project is not a git repository and there is nowhere outside the working tree to keep personal config.
-Leave the directory where it is and say so; do not propose a move.
+If `facts.personal_dir` is the legacy directory itself, the project has no version control and the in-tree directory is its personal layer: do not propose a move.

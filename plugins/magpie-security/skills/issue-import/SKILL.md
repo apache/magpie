@@ -18,13 +18,13 @@ when_to_use: |
   `import last 30d` / `import all` for a backlog).
 argument-hint: "[import] [last Nd|all] [skip threadId]"
 capability: capability:intake
-surface_hash: sha256:e9c563d494821baf
+surface_hash: sha256:079bd7106b8b78ef
 license: Apache-2.0
-measured_tokens: 8147
+measured_tokens: 8610
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
-     <project-config> → adopting project's `.apache-magpie/` directory
+     <project-config> → per file: the personal layer, else `.apache-magpie-overrides/`
      <tracker>        → value of `tracker_repo:` in <project-config>/project.md
      <upstream>       → value of `upstream_repo:` in <project-config>/project.md
      Before running any bash command below, substitute these with the
@@ -44,14 +44,19 @@ Run the checker with this skill's own frontmatter `name:` and
 `surface_hash:`, and one `--requires` for each `requires_config:` entry:
 
 ```bash
-PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir)/../.apache-magpie-local:$(git rev-parse --git-common-dir)/apache-magpie" \
-  python3 -m setup_preflight --skill <name> --hash <surface_hash> [--requires <file>]...
+PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m,i=sys.argv[1:];r=os.path.realpath(os.curdir);s=os.stat(r);p=os.path.join(h,d,hashlib.sha256(r.encode()).hexdigest()[:16]);f=os.path.join(p,i);print(p if os.path.isdir(os.path.join(p,m)) and os.path.isfile(f) and open(f).read().split()==[str(s.st_dev),str(s.st_ino)] else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight root-id)" \
+  python3 -P -m setup_preflight --skill <name> --hash <surface_hash> [--requires <file>]...
 ```
 
-The path finds the checker `/magpie-setup:setup config` installed in the
-personal layer: this checkout's `.apache-magpie-local/`, the main
-checkout's when this is a linked worktree, or the git directory's
-`apache-magpie/` when Magpie is only installed.
+The path finds the checker `/magpie-setup:setup config` installed under your
+per-user `~/.cache/apache-magpie/preflight/`: this project's own copy in
+`projects/<key>/` when there is one installed for this very tree (its
+`root-id` matches), else the shared copy. Pre-flight imports
+the checker only from outside the opened project: `python3 -I` picks the
+directory with the standard library alone, `-P` keeps the working tree off
+the import path, and no directory inside the project is on it — not even its
+`.git/` or `.svn/`, which a checkout or a tarball can carry as plain files.
+Never add one.
 
 - **`{"verdict": "ok"}`** → **silent**. Continue into the work the user
   asked for and say nothing about pre-flight. This is the ordinary answer.
@@ -60,15 +65,15 @@ checkout's when this is a linked worktree, or the git directory's
   inputs; what to propose, and what may not be done, are in the rules
   rather than here. **Act on a finding only through its rules.**
 - **The command did not run at all** — no such module, a non-zero exit, no
-  `python3` — → never read that as a pass, and do not re-derive the check
+  `python3` 3.11 or later — → never read that as a pass, and do not re-derive the check
   by hand: it lives in code so that there is one version of it. If the
   project has **no** `.apache-magpie.lock`, `.apache-magpie-overrides/`,
-  or personal layer (any of the three directories above),
+  or personal layer (any of the directories below),
   nothing has been set up here and there is
   nothing to reconcile — resolve this skill's `requires_config:` entries
   yourself (first match wins: `.apache-magpie-local/<file>`, the main
   checkout's `.apache-magpie-local/<file>`, `<git-common-dir>/apache-magpie/<file>`,
-  then `.apache-magpie-overrides/<file>`), stay silent if they all resolve, and
+  `.svn/apache-magpie/<file>`, then `.apache-magpie-overrides/<file>`), stay silent if they all resolve, and
   run `/magpie-setup:setup config` for this skill if any does not, which also
   installs the checker. Otherwise the project *is* set up and its checker
   is missing or stale: say so, propose `/magpie-setup:setup config` to install
@@ -114,6 +119,12 @@ Non-import candidate classes (`automated-scanner`,
 `cross-thread-followup`, `cve-tool-bookkeeping`) keep the original
 "propose first, apply only on explicit confirm" rule — those never
 default to a tracker.
+
+**Golden rule — one reply, one thread.** Every receipt or canned reply answers exactly one inbound thread, drafted on that thread.
+Never combine the replies to several threads into one message, even for the same reporter or near-identical reports:
+it confuses the reporter and the security team, who track each case by its thread and `Message-ID`.
+Only one thread that yields several trackers gets one reply covering them
+([Step 5](screening-and-proposal.md#one-receipt-per-thread--never-a-consolidated-receipt-across-threads), [`threading.md`](../../../../tools/gmail/threading.md#the-rule)).
 
 **Golden rule — confidentiality.** The `<security-list>` thread is private.
 Its body may be pasted verbatim into the (private) `<tracker>` issue, **never** into a public surface: not `<upstream>`, a public GHSA, or any public comment.
@@ -288,8 +299,8 @@ use its classification when it returns one, else the table below.
 Invoke it only when `<sm> relay-prescreen --message <scratch>/root-<threadId>.json --forwarders <scratch>/forwarders.json` prints `invoke_subskill: true`.
 The message file holds the root's `from` and `body`; the forwarders file holds `project.md → forwarders`, each enabled adapter with its `sender_pattern` / `preamble_match`
 (else its [defaults](../../../../tools/forwarder-relay/README.md#asf-default--asf-security-forwarder)), never copied into this skill.
-The pre-screen ORs the two `detect()` signals (sender against `From:`, preamble against the first 400 characters),
-so it skips only candidates that cannot be relays; the sub-skill's Step 1 stays authoritative.
+The pre-screen needs both `detect()` signals of one adapter (sender against `From:` AND preamble against the first 400 characters), since either alone is forgeable by any sender;
+the sub-skill's Step 1 stays authoritative. An adapter listed under `partial` matched only one signal: classify the candidate as a direct report and show *"relay-shaped, one signal only"* in its Step 5 entry.
 
 | Class | How to spot it | How to handle |
 |---|---|---|
@@ -324,6 +335,8 @@ A field the reporter did not supply stays `_No response_`; later `security-issue
 identify the third parties the body names, keep the reporter's own values and the Step 0 collaborators in the clear, and pass the rest to `pii-redact`.
 Every field below comes from the **redacted body**, so `N-…` / `E-…` identifiers appear where the reporter named someone else.
 
+**Attachments** (a PoC file, a patch, an encrypted ZIP with the password in the text): fetch, decrypt and record them per [`attachments.md`](attachments.md) before extracting the fields.
+
 The generic body-field schema lives in [`tools/github/issue-template.md`](../../../../tools/github/issue-template.md),
 and the project's field names in [`<project-config>/project.md`](../../../../<project-config>/project.md#issue-template-fields).
 The table below says where each value comes from in the inbound report.
@@ -335,7 +348,7 @@ The table below says where each value comes from in the inbound report.
 | **Affected versions** | Extract the version(s) / range (`<version>` / `>= X, < Y` / `<Y`) the reporter states and record them as **bare, comma-separated version numbers** — e.g. `2.9.0, 2.9.3` or `>= 2.6.0, < 2.10.2`. **Do not prefix the product name** (the tracker is already project-scoped, so `<product> 2.9.0` is redundant — record `2.9.0`). If the reporter gave only a single version they tested on (e.g. `3.1.5`), record that verbatim; the triager can widen the range later. Leave `_No response_` if no version is mentioned. |
 | **Security mailing list thread** | The private thread handle, the PonyMail archive URL once the user pastes it back, and ``Root Message-ID: `<id>` `` (backtick-wrapped) — [how](outcomes/mailing-thread.md). **Internal-only**: `generate-cve-json` never exports it. |
 | **Public advisory URL** | `_No response_`. Populated at Step 14 by `security-issue-sync` once the advisory is archived. |
-| **Reporter credited as** | The reporter's full display name from the `From:` header (e.g. `Alice Example` from `"Alice Example" <alice@example.com>`). **When the body carries an explicit attribution line** — e.g. `Credit: discovered and reported by <name> of <org>`, common in ASF-security-relay forwards where the `From:` is `<security-list>` and the sender header is only a routing artefact — that line is **authoritative**: record the credited party **as written, including any affiliation** (e.g. `Jordan Lee of Horizon Security Research`, not just `Jordan Lee`). Service senders (`noreply`, relays, `notifications@`) are routing artefacts, never credited: take the real reporter from the body. The value is a **placeholder** the Step 7 receipt asks the reporter to confirm. Bot and AI credits (`render-body` reports `reporter_credit_is_bot`), via-forwarder mode and whether a `finder` credit applies at all: [`outcomes/credit-field.md`](outcomes/credit-field.md). |
+| **Reporter credited as** | The reporter's full display name from the `From:` header (e.g. `Alice Example` from `"Alice Example" <alice@example.com>`). **When the body carries an explicit attribution line** — e.g. `Credit: discovered and reported by <name> of <org>`, common in ASF-security-relay forwards where the `From:` is `<security-list>` and the sender header is only a routing artefact — that line is **authoritative**: record the credited party **as written, including any affiliation** (e.g. `Jordan Lee of Horizon Security Research`, not just `Jordan Lee`). Service senders (`noreply`, relays, `notifications@`) are routing artefacts, never credited: take the real reporter from the body. The value is a **placeholder** the Step 7 receipt asks the reporter to confirm. **For a forwarder-relayed candidate** the extracted credit is a proposal only: Step 5 shows it, and the field stays `_No response_` unless the user confirms it with `NN:reporter <text>`. Bot and AI credits (`render-body` reports `reporter_credit_is_bot`), via-forwarder mode and whether a `finder` credit applies at all: [`outcomes/credit-field.md`](outcomes/credit-field.md). |
 | **PR with the fix** | `_No response_`. |
 | **Remediation developer** | `_No response_`. `security-issue-sync` fills it from the fix PR's author, under the same [bot/AI credit policy](../../../../tools/cve-tool-vulnogram/bot-credits-policy.md). |
 | **CWE** | `_No response_`. The security team scores CWE independently; a reporter-supplied CWE is informational only (per the *"Reporter-supplied CVSS scores are informational only"* rule in [`AGENTS.md`](../../../../AGENTS.md)). Do **not** copy a CWE from the reporter's body into this field. |
@@ -376,9 +389,9 @@ Full procedure: [`apply.md`](apply.md).
 ## Step 8 — Recap
 
 Write what Step 7 recorded to `<scratch>/recap.json` and present the `text` of `<sm> render-recap --state <scratch>/recap.json`:
-`platform` (`tracker.platform`), `created` (`number`, or the backend's `id` and `url`; `candidate`), `drafts` (`draft_id`, `candidate` — one entry per `draft_id`: a consolidated receipt appears once, under the first candidate it covers),
+`platform` (`tracker.platform`), `created` (`number`, or the backend's `id` and `url`; `candidate`), `drafts` (`draft_id`, `candidate` — one entry per `draft_id`: a receipt covering several trackers from one thread appears once, under the first candidate it covers),
 `skipped` (`candidate`, `kind`: `user`, `canned` with `canned_name`, `public-fix`, `tracked` with the `existing` tracker as supplied, `answered`),
-`prefiltered` (the Step 1 `dropped` list), `bookkeeping_dropped` (Step 3's count) and `notes` (suppressed receipts, a missing ledger issue).
+`prefiltered` (the Step 1 `dropped` list), `bookkeeping_dropped` (Step 3's count) and `notes` (suppressed receipts, a missing ledger issue, a relay credit left unconfirmed).
 The recap links every issue, lists **every** candidate not imported with its reason
 (*"user skipped"*, *"rejected with canned response: <name>"*, *"already tracked as example-s/example-s#198"* — the full `owner/repo#NNN`, never a bare `#198`),
 gives each [pre-filtered](candidate-listing.md#step-1-pre-filter--classes-decidable-from-subject-and-sender) thread its own line within the *"N CVE-tool-bookkeeping emails dropped"* total,

@@ -101,26 +101,23 @@ def _argv(stdout: str) -> list[str]:
     "allowed",
     [
         "",
-        "GEMINI_API_KEY",
-        "GOOGLE_API_KEY",
-        "GOOGLE_CLOUD_PROJECT GOOGLE_CLOUD_LOCATION GOOGLE_APPLICATION_CREDENTIALS",
+        "DBUS_SESSION_BUS_ADDRESS",
     ],
 )
-def test_gemini_auth_environment_is_explicit(
+def test_antigravity_keyring_environment_is_explicit(
     tmp_path: Path, entry: str, allowed: str
 ) -> None:
+    # Antigravity keeps its session token in the OS keyring; the only variable
+    # its adapter passes through is the Linux keyring's bus address.
     values = {
-        "GEMINI_API_KEY": "synthetic-gemini-key",
-        "GOOGLE_API_KEY": "synthetic-vertex-key",
-        "GOOGLE_CLOUD_PROJECT": "synthetic-project",
-        "GOOGLE_CLOUD_LOCATION": "us-central1",
-        "GOOGLE_APPLICATION_CREDENTIALS": "/home/testuser/credentials.json",
+        "DBUS_SESSION_BUS_ADDRESS": "unix:path=/run/user/1000/bus",
+        "GOOGLE_API_KEY": "synthetic-google-key",
         "GH_TOKEN": "synthetic-unrelated-token",
         "AWS_SECRET_ACCESS_KEY": "synthetic-unrelated-secret",
     }
     launch = _run_direct if entry == "direct" else TestGenericIsoSourced()._run_sourced
     result = launch(
-        tmp_path, cli_name="gemini", extra_env={**values, "AGENT_ISO_ALLOW": allowed}
+        tmp_path, cli_name="agy", extra_env={**values, "AGENT_ISO_ALLOW": allowed}
     )
     assert result.returncode == 0, result.stderr
     actual = _parse_env(result.stdout)
@@ -133,14 +130,14 @@ def test_gemini_auth_environment_is_explicit(
     assert "AGENT_ISO_ALLOW" not in actual
 
 
-@pytest.mark.parametrize("neutral", [None, "", "GEMINI_API_KEY"])
+@pytest.mark.parametrize("neutral", [None, "", "SYNTHETIC_RUNTIME_KEY"])
 def test_environment_allow_alias_precedence(
     tmp_path: Path, neutral: str | None
 ) -> None:
     env = {
         "CLAUDE_ISO_ALLOW": "GH_TOKEN",
         "GH_TOKEN": "legacy-key",
-        "GEMINI_API_KEY": "gemini-key",
+        "SYNTHETIC_RUNTIME_KEY": "runtime-key",
     }
     if neutral is not None:
         env["AGENT_ISO_ALLOW"] = neutral
@@ -148,7 +145,7 @@ def test_environment_allow_alias_precedence(
     assert result.returncode == 0, result.stderr
     actual = _parse_env(result.stdout)
     assert ("GH_TOKEN" in actual) == (neutral is None)
-    assert ("GEMINI_API_KEY" in actual) == (neutral == "GEMINI_API_KEY")
+    assert ("SYNTHETIC_RUNTIME_KEY" in actual) == (neutral == "SYNTHETIC_RUNTIME_KEY")
 
 
 def test_environment_allow_rejects_invalid_names(tmp_path: Path) -> None:
@@ -304,7 +301,7 @@ class TestGenericIsoSourced:
         assert argv == ["run", "hello"]
 
     def test_sourced_different_cli_names(self, tmp_path: Path) -> None:
-        for cli in ("codex", "cursor", "gemini"):
+        for cli in ("codex", "cursor", "agy"):
             _make_fake_cli(tmp_path, cli)
             env: dict[str, str] = {
                 "PATH": f"{tmp_path}:{os.environ.get('PATH', '/usr/bin:/bin')}",

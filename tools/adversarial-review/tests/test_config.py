@@ -44,7 +44,7 @@ def test_full_example_from_the_spec():
 
 
 def test_defaults_when_keys_are_absent():
-    cfg = parse("```yaml\nadversarial_review:\n  reviewers: [gemini]\n```\n", SRC)
+    cfg = parse("```yaml\nadversarial_review:\n  reviewers: [antigravity]\n```\n", SRC)
     assert cfg.mode == "on-pr-create" and cfg.timeout_minutes == 8.0 and cfg.models == {}
 
 
@@ -55,7 +55,7 @@ def test_no_file_means_no_reviewers(tmp_path):
 def test_personal_layer_wins_whole(tmp_path):
     for layer, body in (
         (".apache-magpie-overrides", "[codex, copilot]"),
-        (".apache-magpie-local", "[gemini]"),
+        (".apache-magpie-local", "[antigravity]"),
     ):
         (tmp_path / layer).mkdir()
         (tmp_path / layer / "adversarial-review.md").write_text(
@@ -63,7 +63,7 @@ def test_personal_layer_wins_whole(tmp_path):
         )
     cfg = resolve(tmp_path)
     assert (
-        cfg.reviewers == ("gemini",)
+        cfg.reviewers == ("antigravity",)
         and cfg.source == tmp_path / ".apache-magpie-local" / "adversarial-review.md"
     )
 
@@ -79,15 +79,15 @@ def test_an_unadopted_repo_reads_the_git_dir_home_before_a_legacy_dir(tmp_path):
     (tmp_path / ".git").mkdir()
     _write(tmp_path / ".apache-magpie-local", "[codex]")
     assert resolve(tmp_path).reviewers == ("codex",)
-    _write(tmp_path / ".git" / "apache-magpie", "[gemini]")
+    _write(tmp_path / ".git" / "apache-magpie", "[antigravity]")
     cfg = resolve(tmp_path)
-    assert cfg.reviewers == ("gemini",)
+    assert cfg.reviewers == ("antigravity",)
     assert cfg.source == tmp_path / ".git" / "apache-magpie" / "adversarial-review.md"
 
 
 def test_an_adopted_repo_ignores_the_git_dir_home(tmp_path):
     (tmp_path / ".apache-magpie.lock").write_text("method: local\n")
-    _write(tmp_path / ".git" / "apache-magpie", "[gemini]")
+    _write(tmp_path / ".git" / "apache-magpie", "[antigravity]")
     assert resolve(tmp_path) == ReviewConfig()
 
 
@@ -96,6 +96,7 @@ def test_an_adopted_repo_ignores_the_git_dir_home(tmp_path):
     [
         ("adversarial_review:\n  mode: sometimes\n", "mode"),
         ("adversarial_review:\n  reviewers: [codex, vim]\n", "unknown reviewer"),
+        ("adversarial_review:\n  reviewers: [gemini]\n", "gemini was replaced by antigravity"),
         ("adversarial_review:\n  reviewers: codex\n", "list"),
         ("adversarial_review:\n  timeout_minutes: soon\n", "timeout_minutes"),
         ("adversarial_review:\n  timeout_minutes: 0\n", "timeout_minutes"),

@@ -21,8 +21,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from collections.abc import Sequence
+from pathlib import Path
 
 from magpie_sourcehut.builds import get_job
 from magpie_sourcehut.client import SourceHutError, query_graphql
@@ -43,6 +45,38 @@ def _print_json(data: dict | list) -> None:
     print(json.dumps(data, indent=2))
 
 
+def _read_body_file(path: str) -> str:
+    """Read a ticket or comment body from ``path`` (``-`` reads stdin).
+
+    Bodies travel through a file, never a shell argument: they often carry
+    text from reporters or other outside sources, and the framework rule is
+    that such text must not be inlined into a command line.
+    """
+    if path == "-":
+        return sys.stdin.read()
+    try:
+        return Path(path).read_text(encoding="utf-8")
+    except OSError as exc:
+        raise SourceHutError(f"cannot read body file {path!r}: {exc.strerror or exc}") from None
+
+
+# GraphQL comments run from `#` to the end of the line, and string literals
+# ("…" or block strings """…""") may contain anything; drop both before
+# looking for an operation keyword so neither hides nor fakes one.
+_GRAPHQL_STRINGS_AND_COMMENTS = re.compile(r'"""(?:\\"""|[^"]|"(?!""))*"""|"(?:\\.|[^"\\\n])*"|#[^\r\n]*')
+_GRAPHQL_MUTATION = re.compile(r"\bmutation\b")
+
+
+def _is_mutation(query: str) -> bool:
+    """Whether the GraphQL document contains a ``mutation`` operation.
+
+    Deliberately conservative: any ``mutation`` keyword outside a string or
+    comment counts, so a document that merely names a field ``mutation`` is
+    also refused without ``--allow-mutation``.
+    """
+    return bool(_GRAPHQL_MUTATION.search(_GRAPHQL_STRINGS_AND_COMMENTS.sub(" ", query)))
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="magpie-sourcehut",
@@ -51,10 +85,17 @@ def _build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="subcommand", required=True)
 
     # raw graphql query
-    p_graphql = subparsers.add_parser("graphql", help="Run a raw GraphQL query.")
+    p_graphql = subparsers.add_parser(
+        "graphql", help="Run a raw GraphQL query (mutations need --allow-mutation)."
+    )
     p_graphql.add_argument("service", help="sr.ht service subdomain (e.g. todo, lists, builds).")
-    p_graphql.add_argument("query", help="GraphQL query/mutation string.")
+    p_graphql.add_argument("query", help="GraphQL query string.")
     p_graphql.add_argument("--variables", help="Optional query variables as a JSON string.")
+    p_graphql.add_argument(
+        "--allow-mutation",
+        action="store_true",
+        help="Permit a mutation. Without it a document containing `mutation` is refused.",
+    )
 
     # tickets
     p_ticket = subparsers.add_parser("ticket", help="Interact with todo.sr.ht tickets.")
@@ -65,17 +106,23 @@ def _build_parser() -> argparse.ArgumentParser:
     p_t_get.add_argument("name", help="Name of the tracker.")
     p_t_get.add_argument("id", type=int, help="Ticket ID.")
 
-    p_t_create = t_sub.add_parser("create", help="Create a ticket.")
+    # allow_abbrev=False: an old `--body "<text>"` must fail, not be read as a
+    # prefix of --body-file and treated as a path.
+    p_t_create = t_sub.add_parser("create", help="Create a ticket.", allow_abbrev=False)
     p_t_create.add_argument("owner", help="Owner of the tracker.")
     p_t_create.add_argument("name", help="Name of the tracker.")
     p_t_create.add_argument("--title", required=True, help="Ticket title.")
-    p_t_create.add_argument("--body", required=True, help="Ticket description/body.")
+    p_t_create.add_argument(
+        "--body-file", required=True, help="File holding the ticket description ('-' reads stdin)."
+    )
 
-    p_t_comment = t_sub.add_parser("comment", help="Comment on a ticket.")
+    p_t_comment = t_sub.add_parser("comment", help="Comment on a ticket.", allow_abbrev=False)
     p_t_comment.add_argument("owner", help="Owner of the tracker.")
     p_t_comment.add_argument("name", help="Name of the tracker.")
     p_t_comment.add_argument("id", type=int, help="Ticket ID.")
-    p_t_comment.add_argument("--body", required=True, help="Comment body.")
+    p_t_comment.add_argument(
+        "--body-file", required=True, help="File holding the comment body ('-' reads stdin)."
+    )
 
     p_t_label = t_sub.add_parser("label", help="Manage ticket labels.")
     p_t_label.add_argument("owner", help="Owner of the tracker.")
@@ -134,6 +181,11 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     try:
         if ns.subcommand == "graphql":
+            if _is_mutation(ns.query) and not ns.allow_mutation:
+                raise SourceHutError(
+                    "refusing to run a GraphQL mutation; use a ticket subcommand, "
+                    "or pass --allow-mutation after the user confirmed this exact write"
+                )
             vars_dict = None
             if ns.variables:
                 vars_dict = json.loads(ns.variables)
@@ -145,10 +197,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                 res = get_ticket(ns.owner, ns.name, ns.id)
                 _print_json(res)
             elif ns.action == "create":
-                res = submit_ticket(ns.owner, ns.name, ns.title, ns.body)
+                res = submit_ticket(ns.owner, ns.name, ns.title, _read_body_file(ns.body_file))
                 _print_json(res)
             elif ns.action == "comment":
-                res = submit_comment(ns.owner, ns.name, ns.id, ns.body)
+                res = submit_comment(ns.owner, ns.name, ns.id, _read_body_file(ns.body_file))
                 _print_json(res)
             elif ns.action == "label":
                 if not ns.add and not ns.remove:

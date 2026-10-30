@@ -283,10 +283,9 @@ def test_mirror_names_resolve_only_with_their_prefix() -> None:
     assert welcome.family_of("magpie-security-issue-triage") == "security"
 
 
-def test_nowhere_to_record_means_no_guide(tmp_path: Path, version) -> None:
-    """An unadopted project outside git has no personal layer: a guide that
-    could never be dismissed would repeat on every run."""
-    assert welcome_findings(tmp_path, SECURITY_SKILL) == []
+def test_a_project_without_version_control_still_gets_the_guide(tmp_path: Path, version) -> None:
+    """With no VCS the choice is recorded in the in-tree personal layer."""
+    assert welcome_findings(tmp_path, SECURITY_SKILL) != []
 
 
 def run(project: Path, *extra: str) -> None:
@@ -322,6 +321,50 @@ def test_an_unreadable_optional_guide_keeps_setup_findings(
 def test_no_welcome_leaves_it_out(project: Path, capsys, version) -> None:
     run(project, "--no-welcome")
     assert json.loads(capsys.readouterr().out) == {"verdict": "ok"}
+
+
+def due_command(project: Path, capsys, skill: str = "setup") -> dict:
+    assert welcome.main(["due", "--skill", skill, "--project-root", str(project)]) == 0
+    return json.loads(capsys.readouterr().out)
+
+
+def test_due_carries_the_same_finding_and_rules_as_the_pre_flight(project: Path, capsys, version) -> None:
+    run(project)
+    via_preflight = json.loads(capsys.readouterr().out)
+    payload = due_command(project, capsys, SECURITY_SKILL)
+    assert payload["verdict"] == "action"
+    assert payload["findings"] == via_preflight["findings"][:1]
+    assert payload["rules"] == {"welcome": via_preflight["rules"]["welcome"]}
+
+
+def test_due_for_the_setup_skill_walks_general_then_setup(project: Path, capsys, version) -> None:
+    """The setup family runs no pre-flight; `due` is how `setup` opens its first run."""
+    first = due_command(project, capsys)
+    assert [(f["code"], f["facts"]["family"]) for f in first["findings"]] == [("welcome", "general")]
+    welcome.record(project, "general", "seen")
+    second = due_command(project, capsys)
+    assert [(f["facts"]["family"], f["facts"]["reason"]) for f in second["findings"]] == [
+        ("setup", "first-run")
+    ]
+
+
+def test_due_is_ok_and_silent_when_nothing_is_due(project: Path, capsys, version) -> None:
+    welcome.record(project, "general", "never")
+    welcome.record(project, "setup", "never")
+    assert due_command(project, capsys) == {"verdict": "ok"}
+
+
+def test_due_is_ok_for_a_skill_outside_magpie(project: Path, capsys, version) -> None:
+    assert due_command(project, capsys, "not-a-magpie-skill") == {"verdict": "ok"}
+
+
+def test_due_reads_no_setup_state_beyond_the_guide(project: Path, capsys, version) -> None:
+    """A missing `requires_config` file is the pre-flight's business, not `due`'s."""
+    welcome.record(project, "general", "never")
+    welcome.record(project, "setup", "never")
+    run(project, "--requires", "project.md")
+    assert json.loads(capsys.readouterr().out)["verdict"] == "action"
+    assert due_command(project, capsys) == {"verdict": "ok"}
 
 
 # --- the three answers ----------------------------------------------------------------
@@ -425,11 +468,12 @@ def test_the_record_command_prints_the_entry(project: Path, capsys, version) -> 
     assert json.loads(capsys.readouterr().out)["welcome"]["security"]["choice"] == "never"
 
 
-def test_recording_outside_a_git_repo_refuses(tmp_path: Path, capsys, version) -> None:
+def test_recording_without_version_control_writes_the_in_tree_dir(tmp_path: Path, capsys, version) -> None:
     code = welcome.main(
         ["record", "--family", "security", "--choice", "seen", "--project-root", str(tmp_path)]
     )
-    assert code == 2
+    assert code == 0
+    assert (tmp_path / ".apache-magpie-local").is_dir()
 
 
 @pytest.mark.parametrize("family", ["../sections/welcome", "_footer", "/tmp/other-guide"])

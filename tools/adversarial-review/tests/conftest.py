@@ -24,7 +24,16 @@ from pathlib import Path
 
 import pytest
 
-HARNESS_MARKERS = ("CLAUDECODE", "GEMINI_CLI", "CODEX_SANDBOX", "CODEX_THREAD_ID", "COPILOT_CLI")
+HARNESS_MARKERS = (
+    "CLAUDECODE",
+    "ANTIGRAVITY_CONVERSATION_ID",
+    "CODEX_SANDBOX",
+    "CODEX_THREAD_ID",
+    "COPILOT_CLI",
+    "GROK_SESSION_ID",
+    "PI_SESSION_ID",
+    "AGENT_SESSION_ID",
+)
 
 
 @pytest.fixture(autouse=True)

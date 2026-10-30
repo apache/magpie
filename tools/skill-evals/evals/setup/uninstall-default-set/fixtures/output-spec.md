@@ -23,6 +23,8 @@ rules list them.
 
 `keys_preserved` is a list of top-level key names — the keys of
 `.claude/settings.json` the rules above say to leave untouched.
+`enabledPlugins` is never in it: this step edits that key, even when some of
+its entries stay.
 
 `file_deleted` reports whether the rules above call for deleting
 `.claude/settings.json` itself.

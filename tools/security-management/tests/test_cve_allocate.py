@@ -566,6 +566,78 @@ def test_the_status_draft_goes_to_the_primary_thread_and_via_a_forwarder_too(cap
     assert (via["action"], via["to"], via["mode"]) == ("create", "relay@huntr.example", "via_forwarder")
 
 
+MERGED = f"{GMAIL}\nNo public archive URL — tracked privately on Gmail thread 19a7c0ffee1234ab"
+
+
+def test_a_merged_tracker_owes_each_reporter_a_draft_on_their_own_thread(capsys, tmp_path):
+    primary = draft_plan(capsys, tmp_path, MERGED)
+    assert primary["anchor"] == {"thread_id": "18f3a2b9c1d4e507"}
+    assert primary["reporter_threads"] == [{"thread_id": "19a7c0ffee1234ab", "url": None}]
+    second = draft_plan(
+        capsys, tmp_path, MERGED, thread_id="19a7c0ffee1234ab", reporter_email="bob@example.com",
+        root_subject="Pickle in XCom, again",
+    )  # fmt: skip
+    assert (second["action"], second["to"], second["subject"]) == (
+        "create",
+        "bob@example.com",
+        "Re: Pickle in XCom, again",
+    )
+    assert second["anchor"] == {"thread_id": "19a7c0ffee1234ab"}
+    assert second["thread_id"] == "19a7c0ffee1234ab"
+    assert "reporter_threads" not in second
+
+
+def test_a_relay_thread_is_no_further_reporter(capsys, tmp_path):
+    field = f"{GMAIL}\nRelayed by huntr: Gmail thread relay987654"
+    assert "reporter_threads" not in draft_plan(capsys, tmp_path, field)
+    relay = draft_plan(capsys, tmp_path, field, thread_id="relay987654")
+    assert (relay["action"], relay["notification"]["case"]) == ("skip", "omitted")
+
+
+def test_a_thread_id_the_field_does_not_record_is_blocked(capsys, tmp_path):
+    plan = draft_plan(capsys, tmp_path, MERGED, thread_id="nosuchthread99")
+    assert plan["action"] == "blocked"
+
+
+def test_each_further_reporter_is_planned_even_when_the_first_needs_no_draft(capsys, tmp_path):
+    primary = draft_plan(capsys, tmp_path, MERGED, reporter_on_team=True)
+    assert primary["action"] == "skip"
+    assert primary["reporter_threads"] == [{"thread_id": "19a7c0ffee1234ab", "url": None}]
+
+
+def test_the_proposal_rollup_and_recap_carry_one_draft_per_reporter(capsys, tmp_path):
+    first = draft_plan(capsys, tmp_path, MERGED)
+    second = draft_plan(
+        capsys, tmp_path, MERGED, thread_id="19a7c0ffee1234ab", reporter_email="bob@example.com"
+    )
+    out = ok(
+        capsys, tmp_path, "proposal",
+        {"tracker": TRACKER, "issue": 312, "cve_id": "CVE-2025-44812", "record_url_template": RECORD,
+         "drafts": [first, second]},
+    )  # fmt: skip
+    assert out["proposal_items_count"] == 5
+    item = out["items"][4]["text"]
+    assert "2 reporter status drafts, one per reporter thread" in item
+    assert "alice@example.com" in item and "bob@example.com" in item
+    entry = rollup(
+        capsys, tmp_path, None,
+        notifications=[{**first["notification"], "thread_id": first["thread_id"]},
+                       {**second["notification"], "thread_id": second["thread_id"]}],
+    )  # fmt: skip
+    text = entry["text"]
+    assert "Thread `18f3a2b9c1d4e507`: Reporter notification still pending — see draft `<pending>`." in text
+    assert "Thread `19a7c0ffee1234ab`: Reporter notification still pending — see draft `<pending>`." in text
+    assert entry["needs_amend"] is True
+    recap = ok(
+        capsys, tmp_path, "render-recap",
+        {"tracker": TRACKER, "issue": 312, "cve_id": "CVE-2025-44812", "record_url_template": RECORD,
+         "applied": [1, 2, 3, 4, 5],
+         "drafts": [{"id": "r-1", "thread_id": "18f3a2b9c1d4e507"}, {"id": "r-2", "thread_id": "19a7c0ffee1234ab"}]},
+    )  # fmt: skip
+    assert "- Reporter draft on thread `18f3a2b9c1d4e507`: `r-1`" in recap["text"]
+    assert "- Reporter draft on thread `19a7c0ffee1234ab`: `r-2`" in recap["text"]
+
+
 def test_an_indeterminate_thread_is_the_users_call(capsys, tmp_path):
     assert draft_plan(capsys, tmp_path, "_No response_")["action"] == "ask"
 

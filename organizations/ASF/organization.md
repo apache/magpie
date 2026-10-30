@@ -97,6 +97,11 @@ cve_authority:
   reviewer_channel: mailing-list       # PMC reviews on the private list
   # Resolves the <cve-tool-url> placeholder used in agnostic skills:
   cve_tool_url: https://cveprocess.apache.org
+  vulnogram:
+    # The ASF CNA's UUID: the assignerOrgId of every Apache CVE record, the
+    # same for every project. Only the generated CVE JSON uses it; allocation
+    # does not.
+    asf_org_id: f0158376-9dc2-43b6-827c-5f631a4d8d09
 ```
 
 ## Governance gate
@@ -115,6 +120,7 @@ governance:
 security_inbox:
   kind: mailing-list
   foundation_security_address: security@apache.org   # ASF security team forwards reports here
+  cve_tool_senders: [security@apache.org]             # organization-wide CVE bookkeeping sender
   has_forwarder_relay: true
   list_filter_query: "list:<security-list-domain>"
   reporter_response_timeout_days: 14   # ASF policy: a silent reporter must not block the team

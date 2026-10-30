@@ -203,7 +203,7 @@ MARKETPLACE_ADD_ALLOWED = (
 MARKETPLACE_ADD_EXEMPT_DIRS = (Path("docs/designs"),)
 _MARKETPLACE_ADD = re.compile(
     r"plugin marketplace add apache/magpie"
-    r"|gemini extensions install https://github\.com/apache/magpie"
+    r"|agy plugin install https://github\.com/apache/magpie"
     r"|apm install apache/magpie"
 )
 
