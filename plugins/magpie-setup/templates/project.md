@@ -31,6 +31,7 @@
     - [Tracker](#tracker)
     - [Advisory records](#advisory-records)
     - [Scope detection](#scope-detection)
+    - [Invalidate](#invalidate)
     - [Release process](#release-process)
     - [Roster](#roster)
     - [Product](#product)
@@ -609,6 +610,24 @@ scope_detection:
       product: "<Secondary Product Name>"
       packageName: "<secondary-package-name>"
       path_prefix: "<secondary-path-prefix-regex>"
+```
+
+### Invalidate
+
+Per-project — labels `security-issue-invalidate` leaves on a tracker it
+closes as invalid. By default it removes `needs triage`, the scope label
+and `pr created` / `pr merged`; list here the ones to keep (e.g. so
+archived invalid trackers stay filterable by component):
+
+```yaml
+invalidate:
+  # `scope` keeps whichever scope label is set, `pr` keeps `pr created` /
+  # `pr merged`, any other entry is a literal label name. `needs triage`
+  # is always removed (an entry for it is ignored with a warning).
+  # Empty or absent: remove them all.
+  # Consumed by: security-issue-invalidate (Step 5a).
+  keep_labels: []
+  # keep_labels: [scope, pr]
 ```
 
 ### Release process
