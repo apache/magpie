@@ -557,7 +557,7 @@ Group them by category:
      as*, *Short public summary for publish*, *PR with the fix*).
      An empty *Reporter credited as* passes when the status rollup records a no-finder decision
      (reporter opt-out, or no finder to name, per the [finder-credit policy](../../../../tools/cve-tool-vulnogram/finder-credit-policy.md)).
-     If any other is empty / `_No response_`, propose the fill-fields comment with that field list.
+     If any field is empty / `_No response_` without that exception, propose the fill-fields comment with that field list.
      The issue stays assigned to the remediation developer (in the common case also the fix-PR author and current assignee).
      **Do not propose any RM-related action at Step 11**; that belongs to Step 12.
   2. **At the `pr merged` → `fix released` transition (Step 12)** — after Step 5b's push attempt, check the CVE record state in Vulnogram.
