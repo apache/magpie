@@ -48,7 +48,7 @@ gh issue edit <N> --repo <tracker> \
 ```
 
 `gh issue edit` ignores `--remove-label` for labels that aren't set, so listing all candidates is safe and idempotent;
-`<sm> labels` prints the command with only the labels actually set.
+`<sm> labels` prints the command with only the labels actually set, minus those `invalidate.keep_labels` in `<project-config>/project.md` keeps (Step 5a).
 
 ### 6d — Close the tracker
 

@@ -111,7 +111,7 @@ Every command prints one JSON object; rendered text is in its `text` field.
 | `prefilter --threads F` | Per thread: `decision` (`keep` / `drop`), `rule` (1 GHSA relay, 2 CVE-tool bookkeeping, 3 anything else), `class`, `pretag`; `dropped` and `counts`. Every message must match rule 2 to drop; a missing subject or sender keeps; `named_thread_id` is never dropped. |
 | `dedup-queries --thread-ids F [--tracker T]` | `batches` of at most six ids, each a quoted phrase OR'd into `query`, and the shell-quoted `command`; ids are Gmail / PonyMail ids, maildir names or root `Message-ID`s, and any other id exits `2` with `rejected_ids`. |
 | `dedup-attribute --thread-ids F --hits F` | `tracked` (id → hits), `untracked`; at 100 hits `truncated`, no `untracked`, and `rerun` batches; exit `2` with `rejected_ids` as above. |
-| `relay-prescreen --message F --forwarders F` | `invoke_subskill`: false only when no enabled adapter's `sender_pattern` / `preamble_match` (first 400 characters) matches; an unresolved or invalid pattern invokes. |
+| `relay-prescreen --message F --forwarders F` | `invoke_subskill`: true only when one enabled adapter's `sender_pattern` AND `preamble_match` (first 400 characters) both match, or an adapter's pattern is unresolved or invalid; `partial` lists adapters where only one signal matched (not a relay, shown to the user). |
 | `keyword --file F [--kind keywords\|email-local]` | `cleaned`, `empty`. |
 | `title --input F` | `title`: the subject without its mail prefixes. |
 | `linkify --input F` | `text` with every bare reference linked into `repo`, and the `bare_refs` found. |
@@ -153,7 +153,7 @@ Every command prints one JSON object; rendered text is in its `text` field.
 | Command | Prints |
 |---|---|
 | `preflight --forwarders F --message F --framework D` | `outcome` (`proceed`, `no-forwarder-config`, `abort` with exit `2`), `preflight_passed`, `error`, `note`; installed means a `tools/forwarder-relay/<name>/` directory or a `shipping` README row whose doc exists. |
-| `detect --message F --forwarders F [--collaborators F]` | The first enabled adapter whose sender pattern or preamble regex (first 400 characters) matches: `match`, `sub_skill_applied`, `preamble_snippet`, `sender_matched`, `collaborator_warning`, `adapters`; exit `2` on an unresolved pattern. |
+| `detect --message F --forwarders F [--collaborators F]` | The first enabled adapter whose sender pattern AND preamble regex (first 400 characters) both match: `match`, `sub_skill_applied`, `preamble_snippet`, `sender_matched`, `collaborator_warning`, `adapters`, `partial_matches` (adapters where only one signal matched — not a relay); exit `2` on an unresolved pattern. |
 | `credit-kind --input F` | `kind` (`tool` under the bot/AI policy, else the adapter's `kind_hints`, else `human`), `is_bot`, `credit_unknown`. |
 | `first-name --input F` | `first_name` of a handle or display name; `null` (generic salutation) for an address. |
 | `route --mode M [--milestone K] --adapter F` | `to_recipients` (first handle) and `fallback_recipients`, `addressing_block_emitted`, `question_mode`, `negative_space_suppressed` (a do-not-relay milestone in sync mode). |
@@ -262,6 +262,7 @@ Every command takes `--input F`, a JSON file.
 | `staleness` | `stale` and `days`: the team's latest message older than the timeout with no reporter reply since. |
 | `closed-announced` | `cve_org` (`notify`, `already_notified`, `wait`, `blocker`, `retry`, `skip`), `security_pages_reminder_pending`, `advisory_records` and its next step, `blockers`. |
 | `release-vote` | `release_vote_in_progress` and `release_vote_thread_url` for an open `[VOTE]` matching the fix-PR milestone. |
+| `advisory-archive` | `accepted` and `reasons` for a candidate *Public advisory URL*: the thread must be on `advisory_list`, its root subject `<CVE-ID>: <description>` (no `Re:` / `Fwd:`), its root sender (`thread.from`) in `authorized_senders`, the URL under `mail_archive_url`; a missing `mail_archive_url` or `authorized_senders` rejects; `requires_confirmation` is always true, since the sender is the archived `From:` header and is not verified. |
 | `render-recap` | The recap `text`, `bare_refs`. |
 
 ### `issue-fix`

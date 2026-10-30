@@ -149,7 +149,7 @@ def resolve_binding(sender: str, roster: list[dict[str, str]]) -> str | None:
 
 
 def _identity(sender: str, roster: list[dict[str, str]], via: str | None) -> str:
-    """The person behind a vote: their roster Apache ID when on the roster, else the address.
+    """The person behind a vote: their roster Apache ID when present, else the address.
 
     The two are namespaced, so a non-roster sender written as a bare ``alice`` can
     never collide with the roster member whose Apache ID is ``alice``.
@@ -157,7 +157,10 @@ def _identity(sender: str, roster: list[dict[str, str]], via: str | None) -> str
     address = normalise_address(sender)
     if via is not None:
         for row in roster:
-            if address in (row["primary_email"].lower(), f"{row['apache_id'].lower()}@apache.org"):
+            if row["apache_id"] and address in (
+                row["primary_email"].lower(),
+                f"{row['apache_id'].lower()}@apache.org",
+            ):
                 return "roster:" + row["apache_id"].lower()
     return "address:" + address
 

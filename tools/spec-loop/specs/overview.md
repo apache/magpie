@@ -31,9 +31,9 @@ Each mode is an independently toggleable set of skills. Maturity mirrors
 | Mode | Spec | Maturity |
 |---|---|---|
 | Agentic Triage | [triage-mode.md](triage-mode.md) | stable (security) / experimental (PR, issue, contributor-nomination) |
-| Agentic Mentoring | [mentoring-mode.md](mentoring-mode.md) | experimental (5 skills) |
+| Agentic Mentoring | [mentoring-mode.md](mentoring-mode.md) | experimental (7 skills) |
 | Agentic Drafting | [drafting-mode.md](drafting-mode.md) | stable (security) / experimental (issue, audit-finding-fix, release-announce-draft) |
-| Agentic Pairing | [pairing-mode.md](pairing-mode.md) | experimental (2 skills) |
+| Agentic Pairing | [pairing-mode.md](pairing-mode.md) | experimental (3 skills) |
 
 > **Agentic Autonomous** is the fifth MISSION mode but is deliberately **off** by
 > sequencing policy (`.asf.yaml` `allow_auto_merge: false`) — it has no

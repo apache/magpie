@@ -19,13 +19,13 @@ when_to_use: >-
 capability:
   - capability:platform
   - capability:reassess
-surface_hash: sha256:7d670b572d43bbeb
+surface_hash: sha256:f8a5db3da24024cb
 license: Apache-2.0
-measured_tokens: 6320
+measured_tokens: 6950
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
-     <project-config> → adopting project's `.apache-magpie/` directory -->
+     <project-config> → per file: the personal layer, else `.apache-magpie-overrides/` -->
 
 # setup-isolated-setup-doctor
 
@@ -40,9 +40,19 @@ Attribute failures separately to native sandbox/network denial, approval policy,
 Do not prescribe a `.claude` settings change for a Codex failure.
 Then stop before the Claude-specific branch below.
 
-When the selected runtime is Gemini CLI, follow
-[docs/adapters/gemini.md](../../../../docs/adapters/gemini.md#doctor): verify the profile first, then diagnose the actual tool result in the active Gemini session.
-Distinguish policy refusal, sandbox expansion, hook or trust failures, and wrapper or authentication problems.
+When the selected runtime is Antigravity, follow
+[docs/adapters/antigravity.md](../../../../docs/adapters/antigravity.md#doctor): verify the user-scope profile first, then diagnose the actual tool result in the active Antigravity session.
+Distinguish sandbox limits, permission-rule denials, guard-hook failures, and wrapper or authentication problems.
+Do not require Claude configuration or prescribe Claude settings changes; then stop before the Claude-specific probes below.
+
+When the selected runtime is Goose, follow
+[docs/adapters/goose.md](../../../../docs/adapters/goose.md#doctor): verify the plugin, its sandbox runtime and the launcher first, then diagnose the actual tool result in the active Goose session.
+Distinguish sandbox limits or a missing sandbox runtime, hook denials (deny rules or the guard), a hook that failed closed, approve-mode declines, and wrapper or provider-key problems.
+Do not require Claude configuration or prescribe Claude settings changes; then stop before the Claude-specific probes below.
+
+When the selected runtime is Pi, follow
+[docs/adapters/pi.md](../../../../docs/adapters/pi.md#doctor): verify the package install first, then diagnose the actual tool result in the active Pi session.
+Distinguish sandbox limits or a sandbox that could not start, permission-rule denials, guard denials, and wrapper or authentication problems.
 Do not require Claude configuration or prescribe Claude settings changes; then stop before the Claude-specific probes below.
 
 When the selected runtime is Copilot CLI, follow [docs/adapters/copilot.md](../../../../docs/adapters/copilot.md#doctor): verify the hook first, then diagnose the actual tool result in the live session.
@@ -73,10 +83,13 @@ If a fail shows a failure mode not catalogued there, propose appending a new ent
   ⊘ means the probe was skipped because a prerequisite is absent (e.g. no `docker` / `podman` on `PATH` → docker probe ⊘, not ✗).
 - **Surface evidence.** Each report line names the probe command, the exit code, and the relevant stderr snippet.
   "Looks blocked" is not useful; "ssh-add -l → rc=2 → `Could not open a connection to your authentication agent`" is.
+- **Sandbox placeholders are not files.** Inside the Claude Code sandbox a denied path that does not exist on the host can appear as a `/dev/null` bind mount: `stat -c '%F %t,%T' <path>` prints `character special file 1,3`.
+  `git status` lists such placeholders as untracked (`.bash_profile`, `.claude/settings.json`, `.mcp.json`), and reading one returns nothing.
+  Take the host state from git (`git ls-files <path>`, `git log -- <path>`) or from a read the user runs outside the sandbox, and never delete the placeholder.
 - **Map each ✗ to a catalog entry.** The fail report links directly to the matching section of [`docs/setup/sandbox-troubleshooting.md`](../../../../docs/setup/sandbox-troubleshooting.md).
   Do not paraphrase the remediation; the catalog is the single source of truth.
 
-## The 8 probes
+## The probes
 
 The probes cover the catalog's failure modes that a sandboxed command can detect on its own; the signing entries that need a live touch or a terminal are verified by `setup-isolated-setup-verify` check 10 instead.
 New probes are added when new entries land in the catalog, so the two stay in lock-step.
@@ -145,7 +158,9 @@ bash <skill-dir>/scripts/probe-3-container-gateway.sh
 
 `status_json` comes from the gateway's own read-only `status` subcommand.
 The doctor may call it from inside the sandbox, since it neither binds a socket nor touches the daemon.
-`gw_src` picks the adopter's pinned snapshot (`.apache-magpie/tools/container-gateway/src`) when present, else the framework repo's own tree (`tools/container-gateway/src`), so the same probe runs in an adopter checkout and in this framework's own worktree.
+`gw_src` picks the adopter's pinned snapshot (`.apache-magpie/tools/container-gateway/src`) when present, else the framework repo's own tree (`tools/container-gateway/src`), else the operator install the `SessionStart` hook runs (`~/.claude/scripts/container-gateway/src`), so the same probe runs in an adopted checkout, in this framework's own worktree and on a marketplace install.
+Only `status` can vouch that the socket is the gateway's — a raw daemon socket answers `<rt> info` just as well — so with no status (no gateway source, or one the `PATH` `python3` cannot import) the probe fails rather than trusting the socket.
+A `status` that exits 2 without a report has refused the run directory.
 The `gw_state` check runs **before** the raw socket-file test.
 A backend that `status` does not list under `serving` never gets a socket file, so testing `-S "$sock"` first would misreport "gateway not running" for the "running, but this backend's machine/daemon is down" case.
 The `-S` test is a defensive fallback for an already-serving backend whose socket vanished mid-probe, not the primary check.
@@ -156,7 +171,9 @@ The `-S` test is a defensive fallback for an already-serving backend whose socke
 |---|---|---|
 | `✓ <rt> reaches the container gateway at <sock>` | Pass | CLI → gateway → daemon all answer. |
 | `✗ … unset — gateway not wired into settings` | Fail | The reference `env` block is missing from project settings. |
-| `✗ gateway socket missing` | Fail | The `SessionStart` hook did not start the gateway, or it exited; check `container-gateway.log` in the gateway's run directory — `<project>/.apache-magpie-local/run/` when adopted, else `<git-common-dir>/apache-magpie/run/<worktree-id>/`. |
+| `✗ gateway socket missing` | Fail | The `SessionStart` hook did not start the gateway, or it exited and no `PreToolUse` `ensure` hook started it again before the probe's container command (check 12a of `setup-isolated-setup-verify` flags a missing one); check `container-gateway.log` in the gateway's run directory — `<project>/.apache-magpie-local/run/` when adopted, else `<git-common-dir>/apache-magpie/run/<worktree-id>/`. |
+| `✗ gateway status refused the run directory` | Fail | `status` exited 2 without a report: a run-directory component is a symlink or has the wrong owner, type or mode. Inspect the run directory from outside the sandbox; do not point the CLI around it. |
+| `✗ gateway status unavailable` | Fail | The probe could not get a report from `status`: no gateway source was found (install the operator copy, install Step L.1), or `status` exited without one (`rc=N`; typically a `python3` on `PATH` too old to import the gateway). The socket may still work, but nothing confirms it is the gateway's. |
 | `✗ gateway running without a <rt> backend` | Fail | `status` reports the gateway up but `serving` does not list this CLI's backend — the Podman machine or Docker daemon behind it is not running. Start it from outside the sandbox, then restart the gateway. |
 | `✗ connect … denied` | Fail | The gateway socket is not in `sandbox.network.allowUnixSockets`. |
 | `✗ gateway up, backend down` | Fail | Podman machine / Docker not running on the host; start it from your own terminal. |

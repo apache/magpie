@@ -1,0 +1,15 @@
+{
+  "snapshot_drift": "none",
+  "checks": [
+    {
+      "n": 1,
+      "status": "✓",
+      "evidence": "no committed .claude/settings.json (untracked sandbox placeholder, character special file 1,3); the merged settings pass from .claude/settings.local.json: sandbox.enabled true, deny and ask present, allowedDomains, allowRead/allowWrite, denyRead contains ~/"
+    },
+    {
+      "n": 6,
+      "status": "✓",
+      "evidence": "effective sandbox.enabled: true (from .claude/settings.local.json); .claude/settings.json is a sandbox placeholder, absent on the host"
+    }
+  ]
+}

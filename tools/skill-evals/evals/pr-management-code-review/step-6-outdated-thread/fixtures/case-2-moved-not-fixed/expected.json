@@ -1,0 +1,4 @@
+{
+  "addressed": false,
+  "reason": "The method was only renamed: shutil.rmtree still runs after fetch with no try/finally, so a failing fetch still leaves the directory behind."
+}

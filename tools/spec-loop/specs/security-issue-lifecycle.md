@@ -17,6 +17,11 @@ acceptance:
   - Tracker contents stay private; only stable identifiers (URLs, #NNN)
     are public-safe. Public PRs are scrubbed pre-disclosure.
   - Every applied state change is audit-logged.
+  - Every drafted email answers exactly one inbound thread; replies to
+    several threads are never combined into one message, in any skill or
+    bulk mode (one thread split into several trackers gets one reply).
+  - Every security skill runs for a maintainer who only installed Magpie,
+    with no adopted project and no framework checkout.
 ---
 
 # Security-issue lifecycle
@@ -38,6 +43,17 @@ publication, with a human gate and an audit-log entry at every step.
   multi-finding scan output through a pluggable scan-format adapter
   (`tools/scan-format/`), buckets each finding for operator review, and
   creates trackers only after per-finding confirmation.
+  A scanner that mails the whole scan (the `anthropic-oss-scanner`
+  format) is first materialised into a scan folder (#1786): the read-only
+  `oauth-draft-fetch-message` saves the multi-MB message to a file, and
+  `security-management issue-import-from-scan parse-email` splits it into
+  `index.json` plus `evidence/<id>.md`, printing counts only, and refuses
+  triage unless `checks.complete` holds (preamble totals, severity
+  banners, `INDEX`, parsed blocks and signature agree).
+  Attachments are saved byte-exact with their OpenPGP framing checked,
+  never decrypted or run.
+  A report built from such a private source stays a local file: no gist
+  and no per-source post before disclosure.
   `security-issue-import-via-forwarder` is the relay sub-skill: handles
   reports relayed by an upstream broker (ASF security team or a
   third-party disclosure platform) by applying preamble-detect,
@@ -55,6 +71,10 @@ publication, with a human gate and an audit-log entry at every step.
   `issue-sync/mail-preflight.md`, `next-step.md`;
   `cve-allocate/tracker-updates.md`, `title-normalize.md`, `reporter-draft.md`;
   `issue-deduplicate/merge-templates.md`; `issue-fix/outcomes/preflight.md`.
+  `issue-import/attachments.md` is Step 4's attachment procedure: fetch
+  through PonyMail `save_attachments`, decrypt an encrypted ZIP with the
+  password the report itself gives (else ask the triager), read the files as
+  data only, and record name, size and SHA-256 in the tracker description.
   The tracker body templates of `issue-import-from-md` and
   `issue-import-from-pr` live in a `tracker-body-template.md` sibling of
   each (#1499).
@@ -145,7 +165,9 @@ publication, with a human gate and an audit-log entry at every step.
   allocation on its own), renders the API proposal, the self-service
   recipe or a non-member's terse relay, takes the one CVE ID from the
   paste-back, plans the reporter status draft (both routing modes, the
-  primary thread, an existing draft surfaced), greps it for the CVE-tool
+  primary thread, an existing draft surfaced; on a tracker that merged
+  several independent reporters, one plan and one draft per reporter, each
+  on its own thread, a relay line being no further reporter), greps it for the CVE-tool
   URL and the CVE ID, and renders the numbered proposal, the rollup entry
   (a pending draft claimed only after checking Drafts), the confirmation
   forms, the per-backend apply order and the recap; writing the draft
@@ -157,7 +179,8 @@ publication, with a human gate and an audit-log entry at every step.
   are open with the same single scope label and neither `duplicate`,
   applies the CVE rules (a CVE only on the dropped side means swap, a
   `public` record refuses, the kept CVE must be at least as far along and
-  the dropped one is retracted), reads both bodies' fields (the CVE JSON
+  the dropped one is retracted, unless both trackers carry the same CVE),
+  reads both bodies' fields (the CVE JSON
   attachment cut off), and rewrites the kept body field by field through
   github-body-field's `replace_field`, so the attachment and extra fields
   stay byte-exact: the dropped report verbatim in a collapsed *Second
@@ -232,6 +255,29 @@ publication, with a human gate and an audit-log entry at every step.
 - Tools: `tools/cve-tool-vulnogram/generate-cve-json` (CVE 5.x JSON),
   `tools/cve-org`, `tools/gmail` + `tools/ponymail` (mail), and the
   `tools/privacy-llm` gate/redactor ([the privacy gate](privacy-llm-gate.md)).
+  The `gmail-plaintext` MCP server (`oauth_draft.mcp_server`) runs outside
+  the sandbox, so a caller-supplied `credentials_path` must be a `.json`
+  file directly in `~/.config/apache-magpie/` or in the directory of
+  `$GMAIL_OAUTH_CREDENTIALS`, reached through no symlink (#1795).
+- `tools/asf-security-dash` (`magpie-asf-security-dash`, `**Organization:**
+  ASF`) — the read-only bridge to `dash.security.apache.org` behind
+  `security-issue-sync`'s dashboard mode (#1780; see
+  [adapters.md](adapters.md)).
+- The `magpie-security-tools` substrate plugin (#1787) ships copies of the
+  tools the security skills run (`security-management`, `github-body-field`,
+  `github-rollup`, `generate-cve-json`, the Vulnogram `oauth-api`,
+  `privacy-llm/checker`, `vcs`, `local-tracker`, `jira`, `gmail/oauth-draft`,
+  `asf-security-dash`, `security-tracker-stats-dashboard`, and the
+  forwarder-relay registry with `gmail/asf-relay.md`),
+  kept identical to `tools/` by `tools/dev/check-family-plugins.py`.
+  Its SessionStart hook (`security-management/hooks/link-framework-path.sh`)
+  copies them once per plugin version to
+  `~/.cache/apache-magpie/framework/<version>` and points `current` at it,
+  so `<framework>` on a marketplace install is
+  `~/.cache/apache-magpie/framework/current` and every
+  `uv run --project <framework>/tools/<tool>` works unchanged.
+  Setup installs it with `magpie-security`; pre-flight and upgrade name it
+  when missing.
 
 ## Behaviour & contract
 
@@ -242,6 +288,19 @@ publication, with a human gate and an audit-log entry at every step.
   `#NNN` are public-safe identifiers; tracker *contents* are private;
   the security framing of a public PR is embargoed until the advisory
   ships.
+- **Report attachments are fetched, never run (#1828).**
+  `issue-import/attachments.md` saves each message's attachments into its
+  own `<PONYMAIL_ATTACHMENT_DIRS root>/<threadId>/<mid>` directory, which
+  the agent only reads.
+  A wrong or missing password is the triager's to supply, never guessed or
+  retried in variants, and the password is never copied beyond the verbatim
+  body; 7z, RAR and PGP files are saved but not decrypted.
+  Nothing from an attachment is executed, built or unpacked further, text
+  addressing the agent is flagged as injection, and copied content goes
+  through the same redaction as the body.
+  Without the tool, or for a Gmail-only report, the proposal lists the names
+  as not fetched; `get_source`, `get_mbox` and downloads are never used to
+  recover one.
 - **Report text is inert in the tracker (#1672).** The importers put
   reporter-derived long text (the mail body, the PR description, each
   findings-file section) into the body as one fenced block with info
@@ -330,6 +389,22 @@ publication, with a human gate and an audit-log entry at every step.
   paths outside the agreed file list, and print the commands, and
   `commit --scrub` / `new-branch --scrub` repeat the scrub before the
   VCS runs (exit `3` on a hit).
+- **A deterministic public-surface scrub mod backs the skill's own check
+  (#1676).** In Claude Code with the `magpie-security` plugin enabled,
+  `plugins/magpie-security/hooks/public-surface-scrub.ts` intercepts Bash
+  calls to `git commit` / `tag` / `merge`, `gh pr`, `gh issue`,
+  `gh release create` and `gh api`, reads the message or body they carry
+  (`-m`, `-F`, `--body-file`, heredocs and pipelines included), and blocks
+  the call on a forbidden term, at zero token cost when the text is clean.
+  It keeps no list of its own: `forbidden-terms.ts` is generated from
+  `magpie_vcs.publication.DEFAULT_TERMS` by
+  `tools/dev/sync-forbidden-terms.py`, which a pre-commit hook checks.
+  A command aimed at `tracker_repo` by an explicit `--repo` is exempt;
+  one aimed at `upstream_repo` or run in an upstream working tree is
+  scanned, and unrelated repositories pass unchecked.
+  `MAGPIE_ALLOW_EMBARGO_TERMS=1` is the maintainer's escape hatch after
+  disclosure, and the block message does not tell the agent how to
+  bypass it.
 - **Adversarial review before a PR, on public content only.**
   `security-issue-fix`, `security-issue-import-from-pr` (over the patch it
   verifies) and `security-issue-import-from-scan` carry the shared
@@ -391,13 +466,24 @@ publication, with a human gate and an audit-log entry at every step.
   activity; `--retriage` and explicitly numbered trackers are never
   skipped.
   `security-issue-import` drops CVE-tool bookkeeping mail by subject and
-  sender in Step 1, before any thread body is read; the Step 3 row stays
+  sender in Step 1, before any thread body is read.
+  The senders are `<security-list>` plus `security_inbox.cve_tool_senders`,
+  which the ASF organization defaults to `security@apache.org`; setup's
+  pinned-snapshot install and adopt paths ask for the CNA reviewers' own addresses (never
+  guessed) and write a project list that repeats `security@apache.org`,
+  since a project value replaces the organization default (#1745).
+  The Step 3 row stays
   as the backstop for the body-line variant, pre-filtered threads are
   counted at Step 5 and listed at Step 8, and `keep <threadId>` sends one
   back through Steps 2 to 5.
   The forwarder sub-skill is invoked only when `forwarders.enabled` is set
-  and a message matches an enabled adapter's sender or preamble pattern,
-  a strict subset of the sub-skill's own *not a relay* outcome.
+  and a message matches both an enabled adapter's sender and preamble
+  patterns, a strict subset of the sub-skill's own *not a relay* outcome;
+  a message matching only one is not a relay and is shown to the user,
+  and relay-derived credit stays a proposal until a human confirms it.
+  `security-issue-sync` accepts a *Public advisory URL* only after
+  `issue-sync advisory-archive` validates it (thread on the advisory
+  list, root subject `<CVE-ID>: …`), and always with user confirmation.
   `gh` calls that were wrapped in `$(…)` or piped are now plain commands,
   which the secure setup needs; #1453 made the last one plain too
   (`security-issue-invalidate` Step 1 no longer redirects `gh issue view`
@@ -470,6 +556,14 @@ publication, with a human gate and an audit-log entry at every step.
   A re-rendered hand-off comment keeps the release manager's tick, and a
   ticked box keeps later runs quiet. The reminder links the project's
   pages through the optional `security_pages_url` manifest key (#1355).
+- **Sync state markers are read from comments only (#1716).**
+  `issue-sync closed-announced` decides "records done", "pages ticked" and
+  "reporter notification drafted" from the tracker's comments, never its
+  body, because the body carries report text; the `advisory-records v1`
+  marker counts only as a comment's first line.
+  `issue-deduplicate merge-body` likewise refuses a value copied from the
+  dropped tracker that holds an HTML comment, so no machine marker travels
+  in copied field text.
 - **With `advisory_records` configured, sync proposes the security-pages edit.**
   The optional `advisory_records` manifest block names the site repository
   (Git or Subversion), its working copy and a layout: one CVE 5.x JSON file
@@ -483,6 +577,42 @@ publication, with a human gate and an audit-log entry at every step.
   idempotent, escapes tracker text, and refuses a page it cannot parse. The
   reminder never fires for such a project. `magpie-vcs` gains `update` and
   `checkout` for it.
+- **The CVE record is published only after the advisory ships (#1795).**
+  Sync's `REVIEW → PUBLIC` move through `vulnogram-api-record-publish`
+  runs only in the *advisory archived* combined apply, and the CLI refuses
+  (exit `4`) a record with no `references[]` entry tagged
+  `vendor-advisory`, so the CVE JSON is re-pushed with the archived URL
+  first ([CVE tooling](cve-tooling.md)).
+- **Dashboard mode reconciles with the ASF Security dashboard, ASF only
+  (#1780, #1798).** On *"sync dashboard"*, `security-issue-sync` follows
+  `issue-sync/dashboard.md`.
+  Step D0 reads `organization` from the resolved `project.md` and ends the
+  mode for anything but `ASF` (offering `/magpie-setup:setup config` when
+  `<upstream>` is under `apache/` but the key is unset), never asking for a
+  dashboard session; the bridge enforces the same rule itself, exiting `3`
+  unless `--project-md` declares `organization: ASF`.
+  D1 lists the PMC's open cases (`cna_private_owner`, else `<project>`),
+  D2 writes one entry per open or recently closed issue (decision,
+  CVEs, `Message-ID`s), D3 runs `reconcile`, and D4 proposes per `fix`:
+  `import`, `review` (a case that may be a standing label is confirmed as a
+  report before any import), `tracker`, `dashboard-triage` (a project-page
+  link and no reporter reply, since the dashboard emails the reporter) and
+  `asf-security` (one note drafted to `<foundation-security-list>`).
+  Nothing is applied unconfirmed, and case titles are external content.
+- **Runs without project adoption (#1787).** A maintainer who only
+  installed Magpie passes pre-flight and finishes the run: vetted-ops and
+  `generate-cve-json` read their config from the committed
+  `.apache-magpie-overrides/tools/…` first, then the personal layer at the
+  same relative path (`tools/vetted-ops/config.toml`,
+  `tools/cve-tool-vulnogram/cve-json-config.toml`), and `setup config`
+  drafts both.
+  The personal vetted-ops policy is read only from a layer the sandbox's
+  deny globs protect (`.git/**/apache-magpie`, `.svn/apache-magpie`,
+  `.apache-magpie-local`) and never through a symlink; the user saves it
+  from the draft themselves
+  ([vetted command surface](vetted-command-surface.md)).
+  `security-issue-fix` never saves personal data into the committed
+  overrides.
 
 ## Out of scope
 
@@ -508,6 +638,14 @@ publication, with a human gate and an audit-log entry at every step.
 6. An imported report renders as one inert block, and every body-field
    reader in the tree finds exactly the template fields once each in the
    result, whatever fences or fake `###` lines the report holds (#1672).
+7. Dashboard mode and `magpie-asf-security-dash` stop for any project whose
+   `project.md` does not declare `organization: ASF`, before a session
+   cookie or the network is touched (#1798).
+8. Sync's closed-tracker markers are read from comments only; marker text
+   in the report body never skips a step (#1716).
+9. A scanner disclosure email is triaged only from a scan folder whose
+   completeness checks pass, and its report never leaves the machine
+   before disclosure (#1786).
 
 ## Validation
 
@@ -516,6 +654,8 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
 uv run --project tools/security-management --group dev pytest
 uv run --project tools/cve-tool-vulnogram/generate-cve-json --group dev pytest
 uv run --project tools/gmail/oauth-draft pytest
+uv run --project tools/asf-security-dash --group dev pytest
+python3 tools/dev/check-family-plugins.py
 ```
 
 ## Known gaps

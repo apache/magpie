@@ -794,11 +794,26 @@ def test_cli_stop_signals_when_process_is_the_console_script(
         assert (our_pid, signal.SIGTERM) in calls
 
 
+# The argv a macOS framework build (Homebrew's python@3.x) re-execs as.
+_FRAMEWORK_PYTHON = (
+    "/opt/homebrew/Cellar/python@3.13/3.13.1/Frameworks/Python.framework/Versions/3.13/Resources/"
+    + "Python.app/Contents/MacOS/Python"
+)
+
+
 @pytest.mark.parametrize(
     "command_line",
     [
         "python3 -u -m container_gateway serve --project /x",
         "uv run python -m container_gateway serve --project /x",
+        _FRAMEWORK_PYTHON + " -m container_gateway serve --project /x",
+        _FRAMEWORK_PYTHON
+        + " -I -S -c "
+        + cli.HOOK_BOOTSTRAP
+        + " /home/u/.claude/scripts/container-gateway/src serve --project=/x --daemon",
+        "/opt/homebrew/Cellar/python@3.13/3.13.1/bin/python3.13 -I -S -c "
+        + cli.HOOK_BOOTSTRAP
+        + " /home/u/.claude/scripts/container-gateway/src serve --project=/x --daemon",
     ],
 )
 def test_cli_stop_signals_a_python_dash_m_invocation_with_extra_argv(
@@ -1350,3 +1365,22 @@ def test_bind_roots_are_the_project_and_the_extra_roots_only(
     ctx = daemon.build_context(cfg, Backend("podman", Path("/x.sock"), "host.containers.internal"), None)
     assert ctx.bind_roots == (project.resolve(), extra.resolve())
     assert scratch.resolve() not in ctx.bind_roots
+
+
+def test_the_hook_runs_the_bootstrap_stop_recognises() -> None:
+    """container-gateway-hook.sh and HOOK_BOOTSTRAP must not drift apart."""
+    hook = Path(__file__).resolve().parents[2] / "agent-isolation" / "container-gateway-hook.sh"
+    assert f"bootstrap='{cli.HOOK_BOOTSTRAP}'" in hook.read_text()
+
+
+@pytest.mark.parametrize(
+    "command_line",
+    [
+        "python3 -c import os; os.system('x') serve",
+        "python3 -I -S -c "
+        + 'import runpy, sys; sys.path.insert(0, sys.argv.pop(1)); runpy.run_module("other")'
+        + " x",
+    ],
+)
+def test_a_different_dash_c_program_is_not_the_gateway(command_line: str) -> None:
+    assert cli._GATEWAY_ARGV_RE.match(command_line) is None

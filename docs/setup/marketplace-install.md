@@ -11,10 +11,12 @@
   - [OpenAI Codex CLI](#openai-codex-cli)
   - [VS Code / GitHub Copilot](#vs-code--github-copilot)
   - [Grok Build](#grok-build)
-  - [Google Gemini CLI](#google-gemini-cli)
+  - [Google Antigravity](#google-antigravity)
   - [Cursor](#cursor)
   - [microsoft/apm](#microsoftapm)
   - [Kiro CLI](#kiro-cli)
+  - [Pi](#pi)
+  - [Goose](#goose)
   - [JetBrains IDEs](#jetbrains-ides)
   - [Where to go next](#where-to-go-next)
 
@@ -167,20 +169,25 @@ Project-hook trust remains an explicit operator action whenever a repository-loc
 
 See [the Grok adapter](../adapters/grok.md).
 
-## Google Gemini CLI
+## Google Antigravity
+
+Antigravity replaced Gemini CLI, which Google retired for individual accounts
+on 2026-06-18. Install Magpie as an Antigravity plugin from the CLI:
 
 ```bash
-gemini extensions install https://github.com/apache/magpie --auto-update
+agy plugin install https://github.com/apache/magpie
 ```
 
-`--auto-update` is worth taking at install time: without it the extension stays
-at the commit you installed and only moves when you run
-`gemini extensions update magpie` yourself.
+The repository root is the plugin: Antigravity reads the root `plugin.json`
+and the skills under `skills/`, so the whole framework arrives as one plugin
+and there is nothing further to pick. Plugins installed in the Antigravity App
+sync to the CLI. Verify with `agy plugin list`, or `/plugin` inside a session;
+every skill is also a slash command (`/magpie-setup`). To refresh, run the same
+install command again.
 
-Gemini installs Magpie as one extension rather than per-plugin, so the
-baseline arrives with it and there is nothing further to pick. Verify with
-`gemini extensions list`; update manually at any time with
-`gemini extensions update magpie`.
+Coming from Gemini CLI with the old Magpie extension installed?
+`agy plugin import gemini` converts it, but a fresh install from the
+repository URL is simpler and carries the current layout.
 
 From then on, ask in plain language — *set up Magpie for this project* — or
 name the skill: `Use the magpie-setup skill.`
@@ -218,6 +225,47 @@ Pin a tag rather than tracking `main` — without a marketplace there is no
 update command later, so what you install is what you keep until you install
 again. [The Kiro harness guide](../adapters/kiro.md) covers the guard hook and
 the rest of the wiring.
+
+## Pi
+
+Pi has no marketplace; it installs packages from git, npm or a local path.
+The repository root is a Pi package (its `package.json` carries a `pi` key),
+so one command, run once per user, installs the skills together with Magpie's
+secure setup for Pi — the action guard, the permission rules and the OS sandbox
+for bash:
+
+```bash
+pi install git:github.com/apache/magpie
+```
+
+Install it for the user, never per project: do not add `-l`. Verify with
+`pi list`; every skill is also a `/skill:<name>` command. Refresh with
+`pi update --extensions`, and remove everything with
+`pi remove git:github.com/apache/magpie`.
+[The Pi harness guide](../adapters/pi.md) covers what the extension enforces
+and how to verify it.
+
+## Goose
+
+Goose has no marketplace; `goose plugin install` takes a git URL.
+The repository root is a Goose plugin (`.goose-plugin/plugin.json` lists the
+family skill directories, and `hooks/hooks.json` registers Magpie's guard
+hook), so one command, run once per user, installs the skills as
+`magpie:<skill>` together with the hook. A second one installs the sandbox
+runtime from the committed lockfile into the plugin:
+
+```bash
+goose plugin install https://github.com/apache/magpie
+npm ci --omit=dev --legacy-peer-deps --ignore-scripts --prefix ~/.agents/plugins/magpie
+```
+
+Install it for the user, never into a project's `.agents/plugins/`. Start
+Goose through `agent-iso goose`, which runs the whole process in the sandbox
+in approve mode. Verify with `goose skills list`. Refresh with
+`goose plugin update magpie` followed by the same `npm ci` (the update drops
+`node_modules`), and remove everything by deleting `~/.agents/plugins/magpie/`.
+[The Goose harness guide](../adapters/goose.md) covers what the hook and the
+sandbox enforce and how to verify them.
 
 ## JetBrains IDEs
 

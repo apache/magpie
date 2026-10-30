@@ -152,18 +152,47 @@ operator installed or pinned — so also copy the whole package
 `~/.claude/scripts/container-gateway/src/container_gateway/`, next
 to the hook. Without this second copy the hook finds no source at
 session start and is a silent no-op: it never fails the session,
-it simply never starts the gateway. A framework contributor working
-in this checkout can instead export
-`MAGPIE_CONTAINER_GATEWAY_SRC=tools/container-gateway/src` and skip
-the copy; an adopter whose `.apache-magpie/` snapshot is already
-populated needs neither, since the hook falls back to
-`<root>/.apache-magpie/tools/container-gateway/src` on its own.
+it simply never starts the gateway.
+A framework contributor re-copies the package after changing it: the hook
+refuses a source under any sandbox-writable directory, so neither
+`MAGPIE_CONTAINER_GATEWAY_SRC=tools/container-gateway/src` pointing into
+this checkout nor an `.apache-magpie/` snapshot is used — the project root is
+always writable from the sandbox, and the hook runs outside it.
+
+The hook also never takes `python3` from `PATH`, which project settings can
+set. It runs the first Python 3.11+ outside every writable directory among
+`/opt/homebrew/bin`, `/usr/local/bin`, `/usr/bin` and uv's managed
+interpreters under `~/.local/share/uv/python`, by its real path with `-I -S`.
+The uv interpreters count only while `~/.local/share/uv` is read-only to the
+sandbox, as the reference settings keep it; a write grant over it in any
+scope makes the hook skip them. Where none qualifies, write the absolute path
+of one that does to `~/.claude/scripts/container-gateway/python`; until then
+the hook logs one line and does not start the gateway.
+
+In a linked worktree the hook also counts the main checkout's settings. It
+records which main checkout it confirmed the first time, under
+`~/.claude/magpie-gateway/worktrees/`, because the worktree's `.git` file is
+sandbox-writable; a later session that derives a different one is refused
+until you delete that record (the log line names it).
 
 **L.2 — Hooks.** Wire a `SessionStart` hook running
-`container-gateway-hook.sh start` and a `SessionEnd` hook running
-`container-gateway-hook.sh stop` into `~/.claude/settings.json` —
+`container-gateway-hook.sh start`, a `SessionEnd` hook running
+`container-gateway-hook.sh stop`, and a `PreToolUse` hook (matcher
+`Bash`, no `if` filter, `timeout` 30) running
+`container-gateway-hook.sh ensure`, which starts the gateway again
+before a container command when it exited mid-session, into the user
+settings, each
+**by the script's absolute path** with the home directory written out (a `~`
+there is expanded from `$HOME`, which the session environment can redirect),
+executed directly rather than through `bash`/`sh` (its `#!/bin/bash -p`
+shebang keeps `BASH_ENV` and exported functions out) —
 merging into existing arrays with a diff the operator approves,
-exactly as for K.2's touch-overlay hooks.
+exactly as for K.2's touch-overlay hooks. The file is
+`~/.claude/settings.local.json` when `~/.claude/settings.json` is a link
+into a synced config repo (the absolute path differs per machine;
+macOS `/Users/<you>`, Linux `/home/<you>`), and `~/.claude/settings.json`
+otherwise. If a synced file already carries the two entries, propose moving
+them, per the setup guide's "Fixing your other machines".
 
 **L.3 — Project wiring.** Propose the `env` block
 (`CONTAINER_HOST` / `DOCKER_HOST`) and the `allowUnixSockets` pair
@@ -197,6 +226,12 @@ project-relative `unix://./…` value against the cwd — the URL
 authority is read as a host component, so `unix://./x` dials
 `/.//x` — and `allowUnixSockets` has no relative form either.
 Nothing gateway-related is committed to `.claude/settings.json`.
+On Linux, which ignores `allowUnixSockets`, the same diff also proposes
+`sandbox.network.allowAllUnixSockets: true` together with
+`sandbox.filesystem.denyRead` entries for each host daemon and IPC
+socket path that exists on the machine, never the flag alone; the path
+list and the `/run/user/<uid>` caveat are in
+[docs/setup/secure-agent-setup.md → Linux needs `allowAllUnixSockets`](../../../../docs/setup/secure-agent-setup.md#linux-needs-allowallunixsockets).
 Never propose the real
 daemon socket under any name; `tools/sandbox-lint` rejects an
 `allowUnixSockets` entry named `docker.sock` / `podman.sock` /
@@ -212,7 +247,9 @@ Tell the operator plainly, every time this step runs:
   serves the `docker` CLI, translated onto the Podman backend — the
   operator does not need both installed.
 - The hook lives in `~/.claude/scripts/`, runs outside the sandbox
-  on every `SessionStart` / `SessionEnd`, and — per L.1 — only ever
+  on every `SessionStart` / `SessionEnd` and before every `docker` /
+  `podman` command (where it restarts a gateway that exited
+  mid-session), and — per L.1 — only ever
   executes the copy installed here, never anything from the project
   tree it is about to serve.
 

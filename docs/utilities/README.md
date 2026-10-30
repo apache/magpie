@@ -93,7 +93,7 @@ A skills library and development methodology: brainstorming, plan writing, subag
 
 *With this family:* write-skill and optimize-skill author Magpie skills; Superpowers' brainstorming and plan-writing skills are the discipline for deciding what a skill should do before writing it.
 
-Available on **Claude Code**, **OpenAI Codex CLI**, **VS Code / GitHub Copilot**, **Google Gemini CLI**, **Cursor**, **OpenCode**.
+Available on **Claude Code**, **OpenAI Codex CLI**, **VS Code / GitHub Copilot**, **Google Antigravity**, **Cursor**, **OpenCode**.
 
 Installing it means first adding a marketplace Magpie does not publish — `obra/superpowers-marketplace`. The install flow asks before it does, and names whose it is.
 

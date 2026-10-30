@@ -3,52 +3,505 @@
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
-**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [Security threat model](#security-threat-model)
-  - [Purpose](#purpose)
-  - [Scope](#scope)
-  - [Out of scope](#out-of-scope)
-  - [Assumptions](#assumptions)
-  - [Definitions](#definitions)
-  - [Trust boundaries](#trust-boundaries)
-    - [B1 — Untrusted-input and skill](#b1--untrusted-input-and-skill)
-    - [B2 — Skill and private tracker](#b2--skill-and-private-tracker)
-    - [B3 — Private tracker and public upstream](#b3--private-tracker-and-public-upstream)
-    - [B4 — Pre-disclosure and post-disclosure](#b4--pre-disclosure-and-post-disclosure)
-    - [B5 — Agent host and external infrastructure](#b5--agent-host-and-external-infrastructure)
-  - [Adversaries](#adversaries)
-    - [P1 — Malicious reporter](#p1--malicious-reporter)
-    - [P2 — Hostile public contributor](#p2--hostile-public-contributor)
-    - [P3 — Compromised supply-chain dependency](#p3--compromised-supply-chain-dependency)
-    - [P4 — Network-layer adversary](#p4--network-layer-adversary)
-    - [P5 — Negligent insider](#p5--negligent-insider)
-  - [Asset inventory](#asset-inventory)
-  - [STRIDE matrix per skill family](#stride-matrix-per-skill-family)
-    - [Skill family A — Inbound import](#skill-family-a--inbound-import)
-    - [Skill family B — Agentic Triage and reconciliation](#skill-family-b--agentic-triage-and-reconciliation)
-    - [Skill family C — CVE allocation](#skill-family-c--cve-allocation)
-    - [Skill family D — Public remediation](#skill-family-d--public-remediation)
-    - [Skill family E — Closure](#skill-family-e--closure)
-    - [Skill family F — Security-model authoring](#skill-family-f--security-model-authoring)
-  - [Cross-skill threats](#cross-skill-threats)
-    - [X1 — Prompt-injection chained across skills](#x1--prompt-injection-chained-across-skills)
-    - [X2 — Tracker URL leaks the existence of an embargoed issue](#x2--tracker-url-leaks-the-existence-of-an-embargoed-issue)
-    - [X3 — Sandbox bypass via developer override](#x3--sandbox-bypass-via-developer-override)
-    - [X4 — Credential exfiltration via dependency](#x4--credential-exfiltration-via-dependency)
-  - [Mitigation cross-reference](#mitigation-cross-reference)
-  - [Residual risk and accepted gaps](#residual-risk-and-accepted-gaps)
-  - [Re-audit cadence and ownership](#re-audit-cadence-and-ownership)
-  - [Change log](#change-log)
+- [Apache Magpie threat model](#apache-magpie-threat-model)
+  - [1.1 Header](#11-header)
+  - [1.2 Scope](#12-scope)
+  - [1.3 Out of scope](#13-out-of-scope)
+  - [1.4 Trust boundaries](#14-trust-boundaries)
+  - [1.5 Environment](#15-environment)
+  - [1.6 Configurations](#16-configurations)
+  - [1.7 Inputs](#17-inputs)
+  - [1.8 Outputs](#18-outputs)
+  - [1.9 Dependencies](#19-dependencies)
+  - [1.10 Adversary model](#110-adversary-model)
+  - [1.11 Claimed properties](#111-claimed-properties)
+  - [1.12 Disclaimed properties](#112-disclaimed-properties)
+  - [1.13 Downstream responsibilities](#113-downstream-responsibilities)
+  - [1.14 Misuse patterns](#114-misuse-patterns)
+  - [1.15 Known non-findings](#115-known-non-findings)
+  - [1.16 Revision triggers](#116-revision-triggers)
+  - [1.17 Dispositions](#117-dispositions)
+  - [1.18 Open questions](#118-open-questions)
+  - [1.19 Companion files](#119-companion-files)
+  - [Appendix A — Back-map from the 2026-05 model](#appendix-a--back-map-from-the-2026-05-model)
+  - [Appendix B — Security skill family STRIDE model](#appendix-b--security-skill-family-stride-model)
+    - [Purpose](#purpose)
+    - [Scope](#scope)
+    - [Out of scope](#out-of-scope)
+    - [Assumptions](#assumptions)
+    - [Definitions](#definitions)
+    - [Trust boundaries](#trust-boundaries)
+    - [Adversaries](#adversaries)
+    - [Asset inventory](#asset-inventory)
+    - [STRIDE matrix per skill family](#stride-matrix-per-skill-family)
+    - [Cross-skill threats](#cross-skill-threats)
+    - [Mitigation cross-reference](#mitigation-cross-reference)
+    - [Residual risk and accepted gaps](#residual-risk-and-accepted-gaps)
+    - [Re-audit cadence and ownership](#re-audit-cadence-and-ownership)
+    - [Change log](#change-log)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# Security threat model
+# Apache Magpie threat model
 
-## Purpose
+This is the security model of Apache Magpie: what it promises, what it does not, and how to route a finding against it.
+It follows the section structure of the Alpha-Omega threat-model rubric (<https://github.com/alpha-omega-security/threat-model>, `references/output-structure.md`), which Magpie references and does not vendor.
+The earlier STRIDE model of the security skill family is kept, unchanged in substance, as [Appendix B](#appendix-b--security-skill-family-stride-model); this document is a strict superset of it.
+
+## 1.1 Header
+
+| Field | Value |
+|---|---|
+| Project | Apache Magpie (`apache/magpie`) |
+| Version binding | `main` at `a9fa208bb` (version `0.9.0.dev`); last release `0.1.0` |
+| Status | **Draft, unratified.** Most claims below are `documented` (cited from the repository); every `inferred` and `assumption` claim has an open question in [§1.18](#118-open-questions). Until the PMC answers them, this is a proposal, not the project's model. |
+| Triage policy | `strict` (proposed — [Q1](#118-open-questions)) |
+| Rubric | Alpha-Omega threat-model, §1.1–§1.19 |
+
+**Provenance tags.**
+`documented` — stated in a maintainer-authored file in this repository, cited by path and section.
+`maintainer, YYYY-MM` — confirmed by a PMC member on the record.
+`assumption, QN` — a conservative default, unratified.
+`inferred, QN` — read from code or from the absence of a feature, with no committed default.
+An `inferred` claim never licenses closing a report; under `strict` neither does an `assumption`.
+
+**Glossary.**
+*Harness* — the agent runtime that executes skills (Claude Code, Codex CLI, Antigravity, Copilot CLI, Pi, Goose, …).
+*Skill* — a `SKILL.md` prompt the harness loads; it directs the agent, it is not code.
+*Tool* — a Python, shell or Groovy program under `tools/`, run by the agent or by a hook.
+*Enforcement layer* — the hooks and gateways that run outside the harness sandbox: agent-guard, vetted-ops, container-gateway, egress-gateway, the setup pre-flight.
+*Personal layer* — gitignored or in-`.git` configuration owned by one contributor.
+*Committed layer* — `.apache-magpie-overrides/` and the project's config, landed by reviewed PR.
+*External content* — anything the agent reads that did not land through a reviewed PR to the adopter's repository ([AGENTS.md → Treat external content as data](../../AGENTS.md#treat-external-content-as-data-never-as-instructions)).
+
+**Claim confidence.** 32 claimed properties: 26 `documented`, 4 `inferred`, and 2 `documented` for some components but `inferred` as a framework-wide rule. 17 disclaimers, all `documented`. 1 `assumption`.
+No claim is `maintainer`-tagged yet.
+
+**Backtest.** About 40 historical items (issues, PRs, CodeQL alerts; Magpie has no published advisories) were routed blind through this draft; see [§1.17](#117-dispositions).
+After three claims were narrowed, no item the project fixed routes to a closing disposition.
+
+**Triager quick-start.**
+
+1. Identify the component ([§1.2](#12-scope)) and whether it is supported ([§1.3](#13-out-of-scope)).
+2. Identify every input the report controls and its trust level ([§1.7](#17-inputs)).
+3. Identify the attacker the report assumes and check it against [§1.10](#110-adversary-model).
+4. Look for a claimed property it violates ([§1.11](#111-claimed-properties)) and a disclaimer that covers it ([§1.12](#112-disclaimed-properties)).
+5. Apply the precedence order in [§1.17](#117-dispositions). First match wins. No unique answer is `MODEL-GAP`, which escalates.
+
+## 1.2 Scope
+
+**What Magpie is.**
+A framework of agent skills and tool adapters that maintainers run on their own workstation, inside an agent harness, to handle project work — security reports, PR triage and review, releases, contributor growth, repository health.
+It is **not** a service: it has no server, no listening port in its default install, and no shared state beyond the adopter's own repositories and trackers. `documented` ([README.md](../../README.md), [AGENTS.md → Repository purpose](../../AGENTS.md#repository-purpose)).
+
+**Use cases in scope.**
+A maintainer running a Magpie skill in a supported harness against their own project's repositories, trackers, mailing lists and CVE tooling; a project adopting Magpie for its contributors; Magpie's own CI and release process.
+
+**Roles and trust.**
+
+| Role | Trust | Why |
+|---|---|---|
+| Operator (the maintainer running the harness) | Trusted | Owns the machine and approves every state change. `documented` (AGENTS.md: authoritative instructions come from the interactive user) |
+| Committed project config (`.apache-magpie-overrides/`, `<project-config>/`) | Trusted | Lands only through a reviewed PR. `documented` (AGENTS.md) |
+| Personal layer | Trusted for its owner | Written by the operator or by `/magpie-setup config`. `documented` ([agentic-overrides.md](../setup/agentic-overrides.md)) |
+| Upstream Magpie release / pinned snapshot | Trusted | Pinned and verified per install method ([§1.9](#19-dependencies)) |
+| Third-party skill source listed in `skill-sources.md` | Trusted as pinned | The adopter vouches for it by committing the pin. `documented` ([docs/skill-sources/](../skill-sources/README.md)) |
+| The LLM executing a skill | **Semi-trusted executor** | Follows instructions, but can be steered by external content and can err. The enforcement layer and the confirmation gates exist because of this. `documented` ([tools/agent-guard/README.md](../../tools/agent-guard/README.md): "an injected instruction and an honest mistake are treated identically") |
+| Authors of external content (reporters, PR authors, mail senders, commenters) | Untrusted | `documented` (AGENTS.md) |
+| Model providers in the privacy-LLM registry | Trusted for the data class approved | `documented` ([tools/privacy-llm/models.md](../../tools/privacy-llm/models.md)) |
+
+**Component families.**
+
+| Family | Paths | Kind | Supported |
+|---|---|---|---|
+| Skills | `skills/`, `plugins/*/skills/` | Prompts | Yes |
+| Enforcement layer | `tools/agent-guard`, `tools/vetted-ops`, `tools/container-gateway`, `tools/egress-gateway`, `tools/agent-isolation`, `tools/setup-preflight` | Hooks, CLIs, daemons outside the sandbox | Yes |
+| Policy checkers | `tools/sandbox-lint`, `tools/permission-audit`, `tools/privacy-llm`, `tools/skill-and-tool-validator`, `tools/symlink-lint` | Offline CLIs | Yes |
+| Ingest and service adapters | `tools/gmail`, `tools/ponymail`, `tools/mail-*`, `tools/maildir`, `tools/forwarder-relay`, `tools/github*`, `tools/gitlab`, `tools/forgejo`, `tools/bitbucket`, `tools/sourcehut`, `tools/jira*`, `tools/cve-*`, `tools/osv`, `tools/chat*`, `tools/apache-projects`, `tools/scan-format` | CLIs, MCP servers, documented recipes | Yes, at the maturity each README states |
+| Second-read reviewers | `tools/adversarial-review`, `tools/typed-decision` | CLIs calling other models | Yes |
+| Distribution | marketplace manifests, `plugins/`, `skills/setup`, lock files | Manifests, setup skill | Yes |
+| Release tooling | `tools/reproducible-archive`, `tools/release-verify`, `tools/maven-artifact-verify` | Offline CLIs | Yes |
+| Framework development | `tools/skill-evals`, `tools/spec-loop`, `tools/dev`, `.github/workflows` | Dev and CI tooling | Yes, for Magpie's own contributors and CI; not offered to adopters |
+
+## 1.3 Out of scope
+
+**Non-goals.** `documented` unless marked.
+
+- *Agentic Autonomous* mode (auto-merge without a human) — "deliberately not implemented" ([docs/modes.md](../modes.md)).
+- The LLM provider's own infrastructure and data handling — "treated as a trusted component subject to its own provider-side threat model" ([Appendix B → Out of scope](#out-of-scope)).
+- The harness's sandbox implementation (Seatbelt, bubblewrap, the harness's permission engine). Magpie configures it and relies on it; defects in it are the harness vendor's ([secure-agent-internals.md](../setup/secure-agent-internals.md)).
+- Physical access to, or a compromised OS account on, the operator's workstation ([Appendix B → Out of scope](#out-of-scope)).
+- Denial of service against GitHub, mailing-list archives, CVE services and model APIs ([Appendix B → Out of scope](#out-of-scope)).
+- Vulnerabilities in the adopter's own project code. Magpie helps handle them; it does not own them.
+- Other projects' vulnerabilities, including other ASF projects' ([AGENTS.md](../../AGENTS.md#other-asf-projects--never-name-or-describe-their-vulnerabilities)).
+
+**Unsupported shipped code.**
+
+| Component | Status | Source |
+|---|---|---|
+| `git-branch` install method | WIP only, no cryptographic anchor | `documented` ([docs/skill-sources/README.md](../skill-sources/README.md)) |
+| Stub backends (mbox reader, maildir reader) | Not functional | `documented` (their READMEs) |
+| Experimental modes (Mentoring, Pairing) and pre-1.0 manifests (`apm.yml`, root `marketplace.json`) | Experimental | `documented` ([docs/modes.md](../modes.md), [docs/setup/marketplace.md](../setup/marketplace.md)) |
+
+Framework-development tools (`tools/skill-evals`, `tools/spec-loop`) are **not** in this list.
+They run on contributors' machines, some outside the sandbox, so a defect in them is in scope.
+`tools/spec-loop` runs agents with permission prompts off; it is supported only inside the OS sandbox with no push credentials, as its README requires. `documented` ([tools/spec-loop/README.md](../../tools/spec-loop/README.md))
+
+## 1.4 Trust boundaries
+
+Boundaries B1–B5 are unchanged from the security-family model and are defined in [Appendix B → Trust boundaries](#trust-boundaries). `documented`
+This model adds four boundaries that apply to every skill family.
+
+```text
+  external content ──B1──▶ LLM executing a skill ──B6──▶ enforcement layer ──▶ shell / gh / git / containers
+                                │      ▲                  (outside sandbox)
+                                │      │B8
+                                │   committed config, personal layer
+                                │
+                                ├──B9──▶ other model providers (adversarial review, typed-decision)
+                                │
+  upstream release / skill source ──B7──▶ operator machine (install, upgrade, pre-flight)
+```
+
+- **B6 — Agent and enforcement layer.** The LLM proposes commands; hooks and gateways that run outside the sandbox decide whether they run and with what reach. Anything the agent can write (command text, files in the working tree, the sandbox-writable parts of the repository) is input to code on the far side of this boundary. `documented` ([tools/agent-guard/README.md](../../tools/agent-guard/README.md), [tools/vetted-ops/README.md](../../tools/vetted-ops/README.md), [tools/container-gateway/README.md](../../tools/container-gateway/README.md)).
+- **B7 — Distribution.** Code crosses from `apache/magpie` (or a pinned third-party source) onto the operator's machine through the marketplace, a pinned snapshot, or a skill source. `documented` ([docs/setup/marketplace.md](../setup/marketplace.md), [docs/skill-sources/](../skill-sources/README.md)).
+- **B8 — Configuration and agent.** Committed and personal configuration steer what a skill does. Overrides are "additive only" and "cannot weaken the safety, confidentiality, privacy, or external-content-as-data baseline". `documented` ([AGENTS.md](../../AGENTS.md#configuration-resolution-order)). That rule is applied by the LLM interpreting the overrides, not by code. `documented` ([agentic-overrides.md](../setup/agentic-overrides.md)).
+- **B9 — Magpie and other model providers.** Adversarial review sends public-bound diffs to the operator's other model CLIs; typed-decision sends decision inputs to a configured backend behind the privacy-LLM gate. `documented` ([tools/adversarial-review/README.md](../../tools/adversarial-review/README.md), [tools/typed-decision/tool.md](../../tools/typed-decision/tool.md)).
+
+**Reachability.** Every component in [§1.2](#12-scope) is reachable only by the operator's own invocation of a skill, a hook the operator installed, or CI on `apache/magpie`. No component accepts network connections from other hosts in the default install. The egress-gateway and container-gateway bind loopback or Unix sockets. `documented` (their READMEs).
+
+## 1.5 Environment
+
+- **Operating systems:** macOS (Seatbelt) and Linux (bubblewrap). Windows is a host for repository clones with symlinks enabled; the sandbox recipes do not target it. `documented` ([secure-agent-setup.md](../setup/secure-agent-setup.md), [marketplace.md](../setup/marketplace.md)).
+- **Harnesses:** the install table in [marketplace.md](../setup/marketplace.md). Windsurf and Goose plugin-marketplace installs are listed as unsupported there; Goose is supported through its own hook wiring. `documented`.
+- **Concurrency:** one operator per harness session; several sessions and worktrees may share one machine and one personal git directory. `documented` ([AGENTS.md](../../AGENTS.md#per-project-and-per-user-configuration)).
+- **Side effects inventory.** Tools call `gh` and `git`, make HTTPS requests to the hosts their READMEs list, write under the working tree, the session scratch directory and `~/.config/apache-magpie/`, and read environment variables listed in each README. The enforcement layer additionally runs subprocesses outside the sandbox and, for the gateways, opens loopback listeners. `documented` (per-tool READMEs; [§1.7](#17-inputs)).
+
+## 1.6 Configurations
+
+| Knob | Effect on security properties | Support posture |
+|---|---|---|
+| Secure agent setup (sandbox + permissions + clean env) | Most properties in [§1.11](#111-claimed-properties) assume it. Without it, the agent reads and writes what the OS account can | Recommended; required for the security family. `documented` ([secure-agent-setup.md](../setup/secure-agent-setup.md)) |
+| Harness auto-approval / permission-skip modes | Removes the confirmation prompts that several properties depend on | Unsupported for state-changing skills, except `tools/spec-loop` inside its own sandbox. `assumption, Q2` |
+| `sandbox.network.allowedDomains` and `enableWeakerNetworkIsolation` | Bound egress; the weaker isolation is a documented exfiltration trade-off | `documented` ([secure-agent-setup.md](../setup/secure-agent-setup.md)) |
+| Mode (Triage / Mentoring / Drafting) | Triage is read-only on upstream; Drafting opens PRs after review | `documented` ([docs/modes.md](../modes.md)) |
+| Personal and committed overrides | Additive only; cannot weaken the baseline | `documented` ([agentic-overrides.md](../setup/agentic-overrides.md)) |
+| Privacy-LLM registry (`<project-config>/privacy-llm.md`) | Decides which models may see private-list content; fail-closed | `documented` ([tools/privacy-llm/](../../tools/privacy-llm/tool.md)) |
+| container-gateway egress mode (`inject-if-available` / `require` / `off`) | `require` fails closed; the default fails open with a warning | `documented` ([tools/container-gateway/README.md](../../tools/container-gateway/README.md)) |
+| `MAGPIE_ALLOW_*` per-guard overrides | Lift one agent-guard rule for one command; visible in the command | `documented` ([tools/agent-guard/README.md](../../tools/agent-guard/README.md)) |
+| Install method (marketplace / svn-zip / git-tag / git-branch) | Decides what integrity check an install gets ([§1.9](#19-dependencies)) | `documented` |
+
+Defaults alone do not decide routing: a report that needs a non-default knob routes through `non-default-build` only when the knob is listed as unsupported above.
+
+## 1.7 Inputs
+
+| Input | Who controls it | Trust | Read by | Source |
+|---|---|---|---|---|
+| Mail bodies, headers, attachments (security list, dev list, relays) | Any sender | Untrusted | mail adapters, import skills | `documented` (AGENTS.md; [tools/gmail](../../tools/gmail/tool.md)) |
+| Issue / PR titles, bodies, comments, diffs, attachments on forges and trackers | Any account with access | Untrusted, even on a private tracker | forge adapters, PR and issue skills | `documented` ([Appendix B → B1](#b1--untrusted-input-and-skill)) |
+| Scanner reports, markdown reports, PoCs | Reporter or scanner | Untrusted; never executed on the host | security import skills | `documented` ([poc-handling-policy.md](poc-handling-policy.md)) |
+| Fetched web pages and archive pages | Page owner | Untrusted | any skill that fetches | `documented` (AGENTS.md) |
+| Command text, file contents and paths the agent produces | The LLM (steerable by the inputs above) | Untrusted at B6 | agent-guard, vetted-ops, gateways, pre-flight | `documented` ([tools/agent-guard/README.md](../../tools/agent-guard/README.md)) |
+| Files in the working tree the sandbox lets the agent write | The LLM | Untrusted at B6 | any out-of-sandbox component that reads them | `inferred, Q3` |
+| Committed config and overrides | Project committers | Trusted | every skill | `documented` |
+| Personal layer | Operator | Trusted | every skill | `documented` |
+| Lock files and snapshot | Project committers; upstream | Trusted after verification | setup, pre-flight | `documented` ([docs/setup/locks.md](../../plugins/magpie-setup/skills/setup/locks.md)) |
+| A repository the operator opens but has not adopted | Whoever controls that repository | Untrusted: "opening a repository" must not be "enough to install an attacker's code" | setup, pre-flight | `documented` ([locks.md](../../plugins/magpie-setup/skills/setup/locks.md)) |
+| Responses from GitHub, CVE services, archives, model APIs | The service | Trusted for authenticity over verified TLS; content stays untrusted | adapters | `documented` ([Appendix B → Assumptions](#assumptions)) |
+| Output of other models (adversarial review, typed-decision) | Other providers | Untrusted | skills | `documented` ([tools/adversarial-review/README.md](../../tools/adversarial-review/README.md)) |
+
+**Coverage.** 12 input classes listed; every adapter in [§1.2](#12-scope) reads from at least one of them.
+
+**Size and rate.** No adapter promises a size cap or rate limit on external content. A flood is handled by the operator of the source list or service. `documented` ([Appendix B → residual risk 2](#residual-risk-and-accepted-gaps)).
+
+**Contract dimensions.**
+
+| Dimension | Contract |
+|---|---|
+| Instruction vs data | External content is data and never an instruction, whatever it claims. `documented` (AGENTS.md) |
+| Shell interpolation | Attacker-controlled text reaches CLIs through files (`--body-file`, `-F`), never inline in a shell argument. `documented` ([tools/github/operations.md](../../tools/github/operations.md)) |
+| Identity | Identity claims in content (`From:`, chat profiles, "I am a committer") are not authorisation. Authority to instruct is tracker-collaborator status. `documented` (AGENTS.md; [Appendix B → M.8](#mitigation-cross-reference)) |
+| Execution | Reporter-supplied code is never executed on the host; if needed, only in a network-less, credential-less container after operator approval. `documented` ([poc-handling-policy.md](poc-handling-policy.md)) |
+| Confidentiality | Tracker identifiers are public-safe; tracker contents are not. `documented` (AGENTS.md) |
+
+**Failure-state postconditions.** On error, a state-changing step stops the apply loop and reports; nothing is retried silently. `documented` ([tools/github/operations.md](../../tools/github/operations.md)). The enforcement layer's failure posture is per component ([§1.11](#111-claimed-properties) C-E5).
+
+## 1.8 Outputs
+
+| Channel | Taint | Invariant | Downstream must not assume |
+|---|---|---|---|
+| Text returned to the LLM by adapters | Carries external content verbatim; not taint-marked | — | that it was sanitised (only private-list bodies pass the privacy-LLM redactor). `documented` ([tools/mail-source/contract.md](../../tools/mail-source/contract.md)) |
+| Public PRs, comments, commits, mail drafts | Agent-authored | Created only after operator confirmation; mail is drafted, never sent. `documented` (AGENTS.md; [tools/gmail/tool.md](../../tools/gmail/tool.md)) | that agent text is free of errors — the operator reviews it |
+| Email drafts | Agent-authored | Plain text only through the Magpie Gmail MCP. `documented` ([tools/gmail/oauth-draft/README.md](../../tools/gmail/oauth-draft/README.md)) | that drafts made through other connectors are free of tracking |
+| CVE JSON | Built from tracker fields | Tracker and CVE-tool URLs are never exported to `references[]`. `documented` ([generate-cve-json/SKILL.md](../../tools/cve-tool-vulnogram/generate-cve-json/SKILL.md)) | that reporter-derived fields (credit, summary) were verified — a human confirms them |
+| Commit metadata | — | Attribution follows the project's convention; no AI `Co-Authored-By:` on this repository. `documented` (AGENTS.md) | — |
+| Adversarial-review and typed-decision results | Other models' output | Advisory; never applied without the operator. `documented` | that findings are correct |
+
+## 1.9 Dependencies
+
+| Dependency | Trust statement | Source |
+|---|---|---|
+| Agent harness and its sandbox | Trusted to enforce the configured filesystem and network policy; Magpie does not re-implement it | `documented` ([secure-agent-internals.md](../setup/secure-agent-internals.md)) |
+| LLM providers | Trusted for confidentiality of what the registry approves | `documented` ([tools/privacy-llm/models.md](../../tools/privacy-llm/models.md)) |
+| `gh`, `git`, `uv`, Python | Trusted local tools; `gh` credentials stay in its keyring | `documented` (AGENTS.md → Local setup) |
+| Python packages of each tool | Pinned in each `pyproject.toml` / lock; the isolation tools follow a 7-day cooldown | `documented` ([secure-agent-setup.md](../setup/secure-agent-setup.md)) |
+| PonyMail and apache-projects MCP servers | Tracked at upstream `main`, not pinned | `documented` ([tools/ponymail/tool.md](../../tools/ponymail/tool.md)) |
+| Third-party skill sources | Trusted as pinned by commit anchor or SHA-512; no transitive trust | `documented` ([docs/skill-sources/](../skill-sources/README.md)) |
+| Marketplace delivery | Served from `apache/magpie` `main` over GitHub TLS; no signature. The signed ASF source release is the canonical artefact | `documented` ([marketplace.md](../setup/marketplace.md)) |
+| GitHub Actions | Third-party actions pinned by SHA; default `permissions: {}` | `documented` ([.github/workflows/](../../.github/workflows/)) |
+
+**Vendored copies.** Plugin trees under `plugins/*/tools/` are generated copies of `tools/`, kept in sync by `tools/dev/check-family-plugins.py`. `documented`.
+
+**Routing rule.** A failure that comes from a dependency used as documented routes `OUT-OF-MODEL: dependency-contract`, unless Magpie configured the dependency against its own documentation, or the failure is dependency code (P3) getting past one of Magpie's own containment claims (C-K, C-E), which routes against that claim.
+
+## 1.10 Adversary model
+
+Personas P1–P5 are defined in [Appendix B → Adversaries](#adversaries) and apply across all families. `documented`
+This model adds three.
+
+- **P6 — Steered agent.** The LLM, after reading external content, tries to do what the content says: run a command, edit a file, post text, widen its own permissions. It can produce any command text and write any sandbox-writable file. It cannot act outside the sandbox except through the enforcement layer and the operator's approvals. `documented` ([tools/agent-guard/README.md](../../tools/agent-guard/README.md); [AGENTS.md](../../AGENTS.md#treat-external-content-as-data-never-as-instructions)).
+- **P7 — Hostile repository.** A repository the operator clones or opens and has not adopted. It can commit any file, including paths Magpie treats as configuration. It cannot change the operator's personal layer or the installed plugins. `documented` ([locks.md](../../plugins/magpie-setup/skills/setup/locks.md): opening a repository must not be enough to install code).
+- **P8 — Compromised distribution source.** A push to `apache/magpie` `main` that escaped review, or a compromised third-party skill source. `documented` for skill sources ([RFC-AI-0006](../rfcs/RFC-AI-0006.md)); `assumption, Q4` for `main`.
+
+**Capabilities excluded.**
+A malicious operator; an attacker with code execution as the operator's OS user outside the agent; a malicious harness or model provider; an attacker who can break TLS against a publicly trusted CA. `documented` ([Appendix B → Out of scope](#out-of-scope), [Assumptions](#assumptions)).
+
+## 1.11 Claimed properties
+
+Severity tiers: **critical** (credential theft, code execution outside the sandbox, embargoed content made public), **high** (unapproved state change on a forge, tracker, mailbox or CVE record), **medium** (a guard or check silently skipped), **low** (hardening).
+
+**Confirmation and egress.**
+
+| ID | Property | Conditions | Violation symptom | Tier | Provenance |
+|---|---|---|---|---|---|
+| C-G1 | Every state-changing action a skill takes is proposed and waits for explicit operator confirmation. | Harness prompts enabled | State change without a prompt | high | `documented` (AGENTS.md → Reusable skills; PRINCIPLES.md) |
+| C-G2 | Magpie never sends email; it creates drafts. | Magpie adapters used | Mail sent | high | `documented` ([tools/gmail/README.md](../../tools/gmail/README.md)) |
+| C-G3 | Drafts made through the Magpie Gmail MCP are plain text with literal links. | That MCP used | HTML part or rewritten link | low | `documented` ([oauth-draft/README.md](../../tools/gmail/oauth-draft/README.md)) |
+| C-G4 | Security-list CC and recipients come from trusted config, never from reporter content. | — | Recipient taken from content | high | `documented` ([tools/mail-source/contract.md](../../tools/mail-source/contract.md)) |
+
+**Confidentiality.**
+
+| ID | Property | Conditions | Violation symptom | Tier | Provenance |
+|---|---|---|---|---|---|
+| C-C1 | Tracker contents, unpublished CVE IDs and security framing do not reach public surfaces before the advisory. | Security family | Embargoed content public | critical | `documented` (AGENTS.md → Confidentiality; [Appendix B](#appendix-b--security-skill-family-stride-model) D.1, F.1, F.2) |
+| C-C2 | Private-list content reaches only models in the approved registry; the gate stops the skill on any unapproved model. | privacy-llm configured | Content sent to an unapproved model | critical | `documented` ([tools/privacy-llm/models.md](../../tools/privacy-llm/models.md)) |
+| C-C3 | Third-party PII in reports is replaced with identifiers before it reaches the LLM; the mapping never reaches an LLM. | Skill wires the redactor | PII or mapping in model context | high | `documented` ([tools/privacy-llm/pii.md](../../tools/privacy-llm/pii.md)) |
+| C-C4 | Tracker and CVE-tool URLs never enter CVE `references[]`. | generate-cve-json | Such a URL exported | medium | `documented` |
+| C-C5 | Adversarial review sees only what the PR will publish. | — | Private content in a reviewer prompt | high | `documented` ([tools/adversarial-review/README.md](../../tools/adversarial-review/README.md)) |
+
+**Credentials.**
+
+| ID | Property | Conditions | Violation symptom | Tier | Provenance |
+|---|---|---|---|---|---|
+| C-K1 | Tool credentials live under `$HOME`, never in the project tree. | — | Credential in tree | high | `documented` (AGENTS.md → Local setup) |
+| C-K2 | With the secure setup, the agent cannot read credential files or secret environment variables; tools that need a credential use it without exposing it. | Secure setup | Credential readable by agent or sandboxed command | critical | `documented` ([secure-agent-setup.md](../setup/secure-agent-setup.md)) |
+| C-K3 | Adapters send credentials only over verified TLS and do not forward them on cross-origin redirects. | Non-localhost endpoint | Credential sent in clear or to another origin | critical | `documented` for gitlab, bitbucket, sourcehut READMEs; `inferred, Q5` as a framework-wide rule |
+| C-K4 | A tool argument the agent controls cannot choose where a credential is read from or written to, outside the documented directories. | — | Credential read or written at an agent-chosen path | high | `documented` ([oauth-draft mcp_server.py `_vetted_credentials_path`](../../tools/gmail/oauth-draft/)) |
+
+**Enforcement layer (B6).**
+
+| ID | Property | Conditions | Violation symptom | Tier | Provenance |
+|---|---|---|---|---|---|
+| C-E1 | agent-guard inspects every shell command before it runs, and an injected instruction cannot persuade it. | Hook installed | Guarded command runs without its check | medium | `documented` ([tools/agent-guard/README.md](../../tools/agent-guard/README.md)) |
+| C-E2 | Every lifted check is visible: the global `MAGPIE_GUARD_OFF` switch and the per-guard `MAGPIE_ALLOW_*` overrides appear in the command or the hook environment, so the transcript shows when a guard was off. Neither is a control against a steered agent (D1). | Hook installed | A guard lifted with no visible trace | medium | `documented` (README "Per-command overrides") |
+| C-E3 | vetted-ops runs a closed catalogue with no shell, takes the repository only from policy, refuses path traversal, and refuses writes on its read entry point before reading policy. With the secure setup, the agent cannot edit the plugin cache or the stable path, nor the policy file when `--config` points at a policy outside the sandbox-writable root, as the documented wiring does. A policy inside the repository tree has only `Edit`/`Write` denies, which a Bash write gets past. | Secure setup for the edit denies; policy location as wired | Off-catalogue call, shell, or write via read entry | high | `documented` ([tools/vetted-ops/README.md](../../tools/vetted-ops/README.md)) |
+| C-E4 | container-gateway refuses privileged containers, host namespaces, devices, capabilities and binds outside the project root, and filters every list and action call to the project's own label. | Gateway in use | Such a container started, or another project's container listed or acted on | critical | `documented` ([tools/container-gateway/README.md](../../tools/container-gateway/README.md)) |
+| C-E5 | Failure posture: vetted-ops, sandbox-lint and the privacy-LLM checker fail closed; agent-guard fails open on a guard error; the container-gateway's default egress mode fails open with a warning. | — | A fail-closed component allows on error | medium | `documented` (each README) |
+| C-E6 | Code that runs outside the sandbox is loaded only from locations the agent and the opened repository cannot write. | — | Repository- or agent-written code runs outside the sandbox | critical | `inferred, Q3` |
+| C-E7 | The shipped `.claude/settings.json` and local template are checked in CI against the baseline and the hard invariants. | PR touches them | Weakened settings merge | medium | `documented` ([tools/sandbox-lint/README.md](../../tools/sandbox-lint/README.md); M.29) |
+
+**Distribution (B7) and configuration (B8).**
+
+| ID | Property | Conditions | Violation symptom | Tier | Provenance |
+|---|---|---|---|---|---|
+| C-D1 | Automated setup actions run without asking only for `apache/magpie`; any other source is confirmed. | — | Install from another URL without a prompt | high | `documented` ([locks.md](../../plugins/magpie-setup/skills/setup/locks.md)) |
+| C-D2 | An svn-zip install stops on a SHA-512 mismatch. | svn-zip | Mismatched archive installed | high | `documented` ([skills/setup/upgrade.md](../../skills/setup/upgrade.md)) |
+| C-D3 | A pinned git-tag install, for the framework or a skill source, stops when the tag no longer resolves to the committed commit. | git-tag | Moved tag installed silently | high | `documented` for skill sources; `inferred, Q6` for the framework |
+| C-D4 | Only sources listed in the committed `skill-sources.md` are fetched; there is no transitive trust. | — | Unlisted source fetched | high | `documented` ([docs/skill-sources/](../skill-sources/README.md)) |
+| C-D5 | Overrides cannot weaken the safety, confidentiality, privacy or external-content baseline; a conflicting override is ignored and surfaced. | — | Override weakens baseline | high | `documented` ([agentic-overrides.md](../setup/agentic-overrides.md)) |
+| C-D6 | No release artefact contains code that did not pass a reviewed PR. | Release | Unreviewed code released | critical | `documented` (PRINCIPLES.md §12) |
+
+**Ingest and forges.**
+
+| ID | Property | Conditions | Violation symptom | Tier | Provenance |
+|---|---|---|---|---|---|
+| C-I1 | Attacker-controlled text never reaches a shell argument; it goes through a file. | — | Inline interpolation | high | `documented` ([tools/github/operations.md](../../tools/github/operations.md)) |
+| C-I2 | Reporter-supplied code is never run on the host. | — | PoC executed on host | critical | `documented` ([poc-handling-policy.md](poc-handling-policy.md)) |
+| C-I3 | Values a skill trusts from a forge thread (status rollups, routing markers) are taken only from collaborators. | — | Non-collaborator text used as tool state | medium | `inferred, Q7` |
+| C-I4 | A CVE record reaches PUBLIC only from REVIEW (or READY, when the operator passes `--allow-state READY`) and only after the public advisory is confirmed. | Vulnogram | Record published early | critical | `documented` ([tools/cve-tool-vulnogram/record.md](../../tools/cve-tool-vulnogram/record.md); M.26, M.27) |
+| C-I5 | Reporter-derived credit and identity are confirmed by a human before they reach a public record. | — | Unconfirmed credit published | medium | `inferred, Q8` |
+| C-I6 | A patch applied by a patch-landing adapter is the one that was reviewed. | jira-patch, mail-patch | Different patch landed | high | `inferred, Q9` |
+
+**Worked example (routes `VALID`).**
+Report: *"`imap-source` connects with `IMAP4_SSL(host, port)` and no SSL context, so on Python 3.13 the server certificate is not checked; a network attacker gets the IMAP password."*
+Component: ingest adapters (supported). Input: TLS handshake from the network (P4). P4 against a publicly trusted endpoint is in the adversary model. No disclaimer covers it. It violates C-K3. → **`VALID`**, critical.
+
+## 1.12 Disclaimed properties
+
+All `documented`; the source is the component's own README unless noted.
+
+| ID | Magpie does not provide | Tier | False friend |
+|---|---|---|---|
+| D1 | A guarantee that the LLM follows the skill. Skill-scope discipline is convention, not enforcement. | — | "The skill says it never does X" is not a runtime control. ([Appendix B → residual risk 9](#residual-risk-and-accepted-gaps)) |
+| D2 | `permissions.deny` **Bash command patterns** as a control; they are advisory, and the network allowlist is the real control. This does not cover deny rules on the harness's own file tools (`Read`, `Edit`, `Write`), which the harness enforces. | — | Bash deny patterns. ([Appendix B → residual risk 6](#residual-risk-and-accepted-gaps)) |
+| D3 | Protection against an operator who relaxes the sandbox locally. | — | sandbox-lint checks shipped config only. ([Appendix B → residual risk 4](#residual-risk-and-accepted-gaps)) |
+| D4 | agent-guard as a sandbox: it has nothing to say about a command reading `~/.ssh`. It fails open on a guard error and inspects only `gh`/`git` commands, `uv`/`uvx` launches and sandbox-excluded script spellings; failures of those checks are covered by C-E1. | — | agent-guard is a policy check, not containment. |
+| D5 | vetted-ops per-caller scoping as a boundary; it is least privilege and "does not stop a determined agent". This does not cover the policy file itself, which C-E3 claims when it sits where the documented wiring puts it. | — | `--caller`. |
+| D6 | container-gateway as a container-runtime security boundary: a container escaping to the host, raw sockets, DNS and bind time-of-check are not covered. This does not cover the project-label filtering between projects, which C-E4 claims. | — | "Gateway" ≠ isolation. |
+| D7 | egress-gateway payload inspection or TLS interception; it filters by host, and only for clients that honour the proxy variables. | — | An allowlisted host can still carry data out (github.com, `*.githubusercontent.com`). |
+| D8 | Defence against a targeted prompt-injection attacker who knows a secret is in the project tree, domain fronting through an allowlisted CDN, or a malicious user-scope MCP server. | — | ([secure-agent-internals.md](../setup/secure-agent-internals.md)) |
+| D9 | Taint-marking or sanitising of adapter output, beyond the redactor on private-list bodies. | — | Adapter JSON is raw content. |
+| D10 | Redaction of the reporter's own identity. | — | ([tools/privacy-llm/tool.md](../../tools/privacy-llm/tool.md)) |
+| D11 | Unlinkability of PII identifiers: they are deterministic hashes, stable across machines by design, and can be confirmed by anyone holding a candidate value. | low | Identifiers are pseudonyms, not encryption. |
+| D12 | Signature or hash verification of marketplace installs; they track `main` over GitHub TLS. The signed source release is the verifiable artefact. | — | ([marketplace.md](../setup/marketplace.md)) |
+| D13 | Guarantees about third-party skill bodies beyond the pin; a listed source can ship a hostile skill body, which the adopter reviews. | — | ([RFC-AI-0006](../rfcs/RFC-AI-0006.md)) |
+| D14 | Confinement of what an adversarial reviewer chooses to read in the tree it is given. | — | "The prompt is bounded, what a reviewer chooses to read is not." |
+| D15 | A rate limit on inbound mail or forge traffic. | — | ([Appendix B → residual risk 2](#residual-risk-and-accepted-gaps)) |
+| D16 | TLS pinning; the system trust store is trusted. | — | ([Appendix B → residual risk 7](#residual-risk-and-accepted-gaps)) |
+| D17 | Distinguishing an empty private-list result from "no access" at the archive layer; the skill must check the session. | — | ([tools/mail-archive/README.md](../../tools/mail-archive/README.md)) |
+
+**Attack classes left to callers:** host hardening, harness configuration beyond the shipped template, token scopes and rotation ([Appendix B → M.18](#mitigation-cross-reference)), and review of every agent-authored change.
+
+## 1.13 Downstream responsibilities
+
+For the model to hold, the operator and the adopting project must:
+
+1. Run state-changing skills with the secure setup and with confirmation prompts on. `documented` ([secure-agent-setup.md](../setup/secure-agent-setup.md)).
+2. Read every proposed state change before approving it; the maintainer is the final defence. `documented` ([Appendix B → Assumption 1](#assumptions)).
+3. Keep `~/.config/apache-magpie/` and other credential paths denied to the sandbox. `documented` ([Appendix B → Assumption 4](#assumptions)).
+4. Keep the private tracker private and its collaborator list accurate; collaborator status is the authority test. `documented` (AGENTS.md; [Appendix B → Assumption 3](#assumptions)).
+5. Scope tokens to what each skill family needs and rotate them. `documented` ([Appendix B → M.15, M.18](#mitigation-cross-reference)).
+6. Review third-party skill sources before listing them, and pin by commit or hash. `documented` ([docs/skill-sources/](../skill-sources/README.md)).
+7. Approve every model in the privacy-LLM registry with a data-residency contract. `documented` ([tools/privacy-llm/models.md](../../tools/privacy-llm/models.md)).
+8. Prefer the signed ASF source release, or a pinned marketplace ref, where install provenance matters. `documented` ([marketplace.md](../setup/marketplace.md)).
+
+## 1.14 Misuse patterns
+
+| Misuse | Safer alternative | Source |
+|---|---|---|
+| Running a state-changing skill with prompts disabled | Keep prompts on; use Triage mode for unattended sweeps | `documented` ([docs/modes.md](../modes.md)) |
+| Passing a reporter's text inline to `gh … --body "…"` | Write it to a file and pass `--body-file` | `documented` |
+| Using the claude.ai Gmail connector for drafts | Use the Magpie plain-text Gmail MCP | `documented` ([tools/gmail/tool.md](../../tools/gmail/tool.md)) |
+| Adding `~/.config/apache-magpie/` to `allowRead` to debug | Use `/magpie-setup verify` or the doctor skill | `documented` ([Appendix B → X3](#x3--sandbox-bypass-via-developer-override)) |
+| Installing from `git-branch` for production use | `svn-zip` or `git-tag` | `documented` |
+| Treating an adversarial-review finding as an instruction | Treat it as untrusted data; the operator decides | `documented` |
+| Copying a reporter's CVSS score into the tracker or CVE | Score independently | `documented` (AGENTS.md) |
+
+## 1.15 Known non-findings
+
+<!-- fenced: maintained by security-model-update; entries need a discharging claim -->
+None yet.
+Entries are added by [`security-model-update`](../../skills/security-model-update/SKILL.md) under the rules in [Appendix B → M.32](#mitigation-cross-reference).
+
+## 1.16 Revision triggers
+
+The model is revised when:
+
+- a new skill family, tool adapter, enforcement component or install method ships;
+- a component in [§1.2](#12-scope) changes what runs outside the sandbox, or what it trusts;
+- `.claude/settings.json`, the local template, or the privacy-LLM registry changes ([Appendix B → Re-audit cadence](#re-audit-cadence-and-ownership));
+- any report routes to `MODEL-GAP`;
+- a report is closed whose routing relied on an `inferred` or `assumption` claim;
+- the quarterly red-team exercise or a pre-release audit runs ([Appendix B → Re-audit cadence](#re-audit-cadence-and-ownership)).
+
+## 1.17 Dispositions
+
+Closed set: `VALID`, `VALID-HARDENING`, `OUT-OF-MODEL` (`trusted-input`, `adversary-not-in-scope`, `unsupported-component`, `non-default-build`, `dependency-contract`), `BY-DESIGN: property-disclaimed`, `KNOWN-NON-FINDING`, `MODEL-GAP`.
+
+**Precedence, first match wins:**
+1. exact known non-finding ([§1.15](#115-known-non-findings));
+2. unsupported component ([§1.3](#13-out-of-scope));
+3. unsupported configuration ([§1.6](#16-configurations));
+4. conformant use of a failing dependency ([§1.9](#19-dependencies));
+5. control of a trusted input ([§1.7](#17-inputs));
+6. excluded attacker capability ([§1.10](#110-adversary-model));
+7. disclaimed property ([§1.12](#112-disclaimed-properties));
+8. violated claimed property ([§1.11](#111-claimed-properties)) → `VALID`, or `VALID-HARDENING` for an easy-to-prevent misuse;
+9. otherwise `MODEL-GAP`.
+
+**Closure rules.** A closing disposition needs a `documented` or `maintainer` claim. Under `strict`, `inferred` and `assumption` claims only escalate. Statuses: `closed`, `provisional`, `escalated`.
+
+**Backtest.** Magpie's own history, routed blind through this draft before publication. The corpus stays out of the model; only the routing is recorded.
+
+| Items | Routed to | Claim |
+|---|---|---|
+| #81 (attacker text inline in a shell argument; missing `ask` rules) | `VALID` | C-I1, C-G1 |
+| #93, #1148 (settings could grant credential reads; lint path-normalisation gap) | `VALID` | C-E7 |
+| #11, #591, #1681, #1696, CodeQL 4 (credentials or secret env reachable from the sandbox or the agent's context) | `VALID` / `VALID-HARDENING` | C-K2 |
+| #1795a (agent-chosen credential path) | `VALID` | C-K4 |
+| #1091 (token re-sent on redirect) | `VALID` | C-K3 |
+| #1795b, CodeQL 1–3 (DRAFT published; URL sanitisation in CVE JSON) | `VALID` | C-I4, C-C4 |
+| #1329, #1246, #1151, #1606, #1679, #1493 (agent-guard spelling and parse gaps) | `VALID` | C-E1 |
+| #1308, #1311, #1179 (agent could edit the vetted-ops policy; ineffective `Write()` denies; path traversal) | `VALID` | C-E3 |
+| #1315 (eval runner followed fixture symlinks outside the sandbox) | `VALID` | C-E6 (escalates: inferred) |
+| #1683 (tracker backends: git hooks and filter drivers outside the sandbox) | escalated | C-E6 (inferred) |
+| #1226 (privacy gate approved an off-foundation host) | `VALID` | C-C2 |
+| #1509, #692, #188, #1676 (embargo framing on public surfaces) | `VALID` / `VALID-HARDENING` | C-C1 |
+| #465 (tracking links in drafts) | `VALID` | C-G3 |
+| CodeQL 56–62, #1440 (untrusted checkout, cache poisoning, workflow audit coverage) | `VALID` / `VALID-HARDENING` | C-D6 |
+| CodeQL 141 (local tracker store file mode) | `VALID-HARDENING` | C-C1 |
+| #1419 (author-controlled marker crashed the stats dashboard), #1639 (maintainer settings inherited by contributors), #783 (telemetry check scope), #1803, #1731 | `MODEL-GAP` | none |
+| #1263 (model refusals on security analysis) | `OUT-OF-MODEL: dependency-contract` (open feature request) | §1.9 |
+| #91, #1002, #980/#982 (process and documentation) | not findings | — |
+| CodeQL 136 | pending | — |
+
+Three draft claims routed fixed items to a close and were **narrowed**:
+framework-development tools were listed as unsupported (#1315);
+D2 covered the harness's file-tool denies (#1311);
+D5 covered the vetted-ops policy file (#1308).
+Review then narrowed two more that would have closed reports of documented properties:
+D6 covered the container-gateway's project-label filtering (now in C-E4);
+the §1.9 dependency routing rule could close a containment failure caused by dependency code (P3).
+After narrowing, no item the project fixed routes to a closing disposition.
+The six `MODEL-GAP` items mark where this model is still silent ([§1.18](#118-open-questions) Q11).
+
+## 1.18 Open questions
+
+1. **Q1 — Triage policy.** Proposed: `strict`. → §1.1.
+2. **Q2 — Permission-skip modes.** Proposed: running a state-changing skill with harness prompts disabled is an unsupported configuration (`non-default-build`), except `tools/spec-loop` inside its own sandbox. → §1.6.
+3. **Q3 — Sandbox-writable files read outside the sandbox.** Proposed: any file the agent can write is untrusted input to the enforcement layer, and code outside the sandbox is loaded only from locations neither the agent nor an opened repository can write (C-E6). → §1.7, §1.11.
+4. **Q4 — Unreviewed push to `main`.** Proposed: branch protection makes it out of model (`adversary-not-in-scope`); a marketplace consumer who wants more pins a ref. → §1.10.
+5. **Q5 — TLS and redirects as a framework rule.** Proposed: every adapter that sends a credential verifies TLS and drops credentials on cross-origin redirects (C-K3). → §1.11.
+6. **Q6 — Framework git-tag pin.** Proposed: the framework's git-tag install checks the commit anchor the same way skill sources do (C-D3). → §1.11.
+7. **Q7 — Tool state from forge threads.** Proposed: tools that read state from a thread (rollups, routing markers) trust only collaborator-authored comments (C-I3). → §1.11.
+8. **Q8 — Reporter-derived credit.** Proposed: credit and identity extracted from mail are always confirmed by a human before they are written to a public record (C-I5). → §1.11.
+9. **Q9 — Patch landing.** Proposed: patch-landing adapters pin the reviewed patch by hash and refuse a different one (C-I6). → §1.11.
+10. **Q10 — Symptom vocabulary.** The rubric defines a closed vocabulary for violation symptoms; this draft uses plain phrases. Proposed: align on the next revision. → §1.11.
+11. **Q11 — Model gaps from the backtest.** Proposed claims: tools that render forge data tolerate malformed author-controlled markers (#1419); committed settings are a floor contributors extend, never a copy of one maintainer's settings (#1639); the egress allowlist an adopter receives is limited to its own organisation's hosts (#1803); every caller a skill uses is declared in the shipped policy template (#1731); the no-telemetry check covers every shipped tool (#783). → §1.11.
+
+## 1.19 Companion files
+
+Not yet produced.
+The rubric's YAML sidecar and JSON export will be generated once the open questions are answered; the prose here has final authority.
+
+## Appendix A — Back-map from the 2026-05 model
+
+| Earlier section | Now |
+|---|---|
+| Purpose, Scope, Out of scope | §1.2, §1.3; kept in Appendix B |
+| Assumptions 1–5 | §1.13 items 2–4, §1.9, §1.10; kept in Appendix B |
+| Definitions | §1.1 glossary; kept in Appendix B |
+| Trust boundaries B1–B5 | §1.4 (adds B6–B9); kept in Appendix B |
+| Adversaries P1–P5 | §1.10 (adds P6–P8); kept in Appendix B |
+| Asset inventory | §1.11 tiers; kept in Appendix B |
+| STRIDE matrix, families A–F | Appendix B; claims C-C1, C-I4 cite it |
+| Cross-skill threats X1–X4 | Appendix B; §1.14 cites X3 |
+| Mitigation cross-reference M.1–M.36 | Appendix B (M.29 updated to shipped) |
+| Residual risk 1–11 | §1.12 D1–D3, D15, D16; kept in Appendix B |
+| Re-audit cadence | §1.16; kept in Appendix B |
+
+Kept until the PMC approves removing it.
+
+## Appendix B — Security skill family STRIDE model
+
+The 2026-05 model of the security skill family, kept in full.
+Its section headings sit one level lower than before; their text, and so their anchors, are unchanged.
+
+### Purpose
 
 Apache Magpie automates the [16-step security-issue
 lifecycle](process.md) on behalf of a project's security team.
@@ -79,7 +532,7 @@ The intended readers are:
   Security and the Airflow PMC for `airflow-s/airflow-s`) during
   a pre-release security review.
 
-## Scope
+### Scope
 
 In scope for this document:
 
@@ -98,7 +551,7 @@ In scope for this document:
 - the data flows across the five trust boundaries enumerated in
   [Trust boundaries](#trust-boundaries).
 
-## Out of scope
+### Out of scope
 
 The following are out of scope and should be addressed in their
 own threat model when they are introduced:
@@ -125,7 +578,7 @@ own threat model when they are introduced:
   and `github.com`) — the framework can amplify but not originate;
   rate-limit posture is delegated to those services.
 
-## Assumptions
+### Assumptions
 
 The threat model is valid only while these assumptions hold. A
 violation of any assumption invalidates the corresponding mitigation
@@ -160,7 +613,7 @@ and triggers a re-audit.
    they return. (Named example: for `airflow-s` these resolve to
    `cveprocess.apache.org` and `lists.apache.org`.)
 
-## Definitions
+### Definitions
 
 - **Tracker** — the private security issue tracker (`<tracker>`)
   for a project. The framework is tracker-agnostic but ships
@@ -182,7 +635,7 @@ and triggers a re-audit.
   controlled content: a mailing-list message body, a tracker comment,
   a public PR description, an issue title, a markdown report file.
 
-## Trust boundaries
+### Trust boundaries
 
 ```text
                                     ┌───────────────────────┐
@@ -218,7 +671,7 @@ and triggers a re-audit.
                        └─────────────────────────┘
 ```
 
-### B1 — Untrusted-input and skill
+#### B1 — Untrusted-input and skill
 
 Any byte the agent reads that originated outside the framework is
 untrusted. The agent treats five untrusted-ingress sources as
@@ -241,7 +694,7 @@ who embeds prompt-injection text aimed at getting the agent to
 exfiltrate tracker contents, mis-classify the issue as invalid, or
 re-route the fix PR.
 
-### B2 — Skill and private tracker
+#### B2 — Skill and private tracker
 
 The tracker holds the confidential body of the report and the
 internal triage discussion. Crossing this boundary in the read
@@ -252,7 +705,7 @@ The threat is unauthorised modification (Tampering) and unauthorised
 read by a skill operating in a context where the user did not
 expect tracker access.
 
-### B3 — Private tracker and public upstream
+#### B3 — Private tracker and public upstream
 
 The confidentiality wall. The tracker is private; upstream is
 public. A skill that copies content from the tracker to upstream
@@ -268,7 +721,7 @@ without redaction breaks the wall. The framework's posture is:
 `security-issue-fix` is the only skill that legitimately crosses
 this boundary in the write direction during the embargo window.
 
-### B4 — Pre-disclosure and post-disclosure
+#### B4 — Pre-disclosure and post-disclosure
 
 The embargo wall is temporal, not topological. The same data crosses
 from confidential to public at advisory-publish time (Step 13).
@@ -278,7 +731,7 @@ tracker. The threat is premature disclosure — a skill that adds
 the CVE ID to a public PR title before the advisory is out, or
 that posts a credit note on the PR before Step 16 runs.
 
-### B5 — Agent host and external infrastructure
+#### B5 — Agent host and external infrastructure
 
 Egress from the agent host to the configured external services —
 the `<cve-tool>` host, the `archive_system.*` archive, the
@@ -291,14 +744,14 @@ destinations (a tampered archive page). (Named example for
 `airflow-s`: the allowlist covers `cveprocess.apache.org`,
 `lists.apache.org`, and `github.com`.)
 
-## Adversaries
+### Adversaries
 
 The adversaries below are the personas the framework defends
 against. Each persona has a name, a capability profile, a goal, and
 a typical attack surface. Threats in the [STRIDE matrix](#stride-matrix-per-skill-family)
 are tagged with the persona ID that motivates them.
 
-### P1 — Malicious reporter
+#### P1 — Malicious reporter
 
 Submits a crafted message to `<security-list>` whose real purpose
 is not to report a vulnerability but to manipulate the agent that
@@ -316,7 +769,7 @@ triages the report.
   `security-issue-deduplicate` when it pulls a recent report into
   context.
 
-### P2 — Hostile public contributor
+#### P2 — Hostile public contributor
 
 A contributor on the public upstream who has noticed a fix PR or
 issue and is trying to deduce the embargoed vulnerability from
@@ -330,7 +783,7 @@ clues the agent leaks.
 - **Surface** — `security-issue-fix` when it writes the public PR;
   `security-issue-sync` when it posts cross-references.
 
-### P3 — Compromised supply-chain dependency
+#### P3 — Compromised supply-chain dependency
 
 A package the agent host transitively depends on (a Python
 dependency of a tool, a `gh` extension, the redactor's models)
@@ -344,7 +797,7 @@ compromise.
 - **Surface** — every skill, equally; the threat is at B5 and at
   the credential surface, not at any specific skill.
 
-### P4 — Network-layer adversary
+#### P4 — Network-layer adversary
 
 An attacker between the agent host and the allowlisted destinations:
 the `archive_system.*` archive, the `<cve-tool>` host, the MITRE
@@ -362,7 +815,7 @@ platform API. (Named example for `airflow-s`: `lists.apache.org`,
   most acute for `security-issue-sync` (which pulls archive pages)
   and `security-cve-allocate` (which posts to the CVE authority).
 
-### P5 — Negligent insider
+#### P5 — Negligent insider
 
 A security-team member with legitimate tracker access who
 accidentally pastes confidential content into a public surface, or
@@ -379,7 +832,7 @@ beyond what the threat model assumes.
   `permissions.ask` prompts on privileged egress (forces a human
   re-look before a write to upstream or CVE).
 
-## Asset inventory
+### Asset inventory
 
 Each row is an asset the framework defends, the adversaries
 interested in it, and the boundary that protects it.
@@ -398,7 +851,7 @@ interested in it, and the boundary that protects it.
 | Advisory mail draft | Embargoed until Step 13 | P2 | B4 |
 | Agent-host filesystem outside repo | Out-of-scope to skill | P3 | sandbox `denyRead` |
 
-## STRIDE matrix per skill family
+### STRIDE matrix per skill family
 
 The fifteen security skills group into six families by where they
 sit in the lifecycle. STRIDE rows below are per-family; per-skill
@@ -408,7 +861,7 @@ Each row carries a threat ID (`<family>.<n>`), the STRIDE category,
 the adversary, the boundary, and the mitigation. Mitigations link
 to the [cross-reference table](#mitigation-cross-reference).
 
-### Skill family A — Inbound import
+#### Skill family A — Inbound import
 
 Skills:
 [`security-issue-import`](../../skills/security-issue-import/SKILL.md),
@@ -427,7 +880,7 @@ Skills:
 | A.6 | R (Repudiation) | P1 | B2 | Reporter later denies having submitted the report. | M.9 (full mail headers archived in the tracker on import; the public `archive_system.*` archive is the canonical source — named example: ASF's `lists.apache.org` for `airflow-s`). |
 | A.7 | D (Denial of service) | P1 | B1, B5 | Reporter floods `<security-list>` with thousands of bogus messages to exhaust the agent's import budget or `gh` rate-limit. | M.10 (mailing-list moderation is delegated to the foundation/operator running `<security-list>`; the agent has no rate-limit posture of its own — accepted, see [residual risk](#residual-risk-and-accepted-gaps)). |
 
-### Skill family B — Agentic Triage and reconciliation
+#### Skill family B — Agentic Triage and reconciliation
 
 Skills: [`security-issue-sync`](../../skills/security-issue-sync/SKILL.md),
 [`security-issue-deduplicate`](../../skills/security-issue-deduplicate/SKILL.md),
@@ -443,7 +896,7 @@ Skills: [`security-issue-sync`](../../skills/security-issue-sync/SKILL.md),
 | B.5 | E | P3 | B5 | A compromised dependency to `security-issue-sync` re-routes `gh api` calls. | M.14 (network allowlist; M.15 (per-skill `gh` scope budget). |
 | B.6 | R | P5 | B2 | An insider closes a tracker as invalid and later disputes whether the agent or a human did it. | M.9 (every state transition the agent makes is recorded in the tracker as a comment authored by the agent's bot identity, distinct from any human committer). |
 
-### Skill family C — CVE allocation
+#### Skill family C — CVE allocation
 
 Skill: [`security-cve-allocate`](../../skills/security-cve-allocate/SKILL.md).
 
@@ -454,7 +907,7 @@ Skill: [`security-cve-allocate`](../../skills/security-cve-allocate/SKILL.md).
 | C.3 | E | P3 | B5 | A compromised dependency exfiltrates the `<cve-tool>` OAuth token (named example: Vulnogram OAuth on `airflow-s`). | M.14, M.15, M.18 (token is short-lived and scoped to allocation; rotation cadence is per-adopter). |
 | C.4 | R | P5 | B2 | An insider's CVE allocation is later disputed (was it for tracker X or Y?). | M.9, M.19 (the allocation skill writes a tracker comment containing the `<cve-tool>` record URL (`cve_authority.record_url_template`) and the JSON it submitted, before publish — auditable). |
 
-### Skill family D — Public remediation
+#### Skill family D — Public remediation
 
 Skill: [`security-issue-fix`](../../skills/security-issue-fix/SKILL.md).
 
@@ -467,7 +920,7 @@ Skill: [`security-issue-fix`](../../skills/security-issue-fix/SKILL.md).
 | D.5 | I | P5 | B3, B4 | An insider's `git commit -am` accidentally includes an unrelated tracker scratch file in the public PR. | M.24 (the agent's `git add` is path-scoped to the patched files; an open question on Agentic Mentoring mentoring assistance — see [residual risk](#residual-risk-and-accepted-gaps)). |
 | D.6 | R | P5 | B2, B3 | After release, attribution between the agent's authoring and the human reviewer's approval is disputed. | M.9, M.25 (the public commit carries a `Generated-by:` trailer for the agent and a `Signed-off-by:` line for the human reviewer; `Co-Authored-By:` for agents is forbidden, so an agent cannot be misattributed as a human author). |
 
-### Skill family E — Closure
+#### Skill family E — Closure
 
 Steps 13–16 of the lifecycle, currently driven by humans with
 agent assistance from `security-issue-sync`. No dedicated skill
@@ -480,7 +933,7 @@ must respect when assisting closure.
 | E.2 | T | P4 | B5 | The CVE record submitted to `cveawg.mitre.org` is tampered in transit, or the published `cve.org` record drifts from what was submitted. | M.17 (TLS validation against system trust store); M.27 (the release manager walks the `cve_authority.states` sequence `allocated` → `review-ready` → `publish-ready` → `public` in the `<cve-tool>` and is the human readback gate at each transition; the agent's post-close `cve.org` publication-check sweep flags drift after `public`. Named example for `airflow-s`: Vulnogram's `DRAFT` → `REVIEW` → `READY` → `PUBLIC`). |
 | E.3 | I | P5 | B3 | Step 16 credit corrections (a reporter requesting a different attribution) are applied by editing a closed tracker and inadvertently re-open the issue in a way that leaks. | M.28 (credit corrections are appended as a new comment, never as a body edit; the closed-state label is preserved). |
 
-### Skill family F — Security-model authoring
+#### Skill family F — Security-model authoring
 
 Skills:
 [`security-model-prepare`](../../skills/security-model-prepare/SKILL.md),
@@ -507,12 +960,12 @@ than one.
 | F.6 | R | P5 | B2, B3 | A model claim later disputed — did the maintainer ratify it, or did the agent infer it? | M.35 (every non-trivial claim carries a provenance tag; an inferred claim carries a numbered open question and can never license a close, so an unratified claim is visible in the published document rather than laundered into the project's voice). |
 | F.7 | I | P2 | B3 | The model PR names the scan programme, vendor, or engagement that prompted it, in a title, body, commit message, or branch name — permanently, on a public forge. | M.36 (public-surface discipline: the public rationale is discoverability for automated scanners; the programme identity stays on the private list). |
 
-## Cross-skill threats
+### Cross-skill threats
 
 Threats that do not belong to a single skill but emerge from the
 composition of skills.
 
-### X1 — Prompt-injection chained across skills
+#### X1 — Prompt-injection chained across skills
 
 A reporter (P1) submits a crafted report on day 0. `security-issue-import`
 imports it. On day 7, a triager invokes `security-issue-sync`, which
@@ -526,7 +979,7 @@ The injection now executes inside `security-issue-sync`'s context.
   in every skill, not only on the initial import. The skills
   framework treats the tracker body as untrusted-ingress on read.
 
-### X2 — Tracker URL leaks the existence of an embargoed issue
+#### X2 — Tracker URL leaks the existence of an embargoed issue
 
 A tracker URL is public-safe per [AGENTS.md
 §confidentiality](../../AGENTS.md#confidentiality-of-the-tracker-repository). But if a tracker URL is posted
@@ -538,21 +991,22 @@ fix-PR diff and combines them into a confirmation.
   `security-issue-fix`: the tracker URL is added to the PR body only
   after Step 14.
 
-### X3 — Sandbox bypass via developer override
+#### X3 — Sandbox bypass via developer override
 
 A maintainer (P5) running locally edits `.claude/settings.json` to
 add `~/.config/apache-magpie/` to `allowRead` because they are
 debugging an authentication issue. They forget to revert. The next
 agent run reads the credentials.
 
-- **Mitigation** — M.29 *(planned, not yet shipped — see [residual
-  risk #4](#residual-risk-and-accepted-gaps))*. When implemented,
-  the framework's CI will lint the shipped `.claude/settings.json`
-  against an allowlist of changes on every PR that touches the file.
+- **Mitigation** — M.29, shipped as
+  [`tools/sandbox-lint`](../../tools/sandbox-lint/README.md): CI lints
+  the shipped `.claude/settings.json` and the local template against
+  the baseline on every PR that touches them (see [residual risk
+  #4](#residual-risk-and-accepted-gaps)).
   The local-override case is unavoidable if the maintainer edits the
   file outside a PR — accepted residual.
 
-### X4 — Credential exfiltration via dependency
+#### X4 — Credential exfiltration via dependency
 
 A compromised package (P3) reads `GH_TOKEN` from the environment
 and POSTs it to an allowlisted host (an attacker-controlled
@@ -565,7 +1019,7 @@ the attacker can write to a repo they control via the token itself).
   ability of an attacker holding the token to write to that one
   upstream repo. Accepted as bounded.
 
-## Mitigation cross-reference
+### Mitigation cross-reference
 
 Each `M.<n>` ID below corresponds to a specific control. Where the
 control is implemented in code or config, the link points there;
@@ -602,7 +1056,7 @@ describes it.
 | M.26 | The agent will not draft the CVE-record submission until the public advisory URL is present in the tracker. | [`security-issue-sync/SKILL.md`](../../skills/security-issue-sync/SKILL.md). |
 | M.27 | The CVE record is submitted to the configured `<cve-tool>` by the release manager, who walks it through the generic `cve_authority.states` sequence (`allocated` → `review-ready` → `publish-ready` → `public`); only `public` pushes to `cve.org`. The release manager (a human) is the readback gate at every transition. The agent runs a separate post-close `cve.org` publication-check sweep on closed-and-`announced` trackers within the last 90 days and surfaces any mismatch (record missing, state regressed, content tampered) for human review. (Named example for `airflow-s`: Vulnogram's `DRAFT` → `REVIEW` → `READY` → `PUBLIC`.) | [`tools/cve-tool-vulnogram/record.md`](../../tools/cve-tool-vulnogram/record.md); [`security-issue-sync/SKILL.md`](../../skills/security-issue-sync/SKILL.md) (`sync closed announced` mode). |
 | M.28 | Step-16 credit corrections are appended as new tracker comments; they never edit the closed tracker body. | [`process.md` Step 16](process.md). |
-| M.29 | CI lints `.claude/settings.json`, layered with the local template, on every PR that touches either, comparing the merge against the shipped baseline and checking that every `deny`/`ask` stays in the committed file. | **Planned, not yet shipped** — see [residual risk #4](#residual-risk-and-accepted-gaps). |
+| M.29 | CI lints `.claude/settings.json`, layered with the local template, on every PR that touches either, comparing the merge against the shipped baseline and checking that every `deny`/`ask` stays in the committed file. | [`tools/sandbox-lint`](../../tools/sandbox-lint/README.md), run by [`.github/workflows/sandbox-lint.yml`](../../.github/workflows/sandbox-lint.yml) and the `prek` hook; local overrides stay out of reach — see [residual risk #4](#residual-risk-and-accepted-gaps). |
 | M.30 | `security-model-update` scrubs its corpus before the proposal is *displayed*, not before it is sent: reporter identity, tracker contents, unpublished CVE IDs, and any detail of an unfixed or embargoed issue are removed from every candidate entry. An entry that cannot be written without describing a live vulnerability is deferred. | [`security-model-update/SKILL.md`](../../skills/security-model-update/SKILL.md). |
 | M.31 | Tracker URLs and `#NNN` identifiers are public-safe; tracker contents are not. Model diffs are held to the same bar as public upstream PR descriptions. | [`AGENTS.md`](../../AGENTS.md); [`docs/confidentiality.md`](../confidentiality.md). |
 | M.32 | A known-non-finding entry must cite a discharging claim that already exists in the model and whose component set covers the entry. Process statements, third-party assertions, and report-quality conditions (*no reproducer*, *reachability not demonstrated*) are forbidden as justification or as match conditions. | [`security-model-update/SKILL.md`](../../skills/security-model-update/SKILL.md). |
@@ -611,7 +1065,7 @@ describes it.
 | M.35 | Every non-trivial model claim carries one of four provenance tags; an inferred or assumption claim resolves to a numbered open question and never licenses a closing disposition. | [`security-model-prepare/SKILL.md`](../../skills/security-model-prepare/SKILL.md); [`docs/security/security-model-preparation.md`](security-model-preparation.md). |
 | M.36 | No scan-programme, vendor, or engagement identity appears in a PR title, body, commit message, or branch name on a target repository. The public rationale is security-model discoverability for automated scanners. | [`security-model-verify/SKILL.md`](../../skills/security-model-verify/SKILL.md); [`docs/security/security-model-preparation.md`](security-model-preparation.md). |
 
-## Residual risk and accepted gaps
+### Residual risk and accepted gaps
 
 The framework does not claim zero residual risk. The following are
 known gaps the security team accepts at v1, with the rationale and
@@ -694,7 +1148,7 @@ the trigger that would force a re-evaluation.
     `projects/_template/`, or any incident report involving
     stale-token misuse on an adopter deployment.
 
-## Re-audit cadence and ownership
+### Re-audit cadence and ownership
 
 This document is release-blocking and time-bounded. The cadences
 below are the framework's commitment.
@@ -725,9 +1179,10 @@ Ownership is the framework's security-skill-family maintainers
 A foundation-level security review is required on the pre-release
 audit (named example for `airflow-s`: ASF Security review).
 
-## Change log
+### Change log
 
 | Date | Author | Change |
 |---|---|---|
 | 2026-05-07 | initial draft | First public threat model — five trust boundaries, five adversaries, STRIDE matrix per skill family, mitigation cross-reference. |
 | 2026-09-08 | security-model skill family | Added skill family F (security-model authoring: `security-model-prepare`, `security-model-verify`, `security-model-update`) with seven STRIDE rows and mitigations M.30–M.36. The family inverts the usual data flow — private tracker in, public document out — so its rows concentrate on distillation leaks, suppression-rule tampering, and provenance repudiation. |
+| 2026-10-27 | Apache Magpie threat model | Restructured to the Alpha-Omega §1.1–§1.19 rubric and widened from the security skill family to the whole framework: trust boundaries B6–B9, adversaries P6–P8, 31 claimed properties, 17 disclaimers, dispositions and open questions. This model moved unchanged into Appendix B, except M.29, which is now shipped as `tools/sandbox-lint`. Draft, unratified. |

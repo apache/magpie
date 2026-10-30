@@ -162,7 +162,7 @@ fi
 if [ "$CHECK_KEY" = "pytest" ] && [ "$#" -gt 0 ]; then
   # The list goes through stdin, not a temp file: a sandboxed agent may
   # not be able to write the system temp directory.
-  applicable=$(printf '%s\n' "$@" | python3 tools/dev/ci-pytest-batches.py --changed-file /dev/stdin --paths)
+  applicable=$(printf '%s\n' "$@" | python3 tools/dev/ci-pytest-batches.py --changed-file - --paths | tr -d '\r')
   status=$?
   if [ "$status" -ne 0 ]; then
     exit "$status"

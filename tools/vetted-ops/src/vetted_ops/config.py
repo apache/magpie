@@ -27,11 +27,13 @@ never supplied on the command line — a caller cannot widen its own policy.
 from __future__ import annotations
 
 import json
+import os
 import re
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
+from . import layers
 from .tracker_backends import PLATFORMS, TrackerBackend, backend_dir
 
 #: `owner/name`, conservative on both halves.
@@ -40,6 +42,41 @@ _REPO = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,100}/[A-Za-z0-9][A-Za-z0-9._-]
 _JIRA_KEY = re.compile(r"^[A-Z][A-Z0-9_]{0,30}$")
 
 DEFAULT_RELATIVE_PATH = Path(".apache-magpie-overrides/tools/vetted-ops/config.toml")
+#: The same policy in a personal layer, for a maintainer whose project has not
+#: adopted Magpie. It grants nothing `--config` does not: the policy supplies
+#: data only, never code (see `tracker_backends`).
+PERSONAL_RELATIVE_PATH = Path("tools/vetted-ops/config.toml")
+
+
+def _protected(layer: Path) -> bool:
+    """A personal layer whose policy the sandbox profile's deny globs cover.
+
+    `//**/.git/**/apache-magpie/…`, `//**/.svn/apache-magpie/…` and
+    `//**/.apache-magpie-local/…`; a git directory elsewhere (a custom
+    `gitdir:`) would leave the policy agent-writable, so it is not read.
+    """
+    if layer.name == layers.LOCAL_DIR:
+        return True
+    return layer.name == layers.GIT_HOME_NAME and (
+        ".git" in layer.parent.parts or layer.parent.name == ".svn"
+    )
+
+
+def _untampered(candidate: Path) -> bool:
+    """No symlink anywhere on the path, and a regular file.
+
+    The deny globs protect the policy's own path, not its parents: a symlink
+    planted at `.git/apache-magpie` or `…/tools` would redirect the read to a
+    directory the agent can write, so such a path is not read.
+    """
+    lexical = Path(os.path.abspath(candidate))
+    return Path(os.path.realpath(lexical)) == lexical and lexical.is_file() and not lexical.is_symlink()
+
+
+def candidates(base: Path) -> list[Path]:
+    """Where the policy is looked for, first match wins: committed, then personal."""
+    personal = [layer / PERSONAL_RELATIVE_PATH for layer in layers.personal_layers(base) if _protected(layer)]
+    return [base / DEFAULT_RELATIVE_PATH, *personal]
 
 
 class ConfigError(RuntimeError):
@@ -187,9 +224,17 @@ def _tracker_backend(raw: object) -> TrackerBackend | None:
 def load(path: Path | None = None, *, cwd: Path | None = None) -> Config:
     """Load and validate the policy."""
     base = (cwd or Path.cwd()).resolve()
-    resolved = path if path is not None else base / DEFAULT_RELATIVE_PATH
-    if not resolved.is_file():
-        raise ConfigError(f"no vetted-ops config at {resolved}")
+    if path is not None:
+        resolved = path
+        if not resolved.is_file():
+            raise ConfigError(f"no vetted-ops config at {resolved}")
+    else:
+        tried = candidates(base)
+        committed, personal = tried[0], tried[1:]
+        found = committed if committed.is_file() else next((c for c in personal if _untampered(c)), None)
+        if found is None:
+            raise ConfigError("no vetted-ops config at " + " or ".join(str(c) for c in tried))
+        resolved = found
 
     with resolved.open("rb") as handle:
         raw = tomllib.load(handle)

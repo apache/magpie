@@ -1,0 +1,11 @@
+{
+  "applied": [
+    "checker-copy-stale",
+    "claude-config-diff"
+  ],
+  "skipped": [],
+  "second_plan": [
+    "claude-config-sync-script-stale"
+  ],
+  "bypass_calls": 1
+}

@@ -53,7 +53,7 @@ consent, onto a thread where nothing is being asked of them.
 
 | Disposition | When |
 |---|---|
-| `APPROVE` | every gate holds: rollup `SUCCESS` and real CI ran (Golden rule 8); no unresolved review thread, no other maintainer's standing `CHANGES_REQUESTED`, no unanswered maintainer question (Golden rule 7); no finding above `nit` |
+| `APPROVE` | every gate holds: rollup `SUCCESS` and real CI ran (Golden rule 8); no unresolved review thread except addressed outdated ones (`resolve_first`), no other maintainer's standing `CHANGES_REQUESTED`, no unanswered maintainer question (Golden rule 7); no finding above `nit` |
 | `REQUEST_CHANGES` | ≥ 1 `blocking`, OR ≥ 2 `major`, OR `major` + unanswered author question, OR a CI failure judged diff-caused, OR a finding the maintainer wants to gate the merge on |
 | `COMMENT` | everything else: findings above `nit` without a gating count, CI pending or failing outside the diff, threads open, observations without gating |
 

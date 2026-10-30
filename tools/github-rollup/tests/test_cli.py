@@ -55,9 +55,15 @@ class FakeGh:
         has_rollup: bool = True,
         rollup_body: str = ROLLUP_BODY,
         earlier_comments: list[dict] | None = None,
+        rollup_author: str = "potiuk",
+        collaborators: list[str] | None = None,
     ) -> None:
         self.calls: list[tuple[list[str], str | None]] = []
         self.earlier_comments = earlier_comments or []
+        self.rollup_author = rollup_author
+        self.collaborators = ["potiuk", "alice"] if collaborators is None else collaborators
+        # Without push access the collaborator listing fails with 403.
+        self.collaborators_fail = False
         self.has_rollup = has_rollup
         self.rollup_body = rollup_body
         self.deleted: list[str] = []
@@ -85,11 +91,17 @@ class FakeGh:
                 comments.append(
                     {
                         "id": "IC_NODEID",
+                        "author": {"login": self.rollup_author},
                         "body": self.rollup_body,
                         "url": "https://github.com/o/r/issues/1#issuecomment-1",
                     }
                 )
             return FakeResult(returncode=0, stdout=json.dumps({"comments": comments}))
+
+        if joined.endswith("/collaborators --paginate --jq .[].login"):
+            if self.collaborators_fail:
+                return FakeResult(returncode=1, stderr="HTTP 403\n")
+            return FakeResult(returncode=0, stdout="".join(f"{c}\n" for c in self.collaborators))
 
         if "api user" in joined:
             return FakeResult(returncode=0, stdout="potiuk\n")
@@ -456,3 +468,96 @@ def test_fold_dry_run_neither_writes_nor_deletes(fake_gh: FakeGh) -> None:
     assert rc == 0
     assert fake_gh.patched_body is None
     assert fake_gh.deleted == []
+
+
+# ---------------------------------------------------------------------------
+# rollup authorship — only trusted authors' marker comments count
+# ---------------------------------------------------------------------------
+
+DECOY_BODY = (
+    "<!-- apache-magpie: status-rollup v1 -->\n"
+    "<details><summary>2026-05-29 · @outsider · Sync</summary>\n\n"
+    "planted text\n\n"
+    "</details>"
+)
+
+
+def _decoy(author: str = "outsider") -> dict:
+    return {
+        "id": "IC_DECOY",
+        "author": {"login": author},
+        "body": DECOY_BODY,
+        "url": "https://github.com/o/r/issues/1#issuecomment-666",
+    }
+
+
+def test_a_marker_comment_by_a_non_collaborator_is_not_the_rollup(monkeypatch: pytest.MonkeyPatch) -> None:
+    f = FakeGh(earlier_comments=[_decoy()])
+    monkeypatch.setattr(subprocess, "run", f)
+    rc = cli.main(["--repo", "o/r", "append", "1", "--action", "Sync", "--entry-body", "x"])
+    assert rc == 0
+    joined = [" ".join(c) for c, _ in f.calls]
+    assert not any("issues/comments/666" in j for j in joined)
+    assert f.patched_body is not None and f.patched_body.startswith(MARKER_LINE)
+
+
+def test_append_creates_a_new_rollup_when_only_a_decoy_exists(monkeypatch: pytest.MonkeyPatch) -> None:
+    f = FakeGh(has_rollup=False, earlier_comments=[_decoy()])
+    monkeypatch.setattr(subprocess, "run", f)
+    rc = cli.main(["--repo", "o/r", "append", "1", "--action", "Sync", "--entry-body", "x"])
+    assert rc == 0
+    assert f.patched_body is None
+    assert f.posted_body is not None and f.posted_body.startswith("<!-- apache-magpie: status-rollup v1 -->")
+
+
+def test_latest_ignores_a_decoy(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    f = FakeGh(has_rollup=False, earlier_comments=[_decoy()])
+    monkeypatch.setattr(subprocess, "run", f)
+    assert cli.main(["--repo", "o/r", "latest", "1"]) == 3
+    assert "planted text" not in capsys.readouterr().out
+
+
+def test_list_reads_the_trusted_rollup_not_an_earlier_decoy(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    f = FakeGh(earlier_comments=[_decoy()])
+    monkeypatch.setattr(subprocess, "run", f)
+    assert cli.main(["--repo", "o/r", "list", "1"]) == 0
+    out = capsys.readouterr().out
+    assert "potiuk" in out and "outsider" not in out
+
+
+def test_a_rollup_by_another_collaborator_is_found(monkeypatch: pytest.MonkeyPatch) -> None:
+    f = FakeGh(rollup_author="alice")
+    monkeypatch.setattr(subprocess, "run", f)
+    rc = cli.main(["--repo", "o/r", "append", "1", "--action", "Sync", "--entry-body", "x"])
+    assert rc == 0
+    assert f.posted_body is None and f.patched_body is not None
+
+
+def test_author_match_is_case_insensitive(monkeypatch: pytest.MonkeyPatch) -> None:
+    f = FakeGh(rollup_author="Alice")
+    monkeypatch.setattr(subprocess, "run", f)
+    cli.main(["--repo", "o/r", "append", "1", "--action", "Sync", "--entry-body", "x"])
+    assert f.patched_body is not None
+
+
+def test_without_the_collaborator_list_another_authors_rollup_stops_the_run(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Not knowing whether alice is a collaborator, appending could start a
+    # second rollup next to hers; stop instead.
+    f = FakeGh(rollup_author="alice")
+    f.collaborators_fail = True
+    monkeypatch.setattr(subprocess, "run", f)
+    with pytest.raises(SystemExit) as excinfo:
+        cli.main(["--repo", "o/r", "append", "1", "--action", "Sync", "--entry-body", "x"])
+    assert excinfo.value.code == 1
+    assert "cannot list collaborators" in capsys.readouterr().err
+    assert f.patched_body is None
+
+
+def test_no_author_lookups_when_no_marker_comment_exists(fake_gh_no_rollup: FakeGh) -> None:
+    cli.main(["--repo", "o/r", "append", "1", "--action", "Sync", "--entry-body", "x", "--user", "@bob"])
+    joined = [" ".join(c) for c, _ in fake_gh_no_rollup.calls]
+    assert not any("collaborators" in j or j == "gh api user --jq .login" for j in joined)

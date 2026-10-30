@@ -175,17 +175,28 @@ def _reviewer_names(reviewers: object) -> str:
     return str(reviewers) if reviewers else "the adversarial reviewer"
 
 
+def _title(finding: dict[str, Any]) -> str:
+    return str(finding.get("rule_id") or finding.get("category") or "Finding").strip()
+
+
+def _text(finding: dict[str, Any]) -> str:
+    """What the finding asks for: the explanation, else the suggestion, else its rule."""
+    return str(finding.get("explanation") or finding.get("suggestion") or _title(finding)).strip()
+
+
 def _block(finding: dict[str, Any], prefix: str) -> str:
-    lines = [
-        f"### {prefix}{finding.get('rule_id') or finding.get('category') or 'Finding'} ({_where(finding)})",
-        "",
-    ]
+    return f"### {prefix}{_title(finding)} ({_where(finding)})\n\n{_details(finding)}".rstrip()
+
+
+def _details(finding: dict[str, Any], excerpt: bool = True) -> str:
+    """The quoted rule, excerpt, explanation, suggestion block and attribution of a finding."""
+    lines: list[str] = []
     if finding.get("quoted_rule"):
         lines += ["> " + q for q in str(finding["quoted_rule"]).strip().splitlines()] + [""]
-    if finding.get("excerpt"):
+    if excerpt and finding.get("excerpt"):
         lines += ["```text", str(finding["excerpt"]).rstrip(), "```", ""]
     if finding.get("explanation") or finding.get("suggestion"):
-        lines += [str(finding.get("explanation") or finding.get("suggestion")).strip(), ""]
+        lines += [_text(finding), ""]
     if finding.get("suggestion_block"):
         lines += ["```suggestion", str(finding["suggestion_block"]).rstrip(), "```", ""]
     if finding.get("source") in ("adversarial", "both"):
@@ -226,9 +237,7 @@ def compose(
     folded = [f for i, f in smaller if i not in inline_set]
     inline_smaller = [f for i, f in smaller if i in inline_set]
     if folded or inline_smaller:
-        bullets = [
-            f"- {_where(f)} — {str(f.get('explanation') or f.get('rule_id') or '').strip()}" for f in folded
-        ]
+        bullets = [f"- {_where(f)} — {_text(f)}" for f in folded]
         if inline_smaller:
             bullets.append("- See inline comments on " + ", ".join(_where(f) for f in inline_smaller) + ".")
         parts.append("### Smaller observations\n\n" + "\n".join(bullets))
@@ -260,8 +269,14 @@ def inline_comments(
         spot = difflib.anchor(
             files, str(finding["file"]), int(finding["line"]), str(finding.get("side") or "RIGHT")
         )
+        # The comment stands alone on the diff: give it the finding's full
+        # text, as the body would, not just the rule it names. The excerpt is
+        # the line it sits on, so it is left out.
         text = escape_handles(
-            str(finding.get("comment") or finding.get("explanation") or finding.get("rule_id") or ""), allowed
+            str(
+                finding.get("comment") or f"**{_title(finding)}**\n\n{_details(finding, excerpt=False)}"
+            ).strip(),
+            allowed,
         )
         if spot is None:
             unanchorable.append({"index": index, "file": finding["file"], "line": finding["line"]})

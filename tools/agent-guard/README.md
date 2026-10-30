@@ -14,8 +14,10 @@
     - [Snapshot adopters (`/magpie-setup`)](#snapshot-adopters-magpie-setup)
     - [Codex](#codex)
     - [OpenCode](#opencode)
+    - [Pi](#pi)
+    - [Goose](#goose)
     - [Kiro CLI](#kiro-cli)
-    - [Gemini CLI](#gemini-cli)
+    - [Antigravity](#antigravity)
     - [Copilot CLI](#copilot-cli)
     - [Grok](#grok)
     - [Junie CLI](#junie-cli)
@@ -32,7 +34,7 @@
 
 **Capability:** substrate:action-guard
 
-**Harness:** Claude Code, Codex, OpenCode, Kiro, Gemini CLI, Copilot, Grok, Junie
+**Harness:** Claude Code, Codex, OpenCode, Pi, Goose, Kiro, Antigravity, Copilot, Grok, Junie
 
 A deterministic pre-execution guard dispatcher. It inspects every shell command
 **before it runs** and **denies** the ones that would break a hard framework
@@ -48,13 +50,19 @@ so every wired harness enforces an identical rule set from one source of truth:
 - **OpenCode** — a [plugin](https://opencode.ai/docs/plugins/) on the
   `tool.execute.before` hook for the `bash` tool, which blocks a call by
   throwing (`agent-guard.py --opencode`). See [Wiring](#wiring).
+- **Pi** — Magpie's user-scope Pi extension, which sends every `bash` call to
+  `agent-guard.py --pi` (the OpenCode transport) and blocks it on a deny.
+  See [Pi](#pi).
+- **Goose** — the Magpie Goose plugin's `PreToolUse` hook, which sends every
+  `shell` call to `agent-guard.py --goose` (the same transport) and blocks it
+  on a deny. See [Goose](#goose).
 - **Kiro CLI** — a [`preToolUse`](https://kiro.dev/docs/cli/hooks) hook on the
   `execute_bash` matcher, which blocks a call when the hook exits `2`
   (`agent-guard.py --kiro`, reason on stderr). See [Wiring](#wiring).
-- **Gemini CLI** — a [`BeforeTool`](https://geminicli.com/docs/hooks/reference/)
-  hook on `run_shell_command`, using `--gemini` (exit `2`, reason on stderr).
-  The repository's `.gemini/settings.json` wires this hook; snapshot
-  adopters register it in their own settings. See [Gemini CLI](#gemini-cli).
+- **Antigravity** — a [`PreToolUse`](https://antigravity.google/docs/hooks/)
+  hook on `run_command`, using `--antigravity` (a JSON `deny` decision on
+  stdout). The user-scope `~/.gemini/config/hooks.json` registers it once for
+  every repository. See [Antigravity](#antigravity).
 - **Grok Build** — a `PreToolUse` hook on the `Bash` matcher.
   Grok Build 1.0.46 was observed emitting `run_terminal_command` with the shell
   command in `toolInput.command`.
@@ -134,12 +142,76 @@ deterministic fix (e.g. "use a backtick `` `login` `` instead of `@login`").
 
 Every guard sees through the prefix wrappers that run their argument as the
 command: `env` (with `-i`, `-u NAME`, `-C DIR` and `NAME=value` assignments,
-which count as inline overrides) and `command` (`-p`). `env git commit …` is
-checked as `git commit …`; `command -v git` is a lookup and is left alone.
+which count as inline overrides), `command` (`-p`), `exec` (`-c`, `-l`,
+`-a NAME`), `nohup`, and `time` (the shell keyword's `-p` and the GNU / BSD
+`time` options). `env git commit …` is checked as `git commit …`;
+`command -v git` is a lookup and is left alone.
 A wrapper the guards cannot parse is refused (`agent-guard[wrapper]`). That
 includes `env -S` / `--split-string`: env splits that string with its own
 escapes (`\_`, `\c`, `${VAR}`), so the guards could not be sure they see the
 command env runs.
+
+A command line is split into commands the way bash splits it: on a newline and
+on every control operator (`;`, `&`, `|`, `&&`, `||`, `|&`, `;;`), whether or
+not spaces surround it, so `echo hi;git push` and a `git` command on the second
+line are both checked. Redirections (`2>&1`, `&>file`, `>|`) stay words,
+quoted text and `#` comments are not commands, and a leading reserved word
+(`if`, `then`, `do`, `{`, `!` …) is skipped. A subshell `( … )`, a command or
+process substitution (`$( … )`, backticks, `<( … )`, also inside double quotes
+and `$(( … ))` / `${ … }`), and a heredoc body fed to anything but a bare `cat`
+/ `tee` are checked as commands of their own, as is a substitution in a heredoc
+body whose delimiter is unquoted.
+
+A shell's `-c` string (`bash -c "…"`, `sh -c '…'`, `zsh -lc "…"`), or the joined arguments of `eval` (after one `--`; also behind any chain of `builtin`, `command`, `--` and `-p`; an option anywhere else in front of the string is refused), is split
+and checked like a command line of its own, and inherits the inline
+assignments written before the shell. That goes one level deep: a `-c` string
+inside a `-c` string that names `git` or `gh` is refused (`agent-guard[wrapper]`).
+
+A command line whose quoting cannot be parsed (an unbalanced quote, a trailing
+backslash) is refused when it names `git` or `gh` as a word
+(`agent-guard[parse]`): the guards cannot see what it runs.
+Quotes and backslashes are removed before that check, as bash removes them,
+so `g'i't` and `"g"h` count as `git` and `gh`; such a line holding `$`, a
+backtick, a glob or brace character (`*`, `?`, `[`, `{`) or a
+backslash-newline is refused too, since an expansion can build the word
+(`g$()it`, `$CMD`, `/usr/bin/gi?`). Simplify the
+quoting, for example by passing a multi-line message with `-F <file>` /
+`--body-file <file>`. Any other unparsable line is allowed, as before.
+A command that does parse is refused (`agent-guard[expansion]`) for the same
+reason when its name is anything but literal: letters, digits and `_ . / + : @ % , -`,
+with an optional leading `~/` (`[` and `[[` aside). That covers `$CMD push`,
+`"$GIT" push`, `/usr/bin/gi? push`, and zsh's `=git push` and `g(i)t` globs.
+That check runs before the `uv` rule, which is keyed on the basename:
+`${CMD}/uv` has the basename `uv`, yet the shell splits `$CMD` into words.
+Redirections written before the command name (`>/dev/null git …`, `2>&1 git …`,
+`exec 3>&1`) are skipped, as leading `NAME=value` assignments are, so the
+command after them is the one checked.
+So are redirections between a wrapper's options (`env 2>/dev/null -i git …`),
+since bash drops a redirection wherever it stands.
+Where an option takes a value (`env -u`, `exec -a`, `time -o`), a word that
+looks like a redirection may be the value itself (`env -u '>x' git …`),
+and the tokens carry no quoting to tell, so such a wrapper is refused
+(`agent-guard[wrapper]`).
+A heredoc's body is data, not shell syntax: an apostrophe in it does not make
+the line unparsable. That holds for a body naming `git` or `gh` only when it is
+fed to a bare `cat`, `/bin/cat`, `/usr/bin/cat` or `tee` (plain file arguments
+and `>` / `>>` only) that starts a command rather than continuing the line
+before, in a command that, without its heredoc bodies, holds no `$`, backtick,
+parenthesis or brace, no `alias`, and no `eval`, `source`, `.`, `hash` or
+`enable` as a word anywhere (after quote removal), in which every other heredoc
+is such a sink too, and,
+under an unquoted delimiter, holds no `$(…)` or backtick substitution (bash
+runs those); never for a heredoc that is not closed, and never in a command
+where any line outside a heredoc body ends in a backslash: bash joins that line
+with the next, so a `#` at the start of the next line may sit mid-word rather
+than open a comment.
+A `<<` inside quotes, a `#` comment, arithmetic (`$((…))`, `$[…]`) or a
+`${…}` expansion opens no heredoc, so the lines after it are read as commands,
+as bash reads them. The delimiter is the whole word after quote removal
+(`E"O"F` is `EOF`); a delimiter holding `$` or a backtick is not stripped.
+The guard reads one command string, so a `cat` heredoc that writes a script
+which a later command runs is beyond it: the agent could write that file with
+its own file tools just as well.
 
 ## Per-command overrides
 
@@ -153,8 +225,16 @@ MAGPIE_ALLOW_MARK_READY=1   gh pr edit 123 --add-label "ready for maintainer rev
 MAGPIE_ALLOW_SECURITY_LANG=1 gh pr create --title "…"    # disclosure already public
 MAGPIE_ALLOW_EMPTY_PUSH=1   git push --force …
 MAGPIE_ALLOW_VETTED_PATH=1  uv run --project tools/vetted-ops vetted-op-read …  # developing the dispatcher
-MAGPIE_GUARD_OFF=1          <any command>                # disable all guards once
 ```
+
+Each `MAGPIE_ALLOW_*` override is also honoured when it is set in the hook's own
+environment.
+
+`MAGPIE_GUARD_OFF=1` disables every guard at once.
+The kill switch is read from the hook's environment only — the environment the
+harness starts the hook with, set by whoever launches the agent — never from the
+command line: `MAGPIE_GUARD_OFF=1 git commit …` written inline is checked like
+`git commit …`.
 
 `MAGPIE_READY_LABEL` overrides the label string the `mark-ready` guard watches
 for (default `ready for maintainer review`).
@@ -261,6 +341,48 @@ to point elsewhere. Because both harnesses call `dispatch()`, the bundled and
 skill-contributed guards, the `MAGPIE_*` overrides, and the deny reasons are
 byte-for-byte identical across the two; nothing about a guard is harness-aware.
 
+### Pi
+
+Pi has no hook configuration of its own; extensions intercept tool calls.
+Magpie's Pi extension, [`tools/agent-isolation/pi/magpie.ts`](../agent-isolation/pi/magpie.ts),
+sends every `bash` command to `agent-guard.py --pi` before it runs and blocks
+the call on exit `2`, using the reason the engine prints on stdout. `--pi`
+shares the `{"command", "cwd"}` stdin transport with `--opencode`, so the
+decisions and reasons are identical; a missing engine or interpreter fails
+open, like every other adapter.
+
+The extension is installed **once per user**, never per repository, by the
+framework's Pi package:
+
+```bash
+pi install git:github.com/apache/magpie
+```
+
+It resolves the engine relative to its own file, so the installed package
+carries everything it runs. The same extension adds the permission rules and
+the OS sandbox for bash; see [the Pi harness](../../docs/adapters/pi.md).
+
+### Goose
+
+Goose runs hooks shipped in a plugin. The Magpie Goose plugin's
+[`hooks/hooks.json`](../../hooks/hooks.json) registers a `PreToolUse` hook,
+[`tools/agent-isolation/goose/hook.ts`](../agent-isolation/goose/hook.ts),
+which sends every `shell` command to `agent-guard.py --goose` before it runs
+and blocks the call on exit `2`, using the reason the engine prints on stdout.
+`--goose` shares the `{"command", "cwd"}` stdin transport with `--opencode`
+and `--pi`, so the decisions and reasons are identical; a missing engine fails
+open, like every other adapter, while a crash of the hook itself fails closed
+(`on_failure: block`).
+
+The plugin is installed **once per user**, never per repository:
+
+```bash
+goose plugin install https://github.com/apache/magpie
+```
+
+The same hook applies the baseline's deny rules, and `agent-iso goose` runs the
+whole Goose process in an OS sandbox; see [the Goose harness](../../docs/adapters/goose.md).
+
 ### Kiro CLI
 
 The same engine backs [Kiro CLI](https://kiro.dev/docs/cli/hooks) via its
@@ -301,35 +423,28 @@ Claude Code and OpenCode paths — verified end-to-end: with this hook wired,
 Kiro refuses a `Co-Authored-By` commit (quoting the `commit-trailer` reason and
 leaving the commit uncreated) while a clean commit proceeds.
 
-### Gemini CLI
+### Antigravity
 
-The repository's [`.gemini/settings.json`](../../.gemini/settings.json) wires
-the `--gemini` adapter to Gemini CLI's `BeforeTool` event.
-Start Gemini from the checkout root; the command uses `GEMINI_PROJECT_DIR`
-to resolve the engine without a machine-specific path.
+The same engine backs [Antigravity](https://antigravity.google/docs/hooks/) (CLI, App and IDE) via its `PreToolUse` hook on the `run_command` tool.
+Antigravity pipes the event on stdin — the shell command is `toolCall.args.CommandLine`, the workspace roots are `workspacePaths` — and reads a JSON decision from stdout.
+`agent-guard.py --antigravity` runs the shared core and prints `{"decision": "deny", "reason": …}` on a deny, which blocks the call and returns the reason to the model; anything else prints `{"decision": "allow"}`, which defers to the user's own permission rules rather than approving the call.
+The hook runs with its `hooks.json` directory as the working directory, so Git checks use the command's `Cwd`, else the first workspace root.
 
-The [`setup-isolated-setup-install`](../../skills/setup-isolated-setup-install/SKILL.md)
-skill registers the adapter in the adopter's workspace `.gemini/settings.json`.
-It resolves the existing extension, snapshot, or framework checkout and merges
-one `magpie-agent-guard` entry while preserving unrelated hooks.
-See [the Gemini install lifecycle](../../docs/adapters/gemini.md#install)
-for path selection, trust, and verification.
-
-For manual registration, merge this entry into existing hooks and replace the
-example path with the resolved framework directory, quoted for the shell and
-encoded as JSON:
+The guard is registered **once per user**, in `~/.gemini/config/hooks.json`, never per repository.
+The shipped registration is [`tools/agent-isolation/antigravity/hooks.json`](../agent-isolation/antigravity/hooks.json); the [`setup-isolated-setup-install`](../../skills/setup-isolated-setup-install/SKILL.md) skill merges it while preserving unrelated hooks.
+It points at the engine inside the installed Magpie plugin:
 
 ```json
 {
-  "hooks": {
-    "BeforeTool": [
+  "magpie-agent-guard": {
+    "PreToolUse": [
       {
-        "matcher": "^run_shell_command$",
+        "matcher": "run_command",
         "hooks": [
           {
-            "name": "magpie-agent-guard",
             "type": "command",
-            "command": "python3 \"/absolute/path/to/magpie/tools/agent-guard/src/agent_guard/__init__.py\" --gemini"
+            "command": "python3 \"${HOME}/.gemini/config/plugins/magpie/tools/agent-guard/src/agent_guard/__init__.py\" --antigravity",
+            "timeout": 30
           }
         ]
       }
@@ -338,21 +453,13 @@ encoded as JSON:
 }
 ```
 
-Gemini supplies `tool_input.command` and `cwd` on stdin.
-The adapter calls `dispatch()` and returns exit `2` with the denial reason on
-stderr; permitted commands return `0` silently.
-The adapter tests cover CLI routing, preservation of core decisions, workspace-aware
-Git checks, malformed input, and execution of the project settings' hook command.
-An offline probe of Gemini CLI 0.59.0 also loaded those settings through its
-native settings loader and registered and executed the hook, recognizing its
-denial even from a checkout path containing spaces.
+Antigravity runs the hook command through a shell, so `${HOME}` expands and the file carries no username.
+For a framework checkout or snapshot instead of the plugin, replace the path with that tree's engine.
+Verified against Antigravity CLI 1.3.6 on macOS: `agy plugin install` staged the engine at the path above, the hook received the event, a deny blocked the command with the reason shown to the model, and an allow fell through to the permission prompt.
 
-This preserves the shared engine's fail-open behavior for malformed input.
-A missing hook executable or interpreter can also leave the session running
-with a warning, so verify a known denial after installation.
-The hook covers shell commands; native file and MCP tools still need their
-own permissions, and shell execution still needs an OS sandbox.
-See the [harness contract](../../docs/adapters/gemini.md).
+A missing interpreter or script leaves the session running, so verify a known denial after installation.
+The hook covers shell commands; native file, browser and MCP tools still need the permission rules, and shell execution still needs the terminal sandbox.
+See the [harness contract](../../docs/adapters/antigravity.md).
 
 ### Copilot CLI
 

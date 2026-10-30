@@ -7,6 +7,7 @@
 
 - [Forgejo / Gitea — CLI and API operation catalogue](#forgejo--gitea--cli-and-api-operation-catalogue)
   - [Authentication](#authentication)
+  - [Running the REST recipes under the secure setup](#running-the-rest-recipes-under-the-secure-setup)
   - [Collaborator lookup (security-team roster)](#collaborator-lookup-security-team-roster)
   - [Issues](#issues)
     - [Read](#read)
@@ -55,6 +56,24 @@ tea login list                          # must show logged-in user / server
 A non-zero exit on either command is a hard stop — the skill reports the failure and asks the user to `tea login add` rather than retrying.
 Subshell fetching like `$(gh auth token)` is avoided to comply with environment restrictions.
 Note that `tea` CLI credentials come from `tea login add` (or `GITEA_SERVER_URL` / `GITEA_SERVER_TOKEN`); `$TEA_TOKEN` and `$FORGEJO_HOST` are environment variables required specifically for the REST API fallback recipes below.
+
+## Running the REST recipes under the secure setup
+
+The `curl` recipes in this file conflict with the framework's [secure agent setup](../../docs/setup/secure-agent-setup.md#the-frameworks-own-claudesettingsjson):
+the settings it ships (the framework's own `.claude/settings.json`, which adopters copy) deny `Bash(curl *)` and `Bash(wget *)`,
+because a network call made from Bash does not go through the sandbox's proxy.
+Under that setup the agent can run the `tea` recipes, but not the REST-only ones
+(collaborator lookup, comment read, issue create, body edit, comment, PR create, and the [status-rollup](status-rollup.md) and [issue-template](issue-template.md) body writes).
+
+Until this adapter ships its own CLI — as [`tools/bitbucket/`](../bitbucket/README.md) and [`tools/discourse/`](../discourse/README.md) do, over the standard library's HTTP client, which honours the proxy variables —
+a REST-only operation runs like this:
+
+1. The agent writes the payload file with the Write tool, exactly as the recipe says.
+2. The agent shows the user the exact `curl` command and the payload, and the user runs it **in their own terminal**, outside the agent session.
+3. The user pastes the response back; the agent continues from it.
+
+The vetted-ops `http-read` backend is not a route here: its catalogue is closed, read-only, and has no Forgejo operation (adding one is a reviewed change to [`ops.py`](../vetted-ops/src/vetted_ops/ops.py)).
+Do not add a `curl` allow rule to make the recipes run: it would re-open Bash network egress for every command, not only these.
 
 ## Collaborator lookup (security-team roster)
 

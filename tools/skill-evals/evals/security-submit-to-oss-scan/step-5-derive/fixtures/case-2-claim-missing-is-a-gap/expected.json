@@ -1,0 +1,7 @@
+{
+  "include_in_summary": false,
+  "model_section": "",
+  "model_gap": true,
+  "route": "security-model-update",
+  "rationale": "The model says nothing about denial of service by authenticated users; writing it into the scanner summary would create a second model."
+}

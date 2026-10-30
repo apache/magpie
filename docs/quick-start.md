@@ -36,7 +36,7 @@ project and no opt-in from your teammates. Committing anything for other
 people is a separate act called **adoption** —
 [Installation or Adoption?](quick-start/two-ways.md) draws the line.
 
-**What you get.** 81 skills your agent can run, grouped into 10 **families** —
+**What you get.** 83 skills your agent can run, grouped into 10 **families** —
 PR triage and review, issue triage, security-report handling, release
 management, contributor mentoring. Install only the families you need; each one
 you add costs context in every session —
@@ -74,8 +74,8 @@ writes nothing to any repository and your teammates are unaffected.
 
 → [**Prerequisite: install Magpie from your agent's
 marketplace**](setup/marketplace-install.md) has the commands, one section per
-agent: Claude Code, OpenAI Codex CLI, VS Code / GitHub Copilot, Google Gemini
-CLI, Cursor, `microsoft/apm`, and JetBrains IDEs.
+agent: Claude Code, OpenAI Codex CLI, VS Code / GitHub Copilot, Google
+Antigravity, Cursor, `microsoft/apm`, Pi, Goose, and JetBrains IDEs.
 
 **Take the baseline — four plugins, strongly recommended on every machine:**
 
@@ -128,7 +128,7 @@ whether a family is earning its always-on context.
 > [!NOTE]
 > **Per-family works on every agent listed.** A family plugin carries its
 > skills as real directories, so nothing depends on a client following a
-> symlink — measured on Codex and Gemini, not assumed.
+> symlink — measured on Codex, not assumed.
 
 > [!TIP]
 > **Installed a family and want to use it now?**
@@ -180,7 +180,7 @@ draws the line.
 
 **Every skill configures itself on first use.** You do not have to remember
 which projects are set up, or run anything to prepare a family before you use
-it: 70 of the 81 skills open with a silent pre-flight — the eleven exceptions are
+it: 71 of the 83 skills open with a silent pre-flight — the twelve exceptions are
 the setup skills themselves, which are what you run to fix whatever it finds.
 
 The first time you call a skill in a project, that pre-flight works out how
@@ -225,7 +225,9 @@ installed everywhere but bypasses no prompt without the sandbox.
 |---|---|
 | **Claude Code** | `/magpie-setup:isolated-setup-install` — the guided install below. |
 | **OpenAI Codex CLI** | [Codex setup lifecycle](adapters/codex.md#setup-isolated-lifecycle). |
-| **Google Gemini CLI** | [Gemini setup lifecycle](adapters/gemini.md#setup-isolated-lifecycle). |
+| **Google Antigravity** | [Antigravity setup lifecycle](adapters/antigravity.md#setup-isolated-lifecycle) — user-scope, never per repository. |
+| **Pi** | [Pi setup lifecycle](adapters/pi.md#setup-isolated-lifecycle) — one per-user `pi install`, never per repository. |
+| **Goose** | [Goose setup lifecycle](adapters/goose.md#setup-isolated-lifecycle) — one per-user plugin install, then `agent-iso goose`. |
 | **Anything else** | The [secure setup guide](setup/secure-agent-setup.md) and your runtime's adapter. |
 
 ```text

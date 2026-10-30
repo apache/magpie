@@ -100,19 +100,32 @@ RECOMMENDED_BY_FAMILY: dict[str, frozenset[str]] = {
             "mcp__claude_ai_Gmail__search_threads",
             "mcp__claude_ai_Gmail__list_drafts",
             "mcp__claude_ai_Gmail__list_labels",
-            "mcp__ponymail__search_list",
-            "mcp__ponymail__auth_status",
-            "mcp__ponymail__get_thread",
-            "mcp__ponymail__get_email",
-            "mcp__ponymail__list_restrictions",
-            "mcp__apache-projects__project_stats",
-            "mcp__apache-projects__get_committee",
-            "mcp__apache-projects__get_group_members",
-            "mcp__apache-projects__get_person",
-            "mcp__apache-projects__search_people",
-            "Bash(vulnogram-api-record-fetch *)",
         }
     ),
+}
+
+# Organization → family → patterns recommended only to that organization's
+# projects: the ASF's PonyMail archive, its project directory and its CVE
+# tool mean nothing to a project outside the ASF, so recommending them
+# there would only widen the allow-list.
+RECOMMENDED_BY_ORGANIZATION: dict[str, dict[str, frozenset[str]]] = {
+    "ASF": {
+        "security": frozenset(
+            {
+                "mcp__ponymail__search_list",
+                "mcp__ponymail__auth_status",
+                "mcp__ponymail__get_thread",
+                "mcp__ponymail__get_email",
+                "mcp__ponymail__list_restrictions",
+                "mcp__apache-projects__project_stats",
+                "mcp__apache-projects__get_committee",
+                "mcp__apache-projects__get_group_members",
+                "mcp__apache-projects__get_person",
+                "mcp__apache-projects__search_people",
+                "Bash(vulnogram-api-record-fetch *)",
+            }
+        ),
+    },
 }
 
 
@@ -143,7 +156,9 @@ class AuditResult:
         return bool(self.forbidden or self.missing_recommended)
 
 
-def audit_settings(allow_list: Iterable[str], families: Iterable[str]) -> AuditResult:
+def audit_settings(
+    allow_list: Iterable[str], families: Iterable[str], organization: str | None = None
+) -> AuditResult:
     """Classify allow-list entries against forbidden + recommended lists.
 
     Args:
@@ -152,6 +167,9 @@ def audit_settings(allow_list: Iterable[str], families: Iterable[str]) -> AuditR
         families: the opt-in family names the adopter has selected
             (e.g. `["security"]`). The empty-family bucket ("")
             is always included regardless.
+        organization: the project's `organization` (`project.md`);
+            only that organization's own recommendations are added,
+            so the ASF-only ones appear for `ASF` alone.
 
     Returns:
         `AuditResult` with two buckets — entries to remove
@@ -178,8 +196,9 @@ def audit_settings(allow_list: Iterable[str], families: Iterable[str]) -> AuditR
 
     # Recommended — always include the empty-family bucket.
     effective_families = {""} | set(families)
+    by_org = RECOMMENDED_BY_ORGANIZATION.get(organization or "", {})
     for family in sorted(effective_families):
-        recommended = RECOMMENDED_BY_FAMILY.get(family, frozenset())
+        recommended = RECOMMENDED_BY_FAMILY.get(family, frozenset()) | by_org.get(family, frozenset())
         for pattern in sorted(recommended):
             if pattern not in allow_set:
                 result.missing_recommended.append(

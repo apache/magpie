@@ -16,12 +16,14 @@
 # under the License.
 """Step 3: the parent-side pre-screen before invoking `security-issue-import-via-forwarder`.
 
-Detection is an OR of two signals per enabled adapter: `sender_pattern`
-against the root `From:` address, `preamble_match` against the first 400
-characters of the root body. When neither matches for any enabled adapter the
-candidate is not a relay and the sub-skill is not invoked. Any match, or an
-adapter whose patterns cannot be resolved or compiled, invokes it: the
-sub-skill's own Step 1 stays the authority. The patterns come from
+Relay mode needs both signals of one enabled adapter: `sender_pattern`
+against the root `From:` address AND `preamble_match` against the first 400
+characters of the root body. Either alone is forgeable by any sender, so a
+candidate matching only one is not a relay: the sub-skill is not invoked and
+the single-signal match is returned under `partial` for the parent to show
+the user. Both signals matching, or an adapter whose patterns cannot be
+resolved or compiled, invokes it: the sub-skill's own Step 1 stays the
+authority. The patterns come from
 `project.md → forwarders.<adapter>` (else the adapter's defaults), passed in;
 none are hard-coded here.
 """
@@ -58,11 +60,19 @@ def prescreen(message: Mapping[str, Any], forwarders: Mapping[str, Any]) -> dict
             adapters.append({"adapter": name, "match": None, "reason": f"pattern does not compile: {exc}"})
             continue
         adapters.append(
-            {"adapter": name, "match": by_sender or by_preamble, "sender": by_sender, "preamble": by_preamble}
+            {
+                "adapter": name,
+                "match": by_sender and by_preamble,
+                "sender": by_sender,
+                "preamble": by_preamble,
+            }
         )
     invoke = any(a["match"] is not False for a in adapters)
-    return {
-        "invoke_subskill": invoke,
-        "reason": "a signal matched or an adapter is unresolved" if invoke else "no signal matched",
-        "adapters": adapters,
-    }
+    partial = [a["adapter"] for a in adapters if a["match"] is False and (a["sender"] or a["preamble"])]
+    if invoke:
+        reason = "both signals matched or an adapter is unresolved"
+    elif partial:
+        reason = "only one of the two signals matched; not a relay"
+    else:
+        reason = "no signal matched"
+    return {"invoke_subskill": invoke, "reason": reason, "adapters": adapters, "partial": partial}

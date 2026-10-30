@@ -24,8 +24,11 @@ import datetime as dt
 import json
 import os
 import subprocess
+import tempfile
 
-ROOT = os.environ.get("TRACKER_STATS_CACHE", "/tmp/tracker-stats-cache")
+# Default under the platform temp root, not a hardcoded `/tmp`: a sandboxed run is
+# granted its own scratch directory and cannot write `/tmp`. See fetch_issues.py.
+ROOT = os.environ.get("TRACKER_STATS_CACHE") or os.path.join(tempfile.gettempdir(), "tracker-stats-cache")
 REPO = os.environ.get("TRACKER_STATS_REPO", "airflow-s/airflow-s")
 EVENTS_DIR = f"{ROOT}/events"
 

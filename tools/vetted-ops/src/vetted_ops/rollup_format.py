@@ -27,7 +27,7 @@ backticks, trailing whitespace) without mocking subprocess.
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from dataclasses import dataclass
 
 # First line the tools write when they create a rollup: the
@@ -63,16 +63,35 @@ def is_canonical_rollup_body(body: str) -> bool:
     return bool(CANONICAL_MARKER_RE.match(body))
 
 
-def find_rollup_index(bodies: Sequence[str]) -> int | None:
+def find_rollup_index(
+    bodies: Sequence[str],
+    authors: Sequence[str] | None = None,
+    trusted: Collection[str] | None = None,
+) -> int | None:
     """Index of the rollup among the comment ``bodies``, or ``None``.
 
     The first comment with the canonical marker wins; failing that, the
     first with a legacy marker. Preferring the canonical one means a
     tracker that carries both (a legacy-marker comment written next to
     the skills' rollup) keeps growing the rollup the skills read.
+
+    When ``trusted`` is given, ``authors`` holds each comment's author
+    login (parallel to ``bodies``), and only a comment whose author is in
+    ``trusted`` (compared case-insensitively, as GitHub logins are) can be
+    the rollup. A marker line in a comment by anyone else is ignored, so a
+    commenter outside the trusted set cannot plant a comment the tools
+    then read from or write to.
     """
+    eligible = [True] * len(bodies)
+    if trusted is not None:
+        if authors is None or len(authors) != len(bodies):
+            raise ValueError("authors must list one login per body when trusted is given")
+        allowed = {login.lower() for login in trusted if login}
+        eligible = [bool(login) and login.lower() in allowed for login in authors]
     legacy: int | None = None
     for i, body in enumerate(bodies):
+        if not eligible[i]:
+            continue
         if is_canonical_rollup_body(body):
             return i
         if legacy is None and is_rollup_body(body):
@@ -215,6 +234,45 @@ def rebuild_with_appended_entry(existing_body: str, new_entry: str) -> str:
     ``existing_body`` so the ruler lands in the right place.
     """
     return f"{existing_body.rstrip()}{_RULER_BETWEEN_ENTRIES}{new_entry}"
+
+
+def insert_entries_by_date(existing_body: str, entries: Sequence[RollupEntry]) -> str:
+    """Insert ``entries`` into ``existing_body`` in date order.
+
+    Each entry lands before the first existing entry dated the same day or
+    later, or at the end when none is, so the existing latest entry stays
+    last: readers take the last entry as the tracker's current state, and
+    a summary carries only a date, so a same-day entry being merged in is
+    not known to be newer. Existing entries keep their text
+    byte-identical; an existing entry whose summary does not parse is
+    never an anchor, and entries sharing a slot keep their given order.
+    """
+    body = existing_body.rstrip()
+    anchors: list[tuple[int, str]] = []
+    # Walk entries the way `iter_entries` does: an open tag inside an entry's
+    # body (a quoted example, a nested block) is part of that entry, never an
+    # anchor, or a merged entry could land inside it.
+    entry_end = 0
+    for match in _OPEN_TAG_RE.finditer(body):
+        if match.start() < entry_end:
+            continue
+        close_idx = body.find(f"\n{_CLOSE_TAG}", match.end())
+        entry_end = len(body) if close_idx == -1 else close_idx + len(f"\n{_CLOSE_TAG}")
+        parsed = parse_summary_line(match.group(1))
+        if parsed is not None:
+            anchors.append((match.start(), parsed.date))
+    slots: dict[int, list[str]] = {}
+    for entry in sorted(entries, key=lambda e: e.date):
+        pos = next((start for start, date in anchors if date >= entry.date), len(body))
+        block = build_entry(date=entry.date, user=entry.user, action=entry.action, body=entry.body)
+        slots.setdefault(pos, []).append(block)
+    for pos in sorted(slots, reverse=True):
+        blocks = _RULER_BETWEEN_ENTRIES.join(slots[pos])
+        if pos == len(body):
+            body = f"{body}{_RULER_BETWEEN_ENTRIES}{blocks}"
+        else:
+            body = f"{body[:pos]}{blocks}{_RULER_BETWEEN_ENTRIES}{body[pos:]}"
+    return body
 
 
 def replace_latest_entry(existing_body: str, new_entry: str) -> str:

@@ -20,8 +20,8 @@ from permission_audit.audit import audit_settings
 def test_empty_allow_only_misses_recommended():
     result = audit_settings(allow_list=[], families=["security"])
     assert result.forbidden == []
-    # lychee (default family "") + 15 security family = 16
-    assert len(result.missing_recommended) == 16
+    # lychee (default family "") + 4 generic security entries = 5
+    assert len(result.missing_recommended) == 5
 
 
 def test_forbidden_python_wildcard_flagged_with_pointer():
@@ -68,3 +68,20 @@ def test_default_family_always_included_even_when_not_requested():
     result = audit_settings(allow_list=[], families=["security"])
     patterns = {f.pattern for f in result.missing_recommended}
     assert "Bash(lychee *)" in patterns
+
+
+def test_asf_only_recommendations_need_the_asf_organization():
+    """PonyMail, the ASF project directory and Vulnogram are ASF services."""
+    asf_only = {
+        "mcp__ponymail__search_list",
+        "mcp__apache-projects__get_person",
+        "Bash(vulnogram-api-record-fetch *)",
+    }
+    elsewhere = {f.pattern for f in audit_settings([], ["security"]).missing_recommended}
+    independent = {f.pattern for f in audit_settings([], ["security"], "independent").missing_recommended}
+    asf = {f.pattern for f in audit_settings([], ["security"], "ASF").missing_recommended}
+    assert not asf_only & elsewhere
+    assert not asf_only & independent
+    assert asf_only <= asf
+    # lychee + 4 generic + 11 ASF security entries
+    assert len(asf) == 16

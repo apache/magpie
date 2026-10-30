@@ -1,0 +1,7 @@
+{
+  "never_asks_for_a_session_when_stopped": {
+    "field": "asks_for_dashboard_session",
+    "type": "regex",
+    "pattern": "^(false|False)$"
+  }
+}

@@ -1,0 +1,111 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "oauth-draft"
+version = "0.1.0"
+description = "Gmail OAuth helpers — create threadId-attached drafts and bulk-modify threads via the Gmail REST API."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+# google-auth-oauthlib is needed only by `oauth-draft-setup` (the one-time
+# interactive consent flow). The `oauth-draft-create`,
+# `oauth-draft-mark-read`, and `oauth-draft-message-id` commands are
+# stdlib-only. We list the dep at the project level rather than as an
+# extra so the console scripts can be invoked uniformly via
+# `uv run --project ... oauth-draft-*`.
+dependencies = [
+  "google-auth-oauthlib>=1.4.0",
+]
+
+# The MCP-server frontend (`oauth-draft-mcp`) needs the `mcp` SDK. It is an
+# optional extra so the stdlib-only console scripts above stay lightweight;
+# install it with `uv run --project ... --extra mcp oauth-draft-mcp`.
+[project.optional-dependencies]
+mcp = [
+  "mcp>=2.0.0",
+]
+
+[project.scripts]
+oauth-draft-setup = "oauth_draft.setup_creds:main"
+oauth-draft-create = "oauth_draft.create_draft:main"
+oauth-draft-mark-read = "oauth_draft.mark_threads_read:main"
+oauth-draft-message-id = "oauth_draft.message_id:main"
+oauth-draft-fetch-message = "oauth_draft.fetch_message:main"
+oauth-draft-mcp = "oauth_draft.mcp_server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/oauth_draft"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+  "E",     # pycodestyle errors
+  "W",     # pycodestyle warnings
+  "F",     # pyflakes
+  "I",     # isort
+  "B",     # flake8-bugbear
+  "UP",    # pyupgrade
+  "SIM",   # flake8-simplify
+  "C4",    # flake8-comprehensions
+  "RUF",   # ruff-specific
+]
+ignore = [
+  "E501",  # line-too-long — the 110-char limit above is already generous
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["B", "SIM"]  # test clarity beats these
+
+[tool.mypy]
+python_version = "3.11"
+files = ["src", "tests"]
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unreachable = true
+check_untyped_defs = true
+no_implicit_optional = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+
+# google-auth-oauthlib does not ship type stubs.
+[[tool.mypy.overrides]]
+module = "google_auth_oauthlib.*"
+ignore_missing_imports = true
+
+# The `mcp` SDK is an optional extra (not in the base deps), so mypy may
+# not always have it importable; treat it as untyped rather than failing.
+[[tool.mypy.overrides]]
+module = "mcp.*"
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra -q"
+testpaths = ["tests"]

@@ -7,6 +7,7 @@
 
 - [PonyMail — MCP operation catalogue](#ponymail--mcp-operation-catalogue)
   - [Pre-flight](#pre-flight)
+    - [An empty private-list result is not "no messages"](#an-empty-private-list-result-is-not-no-messages)
   - [Authentication](#authentication)
     - [Login](#login)
     - [Auth status](#auth-status)
@@ -16,6 +17,7 @@
     - [Search a list](#search-a-list)
     - [Get a thread](#get-a-thread)
     - [Get an email](#get-an-email)
+    - [Save attachments](#save-attachments)
     - [Get an mbox dump](#get-an-mbox-dump)
   - [Query patterns](#query-patterns)
     - [Find the advisory archive thread on `users@<project>.apache.org`](#find-the-advisory-archive-thread-on-usersprojectapacheorg)
@@ -70,10 +72,34 @@ mcp__ponymail__auth_status()
 
 If the response reports no session, stop and ask the user to run
 `mcp__ponymail__login()` — the MCP opens a browser window for ASF
-LDAP OAuth. For skills that only need public-list reads
-(`users@`, `announce@`, `dev@`), a missing session is tolerable and
-the pre-flight emits a warning instead of a stop; see the
-[Authentication](#authentication) section below.
+LDAP OAuth. Add the
+[saved-password hint](#offer-to-save-the-password-for-next-time)
+to that request when it applies. For skills that only need
+public-list reads (`users@`, `announce@`, `dev@`), a missing session
+is tolerable and the pre-flight emits a warning instead of a stop;
+see the [Authentication](#authentication) section below.
+
+### An empty private-list result is not "no messages"
+
+PonyMail answers a private-list query it cannot authorise with an
+**empty result, not an error** — for a missing or expired cookie,
+and for a valid session whose LDAP groups do not include the list.
+An empty private-list result is therefore evidence of absence only
+when the session is **confirmed** for that list:
+
+1. `auth_status()` reported a session at Step 0, **and**
+2. [`list_lists()`](#list-lists) — called once, right after it —
+   includes the private list being searched.
+
+When either is not established, an empty private-list result is
+**unknown**: do not record it, or act on it, as *"no messages"* /
+*"no prior thread"* / *"nothing new"*. Stop that check, say
+*"`<list>` result unknown — no confirmed PonyMail session for it"*
+in the skill's output, and use the skill's other backend for the
+same question if it has one (Gmail, for the security skills). If no
+other backend can answer it, the question stays open in the
+proposal; it is never resolved as a negative. Public lists
+(`users@`, `announce@`, `dev@`) are exempt: they need no session.
 
 ## Authentication
 
@@ -91,6 +117,58 @@ Opens a browser window to `oauth.apache.org` for ASF LDAP login. On
 success, the session cookie is cached to
 `~/.ponymail-mcp/session.json`. Subsequent calls from any Claude
 Code session pick up the cached cookie automatically.
+
+#### Offer to save the password for next time
+
+By default the login window uses a throwaway browser profile that
+the MCP deletes after the login, so the browser cannot save the ASF
+password and the user types it on every login. The MCP's opt-in
+`PONYMAIL_BROWSER_PROFILE=persistent` keeps the profile in
+`~/.ponymail-mcp/browser-profile/` (owner-only), where the browser's
+password manager can save it, encrypted with the OS credential store
+(macOS Keychain, Linux keyring). The MCP clears the profile's
+cookies every time the login window closes, so the ASF login
+session is never reused: the next login fills in the saved
+password and still asks for 2FA. Older `ponymail-mcp` versions
+kept those cookies, so the tip below applies only to a version
+that clears them.
+
+The login result does not say which profile was used, so check the
+default location instead. When asking the user to log in, if
+`~/.ponymail-mcp/browser-profile/` does not exist (or cannot be
+read from this session), add one line to the request:
+
+```text
+Tip: the login window forgets your ASF password. If you want the
+browser to save it for next time, ask me to enable a kept login
+profile for PonyMail.
+```
+
+Give the tip once per session and never repeat it after the user
+declines. If they ask for it, first warn them, in these words or
+close to them:
+
+```text
+The kept profile saves only your password. Each login still asks
+for 2FA, because the MCP clears the profile's login cookies when
+the window closes. After you log in, the MCP holds the PonyMail
+session until it expires (up to about 24 hours), and during that
+time it reads every private list it is allowed to
+(PONYMAIL_ALLOWED_LISTS) without asking for your password or 2FA
+again. `logout` ends that session early; deleting the profile
+directory (~/.ponymail-mcp/browser-profile/ by default) forgets
+the saved password.
+```
+
+Only after they confirm, propose adding
+`"PONYMAIL_BROWSER_PROFILE": "persistent"` to the `env` of the
+`ponymail` entry in their `mcpServers` config (an absolute path
+instead of `persistent` keeps the profile there), then reconnecting
+the server (`/mcp` → `reconnect`). The config is user-scope and
+outside the repository. Show the edit and let the user apply it,
+leaving the rest of the entry untouched, `PONYMAIL_ALLOWED_LISTS`
+included. Their next login prompts for the password once, and the
+browser offers to save it.
 
 ### Auth status
 
@@ -110,8 +188,14 @@ mcp__ponymail__logout()
 ```
 
 Clears the cached cookie at `~/.ponymail-mcp/session.json`. Use on a
-shared workstation or when rotating credentials. Skills never call
-logout on their own — it is a user-driven lifecycle step.
+shared workstation or when rotating credentials. A
+[kept login profile](#offer-to-save-the-password-for-next-time)
+still holds the saved password, but no login session, so the next
+`login` asks for 2FA. Delete the profile directory
+(`~/.ponymail-mcp/browser-profile/` by default) to forget the
+password too.
+Skills never call logout on their own — it is a user-driven
+lifecycle step.
 
 ## Read
 
@@ -218,6 +302,52 @@ original `Message-ID:` header value — the MCP resolves both.
 search result, from a PonyMail archive URL, or from an external
 reference) and want its full body.
 
+The *Attachments* section lists each attachment's name, type,
+size and `hash`; the bodies are not included.
+`get_source` and `get_mbox` truncate their output, so they cannot
+recover an attachment either — use `save_attachments`.
+
+### Save attachments
+
+```text
+mcp__ponymail__save_attachments(
+  id: "<mid or Message-ID header value>",
+  dir: "<PONYMAIL_ATTACHMENT_DIRS root>/<subdirectory>",
+  hashes: ["<hash from get_email>", ...],   // optional; default all
+  password: "<password from the report>"    // optional; for encrypted ZIPs
+)
+```
+
+Downloads an email's attachments into `dir` and returns, per file,
+the saved name, the original name, type, size, SHA-256 and path.
+The bytes never come back in the result, so a proof of concept
+does not land in the model's context.
+
+- **Disabled until configured.** `dir` must be one of the
+  `PONYMAIL_ATTACHMENT_DIRS` roots or a directory inside one
+  ([setup](tool.md#2-register-the-mcp-with-claude-code)).
+  Use one subdirectory per report, named after the thread or tracker
+  (e.g. `<root>/<threadId>`).
+  The directory is read-only to the agent (the secure setup denies
+  edits there), so only this tool writes into it.
+- **Safe names, no overwrites.** Filenames are reduced to ASCII
+  `[A-Za-z0-9._-]` with no path components, and an existing file gets
+  a numbered sibling instead of being replaced.
+- **Encrypted attachments.** Each file is checked for its format.
+  An encrypted ZIP is reported as such; call again with `password`
+  (reports often give it in the message text) to decrypt it, ZipCrypto
+  or AES, into `<name>-extracted/`.
+  The extraction applies the same name rules, never creates symlinks,
+  refuses archives whose entry names try to escape, and stops at 1000
+  entries / 200 MB. The password is never echoed back.
+  7z, RAR and PGP files are saved and flagged, but not decrypted.
+- **Same restrictions as `get_email`**: a blocked or private list is
+  refused unless allow-listed.
+
+Saving writes to the local disk, so it is not in the read-only
+`permissions.allow` set of the secure setup: the harness asks
+before each call.
+
 ### Get an mbox dump
 
 ```text
@@ -258,11 +388,17 @@ mcp__ponymail__search_list(
 )
 ```
 
-Returns summaries of messages on `users@` mentioning the CVE. A
-single hit is the advisory thread; capture its `tid` and construct
-the archive URL via the template in
-[`../gmail/ponymail-archive.md`](../gmail/ponymail-archive.md)
-for the tracker's *Public advisory URL* body field.
+Returns summaries of messages on `users@` mentioning the CVE —
+any post that names the ID, not only the advisory. Each hit is a
+candidate: fetch its thread (`get_thread`) for the list and root
+subject, and keep it only when the root subject is the advisory's
+own `<CVE-ID>: <description>` (never a `Re:` / `Fwd:`) on the
+configured `users_list` — `security-management issue-sync
+advisory-archive` makes that check. Construct the archive URL for
+the kept thread via the template in
+[`../gmail/ponymail-archive.md`](../gmail/ponymail-archive.md);
+the skill shows it to the user and records it in the tracker's
+*Public advisory URL* body field only after they confirm it.
 
 ### Pull the original report thread on `security@<project>.apache.org`
 
@@ -299,10 +435,15 @@ the version string or the project's release-cadence cut date.
 - **Read-only.** No tool writes to the archive; no tool posts a
   message. Drafts / replies remain on the Gmail tool per
   [`../gmail/operations.md`](../gmail/operations.md).
+  The one local write is `save_attachments`, confined to the
+  `PONYMAIL_ATTACHMENT_DIRS` roots.
 - **Session-scoped access.** Private-list queries return empty
   when the session cookie is missing, expired, or belongs to a
   user without LDAP membership on the list. Always pre-flight
-  `auth_status` when a skill intends to search a private list.
+  `auth_status` and `list_lists` when a skill intends to search a
+  private list, and treat an empty result without that
+  confirmation as unknown — see
+  [An empty private-list result is not "no messages"](#an-empty-private-list-result-is-not-no-messages).
 - **Summary vs full.** `search_list` returns summaries only —
   follow up with `get_thread` or `get_email` for bodies. Budget
   the follow-up calls the same way the Gmail tool budgets thread
@@ -331,10 +472,12 @@ land in tracker-destined text.
   `mcp__ponymail__login()`, and stop (for private-list queries)
   or fall back to public-list-only mode (for searches that can
   proceed without auth, e.g. `users@` archive scans).
-- **Empty result set on a query that should have matched** →
-  first check `list_lists()` to verify the session sees the
-  expected list; an empty hit is often *"LDAP doesn't grant
-  access"*, not *"the thread doesn't exist"*.
+- **Empty result set on a private list** → unknown unless the
+  session is confirmed for that list (`auth_status` at Step 0 plus
+  the list in `list_lists()`); an empty hit is often *"LDAP doesn't
+  grant access"* or *"the cookie expired mid-run"*, not *"the
+  thread doesn't exist"*. Stop the check and report it as unknown,
+  per [An empty private-list result is not "no messages"](#an-empty-private-list-result-is-not-no-messages).
 - **5xx from the backend** → retry once after a short backoff.
   If it persists, record the error in the skill's proposal and
   leave the triager to decide whether to proceed on degraded

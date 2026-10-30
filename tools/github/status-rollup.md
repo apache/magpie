@@ -183,7 +183,12 @@ a long-running tracker — never enters the agent's context.
 ### 1. Find the existing rollup comment
 
 Nothing to do by hand: the tool finds the comment whose first line is
-a rollup marker. Two rollups on one tracker is a bug; `github-rollup
+a rollup marker and whose author is the authenticated `gh` user or a
+`<tracker>` collaborator (the
+[security-team roster](operations.md#collaborator-lookup-security-team-roster)).
+A marker line in a comment by anyone else is ignored, so it can never be
+read from or written to as the rollup.
+Two rollups on one tracker is a bug; `github-rollup
 list <N>` shows what the tool sees, and the user picks which to keep.
 
 ### 2a. Append to an existing rollup

@@ -48,6 +48,7 @@ oauth-draft-setup = "oauth_draft.setup_creds:main"
 oauth-draft-create = "oauth_draft.create_draft:main"
 oauth-draft-mark-read = "oauth_draft.mark_threads_read:main"
 oauth-draft-message-id = "oauth_draft.message_id:main"
+oauth-draft-fetch-message = "oauth_draft.fetch_message:main"
 oauth-draft-mcp = "oauth_draft.mcp_server:main"
 
 [tool.hatch.build.targets.wheel]

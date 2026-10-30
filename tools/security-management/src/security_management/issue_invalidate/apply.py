@@ -17,8 +17,12 @@
 """Steps 5a, 5c and 6: the label change, the board queries and the ordered apply commands.
 
 Labels: add `invalid`; remove `needs triage`, the scope label and `pr created` /
-`pr merged` when set; `security issue` always stays. The board read and the
-`archiveProjectV2Item` mutation are written as query files and run with
+`pr merged` when set; `security issue` always stays. `keep_labels` (from
+`invalidate.keep_labels` in project.md) spares labels from removal: `scope`
+keeps whichever scope label is set, `pr` keeps `pr created` / `pr merged`, and
+any other entry is a literal label name. `needs triage` is never kept.
+
+The board read and the `archiveProjectV2Item` mutation are written as query files and run with
 `-F query=@<file>` (never `deleteProjectV2Item`). The apply plan is the 6a-6f
 order for one tracker: rollup first (its URL feeds the closing comment),
 then comment, labels, close as `not planned`, archive, and the draft-id amend.
@@ -60,18 +64,44 @@ def _names(value: Any) -> list[str]:
     return [str(v.get("name") if isinstance(v, Mapping) else v) for v in value or []]
 
 
+def _kept(keep_labels: Any, scopes: Sequence[str], needs_triage: str) -> tuple[set[str], list[str]]:
+    """Expand `keep_labels` into label names; `needs triage` is dropped with a warning."""
+    kept: set[str] = set()
+    warnings: list[str] = []
+    if isinstance(keep_labels, str):
+        keep_labels = [keep_labels]
+    for entry in [str(k).strip() for k in keep_labels or []]:
+        if entry == "scope":
+            kept.update(scopes)
+        elif entry == "pr":
+            kept.update(PR_LABELS)
+        elif entry == needs_triage:
+            warnings.append(
+                f"keep_labels lists `{needs_triage}`: ignored, it is always removed on invalidate"
+            )
+        elif entry:
+            kept.add(entry)
+    return kept, warnings
+
+
 def labels(data: Mapping[str, Any]) -> dict[str, Any]:
     current = _names(data.get("labels"))
     scopes = [str(s) for s in data.get("scope_labels") or []]
     needs_triage = str(data.get("needs_triage_label") or "needs triage")
+    kept, warnings = _kept(data.get("keep_labels"), scopes, needs_triage)
     remove = [lbl for lbl in current if lbl == needs_triage]
-    remove += [lbl for lbl in current if lbl in scopes]
-    remove += [lbl for lbl in current if lbl in PR_LABELS]
+    remove += [lbl for lbl in current if lbl in scopes and lbl not in kept]
+    remove += [lbl for lbl in current if lbl in PR_LABELS and lbl not in kept]
     out: dict[str, Any] = {
         "labels_to_add": [INVALID],
         "labels_to_remove": remove,
         "security_issue_stays": True,
     }
+    spared = [lbl for lbl in current if lbl in kept and (lbl in scopes or lbl in PR_LABELS)]
+    if spared:
+        out["labels_kept"] = spared
+    if warnings:
+        out["warnings"] = warnings
     if data.get("number") and data.get("tracker"):
         parts = [
             f"gh issue edit {int(data['number'])} --repo {w(str(data['tracker']))} --add-label {dq(INVALID)}"

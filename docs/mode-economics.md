@@ -95,7 +95,8 @@ block runs as one command. Then the rules prose moved there too, and the
 command now emits the sections its own findings name, so there is no
 second file to read and no per-skill copy of one.
 
-The block is **585 tokens**, against 1,679 before the check existed and
+The block is **635 tokens** (585 before the Subversion personal layer
+joined its path), against 1,679 before the check existed and
 3,271 at its peak. Each of the 65 skills is **1,075–1,081 tokens cheaper
 than on `main`** while carrying the whole check: `ci-runner-audit` 3,281 →
 2,203 (−32.9%), and the sidecar that briefly cost 2,516 tokens × 65 copies
@@ -333,13 +334,15 @@ measures only small self-reviews; the pipeline remains unmeasured.
 The **Meta** mode is mostly framework machinery — setup, utilities,
 dashboards — whose cost is per machine or per repo rather than per
 maintainership item, so it is not budgeted per invocation here (see
-[`docs/modes.md` § Meta](modes.md#meta)). The exception with a
-recurring per-item shape is `committer-onboarding`, which runs once
-per new committer or PMC member:
+[`docs/modes.md` § Meta](modes.md#meta)). The exceptions with a
+recurring per-item shape are `committer-onboarding`, which runs once
+per new committer or PMC member, and `setup-complete-upgrade`, which runs once
+per machine and project after each Magpie version change:
 
 | Skill | Typical invocation | Planning estimate | Primary cost driver | Replay p50 tokens |
 |---|---|---|---|---|
 | `committer-onboarding` | One post-vote onboarding walkthrough | 10K–30K | Mostly procedural; podling vs TLP path length | Not measured |
+| `setup-complete-upgrade` | One post-upgrade check, plan and approved apply | 15K–40K | Skill body is 6,250 tokens (`measured_tokens`); the rest is the state gather and one Bash call per applied item. Estimated. | Not measured |
 
 ---
 

@@ -34,7 +34,7 @@ Used by the security-issue-import / sync / invalidate flows. See [`tool.md`](too
 - **Runtime:** claude.ai Gmail MCP (`mcp__claude_ai_Gmail__*`) for search / read / draft; the preferred `oauth_curl` draft backend is Python 3.11+ run via `uv` (`tools/gmail/oauth-draft`) plus `curl`.
 - **CLIs:** None beyond the runtime on the MCP path; `uv` + `curl` for the `oauth_curl` backend.
 - **Credentials / auth:** claude.ai Gmail MCP authenticated. For `oauth_curl`, a Google OAuth refresh-token file (default `~/.config/apache-magpie/gmail-oauth.json`, overridable via `$GMAIL_OAUTH_CREDENTIALS` or `tools.gmail.oauth_credentials_path`) created once by `oauth-draft-setup`. Read + draft only — never sends.
-- **Network:** Gmail API (`gmail.googleapis.com`); `lists.apache.org` for the adjacent PonyMail archive lookups.
+- **Network:** Gmail API (`gmail.googleapis.com`); `lists.apache.org` for the adjacent PonyMail archive lookups (ASF projects only: [`ponymail-archive.md`](ponymail-archive.md) and [`asf-relay.md`](asf-relay.md) are ASF-specific).
 - **Optional:** `google-auth-oauthlib` (pulled by `uv` for the one-time `oauth-draft-setup` consent flow only).
 
 ## Security and privacy

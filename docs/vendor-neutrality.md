@@ -92,7 +92,7 @@ axes, and a backend choice on one axis never constrains the others:
 | Axis | The "vendor" | Neutral by… |
 |---|---|---|
 | **LLM backend** | Anthropic, OpenAI, Google, Bedrock, local Ollama/vLLM, a future ASF endpoint | Skills written against a model *contract* (capability floor), not a client; a privacy gate that keys on endpoint identity, not on who hosts it |
-| **Agentic harness** | Claude Code, Codex, Cursor, Gemini CLI, Copilot, OpenCode, Kiro, … | Skills are [`AGENTS.md`](https://agents.md/)-standard markdown under a shared `.agents/skills/` home that every runtime reads |
+| **Agentic harness** | Claude Code, Codex, Cursor, Antigravity, Copilot, OpenCode, Kiro, Pi, … | Skills are [`AGENTS.md`](https://agents.md/)-standard markdown under a shared `.agents/skills/` home that every runtime reads |
 | **Forge / tracker** | GitHub, GitLab, Gitea, Forgejo, Pagure, Bitbucket, Jira, Bugzilla | Per-interface **tools** behind capability contracts; many tools are pure adapter *specs* with pluggable backends |
 | **Communication channels** | Mailing lists, GitHub Discussions, Discourse, Zulip, Matrix, IRC | Mail-archive / mail-source adapter contracts; chat and forum bridges as sibling tools |
 | **Source control (VCS)** | Git, Mercurial, Subversion, Jujutsu, Fossil, Perforce, … | A single `VCSBackend` contract; skills call the abstract operation, the backend is detected from the working copy |
@@ -212,7 +212,7 @@ contract for one vendor:
 | Capability contract | Reference adapter(s) | Other backends (extension points) |
 |---|---|---|
 | [`tools/cve-tool`](../tools/cve-tool/) | [`tools/cve-tool-vulnogram`](../tools/cve-tool-vulnogram/) (ASF) | MITRE form, CVE.org direct, GHSA |
-| [`tools/mail-archive`](../tools/mail-archive/) | [`tools/ponymail`](../tools/ponymail/) (ASF) | Hyperkitty, Discourse, Google Groups, GitHub Discussions |
+| [`tools/mail-archive`](../tools/mail-archive/) | [`tools/ponymail`](../tools/ponymail/) (ASF), [`tools/discourse`](../tools/discourse/) (`partial`, not a complete/selectable backend) | Hyperkitty, remaining Discourse coverage [#307](https://github.com/apache/magpie/issues/307), Google Groups, GitHub Discussions |
 | [`tools/mail-source`](../tools/mail-source/) | mbox, IMAP, Gmail API ([`tools/gmail`](../tools/gmail/)), Mailman 3 ([`tools/mail-source/mailman3`](../tools/mail-source/mailman3/)) | — |
 | [`tools/forwarder-relay`](../tools/forwarder-relay/) | ASF-security ([`tools/gmail/asf-relay.md`](../tools/gmail/asf-relay.md)) | huntr.com, HackerOne |
 | [`tools/scan-format`](../tools/scan-format/) | ASVS | other scanner formats |
@@ -320,7 +320,7 @@ subscription is out of reach still gets the full skill catalogue.
 Magpie skills are not a Claude Code feature. They are
 [`AGENTS.md`](https://agents.md/)-standard markdown, installed under a
 single canonical home — `.agents/skills/` — which is the path shared by
-Codex, Cursor, Gemini CLI, Copilot and others, with thin relay symlinks
+Codex, Cursor, Antigravity, Copilot and others, with thin relay symlinks
 giving every other agent directory (`.claude/skills/`,
 `.github/skills/`, …) a pointer to the same entry
 ([`README.md` § snapshot + override](../README.md)). Users already run
@@ -328,17 +328,18 @@ Magpie under several different agentic CLIs. Codex now has a
 [first-class adapter](adapters/codex.md) (experimental); adding another
 runtime is a [`family:tools`](labels-and-capabilities.md#1-family--subject)
 contribution, not a re-architecture.
-Gemini CLI also has an [experimental agent harness integration](adapters/gemini.md) that reads Magpie's canonical `.agents/skills/` tree.
-Its guide covers setup, approval policies, verification, and [known limitations](adapters/gemini.md#known-limitations), including the remaining sandbox parity gaps.
+Antigravity, the successor to Gemini CLI, also has an [experimental agent harness integration](adapters/antigravity.md) that reads Magpie's canonical `.agents/skills/` tree.
+Its guide covers the user-scope setup, permission rules, verification, and [known limitations](adapters/antigravity.md#known-limitations), including the remaining sandbox parity gaps.
+Pi has an [experimental agent harness integration](adapters/pi.md) too: Pi reads the same `.agents/skills/` tree, and Magpie's per-user Pi package supplies the action guard, permission rules and OS sandbox that Pi does not ship itself.
 Cursor reads Magpie's canonical `.agents/skills/` tree and supports per-action
 confirmation in Composer and the `cursor-agent` CLI; see the
 [Cursor harness guide](adapters/cursor.md).
 Local LLMs (Ollama, llama.cpp, vLLM) serve open-weight models via
 OpenAI-compatible endpoints with calibrated capability floors; see the
 [Local LLM harness guide](adapters/local-llm.md).
-Goose is an open-source agent CLI that reads `.agents/skills/` natively and supports
-recipe workflows and developer tool execution; see the
-[Goose harness guide](adapters/goose.md).
+Goose has an [experimental agent harness integration](adapters/goose.md) as well:
+a per-user plugin install adds the skills and Magpie's guard hook, and
+`agent-iso goose` runs the whole Goose process in sandbox-runtime, in approve mode.
 Aider is an open-source terminal pair programming CLI with per-action confirmation,
 multi-model routing, and local LLM support; see the
 [Aider harness guide](adapters/aider.md).
@@ -518,9 +519,9 @@ coverage without pretending one team can implement an open-ended set.
 | Axis | Architecture neutral? | Reference backends working today | Extension points |
 |---|---|---|---|
 | LLM backend | ✅ by construction | Claude Code, Ollama, vLLM, Apache-hosted, Bedrock, direct Anthropic | Any endpoint meeting the capability floor + privacy gate |
-| Agentic harness | ✅ by construction (`AGENTS.md` standard) | Claude Code; OpenCode; [Codex adapter](adapters/codex.md) (experimental); [Gemini adapter](adapters/gemini.md) (experimental); community use under Cursor, Copilot, Kiro | Remaining runtime adapters [#314–#322](https://github.com/apache/magpie/issues?q=is%3Aissue+state%3Aopen+adapter+in%3Atitle) |
+| Agentic harness | ✅ by construction (`AGENTS.md` standard) | Claude Code; OpenCode; [Codex adapter](adapters/codex.md) (experimental); [Antigravity adapter](adapters/antigravity.md) (experimental); [Pi adapter](adapters/pi.md) (experimental); [Goose adapter](adapters/goose.md) (experimental); community use under Cursor, Copilot, Kiro | Remaining runtime adapters [#314–#322](https://github.com/apache/magpie/issues?q=is%3Aissue+state%3Aopen+adapter+in%3Atitle) |
 | Forge / tracker | ✅ by construction | GitHub, Jira, SourceHut; Bitbucket and GitLab `partial-read-only` foundations excluded from complete-backend counts; CVE/scan/relay via adapter contracts | Forgejo/Gitea [#310](https://github.com/apache/magpie/issues/310), Pagure [#312](https://github.com/apache/magpie/issues/312), full Bitbucket tracker/change-request/Jira coverage [#606](https://github.com/apache/magpie/issues/606), GitLab [#305](https://github.com/apache/magpie/issues/305), Bugzilla [#302](https://github.com/apache/magpie/issues/302) |
-| Communication channels | ✅ by construction | PonyMail / mail-archive reads; Mailman 3 / Hyperkitty public-archive reads ([`tools/mail-source/mailman3`](../tools/mail-source/mailman3/)) | mbox [#304](https://github.com/apache/magpie/issues/304), IMAP [#303](https://github.com/apache/magpie/issues/303); Discourse [#307](https://github.com/apache/magpie/issues/307), Zulip [#308](https://github.com/apache/magpie/issues/308), Matrix [#309](https://github.com/apache/magpie/issues/309) |
+| Communication channels | ✅ by construction | PonyMail / mail-archive reads; Mailman 3 / Hyperkitty public-archive reads ([`tools/mail-source/mailman3`](../tools/mail-source/mailman3/)); Discourse topic reads and category activity lists ([`tools/discourse`](../tools/discourse/), `partial`) | mbox [#304](https://github.com/apache/magpie/issues/304), IMAP [#303](https://github.com/apache/magpie/issues/303); Discourse [#307](https://github.com/apache/magpie/issues/307), Zulip [#308](https://github.com/apache/magpie/issues/308), Matrix [#309](https://github.com/apache/magpie/issues/309) |
 | Source control (VCS) | ✅ by construction | **Git**, **Mercurial**, **Fossil**, **Subversion** (complete, [`tools/vcs`](../tools/vcs/)); ASF SVN surface ([`tools/asf-svn`](../tools/asf-svn/): source control + dist.apache.org + authorization) | Jujutsu [\#603](https://github.com/apache/magpie/issues/603), Perforce [\#605](https://github.com/apache/magpie/issues/605) (tracked) |
 | Project governance | ✅ by construction | ASF + non-ASF adopter profiles | Adopter config (modes, thresholds) |
 
@@ -581,14 +582,14 @@ generated block below.
 
 <!-- BEGIN vendor-neutrality-score — generated by `uv run --project tools/vendor-neutrality-score vendor-neutrality-score --markdown`; do not edit by hand -->
 
-**Overall vendor-neutrality score: 16/17 capability contracts (94%).** Generated by [`tools/vendor-neutrality-score`](../tools/vendor-neutrality-score/); re-run it to refresh this section.
+**Overall vendor-neutrality score: 16/18 capability contracts (89%).** Generated by [`tools/vendor-neutrality-score`](../tools/vendor-neutrality-score/); re-run it to refresh this section.
 
 | Capability contract | Neutral? | Class | Backends today | Basis |
 |---|---|---|---|---|
 | `contract:tracker` | ✅ | vendor-backed | Atlassian, Fossil, GitHub, SourceHut | 4 backend vendors: Atlassian, Fossil, GitHub, SourceHut; partial foundation, not counted: bitbucket, forgejo, gitlab |
 | `contract:source-control` | ✅ | vendor-backed | Fossil, Git, GitHub, SourceHut, Subversion | 5 backend vendors: Fossil, Git, GitHub, SourceHut, Subversion; partial foundation, not counted: forgejo, gitlab |
 | `contract:change-request` | ✅ | vendor-backed | Atlassian, GitHub, email | 3 backend vendors: Atlassian, GitHub, email; partial foundation, not counted: bitbucket, forgejo, gitlab |
-| `contract:mail-archive` | ✅ | vendor-backed | ASF, Google, SourceHut | 3 backend vendors: ASF, Google, SourceHut |
+| `contract:mail-archive` | ✅ | vendor-backed | ASF, Google, SourceHut | 3 backend vendors: ASF, Google, SourceHut; partial foundation, not counted: discourse |
 | `contract:chat` | ✅ | vendor-backed | Discord, Slack | 2 backend vendors: Discord, Slack |
 | `contract:mail-source` | ✅ | vendor-backed | ASF, Google, Maildir | 3 backend vendors: ASF, Google, Maildir |
 | `contract:mail-create` | ✅ | vendor-backed | Google, Maildir | 2 backend vendors: Google, Maildir |
@@ -600,18 +601,19 @@ generated block below.
 | `contract:security-cross-ref` | ❌ | vendor-backed | OSV.dev | only 1 backend vendor (OSV.dev); needs 1 more |
 | `contract:typed-decision` | ✅ | vendor-backed | TypeSafe, self-hosted OpenAI-compatible | 2 backend vendors: TypeSafe, self-hosted OpenAI-compatible |
 | `contract:people` | ✅ | vendor-backed | Atlassian, GitHub | 2 backend vendors: Atlassian, GitHub |
-| `contract:security-tracker` | ✅ | vendor-backed | Atlassian, agnostic | 2 backend vendors: Atlassian, agnostic |
+| `contract:security-tracker` | ✅ | vendor-backed | Atlassian, agnostic | 2 backend vendors: Atlassian, agnostic; partial foundation, not counted: asf-security-dash |
 | `contract:body-field` | ✅ | agnostic | Atlassian, GitHub, agnostic | vendor-neutral by construction — one spec serves every backend |
+| `contract:hook-manager` | ❌ | vendor-backed | — | no backend implemented yet |
 
-**Per-skill assessment: 81/81 skills carry no vendor lock-in.** A skill is *capability-pure* when it names no backend at all, *portable* when every backend it names has an alternative (its contract is green), and *vendor-coupled* only when it reaches for a backend that is the sole implementation of a capability.
+**Per-skill assessment: 83/83 skills carry no vendor lock-in.** A skill is *capability-pure* when it names no backend at all, *portable* when every backend it names has an alternative (its contract is green), and *vendor-coupled* only when it reaches for a backend that is the sole implementation of a capability.
 
 | Skill neutrality | Count |
 |---|---|
 | capability-pure (names no backend) | 30 |
-| portable (named backends are swappable) | 51 |
+| portable (named backends are swappable) | 53 |
 | vendor-coupled (sole-backend dependency) | 0 |
 
-Organization scope (declared, orthogonal to vendor): ASF = 16, agnostic = 65.
+Organization scope (declared, orthogonal to vendor): ASF = 16, agnostic = 67.
 
 **LLM / agent-integration neutrality**
 
@@ -620,7 +622,7 @@ Organization scope (declared, orthogonal to vendor): ASF = 16, agnostic = 65.
 | Substrate tool | Substrate | Harness support | Verdict |
 |---|---|---|---|
 | `adversarial-review` | review | any | ✅ agnostic |
-| `agent-guard` | action-guard | Claude Code, Codex, Copilot, Gemini CLI, Grok, Junie, Kiro, OpenCode | ✅ portable |
+| `agent-guard` | action-guard | Antigravity, Claude Code, Codex, Copilot, Goose, Grok, Junie, Kiro, OpenCode, Pi | ✅ portable |
 | `agent-isolation` | sandbox | any | ✅ agnostic |
 | `container-gateway` | sandbox | any | ✅ agnostic |
 | `contributor-metrics` | analytics | any | ✅ agnostic |
@@ -638,7 +640,7 @@ Organization scope (declared, orthogonal to vendor): ASF = 16, agnostic = 65.
 | `release-management` | release | any | ✅ agnostic |
 | `release-verify` | release | any | ✅ agnostic |
 | `reproducible-archive` | release | any | ✅ agnostic |
-| `sandbox-lint` | sandbox | Claude Code, Codex, Cursor, Gemini CLI, Grok, Kiro, OpenCode | ✅ portable |
+| `sandbox-lint` | sandbox | Antigravity, Claude Code, Codex, Cursor, Grok, Kiro, OpenCode | ✅ portable |
 | `secret-prompt` | release | any | ✅ agnostic |
 | `security-management` | analytics | any | ✅ agnostic |
 | `security-tracker-stats-dashboard` | analytics | any | ✅ agnostic |
@@ -648,7 +650,7 @@ Organization scope (declared, orthogonal to vendor): ASF = 16, agnostic = 65.
 | `skill-reconciler-diff` | framework-dev | any | ✅ agnostic |
 | `skill-token-count` | framework-dev, analytics | any | ✅ agnostic |
 | `spec-inventory` | framework-dev, analytics | any | ✅ agnostic |
-| `spec-loop` | framework-dev | Claude Code, Codex, Cursor, Gemini CLI, Grok, Kiro, OpenCode | ✅ portable |
+| `spec-loop` | framework-dev | Antigravity, Claude Code, Codex, Cursor, Goose, Grok, Kiro, OpenCode, Pi | ✅ portable |
 | `spec-status-index` | framework-dev, analytics | any | ✅ agnostic |
 | `spec-validator` | framework-dev | any | ✅ agnostic |
 | `symlink-lint` | framework-dev | any | ✅ agnostic |
@@ -657,15 +659,17 @@ Organization scope (declared, orthogonal to vendor): ASF = 16, agnostic = 65.
 
 Harness → substrate tools it supports:
 
+- **Antigravity** (3): `agent-guard`, `sandbox-lint`, `spec-loop`
 - **Claude Code** (3): `agent-guard`, `sandbox-lint`, `spec-loop`
 - **Codex** (3): `agent-guard`, `sandbox-lint`, `spec-loop`
 - **Copilot** (1): `agent-guard`
 - **Cursor** (2): `sandbox-lint`, `spec-loop`
-- **Gemini CLI** (3): `agent-guard`, `sandbox-lint`, `spec-loop`
+- **Goose** (2): `agent-guard`, `spec-loop`
 - **Grok** (3): `agent-guard`, `sandbox-lint`, `spec-loop`
 - **Junie** (1): `agent-guard`
 - **Kiro** (3): `agent-guard`, `sandbox-lint`, `spec-loop`
 - **OpenCode** (3): `agent-guard`, `sandbox-lint`, `spec-loop`
+- **Pi** (2): `agent-guard`, `spec-loop`
 - **any harness** (32): `adversarial-review`, `agent-isolation`, `container-gateway`, `contributor-metrics`, `dashboard-generator`, `dev`, `egress-gateway`, `maven-artifact-verify`, `permission-audit`, `pilot-report-validator`, `pr-management`, `preflight-audit`, `privacy-llm`, `probe-templates`, `release-config`, `release-management`, `release-verify`, `reproducible-archive`, `secret-prompt`, `security-management`, `security-tracker-stats-dashboard`, `setup-preflight`, `skill-and-tool-validator`, `skill-evals`, `skill-reconciler-diff`, `skill-token-count`, `spec-inventory`, `spec-status-index`, `spec-validator`, `symlink-lint`, `vendor-neutrality-score`, `vetted-ops`
 
 **Model endpoint: neutral by construction — 4 default-approved endpoint classes across independent trust domains, plus adopter opt-in.** From the [`privacy-llm` registry](../tools/privacy-llm/models.md): the framework keys approval on *endpoint identity*, not on who hosts the model, so no single LLM vendor is privileged.

@@ -1,0 +1,20 @@
+{
+  "snapshot_drift": "none",
+  "checks": [
+    {
+      "n": 5,
+      "status": "⚠",
+      "evidence": "no framework checkout, so the bubblewrap/socat pins are unchecked and the claude-code min_version floor is not enforced; installed: bubblewrap 0.11.2, socat 1.8.1.3, claude-code 2.1.210"
+    },
+    {
+      "n": 10,
+      "status": "unchecked",
+      "evidence": "sk-ssh-ed25519 hardware key; 10a hooks wired and scripts executable, script comparison unchecked — no framework checkout; 10b rc=0; 10c signing key readable; 10d wrapper configured and readable; 10e n/a (no shims)"
+    },
+    {
+      "n": 13,
+      "status": "unchecked",
+      "evidence": "exclusion and wrapper both present, package beside it, Edit(~/.claude/scripts/**) denied; 13c unchecked — no framework checkout"
+    }
+  ]
+}

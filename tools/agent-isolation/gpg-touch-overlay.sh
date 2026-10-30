@@ -109,11 +109,22 @@
 # watcher that left with the first one would be gone when the real
 # signature blocked.
 #
-# Dismissing the window with its button is honoured — it is a prompt, not
+# Dismissing the window (Esc, or a click) is honoured — it is a prompt, not
 # a trap, and gpg keeps waiting either way. It is not re-shown for the
 # same signature, by the watcher that drew it or by any other: the
-# dismissal is recorded where every watcher can see it, and cleared once
-# the last context has disarmed.
+# dismissal is recorded where every watcher can see it. It answers that
+# signature only: the marker names the signer processes it was made for,
+# and stops counting when one of them ends or a signer it does not name
+# starts, so the next signature asks again -- a rebase's next commit too,
+# however soon its signer starts -- even while other sessions stay armed.
+# No dismissal lasts past DISMISS_TTL_MIN (see dismissal_holds).
+#
+# A window that closes without being answered is not a dismissal: one
+# that lost the keyboard to another application (the window exits with
+# OVERLAY_UNANSWERED), one that could not be drawn, or one that crashed.
+# It is shown again after RESHOW_DELAY seconds while the signature still
+# blocks; otherwise a stray click on the terminal, or a missing toolkit,
+# would leave every later touch waiting with nothing on screen.
 
 set -uo pipefail
 
@@ -132,6 +143,11 @@ Touch the key's contact now — the git command is blocked until you do.
 This window closes by itself once the touch registers."
 
 readonly SHOW_DELAY=8     # polls a signature must block before showing (0.2s each)
+readonly RESHOW_DELAY=3   # seconds before a window that closed unanswered is shown again
+# Exit status of a window that closed without being answered. Kept in step
+# with UNANSWERED in gpg-touch-overlay-window-macos.py; 0 is a dismissal.
+readonly OVERLAY_UNANSWERED=3
+readonly DISMISS_TTL_MIN=1  # minutes a dismissal holds at most
 readonly MAX_WAIT=600     # seconds the watcher may live, whatever happens
 readonly POLL=0.2
 
@@ -304,8 +320,13 @@ agent_socket_rows() {
 # a false negative costs a silent block with no window. The subcommand
 # may be followed by whitespace, the end of the command, or whatever
 # ends a shell word — `git commit;`, `git commit)` and `git commit | tee`
-# sign just as much as `git commit -m`.
-readonly KEY_SUBCOMMANDS='commit|tag|merge|rebase|revert|cherry-pick|am|push|pull|fetch|clone|ls-remote|remote|submodule'
+# sign just as much as `git commit -m`. The plumbing and porcelain that
+# reach a remote without being `fetch` or `push` count too: `archive
+# --remote`, `fetch-pack` / `send-pack`, `lfs` (git-lfs-authenticate runs
+# over ssh), `subtree push`, `svn` (svn+ssh), `maintenance run` (its
+# prefetch task fetches) and `request-pull` (it asks the remote for the
+# commit).
+readonly KEY_SUBCOMMANDS='commit|tag|merge|rebase|revert|cherry-pick|am|push|pull|fetch-pack|fetch|clone|ls-remote|remote|submodule|archive|send-pack|lfs|subtree|svn|maintenance|request-pull'
 
 # The same reach, without git in front of it. An ssh transport asks the
 # key for its authentication touch before anything moves, and gpg asks
@@ -317,6 +338,32 @@ readonly KEY_SUBCOMMANDS='commit|tag|merge|rebase|revert|cherry-pick|am|push|pul
 # while leaving `ssh-keygen -Y sign` and `ssh-add -l` in. Longer names
 # lead the alternation so the match cannot stop short at `ssh`.
 readonly KEY_COMMANDS='ssh-keygen|ssh-add|ssh|scp|sftp|sshfs|rsync|svn|gpg2|gpg'
+
+# gh runs git for these, over ssh when its git_protocol is ssh: `create`
+# pushes a branch or repository that is not on GitHub yet. Options
+# may stand before the command group or between it and the command
+# (`gh -R owner/repo pr checkout 1`, `gh pr -R owner/repo checkout 1`), and
+# `co` is gh's own alias for `pr checkout`, both on its own (`gh co 1`)
+# and under `pr`.
+readonly GH_OPTIONS='([[:space:]]+-[^[:space:];&|]*([[:space:]]+[^-[:space:];&|][^[:space:];&|]*)?)*'
+readonly GH_GIT_COMMANDS="gh[\"']?${GH_OPTIONS}[[:space:]]+(repo${GH_OPTIONS}[[:space:]]+(clone|create|fork|sync)|pr${GH_OPTIONS}[[:space:]]+(checkout|co|create)|co)"
+
+# What may stand right before a command word, and right after one. Besides
+# the shell separators: a `/`, for a command named by its path
+# (`/usr/bin/git push`, `/opt/homebrew/bin/ssh host`), and quotes or a
+# backtick, for one handed to a shell as a string (`bash -c "git push"`,
+# `sh -c 'ssh host'`). A dot is not among them, which keeps `~/.ssh`
+# quiet.
+readonly WORD_START="(^|[;&|(\`\"'/]|[[:space:]])"
+readonly WORD_END="([[:space:];&|)\`\"']|$)"
+
+# One shell word of a git global option or its value: unquoted characters,
+# or a quoted span, which may hold spaces. Without the quoted spans
+# `git -c user.name="Jane Doe" commit` and `git --git-dir=/x commit` sign
+# with no window, because the option no longer looks like one word. A
+# backslash takes the character after it, so `O\'Brien` opens no quote,
+# and so it does inside bash's `$'...'`, where `$'O\'Brien'` is one word.
+readonly GIT_OPTION_WORD="(\\\\.|\\\$'([^'\\\\]|\\\\.)*'|[^[:space:]\"'\\\\]|\"([^\"\\\\]|\\\\.)*\"|'[^']*')"
 
 # A screen to draw on, and something to draw the window with.
 #
@@ -557,7 +604,7 @@ arm() {
     cwd="$(printf '%s' "$payload" | jq -r '.cwd // empty' 2>/dev/null)"
 
     printf '%s' "$command_text" |
-        grep -Eq "(^|[;&|(]|[[:space:]])(git([[:space:]]+-[A-Za-z-]+([[:space:]]+[^[:space:]]+)?)*[[:space:]]+($KEY_SUBCOMMANDS)|($KEY_COMMANDS))([[:space:];&|)]|$)" ||
+        grep -Eq "${WORD_START}(git[\"']?([[:space:]]+-${GIT_OPTION_WORD}*([[:space:]]+${GIT_OPTION_WORD}+)?)*[[:space:]]+($KEY_SUBCOMMANDS)|$GH_GIT_COMMANDS|($KEY_COMMANDS))${WORD_END}" ||
         return 0
 
     # A card that never asks for a touch needs no watcher.
@@ -760,7 +807,54 @@ wrap() {
 # ------------------------------------------------------------ watcher ---
 
 overlay_pid=""
-overlay_dismissed=0
+reshow_at=0
+# The signers the window on screen was drawn for, so a dismissal names the
+# signature that was asked about, not one a rebase started after it.
+overlay_signers=""
+
+# The signer processes of the signature being dismissed: the wrapped
+# program's when `wrap` spawned this watcher, every gpg and ssh-keygen
+# otherwise. Empty for an ssh authentication, which has no signer process.
+# This user's only: another user's gpg asks another key, and `kill -0` on
+# its pid fails with EPERM, which would read as the signature having ended.
+signer_pids() {
+    if [[ -n ${MAGPIE_GPG_TOUCH_WRAPPED_SIGNER:-} && -n ${MAGPIE_GPG_TOUCH_PARENT:-} ]]; then
+        printf '%s\n' "$MAGPIE_GPG_TOUCH_PARENT"
+        return 0
+    fi
+    pgrep -u "$(id -u)" -x 'gpg|gpg2|ssh-keygen' 2>/dev/null || true
+}
+
+# Whether the recorded dismissal still answers a signature in flight. The
+# marker names the signer pids the window was drawn for, which can include
+# an unrelated long-lived gpg (a `gpg --card-edit`, say). It holds:
+#   - while every pid it names is alive, so it ends with its own signer;
+#   - while no signer it does not name runs: one started since, in this
+#     session or another, is a new signature waiting on the key;
+#   - for DISMISS_TTL_MIN at most, so a named bystander cannot keep it.
+#     A signature still waiting after that gets its window back.
+# An ssh authentication has no signer to name, so its marker names none.
+# The first signer after it is the next signature, and removes it, so it
+# cannot come back to cover a later authentication.
+dismissal_holds() {
+    [[ -e $DISMISSED_MARKER ]] || return 1
+    local pid any=0 named=" "
+    while read -r pid; do
+        [[ $pid =~ ^[0-9]+$ ]] || continue
+        any=1
+        kill -0 "$pid" 2>/dev/null || return 1
+        named+="$pid "
+    done <"$DISMISSED_MARKER"
+    if (( any )); then
+        while read -r pid; do
+            [[ -z $pid || $named == *" $pid "* ]] || return 1
+        done < <(signer_pids)
+    elif [[ -n "$(signer_pids)" ]]; then
+        rm -f "$DISMISSED_MARKER" 2>/dev/null
+        return 1
+    fi
+    [[ -n "$(find "$DISMISSED_MARKER" -mmin -"$DISMISS_TTL_MIN" 2>/dev/null)" ]]
+}
 
 # Raise the window and keep it above the others. Backgrounded: it polls
 # for the window to map, which must not hold up the watcher's own loop.
@@ -780,30 +874,45 @@ raise_overlay() {
 }
 
 show_overlay() {
-    (( overlay_dismissed )) && return 0
-    # Dismissed under another watcher: one touch, one decision. The
-    # marker goes when the last owner disarms, so the next signature
-    # asks again.
-    if [[ -e $DISMISSED_MARKER ]]; then
-        overlay_dismissed=1
-        return 0
-    fi
+    # Dismissed, by this watcher or another: one touch, one decision.
+    dismissal_holds && return 0
     if [[ -n $overlay_pid ]]; then
-        # Still up: nothing to do. Gone without us killing it: the button
-        # was pressed, so respect that and stop re-showing.
+        # Still up: nothing to do.
         if kill -0 "$overlay_pid" 2>/dev/null; then
             return 0
         fi
+        # Gone without us killing it. Only a window the operator answered
+        # exits 0; anything else closed unanswered and is shown again.
+        local status=0
+        wait "$overlay_pid" 2>/dev/null || status=$?
         overlay_pid=""
-        overlay_dismissed=1
-        : >"$DISMISSED_MARKER" 2>/dev/null
+        if (( status == 0 )); then
+            # Published before the lease is let go, and in one rename, so a
+            # watcher that takes the lease next already sees the dismissal.
+            printf '%s\n' "$overlay_signers" >"$DISMISSED_MARKER.$$" 2>/dev/null &&
+                mv -f "$DISMISSED_MARKER.$$" "$DISMISSED_MARKER" 2>/dev/null
+            _lease_release
+        else
+            # Kept through the delay: let go, it would hand the screen to
+            # another watcher with no delay of its own, and the window
+            # would take the keyboard straight back.
+            reshow_at=$(( SECONDS + RESHOW_DELAY ))
+        fi
+        return 0
+    fi
+    (( SECONDS < reshow_at )) && return 0
+    # Watchers are per owner, so without the lease two of them would
+    # draw two windows for the same touch. Losing it is the normal case
+    # and means somebody else's window is already up. Still held from an
+    # unanswered close, it is this watcher's to reuse.
+    _lease_held || _lease_acquire || return 0
+    # The holder before us may have recorded a dismissal just before it let
+    # the lease go.
+    if dismissal_holds; then
         _lease_release
         return 0
     fi
-    # Watchers are per owner, so without the lease two of them would
-    # draw two windows for the same touch. Losing it is the normal case
-    # and means somebody else's window is already up.
-    _lease_acquire || return 0
+    overlay_signers="$(signer_pids)"
     # Read here rather than at arm time: the file is what carries a
     # second command in the same session, and this is the last moment
     # before the window is drawn. A missing or unreadable file leaves
@@ -812,8 +921,12 @@ show_overlay() {
     if [[ -n ${MAGPIE_GPG_TOUCH_CONTEXT:-} && -r ${MAGPIE_GPG_TOUCH_CONTEXT:-} ]]; then
         { read -r cwd; read -r command; } <"$MAGPIE_GPG_TOUCH_CONTEXT" || true
     fi
+    # Test seam: a command to run instead of the real window, so how the
+    # watcher treats each way a window can close is testable without one.
+    local -a window=("$SELF" _overlay)
+    [[ -n ${MAGPIE_GPG_TOUCH_OVERLAY:-} ]] && window=("$MAGPIE_GPG_TOUCH_OVERLAY")
     MAGPIE_GPG_TOUCH_CWD="$cwd" MAGPIE_GPG_TOUCH_COMMAND="$command" \
-        "$SELF" _overlay &
+        "${window[@]}" &
     overlay_pid=$!
     raise_overlay &
 }
@@ -864,12 +977,22 @@ _watch() {
         # observe. Asking the cheap question first keeps the expensive one out
         # of the hot loop entirely on the wrapped path; polling it first cost
         # the overlay the whole window on a busy machine, so it never appeared.
-        if { signing_in_flight || { rows="$(agent_socket_rows "$sockets")"; (( rows > baseline )); }; } && ! pinentry_up; then
-            blocked=$(( blocked + 1 ))
-            (( blocked >= SHOW_DELAY )) && show_overlay
+        if signing_in_flight || { rows="$(agent_socket_rows "$sockets")"; (( rows > baseline )); }; then
+            if pinentry_up; then
+                # The PIN prompt owns the screen; the signature is still
+                # the same one, so a dismissal of it stands.
+                blocked=0
+                hide_overlay
+            else
+                blocked=$(( blocked + 1 ))
+                (( blocked >= SHOW_DELAY )) && show_overlay
+            fi
         else
             blocked=0
             hide_overlay
+            # Nothing is signing here: a window that closed unanswered was
+            # for the signature that just ended.
+            reshow_at=0
         fi
         sleep "$POLL"
     done
@@ -956,8 +1079,10 @@ _overlay() {
     # The two toolkit windows read MAGPIE_GPG_TOUCH_CWD / _COMMAND from
     # the environment they are exec'd with; only zenity, which takes one
     # string, has to have them spliced into its text here.
+    # A window that cannot be drawn did not get an answer either, so it
+    # must not read as a dismissal to the watcher.
     if [[ $PLATFORM == Darwin ]]; then
-        py="$(_tk_python)" || return 0
+        py="$(_tk_python)" || return "$OVERLAY_UNANSWERED"
         exec "$py" "$OVERLAY_WINDOW_MACOS" >>"$out" 2>&1
     fi
     if py="$(_gi_python)"; then
@@ -973,7 +1098,22 @@ _overlay() {
         [[ -n ${MAGPIE_GPG_TOUCH_CWD:-} ]] &&
             body+=$'\n'"in ${MAGPIE_GPG_TOUCH_CWD/#$HOME/\~}"
     fi
-    exec zenity --warning --title="$TITLE" --width=560 --text="$body" >>"$out" 2>&1
+    # zenity reports Esc and closing the dialog as 1: both answer it, the
+    # same as the button. Anything else is a dialog that never showed. It is
+    # not exec'd, so the status can be translated; the watcher's kill lands
+    # on this shell instead, and is passed on so no dialog outlives it.
+    # The trap goes in first: a kill landing between the fork and the
+    # assignment still finds the dialog through $!, and one landing before
+    # the fork finds nothing to kill.
+    zenity_pid=""
+    trap 'zenity_pid="${zenity_pid:-$!}"; [[ -n $zenity_pid ]] && kill "$zenity_pid" 2>/dev/null; wait 2>/dev/null; exit 0' TERM INT HUP
+    zenity --warning --title="$TITLE" --width=560 --text="$body" >>"$out" 2>&1 &
+    zenity_pid=$!
+    local status=0
+    wait "$zenity_pid" || status=$?
+    trap - TERM INT HUP
+    (( status == 0 || status == 1 )) && return 0
+    return "$OVERLAY_UNANSWERED"
 }
 
 # A PreToolUse hook's exit status is a verdict on the command about to
@@ -1021,6 +1161,7 @@ case "${1:-}" in
     _flatten) _flatten "${2:-}"; printf '\n'; exit 0 ;;
     _scrub)   _scrub "${2:-}"; printf '\n'; exit 0 ;;
     _signing_in_flight) signing_in_flight ;;
+    _dismissal_holds) dismissal_holds ;;
     _touch_may_be_needed) touch_may_be_needed ;;
     _agent_sockets) agent_sockets ;;
     _agent_socket_rows) agent_socket_rows "$(printf '%s\n' "${@:2}")" ;;

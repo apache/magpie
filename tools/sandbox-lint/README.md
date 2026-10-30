@@ -24,7 +24,7 @@
 
 **Capability:** substrate:sandbox
 
-**Harness:** Claude Code, Codex, Cursor, Gemini CLI, OpenCode, Kiro, Grok
+**Harness:** Claude Code, Codex, Cursor, Antigravity, OpenCode, Kiro, Grok
 
 Lints `.claude/settings.json` against the shipped baseline at
 `tools/sandbox-lint/expected.json`, and against the security
@@ -84,15 +84,18 @@ configuration in the same files.
 uv run --project tools/sandbox-lint sandbox-lint --codex .codex
 ```
 
-**Gemini CLI profile.** `--gemini .gemini` checks `settings.json` and `policies/magpie.toml` for the shipped sandbox settings, explicit policy loading, per-call approvals, scoped reads, and representative deny coverage.
-These are static checks of project files; user/admin policies, saved grants, workspace trust, and live enforcement require [runtime verification](../../docs/adapters/gemini.md#verify).
+**Antigravity profile.** `--antigravity <profile>` checks a user-scope Antigravity profile: the terminal sandbox, the approval mode, workspace-only file access, wildcard allow grants, and a single `--antigravity` guard registration.
+The required ask and deny rules are derived from the Claude Code baseline in [`expected.json`](expected.json), so the two profiles cannot drift apart.
+Pass the shipped template directory, or the user's live `settings.json` together with the hooks file that registers the guard:
 
 ```bash
-uv run --project tools/sandbox-lint sandbox-lint --gemini .gemini
+uv run --project tools/sandbox-lint sandbox-lint --antigravity tools/agent-isolation/antigravity
+uv run --project tools/sandbox-lint sandbox-lint \
+  --antigravity ~/.gemini/antigravity-cli/settings.json \
+  --antigravity-hooks ~/.gemini/config/hooks.json
 ```
 
-The ordinary regression suite needs no Gemini or Node installation.
-Optional [runtime integration tests](tests/integration/README.md) exercise Gemini's policy engine and Linux sandbox without a model.
+These are static checks; the account's permission preset and live enforcement require [runtime verification](../../docs/adapters/antigravity.md#verify).
 
 **Harnesses without a dedicated config profile (Cursor, Grok, …).** `--any-harness`
 validates the harness-neutral OS-level security posture: checks that the
@@ -157,6 +160,21 @@ uv run --project tools/sandbox-lint sandbox-lint --any-harness /path/to/magpie
      project that adopted Magpie, `<git-common-dir>/apache-magpie/run/<worktree-id>` in
      one that did not — see [Residual risk](#residual-risk) for
      the one case this cannot fully verify.
+   - When `sandbox.network.allowAllUnixSockets` is `true`,
+     `sandbox.filesystem.denyRead` hides the host sockets it would
+     otherwise open to every sandboxed command: an entry for, or a
+     directory above, each of `/run/docker.sock`, `/var/run/docker.sock`,
+     `/run/docker-cli.sock`, `/run/podman`, `/run/user/<uid>` (the current
+     user's uid, or a glob matching it), `/run/dbus`, `/tmp/.X11-unix`,
+     `/run/WSL` and `/mnt/wslg`. Claude Code skips a `denyRead` path the
+     host lacks, so the full list is safe on every host. See
+     [Linux needs `allowAllUnixSockets`](../../docs/setup/secure-agent-setup.md#linux-needs-allowallunixsockets).
+   - No `sandbox.filesystem.allowRead` entry is a strict parent of an
+     `allowWrite` entry unless the parent is itself writable: bubblewrap
+     then mounts the write path read-only and every Bash call fails. The
+     trap was observed under `denyRead: ["~/"]`; the check applies
+     everywhere, failing closed (see
+     [Every Bash call fails with `bwrap: Can't create file`](../../docs/setup/sandbox-troubleshooting.md#every-bash-call-fails-with-bwrap-cant-create-file--read-only-file-system)).
    - No setting switches a control off wholesale, in any layer (the
      committed file, the local template, or a contributor's own
      `.claude/settings.local.json`): no `sandbox.excludedCommands` entry,
@@ -226,7 +244,7 @@ baseline drift.
 
 For runtimes that do not expose a per-harness sandbox configuration file
 (Cursor, Grok, and any other agent harness not listed under
-`--settings`, `--opencode`, `--kiro`, `--codex`, or `--gemini`), the security posture
+`--settings`, `--opencode`, `--kiro`, `--codex`, or `--antigravity`), the security posture
 is enforced at the OS level by two harness-agnostic components:
 
 Layer numbers follow the

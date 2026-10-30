@@ -30,6 +30,7 @@ keeps the original resume-from-cache semantics.
 import json
 import os
 import subprocess
+import tempfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 EXTRA_FIELDS = ("body", "closedByPullRequestsReferences")
@@ -85,7 +86,9 @@ def fetch(repo, n):
 
 
 def main():
-    root = os.environ.get("TRACKER_STATS_CACHE", "/tmp/tracker-stats-cache")
+    # Default under the platform temp root, not a hardcoded `/tmp`: a sandboxed run
+    # is granted its own scratch directory and cannot write `/tmp`. See fetch_issues.py.
+    root = os.environ.get("TRACKER_STATS_CACHE") or os.path.join(tempfile.gettempdir(), "tracker-stats-cache")
     repo = os.environ.get("TRACKER_STATS_REPO", "airflow-s/airflow-s")
     out = f"{root}/issue_extra.json"
 

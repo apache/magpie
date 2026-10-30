@@ -9,7 +9,7 @@ mode: infra
 source: >
   docs/setup/marketplace.md. The manifest set at .claude-plugin/,
   .codex-plugin/, .agents/plugins/, plugins/magpie-*/, and the repo-root
-  plugin.json / marketplace.json / apm.yml / gemini-extension.json.
+  plugin.json / marketplace.json / apm.yml.
   Hook wiring in plugins/magpie-setup/hooks/ and
   plugins/magpie-agent-guard/hooks/.
   Enforced by tools/dev/check-family-plugins.py.
@@ -59,7 +59,15 @@ Two manifest families, because the ecosystems have not converged:
   (Claude Code, the only family that carries `hooks` and per-family plugins),
   `.codex-plugin/plugin.json` with `.agents/plugins/marketplace.json` (Codex),
   the root `marketplace.json` (Copilot / VS Code legacy catalog),
-  `gemini-extension.json`, and `apm.yml` (`microsoft/apm`, schema v0.1).
+  and `apm.yml` (`microsoft/apm`, schema v0.1).
+  Antigravity CLI reads the AP1 root `plugin.json` and the root `skills/` tree
+  (`agy plugin install https://github.com/apache/magpie`); it needs no file of its own.
+  Pi reads the root `package.json`, whose `pi` key names the `skills/` tree and the Magpie extension
+  (`pi install git:github.com/apache/magpie`, once per user); the manifest is private — Magpie is not published to npm —
+  and carries the extension's single pinned runtime dependency, which Pi installs itself.
+  Goose reads `.goose-plugin/plugin.json` first, which lists the family `plugins/*/skills` directories
+  (Goose's installer does not copy the root `skills/` symlinks), and the root `hooks/hooks.json` for its
+  guard hook; `goose plugin install https://github.com/apache/magpie` installs it per user.
   The root `marketplace.json` names each plugin's `source` as a bare
   relative path (`"./plugins/magpie-<family>"`), not a `{"source": "local",
   "path": …}` object, which is not a source type Claude Code documents
@@ -84,6 +92,15 @@ directories (`plugins/magpie-<family>/skills/<alias>/SKILL.md`); the flat
 `skills/<dir>` tree mirrors each one back with a single-hop symlink. Their
 manifest is Claude Code's `.claude-plugin/plugin.json`, but they are not
 Claude-Code-only: Codex installs them by falling through to that same file.
+The exception is a plugin whose `hooks/hooks.json` carries Claude Code mods
+(`$schema`, `modules`), which Codex's strict hooks schema rejects whole:
+`magpie-setup`, `magpie-utilities` and `magpie-security` each carry a
+complete `.codex-plugin/plugin.json` (read instead of the Claude manifest)
+whose `hooks` names a clean `hooks/codex-hooks.json` — the `startup`
+upgrade check (`/bin/bash -p check-upgrade.sh`) for `magpie-setup`, an empty
+file for the other two (#1836, #1676).
+`tools/dev/check-family-plugins.py --fix` generates them and fails a Codex
+catalogue plugin whose Codex-visible hook file has any other top-level key.
 
 `magpie-setup` also carries two non-skill payloads as real files inside its
 plugin root, because `setup config` installs them from the plugin on a
@@ -100,6 +117,15 @@ its manifest (#1552): the `SessionStart` `check-upgrade.sh` command hook and a
 `modules` list naming `drift-check.ts`, a Claude Code mod that checks the
 committed lock against the installed plugin or snapshot at session start, with
 no model tokens, and shows a drift banner above the prompt.
+The command hook is wired as `/bin/bash -p "${CLAUDE_PLUGIN_ROOT}/hooks/check-upgrade.sh"`,
+because it runs outside the sandbox and the session environment must not
+choose the shell (#1794); on a version change it points at
+`/magpie-setup:complete-upgrade` (#1813), and the interpreter rules are in
+[`adoption-and-setup.md`](adoption-and-setup.md).
+`tools/setup-preflight/tests/test_session_hook.py` asserts that wiring;
+`check-family-plugins.py` checks only that `hooks.json` references
+`check-upgrade.sh`, and its `--fix` fallback writes the same `/bin/bash -p`
+command when `hooks.json` is missing (#1829).
 Its manifest declares `"types": "./hooks/types.d.ts"`, and
 `check-family-plugins.py` fails when `hooks.json` lacks `modules` or the
 `check-upgrade.sh` hook, or when the manifest also declares inline `hooks`,
@@ -161,12 +187,20 @@ adopter-facing page.
   plugin with zero skills and no error. Every catalogue lists all ten families.
 
 - **Substrate plugins publish a tool, not a family.** Beside the ten
-  families, the Claude Code catalogue carries three substrate plugins —
-  `magpie-agent-guard`, `magpie-vetted-ops` and `magpie-adversarial-review`
-  (#1368) — declared in `SUBSTRATE_PLUGINS` in `check-family-plugins.py`.
+  families, the Claude Code catalogue carries four substrate plugins —
+  `magpie-agent-guard`, `magpie-vetted-ops`, `magpie-adversarial-review`
+  (#1368) and `magpie-security-tools` (#1787) — declared in `SUBSTRATE_PLUGINS` in `check-family-plugins.py`.
   Each inherits the shared manifest metadata, declares no `skills`, exposes
   its `tools/<name>` through a symlink whose entry point must resolve, and
   declares hook wiring only where it has a hook.
+  `magpie-security-tools` carries the tools the security skills run
+  (tracker field and rollup edits, CVE JSON, the privacy gate, the scan
+  importer), so a marketplace install needs no framework checkout.
+  Its `SessionStart` hook (`tools/security-management/hooks/link-framework-path.sh`)
+  copies the plugin's `tools/` under `~/.cache/apache-magpie/framework/`
+  once per plugin version and points the `current` symlink at it; that is
+  `<framework>` on a marketplace install, writable so `uv run --project`
+  works, and the hook only ever replaces a symlink at `current`.
   `magpie-agent-guard` is the exception to the symlink (#1516): it carries
   a byte-identical copy of `tools/agent-guard/src/agent_guard` as real
   files, because a marketplace client may drop a link whose target leaves
@@ -264,13 +298,24 @@ For the Claude Code family, `claude plugin validate . --strict`.
 
 - **Only the Claude Code manifests are verified against a live install.** The
   rest — AP1 root `plugin.json`, the Codex pair, the Copilot catalog,
-  `gemini-extension.json`, `apm.yml` — conform to their vendors' published
+  `apm.yml` — conform to their vendors' published
   documentation but have not been exercised end-to-end. Re-check each against
   current vendor docs before a marketplace publish.
 - **`apm.yml` targets `microsoft/apm` schema v0.1**, pre-1.0 and the most
   likely of the set to churn.
-- **Gemini has no migration path off `gemini-extension.json`.** Google has
-  joined the AP1 TSC but published nothing, so both files stay.
+- **Antigravity is checked only with `agy plugin validate .`** (1.3.6 reports the
+  root's skills); an end-to-end `agy plugin install` has not been exercised.
+- **Pi was exercised with `pi install git:` from a branch** (Pi 1.4.0, macOS): the package installed its
+  dependency and loaded the extension; Linux and Windows are unverified.
+- **Codex never runs the upgrade-detection hook.**
+  `plugins/magpie-setup/` has no `.codex-plugin/plugin.json`, so Codex reads
+  its default `hooks/hooks.json`, whose top-level `$schema` and `modules`
+  keys its strict hooks-file schema rejects: no hook loads.
+  The root `.codex-plugin/plugin.json` hook #1829 re-pointed is written as
+  `{"SessionStart": …}` without the inner `hooks` wrapper Codex's inline
+  form needs, so it is ignored too, and the Codex catalogue never installs
+  the root plugin anyway; `check-family-plugins.py`'s `CODEX_HOOKS` pins
+  that shape.
 - **Nothing checks the dev-suffix stamp is fresher than the last release**, so
   a bump that is forgotten fails silently in the one way that matters: adopters
   keep being told they are up to date. The staleness is only visible by reading

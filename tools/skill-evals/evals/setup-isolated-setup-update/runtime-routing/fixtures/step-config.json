@@ -1,4 +1,7 @@
 {
   "skill_md": "skills/setup-isolated-setup-update/SKILL.md",
-  "step_heading": "## Runtime routing (run before the Claude-specific drift report)"
+  "step_heading": "## Runtime routing (run before the Claude-specific drift report)",
+  "also_include": [
+    "skills/setup-isolated-setup-update/runtime-routing.md"
+  ]
 }

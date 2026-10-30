@@ -150,6 +150,13 @@ def cmd_serve(ns: argparse.Namespace) -> int:
     return asyncio.run(daemon.run(cfg))
 
 
+# The one-line bootstrap container-gateway-hook.sh runs with `python -I -S -c`;
+# the two must stay identical (a test compares them).
+HOOK_BOOTSTRAP = (
+    "import runpy, sys; sys.path.insert(0, sys.argv.pop(1)); "
+    'runpy.run_module("container_gateway", run_name="__main__", alter_sys=True)'
+)
+
 # Matches only the argv shapes `cmd_serve`/the hook actually invoke: a
 # python interpreter -- optionally through a runner like `uv run` and/or
 # interpreter flags such as `-u` -- running the `container_gateway` module,
@@ -159,7 +166,11 @@ def cmd_serve(ns: argparse.Namespace) -> int:
 # editor opened on a file named `container_gateway.py`, which is not this
 # gateway.
 _GATEWAY_ARGV_RE = re.compile(
-    r"^(?:\S*/)?(?:uv\s+run\s+)?(?:\S*/)?python\d*(?:\.\d+)?(?:\s+-\S+)*\s+-m\s+container_gateway(?:\s|$)"
+    r"^(?:\S*/)?(?:uv\s+run\s+)?(?:\S*/)?[Pp]ython\d*(?:\.\d+)?(?:\s+-\S+)*\s+-m\s+container_gateway(?:\s|$)"
+    # `[Pp]ython`: a macOS framework build re-execs as .../Python.app/Contents/MacOS/Python.
+    # The session hook's isolated launch (container-gateway-hook.sh): `-I -S`
+    # leaves no PYTHONPATH for `-m`, so a fixed bootstrap imports the package.
+    r"|^(?:\S*/)?[Pp]ython\d*(?:\.\d+)?(?:\s+-\S+)*\s+-c\s+" + re.escape(HOOK_BOOTSTRAP) + r"\s"
     r"|^(?:\S*/)?container-gateway(?:\s|$)"
 )
 

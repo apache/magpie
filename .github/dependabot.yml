@@ -58,6 +58,24 @@ updates:
         patterns:
           - "*"
 
+  # The root package.json makes the repository a Pi package; its lockfile
+  # pins the sandbox runtime the Pi extension runs bash in. Regenerate it
+  # with the flags Pi installs with, plus `--package-lock-only
+  # --ignore-scripts` (see docs/adapters/pi.md).
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+      semver-major-days: 7
+      semver-minor-days: 7
+      semver-patch-days: 7
+    groups:
+      pi-package:
+        patterns:
+          - "*"
+
   # All Python projects in this repo, consolidated into one update
   # entry with `directories:` (plural). Dependabot writes per-directory
   # inside a SINGLE weekly PR per group, so this collapses what was

@@ -1,4 +1,7 @@
 {
   "skill_md": "skills/write-skill/SKILL.md",
-  "step_heading": "### Step 5 — Apply the security checklist"
+  "step_heading": "## Step 5 — Secure it, if it reads outside content",
+  "also_include": [
+    "plugins/magpie-utilities/skills/write-skill/security-checklist.md"
+  ]
 }

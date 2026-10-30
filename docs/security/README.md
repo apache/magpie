@@ -33,9 +33,9 @@ End-to-end automation for an ASF project's security-issue handling
 process — from inbound report on the project's `security@` mailing
 list through to a published CVE record on `cve.org`. Eleven skills
 that compose into the canonical 16-step lifecycle, three that produce,
-verify, and maintain the project's own security model, plus one
-read-only supporting skill for tracker-stats dashboards (fifteen skills
-total).
+verify, and maintain the project's own security model, one that carries
+that model into an OSS Scanner enrolment, plus one read-only supporting
+skill for tracker-stats dashboards (sixteen skills total).
 
 Why a framework skill family? The 16-step process exists across
 the foundation; every project's security team runs essentially
@@ -53,7 +53,7 @@ and reuse the skills verbatim.
 
 ## Install & first runs
 
-Install just this family — one plugin, 15 skills. The security-report lifecycle, from intake through CVE publication.
+Install just this family — one plugin, 16 skills. The security-report lifecycle, from intake through CVE publication.
 
 Once you have [added the marketplace](../setup/marketplace-install.md):
 
@@ -104,12 +104,12 @@ says which file is missing.
 | [`canned-responses.md`](../../plugins/magpie-setup/templates/canned-responses.md) | Reusable reporter-facing reply templates. | `issue-invalidate`, `issue-triage` |
 | [`fix-workflow.md`](../../plugins/magpie-setup/templates/fix-workflow.md) | Fork / clone / toolchain specifics, backport-label policy, commit-trailer wording, PR scrubbing, private-PR fallback. | `issue-fix` |
 | [`milestones.md`](../../plugins/magpie-setup/templates/milestones.md) | Milestone naming conventions + create-and-assign recipe. | `issue-sync` |
-| [`project.md`](../../plugins/magpie-setup/templates/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `cve-allocate`, `issue-deduplicate`, `issue-fix`, `issue-import`, `issue-import-from-md`, `issue-import-from-pr`, `issue-import-from-scan`, `issue-import-via-forwarder`, `issue-invalidate`, `issue-triage`, `model-verify`, `tracker-stats-dashboard` |
+| [`project.md`](../../plugins/magpie-setup/templates/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `cve-allocate`, `issue-deduplicate`, `issue-fix`, `issue-import`, `issue-import-from-md`, `issue-import-from-pr`, `issue-import-from-scan`, `issue-import-via-forwarder`, `issue-invalidate`, `issue-triage`, `model-verify`, `submit-to-oss-scan`, `tracker-stats-dashboard` |
 | [`release-trains.md`](../../plugins/magpie-setup/templates/release-trains.md) | Active release branches, release-manager attribution per cut, rotation rosters, security-team roster. | `issue-triage` |
 | [`scanner-products.md`](../../plugins/magpie-setup/templates/scanner-products.md) | Private scanner product names, and the finder-anonymisation rule applied before anything is quoted publicly. | `issue-sync` |
 | [`scope-labels.md`](../../plugins/magpie-setup/templates/scope-labels.md) | Scope label → CVE product / `packageName` / collection-URL mapping. Exactly one scope label per tracker. | `issue-deduplicate`, `issue-import-from-md`, `issue-import-from-pr`, `issue-triage`, `tracker-stats-dashboard` |
 | [`security-intake-config.md`](../../plugins/magpie-setup/templates/security-intake-config.md) | Capability-flag vocabulary for the intake path: how reports arrive, what counts as in scope, and what a receipt says. | `issue-import` |
-| [`security-model.md`](../../plugins/magpie-setup/templates/security-model.md) | Authoritative URL for the project's Security Model + known-useful anchors + drafting rule. | `issue-triage`, `model-prepare`, `model-update`, `model-verify` |
+| [`security-model.md`](../../plugins/magpie-setup/templates/security-model.md) | Authoritative URL for the project's Security Model + known-useful anchors + drafting rule. | `issue-triage`, `model-prepare`, `model-update`, `model-verify`, `submit-to-oss-scan` |
 | [`security-tracker-stats.md`](../../plugins/magpie-setup/templates/security-tracker-stats.md) | Which tracker fields and windows the stats dashboard reads, and what it publishes. | `tracker-stats-dashboard` |
 | [`title-normalization.md`](../../plugins/magpie-setup/templates/title-normalization.md) | Regex cascade the `security-cve-allocate` skill applies to tracker titles before pasting them into the CVE-tool allocation form. | `cve-allocate` |
 
@@ -204,9 +204,10 @@ below sends, merges, or posts anything without you confirming it.*
 
 ### Security-model skills
 
-The lifecycle skills above route **one report**. These three maintain the
-document they route it against — the project's security model — so that
-routing has something to cite. See
+The lifecycle skills above route **one report**. These four work on the
+document they route it against — the project's security model: three
+maintain it so that routing has something to cite, and one carries it into
+an external scanner's enrolment. See
 [**`security-model-preparation.md`**](security-model-preparation.md) for
 the lifecycle and the rationale.
 
@@ -215,6 +216,7 @@ the lifecycle and the rationale.
 | [`security-model-prepare`](../../skills/security-model-prepare/SKILL.md) | Produce a first model for a project that has none, in draft-first mode, and land it with its discoverability chain as one PR per repository. |
 | [`security-model-verify`](../../skills/security-model-verify/SKILL.md) | Pre-flight an existing model: can an agent mechanically reach it, and does it cover the minimum bar a triager depends on. Discoverability is the only hard gate. |
 | [`security-model-update`](../../skills/security-model-update/SKILL.md) | Read the decision history back into the model — new known-non-finding entries and a model-gap list, regression-checked against past valid reports. |
+| [`security-submit-to-oss-scan`](../../skills/security-submit-to-oss-scan/SKILL.md) | Prepare the enrolment (or update) PR that puts a project into Anthropic's OSS Scanner — `project.yaml`, an offline-capable `Dockerfile`, and a `threat_model.md` derived from the security model — and guide the maintainer through testing it first. |
 
 The rubric these skills measure against is maintained externally by
 Alpha-Omega (<https://github.com/alpha-omega-security/threat-model>) and

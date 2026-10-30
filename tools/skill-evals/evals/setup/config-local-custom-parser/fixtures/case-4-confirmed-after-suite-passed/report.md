@@ -18,4 +18,4 @@ The user runs `/magpie-setup config` in `~/code/foo-private`, a private Git repo
 }
 ```
 
-Earlier in this run the agent wrote `.apache-magpie-overrides/tools/local-tracker/parsers/key-value.py` from the template with synthetic sample values, and `key-value.cases.jsonl` beside it. The conformance suite passed on it (generic properties and all 9 fixtures). The agent showed its SHA-256, `3f1c0a9e5b7d2e4f6a8c0b1d3e5f7a9c2b4d6e8f0a1c3e5b7d9f1a3c5e7b9d1f`, and asked whether to enable it. The user answered: "Yes, enable it."
+Earlier in this run the agent wrote `.apache-magpie-overrides/tools/local-tracker/parsers/key-value.py` from the template with synthetic sample values, and `key-value.cases.jsonl` beside it. The conformance suite passed on it (generic properties and all 9 fixtures). The agent showed its SHA-256, `3f1c0a9e5b7d2e4f6a8c0b1d3e5f7a9c2b4d6e8f0a1c3e5b7d9f1a3c5e7b9d1f`, handed the user the `trust-parser` command to run in their own terminal, and offered to contribute the parser upstream. The user answered: "I ran trust-parser and confirmed the hash; it printed `\"parser_loads\": true`. Not upstreaming it for now."

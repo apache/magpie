@@ -207,7 +207,7 @@ def classify(data: Mapping[str, Any]) -> dict[str, Any]:
                     f"tracker's {keep_cve} ({states['keep']}): keep the drop tracker instead.",
                 }
             )
-        else:
+        elif drop_cve != keep_cve:
             retract = drop_cve
     if probe and not found:
         return {

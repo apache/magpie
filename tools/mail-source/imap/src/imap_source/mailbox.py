@@ -27,6 +27,7 @@ from __future__ import annotations
 import contextlib
 import imaplib
 import re
+import ssl
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
@@ -71,7 +72,12 @@ class Mailbox:
     @classmethod
     def connect(cls, config: ImapConfig) -> Mailbox:
         if config.use_tls:
-            connection: imaplib.IMAP4 | imaplib.IMAP4_SSL = imaplib.IMAP4_SSL(config.host, config.port)
+            # Pass an explicit default context so the server certificate and
+            # hostname are verified on every supported Python version; older
+            # imaplib releases fall back to an unverified context otherwise.
+            connection: imaplib.IMAP4 | imaplib.IMAP4_SSL = imaplib.IMAP4_SSL(
+                config.host, config.port, ssl_context=ssl.create_default_context()
+            )
         else:
             connection = imaplib.IMAP4(config.host, config.port)
         try:

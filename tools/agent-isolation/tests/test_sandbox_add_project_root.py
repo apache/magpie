@@ -170,7 +170,8 @@ def _tool_reads(home: Path) -> list[str]:
 
 
 def _tool_writes(home: Path) -> list[str]:
-    return [str(home / p) for p in (".cache", ".local/share/uv")]
+    # Never ~/.local/share/uv: its interpreters and tool venvs run outside the sandbox.
+    return [str(home / ".cache")]
 
 
 class TestToolPaths:
@@ -217,6 +218,27 @@ class TestToolPaths:
         assert data["allowRead"].count(cache) == 1
         assert data["allowWrite"].count(cache) == 1
         assert data["allowRead"][0] == cache  # existing entries keep their place
+
+    def test_removes_the_uv_data_dir_write_an_earlier_version_added(self, tmp_path: Path) -> None:
+        """Hooks, MCP servers and excluded uv commands run its interpreters unsandboxed."""
+        repo = _make_git_repo(tmp_path)
+        home = tmp_path / "home"
+        uv = str(home / ".local" / "share" / "uv")
+        stale = [uv, uv + "/", "~/.local/share/uv", "~/.local/share/uv/"]
+        _seed_settings(repo, {"sandbox": {"filesystem": {"allowRead": [uv], "allowWrite": ["/opt/data", *stale]}}})
+        _run(repo, extra_env={"HOME": str(home)})
+        data = _load(repo / ".claude" / "settings.local.json")["sandbox"]["filesystem"]
+        assert not set(stale) & set(data["allowWrite"])
+        assert "/opt/data" in data["allowWrite"]
+        assert uv in data["allowRead"]  # reading it stays allowed
+
+    def test_removes_the_uv_data_dir_write_even_without_tool_paths(self, tmp_path: Path) -> None:
+        repo = _make_git_repo(tmp_path)
+        home = tmp_path / "home"
+        uv = str(home / ".local" / "share" / "uv")
+        _seed_settings(repo, {"sandbox": {"filesystem": {"allowWrite": [uv]}}})
+        _run(repo, args=["--no-tool-paths"], extra_env={"HOME": str(home)})
+        assert uv not in _load(repo / ".claude" / "settings.local.json")["sandbox"]["filesystem"]["allowWrite"]
 
     def test_no_tool_paths_flag_adds_project_root_only(self, tmp_path: Path) -> None:
         repo = _make_git_repo(tmp_path)
@@ -509,6 +531,49 @@ class TestMissingJq:
         fake_bin = _fake_bin_without_jq(tmp_path)
         _run(repo, extra_env={"PATH": str(fake_bin)})
         assert not (repo / ".claude" / "settings.local.json").exists()
+
+
+# ---------------------------------------------------------------------------
+# write-protected settings file (the agent sandbox)
+# ---------------------------------------------------------------------------
+
+
+def _fake_bin_failing_mv(tmp_path: Path) -> Path:
+    """A bin directory whose `mv` fails like a sandbox write-deny."""
+    fake_bin = tmp_path / "fake_mv_bin"
+    fake_bin.mkdir(exist_ok=True)
+    mv = fake_bin / "mv"
+    mv.write_text("#!/bin/sh\necho \"mv: rename $1 to $2: Operation not permitted\" >&2\nexit 1\n")
+    mv.chmod(0o755)
+    return fake_bin
+
+
+class TestReplaceFails:
+    def _run_denied(self, repo: Path, tmp_path: Path) -> subprocess.CompletedProcess:
+        fake_bin = _fake_bin_failing_mv(tmp_path)
+        return _run(repo, extra_env={"PATH": f"{fake_bin}{os.pathsep}{os.environ['PATH']}"})
+
+    def test_leaves_no_temp_file(self, tmp_path: Path) -> None:
+        """Regression: a failed rename left `settings.local.json.XXXXXX` behind."""
+        repo = _make_git_repo(tmp_path)
+        _seed_settings(repo)
+        self._run_denied(repo, tmp_path)
+        leftovers = sorted(p.name for p in (repo / ".claude").glob("settings.local.json.*"))
+        assert leftovers == []
+
+    def test_leaves_file_untouched(self, tmp_path: Path) -> None:
+        repo = _make_git_repo(tmp_path)
+        settings = _seed_settings(repo)
+        original = settings.read_text()
+        self._run_denied(repo, tmp_path)
+        assert settings.read_text() == original
+
+    def test_exits_zero_with_warning(self, tmp_path: Path) -> None:
+        repo = _make_git_repo(tmp_path)
+        _seed_settings(repo)
+        result = self._run_denied(repo, tmp_path)
+        assert result.returncode == 0
+        assert "could not replace" in result.stderr
 
 
 # ---------------------------------------------------------------------------

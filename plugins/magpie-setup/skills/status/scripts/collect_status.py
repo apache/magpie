@@ -63,7 +63,7 @@ _FALLBACK_TARGETS = [
         "universal",
         ".agents/skills",
         "canonical",
-        "Codex, Cursor, Gemini CLI, GitHub Copilot, OpenCode, "
+        "Codex, Cursor, Antigravity, GitHub Copilot, OpenCode, Pi, Goose, "
         "Cline, Zed, Warp, Amp, and the rest of the shared-path cluster",
     ),
     ("claude-code", ".claude/skills", "relay", "Claude Code"),
@@ -409,14 +409,55 @@ def main_worktree(root: Path) -> Path | None:
     return main if (main / ".git").is_dir() else None
 
 
-def personal_dir(root: Path) -> Path | None:
+def svn_admin_dir(root: Path) -> Path | None:
+    """`<root>/.svn` when `root` is the root of a Subversion working copy, else `None`.
+
+    Subversion keeps one `.svn`, holding a `wc.db`, at the root of a working
+    copy.  Only `root`'s own is accepted, as with `.git`: following one in an
+    ancestor would let any directory above the project redirect where its
+    configuration is read and written.  Reads files only, never spawns `svn`.
+    """
+    admin = _absolute(root) / ".svn"
+    return admin if (admin / "wc.db").is_file() else None
+
+
+def unadopted_home(root: Path) -> Path:
+    """Where an unadopted project keeps personal configuration; never created here.
+
+    `<git-common-dir>/apache-magpie` in a git repository, else
+    `<.svn>/apache-magpie` in a Subversion working copy: both inside the
+    VCS's own directory, so never committed.  With no VCS at all there is
+    nothing to commit it to, so it is the in-tree `<root>/.apache-magpie-local`.
+
+    A VCS directory is trusted as the home only when it is this user's and
+    the only one at the root.  With both a `.git` and a Subversion working
+    copy there, one may be versioned content of the other's checkout
+    (Subversion versions a `.git/`, git a `.svn/`), so a crafted tree could
+    supply configuration where nobody looks; and a directory another user
+    owns is one git itself would not trust (`safe.directory`).  Either way
+    the home is the in-tree `<root>/.apache-magpie-local`, in plain sight.
+    """
+    common = git_common_dir(root)
+    svn = svn_admin_dir(root)
+    admin = common if svn is None else svn if common is None else None
+    if admin is None:
+        return root / LOCAL_DIR
+    getuid = getattr(os, "getuid", None)
+    try:
+        if getuid is not None and os.stat(admin).st_uid != getuid():
+            return root / LOCAL_DIR
+    except OSError:
+        return root / LOCAL_DIR
+    return admin / GIT_HOME_NAME
+
+
+def personal_dir(root: Path) -> Path:
     """Where this user's configuration for `root` is written; never created here.
 
     Adopted → `<root>/.apache-magpie-local`, except in a linked worktree
     that has none while its main checkout has one: then the main
     checkout's, so a worktree writes where it already reads.  Not adopted →
-    `<git-common-dir>/apache-magpie`.  May not exist yet.  `None` means
-    there is nowhere to keep it: not adopted and not a git repository.
+    `unadopted_home`.  May not exist yet.
     """
     if adopted(root):
         own = root / LOCAL_DIR
@@ -424,8 +465,7 @@ def personal_dir(root: Path) -> Path | None:
         if own.is_dir() or main is None or not (main / LOCAL_DIR).is_dir():
             return own
         return main / LOCAL_DIR
-    common = git_common_dir(root)
-    return common / GIT_HOME_NAME if common is not None else None
+    return unadopted_home(root)
 
 
 def personal_layers(root: Path) -> list[Path]:
@@ -434,9 +474,9 @@ def personal_layers(root: Path) -> list[Path]:
     Adopted → `<root>/.apache-magpie-local`, then, in a linked worktree,
     the main checkout's when it exists: `.apache-magpie-local/` is
     gitignored, so a new worktree has none, and a file missing from its own
-    is found in the main checkout's.  Not adopted →
-    `<git-common-dir>/apache-magpie` (already shared by every worktree),
-    then a legacy in-tree `.apache-magpie-local/`.
+    is found in the main checkout's.  Not adopted → `unadopted_home`
+    (in git, already shared by every worktree), then a legacy in-tree
+    `.apache-magpie-local/`.
     """
     if adopted(root):
         found = [root / LOCAL_DIR]
@@ -444,8 +484,7 @@ def personal_layers(root: Path) -> list[Path]:
         if main is not None and (main / LOCAL_DIR).is_dir():
             found.append(main / LOCAL_DIR)
         return found
-    common = git_common_dir(root)
-    found = [] if common is None else [common / GIT_HOME_NAME]
+    found = [unadopted_home(root)]
     legacy = root / LOCAL_DIR
     if legacy.is_dir() and legacy not in found:
         found.append(legacy)
@@ -504,20 +543,23 @@ def override_dir_status(d: Path | None) -> dict:
 def personal_layer_status(root: Path) -> dict:
     """Where this user's personal layer is, what it holds, and any legacy copy."""
     home = personal_dir(root)
-    if home is None:
-        location = "none"
-    elif adopted(root):
+    if adopted(root):
         # A linked worktree with no `.apache-magpie-local/` of its own uses
         # its main checkout's.
         location = "in-tree" if home == root / LOCAL_DIR else "main-checkout"
-    else:
+    elif git_common_dir(root) is not None:
         location = "git-dir"
+    elif svn_admin_dir(root) is not None:
+        location = "svn-dir"
+    else:
+        # No version control: the in-tree directory is the personal layer.
+        location = "in-tree"
     status = override_dir_status(home)
-    status["path"] = str(home) if home is not None else None
+    status["path"] = str(home)
     status["location"] = location
     status["layers"] = [str(p) for p in personal_layers(root)]
     legacy = root / LOCAL_DIR
-    status["legacy_in_tree"] = (not adopted(root)) and legacy.is_dir()
+    status["legacy_in_tree"] = (not adopted(root)) and legacy.is_dir() and legacy != home
     return status
 
 

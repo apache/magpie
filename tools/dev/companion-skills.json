@@ -49,9 +49,9 @@
           "marketplace": null,
           "install": "install from github.com/obra/superpowers through Cursor's plugin flow"
         },
-        "gemini": {
+        "antigravity": {
           "marketplace": null,
-          "install": "gemini extensions install https://github.com/obra/superpowers"
+          "install": "agy plugin install https://github.com/obra/superpowers"
         },
         "copilot": {
           "marketplace": null,
@@ -140,7 +140,7 @@
           "marketplace": null,
           "install": "brew install kenn-io/tap/roborev\nroborev skills install"
         },
-        "gemini": {
+        "antigravity": {
           "marketplace": null,
           "install": "brew install kenn-io/tap/roborev\nroborev skills install"
         },

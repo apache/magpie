@@ -1,0 +1,5 @@
+{
+  "proceeds_to_dashboard": true,
+  "asks_for_dashboard_session": false,
+  "offers_regular_sync": false
+}

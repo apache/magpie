@@ -19,7 +19,7 @@ project's GitHub-notification exclusions — both declared in
 the archive lags the inbox by minutes to hours for brand-new messages, exactly the threads this skill exists to import.
 
 When PonyMail MCP is enabled and authenticated (Step 0) **and**
-`<security-list>` is in `.apache-magpie-overrides/user.md` →
+`<security-list>` is in the resolved `user.md` ([order](../../../../AGENTS.md#usermd-resolution-order)) →
 `tools.ponymail.private_lists`, run the archive as a **paired
 authoritative check** against the Gmail result set:
 
@@ -47,6 +47,9 @@ Surface two classes of mismatch as extra candidates in Step 5:
 When PonyMail MCP is disabled, unauthenticated, or the private
 list is not in the user's allowlist, skip the paired-check query
 and proceed Gmail-only.
+An **empty** paired-check result counts as *"the archive holds none of these"* only when Step 0's `auth_status` reported a session **and** `list_lists()` shows `<security-list>`;
+otherwise it is unknown — stop the paired check, say *"archive cross-check unknown — no confirmed PonyMail session for `<security-list>`"* in Step 5, and proceed Gmail-only
+([why](../../../../tools/ponymail/operations.md#an-empty-private-list-result-is-not-no-messages)).
 
 **Do not exclude `-from:<security-list>`.** That address carries CVE-tool bookkeeping,
 **ASF Security Team forwarding of inbound reports**, and ad-hoc ASF Security discussion / advice;
@@ -115,7 +118,7 @@ This is a pre-flight no-op classifier in the sense of `security-issue-sync`'s [b
 Never read a body to decide.
 
 **Run it.** Write `<scratch>/threads.json` with the Write tool —
-`upstream`, `security_list`, `cve_tool_senders` (security-team members who post CVE-tool notifications, if any), `named_thread_id` under `import thread:<id>`,
+`upstream`, `security_list`, `cve_tool_senders` (resolved from `security_inbox.cve_tool_senders`; security-team members who post CVE-tool notifications, if any), `named_thread_id` under `import thread:<id>`,
 and `threads[]`, each `{thread_id, messages: [{subject, from}]}` — then:
 
 ```bash

@@ -734,7 +734,9 @@ def _podman_run_body() -> dict[str, Any]:
 
 def test_a_real_docker_run_body_still_passes(ctx: PolicyContext) -> None:
     body = _docker_run_body()
-    body["HostConfig"]["Binds"] = [f"{ctx.project_root}:/x"]
+    # Read-only: a writable bind of the whole root covers `.claude/` and `.git`
+    # (test_policy_write_protected.py).
+    body["HostConfig"]["Binds"] = [f"{ctx.project_root}:/x:ro"]
     assert check_create(body, ctx, libpod=False) is None
     assert named_networks(body, False) == []
     apply_create_rewrites(body, ctx, libpod=False)  # must not raise

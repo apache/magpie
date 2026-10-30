@@ -74,6 +74,9 @@ TRUSTED_MARKETPLACE = "apache/magpie"
 #: the family skills run their forge operations through the vetted-ops
 #: dispatcher, so a floor committed before it joined the seed still gets it.
 ALWAYS_REQUIRED = ("magpie-vetted-ops",)
+#: A family plugin and the substrate it cannot run without: the security skills
+#: run their framework tools from `magpie-security-tools` on a marketplace install.
+COMPANIONS = {"magpie-security": "magpie-security-tools"}
 SNAPSHOT_METHODS = frozenset({"svn-zip", "git-tag", "git-branch"})
 #: Each pinned key in the committed lock, and the local-lock key that records
 #: what this machine actually fetched for it (`locks.md`, `upgrade.md` Step 1).
@@ -160,13 +163,19 @@ def _floor_findings(lock: Lock, installed: dict[str, str] | None, harness: str |
     if lock.url and lock.url != TRUSTED_MARKETPLACE:
         return [Finding("project", "untrusted-marketplace", "step-3", {"url": lock.url})]
     required = [*lock.plugins, *(name for name in ALWAYS_REQUIRED if name not in lock.plugins)]
+    if installed is not None:
+        # A family on the floor or on the machine brings its companion, so an
+        # upgrade from before the companion existed is caught here too.
+        for family, companion in COMPANIONS.items():
+            if (family in required or family in installed) and companion not in required:
+                required.append(companion)
     if installed is None:
         # Unknown, never absent.  Say nothing and let the run continue: this
         # is the ordinary state of a sandboxed session, not a fault.
         return []
-    if harness == "gemini":
-        # Gemini ships all families in one extension. Its version carries
-        # every floor entry; an unrecognised extension name is unknown.
+    if harness == "antigravity":
+        # Antigravity installs the whole framework as one `magpie` plugin. Its
+        # version carries every floor entry; an unrecognised name is unknown.
         version = installed.get("magpie")
         if version is None:
             return []
@@ -226,8 +235,8 @@ def legacy_layout_findings(root: Path) -> list[Finding]:
             "step-12",
             {
                 "legacy_dir": str(legacy),
-                "personal_dir": str(home) if home is not None else None,
-                "personal_dir_exists": bool(home is not None and home.is_dir()),
+                "personal_dir": str(home),
+                "personal_dir_exists": home.is_dir(),
                 "exclude_file": str(exclude) if exclude is not None else None,
                 "exclude_has_entry": any(
                     line.strip()
@@ -555,7 +564,7 @@ def cached_project_findings(
     very state whose absence the skill scope reads as "never configured".
     """
     local_dir = personal_dir(root)
-    if local_dir is None or not local_dir.is_dir():
+    if not local_dir.is_dir():
         return project_findings(root, installed, harness), False
 
     stamp_now = now if now is not None else time.time()

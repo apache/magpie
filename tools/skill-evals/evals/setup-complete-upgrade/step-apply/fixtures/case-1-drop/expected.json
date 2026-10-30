@@ -1,0 +1,19 @@
+{
+  "applied": [
+    "gateway-hook-stale",
+    "mentoring-config-missing",
+    "allowlist-worktrees"
+  ],
+  "skipped": [
+    {
+      "id": "checker-copy-stale",
+      "reason": "dropped"
+    },
+    {
+      "id": "zshrc-claude-iso-grep",
+      "reason": "dropped"
+    }
+  ],
+  "second_plan": [],
+  "bypass_calls": 2
+}

@@ -1,9 +1,9 @@
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
-# The conditional checks: 9, 10, 12, 13, 14 and 17
+# The conditional checks: 9, 10, 12, 13, 14, 15, 16 and 17
 
-Six of the checks, and check 8's whole-user branch, only apply when the install has the feature they
+Eight of the checks, and check 8's whole-user branch, only apply when the install has the feature they
 cover. `SKILL.md` carries the condition and reports **n/a** without
 reading this file; read the section for a check whose condition holds.
 
@@ -66,6 +66,16 @@ reading this file; read the section for a check whose condition holds.
        Do not report them as inert; that is the simple flavour's
        cost, which this flavour exists to remove.
 
+   - ⚠ for each repository that sets its own `core.hooksPath`
+     (`git config --local --get core.hooksPath`, often left by a
+     `prek install`): it overrides the global one, so git never runs the
+     dispatcher there, and neither its post-checkout allowlist sync nor its
+     prek-home switch happens. magpie-setup's session-start hook removes
+     a value pointing at the repository's own `.git/hooks` by itself; for
+     any other, the remediation is `git config --local --unset
+     core.hooksPath` in that repository, run by the operator; the
+     dispatcher still chains to the repository's own `.git/hooks/`.
+
    If `core.hooksPath` is unset (or points elsewhere), the
    operator is in **per-project** scope (the default). No further
    sub-check needed — the per-project mode is fully covered by
@@ -76,8 +86,8 @@ reading this file; read the section for a check whose condition holds.
 9. **The vetted-ops split and exclusion.** Only meaningful when the
    adopter routes forge operations through the `vetted-ops`
    dispatcher; if the repo has no
-   `.apache-magpie-overrides/tools/vetted-ops/config.toml` and no
-   `vetted-op` rule, report **n/a** and move on. With the sandbox not
+   `.apache-magpie-overrides/tools/vetted-ops/config.toml`, no personal-layer
+   `tools/vetted-ops/config.toml` and no `vetted-op` rule, report **n/a** and move on. With the sandbox not
    enabled, report **n/a** too: install Step V skips the bypass
    without it. A `vetted-op-read` allow rule or exclusion present
    while the sandbox is off is ✗ — the bypass without its confinement.
@@ -119,8 +129,11 @@ reading this file; read the section for a check whose condition holds.
    - `~/.claude/magpie/**` — the fixed path the rules name, which
      the plugin's `SessionStart` hook points at the catalogue.
    - `.apache-magpie-overrides/tools/vetted-ops/**` — the policy.
+   - `//**/.git/**/apache-magpie/tools/vetted-ops/**`, `//**/.svn/apache-magpie/tools/vetted-ops/**`
+     and `//**/.apache-magpie-local/tools/vetted-ops/**` — the policy in a
+     maintainer's personal layer.
 
-   Either one missing is ✗. One `Edit` rule per surface is the whole
+   Any one missing is ✗. One `Edit` rule per surface is the whole
    coverage — in `permissions`, `Edit(path)` binds every file-editing
    tool, and a `Write(path)` rule is not matched by the file
    permission check at all. A `Write(…)` line beside an `Edit(…)` is
@@ -146,7 +159,31 @@ reading this file; read the section for a check whose condition holds.
     commits are signed (`git config --get commit.gpgsign` is
     `true`) or a remote is reached over ssh through gpg-agent
     (`SSH_AUTH_SOCK` names its socket); otherwise report **n/a**.
-    Four sub-checks, plus a note: the key's own touch policies
+    10c applies to any ssh-format signing key. 10a, 10b, 10d and 10e
+    apply only to a hardware key and are **n/a** otherwise. A
+    hardware key is an `sk-` public key (`sk-ssh-ed25519@openssh.com`,
+    `sk-ecdsa-sha2-nistp256@openssh.com`), or a card that holds the
+    signing key or the key a remote authenticates with, shown by any
+    of: (a) `gpg.format=ssh`: the `ssh-add -L` line whose key equals
+    `user.signingkey` has a `cardno:` comment; (b) OpenPGP format:
+    `gpg --list-secret-keys --with-colons <key>`, where `<key>` is
+    `user.signingkey` (unset: the committer email, as git picks it; do
+    not list every secret key), shows a card serial in field 15 (not
+    `+`, a software key, or `#`, an offline stub) on a record whose
+    field 12 contains a lowercase `s` (the signing-capable key;
+    uppercase letters on the primary are the whole key's capabilities;
+    a card holding only the auth or encryption subkey does not count),
+    or `gpg --card-status`'s signature key fingerprint matches; (c)
+    the remote is reached over ssh through gpg-agent and the agent key
+    offered has a `cardno:` comment (this is the key the remote
+    authenticates with, not the signing key). A card holding only
+    unrelated keys does not count. Ssh-format signing through
+    gpg-agent uses the card's `aut` slot and shows a plain
+    `ssh-ed25519` or `ssh-rsa` key. The user runs these from their own
+    terminal when the sandbox cannot reach the agent or device. A
+    plain software key, even beside a plugged-in card, needs no touch,
+    so the overlay has nothing to show.
+    Five sub-checks, plus a note for a hardware key: the key's own touch policies
     (`ykman openpgp info`, run by the user — the sandbox does not
     see the device) are what make the overlay matter; report them
     as seen, and suggest `cached` on the slot that signs where it is
@@ -171,7 +208,8 @@ reading this file; read the section for a check whose condition holds.
     each against `tools/agent-isolation/` in the framework checkout:
     a copy that differs is ⚠ (stale — the watcher's behaviour has
     changed more than once, and a stale copy fails silently), a
-    missing file or hook is ✗. Install steps and rationale:
+    missing file or hook is ✗. With no framework checkout, report
+    the comparison as unchecked, not ⚠. Install steps and rationale:
     [`docs/setup/secure-agent-setup.md` → Hardware-key touch overlay](../../../../docs/setup/secure-agent-setup.md#hardware-key-touch-overlay).
 
     **10b — the window can draw.** The window needs a toolkit —
@@ -241,22 +279,42 @@ reading this file; read the section for a check whose condition holds.
 
 ## Check 12 — container gateway wired
 
-12. **Container gateway wired.** Only meaningful when `podman` or
-    `docker` is on `PATH`; if neither is installed, report **n/a**
-    for the whole check. Four sub-checks:
+12. **Container gateway wired.** 12a–12d are only meaningful when
+    `podman` or `docker` is on `PATH`; if neither is installed, report
+    them **n/a**. 12e has its own condition, so with no container
+    runtime check 12 reports 12e alone. Five sub-checks:
 
     - **12a — hooks wired.** User-scope `~/.claude/settings.json`
-      has a `SessionStart` hook running
-      `container-gateway-hook.sh start` and a `SessionEnd` hook
-      running `container-gateway-hook.sh stop`. Either missing is
-      ✗.
+      or `~/.claude/settings.local.json` has a `SessionStart` hook
+      running `container-gateway-hook.sh start` and a `SessionEnd`
+      hook running `container-gateway-hook.sh stop`. Either missing is
+      ✗, and so is a registered absolute path that does not exist on
+      this machine (synced from another one, e.g. `/Users/...` on
+      Linux): point at the setup guide's "Fixing your other machines".
+      An absolute path in a `~/.claude/settings.json` that links into a
+      synced config repo is ◐: it breaks on the next machine; a hook command naming the script through `~` or `$HOME`
+      rather than its absolute path is ◐ (the launching shell expands
+      it from `$HOME`, which the session environment can redirect),
+      and so is one that runs it through `bash`/`sh` rather than
+      directly (its `#!/bin/bash -p` shebang is what keeps `BASH_ENV`
+      and exported functions out).
+      A missing `PreToolUse` hook (matcher `Bash`) running
+      `container-gateway-hook.sh ensure` is ◐, not ✗: the gateway
+      still starts with each session, but once it exits mid-session
+      (idle timeout, another session on the project ending, a crash)
+      container commands fail until the next session. The same
+      path, `~` and `bash`/`sh` rules apply to it.
     - **12b — hook script present.** `~/.claude/scripts/container-gateway-hook.sh`
       exists and is executable. Missing or non-executable is ✗.
     - **12c — project wiring.** The gitignored
       `.claude/settings.local.json` has `env.CONTAINER_HOST` and
       `env.DOCKER_HOST`, and both gateway sockets appear in
-      `sandbox.network.allowUnixSockets`. Either half missing
-      (the `env` pair or the socket allow-list pair) is ✗; report
+      `sandbox.network.allowUnixSockets`. On Linux, which ignores
+      `allowUnixSockets`, the socket half is instead
+      `sandbox.network.allowAllUnixSockets: true` in any scope;
+      `allowUnixSockets` entries there are inert and neither satisfy
+      nor fail it. Either half missing
+      (the `env` pair or the socket half) is ✗; report
       which half. All four values must be **absolute** paths: the
       CLIs read a `unix://` URL's authority as a host component, so
       a project-relative `unix://./…` value dials a path that does
@@ -280,6 +338,23 @@ reading this file; read the section for a check whose condition holds.
       > gateway (<project>/.apache-magpie-local/run/*.sock,
       > or <git-common-dir>/apache-magpie/run/<worktree-id>/*.sock when the
       > project has not adopted Magpie) instead`
+
+    - **12e — Linux host sockets hidden.** Runs whenever any scope
+      sets `sandbox.network.allowAllUnixSockets: true`, even when
+      12a–12d are n/a (no container runtime: the flag may be there only
+      for ssh-agent signing); with the flag absent or not on Linux it
+      is n/a. The flag makes every Unix socket the sandbox can see
+      connectable, so for each of `/run/docker.sock`,
+      `/var/run/docker.sock`, `/run/docker-cli.sock`, `/run/podman`,
+      `/run/user/<uid>` (`<uid>` from `id -u`), `/run/dbus`,
+      `/tmp/.X11-unix`, `/run/WSL` and `/mnt/wslg` that exists on the
+      host, some scope's `sandbox.filesystem.denyRead` must hold the
+      path or a directory above it. Denying single sockets inside
+      `/run/user/<uid>` (`bus`, `podman`) does not count: the systemd
+      user manager also listens on `systemd/private`. Each one that
+      exists and is not covered is ✗, naming the path; a path the host
+      does not have needs no entry. Point at
+      [Linux needs `allowAllUnixSockets`](../../../../docs/setup/secure-agent-setup.md#linux-needs-allowallunixsockets).
 
     Install detail:
     [`docs/setup/secure-agent-setup.md` → Container gateway](../../../../docs/setup/secure-agent-setup.md#container-gateway).
@@ -314,7 +389,8 @@ reading this file; read the section for a check whose condition holds.
       `tools/skill-evals/src/skill_evals/` (ignore `__pycache__`).
       Any difference is ⚠, not ✗, and names the drifted files: the
       harness still runs, it just runs an older grader than the one
-      in the tree. Remedy is re-running install step M.1.
+      in the tree. Remedy is re-running install step M.1. With no
+      framework checkout, report 13c as unchecked, not ⚠.
     - **13d — the deny is present.** `permissions.deny` contains
       `Edit(~/.claude/scripts/**)`. Missing is ✗ — without it the
       agent can edit the very code the exclusion runs outside the
@@ -361,6 +437,41 @@ reading this file; read the section for a check whose condition holds.
       re-point it. A real file or directory at the path, or a link anywhere
       else, is ✗: the exclusion would run that code outside the sandbox, and
       the hook refuses to replace anything that is not a symlink.
+
+## Check 15 — working directories under the read block
+
+15. **Working directories under the read block.** Only when `permissions.blockReadsOutsideWorkingDirectories` is `true` in any scope (user, project, project-local or managed); otherwise **n/a**.
+    Resolve `id -u`, then confirm the current worktree's project-local `.claude/settings.local.json` `permissions.additionalDirectories` contains `/tmp/claude-<uid>` as a literal absolute path.
+    `$HOME/.claude/magpie` is deliberately not one of them; check 16f fails on it.
+    A missing path is ⚠, not ✗: nothing is exposed, but every read under it prompts, and a bulk sync multiplies that by its gatherer agents.
+    An entry with a glob (`/tmp/claude-*`) is listed as a working directory but never matched; report the path it was meant to cover as missing (⚠) and say plainly that the entry does nothing.
+    The same path in the committed project `.claude/settings.json`, or in a user-scope `~/.claude/settings.json` synced across machines, is ⚠: it is per-host and belongs in `settings.local.json`.
+    [Why this directory](../../../../docs/setup/secure-agent-setup.md#working-directories-under-the-read-outside-working-directories-block).
+    Where check 16 applies, the read block being on at all is already ✗ there; these entries do not fix it.
+
+## Check 16 — read-only vetted ops never prompt
+
+16. **Read-only vetted ops never prompt.** An imperative, not a preference: the read dispatcher MUST NOT prompt in any form, because background gatherer agents cannot surface a prompt and each one becomes a silent denial.
+    Same n/a condition as check 9.
+    Resolve `$HOME`, read every scope (user, project, project-local, managed where readable), and report each sub-check ✓ or ✗; there is no ⚠ here.
+
+    - **16a — both allow rules.** `permissions.allow` carries `Bash(<launcher> ~/.claude/magpie/vetted-ops vetted-op-read *)` for both launchers (`uvx --from`, `uv run --project`): two rules, in the project settings or in user scope.
+      Name each missing one.
+      A leftover rule spelled with the resolved `$HOME/.claude/magpie/vetted-ops` base is ✗ in the committed project settings (per-host path in a shared file) and otherwise only worth removing: the agent-guard `vetted-ops-spelling` guard refuses that spelling.
+    - **16b — no ask rule.** No `permissions.ask` entry in any scope matches a `vetted-op-read` command in either launcher form; broad rules such as `Bash(uvx *)` count, so match each rule as a pattern rather than searching it for the dispatcher name.
+      An ask rule prompts even when an allow rule matches.
+      Name the file that carries it.
+    - **16c — read block off.** `permissions.blockReadsOutsideWorkingDirectories` is `false` or absent in every scope.
+      With it on, every call prompts: the check cannot resolve the literal `~` the commands spell, and no `allow` rule overrides it. Listing the checkout as a working directory is not a workaround: 16f fails on it.
+    - **16d — tamper protection.** All three vetted-ops `Edit` deny rules from check 9 are present.
+      This is what makes the unprompted read safe, so a missing one fails here as well as in check 9.
+    - **16e — an exclusion for every allowed form.** `sandbox.excludedCommands` carries `<launcher> ~/.claude/magpie/vetted-ops vetted-op-read *` for both launchers of 16a.
+      An allowed form without its exclusion is approved without a prompt but runs inside the sandbox, where its `gh` cannot verify TLS: a silent failure, as with a prompt.
+
+    - **16f — the checkout is not a working directory.** No `permissions.additionalDirectories` entry in any scope overlaps `$HOME/.claude/magpie`: that path, its `~` spelling, anything inside it (such as `~/.claude/magpie/vetted-ops`, which the read-block prompt names), or a parent such as `$HOME/.claude` or `$HOME`.
+      The sandbox makes every working directory writable to sandboxed Bash whatever `allowWrite` says, and the 16e exclusions run that checkout's code outside the sandbox, so a covering entry lets sandboxed code change what runs outside it.
+      Older versions of `sandbox-add-project-root.sh` added the entry; re-running the updated script (`--all-worktrees`) removes `$HOME/.claude/magpie` and `~/.claude/magpie` from project-local files. A parent directory, or an entry in user or committed project scope, needs a hand edit; [install Step V.1](../isolated-setup-install/step-v-vetted-ops.md#step-v1--read-only-vetted-ops-must-never-prompt) item 7 proposes it.
+    [The required shape and why](../../../../docs/setup/secure-agent-setup.md#read-only-vetted-ops-never-prompt).
 
 ## Check 17 — roborev exclusion, if installed
 

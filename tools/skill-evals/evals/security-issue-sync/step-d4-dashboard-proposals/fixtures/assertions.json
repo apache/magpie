@@ -1,0 +1,12 @@
+{
+  "no_duplicate_reporter_reply": {
+    "field": "drafts_reporter_reply_for_dashboard_triage",
+    "type": "regex",
+    "pattern": "^(false|False)$"
+  },
+  "nothing_applied_unconfirmed": {
+    "field": "applies_without_confirmation",
+    "type": "regex",
+    "pattern": "^(false|False)$"
+  }
+}

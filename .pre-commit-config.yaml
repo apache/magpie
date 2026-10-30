@@ -338,11 +338,17 @@ repos:
   # already corrected and staged-ready instead of as an instruction.
   - repo: local
     hooks:
+      - id: check-forbidden-terms-sync
+        name: check-forbidden-terms-sync (canonical scrub terms vs publication.py)
+        language: system
+        entry: python3 tools/dev/sync-forbidden-terms.py --check
+        files: ^(tools/vcs/src/magpie_vcs/publication\.py|tools/dev/sync-forbidden-terms\.py|plugins/magpie-security/hooks/forbidden-terms\.ts)$
+        pass_filenames: false
       - id: check-family-plugins
         name: check-family-plugins (marketplace plugins vs frontmatter)
         language: system
         entry: python3 tools/dev/check-family-plugins.py --fix
-        files: ^(tools/(agent-guard/src/.*|vetted-ops/(src/.*|hooks/.*|pyproject\.toml|README\.md))|tools/dev/check-family-plugins\.py|\.pre-commit-config\.yaml|skills/.*/SKILL\.md|plugins/.*|\.claude-plugin/(marketplace|plugin)\.json|\.codex-plugin/plugin\.json|\.agents/plugins/marketplace\.json|(plugin|marketplace)\.json|gemini-extension\.json|apm\.yml|pyproject\.toml)$
+        files: ^(tools/(agent-guard/src/.*|vetted-ops/(src/.*|hooks/.*|pyproject\.toml|README\.md))|tools/(jira|local-tracker|security-management|github-body-field|github-rollup|vcs|cve-tool-vulnogram/(generate-cve-json|oauth-api)|privacy-llm/checker|asf-security-dash|gmail/oauth-draft)/(src/.*|hooks/.*|pyproject\.toml|README\.md)|tools/forwarder-relay/README\.md|tools/gmail/asf-relay\.md|tools/security-tracker-stats-dashboard/[^/]+|tools/security-tracker-stats-dashboard/src/.*|tools/dev/check-family-plugins\.py|\.pre-commit-config\.yaml|skills/.*/SKILL\.md|plugins/.*|\.claude-plugin/(marketplace|plugin)\.json|\.codex-plugin/plugin\.json|\.agents/plugins/marketplace\.json|(plugin|marketplace)\.json|apm\.yml|pyproject\.toml)$
         pass_filenames: false
   # Claude Code mods — `claude plugin validate --strict` and `claude plugin
   # test` on every plugin whose `hooks/hooks.json` declares `modules`
@@ -382,7 +388,7 @@ repos:
         name: check-claude-mods (claude plugin validate --strict / test)
         language: node
         entry: tools/dev/check-claude-mods.sh
-        additional_dependencies: ["@anthropic-ai/claude-code@2.1.302"]
+        additional_dependencies: ["@anthropic-ai/claude-code@2.1.312"]
         files: ^(.*/hooks/.*|.*\.claude-plugin/plugin\.json|tools/dev/check-claude-mods\.sh)$
         pass_filenames: false
         stages: [manual]
@@ -482,6 +488,17 @@ repos:
         entry: uv run --project tools/skill-token-count skill-token-count --check
         files: ^(skills/.*/SKILL\.md|plugins/magpie-[^/]+/skills/.*/SKILL\.md|tools/dev/preflight-block\.md|tools/skill-token-count/.*|uv\.lock|\.pre-commit-config\.yaml)$
         pass_filenames: false
+  # Every eval step builds its system prompt from the Markdown section its
+  # step-config.json names. Builds each one without running a case, so a
+  # renamed heading or a moved file fails here instead of in the next eval run.
+  - repo: local
+    hooks:
+      - id: check-eval-prompts
+        name: check-eval-prompts (each eval step-config still finds its section)
+        language: system
+        entry: uv run --project tools/skill-evals skill-eval tools/skill-evals/evals --check
+        files: (\.md$|^tools/skill-evals/|^\.pre-commit-config\.yaml$)
+        pass_filenames: false
   # Quick-start screenshot set. Three lists have to agree — the harnesses
   # `capture-screenshot.sh` offers, the ecosystem manifests that make a harness
   # real, and the PNGs on disk — and none of the existing gates read images, so
@@ -565,7 +582,7 @@ repos:
         name: render-preflight-fixtures (pre-flight eval cases vs the real checker)
         language: system
         entry: python3 tools/dev/render-preflight-fixtures.py
-        files: ^(plugins/magpie-setup/skills/setup/setup_preflight/.*|tools/skill-evals/evals/setup/preflight-floor/fixtures/.*|tools/dev/render-preflight-fixtures\.py)$
+        files: ^(plugins/magpie-setup/skills/setup/setup_preflight/.*|tools/skill-evals/evals/setup/(preflight-floor|welcome-first-run)/fixtures/.*|tools/dev/render-preflight-fixtures\.py)$
         pass_filenames: false
   # something else.
   - repo: local
@@ -602,6 +619,18 @@ repos:
         language: system
         entry: tools/dev/check-workspace-members.py
         files: ^((tools/[^/]+(/[^/]+)?|ai-tutors|skills)/pyproject\.toml|pyproject\.toml|.*/tests?/.*\.py|.*/test_[^/]+\.py|.*_test\.py)$
+        pass_filenames: false
+  # The hook-manager registry (tools/hook-manager/registry.json) is written
+  # into the shim, the whole-user dispatcher and sandbox-lint as generated
+  # blocks, since none of them can read it where they run; the settings that
+  # give each sandbox home are checked against it, not written.
+  - repo: local
+    hooks:
+      - id: sync-hook-managers
+        name: sync-hook-managers (hook-manager registry -> shim, dispatcher, sandbox-lint)
+        language: system
+        entry: tools/dev/sync-hook-managers.py
+        files: ^(tools/hook-manager/registry\.json|tools/dev/sync-hook-managers\.py|tools/agent-isolation/(hook-manager-shim|git-hook-dispatcher)\.sh|tools/sandbox-lint/src/sandbox_lint/__init__\.py|\.claude/settings\.json|tools/sandbox-lint/expected\.json)$
         pass_filenames: false
   # Tool-capability PR labels. `.github/labeler.yml` is generated from every
   # tool README's `**Capability:**` line; regenerate it whenever a README or

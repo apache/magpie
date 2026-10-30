@@ -14,6 +14,7 @@
   - [Model preparation, verification, and update](#model-preparation-verification-and-update)
     - [Repositories in scope](#repositories-in-scope)
     - [Model revision date](#model-revision-date)
+    - [Scanner threat-model summaries](#scanner-threat-model-summaries)
     - [Rubric](#rubric)
     - [Where substantive conversation goes](#where-substantive-conversation-goes)
     - [PR conventions](#pr-conventions)
@@ -109,6 +110,18 @@ nothing about a sibling.
 
 TODO: the date the model was last revised (`YYYY-MM`). The update skill
 defaults its window to everything closed since this date.
+
+### Scanner threat-model summaries
+
+Copies of this model summarised for an automated scanner — written by
+[`security-submit-to-oss-scan`](../../magpie-security/skills/submit-to-oss-scan/SKILL.md),
+refreshed whenever `security-model-update` lands a model commit the copy
+was not derived from. Record the model file's commit, not a date: two
+amendments in one month must still be told apart. Leave the table empty when the project is enrolled in no scanner.
+
+| Scanner | Copy location | Derived from model commit |
+|---|---|---|
+| TODO: e.g. Anthropic OSS Scanner | TODO: e.g. `anthropics/oss-scanner` → `projects/<name>/threat_model.md` | TODO: `<sha>` |
 
 ### Rubric
 

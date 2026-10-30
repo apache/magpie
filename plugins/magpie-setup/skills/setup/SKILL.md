@@ -20,9 +20,9 @@ when_to_use: >-
   to the `welcome-guide` skill.
 argument-hint: "[install|config|adopt|unadopt|upgrade|worktree-init|verify|reconcile|override skill-name|delegate [skill-name]|welcome|uninstall]"
 capability: capability:platform
-surface_hash: sha256:714de5ff4d954590
+surface_hash: sha256:2557a934f9ea5576
 license: Apache-2.0
-measured_tokens: 4911
+measured_tokens: 5307
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -32,7 +32,8 @@ measured_tokens: 4911
      <project-config>           → per file, first hit wins: the personal layer
                                   (`.apache-magpie-local/` when adopted, falling back to the
                                   main checkout's in a linked worktree;
-                                  `<git-common-dir>/apache-magpie/` when only installed) then
+                                  `<git-common-dir>/apache-magpie/` when only installed,
+                                  `.svn/apache-magpie/` in a Subversion working copy) then
                                   `.apache-magpie-overrides/` (committed, project-wide)
      <snapshot-dir>             → `.apache-magpie/` (gitignored snapshot of the framework)
      <committed-lock>           → `.apache-magpie.lock` (committed — project's pin)
@@ -50,11 +51,28 @@ One `marketplace add`, then one `plugin install` per skill family, and nothing i
 Walk-through: [`install.md` → Step M0b](install.md#step-m0b--pre-fill-from-the-committed-floor), which reads any committed floor first.
 Per-agent reference: [`docs/setup/marketplace.md`](../../../../docs/setup/marketplace.md).
 
+## First — the welcome guide
+
+The setup family runs no shared pre-flight, so this skill checks for its first-run welcome guide itself, before any sub-action, silently.
+`<skill-dir>` is the directory holding this `SKILL.md`, which carries the checker even before `config` has copied it into its `checker_dir`.
+Append `:<skill-dir>` only when that directory is **outside** the project's working tree (a marketplace install's plugin cache);
+when this skill runs from inside the repository — the committed `.agents/skills/magpie-setup/` bootstrap — leave it off, so the check never imports code the repository ships:
+
+```bash
+PYTHONPATH="$HOME/.cache/apache-magpie/preflight[:<skill-dir>]" \
+  python3 -P -m setup_preflight.welcome due --skill setup
+```
+
+- **`{"verdict": "ok"}`**, or the command did not run at all → say nothing and go on to the sub-action.
+- **`{"verdict": "action", ...}`** → follow `rules.welcome`, the same rules a pre-flight `welcome` finding carries, and run its `record` command with the `PYTHONPATH` above.
+
+This is the only check: none of the pre-flight's setup, floor or fingerprint findings run here.
+
 ## The install paths
 
 | Path | What it sets up | Take it when |
 |---|---|---|
-| **`marketplace`** *(default)* | The agent's own plugin mechanism installs the skills, per machine. Nothing in the repo; updates arrive through the agent's plugin update. | The agent has a plugin / extension mechanism — Claude Code, Codex CLI, VS Code + Copilot, Gemini CLI, Cursor, `microsoft/apm`. The normal case. |
+| **`marketplace`** *(default)* | The agent's own plugin mechanism installs the skills, per machine. Nothing in the repo; updates arrive through the agent's plugin update. | The agent has a plugin / extension mechanism — Claude Code, Codex CLI, VS Code + Copilot, Antigravity, Cursor, `microsoft/apm`. The normal case. |
 | **`marketplace` + an adopted floor** | The same per-machine install, plus a committed `.apache-magpie.lock` recording the project's minimum version and plugin set. Contributors are brought up to it by any skill's pre-flight. | The project wants a floor every contributor meets, without pinning anyone to one version. Written by [`adopt`](adopt.md). |
 | **`svn-zip` / `git-tag` / `git-branch`** — the **pinned snapshot install** *(fallback)* | The gitignored snapshot at `<snapshot-dir>`, both lock files, gitignored `magpie-*` symlinks, the overrides scaffold, the post-checkout hook. | Only where a marketplace cannot reach: the agent has no plugin mechanism, the project needs the signed ASF source artefact, or it wants every contributor and CI job pinned to one committed framework version with drift detection. |
 | **`local`** | Committed symlinks into the in-repo `skills/` source. No fetch, no snapshot. | The Apache Magpie framework checkout itself (see below). |
@@ -126,8 +144,9 @@ Five rules bind only on the pinned-snapshot path — the lock files, drift remed
 They are in [`snapshot-model.md`](snapshot-model.md) with the machinery they govern; a marketplace install is not subject to them.
 
 **Golden rule 11 — a missing vetted-ops policy never blocks a setup run.**
-A repo that has only installed Magpie has no `.apache-magpie-overrides/tools/vetted-ops/config.toml`, and a `vetted-op` call there fails with `no vetted-ops config at …`.
+A repo that has only installed Magpie has no `.apache-magpie-overrides/tools/vetted-ops/config.toml`; vetted-ops then reads a maintainer's personal copy (`<personal layer>/tools/vetted-ops/config.toml`), and with neither a `vetted-op` call fails with `no vetted-ops config at …`.
 During any `setup` sub-action, report that as **n/a** in one line and carry on with the remaining steps; never call it a blocker, never stop the run for it, and never write a policy to get past it.
+The one sanctioned way to a personal policy is `config`'s [personal tool configs](config.md#personal-tool-configs-for-a-project-that-has-not-adopted-magpie) step, on the user's explicit yes.
 The exemption is this run's only: every other skill still stops when the dispatcher refuses, and a policy that exists but fails to load is a real error here too.
 
 ## Sub-actions
@@ -205,6 +224,7 @@ reconcile, skill-sources, override, delegate, welcome, uninstall, unadopt
 - The secure agent setup (sandbox, hooks, pinned tools): [`setup-isolated-setup-install`](../isolated-setup-install/SKILL.md).
 - Upgrading host tools (`bubblewrap`, `socat`, `claude-code` itself): [`setup-isolated-setup-update`](../isolated-setup-update/SKILL.md).
 - Syncing `~/.claude-config` across machines: [`setup-shared-config-sync`](../shared-config-sync/SKILL.md).
+- Checking and fixing everything after an upgrade in one approved run: [setup-complete-upgrade](../complete-upgrade/SKILL.md).
 - Committing framework changes. Those go as PRs against `apache/magpie`; the snapshot is read-only.
 
 ## Failure modes

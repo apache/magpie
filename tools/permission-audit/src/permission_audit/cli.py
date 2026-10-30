@@ -75,7 +75,7 @@ def _cmd_audit(args: argparse.Namespace) -> int:
     settings_path = Path(args.settings_path).resolve()
     allow = _read_allow(settings_path)
     families = [f.strip() for f in (args.families or "").split(",") if f.strip()]
-    result = audit_settings(allow, families)
+    result = audit_settings(allow, families, args.organization)
 
     output = {
         "settings_path": str(settings_path),
@@ -188,7 +188,7 @@ def _cmd_audit_any(args: argparse.Namespace) -> int:
             continue
         if audit_kind == "claude":
             allow = _read_allow(full_path)
-            r = audit_settings(allow, families)
+            r = audit_settings(allow, families, args.organization)
             results.append(
                 {
                     "harness": harness_id,
@@ -250,6 +250,11 @@ def _build_parser() -> argparse.ArgumentParser:
         default="",
         help="Comma-separated opt-in family names (e.g. 'security,issue').",
     )
+    p_audit.add_argument(
+        "--organization",
+        default=None,
+        help="The project's organization (project.md); ASF-only recommendations need 'ASF'.",
+    )
     p_audit.set_defaults(func=_cmd_audit)
 
     p_apply = subparsers.add_parser("apply", help="Atomically add/remove allow-list entries.")
@@ -290,6 +295,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--families",
         default="",
         help="Comma-separated opt-in family names for Claude Code audits (e.g. 'security,issue').",
+    )
+    p_audit_any.add_argument(
+        "--organization",
+        default=None,
+        help="The project's organization (project.md); ASF-only recommendations need 'ASF'.",
     )
     p_audit_any.set_defaults(func=_cmd_audit_any)
 

@@ -18,8 +18,8 @@ on a marketplace install), once, and say which reason applies:
 Then record that it was shown, whether or not the user takes it:
 
 ```bash
-PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir)/../.apache-magpie-local:$(git rev-parse --git-common-dir)/apache-magpie" \
-  python3 -m setup_preflight.isolated record-reminder
+PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m,i=sys.argv[1:];r=os.path.realpath(os.curdir);s=os.stat(r);p=os.path.join(h,d,hashlib.sha256(r.encode()).hexdigest()[:16]);f=os.path.join(p,i);print(p if os.path.isdir(os.path.join(p,m)) and os.path.isfile(f) and open(f).read().split()==[str(s.st_dev),str(s.st_ino)] else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight root-id)" \
+  python3 -P -m setup_preflight.isolated record-reminder
 ```
 
 That re-arms the timer and this particular change, so the same suggestion is
@@ -34,4 +34,4 @@ personal layer first, then `.apache-magpie-overrides/project.md`,
 default 7; `0` turns the timer off while still reporting changes. Someone who
 does not use the isolated setup here can silence both with
 `"isolated_setup": {"enabled": false}` in the personal layer's `reconciled.json`
-(the `personal_dir` that `python3 -m setup_preflight.layers` prints).
+(the `personal_dir` that `python3 -P -m setup_preflight.layers` prints).

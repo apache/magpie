@@ -29,9 +29,11 @@ pre-tool hook to/from the core, so every wired harness enforces one rule set:
   consumes canonical ``Bash`` events and emits a native JSON denial.
 * :func:`opencode_main` — OpenCode ``tool.execute.before`` plugin adapter
   (``--opencode``): reads ``{"command", "cwd"}`` on stdin, signals deny via a
-  non-zero exit so the plugin can throw and abort the tool call.
-* :func:`gemini_main` — Gemini CLI ``BeforeTool`` hook (``--gemini``):
-  matches ``run_shell_command`` and blocks with exit 2 and a stderr reason.
+  non-zero exit so the plugin can throw and abort the tool call. The Pi
+  extension (``--pi``) and the Goose hook (``--goose``) use the same transport.
+* :func:`antigravity_main` — Antigravity ``PreToolUse`` hook
+  (``--antigravity``): matches ``run_command`` and prints a JSON
+  ``{"decision": "deny", "reason": ...}`` on stdout.
 * :func:`grok_main` — Grok Build ``PreToolUse`` adapter (``--grok`` or
   automatic no-argument payload-shape detection): reads the documented
   camelCase event and emits Grok's JSON allow/deny decision.
@@ -70,18 +72,22 @@ through ``uv run`` — and returns in a few milliseconds for any command that is
 not a guarded ``gh`` / ``git commit`` / ``git push`` (the fast path).
 
 Every guard is overridable, per command, by a visible inline env assignment so a
-maintainer can consciously proceed (``MAGPIE_ALLOW_MENTIONS=1 gh pr comment …``)
-or disable the whole dispatcher (``MAGPIE_GUARD_OFF=1``). Overrides are read
-from the command string itself (and from the hook's own environment).
+maintainer can consciously proceed (``MAGPIE_ALLOW_MENTIONS=1 gh pr comment …``).
+Per-guard overrides are read from the command string itself (and from the
+hook's own environment). The whole dispatcher is disabled by
+``MAGPIE_GUARD_OFF=1``, which is read from the hook's own environment only — an
+inline ``MAGPIE_GUARD_OFF=1`` in the command is ignored.
 
 **Contributing guards.** Beyond the two bundled guards, any skill adds its own
 deterministic guard **without re-wiring the hook**: drop an import-free ``*.py``
 file that defines a module-level ``guard(ctx)`` returning a deny string or
 ``None`` into any discovered guard directory — see ``GuardContext`` and
 ``guards.d/no_verify_commit.py`` for the template. Three sources are discovered,
-in this order: every dir in ``$MAGPIE_GUARD_DIRS``, every
-``skills/<skill>/guards`` in the framework tree this file is running from, and
-the ``guards.d`` sibling of this file. A skill therefore owns its guards in its
+in this order: every dir in ``$MAGPIE_GUARD_DIRS``; every
+``plugins/<plugin>/skills/<skill>/guards`` and ``skills/<skill>/guards`` in the
+framework tree this file is running from, or, from a marketplace install, the
+skill guards of the sibling family plugins; and the ``guards.d`` sibling of this
+file. A skill therefore owns its guards in its
 own directory and they take effect as soon as the framework is installed —
 nothing collects, copies, or syncs them.
 """
@@ -130,6 +136,11 @@ DEFAULT_ATTRIBUTION = "generated-by"
 
 
 _ASSIGNMENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=.*", re.DOTALL)
+# A redirection word: an optional fd (or `{name}`), the operator, and the
+# target when written attached to it (`>file`, `2>&1`, `&>>log`, `<<<word`).
+_REDIRECTION_RE = re.compile(
+    r"(?:\d+|\{[A-Za-z_][A-Za-z0-9_]*\})?(?:&>>?|>&|<&|>>?\|?|<>|<<<|<)(?P<target>[^<>&|].*)?", re.DOTALL
+)
 
 # `env` options (GNU coreutils and BSD): flags without a value, long options
 # whose value is optional (`--default-signal[=SIG]`), and — handled in
@@ -144,6 +155,140 @@ _ENV_LONG_OPTIONAL = frozenset({"block-signal", "default-signal", "ignore-signal
 # Wrappers unwrapped per segment before the command counts as unparsed. Each
 # step consumes input, so only a crafted line ever reaches this.
 _UNWRAP_LIMIT = 64
+# `exec [-cl] [-a NAME]` (bash / zsh builtin): `a` takes a value.
+_EXEC_FLAGS = frozenset("cl")
+# `time` (the shell keyword's `-p`, and GNU / BSD /usr/bin/time): flags without
+# a value, flags that take one, and the GNU long spellings of both.
+_TIME_FLAGS = frozenset("ahlpqv")
+_TIME_VALUE_FLAGS = frozenset({"f", "o"})
+_TIME_LONG_FLAGS = frozenset({"append", "verbose", "portability", "quiet"})
+_TIME_LONG_VALUE = frozenset({"format", "output"})
+# Shells whose `-c <string>` is split and guarded like a command line of its
+# own. One level only: a `-c` string inside a `-c` string that names a guarded
+# head is refused rather than unwrapped again.
+_SHELLS = frozenset({"bash", "sh", "zsh", "ksh", "dash"})
+_SHELL_DEPTH = 1
+# Short shell options that take a value (`-o pipefail`, bash's `-O extglob`),
+# and the long options that do (`--rcfile FILE`); other long options are flags.
+_SHELL_VALUE_FLAGS = frozenset("oO")
+_SHELL_LONG_VALUE = frozenset({"rcfile", "init-file"})
+# A guarded head anywhere in a command line, as a word: what makes a line that
+# cannot be tokenised worth refusing rather than letting through.
+_GUARDED_WORD_RE = re.compile(r"\b(?:git|gh)\b")
+# Quoting bash removes from a word before running it (`g'i't`, `"g"h`, `g\it`,
+# `g\<newline>it`, `$'g'h`).
+_QUOTING_RE = re.compile(r"\\\n|\$(?=['\"])|['\"\\]")
+# An expansion, a glob or a line continuation: on a line that cannot be
+# tokenised it may build any word (`g$()it`, `$CMD`, `/usr/bin/gi?`,
+# `g{i,}t`), so such a line is refused outright.
+_EXPANSION_RE = re.compile(r"[$`*?\[{(]|\\\n")
+# A command name the guards can trust to name itself: literal characters only,
+# with an optional leading `~/`. Anything else may be expanded by the shell
+# (`$CMD`, `/usr/bin/gi?`, zsh's `=git` and `g(i)t` globs), so the guards
+# cannot see which command it resolves to.
+_LITERAL_HEAD_RE = re.compile(r"(?:~(?=/|$))?[A-Za-z0-9_./+:@%,-]*")
+
+
+def _names_guarded(text: str) -> bool:
+    """Whether ``text`` names ``git`` / ``gh`` as a word once bash's quote
+    removal has run, so quoting inside the word does not hide it."""
+    return bool(_GUARDED_WORD_RE.search(_QUOTING_RE.sub("", text)))
+
+
+def _truthy(val: str | None) -> bool:
+    return val not in (None, "", "0", "false", "False")
+
+
+def _drop_redirections(args: list[str]) -> list[str]:
+    """Remove the redirection words at the front of ``args``, in place.
+
+    Bash takes a redirection out of a simple command wherever it stands, so a
+    wrapper's options can have one between them (`env 2>/dev/null -i git …`).
+    Each wrapper parser calls this before it reads an option, so it sees the
+    words bash passes on. Where an option is expected this is safe even for a
+    quoted word that only looks like a redirection (`env '>x' git …`, which
+    runs `>x`): dropping it makes the guards read further, never less.
+    """
+    while args and (m := _REDIRECTION_RE.fullmatch(args[0])):
+        del args[: 1 if m.group("target") else 2]
+    return args
+
+
+def _plain_value(args: list[str]) -> bool:
+    """Whether ``args`` starts with a word an option can take as its value.
+
+    Tokens carry no quoting, so a redirection-shaped word here is ambiguous:
+    `env -u 2>/dev/null NAME git …` puts a redirection before the value, while
+    `env -u '>x' git …` makes `>x` the value. Reading the wrong one shifts the
+    command by a word, so the wrapper counts as unparsed and is refused.
+    """
+    return bool(args) and not _REDIRECTION_RE.fullmatch(args[0])
+
+
+def _exec_inner(args: list[str]) -> list[str] | None:
+    """The command ``exec`` runs; None on an option bash / zsh ``exec`` lacks."""
+    args = list(args)
+    while _drop_redirections(args) and args[0].startswith("-") and args[0] != "-":
+        tok = args.pop(0)
+        if tok == "--":
+            break
+        letters = tok[1:]
+        for pos, ch in enumerate(letters):
+            if ch in _EXEC_FLAGS:
+                continue
+            if ch == "a":
+                if not letters[pos + 1 :]:
+                    if not _plain_value(args):
+                        return None
+                    args.pop(0)
+                break
+            return None
+    return args
+
+
+def _nohup_inner(args: list[str]) -> list[str] | None:
+    """The command ``nohup`` runs; ``[]`` for ``--help`` / ``--version``."""
+    args = _drop_redirections(list(args))
+    if args[:1] == ["--"]:
+        return args[1:]
+    if args[:1] in (["--help"], ["--version"]):
+        return []
+    if args and args[0].startswith("-") and args[0] != "-":
+        return None
+    return args
+
+
+def _time_inner(args: list[str]) -> list[str] | None:
+    """The command ``time`` runs; None on an option neither the shell keyword
+    nor GNU / BSD ``time`` documents."""
+    args = list(args)
+    while _drop_redirections(args) and args[0].startswith("-") and args[0] != "-":
+        tok = args.pop(0)
+        if tok == "--":
+            break
+        if tok.startswith("--"):
+            name, eq, _ = tok[2:].partition("=")
+            if name in _TIME_LONG_FLAGS:
+                continue
+            if name in _TIME_LONG_VALUE:
+                if not eq:
+                    if not _plain_value(args):
+                        return None
+                    args.pop(0)
+                continue
+            return None
+        letters = tok[1:]
+        for pos, ch in enumerate(letters):
+            if ch in _TIME_FLAGS:
+                continue
+            if ch in _TIME_VALUE_FLAGS:
+                if not letters[pos + 1 :]:
+                    if not _plain_value(args):
+                        return None
+                    args.pop(0)
+                break
+            return None
+    return args
 
 
 class Segment:
@@ -162,7 +307,21 @@ class Segment:
         self.wrapped = False
         #: True when a wrapper could not be parsed; `dispatch` refuses the line.
         self.unparsed = False
-        argv = self._unwrap(self._take_assignments(tokens))
+        #: True when the line (or a shell `-c` string in it) could not be
+        #: tokenised and names a guarded head; `dispatch` refuses the line.
+        self.untokenised = False
+        argv = self._take_assignments(tokens)
+        for _ in range(_UNWRAP_LIMIT):
+            before = argv
+            argv = self._unwrap(argv)
+            while argv and (m := _REDIRECTION_RE.fullmatch(argv[0])):
+                # a wrapper's own redirections (`exec 3>&1`, `nohup >log env git …`)
+                argv = argv[1 if m.group("target") else 2 :]
+            if argv == before or self.unparsed:
+                break
+        else:
+            # wrappers and redirections nested past the limit: never a way past the guards
+            self.unparsed = True
         #: The command head as written (`~/.claude/scripts/x.sh`, `/usr/bin/git`),
         #: for the rules that care how a command is spelled, not just its name.
         self.head = argv[0] if argv else ""
@@ -180,18 +339,29 @@ class Segment:
         self.command = command
 
     def _take_assignments(self, tokens: list[str]) -> list[str]:
-        """Strip leading ``NAME=value`` assignments into ``env``."""
+        """Strip leading ``NAME=value`` assignments into ``env``, and leading
+        redirections (``>/dev/null git …``, ``2>&1 git …``), which bash allows
+        before the command name too."""
         i = 0
-        while i < len(tokens) and _ASSIGNMENT_RE.fullmatch(tokens[i]):
-            name, _, value = tokens[i].partition("=")
-            self.env[name] = value
-            i += 1
+        while i < len(tokens):
+            if _ASSIGNMENT_RE.fullmatch(tokens[i]):
+                name, _, value = tokens[i].partition("=")
+                self.env[name] = value
+                i += 1
+            elif m := _REDIRECTION_RE.fullmatch(tokens[i]):
+                # `> file` takes the next word as its target; `>file`, `2>&1` do not
+                i += 1 if m.group("target") else 2
+            else:
+                break
         return tokens[i:]
 
     def _unwrap(self, argv: list[str]) -> list[str]:
         """Look through prefix wrappers that run their argument as the command:
         ``env [options] [NAME=value…] cmd …`` (its assignments join ``env``, so
-        an inline override still counts) and ``command [-p] cmd …``.
+        an inline override still counts), ``command [-p] cmd …``,
+        ``exec [-cl] [-a NAME] cmd …``, ``nohup cmd …`` and ``time [options] cmd …``.
+        A shell's ``-c <string>`` is not a prefix: :func:`split_segments` splits
+        the string into segments of its own.
 
         Unwrapping runs until no wrapper is left — every step consumes input, so
         it ends — and anything it cannot parse sets ``unparsed``, which
@@ -213,7 +383,7 @@ class Segment:
                 argv = inner
             elif head == "command":
                 rest = argv[1:]
-                while rest and rest[0].startswith("-") and rest[0] != "-":
+                while _drop_redirections(rest) and rest[0].startswith("-") and rest[0] != "-":
                     flag = rest.pop(0)
                     if flag == "--":
                         break
@@ -225,6 +395,19 @@ class Segment:
                         return argv
                 self.wrapped = True
                 argv = rest
+            elif head in ("exec", "nohup", "time"):
+                inner = {"exec": _exec_inner, "nohup": _nohup_inner, "time": _time_inner}[head](argv[1:])
+                if inner is None:
+                    self.unparsed = True
+                    return argv
+                if head == "time":
+                    # the shell keyword times a pipeline, which may open with
+                    # assignments: `time FOO=1 git commit …`
+                    inner = self._take_assignments(inner)
+                if not inner:
+                    return argv  # `exec` alone, `nohup --help`: nothing is run
+                self.wrapped = True
+                argv = inner
             else:
                 return argv
         return argv
@@ -233,7 +416,7 @@ class Segment:
         """The command ``env`` runs, after its options and assignments; None
         when an option is not one GNU / BSD ``env`` documents, or is ``-S``."""
         args = list(args)
-        while args:
+        while _drop_redirections(args):
             tok = args[0]
             if tok == "--":
                 args.pop(0)
@@ -246,7 +429,7 @@ class Segment:
                 if name in ("unset", "chdir"):
                     args.pop(0)
                     if not eq:
-                        if not args:
+                        if not _plain_value(args):
                             return None
                         args.pop(0)
                     continue
@@ -259,7 +442,7 @@ class Segment:
                         continue
                     if ch in "uC":
                         if not letters[pos + 1 :]:
-                            if not args:
+                            if not _plain_value(args):
                                 return None
                             args.pop(0)
                         break
@@ -269,14 +452,16 @@ class Segment:
         return self._take_assignments(args)
 
     def override(self, *names: str) -> bool:
-        """True if any of ``names`` (or the global off switch) is set truthy,
-        either as an inline env assignment on this segment or in the hook's own
-        environment."""
-        for name in (GLOBAL_OFF_ENV, *names):
-            val = self.env.get(name, os.environ.get(name))
-            if val not in (None, "", "0", "false", "False"):
-                return True
-        return False
+        """True if any of ``names`` is set truthy, either as an inline env
+        assignment on this segment or in the hook's own environment, or if the
+        global off switch is set truthy in the hook's own environment.
+
+        The global switch is never taken from the command: it turns every guard
+        off at once, so it belongs to whoever starts the agent, not to a line
+        the agent writes."""
+        if _truthy(os.environ.get(GLOBAL_OFF_ENV)):
+            return True
+        return any(_truthy(self.env.get(name, os.environ.get(name))) for name in names)
 
 
 # --------------------------------------------------------------------------- #
@@ -284,25 +469,802 @@ class Segment:
 # --------------------------------------------------------------------------- #
 
 
-def split_segments(command: str) -> list[Segment]:
-    """Tokenise ``command`` and split it into simple-command segments on shell
-    operators. Returns an empty list if the command cannot be tokenised."""
-    try:
-        tokens = shlex.split(command, comments=False)
-    except ValueError:
-        return []
-    segments: list[Segment] = []
-    current: list[str] = []
-    for tok in tokens:
-        if tok in SHELL_OPERATORS:
-            if current:
-                segments.append(Segment(current, shlex.join(current), command))
-                current = []
+# Characters that end a shell word, and after which a `#` starts a comment.
+_SHELL_META = frozenset(" \t;&|()<>")
+# Arithmetic and parameter expansion, inside which `<<` is a shift.
+_ARITHMETIC_OPENERS = ("$((", "((", "$[", "${")
+# Command substitution, which bash still runs inside the body of a heredoc
+# whose delimiter is unquoted.
+_SUBSTITUTION_RE = re.compile(r"\$\(|`")
+# One heredoc a line opens: (delimiter, strip_tabs, quoted).
+_Heredoc = tuple[str, bool, bool]
+
+
+def _heredoc_word(line: str, i: int) -> tuple[str, bool, int] | None:
+    """The heredoc delimiter starting at ``line[i]``, as bash reads it: the
+    whole word up to the next metacharacter, after quote removal. Returns
+    ``(delimiter, quoted, end)``, or None for a word this parser does not
+    reproduce (empty, unclosed, or holding an expansion)."""
+    word: list[str] = []
+    quoted = False
+    n = len(line)
+    while i < n and line[i] not in _SHELL_META:
+        ch = line[i]
+        if ch == "\\":
+            if i + 1 >= n:
+                return None
+            word.append(line[i + 1])
+            i += 2
+        elif ch in "'\"":
+            end = line.find(ch, i + 1)
+            if end < 0 or (ch == '"' and "\\" in line[i + 1 : end]):
+                return None
+            word.append(line[i + 1 : end])
+            i = end + 1
+        elif ch in "$`":
+            return None
         else:
-            current.append(tok)
-    if current:
-        segments.append(Segment(current, shlex.join(current), command))
+            word.append(ch)
+            i += 1
+            continue
+        quoted = True
+    if not word:
+        return None
+    return "".join(word), quoted, i
+
+
+def _heredocs_opened(line: str, quote: str | None) -> tuple[list[_Heredoc], str | None, str] | None:
+    """The heredocs ``line`` opens, the quote still open at its end, and
+    ``line`` without its heredoc operators.
+
+    ``quote`` is the quote open when ``line`` starts (``'``, ``"``, ``$'`` or
+    None). A ``<<`` inside quotes or a ``#`` comment opens no heredoc: bash
+    reads the lines after it as commands. None when the line has a ``<<``
+    this parser cannot place: inside arithmetic or a parameter expansion, or
+    before a delimiter it does not reproduce."""
+    found: list[_Heredoc] = []
+    rest: list[str] = []
+    i = kept = 0
+    n = len(line)
+    while i < n:
+        ch = line[i]
+        if quote == "'":
+            if ch == "'":
+                quote = None
+        elif quote in ('"', "$'"):
+            if ch == "\\":
+                i += 1
+            elif ch == quote[-1]:
+                quote = None
+        elif ch == "\\":
+            i += 1
+        elif ch in "'\"":
+            quote = ch
+        elif line.startswith("$'", i):
+            quote = "$'"
+            i += 1
+        elif ch == "#" and (i == 0 or line[i - 1] in _SHELL_META):
+            break
+        elif line.startswith(_ARITHMETIC_OPENERS, i) and "<<" in line[i:]:
+            return None
+        elif line.startswith("<<<", i):
+            i += 3
+            continue
+        elif line.startswith("<<", i):
+            start = i
+            i += 2
+            strip_tabs = line.startswith("-", i)
+            if strip_tabs:
+                i += 1
+            while i < n and line[i] in " \t":
+                i += 1
+            word = _heredoc_word(line, i)
+            if word is None:
+                return None
+            delim, quoted, i = word
+            found.append((delim, strip_tabs, quoted))
+            rest.append(line[kept:start])
+            kept = i
+            continue
+        i += 1
+    rest.append(line[kept:])
+    return found, quote, " ".join(rest)
+
+
+# Commands that only store what a heredoc feeds them. A body naming a guarded
+# head is stripped only in the narrowest shape known to be data: the
+# introducing line starts a command and is one of these, exactly, with plain
+# file arguments and redirections, and the rest of the command has nothing
+# that could run the output or redefine the sink. Anything else may run the
+# body, so the command is kept whole.
+_HEREDOC_DATA_SINKS = frozenset({"cat", "tee", "/bin/cat", "/usr/bin/cat"})
+_SINK_ARG_RE = re.compile(r"(?:>>?)?[\w./~+-]*")
+# Line endings that carry the command on to the next line.
+_CONTINUED_RE = re.compile(r"(?:\\|\||&&)\s*$")
+# In the command without its heredoc bodies: an expansion, a substitution, a
+# subshell, group or function, or an alias. Any of these rules out stripping a
+# body that names a guarded head, since the sink's output may be run or the
+# sink may not be `cat`.
+_SINK_DEFEATED_RE = re.compile(r"[$`(){}]|\balias\b")
+# The same, for a word that can run a file or redefine a command, anywhere in
+# the command after quote and backslash removal (`xargs e'v'al`, `env . s`).
+_SINK_DEFEATING_WORD_RE = re.compile(r"(?<![\w./-])(?:eval|source|hash|enable|\.)(?![\w./-])")
+_QUOTE_CHARS_RE = re.compile(r"['\"\\]")
+
+
+def _sink_defeated(stripped: str) -> bool:
+    """Whether ``stripped`` (a command without its heredoc bodies) could run a
+    sink's output or redefine the sink (see ``_SINK_DEFEATED_RE``)."""
+    if _SINK_DEFEATED_RE.search(stripped):
+        return True
+    return bool(_SINK_DEFEATING_WORD_RE.search(_QUOTE_CHARS_RE.sub("", stripped)))
+
+
+def _is_data_sink(intro: str, previous: str | None) -> bool:
+    """Whether ``intro``, without its heredoc operators, is a bare ``cat`` /
+    ``tee`` with only plain words and ``>`` / ``>>`` redirections after it,
+    starting a command rather than continuing ``previous``."""
+    if previous is not None and _CONTINUED_RE.search(previous):
+        return False
+    words = intro.split()
+    if not words or words[0] not in _HEREDOC_DATA_SINKS:
+        return False
+    return all(_SINK_ARG_RE.fullmatch(word) for word in words[1:])
+
+
+def _strip_heredoc_bodies(command: str) -> str:
+    """``command`` with each heredoc's body and closing delimiter line removed,
+    so text that is only fed to a command's stdin is not read as shell syntax.
+
+    ``command`` comes back unchanged when a heredoc is never closed, when a
+    ``<<`` cannot be placed (see :func:`_heredocs_opened`), when a line
+    outside a body ends in a backslash (bash joins it with the next, so line
+    starts and comments are no longer where this reader sees them), or when a body
+    naming ``git`` / ``gh`` may run: fed to anything but a bare ``cat`` /
+    ``tee``, holding a command substitution under an unquoted delimiter,
+    which bash expands, in a command whose other lines could run the sink's
+    output (see :func:`_sink_defeated`), or next to any heredoc that is not a
+    sink: its body is stripped too, and may redefine the sink."""
+    out: list[str] = []
+    pending: list[_Heredoc] = []
+    quote: str | None = None
+    sink = False
+    guarded = False
+    all_sinks = True
+    body: list[str] = []
+    for line in command.split("\n"):
+        if pending:
+            delim, strip_tabs, quoted = pending[0]
+            if (line.lstrip("\t") if strip_tabs else line) == delim:
+                pending.pop(0)
+                text = "\n".join(body)
+                all_sinks = all_sinks and sink
+                if _names_guarded(text):
+                    expands = not quoted and _SUBSTITUTION_RE.search(text)
+                    if expands or not sink:
+                        return command
+                    guarded = True
+                body = []
+            else:
+                body.append(line)
+            continue
+        if line.rstrip().endswith("\\"):
+            # a continued line: bash joins it with the next one, so a `#` at
+            # the start of that line may sit mid-word and a heredoc body
+            # starts after the logical line ends; this reader follows neither
+            return command
+        previous = out[-1] if out else None
+        out.append(line)
+        opened = _heredocs_opened(line, quote)
+        if opened is None:
+            return command
+        pending, quote, rest = opened
+        sink = _is_data_sink(rest, previous)
+    if pending:
+        return command
+    stripped = "\n".join(out)
+    if guarded and (not all_sinks or _sink_defeated(stripped)):
+        return command
+    return stripped
+
+
+# Reserved words bash recognises at the start of a command; the command that
+# follows one (`if git push; then …`, `{ git push; }`, `! git push`) is the one
+# that runs.
+_RESERVED_WORDS = frozenset(
+    {"!", "{", "}", "if", "then", "else", "elif", "fi", "while", "until", "do", "done"}
+    | {"case", "esac", "for", "select", "function"}
+)
+# Nesting of substitutions, subshells and groups the lexer follows; a deeper
+# command line is not tokenised (and is refused when it names a guarded head).
+_LEX_DEPTH = 32
+
+
+class _Command:
+    """One simple command as :class:`_Lexer` reads it: its words, and the
+    bodies of the heredocs it opens (data on its stdin, kept for the scans of
+    ``Segment.raw``)."""
+
+    __slots__ = ("bodies", "tokens")
+
+    def __init__(self) -> None:
+        self.tokens: list[str] = []
+        self.bodies: list[str] = []
+
+
+class _Lexer:
+    """Split a command line into simple commands the way bash reads it.
+
+    Words are read with bash's quoting (``'…'``, ``"…"``, ``$'…'``,
+    backslashes, line continuations) and ``#`` comments at the start of a
+    word. A command ends at a newline or an unquoted control operator (``;``,
+    ``&``, ``|``, ``&&``, ``||``, ``|&``, ``;;``), whether or not spaces
+    surround it; ``>&`` / ``<&`` / ``&>`` / ``>|`` stay inside the redirection
+    word. A subshell ``( … )``, a command substitution ``$( … )`` / backticks,
+    a process substitution ``<( … )`` / ``>( … )``, and the contents of
+    ``$(( … ))``, ``$[ … ]`` and ``${ … }`` are read as commands of their own,
+    since bash runs them. A heredoc's body (the lines after its operator's
+    line, up to the delimiter) is data on the command's stdin, with two
+    exceptions: substitutions in a body whose delimiter is unquoted, which
+    bash expands, and a body naming ``git`` / ``gh`` that may be run (``run_bodies``,
+    or a command that is not a bare ``cat`` / ``tee``), which is read as
+    commands too. Raises ValueError on input it cannot read like bash."""
+
+    def __init__(self, text: str, run_bodies: bool, heredocs: bool = True) -> None:
+        self.text = text
+        self.n = len(text)
+        self.run_bodies = run_bodies
+        self.heredocs = heredocs
+        self.commands: list[_Command] = []
+
+    def run(self, depth: int = 0) -> list[_Command]:
+        self.parse(0, None, depth)
+        return self.commands
+
+    def _sub(self, text: str, depth: int, heredocs: bool = True) -> None:
+        """Read ``text`` as a command line of its own, at ``depth``."""
+        self.commands.extend(_Lexer(text, self.run_bodies, heredocs).run(depth))
+
+    def parse(self, i: int, closer: str | None, depth: int) -> int:
+        """Read commands from ``text[i]`` to the end, or past the ``)`` that
+        closes a construct when ``closer`` is set; return the index after it."""
+        if depth > _LEX_DEPTH:
+            raise ValueError("nested too deeply")
+        text, n = self.text, self.n
+        cur = _Command()
+        word: list[str] | None = None
+        word_start = 0
+        # whether the last character read was an unquoted, unescaped `>` / `<`
+        redirect = False
+        pending: list[tuple[str, bool, bool, _Command]] = []
+
+        def add(piece: str) -> None:
+            nonlocal word, word_start
+            if word is None:
+                word, word_start = [], i
+            word.append(piece)
+
+        def flush() -> None:
+            nonlocal cur
+            if cur.tokens or cur.bodies:
+                self.commands.append(cur)
+                cur = _Command()
+
+        def end_word() -> None:
+            nonlocal word
+            if word is None:
+                return
+            tok, source = "".join(word), text[word_start:i]
+            word = None
+            if source == "{" and _group_opens(cur.tokens):
+                # a group in command position (`{ git push; }`, `function f {`)
+                flush()
+                return
+            if source == "}" and not cur.tokens:
+                # a group's closer, right after a control operator or newline
+                return
+            if source == "case" and closer is not None:
+                # a `case` pattern's `)` would close this construct early
+                raise ValueError("`case` inside a substitution or subshell")
+            cur.tokens.append(tok)
+
+        def end_command() -> None:
+            end_word()
+            flush()
+
+        while i < n:
+            c = text[i]
+            after_redirect, redirect = redirect, False
+            if c == ")":
+                end_command()
+                if closer == ")":
+                    if pending:
+                        raise ValueError("heredoc left open in a substitution")
+                    return i + 1
+                # a `case` pattern (`a) git push;;`): the command follows it
+                i += 1
+                continue
+            if c in " \t":
+                end_word()
+                i += 1
+                continue
+            if c == "\n":
+                end_command()
+                i += 1
+                if pending:
+                    i = self._bodies(i, pending, depth)
+                    pending = []
+                continue
+            if c == "#" and word is None:
+                nl = text.find("\n", i)
+                i = n if nl < 0 else nl
+                continue
+            if c == "\\":
+                if i + 1 >= n:
+                    raise ValueError("no escaped character")
+                if text[i + 1] != "\n":
+                    add(text[i + 1])
+                i += 2
+                continue
+            if c == "'":
+                end = text.find("'", i + 1)
+                if end < 0:
+                    raise ValueError("no closing quotation")
+                add(text[i + 1 : end])
+                i = end + 1
+                continue
+            if text.startswith("$'", i):
+                decoded, end = _ansi_c_string(text, i + 2)
+                add(decoded)
+                i = end
+                continue
+            if c == '"' or text.startswith('$"', i):
+                add("")
+                assert word is not None
+                i = self._double(i + (2 if c == "$" else 1), word, depth)
+                continue
+            if c == "$" or c == "`" or (c in "<>" and text.startswith("(", i + 1)):
+                start = i
+                end = self._expansion(i, depth)
+                if end > start:
+                    add(text[start:end])
+                    i = end
+                    continue
+            if self.heredocs and text.startswith("<<", i) and not text.startswith("<<<", i):
+                end_word()
+                j = i + 2
+                strip_tabs = text.startswith("-", j)
+                if strip_tabs:
+                    j += 1
+                while j < n and text[j] in " \t":
+                    j += 1
+                nl = text.find("\n", j)
+                found = _heredoc_word(text if nl < 0 else text[:nl], j)
+                if found is None:
+                    raise ValueError("a heredoc delimiter this parser does not read")
+                delim, quoted, i = found
+                cur.tokens.append("<<" + ("-" if strip_tabs else "") + delim)
+                pending.append((delim, strip_tabs, quoted, cur))
+                continue
+            if text.startswith("<<<", i):
+                add("<<<")
+                i += 3
+                continue
+            if c in ";&|":
+                # `>&` / `<&` / `>|` / `&>` stay inside the redirection word
+                if (c == "&" and (after_redirect or text.startswith(">", i + 1))) or (
+                    c == "|" and after_redirect and text[i - 1] == ">"
+                ):
+                    add(c)
+                    i += 1
+                    continue
+                end_command()
+                i += 1
+                continue
+            if c == "(":
+                if word is not None and not text.startswith(")", i + 1) and not "".join(word).endswith("="):
+                    # mid-word `(` (`g(i)t`): a syntax error in bash, a glob
+                    # group in zsh; `name()` and `arr=(…)` aside
+                    raise ValueError("`(` inside a word")
+                end_command()
+                i = self.parse(i + 1, ")", depth + 1)
+                continue
+            add(c)
+            redirect = c in "<>"
+            i += 1
+        end_command()
+        if closer is not None:
+            raise ValueError("unbalanced `(`")
+        if pending:
+            # bash reads a heredoc never closed as running to the end
+            self._bodies(n, pending, depth)
+        return i
+
+    def _expansion(self, i: int, depth: int) -> int:
+        """Read the substitution or expansion at ``text[i]`` (``$( … )``,
+        backticks, ``<( … )``, ``$(( … ))``, ``$[ … ]``, ``${ … }``) and
+        return the index after it, or ``i`` when there is none."""
+        text = self.text
+        if text.startswith("$((", i):
+            end = _closing(text, i + 3, "(", ")", 2)
+            self._sub(text[i + 3 : end - 2], depth + 1, heredocs=False)
+            return end
+        if text.startswith("$[", i):
+            end = _closing(text, i + 2, "[", "]", 1)
+            self._sub(text[i + 2 : end - 1], depth + 1, heredocs=False)
+            return end
+        if text.startswith("${", i):
+            end = _closing(text, i + 2, "{", "}", 1)
+            self._sub(text[i + 2 : end - 1], depth + 1, heredocs=False)
+            return end
+        if text.startswith(("$(", "<(", ">("), i):
+            return self.parse(i + 2, ")", depth + 1)
+        if text[i] == "`":
+            end = _backtick_end(text, i + 1)
+            self._sub(_unescape_backticks(text[i + 1 : end]), depth + 1)
+            return end + 1
+        return i
+
+    def _double(self, i: int, word: list[str], depth: int) -> int:
+        """Read a double-quoted string from ``text[i]`` into ``word``; return
+        the index after its closing quote."""
+        text, n = self.text, self.n
+        while i < n:
+            c = text[i]
+            if c == '"':
+                return i + 1
+            if c == "\\" and i + 1 < n:
+                nx = text[i + 1]
+                if nx != "\n":
+                    word.append(nx if nx in '$`"\\' else "\\" + nx)
+                i += 2
+                continue
+            if c in "$`":
+                start = i
+                i = self._expansion(i, depth)
+                if i > start:
+                    word.append(text[start:i])
+                    continue
+            word.append(c)
+            i += 1
+        raise ValueError("no closing quotation")
+
+    def _bodies(self, i: int, pending: list[tuple[str, bool, bool, _Command]], depth: int) -> int:
+        """Read the bodies of ``pending`` heredocs from ``text[i]``, one after
+        another; return the index after the last delimiter line."""
+        text, n = self.text, self.n
+        for delim, strip_tabs, quoted, target in pending:
+            lines: list[str] = []
+            while i < n:
+                nl = text.find("\n", i)
+                line = text[i:] if nl < 0 else text[i:nl]
+                i = n if nl < 0 else nl + 1
+                if (line.lstrip("\t") if strip_tabs else line) == delim:
+                    break
+                lines.append(line)
+            body = "\n".join(lines)
+            target.bodies.append(body)
+            if not quoted:
+                self._body_substitutions(body, depth)
+            if _names_guarded(body) and (self.run_bodies or not _is_sink_command(target)):
+                self._sub(body, depth + 1)
+        return i
+
+    def _body_substitutions(self, body: str, depth: int) -> None:
+        """Read the substitutions bash expands in a heredoc body whose
+        delimiter is unquoted; quotes there are plain text."""
+        lexer = _Lexer(body, self.run_bodies)
+        i = 0
+        while i < len(body):
+            if body[i] == "\\":
+                i += 2
+                continue
+            if body[i] in "$`":
+                end = lexer._expansion(i, depth + 1)
+                if end > i:
+                    i = end
+                    continue
+            i += 1
+        self.commands.extend(lexer.commands)
+
+
+# bash's `$'…'` escapes that stand for one fixed character.
+_ANSI_C_SIMPLE = {
+    "a": "\a",
+    "b": "\b",
+    "e": "\x1b",
+    "E": "\x1b",
+    "f": "\f",
+    "n": "\n",
+    "r": "\r",
+    "t": "\t",
+    "v": "\v",
+    "\\": "\\",
+    "'": "'",
+    '"': '"',
+    "?": "?",
+}
+# `\nnn` (octal), `\xHH`, `\uHHHH` and `\UHHHHHHHH`: digits the escape takes.
+_ANSI_C_NUMERIC = {
+    "x": (re.compile(r"[0-9A-Fa-f]{1,2}"), 16),
+    "u": (re.compile(r"[0-9A-Fa-f]{1,4}"), 16),
+    "U": (re.compile(r"[0-9A-Fa-f]{1,8}"), 16),
+}
+_ANSI_C_OCTAL = re.compile(r"[0-7]{1,3}")
+
+
+def _group_opens(tokens: list[str]) -> bool:
+    """Whether a ``{`` read after ``tokens`` opens a group: in command position
+    (only reserved words before it), or as a function's body after
+    ``function name`` (``name()`` already ended its command at the ``(``).
+    ``time`` (with ``-p`` / ``--``) and ``coproc`` (with an optional name) keep
+    command position, as in ``time -p { git push; }`` and ``coproc c { … }``."""
+    i, n = 0, len(tokens)
+    while i < n:
+        tok = tokens[i]
+        if tok == "function":
+            return i == n - 2
+        if tok == "time":
+            i += 1
+            while i < n and tokens[i] in ("-p", "--"):
+                i += 1
+        elif tok == "coproc":
+            # `coproc NAME { … }`: the name is the only word before the group
+            return n - (i + 1) <= 1
+        elif tok in _RESERVED_WORDS:
+            i += 1
+        else:
+            return False
+    return True
+
+
+def _ansi_c_string(text: str, i: int) -> tuple[str, int]:
+    """Decode the ``$'…'`` string whose text starts at ``text[i]`` as bash
+    does; return it and the index after its closing quote. Raises ValueError
+    on ``\\c`` (a control character, which also ends the string's value in
+    some bash versions), on an escape decoding to NUL (bash truncates the word
+    there) and on an unclosed string."""
+    out: list[str] = []
+    n = len(text)
+    while i < n:
+        c = text[i]
+        if c == "'":
+            decoded = "".join(out)
+            if "\x00" in decoded:
+                raise ValueError("a NUL in a $'…' string")
+            return decoded, i + 1
+        if c != "\\":
+            out.append(c)
+            i += 1
+            continue
+        if i + 1 >= n:
+            break
+        esc = text[i + 1]
+        if esc in _ANSI_C_SIMPLE:
+            out.append(_ANSI_C_SIMPLE[esc])
+            i += 2
+        elif esc in _ANSI_C_NUMERIC:
+            pattern, base = _ANSI_C_NUMERIC[esc]
+            m = pattern.match(text, i + 2)
+            if m is None:
+                out.append("\\" + esc)
+                i += 2
+            else:
+                out.append(chr(int(m.group(), base)))
+                i = m.end()
+        elif m := _ANSI_C_OCTAL.match(text, i + 1):
+            out.append(chr(int(m.group(), 8) & 0xFF))
+            i = m.end()
+        elif esc == "c":
+            raise ValueError("`\\c` in a $'…' string")
+        else:
+            out.append("\\" + esc)
+            i += 2
+    raise ValueError("no closing quotation")
+
+
+def _closing(text: str, i: int, opener: str, closer: str, open_count: int) -> int:
+    """The index after the ``closer`` that balances ``open_count`` openers
+    before ``text[i]``, skipping quoted text and escaped characters."""
+    count, n = open_count, len(text)
+    while i < n:
+        c = text[i]
+        if c == "\\":
+            i += 2
+            continue
+        if c == "'" and opener == "{":
+            end = text.find("'", i + 1)
+            if end < 0:
+                raise ValueError("no closing quotation")
+            i = end + 1
+            continue
+        if c == opener:
+            count += 1
+        elif c == closer:
+            count -= 1
+            if count == 0:
+                return i + 1
+        i += 1
+    raise ValueError(f"unbalanced `{opener}`")
+
+
+def _backtick_end(text: str, i: int) -> int:
+    """The index of the backtick closing one opened before ``text[i]``."""
+    while i < len(text):
+        if text[i] == "\\":
+            i += 2
+            continue
+        if text[i] == "`":
+            return i
+        i += 1
+    raise ValueError("no closing backtick")
+
+
+def _unescape_backticks(text: str) -> str:
+    """A backtick substitution's command as bash runs it: ``\\```, ``\\\\``
+    and ``\\$`` lose their backslash."""
+    return re.sub(r"\\([`\\$])", r"\1", text)
+
+
+def _is_sink_command(cmd: _Command) -> bool:
+    """Whether ``cmd`` is a bare ``cat`` / ``tee``, the only commands whose
+    heredoc body is read as data when it names a guarded head."""
+    words = [tok for tok in cmd.tokens if tok not in _RESERVED_WORDS]
+    return bool(words) and words[0] in _HEREDOC_DATA_SINKS
+
+
+def split_segments(command: str, _depth: int = 0, _bodies_stripped: bool = False) -> list[Segment]:
+    """Split ``command`` into simple-command segments, as bash separates them
+    (see :class:`_Lexer`): on newlines and control operators, spaced or not,
+    and into subshells, groups and substitutions. A leading reserved word
+    (``if``, ``then``, ``{``, ``!`` …) is dropped from its segment. A shell
+    ``-c <string>`` segment is followed by the segments of its string (see
+    :func:`_shell_segments`).
+
+    A command that cannot be tokenised yields no segments, unless it names a
+    guarded head (``git`` / ``gh`` as a word, after quote removal) or holds an
+    expansion or line continuation that could build one: then it yields one segment
+    marked ``untokenised``, which ``dispatch`` refuses, since the guards cannot
+    see what such a line runs."""
+    try:
+        # A heredoc body naming a guarded head is data only where
+        # `_strip_heredoc_bodies` would strip it; elsewhere it may run.
+        run_bodies = _strip_heredoc_bodies(command) == command
+        commands = _Lexer(command, run_bodies).run()
+    except (ValueError, RecursionError):
+        without_bodies = command if _bodies_stripped else _strip_heredoc_bodies(command)
+        if without_bodies != command:
+            # a heredoc body is data, and its apostrophes are not quoting
+            return split_segments(without_bodies, _depth, _bodies_stripped=True)
+        if not _names_guarded(command) and not _EXPANSION_RE.search(command):
+            return []
+        seg = Segment([], command, command)
+        seg.untokenised = True
+        return [seg]
+    segments: list[Segment] = []
+    for cmd in commands:
+        start = 0
+        while start < len(cmd.tokens) and cmd.tokens[start] in _RESERVED_WORDS:
+            start += 1
+        tokens = cmd.tokens[start:]
+        if not tokens:
+            continue
+        raw = shlex.join(tokens)
+        if cmd.bodies:
+            raw += "\n" + "\n".join(cmd.bodies)
+        segments.extend(_shell_segments(Segment(tokens, raw, command), _depth))
     return segments
+
+
+# Words `eval` may sit behind: `builtin command -- eval …`, `command -p eval …`.
+_EVAL_PREFIXES = frozenset({"builtin", "command", "--", "-p"})
+
+
+def _eval_call(argv: list[str]) -> tuple[list[str] | None, bool]:
+    """The arguments of an ``eval`` behind any chain of ``builtin`` /
+    ``command`` / ``--`` / ``-p``, after one leading ``--``, and whether the
+    call is one the guards do not parse: an ``eval`` with an option, or an
+    option in the prefix chain. ``(None, False)`` when ``argv`` is no ``eval``.
+    """
+    i = 0
+    while i < len(argv) and argv[i] in _EVAL_PREFIXES:
+        i += 1
+    if i < len(argv) and argv[i] != "eval":
+        # an unknown option behind `builtin` / `command`, in front of an eval
+        if i and argv[i].startswith("-") and "eval" in argv[i:]:
+            return None, True
+        return None, False
+    if i == len(argv):
+        return None, False
+    args = argv[i + 1 :]
+    if args[:1] == ["--"]:
+        args = args[1:]
+    elif args and args[0].startswith("-") and args[0] != "-":
+        return args, True
+    return args, False
+
+
+def _eval_args(argv: list[str]) -> list[str] | None:
+    """The arguments of ``eval`` (see :func:`_eval_call`), or None."""
+    return _eval_call(argv)[0]
+
+
+def _eval_has_option(argv: list[str]) -> bool:
+    """Whether ``argv`` is an ``eval`` the guards do not parse: bash rejects
+    an option there, and the guards do not guess at it."""
+    return _eval_call(argv)[1]
+
+
+def _shell_script(argv: list[str]) -> str | None:
+    """The ``<string>`` of ``bash|sh|zsh [options] -c <string> …``, or of
+    ``eval <args>…`` (its arguments joined by spaces, as bash joins them), or
+    None when ``argv`` is not such a call (a script, an interactive shell)."""
+    args = _eval_args(argv)
+    if args is not None:
+        return " ".join(args) or None
+    if not argv or argv[0] not in _SHELLS:
+        return None
+    args = argv[1:]
+    run_string = False
+    while args:
+        tok = args[0]
+        if tok == "--":
+            args = args[1:]
+            break
+        if tok.startswith("--"):
+            args = args[1:]
+            if tok[2:] in _SHELL_LONG_VALUE and args:
+                args = args[1:]
+            continue
+        if tok[:1] in ("-", "+") and len(tok) > 1:
+            args = args[1:]
+            letters = tok[1:]
+            if argv[0] == "zsh":
+                # zsh reads the rest of the cluster as the option's value
+                # (`-oSH_WORD_SPLIT`); a bare `-o` takes the next argument
+                for pos, ch in enumerate(letters):
+                    if ch == "c":
+                        run_string = True
+                    elif ch in _SHELL_VALUE_FLAGS:
+                        if pos == len(letters) - 1 and args:
+                            args = args[1:]
+                        break
+            else:
+                # bash / sh read every letter as a flag, and each value flag
+                # takes the next argument in turn (`-oc pipefail '<script>'`)
+                run_string = run_string or "c" in letters
+                values = sum(ch in _SHELL_VALUE_FLAGS for ch in letters)
+                args = args[values:]
+            continue
+        break
+    if not run_string or not args:
+        return None
+    return args[0]
+
+
+def _shell_segments(seg: Segment, depth: int) -> list[Segment]:
+    """``seg``, followed by the segments of its shell ``-c`` string if it has one.
+
+    The string's segments inherit ``seg``'s inline assignments (the shell
+    exports them to what it runs) and count as wrapped. Past ``_SHELL_DEPTH``
+    a ``-c`` string that names a guarded head marks ``seg`` unparsed instead,
+    as does an ``eval`` with an option.
+    """
+    if _eval_has_option(seg.argv):
+        seg.unparsed = True
+        return [seg]
+    script = _shell_script(seg.argv)
+    if script is None:
+        return [seg]
+    if depth >= _SHELL_DEPTH:
+        if _names_guarded(script):
+            seg.unparsed = True
+        return [seg]
+    inner = split_segments(script, depth + 1)
+    for sub in inner:
+        sub.env = {**seg.env, **sub.env}
+        sub.wrapped = True
+    return [seg, *inner]
 
 
 def strip_code(text: str) -> str:
@@ -506,8 +1468,19 @@ def gh_body_text(argv: list[str], *, include_title: bool, read_files: bool) -> s
     return "\n".join(parts)
 
 
+# Repository config git would otherwise act on by running a program: the opened
+# tree's `.git/config` may be crafted (a tarball, or an svn checkout carrying a
+# `.git/`), and the hook runs before every command.
+_GIT_SAFE_CONFIG = ("-c", "core.fsmonitor=false", "-c", f"core.hooksPath={os.devnull}")
+
+
 def _run(args: list[str], cwd: str | None = None) -> str | None:
-    """Run a subprocess, returning stripped stdout, or None on any failure."""
+    """Run a subprocess, returning stripped stdout, or None on any failure.
+
+    A `git` command runs with `_GIT_SAFE_CONFIG`, so no program named in the
+    repository's own config runs."""
+    if args[:1] == ["git"]:
+        args = ["git", *_GIT_SAFE_CONFIG, *args[1:]]
     try:
         result = subprocess.run(
             args,
@@ -817,14 +1790,55 @@ def main_worktree(root: Path) -> Path | None:
     return main if (main / ".git").is_dir() else None
 
 
-def personal_dir(root: Path) -> Path | None:
+def svn_admin_dir(root: Path) -> Path | None:
+    """`<root>/.svn` when `root` is the root of a Subversion working copy, else `None`.
+
+    Subversion keeps one `.svn`, holding a `wc.db`, at the root of a working
+    copy.  Only `root`'s own is accepted, as with `.git`: following one in an
+    ancestor would let any directory above the project redirect where its
+    configuration is read and written.  Reads files only, never spawns `svn`.
+    """
+    admin = _absolute(root) / ".svn"
+    return admin if (admin / "wc.db").is_file() else None
+
+
+def unadopted_home(root: Path) -> Path:
+    """Where an unadopted project keeps personal configuration; never created here.
+
+    `<git-common-dir>/apache-magpie` in a git repository, else
+    `<.svn>/apache-magpie` in a Subversion working copy: both inside the
+    VCS's own directory, so never committed.  With no VCS at all there is
+    nothing to commit it to, so it is the in-tree `<root>/.apache-magpie-local`.
+
+    A VCS directory is trusted as the home only when it is this user's and
+    the only one at the root.  With both a `.git` and a Subversion working
+    copy there, one may be versioned content of the other's checkout
+    (Subversion versions a `.git/`, git a `.svn/`), so a crafted tree could
+    supply configuration where nobody looks; and a directory another user
+    owns is one git itself would not trust (`safe.directory`).  Either way
+    the home is the in-tree `<root>/.apache-magpie-local`, in plain sight.
+    """
+    common = git_common_dir(root)
+    svn = svn_admin_dir(root)
+    admin = common if svn is None else svn if common is None else None
+    if admin is None:
+        return root / LOCAL_DIR
+    getuid = getattr(os, "getuid", None)
+    try:
+        if getuid is not None and os.stat(admin).st_uid != getuid():
+            return root / LOCAL_DIR
+    except OSError:
+        return root / LOCAL_DIR
+    return admin / GIT_HOME_NAME
+
+
+def personal_dir(root: Path) -> Path:
     """Where this user's configuration for `root` is written; never created here.
 
     Adopted → `<root>/.apache-magpie-local`, except in a linked worktree
     that has none while its main checkout has one: then the main
     checkout's, so a worktree writes where it already reads.  Not adopted →
-    `<git-common-dir>/apache-magpie`.  May not exist yet.  `None` means
-    there is nowhere to keep it: not adopted and not a git repository.
+    `unadopted_home`.  May not exist yet.
     """
     if adopted(root):
         own = root / LOCAL_DIR
@@ -832,8 +1846,7 @@ def personal_dir(root: Path) -> Path | None:
         if own.is_dir() or main is None or not (main / LOCAL_DIR).is_dir():
             return own
         return main / LOCAL_DIR
-    common = git_common_dir(root)
-    return common / GIT_HOME_NAME if common is not None else None
+    return unadopted_home(root)
 
 
 def personal_layers(root: Path) -> list[Path]:
@@ -842,9 +1855,9 @@ def personal_layers(root: Path) -> list[Path]:
     Adopted → `<root>/.apache-magpie-local`, then, in a linked worktree,
     the main checkout's when it exists: `.apache-magpie-local/` is
     gitignored, so a new worktree has none, and a file missing from its own
-    is found in the main checkout's.  Not adopted →
-    `<git-common-dir>/apache-magpie` (already shared by every worktree),
-    then a legacy in-tree `.apache-magpie-local/`.
+    is found in the main checkout's.  Not adopted → `unadopted_home`
+    (in git, already shared by every worktree), then a legacy in-tree
+    `.apache-magpie-local/`.
     """
     if adopted(root):
         found = [root / LOCAL_DIR]
@@ -852,8 +1865,7 @@ def personal_layers(root: Path) -> list[Path]:
         if main is not None and (main / LOCAL_DIR).is_dir():
             found.append(main / LOCAL_DIR)
         return found
-    common = git_common_dir(root)
-    found = [] if common is None else [common / GIT_HOME_NAME]
+    found = [unadopted_home(root)]
     legacy = root / LOCAL_DIR
     if legacy.is_dir() and legacy not in found:
         found.append(legacy)
@@ -1728,21 +2740,45 @@ def dispatch(command: str, cwd: str | None = None, harness: str | None = None) -
         return None
     contributed: list[tuple[Callable[[GuardContext], str | None], set[str] | None]] | None = None
     for seg in split_segments(command):
+        if seg.untokenised and not seg.override():
+            return (
+                "agent-guard[parse]: this command names `git` / `gh`, or holds an expansion that "
+                "could build either, but its quoting cannot be parsed (an unbalanced quote or a "
+                "trailing backslash), so the guards cannot see what it runs. Simplify the quoting: "
+                "put a long or multi-line message in a file and pass it with `-F <file>` / "
+                "`--body-file <file>`."
+            )
         if seg.unparsed and not seg.override():
             return (
-                "agent-guard[wrapper]: this command runs behind an `env` / `command` wrapper the "
-                "guards cannot parse, so they cannot see what it runs. Run the command without "
-                "the wrapper (inline `NAME=value` assignments work on their own)."
+                "agent-guard[wrapper]: this command runs behind a wrapper the guards cannot parse "
+                "(`env`, `command`, `exec`, `nohup`, `time`, or a shell `-c` string inside another), "
+                "so they cannot see what it runs. Run the command without the wrapper "
+                "(inline `NAME=value` assignments work on their own)."
+            )
+        if seg.argv and seg.argv[0] in EXCLUDED_SCRIPTS:
+            # Its spelling rule accepts only the literal stable path, so an
+            # expanded head is refused there, with the spelling to use.
+            reason = guard_excluded_script_spelling(seg)
+            if reason:
+                return reason
+            continue
+        # Before the `uv` rule, which is keyed on the basename: `${CMD}/uv` has
+        # the basename `uv`, yet the shell splits `$CMD` into words and may run `git`.
+        if (
+            seg.head
+            and not _LITERAL_HEAD_RE.fullmatch(seg.head)
+            and seg.head not in ("[", "[[")
+            and not seg.override()
+        ):
+            return (
+                "agent-guard[expansion]: this command's name is built by an expansion or a glob "
+                f"(`{seg.head}`), so the guards cannot see which command runs. "
+                "Spell the command name out."
             )
         if seg.argv and seg.argv[0] in ("uv", "uvx"):
             # Checked here rather than as a guarded head: a vetted launch is the
             # only `uv` rule, and contributed guards stay on `gh` / `git`.
             reason = guard_vetted_ops_spelling(seg, cwd, harness)
-            if reason:
-                return reason
-            continue
-        if seg.argv and seg.argv[0] in EXCLUDED_SCRIPTS:
-            reason = guard_excluded_script_spelling(seg)
             if reason:
                 return reason
             continue
@@ -1909,31 +2945,46 @@ def kiro_main() -> int:
     return ALLOW_EXIT
 
 
-def gemini_main() -> int:
-    """Translate Gemini CLI's ``BeforeTool`` event to the shared guard core.
+def antigravity_main() -> int:
+    """Translate Antigravity's ``PreToolUse`` hook event to the shared guard core.
 
-    Exit 2 blocks the tool call and Gemini returns stderr as the reason.
-    Allow and malformed events are silent, matching the other adapters'
-    fail-open contract. This hook inspects shell calls only; it does not
-    replace native file/MCP permissions or the OS sandbox.
+    Antigravity pipes ``{"toolCall": {"name": "run_command", "args":
+    {"CommandLine": "...", "Cwd": "..."}}, "workspacePaths": [...], ...}`` on
+    stdin and reads a JSON decision from stdout. A deny is
+    ``{"decision": "deny", "reason": ...}``, which blocks the call and returns
+    the reason to the model. Everything else prints ``{"decision": "allow"}``,
+    which defers to the user's permission rules rather than approving the call.
+    Malformed and non-shell events allow, matching the other adapters'
+    fail-open contract.
+
+    The hook runs with its ``hooks.json`` directory as the working directory,
+    so Git checks use the command's ``Cwd`` when present, else the first
+    workspace root.
     """
+    allow = json.dumps({"decision": "allow"})
     try:
         event = json.load(sys.stdin)
     except (json.JSONDecodeError, ValueError):
+        sys.stdout.write(allow + "\n")
         return ALLOW_EXIT
-    if not isinstance(event, dict) or event.get("tool_name") != "run_shell_command":
+    tool_call = event.get("toolCall") if isinstance(event, dict) else None
+    if not isinstance(tool_call, dict) or tool_call.get("name") != "run_command":
+        sys.stdout.write(allow + "\n")
         return ALLOW_EXIT
-    tool_input = event.get("tool_input")
-    if not isinstance(tool_input, dict):
+    args = tool_call.get("args")
+    command = args.get("CommandLine") if isinstance(args, dict) else None
+    if not isinstance(args, dict) or not isinstance(command, str):
+        sys.stdout.write(allow + "\n")
         return ALLOW_EXIT
-    command = tool_input.get("command")
-    if not isinstance(command, str):
-        return ALLOW_EXIT
-    cwd = event.get("cwd")
-    reason = dispatch(command, cwd if isinstance(cwd, str) else None)
+    cwd = args.get("Cwd")
+    if not isinstance(cwd, str) or not cwd:
+        roots = event.get("workspacePaths")
+        cwd = roots[0] if isinstance(roots, list) and roots and isinstance(roots[0], str) else None
+    reason = dispatch(command, cwd)
     if reason:
-        sys.stderr.write(reason + "\n")
-        return DENY_EXIT
+        sys.stdout.write(json.dumps({"decision": "deny", "reason": reason}) + "\n")
+        return ALLOW_EXIT
+    sys.stdout.write(allow + "\n")
     return ALLOW_EXIT
 
 
@@ -2248,8 +3299,11 @@ def cli(argv: list[str] | None = None) -> int:
     Claude Code's snake_case ``tool_name`` / ``tool_input`` routes to
     :func:`_claude_event`.
     ``--opencode`` → the OpenCode adapter (:func:`opencode_main`).
+    ``--pi`` / ``--goose`` → the Pi extension and the Goose hook, which use
+    the same ``{"command", "cwd"}``
+    transport (:func:`opencode_main`).
     ``--kiro`` → the Kiro CLI adapter (:func:`kiro_main`).
-    ``--gemini`` → the Gemini CLI adapter (:func:`gemini_main`).
+    ``--antigravity`` → the Antigravity adapter (:func:`antigravity_main`).
     ``--copilot`` → the Copilot CLI adapter (:func:`copilot_main`).
     ``--codex`` → the Codex native hook adapter (:func:`codex_main`).
     ``--grok`` → the Grok Build adapter (:func:`grok_main`).
@@ -2264,12 +3318,12 @@ def cli(argv: list[str] | None = None) -> int:
     args = sys.argv[1:] if argv is None else argv
     if args and args[0] == "--codex":
         return codex_main()
-    if args and args[0] == "--opencode":
+    if args and args[0] in ("--opencode", "--pi", "--goose"):
         return opencode_main()
     if args and args[0] == "--kiro":
         return kiro_main()
-    if args and args[0] == "--gemini":
-        return gemini_main()
+    if args and args[0] == "--antigravity":
+        return antigravity_main()
     if args and args[0] == "--copilot":
         return copilot_main()
     if args and args[0] == "--grok":

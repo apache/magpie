@@ -19,7 +19,7 @@ capability:
   - capability:platform
 surface_hash: sha256:49a65c36a0dc49ab
 license: Apache-2.0
-measured_tokens: 2220
+measured_tokens: 2221
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -95,7 +95,7 @@ Ask the user nothing you can determine. Establish what is
 actually in the stack:
 
 - **The agent itself** — which harness is running this skill
-  (Claude Code, Codex, Gemini CLI, …). Always in the stack.
+  (Claude Code, Codex, Antigravity, …). Always in the stack.
 - **Local inference** — is an Ollama, llama.cpp or vLLM endpoint
   reachable and configured for this project? Check the adapter
   configuration and the environment, not a guess.

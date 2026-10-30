@@ -8,11 +8,19 @@ Checks that every plugin is properly defined:
 
 - every ecosystem manifest that declares the framework version
   (`.claude-plugin/plugin.json`, the Agent Plugins 1.0 `plugin.json`,
-  `.codex-plugin/plugin.json`, `gemini-extension.json`, `apm.yml`) mirrors
+  `.codex-plugin/plugin.json`, `apm.yml`) mirrors
   `pyproject.toml`'s `project.version` verbatim — including a `.devN` suffix;
 - `magpie-setup`'s manifest wires the `hooks/check-upgrade.sh` SessionStart
   hook (which must exist) -- it rides on the one plugin the recommended floor
-  always installs;
+  always installs. For Codex, `plugins/magpie-setup/.codex-plugin/plugin.json`
+  (a complete manifest with the same shared metadata) names
+  `hooks/codex-hooks.json`, which wires the same script in the
+  `{description, hooks}` shape Codex parses; the root `.codex-plugin/plugin.json`
+  wires no hook, since nothing installs the repo root as a Codex plugin;
+- every hook definition a plugin in the Codex catalogue exposes (its manifest's
+  `hooks` entry, else `hooks/hooks.json`) has no top-level key but
+  `description` and `hooks` -- Codex rejects the whole file otherwise, so a
+  Claude Code mod's `$schema` / `modules` there silently drops its hooks;
 - the root `plugin.json` conforms to Agent Plugins 1.0 — the pinned `$schema`,
   the name pattern, the closed ten-field set (so a Claude-only component path
   never leaks in), and the same shared metadata as the Claude manifest;
@@ -47,6 +55,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -70,12 +79,60 @@ SETUP_HOOKS = {
             "hooks": [
                 {
                     "type": "command",
-                    "command": "${CLAUDE_PLUGIN_ROOT}/hooks/check-upgrade.sh",
+                    "command": '/bin/bash -p "${CLAUDE_PLUGIN_ROOT}/hooks/check-upgrade.sh"',
                     "timeout": 10,
                 }
             ],
         }
     ]
+}
+# The root plugin's Codex manifest. Nothing installs the repo root as a Codex
+# plugin (the Codex catalogue lists the family and substrate plugins only), so
+# it declares no `hooks`: the upgrade check is wired on magpie-setup, below.
+ROOT_CODEX_MANIFEST = Path(".codex-plugin/plugin.json")
+# Codex loads a plugin's hooks from its manifest's `hooks` entry when there is
+# one, else from `hooks/hooks.json`, and parses either as a strict
+# `{description, hooks}` object: any other top-level key rejects the file, so
+# Codex reports a load warning and runs none of its hooks. A family plugin's
+# `hooks/hooks.json` belongs to Claude Code and carries `$schema` and `modules`
+# for its mods, so such a plugin gets its own `.codex-plugin/plugin.json` --
+# which Codex reads in preference to `.claude-plugin/plugin.json`, as the whole
+# manifest rather than an overlay -- pointing at a Codex-clean hook file.
+# Claude Code reads neither file and keeps using `hooks/hooks.json` alone.
+CODEX_HOOK_KEYS = frozenset({"description", "hooks"})
+CODEX_HOOKS_FILE = Path("hooks/codex-hooks.json")  # relative to the plugin root
+# The exact content of each such plugin's Codex hook file. magpie-setup carries
+# the upgrade check, wired as for Claude Code (`startup` only, the fixed
+# `/bin/bash -p`); Codex's `PLUGIN_ROOT` is the plugin's own root, where the
+# script finds its manifests and `skills/setup`. magpie-utilities has no Codex
+# hook: its file exists so Codex does not fall back to the Claude-only
+# `hooks/hooks.json` and warn about it on every start.
+CODEX_FAMILY_HOOKS = {
+    "magpie-setup": {
+        "description": "Apache Magpie — the upgrade check, for Codex. Claude Code reads hooks.json.",
+        "hooks": {
+            "SessionStart": [
+                {
+                    "matcher": "startup",
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": '/bin/bash -p "${PLUGIN_ROOT}/hooks/check-upgrade.sh"',
+                            "timeout": 10,
+                        }
+                    ],
+                }
+            ]
+        },
+    },
+    "magpie-security": {
+        "description": "Apache Magpie — no Codex hooks. hooks.json holds Claude Code mods only.",
+        "hooks": {},
+    },
+    "magpie-utilities": {
+        "description": "Apache Magpie — no Codex hooks. hooks.json holds Claude Code mods only.",
+        "hooks": {},
+    },
 }
 # Every skill's pre-flight runs `setup_preflight`, and `setup config` installs it
 # from the plugin on a marketplace install, so the package has to be inside
@@ -101,8 +158,8 @@ ALIAS_OVERRIDES = {
     "setup": "setup",
     # "to-committer" does not read as the name of anything.
     "contributor-to-committer": "contributor-to-committer",
-    # The alias is also the skill's frontmatter `name:`, and Gemini CLI keeps
-    # skill names in one flat registry, so aliases must be unique across every
+    # The alias is also the skill's frontmatter `name:`, and Antigravity turns
+    # every skill into a slash command in one flat namespace, so aliases must be unique across every
     # family, not just within one. `magpie-issue` keeps `triage` / `stale-sweep`.
     "pr-management-triage": "pr-triage",
     "pr-stale-sweep": "pr-stale-sweep",
@@ -147,7 +204,7 @@ AP1_AUTHOR_FIELDS = frozenset({"name", "email", "url"})
 # Reversing the direction fixed it without vendoring anything (PRINCIPLES §13):
 # the flat `skills/<name>` tree is now the mirror, pointing inward.
 # The all-in-one plugin is gone; installing everything was never the advice.
-CODEX_SUBSTRATES = frozenset({"magpie-agent-guard", "magpie-vetted-ops"})
+CODEX_SUBSTRATES = frozenset({"magpie-agent-guard", "magpie-vetted-ops", "magpie-security-tools"})
 CODEX_CATALOG = Path(".agents/plugins/marketplace.json")  # Codex CLI repo marketplace
 CLIENT_CATALOGS = (
     CODEX_CATALOG,
@@ -191,8 +248,7 @@ PYPROJECT = Path("pyproject.toml")
 ECOSYSTEM_MANIFESTS = (
     ROOT_MANIFEST,
     AP1_MANIFEST,
-    Path(".codex-plugin/plugin.json"),
-    Path("gemini-extension.json"),
+    ROOT_CODEX_MANIFEST,
     Path("apm.yml"),
 )
 APM_VERSION_RE = re.compile(r"^(version:[ \t]*)(\S+)[ \t]*$", re.M)
@@ -247,6 +303,64 @@ VETTED_OPS_LINK_HOOK = "tools/vetted-ops/hooks/link-stable-path.sh"
 # installed plugin tree, where the agent calling it cannot rewrite it.
 ADVERSARIAL_REVIEW_ENTRY = "tools/adversarial-review/src/adversarial_review/cli.py"
 ADVERSARIAL_REVIEW_LINK_HOOK = "tools/adversarial-review/hooks/link-stable-path.sh"
+# The tools the security skills run as `<framework>/tools/<tool>`. A marketplace
+# install has no framework checkout, so this plugin carries copies and its hook
+# materialises them, per version, under `~/.cache/apache-magpie/framework/` with
+# `current` pointing at the live one: a writable tree, so the skills' usual
+# `uv run --project <framework>/tools/<tool>` works there.
+SECURITY_TOOLS_LINK_HOOK = "tools/security-management/hooks/link-framework-path.sh"
+SECURITY_TOOLS = {
+    # tool directory: its package under src/
+    "tools/security-management": "security_management",
+    "tools/github-body-field": "github_body_field",
+    "tools/github-rollup": "github_rollup",
+    "tools/vcs": "magpie_vcs",
+    "tools/cve-tool-vulnogram/generate-cve-json": "generate_cve_json",
+    "tools/cve-tool-vulnogram/oauth-api": "vulnogram_api",
+    "tools/privacy-llm/checker": "checker",
+    "tools/asf-security-dash": "magpie_asf_security_dash",
+    "tools/gmail/oauth-draft": "oauth_draft",
+    # The tracker backends `setup config` and the Subversion fix flow call through
+    # `<framework>`; magpie-vetted-ops carries its own copies beside the dispatcher.
+    "tools/local-tracker": "magpie_local_tracker",
+    "tools/jira": "jira_bridge",
+}
+SECURITY_STATS_DASHBOARD_FILES = (
+    "run.sh",
+    "fetch_bodies.py",
+    "fetch_events.py",
+    "fetch_issues.py",
+    "fetch_prs.py",
+    "fetch_roster.py",
+    "gh_retry.py",
+    "render.py",
+    "default-config.yaml",
+    "src/security_tracker_stats_dashboard",
+    "pyproject.toml",
+    "README.md",
+)
+
+
+def _security_tool_copies() -> dict[str, str]:
+    copies = {SECURITY_TOOLS_LINK_HOOK: SECURITY_TOOLS_LINK_HOOK}
+    for tool, package in SECURITY_TOOLS.items():
+        for part in (f"src/{package}", "pyproject.toml", "README.md"):
+            copies[f"{tool}/{part}"] = f"{tool}/{part}"
+    # The forwarder registry `issue-import-via-forwarder` reads, the shipping
+    # adapter's doc its README row names, and the scan-format contract
+    # `issue-import-from-scan` reads (adapters, email-delivered scans).
+    for path in (
+        "tools/forwarder-relay/README.md",
+        "tools/gmail/asf-relay.md",
+        "tools/scan-format/README.md",
+    ):
+        copies[path] = path
+    for name in SECURITY_STATS_DASHBOARD_FILES:
+        path = f"tools/security-tracker-stats-dashboard/{name}"
+        copies[path] = path
+    return copies
+
+
 SUBSTRATE_PLUGINS: dict[str, dict] = {
     "magpie-agent-guard": {
         "description": (
@@ -326,11 +440,40 @@ SUBSTRATE_PLUGINS: dict[str, dict] = {
             },
         },
     },
+    "magpie-security-tools": {
+        "description": (
+            "Apache Magpie \u2014 the tools the security skills run (tracker field and rollup "
+            "edits, CVE JSON, the privacy gate, the scan importer), shipped so a marketplace "
+            "install needs no framework checkout."
+        ),
+        "links": {},
+        "copies": _security_tool_copies(),
+        "must_resolve": (
+            "tools/security-management/src/security_management/cli.py",
+            SECURITY_TOOLS_LINK_HOOK,
+        ),
+        "hook_config": {
+            "description": "Apache Magpie security tools",
+            "hooks": {
+                "SessionStart": [
+                    {
+                        "hooks": [
+                            {
+                                "type": "command",
+                                "command": f'bash "${{CLAUDE_PLUGIN_ROOT}}/{SECURITY_TOOLS_LINK_HOOK}"',
+                                "timeout": 10,
+                            }
+                        ],
+                    }
+                ]
+            },
+        },
+    },
     "magpie-adversarial-review": {
         "description": (
             "Apache Magpie \u2014 adversarial review: runs other models' CLIs (Codex, Copilot, "
-            "Gemini, Claude) read-only over a change before its PR is created, and merges their "
-            "findings. Runs from the installed plugin, so no repository needs a copy."
+            "Antigravity, Pi, Grok, Goose, Claude) read-only over a change before its PR is created, and "
+            "merges their findings. Runs from the installed plugin, so no repository needs a copy."
         ),
         # The Claude Code command is a generated file in the tool (pinned there by a
         # test against the generator), published at the plugin's `commands/`.
@@ -427,8 +570,36 @@ def check_setup_templates() -> list[str]:
     return errors
 
 
+def _packaged_pyproject(src: Path, copies: dict[str, str]) -> bytes:
+    """A copied tool's pyproject, made to resolve inside the plugin.
+
+    The workspace root's `[tool.uv.sources]` does not ship, so the `dev` group
+    (which names a workspace member) is dropped, and every dependency that is
+    another copied tool gets a path source to that copy.
+    """
+    shipped: dict[str, Path] = {}
+    for src_rel in copies.values():
+        candidate = Path(src_rel)
+        if candidate.name == "pyproject.toml" and candidate.is_file():
+            data = tomllib.loads(candidate.read_text(encoding="utf-8"))
+            shipped[str(data.get("project", {}).get("name", ""))] = candidate.parent
+    text = src.read_text(encoding="utf-8")
+    text = re.sub(r"(?ms)^\[dependency-groups\]\n.*?(?=^\[|\Z)", "", text).rstrip("\n") + "\n"
+    deps = tomllib.loads(text).get("project", {}).get("dependencies", [])
+    names = [re.split(r"[\s<>=!~;\[]", dep, maxsplit=1)[0] for dep in deps]
+    local = {n: shipped[n] for n in names if n in shipped}
+    if local and "[tool.uv.sources]" not in text:
+        rel = {n: os.path.relpath(path, src.parent) for n, path in local.items()}
+        text += "\n[tool.uv.sources]\n" + "".join(
+            f'{n} = {{ path = "{p}" }}\n' for n, p in sorted(rel.items())
+        )
+    return text.encode()
+
+
 def packaged_file_bytes(src: Path, copies: dict[str, str]) -> bytes:
     """Keep shipped links local and point framework links at their public source."""
+    if src.name == "pyproject.toml":
+        return _packaged_pyproject(src, copies)
     if src.suffix != ".md":
         return src.read_bytes()
 
@@ -834,6 +1005,148 @@ def check_codex_policy(path: Path, entries: list) -> list[str]:
     return errors
 
 
+def codex_family_manifest(name: str, description: str, shared: dict) -> dict:
+    """The `.codex-plugin/plugin.json` `--fix` writes for a plugin in `CODEX_FAMILY_HOOKS`.
+
+    A complete manifest, not an overlay: Codex reads it *instead of*
+    `.claude-plugin/plugin.json`, so it repeats that manifest's name,
+    description, shared metadata and skills path, and adds only `hooks`.
+    """
+    return {
+        "name": name,
+        "description": description,
+        **shared,
+        "skills": "./skills",
+        "hooks": f"./{CODEX_HOOKS_FILE.as_posix()}",
+    }
+
+
+def check_codex_family_hooks(shared: dict) -> list[str]:
+    """magpie-setup's upgrade check reaches Codex; the root Codex manifest wires no hook."""
+    errors: list[str] = []
+    root, err = load_json(ROOT_CODEX_MANIFEST)
+    if err:
+        errors.append(err)
+    elif isinstance(root, dict) and "hooks" in root:
+        errors.append(
+            f"{ROOT_CODEX_MANIFEST}: declares 'hooks', but no catalogue installs the repo root "
+            f"as a Codex plugin; the upgrade check is wired in "
+            f"{PLUGINS / 'magpie-setup' / CODEX_HOOKS_FILE} (remove it, or run --fix)"
+        )
+    for name, want_hooks in sorted(CODEX_FAMILY_HOOKS.items()):
+        pdir = PLUGINS / name
+        claude, claude_err = load_json(pdir / ".claude-plugin" / "plugin.json")
+        if claude_err:
+            errors.append(claude_err)
+            continue
+        path = pdir / ".codex-plugin" / "plugin.json"
+        if not path.is_file():
+            errors.append(
+                f"{path}: missing -- without it Codex reads hooks/hooks.json, which it cannot "
+                "parse (regenerate with --fix)"
+            )
+        else:
+            data, data_err = load_json(path)
+            want = codex_family_manifest(name, claude.get("description", ""), shared)
+            if data_err:
+                errors.append(data_err)
+            elif shared and data != want:
+                errors.append(
+                    f"{path}: does not match the Codex manifest the framework expects -- "
+                    f"{pdir / '.claude-plugin' / 'plugin.json'}'s name, description and shared "
+                    f"metadata, './skills', and 'hooks': './{CODEX_HOOKS_FILE.as_posix()}' "
+                    "(regenerate with --fix)"
+                )
+        hooks_path = pdir / CODEX_HOOKS_FILE
+        hooks, hooks_err = load_json(hooks_path)
+        if hooks_err:
+            errors.append(hooks_err)
+        elif hooks != want_hooks:
+            errors.append(
+                f"{hooks_path}: does not match the Codex hook wiring the framework expects "
+                "(regenerate with --fix)"
+            )
+    return errors
+
+
+def write_codex_family_hooks(name: str, description: str, shared: dict) -> None:
+    """(Re)generate a plugin's `.codex-plugin/plugin.json` and its Codex hook file."""
+    pdir = PLUGINS / name
+    (pdir / ".codex-plugin").mkdir(parents=True, exist_ok=True)
+    (pdir / ".codex-plugin" / "plugin.json").write_text(
+        json.dumps(codex_family_manifest(name, description, shared), indent=2) + "\n", encoding="utf-8"
+    )
+    (pdir / CODEX_HOOKS_FILE).parent.mkdir(parents=True, exist_ok=True)
+    (pdir / CODEX_HOOKS_FILE).write_text(
+        json.dumps(CODEX_FAMILY_HOOKS[name], indent=2) + "\n", encoding="utf-8"
+    )
+
+
+def codex_hook_sources(pdir: Path) -> list[tuple[str, object]]:
+    """The hook definitions Codex loads for the plugin at `pdir`, as (label, value).
+
+    Mirrors Codex's own resolution: the first of `.codex-plugin/plugin.json` and
+    `.claude-plugin/plugin.json` (no plugin here carries an Agent Plugins root
+    manifest), then its `hooks` entry -- a path, a list of paths, an inline
+    object, or a list of them -- or, with none, `hooks/hooks.json` if present.
+    A value that is not JSON comes back as an error string.
+    """
+    manifest = None
+    for rel in (".codex-plugin/plugin.json", ".claude-plugin/plugin.json"):
+        if (pdir / rel).is_file():
+            manifest = pdir / rel
+            break
+    if manifest is None:
+        return []
+    data, err = load_json(manifest)
+    if err:
+        return [(str(manifest), err)]
+    hooks = data.get("hooks") if isinstance(data, dict) else None
+    if hooks is None:
+        default = pdir / "hooks" / "hooks.json"
+        hooks = [] if not default.is_file() else ["./hooks/hooks.json"]
+    entries = hooks if isinstance(hooks, list) else [hooks]
+    sources: list[tuple[str, object]] = []
+    for index, entry in enumerate(entries):
+        if isinstance(entry, str):
+            path = pdir / entry.removeprefix("./")
+            value, value_err = load_json(path)
+            sources.append((str(path), value_err if value_err else value))
+        else:
+            sources.append((f"{manifest}#hooks[{index}]", entry))
+    return sources
+
+
+def check_codex_hook_files() -> list[str]:
+    """Every hook definition a Codex-catalogued plugin exposes parses as Codex's `HooksFile`.
+
+    Codex deserialises each with unknown fields denied, so a Claude-Code-only key
+    (`$schema`, `modules`) is not ignored: it rejects the file and every hook in it.
+    """
+    catalog, err = load_json(CODEX_CATALOG)
+    if err or not isinstance(catalog, dict):
+        return []  # reported by check_client_catalogs
+    errors: list[str] = []
+    for entry in catalog.get("plugins", []):
+        source = entry.get("source") if isinstance(entry, dict) else None
+        rel = source.get("path") if isinstance(source, dict) else None
+        if not isinstance(rel, str):
+            continue
+        for label, value in codex_hook_sources(Path(rel.removeprefix("./"))):
+            if isinstance(value, str):
+                errors.append(value)
+            elif not isinstance(value, dict):
+                errors.append(f"{label}: Codex expects a hooks object, found {type(value).__name__}")
+            elif extra := sorted(set(value) - CODEX_HOOK_KEYS):
+                errors.append(
+                    f"{label}: top-level key(s) {', '.join(extra)} -- Codex accepts only "
+                    f"{', '.join(sorted(CODEX_HOOK_KEYS))} and rejects the whole file, so none "
+                    f"of its hooks run. Give the plugin a .codex-plugin/plugin.json whose "
+                    f"'hooks' names a clean file (see CODEX_FAMILY_HOOKS)"
+                )
+    return errors
+
+
 def root_metadata() -> tuple[dict, list[str]]:
     """The subset of the root manifest that the family plugins inherit."""
     data, err = load_json(ROOT_MANIFEST)
@@ -856,7 +1169,7 @@ def plugin_alias(skill: str, family: str) -> str:
 
     Aliases must be unique across every family, not only within one: the alias
     is also the skill's frontmatter ``name:``, and harnesses that keep skills in
-    one flat registry (Gemini CLI) would otherwise collide them. ``check``
+    one flat namespace (Antigravity slash commands) would otherwise collide them. ``check``
     enforces that; :data:`ALIAS_OVERRIDES` resolves a repeat.
     """
     if skill in ALIAS_OVERRIDES:
@@ -989,6 +1302,8 @@ def check(fam: dict[str, set[str]]) -> list[str]:
     else:
         if setup_data is not None and "check-upgrade.sh" not in json.dumps(setup_data.get("hooks", {})):
             errors.append(f"{setup_manifest}: SessionStart hook does not reference check-upgrade.sh")
+    errors += check_codex_family_hooks(shared)
+    errors += check_codex_hook_files()
     errors += check_setup_preflight_package()
     errors += welcome_families("check-constant")
 
@@ -1068,8 +1383,8 @@ def check(fam: dict[str, set[str]]) -> list[str]:
                 errors.append(f"{mirror} -> {mirror.readlink()} (expected {want})")
 
     # 3b) Aliases are unique across *all* families. The alias is the skill's
-    #     frontmatter `name:`, and Gemini CLI registers skills by that name in
-    #     one flat namespace, so a repeat across two families is a collision.
+    #     frontmatter `name:`, and Antigravity registers skills by that name in
+    #     one flat slash-command namespace, so a repeat across two families is a collision.
     owners: dict[str, list[str]] = {}
     for family, skills in sorted(fam.items()):
         for alias in aliases_for(family, skills):
@@ -1228,6 +1543,19 @@ def fix(fam: dict[str, set[str]]) -> int:
             manifest["hooks"] = SETUP_HOOKS
         (pdir / ".claude-plugin" / "plugin.json").write_text(
             json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
+        )
+        if name in CODEX_FAMILY_HOOKS:
+            write_codex_family_hooks(name, manifest["description"], shared)
+
+    # Nothing installs the repo root as a Codex plugin, so its manifest wires no hook.
+    root_codex, root_codex_err = load_json(ROOT_CODEX_MANIFEST)
+    if root_codex_err:
+        print(f"  - {root_codex_err}", file=sys.stderr)
+        return 1
+    if isinstance(root_codex, dict) and "hooks" in root_codex:
+        del root_codex["hooks"]
+        ROOT_CODEX_MANIFEST.write_text(
+            json.dumps(root_codex, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
         )
 
     market, market_err = load_json(MARKETPLACE)

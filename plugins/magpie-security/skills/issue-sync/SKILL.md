@@ -20,16 +20,17 @@ when_to_use: |
   state of issue NNN", "update issue NNN from the thread", or "walk me
   through issue NNN". Also appropriate as part of a recurring triage sweep
   where the team member wants to reconcile a batch of open issues with the
-  current state of the world.
+  current state of the world. For ASF projects, "sync dashboard" reconciles
+  the tracker with dash.security.apache.org.
 argument-hint: "[issue-number]"
 capability: capability:intake
-surface_hash: sha256:5c4aad61d458d98f
+surface_hash: sha256:23c1d23400108cf4
 license: Apache-2.0
-measured_tokens: 6948
+measured_tokens: 7407
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
-     <project-config> → adopting project's `.apache-magpie/` directory
+     <project-config> → per file: the personal layer, else `.apache-magpie-overrides/`
      <tracker>        → value of `tracker_repo:` in <project-config>/project.md
      <upstream>       → value of `upstream_repo:` in <project-config>/project.md
      <cve-tool>       → adapter directory under `tools/` named by
@@ -54,14 +55,19 @@ Run the checker with this skill's own frontmatter `name:` and
 `surface_hash:`, and one `--requires` for each `requires_config:` entry:
 
 ```bash
-PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir)/../.apache-magpie-local:$(git rev-parse --git-common-dir)/apache-magpie" \
-  python3 -m setup_preflight --skill <name> --hash <surface_hash> [--requires <file>]...
+PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m,i=sys.argv[1:];r=os.path.realpath(os.curdir);s=os.stat(r);p=os.path.join(h,d,hashlib.sha256(r.encode()).hexdigest()[:16]);f=os.path.join(p,i);print(p if os.path.isdir(os.path.join(p,m)) and os.path.isfile(f) and open(f).read().split()==[str(s.st_dev),str(s.st_ino)] else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight root-id)" \
+  python3 -P -m setup_preflight --skill <name> --hash <surface_hash> [--requires <file>]...
 ```
 
-The path finds the checker `/magpie-setup:setup config` installed in the
-personal layer: this checkout's `.apache-magpie-local/`, the main
-checkout's when this is a linked worktree, or the git directory's
-`apache-magpie/` when Magpie is only installed.
+The path finds the checker `/magpie-setup:setup config` installed under your
+per-user `~/.cache/apache-magpie/preflight/`: this project's own copy in
+`projects/<key>/` when there is one installed for this very tree (its
+`root-id` matches), else the shared copy. Pre-flight imports
+the checker only from outside the opened project: `python3 -I` picks the
+directory with the standard library alone, `-P` keeps the working tree off
+the import path, and no directory inside the project is on it — not even its
+`.git/` or `.svn/`, which a checkout or a tarball can carry as plain files.
+Never add one.
 
 - **`{"verdict": "ok"}`** → **silent**. Continue into the work the user
   asked for and say nothing about pre-flight. This is the ordinary answer.
@@ -70,15 +76,15 @@ checkout's when this is a linked worktree, or the git directory's
   inputs; what to propose, and what may not be done, are in the rules
   rather than here. **Act on a finding only through its rules.**
 - **The command did not run at all** — no such module, a non-zero exit, no
-  `python3` — → never read that as a pass, and do not re-derive the check
+  `python3` 3.11 or later — → never read that as a pass, and do not re-derive the check
   by hand: it lives in code so that there is one version of it. If the
   project has **no** `.apache-magpie.lock`, `.apache-magpie-overrides/`,
-  or personal layer (any of the three directories above),
+  or personal layer (any of the directories below),
   nothing has been set up here and there is
   nothing to reconcile — resolve this skill's `requires_config:` entries
   yourself (first match wins: `.apache-magpie-local/<file>`, the main
   checkout's `.apache-magpie-local/<file>`, `<git-common-dir>/apache-magpie/<file>`,
-  then `.apache-magpie-overrides/<file>`), stay silent if they all resolve, and
+  `.svn/apache-magpie/<file>`, then `.apache-magpie-overrides/<file>`), stay silent if they all resolve, and
   run `/magpie-setup:setup config` for this skill if any does not, which also
   installs the checker. Otherwise the project *is* set up and its checker
   is missing or stale: say so, propose `/magpie-setup:setup config` to install
@@ -107,6 +113,12 @@ This skill reconciles a single security issue in
 **Golden rule 1 — propose before applying.** Every change this skill
 performs is a *proposal*: nothing is created, closed, edited or sent without the user's clear "yes" for that specific action.
 Email is always a Gmail **draft**, never sent.
+
+**Golden rule 3 — one reply, one thread.** Every draft answers exactly one thread, attached to it.
+Never combine the replies to several threads into one message, in single or bulk mode, even for the same reporter or near-identical updates:
+it confuses the reporter and the security team, who track each case by its thread and `Message-ID`.
+A tracker merging several independent reporters gets one draft per reporter, each on that reporter's own thread
+([`threading.md`](../../../../tools/gmail/threading.md#the-rule)).
 
 **Golden rule 2 — every `<tracker>` reference is clickable in the
 surface it lands on.** Every issue, PR, comment, milestone and label reference this skill emits — in the observed state, the proposal, the confirmation prompt, the apply-loop and regeneration output, the recap, status-change comments and the CVE JSON reference list — is one click away:
@@ -211,6 +223,14 @@ The full orchestration contract — bucketing by CVE-record impact,
 parallel subagent fan-out, merged-proposal review shape, confirmation
 syntax, hard rules, when bulk mode is NOT appropriate — lives in
 [`bulk-mode.md`](bulk-mode.md). Read it before invoking a bulk run.
+
+## Dashboard mode — reconciling with dash.security.apache.org
+
+ASF projects only (`organization: ASF` in `<project-config>/project.md`): for any other organization the mode is not offered, and a request for it ends at [Step D0](dashboard.md#step-d0--asf-projects-only).
+On *"sync dashboard"* or *"reconcile with the security dashboard"*,
+compare `<tracker>` with the ASF Security team's case list for the PMC and propose a fix for each disagreement,
+following [`dashboard.md`](dashboard.md).
+A project with no tracker of its own can use the same case list as its list of reports to handle.
 ## Prerequisites
 
 The skill needs:

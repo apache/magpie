@@ -24,7 +24,7 @@
 
 **Harness:** agnostic
 
-Runs other models' CLIs — Codex, Copilot, Gemini, Grok, Claude — read-only over a change, and prints their merged findings as one JSON report.
+Runs other models' CLIs — Codex, Copilot, Antigravity, Grok, Claude — read-only over a change, and prints their merged findings as one JSON report.
 Magpie skills run it before they open a PR; `pr-management-code-review` runs it over someone else's PR.
 Design: [`docs/designs/2026-09-23-adversarial-review.md`](../../docs/designs/2026-09-23-adversarial-review.md).
 
@@ -32,9 +32,10 @@ Design: [`docs/designs/2026-09-23-adversarial-review.md`](../../docs/designs/202
 
 - **Runtime:** Python 3.11+ via `uv`.
 The package itself is stdlib-only.
-- **CLIs:** at least one reviewer CLI on `PATH` — `codex`, `copilot`, `gemini`, `grok` or `claude` — logged in with its own account.
+- **CLIs:** at least one reviewer CLI on `PATH` — `codex`, `copilot`, `agy` (the `antigravity` reviewer), `pi`, `grok`, `goose` or `claude` — logged in with its own account.
 `--target pr:<N>` also needs `gh`.
-- **Credentials:** whatever each reviewer CLI already uses (`~/.codex`, `~/.copilot`, `~/.gemini`, `~/.grok`, `~/.claude`); this tool reads none of them itself.
+- **Credentials:** whatever each reviewer CLI already uses (`~/.codex`, `~/.copilot`, `~/.gemini/antigravity-cli`, `~/.pi/agent`, `~/.grok`, `~/.config/goose`, `~/.claude`); this tool reads none of them itself.
+  Headless `agy` uses the sign-in cached by an earlier interactive `agy` session; without one it exits with `authentication required`, which the report shows as `unavailable`.
 - **Network:** each reviewer CLI calls its own model provider; this tool makes no network calls of its own.
 
 ## Usage
@@ -71,7 +72,8 @@ The diff, the files it touches, and the PR title and body as they will be posted
 Reviewers can read files with their read-only tools, and that is the residual risk: the prompt is bounded, what a reviewer chooses to read is not.
 
 - When `--repo-dir` is the project's private tracker, `run` refuses (exit 2). Pass `--allow-tracker-checkout` only when the tracker's own code is what is under review; the report then still says so in `warnings`.
-- `claude`, `copilot` and `gemini` confine file reads to their working directory (plus the brief's temporary directory for `copilot`).
+- `claude` and `copilot` confine file reads to their working directory (plus the brief's temporary directory for `copilot`).
+  `antigravity` does too while `allowNonWorkspaceAccess` stays at its default `false` in `~/.gemini/antigravity-cli/settings.json`.
   `codex -s read-only` restricts writes and network, not reads: an instruction injected into the diff could have it read a file elsewhere on the machine, such as a sibling tracker checkout, and put it into its reply to the model.
   Run the tool where nothing private sits beside the checkout under review, or leave `codex` out of the reviewer list for such machines.
   `grok` has the same exposure: its `read_file` and `grep` are not confined to the working directory, so the same advice applies.
@@ -79,7 +81,20 @@ Reviewers can read files with their read-only tools, and that is the residual ri
   Its `--permission-mode plan` is not used: grok accepts the value but does not enforce it.
 - MCP tools are switched off for `codex` (`-c mcp_servers={}`) and `claude` (`--strict-mcp-config`).
   `grok` has no CLI switch that closes its MCP servers, so they stay connected, but `--deny MCPTool` auto-denies every MCP tool invocation.
-  `copilot` and `gemini` have no equivalent switch in the versions this was written against; their MCP servers, if any, stay reachable, so configure them with read-only servers or none.
+  `copilot` and `antigravity` have no equivalent switch in the versions this was written against; their MCP servers, if any, stay reachable, so configure them with read-only servers or none.
+- `antigravity` runs in plan mode with no permission flag, so headless `agy` denies every tool call that would need approval: shell, edits, web fetches and MCP calls.
+  That holds only while your own `permissions.allow` list in `~/.gemini/antigravity-cli/settings.json` does not pre-approve them; an `allow` rule there applies to the reviewer too.
+  The first denial ends the turn with an empty answer, so the prompt it gets asks it to read and search files only, and a review that still reaches for one is reported as an `error` naming the denied tool.
+  Under `proceed-in-sandbox` its commands run inside the terminal sandbox instead.
+  agy takes the permission mode only from that file, so the tool reads it back from agy's `init` event and discards the review as an `error` unless it is `request-review`, `strict` or `proceed-in-sandbox` (whose auto-run commands stay in the terminal sandbox).
+  The check runs after the reviewer has finished, so on that error inspect the reviewed tree.
+- `pi` is read-only by construction: `--tools read,grep,find,ls` is an allowlist, so the session has no shell, edit, write, MCP or extension tool at all.
+  `--no-approve` ignores the reviewed tree's `.pi/` (project settings, extensions and packages), so the change under review cannot load code into the reviewer.
+  `AGENTS.md` still loads, as it does for every reviewer: its content is data in the brief, not an instruction to follow.
+- `goose` is read-only by construction: it runs with `GOOSE_MODE=chat`, which gives the model no tools at all, and `--no-profile`, so none of your configured extensions or MCP servers start.
+  It runs from the brief's own temporary directory, not the reviewed tree, so Goose loads none of the tree's project plugins, hooks or context files.
+- `antigravity` is `skipped` on a tree, or a tree inside a directory, that contains `.agents/hooks.json` or `.agents/mcp_config.json` (or the legacy `.agent/` spellings).
+  Antigravity runs workspace hooks and starts workspace MCP servers by itself, so the change under review would choose code that runs on your machine.
 
 ## Backends
 
@@ -87,7 +102,9 @@ Reviewers can read files with their read-only tools, and that is the residual ri
 |---|---|
 | `codex` | `codex exec -s read-only --ephemeral -c mcp_servers={} --output-schema <schema> -o <file> -` (prompt on stdin) |
 | `copilot` | `copilot -p <read the brief at …> --add-dir <brief dir> --deny-tool shell --deny-tool write` |
-| `gemini` | `gemini --approval-mode plan -o json -p <…>` (prompt on stdin) |
+| `antigravity` | `agy --mode plan --input-format stream-json --output-format stream-json --print-timeout 0` (prompt on stdin as one NDJSON user message; the answer is the final `result` event) |
+| `pi` | `pi -p --no-session --no-approve --tools read,grep,find,ls <follow the brief above>` (prompt on stdin, which Pi prepends to the instruction; the answer is stdout) |
+| `goose` | `GOOSE_MODE=chat goose run --no-session --no-profile --quiet -i <brief>` (prompt as a file; the answer is stdout) |
 | `grok` | `grok --tools read_file,grep,list_dir --no-subagents --disable-web-search --deny Bash --deny Edit --deny Write --deny WebFetch --deny MCPTool --output-format json --prompt-file <brief>` (prompt as a file) |
 | `claude` | `claude -p --output-format json --strict-mcp-config --disallowedTools Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch,Task` (prompt on stdin) |
 
@@ -95,6 +112,6 @@ Reviewers can read files with their read-only tools, and that is the residual ri
 
 ## Sandbox
 
-The reviewer CLIs need network access and their own credentials (`~/.codex`, `~/.copilot`, `~/.gemini`, `~/.grok`, `~/.claude`), which the reference sandbox denies.
+The reviewer CLIs need network access and their own credentials (`~/.codex`, `~/.copilot`, `~/.gemini/antigravity-cli`, `~/.pi/agent`, `~/.grok`, `~/.config/goose`, `~/.claude`), which the reference sandbox denies.
 The single-line `uvx --from ~/.claude/magpie/adversarial-review adversarial-review …` form is what the sandbox exclusion names; `setup` installs it.
 The tool writes nothing to the repository: the brief and the schema live in a temporary directory that is removed afterwards.

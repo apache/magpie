@@ -101,6 +101,18 @@ An existing rollup is found by that marker first, then by the legacy
 `<!-- <name> status rollup v<N>` marker, so a tracker with both keeps
 growing the canonical one.
 
+Only a comment written by a trusted author can be the rollup: the
+authenticated `gh` user, or a collaborator of the repository (the
+security-team roster, see
+[`operations.md`](../github/operations.md#collaborator-lookup-security-team-roster)).
+A marker line in a comment by anyone else is ignored by every
+subcommand, so a commenter outside the roster cannot plant a comment that
+`append`, `amend-latest`, `list` or `latest` would then use.
+Listing collaborators needs push access to the repository; when the list
+cannot be read, only comments by the authenticated `gh` user count, and when
+the first marked comment is someone else's the command stops with an error
+rather than risk starting a second rollup next to a collaborator's.
+
 ### `amend-latest <issue> --action "<label>" ...`
 
 Replace the body of the most recent entry, keeping its date and user.

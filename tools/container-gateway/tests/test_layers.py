@@ -135,9 +135,18 @@ def test_layers_legacy_in_tree_dir_is_a_read_fallback(tmp_path: Path) -> None:
     ]
 
 
-def test_layers_not_a_repo_and_not_adopted_has_no_personal_layer(tmp_path: Path) -> None:
-    assert layers.personal_dir(tmp_path) is None
-    assert layers.config_layers(tmp_path) == [tmp_path / ".apache-magpie-overrides"]
+def test_layers_no_version_control_keeps_personal_config_in_tree(tmp_path: Path) -> None:
+    assert layers.personal_dir(tmp_path) == tmp_path / ".apache-magpie-local"
+    assert layers.config_layers(tmp_path) == [
+        tmp_path / ".apache-magpie-local",
+        tmp_path / ".apache-magpie-overrides",
+    ]
+
+
+def test_layers_an_svn_working_copy_keeps_personal_config_in_the_svn_dir(tmp_path: Path) -> None:
+    (tmp_path / ".svn").mkdir()
+    (tmp_path / ".svn" / "wc.db").write_bytes(b"")
+    assert layers.personal_dir(tmp_path) == tmp_path / ".svn" / "apache-magpie"
 
 
 def test_layers_never_create_anything(tmp_path: Path) -> None:

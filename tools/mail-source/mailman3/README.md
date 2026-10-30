@@ -43,6 +43,12 @@ See [`../contract.md`](../contract.md) for the abstract mail-source-backend oper
 - **Credentials / auth:** None: public archives are read anonymously (see [Private archives](#private-archives)).
 - **Network:** The adopter's Hyperkitty host only, e.g. `mail.python.org` or `lists.fedoraproject.org`.
   Under the [secure agent setup](../../../docs/setup/secure-agent-setup.md#the-frameworks-own-claudesettingsjson), add that host to `sandbox.network.allowedDomains`: it is not on the default list.
+- **Secure-setup conflict:** the recipes below use `curl`, and the same secure setup denies `Bash(curl *)` (a network call from Bash does not go through the sandbox's proxy).
+  Allowing the host does not lift that rule, so under the shipped setup the agent cannot run these recipes itself.
+  The vetted-ops `http-read` backend has no Hyperkitty operation (its catalogue is closed; adding one is a reviewed change to [`ops.py`](../../vetted-ops/src/vetted_ops/ops.py)),
+  and this adapter ships no CLI of its own.
+  Until one of those exists, the user runs the `curl` commands in their own terminal, outside the agent session, and pastes the JSON back for the agent to read.
+  Do not add a `curl` allow rule for this adapter: it would re-open Bash network egress for every command.
 
 ## Capability claim
 

@@ -106,6 +106,12 @@ says which file is missing.
 | [`repo-health-config.md`](../../plugins/magpie-setup/templates/repo-health-config.md) | Per-skill switches: deprecated runner labels, zizmor rule classes, dependency managers, SPDX expression, flaky-test thresholds. | `dependency-audit`, `flaky-test-triage`, `license-compliance-audit`, `workflow-security-audit` |
 | [`runtime-invocation.md`](../../plugins/magpie-setup/templates/runtime-invocation.md) | Build prerequisite, run-a-single-file recipe, stream-capture conventions, network/dependency handling. | `audit-finding-fix` |
 
+**Optional.** Each has a documented fallback; absent, the skill still runs.
+
+| File | What it carries | Read by |
+|---|---|---|
+| [`project.md`](../../plugins/magpie-setup/templates/project.md) | Project manifest. Identity, repositories, mailing lists, tools enabled, CVE tooling, GitHub project-board + issue-template field declarations. The single file every skill reads to resolve project-scoped references. | `dependency-license-audit`, `workflow-optimization` |
+
 <!-- END generated: skill-config -->
 
 <!-- BEGIN generated: companion-skills (tools/dev/check-companion-skills.py --fix) -->

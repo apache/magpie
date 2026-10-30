@@ -61,6 +61,21 @@ health without navigating the tracker issue-by-issue.
   else the fetch scripts' default; before #1444 the skill ignored the
   configured value, so it could judge freshness from a directory the
   fetch never wrote.
+  That default is `<tempfile.gettempdir()>/tracker-stats-cache` (honouring
+  `$TMPDIR` / `%TEMP%`), not a hardcoded `/tmp` a sandboxed run cannot
+  write, and the default output path moved with it (#1752).
+- **Transient `gh` failures are retried (#1752).** `fetch_issues.py` and
+  `fetch_roster.py` run `gh` through `gh_retry.run_gh`, which retries a
+  5xx, gateway timeout, connection reset or a call that hit its timeout up
+  to 3 attempts with exponential backoff, and fails fast on anything that
+  cannot clear on its own (auth, bad slug, unknown flag).
+  `run.sh` no longer guesses the output path; `render.py` prints the path
+  it wrote.
+- **Runs from a marketplace install.** The tool ships in the
+  `magpie-security-tools` plugin, so the skill's
+  `bash <framework>/tools/security-tracker-stats-dashboard/run.sh` works
+  without a framework checkout (#1787; see
+  [security-issue-lifecycle.md](security-issue-lifecycle.md)).
 - **One list call, not one read per issue (#1443).**
   `fetch_issues.py` requests `body` and `closedByPullRequestsReferences`
   in its `gh issue list --state all --limit 1000` call, and
@@ -99,6 +114,8 @@ health without navigating the tracker issue-by-issue.
 1. `render.py` / `run.sh` produces a valid HTML file from `<tracker>` data.
 2. No tracker state is mutated (read-only `gh` calls only).
 3. The tool ships its own tests under `tools/security-tracker-stats-dashboard/`.
+4. A single transient `gh` failure (5xx or timeout) on the issue or roster
+   fetch is retried rather than aborting the run (#1752).
 
 ## Validation
 

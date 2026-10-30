@@ -51,6 +51,9 @@ from .findings import Finding, MalformedOutput, normalize_path, parse_findings
 
 STATUSES = ("ok", "unavailable", "error", "timeout", "skipped")
 RAW_LIMIT = 2000
+#: How much of RAW_LIMIT goes to the start of the output; the rest is its end.
+#: A streamed reply ends with the event that says how the run finished.
+RAW_HEAD = 500
 # Matched against stderr only: a reviewer's stdout is a review, and a review of
 # login code talks about logins.
 _AUTH_ERRORS = re.compile(
@@ -61,6 +64,14 @@ _AUTH_ERRORS = re.compile(
 
 _live_groups: set[int] = set()
 _live_lock = threading.Lock()
+
+
+def _clip(text: str) -> str:
+    """The start and the end of a reviewer's output, within RAW_LIMIT."""
+    if len(text) <= RAW_LIMIT:
+        return text
+    cut = len(text) - RAW_LIMIT
+    return f"{text[:RAW_HEAD]}\n[... {cut} characters cut ...]\n{text[-(RAW_LIMIT - RAW_HEAD) :]}"
 
 
 @dataclass
@@ -117,13 +128,18 @@ def _execute(
 
 def run_one(name: str, ctx: RunContext, timeout_s: float, env: Mapping[str, str]) -> ReviewerResult:
     backend = BACKENDS[name]
+    refusal = backend.refuse(ctx) if backend.refuse else None
+    if refusal:
+        return ReviewerResult(name, "skipped", reason=refusal)
     inv = backend.build(ctx)
     path = shutil.which(inv.argv[0], path=env.get("PATH", ""))
     if path is None:
         return ReviewerResult(name, "unavailable", reason="not on PATH")
     start = time.monotonic()
     try:
-        proc = _execute([path, *inv.argv[1:]], inv.stdin, timeout_s, ctx.repo_dir, env)
+        proc = _execute(
+            [path, *inv.argv[1:]], inv.stdin, timeout_s, inv.cwd or ctx.repo_dir, {**env, **(inv.env or {})}
+        )
     except subprocess.TimeoutExpired:
         return ReviewerResult(
             name, "timeout", reason=f"no answer within {timeout_s:g}s", seconds=time.monotonic() - start
@@ -139,7 +155,7 @@ def run_one(name: str, ctx: RunContext, timeout_s: float, env: Mapping[str, str]
             status,
             reason=f"exit {proc.returncode}: {detail}",
             seconds=seconds,
-            raw=(proc.stderr or proc.stdout)[:RAW_LIMIT],
+            raw=_clip(proc.stderr or proc.stdout),
         )
     text = proc.stdout
     try:
@@ -147,12 +163,17 @@ def run_one(name: str, ctx: RunContext, timeout_s: float, env: Mapping[str, str]
         findings, problems = parse_findings(text, name)
     except (BackendOutputError, MalformedOutput) as exc:
         return ReviewerResult(
-            name, "error", reason=f"malformed output: {exc}", seconds=seconds, raw=text[:RAW_LIMIT]
+            name,
+            "error",
+            reason=f"malformed output: {exc}",
+            seconds=seconds,
+            # A reviewer that exits 0 without an answer often says why on stderr.
+            raw=_clip(text) + (f"\n[stderr]\n{_clip(proc.stderr)}" if proc.stderr.strip() else ""),
         )
     findings = [normalize_path(f, ctx.repo_dir) for f in findings]
     if problems:
         reason = f"skipped {len(problems)} malformed finding(s): " + "; ".join(problems[:3])
-        return ReviewerResult(name, "ok", findings, reason=reason, seconds=seconds, raw=text[:RAW_LIMIT])
+        return ReviewerResult(name, "ok", findings, reason=reason, seconds=seconds, raw=_clip(text))
     return ReviewerResult(name, "ok", findings=findings, seconds=seconds)
 
 

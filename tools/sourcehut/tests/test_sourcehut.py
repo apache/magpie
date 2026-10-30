@@ -414,3 +414,100 @@ def test_cli_label_error(capsys: pytest.CaptureFixture[str]) -> None:
     assert excinfo.value.code == 2
     captured = capsys.readouterr()
     assert "At least one of --add or --remove must be specified" in captured.err
+
+
+# --- bodies come from files; raw GraphQL mutations need an explicit flag -------
+
+
+def _sent_payload(mock_build_opener: MagicMock) -> dict[str, Any]:
+    request = mock_build_opener.return_value.open.call_args[0][0]
+    return dict(json.loads(request.data))
+
+
+@patch("urllib.request.build_opener")
+def test_cli_ticket_comment_reads_the_body_from_a_file(
+    mock_build_opener: MagicMock, mock_env: None, tmp_path: Any
+) -> None:
+    body = tmp_path / "comment.md"
+    body.write_text('Thanks; `$(not run)` and "quotes" stay literal.\n', encoding="utf-8")
+    mock_opener(mock_build_opener, {"data": {"submitComment": {"id": 501}}})
+    assert main(["ticket", "comment", "~user", "my-project", "42", "--body-file", str(body)]) == 0
+    sent = _sent_payload(mock_build_opener)
+    assert sent["variables"]["input"]["body"] == body.read_text(encoding="utf-8")
+
+
+@patch("urllib.request.build_opener")
+def test_cli_ticket_create_reads_the_body_from_stdin(
+    mock_build_opener: MagicMock, mock_env: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("sys.stdin", io.StringIO("ticket body\n"))
+    mock_opener(mock_build_opener, {"data": {"submitTicket": {"id": 7}}})
+    assert main(["ticket", "create", "~user", "my-project", "--title", "T", "--body-file", "-"]) == 0
+    assert _sent_payload(mock_build_opener)["variables"]["input"]["description"] == "ticket body\n"
+
+
+@pytest.mark.parametrize("action", [["comment", "~user", "p", "1"], ["create", "~user", "p", "--title", "T"]])
+def test_cli_ticket_body_is_not_accepted_inline(action: list[str]) -> None:
+    with pytest.raises(SystemExit) as excinfo:
+        main(["ticket", *action, "--body", "inline text"])
+    assert excinfo.value.code == 2
+
+
+def test_cli_ticket_comment_missing_body_file(mock_env: None, capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["ticket", "comment", "~user", "p", "1", "--body-file", "/no/such/file"]) == 2
+    assert "cannot read body file" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "mutation { deleteTracker(id: 1) { id } }",
+        "  mutation Drop($id: Int!) { deleteTracker(id: $id) { id } }",
+        "query Q { me { id } }\nmutation M { deleteTracker(id: 1) { id } }",
+        "# leading comment\nmutation{deleteTracker(id:1){id}}",
+        # GraphQL ends a comment at a carriage return too
+        "# leading comment\rmutation{deleteTracker(id:1){id}}",
+        'query { a(s: "x") } mutation { b }',
+    ],
+)
+@patch("urllib.request.build_opener")
+def test_cli_graphql_refuses_a_mutation_by_default(
+    mock_build_opener: MagicMock, mock_env: None, query: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert main(["graphql", "todo", query]) == 2
+    assert "--allow-mutation" in capsys.readouterr().err
+    mock_build_opener.assert_not_called()
+
+
+@patch("urllib.request.build_opener")
+def test_cli_graphql_runs_a_mutation_with_allow_mutation(
+    mock_build_opener: MagicMock, mock_env: None
+) -> None:
+    mock_opener(mock_build_opener, {"data": {"deleteTracker": {"id": 1}}})
+    assert main(["graphql", "todo", "mutation { deleteTracker(id: 1) { id } }", "--allow-mutation"]) == 0
+    mock_build_opener.return_value.open.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "query { me { id } }",
+        "{ me { id } } # mutation in a comment",
+        'query { tracker(name: "mutation") { id } }',
+        'query { tracker(name: """a mutation""") { id } }',
+    ],
+)
+@patch("urllib.request.build_opener")
+def test_cli_graphql_runs_a_query(mock_build_opener: MagicMock, mock_env: None, query: str) -> None:
+    mock_opener(mock_build_opener, {"data": {"me": {"id": 1}}})
+    assert main(["graphql", "todo", query]) == 0
+
+
+@pytest.mark.parametrize("service", ["evil.example/x?", "todo.sr.ht@evil.example#", "", "TODO"])
+@patch("urllib.request.build_opener")
+def test_query_graphql_refuses_a_service_that_is_not_a_subdomain_name(
+    mock_build_opener: MagicMock, mock_env: None, service: str
+) -> None:
+    with pytest.raises(SourceHutError, match="service"):
+        query_graphql(service, "query { me { id } }")
+    mock_build_opener.assert_not_called()

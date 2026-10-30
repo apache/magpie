@@ -16,6 +16,20 @@
 # under the License.
 """Local egress-allowlist proxy for the apache-magpie framework."""
 
-from egress_gateway.allowlist import host_allowed
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from egress_gateway.allowlist import host_allowed
 
 __all__ = ["host_allowed"]
+
+
+def __getattr__(name: str) -> Any:
+    if name == "host_allowed":
+        from egress_gateway.allowlist import host_allowed
+
+        globals()[name] = host_allowed
+        return host_allowed
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

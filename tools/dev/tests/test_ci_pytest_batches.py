@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import importlib.util
+import io
 import json
 from pathlib import Path
 from types import ModuleType
@@ -91,7 +92,12 @@ def test_a_change_behind_a_member_symlink_picks_the_member(tmp_path):
     root = _workspace(tmp_path, {"tools/a": PYTEST, "tools/b": PYTEST})
     (root / "plugins" / "shared").mkdir(parents=True)
     (root / "tools" / "a" / "src").mkdir()
-    (root / "tools" / "a" / "src" / "shared").symlink_to(root / "plugins" / "shared")
+    try:
+        (root / "tools" / "a" / "src" / "shared").symlink_to(
+            root / "plugins" / "shared", target_is_directory=True
+        )
+    except OSError as exc:
+        pytest.skip(f"symlinks not supported on this platform: {exc}")
     assert cpb.select(root, ["plugins/shared/x.py"]) == ["tools/a"]
 
 
@@ -133,6 +139,13 @@ def test_the_shared_toolchain_does_not_make_a_dependent(tmp_path):
     )
     (root / "tools" / "dev" / "pyproject.toml").write_text('[project]\nname = "magpie-dev"\n' + PYTEST)
     assert cpb.select(root, ["tools/dev/src/z.py"]) == ["tools/dev"]
+
+
+def test_the_cli_reads_stdin_with_dash(tmp_path, monkeypatch, capsys):
+    root = _workspace(tmp_path, {"tools/a": PYTEST, "tools/b": PYTEST})
+    monkeypatch.setattr("sys.stdin", io.StringIO("tools\\a\\src\\x.py\ntools/b/tests/test_y.py\n"))
+    assert cpb.main(["--root", str(root), "--changed-file", "-", "--paths"]) == 0
+    assert capsys.readouterr().out == "tools/a\ntools/b\n"
 
 
 def test_the_cli_prints_the_picked_paths(tmp_path, capsys):

@@ -29,7 +29,7 @@ settings directory under test: the script is wired through Claude
 Code's `statusLine` setting, is fed Claude Code's statusLine payload on
 stdin, and reads Claude Code's `sandbox.enabled` schema. No other
 harness the framework supports has a status-line hook of that shape —
-Codex, Gemini, OpenCode and Kiro carry their sandbox posture in their
+Codex, Antigravity, OpenCode and Kiro carry their sandbox posture in their
 own config files and surface it (when they surface it at all) through
 their own UI. A harness that grows one gets its own helper and its own
 tests; see `docs/adapters/add-a-harness.md`.

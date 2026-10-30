@@ -19,11 +19,11 @@ argument-hint: "[scan-source ...]  (one or more GitHub issues and/or report fold
 capability: capability:intake
 surface_hash: sha256:7adfbe73f79606b1
 license: Apache-2.0
-measured_tokens: 6302
+measured_tokens: 6958
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
-     <project-config> → adopting project's `.apache-magpie/` directory
+     <project-config> → per file: the personal layer, else `.apache-magpie-overrides/`
      <tracker>        → `tracker_repo:` in <project-config>/project.md
      <upstream>       → `upstream_repo:` in <project-config>/project.md
      <scan-repo>      → the public repository the scan reports live in
@@ -45,14 +45,19 @@ Run the checker with this skill's own frontmatter `name:` and
 `surface_hash:`, and one `--requires` for each `requires_config:` entry:
 
 ```bash
-PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir)/../.apache-magpie-local:$(git rev-parse --git-common-dir)/apache-magpie" \
-  python3 -m setup_preflight --skill <name> --hash <surface_hash> [--requires <file>]...
+PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m,i=sys.argv[1:];r=os.path.realpath(os.curdir);s=os.stat(r);p=os.path.join(h,d,hashlib.sha256(r.encode()).hexdigest()[:16]);f=os.path.join(p,i);print(p if os.path.isdir(os.path.join(p,m)) and os.path.isfile(f) and open(f).read().split()==[str(s.st_dev),str(s.st_ino)] else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight root-id)" \
+  python3 -P -m setup_preflight --skill <name> --hash <surface_hash> [--requires <file>]...
 ```
 
-The path finds the checker `/magpie-setup:setup config` installed in the
-personal layer: this checkout's `.apache-magpie-local/`, the main
-checkout's when this is a linked worktree, or the git directory's
-`apache-magpie/` when Magpie is only installed.
+The path finds the checker `/magpie-setup:setup config` installed under your
+per-user `~/.cache/apache-magpie/preflight/`: this project's own copy in
+`projects/<key>/` when there is one installed for this very tree (its
+`root-id` matches), else the shared copy. Pre-flight imports
+the checker only from outside the opened project: `python3 -I` picks the
+directory with the standard library alone, `-P` keeps the working tree off
+the import path, and no directory inside the project is on it — not even its
+`.git/` or `.svn/`, which a checkout or a tarball can carry as plain files.
+Never add one.
 
 - **`{"verdict": "ok"}`** → **silent**. Continue into the work the user
   asked for and say nothing about pre-flight. This is the ordinary answer.
@@ -61,15 +66,15 @@ checkout's when this is a linked worktree, or the git directory's
   inputs; what to propose, and what may not be done, are in the rules
   rather than here. **Act on a finding only through its rules.**
 - **The command did not run at all** — no such module, a non-zero exit, no
-  `python3` — → never read that as a pass, and do not re-derive the check
+  `python3` 3.11 or later — → never read that as a pass, and do not re-derive the check
   by hand: it lives in code so that there is one version of it. If the
   project has **no** `.apache-magpie.lock`, `.apache-magpie-overrides/`,
-  or personal layer (any of the three directories above),
+  or personal layer (any of the directories below),
   nothing has been set up here and there is
   nothing to reconcile — resolve this skill's `requires_config:` entries
   yourself (first match wins: `.apache-magpie-local/<file>`, the main
   checkout's `.apache-magpie-local/<file>`, `<git-common-dir>/apache-magpie/<file>`,
-  then `.apache-magpie-overrides/<file>`), stay silent if they all resolve, and
+  `.svn/apache-magpie/<file>`, then `.apache-magpie-overrides/<file>`), stay silent if they all resolve, and
   run `/magpie-setup:setup config` for this skill if any does not, which also
   installs the checker. Otherwise the project *is* set up and its checker
   is missing or stale: say so, propose `/magpie-setup:setup config` to install
@@ -169,8 +174,12 @@ Only on the user's confirmation run `tracker-publish` with that message file
 ## Inputs — sources
 
 The selector accepts **one or more** sources, freely mixing GitHub
-issues and report folders (e.g. *"import #23, #24 and #34"*, or
-*"import the `ASVS/reports/opus-4.8/<component>` tree"*).
+issues, report folders and **scanner disclosure emails** (e.g. *"import #23, #24 and #34"*,
+*"import the `ASVS/reports/opus-4.8/<component>` tree"*, or *"import the OSS Scanner mail with 115 findings"*).
+
+**Email sources** (a scanner that mails the whole scan, e.g. the Anthropic OSS Scanner) are first materialised into a scan folder:
+save the message with `oauth-draft-fetch-message`, split it with `<sm> parse-email`, and triage only when `checks.complete` is true
+([how, and the lossy fallback](../../../../tools/scan-format/README.md#email-delivered-scans)).
 
 **Multiple sources in one run.** Resolve every source to a concrete set
 of **scan folders** (each a directory the scan-format adapter recognises
@@ -265,7 +274,8 @@ a by-design, duplicate or already-fixed row without grounding is refused.
 For several scans it adds the **cross-scan processing report** (per-scan outcomes, the aggregate breakdown **with percentages**, severity vs disposition);
 you add the *"what the scanner is / isn't good for"* assessment at its marker.
 
-**Publish the report as a secret gist (default)** and surface the URL —
+**A report built from a private source — a scanner disclosure email — never leaves the machine before disclosure:** keep it as a local file in `<scratch>` and say where; no gist, no per-source post, whatever else the run includes. A secret gist is readable by anyone holding the link, and the scrub cannot recognise an embargoed finding by its title.
+For public sources only, **publish the report as a secret gist (default)** and surface the URL —
 `gh gist create --desc "<title>" <report.md>` (secret is the default; do
 **not** pass `--public`). The gist is the portable, shareable artifact.
 
@@ -281,7 +291,7 @@ write `{"reply", "findings": [{"n", "bucket"}]}` to a file and run `<sm> parse-d
 ## Step F — Land the report, then apply confirmed actions
 
 1. **Publish + land the report(s):**
-   - **Gist (default):** the secret gist from Step D; surface the URL.
+   - **Gist (default, public sources only):** the secret gist from Step D; surface the URL. A private (email) source stays a local file.
    - **Per-source:** GH-issue → draft the comment, confirm, then
      `gh issue comment <N> --repo <scan-repo> --body-file <tmp>`;
      folder → write `issue_analysis.md` into the folder.
@@ -370,10 +380,20 @@ write `{"reply", "findings": [{"n", "bucket"}]}` to a file and run `<sm> parse-d
 
 2. **Apply only the operator-confirmed actions**, sequentially:
    - **import-as-tracker** → [`security-issue-import`](../issue-import/SKILL.md)
-     Step 7 (one `Needs triage` tracker each) — the only tracker-creating path;
+     Step 7 (one `Needs triage` tracker each) — the only tracker-creating path.
+     Set *Security mailing list thread* to `N/A — imported from scan <scan-source>; no <security-list> thread.`:
+     there is no reporter thread, and the sentinel makes `generate-cve-json` record the finding as `INTERNAL`.
+     When the finding has candidate `patches` (the scan shipped them and the decrypted archive was linked with `--archive-dir`),
+     also attach them: `<sm> render-patch-comment --index <index.json> --finding <id> --out-dir <scratch>/patch-comments`,
+     show the operator the rendered bodies, and on confirmation post each with `gh issue comment <N> --repo <tracker> --body-file <path>`.
+     The patches are quoted, folded and untested, never applied or run. Their headers describe the vulnerability, which is
+     fine on the private tracker, but never copy them into a public PR;
    - **PR-worth / defense-in-depth** → hand to
      [`security-issue-fix`](../issue-fix/SKILL.md) (public PR) or skip;
    - **by-design / dup / already-fixed** → no action; the report is the record.
+3. **Close the loop on repeat false positives.** A by-design cluster the scanner keeps reporting is a
+   [`security-model-update`](../model-update/SKILL.md) candidate; once the model changes,
+   [`security-submit-to-oss-scan`](../submit-to-oss-scan/SKILL.md) refreshes the scanner's threat-model copy so it stops filing them.
 
 ## Hard rules
 

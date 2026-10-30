@@ -150,7 +150,8 @@ Subagents keep the per-issue mail threads, PR diffs and comment bodies out of th
      For any `cve allocated` tracker, search the public `<users-list>` archive for the CVE ID
      (PonyMail `search_list`, per [`tools/ponymail/`](../../../../tools/ponymail/); Gmail fallback)
      and cross-check cve.org publication state (per [`tools/cve-org/`](../../../../tools/cve-org/)).
-     A `<users-list>` hit authored by the release manager **is** the advisory-shipped signal, and its `<mail-archive-url>/thread/<id>` permalink is the *Public advisory URL*.
+     A `<users-list>` hit is the advisory-shipped signal only when `<sm> advisory-archive` accepts it (the thread is on `<users-list>`, its root subject is the advisory's own `<CVE-ID>: <description>`, not a reply or a post that merely mentions the ID, and its root message is from a release manager or security-team member);
+     its `<mail-archive-url>/thread/<id>` permalink is then the *proposed* *Public advisory URL*, which the orchestrator shows with its list and subject and records only on the user's explicit confirmation.
      The body's *Public advisory URL* field and `announced` label are a **lagging mirror**, written only on the *next* sync after the out-of-band send:
      populated, they confirm shipment; empty is **never** proof the advisory did not ship.
      A `fix released` tracker with an empty *Public advisory URL* whose CVE is live on cve.org is a **Step 14→15 close-out**, not a parked tracker;
@@ -270,6 +271,8 @@ bucket it into the Step 14→15 close-out **regardless** of an empty *Public adv
   If a subagent reports a mutation, surface it as a bug and stop.
 - **No new CVE allocations in subagents.** Printing the CVE allocation URL is fine; allocating is a human step.
 - **Gmail drafts are created by the orchestrator**, only after user confirmation, from its main context.
+- **One draft per thread, never merged across trackers.** The merged *proposal* is for review only;
+  each tracker's reporter draft stays a separate draft on its own thread, even when several trackers share a reporter (Golden rule 3).
 - **Confidentiality still applies** to subagents: no `<tracker>` content leaks into any public surface.
 - **Link-form self-check still applies** to the merged output — every `#NNN` is a clickable link per Golden rule 2.
 - **Pre-flight skips are never silent.** Every Step 1b `skip-noop` appears in the *"Pre-flight skipped"* group with the rule that fired;

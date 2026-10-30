@@ -51,7 +51,7 @@ from typing import Any, NoReturn
 from . import backends as _backends
 from .labels import project_slug
 from .layers import LOCAL_DIR, git_common_dir, main_worktree, personal_dir, personal_layers
-from .policy import PolicyContext
+from .policy import PolicyContext, write_protected_paths
 from .relay import Handler, Relay, serve_unix, unix_connector
 
 log = logging.getLogger("container-gateway")
@@ -590,6 +590,16 @@ def build_context(cfg: Config, backend: _backends.Backend, proxy_env: dict[str, 
     if (main := main_worktree(root)) is not None:
         personal.append(main / LOCAL_DIR)
     excluded = tuple(dict.fromkeys(p.resolve() for p in (cfg.run_dir, *personal) if p is not None))
+    # Files that configure or run code outside the sandbox (the harness
+    # settings, hooks and skills, the git hooks and config) are never under a
+    # writable bind: the daemon writes for the container, unsandboxed.
+    # Snapshotted here from the layout at start, so a `.git` file rewritten
+    # mid-session cannot move the git directory out of view; the policy adds
+    # the current layout on every request.
+    protected_roots = [root, *roots]
+    if main is not None:
+        protected_roots.append(main.resolve())
+    protected = write_protected_paths(*protected_roots)
     return PolicyContext(
         project_slug(cfg.project_root),
         cfg.project_root.resolve(),
@@ -597,6 +607,7 @@ def build_context(cfg: Config, backend: _backends.Backend, proxy_env: dict[str, 
         proxy_env,
         cfg.egress_mode,
         excluded_bind_roots=excluded,
+        write_protected=protected,
     )
 
 

@@ -68,11 +68,25 @@ private data over an **arbitrary HTTP call** (the gap noted in
 [`docs/setup/secure-agent-setup.md`](../../docs/setup/secure-agent-setup.md):
 `Bash(curl *)` egress bypasses the sandbox proxy).
 
-The egress-gateway closes that gap at the network layer: by funnelling tool
-egress through a default-deny allowlist, private data physically cannot reach
-a non-sanctioned host even if a higher layer is tricked into trying. It is
-**defence-in-depth**, layered under — not a replacement for — the redactor and
-the gate. See RFC-AI-0003 §4.4.
+The egress-gateway narrows that gap at the network layer: a client that sends
+its traffic through the gateway cannot reach a host outside the default-deny
+allowlist, even if a higher layer is tricked into trying. Two limits bound
+that claim:
+
+- **It covers only clients that honour the proxy variables.** The gateway is
+  reached through `HTTPS_PROXY` / `HTTP_PROXY`. A program that ignores them, a
+  command that unsets or overrides them, or a non-HTTP protocol (raw TCP, DNS,
+  SSH) does not pass through the gateway at all; stopping those is the
+  sandbox's network layer and permission rules, not this tool.
+- **The allowlist includes general-purpose write hosts.** The default set
+  admits `github.com`, `api.github.com`, `*.githubusercontent.com` and
+  `*.googleapis.com` (plus `*.apache.org` and the package hosts). Data can be
+  written to those hosts (a gist, an issue, a file in a cloud document), so
+  the gateway limits *which services* receive egress, not *what* is sent to
+  them or *on whose account*.
+
+It is **defence-in-depth**, layered under — not a replacement for — the
+redactor and the gate. See RFC-AI-0003 §4.4.
 
 ## How adopters consume this tool
 

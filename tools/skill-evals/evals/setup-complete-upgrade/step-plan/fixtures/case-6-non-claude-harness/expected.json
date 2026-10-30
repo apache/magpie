@@ -1,0 +1,15 @@
+{
+  "items": [
+    {
+      "group": "update",
+      "bypass": false,
+      "id": "checker-copy-stale"
+    }
+  ],
+  "run_yourself": [
+    "gateway-hook-stale"
+  ],
+  "still_open": [],
+  "isolated_offer": false,
+  "nothing_to_do": false
+}

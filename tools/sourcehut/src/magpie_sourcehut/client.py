@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -29,6 +30,11 @@ from typing import Any
 
 class SourceHutError(Exception):
     """General exception for SourceHut client errors."""
+
+
+# A sr.ht service is a bare subdomain label (todo, lists, builds, git, hg, …).
+# Anything else could steer the request, and the bearer token, to another host.
+_SERVICE = re.compile(r"[a-z][a-z0-9-]{0,30}")
 
 
 class NoAuthRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -64,6 +70,8 @@ def query_graphql(service: str, query: str, variables: dict[str, Any] | None = N
     Returns:
         The 'data' object from the GraphQL response.
     """
+    if not _SERVICE.fullmatch(service):
+        raise SourceHutError(f"invalid sr.ht service name {service!r}; expected a subdomain such as 'todo'")
     token = os.environ.get("SRHT_TOKEN")
     if not token:
         raise SourceHutError("SRHT_TOKEN environment variable is not set")

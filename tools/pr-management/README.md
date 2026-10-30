@@ -223,10 +223,10 @@ uv run --project <framework>/tools/pr-management pr-management code-review <subc
 | Subcommand | Prints |
 |---|---|
 | `resolve`, `queue` | the ordered review queue with match chips and skip reasons (the five "my reviews" signals and every selector) |
-| `context` | the PR headline, the slop signals, the security and AI-disclosure scans, the `AGENTS.md` files that apply, the real-CI result |
+| `context` | the PR headline, the slop signals, the security and AI-disclosure scans, the `AGENTS.md` files that apply, the real-CI result, the unresolved threads GitHub marks outdated (`outdated_threads`) |
 | `slop-outcome` | the slop outcome once the agent has judged H1, H5 and S2 |
 | `deps` | the dependency-constraint ledger: `broken`, `compatible` or `unknown` |
-| `disposition` | `APPROVE` / `REQUEST_CHANGES` / `COMMENT`, the footer variant, any conflict note, and whether a `FIXUP` (commit the remaining small, mechanical findings to the PR head, then approve) is the default; `--head-pushable` says the maintainer can push there |
+| `disposition` | `APPROVE` / `REQUEST_CHANGES` / `COMMENT`, the footer variant, any conflict note, and whether a `FIXUP` (commit the remaining small, mechanical findings to the PR head, then approve) is the default; `--head-pushable` says the maintainer can push there; each `--addressed-thread <id>` (an outdated thread the current code addresses) leaves the thread gate and is returned in `resolve_first` for the maintainer to resolve |
 | `reviewers` | ranked reviewer suggestions |
 | `render` | the review body file, the payload file, inline anchors (line, side, position) and the `shlex.join`-built post command |
 | `pick` | the parsed picker choice |
