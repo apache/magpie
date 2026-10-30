@@ -1,0 +1,7 @@
+{
+  "fetch_action": "save_attachments",
+  "decrypt": "not_applicable",
+  "password": null,
+  "injection_flagged": true,
+  "has_untrusted_rationale": true
+}

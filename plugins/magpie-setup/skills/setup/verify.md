@@ -34,7 +34,7 @@ and remediation commands; writes only the always-local
 2. **Framework checkout?** Detect structurally (as in
    [`install.md` Step 0](install.md#step-0--pre-flight)):
    `skills/setup/SKILL.md` exists at the repo root with
-   `name: magpie-setup` and `skills/list-skills/` is present. If
+   `name: setup` and `skills/list-skills/` is present. If
    so **and** `.apache-magpie.lock` records `method: local`, the
    repo is **self-adopted** — run the
    [Local self-adoption checks](#local-self-adoption-checks)
@@ -66,7 +66,9 @@ adopted or merely configured; they are not specific to this branch.
    client's plugin state — Claude Code:
    `~/.claude/plugins/installed_plugins.json` plus the version in
    the cached `…/apache-magpie/<plugin>/<version>/`; Codex:
-   `codex plugin list`; Gemini: `gemini extensions list`. Report
+   `codex plugin list`; Antigravity: `agy plugin list --json`; Pi:
+   `pi list` (one framework package, no per-family plugins); Goose:
+   `goose skills list` (`magpie:*` skills from one framework plugin). Report
    the family plugins installed and the version each is on.
 2. **Marketplace registered and reachable.** The `apache-magpie`
    marketplace appears in the client's known marketplaces
@@ -115,8 +117,17 @@ adoption state.
    `setup` otherwise.
 2. **Symlinks resolve (canonical → source, relays → canonical).**
    In the canonical dir `.agents/skills/`, every `magpie-<n>` is a
-   symlink whose target (`../../skills/<n>/`) resolves to a
-   directory containing `SKILL.md`. In every **relay** target dir
+   symlink whose target is the skill's real directory — what
+   `skills/<n>` itself points at, rebased onto `.agents/skills/`
+   (`../../plugins/<family>/skills/<alias>`, where `<alias>` is the
+   skill's frontmatter `name:` and often differs from `<n>`:
+   `magpie-pr-management-triage` →
+   `../../plugins/magpie-pr-management/skills/pr-triage`) — and
+   resolves to a directory containing `SKILL.md`. Compare against
+   that symlink, never against a pattern built from `<n>`. A target
+   of `../../skills/<n>` is ✗ — a symlink chain, which the release
+   archive refuses; `symlink-lint` enforces the rule.
+   In every **relay** target dir
    ([`agents.md`](agents.md) — `.claude/skills/`, `.github/skills/`,
    plus any present holdout), every `magpie-<n>` is a symlink whose
    target (`../../.agents/skills/magpie-<n>`) resolves through the
@@ -207,10 +218,17 @@ Compare:
 - For `git-branch`: also compare upstream tip (the actual
   current `HEAD` of the branch on the remote) against
   `<local-lock>.fetched_commit`.
+- For `git-tag`: also compare `<committed-lock>.commit` against
+  `<local-lock>.fetched_commit`, and against the commit the tag
+  resolves to upstream now
+  (`git ls-remote <url> "refs/tags/<ref>^{}" "refs/tags/<ref>"`;
+  the peeled `^{}` line wins for an annotated tag).
 
 | Result | Severity |
 |---|---|
 | All match (and for `git-branch`, local is at upstream tip) | ✓ |
+| `git-tag` upstream tag resolves to a commit other than `<committed-lock>.commit` | ✗ — the tag moved, a supply-chain signal; name both commits and stop. Do **not** suggest `setup upgrade` as the fix: it refuses a moved tag. The project re-pins only deliberately, after reviewing the new commit |
+| `git-tag` `<local-lock>.fetched_commit` differs from `<committed-lock>.commit` | ✗ — this machine runs a commit the project did not pin; investigate before running skills; remediation once the upstream tag is confirmed unmoved: `setup upgrade` |
 | Method or URL differ | ✗ — full re-install needed; remediation: `setup upgrade` |
 | Ref differs (e.g. project bumped tag, or `git-branch` local is behind upstream) | ⚠ — sync needed; remediation: `setup upgrade` |
 | `svn-zip` SHA-512 differs from the verification anchor in `<committed-lock>` | ✗ — security-flagged; the released zip changed content; investigate before upgrading |
@@ -663,6 +681,7 @@ adopter opted into via
   - `mcp__claude_ai_Gmail__list_drafts`
   - `mcp__claude_ai_Gmail__list_labels`
   - `mcp__gmail-plaintext__create_draft`
+  - and, only when `project.md` declares `organization: ASF` (they are ASF services):
   - `mcp__ponymail__search_list`
   - `mcp__ponymail__auth_status`
   - `mcp__ponymail__get_thread`
@@ -706,7 +725,8 @@ The skill invokes the CLI once per settings file:
 ```bash
 uv run --project <framework>/tools/permission-audit \
   permission-audit audit <repo>/.claude/settings.local.json \
-  --families <comma-joined families from the lock>
+  --families <comma-joined families from the lock> \
+  --organization <organization from project.md>
 ```
 
 The CLI emits structured JSON the skill folds into the verify
@@ -881,13 +901,14 @@ When `.codex/` is absent this check is skipped — the Codex profile is
 opt-in per runtime; see
 [the Codex adapter](../../../../docs/adapters/codex.md).
 
-### 8h. Gemini project profile (if present)
+### 8h. Antigravity user-scope profile (if present)
 
-When the workspace has a Magpie Gemini policy or guard registration, run the static checks in
-[the Gemini verification contract](../../../../docs/adapters/gemini.md#verify).
+When `~/.gemini/antigravity-cli/settings.json` or `~/.gemini/config/hooks.json` carries Magpie's profile or guard registration, run the static checks in
+[the Antigravity verification contract](../../../../docs/adapters/antigravity.md#verify).
+The profile is per user, so this check reads the home directory, never the repository.
 Report missing components and configuration drift without modifying files.
-An absent profile is skipped unless Gemini secure setup was requested; in that case, point to `setup-isolated-setup-install`.
-A static pass does not replace live verification in Gemini.
+An absent profile is skipped unless Antigravity secure setup was requested; in that case, point to `setup-isolated-setup-install`.
+A static pass does not replace live verification in Antigravity.
 
 ### 8h.1. Grok action guard (if configured)
 
@@ -907,6 +928,23 @@ actually enforcing together.
 
 Never grant, reset, or otherwise change Grok project-hook trust during verification.
 See [the Grok verification contract](../../../../docs/adapters/grok.md#verify).
+
+### 8h.2. Pi package (if present)
+
+When `pi list` shows `git:github.com/apache/magpie`, check that it is recorded in the user's `~/.pi/agent/settings.json` rather than a project `.pi/settings.json`, then follow
+[the Pi verification contract](../../../../docs/adapters/pi.md#verify).
+The secure setup is per user: a project-scope install of the package is reported as a finding, never repaired by writing into the repository.
+An absent package is skipped unless Pi secure setup was requested; in that case, point to `setup-isolated-setup-install`.
+A static pass does not replace live verification in Pi.
+
+### 8h.3. Goose plugin (if present)
+
+When `~/.agents/plugins/magpie/` exists, check that its `hooks/hooks.json` and the sandbox runtime under its `node_modules/` are present, and that no project `.agents/plugins/magpie/` shadows it, then follow
+[the Goose verification contract](../../../../docs/adapters/goose.md#verify).
+The secure setup is per user: a project-scope plugin is reported as a finding, never repaired by writing into the repository.
+A missing sandbox runtime (after `goose plugin update`) is reported with the `npm ci` command that restores it.
+An absent plugin is skipped unless Goose secure setup was requested; in that case, point to `setup-isolated-setup-install`.
+A static pass does not replace live verification in Goose.
 
 ### 8i. Adversarial reviewers (if configured)
 
@@ -928,7 +966,9 @@ it with the configured `reviewers`.
   `/plugin install magpie-adversarial-review@apache-magpie`.
 - ⚠ for each harness command under the user's home
   (`~/.codex/prompts/magpie-adversarial-review.md`,
-  `~/.gemini/commands/magpie-adversarial-review.toml`) that differs from
+  `~/.gemini/antigravity-cli/skills/magpie-adversarial-review/SKILL.md`,
+  `~/.pi/agent/skills/magpie-adversarial-review/SKILL.md`,
+  `~/.agents/skills/magpie-adversarial-review/SKILL.md`) that differs from
   what `adversarial-review commands --harness <name>` prints for the
   installed plugin — the command text changed in a newer plugin. The
   remediation is `/magpie-setup:setup config adversarial-review`, which shows the
@@ -1058,10 +1098,11 @@ writes nothing.
 Read `.claude/settings.json` at the repo root and compare its committed
 `enabledPlugins` block against the floor — the `plugins` list in
 `.apache-magpie.lock`, in floor order, each as `<plugin>@apache-magpie`.
-`adopt` *seeds* that list with `magpie-setup`, `magpie-utilities` and
-`magpie-agent-guard`, and a project whose maintainers enlarged the floor
-carries more, so read the lock rather than assuming a count; with no lock in
-evidence, the seeded three stand. This block is written by
+`adopt` *seeds* that list with `magpie-setup`, `magpie-utilities`,
+`magpie-agent-guard` and `magpie-vetted-ops`, and a project whose maintainers
+enlarged the floor carries more, so read the lock rather than assuming a count;
+with no lock in evidence, the seeded four stand. `magpie-vetted-ops` is
+expected even when an older lock omits it. This block is written by
 [`adopt`](adopt.md) (Claude Code only) to record that floor in the repo;
 committing it is optional and is not required to use the plugins in this repo.
 

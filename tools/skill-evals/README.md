@@ -11,17 +11,17 @@ Behavioral eval harness for Apache Magpie skills. Each eval suite tests a skill 
 
 Suites are currently implemented for:
 
-- **setup** — 141 cases across 30 steps (step-verify-drift, step-overrides-surface, step-override-bypass, step-m3-baseline-pick, step-m4-install-gates, step-m5-no-repo-offer, step-m5-companion-offer, step-upgrade-companion-offer, step-adopt-settings-merge, verify-default-set, uninstall-default-set, lock-marketplace-parse, adopt-write-floor, setup-prefill-from-floor, preflight-floor, upgrade-adoption-split, verify-floor, adopt-review-process, adopt-security-list, step-reconcile, step-verify, step-config-stamp, step-config-adversarial, step-config-mail, step-adopt-stamp, step-upgrade-stamp, step-delegate-propose, config-vcs-backend, config-local-custom-parser)
-- **setup-isolated-setup-install** — 19 cases across 5 steps (runtime-routing, step-snapshot-drift, step-scope-confirm, step-hardware-key, step-roborev-exclusion)
+- **setup** — 152 cases across 33 steps (step-verify-drift, step-overrides-surface, step-override-bypass, step-m3-baseline-pick, step-m4-install-gates, step-m5-no-repo-offer, step-m5-companion-offer, step-upgrade-companion-offer, step-adopt-settings-merge, verify-default-set, uninstall-default-set, lock-marketplace-parse, adopt-write-floor, setup-prefill-from-floor, preflight-floor, upgrade-adoption-split, verify-floor, adopt-review-process, adopt-security-list, step-reconcile, step-verify, step-config-stamp, step-config-adversarial, step-config-mail, step-adopt-stamp, step-upgrade-stamp, step-delegate-propose, config-vcs-backend, config-local-custom-parser, adopt-isolation-warning, step-vetted-ops-no-policy, step-unknown-subaction)
+- **setup-isolated-setup-install** — 21 cases across 5 steps (runtime-routing, step-snapshot-drift, step-scope-confirm, step-hardware-key, step-roborev-exclusion)
 - **setup-privacy-llm** — 6 cases across 2 steps (step-1-resolve, step-4-gate)
 - **setup-shared-config-sync** — 12 cases across 2 steps (step-3-decide-action, step-5-draft-commit)
 - **pairing-multi-agent-review** — 15 cases across 6 steps (step-1-collect-diff, step-2a-correctness-pass, step-2b-security-pass, step-2c-conventions-pass, step-3-merge-findings, step-4-compose-report)
 - **pairing-self-review** — 20 cases across 2 steps (step-2-classify-findings, step-3-compose-report)
-- **security-issue-import** — 36 cases across 8 steps; Steps 0, 6 and 7 are decided and pytest-tested in `tools/security-management`
+- **security-issue-import** — 42 cases across 9 steps; Steps 0, 6 and 7 are decided and pytest-tested in `tools/security-management`
 - **security-issue-triage** — 19 cases across 6 steps (2, 2.5, 2.6, 3, 4, 6); Steps 1, 5 and 7 and the Step 6 bare-name scrub are decided and pytest-tested in `tools/security-management`
 - **security-issue-deduplicate** — 3 cases across 1 step (3, the merge inputs); Steps 1, 2, 3 (the merged body), 4, 5 and 6 are decided and pytest-tested in `tools/security-management`
-- **security-cve-allocate** — 3 cases across 1 step (4, the reporter draft); Steps 1, 2, 3, 4 (proposal and rollup), 5 and 7 are decided and pytest-tested in `tools/security-management`
-- **security-issue-sync**: 38 cases across 7 steps (1d, 1f, 2a, 2b, 2c, 5b judged gates, handoff-delegate); bulk selection and pre-flight, the buckets, Steps 3 and 6, the Guardrails check, the security CC, the drafting backend, the GHSA tier and the Step 5b flow are decided and pytest-tested in `tools/security-management`
+- **security-cve-allocate** — 4 cases across 1 step (4, the reporter draft); Steps 1, 2, 3, 4 (proposal and rollup), 5 and 7 are decided and pytest-tested in `tools/security-management`
+- **security-issue-sync**: 45 cases across 9 steps (1d, 1f, 2a, 2b, 2c, 5b judged gates, handoff-delegate, D0 dashboard ASF-only gate, D4 dashboard proposals); bulk selection and pre-flight, the buckets, Steps 3 and 6, the Guardrails check, the security CC, the drafting backend, the GHSA tier and the Step 5b flow are decided and pytest-tested in `tools/security-management`
 - **security-issue-fix** — 31 cases across 8 steps (2, 3, 5b, 5d, 5g, 7, and Subversion steps 8 and 9); the flow choice, 5a, 5c, 5e, 5f, 6 and 11 are decided and pytest-tested in `tools/security-management`
 - **security-issue-invalidate** — 7 cases across 2 steps (3, 4); Steps 2, 5a, 5b, 5d, 5e, 5f and 7 are decided and pytest-tested in `tools/security-management`
 - **security-issue-import-from-md** — 7 cases across 4 steps (1, 2, 4, 6); the Step 1 parser and Step 2 keyword clean are pytest-tested in `tools/security-management`
@@ -30,14 +30,15 @@ Suites are currently implemented for:
 - **issue-reproducer** — 27 cases across 7 steps (step-1-inventory, step-2-pick-candidate, step-3-classify-shape, step-5.5-confirm, step-7-verify, step-8-baselines, step-10-compose-verdict)
 - **issue-fix-workflow** — 20 cases across 7 steps (step-2-locate-area, step-6-scope-check, step-7-compose-commit, step-8-handback)
 - **issue-reassess-stats** — 8 cases across 3 steps (step-1-fetch-verdicts, step-2-classify, step-3-aggregate)
-- **pr-management-code-review** — 56 cases across 15 suites; the 13 scripted suites moved to `tools/pr-management/tests/code_review`
+- **pr-management-code-review** — 60 cases across 16 suites; the 13 scripted suites moved to `tools/pr-management/tests/code_review`
 - **pr-management-mentor** — 6 cases across 2 steps (intervention, tone-checks); the hand-off triggers and deterministic tone rules are pytest-tested in `tools/pr-management`
 - **pr-management-stats** — 6 cases across 1 step (build-loop)
 - **pr-management-triage** — 33 cases across 6 steps (backport-check, classify-loop, deliver-note, guard-reroute, terminal-links, interaction-progress); the pre-filters, decision table and pagination are pytest-tested in `tools/pr-management`
 - **list-skills** — 8 cases across 2 steps (step-1-command, step-2-present)
-- **setup-isolated-setup-verify** — 27 cases across 4 steps (runtime-routing, codex-native, step-1-classify, step-2-recommend)
-- **setup-isolated-setup-update** — 15 cases across 4 steps (runtime-routing, step-snapshot-drift, step-tool-freshness, step-after-report)
-- **setup-isolated-setup-doctor** — 26 cases across 3 steps (runtime-routing, interpret-probes, after-report)
+- **setup-isolated-setup-verify** — 38 cases across 4 steps (runtime-routing, codex-native, step-1-classify, step-2-recommend)
+- **setup-isolated-setup-update** — 17 cases across 4 steps (runtime-routing, step-snapshot-drift, step-tool-freshness, step-after-report)
+- **setup-complete-upgrade** — 18 cases across 2 steps (step-plan, step-apply)
+- **setup-isolated-setup-doctor** — 28 cases across 3 steps (runtime-routing, interpret-probes, after-report)
 - **contributor-activity-sweep** — 13 cases across 3 steps (step-0-resolve-inputs, step-1-classify-reviews, step-2-render)
 - **optimize-skill** — 7 cases across 1 step (step-diagnose)
 - **committer-onboarding** — 27 cases across 4 steps (step-0-validate-vote, step-1-icla-comms, step-3-checklist, step-4-completion-summary)
@@ -88,12 +89,14 @@ Suites are currently implemented for:
 - **setup-upstream-fix** — 12 cases across 3 suites (step-2-classify, step-3-dedup, step-5-adversarial-review)
 - **skill-reconciler** — 12 cases across 2 suites (step-0-discover-pairs, step-2-classify)
 - **workflow-security-audit** — 8 cases across 2 suites (step-findings-report, step-scope-selection)
+- **workflow-optimization** — 8 cases across 2 suites (step-2-classify, step-3-plan)
 - **write-skill** — 5 cases across 1 suite (step-5-security-checklist)
 - **setup-privacy-llm** — 6 cases across 2 suites (step-1-resolve, step-4-gate)
 - **preflight-reconciliation** — 7 cases across 1 suite (step-reconciliation)
 - **contributor-calibrate** — 11 cases across 3 suites (step-1-find-nominations, step-4-propose-floors, step-6-write-configuration)
 - **contributor-candidate-screen** — 15 cases across 6 suites (step-0-gates, step-2-pre-filter, step-3-measure, step-4-write-report, step-5-deliver)
 - **pr-management-stack-review** — 11 cases across 2 suites (step-3-structural-findings, step-4-reading-plan); the gate, mechanical findings, verdict and posting are pytest-tested in `tools/pr-management`
+- **security-submit-to-oss-scan** — 2 cases across 1 suite (step-5-derive)
 
 ## Prerequisites
 
@@ -531,6 +534,10 @@ Example: [`evals/issue-reassess-stats/README.md`](evals/issue-reassess-stats/REA
 Print mode supports manual review, while `--cli` runs the configured model and comparator automatically.
 CI can use a deterministic stand-in CLI for harness behavior;
 live model runs remain an explicit pre-flight because they require provider credentials and can be nondeterministic.
+
+`--check` builds every step's system prompt without running a case,
+and names each fixtures dir whose prompt cannot be built, such as a `step_heading` the `SKILL.md` no longer has.
+The `check-eval-prompts` prek hook runs it over `evals/` whenever a Markdown file changes.
 
 One challenge is model non-determinism. Most cases in this suite have clear, unambiguous correct answers and should pass reliably on a single run. A small number sit closer to a decision boundary — the MEDIUM dedup verdicts and DEFENSE-IN-DEPTH vs NOT-CVE-WORTHY edge cases in particular — and may benefit from being run twice before failing a build. Running every case multiple times would be excessive and slow; the better approach is to tag genuinely borderline cases explicitly and apply a retry budget only to those.
 

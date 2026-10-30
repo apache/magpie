@@ -56,7 +56,7 @@ Every mod authored for or shipped with Apache Magpie must strictly comply with f
 
 Vendor neutrality is a foundational design principle of Apache Magpie ([`PRINCIPLES.md` §10](../PRINCIPLES.md#10-vendor-neutrality-is-non-negotiable), [`docs/vendor-neutrality.md`](vendor-neutrality.md)).
 Mods exist only in Claude Code (CLI and Desktop Code tab).
-They don't run in Codex or Gemini CLI, and the VS Code panel and `claude -p` don't draw them.
+They don't run in Codex or Antigravity, and the VS Code panel and `claude -p` don't draw them.
 
 Therefore, a mod can **only ever enhance a skill additively**.
 Every skill must continue to work end-to-end when mods are disabled, unsupported, or absent.
@@ -102,7 +102,7 @@ To maintain architectural clarity, Magpie enforces a strict distinction between 
 ```text
 ┌────────────────────────────────────────────────────────┐      ┌─────────────────────────────────────────────────┐
 │ SKILLS (Universal Markdown)                            │      │ MODS (Claude Code Only)                         │
-│ - Portable across all harnesses (Gemini, Codex, etc.)  │      │ - Additive event hooks                          │
+│ - Portable across all harnesses (Codex, Cursor, etc.)  │      │ - Additive event hooks                          │
 │ - Declares required capability contracts (contract:*)  │<─────┤ - Hooks harness alongside skill execution       │
 └───────────────────────────┬────────────────────────────┘      │ - Zero-token UI, commands, & pre-checks         │
                             │                                   │ - Lives under plugins/<family>/hooks/           │
@@ -136,7 +136,7 @@ Contributors and maintainers should evaluate proposed mod implementations agains
 
 | Anti-Pattern | Why It Is Forbidden | Correct Alternative |
 |---|---|---|
-| **Embedding Skill Workflow Logic in a Mod** | Violates vendor neutrality; breaks execution on Gemini CLI, Codex, and Cursor. | Keep workflow steps in the skill's markdown; use the mod only for presentational enhancement. |
+| **Embedding Skill Workflow Logic in a Mod** | Violates vendor neutrality; breaks execution on Antigravity, Codex, and Cursor. | Keep workflow steps in the skill's markdown; use the mod only for presentational enhancement. |
 | **Replacing Capability Tools with Unsandboxed Mod Calls** | Bypasses sandbox security and breaks backend interchangeability. | Implement backend functionality as a tool adapter under `tools/<name>/` fulfilling a capability contract. |
 | **Silent Tool Call Approvals** | Bypasses the human-in-the-loop safety principle ([`PRINCIPLES.md` §7](../PRINCIPLES.md#7-the-human-is-always-in-the-loop-until-they-choose-otherwise)). | Always require explicit maintainer confirmation before executing state-changing operations. |
 | **Unvetted Network Egress** | Violates data residency and sandbox egress controls. | Restrict mod network calls; route external fetches through vetted tool adapters. |

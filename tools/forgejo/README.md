@@ -31,6 +31,8 @@ This tool implements three capability contracts: `contract:tracker` (issues / la
 - **CLIs:** `tea` (authenticated), `git` (source-control capability), `curl`, `jq`.
 - **Credentials / auth:** Every REST recipe in [`operations.md`](operations.md) (collaborator lookup, issue create, issue body edit, comments, PR create) sends `Authorization: token $TEA_TOKEN` to `$FORGEJO_HOST`, so both variables are required whenever those recipes run. The token value is stored in a private configuration file in the user's home directory (e.g. `~/.config/tea/token` or `~/.config/apache-magpie/user.md` per [`AGENTS.md` § Local setup](../../AGENTS.md#local-setup)) and exported to the agent's environment. `$FORGEJO_HOST` is the base URL including the scheme (`https://forge.example.org`), since the recipes build `$FORGEJO_HOST/api/v1/...` from it. For `tea` CLI operations, `tea login list` must show an authenticated login.
 - **Network:** The Forgejo/Gitea instance host (`$FORGEJO_HOST`) must be added to the sandbox network allowlist, permitting access to the instance API (`/api/v1/`) and Git remote; source-control recipes are offline except explicit `fetch` / `push`.
+- **Secure-setup conflict:** the REST recipes call `curl`, which the [shipped secure setup](../../docs/setup/secure-agent-setup.md#the-frameworks-own-claudesettingsjson) denies (`Bash(curl *)`).
+  Under that setup only the `tea` recipes run from the agent; the REST-only operations are run by the user — see [`operations.md` § Running the REST recipes under the secure setup](operations.md#running-the-rest-recipes-under-the-secure-setup).
 
 ## Configuration
 

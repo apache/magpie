@@ -127,11 +127,17 @@ Stdlib-only runtime; the dev group adds `pytest`, `ruff`, `mypy`.
 ## CLI
 
 ```bash
-permission-audit audit-any [--dir <project-root>] [--families security,issue]
-permission-audit audit <settings-path> [--families security,issue]
+permission-audit audit-any [--dir <project-root>] [--families security,issue] [--organization ASF]
+permission-audit audit <settings-path> [--families security,issue] [--organization ASF]
 permission-audit apply <settings-path> [--add <entry>]... [--remove <entry>]... [--create-if-missing]
 permission-audit list-known
 ```
+
+`--organization` takes the project's `organization` from `project.md`
+(default: none).
+Recommendations specific to one organization — the ASF services, for
+`ASF` — are added only when it names that organization; without it they
+are dropped from `missing_recommended`.
 
 ### `audit-any` (harness-neutral)
 
@@ -269,7 +275,8 @@ this tool is the engine behind it. The skill calls
 ```bash
 uv run --project <framework>/tools/permission-audit \
   permission-audit audit <repo>/.claude/settings.local.json \
-  --families <comma-joined families from the lock>
+  --families <comma-joined families from the lock> \
+  --organization <organization from project.md>
 ```
 
 for each of `.claude/settings.json` and `.claude/settings.local.json`,

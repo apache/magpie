@@ -1,0 +1,15 @@
+{
+  "snapshot_drift": "none",
+  "checks": [
+    {
+      "n": 1,
+      "status": "✓",
+      "evidence": "sandbox.enabled: true; deny and ask lists present; network and filesystem allowlists configured; denyRead contains ~/ (.claude/settings.json)"
+    },
+    {
+      "n": 7,
+      "status": "inconclusive",
+      "evidence": "7a inconclusive: no candidate credential file visible in the sandbox, but no sentinel and no ls from the user, so a denied file cannot be told from a missing one; 7b env names only, none credential-shaped, entrypoint cli; 7c curl denied at permission layer"
+    }
+  ]
+}

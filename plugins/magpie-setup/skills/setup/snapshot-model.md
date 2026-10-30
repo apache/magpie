@@ -65,7 +65,7 @@ Apache Magpie framework checkout itself — a remote snapshot of the
 framework into itself would be circular. Instead it **self-adopts**
 with `method:local`: each canonical `magpie-<skill>` in
 `.agents/skills/` is a **committed** symlink into the in-repo
-`../../skills/<skill>/` source, and every other active agent
+`../../plugins/<family>/skills/<alias>` (`<alias>` = the skill's frontmatter `name:`) source, and every other active agent
 target ([`agents.md`](agents.md)) — `.claude/skills/` (Claude
 Code), `.github/skills/` (GitHub's skill loader), and any present
 holdout — gets a committed **relay** symlink

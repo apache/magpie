@@ -100,7 +100,11 @@ same directory; the behaviour is unchanged.
   posts on maintainer confirmation. Ships `mode: Triage` + `experimental`.
   Selection, scans, the slop threshold, disposition, inline anchoring and the
   review payload run as code in `pr_management.code_review`; the agent judges
-  H1/H5/S2, writes the findings and assigns severity. Detail files include
+  H1/H5/S2, writes the findings and assigns severity.
+  An inline comment carries the finding as the review body does (its
+  `quoted_rule` and `suggestion`), minus the excerpt it is anchored on, and
+  a folded finding falls back to its suggestion before its rule, never the
+  bare rule label (#1853). Detail files include
   `prerequisites.md`, `review-flow.md`, `review-loop.md`, `criteria.md`,
   `adversarial.md`, `posting.md`, one file per outcome under
   `classifications/` and per category under `criteria/`.
@@ -310,7 +314,11 @@ same directory; the behaviour is unchanged.
 - **One APPROVE definition in code review.** `pr-management code-review
   disposition` proposes `APPROVE` only when nothing is above a nit, real CI is
   green, no review thread is unresolved, no other maintainer's
-  `CHANGES_REQUESTED` stands, and no maintainer question is unanswered; the
+  `CHANGES_REQUESTED` stands, and no maintainer question is unanswered; an
+  outdated thread the agent verified the current code addresses leaves the
+  thread gate and goes to the maintainer to resolve instead (the agent judges
+  every comment in the thread, and a thread longer than the read stays a
+  gate); the
   maintainer may downgrade it, and upgrading past a named gate needs a stated
   reason (#1585).
   When every gate holds and the only findings left are `minor` / `nit` ones
@@ -323,6 +331,17 @@ same directory; the behaviour is unchanged.
   --author`, CODEOWNERS team ownership checks team membership rather than
   organisation membership, and `maintain` permission gets the maintainer
   footer (#1585).
+- **Third-party licence scan reads only real copyright notices.**
+  `scans.third_party_licences` treats an added file as third-party code when
+  the first 25 lines carry a licence identifier or block and either a
+  copyright line naming someone other than the ASF or an "adapted / derived /
+  ported / copied / vendored from" note; it then reports Category X and B
+  licences as `blocking` and a Category A licence as `major` when
+  `LICENSE` / `LICENSE.txt` was not updated.
+  A copyright notice has to open its line (after comment markers, optionally
+  "Portions"), so the ASF header's mid-line "regarding copyright ownership"
+  never marks a file carrying `SPDX-License-Identifier: Apache-2.0` and the
+  full ASF header as third-party (#1777).
 - **Evidence-gated dependency-version findings.**
   `pr-management-code-review` inventories every mandatory direct and
   transitive constraint path, applies environment markers, and intersects
@@ -453,7 +472,8 @@ same directory; the behaviour is unchanged.
     (#1580).
 13. `pr-management-code-review` proposes `APPROVE` only when the single
     disposition gate holds (no finding above a nit, real CI green, no
-    unresolved thread, no standing change request, no open maintainer
+    unresolved thread other than an outdated one the current code
+    addresses, no standing change request, no open maintainer
     question) (#1585).
 14. `pr-management-stats` writes nothing to any PR or tracker; its only
     write is the confirmed secret-gist publish on the maintainer's account

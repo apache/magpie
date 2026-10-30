@@ -198,7 +198,12 @@ _LICENCE_BLOCKS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("EPL-2.0", re.compile(r"Eclipse Public License", re.IGNORECASE)),
     ("CDDL", re.compile(r"Common Development and Distribution License", re.IGNORECASE)),
 )
-_COPYRIGHT = re.compile(r"Copyright\s*(?:\(c\)|©)?\s*(?:\d{4}[-\u2013, \d]*)?\s*(.+)", re.IGNORECASE)
+# A notice opens its line (after comment markers); the ASF header's "regarding copyright
+# ownership" sits mid-line and is not one.
+_COPYRIGHT = re.compile(
+    r"^[\s#/*;!\"'<>-]*(?:portions\s+)?Copyright\b\s*(?:\(c\)|©)?\s*(?:\d{4}[-\u2013, \d]*)?\s*(.+)",
+    re.IGNORECASE | re.MULTILINE,
+)
 _ADAPTED = re.compile(r"\b(adapted|derived|ported|copied|vendored) from\b|\bbased on\b", re.IGNORECASE)
 
 CATEGORY_X = ("GPL", "AGPL", "LGPL", "CDDL", "BUSL", "SSPL")

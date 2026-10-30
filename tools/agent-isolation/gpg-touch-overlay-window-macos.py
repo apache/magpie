@@ -47,6 +47,11 @@ still be touched for the command to go through, so trapping the screen
 would buy nothing. Closing on focus loss is what makes that last part
 safe: the keyboard is taken once, on the way up, and never grabbed back,
 so a window that is no longer listening is never left on screen.
+
+Esc and a click answer the window and exit 0. Losing focus does not
+answer it, and exits with ``UNANSWERED``: the watcher shows the window
+again while the key is still waiting, rather than treating a click on
+the terminal as a dismissal of every later touch.
 """
 
 import ctypes
@@ -83,6 +88,10 @@ STOP_POLL_MS = 60
 # Long enough to cover the focus churn of activating the application, short
 # enough that a window losing focus to something else is still caught.
 FOCUS_GRACE_MS = 750
+
+# Exit status of a window that lost the keyboard without being answered.
+# Kept in step with OVERLAY_UNANSWERED in gpg-touch-overlay.sh.
+UNANSWERED = 3
 
 FONT = "Helvetica Neue"
 MONO = "Menlo"
@@ -332,7 +341,7 @@ def take_back_signals(stopping):
         signal.signal(sig, lambda *_: stopping.append(True))
 
 
-def build_window(stopping):
+def build_window(stopping, unanswered):
     root = tk.Tk()
     take_back_signals(stopping)
     root.title(TITLE)
@@ -393,9 +402,13 @@ def build_window(stopping):
     #
     # The binding is deferred because activation itself churns focus: bound
     # immediately, the window closes on its own way up.
+    def lose_keyboard(_event):
+        unanswered.append(True)
+        root.destroy()
+
     root.after(
         FOCUS_GRACE_MS,
-        lambda: root.bind("<Deactivate>", lambda _event: root.destroy()),
+        lambda: root.bind("<Deactivate>", lose_keyboard),
     )
     return root
 
@@ -417,10 +430,13 @@ def watch_for_stop(root, stopping):
 
 def main():
     stopping = []
-    root = build_window(stopping)
+    unanswered = []
+    root = build_window(stopping, unanswered)
     watch_for_stop(root, stopping)
     root.mainloop()
-    return 0
+    # Taken down by the watcher, the status is never read; closed by focus
+    # loss, it tells the watcher to show the window again.
+    return UNANSWERED if unanswered and not stopping else 0
 
 
 if __name__ == "__main__":

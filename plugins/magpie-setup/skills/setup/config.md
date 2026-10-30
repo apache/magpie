@@ -12,7 +12,8 @@ Where that layer is depends on whether the project adopted Magpie
 | Project | Personal layer |
 |---|---|
 | Adopted (a `<committed-lock>` exists) | `<repo-root>/.apache-magpie-local/`, gitignored by `adopt`. In a linked worktree with none of its own, the main checkout's. |
-| Not adopted (Magpie only installed) | `<git-common-dir>/apache-magpie/`, inside the git directory: never in the working tree, never committable, shared by every worktree of the clone. |
+| Not adopted (Magpie only installed) | `<git-common-dir>/apache-magpie/`, inside the git directory: never in the working tree, never committable, shared by every worktree of the clone. In a Subversion working copy, `.svn/apache-magpie/` for the same reasons. |
+| No version control | `<repo-root>/.apache-magpie-local/`: there is nothing to commit it to. |
 
 **This is the sub-action an individual runs.** It works on a repository
 whose maintainers have never heard of Magpie, it asks the project for
@@ -31,7 +32,7 @@ from what this sub-action produced**. See
 |---|---|
 | `<skills>` | The families installed on this machine. `config <skill>` narrows it to one. |
 | `adversarial-review` | Not a skill: `config adversarial-review` runs only [Step 3c](#step-3c--adversarial-reviewers-optional), which configures the other models that review a change before a PR is opened. |
-| `<repo-root>` | The git repository the session is in. |
+| `<repo-root>` | The git repository the session is in, or the root of its Subversion working copy. |
 
 ## Invoked by a skill's pre-flight
 
@@ -61,12 +62,16 @@ When entered this way:
 
 ## Step 0 — Pre-flight
 
-1. **In a git repository?** If not, stop: there is no project to
-   configure. Say so plainly. When the directory is an SVN working copy
-   (a `.svn/` at or above it), say instead that setup keeps its
-   configuration in a Git repository, such as the tracker, and that the
-   SVN checkout is configured from there as the upstream working copy
-   ([Step 3g](#step-3g--source-control-backend)).
+1. **Which version control?** Work from the project root and name the case:
+   - **Git** — a git repository (`.git` here). The usual case.
+   - **Subversion** — a Subversion working copy, with its `.svn/` (holding `wc.db`) in this directory.
+     Its personal layer is `.svn/apache-magpie/`, inside Subversion's own administrative directory, so it is never committed either.
+     A `.svn/` only in a directory *above* this one is not used: stop, and ask the user to run `config` from the working copy's root.
+   - **Neither** — no version control at all. The personal layer is the in-tree `.apache-magpie-local/`:
+     there is nothing it could be committed to.
+     Say so, since a later `git init` or `svn add` would see it.
+
+   Git wins when a directory has both. The rules are `setup_preflight/layers.py`'s; this list only names them.
 2. **Is the repo already adopted?** Read `<committed-lock>`. If it
    exists, say so and name what changes: the project already publishes
    configuration, so anything written here **shadows it, per file**.
@@ -77,8 +82,8 @@ When entered this way:
    it — the same `PYTHONPATH` as every skill's pre-flight:
 
    ```bash
-   PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir)/../.apache-magpie-local:$(git rev-parse --git-common-dir)/apache-magpie" \
-     python3 -m setup_preflight.layers
+   PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m,i=sys.argv[1:];r=os.path.realpath(os.curdir);s=os.stat(r);p=os.path.join(h,d,hashlib.sha256(r.encode()).hexdigest()[:16]);f=os.path.join(p,i);print(p if os.path.isdir(os.path.join(p,m)) and os.path.isfile(f) and open(f).read().split()==[str(s.st_dev),str(s.st_ino)] else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight root-id)" \
+     python3 -P -m setup_preflight.layers
    ```
 
    and write to its `personal_dir`. Before the first install, derive it
@@ -86,10 +91,16 @@ When entered this way:
    this is a linked worktree without one and the main checkout
    (`$(git rev-parse --path-format=absolute --git-common-dir)/..`) has
    one, in which case the main checkout's; not adopted →
-   `$(git rev-parse --path-format=absolute --git-common-dir)/apache-magpie/`.
+   `$(git rev-parse --path-format=absolute --git-common-dir)/apache-magpie/`
+   in git, `<repo-root>/.svn/apache-magpie/` in a Subversion working copy,
+   and `<repo-root>/.apache-magpie-local/` with no version control.
    **Say which it is**, and on a worktree that falls back say that the
    values are written to the main checkout's directory and so are shared
    with every worktree that has none of its own.
+
+   The checker is not in the personal layer either: it lives under your
+   per-user `~/.cache/apache-magpie/preflight/` (`checker_dir`), with or
+   without version control, and Step 2a decides where.
 4. **Which skills.** Resolve `<skills>` to the set whose configuration
    is in scope.
 
@@ -118,7 +129,11 @@ edit a committed file to arrange that.
 - **Not adopted** → the layer is inside the git directory, which git
   never tracks. There is nothing to arrange: no `.gitignore` line, no
   `.git/info/exclude` line, nothing in the working tree. Create the
-  directory with mode `0700`.
+  directory with mode `0700`. A Subversion working copy is the same:
+  `.svn/` is never versioned, so `.svn/apache-magpie/` needs no
+  `svn:ignore`.
+- **No version control** → nothing to arrange; create the in-tree
+  `.apache-magpie-local/` with mode `0700`.
 - **Adopted** → `adopt` already added `/.apache-magpie-local/` to the
   committed `.gitignore`. If that line is missing, write it to the
   per-clone `<repo-root>/.git/info/exclude` instead (never committed,
@@ -126,40 +141,82 @@ edit a committed file to arrange that.
 
 **Never add a `.gitignore` line here, and never create
 `.apache-magpie-local/` or `.apache-magpie-overrides/` in a project that
-has not adopted Magpie.** Those are `adopt`'s, because `adopt` is already
-committing.
+has not adopted Magpie** (the no-version-control case aside, where the
+first is the personal layer). Those are `adopt`'s, because `adopt` is
+already committing.
 
 Say which case applied.
 
 ## Step 2a — Install the pre-flight checker
 
 Copy the framework's `setup_preflight/` package into a
-`setup_preflight/` directory in the personal layer, replacing any copy already
+`setup_preflight/` directory in the install directory below, replacing any copy already
 there. The package lives in this skill's own directory, `setup_preflight/`
 next to this file, so every install method has it: on a marketplace
 install that is inside the installed `magpie-setup` plugin, and on a
 snapshot install `<snapshot-dir>/tools/setup-preflight/src/setup_preflight/`
 reaches the same files.
 
-This is what every skill's pre-flight actually runs — the path finds the
-copy in this checkout's `.apache-magpie-local/`, the main checkout's, or
-the git directory's `apache-magpie/`:
+**Where it goes depends on where it comes from, and fails closed.** The
+shared `~/.cache/apache-magpie/preflight/` serves every project on this
+machine, so it takes a copy **only** from a known framework location —
+`~/.claude/plugins/cache/apache-magpie/`, `~/.agents/plugins/magpie/`,
+`~/.gemini/config/plugins/` or `~/.cache/apache-magpie/framework/`,
+resolved — and never from a source that resolves inside the project.
+**Anything else** — a pinned snapshot at `<project>/.apache-magpie/`, which
+a tarball can carry as easily as a real install, or any other directory —
+goes to this project's own `~/.cache/apache-magpie/preflight/projects/<key>/`,
+where `<key>` is the first 16 hex digits of the SHA-256 of the project
+root's resolved path, and serves this project only. Beside it goes a
+`root-id` file holding the resolved root's `st_dev` and `st_ino`: the path
+outlives the project, so pre-flight uses this copy only while the tree at
+that path is still the one it was installed for.
+Run this from the project root, with `source_dir` set to the package you
+are copying, and install into what it prints. For a per-project target it
+also creates the directory and writes `root-id`
+(`python3 -P -m setup_preflight.layers --install-source <source_dir>`
+prints the same directory as `install_dir`, without writing anything):
 
 ```bash
-PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir)/../.apache-magpie-local:$(git rev-parse --git-common-dir)/apache-magpie" \
-  python3 -m setup_preflight --skill … --hash …
+python3 -I -c 'import hashlib,os,sys;s,h,d,i,*k=sys.argv[1:];r=os.path.realpath(os.curdir);s=os.path.realpath(s);t=not(s==r or s.startswith(r.rstrip(os.sep)+os.sep)) and any(s==x or s.startswith(x.rstrip(os.sep)+os.sep) for x in map(os.path.realpath,k));p=os.path.join(h,d,hashlib.sha256(r.encode()).hexdigest()[:16]);st=os.stat(r);t or os.makedirs(p,0o700,exist_ok=True);t or open(os.path.join(p,i),"w").write("%d %d\n"%(st.st_dev,st.st_ino));print(h if t else p)' "$source_dir" "$HOME/.cache/apache-magpie/preflight" projects root-id "$HOME/.claude/plugins/cache/apache-magpie" "$HOME/.agents/plugins/magpie" "$HOME/.gemini/config/plugins" "$HOME/.cache/apache-magpie/framework"
 ```
+
+This is what every skill's pre-flight actually runs — the path finds this
+project's own copy when there is one and its `root-id` matches, else the
+shared copy:
+
+```bash
+PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m,i=sys.argv[1:];r=os.path.realpath(os.curdir);s=os.stat(r);p=os.path.join(h,d,hashlib.sha256(r.encode()).hexdigest()[:16]);f=os.path.join(p,i);print(p if os.path.isdir(os.path.join(p,m)) and os.path.isfile(f) and open(f).read().split()==[str(s.st_dev),str(s.st_ino)] else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight root-id)" \
+  python3 -P -m setup_preflight --skill … --hash …
+```
+
+Pre-flight imports the checker only from outside the opened project.
+Never install it anywhere inside a project, not even in a gitignored
+`.apache-magpie-local/` or in the project's `.git/` or `.svn/`: a
+repository can commit the first, and a Subversion checkout or a tarball
+can carry a `.git/` or `.svn/` as plain files. `-P` keeps the working
+tree off the import path, so opening a project is never enough to run
+code it carries.
+An older copy under the personal layer (`.apache-magpie-local/setup_preflight/`,
+`<git-common-dir>/apache-magpie/setup_preflight/` or
+`.svn/apache-magpie/setup_preflight/`) is no longer imported; remove it
+once the new one answers.
+
+The shared copy serves every project without one of its own, so the
+last `config` or `upgrade` from a plugin decides its version. The checker
+reads each project's own lock and configuration, so a project pinned to
+an older framework is still checked against its own pin.
 
 It has to be copied rather than referenced. Under the sandbox the
 framework recommends, `~/.claude/plugins/cache/` is read-denied, so a
 module left in the plugin can be read by the agent's file tool but never
 *executed* by a shell — and a sandboxed marketplace install is exactly
-the case the check exists for. The personal layer is gitignored or inside
-the git directory (Step 2), so nothing here reaches another clone.
+the case the check exists for. Both directories are per-user, and a
+copy from inside a project reaches no other project.
 
 **Name it when you report.** This sub-action may run unattended from a
 skill's pre-flight, and its licence to do so rests on touching only
-the personal layer. Copying an executable is still within that promise —
+the personal layer and the `checker_dir`. Copying an executable is still within that promise —
 it is framework code of the same provenance as the plugin already
 installed, and it goes away with the directory — but it is a step beyond
 writing configuration files, so it is said out loud rather than done
@@ -169,8 +226,8 @@ Verify the copy answers before moving on; a checker that does not run
 makes every skill fall back to *step-0* of its `preflight-detail.md`:
 
 ```bash
-PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir)/../.apache-magpie-local:$(git rev-parse --git-common-dir)/apache-magpie" \
-  python3 -m setup_preflight --skill magpie-setup --no-welcome
+PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m,i=sys.argv[1:];r=os.path.realpath(os.curdir);s=os.stat(r);p=os.path.join(h,d,hashlib.sha256(r.encode()).hexdigest()[:16]);f=os.path.join(p,i);print(p if os.path.isdir(os.path.join(p,m)) and os.path.isfile(f) and open(f).read().split()==[str(s.st_dev),str(s.st_ino)] else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight root-id)" \
+  python3 -P -m setup_preflight --skill magpie-setup --no-welcome
 ```
 
 ## Step 3 — Scaffold and fill
@@ -270,6 +327,23 @@ When a vetted-ops policy exists, show the `[tracker]` table it needs —
 and write it only on the user's confirmation; the policy is a security control, not configuration this step may change unasked.
 Grant the security callers `issue-create`, `issue-search`, `issue-list-label`, `issue-reopen`, `issue-body`, `issue-attach`, `tracker-doctor`, `tracker-pending` and `tracker-publish` in the same diff.
 
+### Personal tool configs, for a project that has not adopted Magpie
+
+Two security tools read a config file the `requires_config:` check does not cover, so a maintainer working alone passes pre-flight and then stops mid-run without them.
+Both look in the committed `.apache-magpie-overrides/tools/…` first and then in the personal layer, at the same relative path:
+
+| File, under the personal layer | Read by | Without it |
+|---|---|---|
+| `tools/vetted-ops/config.toml` | every tracker operation in the security skills ([schema](../../../../tools/vetted-ops/README.md#configuration)) | `no vetted-ops config at …` |
+| `tools/cve-tool-vulnogram/cve-json-config.toml` | `generate-cve-json` in `cve-allocate`, `issue-sync`, `issue-deduplicate` | `config file not found` |
+
+Run this only when the project is **not** adopted, a security skill is in scope, and the file is missing from both places.
+Draft each file from the values already in the personal `project.md` (`upstream`, `tracker`, labels, milestones) and show it.
+**The vetted-ops policy is a security control, not configuration:** it decides which caller may run which operation,
+and the sandbox profile denies the agent's writes to it (`Edit(//**/.git/**/apache-magpie/tools/vetted-ops/**)` and its siblings).
+So the user saves it themselves, from the draft; never route around that deny to write it.
+The CVE JSON config is ordinary configuration: write it on the user's yes.
+
 ## Step 3b — Record what this run reconciled
 
 For every skill in scope (Step 1) whose `requires_config:` set now fully
@@ -280,7 +354,7 @@ committed lock, adopted project or not.** That is the personal layer
 [Step 0](#step-0--pre-flight) item 3 located: this checkout's own
 `.apache-magpie-local/` (adopted), the main checkout's
 `.apache-magpie-local/` (a linked worktree of an adopted project with
-none of its own), or `<git-common-dir>/apache-magpie/` (not adopted). The two branches below trigger
+none of its own), or `<git-common-dir>/apache-magpie/` (not adopted; `.svn/apache-magpie/` in a Subversion working copy). The two branches below trigger
 on **different** conditions — read the "not adopted" one's scope as
 looser than the "already adopted" one's; they are not the same rule
 applied to two stores.
@@ -388,7 +462,9 @@ interviewed). A plain run mentions it in the recap instead.
    `adversarial-review commands --harness <name>` prints each one's path and
    content:
    - Codex CLI → `~/.codex/prompts/magpie-adversarial-review.md`
-   - Gemini CLI → `~/.gemini/commands/magpie-adversarial-review.toml`
+   - Antigravity CLI → `~/.gemini/antigravity-cli/skills/magpie-adversarial-review/SKILL.md` (a user skill, which Antigravity offers as a slash command)
+   - Pi → `~/.pi/agent/skills/magpie-adversarial-review/SKILL.md` (a user skill, invoked as `/skill:magpie-adversarial-review`)
+   - Goose → `~/.agents/skills/magpie-adversarial-review/SKILL.md` (a user skill Goose loads from `~/.agents/skills/`)
    - Copilot CLI has no command mechanism: show the one-line invocation
      instead, and write nothing.
 

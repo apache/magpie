@@ -33,6 +33,7 @@ def _load() -> ModuleType:
 
 
 mod = _load()
+FLOOR, WELCOME = mod.SUITES
 
 
 @pytest.fixture
@@ -43,7 +44,8 @@ def repo(tmp_path: Path) -> Path:
         tmp_path / mod.CHECKER / "setup_preflight",
         ignore=shutil.ignore_patterns("__pycache__"),
     )
-    shutil.copytree(_REPO / mod.SUITE, tmp_path / mod.SUITE)
+    for suite in mod.SUITES:
+        shutil.copytree(_REPO / suite, tmp_path / suite)
     return tmp_path
 
 
@@ -59,12 +61,12 @@ def test_a_changed_rule_makes_the_suite_stale(repo: Path) -> None:
     # Rendering repairs it, and leaves the suite clean for the next check.
     assert mod.main(["--repo-root", str(repo)]) == 1
     assert mod.main(["--check", "--repo-root", str(repo)]) == 0
-    report = repo / mod.SUITE / "case-6-unadopted/report.md"
+    report = repo / FLOOR / "case-6-unadopted/report.md"
     assert "A new rule." in report.read_text(encoding="utf-8")
 
 
 def test_a_changed_state_makes_its_case_stale(repo: Path) -> None:
-    state_file = repo / mod.SUITE / "case-2-below-floor/state.json"
+    state_file = repo / FLOOR / "case-2-below-floor/state.json"
     state = json.loads(state_file.read_text(encoding="utf-8"))
     state["plugins"] = [["magpie-setup", "0.3.0"], ["magpie-pr-management", "0.3.0"]]
     state_file.write_text(json.dumps(state), encoding="utf-8")
@@ -73,7 +75,7 @@ def test_a_changed_state_makes_its_case_stale(repo: Path) -> None:
 
 
 def test_a_case_without_state_is_refused(repo: Path) -> None:
-    (repo / mod.SUITE / "case-9-new").mkdir()
+    (repo / FLOOR / "case-9-new").mkdir()
     assert mod.main(["--check", "--repo-root", str(repo)]) == 1
 
 
@@ -81,3 +83,20 @@ def test_render_keeps_the_prose_and_is_idempotent() -> None:
     once = mod.render_report("Some state.\n", '{"verdict": "ok"}')
     assert once.startswith("Some state.\n")
     assert mod.render_report(once, '{"verdict": "ok"}') == once
+
+
+def test_a_changed_welcome_rule_makes_the_welcome_check_suite_stale(repo: Path) -> None:
+    """The `setup` skill's own welcome check is rendered from the real checker too."""
+    section = repo / mod.CHECKER / "setup_preflight/sections/welcome.md"
+    section.write_text(section.read_text(encoding="utf-8") + "\nA new rule.\n", encoding="utf-8")
+
+    assert mod.main(["--repo-root", str(repo)]) == 1
+    assert mod.main(["--check", "--repo-root", str(repo)]) == 0
+    texts = [r.read_text(encoding="utf-8") for r in sorted((repo / WELCOME).glob("case-*/report.md"))]
+    assert texts and all(mod.WELCOME_MARKER in text for text in texts)
+    assert any("A new rule." in text for text in texts)
+
+
+def test_an_unknown_check_is_refused(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="check"):
+        mod.run_checker({"check": "everything", "plugins": []}, _REPO, tmp_path)

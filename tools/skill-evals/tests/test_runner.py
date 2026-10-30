@@ -1293,6 +1293,32 @@ def test_list_tags_no_tags_found(tmp_path: Path, capsys: pytest.CaptureFixture[s
     assert stdout.strip() == "no tags found"
 
 
+def test_check_reports_a_step_heading_the_skill_no_longer_has(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    """A renamed SKILL.md heading leaves the step-config pointing at nothing;
+    --check names that fixtures dir without running any case."""
+    repo = _make_repo(tmp_path)
+    (repo / "SKILL.md").write_text("## Step 5 — Secure it\n\nRules.\n")
+    good = _make_fixtures_dir(
+        repo / "evals" / "good", step_config={"skill_md": "SKILL.md", "step_heading": "## Step 5 — Secure it"}
+    )
+    stale = _make_fixtures_dir(
+        repo / "evals" / "stale",
+        step_config={"skill_md": "SKILL.md", "step_heading": "### Step 5 — Apply the checklist"},
+    )
+    _make_case(good, "case-1")
+    _make_case(stale, "case-1")
+
+    rc, stdout, stderr = _run_main(capsys, [str(repo / "evals"), "--check"])
+
+    assert rc == 1
+    assert stdout == ""
+    assert str(stale) in stderr
+    assert "### Step 5 — Apply the checklist" in stderr
+    assert str(good) not in stderr
+
+
 def test_collect_tag_counts(tmp_path: Path):
     fixtures_dir = tmp_path / "fixtures"
     case1 = _make_case(fixtures_dir, "case-1")
@@ -2335,3 +2361,77 @@ def test_load_step_config_without_also_include_is_unchanged(tmp_path: Path) -> N
     system_prompt, _ = load_step_config(fixtures)
 
     assert system_prompt.strip() == "## Step 1\n\nOnly this."
+
+
+def test_grader_rubrics_explain_compatible_extra_actions():
+    from skill_evals.runner import BATCH_GRADER_RUBRIC, GRADER_RUBRIC
+
+    for rubric in (GRADER_RUBRIC, BATCH_GRADER_RUBRIC):
+        assert "close the newer report as a duplicate" in rubric
+        assert "boolean verdict agrees with" in rubric
+        assert "conflicting supporting reason" in rubric
+
+
+def test_single_grader_receives_consistency_guidance(monkeypatch):
+    calls = _flaky_grader(
+        monkeypatch,
+        ['{"match": true, "reason": "same conclusion"}'],
+    )
+
+    result = grade_prose_field(
+        "$.rationale",
+        "The reports describe the same root cause.",
+        "The reports describe the same root cause; close the newer report as a duplicate.",
+        "grader",
+        timeout=5,
+    )
+
+    assert result == (True, "")
+    assert len(calls) == 1
+    assert "close the newer report as a duplicate" in calls[0]
+    assert "boolean verdict agrees with" in calls[0]
+
+
+def test_batch_grader_receives_consistency_guidance(monkeypatch):
+    calls = _flaky_grader(
+        monkeypatch,
+        ['{"$.rationale": {"match": true, "reason": "same conclusion"}}'],
+    )
+
+    result = batch_grade_prose_fields(
+        [
+            (
+                "$.rationale",
+                "The reports describe the same root cause.",
+                "The reports describe the same root cause; close the newer report as a duplicate.",
+            )
+        ],
+        "grader",
+        timeout=5,
+    )
+
+    assert result["$.rationale"] == (True, "")
+    assert len(calls) == 1
+    assert "boolean verdict agrees with" in calls[0]
+    assert "close the newer report as a duplicate" in calls[0]
+
+
+def test_batch_grader_preserves_explicit_false_with_matching_reason(monkeypatch):
+    calls = _flaky_grader(
+        monkeypatch,
+        [
+            '{"$.rationale": {"match": false, "reason": "same conclusion; should match"}}',
+            '{"$.rationale": {"match": true, "reason": "ok"}}',
+        ],
+    )
+
+    result = batch_grade_prose_fields(
+        [("$.rationale", "expected", "candidate")],
+        "grader",
+        timeout=5,
+    )
+
+    ok, note = result["$.rationale"]
+    assert ok is False
+    assert "same conclusion; should match" in note
+    assert len(calls) == 1

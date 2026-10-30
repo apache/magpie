@@ -1,0 +1,15 @@
+{
+  "snapshot_drift": "none",
+  "checks": [
+    {
+      "n": 1,
+      "status": "✓",
+      "evidence": "sandbox.enabled: true; deny and ask lists present; network and filesystem allowlists configured; denyRead contains ~/ (.claude/settings.json)"
+    },
+    {
+      "n": 10,
+      "status": "✓",
+      "evidence": "commit.gpgsign true, gpg.format ssh, signing key ssh-ed25519 (not an sk- hardware key); 10c ✓ the signing key reads from the sandbox (rc=0); 10a, 10b, 10d and 10e n/a without a hardware key, so the missing overlay hooks, script and git program config are not gaps"
+    }
+  ]
+}

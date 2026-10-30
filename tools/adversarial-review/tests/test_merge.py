@@ -43,7 +43,7 @@ def test_different_claims_do_not_merge():
 
 
 def test_null_lines_merge_on_claim():
-    assert len(merge([f("codex", line=None), f("gemini", line=None)])) == 1
+    assert len(merge([f("codex", line=None), f("antigravity", line=None)])) == 1
 
 
 def test_sorted_by_severity_then_file_then_line():

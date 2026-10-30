@@ -16,7 +16,7 @@ argument-hint: "[family]"
 capability: capability:platform
 surface_hash: sha256:3dafaec43fc7bd00
 license: Apache-2.0
-measured_tokens: 1317
+measured_tokens: 1265
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -65,19 +65,19 @@ Resolve `<family>` first: no argument means `general`, and the user's words map 
 *"how do I start with Magpie"* or *"show the welcome guide"* is `general`.
 Pass any other name through as given and let the command say whether it exists.
 
-Every command uses the personal layer's copy of the checker, as the pre-flight does:
+Every command uses the installed copy of the checker, as the pre-flight does:
 
 ```bash
-PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir)/../.apache-magpie-local:$(git rev-parse --git-common-dir)/apache-magpie" \
-  python3 -m setup_preflight.welcome show --family <family>
+PYTHONPATH="$HOME/.cache/apache-magpie/preflight" \
+  python3 -P -m setup_preflight.welcome show --family <family>
 ```
 
 - **Exit 0** → show the output to the user **verbatim**, as Markdown.
   Do not summarise, reword or trim it, and substitute nothing in its placeholders.
 - **Exit 2, no such guide** → say there is no guide by that name and list the ones that ship,
-  from `python3 -m setup_preflight.welcome list` with the same `PYTHONPATH`.
+  from `python3 -P -m setup_preflight.welcome list` with the same `PYTHONPATH`.
   Never invent a guide.
-- **No such module** → the checker is not installed in the personal layer yet.
+- **No such module** → the checker is not installed yet.
   Say so, and propose [`/magpie-setup:setup config`](../setup/config.md), which installs it.
 
 Then offer the coloured version in one line:
@@ -91,8 +91,8 @@ Only when the user asked to have a guide back
 clear its recorded choice so the pre-flight shows it again:
 
 ```bash
-PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir)/../.apache-magpie-local:$(git rev-parse --git-common-dir)/apache-magpie" \
-  python3 -m setup_preflight.welcome enable --family <family>
+PYTHONPATH="$HOME/.cache/apache-magpie/preflight" \
+  python3 -P -m setup_preflight.welcome enable --family <family>
 ```
 
 It merges into the personal layer's `reconciled.json`, removing only `welcome.<family>`.

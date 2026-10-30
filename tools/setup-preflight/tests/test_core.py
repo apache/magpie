@@ -87,7 +87,7 @@ def test_a_genuinely_missing_plugin_is_a_finding(project: Path) -> None:
     write_lock(project, MARKETPLACE)
     found = project_findings(project, {"something-else": "9.9.9"})
     assert codes(found) == ["below-floor"]
-    assert found[0].facts["missing"] == ["magpie-setup"]
+    assert found[0].facts["missing"] == ["magpie-setup", "magpie-vetted-ops"]
     # The listing came from `--plugin-list` here, so no harness is named.
     assert found[0].facts["harness"] is None
 
@@ -96,18 +96,21 @@ def test_the_floor_finding_names_the_harness_it_measured(project: Path) -> None:
     """The finding carries the harness the listing came from, so the rules
     can name that harness's own install and update commands."""
     write_lock(project, MARKETPLACE)
-    found = project_findings(project, {"magpie": "0.1.0"}, "gemini")
+    found = project_findings(project, {"magpie": "0.1.0"}, "antigravity")
     assert codes(found) == ["below-floor"]
-    assert found[0].facts["harness"] == "gemini"
+    assert found[0].facts["harness"] == "antigravity"
     assert found[0].facts["missing"] == []
-    assert found[0].facts["outdated"] == [{"plugin": "magpie-setup", "installed": "0.1.0", "floor": "0.2.0"}]
+    assert found[0].facts["outdated"] == [
+        {"plugin": "magpie-setup", "installed": "0.1.0", "floor": "0.2.0"},
+        {"plugin": "magpie-vetted-ops", "installed": "0.1.0", "floor": "0.2.0"},
+    ]
 
 
 @pytest.mark.parametrize(
     "harness,installed",
     [
-        ("gemini", {"other-extension": "1.0.0"}),
-        ("gemini", {"magpie@apache-magpie": "1.0.0"}),
+        ("antigravity", {"other-extension": "1.0.0"}),
+        ("antigravity", {"magpie@apache-magpie": "1.0.0"}),
         ("codex", {"magpie-setup@apache-magpie": "1.0.0"}),
         ("codex", {"other-plugin": "1.0.0"}),
     ],
@@ -119,7 +122,22 @@ def test_non_claude_names_must_match_before_reporting_absence(project: Path, har
 
 def test_being_ahead_of_the_floor_is_never_a_finding(project: Path) -> None:
     write_lock(project, MARKETPLACE)
-    assert project_findings(project, {"magpie-setup": "9.9.9"}) == []
+    assert project_findings(project, {"magpie-setup": "9.9.9", "magpie-vetted-ops": "9.9.9"}) == []
+
+
+def test_vetted_ops_is_required_even_when_the_floor_omits_it(project: Path) -> None:
+    """A floor committed before vetted-ops joined the seed still needs it:
+    the family skills run their forge operations through its dispatcher."""
+    write_lock(project, MARKETPLACE)
+    found = project_findings(project, {"magpie-setup": "9.9.9"})
+    assert codes(found) == ["below-floor"]
+    assert found[0].facts["missing"] == ["magpie-vetted-ops"]
+
+
+def test_a_floor_that_lists_vetted_ops_names_it_once(project: Path) -> None:
+    write_lock(project, MARKETPLACE + "  - magpie-vetted-ops\n")
+    found = project_findings(project, {"something-else": "9.9.9"})
+    assert found[0].facts["missing"] == ["magpie-setup", "magpie-vetted-ops"]
 
 
 def test_a_dev_build_below_the_floor_is_below_it(project: Path) -> None:
@@ -423,7 +441,7 @@ def test_a_changed_plugin_listing_invalidates_the_cache(project: Path) -> None:
     write_lock(project, MARKETPLACE)
     (project / ".apache-magpie-local").mkdir()
     cached_project_findings(project, {"magpie-setup": "0.1.0"})
-    found, cached = cached_project_findings(project, {"magpie-setup": "9.9.9"})
+    found, cached = cached_project_findings(project, {"magpie-setup": "9.9.9", "magpie-vetted-ops": "9.9.9"})
     assert cached is False and found == []
 
 
@@ -581,11 +599,10 @@ def test_an_adopted_repo_with_an_in_tree_local_dir_is_not_legacy(project: Path) 
     assert project_findings(project, None) == []
 
 
-def test_a_legacy_dir_outside_a_git_repo_is_reported_with_nowhere_to_go(tmp_path: Path) -> None:
+def test_the_in_tree_dir_without_version_control_is_not_legacy(tmp_path: Path) -> None:
+    """With no VCS the in-tree directory is the personal layer itself."""
     (tmp_path / ".apache-magpie-local").mkdir()
-    [finding] = project_findings(tmp_path, None)
-    assert finding.facts["personal_dir"] is None
-    assert finding.facts["exclude_file"] is None
+    assert [f for f in project_findings(tmp_path, None) if f.code == "legacy-local-dir"] == []
 
 
 def test_not_a_git_repo_and_not_adopted_has_nothing_configured(tmp_path: Path) -> None:
@@ -618,3 +635,14 @@ def test_a_legacy_dir_appearing_invalidates_the_cache(project: Path) -> None:
     (project / ".apache-magpie-local").mkdir()
     found, cached = cached_project_findings(project, None)
     assert cached is False and codes(found) == ["legacy-local-dir"]
+
+
+def test_an_installed_security_family_needs_its_tools_companion(project: Path) -> None:
+    """An upgrade from before `magpie-security-tools` existed leaves the family
+    without the framework tools its skills run; the floor check names it."""
+    write_lock(project, MARKETPLACE)
+    found = project_findings(
+        project, {"magpie-setup": "9.9.9", "magpie-vetted-ops": "9.9.9", "magpie-security": "9.9.9"}
+    )
+    assert codes(found) == ["below-floor"]
+    assert found[0].facts["missing"] == ["magpie-security-tools"]

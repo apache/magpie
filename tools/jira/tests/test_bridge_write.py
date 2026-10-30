@@ -56,6 +56,7 @@ class _RequestLog:
 
 _log = _RequestLog()
 _canned_responses: dict[str, tuple[int, Any]] = {}
+_canned_headers: dict[str, dict[str, str]] = {}
 
 
 class _JiraHandler(BaseHTTPRequestHandler):
@@ -85,6 +86,8 @@ class _JiraHandler(BaseHTTPRequestHandler):
             status, payload = 200, {}
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
+        for name, value in _canned_headers.get(key, {}).items():
+            self.send_header(name, value)
         self.end_headers()
         if status != 204 and payload is not None:
             self.wfile.write(json.dumps(payload).encode())
@@ -116,9 +119,11 @@ def mock_server():
 def _clear_state():
     _log.clear()
     _canned_responses.clear()
+    _canned_headers.clear()
     yield
     _log.clear()
     _canned_responses.clear()
+    _canned_headers.clear()
 
 
 # ---------------------------------------------------------------------------
@@ -455,3 +460,54 @@ class TestUnknown:
     def test_no_args(self, mock_server: str) -> None:
         result = _run(mock_server, [])
         assert result.returncode != 0
+
+
+# ---------------------------------------------------------------------------
+# tracker URL and redirects
+# ---------------------------------------------------------------------------
+
+
+class TestTrackerUrl:
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "http://jira.example.org",
+            "http://jira.example.org/jira",
+            "ftp://jira.example.org",
+            "https://user:pw@jira.example.org",
+            "jira.example.org",
+        ],
+    )
+    def test_non_https_url_is_refused(self, url: str, tmp_path: Path) -> None:
+        body_file = tmp_path / "c.txt"
+        body_file.write_text("x")
+        result = _run(url, ["comment", "FOO-1", "--body-file", str(body_file)])
+        assert result.returncode == 2
+        assert "ISSUE_TRACKER_URL must be" in result.stderr
+        assert "dGVzdDp0b2tlbg==" not in result.stderr
+
+    def test_http_localhost_is_accepted(self, mock_server: str) -> None:
+        port = mock_server.rsplit(":", 1)[1]
+        _canned_responses["GET /rest/api/2/project"] = (200, [])
+        result = _run(f"http://localhost:{port}", ["projects"])
+        assert result.returncode == 0, result.stderr
+
+    def test_redirect_is_not_followed_on_write(self, mock_server: str, tmp_path: Path) -> None:
+        body_file = tmp_path / "c.txt"
+        body_file.write_text("x")
+        _canned_responses["POST /rest/api/2/issue/FOO-1/comment"] = (302, None)
+        _canned_headers["POST /rest/api/2/issue/FOO-1/comment"] = {
+            "Location": f"{mock_server}/elsewhere"
+        }
+        result = _run(mock_server, ["comment", "FOO-1", "--body-file", str(body_file)])
+        assert result.returncode == 3
+        assert "refusing HTTP 302 redirect" in result.stderr
+        assert [r["path"] for r in _log.requests] == ["/rest/api/2/issue/FOO-1/comment"]
+
+    def test_redirect_is_not_followed_on_read(self, mock_server: str) -> None:
+        _canned_responses["GET /rest/api/2/project"] = (301, None)
+        _canned_headers["GET /rest/api/2/project"] = {"Location": f"{mock_server}/elsewhere"}
+        result = _run(mock_server, ["projects"])
+        assert result.returncode == 3
+        assert "refusing HTTP 301 redirect" in result.stderr
+        assert [r["path"] for r in _log.requests] == ["/rest/api/2/project"]

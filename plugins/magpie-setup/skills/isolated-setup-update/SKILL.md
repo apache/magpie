@@ -18,11 +18,11 @@ when_to_use: >-
 capability: capability:platform
 surface_hash: sha256:1f327e069312dad2
 license: Apache-2.0
-measured_tokens: 6254
+measured_tokens: 5369
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
-     <project-config> → adopting project's `.apache-magpie/` directory -->
+     <project-config> → per file: the personal layer, else `.apache-magpie-overrides/` -->
 
 # setup-isolated-setup-update
 
@@ -32,16 +32,7 @@ Use the operator's explicitly requested runtime when supplied; otherwise use the
 An installed executable or configuration directory alone does not select a runtime.
 For the routing below, treat that selection as the active harness.
 
-When the active harness is Codex, compare the installed `.codex` policy with the framework sources described in [docs/adapters/codex.md](../../../../docs/adapters/codex.md#setup-isolated-lifecycle).
-Surface policy, rules, and tested-version drift; never auto-weaken or silently overwrite a hand-edited policy.
-Then stop.
-The remainder of this skill is the Claude Code update branch.
-
-When the selected runtime is Gemini CLI, follow [docs/adapters/gemini.md](../../../../docs/adapters/gemini.md#update): compare the workspace profile, guard path, wrapper, and runtime version with the existing installation's sources.
-Report drift and proposed changes only; do not apply changes or require Claude configuration.
-Then stop before the Claude-specific drift report below.
-
-When the selected runtime is Copilot CLI, follow [docs/adapters/copilot.md](../../../../docs/adapters/copilot.md#update): report hook drift against the framework copy; never loosen policy automatically.
+When it is Codex, Antigravity, Pi, Goose or Copilot CLI, follow that harness's paragraph in [`runtime-routing.md`](runtime-routing.md).
 
 When the harness is Claude Code, continue below.
 If the harness cannot be determined, ask once.
@@ -151,7 +142,7 @@ Walk each:
    **Check `permissions.additionalDirectories` in each worktree's `settings.local.json`.**
    When `permissions.blockReadsOutsideWorkingDirectories` is on in any scope, the resolved `/tmp/claude-$(id -u)` must be listed as a literal absolute path.
    In every case, an entry in any scope overlapping `$HOME/.claude/magpie` (that path, anything inside it, or a parent) is a must-fix, read block or not: a working directory is sandbox-writable, and the vetted-ops commands run from that checkout outside the sandbox. Older versions of `sandbox-add-project-root.sh` added it; the updated script removes it.
-   Where the vetted-ops dispatcher is used, the read block being on is itself a must-fix ([the vetted-ops split and exclusion](#the-vetted-ops-split-and-exclusion), fourth check), and these entries do not clear it.
+   Where the vetted-ops dispatcher is used, the read block being on is itself a must-fix ([the vetted-ops split and exclusion](vetted-ops-drift.md), fourth check), and these entries do not clear it.
    Report a missing path, or one covered only by a glob such as `/tmp/claude-*` (listed as a working directory but never matched), under "prompts you are paying"; the remedy is `sandbox-add-project-root.sh --all-worktrees`, which predates this check on older installs and needs the updated script copy.
    Flag the same path in a synced user-scope settings file as per-host drift.
    Rules: [`docs/setup/secure-agent-setup.md` → Working directories under the read-outside-working-directories block](../../../../docs/setup/secure-agent-setup.md#working-directories-under-the-read-outside-working-directories-block).
@@ -168,74 +159,32 @@ Walk each:
      Together they let any sandboxed command, which runs without a prompt, use the user's Gmail OAuth token.
      Report their *presence* in any scope as a **must-fix**, not dead weight, and propose removing all three; keep the `Read(~/.config/apache-magpie/**)` deny.
      Drafting keeps working through the `oauth-draft` MCP server, which runs outside the sandbox; the `oauth-draft-*` CLIs need an approved run or a per-machine absolute-path exclusion ([`docs/setup/secure-agent-setup.md` → The framework's own `.claude/settings.json`](../../../../docs/setup/secure-agent-setup.md#the-frameworks-own-claudesettingsjson)).
+   - **`~/.local/share/uv` writable, or no host-only uv cache.**
+     Earlier defaults put `~/.local/share/uv/` in `allowWrite`, where the interpreters and tool venvs that hooks, MCP servers and the excluded `uvx` / `uv run` commands run outside the sandbox live; and `uvx` ran from the shared, sandbox-writable `~/.cache/uv`.
+     Report a write grant covering `~/.local/share/uv`, a `~/.config/uv/uv.toml` without an absolute host `cache-dir`, a missing `Read(~/.config/uv/uv.toml)` / `Edit(~/.config/uv/**)` / `Edit(~/.cache/prek/**)` deny, or an `env.PREK_HOME` that is missing or overlaps `~/.cache/prek`, as a **must-fix**; the remedy is `setup-isolated-setup-install` Step U ([Host-only uv state](../../../../docs/setup/secure-agent-setup.md#host-only-uv-state)).
+   - **A container-gateway hook registered for another machine.**
+     The `SessionStart` / `SessionEnd` / `PreToolUse` hooks run `container-gateway-hook.sh` by its absolute path, which differs between macOS (`/Users/<you>`) and Linux (`/home/<you>`).
+     Report a registered path that does not exist on this machine as a **must-fix** (the gateway never starts), and one in a `~/.claude/settings.json` that links into a synced config repo as drift; the remedy is the setup guide's [Fixing your other machines](../../../../docs/setup/secure-agent-setup.md#container-gateway): move the entries into each machine's `~/.claude/settings.local.json`.
+   - **No on-demand container-gateway hook.**
+     A machine wired with only the `SessionStart` / `SessionEnd` pair has no `PreToolUse` `Bash` hook running `container-gateway-hook.sh ensure`, so a gateway that exits mid-session (idle timeout, another session on the project ending, a crash) stays down until the next session.
+     Report it as drift when the start/stop pair is registered, and propose the `PreToolUse` entry from the setup guide's [Container gateway](../../../../docs/setup/secure-agent-setup.md#container-gateway) section, by the same absolute path as the pair.
    - **`enableWeakerNetworkIsolation: true`.**
      It is not there for lychee, which runs offline.
      It lets native-TLS CLI tools verify TLS through the sandbox's TLS-terminating proxy — the mechanism the schema notes for `gh` / `gcloud` / `terraform`.
      **Surface the documented trade-off when reporting it**: the schema warns it "reduces security — opens a potential data-exfiltration vector through the trustd service," so the user decides whether to keep it.
      macOS-only, and a no-op outside the sandbox, e.g. in CI.
 5. **comdev MCP checkouts (`ponymail`, `apache-projects`).**
-   These ASF MCP servers are installed from a local `apache/comdev` checkout and are **tracked at `main`, not pinned**.
-   Unlike the system tools in check 2, there is no cooldown and no manifest bump, because comdev ships them as in-repo source with no tagged releases (see [`tools/ponymail/tool.md` → Keeping the checkout current](../../../../tools/ponymail/tool.md#keeping-the-checkout-current)).
-   For each server registered in the user/project `mcpServers` config, resolve the checkout root from its `args` path (`<comdev>/mcp/<server>/index.js`), then:
-   - Confirm `origin` is an `apache/comdev` URL and the checkout is on `main` (`git -C <root> rev-parse --abbrev-ref HEAD`).
-     Flag a detached HEAD / feature branch as drift; remediation `git -C <root> checkout main`.
-   - Run `git -C <root> fetch origin main` (the live fetch the read-only verify skill defers to update) and report the behind-count (`git -C <root> rev-list --count HEAD..origin/main`).
-     When behind, print — do not run — the refresh commands:
-
-     ```bash
-     git -C <root> pull --ff-only
-     ( cd <root>/mcp/<server> && npm install )
-     ```
-
-   Surface the upstream compare link (`https://github.com/apache/comdev/compare/<local-sha>...main`) so the operator can see what changed before pulling.
-   Do not pull or `npm install` for them — the fast-forward stays an explicit, user-run step, same as the framework-checkout pull in check 1.
+   Only when one of them is registered in the user or project `mcpServers` config.
+   The check: [`comdev-mcp.md`](comdev-mcp.md).
 6. **Re-verify.**
    Run the three denial commands as standalone Bash invocations (not chained — see [setup-isolated-setup-verify](../isolated-setup-verify/SKILL.md) for why).
    Report any newly-allowed call as a regression that warrants attention.
 
 ### The vetted-ops split and exclusion
 
-If the adopter uses the `vetted-ops` dispatcher (a `.apache-magpie-overrides/tools/vetted-ops/config.toml` exists, or `.claude/settings.json` carries a `vetted-op` rule), check four things.
+If the adopter uses the `vetted-ops` dispatcher (a `.apache-magpie-overrides/tools/vetted-ops/config.toml` or a personal-layer `tools/vetted-ops/config.toml` exists, or `.claude/settings.json` carries a `vetted-op` rule), check four things.
 
-**First, and most important: has `vetted-op` drifted into `allow`?**
-Only `vetted-op-read` belongs there.
-The write dispatcher in an `allow` list grants the whole catalogue, because whoever runs an invocation chooses the caller name it passes.
-Report that as a must-fix, ahead of anything else in this section.
-`vetted-op-tracker` in `allow`, or `vetted-op` in `sandbox.excludedCommands`, is the same must-fix.
-`vetted-op-tracker` in `ask` and in `sandbox.excludedCommands` (both the `uv run --project` and `uvx --from` forms) is the intended wiring; a missing entry is drift, since without the exclusion the rollup and body-field writes fail in the sandbox.
-
-**Second, `permissions.deny` still covers both surfaces**, each with an `Edit` rule:
-
-- `~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**`
-- `~/.claude/magpie/**`
-- `.apache-magpie-overrides/tools/vetted-ops/**`
-
-Report a missing rule as drift to repair, not a note.
-A leftover `Write(…)` rule on either path is the opposite kind of drift: `Edit(path)` already binds every file-editing tool, and the file permission check does not match a `Write(path)` rule, so surface it as cruft to delete.
-This check is the most likely to rot: the plugin-cache path carries the plugin *name*, so a family rename or a move of the dispatcher to another substrate plugin leaves a deny rule that looks plausible but matches nothing.
-Resolve the glob against the installed tree and confirm it actually hits the catalogue, rather than eyeballing the string.
-
-**Third, no `vetted-op` rule names the versioned plugin-cache path with a `*`.**
-Rules and `sandbox.excludedCommands` entries spelled `~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/*/tools/vetted-ops …` are the pre-fixed-path form.
-The `*` also matches spaces, so it approves, and runs unsandboxed, a command with extra `uv` options spliced in where the version sits.
-Report each one as a must-fix and propose the replacement, which names the fixed path the plugin's `SessionStart` hook maintains: `~/.claude/magpie/vetted-ops`.
-Check the user-scope settings and any agent definition whose `tools:` list carries the rule, not only the project's `.claude/settings.json`.
-
-**Fourth, read-only vetted ops never prompt.**
-This is an imperative of the setup, so every gap is a must-fix, reported beside the first check rather than under "prompts you are paying".
-Resolve `$HOME` and read every scope (user, project, project-local, managed where readable).
-Report as a must-fix:
-
-- a missing `vetted-op-read` allow rule: each launcher (`uvx --from`, `uv run --project`) with the literal `~/.claude/magpie/vetted-ops` base, two rules;
-- an allowed form without its matching `sandbox.excludedCommands` entry, since such a call runs sandboxed and its `gh` fails silently;
-- a leftover allow rule or exclusion spelled with the resolved `$HOME/.claude/magpie/vetted-ops` base, which the agent-guard `vetted-ops-spelling` guard now refuses anyway (propose removing it);
-- any `permissions.ask` rule that matches a `vetted-op-read` command in either launcher form, broad rules such as `Bash(uvx *)` included, since an ask rule prompts even when an allow rule matches;
-- `permissions.blockReadsOutsideWorkingDirectories` on in any scope, under which every call prompts because the check cannot resolve the literal `~`;
-- a missing vetted-ops `Edit` deny rule (the second check), since those rules are what make the unprompted read safe.
-
-The reason is the background gatherer agents: they cannot surface a prompt, so each prompt is a silent denial and a bulk sync returns partial results.
-This covers `vetted-op-read` only; `vetted-op-tracker` and `vetted-op` stay as the first check says.
-The remedy is `setup-isolated-setup-install` Step V.1; shape and rationale: [`docs/setup/secure-agent-setup.md` → Read-only vetted ops never prompt](../../../../docs/setup/secure-agent-setup.md#read-only-vetted-ops-never-prompt).
+The four checks: [`vetted-ops-drift.md`](vetted-ops-drift.md).
 
 **The adversarial-review exclusion has the same must-fix.**
 A `sandbox.excludedCommands` entry spelled `uvx --from ~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/*/tools/adversarial-review adversarial-review *` is the pre-fixed-path form: once the command is approved, a run with `uv` options spliced in where the version sits goes outside the sandbox.
@@ -253,7 +202,7 @@ Every skill's pre-flight proposes this one when the isolated setup is used on th
   Set `isolated_setup_update_interval_days` in `project.md` in the personal layer or in `.apache-magpie-overrides/project.md` (project-wide); `0` turns the timer off and keeps the change report.
 
 "Used on this machine" means this skill or `setup-isolated-setup-install` has recorded a run here, or the project's `.claude/settings*.json` enables the sandbox.
-To silence both reasons, set `"isolated_setup": {"enabled": false}` in the personal layer's `reconciled.json` (the `personal_dir` that `python3 -m setup_preflight.layers` prints).
+To silence both reasons, set `"isolated_setup": {"enabled": false}` in the personal layer's `reconciled.json` (the `personal_dir` that `python3 -P -m setup_preflight.layers` prints).
 The proposal never runs this skill by itself.
 To run it on demand, invoke it directly: `/magpie-setup:isolated-setup-update` on a marketplace install, `/magpie-setup-isolated-setup-update` on a pinned snapshot.
 
@@ -262,8 +211,8 @@ To run it on demand, invoke it directly: `/magpie-setup:isolated-setup-update` o
 At the end of every completed run, whatever it found, record it:
 
 ```bash
-PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir)/../.apache-magpie-local:$(git rev-parse --git-common-dir)/apache-magpie" \
-  python3 -m setup_preflight.isolated record-update
+PYTHONPATH="$HOME/.cache/apache-magpie/preflight" \
+  python3 -P -m setup_preflight.isolated record-update
 ```
 
 This writes the current fingerprint and today's date into the `isolated_setup` block of the personal layer's `reconciled.json`, which resets both pre-flight reasons.
@@ -276,7 +225,8 @@ If everything is in sync and verification still passes, say so explicitly and st
 
 If something is out-of-date or has drifted, name the concrete follow-up:
 
-- Framework checkout behind → run [`setup upgrade`](../setup/upgrade.md), which refreshes the gitignored snapshot per the committed `.apache-magpie.lock` after the same pre-flight checks this skill recommends and surfaces what arrived in the new snapshot.
+- Framework checkout behind `origin/main` → the `git pull --ff-only` that check 1 printed, run by the user.
+- Snapshot drift (the local lock differs from the committed `.apache-magpie.lock`) → run [`setup upgrade`](../setup/upgrade.md), which refreshes the gitignored snapshot per the committed `.apache-magpie.lock` after the same pre-flight checks this skill recommends and surfaces what arrived in the new snapshot.
 - Pinned-tool (`bubblewrap` / `socat`) upgrade candidate worth adopting → manifest bump PR per [Bumping a pinned version](../../../../docs/setup/secure-agent-setup.md#bumping-a-pinned-version).
 - `claude-code` newer build available, or below the `min_version` floor → `npm install -g --no-save @anthropic-ai/claude-code@latest` (no manifest bump — the runtime is unpinned; below-floor is a hard-fail in `setup-isolated-setup-verify`).
 - comdev MCP checkout behind `origin/main` → run the printed `git pull --ff-only` + `npm install`; no manifest bump or cooldown (these track `main` by design).

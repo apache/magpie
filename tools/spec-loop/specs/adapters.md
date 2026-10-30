@@ -2,7 +2,7 @@
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
 ---
-title: Adapters (Gmail / PonyMail / Jira / GitHub / GitLab / Bitbucket / Forgejo / mail-source / SourceHut / maildir / VCS / Fossil / change-request / chat / typed-decision)
+title: Adapters (Gmail / PonyMail / Jira / GitHub / GitLab / Bitbucket / Forgejo / Discourse / mail-source / SourceHut / maildir / VCS / Fossil / change-request / chat / typed-decision)
 status: experimental
 kind: feature
 mode: infra
@@ -15,7 +15,8 @@ source: >
   tools/asf-svn/, tools/mail-archive/, tools/mail-patch/,
   tools/jira-patch/, tools/forwarder-relay/, tools/github-body-field/,
   tools/github-rollup/, tools/gitlab/, tools/chat/, tools/chat-slack/,
-  tools/chat-discord/, tools/forgejo/, tools/fossil/, tools/asf-nexus/, tools/typed-decision/.
+  tools/chat-discord/, tools/forgejo/, tools/discourse/, tools/fossil/, tools/asf-nexus/, tools/typed-decision/,
+  tools/asf-security-dash/.
 acceptance:
   - Project-specific integrations live behind adapter modules, not
     hardcoded into skills.
@@ -25,7 +26,7 @@ acceptance:
     redactor before any LLM read.
 ---
 
-# Adapters (Gmail / PonyMail / Jira / GitHub / GitLab / Bitbucket / Forgejo / SourceHut / maildir / VCS / Fossil / change-request / chat / typed-decision)
+# Adapters (Gmail / PonyMail / Jira / GitHub / GitLab / Bitbucket / Forgejo / Discourse / SourceHut / maildir / VCS / Fossil / change-request / chat / typed-decision)
 
 ## What it does
 
@@ -47,10 +48,25 @@ by swapping the adapter, not the skill.
   (`maildir-draft-create`, plus the read-only `maildir-draft-find` for the
   existing-draft check); an offline alternative to Gmail, selected per
   project with a per-person override.
-- `tools/ponymail/` — public mailing-list archive search.
+- `tools/ponymail/` — public mailing-list archive search. Its one local
+  write, `save_attachments` (`ponymail-mcp` 1.3.0+), downloads a report's
+  attachments into a `PONYMAIL_ATTACHMENT_DIRS` root that the agent can
+  read but not write (the secure setup's `Edit(~/.cache/ponymail-attachments/**)`
+  deny), never returning the bytes, and decrypts a password-protected ZIP
+  when given the password from the report.
+  The login uses a throwaway browser profile, so when a skill asks the user
+  to log in and no `~/.ponymail-mcp/browser-profile/` exists, it adds a
+  one-line tip, once per session, offering the MCP's opt-in
+  `PONYMAIL_BROWSER_PROFILE=persistent` kept profile (#1782).
+  Before enabling it the skill warns that the profile saves only the
+  password, that 2FA is still asked on every login, and that a logged-in
+  session reads the allowed private lists until it expires or the user logs
+  out.
 - `tools/mail-archive/` — static mailing-list archive reader for
   projects whose list history is in a local mbox/Maildir export.
 - `tools/jira/` — issue-tracker adapter for projects on Jira.
+  Its `bridge.groovy` refuses a non-HTTPS base URL and does not follow
+  redirects (#1862).
 - `tools/security-tracker/` — Markdown contract spec for
   `contract:security-tracker`: the operations the `security-*` skills perform
   on `<tracker>` (view, list, labels, field get/set, create, edit, comment,
@@ -64,6 +80,24 @@ by swapping the adapter, not the skill.
   those operations for the backend its `[tracker]` policy names (fixed program,
   policy-pinned target, bodies on stdin) and refuses by name the ones with no
   counterpart (boards, milestone administration, roster, `rollup-fold`).
+- `tools/asf-security-dash/` (`magpie-asf-security-dash`) — stdlib-only,
+  read-only bridge to the ASF Security dashboard (`dash.security.apache.org`),
+  declared `contract:security-tracker` with `**Coverage:** partial`: it is not a
+  `tracker.platform` value. `cases --pmc P` lists a PMC's open cases keyed by the
+  reporting email's `Message-ID`; `reconcile --pmc P --tracker FILE` pairs them
+  with tracker issues (by `Message-ID`, else a shared CVE) and lists each
+  disagreement with who fixes it (`tracker`, `import`, `review`,
+  `dashboard-triage`, `asf-security`). Entries of the security team's
+  multi-thread labels (`glasswing` / `non-fwd` states) are skipped; the API does
+  not mark its catch-all labels (`aaa-*` / `zzz-*`), which it lists as untriaged
+  cases, so an untriaged untracked case is `review`, never `import`. The bridge
+  reads no `tag`: it is the security team's internal name and not part of the
+  API (apache/security-dash#62). Auth is the ASF OAuth session cookie from
+  `~/.config/apache-magpie/asf-security-dash/session.json`, sent only to the
+  dashboard's origin with GET and no redirects followed; `--input` reads API
+  output saved from a signed-in browser instead. `security-issue-sync`'s
+  dashboard mode drives it and never drafts a reporter reply for a decision the
+  dashboard's own triage form will email.
 - `tools/local-tracker/` (`magpie-local-tracker`) — stdlib-only
   `contract:security-tracker` backend over Markdown files in a Git or SVN
   working copy. `detect` infers a committed format descriptor
@@ -137,6 +171,9 @@ by swapping the adapter, not the skill.
   one; a new rollup always gets the canonical marker, in `github-rollup`
   and `vetted-op-tracker rollup-append` alike (#1665).
   A comment's id is read from its `#issuecomment-<id>` URL.
+  A comment counts as the rollup only when its author is the
+  authenticated `gh` user or a repository collaborator, in `github-rollup`
+  and vetted-ops alike, so a non-collaborator cannot plant one (#1862).
   `tools/github/status-rollup.md` calls the tool instead of carrying its own
   script.
   Under the secure agent setup both tools' `gh` runs sandboxed and fails,
@@ -170,6 +207,8 @@ by swapping the adapter, not the skill.
   Data Center `pr jira-issues <id>` provides read-only Jira-key discovery for
   issues associated with pull-request commits and hands those keys to
   `tools/jira`; Bitbucket does not proxy Jira tracker operations.
+  Keys come only from the documented `key` field of each linked issue,
+  upper-cased and de-duplicated (#1727).
   It is not a complete `contract:change-request` or `contract:tracker`
   backend yet; broader Jira handoff, Data Center
   post-review/decline/merge writes, broader repository permissions, and fuller Pipelines
@@ -190,6 +229,35 @@ by swapping the adapter, not the skill.
   note the cap on stderr; `--limit` rejects values below 1.
   No write or mutation operations exist.
   Offline tests mock every HTTP response.
+- `tools/discourse/` (`magpie-discourse`) — partial, read-only Discourse
+  forum bridge, declared `contract:mail-archive` with `**Coverage:** partial`.
+  `topic view <id|url>` reads one topic and its post stream (in batches of
+  20, capped by `--max-posts` with a `truncated` flag) and prints it in the
+  mail-archive `thread_data` field shape, preserving forum stream order
+  rather than promising chronological contract order.
+  Every response post requires a string `cooked` body (empty strings are valid);
+  `body_hidden` relays the server's `cooked_hidden` replacement marker without
+  inferring visibility or proving that an unmarked body is original.
+  Public forums are read anonymously; the output does not classify visibility,
+  so callers must establish privacy approval before sending content to a model.
+  Missing requested posts, malformed responses and mega topics without an
+  ordinary ID stream fail explicitly rather than returning a successful
+  incomplete thread; there are no automatic retries or partial results.
+  An incomplete batch stops the read before any later batch is requested.
+  Numeric topic/post URLs use the first number as the topic id, matching
+  Discourse's route precedence; topic ids and post numbers use ASCII digits.
+  Coverage is not complete or selectable as an archive backend yet.
+  `DISCOURSE_API_KEY` + `DISCOURSE_API_USERNAME` cover authorised private reads
+  and are only sent within the `DISCOURSE_URL` origin and configured path.
+  `topic list --category <id|slug|url|slug/.../id> [--since <ISO-8601>] [--limit N]` includes subcategories.
+  IDs and same-forum ID-bearing references read category metadata directly; bare slugs match only catalog roots, with an ID fallback when unresolved.
+  Results preserve pinned/descending `bumped_at` order; since is inclusive, dates mean midnight UTC and timestamps require a timezone with at most microsecond precision.
+  Summaries reuse `thread_summary` fields plus activity metadata; `last_message_date` maps only `last_posted_at`, preserving missing/null without fallback.
+  Pinned topics count toward the positive limit (default 100); only an extra unique match proves truncation, and an older explicitly non-pinned topic ends a since scan.
+  Received pages are strictly validated; malformed data or failed requests produce no partial output. Lists are not consistent snapshots and have no pagination budget.
+  Only GET requests are permitted. Search,
+  user activity, guarded writes and the remaining mail-archive verbs are
+  tracked in #307.
 - `tools/forgejo/` — doc-only Forgejo / Gitea adapter (#1469, part of
   #310), declared `contract:tracker + contract:source-control +
   contract:change-request` with `**Coverage:** partial`.
@@ -207,6 +275,9 @@ by swapping the adapter, not the skill.
   status (`builds.sr.ht`), and repository reads (`git.sr.ht`/`hg.sr.ht`)
   via GraphQL. Capability: `contract:tracker + contract:source-control +
   contract:mail-archive`.
+  Comment bodies go through `--body-file` only, a GraphQL mutation needs
+  `--allow-mutation`, and the service must be a bare sr.ht subdomain
+  (#1862).
 - `tools/asf-svn/` — ASF Subversion distribution backend: staging area
   reads, `svn` command-sequence generation for releases and KEYS updates.
   Never runs `svn commit`; emits paste-ready commands for the Release
@@ -265,6 +336,8 @@ by swapping the adapter, not the skill.
   printing one JSON document; `create_draft` only `APPEND`s to the drafts
   folder and never sends, and an operation whose folder is unset or missing
   declines with exit 3 so the resolution chain falls through (#1466).
+  It connects with a verified TLS context (`ssl.create_default_context()`,
+  #1862).
   `tools/mail-source/mailman3/` is a doc-only, read-only backend over
   Hyperkitty's JSON API (`list_recent_threads`, `read_thread`,
   `thread_url`); it has no drafts or sent view, so it pairs with a drafting
@@ -287,6 +360,8 @@ by swapping the adapter, not the skill.
   patch-over-Jira adapters; implement `contract:change-request` for
   projects that land patches via mailing-list review or Jira rather than
   GitHub PRs.
+  `jira-patch` pins the reviewed attachment by id and sha256 before it is
+  applied (#1862).
 - `tools/chat/` — the `contract:chat` interface (pure Markdown) for a
   project's public chat.
   Three verbs, `list_channels`, `resolve_user(github_handle)`, and

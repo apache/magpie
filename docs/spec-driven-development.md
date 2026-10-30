@@ -245,7 +245,7 @@ Stop any run with `Ctrl+C` or `touch STOP`. By default the loop forks
 work items from the branch you start it on (typically `main`); set
 `SPEC_LOOP_BASE` to build on top of a different branch. Set
 `SPEC_LOOP_AGENT` to choose a supported headless agent CLI (`claude`,
-`codex`, `cursor`, `gemini`, or `opencode`), and set
+`codex`, `cursor`, `antigravity`, or `opencode`), and set
 `SPEC_LOOP_HARNESS` when a wrapper's name does not imply its run
 convention. Set `SPEC_LOOP_PR_LIMIT` to change how many open PRs are
 included in the duplicate-work check.

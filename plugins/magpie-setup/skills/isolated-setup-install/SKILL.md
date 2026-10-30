@@ -7,7 +7,7 @@ mode: Meta
 description: >-
   Walk an adopter through the first-time install of the secure agent
   setup (sandbox, approval and clean-environment layers) for Claude
-  Code, Codex or Gemini CLI. Interactive throughout; never runs sudo,
+  Code, Codex, Antigravity, Pi or Goose. Interactive throughout; never runs sudo,
   edits a shell rc, or overwrites settings on its own.
 when_to_use: >-
   When the user wants the secure setup installed for the first time, or
@@ -15,13 +15,13 @@ when_to_use: >-
   If it is already installed, use `setup-isolated-setup-verify` to check
   it or `setup-isolated-setup-update` to refresh it.
 capability: capability:platform
-surface_hash: sha256:fe5f2a0f66586cb2
+surface_hash: sha256:cb0c81b693d9aa76
 license: Apache-2.0
-measured_tokens: 7089
+measured_tokens: 5205
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
-     <project-config> → adopting project's `.apache-magpie/` directory
+     <project-config> → per file: the personal layer, else `.apache-magpie-overrides/`
      <tracker>        → value of `tracker_repo:` in <project-config>/project.md
      <upstream>       → value of `upstream_repo:` in <project-config>/project.md -->
 
@@ -33,21 +33,8 @@ Use the operator's explicitly requested runtime when supplied; otherwise use the
 An installed executable or configuration directory alone does not select a runtime.
 For the routing below, treat that selection as the active harness.
 
-Determine the active harness from the session metadata and executable. When it
-is Codex, follow the install lifecycle in
-[docs/adapters/codex.md](../../../../docs/adapters/codex.md#install), including the
-project profile merge, static lint, project trust, and `agent-iso codex`
-steps. Do not write Claude settings or report a missing `.claude` file as a
-Codex failure. After completing the Codex branch, stop; the remainder of this
-skill is the Claude Code branch.
-
-When the selected runtime is Gemini CLI, follow
-[docs/adapters/gemini.md](../../../../docs/adapters/gemini.md#install): resolve the existing extension, snapshot, or framework checkout; propose the workspace profile and guard merge; then guide the wrapper launch and verification.
-Do not require or write Claude configuration.
-After completing the Gemini branch, stop before the Claude-specific procedure below.
-
-When the selected runtime is Copilot CLI, follow [docs/adapters/copilot.md](../../../../docs/adapters/copilot.md#install): register the guard hook, detect and declare mail sources from the MCP servers already present, and ask nothing beyond the single apply confirmation (PRINCIPLES.md §1, *Avoiding prompt fatigue*). Do not require or write Claude configuration.
-After completing the Copilot branch, stop before the Claude-specific procedure below.
+Determine the active harness from the session metadata and executable.
+When it is Codex, Antigravity, Pi, Goose or Copilot CLI, follow that harness's paragraph in [`runtime-routing.md`](runtime-routing.md).
 
 When the harness is Claude Code, continue below. If the harness cannot be
 determined from the session or executable, stop and report that; never guess and never prompt.
@@ -218,206 +205,31 @@ the machine, so it carries a disclosure the operator has to acknowledge.
 
 Only applies when the adopter routes forge operations through the
 `vetted-ops` dispatcher — i.e. the repo has
-`.apache-magpie-overrides/tools/vetted-ops/config.toml`, or the
-operator asks for the dispatcher to be wired now. If neither is
-true, skip this step and say so; do not create a policy the project
-has not asked for.
+`.apache-magpie-overrides/tools/vetted-ops/config.toml`, the maintainer
+keeps a personal one (`<personal layer>/tools/vetted-ops/config.toml`,
+for a project that has not adopted Magpie), or the operator asks for the
+dispatcher to be wired now. If neither is
+true, skip this step, report it as **n/a**, and continue with the
+next step: a missing policy is never a blocker for this install.
+Do not create a policy the project has not asked for.
 
-There are three console scripts over one catalogue, and which of them
-gets the `allow` is the entire security question:
+**Only with the sandbox on.** The allow rules and sandbox exclusions
+below are a permission bypass: they let the dispatcher run without a
+prompt, and outside the sandbox. They are safe only because the sandbox
+confines everything else. If the sandbox is not enabled for this
+session (Step P declined, or `sandbox.enabled` is not `true` in the
+scope being wired), skip this step, say so, and leave every vetted
+operation behind its normal prompt.
 
-| Entry point | Can write? | Permission |
-|---|---|---|
-| `vetted-op-read` | never — refused before policy or `--caller` is consulted | `allow` |
-| `vetted-op-tracker` | only the tracker rollup / body-field procedures — everything else refused before policy | `ask` |
-| `vetted-op` | yes | `ask` |
-
-**Never propose an `allow` on `vetted-op`.** It is tempting, because
-the policy declares a read-only caller and the invocation names it.
-That reasoning is wrong: `--caller` is an argv string chosen by
-whoever runs the command, so an `allow` on the write dispatcher
-grants every operation in the catalogue no matter which caller the
-example names. The read dispatcher needs no such trust — it refuses
-writes structurally.
-
-```jsonc
-"permissions": {
-  "allow": [
-    "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-read *)",
-    "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *)"
-  ],
-  "ask": [
-    "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op *)",
-    "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *)",
-    "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *)"
-  ],
-  "deny": [
-    // `Edit(path)` is the path rule for every file-writing tool — Write and
-    // NotebookEdit included. A `Write(path)` rule is NOT matched by the file
-    // permission check; do not add one alongside, it reads as a second layer
-    // that is not there.
-    //
-    // the operation catalogue — the read `allow` rests on its shape
-    "Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
-    // the fixed path the rules name, which points into that catalogue
-    "Edit(~/.claude/magpie/**)",
-    // the policy naming which caller may run which operation
-    "Edit(.apache-magpie-overrides/tools/vetted-ops/**)"
-  ]
-}
-```
-
-Allow **both** invocation forms, and add both to
-`sandbox.excludedCommands` (`"uv run --project ~/.claude/magpie/vetted-ops vetted-op-read *"` and
-`"uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *"`). Skills document `uv run --project`; read-only
-gatherer agents use `uvx --from`, because `uv run` in the plugin cache
-needs to write a venv there. A rule for only one form leaves every call
-in the other form prompting.
-
-Add both forms of `vetted-op-tracker` to `sandbox.excludedCommands` too
-(`"uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *"` and
-`"uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *"`): the status-rollup
-and body-field writes need a `gh` that can verify TLS, which a sandboxed one cannot.
-Excluding it is acceptable where excluding `vetted-op` is not, because its catalogue
-is closed to the tracker procedures — every other operation is refused before the
-policy is read — and their runner refuses any `gh` call outside `repos/<tracker>/`.
-It stays in `ask`, never `allow`, so each write keeps its confirmation.
-**Never exclude `vetted-op` itself**: that would run the whole write catalogue unsandboxed.
-
-The rules name the fixed path `~/.claude/magpie/vetted-ops`, never the
-versioned plugin-cache directory. The plugin's `SessionStart` hook points
-that path at the installed version every session, so an upgrade needs no
-rule change. **Never write a rule with `*` in place of the plugin
-version.** A `*` also matches spaces, so it approves — and, in
-`excludedCommands`, runs unsandboxed — a command with extra `uv` options
-spliced in at that position (`--with <any package>`, a second `--from`).
-If an adopter's settings still carry the versioned `*` form, replace it
-with the fixed path.
-
-Tell the operator plainly what this buys and what it does not:
-
-- The catalogue is protected twice — by these rules, and by the
-  plugin cache sitting outside every `sandbox.filesystem.allowWrite`
-  root, so sandboxed Bash cannot write there either.
-- The policy TOML is protected **once**, and that is tolerable only
-  because the read dispatcher ignores policy when it refuses a
-  write. Editing the policy can widen which repo is *read*; it
-  cannot turn a read into a write.
-- Writes are not unattended. They keep the harness confirmation —
-  the dispatcher bounds their *shape*, not the operator's decision
-  to make them.
-
-Do not describe per-caller scoping as isolation. It is
-least-privilege hygiene for a cooperating skill, and it is worth
-having for that, but it stops nothing that chooses to name a
-different caller.
-
-#### Step V.1 — Read-only vetted ops MUST never prompt
-
-This is not optional. No `vetted-op-read` invocation may ever prompt, in
-any form: bulk skills run it from background gatherer agents, which cannot
-surface a prompt, so each prompt is a silent denial and the sync returns
-partial results nobody can verify. Rationale and the full shape:
-[`docs/setup/secure-agent-setup.md` → Read-only vetted ops never prompt](../../../../docs/setup/secure-agent-setup.md#read-only-vetted-ops-never-prompt).
-
-Resolve `$HOME`, read every settings scope (user, project, project-local,
-and managed where readable), and propose the exact edit for each gap. The
-operator applies it; never write a settings file on your own.
-
-1. **Allow both launchers.** `Bash(<launcher> ~/.claude/magpie/vetted-ops vetted-op-read *)`
-   MUST be allowed for each launcher in {`uvx --from`, `uv run --project`}:
-   two rules, in the committed project `.claude/settings.json` (as in the
-   framework's own) or in user scope. The literal `~` is the only spelling:
-   the agent-guard `vetted-ops-spelling` guard refuses an expanded home path,
-   so no absolute-path rule is needed. If an earlier run left
-   `<resolved $HOME>/.claude/magpie/vetted-ops` allow rules or exclusions,
-   propose removing them.
-2. **No ask rule.** Propose removing every `permissions.ask` rule, in any
-   scope, that matches a `vetted-op-read` command in either launcher form —
-   a broad rule such as `Bash(uvx *)` counts. An ask rule prompts even when
-   an allow rule matches.
-3. **Read block off.** If `permissions.blockReadsOutsideWorkingDirectories`
-   is `true` in any scope, propose removing it (or setting it `false`). With
-   it on, every call prompts, because the check cannot resolve the literal
-   `~` the commands spell, and no `allow` rule overrides it. Never offer an
-   `additionalDirectories` entry or `/add-dir` for the checkout instead (see
-   item 7). Say plainly that Bash stays
-   sandboxed and the credential `Read` denies still apply. If managed
-   settings force it on, the imperative cannot be met on this machine:
-   tell the operator, and that bulk skills must not run their gatherer
-   agents there.
-4. **Tamper protection.** The three `Edit` deny rules above MUST be present,
-   in the project settings or in user scope; propose any that is missing.
-   They are what makes the unprompted read safe.
-5. **Exclusions for both launchers.** `sandbox.excludedCommands` keeps
-   the `vetted-op-read` and `vetted-op-tracker` entries in both `~`
-   launcher forms. Without them an allowed call runs inside the sandbox,
-   where its `gh` cannot verify TLS: a silent failure again.
-6. **The spelling guard.** The agent-guard plugin MUST be installed, so its
-   `vetted-ops-spelling` guard turns an expanded spelling into a refusal that
-   names the `~` command, instead of a sandboxed call that fails silently.
-7. **The checkout is not a working directory.** No
-   `permissions.additionalDirectories` entry in any scope may cover
-   `$HOME/.claude/magpie` (that path, its `~` spelling, anything inside it
-   such as `~/.claude/magpie/vetted-ops`, or a parent such as
-   `$HOME/.claude` or `$HOME`). A working directory is writable to sandboxed
-   Bash, and item 5's exclusions run that checkout outside the sandbox.
-   `sandbox-add-project-root.sh` removes the `~/.claude/magpie` entry it once
-   added from each worktree's `settings.local.json`; propose the hand edit for
-   any other covering entry, naming the file.
-
-This covers the read dispatcher only. `vetted-op-tracker` and `vetted-op`
-stay in `ask`, never in `allow`, and `vetted-op` is never excluded.
+**Full procedure, including Step V.1 (read-only vetted ops never prompt):**
+[`step-v-vetted-ops.md`](step-v-vetted-ops.md).
 
 ### Step R — The adversarial-review exclusion
 
 Only applies when the `magpie-adversarial-review` plugin is installed. If it
 is not, skip this step and say so.
 
-The reviewer CLIs it runs (`codex`, `copilot`, `gemini`, `grok`, `claude`)
-need network access and read their own credentials (`~/.codex`,
-`~/.copilot`, `~/.gemini`, `~/.grok`, `~/.claude`), which this sandbox denies. The tool therefore
-runs outside it, through one exclusion. It names `~/.claude/magpie/adversarial-review`,
-a link the plugin's `SessionStart` hook points at the installed version every
-session, never a `*` where the version sits: that would also match `uv`
-options spliced in at that position, and run them outside the sandbox.
-
-```jsonc
-"sandbox": {
-  "excludedCommands": [
-    "uvx --from ~/.claude/magpie/adversarial-review adversarial-review *"
-  ]
-},
-"permissions": {
-  "deny": [
-    // the tool runs unsandboxed, so the code it runs must not be editable
-    // by the agent that calls it
-    "Edit(~/.claude/plugins/cache/apache-magpie/magpie-adversarial-review/**)",
-    "Edit(~/.claude/magpie/**)"
-  ]
-}
-```
-
-**Do not add an `allow` for it.** Every run sends the change to other
-model providers and costs money; the harness prompt is the gate, by design.
-
-Tell the operator what the exclusion covers and what it does not:
-
-- It matches only the single-line form, spelled with a literal `~` and an
-  unquoted path. A pipe, `$(…)`, `&&`, a redirection, quotes, or an
-  expanded home directory put the command back in the sandbox, where the
-  reviewer CLIs fail to read their credentials and report `unavailable`.
-- The `*` in the pattern can match more than a version directory — a path
-  with `..` segments would still match. The prompt that every run keeps is
-  the gate against that; read the path in it before approving.
-- The tool refuses a `--body-file` or `diff:` file outside the repository
-  or a temporary directory, so an approved run cannot be pointed at
-  `~/.ssh` or a private checkout to send it to a model.
-- Outside the sandbox the tool only runs each reviewer CLI in its own
-  read-only mode, and writes nothing to the repository. `codex`'s
-  read-only mode still reads files anywhere on the machine; see the tool's
-  README for what that means for a machine that also holds a private
-  checkout.
+**Full procedure:** [`step-r-adversarial-review.md`](step-r-adversarial-review.md).
 
 ### Step W — Working directories for the read block
 
@@ -453,6 +265,47 @@ check three things:
 
 Rationale and the rules in full:
 [`docs/setup/secure-agent-setup.md` → Working directories under the read-outside-working-directories block](../../../../docs/setup/secure-agent-setup.md#working-directories-under-the-read-outside-working-directories-block).
+
+### Step U — Host-only uv state
+
+The excluded `uvx` / `uv run` commands, MCP servers launched with `uv`, hooks
+that call `python3` and the operator's own terminal all run uv-managed code
+outside the sandbox. None of it may come from a directory a sandboxed command
+can write:
+
+- **`~/.local/share/uv` is read-only to the sandbox.** No scope may list it,
+  or a parent of it, in `allowWrite` or `additionalDirectories`. The Step P
+  helper removes the write an earlier version added; propose removing any other
+  by hand.
+- **The host gets its own uv cache.** Read `~/.config/uv/uv.toml`. Unless it
+  sets a `cache-dir` that is absolute and, symlinks resolved, outside every
+  directory a sandboxed command can write (every `allowWrite` and `additionalDirectories` entry in any scope, every project root, and the roots the sandbox writes without a grant (`/tmp`, `/private/tmp`, `/var/folders`, `/private/var/folders`, `$TMPDIR`)),
+  stage it with `cache-dir = "<resolved $HOME>/.local/share/uv-host/cache"`
+  added, keeping every other setting, and give the operator the copy command:
+  `Edit(~/.config/uv/**)` keeps the agent from writing it. Never `~` (uv does
+  not expand it there) and never a relative path.
+- **The sandbox cannot read that file.** `permissions.deny` carries
+  `Read(~/.config/uv/uv.toml)` and `Edit(~/.config/uv/**)` (both in the
+  framework's `.claude/settings.json`, so Step 2's copy brings them). Sandboxed
+  uv then keeps its default, writable cache.
+
+- **Sandboxed prek gets its own home.** The `env` entry is needed only where a
+  repository uses prek (a `prek.toml`, `.pre-commit-config.yaml` or
+  `.pre-commit-config.yml`, or a hook that runs it:
+  [detection](../../../../tools/hook-manager/README.md#detection)); the deny
+  is always kept, since the default home is per-user. The settings carry
+  `"env": {"PREK_HOME": "~/.cache/prek-sandbox"}` and `permissions.deny`
+  carries `Edit(~/.cache/prek/**)` (both in the framework's
+  `.claude/settings.json`): a terminal's git hooks run prek outside the
+  sandbox from `~/.cache/prek`. The whole-user dispatcher (Step P) gives hooks
+  that Claude Code runs outside the sandbox a host-only home and cache root
+  too; if a repository sets its own `core.hooksPath`, propose unsetting it so
+  the dispatcher runs there.
+
+Then hand the operator the reinstall commands from the doc to run in a
+terminal: interpreters and tools the sandbox could write before may already
+have been changed. Rationale and commands:
+[`docs/setup/secure-agent-setup.md` → Host-only uv state](../../../../docs/setup/secure-agent-setup.md#host-only-uv-state).
 
 ### Step T — Local agent settings
 
@@ -519,8 +372,8 @@ Suggest two follow-up routines the user can wire later:
 used on this machine and what it was installed against:
 
 ```bash
-PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir)/../.apache-magpie-local:$(git rev-parse --git-common-dir)/apache-magpie" \
-  python3 -m setup_preflight.isolated record-update
+PYTHONPATH="$HOME/.cache/apache-magpie/preflight" \
+  python3 -P -m setup_preflight.isolated record-update
 ```
 
 It writes the `isolated_setup` block of the personal layer's
@@ -529,6 +382,14 @@ not adopted Magpie, `.apache-magpie-local/` when it has) and nothing
 else. Skip it when the command cannot find `setup_preflight` — say that
 `/magpie-setup:setup config` installs the checker, and that the reminders start
 once it is there.
+
+**Check that the vetted-ops plugin is installed.** `magpie-vetted-ops`
+is part of the baseline: the family skills run their forge operations
+through its dispatcher, and Step V's permission rules point at it.
+If the harness's plugin listing lacks it, propose
+`claude plugin install magpie-vetted-ops@apache-magpie`
+(`codex plugin add magpie-vetted-ops@apache-magpie` on Codex) and run it once the operator confirms.
+Where the harness has no plugin CLI, print the command instead of running it.
 
 **Always propose shared-config sync once the install lands.**
 Regardless of whether the operator already maintains the

@@ -1519,3 +1519,80 @@ def test_pr_view_with_body_reads_the_upstream_pr_including_its_body(policy: conf
     assert argv[:6] == ["gh", "pr", "view", "65703", "--repo", "acme/product"]
     fields = argv[argv.index("--json") + 1].split(",")
     assert "body" in fields and "files" in fields and "author" in fields
+
+
+# --- where the policy is found --------------------------------------------------
+
+
+def _policy_at(path: Path, workspace: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(CONFIG_TOML.format(workspace=workspace))
+
+
+@pytest.fixture()
+def workspace(tmp_path: Path) -> Path:
+    ws = tmp_path / "scratch"
+    ws.mkdir()
+    ws.chmod(0o700)
+    return ws
+
+
+def test_an_unadopted_maintainers_personal_policy_is_used(tmp_path: Path, workspace: Path) -> None:
+    repo = tmp_path / "repo"
+    (repo / ".git").mkdir(parents=True)
+    _policy_at(repo / ".git" / "apache-magpie" / "tools" / "vetted-ops" / "config.toml", workspace)
+    assert config.load(cwd=repo).workspace == workspace
+
+
+def test_the_committed_policy_wins_over_the_personal_one(tmp_path: Path, workspace: Path) -> None:
+    repo = tmp_path / "repo"
+    (repo / ".git").mkdir(parents=True)
+    other = tmp_path / "other"
+    other.mkdir()
+    other.chmod(0o700)
+    _policy_at(repo / ".git" / "apache-magpie" / "tools" / "vetted-ops" / "config.toml", other)
+    _policy_at(repo / ".apache-magpie-overrides" / "tools" / "vetted-ops" / "config.toml", workspace)
+    assert config.load(cwd=repo).workspace == workspace
+
+
+def test_no_policy_anywhere_names_every_place_looked(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    (repo / ".git").mkdir(parents=True)
+    with pytest.raises(config.ConfigError) as exc:
+        config.load(cwd=repo)
+    assert ".apache-magpie-overrides" in str(exc.value)
+    assert str(repo / ".git" / "apache-magpie") in str(exc.value)
+
+
+def test_a_personal_policy_outside_the_protected_shapes_is_not_read(tmp_path: Path, workspace: Path) -> None:
+    # `gitdir:` pointing somewhere the sandbox deny globs do not cover.
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    elsewhere = tmp_path / "gitdirs" / "repo"
+    elsewhere.mkdir(parents=True)
+    (repo / ".git").write_text(f"gitdir: {elsewhere}\n")
+    _policy_at(elsewhere / "apache-magpie" / "tools" / "vetted-ops" / "config.toml", workspace)
+    with pytest.raises(config.ConfigError):
+        config.load(cwd=repo)
+
+
+def test_a_submodules_personal_policy_is_read(tmp_path: Path, workspace: Path) -> None:
+    top = tmp_path / "top"
+    module_dir = top / ".git" / "modules" / "sub"
+    module_dir.mkdir(parents=True)
+    sub = top / "sub"
+    sub.mkdir()
+    (sub / ".git").write_text("gitdir: ../.git/modules/sub\n")
+    _policy_at(module_dir / "apache-magpie" / "tools" / "vetted-ops" / "config.toml", workspace)
+    assert config.load(cwd=sub).workspace == workspace
+
+
+def test_a_symlinked_personal_layer_is_not_read(tmp_path: Path, workspace: Path) -> None:
+    # `.git/apache-magpie` redirected to a directory the deny globs do not cover.
+    repo = tmp_path / "repo"
+    (repo / ".git").mkdir(parents=True)
+    writable = tmp_path / "writable"
+    _policy_at(writable / "tools" / "vetted-ops" / "config.toml", workspace)
+    (repo / ".git" / "apache-magpie").symlink_to(writable)
+    with pytest.raises(config.ConfigError):
+        config.load(cwd=repo)

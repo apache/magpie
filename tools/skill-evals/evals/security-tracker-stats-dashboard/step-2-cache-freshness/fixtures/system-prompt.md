@@ -6,7 +6,7 @@ security-tracker-stats-dashboard skill from the Apache Magpie framework.
 
 ## Cache freshness rules
 
-Cache directory: `${TRACKER_STATS_CACHE:-/tmp/tracker-stats-cache}/`
+Cache directory: `${TRACKER_STATS_CACHE:-<platform temp dir>/tracker-stats-cache}/`
 Key cache file:  `issues.json`
 
 Evaluate the following decision rules in priority order:

@@ -112,8 +112,14 @@ elif match 'Could not open a connection to your authentication agent|agent refus
   hint="SSH agent / Yubikey appears unreachable from inside the sandbox. See ${doc_path}#ssh-agent--yubikey-appears-unreachable-from-inside-the-sandbox"
 elif match "cannot exec '[^']*gpg-touch-(wrap-[^']*|overlay\.sh wrap [^']*)': Operation not permitted|bash: [^ ]*gpg-touch-(wrap-[^ :]*|overlay\.sh): Operation not permitted"; then
   hint="git cannot start the touch-overlay wrapper from inside the sandbox (~/.claude/scripts/ is read-denied). See ${doc_path}#signed-commit-fails-with-cannot-exec-of-the-touch-overlay-wrapper"
+elif match "bwrap: Can't create file (at )?.*: Read-only file system"; then
+  hint="An allowRead entry that is a parent of an allowWrite path makes bubblewrap mount that path read-only. See ${doc_path}#every-bash-call-fails-with-bwrap-cant-create-file--read-only-file-system"
 elif match 'Cannot connect to the Docker daemon|open /var/run/docker\.sock: operation not permitted|Cannot connect to Podman|connect: permission denied.*podman\.sock'; then
   hint="Docker / Podman runtime socket denied by the sandbox. See ${doc_path}#docker--podman-command-fails-with-a-socket-error"
+# A gateway policy refusal: its 403 body, or the bare status an HTTP-upgrade
+# endpoint (BuildKit's /grpc) reports instead of the body.
+elif match 'container-gateway: .*; see docs/setup/sandbox-troubleshooting\.md|unable to upgrade to h2c, received 403'; then
+  hint="The container gateway refused this request by policy (the reason is a 'deny' line in container-gateway.log in its run directory). Do not route around it with another socket, a sandbox bypass, or a workflow the project's instructions rule out: report the refusal to the user. See ${doc_path}#docker--podman-command-fails-with-a-socket-error"
 elif match '127\.0\.0\.1.*[Pp]ermission denied|[Oo]peration not permitted.*bind|Errno 49.*assign requested address|HTTP.*Connection refused.*127\.0\.0\.1'; then
   hint="Localhost port-bind or loopback HTTP may be sandbox-blocked. See ${doc_path}#test-cannot-bind-to-a-localhost-port"
 elif match "/tmp/[^ ]*'?: Read-only file system|Read-only file system: '/tmp/|mktemp: failed to create"; then

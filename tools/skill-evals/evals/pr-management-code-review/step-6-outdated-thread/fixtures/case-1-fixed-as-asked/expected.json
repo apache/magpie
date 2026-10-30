@@ -1,0 +1,4 @@
+{
+  "addressed": true,
+  "reason": "The current diff makes retries a constructor parameter passed to run_with_retries, so a caller can set it to 0."
+}

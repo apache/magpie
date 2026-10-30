@@ -297,6 +297,9 @@ def _context(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any]:
         docs.append("classifications/backport.md")
     if stack:
         docs.append("classifications/stacked-layer.md")
+    outdated = data.outdated_threads(pr)
+    if outdated:
+        docs.append("classifications/outdated-thread.md")
     return {
         "pr": n,
         "head_sha": pr.head_sha,
@@ -316,6 +319,7 @@ def _context(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any]:
         "ai_disclosure": ai,
         "images_to_judge": scans.images(added),
         "candidate_findings": findings,
+        "outdated_threads": outdated,
         "docs": docs,
     }
 
@@ -330,11 +334,21 @@ def _disposition(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any]
     saved_permission = data.load_lines(_file(args.saved_dir, "permission.txt"))
     permission = args.permission or (saved_permission[0] if saved_permission else None)
     permission = permission or (pr.viewer_permission or "").lower() or None
+    outdated = {t["id"]: t for t in data.outdated_threads(pr)}
+    for thread_id in args.addressed_thread:
+        if thread_id not in outdated:
+            raise SystemExit(
+                f"pr-management: {thread_id!r} is not an unresolved outdated thread on PR {args.pr}"
+            )
+    resolve_first = [
+        {k: v for k, v in outdated[i].items() if not k.endswith("_untrusted")}
+        for i in dict.fromkeys(args.addressed_thread)
+    ]
     result = disposition.pick(
         findings,
         ci_state=pr.rollup_state,
         real_ci=selectors.real_ci(pr, cfg),
-        unresolved_threads=pr.unresolved_threads,
+        unresolved_threads=pr.unresolved_threads - len(resolve_first),
         other_changes_requested=disposition.other_changes_requested(list(pr.reviews), args.viewer, pr.author),
         unanswered_question=args.unanswered_question,
         ci_diff_caused=args.ci_diff_caused,
@@ -342,6 +356,7 @@ def _disposition(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any]
         merge_state=pr.merge_state,
         permission=permission,
         head_pushable=args.head_pushable,
+        resolve_first=resolve_first,
     )
     result["docs"] = [
         f"classifications/disposition-{result['disposition'].lower().replace('_', '-')}.md",
@@ -605,6 +620,13 @@ def add_parsers(sub: Any) -> None:
     dis.add_argument("--permission", default=None)
     dis.add_argument("--unanswered-question", action="store_true")
     dis.add_argument("--ci-diff-caused", action="store_true")
+    dis.add_argument(
+        "--addressed-thread",
+        action="append",
+        default=[],
+        metavar="ID",
+        help="an outdated thread from `context` that the current code addresses (repeatable)",
+    )
     dis.add_argument(
         "--head-pushable",
         action="store_true",

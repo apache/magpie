@@ -60,7 +60,10 @@ review).
 ## Cache directory
 
 ```yaml
-tracker_stats_cache: /tmp/tracker-stats-cache
+# Left unset, the fetch scripts default to
+# `<platform temp dir>/tracker-stats-cache` ($TMPDIR on POSIX, %TEMP% on
+# Windows) — the one location a sandboxed run can always write.
+# tracker_stats_cache: /path/to/cache
 ```
 
 Where the fetch scripts persist their cache. Safe to delete (forces a

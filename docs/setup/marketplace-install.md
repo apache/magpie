@@ -11,10 +11,12 @@
   - [OpenAI Codex CLI](#openai-codex-cli)
   - [VS Code / GitHub Copilot](#vs-code--github-copilot)
   - [Grok Build](#grok-build)
-  - [Google Gemini CLI](#google-gemini-cli)
+  - [Google Antigravity](#google-antigravity)
   - [Cursor](#cursor)
   - [microsoft/apm](#microsoftapm)
   - [Kiro CLI](#kiro-cli)
+  - [Pi](#pi)
+  - [Goose](#goose)
   - [JetBrains IDEs](#jetbrains-ides)
   - [Where to go next](#where-to-go-next)
 
@@ -35,15 +37,16 @@ registry sits in between.
 
 ## The recommended baseline
 
-Install `magpie-setup` and `magpie-utilities`, plus `magpie-agent-guard` where your agent's marketplace offers it:
+Install `magpie-setup`, `magpie-vetted-ops` and `magpie-utilities`, plus `magpie-agent-guard` where your agent's marketplace offers it:
 
 | Plugin | Why |
 |---|---|
 | `magpie-setup` | **Install this one first — nothing else installs without it.** It installs, upgrades, configures and adopts the framework, and carries the secure-isolation skills that sandbox your agent. |
+| `magpie-vetted-ops` | **Always installed.** The dispatcher the family skills run their GitHub reads and writes through: fixed, checked operations instead of free-form `gh` commands. Not a family and no skills of its own, so it adds no always-on context. |
 | `magpie-agent-guard` | The deterministic pre-execution guard — a hook that inspects each shell command before it runs and denies the dangerous shapes outright. Not a family; a safety net under everything else. |
 | `magpie-utilities` | `list-skills` and the rest of the small tools you reach for when you want to know what is actually installed. |
 
-These three are exactly the **floor** a Claude Code project commits when it adopts Magpie.
+These four are exactly the **floor** a Claude Code project commits when it adopts Magpie.
 Taking the available baseline plugins yourself is taking what a project would recommend to every contributor.
 Then add families against a problem you have today —
 [What each family solves](../quick-start/families.md) is the menu — and run the
@@ -57,6 +60,7 @@ Add the marketplace, then install the baseline and whichever families you want:
 ```text
 /plugin marketplace add apache/magpie
 /plugin install magpie-setup@apache-magpie
+/plugin install magpie-vetted-ops@apache-magpie
 /plugin install magpie-agent-guard@apache-magpie
 /plugin install magpie-utilities@apache-magpie
 /plugin install magpie-pr-management@apache-magpie
@@ -119,7 +123,7 @@ codex plugin add magpie-setup@apache-magpie
 codex plugin add magpie-utilities@apache-magpie
 ```
 
-`magpie-setup` installs by default when you add the marketplace, so its line is only needed if you removed it.
+`magpie-setup` and `magpie-vetted-ops` install by default when you add the marketplace, so their lines are only needed if you removed them.
 `magpie-utilities` is not installed by default, so add it explicitly.
 `magpie-agent-guard` is not listed in [Magpie's Codex marketplace](../../.agents/plugins/marketplace.json).
 Add further families the same way.
@@ -165,20 +169,25 @@ Project-hook trust remains an explicit operator action whenever a repository-loc
 
 See [the Grok adapter](../adapters/grok.md).
 
-## Google Gemini CLI
+## Google Antigravity
+
+Antigravity replaced Gemini CLI, which Google retired for individual accounts
+on 2026-06-18. Install Magpie as an Antigravity plugin from the CLI:
 
 ```bash
-gemini extensions install https://github.com/apache/magpie --auto-update
+agy plugin install https://github.com/apache/magpie
 ```
 
-`--auto-update` is worth taking at install time: without it the extension stays
-at the commit you installed and only moves when you run
-`gemini extensions update magpie` yourself.
+The repository root is the plugin: Antigravity reads the root `plugin.json`
+and the skills under `skills/`, so the whole framework arrives as one plugin
+and there is nothing further to pick. Plugins installed in the Antigravity App
+sync to the CLI. Verify with `agy plugin list`, or `/plugin` inside a session;
+every skill is also a slash command (`/magpie-setup`). To refresh, run the same
+install command again.
 
-Gemini installs Magpie as one extension rather than per-plugin, so the
-baseline arrives with it and there is nothing further to pick. Verify with
-`gemini extensions list`; update manually at any time with
-`gemini extensions update magpie`.
+Coming from Gemini CLI with the old Magpie extension installed?
+`agy plugin import gemini` converts it, but a fresh install from the
+repository URL is simpler and carries the current layout.
 
 From then on, ask in plain language — *set up Magpie for this project* — or
 name the skill: `Use the magpie-setup skill.`
@@ -216,6 +225,47 @@ Pin a tag rather than tracking `main` — without a marketplace there is no
 update command later, so what you install is what you keep until you install
 again. [The Kiro harness guide](../adapters/kiro.md) covers the guard hook and
 the rest of the wiring.
+
+## Pi
+
+Pi has no marketplace; it installs packages from git, npm or a local path.
+The repository root is a Pi package (its `package.json` carries a `pi` key),
+so one command, run once per user, installs the skills together with Magpie's
+secure setup for Pi — the action guard, the permission rules and the OS sandbox
+for bash:
+
+```bash
+pi install git:github.com/apache/magpie
+```
+
+Install it for the user, never per project: do not add `-l`. Verify with
+`pi list`; every skill is also a `/skill:<name>` command. Refresh with
+`pi update --extensions`, and remove everything with
+`pi remove git:github.com/apache/magpie`.
+[The Pi harness guide](../adapters/pi.md) covers what the extension enforces
+and how to verify it.
+
+## Goose
+
+Goose has no marketplace; `goose plugin install` takes a git URL.
+The repository root is a Goose plugin (`.goose-plugin/plugin.json` lists the
+family skill directories, and `hooks/hooks.json` registers Magpie's guard
+hook), so one command, run once per user, installs the skills as
+`magpie:<skill>` together with the hook. A second one installs the sandbox
+runtime from the committed lockfile into the plugin:
+
+```bash
+goose plugin install https://github.com/apache/magpie
+npm ci --omit=dev --legacy-peer-deps --ignore-scripts --prefix ~/.agents/plugins/magpie
+```
+
+Install it for the user, never into a project's `.agents/plugins/`. Start
+Goose through `agent-iso goose`, which runs the whole process in the sandbox
+in approve mode. Verify with `goose skills list`. Refresh with
+`goose plugin update magpie` followed by the same `npm ci` (the update drops
+`node_modules`), and remove everything by deleting `~/.agents/plugins/magpie/`.
+[The Goose harness guide](../adapters/goose.md) covers what the hook and the
+sandbox enforce and how to verify them.
 
 ## JetBrains IDEs
 

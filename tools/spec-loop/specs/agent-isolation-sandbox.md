@@ -35,12 +35,48 @@ successful prompt injection cannot read credentials or reach a
 non-allowed host. The fallback when prompt engineering fails is the OS
 saying "no".
 
-Gemini CLI uses tool sandboxing rather than whole-process isolation.
-Its native file tools restrict reads to allowed directories, but the tested
-Linux backend exposes host files broadly read-only to approved shell commands.
-Native credential-path policy denies do not block equivalent shell reads.
-Tool network restrictions do not cover the CLI, hooks, or MCP servers;
-existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
+Antigravity CLI (`agy`, which replaced Gemini CLI) sandboxes terminal commands rather than the whole process.
+Its profile is user-scope, like the Claude Code reference setup:
+`~/.gemini/antigravity-cli/settings.json` sets `enableTerminalSandbox`,
+a `toolPermission` that keeps approvals (`request-review`, `proceed-in-sandbox` or `strict`, never `always-proceed`),
+`allowNonWorkspaceAccess: false`, and `permissions.allow` / `ask` / `deny` rules
+(`command(…)`, `read_file(…)`, `write_file(…)`, `read_url(…)`, `mcp(…)`; deny wins over ask over allow).
+On macOS the sandbox is a Seatbelt profile: an observed probe on `agy` 1.3.6 could read ordinary home files such as `~/.gitconfig`,
+could not list `~/.ssh`, could not write under `$HOME`, and had no network (DNS failed).
+Domains allowed by `read_url(…)` join the sandbox's outbound allowlist.
+The sandbox covers terminal commands only: native file tools are governed by the permission rules,
+and the model, web tools, hooks, and MCP servers run outside it.
+See `docs/adapters/antigravity.md`.
+
+Pi ships no approval prompts and no sandbox, so Magpie supplies both in a user-scope Pi extension
+(`tools/agent-isolation/pi/magpie.ts`), installed with the skills by one `pi install git:github.com/apache/magpie`
+through the root `package.json` (`pi` key); it reads no project configuration, so a repository cannot weaken it.
+Its rules are derived at load time from the Claude Code baseline (`tools/sandbox-lint/expected.json`, by `policy.ts`):
+deny > ask > allow for bash, asked commands refused without a UI, and native reads and writes of credential paths,
+`.env` files, agent settings and Pi's own configuration refused, with symlinks resolved.
+Bash runs in `@anthropic-ai/sandbox-runtime` (pinned) with the baseline's `denyRead` / `allowRead` / `allowWrite`,
+domain allowlist and credential-variable denies; only a plain-words command the baseline allows and excludes from the
+sandbox (read-only `gh`) runs outside it, and bash is refused when the sandbox cannot start.
+An observed probe on Pi 1.4.0 (macOS) could not read `~/.ssh` or write under `$HOME`, could read `~/.gitconfig`,
+reached `api.github.com` but not `example.com`, and saw an empty `$GH_TOKEN`.
+See `docs/adapters/pi.md`.
+
+Goose ships no sandbox, and its hooks can allow or block a tool call but cannot wrap one, so Magpie isolates the
+whole process: `agent-iso goose` runs `tools/agent-isolation/goose/launch.ts` from the per-user plugin
+(`goose plugin install https://github.com/apache/magpie` into `~/.agents/plugins/magpie/`), which runs Goose inside
+`@anthropic-ai/sandbox-runtime` with `GOOSE_MODE=approve`, so Goose asks before every tool call.
+The sandbox settings (`goose/settings.ts`) are the Claude baseline's, plus Goose's data, state and cache
+directories, the plugin (read-only) and the model provider's API host; `~/.config/goose` is read-only inside and
+`secrets.yaml` unreadable, so the provider key comes in through the environment.
+The plugin's root `hooks/hooks.json` runs `goose/hook.ts` before `shell`, `write`, `edit`, `tree`, `analyze`,
+`load` and `read_image`: agent-guard (`--goose`) and the baseline's deny rules through the shared `policy.ts`,
+and, outside approve mode, a block on what would have needed approval; the hook fails closed.
+The sandbox runtime comes from an `npm ci` of the committed lockfile into the plugin, which
+`goose plugin update` removes; the launcher refuses to start without it.
+An observed probe on Goose 1.56.0 (macOS) could not read `~/.ssh`, write under `$HOME` or append to Goose's
+`config.yaml`, reached `api.github.com` but not `example.com`, saw an empty `$GH_TOKEN`, and had the hook deny
+a `--no-verify` commit, `curl`, a `load` of `~/.aws/credentials` and a write of Goose's `permission.yaml`.
+See `docs/adapters/goose.md`.
 
 ## Where it lives
 
@@ -125,7 +161,32 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
   (including a full-screen terminal's), and activation is only asked for
   with `activate`, falling back to the deprecated
   `activateIgnoringOtherApps:`; a refusal costs the keyboard, not the
-  window (#1697). The
+  window (#1697).
+  A key that never waits for a touch draws no window at all: before
+  anything signs, `arm` and `wrap` read the signature and authentication
+  slots' touch policies from the `uif:` record of
+  `gpg --card-status --with-colons` (never `ykman`, which needs PC/SC,
+  denied in the sandbox, and contends with scdaemon for the card), and
+  start no watcher when both are `off` (#1715).
+  `cached`, any other value, and an unknown policy (no card, no gpg, no
+  `uif:` record) keep the window.
+  A dismissal (Esc or a click) answers one signature only: its marker
+  names the signer processes it was made for, stops counting when one of
+  them ends or an unnamed signer starts, and never lasts past
+  `DISMISS_TTL_MIN`, so the next signature asks again even while other
+  sessions stay armed.
+  A window that closed unanswered (it lost the keyboard and exited with
+  `OVERLAY_UNANSWERED`, could not be drawn, or crashed) is no dismissal and
+  is shown again after `RESHOW_DELAY` while the signature still blocks
+  (#1832).
+  The matcher arms for every git that can reach the key — global options
+  with quoted values, git or ssh named by path or passed to a shell as a
+  string, remote-talking subcommands beyond fetch and push (`lfs`,
+  `archive --remote`, `subtree`, `svn`, `maintenance prefetch`), and the
+  `gh` commands that run git over ssh (#1833).
+  A definite answer is cached in the runtime directory for ten minutes,
+  but an `off` only for one, so a policy turned on since is honoured on
+  the next burst of commands (#1723). The
   git the agent runs reads the same global config, so the wrapper's
   two files are a `sandbox.filesystem.allowRead` grant of their own
   (nothing wider under `~/.claude/`), or every sandboxed signed commit
@@ -149,9 +210,10 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
   deleting the private key (#1367).
 - `tools/agent-guard/` — deterministic pre-execution guard dispatcher
   (`stdlib`-only). Wired as a `PreToolUse` hook (Claude Code) or a
-  `tool.execute.before` plugin (OpenCode), with a `--gemini` adapter for
-  Gemini CLI's `BeforeTool` event (wired in the repository's
-  `.gemini/settings.json`; registration for snapshot adopters), a `--grok`
+  `tool.execute.before` plugin (OpenCode), with an `--antigravity` adapter for
+  Antigravity CLI's `PreToolUse` event on `run_command` (registered user-scope
+  in `~/.gemini/config/hooks.json`; it answers `{"decision": "deny", "reason": …}`
+  on stdout), a `--grok`
   adapter for Grok Build's `PreToolUse` event, and a `--copilot` adapter
   for Copilot CLI's `preToolUse` event (wired in `.github/hooks/magpie.json`,
   #1560), which also allows one simple read-only command (`gh` reads,
@@ -171,13 +233,49 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
   resolution `gh_subcommand()` gives for `gh` (#1330).
   Every guard first unwraps the prefix wrappers that run their argument,
   `env` (its GNU / BSD options, clustered short flags and `NAME=value`
-  assignments, which still count as inline overrides) and `command -p`,
-  until none is left, so `env git commit …` reaches the same guards as
+  assignments, which still count as inline overrides), `command -p`,
+  `exec`, `nohup` and `time`, until none is left, so `env git commit …` reaches the same guards as
   `git commit …`; `command -v` is a lookup and is left alone. A segment
   nested past a generous depth limit, carrying an undocumented `env`
   option or another `command` flag, is marked unparsed and refused, and
   `env -S` is refused outright, because GNU env splits its string with
   escapes `shlex` does not reproduce (#1691, #1694).
+  A command line is split into commands as bash splits it: on newlines
+  and on control operators with or without surrounding spaces, into
+  subshells, groups, command / process substitutions (also inside double
+  quotes, arithmetic and `${…}`) and, past a leading reserved word, the
+  command that runs; redirections stay words and `#` comments are skipped.
+  A heredoc body is checked as commands when it names `git` / `gh` and is
+  fed to anything but a bare `cat` / `tee`, and its substitutions are
+  checked when its delimiter is unquoted.
+  A shell's `-c` string (`bash` / `sh` / `zsh -c`), or `eval`'s arguments (after one `--`; an `eval` with an option is refused), is split and checked
+  as a command line of its own, one level deep; a nested `-c` string
+  naming `git` or `gh` is refused, as is a line whose quoting cannot be
+  parsed when it names `git` or `gh` (after removing quotes and
+  backslashes, so `g'i't` counts) or holds `$`, a backtick, a glob or
+  brace character or a backslash-newline, and so is a command that
+  parses but whose name is not literal (letters, digits, `_ . / + : @ % , -`
+  and a leading `~/`; `[` and `[[` aside), and redirections before the
+  command name are skipped like leading assignments; a heredoc body is not read as
+  shell syntax unless it names `git` / `gh` and is fed to anything but
+  a bare `cat` / `tee` starting its own command, in a command that
+  without its heredoc bodies has no `$`, backtick, parenthesis, brace,
+  `alias`, or `eval` / `source` / `.` / `hash` / `enable` as a word anywhere (after quote removal) and no non-sink heredoc, or holds a `$(…)` / backtick substitution under
+  an unquoted delimiter; a `<<` inside quotes, a `#` comment, arithmetic
+  or a `${…}` expansion opens no heredoc, and the delimiter is the whole
+  word after quote removal; no body is stripped from a command where a
+  line outside a body ends in a backslash. Per-guard `MAGPIE_ALLOW_*`
+  overrides are honoured inline or from the hook's environment;
+  `MAGPIE_GUARD_OFF` is read from the hook's environment only, never
+  from the command line.
+  Beyond the bundled `guards.d`, skill-owned guards are discovered in
+  place, with no collection step: every `$MAGPIE_GUARD_DIRS` entry, then
+  every `plugins/*/skills/*/guards` and `skills/*/guards` of the framework
+  tree the engine runs from (#1757), or, on a marketplace install, where
+  each plugin is cached on its own as `<marketplace>/<plugin>/<version>/`
+  and there is no framework tree, the `skills/*/guards` of the family
+  plugins cached beside `magpie-agent-guard`, each at the engine's own
+  version, else its most recently installed one (#1762).
   Hooks invoke the engine as a bare `python3`; when that resolves to a
   pre-3.11 interpreter, the engine re-runs itself under the newest
   `python3.N` (3.11+) on `PATH`, and exits 1 with an actionable message
@@ -202,9 +300,16 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
 - `tools/agent-isolation/sandbox-add-project-root.sh` — writes the
   worktree's absolute path, and the absolute dev-tool paths `prek` and
   `uv` need (`~/.gitconfig`, `~/.config/git`, `~/.cache`,
-  `~/.local/share/uv`, `~/.local/bin`; the cache and uv dirs also
-  writable), into each worktree's gitignored
-  `.claude/settings.local.json`. The harness drops the committed
+  `~/.local/share/uv`, `~/.local/bin`; only the cache also writable,
+  and it removes a `~/.local/share/uv` write an earlier version added,
+  because uv's interpreters and tool venvs there run outside the
+  sandbox; sandbox-lint rejects any write grant over that directory,
+  #1785), into each worktree's gitignored
+  `.claude/settings.local.json`, through a temporary copy and a final
+  rename. A rename the sandbox denies — the dispatcher runs the helper
+  sandboxed on every post-checkout — removes the copy, warns and leaves
+  the file untouched rather than aborting the remaining worktrees
+  (#1812). The harness drops the committed
   project-scope `sandbox.filesystem` allow entries (issue #197), so the
   local file is where they take effect. It never adds the credential
   paths the committed list also names; `--no-tool-paths` limits it to
@@ -247,12 +352,67 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
   the update skill's drift check and verify check 8 recognise the
   dispatcher flavour's symlinks as its installed shape, not as drift
   or as inert per-repo hooks (#1322, #1358).
+- `tools/hook-manager/` — the contract for git-hook managers under the
+  secure setup, `contract:hook-manager`: a manager's
+  install puts its hook in the repository's own
+  `$(git rev-parse --git-common-dir)/hooks`, where the dispatcher
+  chains, and its home is split — `env.<HOME>` gives sandboxed runs a
+  home of their own, `Edit(<default home>/**)` is denied, and the
+  dispatcher gives hooks run outside the sandbox a host-only home under
+  `~/.local/share`. `registry.json` holds the adapters;
+  `tools/dev/sync-hook-managers.py` writes it into
+  `tools/agent-isolation/hook-manager-shim.sh` (installed as
+  `~/.claude/bin/<tool>`, keyed by that name), the dispatcher and
+  `sandbox-lint`, and checks the committed settings against it.
+  The settings template likewise denies `Edit(~/.cache/ponymail-attachments/**)`
+  (#1828): the PonyMail MCP saves report attachments there from outside the
+  sandbox, and a sandboxed command that could rename directories under that
+  root mid-save could race the server's path checks.
+  For prek the split is concrete (#1792): the settings `env` sets
+  `PREK_HOME=~/.cache/prek-sandbox` for sandboxed runs,
+  `Edit(~/.cache/prek/**)` keeps sandboxed commands out of the default
+  home a terminal commit runs hooks from, and the dispatcher, when
+  `SANDBOX_RUNTIME` is absent (a terminal commit or a bypassed one),
+  points `PREK_HOME` at `~/.local/share/prek-host` and `XDG_CACHE_HOME`
+  at `~/.local/share/prek-host/cache`, keeping an operator's own value
+  outside `~/.cache`.
+  Detection (a root config file, a tracked nested config, or an
+  installed hook that runs the manager) decides only what a repository
+  is configured with — the sandbox home its settings must carry, the
+  shim, verify check 19d; the default-home deny and the dispatcher's host
+  home stay on for every registered manager, because both homes are per
+  user (#1819).
+  `registry.json` registers prek (install strategy `git-dir-flag`) and
+  four managers with install strategy `none`, which already write to the
+  repository's own hooks directory whatever the global `core.hooksPath`:
+  `simple-git-hooks`, `cargo-husky`, `git-build-hook` and
+  `git-code-format-maven-plugin` (#1838).
+  A `none` manager gets no shim; its worktree caveats (cargo-husky skips
+  hook install in a linked worktree, the JGit plugins target
+  `<worktree>/hooks`) are recorded in the README's adapter table.
+- `plugins/magpie-setup/hooks/check-upgrade.sh` — magpie-setup's
+  `SessionStart` hook.
+  It runs outside the sandbox over a sandbox-writable tree, so it trusts
+  nothing the session environment supplies: `/bin/bash -p`, a fixed `PATH`,
+  and Python only from a vetted root-owned interpreter under `env -i` with
+  `-I -S` (#1769, #1791, #1794).
+  It also removes the stale `~/.local/share/uv` write grant (#1788) and a
+  repository-level `core.hooksPath` that would skip the whole-user
+  dispatcher (#1792).
+  The full contract, including the isolation warning, is specified in
+  [`adoption-and-setup.md`](adoption-and-setup.md).
 - `tools/egress-gateway/` — local HTTP(S) forward proxy for egress
   control. Framework tools point `HTTPS_PROXY`/`HTTP_PROXY` at it; the
   gateway rejects any connection to a host not on its allowlist before a
   socket is opened. Defence-in-depth per RFC-AI-0003: even a
   prompt-injection reaching for an arbitrary endpoint is blocked at the
-  network layer. Capability: `substrate:sandbox`.
+  network layer. The `egress-gateway` console script takes `--host`
+  (default `127.0.0.1`), `--port` (default `8899`) and `--log-level`,
+  passes any other argument through to proxy.py unfiltered (a trusted
+  operator's choice, outside the allowlist guarantee), and starts the
+  proxy with those arguments explicitly, as `proxy.Proxy(input_args=…)`
+  plus `sleep_loop()`, rather than letting proxy.py parse the process
+  argv (#1774). Capability: `substrate:sandbox`.
 - `.claude/settings.json` — the committed floor: the `sandbox` block
   (filesystem allow/deny, the core network `allowedDomains`, the vetted-ops
   `excludedCommands`) and `permissions` (every `deny` / `ask`, the
@@ -268,16 +428,30 @@ existing sandbox grants can widen the baseline. See `docs/adapters/gemini.md`.
   `~/.config/apache-magpie` in `allowRead`: the Gmail OAuth token there is
   read only by the drafting MCP server outside the sandbox, and the
   template no longer grants it or the Google API hosts (#1681).
-- `.gemini/settings.json` and `.gemini/policies/magpie.toml` — Magpie's Gemini profile: tool-sandboxing and an explicitly loaded User-tier approval policy.
-  Scoped shell reads are allowed; other shell calls, native edits, and MCP calls ask; listed commands and credential paths deny.
-  Credential-path denies name the canonical `grep_search`; the native probe verifies its `search_file_content` alias, canonical policy names, and search/multi-file/web/resource argument schemas against the loaded runtime.
-  `google_web_search`, `web_fetch`, and `read_mcp_resource` require approval for each call in every mode, including auto-edit and Plan Mode; headless calls are refused.
-  Web search and URL fetching run outside shell network isolation; native MCP resource reads need an explicit rule because the MCP server-tool wildcard does not match them.
-  `list_mcp_resources` retains the built-in allow for cached resource discovery.
-  The native probe executes resource listing against a synthetic cache, asserts that metadata reaches the model, and rejects access to an MCP client.
-  Plan Mode permits the scoped reads and approved web/resource reads, and denies other shell calls, file edits, and MCP server tools; YOLO and remembered tool approvals are disabled.
-  `sandbox-lint --gemini .gemini` checks the static profile, with opt-in pytest integration tests against native 0.59.0 APIs for settings, policies, headless refusal, and Linux enforcement.
-  Every Gemini upgrade requires revalidating the native probe against that version; static CI checks alone do not establish effective policy precedence.
+  It refuses `~/.config/gh` in `allowRead` too: `gh *` is excluded from the
+  sandbox and reads its own token outside it, so no sandboxed command needs
+  `hosts.yml`, and the template no longer grants it.
+  Because that server runs outside the sandbox, it accepts a
+  caller-supplied `credentials_path` only as a `.json` file directly in
+  `~/.config/apache-magpie/` or in the directory of
+  `$GMAIL_OAUTH_CREDENTIALS`, reached without a symlink, so a tool call
+  can neither write the refresh token where sandboxed code reads it nor
+  load a planted file (#1795).
+- `tools/agent-isolation/antigravity/settings.json` and `hooks.json` — Magpie's Antigravity profile templates,
+  merged by the operator into the user-scope `~/.gemini/antigravity-cli/settings.json` and `~/.gemini/config/hooks.json`;
+  nothing is installed per repository.
+  The settings enable the terminal sandbox, keep tool approval on, deny non-workspace access,
+  and carry `permissions` rules: scoped read commands allow, other commands and MCP calls ask,
+  and credential/export commands and credential paths deny.
+  The hooks file registers one `PreToolUse` hook on `run_command` that runs `agent_guard --antigravity`.
+  `sandbox-lint --antigravity tools/agent-isolation/antigravity` checks the static templates;
+  static checks do not establish what a live `agy` session enforces.
+- `tools/agent-isolation/pi/` — Magpie's Pi extension: `magpie.ts` (guard via `agent_guard --pi`,
+  permission rules, sandboxed bash tool) and `policy.ts` (the decisions, derived from the Claude baseline,
+  tested with `node --test`). Loaded per user through the root `package.json`; never installed per project.
+- `tools/agent-isolation/goose/` — Magpie's Goose support: `hook.ts` (the plugin's `PreToolUse` hook),
+  `settings.ts` (the sandbox-runtime settings) and `launch.ts` (runs Goose in the sandbox in approve mode,
+  called by `agent-iso goose`), sharing `pi/policy.ts`; tested with `node --test`.
 - Skills: `setup-isolated-setup-install`, `-update`, `-verify`,
   `-doctor`. The update skill establishes the agent-guard wiring before
   diffing anything: with the `magpie-agent-guard` plugin enabled, the
@@ -311,7 +485,17 @@ The reference model is four layers, layered:
    for the same reason (#1384).
 2. **Filesystem + network sandbox** — Linux `bubblewrap` + `socat` SNI
    proxy; macOS `sandbox-exec`. Default-deny reads outside the tree and
-   egress to non-allowed hosts. `sandbox.excludedCommands` carves out
+   egress to non-allowed hosts.
+   `sandbox.network.allowUnixSockets` is macOS-only: on Linux Claude Code's
+   seccomp filter rejects every `AF_UNIX` socket, so the container gateway
+   and ssh-agent signing need a per-machine `allowAllUnixSockets: true`,
+   which is only safe paired with absolute `denyRead` entries for the host's
+   daemon and IPC sockets (Docker / Podman, `/run/user/<uid>` with the user
+   D-Bus and systemd manager, the system bus, X11, WSL interop).
+   `docs/setup/secure-agent-setup.md` lists them; verify check 12e
+   (whenever the flag is set) and a `sandbox-lint` invariant require that
+   cover, the whole `/run/user/<uid>` of the current uid included (#1809).
+   `sandbox.excludedCommands` carves out
    commands that need host auth the sandbox blocks:
    - `gh` (OS keyring and, on macOS, Security.framework TLS
      verification); the blast radius is held by layers 3 (`gh auth
@@ -476,7 +660,7 @@ framework's 7-day default unless a tool's `[tools.<name>]` table in
 `tools/agent-isolation/pinned-versions.toml` sets its own
 `cooldown_days`; `bubblewrap` carries `cooldown_days = 1`, so a pin
 carrying a sandbox-setup security fix can move a day after release
-(#1360, pinned at 0.13.0).
+(#1360; pinned at 0.13.1 since #1721).
 
 ## Out of scope
 
@@ -487,7 +671,7 @@ carrying a sandbox-setup security fix can move a day after release
 ## Acceptance criteria
 
 1. Filesystem and network default-deny with explicit allow-lists in the
-   reference setup; Gemini's different boundaries are documented above.
+   reference setup; Antigravity's different boundaries are documented above.
 2. The clean-env wrapper strips credential-shaped vars before exec.
 3. `git push` and every `gh` write subcommand are in `permissions.ask`,
    the read-only `gh` subcommands are in `allow`, and no catch-all
@@ -515,6 +699,9 @@ python3 -c "import json,sys; s=json.load(open('.claude/settings.json')); \
     and 'Bash(gh pr merge *)' in ask and 'Bash(gh *)' not in ask \
     and 'Bash(gh api -X*)' in ask and 'Bash(gh api *)' not in ask else 1)"
 uv run --project tools/sandbox-lint --group dev pytest
+python3 tools/dev/sync-hook-managers.py --check
+uv run --project tools/setup-preflight --group dev pytest \
+  tools/setup-preflight/tests/test_session_hook.py
 ```
 
 ## Known gaps
@@ -525,15 +712,39 @@ uv run --project tools/sandbox-lint --group dev pytest
   since the last pilot cycle; end-to-end integration with a real adopter
   session has not yet been exercised.
 
-## Gemini setup lifecycle
+## Antigravity setup lifecycle
 
-The four `setup-isolated-setup-*` skills route Gemini requests to
-`docs/adapters/gemini.md` and stop before the Claude-specific procedure.
-The install route merges the workspace profile and a single guard registration
-from the existing extension, snapshot, or framework checkout, preserving
-unrelated settings and requiring review of conflicts.
-Extension setup must not introduce a second snapshot installation.
+The four `setup-isolated-setup-*` skills route Antigravity requests to
+`docs/adapters/antigravity.md` and stop before the Claude-specific procedure.
+The install route proposes merging the user-scope profile into
+`~/.gemini/antigravity-cli/settings.json` and a single guard registration into
+`~/.gemini/config/hooks.json`, preserving unrelated settings and hooks and
+requiring review of conflicts; it never asks for per-repository setup.
+Installing the plugin (`agy plugin install https://github.com/apache/magpie`)
+must not introduce a second snapshot installation.
 Verification distinguishes static configuration from live enforcement;
 update and doctor report drift or diagnoses without applying changes.
 Generic setup reconciles installed profiles and removes their guard references
 before uninstalling the source.
+
+## Pi setup lifecycle
+
+The four `setup-isolated-setup-*` skills route Pi requests to `docs/adapters/pi.md`
+and stop before the Claude-specific procedure.
+The install route proposes the one per-user `pi install git:github.com/apache/magpie`,
+which brings the skills, the guard, the rules and the bash sandbox together;
+it never installs the package per project (`-l`) and writes nothing into the repository.
+Verification checks that the package is user-scope and exercises the guard, rules and sandbox live;
+update reports the package ref and leaves `pi update --extensions` to the user;
+uninstall is `pi remove git:github.com/apache/magpie`, which removes the secure setup with the skills.
+
+## Goose setup lifecycle
+
+The four `setup-isolated-setup-*` skills route Goose requests to `docs/adapters/goose.md`
+and stop before the Claude-specific procedure.
+The install route proposes the per-user `goose plugin install https://github.com/apache/magpie`
+and the `npm ci` of the sandbox runtime into the plugin, then the `agent-iso goose` launch;
+it never installs the plugin into a project's `.agents/plugins/` and writes nothing into the repository.
+Verification checks the plugin, its hook and sandbox runtime, and exercises the guard, rules and sandbox live;
+update reports the plugin ref and leaves `goose plugin update magpie` and the `npm ci` to the user;
+uninstall removes `~/.agents/plugins/magpie/`, which removes the secure setup with the skills.

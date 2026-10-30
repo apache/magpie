@@ -1,4 +1,7 @@
 {
   "skill_md": "skills/setup-isolated-setup-verify/SKILL.md",
-  "step_heading": "## After the report"
+  "step_heading": "## After the report",
+  "also_include": [
+    "skills/setup-isolated-setup-verify/remediation.md"
+  ]
 }

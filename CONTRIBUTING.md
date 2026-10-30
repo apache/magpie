@@ -72,7 +72,7 @@ rigorous, more demanding of the human, on the assumption that the
 human would always be the one meeting the machine halfway.
 
 **We have come full circle.** Today's interpreters can read
-English. A modern coding agent — Claude Code, Codex, Gemini CLI,
+English. A modern coding agent — Claude Code, Codex, Antigravity,
 any of the runtimes listed in
 [Agent harnesses](#agent-harnesses) — reads a plain-English
 description of a workflow (*"sweep the inbox since last week,
@@ -393,15 +393,16 @@ authoritative agent harness matrix. The current state per harness:
 | OpenCode | Reference implementation, fully supported | — |
 | Claude Code | Reference implementation, fully supported | — |
 | Codex CLI | Experimental first-class adapter — reads `.agents/skills/` natively, ships in-tree sandbox + HITL rules | [#313](https://github.com/apache/magpie/issues/313) |
-| Gemini CLI | Experimental agent harness: native skills, action guard, runner, tool sandboxing and approval policies; sandbox parity gaps remain — see the [harness guide](docs/adapters/gemini.md) | [#314](https://github.com/apache/magpie/issues/314) |
+| Antigravity (CLI `agy`) | Experimental agent harness, the successor to Gemini CLI: native skills, user-scope action guard, runner, terminal sandbox and permission rules; sandbox parity gaps remain — see the [harness guide](docs/adapters/antigravity.md) | [#314](https://github.com/apache/magpie/issues/314) |
 | Local LLM (Ollama / llama.cpp / vLLM) | OpenAI-compatible endpoints with calibrated model floors (70B+ / 8B–14B) — see the [harness guide](docs/adapters/local-llm.md) | [#315](https://github.com/apache/magpie/issues/315) |
 | Cursor (Composer + Agent CLI) | Reads `.agents/skills/` natively; per-action confirmation and Composer/Agent CLI — see the [harness guide](docs/adapters/cursor.md) | [#316](https://github.com/apache/magpie/issues/316) |
 | Aider | Multi-model terminal pair programming CLI; per-action confirmation and on-demand skill ingestion — see the [harness guide](docs/adapters/aider.md) | [#317](https://github.com/apache/magpie/issues/317) |
 | GitHub Copilot CLI + Coding Agent | Standalone CLI and server-side Coding Agent; Draft PR boundary and clean-env isolation — see the [harness guide](docs/adapters/copilot.md) | [#318](https://github.com/apache/magpie/issues/318) |
-| Goose (Block) | Open-source agent CLI; reads `.agents/skills/` natively, developer tool execution, and recipe workflows — see the [harness guide](docs/adapters/goose.md) | [#319](https://github.com/apache/magpie/issues/319) |
+| Goose (CLI `goose`) | Experimental agent harness: one per-user plugin install adds the skills and a `PreToolUse` guard hook, and `agent-iso goose` runs the whole Goose process in sandbox-runtime, in approve mode — see the [harness guide](docs/adapters/goose.md) | [#319](https://github.com/apache/magpie/issues/319) |
 | Amazon Q Developer CLI | Not yet ported | [#320](https://github.com/apache/magpie/issues/320) |
 | JetBrains Junie (CLI + IDE plugin) | Reads `.agents/skills/` and `AGENTS.md` natively; `PreToolUse` action guard (hooks are Early Access) — see the [harness guide](docs/adapters/junie.md) | [#321](https://github.com/apache/magpie/issues/321) |
 | OpenHands | Not yet ported | [#322](https://github.com/apache/magpie/issues/322) |
+| Pi (CLI `pi`) | Experimental agent harness: native skills, and one per-user package install that adds an action guard, permission rules and an OS sandbox for bash, which Pi itself lacks — see the [harness guide](docs/adapters/pi.md) | — |
 
 The table lists **harnesses** — the agent that reads the skills — not the
 editors they run in. A JetBrains IDE, for instance, hosts an agent rather than
@@ -413,7 +414,7 @@ fully-supported Claude Code row, with nothing extra to install. See
 MCP servers used by the reference runtimes today: Slack, Gmail,
 Google Calendar, Google Drive, plus framework-internal ones for
 the ponymail / incubator-mail / incubator-reports surfaces. GitHub Copilot,
-Goose, Cursor, and Gemini CLI discover MCP servers natively through their
+Goose, Cursor, and Antigravity discover MCP servers natively through their
 respective IDE/client configuration formats alongside their native skill discovery.
 
 ## Code in this repo
@@ -538,7 +539,7 @@ git clone git@github.com:apache/magpie.git
 cd magpie
 uv tool install prek
 prek install                   # wire the hooks into .git/hooks
-prek run --all-files           # runs every hook on every file
+prek run --all-files --skip workspace-pytest   # every hook but the tests, on every file
 ```
 
 Note that if you are already using `prek` for some other project, you
@@ -744,8 +745,10 @@ the proposal as a draft, not a final. The loop is:
    restates the function name"*. Specific corrections converge fast;
    vague ones produce mush.
 4. **Agent revises** — and the loop repeats.
-5. **Tests run** — `prek run --all-files`, `uv run pytest` in the
-   affected Python package, the eval suite for the affected skill.
+5. **Tests run** — `prek run --all-files --skip workspace-pytest`,
+   then `prek run workspace-pytest --from-ref origin/main --to-ref HEAD`
+   for the affected Python packages and the packages depending on them,
+   and the eval suite for the affected skill.
    When something fails, the failure is part of the conversation —
    show the agent the error, let it diagnose.
 
@@ -840,8 +843,15 @@ substitutes for the other.
 
 ## Running the dev loop
 
-Every change should pass `prek run --all-files` locally before you
-open a PR — CI runs the same config. The hook set:
+Every change should pass the hooks locally before you open a PR — CI
+runs the same config. Run the tests only for what the branch changed:
+
+```bash
+prek run --all-files --skip workspace-pytest
+prek run workspace-pytest --from-ref origin/main --to-ref HEAD
+```
+
+The hook set:
 
 - **`doctoc`** — regenerates TOCs on every `.md` file (except
   skill `SKILL.md` files, which keep YAML frontmatter at the top,
@@ -862,7 +872,12 @@ open a PR — CI runs the same config. The hook set:
 - **Per-package Python checks** — `ruff check`, `ruff format --check`,
   `mypy`, `pytest` against each `tools/*/` Python package, scoped
   to changes inside that package directory via the hook's `files:`
-  pattern.
+  pattern. `pytest` runs only for the packages with a changed file
+  other than Markdown or a plugin manifest (also through a symlinked
+  source) and the packages depending on them; a change to the root
+  `pyproject.toml` or `uv.lock` alone, such as a dev-version bump,
+  runs no tests locally. Each package's tests run in parallel
+  (`pytest -n auto`, via `pytest-xdist`).
 
 Separate GitHub workflows:
 
@@ -870,8 +885,8 @@ Separate GitHub workflows:
   request the hooks are scoped to the PR's own diff (`--from-ref` /
   `--to-ref`) on `ubuntu-slim`; on a push to `main` they run
   `--all-files` on `ubuntu-latest`. So a green PR check is not a
-  whole-repo result — run `prek run --all-files` locally before you
-  push.
+  whole-repo result — run `prek run --all-files --skip workspace-pytest`
+  locally before you push.
 - **`zizmor.yml`** — lints GitHub Actions workflows for known-bad
   patterns; runs on every PR. zizmor is declared in the root
   `pyproject.toml` dev group, so `uv run zizmor --config .zizmor.yml .`
@@ -1041,7 +1056,8 @@ git diff main..<branch> | grep '^[-+]' | grep -v '^[-+][-+][-+]' \
   ```bash
   git fetch origin main
   git rebase origin/main
-  prek run --all-files
+  prek run --all-files --skip workspace-pytest
+  prek run workspace-pytest --from-ref origin/main --to-ref HEAD
   git push
   ```
 
@@ -1055,7 +1071,7 @@ Good entry points, in rough order of ramp-up cost:
    - **Tool / adapter bridges** — JIRA write path, Bugzilla, IMAP / mbox
      concrete wiring, GitLab, Discourse, Zulip,
      Matrix, Forgejo, OSV.dev, Pagure.
-   - **Agent-CLI harness adapters** — Codex, Gemini, local-LLM, Cursor,
+   - **Agent-CLI harness adapters** — Codex, Antigravity, Pi, local-LLM, Cursor,
      Aider, gh-copilot, Goose, Amazon Q, Junie, OpenHands.
 
    Before you start work, please leave a comment on the issue so a

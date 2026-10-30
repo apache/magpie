@@ -32,6 +32,14 @@ the field records, `Re: <root subject>`, with `security_cc` in CC; a missing
 CC, recipient or subject blocks it. An indeterminate field, or one whose every
 thread is a relay, is the user's call.
 
+One reply, one thread: a tracker that merged several independent reporters
+(`security-issue-deduplicate` keeps each one's thread line) owes each of them
+a draft on their own thread, never one email to all. Planning the primary
+thread lists the further reporters' threads in `reporter_threads`; each is
+planned by its own run with `thread_id` set and that reporter's data. A relay
+line is not a further reporter: the reporter behind it is answered on the
+primary thread.
+
 `check` greps a composed body: it must carry the CVE ID and never the
 CVE-tool URL (a reporter cannot open it), a `<tracker>` reference, a bare
 `#NNN`, a CVSS score or another ASF project's name.
@@ -53,11 +61,54 @@ def _out(
     return {"action": action, "notification": {"case": case, **(note or {})}, "reason": why, **extra}
 
 
+def _reporter_threads(thread: Mapping[str, Any]) -> list[dict[str, Any]]:
+    return [
+        {"thread_id": t["thread_id"], "url": t["url"]} for t in thread["secondary_threads"] if not t["relay"]
+    ]
+
+
 def plan(data: Mapping[str, Any]) -> dict[str, Any]:
     thread = threads.classify(data.get("security_thread"))
     path = thread["import_path"]
     if path in ("pr_imported", "internal_audit"):
         return _out("skip", "omitted", f"{path.replace('_', '-')}: there is no external reporter to notify")
+    if path == "indeterminate" or thread["needs_decision"]:
+        return _plan(data, thread)
+    target = one_line(data.get("thread_id"))
+    if not target:
+        out = _plan(data, thread)
+        further = _reporter_threads(thread)
+        if further:
+            out["reporter_threads"] = further
+        return out
+    if target in (thread["thread_id"], thread["archive_url"]):
+        return _plan(data, thread)
+    match = next((t for t in thread["secondary_threads"] if target in (t["thread_id"], t["url"])), None)
+    if match is None:
+        return _out("blocked", None, f"the thread field records no thread {target!r}")
+    if match["relay"]:
+        return _out(
+            "skip", "omitted", "a relay thread: the reporter behind it is answered on the primary thread"
+        )
+    own = {
+        **thread,
+        "thread_id": match["thread_id"],
+        "archive_url": match["url"],
+        "root_message_id": None,
+        "secondary_threads": [],
+    }
+    return _plan(data, own)
+
+
+def _plan(data: Mapping[str, Any], thread: Mapping[str, Any]) -> dict[str, Any]:
+    out = _plan_thread(data, thread)
+    if thread["thread_id"] or thread["archive_url"]:
+        out.setdefault("thread_id", thread["thread_id"] or thread["archive_url"])
+    return out
+
+
+def _plan_thread(data: Mapping[str, Any], thread: Mapping[str, Any]) -> dict[str, Any]:
+    path = thread["import_path"]
     if data.get("reporter_on_team"):
         return _out("skip", "team_member", "the reporter is on the security team")
     if path == "indeterminate":

@@ -67,18 +67,28 @@ on any single vendor for either — any agent that reads the shared
   profile and HITL exec-policy rules. The adapter is **experimental**
   until its minimum tested harness version and an adopter pilot are
   recorded; see [the Codex harness guide](../adapters/codex.md).
-- **[Gemini CLI](https://geminicli.com/)** reads Magpie's canonical
-  `.agents/skills/` tree natively, with a `BeforeTool` action-guard adapter, a
-  spec-loop profile, tool sandboxing, and policies. The adapter is
-  **experimental**: Gemini 0.59.0 has native API checks and a Linux adopter pilot,
-  but host-read isolation, domain-restricted egress, and further validation remain open;
-  see [the harness guide's known limitations](../adapters/gemini.md#known-limitations).
+- **[Antigravity](https://antigravity.google/)** (CLI `agy`), the successor to
+  Gemini CLI, reads Magpie's canonical `.agents/skills/` tree and `AGENTS.md`
+  natively, with a user-scope `PreToolUse` action-guard adapter, a spec-loop
+  profile, the terminal sandbox, and permission rules. The adapter is
+  **experimental**: it was validated with CLI 1.3.6 on macOS, and the sandbox
+  hides only sensitive home-directory paths;
+  see [the harness guide's known limitations](../adapters/antigravity.md#known-limitations).
+- **[Pi](https://pi.dev/)** (CLI `pi`) reads Magpie's canonical
+  `.agents/skills/` tree and `AGENTS.md` natively. Pi itself has no approval
+  prompts or sandbox, so Magpie's Pi package adds them per user: an action
+  guard, permission rules and an OS sandbox for bash. The adapter is
+  **experimental**: it was validated with Pi 1.4.0 on macOS;
+  see [the Pi harness guide](../adapters/pi.md#limits).
 - **[Cursor](https://cursor.com/)** (Composer + `cursor-agent` CLI) reads Magpie's
   canonical `.agents/skills/` tree natively and supports per-action confirmation
   and clean-environment isolation; see [the Cursor harness guide](../adapters/cursor.md).
-- **[Goose](https://github.com/block/goose)** is an open-source agent CLI that reads
-  Magpie's canonical `.agents/skills/` tree natively and supports recipe workflows;
-  see [the Goose harness guide](../adapters/goose.md).
+- **[Goose](https://github.com/aaif-goose/goose)** (CLI `goose`) loads Magpie's
+  skills from a per-user plugin install. Goose itself has no sandbox, so the
+  plugin adds an action-guard hook and `agent-iso goose` runs the whole Goose
+  process in sandbox-runtime, in approve mode. The adapter is **experimental**:
+  it was validated with Goose 1.56.0 on macOS;
+  see [the Goose harness guide](../adapters/goose.md#limits).
 - **[Aider](https://aider.chat/)** is an open-source, multi-model terminal pair programming CLI
   with per-action confirmation and native local/cloud model support;
   see [the Aider harness guide](../adapters/aider.md).

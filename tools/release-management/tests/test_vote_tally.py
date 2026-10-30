@@ -48,6 +48,14 @@ ROSTER = """
 | `dave` | Dave | dave.kim@apache.org | 2019-05-10 |
 """
 
+EMAIL_ONLY_ROSTER = """
+| Apache ID | Name | Primary email |
+|---|---|---|
+| | Alice | alice@example.com |
+| | Bob | bob@example.com |
+| | Carol | carol@example.com |
+"""
+
 
 def vote(sender: str, value: str) -> dict[str, str]:
     return {"from": sender, "date": "2026-06-11T09:00:00Z", "value": value}
@@ -450,6 +458,58 @@ class LatestVoteTest(unittest.TestCase):
         )
         self.assertEqual(out["superseded_votes"], [])
         self.assertEqual(out["result"], "PASSED")
+
+
+@pytest.mark.parametrize(
+    ("mechanism", "min_approvals", "result", "label"),
+    [
+        ("dev-list-vote", None, "PASSED", "vote-passed"),
+        ("pr-approval", 2, "PASSED", "vote-passed"),
+        ("github-discussion", None, None, None),
+        ("maintainer-roster", None, None, None),
+    ],
+)
+def test_email_only_roster_members_are_distinct(mechanism, min_approvals, result, label):
+    votes = [vote(f"{name}@example.com", "+1") for name in ("alice", "bob", "carol")]
+    out = tally.tally(votes, tally.parse_roster(EMAIL_ONLY_ROSTER), {}, False, mechanism, min_approvals)
+    assert out["binding_plus1"] == 3
+    assert len(out["voters"]) == 3
+    assert all(v["binding"] and v["matched_by"] == "primary_email" for v in out["voters"])
+    assert out["superseded_votes"] == []
+    assert (out["result"], out["proposed_label"]) == (result, label)
+
+
+def test_email_only_roster_changed_vote_replaces_only_that_member():
+    votes = [
+        {"from": "alice@example.com", "date": "2026-06-12T09:00:00Z", "value": "+1"},
+        {"from": "bob@example.com", "date": "2026-06-12T10:00:00Z", "value": "+1"},
+        {"from": "Alice <ALICE@EXAMPLE.COM>", "date": "2026-06-11T09:00:00Z", "value": "-1"},
+    ]
+    out = tally.tally(votes, tally.parse_roster(EMAIL_ONLY_ROSTER), {}, False, "pr-approval", 2)
+    assert (out["binding_plus1"], out["binding_minus1"], out["result"]) == (1, 1, "FAILED")
+    assert [v["from"] for v in out["voters"]] == ["bob@example.com", "Alice <ALICE@EXAMPLE.COM>"]
+    assert len(out["superseded_votes"]) == 1
+    superseded = out["superseded_votes"][0]
+    assert (superseded["identity"], superseded["from"]) == ("address:alice@example.com", "alice@example.com")
+    assert superseded["superseded_by"] == {key: votes[-1][key] for key in ("from", "date", "value")}
+    assert [m["identity"] for m in out["date_order_mismatches"]] == ["address:alice@example.com"]
+
+
+def test_email_only_roster_dissent_is_not_lost_in_a_mixed_roster():
+    opponents = ("erin", "frank", "grace")
+    roster = tally.parse_roster(
+        ROSTER + "".join(f"| | {name} | {name}@example.com | |\n" for name in opponents)
+    )
+    votes = [
+        vote(address, "+1")
+        for address in ("alice@apache.org", "bob.martinez@apache.org", "carol@example.com")
+    ]
+    votes += [vote(f"{name}@example.com", "-1") for name in opponents]
+    out = tally.tally(votes, roster, {}, False, "dev-list-vote")
+    assert (out["binding_plus1"], out["binding_minus1"]) == (3, 3)
+    assert len(out["voters"]) == 6
+    assert out["superseded_votes"] == []
+    assert (out["result"], out["proposed_label"]) == ("FAILED", "rc-rolled")
 
 
 # --- vote-tally: the Step 0 verdict, Step 1 helpers and the Step 3 render -----
@@ -963,3 +1023,56 @@ def test_cli_tally_from_pr_reviews(tmp_path, capsys):
     code = main([*base, "--votes", str(tmp_path / "votes.json"), "--login-map", str(tmp_path / "map.json")])
     assert code == 2
     assert "--pr-reviews" in json.loads(capsys.readouterr().out)["error"]
+
+
+def test_cli_email_only_roster_reviews_and_result(tmp_path, capsys):
+    names = ("alice", "bob", "carol")
+    reviews = [review(f"{name}-gh", "APPROVED", f"2026-06-11T1{i}:00:00Z") for i, name in enumerate(names)]
+    login_map = {f"{name}-gh": f"{name}@example.com" for name in names}
+    (tmp_path / "reviews.json").write_text(json.dumps(reviews), encoding="utf-8")
+    (tmp_path / "map.json").write_text(json.dumps(login_map), encoding="utf-8")
+    (tmp_path / "roster.md").write_text(EMAIL_ONLY_ROSTER, encoding="utf-8")
+    code = main(
+        [
+            "vote-tally",
+            "tally",
+            "--pr-reviews",
+            str(tmp_path / "reviews.json"),
+            "--login-map",
+            str(tmp_path / "map.json"),
+            "--roster",
+            str(tmp_path / "roster.md"),
+            "--mechanism",
+            "pr-approval",
+            "--min-approvals",
+            "2",
+        ]
+    )
+    out = json.loads(capsys.readouterr().out)
+    assert code == 0
+    assert (out["binding_plus1"], out["result"], out["proposed_label"]) == (3, "PASSED", "vote-passed")
+    assert out["superseded_votes"] == []
+    assert all(r["mapped"] for r in out["pr_reviewers"])
+    (tmp_path / "tally.json").write_text(json.dumps(out), encoding="utf-8")
+    (tmp_path / "load.json").write_text(json.dumps(load()), encoding="utf-8")
+    code = main(
+        [
+            "vote-tally",
+            "render",
+            "--load",
+            str(tmp_path / "load.json"),
+            "--tally",
+            str(tmp_path / "tally.json"),
+            "--product-name",
+            "Example Project",
+        ]
+    )
+    rendered = json.loads(capsys.readouterr().out)
+    assert code == 0
+    assert (rendered["binding_plus1"], rendered["result"], rendered["proposed_label"]) == (
+        3,
+        "PASSED",
+        "vote-passed",
+    )
+    assert "The vote has PASSED." in rendered["body"]
+    assert "  +1: 3" in rendered["body"]

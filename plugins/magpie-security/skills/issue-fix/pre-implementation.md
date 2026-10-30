@@ -131,8 +131,8 @@ If **easily fixable**, extract and write down:
 The code change goes into a local clone of `<upstream>`, never into `<tracker>`.
 Before touching any files:
 
-1. Resolve the clone path from the user's `.apache-magpie-overrides/user.md` → `environment.upstream_clone` (see [`AGENTS.md` § Per-project and per-user configuration](../../../../AGENTS.md#per-project-and-per-user-configuration)).
-   If the file is missing, the key is unset, or the path is not a git repo with a remote pointing at `<upstream>` or the user's fork, **ask the user for the path** and offer to save the answer into `.apache-magpie-overrides/user.md` so the next run is silent.
+1. Resolve the clone path from the resolved `user.md` (`$APACHE_MAGPIE_USER_CONFIG`, else `~/.config/apache-magpie/user.md` — [order](../../../../AGENTS.md#usermd-resolution-order)) → `environment.upstream_clone` (see [`AGENTS.md` § Per-project and per-user configuration](../../../../AGENTS.md#per-project-and-per-user-configuration)).
+   If the file is missing, the key is unset, or the path is not a git repo with a remote pointing at `<upstream>` or the user's fork, **ask the user for the path** and offer to save the answer into `~/.config/apache-magpie/user.md` (or `$APACHE_MAGPIE_USER_CONFIG`) so the next run is silent — never into `.apache-magpie-overrides/`, which is committed and project-wide.
    Do **not** probe hard-coded paths like `~/code/<upstream-repo-name>` — a wrong guess masks a misconfigured clone.
 
 2. Check `git remote -v` and identify the **user's fork** and the upstream `<upstream>` remote.

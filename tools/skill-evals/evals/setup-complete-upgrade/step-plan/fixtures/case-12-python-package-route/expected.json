@@ -1,0 +1,9 @@
+{
+  "items": [
+    {"group": "add", "bypass": false, "id": "mentoring-config-missing"}
+  ],
+  "run_yourself": ["container-gateway-package-stale"],
+  "still_open": [],
+  "isolated_offer": false,
+  "nothing_to_do": false
+}

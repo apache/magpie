@@ -63,7 +63,7 @@ def _stubs(make, ran: Path):
         f"print('Review:\\n```json\\n' + json.dumps({{'findings': [{{**{FINDING!r}, 'line': 3, "
         "'claim': 'f returns a wrong value'}]}) + '\\n```')\n",
     )
-    make("gemini", touch + "import sys; sys.stderr.write('Please log in first\\n'); sys.exit(1)\n")
+    make("agy", touch + "import sys; sys.stderr.write('Please log in first\\n'); sys.exit(1)\n")
     make("claude", touch + "raise SystemExit('claude must not run: it is self')\n")
 
 
@@ -71,7 +71,8 @@ def _project(tmp_path: Path) -> Path:
     root = tmp_path / "adopter"
     (root / ".apache-magpie-local").mkdir(parents=True)
     (root / ".apache-magpie-local" / "adversarial-review.md").write_text(
-        "```yaml\nadversarial_review:\n  reviewers: [codex, copilot, gemini, claude]\n```\n", encoding="utf-8"
+        "```yaml\nadversarial_review:\n  reviewers: [codex, copilot, antigravity, claude]\n```\n",
+        encoding="utf-8",
     )
     return root
 
@@ -106,12 +107,12 @@ def test_run_end_to_end(stub_bin, git_repo, tmp_path, capsys):
     assert [(r["name"], r["status"]) for r in report["reviewers"]] == [
         ("codex", "ok"),
         ("copilot", "ok"),
-        ("gemini", "unavailable"),
+        ("antigravity", "unavailable"),
         ("claude", "skipped"),
     ]
     [finding] = report["findings"]
     assert finding["reviewers"] == ["codex", "copilot"]
-    assert sorted(p.name for p in ran.iterdir()) == ["codex", "copilot", "gemini"]
+    assert sorted(p.name for p in ran.iterdir()) == ["agy", "codex", "copilot"]
     assert "untrusted" in report["note"]
 
 

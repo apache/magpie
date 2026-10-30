@@ -1,0 +1,6 @@
+{
+  "fetch_action": "save_attachments",
+  "decrypt": "ask_triager",
+  "password": null,
+  "injection_flagged": false
+}

@@ -169,9 +169,9 @@ github:
           # protection and rulesets both require exact-match status
           # check names, so listing matrix entries here would force
           # an `.asf.yaml` change on every matrix add / rename /
-          # removal. `tests-ok` `needs:` every matrix entry and
-          # fails unless all succeed, so the gate semantics are the
-          # same.
+          # removal. `tests-ok` requires successful member discovery
+          # and a passing matrix (or a confirmed empty selection
+          # when the matrix is skipped).
           - "tests-ok"
       # TEMPORARILY DISABLED — see the note above. Restore by removing
       # the three leading `# ` markers; the values are the ones that were

@@ -183,6 +183,8 @@ Group them by category:
   or flag it as *"still `_No response_` — needs \<what\> before it can be filled"*.
   Do not leave fields empty silently across sync runs: the release manager at Step 13 needs **every** field filled,
   and the `pr merged → fix released` transition is gated on the six mandatory fields.
+  An empty *Reporter credited as* is not a gap when the rollup records a no-finder decision
+  (the gate rows in [`gather.md`](gather.md#1d-mine-comments-and-mail-messages-for-actionable-signals)); say so instead of flagging it.
 
   **Agent-derivable fields — propose high-confidence values proactively.**
   Two mandatory fields can be derived from artefacts already in the sync's evidence pool.
@@ -326,8 +328,21 @@ Group them by category:
        URL templates (`ponymail_api_url_template`, `ponymail_public_search_url_template`, `ponymail_thread_url_template`) are in
        [`<project-config>/project.md`](../../../../<project-config>/project.md#gmail-and-ponymail).
 
-     On a hit, propose populating the field with the resolved thread URL (per `ponymail_thread_url_template`),
-     regenerating the CVE JSON attachment, and adding the `announced` label.
+     **A search hit is a candidate, not the advisory.** The search matches any public post that mentions the CVE ID
+     (a user question, a reply, a forward), and capturing this URL is what moves the CVE record to `PUBLIC`.
+     For each hit, fetch the thread (`mcp__ponymail__get_thread`, or the HTTP API) for its list, root subject and root sender,
+     write `{cve_id, url, thread: {list, subject, from}, advisory_list: <users-list>, mail_archive_url, authorized_senders}` to a file and run
+     `security-management issue-sync advisory-archive --input <file>`;
+     `authorized_senders` is every release-manager and security-team address from [`<project-config>/release-trains.md`](../../../../<project-config>/release-trains.md).
+     Only an `accepted: true` candidate may be proposed: the thread is on `<users-list>`, its root subject is the advisory's own `<CVE-ID>: <description>`
+     (the subject the CVE tool sends; never a `Re:` / `Fwd:`), its root message is from an authorized sender, and the URL is under `<mail-archive-url>`.
+     A rejected hit is listed with its `reasons` in the observed state and proposes nothing.
+     Show the accepted URL **with its list, subject and sender** to the user as its own numbered item,
+     and say that the sender comes from the archived `From:` header and is not cryptographically verified,
+     so the user should recognise the announcement itself before confirming;
+     record it — and run the close-out that follows from it — only once the user explicitly confirms that URL.
+     On that confirmation, populate the field with the thread URL (per `ponymail_thread_url_template`),
+     regenerate the CVE JSON attachment, and add the `announced` label.
   2. If the field is already populated, treat it as authoritative — no scan.
      Regenerate the CVE JSON attachment so the URL flows into `references[]` as `vendor-advisory`.
   3. The sync's responsibility ends when the label is `announced`.
@@ -540,7 +555,9 @@ Group them by category:
      check whether all six mandatory body fields are populated
      (*CWE*, *Affected versions*, *Severity*, *Reporter credited
      as*, *Short public summary for publish*, *PR with the fix*).
-     If any is empty / `_No response_`, propose the fill-fields comment with that field list.
+     An empty *Reporter credited as* passes when the status rollup records a no-finder decision
+     (reporter opt-out, or no finder to name, per the [finder-credit policy](../../../../tools/cve-tool-vulnogram/finder-credit-policy.md)).
+     If any field is empty / `_No response_` without that exception, propose the fill-fields comment with that field list.
      The issue stays assigned to the remediation developer (in the common case also the fix-PR author and current assignee).
      **Do not propose any RM-related action at Step 11**; that belongs to Step 12.
   2. **At the `pr merged` → `fix released` transition (Step 12)** — after Step 5b's push attempt, check the CVE record state in Vulnogram.
@@ -571,7 +588,7 @@ Group them by category:
   It has no OAuth-pushed / manual-paste variants: the remediation developer fills body fields and never sees the API-push state.
 
   **Resolving placeholders.** The placeholders it shares with the hand-off comment
-  (`CVE_ID`, `SOURCE_TAB_URL`, `TRACKER_URL`, `SECURITY_LIST`,
+  (`CVE_ID`, `RECORD_URL`, `TRACKER_URL`, `SECURITY_LIST`,
   `SECURITY_LIST_DOMAIN`, `FRAMEWORK_README_URL`,
   `FRAMEWORK_SYNC_SKILL_URL`) resolve the same way. Plus two unique placeholders:
 
@@ -659,9 +676,10 @@ Group them by category:
     the same lookup the assignee swap uses — do it once and reuse.
   - `SECURITY_LIST`, `USERS_LIST`, `ANNOUNCE_LIST` — from
     [`<project-config>/project.md`](../../../../<project-config>/project.md#mailing-lists).
-  - `SOURCE_TAB_URL`, `EMAIL_TAB_URL` — substitute `<CVE-ID>` into
-    `cve_tool_record_url_template` (from project.md), append
-    `#source` / `#email` per [`tools/cve-tool-vulnogram/record.md`](../../../../tools/cve-tool-vulnogram/record.md#record-urls).
+  - `RECORD_URL`, `SOURCE_TAB_URL`, `EMAIL_TAB_URL` — substitute `<CVE-ID>` into
+    `cve_tool_record_url_template` (from project.md): as is for `RECORD_URL`, with
+    `#source` / `#email` appended for the others, per [`tools/cve-tool-vulnogram/record.md`](../../../../tools/cve-tool-vulnogram/record.md#record-urls).
+    Every link that sends a reader to the record uses `RECORD_URL`; `SOURCE_TAB_URL` is only the manual-paste target.
   - `JSON_ANCHOR_URL` — the deep link `generate-cve-json` prints on every regen
     (the `https://github.com/<tracker>/issues/<N>#cve-json--paste-ready-for-<cve-id-slug>` anchor).
   - `ARCHIVE_SCAN_URL` — `ponymail_public_search_url_template` from project.md, parameterised with the CVE ID.
@@ -770,7 +788,7 @@ Group them by category:
   Vulnogram:
   [`tools/cve-tool-vulnogram/release-manager-publication-comment.md`](../../../../tools/cve-tool-vulnogram/release-manager-publication-comment.md)).
   Placeholders substituted: `CVE_ID`, `RM_HANDLE`, `ARCHIVE_URL`
-  (the just-captured archive URL), `SOURCE_TAB_URL`,
+  (the just-captured archive URL), `RECORD_URL`,
   `JSON_ANCHOR_URL`, `CVE_ORG_URL`
   (`https://www.cve.org/CVERecord?id=<CVE-ID>`).
 

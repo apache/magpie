@@ -140,9 +140,8 @@ GIST_ID = re.compile(r"^[0-9a-f]{5,40}$")
 REPO = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,100}/[A-Za-z0-9][A-Za-z0-9._-]{0,100}$")
 
 
-def _state_path(project_root: Path) -> Path | None:
-    home = personal_dir(project_root)
-    return home / SESSION_STATE_FILE if home is not None else None
+def _state_path(project_root: Path) -> Path:
+    return personal_dir(project_root) / SESSION_STATE_FILE
 
 
 def publish(project_root: Path, html: Path, repo: str) -> dict[str, Any]:
@@ -154,7 +153,7 @@ def publish(project_root: Path, html: Path, repo: str) -> dict[str, Any]:
     """
     state_path = _state_path(project_root)
     gist_id = None
-    if state_path is not None and state_path.is_file():
+    if state_path.is_file():
         try:
             gist_id = json.loads(state_path.read_text(encoding="utf-8")).get("stats_gist_id")
         except (OSError, json.JSONDecodeError):
@@ -203,8 +202,6 @@ def publish(project_root: Path, html: Path, repo: str) -> dict[str, Any]:
 def record_gist(project_root: Path, gist_id: str) -> dict[str, Any]:
     """Store a newly created gist's id so later runs edit it in place."""
     state_path = _state_path(project_root)
-    if state_path is None:
-        return {"stored": False, "reason": "no personal config layer (not a git repository)"}
     data: dict[str, Any] = {}
     if state_path.is_file():
         try:

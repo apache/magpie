@@ -18,17 +18,17 @@ when_to_use: |
 capability: capability:stats
 surface_hash: sha256:779340f8eb985eeb
 license: Apache-2.0
-measured_tokens: 4591
+measured_tokens: 4811
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
-     <project-config> -> adopting project's `.apache-magpie/` directory
-     <framework>      -> framework root (the `.apache-magpie/`
-                         snapshot in an adopter repo, or `.` in the
-                         framework standalone checkout)
+     <project-config> -> per file: the personal layer, else `.apache-magpie-overrides/`
+     <framework>      -> framework root (`.` standalone, the `.apache-magpie/`
+                         snapshot, or `~/.cache/apache-magpie/framework/current` on a
+                         marketplace install)
      <tracker>        -> value of `tracker_repo:` in <project-config>/project.md
                          (example: <tracker>)
      <upstream>       -> value of `upstream_repo:` in <project-config>/project.md
@@ -52,14 +52,19 @@ Run the checker with this skill's own frontmatter `name:` and
 `surface_hash:`, and one `--requires` for each `requires_config:` entry:
 
 ```bash
-PYTHONPATH=".apache-magpie-local:$(git rev-parse --git-common-dir)/../.apache-magpie-local:$(git rev-parse --git-common-dir)/apache-magpie" \
-  python3 -m setup_preflight --skill <name> --hash <surface_hash> [--requires <file>]...
+PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m,i=sys.argv[1:];r=os.path.realpath(os.curdir);s=os.stat(r);p=os.path.join(h,d,hashlib.sha256(r.encode()).hexdigest()[:16]);f=os.path.join(p,i);print(p if os.path.isdir(os.path.join(p,m)) and os.path.isfile(f) and open(f).read().split()==[str(s.st_dev),str(s.st_ino)] else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight root-id)" \
+  python3 -P -m setup_preflight --skill <name> --hash <surface_hash> [--requires <file>]...
 ```
 
-The path finds the checker `/magpie-setup:setup config` installed in the
-personal layer: this checkout's `.apache-magpie-local/`, the main
-checkout's when this is a linked worktree, or the git directory's
-`apache-magpie/` when Magpie is only installed.
+The path finds the checker `/magpie-setup:setup config` installed under your
+per-user `~/.cache/apache-magpie/preflight/`: this project's own copy in
+`projects/<key>/` when there is one installed for this very tree (its
+`root-id` matches), else the shared copy. Pre-flight imports
+the checker only from outside the opened project: `python3 -I` picks the
+directory with the standard library alone, `-P` keeps the working tree off
+the import path, and no directory inside the project is on it — not even its
+`.git/` or `.svn/`, which a checkout or a tarball can carry as plain files.
+Never add one.
 
 - **`{"verdict": "ok"}`** → **silent**. Continue into the work the user
   asked for and say nothing about pre-flight. This is the ordinary answer.
@@ -68,15 +73,15 @@ checkout's when this is a linked worktree, or the git directory's
   inputs; what to propose, and what may not be done, are in the rules
   rather than here. **Act on a finding only through its rules.**
 - **The command did not run at all** — no such module, a non-zero exit, no
-  `python3` — → never read that as a pass, and do not re-derive the check
+  `python3` 3.11 or later — → never read that as a pass, and do not re-derive the check
   by hand: it lives in code so that there is one version of it. If the
   project has **no** `.apache-magpie.lock`, `.apache-magpie-overrides/`,
-  or personal layer (any of the three directories above),
+  or personal layer (any of the directories below),
   nothing has been set up here and there is
   nothing to reconcile — resolve this skill's `requires_config:` entries
   yourself (first match wins: `.apache-magpie-local/<file>`, the main
   checkout's `.apache-magpie-local/<file>`, `<git-common-dir>/apache-magpie/<file>`,
-  then `.apache-magpie-overrides/<file>`), stay silent if they all resolve, and
+  `.svn/apache-magpie/<file>`, then `.apache-magpie-overrides/<file>`), stay silent if they all resolve, and
   run `/magpie-setup:setup config` for this skill if any does not, which also
   installs the checker. Otherwise the project *is* set up and its checker
   is missing or stale: say so, propose `/magpie-setup:setup config` to install
@@ -157,7 +162,7 @@ Only on the user's confirmation run `tracker-publish` with that message file
 With `tracker.platform` set to `local-files` or `jira`, stop before fetching anything and tell the user the dashboard does not support that backend yet; never point the pipeline at a GitHub repository instead.
 
 *Renderer* configuration (bucket granularity, milestones, categories, scope labels, triage keywords, …) lives in a separate YAML file at
-`.apache-magpie-overrides/security-tracker-stats.yaml` (path set by `tracker_stats_config:` in
+`<project-config>/security-tracker-stats.yaml` — the personal layer's copy first, else `.apache-magpie-overrides/` (path set by `tracker_stats_config:` in
 [`<project-config>/security-tracker-stats.md`](../../../magpie-setup/templates/security-tracker-stats.md)).
 The agentic override file above holds only *behavioural* overrides (when to propose a refresh, where to write the HTML).
 
@@ -198,7 +203,7 @@ If the adopter passes nothing, surface the resolved output path and cache state 
 1. **Resolve config.** Read
    [`<project-config>/security-tracker-stats.md`](../../../magpie-setup/templates/security-tracker-stats.md)
    for the project's per-renderer YAML config path (default:
-   `<adopter-repo>/.apache-magpie-overrides/security-tracker-stats.yaml`).
+   `<project-config>/security-tracker-stats.yaml`, resolved personal layer first).
    Surface to the user *which* config file will be applied and
    *what bucket granularity* it resolves to. If the YAML file does
    not exist, fall back silently to the framework's
@@ -207,7 +212,8 @@ If the adopter passes nothing, surface the resolved output path and cache state 
 2. **Check cache freshness.** Inspect
    `<cache>/issues.json` mtime, where `<cache>` is the
    `tracker_stats_cache` value from the step 1 config (else
-   `${TRACKER_STATS_CACHE:-/tmp/tracker-stats-cache}`, the fetch scripts' default).
+   `${TRACKER_STATS_CACHE:-<platform temp dir>/tracker-stats-cache}`, the
+   fetch scripts' default — `$TMPDIR` on POSIX, `%TEMP%` on Windows).
    Step 3 passes the same `<cache>` so the check and the fetch agree.
    If older than 24 h, propose a fresh fetch; if missing or
    the user passed `clear-cache`, do a fresh fetch unconditionally.
@@ -217,7 +223,7 @@ If the adopter passes nothing, surface the resolved output path and cache state 
    ```bash
    TRACKER_STATS_REPO=<tracker> \
    TRACKER_STATS_UPSTREAM_REPO=<upstream> \
-   TRACKER_STATS_CONFIG=<adopter-repo>/.apache-magpie-overrides/security-tracker-stats.yaml \
+   TRACKER_STATS_CONFIG=<project-config>/security-tracker-stats.yaml \
    TRACKER_STATS_CACHE=<cache> \
    bash <framework>/tools/security-tracker-stats-dashboard/run.sh <output-path>
    ```

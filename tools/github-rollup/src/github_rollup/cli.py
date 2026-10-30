@@ -150,10 +150,57 @@ def _print_url(url: str) -> None:
         sys.stdout.write(f"{url}\n")
 
 
-def _find_rollup(comments: list[dict]) -> dict | None:
+def _gh_collaborators(repo: str) -> set[str] | None:
+    """Logins of the repository's collaborators, or None when the list
+    cannot be read (the endpoint needs push access to the repository)."""
+    cmd = ["gh", "api", f"repos/{repo}/collaborators", "--paginate", "--jq", ".[].login"]
+    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    if result.returncode != 0:
+        return None
+    return {line.strip() for line in result.stdout.splitlines() if line.strip()}
+
+
+def _comment_author(comment: dict) -> str:
+    return str((comment.get("author") or {}).get("login") or "")
+
+
+def _trusted_authors(repo: str) -> tuple[set[str], bool]:
+    """Who may author the rollup: the authenticated `gh` user and the
+    repository's collaborators (the security-team roster, see
+    tools/github/operations.md), and whether the collaborator list could
+    be read. When it cannot, only the authenticated user is trusted."""
+    trusted = {_gh_auth_user()}
+    collaborators = _gh_collaborators(repo)
+    if collaborators is None:
+        return trusted, False
+    return trusted | collaborators, True
+
+
+def _find_rollup(comments: list[dict], repo: str) -> dict | None:
     """Return the rollup comment — the first with the canonical marker,
-    else the first with a legacy one — or None if the issue has none."""
-    idx = find_rollup_index([c.get("body") or "" for c in comments])
+    else the first with a legacy one — or None if the issue has none.
+
+    Only comments authored by a trusted login (see ``_trusted_authors``)
+    count; a marker line in anyone else's comment is ignored.
+
+    When the collaborator list cannot be read and the first marked comment
+    is someone else's, it cannot be told apart from a collaborator's rollup,
+    so this stops rather than risk starting a second one."""
+    bodies = [c.get("body") or "" for c in comments]
+    first = find_rollup_index(bodies)
+    if first is None:
+        # No marker anywhere: skip the author lookups.
+        return None
+    authors = [_comment_author(c) for c in comments]
+    trusted, complete = _trusted_authors(repo)
+    if not complete and authors[first] not in trusted:
+        sys.stderr.write(
+            f"error: cannot list collaborators of {repo}, so the author of the existing "
+            f"rollup ({authors[first] or 'unknown'}) cannot be checked; retry, or run as "
+            "a user with push access\n"
+        )
+        raise SystemExit(1)
+    idx = find_rollup_index(bodies, authors, trusted)
     return None if idx is None else comments[idx]
 
 
@@ -196,7 +243,7 @@ def _write_entry(issue: str, repo: str, entry: str, action: str, date: str, dry_
     """Append ``entry`` to the rollup on ``issue``, creating the rollup
     when none exists. Returns True when something was (or, in a dry run,
     would be) written."""
-    rollup = _find_rollup(_gh_list_comments(issue, repo))
+    rollup = _find_rollup(_gh_list_comments(issue, repo), repo)
     if dry_run:
         if rollup is None:
             sys.stderr.write("dry-run: would CREATE a new rollup comment\n")
@@ -232,7 +279,7 @@ def _cmd_amend_latest(args: argparse.Namespace) -> int:
     concurrent append by someone else is never overwritten."""
     body = _read_entry_body(args)
     repo = _resolve_repo(args)
-    rollup = _find_rollup(_gh_list_comments(args.issue, repo))
+    rollup = _find_rollup(_gh_list_comments(args.issue, repo), repo)
     if rollup is None:
         sys.stderr.write(f"no rollup on {repo}#{args.issue}\n")
         return 3
@@ -283,7 +330,7 @@ def _cmd_fold(args: argparse.Namespace) -> int:
 def _cmd_list(args: argparse.Namespace) -> int:
     repo = _resolve_repo(args)
     comments = _gh_list_comments(args.issue, repo)
-    rollup = _find_rollup(comments)
+    rollup = _find_rollup(comments, repo)
     if rollup is None:
         sys.stderr.write(f"no rollup comment on {repo}#{args.issue}\n")
         return 3
@@ -305,7 +352,7 @@ def _cmd_list(args: argparse.Namespace) -> int:
 def _cmd_latest(args: argparse.Namespace) -> int:
     repo = _resolve_repo(args)
     comments = _gh_list_comments(args.issue, repo)
-    rollup = _find_rollup(comments)
+    rollup = _find_rollup(comments, repo)
     if rollup is None:
         sys.stderr.write(f"no rollup comment on {repo}#{args.issue}\n")
         return 3

@@ -11,6 +11,8 @@
   - [Point tools at it](#point-tools-at-it)
   - [The allowlist](#the-allowlist)
   - [Test](#test)
+    - [Automated tests](#automated-tests)
+    - [Manual verification](#manual-verification)
   - [Caveat — host-level, not payload-level](#caveat--host-level-not-payload-level)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -40,7 +42,7 @@ how-to.
 
 - **Runtime:** Python 3.11+ run via `uv` (no system install needed).
 - **Dependencies:** `proxy.py` (`>=2.4,<3`) — the forward-proxy runtime,
-  resolved by `uv` from PyPI; the allowlist policy is the only first-party code.
+  resolved by `uv` from PyPI.
 - **CLIs:** None beyond the runtime.
 - **Credentials / auth:** None.
 - **Network:** Binds a loopback listen socket (default `127.0.0.1:8899`) and
@@ -48,9 +50,13 @@ how-to.
   context. Needs a writable `$HOME` (or a `HOME` override) for runtime state
   under `~/.proxy`. Default allowlist mirrors the sandbox's curated domains
   (ASF infra, GitHub, Google APIs, PyPI).
-- **Optional:** the `dev` dependency group (`pytest`, `ruff`, `mypy`) to run the test suite.
+- **Optional:** the `dev` dependency group (`pytest`, `ruff`, `mypy`) for automated tests,
+  and curl for manual verification.
 
 ## Run it
+
+Run the commands below from the repository root.
+`uv` prepares the environment and installs the dependencies on first use.
 
 ```bash
 # From a context that is NOT sandboxed — binding a listen socket and
@@ -58,6 +64,10 @@ how-to.
 uv run --project tools/egress-gateway egress-gateway          # 127.0.0.1:8899
 uv run --project tools/egress-gateway egress-gateway --port 9000
 ```
+
+The supported mode is the default allowlisting forward proxy.
+Additional proxy.py arguments are passed through without filtering and must be supplied by a trusted operator.
+Extra services, plugins, and replacement handlers are outside the allowlist guarantee.
 
 proxy.py keeps runtime state under `$HOME/.proxy`; if HOME is not writable
 in your environment, point it somewhere writable for this process:
@@ -101,13 +111,29 @@ exact host. Loopback (`localhost`, `127.0.0.1`, `::1`) is always allowed.
 
 ## Test
 
+### Automated tests
+
+The automated tests cover the allowlist policy and CLI startup.
+
 ```bash
-uv run --project tools/egress-gateway --group dev pytest
+uv run --directory tools/egress-gateway --group dev pytest
 ```
 
-The allowlist policy (`host_allowed`) is a pure function and is unit-tested
-directly; the proxy.py integration is intentionally not exercised in CI
-(it needs to bind a port).
+### Manual verification
+
+Start the gateway as shown above, then run these commands in another terminal with curl available.
+The examples use the default proxy address and allowlist.
+The allowed request requires network access to PyPI.
+
+```bash
+# Allowed destination: expect a final HTTP 200 response from PyPI.
+curl --noproxy "" --proxy http://127.0.0.1:8899 --max-time 10 --head https://pypi.org/
+
+# Denied destination: expect HTTP 403.
+curl --noproxy "" --proxy http://127.0.0.1:8899 --max-time 5 --include http://example.com/
+```
+
+The denied request returns HTTP 403 with `egress-gateway: host not on allowlist` in the response body.
 
 ## Caveat — host-level, not payload-level
 

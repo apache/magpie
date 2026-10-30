@@ -400,6 +400,7 @@ TOOL_CAPABILITIES = {
     "contract:people",
     "contract:security-tracker",
     "contract:body-field",
+    "contract:hook-manager",
     "substrate:analytics",
     "substrate:sandbox",
     "substrate:action-guard",

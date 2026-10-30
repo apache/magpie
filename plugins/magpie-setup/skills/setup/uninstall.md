@@ -40,13 +40,21 @@ explicit confirmation before any write.
 > install — the default path — put nothing in the repo, so there
 > is nothing here to reverse: it is removed with the client's own
 > verb (`/plugin uninstall <plugin>@apache-magpie` in Claude
-> Code, `codex plugin uninstall magpie`,
-> `gemini extensions uninstall magpie`). If the repo has no
+> Code, `codex plugin remove <plugin>@apache-magpie`,
+> `agy plugin uninstall magpie`,
+> `pi remove git:github.com/apache/magpie`, removing
+> `~/.agents/plugins/magpie/` for Goose). If the repo has no
 > `.apache-magpie.lock` and Magpie is plugin-installed, print
 > that command instead of a snapshot removal plan.
-> If Gemini secure setup was installed separately, first follow the
-> [Gemini cleanup contract](../../../../docs/adapters/gemini.md#setup-isolated-lifecycle)
-> to propose removing its references to the extension before uninstalling it.
+> If Antigravity secure setup was installed, first follow the
+> [Antigravity cleanup contract](../../../../docs/adapters/antigravity.md#setup-isolated-lifecycle)
+> to propose removing the user-scope guard registration before uninstalling the plugin.
+> On Pi, `pi remove` takes the guard, rules and sandbox with the skills, so
+> nothing else needs cleaning up — say so, since the user loses the secure
+> setup with it.
+> On Goose, removing the plugin directory takes the guard hook and the
+> sandbox runtime with it, and `agent-iso goose` then refuses to start —
+> say so too.
 > Then stop. When **both**
 > installs are live, this sub-action removes only the repo-side
 > one — say so explicitly, so the user is not surprised that the
@@ -140,13 +148,14 @@ every artefact).
 | Framework-skill symlinks | **Every active target dir** ([`agents.md`](agents.md)): the canonical `.agents/skills/` (always present), the `.claude/skills/` + `.github/skills/` relay pair, and any present holdout (`.windsurf/skills/`, `.goose/skills/`) | each `magpie-*` symlink — canonical entries resolving into `<snapshot-dir>/skills/`, relays resolving into `.agents/skills/magpie-*` — in **each** target dir |
 | Post-checkout hook | `<repo-root>/.git/hooks/post-checkout` | exists + invokes `~/.claude/scripts/sandbox-add-project-root.sh` (older hooks additionally seeded `.claude/hooks/agent-guard.py`) |
 | agent-guard wiring | the `hooks.PreToolUse` entry in `<repo-root>/.claude/settings.local.json`, plus any leftover `<repo-root>/.claude/hooks/agent-guard.py` + `guards.d/` | exist (gitignored, per-machine). Unlike the committed `settings.json`, `settings.local.json` is agent-writable, so remove the entry directly rather than surfacing it for manual removal. The `magpie-agent-guard` **plugin**, if installed, is outside this repo — uninstalling the framework from a repo does not touch it; say so rather than silently leaving the guard active. |
-| Gemini profile | `.gemini/settings.json`, `.gemini/policies/magpie.toml` | inventory Magpie-owned values and guard references; preserve unrelated configuration per [the adapter](../../../../docs/adapters/gemini.md#setup-isolated-lifecycle) |
+| Antigravity guard | `~/.gemini/config/hooks.json` (user scope, not in the repo) | when its `magpie-agent-guard` entry points into this snapshot, propose removing it per [the adapter](../../../../docs/adapters/antigravity.md#setup-isolated-lifecycle); never touch the user's other hooks or permission rules |
 | Codex policy | `.codex/config.toml`, `.codex/rules/magpie.rules` | identify Magpie-owned values separately from unrelated adopter Codex configuration |
 | Doc section: `README.md` | `<repo-root>/README.md` | contains the `## Agent-assisted contribution (apache-magpie)` heading |
 | Doc section: `AGENTS.md` | `<repo-root>/AGENTS.md` | contains the `## apache-magpie framework` heading |
 | Doc section: `CONTRIBUTING.md` | `<repo-root>/CONTRIBUTING.md` | contains the adoption section (fallback layout) |
 | Overrides directory | `<repo-root>/.apache-magpie-overrides/` | exists; count framework-scaffold files vs adopter-authored |
 | `setup` skill itself | canonical `.agents/skills/magpie-setup/` + the `.claude`/`.github` relay symlinks to it | exists (this is the only committed framework skill) |
+| Per-project pre-flight checker | `~/.cache/apache-magpie/preflight/projects/<key>/` (user scope; `python3 -P -m setup_preflight.layers` prints it as `project_checker_dir`) | exists. A snapshot install's checker lives here and serves this project only; remove the directory with the snapshot. Never touch the shared `~/.cache/apache-magpie/preflight/setup_preflight/`, which serves every other project. |
 
 For the overrides directory: distinguish the
 **framework-scaffold** files (`README.md`, `user.md` from
@@ -308,10 +317,10 @@ pointing at a deleted snapshot.
    keys. Otherwise surface a minimal patch that removes only the
    Magpie values and ask before applying it. Never alter Codex project
    trust.
-   For an installed Gemini profile, follow
-   [the Gemini cleanup contract](../../../../docs/adapters/gemini.md#setup-isolated-lifecycle)
-   before deleting the snapshot, including guard references in linked worktrees.
-   Preserve unrelated configuration and show hand-edited policy values for review.
+   When the user-scope Antigravity guard points into this snapshot, follow
+   [the Antigravity cleanup contract](../../../../docs/adapters/antigravity.md#setup-isolated-lifecycle)
+   before deleting the snapshot, so no hook points at a missing script.
+   Preserve the user's unrelated hooks and permission rules.
 
    For Grok, remove only a repository-local
    `<repo-root>/.grok/hooks/magpie-agent-guard.json` when it matches the Magpie-owned hook shape.
@@ -320,7 +329,10 @@ pointing at a deleted snapshot.
    Never remove unrelated `.grok/hooks/*`, modify `.grok/config.toml`, or change Grok's project-hook trust state.
    A repository uninstall does not uninstall or disable a user's marketplace `magpie-agent-guard` plugin; that plugin remains under the client's own plugin-manager lifecycle.
 
-4. **Snapshot directory.** `rm -rf <snapshot-dir>/`.
+4. **Snapshot directory.** `rm -rf <snapshot-dir>/`, then the
+   per-project pre-flight checker installed from it:
+   `rm -rf <project_checker_dir>/` with the path `setup_preflight.layers`
+   printed. Leave the shared `~/.cache/apache-magpie/preflight/` alone.
 5. **Local lock.** `rm <local-lock>`.
 6. **`.gitignore` entries.** Read `<repo-root>/.gitignore`,
    remove exactly the lines from
@@ -370,10 +382,10 @@ If `.claude/settings.json` commits the block described in
   `.apache-magpie.lock`'s `plugins` list, in floor order, each as
   `<plugin>@apache-magpie`. That list is **seeded** with
   `magpie-setup@apache-magpie`, `magpie-utilities@apache-magpie`,
-  `magpie-agent-guard@apache-magpie`, in that order; a project whose
-  maintainers enlarged the floor has more, so read the lock rather than
-  assuming a count. (No lock to read — the project un-adopted but kept the
-  block — leaves the seeded three.) Keep every other entry untouched,
+  `magpie-agent-guard@apache-magpie`, `magpie-vetted-ops@apache-magpie`,
+  in that order; a project whose maintainers enlarged the floor has more,
+  so read the lock rather than assuming a count. (No lock to read — the
+  project un-adopted but kept the block — leaves the seeded four.) Keep every other entry untouched,
   whether it is a Magpie plugin outside the floor or another vendor's
   plugin.
 - Delete the `apache-magpie` entry from `extraKnownMarketplaces`. Keep any

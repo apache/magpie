@@ -1,0 +1,13 @@
+{
+  "items": [
+    {
+      "group": "check",
+      "bypass": true,
+      "id": "isolated-configured"
+    }
+  ],
+  "run_yourself": [],
+  "still_open": [],
+  "isolated_offer": false,
+  "nothing_to_do": false
+}

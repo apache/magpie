@@ -20,8 +20,25 @@
 The block runs the copy in the user's personal config layer (see
 `layers.py`), which is on `PYTHONPATH` rather than installed,
 so `-m` is what resolves the package's own relative imports.
+
+It refuses to run on a Python older than 3.11 before importing anything
+else: the block treats a non-zero exit as "the checker did not run",
+never as a pass. Keep this file free of syntax a 3.x interpreter cannot
+parse, so an old `python3` reaches the refusal instead of a SyntaxError.
 """
 
-from .cli import main
+import sys
+
+MIN_PYTHON = (3, 11)
+
+# The block runs whatever `python3` is on PATH, which requires-python does not govern.
+if sys.version_info < MIN_PYTHON:
+    sys.stderr.write(
+        f"setup_preflight needs Python {MIN_PYTHON[0]}.{MIN_PYTHON[1]} or later; this is {sys.version_info[0]}.{sys.version_info[1]} ({sys.executable}). "
+        "Put a newer python3 first on PATH.\n"
+    )
+    raise SystemExit(3)
+
+from .cli import main  # noqa: E402 - only after the version check
 
 raise SystemExit(main())

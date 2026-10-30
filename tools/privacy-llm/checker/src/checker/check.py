@@ -142,7 +142,7 @@ def _approve_by_opt_in(entry: LLMEntry, opt_in: list[OptInEntry]) -> Verdict:
                 False,
                 f"opt-in entry {opt.name!r} matches but the 'Approved-by' "
                 f"sub-bullet is missing or still has placeholder text "
-                f"({opt.approved_by!r}); a real PMC member must sign off.",
+                f"({opt.approved_by!r}); a member of the project's governing body must sign off.",
             )
         return Verdict(entry, True, f"opt-in entry {opt.name!r} (data-residency + approved-by present)")
     return Verdict(
@@ -304,7 +304,7 @@ def _approve_endpoint_by_opt_in(
                 False,
                 f"opt-in entry {opt.name!r} matches but the 'Approved-by' "
                 f"sub-bullet is missing or still has placeholder text "
-                f"({opt.approved_by!r}); a real PMC member must sign off.",
+                f"({opt.approved_by!r}); a member of the project's governing body must sign off.",
             )
         return Verdict(entry, True, f"opt-in entry {opt.name!r} (data-residency + approved-by present)")
 

@@ -20,12 +20,30 @@
 from __future__ import annotations
 
 import json
+import sys
 import textwrap
 from pathlib import Path
 
 import pytest
 
 from setup_preflight.layers import personal_dir
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """The checker supports Python 3.11+ only; a run on anything older tests nothing it ships for."""
+    # A bare pytest on an older interpreter does not consult requires-python.
+    if sys.version_info < (3, 11):  # noqa: UP036
+        raise pytest.UsageError(
+            f"setup-preflight tests need Python 3.11 or later, not {sys.version.split()[0]} ({sys.executable})"
+        )
+
+
+@pytest.fixture(autouse=True)
+def isolated_home(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A home of its own, so the user's real Claude Code settings never decide a test."""
+    home = tmp_path_factory.mktemp("home")
+    monkeypatch.setenv("HOME", str(home))
+    return home
 
 
 @pytest.fixture

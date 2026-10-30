@@ -167,7 +167,8 @@ preview.
 |------|----------|---------------|
 | `case-1-basic-report-import` | Plain Report with no prior precedent. | `has_tracker_body=true`, `has_receipt_reply=true`, `consolidated_receipt=false`, `canned_response_name=null` |
 | `case-2-reject-with-canned` | automated-scanner email; prior precedent found. | `has_tracker_body=false`, `canned_response_name="Image scan results"`, `prior_precedent_surfaced=true` |
-| `case-3-consolidated-receipt` | Two Reports from the same reporter in the same session. | `consolidated_receipt=true` — one acknowledgement draft covers both candidates |
+| `case-3-same-reporter-two-threads` | Two Reports from the same reporter, on two separate threads. | `consolidated_receipt=false` — each thread gets its own receipt; replies are never combined across threads |
+| `case-4-one-thread-two-trackers` | One thread split into two trackers. | `consolidated_receipt=true` — that thread's one receipt covers both trackers |
 
 ---
 
@@ -180,5 +181,5 @@ many cve-tool-bookkeeping entries were silently dropped.
 | Case | Scenario | Key assertions |
 |------|----------|---------------|
 | `case-1-mixed-import` | 2 issues created, 1 candidate skipped by user, 1 rejected with canned, 1 already-tracked dedup drop, 1 bookkeeping drop. | `issues_created` length 2; `drafts_waiting` length 3; `skipped` length 2; `cve_tool_bookkeeping_dropped=1` |
-| `case-2-all-imported` | 3 candidates all imported; candidates 1 and 2 share a consolidated receipt draft. | Consolidated draft listed once under candidate 1, not duplicated for candidate 2 |
+| `case-2-all-imported` | 3 candidates all imported; candidates 1 and 2 were split from one thread and share that thread's receipt draft. | Shared draft listed once under candidate 1, not duplicated for candidate 2 |
 | `case-3-all-rejected` | 0 issues created; candidate 1 skipped, candidate 2 rejected with canned (draft created), candidate 3 already tracked; 2 bookkeeping drops. | `issues_created=[]`, `drafts_waiting` length 1, `skipped` length 3, `cve_tool_bookkeeping_dropped=2` |

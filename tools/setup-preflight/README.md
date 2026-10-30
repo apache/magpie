@@ -62,28 +62,75 @@ the framework itself recommends, `~/.claude/plugins/cache/` is
 read-denied, so a script shipped in the plugin can be read by the agent's
 file tool but never *executed* by a shell — and a sandboxed marketplace
 install is exactly the environment the reconciliation check was written
-for. So `/magpie-setup:setup config` copies this module into the personal
-layer, beside the configuration it already writes, and
-`/magpie-setup:setup upgrade` refreshes that copy against the framework version
-now installed. The personal layer is `<git-common-dir>/apache-magpie/`
-when the project has only installed Magpie, and the gitignored
-`.apache-magpie-local/` when it has adopted it (in a linked worktree with
-none of its own, the main checkout's); `layers.py` decides, and
-`python3 -m setup_preflight.layers` prints it. The checker is removed when
-that directory is — `uninstall` deliberately preserves personal
-configuration, so it does not delete the checker either.
+for. So `/magpie-setup:setup config` copies this module under the
+per-user `~/.cache/apache-magpie/preflight/`, with or without version
+control, and `/magpie-setup:setup upgrade` refreshes that copy against the
+framework version now installed. Where exactly depends on where the copy
+comes from (`layers.checker_install_dir`):
+
+- **From a known framework location** (`layers.framework_roots`, resolved,
+  and never inside the project) — a harness's plugin install, or the framework copy
+  under the user's home — it goes in the shared `checker_dir` itself and
+  serves every project without a copy of its own. The last `config` or
+  `upgrade` from a plugin decides its version; it reads each project's own
+  lock and configuration, so it serves projects pinned to different versions.
+- **From anywhere else** — a pinned snapshot at `<project>/.apache-magpie/`,
+  which a tarball can carry as easily as a real install, or any other
+  directory, since the rule fails closed — it goes in `projects/<key>/`
+  (`layers.project_checker_home`), where `<key>` is the first 16 hex digits
+  of the SHA-256 of the project root's resolved path, and serves that
+  project alone. Code from inside one tree never reaches the shared
+  directory, so a crafted tree can run nothing in any other project.
+  Symlinks are resolved on both sides before the comparison.
+  Beside it, `root-id` records the resolved root's `st_dev` and `st_ino`
+  (`layers.record_root_identity`): the path outlives the project, so the
+  block and `layers.import_dir` use the copy only while the tree at that
+  path is the one it was installed for, and otherwise fall back to the
+  shared copy.
+
+`uninstall` removes a project's own `projects/<key>/` copy with its
+snapshot; it never touches the shared copy, which serves other projects.
+
+**Pre-flight imports the checker only from outside the opened project.**
+Every skill runs it as
+
+```bash
+PYTHONPATH="$(python3 -I -c 'import hashlib,os,sys;h,d,m,i=sys.argv[1:];r=os.path.realpath(os.curdir);s=os.stat(r);p=os.path.join(h,d,hashlib.sha256(r.encode()).hexdigest()[:16]);f=os.path.join(p,i);print(p if os.path.isdir(os.path.join(p,m)) and os.path.isfile(f) and open(f).read().split()==[str(s.st_dev),str(s.st_ino)] else h)' "$HOME/.cache/apache-magpie/preflight" projects setup_preflight root-id)" \
+  python3 -P -m setup_preflight …
+```
+
+The first `python3 -I` picks the directory — this project's own when it
+holds a checker, else the shared one (`layers.import_dir`) — with the
+standard library alone: `-I` keeps the working directory, `PYTHONPATH` and
+the user site off `sys.path`, so choosing never runs project code. Then
+`-P` (Python 3.11+) keeps the working directory off `sys.path` for the
+checker itself, and no directory inside the project is on `PYTHONPATH` —
+not the gitignored `.apache-magpie-local/` of an adopted project, which a
+repository can still force-add, not the legacy in-tree one of an
+unadopted project, and not the project's `.git/` or `.svn/` either. A git
+commit cannot carry a `.git/`, but a Subversion checkout versions one like
+any directory, and a tarball can carry a `.git/` or a `.svn/` (with its
+`wc.db`) that `git` and `layers.py` accept as real. Otherwise a project
+that shipped a `setup_preflight/` package would have its code run by every
+skill's pre-flight before any confirmation, and opening it would be enough
+to run its code. The personal *configuration* still lives where
+`layers.py` says; only the executable lives outside every project.
+
+The key is computed in the block rather than in a bootstrap module because
+a bootstrap would itself have to live in the shared directory, which a
+snapshot-only machine never fills; the one-liner needs nothing installed.
 
 That has a consequence worth stating plainly: pre-flight may run `config`
-unattended, so an unattended run can place an executable in the
-checkout's personal layer. It is framework code of the same provenance as
-the plugin the adopter installed, it is never committed (inside the git
-directory, or gitignored), and it goes away with the directory
-— but it is a step beyond writing configuration files.
+unattended, so an unattended run can place an executable under the
+user's `~/.cache/apache-magpie/preflight/`. It is framework code of the
+same provenance as the framework the adopter installed, it is never
+committed, and it is per-user — but it is a step beyond writing
+configuration files.
 
 ## Invocation
 
 ```bash
-python3 <personal-layer>/setup_preflight/cli.py \
+PYTHONPATH="<checker_dir>" python3 -P -m setup_preflight \
     --skill magpie-pr-management-triage \
     --hash sha256:9f1c4e… \
     --requires pr-management-config.md

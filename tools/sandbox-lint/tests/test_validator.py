@@ -20,6 +20,8 @@ from __future__ import annotations
 import copy
 import fnmatch
 import json
+import os
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +32,7 @@ from sandbox_lint import (
     deep_diff,
     main,
     merge_layers,
+    uses_hook_manager,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -227,6 +230,9 @@ def test_read_block_is_an_invariant_error_where_vetted_ops_is_used(baseline: dic
         "Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
         "Edit(~/.claude/magpie/**)",
         "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
+        "Edit(//**/.git/**/apache-magpie/tools/vetted-ops/**)",
+        "Edit(//**/.svn/apache-magpie/tools/vetted-ops/**)",
+        "Edit(//**/.apache-magpie-local/tools/vetted-ops/**)",
     ],
 )
 def test_missing_vetted_ops_tamper_protection_is_an_invariant_error(
@@ -415,6 +421,8 @@ def test_invariant_missing_deny_read_root(baseline: dict[str, Any]) -> None:
         "~/.azure",
         "~/.config/gcloud",
         "~/.config/apache-magpie/",
+        "~/.config/gh",
+        "~/.config/gh/",
         "/",
         "~/",
         "~/.ssh//",
@@ -853,3 +861,221 @@ def test_cli_rejects_a_decoy_daemon_socket_using_the_inferred_project_root(
     _write_json(expected_path, baseline)
     rc = main(["--settings", str(settings_path), "--expected", str(expected_path)])
     assert rc == 1
+
+
+@pytest.mark.parametrize(
+    ("key", "entry"),
+    [
+        ("allowWrite", "~/.local/share/uv/"),
+        ("allowWrite", "~/.local/share/uv/python"),
+        ("allowWrite", "~/.local/"),
+        ("additionalDirectories", "~/.local/share/uv"),
+    ],
+)
+def test_invariant_rejects_a_writable_uv_data_dir(baseline: dict[str, Any], key: str, entry: str) -> None:
+    """Its interpreters and tool venvs run outside the sandbox (hooks, MCP servers, excluded uv commands)."""
+    settings = copy.deepcopy(baseline)
+    if key == "allowWrite":
+        fs = settings["sandbox"]["filesystem"]
+        fs["allowRead"].append(entry)
+        fs["allowWrite"].append(entry)
+    else:
+        settings["permissions"]["additionalDirectories"] = [entry]
+    errors = check_invariants(settings)
+    assert any("makes ~/.local/share/uv writable" in e for e in errors), errors
+
+
+def test_reading_the_uv_data_dir_stays_allowed(baseline: dict[str, Any]) -> None:
+    assert "~/.local/share/uv/" in baseline["sandbox"]["filesystem"]["allowRead"]
+    assert "~/.local/share/uv/" not in baseline["sandbox"]["filesystem"]["allowWrite"]
+    assert check_invariants(baseline) == []
+
+
+@pytest.mark.parametrize("required", ["Read(~/.config/uv/uv.toml)", "Edit(~/.config/uv/**)"])
+def test_invariant_requires_the_host_uv_config_denies(baseline: dict[str, Any], required: str) -> None:
+    settings = copy.deepcopy(baseline)
+    settings["permissions"]["deny"].remove(required)
+    errors = check_invariants(settings)
+    assert f"permissions.deny: must contain {required!r}" in errors
+
+
+@pytest.mark.parametrize("value", [None, "~/.cache/prek", "~/.cache/prek/sub", "~/.cache"])
+def test_invariant_requires_a_separate_sandbox_prek_home(baseline: dict[str, Any], value: str | None) -> None:
+    """A terminal's git hooks run prek's environments outside the sandbox."""
+    settings = copy.deepcopy(baseline)
+    if value is None:
+        settings.pop("env", None)
+    else:
+        settings["env"] = {"PREK_HOME": value}
+    errors = check_invariants(settings)
+    assert any(e.startswith("env.PREK_HOME:") for e in errors), errors
+
+
+def test_the_baseline_gives_sandboxed_prek_its_own_home(baseline: dict[str, Any]) -> None:
+    assert baseline["env"]["PREK_HOME"] == "~/.cache/prek-sandbox"
+    assert "Edit(~/.cache/prek/**)" in baseline["permissions"]["deny"]
+    assert check_invariants(baseline) == []
+
+
+def _git_repo(path: Path) -> Path:
+    subprocess.run(["git", "init", "-q", str(path)], check=True)
+    return path
+
+
+PREK_FILES = ("prek.toml", ".pre-commit-config.yaml", ".pre-commit-config.yml")
+
+
+def _uses_prek(root: Path) -> bool:
+    return uses_hook_manager(root, PREK_FILES, True, "prek")
+
+
+def test_a_project_without_prek_does_not_use_it(tmp_path: Path) -> None:
+    assert not _uses_prek(_git_repo(tmp_path / "r"))
+
+
+@pytest.mark.parametrize("name", PREK_FILES)
+def test_a_root_config_means_the_project_uses_prek(tmp_path: Path, name: str) -> None:
+    repo = _git_repo(tmp_path / "r")
+    (repo / name).write_text("")
+    assert _uses_prek(repo)
+
+
+def test_a_tracked_nested_config_means_the_project_uses_prek(tmp_path: Path) -> None:
+    """prek's workspace mode: a project config below the root."""
+    repo = _git_repo(tmp_path / "r")
+    (repo / "frontend").mkdir()
+    (repo / "frontend" / "prek.toml").write_text("")
+    assert not _uses_prek(repo)  # untracked: not part of the project yet
+    subprocess.run(["git", "-C", str(repo), "add", "frontend/prek.toml"], check=True)
+    assert _uses_prek(repo)
+
+
+def test_an_installed_hook_that_runs_prek_means_the_project_uses_it(tmp_path: Path) -> None:
+    """An install with a custom --config leaves no standard config name behind."""
+    repo = _git_repo(tmp_path / "r")
+    hook = repo / ".git" / "hooks" / "pre-push"
+    hook.write_text('#!/bin/sh\nexec prek hook-impl --config="ci/hooks.yaml" "$@"\n')
+    assert _uses_prek(repo)
+
+
+def test_settings_need_no_prek_home_for_a_project_without_prek(
+    baseline: dict[str, Any], tmp_path: Path
+) -> None:
+    repo = _git_repo(tmp_path / "r")
+    settings = copy.deepcopy(baseline)
+    settings.pop("env", None)
+    assert not any("PREK_HOME" in e for e in check_invariants(settings, project_root=repo))
+    (repo / ".pre-commit-config.yaml").write_text("")
+    errors = check_invariants(settings, project_root=repo)
+    assert any(e.startswith("env.PREK_HOME: missing") for e in errors), errors
+
+
+def test_the_default_prek_home_is_denied_even_without_prek(baseline: dict[str, Any], tmp_path: Path) -> None:
+    """The default home is per-user: another project's terminal commits run from it."""
+    settings = copy.deepcopy(baseline)
+    settings["permissions"]["deny"].remove("Edit(~/.cache/prek/**)")
+    errors = check_invariants(settings, project_root=_git_repo(tmp_path / "r"))
+    assert "permissions.deny: must contain 'Edit(~/.cache/prek/**)'" in errors, errors
+
+
+# ---------------------------------------------------------------------------
+# allowAllUnixSockets lifts the Linux seccomp AF_UNIX block, so any socket the
+# sandbox can see becomes connectable; denyRead must hide the host daemons and
+# the per-user runtime directory.
+# ---------------------------------------------------------------------------
+
+_HOST_SOCKETS = [
+    "/run/docker.sock",
+    "/var/run/docker.sock",
+    "/run/docker-cli.sock",
+    "/run/podman",
+    "/run/user/<uid>",
+    "/run/dbus",
+    "/tmp/.X11-unix",
+    "/run/WSL",
+    "/mnt/wslg",
+]
+_UID = os.getuid()
+
+
+def _all_unix_sockets(baseline: dict[str, Any], deny: list[str]) -> dict[str, Any]:
+    settings = copy.deepcopy(baseline)
+    settings["sandbox"]["network"]["allowAllUnixSockets"] = True
+    settings["sandbox"]["filesystem"]["denyRead"] += deny
+    return settings
+
+
+def _flagged_sockets(settings: dict[str, Any]) -> set[str]:
+    errors = check_invariants(settings)
+    return {e.split(" connect to ")[1].split(";")[0] for e in errors if "allowAllUnixSockets" in e}
+
+
+def test_all_unix_sockets_without_socket_denies_is_rejected(baseline: dict[str, Any]) -> None:
+    assert _flagged_sockets(_all_unix_sockets(baseline, [])) == set(_HOST_SOCKETS)
+
+
+@pytest.mark.parametrize("user_deny", [f"/run/user/{_UID}", f"/run/user/{_UID}/", "/run/user/*", "/run/user"])
+def test_all_unix_sockets_with_socket_denies_passes(baseline: dict[str, Any], user_deny: str) -> None:
+    others = [p for p in _HOST_SOCKETS if "<uid>" not in p]
+    assert _flagged_sockets(_all_unix_sockets(baseline, [*others, user_deny])) == set()
+
+
+@pytest.mark.parametrize(
+    "user_deny",
+    [
+        [f"/run/user/{_UID + 1}"],
+        # The systemd user manager also listens on systemd/private, and the
+        # directory holds askpass and agent sockets.
+        [f"/run/user/{_UID}/bus", f"/run/user/{_UID}/podman"],
+    ],
+)
+def test_user_runtime_dir_needs_the_whole_dir_of_this_uid(
+    baseline: dict[str, Any], user_deny: list[str]
+) -> None:
+    others = [p for p in _HOST_SOCKETS if "<uid>" not in p]
+    assert _flagged_sockets(_all_unix_sockets(baseline, [*others, *user_deny])) == {"/run/user/<uid>"}
+
+
+def test_home_and_relative_deny_entries_cover_no_host_socket(baseline: dict[str, Any]) -> None:
+    deny = ["~/", "~/run/docker.sock", "run/docker.sock", "./run/user"]
+    assert _flagged_sockets(_all_unix_sockets(baseline, deny)) == set(_HOST_SOCKETS)
+
+
+def test_socket_denies_are_not_required_without_all_unix_sockets(baseline: dict[str, Any]) -> None:
+    assert not [e for e in check_invariants(baseline) if "allowAllUnixSockets" in e]
+
+
+@pytest.mark.parametrize(
+    ("read", "write"),
+    [
+        ("/home/u/repos", "/home/u/repos/project"),
+        ("/home/u/repos/", "/home/u/repos/project/"),
+        ("~/repos", "~/repos/project"),
+    ],
+)
+def test_allow_read_parent_of_allow_write_is_rejected(
+    baseline: dict[str, Any], read: str, write: str
+) -> None:
+    # bubblewrap mounts the read-only parent over the writable child.
+    settings = copy.deepcopy(baseline)
+    settings["sandbox"]["filesystem"]["allowRead"] += [read, write]
+    settings["sandbox"]["filesystem"]["allowWrite"] += [write]
+    errors = check_invariants(settings)
+    assert any(f"{read!r} is a parent of the allowWrite entry {write!r}" in e for e in errors), errors
+
+
+def test_allow_read_parent_that_is_itself_writable_passes(baseline: dict[str, Any]) -> None:
+    settings = copy.deepcopy(baseline)
+    settings["sandbox"]["filesystem"]["allowRead"] += ["/home/u/repos", "/home/u/repos/project"]
+    settings["sandbox"]["filesystem"]["allowWrite"] += ["/home/u/repos", "/home/u/repos/project"]
+    assert not [e for e in check_invariants(settings) if "is a parent of the allowWrite" in e]
+
+
+def test_dot_allow_read_over_a_project_subdir_passes(baseline: dict[str, Any], tmp_path: Path) -> None:
+    # "." is the project, which the sandbox always makes writable.
+    settings = copy.deepcopy(baseline)
+    settings["sandbox"]["filesystem"]["allowRead"] += [".", "./build"]
+    settings["sandbox"]["filesystem"]["allowWrite"] += ["./build"]
+    assert not [
+        e for e in check_invariants(settings, project_root=tmp_path) if "is a parent of the allowWrite" in e
+    ]

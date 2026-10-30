@@ -1,0 +1,7 @@
+{
+  "include_in_summary": true,
+  "model_section": "Capabilities of workflow authors",
+  "model_gap": false,
+  "route": "",
+  "rationale": "Both halves are stated in the model: authors run code on workers by design, and it must never run in the scheduler or API server."
+}

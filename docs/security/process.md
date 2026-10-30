@@ -342,8 +342,8 @@ preview (`cve_authority.email_preview_url_template`), both
 declared in [`<project-config>/project.md → cve_authority`](<project-config>/project.md#cve-authority).
 For the airflow-s adopter, those templates resolve to
 `https://cveprocess.apache.org/cve5/<CVE-ID>` and the same URL
-with `#email` appended — the Vulnogram `#source` and `#email`
-tabs.
+with `#email` appended — the Vulnogram record page and its
+`#email` tab.
 
 The two gates:
 
@@ -398,7 +398,7 @@ hand-off comment, all of it single clicks in the CVE tool —
    UI. Most CVEs go through `review-ready` with no reviewer
    comments — in that case the promotion is immediate. (For
    the Vulnogram adapter, that is the **State** dropdown
-   flipping from `REVIEW` to `READY` on the record's `#source`
+   flipping from `REVIEW` to `READY` on the record's Editor
    tab.)
 2. **Preview and send the advisory email.** Open
    `cve_authority.email_preview_url_template` substituted with

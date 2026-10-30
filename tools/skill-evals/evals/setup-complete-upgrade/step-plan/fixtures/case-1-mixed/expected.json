@@ -1,0 +1,33 @@
+{
+  "items": [
+    {
+      "group": "fix",
+      "bypass": true,
+      "id": "gateway-hook-stale"
+    },
+    {
+      "group": "update",
+      "bypass": false,
+      "id": "checker-copy-stale"
+    },
+    {
+      "group": "add",
+      "bypass": false,
+      "id": "mentoring-config-missing"
+    },
+    {
+      "group": "add",
+      "bypass": true,
+      "id": "allowlist-worktrees"
+    },
+    {
+      "group": "check",
+      "bypass": true,
+      "id": "zshrc-claude-iso-grep"
+    }
+  ],
+  "run_yourself": [],
+  "still_open": [],
+  "isolated_offer": false,
+  "nothing_to_do": false
+}

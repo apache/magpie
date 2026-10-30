@@ -20,7 +20,8 @@ acceptance:
   - A project selects its organization with a single key
     (organization:<org> in project.md) and inherits the rest.
   - Config resolves project.md -> organizations/<org>/ -> framework
-    default, first hit wins; skills never branch on the organization.
+    default, first hit wins; skills never branch on the organization,
+    except to gate a surface marked as one organization's own.
   - A new organization can be authored from
     organizations/_template/ without editing any skill body.
 ---
@@ -71,9 +72,41 @@ identical "ASF default" values in its own `project.md`.
 - Every placeholder and dotted config key resolves
   `project.md → organizations/<org>/organization.md → framework default`,
   first hit wins. This is the only inheritance in the config model.
-- Skills do **not** read the `organization:` key to branch behaviour;
-  they read capability keys (`cve_authority.tool`, `archive_system.kind`,
-  `<governance-body>`, …) and take the first value the chain yields.
+- Skills do **not** read the `organization:` key to pick a backend or a
+  value; they read capability keys (`cve_authority.tool`,
+  `archive_system.kind`, `<governance-body>`, …) and take the first value
+  the chain yields.
+- **The one exception is a surface that exists only for one
+  organization's services (#1796, #1798).** Such a surface is marked
+  (`**Organization:** ASF` on the tool, or a *Scope — `organization: ASF`*
+  note on the doc) and gated on an explicit `organization: ASF` in the
+  resolved `project.md`, never inferred from a capability value:
+  `security-issue-sync`'s dashboard mode (Step D0) and the
+  `magpie-asf-security-dash` CLI (exit `3` otherwise, before the cookie or
+  network is touched; HTML comments and fenced examples are ignored when
+  reading the key), `permission-audit --organization` (PonyMail,
+  apache-projects and Vulnogram recommendations only for `ASF`, as passed
+  by setup verify), `dependency-license-audit`'s `asf` default policy
+  (`allowlist` for every other project), `workflow-optimization`'s
+  GitHub Actions Policy / `.asf.yaml` / `creation_cap` checks (or, with no
+  project config, an `apache` repository owner), and the `asf-security`
+  forwarder, `tools/gmail/asf-relay.md` and `ponymail-archive.md`.
+  An unset or `TODO` organization is not `ASF`.
+- **Setup settles the organization before sourcing its values (#1779).**
+  It proposes `ASF` only on evidence — a GitHub remote under `apache/`, a
+  root `.asf.yaml`, or a Subversion URL under `https://svn.apache.org/`
+  from `magpie-vcs probe` — and otherwise asks, never defaulting to `ASF`;
+  a non-ASF project inherits no `apache.org` address, no `cna_private_*`
+  field and never the ASF CNA's UUID.
+- **Org-wide security values live in the organization (#1745, #1779).**
+  The ASF manifest carries the ASF CNA's single UUID
+  (`cve_authority.vulnogram.asf_org_id`, the `assignerOrgId` of every
+  Apache record, used only by the generated CVE JSON and never for
+  allocation), which replaced the per-project `asf_org_id` row of the
+  project template, and `security_inbox.cve_tool_senders:
+  [security@apache.org]`, the organization-wide CVE bookkeeping sender.
+  A project list replaces, never merges with, an organization list, so a
+  project override repeats the inherited entries.
 - An organization declares only org-wide values. Per-project
   values (security-list address, scope labels, product name, roster,
   tracker label/body-field vocabulary) stay in `project.md`.
@@ -103,7 +136,9 @@ identical "ASF default" values in its own `project.md`.
   `organizations/<org>/organization.md`, not duplicated per project.
 - `organization: <org>` in `project.md` selects the adapter.
 - Resolution is `project.md → organization → framework default`,
-  first hit wins; no skill branches on the organization.
+  first hit wins; no skill branches on the organization except to gate a
+  surface marked as that organization's own, and such a gate stops for an
+  unset or `TODO` organization.
 - A new organization can be authored from `organizations/_template/` with
   no skill edits.
 - Smoke fixtures cover security intake, release backend, and contributor

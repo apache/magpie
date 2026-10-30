@@ -490,12 +490,590 @@ def test_compound_command_other_segment_not_denied():
     assert dispatch(command) is None
 
 
-def test_malformed_command_allows():
+_TRAILER_COMMIT = 'git commit -m "x\nCo-Authored-By: a"'
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        # A newline ends a command, as `;` does.
+        f"echo hi\n{_TRAILER_COMMIT}",
+        # Control operators split a command with or without spaces around them.
+        f"echo hi;{_TRAILER_COMMIT}",
+        f"true&&{_TRAILER_COMMIT}",
+        f"false||{_TRAILER_COMMIT}",
+        f"echo hi|{_TRAILER_COMMIT}",
+        f"sleep 1&{_TRAILER_COMMIT}",
+        f"echo hi|&{_TRAILER_COMMIT}",
+        # Subshells, groups, reserved words and comments.
+        f"({_TRAILER_COMMIT})",
+        f"{{ {_TRAILER_COMMIT}; }}",
+        f"if true; then {_TRAILER_COMMIT}; fi",
+        f"case x in x) {_TRAILER_COMMIT};; esac",
+        f"! {_TRAILER_COMMIT}",
+        f"echo hi # it's a note\n{_TRAILER_COMMIT}",
+        f"f() {{ {_TRAILER_COMMIT}; }}; f",
+        # A continued line joins the next: `x#'` is a word, not a comment.
+        f"echo x\\\n#'\ncat <<EOF\n'\n{_TRAILER_COMMIT}\nEOF",
+        # Substitutions run their command.
+        f"echo $({_TRAILER_COMMIT})",
+        f'echo "$({_TRAILER_COMMIT})"',
+        f"echo `{_TRAILER_COMMIT}`",
+        f"cat <({_TRAILER_COMMIT})",
+        f"echo ${{x:-$({_TRAILER_COMMIT})}}",
+        f"echo $(( $({_TRAILER_COMMIT}) ))",
+        # A `case` pattern's `)` inside a substitution or subshell.
+        f"echo $(case x in x) echo;; esac; {_TRAILER_COMMIT})",
+        f"(case x in x) true;; esac; {_TRAILER_COMMIT})",
+        f'echo "$(case x in x) echo;; esac; {_TRAILER_COMMIT})"',
+        # A quoted or escaped `>` is no redirection: `&` / `|` still split.
+        f"echo '>'&{_TRAILER_COMMIT}",
+        f"echo \\>|{_TRAILER_COMMIT}",
+        f'echo ">"&{_TRAILER_COMMIT}',
+        # A function body behind `function name`.
+        f"function f {{ {_TRAILER_COMMIT}; }}; f",
+        f"function f() {{ {_TRAILER_COMMIT}; }}; f",
+        # `time` and `coproc` keep command position for a group.
+        f"time {{ {_TRAILER_COMMIT}; }}",
+        f"time -p {{ {_TRAILER_COMMIT}; }}",
+        f"! time -p -- {{ {_TRAILER_COMMIT}; }}",
+        f"coproc {{ {_TRAILER_COMMIT}; }}",
+        f"coproc c {{ {_TRAILER_COMMIT}; }}",
+        # ANSI-C escapes decode as bash decodes them.
+        """$'\\x67it' commit -m "x\nCo-Authored-By: a\"""",
+        """$'\\147it' commit -m "x\nCo-Authored-By: a\"""",
+        """$'\\u0067it' commit -m "x\nCo-Authored-By: a\"""",
+        # A brace is a group only in command position; elsewhere it is a word
+        # and does not move a command boundary.
+        f"echo {{ x\n{_TRAILER_COMMIT}\n}}",
+        f"echo x}} ; {_TRAILER_COMMIT}",
+        'git commit -m x } -m "Co-Authored-By: a"',
+        'git commit -m x { -m "Co-Authored-By: a"',
+        # A NUL from a `$'…'` escape truncates the word in bash.
+        """$'git\\0x' commit -m "x\nCo-Authored-By: a\"""",
+        """$'git\\x00x' commit -m "x\nCo-Authored-By: a\"""",
+        """$'git\\u0000x' commit -m "x\nCo-Authored-By: a\"""",
+        # `case` behind any prefix inside a substitution.
+        f'echo "$(time case x in x) echo;; esac; {_TRAILER_COMMIT})"',
+        f'echo "$(time -p case x in x) echo;; esac; {_TRAILER_COMMIT})"',
+        # A heredoc fed to a shell runs its body.
+        f"bash <<'EOF'\n{_TRAILER_COMMIT}\nEOF",
+        # An unquoted heredoc expands its substitutions.
+        f"cat <<EOF > notes.md\n$({_TRAILER_COMMIT})\nEOF",
+    ],
+)
+def test_every_command_of_a_line_is_checked(command):
+    assert dispatch(command) is not None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "echo 'a;git push' \"b && gh pr merge 5\"",
+        "ls 2>&1 | grep x",
+        "make >/dev/null 2>&1 &",
+        "echo hi &>/dev/null",
+        "echo hi >| out.txt",
+        "cat <<< 'git notes'",
+        "cat <<'EOF' > notes.md\ngit commit -m x\nCo-Authored-By: a\nEOF",
+        "echo hi # git commit -m x Co-Authored-By: a",
+        "for f in a b; do echo $f; done",
+    ],
+)
+def test_quoted_and_redirection_text_is_not_a_command(command):
+    assert dispatch(command) is None
+
+
+def test_heredoc_body_stays_on_the_commit_it_feeds():
+    command = "git commit -F - <<'EOF'\nfix\n\nCo-Authored-By: a\nEOF"
+    assert dispatch(command) is not None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        'gh pr comment 5 --body "oops',
+        "git commit -m 'it''s",
+        "cd /tmp && /usr/bin/git push --force \\",
+        # Inside a shell `-c` string.
+        """bash -c "git commit -m 'oops" """,
+        # Quoting and escapes inside the word: bash still runs git / gh.
+        "g'i't push --force ; echo 'oops",
+        '"g"h pr merge 5 ; echo \'oops',
+        "g\\it push --force ; echo 'oops",
+        "$'gh' pr merge 5 ; echo 'oops",
+        "/usr/bin/gi''t push --force ; echo 'oops",
+        "g\\\nit push --force ; echo 'oops",
+        "$'g'h pr merge 5 ; echo 'oops",
+        '$"g"h pr merge 5 ; echo \'oops',
+        # Expansions that may be empty: the guards cannot see the word.
+        "g$()it push --force ; echo 'oops",
+        "g${x:-}it push --force ; echo 'oops",
+        "g``it push --force ; echo 'oops",
+        "g$@it push --force ; echo 'oops",
+        "$CMD push --force ; echo 'oops",
+        # Globs and brace expansion can resolve to git / gh.
+        "/usr/bin/gi? push --force ; echo 'oops",
+        "/usr/bin/g*t push --force ; echo 'oops",
+        "/usr/bin/g[i]t push --force ; echo 'oops",
+        "/usr/bin/g{i,}t push --force ; echo 'oops",
+    ],
+)
+def test_untokenisable_command_naming_a_guarded_head_is_refused(command):
+    reason = dispatch(command)
+    assert reason and "agent-guard[parse]" in reason
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        'echo "oops',
+        "grep -r 'digit",  # `git` only inside a longer word
+        "cat .gitignore 'x",
+        "ls github.com/'x",
+    ],
+)
+def test_untokenisable_command_without_a_guarded_head_allows(command):
+    assert dispatch(command) is None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "cat <<'EOF' > notes.md\nThe user's git configuration\nEOF",
+        'cat <<-"EOF" > notes.md\n\tThe user\'s gh login\n\tEOF\necho done',
+    ],
+)
+def test_heredoc_body_apostrophe_is_not_quoting(command):
+    assert dispatch(command) is None
+
+
+def test_heredoc_stripped_line_is_still_checked():
+    command = "cat <<'EOF' > notes.md\nIt's the user's notes\nEOF\ngit commit -m 'oops"
+    reason = dispatch(command)
+    assert reason and "agent-guard[parse]" in reason
+
+
+def test_time_keyword_assignments_are_seen_through():
+    assert dispatch('time FOO=1 git commit -m "x\nCo-Authored-By: a"') is not None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        """zsh -oSH_WORD_SPLIT -c 'git commit -m "x\nCo-Authored-By: a"'""",
+        """bash -o pipefail -c 'git commit -m "x\nCo-Authored-By: a"'""",
+    ],
+)
+def test_shell_option_values_do_not_hide_the_c_string(command):
+    assert dispatch(command) is not None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        """bash -oc pipefail 'git commit -m "x\nCo-Authored-By: a"'""",
+        """sh -ec 'git commit -m "x\nCo-Authored-By: a"'""",
+    ],
+)
+def test_bash_option_clusters_do_not_hide_the_c_string(command):
+    assert dispatch(command) is not None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "bash <<'EOF'\nit's the user's script\ngit push --force\nEOF\necho 'oops",
+        "python3 - <<'EOF'\nit's the user's script, run git\nEOF\necho 'oops",
+        "cat <<'EOF' | bash\nit's the user's script\ngit push --force\nEOF\necho 'oops",
+        "cat <<'EOF' \\\n| bash\nit's the user's script\ngit push --force\nEOF\necho 'oops",
+        "cat <<'EOF'\nthe user's notes\ngit history",
+    ],
+)
+def test_heredoc_that_runs_or_never_closes_is_not_stripped(command):
+    reason = dispatch(command)
+    assert reason and "agent-guard[parse]" in reason
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        # `<<EOF` inside a comment or quotes opens no heredoc: bash runs the
+        # next line as a command, and the guards check it.
+        f"cat /dev/null # <<EOF it's\n{_TRAILER_COMMIT}\nEOF",
+        f"cat /dev/null '<<EOF' # it's\n{_TRAILER_COMMIT}\nEOF",
+        f"cat /dev/null \"<<EOF\" $'it\\'s'\n{_TRAILER_COMMIT}\nEOF",
+        # A quote opened on an earlier line is still open.
+        f"echo 'x\ncat <<EOF' # it's\n{_TRAILER_COMMIT}\nEOF",
+    ],
+)
+def test_heredoc_operator_in_a_comment_or_quotes_is_not_a_heredoc(command):
+    assert dispatch(command) is not None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        # bash joins `x\` and `#'` into the word `x#'`: the `#` is no comment,
+        # and the `'` opens a quote that swallows `cat <<EOF` and closes on
+        # the `'` line, so bash runs the line after it as a command. The last
+        # line leaves a quote open, so the command reaches heredoc stripping.
+        "echo x\\\n#'\ncat <<EOF\n'\ngit push --force\nEOF\necho 'oops",
+        "echo x\\\n#'\ncat <<'EOF'\n'\ngit push --force\nEOF\necho 'oops",
+        # A continued line that opens no heredoc, ahead of one that does: kept
+        # whole too, since this reader does not follow the joined line.
+        "echo x \\\n  y\ncat <<'EOF'\ngit push --force\nEOF\necho 'oops",
+    ],
+)
+def test_continued_line_anywhere_keeps_the_command_whole(command):
+    reason = dispatch(command)
+    assert reason and "agent-guard[parse]" in reason
+
+
+def test_backslash_inside_a_heredoc_body_is_data():
+    assert dispatch("cat <<'EOF' > notes.md\nthe user's git notes \\\nEOF") is None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "cat <<EOF\nit's $(git push --force)\nEOF",
+        "cat <<EOF > notes.md\nit's `gh pr merge 5`\nEOF",
+    ],
+)
+def test_unquoted_heredoc_body_substitution_is_not_stripped(command):
+    reason = dispatch(command)
+    assert reason and "agent-guard[parse]" in reason
+
+
+def test_quoted_heredoc_body_substitution_is_data():
+    assert dispatch("cat <<'EOF' > notes.md\nit's $(git log) in the docs\nEOF") is None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        # The guards cannot see what an expansion or glob in the command name
+        # resolves to, so such a command is refused even when it tokenises.
+        "$CMD push --force",
+        '"$CMD" push --force',
+        "${CMD} push --force",
+        "CMD=git; $CMD push --force",
+        "$(echo git) push --force",
+        "`echo git` push --force",
+        "/usr/bin/gi? push --force",
+        "/usr/bin/g*t push --force",
+        "/usr/bin/g[i]t push --force",
+        "/usr/bin/g{i,}t push --force",
+        "env $CMD push --force",
+        "command $CMD push --force",
+        # zsh expands `=cmd` to the command's path and `(…)` as a glob group.
+        "=git push --force",
+        "/usr/bin/g(i)t push --force",
+        "/usr/bin/gi<-> push --force",
+        "/usr/bin/g^x push --force",
+        "/usr/bin/git~x push --force",
+        # The `uv` rule is keyed on the basename, which does not make the
+        # head literal: the shell splits `${CMD}` into words.
+        'CMD="git push --force"; ${CMD}/uv',
+        "${CMD}/uvx",
+        "$(echo git)/uv",
+    ],
+)
+def test_expanded_command_name_is_refused(command):
+    reason = dispatch(command)
+    # `g(i)t` cannot be read as bash at all, so it is refused as unparsable
+    assert reason and ("agent-guard[expansion]" in reason or "agent-guard[parse]" in reason)
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "[ -f README.md ]",
+        "[[ -f README.md ]]",
+        "echo $HOME",
+        "ls *.md",
+        "X=$(pwd) ls",
+        "git log --format='%h {x}'",
+        # Literal names: paths, `~/`, and the characters real tools use.
+        "~/.local/bin/uv-tool --version",
+        "./scripts/build.sh",
+        "/usr/bin/git status",
+        "g++ --version",
+        "python3.12 -V",
+        "docker-compose ps",
+    ],
+)
+def test_expansion_outside_the_command_name_allows(command):
+    assert dispatch(command) is None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        # bash allows redirections before the command name; the command after
+        # them is the one that runs.
+        f">/dev/null {_TRAILER_COMMIT}",
+        f"> /dev/null {_TRAILER_COMMIT}",
+        f"2>&1 {_TRAILER_COMMIT}",
+        f"</dev/null {_TRAILER_COMMIT}",
+        f"&>>log {_TRAILER_COMMIT}",
+        f"X=1 2>/dev/null {_TRAILER_COMMIT}",
+        f"{{fd}}>log {_TRAILER_COMMIT}",
+        f"nohup >log env {_TRAILER_COMMIT}",
+        # A detached target after `>&` / `N>&` / `<&` is the next word.
+        f">& /dev/null {_TRAILER_COMMIT}",
+        f"2>& /dev/null {_TRAILER_COMMIT}",
+        f"<& 0 {_TRAILER_COMMIT}",
+        f"&> /dev/null {_TRAILER_COMMIT}",
+        f">| /dev/null {_TRAILER_COMMIT}",
+    ],
+)
+def test_command_after_leading_redirections_is_checked(command):
+    reason = dispatch(command)
+    assert reason and "Co-Authored-By" in reason
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        # bash removes a redirection wherever it stands, so one between a
+        # wrapper's options is not the command.
+        f"env 2>/dev/null -i {_TRAILER_COMMIT}",
+        f"env -i 2>/dev/null -0 {_TRAILER_COMMIT}",
+        f"command -p 2>/dev/null -- {_TRAILER_COMMIT}",
+        f"exec -c 2>/dev/null -a name {_TRAILER_COMMIT}",
+        f"time -p 2>/dev/null {_TRAILER_COMMIT}",
+        f"nohup 2>/dev/null -- {_TRAILER_COMMIT}",
+    ],
+)
+def test_redirections_between_wrapper_options_are_skipped(command):
+    reason = dispatch(command)
+    assert reason and "Co-Authored-By" in reason
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        # Where an option takes a value, a redirection-shaped word is either a
+        # redirection before the value or, quoted, the value itself; tokens
+        # cannot tell which, and reading the wrong one shifts the command.
+        "env -u 2>/dev/null NAME git push --force",
+        "env -u '>x' git push --force",
+        "env --unset > /dev/null NAME git push --force",
+        "env -C 2>/dev/null /tmp git push --force",
+        "exec -a 2>/dev/null name git push --force",
+        "exec -a '>' x git push --force",
+        "time -o 2>/dev/null out.txt git push --force",
+        "time --output '>x' git push --force",
+    ],
+)
+def test_a_redirection_shaped_option_value_is_refused(command):
+    reason = dispatch(command)
+    assert reason and "agent-guard[wrapper]" in reason
+
+
+def test_a_quoted_redirection_shaped_value_does_not_hide_the_command():
+    """`env -u '>x' git …` unsets `>x` and runs git: never read `git` as the value."""
+    assert dispatch("env -u '>x' git status") is not None
+
+
+def test_wrappers_and_redirections_past_the_limit_are_refused():
+    command = "nohup >log " * 80 + _TRAILER_COMMIT
+    reason = dispatch(command)
+    assert reason and "agent-guard[wrapper]" in reason
+
+
+@pytest.mark.parametrize("command", ["exec 3>&1", "2>/dev/null git status", ">out.txt echo hi"])
+def test_leading_redirections_on_a_clean_command_allow(command):
+    assert dispatch(command) is None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        # `<<` as a shift operator opens no heredoc.
+        f"cat /dev/null $((1<<x)) # it's\n{_TRAILER_COMMIT}\nx",
+        f"cat /dev/null $[1<<x] # it's\n{_TRAILER_COMMIT}\nx",
+        f"cat /dev/null ${{a[1<<x]}} # it's\n{_TRAILER_COMMIT}\nx",
+        # A `<<` inside arithmetic opened on an earlier line.
+        f"echo $((1 +\ncat <<x)) # it's\n{_TRAILER_COMMIT}\nx",
+    ],
+)
+def test_shift_operator_is_not_a_heredoc(command):
+    assert dispatch(command) is not None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        # bash's delimiter is the whole word after quote removal: `E-O:F`,
+        # `EOF`; a shorter one would close the body too late.
+        f"cat <<E-O:F # it's\nE-O:F\n{_TRAILER_COMMIT}\nE-O",
+        f"cat <<'E'OF # it's\nEOF\n{_TRAILER_COMMIT}\nE",
+        f'cat <<E"O"F # it\'s\nEOF\n{_TRAILER_COMMIT}\nE',
+    ],
+)
+def test_heredoc_delimiter_is_the_whole_word(command):
+    assert dispatch(command) is not None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "cat <<'E'OF > notes.md\nthe user's git notes\nEOF",
+        "cat <<\\EOF > notes.md\nthe user's git notes\nEOF",
+        "tee -a notes.md <<'EOF'\nthe user's git notes\nEOF",
+    ],
+)
+def test_heredoc_with_a_quoted_delimiter_word_is_data(command):
+    assert dispatch(command) is None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        # A body naming git / gh is stripped only for a bare `cat` / `tee`.
+        "cat $(echo x) <<'EOF'\nthe user's git notes\nEOF",
+        "cat <<'EOF' > \"$f\"\nthe user's git notes\nEOF",
+        "x/cat <<'EOF'\nthe user's git notes\nEOF",
+        # The intro continues the previous line: `bash -s` runs stdin.
+        "bash -s \\\ncat <<'EOF'\nit's\ngit push --force\nEOF",
+        # `cat` redefined as a function or alias.
+        "cat() { bash; }\ncat <<'EOF'\nit's\ngit push --force\nEOF",
+        "alias cat=bash\ncat <<'EOF'\nit's\ngit push --force\nEOF",
+        # The cat output is run: substitution, process substitution, eval,
+        # or a group piped to a shell.
+        "$(cat <<'EOF'\nit's\ngit push --force\nEOF\n)",
+        "`cat <<'EOF'\nit's\ngit push --force\nEOF\n`",
+        "eval \"$(cat <<'EOF'\nit's\ngit push --force\nEOF\n)\"",
+        "bash <(cat <<'EOF'\nit's\ngit push --force\nEOF\n)",
+        "(\ncat <<'EOF'\nit's\ngit push --force\nEOF\n) | bash",
+        "{\ncat <<'EOF'\nit's\ngit push --force\nEOF\n} | bash",
+    ],
+)
+def test_heredoc_sink_must_be_a_bare_cat_or_tee(command):
+    reason = dispatch(command)
+    assert reason and "agent-guard[parse]" in reason
+
+
+def test_eval_string_is_checked_like_a_shell_c_string():
+    assert dispatch("""eval 'git commit -m "x\nCo-Authored-By: a"'""") is not None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        """eval -- 'git commit -m "x\nCo-Authored-By: a"'""",
+        """builtin eval 'git commit -m "x\nCo-Authored-By: a"'""",
+        """command eval 'git commit -m "x\nCo-Authored-By: a"'""",
+    ],
+)
+def test_eval_spellings_are_checked_like_eval(command):
+    assert dispatch(command) is not None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        """builtin command -- eval 'git commit -m "x\nCo-Authored-By: a"'""",
+        """command -p eval 'git commit -m "x\nCo-Authored-By: a"'""",
+    ],
+)
+def test_eval_behind_a_prefix_chain_is_checked(command):
+    assert dispatch(command) is not None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "eval -x 'git push --force'",
+        "command -x eval 'git push --force'",
+        "builtin -x eval 'git push --force'",
+    ],
+)
+def test_eval_with_an_option_is_refused(command):
+    reason = dispatch(command)
+    assert reason and "agent-guard[wrapper]" in reason
+
+
+def test_command_lookup_is_not_an_eval():
+    assert dispatch("command -v gh") is None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        # Anywhere in the rest of the command, after quote removal.
+        "cat <<'EOF' > s\nit's\ngit push --force\nEOF\nxargs e'v'al < s",
+        "cat <<'EOF' > s\nit's\ngit push --force\nEOF\nenv source s",
+        "cat <<'EOF' > s\nit's\ngit push --force\nEOF\nenv . s",
+        "hash -p /bin/bash cat\ncat <<'EOF'\nit's\ngit push --force\nEOF",
+        "enable -f x.so cat\ncat <<'EOF'\nit's\ngit push --force\nEOF",
+    ],
+)
+def test_heredoc_body_is_kept_next_to_eval_source_hash_or_enable(command):
+    reason = dispatch(command)
+    assert reason and "agent-guard[parse]" in reason
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        # A non-sink heredoc body redefines `cat` before the stripped one.
+        "bash <<'A'\ncat(){ bash; }\nA\ncat <<'EOF'\nit's\ngit push --force\nEOF",
+        # `eval` / `source` / `.` behind a prefix.
+        "builtin source x\ncat <<'EOF'\nit's\ngit push --force\nEOF",
+        "command . x\ncat <<'EOF'\nit's\ngit push --force\nEOF",
+        "X=1 eval x\ncat <<'EOF'\nit's\ngit push --force\nEOF",
+    ],
+)
+def test_heredoc_body_is_stripped_only_when_every_heredoc_is_a_sink(command):
+    reason = dispatch(command)
+    assert reason and "agent-guard[parse]" in reason
+
+
+def test_shell_option_value_letters_are_not_flags():
+    # `c` inside zsh's attached option value is not `-c`
+    assert dispatch("zsh -onocorrect script.zsh") is None
+
+
+def test_untokenisable_command_honours_the_hook_env_kill_switch(monkeypatch):
+    monkeypatch.setenv("MAGPIE_GUARD_OFF", "1")
     assert dispatch('gh pr comment 5 --body "oops') is None
 
 
-def test_global_off(monkeypatch):
-    assert dispatch('MAGPIE_GUARD_OFF=1 git commit -m "x\nCo-Authored-By: a"') is None
+def test_global_off_from_the_hook_environment(monkeypatch):
+    monkeypatch.setenv("MAGPIE_GUARD_OFF", "1")
+    assert dispatch('git commit -m "x\nCo-Authored-By: a"') is None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        'MAGPIE_GUARD_OFF=1 git commit -m "x\nCo-Authored-By: a"',
+        'env MAGPIE_GUARD_OFF=1 git commit -m "x\nCo-Authored-By: a"',
+        "MAGPIE_GUARD_OFF=1 bash -c \"git commit -m 'x\nCo-Authored-By: a'\"",
+    ],
+)
+def test_global_off_inline_is_ignored(command):
+    reason = dispatch(command)
+    assert reason and "Co-Authored-By" in reason
+
+
+@pytest.mark.parametrize("value", ["", "0", "false", "False"])
+def test_global_off_falsy_values_keep_the_guards(monkeypatch, value):
+    monkeypatch.setenv("MAGPIE_GUARD_OFF", value)
+    assert dispatch('git commit -m "x\nCo-Authored-By: a"') is not None
+
+
+def test_global_off_inline_does_not_pass_an_unparsable_wrapper():
+    reason = dispatch("MAGPIE_GUARD_OFF=1 env -S 'git status'")
+    assert reason and "agent-guard[wrapper]" in reason
+
+
+def test_per_guard_inline_override_still_honoured():
+    assert dispatch('MAGPIE_ALLOW_COAUTHOR=1 git commit -m "x\nCo-Authored-By: a"') is None
 
 
 # --------------------------------------------------------------------------- #
@@ -981,3 +1559,137 @@ def test_an_unparsable_wrapper_is_refused(command):
 def test_wrapper_option_forms_still_reach_the_guards(prefix):
     reason = agent_guard.dispatch(f'{prefix}git commit -m "x\n\nCo-Authored-By: a"')
     assert reason and "Co-Authored-By" in reason
+
+
+# --------------------------------------------------------------------------- #
+# More prefix wrappers: `exec`, `nohup`, `time`, and a shell's `-c` string.
+# --------------------------------------------------------------------------- #
+
+COAUTHOR_COMMIT = 'git commit -m "x\n\nCo-Authored-By: a"'
+
+
+@pytest.mark.parametrize(
+    "prefix",
+    [
+        "exec ",
+        "exec -c ",
+        "exec -l ",
+        "exec -cl ",
+        "exec -a name ",
+        "exec -aname ",
+        "exec -- ",
+        "nohup ",
+        "nohup -- ",
+        "time ",
+        "time -p ",
+        "time -v ",
+        "time -o out.txt ",
+        "time -f %e ",
+        "time --format=%e ",
+        "time --output out.txt ",
+        "/usr/bin/time -l ",
+        "env FOO=1 ",
+        "nohup env FOO=1 command ",
+        "time nohup exec ",
+    ],
+)
+def test_more_prefix_wrappers_reach_the_bundled_guards(prefix):
+    reason = agent_guard.dispatch(f"{prefix}{COAUTHOR_COMMIT}")
+    assert reason and "Co-Authored-By" in reason
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "bash -c 'git commit -m \"x\n\nCo-Authored-By: a\"'",
+        "sh -c 'git commit -m \"x\n\nCo-Authored-By: a\"'",
+        "zsh -c 'git commit -m \"x\n\nCo-Authored-By: a\"'",
+        "bash -lc 'git commit -m \"x\n\nCo-Authored-By: a\"'",
+        "bash -e -c 'git commit -m \"x\n\nCo-Authored-By: a\"'",
+        "bash -o pipefail -c 'git commit -m \"x\n\nCo-Authored-By: a\"'",
+        "bash --norc -c 'git commit -m \"x\n\nCo-Authored-By: a\"'",
+        "/bin/sh -c 'git commit -m \"x\n\nCo-Authored-By: a\"' name arg",
+        "env bash -c 'git commit -m \"x\n\nCo-Authored-By: a\"'",
+        "cd /tmp && bash -c 'ls && git commit -m \"x\n\nCo-Authored-By: a\"'",
+        "bash -c 'env git commit -m \"x\n\nCo-Authored-By: a\"'",
+    ],
+)
+def test_shell_dash_c_string_reaches_the_bundled_guards(command):
+    reason = agent_guard.dispatch(command)
+    assert reason and "Co-Authored-By" in reason
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "bash -c 'git status'",
+        "sh -c 'ls -la && git log --oneline -5'",
+        "bash -c \"git commit -m 'clean fix'\"",
+        "bash script.sh -c 'git commit'",  # `-c` after the script is the script's
+        "bash",
+        "bash -l",
+        "nohup --help",
+        "exec",
+        "exec 3>&1",
+        "time",
+        "time -p ls",
+        "nohup ./build.sh",
+    ],
+)
+def test_wrappers_and_shells_still_allow_clean_commands(command):
+    assert agent_guard.dispatch(command) is None
+
+
+def test_shell_dash_c_inherits_inline_per_guard_overrides():
+    command = "MAGPIE_ALLOW_COAUTHOR=1 bash -c 'git commit -m \"x\n\nCo-Authored-By: a\"'"
+    assert agent_guard.dispatch(command) is None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "bash -c \"bash -c 'git status'\"",
+        "sh -c 'zsh -c \"gh pr view 1\"'",
+        "exec -x git commit -m x",
+        "exec -a",
+        "nohup -x git commit -m x",
+        "time -Z git commit -m x",
+        "time --bogus git commit -m x",
+        "time -o",
+    ],
+)
+def test_more_unparsable_wrappers_are_refused(command):
+    reason = agent_guard.dispatch(command)
+    assert reason and "agent-guard[wrapper]" in reason
+
+
+def test_nested_shell_without_a_guarded_head_allows():
+    assert agent_guard.dispatch("bash -c \"sh -c 'echo hi'\"") is None
+
+
+def test_wrapped_vetted_launch_behind_the_new_wrappers_is_refused():
+    for prefix in ("exec ", "nohup ", "time "):
+        reason = agent_guard.dispatch(
+            f"{prefix}uv run --project ~/.claude/magpie/vetted-ops vetted-op-read x"
+        )
+        assert reason and "whole command" in reason
+
+
+def test_git_run_in_the_opened_tree_ignores_its_fsmonitor_and_hooks(tmp_path):
+    """A crafted `.git/config` (a tarball, an svn checkout carrying `.git/`) can
+    name a `core.fsmonitor` program git runs on any index refresh; the guard's
+    own git calls never run it."""
+    import subprocess
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    marker = tmp_path / "marker"
+    hook = tmp_path / "hook.sh"
+    hook.write_text(f"#!/bin/sh\necho ran >> {marker}\nexit 1\n")
+    hook.chmod(0o755)
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    (repo / "f.txt").write_text("hi\n")
+    subprocess.run(["git", "-C", str(repo), "add", "f.txt"], check=True)
+    subprocess.run(["git", "-C", str(repo), "config", "core.fsmonitor", str(hook)], check=True)
+    assert agent_guard._run(["git", "status", "--porcelain"], cwd=str(repo)) is not None
+    assert not marker.exists()

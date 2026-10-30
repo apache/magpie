@@ -13,7 +13,7 @@ The invoked skill's own frontmatter reads `name: magpie-issue-triage` and
 `surface_hash: sha256:2edc90a1b7f3440d`.
 
 The running agent is Claude Code. `claude plugin list --json` reports all three
-plugins at 0.4.0 from the `apache-magpie` marketplace.
+plugins, and magpie-vetted-ops, at 0.4.0 from the `apache-magpie` marketplace.
 
 The pre-flight command printed:
 

@@ -16,8 +16,8 @@ source: >
   pr-management-code-review's with-reviewers: path, and by setup
   (config Step 3c, verify 8i, isolated-setup-install Step R).
 acceptance:
-  - The tool runs only installed reviewer CLIs (codex, copilot, gemini,
-    grok, claude), each in its own read-only headless mode, and skips the model
+  - The tool runs only installed reviewer CLIs (codex, copilot, antigravity, pi,
+    goose, grok, claude), each in its own read-only headless mode, and skips the model
     running the harness unless told otherwise.
   - A reviewer's input is limited by construction to the diff, the changed
     files, and the PR title and body as they will be posted; no option
@@ -64,12 +64,16 @@ before the PR is created, through one shared block.
     and `--body-file`, runs every requested reviewer, and prints the merged
     report. `--allow-tracker-checkout` lets it run on a tracker checkout
     whose own code is under review.
-  - `commands --harness claude|codex|gemini|copilot` — prints one harness's
+  - `commands --harness claude|codex|antigravity|pi|goose|copilot` — prints one harness's
     command file as JSON `{path, content}`, rendered from one template
     (`commands.py`). Claude Code's is plugin-relative
     (`commands/adversarial-review.md`); Codex's is
-    `~/.codex/prompts/magpie-adversarial-review.md`; Gemini's is
-    `~/.gemini/commands/magpie-adversarial-review.toml`; Copilot CLI has no
+    `~/.codex/prompts/magpie-adversarial-review.md`; Antigravity's is the user
+    skill `~/.gemini/antigravity-cli/skills/magpie-adversarial-review/SKILL.md`,
+    which Antigravity offers as a slash command; Pi's is the user skill
+    `~/.pi/agent/skills/magpie-adversarial-review/SKILL.md`, invoked as
+    `/skill:magpie-adversarial-review`; Goose's is the user skill
+    `~/.agents/skills/magpie-adversarial-review/SKILL.md`; Copilot CLI has no
     command mechanism, so it gets an empty path and the one-line invocation.
 - `tools/adversarial-review/commands/adversarial-review.md` — the generated
   Claude Code command, pinned by a test against the generator.
@@ -110,7 +114,7 @@ before the PR is created, through one shared block.
   ([PR management family](pr-management-family.md)).
 - Setup wiring under `plugins/magpie-setup/skills/`: `setup/config.md`
   Step 3c, `setup/verify.md` 8i, `setup/adopt.md` 4a,
-  `isolated-setup-install/SKILL.md` Step R, and
+  `isolated-setup-install/step-r-adversarial-review.md` (Step R), and
   `isolated-setup-verify/conditional-checks.md` check 14.
 - The sandbox exclusion in `.claude/settings.json`, mirrored in
   `tools/sandbox-lint/expected.json`.
@@ -123,9 +127,24 @@ before the PR is created, through one shared block.
 - **Read-only backends, pinned by tests.** One adapter per CLI holds its
   headless command line: `codex exec -s read-only --ephemeral` with MCP servers
   switched off and `--output-schema`; `copilot -p` with the shell and write
-  tools denied; `gemini --approval-mode plan -o json`; `claude -p` with
+  tools denied; `agy --mode plan` with the brief on stdin as one
+  `stream-json` user message and no permission flag, so headless Antigravity
+  denies every tool that needs approval (the first denial ends its turn with
+  an empty answer, so its brief asks for file reads and searches only, and a
+  run that still hits one is an `error` naming the denied tool).
+  The brief names the tools that work (`list_dir`, `find_by_name`,
+  `grep_search`, `view_file` / `read_file`) and forbids subagents, because
+  headless agy asked to list or search a tree hands off to a research
+  subagent and ends its turn at once; a run that does so is reported as a
+  subagent handoff, and an empty run says why (#1871, #1852); `goose run --no-session` with
+  `GOOSE_MODE=chat`, Goose's chat-only mode, which runs no tools at all;
+  `claude -p` with
   `--strict-mcp-config` and Bash, the editing tools, web access and `Task`
   disallowed.
+  The `antigravity` reviewer is `skipped` on a tree that carries
+  `.agents/hooks.json` or `.agents/mcp_config.json` (or the legacy `.agent/`
+  spellings), because Antigravity would run that workspace configuration
+  itself.
   `grok` is kept read-only by a tool allowlist
   (`--tools read_file,grep,list_dir`), `--no-subagents`,
   `--disable-web-search`, and `--deny` rules for `Bash`, `Edit`, `Write`,
@@ -140,7 +159,10 @@ before the PR is created, through one shared block.
   private tracker the report says so in `warnings`.
 - **One findings schema, merged.** Every reviewer answers against the same
   schema (`severity`, `file`, `line`, `claim`, `evidence`). Parsing keeps the
-  good findings from a partly malformed reply and reports the bad ones;
+  good findings from a partly malformed reply and reports the bad ones,
+  with the reviewer's stderr and its raw output cut to the first 500 and
+  last 1500 characters, since a streamed reply's last event says how the
+  run ended (#1854);
   findings are de-duplicated across reviewers, keeping every reviewer's name,
   and sorted by severity.
 - **Bounded and interruptible.** Reviewers run in parallel, each with a
@@ -184,7 +206,7 @@ before the PR is created, through one shared block.
   (Step 3c) runs `detect`, pre-ticks every available backend except `self`,
   asks for the `mode`, and writes `.apache-magpie-local/adversarial-review.md`,
   showing the difference first when the file exists.
-  It then offers the Codex and Gemini command files under the user's home,
+  It then offers the Codex, Antigravity, Pi and Goose command files under the user's home,
   never in a repository.
   It is never part of a pre-flight entry.
   `verify` 8i reports configured reviewers whose CLI is gone and stale command
@@ -275,7 +297,7 @@ Behavioural eval suites under `tools/skill-evals/evals/`:
   writes and network, not reads, so an instruction injected into the diff
   could have it read a file elsewhere on the machine, and `grok`'s
   `read_file` and `grep` are likewise not confined to the working directory;
-  `copilot` and `gemini` keep any MCP servers they are configured with, and
+  `copilot` and `antigravity` keep any MCP servers they are configured with, and
   `grok` keeps its MCP servers connected but auto-denies every MCP tool call
   (`--deny MCPTool`).
   The README tells operators to keep private checkouts away from review
@@ -283,6 +305,6 @@ Behavioural eval suites under `tools/skill-evals/evals/`:
 - **Copilot CLI has no command file.** `setup` can only show the one-line
   invocation for it.
 - **Grok is a reviewer only, not a command-file harness.** `commands
-  --harness` covers `claude`, `codex`, `gemini` and `copilot`; a maintainer
+  --harness` covers `claude`, `codex`, `antigravity`, `pi`, `goose` and `copilot`; a maintainer
   working inside grok cannot be offered a generated command, though `detect`
   recognises grok as `self` from `GROK_SESSION_ID`.

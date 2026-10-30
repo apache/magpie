@@ -24,6 +24,7 @@
     - [CVE references must never point at non-public mailing-list threads](#cve-references-must-never-point-at-non-public-mailing-list-threads)
   - [Writing and editing documentation](#writing-and-editing-documentation)
     - [Tone: polite but firm — no room to wiggle](#tone-polite-but-firm--no-room-to-wiggle)
+    - [Golden rule — one reply, one thread; never combine threads](#golden-rule--one-reply-one-thread-never-combine-threads)
     - [Linking CVEs](#linking-cves)
     - [Linking tracker issues and PRs](#linking-tracker-issues-and-prs)
     - [Mentioning project maintainers and security-team members](#mentioning-project-maintainers-and-security-team-members)
@@ -33,6 +34,7 @@
     - [When the rule fires](#when-the-rule-fires)
   - [Before submitting](#before-submitting)
   - [References](#references)
+  - [Security](#security)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -86,6 +88,13 @@ The framework has two layers:
    `.apache-magpie-local/` (gitignored) in a repo that has adopted it
    (committed `.apache-magpie.lock`); a linked worktree of an adopted
    repo falls back to its main checkout's `.apache-magpie-local/`.
+   A Subversion working copy that has only installed Magpie uses
+   `<.svn>/apache-magpie/`; a project with no version control uses the
+   in-tree `.apache-magpie-local/`.
+   A VCS directory serves as the personal layer only when the current user
+   owns it and it is the only one at the root: with both a `.git` and a
+   Subversion working copy there, one may be versioned content of the other's
+   checkout, so the in-tree `.apache-magpie-local/` is used instead.
    A legacy in-tree `.apache-magpie-local/` in an unadopted repo is
    still read, after the git-directory home. See
    [`docs/setup/agentic-overrides.md`](docs/setup/agentic-overrides.md).
@@ -399,7 +408,7 @@ configuration before executing any command:
 | `<PROJECT>` | The project's **display name**, as written in prose, headings, and reporter-facing copy (example: `Apache Foo`). Upper-case throughout. Not interchangeable with `<project>` — see the note below the table. | `<project-config>/project.md` → `project_name` |
 | `<project>` | The project's **infrastructure slug**, as it appears inside mailing-list addresses, roster URLs, and svn / dist paths (example: `foo` in `dev@foo.apache.org`, `svn.apache.org/repos/asf/foo/site`, `dist.apache.org/repos/dist/dev/foo`). Lower-case throughout. Not interchangeable with `<PROJECT>` — see the note below the table. | `<project-config>/project.md` → `short_name`, lowercased — equivalently the name half of `upstream_repo` |
 | `<project-config>` | The adopting project's config directory in its tracker repo (alongside the gitignored `.apache-magpie/` snapshot, not inside it). Bootstrapped from `projects/_template/`. | Filesystem convention. |
-| `<framework>` | The framework root — `.apache-magpie/` (the gitignored snapshot) in adopting projects, `.` in framework standalone. Used in `uv run` and other invocations that address the framework's `tools/<name>/` subtrees. | Filesystem convention. |
+| `<framework>` | The framework root — `.` in framework standalone, `.apache-magpie/` (the gitignored snapshot) on a pinned-snapshot install, and `~/.cache/apache-magpie/framework/current` on a marketplace install: a writable copy of the shipped tools that the `magpie-security-tools` plugin's session hook materialises for the installed version. Used in `uv run` and other invocations that address the framework's `tools/<name>/` subtrees; on every install `uv run --project <framework>/tools/<tool> …` works as written. | Filesystem convention. |
 | `<tracker>` | GitHub slug of the (security) tracker repo (example: `airflow-s/airflow-s`). | `<project-config>/project.md` → `tracker_repo` |
 | `<upstream>` | GitHub slug of the upstream codebase the fixes land in (example: `apache/airflow`). | `<project-config>/project.md` → `upstream_repo` |
 | `<security-list>` | The project's security mailing list (example: `security@airflow.apache.org`). | `<project-config>/project.md` → `security_list` (under **Mailing lists**) |
@@ -461,11 +470,25 @@ line:
 test -x .git/hooks/pre-commit || prek install
 ```
 
-**Before opening or updating a PR, run `prek run --all-files`** as a
-hard pre-flight gate. The commit hook only sees the files in that
-commit, so issues in files committed earlier on the branch can slip
-past it; and the PR's CI run is scoped to the PR's diff, so a file the
-branch did not touch but broke anyway (a moved anchor, a renamed
+**Before opening or updating a PR, run every hook but the tests on every
+file, then the tests for what the branch changed**, as a hard pre-flight
+gate:
+
+```bash
+prek run --all-files --skip workspace-pytest
+prek run workspace-pytest --from-ref origin/main --to-ref HEAD
+```
+
+The second run tests only the workspace members with a file the branch
+changed (Markdown and plugin manifests aside), and every member that depends
+on one of them (`tools/dev/ci-pytest-batches.py` picks them, as the PR's
+`tests` workflow does). Do not run the whole suite locally (`prek run --all-files`
+with the tests included) unless asked: a change to a root build input such
+as `uv.lock` already gets a full run in CI.
+
+The commit hook only sees the files in that commit, so issues in files
+committed earlier on the branch can slip past it; and the PR's CI run is
+scoped to the PR's diff, so a file the branch did not touch but broke anyway (a moved anchor, a renamed
 heading, a hook whose config changed) goes green on the PR and fails on
 the `main` build after merge. A whole-tree run locally mirrors that
 `main` build and surfaces both classes before you push. If a hook modifies
@@ -1044,6 +1067,17 @@ hedging. Anchor every decision in an authoritative document, not the
 responder's opinion. Full phrasing patterns:
 [`docs/editorial-guidelines.md`](docs/editorial-guidelines.md#tone-polite-but-firm--no-room-to-wiggle).
 
+### Golden rule — one reply, one thread; never combine threads
+
+Every drafted email answers exactly one inbound thread, attached to that thread's `threadId` with its `Re: <root subject>`.
+**Never combine the responses to several threads into one message** —
+not for the same reporter, not for several trackers imported or updated in one run, not when the replies would be near-identical.
+A combined reply confuses the reporter, who cannot tell which report it answers,
+and the security team, who track each case by its thread and `Message-ID`.
+One thread that yields several trackers still gets one reply on that thread.
+No skill, override or bulk mode may relax this.
+Full rule: [`tools/gmail/threading.md`](tools/gmail/threading.md#the-rule).
+
 ### Linking CVEs
 
 Render every CVE ID as a clickable link, never bare text. Internal
@@ -1211,3 +1245,10 @@ model responds.
 - [`tools/gmail/`](tools/gmail/) — Gmail tool adapter: `tool.md` (overview), `operations.md` (MCP catalogue + no-update limitation), `threading.md` (prefer-`threadId`-else-subject-fallback rule), `asf-relay.md` (ASF-security-relay drafting), `search-queries.md` (query templates), `ponymail-archive.md` (ASF PonyMail URL construction).
 - [`tools/cve-tool-vulnogram/`](tools/cve-tool-vulnogram/) — Vulnogram (ASF CVE tool) adapter: `tool.md` (overview), `allocation.md` (PMC-gated allocation flow), `record.md` (record URLs + `#source` paste + `DRAFT`/`REVIEW`/`PUBLIC` state machine + reviewer-comment signal), `generate-cve-json/` (CVE-5.x JSON generator — Python project).
 - [`tools/cve-org/`](tools/cve-org/) — public CVE registry adapter: `tool.md` covers the MITRE CVE Services API v2 `check-published` recipe, used by `security-issue-sync` to verify that a closed tracker's CVE has propagated from the CNA tool to cve.org before sending the reporter the final *"CVE is live"* email.
+
+## Security
+
+Security model: [SECURITY.md](./SECURITY.md)
+
+Agents that scan this repository should consult `SECURITY.md` and the
+threat model it links before reporting issues.

@@ -7,7 +7,7 @@ The `magpie-adversarial-review` plugin is installed.
 ```yaml
 adversarial_review:
   mode: on-pr-create
-  reviewers: [gemini]
+  reviewers: [antigravity]
 ```
 
 Quirk 1 is fixed on branch `fix/stale-config-path`, pushed to the fork (Step 5 item 6).

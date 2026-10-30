@@ -1,0 +1,1 @@
+{"action": "update", "commands": ["agy plugin install https://github.com/apache/magpie"], "blocks": true, "mention_restart": true}

@@ -18,7 +18,7 @@ else:
     matched_adapter = None
 ```
 
-The detect contract is in [`tools/forwarder-relay/README.md` § `detect()`](../../../../../tools/forwarder-relay/README.md#detectmessage---adapter_name--null): each adapter evaluates the OR of a *sender-pattern* check against `From:` and a *preamble-match* regex against the first ~400 characters of the body.
+The detect contract is in [`tools/forwarder-relay/README.md` § `detect()`](../../../../../tools/forwarder-relay/README.md#detectmessage---adapter_name--null): each adapter evaluates the AND of a *sender-pattern* check against `From:` and a *preamble-match* regex against the first ~400 characters of the body; one signal alone is not a relay and is reported under `partial_matches` for the user to see.
 The first non-null wins; later adapters are skipped.
 
 **When `matched_adapter is None`** — no registered adapter recognised the message.

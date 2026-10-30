@@ -87,7 +87,7 @@ def test_findings_not_a_list_is_malformed():
 )
 def test_an_unreadable_finding_is_reported_and_the_others_kept(patch, message):
     text = json.dumps({"findings": [ONE, {**ONE, **patch}, "not an object"]})
-    findings, problems = parse_findings(text, "gemini")
+    findings, problems = parse_findings(text, "antigravity")
     assert [f.claim for f in findings] == ["wrong value"]
     assert len(problems) == 2 and message in problems[0] and "not an object" in problems[1]
 

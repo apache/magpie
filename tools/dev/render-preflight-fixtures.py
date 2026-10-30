@@ -33,7 +33,7 @@ verdict is rendered, never written:
 * `skill`, `hash` — the invoking skill's `name:` and `surface_hash:`.
 * `reconciled` — dict written to personal layer `reconciled.json`, or `null`.
 * `harness` — the harness whose session the case runs in (`codex`,
-  `copilot`, `gemini`, or `claude`). The renderer puts that harness's
+  `copilot`, `antigravity`, or `claude`). The renderer puts that harness's
   session markers in the environment and a stub listing command on `PATH`
   that prints `plugins`, so the checker detects the harness itself and
   reads the listing the way that harness's session would produce it.
@@ -42,6 +42,13 @@ verdict is rendered, never written:
 * `welcome` — `true` to include the skill family's first-run welcome guide.
   Left out otherwise (`--no-welcome`), so a floor case is about the floor
   and not about which family its skill happens to belong to.
+* `check` — `"welcome-due"` runs `python3 -m setup_preflight.welcome due`
+  instead of the full pre-flight: the hard-coded welcome check the `setup`
+  skill runs, since the setup family carries no shared pre-flight block.
+  Only `skill` and `reconciled` apply to it.
+
+Each suite in `SUITES` is rendered the same way; a `welcome-due` case's
+verdict follows `WELCOME_MARKER` rather than `MARKER`.
 
 Usage:
 
@@ -59,9 +66,14 @@ import sys
 import tempfile
 from pathlib import Path
 
-SUITE = Path("tools/skill-evals/evals/setup/preflight-floor/fixtures")
+SUITES = (
+    Path("tools/skill-evals/evals/setup/preflight-floor/fixtures"),
+    Path("tools/skill-evals/evals/setup/welcome-first-run/fixtures"),
+)
 CHECKER = Path("plugins/magpie-setup/skills/setup")
 MARKER = "\nThe pre-flight command printed:\n"
+WELCOME_MARKER = "\nThe welcome check printed:\n"
+WELCOME_DUE = "welcome-due"
 DEFAULT_SKILL = "issue-triage"
 DEFAULT_HASH = "sha256:2edc90a1b7f3440d"
 
@@ -71,9 +83,13 @@ DEFAULT_HASH = "sha256:2edc90a1b7f3440d"
 HARNESS_ENV: dict[str, dict[str, str]] = {
     "codex": {"CODEX_SANDBOX": "1"},
     "copilot": {"COPILOT_CLI": "1"},
-    "gemini": {"GEMINI_CLI": "1"},
+    "antigravity": {"ANTIGRAVITY_CONVERSATION_ID": "probe"},
+    "pi": {"PI_SESSION_ID": "probe"},
+    "goose": {"AGENT_SESSION_ID": "probe"},
     "claude": {"CLAUDECODE": "1"},
 }
+#: The listing executable, where it is not named after the harness.
+HARNESS_BIN: dict[str, str] = {"antigravity": "agy"}
 
 
 def run_checker(state: dict[str, object], repo_root: Path, scratch: Path) -> str:
@@ -101,6 +117,21 @@ def run_checker(state: dict[str, object], repo_root: Path, scratch: Path) -> str
         personal.mkdir(parents=True, exist_ok=True)
         (personal / "reconciled.json").write_text(json.dumps(reconciled), encoding="utf-8")
 
+    check = state.get("check")
+    if check is not None and check != WELCOME_DUE:
+        raise ValueError(f"`check` must be {WELCOME_DUE!r} or left out")
+    if check == WELCOME_DUE:
+        env = _env(scratch)
+        env["PYTHONPATH"] = str(repo_root / CHECKER)
+        skill = str(state.get("skill", "setup"))
+        due = [sys.executable, "-m", "setup_preflight.welcome", "due", "--skill", skill]
+        due += ["--project-root", str(project)]
+        result = subprocess.run(due, capture_output=True, text=True, env=env, cwd=project, check=False)
+        if result.returncode != 0:
+            detail = result.stderr.strip()
+            raise RuntimeError(f"setup_preflight.welcome due exited {result.returncode}: {detail}")
+        return result.stdout.rstrip("\n")
+
     harness = state.get("harness")
     listing = scratch / "plugins.json"
     plugins = state.get("plugins")
@@ -125,10 +156,11 @@ def run_checker(state: dict[str, object], repo_root: Path, scratch: Path) -> str
         bin_dir = scratch / "bin"
         bin_dir.mkdir()
         listing_arg = str(listing).replace("\\", "/")
-        stub = bin_dir / harness
+        binary = HARNESS_BIN.get(harness, harness)
+        stub = bin_dir / binary
         stub.write_text(f'#!/bin/sh\ncat "{listing_arg}"\n', encoding="utf-8")
         os.chmod(stub, 0o700)  # owner-only: the renderer runs it as itself
-        (bin_dir / f"{harness}.bat").write_text(f'@echo off\ntype "{listing}"\r\n', encoding="utf-8")
+        (bin_dir / f"{binary}.bat").write_text(f'@echo off\ntype "{listing}"\r\n', encoding="utf-8")
         env = _env(scratch)
         env["PATH"] = str(bin_dir) + os.pathsep + env["PATH"]
         env.update(markers)
@@ -201,23 +233,24 @@ def _env(scratch: Path) -> dict[str, str]:
     return env
 
 
-def render_report(prose: str, verdict: str) -> str:
+def render_report(prose: str, verdict: str, marker: str = MARKER) -> str:
     """The case's own prose, then the verdict block. Idempotent."""
-    if MARKER in prose:
-        prose = prose[: prose.index(MARKER)]
-    return prose.rstrip("\n") + "\n" + MARKER + "\n```json\n" + verdict + "\n```\n"
+    if marker in prose:
+        prose = prose[: prose.index(marker)]
+    return prose.rstrip("\n") + "\n" + marker + "\n```json\n" + verdict + "\n```\n"
 
 
 def render_suite(repo_root: Path) -> dict[Path, str]:
     """Every case's report as it should read now."""
-    suite = repo_root / SUITE
     out: dict[Path, str] = {}
-    for state_file in sorted(suite.glob("case-*/state.json")):
-        state = json.loads(state_file.read_text(encoding="utf-8"))
-        report = state_file.parent / "report.md"
-        with tempfile.TemporaryDirectory() as tmp:
-            verdict = run_checker(state, repo_root, Path(tmp))
-        out[report] = render_report(report.read_text(encoding="utf-8"), verdict)
+    for suite in SUITES:
+        for state_file in sorted((repo_root / suite).glob("case-*/state.json")):
+            state = json.loads(state_file.read_text(encoding="utf-8"))
+            report = state_file.parent / "report.md"
+            with tempfile.TemporaryDirectory() as tmp:
+                verdict = run_checker(state, repo_root, Path(tmp))
+            marker = WELCOME_MARKER if state.get("check") == WELCOME_DUE else MARKER
+            out[report] = render_report(report.read_text(encoding="utf-8"), verdict, marker)
     return out
 
 
@@ -228,8 +261,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     root: Path = args.repo_root.resolve()
-    suite = root / SUITE
-    cases = sorted(p for p in suite.glob("case-*") if p.is_dir())
+    cases = sorted(p for suite in SUITES for p in (root / suite).glob("case-*") if p.is_dir())
     missing = [c.name for c in cases if not (c / "state.json").is_file()]
     if missing:
         print(f"render-preflight-fixtures: no state.json in {', '.join(missing)}", file=sys.stderr)

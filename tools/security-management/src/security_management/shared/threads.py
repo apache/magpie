@@ -17,7 +17,7 @@
 """What the *Security mailing list thread* field says about where a tracker came from.
 
 The importers write one of a few shapes (`issue-import`'s Gmail-only line and
-archive URL, `-from-pr`'s and `-from-md`'s `N/A — …` sentinels), and
+archive URL, `-from-pr`'s, `-from-md`'s and `-from-scan`'s `N/A — …` sentinels), and
 `security-issue-deduplicate` or a later relay appends further lines. The
 primary reporter thread is the line with no forwarder or relay signal, per
 `tools/gmail/threading.md` § *Selecting the inbound thread when multiple are
@@ -30,8 +30,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
-PR_SENTINEL = "N/A — opened from public PR"
-MD_SENTINEL = "N/A — imported from markdown file"
+from generate_cve_json.cve_json import MD_SENTINEL, NO_THREAD_PREFIX, PR_SENTINEL, SCAN_SENTINEL
+
 GMAIL_SENTINEL = "No public archive URL — tracked privately on Gmail thread"
 
 _THREAD_ID = re.compile(r"Gmail thread\s+`?([A-Za-z0-9_-]{6,})`?", re.IGNORECASE)
@@ -87,6 +87,14 @@ def classify(value: str | None) -> dict[str, Any]:
     if lines[0]["text"].startswith(MD_SENTINEL):
         return done(
             "internal_audit", "the field holds the import-from-md sentinel: an internal audit finding"
+        )
+    if lines[0]["text"].startswith(SCAN_SENTINEL):
+        return done(
+            "internal_audit", "the field holds the import-from-scan sentinel: an internal scan finding"
+        )
+    if lines[0]["text"].startswith(NO_THREAD_PREFIX):
+        return done(
+            "internal_audit", "the field starts with `N/A —`: no reporter thread, an internal finding"
         )
     threads = [ln for ln in lines if ln["thread_id"] or ln["url"]]
     if not threads:

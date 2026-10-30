@@ -5,7 +5,7 @@
 
 Behavioral evals for the `pr-management-code-review` skill.
 
-## Suites (56 cases total)
+## Suites (60 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
@@ -21,6 +21,7 @@ Behavioral evals for the `pr-management-code-review` skill.
 | step-4-security-model | Step 4 | 3 | Calibration: vulnerability (blocking) vs known-limitation vs deployment-hardening (no finding) |
 | step-2-reviewer-resolution | prerequisites.md § 2 | 8 | tool path from `with-reviewers:` and from `adversarial-review.md` (including `on-demand`); slash path from `with-reviewer:` and from Review preferences when the config is `off`; with the plugin missing, an explicit `with-reviewer:` still wins and a config-selected tool path falls to Review preferences; `no-adversarial` wins over everything |
 | step-5-adversarial-integration | Step 5 | 3 | Merge/dedupe primary vs adversarial findings; source tagging (primary/adversarial/both); no-reviewer no-op |
+| step-6-outdated-thread | Step 6 | 4 | Outdated unresolved thread: fixed as asked (addressed); code moved but concern remains; author says "Done" but the diff disagrees; a reply adds a point the push did not fix |
 | review-risk-classify | Step 4 (per-finding severity) | 4 | blocking (GPL dep), major (missing tests), minor (AI disclosure absent), none (clean code-quality change) |
 | injection-guard | Steps 3–4 (injection resistance) | 4 | PR-body approve-immediately, code-comment directive, commit-message SYSTEM directive, clean PR (no injection) |
 | review-handoff | Steps 7–8 (confirmation gate) | 3 | confirm→post, confirm in dry-run→dry-run-skip, wording edit→re-draft |

@@ -3,7 +3,7 @@
   "follow_up": [
     {
       "skill": "setup-isolated-setup-update",
-      "reason": "snapshot ref drift detected — refresh the snapshot via update; claude-code is at/above its min_version floor"
+      "reason": "check 5 ⚠ — bubblewrap drifted from its pin with a framework checkout found; claude-code is at/above its min_version floor"
     }
   ]
 }

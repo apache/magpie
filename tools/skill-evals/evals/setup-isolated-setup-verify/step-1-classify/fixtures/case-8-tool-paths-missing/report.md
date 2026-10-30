@@ -28,6 +28,7 @@ cat .claude/settings.json:
       "allowedDomains": ["github.com", "api.github.com", "pypi.org"]
     },
     "filesystem": {
+      "denyRead": ["~/"],
       "allowRead": ["/home/alice/myrepo", "/tmp/claude", "$TMPDIR"],
       "allowWrite": ["/home/alice/myrepo", "/tmp/claude", "$TMPDIR"]
     }
@@ -118,11 +119,21 @@ Effective sandbox.enabled: true
 
 ## Check 7 — Denial commands
 
-cat ~/.aws/credentials:
-  Operation not permitted
+test -r <path>, for each of ~/.aws/credentials, ~/.ssh/id_ed25519, ~/.config/gh/hosts.yml, ~/.netrc, ~/.docker/config.json:
+  rc=1 for every path
 
-echo $AWS_ACCESS_KEY_ID:
-  (empty)
+stat -c '%F %t,%T' <path>, for each of the same paths:
+  stat: cannot statx '<path>': No such file or directory
+
+ls ~/.aws/credentials ~/.ssh/id_ed25519 (run by the user from their own terminal):
+  /home/alice/.aws/credentials
+  /home/alice/.ssh/id_ed25519
+
+env | cut -d= -f1 | sort:
+  CLAUDECODE CLAUDE_CODE_ENTRYPOINT HOME LANG PATH PWD SHELL SSH_AUTH_SOCK TERM TMPDIR USER
+
+echo $CLAUDE_CODE_ENTRYPOINT:
+  cli
 
 curl https://example.com:
   Permission to use Bash with command 'curl https://example.com' has been denied.

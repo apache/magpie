@@ -1,0 +1,14 @@
+{
+  "applied": [
+    "checker-copy-stale",
+    "privacy-llm-config-missing"
+  ],
+  "skipped": [
+    {
+      "id": "mentoring-config-missing",
+      "reason": "changed"
+    }
+  ],
+  "second_plan": [],
+  "bypass_calls": 0
+}

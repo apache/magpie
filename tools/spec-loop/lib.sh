@@ -121,15 +121,54 @@ spec_loop_launch_agent() {
             ${model_args[@]+"${model_args[@]}"} \
             ${cursor_format_args[@]+"${cursor_format_args[@]}"} \
             "$(cat "$prompt_file")" &
-    elif [ "$harness" = "gemini" ]; then
-        # Gemini CLI has no per-invocation effort/thinking-level flag.
-        # Keep the native sandbox and Magpie policies active. In headless mode,
-        # operations requiring approval are denied, not silently approved.
+    elif [ "$harness" = "antigravity" ]; then
+        # Antigravity CLI (`agy`) headless: `-p <prompt>`. Never pass
+        # --dangerously-skip-permissions: headless runs keep the request-review
+        # permission mode, so tool calls needing approval are soft-denied (the
+        # run still exits 0; the JSON envelope lists them in `denied_actions`).
+        # Effort is a first-class `--effort` flag (low|medium|high|xhigh|max).
+        local agy_effort_args=()
+        case "$effort" in
+            low)    agy_effort_args=(--effort low) ;;
+            medium) agy_effort_args=(--effort medium) ;;
+            high)   agy_effort_args=(--effort max) ;;
+        esac
         "$agent" \
-            --approval-mode default \
             --output-format "$output_format" \
             ${model_args[@]+"${model_args[@]}"} \
-            --prompt "$(cat "$prompt_file")" &
+            ${agy_effort_args[@]+"${agy_effort_args[@]}"} \
+            -p "$(cat "$prompt_file")" &
+    elif [ "$harness" = "pi" ]; then
+        # Pi headless: `-p <prompt>`, text output by default, JSONL events with
+        # `--mode json`. Pi itself never prompts; Magpie's user-scope Pi
+        # extension refuses every command that would need approval when there
+        # is no UI, so a push or a mutating gh call cannot run unattended.
+        # Effort is `--thinking` (off|minimal|low|medium|high|xhigh|max).
+        local pi_mode_args=()
+        case "$output_format" in
+            json|stream-json) pi_mode_args=(--mode json) ;;
+        esac
+        local pi_effort_args=()
+        case "$effort" in
+            low)    pi_effort_args=(--thinking low) ;;
+            medium) pi_effort_args=(--thinking medium) ;;
+            high)   pi_effort_args=(--thinking max) ;;
+        esac
+        "$agent" \
+            ${pi_mode_args[@]+"${pi_mode_args[@]}"} \
+            ${model_args[@]+"${model_args[@]}"} \
+            ${pi_effort_args[@]+"${pi_effort_args[@]}"} \
+            -p "$(cat "$prompt_file")" &
+    elif [ "$harness" = "goose" ]; then
+        # Goose headless: `goose run --no-session -i <file>` reads the prompt
+        # from the instructions file. No approval-skipping flag: Goose's mode
+        # comes from its settings, and Magpie's Goose hook refuses everything
+        # that would need confirmation outside approve mode, so a push or a
+        # mutating gh call cannot run unattended. Goose has no per-invocation
+        # effort flag, so the runner omits it.
+        "$agent" run --no-session \
+            ${model_args[@]+"${model_args[@]}"} \
+            -i "$prompt_file" &
     elif [ "$harness" = "kiro" ]; then
         # Kiro CLI headless: positional prompt to `kiro-cli chat --no-interactive`.
         # The model is selected by the chosen agent config (.kiro/agents), not a

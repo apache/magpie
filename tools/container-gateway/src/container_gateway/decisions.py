@@ -54,6 +54,7 @@ from .policy import (
     check_create,
     check_exec_create,
     check_update,
+    check_volume_create,
     resource_create_spelling_violation,
 )
 from .routes import ACT_BY_NAME, LIST_LIKE, Family, Route
@@ -523,6 +524,10 @@ def _decide(req: Request, ctx: PolicyContext) -> Allow | Deny:
         spelling_violation = resource_create_spelling_violation(req.body, r.libpod)
         if spelling_violation is not None:
             return spelling_violation
+        if r.family is Family.VOLUMES:
+            driver_denied = check_volume_create(req.body, libpod=r.libpod)
+            if driver_denied is not None:
+                return driver_denied
         body = dict(req.body)
         k = "labels" if r.libpod else "Labels"
         body[k] = with_label(body.get(k), ctx.slug)

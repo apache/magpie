@@ -33,7 +33,7 @@ on:  # yamllint disable-line rule:truthy
       - ".claude/settings.local.json"
       - "tools/agent-isolation/claude-settings.local.template.json"
       - "plugins/magpie-setup/skills/setup/family-mcp-allows.json"
-      - ".gemini/**"
+      - "tools/agent-isolation/antigravity/**"
       - "tools/sandbox-lint/**"
       - ".github/workflows/sandbox-lint.yml"
   push:
@@ -45,7 +45,7 @@ on:  # yamllint disable-line rule:truthy
       - ".claude/settings.local.json"
       - "tools/agent-isolation/claude-settings.local.template.json"
       - "plugins/magpie-setup/skills/setup/family-mcp-allows.json"
-      - ".gemini/**"
+      - "tools/agent-isolation/antigravity/**"
       - "tools/sandbox-lint/**"
       - ".github/workflows/sandbox-lint.yml"
 
@@ -104,5 +104,5 @@ jobs:
           fi
       - name: Run sandbox-lint
         run: uv run sandbox-lint
-      - name: Check Gemini sandbox and policy profile
-        run: uv run sandbox-lint --gemini .gemini
+      - name: Check the user-scope Antigravity profile
+        run: uv run sandbox-lint --antigravity tools/agent-isolation/antigravity

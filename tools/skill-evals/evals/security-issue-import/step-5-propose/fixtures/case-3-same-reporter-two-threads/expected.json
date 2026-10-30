@@ -1,0 +1,9 @@
+{
+  "class": "Report",
+  "has_tracker_body": true,
+  "has_receipt_reply": true,
+  "consolidated_receipt": false,
+  "canned_response_name": null,
+  "has_unfilled_placeholders": false,
+  "prior_precedent_surfaced": false
+}

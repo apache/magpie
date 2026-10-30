@@ -16,7 +16,7 @@
 # under the License.
 """Gmail OAuth helpers for threadId-attached drafts and bulk thread modifications.
 
-Three console scripts:
+Four console scripts:
 
 - ``oauth-draft-setup`` — one-time interactive OAuth consent flow that
   writes the credentials JSON.
@@ -24,6 +24,8 @@ Three console scripts:
   ``threadId`` (the claude.ai Gmail MCP cannot do this).
 - ``oauth-draft-mark-read`` — bulk-modify Gmail threads matching a
   search query (default: mark as read).
+- ``oauth-draft-fetch-message`` — save one message's raw RFC-5322
+  source to a file (read-only).
 
 The module-level entry points are re-exported here so callers can do
 ``from oauth_draft import create_draft_main`` etc. if they prefer over

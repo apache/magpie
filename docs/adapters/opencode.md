@@ -32,7 +32,7 @@ through a different registration mechanism.
 
 | Magpie requirement | OpenCode implementation |
 |---|---|
-| Skill discovery | OpenCode is part of the cluster that converged on `.agents/skills/`, which is the canonical target the `universal` row in [`agents.md`](../../skills/setup/agents.md) already writes. It also reads native Agent Skills from `.opencode/skills/` (project) or `~/.opencode/skills/` (personal). |
+| Skill discovery | OpenCode is part of the cluster that converged on `.agents/skills/`, which is the canonical target the `universal` row in [`agents.md`](../../skills/setup/agents.md) already writes. It also reads `.opencode/skills/` and `.claude/skills/` in the project, and `~/.config/opencode/skills/`, `~/.claude/skills/` and `~/.agents/skills/` for the user. OpenCode has no plugin marketplace (`opencode plugin <module>` installs npm modules only, and Magpie is not on npm), so a personal install links skill directories from a framework checkout into `~/.agents/skills/`. |
 | Deterministic guard | A [plugin](https://opencode.ai/docs/plugins/) on `tool.execute.before` forwards each `bash` command to `agent-guard.py --opencode` and throws the deny reason, which aborts the tool call. |
 | Spec-loop | The `opencode` profile passes the prompt positionally to `opencode run`, with `--auto`, `--model`, and `--format json`. |
 | Credential isolation | `opencode-iso` launches the CLI through the clean-environment wrapper. |

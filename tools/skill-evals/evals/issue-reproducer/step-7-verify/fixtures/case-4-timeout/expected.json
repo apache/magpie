@@ -1,5 +1,5 @@
 {
   "classification": "timeout",
-  "rationale": "The 60-second bounded run was exhausted before the simulation reached the 48-hour failure threshold. The scheduler was operating normally up to the cutoff; the failure mode cannot be confirmed or denied within the run budget.",
+  "rationale": "The bounded run exited with code 124 after 60 seconds. The output does not establish whether the reported approximately 48-hour scheduling failure reproduces.",
   "nature": "bug-as-advertised"
 }

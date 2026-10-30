@@ -1,0 +1,16 @@
+{
+  "description": "Apache Magpie security tools",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/tools/security-management/hooks/link-framework-path.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
