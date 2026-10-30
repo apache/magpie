@@ -2194,7 +2194,7 @@ export async function evaluatePublicSurfaceCommand(
   // repository without changing directory.
   let hasPriorRedirect = REPOSITORY_SELECTING_ENV_VARS.some((name) => Boolean(options?.env?.[name]));
 
-  let prevSeparator: string | undefined;
+  let hasSeenConditional = false;
   for (const item of subcommands) {
     if (item.subshellDepthDeltaBefore) {
       for (let d = 0; d < item.subshellDepthDeltaBefore; d++) {
@@ -2226,14 +2226,17 @@ export async function evaluatePublicSurfaceCommand(
       // any prefix): parseSubcommand acts only on GIT_DIR / GIT_WORK_TREE, and git reads many more.
       (hasPriorRedirect || parsed.setsOwnEnvironment === true) &&
       (parsed.commandType.startsWith('git ') || parsed.commandType.startsWith('gh '));
-    // The directory tracking follows every `cd`, but a `cd` after `&&` or `||` runs only
-    // conditionally (`false && cd /tracker`, `cd /upstream || cd /tracker`), so the tracked directory
-    // can disagree with the shell: a conditional `cd`, or anything followed by `||`, is a redirect.
-    const isConditionalCd = Boolean(parsed.cdDir) && (prevSeparator === '&&' || prevSeparator === '||');
+    // The directory tracking follows every `cd`, but once an `&&` or `||` has appeared on the line a
+    // later `cd` may run only conditionally (`false && cd /tracker`, `cd /upstream || cd /tracker`,
+    // `false && { true; cd /tracker; }`), so the tracked directory can disagree with the shell:
+    // any such `cd`, or anything followed by `||`, is a redirect.
+    const isConditionalCd = Boolean(parsed.cdDir) && hasSeenConditional;
     if (mayRedirectLaterCommands(rawSub) || item.separatorAfter === '||' || isConditionalCd) {
       hasPriorRedirect = true;
     }
-    prevSeparator = item.separatorAfter;
+    if (item.separatorAfter === '&&' || item.separatorAfter === '||') {
+      hasSeenConditional = true;
+    }
 
     // Track cd transitions: update virtualCwd across sequential operators (&&, ;, \n, ||)
     // Only exclude pipeline (|) and background (&) which run in subshells
