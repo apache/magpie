@@ -2134,10 +2134,11 @@ const READ_ONLY_GH_VERBS = new Set(['view', 'list', 'status', 'diff']);
  * on its own or after one of those.
  */
 function mayRedirectLaterCommands(subcommand: string): boolean {
-  // Any output redirection, command substitution or process substitution can run or write
-  // something (`printf ... > .git/config`, `echo $(git remote set-url ...)`) before the later
-  // command runs, while remote inspection already read the old state: fail closed on all of them.
-  if (/[>`]|\$\(|<\(/.test(subcommand)) {
+  // Any output redirection, expansion, command substitution or process substitution can run, write
+  // or assign something (`printf ... > .git/config`, `echo $(git remote set-url ...)`,
+  // `echo ${GH_REPO:=...}`) before the later command runs, while remote inspection already read
+  // the old state: fail closed on all of them.
+  if (/[>`$]|<\(/.test(subcommand)) {
     return true;
   }
   // A brace group runs in the current shell; its braces change nothing themselves.
@@ -2224,7 +2225,9 @@ export async function evaluatePublicSurfaceCommand(
       // any prefix): parseSubcommand acts only on GIT_DIR / GIT_WORK_TREE, and git reads many more.
       (hasPriorRedirect || parsed.setsOwnEnvironment === true) &&
       (parsed.commandType.startsWith('git ') || parsed.commandType.startsWith('gh '));
-    if (mayRedirectLaterCommands(rawSub)) {
+    // `||` runs what follows only on failure, so the directory tracking (which follows every `cd`)
+    // can disagree with the shell (`cd /upstream || cd /tracker`): treat it as a redirect.
+    if (mayRedirectLaterCommands(rawSub) || item.separatorAfter === '||') {
       hasPriorRedirect = true;
     }
 
