@@ -2338,11 +2338,26 @@ upstream_repo: apache/kafka
         'GH_HOST=example.com; gh pr create -t "Fix CVE-2026-1234" -b "x"',
         'git remote set-url origin https://github.com/apache/airflow.git && gh issue create -t "CVE-2026-1234" -b "d"',
         'GH_REPO=apache/airflow gh issue create -t "CVE-2026-1234" -b "d"',
+        'printf -vGH_REPO %s apache/airflow; gh issue create -t "CVE-2026-1234" -b "d"',
         'gh repo set-default apache/airflow && gh issue create -t "CVE-2026-1234" -b "d"',
         "printf '[remote \"origin\"]\\nurl = https://github.com/apache/airflow.git\\n' > .git/config && gh issue create -t 'CVE-2026-1234' -b d",
       ]) {
         const res = await evaluate(cmd);
         assertStrictEqual(res.blocked, true, `Expected block for: ${cmd}`);
+      }
+    });
+
+    test('a repository-selecting variable in the session environment removes the exemption', async () => {
+      for (const env of [{ GH_REPO: 'apache/airflow' }, { GIT_DIR: '/home/dev/upstream/.git' }]) {
+        for (const cmd of ['gh issue create -t "CVE-2026-1234" -b "d"', 'git commit -m "Fix CVE-2026-1234"']) {
+          const res = await evaluatePublicSurfaceCommand(cmd, {
+            cwd: '/home/dev/airflow-s',
+            projectConfig: config,
+            readFile,
+            env,
+          });
+          assertStrictEqual(res.blocked, true, `Expected block for ${cmd} with ${JSON.stringify(env)}`);
+        }
       }
     });
 

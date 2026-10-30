@@ -2087,7 +2087,6 @@ const SAFE_READONLY_COMMANDS = new Set([
 const ENVIRONMENT_PRESERVING_COMMANDS = new Set([
   'git',
   'echo',
-  'printf',
   'test',
   '[',
   'true',
@@ -2101,6 +2100,26 @@ const ENVIRONMENT_PRESERVING_COMMANDS = new Set([
 
 const REPOSITORY_PRESERVING_GIT_SUBCOMMANDS = new Set(['add', 'status', 'diff', 'log', 'show']);
 
+/**
+ * Environment variables that choose which repository git or gh acts on. Set in the session's own
+ * environment, any of them removes the directory-based exemption for every bare git / gh command.
+ */
+const REPOSITORY_SELECTING_ENV_VARS = [
+  'GH_REPO',
+  'GH_HOST',
+  'GIT_DIR',
+  'GIT_WORK_TREE',
+  'GIT_COMMON_DIR',
+  'GIT_INDEX_FILE',
+  'GIT_OBJECT_DIRECTORY',
+  'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+  'GIT_NAMESPACE',
+  'GIT_CEILING_DIRECTORIES',
+  'GIT_CONFIG_GLOBAL',
+  'GIT_CONFIG_SYSTEM',
+  'GIT_CONFIG_COUNT',
+];
+
 /** `gh <noun> <verb>` verbs that only read (`gh issue view`); others, such as `gh repo set-default`, can repoint gh. */
 const READ_ONLY_GH_VERBS = new Set(['view', 'list', 'status', 'diff']);
 
@@ -2110,7 +2129,7 @@ const READ_ONLY_GH_VERBS = new Set(['view', 'list', 'status', 'diff']);
  * change the environment (`export GIT_DIR=...` and its `builtin` / `command` / `declare` / `+=`
  * forms, `export GH_REPO=...`, `eval`, `source`, function and alias definitions, `PATH=...`, ...)
  * for a deny-list to stay complete. So only a segment whose command is on
- * {@link ENVIRONMENT_PRESERVING_COMMANDS}, with no leading variable assignment (and no `printf -v`),
+ * {@link ENVIRONMENT_PRESERVING_COMMANDS}, with no leading variable assignment,
  * keeps a later git or gh command's directory-based exemption. A legitimate tracker commit is run
  * on its own or after one of those.
  */
@@ -2139,7 +2158,7 @@ function mayRedirectLaterCommands(subcommand: string): boolean {
       words.slice(2).some((w) => w.startsWith('--output') || w === '-o')
     );
   }
-  return words[0] === 'printf' && words.slice(1).includes('-v');
+  return false;
 }
 
 
@@ -2172,7 +2191,7 @@ export async function evaluatePublicSurfaceCommand(
   // Set once an earlier subcommand on the line may have changed the environment (a GIT_* / GH_*
   // variable, or an opaque builtin), which can point a later bare git or gh command at another
   // repository without changing directory.
-  let hasPriorRedirect = false;
+  let hasPriorRedirect = REPOSITORY_SELECTING_ENV_VARS.some((name) => Boolean(options?.env?.[name]));
 
   for (const item of subcommands) {
     if (item.subshellDepthDeltaBefore) {
@@ -2495,7 +2514,36 @@ export function register(on: any): void {
       } catch {
         // $.env may be absent in mock harnesses
       }
-      const hookEnv = allowBypass ? { MAGPIE_ALLOW_EMBARGO_TERMS: allowBypass } : {};
+      const hookEnv: { [key: string]: string | undefined } = allowBypass
+        ? { MAGPIE_ALLOW_EMBARGO_TERMS: allowBypass }
+        : {};
+      // A repository-selecting variable inherited by the session (Claude launched with GH_REPO or
+      // GIT_DIR set) repoints every bare git / gh command, whatever the directory says.
+      // The mod API needs a literal name at every $.env.get call, so each variable is spelled out;
+      // keep this list in step with REPOSITORY_SELECTING_ENV_VARS.
+      const inherited: [string, () => Promise<string | undefined>][] = [
+        ['GH_REPO', () => $.env.get('GH_REPO')],
+        ['GH_HOST', () => $.env.get('GH_HOST')],
+        ['GIT_DIR', () => $.env.get('GIT_DIR')],
+        ['GIT_WORK_TREE', () => $.env.get('GIT_WORK_TREE')],
+        ['GIT_COMMON_DIR', () => $.env.get('GIT_COMMON_DIR')],
+        ['GIT_INDEX_FILE', () => $.env.get('GIT_INDEX_FILE')],
+        ['GIT_OBJECT_DIRECTORY', () => $.env.get('GIT_OBJECT_DIRECTORY')],
+        ['GIT_ALTERNATE_OBJECT_DIRECTORIES', () => $.env.get('GIT_ALTERNATE_OBJECT_DIRECTORIES')],
+        ['GIT_NAMESPACE', () => $.env.get('GIT_NAMESPACE')],
+        ['GIT_CEILING_DIRECTORIES', () => $.env.get('GIT_CEILING_DIRECTORIES')],
+        ['GIT_CONFIG_GLOBAL', () => $.env.get('GIT_CONFIG_GLOBAL')],
+        ['GIT_CONFIG_SYSTEM', () => $.env.get('GIT_CONFIG_SYSTEM')],
+        ['GIT_CONFIG_COUNT', () => $.env.get('GIT_CONFIG_COUNT')],
+      ];
+      for (const [name, read] of inherited) {
+        try {
+          const value = await read();
+          if (value) hookEnv[name] = value;
+        } catch {
+          // $.env may be absent in mock harnesses
+        }
+      }
       const evaluation = await evaluatePublicSurfaceCommand(command, {
         cwd: initialCwd,
         isSessionRootFallback,
