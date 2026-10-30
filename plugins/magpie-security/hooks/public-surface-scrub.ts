@@ -2201,6 +2201,7 @@ export async function evaluatePublicSurfaceCommand(
   let hasPriorRedirect = REPOSITORY_SELECTING_ENV_VARS.some((name) => Boolean(options?.env?.[name]));
 
   let hasSeenConditional = false;
+  let hasSeenPipeOrBackground = false;
   for (const item of subcommands) {
     if (item.subshellDepthDeltaBefore) {
       for (let d = 0; d < item.subshellDepthDeltaBefore; d++) {
@@ -2245,11 +2246,26 @@ export async function evaluatePublicSurfaceCommand(
     // the search only for `/...`, `.`, `..`, `./...` and `../...` (`.hidden` is still searched).
     const isCdPathCd =
       Boolean(parsed.cdDir) && Boolean(options?.env?.CDPATH) && !/^(\/|\.\.?(\/|$))/.test(parsed.cdDir ?? '');
-    if (mayRedirectLaterCommands(rawSub) || item.separatorAfter === '||' || isConditionalCd || isCdPathCd) {
+    // A `cd` in a pipeline or a background job runs in a subshell and leaves the shell where it was.
+    // `separatorAfter` shows only a `cd` that starts a pipeline; one in a later stage (`echo | cd x;`,
+    // `echo | { true; cd x; }`) ends with `;`, so once a `|` or `&` has appeared any `cd` is a redirect.
+    const isSubshellCd =
+      Boolean(parsed.cdDir) &&
+      (hasSeenPipeOrBackground || item.separatorAfter === '|' || item.separatorAfter === '&');
+    if (
+      mayRedirectLaterCommands(rawSub) ||
+      item.separatorAfter === '||' ||
+      isConditionalCd ||
+      isCdPathCd ||
+      isSubshellCd
+    ) {
       hasPriorRedirect = true;
     }
     if (item.separatorAfter === '&&' || item.separatorAfter === '||') {
       hasSeenConditional = true;
+    }
+    if (item.separatorAfter === '|' || item.separatorAfter === '&') {
+      hasSeenPipeOrBackground = true;
     }
 
     // Track cd transitions: update virtualCwd across sequential operators (&&, ;, \n, ||)
