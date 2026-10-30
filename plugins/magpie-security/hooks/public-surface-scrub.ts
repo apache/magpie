@@ -2240,7 +2240,10 @@ export async function evaluatePublicSurfaceCommand(
     // `false && { true; cd /tracker; }`), so the tracked directory can disagree with the shell:
     // any such `cd`, or anything followed by `||`, is a redirect.
     const isConditionalCd = Boolean(parsed.cdDir) && hasSeenConditional;
-    if (mayRedirectLaterCommands(rawSub) || item.separatorAfter === '||' || isConditionalCd) {
+    // With CDPATH set, `cd name` searches the CDPATH entries before the current directory, so the
+    // tracked directory can name a different checkout than the one the shell lands in.
+    const isCdPathCd = Boolean(parsed.cdDir) && Boolean(options?.env?.CDPATH) && !/^[/.]/.test(parsed.cdDir ?? '');
+    if (mayRedirectLaterCommands(rawSub) || item.separatorAfter === '||' || isConditionalCd || isCdPathCd) {
       hasPriorRedirect = true;
     }
     if (item.separatorAfter === '&&' || item.separatorAfter === '||') {
@@ -2377,6 +2380,8 @@ export async function evaluatePublicSurfaceCommand(
         parsed.commandType.includes('work-tree') ||
         parsed.commandType.includes('GIT_DIR') ||
         parsed.commandType.includes('wrapped') ||
+        // `bash -c '...'` and `eval '...'` can cd or set GIT_DIR inside the string before git / gh runs
+        parsed.commandType.includes('invoking git/gh') ||
         isRedirectedByPriorCommand
       ) {
         // Repository context is redirected or indeterminate — cwd remoteInfo cannot exempt it
@@ -2554,6 +2559,8 @@ export function register(on: any): void {
         ['GIT_CONFIG_GLOBAL', () => $.env.get('GIT_CONFIG_GLOBAL')],
         ['GIT_CONFIG_SYSTEM', () => $.env.get('GIT_CONFIG_SYSTEM')],
         ['GIT_CONFIG_COUNT', () => $.env.get('GIT_CONFIG_COUNT')],
+        // Not repository-selecting by itself, but it moves a relative `cd` (see isCdPathCd).
+        ['CDPATH', () => $.env.get('CDPATH')],
       ];
       for (const [name, read] of inherited) {
         try {

@@ -2378,6 +2378,29 @@ upstream_repo: apache/kafka
       }
     });
 
+    test('an inherited CDPATH makes a relative cd a redirect', async () => {
+      const env = { CDPATH: '/home/dev/public' };
+      for (const [cmd, blocked] of [
+        ['cd child && gh issue create -t "CVE-2026-1234" -b "d"', true],
+        ['cd ./child && gh issue create -t "CVE-2026-1234" -b "d"', false],
+        ['cd /home/dev/airflow-s && git commit -m "Fix CVE-2026-1234"', false],
+      ] as const) {
+        const res = await evaluatePublicSurfaceCommand(cmd, { cwd: '/home/dev/airflow-s', projectConfig: config, readFile, env });
+        assertStrictEqual(res.blocked, blocked, `Expected blocked=${blocked} for ${cmd}: ${JSON.stringify(res)}`);
+      }
+    });
+
+    test('bash -c and eval invoking git or gh get no cwd exemption', async () => {
+      for (const cmd of [
+        `bash -c 'cd /home/dev/upstream; git commit -m "CVE-2026-1234"'`,
+        `sh -c 'gh issue create -t "CVE-2026-1234" -b d'`,
+        `eval 'cd /home/dev/upstream; git commit -m "CVE-2026-1234"'`,
+      ]) {
+        const res = await evaluate(cmd);
+        assertStrictEqual(res.blocked, true, `Expected block for: ${cmd}`);
+      }
+    });
+
     test('unrelated earlier commands keep the exemption', async () => {
       for (const cmd of [
         'echo ready && git commit -m "Fix CVE-2026-1234"',
