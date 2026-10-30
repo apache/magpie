@@ -673,6 +673,8 @@ export interface ParsedSubcommand {
   isGraphqlMutation?: boolean;
   isLiteralUnknownEndpoint?: boolean;
   hasGitDirOrWorkTree?: boolean;
+  /** The command runs with environment set for it: a leading `NAME=value` or an `env` wrapper, after any prefix. */
+  setsOwnEnvironment?: boolean;
 }
 
 /**
@@ -1131,6 +1133,7 @@ export function parseSubcommand(subcommand: string): ParsedSubcommand {
         cmdIdx++;
       }
     } else if (t === 'env') {
+      result.setsOwnEnvironment = true;
       cmdIdx++;
       while (cmdIdx < tokens.length && tokens[cmdIdx].startsWith('-')) {
         const envTok = tokens[cmdIdx];
@@ -1154,6 +1157,7 @@ export function parseSubcommand(subcommand: string): ParsedSubcommand {
     } else if (/^[a-zA-Z_][a-zA-Z0-9_]*=/.test(t)) {
       const eq = t.indexOf('=');
       leadingEnv[t.slice(0, eq)] = t.slice(eq + 1);
+      result.setsOwnEnvironment = true;
       cmdIdx++;
     } else {
       break;
@@ -2111,6 +2115,12 @@ const READ_ONLY_GH_VERBS = new Set(['view', 'list', 'status', 'diff']);
  * on its own or after one of those.
  */
 function mayRedirectLaterCommands(subcommand: string): boolean {
+  // Any output redirection, command substitution or process substitution can run or write
+  // something (`printf ... > .git/config`, `echo $(git remote set-url ...)`) before the later
+  // command runs, while remote inspection already read the old state: fail closed on all of them.
+  if (/[>`]|\$\(|<\(/.test(subcommand)) {
+    return true;
+  }
   // A brace group runs in the current shell; its braces change nothing themselves.
   const words = tokenizeShellWords(subcommand.trim()).filter((w) => w !== '{' && w !== '}');
   if (words.length === 0) {
@@ -2123,20 +2133,15 @@ function mayRedirectLaterCommands(subcommand: string): boolean {
     return true; // includes a leading `VAR=value`, `export`, `builtin`, `eval`, `if`, `f() {`, ...
   }
   if (words[0] === 'git') {
-    return !REPOSITORY_PRESERVING_GIT_SUBCOMMANDS.has(words[1] ?? '');
+    // `git diff --output=.git/config` writes a file; any `--output` / `-o` option disqualifies.
+    return (
+      !REPOSITORY_PRESERVING_GIT_SUBCOMMANDS.has(words[1] ?? '') ||
+      words.slice(2).some((w) => w.startsWith('--output') || w === '-o')
+    );
   }
   return words[0] === 'printf' && words.slice(1).includes('-v');
 }
 
-/**
- * True when the subcommand starts with a variable assignment (`GIT_COMMON_DIR=... git tag ...`):
- * parseSubcommand recognises only `GIT_DIR` / `GIT_WORK_TREE` there, and git reads many more, so
- * any leading assignment on a git or gh command removes its own directory-based exemption.
- */
-function leadsWithAssignment(subcommand: string): boolean {
-  const first = tokenizeShellWords(subcommand.trim())[0] ?? '';
-  return /^[A-Za-z_][A-Za-z0-9_]*\+?=/.test(first);
-}
 
 /**
  * Evaluates whether a public-surface command violates embargo terms.
@@ -2196,7 +2201,9 @@ export async function evaluatePublicSurfaceCommand(
     const rawSub = item.raw;
     const parsed = parseSubcommand(rawSub);
     const isRedirectedByPriorCommand =
-      (hasPriorRedirect || leadsWithAssignment(rawSub)) &&
+      // An own-environment git or gh command (`GIT_COMMON_DIR=... git tag`, `env ... git tag`, after
+      // any prefix): parseSubcommand acts only on GIT_DIR / GIT_WORK_TREE, and git reads many more.
+      (hasPriorRedirect || parsed.setsOwnEnvironment === true) &&
       (parsed.commandType.startsWith('git ') || parsed.commandType.startsWith('gh '));
     if (mayRedirectLaterCommands(rawSub)) {
       hasPriorRedirect = true;
