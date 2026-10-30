@@ -21,11 +21,13 @@ from __future__ import annotations
 
 import json
 from typing import Any
+from urllib.parse import urlencode
 
 from magpie_bitbucket.client import (
     BitbucketConfig,
     BitbucketError,
     get_json,
+    get_json_with_header,
     get_text,
     post_json,
     quote_path,
@@ -360,11 +362,50 @@ def get_pull_request_status(config: BitbucketConfig, pull_request_id: str) -> di
 
 def _current_user_slug(config: BitbucketConfig) -> str:
     """Return the authenticated Bitbucket Data Center user's URL-safe slug."""
-    user = get_json(f"{_api_base(config)}/users", config)
-    slug = user.get("slug")
+    users_url = f"{_api_base(config)}/users"
+
+    _, username = get_json_with_header(users_url, config, "X-AUSERNAME")
+
+    if not isinstance(username, str) or not username.strip():
+        raise BitbucketError(
+            "Bitbucket Data Center response did not include the authenticated user in X-AUSERNAME"
+        )
+
+    username = username.strip()
+    start = 0
+    matches: list[dict[str, Any]] = []
+
+    while True:
+        params: dict[str, str | int] = {"filter": username}
+        if start:
+            params["start"] = start
+
+        page = get_json(f"{users_url}?{urlencode(params)}", config)
+
+        values = page.get("values")
+        if not isinstance(values, list):
+            raise BitbucketError("Bitbucket Data Center user search response did not include values")
+
+        matches.extend(user for user in values if isinstance(user, dict) and user.get("name") == username)
+
+        next_start = _next_page_start(page, start)
+        if next_start is None:
+            break
+
+        start = next_start
+
+    if not matches:
+        raise BitbucketError(f"Bitbucket Data Center could not resolve authenticated user {username!r}")
+
+    if len(matches) > 1:
+        raise BitbucketError(
+            f"Bitbucket Data Center returned multiple matches for authenticated user {username!r}"
+        )
+
+    slug = matches[0].get("slug")
 
     if not isinstance(slug, str) or not slug.strip():
-        raise BitbucketError("Bitbucket Data Center current-user response did not include a user slug")
+        raise BitbucketError("Bitbucket Data Center authenticated user did not include a user slug")
 
     return quote_path(slug)
 
