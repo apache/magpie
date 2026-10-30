@@ -15,7 +15,8 @@ vetted-ops policy and its `security-issue-import` caller to read the complete
 bounded GitHub tracker index:
 
 ```bash
-vetted-op-read --caller security-issue-import \
+uv run --project ~/.claude/magpie/vetted-ops \
+  vetted-op-read --caller security-issue-import \
   --save security-import-index.json issue-list-with-bodies
 ```
 
@@ -32,7 +33,7 @@ Run the deterministic matcher against the saved JSON file:
 ```bash
 <sm> dedup-index \
   --thread-ids <scratch>/thread-ids.json \
-  --issues <saved-index-path>
+  --issues <workspace>/saved/security-import-index.json
 ```
 
 If the adopting project customizes tracker body headings, also pass

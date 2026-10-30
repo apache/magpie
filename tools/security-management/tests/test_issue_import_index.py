@@ -209,3 +209,65 @@ def test_ambiguous_identity_cannot_be_declared_untracked() -> None:
 
     assert not result["complete"]
     assert result["untracked"] == []
+
+
+def test_maildir_identifier_with_punctuation_is_tracked() -> None:
+    maildir_id = "1700000000.M1P2.host,U=12:2,S"
+    body = field(f"No public archive URL — tracked privately on Gmail thread `{maildir_id}`.")
+
+    result = dedup.attribute_index([maildir_id], [issue(body)])
+
+    assert result["complete"]
+    assert result["untracked"] == []
+    assert maildir_id in result["tracked"]
+
+
+def test_thread_after_import_sentinel_is_tracked() -> None:
+    for sentinel in (
+        "N/A — opened from public PR",
+        "N/A — imported from markdown file",
+    ):
+        body = field(f"{sentinel}\nRelayed by security team via Gmail thread `{THREAD}`.")
+
+        result = dedup.attribute_index([THREAD], [issue(body)])
+
+        assert result["complete"]
+        assert result["untracked"] == []
+        assert THREAD in result["tracked"]
+
+
+def test_multiple_root_message_ids_are_tracked() -> None:
+    first = "<first@example.org>"
+    second = "<second@example.org>"
+
+    body = field(
+        f"No public archive URL — tracked privately on Gmail thread `{THREAD}`.\n"
+        f"Root Message-ID: `{first}`\n"
+        f"Root Message-ID: `{second}`"
+    )
+
+    result = dedup.attribute_index([first, second], [issue(body)])
+
+    assert result["complete"]
+    assert result["untracked"] == []
+    assert first in result["tracked"]
+    assert second in result["tracked"]
+
+
+def test_dedup_index_refuses_invalid_backend_identifiers() -> None:
+    for invalid in (
+        "$(rm -rf x)",
+        "<a b@c>",
+        "-flag-thread",
+        '<x"@y>',
+        "short",
+    ):
+        result = dedup.attribute_index(
+            ["19d2f402867e957e", invalid],
+            [],
+        )
+
+        assert result["ok"] is False
+        assert result["rejected_ids"] == [invalid]
+        assert "tracked" not in result
+        assert "untracked" not in result

@@ -55,20 +55,6 @@ def add_parsers(sub: Any) -> None:
         ("--threads", "JSON: upstream, security_list, cve_tool_senders, named_thread_id, threads[]"),
     )
     command(
-        "dedup-queries",
-        "Step 2: OR'd threadId batches of at most 6",
-        ("--thread-ids", "JSON list of threadIds"),
-    )
-    commands.choices["dedup-queries"].add_argument(
-        "--tracker", help="<tracker>: also print each search command"
-    )
-    command(
-        "dedup-attribute",
-        "Step 2: attribute search hits to threadIds; flags a truncated (100-hit) batch",
-        ("--thread-ids", "JSON list of the batch's threadIds"),
-        ("--hits", "the batch's `gh search issues --json number,title,state,url,body` output"),
-    )
-    command(
         "dedup-index",
         "Step 2: exact-match threadIds against a saved, bounded tracker issue-body index",
         ("--thread-ids", "JSON list of candidate threadIds"),
@@ -151,16 +137,6 @@ def dispatch(args: argparse.Namespace) -> int:
         return 0
     if command == "prefilter":
         emit(prefilter.classify(read_object(args.threads)))
-        return 0
-    if command in ("dedup-queries", "dedup-attribute"):
-        result = (
-            dedup.queries(read_json(args.thread_ids), args.tracker)
-            if command == "dedup-queries"
-            else dedup.attribute(read_json(args.thread_ids), read_json(args.hits))
-        )
-        if not result["ok"]:
-            return refuse(result["refused"], rejected_ids=result["rejected_ids"])
-        emit(result)
         return 0
     if command == "dedup-index":
         issues = read_json(args.issues)
