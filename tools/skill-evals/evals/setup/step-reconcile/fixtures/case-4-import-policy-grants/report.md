@@ -21,11 +21,17 @@ The policy is valid TOML and has this `[callers]` section:
 
 The following workflows are configured and in scope:
 
-- `security-issue-import` requires `rollup-append`.
-- `security-issue-import-from-md` requires `rollup-append`.
-- `security-issue-import-from-pr` requires `pr-view-with-body`
-  and `rollup-append`.
+- `security-issue-import`
+- `security-issue-import-from-md`
+- `security-issue-import-from-pr`
 
-No one has confirmed changes to the vetted-ops policy.
-Do not modify the policy or write a clean reconciliation stamp.
-Return the missing caller/grant proposals only.
+Tracker backend: `github`.
+
+The framework's vetted-ops README provides this example:
+
+[callers]
+"security-issue-import" = ["rollup-append"]
+"security-issue-import-from-md" = ["rollup-append"]
+"security-issue-import-from-pr" = ["pr-view-with-body", "rollup-append"]
+
+No policy changes have been confirmed during this run.

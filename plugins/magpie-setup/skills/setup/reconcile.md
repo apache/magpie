@@ -155,7 +155,7 @@ baseline required.
    read its `[callers]` table. Compare the applicable caller against
    the minimum permissions used by the skill:
 
-   Use the exact caller-to-operation mapping in [`config.md` § Step 3a](config.md) for the three security import workflows. Do not infer or add other permissions.
+   Derive required operations from the canonical [vetted-ops README `[callers]` example](../../../../tools/vetted-ops/README.md#configuration), including backend-specific operations where applicable. Do not use a second hard-coded mapping.
 
    A missing caller or missing required operation is a finding. Name the
    caller, the missing operations, and the existing policy path. Propose
@@ -233,7 +233,9 @@ gap can be closed mechanically by chaining into
 `/magpie-setup:setup config <skill>`; offer it per item.
 
 For an import caller policy finding (check 3a), show the minimum-grant
-TOML diff before asking. Apply it only after confirmation. A refusal does
+TOML diff before asking. After confirmation, hand off to setup config
+or let the user save the drafted policy; do not directly write the
+security-control file from reconcile. A refusal does
 not authorize a policy edit or a clean reconciliation stamp for that
 unresolved configuration. Do not treat resolved `requires_config` files
 alone as proof of a clean skill when its required caller grants are missing.
