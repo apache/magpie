@@ -2073,51 +2073,69 @@ const SAFE_READONLY_COMMANDS = new Set([
   'readonly',
 ]);
 
-/** Shell builtins that assign or export variables for the rest of the command line. */
-const VARIABLE_DECLARATION_BUILTINS = new Set(['export', 'declare', 'typeset', 'readonly', 'local']);
+/**
+ * Commands that cannot change the shell's environment or the repository's configuration for the
+ * commands after them on the line. `cd` changes only the directory, which the evaluation loop
+ * tracks itself (`pushd` / `popd` are not tracked, so they are not here). `git` is allowed only
+ * with a read-or-stage subcommand ({@link REPOSITORY_PRESERVING_GIT_SUBCOMMANDS}): others, such as
+ * `git remote set-url` or `git config`, can repoint a later command at another repository.
+ */
+const ENVIRONMENT_PRESERVING_COMMANDS = new Set([
+  'git',
+  'echo',
+  'printf',
+  'test',
+  '[',
+  'true',
+  'false',
+  ':',
+  'pwd',
+  'ls',
+  'cat',
+  'cd',
+]);
 
-/** Shell builtins that can change the environment in ways the hook cannot see. */
-const ENVIRONMENT_OPAQUE_BUILTINS = new Set(['eval', 'source', '.', 'set', 'read', 'mapfile', 'readarray']);
+const REPOSITORY_PRESERVING_GIT_SUBCOMMANDS = new Set(['add', 'status', 'diff', 'log', 'show']);
 
-/** Prefixes that run the next word as the command (`builtin export ...`, `command -p eval ...`). */
-const COMMAND_RUNNING_PREFIXES = new Set(['builtin', 'command', 'then', 'do', 'else', '!']);
+/** `gh <noun> <verb>` verbs that only read (`gh issue view`); others, such as `gh repo set-default`, can repoint gh. */
+const READ_ONLY_GH_VERBS = new Set(['view', 'list', 'status', 'diff']);
 
 /**
  * True when a subcommand may change which repository a LATER git or gh subcommand on the line acts
- * on, without changing directory. Fails closed: the hook cannot model the shell's environment, so
- * any of these counts —
- * - any mention of a `GIT_*` or `GH_*` variable (`export GIT_DIR=...`, `GIT_WORK_TREE=x;`,
- *   `builtin export GIT_DIR=...`, `export GH_REPO=...`, `GIT_DIR+=...`, `unset GIT_DIR`, even
- *   `GIT_DIR=x ls`): git selects the repository from `GIT_DIR`, `GIT_WORK_TREE`, `GIT_COMMON_DIR` and
- *   others (the list grows with git releases), and gh from `GH_REPO` / `GH_HOST`;
- * - a builtin whose effect on the environment is opaque (`eval`, `source`, `.`, `set`, `read`,
- *   `mapfile`, `printf -v`), after any `builtin` / `command` / control-word prefix;
- * - a declaration builtin whose arguments expand (`export "$V"`, `declare -x $(...)`).
- * A legitimate tracker commit has no reason to do any of this earlier on the same line.
- * An assignment leading the git or gh command itself is detected by parseSubcommand.
+ * on, without changing directory. An allow-list, failing closed: the shell has too many ways to
+ * change the environment (`export GIT_DIR=...` and its `builtin` / `command` / `declare` / `+=`
+ * forms, `export GH_REPO=...`, `eval`, `source`, function and alias definitions, `PATH=...`, ...)
+ * for a deny-list to stay complete. So only a segment whose command is on
+ * {@link ENVIRONMENT_PRESERVING_COMMANDS}, with no leading variable assignment (and no `printf -v`),
+ * keeps a later git or gh command's directory-based exemption. A legitimate tracker commit is run
+ * on its own or after one of those.
  */
 function mayRedirectLaterCommands(subcommand: string): boolean {
-  const text = subcommand.trim();
-  if (/\b(?:GIT|GH)_[A-Za-z0-9_]*/.test(text)) {
-    return true;
-  }
-  const words = tokenizeShellWords(text);
-  let idx = 0;
-  while (idx < words.length && /^[a-zA-Z_][a-zA-Z0-9_]*\+?=/.test(words[idx])) idx++;
-  while (idx < words.length && (COMMAND_RUNNING_PREFIXES.has(words[idx]) || /^-[a-zA-Z]+$/.test(words[idx]))) {
-    idx++;
-  }
-  if (idx >= words.length) {
+  // A brace group runs in the current shell; its braces change nothing themselves.
+  const words = tokenizeShellWords(subcommand.trim()).filter((w) => w !== '{' && w !== '}');
+  if (words.length === 0) {
     return false;
   }
-  const binary = words[idx].split(/[/\\]/).pop()?.toLowerCase() ?? '';
-  if (ENVIRONMENT_OPAQUE_BUILTINS.has(binary)) {
-    return true;
+  if (words[0] === 'gh') {
+    return !READ_ONLY_GH_VERBS.has(words[2] ?? '');
   }
-  if (binary === 'printf' && words.slice(idx + 1).includes('-v')) {
-    return true;
+  if (!ENVIRONMENT_PRESERVING_COMMANDS.has(words[0])) {
+    return true; // includes a leading `VAR=value`, `export`, `builtin`, `eval`, `if`, `f() {`, ...
   }
-  return VARIABLE_DECLARATION_BUILTINS.has(binary) && /[$`]/.test(text);
+  if (words[0] === 'git') {
+    return !REPOSITORY_PRESERVING_GIT_SUBCOMMANDS.has(words[1] ?? '');
+  }
+  return words[0] === 'printf' && words.slice(1).includes('-v');
+}
+
+/**
+ * True when the subcommand starts with a variable assignment (`GIT_COMMON_DIR=... git tag ...`):
+ * parseSubcommand recognises only `GIT_DIR` / `GIT_WORK_TREE` there, and git reads many more, so
+ * any leading assignment on a git or gh command removes its own directory-based exemption.
+ */
+function leadsWithAssignment(subcommand: string): boolean {
+  const first = tokenizeShellWords(subcommand.trim())[0] ?? '';
+  return /^[A-Za-z_][A-Za-z0-9_]*\+?=/.test(first);
 }
 
 /**
@@ -2178,7 +2196,8 @@ export async function evaluatePublicSurfaceCommand(
     const rawSub = item.raw;
     const parsed = parseSubcommand(rawSub);
     const isRedirectedByPriorCommand =
-      hasPriorRedirect && (parsed.commandType.startsWith('git ') || parsed.commandType.startsWith('gh '));
+      (hasPriorRedirect || leadsWithAssignment(rawSub)) &&
+      (parsed.commandType.startsWith('git ') || parsed.commandType.startsWith('gh '));
     if (mayRedirectLaterCommands(rawSub)) {
       hasPriorRedirect = true;
     }

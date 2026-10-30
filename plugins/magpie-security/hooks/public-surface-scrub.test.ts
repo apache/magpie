@@ -2310,6 +2310,14 @@ upstream_repo: apache/kafka
         'set -a; git commit -m "Fix CVE-2026-1234"',
         'printf -v X %s y; git commit -m "Fix CVE-2026-1234"',
         'export "$V"; git commit -m "Fix CVE-2026-1234"',
+        'export FOO=1 && git commit -m "Fix CVE-2026-1234"',
+        'if source ./env.sh; then git commit -m "Fix CVE-2026-1234"; fi',
+        'GIT_COMMON_DIR=/home/dev/upstream/.git git tag -a v1 -m "Fix CVE-2026-1234"',
+        'git remote set-url origin https://github.com/apache/airflow.git && git commit -m "Fix CVE-2026-1234"',
+        'git config core.worktree ../u && git commit -m "Fix CVE-2026-1234"',
+        'pushd /home/dev/upstream && pushd /home/dev/airflow-s && popd && git commit -m "Fix CVE-2026-1234"',
+        'f() { export GIT_DIR=../u/.git; }; f; git commit -m "Fix CVE-2026-1234"',
+        'PATH=/tmp/x:$PATH; git commit -m "Fix CVE-2026-1234"',
       ]) {
         const res = await evaluate(cmd);
         assertStrictEqual(res.blocked, true, `Expected block for: ${cmd}`);
@@ -2320,6 +2328,9 @@ upstream_repo: apache/kafka
       for (const cmd of [
         'export GH_REPO=apache/airflow; gh issue create -t "CVE-2026-1234" -b "details"',
         'GH_HOST=example.com; gh pr create -t "Fix CVE-2026-1234" -b "x"',
+        'git remote set-url origin https://github.com/apache/airflow.git && gh issue create -t "CVE-2026-1234" -b "d"',
+        'GH_REPO=apache/airflow gh issue create -t "CVE-2026-1234" -b "d"',
+        'gh repo set-default apache/airflow && gh issue create -t "CVE-2026-1234" -b "d"',
       ]) {
         const res = await evaluate(cmd);
         assertStrictEqual(res.blocked, true, `Expected block for: ${cmd}`);
@@ -2328,8 +2339,9 @@ upstream_repo: apache/kafka
 
     test('unrelated earlier commands keep the exemption', async () => {
       for (const cmd of [
-        'export FOO=1 && git commit -m "Fix CVE-2026-1234"',
         'echo ready && git commit -m "Fix CVE-2026-1234"',
+        'git add file.md && git commit -m "Fix CVE-2026-1234"',
+        'git status && git commit -m "Fix CVE-2026-1234"',
         'git commit -m "Fix CVE-2026-1234"',
       ]) {
         const res = await evaluate(cmd);
