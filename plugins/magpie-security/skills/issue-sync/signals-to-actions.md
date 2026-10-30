@@ -183,6 +183,8 @@ Group them by category:
   or flag it as *"still `_No response_` — needs \<what\> before it can be filled"*.
   Do not leave fields empty silently across sync runs: the release manager at Step 13 needs **every** field filled,
   and the `pr merged → fix released` transition is gated on the six mandatory fields.
+  An empty *Reporter credited as* is not a gap when the rollup records a no-finder decision
+  (the gate rows in [`gather.md`](gather.md#1d-mine-comments-and-mail-messages-for-actionable-signals)); say so instead of flagging it.
 
   **Agent-derivable fields — propose high-confidence values proactively.**
   Two mandatory fields can be derived from artefacts already in the sync's evidence pool.
@@ -553,7 +555,9 @@ Group them by category:
      check whether all six mandatory body fields are populated
      (*CWE*, *Affected versions*, *Severity*, *Reporter credited
      as*, *Short public summary for publish*, *PR with the fix*).
-     If any is empty / `_No response_`, propose the fill-fields comment with that field list.
+     An empty *Reporter credited as* passes when the status rollup records a no-finder decision
+     (reporter opt-out, or no finder to name, per the [finder-credit policy](../../../../tools/cve-tool-vulnogram/finder-credit-policy.md)).
+     If any other is empty / `_No response_`, propose the fill-fields comment with that field list.
      The issue stays assigned to the remediation developer (in the common case also the fix-PR author and current assignee).
      **Do not propose any RM-related action at Step 11**; that belongs to Step 12.
   2. **At the `pr merged` → `fix released` transition (Step 12)** — after Step 5b's push attempt, check the CVE record state in Vulnogram.
