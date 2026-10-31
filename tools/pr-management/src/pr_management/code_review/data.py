@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import base64
 import datetime as dt
+import hashlib
 import json
 import re
 from dataclasses import dataclass, field
@@ -296,5 +297,14 @@ def load_json(path: Path | None) -> Any:
 
 
 def slug(path: str) -> str:
-    """A repository path as one file-name component, for save names."""
-    return re.sub(r"[^A-Za-z0-9._-]+", "_", path).strip("._")[:90] or "root"
+    """A repository path as one file-name component, for save names.
+
+    vetted-ops refuses a save name over 100 characters, and the caller adds
+    `path-commits-` and `.json`, so a long path keeps a 70-character stem and
+    a hash of the whole path: cutting it alone would let two paths that share
+    the stem read each other's saved commits.
+    """
+    name = re.sub(r"[^A-Za-z0-9._-]+", "_", path).strip("._") or "root"
+    if len(name) <= 80:
+        return name
+    return f"{name[:70]}-{hashlib.sha256(path.encode()).hexdigest()[:8]}"
