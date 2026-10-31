@@ -23,6 +23,9 @@ acceptance:
     Cursor, Antigravity CLI, OpenCode, Kiro, Grok Build, Pi, and Goose.
   - The update marker `tools/spec-loop/.last-sync` is owned by the runner,
     not by the prompt.
+  - At most one loop runs per checkout: a second start while a lock is
+    held prints `already_running` and exits 0, so a scheduler records a
+    skipped run rather than a failure.
 ---
 
 # Spec-loop runner
@@ -43,8 +46,9 @@ and never opens a pull request.
 
 - `tools/spec-loop/loop.sh` — Bash runner for the four beats.
 - `tools/spec-loop/lib.sh` — deterministic prompt assembly, harness
-  command rendering, agent launch, and `.last-sync` marker helpers used
-  by the runner and fixture tests.
+  command rendering, agent launch, the single-flight lock
+  (`spec_loop_lock_acquire` / `spec_loop_lock_release`), and `.last-sync`
+  marker helpers used by the runner and fixture tests.
 - `tools/spec-loop/tests/test_runner_fixtures.sh` — deterministic
   fixture tests for prompt assembly, harness command construction, and
   `.last-sync` marker helpers; executed by `spec-validate`.
@@ -104,6 +108,18 @@ and never opens a pull request.
   `skills/` symlinks, so a spec's 'Skill: `<name>`' bullet matches it.
   The mapping is advisory: a `spec-scope` failure is
   silently skipped and the agent still reads the raw path list.
+- **Single flight.** Before its first iteration the runner creates the
+  lock directory `tools/spec-loop/.lock/` (atomic `mkdir`; gitignored;
+  `SPEC_LOOP_LOCK` relocates it) and records `<pid> <host> <start>` in
+  `owner`. While it is held, a second start prints one
+  `already_running: …` line naming the holder and exits **0**, never
+  launching an agent and never touching the holder's lock. A lock whose
+  pid is dead on the same host is stale and is taken over; a lock from
+  another host is respected. The lock is released on every exit path
+  (normal end, `STOP`, error break, Ctrl+C); an exit before acquisition
+  (`--help`, a bad argument, a missing agent CLI) never releases it.
+  `SPEC_LOOP_LOCK=off` disables the lock for a run the operator knows is
+  safe to overlap.
 - **Plan-size hysteresis.** Build mode switches to one consolidate pass
   when `IMPLEMENTATION_PLAN.md` exceeds `SPEC_LOOP_PLAN_MAX`, then builds
   even if planned work alone keeps the file over the threshold. The latch
@@ -184,6 +200,10 @@ in the same change.
    `<slug>` branches; update uses `sync-specs-<timestamp>` branches.
 7. Security docs describe unattended agent flags as harness-specific
    agent-level bypasses that must run under the external sandbox.
+8. With a live lock held, `loop.sh <mode>` exits 0, prints
+   `already_running`, launches no agent, and leaves the lock in place; a
+   stale lock (dead pid, same host) is taken over; `SPEC_LOOP_LOCK=off`
+   skips the lock; a completed run leaves no lock behind.
 
 ## Validation
 
@@ -192,6 +212,7 @@ bash -n tools/spec-loop/loop.sh
 shellcheck tools/spec-loop/loop.sh
 shellcheck tools/spec-loop/lib.sh tools/spec-loop/tests/test_runner_fixtures.sh
 uv run --project tools/spec-validator --group dev spec-validate
+bash tools/spec-loop/tests/test_runner_fixtures.sh
 ```
 
 ## Known gaps
