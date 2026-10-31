@@ -41,6 +41,40 @@
         "strategy": "none"
       }
     },
+    "lefthook": {
+      "language": "Go",
+      "upstream": "https://github.com/evilmartians/lefthook",
+      "detect": {
+        "config_files": [
+          "lefthook.yml",
+          "lefthook.yaml",
+          "lefthook.json",
+          "lefthook.jsonc",
+          "lefthook.toml",
+          ".lefthook.yml",
+          ".lefthook.yaml",
+          ".lefthook.json",
+          ".lefthook.jsonc",
+          ".lefthook.toml",
+          "lefthook-local.yml",
+          "lefthook-local.yaml",
+          "lefthook-local.json",
+          "lefthook-local.jsonc",
+          "lefthook-local.toml",
+          ".lefthook-local.yml",
+          ".lefthook-local.yaml",
+          ".lefthook-local.json",
+          ".lefthook-local.jsonc",
+          ".lefthook-local.toml"
+        ],
+        "nested": false,
+        "hook_marker": "call_lefthook"
+      },
+      "install": {
+        "subcommand": "install",
+        "strategy": "hide-global-config"
+      }
+    },
     "prek": {
       "language": "Rust",
       "upstream": "https://github.com/j178/prek",
@@ -64,6 +98,25 @@
         "sandbox": "~/.cache/prek-sandbox",
         "host": "~/.local/share/prek-host",
         "expands_tilde": true
+      }
+    },
+    "overcommit": {
+      "language": "Ruby",
+      "upstream": "https://github.com/sds/overcommit",
+      "detect": {
+        "config_files": [
+          ".overcommit.yml"
+        ],
+        "nested": false,
+        "hook_marker": "overcommit"
+      },
+      "install": {
+        "subcommand": "--install",
+        "aliases": [
+          "-i"
+        ],
+        "strategy": "hooks-path-env",
+        "runtime_env": true
       }
     },
     "simple-git-hooks": {

@@ -28,7 +28,7 @@ Step 2 (import path), Step 5a (labels), Step 5b (closing comment), Step 5d (draf
 are decided or rendered by `security-management issue-invalidate` and pytest-tested in
 [`tools/security-management/tests/test_issue_invalidate.py`](../../../security-management/tests/test_issue_invalidate.py),
 one test per former case of `step-2-import-path` (cases 1–4), `step-5a-labels` (1–2), `step-5b-closing-comment` (1–2), `step-5d-email-draft` (1–2), `step-5e-rollup-entry` (1–2), `step-5f-confirm` (1–3) and `step-7-recap` (1–2),
-with the hard rules they graded: the PR-imported sentinel skips the draft, `_No response_` is indeterminate, `security issue` stays and `pr created` / `pr merged` go,
+with the hard rules they graded: the PR-imported sentinel skips the draft, `_No response_` is indeterminate, `security issue` stays and `pr created` / `pr merged` go unless `keep_labels` keeps them (never `needs triage`),
 no tracker reference in the reporter draft, an existing draft is surfaced, the reply attaches to the inbound thread, the Reporter-notification line is required, `silent` is not `cancel`, and no bare `#NNN`.
 
 ## Steps not covered

@@ -222,6 +222,8 @@ export interface ShellSubcommand {
   subshellDepthDeltaBefore?: number;
   subshellDepthDeltaAfter?: number;
   hasUnclosedQuoteWithBinary?: boolean;
+  // Inside a group that is piped or backgrounded (`{ cd x; true; } | cat`): it runs in a subshell.
+  inPipedOrBackgroundGroup?: boolean;
 }
 
 /**
@@ -352,6 +354,9 @@ export function splitShellSubcommands(commandLine: string): ShellSubcommand[] {
               (innerSubs[innerSubs.length - 1].subshellDepthDeltaAfter || 0) + 1;
           }
           innerSubs[innerSubs.length - 1].separatorAfter = sep;
+          if (sep === '|' || sep === '&') {
+            for (const sub of innerSubs) sub.inPipedOrBackgroundGroup = true;
+          }
           result.push(...innerSubs);
         }
       } else {
@@ -673,6 +678,8 @@ export interface ParsedSubcommand {
   isGraphqlMutation?: boolean;
   isLiteralUnknownEndpoint?: boolean;
   hasGitDirOrWorkTree?: boolean;
+  /** The command runs with environment set for it: a leading `NAME=value` or an `env` wrapper, after any prefix. */
+  setsOwnEnvironment?: boolean;
 }
 
 /**
@@ -1131,6 +1138,7 @@ export function parseSubcommand(subcommand: string): ParsedSubcommand {
         cmdIdx++;
       }
     } else if (t === 'env') {
+      result.setsOwnEnvironment = true;
       cmdIdx++;
       while (cmdIdx < tokens.length && tokens[cmdIdx].startsWith('-')) {
         const envTok = tokens[cmdIdx];
@@ -1154,6 +1162,7 @@ export function parseSubcommand(subcommand: string): ParsedSubcommand {
     } else if (/^[a-zA-Z_][a-zA-Z0-9_]*=/.test(t)) {
       const eq = t.indexOf('=');
       leadingEnv[t.slice(0, eq)] = t.slice(eq + 1);
+      result.setsOwnEnvironment = true;
       cmdIdx++;
     } else {
       break;
@@ -2074,6 +2083,98 @@ const SAFE_READONLY_COMMANDS = new Set([
 ]);
 
 /**
+ * Commands that cannot change the shell's environment or the repository's configuration for the
+ * commands after them on the line. `cd` changes only the directory, which the evaluation loop
+ * tracks itself (`pushd` / `popd` are not tracked, so they are not here). `git` is allowed only
+ * with a read-or-stage subcommand ({@link REPOSITORY_PRESERVING_GIT_SUBCOMMANDS}): others, such as
+ * `git remote set-url` or `git config`, can repoint a later command at another repository.
+ */
+const ENVIRONMENT_PRESERVING_COMMANDS = new Set([
+  'git',
+  'echo',
+  'test',
+  '[',
+  'true',
+  'false',
+  ':',
+  'pwd',
+  'ls',
+  'cat',
+  'cd',
+]);
+
+const REPOSITORY_PRESERVING_GIT_SUBCOMMANDS = new Set(['add', 'status', 'diff', 'log', 'show']);
+
+/**
+ * Environment variables that choose which repository git or gh acts on. Set in the session's own
+ * environment, any of them removes the directory-based exemption for every bare git / gh command.
+ */
+const REPOSITORY_SELECTING_ENV_VARS = [
+  'GH_REPO',
+  'GH_HOST',
+  'GIT_DIR',
+  'GIT_WORK_TREE',
+  'GIT_COMMON_DIR',
+  'GIT_INDEX_FILE',
+  'GIT_OBJECT_DIRECTORY',
+  'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+  'GIT_NAMESPACE',
+  'GIT_CEILING_DIRECTORIES',
+  'GIT_CONFIG_GLOBAL',
+  'GIT_CONFIG_SYSTEM',
+  'GIT_CONFIG_COUNT',
+];
+
+/** `gh <noun> <verb>` verbs that only read (`gh issue view`); others, such as `gh repo set-default`, can repoint gh. */
+const READ_ONLY_GH_VERBS = new Set(['view', 'list', 'status', 'diff']);
+
+/**
+ * True when a subcommand may change which repository a LATER git or gh subcommand on the line acts
+ * on, without changing directory. An allow-list, failing closed: the shell has too many ways to
+ * change the environment (`export GIT_DIR=...` and its `builtin` / `command` / `declare` / `+=`
+ * forms, `export GH_REPO=...`, `eval`, `source`, function and alias definitions, `PATH=...`, ...)
+ * for a deny-list to stay complete. So only a segment whose command is on
+ * {@link ENVIRONMENT_PRESERVING_COMMANDS}, with no leading variable assignment,
+ * keeps a later git or gh command's directory-based exemption. A legitimate tracker commit is run
+ * on its own or after one of those.
+ */
+function mayRedirectLaterCommands(subcommand: string): boolean {
+  // Any output redirection, expansion, command substitution or process substitution can run, write
+  // or assign something (`printf ... > .git/config`, `echo $(git remote set-url ...)`,
+  // `echo ${GH_REPO:=...}`) before the later command runs, while remote inspection already read
+  // the old state: fail closed on all of them.
+  if (/[>`$]|<\(/.test(subcommand)) {
+    return true;
+  }
+  // A brace group runs in the current shell; its braces change nothing themselves.
+  const words = tokenizeShellWords(subcommand.trim()).filter((w) => w !== '{' && w !== '}');
+  if (words.length === 0) {
+    return false;
+  }
+  if (words[0] === 'gh') {
+    return !READ_ONLY_GH_VERBS.has(words[2] ?? '');
+  }
+  if (!ENVIRONMENT_PRESERVING_COMMANDS.has(words[0])) {
+    return true; // includes a leading `VAR=value`, `export`, `builtin`, `eval`, `if`, `f() {`, ...
+  }
+  if (words[0] === 'cd') {
+    // Only a plain `cd <dir>` is tracked as a directory change; `cd a b` fails (too many operands)
+    // and leaves the shell where it was, and options or `cd -` move it somewhere the tracking
+    // does not model.
+    return words.length !== 2 || words[1].startsWith('-');
+  }
+  if (words[0] === 'git') {
+    // `git diff --output=.git/config` writes a file; any `--output` / `-o` option disqualifies.
+    return (
+      !REPOSITORY_PRESERVING_GIT_SUBCOMMANDS.has(words[1] ?? '') ||
+      words.slice(2).some((w) => w.startsWith('--output') || w === '-o')
+    );
+  }
+  return false;
+}
+
+
+/**
  * Evaluates whether a public-surface command violates embargo terms.
  * Evaluates per subcommand, respects project.md config for tracker/upstream resolution,
  * tracks cd directory transitions across subcommands, fails closed on unreadable files,
@@ -2099,7 +2200,13 @@ export async function evaluatePublicSurfaceCommand(
   const subshellCwdStack: (string | undefined)[] = [];
   const seenRedirectedFiles = new Set<string>();
   let hasPotentiallyMutatingPriorCommand = false;
+  // Set once an earlier subcommand on the line may have changed the environment (a GIT_* / GH_*
+  // variable, or an opaque builtin), which can point a later bare git or gh command at another
+  // repository without changing directory.
+  let hasPriorRedirect = REPOSITORY_SELECTING_ENV_VARS.some((name) => Boolean(options?.env?.[name]));
 
+  let hasSeenConditional = false;
+  let hasSeenPipeOrBackground = false;
   for (const item of subcommands) {
     if (item.subshellDepthDeltaBefore) {
       for (let d = 0; d < item.subshellDepthDeltaBefore; d++) {
@@ -2126,6 +2233,49 @@ export async function evaluatePublicSurfaceCommand(
 
     const rawSub = item.raw;
     const parsed = parseSubcommand(rawSub);
+    const isRedirectedByPriorCommand =
+      // An own-environment git or gh command (`GIT_COMMON_DIR=... git tag`, `env ... git tag`, after
+      // any prefix): parseSubcommand acts only on GIT_DIR / GIT_WORK_TREE, and git reads many more.
+      // An expansion or substitution inside the git or gh command itself (`gh issue create -t
+      // "$(git remote set-url ...)"`, `"${GH_REPO:=...}"`, `>(...)`) runs before the command
+      // resolves its repository; same fail-closed set as mayRedirectLaterCommands.
+      (hasPriorRedirect || parsed.setsOwnEnvironment === true || /[`$]|[<>]\(/.test(rawSub)) &&
+      (parsed.commandType.startsWith('git ') || parsed.commandType.startsWith('gh '));
+    // The directory tracking follows every `cd`, but once an `&&` or `||` has appeared on the line a
+    // later `cd` may run only conditionally (`false && cd /tracker`, `cd /upstream || cd /tracker`,
+    // `false && { true; cd /tracker; }`), so the tracked directory can disagree with the shell:
+    // any such `cd`, or anything followed by `||`, is a redirect.
+    const isConditionalCd = Boolean(parsed.cdDir) && hasSeenConditional;
+    // With CDPATH set, `cd name` searches the CDPATH entries before the current directory, so the
+    // tracked directory can name a different checkout than the one the shell lands in. Bash skips
+    // the search only for `/...`, `.`, `..`, `./...` and `../...` (`.hidden` is still searched).
+    const isCdPathCd =
+      Boolean(parsed.cdDir) && Boolean(options?.env?.CDPATH) && !/^(\/|\.\.?(\/|$))/.test(parsed.cdDir ?? '');
+    // A `cd` in a pipeline or a background job runs in a subshell and leaves the shell where it was.
+    // `separatorAfter` shows only a `cd` that starts a pipeline; one in a later stage (`echo | cd x;`,
+    // `echo | { true; cd x; }`) ends with `;`, so once a `|` or `&` has appeared any `cd` is a redirect,
+    // as is one inside a group that is itself piped or backgrounded (`{ cd x; true; } | cat`).
+    const isSubshellCd =
+      Boolean(parsed.cdDir) &&
+      (hasSeenPipeOrBackground ||
+        item.inPipedOrBackgroundGroup === true ||
+        item.separatorAfter === '|' ||
+        item.separatorAfter === '&');
+    if (
+      mayRedirectLaterCommands(rawSub) ||
+      item.separatorAfter === '||' ||
+      isConditionalCd ||
+      isCdPathCd ||
+      isSubshellCd
+    ) {
+      hasPriorRedirect = true;
+    }
+    if (item.separatorAfter === '&&' || item.separatorAfter === '||') {
+      hasSeenConditional = true;
+    }
+    if (item.separatorAfter === '|' || item.separatorAfter === '&') {
+      hasSeenPipeOrBackground = true;
+    }
 
     // Track cd transitions: update virtualCwd across sequential operators (&&, ;, \n, ||)
     // Only exclude pipeline (|) and background (&) which run in subshells
@@ -2256,7 +2406,10 @@ export async function evaluatePublicSurfaceCommand(
         parsed.commandType.includes('git-dir') ||
         parsed.commandType.includes('work-tree') ||
         parsed.commandType.includes('GIT_DIR') ||
-        parsed.commandType.includes('wrapped')
+        parsed.commandType.includes('wrapped') ||
+        // `bash -c '...'` and `eval '...'` can cd or set GIT_DIR inside the string before git / gh runs
+        parsed.commandType.includes('invoking git/gh') ||
+        isRedirectedByPriorCommand
       ) {
         // Repository context is redirected or indeterminate — cwd remoteInfo cannot exempt it
         // Proceed directly to inspection and dynamic-input fail-closed check
@@ -2349,7 +2502,15 @@ export async function evaluatePublicSurfaceCommand(
       if (trackerFallbackHint) {
         // The Bash tool call carries no cwd, so a command run in the tracker checkout cannot be
         // told apart from one run after an earlier `cd ../<upstream>`; an explicit target can.
-        reason += `\nIf this command targets the private tracker, name it explicitly: \`--repo ${trackerFallbackHint}\`.`;
+        if (parsed.commandType.startsWith('git ')) {
+          // git commit/tag/merge has no --repo flag; only the directory it runs in identifies the repository.
+          reason +=
+            '\nThe current directory of this command could not be determined, so the private-tracker exemption ' +
+            'was not applied. A git command has no repository flag; the exemption needs a known working directory ' +
+            'inside the tracker checkout.';
+        } else {
+          reason += `\nIf this command targets the private tracker, name it explicitly: \`--repo ${trackerFallbackHint}\`.`;
+        }
       }
       return {
         blocked: true,
@@ -2377,6 +2538,20 @@ export function register(on: any): void {
       let initialCwd: string | undefined = e?.cwd || e?.directory;
       let isSessionRootFallback = false;
       if (!initialCwd) {
+        // The Bash tool event carries no directory. $.session.cwd() is the session's current
+        // directory: the shell's directory as left by earlier Bash calls (a `cd` that persists
+        // across calls moves it), or the calling agent's own directory. $.session.root() is only
+        // where the session started, so it is used just when the current directory is unknown.
+        try {
+          const current = await $.session.cwd();
+          if (typeof current === 'string' && current) {
+            initialCwd = current;
+          }
+        } catch {
+          // $.session.cwd may be absent in mock harnesses or older engines
+        }
+      }
+      if (!initialCwd) {
         try {
           initialCwd = await $.session.root();
           isSessionRootFallback = true;
@@ -2390,7 +2565,38 @@ export function register(on: any): void {
       } catch {
         // $.env may be absent in mock harnesses
       }
-      const hookEnv = allowBypass ? { MAGPIE_ALLOW_EMBARGO_TERMS: allowBypass } : {};
+      const hookEnv: { [key: string]: string | undefined } = allowBypass
+        ? { MAGPIE_ALLOW_EMBARGO_TERMS: allowBypass }
+        : {};
+      // A repository-selecting variable inherited by the session (Claude launched with GH_REPO or
+      // GIT_DIR set) repoints every bare git / gh command, whatever the directory says.
+      // The mod API needs a literal name at every $.env.get call, so each variable is spelled out;
+      // keep this list in step with REPOSITORY_SELECTING_ENV_VARS.
+      const inherited: [string, () => Promise<string | undefined>][] = [
+        ['GH_REPO', () => $.env.get('GH_REPO')],
+        ['GH_HOST', () => $.env.get('GH_HOST')],
+        ['GIT_DIR', () => $.env.get('GIT_DIR')],
+        ['GIT_WORK_TREE', () => $.env.get('GIT_WORK_TREE')],
+        ['GIT_COMMON_DIR', () => $.env.get('GIT_COMMON_DIR')],
+        ['GIT_INDEX_FILE', () => $.env.get('GIT_INDEX_FILE')],
+        ['GIT_OBJECT_DIRECTORY', () => $.env.get('GIT_OBJECT_DIRECTORY')],
+        ['GIT_ALTERNATE_OBJECT_DIRECTORIES', () => $.env.get('GIT_ALTERNATE_OBJECT_DIRECTORIES')],
+        ['GIT_NAMESPACE', () => $.env.get('GIT_NAMESPACE')],
+        ['GIT_CEILING_DIRECTORIES', () => $.env.get('GIT_CEILING_DIRECTORIES')],
+        ['GIT_CONFIG_GLOBAL', () => $.env.get('GIT_CONFIG_GLOBAL')],
+        ['GIT_CONFIG_SYSTEM', () => $.env.get('GIT_CONFIG_SYSTEM')],
+        ['GIT_CONFIG_COUNT', () => $.env.get('GIT_CONFIG_COUNT')],
+        // Not repository-selecting by itself, but it moves a relative `cd` (see isCdPathCd).
+        ['CDPATH', () => $.env.get('CDPATH')],
+      ];
+      for (const [name, read] of inherited) {
+        try {
+          const value = await read();
+          if (value) hookEnv[name] = value;
+        } catch {
+          // $.env may be absent in mock harnesses
+        }
+      }
       const evaluation = await evaluatePublicSurfaceCommand(command, {
         cwd: initialCwd,
         isSessionRootFallback,

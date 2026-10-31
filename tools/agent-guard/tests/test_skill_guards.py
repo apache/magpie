@@ -38,6 +38,11 @@ SECURITY_GUARDS = (
     if (REPO_ROOT / "plugins" / "magpie-security" / "skills" / "issue-fix" / "guards").is_dir()
     else REPO_ROOT / "skills" / "security-issue-fix" / "guards"
 )
+SETUP_GUARDS = (
+    REPO_ROOT / "plugins" / "magpie-setup" / "skills" / "isolated-setup-install" / "guards"
+    if (REPO_ROOT / "plugins" / "magpie-setup" / "skills" / "isolated-setup-install" / "guards").is_dir()
+    else REPO_ROOT / "skills" / "setup-isolated-setup-install" / "guards"
+)
 
 
 @pytest.fixture(autouse=True)
@@ -47,9 +52,13 @@ def _wire_skill_guards(monkeypatch):
         "MAGPIE_ALLOW_MENTIONS",
         "MAGPIE_ALLOW_MARK_READY",
         "MAGPIE_ALLOW_SECURITY_LANG",
+        "MAGPIE_ALLOW_LEFTHOOK_HOOKS_PATH",
     ):
         monkeypatch.delenv(name, raising=False)
-    monkeypatch.setenv("MAGPIE_GUARD_DIRS", f"{TRIAGE_GUARDS}{os.pathsep}{SECURITY_GUARDS}")
+    monkeypatch.setenv(
+        "MAGPIE_GUARD_DIRS",
+        f"{TRIAGE_GUARDS}{os.pathsep}{SECURITY_GUARDS}{os.pathsep}{SETUP_GUARDS}",
+    )
 
 
 def fake_run(handler):
@@ -80,6 +89,7 @@ def test_guard_files_exist():
     assert (TRIAGE_GUARDS / "mention.py").is_file()
     assert (TRIAGE_GUARDS / "mark_ready.py").is_file()
     assert (SECURITY_GUARDS / "security_language.py").is_file()
+    assert (SETUP_GUARDS / "lefthook_hooks_path.py").is_file()
 
 
 # --- mention guard (skill-owned) ------------------------------------------- #
@@ -566,3 +576,90 @@ def test_prefix_wrappers_reach_the_mention_guard(monkeypatch, prefix):
 def test_an_override_on_env_still_counts(monkeypatch):
     monkeypatch.setattr(agent_guard, "_run", fake_run(gh_stub(author="alice")))
     assert dispatch('env MAGPIE_ALLOW_MENTIONS=1 gh pr comment 5 --body "@bob ping"') is None
+
+
+# --- lefthook hooks-path guard (skill-owned) ------------------------------- #
+
+FRAMEWORK_HOOKS = "~/.claude/git-hooks"
+
+
+def hooks_path_stub(value):
+    def handler(args):
+        if args[:2] == ["git", "config"]:
+            return value
+        return None
+
+    return handler
+
+
+@pytest.mark.parametrize("hooks_path", [FRAMEWORK_HOOKS, "~/.claude-config/git-hooks"])
+@pytest.mark.parametrize(
+    "command, flag",
+    [
+        ("lefthook install --force", "--force"),
+        ("lefthook install -f", "--force"),
+        ("lefthook install --force=true", "--force"),
+        ("lefthook install --force=1", "--force"),
+        ("lefthook install --reset-hooks-path", "--reset-hooks-path"),
+        ("lefthook install --reset-hooks-path=true", "--reset-hooks-path"),
+        ("lefthook install -r", "--reset-hooks-path"),
+        ("lefthook install -fr", "--force"),
+        ("lefthook install -fr=false", "--force"),
+        ("lefthook install -rf=false", "--reset-hooks-path"),
+        ("lefthook --verbose install --force", "--force"),
+        ("./node_modules/.bin/lefthook install --force", "--force"),
+    ],
+)
+def test_lefthook_destructive_install_denied(monkeypatch, hooks_path, command, flag):
+    monkeypatch.setattr(agent_guard, "_run", fake_run(hooks_path_stub(hooks_path)))
+    reason = dispatch(command)
+    assert reason and "lefthook-hooks-path" in reason and flag in reason
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "lefthook install",
+        "lefthook install --verbose",
+        "lefthook run pre-commit",
+        "lefthook --version",
+    ],
+)
+def test_lefthook_plain_invocations_allowed(monkeypatch, command):
+    monkeypatch.setattr(agent_guard, "_run", fake_run(hooks_path_stub(FRAMEWORK_HOOKS)))
+    assert dispatch(command) is None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "lefthook install --force=false",
+        "lefthook install --reset-hooks-path=false",
+        "lefthook install -f=false",
+    ],
+)
+def test_lefthook_switched_off_destructive_flag_allowed(monkeypatch, command):
+    monkeypatch.setattr(agent_guard, "_run", fake_run(hooks_path_stub(FRAMEWORK_HOOKS)))
+    assert dispatch(command) is None
+
+
+def test_lefthook_destructive_install_allowed_for_another_global_path(monkeypatch):
+    monkeypatch.setattr(agent_guard, "_run", fake_run(hooks_path_stub("/opt/other-hooks")))
+    assert dispatch("lefthook install --force") is None
+
+
+def test_lefthook_destructive_install_allowed_without_a_global_path(monkeypatch):
+    monkeypatch.setattr(agent_guard, "_run", fake_run(hooks_path_stub(None)))
+    assert dispatch("lefthook install --reset-hooks-path") is None
+
+
+def test_lefthook_destructive_install_override(monkeypatch):
+    monkeypatch.setattr(agent_guard, "_run", fake_run(hooks_path_stub(FRAMEWORK_HOOKS)))
+    assert dispatch("MAGPIE_ALLOW_LEFTHOOK_HOOKS_PATH=1 lefthook install --force") is None
+
+
+def test_lefthook_framework_path_comparison_ignores_case(monkeypatch):
+    monkeypatch.setattr(os.path, "normcase", str.lower)
+    monkeypatch.setattr(agent_guard, "_run", fake_run(hooks_path_stub(FRAMEWORK_HOOKS.upper())))
+    reason = dispatch("lefthook install --force")
+    assert reason and "lefthook-hooks-path" in reason

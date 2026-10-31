@@ -1293,6 +1293,32 @@ def test_list_tags_no_tags_found(tmp_path: Path, capsys: pytest.CaptureFixture[s
     assert stdout.strip() == "no tags found"
 
 
+def test_check_reports_a_step_heading_the_skill_no_longer_has(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    """A renamed SKILL.md heading leaves the step-config pointing at nothing;
+    --check names that fixtures dir without running any case."""
+    repo = _make_repo(tmp_path)
+    (repo / "SKILL.md").write_text("## Step 5 — Secure it\n\nRules.\n")
+    good = _make_fixtures_dir(
+        repo / "evals" / "good", step_config={"skill_md": "SKILL.md", "step_heading": "## Step 5 — Secure it"}
+    )
+    stale = _make_fixtures_dir(
+        repo / "evals" / "stale",
+        step_config={"skill_md": "SKILL.md", "step_heading": "### Step 5 — Apply the checklist"},
+    )
+    _make_case(good, "case-1")
+    _make_case(stale, "case-1")
+
+    rc, stdout, stderr = _run_main(capsys, [str(repo / "evals"), "--check"])
+
+    assert rc == 1
+    assert stdout == ""
+    assert str(stale) in stderr
+    assert "### Step 5 — Apply the checklist" in stderr
+    assert str(good) not in stderr
+
+
 def test_collect_tag_counts(tmp_path: Path):
     fixtures_dir = tmp_path / "fixtures"
     case1 = _make_case(fixtures_dir, "case-1")

@@ -111,6 +111,9 @@ FORBIDDEN_ALLOW_READ = {
     # outside the sandbox; a readable token plus the Google API hosts
     # would let any unprompted sandboxed command use the user's Gmail.
     "~/.config/apache-magpie",
+    # gh's token (hosts.yml). `gh *` runs outside the sandbox and reads it
+    # there; a sandboxed command never needs it.
+    "~/.config/gh",
 }
 
 # allowWrite must be even more restrictive than allowRead. A path

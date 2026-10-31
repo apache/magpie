@@ -605,6 +605,27 @@ _register(
 
 _register(
     Op(
+        name="issue-list-with-bodies",
+        params=(),
+        summary="Read up to 1000 tracker issues with bodies for authorized import deduplication.",
+        build=lambda cfg: [
+            "gh",
+            "issue",
+            "list",
+            "--repo",
+            _tracker(cfg),
+            "--state",
+            "all",
+            "--limit",
+            "1000",
+            "--json",
+            "number,title,state,url,body",
+        ],
+    )
+)
+
+_register(
+    Op(
         name="issue-list-label",
         params=("state", "label"),
         summary="List tracker issues in a given state that carry one configured label.",

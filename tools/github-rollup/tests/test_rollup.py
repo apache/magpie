@@ -20,9 +20,11 @@ import pytest
 
 from github_rollup.rollup import (
     ROLLUP_MARKER,
+    RollupEntry,
     build_entry,
     build_new_rollup_body,
     find_rollup_index,
+    insert_entries_by_date,
     is_canonical_rollup_body,
     is_rollup_body,
     iter_entries,
@@ -221,6 +223,56 @@ def test_rebuild_with_appended_entry_inserts_canonical_ruler():
     assert len(entries) == 2
     assert entries[0].action == "Import"
     assert entries[1].action == "Sync"
+
+
+def _rollup(*dates: str) -> str:
+    body = f"{MARKER_LINE}\n" + build_entry(date=dates[0], user="@a", action="Step", body=dates[0])
+    for d in dates[1:]:
+        body = rebuild_with_appended_entry(body, build_entry(date=d, user="@a", action="Step", body=d))
+    return body
+
+
+def _entry(date: str) -> RollupEntry:
+    return RollupEntry(date=date, user="@c", action="Old", body=f"old {date}")
+
+
+def test_insert_entries_by_date_keeps_the_latest_entry_last():
+    out = insert_entries_by_date(
+        _rollup("2026-01-01", "2026-03-01"), [_entry("2026-04-01"), _entry("2026-02-01")]
+    )
+    assert [e.date for e in iter_entries(out)] == ["2026-01-01", "2026-02-01", "2026-03-01", "2026-04-01"]
+    assert "</details>\n\n---\n\n<details>" in out
+
+
+def test_insert_entries_by_date_before_the_first_entry():
+    existing = _rollup("2026-05-01")
+    out = insert_entries_by_date(existing, [_entry("2026-01-01")])
+    assert [e.date for e in iter_entries(out)] == ["2026-01-01", "2026-05-01"]
+    # The existing entry's text is untouched.
+    assert existing.split("\n", 1)[1] in out
+
+
+def test_insert_entries_by_date_keeps_a_same_day_existing_entry_last():
+    out = insert_entries_by_date(_rollup("2026-01-01", "2026-03-01"), [_entry("2026-03-01")])
+    entries = iter_entries(out)
+    assert [e.date for e in entries] == ["2026-01-01", "2026-03-01", "2026-03-01"]
+    assert entries[-1].action == "Step"
+
+
+def test_insert_entries_by_date_ignores_summary_lines_inside_an_entry():
+    example = "<details><summary>2025-12-01 · @x · Example</summary>\n\nquoted\n\n</details>"
+    body = f"```\n{example}\n```"
+    existing = f"{MARKER_LINE}\n" + build_entry(date="2026-01-01", user="@a", action="Step", body=body)
+    out = insert_entries_by_date(existing, [_entry("2026-02-01")])
+    # Appended after the January entry, not inside its quoted example.
+    assert out.startswith(existing)
+    assert out.endswith(build_entry(date="2026-02-01", user="@c", action="Old", body="old 2026-02-01"))
+
+
+def test_insert_entries_by_date_skips_unparsed_anchors():
+    existing = f"{MARKER_LINE}\n<details><summary>free text</summary>\n\nX.\n\n</details>"
+    out = insert_entries_by_date(existing, [_entry("2026-01-01")])
+    assert [e.action for e in iter_entries(out)] == ["", "Old"]
 
 
 def test_rebuild_strips_trailing_whitespace_before_ruler():

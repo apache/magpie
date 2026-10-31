@@ -53,11 +53,23 @@ def _repo_with_local_hook(
     return repo, hooks / "pre-commit", seen
 
 
+def _common_dir(repo: Path) -> str:
+    result = subprocess.run(
+        ["bash", "-c", 'cd "$(git rev-parse --git-common-dir)" && pwd -P'],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return result.stdout.strip()
+
+
 def _run(repo: Path, hook: Path, env_extra: dict[str, str]) -> None:
     env = {
         k: v
         for k, v in os.environ.items()
         if k not in ("PREK_HOME", "SANDBOX_RUNTIME", "XDG_CACHE_HOME")
+        and not k.startswith("GIT_CONFIG_")
     }
     env.update(env_extra)
     subprocess.run(["bash", str(hook)], cwd=repo, env=env, check=True)
@@ -93,6 +105,58 @@ def test_an_operator_prek_home_outside_the_cache_is_left_alone(tmp_path: Path) -
     repo, hook, seen = _repo_with_local_hook(tmp_path)
     _run(repo, hook, {"PREK_HOME": "/opt/prek-home"})
     assert seen.read_text() == "/opt/prek-home"
+
+
+def test_an_overcommit_hook_gets_the_repository_hooks_path(tmp_path: Path) -> None:
+    repo, hook, seen = _repo_with_local_hook(tmp_path, config=".overcommit.yml")
+    local = repo / ".git" / "hooks" / "pre-commit"
+    local.write_text(
+        f'#!/bin/sh\n# overcommit\nprintf "%s" "${{GIT_CONFIG_VALUE_0-<unset>}}" > {seen}\n'
+    )
+    local.chmod(0o755)
+    _run(repo, hook, {})
+    assert seen.read_text() == f"{_common_dir(repo)}/hooks"
+
+
+def test_an_overcommit_hook_preserves_existing_git_config(tmp_path: Path) -> None:
+    repo, hook, seen = _repo_with_local_hook(tmp_path, config=".overcommit.yml")
+    local = repo / ".git" / "hooks" / "pre-commit"
+    local.write_text(
+        '#!/bin/sh\n# overcommit\n'
+        'printf "%s\\n" "${GIT_CONFIG_COUNT-}" "${GIT_CONFIG_KEY_0-}" '
+        '"${GIT_CONFIG_VALUE_0-}" "${GIT_CONFIG_KEY_1-}" '
+        f'"${{GIT_CONFIG_VALUE_1-}}" > {seen}\n'
+    )
+    local.chmod(0o755)
+    _run(
+        repo,
+        hook,
+        {
+            "GIT_CONFIG_COUNT": "1",
+            "GIT_CONFIG_KEY_0": "user.name",
+            "GIT_CONFIG_VALUE_0": "Someone",
+        },
+    )
+    assert seen.read_text().splitlines() == [
+        "2",
+        "user.name",
+        "Someone",
+        "core.hooksPath",
+        f"{_common_dir(repo)}/hooks",
+    ]
+
+
+def test_a_hook_without_the_overcommit_marker_keeps_the_shared_path(
+    tmp_path: Path,
+) -> None:
+    repo, hook, seen = _repo_with_local_hook(tmp_path)
+    local = repo / ".git" / "hooks" / "pre-commit"
+    local.write_text(
+        f'#!/bin/sh\nprintf "%s" "${{GIT_CONFIG_VALUE_0-<unset>}}" > {seen}\n'
+    )
+    local.chmod(0o755)
+    _run(repo, hook, {})
+    assert seen.read_text() == "<unset>"
 
 
 def test_a_repository_without_its_own_hook_is_a_no_op(tmp_path: Path) -> None:

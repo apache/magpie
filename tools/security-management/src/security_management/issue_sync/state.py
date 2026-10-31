@@ -71,11 +71,18 @@ def _days(start: datetime, end: datetime) -> int:
     return (end.date() - start.date()).days
 
 
+def _configured_days(data: Mapping[str, Any], key: str, default: int) -> int:
+    value = data.get(key)
+    return default if value is None else int(value)
+
+
 def disclosure(data: Mapping[str, Any]) -> dict[str, Any]:
     now = _time(data["now"])
     age = _days(_time(data["created_at"]), now)
-    window = int(data.get("window_days") or 90)
-    grace = int(data.get("grace_period_days") or 14)
+    window = _configured_days(data, "window_days", 90)
+    if window <= 0:  # as issue-import reads it: the window must be positive
+        window = 90
+    grace = _configured_days(data, "grace_period_days", 14)
     labels = set(_labels(data))
     announced = bool(labels & {"announced", "announced - emails sent"})
     shipping = bool(labels & {"pr merged", "fix released"})
@@ -95,7 +102,7 @@ def disclosure(data: Mapping[str, Any]) -> dict[str, Any]:
 
 def staleness(data: Mapping[str, Any]) -> dict[str, Any]:
     now = _time(data["now"])
-    timeout = int(data.get("timeout_days") or 14)
+    timeout = _configured_days(data, "timeout_days", 14)
     messages = sorted((_time(m["at"]), bool(m.get("from_team"))) for m in data.get("messages") or [])
     if not messages or not messages[-1][1]:
         return {

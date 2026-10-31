@@ -52,6 +52,27 @@ def fake_run(handler):
 
 
 # --------------------------------------------------------------------------- #
+# guarded_head (shared helper, stays in the engine)
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize(
+    "head, expected",
+    [
+        ("lefthook", "lefthook"),
+        ("./node_modules/.bin/lefthook", "lefthook"),
+        (r"node_modules\.bin\lefthook", "lefthook"),
+        (r"C:\tools\lefthook.exe", "lefthook"),
+        ("lefthook.exe", "lefthook"),
+        ("/usr/bin/gh", "gh"),
+        ("curl", None),
+    ],
+)
+def test_guarded_head_recognizes_paths_from_every_platform(head, expected):
+    assert agent_guard.guarded_head([head, "install"]) == expected
+
+
+# --------------------------------------------------------------------------- #
 # find_mentions / strip_code (shared helper, stays in the engine)
 # --------------------------------------------------------------------------- #
 

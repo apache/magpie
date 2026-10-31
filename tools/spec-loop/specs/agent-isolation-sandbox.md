@@ -369,6 +369,12 @@ See `docs/adapters/goose.md`.
   `tools/agent-isolation/hook-manager-shim.sh` (installed as
   `~/.claude/bin/<tool>`, keyed by that name), the dispatcher and
   `sandbox-lint`, and checks the committed settings against it.
+  The shim's per-adapter install strategy keeps the target local: prek
+  gets `--git-dir`, and lefthook, which refuses while a global
+  `core.hooksPath` is set, gets `GIT_CONFIG_GLOBAL=/dev/null` and has no
+  home (#1822).
+  The `lefthook-hooks-path` agent guard blocks `lefthook install --force`
+  and `--reset-hooks-path` while that path is the framework's.
   The settings template likewise denies `Edit(~/.cache/ponymail-attachments/**)`
   (#1828): the PonyMail MCP saves report attachments there from outside the
   sandbox, and a sandboxed command that could rename directories under that
@@ -387,11 +393,21 @@ See `docs/adapters/goose.md`.
   shim, verify check 19d; the default-home deny and the dispatcher's host
   home stay on for every registered manager, because both homes are per
   user (#1819).
-  `registry.json` registers prek (install strategy `git-dir-flag`) and
-  four managers with install strategy `none`, which already write to the
+  `registry.json` registers prek (install strategy `git-dir-flag`),
+  overcommit (`hooks-path-env`, with `install.runtime_env` so the
+  dispatcher exports the same `core.hooksPath` at run time), lefthook
+  (`hide-global-config`, no home), plus four
+  managers with install strategy `none`, which already write to the
   repository's own hooks directory whatever the global `core.hooksPath`:
   `simple-git-hooks`, `cargo-husky`, `git-build-hook` and
   `git-code-format-maven-plugin` (#1838).
+  overcommit's install action is a flag, so the shim finds it and its
+  registry aliases (`-i`) anywhere in argv, not only first, including
+  inside a bundle of short switches (`-fi`) and as any prefix of the
+  long flag (`--inst`); the
+  exported run-time override reaches git commands the hook starts,
+  including ones aimed at another repository, which is recorded as a
+  known limitation of the strategy.
   A `none` manager gets no shim; its worktree caveats (cargo-husky skips
   hook install in a linked worktree, the JGit plugins target
   `<worktree>/hooks`) are recorded in the README's adapter table.
@@ -433,6 +449,9 @@ See `docs/adapters/goose.md`.
   `~/.config/apache-magpie` in `allowRead`: the Gmail OAuth token there is
   read only by the drafting MCP server outside the sandbox, and the
   template no longer grants it or the Google API hosts (#1681).
+  It refuses `~/.config/gh` in `allowRead` too: `gh *` is excluded from the
+  sandbox and reads its own token outside it, so no sandboxed command needs
+  `hosts.yml`, and the template no longer grants it.
   Because that server runs outside the sandbox, it accepts a
   caller-supplied `credentials_path` only as a `.json` file directly in
   `~/.config/apache-magpie/` or in the directory of

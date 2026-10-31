@@ -41,9 +41,6 @@ ACCEPTED_STATES = frozenset({"confirmed", "cve-allocation", "disclosure"})
 #: States the dashboard gives the entries of its multi-thread labels
 #: (`aaa-glasswing`, `aaa-non-fwd`): the security team's own bookkeeping.
 LABEL_STATES = frozenset({"glasswing", "non-fwd"})
-#: Prefixes of the security team's standing labels: catch-all files such as
-#: `aaa-support` or `zzz-admin`, which the dashboard lists as untriaged cases.
-LABEL_PREFIXES = ("aaa-", "zzz-")
 DECISIONS = ("undecided", "accepted", "rejected")
 
 
@@ -76,13 +73,10 @@ def normalise(raw: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
         cves = entry.get("cves") or []
         if not isinstance(cves, list):
             raise DashError(f"case {mid}: cves is not a list")
-        tag = entry.get("tag")
-        tag = tag if isinstance(tag, str) and tag else None
         cases.append(
             {
                 "message_id": mid,
-                "tag": tag,
-                "label": state in LABEL_STATES or bool(tag and tag.startswith(LABEL_PREFIXES)),
+                "label": state in LABEL_STATES,
                 "cves": sorted({str(c).upper() for c in cves}),
                 "title": str(entry.get("title") or ""),
                 "state": state,
@@ -119,7 +113,7 @@ def _finding(
 ) -> dict[str, Any]:
     found: dict[str, Any] = {"kind": kind, "fix": fix, "detail": detail}
     if case is not None:
-        found["case"] = {k: case[k] for k in ("message_id", "tag", "title", "state", "cves", "thread")}
+        found["case"] = {k: case[k] for k in ("message_id", "title", "state", "cves", "thread")}
     if issue is not None:
         found["issue"] = {k: issue[k] for k in ("id", "url", "state", "decision", "cves")}
     return found
@@ -204,11 +198,11 @@ def reconcile(pmc: str, cases: list[dict[str, Any]], tracker: Iterable[Mapping[s
 def _untracked(case: dict[str, Any]) -> dict[str, Any]:
     """A case with no issue: import it, unless it may be one of the standing labels.
 
-    Without its `tag` (the dashboard's file name) a standing label such as
-    `aaa-support` is indistinguishable from an untriaged report, so a human
-    looks before anything is imported.
+    The dashboard lists the security team's catch-all labels, such as
+    `aaa-support`, as untriaged cases, and the API does not say which entries
+    they are, so a human looks before an untriaged case is imported.
     """
-    if case["tag"] is None and case["stage"] == "untriaged":
+    if case["stage"] == "untriaged":
         return _finding(
             "untracked",
             "review",

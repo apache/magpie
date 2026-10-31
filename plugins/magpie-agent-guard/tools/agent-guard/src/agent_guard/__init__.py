@@ -2337,8 +2337,9 @@ BUILTIN_GUARDS: tuple[Callable[[Segment, str | None], str | None], ...] = (
 
 # Only commands in these families are inspected; everything else takes the
 # instant fast path. Bundled and contributed guards alike operate on the
-# `gh` / `git` outbound/destructive surface.
-GUARDED_HEADS = frozenset({"gh", "git"})
+# `gh` / `git` outbound/destructive surface and on `lefthook`, whose
+# `install` can undo the whole-user hook setup.
+GUARDED_HEADS = frozenset({"gh", "git", "lefthook"})
 
 # Colon-separated extra guard directories, searched before the discovered ones.
 # Skill-owned guards no longer need it (``framework_root`` finds them in place);
@@ -2597,12 +2598,32 @@ class GuardContext:
         return _run(args, cwd=self.cwd)
 
 
+def guarded_head(argv: list[str]) -> str | None:
+    """The guarded command family a segment runs, or None.
+
+    The head is usually the bare name, but a manager installed from a package
+    tree is reached by path (``node_modules/.bin/lefthook``), so the basename
+    counts too.
+    """
+    if not argv:
+        return None
+    head = argv[0]
+    if head in GUARDED_HEADS:
+        return head
+    base = head.replace("\\", "/").rsplit("/", 1)[-1]
+    if base.lower().endswith(".exe"):
+        base = base[:-4]
+    return base if base in GUARDED_HEADS else None
+
+
 def command_kinds(seg: Segment) -> set[str]:
     """The command-family tags a segment matches, e.g. ``{"git", "git:commit"}``."""
     kinds: set[str] = set()
     if not seg.argv:
         return kinds
-    head = seg.argv[0]
+    head = guarded_head(seg.argv)
+    if head is None:
+        return kinds
     kinds.add(head)
     if head == "git":
         # A TRIGGERS = ["git:commit"] contributed guard must still fire behind
@@ -2615,6 +2636,11 @@ def command_kinds(seg: Segment) -> set[str]:
         # Same for TRIGGERS = ["gh:pr"] behind `gh -R <repo> pr ...`.
         sub = gh_subcommand(seg.argv)
         kinds.add(f"{head}:{sub[0] if sub else seg.argv[1]}")
+    elif head == "lefthook":
+        # lefthook accepts global flags before the subcommand.
+        lefthook_sub = next((tok for tok in seg.argv[1:] if not tok.startswith("-")), None)
+        if lefthook_sub:
+            kinds.add(f"lefthook:{lefthook_sub}")
     return kinds
 
 
@@ -2782,7 +2808,7 @@ def dispatch(command: str, cwd: str | None = None, harness: str | None = None) -
             if reason:
                 return reason
             continue
-        if not seg.argv or seg.argv[0] not in GUARDED_HEADS:
+        if not seg.argv or guarded_head(seg.argv) is None:
             continue  # fast path — non-guarded command family
         # Bundled guards (trusted, in-process; each self-filters its command).
         for builtin in BUILTIN_GUARDS:

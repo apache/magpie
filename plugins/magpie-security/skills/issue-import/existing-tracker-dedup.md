@@ -5,35 +5,58 @@
 
 ## Step 2 — Deduplicate against existing <tracker> issues
 
-For each candidate `threadId`, check whether that ID already appears in an `<tracker>` issue body
-(the *"Security mailing list thread"* field holds it, as a `<mail-archive-url>/thread/<id>` URL or a textual note containing the Gmail `threadId`).
-Check every candidate in one pass: OR the `threadId`s into one `gh search issues` query,
-at most 6 IDs per query (GitHub search allows at most five `OR` operators).
-Write the ids as a JSON list to `<scratch>/thread-ids.json` and let the tool batch them
-(`<sm>` is `uv run --project <framework>/tools/security-management security-management issue-import`):
+For each candidate `threadId`, check the authoritative *Security mailing list
+thread* field of existing tracker issues. Do **not** use GitHub issue-body
+search as proof that a thread is untracked: search indexing can miss opaque
+identifiers enclosed in Markdown backticks.
+
+Write all candidate IDs to `<scratch>/thread-ids.json`. Use the configured
+vetted-ops policy and its `security-issue-import` caller to read the complete
+bounded GitHub tracker index:
 
 ```bash
-<sm> dedup-queries --thread-ids <scratch>/thread-ids.json --tracker <tracker>
+uv run --project ~/.claude/magpie/vetted-ops \
+  vetted-op-read --caller security-issue-import \
+  --save security-import-index.json issue-list-with-bodies
 ```
 
-It accepts the identifiers the mail-source backends emit — a Gmail or PonyMail id, a maildir file name, a root `Message-ID` such as `<report@example.org>` —
-and quotes each as a search phrase.
-**Exit `2` lists `rejected_ids`** it cannot search safely: stop and show them to the user; never search without them, or a tracked report re-imports.
-Run each batch's printed `command` (`gh search issues '<query>' --repo <tracker> --match body --limit 100 --json number,title,state,url,body`) as a plain command,
-saving its output to `<scratch>/dedup-hits-<n>.json`.
+The operation reads up to 1000 issues, including open and closed issues.
+It must be explicitly authorized in the adopter's vetted-ops `[callers]`
+policy. Never bypass a missing grant with direct `gh` calls; ask the user to
+approve the minimal caller-policy change instead. The `--save` target must
+be a pre-existing, marked, owner-controlled directory, as documented in
+`tools/vetted-ops/README.md`. Do not print saved issue bodies into model
+context. Reuse the saved index for this import run, including Step 2b.
 
-Then attribute the hits with `<sm> dedup-attribute --thread-ids <scratch>/batch-<n>.json --hits <scratch>/dedup-hits-<n>.json`
-(the batch's `ids`; a hit can match more than one candidate; the same exit `2` applies).
-A batch that returns exactly 100 hits may be truncated: the tool reports `truncated`, no `untracked` ids, and `rerun` batches —
-run those rather than treating the unmatched `threadId`s as untracked.
+Run the deterministic matcher against the saved JSON file:
 
-If the search returns any hit for a candidate, the thread is already imported — skip it; do **not** propose re-importing.
-If the user explicitly passed `import thread:<id>` and the thread is already imported, tell the user and link the existing issue.
+```bash
+<sm> dedup-index \
+  --thread-ids <scratch>/thread-ids.json \
+  --issues <workspace>/saved/security-import-index.json
+```
 
-The remaining candidates proceed to the on-thread-handling check below;
-only threads that survive both filters reach the user in Step 5.
+If the adopting project customizes tracker body headings, also pass
+`--body-fields <scratch>/body-fields.json`, using the configured role-to-heading
+mapping. The matcher extracts the authoritative `mailing_thread` field and
+compares exact normalized thread identifiers. It returns only matching issue
+summaries, never full issue bodies.
 
-**Budget guardrail**: if the de-dup step knocks the candidate set down to zero, say so and stop, without reading any email bodies.
+**Exit 2** for unsupported identifiers or invalid inputs means stop and
+surface the refusal. If `complete` is false, or any field is `undecided`,
+do not classify unmatched threads as new; ask for a manual resolution.
+A full 1000-issue index is potentially truncated and cannot support
+negative deduplication claims. On Jira or local-files trackers, the
+body-index operation is currently unsupported: stop and request a
+backend-supported check rather than assuming no matches.
+
+Any ID in `tracked` has already been imported — skip it and link the existing
+issue. If an explicitly requested thread is already tracked, tell the user.
+Only IDs in `untracked` may proceed to the on-thread check below.
+
+**Budget guardrail:** fetch one bounded tracker index per import run; never
+re-fetch the index for every candidate. If no candidates remain, stop without
+reading email bodies.
 
 ### 2-bis. Drop threads already answered on-thread without a tracker
 

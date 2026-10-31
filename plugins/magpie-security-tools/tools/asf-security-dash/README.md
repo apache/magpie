@@ -90,8 +90,7 @@ a PMC the user may not see, or a malformed response), `2` a usage error,
 | Field | Meaning |
 |---|---|
 | `message_id` | `Message-ID` of the reporting email, without angle brackets. The key for every comparison. |
-| `tag` | The security team's name for the case (its file name), when the API returns it; else `null`. |
-| `label` | `true` for an entry of one of the security team's standing labels rather than a report: a `tag` starting `aaa-` or `zzz-` (catch-all labels such as `aaa-support`, `zzz-admin`), or the `glasswing` / `non-fwd` states of the multi-thread labels. |
+| `label` | `true` for an entry of one of the security team's multi-thread labels rather than a report: the `glasswing` / `non-fwd` states. |
 | `cves` | CVE IDs the security team has allocated for the case. |
 | `title` | Subject of the reporting email. |
 | `state` | `untriaged`, `confirmed`, or what the case waits for: `cve-allocation`, `disclosure`, `non-issue-feedback`, `non-issue-docs`, `non-issue-upstream`, or another `wf` state. |
@@ -118,7 +117,7 @@ Each finding has `kind`, `fix`, `detail`, and the `case` and/or `issue` it conce
 | `kind` | `fix` | Meaning |
 |---|---|---|
 | `untracked` | `import` | The dashboard has a report the tracker has no issue for. |
-| `untracked` | `review` | The same, for an untriaged case whose `tag` the API did not return: it may be a standing label, so a human checks the thread first. |
+| `untracked` | `review` | The same, for an untriaged case: the dashboard also lists the security team's catch-all labels (`aaa-support`, `zzz-admin`, …) as untriaged cases, and the API does not mark them, so a human checks the thread first. |
 | `ambiguous` | `tracker` | The case matches more than one issue; record its `Message-ID` on the right one. Those issues get no `not-on-dashboard` finding meanwhile. |
 | `not-on-dashboard` | `asf-security` | An open issue with a security-list thread has no open case. |
 | `cve-missing-in-tracker` | `tracker` | The dashboard records a CVE the issue does not. |

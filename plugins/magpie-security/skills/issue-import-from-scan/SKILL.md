@@ -19,7 +19,7 @@ argument-hint: "[scan-source ...]  (one or more GitHub issues and/or report fold
 capability: capability:intake
 surface_hash: sha256:7adfbe73f79606b1
 license: Apache-2.0
-measured_tokens: 6826
+measured_tokens: 6958
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -382,7 +382,12 @@ write `{"reply", "findings": [{"n", "bucket"}]}` to a file and run `<sm> parse-d
    - **import-as-tracker** → [`security-issue-import`](../issue-import/SKILL.md)
      Step 7 (one `Needs triage` tracker each) — the only tracker-creating path.
      Set *Security mailing list thread* to `N/A — imported from scan <scan-source>; no <security-list> thread.`:
-     there is no reporter thread, and the sentinel makes `generate-cve-json` record the finding as `INTERNAL`;
+     there is no reporter thread, and the sentinel makes `generate-cve-json` record the finding as `INTERNAL`.
+     When the finding has candidate `patches` (the scan shipped them and the decrypted archive was linked with `--archive-dir`),
+     also attach them: `<sm> render-patch-comment --index <index.json> --finding <id> --out-dir <scratch>/patch-comments`,
+     show the operator the rendered bodies, and on confirmation post each with `gh issue comment <N> --repo <tracker> --body-file <path>`.
+     The patches are quoted, folded and untested, never applied or run. Their headers describe the vulnerability, which is
+     fine on the private tracker, but never copy them into a public PR;
    - **PR-worth / defense-in-depth** → hand to
      [`security-issue-fix`](../issue-fix/SKILL.md) (public PR) or skip;
    - **by-design / dup / already-fixed** → no action; the report is the record.

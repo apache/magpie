@@ -167,7 +167,13 @@ def _plan_thread(data: Mapping[str, Any], thread: Mapping[str, Any]) -> dict[str
 
 def check(data: Mapping[str, Any]) -> dict[str, Any]:
     text = str(data.get("body") or "")
-    hits = drafting.scan(text, str(data["tracker"]), data.get("own_names") or [])
+    hits = drafting.scan(
+        text,
+        str(data["tracker"]),
+        data.get("own_names") or [],
+        data.get("organization"),
+        data.get("cve_tool_url"),
+    )
     record = one_line(data.get("record_url"))
     if record and record in text and not any(h["kind"] == "cve-tool-url" for h in hits):
         hits.append({"kind": "cve-tool-url", "line": None, "text": record})

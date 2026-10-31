@@ -1860,6 +1860,22 @@ upstream_repo: apache/kafka
       assertStrictEqual(res.blocked, true, 'cd || exit 1 must update virtualCwd to upstream and block CVE commit');
     });
 
+    test('1b. a cd that is a later pipeline stage does not move the shell into the tracker', async () => {
+      for (const cmd of [
+        'echo x | cd /tracker; gh issue create -t "CVE-2026-1234" -b "d"',
+        'echo x | { true; cd /tracker; }; git commit -m "Fix CVE-2026-1234 SSRF"',
+        '{ cd /tracker; true; } | cat; gh issue create -t "CVE-2026-1234" -b "d"',
+        '{ cd /tracker; true; } & git commit -m "Fix CVE-2026-1234 SSRF"',
+      ]) {
+        const res = await evaluatePublicSurfaceCommand(cmd, {
+          cwd: '/home/dev/upstream',
+          projectConfig: config,
+          readFile: mockReadFile,
+        });
+        assertStrictEqual(res.blocked, true, `A piped cd runs in a subshell, so this stays upstream: ${cmd}`);
+      }
+    });
+
     test('2. gh api /v3/repos/... normalizes endpoint and blocks CVE comment', async () => {
       const cmd = 'gh api /v3/repos/apache/airflow/issues/1/comments -f body="Fix CVE-2026-1234"';
       const res = await evaluatePublicSurfaceCommand(cmd, {
@@ -2209,6 +2225,221 @@ upstream_repo: apache/kafka
         command: 'gh issue comment 12 --repo airflow-s/airflow-s -b "Allocated CVE-2026-1234"',
       });
       assert(res?.result && res.result.stdout === 'executed', `Expected tool call to execute: ${JSON.stringify(res)}`);
+    });
+
+    test('a bare tracker git commit is blocked without --repo advice when only the root is known', async ($: any, on: any) => {
+      setupTrackerEnv(on);
+      const res = await $.tool.call({ tool: 'Bash', command: 'git commit -m "Allocated CVE-2026-1234"' });
+      assert(typeof res?.deny === 'string', `Expected deny: ${JSON.stringify(res)}`);
+      assert(!res.deny.includes('--repo'), `git block must not suggest --repo: ${res.deny}`);
+    });
+  });
+
+  describe('register() reads the current directory from $.session.cwd()', () => {
+    const trackerProject = '\n| Key | Value |\n| tracker_repo | airflow-s/airflow-s |\n| upstream_repo | apache/airflow |\n';
+    const trackerGitConfig = '\n[remote "origin"]\n  url = https://github.com/airflow-s/airflow-s.git\n';
+    const upstreamGitConfig = '\n[remote "origin"]\n  url = https://github.com/apache/airflow.git\n';
+    const msgFile = '/home/dev/msg.txt';
+
+    // Session root is always the tracker checkout; $.session.cwd() says where the shell is now.
+    function setupEnv(on: any, currentDir: string): void {
+      on('session.root', () => ({ value: '/home/dev/airflow-s' }));
+      on('session.cwd', () => ({ value: currentDir }));
+      on('fs.read', (_: any, e: any) => {
+        const p = (e.path || '').replace(/\\/g, '/');
+        if (p.endsWith('/.apache-magpie-overrides/project.md')) return { value: trackerProject };
+        if (p === '/home/dev/airflow-s/.git/config') return { value: trackerGitConfig };
+        if (p === '/home/dev/scratch/airflow-wt/.git/config') return { value: upstreamGitConfig };
+        if (p === msgFile) return { value: 'Note the CVE-2026-1234 advisory in the tracker config' };
+        return { value: null };
+      });
+      on('env.get', () => ({ value: undefined }));
+      on('tool.call', () => ({ result: { stdout: 'executed' } }));
+    }
+
+    test('a bare git commit -F passes when the current directory is the tracker checkout', async ($: any, on: any) => {
+      setupEnv(on, '/home/dev/airflow-s');
+      const res = await $.tool.call({ tool: 'Bash', command: `git commit -F ${msgFile}` });
+      assert(res?.result && res.result.stdout === 'executed', `Expected tool call to execute: ${JSON.stringify(res)}`);
+    });
+
+    test('a bare git commit is blocked after an earlier call moved the shell into an upstream worktree', async ($: any, on: any) => {
+      setupEnv(on, '/home/dev/scratch/airflow-wt');
+      const res = await $.tool.call({ tool: 'Bash', command: `git commit -F ${msgFile}` });
+      assert(typeof res?.deny === 'string', `Expected deny in upstream worktree: ${JSON.stringify(res)}`);
+    });
+
+    test('a cd on the same line still moves the scope away from the tracker', async ($: any, on: any) => {
+      setupEnv(on, '/home/dev/airflow-s');
+      const res = await $.tool.call({
+        tool: 'Bash',
+        command: 'cd /home/dev/scratch/airflow-wt && git commit -m "Fix CVE-2026-1234"',
+      });
+      assert(typeof res?.deny === 'string', `Expected deny after cd: ${JSON.stringify(res)}`);
+    });
+
+    test('an event cwd takes precedence over $.session.cwd()', async ($: any, on: any) => {
+      setupEnv(on, '/home/dev/airflow-s');
+      const res = await $.tool.call({
+        tool: 'Bash',
+        cwd: '/home/dev/scratch/airflow-wt',
+        command: `git commit -F ${msgFile}`,
+      });
+      assert(typeof res?.deny === 'string', `Expected deny on event cwd: ${JSON.stringify(res)}`);
+    });
+
+    test('gh pr create in the tracker directory is exempt like any verified tracker cwd', async ($: any, on: any) => {
+      // Not fallback any more, so the tracker cwd exemption applies like any verified cwd
+      setupEnv(on, '/home/dev/airflow-s');
+      const res = await $.tool.call({ tool: 'Bash', command: `gh pr create -t "Config" --body-file ${msgFile}` });
+      assert(res?.result && res.result.stdout === 'executed', `Expected verified tracker cwd to exempt gh: ${JSON.stringify(res)}`);
+    });
+  });
+
+  describe('an earlier environment change on the line redirects a bare git or gh command', () => {
+    const config = { trackerRepo: 'airflow-s/airflow-s', upstreamRepo: 'apache/airflow' };
+    const trackerGitConfig = '\n[remote "origin"]\n  url = https://github.com/airflow-s/airflow-s.git\n';
+    const readFile = async (p: string) => (p.endsWith('.git/config') ? trackerGitConfig : null);
+
+    // Verified tracker cwd (not the session-root fallback), so only the GIT_* rule can block.
+    function evaluate(cmd: string) {
+      return evaluatePublicSurfaceCommand(cmd, { cwd: '/home/dev/airflow-s', projectConfig: config, readFile });
+    }
+
+    test('export, declare, typeset, readonly, local and bare assignments of GIT_* block', async () => {
+      for (const cmd of [
+        'export GIT_DIR=../u/.git && git commit -m "Fix CVE-2026-1234"',
+        'GIT_WORK_TREE=x; git commit -m "Fix CVE-2026-1234"',
+        'declare -x GIT_DIR=../u/.git && git commit -m "Fix CVE-2026-1234"',
+        'typeset -x GIT_COMMON_DIR=../u/.git; git commit -m "Fix CVE-2026-1234"',
+        'readonly GIT_INDEX_FILE=../u/.git/index && git commit -m "Fix CVE-2026-1234"',
+        'local GIT_OBJECT_DIRECTORY=../u/.git/objects; git tag -a v1 -m "Fix CVE-2026-1234"',
+        'GIT_DIR=../u/.git; export GIT_DIR; git commit -m "Fix CVE-2026-1234"',
+        'export FOO=1 GIT_NAMESPACE=x && git merge topic -m "Fix CVE-2026-1234"',
+        'builtin export GIT_DIR=../u/.git; git tag -a v1 -m "Fix CVE-2026-1234"',
+        'command export GIT_DIR=../u/.git; git commit -m "Fix CVE-2026-1234"',
+        'GIT_DIR+=x; git commit -m "Fix CVE-2026-1234"',
+        'GIT_DIR=../u/.git ls && git commit -m "Fix CVE-2026-1234"',
+        'eval "$SETUP"; git commit -m "Fix CVE-2026-1234"',
+        'source ./env.sh && git commit -m "Fix CVE-2026-1234"',
+        '. ./env.sh && git commit -m "Fix CVE-2026-1234"',
+        'set -a; git commit -m "Fix CVE-2026-1234"',
+        'printf -v X %s y; git commit -m "Fix CVE-2026-1234"',
+        'export "$V"; git commit -m "Fix CVE-2026-1234"',
+        'export FOO=1 && git commit -m "Fix CVE-2026-1234"',
+        'if source ./env.sh; then git commit -m "Fix CVE-2026-1234"; fi',
+        'GIT_COMMON_DIR=/home/dev/upstream/.git git tag -a v1 -m "Fix CVE-2026-1234"',
+        'git remote set-url origin https://github.com/apache/airflow.git && git commit -m "Fix CVE-2026-1234"',
+        'git config core.worktree ../u && git commit -m "Fix CVE-2026-1234"',
+        'pushd /home/dev/upstream && pushd /home/dev/airflow-s && popd && git commit -m "Fix CVE-2026-1234"',
+        'f() { export GIT_DIR=../u/.git; }; f; git commit -m "Fix CVE-2026-1234"',
+        'PATH=/tmp/x:$PATH; git commit -m "Fix CVE-2026-1234"',
+        'env GIT_COMMON_DIR=/home/dev/upstream/.git git tag -a v1 -m "Fix CVE-2026-1234"',
+        'echo "[core] worktree = ../u" >> .git/config && git commit -m "Fix CVE-2026-1234"',
+        'echo $(git remote set-url origin https://github.com/apache/airflow.git) && git commit -m "Fix CVE-2026-1234"',
+        'echo `git config core.worktree ../u` && git commit -m "Fix CVE-2026-1234"',
+        'cat <(git config core.worktree ../u) && git commit -m "Fix CVE-2026-1234"',
+        'git diff --output=.git/config HEAD~1 && git commit -m "Fix CVE-2026-1234"',
+        'if true; then GIT_COMMON_DIR=/home/dev/upstream/.git git tag -a v1 -m "Fix CVE-2026-1234"; fi',
+        'env -i GIT_COMMON_DIR=/home/dev/upstream/.git git tag -a v1 -m "Fix CVE-2026-1234"',
+      ]) {
+        const res = await evaluate(cmd);
+        assertStrictEqual(res.blocked, true, `Expected block for: ${cmd}`);
+      }
+    });
+
+    test('an earlier GH_REPO or GH_HOST blocks a later bare gh command', async () => {
+      for (const cmd of [
+        'export GH_REPO=apache/airflow; gh issue create -t "CVE-2026-1234" -b "details"',
+        'GH_HOST=example.com; gh pr create -t "Fix CVE-2026-1234" -b "x"',
+        'git remote set-url origin https://github.com/apache/airflow.git && gh issue create -t "CVE-2026-1234" -b "d"',
+        'GH_REPO=apache/airflow gh issue create -t "CVE-2026-1234" -b "d"',
+        'printf -vGH_REPO %s apache/airflow; gh issue create -t "CVE-2026-1234" -b "d"',
+        'cd /home/dev/upstream || cd /home/dev/airflow-s; gh issue create -t "CVE-2026-1234" -b "d"',
+        'false && cd /home/dev/airflow-s; gh issue create -t "CVE-2026-1234" -b "d"',
+        'false && { true; cd /home/dev/airflow-s; }; gh issue create -t "CVE-2026-1234" -b "d"',
+        'if false; then cd /home/dev/airflow-s; fi; gh issue create -t "CVE-2026-1234" -b "d"',
+        'if true; then :; else cd /home/dev/airflow-s; fi; git commit -m "Fix CVE-2026-1234"',
+        'while false; do cd /home/dev/airflow-s; done; gh issue create -t "CVE-2026-1234" -b "d"',
+        'for d in; do cd /home/dev/airflow-s; done; git commit -m "Fix CVE-2026-1234"',
+        'case x in y) cd /home/dev/airflow-s;; esac; gh issue create -t "CVE-2026-1234" -b "d"',
+        'gh issue create -t "$(git remote set-url origin https://github.com/apache/airflow.git; echo CVE-2026-1234)" -b d',
+        'git commit -m "`git config core.worktree ../u` Fix CVE-2026-1234"',
+        'gh issue create -t "${GH_REPO:=apache/airflow} CVE-2026-1234" -b d',
+        'gh issue create -t "CVE-2026-1234" -b d --body-file >(git remote set-url origin https://github.com/apache/airflow.git)',
+        'cd /home/dev/airflow-s unused extra; gh issue create -t "CVE-2026-1234" -b "d"',
+        'cd -; git commit -m "Fix CVE-2026-1234"',
+        'cd -P /home/dev/airflow-s; git commit -m "Fix CVE-2026-1234"',
+        'test -d /nope && cd /home/dev/airflow-s; git commit -m "Fix CVE-2026-1234"',
+        'echo "${GH_REPO:=apache/airflow}"; gh issue create -t "CVE-2026-1234" -b "d"',
+        'gh repo set-default apache/airflow && gh issue create -t "CVE-2026-1234" -b "d"',
+        'CDPATH=/home/dev/public; cd child; gh issue create -t "CVE-2026-1234" -b "d"',
+        'export CDPATH=/home/dev/public; cd child; git commit -m "Fix CVE-2026-1234"',
+        "printf '[remote \"origin\"]\\nurl = https://github.com/apache/airflow.git\\n' > .git/config && gh issue create -t 'CVE-2026-1234' -b d",
+        // A `cd` in a pipeline or in the background runs in a subshell; the shell stays where it was.
+        'echo x | cd /home/dev/airflow-s; gh issue create -t "CVE-2026-1234" -b "d"',
+        'echo x | { true; cd /home/dev/airflow-s; }; gh issue create -t "CVE-2026-1234" -b "d"',
+        'echo x | cd /home/dev/airflow-s; git commit -m "Fix CVE-2026-1234"',
+        'sleep 1 & cd /home/dev/airflow-s | cat; gh issue create -t "CVE-2026-1234" -b "d"',
+      ]) {
+        const res = await evaluate(cmd);
+        assertStrictEqual(res.blocked, true, `Expected block for: ${cmd}`);
+      }
+    });
+
+    test('a repository-selecting variable in the session environment removes the exemption', async () => {
+      for (const env of [{ GH_REPO: 'apache/airflow' }, { GIT_DIR: '/home/dev/upstream/.git' }]) {
+        for (const cmd of ['gh issue create -t "CVE-2026-1234" -b "d"', 'git commit -m "Fix CVE-2026-1234"']) {
+          const res = await evaluatePublicSurfaceCommand(cmd, {
+            cwd: '/home/dev/airflow-s',
+            projectConfig: config,
+            readFile,
+            env,
+          });
+          assertStrictEqual(res.blocked, true, `Expected block for ${cmd} with ${JSON.stringify(env)}`);
+        }
+      }
+    });
+
+    test('an inherited CDPATH makes a relative cd a redirect', async () => {
+      const env = { CDPATH: '/home/dev/public' };
+      for (const [cmd, blocked] of [
+        ['cd child && gh issue create -t "CVE-2026-1234" -b "d"', true],
+        ['cd .hidden && gh issue create -t "CVE-2026-1234" -b "d"', true],
+        ['cd ./child && gh issue create -t "CVE-2026-1234" -b "d"', false],
+        ['cd /home/dev/airflow-s && git commit -m "Fix CVE-2026-1234"', false],
+      ] as const) {
+        const res = await evaluatePublicSurfaceCommand(cmd, { cwd: '/home/dev/airflow-s', projectConfig: config, readFile, env });
+        assertStrictEqual(res.blocked, blocked, `Expected blocked=${blocked} for ${cmd}: ${JSON.stringify(res)}`);
+      }
+    });
+
+    test('bash -c and eval invoking git or gh get no cwd exemption', async () => {
+      for (const cmd of [
+        `bash -c 'cd /home/dev/upstream; git commit -m "CVE-2026-1234"'`,
+        `sh -c 'gh issue create -t "CVE-2026-1234" -b d'`,
+        `eval 'cd /home/dev/upstream; git commit -m "CVE-2026-1234"'`,
+      ]) {
+        const res = await evaluate(cmd);
+        assertStrictEqual(res.blocked, true, `Expected block for: ${cmd}`);
+      }
+    });
+
+    test('unrelated earlier commands keep the exemption', async () => {
+      for (const cmd of [
+        'echo ready && git commit -m "Fix CVE-2026-1234"',
+        'git add file.md && git commit -m "Fix CVE-2026-1234"',
+        'git status && git commit -m "Fix CVE-2026-1234"',
+        'git commit -m "Fix CVE-2026-1234"',
+      ]) {
+        const res = await evaluate(cmd);
+        assertStrictEqual(res.blocked, false, `Expected tracker exemption for: ${cmd}: ${JSON.stringify(res)}`);
+      }
+    });
+
+    test('a neutral message still passes after a GIT_* assignment', async () => {
+      const res = await evaluate('export GIT_DIR=../u/.git && git commit -m "Refactor config loading"');
+      assertStrictEqual(res.blocked, false, `Expected pass on neutral text: ${JSON.stringify(res)}`);
     });
   });
 

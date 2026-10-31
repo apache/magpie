@@ -495,7 +495,7 @@ def test_case_2_severity_label_not_copied(capsys, tmp_path):
 def test_case_3_other_asf_project_not_named(capsys, tmp_path):
     out = ok(
         capsys, tmp_path, "check",
-        {"surfaces": [
+        {"organization": "ASF", "surfaces": [
             {"kind": "status_comment", "text": "Sync 2025-11-04 — SSRF confirmed. Note: reporter has previously reported "
              "CVE-2024-55633 against Apache Superset exploiting an identical connection test vector. "
              "Our issue shares the same root cause."},
@@ -511,6 +511,17 @@ def test_case_3_other_asf_project_not_named(capsys, tmp_path):
     ]
 
 
+def test_a_non_asf_project_does_not_flag_asf_names(capsys, tmp_path):
+    out = ok(
+        capsys, tmp_path, "check",
+        {"organization": "independent", "surfaces": [
+            {"kind": "status_comment", "text": "Sync 2025-11-04 — SSRF confirmed. Note: reporter has previously "
+             "reported a similar issue against Apache Superset."},
+        ]},
+    )  # fmt: skip
+    assert out["clean"] is True
+
+
 def test_the_cve_tool_url_in_an_email_is_the_violation(capsys, tmp_path):
     out = ok(
         capsys,
@@ -519,3 +530,48 @@ def test_the_cve_tool_url_in_an_email_is_the_violation(capsys, tmp_path):
         {"surfaces": [{"kind": "email", "text": "See https://cveprocess.apache.org/cve5/CVE-2025-1."}]},
     )
     assert [v["guardrail"] for v in out["violations"]] == ["Linking CVEs"]
+
+
+def test_a_configured_cve_tool_url_without_a_scheme_is_still_the_violation(capsys, tmp_path):
+    out = ok(
+        capsys,
+        tmp_path,
+        "check",
+        {"cve_tool_url": "cve.example.org",
+         "surfaces": [{"kind": "email", "text": "See https://cve.example.org/cve5/CVE-2025-1."}]},
+    )  # fmt: skip
+    assert [v["guardrail"] for v in out["violations"]] == ["Linking CVEs"]
+
+
+def test_a_configured_cve_tool_url_with_a_port_matches_a_plain_url(capsys, tmp_path):
+    out = ok(
+        capsys,
+        tmp_path,
+        "check",
+        {"cve_tool_url": "https://cve.example.org:8443",
+         "surfaces": [{"kind": "email", "text": "See https://cve.example.org/cve5/CVE-2025-1."}]},
+    )  # fmt: skip
+    assert [v["guardrail"] for v in out["violations"]] == ["Linking CVEs"]
+
+
+def test_the_public_cve_record_link_is_allowed_when_cve_org_is_the_tool(capsys, tmp_path):
+    out = ok(
+        capsys,
+        tmp_path,
+        "check",
+        {"organization": "independent", "cve_tool_url": "https://www.cve.org",
+         "surfaces": [{"kind": "email", "text": "See https://www.cve.org/CVERecord?id=CVE-2025-1."}]},
+    )  # fmt: skip
+    assert out["clean"] is True
+
+
+def test_an_unset_organization_still_flags_asf_names(capsys, tmp_path):
+    out = ok(
+        capsys,
+        tmp_path,
+        "check",
+        {"surfaces": [{"kind": "status_comment", "text": "Tomcat had the same issue."}]},
+    )
+    assert [v["guardrail"] for v in out["violations"]] == [
+        "Never name or describe other ASF projects' vulnerabilities"
+    ]

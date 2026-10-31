@@ -236,6 +236,45 @@ def rebuild_with_appended_entry(existing_body: str, new_entry: str) -> str:
     return f"{existing_body.rstrip()}{_RULER_BETWEEN_ENTRIES}{new_entry}"
 
 
+def insert_entries_by_date(existing_body: str, entries: Sequence[RollupEntry]) -> str:
+    """Insert ``entries`` into ``existing_body`` in date order.
+
+    Each entry lands before the first existing entry dated the same day or
+    later, or at the end when none is, so the existing latest entry stays
+    last: readers take the last entry as the tracker's current state, and
+    a summary carries only a date, so a same-day entry being merged in is
+    not known to be newer. Existing entries keep their text
+    byte-identical; an existing entry whose summary does not parse is
+    never an anchor, and entries sharing a slot keep their given order.
+    """
+    body = existing_body.rstrip()
+    anchors: list[tuple[int, str]] = []
+    # Walk entries the way `iter_entries` does: an open tag inside an entry's
+    # body (a quoted example, a nested block) is part of that entry, never an
+    # anchor, or a merged entry could land inside it.
+    entry_end = 0
+    for match in _OPEN_TAG_RE.finditer(body):
+        if match.start() < entry_end:
+            continue
+        close_idx = body.find(f"\n{_CLOSE_TAG}", match.end())
+        entry_end = len(body) if close_idx == -1 else close_idx + len(f"\n{_CLOSE_TAG}")
+        parsed = parse_summary_line(match.group(1))
+        if parsed is not None:
+            anchors.append((match.start(), parsed.date))
+    slots: dict[int, list[str]] = {}
+    for entry in sorted(entries, key=lambda e: e.date):
+        pos = next((start for start, date in anchors if date >= entry.date), len(body))
+        block = build_entry(date=entry.date, user=entry.user, action=entry.action, body=entry.body)
+        slots.setdefault(pos, []).append(block)
+    for pos in sorted(slots, reverse=True):
+        blocks = _RULER_BETWEEN_ENTRIES.join(slots[pos])
+        if pos == len(body):
+            body = f"{body}{_RULER_BETWEEN_ENTRIES}{blocks}"
+        else:
+            body = f"{body[:pos]}{blocks}{_RULER_BETWEEN_ENTRIES}{body[pos:]}"
+    return body
+
+
 def replace_latest_entry(existing_body: str, new_entry: str) -> str:
     """Replace the last `<details>` entry of ``existing_body`` with
     ``new_entry``, keeping everything before it byte-identical.

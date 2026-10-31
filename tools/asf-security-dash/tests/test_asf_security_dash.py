@@ -95,20 +95,22 @@ def run(dash: list[dict[str, Any]], tracker: list[dict[str, Any]]) -> dict[str, 
     return cases.reconcile("foo", cases.normalise(dash), tracker)
 
 
-def test_an_untagged_untriaged_case_with_no_issue_is_reviewed_not_imported() -> None:
-    """Without its tag it may be one of the security team's standing labels."""
+def test_an_untriaged_case_with_no_issue_is_reviewed_not_imported() -> None:
+    """It may be one of the security team's standing labels."""
     result = run([case("a@x")], [])
     assert kinds(result) == ["untracked"]
     assert result["findings"][0]["fix"] == "review"
     assert "standing labels" in result["findings"][0]["detail"]
 
 
-def test_a_tagged_report_with_no_issue_is_imported() -> None:
+def test_an_untriaged_case_is_reviewed_even_if_the_api_returns_a_tag() -> None:
+    """The tag is the security team's internal name, not part of the API."""
     result = run([{**case("a@x"), "tag": "2026-10-01 upload traversal"}], [])
-    assert result["findings"][0]["fix"] == "import"
+    assert result["findings"][0]["fix"] == "review"
+    assert "tag" not in result["findings"][0]["case"]
 
 
-def test_an_accepted_case_with_no_issue_is_imported_even_without_a_tag() -> None:
+def test_an_accepted_case_with_no_issue_is_imported() -> None:
     result = run([case("a@x", "confirmed", ["CVE-2026-1"])], [])
     assert result["findings"][0]["fix"] == "import"
 
@@ -116,12 +118,10 @@ def test_an_accepted_case_with_no_issue_is_imported_even_without_a_tag() -> None
 @pytest.mark.parametrize(
     "entry",
     [
-        {**case("a@x"), "tag": "aaa-support"},
-        {**case("a@x"), "tag": "zzz-admin"},
         case("a@x", "glasswing", ["CVE-2026-9"]),
         case("a@x", "non-fwd"),
     ],
-    ids=["aaa-label", "zzz-label", "glasswing", "not-forwarded"],
+    ids=["glasswing", "not-forwarded"],
 )
 def test_standing_label_entries_are_skipped(entry: dict[str, Any]) -> None:
     result = run([entry], [])

@@ -61,19 +61,24 @@
     - [Root cause](#root-cause-10)
     - [Fix](#fix-10)
     - [Notes](#notes-9)
-  - [Reads of `~/.claude/magpie` or `/tmp/claude-<uid>` ask for approval every time](#reads-of-claudemagpie-or-tmpclaude-uid-ask-for-approval-every-time)
+  - [`lefthook install` refuses with "Custom hooks paths are not supported by default"](#lefthook-install-refuses-with-custom-hooks-paths-are-not-supported-by-default)
     - [Symptom](#symptom-11)
     - [Root cause](#root-cause-11)
     - [Fix](#fix-11)
     - [Notes](#notes-10)
-  - [Every Bash call fails with `bwrap: Can't create file … Read-only file system`](#every-bash-call-fails-with-bwrap-cant-create-file--read-only-file-system)
+  - [Reads of `~/.claude/magpie` or `/tmp/claude-<uid>` ask for approval every time](#reads-of-claudemagpie-or-tmpclaude-uid-ask-for-approval-every-time)
     - [Symptom](#symptom-12)
     - [Root cause](#root-cause-12)
     - [Fix](#fix-12)
-  - [`git status` shows files you never created, such as `.mcp.json` or `.bash_profile`](#git-status-shows-files-you-never-created-such-as-mcpjson-or-bash_profile)
+    - [Notes](#notes-11)
+  - [Every Bash call fails with `bwrap: Can't create file … Read-only file system`](#every-bash-call-fails-with-bwrap-cant-create-file--read-only-file-system)
     - [Symptom](#symptom-13)
     - [Root cause](#root-cause-13)
     - [Fix](#fix-13)
+  - [`git status` shows files you never created, such as `.mcp.json` or `.bash_profile`](#git-status-shows-files-you-never-created-such-as-mcpjson-or-bash_profile)
+    - [Symptom](#symptom-14)
+    - [Root cause](#root-cause-14)
+    - [Fix](#fix-14)
   - [Adding a new entry](#adding-a-new-entry)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -1119,7 +1124,7 @@ Confirm with `prek --version`, or with the doctor skill's
 
 - The helper deliberately does **not** mirror the whole committed
   `allowRead`. That list also names credential paths
-  (`~/.config/gh/`, `~/.config/apache-magpie/`, `~/.gnupg/`), which
+  (`~/.config/apache-magpie/`, `~/.gnupg/`), which
   the same harness behaviour currently keeps out of sandboxed Bash.
   Re-open one of those only for the tool that needs it, per the
   entries above.
@@ -1233,6 +1238,45 @@ resolved path. Confirm with `git hook run pre-commit` from the agent.
   point here. The doctor skill's *git-hooks* probe and
   `setup-isolated-setup-verify` check 8 look at the directory from
   inside the sandbox instead.
+
+---
+
+## `lefthook install` refuses with "Custom hooks paths are not supported by default"
+
+### Symptom
+
+A repository that uses lefthook has no working hooks, and `lefthook install` fails:
+
+```console
+$ lefthook install
+core.hooksPath is set globally to '/Users/<you>/.claude/git-hooks'
+Custom hooks paths are not supported by default.
+...
+```
+
+### Root cause
+
+Whole-user scope sets a global `core.hooksPath`, and lefthook refuses to install while a scoped `git config --global` read returns one.
+That is the safe failure: the alternative, `--force`, writes lefthook's hook into the shared directory and replaces the framework's dispatcher for every repository on the host.
+
+### Fix
+
+Run `lefthook install` through the framework shim, which hides the global config from that read and leaves the hook in the repository's own `$(git rev-parse --git-common-dir)/hooks/`:
+
+```bash
+~/.claude/bin/lefthook install
+```
+
+With `~/.claude/bin` ahead of the real binary on PATH, plain `lefthook install` does that already.
+The setup installs the shim only for a repository that uses lefthook: a root `lefthook.*`, `.lefthook.*` or `-local` config, or an installed hook mentioning `call_lefthook`.
+
+### Notes
+
+- Do not run `lefthook install --reset-hooks-path` or `--force` to get past the error: the first unsets the whole-user setup, and the second overwrites the dispatcher for every repository.
+  The agent-guard `lefthook-hooks-path` guard blocks both, in the `--flag` and `--flag=true` spellings, and needs `MAGPIE_ALLOW_LEFTHOOK_HOOKS_PATH=1` to proceed deliberately.
+- An npm `postinstall` runs `node_modules/.bin/lefthook`, which the shim does not cover; that install refuses for the same reason, and the repository needs one run through the shim.
+- The shim hides the global config only while it holds a `core.hooksPath`, so on a host without one the install keeps the operator's `credential.helper`, `url.*.insteadOf` and `safe.directory`.
+- Per-project scope has no global `core.hooksPath`, so the refusal does not happen there.
 
 ---
 

@@ -20,7 +20,7 @@ argument-hint: "[issue-number]"
 capability: capability:resolve
 surface_hash: sha256:43a163bcbdb06f11
 license: Apache-2.0
-measured_tokens: 6341
+measured_tokens: 6469
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -317,7 +317,10 @@ Surface every change to the user before any write.
 - **Remove:** `needs triage`, the scope label and `pr created` / `pr merged`, when set (the public PR stays open as normal-process work, but is no longer the security fix).
 
 The `security issue` label **stays**: it pins the tracker to the board's filter and keeps it findable for invalid-class history.
-`<sm> labels` (`{labels, scope_labels, tracker, number}`) prints the lists and the `gh issue edit` command.
+A project that keeps some of the removable labels on invalid trackers (e.g. so archived trackers stay filterable by component) lists them in `invalidate.keep_labels` in `<project-config>/project.md`:
+`scope` keeps whichever scope label is set, `pr` keeps `pr created` / `pr merged`, and any other entry is a literal label name.
+`needs triage` is always removed and `invalid` always added; a `needs triage` entry is ignored with a warning.
+`<sm> labels` (`{labels, scope_labels, keep_labels, tracker, number}`) prints the lists, any `labels_kept` and `warnings`, and the `gh issue edit` command; run that command as printed, never edit its flags.
 
 ### 5b — Closing comment on the tracker
 

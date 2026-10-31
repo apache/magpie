@@ -26,7 +26,7 @@ import argparse
 from pathlib import Path
 from typing import Any
 
-from security_management.cli import emit, read_json, read_object
+from security_management.cli import emit, read_json, read_object, refuse
 from security_management.issue_import_from_scan import oss_scanner, scan
 
 FAMILY = "issue-import-from-scan"
@@ -49,6 +49,13 @@ def add_parsers(sub: Any) -> None:
     e.add_argument(
         "--attachments-dir", help="save the .eml's attachments here (byte-exact; never decrypted or opened)"
     )
+
+    p = commands.add_parser(
+        "render-patch-comment", help="Step F: a tracker comment quoting a finding's candidate patches"
+    )
+    p.add_argument("--index", required=True, help="the scan folder's index.json (parsed with --archive-dir)")
+    p.add_argument("--finding", required=True, help="the finding id")
+    p.add_argument("--out-dir", required=True, help="write the comment body files here")
 
     b = commands.add_parser("bucket-action", help="Step C: what a disposition bucket allows")
     b.add_argument("--bucket", required=True, help=f"one of {', '.join(scan.BUCKETS)}")
@@ -100,6 +107,15 @@ def dispatch(args: argparse.Namespace) -> int:
                 Path(args.source), Path(args.attachments_dir)
             )
         emit(summary)
+    elif command == "render-patch-comment":
+        index = read_object(args.index)
+        found = [f for f in index.get("findings") or [] if f.get("id") == args.finding]
+        if not found:
+            return refuse(f"no finding {args.finding!r} in {args.index}")
+        if "patches" not in found[0]:
+            return refuse("the scan folder was parsed without --archive-dir, so no patches are linked")
+        bodies = oss_scanner.write_patch_comments(found[0], index.get("scan") or {}, Path(args.out_dir))
+        emit({"finding": args.finding, "bodies": bodies})
     elif command == "bucket-action":
         emit(scan.bucket_action(args.bucket))
     elif command == "render-report":

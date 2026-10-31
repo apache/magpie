@@ -443,3 +443,145 @@ def test_flowed_quotes_join_only_at_the_same_depth() -> None:
     text = "> pass \n> word\n>> deeper \n> shallower"
     assert oss_scanner._unflow(text, delsp=True) == "> password\n>> deeper\n> shallower"
     assert oss_scanner._unflow("plain \nline") == "plain line"
+
+
+def patch(summary: str, extra: str = "") -> str:
+    return f"# src/widget/auth.py\n# {summary}\n#\n# why it works\n{extra}diff --git a/x b/x\n+fixed\n"
+
+
+def archive_with_patches(tmp_path: Path, patches: dict[str, str]) -> Path:
+    archive = tmp_path / "archive"
+    folder = archive / "high" / "ANT-2026-AAAAAAA1" / "patches"
+    folder.mkdir(parents=True)
+    for name, text in patches.items():
+        (folder / name).write_text(text)
+    return archive
+
+
+def parse_with_archive(capsys, tmp_path: Path, archive: Path) -> Path:
+    run(
+        capsys,
+        "parse-email",
+        "--source",
+        str(eml(tmp_path)),
+        "--out-dir",
+        str(tmp_path / "s"),
+        "--archive-dir",
+        str(archive),
+    )
+    return tmp_path / "s" / "index.json"
+
+
+def render(capsys, tmp_path: Path, index: Path) -> tuple[int, dict[str, Any]]:
+    return run(
+        capsys,
+        "render-patch-comment",
+        "--index",
+        str(index),
+        "--finding",
+        "ANT-2026-AAAAAAA1",
+        "--out-dir",
+        str(tmp_path / "c"),
+    )
+
+
+def test_archive_patches_are_linked_in_numeric_order(capsys, tmp_path) -> None:
+    archive = archive_with_patches(tmp_path, {f"{n}.patch": patch(f"fix {n}") for n in (1, 2, 10)})
+    index = json.loads(parse_with_archive(capsys, tmp_path, archive).read_text())
+    patches = {f["id"]: f["patches"] for f in index["findings"]}
+    assert [Path(p).name for p in patches["ANT-2026-AAAAAAA1"]] == ["1.patch", "2.patch", "10.patch"]
+    assert patches["ANT-2026-BBBBBBB2"] == []
+
+
+def test_archive_symlinks_are_never_linked(capsys, tmp_path) -> None:
+    secret = tmp_path / "secret.txt"
+    secret.write_text("oauth_token: not-for-the-tracker")
+    archive = archive_with_patches(tmp_path, {"1.patch": patch("real fix")})
+    finding = archive / "high" / "ANT-2026-AAAAAAA1"
+    (finding / "patches" / "2.patch").symlink_to(secret)
+    (finding / "REPORT.md").symlink_to(secret)
+    other = archive / "high" / "ANT-2026-BBBBBBB2"
+    other.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "1.patch").write_text(patch("planted"))
+    (other / "patches").symlink_to(outside)
+    index = json.loads(parse_with_archive(capsys, tmp_path, archive).read_text())
+    by_id = {f["id"]: f for f in index["findings"]}
+    assert [Path(p).name for p in by_id["ANT-2026-AAAAAAA1"]["patches"]] == ["1.patch"]
+    assert by_id["ANT-2026-AAAAAAA1"]["report_md"] is None
+    assert by_id["ANT-2026-BBBBBBB2"]["patches"] == []
+
+
+def test_patch_comment_refuses_a_symlink_at_read_time(tmp_path) -> None:
+    secret = tmp_path / "secret.txt"
+    secret.write_text("oauth_token: not-for-the-tracker")
+    link = tmp_path / "1.patch"
+    link.symlink_to(secret)
+    with pytest.raises(OSError):
+        oss_scanner.render_patch_comments({"id": "ANT-2026-AAAAAAA1", "patches": [str(link)]}, {})
+
+
+def test_patch_comment_folds_each_candidate(capsys, tmp_path) -> None:
+    archive = archive_with_patches(
+        tmp_path,
+        {"1.patch": patch("Stop rendering @task.bash <args>"), "2.patch": patch("Smaller variant")},
+    )
+    code, out = render(capsys, tmp_path, parse_with_archive(capsys, tmp_path, archive))
+    assert code == 0
+    (entry,) = out["bodies"]
+    body = Path(entry["path"]).read_text()
+    assert body.startswith(
+        "<!-- apache-magpie: scan-patches v1 -->\n"
+        "**Candidate patches from the security scan — `ANT-2026-AAAAAAA1`**\n"
+    )
+    assert "against `gh:example/widget@main` at `0123456789ab`" in body
+    assert "untested, machine-generated" in body and "public PR" in body
+    assert "<details><summary>Candidate 1 — Stop rendering `@task.bash` &lt;args&gt;</summary>" in body
+    assert "<details><summary>Candidate 2 — Smaller variant</summary>" in body
+    assert body.count("`````diff\n") == 2 and body.count("</details>") == 2
+    assert "<details open" not in body
+
+
+def test_patch_comment_drops_a_target_that_is_not_a_plain_ref(tmp_path) -> None:
+    path = tmp_path / "1.patch"
+    path.write_text(patch("Fix"))
+    finding = {"id": "ANT-2026-AAAAAAA1", "patches": [str(path)]}
+    scan = {"target": "x` @someone [link](https://example.com) `", "commit": "0123456789ab"}
+    (body,) = oss_scanner.render_patch_comments(finding, scan)
+    assert "against `0123456789ab`" in body
+    assert "@someone" not in body and "example.com" not in body
+
+
+def test_patch_fence_outgrows_backticks_in_the_patch() -> None:
+    body = oss_scanner._patch_block(patch("Uses fences", "# ``````python\n"), 1)
+    assert "```````diff\n" in body
+
+
+def test_no_patches_means_no_comment() -> None:
+    assert oss_scanner.render_patch_comments({"id": "ANT-2026-AAAAAAA1", "patches": []}, {}) == []
+
+
+def test_patch_comment_refuses_without_archive(capsys, tmp_path) -> None:
+    run(capsys, "parse-email", "--source", str(eml(tmp_path)), "--out-dir", str(tmp_path / "s"))
+    code, out = render(capsys, tmp_path, tmp_path / "s" / "index.json")
+    assert code == 2 and "--archive-dir" in out["refused"]
+
+
+def test_large_patches_split_across_comments(tmp_path) -> None:
+    paths = []
+    for n in (1, 2, 3):
+        path = tmp_path / f"{n}.patch"
+        path.write_text(patch(f"fix {n}", "+x\n" * 300))
+        paths.append(str(path))
+    finding = {"id": "ANT-2026-AAAAAAA1", "patches": paths}
+    bodies = oss_scanner.render_patch_comments(finding, {}, limit=2500)
+    assert len(bodies) > 1
+    assert all(len(b) <= 2500 for b in bodies)
+    assert bodies[0].startswith(
+        "<!-- apache-magpie: scan-patches v1 -->\n"
+        f"**Candidate patches from the security scan — `ANT-2026-AAAAAAA1`** (part 1 of {len(bodies)})"
+    )
+    assert "".join(bodies).count("<details>") == 3
+    with pytest.raises(ValueError, match="candidate 1"):
+        oss_scanner.render_patch_comments(finding, {}, limit=500)

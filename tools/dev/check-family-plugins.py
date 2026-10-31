@@ -346,9 +346,14 @@ def _security_tool_copies() -> dict[str, str]:
     for tool, package in SECURITY_TOOLS.items():
         for part in (f"src/{package}", "pyproject.toml", "README.md"):
             copies[f"{tool}/{part}"] = f"{tool}/{part}"
-    # The forwarder registry `issue-import-via-forwarder` reads, and the shipping
-    # adapter's doc its README row names.
-    for path in ("tools/forwarder-relay/README.md", "tools/gmail/asf-relay.md"):
+    # The forwarder registry `issue-import-via-forwarder` reads, the shipping
+    # adapter's doc its README row names, and the scan-format contract
+    # `issue-import-from-scan` reads (adapters, email-delivered scans).
+    for path in (
+        "tools/forwarder-relay/README.md",
+        "tools/gmail/asf-relay.md",
+        "tools/scan-format/README.md",
+    ):
         copies[path] = path
     for name in SECURITY_STATS_DASHBOARD_FILES:
         path = f"tools/security-tracker-stats-dashboard/{name}"

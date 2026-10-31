@@ -26,7 +26,7 @@ argument-hint: "[issue-number]"
 capability: capability:intake
 surface_hash: sha256:23c1d23400108cf4
 license: Apache-2.0
-measured_tokens: 7407
+measured_tokens: 7443
 ---
 
 <!-- Placeholder convention (see AGENTS.md#placeholder-convention-used-in-skill-files):
@@ -414,7 +414,7 @@ Its `bare_refs` must be empty; a cross-referenced issue the proposal mentioned i
 
 ## Guardrails
 
-Before presenting the proposal, write every passage it would write — body patches, the status comment, the rollup entry, issue bodies, draft emails — as `surfaces` (`{kind, text}`, with the observed state as `observed`) and run `<sm> check`.
+Before presenting the proposal, write every passage it would write — body patches, the status comment, the rollup entry, issue bodies, draft emails — as `surfaces` (`{kind, text}`, with the observed state as `observed`) and run `<sm> check` with the project's `organization` (`ASF` or the adopter's own value) and `cve_tool_url` (`cve_authority.cve_tool_url`).
 It reports a reporter CVSS score outside the observed state, another ASF project's name or a cross-project phrase, a bare CVE ID on a markdown surface (or the CVE-tool URL in a reporter email), and a bare `#NNN`, one per passage and guardrail.
 Fix every hit and check again; it is the floor, not the whole review, so still read the surfaces against the rules below.
 

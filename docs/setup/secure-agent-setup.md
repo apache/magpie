@@ -552,7 +552,6 @@ The full block below is the two merged, annotated.
         ".",                          // the project tree (cwd)
         "~/.gitconfig",               // git's user.name / user.email
         "~/.config/git/",             // git's per-host config
-        "~/.config/gh/",              // gh CLI auth (token in hosts.yml)
         "~/.cache/",                  // dev tool caches (uv HTTP cache, prek logs, ruff/mypy caches, and prek's own rustup + CARGO_HOME for the `lychee` rust hook)
         "~/.local/share/uv/",         // uv's tool venvs (prek, etc.)
         "~/.local/bin/",              // uv-installed tool entry points
@@ -715,7 +714,7 @@ The full block below is the two merged, annotated.
     "deny": [
       "Read(~/.aws/**)", "Read(~/.ssh/**)", "Read(~/.netrc)",
       "Read(~/.docker/**)", "Read(~/.kube/**)",
-      "Read(~/.config/gh/**)",                  // bash can read it (sandbox.allowRead); the AGENT can't
+      "Read(~/.config/gh/**)",                  // neither the agent nor sandboxed bash; only the excluded `gh` reads it
       "Read(~/.config/apache-magpie/**)",      // Gmail OAuth token: only the oauth-draft MCP server reads it, outside the sandbox
       "Edit(~/.config/apache-magpie/local-tracker-parsers.json)", // the user's custom-parser confirmations: only `trust-parser`, run by the user, writes them
       "Read(~/.config/gcloud/**)", "Read(~/.azure/**)",
@@ -881,11 +880,14 @@ The full block below is the two merged, annotated.
 }
 ```
 
-The deny / allow split for `~/.config/gh/` is deliberate: the `gh`
-CLI needs to *use* the credential, but the agent should never *see*
-it. `sandbox.filesystem.allowRead` permits the bash subprocess to
-read the file; `permissions.deny[Read(...)]` blocks the agent's Read
-tool from reading the same path.
+`~/.config/gh/` is denied to both the agent and sandboxed Bash.
+The `gh` CLI needs to *use* the credential, and it does: `gh *` is in
+`sandbox.excludedCommands`, so it runs outside the sandbox and reads
+its own token there. No sandboxed command needs the file, and a
+readable `hosts.yml` would let any unprompted sandboxed command copy
+the token. `permissions.deny[Read(...)]` blocks the agent's Read tool,
+and the default `denyRead: ["~/"]` blocks every sandboxed command;
+`sandbox-lint` refuses an `allowRead` entry that re-opens it.
 
 `~/.config/apache-magpie/` gets no such split: it is denied to both.
 It holds the Gmail OAuth refresh token, and a sandboxed command runs
@@ -1426,20 +1428,27 @@ original argv + inherited stdin, so a failing local `pre-commit` /
 `pre-push` still aborts the git operation. A repo with **no** local
 hook is a clean no-op.
 
-**The hook-manager PATH shim.** prek honours `core.hooksPath`, so a bare
-`prek install` under whole-user scope would write its shim into the
+**The hook-manager PATH shim.** prek and overcommit honour `core.hooksPath`,
+so a bare install under whole-user scope would write its hook into the
 *shared* dir, not the repo. The framework ships a transparent shim
 ([`tools/agent-isolation/hook-manager-shim.sh`](../../tools/agent-isolation/hook-manager-shim.sh),
-installed as `~/.claude/bin/prek` with `~/.claude/bin` prepended to
-PATH) that rewrites **only** `prek install` — injecting
-`--git-dir "$(git rev-parse --git-common-dir)"` so the shim lands
+installed as `~/.claude/bin/<tool>` with `~/.claude/bin` prepended to
+PATH) that rewrites **only** the install subcommand — for prek, injecting
+`--git-dir "$(git rev-parse --git-common-dir)"`; for overcommit, setting
+`core.hooksPath` to `<absolute common dir>/hooks` — so the hook lands
 in the repo-local `.git/hooks/` where the dispatcher finds it.
-Every other `prek` command passes straight through, and the shim is
+Every other command passes straight through, and the shim is
 a no-op on hosts with no global `core.hooksPath`.
+When the dispatcher chains into an overcommit hook, it exports the same
+`core.hooksPath` override so overcommit's run-time self-check accepts the
+hook instead of looking for its hook in the shared dir.
+lefthook refuses to install at all while a global `core.hooksPath` is set, so the same shim installed as `~/.claude/bin/lefthook` runs `lefthook install` with `GIT_CONFIG_GLOBAL=/dev/null` whenever the global config holds one, and lefthook then resolves its own target to the common dir.
+`lefthook install --force` and `--reset-hooks-path` would still get that override through the shim (they cannot reach the shared dir or unset the setup), and the agent-guard `lefthook-hooks-path` guard blocks an agent from trying.
+The shim covers the CLI only: an npm `postinstall` runs `node_modules/.bin/lefthook`, ahead of `~/.claude/bin` on PATH.
 The shim, the host-only homes and the sandbox-lint checks all follow the
 [hook-manager contract](../../tools/hook-manager/README.md):
 one script serves every adapter in its registry, keyed by the name it is
-installed under, and other hook managers (pre-commit, lefthook, husky, …)
+installed under, and other hook managers (pre-commit, husky, …)
 join by adding an adapter there.
 
 Validated behaviour under this flavour (`core.hooksPath` global +
@@ -1448,6 +1457,7 @@ dispatchers + hook-manager shim):
 | Repo's local hook | Result |
 |---|---|
 | prek shim in `.git/hooks/` (installed via the shim) | dispatcher → prek runs that repo's `.pre-commit-config.yaml` |
+| overcommit hook in `.git/hooks/` (installed via the shim) | dispatcher → overcommit runs that repo's `.overcommit.yml`; its self-check sees the repo's hooks path |
 | local hook installed by a manager requiring no install fix (`simple-git-hooks`, `cargo-husky`, `git-code-format-maven-plugin`, `git-build-hook`) | dispatcher → local hook runs natively (installs straight to `.git/hooks/` ignoring global `core.hooksPath`) |
 | hand-written `.git/hooks/<name>`, or one a manager without an adapter put there | dispatcher → that hook runs (heterogeneous tooling coexists) |
 | none | dispatcher no-op; git operation proceeds cleanly |
@@ -1477,7 +1487,7 @@ Managers using the `none` install strategy (`tools/hook-manager/README.md`) requ
 
 Reversal is the same as simple whole-user (`git config --global
 --unset core.hooksPath`), plus removing `~/.claude/bin` from PATH to
-restore the stock `prek`.
+restore the stock manager binaries.
 
 ## Working directories under the read-outside-working-directories block
 

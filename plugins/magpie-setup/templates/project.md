@@ -31,6 +31,7 @@
     - [Tracker](#tracker)
     - [Advisory records](#advisory-records)
     - [Scope detection](#scope-detection)
+    - [Invalidate](#invalidate)
     - [Release process](#release-process)
     - [Roster](#roster)
     - [Product](#product)
@@ -303,7 +304,8 @@ remove the row.
 | `ponymail_private_search_url_template` | `ponymail` | TODO |
 | `ponymail_public_search_url_template` | `ponymail` | TODO |
 | `ponymail_api_url_template` | `ponymail` | TODO |
-| `ponymail_thread_url_template` | `ponymail` | `https://lists.apache.org/thread/<hash>?<list>` |
+| `ponymail_thread_url_template` | `ponymail` | `https://lists.apache.org/thread/{thread_id}?{list}@{list_domain}` |
+| `advisory_thread_url_template` | `archive_system` (org) | `https://lists.apache.org/thread/{thread_id}?{list}@{list_domain}` |
 | `imap_host` | `imap` | TODO: e.g. `imap.example.org` |
 | `imap_account` | `imap` | TODO: e.g. `security-triage@example.org` |
 | `imap_security_list_folder` | `imap` | TODO: e.g. `INBOX.security-list` |
@@ -430,6 +432,12 @@ reads mail from a different backend than its organization.
 Org-level — inherited from your organization's `archive_system` block
 (public-archive backend + URL templates). Override here only if this
 project's advisories surface on a different archive than its organization.
+The block carries `search_url_template` (query a list for a CVE ID),
+`api_query_url_template`, `advisory_thread_url_template` (build the public
+advisory URL from a thread id), `advisory_publication_signal_url` and
+`mail_archive_url`. The issue-sync advisory step reads
+`advisory_thread_url_template`; a project that still declares only the
+legacy `ponymail_thread_url_template` keeps working through that key.
 
 ### Project metadata
 
@@ -609,6 +617,24 @@ scope_detection:
       product: "<Secondary Product Name>"
       packageName: "<secondary-package-name>"
       path_prefix: "<secondary-path-prefix-regex>"
+```
+
+### Invalidate
+
+Per-project — labels `security-issue-invalidate` leaves on a tracker it
+closes as invalid. By default it removes `needs triage`, the scope label
+and `pr created` / `pr merged`; list here the ones to keep (e.g. so
+archived invalid trackers stay filterable by component):
+
+```yaml
+invalidate:
+  # `scope` keeps whichever scope label is set, `pr` keeps `pr created` /
+  # `pr merged`, any other entry is a literal label name. `needs triage`
+  # is always removed (an entry for it is ignored with a warning).
+  # Empty or absent: remove them all.
+  # Consumed by: security-issue-invalidate (Step 5a).
+  keep_labels: []
+  # keep_labels: [scope, pr]
 ```
 
 ### Release process
