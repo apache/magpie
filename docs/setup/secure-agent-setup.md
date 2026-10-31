@@ -2957,6 +2957,9 @@ This is the same *socket gateways* layer [RFC-AI-0004](../rfcs/RFC-AI-0004.md) P
 
 ```bash
 mkdir -p ~/.claude/scripts
+# Always a plain copy, never a symlink into a sync repo: the managed-settings dispatcher
+# refuses links. `rm` first, since `cp` onto an existing link writes through it.
+rm -f ~/.claude/scripts/container-gateway-hook.sh
 cp /path/to/magpie/tools/agent-isolation/container-gateway-hook.sh ~/.claude/scripts/
 chmod +x ~/.claude/scripts/container-gateway-hook.sh
 mkdir -p ~/.claude/scripts/container-gateway/src
@@ -3033,7 +3036,7 @@ Three events, one script:
 }
 ```
 
-**Fixing your other machines.** If the hooks are registered in a synced `~/.claude/settings.json` or in `~/.claude/settings.local.json`, move them: delete the `container-gateway-hook.sh` entries from those files (from the synced one once, on any machine), then on **every** machine install the dispatcher and write the drop-in, from a framework checkout:
+**Fixing your other machines.** If `~/.claude/scripts/container-gateway-hook.sh` is a symlink (a sync-repo layout), first replace it with a plain copy as in the install recipe above (`rm -f` the link, then `cp`); the dispatcher refuses links. If the hooks are registered in a synced `~/.claude/settings.json` or in `~/.claude/settings.local.json`, move them: delete the `container-gateway-hook.sh` entries from those files (from the synced one once, on any machine), then on **every** machine install the dispatcher and write the drop-in, from a framework checkout:
 
 ```bash
 case "$(uname -s)" in
@@ -3235,6 +3238,9 @@ A minimal repo layout:
 
 Each tracked artifact lives in the repo; the path under `~/.claude/`
 is a symlink pointing at the repo. Editing either side updates both.
+The one exception is `~/.claude/scripts/container-gateway-hook.sh`: it
+stays a plain copy on every host (see [Container gateway](#container-gateway)),
+because the managed-settings dispatcher that runs it refuses symlinks.
 
 ### Setting up a fresh host
 

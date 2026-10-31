@@ -317,7 +317,9 @@ reading this file; read the section for a check whose condition holds.
       path, `~` and `bash`/`sh` rules apply to it.
     - **12b — hook script present.** `~/.claude/scripts/container-gateway-hook.sh`
       exists and is executable. Missing or non-executable is ✗. When the
-      hooks run through the managed-settings dispatcher, the script,
+      hooks run through the managed-settings dispatcher, the script
+      must be a plain file, not a symlink (✗ otherwise; remedy: `rm` the
+      link and copy the framework's), and the script,
       `~/.claude/scripts` and `~/.claude` must each be owned by the
       account, not group- or world-writable, and carry no ACL that lets
       another account write them (macOS `ls -le`; remove with `chmod -N`); otherwise the dispatcher

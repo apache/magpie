@@ -152,6 +152,11 @@ only_root_or_mine() {
 }
 
 hook="$home/.claude/scripts/container-gateway-hook.sh"
+if [[ -L $hook ]]; then
+    # A link's target can be swapped after these checks; the hook must be a plain copy.
+    log "$hook is a symlink; replace it with a plain copy (rm it, then cp the framework's) to run the container-gateway hook"
+    exit 0
+fi
 [[ -e $hook ]] || exit 0
 # Every directory above the home, up to /: a writable one would let another account
 # rename the home's entries away between these checks and the exec below.
