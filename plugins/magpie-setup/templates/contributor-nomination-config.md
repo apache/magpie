@@ -60,6 +60,7 @@ and there are no meaningful framework defaults.
 | `screen_prefilter_require` | `any` | `any`: one of merged PRs and reviews reaching its share of the floor keeps a contributor; `all`: both must. |
 | `screen_prefilter_targets` | `committer` | `committer`: the count pre-filter applies to the committer pool only; `both`: to the <governance-body> pool as well. |
 | `screen_recent_activity_months` | `4` | Drop anyone with no change landed in the last N months of the window, for both targets; `0` turns the check off. |
+| `screen_extra_repos` | leave blank | Further repositories of the project, as `owner/name`, comma-separated, that `candidate-screen` covers alongside `<upstream>`. ASF projects get their active `<project>-*` repositories automatically; other projects list theirs here. |
 
 ---
 
