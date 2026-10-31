@@ -31,7 +31,14 @@ from typing import Any
 
 import pytest
 
-from container_gateway.policy import Deny, PolicyContext, check_create, write_protected_paths
+from container_gateway import policy
+from container_gateway.policy import (
+    Deny,
+    PolicyContext,
+    apply_create_rewrites,
+    check_create,
+    write_protected_paths,
+)
 
 
 def _ctx(root: Path, *extra: Path) -> PolicyContext:
@@ -81,13 +88,31 @@ def _refused(body: dict[str, Any], ctx: PolicyContext, *, libpod: bool = False) 
     return True
 
 
+def _split(src: Path, ctx: PolicyContext) -> dict[str, bool]:
+    """The binds a writable `Binds` entry of `src` becomes: container path -> read-only."""
+    body = _binds(f"{src}:/w")
+    assert check_create(body, ctx, libpod=False) is None
+    out = apply_create_rewrites(body, ctx, libpod=False)
+    split: dict[str, bool] = {}
+    for spec in out["HostConfig"]["Binds"]:
+        parts = spec.split(":")
+        split[parts[1]] = len(parts) == 3 and "ro" in parts[2].split(",")
+    return split
+
+
+def _writable(split: dict[str, bool], target: str) -> bool:
+    """Whether `target` is writable inside the container: its nearest mount decides."""
+    covering = [t for t in split if target == t or target.startswith(t.rstrip("/") + "/")]
+    return not split[max(covering, key=len)]
+
+
 # --- covering binds ---------------------------------------------------------------
 
 
 @pytest.mark.parametrize(
     "rel",
     [
-        "",  # the project root
+        # The project root is split instead (see the "splitting a checkout root" tests).
         ".claude",
         ".claude/hooks",
         ".claude/hooks/pre.sh",
@@ -111,7 +136,7 @@ def test_a_writable_bind_covering_a_protected_path_is_refused(root: Path, rel: s
 
 
 def test_the_refusal_names_the_path_and_the_way_out(root: Path) -> None:
-    d = check_create(_binds(f"{root}:/w"), _ctx(root), libpod=False)
+    d = check_create(_binds(f"{root / '.claude'}:/w"), _ctx(root), libpod=False)
     assert isinstance(d, Deny)
     assert "is writable and covers" in d.reason
     assert "read-only (:ro)" in d.reason
@@ -342,7 +367,9 @@ def test_write_protected_paths_resolve_the_real_git_dir_of_a_worktree(tmp_path: 
 def test_a_worktrees_dot_git_file_is_never_under_a_writable_bind(tmp_path: Path) -> None:
     _, wt = _linked_worktree(tmp_path)
     ctx = _ctx(wt)
-    assert _refused(_binds(f"{wt}:/w"), ctx)
+    split = _split(wt, ctx)
+    assert not _writable(split, "/w/.git")
+    assert _writable(split, "/w/src")
     assert _refused(_binds(f"{wt / '.git'}:/w"), ctx)
     assert check_create(_binds(f"{wt / 'src'}:/w"), ctx, libpod=False) is None
 
@@ -354,7 +381,9 @@ def test_the_common_git_dir_under_an_extra_bind_root_is_protected(tmp_path: Path
     assert _refused(_binds(f"{main / '.git' / 'hooks'}:/w"), ctx)
     assert _refused(_binds(f"{main / '.git' / 'config'}:/w"), ctx)
     assert _refused(_binds(f"{main / '.git' / 'worktrees' / 'wt'}:/w"), ctx)
-    assert _refused(_binds(f"{main}:/w"), ctx)
+    split = _split(main, ctx)
+    for rel in (".git", ".git/hooks", ".git/config", ".git/worktrees/wt"):
+        assert not _writable(split, f"/w/{rel}")
     (main / "lib").mkdir()
     assert check_create(_binds(f"{main / 'lib'}:/w"), ctx, libpod=False) is None
 
@@ -409,5 +438,194 @@ def test_a_bind_root_reached_through_a_symlink_still_protects(tmp_path: Path) ->
     link = tmp_path / "link"
     link.symlink_to(real)
     ctx = _ctx(link)
-    assert _refused(_binds(f"{real}:/w"), ctx)
+    split = _split(real, ctx)
+    assert not _writable(split, "/w/.claude/hooks")
     assert _refused(_binds(f"{link / '.claude' / 'hooks'}:/w"), ctx)
+
+
+# --- splitting a checkout root ------------------------------------------------------
+
+
+def test_a_writable_checkout_root_is_split_rather_than_refused(root: Path) -> None:
+    split = _split(root, _ctx(root))
+    assert split["/w"] is True  # the root itself is read-only
+    assert _writable(split, "/w/src")
+    assert _writable(split, "/w/src/pkg/module.py")
+    for rel in (".claude/settings.json", ".claude/hooks", ".git", ".git/hooks", ".git/config"):
+        assert not _writable(split, f"/w/{rel}"), rel
+
+
+@pytest.mark.parametrize("rel", [".mcp.json", ".claude/skills", ".claude/settings.local.json", ".env"])
+def test_a_protected_path_missing_today_cannot_be_created_through_the_split(root: Path, rel: str) -> None:
+    """The root and `.claude` are read-only, so the container cannot create these."""
+    assert not (root / rel).exists()
+    assert not _writable(_split(root, _ctx(root)), f"/w/{rel}")
+
+
+def test_a_compat_mount_of_a_checkout_root_is_split(root: Path) -> None:
+    ctx = _ctx(root)
+    body = _compat_mount(root)
+    assert check_create(body, ctx, libpod=False) is None
+    mounts = apply_create_rewrites(body, ctx, libpod=False)["HostConfig"]["Mounts"]
+    by_target = {m["Target"]: m["ReadOnly"] for m in mounts}
+    assert by_target["/w"] is True
+    assert by_target["/w/src"] is False
+    assert all(m["Type"] == "bind" for m in mounts)
+
+
+def test_a_libpod_mount_of_a_checkout_root_is_split(root: Path) -> None:
+    ctx = _ctx(root)
+    body = _libpod_mount(root, ["rbind"])
+    assert check_create(body, ctx, libpod=True) is None
+    mounts = apply_create_rewrites(body, ctx, libpod=True)["mounts"]
+    by_target = {m["destination"]: m["options"] for m in mounts}
+    assert by_target["/w"] == ["rbind", "ro"]
+    assert by_target["/w/src"] == ["rbind"]
+
+
+def test_the_split_keeps_the_relabel_option_on_every_mount(root: Path) -> None:
+    ctx = _ctx(root)
+    body = _binds(f"{root}:/w:rw,z")
+    assert check_create(body, ctx, libpod=False) is None
+    binds = apply_create_rewrites(body, ctx, libpod=False)["HostConfig"]["Binds"]
+    assert f"{root}:/w:z,ro" in binds
+    assert f"{root / 'src'}:/w/src:z" in binds
+
+
+@pytest.mark.parametrize("options", ["rprivate", "ro,rw", "U"])
+def test_a_checkout_root_with_options_the_split_cannot_reproduce_is_still_refused(
+    root: Path, options: str
+) -> None:
+    assert _refused(_binds(f"{root}:/w:{options}"), _ctx(root))
+
+
+def test_a_claude_code_worktree_root_is_split_with_its_own_entries_protected(root: Path) -> None:
+    wt = root / ".claude" / "worktrees" / "feature"
+    (wt / "src").mkdir(parents=True)
+    (wt / ".claude").mkdir()
+    (wt / ".claude" / "settings.json").write_text("{}\n")
+    (wt / ".git").write_text("gitdir: ../../../.git/worktrees/feature\n")
+    split = _split(wt, _ctx(root))
+    assert _writable(split, "/w/src")
+    assert not _writable(split, "/w/.claude/settings.json")
+    assert not _writable(split, "/w/.git")
+
+
+def test_new_worktrees_cannot_be_created_through_the_split(root: Path) -> None:
+    (root / ".claude" / "worktrees").mkdir()
+    assert not _writable(_split(root, _ctx(root)), "/w/.claude/worktrees/new")
+
+
+@pytest.mark.skipif(not hasattr(os, "symlink"), reason="needs symlinks")
+def test_a_symlinked_child_stays_read_only(root: Path, tmp_path: Path) -> None:
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    (root / "linked").symlink_to(elsewhere)
+    split = _split(root, _ctx(root))
+    assert "/w/linked" not in split
+    assert not _writable(split, "/w/linked")
+
+
+def test_a_subdirectory_that_is_not_a_checkout_root_is_not_split(root: Path) -> None:
+    """Only checkout roots are split: a writable bind of `.claude` is refused, not split."""
+    assert _refused(_binds(f"{root / '.claude'}:/w"), _ctx(root))
+
+
+def test_a_split_past_the_mount_limit_is_refused(root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(policy, "_SPLIT_MAX_MOUNTS", 1)
+    assert _refused(_binds(f"{root}:/w"), _ctx(root))
+
+
+def test_a_split_that_can_no_longer_be_computed_fails_safe_to_read_only(
+    root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """If the tree changes between the check and the rewrite, the bind becomes read-only."""
+    ctx = _ctx(root)
+    body = _binds(f"{root}:/w")
+    assert check_create(body, ctx, libpod=False) is None
+    monkeypatch.setattr(policy, "split_writable_bind", lambda src, ctx: None)
+    assert apply_create_rewrites(body, ctx, libpod=False)["HostConfig"]["Binds"] == [f"{root}:/w:ro"]
+
+
+def test_a_bind_without_protected_paths_is_left_alone(root: Path) -> None:
+    ctx = _ctx(root)
+    body = _binds(f"{root / 'src'}:/w")
+    assert apply_create_rewrites(body, ctx, libpod=False)["HostConfig"]["Binds"] == [f"{root / 'src'}:/w"]
+
+
+def test_an_explicit_nested_mount_wins_over_the_split(root: Path) -> None:
+    """`-v $PWD:/w -v $PWD/src:/w/src:ro` must not also generate a writable /w/src."""
+    ctx = _ctx(root)
+    body = {"Image": "alpine", "HostConfig": {"Binds": [f"{root}:/w", f"{root / 'src'}:/w/src:ro"]}}
+    assert check_create(body, ctx, libpod=False) is None
+    binds = apply_create_rewrites(body, ctx, libpod=False)["HostConfig"]["Binds"]
+    at_src = [b for b in binds if b.split(":")[1] == "/w/src"]
+    assert at_src == [f"{root / 'src'}:/w/src:ro"]
+
+
+def test_an_explicit_mount_above_the_split_target_does_not_shadow_it(root: Path) -> None:
+    ctx = _ctx(root)
+    body = {"Image": "alpine", "HostConfig": {"Binds": [f"{root}:/w/proj"], "Tmpfs": {"/w": ""}}}
+    assert check_create(body, ctx, libpod=False) is None
+    binds = apply_create_rewrites(body, ctx, libpod=False)["HostConfig"]["Binds"]
+    assert f"{root / 'src'}:/w/proj/src" in binds
+
+
+def test_a_child_with_a_colon_in_its_name_becomes_a_structured_mount(root: Path) -> None:
+    (root / "cache:dev").mkdir()
+    ctx = _ctx(root)
+    body = _binds(f"{root}:/w")
+    assert check_create(body, ctx, libpod=False) is None
+    hc = apply_create_rewrites(body, ctx, libpod=False)["HostConfig"]
+    assert not any("cache:dev" in b for b in hc["Binds"])
+    assert {
+        "Type": "bind",
+        "Source": str(root / "cache:dev"),
+        "Target": "/w/cache:dev",
+        "ReadOnly": False,
+    } in hc["Mounts"]
+
+
+def test_a_colon_child_with_relabelling_stays_read_only_under_its_parent(root: Path) -> None:
+    (root / "cache:dev").mkdir()
+    ctx = _ctx(root)
+    body = _binds(f"{root}:/w:z")
+    assert check_create(body, ctx, libpod=False) is None
+    hc = apply_create_rewrites(body, ctx, libpod=False)["HostConfig"]
+    assert not any("cache:dev" in b for b in hc["Binds"])
+    assert not any("cache:dev" in str(m) for m in hc.get("Mounts") or [])
+    assert f"{root}:/w:z,ro" in hc["Binds"]
+
+
+def test_an_anonymous_volume_is_not_overridden_by_a_generated_bind(root: Path) -> None:
+    (root / "node_modules").mkdir()
+    ctx = _ctx(root)
+    body = {"Image": "alpine", "Volumes": {"/w/node_modules": {}}, "HostConfig": {"Binds": [f"{root}:/w"]}}
+    assert check_create(body, ctx, libpod=False) is None
+    binds = apply_create_rewrites(body, ctx, libpod=False)["HostConfig"]["Binds"]
+    assert not any(b.split(":")[1] == "/w/node_modules" for b in binds)
+
+
+def test_an_explicit_mount_spelled_with_a_dot_segment_still_wins(root: Path) -> None:
+    ctx = _ctx(root)
+    body = {"Image": "alpine", "HostConfig": {"Binds": [f"{root}:/w", f"{root / 'src'}:/w/./src:ro"]}}
+    assert check_create(body, ctx, libpod=False) is None
+    binds = apply_create_rewrites(body, ctx, libpod=False)["HostConfig"]["Binds"]
+    assert not any(b.split(":")[1] == "/w/src" for b in binds)
+
+
+@pytest.mark.skipif(not hasattr(os, "symlink"), reason="needs symlinks")
+def test_the_read_only_root_survives_a_symlink_to_a_checkout_with_a_colon(tmp_path: Path) -> None:
+    real = tmp_path / "real:checkout"
+    (real / ".git").mkdir(parents=True)
+    (real / ".claude").mkdir()
+    (real / ".claude" / "settings.json").write_text("{}\n")
+    (real / "src").mkdir()
+    link = tmp_path / "link"
+    link.symlink_to(real)
+    ctx = _ctx(real.resolve())
+    body = _binds(f"{link}:/w:z")
+    assert check_create(body, ctx, libpod=False) is None
+    hc = apply_create_rewrites(body, ctx, libpod=False)["HostConfig"]
+    assert hc["Binds"] == [f"{link}:/w:z,ro"]
+    assert not hc.get("Mounts")
