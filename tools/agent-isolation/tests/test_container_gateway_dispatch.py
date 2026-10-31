@@ -180,6 +180,7 @@ def test_a_symlinked_hook_is_refused(tmp_path: Path) -> None:
     done = dispatch(tmp_path)
     assert done.returncode == 0
     assert done.stdout == ""
+    assert "is a symlink; replace it with a plain copy" in done.stderr
 
 
 def test_an_account_without_the_hook_gets_nothing(tmp_path: Path) -> None:

@@ -99,6 +99,40 @@ def test_a_drop_in_running_the_dispatcher_is_loaded(project: Path, managed: Path
     assert container_gateway_findings(project, "claude") == []
 
 
+def dispatcher_drop_in(managed: Path) -> None:
+    command = "'/Library/Application Support/ClaudeCode/magpie/container-gateway-dispatch' start"
+    hook = {"hooks": {"SessionStart": [{"hooks": [{"type": "command", "command": command}]}]}}
+    write(managed / "managed-settings.d" / "50-magpie-container-gateway.json", hook)
+
+
+def test_a_symlinked_hook_behind_the_dispatcher_is_reported(
+    project: Path, managed: Path, isolated_home: Path
+) -> None:
+    wire(project)
+    dispatcher_drop_in(managed)
+    scripts = isolated_home / ".claude" / "scripts"
+    scripts.mkdir(parents=True)
+    target = isolated_home / "sync-repo" / "container-gateway-hook.sh"
+    target.parent.mkdir()
+    target.write_text("#!/bin/sh\n", encoding="utf-8")
+    (scripts / "container-gateway-hook.sh").symlink_to(target)
+
+    [finding] = container_gateway_findings(project, "claude")
+
+    assert finding.facts["hook_is_symlink"] == str(scripts / "container-gateway-hook.sh")
+
+
+def test_a_plain_hook_behind_the_dispatcher_is_not_reported(
+    project: Path, managed: Path, isolated_home: Path
+) -> None:
+    wire(project)
+    dispatcher_drop_in(managed)
+    scripts = isolated_home / ".claude" / "scripts"
+    scripts.mkdir(parents=True)
+    (scripts / "container-gateway-hook.sh").write_text("#!/bin/sh\n", encoding="utf-8")
+    assert container_gateway_findings(project, "claude") == []
+
+
 def test_a_hidden_drop_in_is_not_loaded(project: Path, managed: Path) -> None:
     wire(project)
     write(managed / "managed-settings.d" / ".50-magpie-container-gateway.json", hooks())

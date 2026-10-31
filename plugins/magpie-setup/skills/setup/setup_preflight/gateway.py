@@ -99,7 +99,9 @@ def _readable_or_absent(path: Path) -> bool:
     return True
 
 
-def _starts_gateway(settings: dict) -> bool:
+def _start_commands(settings: dict) -> list[str]:
+    """The `SessionStart` hook commands in `settings` that start the container gateway."""
+    found: list[str] = []
     hooks = settings.get("hooks")
     entries = hooks.get("SessionStart") if isinstance(hooks, dict) else None
     for entry in entries if isinstance(entries, list) else []:
@@ -111,8 +113,25 @@ def _starts_gateway(settings: dict) -> bool:
                 and any(name in command for name in HOOK_COMMANDS)
                 and command.split()[-1:] == ["start"]
             ):
-                return True
-    return False
+                found.append(command)
+    return found
+
+
+def _starts_gateway(settings: dict) -> bool:
+    return bool(_start_commands(settings))
+
+
+def _dispatches(settings: dict) -> bool:
+    """Whether every gateway `start` hook in `settings` runs through the dispatcher."""
+    starts = _start_commands(settings)
+    return bool(starts) and all("container-gateway-dispatch" in command for command in starts)
+
+
+def _is_symlink(path: Path) -> bool:
+    try:
+        return path.is_symlink()
+    except OSError:
+        return False
 
 
 def managed_settings_files(dirs: tuple[Path, ...] | None = None) -> list[Path]:
@@ -164,8 +183,12 @@ def unstarted_gateway(
         return None
     user_dir = (home if home is not None else Path.home()) / ".claude"
     loaded = [*managed_settings_files(managed_dirs), user_dir / "settings.json", *_project_settings(root)]
-    if any(_starts_gateway(settings) for settings in filter(None, map(_load, loaded))):
+    registered = [settings for settings in filter(None, map(_load, loaded)) if _starts_gateway(settings)]
+    hook = user_dir / "scripts" / "container-gateway-hook.sh"
+    if registered and not (all(map(_dispatches, registered)) and _is_symlink(hook)):
         return None
+    if registered:
+        return {"sockets": sockets, "hook_is_symlink": str(hook)}
     unloaded = _load(user_dir / "settings.local.json")
     return {
         "sockets": sockets,

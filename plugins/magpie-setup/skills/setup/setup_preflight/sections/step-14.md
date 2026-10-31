@@ -18,6 +18,12 @@ Tell the user in two or three lines, naming the case that applies:
   read from inside the sandbox, so the hooks may be registered there. Say so,
   and that a gateway started earlier in this session and since exited would
   also look like this.
+- **`hook_is_symlink` is a path** — the hooks are registered through the
+  managed-settings dispatcher, but `~/.claude/scripts/container-gateway-hook.sh`
+  is a symlink (a sync-repo layout), which the dispatcher refuses. The remedy
+  is a plain copy: `rm` the link, then copy the framework's
+  `tools/agent-isolation/container-gateway-hook.sh` there (a `cp` onto the link
+  would write through it into the sync repo). No `sudo` is needed for this one.
 - **otherwise** — the hooks are not registered in any loaded file.
 
 The remedy is the managed-settings drop-in from the setup guide's
