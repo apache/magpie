@@ -598,6 +598,8 @@ def main(argv: list[str] | None = None) -> int:
 
     args = parser.parse_args(argv)
 
+    root: Path
+    evals_root: Path
     if args.evals_root is not None:
         evals_root = args.evals_root
         try:
@@ -609,9 +611,15 @@ def main(argv: list[str] | None = None) -> int:
             root = _find_repo_root(Path.cwd())
         except FileNotFoundError as exc:
             parser.error(f"{exc}; pass --evals-root")
+            raise SystemExit(2) from exc  # parser.error never returns; this is for readers and analysers
         evals_root = root / EVALS_REL
     if not evals_root.is_dir():
         parser.error(f"evals root {evals_root} is not a directory")
+    against = getattr(args, "against", None)
+    if against is not None and (against.startswith("-") or not against.strip()):
+        # The value is passed to `git show <ref>:<path>`; a leading dash would
+        # make git read it as an option instead of a revision.
+        parser.error(f"--against must be a git revision, got {against!r}")
 
     try:
         if args.command == "render":
