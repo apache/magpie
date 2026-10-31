@@ -1307,8 +1307,9 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         metavar="NAME",
         help=(
-            "Model name to record when it cannot be read from a --model flag in --cli "
-            "(e.g. the CLI's configured default)."
+            "Model name to record; wins over everything else. Without it the model is "
+            "read from a --model flag in --cli, then, for a claude CLI, from "
+            "ANTHROPIC_MODEL and the Claude Code settings files."
         ),
     )
     args = parser.parse_args(argv)
@@ -1661,7 +1662,7 @@ def _write_run_record(
     now = datetime.now(UTC)
     if snapshot is None:
         snapshot = run_journal.git_snapshot(root)
-    model = run_journal.model_from_cli(args.cli) or args.journal_model
+    model, model_source = run_journal.resolve_model(args.cli, args.journal_model)
     try:
         rel_path = str(args.path.resolve().relative_to(root.resolve()))
     except ValueError:
@@ -1675,6 +1676,7 @@ def _write_run_record(
         "branch": snapshot["branch"],
         "dirty": snapshot["dirty"],
         "model": model,
+        "model_source": model_source,
         "cli": run_journal.redact_cli(args.cli),
         "grader_cli": None if args.exact else run_journal.redact_cli(args.grader_cli),
         "path": rel_path,

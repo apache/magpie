@@ -321,6 +321,58 @@ def test_check_append_only_accepts_growth_and_names_edits() -> None:
     assert check_append_only(a, b.replace("2026-10-16", "2026-10-15", 1)) == "line 1 was changed"
 
 
+def _settings(path: Path, model: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"model": model}))
+
+
+def test_resolve_model_precedence(tmp_path: Path) -> None:
+    cwd, home = tmp_path / "proj", tmp_path / "home"
+    cwd.mkdir()
+    home.mkdir()
+    _settings(home / ".claude" / "settings.json", "user-model")
+    _settings(cwd / ".claude" / "settings.json", "project-model")
+    _settings(cwd / ".claude" / "settings.local.json", "local-model")
+    env = {"ANTHROPIC_MODEL": "env-model"}
+    kw = {"cwd": cwd, "home": home}
+
+    # Explicit wins, even over a --model flag in the CLI string.
+    assert journal.resolve_model("claude -p --model flag-model", "given", env=env, **kw) == (
+        "given",
+        "journal-model",
+    )
+    assert journal.resolve_model("claude -p --model flag-model", None, env=env, **kw) == (
+        "flag-model",
+        "cli-flag",
+    )
+    assert journal.resolve_model("claude -p", None, env=env, **kw) == ("env-model", "env:ANTHROPIC_MODEL")
+    assert journal.resolve_model("claude -p", None, env={}, **kw) == ("local-model", "settings:project-local")
+    (cwd / ".claude" / "settings.local.json").unlink()
+    assert journal.resolve_model("claude -p", None, env={}, **kw) == ("project-model", "settings:project")
+    (cwd / ".claude" / "settings.json").unlink()
+    assert journal.resolve_model("claude -p", None, env={}, **kw) == ("user-model", "settings:user")
+    (home / ".claude" / "settings.json").unlink()
+    assert journal.resolve_model("claude -p", None, env={}, **kw) == (None, None)
+
+
+def test_resolve_model_does_not_guess_for_other_clis(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    _settings(home / ".claude" / "settings.json", "user-model")
+    env = {"ANTHROPIC_MODEL": "env-model"}
+    # A non-claude CLI does not read Claude's settings or env.
+    assert journal.resolve_model("llm -m x", None, env=env, cwd=tmp_path, home=home) == (None, None)
+    assert journal.resolve_model("/usr/local/bin/claude -p", None, env=env, cwd=tmp_path, home=home)[1] == (
+        "env:ANTHROPIC_MODEL"
+    )
+
+
+def test_resolve_model_ignores_unreadable_settings(tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    (home / ".claude").mkdir(parents=True)
+    (home / ".claude" / "settings.json").write_text("{not json")
+    assert journal.resolve_model("claude -p", None, env={}, cwd=tmp_path, home=home) == (None, None)
+
+
 def test_model_from_cli() -> None:
     assert model_from_cli("claude -p --model claude-opus-5-5") == "claude-opus-5-5"
     assert model_from_cli("claude -p --model=haiku") == "haiku"
@@ -494,6 +546,7 @@ def test_runner_journals_a_cli_run_under_the_evals_tree(
     assert rec["cost"]["cli_calls"] == 2
     assert rec["cost"]["grader_calls"] == 0
     assert rec["model"] is None  # no --model in the CLI string, none given
+    assert rec["model_source"] is None
     assert rec["path"] == f"{EVALS_REL}/demo-skill"
     # No git in the fake repo: the snapshot degrades, never fails the run.
     assert rec["ref"] == "unknown"
@@ -545,6 +598,7 @@ def test_runner_honours_no_journal_and_explicit_journal(
     )
     (rec,) = read_records(explicit)
     assert rec["model"] == "stub-model"
+    assert rec["model_source"] == "journal-model"
     assert rec["skill"] == "out"
     assert not (skill_dir / JOURNAL_NAME).exists()
     capsys.readouterr()

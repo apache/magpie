@@ -48,6 +48,8 @@ Record shape (schema 1). Keys the runner always writes:
     branch        branch name, or "HEAD" when detached
     dirty         true when the working tree had uncommitted changes
     model         model name as the CLI uses it, or null when unknown
+    model_source  where model came from: journal-model, cli-flag,
+                  env:ANTHROPIC_MODEL, settings:<scope>, or null
     cli           the --cli command string
     grader_cli    the --grader-cli command string, or null under --exact
     path          the eval path argument, repo-relative
@@ -76,9 +78,11 @@ import argparse
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 from collections import Counter
+from collections.abc import Mapping
 from pathlib import Path
 
 SCHEMA_VERSION = 1
@@ -241,6 +245,72 @@ def model_from_cli(cli: str) -> str | None:
     """Return the value of a ``--model X`` / ``--model=X`` flag in ``cli``."""
     match = re.search(r"--model(?:=|\s+)(\S+)", cli)
     return match.group(1).strip("'\"") if match else None
+
+
+def _settings_model(path: Path) -> str | None:
+    """The ``model`` a Claude Code settings file pins, or None."""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    model = data.get("model") if isinstance(data, dict) else None
+    return model.strip() if isinstance(model, str) and model.strip() else None
+
+
+def _is_claude_cli(cli: str) -> bool:
+    try:
+        first = shlex.split(cli)[0]
+    except (ValueError, IndexError):
+        return False
+    return Path(first).name == "claude"
+
+
+def resolve_model(
+    cli: str,
+    explicit: str | None = None,
+    *,
+    env: Mapping[str, str] | None = None,
+    cwd: Path | None = None,
+    home: Path | None = None,
+) -> tuple[str | None, str | None]:
+    """Return ``(model, source)`` for the run, best evidence first.
+
+    1. ``explicit``: the operator said so (``--journal-model``).
+    2. A ``--model`` flag in the ``--cli`` string.
+    3. For a ``claude`` CLI only, what that CLI will itself use when no flag is
+       given: ``ANTHROPIC_MODEL``, then the ``model`` key of the settings files
+       in Claude Code's own precedence order (project local, project, user).
+       Best effort: managed settings and an ``env.ANTHROPIC_MODEL`` inside a
+       settings file are not read.
+
+    The sandboxed eval wrapper takes exactly one argument and runs
+    ``claude -p`` with no flag, so (3) is how its runs get a model at all. A
+    value found nowhere is recorded as None and renders as unrecorded next to
+    the ``--cli`` string, never guessed. ``source`` names where the value came from so a reader can
+    weigh it: a settings default is weaker evidence than an explicit flag.
+    """
+    if explicit:
+        return explicit, "journal-model"
+    flagged = model_from_cli(cli)
+    if flagged:
+        return flagged, "cli-flag"
+    if not _is_claude_cli(cli):
+        return None, None
+    environ: Mapping[str, str] = os.environ if env is None else env
+    declared = environ.get("ANTHROPIC_MODEL", "").strip()
+    if declared:
+        return declared, "env:ANTHROPIC_MODEL"
+    cwd = Path.cwd() if cwd is None else cwd
+    home = Path.home() if home is None else home
+    for label, path in (
+        ("settings:project-local", cwd / ".claude" / "settings.local.json"),
+        ("settings:project", cwd / ".claude" / "settings.json"),
+        ("settings:user", home / ".claude" / "settings.json"),
+    ):
+        found = _settings_model(path)
+        if found:
+            return found, label
+    return None, None
 
 
 # ---------------------------------------------------------------------------
