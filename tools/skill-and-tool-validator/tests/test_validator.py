@@ -84,6 +84,7 @@ from skill_and_tool_validator import (
     known_organizations,
     line_has_inline_allow_marker,
     main,
+    organization_manifest_keys,
     parse_frontmatter,
     parse_source_descriptors,
     resolve_link,
@@ -104,6 +105,7 @@ from skill_and_tool_validator import (
     validate_mail_privacy_boundary,
     validate_modes_doc_consistency,
     validate_name_convention,
+    validate_organization_manifests,
     validate_organization_structure,
     validate_override_contract,
     validate_override_file,
@@ -3167,6 +3169,120 @@ class TestOrganizationMembership:
             if v.category == "organization"
         ]
         assert len(violations) == 1
+
+
+_ORG_TEMPLATE = """\
+# Template
+
+```yaml
+organization_identity:
+  id: <org>                            # must match this directory's name
+  name: "<name>"
+  url: <url>
+```
+
+```yaml
+governance_vocabulary:
+  governance_body: "<body>"
+  contributor_intake: <icla | dco | none>
+```
+
+```yaml
+# cve_authority: { tool: <adapter> }
+```
+"""
+
+
+def _org_manifest(org_id: str, *, drop: str | None = None, extra: str = "") -> str:
+    lines = [
+        "```yaml",
+        "organization_identity:",
+        f"  id: {org_id}",
+        '  name: "Full name"',
+        "  url: null",
+        "```",
+        "",
+        "```yaml",
+        "governance_vocabulary:",
+        '  governance_body: "PMC"   # what it is called',
+        "  contributor_intake: icla",
+        "```",
+        extra,
+    ]
+    return "\n".join(line for line in lines if drop is None or not line.strip().startswith(f"{drop}:")) + "\n"
+
+
+class TestOrganizationManifests:
+    """Tests for validate_organization_manifests — content, not just presence."""
+
+    def _tree(self, tmp_path: Path, orgs: dict[str, str], template: bool = True) -> Path:
+        base = tmp_path / "organizations"
+        if template:
+            (base / "_template").mkdir(parents=True)
+            (base / "_template" / "organization.md").write_text(_ORG_TEMPLATE)
+        for name, manifest in orgs.items():
+            (base / name).mkdir(parents=True, exist_ok=True)
+            (base / name / "README.md").write_text("# org\n")
+            (base / name / "organization.md").write_text(manifest)
+        return tmp_path
+
+    def test_keys_parse_from_yaml_fences_only_and_comments_declare_nothing(self) -> None:
+        keys = organization_manifest_keys(_ORG_TEMPLATE)
+        assert sorted(k for k in keys if k[1]) == [
+            ("governance_vocabulary", "contributor_intake"),
+            ("governance_vocabulary", "governance_body"),
+            ("organization_identity", "id"),
+            ("organization_identity", "name"),
+            ("organization_identity", "url"),
+        ]
+        assert keys[("organization_identity", "id")] == "<org>"  # inline comment stripped
+        assert not any(block == "cve_authority" for block, _k in keys)
+
+    def test_complete_manifest_is_clean_and_null_counts_as_declared(self, tmp_path: Path) -> None:
+        root = self._tree(tmp_path, {"Acme": _org_manifest("Acme")})
+        assert list(validate_organization_manifests(root)) == []
+
+    def test_an_omitted_required_key_is_named(self, tmp_path: Path) -> None:
+        root = self._tree(tmp_path, {"Acme": _org_manifest("Acme", drop="contributor_intake")})
+        vs = list(validate_organization_manifests(root))
+        assert len(vs) == 1
+        assert "governance_vocabulary.contributor_intake" in vs[0].message
+        assert vs[0].category == ORGANIZATION_CATEGORY
+
+    def test_an_optional_block_may_be_omitted_or_added(self, tmp_path: Path) -> None:
+        extra = "```yaml\ncve_authority:\n  tool: vulnogram\n```\n"
+        root = self._tree(tmp_path, {"Acme": _org_manifest("Acme", extra=extra)})
+        assert list(validate_organization_manifests(root)) == []
+
+    def test_an_empty_manifest_fails(self, tmp_path: Path) -> None:
+        root = self._tree(tmp_path, {"Acme": "# Acme\n\nNothing here yet.\n"})
+        vs = list(validate_organization_manifests(root))
+        assert len(vs) == 1 and "declares no keys" in vs[0].message
+
+    def test_id_must_match_the_directory(self, tmp_path: Path) -> None:
+        root = self._tree(tmp_path, {"Acme": _org_manifest("acme-corp")})
+        vs = list(validate_organization_manifests(root))
+        assert len(vs) == 1 and "'acme-corp'" in vs[0].message and "organizations/Acme/" in vs[0].message
+
+    def test_no_template_skips_the_content_check(self, tmp_path: Path) -> None:
+        root = self._tree(tmp_path, {"Acme": "# placeholder\n"}, template=False)
+        assert list(validate_organization_manifests(root)) == []
+
+    def test_a_missing_manifest_is_left_to_the_structure_check(self, tmp_path: Path) -> None:
+        root = self._tree(tmp_path, {})
+        (root / "organizations" / "Acme").mkdir()
+        assert list(validate_organization_manifests(root)) == []
+
+    def test_reached_via_run_validation(self, tmp_path: Path) -> None:
+        root = self._tree(tmp_path, {"Acme": _org_manifest("Acme", drop="governance_body")})
+        vs = [v for v in run_validation(root) if v.category == ORGANIZATION_CATEGORY]
+        assert len(vs) == 1 and "governance_vocabulary.governance_body" in vs[0].message
+
+    def test_the_in_tree_adapters_pass(self) -> None:
+        repo_root = Path(__file__).resolve().parents[3]
+        if not (repo_root / "organizations" / "_template" / "organization.md").is_file():
+            pytest.skip("organizations/ not present")
+        assert [str(v) for v in validate_organization_manifests(repo_root)] == []
 
 
 class TestOrganizationStructure:

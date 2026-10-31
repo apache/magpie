@@ -934,6 +934,95 @@ def validate_organization_structure(root: Path | None = None) -> Iterable[Violat
                 )
 
 
+_YAML_FENCE_RE = re.compile(r"^```ya?ml[ \t]*\n(.*?)^```", re.MULTILINE | re.DOTALL)
+_ORG_TOP_KEY_RE = re.compile(r"^([a-z_][a-z0-9_]*):(.*)$")
+_ORG_SUB_KEY_RE = re.compile(r"^  ([a-z_][a-z0-9_]*):(.*)$")
+
+
+def organization_manifest_keys(text: str) -> dict[tuple[str, str], str]:
+    """``(block, key) -> value`` for every key declared in an organization.md.
+
+    Reads the fenced ``yaml`` blocks only, and only the two-level shape the
+    manifests use (``block:`` then two-space-indented ``key: value``). A
+    commented-out line declares nothing, which is how the template marks a
+    block as optional. Stdlib only, like the rest of this module.
+    """
+    keys: dict[tuple[str, str], str] = {}
+    for block in _YAML_FENCE_RE.findall(text):
+        current: str | None = None
+        for line in block.splitlines():
+            if not line.strip() or line.lstrip().startswith("#"):
+                continue
+            top = _ORG_TOP_KEY_RE.match(line)
+            if top:
+                current = top.group(1)
+                inline = re.sub(r"\s+#.*$", "", top.group(2)).strip()
+                if inline:
+                    keys[(current, "")] = inline
+                continue
+            sub = _ORG_SUB_KEY_RE.match(line)
+            if sub and current:
+                keys[(current, sub.group(1))] = re.sub(r"\s+#.*$", "", sub.group(2)).strip()
+    return keys
+
+
+def validate_organization_manifests(root: Path | None = None) -> Iterable[Violation]:
+    """An organization.md must declare what the template's live skeleton declares.
+
+    The required set is derived from ``organizations/_template/organization.md``:
+    every key its uncommented ``yaml`` blocks declare (the organization identity
+    and governance vocabulary). The template comments out the capability bundle,
+    so those keys stay optional and fall through to framework defaults. An
+    adapter that omits a required key would resolve it silently to a framework
+    default rather than to its organization's value, which is the failure this
+    check exists for. ``null`` is a declared value. ``organization_identity.id``
+    must match the directory name. Skipped when the tree has no template.
+    """
+    repo_root = root or find_repo_root()
+    base = repo_root / ORGANIZATIONS_DIR
+    template = base / "_template" / "organization.md"
+    if not template.is_file():
+        return
+    required = sorted(
+        key for key in organization_manifest_keys(template.read_text(encoding="utf-8")) if key[1]
+    )
+    if not required:
+        return
+    for org_dir in sorted(base.iterdir()):
+        manifest = org_dir / "organization.md"
+        if not org_dir.is_dir() or org_dir.name == "_template" or not manifest.is_file():
+            continue  # a missing file is validate_organization_structure's to report
+        declared = organization_manifest_keys(manifest.read_text(encoding="utf-8"))
+        if not declared:
+            yield Violation(
+                manifest,
+                None,
+                f"organizations/{org_dir.name}/organization.md declares no keys — every key a "
+                "project inherits from it would silently resolve to a framework default",
+                category=ORGANIZATION_CATEGORY,
+            )
+            continue
+        missing = [f"{block}.{key}" for block, key in required if (block, key) not in declared]
+        if missing:
+            yield Violation(
+                manifest,
+                None,
+                f"organizations/{org_dir.name}/organization.md omits required key(s) "
+                f"{', '.join(missing)} (required by organizations/_template/organization.md); an "
+                "omitted key resolves silently to the framework default, not this organization's value",
+                category=ORGANIZATION_CATEGORY,
+            )
+        org_id = declared.get(("organization_identity", "id"), "").strip("'\"")
+        if org_id and org_id != org_dir.name:
+            yield Violation(
+                manifest,
+                None,
+                f"organization_identity.id is {org_id!r} but the directory is organizations/{org_dir.name}/; "
+                "a project's `organization:` names the directory, so the two must match",
+                category=ORGANIZATION_CATEGORY,
+            )
+
+
 def validate_frontmatter(path: Path, text: str, root: Path | None = None) -> Iterable[Violation]:
     """Validate the YAML frontmatter of a SKILL.md file."""
     fm = parse_frontmatter(text)
@@ -3896,6 +3985,7 @@ def run_validation(root: Path | None = None) -> list[Violation]:
     # Organization-adapter structure: each organizations/<org>/ must have README.md
     # and organization.md (HARD — an incomplete adapter cannot be reliably resolved).
     violations.extend(validate_organization_structure(repo_root))
+    violations.extend(validate_organization_manifests(repo_root))
 
     # Adapter authoring smoke: contract:* tool READMEs declare credentials,
     # operations, and config keys (SOFT advisory).
