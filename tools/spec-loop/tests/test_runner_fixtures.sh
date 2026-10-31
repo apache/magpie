@@ -271,9 +271,111 @@ test_last_sync_marker_helpers() {
     [ "$branch" = "advance-last-sync-abcdef1" ] || fail "unexpected marker branch: $branch"
 }
 
+test_single_flight_lock_helpers() {
+    local lock="$TMPDIR_TEST/lock"
+
+    # First acquire wins and records this process as owner.
+    spec_loop_lock_acquire "$lock" || fail "first acquire should succeed"
+    assert_contains "$lock/owner" "$$ "
+
+    # Second acquire against the live owner is refused with exit 1 and the
+    # already_running line, and the lock is left in place.
+    local out rc
+    rc=0; out="$(spec_loop_lock_acquire "$lock")" || rc=$?
+    [ "$rc" = 1 ] || fail "second acquire should return 1, got $rc"
+    case "$out" in already_running:*) ;; *) fail "expected already_running line, got: $out" ;; esac
+    case "$out" in *"pid $$ "*) ;; *) fail "already_running line should name the holder pid: $out" ;; esac
+    [ -d "$lock" ] || fail "contended acquire must not remove the live lock"
+
+    # Release removes it; a fresh acquire then succeeds.
+    spec_loop_lock_release "$lock"
+    [ ! -d "$lock" ] || fail "release should remove the lock"
+    spec_loop_lock_acquire "$lock" || fail "acquire after release should succeed"
+    spec_loop_lock_release "$lock"
+
+    # Release by a non-owner is a no-op.
+    mkdir "$lock"
+    printf '%s %s now\n' "999999" "$(hostname)" > "$lock/owner"
+    spec_loop_lock_release "$lock"
+    [ -d "$lock" ] || fail "release must not remove a lock owned by another pid"
+    rm -rf "$lock"
+
+    # Stale lock: owner pid on this host is gone. Taken over, exit 0.
+    local dead_pid
+    ( : ) & dead_pid=$!; wait "$dead_pid"
+    mkdir "$lock"
+    printf '%s %s 2026-01-01T00:00:00Z\n' "$dead_pid" "$(hostname)" > "$lock/owner"
+    spec_loop_lock_acquire "$lock" 2>"$TMPDIR_TEST/stale.err" || fail "stale lock should be taken over"
+    assert_contains "$TMPDIR_TEST/stale.err" "removing stale lock"
+    assert_contains "$lock/owner" "$$ "
+    spec_loop_lock_release "$lock"
+
+    # A lock held on another host is respected even when the pid is dead here.
+    mkdir "$lock"
+    printf '%s %s 2026-01-01T00:00:00Z\n' "$dead_pid" "some-other-host" > "$lock/owner"
+    rc=0; out="$(spec_loop_lock_acquire "$lock")" || rc=$?
+    [ "$rc" = 1 ] || fail "foreign-host lock should be respected, got rc=$rc"
+    case "$out" in *some-other-host*) ;; *) fail "expected the foreign host in: $out" ;; esac
+    rm -rf "$lock"
+}
+
+# End to end: a second loop.sh against a held lock exits 0 with the
+# already_running line and never launches the agent; SPEC_LOOP_LOCK=off
+# skips the lock. Needs a throwaway git repository because loop.sh refuses
+# to run outside one.
+test_loop_single_flight_end_to_end() {
+    command -v git >/dev/null 2>&1 || { echo "skip: git not on PATH"; return 0; }
+    local repo="$TMPDIR_TEST/repo"
+    mkdir -p "$repo/tools/spec-loop" "$TMPDIR_TEST/bin"
+    cp "$ROOT/tools/spec-loop/loop.sh" "$ROOT/tools/spec-loop/lib.sh" "$repo/tools/spec-loop/"
+    cp "$ROOT"/tools/spec-loop/PROMPT_*.md "$repo/tools/spec-loop/"
+    : > "$repo/tools/spec-loop/IMPLEMENTATION_PLAN.md"
+    git -C "$repo" init -q -b main
+    git -C "$repo" -c user.name=t -c user.email=t@example.invalid add -A
+    git -C "$repo" -c user.name=t -c user.email=t@example.invalid commit -q -m init
+
+    # A fake agent that records whether it was ever launched.
+    local agent_log="$TMPDIR_TEST/agent-launched"
+    printf '#!/usr/bin/env bash\necho launched >> "%s"\n' "$agent_log" > "$TMPDIR_TEST/bin/claude"
+    chmod +x "$TMPDIR_TEST/bin/claude"
+
+    # Hold the lock as a live process (this shell), then start a loop.
+    local lock="$repo/tools/spec-loop/.lock"
+    mkdir "$lock"
+    printf '%s %s 2026-01-01T00:00:00Z\n' "$$" "$(hostname)" > "$lock/owner"
+
+    local out rc
+    rc=0; out="$(cd "$repo" && PATH="$TMPDIR_TEST/bin:$PATH" bash tools/spec-loop/loop.sh build 1 2>&1)" || rc=$?
+    [ "$rc" = 0 ] || fail "loop.sh should exit 0 when already running, got $rc: $out"
+    case "$out" in *already_running:*) ;; *) fail "expected already_running in loop output: $out" ;; esac
+    [ ! -e "$agent_log" ] || fail "agent must not launch while another loop holds the lock"
+    [ -d "$lock" ] || fail "the second loop must not remove the first loop's lock"
+
+    # A bad argument exits 1 before touching the lock, so the holder keeps it.
+    rc=0; out="$(cd "$repo" && PATH="$TMPDIR_TEST/bin:$PATH" bash tools/spec-loop/loop.sh bogus 2>&1)" || rc=$?
+    [ "$rc" = 1 ] || fail "unknown argument should still exit 1, got $rc"
+    [ -d "$lock" ] || fail "an early exit must not release someone else's lock"
+
+    # SPEC_LOOP_LOCK=off: the held lock is ignored and the agent runs.
+    rc=0; out="$(cd "$repo" && SPEC_LOOP_LOCK=off PATH="$TMPDIR_TEST/bin:$PATH" bash tools/spec-loop/loop.sh plan 1 2>&1)" || rc=$?
+    [ "$rc" = 0 ] || fail "SPEC_LOOP_LOCK=off run should exit 0, got $rc: $out"
+    case "$out" in *"Lock:   off"*) ;; *) fail "expected the lock-off banner line in: $out" ;; esac
+    [ -e "$agent_log" ] || fail "agent should launch when the lock is off"
+    [ -d "$lock" ] || fail "a lock-off run must leave the other loop's lock alone"
+    rm -rf "$lock"
+
+    # Normal run: the loop takes the lock and releases it on exit.
+    rc=0; out="$(cd "$repo" && PATH="$TMPDIR_TEST/bin:$PATH" bash tools/spec-loop/loop.sh plan 1 2>&1)" || rc=$?
+    [ "$rc" = 0 ] || fail "plan run should exit 0, got $rc: $out"
+    case "$out" in *"Lock:   $lock"*) ;; *) fail "expected the lock banner line in: $out" ;; esac
+    [ ! -d "$lock" ] || fail "lock should be released when the loop exits"
+}
+
 test_prompt_assembly_build
 test_prompt_assembly_update
 test_harness_command_construction
 test_last_sync_marker_helpers
+test_single_flight_lock_helpers
+test_loop_single_flight_end_to_end
 
 printf 'spec-loop runner fixtures: OK\n'

@@ -59,6 +59,81 @@ spec_loop_assemble_prompt_file() {
     fi
 }
 
+# ---- single-flight lock --------------------------------------------------
+#
+# Two loops in one checkout fight over the working tree: each iteration
+# checks out BASE and the agent carves a branch, so the second run yanks
+# files out from under the first and both can end up committing half of
+# each other's work. When the loop is started by cron or CI an overlap is
+# routine (a slow iteration outlives the schedule interval), so the runner
+# takes a lock before its first iteration and the second starter exits.
+#
+# The lock is a directory: `mkdir` is atomic on every POSIX filesystem and
+# needs neither flock(1) (absent on macOS) nor a .git write. Inside it,
+# `owner` records `<pid> <host> <ISO-8601 start>` so a contender can tell
+# a live holder from a crashed one. A holder whose pid is gone on this
+# host is stale and is taken over; a holder on another host, or a live
+# pid, is respected.
+#
+# spec_loop_lock_acquire LOCKDIR
+#   0  acquired (prints nothing)
+#   1  another loop holds it; prints one `already_running …` line on stdout
+#   2  could not create or inspect the lock (prints the reason on stderr)
+# spec_loop_lock_release LOCKDIR
+#   Removes the lock only if this process owns it.
+spec_loop_lock_owner_line() {
+    printf '%s %s %s\n' "$$" "$(hostname 2>/dev/null || echo unknown-host)" \
+        "$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date)"
+}
+
+spec_loop_lock_acquire() {
+    local lockdir=$1 attempt
+    for attempt in 1 2; do
+        if mkdir "$lockdir" 2>/dev/null; then
+            spec_loop_lock_owner_line > "$lockdir/owner" || {
+                rmdir "$lockdir" 2>/dev/null
+                echo "spec-loop: could not write $lockdir/owner" >&2
+                return 2
+            }
+            return 0
+        fi
+        [ -d "$lockdir" ] || {
+            echo "spec-loop: could not create lock $lockdir" >&2
+            return 2
+        }
+        local owner pid host started
+        owner="$(cat "$lockdir/owner" 2>/dev/null)"
+        read -r pid host started <<< "$owner"
+        # Stale: same host, the recorded pid is gone. Take it over once.
+        if [ "$attempt" = 1 ] && [ -n "$pid" ] && [ "$host" = "$(hostname 2>/dev/null || echo unknown-host)" ] \
+            && ! kill -0 "$pid" 2>/dev/null; then
+            echo "spec-loop: removing stale lock $lockdir (pid $pid is gone)" >&2
+            rm -rf "$lockdir"
+            continue
+        fi
+        if [ -z "$pid" ]; then
+            # Lock dir exists but the owner file is not there yet (a racing
+            # starter between its mkdir and its write) or unreadable. Treat
+            # as held: the other side is live or will be cleaned up next run.
+            echo "already_running: another spec-loop holds $lockdir (owner unknown); exiting 0"
+        else
+            echo "already_running: spec-loop pid $pid on $host (since ${started:-?}) holds $lockdir; exiting 0"
+        fi
+        return 1
+    done
+    echo "spec-loop: could not acquire lock $lockdir after removing a stale one" >&2
+    return 2
+}
+
+spec_loop_lock_release() {
+    local lockdir=$1 pid _rest
+    [ -d "$lockdir" ] || return 0
+    read -r pid _rest < "$lockdir/owner" 2>/dev/null || pid=""
+    if [ "$pid" = "$$" ]; then
+        rm -rf "$lockdir"
+    fi
+}
+
 spec_loop_write_last_sync_marker() {
     local marker=$1 base_head=$2
     mkdir -p "$(dirname "$marker")"
