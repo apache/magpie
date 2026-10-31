@@ -85,10 +85,14 @@ def datacenter_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("BITBUCKET_REPO_SLUG", "magpie")
 
 
-def make_mock_response(body: dict[str, Any]) -> MagicMock:
+def make_mock_response(
+    body: dict[str, Any],
+    *,
+    headers: dict[str, str] | None = None,
+) -> MagicMock:
     response = MagicMock()
     response.status = 200
-    response.headers.get.return_value = None
+    response.headers.get.side_effect = lambda name, default=None: (headers or {}).get(name, default)
     response.read.return_value = json.dumps(body).encode()
     return response
 
@@ -3033,24 +3037,213 @@ def test_cloud_unapprove_pull_request_deletes_without_body(
     assert result == {"pull_request_id": "7"}
 
 
-def test_datacenter_approve_pull_request_unsupported(
+@pytest.mark.parametrize(
+    ("operation", "expected_status"),
+    [
+        (datacenter.approve_pull_request, "APPROVED"),
+        (datacenter.unapprove_pull_request, "UNAPPROVED"),
+    ],
+)
+@patch("magpie_bitbucket.datacenter._current_user_slug", return_value="alice")
+@patch("magpie_bitbucket.client.urllib.request.build_opener")
+def test_datacenter_pull_request_approval_status(
+    mock_build_opener: MagicMock,
+    mock_current_user_slug: MagicMock,
+    operation: Any,
+    expected_status: str,
     datacenter_env: None,
 ) -> None:
-    with pytest.raises(
-        BitbucketError,
-        match="Data Center pull request approval writes are not supported",
-    ):
-        datacenter.approve_pull_request(load_config(), "9")
+    mock_opener(
+        mock_build_opener,
+        {
+            "user": {
+                "slug": "alice",
+                "displayName": "Alice",
+                "name": "alice",
+            },
+            "role": "REVIEWER",
+            "approved": expected_status == "APPROVED",
+            "status": expected_status,
+        },
+    )
+
+    result = operation(load_config(), "9")
+
+    mock_current_user_slug.assert_called_once()
+
+    requests = mock_build_opener.return_value.open.call_args_list
+    assert len(requests) == 1
+
+    status_request = requests[0].args[0]
+
+    assert status_request.full_url == (
+        "https://bitbucket.example.test/rest/api/1.0/projects/MAGPIE/repos/magpie/"
+        "pull-requests/9/participants/alice"
+    )
+    assert status_request.get_method() == "PUT"
+    assert json.loads(status_request.data.decode("utf-8")) == {"status": expected_status}
+
+    assert result["pull_request_id"] == "9"
+    assert result["participant"]["status"] == expected_status
 
 
-def test_datacenter_unapprove_pull_request_unsupported(
+@patch("magpie_bitbucket.datacenter.get_json")
+@patch("magpie_bitbucket.datacenter.get_json_with_header")
+def test_datacenter_current_user_slug_from_paged_user_search(
+    mock_get_json_with_header: MagicMock,
+    mock_get_json: MagicMock,
     datacenter_env: None,
 ) -> None:
+    mock_get_json_with_header.return_value = (
+        {"values": [], "isLastPage": True},
+        "alice",
+    )
+    mock_get_json.side_effect = [
+        {
+            "size": 1,
+            "limit": 25,
+            "isLastPage": False,
+            "nextPageStart": 25,
+            "values": [
+                {
+                    "name": "alicia",
+                    "displayName": "Alicia",
+                    "slug": "alicia",
+                }
+            ],
+            "start": 0,
+        },
+        {
+            "size": 1,
+            "limit": 25,
+            "isLastPage": True,
+            "values": [
+                {
+                    "name": "alice",
+                    "displayName": "Alice",
+                    "slug": "alice",
+                }
+            ],
+            "start": 25,
+        },
+    ]
+
+    result = datacenter._current_user_slug(load_config())
+
+    assert result == "alice"
+    mock_get_json_with_header.assert_called_once_with(
+        "https://bitbucket.example.test/rest/api/1.0/users",
+        load_config(),
+        "X-AUSERNAME",
+    )
+
+    assert [call.args[0] for call in mock_get_json.call_args_list] == [
+        "https://bitbucket.example.test/rest/api/1.0/users?filter=alice",
+        "https://bitbucket.example.test/rest/api/1.0/users?filter=alice&start=25",
+    ]
+
+
+@patch("magpie_bitbucket.datacenter.get_json")
+@patch("magpie_bitbucket.datacenter.get_json_with_header")
+def test_datacenter_current_user_slug_rejects_no_match(
+    mock_get_json_with_header: MagicMock,
+    mock_get_json: MagicMock,
+    datacenter_env: None,
+) -> None:
+    mock_get_json_with_header.return_value = (
+        {"values": [], "isLastPage": True},
+        "alice",
+    )
+    mock_get_json.return_value = {
+        "size": 0,
+        "limit": 25,
+        "isLastPage": True,
+        "values": [],
+        "start": 0,
+    }
+
     with pytest.raises(
         BitbucketError,
-        match="Data Center pull request approval writes are not supported",
+        match="could not resolve authenticated user",
     ):
-        datacenter.unapprove_pull_request(load_config(), "9")
+        datacenter._current_user_slug(load_config())
+
+
+@patch("magpie_bitbucket.datacenter.get_json")
+@patch("magpie_bitbucket.datacenter.get_json_with_header")
+def test_datacenter_current_user_slug_rejects_multiple_matches(
+    mock_get_json_with_header: MagicMock,
+    mock_get_json: MagicMock,
+    datacenter_env: None,
+) -> None:
+    mock_get_json_with_header.return_value = (
+        {"values": [], "isLastPage": True},
+        "alice",
+    )
+    mock_get_json.return_value = {
+        "size": 2,
+        "limit": 25,
+        "isLastPage": True,
+        "values": [
+            {"name": "alice", "slug": "alice"},
+            {"name": "alice", "slug": "alice-duplicate"},
+        ],
+        "start": 0,
+    }
+
+    with pytest.raises(
+        BitbucketError,
+        match="returned multiple matches",
+    ):
+        datacenter._current_user_slug(load_config())
+
+
+@patch("magpie_bitbucket.datacenter.get_json_with_header")
+def test_datacenter_current_user_slug_requires_authenticated_username(
+    mock_get_json_with_header: MagicMock,
+    datacenter_env: None,
+) -> None:
+    mock_get_json_with_header.return_value = (
+        {"values": [], "isLastPage": True},
+        None,
+    )
+
+    with pytest.raises(
+        BitbucketError,
+        match="did not include the authenticated user in X-AUSERNAME",
+    ):
+        datacenter._current_user_slug(load_config())
+
+
+@patch("magpie_bitbucket.datacenter.get_json")
+@patch("magpie_bitbucket.datacenter.get_json_with_header")
+def test_datacenter_current_user_slug_requires_slug(
+    mock_get_json_with_header: MagicMock,
+    mock_get_json: MagicMock,
+    datacenter_env: None,
+) -> None:
+    mock_get_json_with_header.return_value = (
+        {"values": [], "isLastPage": True},
+        "alice",
+    )
+    mock_get_json.return_value = {
+        "size": 1,
+        "limit": 25,
+        "isLastPage": True,
+        "values": [
+            {
+                "name": "alice",
+                "displayName": "Alice",
+            }
+        ],
+        "start": 0,
+    }
+
+    with pytest.raises(
+        BitbucketError,
+        match="authenticated user did not include a user slug",
+    ):
+        datacenter._current_user_slug(load_config())
 
 
 def test_normalize_pull_request_approval_approved() -> None:
@@ -3139,6 +3332,49 @@ def test_cli_pr_unapprove_cloud(
     assert output["approved"] is False
 
 
+@pytest.mark.parametrize(
+    ("action", "function_name", "approved", "participant_status"),
+    [
+        ("approve", "approve_pull_request", True, "APPROVED"),
+        ("unapprove", "unapprove_pull_request", False, "UNAPPROVED"),
+    ],
+)
+def test_cli_pr_approval_datacenter(
+    action: str,
+    function_name: str,
+    approved: bool,
+    participant_status: str,
+    datacenter_env: None,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    with patch(f"magpie_bitbucket.datacenter.{function_name}") as mock_operation:
+        mock_operation.return_value = {
+            "pull_request_id": "9",
+            "participant": {
+                "user": {
+                    "slug": "alice",
+                    "displayName": "Alice",
+                },
+                "role": "REVIEWER",
+                "approved": approved,
+                "status": participant_status,
+            },
+        }
+
+        exit_code = main(["pr", action, "9"])
+
+    assert exit_code == 0
+    mock_operation.assert_called_once()
+    args = mock_operation.call_args.args
+    assert args[1:] == ("9",)
+
+    output = json.loads(capsys.readouterr().out)
+    assert output["backend"] == "bitbucket-datacenter"
+    assert output["operation"] == f"pull-request-{action}"
+    assert output["pull_request_id"] == "9"
+    assert output["approved"] is approved
+
+
 def test_write_request_rejects_redirect_for_delete(
     cloud_env: None,
 ) -> None:
@@ -3211,24 +3447,106 @@ def test_cloud_remove_pull_request_changes_request_deletes_without_body(
     assert result == {"pull_request_id": "7"}
 
 
-def test_datacenter_request_pull_request_changes_unsupported(
+@pytest.mark.parametrize(
+    ("operation", "expected_status"),
+    [
+        (datacenter.request_pull_request_changes, "NEEDS_WORK"),
+        (datacenter.remove_pull_request_changes_request, "UNAPPROVED"),
+    ],
+)
+@patch("magpie_bitbucket.datacenter._current_user_slug", return_value="alice")
+@patch("magpie_bitbucket.client.urllib.request.build_opener")
+def test_datacenter_pull_request_change_request_status(
+    mock_build_opener: MagicMock,
+    mock_current_user_slug: MagicMock,
+    operation: Any,
+    expected_status: str,
     datacenter_env: None,
 ) -> None:
-    with pytest.raises(
-        BitbucketError,
-        match="Data Center pull request change-request writes are not supported",
-    ):
-        datacenter.request_pull_request_changes(load_config(), "9")
+    mock_opener(
+        mock_build_opener,
+        {
+            "user": {
+                "slug": "alice",
+                "displayName": "Alice",
+                "name": "alice",
+            },
+            "role": "REVIEWER",
+            "approved": False,
+            "status": expected_status,
+        },
+    )
+
+    result = operation(load_config(), "9")
+
+    mock_current_user_slug.assert_called_once()
+
+    requests = mock_build_opener.return_value.open.call_args_list
+    assert len(requests) == 1
+
+    status_request = requests[0].args[0]
+    assert status_request.full_url == (
+        "https://bitbucket.example.test/rest/api/1.0/projects/MAGPIE/repos/magpie/"
+        "pull-requests/9/participants/alice"
+    )
+    assert status_request.get_method() == "PUT"
+    assert json.loads(status_request.data.decode("utf-8")) == {"status": expected_status}
+
+    assert result["pull_request_id"] == "9"
+    assert result["participant"]["status"] == expected_status
 
 
-def test_datacenter_remove_pull_request_changes_request_unsupported(
+@pytest.mark.parametrize(
+    ("action", "function_name", "requested", "participant_status"),
+    [
+        (
+            "request-changes",
+            "request_pull_request_changes",
+            True,
+            "NEEDS_WORK",
+        ),
+        (
+            "remove-request-changes",
+            "remove_pull_request_changes_request",
+            False,
+            "UNAPPROVED",
+        ),
+    ],
+)
+def test_cli_pr_change_request_datacenter(
+    action: str,
+    function_name: str,
+    requested: bool,
+    participant_status: str,
     datacenter_env: None,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
-    with pytest.raises(
-        BitbucketError,
-        match="Data Center pull request change-request writes are not supported",
-    ):
-        datacenter.remove_pull_request_changes_request(load_config(), "9")
+    with patch(f"magpie_bitbucket.datacenter.{function_name}") as mock_operation:
+        mock_operation.return_value = {
+            "pull_request_id": "9",
+            "participant": {
+                "user": {
+                    "slug": "alice",
+                    "displayName": "Alice",
+                },
+                "role": "REVIEWER",
+                "approved": False,
+                "status": participant_status,
+            },
+        }
+
+        exit_code = main(["pr", action, "9"])
+
+    assert exit_code == 0
+    mock_operation.assert_called_once()
+    args = mock_operation.call_args.args
+    assert args[1:] == ("9",)
+
+    output = json.loads(capsys.readouterr().out)
+    assert output["backend"] == "bitbucket-datacenter"
+    assert output["operation"] == f"pull-request-{action}"
+    assert output["pull_request_id"] == "9"
+    assert output["changes_requested"] is requested
 
 
 def test_normalize_pull_request_change_request_requested() -> None:

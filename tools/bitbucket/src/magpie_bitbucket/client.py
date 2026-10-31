@@ -198,6 +198,49 @@ def get_json(url: str, config: BitbucketConfig) -> dict[str, Any]:
         raise BitbucketError(f"Failed to parse JSON response from {url}") from exc
 
 
+def get_json_with_header(
+    url: str,
+    config: BitbucketConfig,
+    header: str,
+) -> tuple[dict[str, Any], str | None]:
+    """GET a Bitbucket API URL and return JSON plus one response header."""
+    _require_https(url)
+    request = urllib.request.Request(
+        url,
+        headers={
+            "Accept": "application/json",
+            "Authorization": make_auth_header(config),
+        },
+        method="GET",
+    )
+
+    opener = urllib.request.build_opener(NoAuthRedirectHandler)
+
+    try:
+        with opener.open(request, timeout=DEFAULT_TIMEOUT_SECONDS) as response:
+            body = response.read().decode("utf-8")
+            parsed = json.loads(body)
+
+            if not isinstance(parsed, dict):
+                raise BitbucketError(f"Expected JSON object from {url}")
+
+            return parsed, response.headers.get(header)
+
+    except BitbucketError:
+        raise
+    except urllib.error.HTTPError as exc:
+        message = _read_http_error(exc)
+        raise BitbucketError(f"Bitbucket request failed with HTTP {exc.code}: {message}") from exc
+    except urllib.error.URLError as exc:
+        raise BitbucketError(f"Failed to connect to Bitbucket: {exc.reason}") from exc
+    except TimeoutError as exc:
+        raise BitbucketError(
+            f"Timed out while connecting to Bitbucket after {DEFAULT_TIMEOUT_SECONDS}s"
+        ) from exc
+    except json.JSONDecodeError as exc:
+        raise BitbucketError(f"Failed to parse JSON response from {url}") from exc
+
+
 def write_request_with_metadata(
     url: str,
     config: BitbucketConfig,

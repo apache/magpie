@@ -493,6 +493,35 @@ def test_archive_patches_are_linked_in_numeric_order(capsys, tmp_path) -> None:
     assert patches["ANT-2026-BBBBBBB2"] == []
 
 
+def test_archive_symlinks_are_never_linked(capsys, tmp_path) -> None:
+    secret = tmp_path / "secret.txt"
+    secret.write_text("oauth_token: not-for-the-tracker")
+    archive = archive_with_patches(tmp_path, {"1.patch": patch("real fix")})
+    finding = archive / "high" / "ANT-2026-AAAAAAA1"
+    (finding / "patches" / "2.patch").symlink_to(secret)
+    (finding / "REPORT.md").symlink_to(secret)
+    other = archive / "high" / "ANT-2026-BBBBBBB2"
+    other.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "1.patch").write_text(patch("planted"))
+    (other / "patches").symlink_to(outside)
+    index = json.loads(parse_with_archive(capsys, tmp_path, archive).read_text())
+    by_id = {f["id"]: f for f in index["findings"]}
+    assert [Path(p).name for p in by_id["ANT-2026-AAAAAAA1"]["patches"]] == ["1.patch"]
+    assert by_id["ANT-2026-AAAAAAA1"]["report_md"] is None
+    assert by_id["ANT-2026-BBBBBBB2"]["patches"] == []
+
+
+def test_patch_comment_refuses_a_symlink_at_read_time(tmp_path) -> None:
+    secret = tmp_path / "secret.txt"
+    secret.write_text("oauth_token: not-for-the-tracker")
+    link = tmp_path / "1.patch"
+    link.symlink_to(secret)
+    with pytest.raises(OSError):
+        oss_scanner.render_patch_comments({"id": "ANT-2026-AAAAAAA1", "patches": [str(link)]}, {})
+
+
 def test_patch_comment_folds_each_candidate(capsys, tmp_path) -> None:
     archive = archive_with_patches(
         tmp_path,

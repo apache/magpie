@@ -153,6 +153,7 @@ archive_system:
   list_domain: <project>.apache.org
   search_url_template: "https://lists.apache.org/list?{list}:{year}-{month}:{query}"
   api_query_url_template: "https://lists.apache.org/api/thread.lua?list={list}&domain={list_domain}&id={thread_id}"
+  advisory_thread_url_template: "https://lists.apache.org/thread/{thread_id}?{list}@{list_domain}"
   advisory_publication_signal_url: "https://lists.apache.org/list.html?<users-list>"
   # Resolves the <mail-archive-url> placeholder used in agnostic skills:
   mail_archive_url: https://lists.apache.org

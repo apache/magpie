@@ -80,10 +80,10 @@ Implemented commands and compatibility stubs:
 - `magpie-bitbucket pr comment <id> --body-file <path>` (Cloud and Data Center write)
 - `magpie-bitbucket pr reviews <id>`
 - `magpie-bitbucket pr review <id> --verdict {comment,approve,request-changes} --body-file <path>` (Cloud-only write)
-- `magpie-bitbucket pr approve <id>` (Cloud-only write)
-- `magpie-bitbucket pr unapprove <id>` (Cloud-only write)
-- `magpie-bitbucket pr request-changes <id>` (Cloud-only write)
-- `magpie-bitbucket pr remove-request-changes <id>` (Cloud-only write)
+- `magpie-bitbucket pr approve <id>` (Cloud and Data Center write)
+- `magpie-bitbucket pr unapprove <id>` (Cloud and Data Center write)
+- `magpie-bitbucket pr request-changes <id>` (Cloud and Data Center write)
+- `magpie-bitbucket pr remove-request-changes <id>` (Cloud and Data Center write)
 - `magpie-bitbucket pr decline <id>` (Cloud-only write)
 - `magpie-bitbucket pr reject <id> --reason-file <path>` (Cloud-only write)
 - `magpie-bitbucket pr merge <id> --strategy {merge,squash,rebase} --expected-source-commit <sha>` (Cloud-only write)
@@ -105,9 +105,10 @@ activity where exposed by the configured Bitbucket backend.
 
 Write coverage is intentionally narrow. The bridge supports confirmed
 top-level pull-request comment creation on Bitbucket Cloud and Data Center.
-Additional confirmed Cloud-only writes cover pull-request approve/unapprove,
-request-changes/remove-request-changes, decline, backend-neutral reject, and
-merge actions after the calling skill has obtained explicit user confirmation. Native Bitbucket Cloud issue writes
+Additional confirmed Cloud and Data Center writes cover pull-request
+approve/unapprove and request-changes/remove-request-changes. Cloud-only writes
+cover decline, backend-neutral reject, and merge actions after the calling
+skill has obtained explicit user confirmation. Native Bitbucket Cloud issue writes
 are unavailable because Atlassian removed the native Issue Tracker API.
 Other writes, such as editing/deleting pull-request comments, changing
 branches, or triggering builds, remain out of scope and should be added
@@ -123,7 +124,7 @@ separately with narrow command surfaces and maintainer review.
 
 ## Features
 
-This implementation primarily covers read-only operations, plus narrowly scoped Cloud write operations:
+This implementation primarily covers read-only operations, plus narrowly scoped write operations:
 
 1. **Authentication preflight:** verify the configured Bitbucket backend and credentials can reach the selected repository.
 2. **Repository metadata:** fetch normalized repository details from Bitbucket Cloud or Data Center.
@@ -136,8 +137,8 @@ This implementation primarily covers read-only operations, plus narrowly scoped 
 9. **Pull-request diff fetch:** fetch the pull request unified diff as normalized read-only output.
 10. **Pull-request discussion fetch:** fetch a comments-only pull request discussion subset as normalized read-only output.
 11. **Pull-request review-state fetch:** fetch reviewers, approvals, change-request signals, pending review requests, and normalized review activity.
-12. **Cloud pull-request approve:** approve one pull request as the authenticated user after explicit caller-side confirmation.
-13. **Cloud pull-request unapprove:** withdraw the authenticated user's approval after explicit caller-side confirmation.
+12. **Pull-request approve:** approve one Cloud or Data Center pull request as the authenticated user after explicit caller-side confirmation.
+13. **Pull-request unapprove:** withdraw the authenticated user's Cloud or Data Center pull-request approval after explicit caller-side confirmation.
 14. **Pull-request tasks fetch:** list Bitbucket Cloud pull-request tasks and fetch one task as partial read-only change-request context.
 15. **Pull-request merge-check context fetch:** fetch known read-only mergeability, conflict, status-check, and review blocker context while preserving unknown values where the backend does not expose a clear signal.
 16. **Pull-request status fetch:** fetch build/status checks for the pull request as normalized read-only output.
@@ -162,8 +163,8 @@ surface:
 | Change requests | `get_discussion` / `pr discussion <id>` | Partial read-only | Fetches a comments-only discussion subset with pagination. Participants beyond comment authors and unresolved-thread accounting remain incomplete. |
 | Change requests | `pr comment <id> --body-file <path>` | Partial write | Creates one top-level Bitbucket Cloud or Data Center pull-request comment from a caller-supplied body file after explicit caller-side confirmation. |
 | Change requests | `reviews` supplement / `pr reviews <id>` | Partial read-only | Fetches reviewers, approvals, change-request signals, pending review requests, normalized review events, and an aggregate review decision. This does not post reviews or mutate PR state. |
-| Change requests | `pr approve <id>` / `pr unapprove <id>` | Partial write, Cloud only | Approves or withdraws the authenticated user's approval after explicit caller-side confirmation. Data Center approval writes remain unsupported by these commands. For a review body together with a verdict, use `pr review` (the `post_review` contract). |
-| Change requests | `pr request-changes <id>` / `pr remove-request-changes <id>` | Partial write, Cloud only | Requests changes or removes the authenticated user's change request after explicit caller-side confirmation. Data Center change-request writes remain unsupported by these commands. For a review body together with a verdict, use `pr review` (the `post_review` contract). |
+| Change requests | `pr approve <id>` / `pr unapprove <id>` | Partial write | Approves or withdraws the authenticated user's approval on Bitbucket Cloud or Data Center after explicit caller-side confirmation. For a review body together with a verdict, use `pr review` (the `post_review` contract), which remains Cloud-only. |
+| Change requests | `pr request-changes <id>` / `pr remove-request-changes <id>` | Partial write | Requests changes or removes the authenticated user's change request on Bitbucket Cloud or Data Center after explicit caller-side confirmation. Data Center maps these states to `NEEDS_WORK` and `UNAPPROVED`. For a review body together with a verdict, use `pr review` (the `post_review` contract), which remains Cloud-only. |
 | Change requests | `pr decline <id>` | Partial write, Cloud only | Declines one Bitbucket Cloud pull request after explicit caller-side confirmation. Data Center decline writes remain unsupported by this command. |
 | Change requests | `merge_checks` supplement / `pr merge-checks <id>` | Partial read-only | Fetches known read-only merge-check context, including Data Center merge-test results, reported mergeability/conflict fields, status checks, review decision, and normalized blockers. Unknown backend signals remain unknown. This does not merge or mutate PR state. |
 | Change requests | `post_review` / `pr review <id> --verdict {comment,approve,request-changes} --body-file <path>` | Partial write, Cloud only | Implements the backend-neutral review contract for Bitbucket Cloud after explicit caller-side confirmation. `comment` posts the review body only. `approve` and `request-changes` post the body first and then apply the corresponding Bitbucket verdict. If the second mutation fails after the body was posted, the command fails with an explicit partial-outcome warning so callers inspect the PR before retrying. Data Center post-review writes remain unsupported. |
@@ -265,7 +266,7 @@ injected by the caller as `BITBUCKET_TOKEN` / `BITBUCKET_CLOUD_USER`.
 | Variable | Required for | Description |
 |---|---|---|
 | `BITBUCKET_KIND` | all commands | `cloud` or `datacenter`. Defaults to `cloud`. |
-| `BITBUCKET_TOKEN` | authenticated API calls | API token or personal access token accepted by the selected backend. Read-only PR/repository commands should use minimum read scopes. Pull-request comment writes on Cloud or Data Center, plus Cloud approve/unapprove, request-changes/remove-request-changes, decline, and merge writes require credentials permitted to write pull requests. `repo restrictions` needs elevated repository-admin scope on Bitbucket Cloud and may require `REPO_ADMIN` on Data Center. |
+| `BITBUCKET_TOKEN` | authenticated API calls | API token or personal access token accepted by the selected backend. Read-only PR/repository commands should use minimum read scopes. Pull-request comment, approve/unapprove, and request-changes/remove-request-changes writes on Cloud or Data Center, plus Cloud decline and merge writes require credentials permitted to write pull requests. `repo restrictions` needs elevated repository-admin scope on Bitbucket Cloud and may require `REPO_ADMIN` on Data Center. |
 | `BITBUCKET_AUTH_SCHEME` | all commands | Authentication scheme. Defaults to `Basic` for Cloud and `Bearer` for Data Center. |
 | `BITBUCKET_CLOUD_USER` | Cloud Basic auth | Atlassian account email/user used with `BITBUCKET_TOKEN`. |
 | `BITBUCKET_WORKSPACE` | Cloud | Bitbucket Cloud workspace slug. |
@@ -304,8 +305,8 @@ The bridge currently supports these narrow mutations (native Cloud
 issue writes were removed upstream and fail closed):
 
 - top-level pull-request comment creation on Cloud and Data Center
-- Cloud-only pull-request approval and approval withdrawal
-- Cloud-only pull-request change-request creation and removal
+- pull-request approval and approval withdrawal on Cloud and Data Center
+- pull-request change-request creation and removal on Cloud and Data Center
 - Cloud-only pull-request decline
 - Cloud-only pull-request merge with source-commit pinning
 
@@ -313,7 +314,7 @@ For pull-request merge, the calling skill must run and inspect
 `pr merge-checks <id>` before invoking `pr merge`; the merge command itself
 does not independently enforce approval, build-status, or merge-check gates.
 
-Bitbucket Data Center issue-comment, review-state, decline, and merge
+Bitbucket Data Center issue-comment, post-review, decline, and merge
 writes remain unsupported by these commands.
 
 All other Bitbucket mutations remain out of scope for the current bridge and

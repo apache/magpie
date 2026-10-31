@@ -303,9 +303,9 @@ Group them by category:
   Empty until Step 13 — the release manager fills it in **after** the advisory email has been sent and archived.
   Every sync run must:
 
-  1. If `announced - emails sent` is set and the field is still empty, **scan the public users@ archive for the CVE ID**, by one of two paths:
+  1. If `announced - emails sent` is set and the field is still empty, **scan the public advisory archive for the CVE ID**, using the archive the project declares in [`<project-config>/project.md`](../../../../<project-config>/project.md#archive-system) (`archive_system`):
 
-     - **PonyMail MCP (preferred when enabled).** If Step 0
+     - **PonyMail, the ASF default (`archive_system.kind: ponymail`).** If Step 0
        recorded `ponymail_authenticated: true`, call:
 
        ```text
@@ -318,19 +318,19 @@ Group them by category:
        ```
 
        `users@` is public, so no LDAP allowlist check is needed.
-       A single hit is the advisory thread; capture its `tid` and build the archive URL with the manifest's `ponymail_thread_url_template`.
        Call shape: [`tools/ponymail/operations.md` — Find the advisory archive thread](../../../../tools/ponymail/operations.md#find-the-advisory-archive-thread-on-usersprojectapacheorg).
-
-     - **PonyMail HTTP API (fallback).** When PonyMail MCP is disabled, unauthenticated, or errors,
-       use the anonymous-HTTPS HTTP API + `list.html` pattern in
+       When PonyMail MCP is disabled, unauthenticated, or errors, use the anonymous-HTTPS HTTP API + `list.html` pattern in
        [`tools/gmail/ponymail-archive.md`](../../../../tools/gmail/ponymail-archive.md#use-case--security-issue-sync);
        it works for every triager regardless of LDAP status.
-       URL templates (`ponymail_api_url_template`, `ponymail_public_search_url_template`, `ponymail_thread_url_template`) are in
-       [`<project-config>/project.md`](../../../../<project-config>/project.md#gmail-and-ponymail).
+
+     - **Any other archive (`archive_system.kind` not `ponymail`).** Query the project's `search_url_template` with the CVE ID, open the hit's thread, and take its id. When the archive declares no `search_url_template`, or no hit resolves, ask the release manager for the archived advisory URL instead of guessing.
+
+     A single hit is the advisory thread. Build the public advisory URL with the manifest's `advisory_thread_url_template` (or the legacy `ponymail_thread_url_template` when the project declares only that key).
+     When neither key is declared, use the thread permalink the archive returned, or ask the release manager; never construct one.
 
      **A search hit is a candidate, not the advisory.** The search matches any public post that mentions the CVE ID
      (a user question, a reply, a forward), and capturing this URL is what moves the CVE record to `PUBLIC`.
-     For each hit, fetch the thread (`mcp__ponymail__get_thread`, or the HTTP API) for its list, root subject and root sender,
+     For each hit, fetch the thread (`mcp__ponymail__get_thread`, the HTTP API, or the archive's own thread page) for its list, root subject and root sender,
      write `{cve_id, url, thread: {list, subject, from}, advisory_list: <users-list>, mail_archive_url, authorized_senders}` to a file and run
      `security-management issue-sync advisory-archive --input <file>`;
      `authorized_senders` is every release-manager and security-team address from [`<project-config>/release-trains.md`](../../../../<project-config>/release-trains.md).
@@ -341,7 +341,7 @@ Group them by category:
      and say that the sender comes from the archived `From:` header and is not cryptographically verified,
      so the user should recognise the announcement itself before confirming;
      record it — and run the close-out that follows from it — only once the user explicitly confirms that URL.
-     On that confirmation, populate the field with the thread URL (per `ponymail_thread_url_template`),
+     On that confirmation, populate the field with the thread URL (per `advisory_thread_url_template`, or the legacy `ponymail_thread_url_template`),
      regenerate the CVE JSON attachment, and add the `announced` label.
   2. If the field is already populated, treat it as authoritative — no scan.
      Regenerate the CVE JSON attachment so the URL flows into `references[]` as `vendor-advisory`.
