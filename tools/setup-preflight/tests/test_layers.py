@@ -356,6 +356,7 @@ COPIES = (
     "tools/container-gateway/src/container_gateway/layers.py",
     "tools/sandbox-lint/src/sandbox_lint/layers.py",
     "tools/vetted-ops/src/vetted_ops/layers.py",
+    "tools/skill-lock/src/skill_lock/layers.py",
     "tools/cve-tool-vulnogram/generate-cve-json/src/generate_cve_json/layers.py",
     "tools/agent-guard/src/agent_guard/__init__.py",
     "plugins/magpie-setup/skills/status/scripts/collect_status.py",

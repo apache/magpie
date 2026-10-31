@@ -71,6 +71,7 @@ Each mode is an independently toggleable set of skills. Maturity mirrors
 | Codex first-class skill runtime | [codex-runtime.md](codex-runtime.md) |
 | GitHub Copilot skill runtime | [copilot-runtime.md](copilot-runtime.md) |
 | Spec-gap staleness verification (proposed) | [spec-gap-staleness.md](spec-gap-staleness.md) |
+| Per-skill write lock for batch skills | [batch-write-lock.md](batch-write-lock.md) |
 | Vetted command surface (fixed-shape forge ops) | [vetted-command-surface.md](vetted-command-surface.md) |
 | Adversarial review by other models (experimental — tool and plugin shipped, consumers not yet wired) | [adversarial-review.md](adversarial-review.md) |
 
