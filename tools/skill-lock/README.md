@@ -10,6 +10,7 @@
   - [Where the lock lives](#where-the-lock-lives)
   - [Liveness](#liveness)
   - [CLI](#cli)
+  - [Where it is installed](#where-it-is-installed)
   - [How skills use it](#how-skills-use-it)
   - [Tests](#tests)
 
@@ -69,11 +70,11 @@ as stale.
 Every command prints one JSON object.
 
 ```bash
-uv run --project <framework>/tools/skill-lock skill-lock acquire <skill> --repo <owner/repo> [--ttl 7200] [--note "..."]
-uv run --project <framework>/tools/skill-lock skill-lock renew   <skill> --repo <owner/repo> [--ttl 7200]
-uv run --project <framework>/tools/skill-lock skill-lock release <skill> --repo <owner/repo> [--token <t>] [--force]
-uv run --project <framework>/tools/skill-lock skill-lock status  <skill> --repo <owner/repo>
-uv run --project <framework>/tools/skill-lock skill-lock list
+uvx --from ~/.claude/magpie/skill-lock skill-lock acquire <skill> --repo <owner/repo> [--ttl 7200] [--note "..."]
+uvx --from ~/.claude/magpie/skill-lock skill-lock renew   <skill> --repo <owner/repo> [--ttl 7200]
+uvx --from ~/.claude/magpie/skill-lock skill-lock release <skill> --repo <owner/repo> [--token <t>] [--force]
+uvx --from ~/.claude/magpie/skill-lock skill-lock status  <skill> --repo <owner/repo>
+uvx --from ~/.claude/magpie/skill-lock skill-lock list
 ```
 
 Exit codes for `acquire`:
@@ -93,6 +94,16 @@ to be gone before its lease expired.
 `--root` names the project root explicitly; by default it is found from
 the current directory (the nearest ancestor holding `.git`, `.svn` or
 `.apache-magpie.lock`).
+
+## Where it is installed
+
+Skills run it as `uvx --from ~/.claude/magpie/skill-lock skill-lock …` on every
+install. It ships inside the always-installed `magpie-vetted-ops` plugin, whose
+session hook points `~/.claude/magpie/skill-lock` at the installed version, the
+same way it links `~/.claude/magpie/vetted-ops`. The plugin cache is read-only,
+which is why the launcher is `uvx --from` (it builds into uv's cache) rather than
+`uv run --project` (which would need to write a venv into the plugin). It runs
+inside the sandbox and needs no exclusion: it touches only the lock directory.
 
 ## How skills use it
 

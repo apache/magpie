@@ -575,6 +575,34 @@ def test_the_security_tools_plugin_ships_every_tool_the_skills_name():
     assert named <= shipped, sorted(named - shipped)
 
 
+def test_every_stable_magpie_path_a_skill_runs_is_linked_by_vetted_ops(tmp_path):
+    # Skills of every family run `uvx --from ~/.claude/magpie/<tool>` for tools
+    # that must exist on every install, so the always-installed vetted-ops plugin
+    # carries each one and its session hook links the stable path to it.
+    named = set()
+    for skill in (REPO_ROOT / "plugins").glob("magpie-*/skills/**/*.md"):
+        named |= set(re.findall(r"~/\.claude/magpie/([a-z0-9-]+)", skill.read_text(encoding="utf-8")))
+    # adversarial-review is linked by its own plugin.
+    named.discard("adversarial-review")
+    assert "skill-lock" in named
+    plugin = REPO_ROOT / "plugins" / "magpie-vetted-ops"
+    home = tmp_path / "home"
+    home.mkdir()
+    hook = plugin / "tools" / "vetted-ops" / "hooks" / "link-stable-path.sh"
+    subprocess.run(
+        ["bash", str(hook)],
+        env={**os.environ, "HOME": str(home), "CLAUDE_PLUGIN_ROOT": str(plugin)},
+        input="",
+        text=True,
+        check=True,
+    )
+    for name in sorted(named):
+        link = home / ".claude" / "magpie" / name
+        assert link.is_symlink(), f"{name}: the vetted-ops hook does not link ~/.claude/magpie/{name}"
+        assert link.resolve() == (plugin / "tools" / name).resolve(), name
+        assert (link / "pyproject.toml").is_file(), f"{name}: the plugin does not carry the tool"
+
+
 def test_the_security_tools_plugin_ships_the_forwarder_registry():
     copies = mod.SUBSTRATE_PLUGINS["magpie-security-tools"]["copies"]
     assert "tools/forwarder-relay/README.md" in copies

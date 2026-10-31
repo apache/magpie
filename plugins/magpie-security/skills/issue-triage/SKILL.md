@@ -366,7 +366,7 @@ contributors distrust the bot. So before the first write of this step,
 take the skill's write lock:
 
 ```bash
-uv run --project <framework>/tools/skill-lock skill-lock acquire security-issue-triage --repo <upstream> --note "<selector or pool summary>"
+uvx --from ~/.claude/magpie/skill-lock skill-lock acquire security-issue-triage --repo <upstream> --note "<selector or pool summary>"
 ```
 
 - Exit `0` (`status: acquired`): proceed. Keep the `token` from the JSON
@@ -383,7 +383,7 @@ Release it after the recap, and **also on the stop-and-surface path** when
 a post fails, so a failed run never leaves the lock held for its lease:
 
 ```bash
-uv run --project <framework>/tools/skill-lock skill-lock release security-issue-triage --repo <upstream> --token <token>
+uvx --from ~/.claude/magpie/skill-lock skill-lock release security-issue-triage --repo <upstream> --token <token>
 ```
 
 The lock is scoped to this skill and `<upstream>` only; other skills and

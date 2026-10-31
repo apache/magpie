@@ -298,6 +298,8 @@ AGENT_GUARD_ENGINE = "tools/agent-guard/src/agent_guard/__init__.py"
 # the installed plugin tree rather than in a consumer repository.
 VETTED_OPS_ENTRY = "tools/vetted-ops/src/vetted_ops/cli.py"
 VETTED_OPS_LINK_HOOK = "tools/vetted-ops/hooks/link-stable-path.sh"
+# The write lock the posting batch skills take, shipped beside the dispatcher.
+SKILL_LOCK_ENTRY = "tools/skill-lock/src/skill_lock/__init__.py"
 # Adversarial review runs other models' CLIs outside the sandbox (they need
 # network and their own credentials), so like vetted-ops it has to run from the
 # installed plugin tree, where the agent calling it cannot rewrite it.
@@ -324,8 +326,6 @@ SECURITY_TOOLS = {
     # `<framework>`; magpie-vetted-ops carries its own copies beside the dispatcher.
     "tools/local-tracker": "magpie_local_tracker",
     "tools/jira": "jira_bridge",
-    # The write lock every posting batch skill takes before its first write.
-    "tools/skill-lock": "skill_lock",
 }
 SECURITY_STATS_DASHBOARD_FILES = (
     "run.sh",
@@ -421,10 +421,18 @@ SUBSTRATE_PLUGINS: dict[str, dict] = {
             "tools/local-tracker/src/magpie_local_tracker": "tools/local-tracker/src/magpie_local_tracker",
             "tools/local-tracker/pyproject.toml": "tools/local-tracker/pyproject.toml",
             "tools/local-tracker/README.md": "tools/local-tracker/README.md",
+            # The write lock every posting batch skill takes. It ships here, not
+            # in magpie-security-tools, because this plugin is on every install;
+            # the hook links ~/.claude/magpie/skill-lock and skills run it with
+            # `uvx --from` (the plugin cache is read-only).
+            "tools/skill-lock/src/skill_lock": "tools/skill-lock/src/skill_lock",
+            "tools/skill-lock/pyproject.toml": "tools/skill-lock/pyproject.toml",
+            "tools/skill-lock/README.md": "tools/skill-lock/README.md",
         },
-        # The entry point skills invoke, and the hook that keeps the fixed path
-        # permission rules name (~/.claude/magpie/vetted-ops) on this version.
-        "must_resolve": (VETTED_OPS_ENTRY, VETTED_OPS_LINK_HOOK),
+        # The entry points skills invoke, and the hook that keeps the fixed paths
+        # permission rules name (~/.claude/magpie/vetted-ops, ~/.claude/magpie/skill-lock)
+        # on this version.
+        "must_resolve": (VETTED_OPS_ENTRY, SKILL_LOCK_ENTRY, VETTED_OPS_LINK_HOOK),
         "hook_config": {
             "description": "Apache Magpie vetted operations",
             "hooks": {

@@ -48,6 +48,11 @@ maintainer who holds it, and lets the first finish.
   `3` already running, `2` error. Stdlib only. `layers.py` is the shared
   personal-layer resolver (a verbatim copy checked by
   `tools/setup-preflight/tests/test_layers.py`).
+- `plugins/magpie-vetted-ops/`: ships the tool on every install; its
+  session hook (`tools/vetted-ops/hooks/link-stable-path.sh`) links
+  `~/.claude/magpie/skill-lock`, and skills run it with
+  `uvx --from ~/.claude/magpie/skill-lock skill-lock …` because the plugin
+  cache is read-only.
 - `tools/dev/blocks/write-lock.md`: the shared prose block, propagated by
   `tools/dev/check-shared-blocks.py --fix` into the write step of each
   batch skill, with `{override_name}` rendered to the skill's own name.
@@ -117,7 +122,10 @@ maintainer who holds it, and lets the first finish.
 5. The lock path for an adopted project is under
    `.apache-magpie-local/run/locks/`; for an unadopted git repository it is
    under `.git/apache-magpie/run/locks/`.
-6. Every batch skill that writes carries the propagated `write-lock`
+6. On every install, including a marketplace install without the security
+   family, `~/.claude/magpie/skill-lock` resolves to a copy of the tool shipped
+   in `magpie-vetted-ops`, and the block invokes it through that path.
+7. Every batch skill that writes carries the propagated `write-lock`
    block at its write step, rendered with its own skill name, and
    `check-shared-blocks.py` reports no drift.
 
