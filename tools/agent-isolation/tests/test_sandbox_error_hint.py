@@ -245,3 +245,54 @@ class TestGhInsideSandbox:
         # A 401 from some other host is not the gh-in-sandbox shape.
         result = _run(_bash(stderr="HTTP 401: Unauthorized (https://example.com/api)"))
         assert result.returncode == 0
+
+
+# ---------------------------------------------------------------------------
+# uv cannot write its interpreters / tool venvs (~/.local/share/uv/)
+# ---------------------------------------------------------------------------
+
+
+class TestUvShareWrite:
+    ANCHOR = f"{DOC}#uv-python-install-or-uv-tool-install-fails-inside-the-sandbox"
+
+    @pytest.mark.parametrize(
+        "stderr",
+        [
+            # bubblewrap (Linux)
+            "error: failed to create directory `/home/me/.local/share/uv/python/.lock`: "
+            "Read-only file system (os error 30)\n",
+            # Seatbelt (macOS)
+            "error: Failed to install cpython-3.13.1-macos-aarch64-none\n"
+            "  Caused by: failed to create directory `/Users/me/.local/share/uv/python`: "
+            "Operation not permitted (os error 1)\n",
+            # uv tool install
+            "error: Failed to create tool environment at /home/me/.local/share/uv/tools/prek: "
+            "Read-only file system (os error 30)\n",
+        ],
+    )
+    def test_share_uv_write_failure_points_at_the_entry(self, stderr: str) -> None:
+        result = _run(_bash(stderr=stderr))
+        assert result.returncode == 1
+        assert self.ANCHOR in result.stderr
+
+    def test_it_beats_the_tmp_branch(self) -> None:
+        stderr = (
+            "error: failed to rename /tmp/uv-123 to /home/me/.local/share/uv/python/cpython-3.13: "
+            "Read-only file system (os error 30)\n"
+        )
+        result = _run(_bash(stderr=stderr))
+        assert self.ANCHOR in result.stderr
+        assert "temp-files-fail" not in result.stderr
+
+    def test_a_readable_share_uv_path_is_silent(self) -> None:
+        result = _run(_bash(stdout="Using CPython 3.13.1 interpreter at: /home/me/.local/share/uv/python/bin/python3\n"))
+        assert result.returncode == 0
+        assert result.stderr == ""
+
+    def test_the_catalog_entry_has_its_four_sections(self) -> None:
+        doc = (Path(__file__).resolve().parents[3] / DOC).read_text(encoding="utf-8")
+        start = doc.index("## `uv python install` or `uv tool install` fails inside the sandbox")
+        end = doc.index("\n## ", start + 3)
+        entry = doc[start:end]
+        for section in ("### Symptom", "### Root cause", "### Fix", "### Notes"):
+            assert section in entry, section
