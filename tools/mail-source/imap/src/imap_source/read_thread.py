@@ -43,10 +43,18 @@ def read_thread(
 ) -> dict[str, Any]:
     messages = fetch_window(mailbox, config.list_folder, since_days=since_days)
     reachable = [m for m in messages if m.position.references_thread(thread_id)]
-    if not any(m.position.message_id == thread_id for m in reachable):
-        raise SystemExit(f"thread root {thread_id} not found in {config.list_folder}")
-    root_subject = next((m.position.subject for m in reachable if m.position.message_id == thread_id), "")
+    if not reachable:
+        raise SystemExit(f"thread {thread_id} not found in {config.list_folder}")
     ordered = sorted(reachable, key=lambda m: sort_key(m.position))
+    # The root may sit outside the fetched window: a reply can be newer than
+    # --since-days while the report it answers is older. The messages that do
+    # reference the id are the thread, so they are returned rather than
+    # refused; the thread then lists under the earliest subject the window can
+    # prove, as `maildir` does.
+    root_subject = next(
+        (m.position.subject for m in ordered if m.position.message_id == thread_id),
+        ordered[0].position.subject,
+    )
     bodies = mailbox.fetch([m.uid for m in ordered], headers_only=False) if with_body else []
     body_by_uid = {entry.uid: entry.raw for entry in bodies}
     return {

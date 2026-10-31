@@ -97,6 +97,54 @@ def test_read_thread_declares_missing_root() -> None:
         read_thread(box, config, "<ghost@x>", since_days=90)
 
 
+def test_read_thread_returns_the_replies_when_the_root_is_outside_the_window() -> None:
+    """A window holding the replies but not the report still reads as a thread."""
+    config = make_config()
+    box = FakeMailbox.seed(
+        **{
+            "INBOX": [
+                build_message(
+                    REPLY,
+                    "Re: Bug report: connector crash",
+                    "peer@example.org",
+                    in_reply_to=ROOT,
+                    references=ROOT,
+                ),
+                build_message(
+                    FOLLOWUP,
+                    "Re: Bug report: connector crash",
+                    "security-triage@example.org",
+                    references=f"{ROOT} {REPLY}",
+                    date="Wed, 23 Sep 2026 08:00:00 +0000",
+                ),
+            ]
+        }
+    )
+
+    result = read_thread(box, config, ROOT, since_days=90)
+
+    assert [m["message_id"] for m in result["messages"]] == [REPLY, FOLLOWUP]
+    assert result["subject"] == "Re: Bug report: connector crash"
+
+
+def test_a_reply_carrying_only_in_reply_to_joins_its_parents_thread() -> None:
+    """Parity with maildir: one thread id for a reply that names only its parent."""
+    config = make_config()
+    box = FakeMailbox.seed(
+        **{
+            "INBOX": [
+                build_message(ROOT, "Bug report: connector crash", "dev@example.org"),
+                build_message(REPLY, "Re: Bug report: connector crash", "peer@example.org", in_reply_to=ROOT),
+            ]
+        }
+    )
+
+    threads = list_recent_threads(box, config, since_days=90)
+
+    assert [t["thread_id"] for t in threads] == [ROOT]
+    assert threads[0]["message_count"] == 2
+
+
 def test_list_sent_since_matches_on_thread_chain() -> None:
     config = make_config()
     box = seeded_box()
