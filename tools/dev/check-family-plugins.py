@@ -324,6 +324,8 @@ SECURITY_TOOLS = {
     # `<framework>`; magpie-vetted-ops carries its own copies beside the dispatcher.
     "tools/local-tracker": "magpie_local_tracker",
     "tools/jira": "jira_bridge",
+    # The write lock every posting batch skill takes before its first write.
+    "tools/skill-lock": "skill_lock",
 }
 SECURITY_STATS_DASHBOARD_FILES = (
     "run.sh",
