@@ -1,0 +1,16 @@
+{
+  "project_repositories": [
+    "apache/example-project",
+    "apache/example-project-site"
+  ],
+  "pool": [
+    "gh-xavier",
+    "gh-zara"
+  ],
+  "excluded_as_committers": [
+    "gh-alice"
+  ],
+  "unmapped_roster_ids": [],
+  "search_slices": 1,
+  "truncated_silently": false
+}

@@ -109,7 +109,11 @@ Adopter config scaffolds live in `plugins/magpie-setup/templates/`
   keeps per-nominee data in the session scratch directory. Ships
   `mode: Triage` + `experimental`, eval suite under
   `tools/skill-evals/evals/contributor-calibrate/`.
-- Skill: `contributor-candidate-screen` — cuts the long tail of recent
+- Skill: `contributor-candidate-screen` — covers every repository of the
+  project active in the window (for ASF projects, the people directory's
+  `<project>` / `<project>-*` repositories, filtered by
+  `contributor-metrics active-repos`; any organization adds more with
+  `screen_extra_repos`), cuts the long tail of recent
   contributors with a deterministic pre-filter against the floors (every
   drop logged; the only place the floors are used; configurable as `any`
   or `all` counts, for the committer pool or both pools, plus a
@@ -119,7 +123,8 @@ Adopter config scaffolds live in `plugins/magpie-setup/templates/`
   alphabetically by handle, never scored, ranked, shortlisted or judged —
   and writes a report (the list linked to details, plus a
   one-or-two-paragraph summary of findings) with activity data, areas, community signals and verified
-  real names; commits it only to a repository the GitHub API reports as
+  real names, each person's section opening with links to live code-host
+  searches of their full activity in the window; commits it only to a repository the GitHub API reports as
   private, checked twice, after the maintainer confirms; no
   `@`-mentions. Ships `mode: Triage` + `experimental`, eval suite under
   `tools/skill-evals/evals/contributor-candidate-screen/`.
@@ -183,7 +188,7 @@ Adopter config scaffolds live in `plugins/magpie-setup/templates/`
   `real-names.md` (how people are named in briefs and reports),
   alongside the step files `fetch.md`, `assess.md`, and `render.md`.
 - Tool: `tools/contributor-metrics` (`substrate:analytics`,
-  stdlib-only plus the `jira-bridge` workspace client) with three
+  stdlib-only plus the `jira-bridge` workspace client) with four
   subcommands.
   `fetch` collects five streams through a backend seam: change-request
   activity (PRs authored, reviews, PR threads) from the code host and
@@ -198,7 +203,10 @@ Adopter config scaffolds live in `plugins/magpie-setup/templates/`
   rule (thresholds overridable per caller), flags pushback candidates,
   and caches by repository, handle, window, phrases, roster and
   thresholds (`--refresh` bypasses the cache); `--since` sets a window
-  that is not a whole number of months.
+  that is not a whole number of months. `--repo` repeats for every
+  repository of the project, merging items with repository-prefixed ids.
+  `active-repos` keeps the `<slug>` / `<slug>-*` names from a candidate
+  list that had a PR merged or an issue or PR opened in the window.
   `score` applies weights and the penalty and returns per-area shares
   (with an `(unlabelled)` row), merge rate, a monthly timeline, and
   which streams hit their search cap; `--since` scores a sub-window
@@ -386,7 +394,8 @@ Adopter config scaffolds live in `plugins/magpie-setup/templates/`
    `tools/skill-evals/evals/contributor-candidate-screen/step-2-pre-filter/`).
 8. `contributor-candidate-screen` reports everyone who passes the
    pre-filter, alphabetically, with no floor comparison, floors-met
-   count or shortlist (#1587;
+   count or shortlist, and links each person to live searches of their
+   merged PRs, reviews, issues and comments in the window (#1587;
    `tools/skill-evals/evals/contributor-candidate-screen/step-3-measure/`,
    `step-4-write-report/`).
 9. Community signals never attribute a list message to an address the

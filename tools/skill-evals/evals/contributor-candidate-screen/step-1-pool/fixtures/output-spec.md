@@ -7,6 +7,7 @@ Return ONLY valid JSON with this structure:
 
 ```json
 {
+  "project_repositories": ["<owner/name>"],
   "pool": ["<github handle>"],
   "excluded_as_committers": ["<github handle>"],
   "unmapped_roster_ids": ["<id>"],
@@ -15,6 +16,7 @@ Return ONLY valid JSON with this structure:
 }
 ```
 
+- `project_repositories`: every repository the screen covers, `<upstream>` first, then the rest alphabetical.
 - `pool`: GitHub handles in the committer-target pool, alphabetical.
 - `excluded_as_committers`: merged-PR authors left out because they are current committers, alphabetical.
 - `unmapped_roster_ids`: roster ids the skill could not map to a GitHub handle, alphabetical; empty when none.
