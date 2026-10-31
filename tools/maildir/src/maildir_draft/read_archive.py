@@ -28,10 +28,8 @@ bracketed form (``<root@host>``), which is what the IMAP backend emits under
 the same ``thread_id_kind``. The root itself is the first ``References`` ID,
 else the first ``In-Reply-To`` ID, else the message's own ``Message-ID``, even
 when that root is not in the archive. Both halves have to agree: an ID recorded
-by a ``-sync`` run against one backend is compared verbatim against the other's.
-``imap_source.searching.thread_root_of`` does not take the ``In-Reply-To`` step
-yet, so a reply carrying only ``In-Reply-To`` is its own thread on IMAP and
-joins its parent here.
+by a ``-sync`` run against one backend is compared verbatim against the other's,
+and ``imap_source.searching.thread_root_of`` applies the same three steps.
 
 The archive is scanned whole on every call. These files are forensics /
 air-gapped snapshots measured in tens of megabytes, not live mailboxes; an

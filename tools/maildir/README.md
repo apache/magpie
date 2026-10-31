@@ -161,10 +161,8 @@ backend declares — so an ID recorded by a `-sync` run against the IMAP backend
 is compared verbatim and a switch or fallback between the two does not propose
 a duplicate tracker. The root is the first `References` ID, else the first
 `In-Reply-To` ID, else the message's own `Message-ID`, as the
-[mail-source contract](../mail-source/contract.md#thread-identity) requires.
-`imap_source.searching.thread_root_of` does not take the `In-Reply-To` step
-yet, so a reply carrying only `In-Reply-To` is its own thread on IMAP and
-joins its parent here. A reply whose root is missing
+[mail-source contract](../mail-source/contract.md#thread-identity) requires
+and as `imap_source.searching.thread_root_of` applies. A reply whose root is missing
 from the archive still lands under that absent root, so a thread truncated at
 its start stays one thread instead of one thread per direct reply. Only
 bracketed tokens count, so a comment beside the id — `(was: report) <r@h>`,

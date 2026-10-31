@@ -84,10 +84,7 @@ that message is not in the archive**. A snapshot truncated at the start of
 a thread therefore keeps the replies it does hold in one thread, keyed on
 the root they name, instead of turning each of them into its own thread.
 A message whose `References` header is absent is keyed on its first
-`In-Reply-To` id, and a message with neither is its own root.
-The `imap` backend does not apply the `In-Reply-To` step yet
-(`imap_source.searching.thread_root_of` falls back to the message's own id),
-so a reply carrying only `In-Reply-To` is still its own thread there. Only
+`In-Reply-To` id, and a message with neither is its own root. Only
 bracketed tokens count: a comment beside the id (`In-Reply-To: (was:
 report) <r@h>`, which RFC 5322 allows) is not an ancestor, or the thread
 would be keyed on an id that never existed.
