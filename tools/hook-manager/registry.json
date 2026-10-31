@@ -66,6 +66,25 @@
         "expands_tilde": true
       }
     },
+    "overcommit": {
+      "language": "Ruby",
+      "upstream": "https://github.com/sds/overcommit",
+      "detect": {
+        "config_files": [
+          ".overcommit.yml"
+        ],
+        "nested": false,
+        "hook_marker": "overcommit"
+      },
+      "install": {
+        "subcommand": "--install",
+        "aliases": [
+          "-i"
+        ],
+        "strategy": "hooks-path-env",
+        "runtime_env": true
+      }
+    },
     "simple-git-hooks": {
       "language": "JavaScript",
       "upstream": "https://github.com/toplenboren/simple-git-hooks",

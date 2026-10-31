@@ -383,10 +383,19 @@ See `docs/adapters/goose.md`.
   home stay on for every registered manager, because both homes are per
   user (#1819).
   `registry.json` registers prek (install strategy `git-dir-flag`) and
-  four managers with install strategy `none`, which already write to the
+  overcommit (`hooks-path-env`, with `install.runtime_env` so the
+  dispatcher exports the same `core.hooksPath` at run time), plus four
+  managers with install strategy `none`, which already write to the
   repository's own hooks directory whatever the global `core.hooksPath`:
   `simple-git-hooks`, `cargo-husky`, `git-build-hook` and
   `git-code-format-maven-plugin` (#1838).
+  overcommit's install action is a flag, so the shim finds it and its
+  registry aliases (`-i`) anywhere in argv, not only first, including
+  inside a bundle of short switches (`-fi`) and as any prefix of the
+  long flag (`--inst`); the
+  exported run-time override reaches git commands the hook starts,
+  including ones aimed at another repository, which is recorded as a
+  known limitation of the strategy.
   A `none` manager gets no shim; its worktree caveats (cargo-husky skips
   hook install in a linked worktree, the JGit plugins target
   `<worktree>/hooks`) are recorded in the README's adapter table.

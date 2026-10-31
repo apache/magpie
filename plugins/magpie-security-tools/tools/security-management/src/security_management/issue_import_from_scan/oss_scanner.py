@@ -51,6 +51,7 @@ import hashlib
 import json
 import os
 import re
+import stat
 import tempfile
 from collections import Counter
 from collections.abc import Mapping
@@ -443,20 +444,39 @@ def _patch_number(path: Path) -> int:
     return int(path.stem) if path.stem.isdigit() else 1 << 30
 
 
+def _archive_file(path: Path) -> bool:
+    """A regular file reached without a symlink, under an archive root that is already resolved.
+
+    The archive comes from the scanner, so a symlinked `REPORT.md`, `patches/` or
+    `*.patch` could point at any local file, which would then be quoted in a tracker comment.
+    """
+    return path.is_file() and path.resolve() == path.absolute()
+
+
 def attach_archive(parsed: Mapping[str, Any], archive_dir: Path) -> None:
     """Point each finding at its `REPORT.md` and candidate patches in an operator-decrypted archive.
 
     Never runs `repro`: the patches are only listed, for `render_patch_comments` to quote.
     """
+    archive_dir = archive_dir.resolve()
     for f in parsed["findings"]:
         finding_dir = archive_dir / f["banner_severity"].lower() / f["id"]
         report = finding_dir / "REPORT.md"
-        f["report_md"] = str(report) if report.is_file() else None
-        patches = [p for p in (finding_dir / "patches").glob("*.patch") if p.is_file()]
+        f["report_md"] = str(report) if _archive_file(report) else None
+        patches = [p for p in (finding_dir / "patches").glob("*.patch") if _archive_file(p)]
         f["patches"] = [str(p) for p in sorted(patches, key=lambda p: (_patch_number(p), p.name))]
     for b in parsed["not_security"]:
         report = archive_dir / "bugs-not-security" / b["id"] / "REPORT.md"
-        b["report_md"] = str(report) if report.is_file() else None
+        b["report_md"] = str(report) if _archive_file(report) else None
+
+
+def _read_patch(path: Path) -> str:
+    """The patch text, refusing a symlink or anything but a regular file at read time."""
+    fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    with os.fdopen(fd, encoding="utf-8") as handle:
+        if not stat.S_ISREG(os.fstat(handle.fileno()).st_mode):
+            raise ValueError(f"{path} is not a regular file")
+        return handle.read()
 
 
 # GitHub refuses a comment over 65,536 characters; keep headroom for its own counting.
@@ -515,7 +535,7 @@ def render_patch_comments(
         "for `security-issue-fix`, not a change to apply as-is. The patch headers spell out "
         "the security impact, so do not copy them into a public PR."
     )
-    blocks = [_patch_block(p.read_text(encoding="utf-8"), n) for n, p in enumerate(paths, 1)]
+    blocks = [_patch_block(_read_patch(p), n) for n, p in enumerate(paths, 1)]
 
     def heading(part: int, parts: int) -> str:
         suffix = f" (part {part} of {parts})" if parts > 1 else ""

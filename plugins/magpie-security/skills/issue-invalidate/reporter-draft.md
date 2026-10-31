@@ -9,7 +9,7 @@
 
 `<sm> draft-plan` decides this substep from the Step 2 `import_path`, the channel (`via_forwarder`, `ghsa`), `security_cc`, the recipients, the root subject and anchors, the backend inputs and `existing_drafts`:
 it prints `action` (`skip`, `ask`, `surface_existing`, `blocked`, `create`), the Step 5e `notification_case`, and for `create` the `to`, `cc`, `subject`, `backend` and thread `anchor`.
-Before drafting, run `<sm> check-draft` on the composed body (`{body, tracker, disposition, canonical_cve, own_names}`): it must come back `clean`.
+Before drafting, run `<sm> check-draft` on the composed body (`{body, tracker, disposition, canonical_cve, own_names, organization, cve_tool_url}`; `cve_tool_url` from `cve_authority.cve_tool_url`): it must come back `clean`.
 
 Skip this entire substep when the import path detected in Step 2
 is *PR-imported*. Two additional skip cases — both **must be

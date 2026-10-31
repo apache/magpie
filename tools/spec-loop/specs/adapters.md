@@ -194,9 +194,10 @@ by swapping the adapter, not the skill.
   On Cloud, `pr status` fetches the pull request first and reports its
   state and source commit alongside the `/statuses` build checks, matching
   the Data Center payload (#1526).
-  Confirmed pull-request comment writes cover Cloud and Data Center.
-  Additional Cloud-only writes cover approve/unapprove, request-changes,
-  decline, backend-neutral `reject`, and `pr merge --strategy
+  Confirmed pull-request comment, approve/unapprove, and
+  request-changes/remove-request-changes writes cover Cloud and Data Center.
+  Additional Cloud-only writes cover decline, backend-neutral `reject`,
+  and `pr merge --strategy
   {merge,squash,rebase} --expected-source-commit <sha>`, which re-checks the
   head commit immediately before the merge POST so a moved head fails closed
   (#1471); it does not enforce approval or build gates itself.
@@ -210,7 +211,7 @@ by swapping the adapter, not the skill.
   upper-cased and de-duplicated (#1727).
   It is not a complete `contract:change-request` or `contract:tracker`
   backend yet; broader Jira handoff, Data Center
-  review/merge writes, broader repository permissions, and fuller Pipelines
+  post-review/decline/merge writes, broader repository permissions, and fuller Pipelines
   run/log/retry coverage remain tracked in #606.
 - `tools/gitlab/` (`magpie-gitlab`) — partial, read-only GitLab REST API v4
   bridge, declared `contract:tracker + contract:source-control +

@@ -378,7 +378,10 @@ def test_check_draft_flags_leaks(capsys, tmp_path):
         "Your CVSS 7.5 is noted; Tomcat had the same. Happy to discuss further. Also #12.\n"
     )
     _, out = run(
-        capsys, tmp_path, "check-draft", {"body": reply, "tracker": TRACKER, "disposition": "duplicate"}
+        capsys,
+        tmp_path,
+        "check-draft",
+        {"body": reply, "tracker": TRACKER, "disposition": "duplicate", "organization": "ASF"},
     )
     kinds = {h["kind"] for h in out["hits"]}
     assert kinds == {
@@ -390,6 +393,52 @@ def test_check_draft_flags_leaks(capsys, tmp_path):
         "bare-ref",
         "missing-canonical-cve",
     }
+
+
+def test_check_draft_skips_asf_project_names_for_a_non_asf_project(capsys, tmp_path):
+    reply = "Tomcat had the same issue.\n"
+    _, out = run(
+        capsys,
+        tmp_path,
+        "check-draft",
+        {"body": reply, "tracker": TRACKER, "disposition": "duplicate", "organization": "independent"},
+    )
+    assert "asf-project" not in {h["kind"] for h in out["hits"]}
+
+
+def test_check_draft_flags_a_configured_cve_tool_url_without_a_scheme(capsys, tmp_path):
+    reply = "See https://cve.example.org/cve5/CVE-2026-1.\n"
+    _, out = run(
+        capsys,
+        tmp_path,
+        "check-draft",
+        {"body": reply, "tracker": TRACKER, "disposition": "duplicate", "cve_tool_url": "cve.example.org"},
+    )
+    assert "cve-tool-url" in {h["kind"] for h in out["hits"]}
+
+
+def test_check_draft_allows_the_public_cve_record_when_cve_org_is_the_tool(capsys, tmp_path):
+    reply = "See https://www.cve.org/CVERecord?id=CVE-2026-1.\n"
+    _, out = run(
+        capsys,
+        tmp_path,
+        "check-draft",
+        {
+            "body": reply,
+            "tracker": TRACKER,
+            "disposition": "duplicate",
+            "cve_tool_url": "https://www.cve.org",
+        },
+    )
+    assert "cve-tool-url" not in {h["kind"] for h in out["hits"]}
+
+
+def test_check_draft_flags_asf_project_names_when_organization_is_unset(capsys, tmp_path):
+    reply = "Tomcat had the same issue.\n"
+    _, out = run(
+        capsys, tmp_path, "check-draft", {"body": reply, "tracker": TRACKER, "disposition": "duplicate"}
+    )
+    assert "asf-project" in {h["kind"] for h in out["hits"]}
 
 
 # --- step-5e-rollup-entry -------------------------------------------------------
