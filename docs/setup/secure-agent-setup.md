@@ -1428,16 +1428,25 @@ original argv + inherited stdin, so a failing local `pre-commit` /
 `pre-push` still aborts the git operation. A repo with **no** local
 hook is a clean no-op.
 
-**The hook-manager PATH shim.** prek honours `core.hooksPath`, so a bare
-`prek install` under whole-user scope would write its shim into the
+**The hook-manager PATH shim.** prek, overcommit and CaptainHook honour `core.hooksPath`,
+so a bare install under whole-user scope would write its hook into the
 *shared* dir, not the repo. The framework ships a transparent shim
 ([`tools/agent-isolation/hook-manager-shim.sh`](../../tools/agent-isolation/hook-manager-shim.sh),
-installed as `~/.claude/bin/prek` with `~/.claude/bin` prepended to
-PATH) that rewrites **only** `prek install` — injecting
-`--git-dir "$(git rev-parse --git-common-dir)"` so the shim lands
-in the repo-local `.git/hooks/` where the dispatcher finds it.
-Every other `prek` command passes straight through, and the shim is
-a no-op on hosts with no global `core.hooksPath`.
+installed as `~/.claude/bin/<tool>` with `~/.claude/bin` prepended to
+PATH) that applies the adapter's install strategy so the hook lands in the repo-local `.git/hooks/` where the dispatcher finds it — for prek, by injecting
+`--git-dir "$(git rev-parse --git-common-dir)"` into `prek install`; for overcommit and
+CaptainHook, by setting `core.hooksPath` to `<absolute common dir>/hooks` on
+every invocation, so an install behind global options (`captainhook -n install`) or an
+abbreviation (`captainhook inst`) lands there too.
+The shim is a no-op on hosts with no global `core.hooksPath`, and when no real
+binary is on `PATH` it falls back to `<repository root>/vendor/bin/<tool>`.
+CaptainHook's `captainhook/hook-installer` Composer plugin still runs outside
+the shim, so its install is one explicit `~/.claude/bin/captainhook install`
+with `extra.captainhook.disable-plugin` set to `true` in `composer.json`;
+the shim warns when the plugin is enabled.
+When the dispatcher chains into an overcommit hook, it exports the same
+`core.hooksPath` override so overcommit's run-time self-check accepts the
+hook instead of looking for its hook in the shared dir.
 The shim, the host-only homes and the sandbox-lint checks all follow the
 [hook-manager contract](../../tools/hook-manager/README.md):
 one script serves every adapter in its registry, keyed by the name it is
@@ -1450,6 +1459,8 @@ dispatchers + hook-manager shim):
 | Repo's local hook | Result |
 |---|---|
 | prek shim in `.git/hooks/` (installed via the shim) | dispatcher → prek runs that repo's `.pre-commit-config.yaml` |
+| overcommit hook in `.git/hooks/` (installed via the shim) | dispatcher → overcommit runs that repo's `.overcommit.yml`; its self-check sees the repo's hooks path |
+| CaptainHook hook in `.git/hooks/` (installed via the shim) | dispatcher → CaptainHook runs that repo's `captainhook.json`; the shared dir keeps its dispatcher symlinks |
 | local hook installed by a manager requiring no install fix (`simple-git-hooks`, `cargo-husky`, `git-code-format-maven-plugin`, `git-build-hook`) | dispatcher → local hook runs natively (installs straight to `.git/hooks/` ignoring global `core.hooksPath`) |
 | hand-written `.git/hooks/<name>`, or one a manager without an adapter put there | dispatcher → that hook runs (heterogeneous tooling coexists) |
 | none | dispatcher no-op; git operation proceeds cleanly |
@@ -1479,7 +1490,7 @@ Managers using the `none` install strategy (`tools/hook-manager/README.md`) requ
 
 Reversal is the same as simple whole-user (`git config --global
 --unset core.hooksPath`), plus removing `~/.claude/bin` from PATH to
-restore the stock `prek`.
+restore the stock manager binaries.
 
 ## Working directories under the read-outside-working-directories block
 

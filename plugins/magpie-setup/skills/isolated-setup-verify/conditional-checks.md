@@ -75,6 +75,14 @@ reading this file; read the section for a check whose condition holds.
      any other, the remediation is `git config --local --unset
      core.hooksPath` in that repository, run by the operator; the
      dispatcher still chains to the repository's own `.git/hooks/`.
+   - ⚠ for a repository that uses CaptainHook
+     ([detection](../../../../tools/hook-manager/README.md#detection)) while
+     `composer.json` requires `captainhook/hook-installer` without
+     `extra.captainhook.disable-plugin: true`: the plugin installs on every
+     `composer install` / `composer update` outside the shim and replaces
+     the dispatcher in the shared directory. Remediation: add the flag and
+     re-run `~/.claude/bin/captainhook install`, per
+     [troubleshooting](../../../../docs/setup/sandbox-troubleshooting.md#captainhooks-composer-plugin-replaced-the-shared-hook-directory).
 
    If `core.hooksPath` is unset (or points elsewhere), the
    operator is in **per-project** scope (the default). No further

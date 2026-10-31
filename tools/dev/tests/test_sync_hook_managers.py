@@ -75,7 +75,9 @@ def test_the_committed_registry_follows_the_contract(registry: dict[str, Any]) -
 @pytest.mark.parametrize(
     ("path", "value", "message"),
     [
-        (("install", "strategy"), "hooks-path-env", "install.strategy"),
+        (("install", "strategy"), "not-a-strategy", "install.strategy"),
+        (("install", "subcommand"), "install --now", "install.subcommand"),
+        (("install", "runtime_env"), "yes", "install.runtime_env"),
         (("detect", "config_files"), [], "detect.config_files"),
         (("detect", "config_files"), ["sub/prek.toml"], "detect.config_files"),
         (("detect", "nested"), "yes", "detect.nested"),
@@ -98,10 +100,39 @@ def test_a_registry_that_breaks_the_contract_is_refused(
     assert any(message in e for e in mod.validate(broken)), mod.validate(broken)
 
 
+def test_overcommit_uses_its_flag_and_runtime_env(registry: dict[str, Any]) -> None:
+    adapter = registry["adapters"]["overcommit"]
+    assert "home" not in adapter
+    assert adapter["install"] == {
+        "subcommand": "--install",
+        "strategy": "hooks-path-env",
+        "runtime_env": True,
+    }
+    rendered = mod.render(registry)
+    assert "overcommit) install_subcommand=--install; install_strategy=hooks-path-env" in rendered[mod.SHIM]
+    assert 'hook_manager_runtime_envs="overcommit:overcommit"' in rendered[mod.DISPATCHER]
+
+
+def test_captainhook_reuses_hooks_path_env_without_a_run_time_override(
+    registry: dict[str, Any],
+) -> None:
+    adapter = registry["adapters"]["captainhook"]
+    assert "home" not in adapter
+    assert adapter["install"] == {
+        "subcommand": "install",
+        "strategy": "hooks-path-env",
+    }
+    rendered = mod.render(registry)
+    assert "captainhook) install_subcommand=install; install_strategy=hooks-path-env" in rendered[mod.SHIM]
+    assert "captainhook:CaptainHook" not in rendered[mod.DISPATCHER]
+
+
 def test_a_manager_without_a_home_is_allowed(registry: dict[str, Any]) -> None:
     del registry["adapters"]["prek"]["home"]
     assert mod.validate(registry) == []
-    assert mod.render(registry)[mod.DISPATCHER] == 'hook_manager_homes=""\n'
+    assert mod.render(registry)[mod.DISPATCHER] == (
+        'hook_manager_homes=""\nhook_manager_runtime_envs="overcommit:overcommit"\n'
+    )
 
 
 def test_strategy_none_adapter_omits_shim_and_needs_no_subcommand(registry: dict[str, Any]) -> None:
@@ -140,6 +171,7 @@ def test_a_new_adapter_reaches_every_block(tree: Path, registry: dict[str, Any])
     assert "    demo) install_subcommand=install;" in (tree / mod.SHIM).read_text()
     dispatcher = (tree / mod.DISPATCHER).read_text()
     assert 'hook_manager_homes="DEMO_HOME=demo-host PREK_HOME=prek-host"' in dispatcher
+    assert 'hook_manager_runtime_envs="overcommit:overcommit"' in dispatcher
     lint = (tree / mod.SANDBOX_LINT).read_text()
     assert (
         '        "DEMO_HOME",\n        "~/.cache/demo",\n        "~/.cache/demo-sandbox",\n        ("demo.toml",),'
