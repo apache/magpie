@@ -425,6 +425,72 @@ def render_readme(readme_text: str, table: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Flakiness
+# ---------------------------------------------------------------------------
+
+# "`label` failed k of n" / "errored k of n", the wording render_table writes and
+# the hand-written tables used, so legacy rows are read back the same way.
+_RESULT_ITEM_RE = re.compile(r"`([^`]+)` (failed|errored) (\d+) of (\d+)")
+
+
+def case_outcomes(records: list[dict]) -> dict[tuple[str, str, str, str], dict]:
+    """Per batch, per case: how many runs it failed out of how many ran.
+
+    A batch is the same (date, ref, branch, model) grouping render_table uses:
+    identical runs of one commit with one model, which is the only population
+    in which "fails sometimes" means the model, not a code change. Returns
+    ``{batch_key: {"runs": n, "cases": {label: k}}}``, counting a FAIL and an
+    ERROR alike. Legacy records contribute through their Result text.
+    """
+    batches: dict[tuple[str, str, str, str], dict] = {}
+    for record in records:
+        key = _row_key(record)
+        batch = batches.setdefault(key, {"runs": 0, "cases": Counter()})
+        if record.get("legacy"):
+            runs = int(record.get("runs", 1))
+            batch["runs"] += runs
+            for label, _kind, k, _n in _RESULT_ITEM_RE.findall(str(record.get("result") or "")):
+                batch["cases"][label] += int(k)
+            continue
+        batch["runs"] += 1
+        for label in {*(record.get("failed_cases") or []), *(record.get("errored_cases") or [])}:
+            batch["cases"][str(label)] += 1
+    return batches
+
+
+def flaky_cases(records: list[dict], *, min_runs: int = 2) -> list[dict]:
+    """Every case that failed in some but not all runs of one batch.
+
+    A case failing every run is a real failure, not flakiness, and is left out.
+    A batch with fewer than ``min_runs`` runs cannot show flakiness and is
+    skipped. Sorted most-flaky first (failure rate nearest one half), then by
+    case label, so the cases worth a ``borderline`` tag or a retry budget head
+    the list.
+    """
+    found: list[dict] = []
+    for (date, ref, branch, model), batch in case_outcomes(records).items():
+        n = batch["runs"]
+        if n < min_runs:
+            continue
+        for label, k in batch["cases"].items():
+            if 0 < k < n:
+                found.append(
+                    {
+                        "case": label,
+                        "failed": k,
+                        "runs": n,
+                        "rate": round(k / n, 3),
+                        "date": date,
+                        "ref": ref,
+                        "branch": branch,
+                        "model": model or None,
+                    }
+                )
+    found.sort(key=lambda f: (abs(f["rate"] - 0.5), f["case"], f["date"]))
+    return found
+
+
+# ---------------------------------------------------------------------------
 # Importing a hand-written table (one-time migration)
 # ---------------------------------------------------------------------------
 
@@ -610,6 +676,29 @@ def cmd_check(args: argparse.Namespace, evals_root: Path, root: Path) -> int:
     return 1 if problems else 0
 
 
+def cmd_flaky(args: argparse.Namespace, evals_root: Path, root: Path) -> int:
+    report: dict[str, list[dict]] = {}
+    for skill_dir in iter_skill_dirs(args.path, evals_root):
+        journal = skill_dir / JOURNAL_NAME
+        if not journal.exists():
+            continue
+        cases = flaky_cases(read_records(journal), min_runs=args.min_runs)
+        if cases:
+            report[skill_dir.name] = cases
+    if args.json:
+        print(json.dumps(report, indent=2, sort_keys=True))
+        return 0
+    if not report:
+        print("no flaky cases: every journaled case either passed or failed every run of its batch")
+        return 0
+    for skill, cases in sorted(report.items()):
+        print(f"{skill}:")
+        for f in cases:
+            model = f["model"] or "(unrecorded)"
+            print(f"  {f['case']}  failed {f['failed']} of {f['runs']}  ({model}, {f['ref']}, {f['date']})")
+    return 0
+
+
 def cmd_import_readme(args: argparse.Namespace, evals_root: Path, root: Path) -> int:
     skill_dir = skill_dir_for(args.path, evals_root)
     if skill_dir is None:
@@ -671,6 +760,19 @@ def main(argv: list[str] | None = None) -> int:
         help="Git ref whose committed journals must be a prefix of the working copies (e.g. origin/main).",
     )
 
+    p_flaky = sub.add_parser(
+        "flaky",
+        help="List cases that failed in some but not all runs of one batch (same ref, branch and model).",
+    )
+    p_flaky.add_argument("path", type=Path, help="The evals root, or one skill's eval directory.")
+    p_flaky.add_argument(
+        "--min-runs",
+        type=int,
+        default=2,
+        help="Skip batches with fewer runs than this (default 2: one run cannot show flakiness).",
+    )
+    p_flaky.add_argument("--json", action="store_true", help="Print the report as JSON.")
+
     p_import = sub.add_parser(
         "import-readme",
         help="One-time: turn a hand-written Run history table into legacy journal records.",
@@ -708,6 +810,8 @@ def main(argv: list[str] | None = None) -> int:
             return cmd_render(args, evals_root, root)
         if args.command == "check":
             return cmd_check(args, evals_root, root)
+        if args.command == "flaky":
+            return cmd_flaky(args, evals_root, root)
         if args.command == "import-readme":
             return cmd_import_readme(args, evals_root, root)
     except ValueError as exc:
