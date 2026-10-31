@@ -254,6 +254,43 @@ def test_multiple_root_message_ids_are_tracked() -> None:
     assert second in result["tracked"]
 
 
+def test_archive_url_followed_by_prose_or_markdown_is_tracked() -> None:
+    archive_id = "abc123xyz789"
+    for line in (
+        f"https://lists.apache.org/thread/{archive_id} (relayed via the forwarder)",
+        f"[thread](https://lists.apache.org/thread/{archive_id})",
+        f"<https://lists.apache.org/thread/{archive_id}>",
+        f"See https://lists.apache.org/thread/{archive_id}.",
+        f"https://lists.apache.org/thread/{archive_id}, then the relay",
+    ):
+        result = dedup.attribute_index([archive_id], [issue(field(line))])
+
+        assert result["complete"], line
+        assert result["untracked"] == [], line
+        assert archive_id in result["tracked"], line
+
+
+def test_bare_gmail_thread_before_a_comma_is_tracked() -> None:
+    body = field(f"Relayed by security team via Gmail thread {THREAD}, then forwarded.")
+
+    result = dedup.attribute_index([THREAD], [issue(body)])
+
+    assert result["complete"]
+    assert result["untracked"] == []
+    assert THREAD in result["tracked"]
+
+
+def test_bare_maildir_name_keeps_its_trailing_comma() -> None:
+    maildir_id = "1700000000.M1P2.host,U=12:2,"
+    body = field(f"Relayed by security team via Gmail thread {maildir_id}")
+
+    result = dedup.attribute_index([maildir_id], [issue(body)])
+
+    assert result["complete"]
+    assert result["untracked"] == []
+    assert maildir_id in result["tracked"]
+
+
 def test_dedup_index_refuses_invalid_backend_identifiers() -> None:
     for invalid in (
         "$(rm -rf x)",

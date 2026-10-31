@@ -61,26 +61,31 @@ def _recorded_thread_ids(field_value: str) -> set[str]:
         r"([A-Za-z0-9_][A-Za-z0-9_.,:=+-]{5,127}))",
         re.IGNORECASE,
     )
-    archive = re.compile(r"/thread/([A-Za-z0-9_.,:=+-]{6,128})(?:[/?#]|$)")
+    # The id ends at a path, query or fragment separator, at whitespace, or at
+    # the bracket closing a markdown link or an autolink.
+    archive = re.compile(r"/thread/([A-Za-z0-9_.,:=+-]{6,128})(?=[/?#\s)\]>]|$)")
     root = re.compile(
         r"^Root Message-ID:\s*`?(<[^`\s]+>)`?\s*$",
         re.IGNORECASE,
     )
 
+    def add(value: str, *, trim: bool) -> None:
+        # Prose punctuation after an unquoted id (`…/thread/abc123.` or
+        # `Gmail thread 19d2…, relayed`) is not part of it, but a maildir name
+        # can end in `,` (`…:2,`), so both spellings are kept when valid.
+        candidates = {value, value.rstrip(".,;:")} if trim else {value}
+        for candidate in candidates:
+            if candidate and not valid_ids([candidate])[1]:
+                known.add(candidate)
+
     for line in field_value.splitlines():
         line = line.strip()
 
         for match in gmail.finditer(line):
-            value = match.group(1) or match.group(2)
-            if match.group(2):
-                value = value.rstrip(".")
-            if not valid_ids([value])[1]:
-                known.add(value)
+            add(match.group(1) or match.group(2), trim=bool(match.group(2)))
 
         for match in archive.finditer(line):
-            value = match.group(1)
-            if not valid_ids([value])[1]:
-                known.add(value)
+            add(match.group(1), trim=True)
 
         root_match = root.fullmatch(line)
         if root_match:

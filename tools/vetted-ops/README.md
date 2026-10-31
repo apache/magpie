@@ -553,7 +553,7 @@ The guarantees above carry over, because the translation lives in reviewed code
 The full mapping, from the `gh` shape in the skills to the vetted operation to
 the backend subcommand, is in the contract's
 [skill-command table](../security-tracker/contract.md#from-skill-commands-to-vetted-operations).
-Nine operations exist for it:
+Ten operations exist for it:
 
 | Operation | Kind | Parameters | Notes |
 |---|---|---|---|

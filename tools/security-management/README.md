@@ -90,7 +90,7 @@ Every command prints one JSON object; rendered text is in its `text` field.
 | `refs` | `bare_refs` / `linkify` for `#NNN` and `owner/repo#NNN` outside code spans (any backtick run), fences, links, autolinks and URLs, ported from `pr-management`'s `_BARE_REF`; `tracker_link` for a GitHub, Jira or local-files reference. |
 | `titles` | `strip_mail_prefixes`, `strip_pr_title`, `md_title`. |
 | `recipients` | `security_cc`: the security CC of every draft, each key from the first layer that declares it. |
-| `drafting` | `choose`: Gmail or Maildir (the person over the project), then `backend`: `maildir` when configured, else `oauth_curl`, and `claude_ai_mcp` only without OAuth credentials and with no link in the body; `anchor`: what each backend attaches the draft by; `scan`: tracker references, the CVE-tool URL, bare references, re-opening phrases, CVSS and other ASF projects in a composed reporter draft. |
+| `drafting` | `choose`: Gmail or Maildir (the person over the project), then `backend`: `maildir` when configured, else `oauth_curl`, and `claude_ai_mcp` only without OAuth credentials and with no link in the body; `anchor`: what each backend attaches the draft by; `scan`: tracker references, the CVE-tool URL, bare references, re-opening phrases, CVSS and other ASF projects (when `organization` is `ASF`) in a composed reporter draft. The CVE-tool URL comes from `cve_tool_url`; a bare host is accepted, with `https://` assumed. |
 | `grammar` | `parse_reply`: the confirmation grammar; anything unplaceable goes to `ambiguous_tokens` for the agent to ask back, conflicting dispositions hold their candidate out of every list, unscoped free text holds everything, and a negation confirms nothing. |
 | `keyword` | The `tr -cd` allowlist for search keywords, read from a file, never starting with `-`. |
 | `fields` | `read`: template fields of an existing tracker body through github-body-field (`normalise`, then `extract_field`); a field it will not decide on is `undecided`, never guessed or read as empty. |
@@ -152,7 +152,7 @@ Every command prints one JSON object; rendered text is in its `text` field.
 | Command | Prints |
 |---|---|
 | `preflight --forwarders F --message F --framework D` | `outcome` (`proceed`, `no-forwarder-config`, `abort` with exit `2`), `preflight_passed`, `error`, `note`; installed means a `tools/forwarder-relay/<name>/` directory or a `shipping` README row whose doc exists. |
-| `detect --message F --forwarders F [--collaborators F]` | The first enabled adapter whose sender pattern or preamble regex (first 400 characters) matches: `match`, `sub_skill_applied`, `preamble_snippet`, `sender_matched`, `collaborator_warning`, `adapters`; exit `2` on an unresolved pattern. |
+| `detect --message F --forwarders F [--collaborators F]` | The first enabled adapter whose sender pattern AND preamble regex (first 400 characters) both match: `match`, `sub_skill_applied`, `preamble_snippet`, `sender_matched`, `collaborator_warning`, `adapters`, `partial_matches` (adapters where only one signal matched — not a relay); exit `2` on an unresolved pattern. |
 | `credit-kind --input F` | `kind` (`tool` under the bot/AI policy, else the adapter's `kind_hints`, else `human`), `is_bot`, `credit_unknown`. |
 | `first-name --input F` | `first_name` of a handle or display name; `null` (generic salutation) for an address. |
 | `route --mode M [--milestone K] --adapter F` | `to_recipients` (first handle) and `fallback_recipients`, `addressing_block_emitted`, `question_mode`, `negative_space_suppressed` (a do-not-relay milestone in sync mode). |
@@ -195,7 +195,7 @@ Every command takes `--input F`, a JSON file.
 | `labels` | `labels_to_add` (`invalid`), `labels_to_remove` (needs triage, scope, `pr created` / `pr merged` when set), `security_issue_stays`, the `gh issue edit` `command`. |
 | `board` | The introspection query `file` and `command`; given `items`, the `archiveProjectV2Item` mutation or the *not on the board* note. |
 | `draft-plan` | `action` (`skip`, `ask`, `surface_existing`, `blocked`, `create`), `notification_case`, and for a draft `to`, `cc`, `subject` (`Re: <root subject>`), `backend`, `anchor`; links without OAuth credentials exit `2`. |
-| `check-draft` | `clean` and `hits`: tracker reference, CVE-tool URL, bare reference, re-opening phrase, CVSS, other ASF projects, a duplicate's missing canonical CVE. |
+| `check-draft` | `clean` and `hits`: tracker reference, CVE-tool URL, bare reference, re-opening phrase, CVSS, other ASF projects when `organization` is `ASF`, a duplicate's missing canonical CVE. |
 | `render-close` | The brief closing comment `text`. |
 | `render-rollup` | `label`, `label_shell`, `text` (at most 5 quotes, the canned link, exactly one Reporter-notification line), `quotes_dropped`, `needs_amend`, `bare_refs`; no notification case exits `2`. |
 | `parse-reply` | `action` (`apply`, `apply_silent`, `replace_email_body`, `repick_canned`, `cancel`, `ambiguous`), `email_body_override`, `canned_section_override`. |
@@ -216,7 +216,7 @@ Every command takes `--input F`, a JSON file.
 | `allocate-result` | `next` (`step-4`, `stop`, `setup`, `check-records`, `recipe`), `cve_id`, `message`, `rerun_allocate` (true only after an expired token). |
 | `cve` | `cve_id` and `record_url` from the user's paste-back; none, a malformed token or two IDs exit `2`. |
 | `draft-plan` | `action` (`skip`, `ask`, `surface_existing`, `blocked`, `create`), `notification` (`omitted`, `team_member`, `notified`, `draft_pending`) and for a draft `to`, `cc`, `subject`, `backend`, `anchor`, `secondary_threads`. |
-| `check-draft` | `clean` and `hits`: a missing CVE ID, the CVE-tool URL, a tracker reference, a bare reference, CVSS, other ASF projects. |
+| `check-draft` | `clean` and `hits`: a missing CVE ID, the CVE-tool URL, a tracker reference, a bare reference, CVSS, other ASF projects when `organization` is `ASF`. |
 | `proposal` | The numbered `items` (5 only when a draft is created), `proposal_items_count`, the `cve_tool_link_value`, `notes`, `text`. |
 | `render-rollup` | `label` (`CVE allocated (<CVE-ID>)`), `label_shell`, `text`, `needs_amend`, `bare_refs`; a draft id not checked against Drafts exits `2`. |
 | `parse-reply` | `action` (`apply`, `cancel`, `edit`, `ambiguous`), `items_applied`, `items_skipped`. |
@@ -252,7 +252,7 @@ Every command takes `--input F`, a JSON file.
 | `bucket` | `cve_affecting`, `non_cve_affecting`, `walk_order`, `review_ready_push` and its bucket. |
 | `parse-bulk-reply` | `action` (`apply`, `force_sync`, `cancel`, `none`, `ambiguous`), `apply` per tracker, `edits`, `force_sync`, `skip`. |
 | `parse-reply` | The single-tracker form through `shared.numbered`. |
-| `check` | `clean` and `violations` (`surface`, `guardrail`, `evidence`) for reporter CVSS, other ASF projects, bare CVE IDs or the CVE-tool URL in an email, and bare `#NNN`. |
+| `check` | `clean` and `violations` (`surface`, `guardrail`, `evidence`) for reporter CVSS, other ASF projects when `organization` is `ASF`, bare CVE IDs or the CVE-tool URL in an email, and bare `#NNN`. |
 | `security-cc` | `security_cc`, `cc_fallback`, `warning` and `warning_text`, `draft_blocked`, `cc`, `search_list`, through the project / organization / framework layers. |
 | `draft-backend` | `backend` (`maildir`, `oauth_curl`, `claude_ai_mcp`), `decided_by` (`user.md`, `project.md`, `default`); no credential with links in the body exits `2`. |
 | `ghsa-route` | `access_tier`, `action`, `channel`, and for an admin hand-off the draft tool, addressee, thread, rollup marker and three parts. |
@@ -261,6 +261,7 @@ Every command takes `--input F`, a JSON file.
 | `staleness` | `stale` and `days`: the team's latest message older than the timeout with no reporter reply since. |
 | `closed-announced` | `cve_org` (`notify`, `already_notified`, `wait`, `blocker`, `retry`, `skip`), `security_pages_reminder_pending`, `advisory_records` and its next step, `blockers`. |
 | `release-vote` | `release_vote_in_progress` and `release_vote_thread_url` for an open `[VOTE]` matching the fix-PR milestone. |
+| `advisory-archive` | `accepted` and `reasons` for a candidate *Public advisory URL*: the thread must be on `advisory_list`, its root subject `<CVE-ID>: <description>` (no `Re:` / `Fwd:`), its root sender (`thread.from`) in `authorized_senders`, the URL under `mail_archive_url`; a missing `mail_archive_url` or `authorized_senders` rejects; `requires_confirmation` is always true, since the sender is the archived `From:` header and is not verified. |
 | `render-recap` | The recap `text`, `bare_refs`. |
 
 ### `issue-fix`
