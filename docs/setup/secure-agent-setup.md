@@ -2962,6 +2962,9 @@ chmod +x ~/.claude/scripts/container-gateway-hook.sh
 mkdir -p ~/.claude/scripts/container-gateway/src
 cp -r /path/to/magpie/tools/container-gateway/src/container_gateway \
     ~/.claude/scripts/container-gateway/src/container_gateway
+# The managed-settings dispatcher runs the hook only when you alone can write it and
+# the directories holding it; a umask of 0002 would leave them group-writable.
+chmod go-w ~ ~/.claude ~/.claude/scripts ~/.claude/scripts/container-gateway-hook.sh
 ```
 
 The hook executes only code from a location the operator installed or
@@ -2991,7 +2994,15 @@ records which main checkout it confirmed the first time, under
 sandbox-writable; a later session that derives a different one is refused
 until you delete that record (the log line names it).
 
-Wire it in your user settings, alongside any other hooks already there, **by its absolute path** (your real home, `/home/<you>` on Linux). A `~` in a hook command is expanded from `$HOME` by the launching shell, and a session environment that redirects `$HOME` would run another script. Because that path is per-machine, it goes in `~/.claude/settings.local.json` when your `~/.claude/settings.json` is [synced across machines](#syncing-user-scope-config-across-machines) — a `/Users/<you>/...` path synced to a Linux box points at nothing, and the gateway never starts there; otherwise `~/.claude/settings.json` is fine. Claude Code merges hooks from both files.
+Wire it **by its absolute path** (your real home, `/home/<you>` on Linux). A `~` in a hook command is expanded from `$HOME` by the launching shell, and a session environment that redirects `$HOME` would run another script. Because that path is per-machine, it does not belong in a `~/.claude/settings.json` that is [synced across machines](#syncing-user-scope-config-across-machines): a `/Users/<you>/...` path synced to a Linux box points at nothing, and the gateway never starts there.
+
+Put the hooks in a **managed-settings drop-in** on each machine: `/Library/Application Support/ClaudeCode/managed-settings.d/50-magpie-container-gateway.json` on macOS, `/etc/claude-code/managed-settings.d/50-magpie-container-gateway.json` on Linux. Claude Code merges every `*.json` file in that directory into its managed settings, and managed hooks run alongside your user and project hooks. The file is per machine, never synced, and root-owned, so no sandboxed command can rewrite it.
+
+Managed settings apply to **every account** on the machine, so the drop-in never names your script: another account starting Claude Code would run code you can rewrite. It runs a root-owned dispatcher instead (`tools/agent-isolation/container-gateway-dispatch.sh`), installed as `<managed-settings dir>/magpie/container-gateway-dispatch`: `/Library/Application Support/ClaudeCode/magpie/container-gateway-dispatch` on macOS, `/etc/claude-code/magpie/container-gateway-dispatch` on Linux. That directory's ancestors must already be root-owned for managed settings to mean anything, so no other account can swap the dispatcher; a location such as `/usr/local`, which Homebrew makes user-writable, would let it. The dispatcher takes the invoking account's home from the account database, not `$HOME`, and runs that account's own `~/.claude/scripts/container-gateway-hook.sh` only when the script, `~/.claude/scripts` and `~/.claude` are owned by that account, are not symlinks and are not group- or world-writable; otherwise it does nothing. Installing the two files needs `sudo` once per machine.
+
+An organization that deploys Claude Code policy through MDM or server-managed settings may rank that source above the file-based one, and Claude Code then ignores `managed-settings.d/`. Ask that policy's owner to add the three hooks, or register them in your own unsynced `~/.claude/settings.json`.
+
+Do **not** use `~/.claude/settings.local.json`: Claude Code does not load a `settings.local.json` from your home directory (only a project's `.claude/settings.local.json`), so hooks there never run and the gateway never starts. Without a synced `settings.json`, the hooks may also go in `~/.claude/settings.json` itself.
 
 Three events, one script:
 
@@ -3010,30 +3021,39 @@ Three events, one script:
 {
   "hooks": {
     "SessionStart": [
-      { "hooks": [ { "type": "command", "command": "/Users/<you>/.claude/scripts/container-gateway-hook.sh start" } ] }
+      { "hooks": [ { "type": "command", "command": "'/Library/Application Support/ClaudeCode/magpie/container-gateway-dispatch' start" } ] }
     ],
     "SessionEnd": [
-      { "hooks": [ { "type": "command", "command": "/Users/<you>/.claude/scripts/container-gateway-hook.sh stop" } ] }
+      { "hooks": [ { "type": "command", "command": "'/Library/Application Support/ClaudeCode/magpie/container-gateway-dispatch' stop" } ] }
     ],
     "PreToolUse": [
-      { "matcher": "Bash", "hooks": [ { "type": "command", "timeout": 30, "command": "/Users/<you>/.claude/scripts/container-gateway-hook.sh ensure" } ] }
+      { "matcher": "Bash", "hooks": [ { "type": "command", "timeout": 30, "command": "'/Library/Application Support/ClaudeCode/magpie/container-gateway-dispatch' ensure" } ] }
     ]
   }
 }
 ```
 
-**Fixing your other machines.** If the hook was registered in a synced `~/.claude/settings.json`, move it: delete the `container-gateway-hook.sh` entries from the synced file (once, on any machine), then on **every** machine add them to its own `~/.claude/settings.local.json` with that machine's home:
+**Fixing your other machines.** If the hooks are registered in a synced `~/.claude/settings.json` or in `~/.claude/settings.local.json`, move them: delete the `container-gateway-hook.sh` entries from those files (from the synced one once, on any machine), then on **every** machine install the dispatcher and write the drop-in, from a framework checkout:
 
 ```bash
-jq --arg h "$(cd ~ && pwd -P)" '
-  ($h+"/.claude/scripts/container-gateway-hook.sh") as $s
-  | .hooks.SessionStart += [{"hooks":[{"type":"command","command":($s+" start")}]}]
-  | .hooks.SessionEnd += [{"hooks":[{"type":"command","command":($s+" stop")}]}]
-  | .hooks.PreToolUse += [{"matcher":"Bash","hooks":[{"type":"command","timeout":30,"command":($s+" ensure")}]}]
-' ~/.claude/settings.local.json > ~/.claude/settings.local.json.new && mv ~/.claude/settings.local.json.new ~/.claude/settings.local.json
+case "$(uname -s)" in
+  Darwin) d="/Library/Application Support/ClaudeCode/managed-settings.d" ;;
+  *) d=/etc/claude-code/managed-settings.d ;;
+esac
+x="$(dirname "$d")/magpie/container-gateway-dispatch"
+sudo install -d -m 0755 "$(dirname "$x")" "$d"
+sudo install -m 0755 tools/agent-isolation/container-gateway-dispatch.sh "$x"
+jq -n --arg x "$x" '($x | @sh) as $q | {hooks: {
+  SessionStart: [{hooks: [{type: "command", command: ($q + " start")}]}],
+  SessionEnd: [{hooks: [{type: "command", command: ($q + " stop")}]}],
+  PreToolUse: [{matcher: "Bash", hooks: [{type: "command", timeout: 30, command: ($q + " ensure")}]}]
+}}' | sudo tee "$d/50-magpie-container-gateway.json" > /dev/null
+sudo chmod 0644 "$d/50-magpie-container-gateway.json"
 ```
 
-A machine wired before `ensure` existed already has the first two; add only the `PreToolUse` entry there.
+Re-run the `install` line after a framework upgrade that changes the dispatcher; `setup-isolated-setup-update` reports when it does.
+
+Start a new session afterwards: settings are read at session start, and `/status` lists the managed source among the loaded settings.
 
 `setup-isolated-setup-verify` (check 12a) and `setup-isolated-setup-update` flag a hook whose registered path does not exist on the machine they run on.
 
@@ -3424,7 +3444,7 @@ Three reasons make this non-negotiable:
 Public dotfile repos are fine for shell aliases and editor configs;
 they are the wrong shape for agent-runtime files.
 
-**Per-machine entries stay out of the synced file.** Anything that names an absolute path under your home — the container gateway's `SessionStart` / `SessionEnd` / `PreToolUse` hooks above, a pinned interpreter, socket paths — differs between macOS (`/Users/<you>`) and Linux (`/home/<you>`). Keep those in each machine's `~/.claude/settings.local.json`, which is never synced; Claude Code merges hooks and settings from both files.
+**Per-machine entries stay out of the synced file.** Anything that names an absolute path under your home — the container gateway's `SessionStart` / `SessionEnd` / `PreToolUse` hooks above, a pinned interpreter, socket paths — differs between macOS (`/Users/<you>`) and Linux (`/home/<you>`). Keep the gateway hooks in each machine's managed-settings drop-in (see [Container gateway](#container-gateway)) and socket paths in the project's gitignored `.claude/settings.local.json`. `~/.claude/settings.local.json` is not an option: Claude Code does not load a `settings.local.json` from your home directory.
 
 ## Adopter setup
 
@@ -3866,8 +3886,12 @@ never delete it:
     and the `gh tofile` alias workaround).
 12. **Container gateway wired.** Only meaningful when `podman` or
     `docker` is on `PATH`; report n/a otherwise. Four things:
-    - User-scope `~/.claude/settings.json` or
-      `~/.claude/settings.local.json` has a `SessionStart` hook
+    - The managed-settings drop-in
+      `managed-settings.d/50-magpie-container-gateway.json`, running the
+      root-owned `<managed-settings dir>/magpie/container-gateway-dispatch` (or another
+      managed settings file, or a `~/.claude/settings.json` that is not
+      synced) has a `SessionStart` hook — not `~/.claude/settings.local.json`,
+      which Claude Code does not load —
       running `container-gateway-hook.sh start` and a `SessionEnd`
       hook running `container-gateway-hook.sh stop`, by an absolute
       path that exists on this machine (✗ if it names another

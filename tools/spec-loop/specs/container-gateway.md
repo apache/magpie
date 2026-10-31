@@ -468,10 +468,15 @@ CLI flags with environment-variable equivalents, no config file:
 outside the tree — each one is logged at start so it shows up in a
 `setup verify` run), `--idle-timeout`, `--log-level`, `--pid-file`.
 
-Reference settings. The `hooks` half goes in the user settings by the
-script's absolute path (per machine, so `~/.claude/settings.local.json`
-when `~/.claude/settings.json` is synced; a `~` there is expanded from
-`$HOME`, which the session environment can redirect); the `env` half is
+Reference settings. The `hooks` half goes in the machine's managed-settings
+drop-in `managed-settings.d/50-magpie-container-gateway.json` (macOS
+`/Library/Application Support/ClaudeCode/`, Linux `/etc/claude-code/`): it is
+per machine, never synced and root-owned. Managed settings apply to every
+account, so it runs the root-owned dispatcher `<managed-settings dir>/magpie/container-gateway-dispatch`, which runs
+the invoking account's own hook script only when that account alone can write it.
+`~/.claude/settings.local.json` is not an option, because Claude Code does
+not load it, and a `~` in the command is expanded from `$HOME`, which the
+session environment can redirect. The `env` half is
 per-project and belongs in the gitignored `.claude/settings.local.json`,
 because it needs absolute socket paths:
 
@@ -484,15 +489,15 @@ because it needs absolute socket paths:
   }
 }
 
-// ~/.claude/settings.local.json — per machine, absolute path
+// <managed-settings dir>/managed-settings.d/50-magpie-container-gateway.json — per machine
 {
   "hooks": {
     "SessionStart": [{ "hooks": [{ "type": "command",
-      "command": "/Users/<you>/.claude/scripts/container-gateway-hook.sh start" }] }],
+      "command": "'/Library/Application Support/ClaudeCode/magpie/container-gateway-dispatch' start" }] }],
     "SessionEnd":   [{ "hooks": [{ "type": "command",
-      "command": "/Users/<you>/.claude/scripts/container-gateway-hook.sh stop" }] }],
+      "command": "'/Library/Application Support/ClaudeCode/magpie/container-gateway-dispatch' stop" }] }],
     "PreToolUse":   [{ "matcher": "Bash", "hooks": [{ "type": "command", "timeout": 30,
-      "command": "/Users/<you>/.claude/scripts/container-gateway-hook.sh ensure" }] }]
+      "command": "'/Library/Application Support/ClaudeCode/magpie/container-gateway-dispatch' ensure" }] }]
   }
 }
 ```

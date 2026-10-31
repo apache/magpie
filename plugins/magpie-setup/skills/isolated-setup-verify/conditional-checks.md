@@ -284,11 +284,22 @@ reading this file; read the section for a check whose condition holds.
     them **n/a**. 12e has its own condition, so with no container
     runtime check 12 reports 12e alone. Five sub-checks:
 
-    - **12a — hooks wired.** User-scope `~/.claude/settings.json`
-      or `~/.claude/settings.local.json` has a `SessionStart` hook
+    - **12a — hooks wired.** The managed-settings drop-in
+      `managed-settings.d/50-magpie-container-gateway.json` (macOS
+      `/Library/Application Support/ClaudeCode/`, Linux
+      `/etc/claude-code/`), another managed settings file, or user-scope
+      `~/.claude/settings.json` has a `SessionStart` hook
       running `container-gateway-hook.sh start` and a `SessionEnd`
       hook running `container-gateway-hook.sh stop`. Either missing is
-      ✗, and so is a registered absolute path that does not exist on
+      ✗. Entries found only in `~/.claude/settings.local.json` are ✗
+      too: Claude Code does not load that file, so they never run. A
+      managed entry must run the dispatcher `<managed-settings dir>/magpie/container-gateway-dispatch`, which
+      must exist, be root-owned and be writable by root alone, as must
+      every directory from `/` down to it (a user-writable ancestor such
+      as Homebrew's `/usr/local` lets that user swap it); a managed
+      entry that names a script in a user's home is ✗ (every account on
+      the machine would run it). So
+      is a registered absolute path that does not exist on
       this machine (synced from another one, e.g. `/Users/...` on
       Linux): point at the setup guide's "Fixing your other machines".
       An absolute path in a `~/.claude/settings.json` that links into a
@@ -305,7 +316,13 @@ reading this file; read the section for a check whose condition holds.
       container commands fail until the next session. The same
       path, `~` and `bash`/`sh` rules apply to it.
     - **12b — hook script present.** `~/.claude/scripts/container-gateway-hook.sh`
-      exists and is executable. Missing or non-executable is ✗.
+      exists and is executable. Missing or non-executable is ✗. When the
+      hooks run through the managed-settings dispatcher, the script,
+      `~/.claude/scripts` and `~/.claude` must each be owned by the
+      account, not group- or world-writable, and carry no ACL that lets
+      another account write them (macOS `ls -le`; remove with `chmod -N`); otherwise the dispatcher
+      refuses it and the gateway never starts, which is ✗ (remedy:
+      `chmod go-w` on them and on the home directory).
     - **12c — project wiring.** The gitignored
       `.claude/settings.local.json` has `env.CONTAINER_HOST` and
       `env.DOCKER_HOST`, and both gateway sockets appear in
