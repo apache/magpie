@@ -376,8 +376,14 @@ if [[ -n $main_root ]]; then
     settings_specs+=("$main_root/.claude/settings.json|$main_root"
                      "$main_root/.claude/settings.local.json|$main_root")
 fi
-settings_specs+=("/Library/Application Support/ClaudeCode/managed-settings.json|/Library/Application Support/ClaudeCode"
-                 "/etc/claude-code/managed-settings.json|/etc/claude-code")
+for managed_dir in "/Library/Application Support/ClaudeCode" /etc/claude-code; do
+    settings_specs+=("$managed_dir/managed-settings.json|$managed_dir")
+    # Claude Code merges every *.json drop-in after managed-settings.json; an unmatched glob stays
+    # literal and is skipped below as a missing file.
+    for drop_in in "$managed_dir"/managed-settings.d/*.json; do
+        settings_specs+=("$drop_in|$managed_dir")
+    done
+done
 for spec in "${settings_specs[@]}"; do
     settings="${spec%|*}" base="${spec##*|}"
     [[ -e $settings || -L $settings ]] || continue

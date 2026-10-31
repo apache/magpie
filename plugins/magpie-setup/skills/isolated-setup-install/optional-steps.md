@@ -150,7 +150,11 @@ code from the repository being opened — only from a location the
 operator installed or pinned — so also copy the whole package
 `tools/container-gateway/src/container_gateway/` to
 `~/.claude/scripts/container-gateway/src/container_gateway/`, next
-to the hook. Without this second copy the hook finds no source at
+to the hook. Then `chmod go-w ~ ~/.claude ~/.claude/scripts
+~/.claude/scripts/container-gateway-hook.sh`: the managed-settings
+dispatcher (L.2) refuses a hook that anyone but its owner can write, or
+that sits in such a directory, and a umask of 0002 leaves them
+group-writable. Without this second copy the hook finds no source at
 session start and is a silent no-op: it never fails the session,
 it simply never starts the gateway.
 A framework contributor re-copies the package after changing it: the hook
@@ -186,13 +190,25 @@ settings, each
 there is expanded from `$HOME`, which the session environment can redirect),
 executed directly rather than through `bash`/`sh` (its `#!/bin/bash -p`
 shebang keeps `BASH_ENV` and exported functions out) —
-merging into existing arrays with a diff the operator approves,
-exactly as for K.2's touch-overlay hooks. The file is
-`~/.claude/settings.local.json` when `~/.claude/settings.json` is a link
-into a synced config repo (the absolute path differs per machine;
-macOS `/Users/<you>`, Linux `/home/<you>`), and `~/.claude/settings.json`
-otherwise. If a synced file already carries the two entries, propose moving
-them, per the setup guide's "Fixing your other machines".
+into the machine's managed-settings drop-in
+`managed-settings.d/50-magpie-container-gateway.json` (macOS
+`/Library/Application Support/ClaudeCode/`, Linux `/etc/claude-code/`): it
+is per machine, never synced, and root-owned. Managed settings apply to
+every account on the machine, so the drop-in runs the root-owned dispatcher
+`<managed-settings dir>/magpie/container-gateway-dispatch` (copied from
+`tools/agent-isolation/container-gateway-dispatch.sh`), never a path in one
+user's home; the dispatcher runs the invoking account's own hook script only
+when that account alone can write it. Both need `sudo`, so
+print the setup guide's "Fixing your other machines" commands for the
+operator to run, with the diff against any existing drop-in; never run
+`sudo` yourself. Where an MDM or server-managed Claude Code policy outranks
+file-based managed settings, say that the drop-in will be ignored. `~/.claude/settings.json` is acceptable only when it is not
+a link into a synced config repo (the absolute path differs per machine;
+macOS `/Users/<you>`, Linux `/home/<you>`). Never wire them in
+`~/.claude/settings.local.json`: Claude Code does not load that file, so
+the hooks would never run. If a synced `~/.claude/settings.json` or
+`~/.claude/settings.local.json` already carries the entries, propose
+moving them, per "Fixing your other machines".
 
 **L.3 — Project wiring.** Propose the `env` block
 (`CONTAINER_HOST` / `DOCKER_HOST`) and the `allowUnixSockets` pair

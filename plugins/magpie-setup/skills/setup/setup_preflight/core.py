@@ -513,6 +513,22 @@ def isolated_setup_findings(
     ]
 
 
+def container_gateway_findings(root: Path, harness: str | None, home: Path | None = None) -> list[Finding]:
+    """A wired project whose gateway is down with no loaded hook to start it.
+
+    Only under Claude Code: the wiring and the hooks live in its settings files,
+    and another harness sharing the checkout neither reads them nor starts the gateway.
+    """
+    from . import gateway
+
+    if harness != "claude":
+        return []
+    facts = gateway.unstarted_gateway(root, home)
+    if facts is None:
+        return []
+    return [Finding("machine", "container-gateway-hooks-not-loaded", "step-14", facts)]
+
+
 # --- memoising the project scope ----------------------------------------------------
 
 
