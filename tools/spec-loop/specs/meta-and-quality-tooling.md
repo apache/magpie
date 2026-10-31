@@ -76,11 +76,18 @@ trustworthy as it grows.
   A compatible recommended next action the reference omits is not a
   mismatch, and the grader must make each boolean verdict agree with its
   stated reason before returning (#1751).
-  CI never runs a live model, so live runs are recorded by hand in a
-  *Run history* table (`| Date | Ref | Model | Runs | Result | Notes |`) in
-  `evals/<skill>/README.md`: a `main` SHA as the ref, the model name as the
-  CLI uses it, one appended row per batch of identical runs, and failures
-  recorded even when a rerun passed (#1626).
+  CI never runs a live model, so every live `--cli` run under
+  `evals/<skill>/` appends one record (skill, ref, branch, model, the CLI
+  strings, inputs, per-case outcome, cost, notes) to the append-only journal
+  `evals/<skill>/runs.jsonl`, and the *Run history* table
+  (`| Date | Ref | Model | Runs | Result | Notes |`) in
+  `evals/<skill>/README.md` is generated from it by `skill-eval-journal
+  render`, never edited by hand: one row per date/ref/branch/model batch,
+  failures recorded even when a rerun passed, a branch run shown with its
+  branch name. `skill-eval-journal check` fails on a table that does not
+  match its journal and, with `--against <ref>`, on a committed record that
+  was edited or removed; `import-readme` migrates a pre-journal table into
+  `legacy: true` records (#1626).
   A step with no `user-prompt-template.md` gets a neutral user prompt: the
   case report followed by "Return JSON only."; a step that needs the
   `{corpus}` / `{roster}` / `{report}` framing carries its own template, as

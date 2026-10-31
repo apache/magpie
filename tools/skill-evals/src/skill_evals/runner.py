@@ -84,7 +84,11 @@ import re
 import shlex
 import subprocess
 import sys
+import time
+from datetime import UTC, datetime
 from pathlib import Path
+
+from skill_evals import journal as run_journal
 
 # ---------------------------------------------------------------------------
 # Prompt construction
@@ -488,6 +492,11 @@ def load_grading_schema(fixtures_dir: Path) -> set[str]:
     return set(DEFAULT_PROSE_FIELDS) | set(fields)
 
 
+# Grader invocations made by the current run; reset by main() and reported in
+# the run journal's cost block.
+_grader_calls = 0
+
+
 def _call_grader(prompt: str, grader_cli: str, timeout: int) -> tuple[object | None, str | None]:
     """Run the grader once and parse its reply; retry once if the reply is unusable.
 
@@ -498,8 +507,10 @@ def _call_grader(prompt: str, grader_cli: str, timeout: int) -> tuple[object | N
     and it otherwise fails the case for a reason that has nothing to do
     with the output under test.
     """
+    global _grader_calls
     err: str | None = None
     for _ in range(2):
+        _grader_calls += 1
         try:
             stdout, stderr, rc = run_cli(grader_cli, prompt, timeout=timeout)
         except subprocess.TimeoutExpired:
@@ -1269,9 +1280,44 @@ def main(argv: list[str] | None = None) -> int:
             "a step_heading the SKILL.md no longer has, and exits 1 if there is any."
         ),
     )
+    parser.add_argument(
+        "--journal",
+        type=Path,
+        default=None,
+        metavar="FILE",
+        help=(
+            "Append one record for this --cli run to FILE (a runs.jsonl). Without it, "
+            f"a run whose path lies under <repo>/{run_journal.EVALS_REL}/<skill>/ is journaled "
+            "to that skill's runs.jsonl automatically; any other path is not journaled."
+        ),
+    )
+    parser.add_argument(
+        "--no-journal",
+        action="store_true",
+        help="Do not write a run-journal record for this run.",
+    )
+    parser.add_argument(
+        "--journal-note",
+        default="",
+        metavar="TEXT",
+        help="Free text stored in the run record's notes field (an issue link, a reason for the run).",
+    )
+    parser.add_argument(
+        "--journal-model",
+        default=None,
+        metavar="NAME",
+        help=(
+            "Model name to record when it cannot be read from a --model flag in --cli "
+            "(e.g. the CLI's configured default)."
+        ),
+    )
     args = parser.parse_args(argv)
 
     grader_explicit = args.grader_cli != DEFAULT_GRADER_CLI
+    if args.cli is None and (args.journal or args.journal_note or args.journal_model):
+        parser.error("--journal, --journal-note and --journal-model require --cli")
+    if args.journal and args.no_journal:
+        parser.error("--journal and --no-journal are mutually exclusive")
     if args.cli is None and (grader_explicit or args.exact):
         parser.error("--grader-cli and --exact require --cli")
 
@@ -1316,6 +1362,12 @@ def main(argv: list[str] | None = None) -> int:
     _assertions_cache: dict[Path, dict[str, dict]] = {}
 
     passed = failed = manual = errored = 0
+    failed_cases: list[str] = []
+    errored_cases: list[str] = []
+    cli_calls = 0
+    global _grader_calls
+    _grader_calls = 0
+    run_started = time.monotonic()
 
     for case_dir, fixtures_dir in cases:
         if (args.cli is not None) and args.fail_fast and (failed or errored):
@@ -1375,21 +1427,25 @@ def main(argv: list[str] | None = None) -> int:
                 continue
 
         full_prompt = f"{case_system_prompt}\n\n{user_prompt}"
+        cli_calls += 1
         try:
             stdout, stderr, rc = run_cli(args.cli, full_prompt, timeout=args.timeout)
         except subprocess.TimeoutExpired:
             print(f"ERROR   {case_label} (CLI timed out after {args.timeout}s)")
             errored += 1
+            errored_cases.append(case_label)
             continue
         except OSError as exc:
             print(f"ERROR   {case_label} (CLI invocation failed: {exc})")
             errored += 1
+            errored_cases.append(case_label)
             continue
 
         if rc != 0:
             if args.exact:
                 print(f"ERROR   {case_label} (CLI exited {rc}; stderr: {stderr.strip()[:200]})")
                 errored += 1
+                errored_cases.append(case_label)
                 if args.verbose:
                     print("--- STDOUT ---")
                     print(stdout)
@@ -1405,6 +1461,7 @@ def main(argv: list[str] | None = None) -> int:
                     f"expected.json asserts no {'/'.join(_WRAP_KEYS)} key, so nothing was graded)"
                 )
                 errored += 1
+                errored_cases.append(case_label)
                 if args.verbose:
                     print("--- STDOUT ---")
                     print(stdout)
@@ -1430,6 +1487,7 @@ def main(argv: list[str] | None = None) -> int:
                     # Exact mode requires literal JSON; non-JSON is an error.
                     print(f"ERROR   {case_label} ({parse_err})")
                     errored += 1
+                    errored_cases.append(case_label)
                     if args.verbose:
                         print("--- STDOUT ---")
                         print(stdout)
@@ -1447,6 +1505,7 @@ def main(argv: list[str] | None = None) -> int:
                         f"First 120 chars of stdout: {stdout.strip()[:120]!r}"
                     )
                     errored += 1
+                    errored_cases.append(case_label)
                     if args.verbose:
                         print("--- STDOUT ---")
                         print(stdout)
@@ -1473,6 +1532,7 @@ def main(argv: list[str] | None = None) -> int:
                 for note in notes:
                     print(f"  {note}")
                 failed += 1
+                failed_cases.append(case_label)
         elif not args.exact:
             if fixtures_dir not in _grading_schema_cache:
                 _grading_schema_cache[fixtures_dir] = load_grading_schema(fixtures_dir)
@@ -1492,6 +1552,7 @@ def main(argv: list[str] | None = None) -> int:
                 for note in notes:
                     print(f"  {note}")
                 failed += 1
+                failed_cases.append(case_label)
         else:
             ok, diff = compare_outputs(actual, expected)
             if ok:
@@ -1501,6 +1562,7 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"FAIL    {case_label}")
                 print(diff)
                 failed += 1
+                failed_cases.append(case_label)
 
         if args.verbose:
             print("--- SYSTEM PROMPT ---")
@@ -1517,10 +1579,118 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{'=' * 60}")
         print(f"Ran {total} cases: {passed} passed, {failed} failed, {manual} manual, {errored} errored")
         print(f"{'=' * 60}")
+        _write_run_record(
+            args,
+            cases_run=total,
+            passed=passed,
+            failed=failed,
+            manual=manual,
+            errored=errored,
+            failed_cases=failed_cases,
+            errored_cases=errored_cases,
+            cli_calls=cli_calls,
+            grader_calls=_grader_calls,
+            wall_seconds=time.monotonic() - run_started,
+        )
         if failed or errored:
             return 1
 
     return 0
+
+
+def _resolve_journal(args: argparse.Namespace) -> tuple[Path, Path, str] | None:
+    """Return (journal file, repo root, skill name) for this run, or None.
+
+    An explicit ``--journal FILE`` always journals (the skill name is the
+    file's parent directory). Otherwise only a path under the repository's
+    own evals tree is journaled, so a test fixture in a temp dir or an
+    ad-hoc copy of a suite never leaves a record behind.
+    """
+    if args.no_journal:
+        return None
+    if args.journal is not None:
+        journal = args.journal
+        try:
+            root = find_repo_root(journal.parent if journal.parent.exists() else Path.cwd())
+        except FileNotFoundError:
+            root = Path.cwd()
+        return journal, root, journal.parent.name
+    try:
+        root = find_repo_root(args.path)
+    except FileNotFoundError:
+        return None
+    evals_root = root / run_journal.EVALS_REL
+    if not evals_root.is_dir():
+        return None
+    journal = run_journal.journal_path_for(args.path, evals_root)
+    if journal is None:
+        return None
+    return journal, root, journal.parent.name
+
+
+def _write_run_record(
+    args: argparse.Namespace,
+    *,
+    cases_run: int,
+    passed: int,
+    failed: int,
+    manual: int,
+    errored: int,
+    failed_cases: list[str],
+    errored_cases: list[str],
+    cli_calls: int,
+    grader_calls: int,
+    wall_seconds: float,
+) -> None:
+    """Append this run to the skill's run journal. Never fails the run."""
+    resolved = _resolve_journal(args)
+    if resolved is None:
+        return
+    journal, root, skill = resolved
+    now = datetime.now(UTC)
+    snapshot = run_journal.git_snapshot(root)
+    model = run_journal.model_from_cli(args.cli) or args.journal_model
+    try:
+        rel_path = str(args.path.resolve().relative_to(root.resolve()))
+    except ValueError:
+        rel_path = str(args.path)
+    record = {
+        "schema": run_journal.SCHEMA_VERSION,
+        "skill": skill,
+        "date": now.strftime("%Y-%m-%d"),
+        "timestamp": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "ref": snapshot["ref"],
+        "branch": snapshot["branch"],
+        "dirty": snapshot["dirty"],
+        "model": model,
+        "cli": args.cli,
+        "grader_cli": None if args.exact else args.grader_cli,
+        "path": rel_path,
+        "tags": sorted(args.tag),
+        "cases": cases_run,
+        "passed": passed,
+        "failed": failed,
+        "manual": manual,
+        "errored": errored,
+        "failed_cases": sorted(failed_cases),
+        "errored_cases": sorted(errored_cases),
+        "cost": {
+            "wall_seconds": round(wall_seconds, 1),
+            "cli_calls": cli_calls,
+            "grader_calls": grader_calls,
+        },
+        "notes": args.journal_note,
+    }
+    try:
+        run_journal.append_record(journal, record)
+    except OSError as exc:
+        print(f"warning: could not write run journal {journal}: {exc}", file=sys.stderr)
+        return
+    try:
+        shown = journal.resolve().relative_to(root.resolve())
+    except ValueError:
+        shown = journal
+    print(f"Journaled run to {shown} (regenerate the README table with skill-eval-journal render)")
 
 
 def _print_prompts_and_run(args: argparse.Namespace, system_prompt: str, user_prompt: str) -> None:
