@@ -150,6 +150,29 @@ baseline required.
    name>` requires `<file>`, which is not configured"* — propose
    `/magpie-setup:setup config <skill>` for it.
 
+3a. **Import caller policy grants.** When an existing vetted-ops policy
+   is present and a security issue-import skill is in scope (step 1),
+   read its `[callers]` table. Compare the applicable caller against
+   the minimum permissions used by the skill:
+
+   Derive required operations from the canonical [vetted-ops README `[callers]` example](../../../../tools/vetted-ops/README.md#configuration), including backend-specific operations where applicable. Do not use a second hard-coded mapping.
+
+   A missing caller or missing required operation is a finding. Name the
+   caller, the missing operations, and the existing policy path. Propose
+   adding only those grants; do not grant `body-field-set`, which these
+   import workflows do not use. When a caller already exists, merge
+   missing operations into its existing TOML array rather than creating
+   a duplicate key. Preserve comments, unrelated callers and existing
+   permissions.
+
+   This is a security-control change, not an automatic repair. Show the
+   exact proposed diff and obtain item-by-item confirmation before
+   writing anything. A declined change leaves the policy unchanged and
+   the finding unresolved; do not report or stamp that configuration
+   as clean. If the policy does not exist, mark this check not applicable:
+   do not create a vetted-ops policy during reconciliation. If the
+   policy cannot be read or parsed, report it as unchecked, not clean.
+
 4. **Sandboxed sessions cover what they can reach.** Resolving a
    skill's anchors (check 2) needs that skill's `SKILL.md` **and its
    sibling detail files**. On a pinned-snapshot install they sit inside
@@ -182,8 +205,8 @@ baseline required.
 
 ## Step 1 — Present the findings
 
-List every finding from checks 2–3 as a numbered proposal, one item per
-override or `requires_config` gap:
+List every finding from checks 2–3a as a numbered proposal, one item per
+override, `requires_config` gap, or missing import caller policy grant:
 
 ```text
 1. .apache-magpie-overrides/issue-triage.md anchors to
@@ -195,8 +218,8 @@ override or `requires_config` gap:
    → /magpie-setup:setup config pr-management-code-review
 ```
 
-No findings → say so plainly (*"every configured skill's anchors and
-`requires_config` entries resolve"*), name any `unchecked` skills from
+No findings → say so plainly (*"every configured skill's anchors,
+`requires_config` entries and applicable vetted-ops caller grants resolve"*), name any `unchecked` skills from
 check 4, and go straight to Step 2 with nothing to confirm — writing
 the stamp needs no confirmation when nothing is changing.
 
@@ -208,6 +231,15 @@ does not auto-rewrite an override's anchor; re-anchoring is the
 maintainer's judgement call, not pattern-matching. A `requires_config`
 gap can be closed mechanically by chaining into
 `/magpie-setup:setup config <skill>`; offer it per item.
+
+For an import caller policy finding (check 3a), show the minimum-grant
+TOML diff before asking. After confirmation, hand off to setup config
+or let the user save the drafted policy; do not directly write the
+security-control file from reconcile. A refusal does
+not authorize a policy edit or a clean reconciliation stamp for that
+unresolved configuration. Do not treat resolved `requires_config` files
+alone as proof of a clean skill when its required caller grants are missing.
+Preserve existing policy content not covered by the confirmed change.
 
 Both `acknowledged` writes below fire **on decline**, not on show — unlike
 the pre-flight block's own per-skill check

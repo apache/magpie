@@ -9,27 +9,32 @@ Return ONLY valid JSON with this structure:
 {
   "proposals": [
     {
-      "kind": "reanchor" | "config",
+      "kind": "reanchor" | "config" | "policy",
       "skill": "<skill name>",
-      "override_file": "<relative path, or null for a config finding>",
+      "override_file": "<relative path, or null for config/policy findings>",
       "detail": "<free text — the heading that moved, or the file that is missing>"
     }
   ],
-  "unchecked": ["anchor-resolution" | "requires_config"],
+  "unchecked": ["anchor-resolution" | "requires_config" | "policy-grants"],
   "stamp_written": true | false
 }
 ```
 
-- `proposals` — one entry per finding from the two checks. `kind: "reanchor"`
+- `proposals` — one entry per finding from the reconciliation checks. `kind: "reanchor"`
   when an override's referenced anchor no longer resolves in the target
   skill's current `SKILL.md`; `kind: "config"` when a `requires_config`
-  entry does not resolve through the lookup chain. Empty when both checks
-  pass cleanly for everything in scope.
+  entry does not resolve through the lookup chain; `kind: "policy"` when
+  an applicable import caller or required operation is absent from an
+  existing vetted-ops policy. Use the caller name as `skill` and name
+  the exact missing operations in `detail`. Empty when all applicable
+  checks pass cleanly for everything in scope.
 - `unchecked` — which check(s) could not be completed for at least one
   skill in scope, because that skill's `SKILL.md` was not readable this
   session (a marketplace install's plugin cache, denied under the
   sandbox). `requires_config` resolution needs only files already in the
-  repository, so it is never unchecked. Empty when nothing was skipped.
+  repository, so it is never unchecked. Use `policy-grants` when an
+  existing vetted-ops policy cannot be read or parsed. A missing
+  policy is not applicable, not unchecked. Empty when nothing was skipped.
 - `stamp_written` is `true` only when `proposals` and `unchecked` are both
   empty — nothing changed, so the stamp is written immediately with no
   confirmation needed. Any finding, or anything left unchecked, means
