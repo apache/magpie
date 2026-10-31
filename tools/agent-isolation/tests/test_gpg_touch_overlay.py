@@ -2126,6 +2126,53 @@ def test_each_ssh_authentication_gets_its_own_reminder(tmp_path: Path, process_n
 
 
 @_needs_a_quiet_signer
+def test_a_watcher_armed_mid_authentication_keeps_its_dismissal(tmp_path: Path, process_named) -> None:
+    """A watcher whose baseline already counts the connection never saw it end."""
+    window, shown = _fake_window(tmp_path, 0)
+    path = str(tmp_path / "agent.sock")
+    runtime = tmp_path / "runtime" / "magpie-gpg-touch"
+    runtime.mkdir(parents=True)
+    trace_first, trace_late = tmp_path / "trace-first", tmp_path / "trace-late"
+    env = {
+        **os.environ,
+        "XDG_RUNTIME_DIR": str(tmp_path / "runtime"),
+        "SSH_AUTH_SOCK": path,
+        "MAGPIE_GPG_TOUCH_OVERLAY": str(window),
+        "MAGPIE_GPG_TOUCH_DEBUG": "1",
+    }
+    env.pop("MAGPIE_GPG_TOUCH_WRAPPED_SIGNER", None)
+    with (
+        socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as server,
+        trace_first.open("w") as first_out,
+        trace_late.open("w") as late_out,
+    ):
+        server.bind(path)
+        server.listen()
+        first = subprocess.Popen(["bash", str(SCRIPT), "_watch"], env=env, stderr=first_out)
+        late = None
+        try:
+            assert _wait_for(lambda: "+ baseline=" in trace_first.read_text(), timeout=5)
+            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
+                client.connect(path)
+                accepted, _address = server.accept()
+                with accepted:
+                    assert _wait_for((runtime / "dismissed").exists, timeout=10)
+                    assert _showings(shown) == 1
+                    # Armed while the authentication is still in flight, so its
+                    # baseline counts that connection and it is idle at once.
+                    late = subprocess.Popen(["bash", str(SCRIPT), "_watch"], env=env, stderr=late_out)
+                    assert _wait_for(lambda: "+ reshow_at=0" in trace_late.read_text(), timeout=10)
+                    time.sleep(2)
+                    assert (runtime / "dismissed").exists(), "the late watcher cleared a live dismissal"
+                    assert _showings(shown) == 1, "the dismissed authentication got a second window"
+        finally:
+            for watcher in (first, late):
+                if watcher is not None:
+                    watcher.terminate()
+                    watcher.wait(timeout=5)
+
+
+@_needs_a_quiet_signer
 @pytest.mark.parametrize("abnormal", [False, True], ids=["group-signal", "dead-owner-sweep"])
 def test_wrapped_signer_record_is_cleaned_up(tmp_path: Path, process_named, abnormal: bool) -> None:
     """Normal signalling or sweeping a dead owner forgets its signer PID."""

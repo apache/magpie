@@ -973,7 +973,7 @@ _watch() {
     # The loop itself is silent, so a log is only worth having as a trace.
     _debugging && set -x
 
-    local i blocked=0 sockets baseline rows dismissed
+    local i blocked=0 saw_operation=0 sockets baseline rows dismissed
 
     # Connections to the agent that already exist are somebody else's —
     # a stuck client, a session in another terminal — and are not what
@@ -999,6 +999,7 @@ _watch() {
         # of the hot loop entirely on the wrapped path; polling it first cost
         # the overlay the whole window on a busy machine, so it never appeared.
         if signing_in_flight || { rows="$(agent_socket_rows "$sockets")"; (( rows > baseline )); }; then
+            saw_operation=1
             if pinentry_up; then
                 # The PIN prompt owns the screen; the signature is still
                 # the same one, so a dismissal of it stands.
@@ -1015,11 +1016,22 @@ _watch() {
             # not another one starting within the TTL. The existing lease
             # protects the check and removal from a concurrent signer
             # publishing a nonempty dismissal. Leave those markers alone.
-            if [[ -e $DISMISSED_MARKER ]] && _lease_acquire; then
-                if dismissed="$(cat "$DISMISSED_MARKER" 2>/dev/null)" && [[ -z $dismissed ]]; then
-                    rm -f "$DISMISSED_MARKER" 2>/dev/null
+            # Only the ending this watcher saw counts: the marker is one
+            # per host but the baseline is this watcher's own, so a
+            # watcher armed while another's authentication is in flight
+            # is idle from its first poll and must not clear a dismissal
+            # that authentication still holds. The flag stays set while the
+            # lease is busy, so the check is retried on the next idle poll.
+            if (( saw_operation )); then
+                if [[ ! -e $DISMISSED_MARKER ]]; then
+                    saw_operation=0
+                elif _lease_acquire; then
+                    if dismissed="$(cat "$DISMISSED_MARKER" 2>/dev/null)" && [[ -z $dismissed ]]; then
+                        rm -f "$DISMISSED_MARKER" 2>/dev/null
+                    fi
+                    _lease_release
+                    saw_operation=0
                 fi
-                _lease_release
             fi
             # Nothing is signing here: a window that closed unanswered was
             # for the signature that just ended.
