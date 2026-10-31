@@ -62,8 +62,16 @@ _CROSS = re.compile(
     r"also reported against|cross-project|other apache projects|sister project|the same finder also",
     re.IGNORECASE,
 )
+
+
 # The CVE-tool host as a URL host, not a substring check: this scans text, it sanitises nothing.
-_CVE_TOOL_URL = re.compile(r"(?:https?://)?(?<![\w.-])cveprocess\.apache\.org(?![\w-])", re.IGNORECASE)
+def _cve_tool_pattern(cve_tool_url: object = None) -> re.Pattern[str] | None:
+    host = drafting.cve_tool_host(cve_tool_url)
+    if host in drafting.PUBLIC_CVE_HOSTS:
+        return None
+    return re.compile(r"(?:https?://)?(?<![\w.-])" + re.escape(host) + r"(?![\w-])", re.IGNORECASE)
+
+
 _BREAK = re.compile(r"(?<=[.!?])\s+")
 
 
@@ -81,8 +89,10 @@ def _bare_cves(sentence: str) -> list[str]:
 
 def check(data: Mapping[str, Any]) -> dict[str, Any]:
     own = {str(n).lower() for n in data.get("own_names") or []}
-    names = [n for n in drafting.ASF_PROJECTS if n.lower() not in own]
-    other = re.compile(r"\b(?:Apache\s+)?(?:" + "|".join(names) + r")\b")
+    is_asf = str(data.get("organization") or "ASF").strip().upper() == "ASF"  # unset fails closed
+    names = [n for n in drafting.ASF_PROJECTS if n.lower() not in own] if is_asf else []
+    other = re.compile(r"\b(?:Apache\s+)?(?:" + "|".join(names) + r")\b") if names else None
+    cve_tool = _cve_tool_pattern(data.get("cve_tool_url"))
     violations: list[dict[str, str]] = []
     for surface in data.get("surfaces") or []:
         kind = str(surface.get("kind") or "")
@@ -92,10 +102,10 @@ def check(data: Mapping[str, Any]) -> dict[str, Any]:
             found: list[str] = []
             if _CVSS.search(sentence):
                 found.append(CVSS)
-            if other.search(sentence) or _CROSS.search(sentence):
+            if (other is not None and other.search(sentence)) or _CROSS.search(sentence):
                 found.append(OTHER_ASF)
             if kind == "email":
-                if _CVE_TOOL_URL.search(sentence):
+                if cve_tool is not None and cve_tool.search(sentence):
                     found.append(LINK_CVE)
             elif kind in MARKDOWN:
                 if _bare_cves(sentence):

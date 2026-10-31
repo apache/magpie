@@ -33,12 +33,23 @@ def _setup(tmp_path: Path, name: str = "prek") -> tuple[dict[str, str], Path]:
     real = tmp_path / "real"
     real.mkdir()
     argv = tmp_path / "argv"
-    (real / name).write_text(f'#!/bin/sh\nprintf "%s\\n" "$@" > {argv}\n')
+    env_file = tmp_path / "env"
+    (real / name).write_text(
+        f'#!/bin/sh\nprintf "%s\\n" "$@" > {argv}\n'
+        f'printf "%s\\n" "${{GIT_CONFIG_COUNT-}}" '
+        f'"${{GIT_CONFIG_KEY_0-}}" "${{GIT_CONFIG_VALUE_0-}}" '
+        f'"${{GIT_CONFIG_KEY_1-}}" "${{GIT_CONFIG_VALUE_1-}}" > {env_file}\n'
+    )
     (real / name).chmod(0o755)
     shims = tmp_path / "shims"
     shims.mkdir()
     (shims / name).symlink_to(SHIM)
-    env = dict(os.environ, PATH=f"{shims}:{real}:/usr/bin:/bin")
+    env = {
+        key: value
+        for key, value in os.environ.items()
+        if not key.startswith("GIT_CONFIG_")
+    }
+    env["PATH"] = f"{shims}:{real}:/usr/bin:/bin"
     return env, argv
 
 
@@ -70,13 +81,116 @@ def test_install_targets_the_common_git_dir(tmp_path: Path) -> None:
     ]
 
 
+def _common_dir(repo: Path) -> str:
+    result = subprocess.run(
+        ["bash", "-c", 'cd "$(git rev-parse --git-common-dir)" && pwd -P'],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return result.stdout.strip()
+
+
+def test_overcommit_install_targets_the_common_hooks_dir(tmp_path: Path) -> None:
+    env, argv = _setup(tmp_path, name="overcommit")
+    repo = _repo(tmp_path)
+    assert _run(env, repo, "--install", name="overcommit").returncode == 0
+    assert argv.read_text().splitlines() == ["--install"]
+    assert (tmp_path / "env").read_text().splitlines() == [
+        "1",
+        "core.hooksPath",
+        f"{_common_dir(repo)}/hooks",
+        "",
+        "",
+    ]
+
+
+def test_overcommit_install_help_passes_through(tmp_path: Path) -> None:
+    env, argv = _setup(tmp_path, name="overcommit")
+    assert (
+        _run(env, _repo(tmp_path), "--install", "--help", name="overcommit").returncode
+        == 0
+    )
+    assert argv.read_text().splitlines() == ["--install", "--help"]
+    assert (tmp_path / "env").read_text().splitlines() == ["", "", "", "", ""]
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ["-i"],
+        ["--force", "--install"],
+        ["--force", "-i"],
+        ["-fi"],
+        ["--i"],
+        ["--inst"],
+        ["--force", "--insta"],
+    ],
+)
+def test_overcommit_install_flag_is_found_anywhere(
+    tmp_path: Path, args: list[str]
+) -> None:
+    env, argv = _setup(tmp_path, name="overcommit")
+    repo = _repo(tmp_path)
+    assert _run(env, repo, *args, name="overcommit").returncode == 0
+    assert argv.read_text().splitlines() == args
+    assert (tmp_path / "env").read_text().splitlines() == [
+        "1",
+        "core.hooksPath",
+        f"{_common_dir(repo)}/hooks",
+        "",
+        "",
+    ]
+
+
+@pytest.mark.parametrize("args", [["--run"], ["--uninstall"], ["--"]])
+def test_overcommit_other_actions_pass_through(tmp_path: Path, args: list[str]) -> None:
+    env, argv = _setup(tmp_path, name="overcommit")
+    repo = _repo(tmp_path)
+    assert _run(env, repo, *args, name="overcommit").returncode == 0
+    assert argv.read_text().splitlines() == args
+    assert (tmp_path / "env").read_text().splitlines() == ["", "", "", "", ""]
+
+
+def test_overcommit_install_preserves_existing_git_config(tmp_path: Path) -> None:
+    env, _ = _setup(tmp_path, name="overcommit")
+    repo = _repo(tmp_path)
+    env.update(
+        {
+            "GIT_CONFIG_COUNT": "1",
+            "GIT_CONFIG_KEY_0": "user.name",
+            "GIT_CONFIG_VALUE_0": "Someone",
+        }
+    )
+    assert _run(env, repo, "--install", name="overcommit").returncode == 0
+    assert (tmp_path / "env").read_text().splitlines() == [
+        "2",
+        "user.name",
+        "Someone",
+        "core.hooksPath",
+        f"{_common_dir(repo)}/hooks",
+    ]
+
+
 def test_a_linked_worktree_targets_the_main_checkout(tmp_path: Path) -> None:
     env, argv = _setup(tmp_path)
     repo = _repo(tmp_path)
     # A developer's global commit.gpgsign would make this commit wait for (or
     # fail on) their signing key; the throwaway repo has nothing to sign.
     subprocess.run(
-        ["git", "-C", str(repo), "-c", "commit.gpgsign=false", "commit", "-q", "--allow-empty", "-m", "x"],
+        [
+            "git",
+            "-C",
+            str(repo),
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "-q",
+            "--allow-empty",
+            "-m",
+            "x",
+        ],
         check=True,
         env=dict(
             os.environ,
@@ -105,6 +219,7 @@ def test_a_linked_worktree_targets_the_main_checkout(tmp_path: Path) -> None:
         ["install", "--git-dir=/x"],
         ["install", "--help"],
         ["run", "--all-files"],
+        ["run", "install"],
         ["--version"],
     ],
 )

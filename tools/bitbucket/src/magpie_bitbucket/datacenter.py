@@ -21,15 +21,18 @@ from __future__ import annotations
 
 import json
 from typing import Any
+from urllib.parse import urlencode
 
 from magpie_bitbucket.client import (
     BitbucketConfig,
     BitbucketError,
     get_json,
+    get_json_with_header,
     get_text,
     post_json,
     quote_path,
     require,
+    write_request,
 )
 
 
@@ -357,14 +360,99 @@ def get_pull_request_status(config: BitbucketConfig, pull_request_id: str) -> di
     return combined
 
 
+def _current_user_slug(config: BitbucketConfig) -> str:
+    """Return the authenticated Bitbucket Data Center user's URL-safe slug."""
+    users_url = f"{_api_base(config)}/users"
+
+    _, username = get_json_with_header(users_url, config, "X-AUSERNAME")
+
+    if not isinstance(username, str) or not username.strip():
+        raise BitbucketError(
+            "Bitbucket Data Center response did not include the authenticated user in X-AUSERNAME"
+        )
+
+    username = username.strip()
+    start = 0
+    matches: list[dict[str, Any]] = []
+
+    while True:
+        params: dict[str, str | int] = {"filter": username}
+        if start:
+            params["start"] = start
+
+        page = get_json(f"{users_url}?{urlencode(params)}", config)
+
+        values = page.get("values")
+        if not isinstance(values, list):
+            raise BitbucketError("Bitbucket Data Center user search response did not include values")
+
+        matches.extend(user for user in values if isinstance(user, dict) and user.get("name") == username)
+
+        next_start = _next_page_start(page, start)
+        if next_start is None:
+            break
+
+        start = next_start
+
+    if not matches:
+        raise BitbucketError(f"Bitbucket Data Center could not resolve authenticated user {username!r}")
+
+    if len(matches) > 1:
+        raise BitbucketError(
+            f"Bitbucket Data Center returned multiple matches for authenticated user {username!r}"
+        )
+
+    slug = matches[0].get("slug")
+
+    if not isinstance(slug, str) or not slug.strip():
+        raise BitbucketError("Bitbucket Data Center authenticated user did not include a user slug")
+
+    return quote_path(slug)
+
+
+def _set_pull_request_participant_status(
+    config: BitbucketConfig,
+    pull_request_id: str,
+    status: str,
+) -> dict[str, Any]:
+    """Set the authenticated user's pull-request participant status."""
+    project_key = quote_path(require(config.project_key, "BITBUCKET_PROJECT_KEY"))
+    repo_slug = quote_path(require(config.repo_slug, "BITBUCKET_REPO_SLUG"))
+    pr_id = quote_path(pull_request_id)
+    user_slug = _current_user_slug(config)
+
+    url = (
+        f"{_api_base(config)}/projects/{project_key}/repos/{repo_slug}/"
+        f"pull-requests/{pr_id}/participants/{user_slug}"
+    )
+
+    participant = write_request(
+        url,
+        config,
+        method="PUT",
+        payload={"status": status},
+    )
+
+    if participant is None:
+        raise BitbucketError(
+            "Bitbucket Data Center participant-status response did not include a participant"
+        )
+
+    return {
+        "pull_request_id": pull_request_id,
+        "participant": participant,
+    }
+
+
 def approve_pull_request(
     config: BitbucketConfig,
     pull_request_id: str,
 ) -> dict[str, Any]:
-    """Reject pull-request approval writes for Data Center for now."""
-    _ = (config, pull_request_id)
-    raise BitbucketError(
-        "Bitbucket Data Center pull request approval writes are not supported by this command yet"
+    """Approve one Bitbucket Data Center pull request as the authenticated user."""
+    return _set_pull_request_participant_status(
+        config,
+        pull_request_id,
+        "APPROVED",
     )
 
 
@@ -372,10 +460,11 @@ def unapprove_pull_request(
     config: BitbucketConfig,
     pull_request_id: str,
 ) -> dict[str, Any]:
-    """Reject pull-request unapproval writes for Data Center for now."""
-    _ = (config, pull_request_id)
-    raise BitbucketError(
-        "Bitbucket Data Center pull request approval writes are not supported by this command yet"
+    """Remove the authenticated user's approval from a Data Center pull request."""
+    return _set_pull_request_participant_status(
+        config,
+        pull_request_id,
+        "UNAPPROVED",
     )
 
 
@@ -383,10 +472,11 @@ def request_pull_request_changes(
     config: BitbucketConfig,
     pull_request_id: str,
 ) -> dict[str, Any]:
-    """Reject pull-request change-request writes for Data Center for now."""
-    _ = (config, pull_request_id)
-    raise BitbucketError(
-        "Bitbucket Data Center pull request change-request writes are not supported by this command yet"
+    """Request changes on a Data Center pull request as the authenticated user."""
+    return _set_pull_request_participant_status(
+        config,
+        pull_request_id,
+        "NEEDS_WORK",
     )
 
 
@@ -394,10 +484,11 @@ def remove_pull_request_changes_request(
     config: BitbucketConfig,
     pull_request_id: str,
 ) -> dict[str, Any]:
-    """Reject pull-request change-request removal writes for Data Center for now."""
-    _ = (config, pull_request_id)
-    raise BitbucketError(
-        "Bitbucket Data Center pull request change-request writes are not supported by this command yet"
+    """Remove the authenticated user's Data Center change request."""
+    return _set_pull_request_participant_status(
+        config,
+        pull_request_id,
+        "UNAPPROVED",
     )
 
 

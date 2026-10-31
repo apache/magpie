@@ -30,6 +30,7 @@
 from __future__ import annotations
 
 import re
+import urllib.parse
 from collections.abc import Iterable, Mapping
 from typing import Any
 
@@ -48,7 +49,30 @@ _REOPEN = re.compile(
     r"happy to discuss further|open to other views|let us know if you disagree", re.IGNORECASE
 )
 _CVSS = re.compile(r"CVSS|\bAV:[NALP]\b|\b\d{1,2}\.\d\s*\(?(?:low|medium|high|critical)\b", re.IGNORECASE)
-_CVE_TOOL_URL = re.compile(r"cveprocess\.apache\.org\S*")
+_DEFAULT_CVE_TOOL_URL = "https://cveprocess.apache.org"
+_DEFAULT_CVE_TOOL_HOST = urllib.parse.urlparse(_DEFAULT_CVE_TOOL_URL).hostname or ""
+# The public CVE record: a link to it is allowed once the CVE is published, so a
+# CVE tool configured as cve.org (the `independent` default) has no private URL to guard.
+PUBLIC_CVE_HOSTS = frozenset({"cve.org", "www.cve.org"})
+
+
+def cve_tool_host(cve_tool_url: object = None) -> str:
+    """The configured CVE tool's host; `https://` is assumed when the scheme is omitted.
+
+    A bare host (`cve.example.org`) leaves `urlparse`'s `netloc` empty, so the
+    scheme is filled in first; `hostname` drops any userinfo and port, which a
+    URL in the scanned text will not carry.
+    """
+    raw = str(cve_tool_url or _DEFAULT_CVE_TOOL_URL).strip()
+    parsed = urllib.parse.urlparse(raw if "://" in raw else f"https://{raw}")
+    return (parsed.hostname or _DEFAULT_CVE_TOOL_HOST).lower()
+
+
+def cve_tool_url_pattern(cve_tool_url: object = None) -> re.Pattern[str] | None:
+    """Match the configured CVE tool host and the URL that follows it; None for the public record."""
+    if cve_tool_host(cve_tool_url) in PUBLIC_CVE_HOSTS:
+        return None
+    return re.compile(re.escape(cve_tool_host(cve_tool_url)) + r"\S*", re.IGNORECASE)
 
 
 def backend(data: Mapping[str, Any]) -> tuple[str, str | None]:
@@ -93,7 +117,13 @@ def anchor(name: str, data: Mapping[str, Any]) -> dict[str, Any]:
     }[name]
 
 
-def scan(text: str, tracker: str, own_names: Iterable[object] = ()) -> list[dict[str, Any]]:
+def scan(
+    text: str,
+    tracker: str,
+    own_names: Iterable[object] = (),
+    organization: object = None,
+    cve_tool_url: object = None,
+) -> list[dict[str, Any]]:
     """Every leak in `text`: `{kind, line, text}`, `line` 1-based or `None`."""
     owner = tracker.split("/")[0]
     hits: list[dict[str, Any]] = []
@@ -107,13 +137,15 @@ def scan(text: str, tracker: str, own_names: Iterable[object] = ()) -> list[dict
         "tracker-reference",
         re.compile(re.escape(tracker) + r"|\b" + re.escape(owner) + r"#\d+", re.IGNORECASE),
     )
-    hit("cve-tool-url", _CVE_TOOL_URL)
+    if (cve_tool := cve_tool_url_pattern(cve_tool_url)) is not None:
+        hit("cve-tool-url", cve_tool)
     hit("reopening-phrase", _REOPEN)
     hit("cvss", _CVSS)
     hit("cross-project", _CROSS_PROJECT)
     own = {str(n).lower() for n in own_names}
-    names = [n for n in ASF_PROJECTS if n.lower() not in own]
-    hit("asf-project", re.compile(r"\b(?:" + "|".join(names) + r")\b"))
+    if str(organization or "ASF").strip().upper() == "ASF":  # unset fails closed
+        names = [n for n in ASF_PROJECTS if n.lower() not in own]
+        hit("asf-project", re.compile(r"\b(?:" + "|".join(names) + r")\b"))
     for ref in refs.bare_refs(text):
         hits.append({"kind": "bare-ref", "line": None, "text": ref})
     return hits

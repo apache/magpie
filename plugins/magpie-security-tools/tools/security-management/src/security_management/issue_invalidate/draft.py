@@ -128,7 +128,13 @@ def plan(data: Mapping[str, Any]) -> dict[str, Any]:
 def check(data: Mapping[str, Any]) -> dict[str, Any]:
     text = str(data.get("body") or "")
     tracker = str(data["tracker"])
-    hits = drafting.scan(text, tracker, data.get("own_names") or [])
+    hits = drafting.scan(
+        text,
+        tracker,
+        data.get("own_names") or [],
+        data.get("organization"),
+        data.get("cve_tool_url"),
+    )
     if str(data.get("disposition") or "invalid") == "duplicate":
         canonical = one_line(data.get("canonical_cve"))
         if not canonical or canonical not in _CVE.findall(text):
