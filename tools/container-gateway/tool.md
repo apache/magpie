@@ -134,9 +134,12 @@ does not cover, and what the design accepts:
   feature the gateway has not learned is unavailable through it until the
   table learns it. The refusal names the field, so the fix is a table entry
   plus a test, not a debugging session.
-- **A writable bind of the whole project root is refused.** It covers
-  `.claude/` and `.git`; the container gets the root read-only, or a
-  writable subdirectory. Only the listed paths are protected: other in-tree
+- **A writable bind of a checkout root is split.** The root (the project
+  root, an extra bind root, or any directory with a `.git`, so every
+  worktree) is mounted read-only and each child that covers no protected
+  path gets a writable bind of its own; the protected paths stay read-only
+  and cannot be created. A writable bind of `.claude`, `.git` or another
+  subdirectory covering a protected path is still refused. Only the listed paths are protected: other in-tree
   files a tool later runs (a `Makefile`, an in-tree `core.hooksPath`
   directory) are as writable through a subdirectory bind as they are to the
   sandboxed shell.

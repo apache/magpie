@@ -31,7 +31,11 @@ acceptance:
     one-line reason.
   - A writable bind mount whose source is, contains or sits under a
     write-protected path is refused with HTTP 403; the same bind
-    read-only is allowed. The protected paths are `.claude/settings.json`,
+    read-only is allowed. A writable bind of a checkout root (the project
+    root, an extra bind root, or a directory holding a `.git`) is split
+    instead: the root read-only, a writable bind for each child covering
+    no protected path, the split repeated one level down for a child that
+    still covers one, and protected children read-only. The protected paths are `.claude/settings.json`,
     `.claude/settings.local.json`, `.claude/hooks`, `.claude/skills`,
     `.claude/commands`, `.claude/agents`, `.mcp.json` and
     `.git` under every bind root (and inside each of its existing
