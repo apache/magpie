@@ -20,6 +20,7 @@ import email
 import email.utils
 import json
 import mailbox
+import time
 from email.message import EmailMessage
 
 import pytest
@@ -255,18 +256,58 @@ def test_newest_first_survives_messages_in_different_time_zones(tmp_path):
 
 def test_duplicate_message_ids_are_counted_once(tmp_path):
     """The same report exported twice must not double `message_count` or the body."""
-    archive = _write_mbox(
-        tmp_path / "archive.mbox",
-        [
-            _msg("root@example.org", days_ago=2, body="original\n"),
-            _msg("root@example.org", days_ago=1, body="duplicate copy\n"),
-        ],
-    )
+    first = _msg("root@example.org", days_ago=2, body="original\n")
+    second = _msg("root@example.org", days_ago=1, body="original\n")
+    second["List-Id"] = "<private.example.org>"
+    archive = _write_mbox(tmp_path / "archive.mbox", [first, second])
 
     threads = list_recent_threads(archive, since_days=30)
 
     assert threads[0]["message_count"] == 1
     assert [m["body"] for m in read_thread(archive, "<root@example.org>")["messages"]] == ["original\n"]
+
+
+def test_a_reused_message_id_does_not_hide_a_different_message(tmp_path):
+    """Any sender can pick a Message-ID; reusing a report's must not drop the report."""
+    archive = _write_mbox(
+        tmp_path / "archive.mbox",
+        [
+            _msg("root@example.org", days_ago=2, body="decoy\n"),
+            _msg("root@example.org", days_ago=1, body="the real report\n"),
+        ],
+    )
+
+    bodies = [m["body"] for m in read_thread(archive, "<root@example.org>")["messages"]]
+
+    assert bodies == ["decoy\n", "the real report\n"]
+
+
+def test_symlinked_messages_are_not_read(tmp_path):
+    """A symlink in a snapshot from elsewhere must not pull a local file into the body."""
+    secret = tmp_path / "secret.eml"
+    secret.write_bytes(_msg("secret@example.org", body="local secret\n").as_bytes())
+
+    emls = tmp_path / "emls"
+    emls.mkdir()
+    (emls / "report.eml").write_bytes(_msg("report@example.org").as_bytes())
+    (emls / "planted.eml").symlink_to(secret)
+
+    maildir = tmp_path / "maildir"
+    for sub in ("cur", "tmp"):
+        (maildir / sub).mkdir(parents=True)
+    (maildir / "cur" / "1700000000.M1P1.host:2,S").write_bytes(_msg("report@example.org").as_bytes())
+    (maildir / "cur" / "1700000001.M1P1.host:2,S").symlink_to(secret)
+    linked = tmp_path / "linked-new"
+    linked.mkdir()
+    (linked / "1700000002.M1P1.host").write_bytes(secret.read_bytes())
+    (maildir / "new").symlink_to(linked, target_is_directory=True)
+
+    for archive in (emls, maildir):
+        ids = [t["thread_id"] for t in list_recent_threads(archive, since_days=30)]
+
+        assert ids == ["<report@example.org>"], archive
+        with pytest.raises(LookupError):
+            read_thread(archive, "<secret@example.org>")
 
 
 def test_read_thread_returns_oldest_first_with_bodies(tmp_path):
@@ -381,6 +422,46 @@ def test_script_and_style_content_never_reaches_the_body(tmp_path):
     assert "Heap overflow" in body
     assert "leak" not in body
     assert "color" not in body
+
+
+def test_an_unclosed_script_runs_to_the_end_of_the_document(tmp_path):
+    archive = _write_raw_eml(
+        tmp_path / "emls",
+        [
+            "Message-ID: <unclosed@example.org>\r\n"
+            "Subject: HTML only\r\n"
+            "Date: Sat, 25 Oct 2026 10:00:00 +0000\r\n"
+            "Content-Type: text/html\r\n"
+            "\r\n"
+            "<p>Heap overflow</p><script>var leak = 1;<p>still script</p>\r\n",
+        ],
+    )
+
+    body = read_thread(archive, "<unclosed@example.org>")["messages"][0]["body"]
+
+    assert body == "Heap overflow"
+
+
+def test_hostile_markup_is_stripped_in_linear_time(tmp_path):
+    """Runs of `<` and unclosed openers must not make the tag patterns rescan the body."""
+    markup = "<p>Heap overflow</p>" + "<" * 400_000 + "<script " * 50_000 + "<p " * 50_000
+    archive = _write_raw_eml(
+        tmp_path / "emls",
+        [
+            "Message-ID: <hostile@example.org>\r\n"
+            "Subject: HTML only\r\n"
+            "Date: Sat, 25 Oct 2026 10:00:00 +0000\r\n"
+            "Content-Type: text/html\r\n"
+            "\r\n" + markup + "\r\n",
+        ],
+    )
+
+    started = time.monotonic()
+    body = read_thread(archive, "<hostile@example.org>")["messages"][0]["body"]
+
+    assert body.startswith("Heap overflow")
+    # A quadratic pattern takes minutes on this input; the linear one well under a second.
+    assert time.monotonic() - started < 10
 
 
 def test_a_single_part_html_message_is_stripped_to_text(tmp_path):

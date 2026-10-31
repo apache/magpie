@@ -26,10 +26,12 @@ operation here writes to the archive, and there is no draft or send path
 Thread identity is the RFC-5322 ``Message-ID`` of the thread root in the
 bracketed form (``<root@host>``), which is what the IMAP backend emits under
 the same ``thread_id_kind``. The root itself is the first ``References`` ID,
-else the first ``In-Reply-To`` ID, else the message's own ``Message-ID`` —
-``imap_source.searching.thread_root_of`` applies the same rule, including when
-that root is not in the archive. Both halves have to agree: an ID recorded by a
-``-sync`` run against one backend is compared verbatim against the other's.
+else the first ``In-Reply-To`` ID, else the message's own ``Message-ID``, even
+when that root is not in the archive. Both halves have to agree: an ID recorded
+by a ``-sync`` run against one backend is compared verbatim against the other's.
+``imap_source.searching.thread_root_of`` does not take the ``In-Reply-To`` step
+yet, so a reply carrying only ``In-Reply-To`` is its own thread on IMAP and
+joins its parent here.
 
 The archive is scanned whole on every call. These files are forensics /
 air-gapped snapshots measured in tens of megabytes, not live mailboxes; an
@@ -70,19 +72,20 @@ _MSG_ID = re.compile(r"<[^<>\s]+>")
 
 _KEYLESS_PREFIX = "urn:sha256:"
 
-# A `script`/`style` element and its content. The end tag carries `[^>]*`, not
-# just `\s*`: HTML permits `</script\t\n bar>` and `</script foo>`, and a
-# pattern that only accepts `</script>` would leave the element's code in the
-# body (CodeQL py/bad-tag-filter).
-_HTML_DROP = re.compile(
-    r"<(?:script|style)\b[^>]*>.*?</(?:script|style)\b[^>]*>",
-    re.IGNORECASE | re.DOTALL,
-)
+# The body is attacker-controlled, so every tag pattern stops at the next `<`
+# (`[^<>]`) and an element's end tag is searched for once, forward: a pattern
+# that can rescan to the end of the input from each `<` turns a few megabytes of
+# `<` or of unclosed `<script>` into minutes of matching.
+_HTML_DROP_OPEN = re.compile(r"<(script|style)\b[^<>]*>", re.IGNORECASE)
+# The end tag carries `[^<>]*`, not just `\s*`: HTML permits `</script\t\n bar>`
+# and `</script foo>`, and a pattern that only accepts `</script>` would leave
+# the element's code in the body (CodeQL py/bad-tag-filter).
+_HTML_DROP_CLOSE = {name: re.compile(rf"</{name}\b[^<>]*>", re.IGNORECASE) for name in ("script", "style")}
 _HTML_BLOCK_BREAK = re.compile(
-    r"</?(?:p|div|br|tr|td|li|h[1-6]|blockquote|pre|table|hr)\b[^>]*>",
+    r"</?(?:p|div|br|tr|td|li|h[1-6]|blockquote|pre|table|hr)\b[^<>]*>",
     re.IGNORECASE,
 )
-_HTML_TAG = re.compile(r"<[^>]+>")
+_HTML_TAG = re.compile(r"<[^<>]+>")
 
 
 def _normalise_id(raw: str) -> str:
@@ -215,9 +218,28 @@ def _decode_payload(part: Message) -> str:
         return payload.decode("utf-8", "replace")
 
 
+def _drop_script_style(markup: str) -> str:
+    """``markup`` with every ``script`` / ``style`` element and its content removed.
+
+    An element left unclosed runs to the end of the document, as a browser
+    reads it, so its code never reaches the body.
+    """
+    kept: list[str] = []
+    pos = 0
+    while (opener := _HTML_DROP_OPEN.search(markup, pos)) is not None:
+        kept.append(markup[pos : opener.start()])
+        kept.append(" ")
+        closer = _HTML_DROP_CLOSE[opener.group(1).lower()].search(markup, opener.end())
+        if closer is None:
+            return "".join(kept)
+        pos = closer.end()
+    kept.append(markup[pos:])
+    return "".join(kept)
+
+
 def _html_to_text(markup: str) -> str:
     """A readable approximation of an HTML body: block breaks kept, tags dropped."""
-    text = _HTML_DROP.sub(" ", markup)
+    text = _drop_script_style(markup)
     text = _HTML_BLOCK_BREAK.sub("\n", text)
     text = _HTML_TAG.sub("", text)
     text = html.unescape(text)
@@ -276,30 +298,44 @@ def detect_format(path: str | Path) -> str:
 def iter_messages(path: str | Path) -> list[tuple[str, Message]]:
     """Every message in the archive as ``(key, message)``.
 
-    The order is whatever the store yields — for a Maildir that is directory
-    listing order, which is neither chronological nor stable across copies — so
-    nothing downstream relies on it and ordering comes from ``Date`` instead.
-    ``key`` is a diagnostic handle only (mailbox key, or the file name for an
-    ``.eml`` directory), never a thread identifier.
+    The order is the store's — for a Maildir, file-name order within ``cur/``
+    and then ``new/``, which is neither chronological nor stable across copies —
+    so nothing downstream relies on it and ordering comes from ``Date`` instead.
+    ``key`` is a diagnostic handle only (the mbox key, ``cur/<name>`` or
+    ``new/<name>`` for a Maildir, the file name for an ``.eml`` directory), never
+    a thread identifier.
     """
     root = Path(path).expanduser()
     shape = detect_format(root)
     if shape == "mbox":
-        box: mailbox.Mailbox = mailbox.mbox(str(root), create=False)
-    elif shape == "maildir":
-        box = mailbox.Maildir(str(root), create=False)
+        box = mailbox.mbox(str(root), create=False)
+        try:
+            return [(key, msg) for key, msg in box.iteritems()]
+        finally:
+            box.close()
+    if shape == "maildir":
+        # Maildir message files are listed by hand rather than through
+        # `mailbox.Maildir`, which opens whatever a name in `cur/` or `new/`
+        # points at.
+        files = [
+            (f"{sub}/{item.name}", item)
+            for sub in ("cur", "new")
+            if (root / sub).is_dir() and not (root / sub).is_symlink()
+            for item in sorted((root / sub).iterdir())
+            if not item.name.startswith(".")
+        ]
     else:
         # A standalone `.eml` carries no mbox `From ` envelope, so parse the file
         # as the message it is instead of dressing it up as an mbox message.
-        return [
-            (item.name, email.message_from_bytes(item.read_bytes()))
-            for item in sorted(root.iterdir())
-            if item.is_file() and item.suffix.lower() == ".eml"
-        ]
-    try:
-        return [(key, msg) for key, msg in box.iteritems()]
-    finally:
-        box.close()
+        files = [(item.name, item) for item in sorted(root.iterdir()) if item.suffix.lower() == ".eml"]
+    # The archive is a snapshot from elsewhere, so a symlink in it is not a
+    # message: followed, `x.eml -> ~/.ssh/id_ed25519` would put a local file's
+    # bytes into the agent's context and from there into a tracker.
+    return [
+        (key, email.message_from_bytes(item.read_bytes()))
+        for key, item in files
+        if item.is_file() and not item.is_symlink()
+    ]
 
 
 def group_threads(messages: list[tuple[str, Message]]) -> dict[str, list[tuple[str, Message]]]:
@@ -313,15 +349,19 @@ def group_threads(messages: list[tuple[str, Message]]) -> dict[str, list[tuple[s
     a truncated archive.
     """
     roots: dict[str, list[tuple[str, Message]]] = {}
-    seen: set[str] = set()
+    seen: set[tuple[str, str]] = set()
     for key, msg in messages:
         own_id = _message_id(msg) or _content_id(msg)
-        if own_id in seen:
-            # A second copy of a message already threaded — a report Cc'd to two
-            # lists and exported twice — must not inflate `message_count` or
-            # repeat the body.
+        # A second copy of a message already threaded — a report Cc'd to two
+        # lists and exported twice — must not inflate `message_count` or repeat
+        # the body. The copies differ in their delivery headers, so they are
+        # matched on the body; a different message reusing the Message-ID (any
+        # sender can pick one) is kept, never silently dropped in favour of
+        # whichever copy the directory listing yielded first.
+        copy = (own_id, hashlib.sha256(_body_text(msg).encode()).hexdigest())
+        if copy in seen:
             continue
-        seen.add(own_id)
+        seen.add(copy)
         ancestors = _reference_ids(msg)
         root = ancestors[0] if ancestors else own_id
         roots.setdefault(root, []).append((key, msg))
@@ -331,7 +371,7 @@ def group_threads(messages: list[tuple[str, Message]]) -> dict[str, list[tuple[s
 def _thread_subject(thread_id: str, members: list[tuple[str, Message]]) -> str:
     """The thread's subject, taken from its root message whenever the archive has it.
 
-    A Maildir yields its keys in directory-listing order, so ``members[0]`` can
+    A Maildir yields its messages in file-name order, so ``members[0]`` can
     easily be a ``Re:`` reply; the subject a thread should be listed under comes
     from the root, or failing that from its earliest dated message.
     """
