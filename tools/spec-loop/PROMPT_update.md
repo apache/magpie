@@ -12,7 +12,8 @@ Context to load first:
 
 - `tools/spec-loop/AGENTS.md` and the repo-wide `/AGENTS.md`.
 - `tools/spec-loop/specs/*` — the current functional description.
-- The actual code: `.claude/skills/`, `tools/`, `docs/`, `docs/modes.md`.
+- The actual code: `skills/` (each entry a symlink into `plugins/magpie-<family>/skills/`,
+  where skill content actually lives), `tools/`, `docs/`, `docs/modes.md`.
 - The appended **Compact repository inventory** block from the runner —
   use it as the first routing map before opening full files.
 
@@ -38,7 +39,8 @@ Steps:
    branch.
 4. Inventory the code with parallel subagents (full inventory only if
    step 1 did not narrow the surface):
-   - every `.claude/skills/*/SKILL.md` (name, mode, what it does);
+   - every `skills/*/SKILL.md` (name, mode, what it does), read through
+     the symlink so the content is the plugin copy;
    - every `tools/*` project (what it does, its tests);
    - the mode/status table in `docs/modes.md`.
 5. Diff that inventory against `tools/spec-loop/specs/`:
