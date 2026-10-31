@@ -226,11 +226,13 @@ Three rules for the recommendation:
   permission rules that let its read dispatcher run without a
   prompt are wired only by the isolated setup, and only where the
   sandbox is configured.
-- **`magpie-security` brings `magpie-security-tools`.** The security
-  skills run framework tools (`<framework>/tools/<tool>`); on a
+- **Families that run framework tools bring `magpie-security-tools`.**
+  `magpie-security`, `magpie-setup`, `magpie-pr-management`, `magpie-release-management`, `magpie-contributor-growth` and `magpie-utilities` run framework tools (`<framework>/tools/<tool>`); on a
   marketplace install there is no framework checkout, so they come
-  from this companion plugin. Tick it whenever `magpie-security` is
-  ticked, and say so; it adds no always-on context.
+  from this companion plugin, whose name is historical. `magpie-setup`
+  is one of them and installs by default, so in practice the companion
+  goes with every marketplace install. Tick it whenever one of those
+  families is ticked, and say so; it adds no always-on context.
 - **Install a family at a time; there is no everything plugin.**
   Each installed skill advertises its name and description to
   the model on *every* turn, so all ten families at once would
@@ -242,7 +244,7 @@ Three rules for the recommendation:
 
 If the user passed `skill-families:<list>`, use it verbatim and
 skip the prompt — with `magpie-setup` and `magpie-vetted-ops`
-added if absent (and `magpie-security-tools` when the list names `security`), because the list names families to install,
+added if absent (and `magpie-security-tools`, which `magpie-setup` and every family that runs framework tools need), because the list names families to install,
 this skill is what installs them, and the dispatcher is what
 they run on. Do not add the other two baseline plugins to
 an explicit list; naming families is a choice, and quietly

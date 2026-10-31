@@ -74,9 +74,21 @@ TRUSTED_MARKETPLACE = "apache/magpie"
 #: the family skills run their forge operations through the vetted-ops
 #: dispatcher, so a floor committed before it joined the seed still gets it.
 ALWAYS_REQUIRED = ("magpie-vetted-ops",)
-#: A family plugin and the substrate it cannot run without: the security skills
-#: run their framework tools from `magpie-security-tools` on a marketplace install.
-COMPANIONS = {"magpie-security": "magpie-security-tools"}
+#: A family plugin and the substrate it cannot run without: on a marketplace
+#: install every family that runs `<framework>/tools/<tool>` gets those tools
+#: from `magpie-security-tools` (the name is historical). Kept in step with the
+#: skills by `tools/dev/tests/test_check_family_plugins.py`.
+COMPANIONS = dict.fromkeys(
+    (
+        "magpie-security",
+        "magpie-setup",
+        "magpie-pr-management",
+        "magpie-release-management",
+        "magpie-contributor-growth",
+        "magpie-utilities",
+    ),
+    "magpie-security-tools",
+)
 SNAPSHOT_METHODS = frozenset({"svn-zip", "git-tag", "git-branch"})
 #: Each pinned key in the committed lock, and the local-lock key that records
 #: what this machine actually fetched for it (`locks.md`, `upgrade.md` Step 1).

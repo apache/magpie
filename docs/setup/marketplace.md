@@ -147,9 +147,12 @@ hard framework rule) and `magpie-vetted-ops` (a dispatcher for fixed,
 policy-scoped forge operations, so a session needs one allowlist entry instead
 of a dozen wildcard `ask` rules).
 Both run from the installed plugin, so no repository or worktree needs a local copy.
-A third, `magpie-security-tools`, goes with the `magpie-security` family: it carries
-the framework tools the security skills run (tracker field and rollup edits, CVE
-JSON, the privacy gate, the scan importer). Its session hook materialises a copy of
+A third, `magpie-security-tools`, carries the framework tools the skills run as
+`<framework>/tools/<tool>`: tracker field and rollup edits, CVE JSON and the scan
+importer for security; PR, release and contributor-metrics tools; the privacy gate;
+setup's permission audit. Despite the historical name it goes with every family that
+runs one of them, `magpie-security`, `magpie-setup`, `magpie-pr-management`, `magpie-release-management`, `magpie-contributor-growth` and `magpie-utilities`, and so with every marketplace install, since `magpie-setup`
+installs by default. Its session hook materialises a copy of
 them once per installed version under `~/.cache/apache-magpie/framework/` and points
 `~/.cache/apache-magpie/framework/current` at it, which is what `<framework>` means on a marketplace
 install. The plugin cache is read-only to a sandboxed command; the copy is not, so the
