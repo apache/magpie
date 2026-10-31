@@ -38,6 +38,17 @@ Checks every .md file that carries a YAML frontmatter block:
 10. Spec-loop runner fixtures — when present, execute the deterministic
     Bash fixture suite for prompt assembly, harness argv construction, and
     ``.last-sync`` marker helpers.
+11. Known-gap close conditions (``validate_gap_predicates``) — a Known-gap
+    bullet may carry ``<!-- gap-closes-when: <predicate> -->``. HARD when
+    the predicate already holds (the bullet describes shipped work) or is
+    malformed or unresolvable; SOFT when a bullet carries none.
+12. Cross-spec family counts (``validate_cross_spec_counts``) — a sentence
+    naming a multi-word family (``repo-health``) next to a count of skills
+    (``six-skill``, ``10 skills``) is a claim; HARD when two specs claim
+    different counts for one family, or a claim differs from the number of
+    ``SKILL.md`` files carrying that ``family:``.
+
+SOFT advisories are printed but never fail the run (spec-gap-staleness.md).
 
 Files without frontmatter (README.md, overview.md) are skipped silently.
 
@@ -50,6 +61,7 @@ Run from repo root::
 from __future__ import annotations
 
 import argparse
+import ast
 import re
 import subprocess
 import sys
@@ -109,15 +121,293 @@ _PATH_SKIP_CHARS: tuple[str, ...] = ("$", "<")
 
 
 class Violation:
-    def __init__(self, path: Path, line: int | None, message: str) -> None:
+    def __init__(self, path: Path, line: int | None, message: str, severity: str = "HARD") -> None:
         self.path = path
         self.line = line
         self.message = message
+        self.severity = severity
+
+    @property
+    def hard(self) -> bool:
+        return self.severity == "HARD"
 
     def __str__(self) -> str:
+        prefix = "" if self.hard else f"{self.severity}: "
         if self.line is not None:
-            return f"{self.path}:{self.line}: {self.message}"
-        return f"{self.path}: {self.message}"
+            return f"{prefix}{self.path}:{self.line}: {self.message}"
+        return f"{prefix}{self.path}: {self.message}"
+
+
+# ---------------------------------------------------------------------------
+# Known-gap close conditions (spec-gap-staleness.md)
+# ---------------------------------------------------------------------------
+
+_GAP_PREDICATE_RE = re.compile(r"<!--\s*gap-closes-when:\s*(?P<pred>.*?)\s*-->", re.DOTALL)
+_NARRATIVE = "none (narrative)"
+_FAMILY_RE = re.compile(r"^family:[ \t]*(\S+)[ \t]*$", re.MULTILINE)
+
+
+def known_gap_bullets(text: str) -> list[tuple[int, str]]:
+    """Every top-level bullet of the ``## Known gaps`` section, with its line.
+
+    A bullet runs from its ``- `` line to the next top-level bullet or the end
+    of the section. Fenced code inside the section is skipped, so an example
+    predicate quoted in a code block is never read as a real one.
+    """
+    lines = text.splitlines()
+    in_section = False
+    fence = False
+    bullets: list[tuple[int, list[str]]] = []
+    for number, line in enumerate(lines, start=1):
+        if line.startswith("## "):
+            if in_section:
+                break
+            in_section = line[3:].strip() == "Known gaps"
+            continue
+        if not in_section:
+            continue
+        if re.match(r"^ {0,3}(```|~~~)", line):
+            fence = not fence
+            continue
+        if fence:
+            continue
+        if line.startswith("- "):
+            bullets.append((number, [line]))
+        elif bullets and (line.startswith((" ", "\t")) or not line.strip()):
+            bullets[-1][1].append(line)
+    return [(number, "\n".join(body).strip()) for number, body in bullets]
+
+
+def skill_families(repo_root: Path) -> dict[str, list[str]]:
+    """``family`` -> sorted skill names, from every ``skills/*/SKILL.md``."""
+    families: dict[str, list[str]] = {}
+    skills = repo_root / "skills"
+    if not skills.is_dir():
+        return families
+    for skill_md in sorted(skills.glob("*/SKILL.md")):
+        try:
+            head = skill_md.read_text(encoding="utf-8")[:4000]
+        except OSError:
+            continue
+        match = _FAMILY_RE.search(head)
+        if match:
+            families.setdefault(match.group(1), []).append(skill_md.parent.name)
+    return families
+
+
+def _symbol_called(target: Path, name: str) -> tuple[bool, bool]:
+    """``(defined, called)`` for ``name`` across the Python files under ``target``."""
+    files = [target] if target.is_file() else sorted(target.rglob("*.py"))
+    defined = called = False
+    for file in files:
+        try:
+            tree = ast.parse(file.read_text(encoding="utf-8"))
+        except (OSError, SyntaxError, ValueError):
+            continue
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and node.name == name:
+                defined = True
+            elif isinstance(node, ast.Call):
+                func = node.func
+                if (isinstance(func, ast.Name) and func.id == name) or (
+                    isinstance(func, ast.Attribute) and func.attr == name
+                ):
+                    called = True
+    return defined, called
+
+
+def evaluate_gap_predicate(predicate: str, repo_root: Path) -> tuple[str, str]:
+    """Return ``(state, detail)``: state is ``open``, ``closed`` or ``invalid``."""
+    predicate = predicate.strip()
+    if predicate == _NARRATIVE:
+        return "open", "narrative"
+    kind, sep, arg = predicate.partition(":")
+    if not sep or not arg.strip():
+        return "invalid", f"malformed predicate {predicate!r}"
+    arg = arg.strip()
+    if kind == "path-exists":
+        if arg.startswith("/") or ".." in Path(arg).parts:
+            return "invalid", f"path-exists needs a repository-relative path, got {arg!r}"
+        if (repo_root / arg).exists():
+            return "closed", f"{arg} exists"
+        return "open", f"{arg} does not exist"
+    if kind == "symbol-called":
+        path, sep2, name = arg.partition("::")
+        if not sep2 or not path or not name.isidentifier():
+            return "invalid", f"symbol-called needs <path>::<name>, got {arg!r}"
+        target = repo_root / path
+        if not target.exists():
+            return "invalid", f"symbol-called path {path} does not exist"
+        if target.is_dir() and not any(target.rglob("*.py")):
+            return "invalid", f"symbol-called path {path} has no Python files"
+        defined, called = _symbol_called(target, name)
+        if defined and called:
+            return "closed", f"{name} is defined and called under {path}"
+        return "open", f"{name} is {'defined but not called' if defined else 'not defined'} under {path}"
+    if kind == "skill-count":
+        family, sep2, count = arg.partition("=")
+        if not sep2 or not family or not count.strip().isdigit():
+            return "invalid", f"skill-count needs <family>=<n>, got {arg!r}"
+        live = len(skill_families(repo_root).get(family, []))
+        if live == int(count):
+            return "closed", f"{live} skills carry family:{family}"
+        return "open", f"{live} skills carry family:{family}, not {count}"
+    return (
+        "invalid",
+        f"unknown predicate kind {kind!r} (path-exists, symbol-called, skill-count, or {_NARRATIVE!r})",
+    )
+
+
+def validate_gap_predicates(path: Path, text: str, repo_root: Path) -> list[Violation]:
+    violations: list[Violation] = []
+    for line, bullet in known_gap_bullets(text):
+        found = _GAP_PREDICATE_RE.findall(bullet)
+        title = _bullet_title(bullet)
+        if not found:
+            violations.append(
+                Violation(
+                    path,
+                    line,
+                    f"Known-gap bullet {title!r} has no close condition; add "
+                    f"<!-- gap-closes-when: <predicate> --> or <!-- gap-closes-when: {_NARRATIVE} -->",
+                    severity="SOFT",
+                )
+            )
+            continue
+        for predicate in found:
+            state, detail = evaluate_gap_predicate(predicate, repo_root)
+            if state == "closed":
+                violations.append(
+                    Violation(
+                        path, line, f"Known-gap bullet {title!r} is closed ({detail}); remove or rewrite it"
+                    )
+                )
+            elif state == "invalid":
+                violations.append(Violation(path, line, f"Known-gap bullet {title!r}: {detail}"))
+    return violations
+
+
+def _bullet_title(bullet: str) -> str:
+    first = bullet.splitlines()[0][2:].strip()
+    bold = re.match(r"\*\*(.+?)\*\*", first)
+    text = bold.group(1) if bold else first
+    return text if len(text) <= 70 else text[:67] + "..."
+
+
+# ---------------------------------------------------------------------------
+# Cross-spec family counts (spec-gap-staleness.md)
+# ---------------------------------------------------------------------------
+
+_NUMBER_WORDS = {
+    word: value
+    for value, word in enumerate(
+        [
+            "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+            "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen",
+            "eighteen", "nineteen", "twenty",
+        ]
+    )
+}  # fmt: skip
+_COUNT_RE = re.compile(r"\b(?P<n>\d+|" + "|".join(_NUMBER_WORDS) + r")[- ]skills?\b", re.IGNORECASE)
+_INLINE_CODE_RE = re.compile(r"`[^`\n]*`")
+_LINK_TARGET_RE = re.compile(r"\]\([^)]*\)")
+# How many words may separate a family name from its count for the pair to be
+# one claim ("Repo-health audits are now a six-skill family" is five apart).
+# Farther apart, the count is about something else in the same sentence.
+_CLAIM_WINDOW_WORDS = 6
+
+
+def _prose(text: str) -> str:
+    """Spec prose with code fences, HTML comments and inline code removed."""
+    text = _FENCED_CODE_RE.sub("", _spec_body(text))
+    text = _HTML_COMMENT_RE.sub("", text)
+    text = _LINK_TARGET_RE.sub("]", text)
+    return _INLINE_CODE_RE.sub("", text)
+
+
+def family_count_claims(text: str, families: list[str]) -> list[tuple[str, int, str]]:
+    """``(family, count, sentence)`` for every sentence that names a family and a count.
+
+    Only multi-word families (``repo-health``, ``pr-management``) are matched:
+    a one-word family name (``issue``, ``security``) is ordinary prose, and
+    reading it as a family would be the prose inference the spec rules out.
+    """
+    # A file name (`contributor-growth.md`) or a plugin name (`magpie-pr-management`)
+    # mentions the family's spec or package, not its membership.
+    tokens = {
+        family: re.compile(r"(?<![\w-])" + re.escape(family) + r"(?![\w-]|\.md\b)", re.IGNORECASE)
+        for family in families
+        if "-" in family
+    }
+    claims: list[tuple[str, int, str]] = []
+    flat = re.sub(r"\s+", " ", _prose(text))
+    for sentence in re.split(r"(?<=[.!?])\s+|\s+[\u2014\u2013]\s+|\|", flat):
+        named = [(family, m) for family, token in tokens.items() for m in token.finditer(sentence)]
+        if len({family for family, _m in named}) != 1:
+            continue  # no family, or several: not an unambiguous claim
+        family = named[0][0]
+        # "<n> skills" / "<n>-skill", plus "<n> <family> skills".
+        counts = list(_COUNT_RE.finditer(sentence)) + list(
+            re.finditer(
+                r"\b(?P<n>\d+|" + "|".join(_NUMBER_WORDS) + r")\s+" + re.escape(family) + r"\s+skills?\b",
+                sentence,
+                re.IGNORECASE,
+            )
+        )
+        if not counts:
+            continue
+        for count in counts:
+            near = any(
+                len(sentence[min(m.end(), count.start()) : max(m.start(), count.end())].split())
+                <= _CLAIM_WINDOW_WORDS
+                for _family, m in named
+            )
+            if not near:
+                continue
+            raw = count.group("n")
+            value = int(raw) if raw.isdigit() else _NUMBER_WORDS[raw.lower()]
+            claims.append((family, value, sentence.strip()))
+    return claims
+
+
+def validate_cross_spec_counts(spec_files: list[Path], repo_root: Path) -> list[Violation]:
+    families = skill_families(repo_root)
+    if not families:
+        return []
+    by_family: dict[str, list[tuple[Path, int, str]]] = {}
+    texts: dict[Path, str] = {}
+    for path in spec_files:
+        try:
+            texts[path] = path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        for family, count, sentence in family_count_claims(texts[path], sorted(families)):
+            by_family.setdefault(family, []).append((path, count, sentence))
+    violations: list[Violation] = []
+    for family, claims in sorted(by_family.items()):
+        live = families.get(family, [])
+        claimed = sorted({count for _path, count, _s in claims})
+        if claimed == [len(live)]:
+            continue
+        for path, count, sentence in claims:
+            if count == len(live) and len(claimed) == 1:
+                continue
+            unnamed = [skill for skill in live if skill not in texts[path]]
+            others = sorted({c for p, c, _s in claims if p != path and c != count})
+            if count == len(live):
+                # Right on its own, but another spec disagrees: at most one can be.
+                parts = [f"claims {count} {family} skills, matching the {len(live)} SKILL.md files"]
+            else:
+                parts = [
+                    f"claims {count} {family} skills, but {len(live)} SKILL.md files carry family:{family}"
+                ]
+            if others:
+                parts.append(f"other specs claim {', '.join(map(str, others))}")
+            if unnamed:
+                parts.append(f"not named in this spec: {', '.join(unnamed)}")
+            parts.append(f"claim: {sentence[:120]!r}")
+            violations.append(Violation(path, None, "; ".join(parts)))
+    return violations
 
 
 # ---------------------------------------------------------------------------
@@ -449,8 +739,16 @@ def collect_spec_files(target: Path) -> list[Path]:
 def run_validation(target: Path, repo_root: Path | None = None) -> list[Violation]:
     root = repo_root or find_repo_root(target)
     violations: list[Violation] = []
-    for path in collect_spec_files(target):
+    spec_files = collect_spec_files(target)
+    for path in spec_files:
         violations.extend(validate_file(path, repo_root=root))
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        if parse_frontmatter(text) is not None:
+            violations.extend(validate_gap_predicates(path, text, root))
+    violations.extend(validate_cross_spec_counts(spec_files, root))
     violations.extend(validate_spec_loop_runner_fixtures(root))
     return violations
 
@@ -502,12 +800,18 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     violations = run_validation(target)
-    if not violations:
+    hard = [v for v in violations if v.hard]
+    soft = [v for v in violations if not v.hard]
+    for v in soft:
+        print(v)
+    if soft:
+        print(f"spec-validator: {len(soft)} SOFT advisory(ies) — informational, not blocking\n")
+    if not hard:
         print("spec-validator: OK (no violations)")
         return 0
 
-    print(f"spec-validator: {len(violations)} violation(s) found\n")
-    for v in violations:
+    print(f"spec-validator: {len(hard)} violation(s) found\n")
+    for v in hard:
         print(v)
     return 1
 

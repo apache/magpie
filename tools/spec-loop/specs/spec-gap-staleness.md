@@ -217,27 +217,24 @@ test -f tools/spec-loop/PROMPT_update.md
 
 ## Known gaps
 
-- **Not yet built.** Both prompt edits and both validator checks are
-  proposed here; nothing has shipped.
-  Re-verified at the 2026-09-28 sync: `tools/spec-validator` defines no
-  `validate_gap_predicates` or `validate_cross_spec_counts`, neither
-  `PROMPT_plan.md` nor `PROMPT_update.md` states the evidence rule, and the
-  only `gap-closes-when` comments in the spec tree are the examples in
-  this file.
-  <!-- gap-closes-when: symbol-called:tools/spec-validator::validate_gap_predicates -->
+- **The evidence rule in the prompts is not built.** Both validator checks
+  have shipped (`validate_gap_predicates`, `validate_cross_spec_counts`, both
+  registered in `run_validation`); `PROMPT_plan.md` and `PROMPT_update.md`
+  still do not state the evidence rule. The predicate vocabulary cannot
+  express a prompt's content, so this bullet stays unannotated until it can.
 - **The existing bullets need a one-off backfill.** Nine bullets across
   eight specs describe shipped capabilities, and eleven more are
   narrative status notes needing the `none (narrative)` marker.
   Annotating them is manual and independent of building the checks.
-- **Landing order matters, and only the SOFT rule is safe to land
-  first.** The unannotated-bullet advisory is SOFT, so it changes
-  nothing on the day it ships. `validate_cross_spec_counts` is HARD and
-  acceptance criterion 7 requires it to fire on a violation that exists
-  in the tree today, so landing it before the repo-health counts are
-  reconciled turns main red for everyone. Reconcile first, then land
-  the HARD check. The spec-to-spec half of the disagreement has since
-  closed (both specs say six); the prose-to-frontmatter half, six against
-  seven, is still open.
+- **The HARD count check landed with its reconciliation.** On the day it
+  shipped it fired, as acceptance criterion 7 requires, on the repo-health
+  count in `triage-mode.md`, which lagged the frontmatter by two members;
+  the same change brought that sentence in line with
+  `repo-health-family.md`, which already names `audit-finding-fix` and
+  `workflow-optimization` as members. Claims are read narrowly: only a
+  multi-word family name within six words of a count, outside code, links
+  and comments, so a one-word family (`issue`, `security`) is never matched.
+  <!-- gap-closes-when: none (narrative) -->
 - **A predicate can drift from its bullet.** Nothing binds the comment
   to the prose above it, so an edit that rewrites a bullet without
   updating its predicate leaves a check that passes while describing
