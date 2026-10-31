@@ -85,4 +85,15 @@ Rules:
   file `.last-sync` is owned by `loop.sh`; do not touch it.
 - Confirm with a code search before recording something as present or
   absent. Do not invent behaviour the code does not have.
+- **Re-verify every `Known gaps` bullet you keep.** A bullet is retained
+  only if this pass found evidence it is still open, of the same three
+  kinds the plan beat uses: a call site (`file:line` where the behaviour is
+  or is not wired), file content (text, or its absence, at a named path),
+  or a counted value derived from the tree. A name match is not evidence.
+  A bullet proven closed is removed or rewritten to what remains open; a
+  bullet you cannot verify is kept and marked unverified, never silently
+  carried forward as true. Where a gap has a crisp end state, add
+  `<!-- gap-closes-when: … -->` (`path-exists:<path>`,
+  `symbol-called:<path>::<name>`, `skill-count:<family>=<n>`, or
+  `none (narrative)`) so `spec-validate` can check it from then on.
 - Keep the RFCs untouched — they are a separate governance layer.
