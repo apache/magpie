@@ -43,8 +43,16 @@ def normalise_message_id(value: str | None) -> str | None:
     if not value:
         return None
     match = _MSG_ID.search(value)
-    if match:
-        return match.group(0)
+    return match.group(0) if match else None
+
+
+def canonical_thread_id(value: str | None) -> str | None:
+    """Return a caller-supplied thread ID in its canonical bracketed form."""
+    canonical = normalise_message_id(value)
+    if canonical:
+        return canonical
+    if value is None:
+        return None
     bare = value.strip()
     return f"<{bare}>" if _BARE_MSG_ID.fullmatch(bare) else None
 
