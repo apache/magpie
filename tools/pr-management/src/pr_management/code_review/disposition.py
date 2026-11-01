@@ -101,6 +101,7 @@ def pick(
     self_authored: bool = False,
     merge_method: str | None = None,
     pending_not_required: tuple[str, ...] | list[str] = (),
+    viewer_known: bool = True,
 ) -> dict[str, Any]:
     resolve_first = resolve_first or []
     counts = Counter(str(f.get("severity") or "").lower() for f in findings)
@@ -119,6 +120,7 @@ def pick(
         and viewer_can_enable_auto_merge
         and not auto_merge_enabled
         and not self_authored
+        and viewer_known
         and not conflict
     )
     ci_pending = ci_state == "PENDING" and real_ci
@@ -182,6 +184,7 @@ def pick(
         viewer_can_enable=viewer_can_enable_auto_merge,
         already_enabled=auto_merge_enabled,
         self_authored=self_authored,
+        viewer_known=viewer_known,
         merge_method=merge_method,
     )
     overrides = ["APPROVE", "REQUEST_CHANGES", "COMMENT"]
@@ -220,12 +223,19 @@ def _auto_merge(
     already_enabled: bool,
     self_authored: bool,
     merge_method: str | None,
+    viewer_known: bool = True,
 ) -> dict[str, Any]:
     """Whether the action that ends in an `APPROVE` should also enable auto-merge."""
     if not allowed:
         return {"eligible": False, "reason": "the repository does not allow auto-merge"}
     if not ends_in_approve:
         return {"eligible": False, "reason": "auto-merge only follows an APPROVE"}
+    if not viewer_known:
+        # Without the read's own viewer, `self_authored` rests on a command-line flag alone.
+        return {
+            "eligible": False,
+            "reason": "the saved read has no viewer to check self-authorship against; refresh it",
+        }
     if self_authored:
         return {"eligible": False, "reason": "a self-authored PR is never auto-merged by its own review"}
     if already_enabled:

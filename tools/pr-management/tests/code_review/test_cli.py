@@ -545,3 +545,49 @@ def test_a_running_check_that_is_not_required_keeps_the_ci_gate(
     _with_auto_merge(saved, rollup="PENDING", checks=pending)
     dis = _disposition(capsys, project, saved)
     assert dis["default"] == "APPROVE+AUTO-MERGE" and dis["ci_pending_held_by_auto_merge"]
+
+
+def _without_viewer(saved: Path) -> None:
+    path = saved / "cr-pr-7.json"
+    payload = json.loads(path.read_text())
+    payload["data"].pop("viewer", None)
+    path.write_text(json.dumps(payload))
+
+
+def test_disposition_withholds_auto_merge_when_the_read_has_no_viewer(
+    capsys: pytest.CaptureFixture[str], project: Path, saved: Path
+) -> None:
+    _with_auto_merge(saved)
+    _without_viewer(saved)
+    dis = _disposition(capsys, project, saved)
+    assert dis["auto_merge"]["eligible"] is False
+    assert "no viewer" in dis["auto_merge"]["reason"]
+
+
+def test_disposition_refuses_a_viewer_the_read_does_not_name(
+    capsys: pytest.CaptureFixture[str], project: Path, saved: Path
+) -> None:
+    _with_auto_merge(saved)
+    with pytest.raises(SystemExit, match="not the saved read's viewer"):
+        _run(
+            capsys,
+            "--config-dir",
+            str(project),
+            "code-review",
+            "disposition",
+            "--saved-dir",
+            str(saved),
+            "--pr",
+            "7",
+            "--viewer",
+            "mallory",
+        )
+
+
+def test_render_refuses_auto_merge_when_the_read_has_no_viewer(
+    capsys: pytest.CaptureFixture[str], project: Path, saved: Path, tmp_path: Path
+) -> None:
+    _with_auto_merge(saved)
+    _without_viewer(saved)
+    with pytest.raises(SystemExit, match="has no viewer"):
+        _render_approve(capsys, project, saved, tmp_path, "--auto-merge", "--viewer", "alice")
