@@ -545,11 +545,21 @@ uv run --project tools/skill-evals skill-eval-journal check tools/skill-evals/ev
 ```
 
 Runner flags: `--journal-note TEXT` fills `notes` (an issue link, the
-reason for the run); `--journal-model NAME` records the model when the
-`--cli` string carries no `--model` flag (the CLI's configured default is
-otherwise invisible to the runner and the table shows the model as
-unrecorded next to the `--cli` string, so two tools never share a row);
+reason for the run); `--journal-model NAME` records the model explicitly;
 `--journal FILE` journals to another file; `--no-journal` writes nothing.
+
+The model is recorded from the best evidence available, and the record's
+`model_source` says which: `--journal-model` first, then a `--model` flag in
+the `--cli` string, then, for a `claude` CLI only, what that CLI uses when no
+flag is given: `ANTHROPIC_MODEL`, then the `model` key of
+`.claude/settings.local.json`, `.claude/settings.json` and
+`~/.claude/settings.json`, in that order. This is how runs through the
+sandboxed wrapper, which takes one argument and passes `claude -p` with no
+flag, still record a model. The settings-derived value is a best-effort
+default: managed settings and an `env.ANTHROPIC_MODEL` inside a settings file
+are not read, so `model_source` says where the value came from. Nothing found
+is recorded as null and the table shows the model as unrecorded next to the
+`--cli` string, so two tools never share a row; the runner never guesses.
 A path outside the repository's own evals tree (a copied suite, a test
 fixture, a suite outside any git checkout) is never journaled unless
 `--journal` says so. The runner can run outside the sandbox, so the write
