@@ -260,14 +260,14 @@ class TestUvShareWrite:
         [
             # bubblewrap (Linux)
             "error: failed to create directory `/home/me/.local/share/uv/python/.lock`: "
-            "Read-only file system (os error 30)\n",
+            + "Read-only file system (os error 30)\n",
             # Seatbelt (macOS)
             "error: Failed to install cpython-3.13.1-macos-aarch64-none\n"
-            "  Caused by: failed to create directory `/Users/me/.local/share/uv/python`: "
-            "Operation not permitted (os error 1)\n",
+            + "  Caused by: failed to create directory `/Users/me/.local/share/uv/python`: "
+            + "Operation not permitted (os error 1)\n",
             # uv tool install
             "error: Failed to create tool environment at /home/me/.local/share/uv/tools/prek: "
-            "Read-only file system (os error 30)\n",
+            + "Read-only file system (os error 30)\n",
         ],
     )
     def test_share_uv_write_failure_points_at_the_entry(self, stderr: str) -> None:
