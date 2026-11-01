@@ -90,6 +90,17 @@ def test_read_thread_returns_chronological_history() -> None:
     assert all("body_raw" not in m for m in result["messages"])
 
 
+def test_read_thread_accepts_bare_and_bracketed_root_id() -> None:
+    config = make_config()
+    box = seeded_box()
+
+    bracketed = read_thread(box, config, ROOT, since_days=90)
+    bare = read_thread(box, config, ROOT.removeprefix("<").removesuffix(">"), since_days=90)
+
+    assert bare == bracketed
+    assert bare["thread_id"] == ROOT
+
+
 def test_read_thread_declares_missing_root() -> None:
     config = make_config()
     box = seeded_box()

@@ -30,7 +30,7 @@ from imap_source.cli import add_since_argument, eprint, with_mailbox
 from imap_source.config import ImapConfig
 from imap_source.mailbox import Mailbox, MailSource
 from imap_source.searching import Message, fetch_window
-from imap_source.threads import sort_key
+from imap_source.threads import normalise_message_id, sort_key
 
 
 def read_thread(
@@ -41,6 +41,8 @@ def read_thread(
     since_days: int,
     with_body: bool = False,
 ) -> dict[str, Any]:
+    original_thread_id = thread_id
+    thread_id = normalise_message_id(thread_id) or original_thread_id
     messages = fetch_window(mailbox, config.list_folder, since_days=since_days)
     reachable = [m for m in messages if m.position.references_thread(thread_id)]
     if not reachable:

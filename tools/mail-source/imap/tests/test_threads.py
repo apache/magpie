@@ -29,6 +29,7 @@ REPLY = "<reply-1a@example.org>"
 def test_normalise_message_id_extracts_single_token() -> None:
     assert normalise_message_id("<a@b> (was: <c@d>)") == "<a@b>"
     assert normalise_message_id("  <x@y>  ") == "<x@y>"
+    assert normalise_message_id("a@b") == "<a@b>"
     assert normalise_message_id(None) is None
     assert normalise_message_id("not-a-message-id") is None
 

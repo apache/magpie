@@ -23,9 +23,11 @@ import argparse
 from imap_source.archive_url import thread_url as build_thread_url
 from imap_source.cli import eprint, load_config, run_operation
 from imap_source.config import ImapConfig
+from imap_source.threads import normalise_message_id
 
 
 def resolve_thread_url(config: ImapConfig, thread_id: str) -> dict[str, str]:
+    thread_id = normalise_message_id(thread_id) or thread_id
     url = build_thread_url(config, thread_id)
     return {
         "thread_id": thread_id,

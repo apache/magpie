@@ -35,6 +35,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 _MSG_ID = re.compile(r"<[^<>\s]+>")
+_BARE_MSG_ID = re.compile(r"[^<>\s]+@[^<>\s]+")
 
 
 def normalise_message_id(value: str | None) -> str | None:
@@ -42,7 +43,10 @@ def normalise_message_id(value: str | None) -> str | None:
     if not value:
         return None
     match = _MSG_ID.search(value)
-    return match.group(0) if match else None
+    if match:
+        return match.group(0)
+    bare = value.strip()
+    return f"<{bare}>" if _BARE_MSG_ID.fullmatch(bare) else None
 
 
 @dataclass(frozen=True)
