@@ -103,15 +103,16 @@ reading this file; read the section for a check whose condition holds.
    caller name in an example constrains nothing. Verify by
    inspection, not by trusting a comment next to the rule.
 
-   `vetted-op` in `ask` (or absent) is correct.
-
-   `vetted-op-tracker` belongs in `ask` and in
-   `sandbox.excludedCommands`, never in `allow` — it writes. Its
-   exclusion is correct: it refuses every operation except the
-   tracker rollup / body-field procedures before reading the policy,
-   and their runner refuses any `gh` call outside `repos/<tracker>/`.
-   `vetted-op` itself in `sandbox.excludedCommands` is ✗ — it would
-   run the whole write catalogue unsandboxed.
+   `vetted-op` and `vetted-op-tracker` each belong in `ask` and in
+   `sandbox.excludedCommands` (both launcher forms), never in
+   `allow` — they write. The exclusion is correct: every operation
+   is a fixed `gh` argv with bodies read only from the workspace, so
+   it reaches less than the bare `gh *` exclusion, and a sandboxed
+   `vetted-op` cannot even read `~/.claude/magpie/` to start.
+   An excluded write dispatcher with no matching `ask` rule is ✗ —
+   the prompt is the only gate on its unsandboxed writes.
+   A missing `vetted-op` exclusion is ✗ too: every write op fails
+   with *"Project directory … does not exist"*.
 
    A `vetted-op` rule, in `allow` or in `sandbox.excludedCommands`,
    that spells the versioned plugin-cache path with a `*`
@@ -129,6 +130,10 @@ reading this file; read the section for a check whose condition holds.
    - `~/.claude/magpie/**` — the fixed path the rules name, which
      the plugin's `SessionStart` hook points at the catalogue.
    - `.apache-magpie-overrides/tools/vetted-ops/**` — the policy.
+   - `//**/.apache-magpie-overrides/tools/vetted-ops/**` — the same
+     path under any directory. The write dispatchers discover their
+     policy from the directory they run in, so a policy planted
+     anywhere else must not be writable either.
    - `//**/.git/**/apache-magpie/tools/vetted-ops/**`, `//**/.svn/apache-magpie/tools/vetted-ops/**`
      and `//**/.apache-magpie-local/tools/vetted-ops/**` — the policy in a
      maintainer's personal layer.

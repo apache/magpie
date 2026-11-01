@@ -231,6 +231,13 @@ def load(path: Path | None = None, *, cwd: Path | None = None) -> Config:
     else:
         tried = candidates(base)
         committed, personal = tried[0], tried[1:]
+        # The deny globs cover the committed path in every directory, not a
+        # symlink on the way to it, which would redirect the read to a file
+        # the agent can write. Refuse rather than fall through, so it shows.
+        if (committed.exists() or committed.is_symlink()) and not _untampered(committed):
+            raise ConfigError(
+                f"refusing the vetted-ops config at {committed}: a symlink on its path, or not a regular file"
+            )
         found = committed if committed.is_file() else next((c for c in personal if _untampered(c)), None)
         if found is None:
             raise ConfigError("no vetted-ops config at " + " or ".join(str(c) for c in tried))

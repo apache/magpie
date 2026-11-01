@@ -306,6 +306,16 @@ rules and the file's location are what close that surface; see
 [Wiring it into settings](#wiring-it-into-settings), which points `--config` at
 a policy outside the sandbox-writable root on purpose.
 
+**Only `vetted-op-read` takes `--config` for an operation that runs.**
+`vetted-op` and `vetted-op-tracker` run outside the sandbox, so a policy they
+act on must be one the agent cannot write: they refuse `--config` and use the
+discovered policy only — `.apache-magpie-overrides/tools/vetted-ops/config.toml`,
+else an untampered personal-layer copy, both write-denied by the secure setup.
+An agent-written `--config` could otherwise set `workspace` to a private
+directory such as `~/.ssh` (owned by you and mode 0700, so it passes the
+workspace check) and post a key from it as a comment on a repository it chose.
+`--dry-run`, `policy` and `list-ops` still accept `--config`: they publish nothing.
+
 When a repo holds more than one policy, bind the flag in the permission rule so
 the grant names the policy it was reasoned about:
 
@@ -592,8 +602,9 @@ anything still invoked directly:
     "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *)"
   ],
   "ask": [
+    // The write dispatchers. Excluded from the sandbox below, so never `allow`.
     "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op *)",
-    // The tracker procedures. Excluded from the sandbox below, so never `allow`.
+    "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op *)",
     "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *)",
     "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *)"
   ],
@@ -605,6 +616,7 @@ anything still invoked directly:
     "Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
     "Edit(~/.claude/magpie/**)",
     "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
+    "Edit(//**/.apache-magpie-overrides/tools/vetted-ops/**)",
     "Edit(//**/.git/**/apache-magpie/tools/vetted-ops/**)",
     "Edit(//**/.svn/apache-magpie/tools/vetted-ops/**)",
     "Edit(//**/.apache-magpie-local/tools/vetted-ops/**)"
@@ -626,20 +638,25 @@ fails the same way:
     "uv run --project ~/.claude/magpie/vetted-ops vetted-op-read *",
     "uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *",
     "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *",
-    "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *"
+    "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *",
+    "uv run --project ~/.claude/magpie/vetted-ops vetted-op *",
+    "uvx --from ~/.claude/magpie/vetted-ops vetted-op *"
   ]
 }
 ```
 
-`vetted-op-read` is excluded, never `vetted-op` — the same reasoning as the
-`allow` rule. The read dispatcher refuses writes before it consults the policy
-at all, so running it outside the sandbox exposes only the fixed read
-operations; excluding the write dispatcher would run the whole catalogue there.
-`vetted-op-tracker` is the one write-capable exception, and it follows the same
-reasoning: it refuses everything but the tracker procedures before consulting the
-policy, and their runner refuses any `gh` call outside `repos/<tracker>/`, so the
-exclusion exposes those procedures and nothing else. The tracker itself comes from
-the policy, which is why the entry point keeps its `ask`.
+The write dispatchers are excluded too: a sandboxed `vetted-op` cannot even read
+`~/.claude/magpie/` to start, and its `gh` would fail the same TLS check.
+Excluding them is safe for a different reason than the read dispatcher's `allow`.
+`vetted-op-read` refuses writes before it consults the policy, so it can run unprompted.
+`vetted-op` runs the whole write catalogue, but every operation is a fixed `gh`
+argv with no shell, parameters that may not start with `-`, and a body read only
+from the owner-only workspace, so unsandboxed it reaches less than the bare `gh *`
+already excluded. `vetted-op-tracker` is narrower still: it refuses everything but
+the tracker procedures, and their runner refuses any `gh` call outside
+`repos/<tracker>/`. The repositories both write to come from the policy, which is
+why both keep their `ask` (never `allow`); `sandbox-lint` fails an excluded write
+dispatcher that has lost its `ask` rule.
 
 Every rule names the fixed path `~/.claude/magpie/vetted-ops`, not the
 versioned plugin-cache directory. The plugin's `SessionStart` hook
@@ -675,8 +692,10 @@ caller list reach the same place.
 Be clear about the asymmetry: the catalogue is protected twice (deny rules plus
 the sandbox), the policy only once. The policy lives inside the adopter repo,
 which is sandbox-writable by design, so a Bash-level write (`sed -i`, a heredoc)
-is **not** covered by an `Edit`/`Write` deny. If that gap matters, keep the
-policy outside the writable root and point `--config` at it. Vendoring the
+is **not** covered by an `Edit`/`Write` deny. If that gap matters for reads, keep the
+policy outside the writable root and point `vetted-op-read --config` at it; the
+write entry points ignore `--config` and need a harness that merges the policy
+path's `Edit` deny into the sandbox's write-deny list, as Claude Code does. Vendoring the
 dispatcher itself into a repo the agent edits reduces it to the same single
 layer.
 

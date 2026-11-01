@@ -165,25 +165,53 @@ def test_baseline_never_allows_the_vetted_op_write_dispatcher(baseline: dict[str
         assert f"Bash({form} {write})" not in baseline["permissions"]["allow"]
 
 
+@pytest.mark.parametrize("dispatcher", ["vetted-op-tracker", "vetted-op"])
 @pytest.mark.parametrize("form", ["uv run --project", "uvx --from"])
-def test_baseline_excludes_and_asks_the_vetted_op_tracker_dispatcher(
-    baseline: dict[str, Any], form: str
+def test_baseline_excludes_and_asks_the_vetted_op_write_dispatchers(
+    baseline: dict[str, Any], form: str, dispatcher: str
 ) -> None:
-    # The tracker dispatcher writes (status rollup, body fields), and its gh
-    # must verify TLS, so it runs outside the sandbox. That is acceptable only
-    # because it refuses every operation but the tracker procedures; its writes
-    # still need a confirmation, so it is on ask and never on allow.
-    tracker = VETTED_OP_READ.replace("vetted-op-read", "vetted-op-tracker")
-    assert f"{form} {tracker}" in baseline["sandbox"]["excludedCommands"]
-    assert f"Bash({form} {tracker})" in baseline["permissions"]["ask"]
-    assert f"Bash({form} {tracker})" not in baseline["permissions"]["allow"]
+    # The write dispatchers call gh, which must verify TLS, so they run outside
+    # the sandbox; a sandboxed one cannot even read ~/.claude/magpie to start.
+    # That is acceptable because each builds a fixed gh argv from its catalogue,
+    # strictly narrower than the bare `gh *` already excluded, and every write
+    # still needs a confirmation: on ask, never on allow.
+    write = VETTED_OP_READ.replace("vetted-op-read", dispatcher)
+    assert f"{form} {write}" in baseline["sandbox"]["excludedCommands"]
+    assert f"Bash({form} {write})" in baseline["permissions"]["ask"]
+    assert f"Bash({form} {write})" not in baseline["permissions"]["allow"]
 
 
-def test_baseline_never_excludes_the_vetted_op_write_dispatcher(baseline: dict[str, Any]) -> None:
-    # Excluding `vetted-op` would run the whole write catalogue unsandboxed.
+@pytest.mark.parametrize("dispatcher", ["vetted-op-tracker", "vetted-op"])
+def test_excluded_write_dispatcher_without_ask_is_an_invariant_error(
+    baseline: dict[str, Any], dispatcher: str
+) -> None:
+    # Outside the sandbox the prompt is the only gate on the write.
+    weakened = copy.deepcopy(baseline)
+    write = VETTED_OP_READ.replace("vetted-op-read", dispatcher)
+    rule = f"Bash(uvx --from {write})"
+    weakened["permissions"]["ask"].remove(rule)
+    errors = check_invariants(weakened)
+    assert any(
+        "permissions.ask" in e and f"vetted-ops {dispatcher}'" in e and "excludedCommands" in e
+        for e in errors
+    ), errors
+
+
+def test_allowed_write_dispatcher_is_an_invariant_error(baseline: dict[str, Any]) -> None:
+    # `--caller` is argv, so an allow on `vetted-op` grants the whole catalogue.
+    weakened = copy.deepcopy(baseline)
     write = VETTED_OP_READ.replace("vetted-op-read", "vetted-op")
-    for form in ("uv run --project", "uvx --from"):
-        assert f"{form} {write}" not in baseline["sandbox"]["excludedCommands"]
+    rule = f"Bash(uv run --project {write})"
+    weakened["permissions"]["ask"].remove(rule)
+    weakened["permissions"]["allow"].append(rule)
+    errors = check_invariants(weakened)
+    assert any(rule in e and "permissions.allow" in e for e in errors), errors
+
+
+def test_write_dispatcher_ask_rule_does_not_catch_the_read_dispatcher(baseline: dict[str, Any]) -> None:
+    # `vetted-op *` must not match `vetted-op-read …`, or every read would prompt.
+    errors = check_invariants(baseline)
+    assert not [e for e in errors if "vetted-op-read" in e], errors
 
 
 def test_baseline_names_the_fixed_vetted_ops_path_not_a_versioned_glob(baseline: dict[str, Any]) -> None:
@@ -230,6 +258,7 @@ def test_read_block_is_an_invariant_error_where_vetted_ops_is_used(baseline: dic
         "Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
         "Edit(~/.claude/magpie/**)",
         "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
+        "Edit(//**/.apache-magpie-overrides/tools/vetted-ops/**)",
         "Edit(//**/.git/**/apache-magpie/tools/vetted-ops/**)",
         "Edit(//**/.svn/apache-magpie/tools/vetted-ops/**)",
         "Edit(//**/.apache-magpie-local/tools/vetted-ops/**)",

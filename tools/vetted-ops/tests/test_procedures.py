@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -695,23 +696,16 @@ def test_field_validator_accepts_a_heading_name() -> None:
 
 
 def test_cli_append_runs_through_the_write_dispatcher(
-    policy_path: Path, policy: config.Config, monkeypatch: pytest.MonkeyPatch
+    policy_path: Path, policy: config.Config, monkeypatch: pytest.MonkeyPatch, discovered: Any
 ) -> None:
     fake = FakeGh(comments=[])
     monkeypatch.setattr(procedures, "subprocess_exec", fake)
     entry = policy.workspace / "entry.md"
     entry.write_text("did things")
-    rc = cli.main(
-        [
-            "--caller",
-            "security-issue-sync",
-            "--config",
-            str(policy_path),
-            "rollup-append",
-            "7",
-            "Sync",
-            str(entry),
-        ]
+    rc = discovered(
+        cli.main,
+        ["--caller", "security-issue-sync", "rollup-append", "7", "Sync", str(entry)],
+        policy_path,
     )
     assert rc == cli.EXIT_OK
     [(argv, stdin)] = fake.writes
@@ -897,7 +891,11 @@ def wide_policy(tmp_path: Path) -> Path:
     ],
 )
 def test_tracker_dispatcher_refuses_every_non_procedure_op(
-    wide_policy: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], argv: list[str]
+    wide_policy: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    argv: list[str],
+    discovered: Any,
 ) -> None:
     """The caller is permitted all of these by policy; the entry point still refuses."""
 
@@ -906,13 +904,13 @@ def test_tracker_dispatcher_refuses_every_non_procedure_op(
 
     monkeypatch.setattr(cli.subprocess, "run", no_subprocess)
     monkeypatch.setattr(procedures, "subprocess_exec", no_subprocess)
-    rc = cli.main_tracker(["--caller", "security-issue-sync", "--config", str(wide_policy), *argv])
+    rc = discovered(cli.main_tracker, ["--caller", "security-issue-sync", *argv], wide_policy)
     assert rc == cli.EXIT_POLICY
     assert "not a tracker procedure" in capsys.readouterr().err
 
 
 def test_tracker_dispatcher_refuses_before_consulting_policy(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], discovered: Any
 ) -> None:
     """An undeclared caller would be a config error; the entry-point refusal comes first."""
     cfg = tmp_path / "config.toml"
@@ -920,23 +918,23 @@ def test_tracker_dispatcher_refuses_before_consulting_policy(
     workspace.mkdir()
     workspace.chmod(0o700)
     cfg.write_text(f"workspace = '{workspace}'\n[repos]\nupstream = \"acme/product\"\n")
-    rc = cli.main_tracker(["--caller", "nobody", "--config", str(cfg), "issue-add-label", "1", "x"])
+    rc = discovered(cli.main_tracker, ["--caller", "nobody", "issue-add-label", "1", "x"], cfg)
     assert rc == cli.EXIT_POLICY
     assert "not a tracker procedure" in capsys.readouterr().err
 
 
 def test_tracker_dispatcher_runs_the_procedures(
-    wide_policy: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    wide_policy: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], discovered: Any
 ) -> None:
     fake = FakeGh(comments=[], body=ISSUE_BODY)
     monkeypatch.setattr(procedures, "subprocess_exec", fake)
     entry = wide_policy.parent / "scratch" / "entry.md"
     entry.write_text("done")
-    base = ["--caller", "security-issue-sync", "--config", str(wide_policy)]
-    assert cli.main_tracker([*base, "rollup-append", "7", "Sync", str(entry)]) == cli.EXIT_OK
+    base = ["--caller", "security-issue-sync"]
+    assert discovered(cli.main_tracker, [*base, "rollup-append", "7", "Sync", str(entry)], wide_policy) == 0
     assert [a[:3] for a, _ in fake.writes] == [["gh", "issue", "comment"]]
     assert capsys.readouterr().out == "https://github.com/acme/tracker/issues/7#issuecomment-901\n"
-    assert cli.main_tracker([*base, "body-field-get", "7", "Severity"]) == cli.EXIT_OK
+    assert discovered(cli.main_tracker, [*base, "body-field-get", "7", "Severity"], wide_policy) == 0
     assert capsys.readouterr().out == "High\n"
 
 
