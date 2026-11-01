@@ -154,9 +154,40 @@ for Claude, as defence in depth, the loop also hard-denies `git push` and
 `gh` via `--disallowedTools`. Full rationale:
 [`docs/spec-driven-development.md` § Security and unattended agent loops](../../docs/spec-driven-development.md#security-and-unattended-agent-loops).
 
+## One loop per checkout (single flight)
+
+The loop checks out the integration base and lets the agent carve a
+branch, so two loops in one checkout pull the working tree out from under
+each other. When the loop is started by cron or CI an overlap is routine:
+a slow iteration outlives the schedule interval. The runner therefore
+takes a lock (`tools/spec-loop/.lock/`, gitignored) before its first
+iteration and releases it on exit. A second start while the first is
+running prints one line and **exits 0**:
+
+```text
+already_running: spec-loop pid 4242 on buildbox (since 2026-10-31T09:00:12Z) holds /…/tools/spec-loop/.lock; exiting 0
+```
+
+Zero, not an error, so the scheduler records a skipped run rather than a
+failure. A lock whose owning pid has died on this host is stale and is
+taken over automatically, as is one that has had no owner for over a
+minute (`SPEC_LOOP_LOCK_GRACE_MIN`); one left by another host is respected
+until removed by hand (`rm -rf tools/spec-loop/.lock`). A takeover is an
+atomic rename, so two starters that find the same stale lock cannot both
+acquire it. On `Ctrl+C` or `SIGTERM` the runner stops the agent before it
+releases the lock, and keeps the lock if the agent will not stop.
+
+The lock is per checkout, so two checkouts never contend. Set
+`SPEC_LOOP_LOCK=off` to run without it when an overlap is known to be
+harmless, or point `SPEC_LOOP_LOCK` at a shared directory to serialise
+several checkouts of the same repository.
+
 ## Stop / configure
 
 - Stop: `Ctrl+C`, or `touch STOP` (exits after the current iteration).
+- `SPEC_LOOP_LOCK` — single-flight lock directory (default
+  `tools/spec-loop/.lock` under the repo root), or `off` to disable the
+  lock. See *One loop per checkout* above.
 - `SPEC_LOOP_BASE` — branch to fork work items from. Defaults to `main`;
   set it explicitly to build on top of a different branch.
 - `SPEC_LOOP_AGENT` — supported headless agent CLI or wrapper to run

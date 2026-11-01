@@ -121,3 +121,6 @@ AGENTS.md
 **/scheduled_tasks.lock
 .apache-steward/
 docs/superpowers/
+
+# spec-loop single-flight lock (tools/spec-loop/loop.sh): runtime state, never committed.
+tools/spec-loop/.lock/
