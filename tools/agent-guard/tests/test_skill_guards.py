@@ -608,6 +608,20 @@ def hooks_path_stub(value):
         ("lefthook install -rf=false", "--reset-hooks-path"),
         ("lefthook --verbose install --force", "--force"),
         ("./node_modules/.bin/lefthook install --force", "--force"),
+        ("lefthook --colors off install --force", "--force"),
+        ("lefthook --colors off install -r", "--reset-hooks-path"),
+        ("lefthook install pre-commit --force", "--force"),
+        ("npx lefthook install --force", "--force"),
+        ("npx -y lefthook@1.11.0 install -f", "--force"),
+        ("npx @evilmartians/lefthook install --force", "--force"),
+        ("npm exec -- lefthook install --force", "--force"),
+        ("pnpm exec lefthook install --reset-hooks-path", "--reset-hooks-path"),
+        ("pnpm --filter app exec lefthook install -f", "--force"),
+        ("pnpm dlx lefthook install --force", "--force"),
+        ("yarn exec lefthook install -f", "--force"),
+        ("yarn dlx lefthook install --force", "--force"),
+        ("bunx lefthook install -r", "--reset-hooks-path"),
+        ("env CI=1 npx lefthook --colors off install --force", "--force"),
     ],
 )
 def test_lefthook_destructive_install_denied(monkeypatch, hooks_path, command, flag):
@@ -623,6 +637,12 @@ def test_lefthook_destructive_install_denied(monkeypatch, hooks_path, command, f
         "lefthook install --verbose",
         "lefthook run pre-commit",
         "lefthook --version",
+        "lefthook --colors off install",
+        "npx lefthook install",
+        "npx lefthook run pre-commit --force",
+        "npm install --save-dev lefthook --force",
+        "pnpm add -D lefthook",
+        "npx prettier --write install",
     ],
 )
 def test_lefthook_plain_invocations_allowed(monkeypatch, command):

@@ -433,6 +433,14 @@ def test_no_verify_guard_denied_past_a_global_flag():
     assert reason and "no-verify" in reason
 
 
+@pytest.mark.parametrize("head", ["/usr/bin/git", "/mingw64/bin/git.exe", "git.exe"])
+def test_no_verify_guard_denied_for_a_path_qualified_git(head):
+    # guarded_head let these through to the guards, but the `git:commit`
+    # TRIGGERS pre-filter keyed on a literal argv[0] == "git".
+    reason = dispatch(f'{head} commit -m "x" --no-verify')
+    assert reason and "no-verify" in reason
+
+
 # --------------------------------------------------------------------------- #
 # contributed-guard discovery
 # --------------------------------------------------------------------------- #
