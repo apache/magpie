@@ -75,7 +75,7 @@ def test_apply_is_additive_and_keeps_everything_else(tmp_path: Path) -> None:
         },
     }
     target.write_text(json.dumps(existing))
-    os.chmod(target, 0o640)
+    os.chmod(target, 0o700)  # not the 0o600 a fresh write gets
     result = settings.apply(target, _prop(tmp_path / "run"))
     data = json.loads(target.read_text())
     assert result.status == "written" and result.conflicts == {}
@@ -86,7 +86,7 @@ def test_apply_is_additive_and_keeps_everything_else(tmp_path: Path) -> None:
     assert data["sandbox"]["network"]["allowedDomains"] == ["x"]
     socks = data["sandbox"]["network"]["allowUnixSockets"]
     assert socks[0] == "/run/user/1000/gnupg/S.gpg-agent.ssh" and len(socks) == 3
-    assert stat.S_IMODE(target.stat().st_mode) == 0o640  # mode kept
+    assert stat.S_IMODE(target.stat().st_mode) == 0o700  # mode kept
 
 
 def test_apply_is_idempotent_and_never_rewrites_an_unchanged_file(tmp_path: Path) -> None:
