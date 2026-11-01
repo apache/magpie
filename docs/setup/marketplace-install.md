@@ -64,9 +64,11 @@ Add the marketplace, then install the baseline and whichever families you want:
 /plugin install magpie-agent-guard@apache-magpie
 /plugin install magpie-utilities@apache-magpie
 /plugin install magpie-pr-management@apache-magpie
+/plugin install magpie-security-tools@apache-magpie
 ```
 
-The pattern is `/plugin install magpie-<family>@apache-magpie`. Confirm what
+The pattern is `/plugin install magpie-<family>@apache-magpie`.
+`magpie-security-tools` carries the framework tools the family skills run (`<framework>/tools/<tool>`); every family that runs one needs it, whatever its name says. Confirm what
 landed with `/plugin`.
 
 To track a released version instead of `main`, add the marketplace from a tag:
