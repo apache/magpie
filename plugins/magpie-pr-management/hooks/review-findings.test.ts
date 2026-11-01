@@ -115,6 +115,21 @@ describe('magpie-pr-management review findings mod (PR-1)', () => {
       assert(errors[0].includes("Malformed line number '12.5'"));
     });
 
+    test('numeric non-integer or negative lines and non-string severities are recorded', () => {
+      const errors: string[] = [];
+      assertStrictEqual(normalizeLine(12.5, errors), null);
+      assertStrictEqual(normalizeLine(-3, errors), null);
+      assertStrictEqual(normalizeLine(0, errors), null);
+      assertStrictEqual(errors.length, 2);
+      assert(errors[1].includes("Malformed line number '-3'"));
+
+      const sevErrors: string[] = [];
+      assertStrictEqual(normalizeSeverity(3, sevErrors), 'minor');
+      assertStrictEqual(normalizeSeverity(undefined, sevErrors), 'minor');
+      assertStrictEqual(sevErrors.length, 1);
+      assert(sevErrors[0].includes("Invalid severity type 'number'"));
+    });
+
     test('normalizeSource validates reviewer source attributes', () => {
       assertStrictEqual(normalizeSource('primary'), 'primary');
       assertStrictEqual(normalizeSource('adversarial'), 'adversarial');
@@ -281,7 +296,74 @@ describe('magpie-pr-management review findings mod (PR-1)', () => {
       assertStrictEqual(decoded[0].file, 'a.py');
       assertStrictEqual(decoded[0].line, 142);
       assertStrictEqual(decoded[0].severity, 'blocking');
-      assertStrictEqual(decoded[0].body, 'Syntax flaw');
+      assertStrictEqual(decoded[0].explanation, 'Syntax flaw');
+      assertStrictEqual(decoded[0].rule_id, 'syntax');
+    });
+
+    test('round-trips a full Step-4 finding with every key render reads', () => {
+      const step4 = {
+        file: './src/hook.py',
+        line_number: '142',
+        side: 'RIGHT',
+        level: 'major',
+        category: 'Code quality',
+        rule_id: 'no in-function imports',
+        quoted_rule: 'Flag any import inside a function body',
+        excerpt: 'def f():\n    import boto3',
+        explanation: 'The import runs on every call.',
+        suggestion: 'Move the import to module level.',
+        suggestion_block: '    import boto3',
+        reviewers: ['codex', 'copilot'],
+        comment: 'edited comment text',
+        action: 'edit',
+      };
+      const decoded = JSON.parse(serializeFindingsForRender(parseFindings([step4]).findings))[0];
+      assertStrictEqual(decoded.file, 'src/hook.py');
+      assertStrictEqual(decoded.line, 142);
+      assertStrictEqual(decoded.severity, 'major');
+      for (const key of [
+        'side',
+        'category',
+        'rule_id',
+        'quoted_rule',
+        'excerpt',
+        'explanation',
+        'suggestion',
+        'suggestion_block',
+        'comment',
+      ]) {
+        assertStrictEqual(decoded[key], (step4 as Record<string, unknown>)[key], `key ${key}`);
+      }
+      assertDeepStrictEqual(decoded.reviewers, ['codex', 'copilot']);
+      for (const alias of ['line_number', 'level', 'action']) {
+        assertStrictEqual(alias in decoded, false, `alias ${alias} dropped`);
+      }
+    });
+
+    test('render numbering over the serialised file matches formatKeepAnswer', () => {
+      // Inputs where the raw keys and render's rule diverge: aliases render
+      // never reads, the string "0" (truthy in Python), a non-object item.
+      const rawDataset: unknown[] = [
+        { file: 'a.py', lineNumber: 12, body: 'alias lineNumber', action: 'accept' },
+        { file: 'b.py', line: '0', body: 'string zero', action: 'accept' },
+        'not an object',
+        { file: 'c.py', line_number: 7, body: 'alias line_number', action: 'skip' },
+        { file: 'd.py', line: 30, body: 'plain line', action: 'edit' },
+        { file: 'e.py', line: null, body: 'unanchored', action: 'accept' },
+      ];
+      const parsed = parseFindings(rawDataset);
+      const serialised = JSON.parse(serializeFindingsForRender(parsed.findings)) as Array<
+        Record<string, unknown>
+      >;
+      // render: anchored = [f for f in findings if f.get("line")]
+      const renderAnchored = serialised.filter((f) => Boolean(f.line));
+      const actions = parsed.findings.filter(isAnchored).map((f) => f.action);
+      assertStrictEqual(renderAnchored.length, actions.length);
+      const renderKept = renderAnchored
+        .map((_, i) => i + 1)
+        .filter((i) => actions[i - 1] === 'accept' || actions[i - 1] === 'edit');
+      assertStrictEqual(formatKeepAnswer(parsed.findings), renderKept.join(','));
+      assertStrictEqual(formatKeepAnswer(parsed.findings), '1,3');
     });
   });
 

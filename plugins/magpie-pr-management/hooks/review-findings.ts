@@ -32,6 +32,9 @@ import type {
  */
 export function normalizeSeverity(raw: unknown, errors?: string[]): FindingSeverity {
   if (typeof raw !== 'string') {
+    if (raw !== undefined && raw !== null && errors) {
+      errors.push(`Invalid severity type '${typeof raw}'; defaulted to 'minor'`);
+    }
     return 'minor';
   }
   const clean = raw.trim().toLowerCase();
@@ -80,7 +83,11 @@ export function normalizeFilePath(raw: unknown): string {
  */
 export function normalizeLine(raw: unknown, errors?: string[]): number | null {
   if (typeof raw === 'number') {
-    return Number.isInteger(raw) && raw >= 1 ? raw : null;
+    if (Number.isInteger(raw) && raw >= 1) return raw;
+    if (raw !== 0 && errors) {
+      errors.push(`Malformed line number '${raw}'; treated as unanchored`);
+    }
+    return null;
   }
   if (typeof raw === 'string') {
     const trimmed = raw.trim();
@@ -219,20 +226,39 @@ export function formatKeepAnswer(findings: readonly ReviewFinding[]): string {
   return keptIndices.join(',');
 }
 
+// Alias keys the parser accepts that render never reads; the serialised
+// file carries the canonical key instead, so the two cannot disagree.
+const ALIAS_KEYS = ['path', 'filename', 'lineNumber', 'line_number', 'level', 'action'];
+
 /**
- * Serializes normalized review findings into the clean JSON structure
- * that code-review render consumes via its findings file parameter.
+ * Serializes normalized review findings into the findings file that
+ * code-review render reads, in render's own field names.
+ *
+ * Every field of the original finding is kept (explanation, rule_id,
+ * quoted_rule, excerpt, suggestion_block, side, reviewers, ...), and only
+ * the normalised file, line and severity override it. A finding that
+ * arrived with only the parser's aliases (body, rule) gets render's names
+ * for them. Render anchors on a truthy `line`, so with `line` normalised to
+ * an integer >= 1 or null, its numbering over this file is formatKeepAnswer's.
  */
 export function serializeFindingsForRender(findings: readonly ReviewFinding[]): string {
-  const payload = findings.map((f) => ({
-    file: f.file,
-    line: f.line,
-    severity: f.severity,
-    body: f.body,
-    rule: f.rule,
-    source: f.source,
-    fixup: f.fixup,
-  }));
+  const payload = findings.map((f) => {
+    const raw = f.raw;
+    const base: Record<string, unknown> =
+      typeof raw === 'object' && raw !== null && !Array.isArray(raw)
+        ? { ...(raw as Record<string, unknown>) }
+        : {};
+    for (const key of ALIAS_KEYS) {
+      delete base[key];
+    }
+    if (base.explanation === undefined && base.suggestion === undefined && f.body) {
+      base.explanation = f.body;
+    }
+    if (base.rule_id === undefined && base.category === undefined && f.rule) {
+      base.rule_id = f.rule;
+    }
+    return { ...base, file: f.file, line: f.line, severity: f.severity };
+  });
   return JSON.stringify(payload, null, 2);
 }
 
