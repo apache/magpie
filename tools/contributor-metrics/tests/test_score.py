@@ -120,6 +120,45 @@ def test_area_shares_and_breadth():
     assert out["area_breadth"] == {"raw": 2, "adjusted": 1}
 
 
+def site_pr(n: int, *, areas: tuple[str, ...] = ()) -> Item:
+    url = f"https://github.com/o/r-site/pull/{n}"
+    return Item(
+        id=f"o/r-site:pr-{n}",
+        kind="pr",
+        url=url,
+        thread=url,
+        created_at="2026-05-01",
+        merged=True,
+        areas=areas,
+    )
+
+
+def test_repo_area_counts_unlabelled_site_work_as_website():
+    items = [pr(1, areas=("area:a",)), site_pr(2), site_pr(3)]
+    weights, _ = Weights.from_mapping({})
+    out = score(
+        items, {}, weights, since=SINCE, end=END, area_prefix="area:", repo_areas=[("*-site", "website")]
+    )
+    areas = {a["area"]: a for a in out["areas"]}
+    assert "(unlabelled)" not in areas
+    assert areas["website"]["prs"]["raw"] == 2
+    assert out["area_breadth"]["raw"] == 2
+
+
+def test_repo_area_adds_to_labels_and_ignores_other_repositories():
+    items = [pr(1), site_pr(2, areas=("area:a",))]
+    weights, _ = Weights.from_mapping({})
+    out = score(
+        items, {}, weights, since=SINCE, end=END, area_prefix="area:", repo_areas=[("*-site", "website")]
+    )
+    assert [a["area"] for a in out["areas"]] == ["area:a", "website", "(unlabelled)"]
+
+
+def test_without_repo_areas_site_work_stays_unlabelled():
+    out, _ = run([site_pr(1)])
+    assert [a["area"] for a in out["areas"]] == ["(unlabelled)"]
+
+
 def test_labels_without_the_area_prefix_are_not_areas():
     out, _ = run([pr(1, areas=("area:a", "kind:bug"))])
     assert [a["area"] for a in out["areas"]] == ["area:a"]

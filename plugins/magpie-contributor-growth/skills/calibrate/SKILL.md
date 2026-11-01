@@ -24,7 +24,7 @@ argument-hint: "[since:YYYY-MM-DD] [holdout:YYYY-MM-DD] [exclude-thread:<id>] [w
 capability: capability:stats
 surface_hash: sha256:9c623c35a58589e5
 license: Apache-2.0
-measured_tokens: 3966
+measured_tokens: 4000
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -187,7 +187,7 @@ For each resolved row:
 1. Run `contributor-metrics fetch` once, with `--end <vote date> --months <largest window>` and the project's pushback phrases, per [`nomination/fetch.md`](../nomination/fetch.md).
    Nothing after the vote date is counted, and the tool's cache makes a re-run cheap.
 2. Confirm pushback candidates by the rules in [`automated-contributions.md`](../nomination/automated-contributions.md), at most 10 candidates per nominee; an unconfirmed candidate keeps full weight.
-3. Run `contributor-metrics score` with the project's discount settings once per window, using `--since` for the shorter windows.
+3. Run `contributor-metrics score` with the project's discount settings once per window, using `--since` for the shorter windows, and the same `--repo-area` entries the other skills pass (`contributor_activity.repository_areas`), so area breadth is measured the same way for nominees and candidates.
 4. Count mailing-list presence: threads started and replies on `<dev-list>` in the window, through the `mail-archive` search in statistics mode, filtered by the nominee's confirmed address only.
 5. Record which metrics were **capped** for the row: every stream in `caps_hit` marks its metrics (`prs_opened` → `prs_opened`, `prs_merged`; `reviews_total` → `reviews_total`, `reviews_substantive`; the others one to one).
    A capped count is only a lower bound, so the floor arithmetic leaves it out of that metric's distribution.

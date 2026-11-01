@@ -25,7 +25,7 @@ argument-hint: "<github-handle> [window:Nm] [target:committer|pmc]"
 capability: capability:stats
 surface_hash: sha256:d088479a32dcc0cf
 license: Apache-2.0
-measured_tokens: 5549
+measured_tokens: 5597
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -360,7 +360,7 @@ Apply the criteria in [`assess.md`](assess.md) to the combined data — GitHub a
 First apply [`automated-contributions.md`](automated-contributions.md) to the Step 2 items, per [`assess.md` § Part 1b](assess.md#part-1b--automated-and-low-signal-contributions).
 Resolve its settings — the weight keys, `automated_pushback_penalty`, `automated_contribution_expectations` and `automated_pushback_phrases` — from `<project-config>/contributor-nomination-config.md`, else the framework defaults.
 When the run was handed off from `contributor-to-committer`, reuse that skill's classification and cleared flags instead of classifying again.
-Write the confirmed classes to `<scratch>/classes.json` and the settings to `<scratch>/weights.json`, and run `contributor-metrics score --items <scratch>/items.json --classes <scratch>/classes.json --weights <scratch>/weights.json --area-prefix <area_label_prefix> --out <scratch>/metrics.json`; resolve `area_label_prefix` from `contributor-nomination-config.md`, default `area:`.
+Write the confirmed classes to `<scratch>/classes.json` and the settings to `<scratch>/weights.json`, and run `contributor-metrics score --items <scratch>/items.json --classes <scratch>/classes.json --weights <scratch>/weights.json --area-prefix <area_label_prefix> --out <scratch>/metrics.json`, adding one `--repo-area '<glob>=<area>'` per entry of `contributor_activity.repository_areas`; resolve `area_label_prefix` from `contributor-nomination-config.md`, default `area:`, and `repository_areas` from `project.md`, else the organization (ASF: `*-site` is `website`).
 Every count below is then the adjusted count from `metrics.json`, with the raw count kept alongside it:
 
 - **GitHub breadth**: which areas have meaningful signal and which are thin or absent, with each area's share of merged PRs and reviews from `metrics.json.areas`

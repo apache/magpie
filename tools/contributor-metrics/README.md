@@ -114,12 +114,14 @@ Output: `{"owner", "project", "since", "end", "active": [{"repo", "merged_prs", 
 
 ```bash
 contributor-metrics score --items items.json [--classes classes.json] [--weights weights.json] \
-  [--area-prefix area:] [--since YYYY-MM-DD] [--timeline-kinds pr,issue,review,thread] --out metrics.json
+  [--area-prefix area:] [--repo-area GLOB=AREA ...] [--since YYYY-MM-DD] \
+  [--timeline-kinds pr,issue,review,thread] --out metrics.json
 ```
 
 - `--classes` — `{"<item id>": "P" | "R" | "C"}`, as confirmed by the calling skill; unknown ids and other values are reported in `notes` and ignored.
 - `--weights` — any of `automated_contribution_weight`, `restatement_comment_weight`, `closed_after_pushback_weight`, `automated_pushback_penalty`; a missing, non-numeric or out-of-range value falls back to its default with a note.
 - `--area-prefix` — the label prefix that marks a PR's area (the project's `area_label_prefix`).
+- `--repo-area` — repeatable `GLOB=AREA`: an item from a repository whose *name* (the `name` of `owner/name`, read from the item URL) matches `GLOB` also counts under `AREA`, labelled or not, and the area counts toward area breadth. Skills pass `contributor_activity.repository_areas` from the project or its organization; the ASF organization maps `*-site` to `website`.
 - `--since` — score only a sub-window of what was fetched, e.g. the 6-month window from a 12-month fetch.
 - `--timeline-kinds` — the item kinds the monthly `timeline` counts, comma-separated; default every kind.
 
