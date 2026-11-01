@@ -87,7 +87,8 @@ def test_a_genuinely_missing_plugin_is_a_finding(project: Path) -> None:
     write_lock(project, MARKETPLACE)
     found = project_findings(project, {"something-else": "9.9.9"})
     assert codes(found) == ["below-floor"]
-    assert found[0].facts["missing"] == ["magpie-setup", "magpie-vetted-ops"]
+    # magpie-setup on the floor brings its framework-tools companion.
+    assert found[0].facts["missing"] == ["magpie-setup", "magpie-vetted-ops", "magpie-security-tools"]
     # The listing came from `--plugin-list` here, so no harness is named.
     assert found[0].facts["harness"] is None
 
@@ -103,6 +104,7 @@ def test_the_floor_finding_names_the_harness_it_measured(project: Path) -> None:
     assert found[0].facts["outdated"] == [
         {"plugin": "magpie-setup", "installed": "0.1.0", "floor": "0.2.0"},
         {"plugin": "magpie-vetted-ops", "installed": "0.1.0", "floor": "0.2.0"},
+        {"plugin": "magpie-security-tools", "installed": "0.1.0", "floor": "0.2.0"},
     ]
 
 
@@ -122,14 +124,15 @@ def test_non_claude_names_must_match_before_reporting_absence(project: Path, har
 
 def test_being_ahead_of_the_floor_is_never_a_finding(project: Path) -> None:
     write_lock(project, MARKETPLACE)
-    assert project_findings(project, {"magpie-setup": "9.9.9", "magpie-vetted-ops": "9.9.9"}) == []
+    installed = {"magpie-setup": "9.9.9", "magpie-vetted-ops": "9.9.9", "magpie-security-tools": "9.9.9"}
+    assert project_findings(project, installed) == []
 
 
 def test_vetted_ops_is_required_even_when_the_floor_omits_it(project: Path) -> None:
     """A floor committed before vetted-ops joined the seed still needs it:
     the family skills run their forge operations through its dispatcher."""
     write_lock(project, MARKETPLACE)
-    found = project_findings(project, {"magpie-setup": "9.9.9"})
+    found = project_findings(project, {"magpie-setup": "9.9.9", "magpie-security-tools": "9.9.9"})
     assert codes(found) == ["below-floor"]
     assert found[0].facts["missing"] == ["magpie-vetted-ops"]
 
@@ -137,7 +140,7 @@ def test_vetted_ops_is_required_even_when_the_floor_omits_it(project: Path) -> N
 def test_a_floor_that_lists_vetted_ops_names_it_once(project: Path) -> None:
     write_lock(project, MARKETPLACE + "  - magpie-vetted-ops\n")
     found = project_findings(project, {"something-else": "9.9.9"})
-    assert found[0].facts["missing"] == ["magpie-setup", "magpie-vetted-ops"]
+    assert found[0].facts["missing"] == ["magpie-setup", "magpie-vetted-ops", "magpie-security-tools"]
 
 
 def test_a_dev_build_below_the_floor_is_below_it(project: Path) -> None:
@@ -441,7 +444,9 @@ def test_a_changed_plugin_listing_invalidates_the_cache(project: Path) -> None:
     write_lock(project, MARKETPLACE)
     (project / ".apache-magpie-local").mkdir()
     cached_project_findings(project, {"magpie-setup": "0.1.0"})
-    found, cached = cached_project_findings(project, {"magpie-setup": "9.9.9", "magpie-vetted-ops": "9.9.9"})
+    found, cached = cached_project_findings(
+        project, {"magpie-setup": "9.9.9", "magpie-vetted-ops": "9.9.9", "magpie-security-tools": "9.9.9"}
+    )
     assert cached is False and found == []
 
 
@@ -635,6 +640,32 @@ def test_a_legacy_dir_appearing_invalidates_the_cache(project: Path) -> None:
     (project / ".apache-magpie-local").mkdir()
     found, cached = cached_project_findings(project, None)
     assert cached is False and codes(found) == ["legacy-local-dir"]
+
+
+def test_every_family_that_runs_framework_tools_brings_the_tools_plugin(project: Path) -> None:
+    """On a marketplace install `<framework>` comes from the tools plugin, so a
+    family that runs `<framework>/tools/<tool>` is below its floor without it,
+    whether the family is on the floor or only on the machine."""
+    write_lock(project, MARKETPLACE)
+    found = project_findings(project, {"magpie-setup": "9.9.9", "magpie-vetted-ops": "9.9.9"})
+    assert codes(found) == ["below-floor"]
+    assert found[0].facts["missing"] == ["magpie-security-tools"]
+    for family in (
+        "magpie-pr-management",
+        "magpie-release-management",
+        "magpie-contributor-growth",
+        "magpie-utilities",
+    ):
+        found = project_findings(
+            project,
+            {
+                "magpie-setup": "9.9.9",
+                "magpie-vetted-ops": "9.9.9",
+                family: "9.9.9",
+                "magpie-security-tools": "9.9.9",
+            },
+        )
+        assert found == [], family
 
 
 def test_an_installed_security_family_needs_its_tools_companion(project: Path) -> None:

@@ -26,12 +26,15 @@ not there does not raise, it just stops denying."""
 
 from __future__ import annotations
 
+import importlib
 import importlib.util
 import json
 import os
 import pathlib
 import re
 import subprocess
+import sys
+import tomllib
 from pathlib import Path
 from types import ModuleType
 
@@ -525,6 +528,10 @@ def test_file_copy_passes_and_reports_drift(tree, monkeypatch):
         "tools/vetted-ops/README.md",
         "tools/agent-guard/src/agent_guard/__init__.py",
         "tools/dev/check-family-plugins.py",
+        "tools/pr-management/src/pr_management/cli.py",
+        "tools/release-management/pyproject.toml",
+        "tools/privacy-llm/redactor/README.md",
+        "plugins/magpie-release-management/skills/audit-report/audit-record-schema.md",
     ],
 )
 def test_source_changes_trigger_packaging_hook(path):
@@ -561,18 +568,78 @@ def test_a_copied_tool_pyproject_resolves_inside_the_plugin(tmp_path, monkeypatc
     assert "[tool.ruff]" in packaged  # only the dev group goes
 
 
-def test_the_security_tools_plugin_ships_every_tool_the_skills_name():
-    # Every `<framework>/tools/<tool>` a security skill runs is in the plugin.
+def test_a_copied_tool_with_its_own_workspace_source_resolves_inside_the_plugin(tmp_path, monkeypatch):
+    # typed-decision declares `checker = { workspace = true }` itself; shipped as is,
+    # the copy names a workspace that does not exist and `uv run` refuses it.
+    (tmp_path / "tools" / "a").mkdir(parents=True)
+    (tmp_path / "tools" / "b").mkdir(parents=True)
+    (tmp_path / "tools" / "a" / "pyproject.toml").write_text(
+        '[project]\nname = "a"\ndependencies = ["b"]\n\n[tool.uv.sources]\nb = { workspace = true }\n'
+        'other = { git = "https://example.invalid/other" }\n\n[tool.ruff]\nline-length = 110\n',
+        encoding="utf-8",
+    )
+    (tmp_path / "tools" / "b" / "pyproject.toml").write_text('[project]\nname = "b"\n', encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    copies = {
+        "tools/a/pyproject.toml": "tools/a/pyproject.toml",
+        "tools/b/pyproject.toml": "tools/b/pyproject.toml",
+    }
+    packaged = mod.packaged_file_bytes(Path("tools/a/pyproject.toml"), copies).decode()
+    assert "workspace = true" not in packaged
+    sources = tomllib.loads(packaged)["tool"]["uv"]["sources"]
+    assert sources["b"] == {"path": "../b"}
+    assert sources["other"] == {"git": "https://example.invalid/other"}  # unrelated sources stay
+    assert packaged.count("[tool.uv.sources]") == 1
+
+
+def _framework_tools_named_by(family_dir):
     named = set()
-    for skill in (REPO_ROOT / "plugins" / "magpie-security" / "skills").rglob("*.md"):
+    for skill in family_dir.rglob("*.md"):
         named |= set(
             re.findall(r"<framework>/tools/([a-z0-9-]+(?:/[a-z0-9-]+)?)", skill.read_text(encoding="utf-8"))
         )
+    # A path into a tool (`release-verify/src`) names the tool itself.
+    return {name.removesuffix("/src") for name in named}
+
+
+def test_the_tools_plugin_ships_every_framework_tool_any_skill_names():
+    # On a marketplace install `<framework>` is materialised from this one plugin,
+    # so every `<framework>/tools/<tool>` any family's skill runs must be in it.
+    named = set()
+    for family in (REPO_ROOT / "plugins").glob("magpie-*/skills"):
+        named |= _framework_tools_named_by(family)
     shipped = {Path(dest).relative_to("tools").as_posix() for dest in mod.SECURITY_TOOLS} | {
         "security-tracker-stats-dashboard/run",
-        "local-tracker",  # ships with magpie-vetted-ops, beside the dispatcher
     }
-    assert named <= shipped, sorted(named - shipped)
+    # Framework-checkout only, by design: the validator checks a framework-shaped
+    # tree (docs/modes.md, the capability taxonomy, skills/) that an adopter repo
+    # does not have, and skill-reconciler's call to it is optional and non-blocking.
+    checkout_only = {"skill-and-tool-validator"}
+    assert named - checkout_only <= shipped, sorted(named - checkout_only - shipped)
+    assert not checkout_only & shipped, "a checkout-only tool is shipped; drop it from checkout_only"
+
+
+def test_every_family_that_runs_a_framework_tool_brings_the_tools_plugin():
+    # The preflight's COMPANIONS is what installs and upgrades add the plugin from;
+    # a family missing there would run tools that are not on the machine.
+    core = _load_preflight_core()
+    families = {
+        family.parent.name
+        for family in (REPO_ROOT / "plugins").glob("magpie-*/skills")
+        if _framework_tools_named_by(family)
+    }
+    assert families, "no family runs a framework tool: the scan is broken"
+    missing = sorted(f for f in families if core.COMPANIONS.get(f) != "magpie-security-tools")
+    assert not missing, f"families that run <framework> tools but do not bring the tools plugin: {missing}"
+
+
+def _load_preflight_core():
+    path = REPO_ROOT / "plugins" / "magpie-setup" / "skills" / "setup"
+    sys.path.insert(0, str(path))
+    try:
+        return importlib.import_module("setup_preflight.core")
+    finally:
+        sys.path.remove(str(path))
 
 
 def test_every_stable_magpie_path_a_skill_runs_is_linked_by_vetted_ops(tmp_path):

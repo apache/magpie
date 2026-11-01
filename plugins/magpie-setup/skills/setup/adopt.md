@@ -52,8 +52,9 @@ is what it stays unless the maintainer explicitly asks for more.
 `magpie-setup` and `magpie-vetted-ops` are never dropped from it: the
 family skills run their forge operations through the vetted-ops
 dispatcher, and every skill's pre-flight requires it even on a floor
-that omits it. A floor that lists `magpie-security` also lists
-`magpie-security-tools`: the security skills' tools ship there.
+that omits it. A floor that lists any of `magpie-security`, `magpie-setup`, `magpie-pr-management`, `magpie-release-management`, `magpie-contributor-growth` and `magpie-utilities` also lists
+`magpie-security-tools`: the framework tools those families run ship there
+(the name is historical).
 
 It **never grows automatically** — not to match what this maintainer
 installed, not to match what the framework has started shipping.

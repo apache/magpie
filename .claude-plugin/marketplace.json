@@ -22,7 +22,7 @@
       "name": "magpie-security-tools",
       "source": "./plugins/magpie-security-tools",
       "version": "0.9.0.dev202611010039",
-      "description": "Apache Magpie \u2014 the tools the security skills run (tracker field and rollup edits, CVE JSON, the privacy gate, the scan importer), shipped so a marketplace install needs no framework checkout."
+      "description": "Apache Magpie \u2014 the framework tools the skills run as <framework>/tools/<tool> (security tracker edits and CVE JSON, PR and release management, contributor metrics, the privacy gate, setup's permission audit), shipped so a marketplace install needs no framework checkout. The name is historical: every family that runs one of these tools needs this plugin."
     },
     {
       "name": "magpie-vetted-ops",
