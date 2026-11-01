@@ -308,13 +308,28 @@ a policy outside the sandbox-writable root on purpose.
 
 **Only `vetted-op-read` takes `--config` for an operation that runs.**
 `vetted-op` and `vetted-op-tracker` run outside the sandbox, so a policy they
-act on must be one the agent cannot write: they refuse `--config` and use the
-discovered policy only — `.apache-magpie-overrides/tools/vetted-ops/config.toml`,
-else an untampered personal-layer copy, both write-denied by the secure setup.
-An agent-written `--config` could otherwise set `workspace` to a private
-directory such as `~/.ssh` (owned by you and mode 0700, so it passes the
-workspace check) and post a key from it as a comment on a repository it chose.
-`--dry-run`, `policy` and `list-ops` still accept `--config`: they publish nothing.
+act on must be one the agent cannot write. An agent-written policy could set
+`workspace` to a private directory such as `~/.ssh` (owned by you and mode 0700,
+so it passes the workspace check) and post a key from it as a comment on a
+repository it chose. So they refuse `--config`, and they act on the discovered
+policy — `.apache-magpie-overrides/tools/vetted-ops/config.toml`, else a
+personal-layer copy — **only when it is byte-for-byte a copy you placed in
+`~/.config/apache-magpie/vetted-ops/`**. Discovery starts from the working
+directory, which the agent picks, and a directory renamed into place gets past
+any deny glob; the approved directory is outside every sandbox-writable root and
+`Edit`-denied, so nothing the agent can do puts a policy there. A planted copy of
+an approved policy gains nothing. Approve a policy in your own terminal, after
+reviewing it, and again after every change:
+
+```bash
+mkdir -p ~/.config/apache-magpie/vetted-ops && cp .apache-magpie-overrides/tools/vetted-ops/config.toml ~/.config/apache-magpie/vetted-ops/<project>.toml
+```
+
+The home directory comes from the password database, not `$HOME`, and so does a
+`~` in the policy's `workspace`. Every policy file is opened one path component
+at a time without following symlinks, so the file read is the file checked.
+`--dry-run`, `policy` and `list-ops` need neither approval nor discovery, and
+still accept `--config`: they publish nothing.
 
 When a repo holds more than one policy, bind the flag in the permission rule so
 the grant names the policy it was reasoned about:
@@ -617,6 +632,7 @@ anything still invoked directly:
     "Edit(~/.claude/magpie/**)",
     "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
     "Edit(//**/.apache-magpie-overrides/tools/vetted-ops/**)",
+    "Edit(~/.config/apache-magpie/vetted-ops/**)",
     "Edit(//**/.git/**/apache-magpie/tools/vetted-ops/**)",
     "Edit(//**/.svn/apache-magpie/tools/vetted-ops/**)",
     "Edit(//**/.apache-magpie-local/tools/vetted-ops/**)"

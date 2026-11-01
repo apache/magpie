@@ -167,6 +167,7 @@ REQUIRED_VETTED_OPS_DENY = (
     "Edit(~/.claude/magpie/**)",
     "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
     "Edit(//**/.apache-magpie-overrides/tools/vetted-ops/**)",
+    "Edit(~/.config/apache-magpie/vetted-ops/**)",
     # The same policy in a maintainer's personal layer (a project that has not
     # adopted Magpie): inside the git directory (`.git/**` also covers a
     # submodule's `.git/modules/<name>/`) or the Subversion one, or the legacy

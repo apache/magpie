@@ -131,9 +131,18 @@ reading this file; read the section for a check whose condition holds.
      the plugin's `SessionStart` hook points at the catalogue.
    - `.apache-magpie-overrides/tools/vetted-ops/**` — the policy.
    - `//**/.apache-magpie-overrides/tools/vetted-ops/**` — the same
-     path under any directory. The write dispatchers discover their
-     policy from the directory they run in, so a policy planted
-     anywhere else must not be writable either.
+     path under any directory, since discovery starts from the
+     working directory.
+   - `~/.config/apache-magpie/vetted-ops/**` — the approved policies,
+     the only ones the write dispatchers act on.
+
+   **9c — the approved copy.** The project's policy has a
+   byte-for-byte regular-file copy (not a symlink) in
+   `~/.config/apache-magpie/vetted-ops/`. Missing or stale is ✗:
+   every `vetted-op` / `vetted-op-tracker` write is refused with
+   *"not an approved copy"*. The fix is the user's to run in their
+   own terminal after reviewing the policy — never propose writing
+   that directory from the agent.
    - `//**/.git/**/apache-magpie/tools/vetted-ops/**`, `//**/.svn/apache-magpie/tools/vetted-ops/**`
      and `//**/.apache-magpie-local/tools/vetted-ops/**` — the policy in a
      maintainer's personal layer.

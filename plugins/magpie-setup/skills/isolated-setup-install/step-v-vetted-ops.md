@@ -48,6 +48,7 @@ writes structurally.
     // the policy naming which caller may run which operation
     "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
     "Edit(//**/.apache-magpie-overrides/tools/vetted-ops/**)",
+    "Edit(~/.config/apache-magpie/vetted-ops/**)",
     "Edit(//**/.git/**/apache-magpie/tools/vetted-ops/**)",
     "Edit(//**/.svn/apache-magpie/tools/vetted-ops/**)",
     "Edit(//**/.apache-magpie-local/tools/vetted-ops/**)"
@@ -72,6 +73,17 @@ and bodies come only from the workspace, so they reach less than the bare `gh *`
 `vetted-op-tracker` is further closed to the tracker procedures.
 **Both stay in `ask`, never `allow`**, so each write keeps its confirmation;
 `sandbox-lint` fails an exclusion that has lost its `ask`.
+
+Outside the sandbox, the write dispatchers act only on a policy the user approved:
+a byte-for-byte copy in `~/.config/apache-magpie/vetted-ops/`, which the agent cannot write.
+Ask the user to review the project's policy and approve it **in their own terminal** (a `!` command runs sandboxed and cannot write there),
+and to repeat it after every change to the policy:
+
+```bash
+mkdir -p ~/.config/apache-magpie/vetted-ops && cp .apache-magpie-overrides/tools/vetted-ops/config.toml ~/.config/apache-magpie/vetted-ops/<project>.toml
+```
+
+Never write that directory yourself, and never suggest a symlink instead of a copy: a link back into the repository re-trusts a path the agent can reach.
 
 The rules name the fixed path `~/.claude/magpie/vetted-ops`, never the
 versioned plugin-cache directory. The plugin's `SessionStart` hook points

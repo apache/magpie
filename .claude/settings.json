@@ -106,6 +106,7 @@
       "Edit(plugins/magpie-setup/skills/setup/family-mcp-allows.json)",
       "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
       "Edit(//**/.apache-magpie-overrides/tools/vetted-ops/**)",
+      "Edit(~/.config/apache-magpie/vetted-ops/**)",
       "Edit(//**/.git/**/apache-magpie/tools/vetted-ops/**)",
       "Edit(//**/.svn/apache-magpie/tools/vetted-ops/**)",
       "Edit(//**/.apache-magpie-local/tools/vetted-ops/**)",

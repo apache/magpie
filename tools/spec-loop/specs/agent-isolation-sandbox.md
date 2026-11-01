@@ -548,9 +548,11 @@ The reference model is four layers, layered:
      only from the owner-only workspace, so it reaches less than the bare
      `gh *` exclusion; it too is on `ask` and never `allow`.
      Both write dispatchers refuse `--config` whenever an operation runs
-     (a dry run, `policy` and `list-ops` keep it) and act only on the
-     discovered, write-denied policy, so an agent-written policy cannot
-     widen the body workspace or re-target the writes.
+     (a dry run, `policy` and `list-ops` keep it) and act only on a
+     discovered policy that is byte-for-byte a copy the user placed in
+     `~/.config/apache-magpie/vetted-ops/` (home from the password
+     database, not `$HOME`), so an agent-written or renamed-into-place
+     policy cannot widen the body workspace or re-target the writes.
      sandbox-lint's `expected.json` carries both write dispatchers in both
      forms in `excludedCommands` and `ask`; its tests assert each is
      excluded and asked but not allowed, and its invariants fail an

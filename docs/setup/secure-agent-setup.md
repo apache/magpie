@@ -745,6 +745,7 @@ The full block below is the two merged, annotated.
       "Edit(~/.claude/magpie/**)",
       "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
       "Edit(//**/.apache-magpie-overrides/tools/vetted-ops/**)",  // any directory discovery could start from, not only this project
+      "Edit(~/.config/apache-magpie/vetted-ops/**)",  // the approved policies the write dispatchers act on
       "Edit(//**/.git/**/apache-magpie/tools/vetted-ops/**)",
       "Edit(//**/.svn/apache-magpie/tools/vetted-ops/**)",
       "Edit(//**/.apache-magpie-local/tools/vetted-ops/**)",
@@ -919,9 +920,10 @@ personal-layer ones for a maintainer whose project has not adopted
 Magpie — is also merged into the sandbox's write-deny list, so a Bash-level write (`sed -i`, a
 heredoc redirect) is refused as well. The absolute
 `Edit(//**/.apache-magpie-overrides/tools/vetted-ops/**)` extends that to every
-directory: the write dispatchers discover their policy from the directory they
-run in, and a planted policy anywhere else must not be writable either (a
-symlink on the path is refused outright). Harnesses without that merge have
+directory, since discovery starts from whatever directory a dispatcher runs in;
+a symlink on the path is refused outright. A deny glob cannot stop a directory
+being *renamed* into place, though, so the write dispatchers do not trust
+discovery alone (see below). Harnesses without that merge have
 only the tool-level deny, and must deny writes to that path in their
 sandbox configuration explicitly.
 
@@ -956,7 +958,18 @@ and a sandboxed `gh` cannot verify TLS anyway.
 The policy decides the workspace and the repositories both write to, so neither takes `--config` when an operation runs:
 an agent-written policy could set `workspace` to `~/.ssh` (yours, mode 0700, so it passes the workspace check)
 and post a key from it to a repository it chose.
-They act only on the discovered policy, which the `Edit` denies above cover at both layers.
+Nor do they trust what discovery finds: the agent picks the working directory,
+and could build a policy under another name and rename its directory into place, which no deny glob catches.
+So they act only on a discovered policy that is **byte-for-byte a copy you placed in `~/.config/apache-magpie/vetted-ops/`**:
+outside every sandbox-writable root and `Edit`-denied, so no sandboxed command and none of the agent's file tools can put one there.
+A planted copy of an approved policy gains nothing; anything else is refused with the command to approve it.
+Approve a policy yourself, in your own terminal, after reviewing it, and again after every change to it:
+
+```bash
+mkdir -p ~/.config/apache-magpie/vetted-ops && cp .apache-magpie-overrides/tools/vetted-ops/config.toml ~/.config/apache-magpie/vetted-ops/<project>.toml
+```
+
+The home directory comes from the password database, not `$HOME`, so `HOME=… vetted-op …` cannot move it.
 Both also stay in `ask`, so every write still prompts, and `sandbox-lint` fails an exclusion without its `ask`.
 
 **OpenCode parity.** OpenCode has no per-command sandbox exclusion — its
@@ -996,8 +1009,8 @@ Codex is the exception that proves the rule: its execpolicy cannot match `~`, so
    - `Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)` — the operation catalogue;
    - `Edit(~/.claude/magpie/**)` — the fixed path the rules name;
    - `Edit(.apache-magpie-overrides/tools/vetted-ops/**)` — the policy;
-   - `Edit(//**/.apache-magpie-overrides/tools/vetted-ops/**)` — the same path under any directory.
-     The write dispatchers discover their policy from the directory they run in, so without it an agent could plant a policy elsewhere and `cd` there;
+   - `Edit(//**/.apache-magpie-overrides/tools/vetted-ops/**)` — the same path under any directory, since discovery starts from the working directory;
+   - `Edit(~/.config/apache-magpie/vetted-ops/**)` — the approved policies, the only ones the write dispatchers act on;
    - `Edit(//**/.git/**/apache-magpie/tools/vetted-ops/**)`, `Edit(//**/.svn/apache-magpie/tools/vetted-ops/**)` and `Edit(//**/.apache-magpie-local/tools/vetted-ops/**)` — the same policy kept in a maintainer's personal layer, for a project that has not adopted Magpie.
 
    They are what makes an unprompted read safe to allow: the `allow` rests on the catalogue's shape, so the agent that calls the dispatcher must not be able to edit it.
@@ -1025,6 +1038,7 @@ Codex is the exception that proves the rule: its execpolicy cannot match `~`, so
     "Edit(~/.claude/magpie/**)",
     "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
     "Edit(//**/.apache-magpie-overrides/tools/vetted-ops/**)",
+    "Edit(~/.config/apache-magpie/vetted-ops/**)",
     "Edit(//**/.git/**/apache-magpie/tools/vetted-ops/**)",
     "Edit(//**/.svn/apache-magpie/tools/vetted-ops/**)",
     "Edit(//**/.apache-magpie-local/tools/vetted-ops/**)"
