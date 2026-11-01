@@ -1800,6 +1800,26 @@ _register(
 
 _register(
     Op(
+        name="run-rerun",
+        params=("run_id",),
+        writes=True,
+        summary=(
+            "Re-run every job of one upstream workflow run — for a run held in "
+            "action_required that is not waiting for first-time-contributor approval."
+        ),
+        build=lambda cfg, run_id: [
+            "gh",
+            "run",
+            "rerun",
+            run_id,
+            "--repo",
+            _upstream(cfg),
+        ],
+    )
+)
+
+_register(
+    Op(
         name="workflow-approve",
         params=("run_id",),
         writes=True,

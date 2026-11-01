@@ -241,7 +241,8 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                                "commits-by-path", "repo-file", "label-list",
                                "gql-pr-review-threads", "team-members", "gql-pr-liveness", "gql-cr-open", "gql-cr-pr", "gql-cr-pr-stack", "cr-codeowners-github", "cr-codeowners-root", "cr-codeowners-docs", "cr-pr-template", "cr-viewer-commits", "cr-commit-files", "cr-path-commits", "cr-commit-pulls",
                                "pr-review-approve",
-                               "pr-review-request-changes", "pr-review-comment"]
+                               "pr-review-request-changes", "pr-review-comment",
+                               "runs-at-head", "workflow-approve", "run-rerun"]
 "pr-management-stats"   = ["viewer", "gql-pr-stats-open", "gql-pr-stats-closed-page",
                            "gql-pr-stats-closed-search", "team-members"]
 "pr-management-quick-merge" = ["viewer",
@@ -414,7 +415,7 @@ selector parameter narrows a sweep and cannot re-aim it.
 | `gql-stack-scan` | — | every open PR's stack number, all pages | stack-review |
 | `gql-pr-by-head` | `head` | open PRs whose head is one branch (the trunk walk) | stack-review |
 | `gql-cr-open` | — | every open PR in the code-review queue shape, all pages | code-review |
-| `gql-cr-pr` | `number` | one PR's review context: headline, files, threads, reviews, checks | code-review |
+| `gql-cr-pr` | `number` | one PR's review context: headline, files, threads, reviews, checks, and whether the repository and viewer can enable auto-merge | code-review |
 | `gql-cr-pr-stack` | `number` | the stack a PR belongs to, for stacked-layer reviews | code-review |
 | `cr-codeowners-github` | — | `.github/CODEOWNERS` from the default branch | code-review |
 | `cr-codeowners-root` | — | `CODEOWNERS` at the repository root | code-review |

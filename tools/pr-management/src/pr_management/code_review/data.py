@@ -105,6 +105,13 @@ class PR:
     file_details: tuple[dict[str, Any], ...] = ()
     viewer: str | None = None
     viewer_permission: str | None = None
+    auto_merge_allowed: bool = False
+    viewer_can_enable_auto_merge: bool = False
+    default_merge_method: str | None = None
+    auto_merge_enabled: bool = False
+    pending_not_required: tuple[str, ...] = ()
+    #: The last two commits with parents, verified signer and linked author logins (fixup checks).
+    head_commits: tuple[dict[str, Any], ...] = ()
     extra: dict[str, Any] = field(default_factory=dict)
 
 
@@ -125,6 +132,53 @@ def _contexts(rollup: dict[str, Any]) -> tuple[Context, ...]:
                     None,
                 )
             )
+    return tuple(found)
+
+
+UNREAD_CHECKS = "checks beyond the first page of the read"
+
+
+def _pending_not_required(rollup: dict[str, Any]) -> tuple[str, ...]:
+    """Checks still running that branch protection does not require, so auto-merge would not wait for them.
+
+    A context with no `isRequired` value counts as not required: the safe reading. When the
+    read stopped short of every context, the unread ones are unknown, so they count too.
+    """
+    names: list[str] = []
+    conn = rollup.get("contexts") or {}
+    nodes = _nodes(conn)
+    total = conn.get("totalCount")
+    if (conn.get("pageInfo") or {}).get("hasNextPage") or (isinstance(total, int) and total > len(nodes)):
+        names.append(UNREAD_CHECKS)
+    for node in nodes:
+        if node.get("__typename") == "StatusContext":
+            pending = node.get("state") in ("PENDING", "EXPECTED")
+            name = node.get("context")
+        else:
+            pending = node.get("status") != "COMPLETED"
+            name = node.get("name")
+        if pending and node.get("isRequired") is not True:
+            names.append(str(name or ""))
+    return tuple(names)
+
+
+def _head_commits(node: dict[str, Any]) -> tuple[dict[str, Any], ...]:
+    found: list[dict[str, Any]] = []
+    for item in _nodes(node.get("headCommits")):
+        commit = item.get("commit") or {}
+        signature = commit.get("signature") or {}
+        signer = (signature.get("signer") or {}).get("login") if signature.get("isValid") is True else None
+        found.append(
+            {
+                "oid": str(commit.get("oid") or ""),
+                "parents": [str(p.get("oid") or "") for p in _nodes(commit.get("parents"))],
+                "verified_signer": signer,
+                # Linked GitHub accounts only: a name or email is free text anyone can set.
+                "author_logins": [
+                    (a.get("user") or {}).get("login") or "" for a in _nodes(commit.get("authors"))
+                ],
+            }
+        )
     return tuple(found)
 
 
@@ -190,6 +244,9 @@ def from_node(node: dict[str, Any]) -> PR:
         association=str(node.get("authorAssociation") or "NONE"),
         mergeable=str(node.get("mergeable") or "UNKNOWN"),
         merge_state=node.get("mergeStateStatus"),
+        viewer_can_enable_auto_merge=bool(node.get("viewerCanEnableAutoMerge")),
+        default_merge_method=node.get("viewerDefaultMergeMethod"),
+        auto_merge_enabled=node.get("autoMergeRequest") is not None,
         additions=int(node.get("additions") or 0),
         deletions=int(node.get("deletions") or 0),
         changed_files=int(node.get("changedFiles") or 0),
@@ -206,6 +263,8 @@ def from_node(node: dict[str, Any]) -> PR:
         unresolved_threads=sum(1 for t in threads if not t.get("isResolved")),
         rollup_state=rollup.get("state") if rollup else None,
         contexts=_contexts(rollup),
+        pending_not_required=_pending_not_required(rollup) if rollup else (),
+        head_commits=_head_commits(node),
         node_id=node.get("id"),
         thread_details=tuple(threads),
         file_details=tuple(_nodes(files_conn)),
@@ -262,6 +321,7 @@ def load_pr(path: Path) -> PR:
     pr = from_node(repo.get("pullRequest") or {})
     pr.viewer = (data.get("viewer") or {}).get("login")
     pr.viewer_permission = repo.get("viewerPermission")
+    pr.auto_merge_allowed = bool(repo.get("autoMergeAllowed"))
     return pr
 
 
