@@ -164,6 +164,32 @@ def _remove_lock(lock: Path) -> None:
     lock.rmdir()
 
 
+def _take_over(lock: Path, seen: dict | None) -> bool:
+    """Move a stale lock out of the way; True when this caller removed it.
+
+    Renaming to a unique tombstone is atomic, so when two runs find the same
+    stale lock only one rename succeeds. The winner deletes the tombstone
+    only if it still holds the owner it judged stale; if a faster run had
+    already replaced the lock, the live lock is put back.
+    """
+    tomb = lock.with_name(f"{lock.name}.stale-{secrets.token_hex(8)}")
+    try:
+        os.rename(lock, tomb)
+    except OSError:
+        return False
+    if read_owner(tomb) == seen:
+        _remove_lock(tomb)
+        return True
+    if not lock.exists():
+        try:
+            os.rename(tomb, lock)
+            return False
+        except OSError:
+            pass
+    _remove_lock(tomb)
+    return False
+
+
 def acquire(
     root: Path,
     skill: str,
@@ -200,8 +226,16 @@ def acquire(
             reason = staleness(owner, now)
             if reason is not None and took_over is None:
                 took_over = reason
-                _remove_lock(lock)
-                continue
+                if _take_over(lock, owner):
+                    continue
+                return {
+                    "status": "already_running",
+                    "skill": skill,
+                    "repo": repo,
+                    "lock": str(lock),
+                    "holder": read_owner(lock),
+                    "hint": "another run took over the stale lock first; stop here (this is not a failure of the sweep)",
+                }
             return {
                 "status": "already_running",
                 "skill": skill,
@@ -267,9 +301,15 @@ def release(root: Path, skill: str, repo: str, *, token: str | None = None, forc
 
 
 def renew(
-    root: Path, skill: str, repo: str, *, ttl: int = DEFAULT_TTL_SECONDS, now: datetime | None = None
+    root: Path,
+    skill: str,
+    repo: str,
+    *,
+    ttl: int = DEFAULT_TTL_SECONDS,
+    token: str | None = None,
+    now: datetime | None = None,
 ) -> dict:
-    """Extend the lease of a held lock."""
+    """Extend the lease of a held lock. With a token, only the matching holder."""
     now = now or utcnow()
     lock = lock_path(root, skill, repo)
     owner = read_owner(lock) if lock.is_dir() else None
@@ -280,6 +320,15 @@ def renew(
             "repo": repo,
             "lock": str(lock),
             "error": "lock is not held",
+        }
+    if token is not None and owner.get("token") != token:
+        return {
+            "status": "error",
+            "skill": skill,
+            "repo": repo,
+            "lock": str(lock),
+            "error": "token does not match the lock holder; this run's lease was taken over",
+            "holder": owner,
         }
     owner["expires"] = _iso(now + timedelta(seconds=ttl))
     _write_owner(lock, owner)
@@ -372,6 +421,7 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("renew", help="Extend the lease of a held lock.")
     add_scope(p)
     p.add_argument("--ttl", type=int, default=DEFAULT_TTL_SECONDS)
+    p.add_argument("--token", default=None, help="Token printed by acquire; refuses a non-matching holder.")
 
     p = sub.add_parser("status", help="Report free / held / stale.")
     add_scope(p)
@@ -389,7 +439,7 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "release":
             result = release(root, args.skill, args.repo, token=args.token, force=args.force)
         elif args.command == "renew":
-            result = renew(root, args.skill, args.repo, ttl=args.ttl)
+            result = renew(root, args.skill, args.repo, ttl=args.ttl, token=args.token)
         elif args.command == "status":
             result = status(root, args.skill, args.repo)
         else:

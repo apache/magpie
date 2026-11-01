@@ -30,10 +30,12 @@ from skill_lock import (
     EXIT_ALREADY_RUNNING,
     EXIT_ERROR,
     EXIT_OK,
+    _take_over,
     acquire,
     list_locks,
     lock_path,
     main,
+    read_owner,
     release,
     renew,
     scope_name,
@@ -107,6 +109,22 @@ def test_dead_owner_pid_on_this_host_is_stale(adopted: Path) -> None:
     assert "pid" in taken["took_over_stale"]
 
 
+def test_two_takeovers_of_one_stale_lock_cannot_both_acquire(adopted: Path) -> None:
+    # Runs A and B both read the same expired owner. A takes over and holds a
+    # fresh lock; B's takeover from its earlier read must lose and leave A's
+    # live lock in place.
+    acquire(adopted, "issue-triage", "apache/example", ttl=60, now=NOW)
+    lock = lock_path(adopted, "issue-triage", "apache/example")
+    stale = read_owner(lock)
+    later = NOW + timedelta(seconds=61)
+    a = acquire(adopted, "issue-triage", "apache/example", now=later)
+    assert a["status"] == "acquired"
+    assert _take_over(lock, stale) is False
+    holder = read_owner(lock)
+    assert holder is not None and holder["token"] == a["token"]
+    assert not list(lock.parent.glob(f"{lock.name}.stale-*")), "no tombstone may be left behind"
+
+
 def test_live_owner_pid_is_respected(adopted: Path) -> None:
     acquire(adopted, "issue-triage", "apache/example", owner_pid=os.getpid(), now=NOW)
     assert acquire(adopted, "issue-triage", "apache/example", now=NOW)["status"] == "already_running"
@@ -153,6 +171,23 @@ def test_renew_extends_the_lease(adopted: Path) -> None:
         == "held"
     )
     assert renew(adopted, "issue-triage", "apache/other")["status"] == "error"
+
+
+def test_renew_with_a_token_refuses_another_holder(adopted: Path) -> None:
+    first = acquire(adopted, "issue-triage", "apache/example", ttl=60, now=NOW)
+    later = NOW + timedelta(seconds=61)
+    second = acquire(adopted, "issue-triage", "apache/example", ttl=60, now=later)
+    assert second["status"] == "acquired"
+    refused = renew(adopted, "issue-triage", "apache/example", ttl=3600, token=first["token"], now=later)
+    assert refused["status"] == "error"
+    assert refused["holder"]["token"] == second["token"]
+    lock = lock_path(adopted, "issue-triage", "apache/example")
+    holder = read_owner(lock)
+    assert holder is not None and holder["expires"] == second["expires"], (
+        "the new holder's lease must be untouched"
+    )
+    ok = renew(adopted, "issue-triage", "apache/example", ttl=3600, token=second["token"], now=later)
+    assert ok["status"] == "renewed"
 
 
 def test_cli_exit_codes_and_json(adopted: Path, capsys: pytest.CaptureFixture[str]) -> None:

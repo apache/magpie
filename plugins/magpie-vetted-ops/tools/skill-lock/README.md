@@ -61,7 +61,10 @@ skill run that owns the lock is an agent session with no stable pid, so
 liveness is a **lease**: the owner record carries an expiry (`--ttl`,
 default 7200 s) and the write phase is expected to finish well inside
 it. An expired lock is stale and is taken over by the next `acquire`;
-`renew` extends a long run. A caller that does have a stable pid (a shell
+`renew` extends a long run; pass the `--token` from `acquire` so a run
+whose lease was taken over cannot extend the new holder's lock. A
+takeover renames the stale lock to a unique tombstone first, so when two
+runs find the same stale lock only one of them acquires it. A caller that does have a stable pid (a shell
 script) passes `--owner-pid`, and a dead pid on the same host also counts
 as stale.
 
@@ -71,7 +74,7 @@ Every command prints one JSON object.
 
 ```bash
 uvx --from ~/.claude/magpie/skill-lock skill-lock acquire <skill> --repo <owner/repo> [--ttl 7200] [--note "..."]
-uvx --from ~/.claude/magpie/skill-lock skill-lock renew   <skill> --repo <owner/repo> [--ttl 7200]
+uvx --from ~/.claude/magpie/skill-lock skill-lock renew   <skill> --repo <owner/repo> [--ttl 7200] [--token <t>]
 uvx --from ~/.claude/magpie/skill-lock skill-lock release <skill> --repo <owner/repo> [--token <t>] [--force]
 uvx --from ~/.claude/magpie/skill-lock skill-lock status  <skill> --repo <owner/repo>
 uvx --from ~/.claude/magpie/skill-lock skill-lock list
