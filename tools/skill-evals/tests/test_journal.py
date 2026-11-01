@@ -308,6 +308,101 @@ def test_live_records_append_after_legacy_rows() -> None:
 
 
 # ---------------------------------------------------------------------------
+# flaky report
+# ---------------------------------------------------------------------------
+
+
+def _run(ts: str, failed: list[str] | None = None, errored: list[str] | None = None, **kw: object) -> dict:
+    return _record(timestamp=ts, failed_cases=failed or [], errored_cases=errored or [], **kw)
+
+
+def test_flaky_lists_intermittent_cases_and_leaves_out_consistent_failures() -> None:
+    records = [
+        _run("2026-10-16T10:00:00Z", failed=["s/flaky", "s/broken"]),
+        _run("2026-10-16T10:01:00Z", failed=["s/broken"]),
+        _run("2026-10-16T10:02:00Z", errored=["s/flaky"], failed=["s/broken"]),
+        _run("2026-10-16T10:03:00Z", failed=["s/broken"]),
+    ]
+    found = journal.flaky_cases(records)
+    assert [(f["case"], f["failed"], f["runs"]) for f in found] == [("s/flaky", 2, 4)]
+    assert found[0]["model"] == "claude-opus-5-5" and found[0]["ref"] == "399ab1bc"
+
+
+def test_flaky_never_mixes_batches() -> None:
+    # Failing on one model and passing on another is a model difference, not flakiness.
+    records = [
+        _run("2026-10-16T10:00:00Z", failed=["s/x"], model="model-a"),
+        _run("2026-10-16T10:01:00Z", failed=["s/x"], model="model-a"),
+        _run("2026-10-16T10:02:00Z", model="model-b"),
+        _run("2026-10-16T10:03:00Z", model="model-b"),
+    ]
+    assert journal.flaky_cases(records) == []
+
+
+def test_flaky_skips_batches_below_min_runs_and_counts_a_case_once_per_run() -> None:
+    one = [_run("2026-10-16T10:00:00Z", failed=["s/x"])]
+    assert journal.flaky_cases(one) == []
+    # Listed in both failed and errored for one run still counts once.
+    two = [_run("2026-10-16T10:00:00Z", failed=["s/x"], errored=["s/x"]), _run("2026-10-16T10:01:00Z")]
+    assert [(f["failed"], f["runs"]) for f in journal.flaky_cases(two)] == [(1, 2)]
+    assert journal.flaky_cases(two, min_runs=3) == []
+
+
+def test_flaky_reads_legacy_rows() -> None:
+    legacy = legacy_records_from_rows(parse_readme_table(README_WITH_TABLE), "issue-triage")
+    found = journal.flaky_cases(legacy)
+    assert [(f["case"], f["failed"], f["runs"]) for f in found] == [
+        ("step-3-classify/case-4-duplicate", 3, 10)
+    ]
+
+
+def test_flaky_counts_only_the_runs_that_graded_a_case() -> None:
+    # Run 1 graded a and b and failed a; run 2 was filtered to b; run 3 was manual-only.
+    # a failed 1 of the 1 run that graded it: a real failure, not flakiness.
+    records = [
+        _run("2026-10-16T10:00:00Z", failed=["s/a"], graded_cases=["s/a", "s/b"]),
+        _run("2026-10-16T10:01:00Z", graded_cases=["s/b"]),
+        _run("2026-10-16T10:02:00Z", graded_cases=[], manual=2),
+    ]
+    assert journal.flaky_cases(records) == []
+    records.append(_run("2026-10-16T10:03:00Z", graded_cases=["s/a"]))
+    assert [(f["case"], f["failed"], f["runs"]) for f in journal.flaky_cases(records)] == [("s/a", 1, 2)]
+
+
+def test_flaky_names_the_cli_of_an_unrecorded_model(capsys: pytest.CaptureFixture[str]) -> None:
+    records = [
+        _run("2026-10-16T10:00:00Z", failed=["s/x"], model=None, cli="claude -p"),
+        _run("2026-10-16T10:01:00Z", model=None, cli="claude -p"),
+    ]
+    found = journal.flaky_cases(records)
+    assert found[0]["model"] is None and found[0]["cli"] == "claude -p"
+    assert "\\u0000" not in json.dumps(found)
+
+
+def test_flaky_orders_nearest_one_half_first() -> None:
+    records = [
+        _run(f"2026-10-16T10:0{i}:00Z", failed=(["s/rare"] if i == 0 else []) + (["s/coin"] if i < 2 else []))
+        for i in range(4)
+    ]
+    assert [f["case"] for f in journal.flaky_cases(records)] == ["s/coin", "s/rare"]
+
+
+def test_cli_flaky_text_and_json(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    root, skill_dir = _make_evals_tree(tmp_path)
+    evals_root = root / EVALS_REL
+    assert journal.main(["--evals-root", str(evals_root), "flaky", str(evals_root)]) == 0
+    assert "no flaky cases" in capsys.readouterr().out
+    for i, failed in enumerate([["s/x"], []]):
+        append_record(skill_dir / JOURNAL_NAME, _run(f"2026-10-16T10:0{i}:00Z", failed=failed))
+    assert journal.main(["--evals-root", str(evals_root), "flaky", str(evals_root)]) == 0
+    out = capsys.readouterr().out
+    assert "issue-triage:" in out and "s/x  failed 1 of 2" in out
+    assert journal.main(["--evals-root", str(evals_root), "flaky", str(skill_dir), "--json"]) == 0
+    data = json.loads(capsys.readouterr().out)
+    assert data["issue-triage"][0]["rate"] == 0.5
+
+
+# ---------------------------------------------------------------------------
 # append-only check
 # ---------------------------------------------------------------------------
 

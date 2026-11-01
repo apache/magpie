@@ -597,6 +597,21 @@ Rules:
 Example: [`evals/issue-reassess-stats/README.md`](evals/issue-reassess-stats/README.md#run-history)
 and its [`runs.jsonl`](evals/issue-reassess-stats/runs.jsonl).
 
+### Finding flaky cases
+
+```bash
+uv run --project tools/skill-evals skill-eval-journal flaky tools/skill-evals/evals
+```
+
+`flaky` lists every case that failed in some but not all runs of one batch
+(the same date, ref, branch and model), with `failed k of n`, nearest one half
+first. A case that fails every run is a real failure and is not listed, and
+runs on different models or commits are never pooled, since a difference
+there is not flakiness. Legacy rows count through their Result text.
+`--min-runs N` skips smaller batches (default 2); `--json` prints the report
+as data. These are the candidates for the `borderline` tag and retry budget
+described below.
+
 ## CI considerations
 
 Print mode supports manual review, while `--cli` runs the configured model and comparator automatically.
