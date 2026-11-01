@@ -41,8 +41,7 @@ def read_thread(
     since_days: int,
     with_body: bool = False,
 ) -> dict[str, Any]:
-    original_thread_id = thread_id
-    thread_id = canonical_thread_id(thread_id) or original_thread_id
+    thread_id = canonical_thread_id(thread_id) or thread_id
     messages = fetch_window(mailbox, config.list_folder, since_days=since_days)
     reachable = [m for m in messages if m.position.references_thread(thread_id)]
     if not reachable:

@@ -30,7 +30,7 @@ from imap_source.cli import CapabilityDeclined, add_since_argument, eprint, with
 from imap_source.config import ImapConfig
 from imap_source.mailbox import Mailbox, MailSource
 from imap_source.searching import fetch_window
-from imap_source.threads import sort_key
+from imap_source.threads import canonical_thread_id, sort_key
 
 
 def list_drafts(
@@ -40,6 +40,7 @@ def list_drafts(
     *,
     since_days: int,
 ) -> list[dict[str, Any]]:
+    thread_id = canonical_thread_id(thread_id) or thread_id
     if config.drafts_folder is None:
         raise CapabilityDeclined(
             "IMAP_SOURCE_DRAFTS_FOLDER is unset/none — this account does not expose drafts ops"
