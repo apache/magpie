@@ -164,3 +164,56 @@ def test_read_regular_file_refuses_a_symlinked_parent_and_a_fifo(tmp_path: Path)
         config.read_regular_file(fifo)
     assert config.read_regular_file(real / "policy.toml") == b"x"
     assert config.read_regular_file(real / "missing.toml") is None
+
+
+@pytest.mark.parametrize("relative", [False, True])
+def test_a_workspace_through_a_symlink_is_refused(tmp_path: Path, relative: bool) -> None:
+    # An approved policy, planted in an agent-chosen directory, whose workspace
+    # the agent swapped for a link to a private directory (~/.ssh, say): owned
+    # by the user and mode 0700, it would pass every other workspace check.
+    private = tmp_path / "private"
+    private.mkdir(mode=0o700)
+    (private / "id_ed25519").write_text("PRIVATE KEY")
+    checkout = tmp_path / "planted"
+    checkout.mkdir()
+    (checkout / "scratch").symlink_to(private)
+    workspace = "scratch" if relative else str(checkout / "scratch")
+    policy = checkout / config.DEFAULT_RELATIVE_PATH
+    policy.parent.mkdir(parents=True)
+    policy.write_text(POLICY.format(workspace=workspace))
+    with pytest.raises(config.ConfigError, match="symlink"):
+        config.load(cwd=checkout)
+
+
+def test_a_body_behind_a_swapped_directory_is_refused(tmp_path: Path) -> None:
+    # The workspace itself is real, but a directory inside it became a link.
+    from vetted_ops import ops
+
+    workspace = tmp_path / "scratch"
+    workspace.mkdir(mode=0o700)
+    private = tmp_path / "private"
+    private.mkdir(mode=0o700)
+    (private / "id_ed25519").write_text("PRIVATE KEY")
+    (workspace / "bodies").symlink_to(private)
+    with pytest.raises(ops.ParamError, match="symlink"):
+        ops.read_body(str(workspace / "bodies" / "id_ed25519"), workspace=workspace)
+
+
+def test_the_approval_hint_quotes_a_hostile_path(
+    tmp_path: Path, approved: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # The hint is meant to be pasted into a terminal; the checkout path is the agent's choice.
+    root = tmp_path / "x; touch pwned #"
+    workspace = root / "scratch"
+    workspace.mkdir(parents=True, mode=0o700)
+    policy = root / config.DEFAULT_RELATIVE_PATH
+    policy.parent.mkdir(parents=True)
+    policy.write_text(POLICY.format(workspace=workspace))
+    monkeypatch.chdir(root)
+    _nothing_runs(monkeypatch)
+    assert (
+        cli.main(["--caller", "security-issue-sync", "issue-add-label", "7", "needs triage"])
+        == cli.EXIT_POLICY
+    )
+    err = capsys.readouterr().err
+    assert f"cp '{root.resolve() / config.DEFAULT_RELATIVE_PATH}'" in err

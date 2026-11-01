@@ -26,17 +26,17 @@ never supplied on the command line — a caller cannot widen its own policy.
 
 from __future__ import annotations
 
-import errno
 import json
 import os
 import pwd
 import re
-import stat
+import shlex
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
 from . import layers
+from .safe_read import TamperedPath, read_regular_file, symlink_free
 from .tracker_backends import PLATFORMS, TrackerBackend, backend_dir
 
 #: `owner/name`, conservative on both halves.
@@ -65,53 +65,6 @@ def account_home() -> Path:
 def approved_dir() -> Path:
     """The directory of approved policies for the write entry points."""
     return account_home() / APPROVED_RELATIVE_DIR
-
-
-class TamperedPath(RuntimeError):
-    """A symlink on the path, or something other than a regular file at its end."""
-
-
-def read_regular_file(path: Path) -> bytes | None:
-    """The bytes of the regular file at ``path``, or None if it does not exist.
-
-    Every component is opened relative to the previous one with ``O_NOFOLLOW``,
-    so a symlink anywhere on the path is refused and the file read is the very
-    one checked: no window between a check and an open for a swap to land in.
-    Raises `TamperedPath` for a symlink or a non-regular file.
-    """
-    parts = Path(os.path.abspath(path)).parts
-    dir_fd = os.open(parts[0], os.O_RDONLY | os.O_DIRECTORY)
-    try:
-        for name in parts[1:-1]:
-            try:
-                next_fd = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=dir_fd)
-            except FileNotFoundError:
-                return None
-            except OSError as exc:
-                if exc.errno in (errno.ELOOP, errno.ENOTDIR):
-                    raise TamperedPath(
-                        f"{path}: {name!r} on its path is a symlink or not a directory"
-                    ) from None
-                raise
-            os.close(dir_fd)
-            dir_fd = next_fd
-        try:
-            fd = os.open(parts[-1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=dir_fd)
-        except FileNotFoundError:
-            return None
-        except OSError as exc:
-            if exc.errno == errno.ELOOP:
-                raise TamperedPath(f"{path} is a symlink") from None
-            raise
-    finally:
-        os.close(dir_fd)
-    try:
-        if not stat.S_ISREG(os.fstat(fd).st_mode):
-            raise TamperedPath(f"{path} is not a regular file")
-        with os.fdopen(fd, "rb", closefd=False) as handle:
-            return handle.read()
-    finally:
-        os.close(fd)
 
 
 def _approved(data: bytes) -> bool:
@@ -348,8 +301,11 @@ def load(path: Path | None = None, *, cwd: Path | None = None, approved_only: bo
         raise ConfigError(
             f"the policy at {resolved} is not an approved copy in {approved_dir()}; the write entry "
             "points run outside the sandbox, so they act only on a policy you placed there yourself. "
-            f"Review it, then in your own terminal: mkdir -p {approved_dir()} && "
-            f"cp {resolved} {approved_dir()}/<name>.toml (repeat after every change to the policy)"
+            "Review it, then in your own terminal: "
+            + shlex.join(["mkdir", "-p", str(approved_dir())])
+            + " && "
+            + shlex.join(["cp", str(resolved), str(approved_dir() / "NAME.toml")])
+            + " (repeat after every change to the policy)"
         )
 
     try:
@@ -364,9 +320,15 @@ def load(path: Path | None = None, *, cwd: Path | None = None, approved_only: bo
     workspace_raw = raw.get("workspace")
     if not isinstance(workspace_raw, str) or not workspace_raw:
         raise ConfigError("config needs a top-level 'workspace' path for body files")
-    workspace = _expand_home(workspace_raw)
-    if not workspace.is_absolute():
-        workspace = (base / workspace).resolve()
+    # Made absolute without following links, then refused if a symlink sits
+    # anywhere on it: a workspace resolved through a link (the directory swapped
+    # for one pointing at ~/.ssh, say) would turn private files into bodies.
+    workspace = Path(os.path.abspath(base / _expand_home(workspace_raw)))
+    if not symlink_free(workspace):
+        raise ConfigError(
+            f"the workspace {str(workspace)!r} has a symlink on its path; name its real location "
+            f"({os.path.realpath(workspace)!r} if that is the one you mean)"
+        )
 
     values_raw = raw.get("values", {})
     if not isinstance(values_raw, dict):

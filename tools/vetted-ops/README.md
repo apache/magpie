@@ -326,8 +326,13 @@ mkdir -p ~/.config/apache-magpie/vetted-ops && cp .apache-magpie-overrides/tools
 ```
 
 The home directory comes from the password database, not `$HOME`, and so does a
-`~` in the policy's `workspace`. Every policy file is opened one path component
-at a time without following symlinks, so the file read is the file checked.
+`~` in the policy's `workspace`. Every policy file and every body is opened one
+path component at a time without following symlinks, so the file read is the
+file checked. The `workspace` itself must not run through a symlink either: an
+approved policy is the user's, but the directory it names is not, and one
+swapped for a link to a private directory such as `~/.ssh` (yours, mode 0700)
+would otherwise pass the workspace checks and turn its files into bodies. Name
+the workspace by its real path (on macOS, `/private/tmp/…` rather than `/tmp/…`).
 `--dry-run`, `policy` and `list-ops` need neither approval nor discovery, and
 still accept `--config`: they publish nothing.
 

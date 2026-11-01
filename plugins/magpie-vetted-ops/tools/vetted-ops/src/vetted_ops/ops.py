@@ -41,6 +41,7 @@ from pathlib import Path
 
 from . import procedures
 from .procedures import Plan
+from .safe_read import TamperedPath, read_regular_file, symlink_free
 
 # --------------------------------------------------------------------------
 # Parameter types
@@ -319,19 +320,25 @@ def field_name(value: str) -> str:
 
 def checked_workspace(workspace: Path) -> Path:
     """
-    The resolved workspace, refused unless it is a directory owned by this user
+    The workspace, refused unless it is a directory owned by this user
     and closed to group and world.
 
     Body files are read from it and saved reads are written to it, so a
     directory anyone can write is one anyone can pre-seed: with a body that
     gets published, or with a "saved" page that a later classification trusts.
+
+    The path must not run through a symlink: resolving one would check, and
+    then read from, wherever the link points — a private directory such as
+    ~/.ssh is owned by this user and closed to others, so it would pass.
     """
-    root = workspace.expanduser().resolve()
+    root = Path(os.path.abspath(workspace))
+    if not symlink_free(root):
+        raise ParamError(f"workspace {str(root)!r} has a symlink on its path — name its real location")
     try:
-        root_st = os.stat(root)
+        root_st = os.lstat(root)
     except OSError as exc:
         raise ParamError(f"workspace {str(root)!r} is unusable: {exc}") from None
-    if not os.path.isdir(root):
+    if not stat_mod.S_ISDIR(root_st.st_mode):
         raise ParamError(f"workspace {str(root)!r} is not a directory")
     if root_st.st_uid != os.getuid():
         raise ParamError(
@@ -451,26 +458,21 @@ def read_body(value: str, *, workspace: Path) -> bytes:
     """
     root = checked_workspace(workspace)
 
-    candidate = Path(value).expanduser()
-    resolved = Path(os.path.realpath(candidate))
-    if root not in resolved.parents:
+    # Lexically under the workspace, and read with no symlink followed anywhere
+    # on the path, from the descriptor that was checked: a directory swapped for
+    # a link after the check is refused, not followed.
+    candidate = Path(os.path.abspath(Path(value).expanduser()))
+    if root not in candidate.parents:
         raise ParamError(f"body file must live under the workspace {str(root)!r}: {value!r}")
-
     try:
-        fd = os.open(candidate, os.O_RDONLY | os.O_NOFOLLOW)
-    except FileNotFoundError:
-        raise ParamError(f"body file does not exist: {value!r}") from None
+        data = read_regular_file(candidate)
+    except TamperedPath as exc:
+        raise ParamError(f"body file refused: {exc}") from None
     except OSError as exc:
         raise ParamError(f"body file cannot be read ({exc.strerror}): {value!r}") from None
-    try:
-        st = os.fstat(fd)
-        if not stat_mod.S_ISREG(st.st_mode):
-            raise ParamError(f"body file is not a regular file: {value!r}")
-        with os.fdopen(fd, "rb", closefd=True) as handle:
-            return handle.read()
-    except ParamError:
-        os.close(fd)
-        raise
+    if data is None:
+        raise ParamError(f"body file does not exist: {value!r}")
+    return data
 
 
 def enum(allowed: Sequence[str]) -> Callable[[str], str]:
