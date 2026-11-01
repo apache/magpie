@@ -1,6 +1,23 @@
 {
   "$comment": "Hook-manager adapters for the secure agent setup. The contract is tools/hook-manager/README.md; tools/dev/sync-hook-managers.py validates this file and writes it into the scripts that implement the contract.",
   "adapters": {
+    "captainhook": {
+      "language": "PHP",
+      "upstream": "https://github.com/captainhook-git/captainhook",
+      "detect": {
+        "config_files": [
+          "captainhook.json"
+        ],
+        "nested": false,
+        "hook_marker": "CaptainHook"
+      },
+      "install": {
+        "subcommand": "install",
+        "strategy": "hooks-path-env",
+        "match": "prefix",
+        "vendor_bin": true
+      }
+    },
     "cargo-husky": {
       "language": "Rust",
       "upstream": "https://github.com/rhysd/cargo-husky",
