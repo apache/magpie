@@ -73,7 +73,16 @@ spec_loop_assemble_prompt_file() {
 # `owner` records `<pid> <host> <ISO-8601 start>` so a contender can tell
 # a live holder from a crashed one. A holder whose pid is gone on this
 # host is stale and is taken over; a holder on another host, or a live
-# pid, is respected.
+# pid, is respected. A lock with no owner (its runner died between the
+# mkdir and the write) is stale once it is older than
+# SPEC_LOOP_LOCK_GRACE_MIN minutes (default 1).
+#
+# A takeover renames the stale lock to a unique tombstone instead of
+# deleting it in place: rename is atomic, so when two starters find the
+# same stale lock only one rename succeeds. The winner then checks that
+# the tombstone still holds the owner it judged stale before deleting it;
+# if a faster starter had already replaced the lock, the live lock is put
+# back and the loser reports already_running.
 #
 # spec_loop_lock_acquire LOCKDIR
 #   0  acquired (prints nothing)
@@ -86,8 +95,28 @@ spec_loop_lock_owner_line() {
         "$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || date)"
 }
 
+# spec_loop_lock_takeover LOCKDIR SEEN_OWNER
+#   Atomically moves a stale lock out of the way. 0 when this caller removed
+#   the stale lock it saw; 1 when another starter got there first.
+spec_loop_lock_takeover() {
+    local lockdir=$1 seen=$2 tomb now
+    tomb="$lockdir.stale.$$"
+    rm -rf "$tomb"
+    mv "$lockdir" "$tomb" 2>/dev/null || return 1
+    now="$(cat "$tomb/owner" 2>/dev/null)"
+    if [ "$now" = "$seen" ]; then
+        rm -rf "$tomb"
+        return 0
+    fi
+    # The lock was replaced between our read and our rename: it is live.
+    # Put it back unless yet another starter has created one meanwhile.
+    [ -e "$lockdir" ] || mv "$tomb" "$lockdir" 2>/dev/null
+    rm -rf "$tomb"
+    return 1
+}
+
 spec_loop_lock_acquire() {
-    local lockdir=$1 attempt
+    local lockdir=$1 attempt grace=${SPEC_LOOP_LOCK_GRACE_MIN:-1}
     for attempt in 1 2; do
         if mkdir "$lockdir" 2>/dev/null; then
             spec_loop_lock_owner_line > "$lockdir/owner" || {
@@ -101,20 +130,26 @@ spec_loop_lock_acquire() {
             echo "spec-loop: could not create lock $lockdir" >&2
             return 2
         }
-        local owner pid host started
+        local owner pid host started stale=""
         owner="$(cat "$lockdir/owner" 2>/dev/null)"
         read -r pid host started <<< "$owner"
-        # Stale: same host, the recorded pid is gone. Take it over once.
-        if [ "$attempt" = 1 ] && [ -n "$pid" ] && [ "$host" = "$(hostname 2>/dev/null || echo unknown-host)" ] \
+        if [ -n "$pid" ] && [ "$host" = "$(hostname 2>/dev/null || echo unknown-host)" ] \
             && ! kill -0 "$pid" 2>/dev/null; then
-            echo "spec-loop: removing stale lock $lockdir (pid $pid is gone)" >&2
-            rm -rf "$lockdir"
+            stale="pid $pid is gone"
+        elif [ -z "$pid" ] && [ -n "$(find "$lockdir" -maxdepth 0 -mmin "+$grace" 2>/dev/null)" ]; then
+            stale="no owner after ${grace} min"
+        fi
+        # Stale: take it over once.
+        if [ "$attempt" = 1 ] && [ -n "$stale" ]; then
+            if spec_loop_lock_takeover "$lockdir" "$owner"; then
+                echo "spec-loop: removed stale lock $lockdir ($stale)" >&2
+            fi
             continue
         fi
         if [ -z "$pid" ]; then
             # Lock dir exists but the owner file is not there yet (a racing
             # starter between its mkdir and its write) or unreadable. Treat
-            # as held: the other side is live or will be cleaned up next run.
+            # as held until the grace period above makes it stale.
             echo "already_running: another spec-loop holds $lockdir (owner unknown); exiting 0"
         else
             echo "already_running: spec-loop pid $pid on $host (since ${started:-?}) holds $lockdir; exiting 0"
@@ -132,6 +167,32 @@ spec_loop_lock_release() {
     if [ "$pid" = "$$" ]; then
         rm -rf "$lockdir"
     fi
+}
+
+# spec_loop_stop_agent PID [TIMEOUT_SECONDS]
+#   Sends TERM to a running agent and waits up to TIMEOUT (default 10) for it
+#   to exit. 0 when it is gone, 1 when it is still running. The runner keeps
+#   its lock in the second case so no other loop starts over a live agent.
+spec_loop_pid_running() {
+    # kill -0 also succeeds for an exited child nobody has reaped yet (a
+    # zombie), so read the process state and count Z as gone.
+    kill -0 "$1" 2>/dev/null || return 1
+    case "$(ps -o stat= -p "$1" 2>/dev/null)" in
+        Z*|"") return 1 ;;
+    esac
+    return 0
+}
+
+spec_loop_stop_agent() {
+    local pid=$1 timeout=${2:-10} i
+    [ -n "$pid" ] || return 0
+    spec_loop_pid_running "$pid" || return 0
+    kill -TERM "$pid" 2>/dev/null
+    for ((i = 0; i < timeout * 10; i++)); do
+        spec_loop_pid_running "$pid" || return 0
+        sleep 0.1
+    done
+    return 1
 }
 
 spec_loop_write_last_sync_marker() {

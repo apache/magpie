@@ -109,10 +109,16 @@ and never opens a pull request.
   `owner`. While it is held, a second start prints one
   `already_running: …` line naming the holder and exits **0**, never
   launching an agent and never touching the holder's lock. A lock whose
-  pid is dead on the same host is stale and is taken over; a lock from
-  another host is respected. The lock is released on every exit path
-  (normal end, `STOP`, error break, Ctrl+C); an exit before acquisition
-  (`--help`, a bad argument, a missing agent CLI) never releases it.
+  pid is dead on the same host, or that has had no `owner` for longer
+  than `SPEC_LOOP_LOCK_GRACE_MIN` minutes (default 1), is stale and is
+  taken over by an atomic rename, so two starters racing over one stale
+  lock cannot both acquire it; a lock from another host is respected.
+  The lock is released on every exit path (normal end, `STOP`, error
+  break, Ctrl+C, `SIGTERM`), but only once the backgrounded agent has
+  stopped: on INT/TERM the runner signals the agent and waits for it,
+  and keeps the lock if the agent is still running. An exit before
+  acquisition (`--help`, a bad argument, a missing agent CLI) never
+  releases it.
   `SPEC_LOOP_LOCK=off` disables the lock for a run the operator knows is
   safe to overlap.
 - **Plan-size hysteresis.** Build mode switches to one consolidate pass
@@ -197,7 +203,8 @@ in the same change.
    agent-level bypasses that must run under the external sandbox.
 8. With a live lock held, `loop.sh <mode>` exits 0, prints
    `already_running`, launches no agent, and leaves the lock in place; a
-   stale lock (dead pid, same host) is taken over; `SPEC_LOOP_LOCK=off`
+   stale lock (dead pid, same host) is taken over, and of two starters
+   racing over it only one acquires; `SPEC_LOOP_LOCK=off`
    skips the lock; a completed run leaves no lock behind.
 
 ## Validation

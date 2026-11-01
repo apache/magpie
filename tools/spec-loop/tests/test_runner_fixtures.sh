@@ -306,7 +306,35 @@ test_single_flight_lock_helpers() {
     mkdir "$lock"
     printf '%s %s 2026-01-01T00:00:00Z\n' "$dead_pid" "$(hostname)" > "$lock/owner"
     spec_loop_lock_acquire "$lock" 2>"$TMPDIR_TEST/stale.err" || fail "stale lock should be taken over"
-    assert_contains "$TMPDIR_TEST/stale.err" "removing stale lock"
+    assert_contains "$TMPDIR_TEST/stale.err" "removed stale lock"
+    assert_contains "$lock/owner" "$$ "
+    spec_loop_lock_release "$lock"
+
+    # Two starters race over one stale lock: A takes it over and holds a
+    # fresh lock before B, which read the same dead owner, tries its own
+    # takeover. B must not delete A's live lock, and must not acquire.
+    mkdir "$lock"
+    printf '%s %s 2026-01-01T00:00:00Z\n' "$dead_pid" "$(hostname)" > "$lock/owner"
+    local seen; seen="$(cat "$lock/owner")"
+    spec_loop_lock_takeover "$lock" "$seen" || fail "the first takeover should win"
+    mkdir "$lock"
+    printf '%s %s 2026-01-02T00:00:00Z\n' "$$" "$(hostname)" > "$lock/owner"
+    if spec_loop_lock_takeover "$lock" "$seen"; then
+        fail "a second takeover from the same stale read must lose"
+    fi
+    [ -d "$lock" ] || fail "the losing takeover must put the live lock back"
+    assert_contains "$lock/owner" "$$ "
+    [ -z "$(ls -d "$lock".stale.* 2>/dev/null)" ] || fail "no tombstone may be left behind"
+    rm -rf "$lock"
+
+    # A lock with no owner (runner died between mkdir and write) is held
+    # inside the grace period and taken over after it.
+    mkdir "$lock"
+    rc=0; out="$(spec_loop_lock_acquire "$lock")" || rc=$?
+    [ "$rc" = 1 ] || fail "a fresh owner-less lock should be treated as held, got rc=$rc"
+    touch -t 202601010000 "$lock"
+    spec_loop_lock_acquire "$lock" 2>"$TMPDIR_TEST/ownerless.err" || fail "an old owner-less lock should be taken over"
+    assert_contains "$TMPDIR_TEST/ownerless.err" "no owner after"
     assert_contains "$lock/owner" "$$ "
     spec_loop_lock_release "$lock"
 
@@ -323,6 +351,23 @@ test_single_flight_lock_helpers() {
 # already_running line and never launches the agent; SPEC_LOOP_LOCK=off
 # skips the lock. Needs a throwaway git repository because loop.sh refuses
 # to run outside one.
+test_stop_agent_helper() {
+    # An agent that exits on TERM is stopped; one that ignores TERM is
+    # reported as still running, so the runner keeps its lock.
+    sleep 30 & local polite=$!
+    spec_loop_stop_agent "$polite" 5 || fail "an agent that exits on TERM should be stopped"
+    spec_loop_pid_running "$polite" && fail "the stopped agent must be gone"
+    wait "$polite" 2>/dev/null || true
+    bash -c 'trap "" TERM; sleep 30' & local stubborn=$!
+    sleep 0.2
+    if spec_loop_stop_agent "$stubborn" 1; then
+        fail "an agent that ignores TERM must be reported as still running"
+    fi
+    kill -KILL "$stubborn" 2>/dev/null
+    wait "$stubborn" 2>/dev/null || true
+    spec_loop_stop_agent "" 1 || fail "no agent means nothing to stop"
+}
+
 test_loop_single_flight_end_to_end() {
     command -v git >/dev/null 2>&1 || { echo "skip: git not on PATH"; return 0; }
     local repo="$TMPDIR_TEST/repo"
@@ -376,6 +421,7 @@ test_prompt_assembly_update
 test_harness_command_construction
 test_last_sync_marker_helpers
 test_single_flight_lock_helpers
+test_stop_agent_helper
 test_loop_single_flight_end_to_end
 
 printf 'spec-loop runner fixtures: OK\n'

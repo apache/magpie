@@ -170,8 +170,12 @@ already_running: spec-loop pid 4242 on buildbox (since 2026-10-31T09:00:12Z) hol
 
 Zero, not an error, so the scheduler records a skipped run rather than a
 failure. A lock whose owning pid has died on this host is stale and is
-taken over automatically; one left by another host is respected until
-removed by hand (`rm -rf tools/spec-loop/.lock`).
+taken over automatically, as is one that has had no owner for over a
+minute (`SPEC_LOOP_LOCK_GRACE_MIN`); one left by another host is respected
+until removed by hand (`rm -rf tools/spec-loop/.lock`). A takeover is an
+atomic rename, so two starters that find the same stale lock cannot both
+acquire it. On `Ctrl+C` or `SIGTERM` the runner stops the agent before it
+releases the lock, and keeps the lock if the agent will not stop.
 
 The lock is per checkout, so two checkouts never contend. Set
 `SPEC_LOOP_LOCK=off` to run without it when an overlap is known to be
