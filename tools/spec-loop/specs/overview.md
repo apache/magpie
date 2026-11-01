@@ -70,7 +70,7 @@ Each mode is an independently toggleable set of skills. Maturity mirrors
 | Good-first-issue backlog sweep | [good-first-issue-sweep.md](good-first-issue-sweep.md) |
 | Codex first-class skill runtime | [codex-runtime.md](codex-runtime.md) |
 | GitHub Copilot skill runtime | [copilot-runtime.md](copilot-runtime.md) |
-| Spec-gap staleness verification (proposed) | [spec-gap-staleness.md](spec-gap-staleness.md) |
+| Spec-gap staleness verification (experimental) | [spec-gap-staleness.md](spec-gap-staleness.md) |
 | Per-skill write lock for batch skills | [batch-write-lock.md](batch-write-lock.md) |
 | Per-item failure budget + harness-outage exclusion for batch skills (proposed) | [batch-failure-budget.md](batch-failure-budget.md) |
 | Vetted command surface (fixed-shape forge ops) | [vetted-command-surface.md](vetted-command-surface.md) |

@@ -96,4 +96,6 @@ Rules:
   `<!-- gap-closes-when: … -->` (`path-exists:<path>`,
   `symbol-called:<path>::<name>`, `skill-count:<family>=<n>`, or
   `none (narrative)`) so `spec-validate` can check it from then on.
+  `symbol-called` reads Python sources only; for a shell function or any
+  other language use `path-exists` or `none (narrative)`.
 - Keep the RFCs untouched — they are a separate governance layer.
