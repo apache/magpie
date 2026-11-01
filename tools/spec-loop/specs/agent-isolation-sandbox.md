@@ -606,7 +606,7 @@ The reference model is four layers, layered:
    able to rewrite the policy grants itself the whole write catalogue
    regardless of which dispatcher binary handles the call, so this
    deny applies even though the write dispatcher (`vetted-op`) is
-   never excluded from the sandbox. The override is the in-repo case
+   gated on interactive confirmation under permissions.ask. The override is the in-repo case
    described above, `sandbox_write_denied` entry included (#1308,
    #1309). The framework's own dispatcher source at
    `tools/vetted-ops/` is deliberately left un-denied — it is PR-gated
@@ -670,10 +670,9 @@ The reference model is four layers, layered:
    on `ask`.
    Install Step V now describes three entry points over one catalogue and
    adds `vetted-op-tracker` to both `ask` and `sandbox.excludedCommands`.
-   The update skill reports `vetted-op-tracker` in `allow`, or `vetted-op`
-   in `excludedCommands`, as a must-fix, and a missing tracker exclusion
-   or `ask` entry as drift; the verify skill fails the check when
-   `vetted-op` is in `excludedCommands` (#1448).
+   The update skill reports `vetted-op-tracker` or `vetted-op` in `allow`
+   as a must-fix, and a missing tracker or write exclusion or `ask` entry as
+   drift (#1448, #1952).
 
 Pinned system tools (`bubblewrap`, `socat`, agent CLI) are aged through a
 cooldown window; bumps are PRs, not silent updates. The window is the

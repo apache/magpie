@@ -105,15 +105,12 @@ reading this file; read the section for a check whose condition holds.
 
    `vetted-op` in `ask` (or absent) is correct.
 
-   `vetted-op-tracker` belongs in `ask` and in
-   `sandbox.excludedCommands`, never in `allow` — it writes. Its
-   exclusion is correct: it refuses every operation except the
-   tracker rollup / body-field procedures before reading the policy,
-   and their runner refuses any `gh` call outside `repos/<tracker>/`.
-   `vetted-op` itself in `sandbox.excludedCommands` is ✗ — it would
-   run the whole write catalogue unsandboxed.
+   `vetted-op` and `vetted-op-tracker` belong in `ask` and in
+   `sandbox.excludedCommands`, never in `allow` — they write. Their
+   exclusion is required because write operations need host TLS verification
+   and access outside `denyRead`. Neither is ever permitted in `allow`.
 
-   A `vetted-op` rule, in `allow` or in `sandbox.excludedCommands`,
+   A `vetted-op` rule, in `allow`, `ask` or `sandbox.excludedCommands`,
    that spells the versioned plugin-cache path with a `*`
    (`…/magpie-vetted-ops/*/tools/vetted-ops …`) is also ✗. The `*`
    matches spaces too, so it approves — and runs unsandboxed — a

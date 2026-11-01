@@ -273,8 +273,10 @@ EXCLUDED_COMMAND_ALLOWLIST = frozenset(
     {
         "gh *",
         "roborev *",
+        "uv run --project ~/.claude/magpie/vetted-ops vetted-op *",
         "uv run --project ~/.claude/magpie/vetted-ops vetted-op-read *",
         "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *",
+        "uvx --from ~/.claude/magpie/vetted-ops vetted-op *",
         "uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *",
         "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *",
         "uvx --from ~/.claude/magpie/adversarial-review adversarial-review *",

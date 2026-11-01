@@ -115,8 +115,9 @@ A third entry point, `vetted-op-tracker`, refuses every operation except the
 procedure ones before it reads the policy — the same shape as
 `vetted-op-read`'s write refusal. It is excluded from the sandbox, because the
 procedures' `gh` must verify TLS, and kept on `ask`, never `allow`.
-`vetted-op` itself stays sandboxed: excluding it would run the whole write
-catalogue there.
+`vetted-op` is excluded from the sandbox because child `gh` commands require
+host TLS and the dispatcher runs outside `denyRead`; it stays on `ask`, never
+`allow`, so every write still requires an interactive confirmation.
 
 A read too large to carry through the agent's context goes to a file:
 `vetted-op-read --save NAME` writes a read operation's output to

@@ -179,11 +179,18 @@ def test_baseline_excludes_and_asks_the_vetted_op_tracker_dispatcher(
     assert f"Bash({form} {tracker})" not in baseline["permissions"]["allow"]
 
 
-def test_baseline_never_excludes_the_vetted_op_write_dispatcher(baseline: dict[str, Any]) -> None:
-    # Excluding `vetted-op` would run the whole write catalogue unsandboxed.
+@pytest.mark.parametrize("form", ["uv run --project", "uvx --from"])
+def test_baseline_excludes_and_asks_the_vetted_op_write_dispatcher(
+    baseline: dict[str, Any], form: str
+) -> None:
+    # The write dispatcher mutates remote state (workflow-approve, PR review,
+    # labels), and its gh must verify TLS, so it runs outside the sandbox.
+    # Every write still needs an interactive confirmation, so it is on ask and
+    # never on allow.
     write = VETTED_OP_READ.replace("vetted-op-read", "vetted-op")
-    for form in ("uv run --project", "uvx --from"):
-        assert f"{form} {write}" not in baseline["sandbox"]["excludedCommands"]
+    assert f"{form} {write}" in baseline["sandbox"]["excludedCommands"]
+    assert f"Bash({form} {write})" in baseline["permissions"]["ask"]
+    assert f"Bash({form} {write})" not in baseline["permissions"]["allow"]
 
 
 def test_baseline_names_the_fixed_vetted_ops_path_not_a_versioned_glob(baseline: dict[str, Any]) -> None:

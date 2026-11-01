@@ -196,7 +196,7 @@ uv run --project tools/sandbox-lint sandbox-lint --any-harness /path/to/magpie
      and no `*` in `sandbox.network.allowedDomains`.
    - Every `sandbox.excludedCommands` entry, in any layer, is on the
      exclusion allowlist (`EXCLUDED_COMMAND_ALLOWLIST`: `gh *`, `roborev *`,
-     the four vetted-ops forms, the adversarial-review runner and
+     the six vetted-ops forms, the adversarial-review runner and
      `~/.claude/scripts/magpie-run-evals.sh *`) or narrows one of them
      (`gh auth *`, `gh`). The shape check above cannot recognise every
      command that runs its arguments (`find -exec`, `git -c`, `make`), and an

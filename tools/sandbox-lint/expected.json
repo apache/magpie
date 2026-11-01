@@ -7,9 +7,11 @@
     "enabled": true,
     "excludedCommands": [
       "gh *",
+      "uv run --project ~/.claude/magpie/vetted-ops vetted-op *",
       "uv run --project ~/.claude/magpie/vetted-ops vetted-op-read *",
-      "uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *",
       "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *",
+      "uvx --from ~/.claude/magpie/vetted-ops vetted-op *",
+      "uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *",
       "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *",
       "uvx --from ~/.claude/magpie/adversarial-review adversarial-review *",
       "~/.claude/scripts/magpie-run-evals.sh *"
@@ -178,7 +180,9 @@
       "Bash(git push *)",
       "Bash(git push --force *)",
       "Bash(git push --force-with-lease *)",
+      "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op *)",
       "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *)",
+      "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op *)",
       "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *)",
       "Bash(gh api -X*)",
       "Bash(gh api * -X*)",

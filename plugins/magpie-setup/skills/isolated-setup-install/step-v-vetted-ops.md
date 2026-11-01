@@ -13,7 +13,7 @@ gets the `allow` is the entire security question:
 |---|---|---|
 | `vetted-op-read` | never — refused before policy or `--caller` is consulted | `allow` |
 | `vetted-op-tracker` | only the tracker rollup / body-field procedures — everything else refused before policy | `ask` |
-| `vetted-op` | yes | `ask` |
+| `vetted-op` | yes | `ask`, and excluded from the sandbox |
 
 **Never propose an `allow` on `vetted-op`.** It is tempting, because
 the policy declares a read-only caller and the invocation names it.
@@ -32,6 +32,7 @@ writes structurally.
   "ask": [
     "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op *)",
     "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *)",
+    "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op *)",
     "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *)"
   ],
   "deny": [
@@ -62,13 +63,12 @@ in the other form prompting.
 
 Add both forms of `vetted-op-tracker` to `sandbox.excludedCommands` too
 (`"uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *"` and
-`"uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *"`): the status-rollup
-and body-field writes need a `gh` that can verify TLS, which a sandboxed one cannot.
-Excluding it is acceptable where excluding `vetted-op` is not, because its catalogue
-is closed to the tracker procedures — every other operation is refused before the
-policy is read — and their runner refuses any `gh` call outside `repos/<tracker>/`.
-It stays in `ask`, never `allow`, so each write keeps its confirmation.
-**Never exclude `vetted-op` itself**: that would run the whole write catalogue unsandboxed.
+`"uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *"`), and add both forms of
+`vetted-op` (`"uv run --project ~/.claude/magpie/vetted-ops vetted-op *"` and
+`"uvx --from ~/.claude/magpie/vetted-ops vetted-op *"`): write operations need a `gh`
+that can verify TLS, which a sandboxed one cannot, and need access to
+`~/.claude/magpie` outside `denyRead`. Both write dispatchers stay in `ask`, never
+`allow`, so each write keeps its interactive confirmation.
 
 The rules name the fixed path `~/.claude/magpie/vetted-ops`, never the
 versioned plugin-cache directory. The plugin's `SessionStart` hook points

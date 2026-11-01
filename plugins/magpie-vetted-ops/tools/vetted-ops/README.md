@@ -143,7 +143,7 @@ scripts over one catalogue:
 |---|---|---|
 | `vetted-op-read` | never — refused before policy is consulted | `allow` |
 | `vetted-op-tracker` | only the [tracker procedures](#tracker-procedures-rollup-and-body-field-writes) — everything else refused before policy is consulted | `ask`, and excluded from the sandbox |
-| `vetted-op` | yes, subject to policy | `ask` (or unlisted) |
+| `vetted-op` | yes, subject to policy | `ask`, and excluded from the sandbox |
 
 That split is what lets the read path lose its prompts without the write path
 losing its gate, and it is why `--caller` repeated twice is an error rather than
@@ -623,23 +623,22 @@ fails the same way:
 "sandbox": {
   "excludedCommands": [
     "gh *",
+    "uv run --project ~/.claude/magpie/vetted-ops vetted-op *",
     "uv run --project ~/.claude/magpie/vetted-ops vetted-op-read *",
-    "uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *",
     "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *",
+    "uvx --from ~/.claude/magpie/vetted-ops vetted-op *",
+    "uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *",
     "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *"
   ]
 }
 ```
 
-`vetted-op-read` is excluded, never `vetted-op` — the same reasoning as the
-`allow` rule. The read dispatcher refuses writes before it consults the policy
-at all, so running it outside the sandbox exposes only the fixed read
-operations; excluding the write dispatcher would run the whole catalogue there.
-`vetted-op-tracker` is the one write-capable exception, and it follows the same
-reasoning: it refuses everything but the tracker procedures before consulting the
-policy, and their runner refuses any `gh` call outside `repos/<tracker>/`, so the
-exclusion exposes those procedures and nothing else. The tracker itself comes from
-the policy, which is why the entry point keeps its `ask`.
+`vetted-op-read`, `vetted-op-tracker`, and `vetted-op` are all excluded from the
+sandbox. The read dispatcher refuses writes before consulting policy and carries
+`--save` protections. The write dispatchers (`vetted-op` and `vetted-op-tracker`)
+run outside the sandbox because child `gh` calls require host TLS certificate
+verification and access outside `denyRead`. Both write dispatchers remain strictly
+on `ask`, never `allow`, so every write operation requires operator confirmation.
 
 Every rule names the fixed path `~/.claude/magpie/vetted-ops`, not the
 versioned plugin-cache directory. The plugin's `SessionStart` hook

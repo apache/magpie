@@ -514,13 +514,10 @@ The full block below is the two merged, annotated.
     // The vetted-ops READ dispatcher calls `gh` and the network, so it runs
     // outside the sandbox too — in both invocation forms the skills and the
     // read-only gatherer agents use (`uv run --project` and `uvx --from`).
-    // The vetted-ops TRACKER dispatcher is excluded for the same reason: the
-    // status-rollup and body-field writes need a gh that can verify TLS. That
-    // is acceptable where excluding `vetted-op` is not, because it refuses
-    // every operation except those tracker procedures before reading policy,
-    // and their runner refuses any gh call outside repos/<tracker>/. It keeps
-    // its `ask` below. Never exclude `vetted-op`: that runs the whole write
-    // catalogue unsandboxed.
+    // The vetted-ops TRACKER and WRITE dispatchers (`vetted-op-tracker` and
+    // `vetted-op`) are excluded for the same reason: write operations need a
+    // gh that can verify TLS, and require access outside denyRead. Both keep
+    // their `ask` below: every write retains its operator confirmation.
     // The adversarial-review tool runs the reviewer CLIs, which need network
     // and their own credentials. Like the vetted-ops entries, it names the
     // fixed link its plugin's SessionStart hook maintains, never a `*` where
@@ -528,9 +525,11 @@ The full block below is the two merged, annotated.
     // at that position and run them unsandboxed.
     "excludedCommands": [
       "gh *",
+      "uv run --project ~/.claude/magpie/vetted-ops vetted-op *",
       "uv run --project ~/.claude/magpie/vetted-ops vetted-op-read *",
-      "uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *",
       "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *",
+      "uvx --from ~/.claude/magpie/vetted-ops vetted-op *",
+      "uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *",
       "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *",
       "uvx --from ~/.claude/magpie/adversarial-review adversarial-review *"
     ],
@@ -753,6 +752,7 @@ The full block below is the two merged, annotated.
       "Bash(git push *)",                        // including --force / --force-with-lease variants
       "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op *)",  // the vetted-ops WRITE dispatcher: bounded in shape, but still a remote mutation, so it keeps a confirmation
       "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *)",  // the tracker rollup / body-field procedures: excluded from the sandbox above, so never `allow`
+      "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op *)",
       "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *)",
       // gh WRITE subcommands, listed one by one. Claude Code evaluates deny,
       // then ask, then allow, and "a matching ask rule prompts even when a
