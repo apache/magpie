@@ -13,10 +13,10 @@ has: same searches, same items, same output.  Comment bodies never leave a backe
 from __future__ import annotations
 
 import time  # re-exported: callers and tests patch time.sleep through this module
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from typing import Protocol
 
-from contributor_metrics.backends.common import CODE_HOST, BackendError
+from contributor_metrics.backends.common import CODE_HOST, TRACKER, BackendError
 from contributor_metrics.backends.github import (
     LOGIN_RE,
     REPO_RE,
@@ -57,7 +57,7 @@ class TrackerBackend(Protocol):
 
 
 def fetch_items(
-    repo: str,
+    repo: str | Sequence[str],
     login: str,
     *,
     since: str,
@@ -76,9 +76,32 @@ def fetch_items(
     tracker side instead, for `tracker_login` (default: `login`) with `tracker_maintainers`
     (default: `maintainers`) as its roster.
 
+    `repo` may be a list of repositories of the same project: each is searched on the code host
+    (and, without a separate tracker, for issues too), and the items are merged. With more than
+    one repository every code-host item id is prefixed `<owner/name>:` so numbers cannot collide,
+    a stream capped in any repository is reported as capped, and each note names its repository.
+
     Returns the items, the names of streams that hit their cap, and notes for the brief.
     """
     phrases, maintainers = tuple(phrases), tuple(maintainers)
+    repos = [repo] if isinstance(repo, str) else list(dict.fromkeys(repo))
+    if not repos:
+        raise InvalidRepo("")
+    if len(repos) > 1:
+        return _fetch_many(
+            repos,
+            login,
+            since=since,
+            end=end,
+            phrases=phrases,
+            maintainers=maintainers,
+            substantive_body_chars=substantive_body_chars,
+            substantive_line_comments=substantive_line_comments,
+            tracker=tracker,
+            tracker_login=tracker_login,
+            tracker_maintainers=tracker_maintainers,
+        )
+    repo = repos[0]
     if tracker is None:
         return github_fetch_items(
             repo,
@@ -114,3 +137,55 @@ def fetch_items(
     )
     merged_caps = list(dict.fromkeys([*caps, *t_caps]))
     return [*items, *t_items], merged_caps, [*notes, *t_notes]
+
+
+def _fetch_many(
+    repos: list[str],
+    login: str,
+    *,
+    since: str,
+    end: str,
+    phrases: tuple[str, ...],
+    maintainers: tuple[str, ...],
+    substantive_body_chars: int,
+    substantive_line_comments: int,
+    tracker: TrackerBackend | None,
+    tracker_login: str | None,
+    tracker_maintainers: Iterable[str] | None,
+) -> tuple[list[Item], list[str], list[str]]:
+    for r in repos:
+        if not REPO_RE.match(r):
+            raise InvalidRepo(r)
+    if not LOGIN_RE.match(login):
+        raise InvalidLogin(login)
+    streams = frozenset({CODE_HOST}) if tracker is not None else frozenset({CODE_HOST, TRACKER})
+    items: list[Item] = []
+    caps: list[str] = []
+    notes: list[str] = []
+    for r in repos:
+        r_items, r_caps, r_notes = github_fetch_items(
+            r,
+            login,
+            since=since,
+            end=end,
+            phrases=phrases,
+            maintainers=maintainers,
+            substantive_body_chars=substantive_body_chars,
+            substantive_line_comments=substantive_line_comments,
+            streams=streams,
+        )
+        items += [Item.from_json({**i.to_json(), "id": f"{r}:{i.id}"}) for i in r_items]
+        caps += r_caps
+        notes += [f"{r}: {n}" for n in r_notes]
+    if tracker is not None:
+        t_items, t_caps, t_notes = tracker.fetch(
+            tracker_login or login,
+            since=since,
+            end=end,
+            phrases=phrases,
+            maintainers=tuple(tracker_maintainers) if tracker_maintainers is not None else maintainers,
+        )
+        items += t_items
+        caps += t_caps
+        notes += t_notes
+    return items, list(dict.fromkeys(caps)), notes
