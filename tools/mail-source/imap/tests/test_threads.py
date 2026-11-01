@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from conftest import build_message
 from imap_source.searching import Message, parse_message, thread_root_of
-from imap_source.threads import draft_subject, normalise_message_id, summarise
+from imap_source.threads import canonical_thread_id, draft_subject, normalise_message_id, summarise
 
 ROOT = "<report-1@lists.example.org>"
 REPLY = "<reply-1a@example.org>"
@@ -31,6 +31,13 @@ def test_normalise_message_id_extracts_single_token() -> None:
     assert normalise_message_id("  <x@y>  ") == "<x@y>"
     assert normalise_message_id(None) is None
     assert normalise_message_id("not-a-message-id") is None
+
+
+def test_canonical_thread_id_accepts_bare_or_bracketed_form() -> None:
+    assert canonical_thread_id("<a@b>") == "<a@b>"
+    assert canonical_thread_id("  a@b  ") == "<a@b>"
+    assert canonical_thread_id(None) is None
+    assert canonical_thread_id("not-a-message-id") is None
 
 
 def test_summarise_walks_references_chain() -> None:
