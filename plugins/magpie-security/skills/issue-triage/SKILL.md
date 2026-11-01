@@ -370,7 +370,11 @@ uvx --from ~/.claude/magpie/skill-lock skill-lock acquire security-issue-triage 
 ```
 
 - Exit `0` (`status: acquired`): proceed. Keep the `token` from the JSON
-  result for the release below.
+  result for the release below. Then, **just before each write, re-read
+  that item** and skip it if this skill's marker (its proposal comment or
+  label) landed after your classify read: a run that classified before
+  another run posted can reach its write step after that run released
+  the lock. List skipped items in the recap as already handled.
 - Exit `3` (`status: already_running`): **stop here and post nothing.**
   Show the maintainer the `holder` record (started, expires, note) and
   say this is not a failure of the sweep: another run of this skill is
@@ -388,7 +392,9 @@ uvx --from ~/.claude/magpie/skill-lock skill-lock release security-issue-triage 
 
 The lock is scoped to this skill and `<upstream>` only; other skills and
 other repositories never contend. It lives in the personal config layer
-(`run/locks/`), never in the working tree. Details and exit codes:
+(`run/locks/`), never in the working tree, so it serialises runs from one
+clone only. Runs from another clone or another machine are caught by the
+re-read before each write, not by the lock. Details and exit codes:
 [`tools/skill-lock/README.md`](../../../../tools/skill-lock/README.md).
 
 <!-- END MAGPIE BLOCK: write-lock -->

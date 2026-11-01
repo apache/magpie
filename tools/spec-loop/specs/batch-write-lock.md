@@ -39,7 +39,10 @@ overlap with anything; its posting phase is not. When two runs of
 started one while a scheduled one was still posting or two maintainers
 ran it at once, both post the same proposal comment on the same issue.
 The lock stops the second run at the door of its write step, tells the
-maintainer who holds it, and lets the first finish.
+maintainer who holds it, and lets the first finish. The lock is local, so
+it serialises runs from one clone; a run from another clone or another
+machine, and a run that classified before another posted, are caught by
+the re-read of each item just before its write.
 
 ## Where it lives
 
@@ -74,6 +77,10 @@ maintainer who holds it, and lets the first finish.
   way every framework tool resolves the personal layer: the gitignored
   `.apache-magpie-local/` in an adopted project, the git-directory home
   otherwise. Never the working tree of an adopted project.
+- **Re-read before each write.** Once the lock is held, the skill
+  re-reads each item just before writing to it and skips one that
+  already carries this skill's marker newer than its classify read,
+  listing it in the recap as already handled.
 - **Mechanism.** Atomic `mkdir` plus one `owner.json` (skill, repo,
   token, pid, host, started, expires, note). No `flock`, nothing under
   `.git/` of an adopted project.
@@ -145,6 +152,10 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
 - The lease default (two hours) is a framework constant, not yet an
   adopter config key. A sweep that legitimately posts for longer must
   call `renew`; the block does not yet say when.
+- Two linked worktrees that each have their own `.apache-magpie-local/`
+  take different locks. Keying the lock on the git common directory
+  would join them, but writes under `.git/` of an adopted project are
+  ruled out above; until then the re-read before each write covers it.
 - The lock is advisory for a caller that bypasses the skill prose and
   posts directly with `gh`; a deterministic `agent-guard` check that
   refuses a `gh issue comment` / `gh pr comment` from a batch skill
