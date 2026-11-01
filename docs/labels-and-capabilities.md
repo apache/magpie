@@ -82,7 +82,7 @@ every install; the other eight are opt-in (see
 | `family:mentoring` | opt-in | `mentoring-welcome`, `newcomer-issue-explainer`, `good-first-issue-author`, `good-first-issue-sweep` ([`docs/mentoring/`](mentoring/README.md)) |
 | `family:contributor-growth` | opt-in | The path-to-committer track: `contributor-activity-sweep`, `contributor-sentiment`, `contributor-to-committer`, `contributor-nomination`, `contributor-calibrate`, `contributor-candidate-screen`, `committer-onboarding`, `contributor-identity-map`, `onboarding-concierge` ([`docs/contributor-growth/`](contributor-growth/README.md)) |
 
-Three further `family:*` labels cover parts of the repository that are
+Five further `family:*` labels cover parts of the repository that are
 **not** a skill family. They exist only as issue / PR labels and never
 appear in a `family:` frontmatter key — the validator would reject them:
 
@@ -91,6 +91,8 @@ appear in a `family:` frontmatter key — the validator would reject them:
 | `family:tools` | Substrate tools and capability adapters under `tools/*` (CLI bridges, agent-runtime adapters, mail-source backends) |
 | `family:ci` | `.github/` workflows, prek hooks, validators |
 | `family:docs` | `docs/`, `MISSION.md`, READMEs |
+| `family:dev` | Repository development that ships nothing: `.asf.yaml`, the spec-loop specs and their sync marker, the root `package.json` / `package-lock.json`, the repository's own `.claude/settings.json` |
+| `family:cross-family` | A cross-cutting sweep that touches so much it would gain more labels than the labeler's limit (licence headers, renames, dependency bumps across every tool); applied instead of those labels |
 
 A change that spans both dimensions carries both labels — a new
 mentoring skill and its guide is `family:mentoring` + `family:docs`.
@@ -480,7 +482,9 @@ and applies the rules in [`.github/labeler.yml`](../.github/labeler.yml), which
 generates from the repository's own declarations:
 the `family:` and `capability:` frontmatter of every skill (covering its directory and its eval suite),
 the `**Capability:**` line of every tool README,
-and the paths of the non-skill families (`family:tools`, `family:ci`, `family:docs`).
+and the paths of the non-skill families (`family:tools`, `family:ci`, `family:docs`, `family:dev`).
+A PR that would gain more than the limit of 20 path labels gets none from the labeler;
+[`tools/dev/labeler-cliff.py`](../tools/dev/labeler-cliff.py) then marks it `family:cross-family`.
 The same labels are passed on to the issues the PR closes,
 and, for a project member's PR, to issues its description introduces with a reference phrase
 ("Part of #N", "Refs #N", "Related to #N", "Relates to #N", "Follow-up to #N"); a passing `#N` is not a reference.
