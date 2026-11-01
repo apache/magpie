@@ -335,7 +335,8 @@ for the full rationale + the validated behaviour matrix.
    [hook-manager registry](../../../../tools/hook-manager/registry.json)
    with an install strategy other than `none`
    that a repository the operator works in uses — `~/.claude/bin/prek`,
-   `~/.claude/bin/overcommit` and `~/.claude/bin/lefthook` today.
+   `~/.claude/bin/overcommit`, `~/.claude/bin/lefthook` and
+   `~/.claude/bin/captainhook` today.
    A manager whose install strategy is `none` needs no install fix
    and gets no shim.
    A repository uses a manager when one of its config files is at the root
@@ -343,7 +344,8 @@ for the full rationale + the validated behaviour matrix.
    hooks runs it ([Detection](../../../../tools/hook-manager/README.md#detection));
    for prek that is `prek.toml`, `.pre-commit-config.yaml` or
    `.pre-commit-config.yml`; for overcommit, `.overcommit.yml`; for lefthook,
-   its root `lefthook.*`, `.lefthook.*` and `-local` names.
+   its root `lefthook.*`, `.lefthook.*` and `-local` names; for CaptainHook,
+   `captainhook.json`.
    Install no shim for a manager no repository uses.
    The shim takes the tool from the name it is installed under and rewrites only
    the install action: for prek it injects
@@ -351,14 +353,29 @@ for the full rationale + the validated behaviour matrix.
    passed `--git-dir`;
    for overcommit it rewrites `overcommit --install` (or `-i`, `-fi`, `--inst`,
    anywhere in argv), pointing `core.hooksPath` at `<absolute common dir>/hooks`;
+   for CaptainHook it does the same for `install`, which its Symfony Console
+   CLI also accepts after global options (`captainhook -n install`) or as an
+   abbreviation (`captainhook inst`);
    for lefthook it runs the install with `GIT_CONFIG_GLOBAL=/dev/null` while the
    global config holds one, which hides the global `core.hooksPath` from
    lefthook's own check and lets its target resolve to the common dir.
    Each leaves the install alone when the caller asked for `--help` or is outside
    a git work tree, and **every other invocation passes through unchanged.**
+   When `PATH` holds no real binary, the shim runs
+   `<repository root>/vendor/bin/<tool>` for an adapter that sets
+   `install.vendor_bin`, which covers CaptainHook in a Composer project.
    It is a no-op on hosts with no global `core.hooksPath`.
    A host that installed the older `prek-shim.sh` as `~/.claude/bin/prek` keeps
    working; replacing it is optional.
+
+   CaptainHook's `captainhook/hook-installer` and
+   `captainhook/plugin-composer` Composer plugins install on every
+   `composer install` and `composer update`, outside the shim. Before
+   installing the shim for a repository whose `composer.json` requires either
+   plugin, check `extra.captainhook.disable-plugin`: when it is not `true`,
+   warn the operator that the next dependency update will install into the
+   shared hooks dir behind the shim, and offer to add
+   `"captainhook": {"disable-plugin": true}` under `extra`.
 
 3. **Surface the PATH line for the operator to add** to their
    `~/.bashrc` / `~/.zshrc` (per the golden rules — never edit the

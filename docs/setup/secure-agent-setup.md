@@ -1457,17 +1457,33 @@ original argv + inherited stdin, so a failing local `pre-commit` /
 `pre-push` still aborts the git operation. A repo with **no** local
 hook is a clean no-op.
 
-**The hook-manager PATH shim.** prek and overcommit honour `core.hooksPath`,
-so a bare install under whole-user scope would write its hook into the
-*shared* dir, not the repo. The framework ships a transparent shim
+**The hook-manager PATH shim.** prek, overcommit and CaptainHook honour
+`core.hooksPath`, so a bare install under whole-user scope would write its
+hook into the *shared* dir, not the repo. The framework ships a transparent
+shim
 ([`tools/agent-isolation/hook-manager-shim.sh`](../../tools/agent-isolation/hook-manager-shim.sh),
 installed as `~/.claude/bin/<tool>` with `~/.claude/bin` prepended to
-PATH) that rewrites **only** the install subcommand — for prek, injecting
-`--git-dir "$(git rev-parse --git-common-dir)"`; for overcommit, setting
-`core.hooksPath` to `<absolute common dir>/hooks` — so the hook lands
-in the repo-local `.git/hooks/` where the dispatcher finds it.
+PATH) that rewrites **only** the install action — for prek, injecting
+`--git-dir "$(git rev-parse --git-common-dir)"`; for overcommit and
+CaptainHook, setting `core.hooksPath` to `<absolute common dir>/hooks` —
+so the hook lands in the repo-local `.git/hooks/` where the dispatcher
+finds it.
+CaptainHook's Symfony Console CLI also accepts the command after global
+options (`captainhook -n install`) or as an abbreviation (`captainhook
+inst`), so the shim matches the action at any non-option argument that
+prefixes it.
 Every other command passes straight through, and the shim is
 a no-op on hosts with no global `core.hooksPath`.
+Composer keeps CaptainHook in `vendor/bin`, which is not on `PATH`, so
+when the shim finds no real binary there it runs
+`<repository root>/vendor/bin/captainhook`; a global binary on `PATH` wins
+over the project's pinned one, and a `vendor/bin` symlink back to the shim
+is refused instead of exec'd.
+CaptainHook's `captainhook/hook-installer` and `captainhook/plugin-composer`
+Composer plugins still run outside the shim, so its install is one explicit
+`~/.claude/bin/captainhook install` with `extra.captainhook.disable-plugin`
+set to `true` in `composer.json`; an install through the shim warns when a
+plugin is enabled.
 When the dispatcher chains into an overcommit hook, it exports the same
 `core.hooksPath` override so overcommit's run-time self-check accepts the
 hook instead of looking for its hook in the shared dir.
@@ -1487,6 +1503,7 @@ dispatchers + hook-manager shim):
 |---|---|
 | prek shim in `.git/hooks/` (installed via the shim) | dispatcher → prek runs that repo's `.pre-commit-config.yaml` |
 | overcommit hook in `.git/hooks/` (installed via the shim) | dispatcher → overcommit runs that repo's `.overcommit.yml`; its self-check sees the repo's hooks path |
+| CaptainHook hook in `.git/hooks/` (installed via the shim) | dispatcher → CaptainHook runs that repo's `captainhook.json`; the shared dir keeps its dispatcher symlinks |
 | local hook installed by a manager requiring no install fix (`simple-git-hooks`, `cargo-husky`, `git-code-format-maven-plugin`, `git-build-hook`) | dispatcher → local hook runs natively (installs straight to `.git/hooks/` ignoring global `core.hooksPath`) |
 | hand-written `.git/hooks/<name>`, or one a manager without an adapter put there | dispatcher → that hook runs (heterogeneous tooling coexists) |
 | none | dispatcher no-op; git operation proceeds cleanly |

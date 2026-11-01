@@ -57,6 +57,11 @@ SETTINGS = (Path(".claude/settings.json"), Path("tools/sandbox-lint/expected.jso
 #: Install strategies the shim implements. A new one lands with its shim branch.
 STRATEGIES = {"git-dir-flag", "hooks-path-env", "hide-global-config", "none"}
 
+#: How the shim recognises a positional install action: `exact` (argv[0] is the
+#: action) or `prefix` (a non-option argument prefixes it, as a Symfony Console
+#: application resolves an unambiguous abbreviation after global options).
+INSTALL_MATCHES = {"exact", "prefix"}
+
 _NAME = re.compile(r"^[a-z][a-z0-9-]*$")
 _SUBCOMMAND = re.compile(r"^(?:--)?[a-z][a-z0-9-]*$")
 _ALIAS = re.compile(r"^--?[a-z][a-z0-9-]*$")
@@ -138,8 +143,20 @@ def validate(registry: dict[str, Any]) -> list[str]:
                     )
                 elif strategy != "git-dir-flag" and "flag" in install:
                     errors.append(f"{where}.install.flag: strategy {strategy!r} takes no flag")
+                match = install.get("match", "exact")
+                if match not in INSTALL_MATCHES:
+                    errors.append(
+                        f"{where}.install.match: {match!r} is not how the shim finds the install "
+                        f"action ({', '.join(sorted(INSTALL_MATCHES))})"
+                    )
+                elif match == "prefix" and not (
+                    isinstance(subcommand, str) and not subcommand.startswith("-")
+                ):
+                    errors.append(f"{where}.install.match: prefix matching needs a positional subcommand")
+                if "vendor_bin" in install and not isinstance(install["vendor_bin"], bool):
+                    errors.append(f"{where}.install.vendor_bin: must be true or false")
             else:
-                for key in ("flag", "aliases"):
+                for key in ("flag", "aliases", "match", "vendor_bin"):
                     if key in install:
                         errors.append(f"{where}.install.{key}: strategy 'none' takes no {key}")
             if "runtime_env" in install and not isinstance(install["runtime_env"], bool):
@@ -192,6 +209,10 @@ def render(registry: dict[str, Any]) -> dict[Path, str]:
             fields.append(f"install_aliases='{actions}'")
         if "flag" in install:
             fields.append(f"install_flag={install['flag']}")
+        if install.get("match") == "prefix":
+            fields.append("install_match=prefix")
+        if install.get("vendor_bin"):
+            fields.append("install_vendor_bin=1")
         cases.append(f"    {name}) {'; '.join(fields)} ;;\n")
     shim = 'adapter() {\n  case "$1" in\n' + "".join(cases) + "    *) return 1 ;;\n  esac\n}\n"
     homes = [(n, a) for n, a in sorted(adapters.items()) if a.get("home")]

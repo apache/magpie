@@ -132,6 +132,46 @@ def test_bad_install_aliases_are_refused(registry: dict[str, Any], aliases: obje
     assert any(message in e for e in mod.validate(broken)), mod.validate(broken)
 
 
+def test_captainhook_matches_a_prefix_and_reads_vendor_bin(registry: dict[str, Any]) -> None:
+    adapter = registry["adapters"]["captainhook"]
+    assert "home" not in adapter
+    assert adapter["install"] == {
+        "subcommand": "install",
+        "strategy": "hooks-path-env",
+        "match": "prefix",
+        "vendor_bin": True,
+    }
+    rendered = mod.render(registry)
+    assert (
+        "captainhook) install_subcommand=install; install_strategy=hooks-path-env; "
+        "install_match=prefix; install_vendor_bin=1" in rendered[mod.SHIM]
+    )
+    assert "captainhook:CaptainHook" not in rendered[mod.DISPATCHER]
+
+
+@pytest.mark.parametrize(
+    ("key", "value", "message"),
+    [
+        ("match", "fuzzy", "install.match"),
+        ("vendor_bin", "yes", "install.vendor_bin"),
+    ],
+)
+def test_bad_captainhook_install_keys_are_refused(
+    registry: dict[str, Any], key: str, value: object, message: str
+) -> None:
+    broken = copy.deepcopy(registry)
+    broken["adapters"]["captainhook"]["install"][key] = value
+    assert any(message in e for e in mod.validate(broken)), mod.validate(broken)
+
+
+def test_prefix_matching_needs_a_positional_subcommand(registry: dict[str, Any]) -> None:
+    broken = copy.deepcopy(registry)
+    broken["adapters"]["overcommit"]["install"]["match"] = "prefix"
+    assert any("prefix matching needs a positional subcommand" in e for e in mod.validate(broken)), (
+        mod.validate(broken)
+    )
+
+
 def test_aliases_need_a_flag_style_subcommand(registry: dict[str, Any]) -> None:
     broken = copy.deepcopy(registry)
     broken["adapters"]["prek"]["install"]["aliases"] = ["-i"]

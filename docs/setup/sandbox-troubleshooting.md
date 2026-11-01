@@ -67,19 +67,24 @@
     - [Root cause](#root-cause-11)
     - [Fix](#fix-11)
     - [Notes](#notes-11)
-  - [Reads of `~/.claude/magpie` or `/tmp/claude-<uid>` ask for approval every time](#reads-of-claudemagpie-or-tmpclaude-uid-ask-for-approval-every-time)
+  - [CaptainHook's Composer plugin replaced the shared hook directory](#captainhooks-composer-plugin-replaced-the-shared-hook-directory)
     - [Symptom](#symptom-12)
     - [Root cause](#root-cause-12)
     - [Fix](#fix-12)
     - [Notes](#notes-12)
-  - [Every Bash call fails with `bwrap: Can't create file … Read-only file system`](#every-bash-call-fails-with-bwrap-cant-create-file--read-only-file-system)
+  - [Reads of `~/.claude/magpie` or `/tmp/claude-<uid>` ask for approval every time](#reads-of-claudemagpie-or-tmpclaude-uid-ask-for-approval-every-time)
     - [Symptom](#symptom-13)
     - [Root cause](#root-cause-13)
     - [Fix](#fix-13)
-  - [`git status` shows files you never created, such as `.mcp.json` or `.bash_profile`](#git-status-shows-files-you-never-created-such-as-mcpjson-or-bash_profile)
+    - [Notes](#notes-13)
+  - [Every Bash call fails with `bwrap: Can't create file … Read-only file system`](#every-bash-call-fails-with-bwrap-cant-create-file--read-only-file-system)
     - [Symptom](#symptom-14)
     - [Root cause](#root-cause-14)
     - [Fix](#fix-14)
+  - [`git status` shows files you never created, such as `.mcp.json` or `.bash_profile`](#git-status-shows-files-you-never-created-such-as-mcpjson-or-bash_profile)
+    - [Symptom](#symptom-15)
+    - [Root cause](#root-cause-15)
+    - [Fix](#fix-15)
   - [Adding a new entry](#adding-a-new-entry)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -1297,6 +1302,64 @@ The setup installs the shim only for a repository that uses lefthook: a root `le
 - An npm `postinstall` runs `node_modules/.bin/lefthook`, which the shim does not cover; that install refuses for the same reason, and the repository needs one run through the shim.
 - The shim hides the global config only while it holds a `core.hooksPath`, so on a host without one the install keeps the operator's `credential.helper`, `url.*.insteadOf` and `safe.directory`.
 - Per-project scope has no global `core.hooksPath`, so the refusal does not happen there.
+
+---
+
+## CaptainHook's Composer plugin replaced the shared hook directory
+
+### Symptom
+
+After a `composer install` or `composer update`, commits stop running the
+repository's own hooks, or a repository that never had CaptainHook starts
+failing on hooks it did not configure.
+`~/.claude/git-hooks/` holds a CaptainHook-generated `pre-commit` and an
+`old-hooks/` directory instead of the framework's dispatcher symlinks.
+
+### Root cause
+
+The `captainhook/hook-installer` Composer plugin (or the older
+`captainhook/plugin-composer`) runs the install on every dependency update.
+It does not go through `~/.claude/bin/captainhook`, so the shim cannot
+point it at the repository's own hooks, and it writes into the shared
+`core.hooksPath` directory behind the dispatcher.
+
+### Fix
+
+Disable the plugin in the repository's `composer.json`, reinstall the
+dispatcher, and run CaptainHook's install through the shim once:
+
+```jsonc
+// composer.json
+"extra": {
+  "captainhook": { "disable-plugin": true }
+}
+```
+
+```bash
+# restore the dispatcher symlinks, then install into the repo's own hooks
+cd ~/.claude/git-hooks
+for h in post-checkout pre-commit prepare-commit-msg commit-msg \
+         post-commit pre-push post-merge post-rewrite \
+         pre-rebase pre-merge-commit; do
+  ln -sf git-hook-dispatcher.sh "$h"
+done
+~/.claude/bin/captainhook install
+```
+
+The shim falls back to `<repository root>/vendor/bin/captainhook` when the
+binary is not on `PATH`, so the last command works from anywhere in the
+Composer project. A global `captainhook` on `PATH` wins over the project's
+pinned one.
+
+### Notes
+
+- An install through the shim warns on stderr when `composer.json` requires
+  either plugin and neither `extra.captainhook.disable-plugin` nor
+  `config.allow-plugins` turns it off, so the next update does not undo the
+  fix silently.
+- `setup-isolated-setup-verify` check 8 reports a repository with the
+  plugin enabled as a warning, and install Step P.3b offers to add
+  `disable-plugin` before installing the shim.
 
 ---
 
