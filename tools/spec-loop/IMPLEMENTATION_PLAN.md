@@ -167,7 +167,9 @@ line: the evidence, gathered during this plan pass, that the gap is still open.
 8. **Harness-outage exclusion for the batch skills.** (blocked on item 7)
    Step 2 of the same spec, meaningless without the budget: classify each
    per-item failure as *item* (bad data on that item; consumes the budget) or
-   *harness* (429 / 5xx / reset / timeout / auth expiry mid-run; does not).
+   *harness* (429 / 5xx / reset / timeout / auth expiry mid-run; does not;
+   a 403 is harness only when its body says rate limit or the auth check
+   re-run straight after it fails too).
    Harness failures retry the item once after a back-off and count on a
    separate `harness_failure_breaker` (default 3 consecutive) that stops the
    sweep as "harness outage" with no item marked failed. The classifier lives

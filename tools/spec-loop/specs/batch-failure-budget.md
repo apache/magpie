@@ -178,11 +178,14 @@ Nothing in this section exists yet; this is the proposed shape.
    failed, and leaves the budget untouched in the recap.
 5. With the exclusion: a single 5xx followed by a successful retry of the
    same item completes that item and consumes no budget.
-6. `tools/pr-management` carries the budget and the classifier in code
+6. With the exclusion: a 403 on one item while the pre-flight auth check
+   still passes records that item as `failed` and does not advance the
+   breaker; three such items in a row do not stop the sweep as an outage.
+7. `tools/pr-management` carries the budget and the classifier in code
    with pytest coverage; `skill-and-tool-validate` passes; every touched
    `SKILL.md` has its `measured_tokens` restamped and its eval suite
    extended.
-7. The exclusion is never present in a skill whose budget is absent.
+8. The exclusion is never present in a skill whose budget is absent.
 
 ## Validation
 
