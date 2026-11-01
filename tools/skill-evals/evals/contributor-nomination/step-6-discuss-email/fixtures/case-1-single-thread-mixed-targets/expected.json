@@ -1,0 +1,12 @@
+{
+  "thread_count": 1,
+  "detail_level": "links",
+  "candidate_order": ["charlie-k", "alpha-dev", "Bravo42"],
+  "personal_note_prompts": 3,
+  "separator_lines": 4,
+  "links_included": true,
+  "note_written_by_agent": false,
+  "readiness_verdict_present": false,
+  "email_sent": false,
+  "mail_draft_backend": "oauth_curl"
+}

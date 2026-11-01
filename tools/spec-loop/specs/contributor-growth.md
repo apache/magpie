@@ -97,7 +97,15 @@ Adopter config scaffolds live in `plugins/magpie-setup/templates/`
   named contributor: activity breadth, consistency, vendor-neutrality
   context, and factual evidence prose for a committer or PMC thread;
   never rates the contributor or says whether they are ready.
-  Read-only; never posts to any list. Ships `mode: Triage`
+  Takes one or more candidates, each with its own target, and then
+  drafts one `[DISCUSS]` email for all of them by default (one per
+  candidate on request): governance-body candidates first, then
+  alphabetical by handle; dashed separators between candidate blocks;
+  a per-candidate personal note the nominator writes, asked one
+  candidate at a time; a nominator-chosen detail level (`names`,
+  `summary`, `links`, `full`).
+  Read-only; never posts to any list, and creates a plain-text mail
+  draft only on an explicit yes. Ships `mode: Triage`
   + `experimental`, eval suite under
   `tools/skill-evals/evals/contributor-nomination/`.
 - Skill: `contributor-calibrate` — derives committer and PMC
