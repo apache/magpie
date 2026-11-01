@@ -167,6 +167,14 @@ the validator before any skill can resolve against it. It is not a separate
 command — the check runs inside the top-level `skill-and-tool-validate`
 sweep above.
 
+Manifest *content* is enforced too: `validate_organization_manifests`
+requires every `organization.md` to declare each key the template's
+uncommented `yaml` blocks declare — the organization identity and the
+governance vocabulary, `null` allowed — and `organization_identity.id` to
+match the directory name. The template's capability bundle is commented
+out, so its keys stay optional and fall through. An omitted required key is
+a HARD violation instead of a silent fall-through to the framework default.
+
 Organization *references* are enforced alongside it: every `organization:`
 value — in a skill's `SKILL.md` frontmatter, a tool README's
 `**Organization:**` line, a skill-source descriptor, and a
@@ -177,13 +185,6 @@ a silent fall-through to the framework default.
 
 ## Known gaps
 
-- **The structural check verifies file presence, not manifest content.**
-  `validate_organization_structure` requires `README.md` and
-  `organization.md` to exist; nothing validates what `organization.md`
-  actually declares. A present-but-empty manifest passes, and the keys it
-  omits then resolve silently to framework defaults instead of failing
-  loudly. Every other organization check in `skill-and-tool-validator` is
-  referential ("is this org name known?"), not schema-level.
 - **`skill-sources.md` is outside the required set.** All three in-tree
   adapters carry one, `organizations/_template/skill-sources.md` tells
   authors to keep the file with an empty list when the organization curates

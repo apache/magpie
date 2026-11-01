@@ -936,19 +936,20 @@ def validate_organization_structure(root: Path | None = None) -> Iterable[Violat
 
 _YAML_FENCE_RE = re.compile(r"^```ya?ml[ \t]*\n(.*?)^```", re.MULTILINE | re.DOTALL)
 _ORG_TOP_KEY_RE = re.compile(r"^([a-z_][a-z0-9_]*):(.*)$")
-_ORG_SUB_KEY_RE = re.compile(r"^  ([a-z_][a-z0-9_]*):(.*)$")
+_ORG_SUB_KEY_RE = re.compile(r"^[ \t]+([a-z_][a-z0-9_]*):(.*)$")
 
 
 def organization_manifest_keys(text: str) -> dict[tuple[str, str], str]:
     """``(block, key) -> value`` for every key declared in an organization.md.
 
-    Reads the fenced ``yaml`` blocks only, and only the two-level shape the
-    manifests use (``block:`` then two-space-indented ``key: value``). A
+    Reads the fenced ``yaml`` blocks only, and only the two-level block shape the
+    manifests use (``block:`` then an indented ``key: value``, any indent, LF or
+    CRLF); a flow-style mapping (``block: { key: value }``) is not read. A
     commented-out line declares nothing, which is how the template marks a
     block as optional. Stdlib only, like the rest of this module.
     """
     keys: dict[tuple[str, str], str] = {}
-    for block in _YAML_FENCE_RE.findall(text):
+    for block in _YAML_FENCE_RE.findall(text.replace("\r\n", "\n")):
         current: str | None = None
         for line in block.splitlines():
             if not line.strip() or line.lstrip().startswith("#"):
@@ -1009,7 +1010,8 @@ def validate_organization_manifests(root: Path | None = None) -> Iterable[Violat
                 None,
                 f"organizations/{org_dir.name}/organization.md omits required key(s) "
                 f"{', '.join(missing)} (required by organizations/_template/organization.md); an "
-                "omitted key resolves silently to the framework default, not this organization's value",
+                "omitted key resolves silently to the framework default, not this organization's value "
+                "(the validator reads block-style YAML: `block:` then an indented `key: value` per line)",
                 category=ORGANIZATION_CATEGORY,
             )
         org_id = declared.get(("organization_identity", "id"), "").strip("'\"")

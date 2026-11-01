@@ -3238,6 +3238,11 @@ class TestOrganizationManifests:
         assert keys[("organization_identity", "id")] == "<org>"  # inline comment stripped
         assert not any(block == "cve_authority" for block, _k in keys)
 
+    def test_four_space_indent_and_crlf_are_read(self, tmp_path: Path) -> None:
+        manifest = _org_manifest("Acme").replace("\n  ", "\n    ").replace("\n", "\r\n")
+        root = self._tree(tmp_path, {"Acme": manifest})
+        assert list(validate_organization_manifests(root)) == []
+
     def test_complete_manifest_is_clean_and_null_counts_as_declared(self, tmp_path: Path) -> None:
         root = self._tree(tmp_path, {"Acme": _org_manifest("Acme")})
         assert list(validate_organization_manifests(root)) == []
