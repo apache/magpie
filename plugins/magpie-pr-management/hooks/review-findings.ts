@@ -17,14 +17,333 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { atom, read, update } from 'claude-code';
 import type {
   FindingAction,
   FindingSeverity,
   FindingSource,
   ParseFindingsResult,
   ReviewFinding,
+  ReviewFindingsState,
   ReviewFindingsSummary,
 } from './types.ts';
+
+export const reviewFindingsState = atom(
+  { plugin: 'magpie-pr-management', key: 'reviewFindingsState' },
+  null as ReviewFindingsState | null
+);
+
+let currentFindingsState: ReviewFindingsState | null = null;
+
+export async function setReviewFindingsState(
+  $: any,
+  state: ReviewFindingsState | null
+): Promise<void> {
+  currentFindingsState = state;
+  try {
+    await update($, reviewFindingsState, () => state);
+  } catch {
+    // In test harness where atom state map is not bound to test runner $, module state serves as fallback
+  }
+  try {
+    $.ui.invalidate('ui.render');
+  } catch {
+    // In environments where invalidate is not available, state update is sufficient
+  }
+}
+
+export async function getReviewFindingsState(
+  $: any
+): Promise<ReviewFindingsState | null> {
+  try {
+    const val = await read($, reviewFindingsState);
+    return val ?? currentFindingsState;
+  } catch {
+    return currentFindingsState;
+  }
+}
+
+export interface SeverityBadgeSpec {
+  label: string;
+  color: 'error' | 'warning' | 'dim' | 'info';
+  bold: boolean;
+}
+
+export function formatSeverityBadge(severity: FindingSeverity): SeverityBadgeSpec {
+  switch (severity) {
+    case 'blocking':
+      return { label: '[BLOCKING]', color: 'error', bold: true };
+    case 'major':
+      return { label: '[MAJOR]', color: 'error', bold: false };
+    case 'minor':
+      return { label: '[MINOR]', color: 'warning', bold: false };
+    case 'nit':
+      return { label: '[NIT]', color: 'dim', bold: false };
+  }
+}
+
+export interface ActionIndicatorSpec {
+  label: string;
+  color: 'success' | 'dim' | 'info';
+  bold: boolean;
+}
+
+export function formatActionIndicator(action: FindingAction): ActionIndicatorSpec {
+  switch (action) {
+    case 'accept':
+      return { label: '[x] Accept', color: 'success', bold: true };
+    case 'skip':
+      return { label: '[ ] Skip', color: 'dim', bold: false };
+    case 'edit':
+      return { label: '[E] Edit', color: 'info', bold: true };
+  }
+}
+
+export function truncateFilePath(filePath: string, maxLength = 36): string {
+  if (filePath.length <= maxLength) {
+    return filePath;
+  }
+  const parts = filePath.split('/');
+  if (parts.length <= 2) {
+    return `...${filePath.slice(-(maxLength - 3))}`;
+  }
+  const last = parts[parts.length - 1];
+  const prev = parts[parts.length - 2];
+  const candidate = `.../${prev}/${last}`;
+  if (candidate.length <= maxLength) {
+    return candidate;
+  }
+  return `...${last.slice(-(maxLength - 3))}`;
+}
+
+export function formatFindingsTerminalFallback(state: ReviewFindingsState): string {
+  const findings = state.findings || [];
+  if (findings.length === 0) {
+    return 'No review findings to display.';
+  }
+
+  const lines: string[] = [];
+  const prPrefix = state.prNumber ? `PR #${state.prNumber} ` : '';
+  lines.push(
+    `${prPrefix}Review findings (${state.summary.anchoredCount} inline, ${state.summary.unanchoredCount} general):`
+  );
+
+  const anchored = findings.filter(isAnchored);
+  if (anchored.length > 0) {
+    lines.push('');
+    lines.push('  Proposed inline comments:');
+    for (let i = 0; i < anchored.length; i += 1) {
+      const f = anchored[i];
+      const actionLabel = f.action === 'accept' ? '[x]' : f.action === 'edit' ? '[E]' : '[ ]';
+      const badge = formatSeverityBadge(f.severity).label;
+      const pathStr = `${f.file}:${f.line}`;
+      const desc = f.rule ? `${f.rule} \u2014 ${f.body}` : f.body;
+      lines.push(`    ${actionLabel} ${i + 1}. ${badge} ${pathStr} \u2014 ${desc}`);
+    }
+  }
+
+  const unanchored = findings.filter((f) => !isAnchored(f));
+  if (unanchored.length > 0) {
+    lines.push('');
+    lines.push('  General observations (unanchored):');
+    for (const f of unanchored) {
+      const actionLabel = f.action === 'accept' ? '[x]' : f.action === 'edit' ? '[E]' : '[ ]';
+      const badge = formatSeverityBadge(f.severity).label;
+      const desc = f.rule ? `${f.rule} \u2014 ${f.body}` : f.body;
+      lines.push(`    ${actionLabel} \u2022 ${badge} ${f.file} \u2014 ${desc}`);
+    }
+  }
+
+  lines.push('');
+  const s = state.summary;
+  lines.push(
+    `  Summary: ${s.blockingCount} blocking, ${s.majorCount} major, ${s.minorCount} minor, ${s.nitCount} nit (${s.total} total)`
+  );
+
+  return lines.join('\n');
+}
+
+export function renderFindingsPane($: any, e: any, state: ReviewFindingsState): any {
+  const findings = state.findings || [];
+  if (findings.length === 0) {
+    return null;
+  }
+
+  let Box: any;
+  let Text: any;
+  try {
+    const resolved = $.ui.resolve(e);
+    Box = resolved.Box;
+    Text = resolved.Text;
+  } catch {
+    return null;
+  }
+  if (!Box || !Text) {
+    return null;
+  }
+
+  const anchored = findings.filter(isAnchored);
+  const unanchored = findings.filter((f) => !isAnchored(f));
+  const s = state.summary;
+
+  const headerChildren = [
+    Text({
+      children: [
+        state.prNumber ? `PR #${state.prNumber}: Review Findings` : 'Review Findings',
+      ],
+      bold: true,
+    }),
+    Text({
+      children: [
+        `(${s.anchoredCount} inline, ${s.unanchoredCount} general \u00B7 ${s.blockingCount} blocking, ${s.majorCount} major, ${s.minorCount} minor, ${s.nitCount} nit)`,
+      ],
+      color: 'dim',
+    }),
+  ];
+
+  const contentBoxes: any[] = [
+    Box({
+      flexDirection: 'column',
+      paddingBottom: 1,
+      children: headerChildren,
+    }),
+  ];
+
+  const MAX_VISIBLE = 10;
+  let visibleCount = 0;
+
+  if (anchored.length > 0) {
+    const anchoredRows: any[] = [
+      Text({
+        children: ['Proposed inline comments:'],
+        bold: true,
+        color: 'info',
+      }),
+    ];
+
+    for (let i = 0; i < anchored.length && visibleCount < MAX_VISIBLE; i += 1) {
+      const f = anchored[i];
+      visibleCount += 1;
+      const actionSpec = formatActionIndicator(f.action);
+      const severitySpec = formatSeverityBadge(f.severity);
+      const shortPath = truncateFilePath(f.file);
+
+      anchoredRows.push(
+        Box({
+          children: [
+            Text({
+              children: [`  ${actionSpec.label.slice(0, 3)} `],
+              color: actionSpec.color,
+              bold: actionSpec.bold,
+            }),
+            Text({
+              children: [`${i + 1}. `],
+              color: 'dim',
+            }),
+            Text({
+              children: [`${severitySpec.label} `],
+              color: severitySpec.color,
+              bold: severitySpec.bold,
+            }),
+            Text({
+              children: [`${shortPath}:${f.line} `],
+              bold: true,
+            }),
+            Text({
+              children: [`\u2014 ${f.rule || f.body}`],
+              color: 'dim',
+            }),
+          ],
+        })
+      );
+    }
+
+    contentBoxes.push(
+      Box({
+        flexDirection: 'column',
+        paddingBottom: unanchored.length > 0 ? 1 : 0,
+        children: anchoredRows,
+      })
+    );
+  }
+
+  if (unanchored.length > 0 && visibleCount < MAX_VISIBLE) {
+    const unanchoredRows: any[] = [
+      Text({
+        children: ['General observations (unanchored):'],
+        bold: true,
+        color: 'info',
+      }),
+    ];
+
+    for (let i = 0; i < unanchored.length && visibleCount < MAX_VISIBLE; i += 1) {
+      const f = unanchored[i];
+      visibleCount += 1;
+      const actionSpec = formatActionIndicator(f.action);
+      const severitySpec = formatSeverityBadge(f.severity);
+      const shortPath = truncateFilePath(f.file);
+
+      unanchoredRows.push(
+        Box({
+          children: [
+            Text({
+              children: [`  ${actionSpec.label.slice(0, 3)} `],
+              color: actionSpec.color,
+              bold: actionSpec.bold,
+            }),
+            Text({
+              children: ['\u2022 '],
+              color: 'dim',
+            }),
+            Text({
+              children: [`${severitySpec.label} `],
+              color: severitySpec.color,
+              bold: severitySpec.bold,
+            }),
+            Text({
+              children: [`${shortPath} `],
+              bold: true,
+            }),
+            Text({
+              children: [`\u2014 ${f.rule || f.body}`],
+              color: 'dim',
+            }),
+          ],
+        })
+      );
+    }
+
+    contentBoxes.push(
+      Box({
+        flexDirection: 'column',
+        children: unanchoredRows,
+      })
+    );
+  }
+
+  if (findings.length > visibleCount) {
+    contentBoxes.push(
+      Box({
+        paddingTop: 1,
+        children: [
+          Text({
+            children: [
+              `... showing ${visibleCount} of ${findings.length} findings (scroll or select in PR-3)`,
+            ],
+            color: 'dim',
+          }),
+        ],
+      })
+    );
+  }
+
+  return Box({
+    flexDirection: 'column',
+    padding: 1,
+    borderStyle: 'round',
+    children: contentBoxes,
+  });
+}
 
 /**
  * Normalizes severity string to valid FindingSeverity, mapping common synonyms.
@@ -379,17 +698,72 @@ export function parseFindings(input: string | unknown): ParseFindingsResult {
 /**
  * Event hook registration entry point for Claude Code mod.
  *
- * Note: In PR-1, session.start is a pass-through hook so that Claude Code
- * strict manifest validation (claude plugin validate --strict) and CI test
- * execution (claude plugin test) wire up the plugin module cleanly before
- * the interactive ui.render findings pane is introduced in PR-2.
+ * Registers:
+ * - session.start: pass-through lifecycle hook for module initialization.
+ * - ui.render (Pane): renders the interactive review findings pane when state is populated.
+ */
+export async function handleRenderPane($: any, e: any, next: any): Promise<any> {
+  let state: ReviewFindingsState | null = null;
+  try {
+    state = await read($, reviewFindingsState);
+  } catch {
+    state = null;
+  }
+  if (!state) {
+    state = currentFindingsState;
+  }
+
+  if (!state || !state.findings || state.findings.length === 0) {
+    if (typeof next === 'function') {
+      return next(e);
+    }
+    return;
+  }
+
+  try {
+    const rendered = renderFindingsPane($, e, state);
+    if (rendered) {
+      return rendered;
+    }
+  } catch {
+    // Fallback cleanly to next hook
+  }
+
+  if (typeof next === 'function') {
+    return next(e);
+  }
+}
+
+/**
+ * Event hook registration entry point for Claude Code mod.
+ *
+ * Registers:
+ * - session.start: pass-through lifecycle hook for module initialization and fixture hydration.
+ * - ui.render (AbovePrompt): renders the interactive review findings pane when state is populated.
  */
 export function register(on: any): void {
-  on('session.start', async (_$: any, e: any, next: any) => {
+  on('session.start', async ($: any, e: any, next: any) => {
+    if (e && e.findings) {
+      try {
+        const parsed = parseFindings(e.findings);
+        await update($, reviewFindingsState, () => ({
+          prNumber: e.prNumber,
+          prTitle: e.prTitle,
+          findings: parsed.findings,
+          summary: parsed.summary,
+          selectedIndex: 0,
+        }));
+      } catch {
+        // Safe no-op on parsing error
+      }
+    }
     if (typeof next === 'function') {
       return next(e);
     }
   });
+
+  on('ui.render', { component: 'Pane' }, handleRenderPane);
+  on('ui.render', { component: 'AbovePrompt' }, handleRenderPane);
 }
 
 export default register;
