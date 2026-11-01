@@ -22,7 +22,7 @@ argument-hint: "[install|config|adopt|unadopt|upgrade|worktree-init|verify|recon
 capability: capability:platform
 surface_hash: sha256:e6c9958a2255ba6a
 license: Apache-2.0
-measured_tokens: 5307
+measured_tokens: 5308
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
