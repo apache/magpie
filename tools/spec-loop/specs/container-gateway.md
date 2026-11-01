@@ -105,7 +105,9 @@ CLIs speak. Three properties fall out of the policy:
   `layers.py` personal-layer resolution, `relay.py` and `http.py`
   unix-socket HTTP relay, `routes.py` API path mapping, `decisions.py` /
   `policy.py` / `policy_shape.py` pure request/response policy,
-  `backends.py` discovery, `labels.py` project identity), `tests/`, `README.md` (how-to) and `tool.md`
+  `backends.py` discovery, `labels.py` project identity, `settings.py`
+  the Claude Code settings block and its guarded merge behind
+  `container-gateway settings [--apply]`), `tests/`, `README.md` (how-to) and `tool.md`
   (contract). Capability: `substrate:sandbox`. Harness: agnostic.
 - `tools/agent-isolation/container-gateway-hook.sh` — Claude Code
   `SessionStart` (`start`) / `SessionEnd` (`stop`) / `PreToolUse` on
@@ -161,7 +163,13 @@ adds both, with absolute paths, to the gitignored, per-project
 `.claude/settings.local.json` by hand (the block is in
 [Container gateway](../../../docs/setup/secure-agent-setup.md#container-gateway)
 in the setup guide, and `setup-isolated-setup-install` Step L proposes
-it as a settings diff); `/magpie-setup:setup config` does not write it. The macOS limit of 104 bytes on a socket path is
+it as a settings diff). `/magpie-setup:setup config` Step 3h offers to
+write it: `container-gateway settings` prints the block from the
+gateway's own run directory, and `--apply` merges it into
+`.claude/settings.local.json` on the operator's yes, only when git ignores
+that file, additively, under an exclusive lock with a re-read and an
+mtime/size guard, never overwriting a different existing `env` value
+(exit 3) and never writing the Linux `allowAllUnixSockets` widening. The macOS limit of 104 bytes on a socket path is
 checked at start and reported.
 
 The gateway must run **outside** the sandbox: it connects to the real
@@ -611,12 +619,6 @@ PYTHONPATH=tools/skill-evals/src python3 -m skill_evals.runner \
 
 ## Known gaps
 
-- `/magpie-setup:setup config` does not write the two gateway sockets into
-  `.claude/settings.local.json`'s `sandbox.network.allowUnixSockets`,
-  although the setup guide used to say it did. The operator adds the
-  block by hand, or takes the settings diff
-  `setup-isolated-setup-install` Step L proposes. Automating it in
-  `/magpie-setup:setup config` is the follow-up.
 - **Residual risk — a forged worktree layout.** In a linked worktree
   of a project that has not adopted Magpie, the run directory's anchor
   (the git common directory) is located from the worktree's `.git`
