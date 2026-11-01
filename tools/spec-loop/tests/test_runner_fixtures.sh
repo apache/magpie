@@ -4,6 +4,11 @@
 
 set -euo pipefail
 
+# Run from a git hook (prek's spec-validate during a commit), git exports
+# GIT_DIR / GIT_INDEX_FILE / GIT_WORK_TREE; a `git init` in a scratch repo
+# would then re-initialise the real repository instead. Drop them.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR GIT_PREFIX
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 # shellcheck source=tools/spec-loop/lib.sh
 . "$ROOT/tools/spec-loop/lib.sh"

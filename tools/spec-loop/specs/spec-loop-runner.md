@@ -99,7 +99,10 @@ and never opens a pull request.
   in `lib.sh`: `plugins skills .claude/skills tools docs projects organizations .github`
   plus `AGENTS.md` and `README.md`),
   pipes them through `spec-scope`, and appends the specs it returns as
-  likely relevant. The mapping is advisory: a `spec-scope` failure is
+  likely relevant. `spec-scope` maps a skill edit, which git reports under
+  `plugins/<plugin>/skills/<alias>/`, back to `skills/<name>/` through the
+  `skills/` symlinks, so a spec's 'Skill: `<name>`' bullet matches it.
+  The mapping is advisory: a `spec-scope` failure is
   silently skipped and the agent still reads the raw path list.
 - **Plan-size hysteresis.** Build mode switches to one consolidate pass
   when `IMPLEMENTATION_PLAN.md` exceeds `SPEC_LOOP_PLAN_MAX`, then builds
