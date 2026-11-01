@@ -45,8 +45,10 @@ has it enabled, or on a branch that conflicts.
 
 Auto-merge also changes what pending CI means. GitHub holds an auto-merge until
 the required checks pass, so real CI that is still running is not a gate on the
-auto-merge path: the approval and auto-merge go in immediately, and a failure
-later simply never merges. Plain `APPROVE` / `FIXUP` are then not offered,
+auto-merge path when every running check is a required one: the approval and
+auto-merge go in immediately, and a failure later simply never merges. A running
+check that branch protection does not require keeps the gate, since auto-merge
+would not wait for it. Plain `APPROVE` / `FIXUP` are then not offered,
 because without auto-merge they would approve on unfinished CI. Failing CI, a
 rollup that is green from bot checks only, and a run still waiting for workflow
 approval stay gates (Golden rule 8): those runs have to be approved or re-run
@@ -98,6 +100,7 @@ def pick(
     auto_merge_enabled: bool = False,
     self_authored: bool = False,
     merge_method: str | None = None,
+    pending_not_required: tuple[str, ...] | list[str] = (),
 ) -> dict[str, Any]:
     resolve_first = resolve_first or []
     counts = Counter(str(f.get("severity") or "").lower() for f in findings)
@@ -119,10 +122,17 @@ def pick(
         and not conflict
     )
     ci_pending = ci_state == "PENDING" and real_ci
-    held_by_auto_merge = ci_pending and auto_merge_possible
+    # Auto-merge waits only for required checks; a running check that is not required could fail after the merge.
+    held_by_auto_merge = ci_pending and auto_merge_possible and not pending_not_required
     gates: list[str] = []
     ci_action = None
-    if ci_state == "EXPECTED":
+    if ci_pending and auto_merge_possible and pending_not_required:
+        gates.append(
+            "CI is PENDING and auto-merge would not wait for "
+            + ", ".join(f"`{n}`" for n in pending_not_required)
+            + " (not a required check)"
+        )
+    elif ci_state == "EXPECTED":
         gates.append("CI is waiting for workflow approval — the project's real CI has not run")
         ci_action = "approve the waiting workflow runs (pr-management-triage), then re-run disposition"
     elif ci_state != "SUCCESS" and not held_by_auto_merge:

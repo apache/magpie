@@ -241,7 +241,8 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
                                "commits-by-path", "repo-file", "label-list",
                                "gql-pr-review-threads", "team-members", "gql-pr-liveness", "gql-cr-open", "gql-cr-pr", "gql-cr-pr-stack", "cr-codeowners-github", "cr-codeowners-root", "cr-codeowners-docs", "cr-pr-template", "cr-viewer-commits", "cr-commit-files", "cr-path-commits", "cr-commit-pulls",
                                "pr-review-approve",
-                               "pr-review-request-changes", "pr-review-comment"]
+                               "pr-review-request-changes", "pr-review-comment",
+                               "runs-at-head", "workflow-approve", "run-rerun"]
 "pr-management-stats"   = ["viewer", "gql-pr-stats-open", "gql-pr-stats-closed-page",
                            "gql-pr-stats-closed-search", "team-members"]
 "pr-management-quick-merge" = ["viewer",

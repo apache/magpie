@@ -24,7 +24,7 @@ argument-hint: "[pr:N] [area:LBL] [collab:true|false] [team:NAME] [ready] [dry-r
 capability: capability:review
 surface_hash: sha256:97ef701d93960492
 license: Apache-2.0
-measured_tokens: 4110
+measured_tokens: 4119
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
@@ -229,7 +229,8 @@ unapproved, so the pre-flight's
 [Real-CI guard](prerequisites.md#real-ci-guard) has to pass too.
 Where it does not, merge-readiness is unknown and `APPROVE` is
 equally off the table. The one exception is real CI that is still
-*running* on a repository that allows auto-merge: there the
+*running* — every running check a required one — on a repository
+that allows auto-merge: there the
 default is `APPROVE+AUTO-MERGE`, posted at once, because GitHub
 holds the merge until the required checks pass and a later
 failure never merges

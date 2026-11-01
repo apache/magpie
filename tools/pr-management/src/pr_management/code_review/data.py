@@ -109,6 +109,7 @@ class PR:
     viewer_can_enable_auto_merge: bool = False
     default_merge_method: str | None = None
     auto_merge_enabled: bool = False
+    pending_not_required: tuple[str, ...] = ()
     extra: dict[str, Any] = field(default_factory=dict)
 
 
@@ -130,6 +131,24 @@ def _contexts(rollup: dict[str, Any]) -> tuple[Context, ...]:
                 )
             )
     return tuple(found)
+
+
+def _pending_not_required(rollup: dict[str, Any]) -> tuple[str, ...]:
+    """Checks still running that branch protection does not require, so auto-merge would not wait for them.
+
+    A context with no `isRequired` value counts as not required: the safe reading.
+    """
+    names: list[str] = []
+    for node in _nodes(rollup.get("contexts")):
+        if node.get("__typename") == "StatusContext":
+            pending = node.get("state") in ("PENDING", "EXPECTED")
+            name = node.get("context")
+        else:
+            pending = node.get("status") != "COMPLETED"
+            name = node.get("name")
+        if pending and node.get("isRequired") is not True:
+            names.append(str(name or ""))
+    return tuple(names)
 
 
 def _requests(node: dict[str, Any]) -> tuple[tuple[str, ...], tuple[str, ...]]:
@@ -213,6 +232,7 @@ def from_node(node: dict[str, Any]) -> PR:
         unresolved_threads=sum(1 for t in threads if not t.get("isResolved")),
         rollup_state=rollup.get("state") if rollup else None,
         contexts=_contexts(rollup),
+        pending_not_required=_pending_not_required(rollup) if rollup else (),
         node_id=node.get("id"),
         thread_details=tuple(threads),
         file_details=tuple(_nodes(files_conn)),

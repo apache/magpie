@@ -99,8 +99,8 @@ query($owner: String!, $repo: String!, $number: Int!) {
                 totalCount
                 nodes {
                   __typename
-                  ... on CheckRun { name conclusion status }
-                  ... on StatusContext { context state }
+                  ... on CheckRun { name conclusion status isRequired(pullRequestNumber: $number) }
+                  ... on StatusContext { context state isRequired(pullRequestNumber: $number) }
                 }
               }
             }

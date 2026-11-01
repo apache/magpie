@@ -36,12 +36,13 @@ from typing import Any
 from .. import config, mentions, model
 from ..triage import guards as triage_guards
 from . import body as review_body
-from . import codeowners, criteria, data, deps, disposition, reviewers, scans, selectors, session, slop
+from . import codeowners, criteria, data, deps, disposition, reviewers, runs, scans, selectors, session, slop
 from . import diff as difflib
 
 FAMILY = "code-review"
 CODEOWNERS_OPS = ("cr-codeowners-github", "cr-codeowners-root", "cr-codeowners-docs")
 _PR = re.compile(r"^[0-9]{1,10}$")
+_SHA = re.compile(r"[0-9a-f]{40}")
 
 
 def _now(value: str | None) -> dt.datetime:
@@ -55,6 +56,21 @@ def _now(value: str | None) -> dt.datetime:
 
 def _need(op: str, params: list[str], save: str, why: str) -> dict[str, Any]:
     return {"op": op, "params": params, "save": save, "why": why}
+
+
+def _release_runs(args: argparse.Namespace) -> dict[str, Any]:
+    if not _SHA.fullmatch(args.head):
+        raise SystemExit("pr-management: --head must be the full 40-character head SHA")
+    save = f"runs-at-head-{args.pr}-{args.head[:12]}.json"
+    pages = data.load_json(_file(args.saved_dir, save))
+    if pages is None:
+        return {
+            "pr": args.pr,
+            "head": args.head,
+            "needs": [_need("runs-at-head", [args.head], save, "workflow runs held at the head")],
+        }
+    held = runs.held_runs(pages, args.head)
+    return {"pr": args.pr, "head": args.head, "needs": [], "held": held, "plan": runs.release_plan(held)}
 
 
 def _file(saved: Path, name: str) -> Path | None:
@@ -331,6 +347,22 @@ def _doc_name(category: str) -> str:
 def _disposition(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any]:
     pr = data.load_pr(args.saved_dir / f"cr-pr-{args.pr}.json")
     findings = json.loads(Path(args.findings).read_text(encoding="utf-8")) if args.findings else []
+    result = _decide(args, cfg, pr, findings, args.viewer)
+    result["docs"] = [
+        f"classifications/disposition-{result['disposition'].lower().replace('_', '-')}.md",
+        f"classifications/footer-{result['footer']}.md",
+    ]
+    if result["fixup"]["eligible"]:
+        result["docs"].append("classifications/disposition-fixup.md")
+    if result["auto_merge"]["eligible"]:
+        result["docs"].append("classifications/disposition-auto-merge.md")
+    return result
+
+
+def _decide(
+    args: argparse.Namespace, cfg: config.Config, pr: data.PR, findings: list[dict[str, Any]], viewer: str
+) -> dict[str, Any]:
+    """The Step 6 gate decision; `render --auto-merge` re-runs it so the two cannot disagree."""
     saved_permission = data.load_lines(_file(args.saved_dir, "permission.txt"))
     permission = args.permission or (saved_permission[0] if saved_permission else None)
     permission = permission or (pr.viewer_permission or "").lower() or None
@@ -344,12 +376,12 @@ def _disposition(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any]
         {k: v for k, v in outdated[i].items() if not k.endswith("_untrusted")}
         for i in dict.fromkeys(args.addressed_thread)
     ]
-    result = disposition.pick(
+    return disposition.pick(
         findings,
         ci_state=pr.rollup_state,
         real_ci=selectors.real_ci(pr, cfg),
         unresolved_threads=pr.unresolved_threads - len(resolve_first),
-        other_changes_requested=disposition.other_changes_requested(list(pr.reviews), args.viewer, pr.author),
+        other_changes_requested=disposition.other_changes_requested(list(pr.reviews), viewer, pr.author),
         unanswered_question=args.unanswered_question,
         ci_diff_caused=args.ci_diff_caused,
         mergeable=pr.mergeable,
@@ -360,18 +392,10 @@ def _disposition(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any]
         auto_merge_allowed=pr.auto_merge_allowed,
         viewer_can_enable_auto_merge=pr.viewer_can_enable_auto_merge,
         auto_merge_enabled=pr.auto_merge_enabled,
-        self_authored=args.viewer.lower() == pr.author.lower(),
+        self_authored=viewer.lower() == pr.author.lower(),
         merge_method=pr.default_merge_method,
+        pending_not_required=pr.pending_not_required,
     )
-    result["docs"] = [
-        f"classifications/disposition-{result['disposition'].lower().replace('_', '-')}.md",
-        f"classifications/footer-{result['footer']}.md",
-    ]
-    if result["fixup"]["eligible"]:
-        result["docs"].append("classifications/disposition-fixup.md")
-    if result["auto_merge"]["eligible"]:
-        result["docs"].append("classifications/disposition-auto-merge.md")
-    return result
 
 
 def _reviewers(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any]:
@@ -505,15 +529,37 @@ def _render(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any]:
     if args.auto_merge:
         if args.disposition != "APPROVE":
             raise SystemExit("pr-management: --auto-merge only follows an APPROVE")
-        if not (pr.auto_merge_allowed and pr.viewer_can_enable_auto_merge):
-            raise SystemExit("pr-management: auto-merge is not available on this PR")
-        if pr.viewer and pr.viewer.lower() == pr.author.lower():
-            raise SystemExit("pr-management: a self-authored PR is never auto-merged by its own review")
-        method = (pr.default_merge_method or "SQUASH").lower()
-        if method not in ("merge", "squash", "rebase"):
-            method = "squash"
+        # Same viewer source as `disposition`, and fail closed when it is unknown or disagrees with the read.
+        if not args.viewer:
+            raise SystemExit("pr-management: --auto-merge needs --viewer")
+        if pr.viewer and pr.viewer.lower() != args.viewer.lower():
+            raise SystemExit(f"pr-management: --viewer {args.viewer!r} is not the saved read's viewer")
+        decision = _decide(
+            args,
+            cfg,
+            pr,
+            json.loads(Path(args.findings).read_text(encoding="utf-8")),
+            args.viewer,
+        )
+        if not decision["auto_merge"]["eligible"]:
+            raise SystemExit(
+                "pr-management: auto-merge is not available on this PR: " + decision["auto_merge"]["reason"]
+            )
+        if not _SHA.fullmatch(pr.head_sha):
+            raise SystemExit("pr-management: the saved read has no full head SHA to pin the merge to")
         auto_merge_command = shlex.join(
-            ["gh", "pr", "merge", str(args.pr), "--repo", repo, "--auto", f"--{method}"]
+            [
+                "gh",
+                "pr",
+                "merge",
+                str(args.pr),
+                "--repo",
+                repo,
+                "--auto",
+                f"--{decision['auto_merge']['method'].lower()}",
+                "--match-head-commit",
+                pr.head_sha,
+            ]
         )
     return {
         "pr": args.pr,
@@ -680,8 +726,14 @@ def add_parsers(sub: Any) -> None:
     ren.add_argument(
         "--auto-merge",
         action="store_true",
-        help="also emit the command that enables auto-merge after the APPROVE posts",
+        help="also emit the command that enables auto-merge after the APPROVE posts; "
+        "re-runs the disposition gates, so it takes the same flags",
     )
+    ren.add_argument("--viewer", default=None, help="required with --auto-merge")
+    ren.add_argument("--unanswered-question", action="store_true")
+    ren.add_argument("--ci-diff-caused", action="store_true")
+    ren.add_argument("--addressed-thread", action="append", default=[], metavar="ID")
+    ren.add_argument("--head-pushable", action="store_true")
 
     pic = commands.add_parser("pick", help="read the inline picker's answer")
     pic.add_argument("--spec", required=True)
@@ -694,6 +746,18 @@ def add_parsers(sub: Any) -> None:
     ver = commands.add_parser("verify-footer", help="Golden rule 5: the verbatim footer is present")
     ver.add_argument("--body", type=Path, required=True)
     ver.add_argument("--variant", default=None)
+
+    rel = commands.add_parser(
+        "release-runs", help="workflow runs held in action_required at the PR head, and how to release them"
+    )
+    rel.add_argument("--saved-dir", type=Path, required=True)
+    rel.add_argument("--pr", type=int, required=True)
+    rel.add_argument("--head", required=True, help="the full head SHA (after any push)")
+
+    rres = commands.add_parser("release-result", help="what one release attempt means, and the next op")
+    rres.add_argument("--op", choices=(runs.APPROVE_OP, runs.RERUN_OP), required=True)
+    rres.add_argument("--exit-code", type=int, required=True)
+    rres.add_argument("--output-file", type=Path, required=True, help="the attempt's combined output")
 
     grd = commands.add_parser("guard", help="Step 8: SHA recheck and self-review guard")
     grd.add_argument("--saved-dir", type=Path, required=True)
@@ -765,6 +829,10 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
         return {"live_handles": [h["handle"] for h in hits], "prompt_shown": bool(hits), "hits": hits}
     if command == "verify-footer":
         return review_body.verify_footer(args.body.read_text(encoding="utf-8"), args.variant)
+    if command == "release-runs":
+        return _release_runs(args)
+    if command == "release-result":
+        return runs.release_result(args.op, args.exit_code, args.output_file.read_text(encoding="utf-8"))
     if command == "guard":
         return _guard(args)
     if command == "slop-comment":

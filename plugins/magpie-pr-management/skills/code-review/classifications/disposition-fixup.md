@@ -16,7 +16,7 @@ Instead of asking the contributor for another round over small, mechanical point
 4. **Show the diff and the commit message; confirm.** The message lists each change; add the project's attribution trailer per [`AGENTS.md`](../../../../../AGENTS.md#commit-and-pr-conventions).
 5. **Push to the PR head on confirmation**: the head repository and branch come from `gh pr view <N> --json headRepository,headRepositoryOwner,headRefName`. Pushing to a contributor's branch is visible to everyone watching the PR.
 6. **Wait for CI on the new head** before approving (Golden rule 8), then re-run `guard` with the pushed SHA.
-   On the `FIXUP+APPROVE+AUTO-MERGE` path there is no wait: re-run `guard`, approve, and enable auto-merge straight away — GitHub holds the merge until the new head's checks pass.
+   On the `FIXUP+APPROVE+AUTO-MERGE` path there is no wait: re-run `guard`, approve, release the workflow runs the push left held at the new head ([`disposition-auto-merge.md`](disposition-auto-merge.md) step 3), and enable auto-merge straight away — GitHub holds the merge until the new head's checks pass.
 7. **Post an `APPROVE`** whose body says what the fixup changed: one bullet per change, with its file and the fixup commit SHA, so the contributor sees exactly what was done to their branch and why.
    No inline comments — the fixup resolved them.
 

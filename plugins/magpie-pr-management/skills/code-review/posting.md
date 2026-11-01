@@ -132,8 +132,8 @@ Inline positions are valid only against the head that was diffed; when the Step 
 
 ### Enabling auto-merge after an `APPROVE`
 
-When the confirmed action is `APPROVE+AUTO-MERGE` or `FIXUP+APPROVE+AUTO-MERGE`, pass `--auto-merge` to `render`; it adds `auto_merge_command` (`gh pr merge <N> --repo <repo> --auto --<method>`) and refuses on a non-`APPROVE`, on a self-authored PR, and where the repository or viewer cannot enable auto-merge.
-Run it right after the review posted (verified as above) while `guard` still reports the reviewed head — without waiting for CI that is still running ([`classifications/disposition-auto-merge.md`](classifications/disposition-auto-merge.md)).
+When the confirmed action is `APPROVE+AUTO-MERGE` or `FIXUP+APPROVE+AUTO-MERGE`, pass `--auto-merge` to `render` together with `--viewer` and the same flags `disposition` got; it re-runs the disposition gates, adds `auto_merge_command` (`gh pr merge <N> --repo <repo> --auto --<method> --match-head-commit <sha>`), and refuses when the gates no longer allow auto-merge, when the viewer is missing or differs from the saved read, and on a non-`APPROVE`.
+Run it right after the review posted (verified as above), after refreshing `gql-pr-liveness` and re-running `guard` — without waiting for required CI that is still running ([`classifications/disposition-auto-merge.md`](classifications/disposition-auto-merge.md)).
 `gh pr merge --auto` prints nothing on success either; confirm with `gh pr view <N> --repo <repo> --json autoMergeRequest` rather than re-running it.
 
 ---
