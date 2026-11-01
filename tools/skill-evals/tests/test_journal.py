@@ -37,6 +37,7 @@ from skill_evals.journal import (
     model_from_cli,
     parse_readme_table,
     read_records,
+    redact_cli,
     render_readme,
     render_table,
     skill_dir_for,
@@ -595,3 +596,20 @@ def test_runner_journal_flags_require_cli(tmp_path: Path) -> None:
     _make_case(skill_dir, "case-1", {"verdict": "ok"})
     with pytest.raises(SystemExit):
         runner_main(["--journal-note", "x", str(skill_dir)])
+
+
+@pytest.mark.parametrize(
+    ("cli", "expected"),
+    [
+        ("claude -p --model claude-opus-5-5", "claude -p --model claude-opus-5-5"),
+        ("ANTHROPIC_API_KEY=sk-ant-123 claude -p", "ANTHROPIC_API_KEY=<redacted> claude -p"),
+        ("A=1 B='two words' codex exec", "A=<redacted> B=<redacted> codex exec"),
+        ("tool --api-key sk-123 --model m", "tool --api-key <redacted> --model m"),
+        ("tool --token=abc -p", "tool --token=<redacted> -p"),
+        ("tool -H 'Authorization: Bearer x' run", "tool -H <redacted> run"),
+        ("tool --model=gpt-5 -p", "tool --model=gpt-5 -p"),
+        (None, None),
+    ],
+)
+def test_redact_cli(cli: str | None, expected: str | None) -> None:
+    assert redact_cli(cli) == expected

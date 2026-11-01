@@ -524,8 +524,10 @@ run, and every row traces back to the records that produced it.
 
 A `--cli` run whose path lies under `tools/skill-evals/evals/<skill>/`
 appends its record automatically. Each record holds the skill, the
-commit (`ref`, `branch`, `dirty`), the model, the exact `--cli` and
-`--grader-cli` strings, the path and `--tag` filters, the per-outcome
+commit (`ref`, `branch`, `dirty`), the model, the `--cli` and
+`--grader-cli` strings (with inline `VAR=value` assignments and the values
+of credential and header flags replaced by `<redacted>`, since the journal
+is committed), the path and `--tag` filters, the per-outcome
 counts, the labels of every case that failed or errored, the cost
 (`wall_seconds`, `cli_calls`, `grader_calls`) and a free-text `notes`
 field. The runner prints `Journaled run to …` when it has written one.

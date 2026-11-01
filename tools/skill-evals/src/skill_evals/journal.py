@@ -212,6 +212,31 @@ def git_snapshot(cwd: Path) -> dict:
     }
 
 
+_REDACTED = "<redacted>"
+# A leading VAR=value word (an inline environment assignment, never a flag).
+_ENV_ASSIGN_RE = re.compile(r"(?:(?<=\s)|^)([A-Za-z_][A-Za-z0-9_]*)=(?:\"[^\"]*\"|'[^']*'|\S+)")
+# The value of a flag that carries a credential or a request header.
+_SECRET_FLAG_RE = re.compile(
+    r"(?i)(--(?:api[-_]?key|key|token|access[-_]token|auth[-_]token|bearer|password|secret|header)|-H)"
+    r"(=|\s+)(?:\"[^\"]*\"|'[^']*'|\S+)"
+)
+
+
+def redact_cli(cli: str | None) -> str | None:
+    """``cli`` with credentials removed, for a record that gets committed.
+
+    The journal is committed to a public repository, and a CLI may be spelled
+    with an inline secret (``ANTHROPIC_API_KEY=sk-… claude -p``,
+    ``tool --api-key …``, ``-H 'Authorization: …'``). Inline environment
+    assignments and the values of credential and header flags are replaced
+    with ``<redacted>``; the rest, including ``--model``, is kept.
+    """
+    if not cli:
+        return cli
+    cli = _ENV_ASSIGN_RE.sub(lambda m: f"{m.group(1)}={_REDACTED}", cli)
+    return _SECRET_FLAG_RE.sub(lambda m: f"{m.group(1)}{m.group(2)}{_REDACTED}", cli)
+
+
 def model_from_cli(cli: str) -> str | None:
     """Return the value of a ``--model X`` / ``--model=X`` flag in ``cli``."""
     match = re.search(r"--model(?:=|\s+)(\S+)", cli)
