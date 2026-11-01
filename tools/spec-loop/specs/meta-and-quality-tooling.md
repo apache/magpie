@@ -165,8 +165,11 @@ trustworthy as it grows.
   (`contract:*` / `substrate:*`), the `family:` / `capability:` frontmatter
   of every skill (its directory and its eval suite, found through the
   `skills/` symlink), and the paths of the non-skill families
-  (`family:tools`, `family:ci`, `family:docs`, `family:setup`), emitting only
-  labels `docs/labels-and-capabilities.md` defines (#1527).
+  (`family:tools`, `family:ci`, `family:docs`, `family:setup`, `family:dev`),
+  emitting only labels `docs/labels-and-capabilities.md` defines (#1527).
+  `tools/dev/labeler-cliff.py` replays the same rules on a pull request's
+  changed files and names `family:cross-family` when more new labels match
+  than the limit, which `actions/labeler` answers by applying none.
   The `generate-labeler-config` prek hook keeps it in sync; the
   `check-labeler-coverage` hook (`--check-coverage`) fails when a taxonomy
   label has no rule and is not listed in `UNMAPPED` with a reason, or when a
@@ -298,8 +301,12 @@ trustworthy as it grows.
   label, and `workflow_dispatch` labels one PR or runs that safety net.
   A label a maintainer removes comes back only when the PR is pushed again and
   still matches the rule.
-  The changed-files label limit is 20.
-  Eval fixtures and spec-loop specs do not count as touching their tool.
+  The changed-files label limit is 20; a pull request over it gets
+  `family:cross-family` from a step that checks out the default branch and
+  runs `tools/dev/labeler-cliff.py`, instead of no label at all.
+  Eval fixtures and spec-loop specs do not count as touching their tool; they
+  are `family:dev`, with `.asf.yaml`, the root Node manifests and
+  `.claude/settings.json`.
   The labels are a starting point to correct, not the answer (#1382, #1527).
 - **Labels pass on to linked issues, gated by author trust.** The PR's
   `family:` / `capability:` / `contract:` / `substrate:` labels are added to

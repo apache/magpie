@@ -87,6 +87,7 @@ _TAXONOMY = """
 | `family:tools` | Substrate tools |
 | `family:ci` | workflows |
 | `family:docs` | docs |
+| `family:cross-family` | sweeps over the label limit |
 | `capability:resolve` | Resolve. |
 | `capability:triage` | Triage. |
 """
