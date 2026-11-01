@@ -26,7 +26,7 @@ so either could drift. These tests read the checklist itself:
   fails here rather than as a silent miss in a reconciliation;
 - every **softened** phrasing the checklist quotes as a failure must *not*
   trip it, and the strong phrasing it is contrasted with must, so the helper
-  never credits a copy that softened the rule.
+  does not credit the softened phrasing on its own.
 """
 
 from __future__ import annotations
@@ -50,8 +50,8 @@ REGEXES = {1: _CLAUSE1_RE, 2: _CLAUSE2_RE, 3: _CLAUSE3_RE}
 
 
 def _clauses() -> dict[int, str]:
-    if not CHECKLIST.is_file():
-        pytest.skip(f"{CHECKLIST} not present (packaged copy without the skill tree)")
+    # Fail, never skip: a moved checklist would otherwise turn the pin into a no-op.
+    assert CHECKLIST.is_file(), f"{CHECKLIST} missing: update the path if the checklist moved"
     text = CHECKLIST.read_text(encoding="utf-8")
     parts = re.split(r"^## Clause (\d+) .*$", text, flags=re.MULTILINE)
     return {int(number): body for number, body in zip(parts[1::2], parts[2::2], strict=True)}
