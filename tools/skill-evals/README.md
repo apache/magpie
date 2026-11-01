@@ -545,10 +545,14 @@ uv run --project tools/skill-evals skill-eval-journal check tools/skill-evals/ev
 Runner flags: `--journal-note TEXT` fills `notes` (an issue link, the
 reason for the run); `--journal-model NAME` records the model when the
 `--cli` string carries no `--model` flag (the CLI's configured default is
-otherwise invisible to the runner and the table shows `(unrecorded)`);
+otherwise invisible to the runner and the table shows the model as
+unrecorded next to the `--cli` string, so two tools never share a row);
 `--journal FILE` journals to another file; `--no-journal` writes nothing.
 A path outside the repository's own evals tree (a copied suite, a test
-fixture) is never journaled unless `--journal` says so.
+fixture, a suite outside any git checkout) is never journaled unless
+`--journal` says so. The runner can run outside the sandbox, so the write
+is not redirectable: a `runs.jsonl` that is a symlink is refused, and the
+default journal must resolve inside the evals tree.
 
 Rules:
 
@@ -561,9 +565,11 @@ Rules:
   than `main` is journaled with the branch name and the table shows it as
   `` `sha` (branch) ``; a dirty tree is recorded as `dirty: true`.
 - **One table row per batch.** Rendering groups records by date, ref,
-  branch and model; *Runs* is the number of records in the batch and
-  *Result* is `pass` or one `` `step/case` failed k of n `` entry per case,
-  newest batch first.
+  branch and model (the CLI when no model was recorded); *Runs* is the
+  number of records in the batch and *Result* is `pass`, `manual` when no
+  case was graded, or one `` `step/case` failed k of n `` entry per case,
+  newest batch first. *n* counts the runs that graded that case (each
+  record's `graded_cases`), so a one-case rerun does not inflate it.
 - **Record a failure even if a rerun passed.** The rerun is its own
   record; both stay.
 - **Importing a hand-written table.** `skill-eval-journal import-readme

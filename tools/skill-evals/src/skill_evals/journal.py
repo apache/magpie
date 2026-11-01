@@ -74,6 +74,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -129,15 +130,29 @@ def journal_path_for(path: Path, evals_root: Path) -> Path | None:
 # ---------------------------------------------------------------------------
 
 
-def append_record(journal: Path, record: dict) -> None:
-    """Append one record as a single JSON line. Never rewrites the file."""
+def append_record(journal: Path, record: dict, *, within: Path | None = None) -> None:
+    """Append one record as a single JSON line. Never rewrites the file.
+
+    The runner may run outside the sandbox (the eval wrapper does), and the
+    tree is writable inside it, so the write must not be redirectable: a
+    ``runs.jsonl`` that is a symlink is refused and the file is opened with
+    ``O_NOFOLLOW``. With ``within``, the journal's resolved directory must
+    also stay under that resolved root, so a symlinked skill directory
+    cannot point the write elsewhere either.
+    """
     if record.get("schema") != SCHEMA_VERSION:
         raise ValueError(f"record schema must be {SCHEMA_VERSION}, got {record.get('schema')!r}")
     line = json.dumps(record, sort_keys=True, ensure_ascii=False)
     if "\n" in line:
         raise ValueError("record serialised with an embedded newline")
     journal.parent.mkdir(parents=True, exist_ok=True)
-    with journal.open("a", encoding="utf-8") as fh:
+    if within is not None and not journal.parent.resolve().is_relative_to(within.resolve()):
+        raise OSError(f"refusing to write {journal}: it resolves outside {within}")
+    if journal.is_symlink():
+        raise OSError(f"refusing to write {journal}: it is a symlink")
+    flags = os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(journal, flags, 0o644)
+    with os.fdopen(fd, "a", encoding="utf-8") as fh:
         fh.write(line + "\n")
 
 
@@ -209,11 +224,16 @@ def model_from_cli(cli: str) -> str | None:
 
 
 def _row_key(record: dict) -> tuple[str, str, str, str]:
+    # With no recorded model, key on the CLI instead, so runs of two
+    # different tools at one ref on one day never share a row.
+    model = str(record.get("model") or "")
+    if not model and record.get("cli"):
+        model = f"{UNRECORDED_CLI_PREFIX}{record['cli']}"
     return (
         str(record.get("date", "")),
         str(record.get("ref", "")),
         str(record.get("branch", "main") or "main"),
-        str(record.get("model") or ""),
+        model,
     )
 
 
@@ -224,7 +244,12 @@ def _fmt_ref(ref: str, branch: str) -> str:
     return cell
 
 
+UNRECORDED_CLI_PREFIX = "\0cli:"
+
+
 def _fmt_model(model: str) -> str:
+    if model.startswith(UNRECORDED_CLI_PREFIX):
+        return f"(unrecorded, `{model[len(UNRECORDED_CLI_PREFIX) :]}`)"
     return f"`{model}`" if model else "(unrecorded)"
 
 
@@ -238,6 +263,13 @@ def summarise_batch(records: list[dict]) -> tuple[int, str, str]:
     legacy_results: list[str] = []
     fail_counts: Counter[str] = Counter()
     error_counts: Counter[str] = Counter()
+    # A case's denominator is the number of runs that graded it. A record
+    # without ``graded_cases`` (written before the field existed) counts as
+    # having graded every case, which is what the table showed before.
+    graded_counts: Counter[str] = Counter()
+    untracked_runs = 0
+    graded_total = 0
+    manual_total = 0
     live_runs = 0
     notes: list[str] = []
     for record in records:
@@ -252,6 +284,15 @@ def summarise_batch(records: list[dict]) -> tuple[int, str, str]:
                 legacy_results.append(text)
             continue
         live_runs += n
+        manual_total += int(record.get("manual") or 0)
+        if "graded_cases" in record:
+            graded = [str(label) for label in record.get("graded_cases") or []]
+            graded_counts.update(graded)
+            graded_total += len(graded)
+        else:
+            untracked_runs += n
+            graded_total += int(record.get("passed") or 0) + int(record.get("failed") or 0)
+            graded_total += int(record.get("errored") or 0)
         for label in record.get("failed_cases") or []:
             fail_counts[str(label)] += 1
         for label in record.get("errored_cases") or []:
@@ -259,9 +300,18 @@ def summarise_batch(records: list[dict]) -> tuple[int, str, str]:
 
     parts: list[str] = list(legacy_results)
     if live_runs:
-        live_parts = [f"`{label}` failed {k} of {live_runs}" for label, k in sorted(fail_counts.items())]
-        live_parts += [f"`{label}` errored {k} of {live_runs}" for label, k in sorted(error_counts.items())]
-        parts.append("; ".join(live_parts) if live_parts else "pass")
+
+        def of(label: str) -> int:
+            return graded_counts[label] + untracked_runs
+
+        live_parts = [f"`{label}` failed {k} of {of(label)}" for label, k in sorted(fail_counts.items())]
+        live_parts += [f"`{label}` errored {k} of {of(label)}" for label, k in sorted(error_counts.items())]
+        if live_parts:
+            parts.append("; ".join(live_parts))
+        elif graded_total == 0 and manual_total > 0:
+            parts.append("manual")
+        else:
+            parts.append("pass")
     return runs, "; ".join(parts), "; ".join(notes)
 
 

@@ -214,7 +214,37 @@ def test_render_table_marks_branch_runs_and_unrecorded_model() -> None:
     records = [_record(branch="fix-grader", model=None)]
     row = next(line for line in render_table(records).splitlines() if line.startswith("| 2026"))
     assert "`399ab1bc` (fix-grader)" in row
-    assert "(unrecorded)" in row
+    assert "(unrecorded, `claude -p --model claude-opus-5-5`)" in row
+
+
+def test_render_table_keeps_unrecorded_models_of_different_clis_apart() -> None:
+    records = [
+        _record(model=None, cli="claude -p", failed=1, passed=2, failed_cases=["s/a"]),
+        _record(model=None, cli="opencode run"),
+    ]
+    rows = [line for line in render_table(records).splitlines() if line.startswith("| 2026")]
+    assert len(rows) == 2
+    assert any("(unrecorded, `claude -p`)" in r and "failed 1 of 1" in r for r in rows)
+    assert any("(unrecorded, `opencode run`)" in r and "| pass |" in r for r in rows)
+
+
+def test_render_table_counts_each_case_against_the_runs_that_graded_it() -> None:
+    # A full run where A fails, then a rerun of B alone: A ran once, not twice.
+    full = _record(graded_cases=["s/a", "s/b"], failed=1, passed=1, failed_cases=["s/a"])
+    rerun = _record(graded_cases=["s/b"], cases=1, passed=1, timestamp="2026-10-16T11:00:00Z")
+    row = next(line for line in render_table([full, rerun]).splitlines() if line.startswith("| 2026"))
+    assert "`s/a` failed 1 of 1" in row
+    # A record from before graded_cases existed still counts every case.
+    old = _record(failed=1, passed=2, failed_cases=["s/a"])
+    row = next(line for line in render_table([old, rerun]).splitlines() if line.startswith("| 2026"))
+    assert "`s/a` failed 1 of 1" in row
+
+
+def test_render_table_shows_a_manual_only_batch_as_manual() -> None:
+    manual_only = _record(graded_cases=[], cases=2, passed=0, manual=2)
+    row = next(line for line in render_table([manual_only]).splitlines() if line.startswith("| 2026"))
+    assert "| manual |" in row
+    assert "| pass |" not in row
 
 
 def test_render_table_escapes_pipes_in_notes() -> None:
@@ -434,6 +464,47 @@ def test_runner_honours_no_journal_and_explicit_journal(
     assert rec["skill"] == "out"
     assert not (skill_dir / JOURNAL_NAME).exists()
     capsys.readouterr()
+
+
+def test_append_record_refuses_a_symlinked_journal(tmp_path: Path) -> None:
+    root, skill_dir = _make_evals_tree(tmp_path, "demo-skill")
+    victim = tmp_path / "victim.txt"
+    victim.write_text("untouched\n")
+    (skill_dir / JOURNAL_NAME).symlink_to(victim)
+    with pytest.raises(OSError, match="symlink"):
+        append_record(skill_dir / JOURNAL_NAME, _record(), within=root / EVALS_REL)
+    assert victim.read_text() == "untouched\n"
+
+
+def test_append_record_refuses_a_journal_that_resolves_outside_the_evals_tree(tmp_path: Path) -> None:
+    root, _skill_dir = _make_evals_tree(tmp_path, "demo-skill")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    linked = root / EVALS_REL / "linked-skill"
+    linked.symlink_to(outside, target_is_directory=True)
+    with pytest.raises(OSError, match="outside"):
+        append_record(linked / JOURNAL_NAME, _record(), within=root / EVALS_REL)
+    assert not (outside / JOURNAL_NAME).exists()
+
+
+def test_runner_skips_the_journal_outside_any_git_checkout(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # A suite copied out of the repository (a git archive export, say) runs
+    # to completion instead of dying in the journal step.
+    from skill_evals.runner import find_repo_root
+
+    try:
+        find_repo_root(tmp_path)
+    except RuntimeError:
+        pass
+    else:
+        pytest.skip("the temp dir sits inside a git checkout")
+    skill_dir = tmp_path / "export" / "demo-skill"
+    _make_case(skill_dir, "case-1", {"verdict": "ok"})
+    assert runner_main(["--cli", _ECHO_CLI, "--exact", str(skill_dir)]) == 0
+    assert "Journaled run" not in capsys.readouterr().out
+    assert not list(tmp_path.rglob(JOURNAL_NAME))
 
 
 def test_runner_journal_flags_require_cli(tmp_path: Path) -> None:

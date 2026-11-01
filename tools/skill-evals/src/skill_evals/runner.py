@@ -1364,6 +1364,7 @@ def main(argv: list[str] | None = None) -> int:
     passed = failed = manual = errored = 0
     failed_cases: list[str] = []
     errored_cases: list[str] = []
+    graded_cases: list[str] = []
     cli_calls = 0
     global _grader_calls
     _grader_calls = 0
@@ -1427,6 +1428,7 @@ def main(argv: list[str] | None = None) -> int:
                 continue
 
         full_prompt = f"{case_system_prompt}\n\n{user_prompt}"
+        graded_cases.append(case_label)
         cli_calls += 1
         try:
             stdout, stderr, rc = run_cli(args.cli, full_prompt, timeout=args.timeout)
@@ -1588,6 +1590,7 @@ def main(argv: list[str] | None = None) -> int:
             errored=errored,
             failed_cases=failed_cases,
             errored_cases=errored_cases,
+            graded_cases=graded_cases,
             cli_calls=cli_calls,
             grader_calls=_grader_calls,
             wall_seconds=time.monotonic() - run_started,
@@ -1612,12 +1615,12 @@ def _resolve_journal(args: argparse.Namespace) -> tuple[Path, Path, str] | None:
         journal = args.journal
         try:
             root = find_repo_root(journal.parent if journal.parent.exists() else Path.cwd())
-        except FileNotFoundError:
+        except (FileNotFoundError, RuntimeError):
             root = Path.cwd()
         return journal, root, journal.parent.name
     try:
         root = find_repo_root(args.path)
-    except FileNotFoundError:
+    except (FileNotFoundError, RuntimeError):
         return None
     evals_root = root / run_journal.EVALS_REL
     if not evals_root.is_dir():
@@ -1638,6 +1641,7 @@ def _write_run_record(
     errored: int,
     failed_cases: list[str],
     errored_cases: list[str],
+    graded_cases: list[str],
     cli_calls: int,
     grader_calls: int,
     wall_seconds: float,
@@ -1674,6 +1678,7 @@ def _write_run_record(
         "errored": errored,
         "failed_cases": sorted(failed_cases),
         "errored_cases": sorted(errored_cases),
+        "graded_cases": sorted(graded_cases),
         "cost": {
             "wall_seconds": round(wall_seconds, 1),
             "cli_calls": cli_calls,
@@ -1682,7 +1687,10 @@ def _write_run_record(
         "notes": args.journal_note,
     }
     try:
-        run_journal.append_record(journal, record)
+        # An explicit --journal is the caller's choice; the default journal
+        # must stay inside the repository's evals tree.
+        within = None if args.journal is not None else root / run_journal.EVALS_REL
+        run_journal.append_record(journal, record, within=within)
     except OSError as exc:
         print(f"warning: could not write run journal {journal}: {exc}", file=sys.stderr)
         return
