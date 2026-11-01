@@ -297,6 +297,12 @@ When the result's `fixup.eligible` is true, `default` is `FIXUP` and the prompt 
 > *Suggested: `[F]ixup` (default) — apply these <n> small changes on the contributor's branch, then approve: <changes>. Or `[C]omment` with them as findings, `[A]pprove` as-is, `[R]equest changes`, `[E]dit findings first`, `[S]kip-for-now`, `[Q]uit`.*
 
 `[F]` follows [`classifications/disposition-fixup.md`](classifications/disposition-fixup.md); Steps 7a–7b then compose the `APPROVE` that explains the fixup.
+
+When the result's `auto_merge.eligible` is true — the repository allows auto-merge and the viewer can enable it — `default` gains auto-merge and the prompt names it as part of what the confirmation covers:
+
+> *Suggested: `[M]` `APPROVE+AUTO-MERGE` (default) — approve, then enable auto-merge (`<auto_merge.method>`); GitHub merges once the required checks pass. Or `[A]pprove` only, `[C]omment`, `[R]equest changes`, `[E]dit findings first`, `[S]kip-for-now`, `[Q]uit`.*
+
+With a fixup the default is `FIXUP+APPROVE+AUTO-MERGE`. When `ci_pending_held_by_auto_merge` is true, real CI is still running and the plain `[A]pprove` / `[F]ixup` are not offered — without auto-merge they would approve on unfinished CI — so the auto-merge path, `[C]omment` or `[S]kip-for-now` are the choices. When `ci_action` is set, the project's workflows have not run (waiting for approval, or bot checks only): offer it first, then re-run `disposition`. [`classifications/disposition-auto-merge.md`](classifications/disposition-auto-merge.md) has the posting order.
 `[E]dit` lets the maintainer drop or re-classify findings; re-run `disposition` after. A `conflict_note` is always stated in the body, whatever the disposition.
 
 ---

@@ -22,9 +22,9 @@ when_to_use: |
   produced reviewable PRs; skip when triage has not engaged the PR.
 argument-hint: "[pr:N] [area:LBL] [collab:true|false] [team:NAME] [ready] [dry-run]"
 capability: capability:review
-surface_hash: sha256:0e09164d15647a70
+surface_hash: sha256:97ef701d93960492
 license: Apache-2.0
-measured_tokens: 4015
+measured_tokens: 4110
 ---
 <!-- SPDX-License-Identifier: Apache-2.0
      https://www.apache.org/licenses/LICENSE-2.0 -->
@@ -228,7 +228,14 @@ ran: bot-only checks pull it green while the real workflows sit
 unapproved, so the pre-flight's
 [Real-CI guard](prerequisites.md#real-ci-guard) has to pass too.
 Where it does not, merge-readiness is unknown and `APPROVE` is
-equally off the table. The pre-flight pulls the check rollup; see
+equally off the table. The one exception is real CI that is still
+*running* on a repository that allows auto-merge: there the
+default is `APPROVE+AUTO-MERGE`, posted at once, because GitHub
+holds the merge until the required checks pass and a later
+failure never merges
+([`classifications/disposition-auto-merge.md`](classifications/disposition-auto-merge.md)).
+Workflows waiting for approval are not "running": approve or
+re-run them first. The pre-flight pulls the check rollup; see
 [`prerequisites.md#ci-precheck`](prerequisites.md).
 
 Golden rule 9 (out-of-scope triage actions) and its slop-detection exception: [`scope.md`](scope.md).

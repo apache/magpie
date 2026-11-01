@@ -357,6 +357,11 @@ def _disposition(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any]
         permission=permission,
         head_pushable=args.head_pushable,
         resolve_first=resolve_first,
+        auto_merge_allowed=pr.auto_merge_allowed,
+        viewer_can_enable_auto_merge=pr.viewer_can_enable_auto_merge,
+        auto_merge_enabled=pr.auto_merge_enabled,
+        self_authored=args.viewer.lower() == pr.author.lower(),
+        merge_method=pr.default_merge_method,
     )
     result["docs"] = [
         f"classifications/disposition-{result['disposition'].lower().replace('_', '-')}.md",
@@ -364,6 +369,8 @@ def _disposition(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any]
     ]
     if result["fixup"]["eligible"]:
         result["docs"].append("classifications/disposition-fixup.md")
+    if result["auto_merge"]["eligible"]:
+        result["docs"].append("classifications/disposition-auto-merge.md")
     return result
 
 
@@ -494,6 +501,20 @@ def _render(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any]:
             ["gh", "pr", "review", str(args.pr), "--repo", repo, flag, "--body-file", str(body_file)]
         )
     verify = shlex.join(["gh", "api", f"repos/{repo}/pulls/{args.pr}/reviews"])
+    auto_merge_command = None
+    if args.auto_merge:
+        if args.disposition != "APPROVE":
+            raise SystemExit("pr-management: --auto-merge only follows an APPROVE")
+        if not (pr.auto_merge_allowed and pr.viewer_can_enable_auto_merge):
+            raise SystemExit("pr-management: auto-merge is not available on this PR")
+        if pr.viewer and pr.viewer.lower() == pr.author.lower():
+            raise SystemExit("pr-management: a self-authored PR is never auto-merged by its own review")
+        method = (pr.default_merge_method or "SQUASH").lower()
+        if method not in ("merge", "squash", "rebase"):
+            method = "squash"
+        auto_merge_command = shlex.join(
+            ["gh", "pr", "merge", str(args.pr), "--repo", repo, "--auto", f"--{method}"]
+        )
     return {
         "pr": args.pr,
         "disposition": args.disposition,
@@ -505,6 +526,7 @@ def _render(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any]:
         "unanchorable": inline["unanchorable"],
         "live_mentions": hits,
         "post_command": command,
+        "auto_merge_command": auto_merge_command,
         "verify_command": verify,
         "verify_note": "Empty output from the post is success. Never re-run it: count the viewer's reviews instead.",
         "preview": text.splitlines()[:40],
@@ -655,6 +677,11 @@ def add_parsers(sub: Any) -> None:
     ren.add_argument("--reviewers", default=None, help="the reviewers command's output")
     ren.add_argument("--security-note", default=None)
     ren.add_argument("--permission", default=None)
+    ren.add_argument(
+        "--auto-merge",
+        action="store_true",
+        help="also emit the command that enables auto-merge after the APPROVE posts",
+    )
 
     pic = commands.add_parser("pick", help="read the inline picker's answer")
     pic.add_argument("--spec", required=True)

@@ -410,3 +410,78 @@ def test_outdated_thread_longer_than_the_read_stays_a_gate(
     with pytest.raises(SystemExit, match="'T1' is not an unresolved outdated thread"):
         _disposition(capsys, project, saved, "--addressed-thread", "T1")
     assert _disposition(capsys, project, saved)["approval_gates"] == ["1 unresolved review thread(s)"]
+
+
+def _with_auto_merge(saved: Path, *, author: str = "nina", method: str = "SQUASH") -> None:
+    full = node(7, author=author, files=["scheduler/job.py"])
+    full |= {"viewerCanEnableAutoMerge": True, "viewerDefaultMergeMethod": method, "autoMergeRequest": None}
+    repository = {"viewerPermission": "WRITE", "autoMergeAllowed": True, "pullRequest": full}
+    (saved / "cr-pr-7.json").write_text(
+        json.dumps({"data": {"viewer": {"login": "alice"}, "repository": repository}})
+    )
+
+
+def _render_approve(
+    capsys: pytest.CaptureFixture[str], project: Path, saved: Path, tmp_path: Path, *extra: str
+) -> dict[str, Any]:
+    findings = tmp_path / "findings.json"
+    findings.write_text("[]")
+    summary = tmp_path / "summary.txt"
+    summary.write_text("Looks good.")
+    return _run(
+        capsys,
+        "--config-dir",
+        str(project),
+        "code-review",
+        "render",
+        "--saved-dir",
+        str(saved),
+        "--pr",
+        "7",
+        "--findings",
+        str(findings),
+        "--summary",
+        str(summary),
+        "--disposition",
+        "APPROVE",
+        "--out-dir",
+        str(tmp_path / "out"),
+        *extra,
+    )
+
+
+def test_auto_merge_becomes_the_default_and_render_emits_its_command(
+    capsys: pytest.CaptureFixture[str], project: Path, saved: Path, tmp_path: Path
+) -> None:
+    _with_auto_merge(saved, method="REBASE")
+    dis = _disposition(capsys, project, saved)
+    assert dis["default"] == "APPROVE+AUTO-MERGE"
+    assert "classifications/disposition-auto-merge.md" in dis["docs"]
+    out = _render_approve(capsys, project, saved, tmp_path, "--auto-merge")
+    assert shlex.split(out["auto_merge_command"]) == [
+        "gh",
+        "pr",
+        "merge",
+        "7",
+        "--repo",
+        "acme/product",
+        "--auto",
+        "--rebase",
+    ]
+    assert _render_approve(capsys, project, saved, tmp_path)["auto_merge_command"] is None
+
+
+def test_render_refuses_auto_merge_on_a_self_authored_pr(
+    capsys: pytest.CaptureFixture[str], project: Path, saved: Path, tmp_path: Path
+) -> None:
+    _with_auto_merge(saved, author="alice")
+    assert not _disposition(capsys, project, saved)["auto_merge"]["eligible"]
+    with pytest.raises(SystemExit, match="self-authored"):
+        _render_approve(capsys, project, saved, tmp_path, "--auto-merge")
+
+
+def test_render_refuses_auto_merge_where_the_repo_does_not_allow_it(
+    capsys: pytest.CaptureFixture[str], project: Path, saved: Path, tmp_path: Path
+) -> None:
+    with pytest.raises(SystemExit, match="not available"):
+        _render_approve(capsys, project, saved, tmp_path, "--auto-merge")
