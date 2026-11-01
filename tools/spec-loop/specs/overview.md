@@ -67,6 +67,7 @@ Each mode is an independently toggleable set of skills. Maturity mirrors
 | PR-management family | [pr-management-family.md](pr-management-family.md) |
 | Repo-health audits | [repo-health-family.md](repo-health-family.md) |
 | Contributor-growth family | [contributor-growth.md](contributor-growth.md) |
+| Emeritus transitions and contributor offboarding (proposed) | [contributor-offboarding.md](contributor-offboarding.md) |
 | Good-first-issue backlog sweep | [good-first-issue-sweep.md](good-first-issue-sweep.md) |
 | Codex first-class skill runtime | [codex-runtime.md](codex-runtime.md) |
 | GitHub Copilot skill runtime | [copilot-runtime.md](copilot-runtime.md) |

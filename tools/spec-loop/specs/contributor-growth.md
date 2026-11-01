@@ -412,20 +412,14 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
 
 ## Known gaps
 
-- **PMC-member nomination is not yet specced.** The committer-to-PMC
-  promotion has different vote mechanics (full-PMC vote, different
-  quorum) and post-vote steps from committer promotion. Defining it as
-  a capability-flag variant of `committer-onboarding` or as a
-  standalone skill requires a spec-RFC pass that enumerates the option
-  set and documents defaults. Candidate work item for a future plan
-  pass.
 - **Emeritus / inactive-committer handling and contributor offboarding
-  are intentionally deferred.** Both involve project-level policy
-  (when to move to emeritus, how to handle access removal, whether to
-  send a farewell announcement) that needs per-project configuration
-  before a skill can safely propose anything. These are candidate work
-  items once the active-path skills stabilise and an adopter pilot
-  surfaces the concrete policy knobs needed.
+  are specced, not built.** [contributor-offboarding.md](contributor-offboarding.md)
+  (`proposed`) names the per-project policy knobs and splits the work into
+  a read-only inactivity report and a propose-then-confirm emeritus move
+  that never chains from the report. PMC-member nomination, once listed
+  here too, is covered: `contributor-nomination` takes `target:pmc`, and
+  `committer-onboarding` carries `committer-to-pmc` and `direct-to-pmc`
+  scenarios with their own vote bars and roster steps.
 - **Mode boundary with Agentic Mentoring is intentionally fuzzy.** Five
   family skills (`mentoring-welcome`, `good-first-issue-author`,
   `contributor-to-committer`, `good-first-issue-sweep`,
