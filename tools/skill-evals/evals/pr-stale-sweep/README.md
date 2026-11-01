@@ -5,11 +5,12 @@
 
 Behavioral evals for the `pr-stale-sweep` skill.
 
-## Suites (3 cases total)
+## Suites (7 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
 | step-5-confirm | Step 5 (confirm with user) | 3 | post-all, skip-one, cancel |
+| item-failure-budget | Item failure budget | 4 | one unreadable item (recorded, sweep continues); budget exhausted (stop, unfinished listed, exact rerun selector); a write failing mid-loop (stop, never retried); a malformed budget value (stops before the sweep, no fallback) |
 
 ## Where the other suites went
 

@@ -3,13 +3,13 @@
 
 ---
 title: Per-item failure budget and harness-outage exclusion for batch skills
-status: proposed
+status: experimental
 kind: feature
 mode: infra
 source: >
   Observed in the batch (sweep) skills: issue-triage, security-issue-triage,
-  issue-stale-sweep, pr-stale-sweep, pr-management-triage,
-  good-first-issue-sweep, issue-reassess and contributor-activity-sweep.
+  issue-stale-sweep, pr-stale-sweep, good-first-issue-sweep and
+  issue-reassess.
   Each documents "stop and surface" as the response to any per-item error,
   so one bad item sinks a whole sweep and a forge outage reads as a failure
   of every item. To be implemented as a shared contract in
@@ -73,33 +73,33 @@ step is meaningless without the first:
 
 ## Where it lives
 
-Nothing in this section exists yet; this is the proposed shape.
+Step 1, the per-item budget, has shipped; step 2, the harness-outage
+exclusion, has not.
 
-- `docs/batch-failure-budget.md`: the shared contract. Defines the two
-  failure classes, the default budget, the breaker, the recap wording and
-  the rerun selector. One source of truth so eight skills do not drift.
-- `tools/dev/blocks/batch-failure-budget.md`: the shared prose block that
-  `check-shared-blocks.py` propagates into every batch skill's `SKILL.md`
-  (the same mechanism as the pre-flight block), so each skill carries the
-  rule in its own body without eight hand-kept copies.
-- `skills/<batch-skill>/SKILL.md` *Failure modes* tables: the per-item
-  rows change from "stop, surface" to "record `failed`, continue; stop
-  when the budget is spent"; the write-phase rows stay as they are. The
-  batch skills are `issue-triage`, `security-issue-triage`,
-  `issue-stale-sweep`, `pr-stale-sweep`, `pr-management-triage`,
-  `good-first-issue-sweep`, `issue-reassess` and
-  `contributor-activity-sweep`.
-- `<project-config>/issue-tracker-config.md` and
-  `pr-management-config.md`: optional `item_failure_budget` and
-  `harness_failure_breaker` keys with the framework defaults in
-  `projects/_template/`.
-- `tools/pr-management/`: the one batch skill whose sweep is
-  deterministic Python. The budget and the classifier land in code there
-  with pytest coverage; the prose block then points at it.
-- `tools/skill-evals/evals/<batch-skill>/`: one case per skill for "one
-  item fails, sweep continues", one for "budget exhausted", and, for the
-  exclusion, one for "rate limit mid-sweep is reported as an outage, not
-  as item failures".
+- `docs/batch-failure-budget.md`: the shared contract: the two phases, what
+  counts as an item failure, the budget values, the recap.
+- `tools/dev/blocks/item-failure-budget.md`: the shared prose block
+  (`## Item failure budget`) that `check-shared-blocks.py` propagates into
+  the batch skills: `issue-triage`, `security-issue-triage`,
+  `issue-stale-sweep`, `pr-stale-sweep`, `issue-reassess` (each before its
+  *Failure modes* section) and `good-first-issue-sweep` (before its write
+  step). Two skills this spec once listed are not batch sweeps in this
+  sense: `contributor-activity-sweep` builds one contributor's card, with
+  no pool to budget, and `pr-management-triage` reads its whole pool in
+  one paginated query, so there is no per-item read to budget.
+- `item_failure_budget` in the config the skill already reads:
+  `issue-tracker-config.md`, `project.md` (security), and
+  `pr-management-config.md`, each with the default in
+  `plugins/magpie-setup/templates/`.
+- `tools/pr-management/src/pr_management/failure_budget.py`: the parser and
+  accounting; `stale_sweep/classify.py` records an unreadable node
+  (`load_with_failures`) or an unclassifiable PR as `failed`, stops before
+  the next PR once the budget is exceeded, and reports `failed`, `budget`,
+  `unfinished`, `stopped` and `rerun_selector`. `pr-management-config.md`'s
+  key is read into `Config.item_failure_budget`.
+- `tools/skill-evals/evals/<skill>/item-failure-budget/`: four cases per
+  skill: one unreadable item, budget exhausted, a write failing mid-loop,
+  a malformed budget value.
 
 ## Behaviour & contract
 
@@ -200,9 +200,19 @@ uv run --project tools/spec-validator --group dev spec-validate
 
 ## Known gaps
 
-- Everything: this spec is `proposed`. The plan carries it as two work
-  items, `batch-failure-budget` then `harness-outage-exclusion`, the
-  second blocked on the first.
+- **Step 2, the harness-outage exclusion, is not built.** The plan carries
+  it as `harness-outage-exclusion`.
+  <!-- gap-closes-when: none (narrative) -->
+- **`pr-management-triage`'s batch writes do not stop on a failed write.**
+  Its interaction loop documents that a failure in a batched action does not
+  cascade-abort: the per-PR error is logged and the batch continues. That is
+  the opposite of this contract's write rule. Whether triage's per-group
+  batches should follow it is a maintainer decision, left unchanged here.
+  <!-- gap-closes-when: none (narrative) -->
+- **Only `pr-stale-sweep` has the budget in code.** The other five apply
+  it from the prose block; their reads are agent-driven, so there is no
+  deterministic loop to put it in.
+  <!-- gap-closes-when: none (narrative) -->
 - The rate-limit and auth error shapes differ per forge (GitHub, GitLab,
   Forgejo, Jira, Bitbucket). The classifier belongs behind the tracker
   capability contract in `tools/tracker/`, so each adapter maps its own

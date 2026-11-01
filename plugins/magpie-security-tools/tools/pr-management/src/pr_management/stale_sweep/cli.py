@@ -96,7 +96,10 @@ def dispatch(args: argparse.Namespace) -> dict[str, Any]:
             team=people.load_team(team if team.is_file() else None),
             permissions=people.load_permissions(sorted(saved.glob("permission-*"))),
         )
-        result = stale_classify.sweep(stale_classify.load(paths), plan, cfg, maintainers, _now(args.now))
+        loaded, load_failures = stale_classify.load_with_failures(paths)
+        result = stale_classify.sweep(
+            loaded, plan, cfg, maintainers, _now(args.now), load_failures=load_failures
+        )
         (saved / CLASSIFIED).write_text(json.dumps(result, indent=2, default=str), encoding="utf-8")
         result["saved_as"] = str(saved / CLASSIFIED)
         return result

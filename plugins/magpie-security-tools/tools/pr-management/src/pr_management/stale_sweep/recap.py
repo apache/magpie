@@ -101,13 +101,30 @@ def recap(session: dict[str, Any], classified: dict[str, Any], upstream: str) ->
     counts["maintainer_court_count"] = len(court)
     for skipped in classified.get("skipped", []):
         lines.append(f"- {link(skipped['number'])} — {skipped['class']} — not touched ({skipped['reason']})")
+    failed = classified.get("failed") or []
+    unfinished = classified.get("unfinished") or []
+    counts["failed_count"] = len(failed)
+    counts["unfinished_count"] = len(unfinished)
+    for failure in failed:
+        lines.append(f"- {link(failure['number'])} — FAILED — {failure['reason']}")
+    for number in unfinished:
+        lines.append(f"- {link(number)} — not reached (the sweep stopped on its failure budget)")
     summary = (
         f"{counts['request_update_count']} REQUEST-UPDATE comments posted, "
         f"{counts['close_stale_count']} CLOSE-STALE comments posted, {counts['closed_count']} PRs closed, "
         f"{counts['skipped_count']} skipped, {counts['security_flagged_count']} security-flagged (not touched), "
         f"{counts['maintainer_court_count']} maintainer-court (not touched)."
     )
+    if failed or unfinished:
+        # A sweep that hit any failure says so in its first recap line.
+        summary = f"{len(failed)} PR(s) failed and {len(unfinished)} not reached. " + summary
     notes: list[str] = []
+    if classified.get("rerun_selector"):
+        notes.append(
+            "Rerun exactly the failed and unreached PRs with `stale "
+            + str(classified["rerun_selector"])
+            + "`."
+        )
     if security:
         notes.append(
             "Security-flagged PRs were skipped and still need a manual review — they may need confidential "
