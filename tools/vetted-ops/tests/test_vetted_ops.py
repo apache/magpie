@@ -1663,3 +1663,20 @@ def test_a_symlinked_personal_layer_is_not_read(tmp_path: Path, workspace: Path)
     (repo / ".git" / "apache-magpie").symlink_to(writable)
     with pytest.raises(config.ConfigError):
         config.load(cwd=repo)
+
+
+@pytest.mark.parametrize("link", [".apache-magpie-overrides", ".apache-magpie-overrides/tools/vetted-ops"])
+def test_a_symlink_on_the_committed_policy_path_is_refused(
+    tmp_path: Path, workspace: Path, link: str
+) -> None:
+    # The deny globs cover `.apache-magpie-overrides/tools/vetted-ops/**` in any
+    # directory, not a symlink on the way there that points somewhere writable.
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    writable = tmp_path / "writable"
+    _policy_at(writable / config.DEFAULT_RELATIVE_PATH.relative_to(link), workspace)
+    target = repo / link
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.symlink_to(writable)
+    with pytest.raises(config.ConfigError, match="symlink"):
+        config.load(cwd=repo)

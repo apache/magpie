@@ -130,6 +130,10 @@ reading this file; read the section for a check whose condition holds.
    - `~/.claude/magpie/**` — the fixed path the rules name, which
      the plugin's `SessionStart` hook points at the catalogue.
    - `.apache-magpie-overrides/tools/vetted-ops/**` — the policy.
+   - `//**/.apache-magpie-overrides/tools/vetted-ops/**` — the same
+     path under any directory. The write dispatchers discover their
+     policy from the directory they run in, so a policy planted
+     anywhere else must not be writable either.
    - `//**/.git/**/apache-magpie/tools/vetted-ops/**`, `//**/.svn/apache-magpie/tools/vetted-ops/**`
      and `//**/.apache-magpie-local/tools/vetted-ops/**` — the policy in a
      maintainer's personal layer.

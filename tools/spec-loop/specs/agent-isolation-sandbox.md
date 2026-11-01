@@ -609,11 +609,13 @@ The reference model is four layers, layered:
    file the dispatcher consults to decide which caller may run which
    operation — on both surfaces it can resolve to: the
    `magpie-vetted-ops` plugin-cache install and the committed
-   `.apache-magpie-overrides/tools/vetted-ops/**` override. An agent
+   `.apache-magpie-overrides/tools/vetted-ops/**` override, plus
+   `//**/.apache-magpie-overrides/tools/vetted-ops/**` because the write
+   dispatchers discover their policy from the directory they run in
+   (a symlink on that path is refused). An agent
    able to rewrite the policy grants itself the whole write catalogue
-   regardless of which dispatcher binary handles the call, so this
-   deny applies even though the write dispatcher (`vetted-op`) is
-   never excluded from the sandbox. The override is the in-repo case
+   regardless of which dispatcher binary handles the call, and both
+   write dispatchers run outside the sandbox. The override is the in-repo case
    described above, `sandbox_write_denied` entry included (#1308,
    #1309). The framework's own dispatcher source at
    `tools/vetted-ops/` is deliberately left un-denied — it is PR-gated

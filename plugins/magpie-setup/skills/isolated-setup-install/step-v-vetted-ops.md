@@ -47,6 +47,7 @@ writes structurally.
     "Edit(~/.claude/magpie/**)",
     // the policy naming which caller may run which operation
     "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
+    "Edit(//**/.apache-magpie-overrides/tools/vetted-ops/**)",
     "Edit(//**/.git/**/apache-magpie/tools/vetted-ops/**)",
     "Edit(//**/.svn/apache-magpie/tools/vetted-ops/**)",
     "Edit(//**/.apache-magpie-local/tools/vetted-ops/**)"

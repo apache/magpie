@@ -744,6 +744,7 @@ The full block below is the two merged, annotated.
       "Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
       "Edit(~/.claude/magpie/**)",
       "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
+      "Edit(//**/.apache-magpie-overrides/tools/vetted-ops/**)",  // any directory discovery could start from, not only this project
       "Edit(//**/.git/**/apache-magpie/tools/vetted-ops/**)",
       "Edit(//**/.svn/apache-magpie/tools/vetted-ops/**)",
       "Edit(//**/.apache-magpie-local/tools/vetted-ops/**)",
@@ -916,7 +917,11 @@ adopter repo, which is sandbox-writable by design. Under Claude Code its
 `Edit(.apache-magpie-overrides/tools/vetted-ops/**)` deny — and the
 personal-layer ones for a maintainer whose project has not adopted
 Magpie — is also merged into the sandbox's write-deny list, so a Bash-level write (`sed -i`, a
-heredoc redirect) is refused as well. Harnesses without that merge have
+heredoc redirect) is refused as well. The absolute
+`Edit(//**/.apache-magpie-overrides/tools/vetted-ops/**)` extends that to every
+directory: the write dispatchers discover their policy from the directory they
+run in, and a planted policy anywhere else must not be writable either (a
+symlink on the path is refused outright). Harnesses without that merge have
 only the tool-level deny, and must deny writes to that path in their
 sandbox configuration explicitly.
 
@@ -987,10 +992,12 @@ Codex is the exception that proves the rule: its execpolicy cannot match `~`, so
    With it on, every call prompts (*"uvx names '~/.claude/magpie/vetted-ops', which cannot be checked against the read block"*): the read check cannot resolve the literal `~` that the commands spell, and the skills and agents spell it that way because the `~` exclusions are written that way.
    No `allow` rule overrides that check, and listing `$HOME/.claude/magpie` in `permissions.additionalDirectories` must not be tried: it makes the checkout sandbox-writable (see [Working directories](#working-directories-under-the-read-outside-working-directories-block)).
    Turning the setting off does not unsandbox anything: sandboxed Bash still reads only what `sandbox.filesystem` allows, and the agent's `Read` tool keeps its `permissions.deny` rules on credential paths.
-4. `permissions.deny` carries all three tamper-protection rules:
+4. `permissions.deny` carries all the tamper-protection rules:
    - `Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)` — the operation catalogue;
    - `Edit(~/.claude/magpie/**)` — the fixed path the rules name;
    - `Edit(.apache-magpie-overrides/tools/vetted-ops/**)` — the policy;
+   - `Edit(//**/.apache-magpie-overrides/tools/vetted-ops/**)` — the same path under any directory.
+     The write dispatchers discover their policy from the directory they run in, so without it an agent could plant a policy elsewhere and `cd` there;
    - `Edit(//**/.git/**/apache-magpie/tools/vetted-ops/**)`, `Edit(//**/.svn/apache-magpie/tools/vetted-ops/**)` and `Edit(//**/.apache-magpie-local/tools/vetted-ops/**)` — the same policy kept in a maintainer's personal layer, for a project that has not adopted Magpie.
 
    They are what makes an unprompted read safe to allow: the `allow` rests on the catalogue's shape, so the agent that calls the dispatcher must not be able to edit it.
@@ -1017,6 +1024,7 @@ Codex is the exception that proves the rule: its execpolicy cannot match `~`, so
     "Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
     "Edit(~/.claude/magpie/**)",
     "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
+    "Edit(//**/.apache-magpie-overrides/tools/vetted-ops/**)",
     "Edit(//**/.git/**/apache-magpie/tools/vetted-ops/**)",
     "Edit(//**/.svn/apache-magpie/tools/vetted-ops/**)",
     "Edit(//**/.apache-magpie-local/tools/vetted-ops/**)"
@@ -3840,7 +3848,9 @@ never delete it:
      `~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**`
      (the catalogue), `~/.claude/magpie/**` (the fixed path the
      rules name) and
-     `.apache-magpie-overrides/tools/vetted-ops/**` (the policy), and
+     `.apache-magpie-overrides/tools/vetted-ops/**` (the policy) and
+     `//**/.apache-magpie-overrides/tools/vetted-ops/**` (the same
+     path under any directory discovery could start from), and
      the personal-layer copies `//**/.git/**/apache-magpie/tools/vetted-ops/**`,
      `//**/.svn/apache-magpie/tools/vetted-ops/**` and
      `//**/.apache-magpie-local/tools/vetted-ops/**`.

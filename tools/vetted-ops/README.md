@@ -616,6 +616,7 @@ anything still invoked directly:
     "Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
     "Edit(~/.claude/magpie/**)",
     "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
+    "Edit(//**/.apache-magpie-overrides/tools/vetted-ops/**)",
     "Edit(//**/.git/**/apache-magpie/tools/vetted-ops/**)",
     "Edit(//**/.svn/apache-magpie/tools/vetted-ops/**)",
     "Edit(//**/.apache-magpie-local/tools/vetted-ops/**)"
