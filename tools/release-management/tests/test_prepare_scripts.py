@@ -101,6 +101,72 @@ class CategoryXTest(unittest.TestCase):
         self.assertFalse(out["category_x_hit"])
         self.assertEqual(out["files_scanned"], ["pyproject.toml"])
 
+    def test_versioned_coordinates_match(self) -> None:
+        identifier = "org.example:blocked-lib"
+        manifests = {
+            "build.gradle": "dependencies {\n    implementation 'org.example:blocked-lib:1.2.3'\n}\n",
+            "build.gradle.kts": 'dependencies {\n    implementation("org.example:blocked-lib:1.2.3")\n}\n',
+            "gradle.lockfile": "# dependency locks\norg.example:blocked-lib:1.2.3=compileClasspath\n",
+            "dependency-tree.txt": "[INFO] dependency tree\n[INFO] +- org.example:blocked-lib:jar:1.2.3:compile\n",
+        }
+        for shown, text in manifests.items():
+            with self.subTest(manifest=shown):
+                out = category_x.scan([identifier], [(shown, self.file(text))])
+                self.assertEqual(
+                    out,
+                    {
+                        "category_x_hit": True,
+                        "category_x_violations": [{"identifier": identifier, "found_in": shown}],
+                        "handoff_reason": category_x.HANDOFF,
+                        "first_match_lines": [{"identifier": identifier, "found_in": shown, "line": 2}],
+                    },
+                )
+
+    def test_versioned_coordinate_normalisation(self) -> None:
+        identifier = "ORG.EXAMPLE:BLOCKED-LIB"
+        local = self.file('implementation("org_example:blocked.lib:1.2.3")\n')
+        out = category_x.scan([identifier], [("build.gradle.kts", local)])
+        self.assertTrue(out["category_x_hit"])
+        self.assertEqual(
+            out["first_match_lines"], [{"identifier": identifier, "found_in": "build.gradle.kts", "line": 1}]
+        )
+
+    def test_coordinate_manifest_controls(self) -> None:
+        manifests = {
+            "pom.xml": "<groupId>org.example</groupId><artifactId>blocked-lib</artifactId>\n",
+            "libs.versions.toml": 'blocked = { module = "org.example:blocked-lib", version = "1.2.3" }\n',
+            "build.gradle": "implementation group: 'org.example', name: 'blocked-lib', version: '1.2.3'\n",
+            "setup.cfg": "install_requires = blocked-lib>=1.2.3\n",
+        }
+        for shown, text in manifests.items():
+            with self.subTest(manifest=shown):
+                out = category_x.scan(["org.example:blocked-lib"], [(shown, self.file(text))])
+                self.assertTrue(out["category_x_hit"])
+
+    def test_versioned_coordinates_respect_token_boundaries(self) -> None:
+        coordinates = (
+            "other.example:blocked-lib:1.2.3",
+            "prefixorg.example:blocked-lib:1.2.3",
+            "org.example:prefixblocked-lib:1.2.3",
+            "org.example:blocked-lib-extras:1.2.3",
+            "org.example:blocked-lib.extra:1.2.3",
+            "org.example:blocked-lib0:1.2.3",
+            "path/org.example:blocked-lib:1.2.3",
+            "another:org.example:blocked-lib:1.2.3",
+        )
+        for coordinate in coordinates:
+            with self.subTest(coordinate=coordinate):
+                local = self.file(f'implementation("{coordinate}")\n')
+                self.assertFalse(
+                    category_x.scan(["org.example:blocked-lib"], [("build.gradle.kts", local)])[
+                        "category_x_hit"
+                    ]
+                )
+
+    def test_bare_artifact_does_not_match_inside_a_coordinate(self) -> None:
+        local = self.file('implementation("org.example:blocked-lib:1.2.3")\n')
+        self.assertFalse(category_x.scan(["blocked-lib"], [("build.gradle.kts", local)])["category_x_hit"])
+
 
 class NextDevVersionTest(unittest.TestCase):
     CONFIGURED: ClassVar[list[str]] = [
