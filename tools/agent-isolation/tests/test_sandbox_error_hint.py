@@ -276,13 +276,23 @@ class TestUvShareWrite:
         assert self.ANCHOR in result.stderr
 
     def test_it_beats_the_tmp_branch(self) -> None:
+        # Both branches match this output; the uv one must win.
         stderr = (
-            "error: failed to rename /tmp/uv-123 to /home/me/.local/share/uv/python/cpython-3.13: "
+            "error: failed to create directory `/home/me/.local/share/uv/python/cpython-3.13`: "
             "Read-only file system (os error 30)\n"
+            "  Caused by: Read-only file system: '/tmp/uv-123'\n"
         )
         result = _run(_bash(stderr=stderr))
         assert self.ANCHOR in result.stderr
         assert "temp-files-fail" not in result.stderr
+
+    def test_another_path_failing_after_a_share_uv_interpreter_is_not_claimed(self) -> None:
+        stderr = (
+            "/home/me/.local/share/uv/python/cpython-3.13/bin/python3: "
+            "can't open file '/Users/me/x.py': [Errno 1] Operation not permitted\n"
+        )
+        result = _run(_bash(stderr=stderr))
+        assert self.ANCHOR not in result.stderr
 
     def test_a_readable_share_uv_path_is_silent(self) -> None:
         result = _run(_bash(stdout="Using CPython 3.13.1 interpreter at: /home/me/.local/share/uv/python/bin/python3\n"))

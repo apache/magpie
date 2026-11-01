@@ -124,7 +124,7 @@ elif match '127\.0\.0\.1.*[Pp]ermission denied|[Oo]peration not permitted.*bind|
   hint="Localhost port-bind or loopback HTTP may be sandbox-blocked. See ${doc_path}#test-cannot-bind-to-a-localhost-port"
 # Must precede the /tmp branch, which would claim a uv error that happens to
 # mention a temporary path. uv names the directory it could not write.
-elif match 'share/uv/[^[:space:]]*.{0,80}(Operation not permitted|Read-only file system)'; then
+elif match 'share/uv/[^[:space:]`'"'"'"]*[`'"'"'"]?: (Operation not permitted|Read-only file system)'; then
   hint="uv could not write its interpreters or tools under ~/.local/share/uv/, which the sandbox may read but never write. Run the install from a terminal. See ${doc_path}#uv-python-install-or-uv-tool-install-fails-inside-the-sandbox"
 elif match "/tmp/[^ ]*'?: Read-only file system|Read-only file system: '/tmp/|mktemp: failed to create"; then
   hint="Temp files under /tmp are sandbox-blocked; TMPDIR may be unset or outside the writable tree. See ${doc_path}#temp-files-fail-with-read-only-file-system-under-tmp"
