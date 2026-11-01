@@ -757,7 +757,41 @@ class TestGapPredicates:
         (tmp_path / "spec.md").write_text(_spec_with_gaps("- **Unannotated.**\n"))
         assert main([str(tmp_path)]) == 0
         out = capsys.readouterr().out
-        assert "SOFT:" in out and "OK (no violations)" in out
+        assert "SOFT:" in out and "OK (no HARD violations)" in out
+
+    def test_a_call_from_a_test_file_or_from_itself_does_not_close(self, tmp_path: Path) -> None:
+        root = _repo(tmp_path, {"repo-health": ["one", "two"]})
+        lib = root / "tools" / "lib"
+        (lib / "pending.py").write_text("def pending(n):\n    return pending(n - 1) if n else 0\n")
+        (lib / "tests").mkdir()
+        (lib / "tests" / "test_pending.py").write_text("from lib.pending import pending\n\npending(3)\n")
+        (lib / "test_more.py").write_text("pending(1)\n")
+        assert evaluate_gap_predicate("symbol-called:tools/lib::pending", root)[0] == "open"
+        (lib / "orchestrator.py").write_text("from lib.pending import pending\n\npending(2)\n")
+        assert evaluate_gap_predicate("symbol-called:tools/lib::pending", root)[0] == "closed"
+
+    @pytest.mark.parametrize(
+        ("predicate", "state"),
+        [
+            ("skill-count:typo=0", "invalid"),  # an unknown family is unresolvable, not "0 skills"
+            ("skill-count:typo=2", "invalid"),
+            ("skill-count:repo-health = 2", "closed"),  # whitespace around = is parsed as written
+        ],
+    )
+    def test_skill_count_family_must_exist(self, tmp_path: Path, predicate: str, state: str) -> None:
+        root = _repo(tmp_path, {"repo-health": ["one", "two"]})
+        assert evaluate_gap_predicate(predicate, root)[0] == state
+
+    def test_a_predicate_at_column_zero_under_the_bullet_is_read(self, tmp_path: Path) -> None:
+        root = _repo(tmp_path, {"repo-health": ["one", "two"]})
+        text = _spec_with_gaps(
+            """\
+            - **Shipped.** Its tool exists now.
+            <!-- gap-closes-when: path-exists:skills/one -->
+            """
+        )
+        found = validate_gap_predicates(Path("s.md"), text, root)
+        assert [v.hard for v in found] == [True]
 
 
 _FAMILIES = {"repo-health": ["ci-audit", "dep-audit", "fixer"], "issue": ["triage"]}
@@ -785,6 +819,7 @@ class TestCrossSpecCounts:
         claims = family_count_claims(text, families)
         assert [(f, n) for f, n, _s in claims] == [("repo-health", 6)]
         assert [n for _f, n, _s in family_count_claims("All 4 repo-health skills ship.", families)] == [4]
+        assert family_count_claims("Repo-health ships one skill per audit rule family.", families) == []
 
     def test_matching_live_count_is_clean(self, tmp_path: Path) -> None:
         root = _repo(tmp_path, _FAMILIES)

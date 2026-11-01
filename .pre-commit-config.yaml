@@ -734,5 +734,7 @@ repos:
         name: spec-validate (spec-loop specs frontmatter + sections)
         language: system
         entry: uv run --project tools/spec-validator spec-validate tools/spec-loop/specs/
-        files: ^(tools/spec-loop/specs/.*\.md|tools/spec-validator/(src|pyproject\.toml))
+        # Known-gap predicates and family counts read SKILL.md frontmatter and
+        # tool code, so a change there can close a gap or break a count claim.
+        files: ^(tools/spec-loop/specs/.*\.md|tools/spec-validator/(src|pyproject\.toml)|(skills|plugins/[^/]+/skills)/.*/SKILL\.md|tools/.*\.py)
         pass_filenames: false

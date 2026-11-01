@@ -173,7 +173,9 @@ def known_gap_bullets(text: str) -> list[tuple[int, str]]:
             continue
         if line.startswith("- "):
             bullets.append((number, [line]))
-        elif bullets and (line.startswith((" ", "\t")) or not line.strip()):
+        elif bullets:
+            # Indented continuation, a blank line, or a lazy continuation at
+            # column 0 (a predicate comment written straight under the bullet).
             bullets[-1][1].append(line)
     return [(number, "\n".join(body).strip()) for number, body in bullets]
 
@@ -195,19 +197,41 @@ def skill_families(repo_root: Path) -> dict[str, list[str]]:
     return families
 
 
+def _is_test_file(file: Path) -> bool:
+    return (
+        "tests" in file.parts
+        or file.name == "conftest.py"
+        or file.name.startswith("test_")
+        or file.name.endswith("_test.py")
+    )
+
+
 def _symbol_called(target: Path, name: str) -> tuple[bool, bool]:
-    """``(defined, called)`` for ``name`` across the Python files under ``target``."""
+    """``(defined, called)`` for ``name`` across the Python files under ``target``.
+
+    A call only counts from production code: test files are skipped, and a
+    call inside the definition of ``name`` itself (recursion) does not count,
+    since either would mark a defined-but-unwired function as wired.
+    """
     files = [target] if target.is_file() else sorted(target.rglob("*.py"))
     defined = called = False
     for file in files:
+        if _is_test_file(file):
+            continue
         try:
             tree = ast.parse(file.read_text(encoding="utf-8"))
         except (OSError, SyntaxError, ValueError):
             continue
+        own = [
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and node.name == name
+        ]
+        if own:
+            defined = True
+        own_ids = {id(sub) for node in own for sub in ast.walk(node)}
         for node in ast.walk(tree):
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and node.name == name:
-                defined = True
-            elif isinstance(node, ast.Call):
+            if isinstance(node, ast.Call) and id(node) not in own_ids:
                 func = node.func
                 if (isinstance(func, ast.Name) and func.id == name) or (
                     isinstance(func, ast.Attribute) and func.attr == name
@@ -246,9 +270,13 @@ def evaluate_gap_predicate(predicate: str, repo_root: Path) -> tuple[str, str]:
         return "open", f"{name} is {'defined but not called' if defined else 'not defined'} under {path}"
     if kind == "skill-count":
         family, sep2, count = arg.partition("=")
-        if not sep2 or not family or not count.strip().isdigit():
+        family, count = family.strip(), count.strip()
+        if not sep2 or not family or not count.isdigit():
             return "invalid", f"skill-count needs <family>=<n>, got {arg!r}"
-        live = len(skill_families(repo_root).get(family, []))
+        families = skill_families(repo_root)
+        if family not in families:
+            return "invalid", f"skill-count names family {family!r}, which no skill carries"
+        live = len(families[family])
         if live == int(count):
             return "closed", f"{live} skills carry family:{family}"
         return "open", f"{live} skills carry family:{family}, not {count}"
@@ -302,10 +330,13 @@ _NUMBER_WORDS = {
     word: value
     for value, word in enumerate(
         [
-            "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+            # "zero" and "one" are left out: "one skill per …" is not a
+            # membership claim.
+            "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
             "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen",
             "eighteen", "nineteen", "twenty",
-        ]
+        ],
+        start=2,
     )
 }  # fmt: skip
 _COUNT_RE = re.compile(r"\b(?P<n>\d+|" + "|".join(_NUMBER_WORDS) + r")[- ]skills?\b", re.IGNORECASE)
@@ -807,7 +838,7 @@ def main(argv: list[str] | None = None) -> int:
     if soft:
         print(f"spec-validator: {len(soft)} SOFT advisory(ies) — informational, not blocking\n")
     if not hard:
-        print("spec-validator: OK (no violations)")
+        print("spec-validator: OK (no HARD violations)" if soft else "spec-validator: OK (no violations)")
         return 0
 
     print(f"spec-validator: {len(hard)} violation(s) found\n")
