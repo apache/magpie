@@ -50,6 +50,7 @@ Start with [`overview.md`](overview.md), then:
   [`pr-management-family.md`](pr-management-family.md),
   [`repo-health-family.md`](repo-health-family.md),
   [`contributor-growth.md`](contributor-growth.md),
+  [`contributor-offboarding.md`](contributor-offboarding.md),
   [`good-first-issue-sweep.md`](good-first-issue-sweep.md),
   [`codex-runtime.md`](codex-runtime.md),
   [`copilot-runtime.md`](copilot-runtime.md),

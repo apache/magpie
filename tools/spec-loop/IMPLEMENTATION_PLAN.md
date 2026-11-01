@@ -188,8 +188,9 @@ line: the evidence, gathered during this plan pass, that the gap is still open.
 - Item 2 and 3 serve the same spec but are separate branches: validator code
   and prompt text have different validation and different reviewers.
 - Deferred by design, not build items: GitLab write operations (tracked in
-  #305, large, needs its own design), PMC-member nomination and emeritus
-  handling (human judgement until a spec turns them into a rule), and the
+  #305, large, needs its own design), emeritus handling (proposed in
+  `specs/contributor-offboarding.md`, not yet a build item; PMC-member
+  nomination is covered by `nomination` `target:pmc`), and the
   low-confidence ASF-coupling advisories.
 - Not planned because evidence was not gathered this pass: the "frontmatter
   combination validation" gap in `meta-and-quality-tooling.md`. Verify it
