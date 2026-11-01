@@ -44,6 +44,18 @@ For every `.md` file that carries a YAML frontmatter block:
    `## Validation`.
 7. **Validation section has a fenced code block** — at least one `` ```…``` ``
    block so build-loop backpressure commands are always explicit.
+8. **Known-gap close conditions** — a `## Known gaps` bullet may carry
+   `<!-- gap-closes-when: <predicate> -->`, where the predicate is
+   `path-exists:<path>`, `symbol-called:<path>::<name>` (a call from
+   non-test code, not counting recursion), `skill-count:<family>=<n>`, or
+   `none (narrative)`.
+   A predicate that now holds, or one that is malformed or unresolvable, is HARD;
+   a bullet with no predicate is a SOFT advisory.
+9. **Cross-spec family counts** — an "N-skill family" claim that disagrees
+   with another spec, or with the number of `SKILL.md` files carrying that
+   `family:`, is HARD.
+
+HARD violations fail the run; SOFT advisories are printed and never do.
 
 Files without frontmatter (e.g. `README.md`, `overview.md`) are silently
 skipped — they are index/overview docs, not functional specs.

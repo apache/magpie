@@ -137,8 +137,12 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
   [contributor-growth.md](contributor-growth.md), which tracks the
   remaining gaps: PMC-member nomination (distinct from committer),
   emeritus / inactive-committer handling, and contributor offboarding.
-- **Repo-health audits are now a six-skill family — feature-complete.**
-  `ci-runner-audit`, `workflow-security-audit` (zizmor-backed),
-  `dependency-audit`, `license-compliance-audit`, `flaky-test-triage`, and
-  `dependency-license-audit` have all shipped (read-only, `experimental`); see
-  [repo-health-family.md](repo-health-family.md). No candidates remain.
+- **Repo-health is an eight-skill family — feature-complete.** The six
+  read-only audits `ci-runner-audit`, `workflow-security-audit`
+  (zizmor-backed), `dependency-audit`, `license-compliance-audit`,
+  `flaky-test-triage`, and `dependency-license-audit` have all shipped
+  (`experimental`), alongside `audit-finding-fix`, which fixes findings
+  rather than producing them, and `workflow-optimization`, a read-only
+  review of CI runner use; see [repo-health-family.md](repo-health-family.md).
+  No candidates remain.
+  <!-- gap-closes-when: none (narrative) -->
