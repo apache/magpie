@@ -356,6 +356,29 @@ def test_flaky_reads_legacy_rows() -> None:
     ]
 
 
+def test_flaky_counts_only_the_runs_that_graded_a_case() -> None:
+    # Run 1 graded a and b and failed a; run 2 was filtered to b; run 3 was manual-only.
+    # a failed 1 of the 1 run that graded it: a real failure, not flakiness.
+    records = [
+        _run("2026-10-16T10:00:00Z", failed=["s/a"], graded_cases=["s/a", "s/b"]),
+        _run("2026-10-16T10:01:00Z", graded_cases=["s/b"]),
+        _run("2026-10-16T10:02:00Z", graded_cases=[], manual=2),
+    ]
+    assert journal.flaky_cases(records) == []
+    records.append(_run("2026-10-16T10:03:00Z", graded_cases=["s/a"]))
+    assert [(f["case"], f["failed"], f["runs"]) for f in journal.flaky_cases(records)] == [("s/a", 1, 2)]
+
+
+def test_flaky_names_the_cli_of_an_unrecorded_model(capsys: pytest.CaptureFixture[str]) -> None:
+    records = [
+        _run("2026-10-16T10:00:00Z", failed=["s/x"], model=None, cli="claude -p"),
+        _run("2026-10-16T10:01:00Z", model=None, cli="claude -p"),
+    ]
+    found = journal.flaky_cases(records)
+    assert found[0]["model"] is None and found[0]["cli"] == "claude -p"
+    assert "\\u0000" not in json.dumps(found)
+
+
 def test_flaky_orders_nearest_one_half_first() -> None:
     records = [
         _run(f"2026-10-16T10:0{i}:00Z", failed=(["s/rare"] if i == 0 else []) + (["s/coin"] if i < 2 else []))

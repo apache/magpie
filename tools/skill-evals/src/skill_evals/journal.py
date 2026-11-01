@@ -434,58 +434,66 @@ _RESULT_ITEM_RE = re.compile(r"`([^`]+)` (failed|errored) (\d+) of (\d+)")
 
 
 def case_outcomes(records: list[dict]) -> dict[tuple[str, str, str, str], dict]:
-    """Per batch, per case: how many runs it failed out of how many ran.
+    """Per batch, per case: how many runs it failed out of how many graded it.
 
     A batch is the same (date, ref, branch, model) grouping render_table uses:
     identical runs of one commit with one model, which is the only population
     in which "fails sometimes" means the model, not a code change. Returns
-    ``{batch_key: {"runs": n, "cases": {label: k}}}``, counting a FAIL and an
-    ERROR alike. Legacy records contribute through their Result text.
+    ``{batch_key: {"failed": {label: k}, "graded": {label: n}, "untracked": u}}``,
+    counting a FAIL and an ERROR alike. A case's denominator is the runs that
+    graded it, as in the Run history table: a ``graded_cases`` record counts
+    only for the cases it lists (so a ``--path`` / ``--tag`` filtered run or a
+    manual-only run does not count for the others), a record from before that
+    field counts for every case (``untracked``), and a legacy record
+    contributes the ``k of n`` its Result text states for each case.
     """
     batches: dict[tuple[str, str, str, str], dict] = {}
     for record in records:
         key = _row_key(record)
-        batch = batches.setdefault(key, {"runs": 0, "cases": Counter()})
+        batch = batches.setdefault(key, {"failed": Counter(), "graded": Counter(), "untracked": 0})
         if record.get("legacy"):
-            runs = int(record.get("runs", 1))
-            batch["runs"] += runs
-            for label, _kind, k, _n in _RESULT_ITEM_RE.findall(str(record.get("result") or "")):
-                batch["cases"][label] += int(k)
+            for label, _kind, k, n in _RESULT_ITEM_RE.findall(str(record.get("result") or "")):
+                batch["failed"][label] += int(k)
+                batch["graded"][label] += int(n)
             continue
-        batch["runs"] += 1
+        if "graded_cases" in record:
+            batch["graded"].update(str(label) for label in record.get("graded_cases") or [])
+        else:
+            batch["untracked"] += 1
         for label in {*(record.get("failed_cases") or []), *(record.get("errored_cases") or [])}:
-            batch["cases"][str(label)] += 1
+            batch["failed"][str(label)] += 1
     return batches
 
 
 def flaky_cases(records: list[dict], *, min_runs: int = 2) -> list[dict]:
-    """Every case that failed in some but not all runs of one batch.
+    """Every case that failed in some but not all of the runs that graded it.
 
-    A case failing every run is a real failure, not flakiness, and is left out.
-    A batch with fewer than ``min_runs`` runs cannot show flakiness and is
-    skipped. Sorted most-flaky first (failure rate nearest one half), then by
-    case label, so the cases worth a ``borderline`` tag or a retry budget head
-    the list.
+    A case failing every run that graded it is a real failure, not flakiness,
+    and is left out. A case graded by fewer than ``min_runs`` runs of its
+    batch cannot show flakiness and is skipped. Sorted most-flaky first
+    (failure rate nearest one half), then by case label, so the cases worth a
+    ``borderline`` tag or a retry budget head the list.
     """
     found: list[dict] = []
     for (date, ref, branch, model), batch in case_outcomes(records).items():
-        n = batch["runs"]
-        if n < min_runs:
-            continue
-        for label, k in batch["cases"].items():
-            if 0 < k < n:
-                found.append(
-                    {
-                        "case": label,
-                        "failed": k,
-                        "runs": n,
-                        "rate": round(k / n, 3),
-                        "date": date,
-                        "ref": ref,
-                        "branch": branch,
-                        "model": model or None,
-                    }
-                )
+        for label, k in batch["failed"].items():
+            n = batch["graded"][label] + batch["untracked"]
+            if n < min_runs or not 0 < k < n:
+                continue
+            cli = model[len(UNRECORDED_CLI_PREFIX) :] if model.startswith(UNRECORDED_CLI_PREFIX) else None
+            found.append(
+                {
+                    "case": label,
+                    "failed": k,
+                    "runs": n,
+                    "rate": round(k / n, 3),
+                    "date": date,
+                    "ref": ref,
+                    "branch": branch,
+                    "model": None if cli is not None else (model or None),
+                    "cli": cli,
+                }
+            )
     found.sort(key=lambda f: (abs(f["rate"] - 0.5), f["case"], f["date"]))
     return found
 
@@ -694,7 +702,7 @@ def cmd_flaky(args: argparse.Namespace, evals_root: Path, root: Path) -> int:
     for skill, cases in sorted(report.items()):
         print(f"{skill}:")
         for f in cases:
-            model = f["model"] or "(unrecorded)"
+            model = _fmt_model(f["model"] or (f"{UNRECORDED_CLI_PREFIX}{f['cli']}" if f["cli"] else ""))
             print(f"  {f['case']}  failed {f['failed']} of {f['runs']}  ({model}, {f['ref']}, {f['date']})")
     return 0
 
@@ -762,7 +770,7 @@ def main(argv: list[str] | None = None) -> int:
 
     p_flaky = sub.add_parser(
         "flaky",
-        help="List cases that failed in some but not all runs of one batch (same ref, branch and model).",
+        help="List cases that failed in some but not all runs of one batch (same date, ref, branch and model).",
     )
     p_flaky.add_argument("path", type=Path, help="The evals root, or one skill's eval directory.")
     p_flaky.add_argument(

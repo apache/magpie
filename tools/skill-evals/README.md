@@ -594,7 +594,7 @@ uv run --project tools/skill-evals skill-eval-journal flaky tools/skill-evals/ev
 ```
 
 `flaky` lists every case that failed in some but not all runs of one batch
-(the same ref, branch and model), with `failed k of n`, nearest one half
+(the same date, ref, branch and model), with `failed k of n`, nearest one half
 first. A case that fails every run is a real failure and is not listed, and
 runs on different models or commits are never pooled, since a difference
 there is not flakiness. Legacy rows count through their Result text.
