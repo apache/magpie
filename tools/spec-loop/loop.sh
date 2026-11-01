@@ -88,11 +88,25 @@
 
 set -uo pipefail
 
-trap 'echo -e "\nStopping loop..."; exit 0' INT TERM
 # Released on every exit path (normal end, STOP file, error break, Ctrl+C
 # via the INT trap's `exit`). LOCK_HELD stays false until acquired so an
 # early exit (bad argument, missing agent) never removes another loop's lock.
+# On INT/TERM (Ctrl+C, a scheduler timeout, `kill`) the backgrounded agent is
+# stopped first; if it does not exit, the lock is kept so the next start does
+# not run a second loop over a tree the agent is still editing.
 LOCK_HELD=false
+AGENT_PID=""
+SPINNER_PID=""
+on_stop() {
+    echo -e "\nStopping loop..."
+    [ -n "$SPINNER_PID" ] && kill "$SPINNER_PID" 2>/dev/null
+    if [ -n "$AGENT_PID" ] && ! spec_loop_stop_agent "$AGENT_PID" 10; then
+        echo "spec-loop: agent pid $AGENT_PID is still running; keeping the lock $LOCK_DIR" >&2
+        LOCK_HELD=false
+    fi
+    exit 0
+}
+trap on_stop INT TERM
 trap '[ "$LOCK_HELD" = true ] && spec_loop_lock_release "$LOCK_DIR"' EXIT
 
 # Operate from the repo root so the agent sees the whole tree.
