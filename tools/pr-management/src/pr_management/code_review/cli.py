@@ -407,6 +407,8 @@ def _decide(
     args: argparse.Namespace, cfg: config.Config, pr: data.PR, findings: list[dict[str, Any]], viewer: str
 ) -> dict[str, Any]:
     """The Step 6 gate decision; `render --auto-merge` re-runs it so the two cannot disagree."""
+    if pr.viewer and pr.viewer.lower() != viewer.lower():
+        raise SystemExit(f"pr-management: --viewer {viewer!r} is not the saved read's viewer")
     saved_permission = data.load_lines(_file(args.saved_dir, "permission.txt"))
     permission = args.permission or (saved_permission[0] if saved_permission else None)
     permission = permission or (pr.viewer_permission or "").lower() or None
@@ -439,6 +441,7 @@ def _decide(
         self_authored=viewer.lower() == pr.author.lower(),
         merge_method=pr.default_merge_method,
         pending_not_required=pr.pending_not_required,
+        viewer_known=bool(pr.viewer),
     )
 
 
@@ -576,7 +579,9 @@ def _render(args: argparse.Namespace, cfg: config.Config) -> dict[str, Any]:
         # Same viewer source as `disposition`, and fail closed when it is unknown or disagrees with the read.
         if not args.viewer:
             raise SystemExit("pr-management: --auto-merge needs --viewer")
-        if pr.viewer and pr.viewer.lower() != args.viewer.lower():
+        if not pr.viewer:
+            raise SystemExit("pr-management: the saved gql-cr-pr read has no viewer; refresh it")
+        if pr.viewer.lower() != args.viewer.lower():
             raise SystemExit(f"pr-management: --viewer {args.viewer!r} is not the saved read's viewer")
         decision = _decide(
             args,
