@@ -17,6 +17,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// Self-contained ambient declaration required by strict plugin validation.
+// Companion TypeScript runtime definitions live in types.ts. Both type declarations
+// must be kept in sync, and review-findings.test.ts asserts contract parity.
+
 declare module 'claude-code' {
   interface PluginState {
     'magpie-pr-management': {

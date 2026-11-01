@@ -116,6 +116,40 @@ export function truncateFilePath(filePath: string, maxLength = 36): string {
   return `...${last.slice(-(maxLength - 3))}`;
 }
 
+export function truncateText(text: string, maxLength: number): string {
+  if (text.length <= maxLength) {
+    return text;
+  }
+  return `${text.slice(0, Math.max(0, maxLength - 3))}...`;
+}
+
+export function sanitizeFindingText(input: string | unknown): string {
+  if (typeof input !== 'string' || !input) {
+    return '';
+  }
+  return input
+    .replace(/\x1b\][^\x07\x1b]*(\x07|\x1b\\)/g, '')
+    .replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '')
+    .replace(/\x1b[@-Z\\-_]/g, '')
+    .replace(/[\x00-\x1f\x7f-\x9f]/g, '');
+}
+
+export function formatFindingDescription(
+  rule?: string,
+  body?: string,
+  maxLength = 80
+): string {
+  const cleanRule = sanitizeFindingText(rule || '').trim();
+  const cleanBody = sanitizeFindingText(body || '').trim();
+  let full = '';
+  if (cleanRule && cleanBody) {
+    full = `${cleanRule} \u2014 ${cleanBody}`;
+  } else {
+    full = cleanRule || cleanBody || '';
+  }
+  return truncateText(full, maxLength);
+}
+
 export function formatFindingsTerminalFallback(state: ReviewFindingsState): string {
   const findings = state.findings || [];
   if (findings.length === 0) {
@@ -136,8 +170,9 @@ export function formatFindingsTerminalFallback(state: ReviewFindingsState): stri
       const f = anchored[i];
       const actionLabel = f.action === 'accept' ? '[x]' : f.action === 'edit' ? '[E]' : '[ ]';
       const badge = formatSeverityBadge(f.severity).label;
-      const pathStr = `${f.file}:${f.line}`;
-      const desc = f.rule ? `${f.rule} \u2014 ${f.body}` : f.body;
+      const cleanPath = sanitizeFindingText(f.file);
+      const pathStr = `${cleanPath}:${f.line}`;
+      const desc = formatFindingDescription(f.rule, f.body, 120);
       lines.push(`    ${actionLabel} ${i + 1}. ${badge} ${pathStr} \u2014 ${desc}`);
     }
   }
@@ -149,8 +184,9 @@ export function formatFindingsTerminalFallback(state: ReviewFindingsState): stri
     for (const f of unanchored) {
       const actionLabel = f.action === 'accept' ? '[x]' : f.action === 'edit' ? '[E]' : '[ ]';
       const badge = formatSeverityBadge(f.severity).label;
-      const desc = f.rule ? `${f.rule} \u2014 ${f.body}` : f.body;
-      lines.push(`    ${actionLabel} \u2022 ${badge} ${f.file} \u2014 ${desc}`);
+      const cleanPath = sanitizeFindingText(f.file);
+      const desc = formatFindingDescription(f.rule, f.body, 120);
+      lines.push(`    ${actionLabel} \u2022 ${badge} ${cleanPath} \u2014 ${desc}`);
     }
   }
 
@@ -226,7 +262,9 @@ export function renderFindingsPane($: any, e: any, state: ReviewFindingsState): 
       visibleCount += 1;
       const actionSpec = formatActionIndicator(f.action);
       const severitySpec = formatSeverityBadge(f.severity);
-      const shortPath = truncateFilePath(f.file);
+      const cleanPath = sanitizeFindingText(f.file);
+      const shortPath = truncateFilePath(cleanPath);
+      const desc = formatFindingDescription(f.rule, f.body, 80);
 
       anchoredRows.push(
         Box({
@@ -250,7 +288,7 @@ export function renderFindingsPane($: any, e: any, state: ReviewFindingsState): 
               bold: true,
             }),
             Text({
-              children: [`\u2014 ${f.rule || f.body}`],
+              children: [`\u2014 ${desc}`],
               color: 'dim',
             }),
           ],
@@ -281,7 +319,9 @@ export function renderFindingsPane($: any, e: any, state: ReviewFindingsState): 
       visibleCount += 1;
       const actionSpec = formatActionIndicator(f.action);
       const severitySpec = formatSeverityBadge(f.severity);
-      const shortPath = truncateFilePath(f.file);
+      const cleanPath = sanitizeFindingText(f.file);
+      const shortPath = truncateFilePath(cleanPath);
+      const desc = formatFindingDescription(f.rule, f.body, 80);
 
       unanchoredRows.push(
         Box({
@@ -305,7 +345,7 @@ export function renderFindingsPane($: any, e: any, state: ReviewFindingsState): 
               bold: true,
             }),
             Text({
-              children: [`\u2014 ${f.rule || f.body}`],
+              children: [`\u2014 ${desc}`],
               color: 'dim',
             }),
           ],
@@ -328,7 +368,7 @@ export function renderFindingsPane($: any, e: any, state: ReviewFindingsState): 
         children: [
           Text({
             children: [
-              `... showing ${visibleCount} of ${findings.length} findings (scroll or select in PR-3)`,
+              `... showing ${visibleCount} of ${findings.length} findings`,
             ],
             color: 'dim',
           }),
@@ -696,11 +736,10 @@ export function parseFindings(input: string | unknown): ParseFindingsResult {
 }
 
 /**
- * Event hook registration entry point for Claude Code mod.
+ * UI render event handler for Claude Code mod.
  *
- * Registers:
- * - session.start: pass-through lifecycle hook for module initialization.
- * - ui.render (Pane): renders the interactive review findings pane when state is populated.
+ * Renders the review findings pane when state is populated on ui.render (Pane).
+ * If no state exists or no findings are present, delegates to next hook.
  */
 export async function handleRenderPane($: any, e: any, next: any): Promise<any> {
   let state: ReviewFindingsState | null = null;
@@ -738,21 +777,21 @@ export async function handleRenderPane($: any, e: any, next: any): Promise<any> 
  * Event hook registration entry point for Claude Code mod.
  *
  * Registers:
- * - session.start: pass-through lifecycle hook for module initialization and fixture hydration.
- * - ui.render (AbovePrompt): renders the interactive review findings pane when state is populated.
+ * - session.start: lifecycle hook for test fixture hydration in PR-2 (PR-3 wires the live session feed).
+ * - ui.render (Pane): renders the interactive review findings pane when state is populated.
  */
 export function register(on: any): void {
   on('session.start', async ($: any, e: any, next: any) => {
     if (e && e.findings) {
       try {
         const parsed = parseFindings(e.findings);
-        await update($, reviewFindingsState, () => ({
+        await setReviewFindingsState($, {
           prNumber: e.prNumber,
           prTitle: e.prTitle,
           findings: parsed.findings,
           summary: parsed.summary,
           selectedIndex: 0,
-        }));
+        });
       } catch {
         // Safe no-op on parsing error
       }
@@ -763,7 +802,6 @@ export function register(on: any): void {
   });
 
   on('ui.render', { component: 'Pane' }, handleRenderPane);
-  on('ui.render', { component: 'AbovePrompt' }, handleRenderPane);
 }
 
 export default register;

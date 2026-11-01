@@ -21,6 +21,7 @@ import { describe, test } from 'claude-code/testing';
 import {
   calculateSummary,
   formatActionIndicator,
+  formatFindingDescription,
   formatFindingsTerminalFallback,
   formatKeepAnswer,
   formatSeverityBadge,
@@ -35,9 +36,11 @@ import {
   register,
   renderFindingsPane,
   reviewFindingsState,
+  sanitizeFindingText,
   serializeFindingsForRender,
   setReviewFindingsState,
   truncateFilePath,
+  truncateText,
 } from './review-findings.ts';
 import type { ReviewFinding, ReviewFindingsState } from './types.ts';
 
@@ -160,6 +163,45 @@ describe('magpie-pr-management review findings mod (PR-1 & PR-2)', () => {
       assertStrictEqual(normalizeAction(123 as any, errors), 'skip');
       assertStrictEqual(errors.length, 3);
       assert(errors[0].includes("Unrecognized action 'reject'"));
+    });
+
+    test('sanitizeFindingText strips ANSI CSI, OSC sequences, and C0/C1 control characters', () => {
+      // ANSI color / style CSI sequences
+      assertStrictEqual(sanitizeFindingText('\u001b[31;1mSecurity alert\u001b[0m'), 'Security alert');
+      // Cursor movements and screen clear
+      assertStrictEqual(sanitizeFindingText('\u001b[2K\u001b[1Aclean text'), 'clean text');
+      // OSC 8 hyperlinks (keeping visible text, dropping escape target)
+      assertStrictEqual(
+        sanitizeFindingText('\u001b]8;;https://example.com\u0007Click here\u001b]8;;\u0007'),
+        'Click here'
+      );
+      // C0 and C1 control characters (null, bell, backspace, newlines, DEL)
+      assertStrictEqual(sanitizeFindingText('Line1\r\nLine2\u0000\u0007\u007f'), 'Line1Line2');
+      // Empty input
+      assertStrictEqual(sanitizeFindingText(''), '');
+      assertStrictEqual(sanitizeFindingText(null as any), '');
+    });
+
+    test('formatFindingDescription harmonizes rule and body with length truncation', () => {
+      // Both rule and body present
+      assertStrictEqual(
+        formatFindingDescription('security-rule', 'Check input buffer'),
+        'security-rule \u2014 Check input buffer'
+      );
+      // Only body present
+      assertStrictEqual(formatFindingDescription(undefined, 'Unanchored note'), 'Unanchored note');
+      // Only rule present
+      assertStrictEqual(formatFindingDescription('rule-only', ''), 'rule-only');
+      // Truncation when exceeding maxLength
+      const longBody = 'A'.repeat(100);
+      const formatted = formatFindingDescription('rule', longBody, 30);
+      assertStrictEqual(formatted.length, 30);
+      assert(formatted.endsWith('...'));
+      // Strips ANSI escapes from both rule and body
+      assertStrictEqual(
+        formatFindingDescription('\u001b[31mrule\u001b[0m', '\u001b[32mclean body\u001b[0m'),
+        'rule \u2014 clean body'
+      );
     });
   });
 
@@ -601,10 +643,93 @@ End of observations.
       assertStrictEqual(pane.type, 'Box');
       assertStrictEqual(Array.isArray(pane.children), true);
     });
+
+    test('renderFindingsPane displays clean overflow indicator without roadmap text', () => {
+      const findings: ReviewFinding[] = [];
+      for (let i = 1; i <= 14; i += 1) {
+        findings.push({
+          id: String(i),
+          file: `src/file${i}.py`,
+          line: i,
+          severity: 'minor',
+          body: `Finding ${i}`,
+          rule: 'style',
+          action: 'accept',
+        });
+      }
+      const state: ReviewFindingsState = {
+        prNumber: 99,
+        findings,
+        summary: calculateSummary(findings),
+        selectedIndex: 0,
+      };
+
+      const collectedTexts: string[] = [];
+      const mockBox = (props: any) => ({ type: 'Box', ...props });
+      const mockText = (props: any) => {
+        if (props.children) {
+          collectedTexts.push(...props.children);
+        }
+        return { type: 'Text', ...props };
+      };
+      const fake$ = {
+        ui: {
+          resolve: () => ({ Box: mockBox, Text: mockText }),
+        },
+      };
+
+      renderFindingsPane(fake$, {}, state);
+      const overflowText = collectedTexts.find((t) => t.includes('showing'));
+      assert(overflowText, 'Expected overflow indicator text');
+      assertStrictEqual(overflowText, '... showing 10 of 14 findings');
+      assert(!overflowText.includes('PR-3'), 'Must not contain PR-3 delivery plan text');
+      assert(!overflowText.includes('scroll or select'), 'Must not contain scroll hint');
+    });
+
+    test('renderFindingsPane sanitizes ANSI and control characters in file, rule, and body', () => {
+      const findings: ReviewFinding[] = [
+        {
+          id: '1',
+          file: '\u001b[31msrc/dangerous.py\u001b[0m',
+          line: 10,
+          severity: 'blocking',
+          body: '\u001b]8;;https://malicious.link\u0007Dangerous body\u001b]8;;\u0007',
+          rule: '\u001b[1;33mrule-injection\u001b[0m',
+          action: 'accept',
+        },
+      ];
+      const state: ReviewFindingsState = {
+        prNumber: 100,
+        findings,
+        summary: calculateSummary(findings),
+        selectedIndex: 0,
+      };
+
+      const collectedTexts: string[] = [];
+      const mockBox = (props: any) => ({ type: 'Box', ...props });
+      const mockText = (props: any) => {
+        if (props.children) {
+          collectedTexts.push(...props.children);
+        }
+        return { type: 'Text', ...props };
+      };
+      const fake$ = {
+        ui: {
+          resolve: () => ({ Box: mockBox, Text: mockText }),
+        },
+      };
+
+      renderFindingsPane(fake$, {}, state);
+      const combined = collectedTexts.join(' ');
+      assert(!combined.includes('\u001b'), 'Rendered text must not contain ANSI escape bytes');
+      assert(combined.includes('src/dangerous.py'), 'Expected clean file path');
+      assert(combined.includes('rule-injection'), 'Expected clean rule');
+      assert(combined.includes('Dangerous body'), 'Expected clean body');
+    });
   });
 
   describe('mod hook registration and Pane UI mounting', () => {
-    test('registers session.start and ui.render lifecycle hooks cleanly', () => {
+    test('registers session.start and ui.render (Pane) lifecycle hooks cleanly', () => {
       const registered: Array<{ event: string; opts?: any; handler: Function }> = [];
       const fakeOn = (event: string, optsOrHandler: any, handler?: Function) => {
         if (typeof optsOrHandler === 'function') {
@@ -615,15 +740,13 @@ End of observations.
       };
 
       register(fakeOn);
-      assertStrictEqual(registered.length, 3);
+      assertStrictEqual(registered.length, 2);
       assertStrictEqual(registered[0].event, 'session.start');
       assertStrictEqual(registered[1].event, 'ui.render');
       assertStrictEqual(registered[1].opts?.component, 'Pane');
-      assertStrictEqual(registered[2].event, 'ui.render');
-      assertStrictEqual(registered[2].opts?.component, 'AbovePrompt');
     });
 
-    test('session.start handler chains to next(e)', async () => {
+    test('session.start fixture hydration routes through setReviewFindingsState and invalidates UI', async () => {
       const registered: Array<{ event: string; handler: Function }> = [];
       const fakeOn = (event: string, optsOrHandler: any, handler?: Function) => {
         if (typeof optsOrHandler === 'function') {
@@ -632,14 +755,43 @@ End of observations.
       };
       register(fakeOn);
 
+      let invalidatedSurface: string | null = null;
       let nextCalled = false;
+      const fake$ = {
+        ui: {
+          invalidate: (surface: string) => {
+            invalidatedSurface = surface;
+          },
+        },
+      };
+      const fakePayload = {
+        prNumber: 555,
+        prTitle: 'Sample PR',
+        findings: [
+          {
+            id: '1',
+            file: 'src/app.py',
+            line: 20,
+            severity: 'major',
+            body: 'Unused import',
+            rule: 'lint',
+            action: 'accept',
+          },
+        ],
+      };
       const fakeNext = (payload: any) => {
         nextCalled = true;
         return payload;
       };
 
-      await registered[0].handler({}, { id: 'session-1' }, fakeNext);
+      await registered[0].handler(fake$, fakePayload, fakeNext);
       assert(nextCalled, 'Handler should chain to next(e)');
+      assertStrictEqual(invalidatedSurface, 'ui.render', 'Expected session.start to invalidate ui.render');
+
+      const currentState = await getReviewFindingsState(fake$);
+      assert(currentState !== null, 'State should be populated from fixture payload');
+      assertStrictEqual(currentState?.prNumber, 555);
+      assertStrictEqual(currentState?.findings.length, 1);
     });
 
     test('ui.render mounts Pane on terminal and desktop surfaces when findings exist', async ($: any, on: any) => {
@@ -678,20 +830,20 @@ End of observations.
         const ui = await $.ui.mount({
           plugin: 'magpie-pr-management',
           surface,
-          component: 'AbovePrompt',
+          component: 'Pane',
           props: {},
         });
         const header = await ui.find({ type: 'Text', text: /PR #1920: Review Findings/ });
-        assert(header, `Expected header rendered on ${surface}`);
+        assert(header, "Expected header rendered on " + surface);
 
         const blockingBadge = await ui.find({ type: 'Text', text: /\[BLOCKING\]/ });
-        assert(blockingBadge, `Expected blocking badge rendered on ${surface}`);
+        assert(blockingBadge, "Expected blocking badge rendered on " + surface);
 
         const inlineSection = await ui.find({
           type: 'Text',
           text: /Proposed inline comments:/,
         });
-        assert(inlineSection, `Expected inline comments section on ${surface}`);
+        assert(inlineSection, "Expected inline comments section on " + surface);
       }
     });
 
@@ -706,16 +858,86 @@ End of observations.
         const ui = await $.ui.mount({
           plugin: 'magpie-pr-management',
           surface,
-          component: 'AbovePrompt',
+          component: 'Pane',
           props: {},
         });
         const found = await ui.find({ type: 'Text', text: /Review Findings/ });
         assertStrictEqual(
           found,
           undefined,
-          `AbovePrompt should not render findings on ${surface} when state is null`
+          "Pane should not render findings on " + surface + " when state is null"
         );
       }
+    });
+  });
+
+  describe('type contract synchronization', () => {
+    test('types.ts and types.d.ts declare matching field structures', () => {
+      const sampleState: ReviewFindingsState = {
+        prNumber: 10,
+        prTitle: 'Title',
+        findings: [
+          {
+            id: '1',
+            file: 'src/main.py',
+            line: 42,
+            severity: 'blocking',
+            body: 'Flaw',
+            rule: 'sec',
+            source: 'primary',
+            fixup: 'fix',
+            action: 'accept',
+            raw: {},
+          },
+        ],
+        summary: {
+          blockingCount: 1,
+          majorCount: 0,
+          minorCount: 0,
+          nitCount: 0,
+          total: 1,
+          anchoredCount: 1,
+          unanchoredCount: 0,
+        },
+        selectedIndex: 0,
+      };
+
+      const findingKeys = Object.keys(sampleState.findings[0]).sort();
+      const expectedFindingKeys = [
+        'action',
+        'body',
+        'file',
+        'fixup',
+        'id',
+        'line',
+        'raw',
+        'rule',
+        'severity',
+        'source',
+      ].sort();
+      assertDeepStrictEqual(findingKeys, expectedFindingKeys);
+
+      const summaryKeys = Object.keys(sampleState.summary).sort();
+      const expectedSummaryKeys = [
+        'anchoredCount',
+        'blockingCount',
+        'majorCount',
+        'minorCount',
+        'nitCount',
+        'total',
+        'unanchoredCount',
+      ].sort();
+      assertDeepStrictEqual(summaryKeys, expectedSummaryKeys);
+
+      const stateKeys = Object.keys(sampleState).sort();
+      const expectedStateKeys = [
+        'findings',
+        'prNumber',
+        'prTitle',
+        'selectedIndex',
+        'summary',
+      ].sort();
+      assertDeepStrictEqual(stateKeys, expectedStateKeys);
     });
   });
 });
