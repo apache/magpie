@@ -372,7 +372,7 @@ def test_tracker_entry_point_admits_procedures_and_publish_only(
 
 
 def test_body_travels_on_stdin_and_backend_refusal_maps_to_policy(
-    local_policy: Path, monkeypatch: pytest.MonkeyPatch
+    local_policy: Path, monkeypatch: pytest.MonkeyPatch, discovered: Any
 ) -> None:
     seen: dict[str, Any] = {}
 
@@ -382,18 +382,20 @@ def test_body_travels_on_stdin_and_backend_refusal_maps_to_policy(
 
     monkeypatch.setattr(cli.subprocess, "run", fake_run)
     body = _body(local_policy, "secret report text")
-    args = ["--config", str(local_policy), "--caller", "security-issue-sync", "issue-comment", "7", body]
-    assert cli.main(args) == cli.EXIT_OK
+    args = ["--caller", "security-issue-sync", "issue-comment", "7", body]
+    assert discovered(cli.main, args, local_policy) == cli.EXIT_OK
     assert seen["input"] == b"secret report text"
     assert body not in seen["argv"]
     seen["rc"] = 4
-    assert cli.main(args) == cli.EXIT_POLICY
+    assert discovered(cli.main, args, local_policy) == cli.EXIT_POLICY
     seen["rc"] = 5
-    assert cli.main(args) == cli.EXIT_COMMAND
+    assert discovered(cli.main, args, local_policy) == cli.EXIT_COMMAND
 
 
 @pytest.mark.skipif(shutil.which("uv") is None, reason="uv not installed")
-def test_end_to_end_against_the_local_tracker(local_policy: Path, capfd: pytest.CaptureFixture[str]) -> None:
+def test_end_to_end_against_the_local_tracker(
+    local_policy: Path, capfd: pytest.CaptureFixture[str], discovered: Any
+) -> None:
     """The translated argv is accepted by the real magpie-local-tracker."""
     root = local_policy.parent / "reports"
     subprocess.run(
@@ -403,7 +405,7 @@ def test_end_to_end_against_the_local_tracker(local_policy: Path, capfd: pytest.
     )  # fmt: skip
 
     def vop(*argv: str) -> int:
-        return cli.main(["--config", str(local_policy), "--caller", "security-issue-sync", *argv])
+        return int(discovered(cli.main, ["--caller", "security-issue-sync", *argv], local_policy))
 
     assert (
         vop("issue-create", "Path traversal in upload", _body(local_policy, "### Affected versions\n\n1.0\n"))
@@ -463,7 +465,9 @@ def test_backend_ids_pass_for_tracker_ops_only(
         assert code == cli.EXIT_POLICY, hostile
 
 
-def test_save_works_for_translated_reads(local_policy: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_save_works_for_translated_reads(
+    local_policy: Path, monkeypatch: pytest.MonkeyPatch, discovered: Any
+) -> None:
     def fake_run(argv: list[str], check: bool, input: bytes, stdout: int | None = None) -> Any:
         return subprocess.CompletedProcess(argv, 0, stdout=b'{"id": "SEC-0001"}')
 
@@ -471,17 +475,8 @@ def test_save_works_for_translated_reads(local_policy: Path, monkeypatch: pytest
     saved_dir = local_policy.parent / "scratch" / "saved"
     saved_dir.mkdir(mode=0o700)
     (saved_dir / ".vetted-ops-save").write_text("")
-    code = cli.main(
-        [
-            "--config",
-            str(local_policy),
-            "--caller",
-            "security-issue-sync",
-            "--save",
-            "view",
-            "issue-view",
-            "1",
-        ]
+    code = discovered(
+        cli.main, ["--caller", "security-issue-sync", "--save", "view", "issue-view", "1"], local_policy
     )
     assert code == cli.EXIT_OK
     saved = saved_dir / "view"

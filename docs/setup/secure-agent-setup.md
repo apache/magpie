@@ -938,7 +938,7 @@ belongs to whoever runs the command.
 
 If even the read-widening matters for your threat model, keep the
 policy in a path the sandbox does not grant write to and point
-`--config` at it.
+`vetted-op-read --config` at it.
 
 `vetted-op-tracker` and `vetted-op` are the write-capable entry points excluded from the sandbox.
 `vetted-op-tracker` refuses every operation except the tracker rollup / body-field procedures before it reads the policy,
@@ -948,9 +948,11 @@ parameters that may not start with `-`, and a body read only from the owner-only
 so unsandboxed it reaches less than the bare `gh *` the framework already excludes.
 It has to be excluded: inside the sandbox it cannot read `~/.claude/magpie/` to start,
 and a sandboxed `gh` cannot verify TLS anyway.
-`<tracker>` and the repositories both write to come from the policy, though, so a rewritten policy can re-point them;
-that is why both stay in `ask` (every write still prompts, and `sandbox-lint` fails an exclusion without its `ask`)
-and why the policy belongs outside the writable root if that matters to you.
+The policy decides the workspace and the repositories both write to, so neither takes `--config` when an operation runs:
+an agent-written policy could set `workspace` to `~/.ssh` (yours, mode 0700, so it passes the workspace check)
+and post a key from it to a repository it chose.
+They act only on the discovered policy, which the `Edit` denies above cover at both layers.
+Both also stay in `ask`, so every write still prompts, and `sandbox-lint` fails an exclusion without its `ask`.
 
 **OpenCode parity.** OpenCode has no per-command sandbox exclusion — its
 isolation is the OS-level sandbox of the [clean-env wrapper](#the-clean-env-wrapper),

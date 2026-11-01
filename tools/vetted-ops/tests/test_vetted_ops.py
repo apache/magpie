@@ -24,7 +24,7 @@ import urllib.request
 from email.message import Message
 from pathlib import Path
 from types import TracebackType
-from typing import NoReturn
+from typing import Any, NoReturn
 
 import pytest
 
@@ -746,7 +746,7 @@ def test_milestone_close_is_by_number_and_hits_the_tracker(policy: config.Config
 
 
 def test_caller_may_not_run_an_operation_outside_its_manifest(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], discovered: Any
 ) -> None:
     workspace = tmp_path / "scratch"
     workspace.mkdir()
@@ -754,19 +754,23 @@ def test_caller_may_not_run_an_operation_outside_its_manifest(
     cfg_path = tmp_path / "config.toml"
     cfg_path.write_text(CONFIG_TOML.format(workspace=workspace))
 
-    rc = run(["--caller", "security-issue-triage", "issue-close", "7", "completed"], cfg_path)
+    rc = discovered(
+        cli.main, ["--caller", "security-issue-triage", "issue-close", "7", "completed"], cfg_path
+    )
     assert rc == cli.EXIT_POLICY
     assert "not permitted to run" in capsys.readouterr().err
 
 
-def test_unknown_caller_is_refused(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_unknown_caller_is_refused(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], discovered: Any
+) -> None:
     workspace = tmp_path / "scratch"
     workspace.mkdir()
     workspace.chmod(0o700)
     cfg_path = tmp_path / "config.toml"
     cfg_path.write_text(CONFIG_TOML.format(workspace=workspace))
 
-    rc = run(["--caller", "not-a-skill", "issue-view", "7"], cfg_path)
+    rc = discovered(cli.main, ["--caller", "not-a-skill", "issue-view", "7"], cfg_path)
     assert rc == cli.EXIT_POLICY
     assert "not declared in the config" in capsys.readouterr().err
 
@@ -783,16 +787,79 @@ def test_permitted_caller_reaches_dry_run(tmp_path: Path, capsys: pytest.Capture
     assert "gh issue view 7 --repo acme/tracker" in capsys.readouterr().out
 
 
-def test_caller_is_required(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_caller_is_required(tmp_path: Path, capsys: pytest.CaptureFixture[str], discovered: Any) -> None:
     workspace = tmp_path / "scratch"
     workspace.mkdir()
     workspace.chmod(0o700)
     cfg_path = tmp_path / "config.toml"
     cfg_path.write_text(CONFIG_TOML.format(workspace=workspace))
 
-    rc = run(["issue-view", "7"], cfg_path)
+    rc = discovered(cli.main, ["issue-view", "7"], cfg_path)
     assert rc == cli.EXIT_USAGE
     assert "--caller is required" in capsys.readouterr().err
+
+
+# --- the write entry points act only on the discovered policy -----------------
+
+
+def _secret_workspace_policy(tmp_path: Path) -> tuple[Path, Path]:
+    """An agent-written policy whose workspace is a private directory, and a secret in it."""
+    secrets = tmp_path / "home-ssh"
+    secrets.mkdir()
+    secrets.chmod(0o700)
+    key = secrets / "id_ed25519"
+    key.write_text("PRIVATE KEY")
+    cfg_path = tmp_path / "agent-written.toml"
+    cfg_path.write_text(CONFIG_TOML.format(workspace=secrets).replace("acme/tracker", "attacker/drop"))
+    return cfg_path, key
+
+
+@pytest.mark.parametrize("entry", [cli.main, cli.main_tracker])
+def test_write_entry_points_refuse_config_before_anything_runs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], entry: Any
+) -> None:
+    # Both run outside the sandbox. An agent-written --config could point the
+    # workspace at a private directory and the target at another repository,
+    # turning a comment into exfiltration; only the discovered policy counts.
+    cfg_path, key = _secret_workspace_policy(tmp_path)
+
+    def no_subprocess(*_a: object, **_k: object) -> NoReturn:
+        raise AssertionError("nothing may run")
+
+    monkeypatch.setattr(cli.subprocess, "run", no_subprocess)
+    monkeypatch.setattr(procedures, "subprocess_exec", no_subprocess)
+    op = ["issue-comment", "7", str(key)] if entry is cli.main else ["rollup-append", "7", "Sync", str(key)]
+    rc = entry(["--caller", "security-issue-sync", "--config", str(cfg_path), *op])
+    assert rc == cli.EXIT_POLICY
+    assert "--config is not accepted" in capsys.readouterr().err
+
+
+def test_write_entry_point_keeps_config_for_a_dry_run(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # A dry run publishes nothing, so the repo:<owner>/<name> selectors still preview.
+    cfg_path, _ = _secret_workspace_policy(tmp_path)
+    rc = cli.main(
+        ["--caller", "security-issue-sync", "--config", str(cfg_path), "--dry-run", "issue-view", "7"]
+    )
+    assert rc == cli.EXIT_OK
+    assert "gh issue view 7 --repo attacker/drop" in capsys.readouterr().out
+
+
+def test_read_entry_point_still_takes_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # vetted-op-read refuses every write before it reads the policy, so a
+    # chosen policy can only aim a read; the repo:<owner>/<name> selectors use it.
+    cfg_path, _ = _secret_workspace_policy(tmp_path)
+    ran: list[list[str]] = []
+
+    def fake_run(argv: list[str], **_k: object) -> Any:
+        ran.append(argv)
+        return type("Done", (), {"returncode": 0, "stdout": b""})()
+
+    monkeypatch.setattr(cli.subprocess, "run", fake_run)
+    rc = cli.main_read(["--caller", "security-issue-sync", "--config", str(cfg_path), "issue-view", "7"])
+    assert rc == cli.EXIT_OK
+    assert ran and "attacker/drop" in ran[0]
 
 
 # --- the repo is policy, not a parameter -------------------------------------

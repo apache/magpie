@@ -547,6 +547,10 @@ The reference model is four layers, layered:
      Every operation is a fixed `gh` argv with no shell and bodies read
      only from the owner-only workspace, so it reaches less than the bare
      `gh *` exclusion; it too is on `ask` and never `allow`.
+     Both write dispatchers refuse `--config` whenever an operation runs
+     (a dry run, `policy` and `list-ops` keep it) and act only on the
+     discovered, write-denied policy, so an agent-written policy cannot
+     widen the body workspace or re-target the writes.
      sandbox-lint's `expected.json` carries both write dispatchers in both
      forms in `excludedCommands` and `ask`; its tests assert each is
      excluded and asked but not allowed, and its invariants fail an

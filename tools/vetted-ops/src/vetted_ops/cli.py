@@ -249,6 +249,22 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
             print(f"{kind}  {name:<22} {' '.join(op.params)}\n        {op.summary}")
         return EXIT_OK
 
+    # The write entry points run outside the sandbox, so a policy they act on
+    # must be one the agent cannot write. `--config` names any file, including
+    # one the agent just wrote with a wider workspace (say ~/.ssh, whose body
+    # would then be posted) or another repository, so it is refused wherever
+    # an operation would run. Discovery only takes the committed policy or an
+    # untampered personal one, both write-denied. A dry run, `policy` and
+    # `list-ops` publish nothing and keep it.
+    if not read_only and args.config is not None and args.operation not in ("policy",) and not args.dry_run:
+        print(
+            f"{prog}: refused: --config is not accepted when an operation runs; this entry point "
+            "writes outside the sandbox, so it only acts on the discovered, write-protected policy "
+            "(.apache-magpie-overrides/tools/vetted-ops/config.toml or the personal layer)",
+            file=sys.stderr,
+        )
+        return EXIT_POLICY
+
     try:
         config = load(args.config)
     except ConfigError as exc:
