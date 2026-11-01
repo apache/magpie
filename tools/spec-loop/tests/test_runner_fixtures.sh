@@ -271,8 +271,25 @@ test_last_sync_marker_helpers() {
     [ "$branch" = "advance-last-sync-abcdef1" ] || fail "unexpected marker branch: $branch"
 }
 
+# The plan and update beats must not queue or keep a Known gap on a name
+# match (spec-gap-staleness.md acceptance 1 and 2). Pin the rule's three
+# evidence kinds in both prompts so a rewrite cannot drop it unnoticed.
+test_prompts_carry_the_evidence_rule() {
+    local prompt kind
+    for prompt in "$ROOT/tools/spec-loop/PROMPT_plan.md" "$ROOT/tools/spec-loop/PROMPT_update.md"; do
+        for kind in "call site" "file content" "counted value"; do
+            grep -Fiq -- "$kind" "$prompt" || fail "expected '$prompt' to name the evidence kind: $kind"
+        done
+        assert_contains "$prompt" "gap-closes-when"
+    done
+    assert_contains "$ROOT/tools/spec-loop/PROMPT_plan.md" "*Verified open:*"
+    assert_contains "$ROOT/tools/spec-loop/PROMPT_plan.md" "The presence of a name is **not** evidence"
+    assert_contains "$ROOT/tools/spec-loop/PROMPT_update.md" "A name match is not evidence"
+}
+
 test_prompt_assembly_build
 test_prompt_assembly_update
+test_prompts_carry_the_evidence_rule
 test_harness_command_construction
 test_last_sync_marker_helpers
 

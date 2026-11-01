@@ -3,7 +3,7 @@
 
 ---
 title: Spec-gap staleness verification
-status: proposed
+status: experimental
 kind: feature
 mode: infra
 source: >
@@ -217,11 +217,6 @@ test -f tools/spec-loop/PROMPT_update.md
 
 ## Known gaps
 
-- **The evidence rule in the prompts is not built.** Both validator checks
-  have shipped (`validate_gap_predicates`, `validate_cross_spec_counts`, both
-  registered in `run_validation`); `PROMPT_plan.md` and `PROMPT_update.md`
-  still do not state the evidence rule. The predicate vocabulary cannot
-  express a prompt's content, so this bullet stays unannotated until it can.
 - **The existing bullets need a one-off backfill.** Nine bullets across
   eight specs describe shipped capabilities, and eleven more are
   narrative status notes needing the `none (narrative)` marker.
