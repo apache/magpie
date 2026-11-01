@@ -582,6 +582,7 @@ substrate:action-guard:
       - changed-files:
           - any-glob-to-any-file:
               - 'tools/agent-guard/**'
+              - 'tools/skill-lock/**'
 
 substrate:analytics:
   - any:

@@ -171,4 +171,5 @@ members = [
   "tools/gitlab",
   "tools/typed-decision",
   "tools/local-tracker",
+  "tools/skill-lock",
 ]

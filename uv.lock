@@ -1,11 +1,11 @@
 version = 1
-revision = 5
+revision = 3
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version >= '3.15'",
     "python_full_version == '3.14.*'",
     "python_full_version >= '3.12' and python_full_version < '3.14' and sys_platform == 'emscripten'",
-    "python_full_version < '3.12' or (python_full_version >= '3.12' and python_full_version < '3.14' and sys_platform != 'emscripten')",
+    "(python_full_version < '3.14' and sys_platform != 'emscripten') or (python_full_version < '3.12' and sys_platform == 'emscripten')",
 ]
 
 [options]
@@ -57,6 +57,7 @@ members = [
     "setup-preflight",
     "skill-and-tool-validator",
     "skill-evals",
+    "skill-lock",
     "skill-reconciler-diff",
     "skill-token-count",
     "spec-inventory",
@@ -2117,6 +2118,21 @@ dev = [{ name = "magpie-dev", editable = "tools/dev" }]
 name = "skill-evals"
 version = "0.1.0"
 source = { editable = "tools/skill-evals" }
+
+[package.dev-dependencies]
+dev = [
+    { name = "magpie-dev" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [{ name = "magpie-dev", editable = "tools/dev" }]
+
+[[package]]
+name = "skill-lock"
+version = "0.1.0"
+source = { editable = "tools/skill-lock" }
 
 [package.dev-dependencies]
 dev = [
