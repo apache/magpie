@@ -9,7 +9,7 @@ Return ONLY valid JSON with this structure:
 {
   "chosen_block": {
     "location": "body | comment-<N> | attachment-<filename>",
-    "language": "python | java | bash | sql | yaml | other | unknown",
+    "language": "<canonical lower-case language name, e.g. python | javascript | java | bash | sql | yaml> | unknown",
     "line_count": <integer>
   },
   "reason": "<brief phrase: 'only block' | 'simplest complete' | 'maintainer-simplified' | 'explicit entry point stated'>",

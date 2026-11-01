@@ -27,7 +27,7 @@ when_to_use: |
 capability: capability:reassess
 surface_hash: sha256:85440f7009f84de6
 license: Apache-2.0
-measured_tokens: 5489
+measured_tokens: 5687
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -257,6 +257,14 @@ When multiple reproducers exist, prefer the simplest *complete* one.
 Note the fallback chain — if the simplest fails to adapt, the next
 one in line is the reporter's original.
 
+Resolve the runtime with the candidate. When `runtime-invocation.md` has a
+*Runtimes by language* table, only a block whose language has a row is
+runnable, on that row's command; an `unknown`-language block uses the
+default `<runtime>`. Never translate a reproducer into another language to
+fit a runtime. No runnable candidate means `cannot-run-environment`, naming
+the languages with no runtime. Without the table, every block runs on
+`<runtime>`.
+
 See [`extraction.md` → *"Picking the candidate"*](extraction.md#picking-the-candidate).
 
 ---
@@ -305,6 +313,11 @@ from attacker-controlled input (Golden rule 8). Before invoking
      machine;
    - the **full adapted reproducer file, verbatim**, plus a one-line
      summary of any API-evolution adaptation applied in Step 4;
+   - the **exact command** Step 6 will run (the runtime Step 2
+     resolved: a *Runtimes by language* row, or the default
+     `<runtime>`), after checking that runtime answers `--version`
+     (or its equivalent) — a missing interpreter classifies as
+     `cannot-run-environment` here, before anything runs;
    - an explicit callout — quoting the lines — of anything that
      reads environment variables, opens a network connection,
      touches the filesystem outside the scratch directory, or
@@ -332,7 +345,8 @@ with no prior named-set approval **stops** here.
 **Pre-conditions: the Step 0 isolation check passed AND the Step 5.5
 confirmation is recorded** — otherwise do not invoke `<runtime>`.
 
-Invoke `<runtime>` on the adapted reproducer with a bounded timeout;
+Invoke the runtime Step 2 resolved (`<runtime>`, or the candidate
+language's row) on the adapted reproducer with a bounded timeout;
 capture stdout, stderr, exit code, wall-clock runtime; record the
 command verbatim. Full posture:
 [`runtime-recipes.md`](runtime-recipes.md).

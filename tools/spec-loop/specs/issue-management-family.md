@@ -239,11 +239,16 @@ weakened.
   `experimental`; no maintainer has exercised the triage → reproduce →
   fix-draft → stale-sweep → deduplicate → dashboard pipeline end-to-end.
   Shape may change as pilot evaluations surface edge cases.
-- **`issue-reproducer` is Python-only.** The current skill extracts code
-  and invokes the project runtime via `runtime-invocation.md`; other
-  language runtimes (JVM, Node.js, Go) are supported only if the adopter's
-  `reproducer-conventions.md` provides a matching invocation recipe. No
-  language-detection or multi-runtime branching exists in the skill today.
+- **`issue-reproducer` resolves one runtime per reproducer, by
+  language, but cannot detect a runtime the project did not configure.**
+  It was never Python-only: the recipes cover JVM scripting languages,
+  Gradle builds and Python through `runtime-invocation.md`. A project whose
+  reproducers come in several languages lists them in that file's
+  *Runtimes by language* table; a block whose language has no row is not
+  run and never translated, and no runnable block is
+  `cannot-run-environment`. Nothing infers a runtime the adopter did not
+  name.
+  <!-- gap-closes-when: none (narrative) -->
 - **`issue-fix-workflow` is bounded to single-file, well-scoped bugs.**
   Multi-file refactors, cross-cutting API changes, and architecture-level
   fixes exceed the skill's scope and must be handed back to a human-led

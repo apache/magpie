@@ -27,7 +27,7 @@ Suites are currently implemented for:
 - **security-issue-import-from-md** — 7 cases across 4 steps (1, 2, 4, 6); the Step 1 parser and Step 2 keyword clean are pytest-tested in `tools/security-management`
 - **security-issue-import-from-pr** — 8 cases across 3 steps (3, 6, 8); Step 2 is decided and pytest-tested in `tools/security-management`
 - **issue-triage** — 22 cases across 5 steps (step-1-resolve-selector, step-3-classify, step-4-compose-comment, step-5-confirm, step-7-recap)
-- **issue-reproducer** — 27 cases across 7 steps (step-1-inventory, step-2-pick-candidate, step-3-classify-shape, step-5.5-confirm, step-7-verify, step-8-baselines, step-10-compose-verdict)
+- **issue-reproducer** — 33 cases across 8 suites (step-1-inventory, step-2-pick-candidate, step-2-runtime-select, step-3-classify-shape, step-5.5-confirm, step-7-verify, step-8-baselines, step-10-compose-verdict)
 - **issue-fix-workflow** — 20 cases across 7 steps (step-2-locate-area, step-6-scope-check, step-7-compose-commit, step-8-handback)
 - **issue-reassess-stats** — 8 cases across 3 steps (step-1-fetch-verdicts, step-2-classify, step-3-aggregate)
 - **pr-management-code-review** — 60 cases across 16 suites; the 13 scripted suites moved to `tools/pr-management/tests/code_review`
