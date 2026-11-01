@@ -22,18 +22,29 @@ from pathlib import Path
 
 import pytest
 
+from vetted_ops import config
 from vetted_ops.config import DEFAULT_RELATIVE_PATH
 
 Discovered = Callable[[Callable[[list[str]], int], list[str], Path], int]
 
 
 @pytest.fixture()
-def discovered(monkeypatch: pytest.MonkeyPatch) -> Discovered:
-    """Run an entry point against ``cfg_path`` found by discovery, not `--config`.
+def approved(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """An empty approved-policy directory standing in for ~/.config/apache-magpie/vetted-ops."""
+    root = tmp_path / "approved-policies"
+    root.mkdir()
+    monkeypatch.setattr(config, "approved_dir", lambda: root)
+    return root
 
-    The write entry points refuse `--config` whenever an operation runs, so a
-    test that executes one installs the policy at the committed path in its own
-    directory and runs from there, the way an adopter's checkout does.
+
+@pytest.fixture()
+def discovered(monkeypatch: pytest.MonkeyPatch, approved: Path) -> Discovered:
+    """Run an entry point against ``cfg_path`` found by discovery and approved.
+
+    The write entry points refuse `--config` whenever an operation runs and act
+    only on a discovered policy that is also an approved copy, so a test that
+    executes one installs the policy at the committed path in its own directory,
+    copies it into the approved directory, and runs from there.
     """
 
     def run(main: Callable[[list[str]], int], argv: list[str], cfg_path: Path) -> int:
@@ -41,6 +52,7 @@ def discovered(monkeypatch: pytest.MonkeyPatch) -> Discovered:
         target = root / DEFAULT_RELATIVE_PATH
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(cfg_path.read_bytes())
+        (approved / "project.toml").write_bytes(cfg_path.read_bytes())
         monkeypatch.chdir(root)
         return main(argv)
 

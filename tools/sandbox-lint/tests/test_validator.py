@@ -259,6 +259,7 @@ def test_read_block_is_an_invariant_error_where_vetted_ops_is_used(baseline: dic
         "Edit(~/.claude/magpie/**)",
         "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
         "Edit(//**/.apache-magpie-overrides/tools/vetted-ops/**)",
+        "Edit(~/.config/apache-magpie/vetted-ops/**)",
         "Edit(//**/.git/**/apache-magpie/tools/vetted-ops/**)",
         "Edit(//**/.svn/apache-magpie/tools/vetted-ops/**)",
         "Edit(//**/.apache-magpie-local/tools/vetted-ops/**)",

@@ -28,12 +28,15 @@ from __future__ import annotations
 
 import json
 import os
+import pwd
 import re
+import shlex
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
 from . import layers
+from .safe_read import TamperedPath, read_regular_file, symlink_free
 from .tracker_backends import PLATFORMS, TrackerBackend, backend_dir
 
 #: `owner/name`, conservative on both halves.
@@ -46,6 +49,49 @@ DEFAULT_RELATIVE_PATH = Path(".apache-magpie-overrides/tools/vetted-ops/config.t
 #: adopted Magpie. It grants nothing `--config` does not: the policy supplies
 #: data only, never code (see `tracker_backends`).
 PERSONAL_RELATIVE_PATH = Path("tools/vetted-ops/config.toml")
+#: Where the user keeps the policies the write entry points may act on, under
+#: the account's home directory. Outside every sandbox-writable root, and
+#: `Edit`-denied, so neither a sandboxed command nor the agent's file tools can
+#: put a policy there; a renamed directory or a symlink elsewhere cannot either.
+APPROVED_RELATIVE_DIR = Path(".config/apache-magpie/vetted-ops")
+
+
+def account_home() -> Path:
+    """The account's home directory from the password database, never `$HOME`,
+    which whoever runs the command can set."""
+    return Path(pwd.getpwuid(os.getuid()).pw_dir)
+
+
+def approved_dir() -> Path:
+    """The directory of approved policies for the write entry points."""
+    return account_home() / APPROVED_RELATIVE_DIR
+
+
+def _approved(data: bytes) -> bool:
+    """Whether ``data`` is byte-for-byte one of the policies in `approved_dir`."""
+    root = approved_dir()
+    try:
+        names = sorted(os.listdir(root))
+    except OSError:
+        return False
+    for name in names:
+        if not name.endswith(".toml"):
+            continue
+        try:
+            if read_regular_file(root / name) == data:
+                return True
+        except (TamperedPath, OSError):
+            continue
+    return False
+
+
+def _expand_home(raw: str) -> Path:
+    """`~` and `~/…` against `account_home`, not `$HOME`."""
+    if raw == "~":
+        return account_home()
+    if raw.startswith("~/"):
+        return account_home() / raw[2:]
+    return Path(raw)
 
 
 def _protected(layer: Path) -> bool:
@@ -60,17 +106,6 @@ def _protected(layer: Path) -> bool:
     return layer.name == layers.GIT_HOME_NAME and (
         ".git" in layer.parent.parts or layer.parent.name == ".svn"
     )
-
-
-def _untampered(candidate: Path) -> bool:
-    """No symlink anywhere on the path, and a regular file.
-
-    The deny globs protect the policy's own path, not its parents: a symlink
-    planted at `.git/apache-magpie` or `…/tools` would redirect the read to a
-    directory the agent can write, so such a path is not read.
-    """
-    lexical = Path(os.path.abspath(candidate))
-    return Path(os.path.realpath(lexical)) == lexical and lexical.is_file() and not lexical.is_symlink()
 
 
 def candidates(base: Path) -> list[Path]:
@@ -221,30 +256,62 @@ def _tracker_backend(raw: object) -> TrackerBackend | None:
     )
 
 
-def load(path: Path | None = None, *, cwd: Path | None = None) -> Config:
-    """Load and validate the policy."""
+def _discover(base: Path) -> tuple[Path, bytes]:
+    tried = candidates(base)
+    committed, personal = tried[0], tried[1:]
+    # A symlink on the committed path would redirect the read to a file the
+    # agent can write. Refuse rather than fall through, so it shows.
+    try:
+        data = read_regular_file(committed)
+    except TamperedPath as exc:
+        raise ConfigError(f"refusing the vetted-ops config: {exc}") from None
+    if data is not None:
+        return committed, data
+    for candidate in personal:
+        try:
+            data = read_regular_file(candidate)
+        except TamperedPath:
+            continue
+        if data is not None:
+            return candidate, data
+    raise ConfigError("no vetted-ops config at " + " or ".join(str(c) for c in tried))
+
+
+def load(path: Path | None = None, *, cwd: Path | None = None, approved_only: bool = False) -> Config:
+    """Load and validate the policy.
+
+    ``approved_only`` is for the write entry points, which run outside the
+    sandbox: the policy found must be byte-for-byte a file the user placed in
+    `approved_dir`. The working directory is the caller's choice, so whatever
+    discovery finds there, a planted copy included, is only ever a policy the
+    user already approved.
+    """
     base = (cwd or Path.cwd()).resolve()
     if path is not None:
+        if approved_only:
+            raise ConfigError("an explicit config path is not accepted where only an approved policy may act")
         resolved = path
         if not resolved.is_file():
             raise ConfigError(f"no vetted-ops config at {resolved}")
+        data = resolved.read_bytes()
     else:
-        tried = candidates(base)
-        committed, personal = tried[0], tried[1:]
-        # The deny globs cover the committed path in every directory, not a
-        # symlink on the way to it, which would redirect the read to a file
-        # the agent can write. Refuse rather than fall through, so it shows.
-        if (committed.exists() or committed.is_symlink()) and not _untampered(committed):
-            raise ConfigError(
-                f"refusing the vetted-ops config at {committed}: a symlink on its path, or not a regular file"
-            )
-        found = committed if committed.is_file() else next((c for c in personal if _untampered(c)), None)
-        if found is None:
-            raise ConfigError("no vetted-ops config at " + " or ".join(str(c) for c in tried))
-        resolved = found
+        resolved, data = _discover(base)
 
-    with resolved.open("rb") as handle:
-        raw = tomllib.load(handle)
+    if approved_only and not _approved(data):
+        raise ConfigError(
+            f"the policy at {resolved} is not an approved copy in {approved_dir()}; the write entry "
+            "points run outside the sandbox, so they act only on a policy you placed there yourself. "
+            "Review it, then in your own terminal: "
+            + shlex.join(["mkdir", "-p", str(approved_dir())])
+            + " && "
+            + shlex.join(["cp", str(resolved), str(approved_dir() / "NAME.toml")])
+            + " (repeat after every change to the policy)"
+        )
+
+    try:
+        raw = tomllib.loads(data.decode("utf-8"))
+    except (UnicodeDecodeError, tomllib.TOMLDecodeError) as exc:
+        raise ConfigError(f"the vetted-ops config at {resolved} is not valid TOML: {exc}") from None
 
     repos = raw.get("repos")
     if not isinstance(repos, dict):
@@ -253,9 +320,15 @@ def load(path: Path | None = None, *, cwd: Path | None = None) -> Config:
     workspace_raw = raw.get("workspace")
     if not isinstance(workspace_raw, str) or not workspace_raw:
         raise ConfigError("config needs a top-level 'workspace' path for body files")
-    workspace = Path(workspace_raw).expanduser()
-    if not workspace.is_absolute():
-        workspace = (base / workspace).resolve()
+    # Made absolute without following links, then refused if a symlink sits
+    # anywhere on it: a workspace resolved through a link (the directory swapped
+    # for one pointing at ~/.ssh, say) would turn private files into bodies.
+    workspace = Path(os.path.abspath(base / _expand_home(workspace_raw)))
+    if not symlink_free(workspace):
+        raise ConfigError(
+            f"the workspace {str(workspace)!r} has a symlink on its path; name its real location "
+            f"({os.path.realpath(workspace)!r} if that is the one you mean)"
+        )
 
     values_raw = raw.get("values", {})
     if not isinstance(values_raw, dict):

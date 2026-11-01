@@ -18,6 +18,7 @@ Report that as a must-fix, ahead of anything else in this section.
 - `~/.claude/magpie/**`
 - `.apache-magpie-overrides/tools/vetted-ops/**`
 - `//**/.apache-magpie-overrides/tools/vetted-ops/**` (the same path under any directory the write dispatchers could be run from)
+- `~/.config/apache-magpie/vetted-ops/**` (the approved policies the write dispatchers act on)
 - `//**/.git/**/apache-magpie/tools/vetted-ops/**`, `//**/.svn/apache-magpie/tools/vetted-ops/**`, `//**/.apache-magpie-local/tools/vetted-ops/**` (a personal policy)
 
 Report a missing rule as drift to repair, not a note.

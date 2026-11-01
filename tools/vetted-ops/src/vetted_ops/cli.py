@@ -266,7 +266,10 @@ def main(argv: list[str] | None = None, *, read_only: bool = False, tracker_only
         return EXIT_POLICY
 
     try:
-        config = load(args.config)
+        # The write entry points act only on a policy the user approved (see
+        # `config.approved_dir`); dry runs and `policy` publish nothing.
+        approved_only = not read_only and not args.dry_run and args.operation != "policy"
+        config = load(args.config, approved_only=approved_only)
     except ConfigError as exc:
         print(f"vetted-op: config error: {exc}", file=sys.stderr)
         return EXIT_POLICY
