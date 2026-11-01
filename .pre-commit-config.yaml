@@ -503,6 +503,18 @@ repos:
         entry: uv run --project tools/skill-evals skill-eval tools/skill-evals/evals --check
         files: (\.md$|^tools/skill-evals/|^\.pre-commit-config\.yaml$)
         pass_filenames: false
+  # The Run history table in each evals/<skill>/README.md is generated from
+  # that suite's append-only runs.jsonl. A hand edit to the table, or a record
+  # appended without re-rendering, fails here; `skill-eval-journal render
+  # tools/skill-evals/evals` regenerates every table.
+  - repo: local
+    hooks:
+      - id: check-eval-run-history
+        name: check-eval-run-history (README tables match runs.jsonl)
+        language: system
+        entry: uv run --project tools/skill-evals skill-eval-journal render tools/skill-evals/evals --check
+        files: ^tools/skill-evals/(evals/[^/]+/(README\.md|runs\.jsonl)|src/skill_evals/journal\.py)$
+        pass_filenames: false
   # Quick-start screenshot set. Three lists have to agree — the harnesses
   # `capture-screenshot.sh` offers, the ecosystem manifests that make a harness
   # real, and the PNGs on disk — and none of the existing gates read images, so

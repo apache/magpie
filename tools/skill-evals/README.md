@@ -515,19 +515,77 @@ For everything in between (decisions wrapped in explanatory prose like `rational
 
 ## Recording runs
 
-CI never runs a live model, so live runs are recorded by hand
-in a *Run history* table in `evals/<skill>/README.md`.
+CI never runs a live model, so live runs are the evidence that a suite
+works, and that evidence is kept in an **append-only run journal**:
+`evals/<skill>/runs.jsonl`, one JSON record per runner invocation. The
+*Run history* table in `evals/<skill>/README.md` is **generated from the
+journal**; it is never edited by hand, so it cannot drift from what was
+run, and every row traces back to the records that produced it.
 
-```text
-| Date | Ref | Model | Runs | Result | Notes |
+A `--cli` run whose path lies under `tools/skill-evals/evals/<skill>/`
+appends its record automatically. Each record holds the skill, the
+commit (`ref`, `branch`, `dirty`), the model, the `--cli` and
+`--grader-cli` strings (with inline `VAR=value` assignments and the values
+of credential and header flags replaced by `<redacted>`, since the journal
+is committed), the path and `--tag` filters, the per-outcome
+counts, the labels of every case that failed or errored, the cost
+(`wall_seconds`, `cli_calls`, `grader_calls`) and a free-text `notes`
+field. The runner prints `Journaled run to …` when it has written one.
+
+```bash
+# A live run; the record lands in evals/<skill>/runs.jsonl.
+uv run --project tools/skill-evals skill-eval --cli "claude -p --model claude-opus-5-5" \
+    --journal-note "re-run after #1677" tools/skill-evals/evals/<skill>/
+
+# Regenerate the README table(s) from the journal(s).
+uv run --project tools/skill-evals skill-eval-journal render tools/skill-evals/evals
+
+# Verify journals parse, tables match, and no committed record was edited or removed.
+uv run --project tools/skill-evals skill-eval-journal check tools/skill-evals/evals --against origin/main
 ```
 
-- Ref is a short SHA on `main`; runs on a branch are not logged.
-- Model is the name the CLI uses, such as `claude-fable-5-1`.
-- One row per batch of identical runs; append, do not replace.
-- Record a failure even if a rerun passed.
+Runner flags: `--journal-note TEXT` fills `notes` (an issue link, the
+reason for the run); `--journal-model NAME` records the model when the
+`--cli` string carries no `--model` flag (the CLI's configured default is
+otherwise invisible to the runner and the table shows the model as
+unrecorded next to the `--cli` string, so two tools never share a row);
+`--journal FILE` journals to another file; `--no-journal` writes nothing.
+A path outside the repository's own evals tree (a copied suite, a test
+fixture, a suite outside any git checkout) is never journaled unless
+`--journal` says so. The runner can run outside the sandbox, so the write
+is not redirectable: a `runs.jsonl` that is a symlink is refused, and the
+default journal must resolve inside the evals tree.
 
-Example: [`evals/issue-reassess-stats/README.md`](evals/issue-reassess-stats/README.md#run-history).
+Rules:
+
+- **Append only.** Never edit or delete a record. Correct a wrong one by
+  appending another and saying so in `notes`. `skill-eval-journal check
+  --against <ref>` fails when a committed journal is not a prefix of the
+  working copy, or when a journal the ref has was deleted, and `render
+  --check` (the `check-eval-run-history` prek hook) fails when a table
+  does not match its journal. `.gitattributes` merges `runs.jsonl` with
+  `merge=union`, so two PRs that each recorded a run do not conflict.
+- **Ref is the commit the run was made at,** read before the first case
+  so a commit made during a long run is not recorded instead. A run on a
+  branch other than `main` is journaled with the branch name and the
+  table shows it as `` `sha` (branch) ``; a dirty tree is recorded as
+  `dirty: true`.
+- **One table row per batch.** Rendering groups records by date, ref,
+  branch and model (the CLI when no model was recorded); *Runs* is the
+  number of records in the batch and *Result* is `pass`, `manual` when no
+  case was graded, or one `` `step/case` failed k of n `` entry per case,
+  newest batch first. *n* counts the runs that graded that case (each
+  record's `graded_cases`), so a one-case rerun does not inflate it.
+- **Record a failure even if a rerun passed.** The rerun is its own
+  record; both stay.
+- **Importing a hand-written table.** `skill-eval-journal import-readme
+  evals/<skill>/` turns an existing table into `legacy: true` records
+  (one per row, Result kept verbatim, no per-run detail) so the history is
+  preserved and the table renders back unchanged. It refuses to run over a
+  journal that already exists.
+
+Example: [`evals/issue-reassess-stats/README.md`](evals/issue-reassess-stats/README.md#run-history)
+and its [`runs.jsonl`](evals/issue-reassess-stats/runs.jsonl).
 
 ## CI considerations
 

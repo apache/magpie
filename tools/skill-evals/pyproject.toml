@@ -30,6 +30,7 @@ dependencies = []
 
 [project.scripts]
 skill-eval = "skill_evals.runner:main"
+skill-eval-journal = "skill_evals.journal:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/skill_evals"]
