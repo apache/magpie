@@ -151,7 +151,7 @@ def append_record(journal: Path, record: dict, *, within: Path | None = None) ->
     if journal.is_symlink():
         raise OSError(f"refusing to write {journal}: it is a symlink")
     flags = os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
-    fd = os.open(journal, flags, 0o644)
+    fd = os.open(journal, flags, 0o600)
     with os.fdopen(fd, "a", encoding="utf-8") as fh:
         fh.write(line + "\n")
 
