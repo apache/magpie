@@ -32,6 +32,13 @@ For each code block found, record:
   `<date>`"*, *"attachment `<filename>`"*.
 - **Verbatim text** — copy exactly, including whitespace and
   comments. Do not normalise yet.
+- **Language** — from the fence's info string, else the attachment's
+  file extension, normalised to its canonical lower-case name
+  (`py` → `python`, `js` → `javascript`, `ts` → `typescript`,
+  `kt` → `kotlin`, `sh` / `shell` → `bash`, `rb` → `ruby`, `rs` → `rust`);
+  `unknown` when neither gives a signal.
+  Step 2 matches this name against the *Runtimes by language* table, whose
+  rows use the same canonical names.
 - **Reporter's claimed environment** — runtime version, OS,
   JDK / interpreter version, the values they say they ran with.
 

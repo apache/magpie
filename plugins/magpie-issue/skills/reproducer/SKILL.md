@@ -27,7 +27,7 @@ when_to_use: |
 capability: capability:reassess
 surface_hash: sha256:85440f7009f84de6
 license: Apache-2.0
-measured_tokens: 5610
+measured_tokens: 5687
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -313,6 +313,11 @@ from attacker-controlled input (Golden rule 8). Before invoking
      machine;
    - the **full adapted reproducer file, verbatim**, plus a one-line
      summary of any API-evolution adaptation applied in Step 4;
+   - the **exact command** Step 6 will run (the runtime Step 2
+     resolved: a *Runtimes by language* row, or the default
+     `<runtime>`), after checking that runtime answers `--version`
+     (or its equivalent) — a missing interpreter classifies as
+     `cannot-run-environment` here, before anything runs;
    - an explicit callout — quoting the lines — of anything that
      reads environment variables, opens a network connection,
      touches the filesystem outside the scratch directory, or

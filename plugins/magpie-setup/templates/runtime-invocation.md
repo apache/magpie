@@ -69,7 +69,8 @@ Leave this section out when every reproducer runs on the one recipe above.
 Fill it in when reporters post reproducers in more than one language (a
 library with Python and JavaScript bindings, a JVM project whose issues carry
 both a scripting-language snippet and a Java test). Each row maps a code
-block's language, as `issue-reproducer`'s Step 1 records it, to the command
+block's language, as `issue-reproducer`'s Step 1 records it (the canonical
+lower-case name: `python`, `javascript`, `java`, `bash`, …), to the command
 that runs a file in it. The recipe above stays the default for a block whose
 language is `unknown`.
 
