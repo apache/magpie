@@ -111,7 +111,8 @@ Nothing in this section exists yet; this is the proposed shape.
   resume from the next item.
 - **Item failure.** The item's own data made the step impossible: body
   missing, timestamp unavailable, malformed metadata, a 404 or 410 for
-  that item, a classifier that returned no verdict for that item twice.
+  that item, a 403 for that item that the harness check below does not
+  explain, a classifier that returned no verdict for that item twice.
   Recorded as `failed` with a one-line reason; the item is skipped for
   the rest of the sweep.
 - **Budget.** `item_failure_budget` is either an absolute count or a
@@ -122,9 +123,15 @@ Nothing in this section exists yet; this is the proposed shape.
   `over_cap`, security-screen and empty-pool stops are unchanged and are
   not failures.
 - **Harness failure.** The failure is about the connection, not the
-  item: HTTP 429 or a rate-limit body, HTTP 5xx, connection reset or
-  timeout, an auth error (401/403 on an endpoint that worked earlier in
-  the run), or the model CLI exiting non-zero with no output. The item is
+  item: HTTP 429 or a rate-limit body (a 403 whose body says rate limit
+  is this case), HTTP 5xx, connection reset or timeout, a 401 on an
+  endpoint that worked earlier in the run, a 403 only when the pre-flight
+  auth check, re-run straight after it, fails too, or the model CLI
+  exiting non-zero with no output. A 403 alone is not
+  enough: GitHub also returns it for one item the token cannot read (a
+  hidden or restricted item, a repository the app is not installed on),
+  and three such items in a row would otherwise trip the breaker as a
+  false outage with none of them recorded as failed. The item is
   **not** marked failed and the budget is **not** consumed. The sweep
   waits one back-off interval and retries that item once.
 - **Breaker.** `harness_failure_breaker` consecutive harness failures
