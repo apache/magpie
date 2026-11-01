@@ -622,6 +622,18 @@ def hooks_path_stub(value):
         ("yarn dlx lefthook install --force", "--force"),
         ("bunx lefthook install -r", "--reset-hooks-path"),
         ("env CI=1 npx lefthook --colors off install --force", "--force"),
+        ("npx -c 'lefthook install --force'", "--force"),
+        ("npm exec -c 'lefthook install --force'", "--force"),
+        ("npm exec --call='lefthook install -f'", "--force"),
+        ("pnpm exec --shell-mode 'lefthook install -r'", "--reset-hooks-path"),
+        ("pnpm exec bash -c 'lefthook install --force'", "--force"),
+        ("npx sh -c 'cd app && lefthook install --force'", "--force"),
+        ("corepack pnpm exec lefthook install --force", "--force"),
+        ("npx.cmd lefthook install --force", "--force"),
+        ("pnpm.CMD exec lefthook install -r", "--reset-hooks-path"),
+        ("lefthook.bat install --force", "--force"),
+        ("bun -c bunfig.toml x lefthook install --force", "--force"),
+        ("pnpm --filter sh exec lefthook install --force", "--force"),
     ],
 )
 def test_lefthook_destructive_install_denied(monkeypatch, hooks_path, command, flag):
@@ -643,6 +655,10 @@ def test_lefthook_destructive_install_denied(monkeypatch, hooks_path, command, f
         "npm install --save-dev lefthook --force",
         "pnpm add -D lefthook",
         "npx prettier --write install",
+        "npx -c 'lefthook install'",
+        "npx -c 'prettier --write .'",
+        "pnpm exec bash -c 'lefthook run pre-commit'",
+        "corepack pnpm exec lefthook install",
     ],
 )
 def test_lefthook_plain_invocations_allowed(monkeypatch, command):

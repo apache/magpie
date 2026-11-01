@@ -64,6 +64,8 @@ def fake_run(handler):
         (r"node_modules\.bin\lefthook", "lefthook"),
         (r"C:\tools\lefthook.exe", "lefthook"),
         ("lefthook.exe", "lefthook"),
+        (r"C:\tools\lefthook.cmd", "lefthook"),
+        ("lefthook.BAT", "lefthook"),
         ("/usr/bin/gh", "gh"),
         ("curl", None),
     ],
