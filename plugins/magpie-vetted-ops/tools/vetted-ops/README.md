@@ -219,6 +219,16 @@ board_status_field_id = "PVTSSF_…"    # its Status field id
 "security-issue-import" = ["issue-list-with-bodies", "rollup-append"]
 "security-issue-import-from-md" = ["rollup-append"]
 "security-issue-import-from-pr" = ["pr-view-with-body", "rollup-append"]
+
+# Backend-specific additions for EACH of the three security-issue-import
+# callers above (keep all operations already listed for that caller):
+#   github:      no backend-specific additions
+#   jira:        tracker-doctor, issue-body, issue-attach
+#   local-files: tracker-doctor, issue-body, issue-attach,
+#                tracker-pending, tracker-publish
+# These are conditional additions, not permissions for every backend.
+# Derive setup/reconcile proposals from this single example, preserving
+# existing grants and never creating a second TOML key for a caller.
 "security-issue-invalidate" = ["rollup-append", "rollup-amend-latest"]
 "security-issue-triage" = ["issue-view", "issue-comments",
                            "osv-get-vuln", "osv-query-package"]

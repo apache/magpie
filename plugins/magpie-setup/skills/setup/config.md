@@ -325,7 +325,7 @@ When a vetted-ops policy exists, show the `[tracker]` table it needs —
 `platform`, and `root` or the `jira_*` target (the backend's code comes from the tool installed beside vetted-ops, never from the policy)
 ([vetted-ops → Tracker backends](../../../../tools/vetted-ops/README.md#tracker-backends)) —
 and write it only on the user's confirmation; the policy is a security control, not configuration this step may change unasked.
-Grant the security callers `issue-create`, `issue-search`, `issue-list-label`, `issue-reopen`, `issue-body`, `issue-attach`, `tracker-doctor`, `tracker-pending` and `tracker-publish` in the same diff.
+For caller permissions, use the canonical [vetted-ops `[callers]` example](../../../../tools/vetted-ops/README.md#configuration), including only the operations applicable to the selected backend. Do not grant all tracker operations to every security caller.
 
 ### Personal tool configs, for a project that has not adopted Magpie
 
@@ -344,10 +344,36 @@ and the sandbox profile denies the agent's writes to it (`Edit(//**/.git/**/apac
 So the user saves it themselves, from the draft; never route around that deny to write it.
 The CVE JSON config is ordinary configuration: write it on the user's yes.
 
+### Import caller grants — independent of tracker selection
+
+When any security issue-import workflow is configured, check its caller grants
+even when `tracker.platform` is already configured. Do not make this check
+conditional on [Step 3a](#step-3a--security-tracker-backend) running.
+
+For an existing vetted-ops policy, read its `[callers]` table and derive the
+applicable required operations from the canonical
+[vetted-ops README configuration example](../../../../tools/vetted-ops/README.md#configuration).
+Select the configured tracker backend and each distinct import caller.
+Do not maintain another fixed caller-to-operation list here.
+
+Show each missing caller or operation as a proposed policy diff. Preserve
+existing permissions and unrelated callers; do not duplicate TOML keys.
+Never add unrelated permissions. If the policy is missing, do not create it
+implicitly. If it cannot be inspected, report the check as incomplete.
+
+The vetted-ops policy is a security control: show the draft and let the
+user save it after explicit confirmation, as described under
+[Personal tool configs](#personal-tool-configs-for-a-project-that-has-not-adopted-magpie).
+Do not bypass sandbox write restrictions.
+
+A declined, unapplied, or unchecked import-grant proposal remains unresolved
+and must not produce a clean reconciliation stamp for the affected skill.
+
 ## Step 3b — Record what this run reconciled
 
 For every skill in scope (Step 1) whose `requires_config:` set now fully
-resolves, record that fact, keyed by that skill's frontmatter `name:`
+resolves **and whose applicable import caller grants have been verified**,
+record that fact, keyed by that skill's frontmatter `name:`
 (e.g. `code-review`). **Everything this step writes
 stays inside the personal layer's `reconciled.json` — never the
 committed lock, adopted project or not.** That is the personal layer
