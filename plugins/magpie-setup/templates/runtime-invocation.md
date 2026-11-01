@@ -8,6 +8,7 @@
 - [TODO: `<Project Name>` — runtime invocation](#todo-project-name--runtime-invocation)
   - [Build prerequisite](#build-prerequisite)
   - [Run a single file](#run-a-single-file)
+  - [Runtimes by language (optional)](#runtimes-by-language-optional)
   - [Capture conventions](#capture-conventions)
   - [Network and dependency handling](#network-and-dependency-handling)
   - [Cross-references](#cross-references)
@@ -61,6 +62,24 @@ Concrete examples for common project types:
 # Compiled binary already on PATH:        <project-name> run <file>
 # Shell:                                  bash <file>
 ```
+
+## Runtimes by language (optional)
+
+Leave this section out when every reproducer runs on the one recipe above.
+Fill it in when reporters post reproducers in more than one language (a
+library with Python and JavaScript bindings, a JVM project whose issues carry
+both a scripting-language snippet and a Java test). Each row maps a code
+block's language, as `issue-reproducer`'s Step 1 records it, to the command
+that runs a file in it. The recipe above stays the default for a block whose
+language is `unknown`.
+
+| Language | Command |
+|---|---|
+| TODO: e.g. `python` | TODO: e.g. `python <file>` |
+| TODO: e.g. `java` | TODO: e.g. `java <file>` (single-file source launch) |
+
+With the table present, a block in a language that has no row is not run:
+the skill never rewrites a reproducer into another language to fit a runtime.
 
 ## Capture conventions
 

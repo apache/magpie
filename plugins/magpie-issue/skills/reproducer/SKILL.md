@@ -257,6 +257,14 @@ When multiple reproducers exist, prefer the simplest *complete* one.
 Note the fallback chain — if the simplest fails to adapt, the next
 one in line is the reporter's original.
 
+Resolve the runtime with the candidate. When `runtime-invocation.md` has a
+*Runtimes by language* table, only a block whose language has a row is
+runnable, on that row's command; an `unknown`-language block uses the
+default `<runtime>`. Never translate a reproducer into another language to
+fit a runtime. No runnable candidate means `cannot-run-environment`, naming
+the languages with no runtime. Without the table, every block runs on
+`<runtime>`.
+
 See [`extraction.md` → *"Picking the candidate"*](extraction.md#picking-the-candidate).
 
 ---
@@ -332,7 +340,8 @@ with no prior named-set approval **stops** here.
 **Pre-conditions: the Step 0 isolation check passed AND the Step 5.5
 confirmation is recorded** — otherwise do not invoke `<runtime>`.
 
-Invoke `<runtime>` on the adapted reproducer with a bounded timeout;
+Invoke the runtime Step 2 resolved (`<runtime>`, or the candidate
+language's row) on the adapted reproducer with a bounded timeout;
 capture stdout, stderr, exit code, wall-clock runtime; record the
 command verbatim. Full posture:
 [`runtime-recipes.md`](runtime-recipes.md).
