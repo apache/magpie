@@ -17,7 +17,8 @@ Plain `APPROVE` and `FIXUP` stay in the overrides unless CI is still running; a 
    uv run --project <framework>/tools/pr-management pr-management code-review release-runs --saved-dir <workspace>/saved --pr <N> --viewer <viewer> --head <full head sha> [--reviewed-head <sha>]
    ```
 
-   It refuses a head the saved `gql-cr-pr` read does not show, and any head other than the reviewed one unless it is the viewer's own single fixup commit on top of it (`--reviewed-head`): releasing a run executes that head's code in CI, which is exactly what first-time-contributor approval guards.
+   Re-save `gql-cr-pr <N>` after the approval posted first: `release-runs` takes the viewer from that read (refusing a missing or different `--viewer`), refuses a head the read does not show, and releases only a head the viewer has an `APPROVED` review on — or, with `--reviewed-head`, a single commit whose only parent is the approved head and which carries a verified signature by the viewer with the viewer as its only linked author.
+   Author names and emails are free text and prove nothing; releasing a run executes that head's code in CI, which is exactly what first-time-contributor approval guards.
    Save the `runs-at-head` read it names under `needs` and re-run it. For each `plan` step, run `workflow-approve <run_id>` through `vetted-op` (it approves first-time-contributor runs); pass its exit code and output to `pr-management code-review release-result --op workflow-approve --exit-code <rc> --output-file <file>`.
    `next_op: run-rerun` means GitHub answered *"This workflow run is not waiting for approval"* (HTTP 403): run `run-rerun <run_id>` and classify that the same way; `already-running` is done.
    A run that still fails to release is reported to the maintainer, and auto-merge then waits on checks that may never come.

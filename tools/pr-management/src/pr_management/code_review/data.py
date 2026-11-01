@@ -110,6 +110,8 @@ class PR:
     default_merge_method: str | None = None
     auto_merge_enabled: bool = False
     pending_not_required: tuple[str, ...] = ()
+    #: The last two commits with parents, verified signer and linked author logins (fixup checks).
+    head_commits: tuple[dict[str, Any], ...] = ()
     extra: dict[str, Any] = field(default_factory=dict)
 
 
@@ -158,6 +160,26 @@ def _pending_not_required(rollup: dict[str, Any]) -> tuple[str, ...]:
         if pending and node.get("isRequired") is not True:
             names.append(str(name or ""))
     return tuple(names)
+
+
+def _head_commits(node: dict[str, Any]) -> tuple[dict[str, Any], ...]:
+    found: list[dict[str, Any]] = []
+    for item in _nodes(node.get("headCommits")):
+        commit = item.get("commit") or {}
+        signature = commit.get("signature") or {}
+        signer = (signature.get("signer") or {}).get("login") if signature.get("isValid") is True else None
+        found.append(
+            {
+                "oid": str(commit.get("oid") or ""),
+                "parents": [str(p.get("oid") or "") for p in _nodes(commit.get("parents"))],
+                "verified_signer": signer,
+                # Linked GitHub accounts only: a name or email is free text anyone can set.
+                "author_logins": [
+                    (a.get("user") or {}).get("login") or "" for a in _nodes(commit.get("authors"))
+                ],
+            }
+        )
+    return tuple(found)
 
 
 def _requests(node: dict[str, Any]) -> tuple[tuple[str, ...], tuple[str, ...]]:
@@ -242,6 +264,7 @@ def from_node(node: dict[str, Any]) -> PR:
         rollup_state=rollup.get("state") if rollup else None,
         contexts=_contexts(rollup),
         pending_not_required=_pending_not_required(rollup) if rollup else (),
+        head_commits=_head_commits(node),
         node_id=node.get("id"),
         thread_details=tuple(threads),
         file_details=tuple(_nodes(files_conn)),

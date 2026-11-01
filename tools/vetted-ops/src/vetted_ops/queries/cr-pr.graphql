@@ -74,6 +74,16 @@ query($owner: String!, $repo: String!, $number: Int!) {
           }
         }
       }
+      headCommits: commits(last: 2) {
+        nodes {
+          commit {
+            oid
+            parents(first: 2) { nodes { oid } }
+            signature { isValid signer { login } }
+            authors(first: 5) { nodes { user { login } } }
+          }
+        }
+      }
       latestReviews(first: 30) {
         nodes { author { login } authorAssociation state submittedAt body commit { oid } }
       }

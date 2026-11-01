@@ -58,13 +58,21 @@ def _need(op: str, params: list[str], save: str, why: str) -> dict[str, Any]:
     return {"op": op, "params": params, "save": save, "why": why}
 
 
-def _is_own_fixup(pr: data.PR, head: str, reviewed: str, viewer: str) -> bool:
-    """`head` is one commit on top of `reviewed`, authored by the viewer alone."""
-    if len(pr.commits) < 2:
+def _is_verified_fixup(pr: data.PR, head: str, reviewed: str, viewer: str) -> bool:
+    """`head` is one commit whose only parent is `reviewed`, signed by the viewer with a valid signature.
+
+    Author metadata alone is free text; the verified signature is what ties the commit to the viewer.
+    """
+    if not pr.head_commits:
         return False
-    last, parent = pr.commits[-1], pr.commits[-2]
-    authors = {a.lower() for a in last.authors}
-    return last.oid == head and parent.oid == reviewed and authors == {viewer.lower()}
+    last = pr.head_commits[-1]
+    authors = {a.lower() for a in last["author_logins"]}
+    return (
+        last["oid"] == head
+        and last["parents"] == [reviewed]
+        and (last["verified_signer"] or "").lower() == viewer.lower()
+        and authors == {viewer.lower()}
+    )
 
 
 def _release_runs(args: argparse.Namespace) -> dict[str, Any]:
@@ -73,17 +81,30 @@ def _release_runs(args: argparse.Namespace) -> dict[str, Any]:
             raise SystemExit(f"pr-management: {flag} must be a full 40-character SHA")
     pr = data.load_pr(args.saved_dir / f"cr-pr-{args.pr}.json")
     # Releasing a held run executes the head's code in CI, which is what workflow approval guards.
+    viewer = pr.viewer
+    if not viewer:
+        raise SystemExit("pr-management: the saved gql-cr-pr read has no viewer; refresh it")
+    if args.viewer.lower() != viewer.lower():
+        raise SystemExit(f"pr-management: --viewer {args.viewer!r} is not the saved read's viewer")
     if pr.head_sha != args.head:
         raise SystemExit(
             f"pr-management: the saved read of PR {args.pr} is at {pr.head_sha[:12] or 'no head'}, not "
             f"{args.head[:12]}; refresh gql-cr-pr after the push and re-run"
         )
-    reviewed = args.reviewed_head or args.head
-    if reviewed != args.head and not _is_own_fixup(pr, args.head, reviewed, args.viewer):
-        raise SystemExit(
-            f"pr-management: {args.head[:12]} is not the reviewed head {reviewed[:12]} nor the viewer's own "
-            "fixup commit on top of it; review the new commits before releasing their runs"
-        )
+    approved = {r.commit for r in pr.reviews if r.state == "APPROVED" and r.author.lower() == viewer.lower()}
+    if args.head not in approved:
+        reviewed = args.reviewed_head
+        if not reviewed or reviewed not in approved:
+            raise SystemExit(
+                f"pr-management: {viewer} has no APPROVED review at {args.head[:12]}"
+                + (f" or {reviewed[:12]}" if reviewed else "")
+                + "; approve the head (refresh gql-cr-pr after posting) before releasing its runs"
+            )
+        if not _is_verified_fixup(pr, args.head, reviewed, viewer):
+            raise SystemExit(
+                f"pr-management: {args.head[:12]} is not a single commit on the approved {reviewed[:12]} "
+                f"signed by {viewer} with a verified signature; review the new commits before releasing their runs"
+            )
     save = f"runs-at-head-{args.pr}-{args.head[:12]}.json"
     pages = data.load_json(_file(args.saved_dir, save))
     if pages is None:

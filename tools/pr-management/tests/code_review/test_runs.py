@@ -27,7 +27,7 @@ import pytest
 from pr_management import cli
 from pr_management.code_review import data, runs
 
-from .builders import commit, node
+from .builders import node, review
 
 HEAD = "0123456789abcdef0123456789abcdef01234567"
 OTHER = "f" * 40
@@ -97,13 +97,45 @@ def _cli(capsys: pytest.CaptureFixture[str], *argv: str) -> dict[str, Any]:
 FIXUP = "a" * 40
 
 
-def _saved_pr(saved: Path, *, head: str, commits: list[dict[str, Any]] | None = None) -> None:
-    full = node(7, head=head, commits=commits or [commit("Fix", "nina", oid=head)])
-    (saved / "cr-pr-7.json").write_text(json.dumps({"data": {"repository": {"pullRequest": full}}}))
+def _head_commit(
+    oid: str,
+    *,
+    parents: list[str],
+    signer: str | None = "alice",
+    valid: bool = True,
+    authors: tuple[str, ...] = ("alice",),
+) -> dict[str, Any]:
+    return {
+        "commit": {
+            "oid": oid,
+            "parents": {"nodes": [{"oid": p} for p in parents]},
+            "signature": {"isValid": valid, "signer": {"login": signer}} if signer else None,
+            "authors": {"nodes": [{"user": {"login": a} if a else None} for a in authors]},
+        }
+    }
 
 
-def _release(capsys: pytest.CaptureFixture[str], saved: Path, *extra: str) -> dict[str, Any]:
-    return _cli(capsys, "release-runs", "--saved-dir", str(saved), "--pr", "7", "--viewer", "alice", *extra)
+def _saved_pr(
+    saved: Path,
+    *,
+    head: str,
+    approved_at: str | None = HEAD,
+    head_commits: list[dict[str, Any]] | None = None,
+    viewer: str | None = "alice",
+) -> None:
+    reviews = [review("alice", "APPROVED", commit_oid=approved_at)] if approved_at else []
+    full = node(7, head=head, reviews=reviews)
+    full["headCommits"] = {"nodes": head_commits or []}
+    payload: dict[str, Any] = {"repository": {"pullRequest": full}}
+    if viewer:
+        payload["viewer"] = {"login": viewer}
+    (saved / "cr-pr-7.json").write_text(json.dumps({"data": payload}))
+
+
+def _release(
+    capsys: pytest.CaptureFixture[str], saved: Path, *extra: str, viewer: str = "alice"
+) -> dict[str, Any]:
+    return _cli(capsys, "release-runs", "--saved-dir", str(saved), "--pr", "7", "--viewer", viewer, *extra)
 
 
 def test_release_runs_asks_for_the_head_read_then_plans(
@@ -123,44 +155,88 @@ def test_release_runs_wants_the_full_head_sha(capsys: pytest.CaptureFixture[str]
         _release(capsys, tmp_path, "--head", "abc123")
 
 
-def test_release_runs_refuses_a_head_the_saved_read_does_not_show(
-    capsys: pytest.CaptureFixture[str], tmp_path: Path
+@pytest.mark.parametrize(
+    ("setup", "args", "message"),
+    [
+        pytest.param({"head": HEAD}, ["--head", OTHER], "refresh gql-cr-pr", id="stale-read"),
+        pytest.param(
+            {"head": HEAD, "approved_at": None}, ["--head", HEAD], "no APPROVED review", id="not-approved"
+        ),
+        pytest.param(
+            {"head": HEAD, "viewer": None}, ["--head", HEAD], "has no viewer", id="no-viewer-in-read"
+        ),
+    ],
+)
+def test_release_runs_refuses_an_unapproved_or_stale_head(
+    capsys: pytest.CaptureFixture[str], tmp_path: Path, setup: dict[str, Any], args: list[str], message: str
 ) -> None:
+    _saved_pr(tmp_path, **setup)
+    with pytest.raises(SystemExit, match=message):
+        _release(capsys, tmp_path, *args)
+
+
+def test_release_runs_refuses_a_mismatched_viewer(capsys: pytest.CaptureFixture[str], tmp_path: Path) -> None:
     _saved_pr(tmp_path, head=HEAD)
-    with pytest.raises(SystemExit, match="refresh gql-cr-pr"):
-        _release(capsys, tmp_path, "--head", OTHER)
+    with pytest.raises(SystemExit, match="not the saved read's viewer"):
+        _release(capsys, tmp_path, "--head", HEAD, viewer="mallory")
 
 
-def test_release_runs_accepts_the_viewers_own_fixup_on_the_reviewed_head(
+def test_release_runs_accepts_a_verified_fixup_on_the_approved_head(
     capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
-    _saved_pr(
-        tmp_path, head=FIXUP, commits=[commit("Fix", "nina", oid=HEAD), commit("Fixup", "alice", oid=FIXUP)]
-    )
+    _saved_pr(tmp_path, head=FIXUP, head_commits=[_head_commit(FIXUP, parents=[HEAD])])
     out = _release(capsys, tmp_path, "--head", FIXUP, "--reviewed-head", HEAD)
     assert out["needs"][0]["params"] == [FIXUP]
 
 
 @pytest.mark.parametrize(
-    "commits",
+    ("head_commit", "approved_at", "message"),
     [
         pytest.param(
-            [commit("Fix", "nina", oid=HEAD), commit("More", "nina", oid=FIXUP)], id="contributor-push"
+            _head_commit(FIXUP, parents=[HEAD], signer=None), HEAD, "verified signature", id="unsigned"
         ),
         pytest.param(
-            [commit("Fix", "nina", oid=HEAD), commit("Fixup", "alice", "nina", oid=FIXUP)], id="co-authored"
+            _head_commit(FIXUP, parents=[HEAD], valid=False),
+            HEAD,
+            "verified signature",
+            id="invalid-signature",
         ),
         pytest.param(
-            [commit("Other", "nina", oid=OTHER), commit("Fixup", "alice", oid=FIXUP)], id="not-on-reviewed"
+            _head_commit(FIXUP, parents=[HEAD], signer="nina", authors=("alice",)),
+            HEAD,
+            "verified signature",
+            id="forged-author-signed-by-someone-else",
         ),
-        pytest.param([commit("Fixup", "alice", oid=FIXUP)], id="no-parent-in-read"),
+        pytest.param(
+            _head_commit(FIXUP, parents=[HEAD], authors=("",)),
+            HEAD,
+            "verified signature",
+            id="unlinked-author",
+        ),
+        pytest.param(
+            _head_commit(FIXUP, parents=[HEAD], authors=("alice", "nina")),
+            HEAD,
+            "verified signature",
+            id="co-author",
+        ),
+        pytest.param(_head_commit(FIXUP, parents=[OTHER]), HEAD, "verified signature", id="wrong-parent"),
+        pytest.param(
+            _head_commit(FIXUP, parents=[HEAD, OTHER]), HEAD, "verified signature", id="merge-commit"
+        ),
+        pytest.param(
+            _head_commit(FIXUP, parents=[HEAD]), OTHER, "no APPROVED review", id="reviewed-head-not-approved"
+        ),
     ],
 )
-def test_release_runs_refuses_an_unreviewed_new_head(
-    capsys: pytest.CaptureFixture[str], tmp_path: Path, commits: list[dict[str, Any]]
+def test_release_runs_refuses_an_unverified_fixup(
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    head_commit: dict[str, Any],
+    approved_at: str,
+    message: str,
 ) -> None:
-    _saved_pr(tmp_path, head=FIXUP, commits=commits)
-    with pytest.raises(SystemExit, match="review the new commits"):
+    _saved_pr(tmp_path, head=FIXUP, approved_at=approved_at, head_commits=[head_commit])
+    with pytest.raises(SystemExit, match=message):
         _release(capsys, tmp_path, "--head", FIXUP, "--reviewed-head", HEAD)
 
 
