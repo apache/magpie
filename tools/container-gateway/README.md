@@ -84,6 +84,20 @@ The podman CLI needs the libpod API and therefore only ever talks to a podman ba
 The docker CLI talks to a docker backend when one exists, otherwise to podman's compat API.
 Persist these per-machine in `.claude/settings.local.json`'s `env` block, and allow the two sockets in `sandbox.network.allowUnixSockets`, never the real daemon socket.
 
+`container-gateway settings` prints that block for a project, computed from the same run directory `serve` binds, so the paths always match:
+
+```bash
+uv run --project tools/container-gateway container-gateway settings --project .
+uv run --project tools/container-gateway container-gateway settings --project . --apply .claude/settings.local.json
+```
+
+Without `--apply` it only prints `{"proposal": {...}}`.
+`--apply` merges the block into the named file: it adds the two `env` keys and two socket entries and keeps everything else; it takes an exclusive `flock`, re-parses the file under it, and refuses to replace it when its mtime or size moved before the write; it writes a sibling temp file and `os.replace`s it, keeping the file's mode; and it refuses a symlinked target or a file that is not a JSON object.
+A file that already carries the block is not rewritten (`status: unchanged`).
+An `env` key that already holds a different value is never overwritten: it is reported under `conflicts` and the command exits `3`; an unmergeable file exits `2` with nothing written.
+It never writes the Linux `allowAllUnixSockets` widening, which is the operator's decision.
+`/magpie-setup:setup config` Step 3h runs it, applying only on the operator's yes.
+
 ## What the policy refuses
 
 The policy is a pure function over the parsed request (method, normalised path, query, JSON body), applied identically to the compat and libpod path families.

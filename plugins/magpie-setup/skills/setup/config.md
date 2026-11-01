@@ -576,6 +576,37 @@ Detect, then propose; never assume Git and never assume Subversion.
      With no GitHub repository, leave it `TODO` and say which skills then do not apply ([list](../../../../tools/vcs/README.md#skills-that-assume-github)).
 4. **A declined proposal** leaves `vcs_backend` `TODO`; say that the skills then treat the project as Git.
 
+## Step 3h — Container gateway sockets (optional)
+
+Run this only when the operator has installed the [container gateway](../../../../tools/container-gateway/README.md) (isolated setup Step L: `~/.claude/scripts/container-gateway-hook.sh` exists).
+Otherwise skip it and say nothing.
+A sandboxed `podman` / `docker` reaches the gateway only when the per-machine `.claude/settings.local.json` points `CONTAINER_HOST` / `DOCKER_HOST` at the gateway's sockets and lists both in `sandbox.network.allowUnixSockets`.
+
+1. **Gate on git ignoring the file.** Run `git -C <repo-root> check-ignore -q .claude/settings.local.json`.
+   Exit 1 means the file would be committable: skip this step and say why, so nothing this run writes can reach a commit.
+2. **Compute the block** from the gateway's own run directory, so the paths are the ones it binds:
+
+   ```bash
+   uv run --project <framework>/tools/container-gateway container-gateway settings --project <repo-root>
+   ```
+
+   It prints `proposal.env` and `proposal.sandbox` and writes nothing.
+3. **Put one item in Step 3's batch** showing both `env` values and both socket paths, and apply it only on the user's yes:
+
+   ```bash
+   uv run --project <framework>/tools/container-gateway container-gateway settings --project <repo-root> --apply <repo-root>/.claude/settings.local.json
+   ```
+
+   The merge is additive: it adds the two `env` keys and two socket entries, keeps everything else, takes a lock, re-reads the file under it, and refuses to replace it if the file changed meanwhile.
+   The file is outside the sandbox's writable set, so this one command needs the operator to approve running it outside the sandbox; never retry it a different way.
+4. **Read the result.**
+   - `status: unchanged` — the block was already there; say so.
+   - Exit `3` — an `env` key already holds a different value. Name the key and both values; the operator's value stays, and changing it is their call.
+   - Exit `2` — the file is not mergeable JSON, is a symlink, or changed during the merge. Nothing was written; show the error.
+5. **On Linux** the socket list is ignored, and a sandboxed CLI reaches the gateway only with `sandbox.network.allowAllUnixSockets: true` plus `denyRead` entries for the host's daemon sockets.
+   That widening is the operator's decision: point at [Linux needs `allowAllUnixSockets`](../../../../docs/setup/secure-agent-setup.md#linux-needs-allowallunixsockets) and never write it.
+   Never add the real daemon socket to `allowUnixSockets` under any name.
+
 ## Step 4 — Recap
 
 Tell the user, in this order:
@@ -592,6 +623,9 @@ Tell the user, in this order:
    add one line that `contributor-calibrate` can derive the contributor
    thresholds from past nominations — state it, do not ask.
    List any delegate Step 3f wrote, with its Magpie skill and mode.
+   When Step 3h wrote the gateway block, name `.claude/settings.local.json`
+   and the two `env` keys and sockets it added, and say the next session
+   picks them up.
 1b. **What the reconciliation stamp recorded** (Step 3b), all of it in
    the personal layer's `reconciled.json` — on an
    unadopted project, the skill(s) whose `skills` entry was just
@@ -640,9 +674,12 @@ will see.
    user's home (never inside a repository), only the ones the user ticked,
    and never on a run entered from a skill's pre-flight — Step 3e's
    personal `tools.mail_create` lines in `user.md`, written only after the
-   user saw them; and Step 3a's `.magpie-tracker.json`, written only into
+   user saw them; Step 3a's `.magpie-tracker.json`, written only into
    the tracker folder the user named, left uncommitted, and only after the
-   user answered the access question.
+   user answered the access question; and Step 3h's container-gateway block
+   in `.claude/settings.local.json`, written only when git ignores that
+   file, only through the gateway's locked additive merge, and only after
+   the user saw the block and said yes.
 2. **Never fabricate a value.** A value you cannot derive is a question
    or a `TODO`, never a plausible-looking guess. A wrong `upstream_repo`
    sends a skill at the wrong repository.

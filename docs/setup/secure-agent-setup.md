@@ -3068,7 +3068,7 @@ and `<git-common-dir>/apache-magpie/run/<worktree-id>/` when it has not — insi
 `git rev-parse --git-common-dir` prints the common directory (the main checkout's `.git`, also from a linked worktree);
 `<worktree-id>` is `main` for the main working tree and the `<name>` of `.git/worktrees/<name>` for a linked worktree (it must match `[A-Za-z0-9._-]+`), so each worktree has its own gateway and sockets.
 use its absolute path in place of `<project>/.apache-magpie-local` in the block below.
-(`setup-isolated-setup-install` Step L proposes the same block as a settings diff; `/magpie-setup:setup config` does **not** write it, and automating it there is a recorded follow-up.)
+(`setup-isolated-setup-install` Step L proposes the same block as a settings diff, and `/magpie-setup:setup config` Step 3h offers to write it for you: `container-gateway settings` prints it from the gateway's own run directory, and `--apply` merges it on your yes, additively and under a lock. It never writes the Linux `allowAllUnixSockets` widening below.)
 
 ```jsonc
 // .claude/settings.local.json (gitignored, per machine)
