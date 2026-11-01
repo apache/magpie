@@ -188,6 +188,7 @@ _composer_plugin_state() {
   command -v python3 >/dev/null 2>&1 || return 1
   python3 - "$1" <<'PY'
 import json
+import re
 import sys
 
 PACKAGES = ("captainhook/hook-installer", "captainhook/plugin-composer")
@@ -217,9 +218,20 @@ if isinstance(block, dict) and block.get("disable-plugin") is True:
     print("disabled")
     raise SystemExit(0)
 
+
+def allowed(name, rules):
+    """Composer's own reading: `*` is the only wildcard, the match ignores
+    case, and the first matching key wins (`captainhook/*: false`)."""
+    for pattern, value in rules.items():
+        regex = ".*".join(re.escape(part) for part in str(pattern).split("*"))
+        if re.fullmatch(regex, name, flags=re.IGNORECASE):
+            return value
+    return None
+
+
 config = data.get("config")
 allow = config.get("allow-plugins") if isinstance(config, dict) else None
-if allow is False or (isinstance(allow, dict) and all(allow.get(name) is False for name in required)):
+if allow is False or (isinstance(allow, dict) and all(allowed(name, allow) is False for name in required)):
     print("disabled")
     raise SystemExit(0)
 

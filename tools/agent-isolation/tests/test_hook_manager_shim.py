@@ -648,6 +648,8 @@ def test_a_disable_plugin_under_another_package_does_not_silence_the_warning(
     [
         '"config": {"allow-plugins": false}',
         '"config": {"allow-plugins": {"captainhook/hook-installer": false}}',
+        '"config": {"allow-plugins": {"captainhook/*": false}}',
+        '"config": {"allow-plugins": {"CaptainHook/Hook-*": false, "*": true}}',
     ],
 )
 def test_the_plugin_warning_respects_allow_plugins(tmp_path: Path, config: str) -> None:
@@ -659,6 +661,19 @@ def test_the_plugin_warning_respects_allow_plugins(tmp_path: Path, config: str) 
     result = _run(env, repo, "install", name="captainhook")
     assert result.returncode == 0
     assert "Composer plugin is enabled" not in result.stderr
+
+
+def test_the_first_matching_allow_plugins_key_wins(tmp_path: Path) -> None:
+    """Composer takes the first matching key, so an earlier allow beats a wildcard deny."""
+    env, _ = _setup(tmp_path, name="captainhook")
+    repo = _repo(tmp_path)
+    (repo / "composer.json").write_text(
+        '{"require-dev": {"captainhook/hook-installer": "^1.0"}, '
+        '"config": {"allow-plugins": {"captainhook/hook-installer": true, "captainhook/*": false}}}\n'
+    )
+    result = _run(env, repo, "install", name="captainhook")
+    assert result.returncode == 0
+    assert "a CaptainHook Composer plugin is enabled" in result.stderr
 
 
 def test_the_plugin_warning_stays_off_run_commands(tmp_path: Path) -> None:
