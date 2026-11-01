@@ -135,8 +135,14 @@ framework deciding a community question.
   declined step is reported, not retried.
 - Never removes access the policy does not name, and never removes more
   than `access_on_emeritus` allows.
-- A self-request skips the decision step, and its communication defaults to
-  thanking the person, whatever the announcement policy.
+- A self-request is accepted only when it comes from an identity the
+  identity map ties to the roster member (a post to the private list from
+  their own address, or a message from their own forge account); the
+  skill shows that link before drafting anything, and a request it cannot
+  tie to the member is refused, never assumed.
+  A verified self-request skips the decision step; its draft text thanks
+  the person, and whether and where it is sent still follows
+  `notify_person` and `announcement`.
 
 ### Reinstatement
 
@@ -163,7 +169,9 @@ framework deciding a community question.
    wording, and that an unresolved identity reads *unknown*, not zero.
 3. The report refuses a destination that is not verified private.
 4. `contributor-emeritus` refuses to start from an inactivity report and
-   accepts a decision thread or a self-request.
+   accepts a decision thread or a self-request; a self-request from an
+   identity the identity map does not tie to the roster member is refused
+   (eval case).
 5. Each emeritus step is proposed and applied only on confirmation, in the
    policy's order, and an access change never exceeds
    `access_on_emeritus`.

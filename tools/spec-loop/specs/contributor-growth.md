@@ -355,15 +355,11 @@ Adopter config scaffolds live in `plugins/magpie-setup/templates/`
 
 ## Out of scope
 
-- **PMC-member nomination** (distinct from committer-to-PMC path):
-  not yet specced; the vote mechanics, quorum rules, and post-vote
-  steps differ enough to warrant a separate spec-RFC pass that
-  enumerates the option set and per-project policy knobs.
 - **Emeritus / inactive-committer handling and contributor
-  offboarding**: intentionally deferred pending scope agreement —
-  these involve project-level governance decisions (roster policy,
-  communication norms) that no skill can safely generalise without
-  per-project configuration.
+  offboarding**: specced separately, in
+  [contributor-offboarding.md](contributor-offboarding.md), because the
+  roster policy and communication norms it needs are per-project
+  configuration this family does not carry.
 - Auto-promoting a contributor: all promotion decisions stay with the
   PMC; the skills prepare evidence and checklists, never act on the
   vote outcome without the nominator's explicit direction.
@@ -420,6 +416,7 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
   here too, is covered: `contributor-nomination` takes `target:pmc`, and
   `committer-onboarding` carries `committer-to-pmc` and `direct-to-pmc`
   scenarios with their own vote bars and roster steps.
+  <!-- gap-closes-when: path-exists:plugins/magpie-contributor-growth/skills/emeritus/SKILL.md -->
 - **Mode boundary with Agentic Mentoring is intentionally fuzzy.** Five
   family skills (`mentoring-welcome`, `good-first-issue-author`,
   `contributor-to-committer`, `good-first-issue-sweep`,

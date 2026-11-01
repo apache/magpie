@@ -135,8 +135,9 @@ uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-valid
   as the `magpie-contributor-growth` plugin (with three Mentoring
   members in `magpie-mentoring`) and have their own spec,
   [contributor-growth.md](contributor-growth.md), which tracks the
-  remaining gaps: PMC-member nomination (distinct from committer),
-  emeritus / inactive-committer handling, and contributor offboarding.
+  remaining gap: emeritus / inactive-committer handling and contributor
+  offboarding, proposed in
+  [contributor-offboarding.md](contributor-offboarding.md).
 - **Repo-health is an eight-skill family — feature-complete.** The six
   read-only audits `ci-runner-audit`, `workflow-security-audit`
   (zizmor-backed), `dependency-audit`, `license-compliance-audit`,
