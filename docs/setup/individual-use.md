@@ -106,6 +106,7 @@ already, then install the families you want:
 ```text
 /plugin install magpie-setup@apache-magpie
 /plugin install magpie-pr-management@apache-magpie
+/plugin install magpie-security-tools@apache-magpie   # the framework tools the skills run
 ```
 
 That's it — nothing else in this step. Claude Code's plugin state lives in

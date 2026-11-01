@@ -133,6 +133,34 @@ jobs:
         with:
           pr-number: ${{ steps.select.outputs.prs }}
 
+      # actions/labeler applies no changed-files label when more new ones match
+      # than its limit, so a cross-cutting sweep would stay unlabelled. Check
+      # each pull request against the same rules and mark it cross-family. The
+      # checkout is the default branch (this run's github.sha), never PR code.
+      - if: steps.select.outputs.prs != ''
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Mark cross-family pull requests
+        if: steps.select.outputs.prs != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PRS: ${{ steps.select.outputs.prs }}
+        run: |
+          set -euo pipefail
+          for pr in $PRS; do
+            [[ "$pr" =~ ^[0-9]+$ ]] || continue
+            labels=$(gh pr view "$pr" --repo "$REPO" --json labels --jq '[.labels[].name] | join(",")')
+            verdict=$(gh api "repos/$REPO/pulls/$pr/files" --paginate --jq '.[].filename' \
+              | python3 tools/dev/labeler-cliff.py --labels "$labels")
+            if [ "$verdict" = "family:cross-family" ]; then
+              echo "#$pr: over the changed-files label limit"
+              gh pr edit "$pr" --repo "$REPO" --add-label family:cross-family
+            fi
+          done
+
       - name: Pass the labels on to linked issues
         if: steps.select.outputs.prs != ''
         env:

@@ -149,6 +149,90 @@ def test_an_approve_needs_no_fixup() -> None:
     assert result["disposition"] == "APPROVE" and result["default"] == "APPROVE"
 
 
+# --- auto-merge -----------------------------------------------------------------------------------
+
+_AUTO = {"auto_merge_allowed": True, "viewer_can_enable_auto_merge": True}
+
+
+def test_an_approve_defaults_to_auto_merge_when_the_repo_allows_it() -> None:
+    result = _pick_findings([], merge_method="SQUASH", **_AUTO)
+    assert result["disposition"] == "APPROVE"
+    assert result["default"] == "APPROVE+AUTO-MERGE" and result["overrides"][0] == "APPROVE+AUTO-MERGE"
+    assert "APPROVE" in result["overrides"]
+    assert result["auto_merge"] == {
+        "eligible": True,
+        "reason": "the repository allows auto-merge and every approval gate holds",
+        "method": "SQUASH",
+    }
+
+
+def test_a_fixup_defaults_to_fixup_approve_auto_merge() -> None:
+    result = _pick_findings(_fixable("minor"), head_pushable=True, **_AUTO)
+    assert result["default"] == "FIXUP+APPROVE+AUTO-MERGE"
+    assert result["overrides"][:2] == ["FIXUP+APPROVE+AUTO-MERGE", "FIXUP"]
+
+
+def test_without_repo_auto_merge_the_default_is_unchanged() -> None:
+    assert _pick_findings([])["default"] == "APPROVE"
+    result = _pick_findings(_fixable("minor"), head_pushable=True, viewer_can_enable_auto_merge=True)
+    assert result["default"] == "FIXUP" and not result["auto_merge"]["eligible"]
+
+
+@pytest.mark.parametrize(
+    ("extra", "reason"),
+    [
+        ({"self_authored": True}, "self-authored"),
+        ({"auto_merge_enabled": True}, "already enabled"),
+        ({"viewer_can_enable_auto_merge": False}, "cannot enable"),
+        ({"ci_state": "FAILURE"}, "only follows an APPROVE"),
+        ({"ci_state": "EXPECTED"}, "only follows an APPROVE"),
+        ({"ci_state": "PENDING", "real_ci": False}, "only follows an APPROVE"),
+        ({"ci_state": "SUCCESS", "real_ci": False}, "only follows an APPROVE"),
+        ({"unresolved_threads": 1}, "only follows an APPROVE"),
+        ({"other_changes_requested": ["alice"]}, "only follows an APPROVE"),
+    ],
+)
+def test_auto_merge_is_never_offered_past_a_gate(extra: dict[str, Any], reason: str) -> None:
+    result = _pick_findings([], **{**_AUTO, **extra})
+    assert not result["auto_merge"]["eligible"] and reason in result["auto_merge"]["reason"]
+    assert "AUTO-MERGE" not in result["default"]
+
+
+def test_running_ci_is_held_by_auto_merge_instead_of_gating_the_approval() -> None:
+    result = _pick_findings([], ci_state="PENDING", **_AUTO)
+    assert result["disposition"] == "APPROVE" and result["ci_pending_held_by_auto_merge"]
+    assert result["default"] == "APPROVE+AUTO-MERGE" and result["approval_gates"] == []
+    assert "APPROVE" not in result["overrides"], "a plain APPROVE on running CI breaks Golden rule 8"
+
+
+def test_running_ci_still_lets_a_fixup_end_in_auto_merge() -> None:
+    result = _pick_findings(_fixable("minor"), head_pushable=True, ci_state="PENDING", **_AUTO)
+    assert result["default"] == "FIXUP+APPROVE+AUTO-MERGE"
+    assert "FIXUP" not in result["overrides"] and "APPROVE" not in result["overrides"]
+
+
+def test_running_ci_without_auto_merge_still_gates() -> None:
+    result = _pick_findings([], ci_state="PENDING")
+    assert result["disposition"] == "COMMENT" and result["approval_gates"] == ["CI is PENDING"]
+
+
+@pytest.mark.parametrize(
+    "ci",
+    [
+        {"ci_state": "EXPECTED"},
+        {"ci_state": "PENDING", "real_ci": False},
+        {"ci_state": "SUCCESS", "real_ci": False},
+    ],
+)
+def test_ci_that_never_ran_names_the_workflow_action(ci: dict[str, Any]) -> None:
+    result = _pick_findings([], **{**_AUTO, **ci})
+    assert result["disposition"] == "COMMENT" and "pr-management-triage" in result["ci_action"]
+
+
+def test_an_unknown_merge_method_falls_back_to_squash() -> None:
+    assert _pick_findings([], merge_method="FAST_FORWARD", **_AUTO)["auto_merge"]["method"] == "SQUASH"
+
+
 # --- review-disposition ---------------------------------------------------------------------------
 
 

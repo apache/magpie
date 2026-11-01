@@ -139,14 +139,58 @@ line: the evidence, gathered during this plan pass, that the gap is still open.
    Spec: [`specs/container-gateway.md`](specs/container-gateway.md).
    Branch `setup-config-gateway-sockets`.
 
+7. **Per-item failure budget for the batch skills.**
+   Every sweep skill (`issue-triage`, `security-issue-triage`,
+   `issue-stale-sweep`, `pr-stale-sweep`, `pr-management-triage`,
+   `good-first-issue-sweep`, `issue-reassess`, `contributor-activity-sweep`)
+   documents "stop and surface" for any per-item error, so one bad issue sinks
+   a sweep of hundreds. Land step 1 of
+   [`specs/batch-failure-budget.md`](specs/batch-failure-budget.md): the
+   shared contract doc, the `batch-failure-budget` shared prose block
+   propagated by `check-shared-blocks.py`, the per-skill *Failure modes* rows
+   (read/classify phase records `failed` and continues; write phase keeps
+   stop-and-surface), the `item_failure_budget` config key with its template
+   default, the budget in code in `tools/pr-management`, and one
+   "one item fails, sweep continues" plus one "budget exhausted" eval case per
+   skill. Do **not** add the harness-outage classification here; that is the
+   next item.
+   Validation:
+   ```bash
+   python3 tools/dev/check-shared-blocks.py
+   uv run --project tools/pr-management --group dev pytest
+   uv run --project tools/skill-and-tool-validator --group dev skill-and-tool-validate
+   uv run --project tools/skill-evals skill-eval tools/skill-evals/evals/issue-triage/
+   ```
+   Spec: [`specs/batch-failure-budget.md`](specs/batch-failure-budget.md).
+   Branch `batch-failure-budget`.
+
+8. **Harness-outage exclusion for the batch skills.** (blocked on item 7)
+   Step 2 of the same spec, meaningless without the budget: classify each
+   per-item failure as *item* (bad data on that item; consumes the budget) or
+   *harness* (429 / 5xx / reset / timeout / auth expiry mid-run; does not;
+   a 403 is harness only when its body says rate limit or the auth check
+   re-run straight after it fails too).
+   Harness failures retry the item once after a back-off and count on a
+   separate `harness_failure_breaker` (default 3 consecutive) that stops the
+   sweep as "harness outage" with no item marked failed. The classifier lives
+   behind the tracker capability contract so each forge adapter maps its own
+   status codes. Extend the shared block, the config template, the
+   `tools/pr-management` code, and add the "429 for three items is an outage,
+   not three failures" and "one 5xx then success consumes no budget" eval
+   cases. Must land per skill only after that skill carries item 7.
+   Validation: as item 7, plus the new eval cases.
+   Spec: [`specs/batch-failure-budget.md`](specs/batch-failure-budget.md).
+   Branch `harness-outage-exclusion`.
+
 ## Notes & discoveries
 
 - `git push` and `gh pr create` are intentionally not run by the loop.
 - Item 2 and 3 serve the same spec but are separate branches: validator code
   and prompt text have different validation and different reviewers.
 - Deferred by design, not build items: GitLab write operations (tracked in
-  #305, large, needs its own design), PMC-member nomination and emeritus
-  handling (human judgement until a spec turns them into a rule), and the
+  #305, large, needs its own design), emeritus handling (proposed in
+  `specs/contributor-offboarding.md`, not yet a build item; PMC-member
+  nomination is covered by `nomination` `target:pmc`), and the
   low-confidence ASF-coupling advisories.
 - Not planned because evidence was not gathered this pass: the "frontmatter
   combination validation" gap in `meta-and-quality-tooling.md`. Verify it

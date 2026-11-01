@@ -12,7 +12,8 @@ Context to load first:
 
 - `tools/spec-loop/AGENTS.md` and the repo-wide `/AGENTS.md`.
 - `tools/spec-loop/specs/*` — the current functional description.
-- The actual code: `.claude/skills/`, `tools/`, `docs/`, `docs/modes.md`.
+- The actual code: `skills/` (each entry a symlink into `plugins/magpie-<family>/skills/`,
+  where skill content actually lives), `tools/`, `docs/`, `docs/modes.md`.
 - The appended **Compact repository inventory** block from the runner —
   use it as the first routing map before opening full files.
 
@@ -38,7 +39,8 @@ Steps:
    branch.
 4. Inventory the code with parallel subagents (full inventory only if
    step 1 did not narrow the surface):
-   - every `.claude/skills/*/SKILL.md` (name, mode, what it does);
+   - every `skills/*/SKILL.md` (name, mode, what it does), read through
+     the symlink so the content is the plugin copy;
    - every `tools/*` project (what it does, its tests);
    - the mode/status table in `docs/modes.md`.
 5. Diff that inventory against `tools/spec-loop/specs/`:
@@ -85,4 +87,17 @@ Rules:
   file `.last-sync` is owned by `loop.sh`; do not touch it.
 - Confirm with a code search before recording something as present or
   absent. Do not invent behaviour the code does not have.
+- **Re-verify every `Known gaps` bullet you keep.** A bullet is retained
+  only if this pass found evidence it is still open, of the same three
+  kinds the plan beat uses: a call site (`file:line` where the behaviour is
+  or is not wired), file content (text, or its absence, at a named path),
+  or a counted value derived from the tree. A name match is not evidence.
+  A bullet proven closed is removed or rewritten to what remains open; a
+  bullet you cannot verify is kept and marked unverified, never silently
+  carried forward as true. Where a gap has a crisp end state, add
+  `<!-- gap-closes-when: … -->` (`path-exists:<path>`,
+  `symbol-called:<path>::<name>`, `skill-count:<family>=<n>`, or
+  `none (narrative)`) so `spec-validate` can check it from then on.
+  `symbol-called` reads Python sources only; for a shell function or any
+  other language use `path-exists` or `none (narrative)`.
 - Keep the RFCs untouched — they are a separate governance layer.

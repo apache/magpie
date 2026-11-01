@@ -70,3 +70,10 @@
 # PULL_REQUEST_TEMPLATE.md) is referenced by shipped skills, so it stays.
 .github/workflows/  export-ignore
 .github/dependabot.yml export-ignore
+
+# Eval run journals are append-only JSON Lines. Two branches that each
+# record a run append after the same last line, which a plain merge reports
+# as a conflict; union keeps both lines. After a rebase the branch's records
+# land after main's, so `skill-eval-journal check --against` still sees a
+# prefix.
+tools/skill-evals/evals/*/runs.jsonl merge=union

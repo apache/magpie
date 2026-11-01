@@ -32,6 +32,13 @@ For each code block found, record:
   `<date>`"*, *"attachment `<filename>`"*.
 - **Verbatim text** — copy exactly, including whitespace and
   comments. Do not normalise yet.
+- **Language** — from the fence's info string, else the attachment's
+  file extension, normalised to its canonical lower-case name
+  (`py` → `python`, `js` → `javascript`, `ts` → `typescript`,
+  `kt` → `kotlin`, `sh` / `shell` → `bash`, `rb` → `ruby`, `rs` → `rust`);
+  `unknown` when neither gives a signal.
+  Step 2 matches this name against the *Runtimes by language* table, whose
+  rows use the same canonical names.
 - **Reporter's claimed environment** — runtime version, OS,
   JDK / interpreter version, the values they say they ran with.
 
@@ -58,6 +65,17 @@ When the inventory has more than one code block:
    wrapping in a single script that asserts both can mask which
    one actually fails. Run each as its own pass through the
    reproducer; aggregate at verdict time.
+5. **Only a block the project can run.** When
+   `<project-config>/runtime-invocation.md` has a *Runtimes by language*
+   table, a candidate is runnable only if its language has a row, and a
+   block of `unknown` language runs on the default recipe. Prefer the
+   simplest complete *runnable* block; a simpler block in a language with
+   no row is noted in the fallback chain as not runnable, not chosen.
+   Never translate a reproducer into another language to make it
+   runnable: that is a new reproducer written by the agent, not the
+   reporter's. With no runnable candidate at all, the verdict is
+   `cannot-run-environment`, naming the languages that had no runtime.
+   Without the table, every block runs on the one recipe, as before.
 
 ## Shape taxonomy
 

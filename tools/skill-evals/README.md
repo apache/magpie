@@ -18,7 +18,7 @@ Suites are currently implemented for:
 - **pairing-multi-agent-review** — 15 cases across 6 steps (step-1-collect-diff, step-2a-correctness-pass, step-2b-security-pass, step-2c-conventions-pass, step-3-merge-findings, step-4-compose-report)
 - **pairing-self-review** — 20 cases across 2 steps (step-2-classify-findings, step-3-compose-report)
 - **security-issue-import** — 43 cases across 9 steps; Steps 0, 6 and 7 are decided and pytest-tested in `tools/security-management`
-- **security-issue-triage** — 19 cases across 6 steps (2, 2.5, 2.6, 3, 4, 6); Steps 1, 5 and 7 and the Step 6 bare-name scrub are decided and pytest-tested in `tools/security-management`
+- **security-issue-triage** — 23 cases across 7 suites (2, 2.5, 2.6, 3, 4, 6, item-failure-budget); Steps 1, 5 and 7 and the Step 6 bare-name scrub are decided and pytest-tested in `tools/security-management`
 - **security-issue-deduplicate** — 3 cases across 1 step (3, the merge inputs); Steps 1, 2, 3 (the merged body), 4, 5 and 6 are decided and pytest-tested in `tools/security-management`
 - **security-cve-allocate** — 4 cases across 1 step (4, the reporter draft); Steps 1, 2, 3, 4 (proposal and rollup), 5 and 7 are decided and pytest-tested in `tools/security-management`
 - **security-issue-sync**: 45 cases across 9 steps (1d, 1f, 2a, 2b, 2c, 5b judged gates, handoff-delegate, D0 dashboard ASF-only gate, D4 dashboard proposals); bulk selection and pre-flight, the buckets, Steps 3 and 6, the Guardrails check, the security CC, the drafting backend, the GHSA tier and the Step 5b flow are decided and pytest-tested in `tools/security-management`
@@ -26,8 +26,8 @@ Suites are currently implemented for:
 - **security-issue-invalidate** — 7 cases across 2 steps (3, 4); Steps 2, 5a, 5b, 5d, 5e, 5f and 7 are decided and pytest-tested in `tools/security-management`
 - **security-issue-import-from-md** — 7 cases across 4 steps (1, 2, 4, 6); the Step 1 parser and Step 2 keyword clean are pytest-tested in `tools/security-management`
 - **security-issue-import-from-pr** — 8 cases across 3 steps (3, 6, 8); Step 2 is decided and pytest-tested in `tools/security-management`
-- **issue-triage** — 22 cases across 5 steps (step-1-resolve-selector, step-3-classify, step-4-compose-comment, step-5-confirm, step-7-recap)
-- **issue-reproducer** — 27 cases across 7 steps (step-1-inventory, step-2-pick-candidate, step-3-classify-shape, step-5.5-confirm, step-7-verify, step-8-baselines, step-10-compose-verdict)
+- **issue-triage** — 26 cases across 6 suites (step-1-resolve-selector, step-3-classify, step-4-compose-comment, step-5-confirm, step-7-recap, item-failure-budget)
+- **issue-reproducer** — 33 cases across 8 suites (step-1-inventory, step-2-pick-candidate, step-2-runtime-select, step-3-classify-shape, step-5.5-confirm, step-7-verify, step-8-baselines, step-10-compose-verdict)
 - **issue-fix-workflow** — 20 cases across 7 steps (step-2-locate-area, step-6-scope-check, step-7-compose-commit, step-8-handback)
 - **issue-reassess-stats** — 8 cases across 3 steps (step-1-fetch-verdicts, step-2-classify, step-3-aggregate)
 - **pr-management-code-review** — 60 cases across 16 suites; the 13 scripted suites moved to `tools/pr-management/tests/code_review`
@@ -51,7 +51,7 @@ Suites are currently implemented for:
 - **onboarding-concierge** — 10 cases across 2 steps (question-classify, answer-draft)
 - **newcomer-issue-explainer** — 11 cases across 2 steps (issue-assessment, explanation-quality)
 - **pre-first-pr-check** — 2 cases across 1 step (step-2-check-categories); the scripted categories and the report are pytest-tested in `tools/pr-management`
-- **pr-stale-sweep** — 3 cases across 1 step (step-5-confirm); plan, classify, render and recap are pytest-tested in `tools/pr-management`
+- **pr-stale-sweep** — 7 cases across 2 suites (step-5-confirm, item-failure-budget); plan, classify, render and recap are pytest-tested in `tools/pr-management`
 - **report-framework-issue** — 6 cases across 1 step (step-scrub); redaction-category classifier with a `safe_to_file` gate and injection resistance
 - **security-model-verify** — 11 cases across 2 steps (step-a-discoverability, step-b-completeness); the mechanical-versus-maintainer remediation split, and completeness grading that never blocks
 - **security-model-prepare** — 9 cases across 2 steps (step-1-consent-gate, step-4-provenance); consent before the first repo write, and the four provenance tags with no hedge variants
@@ -63,11 +63,11 @@ Suites are currently implemented for:
 - **dependency-license-audit** — 19 cases across 4 suites (step-license-classification, step-license-normalization, step-license-report, step-scope-selection)
 - **flaky-test-triage** — 10 cases across 3 suites (step-classify, step-reporting, step-scope-and-config)
 - **good-first-issue-author** — 13 cases across 2 suites (readiness-check, suitability-gate)
-- **good-first-issue-sweep** — 11 cases across 2 suites (step-2-classify, step-3-present-proposals)
+- **good-first-issue-sweep** — 15 cases across 3 suites (step-2-classify, step-3-present-proposals, item-failure-budget)
 - **issue-backlog-stats** — 15 cases across 4 suites (step-2-classify, step-3-aggregate, step-4-recommend, step-5-render)
 - **issue-deduplicate** — 9 cases across 3 suites (step-0-preflight, step-2-build-proposal, step-3-confirm)
-- **issue-reassess** — 10 cases across 3 suites (headline-extraction, skip-if-resolvable, step-2-resumability)
-- **issue-stale-sweep** — 19 cases across 5 suites (step-1-fetch-pool, step-3-classify, step-4-compose-comment, step-5-confirm, step-7-recap)
+- **issue-reassess** — 14 cases across 4 suites (headline-extraction, skip-if-resolvable, step-2-resumability, item-failure-budget)
+- **issue-stale-sweep** — 23 cases across 6 suites (step-1-fetch-pool, step-3-classify, step-4-compose-comment, step-5-confirm, step-7-recap, item-failure-budget)
 - **license-compliance-audit** — 9 cases across 2 suites (step-findings-report, step-scope-selection)
 - **mentoring-welcome** — 20 cases across 2 suites (tone-checks, welcome-decision)
 - **pr-management-quick-merge** — 5 cases across 1 suite (approve-protocol); the gates, triviality screen and live buckets are pytest-tested in `tools/pr-management`
@@ -515,19 +515,102 @@ For everything in between (decisions wrapped in explanatory prose like `rational
 
 ## Recording runs
 
-CI never runs a live model, so live runs are recorded by hand
-in a *Run history* table in `evals/<skill>/README.md`.
+CI never runs a live model, so live runs are the evidence that a suite
+works, and that evidence is kept in an **append-only run journal**:
+`evals/<skill>/runs.jsonl`, one JSON record per runner invocation. The
+*Run history* table in `evals/<skill>/README.md` is **generated from the
+journal**; it is never edited by hand, so it cannot drift from what was
+run, and every row traces back to the records that produced it.
 
-```text
-| Date | Ref | Model | Runs | Result | Notes |
+A `--cli` run whose path lies under `tools/skill-evals/evals/<skill>/`
+appends its record automatically. Each record holds the skill, the
+commit (`ref`, `branch`, `dirty`), the model, the `--cli` and
+`--grader-cli` strings (with inline `VAR=value` assignments and the values
+of credential and header flags replaced by `<redacted>`, since the journal
+is committed), the path and `--tag` filters, the per-outcome
+counts, the labels of every case that failed or errored, the cost
+(`wall_seconds`, `cli_calls`, `grader_calls`) and a free-text `notes`
+field. The runner prints `Journaled run to …` when it has written one.
+
+```bash
+# A live run; the record lands in evals/<skill>/runs.jsonl.
+uv run --project tools/skill-evals skill-eval --cli "claude -p --model claude-opus-5-5" \
+    --journal-note "re-run after #1677" tools/skill-evals/evals/<skill>/
+
+# Regenerate the README table(s) from the journal(s).
+uv run --project tools/skill-evals skill-eval-journal render tools/skill-evals/evals
+
+# Verify journals parse, tables match, and no committed record was edited or removed.
+uv run --project tools/skill-evals skill-eval-journal check tools/skill-evals/evals --against origin/main
 ```
 
-- Ref is a short SHA on `main`; runs on a branch are not logged.
-- Model is the name the CLI uses, such as `claude-fable-5-1`.
-- One row per batch of identical runs; append, do not replace.
-- Record a failure even if a rerun passed.
+Runner flags: `--journal-note TEXT` fills `notes` (an issue link, the
+reason for the run); `--journal-model NAME` records the model explicitly;
+`--journal FILE` journals to another file; `--no-journal` writes nothing.
 
-Example: [`evals/issue-reassess-stats/README.md`](evals/issue-reassess-stats/README.md#run-history).
+The model is recorded from the best evidence available, and the record's
+`model_source` says which: `--journal-model` first, then a `--model` flag in
+the `--cli` string, then, for a `claude` CLI only, what that CLI uses when no
+flag is given: `ANTHROPIC_MODEL`, then the `model` key of
+`.claude/settings.local.json`, `.claude/settings.json` and
+`~/.claude/settings.json`, in that order. This is how runs through the
+sandboxed wrapper, which takes one argument and passes `claude -p` with no
+flag, still record a model. The settings-derived value is a best-effort
+default: managed settings and an `env.ANTHROPIC_MODEL` inside a settings file
+are not read, so `model_source` says where the value came from. Nothing found
+is recorded as null and the table shows the model as unrecorded next to the
+`--cli` string, so two tools never share a row; the runner never guesses.
+A path outside the repository's own evals tree (a copied suite, a test
+fixture, a suite outside any git checkout) is never journaled unless
+`--journal` says so. The runner can run outside the sandbox, so the write
+is not redirectable: a `runs.jsonl` that is a symlink is refused, and the
+default journal must resolve inside the evals tree.
+
+Rules:
+
+- **Append only.** Never edit or delete a record. Correct a wrong one by
+  appending another and saying so in `notes`. `skill-eval-journal check
+  --against <ref>` fails when a committed journal is not a prefix of the
+  working copy, or when a journal the ref has was deleted, and `render
+  --check` (the `check-eval-run-history` prek hook) fails when a table
+  does not match its journal. `.gitattributes` merges `runs.jsonl` with
+  `merge=union`, so two PRs that each recorded a run do not conflict.
+- **Ref is the commit the run was made at,** read before the first case
+  so a commit made during a long run is not recorded instead. A run on a
+  branch other than `main` is journaled with the branch name and the
+  table shows it as `` `sha` (branch) ``; a dirty tree is recorded as
+  `dirty: true`.
+- **One table row per batch.** Rendering groups records by date, ref,
+  branch and model (the CLI when no model was recorded); *Runs* is the
+  number of records in the batch and *Result* is `pass`, `manual` when no
+  case was graded, or one `` `step/case` failed k of n `` entry per case,
+  newest batch first. *n* counts the runs that graded that case (each
+  record's `graded_cases`), so a one-case rerun does not inflate it.
+- **Record a failure even if a rerun passed.** The rerun is its own
+  record; both stay.
+- **Importing a hand-written table.** `skill-eval-journal import-readme
+  evals/<skill>/` turns an existing table into `legacy: true` records
+  (one per row, Result kept verbatim, no per-run detail) so the history is
+  preserved and the table renders back unchanged. It refuses to run over a
+  journal that already exists.
+
+Example: [`evals/issue-reassess-stats/README.md`](evals/issue-reassess-stats/README.md#run-history)
+and its [`runs.jsonl`](evals/issue-reassess-stats/runs.jsonl).
+
+### Finding flaky cases
+
+```bash
+uv run --project tools/skill-evals skill-eval-journal flaky tools/skill-evals/evals
+```
+
+`flaky` lists every case that failed in some but not all runs of one batch
+(the same date, ref, branch and model), with `failed k of n`, nearest one half
+first. A case that fails every run is a real failure and is not listed, and
+runs on different models or commits are never pooled, since a difference
+there is not flakiness. Legacy rows count through their Result text.
+`--min-runs N` skips smaller batches (default 2); `--json` prints the report
+as data. These are the candidates for the `borderline` tag and retry budget
+described below.
 
 ## CI considerations
 

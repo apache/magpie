@@ -193,11 +193,14 @@ adopter-facing page.
   Each inherits the shared manifest metadata, declares no `skills`, exposes
   its `tools/<name>` through a symlink whose entry point must resolve, and
   declares hook wiring only where it has a hook.
-  `magpie-security-tools` carries the tools the security skills run
-  (tracker field and rollup edits, CVE JSON, the privacy gate, the scan
-  importer), so a marketplace install needs no framework checkout.
+  `magpie-security-tools` carries the framework tools every family's
+  skills run as `<framework>/tools/<tool>` (security tracker edits and CVE
+  JSON, PR and release management, contributor metrics, the privacy gate,
+  setup's permission audit), so a marketplace install needs no framework
+  checkout; the name is historical, and setup's companion rule pairs it
+  with every family that runs one of these tools.
   Its `SessionStart` hook (`tools/security-management/hooks/link-framework-path.sh`)
-  copies the plugin's `tools/` under `~/.cache/apache-magpie/framework/`
+  copies the plugin's `tools/` and `plugins/` under `~/.cache/apache-magpie/framework/`
   once per plugin version and points the `current` symlink at it; that is
   `<framework>` on a marketplace install, writable so `uv run --project`
   works, and the hook only ever replaces a symlink at `current`.

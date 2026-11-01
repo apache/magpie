@@ -56,21 +56,22 @@
     - [Symptom](#symptom-9)
     - [Root cause](#root-cause-9)
     - [Fix](#fix-9)
+    - [Notes](#notes-9)
   - [Git hooks silently skipped for commits made inside the sandbox](#git-hooks-silently-skipped-for-commits-made-inside-the-sandbox)
     - [Symptom](#symptom-10)
     - [Root cause](#root-cause-10)
     - [Fix](#fix-10)
-    - [Notes](#notes-9)
+    - [Notes](#notes-10)
   - [`lefthook install` refuses with "Custom hooks paths are not supported by default"](#lefthook-install-refuses-with-custom-hooks-paths-are-not-supported-by-default)
     - [Symptom](#symptom-11)
     - [Root cause](#root-cause-11)
     - [Fix](#fix-11)
-    - [Notes](#notes-10)
+    - [Notes](#notes-11)
   - [Reads of `~/.claude/magpie` or `/tmp/claude-<uid>` ask for approval every time](#reads-of-claudemagpie-or-tmpclaude-uid-ask-for-approval-every-time)
     - [Symptom](#symptom-12)
     - [Root cause](#root-cause-12)
     - [Fix](#fix-12)
-    - [Notes](#notes-11)
+    - [Notes](#notes-12)
   - [Every Bash call fails with `bwrap: Can't create file … Read-only file system`](#every-bash-call-fails-with-bwrap-cant-create-file--read-only-file-system)
     - [Symptom](#symptom-13)
     - [Root cause](#root-cause-13)
@@ -1170,6 +1171,25 @@ Do not add `~/.local/share/uv` back to `allowWrite`: `sandbox-lint` rejects it.
 The same switch moved sandboxed prek to its own home, `~/.cache/prek-sandbox`
 (`env.PREK_HOME`), so the first sandboxed `prek run` after it rebuilds its hook
 environments once; that is expected, not a failure.
+
+### Notes
+
+- **Path variants.** uv keeps this state under `$XDG_DATA_HOME/uv/` when
+  `XDG_DATA_HOME` is set, and under `UV_PYTHON_INSTALL_DIR` or `UV_TOOL_DIR`
+  when those are; the error then names that directory instead, and the fix is
+  the same. The error text differs by platform only: `Operation not permitted`
+  from Seatbelt on macOS, `Read-only file system` from bubblewrap on Linux.
+- **The interpreter download path.** A sandboxed `uv run` or `prek run` hits
+  this too when the project asks for a Python that is not installed, because
+  uv tries to download one into the same directory. Install that version from
+  a terminal (the one the project's `requires-python` or `.python-version`
+  names) and re-run.
+- **Do not work around it by moving the directory.** Pointing
+  `UV_PYTHON_INSTALL_DIR` or `UV_TOOL_DIR` at a path the sandbox can write
+  recreates the problem the restriction prevents: interpreters and tools that
+  run outside the sandbox would again be writable from inside it.
+- **The hint hook recognises it.** `sandbox-error-hint.sh` matches a write
+  failure under `share/uv/` and points here.
 
 ---
 

@@ -536,18 +536,25 @@ The reference model is four layers, layered:
      TLS, and `tools/github-rollup` / `tools/github-body-field` call `gh`
      from a `uv run` subprocess, so every skill using them failed in the
      sandbox.
-     Excluding this entry point is acceptable where excluding `vetted-op`
-     is not: it refuses every operation except the tracker procedures
+     It refuses every operation except the tracker procedures
      before reading the policy, and their runner refuses any `gh` call
      outside `repos/<tracker>/`.
      It is on `ask` and never `allow`, so each write keeps its
      confirmation.
-     `vetted-op` itself is never excluded, because that would run the
-     whole write catalogue unsandboxed.
-     sandbox-lint's `expected.json` carries both forms in
-     `excludedCommands` and `ask`, and its tests assert the tracker
-     dispatcher is excluded and asked but not allowed, and that
-     `vetted-op` is never excluded.
+   - the vetted-ops write dispatcher `vetted-op`, in both forms (#1952):
+     inside the sandbox it cannot read `~/.claude/magpie/` to start, and
+     its `gh` could not verify TLS.
+     Every operation is a fixed `gh` argv with no shell and bodies read
+     only from the owner-only workspace, so it reaches less than the bare
+     `gh *` exclusion; it too is on `ask` and never `allow`.
+     Both write dispatchers refuse `--config` whenever an operation runs
+     (a dry run, `policy` and `list-ops` keep it) and act only on the
+     discovered, write-denied policy, so an agent-written policy cannot
+     widen the body workspace or re-target the writes.
+     sandbox-lint's `expected.json` carries both write dispatchers in both
+     forms in `excludedCommands` and `ask`; its tests assert each is
+     excluded and asked but not allowed, and its invariants fail an
+     excluded or allowed write dispatcher that no `ask` rule matches.
    - the adversarial-review tool, in its single-line form
      (`uvx --from ~/.claude/magpie/adversarial-review adversarial-review *`),
      because the reviewer CLIs need network and their own credentials
@@ -602,11 +609,13 @@ The reference model is four layers, layered:
    file the dispatcher consults to decide which caller may run which
    operation — on both surfaces it can resolve to: the
    `magpie-vetted-ops` plugin-cache install and the committed
-   `.apache-magpie-overrides/tools/vetted-ops/**` override. An agent
+   `.apache-magpie-overrides/tools/vetted-ops/**` override, plus
+   `//**/.apache-magpie-overrides/tools/vetted-ops/**` because the write
+   dispatchers discover their policy from the directory they run in
+   (a symlink on that path is refused). An agent
    able to rewrite the policy grants itself the whole write catalogue
-   regardless of which dispatcher binary handles the call, so this
-   deny applies even though the write dispatcher (`vetted-op`) is
-   never excluded from the sandbox. The override is the in-repo case
+   regardless of which dispatcher binary handles the call, and both
+   write dispatchers run outside the sandbox. The override is the in-repo case
    described above, `sandbox_write_denied` entry included (#1308,
    #1309). The framework's own dispatcher source at
    `tools/vetted-ops/` is deliberately left un-denied — it is PR-gated

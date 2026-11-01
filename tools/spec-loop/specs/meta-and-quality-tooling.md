@@ -76,11 +76,18 @@ trustworthy as it grows.
   A compatible recommended next action the reference omits is not a
   mismatch, and the grader must make each boolean verdict agree with its
   stated reason before returning (#1751).
-  CI never runs a live model, so live runs are recorded by hand in a
-  *Run history* table (`| Date | Ref | Model | Runs | Result | Notes |`) in
-  `evals/<skill>/README.md`: a `main` SHA as the ref, the model name as the
-  CLI uses it, one appended row per batch of identical runs, and failures
-  recorded even when a rerun passed (#1626).
+  CI never runs a live model, so every live `--cli` run under
+  `evals/<skill>/` appends one record (skill, ref, branch, model, the CLI
+  strings, inputs, per-case outcome, cost, notes) to the append-only journal
+  `evals/<skill>/runs.jsonl`, and the *Run history* table
+  (`| Date | Ref | Model | Runs | Result | Notes |`) in
+  `evals/<skill>/README.md` is generated from it by `skill-eval-journal
+  render`, never edited by hand: one row per date/ref/branch/model batch,
+  failures recorded even when a rerun passed, a branch run shown with its
+  branch name. `skill-eval-journal check` fails on a table that does not
+  match its journal and, with `--against <ref>`, on a committed record that
+  was edited or removed; `import-readme` migrates a pre-journal table into
+  `legacy: true` records (#1626).
   A step with no `user-prompt-template.md` gets a neutral user prompt: the
   case report followed by "Return JSON only."; a step that needs the
   `{corpus}` / `{roster}` / `{report}` framing carries its own template, as
@@ -165,8 +172,11 @@ trustworthy as it grows.
   (`contract:*` / `substrate:*`), the `family:` / `capability:` frontmatter
   of every skill (its directory and its eval suite, found through the
   `skills/` symlink), and the paths of the non-skill families
-  (`family:tools`, `family:ci`, `family:docs`, `family:setup`), emitting only
-  labels `docs/labels-and-capabilities.md` defines (#1527).
+  (`family:tools`, `family:ci`, `family:docs`, `family:setup`, `family:dev`),
+  emitting only labels `docs/labels-and-capabilities.md` defines (#1527).
+  `tools/dev/labeler-cliff.py` replays the same rules on a pull request's
+  changed files and names `family:cross-family` when more new labels match
+  than the limit, which `actions/labeler` answers by applying none.
   The `generate-labeler-config` prek hook keeps it in sync; the
   `check-labeler-coverage` hook (`--check-coverage`) fails when a taxonomy
   label has no rule and is not listed in `UNMAPPED` with a reason, or when a
@@ -298,8 +308,12 @@ trustworthy as it grows.
   label, and `workflow_dispatch` labels one PR or runs that safety net.
   A label a maintainer removes comes back only when the PR is pushed again and
   still matches the rule.
-  The changed-files label limit is 20.
-  Eval fixtures and spec-loop specs do not count as touching their tool.
+  The changed-files label limit is 20; a pull request over it gets
+  `family:cross-family` from a step that checks out the default branch and
+  runs `tools/dev/labeler-cliff.py`, instead of no label at all.
+  Eval fixtures and spec-loop specs do not count as touching their tool; they
+  are `family:dev`, with `.asf.yaml`, the root Node manifests and
+  `.claude/settings.json`.
   The labels are a starting point to correct, not the answer (#1382, #1527).
 - **Labels pass on to linked issues, gated by author trust.** The PR's
   `family:` / `capability:` / `contract:` / `substrate:` labels are added to

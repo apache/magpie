@@ -31,6 +31,7 @@ writes structurally.
   ],
   "ask": [
     "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op *)",
+    "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op *)",
     "Bash(uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *)",
     "Bash(uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *)"
   ],
@@ -46,6 +47,7 @@ writes structurally.
     "Edit(~/.claude/magpie/**)",
     // the policy naming which caller may run which operation
     "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
+    "Edit(//**/.apache-magpie-overrides/tools/vetted-ops/**)",
     "Edit(//**/.git/**/apache-magpie/tools/vetted-ops/**)",
     "Edit(//**/.svn/apache-magpie/tools/vetted-ops/**)",
     "Edit(//**/.apache-magpie-local/tools/vetted-ops/**)"
@@ -60,15 +62,16 @@ gatherer agents use `uvx --from`, because `uv run` in the plugin cache
 needs to write a venv there. A rule for only one form leaves every call
 in the other form prompting.
 
-Add both forms of `vetted-op-tracker` to `sandbox.excludedCommands` too
-(`"uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *"` and
-`"uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *"`): the status-rollup
-and body-field writes need a `gh` that can verify TLS, which a sandboxed one cannot.
-Excluding it is acceptable where excluding `vetted-op` is not, because its catalogue
-is closed to the tracker procedures — every other operation is refused before the
-policy is read — and their runner refuses any `gh` call outside `repos/<tracker>/`.
-It stays in `ask`, never `allow`, so each write keeps its confirmation.
-**Never exclude `vetted-op` itself**: that would run the whole write catalogue unsandboxed.
+Add both forms of `vetted-op-tracker` and of `vetted-op` to `sandbox.excludedCommands` too
+(`"uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *"`, `"uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *"`,
+`"uv run --project ~/.claude/magpie/vetted-ops vetted-op *"` and `"uvx --from ~/.claude/magpie/vetted-ops vetted-op *"`):
+their writes need a `gh` that can verify TLS, which a sandboxed one cannot,
+and a sandboxed `vetted-op` cannot even read `~/.claude/magpie/` to start.
+Excluding them is acceptable because every operation is a fixed `gh` argv with no shell
+and bodies come only from the workspace, so they reach less than the bare `gh *` already excluded;
+`vetted-op-tracker` is further closed to the tracker procedures.
+**Both stay in `ask`, never `allow`**, so each write keeps its confirmation;
+`sandbox-lint` fails an exclusion that has lost its `ask`.
 
 The rules name the fixed path `~/.claude/magpie/vetted-ops`, never the
 versioned plugin-cache directory. The plugin's `SessionStart` hook points
@@ -153,4 +156,4 @@ operator applies it; never write a settings file on your own.
    any other covering entry, naming the file.
 
 This covers the read dispatcher only. `vetted-op-tracker` and `vetted-op`
-stay in `ask`, never in `allow`, and `vetted-op` is never excluded.
+are excluded but stay in `ask`, never in `allow`.

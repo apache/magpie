@@ -10,7 +10,7 @@ Return ONLY valid JSON with this structure:
   "blocks": [
     {
       "location": "body | comment-<N> | attachment-<filename>",
-      "language": "python | java | bash | sql | yaml | other | unknown",
+      "language": "<canonical lower-case language name, e.g. python | javascript | java | bash | sql | yaml> | unknown",
       "line_count": <integer>
     }
   ],

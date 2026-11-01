@@ -75,7 +75,11 @@ repos:
         # generated source in tools/adversarial-review/commands/): frontmatter
         # first, like skills, and the source is pinned byte-for-byte to its
         # generator by a test, which a TOC wrapper would break.
-        exclude: ^(plugins/magpie-[^/]+/commands/.*|tools/adversarial-review/commands/.*|\.claude/skills/.*|\.agents/skills/.*|\.github/skills/.*|skills/.*|plugins/magpie-[^/]+/skills/.*|tools/cve-tool-vulnogram/generate-cve-json/SKILL\.md|tools/skill-evals/.*|tools/spec-loop/.*|\.github/PULL_REQUEST_TEMPLATE\.md|tools/dev/blocks/.*|tools/dev/preflight-block\.md|tools/setup-preflight/src/setup_preflight/sections/.*)$
+        # Skip the framework files check-family-plugins copies into a plugin
+        # (plugins/magpie-security-tools/plugins/...): the copy is regenerated
+        # from its source, which this list already skips, so a TOC added here
+        # is reverted by that hook on the next run.
+        exclude: ^(plugins/magpie-[^/]+/plugins/.*|plugins/magpie-[^/]+/commands/.*|tools/adversarial-review/commands/.*|\.claude/skills/.*|\.agents/skills/.*|\.github/skills/.*|skills/.*|plugins/magpie-[^/]+/skills/.*|tools/cve-tool-vulnogram/generate-cve-json/SKILL\.md|tools/skill-evals/.*|tools/spec-loop/.*|\.github/PULL_REQUEST_TEMPLATE\.md|tools/dev/blocks/.*|tools/dev/preflight-block\.md|tools/setup-preflight/src/setup_preflight/sections/.*)$
         args:
           - "--maxlevel"
           - "3"
@@ -348,7 +352,7 @@ repos:
         name: check-family-plugins (marketplace plugins vs frontmatter)
         language: system
         entry: python3 tools/dev/check-family-plugins.py --fix
-        files: ^(tools/(agent-guard/src/.*|vetted-ops/(src/.*|hooks/.*|pyproject\.toml|README\.md))|tools/(jira|local-tracker|security-management|skill-lock|github-body-field|github-rollup|vcs|cve-tool-vulnogram/(generate-cve-json|oauth-api)|privacy-llm/checker|asf-security-dash|gmail/oauth-draft)/(src/.*|hooks/.*|pyproject\.toml|README\.md)|tools/forwarder-relay/README\.md|tools/gmail/asf-relay\.md|tools/security-tracker-stats-dashboard/[^/]+|tools/security-tracker-stats-dashboard/src/.*|tools/dev/check-family-plugins\.py|\.pre-commit-config\.yaml|skills/.*/SKILL\.md|plugins/.*|\.claude-plugin/(marketplace|plugin)\.json|\.codex-plugin/plugin\.json|\.agents/plugins/marketplace\.json|(plugin|marketplace)\.json|apm\.yml|pyproject\.toml)$
+        files: ^(tools/(agent-guard/src/.*|vetted-ops/(src/.*|hooks/.*|pyproject\.toml|README\.md))|tools/(jira|local-tracker|security-management|skill-lock|pr-management|typed-decision|release-config|release-management|release-verify|reproducible-archive|contributor-metrics|permission-audit|privacy-llm/redactor|github-body-field|github-rollup|vcs|cve-tool-vulnogram/(generate-cve-json|oauth-api)|privacy-llm/checker|asf-security-dash|gmail/oauth-draft)/(src/.*|hooks/.*|pyproject\.toml|README\.md)|tools/forwarder-relay/README\.md|tools/gmail/asf-relay\.md|tools/security-tracker-stats-dashboard/[^/]+|tools/security-tracker-stats-dashboard/src/.*|tools/dev/check-family-plugins\.py|\.pre-commit-config\.yaml|skills/.*/SKILL\.md|plugins/.*|\.claude-plugin/(marketplace|plugin)\.json|\.codex-plugin/plugin\.json|\.agents/plugins/marketplace\.json|(plugin|marketplace)\.json|apm\.yml|pyproject\.toml)$
         pass_filenames: false
   # Claude Code mods — `claude plugin validate --strict` and `claude plugin
   # test` on every plugin whose `hooks/hooks.json` declares `modules`
@@ -498,6 +502,18 @@ repos:
         language: system
         entry: uv run --project tools/skill-evals skill-eval tools/skill-evals/evals --check
         files: (\.md$|^tools/skill-evals/|^\.pre-commit-config\.yaml$)
+        pass_filenames: false
+  # The Run history table in each evals/<skill>/README.md is generated from
+  # that suite's append-only runs.jsonl. A hand edit to the table, or a record
+  # appended without re-rendering, fails here; `skill-eval-journal render
+  # tools/skill-evals/evals` regenerates every table.
+  - repo: local
+    hooks:
+      - id: check-eval-run-history
+        name: check-eval-run-history (README tables match runs.jsonl)
+        language: system
+        entry: uv run --project tools/skill-evals skill-eval-journal render tools/skill-evals/evals --check
+        files: ^tools/skill-evals/(evals/[^/]+/(README\.md|runs\.jsonl)|src/skill_evals/journal\.py)$
         pass_filenames: false
   # Quick-start screenshot set. Three lists have to agree — the harnesses
   # `capture-screenshot.sh` offers, the ecosystem manifests that make a harness
@@ -734,5 +750,7 @@ repos:
         name: spec-validate (spec-loop specs frontmatter + sections)
         language: system
         entry: uv run --project tools/spec-validator spec-validate tools/spec-loop/specs/
-        files: ^(tools/spec-loop/specs/.*\.md|tools/spec-validator/(src|pyproject\.toml))
+        # Known-gap predicates and family counts read SKILL.md frontmatter and
+        # tool code, so a change there can close a gap or break a count claim.
+        files: ^(tools/spec-loop/specs/.*\.md|tools/spec-validator/(src|pyproject\.toml)|(skills|plugins/[^/]+/skills)/.*/SKILL\.md|tools/.*\.py)
         pass_filenames: false

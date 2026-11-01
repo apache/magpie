@@ -9,6 +9,7 @@
   - [URL and project key](#url-and-project-key)
   - [Authentication](#authentication)
   - [Default query templates](#default-query-templates)
+  - [Batch sweeps](#batch-sweeps)
   - [Tracker-specific notes](#tracker-specific-notes)
   - [Cross-references](#cross-references)
 
@@ -96,6 +97,16 @@ is:open is:issue label:"good first issue" repo:<owner>/<repo>
 
 Adopters who use other trackers (Bugzilla, GitLab, custom) substitute
 the appropriate query language.
+
+## Batch sweeps
+
+How many items of one sweep may fail to be read or classified before the
+sweep stops ([batch failure budget](../../../docs/batch-failure-budget.md)).
+A failed post, label or close always stops the run regardless.
+
+| Key | Value |
+|---|---|
+| `item_failure_budget` | `max(3, 10%)` — `<n>`, `<p>%` of the pool, or `max(<n>, <p>%)`. Read by `issue-triage`, `issue-stale-sweep`, `issue-reassess` and `good-first-issue-sweep`. |
 
 ## Tracker-specific notes
 

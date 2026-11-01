@@ -410,3 +410,138 @@ def test_outdated_thread_longer_than_the_read_stays_a_gate(
     with pytest.raises(SystemExit, match="'T1' is not an unresolved outdated thread"):
         _disposition(capsys, project, saved, "--addressed-thread", "T1")
     assert _disposition(capsys, project, saved)["approval_gates"] == ["1 unresolved review thread(s)"]
+
+
+HEAD = "0123456789abcdef0123456789abcdef01234567"
+
+
+def _with_auto_merge(saved: Path, *, author: str = "nina", method: str = "SQUASH", **node_kw: Any) -> None:
+    full = node(7, author=author, files=["scheduler/job.py"], head=HEAD, **node_kw)
+    full |= {"viewerCanEnableAutoMerge": True, "viewerDefaultMergeMethod": method, "autoMergeRequest": None}
+    repository = {"viewerPermission": "WRITE", "autoMergeAllowed": True, "pullRequest": full}
+    (saved / "cr-pr-7.json").write_text(
+        json.dumps({"data": {"viewer": {"login": "alice"}, "repository": repository}})
+    )
+
+
+def _render_approve(
+    capsys: pytest.CaptureFixture[str], project: Path, saved: Path, tmp_path: Path, *extra: str
+) -> dict[str, Any]:
+    findings = tmp_path / "findings.json"
+    findings.write_text("[]")
+    summary = tmp_path / "summary.txt"
+    summary.write_text("Looks good.")
+    return _run(
+        capsys,
+        "--config-dir",
+        str(project),
+        "code-review",
+        "render",
+        "--saved-dir",
+        str(saved),
+        "--pr",
+        "7",
+        "--findings",
+        str(findings),
+        "--summary",
+        str(summary),
+        "--disposition",
+        "APPROVE",
+        "--out-dir",
+        str(tmp_path / "out"),
+        *extra,
+    )
+
+
+def test_auto_merge_becomes_the_default_and_render_emits_its_command(
+    capsys: pytest.CaptureFixture[str], project: Path, saved: Path, tmp_path: Path
+) -> None:
+    _with_auto_merge(saved, method="REBASE")
+    dis = _disposition(capsys, project, saved)
+    assert dis["default"] == "APPROVE+AUTO-MERGE"
+    assert "classifications/disposition-auto-merge.md" in dis["docs"]
+    out = _render_approve(capsys, project, saved, tmp_path, "--auto-merge", "--viewer", "alice")
+    assert shlex.split(out["auto_merge_command"]) == [
+        "gh",
+        "pr",
+        "merge",
+        "7",
+        "--repo",
+        "acme/product",
+        "--auto",
+        "--rebase",
+        "--match-head-commit",
+        HEAD,
+    ]
+    assert _render_approve(capsys, project, saved, tmp_path)["auto_merge_command"] is None
+
+
+@pytest.mark.parametrize(
+    ("setup", "flags", "message"),
+    [
+        pytest.param({"author": "alice"}, ["--viewer", "alice"], "self-authored", id="self-authored"),
+        pytest.param(
+            {"rollup": "FAILURE"}, ["--viewer", "alice"], "only follows an APPROVE", id="failing-ci"
+        ),
+        pytest.param({"unresolved": 1}, ["--viewer", "alice"], "only follows an APPROVE", id="open-thread"),
+        pytest.param(
+            {"reviews": [review("rex", "CHANGES_REQUESTED")]},
+            ["--viewer", "alice"],
+            "only follows an APPROVE",
+            id="standing-changes-requested",
+        ),
+        pytest.param(
+            {}, ["--viewer", "alice", "--unanswered-question"], "only follows an APPROVE", id="question"
+        ),
+        pytest.param({}, [], "needs --viewer", id="unknown-viewer"),
+        pytest.param({}, ["--viewer", "mallory"], "not the saved read's viewer", id="viewer-mismatch"),
+    ],
+)
+def test_render_re_checks_every_disposition_gate_before_auto_merge(
+    capsys: pytest.CaptureFixture[str],
+    project: Path,
+    saved: Path,
+    tmp_path: Path,
+    setup: dict[str, Any],
+    flags: list[str],
+    message: str,
+) -> None:
+    _with_auto_merge(saved, **setup)
+    with pytest.raises(SystemExit, match=message):
+        _render_approve(capsys, project, saved, tmp_path, "--auto-merge", *flags)
+
+
+def test_render_refuses_auto_merge_where_the_repo_does_not_allow_it(
+    capsys: pytest.CaptureFixture[str], project: Path, saved: Path, tmp_path: Path
+) -> None:
+    with pytest.raises(SystemExit, match="does not allow auto-merge"):
+        _render_approve(capsys, project, saved, tmp_path, "--auto-merge", "--viewer", "alice")
+
+
+def test_a_running_check_that_is_not_required_keeps_the_ci_gate(
+    capsys: pytest.CaptureFixture[str], project: Path, saved: Path
+) -> None:
+    pending = [
+        {
+            "__typename": "CheckRun",
+            "name": "Tests",
+            "status": "IN_PROGRESS",
+            "conclusion": None,
+            "isRequired": True,
+        },
+        {
+            "__typename": "CheckRun",
+            "name": "Lint",
+            "status": "IN_PROGRESS",
+            "conclusion": None,
+            "isRequired": False,
+        },
+    ]
+    _with_auto_merge(saved, rollup="PENDING", checks=pending)
+    dis = _disposition(capsys, project, saved)
+    assert dis["disposition"] == "COMMENT" and not dis["ci_pending_held_by_auto_merge"]
+    assert any("`Lint`" in g for g in dis["approval_gates"])
+    pending[1]["isRequired"] = True
+    _with_auto_merge(saved, rollup="PENDING", checks=pending)
+    dis = _disposition(capsys, project, saved)
+    assert dis["default"] == "APPROVE+AUTO-MERGE" and dis["ci_pending_held_by_auto_merge"]

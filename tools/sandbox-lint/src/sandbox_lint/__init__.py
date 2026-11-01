@@ -150,6 +150,14 @@ VETTED_OP_READ_SAMPLE_COMMANDS = tuple(
     for launcher in VETTED_OP_READ_LAUNCHERS
     for base in (VETTED_OPS_BASE, "/home/sandbox-lint/.claude/magpie/vetted-ops")
 )
+# Sample write commands, one per write dispatcher and launcher. Both run outside
+# the sandbox once excluded, so each must still match an `ask` rule: ask beats
+# allow, and the prompt is then the gate on every remote mutation.
+VETTED_OP_WRITE_SAMPLE_COMMANDS = tuple(
+    f"{launcher} {VETTED_OPS_BASE} {name} --caller sandbox-lint pr-add-label 1 sandbox-lint"
+    for name in ("vetted-op-tracker", "vetted-op")
+    for launcher in VETTED_OP_READ_LAUNCHERS
+)
 # Spellings that name a dispatcher: `vetted-op ` carries its trailing space so
 # the `vetted-ops` path segment alone does not count.
 VETTED_OP_DISPATCHER_NAMES = ("vetted-op-read", "vetted-op-tracker", "vetted-op ")
@@ -158,6 +166,7 @@ REQUIRED_VETTED_OPS_DENY = (
     "Edit(~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**)",
     "Edit(~/.claude/magpie/**)",
     "Edit(.apache-magpie-overrides/tools/vetted-ops/**)",
+    "Edit(//**/.apache-magpie-overrides/tools/vetted-ops/**)",
     # The same policy in a maintainer's personal layer (a project that has not
     # adopted Magpie): inside the git directory (`.git/**` also covers a
     # submodule's `.git/modules/<name>/`) or the Subversion one, or the legacy
@@ -277,6 +286,8 @@ EXCLUDED_COMMAND_ALLOWLIST = frozenset(
         "uv run --project ~/.claude/magpie/vetted-ops vetted-op-tracker *",
         "uvx --from ~/.claude/magpie/vetted-ops vetted-op-read *",
         "uvx --from ~/.claude/magpie/vetted-ops vetted-op-tracker *",
+        "uv run --project ~/.claude/magpie/vetted-ops vetted-op *",
+        "uvx --from ~/.claude/magpie/vetted-ops vetted-op *",
         "uvx --from ~/.claude/magpie/adversarial-review adversarial-review *",
         "~/.claude/scripts/magpie-run-evals.sh *",
     }
@@ -868,6 +879,7 @@ def check_invariants(settings: dict[str, Any], project_root: Path | None = None)
         ask = set(perms.get("ask", []) or [])
         excluded = [e for e in sandbox.get("excludedCommands", []) or [] if isinstance(e, str)]
         errors.extend(_vetted_op_read_never_prompts(perms, ask, deny, excluded))
+        errors.extend(_vetted_op_writes_prompt(perms, ask, excluded))
         if "Bash(gh *)" in ask:
             errors.append(
                 "permissions.ask: must not contain 'Bash(gh *)' (ask beats allow "
@@ -989,6 +1001,35 @@ def _vetted_op_read_never_prompts(
             errors.append(
                 f"permissions.deny: must contain {required!r} "
                 "(tamper protection for the vetted-ops catalogue, fixed path and policy)"
+            )
+    return errors
+
+
+def _vetted_op_writes_prompt(perms: dict[str, Any], ask: set[str], excluded: list[str]) -> list[str]:
+    """Violations of the always-prompt shape for the vetted-ops write dispatchers.
+
+    `vetted-op` and `vetted-op-tracker` run outside the sandbox (a sandboxed
+    `gh` cannot verify TLS), which is safe only while every call still asks.
+    A write command that is excluded or allowed must therefore match an `ask` rule.
+    """
+    allow = [r for r in perms.get("allow", []) or [] if isinstance(r, str)]
+    errors: list[str] = []
+    for command in VETTED_OP_WRITE_SAMPLE_COMMANDS:
+        if any(_bash_rule_matches(rule, command) for rule in ask):
+            continue
+        dispatcher = command.split(" --caller")[0]
+        allowed_by = [rule for rule in allow if _bash_rule_matches(rule, command)]
+        excluded_by = [entry for entry in excluded if fnmatch.fnmatchcase(command, entry)]
+        if allowed_by:
+            errors.append(
+                f"permissions.allow: {allowed_by[0]!r} approves {dispatcher!r} without a prompt; "
+                "the write dispatchers belong in permissions.ask, never allow"
+            )
+        elif excluded_by:
+            errors.append(
+                f"permissions.ask: must contain a rule matching {dispatcher!r} "
+                f"(sandbox.excludedCommands {excluded_by[0]!r} runs it outside the sandbox, "
+                "so its prompt is the only gate on the write)"
             )
     return errors
 

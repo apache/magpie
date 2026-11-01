@@ -5,7 +5,7 @@
 
 Behavioral evals for the `issue-stale-sweep` skill.
 
-## Suites (19 cases total)
+## Suites (23 cases total)
 
 | Suite | Step | Cases | What it covers |
 |---|---|---|---|
@@ -14,6 +14,7 @@ Behavioral evals for the `issue-stale-sweep` skill.
 | step-4-compose-comment | Step 4 (compose proposal comment) | 3 | clean REQUEST-UPDATE draft, clean CLOSE-STALE draft, bare issue reference caught |
 | step-5-confirm | Step 5 (confirm with user) | 3 | post-all, skip-one, cancel |
 | step-7-recap | Step 7 (recap) | 3 | mixed results, all REQUEST-UPDATE, security-flagged issues in recap |
+| item-failure-budget | Item failure budget | 4 | one unreadable item (recorded, sweep continues); budget exhausted (stop, unfinished listed, exact rerun selector); a write failing mid-loop (stop, never retried); a malformed budget value (stops before the sweep, no fallback) |
 
 ## Run
 
@@ -34,6 +35,8 @@ uv run --project tools/skill-evals skill-eval \
 ## Run history
 
 Live model runs over this whole eval directory, newest first.
+Generated from [`runs.jsonl`](runs.jsonl) by `skill-eval-journal render`;
+do not edit the table by hand.
 Columns and rules: [Recording runs](../../README.md#recording-runs).
 
 | Date | Ref | Model | Runs | Result | Notes |

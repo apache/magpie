@@ -65,7 +65,8 @@ Live probe: read .git/HEAD OK; write .magpie-verify-probe.tmp OK (removed).
 
 ## Check 9 — vetted-ops split and exclusion
 
-permissions.allow contains vetted-op-read only; vetted-op is in ask.
+permissions.allow contains vetted-op-read only; vetted-op and vetted-op-tracker are in ask (both launcher forms).
+sandbox.excludedCommands has vetted-op-read, vetted-op-tracker and vetted-op, each in both launcher forms.
 permissions.deny has Edit on ~/.claude/plugins/cache/apache-magpie/magpie-vetted-ops/**, ~/.claude/magpie/**, .apache-magpie-overrides/tools/vetted-ops/**,
 //**/.git/**/apache-magpie/tools/vetted-ops/**, //**/.svn/apache-magpie/tools/vetted-ops/** and //**/.apache-magpie-local/tools/vetted-ops/**.
 

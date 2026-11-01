@@ -277,6 +277,16 @@ family:contributor-growth:
           - 'tools/skill-evals/evals/contributor-to-committer/**'
           - 'tools/skill-evals/evals/onboarding-concierge/**'
 
+family:dev:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.asf.yaml'
+          - '.claude/settings.json'
+          - 'package-lock.json'
+          - 'package.json'
+          - 'tools/spec-loop/.last-sync'
+          - 'tools/spec-loop/specs/**'
+
 family:docs:
   - changed-files:
       - any-glob-to-any-file:

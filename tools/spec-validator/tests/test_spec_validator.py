@@ -30,15 +30,21 @@ from spec_validator import (
     ALLOWED_STATUS,
     REQUIRED_SECTIONS,
     SPDX_MARKER,
+    Violation,
+    evaluate_gap_predicate,
     extract_section_headings,
+    family_count_claims,
     find_repo_root,
     get_section_body,
     has_acceptance_items,
+    known_gap_bullets,
     main,
     parse_frontmatter,
     run_validation,
     validate_body,
+    validate_cross_spec_counts,
     validate_frontmatter,
+    validate_gap_predicates,
     validate_spdx_header,
     validate_spec_loop_runner_fixtures,
     validate_validation_paths,
@@ -430,7 +436,11 @@ class TestRunValidation:
     def test_valid_directory_no_violations(self, tmp_path: Path) -> None:
         (tmp_path / "spec_a.md").write_text(_VALID_SPEC)
         (tmp_path / "spec_b.md").write_text(_make_spec(status="experimental"))
-        assert run_validation(tmp_path) == []
+        # Valid specs produce no HARD violation; their unannotated Known-gap
+        # bullets are SOFT advisories, which never fail the run.
+        violations = run_validation(tmp_path)
+        assert [v for v in violations if v.hard] == []
+        assert violations and all(v.severity == "SOFT" for v in violations)
 
     def test_readme_skipped(self, tmp_path: Path) -> None:
         (tmp_path / "README.md").write_text("# README\n\nNo frontmatter.\n")
@@ -445,7 +455,7 @@ class TestRunValidation:
     def test_single_file_target(self, tmp_path: Path) -> None:
         p = tmp_path / "spec.md"
         p.write_text(_VALID_SPEC)
-        assert run_validation(p) == []
+        assert [v for v in run_validation(p) if v.hard] == []
 
     def test_nonexistent_path_via_main(self, capsys: pytest.CaptureFixture[str]) -> None:
         rc = main(["/nonexistent/path"])
@@ -648,7 +658,201 @@ class TestLiveSpecs:
     def test_live_specs_pass(self, specs_dir: Path | None) -> None:
         if specs_dir is None:
             pytest.skip("tools/spec-loop/specs/ not found — skipping live test")
-        violations = run_validation(specs_dir)
+        violations = [v for v in run_validation(specs_dir) if v.hard]
         if violations:
             messages = "\n".join(str(v) for v in violations)
             pytest.fail(f"Live spec violations found:\n{messages}")
+
+
+# ---------------------------------------------------------------------------
+# Known-gap close conditions and cross-spec family counts
+# ---------------------------------------------------------------------------
+
+
+def _repo(tmp_path: Path, families: dict[str, list[str]]) -> Path:
+    """A tree with skills/<name>/SKILL.md carrying the given families."""
+    root = tmp_path / "repo"
+    for family, names in families.items():
+        for name in names:
+            d = root / "skills" / name
+            d.mkdir(parents=True)
+            (d / "SKILL.md").write_text(f"---\nname: {name}\nfamily: {family}\n---\n# {name}\n")
+    (root / "tools" / "lib").mkdir(parents=True)
+    (root / "tools" / "lib" / "mod.py").write_text(
+        "def wired():\n    return 1\n\n\ndef unwired():\n    return 2\n\n\nwired()\n"
+    )
+    return root
+
+
+def _spec_with_gaps(gaps: str, body_extra: str = "") -> str:
+    base = _make_spec()
+    head, _sep, _tail = base.partition("## Known gaps")
+    return head.replace("## Behaviour & contract\n", "## Behaviour & contract\n\n" + body_extra + "\n") + (
+        "## Known gaps\n\n" + textwrap.dedent(gaps)
+    )
+
+
+class TestGapPredicates:
+    def test_bullets_are_split_and_fenced_examples_skipped(self) -> None:
+        text = _spec_with_gaps(
+            """\
+            - **First.** Line one
+              continues here.
+              <!-- gap-closes-when: path-exists:a -->
+
+            ```markdown
+            - **Example in a fence.** <!-- gap-closes-when: path-exists:b -->
+            ```
+
+            - **Second.**
+            """
+        )
+        bullets = known_gap_bullets(text)
+        assert [b.splitlines()[0] for _line, b in bullets] == ["- **First.** Line one", "- **Second.**"]
+        assert "path-exists:a" in bullets[0][1]
+
+    @pytest.mark.parametrize(
+        ("predicate", "state"),
+        [
+            ("path-exists:skills/one", "closed"),
+            ("path-exists:skills/missing", "open"),
+            ("path-exists:../etc", "invalid"),
+            ("symbol-called:tools/lib::wired", "closed"),
+            ("symbol-called:tools/lib::unwired", "open"),  # defined, never called: the point of the predicate
+            ("symbol-called:tools/lib::absent", "open"),
+            ("symbol-called:tools/nowhere::wired", "invalid"),
+            ("symbol-called:tools/lib", "invalid"),
+            ("skill-count:repo-health=2", "closed"),
+            ("skill-count:repo-health=3", "open"),
+            ("skill-count:repo-health=many", "invalid"),
+            ("none (narrative)", "open"),
+            ("file-says:anything", "invalid"),
+            ("nonsense", "invalid"),
+        ],
+    )
+    def test_predicates(self, tmp_path: Path, predicate: str, state: str) -> None:
+        root = _repo(tmp_path, {"repo-health": ["one", "two"]})
+        assert evaluate_gap_predicate(predicate, root)[0] == state
+
+    def test_closed_and_malformed_are_hard_unannotated_is_soft_narrative_is_silent(
+        self, tmp_path: Path
+    ) -> None:
+        root = _repo(tmp_path, {"repo-health": ["one", "two"]})
+        text = _spec_with_gaps(
+            """\
+            - **Shipped.** <!-- gap-closes-when: path-exists:skills/one -->
+            - **Broken.** <!-- gap-closes-when: symbol-called:nope -->
+            - **Still open.** <!-- gap-closes-when: path-exists:skills/later -->
+            - **Status note.** <!-- gap-closes-when: none (narrative) -->
+            - **Unannotated.**
+            """
+        )
+        found = validate_gap_predicates(Path("s.md"), text, root)
+        hard = sorted(v.message.split("'")[1] for v in found if v.hard)
+        soft = [v.message.split("'")[1] for v in found if not v.hard]
+        assert hard == ["Broken.", "Shipped."]
+        assert soft == ["Unannotated."]
+
+    def test_soft_never_fails_main(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+        (tmp_path / "spec.md").write_text(_spec_with_gaps("- **Unannotated.**\n"))
+        assert main([str(tmp_path)]) == 0
+        out = capsys.readouterr().out
+        assert "SOFT:" in out and "OK (no HARD violations)" in out
+
+    def test_a_call_from_a_test_file_or_from_itself_does_not_close(self, tmp_path: Path) -> None:
+        root = _repo(tmp_path, {"repo-health": ["one", "two"]})
+        lib = root / "tools" / "lib"
+        (lib / "pending.py").write_text("def pending(n):\n    return pending(n - 1) if n else 0\n")
+        (lib / "tests").mkdir()
+        (lib / "tests" / "test_pending.py").write_text("from lib.pending import pending\n\npending(3)\n")
+        (lib / "test_more.py").write_text("pending(1)\n")
+        assert evaluate_gap_predicate("symbol-called:tools/lib::pending", root)[0] == "open"
+        (lib / "orchestrator.py").write_text("from lib.pending import pending\n\npending(2)\n")
+        assert evaluate_gap_predicate("symbol-called:tools/lib::pending", root)[0] == "closed"
+
+    @pytest.mark.parametrize(
+        ("predicate", "state"),
+        [
+            ("skill-count:typo=0", "invalid"),  # an unknown family is unresolvable, not "0 skills"
+            ("skill-count:typo=2", "invalid"),
+            ("skill-count:repo-health = 2", "closed"),  # whitespace around = is parsed as written
+        ],
+    )
+    def test_skill_count_family_must_exist(self, tmp_path: Path, predicate: str, state: str) -> None:
+        root = _repo(tmp_path, {"repo-health": ["one", "two"]})
+        assert evaluate_gap_predicate(predicate, root)[0] == state
+
+    def test_a_predicate_at_column_zero_under_the_bullet_is_read(self, tmp_path: Path) -> None:
+        root = _repo(tmp_path, {"repo-health": ["one", "two"]})
+        text = _spec_with_gaps(
+            """\
+            - **Shipped.** Its tool exists now.
+            <!-- gap-closes-when: path-exists:skills/one -->
+            """
+        )
+        found = validate_gap_predicates(Path("s.md"), text, root)
+        assert [v.hard for v in found] == [True]
+
+
+_FAMILIES = {"repo-health": ["ci-audit", "dep-audit", "fixer"], "issue": ["triage"]}
+
+
+class TestCrossSpecCounts:
+    def _write(self, tmp_path: Path, **specs: str) -> list[Path]:
+        paths = []
+        for name, body in specs.items():
+            p = tmp_path / f"{name}.md"
+            p.write_text(_spec_with_gaps("- **x.** <!-- gap-closes-when: none (narrative) -->\n", body))
+            paths.append(p)
+        return paths
+
+    def test_claim_extraction_is_narrow(self) -> None:
+        families = ["repo-health", "issue", "pr-management"]
+        text = _spec_with_gaps(
+            "- **ok**\n",
+            "Repo-health audits are now a six-skill family. "
+            "The issue family has 3 skills. "
+            "See [repo-health-family.md](repo-health-family.md) for all 9 skills. "
+            "`magpie-repo-health` ships 4 skills. "
+            "A run over repo-health found many things across a long sentence, in 7 skills.",
+        )
+        claims = family_count_claims(text, families)
+        assert [(f, n) for f, n, _s in claims] == [("repo-health", 6)]
+        assert [n for _f, n, _s in family_count_claims("All 4 repo-health skills ship.", families)] == [4]
+        assert family_count_claims("Repo-health ships one skill per audit rule family.", families) == []
+
+    def test_matching_live_count_is_clean(self, tmp_path: Path) -> None:
+        root = _repo(tmp_path, _FAMILIES)
+        paths = self._write(
+            tmp_path, a="Repo-health is a three-skill family.", b="All 3 repo-health skills ship."
+        )
+        assert validate_cross_spec_counts(paths, root) == []
+
+    def test_disagreeing_specs_both_fire_and_name_the_disputed_skill(self, tmp_path: Path) -> None:
+        root = _repo(tmp_path, _FAMILIES)
+        paths = self._write(
+            tmp_path,
+            a="Repo-health is a two-skill family: `ci-audit` and `dep-audit`.",
+            b="Repo-health is a three-skill family: `ci-audit`, `dep-audit`, `fixer`.",
+        )
+        found = {v.path.name: v for v in validate_cross_spec_counts(paths, root)}
+        # Two specs disagreeing is a violation regardless of which is right.
+        assert sorted(found) == ["a.md", "b.md"]
+        assert all(isinstance(v, Violation) and v.hard for v in found.values())
+        assert "claims 2 repo-health skills, but 3" in found["a.md"].message
+        assert "other specs claim 3" in found["a.md"].message
+        assert "not named in this spec: fixer" in found["a.md"].message
+        assert "matching the 3 SKILL.md files" in found["b.md"].message
+        assert "other specs claim 2" in found["b.md"].message
+
+    def test_agreeing_but_stale_specs_still_fire(self, tmp_path: Path) -> None:
+        # Every spec agreeing reads as confirmation; the live count still decides.
+        root = _repo(tmp_path, _FAMILIES)
+        paths = self._write(
+            tmp_path, a="Repo-health is a two-skill family.", b="All 2 repo-health skills ship."
+        )
+        assert sorted(v.path.name for v in validate_cross_spec_counts(paths, root)) == ["a.md", "b.md"]
+
+    def test_no_skills_tree_is_skipped(self, tmp_path: Path) -> None:
+        paths = self._write(tmp_path, a="Repo-health is a two-skill family.")
+        assert validate_cross_spec_counts(paths, tmp_path / "empty") == []
