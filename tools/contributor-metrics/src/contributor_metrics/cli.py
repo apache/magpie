@@ -177,6 +177,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     s.add_argument("--classes")
     s.add_argument("--weights")
     s.add_argument("--area-prefix", default="area:")
+    s.add_argument(
+        "--repo-area",
+        action="append",
+        default=[],
+        metavar="GLOB=AREA",
+        help="count items from repositories whose name matches GLOB under AREA too "
+        "(repeatable; e.g. '*-site=website')",
+    )
     s.add_argument("--since", help="score only items on or after this date (a sub-window of the fetched one)")
     s.add_argument(
         "--timeline-kinds",
@@ -358,6 +366,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("weights file must hold a JSON object of setting names to numbers", file=sys.stderr)
         return 2
     weights, notes = Weights.from_mapping(raw_weights)
+    repo_areas: list[tuple[str, str]] = []
+    for spec in args.repo_area:
+        pattern, sep, area = spec.partition("=")
+        if not sep or not pattern.strip() or not area.strip():
+            print(f"--repo-area must be GLOB=AREA, got {spec!r}", file=sys.stderr)
+            return 2
+        repo_areas.append((pattern.strip(), area.strip()))
     result = score(
         [Item.from_json(d) for d in data["items"]],
         _read(args.classes),
@@ -365,6 +380,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         since=args.since or data["since"],
         end=data["end"],
         area_prefix=args.area_prefix,
+        repo_areas=repo_areas,
         caps_hit=data.get("caps_hit", []),
         timeline_kinds=tuple(k.strip() for k in args.timeline_kinds.split(",") if k.strip())
         if args.timeline_kinds

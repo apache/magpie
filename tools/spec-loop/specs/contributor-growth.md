@@ -211,6 +211,10 @@ Adopter config scaffolds live in `plugins/magpie-setup/templates/`
   (with an `(unlabelled)` row), merge rate, a monthly timeline, and
   which streams hit their search cap; `--since` scores a sub-window
   and `--timeline-kinds` limits the timeline to some item kinds.
+  `--repo-area GLOB=AREA` (repeatable) counts work from repositories
+  whose name matches under that area too; the skills pass
+  `contributor_activity.repository_areas` from the project or its
+  organization, and the ASF organization maps `*-site` to `website`.
   `floors` computes recency-weighted nearest-rank percentiles for
   calibration.
   Unit tests under `tools/contributor-metrics/tests/`.

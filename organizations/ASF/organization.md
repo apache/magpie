@@ -19,6 +19,7 @@
   - [Release process](#release-process)
   - [Roster](#roster)
   - [Tracker conventions](#tracker-conventions)
+  - [Contributor activity](#contributor-activity)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -285,4 +286,12 @@ roster:
 tracker:
   visibility: private                  # ASF security tracker existence is itself confidential
   board: github-projects-v2
+```
+
+## Contributor activity
+
+```yaml
+contributor_activity:
+  repository_areas:                    # contributor-metrics score --repo-area GLOB=AREA
+    "*-site": website                  # an ASF project's <project>-site repository is its website
 ```

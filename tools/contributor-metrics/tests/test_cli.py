@@ -186,6 +186,27 @@ def test_score_rejects_weights_that_are_not_an_object(tmp_path):
     assert rc == 2
 
 
+def _site_items(tmp_path):
+    url = "https://github.com/o/r-site/pull/1"
+    item = {"id": "pr-1", "kind": "pr", "url": url, "thread": url, "created_at": "2026-05-01", "merged": True}
+    (tmp_path / "items.json").write_text(
+        json.dumps({"since": "2026-03-01", "end": "2026-08-31", "items": [item]})
+    )
+
+
+def test_score_repo_area_flag(tmp_path):
+    _site_items(tmp_path)
+    args = ["score", "--items", str(tmp_path / "items.json"), "--out", str(tmp_path / "m.json")]
+    assert main([*args, "--repo-area", "*-site=website"]) == 0
+    assert [a["area"] for a in json.loads((tmp_path / "m.json").read_text())["areas"]] == ["website"]
+
+
+def test_score_rejects_a_malformed_repo_area(tmp_path):
+    _site_items(tmp_path)
+    args = ["score", "--items", str(tmp_path / "items.json"), "--out", str(tmp_path / "m.json")]
+    assert main([*args, "--repo-area", "*-site"]) == 2
+
+
 def test_fetch_refresh_ignores_the_cache(tmp_path, monkeypatch):
     calls = []
 

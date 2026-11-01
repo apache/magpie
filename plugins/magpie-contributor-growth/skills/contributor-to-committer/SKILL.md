@@ -24,7 +24,7 @@ argument-hint: "<github-handle> [target:committer|pmc] [window:Nm]"
 capability: capability:stats
 surface_hash: sha256:bdf92c88a304ddea
 license: Apache-2.0
-measured_tokens: 5441
+measured_tokens: 5507
 ---
 
 <!-- SPDX-License-Identifier: Apache-2.0
@@ -295,8 +295,10 @@ Apply [`automated-contributions.md`](../nomination/automated-contributions.md) t
    uv run --directory <framework>/tools/contributor-metrics contributor-metrics score \
      --items <scratch>/items.json --classes <scratch>/classes.json \
      --weights <scratch>/weights.json --area-prefix <area_label_prefix> \
-     --out <scratch>/metrics.json
+     [--repo-area '<glob>=<area>' ...] --out <scratch>/metrics.json
    ```
+
+   Pass one `--repo-area` per entry of `contributor_activity.repository_areas` (`project.md`, else the organization), so work in a repository the project keeps for one purpose counts under that area — for an ASF project, `'*-site=website'`.
 
    `metrics.json` holds raw, discounted, penalty and adjusted values per count, per-area shares, area breadth, merge rate and the monthly timeline, computed by the aggregation rules in that file.
    Any `notes` in it (an unknown item id, an out-of-range setting) go into the brief.
