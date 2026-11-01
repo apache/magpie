@@ -1,0 +1,12 @@
+{
+  "thread_count": 1,
+  "detail_level": "names",
+  "candidate_order": ["echo-dev", "foxtrot9"],
+  "personal_note_prompts": 2,
+  "separator_lines": 3,
+  "links_included": false,
+  "note_written_by_agent": false,
+  "readiness_verdict_present": false,
+  "email_sent": false,
+  "mail_draft_backend": "oauth_curl"
+}

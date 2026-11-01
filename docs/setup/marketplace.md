@@ -181,7 +181,7 @@ can say so, because it is the floor everything else is managed from.
 | `magpie-issue` | 8 | ~0.7k |
 | `magpie-repo-health` | 8 | ~0.7k |
 | `magpie-utilities` | 5 | ~0.4k |
-| `magpie-contributor-growth` | 9 | ~0.6k |
+| `magpie-contributor-growth` | 9 | ~0.7k |
 | `magpie-mentoring` | 4 | ~0.4k |
 | `magpie-pairing` | 2 | ~0.2k |
 
